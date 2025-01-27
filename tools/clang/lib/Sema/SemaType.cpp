@@ -5836,7 +5836,7 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
     return true;
   }
 
-  if (pGLC && Kind == AttributeList::AT_HLSLGloballyCoherent) {
+  if (pGLC && (Kind == AttributeList::AT_HLSLGloballyCoherent)) {
     AttributedType::Kind CurAttrKind = pGLC->getAttrKind();
     if (Kind == getAttrListKind(CurAttrKind)) {
       S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)

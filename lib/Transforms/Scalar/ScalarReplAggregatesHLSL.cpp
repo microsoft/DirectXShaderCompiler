@@ -1537,8 +1537,16 @@ void isSafeForScalarRepl(Instruction *I, uint64_t Offset, AllocaInfo &Info) {
         // TODO: should we check HL parameter type for UDT overload instead of
         // basing on IOP?
         IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(CI));
+        // Always flatten RayQuery to i32
+        const bool IsRayQueryParam = dxilutil::IsHLSLRayQueryType(Info.AI->getAllocatedType());
+        if (IsRayQueryParam)
+          return;
         if (IntrinsicOp::IOP_TraceRay == opcode ||
             IntrinsicOp::IOP_ReportHit == opcode ||
+            IntrinsicOp::MOP_HitObject_TraceRay == opcode ||
+            IntrinsicOp::MOP_HitObject_FromRayQuery == opcode ||
+            IntrinsicOp::MOP_HitObject_Invoke == opcode ||
+            IntrinsicOp::MOP_HitObject_GetAttributes == opcode ||
             IntrinsicOp::IOP_CallShader == opcode) {
           return MarkUnsafe(Info, User);
         }
@@ -1712,6 +1720,21 @@ bool isGroupShareOrConstStaticArray(GlobalVariable *GV) {
   return Ty->isArrayTy();
 }
 
+static bool containsHitObject(Type *Ty) {
+  if (dxilutil::IsHLSLHitObjectType(Ty))
+    return true;
+
+  if (ArrayType *AT = dyn_cast<ArrayType>(Ty))
+    return containsHitObject(AT);
+
+  if (StructType *ST = dyn_cast<StructType>(Ty))
+    for (unsigned ElemIdx = 0; ElemIdx < ST->getNumElements(); ++ElemIdx)
+      if (containsHitObject(ST->getElementType(ElemIdx)))
+        return true;
+
+  return false;
+}
+
 bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
   Module &M = *HLM.GetModule();
   DxilTypeSystem &typeSys = HLM.GetTypeSystem();
@@ -1841,7 +1864,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
 
       Type *Ty = AI->getAllocatedType();
       // Skip empty struct type.
-      if (SROA_Helper::IsEmptyStructType(Ty, typeSys)) {
+      if (SROA_Helper::IsEmptyStructType(Ty, typeSys) &&
+          !containsHitObject(Ty)) {
         SROA_Helper::MarkEmptyStructUsers(AI, DeadInsts);
         DeleteDeadInstructions(DeadInsts);
         continue;
@@ -2771,6 +2795,18 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         RewriteCallArg(CI, HLOperandIndex::kCallShaderPayloadOpIdx,
                        /*bIn*/ true, /*bOut*/ true);
       } break;
+      case IntrinsicOp::MOP_HitObject_FromRayQuery: {
+        RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                            /*loadElts*/ true);
+        DeadInsts.push_back(CI);
+        break;
+      }
+      case IntrinsicOp::MOP_HitObject_MakeMiss: {
+        RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                            /*loadElts*/ true);
+        DeadInsts.push_back(CI);
+        break;
+      }
       case IntrinsicOp::MOP_TraceRayInline: {
         if (OldVal ==
             CI->getArgOperand(HLOperandIndex::kTraceRayInlineRayDescOpIdx)) {
@@ -2953,8 +2989,9 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
     unsigned numTypes = ST->getNumContainedTypes();
     Elts.reserve(numTypes);
     DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ST);
-    // Skip empty struct.
-    if (SA && SA->IsEmptyStruct())
+    // Do not eliminate structs that only appear empty in the DXIL type system
+    // but actually carry HitObject.
+    if (SA && SA->IsEmptyStruct() && !containsHitObject(ST))
       return true;
     for (int i = 0, e = numTypes; i != e; ++i) {
       AllocaInst *NA = AllocaBuilder.CreateAlloca(

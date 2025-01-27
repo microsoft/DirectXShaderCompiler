@@ -404,6 +404,9 @@ const unsigned kCallShaderPayloadOpIdx = 2;
 // TraceRayInline.
 const unsigned kTraceRayInlineRayDescOpIdx = 5;
 
+// FromRayQuery.
+const unsigned kFromRayQueryRayQueryOpIdx = 1;
+
 // ReportIntersection.
 const unsigned kReportIntersectionAttributeOpIdx = 3;
 
@@ -428,6 +431,16 @@ const unsigned kNodeInputRecordMetadataIDIdx = 1;
 const unsigned kNodeHandleToResCastOpIdx = 1;
 const unsigned kAnnotateNodeHandleNodePropIdx = 2;
 const unsigned kAnnotateNodeRecordHandleNodeRecordPropIdx = 2;
+
+// HitObject::FromRayQuery
+const unsigned kHitObjectFromRayQuery_CustomAttrsOpIdx = 2;
+
+// HitObject::TraceRay
+const unsigned kHitObjectTraceRay_RayDescOpIdx = 7;
+const unsigned kHitObjectTraceRay_PayloadOpIdx = 7+4; // This is after RayDesc expansion but before flattening of the RayDesc vector elements.
+
+// HitObject::MakeMiss
+const unsigned kHitObjectMakeMiss_RayDescOpIdx = 3;
 
 } // namespace HLOperandIndex
 

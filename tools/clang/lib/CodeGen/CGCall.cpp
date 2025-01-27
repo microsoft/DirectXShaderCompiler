@@ -19,9 +19,11 @@
 #include "CodeGenModule.h"
 #include "CGHLSLRuntime.h"    // HLSL Change
 #include "TargetInfo.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
+#include "clang/AST/HlslTypes.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Frontend/CodeGenOptions.h"
@@ -1902,7 +1904,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
     case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
       // HLSL Change Begins
-      if (hlsl::IsHLSLMatType(Ty)) {
+      if (hlsl::IsHLSLMatType(Ty) || hlsl::IsHLSLHitObjectType(Ty)) {
         assert(NumIRArgs == 1);
         auto AI = FnArgs[FirstIRArg];
         llvm::Value *V = AI;

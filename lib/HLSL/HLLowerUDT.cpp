@@ -62,9 +62,11 @@ StructType *hlsl::GetLoweredUDT(StructType *structTy,
     } else if (HLMatrixType Mat = HLMatrixType::dyn_cast(EltTy)) {
       NewTy = ArrayType::get(Mat.getElementType(/*MemRepr*/ true),
                              Mat.getNumElements());
-    } else if (dxilutil::IsHLSLObjectType(EltTy) ||
+    } else if ((dxilutil::IsHLSLObjectType(EltTy) &&
+                !dxilutil::IsHLSLHitObjectType(EltTy)) ||
                dxilutil::IsHLSLRayQueryType(EltTy)) {
-      // We cannot lower a structure with an embedded object type
+      // We cannot lower a structure with an embedded object type, except for
+      // HitObject.
       return nullptr;
     } else if (StructType *ST = dyn_cast<StructType>(EltTy)) {
       NewTy = GetLoweredUDT(ST);

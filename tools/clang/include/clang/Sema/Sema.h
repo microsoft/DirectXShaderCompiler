@@ -3809,6 +3809,10 @@ public:
                                         SourceLocation Loc);
   void CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
                              const FunctionProtoType *Proto);
+  void DiagnoseShaderExecutionReordering(CallExpr *CE,
+                                         hlsl::DXIL::ShaderKind EntrySK,
+                                         const FunctionDecl *EntryDecl,
+                                         const hlsl::ShaderModel *SM);
   void DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
                                  hlsl::DXIL::ShaderKind EntrySK,
                                  hlsl::DXIL::NodeLaunchType NodeLaunchTy,

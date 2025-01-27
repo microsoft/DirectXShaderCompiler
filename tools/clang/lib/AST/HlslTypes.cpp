@@ -612,6 +612,12 @@ bool IsHLSLResourceType(clang::QualType type) {
   }
   return false;
 }
+bool IsHLSLHitObjectType(QualType type) {
+  type = type.getCanonicalType();
+  if (const RecordType *RT = dyn_cast<RecordType>(type))
+    return RT->getDecl()->getName() == "HitObject";
+  return false;
+}
 
 static HLSLNodeObjectAttr *getNodeAttr(clang::QualType type) {
   if (const RecordType *RT = type->getAs<RecordType>()) {

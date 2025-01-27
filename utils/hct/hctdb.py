@@ -696,6 +696,23 @@ class db_dxil(object):
             self.name_idx[i].category = "Extended Command Information"
             self.name_idx[i].shader_stages = ("vertex",)
             self.name_idx[i].shader_model = 6, 8
+        for i in (
+            "HitObject_TraceRay,HitObject_FromRayQuery,HitObject_FromRayQueryWithAttrs,HitObject_MakeMiss,HitObject_MakeNop,HitObject_Invoke,ReorderThread,HitObject_IsMiss,HitObject_IsHit,HitObject_IsNop,HitObject_RayFlags,HitObject_RayTMin,HitObject_RayTCurrent,HitObject_WorldRayOrigin,HitObject_WorldRayDirection,HitObject_ObjectRayOrigin,HitObject_ObjectRayDirection,HitObject_ObjectToWorld3x4,HitObject_ObjectToWorld4x3,HitObject_WorldToObject3x4,HitObject_WorldToObject4x3,HitObject_GeometryIndex,HitObject_InstanceIndex,HitObject_InstanceID,HitObject_PrimitiveIndex,HitObject_HitKind,HitObject_ShaderTableIndex,HitObject_SetShaderTableIndex,HitObject_LoadLocalRootTableConstant,HitObject_Attributes"
+        ).split(","):
+            self.name_idx[i].category = "Shader Execution Reordering"
+            self.name_idx[i].shader_model = 6, 8
+            if i == "ReorderThread":
+                self.name_idx[i].shader_stages = (
+                    "library",
+                    "raygeneration",
+                )
+            else:
+                self.name_idx[i].shader_stages = (
+                    "library",
+                    "raygeneration",
+                    "closesthit",
+                    "miss",
+                )
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -5508,10 +5525,451 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
+        self.add_dxil_op(
+            "HitObject_TraceRay",
+            next_op_idx,
+            "HitObject_TraceRay",
+            "Analogous to TraceRay but without invoking CH/MS and returns the intermediate state as a HitObject",
+            "u",
+            "",
+            [db_dxil_param(0, "hit_object", "", "HitObject created from RayQuery object"),
+             db_dxil_param(
+                    2,
+                    "res",
+                    "accelerationStructure",
+                    "Top-level acceleration structure to use",
+                ),
+                db_dxil_param(
+                    3,
+                    "i32",
+                    "rayFlags",
+                    "Valid combination of Ray_flags",
+                ),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "instanceInclusionMask",
+                    "Bottom 8 bits of InstanceInclusionMask are used to include/reject geometry instances based on the InstanceMask in each instance: if(!((InstanceInclusionMask & InstanceMask) & 0xff)) { ignore intersection }",
+                ),
+                db_dxil_param(
+                    5,
+                    "i32",
+                    "rayContributionToHitGroupIndex",
+                    "Offset to add into Addressing calculations within shader tables for hit group indexing.  Only the bottom 4 bits of this value are used",
+                ),
+                db_dxil_param(
+                    6,
+                    "i32",
+                    "multiplierForGeometryContributionToHitGroupIndex",
+                    "Stride to multiply by per-geometry GeometryContributionToHitGroupIndex in Addressing calculations within shader tables for hit group indexing.  Only the bottom 4 bits of this value are used",
+                ),
+                db_dxil_param(
+                    7,
+                    "i32",
+                    "missShaderIndex",
+                    "Miss shader index in Addressing calculations within shader tables.  Only the bottom 16 bits of this value are used",
+                ),
+                db_dxil_param(8, "f", "Origin_X", "Origin x of the ray"),
+                db_dxil_param(9, "f", "Origin_Y", "Origin y of the ray"),
+                db_dxil_param(10, "f", "Origin_Z", "Origin z of the ray"),
+                db_dxil_param(11, "f", "TMin", "Tmin of the ray"),
+                db_dxil_param(12, "f", "Direction_X", "Direction x of the ray"),
+                db_dxil_param(13, "f", "Direction_Y", "Direction y of the ray"),
+                db_dxil_param(14, "f", "Direction_Z", "Direction z of the ray"),
+                db_dxil_param(15, "f", "TMax", "Tmax of the ray"),
+                db_dxil_param(
+                    16,
+                    "udt",
+                    "payload",
+                    "User-defined intersection attribute structure",
+                )]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_FromRayQuery",
+            next_op_idx,
+            "HitObject_FromRayQuery",
+            "Creates a new HitObject representing a committed hit from a RayQuery",
+            "v",
+            "amo",
+            [db_dxil_param(0, "hit_object", "", "HitObject created from RayQuery object"),
+             db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_FromRayQueryWithAttrs",
+            next_op_idx,
+            "HitObject_FromRayQueryWithAttrs",
+            "Creates a new HitObject representing a committed hit from a RayQuery and committed attributes",
+            "$o",
+            "amo",
+            [db_dxil_param(0, "hit_object", "", "HitObject created from RayQuery object"),
+             db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+             db_dxil_param(3, "udt", "CommittedAttribs", "Committed attributes")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_MakeMiss",
+            next_op_idx,
+            "HitObject_MakeMiss",
+            "Creates a new HitObject representing a miss",
+            "v",
+            "rn",
+            [db_dxil_param(0, "hit_object", "", "HitObject with a committed miss"),
+             db_dxil_param(2, "i32", "RayFlags", "ray flags"),
+             db_dxil_param(3, "i32", "MissShaderIndex", "Miss shader index"),
+             db_dxil_param(4, "f", "Origin_X", "Origin x of the ray"),
+             db_dxil_param(5, "f", "Origin_Y", "Origin y of the ray"),
+             db_dxil_param(6, "f", "Origin_Z", "Origin z of the ray"),
+             db_dxil_param(7, "f", "TMin", "Tmin of the ray"),
+             db_dxil_param(8, "f", "Direction_X", "Direction x of the ray"),
+             db_dxil_param(9, "f", "Direction_Y", "Direction y of the ray"),
+             db_dxil_param(10, "f", "Direction_Z", "Direction z of the ray"),
+             db_dxil_param(11, "f", "TMax", "Tmax of the ray")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_MakeNop",
+            next_op_idx,
+            "HitObject_MakeNop",
+            "Creates an empty nop HitObject",
+            "v",
+            "rn",
+            [db_dxil_param(0, "hit_object", "", "Empty nop HitObject")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_Invoke",
+            next_op_idx,
+            "HitObject_Invoke",
+            "Represents the invocation of the CH/MS shader represented by the HitObject",
+            "u",
+            "",
+            [retvoid_param,
+             db_dxil_param(2, "hit_object", "hitObject", "hit"),
+             db_dxil_param(
+              3,
+              "udt",
+              "payload",
+              "User-defined intersection attribute structure",
+            )]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReorderThread",
+            next_op_idx,
+            "ReorderThread",
+            "Reorders the current thread. Optionally accepts a HitObject arg, or undef",
+            "v",
+            "",
+            [retvoid_param,
+             db_dxil_param(2, "hit_object", "hitObject", "hit"),
+             db_dxil_param(3, "i32", "coherenceHint", "Coherence hint"),
+             db_dxil_param(4, "i32", "numCoherenceHintBitsFromLSB", "Num coherence hint bits from LSB")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_IsMiss",
+            next_op_idx,
+            "HitObject_StateScalar",
+            "Returns `true` if the HitObject represents a miss",
+            "1",
+            "rn",
+            [db_dxil_param(0, "i1", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_IsHit",
+            next_op_idx,
+            "HitObject_StateScalar",
+            "Returns `true` if the HitObject is a NOP-HitObject",
+            "1",
+            "rn",
+            [db_dxil_param(0, "i1", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_IsNop",
+            next_op_idx,
+            "HitObject_StateScalar",
+            "Returns `true` if the HitObject represents a nop",
+            "1",
+            "rn",
+            [db_dxil_param(0, "i1", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_RayFlags",
+            next_op_idx,
+            "HitObject_StateScalar",
+            "Returns the ray flags set in the HitObject",
+            "i",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_RayTMin",
+            next_op_idx,
+            "HitObject_StateScalar",
+            "Returns the TMin value set in the HitObject",
+            "f",
+            "rn",
+            [db_dxil_param(0, "f", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_RayTCurrent",
+            next_op_idx,
+            "HitObject_StateScalar",
+            "Returns the current T value set in the HitObject",
+            "f",
+            "rn",
+            [db_dxil_param(0, "f", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_WorldRayOrigin",
+            next_op_idx,
+            "HitObject_StateVector",
+            "Returns the ray origin in world space",
+            "f",
+            "rn",
+            [db_dxil_param(0, "f", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit"),
+             db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True)]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_WorldRayDirection",
+            next_op_idx,
+            "HitObject_StateVector",
+            "Returns the ray direction in world space",
+            "f",
+            "rn",
+            [db_dxil_param(0, "f", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit"),
+             db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True)]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_ObjectRayOrigin",
+            next_op_idx,
+            "HitObject_StateVector",
+            "Returns the ray origin in object space",
+            "f",
+            "rn",
+            [db_dxil_param(0, "f", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit"),
+             db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True)]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_ObjectRayDirection",
+            next_op_idx,
+            "HitObject_StateVector",
+            "Returns the ray direction in object space",
+            "f",
+            "rn",
+            [db_dxil_param(0, "f", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit"),
+             db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True)]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_ObjectToWorld3x4",
+            next_op_idx,
+            "HitObject_StateMatrix",
+            "Returns the object to world space transformation matrix in 3x4 form",
+            "f",
+            "rn",
+            [db_dxil_param(0, "f", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit"),
+             db_dxil_param(3, "i32", "row", "row [0..2], , relative to the element", is_const=True),
+             db_dxil_param(4, "i32", "col", "column [0..3], relative to the element", is_const=True)]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_ObjectToWorld4x3",
+            next_op_idx,
+            "HitObject_StateMatrix",
+            "Returns the object to world space transformation matrix in 4x3 form",
+            "f",
+            "rn",
+            [db_dxil_param(0, "f", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit"),
+             db_dxil_param(3, "i32", "row", "row [0..3], relative to the element", is_const=True),
+             db_dxil_param(4, "i32", "col", "column [0..2], relative to the element", is_const=True)]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_WorldToObject3x4",
+            next_op_idx,
+            "HitObject_StateMatrix",
+            "Returns the world to object space transformation matrix in 3x4 form",
+            "f",
+            "rn",
+            [db_dxil_param(0, "f", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit"),
+             db_dxil_param(3, "i32", "row", "row [0..2], relative to the element", is_const=True),
+             db_dxil_param(4, "i32", "col", "column [0..3], relative to the element", is_const=True)]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_WorldToObject4x3",
+            next_op_idx,
+            "HitObject_StateMatrix",
+            "Returns the world to object space transformation matrix in 4x3 form",
+            "f",
+            "rn",
+            [db_dxil_param(0, "f", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit"),
+             db_dxil_param(3, "i32", "row", "row [0..3], relative to the element", is_const=True),
+             db_dxil_param(4, "i32", "col", "column [0..2], relative to the element", is_const=True)]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_GeometryIndex",
+            next_op_idx,
+            "HitObject_StateScalar",
+            "Returns the geometry index committed on hit",
+            "i",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_InstanceIndex",
+            next_op_idx,
+            "HitObject_StateScalar",
+            "Returns the instance index committed on hit",
+            "i",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_InstanceID",
+            next_op_idx,
+            "HitObject_StateScalar",
+            "Returns the instance id committed on hit",
+            "i",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_PrimitiveIndex",
+            next_op_idx,
+            "HitObject_StateScalar",
+            "Returns the primitive index committed on hit",
+            "i",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_HitKind",
+            next_op_idx,
+            "HitObject_StateScalar",
+            "Returns the HitKind of the hit",
+            "i",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_ShaderTableIndex",
+            next_op_idx,
+            "HitObject_StateScalar",
+            "Returns the shader table index set for this HitObject",
+            "i",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_SetShaderTableIndex",
+            next_op_idx,
+            "HitObject_SetShaderTableIndex",
+            "Returns a HitObject with updated shader table index",
+            "v",
+            "rn",
+            [db_dxil_param(0, "hit_object", "hitObject", "hit with shader table index set"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit"),
+             db_dxil_param(3, "i32", "shaderTableIndex", "shader table index")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_LoadLocalRootTableConstant",
+            next_op_idx,
+            "HitObject_LoadLocalRootTableConstant",
+            "Returns the root table constant for this HitObject and offset",
+            "v",
+            "ro",
+            [db_dxil_param(0, "i32", "", "operation result"),
+             db_dxil_param(2, "hit_object", "hitObject", "hit"),
+             db_dxil_param(3, "i32", "offset", "offset")]
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_Attributes",
+            next_op_idx,
+            "HitObject_Attributes",
+            "Returns the attributes set for this HitObject",
+            "$o",
+            "amo",
+            [retvoid_param,
+             db_dxil_param(2, "hit_object", "hitObject", "hit"),
+             db_dxil_param(3, "udt", "attributes", "pointer to store the attributes to")]
+        )
+        next_op_idx += 1
+
         # End of DXIL 1.8 opcodes.
         self.set_op_count_for_version(1, 8, next_op_idx)
-        assert next_op_idx == 258, (
-            "258 is expected next operation index but encountered %d and thus opcodes are broken"
+        assert next_op_idx == 288, (
+            "288 is expected next operation index but encountered %d and thus opcodes are broken"
             % next_op_idx
         )
 
@@ -8147,6 +8605,8 @@ class db_hlsl_intrinsic(object):
         unsigned_op,
         overload_idx,
         hidden,
+        static_member,
+        class_prefix,
     ):
         self.name = name  # Function name
         self.idx = idx  # Unique number within namespace
@@ -8162,7 +8622,11 @@ class db_hlsl_intrinsic(object):
             self.name = "Vk" + self.name
             id_prefix = "IOP"
         # SPIR-V Change Ends
-        self.enum_name = "%s_%s" % (id_prefix, name)  # enum name
+        if class_prefix:
+            class_name = ns[0:-len("Methods")]
+            self.enum_name = "%s_%s_%s" % (id_prefix, class_name, name)
+        else:
+            self.enum_name = "%s_%s" % (id_prefix, name)
         self.readonly = ro  # Only read memory
         self.readnone = rn  # Not read memory
         self.argmemonly = amo  # Only accesses memory through argument pointers
@@ -8174,6 +8638,7 @@ class db_hlsl_intrinsic(object):
             overload_idx  # Parameter determines the overload type, -1 means ret type
         )
         self.hidden = hidden  # Internal high-level op, not exposed to HLSL
+        self.static_member = static_member # HLSL static member function
         self.key = (
             ("%3d" % ns_idx)
             + "!"
@@ -8269,6 +8734,8 @@ class db_hlsl(object):
             "resource": "LICOMPTYPE_RESOURCE",
             "ray_desc": "LICOMPTYPE_RAYDESC",
             "acceleration_struct": "LICOMPTYPE_ACCELERATION_STRUCT",
+            "ray_query": "LICOMPTYPE_RAY_QUERY",
+            "hit_object": "LICOMPTYPE_HIT_OBJECT",
             "udt": "LICOMPTYPE_USER_DEFINED_TYPE",
             "void": "LICOMPTYPE_VOID",
             "string": "LICOMPTYPE_STRING",
@@ -8338,7 +8805,7 @@ class db_hlsl(object):
             r"""(
             sampler\w* | string |
             (?:RW)?(?:Texture\w*|ByteAddressBuffer) |
-            acceleration_struct | ray_desc |
+            acceleration_struct | ray_desc | ray_query | hit_object |
             Node\w* | RWNode\w* | EmptyNode\w* |
             AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w*
             $)""",
@@ -8544,7 +9011,9 @@ class db_hlsl(object):
             readonly = False  # Only read memory
             readnone = False  # Not read memory
             argmemonly = False  # Only reads memory through pointer arguments
+            static_member = False # Static member function
             is_wave = False
+            class_prefix = False # Insert class name as enum_prefix
             # Is wave-sensitive
             unsigned_op = ""  # Unsigned opcode if exist
             overload_param_index = (
@@ -8568,6 +9037,12 @@ class db_hlsl(object):
                     continue
                 if a == "hidden":
                     hidden = True
+                    continue
+                if a == "static":
+                    static_member = True
+                    continue
+                if a == "class_prefix":
+                    class_prefix = True
                     continue
 
                 assign = a.split("=")
@@ -8593,6 +9068,8 @@ class db_hlsl(object):
                 unsigned_op,
                 overload_param_index,
                 hidden,
+                static_member,
+                class_prefix,
             )
 
         current_namespace = None
@@ -8640,6 +9117,8 @@ class db_hlsl(object):
                     unsigned_op,
                     overload_param_index,
                     hidden,
+                    static_member,
+                    class_prefix,
                 ) = process_attr(attr)
                 # Add an entry for this intrinsic.
                 if bracket_cleanup_re.search(opts):
@@ -8656,6 +9135,8 @@ class db_hlsl(object):
                 for in_arg in in_args:
                     args.append(process_arg(in_arg, arg_idx, args, name))
                     arg_idx += 1
+                if class_prefix:
+                    assert current_namespace.endswith("Methods")
                 # We have to process the return type description last
                 # to match the compiler's handling of it and allow
                 # the return type to match an input type.
@@ -8678,6 +9159,8 @@ class db_hlsl(object):
                         unsigned_op,
                         overload_param_index,
                         hidden,
+                        static_member,
+                        class_prefix
                     )
                 )
                 num_entries += 1

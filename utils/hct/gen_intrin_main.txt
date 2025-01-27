@@ -34,8 +34,9 @@
 // the size comes from the parse input.  "<>" means any kind
 // of layout is acceptable.
 //
-// Basic types are bool, int, uint, u64, float, sampler1d, sampler2d,
-// sampler3d, sampler_cube, sampler_cmp, sampler, wave and void.
+// Basic types are bool, int, uint, u64, float, hit_object,
+// sampler1d, sampler2d, sampler3d, sampler_cube, sampler_cmp,
+// sampler, wave and void.
 // There are meta-types too: any_int, uint_only, numeric and any.
 //
 // Along with a type and layout you can also give relations
@@ -379,6 +380,12 @@ void [[]] Barrier(in uint MemoryTypeFlags, in uint SemanticFlags);
 void [[]] Barrier(in NodeRecordOrUAV o, in uint SemanticFlags);
 
 uint [[]] GetRemainingRecursionLevels();
+
+// Shader Execution Reordering intrinsics
+
+void [[]] ReorderThread(in hit_object HitObject);
+void [[]] ReorderThread(in uint CoherenceHint, in uint NumCoherenceHintBitsFromLSB);
+void [[]] ReorderThread(in hit_object HitObject, in uint CoherenceHint, in uint NumCoherenceHintBitsFromLSB);
 
 } namespace
 
@@ -1087,6 +1094,39 @@ float<3> [[ro]] CommittedObjectRayDirection();
 uint [[ro]] CandidateInstanceContributionToHitGroupIndex();
 uint [[ro]] CommittedInstanceContributionToHitGroupIndex();
 
+} namespace
+
+namespace HitObjectMethods {
+    hit_object [[static,class_prefix]] TraceRay(in acceleration_struct AccelerationStructure, in uint RayFlags, in uint InstanceInclusionMask, in uint RayContributionToHitGroupIndex, in uint MultiplierForGeometryContributionToHitGroupIndex, in uint MissShaderIndex, in ray_desc Ray, inout udt Payload);
+    hit_object [[static,class_prefix]] FromRayQuery(in ray_query RayQuery);
+    hit_object [[static,class_prefix]] FromRayQuery(in ray_query RayQuery, in udt Attributes);
+    hit_object [[static,class_prefix]] MakeNop();
+    hit_object [[static,class_prefix]] MakeMiss(in uint RayFlags, in uint MissShaderIndex, in ray_desc Ray);
+    void [[static,class_prefix]] Invoke(in hit_object HitObject, inout udt Payload);
+    bool [[rn,class_prefix]] IsMiss();
+    bool [[rn,class_prefix]] IsHit();
+    bool [[rn,class_prefix]] IsNop();
+    uint [[rn,class_prefix]] GetRayFlags();
+    float [[rn,class_prefix]] GetRayTMin();
+    float [[rn,class_prefix]] GetRayTCurrent();
+    float<3> [[rn,class_prefix]] GetWorldRayOrigin();
+    float<3> [[rn,class_prefix]] GetWorldRayDirection();
+    float<3> [[rn,class_prefix]] GetObjectRayOrigin();
+    float<3> [[rn,class_prefix]] GetObjectRayDirection();
+    float<3,4> [[rn,class_prefix]] GetObjectToWorld3x4();
+    float<4,3> [[rn,class_prefix]] GetObjectToWorld4x3();
+    float<3,4> [[rn,class_prefix]] GetWorldToObject3x4();
+    float<4,3> [[rn,class_prefix]] GetWorldToObject4x3();
+    uint [[rn,class_prefix]] GetGeometryIndex();
+    uint [[rn,class_prefix]] GetInstanceIndex();
+    uint [[rn,class_prefix]] GetInstanceID();
+    uint [[rn,class_prefix]] GetPrimitiveIndex();
+    uint [[rn,class_prefix]] GetHitKind();
+    uint [[rn,class_prefix]] GetShaderTableIndex();
+    $funcT [[class_prefix]] GetAttributes();
+
+    void [[class_prefix]] SetShaderTableIndex(in uint RecordIndex);
+    uint [[ro,class_prefix]] LoadLocalRootTableConstant(in uint RootConstantOffsetInBytes);
 } namespace
 
 // Work Graphs objects and methods

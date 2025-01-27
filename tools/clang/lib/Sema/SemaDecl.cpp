@@ -9171,7 +9171,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
   // placeholder type where we safely infer the globallycoherent annotaiton.
   DiagnoseGloballyCoherentMismatch(Init, DclT, Init->getExprLoc());
   // HLSL Change end
-  
+
   // Expressions default to 'id' when we're in a debugger
   // and we are assigning it to a variable of Objective-C pointer type.
   if (getLangOpts().DebuggerCastResultToId && DclT->isObjCObjectPointerType() &&

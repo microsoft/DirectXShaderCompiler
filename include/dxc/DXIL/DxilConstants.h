@@ -857,6 +857,38 @@ enum class OpCode : unsigned {
   WriteSamplerFeedbackLevel = 176, // updates a feedback texture for a sampling
                                    // operation with a mipmap-level offset
 
+  // Shader Execution Reordering
+  HitObject_Attributes = 287, // Returns the attributes set for this HitObject
+  HitObject_FromRayQuery = 259, // Creates a new HitObject representing a committed hit from a RayQuery
+  HitObject_FromRayQueryWithAttrs = 260, // Creates a new HitObject representing a committed hit from a RayQuery and committed attributes
+  HitObject_GeometryIndex = 279, // Returns the geometry index committed on hit
+  HitObject_HitKind = 283, // Returns the HitKind of the hit
+  HitObject_InstanceID = 281, // Returns the instance id committed on hit
+  HitObject_InstanceIndex = 280, // Returns the instance index committed on hit
+  HitObject_Invoke = 263, // Represents the invocation of the CH/MS shader represented by the HitObject
+  HitObject_IsHit = 266, // Returns `true` if the HitObject is a NOP-HitObject
+  HitObject_IsMiss = 265, // Returns `true` if the HitObject represents a miss
+  HitObject_IsNop = 267, // Returns `true` if the HitObject represents a nop
+  HitObject_LoadLocalRootTableConstant = 286, // Returns the root table constant for this HitObject and offset
+  HitObject_MakeMiss = 261, // Creates a new HitObject representing a miss
+  HitObject_MakeNop = 262, // Creates an empty nop HitObject
+  HitObject_ObjectRayDirection = 274, // Returns the ray direction in object space
+  HitObject_ObjectRayOrigin = 273, // Returns the ray origin in object space
+  HitObject_ObjectToWorld3x4 = 275, // Returns the object to world space transformation matrix in 3x4 form
+  HitObject_ObjectToWorld4x3 = 276, // Returns the object to world space transformation matrix in 4x3 form
+  HitObject_PrimitiveIndex = 282, // Returns the primitive index committed on hit
+  HitObject_RayFlags = 268, // Returns the ray flags set in the HitObject
+  HitObject_RayTCurrent = 270, // Returns the current T value set in the HitObject
+  HitObject_RayTMin = 269, // Returns the TMin value set in the HitObject
+  HitObject_SetShaderTableIndex = 285, // Returns a HitObject with updated shader table index
+  HitObject_ShaderTableIndex = 284, // Returns the shader table index set for this HitObject
+  HitObject_TraceRay = 258, // Analogous to TraceRay but without invoking CH/MS and returns the intermediate state as a HitObject
+  HitObject_WorldRayDirection = 272, // Returns the ray direction in world space
+  HitObject_WorldRayOrigin = 271, // Returns the ray origin in world space
+  HitObject_WorldToObject3x4 = 277, // Returns the world to object space transformation matrix in 3x4 form
+  HitObject_WorldToObject4x3 = 278, // Returns the world to object space transformation matrix in 4x3 form
+  ReorderThread = 264, // Reorders the current thread. Optionally accepts a HitObject arg, or undef
+
   // Synchronization
   AtomicBinOp = 78,           // performs an atomic operation on two operands
   AtomicCompareExchange = 79, // atomic compare and exchange to memory
@@ -983,9 +1015,9 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_5 = 216,
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
-  NumOpCodes_Dxil_1_8 = 258,
+  NumOpCodes_Dxil_1_8 = 288,
 
-  NumOpCodes = 258 // exclusive last value of enumeration
+  NumOpCodes = NumOpCodes_Dxil_1_8 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1282,6 +1314,21 @@ enum class OpCodeClass : unsigned {
   NodeOutputIsValid,
   OutputComplete,
 
+  // Shader Execution Reordering
+  HitObject_Attributes,
+  HitObject_FromRayQuery,
+  HitObject_FromRayQueryWithAttrs,
+  HitObject_Invoke,
+  HitObject_LoadLocalRootTableConstant,
+  HitObject_MakeMiss,
+  HitObject_MakeNop,
+  HitObject_SetShaderTableIndex,
+  HitObject_StateMatrix,
+  HitObject_StateScalar,
+  HitObject_StateVector,
+  HitObject_TraceRay,
+  ReorderThread,
+
   NumOpClasses_Dxil_1_0 = 93,
   NumOpClasses_Dxil_1_1 = 95,
   NumOpClasses_Dxil_1_2 = 97,
@@ -1290,9 +1337,9 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_5 = 143,
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
-  NumOpClasses_Dxil_1_8 = 174,
+  NumOpClasses_Dxil_1_8 = 196,
 
-  NumOpClasses = 174 // exclusive last value of enumeration
+  NumOpClasses = NumOpClasses_Dxil_1_8 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1449,6 +1496,21 @@ const unsigned kMSStoreOutputRowOpIdx = 2;
 const unsigned kMSStoreOutputColOpIdx = 3;
 const unsigned kMSStoreOutputVIdxOpIdx = 4;
 const unsigned kMSStoreOutputValOpIdx = 5;
+
+// HitObject::TraceRay
+const unsigned kHitObjectTraceRay_RayDescOpIdx = 7;
+const unsigned kHitObjectTraceRay_PayloadOpIdx = 15;
+const unsigned kHitObjectTraceRay_NumOp = 16;
+
+// HitObject::MakeMiss
+const unsigned kHitObjectMakeMiss_RayDescOpIdx = 3;
+const unsigned kHitObjectMakeMiss_NumOp = 11;
+
+// ReorderThread
+const unsigned kReorderThreadHitObjectOpIdx = 1;
+const unsigned kReorderThreadCoherenceHintOpIdx = 2;
+const unsigned kReorderThreadNumCoherenceHintBitsOpIdx = 3;
+const unsigned kReorderThreadNumOp = 4;
 
 // TODO: add operand index for all the OpCodeClass.
 } // namespace OperandIndex

@@ -18,7 +18,7 @@ target triple = "dxil-ms-dx"
 define void @node01() #0 {
   
   ; CHECK: Invalid semantic flag
-  call void @dx.op.barrierByMemoryType(i32 244, i32 1, i32 9)  ; BarrierByMemoryType(MemoryTypeFlags,SemanticFlags)
+  call void @dx.op.barrierByMemoryType(i32 244, i32 1, i32 17)  ; BarrierByMemoryType(MemoryTypeFlags,SemanticFlags)
 
   ret void
 }

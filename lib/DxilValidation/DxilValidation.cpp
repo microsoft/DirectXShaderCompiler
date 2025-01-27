@@ -2122,10 +2122,10 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx,
 
     StringRef Name = ST->getName();
     if (Name.startswith("dx.")) {
-      // Allow handle type.
-      if (ValCtx.HandleTy == Ty)
-        return true;
       hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
+      // Allow handle and HitObject type.
+      if (ValCtx.HandleTy == Ty || hlslOP->GetHitObjectType() == Ty)
+        return true;
       if (IsDxilBuiltinStructType(ST, hlslOP)) {
         ValCtx.EmitTypeError(Ty, ValidationRule::InstrDxilStructUser);
         result = false;

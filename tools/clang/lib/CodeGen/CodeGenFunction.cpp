@@ -24,6 +24,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
+#include "clang/AST/HlslTypes.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
@@ -165,6 +166,11 @@ TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
         // Treat hlsl matrix as scalar type too.
         return TEK_Scalar;
       }
+      if (hlsl::IsHLSLHitObjectType(type)) {
+        // Pass HitObject as scalar (by value)
+        return TEK_Scalar;
+      }
+
       // HLSL Change Ends
       return TEK_Aggregate;
 

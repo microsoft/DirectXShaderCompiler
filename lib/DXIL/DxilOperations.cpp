@@ -10,12 +10,14 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/Support/Global.h"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -2602,6 +2604,279 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::ReadNone,
     },
+
+    // Shader Execution Reordering void,     h,     f,     d,    i1,    i8,
+    // i16,   i32,   i64,   udt,   obj ,  function attribute
+    {
+        OC::HitObject_TraceRay,
+        "HitObject_TraceRay",
+        OCC::HitObject_TraceRay,
+        "hitObject_TraceRay",
+        {false, false, false, false, false, false, false, false, false,  true,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::HitObject_FromRayQuery,
+        "HitObject_FromRayQuery",
+        OCC::HitObject_FromRayQuery,
+        "hitObject_FromRayQuery",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::ArgMemOnly,
+    },
+    {
+        OC::HitObject_FromRayQueryWithAttrs,
+        "HitObject_FromRayQueryWithAttrs",
+        OCC::HitObject_FromRayQueryWithAttrs,
+        "hitObject_FromRayQueryWithAttrs",
+        {false, false, false, false, false, false, false, false, false, false,
+         true},
+        Attribute::ArgMemOnly,
+    },
+    {
+        OC::HitObject_MakeMiss,
+        "HitObject_MakeMiss",
+        OCC::HitObject_MakeMiss,
+        "hitObject_MakeMiss",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::ReadNone,
+    },
+    {
+        OC::HitObject_MakeNop,
+        "HitObject_MakeNop",
+        OCC::HitObject_MakeNop,
+        "hitObject_MakeNop",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::ReadNone,
+    },
+    {
+        OC::HitObject_Invoke,
+        "HitObject_Invoke",
+        OCC::HitObject_Invoke,
+        "hitObject_Invoke",
+        {false, false, false, false, false, false, false, false, false,  true,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReorderThread,
+        "ReorderThread",
+        OCC::ReorderThread,
+        "reorderThread",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::HitObject_IsMiss,
+        "HitObject_IsMiss",
+        OCC::HitObject_StateScalar,
+        "hitObject_StateScalar",
+        {false, false, false, false, true, false, false, false, false, false,
+         false},
+        Attribute::ReadNone,
+    },
+    {
+        OC::HitObject_IsHit,
+        "HitObject_IsHit",
+        OCC::HitObject_StateScalar,
+        "hitObject_StateScalar",
+        {false, false, false, false, true, false, false, false, false, false,
+         false},
+        Attribute::ReadNone,
+    },
+    {
+        OC::HitObject_IsNop,
+        "HitObject_IsNop",
+        OCC::HitObject_StateScalar,
+        "hitObject_StateScalar",
+        {false, false, false, false, true, false, false, false, false, false,
+         false},
+        Attribute::ReadNone,
+    },
+    {
+        OC::HitObject_RayFlags,
+        "HitObject_RayFlags",
+        OCC::HitObject_StateScalar,
+        "hitObject_StateScalar",
+        {false, false, false, false, false, false, false,  true, false, false,
+         false},
+        Attribute::ReadNone,
+    },
+    {
+        OC::HitObject_RayTMin,
+        "HitObject_RayTMin",
+        OCC::HitObject_StateScalar,
+        "hitObject_StateScalar",
+        {false, false, true, false, false, false, false, false, false, false,
+         false},
+        Attribute::ReadNone,
+    },
+    {
+        OC::HitObject_RayTCurrent,
+        "HitObject_RayTCurrent",
+        OCC::HitObject_StateScalar,
+        "hitObject_StateScalar",
+        {false, false, true, false, false, false, false, false, false, false,
+         false},
+        Attribute::ReadNone,
+    },
+    {
+        OC::HitObject_WorldRayOrigin,
+        "HitObject_WorldRayOrigin",
+        OCC::HitObject_StateVector,
+        "hitObject_StateVector",
+        {false, false, true, false, false, false, false, false, false, false,
+         false},
+        Attribute::ReadNone,
+    },
+    {
+        OC::HitObject_WorldRayDirection,
+        "HitObject_WorldRayDirection",
+        OCC::HitObject_StateVector,
+        "hitObject_StateVector",
+        {false, false, true, false, false, false, false, false, false, false,
+         false},
+        Attribute::ReadNone,
+    },
+    {
+        OC::HitObject_ObjectRayOrigin,
+        "HitObject_ObjectRayOrigin",
+        OCC::HitObject_StateVector,
+        "hitObject_StateVector",
+        {false, false, true, false, false, false, false, false, false, false,
+         false},
+        Attribute::ReadNone,
+    },
+    {
+       OC::HitObject_ObjectRayDirection,
+       "HitObject_ObjectRayDirection",
+       OCC::HitObject_StateVector,
+       "hitObject_StateVector",
+       {false, false, true, false, false, false, false, false, false, false,
+        false},
+       Attribute::ReadNone,
+    },
+    {
+       OC::HitObject_ObjectToWorld3x4,
+       "HitObject_ObjectToWorld3x4",
+       OCC::HitObject_StateMatrix,
+       "hitObject_StateMatrix",
+       {false, false, true, false, false, false, false, false, false, false,
+        false},
+       Attribute::ReadNone,
+    },
+    {
+       OC::HitObject_ObjectToWorld4x3,
+       "HitObject_ObjectToWorld4x3",
+       OCC::HitObject_StateMatrix,
+       "hitObject_StateMatrix",
+       {false, false, true, false, false, false, false, false, false, false,
+        false},
+       Attribute::ReadNone,
+    },
+    {
+       OC::HitObject_WorldToObject3x4,
+       "HitObject_WorldToObject3x4",
+       OCC::HitObject_StateMatrix,
+       "hitObject_StateMatrix",
+       {false, false, true, false, false, false, false, false, false, false,
+        false},
+       Attribute::ReadNone,
+    },
+    {
+       OC::HitObject_WorldToObject4x3,
+       "HitObject_WorldToObject4x3",
+       OCC::HitObject_StateMatrix,
+       "hitObject_StateMatrix",
+       {false, false, true, false, false, false, false, false, false, false,
+        false},
+       Attribute::ReadNone,
+    },
+    {
+       OC::HitObject_GeometryIndex,
+       "HitObject_GeometryIndex",
+       OCC::HitObject_StateScalar,
+       "hitObject_StateScalar",
+       {false, false, false, false, false, false, false, true, false, false,
+        false},
+       Attribute::ReadNone,
+    },
+    {
+       OC::HitObject_InstanceIndex,
+       "HitObject_InstanceIndex",
+       OCC::HitObject_StateScalar,
+       "hitObject_StateScalar",
+       {false, false, false, false, false, false, false, true, false, false,
+        false},
+       Attribute::ReadNone,
+    },
+    {
+       OC::HitObject_InstanceID,
+       "HitObject_InstanceID",
+       OCC::HitObject_StateScalar,
+       "hitObject_StateScalar",
+       {false, false, false, false, false, false, false, true, false, false,
+        false},
+       Attribute::ReadNone,
+    },
+    {
+       OC::HitObject_PrimitiveIndex,
+       "HitObject_PrimitiveIndex",
+       OCC::HitObject_StateScalar,
+       "hitObject_StateScalar",
+       {false, false, false, false, false, false, false, true, false, false,
+        false},
+       Attribute::ReadNone,
+    },
+    {
+       OC::HitObject_HitKind,
+       "HitObject_HitKind",
+       OCC::HitObject_StateScalar,
+       "hitObject_StateScalar",
+       {false, false, false, false, false, false, false, true, false, false,
+        false},
+       Attribute::ReadNone,
+    },
+    {
+       OC::HitObject_ShaderTableIndex,
+       "HitObject_ShaderTableIndex",
+       OCC::HitObject_StateScalar,
+       "hitObject_StateScalar",
+       {false, false, false, false, false, false, false, true, false, false,
+        false},
+       Attribute::ReadNone,
+    },
+    {
+       OC::HitObject_SetShaderTableIndex,
+       "HitObject_SetShaderTableIndex",
+       OCC::HitObject_SetShaderTableIndex,
+       "hitObject_SetShaderTableIndex",
+       {true, false, false, false, false, false, false, false, false, false,
+        false},
+       Attribute::ReadNone,
+    },
+    {
+       OC::HitObject_LoadLocalRootTableConstant,
+       "HitObject_LoadLocalRootTableConstant",
+       OCC::HitObject_LoadLocalRootTableConstant,
+       "hitObject_LoadLocalRootTableConstant",
+       {true, false, false, false, false, false, false, false, false, false,
+        false},
+       Attribute::ReadOnly,
+    },
+    {
+       OC::HitObject_Attributes,
+       "HitObject_Attributes",
+       OCC::HitObject_Attributes,
+       "hitObject_Attributes",
+       {false, false, false, false, false, false, false, false, false, false,
+        true},
+       Attribute::ArgMemOnly,
+    },
 };
 // OPCODE-OLOADS:END
 
@@ -3435,6 +3710,8 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
 
   m_pHandleType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
                                         "dx.types.Handle", pModule);
+  m_pHitObjectType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
+                                           "dx.types.HitObject", pModule);
   m_pNodeHandleType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
                                             "dx.types.NodeHandle", pModule);
   m_pNodeRecordHandleType = GetOrCreateStructType(
@@ -3577,6 +3854,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *pF64 = Type::getDoubleTy(m_Ctx);
   Type *pSDT = GetSplitDoubleType(); // Split double type.
   Type *p4I32 = GetFourI32Type();    // 4 i32s in a struct.
+  Type *pHit = GetHitObjectType();
 
   Type *udt = pOverloadType;
   Type *obj = pOverloadType;
@@ -5119,6 +5397,126 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
 
+    // Shader Execution Reordering
+  case OpCode::HitObject_TraceRay:
+    A(pHit);
+    A(pI32);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(udt);
+    break;
+  case OpCode::HitObject_FromRayQuery:
+  case OpCode::HitObject_FromRayQueryWithAttrs:
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    if (opCode == OpCode::HitObject_FromRayQueryWithAttrs)
+      A(udt->getPointerTo());
+    break;
+  case OpCode::HitObject_Attributes:
+    A(pV);
+    A(pI32);
+    A(pHit);
+    A(udt->getPointerTo());
+    break;
+  case OpCode::HitObject_MakeMiss:
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    break;
+  case OpCode::HitObject_MakeNop:
+    A(pHit);
+    A(pI32);
+    break;
+  case OpCode::HitObject_Invoke:
+    A(pV);
+    A(pI32);
+    A(pHit);
+    A(udt);
+    break;
+  case OpCode::ReorderThread:
+    A(pV);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::HitObject_IsHit:
+  case OpCode::HitObject_IsMiss:
+  case OpCode::HitObject_IsNop:
+    A(pI1);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_RayTMin:
+  case OpCode::HitObject_RayTCurrent:
+    A(pF32);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_GeometryIndex:
+  case OpCode::HitObject_HitKind:
+  case OpCode::HitObject_InstanceIndex:
+  case OpCode::HitObject_InstanceID:
+  case OpCode::HitObject_PrimitiveIndex:
+  case OpCode::HitObject_RayFlags:
+  case OpCode::HitObject_ShaderTableIndex:
+    A(pI32);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_WorldRayOrigin:
+  case OpCode::HitObject_WorldRayDirection:
+  case OpCode::HitObject_ObjectRayOrigin:
+  case OpCode::HitObject_ObjectRayDirection:
+    A(pF32);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    break;
+  case OpCode::HitObject_ObjectToWorld3x4:
+  case OpCode::HitObject_ObjectToWorld4x3:
+  case OpCode::HitObject_WorldToObject3x4:
+  case OpCode::HitObject_WorldToObject4x3:
+    A(pF32);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::HitObject_SetShaderTableIndex:
+    A(pHit);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    break;
+  case OpCode::HitObject_LoadLocalRootTableConstant:
+    A(pI32);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    break;
     // Get handle from heap
   case OpCode::AnnotateHandle:
     A(pRes);
@@ -5462,6 +5860,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
 const SmallMapVector<llvm::Type *, llvm::Function *, 8> &
 OP::GetOpFuncList(OpCode opCode) const {
+  assert(m_OpCodeProps[(unsigned)opCode]
+                                .opCodeClass < OpCodeClass::NumOpClasses);
   return m_OpCodeClassCache[(unsigned)m_OpCodeProps[(unsigned)opCode]
                                 .opCodeClass]
       .pOverloads;
@@ -5600,6 +6000,11 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
     if (FT->getNumParams() <= 15)
       return nullptr;
     return FT->getParamType(15);
+  case OpCode::HitObject_TraceRay:
+    return FT->getParamType(
+        DXIL::OperandIndex::kHitObjectTraceRay_PayloadOpIdx);
+  case OpCode::HitObject_Invoke:
+    return FT->getParamType(2);
   case OpCode::ReportHit:
     if (FT->getNumParams() <= 3)
       return nullptr;
@@ -5679,7 +6084,16 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::AnnotateNodeRecordHandle:
   case OpCode::NodeOutputIsValid:
   case OpCode::GetRemainingRecursionLevels:
+  case OpCode::ReorderThread:
+  case OpCode::HitObject_MakeMiss:
+  case OpCode::HitObject_MakeNop:
+  case OpCode::HitObject_FromRayQuery:
+  case OpCode::HitObject_LoadLocalRootTableConstant:
+  case OpCode::HitObject_SetShaderTableIndex:
     return Type::getVoidTy(Ctx);
+  case OpCode::HitObject_Attributes:
+  case OpCode::HitObject_FromRayQueryWithAttrs:
+    return FT->getParamType(2)->getPointerElementType();
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:
   case OpCode::Coverage:
@@ -5744,6 +6158,27 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CommittedObjectRayOrigin:
   case OpCode::RayQuery_CommittedObjectRayDirection:
     return Type::getFloatTy(Ctx);
+  case OpCode::HitObject_IsMiss:
+  case OpCode::HitObject_IsHit:
+  case OpCode::HitObject_IsNop:
+  case OpCode::HitObject_RayFlags:
+  case OpCode::HitObject_RayTMin:
+  case OpCode::HitObject_RayTCurrent:
+  case OpCode::HitObject_WorldRayOrigin:
+  case OpCode::HitObject_WorldRayDirection:
+  case OpCode::HitObject_ObjectRayOrigin:
+  case OpCode::HitObject_ObjectRayDirection:
+  case OpCode::HitObject_ObjectToWorld3x4:
+  case OpCode::HitObject_ObjectToWorld4x3:
+  case OpCode::HitObject_WorldToObject3x4:
+  case OpCode::HitObject_WorldToObject4x3:
+  case OpCode::HitObject_GeometryIndex:
+  case OpCode::HitObject_InstanceIndex:
+  case OpCode::HitObject_InstanceID:
+  case OpCode::HitObject_PrimitiveIndex:
+  case OpCode::HitObject_HitKind:
+  case OpCode::HitObject_ShaderTableIndex:
+    return FT->getReturnType();
   case OpCode::MakeDouble:
   case OpCode::SplitDouble:
     return Type::getDoubleTy(Ctx);
@@ -5783,6 +6218,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
 Type *OP::GetHandleType() const { return m_pHandleType; }
 
 Type *OP::GetNodeHandleType() const { return m_pNodeHandleType; }
+
+Type *OP::GetHitObjectType() const { return m_pHitObjectType; }
 
 Type *OP::GetNodeRecordHandleType() const { return m_pNodeRecordHandleType; }
 

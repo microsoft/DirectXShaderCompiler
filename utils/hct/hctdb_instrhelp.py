@@ -599,6 +599,7 @@ class db_oload_gen:
             "noderecordhandle": "A(pNodeRecordHandle);",
             "nodeproperty": "A(nodeProperty);",
             "noderecordproperty": "A(nodeRecordProperty);",
+            "hit_object": "A(pHit);",
         }
         last_category = None
         for i in self.instrs:
@@ -989,13 +990,13 @@ def get_hlsl_intrinsics():
                 result += "#ifdef ENABLE_SPIRV_CODEGEN\n\n"
             # SPIRV Change Ends
             arg_idx = 0
-        ns_table += "    {(UINT)%s::%s_%s, %s, %s, %s, %d, %d, g_%s_Args%s},\n" % (
+        ns_table += "    {(UINT)%s::%s, %s, %s, %s, %s, %d, %d, g_%s_Args%s},\n" % (
             opcode_namespace,
-            id_prefix,
-            i.name,
+            i.enum_name,
             str(i.readonly).lower(),
             str(i.readnone).lower(),
             str(i.wave).lower(),
+            str(i.static_member).lower(),
             i.overload_param_index,
             len(i.params),
             last_ns,
