@@ -7980,6 +7980,12 @@ def warn_hlsl_legacy_integer_literal_signedness: Warning<
   InGroup<HLSLLegacyLiterals>, DefaultIgnore;
 def err_hlsl_unsupported_semantic_index: Error<
   "'%0' is defined with semantic index %1, but only values 0 through %2 are supported">;
+
+// Shader Execution Reordering
+def err_hlsl_ser_unsupported : Error<
+   "%select{dx::HitObject|dx::MaybeReorderThread}0 is unavailable in shader stage '%1' (requires 'raygeneration'%select{|, 'closesthit' or 'miss'}2)">;
+def err_hlsl_ser_invalid_version : Error<
+   "shader execution reordering is unsupported in target profile %0 requires target profile lib_6_9+">;
 // HLSL Change Ends
 
 // SPIRV Change Starts
