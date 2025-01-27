@@ -135,6 +135,9 @@ void HLExpandStoreIntrinsics::emitElementStores(
 
     Value *OffsetVal =
         OriginalCall.getArgOperand(HLOperandIndex::kStoreOffsetOpIdx);
+    if (OffsetVal->getType()->isVectorTy())
+      OffsetVal = Builder.CreateExtractElement(OffsetVal, Builder.getInt32(0));
+
     if (OffsetFromBase > 0)
       OffsetVal =
           Builder.CreateAdd(OffsetVal, Builder.getInt32(OffsetFromBase));
