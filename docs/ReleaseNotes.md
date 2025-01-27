@@ -22,6 +22,7 @@ The included licenses apply to the following files:
 - The incomplete WaveMatrix implementation has been removed.
 - DXIL Validator Hash is open sourced.
 - DXIL container validation for PSV0 part allows any content ordering inside string and semantic index tables.
+- The and() and or() intrinsics will now accept non-integer parameters by casting them to bools.
 
 ### Version 1.8.2407
 
