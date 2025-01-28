@@ -1,3 +1,4 @@
+// UNSUPPORTED: hash_stability
 // RUN: %dxc -fcgl -HV 2018 -T ps_6_0 %s | FileCheck %s
 // RUN: %dxc -fcgl -HV 2021 -T ps_6_0 %s | FileCheck %s
 

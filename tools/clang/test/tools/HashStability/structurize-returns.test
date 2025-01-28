@@ -1,0 +1,5 @@
+XFAIL:*
+
+RUN: %hash_stability  -s ret0 "-fdisable-loc-tracking /E main -opt-enable structurize-returns /T cs_6_0 -enable-lifetime-markers  %S/../../HLSLFileCheck/hlsl/control_flow/return/lifetime-markers.hlsl"
+
+RUN: %hash_stability  -s ret1 "-fdisable-loc-tracking /E main -opt-enable structurize-returns /T cs_6_0 -disable-lifetime-markers  %S/../../HLSLFileCheck/hlsl/control_flow/return/lifetime-markers.hlsl"

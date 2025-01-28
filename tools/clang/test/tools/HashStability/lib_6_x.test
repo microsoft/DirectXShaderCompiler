@@ -1,0 +1,3 @@
+XFAIL:*
+
+RUN: %hash_stability -s lib_6_x /T lib_6_xf %S/../../HLSLFileCheck/hlsl/objects/Cbuffer/retCBV3.hlsl

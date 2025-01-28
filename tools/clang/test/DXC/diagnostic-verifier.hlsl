@@ -1,3 +1,6 @@
+// Skip hash stablity because verify mode might have compile error.
+// UNSUPPORTED: hash_stability
+
 // RUN: %dxc -T lib_6_3 %s -verify
 // RUN: not %dxc -T lib_6_3 %s -DEXTRA_ERROR -verify 2>&1 | FileCheck %s
 
@@ -8,4 +11,4 @@ baz(); // Woah!
 #endif
 
 // CHECK: error: 'error' diagnostics seen but not expected: 
-// CHECK: File {{.*}}diagnostic-verifier.hlsl Line 7: HLSL requires a type specifier for all declarations
+// CHECK: File {{.*}}diagnostic-verifier.hlsl Line 10: HLSL requires a type specifier for all declarations

@@ -1,3 +1,6 @@
+// Skip hash stability because not test for dxc
+// UNSUPPORTED: hash_stability
+
 // Basic Rewriter Smoke Test
 // RUN: %dxr -remove-unused-globals %S/Inputs/smoke.hlsl -Emain | FileCheck %s --check-prefix=DXR
 

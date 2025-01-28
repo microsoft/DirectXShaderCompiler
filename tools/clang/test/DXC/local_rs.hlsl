@@ -1,3 +1,6 @@
+// Skip hash_stability because rootsig doesn't have hash part
+// UNSUPPORTED: hash_stability
+
 // RUN:%dxc -T rootsig_1_1 %s -rootsig-define main -Fo %t
 // RUN:%dxa  -listparts %t | FileCheck %s
 
