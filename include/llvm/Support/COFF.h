@@ -80,6 +80,7 @@ namespace COFF {
     uint32_t NumberOfSymbols;
   };
 
+#ifndef __MINGW32__
   enum MachineTypes {
     MT_Invalid = 0xffff,
 
@@ -145,6 +146,7 @@ namespace COFF {
     /// and should be 0.
     IMAGE_FILE_BYTES_REVERSED_HI       = 0x8000
   };
+#endif // __MINGW32__
 
   struct symbol {
     char     Name[NameSize];
@@ -155,6 +157,7 @@ namespace COFF {
     uint8_t  NumberOfAuxSymbols;
   };
 
+#ifndef __MINGW32__
   enum SymbolSectionNumber : int32_t {
     IMAGE_SYM_DEBUG     = -2,
     IMAGE_SYM_ABSOLUTE  = -1,
@@ -226,6 +229,7 @@ namespace COFF {
     /// Type is formed as (base + (derived << SCT_COMPLEX_TYPE_SHIFT))
     SCT_COMPLEX_TYPE_SHIFT   = 4
   };
+#endif // __MINGW32__
 
   enum AuxSymbolType {
     IMAGE_AUX_SYMBOL_TYPE_TOKEN_DEF = 1
@@ -244,6 +248,7 @@ namespace COFF {
     uint32_t Characteristics;
   };
 
+#ifndef __MINGW32__
   enum SectionCharacteristics : uint32_t {
     SC_Invalid = 0xffffffff,
 
@@ -283,6 +288,7 @@ namespace COFF {
     IMAGE_SCN_MEM_READ               = 0x40000000,
     IMAGE_SCN_MEM_WRITE              = 0x80000000
   };
+#endif // __MINGW32__
 
   struct relocation {
     uint32_t VirtualAddress;
@@ -290,6 +296,7 @@ namespace COFF {
     uint16_t Type;
   };
 
+#ifndef __MINGW32__
   enum RelocationTypeI386 {
     IMAGE_REL_I386_ABSOLUTE = 0x0000,
     IMAGE_REL_I386_DIR16    = 0x0001,
@@ -351,6 +358,7 @@ namespace COFF {
     IMAGE_COMDAT_SELECT_LARGEST,
     IMAGE_COMDAT_SELECT_NEWEST
   };
+#endif // __MINGW32__
 
   // Auxiliary Symbol Formats
   struct AuxiliaryFunctionDefinition {
@@ -375,12 +383,14 @@ namespace COFF {
     uint8_t  unused[10];
   };
 
+#ifndef __MINGW32__
   /// These are not documented in the spec, but are located in WinNT.h.
   enum WeakExternalCharacteristics {
     IMAGE_WEAK_EXTERN_SEARCH_NOLIBRARY = 1,
     IMAGE_WEAK_EXTERN_SEARCH_LIBRARY   = 2,
     IMAGE_WEAK_EXTERN_SEARCH_ALIAS     = 3
   };
+#endif // __MINGW32__
 
   struct AuxiliarySectionDefinition {
     uint32_t Length;
@@ -541,6 +551,7 @@ namespace COFF {
     NUM_DATA_DIRECTORIES
   };
 
+#ifndef __MINGW32__
   enum WindowsSubsystem {
     IMAGE_SUBSYSTEM_UNKNOWN = 0, ///< An unknown subsystem.
     IMAGE_SUBSYSTEM_NATIVE = 1, ///< Device drivers and native Windows processes
@@ -612,6 +623,7 @@ namespace COFF {
     IMAGE_REL_BASED_MIPS_JMPADDR16 = 9,
     IMAGE_REL_BASED_DIR64          = 10
   };
+#endif // __MINGW32__
 
   enum ImportType {
     IMPORT_CODE  = 0,

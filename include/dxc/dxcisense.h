@@ -12,7 +12,7 @@
 #ifndef __DXC_ISENSE__
 #define __DXC_ISENSE__
 
-#include "dxcapi.h"
+#include "dxc/dxcapi.h"
 #ifndef _WIN32
 #include "WinAdapter.h"
 #endif
@@ -943,7 +943,7 @@ struct IDxcCompletionString : public IUnknown {
 // CLSID_DxcIntelliSense is not visible externally (this is OK in C, since const
 // is not by default static in C)
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #define CLSID_SCOPE __declspec(selectany) extern
 #else
 #define CLSID_SCOPE
