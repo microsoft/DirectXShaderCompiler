@@ -5532,8 +5532,11 @@ class db_dxil(object):
             "Analogous to TraceRay but without invoking CH/MS and returns the intermediate state as a HitObject",
             "u",
             "",
-            [db_dxil_param(0, "hit_object", "", "HitObject created from RayQuery object"),
-             db_dxil_param(
+            [
+                db_dxil_param(
+                    0, "hit_object", "", "HitObject created from RayQuery object"
+                ),
+                db_dxil_param(
                     2,
                     "res",
                     "accelerationStructure",
@@ -5582,7 +5585,8 @@ class db_dxil(object):
                     "udt",
                     "payload",
                     "User-defined intersection attribute structure",
-                )]
+                ),
+            ],
         )
         next_op_idx += 1
 
@@ -5593,8 +5597,12 @@ class db_dxil(object):
             "Creates a new HitObject representing a committed hit from a RayQuery",
             "v",
             "amo",
-            [db_dxil_param(0, "hit_object", "", "HitObject created from RayQuery object"),
-             db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")]
+            [
+                db_dxil_param(
+                    0, "hit_object", "", "HitObject created from RayQuery object"
+                ),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
         )
         next_op_idx += 1
 
@@ -5605,9 +5613,13 @@ class db_dxil(object):
             "Creates a new HitObject representing a committed hit from a RayQuery and committed attributes",
             "$o",
             "amo",
-            [db_dxil_param(0, "hit_object", "", "HitObject created from RayQuery object"),
-             db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
-             db_dxil_param(3, "udt", "CommittedAttribs", "Committed attributes")]
+            [
+                db_dxil_param(
+                    0, "hit_object", "", "HitObject created from RayQuery object"
+                ),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+                db_dxil_param(3, "udt", "CommittedAttribs", "Committed attributes"),
+            ],
         )
         next_op_idx += 1
 
@@ -5618,17 +5630,19 @@ class db_dxil(object):
             "Creates a new HitObject representing a miss",
             "v",
             "rn",
-            [db_dxil_param(0, "hit_object", "", "HitObject with a committed miss"),
-             db_dxil_param(2, "i32", "RayFlags", "ray flags"),
-             db_dxil_param(3, "i32", "MissShaderIndex", "Miss shader index"),
-             db_dxil_param(4, "f", "Origin_X", "Origin x of the ray"),
-             db_dxil_param(5, "f", "Origin_Y", "Origin y of the ray"),
-             db_dxil_param(6, "f", "Origin_Z", "Origin z of the ray"),
-             db_dxil_param(7, "f", "TMin", "Tmin of the ray"),
-             db_dxil_param(8, "f", "Direction_X", "Direction x of the ray"),
-             db_dxil_param(9, "f", "Direction_Y", "Direction y of the ray"),
-             db_dxil_param(10, "f", "Direction_Z", "Direction z of the ray"),
-             db_dxil_param(11, "f", "TMax", "Tmax of the ray")]
+            [
+                db_dxil_param(0, "hit_object", "", "HitObject with a committed miss"),
+                db_dxil_param(2, "i32", "RayFlags", "ray flags"),
+                db_dxil_param(3, "i32", "MissShaderIndex", "Miss shader index"),
+                db_dxil_param(4, "f", "Origin_X", "Origin x of the ray"),
+                db_dxil_param(5, "f", "Origin_Y", "Origin y of the ray"),
+                db_dxil_param(6, "f", "Origin_Z", "Origin z of the ray"),
+                db_dxil_param(7, "f", "TMin", "Tmin of the ray"),
+                db_dxil_param(8, "f", "Direction_X", "Direction x of the ray"),
+                db_dxil_param(9, "f", "Direction_Y", "Direction y of the ray"),
+                db_dxil_param(10, "f", "Direction_Z", "Direction z of the ray"),
+                db_dxil_param(11, "f", "TMax", "Tmax of the ray"),
+            ],
         )
         next_op_idx += 1
 
@@ -5639,7 +5653,7 @@ class db_dxil(object):
             "Creates an empty nop HitObject",
             "v",
             "rn",
-            [db_dxil_param(0, "hit_object", "", "Empty nop HitObject")]
+            [db_dxil_param(0, "hit_object", "", "Empty nop HitObject")],
         )
         next_op_idx += 1
 
@@ -5650,14 +5664,16 @@ class db_dxil(object):
             "Represents the invocation of the CH/MS shader represented by the HitObject",
             "u",
             "",
-            [retvoid_param,
-             db_dxil_param(2, "hit_object", "hitObject", "hit"),
-             db_dxil_param(
-              3,
-              "udt",
-              "payload",
-              "User-defined intersection attribute structure",
-            )]
+            [
+                retvoid_param,
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(
+                    3,
+                    "udt",
+                    "payload",
+                    "User-defined intersection attribute structure",
+                ),
+            ],
         )
         next_op_idx += 1
 
@@ -5668,10 +5684,17 @@ class db_dxil(object):
             "Reorders the current thread. Optionally accepts a HitObject arg, or undef",
             "v",
             "",
-            [retvoid_param,
-             db_dxil_param(2, "hit_object", "hitObject", "hit"),
-             db_dxil_param(3, "i32", "coherenceHint", "Coherence hint"),
-             db_dxil_param(4, "i32", "numCoherenceHintBitsFromLSB", "Num coherence hint bits from LSB")]
+            [
+                retvoid_param,
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(3, "i32", "coherenceHint", "Coherence hint"),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "numCoherenceHintBitsFromLSB",
+                    "Num coherence hint bits from LSB",
+                ),
+            ],
         )
         next_op_idx += 1
 
@@ -5682,8 +5705,10 @@ class db_dxil(object):
             "Returns `true` if the HitObject represents a miss",
             "1",
             "rn",
-            [db_dxil_param(0, "i1", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+            [
+                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
         )
         next_op_idx += 1
 
@@ -5694,8 +5719,10 @@ class db_dxil(object):
             "Returns `true` if the HitObject is a NOP-HitObject",
             "1",
             "rn",
-            [db_dxil_param(0, "i1", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+            [
+                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
         )
         next_op_idx += 1
 
@@ -5706,8 +5733,10 @@ class db_dxil(object):
             "Returns `true` if the HitObject represents a nop",
             "1",
             "rn",
-            [db_dxil_param(0, "i1", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+            [
+                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
         )
         next_op_idx += 1
 
@@ -5718,8 +5747,10 @@ class db_dxil(object):
             "Returns the ray flags set in the HitObject",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
         )
         next_op_idx += 1
 
@@ -5730,8 +5761,10 @@ class db_dxil(object):
             "Returns the TMin value set in the HitObject",
             "f",
             "rn",
-            [db_dxil_param(0, "f", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+            [
+                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
         )
         next_op_idx += 1
 
@@ -5742,8 +5775,10 @@ class db_dxil(object):
             "Returns the current T value set in the HitObject",
             "f",
             "rn",
-            [db_dxil_param(0, "f", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+            [
+                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
         )
         next_op_idx += 1
 
@@ -5754,9 +5789,11 @@ class db_dxil(object):
             "Returns the ray origin in world space",
             "f",
             "rn",
-            [db_dxil_param(0, "f", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit"),
-             db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True)]
+            [
+                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True),
+            ],
         )
         next_op_idx += 1
 
@@ -5767,9 +5804,11 @@ class db_dxil(object):
             "Returns the ray direction in world space",
             "f",
             "rn",
-            [db_dxil_param(0, "f", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit"),
-             db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True)]
+            [
+                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True),
+            ],
         )
         next_op_idx += 1
 
@@ -5780,9 +5819,11 @@ class db_dxil(object):
             "Returns the ray origin in object space",
             "f",
             "rn",
-            [db_dxil_param(0, "f", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit"),
-             db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True)]
+            [
+                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True),
+            ],
         )
         next_op_idx += 1
 
@@ -5793,9 +5834,11 @@ class db_dxil(object):
             "Returns the ray direction in object space",
             "f",
             "rn",
-            [db_dxil_param(0, "f", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit"),
-             db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True)]
+            [
+                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True),
+            ],
         )
         next_op_idx += 1
 
@@ -5806,10 +5849,24 @@ class db_dxil(object):
             "Returns the object to world space transformation matrix in 3x4 form",
             "f",
             "rn",
-            [db_dxil_param(0, "f", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit"),
-             db_dxil_param(3, "i32", "row", "row [0..2], , relative to the element", is_const=True),
-             db_dxil_param(4, "i32", "col", "column [0..3], relative to the element", is_const=True)]
+            [
+                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(
+                    3,
+                    "i32",
+                    "row",
+                    "row [0..2], , relative to the element",
+                    is_const=True,
+                ),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "col",
+                    "column [0..3], relative to the element",
+                    is_const=True,
+                ),
+            ],
         )
         next_op_idx += 1
 
@@ -5820,10 +5877,24 @@ class db_dxil(object):
             "Returns the object to world space transformation matrix in 4x3 form",
             "f",
             "rn",
-            [db_dxil_param(0, "f", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit"),
-             db_dxil_param(3, "i32", "row", "row [0..3], relative to the element", is_const=True),
-             db_dxil_param(4, "i32", "col", "column [0..2], relative to the element", is_const=True)]
+            [
+                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(
+                    3,
+                    "i32",
+                    "row",
+                    "row [0..3], relative to the element",
+                    is_const=True,
+                ),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "col",
+                    "column [0..2], relative to the element",
+                    is_const=True,
+                ),
+            ],
         )
         next_op_idx += 1
 
@@ -5834,10 +5905,24 @@ class db_dxil(object):
             "Returns the world to object space transformation matrix in 3x4 form",
             "f",
             "rn",
-            [db_dxil_param(0, "f", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit"),
-             db_dxil_param(3, "i32", "row", "row [0..2], relative to the element", is_const=True),
-             db_dxil_param(4, "i32", "col", "column [0..3], relative to the element", is_const=True)]
+            [
+                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(
+                    3,
+                    "i32",
+                    "row",
+                    "row [0..2], relative to the element",
+                    is_const=True,
+                ),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "col",
+                    "column [0..3], relative to the element",
+                    is_const=True,
+                ),
+            ],
         )
         next_op_idx += 1
 
@@ -5848,10 +5933,24 @@ class db_dxil(object):
             "Returns the world to object space transformation matrix in 4x3 form",
             "f",
             "rn",
-            [db_dxil_param(0, "f", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit"),
-             db_dxil_param(3, "i32", "row", "row [0..3], relative to the element", is_const=True),
-             db_dxil_param(4, "i32", "col", "column [0..2], relative to the element", is_const=True)]
+            [
+                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(
+                    3,
+                    "i32",
+                    "row",
+                    "row [0..3], relative to the element",
+                    is_const=True,
+                ),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "col",
+                    "column [0..2], relative to the element",
+                    is_const=True,
+                ),
+            ],
         )
         next_op_idx += 1
 
@@ -5862,8 +5961,10 @@ class db_dxil(object):
             "Returns the geometry index committed on hit",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
         )
         next_op_idx += 1
 
@@ -5874,8 +5975,10 @@ class db_dxil(object):
             "Returns the instance index committed on hit",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
         )
         next_op_idx += 1
 
@@ -5886,8 +5989,10 @@ class db_dxil(object):
             "Returns the instance id committed on hit",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
         )
         next_op_idx += 1
 
@@ -5898,8 +6003,10 @@ class db_dxil(object):
             "Returns the primitive index committed on hit",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
         )
         next_op_idx += 1
 
@@ -5910,8 +6017,10 @@ class db_dxil(object):
             "Returns the HitKind of the hit",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
         )
         next_op_idx += 1
 
@@ -5922,8 +6031,10 @@ class db_dxil(object):
             "Returns the shader table index set for this HitObject",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit")]
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
         )
         next_op_idx += 1
 
@@ -5934,9 +6045,13 @@ class db_dxil(object):
             "Returns a HitObject with updated shader table index",
             "v",
             "rn",
-            [db_dxil_param(0, "hit_object", "hitObject", "hit with shader table index set"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit"),
-             db_dxil_param(3, "i32", "shaderTableIndex", "shader table index")]
+            [
+                db_dxil_param(
+                    0, "hit_object", "hitObject", "hit with shader table index set"
+                ),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(3, "i32", "shaderTableIndex", "shader table index"),
+            ],
         )
         next_op_idx += 1
 
@@ -5947,9 +6062,11 @@ class db_dxil(object):
             "Returns the root table constant for this HitObject and offset",
             "v",
             "ro",
-            [db_dxil_param(0, "i32", "", "operation result"),
-             db_dxil_param(2, "hit_object", "hitObject", "hit"),
-             db_dxil_param(3, "i32", "offset", "offset")]
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(3, "i32", "offset", "offset"),
+            ],
         )
         next_op_idx += 1
 
@@ -5960,9 +6077,13 @@ class db_dxil(object):
             "Returns the attributes set for this HitObject",
             "$o",
             "amo",
-            [retvoid_param,
-             db_dxil_param(2, "hit_object", "hitObject", "hit"),
-             db_dxil_param(3, "udt", "attributes", "pointer to store the attributes to")]
+            [
+                retvoid_param,
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(
+                    3, "udt", "attributes", "pointer to store the attributes to"
+                ),
+            ],
         )
         next_op_idx += 1
 
@@ -8623,7 +8744,7 @@ class db_hlsl_intrinsic(object):
             id_prefix = "IOP"
         # SPIR-V Change Ends
         if class_prefix:
-            class_name = ns[0:-len("Methods")]
+            class_name = ns[0 : -len("Methods")]
             self.enum_name = "%s_%s_%s" % (id_prefix, class_name, name)
         else:
             self.enum_name = "%s_%s" % (id_prefix, name)
@@ -8638,7 +8759,7 @@ class db_hlsl_intrinsic(object):
             overload_idx  # Parameter determines the overload type, -1 means ret type
         )
         self.hidden = hidden  # Internal high-level op, not exposed to HLSL
-        self.static_member = static_member # HLSL static member function
+        self.static_member = static_member  # HLSL static member function
         self.key = (
             ("%3d" % ns_idx)
             + "!"
@@ -9011,9 +9132,9 @@ class db_hlsl(object):
             readonly = False  # Only read memory
             readnone = False  # Not read memory
             argmemonly = False  # Only reads memory through pointer arguments
-            static_member = False # Static member function
+            static_member = False  # Static member function
             is_wave = False
-            class_prefix = False # Insert class name as enum_prefix
+            class_prefix = False  # Insert class name as enum_prefix
             # Is wave-sensitive
             unsigned_op = ""  # Unsigned opcode if exist
             overload_param_index = (
@@ -9160,7 +9281,7 @@ class db_hlsl(object):
                         overload_param_index,
                         hidden,
                         static_member,
-                        class_prefix
+                        class_prefix,
                     )
                 )
                 num_entries += 1
