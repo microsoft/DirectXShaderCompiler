@@ -1101,6 +1101,9 @@ bool isOpaqueType(QualType type) {
 
     if (name == "SubpassInput")
       return true;
+
+    if (name == "HitObject")
+      return true;
   }
   return false;
 }

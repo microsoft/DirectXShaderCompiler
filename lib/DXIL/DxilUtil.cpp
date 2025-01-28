@@ -549,6 +549,9 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
     if (name.startswith("dx.types.wave_t"))
       return true;
 
+    if (name == "dx.types.HitObject")
+      return true;
+
     if (name.compare("dx.types.Handle") == 0)
       return true;
 
@@ -585,6 +588,15 @@ bool IsHLSLRayQueryType(llvm::Type *Ty) {
       return true;
   }
   return false;
+}
+
+bool IsHLSLHitObjectType(llvm::Type *Ty) {
+  llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty);
+  if (!ST)
+    return false;
+  if (!ST->hasName())
+    return false;
+  return ST->getName() == "dx.types.HitObject";
 }
 
 bool IsHLSLResourceDescType(llvm::Type *Ty) {

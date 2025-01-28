@@ -1454,6 +1454,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
       "ConsumeStructuredBuffer<Foo> consume_buf;"
       "RasterizerOrderedByteAddressBuffer rov_buf;"
       "globallycoherent RWByteAddressBuffer gc_buf;"
+      "reordercoherent RWByteAddressBuffer rc_buf;"
       "float function_import(float x);"
       "export float function0(min16float x) { "
       "  return x + 1 + tex[0].x; }"
@@ -1465,6 +1466,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
       "  f.f2 += 0.5; append_buf.Append(f);"
       "  rov_buf.Store(i, f.i2.x);"
       "  gc_buf.Store(i, f.i2.y);"
+      "  rc_buf.Store(i, f.i2.y);"
       "  b_buf.Store(i, f.i2.x + f.i2.y); }";
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -1477,7 +1479,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
     hlsl::DXIL::ResourceKind kind;
     hlsl::RDAT::DxilResourceFlag flag;
   };
-  const unsigned numResFlagCheck = 5;
+  const unsigned numResFlagCheck = 6;
   CheckResFlagInfo resFlags[numResFlagCheck] = {
       {"b_buf", hlsl::DXIL::ResourceKind::RawBuffer,
        hlsl::RDAT::DxilResourceFlag::None},
@@ -1487,6 +1489,8 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
        hlsl::RDAT::DxilResourceFlag::UAVCounter},
       {"gc_buf", hlsl::DXIL::ResourceKind::RawBuffer,
        hlsl::RDAT::DxilResourceFlag::UAVGloballyCoherent},
+      {"rc_buf", hlsl::DXIL::ResourceKind::RawBuffer,
+       hlsl::RDAT::DxilResourceFlag::UAVReorderCoherent},
       {"rov_buf", hlsl::DXIL::ResourceKind::RawBuffer,
        hlsl::RDAT::DxilResourceFlag::UAVRasterizerOrderedView}};
 
@@ -1575,7 +1579,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           IFTBOOLMSG(false, E_FAIL, "unknown function name");
         }
       }
-      VERIFY_ARE_EQUAL(resTable.Count(), 8U);
+      VERIFY_ARE_EQUAL(resTable.Count(), 9U);
     }
   }
   IFTBOOLMSG(blobFound, E_FAIL, "failed to find RDAT blob after compiling");
