@@ -6228,8 +6228,9 @@ ABIArgInfo MSDXILABIInfo::classifyArgumentType(QualType Ty) const {
   if (isAggregateTypeForABI(Ty))
     return ABIArgInfo::getIndirect(0, /* byval */ false);
 
-  ABIArgInfo ArgInfo = (Ty->isPromotableIntegerType() ? ABIArgInfo::getExtend()
-                                        : ABIArgInfo::getDirect());
+  ABIArgInfo ArgInfo =
+      (Ty->isPromotableIntegerType() ? ABIArgInfo::getExtend()
+                                     : ABIArgInfo::getDirect());
 
   // Maintain opacity of dx.types.HitObject and never flatten it
   if (hlsl::IsHLSLHitObjectType(Ty))

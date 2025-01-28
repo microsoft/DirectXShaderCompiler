@@ -437,7 +437,9 @@ const unsigned kHitObjectFromRayQuery_CustomAttrsOpIdx = 2;
 
 // HitObject::TraceRay
 const unsigned kHitObjectTraceRay_RayDescOpIdx = 7;
-const unsigned kHitObjectTraceRay_PayloadOpIdx = 7+4; // This is after RayDesc expansion but before flattening of the RayDesc vector elements.
+const unsigned kHitObjectTraceRay_PayloadOpIdx =
+    7 + 4; // This is after RayDesc expansion but before flattening of the
+           // RayDesc vector elements.
 
 // HitObject::MakeMiss
 const unsigned kHitObjectMakeMiss_RayDescOpIdx = 3;

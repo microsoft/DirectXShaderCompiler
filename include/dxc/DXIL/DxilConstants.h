@@ -858,36 +858,52 @@ enum class OpCode : unsigned {
                                    // operation with a mipmap-level offset
 
   // Shader Execution Reordering
-  HitObject_Attributes = 287, // Returns the attributes set for this HitObject
-  HitObject_FromRayQuery = 259, // Creates a new HitObject representing a committed hit from a RayQuery
-  HitObject_FromRayQueryWithAttrs = 260, // Creates a new HitObject representing a committed hit from a RayQuery and committed attributes
+  HitObject_Attributes = 287,   // Returns the attributes set for this HitObject
+  HitObject_FromRayQuery = 259, // Creates a new HitObject representing a
+                                // committed hit from a RayQuery
+  HitObject_FromRayQueryWithAttrs =
+      260, // Creates a new HitObject representing a committed hit from a
+           // RayQuery and committed attributes
   HitObject_GeometryIndex = 279, // Returns the geometry index committed on hit
-  HitObject_HitKind = 283, // Returns the HitKind of the hit
-  HitObject_InstanceID = 281, // Returns the instance id committed on hit
+  HitObject_HitKind = 283,       // Returns the HitKind of the hit
+  HitObject_InstanceID = 281,    // Returns the instance id committed on hit
   HitObject_InstanceIndex = 280, // Returns the instance index committed on hit
-  HitObject_Invoke = 263, // Represents the invocation of the CH/MS shader represented by the HitObject
-  HitObject_IsHit = 266, // Returns `true` if the HitObject is a NOP-HitObject
+  HitObject_Invoke = 263, // Represents the invocation of the CH/MS shader
+                          // represented by the HitObject
+  HitObject_IsHit = 266,  // Returns `true` if the HitObject is a NOP-HitObject
   HitObject_IsMiss = 265, // Returns `true` if the HitObject represents a miss
-  HitObject_IsNop = 267, // Returns `true` if the HitObject represents a nop
-  HitObject_LoadLocalRootTableConstant = 286, // Returns the root table constant for this HitObject and offset
+  HitObject_IsNop = 267,  // Returns `true` if the HitObject represents a nop
+  HitObject_LoadLocalRootTableConstant =
+      286, // Returns the root table constant for this HitObject and offset
   HitObject_MakeMiss = 261, // Creates a new HitObject representing a miss
-  HitObject_MakeNop = 262, // Creates an empty nop HitObject
-  HitObject_ObjectRayDirection = 274, // Returns the ray direction in object space
-  HitObject_ObjectRayOrigin = 273, // Returns the ray origin in object space
-  HitObject_ObjectToWorld3x4 = 275, // Returns the object to world space transformation matrix in 3x4 form
-  HitObject_ObjectToWorld4x3 = 276, // Returns the object to world space transformation matrix in 4x3 form
-  HitObject_PrimitiveIndex = 282, // Returns the primitive index committed on hit
+  HitObject_MakeNop = 262,  // Creates an empty nop HitObject
+  HitObject_ObjectRayDirection =
+      274,                          // Returns the ray direction in object space
+  HitObject_ObjectRayOrigin = 273,  // Returns the ray origin in object space
+  HitObject_ObjectToWorld3x4 = 275, // Returns the object to world space
+                                    // transformation matrix in 3x4 form
+  HitObject_ObjectToWorld4x3 = 276, // Returns the object to world space
+                                    // transformation matrix in 4x3 form
+  HitObject_PrimitiveIndex =
+      282,                  // Returns the primitive index committed on hit
   HitObject_RayFlags = 268, // Returns the ray flags set in the HitObject
-  HitObject_RayTCurrent = 270, // Returns the current T value set in the HitObject
+  HitObject_RayTCurrent =
+      270,                 // Returns the current T value set in the HitObject
   HitObject_RayTMin = 269, // Returns the TMin value set in the HitObject
-  HitObject_SetShaderTableIndex = 285, // Returns a HitObject with updated shader table index
-  HitObject_ShaderTableIndex = 284, // Returns the shader table index set for this HitObject
-  HitObject_TraceRay = 258, // Analogous to TraceRay but without invoking CH/MS and returns the intermediate state as a HitObject
+  HitObject_SetShaderTableIndex =
+      285, // Returns a HitObject with updated shader table index
+  HitObject_ShaderTableIndex =
+      284, // Returns the shader table index set for this HitObject
+  HitObject_TraceRay = 258, // Analogous to TraceRay but without invoking CH/MS
+                            // and returns the intermediate state as a HitObject
   HitObject_WorldRayDirection = 272, // Returns the ray direction in world space
-  HitObject_WorldRayOrigin = 271, // Returns the ray origin in world space
-  HitObject_WorldToObject3x4 = 277, // Returns the world to object space transformation matrix in 3x4 form
-  HitObject_WorldToObject4x3 = 278, // Returns the world to object space transformation matrix in 4x3 form
-  ReorderThread = 264, // Reorders the current thread. Optionally accepts a HitObject arg, or undef
+  HitObject_WorldRayOrigin = 271,    // Returns the ray origin in world space
+  HitObject_WorldToObject3x4 = 277,  // Returns the world to object space
+                                     // transformation matrix in 3x4 form
+  HitObject_WorldToObject4x3 = 278,  // Returns the world to object space
+                                     // transformation matrix in 4x3 form
+  ReorderThread = 264, // Reorders the current thread. Optionally accepts a
+                       // HitObject arg, or undef
 
   // Synchronization
   AtomicBinOp = 78,           // performs an atomic operation on two operands
@@ -1878,9 +1894,9 @@ enum class MemoryTypeFlag : uint32_t {
 
 // Corresponds to SEMANTIC_FLAG enums in HLSL
 enum class BarrierSemanticFlag : uint32_t {
-  GroupSync = 0x00000001,   // GROUP_SYNC
-  GroupScope = 0x00000002,  // GROUP_SCOPE
-  DeviceScope = 0x00000004, // DEVICE_SCOPE
+  GroupSync = 0x00000001,    // GROUP_SYNC
+  GroupScope = 0x00000002,   // GROUP_SCOPE
+  DeviceScope = 0x00000004,  // DEVICE_SCOPE
   ReorderScope = 0x00000008, // REORDER_SCOPE
   ValidMask = 0x0000000F,
   GroupFlags = GroupSync | GroupScope,

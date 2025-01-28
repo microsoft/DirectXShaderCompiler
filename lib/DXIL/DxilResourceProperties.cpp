@@ -235,8 +235,7 @@ DxilResourceProperties tryMergeProps(DxilResourceProperties curProps,
         prevProps.Basic.IsGloballyCoherent) {
       curProps.Basic.IsGloballyCoherent = prevProps.Basic.IsGloballyCoherent;
     }
-    if (curProps.Basic.IsReorderCoherent !=
-        prevProps.Basic.IsReorderCoherent) {
+    if (curProps.Basic.IsReorderCoherent != prevProps.Basic.IsReorderCoherent) {
       curProps.Basic.IsReorderCoherent = prevProps.Basic.IsReorderCoherent;
     }
   }

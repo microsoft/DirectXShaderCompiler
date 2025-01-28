@@ -19,19 +19,19 @@ reordercoherent RWByteAddressBuffer RCBufArr[2];
 reordercoherent RWByteAddressBuffer RCBufMultiArr[2][2];
 globallycoherent RWByteAddressBuffer GCBufMultiArr[2][2];
 
-globallycoherent RWByteAddressBuffer getPromoteRCArr() { 
+globallycoherent RWByteAddressBuffer getPromoteRCArr() {
   return RCBufArr[0]; // expected-warning{{implicit conversion from 'reordercoherent RWByteAddressBuffer' to 'globallycoherent RWByteAddressBuffer' promotes reordercoherent to globallycoherent annotation}}
 }
 
-reordercoherent RWByteAddressBuffer getDemoteGCArr() { 
+reordercoherent RWByteAddressBuffer getDemoteGCArr() {
   return GCBufArr[0]; // expected-warning{{implicit conversion from 'globallycoherent RWByteAddressBuffer' to 'reordercoherent RWByteAddressBuffer' demotes globallycoherent to reordercoherent annotation}}
 }
 
-globallycoherent RWByteAddressBuffer getPromoteRCMultiArr() { 
+globallycoherent RWByteAddressBuffer getPromoteRCMultiArr() {
   return RCBufMultiArr[0][0]; // expected-warning{{implicit conversion from 'reordercoherent RWByteAddressBuffer' to 'globallycoherent RWByteAddressBuffer' promotes reordercoherent to globallycoherent annotation}}
 }
 
-reordercoherent RWByteAddressBuffer getDemoteGCMultiArr() { 
+reordercoherent RWByteAddressBuffer getDemoteGCMultiArr() {
   return GCBufMultiArr[0][0]; // expected-warning{{implicit conversion from 'globallycoherent RWByteAddressBuffer' to 'reordercoherent RWByteAddressBuffer' demotes globallycoherent to reordercoherent annotation}}
 }
 
@@ -69,11 +69,11 @@ void getDemoteToRCParamArr(inout reordercoherent RWByteAddressBuffer PRCBufArr[2
   PRCBufArr = GCBufArr; // expected-warning{{implicit conversion from 'globallycoherent RWByteAddressBuffer [2]' to 'reordercoherent RWByteAddressBuffer __restrict[2]' demotes globallycoherent to reordercoherent annotation}}
 }
 
-globallycoherent RWByteAddressBuffer getGCBuf() { 
+globallycoherent RWByteAddressBuffer getGCBuf() {
   return GCBuf;
 }
 
-reordercoherent RWByteAddressBuffer getRCBuf() { 
+reordercoherent RWByteAddressBuffer getRCBuf() {
   return RCBuf;
 }
 

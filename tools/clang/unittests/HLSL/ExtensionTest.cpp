@@ -212,7 +212,8 @@ Intrinsic Intrinsics[] = {
     {L"test_poly",
      "test_poly.$o",
      "r",
-     {3, false, true, false, false, -1, countof(TestFnCustomArgs), TestFnCustomArgs}},
+     {3, false, true, false, false, -1, countof(TestFnCustomArgs),
+      TestFnCustomArgs}},
     {L"test_int",
      "test_int",
      "r",
@@ -259,8 +260,8 @@ Intrinsic Intrinsics[] = {
     {L"test_unsigned",
      "test_unsigned",
      "n",
-     {static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), false, true, false, false, -1,
-      countof(TestUnsigned), TestUnsigned}},
+     {static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), false, true, false,
+      false, -1, countof(TestUnsigned), TestUnsigned}},
     {L"wave_proc",
      DEFAULT_NAME,
      "r",
@@ -268,15 +269,18 @@ Intrinsic Intrinsics[] = {
     {L"test_o_1",
      "test_o_1.$o:1",
      "r",
-     {18, false, true, true, false, -1, countof(TestOverloadArgs), TestOverloadArgs}},
+     {18, false, true, true, false, -1, countof(TestOverloadArgs),
+      TestOverloadArgs}},
     {L"test_o_2",
      "test_o_2.$o:2",
      "r",
-     {19, false, true, true, false, -1, countof(TestOverloadArgs), TestOverloadArgs}},
+     {19, false, true, true, false, -1, countof(TestOverloadArgs),
+      TestOverloadArgs}},
     {L"test_o_3",
      "test_o_3.$o:3",
      "r",
-     {20, false, true, true, false, -1, countof(TestOverloadArgs), TestOverloadArgs}},
+     {20, false, true, true, false, -1, countof(TestOverloadArgs),
+      TestOverloadArgs}},
     // custom lowering with both optional arguments and vector exploding.
     // Arg 0 = Opcode
     // Arg 1 = Pass as is
@@ -286,7 +290,8 @@ Intrinsic Intrinsics[] = {
     {L"CustomLoadOp",
      "CustomLoadOp",
      "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}",
-     {21, true, false, false, false, -1, countof(TestCustomLoadOp), TestCustomLoadOp}},
+     {21, true, false, false, false, -1, countof(TestCustomLoadOp),
+      TestCustomLoadOp}},
     {L"CustomLoadOp",
      "CustomLoadOp",
      "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}",
@@ -303,7 +308,8 @@ Intrinsic BufferIntrinsics[] = {
     {L"MyBufferOp",
      "MyBufferOp",
      "m",
-     {12, false, true, false, false, -1, countof(TestMyBufferOp), TestMyBufferOp}},
+     {12, false, true, false, false, -1, countof(TestMyBufferOp),
+      TestMyBufferOp}},
 };
 
 // Test adding a method to an object that normally has no methods (SamplerState
@@ -312,7 +318,8 @@ Intrinsic SamplerIntrinsics[] = {
     {L"MySamplerOp",
      "MySamplerOp",
      "m",
-     {15, false, true, false, false, -1, countof(TestMySamplerOp), TestMySamplerOp}},
+     {15, false, true, false, false, -1, countof(TestMySamplerOp),
+      TestMySamplerOp}},
 };
 
 // Define a lowering string to target a common dxil extension operation defined
@@ -1497,8 +1504,8 @@ TEST_F(ExtensionTest, EvalAttributeCollision) {
     Intrinsic Intrinsic = {L"collide_proc",
                            "collide_proc",
                            "r",
-                           {static_cast<unsigned>(op), true, false, false, false, -1,
-                            countof(Args), Args}};
+                           {static_cast<unsigned>(op), true, false, false,
+                            false, -1, countof(Args), Args}};
     Compiler c(m_dllSupport);
     c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
     c.Compile(R"(
@@ -1532,10 +1539,11 @@ TEST_F(ExtensionTest, NoUnwind) {
        IA_C},
       {"value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C}};
 
-  Intrinsic Intrinsic = {L"test_proc",
-                         "test_proc",
-                         "r",
-                         {1, false, false, false, false, -1, countof(Args), Args}};
+  Intrinsic Intrinsic = {
+      L"test_proc",
+      "test_proc",
+      "r",
+      {1, false, false, false, false, -1, countof(Args), Args}};
   Compiler c(m_dllSupport);
   c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
   c.Compile(R"(
@@ -1569,10 +1577,11 @@ TEST_F(ExtensionTest, DCE) {
        IA_C},
       {"value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C}};
 
-  Intrinsic Intrinsic = {L"test_proc",
-                         "test_proc",
-                         "r",
-                         {1, true, true, false, false, -1, countof(Args), Args}};
+  Intrinsic Intrinsic = {
+      L"test_proc",
+      "test_proc",
+      "r",
+      {1, true, true, false, false, -1, countof(Args), Args}};
   Compiler c(m_dllSupport);
   c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
   c.Compile(R"(

@@ -572,10 +572,10 @@ const UINT g_uBasicKindProps[] = {
     0, // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
     0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
-    LICOMPTYPE_RAY_QUERY, // AR_OBJECT_RAY_QUERY,
+    LICOMPTYPE_RAY_QUERY,  // AR_OBJECT_RAY_QUERY,
     LICOMPTYPE_HIT_OBJECT, // AR_OBJECT_HIT_OBJECT,
-    BPROP_OBJECT, // AR_OBJECT_HEAP_RESOURCE,
-    BPROP_OBJECT, // AR_OBJECT_HEAP_SAMPLER,
+    BPROP_OBJECT,          // AR_OBJECT_HEAP_RESOURCE,
+    BPROP_OBJECT,          // AR_OBJECT_HEAP_SAMPLER,
 
     BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2DMS
     BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
@@ -1122,8 +1122,10 @@ static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_HEAP_RESOURCE,
 
 static const ArBasicKind g_RayDescCT[] = {AR_OBJECT_RAY_DESC, AR_BASIC_UNKNOWN};
 
-static const ArBasicKind g_RayQueryCT[] = {AR_OBJECT_RAY_QUERY, AR_BASIC_UNKNOWN};
-static const ArBasicKind g_HitObjectCT[] = {AR_OBJECT_HIT_OBJECT, AR_BASIC_UNKNOWN};
+static const ArBasicKind g_RayQueryCT[] = {AR_OBJECT_RAY_QUERY,
+                                           AR_BASIC_UNKNOWN};
+static const ArBasicKind g_HitObjectCT[] = {AR_OBJECT_HIT_OBJECT,
+                                            AR_BASIC_UNKNOWN};
 
 static const ArBasicKind g_AccelerationStructCT[] = {
     AR_OBJECT_ACCELERATION_STRUCT, AR_BASIC_UNKNOWN};
@@ -1277,8 +1279,8 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_AnyOutputRecordCT,         // LICOMPTYPE_ANY_NODE_OUTPUT_RECORD
     g_GroupNodeOutputRecordsCT,  // LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
     g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
-    g_RayQueryCT, // LICOMPTYPE_RAY_QUERY
-    g_HitObjectCT, // LICOMPTYPE_HIT_OBJECT
+    g_RayQueryCT,                // LICOMPTYPE_RAY_QUERY
+    g_HitObjectCT,               // LICOMPTYPE_HIT_OBJECT
 };
 static_assert(
     ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
@@ -1353,7 +1355,8 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
     AR_OBJECT_TRIANGLE_HIT_GROUP, AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
     AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
-    AR_OBJECT_RAY_QUERY, AR_OBJECT_HIT_OBJECT, AR_OBJECT_HEAP_RESOURCE, AR_OBJECT_HEAP_SAMPLER,
+    AR_OBJECT_RAY_QUERY, AR_OBJECT_HIT_OBJECT, AR_OBJECT_HEAP_RESOURCE,
+    AR_OBJECT_HEAP_SAMPLER,
 
     AR_OBJECT_RWTEXTURE2DMS,       // RWTexture2DMS
     AR_OBJECT_RWTEXTURE2DMS_ARRAY, // RWTexture2DMSArray
@@ -1876,8 +1879,8 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
       context.getFunctionType(fnReturnType, fnArgTypes, protoInfo, paramMods);
   FunctionDecl *functionDecl = FunctionDecl::Create(
       context, currentDeclContext, NoLoc,
-      DeclarationNameInfo(functionName, NoLoc), functionType, nullptr,
-      SC, InlineSpecifiedFalse, HasWrittenPrototypeTrue);
+      DeclarationNameInfo(functionName, NoLoc), functionType, nullptr, SC,
+      InlineSpecifiedFalse, HasWrittenPrototypeTrue);
   currentDeclContext->addDecl(functionDecl);
 
   functionDecl->setLexicalDeclContext(currentDeclContext);
@@ -3275,8 +3278,8 @@ private:
     CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
         *m_context, recordDecl, resultType, ArrayRef<QualType>(indexType),
         ArrayRef<StringRef>(StringRef("index")),
-        m_context->DeclarationNames.getCXXOperatorName(OO_Subscript), true, StorageClass::SC_None,
-        true);
+        m_context->DeclarationNames.getCXXOperatorName(OO_Subscript), true,
+        StorageClass::SC_None, true);
     hlsl::CreateFunctionTemplateDecl(
         *m_context, recordDecl, functionDecl,
         reinterpret_cast<NamedDecl **>(&templateTypeParmDecl), 1);
@@ -3482,8 +3485,7 @@ private:
           m_sema->getASTContext().CreateTypeSourceInfo(fnType, 0);
       FunctionDecl *functionDecl = FunctionDecl::Create(
           context, m_vkNSDecl, NoLoc, DeclarationNameInfo(functionName, NoLoc),
-          fnType, TInfo, SC, InlineSpecifiedFalse,
-          HasWrittenPrototypeTrue);
+          fnType, TInfo, SC, InlineSpecifiedFalse, HasWrittenPrototypeTrue);
 
       // Create and set ParmVarDecl.
       SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount> paramDecls =
@@ -10384,8 +10386,11 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
         objectName == g_ArBasicTypeNames[AR_OBJECT_RWBYTEADDRESS_BUFFER];
     bool IsBABLoad = false;
     bool IsBABStore = false;
-    bool IsHitObjectGetAttributes = intrinsicOp == (UINT) IntrinsicOp::MOP_HitObject_GetAttributes;
-    bool IsHitObjectFromRayQueryWithAttrs = intrinsicOp == (UINT) IntrinsicOp::MOP_HitObject_FromRayQuery && Args.size() == 2;
+    bool IsHitObjectGetAttributes =
+        intrinsicOp == (UINT)IntrinsicOp::MOP_HitObject_GetAttributes;
+    bool IsHitObjectFromRayQueryWithAttrs =
+        intrinsicOp == (UINT)IntrinsicOp::MOP_HitObject_FromRayQuery &&
+        Args.size() == 2;
     if (IsBuiltinTable(tableName) && IsBAB) {
       IsBABLoad = intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
       IsBABStore = intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
@@ -10394,7 +10399,9 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
       bool isLegalTemplate = false;
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
       auto TemplateDiag = diag::err_hlsl_intrinsic_template_arg_unsupported;
-      if (ExplicitTemplateArgs->size() >= 1 && (IsBABLoad || IsBABStore || IsHitObjectGetAttributes || IsHitObjectFromRayQueryWithAttrs)) {
+      if (ExplicitTemplateArgs->size() >= 1 &&
+          (IsBABLoad || IsBABStore || IsHitObjectGetAttributes ||
+           IsHitObjectFromRayQueryWithAttrs)) {
         TemplateDiag = diag::err_hlsl_intrinsic_template_arg_requires_2018;
         Loc = (*ExplicitTemplateArgs)[0].getLocation();
         if (Is2018) {
@@ -11280,14 +11287,12 @@ DiagnoseMemoryFlags(SourceLocation ArgLoc, uint32_t MemoryTypeFlags,
   return MemoryTypeFiltered;
 }
 
-static void DiagnoseSemanticFlags(SourceLocation ArgLoc, uint32_t SemanticFlags,
-                                  bool hasVisibleGroup,
-                                  bool memAtLeastGroupScope,
-                                  bool memAtLeastDeviceScope,
-                                  bool LegalOptsForReorderScope,
-                                  const FunctionDecl *EntryDecl,
-                                  const hlsl::ShaderModel *SM,
-                                  DiagnosticsEngine &Diags) {
+static void
+DiagnoseSemanticFlags(SourceLocation ArgLoc, uint32_t SemanticFlags,
+                      bool hasVisibleGroup, bool memAtLeastGroupScope,
+                      bool memAtLeastDeviceScope, bool LegalOptsForReorderScope,
+                      const FunctionDecl *EntryDecl,
+                      const hlsl::ShaderModel *SM, DiagnosticsEngine &Diags) {
   // If hasVisibleGroup is false, emit error for group flags.
   if (!hasVisibleGroup) {
     if ((uint32_t)SemanticFlags &
@@ -14410,7 +14415,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       }
       break;
     case AttributeList::AT_HLSLGloballyCoherent: // Handled elsewhere
-    case AttributeList::AT_HLSLReorderCoherent: // Handled elsewhere
+    case AttributeList::AT_HLSLReorderCoherent:  // Handled elsewhere
       break;
     case AttributeList::AT_HLSLUniform:
       if (!(isGlobal || isParameter)) {

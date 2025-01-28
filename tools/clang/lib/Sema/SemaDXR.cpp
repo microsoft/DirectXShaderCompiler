@@ -26,9 +26,9 @@
 
 #include "llvm/ADT/BitVector.h"
 
-#include "dxc/HlslIntrinsicOp.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/HlslIntrinsicOp.h"
 
 using namespace clang;
 using namespace sema;
@@ -680,7 +680,8 @@ DiagnosePayloadAsFunctionArg(
 
       // Ignore trace calls here.
       if (IsBuiltinWithPayload(CalledFunction)) {
-        Info.PayloadBuiltinCalls.push_back(PayloadBuiltinCall{Call, Use.Parent});
+        Info.PayloadBuiltinCalls.push_back(
+            PayloadBuiltinCall{Call, Use.Parent});
         continue;
       }
 
@@ -806,7 +807,8 @@ void HandlePayloadInitializer(DxrShaderDiagnoseInfo &Info) {
 // Emit diagnostics for this call to either TraceRay, HitObject::TraceRay or
 // HitObject::Invoke.
 void DiagnoseBuiltinCallWithPayload(Sema &S, const VarDecl *Payload,
-                       const PayloadBuiltinCall &PldCall, DominatorTree &DT) {
+                                    const PayloadBuiltinCall &PldCall,
+                                    DominatorTree &DT) {
   // For each call check if write(caller) fields are written.
   const DXIL::PayloadAccessShaderStage CallerStage =
       DXIL::PayloadAccessShaderStage::Caller;
@@ -827,9 +829,8 @@ void DiagnoseBuiltinCallWithPayload(Sema &S, const VarDecl *Payload,
 
   // Verify that the payload type is legal
   if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Payload->getType()))) {
-      // int PldArgIdx =  PldCall.Call->getNumArgs() - 1;
-       S.Diag(Payload->getLocation(), diag::err_payload_attrs_must_be_udt)
-          << /*payload|attributes|callable*/ 0 << Payload;
+    S.Diag(Payload->getLocation(), diag::err_payload_attrs_must_be_udt)
+        << /*payload|attributes|callable*/ 0 << Payload;
   }
 
   CollectNonAccessableFields(PayloadType, CallerStage, {}, {},
@@ -948,10 +949,11 @@ void DiagnoseBuiltinCallWithPayload(Sema &S, const VarDecl *Payload,
 // Emit diagnostics for all calls to TraceRay, HitObject::TraceRay or
 // HitObject::Invoke.
 void DiagnoseBuiltinCallsWithPayload(Sema &S, CFG &ShaderCFG, DominatorTree &DT,
-                        DxrShaderDiagnoseInfo &Info) {
+                                     DxrShaderDiagnoseInfo &Info) {
   // Collect calls with payload in the shader.
   std::set<const CFGBlock *> Visited;
-  ForwardTraverseCFGAndCollectBuiltinCallsWithPayload(ShaderCFG.getEntry(), Info, Visited);
+  ForwardTraverseCFGAndCollectBuiltinCallsWithPayload(ShaderCFG.getEntry(),
+                                                      Info, Visited);
 
   std::set<const CallExpr *> Diagnosed;
 

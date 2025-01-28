@@ -2977,7 +2977,7 @@ bool AttributedType::isCallingConv() const {
   case attr_hlsl_unorm:
   case attr_hlsl_globallycoherent:
   case attr_hlsl_reordercoherent:
-  // HLSL Change Ends
+    // HLSL Change Ends
     return false;
 
   case attr_pcs:

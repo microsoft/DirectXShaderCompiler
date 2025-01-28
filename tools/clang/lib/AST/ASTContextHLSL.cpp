@@ -1034,8 +1034,8 @@ static void CreateConstructorDeclaration(
 
 static void CreateObjectFunctionDeclaration(
     ASTContext &context, CXXRecordDecl *recordDecl, QualType resultType,
-    ArrayRef<QualType> args, DeclarationName declarationName, bool isConst, StorageClass SC,
-    CXXMethodDecl **functionDecl, TypeSourceInfo **tinfo) {
+    ArrayRef<QualType> args, DeclarationName declarationName, bool isConst,
+    StorageClass SC, CXXMethodDecl **functionDecl, TypeSourceInfo **tinfo) {
   DXASSERT_NOMSG(recordDecl != nullptr);
   DXASSERT_NOMSG(functionDecl != nullptr);
 
@@ -1047,8 +1047,8 @@ static void CreateObjectFunctionDeclaration(
   *tinfo = context.getTrivialTypeSourceInfo(functionQT, NoLoc);
   DXASSERT_NOMSG(*tinfo != nullptr);
   *functionDecl = CXXMethodDecl::Create(
-      context, recordDecl, NoLoc, declNameInfo, functionQT, *tinfo,
-      SC, InlineSpecifiedFalse, IsConstexprFalse, NoLoc);
+      context, recordDecl, NoLoc, declNameInfo, functionQT, *tinfo, SC,
+      InlineSpecifiedFalse, IsConstexprFalse, NoLoc);
   DXASSERT_NOMSG(*functionDecl != nullptr);
   (*functionDecl)->setLexicalDeclContext(recordDecl);
   (*functionDecl)->setAccess(AccessSpecifier::AS_public);
@@ -1057,7 +1057,8 @@ static void CreateObjectFunctionDeclaration(
 CXXMethodDecl *hlsl::CreateObjectFunctionDeclarationWithParams(
     ASTContext &context, CXXRecordDecl *recordDecl, QualType resultType,
     ArrayRef<QualType> paramTypes, ArrayRef<StringRef> paramNames,
-    DeclarationName declarationName, bool isConst, StorageClass SC, bool isTemplateFunction) {
+    DeclarationName declarationName, bool isConst, StorageClass SC,
+    bool isTemplateFunction) {
   DXASSERT_NOMSG(recordDecl != nullptr);
   DXASSERT_NOMSG(!resultType.isNull());
   DXASSERT_NOMSG(paramTypes.size() == paramNames.size());
@@ -1168,7 +1169,7 @@ CXXRecordDecl *hlsl::DeclareHitObjectType(ASTContext &Context) {
   BuiltinTypeDeclBuilder TypeDeclBuilder(Context.getTranslationUnitDecl(),
                                          "HitObject");
   TypeDeclBuilder.startDefinition();
-  CXXRecordDecl* RecordDecl = TypeDeclBuilder.getRecordDecl();
+  CXXRecordDecl *RecordDecl = TypeDeclBuilder.getRecordDecl();
 
   // Add constructor that will be lowered to the intrinsic that produces
   // the HitObject handle for this object.

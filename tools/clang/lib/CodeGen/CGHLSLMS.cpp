@@ -2852,8 +2852,8 @@ const clang::Expr *CGMSHLSLRuntime::CheckReturnStmtCoherenceMismatch(
     CodeGenFunction &CGF, const Expr *RV, const clang::ReturnStmt &S,
     clang::QualType FnRetTy,
     const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) {
-    auto [glcMismatch, rdcMismatch] =
-        getCoherenceMismatch(RV->getType(), FnRetTy, RV, S.getReturnLoc(), CGM.getDiags());
+  auto [glcMismatch, rdcMismatch] = getCoherenceMismatch(
+      RV->getType(), FnRetTy, RV, S.getReturnLoc(), CGM.getDiags());
 
   if (!glcMismatch && !rdcMismatch) {
     return RV;

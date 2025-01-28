@@ -4530,7 +4530,7 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
     return AttributeList::AT_HLSLGloballyCoherent;
   case AttributedType::attr_hlsl_reordercoherent:
     return AttributeList::AT_HLSLReorderCoherent;
-  // HLSL Change Ends
+    // HLSL Change Ends
   }
   llvm_unreachable("unexpected attribute kind!");
 }
@@ -5858,7 +5858,8 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
   case AttributeList::AT_HLSLGloballyCoherent:
     TAK = AttributedType::attr_hlsl_globallycoherent; break;
   case AttributeList::AT_HLSLReorderCoherent:
-    TAK = AttributedType::attr_hlsl_reordercoherent; break;
+    TAK = AttributedType::attr_hlsl_reordercoherent;
+    break;
   }
 
   Type = S.Context.getAttributedType(TAK, Type, Type);

@@ -45,14 +45,13 @@ struct HitObject {
   static HitObject FromRayQuery(in RayQuery<rayFlags> rq,
                                 attr_t CommittedCustomAttribs) {
     HitObject ho;
-    ho.handle =
-        __builtin_HitObject_FromRayQuery(rq, CommittedCustomAttribs);
+    ho.handle = __builtin_HitObject_FromRayQuery(rq, CommittedCustomAttribs);
     return ho;
   }
-  static HitObject MakeMiss(in uint rayFlags, in uint missShaderIndex, in RayDesc ray) {
+  static HitObject MakeMiss(in uint rayFlags, in uint missShaderIndex,
+                            in RayDesc ray) {
     HitObject ho;
-    ho.handle =
-        __builtin_HitObject_MakeMiss(rayFlags, missShaderIndex, ray);
+    ho.handle = __builtin_HitObject_MakeMiss(rayFlags, missShaderIndex, ray);
     return ho;
   }
   static HitObject MakeNop() {
@@ -127,9 +126,13 @@ struct HitObject {
 static void ReorderThread(in HitObject ho) {
   __builtin_HitObject_ReorderThread(ho.handle);
 }
-static void ReorderThread(in uint CoherenceHint, in uint NumCoherentsBitsFromLSB) {
-  __builtin_HitObject_ReorderThread(ho.handle, CoherenceHint, NumCoherentsBitsFromLSB);
+static void ReorderThread(in uint CoherenceHint,
+                          in uint NumCoherentsBitsFromLSB) {
+  __builtin_HitObject_ReorderThread(ho.handle, CoherenceHint,
+                                    NumCoherentsBitsFromLSB);
 }
-static void ReorderThread(in HitObject ho, in uint CoherenceHint, in uint NumCoherentsBitsFromLSB) {
-  __builtin_HitObject_ReorderThread(ho.handle, CoherenceHint, NumCoherentsBitsFromLSB);
+static void ReorderThread(in HitObject ho, in uint CoherenceHint,
+                          in uint NumCoherentsBitsFromLSB) {
+  __builtin_HitObject_ReorderThread(ho.handle, CoherenceHint,
+                                    NumCoherentsBitsFromLSB);
 }

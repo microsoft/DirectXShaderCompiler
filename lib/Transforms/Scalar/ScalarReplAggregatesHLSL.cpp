@@ -1538,7 +1538,8 @@ void isSafeForScalarRepl(Instruction *I, uint64_t Offset, AllocaInfo &Info) {
         // basing on IOP?
         IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(CI));
         // Always flatten RayQuery to i32
-        const bool IsRayQueryParam = dxilutil::IsHLSLRayQueryType(Info.AI->getAllocatedType());
+        const bool IsRayQueryParam =
+            dxilutil::IsHLSLRayQueryType(Info.AI->getAllocatedType());
         if (IsRayQueryParam)
           return;
         if (IntrinsicOp::IOP_TraceRay == opcode ||

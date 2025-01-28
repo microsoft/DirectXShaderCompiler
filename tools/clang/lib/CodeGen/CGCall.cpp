@@ -15,9 +15,9 @@
 #include "CGCall.h"
 #include "ABIInfo.h"
 #include "CGCXXABI.h"
+#include "CGHLSLRuntime.h" // HLSL Change
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
-#include "CGHLSLRuntime.h"    // HLSL Change
 #include "TargetInfo.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "clang/AST/Decl.h"
@@ -32,8 +32,8 @@
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InlineAsm.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/Transforms/Utils/Local.h"
 using namespace clang;
 using namespace CodeGen;

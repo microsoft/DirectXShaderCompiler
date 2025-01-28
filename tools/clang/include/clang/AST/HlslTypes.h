@@ -544,7 +544,8 @@ clang::CXXMethodDecl *CreateObjectFunctionDeclarationWithParams(
     clang::ASTContext &context, clang::CXXRecordDecl *recordDecl,
     clang::QualType resultType, llvm::ArrayRef<clang::QualType> paramTypes,
     llvm::ArrayRef<clang::StringRef> paramNames,
-    clang::DeclarationName declarationName, bool isConst, clang::StorageClass SC = clang::StorageClass::SC_None,
+    clang::DeclarationName declarationName, bool isConst,
+    clang::StorageClass SC = clang::StorageClass::SC_None,
     bool isTemplateFunction = false);
 
 DXIL::ResourceClass GetResourceClassForType(const clang::ASTContext &context,

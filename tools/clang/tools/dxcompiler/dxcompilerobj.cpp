@@ -1530,7 +1530,7 @@ public:
         Opts.EnableLifetimeMarkers;
     compiler.getCodeGenOpts().HLSLEnablePayloadAccessQualifiers =
         Opts.EnablePayloadQualifiers;
-      compiler.getCodeGenOpts().HLSLEnableShaderExecutionReordering =
+    compiler.getCodeGenOpts().HLSLEnableShaderExecutionReordering =
         Opts.EnableShaderExecutionReordering;
 
     // Translate signature packing options
