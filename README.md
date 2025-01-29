@@ -18,6 +18,8 @@ At the moment, the DirectX HLSL Compiler provides the following components:
 
 - dxilconv.dll, a DLL providing a converter from DXBC (older shader bytecode format)
 
+- dxv.exe, a command-line tool that validates DXIL IR (compiled HLSL programs). 
+
 - various other tools based on the above components
 
 The Microsoft Windows SDK releases include a supported version of the compiler and validator.
