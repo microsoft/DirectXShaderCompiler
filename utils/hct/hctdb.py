@@ -700,7 +700,7 @@ class db_dxil(object):
             "HitObject_TraceRay,HitObject_FromRayQuery,HitObject_FromRayQueryWithAttrs,HitObject_MakeMiss,HitObject_MakeNop,HitObject_Invoke,ReorderThread,HitObject_IsMiss,HitObject_IsHit,HitObject_IsNop,HitObject_RayFlags,HitObject_RayTMin,HitObject_RayTCurrent,HitObject_WorldRayOrigin,HitObject_WorldRayDirection,HitObject_ObjectRayOrigin,HitObject_ObjectRayDirection,HitObject_ObjectToWorld3x4,HitObject_ObjectToWorld4x3,HitObject_WorldToObject3x4,HitObject_WorldToObject4x3,HitObject_GeometryIndex,HitObject_InstanceIndex,HitObject_InstanceID,HitObject_PrimitiveIndex,HitObject_HitKind,HitObject_ShaderTableIndex,HitObject_SetShaderTableIndex,HitObject_LoadLocalRootTableConstant,HitObject_Attributes"
         ).split(","):
             self.name_idx[i].category = "Shader Execution Reordering"
-            self.name_idx[i].shader_model = 6, 8
+            self.name_idx[i].shader_model = 6, 9
             if i == "ReorderThread":
                 self.name_idx[i].shader_stages = (
                     "library",

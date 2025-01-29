@@ -3929,7 +3929,8 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   // Create Global variable and type annotation for each CBuffer.
   FinishCBuffer(HLM, CBufferType, m_ConstVarAnnotationMap);
 
-  // Translate calls to HitObject constructor into hl MakeNop calls
+  // Translate calls to the HitObject constructor into hl HitObject_MakeNop
+  // calls
   TranslateHitObjectConstructor(HLM);
 
   // Translate calls to RayQuery constructor into hl Allocate calls
@@ -6605,12 +6606,7 @@ CGMSHLSLRuntime::EmitHLSLScalarObjectDefaultConstructor(CodeGenFunction &CGF,
   unsigned OpCode = (unsigned)IntrinsicOp::MOP_HitObject_MakeNop;
   llvm::ConstantInt *opVal = llvm::ConstantInt::get(i32Ty, OpCode, false);
 
-  llvm::StructType *HitType = M.getTypeByName("dx.types.HitObject");
-  if (!HitType)
-    HitType =
-        llvm::StructType::create({llvm::Type::getInt8PtrTy(M.getContext(), 0)},
-                                 "dx.types.HitObject", false);
-
+  llvm::Type *HitType = hlsl::dxilutil::GetHLSLHitObjectType(&M);
   llvm::FunctionType *MakeNopFuncTy =
       llvm::FunctionType::get(HitType, i32Ty, false);
   Function *MakeNopFunc = GetOrCreateHLFunction(

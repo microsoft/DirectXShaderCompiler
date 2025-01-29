@@ -19,6 +19,7 @@
 #include "CGRecordLayout.h"
 #include "CodeGenModule.h" // HLSL Change
 #include "TargetInfo.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
@@ -367,13 +368,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
                                        ArrayType::ArraySizeModifier::Normal, 0)
                  .getTypePtr();
       } else if (hlsl::IsHLSLHitObjectType(T)) {
-        llvm::StructType *HitType =
-            TheModule.getTypeByName("dx.types.HitObject");
-        if (HitType)
-          return HitType;
-        return llvm::StructType::create(
-            {llvm::Type::getInt8PtrTy(getLLVMContext(), 0)},
-            "dx.types.HitObject", false);
+        return hlsl::dxilutil::GetHLSLHitObjectType(&TheModule);
       } else
         return ConvertRecordDeclType(RT->getDecl());
     }

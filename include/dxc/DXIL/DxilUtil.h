@@ -162,6 +162,7 @@ GetHLSLResourceProperties(llvm::Type *Ty);
 bool IsHLSLResourceType(llvm::Type *Ty);
 bool IsHLSLObjectType(llvm::Type *Ty);
 bool IsHLSLRayQueryType(llvm::Type *Ty);
+llvm::Type *GetHLSLHitObjectType(llvm::Module *M);
 bool IsHLSLHitObjectType(llvm::Type *Ty);
 bool IsHLSLResourceDescType(llvm::Type *Ty);
 bool IsResourceSingleComponent(llvm::Type *Ty);

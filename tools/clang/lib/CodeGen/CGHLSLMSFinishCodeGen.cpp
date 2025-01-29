@@ -2825,12 +2825,7 @@ void TranslateHitObjectConstructor(HLModule &HLM) {
   unsigned OpCode = (unsigned)IntrinsicOp::MOP_HitObject_MakeNop;
   llvm::ConstantInt *opVal = llvm::ConstantInt::get(i32Ty, OpCode, false);
 
-  llvm::StructType *HitType = M.getTypeByName("dx.types.HitObject");
-  if (!HitType)
-    HitType =
-        llvm::StructType::create({llvm::Type::getInt8PtrTy(M.getContext(), 0)},
-                                 "dx.types.HitObject", false);
-
+  llvm::Type *HitType = dxilutil::GetHLSLHitObjectType(&M);
   FunctionType *MakeNopFuncTy = FunctionType::get(HitType, i32Ty, false);
   Function *MakeNopFunc = GetOrCreateHLFunction(
       M, MakeNopFuncTy, HLOpcodeGroup::HLIntrinsic, OpCode);

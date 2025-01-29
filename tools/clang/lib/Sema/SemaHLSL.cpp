@@ -3556,6 +3556,8 @@ private:
     const auto *SM =
         hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
     CXXRecordDecl *nodeOutputDecl = nullptr, *emptyNodeOutputDecl = nullptr;
+    const bool EnableSER =
+        m_sema->getLangOpts().EnableShaderExecutionReordering;
 
     for (unsigned i = 0; i < _countof(g_ArBasicKindsAsTypes); i++) {
       ArBasicKind kind = g_ArBasicKindsAsTypes[i];
@@ -3617,7 +3619,9 @@ private:
       } else if (kind == AR_OBJECT_RAY_QUERY) {
         recordDecl = DeclareRayQueryType(*m_context);
       } else if (kind == AR_OBJECT_HIT_OBJECT) {
-        recordDecl = DeclareHitObjectType(*m_context);
+        if (EnableSER) {
+          recordDecl = DeclareHitObjectType(*m_context);
+        }
       } else if (kind == AR_OBJECT_HEAP_RESOURCE) {
         recordDecl = DeclareResourceType(*m_context, /*bSampler*/ false);
         if (SM->IsSM66Plus()) {
@@ -4776,6 +4780,45 @@ public:
                                            nameIdentifier, argumentCount));
   }
 
+  bool IsEnabledIntrinsic(const HLSL_INTRINSIC *pIntrinsic,
+                          const LangOptions LangOpts) {
+    switch ((hlsl::IntrinsicOp)pIntrinsic->Op) {
+    default:
+      return true;
+
+    case hlsl::IntrinsicOp::IOP_ReorderThread:
+    case hlsl::IntrinsicOp::MOP_HitObject_FromRayQuery:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetAttributes:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetGeometryIndex:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetHitKind:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetInstanceID:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetInstanceIndex:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetObjectRayDirection:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetObjectRayOrigin:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetObjectToWorld3x4:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetObjectToWorld4x3:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetPrimitiveIndex:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetRayFlags:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetRayTCurrent:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetRayTMin:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetShaderTableIndex:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetWorldRayDirection:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetWorldRayOrigin:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetWorldToObject3x4:
+    case hlsl::IntrinsicOp::MOP_HitObject_GetWorldToObject4x3:
+    case hlsl::IntrinsicOp::MOP_HitObject_Invoke:
+    case hlsl::IntrinsicOp::MOP_HitObject_IsHit:
+    case hlsl::IntrinsicOp::MOP_HitObject_IsMiss:
+    case hlsl::IntrinsicOp::MOP_HitObject_IsNop:
+    case hlsl::IntrinsicOp::MOP_HitObject_LoadLocalRootTableConstant:
+    case hlsl::IntrinsicOp::MOP_HitObject_MakeMiss:
+    case hlsl::IntrinsicOp::MOP_HitObject_MakeNop:
+    case hlsl::IntrinsicOp::MOP_HitObject_SetShaderTableIndex:
+    case hlsl::IntrinsicOp::MOP_HitObject_TraceRay:
+      return LangOpts.EnableShaderExecutionReordering;
+    }
+  }
+
   bool AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
                                    ArrayRef<Expr *> Args,
                                    OverloadCandidateSet &CandidateSet,
@@ -4822,9 +4865,17 @@ public:
         table, tableCount, IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
 
     for (; cursor != end; ++cursor) {
+      const HLSL_INTRINSIC *pIntrinsic = *cursor;
+
+      // Check whether this intrinsic is enabled in the current configuration.
+      // Note that this not necessary for member functions: if the builtin type
+      // is never declared, neither will any type be linked to the member
+      // intrinsics table.
+      if (!IsEnabledIntrinsic(*cursor, m_sema->getLangOpts()))
+        continue;
+
       // If this is the intrinsic we're interested in, build up a representation
       // of the types we need.
-      const HLSL_INTRINSIC *pIntrinsic = *cursor;
       LPCSTR tableName = cursor.GetTableName();
       LPCSTR lowering = cursor.GetLoweringStrategy();
       DXASSERT(pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,

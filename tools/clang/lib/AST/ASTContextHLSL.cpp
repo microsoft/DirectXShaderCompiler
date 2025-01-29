@@ -1183,6 +1183,8 @@ CXXRecordDecl *hlsl::DeclareHitObjectType(ASTContext &Context) {
       Context.DeclarationNames.getCXXConstructorName(canQualType), false,
       &pConstructorDecl, &pTypeSourceInfo);
   RecordDecl->addDecl(pConstructorDecl);
+  // The 'implicit' lets us distinguish SER HitObject (SM6.9+) from a
+  // user-defined type named 'HitObject' (pre-SM6.9).
   RecordDecl->setImplicit(true);
   return RecordDecl;
 }
