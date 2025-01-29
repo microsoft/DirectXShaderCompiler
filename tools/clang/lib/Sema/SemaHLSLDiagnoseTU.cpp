@@ -359,7 +359,6 @@ private:
   clang::Sema &S;
   DXIL::ShaderKind EntrySK;
   const FunctionDecl *EntryDecl;
-  bool AllowHitObject;
 };
 
 std::optional<uint32_t>
