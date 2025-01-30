@@ -2602,6 +2602,18 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::ReadNone,
     },
+
+    // Inline Ray Query void,     h,     f,     d,    i1,    i8,   i16,   i32,
+    // i64,   udt,   obj ,  function attribute
+    {
+        OC::AllocateRayQuery2,
+        "AllocateRayQuery2",
+        OCC::AllocateRayQuery2,
+        "allocateRayQuery2",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
 };
 // OPCODE-OLOADS:END
 
@@ -3290,8 +3302,9 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
            SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Node);
     return;
   }
-  // Instructions: BarrierByMemoryHandle=245, SampleCmpGrad=254
-  if (op == 245 || op == 254) {
+  // Instructions: BarrierByMemoryHandle=245, SampleCmpGrad=254,
+  // AllocateRayQuery2=258
+  if (op == 245 || op == 254 || op == 258) {
     major = 6;
     minor = 8;
     return;
@@ -5421,6 +5434,14 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
+
+    // Inline Ray Query
+  case OpCode::AllocateRayQuery2:
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -5679,6 +5700,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::AnnotateNodeRecordHandle:
   case OpCode::NodeOutputIsValid:
   case OpCode::GetRemainingRecursionLevels:
+  case OpCode::AllocateRayQuery2:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:

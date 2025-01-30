@@ -635,8 +635,9 @@ enum class OpCode : unsigned {
   TraceRay = 157,   // initiates raytrace
 
   // Inline Ray Query
-  AllocateRayQuery = 178, // allocates space for RayQuery and return handle
-  RayQuery_Abort = 181,   // aborts a ray query
+  AllocateRayQuery = 178,  // allocates space for RayQuery and return handle
+  AllocateRayQuery2 = 258, // allocates space for RayQuery and return handle
+  RayQuery_Abort = 181,    // aborts a ray query
   RayQuery_CandidateGeometryIndex = 203, // returns candidate hit geometry index
   RayQuery_CandidateInstanceContributionToHitGroupIndex =
       214, // returns candidate hit InstanceContributionToHitGroupIndex
@@ -983,9 +984,9 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_5 = 216,
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
-  NumOpCodes_Dxil_1_8 = 258,
+  NumOpCodes_Dxil_1_8 = 259,
 
-  NumOpCodes = 258 // exclusive last value of enumeration
+  NumOpCodes = 259 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1106,6 +1107,7 @@ enum class OpCodeClass : unsigned {
 
   // Inline Ray Query
   AllocateRayQuery,
+  AllocateRayQuery2,
   RayQuery_Abort,
   RayQuery_CommitNonOpaqueTriangleHit,
   RayQuery_CommitProceduralPrimitiveHit,
@@ -1290,9 +1292,9 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_5 = 143,
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
-  NumOpClasses_Dxil_1_8 = 174,
+  NumOpClasses_Dxil_1_8 = 175,
 
-  NumOpClasses = 174 // exclusive last value of enumeration
+  NumOpClasses = 175 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1774,7 +1776,16 @@ enum class RayFlag : uint32_t {
   CullNonOpaque = 0x80,
   SkipTriangles = 0x100,
   SkipProceduralPrimitives = 0x200,
+  ForceOMM2State = 0x400, // Force 2-state in Opacity Micromaps
 };
+
+enum class RAYQUERY_FLAG : uint32_t {
+  RAYQUERY_FLAG_NONE = 0x00, // default
+  RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS = 0x01,
+};
+
+// Corresponds to RAYQUERY_FLAG_* in HLSL
+enum class RayQueryFlag : uint32_t { None = 0, AllowOpacityMicromaps = 1 };
 
 // Packing/unpacking intrinsics
 enum class UnpackMode : uint8_t {
@@ -1957,7 +1968,9 @@ enum class RaytracingPipelineFlags : uint32_t {
   None = 0x0,
   SkipTriangles = 0x100,
   SkipProceduralPrimitives = 0x200,
-  ValidMask = 0x300,
+  ValidMask_1_8 = 0x300,         // valid mask up through DXIL 1.8
+  AllowOpacityMicromaps = 0x400, // Allow Opacity Micromaps to be used
+  ValidMask = 0x700,             // current valid mask
 };
 
 enum class CommittedStatus : uint32_t {

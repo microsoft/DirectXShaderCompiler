@@ -629,6 +629,9 @@ class db_dxil(object):
         ).split(","):
             self.name_idx[i].category = "Inline Ray Query"
             self.name_idx[i].shader_model = 6, 5
+        for i in "AllocateRayQuery2".split(","):
+            self.name_idx[i].category = "Inline Ray Query"
+            self.name_idx[i].shader_model = 6, 8
         for i in "Unpack4x8".split(","):
             self.name_idx[i].category = "Unpacking intrinsics"
             self.name_idx[i].shader_model = 6, 6
@@ -4132,7 +4135,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        next_op_idx += 1
+        next_op_idx += 1        
 
         self.add_dxil_op(
             "RayQuery_TraceRayInline",
@@ -5508,9 +5511,37 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
+        # RayQuery
+        self.add_dxil_op(
+            "AllocateRayQuery2",
+            next_op_idx,
+            "AllocateRayQuery2",
+            "allocates space for RayQuery and return handle",
+            "v",
+            "",
+            [
+                db_dxil_param(0, "i32", "", "handle to RayQuery state"),
+                db_dxil_param(
+                    2,
+                    "u32",
+                    "constRayFlags",
+                    "Valid combination of RAY_FLAGS",
+                    is_const=True,
+                ),
+                db_dxil_param(
+                    3,
+                    "u32",
+                    "constRayQueryFlags",
+                    "Valid combination of RAYQUERY_FLAGS",
+                    is_const=True,
+                ),
+            ],
+        )
+        next_op_idx += 1
+
         # End of DXIL 1.8 opcodes.
         self.set_op_count_for_version(1, 8, next_op_idx)
-        assert next_op_idx == 258, (
+        assert next_op_idx == 259, (
             "258 is expected next operation index but encountered %d and thus opcodes are broken"
             % next_op_idx
         )
