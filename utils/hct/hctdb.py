@@ -7934,6 +7934,26 @@ class db_dxil(object):
             "Function '%0' uses rayquery object in function signature.",
         )
         self.add_valrule_msg(
+            "Decl.RayFlagsUnsupported",
+            "Certain RayFlags flags are only allowed in certain shader model versions",
+            "RayFlags used in '%0' specifies unknown flags (0x%1) for shader model %2",
+        )
+        self.add_valrule_msg(
+            "Decl.NonConstFlagsUnsupportedForAllocateRayQuery",
+            "RayFlags for AllocateRayQuery must be constant",
+            "ConstRayFlags argument of AllocateRayQuery '%0' must be constant",
+        )
+        self.add_valrule_msg(
+            "Decl.NonConstFlagsUnsupportedForAllocateRayQuery2",
+            "ConstRayFlags and RayQueryFlags for AllocateRayQuery2 must be constant",
+            "ConstRayFlags and RayQueryFlags arguments of AllocateRayQuery2 '%0' must be constant",
+        )
+        self.add_valrule_msg(
+            "Decl.AllowOpacityMicromapsExpectedGivenForceOMM2State",
+            "When the ForceOMM2State ConstRayFlag is given as an argument to a RayQuery object, AllowOpacityMicromaps is expected as a RayQueryFlag argument",
+            "RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS must be set for RayQueryFlags when RAY_FLAG_FORCE_OMM_2_STATE is set for ConstRayFlags on AllocateRayQuery2 operation %0.",
+        )
+        self.add_valrule_msg(
             "Decl.PayloadStruct",
             "Payload parameter must be struct type",
             "Argument '%0' must be a struct type for payload in shader function '%1'.",
