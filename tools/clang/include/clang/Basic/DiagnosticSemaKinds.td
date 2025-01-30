@@ -7636,6 +7636,15 @@ def err_shader_must_return_void : Error<
   "return type for '%0' shaders must be void">;
 def err_raytracing_entry_param_count : Error<
   "incorrect number of entry parameters for raytracing stage '%0': %1 parameter(s) provided, expected %select{no parameters|one payload parameter|two parameters for payload and attributes|one argument parameter}2">;
+def warn_ray_query_flag_unsupported_shader_model : Warning<
+	"A non-zero value for the RayQueryFlags template argument requires shader model 6.9 or above.">,
+	DefaultError;
+def warn_unsupported_builtin_constant : Warning<
+"potential misuse of built-in constant %0 in shader model %1; introduced in shader model %2">,
+  DefaultError, InGroup<HLSLAvailabilityConstant>;
+def warn_unsupported_ray_query_flag_combination : Warning<
+	"When using 'RAY_FLAG_FORCE_OMM_2_STATE' in RayFlags, RayQueryFlags must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set.">,
+	DefaultError;
 def err_payload_fields_not_qualified : Error<
   "payload field '%0' has no payload access qualifiers.">;
 def err_payload_fields_is_payload_and_overqualified : Error<
