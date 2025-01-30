@@ -3,8 +3,8 @@
 struct [raypayload] Payload
 {
     float elem
-          : write(caller,closesthit,anyhit,closesthit,miss)
-          : read(caller,closesthit,anyhit,closesthit,miss);
+          : write(caller,anyhit,closesthit,miss)
+          : read(caller,anyhit,closesthit,miss);
 };
 
 struct Attribs { float2 barys; };
