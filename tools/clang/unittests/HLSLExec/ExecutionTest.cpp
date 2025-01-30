@@ -821,7 +821,7 @@ public:
       }
 
       if (GetModuleHandle("d3d10warp.dll") != NULL) {
-        CHAR szFullModuleFilePath[MAX_PATH]  = "";
+        CHAR szFullModuleFilePath[MAX_PATH] = "";
         GetModuleFileName(GetModuleHandle("d3d10warp.dll"), szModuleFilePath,
                           sizeof(szModuleFilePath));
         WEX::Logging::Log::Comment(WEX::Common::String().Format(
