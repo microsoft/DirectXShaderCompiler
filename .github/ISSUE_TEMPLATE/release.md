@@ -13,7 +13,7 @@ assignees: ''
     - At this point, changes must be cherry-picked into the release branch in
       order for them to be included in the release.
 - [ ] MM/DD/YYYY - Release Candidate 1 (begin Ask Mode[^1] for release branch).
-    - At this point, changes must be approved by @microsoft/hlsl-release
+    - At this point, cherry-picked changes must be approved by @microsoft/hlsl-release
 - [ ] MM/DD/YYYY - Final Release Candidate
 - [ ] MM/DD/YYYY - Target Release Date
 
@@ -26,7 +26,7 @@ This part of the release process is to 'prime the pump' - that is to make sure
 that all the various parts of the engineering system are set into place so that
 we are confident we can generate builds for the new branch
 
-- [ ] Update version number
+- [ ] Update version numbers in utils/version/latest-release.json and utils/version/version.inc
 - [ ] Create the release branch from `main`
     - The release branch is kept into sync with main via regular fast-forward
       merges.
@@ -39,7 +39,7 @@ we are confident we can generate builds for the new branch
 
 ## After Fork
 
-- [ ] Update README.md
+- [ ] Update README.md if necessary
 - [ ] Create draft of Release post on GitHub
 
 ## Quality Sign Off
