@@ -9,7 +9,7 @@ if(NOT DEFINED BUILD_TYPE)
 endif()
 
 if(NOT DEFINED ENV{USE_WARP_FROM_NUGET})
-    message(SEND_ERROR "Callers must set a string value for the environement variable USE_WARP_FROM_NUGET value."
+    message(SEND_ERROR "Callers must set a string value for the environment variable USE_WARP_FROM_NUGET."
             "Either 'LATEST_RELEASE' or 'LATEST_PREVIEW'")
 endif()
 
@@ -104,7 +104,7 @@ endfunction()
 #     SOURCE https://api.nuget.org/v3/index.json
 # )
 #
-# This functions sets a variable <name>_SOURCE_DIR (e.g. Microsoft.Direct3D.WARP_SOURCE_DIR in above example) to the 
+# This function sets a variable <name>_SOURCE_DIR (e.g. Microsoft.Direct3D.WARP_SOURCE_DIR in above example) to the 
 # extract NuGet package contents.
 function(FetchNuGetPackage)
     set(params NAME ID VERSION SOURCE OUTPUT_DIR RELEASE_TYPE)
