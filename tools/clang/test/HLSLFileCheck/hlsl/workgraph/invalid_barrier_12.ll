@@ -19,7 +19,7 @@ define void @node01() #0 {
   
   ; CHECK: Invalid memory type flags
   ; CHECK: Invalid semantic flags
-  call void @dx.op.barrierByMemoryType(i32 244, i32 18, i32 9)  ; BarrierByMemoryType(MemoryTypeFlags,SemanticFlags)
+  call void @dx.op.barrierByMemoryType(i32 244, i32 18, i32 17)  ; BarrierByMemoryType(MemoryTypeFlags,SemanticFlags)
 
   ret void
 }
