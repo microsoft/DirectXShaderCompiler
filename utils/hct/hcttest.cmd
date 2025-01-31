@@ -37,6 +37,8 @@ set TEST_MANUAL_FILE_CHECK=0
 set SINGLE_FILE_CHECK_NAME=0
 set CUSTOM_BIN_SET=
 set USE_AGILITY_SDK=
+set USE_WARP_FROM_NUGET=
+set EXEC_TEST_TARGET="check-clang-taef-exec"
 
 rem Begin SPIRV change
 set TEST_SPIRV=0
@@ -132,6 +134,22 @@ if "%1"=="-clean" (
   set TEST_ALL=0
   set TEST_EXEC=1
   set TEST_EXEC_REQUIRED=1
+) else if "%1"=="exec-warp" (
+  rem If exec-warp is explicitly supplied, hcttest will fail if machine is not configured
+  rem to run execution tests, otherwise, execution tests would be skipped.
+  set TEST_ALL=0
+  set TEST_EXEC=1
+  set USE_WARP_FROM_NUGET=LATEST_RELEASE
+  set TEST_EXEC_REQUIRED=1
+  set EXEC_TEST_TARGET="check-clang-taef-exec-warp"
+) else if "%1"=="exec-warp-preview" (
+  rem If exec-warp-preview is explicitly supplied, hcttest will fail if machine is not configured
+  rem to run execution tests, otherwise, execution tests would be skipped.
+  set TEST_ALL=0
+  set TEST_EXEC=1
+  set USE_WARP_FROM_NUGET=LATEST_PREVIEW
+  set TEST_EXEC_REQUIRED=1
+  set EXEC_TEST_TARGET="check-clang-taef-exec-warp"
 ) else if "%1"=="exec-filter" (
   set TEST_ALL=0
   set TEST_EXEC=1
@@ -333,21 +351,22 @@ if "%TEST_USE_LIT%"=="1" (
       if defined EXEC_ADAPTER (
         py %HLSL_SRC_DIR%/utils/lit/lit.py -v --no-progress-bar --param build_mode=%BUILD_CONFIG% --param clang_site_config=%HLSL_BLD_DIR%/tools/clang/test/lit.site.cfg --param clang_taef_exec_site_config=%HLSL_BLD_DIR%/tools/clang/test/taef_exec/lit.site.cfg %EXEC_ADAPTER% %HLSL_SRC_DIR%/tools/clang/test/taef_exec
       ) else (
-        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-taef-exec
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target %EXEC_TEST_TARGET%
 	  )
       set RES_EXEC=!ERRORLEVEL!
     )
   )
-  set TEST_CLANG=0
-  set TEST_DXILCONV=0
-  set TEST_SPIRV=0
-  set TEST_EXEC=0
-  set TEST_CMD=0
 
   rem No other tests to run - skip copying and move on to report the results
   if not exist "%HCT_EXTRAS%\hcttest-extras.cmd" (
     goto :report_results
   )
+
+  set TEST_CLANG=0
+  set TEST_DXILCONV=0
+  set TEST_SPIRV=0
+  set TEST_EXEC=0
+  set TEST_CMD=0
 )
 
 if not exist %TEST_DIR% (mkdir %TEST_DIR%)
