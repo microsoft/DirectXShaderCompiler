@@ -1438,6 +1438,8 @@ public:
 
     compiler.getLangOpts().EnablePayloadAccessQualifiers =
         Opts.EnablePayloadQualifiers;
+    compiler.getLangOpts().EnableShaderExecutionReordering =
+        Opts.EnableShaderExecutionReordering;
     compiler.getLangOpts().HLSLProfile = compiler.getCodeGenOpts().HLSLProfile =
         Opts.TargetProfile;
 
@@ -1528,6 +1530,8 @@ public:
         Opts.EnableLifetimeMarkers;
     compiler.getCodeGenOpts().HLSLEnablePayloadAccessQualifiers =
         Opts.EnablePayloadQualifiers;
+    compiler.getCodeGenOpts().HLSLEnableShaderExecutionReordering =
+        Opts.EnableShaderExecutionReordering;
 
     // Translate signature packing options
     if (Opts.PackPrefixStable)

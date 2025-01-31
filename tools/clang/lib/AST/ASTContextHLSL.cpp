@@ -23,6 +23,7 @@
 #include "clang/AST/ExternalASTSource.h"
 #include "clang/AST/HlslBuiltinTypeDeclBuilder.h"
 #include "clang/AST/TypeLoc.h"
+#include "clang/Basic/Specifiers.h"
 #include "clang/Sema/Overload.h"
 #include "clang/Sema/Sema.h"
 #include "clang/Sema/SemaDiagnostic.h"
@@ -1033,7 +1034,7 @@ static void CreateConstructorDeclaration(
 static void CreateObjectFunctionDeclaration(
     ASTContext &context, CXXRecordDecl *recordDecl, QualType resultType,
     ArrayRef<QualType> args, DeclarationName declarationName, bool isConst,
-    CXXMethodDecl **functionDecl, TypeSourceInfo **tinfo) {
+    StorageClass SC, CXXMethodDecl **functionDecl, TypeSourceInfo **tinfo) {
   DXASSERT_NOMSG(recordDecl != nullptr);
   DXASSERT_NOMSG(functionDecl != nullptr);
 
@@ -1045,8 +1046,8 @@ static void CreateObjectFunctionDeclaration(
   *tinfo = context.getTrivialTypeSourceInfo(functionQT, NoLoc);
   DXASSERT_NOMSG(*tinfo != nullptr);
   *functionDecl = CXXMethodDecl::Create(
-      context, recordDecl, NoLoc, declNameInfo, functionQT, *tinfo,
-      StorageClass::SC_None, InlineSpecifiedFalse, IsConstexprFalse, NoLoc);
+      context, recordDecl, NoLoc, declNameInfo, functionQT, *tinfo, SC,
+      InlineSpecifiedFalse, IsConstexprFalse, NoLoc);
   DXASSERT_NOMSG(*functionDecl != nullptr);
   (*functionDecl)->setLexicalDeclContext(recordDecl);
   (*functionDecl)->setAccess(AccessSpecifier::AS_public);
@@ -1055,7 +1056,8 @@ static void CreateObjectFunctionDeclaration(
 CXXMethodDecl *hlsl::CreateObjectFunctionDeclarationWithParams(
     ASTContext &context, CXXRecordDecl *recordDecl, QualType resultType,
     ArrayRef<QualType> paramTypes, ArrayRef<StringRef> paramNames,
-    DeclarationName declarationName, bool isConst, bool isTemplateFunction) {
+    DeclarationName declarationName, bool isConst, StorageClass SC,
+    bool isTemplateFunction) {
   DXASSERT_NOMSG(recordDecl != nullptr);
   DXASSERT_NOMSG(!resultType.isNull());
   DXASSERT_NOMSG(paramTypes.size() == paramNames.size());
@@ -1063,7 +1065,7 @@ CXXMethodDecl *hlsl::CreateObjectFunctionDeclarationWithParams(
   TypeSourceInfo *tinfo;
   CXXMethodDecl *functionDecl;
   CreateObjectFunctionDeclaration(context, recordDecl, resultType, paramTypes,
-                                  declarationName, isConst, &functionDecl,
+                                  declarationName, isConst, SC, &functionDecl,
                                   &tinfo);
 
   // Create and associate parameters to method.
@@ -1159,6 +1161,31 @@ CXXRecordDecl *hlsl::DeclareRayQueryType(ASTContext &context) {
   typeDeclBuilder.getRecordDecl()->addDecl(pConstructorDecl);
 
   return typeDeclBuilder.getRecordDecl();
+}
+
+CXXRecordDecl *hlsl::DeclareHitObjectType(ASTContext &Context) {
+  // HitObject { ... }
+  BuiltinTypeDeclBuilder TypeDeclBuilder(Context.getTranslationUnitDecl(),
+                                         "HitObject");
+  TypeDeclBuilder.startDefinition();
+  CXXRecordDecl *RecordDecl = TypeDeclBuilder.getRecordDecl();
+
+  // Add constructor that will be lowered to the intrinsic that produces
+  // the HitObject handle for this object.
+  CanQualType canQualType = Context.getCanonicalType(
+      Context.getRecordType(TypeDeclBuilder.getRecordDecl()));
+
+  CXXConstructorDecl *pConstructorDecl = nullptr;
+  TypeSourceInfo *pTypeSourceInfo = nullptr;
+  CreateConstructorDeclaration(
+      Context, RecordDecl, Context.VoidTy, {},
+      Context.DeclarationNames.getCXXConstructorName(canQualType), false,
+      &pConstructorDecl, &pTypeSourceInfo);
+  RecordDecl->addDecl(pConstructorDecl);
+  // The 'implicit' lets us distinguish SER HitObject (SM6.9+) from a
+  // user-defined type named 'HitObject' (pre-SM6.9).
+  RecordDecl->setImplicit(true);
+  return RecordDecl;
 }
 
 CXXRecordDecl *hlsl::DeclareResourceType(ASTContext &context, bool bSampler) {

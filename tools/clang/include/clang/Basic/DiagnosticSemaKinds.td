@@ -7929,6 +7929,10 @@ def err_hlsl_node_record_type : Error<
    "%0 is not valid as a node record type - struct/class required">;
 def err_hlsl_node_record_object : Error<
    "object %0 may not appear in a node record">;
+def err_hlsl_ser_invalid_shader_kind : Error<
+   "Shader kind '%0' incompatible with shader execution reordering (has to be raygeneration, closesthit or miss)">;
+def err_hlsl_ser_invalid_version : Error<
+   "Shader execution reordering requires target profile lib_6_9+ (was %0)">;
 def err_hlsl_array_disallowed : Error<
    "%select{entry parameter|declaration}1 of type %0 may not be an array">;
 def err_hlsl_inputpatch_size: Error<

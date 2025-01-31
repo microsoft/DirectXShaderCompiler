@@ -2794,6 +2794,56 @@ unsigned AlignBufferOffsetInLegacy(unsigned offset, unsigned size,
   return offset;
 }
 
+// Translate HitObject constructor to dx.op.hitObject_MakeNop
+void TranslateHitObjectConstructor(HLModule &HLM) {
+  llvm::Module &M = *HLM.GetModule();
+  Function *HitObjectCtor = nullptr;
+  for (auto &F : M.functions()) {
+    llvm::Type *Ty = F.getReturnType();
+    if (!Ty->isPointerTy() ||
+        !dxilutil::IsHLSLHitObjectType(Ty->getPointerElementType()))
+      continue;
+
+    // Match the HitObject constructor signature. It should be impossible to
+    // achieve the same signature from HLSL.
+    if (!F.getName().startswith("\01??0HitObject@@"))
+      continue;
+    DXASSERT(F.arg_size() == 1 && Ty == F.arg_begin()->getType(),
+             "Wrong signature for apparent HitObject constructor");
+
+    DXASSERT(!HitObjectCtor,
+             "Multiple candidate functions that quality as HitObject "
+             "constructor when there must be at most one");
+    HitObjectCtor = &F;
+  }
+
+  if (!HitObjectCtor)
+    return;
+
+  // Construct declaration
+  llvm::IntegerType *i32Ty = llvm::Type::getInt32Ty(M.getContext());
+  unsigned OpCode = (unsigned)IntrinsicOp::MOP_HitObject_MakeNop;
+  llvm::ConstantInt *opVal = llvm::ConstantInt::get(i32Ty, OpCode, false);
+
+  llvm::Type *HitType = dxilutil::GetHLSLHitObjectType(&M);
+  FunctionType *MakeNopFuncTy = FunctionType::get(HitType, i32Ty, false);
+  Function *MakeNopFunc = GetOrCreateHLFunction(
+      M, MakeNopFuncTy, HLOpcodeGroup::HLIntrinsic, OpCode);
+
+  while (!HitObjectCtor->user_empty()) {
+    Value *V = *HitObjectCtor->user_begin();
+    llvm::CallInst *CI = cast<CallInst>(V); // Must be call
+    IRBuilder<> Builder(CI);
+    Value *NopHit = Builder.CreateCall(MakeNopFunc, opVal);
+    Value *HitObjectPtr = CI->getArgOperand(0);
+    Builder.CreateStore(NopHit, HitObjectPtr);
+    CI->replaceAllUsesWith(HitObjectPtr);
+    CI->eraseFromParent();
+  }
+
+  HitObjectCtor->eraseFromParent();
+}
+
 // Translate RayQuery constructor.  From:
 //  %call = call %"RayQuery<flags>" @<constructor>(%"RayQuery<flags>" %ptr)
 // To:

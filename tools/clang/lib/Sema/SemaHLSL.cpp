@@ -31,6 +31,8 @@
 #include "clang/AST/HlslTypes.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/Basic/Diagnostic.h"
+#include "clang/Basic/Specifiers.h"
+#include "clang/Parse/ParseDiagnostic.h"
 #include "clang/Sema/ExternalSemaSource.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Lookup.h"
@@ -40,6 +42,7 @@
 #include "clang/Sema/TemplateDeduction.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
@@ -218,6 +221,9 @@ enum ArBasicKind {
 
   // RayQuery
   AR_OBJECT_RAY_QUERY,
+
+  // Shader Execution Reordering
+  AR_OBJECT_HIT_OBJECT,
 
   // Heap Resource
   AR_OBJECT_HEAP_RESOURCE,
@@ -566,9 +572,10 @@ const UINT g_uBasicKindProps[] = {
     0, // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
     0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
-    BPROP_OBJECT, // AR_OBJECT_RAY_QUERY,
-    BPROP_OBJECT, // AR_OBJECT_HEAP_RESOURCE,
-    BPROP_OBJECT, // AR_OBJECT_HEAP_SAMPLER,
+    LICOMPTYPE_RAY_QUERY,  // AR_OBJECT_RAY_QUERY,
+    LICOMPTYPE_HIT_OBJECT, // AR_OBJECT_HIT_OBJECT,
+    BPROP_OBJECT,          // AR_OBJECT_HEAP_RESOURCE,
+    BPROP_OBJECT,          // AR_OBJECT_HEAP_SAMPLER,
 
     BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2DMS
     BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
@@ -1115,6 +1122,11 @@ static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_HEAP_RESOURCE,
 
 static const ArBasicKind g_RayDescCT[] = {AR_OBJECT_RAY_DESC, AR_BASIC_UNKNOWN};
 
+static const ArBasicKind g_RayQueryCT[] = {AR_OBJECT_RAY_QUERY,
+                                           AR_BASIC_UNKNOWN};
+static const ArBasicKind g_HitObjectCT[] = {AR_OBJECT_HIT_OBJECT,
+                                            AR_BASIC_UNKNOWN};
+
 static const ArBasicKind g_AccelerationStructCT[] = {
     AR_OBJECT_ACCELERATION_STRUCT, AR_BASIC_UNKNOWN};
 
@@ -1267,6 +1279,8 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_AnyOutputRecordCT,         // LICOMPTYPE_ANY_NODE_OUTPUT_RECORD
     g_GroupNodeOutputRecordsCT,  // LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
     g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
+    g_RayQueryCT,                // LICOMPTYPE_RAY_QUERY
+    g_HitObjectCT,               // LICOMPTYPE_HIT_OBJECT
 };
 static_assert(
     ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
@@ -1341,7 +1355,8 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
     AR_OBJECT_TRIANGLE_HIT_GROUP, AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
     AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
-    AR_OBJECT_RAY_QUERY, AR_OBJECT_HEAP_RESOURCE, AR_OBJECT_HEAP_SAMPLER,
+    AR_OBJECT_RAY_QUERY, AR_OBJECT_HIT_OBJECT, AR_OBJECT_HEAP_RESOURCE,
+    AR_OBJECT_HEAP_SAMPLER,
 
     AR_OBJECT_RWTEXTURE2DMS,       // RWTexture2DMS
     AR_OBJECT_RWTEXTURE2DMS_ARRAY, // RWTexture2DMSArray
@@ -1449,6 +1464,7 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
     0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
     1, // AR_OBJECT_RAY_QUERY,
+    0, // AR_OBJECT_HIT_OBJECT,
     0, // AR_OBJECT_HEAP_RESOURCE,
     0, // AR_OBJECT_HEAP_SAMPLER,
 
@@ -1594,6 +1610,7 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_RAY_QUERY,
+    {0, MipsFalse, SampleFalse}, // AR_OBJECT_HIT_OBJECT,
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_HEAP_RESOURCE,
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_HEAP_SAMPLER,
 
@@ -1675,7 +1692,7 @@ static const char *g_ArBasicTypeNames[] = {
     "RaytracingPipelineConfig", "TriangleHitGroup",
     "ProceduralPrimitiveHitGroup", "RaytracingPipelineConfig1",
 
-    "RayQuery", "HEAP_Resource", "HEAP_Sampler",
+    "RayQuery", "HitObject", "HEAP_Resource", "HEAP_Sampler",
 
     "RWTexture2DMS", "RWTexture2DMSArray",
 
@@ -1856,12 +1873,14 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
   const QualType fnReturnType = functionArgQualTypes[0];
   std::vector<QualType> fnArgTypes(functionArgQualTypes.begin() + 1,
                                    functionArgQualTypes.end());
+
+  StorageClass SC = pIntrinsic->bStaticMember ? SC_Static : SC_Extern;
   QualType functionType =
       context.getFunctionType(fnReturnType, fnArgTypes, protoInfo, paramMods);
   FunctionDecl *functionDecl = FunctionDecl::Create(
       context, currentDeclContext, NoLoc,
-      DeclarationNameInfo(functionName, NoLoc), functionType, nullptr,
-      StorageClass::SC_Extern, InlineSpecifiedFalse, HasWrittenPrototypeTrue);
+      DeclarationNameInfo(functionName, NoLoc), functionType, nullptr, SC,
+      InlineSpecifiedFalse, HasWrittenPrototypeTrue);
   currentDeclContext->addDecl(functionDecl);
 
   functionDecl->setLexicalDeclContext(currentDeclContext);
@@ -2269,6 +2288,10 @@ static void GetIntrinsicMethods(ArBasicKind kind,
   case AR_OBJECT_RAY_QUERY:
     *intrinsics = g_RayQueryMethods;
     *intrinsicCount = _countof(g_RayQueryMethods);
+    break;
+  case AR_OBJECT_HIT_OBJECT:
+    *intrinsics = g_HitObjectMethods;
+    *intrinsicCount = _countof(g_HitObjectMethods);
     break;
   case AR_OBJECT_RWTEXTURE2DMS:
     *intrinsics = g_RWTexture2DMSMethods;
@@ -3048,10 +3071,13 @@ private:
     IdentifierInfo *ii =
         &m_context->Idents.get(StringRef(intrinsic->pArgs[0].pName));
     DeclarationName declarationName = DeclarationName(ii);
+
+    StorageClass SC = intrinsic->bStaticMember ? SC_Static : SC_None;
+
     CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
         *m_context, recordDecl, functionResultQT,
         ArrayRef<QualType>(argsQTs, numParams),
-        ArrayRef<StringRef>(argNames, numParams), declarationName, true,
+        ArrayRef<StringRef>(argNames, numParams), declarationName, true, SC,
         templateParamNamedDeclsCount > 0);
     functionDecl->setImplicit(true);
 
@@ -3253,7 +3279,7 @@ private:
         *m_context, recordDecl, resultType, ArrayRef<QualType>(indexType),
         ArrayRef<StringRef>(StringRef("index")),
         m_context->DeclarationNames.getCXXOperatorName(OO_Subscript), true,
-        true);
+        StorageClass::SC_None, true);
     hlsl::CreateFunctionTemplateDecl(
         *m_context, recordDecl, functionDecl,
         reinterpret_cast<NamedDecl **>(&templateTypeParmDecl), 1);
@@ -3453,13 +3479,13 @@ private:
       InitParamMods(intrinsic, paramMods);
 
       // Create FunctionDecl.
+      StorageClass SC = intrinsic->bStaticMember ? SC_Static : SC_Extern;
       QualType fnType = VkIntrinsicFunctionType(paramTypes, paramMods);
       TypeSourceInfo *TInfo =
           m_sema->getASTContext().CreateTypeSourceInfo(fnType, 0);
       FunctionDecl *functionDecl = FunctionDecl::Create(
           context, m_vkNSDecl, NoLoc, DeclarationNameInfo(functionName, NoLoc),
-          fnType, TInfo, StorageClass::SC_Extern, InlineSpecifiedFalse,
-          HasWrittenPrototypeTrue);
+          fnType, TInfo, SC, InlineSpecifiedFalse, HasWrittenPrototypeTrue);
 
       // Create and set ParmVarDecl.
       SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount> paramDecls =
@@ -3530,6 +3556,8 @@ private:
     const auto *SM =
         hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
     CXXRecordDecl *nodeOutputDecl = nullptr, *emptyNodeOutputDecl = nullptr;
+    const bool EnableSER =
+        m_sema->getLangOpts().EnableShaderExecutionReordering;
 
     for (unsigned i = 0; i < _countof(g_ArBasicKindsAsTypes); i++) {
       ArBasicKind kind = g_ArBasicKindsAsTypes[i];
@@ -3590,6 +3618,10 @@ private:
         recordDecl = DeclareConstantBufferViewType(*m_context, /*bTBuf*/ true);
       } else if (kind == AR_OBJECT_RAY_QUERY) {
         recordDecl = DeclareRayQueryType(*m_context);
+      } else if (kind == AR_OBJECT_HIT_OBJECT) {
+        if (EnableSER) {
+          recordDecl = DeclareHitObjectType(*m_context);
+        }
       } else if (kind == AR_OBJECT_HEAP_RESOURCE) {
         recordDecl = DeclareResourceType(*m_context, /*bSampler*/ false);
         if (SM->IsSM66Plus()) {
@@ -3965,6 +3997,13 @@ public:
   }
   bool IsRayQueryType(QualType type) {
     return IsRayQueryBasicKind(GetTypeElementKind(type));
+  }
+
+  bool IsHitObjectBasicKind(ArBasicKind kind) {
+    return kind == AR_OBJECT_HIT_OBJECT;
+  }
+  bool IsHitObjectType(QualType type) {
+    return IsHitObjectBasicKind(GetTypeElementKind(type));
   }
 
   void WarnMinPrecision(QualType Type, SourceLocation Loc) {
@@ -4571,6 +4610,7 @@ public:
     case AR_OBJECT_WAVE:
     case AR_OBJECT_ACCELERATION_STRUCT:
     case AR_OBJECT_RAY_DESC:
+    case AR_OBJECT_HIT_OBJECT:
     case AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES:
     case AR_OBJECT_RWTEXTURE2DMS:
     case AR_OBJECT_RWTEXTURE2DMS_ARRAY:
@@ -4740,6 +4780,17 @@ public:
                                            nameIdentifier, argumentCount));
   }
 
+  bool IsEnabledIntrinsic(const HLSL_INTRINSIC *pIntrinsic,
+                          const LangOptions LangOpts) {
+    switch ((hlsl::IntrinsicOp)pIntrinsic->Op) {
+    default:
+      return true;
+
+    case hlsl::IntrinsicOp::MOP_HitObject_MakeNop:
+      return LangOpts.EnableShaderExecutionReordering;
+    }
+  }
+
   bool AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
                                    ArrayRef<Expr *> Args,
                                    OverloadCandidateSet &CandidateSet,
@@ -4786,9 +4837,17 @@ public:
         table, tableCount, IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
 
     for (; cursor != end; ++cursor) {
+      const HLSL_INTRINSIC *pIntrinsic = *cursor;
+
+      // Check whether this intrinsic is enabled in the current configuration.
+      // Note that this not necessary for member functions: if the builtin type
+      // is never declared, neither will any type be linked to the member
+      // intrinsics table.
+      if (!IsEnabledIntrinsic(*cursor, m_sema->getLangOpts()))
+        continue;
+
       // If this is the intrinsic we're interested in, build up a representation
       // of the types we need.
-      const HLSL_INTRINSIC *pIntrinsic = *cursor;
       LPCSTR tableName = cursor.GetTableName();
       LPCSTR lowering = cursor.GetLoweringStrategy();
       DXASSERT(pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
@@ -5506,11 +5565,12 @@ public:
       Params.push_back(paramDecl);
     }
 
+    StorageClass SC = intrinsic->bStaticMember ? SC_Static : SC_Extern;
     QualType T = TInfo->getType();
     DeclarationNameInfo NameInfo(FunctionTemplate->getDeclName(), NoLoc);
     CXXMethodDecl *method = CXXMethodDecl::Create(
         *m_context, dyn_cast<CXXRecordDecl>(owner), NoLoc, NameInfo, T, TInfo,
-        SC_Extern, InlineSpecifiedFalse, IsConstexprFalse, NoLoc);
+        SC, InlineSpecifiedFalse, IsConstexprFalse, NoLoc);
 
     // Add intrinsic attr
     AddHLSLIntrinsicAttr(method, *m_context, tableName, lowering, intrinsic);
@@ -7771,7 +7831,8 @@ void HLSLExternalSource::InitializeInitSequenceForHLSL(
   DXASSERT_NOMSG(initSequence != nullptr);
 
   // In HLSL there are no default initializers, eg float4x4 m();
-  // Except for RayQuery constructor (also handle InitializationKind::IK_Value)
+  // Except for RayQuery and HitObject constructors (also handle
+  // InitializationKind::IK_Value)
   if (Kind.getKind() == InitializationKind::IK_Default ||
       Kind.getKind() == InitializationKind::IK_Value) {
     QualType destBaseType = m_context->getBaseElementType(Entity.getType());
@@ -7782,7 +7843,9 @@ void HLSLExternalSource::InitializeInitSequenceForHLSL(
           GetRecordDeclForBuiltInOrStruct(typeRecordDecl));
       DXASSERT(index != -1,
                "otherwise can't find type we already determined was an object");
-      if (g_ArBasicKindsAsTypes[index] == AR_OBJECT_RAY_QUERY) {
+
+      if (g_ArBasicKindsAsTypes[index] == AR_OBJECT_RAY_QUERY ||
+          g_ArBasicKindsAsTypes[index] == AR_OBJECT_HIT_OBJECT) {
         CXXConstructorDecl *Constructor = *typeRecordDecl->ctor_begin();
         initSequence->AddConstructorInitializationStep(
             Constructor, AccessSpecifier::AS_public, destBaseType, false, false,
@@ -11365,6 +11428,54 @@ static bool isStringLiteral(QualType type) {
   return eType->isSpecificBuiltinType(BuiltinType::Char_S);
 }
 
+void Sema::DiagnoseShaderExecutionReordering(CallExpr *CE,
+                                             DXIL::ShaderKind EntrySK,
+                                             const FunctionDecl *EntryFD,
+                                             const hlsl::ShaderModel *SM) {
+  FunctionDecl *FD = CE->getDirectCallee();
+  if (!FD)
+    return;
+  HLSLIntrinsicAttr *IntrinsicAttr = FD->getAttr<HLSLIntrinsicAttr>();
+  if (!IntrinsicAttr)
+    return;
+  if (!IsBuiltinTable(IntrinsicAttr->getGroup()))
+    return;
+
+  SourceLocation Loc = CE->getExprLoc();
+  hlsl::IntrinsicOp opCode = (IntrinsicOp)IntrinsicAttr->getOpcode();
+
+  bool ValidEntryForHitObject = false;
+  switch (EntrySK) {
+  default:
+    break;
+  case DXIL::ShaderKind::RayGeneration:
+  case DXIL::ShaderKind::ClosestHit:
+  case DXIL::ShaderKind::Miss:
+    ValidEntryForHitObject = true;
+    break;
+  }
+
+  // Return for anything that is not a HitObject intrinsic.
+  unsigned ErrDiagID = 0;
+  switch (opCode) {
+  default:
+    return;
+  case hlsl::IntrinsicOp::MOP_HitObject_MakeNop:
+    ErrDiagID = diag::err_hlsl_ser_invalid_shader_kind;
+    break;
+  }
+
+  if (!ValidEntryForHitObject) {
+    Diag(Loc, ErrDiagID) << ShaderModel::FullNameFromKind(EntrySK);
+    Diag(EntryFD->getLocation(), diag::note_hlsl_entry_defined_here);
+  }
+
+  if (!getLangOpts().EnableShaderExecutionReordering) {
+    // Legal entry, but version not supported
+    Diag(Loc, diag::err_hlsl_ser_invalid_version) << SM->GetName();
+  }
+}
+
 // Check HLSL member call constraints for used functions.
 // locallyVisited is true if this call has been visited already from any other
 // entry function.  Used to avoid duplicate diagnostics when not dependent on
@@ -11389,6 +11500,8 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
     return;
   if (!IsBuiltinTable(IntrinsicAttr->getGroup()))
     return;
+
+  DiagnoseShaderExecutionReordering(CE, EntrySK, EntryDecl, SM);
 
   SourceLocation Loc = CE->getExprLoc();
   hlsl::IntrinsicOp opCode = (IntrinsicOp)IntrinsicAttr->getOpcode();
