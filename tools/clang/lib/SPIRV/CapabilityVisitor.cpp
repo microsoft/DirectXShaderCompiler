@@ -634,7 +634,7 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
   return true;
 }
 
-bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
+bool CapabilityVisitor::visit(SpirvExecutionModeBase *execMode) {
   spv::ExecutionMode executionMode = execMode->getExecutionMode();
   SourceLocation execModeSourceLocation = execMode->getSourceLocation();
   SourceLocation entryPointSourceLocation =
