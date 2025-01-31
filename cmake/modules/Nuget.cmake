@@ -27,7 +27,7 @@ function(EnsureNugetExists target_path)
     endif()
 endfunction()
 
-# Downloads nuget.exe to the given path if it doesn't exist yet.
+# Download the latest nuget package for the given ID. Can pass in a custom source, defaults to nuget public feed.
 function(GetNuGetPackageLatestVersion)
     set(params NAME ID SOURCE OUTPUT_DIR OUTPUT_VARIABLE PREVIEW)
     cmake_parse_arguments(PARSE_ARGV 0 ARG "" "${params}" "")
