@@ -38,6 +38,10 @@ stages:
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
         call utils\hct\hcttest.cmd -$(configuration) noexec
       displayName: 'DXIL Tests'
+    - script: |
+        call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
+        call utils\hct\hcttest.cmd -$(configuration) exec-warp
+      displayName: 'DXIL Execution Tests (Nuget WARP)'
 
   - job: Nix
     timeoutInMinutes: 90
