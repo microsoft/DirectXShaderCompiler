@@ -15,7 +15,7 @@ float function1(float x, min12int i) {
 float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3.x; }
 
 
-// CHECK: ID3D12LibraryReflection:
+// CHECK: ID3D12LibraryReflection1:
 // CHECK:   D3D12_LIBRARY_DESC:
 // CHECK:     FunctionCount: 3
 // CHECK:   ID3D12FunctionReflection:
