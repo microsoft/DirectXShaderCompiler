@@ -819,6 +819,15 @@ public:
 
         return false;
       }
+
+      if (GetModuleHandle("d3d10warp.dll") != NULL) {
+        CHAR szFullModuleFilePath[MAX_PATH] = "";
+        GetModuleFileName(GetModuleHandle("d3d10warp.dll"),
+                          szFullModuleFilePath, sizeof(szFullModuleFilePath));
+        WEX::Logging::Log::Comment(WEX::Common::String().Format(
+            L"WARP driver loaded from: %S", szFullModuleFilePath));
+      }
+
     } else {
       CComPtr<IDXGIAdapter1> hardwareAdapter;
       WEX::Common::String AdapterValue;
