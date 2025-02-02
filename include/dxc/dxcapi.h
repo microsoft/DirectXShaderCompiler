@@ -13,7 +13,7 @@
 #ifndef __DXC_API__
 #define __DXC_API__
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #ifndef DXC_API_IMPORT
 #define DXC_API_IMPORT __declspec(dllimport)
 #endif
@@ -1222,7 +1222,7 @@ struct IDxcPdbUtils2 : public IUnknown {
 // Note: __declspec(selectany) requires 'extern'
 // On Linux __declspec(selectany) is removed and using 'extern' results in link
 // error.
-#ifdef _MSC_VER
+#ifdef _WIN32
 #define CLSID_SCOPE __declspec(selectany) extern
 #else
 #define CLSID_SCOPE
