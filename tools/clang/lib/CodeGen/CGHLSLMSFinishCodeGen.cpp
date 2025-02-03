@@ -2812,7 +2812,7 @@ void TranslateHitObjectConstructor(HLModule &HLM) {
              "Wrong signature for apparent HitObject constructor");
 
     DXASSERT(!HitObjectCtor,
-             "Multiple candidate functions that quality as HitObject "
+             "Multiple candidate functions that qualify as HitObject "
              "constructor when there must be at most one");
     HitObjectCtor = &F;
   }
