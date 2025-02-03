@@ -4665,13 +4665,16 @@ AtomicHelper::AtomicHelper(CallInst *CI, OP::OpCode op, Value *h, Type *opType)
     operationType = value->getType();
 }
 // For IOP version of Interlocked*.
-AtomicHelper::AtomicHelper(CallInst *CI, OP::OpCode op, Value *h, uint Dims,
+AtomicHelper::AtomicHelper(CallInst *CI, OP::OpCode op, Value *h, unsigned Dims,
                            Value *coords[], Value *baseOffset, Type *opType)
     : opcode(op), handle(h), coordDimensions(Dims), offset(baseOffset),
       originalValue(nullptr), operationType(opType) {
 
-  for (unsigned i = 0; i < AtomicHelper::kMaxCoordDimensions; i++)
+  for (unsigned i = 0; i < coordDimensions; i++)
     coord[i] = coords[i];
+  Value *undefF = UndefValue::get(coord[0]->getType());
+  for (unsigned i = coordDimensions; i < kMaxCoordDimensions; i++)
+    coord[i] = undefF;
 
   if (op == OP::OpCode::AtomicCompareExchange) {
     compareValue =
