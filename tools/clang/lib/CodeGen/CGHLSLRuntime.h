@@ -89,6 +89,10 @@ public:
   virtual void EmitHLSLOutParamConversionCopyBack(
       CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList,
       llvm::SmallVector<LValue, 8> &lifetimeCleanupList) = 0;
+  virtual llvm::Value *
+  EmitHLSLScalarObjectDefaultConstructor(CodeGenFunction &CGF,
+                                         const clang::Expr *E) = 0;
+
   virtual void MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Value *V,
                                          clang::QualType QaulTy) = 0;
   virtual llvm::Value *
@@ -146,7 +150,7 @@ public:
 
   virtual void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
                              llvm::Value *V) = 0;
-  virtual const clang::Expr *CheckReturnStmtGLCMismatch(
+  virtual const clang::Expr *CheckReturnStmtCoherenceMismatch(
       CodeGenFunction &CGF, const clang::Expr *RV, const clang::ReturnStmt &S,
       clang::QualType FnRetTy,
       const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) = 0;

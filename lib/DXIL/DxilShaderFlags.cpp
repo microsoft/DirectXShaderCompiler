@@ -640,6 +640,13 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::GeometryIndex:
           hasRaytracingTier1_1 = true;
           break;
+        case DXIL::OpCode::HitObject_MakeNop:
+        case DXIL::OpCode::HitObject_MakeMiss:
+        case DXIL::OpCode::ReorderThread:
+        case DXIL::OpCode::HitObject_FromRayQuery:
+        case DXIL::OpCode::HitObject_FromRayQueryWithAttrs:
+          hasRaytracingTier1_1 = true;
+          break;
         case DXIL::OpCode::AttributeAtVertex:
           hasBarycentrics = true;
           break;

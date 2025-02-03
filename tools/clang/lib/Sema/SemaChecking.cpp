@@ -6772,8 +6772,8 @@ static void AnalyzeAssignment(Sema &S, BinaryOperator *E) {
   // Just recurse on the LHS.
   AnalyzeImplicitConversions(S, E->getLHS(), E->getOperatorLoc());
 
-  S.DiagnoseGloballyCoherentMismatch(E->getRHS(), E->getLHS()->getType(),
-                                     E->getOperatorLoc());
+  S.DiagnoseCoherenceMismatch(E->getRHS(), E->getLHS()->getType(),
+                              E->getOperatorLoc());
 
   // We want to recurse on the RHS as normal unless we're assigning to
   // a bitfield.
@@ -6887,7 +6887,7 @@ void CheckImplicitArgumentConversions(Sema &S, CallExpr *TheCall,
          ++ArgIdx, ++ParmIdx) {
       ParmVarDecl *PD = FD->getParamDecl(ParmIdx);
       Expr *CurrA = TheCall->getArg(ArgIdx);
-      S.DiagnoseGloballyCoherentMismatch(CurrA, PD->getType(), CC);
+      S.DiagnoseCoherenceMismatch(CurrA, PD->getType(), CC);
     }
   }
   // HLSL CHange End

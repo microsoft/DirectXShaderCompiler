@@ -159,7 +159,8 @@ struct DxilObjectProperties {
   bool AddResource(llvm::Value *V, const hlsl::DxilResourceProperties &RP);
   bool IsResource(llvm::Value *V);
   hlsl::DxilResourceProperties GetResource(llvm::Value *V);
-  void updateGLC(llvm::Value *V);
+  void updateCoherence(llvm::Value *V, bool updateGloballyCoherent,
+                       bool updateReorderCoherent);
 
   // MapVector for deterministic iteration order.
   llvm::MapVector<llvm::Value *, hlsl::DxilResourceProperties> resMap;
@@ -226,6 +227,7 @@ void CollectCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
                           llvm::SmallVector<llvm::Function *, 2> &Ctors,
                           clang::CodeGen::CodeGenModule &CGM);
 
+void TranslateHitObjectConstructor(hlsl::HLModule &HLM);
 void TranslateRayQueryConstructor(hlsl::HLModule &HLM);
 void TranslateInputNodeRecordArgToHandle(
     hlsl::HLModule &HLM,
