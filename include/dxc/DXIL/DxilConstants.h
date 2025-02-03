@@ -475,18 +475,62 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 // Enumeration for operations specified by DXIL
 enum class OpCode : unsigned {
   //
-  Reserved0 = 226,  // Reserved
-  Reserved1 = 227,  // Reserved
-  Reserved10 = 236, // Reserved
-  Reserved11 = 237, // Reserved
-  Reserved2 = 228,  // Reserved
-  Reserved3 = 229,  // Reserved
-  Reserved4 = 230,  // Reserved
-  Reserved5 = 231,  // Reserved
-  Reserved6 = 232,  // Reserved
-  Reserved7 = 233,  // Reserved
-  Reserved8 = 234,  // Reserved
-  Reserved9 = 235,  // Reserved
+  Reserved0 = 226,   // Reserved
+  Reserved1 = 227,   // Reserved
+  Reserved10 = 236,  // Reserved
+  Reserved11 = 237,  // Reserved
+  Reserved2 = 228,   // Reserved
+  Reserved3 = 229,   // Reserved
+  Reserved4 = 230,   // Reserved
+  Reserved5 = 231,   // Reserved
+  Reserved6 = 232,   // Reserved
+  Reserved7 = 233,   // Reserved
+  Reserved8 = 234,   // Reserved
+  Reserved9 = 235,   // Reserved
+  ReservedA0 = 258,  // Reserved
+  ReservedA1 = 259,  // Reserved
+  ReservedA2 = 260,  // Reserved
+  ReservedB0 = 261,  // Reserved
+  ReservedB1 = 262,  // Reserved
+  ReservedB10 = 271, // Reserved
+  ReservedB11 = 272, // Reserved
+  ReservedB12 = 273, // Reserved
+  ReservedB13 = 274, // Reserved
+  ReservedB14 = 275, // Reserved
+  ReservedB15 = 276, // Reserved
+  ReservedB16 = 277, // Reserved
+  ReservedB17 = 278, // Reserved
+  ReservedB18 = 279, // Reserved
+  ReservedB19 = 280, // Reserved
+  ReservedB2 = 263,  // Reserved
+  ReservedB20 = 281, // Reserved
+  ReservedB21 = 282, // Reserved
+  ReservedB22 = 283, // Reserved
+  ReservedB23 = 284, // Reserved
+  ReservedB24 = 285, // Reserved
+  ReservedB25 = 286, // Reserved
+  ReservedB26 = 287, // Reserved
+  ReservedB27 = 288, // Reserved
+  ReservedB28 = 289, // Reserved
+  ReservedB29 = 290, // Reserved
+  ReservedB3 = 264,  // Reserved
+  ReservedB30 = 291, // Reserved
+  ReservedB4 = 265,  // Reserved
+  ReservedB5 = 266,  // Reserved
+  ReservedB6 = 267,  // Reserved
+  ReservedB7 = 268,  // Reserved
+  ReservedB8 = 269,  // Reserved
+  ReservedB9 = 270,  // Reserved
+  ReservedC0 = 292,  // Reserved
+  ReservedC1 = 293,  // Reserved
+  ReservedC2 = 294,  // Reserved
+  ReservedC3 = 295,  // Reserved
+  ReservedC4 = 296,  // Reserved
+  ReservedC5 = 297,  // Reserved
+  ReservedC6 = 298,  // Reserved
+  ReservedC7 = 299,  // Reserved
+  ReservedC8 = 300,  // Reserved
+  ReservedC9 = 301,  // Reserved
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -983,9 +1027,9 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_5 = 216,
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
-  NumOpCodes_Dxil_1_8 = 258,
+  NumOpCodes_Dxil_1_8 = 302,
 
-  NumOpCodes = 258 // exclusive last value of enumeration
+  NumOpCodes = NumOpCodes_Dxil_1_8 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 

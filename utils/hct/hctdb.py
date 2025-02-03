@@ -5508,10 +5508,497 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
+        # Reserved block A
+        self.add_dxil_op(
+            "ReservedA0",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedA1",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedA2",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        # Shader Execution Reordering
+        self.add_dxil_op(
+            "ReservedB0",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB1",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB2",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB3",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB4",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB5",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB6",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB7",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB8",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB9",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB10",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB11",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB12",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB13",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB14",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB15",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB16",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB17",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB18",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB19",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB20",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB21",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB22",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB23",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB24",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB25",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB26",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB27",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB28",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB29",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedB30",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        # Reserved block C
+        self.add_dxil_op(
+            "ReservedC0",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedC1",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedC2",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedC3",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedC4",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedC5",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedC6",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedC7",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedC8",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "ReservedC9",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
         # End of DXIL 1.8 opcodes.
         self.set_op_count_for_version(1, 8, next_op_idx)
-        assert next_op_idx == 258, (
-            "258 is expected next operation index but encountered %d and thus opcodes are broken"
+        assert next_op_idx == 302, (
+            "302 is expected next operation index but encountered %d and thus opcodes are broken"
             % next_op_idx
         )
 
