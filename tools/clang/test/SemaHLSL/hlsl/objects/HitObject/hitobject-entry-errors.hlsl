@@ -10,10 +10,6 @@ struct [raypayload] Payload
 struct Attribs { float2 barys; };
 
 void UseHitObject() {
-// expected-error@+4{{Shader kind 'compute' incompatible with shader execution reordering (has to be raygeneration, closesthit or miss)}}
-// expected-error@+3{{Shader kind 'intersection' incompatible with shader execution reordering (has to be raygeneration, closesthit or miss)}}
-// expected-error@+2{{Shader kind 'anyhit' incompatible with shader execution reordering (has to be raygeneration, closesthit or miss)}}
-// expected-error@+1{{Shader kind 'callable' incompatible with shader execution reordering (has to be raygeneration, closesthit or miss)}}
   HitObject hit;
 }
 
@@ -21,28 +17,33 @@ void UseHitObject() {
 [shader("compute")]
 [numthreads(4,4,4)]
 void mainHitCS(uint ix : SV_GroupIndex, uint3 id : SV_GroupThreadID) {
-  UseHitObject();
-}
-
-[shader("raygeneration")]
-void mainHitRG() {
+// expected-error@-7{{Shader kind 'compute' incompatible with shader execution reordering (has to be raygeneration, closesthit or miss)}}
   UseHitObject();
 }
 
 // expected-note@+2{{entry function defined here}}
 [shader("callable")]
 void mainHitCALL(inout Attribs attrs) {
+// expected-error@-14{{Shader kind 'callable' incompatible with shader execution reordering (has to be raygeneration, closesthit or miss)}}
   UseHitObject();
 }
+
 // expected-note@+2{{entry function defined here}}
 [shader("intersection")]
 void mainHitIS() {
+// expected-error@-21{{Shader kind 'intersection' incompatible with shader execution reordering (has to be raygeneration, closesthit or miss)}}
   UseHitObject();
 }
 
 // expected-note@+2{{entry function defined here}}
 [shader("anyhit")]
 void mainHitAH(inout Payload pld, in Attribs attrs) {
+// expected-error@-28{{Shader kind 'anyhit' incompatible with shader execution reordering (has to be raygeneration, closesthit or miss)}}
+  UseHitObject();
+}
+
+[shader("raygeneration")]
+void mainHitRG() {
   UseHitObject();
 }
 
