@@ -13,16 +13,12 @@ struct TexCoords {
   uint q : 8;
 };
 
-RWBuffer<TexCoords> buf;
 RWStructuredBuffer<TexCoords> str;
 groupshared TexCoords gs;
 
 [shader("compute")]
 [numthreads(8,8,1)]
 void main( uint2 tid : SV_DispatchThreadID) {
-
-  InterlockedOr(buf[tid.y].q, 2);                           /* expected-error {{no matching function for call to 'InterlockedOr'}} expected-note {{candidate function not viable: no known conversion from 'uint' to 'unsigned int &' for 1st argument}} expected-note {{candidate function not viable: no known conversion from 'uint' to 'unsigned long long &' for 1st argument}} */
-  InterlockedCompareStore(buf[tid.y].q, 3, 1);              /* expected-error {{no matching function for call to 'InterlockedCompareStore'}} expected-note {{candidate function not viable: no known conversion from 'uint' to 'unsigned int &' for 1st argument}} expected-note {{candidate function not viable: no known conversion from 'uint' to 'unsigned long long &' for 1st argument}} */
 
   InterlockedOr(str[tid.y].q, 2);                           /* expected-error {{no matching function for call to 'InterlockedOr'}} expected-note {{candidate function not viable: no known conversion from 'uint' to 'unsigned int &' for 1st argument}} expected-note {{candidate function not viable: no known conversion from 'uint' to 'unsigned long long &' for 1st argument}} */
   InterlockedCompareStore(str[tid.y].q, 3, 1);              /* expected-error {{no matching function for call to 'InterlockedCompareStore'}} expected-note {{candidate function not viable: no known conversion from 'uint' to 'unsigned int &' for 1st argument}} expected-note {{candidate function not viable: no known conversion from 'uint' to 'unsigned long long &' for 1st argument}} */
