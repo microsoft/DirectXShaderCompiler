@@ -4135,7 +4135,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        next_op_idx += 1        
+        next_op_idx += 1
 
         self.add_dxil_op(
             "RayQuery_TraceRayInline",
