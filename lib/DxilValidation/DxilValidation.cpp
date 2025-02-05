@@ -2756,6 +2756,45 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
             }
             dispatchMesh = CI;
           }
+
+          if (dxilOpcode == DXIL::OpCode::AllocateRayQuery) {
+            // validate flags are immediate and compatible
+            llvm::Value *constRayFlag = CI->getOperand(1);
+            if (!llvm::isa<llvm::Constant>(constRayFlag)) {
+              ValCtx.EmitInstrError(
+                  &I,
+                  ValidationRule::
+                      DeclNonConstFlagsUnsupportedForAllocateRayQuery);
+            }
+          }
+          if (dxilOpcode == DXIL::OpCode::AllocateRayQuery2) {
+            // validate flags are immediate and compatible
+            llvm::Value *constRayFlag = CI->getOperand(1);
+            llvm::Value *RayQueryFlag = CI->getOperand(2);
+            if (!llvm::isa<llvm::Constant>(constRayFlag) || 
+                !llvm::isa<llvm::Constant>(RayQueryFlag)) {
+              ValCtx.EmitInstrError(
+                  &I, ValidationRule::
+                          DeclNonConstFlagsUnsupportedForAllocateRayQuery2);
+              continue;
+            }
+            // When the ForceOMM2State ConstRayFlag is given as an argument to
+            // a RayQuery object, AllowOpacityMicromaps is expected 
+            // as a RayQueryFlag argument
+            llvm::ConstantInt *Arg1 =
+                llvm::cast<llvm::ConstantInt>(constRayFlag);
+            llvm::ConstantInt *Arg2 =
+                llvm::cast<llvm::ConstantInt>(RayQueryFlag);
+            if (Arg1->getValue().getSExtValue() ==
+                    (unsigned)DXIL::RayFlag::ForceOMM2State &&
+              Arg2->getValue().getSExtValue() !=
+                    (unsigned)DXIL::RAYQUERY_FLAG::
+                        RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS) {
+              ValCtx.EmitInstrError(
+                  &I, ValidationRule::
+                          DeclAllowOpacityMicromapsExpectedGivenForceOMM2State);
+            }
+          }
         }
         continue;
       }
@@ -3934,11 +3973,11 @@ static void ValidateShaderFlags(ValidationContext &ValCtx) {
   // Special case for validator version prior to 1.8.
   // If DXR 1.1 flag is set, but our computed flags do not have this set, then
   // this is due to prior versions setting the flag based on DXR 1.1 subobjects,
-  // which are gone by this point.  Set the flag and the rest should match.
+  // which are gone by this point. Set the flag and the rest should match.
   unsigned valMajor, valMinor;
   ValCtx.DxilMod.GetValidatorVersion(valMajor, valMinor);
   if (DXIL::CompareVersions(valMajor, valMinor, 1, 5) >= 0 &&
-      DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0 &&
+      DXIL::CompareVersions(valMajor, valMinor, 1, 8) != 0 &&
       ValCtx.DxilMod.m_ShaderFlags.GetRaytracingTier1_1() &&
       !calcFlags.GetRaytracingTier1_1()) {
     calcFlags.SetRaytracingTier1_1(true);

@@ -7936,17 +7936,17 @@ class db_dxil(object):
         self.add_valrule_msg(
             "Decl.NonConstFlagsUnsupportedForAllocateRayQuery",
             "RayFlags for AllocateRayQuery must be constant",
-            "constRayFlags argument of AllocateRayQuery '%0' must be constant",
+            "constRayFlags argument of AllocateRayQuery must be constant",
         )
         self.add_valrule_msg(
             "Decl.NonConstFlagsUnsupportedForAllocateRayQuery2",
             "constRayFlags and RayQueryFlags for AllocateRayQuery2 must be constant",
-            "constRayFlags and RayQueryFlags arguments of AllocateRayQuery2 '%0' must be constant",
+            "constRayFlags and RayQueryFlags arguments of AllocateRayQuery2 must be constant",
         )
         self.add_valrule_msg(
             "Decl.AllowOpacityMicromapsExpectedGivenForceOMM2State",
             "When the ForceOMM2State ConstRayFlag is given as an argument to a RayQuery object, AllowOpacityMicromaps is expected as a RayQueryFlag argument",
-            "RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS must be set for RayQueryFlags when RAY_FLAG_FORCE_OMM_2_STATE is set for constRayFlags on AllocateRayQuery2 operation %0.",
+            "RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS must be set for RayQueryFlags when RAY_FLAG_FORCE_OMM_2_STATE is set for constRayFlags on AllocateRayQuery2 operation.",
         )
         self.add_valrule_msg(
             "Decl.PayloadStruct",
