@@ -2762,16 +2762,15 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
             llvm::Value *constRayFlag = CI->getOperand(1);
             if (!llvm::isa<llvm::Constant>(constRayFlag)) {
               ValCtx.EmitInstrError(
-                  &I,
-                  ValidationRule::
-                      DeclNonConstFlagsUnsupportedForAllocateRayQuery);
+                  &I, ValidationRule::
+                          DeclNonConstFlagsUnsupportedForAllocateRayQuery);
             }
           }
           if (dxilOpcode == DXIL::OpCode::AllocateRayQuery2) {
             // validate flags are immediate and compatible
             llvm::Value *constRayFlag = CI->getOperand(1);
             llvm::Value *RayQueryFlag = CI->getOperand(2);
-            if (!llvm::isa<llvm::Constant>(constRayFlag) || 
+            if (!llvm::isa<llvm::Constant>(constRayFlag) ||
                 !llvm::isa<llvm::Constant>(RayQueryFlag)) {
               ValCtx.EmitInstrError(
                   &I, ValidationRule::
@@ -2779,7 +2778,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
               continue;
             }
             // When the ForceOMM2State ConstRayFlag is given as an argument to
-            // a RayQuery object, AllowOpacityMicromaps is expected 
+            // a RayQuery object, AllowOpacityMicromaps is expected
             // as a RayQueryFlag argument
             llvm::ConstantInt *Arg1 =
                 llvm::cast<llvm::ConstantInt>(constRayFlag);
@@ -2787,7 +2786,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
                 llvm::cast<llvm::ConstantInt>(RayQueryFlag);
             if (Arg1->getValue().getSExtValue() ==
                     (unsigned)DXIL::RayFlag::ForceOMM2State &&
-              Arg2->getValue().getSExtValue() !=
+                Arg2->getValue().getSExtValue() !=
                     (unsigned)DXIL::RAYQUERY_FLAG::
                         RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS) {
               ValCtx.EmitInstrError(
