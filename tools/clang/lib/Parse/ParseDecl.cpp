@@ -640,7 +640,8 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       // illegal memory access to NULLPTR) so we issue an error if we see a
       // l_paren here, and skip until a matching r_paren or semicolon.
       if (Tok.is(tok::l_paren)) {
-        Diag(Tok.getLocation(), diag::err_invalid_token_after_toplevel_declarator);
+        Diag(Tok.getLocation(),
+             diag::err_invalid_token_after_toplevel_declarator);
         ConsumeParen();
         SkipUntil(tok::r_paren, StopAtSemi);
         return true;
