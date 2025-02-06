@@ -2572,24 +2572,15 @@ bool CGMSHLSLRuntime::FindDispatchGridSemantic(const CXXRecordDecl *RD,
                                                CharUnits Offset) {
   const ASTRecordLayout &Layout = CGM.getContext().getASTRecordLayout(RD);
 
-  // Collect any bases.
-  SmallVector<const CXXRecordDecl *, 4> Bases;
+  // Check (non-virtual) bases
   for (const CXXBaseSpecifier &Base : RD->bases()) {
-    if (!Base.getType()->isDependentType())
-      Bases.push_back(Base.getType()->getAsCXXRecordDecl());
-  }
-
-  // Sort bases by offset.
-  std::stable_sort(Bases.begin(), Bases.end(),
-                   [&](const CXXRecordDecl *L, const CXXRecordDecl *R) {
-                     return Layout.getBaseClassOffset(L) <
-                            Layout.getBaseClassOffset(R);
-                   });
-
-  // Check bases in order
-  for (const CXXRecordDecl *Base : Bases) {
-    CharUnits BaseOffset = Offset + Layout.getBaseClassOffset(Base);
-    if (FindDispatchGridSemantic(Base, SDGRec, BaseOffset))
+    DXASSERT(!Base.getType()->isDependentType(),
+             "Node Record with dependent base class not caught by Sema");
+    if (Base.isVirtual() || Base.getType()->isDependentType())
+      continue;
+    CXXRecordDecl *BaseDecl = Base.getType()->getAsCXXRecordDecl();
+    CharUnits BaseOffset = Offset + Layout.getBaseClassOffset(BaseDecl);
+    if (FindDispatchGridSemantic(BaseDecl, SDGRec, BaseOffset))
       return true;
   }
 
