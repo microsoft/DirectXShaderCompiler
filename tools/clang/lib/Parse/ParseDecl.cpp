@@ -634,6 +634,18 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       ConsumeToken(); // consume semantic
 
       target.push_back(pUA);
+
+      // a non-empty parameterised list following a semantic will be mistaken
+      // for a direct initializer (which won't have a type, resulting in an
+      // illegal memory access to NULLPTR) so we issue an error if we see a
+      // l_paren here, and skip until a matching r_paren or semicolon.
+      if (Tok.is(tok::l_paren)) {
+        Diag(Tok.getLocation(), diag::err_invalid_token_after_toplevel_declarator);
+        ConsumeParen();
+        SkipUntil(tok::r_paren, StopAtSemi);
+        return true;
+      }
+
     }
     else {
       // Not an HLSL semantic/register/packoffset construct.
