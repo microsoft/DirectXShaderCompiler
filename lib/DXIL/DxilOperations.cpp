@@ -2602,6 +2602,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::ReadNone,
     },
+
+    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
     {
         OC::AllocateRayQuery2,
         "AllocateRayQuery2",
@@ -2611,9 +2613,6 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::None,
     },
-
-    // Reserved block A void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
     {
         OC::ReservedA0,
         "ReservedA0",
@@ -2641,9 +2640,6 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::None,
     },
-
-    // Shader Execution Reordering void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
     {
         OC::ReservedB0,
         "ReservedB0",
@@ -2923,9 +2919,6 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::None,
     },
-
-    // Reserved block C void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
     {
         OC::ReservedC0,
         "ReservedC0",
@@ -5835,6 +5828,188 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
+
+    //
+  case OpCode::AllocateRayQuery2:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedA0:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedA1:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedA2:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB0:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB1:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB2:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB3:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB4:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB5:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB6:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB7:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB8:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB9:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB10:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB11:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB12:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB13:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB14:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB15:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB16:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB17:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB18:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB19:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB20:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB21:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB22:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB23:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB24:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB25:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB26:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB27:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB28:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB29:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB30:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC0:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC1:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC2:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC3:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC4:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC5:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC6:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC7:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC8:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC9:
+    A(pV);
+    A(pI32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -6093,6 +6268,51 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::AnnotateNodeRecordHandle:
   case OpCode::NodeOutputIsValid:
   case OpCode::GetRemainingRecursionLevels:
+  case OpCode::AllocateRayQuery2:
+  case OpCode::ReservedA0:
+  case OpCode::ReservedA1:
+  case OpCode::ReservedA2:
+  case OpCode::ReservedB0:
+  case OpCode::ReservedB1:
+  case OpCode::ReservedB2:
+  case OpCode::ReservedB3:
+  case OpCode::ReservedB4:
+  case OpCode::ReservedB5:
+  case OpCode::ReservedB6:
+  case OpCode::ReservedB7:
+  case OpCode::ReservedB8:
+  case OpCode::ReservedB9:
+  case OpCode::ReservedB10:
+  case OpCode::ReservedB11:
+  case OpCode::ReservedB12:
+  case OpCode::ReservedB13:
+  case OpCode::ReservedB14:
+  case OpCode::ReservedB15:
+  case OpCode::ReservedB16:
+  case OpCode::ReservedB17:
+  case OpCode::ReservedB18:
+  case OpCode::ReservedB19:
+  case OpCode::ReservedB20:
+  case OpCode::ReservedB21:
+  case OpCode::ReservedB22:
+  case OpCode::ReservedB23:
+  case OpCode::ReservedB24:
+  case OpCode::ReservedB25:
+  case OpCode::ReservedB26:
+  case OpCode::ReservedB27:
+  case OpCode::ReservedB28:
+  case OpCode::ReservedB29:
+  case OpCode::ReservedB30:
+  case OpCode::ReservedC0:
+  case OpCode::ReservedC1:
+  case OpCode::ReservedC2:
+  case OpCode::ReservedC3:
+  case OpCode::ReservedC4:
+  case OpCode::ReservedC5:
+  case OpCode::ReservedC6:
+  case OpCode::ReservedC7:
+  case OpCode::ReservedC8:
+  case OpCode::ReservedC9:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:

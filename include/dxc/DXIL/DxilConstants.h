@@ -475,65 +475,63 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 // Enumeration for operations specified by DXIL
 enum class OpCode : unsigned {
   //
-  Reserved0 = 226,  // Reserved
-  Reserved1 = 227,  // Reserved
-  Reserved10 = 236, // Reserved
-  Reserved11 = 237, // Reserved
-  Reserved2 = 228,  // Reserved
-  Reserved3 = 229,  // Reserved
-  Reserved4 = 230,  // Reserved
-  Reserved5 = 231,  // Reserved
-  Reserved6 = 232,  // Reserved
-  Reserved7 = 233,  // Reserved
-  Reserved8 = 234,  // Reserved
-  Reserved9 = 235,  // Reserved
-
-  ReservedA0 = 259, // Reserved
-  ReservedA1 = 260, // Reserved
-  ReservedA2 = 261, // Reserved
-
-  ReservedB0 = 262,  // Reserved
-  ReservedB1 = 263,  // Reserved
-  ReservedB10 = 272, // Reserved
-  ReservedB11 = 273, // Reserved
-  ReservedB12 = 274, // Reserved
-  ReservedB13 = 275, // Reserved
-  ReservedB14 = 276, // Reserved
-  ReservedB15 = 277, // Reserved
-  ReservedB16 = 278, // Reserved
-  ReservedB17 = 279, // Reserved
-  ReservedB18 = 280, // Reserved
-  ReservedB19 = 281, // Reserved
-  ReservedB2 = 264,  // Reserved
-  ReservedB20 = 282, // Reserved
-  ReservedB21 = 283, // Reserved
-  ReservedB22 = 284, // Reserved
-  ReservedB23 = 285, // Reserved
-  ReservedB24 = 286, // Reserved
-  ReservedB25 = 287, // Reserved
-  ReservedB26 = 288, // Reserved
-  ReservedB27 = 289, // Reserved
-  ReservedB28 = 290, // Reserved
-  ReservedB29 = 291, // Reserved
-  ReservedB3 = 265,  // Reserved
-  ReservedB30 = 292, // Reserved
-  ReservedB4 = 266,  // Reserved
-  ReservedB5 = 267,  // Reserved
-  ReservedB6 = 268,  // Reserved
-  ReservedB7 = 269,  // Reserved
-  ReservedB8 = 270,  // Reserved
-  ReservedB9 = 271,  // Reserved
-
-  ReservedC0 = 293, // Reserved
-  ReservedC1 = 294, // Reserved
-  ReservedC2 = 295, // Reserved
-  ReservedC3 = 296, // Reserved
-  ReservedC4 = 297, // Reserved
-  ReservedC5 = 298, // Reserved
-  ReservedC6 = 299, // Reserved
-  ReservedC7 = 300, // Reserved
-  ReservedC8 = 301, // Reserved
-  ReservedC9 = 302, // Reserved
+  AllocateRayQuery2 = 258, // Reserved
+  Reserved0 = 226,         // Reserved
+  Reserved1 = 227,         // Reserved
+  Reserved10 = 236,        // Reserved
+  Reserved11 = 237,        // Reserved
+  Reserved2 = 228,         // Reserved
+  Reserved3 = 229,         // Reserved
+  Reserved4 = 230,         // Reserved
+  Reserved5 = 231,         // Reserved
+  Reserved6 = 232,         // Reserved
+  Reserved7 = 233,         // Reserved
+  Reserved8 = 234,         // Reserved
+  Reserved9 = 235,         // Reserved
+  ReservedA0 = 259,        // Reserved
+  ReservedA1 = 260,        // Reserved
+  ReservedA2 = 261,        // Reserved
+  ReservedB0 = 262,        // Reserved
+  ReservedB1 = 263,        // Reserved
+  ReservedB10 = 272,       // Reserved
+  ReservedB11 = 273,       // Reserved
+  ReservedB12 = 274,       // Reserved
+  ReservedB13 = 275,       // Reserved
+  ReservedB14 = 276,       // Reserved
+  ReservedB15 = 277,       // Reserved
+  ReservedB16 = 278,       // Reserved
+  ReservedB17 = 279,       // Reserved
+  ReservedB18 = 280,       // Reserved
+  ReservedB19 = 281,       // Reserved
+  ReservedB2 = 264,        // Reserved
+  ReservedB20 = 282,       // Reserved
+  ReservedB21 = 283,       // Reserved
+  ReservedB22 = 284,       // Reserved
+  ReservedB23 = 285,       // Reserved
+  ReservedB24 = 286,       // Reserved
+  ReservedB25 = 287,       // Reserved
+  ReservedB26 = 288,       // Reserved
+  ReservedB27 = 289,       // Reserved
+  ReservedB28 = 290,       // Reserved
+  ReservedB29 = 291,       // Reserved
+  ReservedB3 = 265,        // Reserved
+  ReservedB30 = 292,       // Reserved
+  ReservedB4 = 266,        // Reserved
+  ReservedB5 = 267,        // Reserved
+  ReservedB6 = 268,        // Reserved
+  ReservedB7 = 269,        // Reserved
+  ReservedB8 = 270,        // Reserved
+  ReservedB9 = 271,        // Reserved
+  ReservedC0 = 293,        // Reserved
+  ReservedC1 = 294,        // Reserved
+  ReservedC2 = 295,        // Reserved
+  ReservedC3 = 296,        // Reserved
+  ReservedC4 = 297,        // Reserved
+  ReservedC5 = 298,        // Reserved
+  ReservedC6 = 299,        // Reserved
+  ReservedC7 = 300,        // Reserved
+  ReservedC8 = 301,        // Reserved
+  ReservedC9 = 302,        // Reserved
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -682,9 +680,8 @@ enum class OpCode : unsigned {
   TraceRay = 157,   // initiates raytrace
 
   // Inline Ray Query
-  AllocateRayQuery = 178,  // allocates space for RayQuery and return handle
-  AllocateRayQuery2 = 258, // allocates space for RayQuery and return handle
-  RayQuery_Abort = 181,    // aborts a ray query
+  AllocateRayQuery = 178, // allocates space for RayQuery and return handle
+  RayQuery_Abort = 181,   // aborts a ray query
   RayQuery_CandidateGeometryIndex = 203, // returns candidate hit geometry index
   RayQuery_CandidateInstanceContributionToHitGroupIndex =
       214, // returns candidate hit InstanceContributionToHitGroupIndex
@@ -1033,7 +1030,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_7 = 226,
   NumOpCodes_Dxil_1_8 = 303,
 
-  NumOpCodes = NumOpCodes_Dxil_1_8 // exclusive last value of enumeration
+  NumOpCodes = 303 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
