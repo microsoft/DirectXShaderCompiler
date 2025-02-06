@@ -4828,7 +4828,8 @@ public:
         return true;
       if (badArgIdx) {
         candidate.FailureKind = ovl_fail_bad_conversion;
-        QualType ParamType = functionArgTypes[badArgIdx];
+        QualType ParamType =
+            intrinsicFuncDecl->getParamDecl(badArgIdx - 1)->getType();
         candidate.Conversions[badArgIdx - 1].setBad(
             BadConversionSequence::no_conversion, Args[badArgIdx - 1],
             ParamType);
