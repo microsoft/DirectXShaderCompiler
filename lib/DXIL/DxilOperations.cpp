@@ -2602,6 +2602,15 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::ReadNone,
     },
+    {
+        OC::AllocateRayQuery2,
+        "AllocateRayQuery2",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
 
     // Reserved block A void,     h,     f,     d,    i1,    i8,
     // i16,   i32,   i64,   udt,   obj ,  function attribute

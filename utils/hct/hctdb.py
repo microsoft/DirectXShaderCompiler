@@ -5510,6 +5510,18 @@ class db_dxil(object):
 
         # Reserved block A
         self.add_dxil_op(
+            "AllocateRayQuery2",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+
+        # Reserved block A
+        self.add_dxil_op(
             "ReservedA0",
             next_op_idx,
             "Reserved",
@@ -5997,8 +6009,8 @@ class db_dxil(object):
 
         # End of DXIL 1.8 opcodes.
         self.set_op_count_for_version(1, 8, next_op_idx)
-        assert next_op_idx == 302, (
-            "302 is expected next operation index but encountered %d and thus opcodes are broken"
+        assert next_op_idx == 303, (
+            "303 is expected next operation index but encountered %d and thus opcodes are broken"
             % next_op_idx
         )
 
