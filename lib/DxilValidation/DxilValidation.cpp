@@ -3972,7 +3972,7 @@ static void ValidateShaderFlags(ValidationContext &ValCtx) {
   // Special case for validator version prior to 1.8.
   // If DXR 1.1 flag is set, but our computed flags do not have this set, then
   // this is due to prior versions setting the flag based on DXR 1.1 subobjects,
-  // which are gone by this point. Set the flag and the rest should match.
+  // which are gone by this point.  Set the flag and the rest should match.
   unsigned valMajor, valMinor;
   ValCtx.DxilMod.GetValidatorVersion(valMajor, valMinor);
   if (DXIL::CompareVersions(valMajor, valMinor, 1, 5) >= 0 &&
