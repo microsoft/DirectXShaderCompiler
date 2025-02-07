@@ -343,6 +343,7 @@ enum class IntrinsicOp {
   MOP_TraceRayInline,
   MOP_WorldRayDirection,
   MOP_WorldRayOrigin,
+  MOP_HitObject_MakeNop,
   MOP_Count,
   MOP_FinishedCrossGroupSharing,
   MOP_GetGroupNodeOutputRecords,

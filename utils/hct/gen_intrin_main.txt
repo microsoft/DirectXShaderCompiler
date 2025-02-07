@@ -34,8 +34,9 @@
 // the size comes from the parse input.  "<>" means any kind
 // of layout is acceptable.
 //
-// Basic types are bool, int, uint, u64, float, sampler1d, sampler2d,
-// sampler3d, sampler_cube, sampler_cmp, sampler, wave and void.
+// Basic types are bool, int, uint, u64, float, hit_object,
+// sampler1d, sampler2d, sampler3d, sampler_cube, sampler_cmp,
+// sampler, wave and void.
 // There are meta-types too: any_int, uint_only, numeric and any.
 //
 // Along with a type and layout you can also give relations
@@ -1087,6 +1088,10 @@ float<3> [[ro]] CommittedObjectRayDirection();
 uint [[ro]] CandidateInstanceContributionToHitGroupIndex();
 uint [[ro]] CommittedInstanceContributionToHitGroupIndex();
 
+} namespace
+
+namespace HitObjectMethods {
+    hit_object [[static,class_prefix]] MakeNop();
 } namespace
 
 // Work Graphs objects and methods

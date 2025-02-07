@@ -11,15 +11,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Sema/SemaInternal.h"
 #include "TypeLocBuilder.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/HlslTypes.h"
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/Lookup.h"
+#include "clang/Sema/SemaInternal.h"
 #include "clang/Sema/Template.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/raw_ostream.h"
@@ -200,9 +201,13 @@ bool Sema::RequireCompleteDeclContext(CXXScopeSpec &SS,
 
   // If we're currently defining this type, then lookup into the
   // type is okay: don't complain that it isn't complete yet.
+  // HLSL: If this is a builtin type, add all method definitions and complete
+  // the type.
   QualType type = Context.getTypeDeclType(tag);
   const TagType *tagType = type->getAs<TagType>();
-  if (tagType && tagType->isBeingDefined())
+  if (tagType && tagType->isBeingDefined() &&
+      (hlsl::IsUserDefinedRecordType(type) ||
+       hlsl::IsHLSLObjectWithImplicitMemberAccess(type)))
     return false;
 
   SourceLocation loc = SS.getLastQualifierNameLoc();
