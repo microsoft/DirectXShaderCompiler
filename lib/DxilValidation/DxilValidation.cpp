@@ -2766,6 +2766,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
                           DeclNonConstFlagsUnsupportedForAllocateRayQuery);
             }
           }
+
           if (dxilOpcode == DXIL::OpCode::AllocateRayQuery2) {
             // validate flags are immediate and compatible
             llvm::Value *constRayFlag = CI->getOperand(1);
