@@ -62,7 +62,11 @@ void main() {
   fn.incr();
 
 // CHECK:      [[rwsb_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_R %rwsb %int_0 %uint_0
-// CHECK-NEXT:      {{%[0-9]+}} = OpFunctionCall %void %decr [[rwsb_0]]
+// CHECK-NEXT: [[ld:%[0-9]+]] = OpLoad %R [[rwsb_0]]
+// CHECK-NEXT: [[ex:%[0-9]+]] = OpCompositeExtract %int [[ld]] 0
+// CHECK-NEXT: [[v:%[0-9]+]] = OpCompositeConstruct %R_0 [[ex]]
+// CHECK-NEXT: OpStore [[TempVar:%[a-zA-Z0-9_]+]] [[v]]
+// CHECK-NEXT: {{%[0-9]+}} = OpFunctionCall %void %decr [[TempVar]]
   decr(rwsb[0]);
 
 // CHECK: OpFunctionCall %void %decr2 %gs
@@ -87,21 +91,29 @@ void main() {
   fnarr[0].incr();
 
 // CHECK:      [[gsarr_0:%[0-9]+]] = OpAccessChain %_ptr_Workgroup_S %gsarr %int_0
-// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %decr2 [[gsarr_0]]
+// CHECK:           [[ld:%[0-9]+]] = OpLoad %S [[gsarr_0]]
+// CHECK:                            OpStore [[TempVar:%[a-zA-Z0-9_]+]] [[ld]]
+// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %decr2 [[TempVar]]
   decr2(gsarr[0]);
 
 // CHECK:      [[starr_0:%[0-9]+]] = OpAccessChain %_ptr_Private_S %starr %int_0
-// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %decr2 [[starr_0]]
+// CHECK:           [[ld:%[0-9]+]] = OpLoad %S [[starr_0]]
+// CHECK:                            OpStore [[TempVar:%[a-zA-Z0-9_]+]] [[ld]]
+// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %decr2 [[TempVar]]
   decr2(starr[0]);
 
 // CHECK:      [[fnarr_0:%[0-9]+]] = OpAccessChain %_ptr_Function_S %fnarr %int_0
-// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %decr2 [[fnarr_0]]
+// CHECK:           [[ld:%[0-9]+]] = OpLoad %S [[fnarr_0]]
+// CHECK:                            OpStore [[TempVar:%[a-zA-Z0-9_]+]] [[ld]]
+// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %decr2 [[TempVar]]
   decr2(fnarr[0]);
 
 // CHECK:        [[arr:%[0-9]+]] = OpAccessChain %_ptr_Function_int %arr %int_0
 // CHECK-NEXT: [[arr_0:%[0-9]+]] = OpLoad %int [[arr]]
 // CHECK-NEXT: [[arr_1:%[0-9]+]] = OpIAdd %int [[arr_0]] %int_1
-// CHECK-NEXT:                  OpStore [[arr]] [[arr_1]]
-// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %int_decr [[arr]]
+// CHECK-NEXT:                     OpStore [[arr]] [[arr_1]]
+// CHECK-NEXT:    [[ld:%[0-9]+]] = OpLoad %int [[arr]]
+// CHECK-NEXT:                     OpStore [[TempVar:%[0-9a-zA-Z_]+]] [[ld]]
+// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %int_decr [[TempVar]]
   int_decr(++arr[0]);
 }
