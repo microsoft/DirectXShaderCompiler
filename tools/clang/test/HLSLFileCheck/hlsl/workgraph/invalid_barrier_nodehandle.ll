@@ -32,7 +32,7 @@ define void @node01() {
   %2 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %1)  ; CreateHandleForLib(Resource)
   %3 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 4106, i32 261 })  ; AnnotateHandle(res,props)  resource: RWTypedBuffer<U32>
   ; CHECK: error: Invalid semantic flags on DXIL operation 'barrierByMemoryHandle'
-  call void @dx.op.barrierByMemoryHandle(i32 245, %dx.types.Handle %3, i32 9)  ; BarrierByMemoryHandle(object,SemanticFlags)
+  call void @dx.op.barrierByMemoryHandle(i32 245, %dx.types.Handle %3, i32 17)  ; BarrierByMemoryHandle(object,SemanticFlags)
   ret void
 }
 
@@ -40,7 +40,7 @@ define void @node02() {
   %1 = call %dx.types.NodeRecordHandle @dx.op.createNodeInputRecordHandle(i32 250, i32 0)  ; CreateNodeInputRecordHandle(MetadataIdx)
   %2 = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 251, %dx.types.NodeRecordHandle %1, %dx.types.NodeRecordInfo { i32 97, i32 12 })  ; AnnotateNodeRecordHandle(noderecord,props)
   ; CHECK: error: Invalid semantic flags on DXIL operation 'barrierByNodeRecordHandle'
-  call void @dx.op.barrierByNodeRecordHandle(i32 246, %dx.types.NodeRecordHandle %2, i32 9)  ; BarrierByNodeRecordHandle(object,SemanticFlags)
+  call void @dx.op.barrierByNodeRecordHandle(i32 246, %dx.types.NodeRecordHandle %2, i32 17)  ; BarrierByNodeRecordHandle(object,SemanticFlags)
   ret void
 }
 

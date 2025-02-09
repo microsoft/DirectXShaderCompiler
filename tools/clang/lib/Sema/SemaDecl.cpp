@@ -9167,11 +9167,12 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
 
   // HLSL Change begin
   // When initializing an HLSL resource type we should diagnose mismatches in
-  // globally coherent annotations _unless_ the source is a dynamic resource
-  // placeholder type where we safely infer the globallycoherent annotaiton.
-  DiagnoseGloballyCoherentMismatch(Init, DclT, Init->getExprLoc());
+  // globally and reorder coherent annotations _unless_ the source is a dynamic
+  // resource placeholder type where we safely infer the coherence
+  // annotations.
+  DiagnoseCoherenceMismatch(Init, DclT, Init->getExprLoc());
   // HLSL Change end
-  
+
   // Expressions default to 'id' when we're in a debugger
   // and we are assigning it to a variable of Objective-C pointer type.
   if (getLangOpts().DebuggerCastResultToId && DclT->isObjCObjectPointerType() &&
