@@ -114,7 +114,7 @@ static void WriteWideNullTermToConsole(const wchar_t *pText, DWORD streamType) {
     return;
   }
 
-  bool lossy; // Note: even if there was loss,  print anyway
+  BOOL lossy; // Note: even if there was loss,  print anyway
   std::string consoleMessage;
   Unicode::WideToConsoleString(pText, &consoleMessage, &lossy);
   if (streamType == STD_OUTPUT_HANDLE) {
