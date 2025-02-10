@@ -8330,13 +8330,13 @@ class db_hlsl(object):
         params_split_re = re.compile(r"\s*,\s*")
         ws_split_re = re.compile(r"\s+")
         typeref_re = re.compile(r"\$type(\d+)$")
-        type_matrix_re = re.compile(r"(\S+)<(\S+)@(\S+)>$")
-        type_vector_re = re.compile(r"(\S+)<(\S+)>$")
+        type_matrix_re = re.compile(r"(\S+)<(\S+)@(\S+)>(\!?)$")
+        type_vector_re = re.compile(r"(\S+)<(\S+)>(\!?)$")
         type_any_re = re.compile(r"(\S+)<>$")
         type_array_re = re.compile(r"(\S+)\[\]$")
         type_object_re = re.compile(
             r"""(
-            sampler\w* | string |
+            sampler\w* | any_sampler\w* | string |
             (?:RW)?(?:Texture\w*|ByteAddressBuffer) |
             acceleration_struct | ray_desc |
             Node\w* | RWNode\w* | EmptyNode\w* |
@@ -8381,6 +8381,7 @@ class db_hlsl(object):
             component_list = "LICOMPTYPE_ANY"
             rows = "1"
             cols = "1"
+            only = ""
             if type_name == "$classT":
                 assert idx == 0, "'$classT' can only be used as the return type"
                 # template_id may be -1 in other places other than return type, for example in Stream.Append().
@@ -8415,13 +8416,19 @@ class db_hlsl(object):
             base_type = type_name
 
             def do_matrix(m):
-                base_type, rows, cols = m.groups()
-                template_list = "LITEMPLATE_MATRIX"
+                base_type, rows, cols, only = m.groups()
+                if only == "!":
+                    template_list = "LITEMPLATE_MATRIX_ONLY"
+                else:
+                    template_list = "LITEMPLATE_MATRIX"
                 return base_type, rows, cols, template_list
 
             def do_vector(m):
-                base_type, cols = m.groups()
-                template_list = "LITEMPLATE_VECTOR"
+                base_type, cols, only = m.groups()
+                if only == "!":
+                    template_list = "LITEMPLATE_VECTOR_ONLY"
+                else:
+                    template_list = "LITEMPLATE_VECTOR"
                 return base_type, rows, cols, template_list
 
             def do_any(m):
@@ -8454,32 +8461,11 @@ class db_hlsl(object):
                     base_type, rows, cols, template_list = do(m)
                     break
             else:
-                type_vector_match = type_vector_re.match(type_name)
-                if type_vector_match:
-                    base_type = type_vector_match.group(1)
-                    cols = type_vector_match.group(2)
-                    template_list = "LITEMPLATE_VECTOR"
+                if type_name[-1] == "!":
+                    template_list = "LITEMPLATE_SCALAR_ONLY"
+                    base_type = type_name[:-1]
                 else:
-                    type_any_match = type_any_re.match(type_name)
-                    if type_any_match:
-                        base_type = type_any_match.group(1)
-                        rows = "r"
-                        cols = "c"
-                        template_list = "LITEMPLATE_ANY"
-                    else:
-                        base_type = type_name
-                        if (
-                            base_type.startswith("sampler")
-                            or base_type.startswith("string")
-                            or base_type.startswith("Texture")
-                            or base_type.startswith("wave")
-                            or base_type.startswith("acceleration_struct")
-                            or base_type.startswith("ray_desc")
-                            or base_type.startswith("any_sampler")
-                        ):
-                            template_list = "LITEMPLATE_OBJECT"
-                        else:
-                            template_list = "LITEMPLATE_SCALAR"
+                    template_list = "LITEMPLATE_SCALAR"
             assert base_type in self.base_types, "Unknown base type '%s' in '%s'" % (
                 base_type,
                 desc,

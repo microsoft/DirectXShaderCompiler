@@ -662,6 +662,7 @@ enum ArTypeObjectKind {
                      // indexer object used to implement .mips[1].
   AR_TOBJ_STRING,    // Represents a string
   AR_TOBJ_DEPENDENT, // Dependent type for template.
+  AR_TOBJ_NOCAST,    // Parameter should not have layout casts (splat,trunc)
 };
 
 enum TYPE_CONVERSION_FLAGS {
@@ -989,9 +990,18 @@ static const ArTypeObjectKind g_NullTT[] = {AR_TOBJ_VOID, AR_TOBJ_UNKNOWN};
 
 static const ArTypeObjectKind g_ArrayTT[] = {AR_TOBJ_ARRAY, AR_TOBJ_UNKNOWN};
 
+static const ArTypeObjectKind g_ScalarOnlyTT[] = {
+    AR_TOBJ_SCALAR, AR_TOBJ_NOCAST, AR_TOBJ_UNKNOWN};
+
+static const ArTypeObjectKind g_VectorOnlyTT[] = {
+    AR_TOBJ_VECTOR, AR_TOBJ_NOCAST, AR_TOBJ_UNKNOWN};
+
+static const ArTypeObjectKind g_MatrixOnlyTT[] = {
+    AR_TOBJ_MATRIX, AR_TOBJ_NOCAST, AR_TOBJ_UNKNOWN};
+
 const ArTypeObjectKind *g_LegalIntrinsicTemplates[] = {
-    g_NullTT, g_ScalarTT, g_VectorTT, g_MatrixTT,
-    g_AnyTT,  g_ObjectTT, g_ArrayTT,
+    g_NullTT,   g_ScalarTT, g_VectorTT,     g_MatrixTT,     g_AnyTT,
+    g_ObjectTT, g_ArrayTT,  g_ScalarOnlyTT, g_VectorOnlyTT, g_MatrixOnlyTT,
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicTemplates) == LITEMPLATE_COUNT);
 
@@ -6113,7 +6123,7 @@ bool HLSLExternalSource::MatchArguments(
   ArBasicKind
       ComponentType[MaxIntrinsicArgs]; // Component type for each argument,
                                        // AR_BASIC_UNKNOWN if unspecified.
-  UINT uSpecialSize[IA_SPECIAL_SLOTS]; // row/col matching types, UNUSED_INDEX32
+  UINT uSpecialSize[IA_SPECIAL_SLOTS]; // row/col matching types, UnusedSize
                                        // if unspecified.
   badArgIdx = MaxIntrinsicArgs;
 
@@ -6249,12 +6259,15 @@ bool HLSLExternalSource::MatchArguments(
         "otherwise intrinsic table was modified and g_MaxIntrinsicParamCount "
         "was not updated (or uTemplateId is out of bounds)");
 
-    // Compare template
+    // Compare template to any type matching params requirements.
     if ((AR_TOBJ_UNKNOWN == Template[pIntrinsicArg->uTemplateId]) ||
         ((AR_TOBJ_SCALAR == Template[pIntrinsicArg->uTemplateId]) &&
          (AR_TOBJ_VECTOR == TypeInfoShapeKind ||
           AR_TOBJ_MATRIX == TypeInfoShapeKind))) {
-      // Unrestricted or truncation of tuples to scalars are allowed
+      // Previous params gave no type restrictions
+      // or truncation of tuples to scalars are allowed
+      // Later steps harmonize common typed params and will always convert the
+      // earlier arg into a splat instead.
       Template[pIntrinsicArg->uTemplateId] = TypeInfoShapeKind;
     } else if (AR_TOBJ_SCALAR == TypeInfoShapeKind) {
       if (AR_TOBJ_SCALAR != Template[pIntrinsicArg->uTemplateId] &&
@@ -6291,6 +6304,11 @@ bool HLSLExternalSource::MatchArguments(
         badArgIdx = std::min(badArgIdx, iArg);
       }
     }
+
+    // If the intrinsic parameter has variable rows or columns but must match
+    // other argument dimensions, it will be specified in pIntrinsicArg with
+    // a special value indicating that the dimension depends on passed values.
+    // uSpecialSize stores the dimensions of the actual passed type.
 
     // Rows
     if (AR_TOBJ_SCALAR != TypeInfoShapeKind) {
@@ -6398,18 +6416,39 @@ bool HLSLExternalSource::MatchArguments(
     const ArTypeObjectKind *pTT =
         g_LegalIntrinsicTemplates[pArgument->uLegalTemplates];
     if (AR_TOBJ_UNKNOWN != Template[i]) {
-      if ((AR_TOBJ_SCALAR == Template[i]) &&
-          (AR_TOBJ_VECTOR == *pTT || AR_TOBJ_MATRIX == *pTT)) {
-        Template[i] = *pTT;
-      } else {
+      // See if a perfect match overload is available
+      while (AR_TOBJ_UNKNOWN != *pTT && AR_TOBJ_NOCAST != *pTT) {
+        if (Template[i] == *pTT)
+          break;
+        pTT++;
+      }
+
+      if (AR_TOBJ_UNKNOWN == *pTT) {
+        // Perfect match failed and casts are allowed.
+        // Try splats and truncations to get a match.
+        pTT = g_LegalIntrinsicTemplates[pArgument->uLegalTemplates];
         while (AR_TOBJ_UNKNOWN != *pTT) {
-          if (Template[i] == *pTT)
+          if (AR_TOBJ_SCALAR == Template[i] &&
+              (AR_TOBJ_VECTOR == *pTT || AR_TOBJ_MATRIX == *pTT)) {
+            // If a scalar was passed in and the expected value was
+            // matrix/vector convert to the template type for a splat.
+            // Only applicable to VectorTT and MatrixTT,
+            // since the vec/mtx has to be first in the list.
+            Template[i] = *pTT;
             break;
+          } else if (AR_TOBJ_VECTOR == Template[i] && AR_TOBJ_SCALAR == *pTT) {
+            // If a vector was passed in and the expected value was scalar
+            // convert to the template type for a truncation.
+            // Only applicable to ScalarTT,
+            // since the scalar has to be first in the list.
+            Template[i] = AR_TOBJ_SCALAR;
+            break;
+          }
           pTT++;
         }
       }
 
-      if (AR_TOBJ_UNKNOWN == *pTT) {
+      if (AR_TOBJ_UNKNOWN == *pTT || AR_TOBJ_NOCAST == *pTT) {
         Template[i] = g_LegalIntrinsicTemplates[pArgument->uLegalTemplates][0];
         badArgIdx = std::min(badArgIdx, i);
       }

@@ -198,15 +198,15 @@ $type1 [[rn,unsigned_op=umax]] max(in numeric<> a, in $type1 b);
 $type1 [[rn,unsigned_op=umin]] min(in numeric<> a, in $type1 b);
 $type1 [[]] modf(in float_like<> x, out $type1 ip);
 uint<4> [[rn]] msad4(in uint reference, in uint<2> source, in uint<4> accum);
-numeric [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric a, in $match<2, 0> numeric b) : mul_ss;
-numeric<c2> [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric a, in $match<2, 0> numeric<c2> b) : mul_sv;
-numeric<r2, c2> [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric a, in $match<2, 0> numeric<r2, c2> b) : mul_sm;
-numeric<c> [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric<c> a, in $match<2, 0> numeric b) : mul_vs;
-numeric [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric<c> a, in $match<2, 0> numeric<c> b) : mul_vv;
-numeric<c2> [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric<c> a, in col_major $match<2, 0> numeric<c, c2> b) : mul_vm;
-numeric<r, c> [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric<r, c> a, in $match<2, 0> numeric b) : mul_ms;
-numeric<r> [[rn,unsigned_op=umul]] mul(in row_major $match<1, 0> numeric<r, c> a, in $match<2, 0> numeric<c> b) : mul_mv;
-numeric<r, c2> [[rn,unsigned_op=umul]] mul(in row_major $match<1, 0> numeric<r, c> a, in col_major $match<2, 0> numeric<c, c2> b) : mul_mm;
+numeric [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric! a, in $match<2, 0> numeric! b) : mul_ss;
+numeric<c2> [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric! a, in $match<2, 0> numeric<c2>! b) : mul_sv;
+numeric<r2, c2> [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric! a, in $match<2, 0> numeric<r2, c2>! b) : mul_sm;
+numeric<c> [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric<c>! a, in $match<2, 0> numeric! b) : mul_vs;
+numeric [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric<c>! a, in $match<2, 0> numeric<c>! b) : mul_vv;
+numeric<c2> [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric<c>! a, in col_major $match<2, 0> numeric<c, c2>! b) : mul_vm;
+numeric<r, c> [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric<r, c>! a, in $match<2, 0> numeric! b) : mul_ms;
+numeric<r> [[rn,unsigned_op=umul]] mul(in row_major $match<1, 0> numeric<r, c>! a, in $match<2, 0> numeric<c>! b) : mul_mv;
+numeric<r, c2> [[rn,unsigned_op=umul]] mul(in row_major $match<1, 0> numeric<r, c>! a, in col_major $match<2, 0> numeric<c, c2>! b) : mul_mm;
 $type1 [[rn]] normalize(in float_like<c> x);
 $type1 [[rn]] pow(in float_like<> x, in $type1 y);
 void [[]] printf(in string Format, ...);
@@ -849,8 +849,8 @@ $match<0, -1> void<4> [[]] GatherCmpAlpha(in sampler_cmp s, in float<4> x, in fl
 namespace BufferMethods {
 
 void [[]] GetDimensions(out uint_only width) : bufinfo;
-$classT [[ro]] Load(in int<1> x) : buffer_load;
-$classT [[]] Load(in int<1> x, out uint_only status) : buffer_load_s;
+$classT [[ro]] Load(in int x) : buffer_load;
+$classT [[]] Load(in int x, out uint_only status) : buffer_load_s;
 
 } namespace
 
