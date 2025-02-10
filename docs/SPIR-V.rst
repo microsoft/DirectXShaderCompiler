@@ -1655,7 +1655,7 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | MSOut       | ``PrimitiveShadingRateKHR``            | N/A                   | ``FragmentShadingRate``     |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
-| SV_CullPrimitive          | MSOut       | ``CullPrimitiveEXT``                   | N/A                   | ``MeshShadingEXT ``         |
+| SV_CullPrimitive          | MSOut       | ``CullPrimitiveEXT``                   | N/A                   | ``MeshShadingEXT``          |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 
 
@@ -3965,7 +3965,7 @@ RayQuery Mapping to SPIR-V
 +---------------------------------------------------+-------------------------------------------------------------------------+
 |``.WorldRayDirection``                             | ``OpRayQueryGetWorldRayDirectionKHR``                                   |
 +---------------------------------------------------+-------------------------------------------------------------------------+
-|``.WorldRayOrigin`                                 | ``OpRayQueryGetWorldRayOriginKHR``                                      |
+|``.WorldRayOrigin``                                | ``OpRayQueryGetWorldRayOriginKHR``                                      |
 +---------------------------------------------------+-------------------------------------------------------------------------+
 
 Shader Model 6.0+ Wave Intrinsics
