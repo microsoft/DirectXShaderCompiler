@@ -14,6 +14,7 @@
 #include <string>
 
 #ifdef _WIN32
+typedef int *LPBOOL;
 #include <specstrings.h>
 #else
 // MultiByteToWideChar which is a Windows-specific method.
@@ -30,7 +31,7 @@ int WideCharToMultiByte(uint32_t CodePage, uint32_t dwFlags,
                         const wchar_t *lpWideCharStr, int cchWideChar,
                         char *lpMultiByteStr, int cbMultiByte,
                         const char *lpDefaultChar = nullptr,
-                        bool *lpUsedDefaultChar = nullptr);
+                        LPBOOL lpUsedDefaultChar = nullptr);
 #endif // _WIN32
 
 namespace Unicode {
@@ -54,14 +55,15 @@ typedef char acp_char;
 typedef char ccp_char;
 
 bool UTF8ToConsoleString(const char *text, size_t textLen, std::string *pValue,
-                         bool *lossy);
+                         LPBOOL lossy);
 
-bool UTF8ToConsoleString(const char *text, std::string *pValue, bool *lossy);
+bool UTF8ToConsoleString(const char *text, std::string *pValue, LPBOOL lossy);
 
 bool WideToConsoleString(const wchar_t *text, size_t textLen,
-                         std::string *pValue, bool *lossy);
+                         std::string *pValue, LPBOOL lossy);
 
-bool WideToConsoleString(const wchar_t *text, std::string *pValue, bool *lossy);
+bool WideToConsoleString(const wchar_t *text, std::string *pValue,
+                         LPBOOL lossy);
 
 bool UTF8ToWideString(const char *pUTF8, std::wstring *pWide);
 

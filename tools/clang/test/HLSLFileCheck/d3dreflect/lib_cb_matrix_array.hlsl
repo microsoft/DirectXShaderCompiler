@@ -22,7 +22,7 @@ void RayGenShader()
     g_Output[LaunchIndex] = Color * m0[0][0] * m1[0][0] * VectorArray[1] * FloatArray[2];
 }
 
-// CHECK: ID3D12LibraryReflection:
+// CHECK: ID3D12LibraryReflection1:
 // CHECK:     FunctionCount: 1
 // CHECK-NEXT:   ID3D12FunctionReflection:
 // CHECK-NEXT:     D3D12_FUNCTION_DESC: Name: \01?RayGenShader{{[@$?.A-Za-z0-9_]+}}
