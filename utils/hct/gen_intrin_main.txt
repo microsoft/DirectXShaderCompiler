@@ -915,19 +915,19 @@ $classT [[]] Load(in int<3> x, out uint_only status) : rwtex3d_load_s;
 namespace RWBufferMethods {
 
 void [[]] GetDimensions(out uint_only width) : bufinfo;
-$classT [[ro]] Load(in int x) : rwbuffer_load;
-$classT [[]] Load(in int x, out uint_only status) : rwbuffer_load_s;
+$classT [[ro]] Load(in int<1> x) : rwbuffer_load;
+$classT [[]] Load(in int<1> x, out uint_only status) : rwbuffer_load_s;
 
 } namespace
 
 namespace ByteAddressBufferMethods {
 
 void [[]] GetDimensions(out uint_only width) : bufinfo;
-$funcT [[ro]] Load(in uint byteOffset) : byteaddress_load;
+$funcT [[ro]] Load(in uint<1> byteOffset) : byteaddress_load;
 uint<2> [[ro]] Load2(in uint byteOffset) : byteaddress_load;
 uint<3> [[ro]] Load3(in uint byteOffset) : byteaddress_load;
 uint<4> [[ro]] Load4(in uint byteOffset) : byteaddress_load;
-$funcT [[]] Load(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+$funcT [[]] Load(in uint<1> byteOffset, out uint_only status) : byteaddress_load_s;
 uint<2> [[]] Load2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<3> [[]] Load3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<4> [[]] Load4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
@@ -937,15 +937,15 @@ uint<4> [[]] Load4(in uint byteOffset, out uint_only status) : byteaddress_load_
 namespace RWByteAddressBufferMethods {
 
 void [[]] GetDimensions(out uint_only width) : bufinfo;
-$funcT [[ro]] Load(in uint byteOffset) : byteaddress_load;
+$funcT [[ro]] Load(in uint<1> byteOffset) : byteaddress_load;
 uint<2> [[ro]] Load2(in uint byteOffset) : byteaddress_load;
 uint<3> [[ro]] Load3(in uint byteOffset) : byteaddress_load;
 uint<4> [[ro]] Load4(in uint byteOffset) : byteaddress_load;
-$funcT [[]] Load(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+$funcT [[]] Load(in uint<1> byteOffset, out uint_only status) : byteaddress_load_s;
 uint<2> [[]] Load2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<3> [[]] Load3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<4> [[]] Load4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-void [[]] Store(in uint byteOffset, in $funcT value) : byteaddress_store;
+void [[]] Store(in uint<1> byteOffset, in $funcT value) : byteaddress_store;
 void [[]] Store2(in uint byteOffset, in uint<2> value) : byteaddress_store;
 void [[]] Store3(in uint byteOffset, in uint<3> value) : byteaddress_store;
 void [[]] Store4(in uint byteOffset, in uint<4> value) : byteaddress_store;
@@ -991,8 +991,8 @@ void [[]] InterlockedCompareExchange(in uint byteOffset, in uint compare, in uin
 namespace StructuredBufferMethods {
 
 void [[]] GetDimensions(out uint_only count, out uint_only stride) : bufinfo;
-$classT [[ro]] Load(in int x) : structured_buffer_load;
-$classT [[]] Load(in int x, out uint_only status) : structured_buffer_load_s;
+$classT [[ro]] Load(in int<1> x) : structured_buffer_load;
+$classT [[]] Load(in int<1> x, out uint_only status) : structured_buffer_load_s;
 
 } namespace
 
@@ -1001,8 +1001,8 @@ namespace RWStructuredBufferMethods {
 void [[]] GetDimensions(out uint_only count, out uint_only stride) : bufinfo;
 uint [[]] IncrementCounter() : structuredbuffer_inc;
 uint [[]] DecrementCounter() : structuredbuffer_dec;
-$classT [[ro]] Load(in int x) : rwstructured_buffer_load;
-$classT [[]] Load(in int x, out uint_only status) : rwstructured_buffer_load_s;
+$classT [[ro]] Load(in int<1> x) : rwstructured_buffer_load;
+$classT [[]] Load(in int<1> x, out uint_only status) : rwstructured_buffer_load_s;
 
 } namespace
 
