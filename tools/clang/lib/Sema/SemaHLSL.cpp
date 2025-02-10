@@ -14185,9 +14185,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       basicKind == AR_OBJECT_RWBUFFER)
     if (const TemplateSpecializationType *pTemplate =
             qt->getAs<TemplateSpecializationType>()) {
-      DXASSERT(pTemplate->getNumArgs() < 2,
-               "Typed Buffer template should have 0 or 1 parameter");
-      if (pTemplate->getNumArgs() == 1) {
+      DXASSERT(pTemplate->getNumArgs() < 3,
+               "Typed Buffer template should from 0 - 2 parameters");
+      if (pTemplate->getNumArgs() > 0) {
         const QualType TempQT = pTemplate->getArg(0).getAsType();
         const Type *EltQT = TempQT.getTypePtr();
         // Check vectors for being too large.
