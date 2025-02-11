@@ -1028,7 +1028,8 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_5 = 216,
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
-  NumOpCodes_Dxil_1_8 = 303,
+  NumOpCodes_Dxil_1_8 = 258,
+  NumOpCodes_Dxil_1_9 = 303,
 
   NumOpCodes = 303 // exclusive last value of enumeration
 };
@@ -1336,6 +1337,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
+  NumOpClasses_Dxil_1_9 = 174,
 
   NumOpClasses = 174 // exclusive last value of enumeration
 };
