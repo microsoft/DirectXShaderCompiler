@@ -494,12 +494,14 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT | BPROP_PATCH, // AR_OBJECT_INPUTPATCH
     BPROP_OBJECT | BPROP_PATCH, // AR_OBJECT_OUTPUTPATCH
 
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE1D
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE1D_ARRAY
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2D
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2D_ARRAY
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE3D
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWBUFFER
+    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE1D
+    BPROP_OBJECT | BPROP_RWBUFFER |
+        BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE1D_ARRAY
+    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2D
+    BPROP_OBJECT | BPROP_RWBUFFER |
+        BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2D_ARRAY
+    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE3D
+    BPROP_OBJECT | BPROP_RWBUFFER,                 // AR_OBJECT_RWBUFFER
 
     BPROP_OBJECT | BPROP_RBUFFER,  // AR_OBJECT_BYTEADDRESS_BUFFER
     BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWBYTEADDRESS_BUFFER
@@ -526,10 +528,8 @@ const UINT g_uBasicKindProps[] = {
         BPROP_ROVBUFFER, // AR_OBJECT_ROVTEXTURE2D_ARRAY
     BPROP_OBJECT | BPROP_RWBUFFER | BPROP_ROVBUFFER, // AR_OBJECT_ROVTEXTURE3D
 
-    BPROP_OBJECT | BPROP_TEXTURE |
-        BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D
-    BPROP_OBJECT | BPROP_TEXTURE |
-        BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
+    BPROP_OBJECT | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D
+    BPROP_OBJECT | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -570,8 +570,9 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT, // AR_OBJECT_HEAP_RESOURCE,
     BPROP_OBJECT, // AR_OBJECT_HEAP_SAMPLER,
 
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2DMS
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
+    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2DMS
+    BPROP_OBJECT | BPROP_RWBUFFER |
+        BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
 
     // WorkGraphs
     BPROP_OBJECT,                  // AR_OBJECT_EMPTY_NODE_INPUT
@@ -4828,7 +4829,8 @@ public:
         return true;
       if (badArgIdx) {
         candidate.FailureKind = ovl_fail_bad_conversion;
-        QualType ParamType = functionArgTypes[badArgIdx];
+        QualType ParamType =
+            intrinsicFuncDecl->getParamDecl(badArgIdx - 1)->getType();
         candidate.Conversions[badArgIdx - 1].setBad(
             BadConversionSequence::no_conversion, Args[badArgIdx - 1],
             ParamType);
@@ -14180,6 +14182,35 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   }
 
   ArBasicKind basicKind = hlslSource->GetTypeElementKind(qt);
+
+  // Check for invalid template params in typed buffer/texture declarations.
+  if (IS_BASIC_TEXTURE(basicKind) || basicKind == AR_OBJECT_BUFFER ||
+      basicKind == AR_OBJECT_RWBUFFER)
+    if (const TemplateSpecializationType *pTemplate =
+            qt->getAs<TemplateSpecializationType>()) {
+      DXASSERT(pTemplate->getNumArgs() < 3,
+               "Typed Buffer template should have 0 - 2 parameters");
+      if (pTemplate->getNumArgs() > 0) {
+        const QualType TempQT = pTemplate->getArg(0).getAsType();
+        const Type *EltQT = TempQT.getTypePtr();
+        // Check vectors for being too large.
+        if (IsVectorType(this, TempQT)) {
+          unsigned NumElt = hlsl::GetElementCount(TempQT);
+          QualType VecEltTy = hlsl::GetHLSLVecElementType(TempQT);
+          if (NumElt > 4 || NumElt * Context.getTypeSize(VecEltTy) > 4 * 32) {
+            Diag(
+                D.getLocStart(),
+                diag::err_hlsl_unsupported_typedbuffer_template_parameter_size);
+            result = false;
+          }
+          // Disallow arrays and structs entirely
+        } else if (EltQT->isArrayType() || EltQT->isStructureOrClassType()) {
+          Diag(D.getLocStart(),
+               diag::err_hlsl_unsupported_typedbuffer_template_parameter);
+          result = false;
+        }
+      }
+    }
 
   if (hasSignSpec) {
     ArTypeObjectKind objKind = hlslSource->GetTypeObjectKind(qt);
