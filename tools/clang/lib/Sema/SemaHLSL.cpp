@@ -5203,22 +5203,26 @@ public:
               templateName.startswith("RWTexture") ||
               templateName.startswith("RWBuffer") ||
               templateName.startswith("Buffer")) {
-	    // Check vectors for being too large.
-	    if (IsVectorType(m_sema, argType)) {
-	      unsigned NumElt = hlsl::GetElementCount(argType);
-	      QualType VecEltTy = hlsl::GetHLSLVecElementType(argType);
-	      if (NumElt > 4 || NumElt * m_sema->getASTContext().getTypeSize(VecEltTy) > 4 * 32) {
-		m_sema->Diag(
-			     argLoc.getLocation(),
-			     diag::err_hlsl_unsupported_typedbuffer_template_parameter_size);
-		return true;
-	      }
-	      // Disallow non-vectors and non-scalars entirely.
-	    } else if (!IsScalarType(argType)) {
-	      m_sema->Diag(argLoc.getLocation(),
-			   diag::err_hlsl_unsupported_typedbuffer_template_parameter);
-	      return true;
-	    }
+            // Check vectors for being too large.
+            if (IsVectorType(m_sema, argType)) {
+              unsigned NumElt = hlsl::GetElementCount(argType);
+              QualType VecEltTy = hlsl::GetHLSLVecElementType(argType);
+              if (NumElt > 4 ||
+                  NumElt * m_sema->getASTContext().getTypeSize(VecEltTy) >
+                      4 * 32) {
+                m_sema->Diag(
+                    argLoc.getLocation(),
+                    diag::
+                        err_hlsl_unsupported_typedbuffer_template_parameter_size);
+                return true;
+              }
+              // Disallow non-vectors and non-scalars entirely.
+            } else if (!IsScalarType(argType)) {
+              m_sema->Diag(
+                  argLoc.getLocation(),
+                  diag::err_hlsl_unsupported_typedbuffer_template_parameter);
+              return true;
+            }
           }
         }
       } else if (arg.getKind() == TemplateArgument::ArgKind::Expression) {
