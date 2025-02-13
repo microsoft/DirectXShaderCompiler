@@ -15,4 +15,4 @@ float4 main(): SV_Target {
     return MyBuffer[0].a.x;
 }
 
-// CHECK: :12:1: error: Elements of typed buffers and textures must be scalars or vectors
+// CHECK: :12:8: error: Elements of typed buffers and textures must be scalars or vectors

@@ -5199,6 +5199,27 @@ public:
             // NOTE: IsValidTemplateArgumentType emits its own diagnostics
             return true;
           }
+          if (templateName.startswith("Texture") ||
+              templateName.startswith("RWTexture") ||
+              templateName.startswith("RWBuffer") ||
+              templateName.startswith("Buffer")) {
+	    // Check vectors for being too large.
+	    if (IsVectorType(m_sema, argType)) {
+	      unsigned NumElt = hlsl::GetElementCount(argType);
+	      QualType VecEltTy = hlsl::GetHLSLVecElementType(argType);
+	      if (NumElt > 4 || NumElt * m_sema->getASTContext().getTypeSize(VecEltTy) > 4 * 32) {
+		m_sema->Diag(
+			     argLoc.getLocation(),
+			     diag::err_hlsl_unsupported_typedbuffer_template_parameter_size);
+		return true;
+	      }
+	      // Disallow non-vectors and non-scalars entirely.
+	    } else if (!IsScalarType(argType)) {
+	      m_sema->Diag(argLoc.getLocation(),
+			   diag::err_hlsl_unsupported_typedbuffer_template_parameter);
+	      return true;
+	    }
+          }
         }
       } else if (arg.getKind() == TemplateArgument::ArgKind::Expression) {
         if (isMatrix || isVector) {
@@ -14179,35 +14200,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   }
 
   ArBasicKind basicKind = hlslSource->GetTypeElementKind(qt);
-
-  // Check for invalid template params in typed buffer/texture declarations.
-  if (IS_BASIC_TEXTURE(basicKind) || basicKind == AR_OBJECT_BUFFER ||
-      basicKind == AR_OBJECT_RWBUFFER)
-    if (const TemplateSpecializationType *pTemplate =
-            qt->getAs<TemplateSpecializationType>()) {
-      DXASSERT(pTemplate->getNumArgs() < 3,
-               "Typed Buffer template should from 0 - 2 parameters");
-      if (pTemplate->getNumArgs() > 0) {
-        const QualType TempQT = pTemplate->getArg(0).getAsType();
-        const Type *EltQT = TempQT.getTypePtr();
-        // Check vectors for being too large.
-        if (IsVectorType(this, TempQT)) {
-          unsigned NumElt = hlsl::GetElementCount(TempQT);
-          QualType VecEltTy = hlsl::GetHLSLVecElementType(TempQT);
-          if (NumElt > 4 || NumElt * Context.getTypeSize(VecEltTy) > 4 * 32) {
-            Diag(
-                D.getLocStart(),
-                diag::err_hlsl_unsupported_typedbuffer_template_parameter_size);
-            result = false;
-          }
-          // Disallow arrays and structs entirely
-        } else if (EltQT->isArrayType() || EltQT->isStructureOrClassType()) {
-          Diag(D.getLocStart(),
-               diag::err_hlsl_unsupported_typedbuffer_template_parameter);
-          result = false;
-        }
-      }
-    }
 
   if (hasSignSpec) {
     ArTypeObjectKind objKind = hlslSource->GetTypeObjectKind(qt);
