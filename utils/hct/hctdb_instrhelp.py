@@ -508,7 +508,7 @@ class db_oload_gen:
             )
         )
         print(
-            "//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,  function attribute"
+            "//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,  function attribute"
         )
         # Example formatted string:
         #   {  OC::TempRegLoad,             "TempRegLoad",              OCC::TempRegLoad,              "tempRegLoad",                false,  true,  true, false,  true, false,  true,  true, false, Attribute::ReadOnly, },
@@ -516,7 +516,7 @@ class db_oload_gen:
         # 0         1         2         3         4         5         6         7         8         9         0         1         2         3         4         5         6         7         8         9         0
 
         last_category = None
-        # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong, u(dt)
+        # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong, u(dt), o(bj), vec(t)or
         f = lambda i, c: "true" if i.oload_types.find(c) >= 0 else "false"
         lower_exceptions = {
             "CBufferLoad": "cbufferLoad",
@@ -543,13 +543,13 @@ class db_oload_gen:
                 if last_category != None:
                     print("")
                 print(
-                    "  // {category:118}  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute".format(
+                    "  // {category:118}  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,  function attribute".format(
                         category=i.category
                     )
                 )
                 last_category = i.category
             print(
-                "  {{  {OC}::{name:24} {quotName:27} {OCC}::{className:25} {classNameQuot:28} {{{v:>6},{h:>6},{f:>6},{d:>6},{b:>6},{e:>6},{w:>6},{i:>6},{l:>6},{u:>6},{o:>6}}}, {attr:20} }},".format(
+                "  {{  {OC}::{name:24} {quotName:27} {OCC}::{className:25} {classNameQuot:28} {{{v:>6},{h:>6},{f:>6},{d:>6},{b:>6},{e:>6},{w:>6},{i:>6},{l:>6},{u:>6},{o:>6},{t:>6}}}, {attr:20} }},".format(
                     name=i.name + ",",
                     quotName='"' + i.name + '",',
                     className=i.dxil_class + ",",
@@ -565,6 +565,7 @@ class db_oload_gen:
                     l=f(i, "l"),
                     u=f(i, "u"),
                     o=f(i, "o"),
+                    t=f(i, "t"),
                     attr=attr_fn(i),
                     OC=self.OC,
                     OCC=self.OCC,
@@ -732,6 +733,7 @@ class db_oload_gen:
                 "v": "Type::getVoidTy(Ctx)",
                 "u": "Type::getInt32PtrTy(Ctx)",
                 "o": "Type::getInt32PtrTy(Ctx)",
+                "t": "Type::getInt32PtrTy(Ctx)",
             }
             assert ty in type_code_texts, "llvm type %s is unknown" % (ty)
             ty_code = type_code_texts[ty]

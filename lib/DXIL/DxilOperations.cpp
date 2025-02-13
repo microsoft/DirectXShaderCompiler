@@ -3022,7 +3022,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
 const char *OP::m_OverloadTypeName[kNumTypeOverloads] = {
     "void", "f16", "f32", "f64", "i1",  "i8",
-    "i16",  "i32", "i64", "udt", "obj", // These should not be used
+    "i16",  "i32", "i64", "udt", "obj", // "udt" and "obj" should not be used
 };
 
 const char *OP::m_NamePrefix = "dx.op.";
@@ -3073,6 +3073,8 @@ unsigned OP::GetTypeSlot(Type *pType) {
   }
   case Type::StructTyID:
     return kObjectTypeSlot;
+  case Type::VectorTyID:
+    return kVectorTypeSlot;
   default:
     break;
   }
@@ -3096,6 +3098,12 @@ llvm::StringRef OP::GetTypeName(Type *Ty, std::string &str) {
   } else if (TypeSlot == kObjectTypeSlot) {
     StructType *ST = cast<StructType>(Ty);
     return ST->getStructName();
+  } else if (TypeSlot == kVectorTypeSlot) {
+    VectorType *VecTy = cast<VectorType>(Ty);
+    str = "v";
+    str += std::to_string(VecTy->getNumElements());
+    str += GetOverloadTypeName(OP::GetTypeSlot(VecTy->getElementType()));
+    return str;
   } else {
     raw_string_ostream os(str);
     Ty->print(os);
@@ -6504,7 +6512,15 @@ bool OP::IsResRetType(llvm::Type *Ty) {
 Type *OP::GetResRetType(Type *pOverloadType) {
   unsigned TypeSlot = GetTypeSlot(pOverloadType);
 
-  if (m_pResRetType[TypeSlot] == nullptr) {
+  if (TypeSlot == kVectorTypeSlot) {
+    string TypeName("dx.types.ResRet.");
+    VectorType *VecTy = cast<VectorType>(pOverloadType);
+    TypeName += "v";
+    TypeName += std::to_string(VecTy->getNumElements());
+    TypeName += GetOverloadTypeName(OP::GetTypeSlot(VecTy->getElementType()));
+    Type *FieldTypes[2] = {pOverloadType, Type::getInt32Ty(m_Ctx)};
+    return GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
+  } else if (m_pResRetType[TypeSlot] == nullptr) {
     string TypeName("dx.types.ResRet.");
     TypeName += GetOverloadTypeName(TypeSlot);
     Type *FieldTypes[5] = {pOverloadType, pOverloadType, pOverloadType,
