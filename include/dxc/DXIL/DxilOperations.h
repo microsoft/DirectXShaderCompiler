@@ -63,6 +63,7 @@ public:
   bool IsDxilOpUsed(OpCode opcode) const;
   void RemoveFunction(llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
+  llvm::Module *GetModule() { return m_pModule; }
   llvm::Type *GetHandleType() const;
   llvm::Type *GetNodeHandleType() const;
   llvm::Type *GetNodeRecordHandleType() const;
@@ -164,8 +165,9 @@ private:
 
   static const unsigned kUserDefineTypeSlot = 9;
   static const unsigned kObjectTypeSlot = 10;
+  static const unsigned kVectorTypeSlot = 11;
   static const unsigned kNumTypeOverloads =
-      11; // void, h,f,d, i1, i8,i16,i32,i64, udt, obj
+      12; // void, h,f,d, i1, i8,i16,i32,i64, udt, obj
 
   llvm::Type *m_pResRetType[kNumTypeOverloads];
   llvm::Type *m_pCBufferRetType[kNumTypeOverloads];
@@ -185,7 +187,7 @@ private:
     OpCodeClass opCodeClass;
     const char *pOpCodeClassName;
     bool bAllowOverload[kNumTypeOverloads]; // void, h,f,d, i1, i8,i16,i32,i64,
-                                            // udt
+                                            // udt, obj, vec
     llvm::Attribute::AttrKind FuncAttr;
   };
   static const OpCodeProperty m_OpCodeProps[(unsigned)OpCode::NumOpCodes];
