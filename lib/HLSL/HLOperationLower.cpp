@@ -8375,89 +8375,52 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
                                    : stInst->getValueOperand()->getType();
     Type *pOverloadTy = Ty->getScalarType();
     Value *offset = baseOffset;
-    unsigned arraySize = 1;
-    Value *eltSize = nullptr;
-
-    if (pOverloadTy->isArrayTy()) {
-      arraySize = pOverloadTy->getArrayNumElements();
-      eltSize = OP->GetU32Const(
-          DL.getTypeAllocSize(pOverloadTy->getArrayElementType()));
-
-      pOverloadTy = pOverloadTy->getArrayElementType()->getScalarType();
-    }
 
     if (ldInst) {
-      auto LdElement = [=](Value *offset, IRBuilder<> &Builder) -> Value * {
-        unsigned numComponents = 0;
-        if (VectorType *VTy = dyn_cast<VectorType>(Ty)) {
-          numComponents = VTy->getNumElements();
-        } else {
-          numComponents = 1;
-        }
+      unsigned numComponents = 0;
+      Value *newLd = nullptr;
+      if (VectorType *VTy = dyn_cast<VectorType>(Ty))
+        numComponents = VTy->getNumElements();
+      else
+        numComponents = 1;
+
+      if (ResKind == HLResource::Kind::TypedBuffer) {
+        // Typed buffer cannot have offsets, they must be loaded all at once
+        ResRetValueArray ResRet = GenerateTypedBufferLoad(
+            handle, pOverloadTy, bufIdx, status, OP, Builder);
+
+        newLd = ExtractFromTypedBufferLoad(ResRet, Ty, offset, Builder);
+      } else {
+        Value *ResultElts[4];
         Constant *alignment =
             OP->GetI32Const(DL.getTypeAllocSize(Ty->getScalarType()));
-        if (ResKind == HLResource::Kind::TypedBuffer) {
-          // Typed buffer cannot have offsets, they must be loaded all at once
-          ResRetValueArray ResRet = GenerateTypedBufferLoad(
-              handle, pOverloadTy, bufIdx, status, OP, Builder);
-
-          return ExtractFromTypedBufferLoad(ResRet, Ty, offset, Builder);
-        } else {
-          Value *ResultElts[4];
-          GenerateRawBufLd(handle, bufIdx, offset, status, pOverloadTy,
-                           ResultElts, OP, Builder, numComponents, alignment);
-          return ScalarizeElements(Ty, ResultElts, Builder);
-        }
-      };
-
-      Value *newLd = LdElement(offset, Builder);
-      if (arraySize > 1) {
-        newLd =
-            Builder.CreateInsertValue(UndefValue::get(Ty), newLd, (uint64_t)0);
-
-        for (unsigned i = 1; i < arraySize; i++) {
-          offset = Builder.CreateAdd(offset, eltSize);
-          Value *eltLd = LdElement(offset, Builder);
-          newLd = Builder.CreateInsertValue(newLd, eltLd, i);
-        }
+        GenerateRawBufLd(handle, bufIdx, offset, status, pOverloadTy,
+                         ResultElts, OP, Builder, numComponents, alignment);
+        newLd = ScalarizeElements(Ty, ResultElts, Builder);
       }
+
       ldInst->replaceAllUsesWith(newLd);
     } else {
       Value *val = stInst->getValueOperand();
-      auto StElement = [&](Value *offset, Value *val, IRBuilder<> &Builder) {
-        Value *undefVal = llvm::UndefValue::get(pOverloadTy);
-        Value *vals[] = {undefVal, undefVal, undefVal, undefVal};
-        uint8_t mask = 0;
-        if (Ty->isVectorTy()) {
-          unsigned vectorNumElements = Ty->getVectorNumElements();
-          DXASSERT(vectorNumElements <= 4, "up to 4 elements in vector");
-          assert(vectorNumElements <= 4);
-          for (unsigned i = 0; i < vectorNumElements; i++) {
-            vals[i] = Builder.CreateExtractElement(val, i);
-            mask |= (1 << i);
-          }
-        } else {
-          vals[0] = val;
-          mask = DXIL::kCompMask_X;
+      Value *undefVal = llvm::UndefValue::get(pOverloadTy);
+      Value *vals[] = {undefVal, undefVal, undefVal, undefVal};
+      uint8_t mask = 0;
+      if (Ty->isVectorTy()) {
+        unsigned vectorNumElements = Ty->getVectorNumElements();
+        DXASSERT(vectorNumElements <= 4, "up to 4 elements in vector");
+        assert(vectorNumElements <= 4);
+        for (unsigned i = 0; i < vectorNumElements; i++) {
+          vals[i] = Builder.CreateExtractElement(val, i);
+          mask |= (1 << i);
         }
-        Constant *alignment =
-            OP->GetI32Const(DL.getTypeAllocSize(Ty->getScalarType()));
-        GenerateStructBufSt(handle, bufIdx, offset, pOverloadTy, OP, Builder,
-                            vals, mask, alignment);
-      };
-      if (arraySize > 1)
-        val = Builder.CreateExtractValue(val, 0);
-
-      StElement(offset, val, Builder);
-      if (arraySize > 1) {
-        val = stInst->getValueOperand();
-
-        for (unsigned i = 1; i < arraySize; i++) {
-          offset = Builder.CreateAdd(offset, eltSize);
-          Value *eltVal = Builder.CreateExtractValue(val, i);
-          StElement(offset, eltVal, Builder);
-        }
+      } else {
+        vals[0] = val;
+        mask = DXIL::kCompMask_X;
       }
+      Constant *alignment =
+          OP->GetI32Const(DL.getTypeAllocSize(Ty->getScalarType()));
+      GenerateStructBufSt(handle, bufIdx, offset, pOverloadTy, OP, Builder,
+                          vals, mask, alignment);
     }
     user->eraseFromParent();
   } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(user)) {
