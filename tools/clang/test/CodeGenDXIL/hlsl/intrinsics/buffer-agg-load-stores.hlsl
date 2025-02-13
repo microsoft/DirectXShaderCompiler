@@ -1,35 +1,25 @@
-// RUN: %dxc -DARR -DTYPE=float    -DNUM=4 -DIX=SIx -T vs_6_6 %s | FileCheck %s
-// RUN: %dxc -DARR -DTYPE=bool     -DNUM=4 -DIX=SIx -T vs_6_6 %s | FileCheck %s
-// RUN: %dxc -DARR -DTYPE=uint64_t -DNUM=2 -DIX=SIx -T vs_6_6 %s | FileCheck %s
-// RUN: %dxc -DARR -DTYPE=double   -DNUM=2 -DIX=SIx -T vs_6_6 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6              -DETY=float    -DCOLS=4 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6              -DETY=bool     -DCOLS=4 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6              -DETY=uint64_t -DCOLS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6              -DETY=double   -DCOLS=2 %s | FileCheck %s
 
-// RUN: %dxc -DMAT -DTYPE=float    -DNUM=2 -DIX=SIx -T vs_6_6 %s | FileCheck %s
-// RUN: %dxc -DMAT -DTYPE=uint64_t -DNUM=2 -DIX=SIx -T vs_6_6 %s | FileCheck %s
-// RUN: %dxc -DMAT -DTYPE=double   -DNUM=2 -DIX=SIx -T vs_6_6 %s | FileCheck %s
-// RUN: %dxc -DMAT -DTYPE=float    -DNUM=3 -DIX=SIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,MAT
-// RUN: %dxc -DMAT -DTYPE=bool     -DNUM=3 -DIX=SIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,MAT
-// RUN: %dxc -DMAT -DTYPE=uint64_t -DNUM=3 -DIX=SIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,MAT
-// RUN: %dxc -DMAT -DTYPE=double   -DNUM=3 -DIX=SIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,MAT
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=float    -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=uint64_t -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=double   -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=float    -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MAT
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=bool     -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MAT
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=uint64_t -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MAT
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=double   -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MAT
 
-// RUN: %dxc -DTYPE=float    -DNUM=4 -DIX=SIx -T vs_6_6 %s | FileCheck %s
-// RUN: %dxc -DTYPE=bool     -DNUM=4 -DIX=SIx -T vs_6_6 %s | FileCheck %s
-// RUN: %dxc -DTYPE=uint64_t -DNUM=2 -DIX=SIx -T vs_6_6 %s | FileCheck %s
-// RUN: %dxc -DTYPE=double   -DNUM=2 -DIX=SIx -T vs_6_6 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=float    -DCOLS=4 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=bool     -DCOLS=4 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=uint64_t -DCOLS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=double   -DCOLS=2 %s | FileCheck %s
 
-// RUN: %dxc -DOFF -DTYPE=float    -DNUM=4 -DIX=SIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,OFF
-// RUN: %dxc -DOFF -DTYPE=bool     -DNUM=4 -DIX=SIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,OFF
-// RUN: %dxc -DOFF -DTYPE=uint64_t -DNUM=2 -DIX=SIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,OFF
-// RUN: %dxc -DOFF -DTYPE=double   -DNUM=2 -DIX=SIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,OFF
-
-// RUiN: %dxc -DARR -DTYPE=float    -DNUM=4 -DIX=VIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,VIX
-// RUiN: %dxc -DARR -DTYPE=bool     -DNUM=4 -DIX=VIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,VIX
-// RUiN: %dxc -DARR -DTYPE=uint64_t -DNUM=2 -DIX=VIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,VIX
-// RUiN: %dxc -DARR -DTYPE=double   -DNUM=2 -DIX=VIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,VIX
-
-// RUiN: %dxc -DTYPE=float    -DNUM=4 -DIX=VIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,VIX
-// RUiN: %dxc -DTYPE=bool     -DNUM=4 -DIX=VIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,VIX
-// RUiN: %dxc -DTYPE=uint64_t -DNUM=2 -DIX=VIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,VIX
-// RUiN: %dxc -DTYPE=double   -DNUM=2 -DIX=VIx -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,VIX
+// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=float    -DCOLS=4 %s | FileCheck %s --check-prefixes=CHECK,OFF
+// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=bool     -DCOLS=4 %s | FileCheck %s --check-prefixes=CHECK,OFF
+// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=uint64_t -DCOLS=2 %s | FileCheck %s --check-prefixes=CHECK,OFF
+// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=double   -DCOLS=2 %s | FileCheck %s --check-prefixes=CHECK,OFF
 
 ///////////////////////////////////////////////////////////////////////
 // Test codegen for various load and store operations and conversions
@@ -40,18 +30,18 @@
 
 // CHECK: %dx.types.ResRet.[[TY:[a-z][0-9][0-9]]] = type { [[TYPE:[a-z0-9]*]],
 
-#if defined(ARR)
-#define TYNAME(T,N) T[N]
-#define DECL(T,N,V) T V[N]
-#elif defined(MAT)
-#define TYNAME(T,N) matrix< T, N, N >
-#define DECL(T,N,V) matrix< T, N, N > V
-#elif defined(OFF)
-#define TYNAME(T,N) OffVector< T, N >
-#define DECL(T,N,V) OffVector< T, N > V
+#if !defined(ATY)
+// Arrays have no aggregate typename
+#define TYPE ETY
+#define SS [COLS]
+#elif defined(ROWS)
+// Matrices have two dimensions
+#define TYPE ATY< ETY, COLS, ROWS>
+#define SS
 #else
-#define TYNAME(T,N) Vector< T, N >
-#define DECL(T,N,V) Vector< T, N > V
+// All else matches this formulation
+#define TYPE ATY< ETY, COLS>
+#define SS
 #endif
 
 template<typename T, int N>
@@ -81,15 +71,15 @@ struct OffVector {
   ByteAddressBuffer RoByBuf : register(t1);
 RWByteAddressBuffer RwByBuf : register(u1);
 
-  StructuredBuffer< TYNAME(TYPE,NUM) > RoStBuf : register(t2);
-RWStructuredBuffer< TYNAME(TYPE,NUM) > RwStBuf : register(u2);
+  StructuredBuffer< TYPE SS > RoStBuf : register(t2);
+RWStructuredBuffer< TYPE SS > RwStBuf : register(u2);
 
-ConsumeStructuredBuffer< TYNAME(TYPE,NUM) > CnStBuf : register(u4);
-AppendStructuredBuffer< TYNAME(TYPE,NUM) > ApStBuf  : register(u5);
+ConsumeStructuredBuffer< TYPE SS > CnStBuf : register(u4);
+AppendStructuredBuffer< TYPE SS > ApStBuf  : register(u5);
 
-TYPE Add(TYPE f1[NUM], TYPE f2[NUM])[NUM] {
-  TYPE ret[NUM];
-  for (int i = 0; i < NUM; i++)
+TYPE Add(TYPE f1[COLS], TYPE f2[COLS])[COLS] {
+  TYPE ret[COLS];
+  for (int i = 0; i < COLS; i++)
     ret[i] = f1[i] + f2[i];
   return ret;
 }
@@ -97,9 +87,9 @@ TYPE Add(TYPE f1[NUM], TYPE f2[NUM])[NUM] {
 template<typename T>
 T Add(T v1, T v2) { return v1 + v2; }
 
-TYPE Add(TYPE f1[NUM], TYPE f2[NUM], TYPE f3[NUM], TYPE f4[NUM])[NUM] {
-  TYPE ret[NUM];
-  for (int i = 0; i < NUM; i++)
+TYPE Add(TYPE f1[COLS], TYPE f2[COLS], TYPE f3[COLS], TYPE f4[COLS])[COLS] {
+  TYPE ret[COLS];
+  for (int i = 0; i < COLS; i++)
     ret[i] = f1[i] + f2[i] + f3[i] + f4[i];
   return ret;
 }
@@ -107,7 +97,7 @@ TYPE Add(TYPE f1[NUM], TYPE f2[NUM], TYPE f3[NUM], TYPE f4[NUM])[NUM] {
 template<typename T>
 T Add(T v1, T v2, T v3, T v4) { return v1 + v2 + v3 + v4; }
 
-void main(uint SIx[2] : SIX, uint1 VIx[2] : VIX) {
+void main(uint ix[2] : IX) {
   // ByteAddressBuffer Tests
 
   // CHECK-DAG: [[HDLROBY:%.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 1, i32 0, i8 0 }, i32 1, i1 false)
@@ -119,9 +109,15 @@ void main(uint SIx[2] : SIX, uint1 VIx[2] : VIX) {
   // CHECK-DAG: [[HDLCON:%.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 4, i32 4, i32 0, i8 1 }, i32 4, i1 false)
   // CHECK-DAG: [[HDLAPP:%.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 5, i32 5, i32 0, i8 1 }, i32 5, i1 false)
 
+  // These -DAGs must match the same line. That is the only reason for the -DAG.
+  // The first match will assign [[IX0]] to the actual index value.
+  // For most runs, the second match will assign [[RIX0]] to the same thing.
+  // For ByteAddressBuffers (Raw Buffers), the index gets offset sometimes to account
+  // for lack offset support and a separate variable is needed for this index + offset value.
+  // For these cases, the OFF : lines below will match the updated index value with the new offsets.
+  // These lines will always match the same line since this shader can only produce one loadInput call.
   // CHECK-DAG: [[IX0:%.*]] = call i32 @dx.op.loadInput.i32(i32 4, i32 {{[0-9]*}}, i32 [[BOFF:0]]
   // CHECK-DAG: [[RIX0:%.*]] = call i32 @dx.op.loadInput.i32(i32 4, i32 {{[0-9]*}}, i32 [[BOFF]]
-  
 
   // CHECK: [[ANHDLRWBY:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLRWBY]]
   // OFF: [[RIX0:%.*]] = add i32 [[IX0]], [[BOFF:[0-9]+]]
@@ -134,7 +130,7 @@ void main(uint SIx[2] : SIX, uint1 VIx[2] : VIX) {
   // I1: icmp ne i32
   // I1: icmp ne i32
   // I1: icmp ne i32
-  DECL(TYPE,NUM,babElt1) = RwByBuf.Load< TYNAME(TYPE,NUM) >(IX[0]);
+  TYPE babElt1 SS = RwByBuf.Load< TYPE SS >(ix[0]);
 
   // CHECK: [[ANHDLROBY:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLROBY]]
   // CHECK: call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLROBY]], i32 [[RIX0]]
@@ -144,7 +140,7 @@ void main(uint SIx[2] : SIX, uint1 VIx[2] : VIX) {
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
-  DECL(TYPE,NUM,babElt2) = RoByBuf.Load< TYNAME(TYPE,NUM) >(IX[0]);
+  TYPE babElt2 SS = RoByBuf.Load< TYPE SS >(ix[0]);
 
   // I1: zext i1 %{{.*}} to i32
   // I1: zext i1 %{{.*}} to i32
@@ -155,7 +151,7 @@ void main(uint SIx[2] : SIX, uint1 VIx[2] : VIX) {
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWBY]], i32 [[RIX0]]
   // MAT: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWBY]], i32 [[IX0p4]]
   // MAT: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWBY]], i32 [[IX0p8]]
-  RwByBuf.Store< TYNAME(TYPE,NUM) >(IX[0], Add(babElt1, babElt2));
+  RwByBuf.Store< TYPE SS >(ix[0], Add(babElt1, babElt2));
 
   // StructuredBuffer Tests
   // CHECK: [[ANHDLRWST:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLRWST]]
@@ -164,14 +160,14 @@ void main(uint SIx[2] : SIX, uint1 VIx[2] : VIX) {
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
-  DECL(TYPE,NUM,stbElt1) = RwStBuf.Load(IX[0]);
+  TYPE stbElt1 SS = RwStBuf.Load(ix[0]);
   // CHECK: [[IX1:%.*]] = call i32 @dx.op.loadInput.i32(i32 4,
   // CHECK: call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLRWST]], i32 [[IX1]], i32 [[BOFF]]
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
-  DECL(TYPE,NUM,stbElt2) = RwStBuf[IX[1]];
+  TYPE stbElt2 SS = RwStBuf[ix[1]];
 
   // CHECK: [[ANHDLROST:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLROST]]
   // CHECK: call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLROST]], i32 [[IX0]], i32 [[BOFF]]
@@ -181,7 +177,7 @@ void main(uint SIx[2] : SIX, uint1 VIx[2] : VIX) {
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
-  DECL(TYPE,NUM,stbElt3) = RoStBuf.Load(IX[0]);
+  TYPE stbElt3 SS = RoStBuf.Load(ix[0]);
   // CHECK: call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLROST]], i32 [[IX1]], i32 [[BOFF]]
   // MAT: call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLROST]], i32 [[IX1]], i32 [[p4]]
   // MAT: call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLROST]], i32 [[IX1]], i32 [[p8]]
@@ -189,7 +185,7 @@ void main(uint SIx[2] : SIX, uint1 VIx[2] : VIX) {
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
-  DECL(TYPE,NUM,stbElt4) = RoStBuf[IX[1]];
+  TYPE stbElt4 SS = RoStBuf[ix[1]];
 
   // I1: zext i1 %{{.*}} to i32
   // I1: zext i1 %{{.*}} to i32
@@ -200,7 +196,7 @@ void main(uint SIx[2] : SIX, uint1 VIx[2] : VIX) {
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWST]], i32 [[IX0]], i32 [[BOFF]]
   // MAT: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWST]], i32 [[IX0]], i32 [[p4]]
   // MAT: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWST]], i32 [[IX0]], i32 [[p8]]
-  RwStBuf[IX[0]] = Add(stbElt1, stbElt2, stbElt3, stbElt4);
+  RwStBuf[ix[0]] = Add(stbElt1, stbElt2, stbElt3, stbElt4);
 
   // {Append/Consume}StructuredBuffer Tests
   // CHECK: [[ANHDLCON:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLCON]]
@@ -214,7 +210,7 @@ void main(uint SIx[2] : SIX, uint1 VIx[2] : VIX) {
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
-  DECL(TYPE,NUM,cnElt) = CnStBuf.Consume();
+  TYPE cnElt SS = CnStBuf.Consume();
 
   // CHECK: [[ANHDLAPP:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLAPP]]
   // CHECK: [[APPIX:%.*]] = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle [[ANHDLAPP]], i8 1) 
