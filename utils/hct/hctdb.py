@@ -631,7 +631,7 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6, 5
         for i in "AllocateRayQuery2".split(","):
             self.name_idx[i].category = "Inline Ray Query"
-            self.name_idx[i].shader_model = 6, 8
+            self.name_idx[i].shader_model = 6, 9
         for i in "Unpack4x8".split(","):
             self.name_idx[i].category = "Unpacking intrinsics"
             self.name_idx[i].shader_model = 6, 6
@@ -5511,6 +5511,8 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
+        # End of DXIL 1.8 opcodes.
+
         # RayQuery
         self.add_dxil_op(
             "AllocateRayQuery2",
@@ -5539,7 +5541,6 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
-        # End of DXIL 1.8 opcodes.
         self.set_op_count_for_version(1, 8, next_op_idx)
         assert next_op_idx == 259, (
             "259 is expected next operation index but encountered %d and thus opcodes are broken"

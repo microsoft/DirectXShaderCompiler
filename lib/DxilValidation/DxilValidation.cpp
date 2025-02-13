@@ -2785,11 +2785,10 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
                 llvm::cast<llvm::ConstantInt>(constRayFlag);
             llvm::ConstantInt *Arg2 =
                 llvm::cast<llvm::ConstantInt>(RayQueryFlag);
-            if (Arg1->getValue().getSExtValue() ==
-                    (unsigned)DXIL::RayFlag::ForceOMM2State &&
-                Arg2->getValue().getSExtValue() !=
-                    (unsigned)DXIL::RAYQUERY_FLAG::
-                        RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS) {
+            if ((Arg1->getValue().getSExtValue() &
+                 (unsigned)DXIL::RayFlag::ForceOMM2State) &&
+                (Arg2->getValue().getSExtValue() &
+                 (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps) == 0) {
               ValCtx.EmitInstrError(
                   &I, ValidationRule::
                           DeclAllowOpacityMicromapsExpectedGivenForceOMM2State);
@@ -3977,7 +3976,7 @@ static void ValidateShaderFlags(ValidationContext &ValCtx) {
   unsigned valMajor, valMinor;
   ValCtx.DxilMod.GetValidatorVersion(valMajor, valMinor);
   if (DXIL::CompareVersions(valMajor, valMinor, 1, 5) >= 0 &&
-      DXIL::CompareVersions(valMajor, valMinor, 1, 8) != 0 &&
+      DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0 &&
       ValCtx.DxilMod.m_ShaderFlags.GetRaytracingTier1_1() &&
       !calcFlags.GetRaytracingTier1_1()) {
     calcFlags.SetRaytracingTier1_1(true);

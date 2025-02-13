@@ -1779,11 +1779,6 @@ enum class RayFlag : uint32_t {
   ForceOMM2State = 0x400, // Force 2-state in Opacity Micromaps
 };
 
-enum class RAYQUERY_FLAG : uint32_t {
-  RAYQUERY_FLAG_NONE = 0x00, // default
-  RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS = 0x01,
-};
-
 // Corresponds to RAYQUERY_FLAG_* in HLSL
 enum class RayQueryFlag : uint32_t { None = 0, AllowOpacityMicromaps = 1 };
 

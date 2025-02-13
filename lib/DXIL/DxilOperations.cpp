@@ -3302,9 +3302,8 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
            SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Node);
     return;
   }
-  // Instructions: BarrierByMemoryHandle=245, SampleCmpGrad=254,
-  // AllocateRayQuery2=258
-  if (op == 245 || op == 254 || op == 258) {
+  // Instructions: BarrierByMemoryHandle=245, SampleCmpGrad=254
+  if (op == 245 || op == 254) {
     major = 6;
     minor = 8;
     return;
@@ -3345,6 +3344,12 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
       major = 6;
       minor = 8;
     }
+    return;
+  }
+  // Instructions: AllocateRayQuery2=258
+  if (op == 258) {
+    major = 6;
+    minor = 9;
     return;
   }
   // OPCODE-SMMASK:END

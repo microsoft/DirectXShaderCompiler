@@ -66,7 +66,7 @@ RDAT_ENUM_END()
 RDAT_DXIL_ENUM_START(hlsl::DXIL::RaytracingPipelineFlags, uint32_t)
   RDAT_ENUM_VALUE_NODEF(None)
   RDAT_ENUM_VALUE_NODEF(SkipTriangles)
-  RDAT_ENUM_VALUE_NODEF(SkipProceduralPrimitives)  
+  RDAT_ENUM_VALUE_NODEF(SkipProceduralPrimitives)
   // No need to define mask here
   // RDAT_ENUM_VALUE_NODEF(ValidMask)
   RDAT_ENUM_VALUE_NODEF(AllowOpacityMicromaps)
