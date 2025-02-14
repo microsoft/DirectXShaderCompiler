@@ -494,12 +494,14 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT | BPROP_PATCH, // AR_OBJECT_INPUTPATCH
     BPROP_OBJECT | BPROP_PATCH, // AR_OBJECT_OUTPUTPATCH
 
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE1D
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE1D_ARRAY
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2D
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2D_ARRAY
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE3D
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWBUFFER
+    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE1D
+    BPROP_OBJECT | BPROP_RWBUFFER |
+        BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE1D_ARRAY
+    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2D
+    BPROP_OBJECT | BPROP_RWBUFFER |
+        BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2D_ARRAY
+    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE3D
+    BPROP_OBJECT | BPROP_RWBUFFER,                 // AR_OBJECT_RWBUFFER
 
     BPROP_OBJECT | BPROP_RBUFFER,  // AR_OBJECT_BYTEADDRESS_BUFFER
     BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWBYTEADDRESS_BUFFER
@@ -526,10 +528,8 @@ const UINT g_uBasicKindProps[] = {
         BPROP_ROVBUFFER, // AR_OBJECT_ROVTEXTURE2D_ARRAY
     BPROP_OBJECT | BPROP_RWBUFFER | BPROP_ROVBUFFER, // AR_OBJECT_ROVTEXTURE3D
 
-    BPROP_OBJECT | BPROP_TEXTURE |
-        BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D
-    BPROP_OBJECT | BPROP_TEXTURE |
-        BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
+    BPROP_OBJECT | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D
+    BPROP_OBJECT | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -570,8 +570,9 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT, // AR_OBJECT_HEAP_RESOURCE,
     BPROP_OBJECT, // AR_OBJECT_HEAP_SAMPLER,
 
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2DMS
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
+    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2DMS
+    BPROP_OBJECT | BPROP_RWBUFFER |
+        BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
 
     // WorkGraphs
     BPROP_OBJECT,                  // AR_OBJECT_EMPTY_NODE_INPUT
@@ -3735,8 +3736,10 @@ private:
 
         TypeSourceInfo *typeDefault =
             TemplateHasDefaultType(kind) ? float4TypeSourceInfo : nullptr;
+        bool isTyped = (IS_BASIC_TEXTURE(kind) || kind == AR_OBJECT_BUFFER ||
+                        kind == AR_OBJECT_RWBUFFER);
         recordDecl = DeclareTemplateTypeWithHandle(
-            *m_context, typeName, templateArgCount, typeDefault);
+            *m_context, typeName, templateArgCount, typeDefault, isTyped);
       }
       m_objectTypeDecls[i] = recordDecl;
       m_objectTypeDeclsMap[i] = std::make_pair(recordDecl, i);
@@ -4828,7 +4831,8 @@ public:
         return true;
       if (badArgIdx) {
         candidate.FailureKind = ovl_fail_bad_conversion;
-        QualType ParamType = functionArgTypes[badArgIdx];
+        QualType ParamType =
+            intrinsicFuncDecl->getParamDecl(badArgIdx - 1)->getType();
         candidate.Conversions[badArgIdx - 1].setBad(
             BadConversionSequence::no_conversion, Args[badArgIdx - 1],
             ParamType);
@@ -5196,6 +5200,28 @@ public:
           if (!IsValidTemplateArgumentType(argSrcLoc, argType, requireScalar)) {
             // NOTE: IsValidTemplateArgumentType emits its own diagnostics
             return true;
+          }
+          if (Template->getTemplatedDecl()->hasAttr<HLSLTypedResourceAttr>()) {
+            // Check vectors for being too large.
+            if (IsVectorType(m_sema, argType)) {
+              unsigned NumElt = hlsl::GetElementCount(argType);
+              QualType VecEltTy = hlsl::GetHLSLVecElementType(argType);
+              if (NumElt > 4 ||
+                  NumElt * m_sema->getASTContext().getTypeSize(VecEltTy) >
+                      4 * 32) {
+                m_sema->Diag(
+                    argLoc.getLocation(),
+                    diag::
+                        err_hlsl_unsupported_typedbuffer_template_parameter_size);
+                return true;
+              }
+              // Disallow non-vectors and non-scalars entirely.
+            } else if (!IsScalarType(argType)) {
+              m_sema->Diag(
+                  argLoc.getLocation(),
+                  diag::err_hlsl_unsupported_typedbuffer_template_parameter);
+              return true;
+            }
           }
         }
       } else if (arg.getKind() == TemplateArgument::ArgKind::Expression) {

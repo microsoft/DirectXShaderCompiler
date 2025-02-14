@@ -992,6 +992,12 @@ def HLSLNodeTrackRWInputSharing : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLTypedResource : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
 def HLSLNodeObject : InheritableAttr {
   let Spellings = []; // No spellings!
   let Subjects = SubjectList<[CXXRecord]>;
