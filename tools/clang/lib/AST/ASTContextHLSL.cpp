@@ -906,15 +906,15 @@ void hlsl::AddStdIsEqualImplementation(clang::ASTContext &context,
 CXXRecordDecl *
 hlsl::DeclareTemplateTypeWithHandle(ASTContext &context, StringRef name,
                                     uint8_t templateArgCount,
-                                    TypeSourceInfo *defaultTypeArgValue) {
+                                    TypeSourceInfo *defaultTypeArgValue, bool isTyped) {
   return DeclareTemplateTypeWithHandleInDeclContext(
       context, context.getTranslationUnitDecl(), name, templateArgCount,
-      defaultTypeArgValue);
+      defaultTypeArgValue, isTyped);
 }
 
 CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandleInDeclContext(
     ASTContext &context, DeclContext *declContext, StringRef name,
-    uint8_t templateArgCount, TypeSourceInfo *defaultTypeArgValue) {
+    uint8_t templateArgCount, TypeSourceInfo *defaultTypeArgValue, bool isTyped) {
   DXASSERT(templateArgCount != 0,
            "otherwise caller should be creating a class or struct");
   DXASSERT(templateArgCount <= 2, "otherwise the function needs to be updated "
@@ -938,11 +938,9 @@ CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandleInDeclContext(
   QualType elementType = context.getTemplateTypeParmType(
       /*templateDepth*/ 0, 0, ParameterPackFalse, elementTemplateParamDecl);
 
-  if (templateArgCount > 1 &&
-      // Only need array type for inputpatch and outputpatch.
-      // Avoid Texture2DMS which may use 0 count.
-      // TODO: use hlsl types to do the check.
-      !name.startswith("Texture") && !name.startswith("RWTexture")) {
+  if (templateArgCount > 1 && !isTyped) {
+    // Only need array type for inputpatch and outputpatch.
+    // isTyped check avoids Texture2DMS which may use 0 count.
     Expr *countExpr = DeclRefExpr::Create(
         context, NestedNameSpecifierLoc(), NoLoc, countTemplateParamDecl, false,
         DeclarationNameInfo(countTemplateParamDecl->getDeclName(), NoLoc),
@@ -967,6 +965,10 @@ CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandleInDeclContext(
   }
 
   typeDeclBuilder.addField("h", elementType);
+
+  if (isTyped)
+    typeDeclBuilder.getRecordDecl()->addAttr(
+      HLSLTypedResourceAttr::CreateImplicit(context));
 
   return typeDeclBuilder.getRecordDecl();
 }

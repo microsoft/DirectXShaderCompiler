@@ -3736,8 +3736,10 @@ private:
 
         TypeSourceInfo *typeDefault =
             TemplateHasDefaultType(kind) ? float4TypeSourceInfo : nullptr;
+        bool isTyped = (IS_BASIC_TEXTURE(kind) || kind == AR_OBJECT_BUFFER ||
+                        kind == AR_OBJECT_RWBUFFER);
         recordDecl = DeclareTemplateTypeWithHandle(
-            *m_context, typeName, templateArgCount, typeDefault);
+            *m_context, typeName, templateArgCount, typeDefault, isTyped);
       }
       m_objectTypeDecls[i] = recordDecl;
       m_objectTypeDeclsMap[i] = std::make_pair(recordDecl, i);
@@ -5199,10 +5201,7 @@ public:
             // NOTE: IsValidTemplateArgumentType emits its own diagnostics
             return true;
           }
-          if (templateName.startswith("Texture") ||
-              templateName.startswith("RWTexture") ||
-              templateName.startswith("RWBuffer") ||
-              templateName.startswith("Buffer")) {
+          if (Template->getTemplatedDecl()->hasAttr<HLSLTypedResourceAttr>()) {
             // Check vectors for being too large.
             if (IsVectorType(m_sema, argType)) {
               unsigned NumElt = hlsl::GetElementCount(argType);
