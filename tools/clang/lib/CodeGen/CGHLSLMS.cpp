@@ -3823,10 +3823,6 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   // Create Global variable and type annotation for each CBuffer.
   FinishCBuffer(HLM, CBufferType, m_ConstVarAnnotationMap);
 
-  // Translate calls to the HitObject constructor into hl HitObject_MakeNop
-  // calls
-  TranslateHitObjectConstructor(HLM);
-
   // Translate calls to RayQuery constructor into hl Allocate calls
   TranslateRayQueryConstructor(HLM);
 

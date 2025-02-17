@@ -226,7 +226,6 @@ void CollectCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
                           llvm::SmallVector<llvm::Function *, 2> &Ctors,
                           clang::CodeGen::CodeGenModule &CGM);
 
-void TranslateHitObjectConstructor(hlsl::HLModule &HLM);
 void TranslateRayQueryConstructor(hlsl::HLModule &HLM);
 void TranslateInputNodeRecordArgToHandle(
     hlsl::HLModule &HLM,
