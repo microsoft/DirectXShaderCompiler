@@ -1110,6 +1110,12 @@ def HLSLNodeObject : InheritableAttr {
     }];
 }
 
+def HLSLHitObject : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
 
 // HLSL Parameter Attributes
 
