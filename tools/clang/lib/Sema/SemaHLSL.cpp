@@ -4008,13 +4008,6 @@ public:
     return IsRayQueryBasicKind(GetTypeElementKind(type));
   }
 
-  bool IsHitObjectBasicKind(ArBasicKind kind) {
-    return kind == AR_OBJECT_HIT_OBJECT;
-  }
-  bool IsHitObjectType(QualType type) {
-    return IsHitObjectBasicKind(GetTypeElementKind(type));
-  }
-
   void WarnMinPrecision(QualType Type, SourceLocation Loc) {
     Type = Type->getCanonicalTypeUnqualified();
     if (IsVectorType(m_sema, Type) || IsMatrixType(m_sema, Type)) {
