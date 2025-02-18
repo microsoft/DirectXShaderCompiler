@@ -252,9 +252,6 @@ public:
   void EmitHLSLOutParamConversionCopyBack(
       CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList,
       llvm::SmallVector<LValue, 8> &lifetimeCleanupList) override;
-  llvm::Value *
-  EmitHLSLScalarObjectDefaultConstructor(CodeGenFunction &CGF,
-                                         const clang::Expr *E) override;
 
   Value *EmitHLSLMatrixOperationCall(CodeGenFunction &CGF, const clang::Expr *E,
                                      llvm::Type *RetType,
@@ -6479,27 +6476,6 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
         CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(ParamTy));
     CGF.EmitLifetimeEnd(CGF.Builder.getInt64(AllocaSize), tmpArgAddr);
   }
-}
-
-llvm::Value *
-CGMSHLSLRuntime::EmitHLSLScalarObjectDefaultConstructor(CodeGenFunction &CGF,
-                                                        const Expr *E) {
-  if (!hlsl::IsHLSLHitObjectType(E->getType()))
-    CGF.ErrorUnsupported(E, "scalar expression");
-
-  llvm::Module &M = CGF.CGM.getModule();
-
-  // Construct declaration
-  llvm::IntegerType *i32Ty = llvm::Type::getInt32Ty(M.getContext());
-  unsigned OpCode = (unsigned)IntrinsicOp::MOP_HitObject_MakeNop;
-  llvm::ConstantInt *opVal = llvm::ConstantInt::get(i32Ty, OpCode, false);
-
-  llvm::Type *HitType = hlsl::dxilutil::GetHLSLHitObjectType(&M);
-  llvm::FunctionType *MakeNopFuncTy =
-      llvm::FunctionType::get(HitType, i32Ty, false);
-  Function *MakeNopFunc = GetOrCreateHLFunction(
-      M, MakeNopFuncTy, HLOpcodeGroup::HLIntrinsic, OpCode);
-  return CGF.Builder.CreateCall(MakeNopFunc, opVal);
 }
 
 ScopeInfo *CGMSHLSLRuntime::GetScopeInfo(Function *F) {

@@ -45,8 +45,6 @@ static void AssignToArrayRange(CodeGen::CGBuilderTy &Builder,
 }
 
 static bool isAggregateTypeForABI(QualType T) {
-  if (hlsl::IsHLSLHitObjectType(T))
-    return false;
   return !CodeGenFunction::hasScalarEvaluationKind(T) ||
          T->isMemberFunctionPointerType();
 }
@@ -6228,14 +6226,8 @@ ABIArgInfo MSDXILABIInfo::classifyArgumentType(QualType Ty) const {
   if (isAggregateTypeForABI(Ty))
     return ABIArgInfo::getIndirect(0, /* byval */ false);
 
-  ABIArgInfo ArgInfo =
-      (Ty->isPromotableIntegerType() ? ABIArgInfo::getExtend()
-                                     : ABIArgInfo::getDirect());
-
-  // Maintain opacity of dx.types.HitObject and never flatten it
-  if (hlsl::IsHLSLHitObjectType(Ty))
-    ArgInfo.setCanBeFlattened(false);
-  return ArgInfo;
+  return (Ty->isPromotableIntegerType() ? ABIArgInfo::getExtend()
+                                        : ABIArgInfo::getDirect());
 }
 
 void MSDXILABIInfo::computeInfo(CGFunctionInfo &FI) const {
