@@ -1171,13 +1171,15 @@ CXXRecordDecl *hlsl::DeclareHitObjectType(ASTContext &Context) {
   BuiltinTypeDeclBuilder TypeDeclBuilder(Context.getTranslationUnitDecl(),
                                          "HitObject");
   TypeDeclBuilder.startDefinition();
+
+  // Add handle to mark as HLSL object.
+  TypeDeclBuilder.addField("h", GetHLSLObjectHandleType(Context));
   CXXRecordDecl *RecordDecl = TypeDeclBuilder.getRecordDecl();
 
-  // Add constructor that will be lowered to the intrinsic that produces
-  // the HitObject handle for this object.
   CanQualType canQualType = Context.getCanonicalType(
       Context.getRecordType(TypeDeclBuilder.getRecordDecl()));
 
+  // Add constructor that will be lowered to MOP_HitObject_MakeNop.
   CXXConstructorDecl *pConstructorDecl = nullptr;
   TypeSourceInfo *pTypeSourceInfo = nullptr;
   CreateConstructorDeclaration(
@@ -1185,10 +1187,16 @@ CXXRecordDecl *hlsl::DeclareHitObjectType(ASTContext &Context) {
       Context.DeclarationNames.getCXXConstructorName(canQualType), false,
       &pConstructorDecl, &pTypeSourceInfo);
   RecordDecl->addDecl(pConstructorDecl);
+  pConstructorDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      Context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_HitObject_MakeNop)));
+  pConstructorDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(Context));
+
   // Add the implicit HLSLHitObjectAttr attribute to unambiguously recognize the
   // builtin HitObject type (SM6.9+). This distinguishes it from any
   // user-defined type named 'HitObject' pre SM6.9.
   RecordDecl->addAttr(HLSLHitObjectAttr::CreateImplicit(Context));
+  RecordDecl->setImplicit(true);
   return RecordDecl;
 }
 

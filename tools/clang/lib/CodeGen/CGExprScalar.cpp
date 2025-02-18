@@ -339,8 +339,6 @@ public:
   Value *VisitCompoundLiteralExpr(CompoundLiteralExpr *E) {
     return EmitLoadOfLValue(E);
   }
-  Value *VisitCXXTemporaryObjectExpr(CXXTemporaryObjectExpr *E);
-  Value *VisitCXXConstructExpr(CXXConstructExpr *E);
 
   Value *VisitInitListExpr(InitListExpr *E);
 
@@ -1102,17 +1100,6 @@ void ScalarExprEmitter::EmitBinOpCheck(
 //===----------------------------------------------------------------------===//
 //                            Visitor Methods
 //===----------------------------------------------------------------------===//
-
-Value *ScalarExprEmitter::VisitCXXConstructExpr(CXXConstructExpr *E) {
-  return CGF.CGM.getHLSLRuntime().EmitHLSLScalarObjectDefaultConstructor(CGF,
-                                                                         E);
-}
-
-Value *
-ScalarExprEmitter::VisitCXXTemporaryObjectExpr(CXXTemporaryObjectExpr *E) {
-  return CGF.CGM.getHLSLRuntime().EmitHLSLScalarObjectDefaultConstructor(CGF,
-                                                                         E);
-}
 
 Value *ScalarExprEmitter::VisitExpr(Expr *E) {
   CGF.ErrorUnsupported(E, "scalar expression");
