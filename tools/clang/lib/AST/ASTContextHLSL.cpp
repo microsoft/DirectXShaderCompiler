@@ -604,6 +604,12 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
       });
 
   AddTypedefPseudoEnum(
+      context, "RAYQUERY_FLAG",
+      {{"RAYQUERY_FLAG_NONE", (unsigned)DXIL::RayQueryFlag::None},
+       {"RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS",
+        (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps}});
+
+  AddTypedefPseudoEnum(
       context, "COMMITTED_STATUS",
       {{"COMMITTED_NOTHING", (unsigned)DXIL::CommittedStatus::CommittedNothing},
        {"COMMITTED_TRIANGLE_HIT",
@@ -1140,7 +1146,13 @@ CXXRecordDecl *hlsl::DeclareRayQueryType(ASTContext &context) {
   // template<uint kind> RayQuery { ... }
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(),
                                          "RayQuery");
-  typeDeclBuilder.addIntegerTemplateParam("flags", context.UnsignedIntTy);
+  typeDeclBuilder.addIntegerTemplateParam("constRayFlags",
+                                          context.UnsignedIntTy);
+  // create a default value that contains the value of DXIL::RayFlag::None
+  llvm::Optional<int64_t> DefaultRayQueryFlag =
+      static_cast<int64_t>(DXIL::RayFlag::None);
+  typeDeclBuilder.addIntegerTemplateParam(
+      "RayQueryFlags", context.UnsignedIntTy, DefaultRayQueryFlag);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField(
       "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.

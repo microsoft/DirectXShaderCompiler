@@ -1776,6 +1776,9 @@ enum class RayFlag : uint32_t {
   SkipProceduralPrimitives = 0x200,
 };
 
+// Corresponds to RAYQUERY_FLAG_* in HLSL
+enum class RayQueryFlag : uint32_t { None = 0, AllowOpacityMicromaps = 1 };
+
 // Packing/unpacking intrinsics
 enum class UnpackMode : uint8_t {
   Unsigned = 0, // not sign extended

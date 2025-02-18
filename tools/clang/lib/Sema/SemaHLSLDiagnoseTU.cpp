@@ -325,6 +325,13 @@ public:
     return true;
   }
 
+  bool VisitEnumType(EnumType *ET) {
+    // Search for enum types that should only exist after
+    // specific shader models.
+
+    return true;
+  }
+
   clang::Sema *getSema() { return sema; }
 
 private:
