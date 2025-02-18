@@ -905,16 +905,16 @@ void hlsl::AddStdIsEqualImplementation(clang::ASTContext &context,
 /// argument for the element template.</param>
 CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandle(
     ASTContext &context, StringRef name, uint8_t templateArgCount,
-    TypeSourceInfo *defaultTypeArgValue, bool isTyped) {
+    TypeSourceInfo *defaultTypeArgValue, InheritableAttr *Attr) {
   return DeclareTemplateTypeWithHandleInDeclContext(
       context, context.getTranslationUnitDecl(), name, templateArgCount,
-      defaultTypeArgValue, isTyped);
+      defaultTypeArgValue, Attr);
 }
 
 CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandleInDeclContext(
     ASTContext &context, DeclContext *declContext, StringRef name,
     uint8_t templateArgCount, TypeSourceInfo *defaultTypeArgValue,
-    bool isTyped) {
+    InheritableAttr *Attr) {
   DXASSERT(templateArgCount != 0,
            "otherwise caller should be creating a class or struct");
   DXASSERT(templateArgCount <= 2, "otherwise the function needs to be updated "
@@ -938,7 +938,7 @@ CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandleInDeclContext(
   QualType elementType = context.getTemplateTypeParmType(
       /*templateDepth*/ 0, 0, ParameterPackFalse, elementTemplateParamDecl);
 
-  if (templateArgCount > 1 && !isTyped) {
+  if (templateArgCount > 1 && (!Attr || !isa<HLSLTypedResourceAttr>(Attr))) {
     // Only need array type for inputpatch and outputpatch.
     // isTyped check avoids Texture2DMS which may use 0 count.
     Expr *countExpr = DeclRefExpr::Create(
@@ -966,9 +966,8 @@ CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandleInDeclContext(
 
   typeDeclBuilder.addField("h", elementType);
 
-  if (isTyped)
-    typeDeclBuilder.getRecordDecl()->addAttr(
-        HLSLTypedResourceAttr::CreateImplicit(context));
+  if (Attr)
+    typeDeclBuilder.getRecordDecl()->addAttr(Attr);
 
   return typeDeclBuilder.getRecordDecl();
 }

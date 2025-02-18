@@ -3734,12 +3734,15 @@ private:
         DXASSERT(templateArgCount == 1 || templateArgCount == 2,
                  "otherwise a new case has been added");
 
+        InheritableAttr *Attr = nullptr;
+        if(IS_BASIC_TEXTURE(kind) || kind == AR_OBJECT_BUFFER ||
+           kind == AR_OBJECT_RWBUFFER)
+          Attr = HLSLTypedResourceAttr::CreateImplicit(*m_context);
+
         TypeSourceInfo *typeDefault =
             TemplateHasDefaultType(kind) ? float4TypeSourceInfo : nullptr;
-        bool isTyped = (IS_BASIC_TEXTURE(kind) || kind == AR_OBJECT_BUFFER ||
-                        kind == AR_OBJECT_RWBUFFER);
         recordDecl = DeclareTemplateTypeWithHandle(
-            *m_context, typeName, templateArgCount, typeDefault, isTyped);
+            *m_context, typeName, templateArgCount, typeDefault, Attr);
       }
       m_objectTypeDecls[i] = recordDecl;
       m_objectTypeDeclsMap[i] = std::make_pair(recordDecl, i);
