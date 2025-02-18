@@ -5185,8 +5185,8 @@ public:
       }
       return false;
     } else if (Template->getTemplatedDecl()->hasAttr<HLSLTessPatchAttr>()) {
-      DXASSERT(TemplateArgList.size() == 1,
-               "Tessellation patch has more than one template arg");
+      DXASSERT(TemplateArgList.size() > 0,
+               "Tessellation patch should have at least one template args");
       const TemplateArgumentLoc &argLoc = TemplateArgList[0];
       const TemplateArgument &arg = argLoc.getArgument();
       DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type, "");
