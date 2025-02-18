@@ -8368,40 +8368,40 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
                                      baseOffset, status, OP, DL);
     }
   } else if (isa<LoadInst>(user) || isa<StoreInst>(user)) {
-    LoadInst *ldInst = dyn_cast<LoadInst>(user);
-    StoreInst *stInst = dyn_cast<StoreInst>(user);
+    LoadInst *LdInst = dyn_cast<LoadInst>(user);
+    StoreInst *StInst = dyn_cast<StoreInst>(user);
 
-    Type *Ty = isa<LoadInst>(user) ? ldInst->getType()
-                                   : stInst->getValueOperand()->getType();
+    Type *Ty = isa<LoadInst>(user) ? LdInst->getType()
+                                   : StInst->getValueOperand()->getType();
     Type *pOverloadTy = Ty->getScalarType();
-    Value *offset = baseOffset;
+    Value *Offset = baseOffset;
 
-    if (ldInst) {
-      unsigned numComponents = 0;
-      Value *newLd = nullptr;
+    if (LdInst) {
+      unsigned NumComponents = 0;
+      Value *NewLd = nullptr;
       if (VectorType *VTy = dyn_cast<VectorType>(Ty))
-        numComponents = VTy->getNumElements();
+        NumComponents = VTy->getNumElements();
       else
-        numComponents = 1;
+        NumComponents = 1;
 
       if (ResKind == HLResource::Kind::TypedBuffer) {
         // Typed buffer cannot have offsets, they must be loaded all at once
         ResRetValueArray ResRet = GenerateTypedBufferLoad(
             handle, pOverloadTy, bufIdx, status, OP, Builder);
 
-        newLd = ExtractFromTypedBufferLoad(ResRet, Ty, offset, Builder);
+        NewLd = ExtractFromTypedBufferLoad(ResRet, Ty, Offset, Builder);
       } else {
         Value *ResultElts[4];
-        Constant *alignment =
+        Constant *Alignment =
             OP->GetI32Const(DL.getTypeAllocSize(Ty->getScalarType()));
-        GenerateRawBufLd(handle, bufIdx, offset, status, pOverloadTy,
-                         ResultElts, OP, Builder, numComponents, alignment);
-        newLd = ScalarizeElements(Ty, ResultElts, Builder);
+        GenerateRawBufLd(handle, bufIdx, Offset, status, pOverloadTy,
+                         ResultElts, OP, Builder, NumComponents, Alignment);
+        NewLd = ScalarizeElements(Ty, ResultElts, Builder);
       }
 
-      ldInst->replaceAllUsesWith(newLd);
+      LdInst->replaceAllUsesWith(NewLd);
     } else {
-      Value *val = stInst->getValueOperand();
+      Value *val = StInst->getValueOperand();
       Value *undefVal = llvm::UndefValue::get(pOverloadTy);
       Value *vals[] = {undefVal, undefVal, undefVal, undefVal};
       uint8_t mask = 0;
@@ -8419,7 +8419,7 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
       }
       Constant *alignment =
           OP->GetI32Const(DL.getTypeAllocSize(Ty->getScalarType()));
-      GenerateStructBufSt(handle, bufIdx, offset, pOverloadTy, OP, Builder,
+      GenerateStructBufSt(handle, bufIdx, Offset, pOverloadTy, OP, Builder,
                           vals, mask, alignment);
     }
     user->eraseFromParent();
