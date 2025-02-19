@@ -1110,7 +1110,8 @@ def HLSLNodeObject : InheritableAttr {
     }];
 }
 
-def HLSLHitObject : InheritableAttr {
+// Shader Execution Reordering
+def DXHitObject : InheritableAttr {
   let Spellings = []; // No spellings!
   let Subjects = SubjectList<[CXXRecord]>;
   let Documentation = [Undocumented];

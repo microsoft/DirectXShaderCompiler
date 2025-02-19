@@ -49,6 +49,12 @@ ModulePass *createDxilLoadMetadataPass();
 void initializeDxilLoadMetadataPass(llvm::PassRegistry &);
 } // namespace llvm
 
+// Shader Execution Reordering
+namespace dx {
+llvm::Type *GetHitObjectType(llvm::Module *M);
+bool IsHitObjectType(llvm::Type *Ty);
+} // namespace dx
+
 namespace hlsl {
 
 class DxilFieldAnnotation;
@@ -162,8 +168,6 @@ GetHLSLResourceProperties(llvm::Type *Ty);
 bool IsHLSLResourceType(llvm::Type *Ty);
 bool IsHLSLObjectType(llvm::Type *Ty);
 bool IsHLSLRayQueryType(llvm::Type *Ty);
-llvm::Type *GetHLSLHitObjectType(llvm::Module *M);
-bool IsHLSLHitObjectType(llvm::Type *Ty);
 bool IsHLSLResourceDescType(llvm::Type *Ty);
 bool IsResourceSingleComponent(llvm::Type *Ty);
 uint8_t GetResourceComponentCount(llvm::Type *Ty);

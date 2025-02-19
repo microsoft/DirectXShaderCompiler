@@ -36,6 +36,26 @@
 using namespace llvm;
 using namespace hlsl;
 
+// Shader Execution Reordering
+namespace dx {
+Type *GetHitObjectType(Module *M) {
+  StructType *HitObjectTy = M->getTypeByName("dx.types.HitObject");
+  if (!HitObjectTy)
+    HitObjectTy = StructType::create({Type::getInt8PtrTy(M->getContext(), 0)},
+                                     "dx.types.HitObject", false);
+  return HitObjectTy;
+}
+
+bool IsHitObjectType(Type *Ty) {
+  StructType *ST = dyn_cast<StructType>(Ty);
+  if (!ST)
+    return false;
+  if (!ST->hasName())
+    return false;
+  return ST->getName() == "dx.types.HitObject";
+}
+} // namespace dx
+
 namespace hlsl {
 
 namespace dxilutil {
@@ -549,9 +569,6 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
     if (name.startswith("dx.types.wave_t"))
       return true;
 
-    if (name == "dx.types.HitObject")
-      return true;
-
     if (name.compare("dx.types.Handle") == 0)
       return true;
 
@@ -573,6 +590,9 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
 
     if (IsHLSLNodeIOType(Ty))
       return true;
+
+    if (dx::IsHitObjectType(Ty))
+      return true;
   }
   return false;
 }
@@ -588,24 +608,6 @@ bool IsHLSLRayQueryType(llvm::Type *Ty) {
       return true;
   }
   return false;
-}
-
-llvm::Type *GetHLSLHitObjectType(llvm::Module *M) {
-  using namespace llvm;
-  StructType *HitObjectTy = M->getTypeByName("dx.types.HitObject");
-  if (!HitObjectTy)
-    HitObjectTy = StructType::create({Type::getInt8PtrTy(M->getContext(), 0)},
-                                     "dx.types.HitObject", false);
-  return HitObjectTy;
-}
-
-bool IsHLSLHitObjectType(llvm::Type *Ty) {
-  llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty);
-  if (!ST)
-    return false;
-  if (!ST->hasName())
-    return false;
-  return ST->getName() == "dx.types.HitObject";
 }
 
 bool IsHLSLResourceDescType(llvm::Type *Ty) {
