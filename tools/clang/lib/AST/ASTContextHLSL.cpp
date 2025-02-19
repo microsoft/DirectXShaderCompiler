@@ -22,6 +22,7 @@
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExternalASTSource.h"
 #include "clang/AST/HlslBuiltinTypeDeclBuilder.h"
+#include "clang/AST/HlslTypes.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/Basic/Specifiers.h"
 #include "clang/Sema/Overload.h"
@@ -1166,7 +1167,8 @@ CXXRecordDecl *hlsl::DeclareRayQueryType(ASTContext &context) {
   return typeDeclBuilder.getRecordDecl();
 }
 
-CXXRecordDecl *hlsl::DeclareHitObjectType(ASTContext &Context) {
+namespace dx {
+CXXRecordDecl *DeclareHitObjectType(ASTContext &Context) {
   // HitObject { ... }
   BuiltinTypeDeclBuilder TypeDeclBuilder(Context.getTranslationUnitDecl(),
                                          "HitObject");
@@ -1192,13 +1194,14 @@ CXXRecordDecl *hlsl::DeclareHitObjectType(ASTContext &Context) {
       static_cast<int>(hlsl::IntrinsicOp::MOP_HitObject_MakeNop)));
   pConstructorDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(Context));
 
-  // Add the implicit HLSLHitObjectAttr attribute to unambiguously recognize the
+  // Add the implicit DXHitObjectAttr attribute to unambiguously recognize the
   // builtin HitObject type (SM6.9+). This distinguishes it from any
   // user-defined type named 'HitObject' pre SM6.9.
-  RecordDecl->addAttr(HLSLHitObjectAttr::CreateImplicit(Context));
+  RecordDecl->addAttr(DXHitObjectAttr::CreateImplicit(Context));
   RecordDecl->setImplicit(true);
   return RecordDecl;
 }
+} // namespace dx
 
 CXXRecordDecl *hlsl::DeclareResourceType(ASTContext &context, bool bSampler) {
   // struct ResourceDescriptor { uint8 desc; }
