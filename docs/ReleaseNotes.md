@@ -23,10 +23,28 @@ Place release notes for the upcoming release below this line and remove this lin
 
 ### Version 1.8.2502
 
+This cumulative release contains numerous bug fixes and stability improvements.
+
+This release includes binaries:
+
+- compiler: `dxc.exe` and `dxcompiler.dll` on Windows, `dxc` and `libdxcompiler.so` on Linux.
+- validator: `dxv.exe` and `dxil.dll` on Windows, `dxv` and `libdxil.so` on Linux.
+- Windows symbols (`.pdb` files) - see "PDB Note" below for known issue.
+
+The validator binaries will no longer be required for "signed" (hashed) shaders when using this release of the compiler, however they will still be loaded and used if found.
+
+Here are some highlights:
+
 - The incomplete WaveMatrix implementation has been removed. [#6807](https://github.com/microsoft/DirectXShaderCompiler/pull/6807)
 - DXIL Validator Hash is open sourced. [#6846](https://github.com/microsoft/DirectXShaderCompiler/pull/6846)
 - DXIL container validation for PSV0 part allows any content ordering inside string and semantic index tables. [#6859](https://github.com/microsoft/DirectXShaderCompiler/pull/6859)
 - The and() and or() intrinsics will now accept non-integer parameters by casting them to bools. [#7060](https://github.com/microsoft/DirectXShaderCompiler/pull/7060)
+
+Clang-built Windows binaries are included in addition to the MSVC-built binaries that have always been shipped before. The clang-built compiler is expected to improve HLSL compile times in many cases. We are eager for feedback about this build positive or negative, related to compile times or correctness.
+
+This DX compiler release is also available as a NuGet package [here](https://www.nuget.org/packages/Microsoft.Direct3D.DXC/1.8.2502.7)
+
+> **PDB Note**: pdb files should be renamed, a `_full` suffix should be added to the pdb file names (e.g. `dxc_full.pdb`). Though these pdbs aren't full pdbs, the expected name when loading symbols from the image are the file names in the pdb zip with the extra suffix.
 
 ### Version 1.8.2407
 
