@@ -28,10 +28,14 @@ groupshared S D;
 [numthreads(1,1,1)]
 void main() {
 // CHECK: %E = OpVariable %_ptr_Function_int Function
+// CHECK-NEXT: [[TempVar:%[a-zA-Z0-9_]+]] = OpVariable %_ptr_Function_int Function
+
   int E;
 
 // CHECK:        [[A:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int %A %int_0 %uint_0
-// CHECK-NEXT:     {{%[0-9]+}} = OpFunctionCall %void %foo [[A]] %B %C %D %E
+// CHECK-NEXT: [[ld:%[0-9]+]] = OpLoad %int [[A]]
+// CHECK-NEXT: OpStore [[TempVar]] [[ld]]
+// CHECK-NEXT:     {{%[0-9]+}} = OpFunctionCall %void %foo [[TempVar]] %B %C %D %E
   foo(A[0], B, C, D, E);
   A[0] = A[0] | B | C | D.a | E;
 }
