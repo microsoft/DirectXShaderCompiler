@@ -3735,8 +3735,8 @@ private:
                  "otherwise a new case has been added");
 
         InheritableAttr *Attr = nullptr;
-        if(IS_BASIC_TEXTURE(kind) || kind == AR_OBJECT_BUFFER ||
-           kind == AR_OBJECT_RWBUFFER)
+        if (IS_BASIC_TEXTURE(kind) || kind == AR_OBJECT_BUFFER ||
+            kind == AR_OBJECT_RWBUFFER)
           Attr = HLSLTypedResourceAttr::CreateImplicit(*m_context);
 
         TypeSourceInfo *typeDefault =
