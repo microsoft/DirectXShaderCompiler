@@ -4196,12 +4196,10 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   loadArgs.emplace_back(opArg);         // opcode
   loadArgs.emplace_back(helper.handle); // resource handle
 
+  // offsets
   if (opcode == OP::OpCode::TextureLoad) {
     // set mip level
     loadArgs.emplace_back(helper.mipLevel);
-  }
-
-  if (opcode == OP::OpCode::TextureLoad) {
     // texture coord
     unsigned coordSize = DxilResource::GetNumCoords(RK);
     bool isVectorAddr = helper.addr->getType()->isVectorTy();
@@ -4213,22 +4211,6 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
       } else
         loadArgs.emplace_back(undefI);
     }
-  } else {
-    if (helper.addr->getType()->isVectorTy()) {
-      Value *scalarOffset =
-          Builder.CreateExtractElement(helper.addr, (uint64_t)0);
-
-      // TODO: calculate the real address based on opcode
-
-      loadArgs.emplace_back(scalarOffset); // offset
-    } else {
-      // TODO: calculate the real address based on opcode
-
-      loadArgs.emplace_back(helper.addr); // offset
-    }
-  }
-  // offset 0
-  if (opcode == OP::OpCode::TextureLoad) {
     if (helper.offset && !isa<llvm::UndefValue>(helper.offset)) {
       unsigned offsetSize = DxilResource::GetNumOffsets(RK);
       for (unsigned i = 0; i < 3; i++) {
@@ -4242,11 +4224,9 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
       loadArgs.emplace_back(undefI);
       loadArgs.emplace_back(undefI);
     }
-  }
-
-  // Offset 1
-  if (RK == DxilResource::Kind::TypedBuffer) {
-    loadArgs.emplace_back(undefI);
+  } else {
+    loadArgs.emplace_back(helper.addr); // c0
+    loadArgs.emplace_back(undefI);      // c1
   }
 
   Value *ResRet = Builder.CreateCall(F, loadArgs, OP->GetOpCodeName(opcode));
@@ -4420,12 +4400,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   if (RK == DxilResource::Kind::RawBuffer ||
       RK == DxilResource::Kind::TypedBuffer) {
     // Offset 0
-    if (offset->getType()->isVectorTy()) {
-      Value *scalarOffset = Builder.CreateExtractElement(offset, (uint64_t)0);
-      storeArgs.emplace_back(scalarOffset); // offset
-    } else {
-      storeArgs.emplace_back(offset); // offset
-    }
+    storeArgs.emplace_back(offset); // offset
 
     // Store offset0 for later use
     offset0Idx = storeArgs.size() - 1;
