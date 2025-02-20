@@ -3960,13 +3960,6 @@ public:
     return IsSubobjectBasicKind(GetTypeElementKind(type));
   }
 
-  bool IsRayQueryBasicKind(ArBasicKind kind) {
-    return kind == AR_OBJECT_RAY_QUERY;
-  }
-  bool IsRayQueryType(QualType type) {
-    return IsRayQueryBasicKind(GetTypeElementKind(type));
-  }
-
   void WarnMinPrecision(QualType Type, SourceLocation Loc) {
     Type = Type->getCanonicalTypeUnqualified();
     if (IsVectorType(m_sema, Type) || IsMatrixType(m_sema, Type)) {
@@ -14141,6 +14134,43 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       eltQt = QualType(eltQt->getArrayElementTypeNoTypeQual(), 0);
     if (hlsl::IsObjectType(this, eltQt, &bDeprecatedEffectObject)) {
       bIsObject = true;
+    }
+  }
+
+  if (bIsObject) {
+    const CXXRecordDecl *typeRecordDecl = qt->getAsCXXRecordDecl();
+    // get the specific object kind
+    ArBasicKind K = hlslSource->GetTypeElementKind(qt);
+    if (K == AR_OBJECT_RAY_QUERY) {
+      if (auto *SpecDecl =
+              llvm::dyn_cast<ClassTemplateSpecializationDecl>(typeRecordDecl)) {
+        if (SpecDecl->getTemplateArgs().size() > 1) {
+          // ensure that if the second template argument has a non-zero value,
+          // the shader model is at least 6.9
+          llvm::APSInt Arg1 = SpecDecl->getTemplateArgs()[0].getAsIntegral();
+          llvm::APSInt Arg2 = SpecDecl->getTemplateArgs()[1].getAsIntegral();
+          std::string profile = getLangOpts().HLSLProfile;
+          const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
+          if (Arg2.getZExtValue() != 0 && !SM->IsSMAtLeast(6, 9)) {
+            Diag(
+                D.getLocStart(),
+                diag::
+                    warn_hlsl_unexpected_value_for_ray_query_flags_template_arg);
+            result = false;
+          }
+
+          // now ensure that if the first template arg has
+          // 'RAY_FLAG_FORCE_OMM_2_STATE' set, the second template arg must have
+          // RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set.
+          if (Arg1.getZExtValue() & (unsigned)DXIL::RayFlag::ForceOMM2State) {
+            if (!(Arg2.getZExtValue() &
+                  (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps)) {
+              Diag(D.getLocStart(), diag::warn_hlsl_unexpected_rayquery_flag);
+              result = false;
+            }
+          }
+        }
+      }
     }
   }
 

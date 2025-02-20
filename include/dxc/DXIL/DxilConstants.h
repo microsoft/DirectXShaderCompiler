@@ -1774,6 +1774,7 @@ enum class RayFlag : uint32_t {
   CullNonOpaque = 0x80,
   SkipTriangles = 0x100,
   SkipProceduralPrimitives = 0x200,
+  ForceOMM2State = 0x400
 };
 
 // Corresponds to RAYQUERY_FLAG_* in HLSL

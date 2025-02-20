@@ -328,6 +328,15 @@ public:
   bool VisitEnumType(EnumType *ET) {
     // Search for enum types that should only exist after
     // specific shader models.
+    IdentifierInfo *II = ET->getDecl()->getIdentifier();
+
+    if (!SM->IsSMAtLeast(6, 9)) {
+      if (II->isStr("RAYQUERY_FLAG"))
+        sema->Diag(ET->getDecl()->getLocation(),
+                   diag::warn_hlsl_enum_type_not_allowed)
+            << II->getName(),
+            SM->GetByName, "6.9";
+    }
 
     return true;
   }
