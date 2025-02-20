@@ -564,7 +564,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     }
 
     // Shader Execution Reordering
-    // ReorderThread(..) handled elsewhere.
+    // MaybeReorderThread(..) handled elsewhere.
     const bool AllowHitObject = (EntrySK == DXIL::ShaderKind::ClosestHit ||
                                  EntrySK == DXIL::ShaderKind::Miss ||
                                  EntrySK == DXIL::ShaderKind::RayGeneration);
