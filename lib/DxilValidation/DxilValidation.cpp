@@ -2762,8 +2762,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
             llvm::Value *constRayFlag = CI->getOperand(1);
             if (!llvm::isa<llvm::Constant>(constRayFlag)) {
               ValCtx.EmitInstrError(
-                  &I, ValidationRule::
-                          DeclNonConstFlagsUnsupportedForAllocateRayQuery);
+                  &I, ValidationRule::DeclAllocateRayQueryFlagsAreConst);
             }
           }
 
@@ -2774,8 +2773,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
             if (!llvm::isa<llvm::Constant>(constRayFlag) ||
                 !llvm::isa<llvm::Constant>(RayQueryFlag)) {
               ValCtx.EmitInstrError(
-                  &I, ValidationRule::
-                          DeclNonConstFlagsUnsupportedForAllocateRayQuery2);
+                  &I, ValidationRule::DeclAllocateRayQuery2FlagsAreConst);
               continue;
             }
             // When the ForceOMM2State ConstRayFlag is given as an argument to

@@ -5511,6 +5511,13 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
+        self.set_op_count_for_version(1, 9, next_op_idx)
+
+        assert next_op_idx == 258, (
+            "258 is expected next operation index but encountered %d and thus opcodes are broken"
+            % next_op_idx
+        )
+
         # End of DXIL 1.8 opcodes.
 
         # RayQuery
@@ -5539,13 +5546,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        next_op_idx += 1
-
-        self.set_op_count_for_version(1, 8, next_op_idx)
-        assert next_op_idx == 259, (
-            "259 is expected next operation index but encountered %d and thus opcodes are broken"
-            % next_op_idx
-        )
+        next_op_idx += 1        
 
         # Set interesting properties.
         self.build_indices()
@@ -7935,12 +7936,12 @@ class db_dxil(object):
             "Function '%0' uses rayquery object in function signature.",
         )
         self.add_valrule_msg(
-            "Decl.NonConstFlagsUnsupportedForAllocateRayQuery",
+            "Decl.AllocateRayQueryFlagsAreConst",
             "RayFlags for AllocateRayQuery must be constant",
             "constRayFlags argument of AllocateRayQuery must be constant",
         )
         self.add_valrule_msg(
-            "Decl.NonConstFlagsUnsupportedForAllocateRayQuery2",
+            "Decl.AllocateRayQuery2FlagsAreConst",
             "constRayFlags and RayQueryFlags for AllocateRayQuery2 must be constant",
             "constRayFlags and RayQueryFlags arguments of AllocateRayQuery2 must be constant",
         )
