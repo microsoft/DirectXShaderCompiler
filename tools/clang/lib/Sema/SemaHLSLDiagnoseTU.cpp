@@ -338,11 +338,11 @@ private:
   llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls;
 };
 
-class HLSLNoSERDiagnoseVisitor
-    : public RecursiveASTVisitor<HLSLNoSERDiagnoseVisitor> {
+class HLSLDisallowSERDiagnoseVisitor
+    : public RecursiveASTVisitor<HLSLDisallowSERDiagnoseVisitor> {
 public:
-  explicit HLSLNoSERDiagnoseVisitor(Sema &S, DXIL::ShaderKind EntrySK,
-                                    const FunctionDecl *EntryDecl)
+  explicit HLSLDisallowSERDiagnoseVisitor(Sema &S, DXIL::ShaderKind EntrySK,
+                                          const FunctionDecl *EntryDecl)
       : S(S), EntrySK(EntrySK), EntryDecl(EntryDecl) {}
 
   bool VisitTypeLoc(TypeLoc TL) {
@@ -569,7 +569,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
                                  EntrySK == DXIL::ShaderKind::Miss ||
                                  EntrySK == DXIL::ShaderKind::RayGeneration);
     if (!AllowHitObject) {
-      HLSLNoSERDiagnoseVisitor Visitor(*self, EntrySK, FDecl);
+      HLSLDisallowSERDiagnoseVisitor Visitor(*self, EntrySK, FDecl);
       for (FunctionDecl *FD : callGraph.GetVisitedFunctions()) {
         Visitor.TraverseDecl(FD);
       }
