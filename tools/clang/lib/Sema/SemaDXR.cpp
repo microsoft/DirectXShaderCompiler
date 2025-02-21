@@ -810,9 +810,10 @@ void DiagnoseTraceCall(Sema &S, const VarDecl *Payload,
     return;
   }
 
-  if (hlsl::HasLongVecs(Payload->getType())) {
+  if (hlsl::ContainsVectorLongerThan(Payload->getType(),
+                                     DXIL::kDefaultMaxVectorLength)) {
     S.Diag(Payload->getLocation(), diag::err_hlsl_unsupported_long_vector)
-        << "payload parameters";
+        << DXIL::kDefaultMaxVectorLength << "payload parameters";
     return;
   }
 
