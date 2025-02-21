@@ -549,9 +549,6 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
     if (name.startswith("dx.types.wave_t"))
       return true;
 
-    if (name == "dx.types.HitObject")
-      return true;
-
     if (name.compare("dx.types.Handle") == 0)
       return true;
 
@@ -572,6 +569,9 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
       return true;
 
     if (IsHLSLNodeIOType(Ty))
+      return true;
+
+    if (IsHLSLHitObjectType(Ty))
       return true;
   }
   return false;

@@ -6190,12 +6190,7 @@ public:
       RetTy = EnumTy->getDecl()->getIntegerType();
 
     // do not use extend for hlsl.
-    ABIArgInfo RetInfo = ABIArgInfo::getDirect(CGT.ConvertType(RetTy));
-
-    // Maintain opacity of dx.types.HitObject and never flatten it
-    if (hlsl::IsHLSLHitObjectType(RetTy))
-      RetInfo.setCanBeFlattened(false);
-    return RetInfo;
+    return ABIArgInfo::getDirect(CGT.ConvertType(RetTy));
   }
 
   ABIArgInfo classifyArgumentType(QualType Ty) const;
