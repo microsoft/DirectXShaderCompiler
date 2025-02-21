@@ -1166,10 +1166,10 @@ CXXRecordDecl *hlsl::DeclareRayQueryType(ASTContext &context) {
   return typeDeclBuilder.getRecordDecl();
 }
 
-CXXRecordDecl *hlsl::DeclareHitObjectType(ASTContext &Context) {
+CXXRecordDecl *hlsl::DeclareHitObjectType(NamespaceDecl &NSDecl) {
+  ASTContext &Context = NSDecl.getASTContext();
   // HitObject { ... }
-  BuiltinTypeDeclBuilder TypeDeclBuilder(Context.getTranslationUnitDecl(),
-                                         "HitObject");
+  BuiltinTypeDeclBuilder TypeDeclBuilder(&NSDecl, "HitObject");
   TypeDeclBuilder.startDefinition();
 
   // Add handle to mark as HLSL object.
@@ -1189,7 +1189,7 @@ CXXRecordDecl *hlsl::DeclareHitObjectType(ASTContext &Context) {
   RecordDecl->addDecl(pConstructorDecl);
   pConstructorDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
       Context, "op", "",
-      static_cast<int>(hlsl::IntrinsicOp::MOP_HitObject_MakeNop)));
+      static_cast<int>(hlsl::IntrinsicOp::MOP_DxHitObject_MakeNop)));
   pConstructorDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(Context));
 
   // Add the implicit HLSLHitObjectAttr attribute to unambiguously recognize the
@@ -1197,6 +1197,9 @@ CXXRecordDecl *hlsl::DeclareHitObjectType(ASTContext &Context) {
   // user-defined type named 'HitObject' pre SM6.9.
   RecordDecl->addAttr(HLSLHitObjectAttr::CreateImplicit(Context));
   RecordDecl->setImplicit(true);
+
+  // Add to namespace
+  RecordDecl->setDeclContext(&NSDecl);
   return RecordDecl;
 }
 

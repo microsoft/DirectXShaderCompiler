@@ -1089,8 +1089,15 @@ uint [[ro]] CommittedInstanceContributionToHitGroupIndex();
 
 } namespace
 
-namespace HitObjectMethods {
-    HitObject [[static,class_prefix]] MakeNop();
+// Shader Execution Reordering
+namespace DxHitObjectMethods {
+    DxHitObject [[static,class_prefix]] MakeNop();
+} namespace
+
+namespace DxIntrinsics {
+void [[]] MaybeReorderThread(in DxHitObject HitObject);
+void [[]] MaybeReorderThread(in uint CoherenceHint, in uint NumCoherenceHintBitsFromLSB);
+void [[]] MaybeReorderThread(in DxHitObject HitObject, in uint CoherenceHint, in uint NumCoherenceHintBitsFromLSB);
 } namespace
 
 // Work Graphs objects and methods

@@ -972,7 +972,7 @@ def get_hlsl_intrinsics():
         if last_ns != i.ns:
             last_ns = i.ns
             id_prefix = (
-                "IOP" if last_ns == "Intrinsics" or last_ns == "VkIntrinsics" else "MOP"
+                "IOP" if last_ns.endswith("Intrinsics") else "MOP"
             )  # SPIRV Change
             if len(ns_table):
                 result += ns_table + "};\n"

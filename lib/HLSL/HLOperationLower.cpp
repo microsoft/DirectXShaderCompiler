@@ -6062,6 +6062,10 @@ Value *TranslateUnpack(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return ResVec;
 }
 
+} // namespace
+
+// Shader Execution Reordering.
+namespace {
 Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                               HLOperationLowerHelper &helper,
                               HLObjectOperationLowerHelper *pObjHelper,
@@ -6069,6 +6073,13 @@ Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
 }
 
+Value *TranslateMaybeReorderThread(CallInst *CI, IntrinsicOp IOP,
+                                   OP::OpCode opcode,
+                                   HLOperationLowerHelper &helper,
+                                   HLObjectOperationLowerHelper *pObjHelper,
+                                   bool &Translated) {
+  return nullptr; // TODO: Merge SER DXIL patches
+}
 } // namespace
 
 // Resource Handle.
@@ -6745,7 +6756,10 @@ IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::RayQuery_WorldRayDirection},
     {IntrinsicOp::MOP_WorldRayOrigin, TranslateRayQueryFloat3Getter,
      DXIL::OpCode::RayQuery_WorldRayOrigin},
-    {IntrinsicOp::MOP_HitObject_MakeNop, TranslateHitObjectMake,
+    {IntrinsicOp::MOP_DxHitObject_MakeNop, TranslateHitObjectMake,
+     DXIL::OpCode::NumOpCodes_Dxil_1_8}, // FIXME: Just a placeholder Dxil
+                                         // opcode
+    {IntrinsicOp::IOP_DxMaybeReorderThread, TranslateMaybeReorderThread,
      DXIL::OpCode::NumOpCodes_Dxil_1_8}, // FIXME: Just a placeholder Dxil
                                          // opcode
     {IntrinsicOp::MOP_Count, TranslateNodeGetInputRecordCount,

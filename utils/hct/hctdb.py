@@ -8157,15 +8157,24 @@ class db_hlsl_intrinsic(object):
         self.ns = ns  # Function namespace
         self.ns_idx = ns_idx  # Namespace index
         self.doc = doc  # Documentation
-        id_prefix = "IOP" if ns == "Intrinsics" else "MOP"
+        id_prefix = "IOP" if ns.endswith("Intrinsics") else "MOP"
+
+        class_name = None
+        if ns.endswith("Methods"):
+            class_name = ns[0 : -len("Methods")]
+
         # SPIR-V Change Starts
         if ns == "VkIntrinsics":
             name = "Vk" + name
             self.name = "Vk" + self.name
             id_prefix = "IOP"
         # SPIR-V Change Ends
+        if ns.startswith("Dx"):
+            if not class_prefix:
+                name = "Dx" + name
+            self.name = name
+
         if class_prefix:
-            class_name = ns[0 : -len("Methods")]
             self.enum_name = "%s_%s_%s" % (id_prefix, class_name, name)
         else:
             self.enum_name = "%s_%s" % (id_prefix, name)
@@ -8293,7 +8302,7 @@ class db_hlsl(object):
             "AnyNodeOutputRecord": "LICOMPTYPE_ANY_NODE_OUTPUT_RECORD",
             "GroupNodeOutputRecords": "LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS",
             "ThreadNodeOutputRecords": "LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS",
-            "HitObject": "LICOMPTYPE_HIT_OBJECT",
+            "DxHitObject": "LICOMPTYPE_HIT_OBJECT",
         }
 
         self.trans_rowcol = {"r": "IA_R", "c": "IA_C", "r2": "IA_R2", "c2": "IA_C2"}
@@ -8346,7 +8355,7 @@ class db_hlsl(object):
             r"""(
             sampler\w* | string |
             (?:RW)?(?:Texture\w*|ByteAddressBuffer) |
-            acceleration_struct | ray_desc | RayQuery\w* | HitObject\w* |
+            acceleration_struct | ray_desc | RayQuery | DxHitObject |
             Node\w* | RWNode\w* | EmptyNode\w* |
             AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w*
             $)""",

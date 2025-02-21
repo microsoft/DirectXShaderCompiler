@@ -352,7 +352,7 @@ public:
     S.Diag(TL.getLocStart(), diag::err_hlsl_ser_invalid_shader_kind)
         << ShaderModel::FullNameFromKind(EntrySK);
     S.Diag(EntryDecl->getLocation(), diag::note_hlsl_entry_defined_here);
-    return true;
+    return false;
   }
 
 private:

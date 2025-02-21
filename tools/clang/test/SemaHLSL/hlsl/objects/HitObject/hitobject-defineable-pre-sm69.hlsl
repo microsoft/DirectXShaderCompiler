@@ -3,6 +3,7 @@
 // Check that the HitObject type name of Shader Execution Reordering is unclaimed pre SM 6.9.
 // expected-no-diagnostics
 
+namespace dx {
 struct HitObject {
   int notTheSM69HitObject;
   static HitObject MakeNop() {
@@ -11,8 +12,9 @@ struct HitObject {
     return hit;
   }
 };
+}
 
 [shader("raygeneration")]
 void main() {
-  HitObject hit = HitObject::MakeNop();
+  dx::HitObject hit = dx::HitObject::MakeNop();
 }

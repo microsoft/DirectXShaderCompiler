@@ -1224,8 +1224,8 @@ static const ArBasicKind g_AnyOutputRecordCT[] = {
     AR_BASIC_UNKNOWN};
 
 // Shader Execution Reordering
-static const ArBasicKind g_HitObjectCT[] = {AR_OBJECT_HIT_OBJECT,
-                                            AR_BASIC_UNKNOWN};
+static const ArBasicKind g_DxHitObjectCT[] = {AR_OBJECT_HIT_OBJECT,
+                                              AR_BASIC_UNKNOWN};
 
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
@@ -1281,7 +1281,7 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_AnyOutputRecordCT,         // LICOMPTYPE_ANY_NODE_OUTPUT_RECORD
     g_GroupNodeOutputRecordsCT,  // LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
     g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
-    g_HitObjectCT,               // LICOMPTYPE_HIT_OBJECT
+    g_DxHitObjectCT,             // LICOMPTYPE_HIT_OBJECT
 };
 static_assert(
     ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
@@ -2394,8 +2394,8 @@ static void GetIntrinsicMethods(ArBasicKind kind,
     *intrinsicCount = _countof(g_RayQueryMethods);
     break;
   case AR_OBJECT_HIT_OBJECT:
-    *intrinsics = g_HitObjectMethods;
-    *intrinsicCount = _countof(g_HitObjectMethods);
+    *intrinsics = g_DxHitObjectMethods;
+    *intrinsicCount = _countof(g_DxHitObjectMethods);
     break;
   case AR_OBJECT_RWTEXTURE2DMS:
     *intrinsics = g_RWTexture2DMSMethods;
@@ -2958,6 +2958,9 @@ private:
 
   // Namespace decl for Vulkan-specific intrinsic functions
   NamespaceDecl *m_vkNSDecl;
+
+  // Namespace decl for dx intrinsic functions
+  NamespaceDecl *m_dxNSDecl;
 
   // Context being processed.
   ASTContext *m_context;
@@ -3723,8 +3726,10 @@ private:
       } else if (kind == AR_OBJECT_RAY_QUERY) {
         recordDecl = DeclareRayQueryType(*m_context);
       } else if (kind == AR_OBJECT_HIT_OBJECT) {
+        // Declare 'HitObject' in '::dx' extension namespace.
         if (EnableSER) {
-          recordDecl = DeclareHitObjectType(*m_context);
+          DXASSERT(m_dxNSDecl, "namespace ::dx must be declared in SM6.9+");
+          recordDecl = DeclareHitObjectType(*m_dxNSDecl);
         }
       } else if (kind == AR_OBJECT_HEAP_RESOURCE) {
         recordDecl = DeclareResourceType(*m_context, /*bSampler*/ false);
@@ -3981,8 +3986,8 @@ public:
       : m_matrixTemplateDecl(nullptr), m_vectorTemplateDecl(nullptr),
         m_vkIntegralConstantTemplateDecl(nullptr),
         m_vkLiteralTemplateDecl(nullptr), m_hlslNSDecl(nullptr),
-        m_vkNSDecl(nullptr), m_context(nullptr), m_sema(nullptr),
-        m_hlslStringTypedef(nullptr) {
+        m_vkNSDecl(nullptr), m_dxNSDecl(nullptr), m_context(nullptr),
+        m_sema(nullptr), m_hlslStringTypedef(nullptr) {
     memset(m_matrixTypes, 0, sizeof(m_matrixTypes));
     memset(m_matrixShorthandTypes, 0, sizeof(m_matrixShorthandTypes));
     memset(m_vectorTypes, 0, sizeof(m_vectorTypes));
@@ -4010,6 +4015,19 @@ public:
     auto &context = S.getASTContext();
     m_sema = &S;
     S.addExternalSource(this);
+
+    // Namespace ::dx only introduced with SM6.9
+    const auto *SM =
+        hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
+    if (SM->IsSM69Plus()) {
+      m_dxNSDecl =
+          NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
+                                /*Inline*/ false, SourceLocation(),
+                                SourceLocation(), &context.Idents.get("dx"),
+                                /*PrevDecl*/ nullptr);
+      m_dxNSDecl->setImplicit();
+      context.getTranslationUnitDecl()->addDecl(m_dxNSDecl);
+    }
 
 #ifdef ENABLE_SPIRV_CODEGEN
     if (m_sema->getLangOpts().SPIRV) {
@@ -5017,11 +5035,11 @@ public:
 
   bool IsEnabledIntrinsic(const HLSL_INTRINSIC *pIntrinsic,
                           const LangOptions LangOpts) {
-    switch ((hlsl::IntrinsicOp)pIntrinsic->Op) {
+    switch ((IntrinsicOp)pIntrinsic->Op) {
     default:
       return true;
-
-    case hlsl::IntrinsicOp::MOP_HitObject_MakeNop:
+    case IntrinsicOp::MOP_DxHitObject_MakeNop:
+    case IntrinsicOp::IOP_DxMaybeReorderThread:
       return LangOpts.EnableShaderExecutionReordering;
     }
   }
@@ -5043,10 +5061,17 @@ public:
         ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
         ULE->getQualifier()->getAsNamespace()->getName() == "vk";
 
+    const bool isDxNamespace =
+        ULE->getQualifier() &&
+        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
+        ULE->getQualifier()->getAsNamespace()->getName() == "dx";
+
     // Intrinsics live in the global namespace, so references to their names
     // should be either unqualified or '::'-prefixed.
-    // Exception: Vulkan-specific intrinsics live in the 'vk::' namespace.
-    if (isQualified && !isGlobalNamespace && !isVkNamespace) {
+    // Exceptions:
+    // - Vulkan-specific intrinsics live in the 'vk::' namespace.
+    // - DirectX-specific intrinsics live in the 'dx::' namespace.
+    if (isQualified && !isGlobalNamespace && !isVkNamespace && !isDxNamespace) {
       return false;
     }
 
@@ -5059,6 +5084,13 @@ public:
     StringRef nameIdentifier = idInfo->getName();
     const HLSL_INTRINSIC *table = g_Intrinsics;
     auto tableCount = _countof(g_Intrinsics);
+    if (isDxNamespace) {
+      // Namespace ::dx disabled pre SM 6.9
+      if (!m_dxNSDecl)
+        return false;
+      table = g_DxIntrinsics;
+      tableCount = _countof(g_DxIntrinsics);
+    }
 #ifdef ENABLE_SPIRV_CODEGEN
     if (isVkNamespace) {
       table = g_VkIntrinsics;
@@ -5074,10 +5106,10 @@ public:
     for (; cursor != end; ++cursor) {
       const HLSL_INTRINSIC *pIntrinsic = *cursor;
 
-      // Check whether this intrinsic is enabled in the current configuration.
-      // Note that this not necessary for member functions: if the builtin type
-      // is never declared, neither will any type be linked to the member
-      // intrinsics table.
+      // Check whether this extension intrinsic intrinsic is available in the
+      // current namespace and configuration. Note that this not necessary for
+      // member functions: if the builtin type is never declared, neither will
+      // any type be linked to the member intrinsics table.
       if (!IsEnabledIntrinsic(*cursor, m_sema->getLangOpts()))
         continue;
 
@@ -5103,11 +5135,17 @@ public:
           m_usedIntrinsics.insert(UsedIntrinsic(pIntrinsic, functionArgTypes));
       bool insertedNewValue = insertResult.second;
       if (insertedNewValue) {
+        NamespaceDecl *nsDecl = m_hlslNSDecl;
+        if (isVkNamespace)
+          nsDecl = m_vkNSDecl;
+        else if (isDxNamespace) {
+          nsDecl = m_dxNSDecl;
+        }
         DXASSERT(tableName,
                  "otherwise IDxcIntrinsicTable::GetTableName() failed");
-        intrinsicFuncDecl = AddHLSLIntrinsicFunction(
-            *m_context, isVkNamespace ? m_vkNSDecl : m_hlslNSDecl, tableName,
-            lowering, pIntrinsic, &functionArgTypes);
+        intrinsicFuncDecl =
+            AddHLSLIntrinsicFunction(*m_context, nsDecl, tableName, lowering,
+                                     pIntrinsic, &functionArgTypes);
         insertResult.first->setFunctionDecl(intrinsicFuncDecl);
       } else {
         intrinsicFuncDecl = (*insertResult.first).getFunctionDecl();
@@ -5146,6 +5184,7 @@ public:
                               SourceLocation(), &context.Idents.get("hlsl"),
                               /*PrevDecl*/ nullptr);
     m_hlslNSDecl->setImplicit();
+
     AddBaseTypes();
     AddHLSLScalarTypes();
     AddHLSLStringType();
@@ -11719,7 +11758,11 @@ void Sema::DiagnoseReachableCallForSER(CallExpr *CE, DXIL::ShaderKind EntrySK,
   switch (opCode) {
   default:
     return;
-  case hlsl::IntrinsicOp::MOP_HitObject_MakeNop:
+  case hlsl::IntrinsicOp::IOP_DxMaybeReorderThread:
+    ValidEntryForHitObject &= EntrySK == DXIL::ShaderKind::RayGeneration;
+    ErrDiagID = diag::err_hlsl_reorder_invalid_shader_kind;
+    break;
+  case hlsl::IntrinsicOp::MOP_DxHitObject_MakeNop:
     ErrDiagID = diag::err_hlsl_ser_invalid_shader_kind;
     break;
   }
