@@ -338,18 +338,18 @@ private:
   llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls;
 };
 
-class DisallowSERDiagnoseVisitor
-    : public RecursiveASTVisitor<DisallowSERDiagnoseVisitor> {
+class HLSLNoSERDiagnoseVisitor
+    : public RecursiveASTVisitor<HLSLNoSERDiagnoseVisitor> {
 public:
-  explicit DisallowSERDiagnoseVisitor(Sema &S, DXIL::ShaderKind EntrySK,
-                                      const FunctionDecl *EntryDecl)
+  explicit HLSLNoSERDiagnoseVisitor(Sema &S, DXIL::ShaderKind EntrySK,
+                                    const FunctionDecl *EntryDecl)
       : S(S), EntrySK(EntrySK), EntryDecl(EntryDecl) {}
 
   bool VisitTypeLoc(TypeLoc TL) {
-    if (!dx::IsHitObjectType(TL.getType()))
+    if (!hlsl::IsHLSLHitObjectType(TL.getType()))
       return true;
 
-    S.Diag(TL.getLocStart(), diag::err_dx_ser_invalid_shader_kind)
+    S.Diag(TL.getLocStart(), diag::err_hlsl_ser_invalid_shader_kind)
         << ShaderModel::FullNameFromKind(EntrySK);
     S.Diag(EntryDecl->getLocation(), diag::note_hlsl_entry_defined_here);
     return true;
@@ -569,7 +569,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
                                  EntrySK == DXIL::ShaderKind::Miss ||
                                  EntrySK == DXIL::ShaderKind::RayGeneration);
     if (!AllowHitObject) {
-      DisallowSERDiagnoseVisitor Visitor(*self, EntrySK, FDecl);
+      HLSLNoSERDiagnoseVisitor Visitor(*self, EntrySK, FDecl);
       for (FunctionDecl *FD : callGraph.GetVisitedFunctions()) {
         Visitor.TraverseDecl(FD);
       }

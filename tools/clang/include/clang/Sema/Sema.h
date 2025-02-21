@@ -3809,6 +3809,10 @@ public:
                                         SourceLocation Loc);
   void CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
                              const FunctionProtoType *Proto);
+  void DiagnoseShaderExecutionReordering(CallExpr *CE,
+                                         hlsl::DXIL::ShaderKind EntrySK,
+                                         const FunctionDecl *EntryDecl,
+                                         const hlsl::ShaderModel *SM);
   void DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
                                  hlsl::DXIL::ShaderKind EntrySK,
                                  hlsl::DXIL::NodeLaunchType NodeLaunchTy,
@@ -9153,13 +9157,5 @@ struct LateParsedTemplate {
 };
 
 } // end namespace clang
-
-// Shader Execution Reordering
-namespace dx {
-void DiagnoseReachableCallForSER(clang::Sema &S, clang::CallExpr *CE,
-                                 hlsl::DXIL::ShaderKind EntrySK,
-                                 const clang::FunctionDecl *EntryDecl,
-                                 const hlsl::ShaderModel *SM);
-}
 
 #endif

@@ -222,6 +222,9 @@ enum ArBasicKind {
   // RayQuery
   AR_OBJECT_RAY_QUERY,
 
+  // Shader Execution Reordering
+  AR_OBJECT_HIT_OBJECT,
+
   // Heap Resource
   AR_OBJECT_HEAP_RESOURCE,
   AR_OBJECT_HEAP_SAMPLER,
@@ -245,9 +248,6 @@ enum ArBasicKind {
 
   AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS,
   AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS,
-
-  // Shader Execution Reordering
-  AR_OBJECT_HIT_OBJECT,
 
   AR_BASIC_MAXIMUM_COUNT
 };
@@ -572,9 +572,10 @@ const UINT g_uBasicKindProps[] = {
     0, // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
     0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
-    BPROP_OBJECT, // AR_OBJECT_RAY_QUERY,
-    BPROP_OBJECT, // AR_OBJECT_HEAP_RESOURCE,
-    BPROP_OBJECT, // AR_OBJECT_HEAP_SAMPLER,
+    LICOMPTYPE_RAY_QUERY,  // AR_OBJECT_RAY_QUERY,
+    LICOMPTYPE_HIT_OBJECT, // AR_OBJECT_HIT_OBJECT,
+    BPROP_OBJECT,          // AR_OBJECT_HEAP_RESOURCE,
+    BPROP_OBJECT,          // AR_OBJECT_HEAP_SAMPLER,
 
     BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2DMS
     BPROP_OBJECT | BPROP_RWBUFFER |
@@ -596,9 +597,6 @@ const UINT g_uBasicKindProps[] = {
 
     BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS,
     BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS,
-
-    // Shader Execution Reordering
-    LICOMPTYPE_HIT_OBJECT, // AR_OBJECT_HIT_OBJECT,
 
     // AR_BASIC_MAXIMUM_COUNT
 };
@@ -1125,6 +1123,11 @@ static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_HEAP_RESOURCE,
 
 static const ArBasicKind g_RayDescCT[] = {AR_OBJECT_RAY_DESC, AR_BASIC_UNKNOWN};
 
+static const ArBasicKind g_RayQueryCT[] = {AR_OBJECT_RAY_QUERY,
+                                           AR_BASIC_UNKNOWN};
+static const ArBasicKind g_HitObjectCT[] = {AR_OBJECT_HIT_OBJECT,
+                                            AR_BASIC_UNKNOWN};
+
 static const ArBasicKind g_AccelerationStructCT[] = {
     AR_OBJECT_ACCELERATION_STRUCT, AR_BASIC_UNKNOWN};
 
@@ -1223,10 +1226,6 @@ static const ArBasicKind g_AnyOutputRecordCT[] = {
     AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS, AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS,
     AR_BASIC_UNKNOWN};
 
-// Shader Execution Reordering
-static const ArBasicKind g_HitObjectCT[] = {AR_OBJECT_HIT_OBJECT,
-                                            AR_BASIC_UNKNOWN};
-
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_NullCT,               // LICOMPTYPE_VOID
@@ -1281,6 +1280,7 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_AnyOutputRecordCT,         // LICOMPTYPE_ANY_NODE_OUTPUT_RECORD
     g_GroupNodeOutputRecordsCT,  // LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
     g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
+    g_RayQueryCT,                // LICOMPTYPE_RAY_QUERY
     g_HitObjectCT,               // LICOMPTYPE_HIT_OBJECT
 };
 static_assert(
@@ -1356,7 +1356,8 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
     AR_OBJECT_TRIANGLE_HIT_GROUP, AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
     AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
-    AR_OBJECT_RAY_QUERY, AR_OBJECT_HEAP_RESOURCE, AR_OBJECT_HEAP_SAMPLER,
+    AR_OBJECT_RAY_QUERY, AR_OBJECT_HIT_OBJECT, AR_OBJECT_HEAP_RESOURCE,
+    AR_OBJECT_HEAP_SAMPLER,
 
     AR_OBJECT_RWTEXTURE2DMS,       // RWTexture2DMS
     AR_OBJECT_RWTEXTURE2DMS_ARRAY, // RWTexture2DMSArray
@@ -1370,10 +1371,7 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
     AR_OBJECT_NODE_OUTPUT, AR_OBJECT_EMPTY_NODE_OUTPUT,
     AR_OBJECT_NODE_OUTPUT_ARRAY, AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY,
 
-    AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS, AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS,
-
-    // Shader Execution Reordering
-    AR_OBJECT_HIT_OBJECT};
+    AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS, AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS};
 
 // Count of template arguments for basic kind of objects that look like
 // templates (one or more type arguments).
@@ -1467,6 +1465,7 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
     0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
     1, // AR_OBJECT_RAY_QUERY,
+    0, // AR_OBJECT_HIT_OBJECT,
     0, // AR_OBJECT_HEAP_RESOURCE,
     0, // AR_OBJECT_HEAP_SAMPLER,
 
@@ -1489,9 +1488,6 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
 
     1, // AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS,
     1, // AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS
-
-    // Shader Execution Reordering
-    0, // AR_OBJECT_HIT_OBJECT,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) ==
@@ -1615,6 +1611,7 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_RAY_QUERY,
+    {0, MipsFalse, SampleFalse}, // AR_OBJECT_HIT_OBJECT,
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_HEAP_RESOURCE,
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_HEAP_SAMPLER,
 
@@ -1638,9 +1635,6 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
 
     {1, MipsFalse, SampleFalse}, // AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS
     {1, MipsFalse, SampleFalse}, // AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS
-
-    // Shader Execution Reordering
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_HIT_OBJECT,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -3724,7 +3718,7 @@ private:
         recordDecl = DeclareRayQueryType(*m_context);
       } else if (kind == AR_OBJECT_HIT_OBJECT) {
         if (EnableSER) {
-          recordDecl = dx::DeclareHitObjectType(*m_context);
+          recordDecl = DeclareHitObjectType(*m_context);
         }
       } else if (kind == AR_OBJECT_HEAP_RESOURCE) {
         recordDecl = DeclareResourceType(*m_context, /*bSampler*/ false);
@@ -11688,6 +11682,54 @@ static bool isStringLiteral(QualType type) {
   return eType->isSpecificBuiltinType(BuiltinType::Char_S);
 }
 
+void Sema::DiagnoseShaderExecutionReordering(CallExpr *CE,
+                                             DXIL::ShaderKind EntrySK,
+                                             const FunctionDecl *EntryFD,
+                                             const hlsl::ShaderModel *SM) {
+  FunctionDecl *FD = CE->getDirectCallee();
+  if (!FD)
+    return;
+  HLSLIntrinsicAttr *IntrinsicAttr = FD->getAttr<HLSLIntrinsicAttr>();
+  if (!IntrinsicAttr)
+    return;
+  if (!IsBuiltinTable(IntrinsicAttr->getGroup()))
+    return;
+
+  SourceLocation Loc = CE->getExprLoc();
+  hlsl::IntrinsicOp opCode = (IntrinsicOp)IntrinsicAttr->getOpcode();
+
+  bool ValidEntryForHitObject = false;
+  switch (EntrySK) {
+  default:
+    break;
+  case DXIL::ShaderKind::RayGeneration:
+  case DXIL::ShaderKind::ClosestHit:
+  case DXIL::ShaderKind::Miss:
+    ValidEntryForHitObject = true;
+    break;
+  }
+
+  // Return for anything that is not a HitObject intrinsic.
+  unsigned ErrDiagID = 0;
+  switch (opCode) {
+  default:
+    return;
+  case hlsl::IntrinsicOp::MOP_HitObject_MakeNop:
+    ErrDiagID = diag::err_hlsl_ser_invalid_shader_kind;
+    break;
+  }
+
+  if (!ValidEntryForHitObject) {
+    Diag(Loc, ErrDiagID) << ShaderModel::FullNameFromKind(EntrySK);
+    Diag(EntryFD->getLocation(), diag::note_hlsl_entry_defined_here);
+  }
+
+  if (!getLangOpts().EnableShaderExecutionReordering) {
+    // Legal entry, but version not supported
+    Diag(Loc, diag::err_hlsl_ser_invalid_version) << SM->GetName();
+  }
+}
+
 // Check HLSL member call constraints for used functions.
 // locallyVisited is true if this call has been visited already from any other
 // entry function.  Used to avoid duplicate diagnostics when not dependent on
@@ -11713,7 +11755,7 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
   if (!IsBuiltinTable(IntrinsicAttr->getGroup()))
     return;
 
-  dx::DiagnoseReachableCallForSER(*this, CE, EntrySK, EntryDecl, SM);
+  DiagnoseShaderExecutionReordering(CE, EntrySK, EntryDecl, SM);
 
   SourceLocation Loc = CE->getExprLoc();
   hlsl::IntrinsicOp opCode = (IntrinsicOp)IntrinsicAttr->getOpcode();
@@ -16480,54 +16522,3 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   }
 }
 } // namespace hlsl
-
-// Shader Execution Reordering
-namespace dx {
-void DiagnoseReachableCallForSER(Sema &S, CallExpr *CE,
-                                 DXIL::ShaderKind EntrySK,
-                                 const FunctionDecl *EntryFD,
-                                 const hlsl::ShaderModel *SM) {
-  FunctionDecl *FD = CE->getDirectCallee();
-  if (!FD)
-    return;
-  HLSLIntrinsicAttr *IntrinsicAttr = FD->getAttr<HLSLIntrinsicAttr>();
-  if (!IntrinsicAttr)
-    return;
-  if (!IsBuiltinTable(IntrinsicAttr->getGroup()))
-    return;
-
-  SourceLocation Loc = CE->getExprLoc();
-  hlsl::IntrinsicOp opCode = (IntrinsicOp)IntrinsicAttr->getOpcode();
-
-  bool ValidEntryForHitObject = false;
-  switch (EntrySK) {
-  default:
-    break;
-  case DXIL::ShaderKind::RayGeneration:
-  case DXIL::ShaderKind::ClosestHit:
-  case DXIL::ShaderKind::Miss:
-    ValidEntryForHitObject = true;
-    break;
-  }
-
-  // Return for anything that is not a HitObject intrinsic.
-  unsigned ErrDiagID = 0;
-  switch (opCode) {
-  default:
-    return;
-  case hlsl::IntrinsicOp::MOP_HitObject_MakeNop:
-    ErrDiagID = diag::err_dx_ser_invalid_shader_kind;
-    break;
-  }
-
-  if (!ValidEntryForHitObject) {
-    S.Diag(Loc, ErrDiagID) << ShaderModel::FullNameFromKind(EntrySK);
-    S.Diag(EntryFD->getLocation(), diag::note_hlsl_entry_defined_here);
-  }
-
-  if (!S.getLangOpts().EnableShaderExecutionReordering) {
-    // Legal entry, but version not supported
-    S.Diag(Loc, diag::err_dx_ser_invalid_version) << SM->GetName();
-  }
-}
-} // namespace dx

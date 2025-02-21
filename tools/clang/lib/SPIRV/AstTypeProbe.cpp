@@ -1101,6 +1101,12 @@ bool isOpaqueType(QualType type) {
 
     if (name == "SubpassInput")
       return true;
+
+    if (name == "HitObject") {
+      const CXXRecordDecl *typeRecordDecl = type->getAsCXXRecordDecl();
+      // This is only our builtin, if SER is enabled
+      return typeRecordDecl && typeRecordDecl->isImplicit();
+    }
   }
   return false;
 }

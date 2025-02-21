@@ -26,25 +26,6 @@
 
 using namespace clang;
 
-template <typename AttrType> static AttrType *getAttr(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    if (const auto *Spec =
-            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl()))
-      if (const auto *Template =
-              dyn_cast<ClassTemplateDecl>(Spec->getSpecializedTemplate()))
-        return Template->getTemplatedDecl()->getAttr<AttrType>();
-    if (const auto *Decl = dyn_cast<CXXRecordDecl>(RT->getDecl()))
-      return Decl->getAttr<AttrType>();
-  }
-  return nullptr;
-}
-
-namespace dx {
-bool IsHitObjectType(QualType type) {
-  return nullptr != getAttr<DXHitObjectAttr>(type);
-}
-} // namespace dx
-
 namespace hlsl {
 
 /// <summary>Try to convert HLSL template vector/matrix type to
@@ -630,6 +611,23 @@ bool IsHLSLResourceType(clang::QualType type) {
       return true;
   }
   return false;
+}
+
+template <typename AttrType> static AttrType *getAttr(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    if (const auto *Spec =
+            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl()))
+      if (const auto *Template =
+              dyn_cast<ClassTemplateDecl>(Spec->getSpecializedTemplate()))
+        return Template->getTemplatedDecl()->getAttr<AttrType>();
+    if (const auto *Decl = dyn_cast<CXXRecordDecl>(RT->getDecl()))
+      return Decl->getAttr<AttrType>();
+  }
+  return nullptr;
+}
+
+bool IsHLSLHitObjectType(QualType type) {
+  return nullptr != getAttr<HLSLHitObjectAttr>(type);
 }
 
 static HLSLNodeObjectAttr *getNodeAttr(clang::QualType type) {
