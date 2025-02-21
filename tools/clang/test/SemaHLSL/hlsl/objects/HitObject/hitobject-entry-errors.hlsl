@@ -10,7 +10,7 @@ struct [raypayload] Payload
 struct Attribs { float2 barys; };
 
 void UseHitObject() {
-  HitObject hit;
+  dx::HitObject hit;
 }
 
 // expected-note@+3{{entry function defined here}}

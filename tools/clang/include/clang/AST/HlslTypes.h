@@ -390,7 +390,7 @@ clang::CXXRecordDecl *DeclareUIntTemplatedTypeWithHandleInDeclContext(
 clang::CXXRecordDecl *DeclareConstantBufferViewType(clang::ASTContext &context,
                                                     bool bTBuf);
 clang::CXXRecordDecl *DeclareRayQueryType(clang::ASTContext &context);
-clang::CXXRecordDecl *DeclareHitObjectType(clang::ASTContext &context);
+clang::CXXRecordDecl *DeclareHitObjectType(clang::NamespaceDecl &NSDecl);
 clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context,
                                           bool bSampler);
 
