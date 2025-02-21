@@ -8276,6 +8276,8 @@ class db_hlsl(object):
             "resource": "LICOMPTYPE_RESOURCE",
             "ray_desc": "LICOMPTYPE_RAYDESC",
             "acceleration_struct": "LICOMPTYPE_ACCELERATION_STRUCT",
+            "ray_query": "LICOMPTYPE_RAY_QUERY",
+            "hit_object": "LICOMPTYPE_HIT_OBJECT",
             "udt": "LICOMPTYPE_USER_DEFINED_TYPE",
             "void": "LICOMPTYPE_VOID",
             "string": "LICOMPTYPE_STRING",
@@ -8293,7 +8295,6 @@ class db_hlsl(object):
             "AnyNodeOutputRecord": "LICOMPTYPE_ANY_NODE_OUTPUT_RECORD",
             "GroupNodeOutputRecords": "LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS",
             "ThreadNodeOutputRecords": "LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS",
-            "HitObject": "LICOMPTYPE_HIT_OBJECT",
         }
 
         self.trans_rowcol = {"r": "IA_R", "c": "IA_C", "r2": "IA_R2", "c2": "IA_C2"}
@@ -8346,7 +8347,7 @@ class db_hlsl(object):
             r"""(
             sampler\w* | string |
             (?:RW)?(?:Texture\w*|ByteAddressBuffer) |
-            acceleration_struct | ray_desc | RayQuery\w* | HitObject\w* |
+            acceleration_struct | ray_desc | ray_query | hit_object |
             Node\w* | RWNode\w* | EmptyNode\w* |
             AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w*
             $)""",
