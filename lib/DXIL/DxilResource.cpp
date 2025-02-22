@@ -171,7 +171,7 @@ unsigned DxilResource::GetNumCoords(Kind ResourceKind) {
       4, // TextureCubeArray,
       1, // TypedBuffer,
       1, // RawBuffer,
-      2, // StructuredBuffer,
+      1, // StructuredBuffer,
       0, // CBuffer,
       0, // Sampler,
       1, // TBuffer,
