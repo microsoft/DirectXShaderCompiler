@@ -3738,7 +3738,8 @@ private:
         DXIL::ResourceKind ResKind = DXIL::ResourceKind::NumEntries;
         DXIL::ResourceClass ResClass = DXIL::ResourceClass::Invalid;
         if (GetBasicKindResourceKindAndClass(kind, ResKind, ResClass)) {
-          Attr = HLSLResourceAttr::CreateImplicit(*m_context, (unsigned)ResKind, (unsigned)ResClass);
+          Attr = HLSLResourceAttr::CreateImplicit(*m_context, (unsigned)ResKind,
+                                                  (unsigned)ResClass);
         }
 
         TypeSourceInfo *typeDefault =
@@ -4633,7 +4634,7 @@ public:
                                         DXIL::ResourceKind &ResKind,
                                         DXIL::ResourceClass &ResClass) {
     DXASSERT_VALIDBASICKIND(BasicKind);
-    switch(BasicKind) {
+    switch (BasicKind) {
     case AR_OBJECT_TEXTURE1D:
       ResKind = DXIL::ResourceKind::Texture1D;
       ResClass = DXIL::ResourceClass::SRV;
@@ -5336,7 +5337,8 @@ public:
             // NOTE: IsValidTemplateArgumentType emits its own diagnostics
             return true;
           }
-          HLSLResourceAttr *ResAttr = Template->getTemplatedDecl()->getAttr<HLSLResourceAttr>();
+          HLSLResourceAttr *ResAttr =
+              Template->getTemplatedDecl()->getAttr<HLSLResourceAttr>();
           if (ResAttr && IsTyped((DXIL::ResourceKind)ResAttr->getResKind())) {
             // Check vectors for being too large.
             if (IsVectorType(m_sema, argType)) {
