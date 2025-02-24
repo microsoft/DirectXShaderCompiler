@@ -1021,17 +1021,6 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
   if (name == "Buffer" || name == "RWBuffer" ||
       name == "RasterizerOrderedBuffer") {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-    if (sampledType->isStructureType() &&
-        (name.startswith("RW") || name.startswith("RasterizerOrdered"))) {
-      // Note: actually fxc supports RWBuffer over struct types. However, the
-      // struct member must fit into a 4-component vector and writing to a
-      // RWBuffer element must write all components. This is a feature that
-      // are rarely used by developers. We just emit an error saying not
-      // supported for now.
-      emitError("cannot instantiate %0 with struct type %1", srcLoc)
-          << name << sampledType;
-      return 0;
-    }
     const auto format = translateSampledTypeToImageFormat(sampledType, srcLoc);
     return spvContext.getImageType(
         lowerType(getElementType(astContext, sampledType), rule,

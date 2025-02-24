@@ -3736,7 +3736,7 @@ private:
 
         InheritableAttr *Attr = nullptr;
         if (IS_BASIC_TEXTURE(kind) || kind == AR_OBJECT_BUFFER ||
-            kind == AR_OBJECT_RWBUFFER)
+            kind == AR_OBJECT_RWBUFFER || kind == AR_OBJECT_ROVBUFFER)
           Attr = HLSLTypedResourceAttr::CreateImplicit(*m_context);
 
         TypeSourceInfo *typeDefault =

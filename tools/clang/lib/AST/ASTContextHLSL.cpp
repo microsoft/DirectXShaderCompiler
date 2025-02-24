@@ -938,9 +938,11 @@ CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandleInDeclContext(
   QualType elementType = context.getTemplateTypeParmType(
       /*templateDepth*/ 0, 0, ParameterPackFalse, elementTemplateParamDecl);
 
-  if (templateArgCount > 1 && (!Attr || !isa<HLSLTypedResourceAttr>(Attr))) {
-    // Only need array type for inputpatch and outputpatch.
-    // isTyped check avoids Texture2DMS which may use 0 count.
+  if (templateArgCount > 1 &&
+      // Only need array type for inputpatch and outputpatch.
+      // Avoid Texture2DMS which may use 0 count.
+      // TODO: use hlsl types to do the check.
+      !name.startswith("Texture") && !name.startswith("RWTexture")) {
     Expr *countExpr = DeclRefExpr::Create(
         context, NestedNameSpecifierLoc(), NoLoc, countTemplateParamDecl, false,
         DeclarationNameInfo(countTemplateParamDecl->getDeclName(), NoLoc),
