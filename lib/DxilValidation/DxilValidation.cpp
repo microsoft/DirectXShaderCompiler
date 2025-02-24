@@ -1708,6 +1708,41 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValidateSignatureDxilOp(CI, opcode, ValCtx);
     break;
   // Special.
+  case DXIL::OpCode::AllocateRayQuery: {
+    // validate flags are immediate and compatible
+    llvm::Value *constRayFlag = CI->getOperand(1);
+    if (!llvm::isa<llvm::Constant>(constRayFlag)) {
+      ValCtx.EmitInstrError(CI,
+                            ValidationRule::DeclAllocateRayQueryFlagsAreConst);
+    }
+    break;
+  }
+  case DXIL::OpCode::AllocateRayQuery2: {
+    // validate flags are immediate and compatible
+    llvm::Value *constRayFlag = CI->getOperand(1);
+    llvm::Value *RayQueryFlag = CI->getOperand(2);
+    if (!llvm::isa<llvm::Constant>(constRayFlag) ||
+        !llvm::isa<llvm::Constant>(RayQueryFlag)) {
+      ValCtx.EmitInstrError(CI,
+                            ValidationRule::DeclAllocateRayQuery2FlagsAreConst);
+      break;
+    }
+    // When the ForceOMM2State ConstRayFlag is given as an argument to
+    // a RayQuery object, AllowOpacityMicromaps is expected
+    // as a RayQueryFlag argument
+    llvm::ConstantInt *Arg1 = llvm::cast<llvm::ConstantInt>(constRayFlag);
+    llvm::ConstantInt *Arg2 = llvm::cast<llvm::ConstantInt>(RayQueryFlag);
+    if ((Arg1->getValue().getSExtValue() &
+         (unsigned)DXIL::RayFlag::ForceOMM2State) &&
+        (Arg2->getValue().getSExtValue() &
+         (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps) == 0) {
+      ValCtx.EmitInstrError(
+          CI,
+          ValidationRule::DeclAllowOpacityMicromapsExpectedGivenForceOMM2State);
+    }
+    break;
+  }
+
   case DXIL::OpCode::BufferUpdateCounter: {
     DxilInst_BufferUpdateCounter updateCounter(CI);
     Value *handle = updateCounter.get_uav();
@@ -2755,42 +2790,6 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
                                     ValidationRule::InstrNotOnceDispatchMesh);
             }
             dispatchMesh = CI;
-          }
-
-          if (dxilOpcode == DXIL::OpCode::AllocateRayQuery) {
-            // validate flags are immediate and compatible
-            llvm::Value *constRayFlag = CI->getOperand(1);
-            if (!llvm::isa<llvm::Constant>(constRayFlag)) {
-              ValCtx.EmitInstrError(
-                  &I, ValidationRule::DeclAllocateRayQueryFlagsAreConst);
-            }
-          }
-
-          if (dxilOpcode == DXIL::OpCode::AllocateRayQuery2) {
-            // validate flags are immediate and compatible
-            llvm::Value *constRayFlag = CI->getOperand(1);
-            llvm::Value *RayQueryFlag = CI->getOperand(2);
-            if (!llvm::isa<llvm::Constant>(constRayFlag) ||
-                !llvm::isa<llvm::Constant>(RayQueryFlag)) {
-              ValCtx.EmitInstrError(
-                  &I, ValidationRule::DeclAllocateRayQuery2FlagsAreConst);
-              continue;
-            }
-            // When the ForceOMM2State ConstRayFlag is given as an argument to
-            // a RayQuery object, AllowOpacityMicromaps is expected
-            // as a RayQueryFlag argument
-            llvm::ConstantInt *Arg1 =
-                llvm::cast<llvm::ConstantInt>(constRayFlag);
-            llvm::ConstantInt *Arg2 =
-                llvm::cast<llvm::ConstantInt>(RayQueryFlag);
-            if ((Arg1->getValue().getSExtValue() &
-                 (unsigned)DXIL::RayFlag::ForceOMM2State) &&
-                (Arg2->getValue().getSExtValue() &
-                 (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps) == 0) {
-              ValCtx.EmitInstrError(
-                  &I, ValidationRule::
-                          DeclAllowOpacityMicromapsExpectedGivenForceOMM2State);
-            }
           }
         }
         continue;

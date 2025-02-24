@@ -5546,7 +5546,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        next_op_idx += 1        
+        next_op_idx += 1
 
         # Set interesting properties.
         self.build_indices()
