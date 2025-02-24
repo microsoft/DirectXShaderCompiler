@@ -3108,7 +3108,6 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // This looks for cases where the copy can be elided. To generate valid
     // SPIR-V, the argument must be a memory declaration.
     //
-    //
 
     // If argInfo is nullptr and argInst is a rvalue, we do not have a proper
     // pointer to pass to the function. we need a temporary variable in that
@@ -3118,7 +3117,32 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // create a temporary variable for it because the function definition
     // expects are point-to-pointer argument for resources, which will be
     // resolved by legalization.
-    if ((argInfo || (argInst && argInst->getopcode() == spv::Op::OpVariable)) &&
+
+    // Workaround for Nabla STL `NBL_REF_ARG(T)` macro
+    bool preliminaryInOutCanBeReference = false;
+    if (argInst) {
+      // new behaviour
+      preliminaryInOutCanBeReference =
+          argInst->getopcode() == spv::Op::OpVariable;
+      // old behaviour, but gated behind `vk::ext_reference`
+      if (param->hasAttr<VKReferenceExtAttr>()) {
+        if (argInst->isRValue()) {
+          emitError("argument for a parameter with vk::ext_reference attribute "
+                    "must be a reference",
+                    arg->getExprLoc());
+          return nullptr;
+        }
+        if (!canActAsOutParmVar(param)) {
+          emitError("argument for a non SPIR-V intrinsic parameter with vk::ext_reference attribute "
+                    "must be a applied to `inout`",
+                    arg->getExprLoc());
+          return nullptr;
+        }
+        preliminaryInOutCanBeReference = true;
+      }
+    }
+
+    if ((argInfo || preliminaryInOutCanBeReference) &&
         canActAsOutParmVar(param) && !isArgGlobalVarWithResourceType &&
         paramTypeMatchesArgType(paramType, arg->getType())) {
       // Based on SPIR-V spec, function parameter must be always Function
