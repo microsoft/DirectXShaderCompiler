@@ -1,6 +1,10 @@
 trigger:
   - main
   - release*
+
+pr: 
+  - main
+  - release*
   
 resources:
 - repo: self
@@ -9,7 +13,7 @@ stages:
 - stage: Build
   jobs:
   - job: Windows
-    timeoutInMinutes: 90
+    timeoutInMinutes: 120
 
     pool:
       vmImage: windows-2022
@@ -38,9 +42,13 @@ stages:
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
         call utils\hct\hcttest.cmd -$(configuration) noexec
       displayName: 'DXIL Tests'
+    - script: |
+        call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
+        call utils\hct\hcttest.cmd -$(configuration) exec-warp
+      displayName: 'DXIL Execution Tests (Nuget WARP)'
 
   - job: Nix
-    timeoutInMinutes: 90
+    timeoutInMinutes: 120
 
     variables:
       macOS: macOS-latest

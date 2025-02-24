@@ -26,15 +26,24 @@ class ShaderModel {
 public:
   using Kind = DXIL::ShaderKind;
 
-  // Major/Minor version of highest shader model
+  // Major/Minor version of highest recognized shader model
   // clang-format off
   // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_highest_shader_model()</py>*/
   // clang-format on
   // VALRULE-TEXT:BEGIN
   static const unsigned kHighestMajor = 6;
-  static const unsigned kHighestMinor = 8;
+  static const unsigned kHighestMinor = 9;
   // VALRULE-TEXT:END
+
+  // Major/Minor version of highest released shader model
+  /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_highest_released_shader_model()</py>*/
+  // clang-format on
+  // VALRULE-TEXT:BEGIN
+  static const unsigned kHighestReleasedMajor = 6;
+  static const unsigned kHighestReleasedMinor = 8;
+  // VALRULE-TEXT:END
+
   static const unsigned kOfflineMinor = 0xF;
 
   bool IsPS() const { return m_Kind == Kind::Pixel; }
@@ -74,6 +83,7 @@ public:
   bool IsSM66Plus() const { return IsSMAtLeast(6, 6); }
   bool IsSM67Plus() const { return IsSMAtLeast(6, 7); }
   bool IsSM68Plus() const { return IsSMAtLeast(6, 8); }
+  bool IsSM69Plus() const { return IsSMAtLeast(6, 9); }
   // VALRULE-TEXT:END
   const char *GetName() const { return m_pszName; }
   const char *GetKindName() const;
@@ -85,6 +95,8 @@ public:
   static const ShaderModel *Get(Kind Kind, unsigned Major, unsigned Minor);
   static const ShaderModel *GetByName(llvm::StringRef Name);
   static const char *GetKindName(Kind kind);
+  static bool IsPreReleaseShaderModel(int Major, int Minor);
+  static Kind GetKindFromName(llvm::StringRef Name);
   static DXIL::ShaderKind KindFromFullName(llvm::StringRef Name);
   static const llvm::StringRef FullNameFromKind(DXIL::ShaderKind sk);
   static const char *GetNodeLaunchTypeName(DXIL::NodeLaunchType launchTy);
@@ -121,7 +133,7 @@ private:
               bool m_bTypedUavs, unsigned m_UAVRegsLim);
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_num_shader_models()</py>*/
   // VALRULE-TEXT:BEGIN
-  static const unsigned kNumShaderModels = 92;
+  static const unsigned kNumShaderModels = 101;
   // VALRULE-TEXT:END
   static const ShaderModel ms_ShaderModels[kNumShaderModels];
 

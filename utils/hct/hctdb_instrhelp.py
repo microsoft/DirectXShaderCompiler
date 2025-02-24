@@ -4,6 +4,8 @@ import argparse
 import functools
 import collections
 from hctdb import *
+import json
+import os
 
 # get db singletons
 g_db_dxil = None
@@ -1536,9 +1538,19 @@ def get_interpretation_table():
     return run_with_stdout(lambda: gen.print_interpretation_table())
 
 
+# highest minor is different than highest released minor,
+# since there can be pre-release versions that are higher
+# than the last released version
 highest_major = 6
-highest_minor = 8
+highest_minor = 9
 highest_shader_models = {4: 1, 5: 1, 6: highest_minor}
+
+# fetch the last released version from latest-released.json
+json_path = os.path.dirname(os.path.dirname(__file__)) + "/version/latest-release.json"
+with open(json_path, "r") as file:
+    json_data = json.load(file)
+
+highest_released_minor = int(json_data["version"]["minor"])
 
 
 def getShaderModels():
@@ -1550,6 +1562,14 @@ def getShaderModels():
     return shader_models
 
 
+def get_highest_released_shader_model():
+    result = """static const unsigned kHighestReleasedMajor = %d;
+static const unsigned kHighestReleasedMinor = %d;""" % (
+        highest_major,
+        highest_released_minor,
+    )
+    return result
+
 def get_highest_shader_model():
     result = """static const unsigned kHighestMajor = %d;
 static const unsigned kHighestMinor = %d;""" % (
@@ -1557,7 +1577,6 @@ static const unsigned kHighestMinor = %d;""" % (
         highest_minor,
     )
     return result
-
 
 def get_dxil_version_minor():
     return "const unsigned kDxilMinor = %d;" % highest_minor

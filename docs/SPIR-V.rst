@@ -4145,7 +4145,7 @@ GL_EXT_spirv_intrinsics is an extension of GLSL that allows users to embed
 arbitrary SPIR-V instructions in the GLSL code similar to the concept of
 inline assembly in the C code. We support the HLSL version of
 GL_EXT_spirv_intrinsics. See
-`wiki <https://github.com/microsoft/DirectXShaderCompiler/wiki/GL_EXT_spirv_intrinsics-for-SPIR-V-code-gen>`_
+`wiki <https://github.com/microsoft/DirectXShaderCompiler/wiki/Inline-SPIR%E2%80%90V>`_
 for the details.
 
 Supported Command-line Options

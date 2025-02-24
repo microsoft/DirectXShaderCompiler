@@ -21,9 +21,12 @@ The included licenses apply to the following files:
 
 Place release notes for the upcoming release below this line and remove this line upon naming this release.
 
-- The incomplete WaveMatrix implementation has been removed.
-- DXIL Validator Hash is open sourced.
-- DXIL container validation for PSV0 part allows any content ordering inside string and semantic index tables.
+### Version 1.8.2502
+
+- The incomplete WaveMatrix implementation has been removed. [#6807](https://github.com/microsoft/DirectXShaderCompiler/pull/6807)
+- DXIL Validator Hash is open sourced. [#6846](https://github.com/microsoft/DirectXShaderCompiler/pull/6846)
+- DXIL container validation for PSV0 part allows any content ordering inside string and semantic index tables. [#6859](https://github.com/microsoft/DirectXShaderCompiler/pull/6859)
+- The and() and or() intrinsics will now accept non-integer parameters by casting them to bools. [#7060](https://github.com/microsoft/DirectXShaderCompiler/pull/7060)
 
 ### Version 1.8.2407
 

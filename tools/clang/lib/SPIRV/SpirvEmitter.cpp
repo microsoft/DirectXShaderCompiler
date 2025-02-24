@@ -8095,7 +8095,8 @@ void SpirvEmitter::assignToMSOutAttribute(
   // All other attribute writes are handled below.
   auto *varInstr = declIdMapper.getStageVarInstruction(decl);
   QualType valueType = value->getAstResultType();
-  if (valueType->isBooleanType()) {
+  if (valueType->isBooleanType() &&
+      semanticInfo.getKind() != hlsl::Semantic::Kind::CullPrimitive) {
     // Externally visible variables are changed to uint, so we need to cast the
     // value to uint.
     value = castToInt(value, valueType, astContext.UnsignedIntTy, loc);
@@ -8957,6 +8958,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     return nullptr;
   }
   case hlsl::IntrinsicOp::IOP_dot:
+  case hlsl::IntrinsicOp::IOP_udot:
     retVal = processIntrinsicDot(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_GroupMemoryBarrier:
@@ -15217,7 +15219,6 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
     optimizer.RegisterPass(
         spvtools::CreateAggressiveDCEPass(spirvOptions.preserveInterface));
   }
-  optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
   optimizer.RegisterPass(spvtools::CreateSpreadVolatileSemanticsPass());
   if (spirvOptions.fixFuncCallArguments) {

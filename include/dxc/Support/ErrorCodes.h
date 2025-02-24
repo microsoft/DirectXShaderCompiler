@@ -153,3 +153,8 @@
 // 0X80AA001E - External validator (DXIL.dll) required, and missing.
 #define DXC_E_VALIDATOR_MISSING                                                \
   DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR, FACILITY_DXC, (0x001E))
+
+// 0X80AA001F - DXIL container Program Version mismatches Dxil module shader
+// model
+#define DXC_E_INCORRECT_PROGRAM_VERSION                                        \
+  DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR, FACILITY_DXC, (0x001F))
