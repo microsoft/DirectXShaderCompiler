@@ -803,6 +803,7 @@ def HLSLSemanticIdentifierCollision : DiagGroup<"semantic-identifier-collision">
 def HLSLStructurizeExitsLifetimeMarkersConflict: DiagGroup<"structurize-exits-lifetime-markers-conflict">;
 def HLSLParameterUsage : DiagGroup<"parameter-usage">;
 def HLSLAvailability: DiagGroup<"hlsl-availability">;
+def HLSLAvailabilityConstant: DiagGroup<"hlsl-availability-constant">;
 def HLSLBarrier : DiagGroup<"hlsl-barrier">;
 def HLSLLegacyLiterals : DiagGroup<"hlsl-legacy-literal">;
 // HLSL Change Ends

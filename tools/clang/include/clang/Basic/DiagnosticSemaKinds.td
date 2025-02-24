@@ -7646,6 +7646,8 @@ def warn_hlsl_unexpected_value_for_ray_query_flags_template_arg : Warning<
   "A non-zero value for the RayQueryFlags template argument requires shader model 6.9 or above.">, DefaultError;
 def warn_hlsl_unexpected_rayquery_flag : Warning<
   "When using 'RAY_FLAG_FORCE_OMM_2_STATE' in RayFlags, RayQueryFlags must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set.">, DefaultError;
+def note_hlsl_unexpected_rayquery_flag : Note<
+  "RayQueryFlags must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set here.">;
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
 def warn_hlsl_enum_type_not_allowed: Warning<

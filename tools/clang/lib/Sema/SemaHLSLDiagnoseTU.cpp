@@ -325,19 +325,96 @@ public:
     return true;
   }
 
-  bool VisitEnumType(EnumType *ET) {
+  bool VisitDeclRefExpr(DeclRefExpr *ET) {
     // Search for enum types that should only exist after
     // specific shader models.
     IdentifierInfo *II = ET->getDecl()->getIdentifier();
 
     if (!SM->IsSMAtLeast(6, 9)) {
-      if (II->isStr("RAYQUERY_FLAG"))
-        sema->Diag(ET->getDecl()->getLocation(),
-                   diag::warn_hlsl_enum_type_not_allowed)
-            << II->getName(),
-            SM->GetByName, "6.9";
+      if (II && II->getName().startswith("RAYQUERY_FLAG")) {
+        sema->Diag(ET->getLocation(), diag::warn_hlsl_enum_type_not_allowed)
+            << II->getName() << SM->GetName() << "6.9";
+      }
     }
 
+    return true;
+  }
+
+  bool VisitCXXMemberCallExpr(CXXMemberCallExpr *callExpr) {
+    // Diagnose TraceRayInline member call
+    const MemberExpr *ME = dyn_cast<MemberExpr>(callExpr->getCallee());
+
+    if (ME) {
+      const Decl *MD = ME->getMemberDecl();
+
+      if (const CXXMethodDecl *methodDecl = dyn_cast<CXXMethodDecl>(MD)) {
+        if (methodDecl->getNameAsString() == "TraceRayInline") {
+          // validate that if the ray flag parameter is
+          // RAY_FLAG_FORCE_OMM_2_STATE, the ray query object
+          // has the RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS
+          // flag set, otherwise emit a diagnostic
+          bool IsRayFlagForceOMM2State = false;
+          const CXXRecordDecl *recordDecl = methodDecl->getParent();
+          if (ImplicitCastExpr *RayFlagArg =
+                  dyn_cast<ImplicitCastExpr>(callExpr->getArg(1))) {
+            if (DeclRefExpr *DR =
+                    dyn_cast<DeclRefExpr>(RayFlagArg->getSubExpr())) {
+              ValueDecl *valueDecl = DR->getDecl();
+              VarDecl *varDecl = dyn_cast<VarDecl>(valueDecl);
+
+              if (varDecl) {
+                Expr *initializer = varDecl->getInit();
+
+                if (initializer) {
+                  if (const IntegerLiteral *intLit =
+                          dyn_cast<IntegerLiteral>(initializer)) {
+                    unsigned int rayFlagValue =
+                        intLit->getValue().getZExtValue();
+                    if (rayFlagValue &
+                        (unsigned int)DXIL::RayFlag::ForceOMM2State) {
+                      IsRayFlagForceOMM2State = true;
+                    }
+                  }
+                }
+              }
+            } else if (const IntegerLiteral *intLit =
+                           dyn_cast<IntegerLiteral>(RayFlagArg->getSubExpr())) {
+              unsigned int rayFlagValue = intLit->getValue().getZExtValue();
+              if (rayFlagValue & (unsigned int)DXIL::RayFlag::ForceOMM2State) {
+                IsRayFlagForceOMM2State = true;
+              }
+            }
+          }
+          if (IsRayFlagForceOMM2State) {
+            const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ME->getBase());
+            assert(DRE);
+            const VarDecl *VD = cast<VarDecl>(DRE->getDecl());
+            const QualType QT = VD->getType();
+            const CXXRecordDecl *rayQueryDecl = QT->getAsCXXRecordDecl();
+            assert(rayQueryDecl);
+            auto typeRecordDecl = QT->getAsCXXRecordDecl();
+            if (ClassTemplateSpecializationDecl *SpecDecl =
+                    llvm::dyn_cast<ClassTemplateSpecializationDecl>(
+                        typeRecordDecl)) {
+              // Guaranteed 2 arguments since the rayquery constructor
+              // automatically creates 2 template args
+              llvm::APSInt Arg2val =
+                  SpecDecl->getTemplateArgs()[1].getAsIntegral();
+              bool IsRayQueryAllowOMMSet =
+                  Arg2val.getZExtValue() &
+                  (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps;
+              if (!IsRayQueryAllowOMMSet) {
+                // Diagnose the call
+                sema->Diag(callExpr->getExprLoc(),
+                           diag::warn_hlsl_unexpected_rayquery_flag);
+                sema->Diag(VD->getLocation(),
+                           diag::note_hlsl_unexpected_rayquery_flag);
+              }
+            }
+          }
+        }
+      }
+    }
     return true;
   }
 
