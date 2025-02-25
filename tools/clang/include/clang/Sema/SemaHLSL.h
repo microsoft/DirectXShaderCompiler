@@ -128,7 +128,8 @@ unsigned CaculateInitListArraySizeForHLSL(clang::Sema *sema,
                                           const clang::InitListExpr *InitList,
                                           const clang::QualType EltTy);
 
-bool ContainsVectorLongerThan(const clang::QualType &qt, unsigned length);
+bool ContainsVectorLongerThan(clang::Sema *S, clang::QualType qt,
+                              unsigned length);
 
 bool IsConversionToLessOrEqualElements(clang::Sema *self,
                                        const clang::ExprResult &sourceExpr,

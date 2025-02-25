@@ -1,6 +1,6 @@
 // RUN: %dxc -T ps_6_9 -DTYPE=LongVec    -DNUM=5   -verify %s
-// RUiN: %dxc -T ps_6_9 -DTYPE=LongVecSub -DNUM=128 -verify %s
-// RUiN: %dxc -T ps_6_9                   -DNUM=1024 -verify %s
+// RUN: %dxc -T ps_6_9 -DTYPE=LongVecSub -DNUM=128 -verify %s
+// RUN: %dxc -T ps_6_9                   -DNUM=1024 -verify %s
 
 // Add tests for base types and instantiated template classes with longvecs
 // Size of the vector shouldn't matter, but using a few different ones just in case.

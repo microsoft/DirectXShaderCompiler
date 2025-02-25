@@ -5254,23 +5254,13 @@ public:
               << argType;
           return true;
         }
-        if (ContainsVectorLongerThan(argType, DXIL::kDefaultMaxVectorLength)) {
+        if (ContainsVectorLongerThan(m_sema, argType,
+                                     DXIL::kDefaultMaxVectorLength)) {
           m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
               << DXIL::kDefaultMaxVectorLength << "cbuffers";
           return true;
         }
 
-        if (auto *TST = dyn_cast<TemplateSpecializationType>(argType)) {
-          // This is a bit of a special case we need to handle. Because the
-          // buffer types don't use their template parameter in a way that would
-          // force instantiation, we need to force specialization here.
-          GetOrCreateTemplateSpecialization(
-              *m_context, *m_sema,
-              cast<ClassTemplateDecl>(
-                  TST->getTemplateName().getAsTemplateDecl()),
-              llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
-                                               TST->getNumArgs()));
-        }
         if (const RecordType *recordType = argType->getAs<RecordType>()) {
           if (!recordType->getDecl()->isCompleteDefinition()) {
             m_sema->Diag(argSrcLoc, diag::err_typecheck_decl_incomplete_type)
@@ -5351,7 +5341,8 @@ public:
       DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type,
                "Tessellation patch requires type template arg 0");
       QualType argType = arg.getAsType();
-      if (ContainsVectorLongerThan(argType, DXIL::kDefaultMaxVectorLength)) {
+      if (ContainsVectorLongerThan(m_sema, argType,
+                                   DXIL::kDefaultMaxVectorLength)) {
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
             << DXIL::kDefaultMaxVectorLength << "tessellation patches";
@@ -5365,7 +5356,8 @@ public:
       DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type,
                "Geometry stream requires type template arg 0");
       QualType argType = arg.getAsType();
-      if (ContainsVectorLongerThan(argType, DXIL::kDefaultMaxVectorLength)) {
+      if (ContainsVectorLongerThan(m_sema, argType,
+                                   DXIL::kDefaultMaxVectorLength)) {
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
             << DXIL::kDefaultMaxVectorLength << "geometry streams";
@@ -11662,14 +11654,15 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
     bool ErrorFound = false;
     const RecordDecl *RD = ArgTy->getAs<RecordType>()->getDecl();
     // Check the fields of the RecordDecl
-    RecordDecl::field_iterator begin = RD->field_begin();
-    RecordDecl::field_iterator end = RD->field_end();
-    while (begin != end) {
-      const FieldDecl *FD = *begin;
+    for (auto *FD : RD->fields())
       ErrorFound |=
           DiagnoseNodeStructArgument(self, ArgLoc, FD->getType(), Empty, FD);
-      begin++;
-    }
+    if (RD->isCompleteDefinition())
+      if (auto *Child = dyn_cast<CXXRecordDecl>(RD))
+        // Walk up the inheritance chain and check base class fields
+        for (auto &B : Child->bases())
+          ErrorFound |=
+              DiagnoseNodeStructArgument(self, ArgLoc, B.getType(), Empty);
     return ErrorFound;
   }
   default:
@@ -12105,8 +12098,8 @@ bool hlsl::ShouldSkipNRVO(clang::Sema &sema, clang::QualType returnType,
   return false;
 }
 
-bool hlsl::ContainsVectorLongerThan(const QualType &qt, unsigned length) {
-  if (qt.isNull())
+bool hlsl::ContainsVectorLongerThan(Sema *S, QualType qt, unsigned length) {
+  if (qt.isNull() || qt->isDependentType())
     return false;
 
   if (IsHLSLVecType(qt)) {
@@ -12114,19 +12107,30 @@ bool hlsl::ContainsVectorLongerThan(const QualType &qt, unsigned length) {
       return true;
   } else if (qt->isArrayType()) {
     const ArrayType *arrayType = qt->getAsArrayTypeUnsafe();
-    return ContainsVectorLongerThan(arrayType->getElementType(), length);
+    return ContainsVectorLongerThan(S, arrayType->getElementType(), length);
   } else if (qt->isStructureOrClassType()) {
     const RecordType *recordType = qt->getAs<RecordType>();
-    const RecordDecl *recordDecl = recordType->getDecl();
+    RecordDecl *recordDecl = recordType->getDecl();
     if (recordDecl->isInvalidDecl())
       return false;
-    RecordDecl::field_iterator begin = recordDecl->field_begin();
-    RecordDecl::field_iterator end = recordDecl->field_end();
-    for (; begin != end; begin++) {
-      const FieldDecl *fieldDecl = *begin;
-      if (ContainsVectorLongerThan(fieldDecl->getType(), length))
-        return true;
+    if (ClassTemplateSpecializationDecl *templateSpecializationDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
+      if (templateSpecializationDecl->getSpecializationKind() ==
+          TSK_Undeclared) {
+        S->RequireCompleteType(recordDecl->getLocation(), qt,
+                               diag::err_typecheck_decl_incomplete_type);
+      }
     }
+    if (!recordDecl->isCompleteDefinition())
+      return false;
+    for (FieldDecl *FD : recordDecl->fields())
+      if (ContainsVectorLongerThan(S, FD->getType(), length))
+        return true;
+    if (auto *Child = dyn_cast<CXXRecordDecl>(recordDecl))
+      // Walk up the inheritance chain and check all fields on base classes
+      for (auto &B : Child->bases())
+        if (ContainsVectorLongerThan(S, B.getType(), length))
+          return true;
   }
   return false;
 }
@@ -14759,9 +14763,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     result = false;
   }
 
-  // Disallow long vecs from cbuffers.
+  // Disallow long vecs from $Global cbuffers.
   if (isGlobal && !isStatic && !isGroupShared &&
-      ContainsVectorLongerThan(qt, DXIL::kDefaultMaxVectorLength)) {
+      ContainsVectorLongerThan(this, qt, DXIL::kDefaultMaxVectorLength)) {
     Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector)
         << DXIL::kDefaultMaxVectorLength << "cbuffers";
     result = false;
@@ -15657,7 +15661,8 @@ static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
 
 // Verify that user-defined intrinsic struct args contain no long vectors
 static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
-  if (ContainsVectorLongerThan(Arg->getType(), DXIL::kDefaultMaxVectorLength)) {
+  if (ContainsVectorLongerThan(S, Arg->getType(),
+                               DXIL::kDefaultMaxVectorLength)) {
     S->Diag(Arg->getExprLoc(), diag::err_hlsl_unsupported_long_vector)
         << DXIL::kDefaultMaxVectorLength << "user-defined struct parameter";
     return true;
@@ -16397,13 +16402,14 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
 
   // Check general parameter characteristics
   // Would be nice to check for resources here as they crash the compiler now.
-  for (const auto *param : FD->params())
-    if (ContainsVectorLongerThan(param->getType(),
+  for (const auto *param : FD->params()) {
+    if (ContainsVectorLongerThan(&S, param->getType(),
                                  DXIL::kDefaultMaxVectorLength))
       S.Diag(param->getLocation(), diag::err_hlsl_unsupported_long_vector)
           << DXIL::kDefaultMaxVectorLength << "entry function parameters";
+  }
 
-  if (ContainsVectorLongerThan(FD->getReturnType(),
+  if (ContainsVectorLongerThan(&S, FD->getReturnType(),
                                DXIL::kDefaultMaxVectorLength))
     S.Diag(FD->getLocation(), diag::err_hlsl_unsupported_long_vector)
         << DXIL::kDefaultMaxVectorLength << "entry function return type";
