@@ -645,6 +645,42 @@ struct LlvmInst_VAArg {
   bool isAllowed() const { return false; }
 };
 
+/// This instruction extracts from vector
+struct LlvmInst_ExtractElement {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  LlvmInst_ExtractElement(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return Instr->getOpcode() == llvm::Instruction::ExtractElement;
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+};
+
+/// This instruction inserts into vector
+struct LlvmInst_InsertElement {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  LlvmInst_InsertElement(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return Instr->getOpcode() == llvm::Instruction::InsertElement;
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+};
+
+/// This instruction Shuffle two vectors
+struct LlvmInst_ShuffleVector {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  LlvmInst_ShuffleVector(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return Instr->getOpcode() == llvm::Instruction::ShuffleVector;
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+};
+
 /// This instruction extracts from aggregate
 struct LlvmInst_ExtractValue {
   llvm::Instruction *Instr;
