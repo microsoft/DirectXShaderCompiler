@@ -10942,7 +10942,7 @@ bool Sema::buildOverloadedCallSet(Scope *S, Expr *Fn,
         ULE->getQualifier()->getAsNamespace()->getName() == "dx";
 
     assert((!ULE->getQualifier() || isVkNamespace || isDxNamespace) &&
-           "non-vk qualified name with ADL");
+           "non-name qualified name with ADL");
     // HLSL Change Ends
 
     // We don't perform ADL for implicit declarations of builtins.

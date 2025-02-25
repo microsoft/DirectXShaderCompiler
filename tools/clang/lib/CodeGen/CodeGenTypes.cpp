@@ -367,9 +367,9 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
                  .getConstantArrayType(eltTy, llvm::APInt(32, count),
                                        ArrayType::ArraySizeModifier::Normal, 0)
                  .getTypePtr();
-      } else if (hlsl::IsHLSLHitObjectType(T)) {
+      } else if (hlsl::IsHLSLHitObjectType(T))
         return hlsl::dxilutil::GetHLSLHitObjectType(&TheModule);
-      } else
+      else
         return ConvertRecordDeclType(RT->getDecl());
     }
     // HLSL Change Ends

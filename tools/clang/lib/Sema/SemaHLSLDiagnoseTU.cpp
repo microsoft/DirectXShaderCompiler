@@ -349,8 +349,8 @@ public:
     if (!hlsl::IsHLSLHitObjectType(TL.getType()))
       return true;
 
-    S.Diag(TL.getLocStart(), diag::err_hlsl_ser_invalid_shader_kind)
-        << ShaderModel::FullNameFromKind(EntrySK);
+    S.Diag(TL.getLocStart(), diag::err_hlsl_ser_unsupported)
+        << "dx::HitObject" << ShaderModel::FullNameFromKind(EntrySK) << true;
     S.Diag(EntryDecl->getLocation(), diag::note_hlsl_entry_defined_here);
     return false;
   }

@@ -5071,9 +5071,8 @@ public:
     // Exceptions:
     // - Vulkan-specific intrinsics live in the 'vk::' namespace.
     // - DirectX-specific intrinsics live in the 'dx::' namespace.
-    if (isQualified && !isGlobalNamespace && !isVkNamespace && !isDxNamespace) {
+    if (isQualified && !isGlobalNamespace && !isVkNamespace && !isDxNamespace)
       return false;
-    }
 
     const DeclarationNameInfo declName = ULE->getNameInfo();
     IdentifierInfo *idInfo = declName.getName().getAsIdentifierInfo();
@@ -5138,9 +5137,8 @@ public:
         NamespaceDecl *nsDecl = m_hlslNSDecl;
         if (isVkNamespace)
           nsDecl = m_vkNSDecl;
-        else if (isDxNamespace) {
+        else if (isDxNamespace)
           nsDecl = m_dxNSDecl;
-        }
         DXASSERT(tableName,
                  "otherwise IDxcIntrinsicTable::GetTableName() failed");
         intrinsicFuncDecl =
@@ -11754,21 +11752,24 @@ void Sema::DiagnoseReachableCallForSER(CallExpr *CE, DXIL::ShaderKind EntrySK,
   }
 
   // Return for anything that is not a HitObject intrinsic.
-  unsigned ErrDiagID = 0;
+  std::string FeatureStr = "Shader Execution Reordering";
+  bool OnlySupportedInRG = false;
   switch (opCode) {
   default:
     return;
   case hlsl::IntrinsicOp::IOP_DxMaybeReorderThread:
+    FeatureStr = "dx::MaybeReorderThread";
+    OnlySupportedInRG = true;
     ValidEntryForHitObject &= EntrySK == DXIL::ShaderKind::RayGeneration;
-    ErrDiagID = diag::err_hlsl_reorder_invalid_shader_kind;
     break;
   case hlsl::IntrinsicOp::MOP_DxHitObject_MakeNop:
-    ErrDiagID = diag::err_hlsl_ser_invalid_shader_kind;
     break;
   }
 
   if (!ValidEntryForHitObject) {
-    Diag(Loc, ErrDiagID) << ShaderModel::FullNameFromKind(EntrySK);
+    Diag(Loc, diag::err_hlsl_ser_unsupported)
+        << FeatureStr << ShaderModel::FullNameFromKind(EntrySK)
+        << !OnlySupportedInRG;
     Diag(EntryFD->getLocation(), diag::note_hlsl_entry_defined_here);
   }
 

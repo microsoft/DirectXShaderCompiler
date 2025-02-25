@@ -7978,10 +7978,8 @@ def err_hlsl_unsupported_semantic_index: Error<
 
 // SER Change Starts
 // Shader Execution Reordering
-def err_hlsl_ser_invalid_shader_kind : Error<
-   "Shader kind '%0' incompatible with shader execution reordering (has to be raygeneration, closesthit or miss)">;
-def err_hlsl_reorder_invalid_shader_kind : Error<
-   "Shader kind '%0' incompatible with MaybeReorderThread intrinsic (only in raygeneration)">;
+def err_hlsl_ser_unsupported : Error<
+   "%0 is unavailable in shader stage '%1' (requires %select{'raygeneration'|'raygeneration', 'closesthit' or 'miss'}2)">;
 def err_hlsl_ser_invalid_version : Error<
    "Shader execution reordering requires target profile lib_6_9+ (was %0)">;
 // SER Change Ends

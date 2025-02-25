@@ -10,12 +10,12 @@ struct [raypayload] Payload
 struct Attribs { float2 barys; };
 void CallReorder()
 {
-// expected-error@+6{{Shader kind 'compute' incompatible with MaybeReorderThread intrinsic (only in raygeneration)}}
-// expected-error@+5{{Shader kind 'callable' incompatible with MaybeReorderThread intrinsic (only in raygeneration)}}
-// expected-error@+4{{Shader kind 'intersection' incompatible with MaybeReorderThread intrinsic (only in raygeneration)}}
-// expected-error@+3{{Shader kind 'anyhit' incompatible with MaybeReorderThread intrinsic (only in raygeneration)}}
-// expected-error@+2{{Shader kind 'closesthit' incompatible with MaybeReorderThread intrinsic (only in raygeneration)}}
-// expected-error@+1{{Shader kind 'miss' incompatible with MaybeReorderThread intrinsic (only in raygeneration)}}
+// expected-error@+6{{dx::MaybeReorderThread is unavailable in shader stage 'compute' (requires 'raygeneration')}}
+// expected-error@+5{{dx::MaybeReorderThread is unavailable in shader stage 'callable' (requires 'raygeneration')}}
+// expected-error@+4{{dx::MaybeReorderThread is unavailable in shader stage 'intersection' (requires 'raygeneration')}}
+// expected-error@+3{{dx::MaybeReorderThread is unavailable in shader stage 'anyhit' (requires 'raygeneration')}}
+// expected-error@+2{{dx::MaybeReorderThread is unavailable in shader stage 'closesthit' (requires 'raygeneration')}}
+// expected-error@+1{{dx::MaybeReorderThread is unavailable in shader stage 'miss' (requires 'raygeneration')}}
   dx::MaybeReorderThread(0,0);
 }
 
