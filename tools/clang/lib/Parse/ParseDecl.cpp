@@ -824,6 +824,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLNodeMaxRecursionDepth:
     case AttributeList::AT_HLSLMaxRecordsSharedWith:
     case AttributeList::AT_HLSLMaxRecords:
+    case AttributeList::AT_HLSLMaxRecordsPerNode:
     case AttributeList::AT_HLSLNodeArraySize:
     case AttributeList::AT_HLSLRootSignature:
     case AttributeList::AT_HLSLOutputControlPoints:

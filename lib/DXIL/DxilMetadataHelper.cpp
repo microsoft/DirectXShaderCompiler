@@ -1985,6 +1985,7 @@ void DxilMDHelper::SerializeNodeProps(SmallVectorImpl<llvm::Metadata *> &MDVals,
     MDVals.push_back(Uint32ToConstMD(nodeoutput.OutputArraySize));
     MDVals.push_back(BoolToConstMD(nodeoutput.AllowSparseNodes));
     MDVals.push_back(Uint32ToConstMD(nodeoutput.RecordType.alignment));
+    MDVals.push_back(Uint32ToConstMD(nodeoutput.MaxRecordsPerNode));
   }
 }
 
@@ -2043,6 +2044,7 @@ void DxilMDHelper::DeserializeNodeProps(const MDTuple *pProps, unsigned &idx,
     nodeoutput.MaxRecordsSharedWith = ConstMDToInt32(pProps->getOperand(idx++));
     nodeoutput.OutputArraySize = ConstMDToUint32(pProps->getOperand(idx++));
     nodeoutput.AllowSparseNodes = ConstMDToBool(pProps->getOperand(idx++));
+    nodeoutput.MaxRecordsPerNode = ConstMDToUint32(pProps->getOperand(idx++));
     if (pProps->getNumOperands() > idx) {
       nodeoutput.RecordType.alignment =
           ConstMDToUint32(pProps->getOperand(idx++));
@@ -2806,6 +2808,7 @@ DxilMDHelper::EmitDxilNodeIOState(const hlsl::NodeIOProperties &Node) {
     // Required Field
     MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilNodeMaxRecordsTag));
     MDVals.emplace_back(Uint32ToConstMD(Node.MaxRecords));
+    MDVals.emplace_back(Uint32ToConstMD(Node.MaxRecordsPerNode));
 
     if (Node.OutputArraySize) {
       MDVals.emplace_back(
@@ -2921,6 +2924,9 @@ NodeIOProperties DxilMDHelper::LoadDxilNodeIOState(const llvm::MDOperand &MDO) {
       MDNode *pNode = cast<MDNode>(MDO.get());
       Node.OutputID.Name = StringMDToString(pNode->getOperand(0));
       Node.OutputID.Index = ConstMDToUint32(pNode->getOperand(1));
+    } break;
+    case DxilMDHelper::kDxilNodeMaxRecordsPerNodeTag: {
+      Node.MaxRecordsPerNode = ConstMDToUint32(MDO);
     } break;
     default:
       m_bExtraMetadata = true;

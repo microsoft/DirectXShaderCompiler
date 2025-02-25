@@ -1176,6 +1176,12 @@ private:
           nAttrib.AllowSparseNodes = N.AllowSparseNodes;
           nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
         }
+        if (N.MaxRecordsPerNode) {
+          nAttrib = {};
+          nAttrib.AttribKind = (uint32_t)NodeAttribKind::MaxRecordsPerNode;
+          nAttrib.MaxRecords = N.MaxRecordsPerNode;
+          nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
+        }
       } else if (N.Flags.IsInputRecord()) {
         if (N.MaxRecords) {
           nAttrib = {};
