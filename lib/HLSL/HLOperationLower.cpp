@@ -8304,7 +8304,6 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
         NumComponents = VTy->getNumElements();
       else
         NumComponents = 1;
-
       Value *ResultElts[4];
       Constant *Alignment =
           OP->GetI32Const(DL.getTypeAllocSize(Ty->getScalarType()));
