@@ -13,7 +13,7 @@ struct S {
   float a;
 };
 
-// CHECK: error: Elements of typed buffers and textures must be scalars or vectors
+// CHECK: error: elements of typed buffers and textures must be scalars or vectors
 RWBuffer<S> buff;
 
 [numthreads(1, 1, 1)]

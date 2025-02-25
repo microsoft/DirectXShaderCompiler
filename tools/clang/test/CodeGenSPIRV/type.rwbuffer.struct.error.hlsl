@@ -5,10 +5,10 @@ struct S {
   float b;
 };
 
-// CHECK: error: Elements of typed buffers and textures must be scalars or vectors
+// CHECK: error: elements of typed buffers and textures must be scalars or vectors
 RWBuffer<S> MyRWBuffer;
 
-// CHECK: error: Elements of typed buffers and textures must be scalars or vectors
+// CHECK: error: elements of typed buffers and textures must be scalars or vectors
 RasterizerOrderedBuffer<S> MyROVBuffer;
 
 float4 main() : A {
