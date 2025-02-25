@@ -5511,14 +5511,12 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
-        self.set_op_count_for_version(1, 9, next_op_idx)
-
+        # End of DXIL 1.8 opcodes.
+        self.set_op_count_for_version(1, 8, next_op_idx)
         assert next_op_idx == 258, (
             "258 is expected next operation index but encountered %d and thus opcodes are broken"
             % next_op_idx
         )
-
-        # End of DXIL 1.8 opcodes.
 
         # RayQuery
         self.add_dxil_op(
@@ -5547,6 +5545,8 @@ class db_dxil(object):
             ],
         )
         next_op_idx += 1
+
+        self.set_op_count_for_version(1, 9, next_op_idx)
 
         # Set interesting properties.
         self.build_indices()
