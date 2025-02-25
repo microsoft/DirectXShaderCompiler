@@ -214,6 +214,17 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
                                                  arrayType->getStride());
             instr->setResultType(resultType);
           }
+        } else if (const auto *runtimeArrayType =
+                       dyn_cast<RuntimeArrayType>(resultType)) {
+          if (const auto *imageType =
+                  dyn_cast<ImageType>(runtimeArrayType->getElementType())) {
+            auto newImgType = spvContext.getImageType(
+                imageType,
+                vkImgFeatures.format.value_or(spv::ImageFormat::Unknown));
+            resultType = spvContext.getRuntimeArrayType(
+                newImgType, runtimeArrayType->getStride());
+            instr->setResultType(resultType);
+          }
         }
       }
     }
