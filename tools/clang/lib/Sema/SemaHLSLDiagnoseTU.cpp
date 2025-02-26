@@ -354,7 +354,6 @@ public:
           // has the RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS
           // flag set, otherwise emit a diagnostic
           bool IsRayFlagForceOMM2State = false;
-          const CXXRecordDecl *recordDecl = methodDecl->getParent();
           if (ImplicitCastExpr *RayFlagArg =
                   dyn_cast<ImplicitCastExpr>(callExpr->getArg(1))) {
             if (DeclRefExpr *DR =
@@ -390,8 +389,6 @@ public:
             assert(DRE);
             const VarDecl *VD = cast<VarDecl>(DRE->getDecl());
             const QualType QT = VD->getType();
-            const CXXRecordDecl *rayQueryDecl = QT->getAsCXXRecordDecl();
-            assert(rayQueryDecl);
             auto typeRecordDecl = QT->getAsCXXRecordDecl();
             if (ClassTemplateSpecializationDecl *SpecDecl =
                     llvm::dyn_cast<ClassTemplateSpecializationDecl>(

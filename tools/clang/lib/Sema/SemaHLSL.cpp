@@ -14168,8 +14168,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
           assert((numArgs == 1 || numArgs == 2) &&
                  "All ray query declarations should have one or two template "
                  "args");
-          const TemplateArgument *Args = TST->getArgs();
-          const TemplateArgument Arg1 = Args[0];
           llvm::APSInt Arg1val = SpecDecl->getTemplateArgs()[0].getAsIntegral();
           bool IsForceOMM2State =
               Arg1val.getZExtValue() & (unsigned)DXIL::RayFlag::ForceOMM2State;
@@ -14182,6 +14180,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
           else {
             // ensure that if the second template argument has a non-zero value,
             // the shader model is at least 6.9
+            const TemplateArgument *Args = TST->getArgs();
             auto Arg2 = Args[1];
             llvm::APSInt Arg2val =
                 SpecDecl->getTemplateArgs()[1].getAsIntegral();
