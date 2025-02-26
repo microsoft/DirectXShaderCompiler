@@ -4620,7 +4620,6 @@ public:
     }
   }
 
-
   ArBasicKind GetKindFromQualType(QualType qt, bool &found) {
     const CXXRecordDecl *typeRecordDecl =
         GetRecordDeclForBuiltInOrStruct(qt->getAsCXXRecordDecl());
