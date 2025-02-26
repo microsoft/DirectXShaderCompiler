@@ -15,13 +15,15 @@
 #include "CGCall.h"
 #include "ABIInfo.h"
 #include "CGCXXABI.h"
+#include "CGHLSLRuntime.h" // HLSL Change
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
-#include "CGHLSLRuntime.h"    // HLSL Change
 #include "TargetInfo.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
+#include "clang/AST/HlslTypes.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Frontend/CodeGenOptions.h"
@@ -30,8 +32,8 @@
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InlineAsm.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/Transforms/Utils/Local.h"
 using namespace clang;
 using namespace CodeGen;
@@ -1902,7 +1904,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
     case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
       // HLSL Change Begins
-      if (hlsl::IsHLSLMatType(Ty)) {
+      if (hlsl::IsHLSLMatType(Ty) || hlsl::IsHLSLHitObjectType(Ty)) {
         assert(NumIRArgs == 1);
         auto AI = FnArgs[FirstIRArg];
         llvm::Value *V = AI;

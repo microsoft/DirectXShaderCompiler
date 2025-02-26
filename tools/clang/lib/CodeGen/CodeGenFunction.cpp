@@ -12,18 +12,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenFunction.h"
-#include "CGCleanup.h"
 #include "CGCUDARuntime.h"
-#include "CGHLSLRuntime.h"       // HLSL Change
 #include "CGCXXABI.h"
+#include "CGCleanup.h"
 #include "CGDebugInfo.h"
+#include "CGHLSLRuntime.h" // HLSL Change
 #include "CGOpenMPRuntime.h"
 #include "CodeGenModule.h"
 #include "CodeGenPGO.h"
 #include "TargetInfo.h"
+#include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
+#include "clang/AST/HlslTypes.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
@@ -32,7 +34,6 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Operator.h"
-#include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change
 using namespace clang;
 using namespace CodeGen;
 
@@ -165,6 +166,11 @@ TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
         // Treat hlsl matrix as scalar type too.
         return TEK_Scalar;
       }
+      if (hlsl::IsHLSLHitObjectType(type)) {
+        // Pass HitObject as scalar (by value)
+        return TEK_Scalar;
+      }
+
       // HLSL Change Ends
       return TEK_Aggregate;
 

@@ -252,6 +252,9 @@ public:
   void EmitHLSLOutParamConversionCopyBack(
       CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList,
       llvm::SmallVector<LValue, 8> &lifetimeCleanupList) override;
+  llvm::Value *
+  EmitHLSLScalarObjectDefaultConstructor(CodeGenFunction &CGF,
+                                         const clang::Expr *E) override;
 
   Value *EmitHLSLMatrixOperationCall(CodeGenFunction &CGF, const clang::Expr *E,
                                      llvm::Type *RetType,
@@ -300,7 +303,7 @@ public:
                                  clang::QualType QaulTy) override;
   void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
                      llvm::Value *V) override;
-  const clang::Expr *CheckReturnStmtGLCMismatch(
+  const clang::Expr *CheckReturnStmtCoherenceMismatch(
       CodeGenFunction &CGF, const Expr *RV, const clang::ReturnStmt &S,
       clang::QualType FnRetTy,
       const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap)
@@ -2500,9 +2503,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     // Type annotation for this pointer.
     if (const CXXMethodDecl *MFD = dyn_cast<CXXMethodDecl>(FD)) {
-      const CXXRecordDecl *RD = MFD->getParent();
-      QualType Ty = CGM.getContext().getTypeDeclType(RD);
-      AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize);
+      if (!MFD->isStatic()) {
+        const CXXRecordDecl *RD = MFD->getParent();
+        QualType Ty = CGM.getContext().getTypeDeclType(RD);
+        AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize);
+      }
     }
 
     for (const ValueDecl *param : FD->params()) {
@@ -2801,16 +2806,22 @@ void CGMSHLSLRuntime::MarkPotentialResourceTemp(CodeGenFunction &CGF,
   AddValToPropertyMap(V, QualTy);
 }
 
-static bool isGLCMismatch(QualType Ty0, QualType Ty1, const Expr *SrcExp,
-                          clang::SourceLocation Loc, DiagnosticsEngine &Diags) {
-  if (HasHLSLGloballyCoherent(Ty0) == HasHLSLGloballyCoherent(Ty1))
-    return false;
+static std::pair<bool, bool> getCoherenceMismatch(QualType Ty0, QualType Ty1,
+                                                  const Expr *SrcExp,
+                                                  clang::SourceLocation Loc,
+                                                  DiagnosticsEngine &Diags) {
+  std::pair Mismatch{
+      HasHLSLGloballyCoherent(Ty0) != HasHLSLGloballyCoherent(Ty1),
+      HasHLSLReorderCoherent(Ty0) != HasHLSLReorderCoherent(Ty1)};
+  if (!Mismatch.first && !Mismatch.second)
+    return {false, false};
+
   if (const CastExpr *Cast = dyn_cast<CastExpr>(SrcExp)) {
     // Skip flat conversion which is for createHandleFromHeap.
     if (Cast->getCastKind() == CastKind::CK_FlatConversion)
-      return false;
+      return {false, false};
   }
-  return true;
+  return Mismatch;
 }
 
 void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
@@ -2827,19 +2838,24 @@ void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
   AddValToPropertyMap(V, D.getType());
 
   if (D.hasInit()) {
-    if (isGLCMismatch(D.getType(), D.getInit()->getType(), D.getInit(),
-                      D.getLocation(), CGM.getDiags())) {
-      objectProperties.updateGLC(V);
+    auto [glcMismatch, rdcMismatch] =
+        getCoherenceMismatch(D.getType(), D.getInit()->getType(), D.getInit(),
+                             D.getLocation(), CGM.getDiags());
+
+    if (glcMismatch || rdcMismatch) {
+      objectProperties.updateCoherence(V, glcMismatch, rdcMismatch);
     }
   }
 }
 
-const clang::Expr *CGMSHLSLRuntime::CheckReturnStmtGLCMismatch(
+const clang::Expr *CGMSHLSLRuntime::CheckReturnStmtCoherenceMismatch(
     CodeGenFunction &CGF, const Expr *RV, const clang::ReturnStmt &S,
     clang::QualType FnRetTy,
     const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) {
-  if (!isGLCMismatch(RV->getType(), FnRetTy, RV, S.getReturnLoc(),
-                     CGM.getDiags())) {
+  auto [glcMismatch, rdcMismatch] = getCoherenceMismatch(
+      RV->getType(), FnRetTy, RV, S.getReturnLoc(), CGM.getDiags());
+
+  if (!glcMismatch && !rdcMismatch) {
     return RV;
   }
   const FunctionDecl *FD = cast<FunctionDecl>(CGF.CurFuncDecl);
@@ -2911,10 +2927,13 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
     if (VD->hasInit() && resClass != DXIL::ResourceClass::Invalid) {
 
       if (resClass == DXIL::ResourceClass::UAV) {
-        if (isGLCMismatch(VD->getType(), VD->getInit()->getType(),
-                          VD->getInit(), D->getLocation(), CGM.getDiags())) {
+        auto [glcMismatch, rdcMismatch] = getCoherenceMismatch(
+            VD->getType(), VD->getInit()->getType(), VD->getInit(),
+            D->getLocation(), CGM.getDiags());
+
+        if (glcMismatch || rdcMismatch) {
           GlobalVariable *GV = cast<GlobalVariable>(CGM.GetAddrOfGlobalVar(VD));
-          objectProperties.updateGLC(GV);
+          objectProperties.updateCoherence(GV, glcMismatch, rdcMismatch);
         }
       }
       return;
@@ -3461,8 +3480,11 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
       }
     }
   }
+  // 'globallycoherent' implies 'reordercoherent'
   if (HasHLSLGloballyCoherent(QualTy)) {
     hlslRes->SetGloballyCoherent(true);
+  } else if (HasHLSLReorderCoherent(QualTy)) {
+    hlslRes->SetReorderCoherent(true);
   }
   if (resClass == hlsl::DxilResourceBase::Class::SRV) {
     hlslRes->SetRW(false);
@@ -3494,6 +3516,9 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
 
   if (decl->hasAttr<HLSLGloballyCoherentAttr>()) {
     hlslRes->SetGloballyCoherent(true);
+  }
+  if (decl->hasAttr<HLSLReorderCoherentAttr>()) {
+    hlslRes->SetReorderCoherent(true);
   }
 
   if (!SetUAVSRV(decl->getLocation(), resClass, hlslRes.get(), VarTy))
@@ -3817,6 +3842,10 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   // Allocate constant buffers.
   // Create Global variable and type annotation for each CBuffer.
   FinishCBuffer(HLM, CBufferType, m_ConstVarAnnotationMap);
+
+  // Translate calls to the HitObject constructor into hl HitObject_MakeNop
+  // calls
+  TranslateHitObjectConstructor(HLM);
 
   // Translate calls to RayQuery constructor into hl Allocate calls
   TranslateRayQueryConstructor(HLM);
@@ -6138,8 +6167,10 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
     bool bAnnotResource = false;
     if (isObject) {
-      if (isGLCMismatch(Param->getType(), Arg->getType(), Arg,
-                        Arg->getExprLoc(), CGM.getDiags())) {
+      auto [glcMismatch, rdcMismatch] =
+          getCoherenceMismatch(Param->getType(), Arg->getType(), Arg,
+                               Arg->getExprLoc(), CGM.getDiags());
+      if (glcMismatch || rdcMismatch) {
         // NOTE: if function is noinline, resource parameter is not allowed.
         // Here assume function will be always inlined.
         // This can only take care resource as parameter. When parameter is
@@ -6474,6 +6505,27 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
         CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(ParamTy));
     CGF.EmitLifetimeEnd(CGF.Builder.getInt64(AllocaSize), tmpArgAddr);
   }
+}
+
+llvm::Value *
+CGMSHLSLRuntime::EmitHLSLScalarObjectDefaultConstructor(CodeGenFunction &CGF,
+                                                        const Expr *E) {
+  if (!hlsl::IsHLSLHitObjectType(E->getType()))
+    CGF.ErrorUnsupported(E, "scalar expression");
+
+  llvm::Module &M = CGF.CGM.getModule();
+
+  // Construct declaration
+  llvm::IntegerType *i32Ty = llvm::Type::getInt32Ty(M.getContext());
+  unsigned OpCode = (unsigned)IntrinsicOp::MOP_HitObject_MakeNop;
+  llvm::ConstantInt *opVal = llvm::ConstantInt::get(i32Ty, OpCode, false);
+
+  llvm::Type *HitType = hlsl::dxilutil::GetHLSLHitObjectType(&M);
+  llvm::FunctionType *MakeNopFuncTy =
+      llvm::FunctionType::get(HitType, i32Ty, false);
+  Function *MakeNopFunc = GetOrCreateHLFunction(
+      M, MakeNopFuncTy, HLOpcodeGroup::HLIntrinsic, OpCode);
+  return CGF.Builder.CreateCall(MakeNopFunc, opVal);
 }
 
 ScopeInfo *CGMSHLSLRuntime::GetScopeInfo(Function *F) {
