@@ -776,18 +776,11 @@ Sema::ClassifyName(Scope *S, CXXScopeSpec &SS, IdentifierInfo *&Name,
   bool IsFilteredTemplateName = false;
   
 Corrected:
-  // Allow namespace ::dx to obtain a ULE, which will be used to construct the
-  // actual intrinsic declaration in AddOverloadedCallCandidates.
-  NamespaceDecl *nsDecl =
-      SS.isValid() ? SS.getScopeRep()->getAsNamespace() : nullptr;
-  bool isDxNamespace = nsDecl && nsDecl->getIdentifier() &&
-                       nsDecl->getIdentifier()->getName() == "dx";
-
   switch (Result.getResultKind()) {
   case LookupResult::NotFound:
     // If an unqualified-id is followed by a '(', then we have a function
     // call.
-    if ((!SS.isSet() || isDxNamespace) && NextToken.is(tok::l_paren)) {
+    if (!SS.isSet() && NextToken.is(tok::l_paren)) {
       // In C++, this is an ADL-only call.
       // FIXME: Reference?
       if (getLangOpts().CPlusPlus)

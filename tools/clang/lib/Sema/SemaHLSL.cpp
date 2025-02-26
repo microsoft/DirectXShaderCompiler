@@ -14,6 +14,7 @@
 #include "VkConstantsTables.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/Support/Global.h"
@@ -3430,9 +3431,8 @@ private:
       return -1;
   }
 
-#ifdef ENABLE_SPIRV_CODEGEN
-  SmallVector<NamedDecl *, 1> CreateTemplateTypeParmDeclsForVkIntrinsicFunction(
-      const HLSL_INTRINSIC *intrinsic) {
+  SmallVector<NamedDecl *, 1> CreateTemplateTypeParmDeclsForIntrinsicFunction(
+      const HLSL_INTRINSIC *intrinsic, NamespaceDecl *nsDecl) {
     SmallVector<NamedDecl *, 1> templateTypeParmDecls;
     auto &context = m_sema->getASTContext();
     const HLSL_INTRINSIC_ARGUMENT *pArgs = intrinsic->pArgs;
@@ -3443,9 +3443,8 @@ private:
           pArgs[i].uLegalTemplates == LITEMPLATE_ANY) {
         IdentifierInfo *id = &context.Idents.get("T");
         TemplateTypeParmDecl *templateTypeParmDecl =
-            TemplateTypeParmDecl::Create(context, m_vkNSDecl, NoLoc, NoLoc, 0,
-                                         0, id, TypenameTrue,
-                                         ParameterPackFalse);
+            TemplateTypeParmDecl::Create(context, nsDecl, NoLoc, NoLoc, 0, 0,
+                                         id, TypenameTrue, ParameterPackFalse);
         if (TInfo == nullptr) {
           TInfo = m_sema->getASTContext().CreateTypeSourceInfo(
               m_context->UnsignedIntTy, 0);
@@ -3459,7 +3458,7 @@ private:
   }
 
   SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount>
-  CreateParmDeclsForVkIntrinsicFunction(
+  CreateParmDeclsForIntrinsicFunction(
       const HLSL_INTRINSIC *intrinsic,
       const SmallVectorImpl<QualType> &paramTypes,
       const SmallVectorImpl<ParameterModifier> &paramMods) {
@@ -3484,7 +3483,7 @@ private:
     return paramDecls;
   }
 
-  SmallVector<QualType, 2> VkIntrinsicFunctionParamTypes(
+  SmallVector<QualType, 2> getIntrinsicFunctionParamTypes(
       const HLSL_INTRINSIC *intrinsic,
       const SmallVectorImpl<NamedDecl *> &templateTypeParmDecls) {
     auto &context = m_sema->getASTContext();
@@ -3519,8 +3518,11 @@ private:
       case LICOMPTYPE_VOID:
         paramTypes.push_back(context.VoidTy);
         break;
+      case LICOMPTYPE_HIT_OBJECT:
+        paramTypes.push_back(GetBasicKindType(AR_OBJECT_HIT_OBJECT));
+        break;
       default:
-        DXASSERT(false, "Argument type of vk:: intrinsic function is not "
+        DXASSERT(false, "Argument type of intrinsic function is not "
                         "supported");
         break;
       }
@@ -3528,9 +3530,9 @@ private:
     return paramTypes;
   }
 
-  QualType
-  VkIntrinsicFunctionType(const SmallVectorImpl<QualType> &paramTypes,
-                          const SmallVectorImpl<ParameterModifier> &paramMods) {
+  QualType getIntrinsicFunctionType(
+      const SmallVectorImpl<QualType> &paramTypes,
+      const SmallVectorImpl<ParameterModifier> &paramMods) {
     DXASSERT(!paramTypes.empty(), "Given param type vector is empty");
 
     ArrayRef<QualType> params({});
@@ -3543,7 +3545,7 @@ private:
                                                    EmptyEPI, paramMods);
   }
 
-  void SetParmDeclsForVkIntrinsicFunction(
+  void SetParmDeclsForIntrinsicFunction(
       TypeSourceInfo *TInfo, FunctionDecl *functionDecl,
       const SmallVectorImpl<ParmVarDecl *> &paramDecls) {
     FunctionProtoTypeLoc Proto =
@@ -3558,6 +3560,72 @@ private:
     functionDecl->setParams(paramDecls);
   }
 
+  void AddIntrinsicFunctionsToNamespace(const HLSL_INTRINSIC *table,
+                                        uint32_t tableSize,
+                                        NamespaceDecl *nsDecl) {
+    auto &context = m_sema->getASTContext();
+    for (uint32_t i = 0; i < tableSize; ++i) {
+      const HLSL_INTRINSIC *intrinsic = &table[i];
+      const IdentifierInfo &fnII = context.Idents.get(
+          intrinsic->pArgs->pName, tok::TokenKind::identifier);
+      DeclarationName functionName(&fnII);
+
+      // Create TemplateTypeParmDecl.
+      SmallVector<NamedDecl *, 1> templateTypeParmDecls =
+          CreateTemplateTypeParmDeclsForIntrinsicFunction(intrinsic, nsDecl);
+
+      // Get types for parameters.
+      SmallVector<QualType, 2> paramTypes =
+          getIntrinsicFunctionParamTypes(intrinsic, templateTypeParmDecls);
+      SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
+      InitParamMods(intrinsic, paramMods);
+
+      // Create FunctionDecl.
+      StorageClass SC = intrinsic->bStaticMember ? SC_Static : SC_Extern;
+      QualType fnType = getIntrinsicFunctionType(paramTypes, paramMods);
+      TypeSourceInfo *TInfo =
+          m_sema->getASTContext().CreateTypeSourceInfo(fnType, 0);
+      FunctionDecl *functionDecl = FunctionDecl::Create(
+          context, nsDecl, NoLoc, DeclarationNameInfo(functionName, NoLoc),
+          fnType, TInfo, SC, InlineSpecifiedFalse, HasWrittenPrototypeTrue);
+
+      // Create and set ParmVarDecl.
+      SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount> paramDecls =
+          CreateParmDeclsForIntrinsicFunction(intrinsic, paramTypes, paramMods);
+      SetParmDeclsForIntrinsicFunction(TInfo, functionDecl, paramDecls);
+
+      if (!templateTypeParmDecls.empty()) {
+        TemplateParameterList *templateParmList = TemplateParameterList::Create(
+            context, NoLoc, NoLoc, templateTypeParmDecls.data(),
+            templateTypeParmDecls.size(), NoLoc);
+        functionDecl->setTemplateParameterListsInfo(context, 1,
+                                                    &templateParmList);
+        FunctionTemplateDecl *functionTemplate =
+            FunctionTemplateDecl::Create(context, nsDecl, NoLoc, functionName,
+                                         templateParmList, functionDecl);
+        functionDecl->setDescribedFunctionTemplate(functionTemplate);
+        nsDecl->addDecl(functionTemplate);
+        functionTemplate->setDeclContext(nsDecl);
+      } else {
+        nsDecl->addDecl(functionDecl);
+        functionDecl->setLexicalDeclContext(nsDecl);
+        functionDecl->setDeclContext(nsDecl);
+      }
+
+      functionDecl->setImplicit(true);
+    }
+  }
+
+  // Adds intrinsic function declarations to the "dx" namespace.
+  // Assumes the implicit "vk" namespace has already been created.
+  void AddDxIntrinsicFunctions() {
+    DXASSERT(m_dxNSDecl, "caller has not created the dx namespace yet");
+
+    AddIntrinsicFunctionsToNamespace(g_DxIntrinsics, _countof(g_DxIntrinsics),
+                                     m_dxNSDecl);
+  }
+
+#ifdef ENABLE_SPIRV_CODEGEN
   // Adds intrinsic function declarations to the "vk" namespace.
   // It does so only if SPIR-V code generation is being done.
   // Assumes the implicit "vk" namespace has already been created.
@@ -3568,58 +3636,8 @@ private:
 
     DXASSERT(m_vkNSDecl, "caller has not created the vk namespace yet");
 
-    auto &context = m_sema->getASTContext();
-    for (uint32_t i = 0; i < _countof(g_VkIntrinsics); ++i) {
-      const HLSL_INTRINSIC *intrinsic = &g_VkIntrinsics[i];
-      const IdentifierInfo &fnII = context.Idents.get(
-          intrinsic->pArgs->pName, tok::TokenKind::identifier);
-      DeclarationName functionName(&fnII);
-
-      // Create TemplateTypeParmDecl.
-      SmallVector<NamedDecl *, 1> templateTypeParmDecls =
-          CreateTemplateTypeParmDeclsForVkIntrinsicFunction(intrinsic);
-
-      // Get types for parameters.
-      SmallVector<QualType, 2> paramTypes =
-          VkIntrinsicFunctionParamTypes(intrinsic, templateTypeParmDecls);
-      SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
-      InitParamMods(intrinsic, paramMods);
-
-      // Create FunctionDecl.
-      StorageClass SC = intrinsic->bStaticMember ? SC_Static : SC_Extern;
-      QualType fnType = VkIntrinsicFunctionType(paramTypes, paramMods);
-      TypeSourceInfo *TInfo =
-          m_sema->getASTContext().CreateTypeSourceInfo(fnType, 0);
-      FunctionDecl *functionDecl = FunctionDecl::Create(
-          context, m_vkNSDecl, NoLoc, DeclarationNameInfo(functionName, NoLoc),
-          fnType, TInfo, SC, InlineSpecifiedFalse, HasWrittenPrototypeTrue);
-
-      // Create and set ParmVarDecl.
-      SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount> paramDecls =
-          CreateParmDeclsForVkIntrinsicFunction(intrinsic, paramTypes,
-                                                paramMods);
-      SetParmDeclsForVkIntrinsicFunction(TInfo, functionDecl, paramDecls);
-
-      if (!templateTypeParmDecls.empty()) {
-        TemplateParameterList *templateParmList = TemplateParameterList::Create(
-            context, NoLoc, NoLoc, templateTypeParmDecls.data(),
-            templateTypeParmDecls.size(), NoLoc);
-        functionDecl->setTemplateParameterListsInfo(context, 1,
-                                                    &templateParmList);
-        FunctionTemplateDecl *functionTemplate = FunctionTemplateDecl::Create(
-            context, m_vkNSDecl, NoLoc, functionName, templateParmList,
-            functionDecl);
-        functionDecl->setDescribedFunctionTemplate(functionTemplate);
-        m_vkNSDecl->addDecl(functionTemplate);
-        functionTemplate->setDeclContext(m_vkNSDecl);
-      } else {
-        m_vkNSDecl->addDecl(functionDecl);
-        functionDecl->setLexicalDeclContext(m_vkNSDecl);
-        functionDecl->setDeclContext(m_vkNSDecl);
-      }
-
-      functionDecl->setImplicit(true);
-    }
+    AddIntrinsicFunctionsToNamespace(g_VkIntrinsics, _countof(g_VkIntrinsics),
+                                     m_vkNSDecl);
   }
 
   // Adds implicitly defined Vulkan-specific constants to the "vk" namespace.
@@ -4046,6 +4064,9 @@ public:
     for (auto &&intrinsic : m_intrinsicTables) {
       AddIntrinsicTableMethods(intrinsic);
     }
+
+    if (SM->IsSM69Plus())
+      AddDxIntrinsicFunctions();
 
 #ifdef ENABLE_SPIRV_CODEGEN
     if (m_sema->getLangOpts().SPIRV) {
@@ -5105,10 +5126,10 @@ public:
     for (; cursor != end; ++cursor) {
       const HLSL_INTRINSIC *pIntrinsic = *cursor;
 
-      // Check whether this extension intrinsic intrinsic is available in the
-      // current namespace and configuration. Note that this not necessary for
-      // member functions: if the builtin type is never declared, neither will
-      // any type be linked to the member intrinsics table.
+      // Check whether this extension intrinsic is available in the current
+      // configuration. Note that this not necessary for member functions:
+      // if the builtin type is never declared, neither will any type refer
+      // to the member intrinsics table.
       if (!IsEnabledIntrinsic(*cursor, m_sema->getLangOpts()))
         continue;
 
