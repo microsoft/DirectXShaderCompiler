@@ -2811,7 +2811,7 @@ DxilMDHelper::EmitDxilNodeIOState(const hlsl::NodeIOProperties &Node) {
 
     if (Node.MaxRecordsPerNode) {    
       MDVals.emplace_back(
-              Uint32ToConstMD(DxilMDHelper::kDxilNodeMaxRecordsSharedWithTag));
+              Uint32ToConstMD(DxilMDHelper::kDxilNodeMaxRecordsPerNodeTag));
       MDVals.emplace_back(Uint32ToConstMD(Node.MaxRecordsPerNode));
     }
 

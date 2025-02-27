@@ -2435,14 +2435,18 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
     if (const auto *Attr = parmDecl->getAttr<HLSLMaxRecordsAttr>())
       node.MaxRecords = Attr->getMaxCount();
-    // Check for SM6.9 Attributes
-    if (SM->IsSM69Plus()) {
-      if (const auto *Attr = parmDecl->getAttr<HLSLMaxRecordsPerNodeAttr>()) {
-        node.MaxRecordsPerNode = Attr->getMaxCount();
-        DXASSERT(node.MaxRecordsPerNode <= node.MaxRecords,
+      // Check for SM6.9 Attributes
+     if (SM->IsSM69Plus()) {
+        // Though MaxRecordsPerNode is a required attribute, this requirement
+        // can be overriden, in which case when the attribute is not present
+        // set the value to MaxRecords.
+        node.MaxRecordsPerNode = node.MaxRecords;
+        if (const auto *Attr = parmDecl->getAttr<HLSLMaxRecordsPerNodeAttr>()) {
+          node.MaxRecordsPerNode = Attr->getMaxCount();
+          DXASSERT(node.MaxRecordsPerNode <= node.MaxRecords,
                  "MaxRecordsPerNode value should be less than or equal to the MaxRecords value");
-      }
-    }
+        }
+     }  
   }
 
   if (inputPatchCount > 1) {
