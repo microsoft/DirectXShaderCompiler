@@ -2435,6 +2435,17 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
     if (const auto *Attr = parmDecl->getAttr<HLSLMaxRecordsAttr>())
       node.MaxRecords = Attr->getMaxCount();
+    // Check for SM6.9 Attributes
+    if (SM->IsSM69Plus()) {
+      if (const auto *Attr = parmDecl->getAttr<HLSLMaxRecordsPerNodeAttr>()) {
+        node.MaxRecordsPerNode = Attr->getMaxCount();
+        DXASSERT(node.MaxRecordsPerNode <= node.MaxRecords,
+                 "MaxRecordsPerNode value should be less than the MaxRecords");
+      } else {
+        //Diags.Report(ArgLoc,
+        //             diag::warn_hlsl_barrier_group_memory_requires_group);
+      }
+    }
   }
 
   if (inputPatchCount > 1) {

@@ -477,6 +477,7 @@ bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type);
 bool IsHLSLRWNodeInputRecordType(clang::QualType type);
 bool IsHLSLRONodeInputRecordType(clang::QualType type);
 bool IsHLSLNodeOutputType(clang::QualType type);
+bool IsHLSLNodeOutputArrayType(clang::QualType type);
 
 DXIL::NodeIOKind GetNodeIOType(clang::QualType type);
 

@@ -2808,7 +2808,12 @@ DxilMDHelper::EmitDxilNodeIOState(const hlsl::NodeIOProperties &Node) {
     // Required Field
     MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilNodeMaxRecordsTag));
     MDVals.emplace_back(Uint32ToConstMD(Node.MaxRecords));
-    MDVals.emplace_back(Uint32ToConstMD(Node.MaxRecordsPerNode));
+
+    if (Node.MaxRecordsPerNode) {    
+      MDVals.emplace_back(
+              Uint32ToConstMD(DxilMDHelper::kDxilNodeMaxRecordsSharedWithTag));
+      MDVals.emplace_back(Uint32ToConstMD(Node.MaxRecordsPerNode));
+    }
 
     if (Node.OutputArraySize) {
       MDVals.emplace_back(

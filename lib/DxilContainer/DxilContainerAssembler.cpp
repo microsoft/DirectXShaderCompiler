@@ -1169,19 +1169,18 @@ private:
               (uint32_t)RDAT::NodeAttribKind::MaxRecordsSharedWith;
           nAttrib.MaxRecordsSharedWith = N.MaxRecordsSharedWith;
           nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
-        }
+        } else if (N.MaxRecordsPerNode >= 0) {
+            nAttrib = {};
+            nAttrib.AttribKind = (uint32_t)NodeAttribKind::MaxRecordsPerNode;
+            nAttrib.MaxRecordsPerNode = N.MaxRecordsPerNode;
+            nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
+         }
         if (N.AllowSparseNodes) {
           nAttrib = {};
           nAttrib.AttribKind = (uint32_t)RDAT::NodeAttribKind::AllowSparseNodes;
           nAttrib.AllowSparseNodes = N.AllowSparseNodes;
           nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
-        }
-        if (N.MaxRecordsPerNode) {
-          nAttrib = {};
-          nAttrib.AttribKind = (uint32_t)NodeAttribKind::MaxRecordsPerNode;
-          nAttrib.MaxRecords = N.MaxRecordsPerNode;
-          nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
-        }
+        }        
       } else if (N.Flags.IsInputRecord()) {
         if (N.MaxRecords) {
           nAttrib = {};
