@@ -5546,6 +5546,15 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
+        # Reserved block A
+        next_op_idx = self.reserve_dxil_op_range("ReservedA", next_op_idx, 3)
+
+        # Shader Execution Reordering
+        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 31)
+
+        # Reserved block C
+        next_op_idx = self.reserve_dxil_op_range("ReservedC", next_op_idx, 10)
+
         self.set_op_count_for_version(1, 9, next_op_idx)
 
         # Set interesting properties.
@@ -8137,6 +8146,12 @@ class db_dxil(object):
             fn_attr="",
         )
         self.instr.append(i)
+
+    def reserve_dxil_op_range(self, group_name, start_id, count):
+        "Reserve a range of dxil opcodes for future use; returns next id"
+        for i in range(0, count):
+            self.add_dxil_op_reserved("{0}{1}".format(group_name, i), start_id + i)
+        return start_id + count
 
     def get_instr_by_llvm_name(self, llvm_name):
         "Return the instruction with the given LLVM name"

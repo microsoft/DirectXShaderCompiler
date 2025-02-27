@@ -903,18 +903,18 @@ void hlsl::AddStdIsEqualImplementation(clang::ASTContext &context,
 /// <parm name="templateArgCount">Number of template arguments (one or
 /// two).</param> <parm name="defaultTypeArgValue">If assigned, the default
 /// argument for the element template.</param>
-CXXRecordDecl *
-hlsl::DeclareTemplateTypeWithHandle(ASTContext &context, StringRef name,
-                                    uint8_t templateArgCount,
-                                    TypeSourceInfo *defaultTypeArgValue) {
+CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandle(
+    ASTContext &context, StringRef name, uint8_t templateArgCount,
+    TypeSourceInfo *defaultTypeArgValue, InheritableAttr *Attr) {
   return DeclareTemplateTypeWithHandleInDeclContext(
       context, context.getTranslationUnitDecl(), name, templateArgCount,
-      defaultTypeArgValue);
+      defaultTypeArgValue, Attr);
 }
 
 CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandleInDeclContext(
     ASTContext &context, DeclContext *declContext, StringRef name,
-    uint8_t templateArgCount, TypeSourceInfo *defaultTypeArgValue) {
+    uint8_t templateArgCount, TypeSourceInfo *defaultTypeArgValue,
+    InheritableAttr *Attr) {
   DXASSERT(templateArgCount != 0,
            "otherwise caller should be creating a class or struct");
   DXASSERT(templateArgCount <= 2, "otherwise the function needs to be updated "
@@ -967,6 +967,9 @@ CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandleInDeclContext(
   }
 
   typeDeclBuilder.addField("h", elementType);
+
+  if (Attr)
+    typeDeclBuilder.getRecordDecl()->addAttr(Attr);
 
   return typeDeclBuilder.getRecordDecl();
 }

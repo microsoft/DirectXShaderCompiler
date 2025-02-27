@@ -9,6 +9,9 @@
 // CHECK:   OpDecorate [[resource_heap_abuffer]] Binding 0
 // CHECK:   OpDecorate [[resource_heap_abuffer_counter:%[_a-zA-Z0-9]+]] DescriptorSet 0
 // CHECK:   OpDecorate [[resource_heap_abuffer_counter]] Binding 1
+// CHECK-NOT: OpDecorate %_runtimearr_type_ACSBuffer_counter ArrayStride
+// CHECK:   OpDecorate %type_ACSBuffer_counter BufferBlock
+// CHECK-NOT: OpDecorate %_runtimearr_type_ACSBuffer_counter ArrayStride
 
 
 // CHECK-DAG:           [[ra_uint_t:%[_a-zA-Z0-9]+]] = OpTypeRuntimeArray %uint

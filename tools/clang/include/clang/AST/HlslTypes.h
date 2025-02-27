@@ -370,12 +370,14 @@ void AddStdIsEqualImplementation(clang::ASTContext &context, clang::Sema &sema);
 clang::CXXRecordDecl *DeclareTemplateTypeWithHandle(
     clang::ASTContext &context, llvm::StringRef name,
     uint8_t templateArgCount = 1,
-    clang::TypeSourceInfo *defaultTypeArgValue = nullptr);
+    clang::TypeSourceInfo *defaultTypeArgValue = nullptr,
+    clang::InheritableAttr *Attr = nullptr);
 
 clang::CXXRecordDecl *DeclareTemplateTypeWithHandleInDeclContext(
     clang::ASTContext &context, clang::DeclContext *declContext,
     llvm::StringRef name, uint8_t templateArgCount,
-    clang::TypeSourceInfo *defaultTypeArgValue);
+    clang::TypeSourceInfo *defaultTypeArgValue,
+    clang::InheritableAttr *Attr = nullptr);
 
 clang::CXXRecordDecl *DeclareUIntTemplatedTypeWithHandle(
     clang::ASTContext &context, llvm::StringRef typeName,

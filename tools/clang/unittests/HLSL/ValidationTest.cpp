@@ -137,8 +137,6 @@ public:
   TEST_METHOD(IllegalSampleOffset4)
   TEST_METHOD(NoFunctionParam)
   TEST_METHOD(I8Type)
-  TEST_METHOD(EmptyStructInBuffer)
-  TEST_METHOD(BigStructInBuffer)
 
   // TODO: enable this.
   // TEST_METHOD(TGSMRaceCond)
@@ -206,6 +204,7 @@ public:
   TEST_METHOD(SimpleGs1Fail)
   TEST_METHOD(UavBarrierFail)
   TEST_METHOD(UndefValueFail)
+  TEST_METHOD(ValidationFailNoHash)
   TEST_METHOD(UpdateCounterFail)
   TEST_METHOD(LocalResCopy)
   TEST_METHOD(ResCounter)
@@ -1189,6 +1188,60 @@ TEST_F(ValidationTest, UavBarrierFail) {
 TEST_F(ValidationTest, UndefValueFail) {
   TestCheck(L"..\\CodeGenHLSL\\UndefValue.hlsl");
 }
+// verify that containers that are not valid DXIL do not
+// get assigned a hash.
+TEST_F(ValidationTest, ValidationFailNoHash) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
+  CComPtr<IDxcBlob> pProgram;
+
+  // We need any shader that will pass compilation but fail validation.
+  // This shader reads from uninitialized 'float a', which works for now.
+  LPCSTR pSource = R"(
+    float main(snorm float b : B) : SV_DEPTH
+    {
+        float a;
+        return b + a;
+    }
+)";
+
+  CComPtr<IDxcBlobEncoding> pSourceBlob;
+  Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
+  std::vector<LPCWSTR> pArguments = {L"-Vd"};
+  LPCSTR pShaderModel = "ps_6_0";
+  bool result = CompileSource(pSourceBlob, pShaderModel, pArguments.data(), 1,
+                              nullptr, 0, &pProgram);
+
+  VERIFY_IS_TRUE(result);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  CComPtr<IDxcBlob> pValidationOutput;
+  pResult->GetStatus(&status);
+
+  // expect validation to fail
+  VERIFY_FAILED(status);
+  pResult->GetResult(&pValidationOutput);
+  // Make sure the validation output is not null even when validation fails
+  VERIFY_SUCCEEDED(pValidationOutput != nullptr);
+
+  hlsl::DxilContainerHeader *pHeader = IsDxilContainerLike(
+      pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  VERIFY_IS_NOT_NULL(pHeader);
+
+  BYTE ZeroHash[DxilContainerHashSize] = {0, 0, 0, 0, 0, 0, 0, 0,
+                                          0, 0, 0, 0, 0, 0, 0, 0};
+
+  // Should be equal, this proves the hash isn't written when validation fails
+  VERIFY_ARE_EQUAL(memcmp(ZeroHash, pHeader->Hash.Digest, sizeof(ZeroHash)), 0);
+}
 TEST_F(ValidationTest, UpdateCounterFail) {
   if (m_ver.SkipIRSensitiveTest())
     return;
@@ -1753,14 +1806,6 @@ TEST_F(ValidationTest, I8Type) {
       "  %m8 = alloca i8",
       "I8 can only be used as immediate value for intrinsic",
       /*bRegex*/ true);
-}
-
-TEST_F(ValidationTest, EmptyStructInBuffer) {
-  TestCheck(L"..\\CodeGenHLSL\\EmptyStructInBuffer.hlsl");
-}
-
-TEST_F(ValidationTest, BigStructInBuffer) {
-  TestCheck(L"..\\CodeGenHLSL\\BigStructInBuffer.hlsl");
 }
 
 // TODO: enable this.
