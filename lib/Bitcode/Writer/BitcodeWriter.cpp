@@ -1357,10 +1357,11 @@ static void WriteModuleMetadataStore(const Module *M, BitstreamWriter &Stream) {
 }
 
 static void emitSignedInt64(SmallVectorImpl<uint64_t> &Vals, uint64_t V) {
-  if ((int64_t)V >= 0)
-    Vals.push_back(V << 1);
+  const int64_t signedV = V;
+  if (signedV >= 0)
+    Vals.push_back(signedV << 1);
   else
-    Vals.push_back((-V << 1) | 1);
+    Vals.push_back((-signedV << 1) | 1);
 }
 
 static void WriteConstants(unsigned FirstVal, unsigned LastVal,
@@ -1437,7 +1438,7 @@ static void WriteConstants(unsigned FirstVal, unsigned LastVal,
       continue;
     }
     const Constant *C = cast<Constant>(V);
-    unsigned Code = -1U;
+    unsigned Code = UINT_MAX;
     unsigned AbbrevToUse = 0;
     if (C->isNullValue()) {
       Code = bitc::CST_CODE_NULL;

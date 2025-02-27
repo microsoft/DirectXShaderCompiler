@@ -1283,7 +1283,7 @@ llvm::Value *X86_32ABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
     Addr = CGF.Builder.CreateGEP(Addr, Offset);
     llvm::Value *AsInt = CGF.Builder.CreatePtrToInt(Addr,
                                                     CGF.Int32Ty);
-    llvm::Value *Mask = llvm::ConstantInt::get(CGF.Int32Ty, -Align);
+    llvm::Value *Mask = llvm::ConstantInt::get(CGF.Int32Ty, -static_cast<int>(Align));
     Addr = CGF.Builder.CreateIntToPtr(CGF.Builder.CreateAnd(AsInt, Mask),
                                       Addr->getType(),
                                       "ap.cur.aligned");
@@ -2841,7 +2841,7 @@ static llvm::Value *EmitVAArgFromMemory(llvm::Value *VAListAddr,
   // byte boundary if alignment needed by type exceeds 8 byte boundary.
   // It isn't stated explicitly in the standard, but in practice we use
   // alignment greater than 16 where necessary.
-  uint64_t Align = CGF.getContext().getTypeAlign(Ty) / 8;
+  unsigned int Align = CGF.getContext().getTypeAlign(Ty) / 8;
   if (Align > 8) {
     // overflow_arg_area = (overflow_arg_area + align - 1) & -align;
     llvm::Value *Offset =
@@ -2849,7 +2849,7 @@ static llvm::Value *EmitVAArgFromMemory(llvm::Value *VAListAddr,
     overflow_arg_area = CGF.Builder.CreateGEP(overflow_arg_area, Offset);
     llvm::Value *AsInt = CGF.Builder.CreatePtrToInt(overflow_arg_area,
                                                     CGF.Int64Ty);
-    llvm::Value *Mask = llvm::ConstantInt::get(CGF.Int64Ty, -(uint64_t)Align);
+    llvm::Value *Mask = llvm::ConstantInt::get(CGF.Int64Ty, -static_cast<int>(Align));
     overflow_arg_area =
       CGF.Builder.CreateIntToPtr(CGF.Builder.CreateAnd(AsInt, Mask),
                                  overflow_arg_area->getType(),

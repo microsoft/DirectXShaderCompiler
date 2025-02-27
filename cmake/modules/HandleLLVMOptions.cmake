@@ -301,7 +301,6 @@ if( MSVC )
 
   set(msvc_warning_flags
     # Disabled warnings.
-    -wd4146 # Suppress 'unary minus operator applied to unsigned type, result still unsigned'
     -wd4180 # Suppress 'qualifier applied to function type has no meaning; ignored'
     -wd4244 # Suppress ''argument' : conversion from 'type1' to 'type2', possible loss of data'
     -wd4258 # Suppress ''var' : definition from the for loop is ignored; the definition from the enclosing scope is used'
@@ -323,7 +322,6 @@ if( MSVC )
     -wd4512 # Suppress 'assignment operator could not be generated'
     -wd4505 # Suppress 'unreferenced local function has been removed'
     -wd4610 # Suppress '<class> can never be instantiated'
-    -wd4510 # Suppress 'default constructor could not be generated'
     -wd4702 # Suppress 'unreachable code'
     -wd4245 # Suppress 'signed/unsigned mismatch'
     -wd4706 # Suppress 'assignment within conditional expression'

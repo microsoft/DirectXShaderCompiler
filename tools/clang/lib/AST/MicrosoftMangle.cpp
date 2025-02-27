@@ -633,7 +633,7 @@ void MicrosoftCXXNameMangler::mangleNumber(int64_t Number) {
 
   uint64_t Value = static_cast<uint64_t>(Number);
   if (Number < 0) {
-    Value = -Value;
+    Value = -static_cast<int64_t>(Value);
     Out << '?';
   }
 
@@ -2308,7 +2308,13 @@ static void mangleThunkThisAdjustment(const CXXMethodDecl *MD,
       Out << AccessSpec;
       Mangler.mangleNumber(
           static_cast<uint32_t>(Adjustment.Virtual.Microsoft.VtordispOffset));
-      Mangler.mangleNumber(-static_cast<uint32_t>(Adjustment.NonVirtual));
+      // implicit cast to uint32_t from int64_t.
+      uint32_t nv = Adjustment.NonVirtual;
+      // 'negate' the 32-bit value.
+      int32_t nv32 = -static_cast<int32_t>(nv);
+      // implicit cast back to int64_t.
+      int64_t nv64 = nv32;
+      Mangler.mangleNumber(nv64);
     }
   } else if (Adjustment.NonVirtual != 0) {
     switch (MD->getAccess()) {
@@ -2323,7 +2329,13 @@ static void mangleThunkThisAdjustment(const CXXMethodDecl *MD,
     case AS_public:
       Out << 'W';
     }
-    Mangler.mangleNumber(-static_cast<uint32_t>(Adjustment.NonVirtual));
+    // implicit cast to uint32_t from int64_t.
+    uint32_t nv = Adjustment.NonVirtual;
+    // 'negate' the 32-bit value.
+    int32_t nv32 = -static_cast<int32_t>(nv);
+    // implicit cast back to int64_t.
+    int64_t nv64 = nv32;
+    Mangler.mangleNumber(nv64);
   } else {
     switch (MD->getAccess()) {
     case AS_none:

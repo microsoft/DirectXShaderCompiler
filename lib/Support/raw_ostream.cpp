@@ -134,13 +134,20 @@ raw_ostream &raw_ostream::operator<<(unsigned long N) {
 }
 
 raw_ostream &raw_ostream::operator<<(long N) {
+  // A positive signed long has the same value when casted to its unsigned 
+  // counterpart.
+  unsigned long UN = static_cast<unsigned long>(N);
   if (N < 0 && writeBase == 10) {
     *this << '-';
-    // Avoid undefined behavior on LONG_MIN with a cast.
-    N = -(unsigned long)N;
+
+    // std::abs(LONG_MIN) is undefined on 2's complement systems because 
+    // abs(LONG_MIN) can be 1 greater than LONG_MAX. Add 1 to make it 
+    // larger so std::abs is defined. 'UN' is unsigned so we can safely 
+    // add that 1 back to get the true absolute value.
+    UN = std::abs(N + 1) + 1;
   }
 
-  return this->operator<<(static_cast<unsigned long>(N));
+  return this->operator<<(UN);
 }
 
 raw_ostream &raw_ostream::operator<<(unsigned long long N) {
@@ -169,13 +176,20 @@ raw_ostream &raw_ostream::operator<<(unsigned long long N) {
 }
 
 raw_ostream &raw_ostream::operator<<(long long N) {
+  // A positive signed long long has the same value when casted to its unsigned 
+  // counterpart.
+  unsigned long long UN = static_cast<unsigned long long>(N);
   if (N < 0 && writeBase == 10) {
     *this << '-';
-    // Avoid undefined behavior on INT64_MIN with a cast.
-    N = -(unsigned long long)N;
+
+    // std::abs(LLONG_MIN) is undefined on 2's complement systems because 
+    // abs(LLONG_MIN) can be 1 greater than LONG_MAX. Add 1 to make it 
+    // larger so std::abs is defined. 'UN' is unsigned so we can safely 
+    // add that 1 back to get the true absolute value.
+    UN = std::abs(N + 1) + 1;
   }
 
-  return this->operator<<(static_cast<unsigned long long>(N));
+  return this->operator<<(UN);
 }
 
 // HLSL Change Starts - Generalize non-base10 printing.
@@ -470,7 +484,13 @@ raw_ostream &raw_ostream::operator<<(const FormattedNumber &FN) {
     char *EndPtr = NumberBuffer+sizeof(NumberBuffer);
     char *CurPtr = EndPtr;
     bool Neg = (FN.DecValue < 0);
-    uint64_t N = Neg ? -static_cast<uint64_t>(FN.DecValue) : FN.DecValue;
+    
+    // We use "std::abs(FN.DecValue + 1) + 1" to safely handle the case when 
+    // FN.DecValue == INT64_MIN because the absolute value of INT64_MIN is 
+    // undefined on 2's complement systems. Adding 1 to the negative value 
+    // puts it back into a safe range for std::abs. And then we adjust to the 
+    // correct value by adding 1 again to the positive value.
+    uint64_t N = Neg ? static_cast<uint64_t>(std::abs(FN.DecValue + 1) + 1) : FN.DecValue;
     while (N) {
       *--CurPtr = '0' + char(N % 10);
       N /= 10;

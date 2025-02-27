@@ -1395,8 +1395,10 @@ static bool isAMCompletelyFolded(const TargetTransformInfo &TTI,
       // ICmpZero -1*ScaleReg + BaseOffset => ICmp ScaleReg, BaseOffset
       // Offs is the ICmp immediate.
       if (Scale == 0)
-        // The cast does the right thing with INT64_MIN.
-        BaseOffset = -(uint64_t)BaseOffset;
+        // This cast was a bug. abs(INT64_MIN) is 1 larger than INT64_MAX.
+        // Can BaseOffset ever be INT64_MIN? I'm not sure what the original
+        // comment was talking about.
+        BaseOffset = -BaseOffset;
       return TTI.isLegalICmpImmediate(BaseOffset);
     }
 
@@ -3000,7 +3002,7 @@ void LSRInstance::CollectFixupsAndInitialFormulae() {
         // of -1) are now also interesting.
         for (size_t i = 0, e = Factors.size(); i != e; ++i)
           if (Factors[i] != -1)
-            Factors.insert(-(uint64_t)Factors[i]);
+            Factors.insert(-Factors[i]);
         Factors.insert(-1);
       }
 
@@ -3739,7 +3741,7 @@ void LSRInstance::GenerateCrossUseConstantOffsets() {
     const SCEV *OrigReg = WI.OrigReg;
 
     Type *IntTy = SE.getEffectiveSCEVType(OrigReg->getType());
-    const SCEV *NegImmS = SE.getSCEV(ConstantInt::get(IntTy, -(uint64_t)Imm));
+    const SCEV *NegImmS = SE.getSCEV(ConstantInt::get(IntTy, -Imm));
     unsigned BitWidth = SE.getTypeSizeInBits(IntTy);
 
     // TODO: Use a more targeted data structure.
@@ -3755,7 +3757,7 @@ void LSRInstance::GenerateCrossUseConstantOffsets() {
         int64_t Offset = (uint64_t)F.BaseOffset + Imm * (uint64_t)F.Scale;
         // Don't create 50 + reg(-50).
         if (F.referencesReg(SE.getSCEV(
-                   ConstantInt::get(IntTy, -(uint64_t)Offset))))
+                   ConstantInt::get(IntTy, -Offset))))
           continue;
         Formula NewF = F;
         NewF.BaseOffset = Offset;
@@ -4556,7 +4558,7 @@ Value *LSRInstance::Expand(const LSRFixup &LF, const Formula &F,
       // The other interesting way of "folding" with an ICmpZero is to use a
       // negated immediate.
       if (!ICmpScaledV)
-        ICmpScaledV = ConstantInt::get(IntTy, -(uint64_t)Offset);
+        ICmpScaledV = ConstantInt::get(IntTy, -Offset);
       else {
         Ops.push_back(SE.getUnknown(ICmpScaledV));
         ICmpScaledV = ConstantInt::get(IntTy, Offset);
@@ -4609,7 +4611,7 @@ Value *LSRInstance::Expand(const LSRFixup &LF, const Formula &F,
              "ICmp does not support folding a global value and "
              "a scale at the same time!");
       Constant *C = ConstantInt::getSigned(SE.getEffectiveSCEVType(OpTy),
-                                           -(uint64_t)Offset);
+                                           -Offset);
       if (C->getType() != OpTy)
         C = ConstantExpr::getCast(CastInst::getCastOpcode(C, false,
                                                           OpTy, false),
