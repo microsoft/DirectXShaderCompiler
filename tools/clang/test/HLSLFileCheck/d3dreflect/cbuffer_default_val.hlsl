@@ -9,7 +9,7 @@ float main() : SV_TARGET
 }
 
 // Default value unsupported for now:
-// CHECK: ID3D12ShaderReflection:
+// CHECK: ID3D12ShaderReflection1:
 // CHECK:   D3D12_SHADER_DESC:
 // CHECK:     Shader Version: Pixel
 // CHECK:     ConstantBuffers: 1

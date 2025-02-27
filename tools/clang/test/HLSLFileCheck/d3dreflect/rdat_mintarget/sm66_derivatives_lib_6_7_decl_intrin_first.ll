@@ -189,7 +189,7 @@ attributes #3 = { nounwind readonly }
 ; Make sure function-level derivative flag isn't in RequiredFeatureFlags,
 ; and make sure mesh shader sets required flag.
 
-; RDAT-LABEL: ID3D12LibraryReflection:
+; RDAT-LABEL: ID3D12LibraryReflection1:
 
 ; RDAT-LABEL: D3D12_FUNCTION_DESC: Name:
 ; RDAT-SAME: deriv_in_func
