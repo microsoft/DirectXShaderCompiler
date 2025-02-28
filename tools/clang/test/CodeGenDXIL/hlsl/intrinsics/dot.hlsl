@@ -111,8 +111,8 @@ float4 main(int1 i1[2] : IO, int2 i2[2] : IT, int3 i3[2] : IH, int4 i4[2] : IF,
   // CHECK-DAG: [[I0:%.*]] = call i32 @dx.op.loadInput.i32(i32 4, i32 8, i32 0, i8 0, i32 undef)
   // CHECK-DAG: [[I1:%.*]] = call i32 @dx.op.loadInput.i32(i32 4, i32 8, i32 1, i8 0, i32 undef)
   // CHECK: mul i32 [[I0]], [[I1]]
-  // CGLDOT: call i32 @"dx.hl.op.rn.i32 (i32, <1 x i32>, <1 x i32>)"(i32 349, <1 x i32> %{{.*}}, <1 x i32> %{{.*}})
-  // CGLMUL: call i32 @"dx.hl.op.rn.i32 (i32, <1 x i32>, <1 x i32>)"(i32 354, <1 x i32> %{{.*}}, <1 x i32> %{{.*}})
+  // CGLDOT: call i32 @"dx.hl.op.rn.i32 (i32, <1 x i32>, <1 x i32>)"(i32 352, <1 x i32> %{{.*}}, <1 x i32> %{{.*}})
+  // CGLMUL: call i32 @"dx.hl.op.rn.i32 (i32, <1 x i32>, <1 x i32>)"(i32 357, <1 x i32> %{{.*}}, <1 x i32> %{{.*}})
   u += FUNC(u1[0], u1[1]);
 
   // CHECK-DAG: [[I00:%.*]] = call i32 @dx.op.loadInput.i32(i32 4, i32 9, i32 0, i8 0, i32 undef)
@@ -122,8 +122,8 @@ float4 main(int1 i1[2] : IO, int2 i2[2] : IT, int3 i3[2] : IH, int4 i4[2] : IF,
 
   // CHECK: [[MUL:%.*]] = mul i32 [[I00]], [[I10]]
   // CHECK: call i32 @dx.op.tertiary.i32(i32 49, i32 [[I01]], i32 [[I11]], i32 [[MUL]])  ; UMad(a,b,c)
-  // CGLDOT: call i32 @"dx.hl.op.rn.i32 (i32, <2 x i32>, <2 x i32>)"(i32 349, <2 x i32> %{{.*}}, <2 x i32> %{{.*}})
-  // CGLMUL: call i32 @"dx.hl.op.rn.i32 (i32, <2 x i32>, <2 x i32>)"(i32 354, <2 x i32> %{{.*}}, <2 x i32> %{{.*}})
+  // CGLDOT: call i32 @"dx.hl.op.rn.i32 (i32, <2 x i32>, <2 x i32>)"(i32 352, <2 x i32> %{{.*}}, <2 x i32> %{{.*}})
+  // CGLMUL: call i32 @"dx.hl.op.rn.i32 (i32, <2 x i32>, <2 x i32>)"(i32 357, <2 x i32> %{{.*}}, <2 x i32> %{{.*}})
   u += FUNC(u2[0], u2[1]);
 
   // CHECK-DAG: [[I00:%.*]] = call i32 @dx.op.loadInput.i32(i32 4, i32 10, i32 0, i8 0, i32 undef)
@@ -136,8 +136,8 @@ float4 main(int1 i1[2] : IO, int2 i2[2] : IT, int3 i3[2] : IH, int4 i4[2] : IF,
   // CHECK: [[PING:%.*]] = mul i32 [[I00]], [[I10]]
   // CHECK: [[PONG:%.*]] = call i32 @dx.op.tertiary.i32(i32 49, i32 [[I01]], i32 [[I11]], i32 [[PING]])  ; UMad(a,b,c)
   // CHECK: [[PING:%.*]] = call i32 @dx.op.tertiary.i32(i32 49, i32 [[I02]], i32 [[I12]], i32 [[PONG]])  ; UMad(a,b,c)
-  // CGLDOT: call i32 @"dx.hl.op.rn.i32 (i32, <3 x i32>, <3 x i32>)"(i32 349, <3 x i32> %{{.*}}, <3 x i32> %{{.*}})
-  // CGLMUL: call i32 @"dx.hl.op.rn.i32 (i32, <3 x i32>, <3 x i32>)"(i32 354, <3 x i32> %{{.*}}, <3 x i32> %{{.*}})
+  // CGLDOT: call i32 @"dx.hl.op.rn.i32 (i32, <3 x i32>, <3 x i32>)"(i32 352, <3 x i32> %{{.*}}, <3 x i32> %{{.*}})
+  // CGLMUL: call i32 @"dx.hl.op.rn.i32 (i32, <3 x i32>, <3 x i32>)"(i32 357, <3 x i32> %{{.*}}, <3 x i32> %{{.*}})
   u += FUNC(u3[0], u3[1]);
 
   // CHECK-DAG: [[I00:%.*]] = call i32 @dx.op.loadInput.i32(i32 4, i32 11, i32 0, i8 0, i32 undef)
@@ -153,8 +153,8 @@ float4 main(int1 i1[2] : IO, int2 i2[2] : IT, int3 i3[2] : IH, int4 i4[2] : IF,
   // CHECK: [[PONG:%.*]] = call i32 @dx.op.tertiary.i32(i32 49, i32 [[I01]], i32 [[I11]], i32 [[PING]])  ; UMad(a,b,c)
   // CHECK: [[PING:%.*]] = call i32 @dx.op.tertiary.i32(i32 49, i32 [[I02]], i32 [[I12]], i32 [[PONG]])  ; UMad(a,b,c)
   // CHECK: [[PONG:%.*]] = call i32 @dx.op.tertiary.i32(i32 49, i32 [[I03]], i32 [[I13]], i32 [[PING]])  ; UMad(a,b,c)
-  // CGLDOT: call i32 @"dx.hl.op.rn.i32 (i32, <4 x i32>, <4 x i32>)"(i32 349, <4 x i32> %{{.*}}, <4 x i32> %{{.*}})
-  // CGLMUL: call i32 @"dx.hl.op.rn.i32 (i32, <4 x i32>, <4 x i32>)"(i32 354, <4 x i32> %{{.*}}, <4 x i32> %{{.*}})
+  // CGLDOT: call i32 @"dx.hl.op.rn.i32 (i32, <4 x i32>, <4 x i32>)"(i32 352, <4 x i32> %{{.*}}, <4 x i32> %{{.*}})
+  // CGLMUL: call i32 @"dx.hl.op.rn.i32 (i32, <4 x i32>, <4 x i32>)"(i32 357, <4 x i32> %{{.*}}, <4 x i32> %{{.*}})
   u += FUNC(u4[0], u4[1]);
 
   return float4(i, f, u, 0);
