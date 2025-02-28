@@ -4,6 +4,10 @@
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
+//
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 //
 //  This file implements the in-memory representation of SPIR-V instructions.
@@ -57,6 +61,8 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantInteger)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantFloat)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantComposite)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantNull)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConvertPtrToU)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConvertUToPtr)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUndef)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeConstruct)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeExtract)
@@ -618,6 +624,28 @@ SpirvConstantNull::SpirvConstantNull(QualType type)
 bool SpirvConstantNull::operator==(const SpirvConstantNull &that) const {
   return opcode == that.opcode && resultType == that.resultType &&
          astResultType == that.astResultType;
+}
+
+SpirvConvertPtrToU::SpirvConvertPtrToU(SpirvInstruction *ptr, QualType type,
+                                       SourceLocation loc, SourceRange range)
+    : SpirvInstruction(IK_ConvertPtrToU, spv::Op::OpConvertPtrToU, type, loc,
+                       range),
+      ptr(ptr) {}
+
+bool SpirvConvertPtrToU::operator==(const SpirvConvertPtrToU &that) const {
+  return opcode == that.opcode && resultType == that.resultType &&
+         astResultType == that.astResultType && ptr == that.ptr;
+}
+
+SpirvConvertUToPtr::SpirvConvertUToPtr(SpirvInstruction *val, QualType type,
+                                       SourceLocation loc, SourceRange range)
+    : SpirvInstruction(IK_ConvertUToPtr, spv::Op::OpConvertUToPtr, type, loc,
+                       range),
+      val(val) {}
+
+bool SpirvConvertUToPtr::operator==(const SpirvConvertUToPtr &that) const {
+  return opcode == that.opcode && resultType == that.resultType &&
+         astResultType == that.astResultType && val == that.val;
 }
 
 SpirvUndef::SpirvUndef(QualType type)

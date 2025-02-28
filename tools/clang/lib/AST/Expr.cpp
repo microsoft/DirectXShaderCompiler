@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 //
 // This file implements the Expr class and subclasses.
@@ -1716,7 +1719,11 @@ const char *CastExpr::getCastKindName() const {
     return "HLSLCC_FloatingToBoolean";
   case CK_HLSLCC_FloatingCast:
     return "HLSLCC_FloatingCast";
-  // HLSL Change Ends
+  case CK_VK_BufferPointerToIntegral:
+    return "VK_BufferPointerToIntegral";
+  case CK_VK_IntegralToBufferPointer:
+    return "VK_IntegralToBufferPointer";
+    // HLSL Change Ends
   }
 
   llvm_unreachable("Unhandled cast kind!");
