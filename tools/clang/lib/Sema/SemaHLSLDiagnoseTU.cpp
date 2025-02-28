@@ -341,7 +341,7 @@ public:
   }
 
   void DiagnoseTraceRayInline(const MemberExpr *ME,
-                                     CXXMemberCallExpr *callExpr) {
+                              CXXMemberCallExpr *callExpr) {
     // validate that if the ray flag parameter is
     // RAY_FLAG_FORCE_OMM_2_STATE, the ray query object
     // has the RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS
@@ -397,7 +397,7 @@ public:
         }
       }
     }
-  }  
+  }
 
   bool VisitCXXMemberCallExpr(CXXMemberCallExpr *callExpr) {
     // Diagnose TraceRayInline member call
@@ -405,13 +405,13 @@ public:
 
     if (!ME)
       return false;
-    
+
     const Decl *MD = ME->getMemberDecl();
 
     if (const CXXMethodDecl *methodDecl = dyn_cast<CXXMethodDecl>(MD)) {
       if (methodDecl->getNameAsString() == "TraceRayInline")
-        DiagnoseTraceRayInline(ME, callExpr);  
-    }      
+        DiagnoseTraceRayInline(ME, callExpr);
+    }
     return true;
   }
 

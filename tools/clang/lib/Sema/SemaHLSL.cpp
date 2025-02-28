@@ -14167,12 +14167,12 @@ static bool DiagnoseRayQueryObject(QualType qt, Declarator &D, Sema &S) {
   const TemplateSpecializationType *TST =
       dyn_cast<TemplateSpecializationType>(qt);
   if (!TST)
-    return false; 
+    return false;
 
   auto *SpecDecl =
       llvm::dyn_cast<ClassTemplateSpecializationDecl>(qt->getAsCXXRecordDecl());
   if (!SpecDecl)
-    return false;  
+    return false;
 
   // get number of template args
   unsigned numArgs = TST->getNumArgs();
@@ -14224,13 +14224,13 @@ static bool DiagnoseRayQueryObject(QualType qt, Declarator &D, Sema &S) {
         S.Diag(DRE->getDecl()->getLocStart(),
                diag::warn_hlsl_enum_type_not_allowed)
             << DRE->getDecl()->getIdentifier()->getName() << SM->GetName()
-            << "6.9";      
+            << "6.9";
       // otherwise, it could be an integer literal
       else if (auto *IL = dyn_cast<IntegerLiteral>(subExpr))
         S.Diag(
             D.getLocStart(),
             diag::warn_hlsl_unexpected_value_for_ray_query_flags_template_arg);
-      
+
       return false;
     }
   }
@@ -14241,7 +14241,7 @@ static bool DiagnoseRayQueryObject(QualType qt, Declarator &D, Sema &S) {
     if (!(Arg2val.getZExtValue() &
           (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps))
       S.Diag(D.getLocStart(), diag::warn_hlsl_unexpected_rayquery_flag);
-      return false;    
+    return false;
   }
   return true;
 }
