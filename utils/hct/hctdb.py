@@ -5555,8 +5555,6 @@ class db_dxil(object):
         # Reserved block C
         next_op_idx = self.reserve_dxil_op_range("ReservedC", next_op_idx, 10)
 
-        self.set_op_count_for_version(1, 9, next_op_idx)
-
         # Set interesting properties.
         self.build_indices()
         for (
