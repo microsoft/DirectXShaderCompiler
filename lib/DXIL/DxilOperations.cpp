@@ -2601,16 +2601,21 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         {false, false, false, false, false, false, false, true, false, false,
          false},
         Attribute::ReadNone,
-    },                                                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+    },
+
+    // Inline Ray Query void,     h,     f,     d,    i1,    i8,   i16,   i32,
+    // i64,   udt,   obj ,  function attribute
     {
         OC::AllocateRayQuery2,
         "AllocateRayQuery2",
-        OCC::Reserved,
+        OCC::AllocateRayQuery2,
         "allocateRayQuery2",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
+
+    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
     {
         OC::ReservedA0,
         "ReservedA0",
@@ -5831,12 +5836,17 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::StartInstanceLocation:
     A(pI32);
     A(pI32);
-    break;   
+    break;
+
+    // Inline Ray Query
   case OpCode::AllocateRayQuery2:
     A(pI32);
     A(pI32);
     A(pI32);
+    A(pI32);
     break;
+
+    //
   case OpCode::ReservedA0:
     A(pV);
     A(pI32);
