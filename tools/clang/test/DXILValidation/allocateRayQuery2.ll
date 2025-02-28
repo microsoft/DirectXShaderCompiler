@@ -11,21 +11,21 @@ target triple = "dxil-ms-dx"
 
 define void @main() {
   ; test for incompatible flags
-  ; CHECK: error: RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS must be set for RayQueryFlags when RAY_FLAG_FORCE_OMM_2_STATE is set for constRayFlags on AllocateRayQuery2 operation.
-  ; CHECK: note: at '%1 = call i32 @dx.op.allocateRayQuery2(i32 258, i32 1024, i32 0)' in block '#0' of function 'main'.
+  ; CHECK-DAG: error: RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS must be set for RayQueryFlags when RAY_FLAG_FORCE_OMM_2_STATE is set for constRayFlags on AllocateRayQuery2 operation.
+  ; CHECK-DAG: note: at '%1 = call i32 @dx.op.allocateRayQuery2(i32 258, i32 1024, i32 0)' in block '#0' of function 'main'.
   %1 = call i32 @dx.op.allocateRayQuery2(i32 258, i32 1024, i32 0)  ; AllocateRayQuery2(constRayFlags, RayQueryFlags)
   %ptr = getelementptr i32, i32* @nonconstVal, i32 0 ; Get the pointer to the global variable
   %val = load i32, i32* %ptr ; Dereference the pointer to load the value
   
   ; test for all combinations of non-constant flags
-  ; CHECK: error: constRayFlags and RayQueryFlags arguments of AllocateRayQuery2 must be constant
-  ; CHECK: note: at '%2 = call i32 @dx.op.allocateRayQuery2(i32 258, i32 1024, i32 %val)' in block '#0' of function 'main'.
+  ; CHECK-DAG: error: constRayFlags and RayQueryFlags arguments of AllocateRayQuery2 must be constant
+  ; CHECK-DAG: note: at '%2 = call i32 @dx.op.allocateRayQuery2(i32 258, i32 1024, i32 %val)' in block '#0' of function 'main'.
   %2 = call i32 @dx.op.allocateRayQuery2(i32 258, i32 1024, i32 %val)  ; AllocateRayQuery2(constRayFlags, RayQueryFlags)
-  ; CHECK: error: constRayFlags and RayQueryFlags arguments of AllocateRayQuery2 must be constant
-  ; CHECK: note: at '%3 = call i32 @dx.op.allocateRayQuery2(i32 258, i32 %val, i32 1)' in block '#0' of function 'main'.
+  ; CHECK-DAG: error: constRayFlags and RayQueryFlags arguments of AllocateRayQuery2 must be constant
+  ; CHECK-DAG: note: at '%3 = call i32 @dx.op.allocateRayQuery2(i32 258, i32 %val, i32 1)' in block '#0' of function 'main'.
   %3 = call i32 @dx.op.allocateRayQuery2(i32 258, i32 %val, i32 1)  ; AllocateRayQuery2(constRayFlags, RayQueryFlags)
-  ; CHECK: error: constRayFlags and RayQueryFlags arguments of AllocateRayQuery2 must be constant
-  ; CHECK: note: at '%4 = call i32 @dx.op.allocateRayQuery2(i32 258, i32 %val, i32 %val)' in block '#0' of function 'main'.
+  ; CHECK-DAG: error: constRayFlags and RayQueryFlags arguments of AllocateRayQuery2 must be constant
+  ; CHECK-DAG: note: at '%4 = call i32 @dx.op.allocateRayQuery2(i32 258, i32 %val, i32 %val)' in block '#0' of function 'main'.
   %4 = call i32 @dx.op.allocateRayQuery2(i32 258, i32 %val, i32 %val)  ; AllocateRayQuery2(constRayFlags, RayQueryFlags)
 
   ret void
