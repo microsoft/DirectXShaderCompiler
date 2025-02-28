@@ -14161,21 +14161,18 @@ static bool IsUsageAttributeCompatible(AttributeList::Kind kind, bool &usageIn,
   return true;
 }
 
-bool DiagnoseRayQueryObject(QualType qt, Declarator &D, Sema &S) {
+static bool DiagnoseRayQueryObject(QualType qt, Declarator &D, Sema &S) {
   // now we know that qt is a TemplateSpecializationType
   // handle diagnostics that relate to enumtypedecl vs literal first
   const TemplateSpecializationType *TST =
       dyn_cast<TemplateSpecializationType>(qt);
-  if (!TST) {
-    return false;
-  }
+  if (!TST)
+    return false; 
 
-  auto typeRecordDecl = qt->getAsCXXRecordDecl();
-  ClassTemplateSpecializationDecl *SpecDecl =
-      llvm::dyn_cast<ClassTemplateSpecializationDecl>(typeRecordDecl);
-  if (!SpecDecl) {
-    return false;
-  }
+  auto *SpecDecl =
+      llvm::dyn_cast<ClassTemplateSpecializationDecl>(qt->getAsCXXRecordDecl());
+  if (!SpecDecl)
+    return false;  
 
   // get number of template args
   unsigned numArgs = TST->getNumArgs();
@@ -14202,10 +14199,10 @@ bool DiagnoseRayQueryObject(QualType qt, Declarator &D, Sema &S) {
   // ensure that if the second template argument has a non-zero value,
   // the shader model is at least 6.9
   const TemplateArgument *Args = TST->getArgs();
-  auto Arg2 = Args[1];
+  const TemplateArgument &Arg2 = Args[1];
   llvm::APSInt Arg2val = SpecDecl->getTemplateArgs()[1].getAsIntegral();
-  std::string profile = S.getLangOpts().HLSLProfile;
-  const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
+  const ShaderModel *SM =
+      hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile.c_str());
 
   if (Arg2val.getZExtValue() != 0 && !SM->IsSMAtLeast(6, 9)) {
     // if it's an enum value, then emit
@@ -14223,19 +14220,17 @@ bool DiagnoseRayQueryObject(QualType qt, Declarator &D, Sema &S) {
             dyn_cast<ImplicitCastExpr>(Arg2.getAsExpr()->IgnoreParens())) {
       // Now check if the sub-expression is a DeclRefExpr
       Expr *subExpr = castExpr->getSubExpr();
-      if (auto *DRE = dyn_cast<DeclRefExpr>(subExpr)) {
+      if (auto *DRE = dyn_cast<DeclRefExpr>(subExpr))
         S.Diag(DRE->getDecl()->getLocStart(),
                diag::warn_hlsl_enum_type_not_allowed)
             << DRE->getDecl()->getIdentifier()->getName() << SM->GetName()
-            << "6.9";
-      }
+            << "6.9";      
       // otherwise, it could be an integer literal
-      else if (auto *IL = dyn_cast<IntegerLiteral>(subExpr)) {
+      else if (auto *IL = dyn_cast<IntegerLiteral>(subExpr))
         S.Diag(
             D.getLocStart(),
             diag::warn_hlsl_unexpected_value_for_ray_query_flags_template_arg);
-      }
-
+      
       return false;
     }
   }
@@ -14244,10 +14239,9 @@ bool DiagnoseRayQueryObject(QualType qt, Declarator &D, Sema &S) {
     // additionally check that the expected flag is given in the
     // second arg
     if (!(Arg2val.getZExtValue() &
-          (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps)) {
+          (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps))
       S.Diag(D.getLocStart(), diag::warn_hlsl_unexpected_rayquery_flag);
-      return false;
-    }
+      return false;    
   }
   return true;
 }
