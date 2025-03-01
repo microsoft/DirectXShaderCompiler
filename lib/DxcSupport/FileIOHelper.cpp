@@ -1369,6 +1369,8 @@ public:
       return E_POINTER;
     ULONG cbLeft = m_size - m_offset;
     *pcbRead = std::min(cb, cbLeft);
+    if (m_pMemory + m_offset == 0)
+      return S_FALSE;
     memcpy(pv, m_pMemory + m_offset, *pcbRead);
     m_offset += *pcbRead;
     return (*pcbRead == cb) ? S_OK : S_FALSE;

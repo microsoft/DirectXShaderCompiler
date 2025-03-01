@@ -3969,13 +3969,6 @@ public:
     return IsSubobjectBasicKind(GetTypeElementKind(type));
   }
 
-  bool IsRayQueryBasicKind(ArBasicKind kind) {
-    return kind == AR_OBJECT_RAY_QUERY;
-  }
-  bool IsRayQueryType(QualType type) {
-    return IsRayQueryBasicKind(GetTypeElementKind(type));
-  }
-
   void WarnMinPrecision(QualType Type, SourceLocation Loc) {
     Type = Type->getCanonicalTypeUnqualified();
     if (IsVectorType(m_sema, Type) || IsMatrixType(m_sema, Type)) {
@@ -4627,6 +4620,18 @@ public:
     }
   }
 
+  ArBasicKind GetKindFromQualType(QualType qt, bool &found) {
+    const CXXRecordDecl *typeRecordDecl =
+        GetRecordDeclForBuiltInOrStruct(qt->getAsCXXRecordDecl());
+    int index = FindObjectBasicKindIndex(
+        GetRecordDeclForBuiltInOrStruct(typeRecordDecl));
+    if (index == -1) {
+      found = false;
+      return ArBasicKind::AR_OBJECT_NULL;
+    }
+    found = true;
+    return g_ArBasicKindsAsTypes[index];
+  }
   // Retrieves the ResourceKind and ResourceClass in `ResKind` and `ResClass`
   // respectively that correspond to the given basic kind `BasicKind`.
   // Returns true if `BasicKind` is a resource and return params are assigned.
@@ -14156,6 +14161,91 @@ static bool IsUsageAttributeCompatible(AttributeList::Kind kind, bool &usageIn,
   return true;
 }
 
+static bool DiagnoseRayQueryObject(QualType qt, Declarator &D, Sema &S) {
+  // now we know that qt is a TemplateSpecializationType
+  // handle diagnostics that relate to enumtypedecl vs literal first
+  const TemplateSpecializationType *TST =
+      dyn_cast<TemplateSpecializationType>(qt);
+  if (!TST)
+    return false;
+
+  auto *SpecDecl =
+      llvm::dyn_cast<ClassTemplateSpecializationDecl>(qt->getAsCXXRecordDecl());
+  if (!SpecDecl)
+    return false;
+
+  // get number of template args
+  unsigned numArgs = TST->getNumArgs();
+  assert((numArgs == 1 || numArgs == 2) &&
+         "All ray query declarations should have one or two template "
+         "args");
+  llvm::APSInt Arg1val = SpecDecl->getTemplateArgs()[0].getAsIntegral();
+  bool IsForceOMM2State =
+      Arg1val.getZExtValue() & (unsigned)DXIL::RayFlag::ForceOMM2State;
+
+  // if there's only one template argument, then it cannot be the
+  // ForceOMM2State flag, since the second argument needs to be
+  // DXIL::RayQueryFlag::AllowOpacityMicromaps, not the default 0
+  if (numArgs == 1) {
+    if (IsForceOMM2State) {
+      S.Diag(D.getLocStart(), diag::warn_hlsl_unexpected_rayquery_flag);
+      return false;
+    }
+    return true;
+  }
+
+  // we're guaranteed 2 args now
+
+  // ensure that if the second template argument has a non-zero value,
+  // the shader model is at least 6.9
+  const TemplateArgument *Args = TST->getArgs();
+  const TemplateArgument &Arg2 = Args[1];
+  llvm::APSInt Arg2val = SpecDecl->getTemplateArgs()[1].getAsIntegral();
+  const ShaderModel *SM =
+      hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile.c_str());
+
+  if (Arg2val.getZExtValue() != 0 && !SM->IsSMAtLeast(6, 9)) {
+    // if it's an enum value, then emit
+    // warn_hlsl_enum_type_not_allowed otherwise emit
+    // warn_hlsl_unexpected_value_for_ray_query_flags_template_arg
+
+    // we can tell that it's an enum value if it has this AST
+    // structure:
+    //`- ImplicitCastExpr 0x2d9b604a870 'unsigned int' <LValueToRValue
+    //> |   `- DeclRefExpr 0x2d9b604a760 'const unsigned int' lvalue
+    // Var 0x2d9b6005840 'RAY_FLAG_FORCE_OMM_2_STATE' 'const unsigned
+    // int'
+
+    if (auto *castExpr =
+            dyn_cast<ImplicitCastExpr>(Arg2.getAsExpr()->IgnoreParens())) {
+      // Now check if the sub-expression is a DeclRefExpr
+      Expr *subExpr = castExpr->getSubExpr();
+      if (auto *DRE = dyn_cast<DeclRefExpr>(subExpr))
+        S.Diag(DRE->getDecl()->getLocStart(),
+               diag::warn_hlsl_enum_type_not_allowed)
+            << DRE->getDecl()->getIdentifier()->getName() << SM->GetName()
+            << "6.9";
+      // otherwise, it could be an integer literal
+      else if (auto *IL = dyn_cast<IntegerLiteral>(subExpr))
+        S.Diag(
+            D.getLocStart(),
+            diag::warn_hlsl_unexpected_value_for_ray_query_flags_template_arg);
+
+      return false;
+    }
+  }
+
+  if (IsForceOMM2State) {
+    // additionally check that the expected flag is given in the
+    // second arg
+    if (!(Arg2val.getZExtValue() &
+          (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps))
+      S.Diag(D.getLocStart(), diag::warn_hlsl_unexpected_rayquery_flag);
+    return false;
+  }
+  return true;
+}
+
 // Diagnose valid/invalid modifiers for HLSL.
 bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
                             TypeSourceInfo *TInfo, bool isParameter) {
@@ -14305,6 +14395,17 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       eltQt = QualType(eltQt->getArrayElementTypeNoTypeQual(), 0);
     if (hlsl::IsObjectType(this, eltQt, &bDeprecatedEffectObject)) {
       bIsObject = true;
+    }
+  }
+
+  if (bIsObject && qt->getAsCXXRecordDecl()) {
+    // get the specific object kind
+    bool found = false;
+    ArBasicKind K = hlslSource->GetKindFromQualType(qt, found);
+    if (found && K == AR_OBJECT_RAY_QUERY) {
+
+      // Validate the ray query object
+      result = DiagnoseRayQueryObject(qt, D, *this);
     }
   }
 
