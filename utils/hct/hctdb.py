@@ -629,6 +629,9 @@ class db_dxil(object):
         ).split(","):
             self.name_idx[i].category = "Inline Ray Query"
             self.name_idx[i].shader_model = 6, 5
+        for i in "AllocateRayQuery2".split(","):
+            self.name_idx[i].category = "Inline Ray Query"
+            self.name_idx[i].shader_model = 6, 9
         for i in "Unpack4x8".split(","):
             self.name_idx[i].category = "Unpacking intrinsics"
             self.name_idx[i].shader_model = 6, 6
@@ -5515,7 +5518,32 @@ class db_dxil(object):
             % next_op_idx
         )
 
-        self.add_dxil_op_reserved("AllocateRayQuery2", next_op_idx)
+        # RayQuery
+        self.add_dxil_op(
+            "AllocateRayQuery2",
+            next_op_idx,
+            "AllocateRayQuery2",
+            "allocates space for RayQuery and return handle",
+            "v",
+            "",
+            [
+                db_dxil_param(0, "i32", "", "handle to RayQuery state"),
+                db_dxil_param(
+                    2,
+                    "u32",
+                    "constRayFlags",
+                    "Valid combination of RAY_FLAGS",
+                    is_const=True,
+                ),
+                db_dxil_param(
+                    3,
+                    "u32",
+                    "constRayQueryFlags",
+                    "Valid combination of RAYQUERY_FLAGS",
+                    is_const=True,
+                ),
+            ],
+        )
         next_op_idx += 1
 
         # Reserved block A
@@ -7913,6 +7941,21 @@ class db_dxil(object):
             "Decl.RayQueryInFnSig",
             "Rayquery objects not allowed in function signatures",
             "Function '%0' uses rayquery object in function signature.",
+        )
+        self.add_valrule_msg(
+            "Decl.AllocateRayQueryFlagsAreConst",
+            "RayFlags for AllocateRayQuery must be constant",
+            "constRayFlags argument of AllocateRayQuery must be constant",
+        )
+        self.add_valrule_msg(
+            "Decl.AllocateRayQuery2FlagsAreConst",
+            "constRayFlags and RayQueryFlags for AllocateRayQuery2 must be constant",
+            "constRayFlags and RayQueryFlags arguments of AllocateRayQuery2 must be constant",
+        )
+        self.add_valrule_msg(
+            "Decl.AllowOpacityMicromapsExpectedGivenForceOMM2State",
+            "When the ForceOMM2State ConstRayFlag is given as an argument to a RayQuery object, AllowOpacityMicromaps is expected as a RayQueryFlag argument",
+            "RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS must be set for RayQueryFlags when RAY_FLAG_FORCE_OMM_2_STATE is set for constRayFlags on AllocateRayQuery2 operation.",
         )
         self.add_valrule_msg(
             "Decl.PayloadStruct",

@@ -2603,16 +2603,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         Attribute::ReadNone,
     },
 
-    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+    // Inline Ray Query void,     h,     f,     d,    i1,    i8,   i16,   i32,
+    // i64,   udt,   obj ,  function attribute
     {
         OC::AllocateRayQuery2,
         "AllocateRayQuery2",
-        OCC::Reserved,
-        "reserved",
+        OCC::AllocateRayQuery2,
+        "allocateRayQuery2",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
+
+    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
     {
         OC::ReservedA0,
         "ReservedA0",
@@ -3739,6 +3742,12 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
       major = 6;
       minor = 8;
     }
+    return;
+  }
+  // Instructions: AllocateRayQuery2=258
+  if (op == 258) {
+    major = 6;
+    minor = 9;
     return;
   }
   // OPCODE-SMMASK:END
@@ -5829,11 +5838,15 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
 
-    //
+    // Inline Ray Query
   case OpCode::AllocateRayQuery2:
-    A(pV);
+    A(pI32);
+    A(pI32);
+    A(pI32);
     A(pI32);
     break;
+
+    //
   case OpCode::ReservedA0:
     A(pV);
     A(pI32);
