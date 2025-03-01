@@ -613,17 +613,25 @@ bool IsHLSLResourceType(clang::QualType type) {
   return false;
 }
 
-static HLSLNodeObjectAttr *getNodeAttr(clang::QualType type) {
+template <typename AttrType> static AttrType *getAttr(clang::QualType type) {
   if (const RecordType *RT = type->getAs<RecordType>()) {
     if (const auto *Spec =
             dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl()))
       if (const auto *Template =
               dyn_cast<ClassTemplateDecl>(Spec->getSpecializedTemplate()))
-        return Template->getTemplatedDecl()->getAttr<HLSLNodeObjectAttr>();
+        return Template->getTemplatedDecl()->getAttr<AttrType>();
     if (const auto *Decl = dyn_cast<CXXRecordDecl>(RT->getDecl()))
-      return Decl->getAttr<HLSLNodeObjectAttr>();
+      return Decl->getAttr<AttrType>();
   }
   return nullptr;
+}
+
+bool IsHLSLHitObjectType(QualType type) {
+  return nullptr != getAttr<HLSLHitObjectAttr>(type);
+}
+
+static HLSLNodeObjectAttr *getNodeAttr(clang::QualType type) {
+  return getAttr<HLSLNodeObjectAttr>(type);
 }
 
 DXIL::NodeIOKind GetNodeIOType(clang::QualType type) {

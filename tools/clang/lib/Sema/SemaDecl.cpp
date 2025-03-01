@@ -804,7 +804,7 @@ Corrected:
         return BuildDeclarationNameExpr(SS, Result, /*ADL=*/false);
       }
     }
-    
+
     // In C, we first see whether there is a tag type by the same name, in 
     // which case it's likely that the user just forget to write "enum", 
     // "struct", or "union".
