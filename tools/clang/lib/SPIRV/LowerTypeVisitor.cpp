@@ -1105,8 +1105,10 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
           field->getBitWidthValue(field->getASTContext());
     }
 
+    llvm::Optional<AttrVec> attributes;
     if (field->hasAttrs()) {
-      for (auto &attr : field->getAttrs()) {
+      attributes.emplace();
+      for (auto attr : field->getAttrs()) {
         if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
           spvBuilder.requireCapability(
               static_cast<spv::Capability>(capAttr->getCapability()),
@@ -1114,6 +1116,8 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
         } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
           spvBuilder.requireExtension(extAttr->getName(),
                                       extAttr->getLocation());
+        } else {
+          attributes->push_back(attr);
         }
       }
     }
@@ -1124,7 +1128,8 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
         /*packoffset*/ getPackOffset(field),
         /*RegisterAssignment*/ nullptr,
         /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>(),
-        /*bitfield*/ bitfieldInfo));
+        /*bitfield*/ bitfieldInfo,
+        /* attributes */ attributes));
   }
 
   return populateLayoutInformation(fields, rule);
@@ -1210,6 +1215,7 @@ LowerTypeVisitor::lowerField(const HybridStructType::FieldInfo *field,
     loweredField.isPrecise = true;
   }
   loweredField.bitfield = field->bitfield;
+  loweredField.attributes = field->attributes;
 
   // We only need layout information for structures with non-void layout rule.
   if (rule == SpirvLayoutRule::Void) {
