@@ -60,7 +60,7 @@ void RewriteBuffer::RemoveText(unsigned OrigOffset, unsigned Size,
   Buffer.erase(RealOffset, Size);
 
   // Add a delta so that future changes are offset correctly.
-  AddReplaceDelta(OrigOffset, -Size);
+  AddReplaceDelta(OrigOffset, -static_cast<int>(Size));
 
   if (removeLineIfEmpty) {
     // Find the line that the remove occurred and if it is completely empty
@@ -86,7 +86,7 @@ void RewriteBuffer::RemoveText(unsigned OrigOffset, unsigned Size,
     }
     if (posI != end() && *posI == '\n') {
       Buffer.erase(curLineStartOffs, lineSize + 1/* + '\n'*/);
-      AddReplaceDelta(curLineStartOffs, -(lineSize + 1/* + '\n'*/));
+      AddReplaceDelta(curLineStartOffs, -static_cast<int>((lineSize + 1/* + '\n'*/)));
     }
   }
 }

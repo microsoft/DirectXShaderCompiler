@@ -142,7 +142,7 @@ static unsigned ProcessCharEscape(const char *ThisTokBegin,
     bool Overflow = false;
     for (; ThisTokBuf != ThisTokEnd; ++ThisTokBuf) {
       int CharVal = llvm::hexDigitValue(ThisTokBuf[0]);
-      if (CharVal == -1) break;
+      if (CharVal == UINT_MAX) break;
       // About to shift out a digit?
       if (ResultChar & 0xF0000000)
         Overflow = true;
@@ -245,7 +245,7 @@ void clang::expandUCNs(SmallVectorImpl<char> &Buf, StringRef Input) {
     uint32_t CodePoint = 0;
     for (++I; NumHexDigits != 0; ++I, --NumHexDigits) {
       unsigned Value = llvm::hexDigitValue(*I);
-      assert(Value != -1U);
+      assert(Value != UINT_MAX);
 
       CodePoint <<= 4;
       CodePoint += Value;
@@ -279,7 +279,7 @@ static bool ProcessUCNEscape(const char *ThisTokBegin, const char *&ThisTokBuf,
   unsigned short UcnLenSave = UcnLen;
   for (; ThisTokBuf != ThisTokEnd && UcnLenSave; ++ThisTokBuf, UcnLenSave--) {
     int CharVal = llvm::hexDigitValue(ThisTokBuf[0]);
-    if (CharVal == -1) break;
+    if (CharVal == UINT_MAX) break;
     UcnVal <<= 4;
     UcnVal |= CharVal;
   }

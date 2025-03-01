@@ -462,7 +462,7 @@ distributeObjCPointerTypeAttrFromDeclarator(TypeProcessingState &state,
 
   // objc_gc goes on the innermost pointer to something that's not a
   // pointer.
-  unsigned innermost = -1U;
+  unsigned innermost = UINT_MAX;
   bool considerDeclSpec = true;
   for (unsigned i = 0, e = declarator.getNumTypeObjects(); i != e; ++i) {
     DeclaratorChunk &chunk = declarator.getTypeObject(i);
@@ -501,7 +501,7 @@ distributeObjCPointerTypeAttrFromDeclarator(TypeProcessingState &state,
 
   // Otherwise, if we found an appropriate chunk, splice the attribute
   // into it.
-  if (innermost != -1U) {
+  if (innermost != UINT_MAX) {
     moveAttrFromListToList(attr, declarator.getAttrListRef(),
                        declarator.getTypeObject(innermost).getAttrListRef());
     return;

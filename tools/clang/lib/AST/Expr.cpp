@@ -3896,7 +3896,7 @@ GenericSelectionExpr::GenericSelectionExpr(const ASTContext &Context,
          ContainsUnexpandedParameterPack),
     AssocTypes(new (Context) TypeSourceInfo*[AssocTypes.size()]),
     SubExprs(new (Context) Stmt*[END_EXPR+AssocExprs.size()]),
-    NumAssocs(AssocExprs.size()), ResultIndex(-1U), GenericLoc(GenericLoc),
+    NumAssocs(AssocExprs.size()), ResultIndex(UINT_MAX), GenericLoc(GenericLoc),
     DefaultLoc(DefaultLoc), RParenLoc(RParenLoc) {
   SubExprs[CONTROLLING] = ControllingExpr;
   assert(AssocTypes.size() == AssocExprs.size());

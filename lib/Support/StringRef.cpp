@@ -396,10 +396,10 @@ bool llvm::getAsSignedInteger(StringRef Str, unsigned Radix,
       // Reject values so large they'd overflow as negative signed, but allow
       // "-0".  This negates the unsigned so that the negative isn't undefined
       // on signed overflow.
-      (long long)-ULLVal > 0)
+      -(long long)ULLVal > 0)
     return true;
 
-  Result = -ULLVal;
+  Result = -(long long)ULLVal;
   return false;
 }
 
