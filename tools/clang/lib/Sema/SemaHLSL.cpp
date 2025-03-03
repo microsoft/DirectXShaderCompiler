@@ -363,7 +363,7 @@ enum ArBasicKind {
 
 #define IS_BPROP_STREAM(_Props) (((_Props)&BPROP_STREAM) != 0)
 
-#define IS_BPROP_PATCH(_Props) (((_Props) & BPROP_PATCH) != 0)
+#define IS_BPROP_PATCH(_Props) (((_Props)&BPROP_PATCH) != 0)
 
 #define IS_BPROP_SAMPLER(_Props) (((_Props)&BPROP_SAMPLER) != 0)
 
@@ -3546,11 +3546,11 @@ private:
 
       InheritableAttr *Attr = nullptr;
       if (IS_BASIC_STREAM(kind))
-        Attr =
-          HLSLStreamOutputAttr::CreateImplicit(*m_context,
-                                               kind - AR_OBJECT_POINTSTREAM + 1);
+        Attr = HLSLStreamOutputAttr::CreateImplicit(
+            *m_context, kind - AR_OBJECT_POINTSTREAM + 1);
       else if (IS_BASIC_PATCH(kind))
-        Attr = HLSLTessPatchAttr::CreateImplicit(*m_context, kind == AR_OBJECT_INPUTPATCH);
+        Attr = HLSLTessPatchAttr::CreateImplicit(*m_context,
+                                                 kind == AR_OBJECT_INPUTPATCH);
       else {
         DXIL::ResourceKind ResKind = DXIL::ResourceKind::NumEntries;
         DXIL::ResourceClass ResClass = DXIL::ResourceClass::Invalid;
@@ -3746,9 +3746,9 @@ private:
       }
 #endif
       else if (templateArgCount == 0) {
-        recordDecl = DeclareRecordTypeWithHandle(*m_context, typeName,
-                                                 /*isCompleteType*/ false,
-                                                 Attr);
+        recordDecl =
+            DeclareRecordTypeWithHandle(*m_context, typeName,
+                                        /*isCompleteType*/ false, Attr);
       } else {
         DXASSERT(templateArgCount == 1 || templateArgCount == 2,
                  "otherwise a new case has been added");
@@ -5237,8 +5237,9 @@ public:
     }
     // Allow object type for Constant/TextureBuffer.
     HLSLResourceAttr *ResAttr =
-      Template->getTemplatedDecl()->getAttr<HLSLResourceAttr>();
-    if (ResAttr && ResAttr->getResClass() == (unsigned)DXIL::ResourceClass::CBuffer) {
+        Template->getTemplatedDecl()->getAttr<HLSLResourceAttr>();
+    if (ResAttr &&
+        ResAttr->getResClass() == (unsigned)DXIL::ResourceClass::CBuffer) {
       if (TemplateArgList.size() == 1) {
         const TemplateArgumentLoc &argLoc = TemplateArgList[0];
         const TemplateArgument &arg = argLoc.getArgument();
@@ -5353,7 +5354,7 @@ public:
       if (ContainsVectorLongerThan(argType, DXIL::kDefaultMaxVectorLength)) {
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
-          << DXIL::kDefaultMaxVectorLength << "tessellation patches";
+            << DXIL::kDefaultMaxVectorLength << "tessellation patches";
         return true;
       }
     } else if (Template->getTemplatedDecl()->hasAttr<HLSLStreamOutputAttr>()) {
@@ -5367,7 +5368,7 @@ public:
       if (ContainsVectorLongerThan(argType, DXIL::kDefaultMaxVectorLength)) {
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
-          << DXIL::kDefaultMaxVectorLength << "geometry streams";
+            << DXIL::kDefaultMaxVectorLength << "geometry streams";
         return true;
       }
     }

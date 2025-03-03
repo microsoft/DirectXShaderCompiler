@@ -475,9 +475,7 @@ clang::QualType GetHLSLMatElementType(clang::QualType type) {
   return elemTy;
 }
 
-
-template<typename AttrType>
-static AttrType *getAttr(clang::QualType type) {
+template <typename AttrType> static AttrType *getAttr(clang::QualType type) {
   type = type.getCanonicalType();
   if (const RecordType *RT = type->getAs<RecordType>()) {
     if (const auto *Spec =

@@ -1111,7 +1111,8 @@ CXXRecordDecl *hlsl::DeclareUIntTemplatedTypeWithHandleInDeclContext(
     ASTContext &context, DeclContext *declContext, StringRef typeName,
     StringRef templateParamName, InheritableAttr *Attr) {
   // template<uint kind> FeedbackTexture2D[Array] { ... }
-  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, typeName, TagTypeKind::TTK_Class);
+  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, typeName,
+                                         TagTypeKind::TTK_Class);
   typeDeclBuilder.addIntegerTemplateParam(templateParamName,
                                           context.UnsignedIntTy);
   typeDeclBuilder.startDefinition();
@@ -1140,9 +1141,9 @@ hlsl::DeclareConstantBufferViewType(clang::ASTContext &context, bool bTBuf) {
   typeDeclBuilder.addField(
       "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
 
-  typeDeclBuilder.getRecordDecl()->addAttr(
-      HLSLResourceAttr::CreateImplicit(context, (unsigned)DXIL::ResourceKind::CBuffer,
-                                       (unsigned)DXIL::ResourceClass::CBuffer));
+  typeDeclBuilder.getRecordDecl()->addAttr(HLSLResourceAttr::CreateImplicit(
+      context, (unsigned)DXIL::ResourceKind::CBuffer,
+      (unsigned)DXIL::ResourceClass::CBuffer));
 
   typeDeclBuilder.getRecordDecl();
 
