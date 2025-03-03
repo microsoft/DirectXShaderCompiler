@@ -79,7 +79,7 @@ int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
                         const wchar_t *lpWideCharStr, int cchWideChar,
                         char *lpMultiByteStr, int cbMultiByte,
                         const char * /*lpDefaultChar*/,
-                        bool *lpUsedDefaultChar) {
+                        LPBOOL lpUsedDefaultChar) {
   if (lpUsedDefaultChar) {
     *lpUsedDefaultChar = FALSE;
   }
@@ -132,7 +132,7 @@ int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
 namespace Unicode {
 
 bool WideToEncodedString(const wchar_t *text, size_t cWide, DWORD cp,
-                         DWORD flags, std::string *pValue, bool *lossy) {
+                         DWORD flags, std::string *pValue, LPBOOL lossy) {
   BOOL usedDefaultChar;
   LPBOOL pUsedDefaultChar = (lossy == nullptr) ? nullptr : &usedDefaultChar;
   if (lossy != nullptr)
@@ -204,7 +204,7 @@ std::wstring UTF8ToWideStringOrThrow(const char *pUTF8) {
 }
 
 bool UTF8ToConsoleString(const char *text, size_t textLen, std::string *pValue,
-                         bool *lossy) {
+                         LPBOOL lossy) {
   DXASSERT_NOMSG(text != nullptr);
   DXASSERT_NOMSG(pValue != nullptr);
   std::wstring text16;
@@ -216,12 +216,12 @@ bool UTF8ToConsoleString(const char *text, size_t textLen, std::string *pValue,
   return WideToConsoleString(text16.c_str(), text16.length(), pValue, lossy);
 }
 
-bool UTF8ToConsoleString(const char *text, std::string *pValue, bool *lossy) {
+bool UTF8ToConsoleString(const char *text, std::string *pValue, LPBOOL lossy) {
   return UTF8ToConsoleString(text, strlen(text), pValue, lossy);
 }
 
 bool WideToConsoleString(const wchar_t *text, size_t textLen,
-                         std::string *pValue, bool *lossy) {
+                         std::string *pValue, LPBOOL lossy) {
   DXASSERT_NOMSG(text != nullptr);
   DXASSERT_NOMSG(pValue != nullptr);
   UINT cp = GetConsoleOutputCP();
@@ -229,7 +229,7 @@ bool WideToConsoleString(const wchar_t *text, size_t textLen,
 }
 
 bool WideToConsoleString(const wchar_t *text, std::string *pValue,
-                         bool *lossy) {
+                         LPBOOL lossy) {
   return WideToConsoleString(text, wcslen(text), pValue, lossy);
 }
 
