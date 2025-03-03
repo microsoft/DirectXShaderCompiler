@@ -340,6 +340,42 @@ public:
     return true;
   }
 
+  bool IsRayFlagForceOMM2StateSet(const CallExpr *CE) {
+    bool IsRayFlagForceOMM2State = false;
+    const ImplicitCastExpr *RayFlagArg =
+        dyn_cast<ImplicitCastExpr>(CE->getArg(1));
+    if (!RayFlagArg)
+      return IsRayFlagForceOMM2State;
+
+    const DeclRefExpr *DR = dyn_cast<DeclRefExpr>(RayFlagArg->getSubExpr());
+    if (!DR)
+      return IsRayFlagForceOMM2State;
+
+    const ValueDecl *valueDecl = DR->getDecl();
+    const VarDecl *varDecl = dyn_cast<VarDecl>(valueDecl);
+
+    if (varDecl) {
+      const Expr *initializer = varDecl->getInit();
+
+      if (initializer) {
+        const IntegerLiteral *intLit = dyn_cast<IntegerLiteral>(initializer);
+        if (!intLit)
+          return IsRayFlagForceOMM2State;
+
+        unsigned int rayFlagValue = intLit->getValue().getZExtValue();
+        if (rayFlagValue & (unsigned int)DXIL::RayFlag::ForceOMM2State) {
+          IsRayFlagForceOMM2State = true;
+        }
+      }
+    } else if (const IntegerLiteral *intLit =
+                   dyn_cast<IntegerLiteral>(RayFlagArg->getSubExpr())) {
+      unsigned int rayFlagValue = intLit->getValue().getZExtValue();
+      if (rayFlagValue & (unsigned int)DXIL::RayFlag::ForceOMM2State)
+        IsRayFlagForceOMM2State = true;
+    }
+    return IsRayFlagForceOMM2State;
+  }
+
   void DiagnoseTraceRayInline(const MemberExpr *ME,
                               CXXMemberCallExpr *callExpr) {
     // validate that if the ray flag parameter is
@@ -380,21 +416,23 @@ public:
       const VarDecl *VD = cast<VarDecl>(DRE->getDecl());
       const QualType QT = VD->getType();
       auto typeRecordDecl = QT->getAsCXXRecordDecl();
-      if (ClassTemplateSpecializationDecl *SpecDecl =
-              llvm::dyn_cast<ClassTemplateSpecializationDecl>(typeRecordDecl)) {
-        // Guaranteed 2 arguments since the rayquery constructor
-        // automatically creates 2 template args
-        llvm::APSInt Arg2val = SpecDecl->getTemplateArgs()[1].getAsIntegral();
-        bool IsRayQueryAllowOMMSet =
-            Arg2val.getZExtValue() &
-            (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps;
-        if (!IsRayQueryAllowOMMSet) {
-          // Diagnose the call
-          sema->Diag(callExpr->getExprLoc(),
-                     diag::warn_hlsl_unexpected_rayquery_flag);
-          sema->Diag(VD->getLocation(),
-                     diag::note_hlsl_unexpected_rayquery_flag);
-        }
+      ClassTemplateSpecializationDecl *SpecDecl =
+          llvm::dyn_cast<ClassTemplateSpecializationDecl>(typeRecordDecl);
+
+      if (!SpecDecl)
+        return;
+
+      // Guaranteed 2 arguments since the rayquery constructor
+      // automatically creates 2 template args
+      llvm::APSInt Arg2val = SpecDecl->getTemplateArgs()[1].getAsIntegral();
+      bool IsRayQueryAllowOMMSet =
+          Arg2val.getZExtValue() &
+          (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps;
+      if (!IsRayQueryAllowOMMSet) {
+        // Diagnose the call
+        sema->Diag(callExpr->getExprLoc(),
+                   diag::warn_hlsl_unexpected_rayquery_flag);
+        sema->Diag(VD->getLocation(), diag::note_hlsl_unexpected_rayquery_flag);
       }
     }
   }
@@ -409,7 +447,11 @@ public:
     const Decl *MD = ME->getMemberDecl();
 
     if (const CXXMethodDecl *methodDecl = dyn_cast<CXXMethodDecl>(MD)) {
-      if (methodDecl->getNameAsString() == "TraceRayInline")
+      auto *attr = methodDecl->getAttr<HLSLIntrinsicAttr>();
+      if (!attr)
+        return true;
+      if ((hlsl::IntrinsicOp)attr->getOpcode() ==
+          hlsl::IntrinsicOp::MOP_TraceRayInline)
         DiagnoseTraceRayInline(ME, callExpr);
     }
     return true;
