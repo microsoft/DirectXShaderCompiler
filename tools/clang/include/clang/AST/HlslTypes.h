@@ -480,6 +480,7 @@ bool IsHLSLNodeOutputType(clang::QualType type);
 
 DXIL::NodeIOKind GetNodeIOType(clang::QualType type);
 
+bool IsHLSLSamplerType(clang::QualType type);
 bool IsHLSLStructuredBufferType(clang::QualType type);
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type);
 bool IsHLSLNumericUserDefinedType(clang::QualType type);
