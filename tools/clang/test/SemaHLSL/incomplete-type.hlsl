@@ -3,6 +3,7 @@
 // Tests that the compiler is well-behaved with regard to uses of incomplete types.
 // Regression test for GitHub #2058, which crashed in this case.
 
+// expected-note@+5 {{forward declaration of 'S'}}
 // expected-note@+4 {{forward declaration of 'S'}}
 // expected-note@+3 {{forward declaration of 'S'}}
 // expected-note@+2 {{forward declaration of 'S'}}
