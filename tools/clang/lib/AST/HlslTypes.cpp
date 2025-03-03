@@ -474,160 +474,73 @@ clang::QualType GetHLSLMatElementType(clang::QualType type) {
   QualType elemTy = arg0.getAsType();
   return elemTy;
 }
-// TODO: Add type cache to ASTContext.
-bool IsHLSLInputPatchType(QualType type) {
+
+
+template<typename AttrType>
+static AttrType *getAttr(clang::QualType type) {
   type = type.getCanonicalType();
-  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(
-                RT->getAsCXXRecordDecl())) {
-      if (templateDecl->getName() == "InputPatch") {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-bool IsHLSLOutputPatchType(QualType type) {
-  type = type.getCanonicalType();
-  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(
-                RT->getAsCXXRecordDecl())) {
-      if (templateDecl->getName() == "OutputPatch") {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-bool IsHLSLPointStreamType(QualType type) {
-  type = type.getCanonicalType();
-  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(
-                RT->getAsCXXRecordDecl())) {
-      if (templateDecl->getName() == "PointStream")
-        return true;
-    }
-  }
-  return false;
-}
-bool IsHLSLLineStreamType(QualType type) {
-  type = type.getCanonicalType();
-  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(
-                RT->getAsCXXRecordDecl())) {
-      if (templateDecl->getName() == "LineStream")
-        return true;
-    }
-  }
-  return false;
-}
-bool IsHLSLTriangleStreamType(QualType type) {
-  type = type.getCanonicalType();
-  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(
-                RT->getAsCXXRecordDecl())) {
-      if (templateDecl->getName() == "TriangleStream")
-        return true;
-    }
-  }
-  return false;
-}
-bool IsHLSLStreamOutputType(QualType type) {
-  type = type.getCanonicalType();
-  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(
-                RT->getAsCXXRecordDecl())) {
-      if (templateDecl->getName() == "PointStream")
-        return true;
-      if (templateDecl->getName() == "LineStream")
-        return true;
-      if (templateDecl->getName() == "TriangleStream")
-        return true;
-    }
-  }
-  return false;
-}
-bool IsHLSLResourceType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    if (name == "Texture1D" || name == "RWTexture1D")
-      return true;
-    if (name == "Texture2D" || name == "RWTexture2D")
-      return true;
-    if (name == "Texture2DMS" || name == "RWTexture2DMS")
-      return true;
-    if (name == "Texture3D" || name == "RWTexture3D")
-      return true;
-    if (name == "TextureCube" || name == "RWTextureCube")
-      return true;
-
-    if (name == "Texture1DArray" || name == "RWTexture1DArray")
-      return true;
-    if (name == "Texture2DArray" || name == "RWTexture2DArray")
-      return true;
-    if (name == "Texture2DMSArray" || name == "RWTexture2DMSArray")
-      return true;
-    if (name == "TextureCubeArray" || name == "RWTextureCubeArray")
-      return true;
-
-    if (name == "FeedbackTexture2D" || name == "FeedbackTexture2DArray")
-      return true;
-
-    if (name == "RasterizerOrderedTexture1D" ||
-        name == "RasterizerOrderedTexture2D" ||
-        name == "RasterizerOrderedTexture3D" ||
-        name == "RasterizerOrderedTexture1DArray" ||
-        name == "RasterizerOrderedTexture2DArray" ||
-        name == "RasterizerOrderedBuffer" ||
-        name == "RasterizerOrderedByteAddressBuffer" ||
-        name == "RasterizerOrderedStructuredBuffer")
-      return true;
-
-    if (name == "ByteAddressBuffer" || name == "RWByteAddressBuffer")
-      return true;
-
-    if (name == "StructuredBuffer" || name == "RWStructuredBuffer")
-      return true;
-
-    if (name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer")
-      return true;
-
-    if (name == "Buffer" || name == "RWBuffer")
-      return true;
-
-    if (name == "SamplerState" || name == "SamplerComparisonState")
-      return true;
-
-    if (name == "ConstantBuffer" || name == "TextureBuffer")
-      return true;
-
-    if (name == "RaytracingAccelerationStructure")
-      return true;
-  }
-  return false;
-}
-
-static HLSLNodeObjectAttr *getNodeAttr(clang::QualType type) {
   if (const RecordType *RT = type->getAs<RecordType>()) {
     if (const auto *Spec =
             dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl()))
       if (const auto *Template =
               dyn_cast<ClassTemplateDecl>(Spec->getSpecializedTemplate()))
-        return Template->getTemplatedDecl()->getAttr<HLSLNodeObjectAttr>();
+        return Template->getTemplatedDecl()->getAttr<AttrType>();
     if (const auto *Decl = dyn_cast<CXXRecordDecl>(RT->getDecl()))
-      return Decl->getAttr<HLSLNodeObjectAttr>();
+      return Decl->getAttr<AttrType>();
   }
   return nullptr;
 }
 
+// TODO: Add type cache to ASTContext.
+bool IsHLSLInputPatchType(QualType type) {
+  type = type.getCanonicalType();
+  if (const HLSLTessPatchAttr *Attr = getAttr<HLSLTessPatchAttr>(type))
+    return Attr->getIsInput();
+  return false;
+}
+
+bool IsHLSLOutputPatchType(QualType type) {
+  type = type.getCanonicalType();
+  if (const HLSLTessPatchAttr *Attr = getAttr<HLSLTessPatchAttr>(type))
+    return !Attr->getIsInput();
+  return false;
+}
+
+bool IsHLSLPointStreamType(QualType type) {
+  type = type.getCanonicalType();
+  if (const HLSLStreamOutputAttr *Attr = getAttr<HLSLStreamOutputAttr>(type))
+    return Attr->getVertices() == 1;
+  return false;
+}
+
+bool IsHLSLLineStreamType(QualType type) {
+  type = type.getCanonicalType();
+  if (const HLSLStreamOutputAttr *Attr = getAttr<HLSLStreamOutputAttr>(type))
+    return Attr->getVertices() == 2;
+  return false;
+}
+
+bool IsHLSLTriangleStreamType(QualType type) {
+  type = type.getCanonicalType();
+  if (const HLSLStreamOutputAttr *Attr = getAttr<HLSLStreamOutputAttr>(type))
+    return Attr->getVertices() == 3;
+  return false;
+}
+
+bool IsHLSLStreamOutputType(QualType type) {
+  if (getAttr<HLSLStreamOutputAttr>(type))
+    return true;
+  return false;
+}
+
+bool IsHLSLResourceType(clang::QualType type) {
+  if (getAttr<HLSLResourceAttr>(type))
+    return true;
+  return false;
+}
+
 DXIL::NodeIOKind GetNodeIOType(clang::QualType type) {
-  if (const HLSLNodeObjectAttr *Attr = getNodeAttr(type))
+  if (const HLSLNodeObjectAttr *Attr = getAttr<HLSLNodeObjectAttr>(type))
     return Attr->getNodeIOType();
   return DXIL::NodeIOKind::Invalid;
 }
@@ -654,27 +567,20 @@ bool IsHLSLDynamicSamplerType(clang::QualType type) {
 }
 
 bool IsHLSLNodeType(clang::QualType type) {
-  if (const HLSLNodeObjectAttr *Attr = getNodeAttr(type))
+  if (const HLSLNodeObjectAttr *Attr = getAttr<HLSLNodeObjectAttr>(type))
     return true;
   return false;
 }
 
 bool IsHLSLObjectWithImplicitMemberAccess(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    if (name == "ConstantBuffer" || name == "TextureBuffer")
-      return true;
-  }
+  if (const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type))
+    return Attr->getResClass() == (unsigned)DXIL::ResourceClass::CBuffer;
   return false;
 }
 
 bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    // Read-only records
-    if (name == "ConstantBuffer" || name == "TextureBuffer")
-      return true;
-  }
+  if (const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type))
+    return Attr->getResClass() == (unsigned)DXIL::ResourceClass::CBuffer;
   return false;
 }
 
@@ -701,14 +607,8 @@ bool IsHLSLNodeOutputType(clang::QualType type) {
 }
 
 bool IsHLSLStructuredBufferType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    if (name == "StructuredBuffer" || name == "RWStructuredBuffer")
-      return true;
-
-    if (name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer")
-      return true;
-  }
+  if (const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type))
+    return Attr->getResKind() == (unsigned)DXIL::ResourceKind::StructuredBuffer;
   return false;
 }
 

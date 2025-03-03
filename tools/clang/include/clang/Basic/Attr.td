@@ -993,14 +993,16 @@ def HLSLNodeTrackRWInputSharing : InheritableAttr {
 }
 
 
-def HLSLCBuffer : InheritableAttr {
+def HLSLTessPatch : InheritableAttr {
   let Spellings = []; // No spellings!
+  let Args = [BoolArgument<"IsInput">];
   let Subjects = SubjectList<[CXXRecord]>;
   let Documentation = [Undocumented];
 }
 
-def HLSLTessPatch : InheritableAttr {
+def HLSLStreamOutput : InheritableAttr {
   let Spellings = []; // No spellings!
+  let Args = [UnsignedArgument<"Vertices">];
   let Subjects = SubjectList<[CXXRecord]>;
   let Documentation = [Undocumented];
 }

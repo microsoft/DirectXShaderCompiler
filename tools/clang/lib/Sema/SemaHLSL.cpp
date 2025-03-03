@@ -363,6 +363,8 @@ enum ArBasicKind {
 
 #define IS_BPROP_STREAM(_Props) (((_Props)&BPROP_STREAM) != 0)
 
+#define IS_BPROP_PATCH(_Props) (((_Props) & BPROP_PATCH) != 0)
+
 #define IS_BPROP_SAMPLER(_Props) (((_Props)&BPROP_SAMPLER) != 0)
 
 #define IS_BPROP_TEXTURE(_Props) (((_Props)&BPROP_TEXTURE) != 0)
@@ -615,6 +617,8 @@ C_ASSERT(ARRAYSIZE(g_uBasicKindProps) == AR_BASIC_MAXIMUM_COUNT);
 #define IS_BASIC_AINT(_Kind) IS_BPROP_AINT(GetBasicKindProps(_Kind))
 
 #define IS_BASIC_STREAM(_Kind) IS_BPROP_STREAM(GetBasicKindProps(_Kind))
+
+#define IS_BASIC_PATCH(_Kind) IS_BPROP_PATCH(GetBasicKindProps(_Kind))
 
 #define IS_BASIC_SAMPLER(_Kind) IS_BPROP_SAMPLER(GetBasicKindProps(_Kind))
 #define IS_BASIC_TEXTURE(_Kind) IS_BPROP_TEXTURE(GetBasicKindProps(_Kind))
@@ -3540,6 +3544,20 @@ private:
       if (kind == AR_OBJECT_LEGACY_EFFECT)
         effectKindIndex = i;
 
+      InheritableAttr *Attr = nullptr;
+      if (IS_BASIC_STREAM(kind))
+        Attr =
+          HLSLStreamOutputAttr::CreateImplicit(*m_context,
+                                               kind - AR_OBJECT_POINTSTREAM + 1);
+      else if (IS_BASIC_PATCH(kind))
+        Attr = HLSLTessPatchAttr::CreateImplicit(*m_context, kind == AR_OBJECT_INPUTPATCH);
+      else {
+        DXIL::ResourceKind ResKind = DXIL::ResourceKind::NumEntries;
+        DXIL::ResourceClass ResClass = DXIL::ResourceClass::Invalid;
+        if (GetBasicKindResourceKindAndClass(kind, ResKind, ResClass))
+          Attr = HLSLResourceAttr::CreateImplicit(*m_context, (unsigned)ResKind,
+                                                  (unsigned)ResClass);
+      }
       DXASSERT(kind < _countof(g_ArBasicTypeNames),
                "g_ArBasicTypeNames has the wrong number of entries");
       assert(kind < _countof(g_ArBasicTypeNames));
@@ -3609,10 +3627,10 @@ private:
         }
       } else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(
-            *m_context, "FeedbackTexture2D", "kind");
+            *m_context, "FeedbackTexture2D", "kind", Attr);
       } else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(
-            *m_context, "FeedbackTexture2DArray", "kind");
+            *m_context, "FeedbackTexture2DArray", "kind", Attr);
       } else if (kind == AR_OBJECT_EMPTY_NODE_INPUT) {
         recordDecl = DeclareNodeOrRecordType(
             *m_context, DXIL::NodeIOKind::EmptyInput,
@@ -3729,20 +3747,11 @@ private:
 #endif
       else if (templateArgCount == 0) {
         recordDecl = DeclareRecordTypeWithHandle(*m_context, typeName,
-                                                 /*isCompleteType*/ false);
+                                                 /*isCompleteType*/ false,
+                                                 Attr);
       } else {
         DXASSERT(templateArgCount == 1 || templateArgCount == 2,
                  "otherwise a new case has been added");
-
-        InheritableAttr *Attr = nullptr;
-        DXIL::ResourceKind ResKind = DXIL::ResourceKind::NumEntries;
-        DXIL::ResourceClass ResClass = DXIL::ResourceClass::Invalid;
-        if (GetBasicKindResourceKindAndClass(kind, ResKind, ResClass))
-          Attr = HLSLResourceAttr::CreateImplicit(*m_context, (unsigned)ResKind,
-                                                  (unsigned)ResClass);
-        else if (kind == AR_OBJECT_INPUTPATCH || kind == AR_OBJECT_OUTPUTPATCH)
-          Attr = HLSLTessPatchAttr::CreateImplicit(*m_context);
-
         TypeSourceInfo *typeDefault =
             TemplateHasDefaultType(kind) ? float4TypeSourceInfo : nullptr;
         recordDecl = DeclareTemplateTypeWithHandle(
@@ -4755,6 +4764,15 @@ public:
       ResKind = DXIL::ResourceKind::FeedbackTexture2DArray;
       ResClass = DXIL::ResourceClass::SRV;
       return true;
+    case AR_OBJECT_SAMPLER:
+    case AR_OBJECT_SAMPLERCOMPARISON:
+      ResKind = DXIL::ResourceKind::Sampler;
+      ResClass = DXIL::ResourceClass::Sampler;
+      return true;
+    case AR_OBJECT_ACCELERATION_STRUCT:
+      ResKind = DXIL::ResourceKind::RTAccelerationStructure;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
     default:
       return false;
     }
@@ -5217,7 +5235,9 @@ public:
       return false;
     }
     // Allow object type for Constant/TextureBuffer.
-    if (Template->getTemplatedDecl()->hasAttr<HLSLCBufferAttr>()) {
+    HLSLResourceAttr *ResAttr =
+      Template->getTemplatedDecl()->getAttr<HLSLResourceAttr>();
+    if (ResAttr && ResAttr->getResClass() == (unsigned)DXIL::ResourceClass::CBuffer) {
       if (TemplateArgList.size() == 1) {
         const TemplateArgumentLoc &argLoc = TemplateArgList[0];
         const TemplateArgument &arg = argLoc.getArgument();
@@ -5326,7 +5346,8 @@ public:
                "Tessellation patch should have at least one template args");
       const TemplateArgumentLoc &argLoc = TemplateArgList[0];
       const TemplateArgument &arg = argLoc.getArgument();
-      DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type, "");
+      DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type,
+               "Tessellation patch requires type template arg 0");
       QualType argType = arg.getAsType();
       if (HasLongVecs(argType)) {
         m_sema->Diag(argLoc.getLocation(),
@@ -5334,7 +5355,22 @@ public:
             << "tessellation patches";
         return true;
       }
+    } else if (Template->getTemplatedDecl()->hasAttr<HLSLStreamOutputAttr>()) {
+      DXASSERT(TemplateArgList.size() > 0,
+               "Geometry streams should have at least one template args");
+      const TemplateArgumentLoc &argLoc = TemplateArgList[0];
+      const TemplateArgument &arg = argLoc.getArgument();
+      DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type,
+               "Geometry stream requires type template arg 0");
+      QualType argType = arg.getAsType();
+      if (HasLongVecs(argType)) {
+        m_sema->Diag(argLoc.getLocation(),
+                     diag::err_hlsl_unsupported_long_vector)
+          << "geometry streams";
+        return true;
+      }
     }
+
     bool isMatrix = Template->getCanonicalDecl() ==
                     m_matrixTemplateDecl->getCanonicalDecl();
     bool isVector = Template->getCanonicalDecl() ==
@@ -5354,8 +5390,6 @@ public:
             // NOTE: IsValidTemplateArgumentType emits its own diagnostics
             return true;
           }
-          HLSLResourceAttr *ResAttr =
-              Template->getTemplatedDecl()->getAttr<HLSLResourceAttr>();
           if (ResAttr && IsTyped((DXIL::ResourceKind)ResAttr->getResKind())) {
             // Check vectors for being too large.
             if (IsVectorType(m_sema, argType)) {
