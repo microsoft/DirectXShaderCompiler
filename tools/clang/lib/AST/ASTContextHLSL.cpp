@@ -583,25 +583,30 @@ static void AddTypedefPseudoEnum(ASTContext &context, StringRef name,
 void hlsl::AddRaytracingConstants(ASTContext &context) {
   AddTypedefPseudoEnum(
       context, "RAY_FLAG",
-      {
-          {"RAY_FLAG_NONE", (unsigned)DXIL::RayFlag::None},
-          {"RAY_FLAG_FORCE_OPAQUE", (unsigned)DXIL::RayFlag::ForceOpaque},
-          {"RAY_FLAG_FORCE_NON_OPAQUE",
-           (unsigned)DXIL::RayFlag::ForceNonOpaque},
-          {"RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH",
-           (unsigned)DXIL::RayFlag::AcceptFirstHitAndEndSearch},
-          {"RAY_FLAG_SKIP_CLOSEST_HIT_SHADER",
-           (unsigned)DXIL::RayFlag::SkipClosestHitShader},
-          {"RAY_FLAG_CULL_BACK_FACING_TRIANGLES",
-           (unsigned)DXIL::RayFlag::CullBackFacingTriangles},
-          {"RAY_FLAG_CULL_FRONT_FACING_TRIANGLES",
-           (unsigned)DXIL::RayFlag::CullFrontFacingTriangles},
-          {"RAY_FLAG_CULL_OPAQUE", (unsigned)DXIL::RayFlag::CullOpaque},
-          {"RAY_FLAG_CULL_NON_OPAQUE", (unsigned)DXIL::RayFlag::CullNonOpaque},
-          {"RAY_FLAG_SKIP_TRIANGLES", (unsigned)DXIL::RayFlag::SkipTriangles},
-          {"RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES",
-           (unsigned)DXIL::RayFlag::SkipProceduralPrimitives},
-      });
+      {{"RAY_FLAG_NONE", (unsigned)DXIL::RayFlag::None},
+       {"RAY_FLAG_FORCE_OPAQUE", (unsigned)DXIL::RayFlag::ForceOpaque},
+       {"RAY_FLAG_FORCE_NON_OPAQUE", (unsigned)DXIL::RayFlag::ForceNonOpaque},
+       {"RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH",
+        (unsigned)DXIL::RayFlag::AcceptFirstHitAndEndSearch},
+       {"RAY_FLAG_SKIP_CLOSEST_HIT_SHADER",
+        (unsigned)DXIL::RayFlag::SkipClosestHitShader},
+       {"RAY_FLAG_CULL_BACK_FACING_TRIANGLES",
+        (unsigned)DXIL::RayFlag::CullBackFacingTriangles},
+       {"RAY_FLAG_CULL_FRONT_FACING_TRIANGLES",
+        (unsigned)DXIL::RayFlag::CullFrontFacingTriangles},
+       {"RAY_FLAG_CULL_OPAQUE", (unsigned)DXIL::RayFlag::CullOpaque},
+       {"RAY_FLAG_CULL_NON_OPAQUE", (unsigned)DXIL::RayFlag::CullNonOpaque},
+       {"RAY_FLAG_SKIP_TRIANGLES", (unsigned)DXIL::RayFlag::SkipTriangles},
+       {"RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES",
+        (unsigned)DXIL::RayFlag::SkipProceduralPrimitives},
+       {"RAY_FLAG_FORCE_OMM_2_STATE",
+        (unsigned)DXIL::RayFlag::ForceOMM2State}});
+
+  AddTypedefPseudoEnum(
+      context, "RAYQUERY_FLAG",
+      {{"RAYQUERY_FLAG_NONE", (unsigned)DXIL::RayQueryFlag::None},
+       {"RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS",
+        (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps}});
 
   AddTypedefPseudoEnum(
       context, "COMMITTED_STATUS",
@@ -1143,7 +1148,14 @@ CXXRecordDecl *hlsl::DeclareRayQueryType(ASTContext &context) {
   // template<uint kind> RayQuery { ... }
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(),
                                          "RayQuery");
-  typeDeclBuilder.addIntegerTemplateParam("flags", context.UnsignedIntTy);
+  typeDeclBuilder.addIntegerTemplateParam("constRayFlags",
+                                          context.UnsignedIntTy);
+  // create an optional second template argument with default value
+  // that contains the value of DXIL::RayFlag::None
+  llvm::Optional<int64_t> DefaultRayQueryFlag =
+      static_cast<int64_t>(DXIL::RayFlag::None);
+  typeDeclBuilder.addIntegerTemplateParam(
+      "RayQueryFlags", context.UnsignedIntTy, DefaultRayQueryFlag);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField(
       "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
