@@ -341,39 +341,37 @@ public:
   }
 
   bool IsRayFlagForceOMM2StateSet(const CallExpr *CE) {
-    bool IsRayFlagForceOMM2State = false;
     const ImplicitCastExpr *RayFlagArg =
         dyn_cast<ImplicitCastExpr>(CE->getArg(1));
     if (!RayFlagArg)
-      return IsRayFlagForceOMM2State;
+      return false;
 
     const DeclRefExpr *DR = dyn_cast<DeclRefExpr>(RayFlagArg->getSubExpr());
-    if (!DR)
-      return IsRayFlagForceOMM2State;
+    if (DR) {
+      const ValueDecl *valueDecl = DR->getDecl();
+      const VarDecl *varDecl = dyn_cast<VarDecl>(valueDecl);
 
-    const ValueDecl *valueDecl = DR->getDecl();
-    const VarDecl *varDecl = dyn_cast<VarDecl>(valueDecl);
+      if (varDecl) {
+        const Expr *initializer = varDecl->getInit();
+        if (!initializer)
+          return false;
 
-    if (varDecl) {
-      const Expr *initializer = varDecl->getInit();
-
-      if (initializer) {
         const IntegerLiteral *intLit = dyn_cast<IntegerLiteral>(initializer);
         if (!intLit)
-          return IsRayFlagForceOMM2State;
+          return false;
 
         unsigned int rayFlagValue = intLit->getValue().getZExtValue();
         if (rayFlagValue & (unsigned int)DXIL::RayFlag::ForceOMM2State) {
-          IsRayFlagForceOMM2State = true;
+          return true;
         }
       }
     } else if (const IntegerLiteral *intLit =
                    dyn_cast<IntegerLiteral>(RayFlagArg->getSubExpr())) {
       unsigned int rayFlagValue = intLit->getValue().getZExtValue();
       if (rayFlagValue & (unsigned int)DXIL::RayFlag::ForceOMM2State)
-        IsRayFlagForceOMM2State = true;
+        return true;
     }
-    return IsRayFlagForceOMM2State;
+    return false;
   }
 
   void DiagnoseTraceRayInline(const MemberExpr *ME,
