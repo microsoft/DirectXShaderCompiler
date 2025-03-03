@@ -992,6 +992,7 @@ def HLSLNodeTrackRWInputSharing : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+
 def HLSLCBuffer : InheritableAttr {
   let Spellings = []; // No spellings!
   let Subjects = SubjectList<[CXXRecord]>;
@@ -1000,6 +1001,13 @@ def HLSLCBuffer : InheritableAttr {
 
 def HLSLTessPatch : InheritableAttr {
   let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLResource : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [UnsignedArgument<"ResKind">, UnsignedArgument<"ResClass">];
   let Subjects = SubjectList<[CXXRecord]>;
   let Documentation = [Undocumented];
 }
@@ -1353,7 +1361,7 @@ def VKDecorateExt : InheritableAttr {
 
 def VKDecorateIdExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_decorate_id">];
-  let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName], ErrorDiag>;
+  let Subjects = SubjectList<[Function, Var, ParmVar, TypedefName], ErrorDiag>;
   let Args = [UnsignedArgument<"decorate">, VariadicExprArgument<"arguments">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
@@ -1361,7 +1369,7 @@ def VKDecorateIdExt : InheritableAttr {
 
 def VKDecorateStringExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_decorate_string">];
-  let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName], ErrorDiag>;
+  let Subjects = SubjectList<[Function, Var, ParmVar, TypedefName], ErrorDiag>;
   let Args = [UnsignedArgument<"decorate">, VariadicStringArgument<"arguments">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];

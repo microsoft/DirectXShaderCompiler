@@ -18,7 +18,9 @@ float4 main() : C {
 
     float4 val;
 // CHECK:    [[z_ptr:%[0-9]+]] = OpAccessChain %_ptr_Function_float %val %int_2
-// CHECK:          {{%[0-9]+}} = OpFunctionCall %void %bar %val %param_var_y %param_var_z [[z_ptr]]
+// CHECK:       [[ld:%[0-9]+]] = OpLoad %float [[z_ptr]]
+// CHECK:                        OpStore %param_var_w [[ld]]
+// CHECK:          {{%[0-9]+}} = OpFunctionCall %void %bar %val %param_var_y %param_var_z %param_var_w
 // CHECK-NEXT:   [[y:%[0-9]+]] = OpLoad %v3float %param_var_y
 // CHECK-NEXT: [[old:%[0-9]+]] = OpLoad %v4float %val
     // Write to val.zwx:
@@ -37,6 +39,10 @@ float4 main() : C {
 // CHECK-NEXT: [[old_0:%[0-9]+]] = OpLoad %v4float %val
 // CHECK-NEXT: [[new_0:%[0-9]+]] = OpVectorShuffle %v4float [[old_0]] [[z]] 4 5 2 3
 // CHECK-NEXT:                OpStore %val [[new_0]]
+    // Write to val.z:
+// CHECK-NEXT: [[new:%[0-9]+]] = OpLoad %float %param_var_w
+// CHECK-NEXT:                   OpStore [[z_ptr]] [[new]]
+
     bar(val, val.zwx, val.xy, val.z);
 
     return MyRWBuffer[0];

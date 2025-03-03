@@ -2333,36 +2333,42 @@ def err_duplicate_mangled_name : Error<
   "definition with same mangled name as another definition">;
 def err_cyclic_alias : Error<
   "alias definition is part of a cycle">;
-def warn_attribute_wrong_decl_type : Warning<
-  "%0 attribute only applies to %select{functions|unions|"
-  "variables and functions|functions and methods|parameters|"
-  "functions, methods and blocks|functions, methods, and classes|"
-  "functions, methods, and parameters|classes|enums|variables|methods|"
-  "variables, functions and labels|fields and global variables|structs|"
-  "variables and typedefs|thread-local variables|"
-  "variables and fields|variables, data members and tag types|"
-  "types and namespaces|Objective-C interfaces|methods and properties|"
-  "struct or union|struct, union or class|types|"
-  "Objective-C instance methods|init methods of interface or class extension declarations|"
-  "variables, functions and classes|Objective-C protocols|"
-  "functions and global variables|structs, unions, and typedefs|structs and typedefs|"
-  "interface or protocol declarations|kernel functions|"
-  // SPIRV Change Starts
-  "fields|"
-  "global variables of scalar type|"
-  "global variables of struct type|"
-  "global variables, cbuffers, and tbuffers|"
-  "Textures and Samplers|"
-  "RWTextures, RasterizerOrderedTextures, Buffers, RWBuffers, and RasterizerOrderedBuffers|"
-  "RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers|"
-  "SubpassInput, SubpassInputMS|"
-  "cbuffer or ConstantBuffer|"
-  // SPIRV Change Ends
-  // HLSL Change Starts - add 3 more enum values
-  "variables and parameters|functions, parameters, and fields|"
-  "functions, variables, parameters, fields, and types}1">,
-  // HLSL Change Ends
-  InGroup<IgnoredAttributes>;
+def warn_attribute_wrong_decl_type
+    : Warning<
+          "%0 attribute only applies to %select{functions|unions|"
+          "variables and functions|functions and methods|parameters|"
+          "functions, methods and blocks|functions, methods, and classes|"
+          "functions, methods, and parameters|classes|enums|variables|methods|"
+          "variables, functions and labels|fields and global variables|structs|"
+          "variables and typedefs|thread-local variables|"
+          "variables and fields|variables, data members and tag types|"
+          "types and namespaces|Objective-C interfaces|methods and properties|"
+          "struct or union|struct, union or class|types|"
+          "Objective-C instance methods|init methods of interface or class "
+          "extension declarations|"
+          "variables, functions and classes|Objective-C protocols|"
+          "functions and global variables|structs, unions, and "
+          "typedefs|structs and typedefs|"
+          "interface or protocol declarations|kernel functions|"
+          // SPIRV Change Starts
+          "fields|"
+          "global variables of scalar type|"
+          "global variables of struct type|"
+          "global variables, cbuffers, and tbuffers|"
+          "Textures and Samplers|"
+          "RWTextures, RasterizerOrderedTextures, Buffers, RWBuffers, and "
+          "RasterizerOrderedBuffers|"
+          "RWStructuredBuffers, AppendStructuredBuffers, and "
+          "ConsumeStructuredBuffers|"
+          "SubpassInput, SubpassInputMS|"
+          "cbuffer or ConstantBuffer|"
+          "functions, variables, parameters, and types|"
+          // SPIRV Change Ends
+          // HLSL Change Starts - add 3 more enum values
+          "variables and parameters|functions, parameters, and fields|"
+          "functions, variables, parameters, fields, and types}1">,
+      // HLSL Change Ends
+      InGroup<IgnoredAttributes>;
 def err_attribute_wrong_decl_type : Error<warn_attribute_wrong_decl_type.Text>;
 def warn_type_attribute_wrong_type : Warning<
   "'%0' only applies to %select{function|pointer|"
@@ -7596,6 +7602,10 @@ def err_hlsl_unsupported_buffer_packoffset : Error<
   "packoffset is only allowed within a constant buffer, not on the constant buffer declaration">;
 def err_hlsl_unsupported_buffer_slot_target_specific : Error<
   "user defined constant buffer slots cannot be target specific">;
+def err_hlsl_unsupported_typedbuffer_template_parameter : Error<
+  "elements of typed buffers and textures must be scalars or vectors">;
+def err_hlsl_unsupported_typedbuffer_template_parameter_size : Error<
+  "elements of typed buffers and textures must fit in four 32-bit quantities">;
 def err_hlsl_unsupported_payload_access_qualifier : Error<
   "payload access qualifiers are only allowed for member variables of a payload structure">;
 def err_hlsl_unsupported_payload_access_qualifier_struct : Error<
