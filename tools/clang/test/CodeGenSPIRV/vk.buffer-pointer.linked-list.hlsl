@@ -23,6 +23,7 @@ struct TestPushConstant_t
 [[vk::push_constant]] TestPushConstant_t g_PushConstants;
 
 // CHECK: OpDecorate [[GP:%[_0-9A-Za-z]*]] AliasedPointer
+// CHECK: OpDecorate [[COPY:%[_0-9A-Za-z]*]] RestrictPointer
 // CHECK: OpMemberDecorate [[BLOCK:%[_0-9A-Za-z]*]] 1 Offset 16
 // CHECK: OpTypeForwardPointer [[PBLOCK:%[_0-9A-Za-z]*]] PhysicalStorageBuffer
 // CHECK: [[SINT:%[_0-9A-Za-z]*]] = OpTypeInt 32 1
@@ -53,7 +54,9 @@ float4 MainPs(void) : SV_Target0
       [[vk::aliased_pointer]] block_p g_p =
           vk::static_pointer_cast<block_t, 16>(g_PushConstants.root);
       g_p = g_p.Get().next;
-      if ((uint64_t)g_p == 0) // Null pointer test
+      uint64_t addr = (uint64_t)g_p;
+      block_p copy = block_p(addr);
+      if (addr == 0) // Null pointer test
           return float4(0.0,0.0,0.0,0.0);
       return g_p.Get().x;
 }
@@ -74,13 +77,18 @@ float4 MainPs(void) : SV_Target0
 // CHECK: OpStore [[GP]] [[X5]]
 // CHECK: [[X6:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[GP]]
 // CHECK: [[X7:%[_0-9A-Za-z]*]] = OpConvertPtrToU [[ULONG]] [[X6]]
-// CHECK: [[X8:%[_0-9A-Za-z]*]] = OpIEqual %bool [[X7]] [[UL0]]
-// CHECK: OpBranchConditional [[X8]] [[IF_TRUE:%[_0-9A-Za-z]*]] [[IF_MERGE:%[_0-9A-Za-z]*]]
+// CHECK: OpStore [[ADDR:%[_0-9A-Za-z]*]] [[X7]]
+// CHECK: [[X8:%[_0-9A-Za-z]*]] = OpLoad [[ULONG]] [[ADDR]]
+// CHECK: [[X9:%[_0-9A-Za-z]*]] = OpConvertUToPtr [[PBLOCK]] [[X8]]
+// CHECK: OpStore [[COPY]] [[X9]]
+// CHECK: [[X10:%[_0-9A-Za-z]*]] = OpLoad [[ULONG]] [[ADDR]]
+// CHECK: [[X11:%[_0-9A-Za-z]*]] = OpIEqual %bool [[X10]] [[UL0]]
+// CHECK: OpBranchConditional [[X11]] [[IF_TRUE:%[_0-9A-Za-z]*]] [[IF_MERGE:%[_0-9A-Za-z]*]]
 // CHECK: [[IF_TRUE]] = OpLabel
 // CHECK: OpReturnValue [[CV4FLOAT]]
 // CHECK: [[IF_MERGE]] = OpLabel
-// CHECK: [[X9:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[GP]] Aligned 32
-// CHECK: [[X10:%[_0-9A-Za-z]*]] = OpAccessChain [[PV4FLOAT2]] [[X9]] [[S0]]
-// CHECK: [[X11:%[_0-9A-Za-z]*]] = OpLoad [[V4FLOAT]] [[X10]] Aligned 16
-// CHECK: OpReturnValue [[X11]]
+// CHECK: [[X12:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[GP]] Aligned 32
+// CHECK: [[X13:%[_0-9A-Za-z]*]] = OpAccessChain [[PV4FLOAT2]] [[X12]] [[S0]]
+// CHECK: [[X14:%[_0-9A-Za-z]*]] = OpLoad [[V4FLOAT]] [[X13]] Aligned 16
+// CHECK: OpReturnValue [[X14]]
 // CHECK: OpFunctionEnd

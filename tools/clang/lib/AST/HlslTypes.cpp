@@ -910,46 +910,46 @@ bool IsHLSLRayQueryType(clang::QualType type) {
 }
 
 #ifdef ENABLE_SPIRV_CODEGEN
+static llvm::Optional<std::pair<clang::QualType, unsigned>>
+MaybeGetVKBufferPointerParams(clang::QualType type) {
+  const RecordType *RT = dyn_cast<RecordType>(type.getCanonicalType());
+  if (!RT)
+    return llvm::None;
+
+  const ClassTemplateSpecializationDecl *templateDecl =
+      dyn_cast<ClassTemplateSpecializationDecl>(RT->getAsCXXRecordDecl());
+  if (!templateDecl || !templateDecl->getName().equals("BufferPointer"))
+    return llvm::None;
+
+  auto *namespaceDecl =
+      dyn_cast_or_null<NamespaceDecl>(templateDecl->getDeclContext());
+  if (!namespaceDecl || !namespaceDecl->getName().equals("vk"))
+    return llvm::None;
+
+  const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
+  QualType bufferType = argList[0].getAsType();
+  unsigned align =
+      argList.size() > 1 ? argList[1].getAsIntegral().getLimitedValue() : 0;
+  return std::make_pair(bufferType, align);
+}
+
 bool IsVKBufferPointerType(clang::QualType type) {
-  type = type.getCanonicalType();
-  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(
-                RT->getAsCXXRecordDecl())) {
-      if (auto *namespaceDecl =
-              dyn_cast_or_null<NamespaceDecl>(templateDecl->getDeclContext())) {
-        if (namespaceDecl->getName().equals("vk") &&
-            templateDecl->getName().equals("BufferPointer")) {
-          return true;
-        }
-      }
-    }
-  }
-  return false;
+  return MaybeGetVKBufferPointerParams(type).hasValue();
 }
 
 QualType GetVKBufferPointerBufferType(clang::QualType type) {
-  return GetHLSLResourceTemplateParamType(type);
+  auto bpParams = MaybeGetVKBufferPointerParams(type);
+  assert(bpParams.hasValue() &&
+         "cannot get pointer type for type that is not a vk::BufferPointer");
+  return bpParams.getValue().first;
 }
 
 unsigned GetVKBufferPointerAlignment(clang::QualType type) {
-  type = type.getCanonicalType();
-  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(
-                RT->getAsCXXRecordDecl())) {
-      if (auto *namespaceDecl =
-              dyn_cast_or_null<NamespaceDecl>(templateDecl->getDeclContext())) {
-        if (namespaceDecl->getName().equals("vk") &&
-            templateDecl->getName().equals("BufferPointer")) {
-          const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
-          return (unsigned)argList[1].getAsIntegral().getLimitedValue();
-        }
-      }
-    }
-  }
-
-  return 0; // TODO: error
+  auto bpParams = MaybeGetVKBufferPointerParams(type);
+  assert(
+      bpParams.hasValue() &&
+      "cannot get pointer alignment for type that is not a vk::BufferPointer");
+  return bpParams.getValue().second;
 }
 #endif
 

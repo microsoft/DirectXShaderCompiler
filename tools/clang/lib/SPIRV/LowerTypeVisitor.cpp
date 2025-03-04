@@ -813,7 +813,8 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     return lowerType(realType, rule, llvm::None, srcLoc);
   }
   if (name == "BufferPointer") {
-    for (QualType t : visited) {
+    const size_t visitedTypeStackSize = visitedTypeStack.size();
+    for (QualType t : visitedTypeStack) {
       if (t == type) {
         return spvContext.getForwardPointerType(type);
       }
@@ -823,14 +824,16 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     if (rule == SpirvLayoutRule::Void) {
       rule = spvOptions.sBufferLayoutRule;
     }
-    visited.push_back(type);
+    visitedTypeStack.push_back(type);
 
     const SpirvType *spirvType = lowerType(realType, rule, llvm::None, srcLoc);
     const auto *pointerType = spvContext.getPointerType(
         spirvType, spv::StorageClass::PhysicalStorageBuffer);
     spvContext.registerForwardReference(type, pointerType);
 
-    visited.pop_back();
+    assert(visitedTypeStack.back() == type);
+    visitedTypeStack.pop_back();
+    assert(visitedTypeStack.size() == visitedTypeStackSize);
     return pointerType;
   }
   emitError("unknown type %0 in vk namespace", srcLoc) << type;

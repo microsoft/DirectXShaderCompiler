@@ -1247,10 +1247,10 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
     // not have a variable initialization. Setting nullptr for the SPIR-V
     // instruction used for expr will let us skip the variable initialization.
     if (hlsl::IsVKBufferPointerType(expr->getType())) {
-      auto *arg = constructExpr->getArg(0);
-      result = spvBuilder.createConvertUToPtr(doExpr(arg), expr->getType());
-      result->setRValue(); // ???
-      // probably actually need a special case for assignment to ptr-to-ptr var
+      const Expr *arg = constructExpr->getArg(0);
+      SpirvInstruction *value = loadIfGLValue(arg, arg->getSourceRange());
+      result = spvBuilder.createConvertUToPtr(value, expr->getType());
+      result->setRValue();
     } else if (!hlsl::IsHLSLRayQueryType(expr->getType()))
       result = curThis;
   } else if (const auto *unaryExpr = dyn_cast<UnaryExprOrTypeTraitExpr>(expr)) {
@@ -10840,10 +10840,9 @@ SpirvInstruction *SpirvEmitter::processIntrinsicGetBufferContents(
     const CXXMemberCallExpr *callExpr) {
   LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
                                     spvBuilder);
-  SpirvInstruction *bufferPointer =
-      doExpr(callExpr->getImplicitObjectArgument());
-  QualType templateType = bufferPointer->getAstResultType();
-  unsigned align = hlsl::GetVKBufferPointerAlignment(templateType);
+  Expr *obj = callExpr->getImplicitObjectArgument();
+  SpirvInstruction *bufferPointer = doExpr(obj);
+  unsigned align = hlsl::GetVKBufferPointerAlignment(obj->getType());
   lowerTypeVisitor.visitInstruction(bufferPointer);
 
   const SpirvPointerType *bufferPointerType =
@@ -10851,10 +10850,15 @@ SpirvInstruction *SpirvEmitter::processIntrinsicGetBufferContents(
   SpirvLoad *retVal =
       spvBuilder.createLoad(bufferPointerType->getPointeeType(), bufferPointer,
                             callExpr->getLocStart());
-  retVal->setRValue(false);
-  if (align) {
-    retVal->setAlignment(align);
+  if (!align) {
+    QualType bufferType = hlsl::GetVKBufferPointerBufferType(obj->getType());
+    AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
+    uint32_t stride;
+    std::tie(align, std::ignore) = alignmentCalc.getAlignmentAndSize(
+        bufferType, retVal->getLayoutRule(), llvm::None, &stride);
   }
+  retVal->setAlignment(align);
+  retVal->setRValue(false);
   return retVal;
 }
 

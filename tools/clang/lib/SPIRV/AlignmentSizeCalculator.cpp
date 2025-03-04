@@ -283,7 +283,9 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
     if (isTypeInVkNamespace(recordType)) {
       if (name == "BufferPointer") {
         return {8, 8}; // same as uint64_t
-      } else if (name == "SpirvType") {
+      }
+
+      if (name == "SpirvType") {
         const ClassTemplateSpecializationDecl *templateDecl =
             cast<ClassTemplateSpecializationDecl>(recordType->getDecl());
         const uint64_t size =

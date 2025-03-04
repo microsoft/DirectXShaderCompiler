@@ -205,7 +205,8 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
   instruction->setLayoutRule(pointer->getLayoutRule());
   instruction->setRValue(true);
 
-  if (pointer->getStorageClass() == spv::StorageClass::PhysicalStorageBuffer) {
+  if (pointer->getStorageClass() == spv::StorageClass::PhysicalStorageBuffer &&
+      pointer->getAstResultType() != QualType()) { // exclude raw buffer
     AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
     uint32_t align, size, stride;
     std::tie(align, size) = alignmentCalc.getAlignmentAndSize(

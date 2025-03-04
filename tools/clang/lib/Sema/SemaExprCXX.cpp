@@ -1059,18 +1059,23 @@ Sema::BuildCXXTypeConstructExpr(TypeSourceInfo *TInfo,
     if (hlsl::IsVKBufferPointerType(Ty) && Arg->getType()->isIntegerType()) {
       for (auto *ctor : Ty->getAsCXXRecordDecl()->ctors()) {
         if (auto *functionType = ctor->getType()->getAs<FunctionProtoType>()) {
-          if (functionType->getNumParams() == 1 &&
-              functionType->getParamType(0)->isIntegerType()) {
-            if (Arg->getType() != Context.UnsignedLongLongTy) {
-              Arg = ImpCastExprToType(Arg, Context.UnsignedLongLongTy,
-                                      CK_IntegralCast)
-                        .get();
-            }
-            return CXXConstructExpr::Create(
-                Context, Ty, TyBeginLoc, ctor, false, {Arg}, false, false,
-                false, false, CXXConstructExpr::ConstructionKind::CK_Complete,
-                SourceRange(LParenLoc, RParenLoc));
+          if (functionType->getNumParams() != 1 ||
+              !functionType->getParamType(0)->isIntegerType())
+            continue;
+
+          CanQualType argType = Arg->getType()->getCanonicalTypeUnqualified();
+          if (!Arg->isRValue()) {
+            Arg = ImpCastExprToType(Arg, argType, CK_LValueToRValue).get();
           }
+          if (argType != Context.UnsignedLongLongTy) {
+            Arg = ImpCastExprToType(Arg, Context.UnsignedLongLongTy,
+                                    CK_IntegralCast)
+                      .get();
+          }
+          return CXXConstructExpr::Create(
+              Context, Ty, TyBeginLoc, ctor, false, {Arg}, false, false, false,
+              false, CXXConstructExpr::ConstructionKind::CK_Complete,
+              SourceRange(LParenLoc, RParenLoc));
         }
       }
     }

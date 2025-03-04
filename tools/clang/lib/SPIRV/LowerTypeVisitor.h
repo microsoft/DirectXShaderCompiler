@@ -140,7 +140,7 @@ private:
   AlignmentSizeCalculator alignmentCalc; /// alignment calculator
   bool useArrayForMat1xN;                /// SPIR-V array for HLSL Matrix 1xN
   SpirvBuilder &spvBuilder;
-  SmallVector<QualType, 4> visited;
+  SmallVector<QualType, 4> visitedTypeStack; // for type recursion detection
 };
 
 } // end namespace spirv

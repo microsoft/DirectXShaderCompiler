@@ -3420,10 +3420,19 @@ private:
       case LICOMPTYPE_VOID:
         paramTypes.push_back(context.VoidTy);
         break;
-      case LICOMPTYPE_VK_BUFFER_POINTER:
-        paramTypes.push_back(context.getTypeDeclType(
-            m_objectTypeDecls[AR_OBJECT_VK_BUFFER_POINTER]));
+      case LICOMPTYPE_VK_BUFFER_POINTER: {
+        const ArBasicKind *match =
+            std::find(g_ArBasicKindsAsTypes,
+                      &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)],
+                      AR_OBJECT_VK_BUFFER_POINTER);
+        DXASSERT(match !=
+                     &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)],
+                 "otherwise can't find constant in basic kinds");
+        size_t index = match - g_ArBasicKindsAsTypes;
+        paramTypes.push_back(
+            m_sema->getASTContext().getTypeDeclType(m_objectTypeDecls[index]));
         break;
+      }
       default:
         DXASSERT(false, "Argument type of vk:: intrinsic function is not "
                         "supported");
