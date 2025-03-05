@@ -814,6 +814,8 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
   }
   if (name == "BufferPointer") {
     const size_t visitedTypeStackSize = visitedTypeStack.size();
+    (void)visitedTypeStackSize; // suppress unused warning (used only in assert)
+
     for (QualType t : visitedTypeStack) {
       if (t == type) {
         return spvContext.getForwardPointerType(type);
