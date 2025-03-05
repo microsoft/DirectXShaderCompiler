@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 //
 // This file implements the top level handling of macro expansion for the
@@ -1080,7 +1083,8 @@ static bool HasFeature(const Preprocessor &PP, const IdentifierInfo *II) {
       .Case("nullability", true)
       .Case("memory_sanitizer", LangOpts.Sanitize.has(SanitizerKind::Memory))
       .Case("thread_sanitizer", LangOpts.Sanitize.has(SanitizerKind::Thread))
-      .Case("dataflow_sanitizer", LangOpts.Sanitize.has(SanitizerKind::DataFlow))
+      .Case("dataflow_sanitizer",
+            LangOpts.Sanitize.has(SanitizerKind::DataFlow))
       // Objective-C features
       .Case("objc_arr", LangOpts.ObjCAutoRefCount) // FIXME: REMOVE?
       .Case("objc_arc", LangOpts.ObjCAutoRefCount)
@@ -1180,6 +1184,7 @@ static bool HasFeature(const Preprocessor &PP, const IdentifierInfo *II) {
       .Case("has_trivial_constructor", LangOpts.CPlusPlus)
       .Case("has_trivial_destructor", LangOpts.CPlusPlus)
       .Case("has_virtual_destructor", LangOpts.CPlusPlus)
+      .Case("hlsl_vk_buffer_pointer", LangOpts.SPIRV)
       .Case("is_abstract", LangOpts.CPlusPlus)
       .Case("is_base_of", LangOpts.CPlusPlus)
       .Case("is_class", LangOpts.CPlusPlus)

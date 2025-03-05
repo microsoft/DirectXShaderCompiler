@@ -7,6 +7,9 @@
 //                                                                           //
 // Lower functions to lower HL operations to DXIL operations.                //
 //                                                                           //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
+// All rights reserved.                                                      //
+//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 #define _USE_MATH_DEFINES
@@ -6531,6 +6534,12 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_Vkext_execution_mode, UnsupportedVulkanIntrinsic,
      DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_Vkext_execution_mode_id, UnsupportedVulkanIntrinsic,
+     DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_Vkstatic_pointer_cast, UnsupportedVulkanIntrinsic,
+     DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_Vkreinterpret_pointer_cast, UnsupportedVulkanIntrinsic,
+     DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_GetBufferContents, UnsupportedVulkanIntrinsic,
      DXIL::OpCode::NumOpCodes},
 #endif // ENABLE_SPIRV_CODEGEN
     {IntrinsicOp::MOP_Append, StreamOutputLower, DXIL::OpCode::EmitStream},

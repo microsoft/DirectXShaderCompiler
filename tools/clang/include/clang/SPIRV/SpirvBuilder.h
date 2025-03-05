@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_SPIRV_SPIRVBUILDER_H
 #define LLVM_CLANG_SPIRV_SPIRVBUILDER_H
@@ -272,6 +275,14 @@ public:
                                                   SpirvInstruction *coordinate,
                                                   SpirvInstruction *sample,
                                                   SourceLocation);
+
+  /// \brief Creates an OpConverPtrToU SPIR-V instruction with the given
+  /// parameters.
+  SpirvConvertPtrToU *createConvertPtrToU(SpirvInstruction *ptr, QualType type);
+
+  /// \brief Creates an OpConverUToPtr SPIR-V instruction with the given
+  /// parameters.
+  SpirvConvertUToPtr *createConvertUToPtr(SpirvInstruction *val, QualType type);
 
   /// \brief Creates SPIR-V instructions for sampling the given image.
   ///
