@@ -992,6 +992,21 @@ def HLSLNodeTrackRWInputSharing : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+
+def HLSLTessPatch : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [BoolArgument<"IsInput">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLStreamOutput : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [UnsignedArgument<"Vertices">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
 def HLSLResource : InheritableAttr {
   let Spellings = []; // No spellings!
   let Args = [UnsignedArgument<"ResKind">, UnsignedArgument<"ResClass">];

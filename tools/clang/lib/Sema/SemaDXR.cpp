@@ -810,6 +810,13 @@ void DiagnoseTraceCall(Sema &S, const VarDecl *Payload,
     return;
   }
 
+  if (hlsl::ContainsVectorLongerThan(&S, Payload->getType(),
+                                     DXIL::kDefaultMaxVectorLength)) {
+    S.Diag(Payload->getLocation(), diag::err_hlsl_unsupported_long_vector)
+        << DXIL::kDefaultMaxVectorLength << "payload parameters";
+    return;
+  }
+
   CollectNonAccessableFields(PayloadType, CallerStage, {}, {},
                              NonWriteableFields, NonReadableFields);
 

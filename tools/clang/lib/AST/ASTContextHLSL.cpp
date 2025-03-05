@@ -525,11 +525,15 @@ hlsl::DeclareRecordTypeWithHandleAndNoMemberFunctions(ASTContext &context,
 /// </summary>
 CXXRecordDecl *
 hlsl::DeclareRecordTypeWithHandle(ASTContext &context, StringRef name,
-                                  bool isCompleteType /*= true */) {
+                                  bool isCompleteType /*= true */,
+                                  InheritableAttr *Attr) {
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), name,
                                          TagDecl::TagKind::TTK_Struct);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
+  if (Attr)
+    typeDeclBuilder.getRecordDecl()->addAttr(Attr);
+
   if (isCompleteType)
     return typeDeclBuilder.completeDefinition();
   return typeDeclBuilder.getRecordDecl();
@@ -915,6 +919,7 @@ CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandleInDeclContext(
     ASTContext &context, DeclContext *declContext, StringRef name,
     uint8_t templateArgCount, TypeSourceInfo *defaultTypeArgValue,
     InheritableAttr *Attr) {
+
   DXASSERT(templateArgCount != 0,
            "otherwise caller should be creating a class or struct");
   DXASSERT(templateArgCount <= 2, "otherwise the function needs to be updated "
@@ -938,11 +943,9 @@ CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandleInDeclContext(
   QualType elementType = context.getTemplateTypeParmType(
       /*templateDepth*/ 0, 0, ParameterPackFalse, elementTemplateParamDecl);
 
-  if (templateArgCount > 1 &&
-      // Only need array type for inputpatch and outputpatch.
-      // Avoid Texture2DMS which may use 0 count.
-      // TODO: use hlsl types to do the check.
-      !name.startswith("Texture") && !name.startswith("RWTexture")) {
+  // Only need array type for inputpatch and outputpatch.
+  if (Attr && isa<HLSLTessPatchAttr>(Attr)) {
+    DXASSERT(templateArgCount == 2, "Tess patches need 2 template params");
     Expr *countExpr = DeclRefExpr::Create(
         context, NestedNameSpecifierLoc(), NoLoc, countTemplateParamDecl, false,
         DeclarationNameInfo(countTemplateParamDecl->getDeclName(), NoLoc),
@@ -1098,22 +1101,26 @@ CXXMethodDecl *hlsl::CreateObjectFunctionDeclarationWithParams(
 
 CXXRecordDecl *hlsl::DeclareUIntTemplatedTypeWithHandle(
     ASTContext &context, StringRef typeName, StringRef templateParamName,
-    TagTypeKind tagKind) {
+    InheritableAttr *Attr) {
   return DeclareUIntTemplatedTypeWithHandleInDeclContext(
       context, context.getTranslationUnitDecl(), typeName, templateParamName,
-      tagKind);
+      Attr);
 }
 
 CXXRecordDecl *hlsl::DeclareUIntTemplatedTypeWithHandleInDeclContext(
     ASTContext &context, DeclContext *declContext, StringRef typeName,
-    StringRef templateParamName, TagTypeKind tagKind) {
+    StringRef templateParamName, InheritableAttr *Attr) {
   // template<uint kind> FeedbackTexture2D[Array] { ... }
-  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, typeName, tagKind);
+  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, typeName,
+                                         TagTypeKind::TTK_Class);
   typeDeclBuilder.addIntegerTemplateParam(templateParamName,
                                           context.UnsignedIntTy);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField(
       "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
+  if (Attr)
+    typeDeclBuilder.getRecordDecl()->addAttr(Attr);
+
   return typeDeclBuilder.getRecordDecl();
 }
 
@@ -1133,6 +1140,10 @@ hlsl::DeclareConstantBufferViewType(clang::ASTContext &context, bool bTBuf) {
 
   typeDeclBuilder.addField(
       "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
+
+  typeDeclBuilder.getRecordDecl()->addAttr(HLSLResourceAttr::CreateImplicit(
+      context, (unsigned)DXIL::ResourceKind::CBuffer,
+      (unsigned)DXIL::ResourceClass::CBuffer));
 
   typeDeclBuilder.getRecordDecl();
 
