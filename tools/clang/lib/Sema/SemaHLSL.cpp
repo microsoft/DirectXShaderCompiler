@@ -363,7 +363,7 @@ enum ArBasicKind {
 
 #define IS_BPROP_STREAM(_Props) (((_Props)&BPROP_STREAM) != 0)
 
-#define IS_BPROP_PATCH(_Props) (((_Props)&BPROP_PATCH) != 0)
+#define IS_BPROP_PATCH(_Props) (((_Props) & BPROP_PATCH) != 0)
 
 #define IS_BPROP_SAMPLER(_Props) (((_Props)&BPROP_SAMPLER) != 0)
 
