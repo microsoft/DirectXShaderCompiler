@@ -475,18 +475,62 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 // Enumeration for operations specified by DXIL
 enum class OpCode : unsigned {
   //
-  Reserved0 = 226,  // Reserved
-  Reserved1 = 227,  // Reserved
-  Reserved10 = 236, // Reserved
-  Reserved11 = 237, // Reserved
-  Reserved2 = 228,  // Reserved
-  Reserved3 = 229,  // Reserved
-  Reserved4 = 230,  // Reserved
-  Reserved5 = 231,  // Reserved
-  Reserved6 = 232,  // Reserved
-  Reserved7 = 233,  // Reserved
-  Reserved8 = 234,  // Reserved
-  Reserved9 = 235,  // Reserved
+  Reserved0 = 226,   // Reserved
+  Reserved1 = 227,   // Reserved
+  Reserved10 = 236,  // Reserved
+  Reserved11 = 237,  // Reserved
+  Reserved2 = 228,   // Reserved
+  Reserved3 = 229,   // Reserved
+  Reserved4 = 230,   // Reserved
+  Reserved5 = 231,   // Reserved
+  Reserved6 = 232,   // Reserved
+  Reserved7 = 233,   // Reserved
+  Reserved8 = 234,   // Reserved
+  Reserved9 = 235,   // Reserved
+  ReservedA0 = 259,  // reserved
+  ReservedA1 = 260,  // reserved
+  ReservedA2 = 261,  // reserved
+  ReservedB0 = 262,  // reserved
+  ReservedB1 = 263,  // reserved
+  ReservedB10 = 272, // reserved
+  ReservedB11 = 273, // reserved
+  ReservedB12 = 274, // reserved
+  ReservedB13 = 275, // reserved
+  ReservedB14 = 276, // reserved
+  ReservedB15 = 277, // reserved
+  ReservedB16 = 278, // reserved
+  ReservedB17 = 279, // reserved
+  ReservedB18 = 280, // reserved
+  ReservedB19 = 281, // reserved
+  ReservedB2 = 264,  // reserved
+  ReservedB20 = 282, // reserved
+  ReservedB21 = 283, // reserved
+  ReservedB22 = 284, // reserved
+  ReservedB23 = 285, // reserved
+  ReservedB24 = 286, // reserved
+  ReservedB25 = 287, // reserved
+  ReservedB26 = 288, // reserved
+  ReservedB27 = 289, // reserved
+  ReservedB28 = 290, // reserved
+  ReservedB29 = 291, // reserved
+  ReservedB3 = 265,  // reserved
+  ReservedB30 = 292, // reserved
+  ReservedB4 = 266,  // reserved
+  ReservedB5 = 267,  // reserved
+  ReservedB6 = 268,  // reserved
+  ReservedB7 = 269,  // reserved
+  ReservedB8 = 270,  // reserved
+  ReservedB9 = 271,  // reserved
+  ReservedC0 = 293,  // reserved
+  ReservedC1 = 294,  // reserved
+  ReservedC2 = 295,  // reserved
+  ReservedC3 = 296,  // reserved
+  ReservedC4 = 297,  // reserved
+  ReservedC5 = 298,  // reserved
+  ReservedC6 = 299,  // reserved
+  ReservedC7 = 300,  // reserved
+  ReservedC8 = 301,  // reserved
+  ReservedC9 = 302,  // reserved
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -635,8 +679,9 @@ enum class OpCode : unsigned {
   TraceRay = 157,   // initiates raytrace
 
   // Inline Ray Query
-  AllocateRayQuery = 178, // allocates space for RayQuery and return handle
-  RayQuery_Abort = 181,   // aborts a ray query
+  AllocateRayQuery = 178,  // allocates space for RayQuery and return handle
+  AllocateRayQuery2 = 258, // allocates space for RayQuery and return handle
+  RayQuery_Abort = 181,    // aborts a ray query
   RayQuery_CandidateGeometryIndex = 203, // returns candidate hit geometry index
   RayQuery_CandidateInstanceContributionToHitGroupIndex =
       214, // returns candidate hit InstanceContributionToHitGroupIndex
@@ -985,7 +1030,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_7 = 226,
   NumOpCodes_Dxil_1_8 = 258,
 
-  NumOpCodes = 258 // exclusive last value of enumeration
+  NumOpCodes = 303 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1106,6 +1151,7 @@ enum class OpCodeClass : unsigned {
 
   // Inline Ray Query
   AllocateRayQuery,
+  AllocateRayQuery2,
   RayQuery_Abort,
   RayQuery_CommitNonOpaqueTriangleHit,
   RayQuery_CommitProceduralPrimitiveHit,
@@ -1292,7 +1338,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
 
-  NumOpClasses = 174 // exclusive last value of enumeration
+  NumOpClasses = 175 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1774,7 +1820,11 @@ enum class RayFlag : uint32_t {
   CullNonOpaque = 0x80,
   SkipTriangles = 0x100,
   SkipProceduralPrimitives = 0x200,
+  ForceOMM2State = 0x400, // Force 2-state in Opacity Micromaps
 };
+
+// Corresponds to RAYQUERY_FLAG_* in HLSL
+enum class RayQueryFlag : uint32_t { None = 0, AllowOpacityMicromaps = 1 };
 
 // Packing/unpacking intrinsics
 enum class UnpackMode : uint8_t {
@@ -1957,7 +2007,9 @@ enum class RaytracingPipelineFlags : uint32_t {
   None = 0x0,
   SkipTriangles = 0x100,
   SkipProceduralPrimitives = 0x200,
-  ValidMask = 0x300,
+  ValidMask_1_8 = 0x300,         // valid mask up through DXIL 1.8
+  AllowOpacityMicromaps = 0x400, // Allow Opacity Micromaps to be used
+  ValidMask = 0x700,             // current valid mask
 };
 
 enum class CommittedStatus : uint32_t {

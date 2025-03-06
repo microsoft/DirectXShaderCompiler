@@ -2602,6 +2602,416 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::ReadNone,
     },
+
+    // Inline Ray Query void,     h,     f,     d,    i1,    i8,   i16,   i32,
+    // i64,   udt,   obj ,  function attribute
+    {
+        OC::AllocateRayQuery2,
+        "AllocateRayQuery2",
+        OCC::AllocateRayQuery2,
+        "allocateRayQuery2",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+
+    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+    {
+        OC::ReservedA0,
+        "ReservedA0",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedA1,
+        "ReservedA1",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedA2,
+        "ReservedA2",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB0,
+        "ReservedB0",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB1,
+        "ReservedB1",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB2,
+        "ReservedB2",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB3,
+        "ReservedB3",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB4,
+        "ReservedB4",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB5,
+        "ReservedB5",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB6,
+        "ReservedB6",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB7,
+        "ReservedB7",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB8,
+        "ReservedB8",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB9,
+        "ReservedB9",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB10,
+        "ReservedB10",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB11,
+        "ReservedB11",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB12,
+        "ReservedB12",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB13,
+        "ReservedB13",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB14,
+        "ReservedB14",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB15,
+        "ReservedB15",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB16,
+        "ReservedB16",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB17,
+        "ReservedB17",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB18,
+        "ReservedB18",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB19,
+        "ReservedB19",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB20,
+        "ReservedB20",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB21,
+        "ReservedB21",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB22,
+        "ReservedB22",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB23,
+        "ReservedB23",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB24,
+        "ReservedB24",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB25,
+        "ReservedB25",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB26,
+        "ReservedB26",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB27,
+        "ReservedB27",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB28,
+        "ReservedB28",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB29,
+        "ReservedB29",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedB30,
+        "ReservedB30",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedC0,
+        "ReservedC0",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedC1,
+        "ReservedC1",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedC2,
+        "ReservedC2",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedC3,
+        "ReservedC3",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedC4,
+        "ReservedC4",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedC5,
+        "ReservedC5",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedC6,
+        "ReservedC6",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedC7,
+        "ReservedC7",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedC8,
+        "ReservedC8",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::ReservedC9,
+        "ReservedC9",
+        OCC::Reserved,
+        "reserved",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
 };
 // OPCODE-OLOADS:END
 
@@ -3332,6 +3742,12 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
       major = 6;
       minor = 8;
     }
+    return;
+  }
+  // Instructions: AllocateRayQuery2=258
+  if (op == 258) {
+    major = 6;
+    minor = 9;
     return;
   }
   // OPCODE-SMMASK:END
@@ -5421,6 +5837,192 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
+
+    // Inline Ray Query
+  case OpCode::AllocateRayQuery2:
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
+
+    //
+  case OpCode::ReservedA0:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedA1:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedA2:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB0:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB1:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB2:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB3:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB4:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB5:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB6:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB7:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB8:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB9:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB10:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB11:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB12:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB13:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB14:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB15:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB16:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB17:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB18:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB19:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB20:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB21:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB22:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB23:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB24:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB25:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB26:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB27:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB28:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB29:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB30:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC0:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC1:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC2:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC3:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC4:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC5:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC6:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC7:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC8:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedC9:
+    A(pV);
+    A(pI32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -5679,6 +6281,51 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::AnnotateNodeRecordHandle:
   case OpCode::NodeOutputIsValid:
   case OpCode::GetRemainingRecursionLevels:
+  case OpCode::AllocateRayQuery2:
+  case OpCode::ReservedA0:
+  case OpCode::ReservedA1:
+  case OpCode::ReservedA2:
+  case OpCode::ReservedB0:
+  case OpCode::ReservedB1:
+  case OpCode::ReservedB2:
+  case OpCode::ReservedB3:
+  case OpCode::ReservedB4:
+  case OpCode::ReservedB5:
+  case OpCode::ReservedB6:
+  case OpCode::ReservedB7:
+  case OpCode::ReservedB8:
+  case OpCode::ReservedB9:
+  case OpCode::ReservedB10:
+  case OpCode::ReservedB11:
+  case OpCode::ReservedB12:
+  case OpCode::ReservedB13:
+  case OpCode::ReservedB14:
+  case OpCode::ReservedB15:
+  case OpCode::ReservedB16:
+  case OpCode::ReservedB17:
+  case OpCode::ReservedB18:
+  case OpCode::ReservedB19:
+  case OpCode::ReservedB20:
+  case OpCode::ReservedB21:
+  case OpCode::ReservedB22:
+  case OpCode::ReservedB23:
+  case OpCode::ReservedB24:
+  case OpCode::ReservedB25:
+  case OpCode::ReservedB26:
+  case OpCode::ReservedB27:
+  case OpCode::ReservedB28:
+  case OpCode::ReservedB29:
+  case OpCode::ReservedB30:
+  case OpCode::ReservedC0:
+  case OpCode::ReservedC1:
+  case OpCode::ReservedC2:
+  case OpCode::ReservedC3:
+  case OpCode::ReservedC4:
+  case OpCode::ReservedC5:
+  case OpCode::ReservedC6:
+  case OpCode::ReservedC7:
+  case OpCode::ReservedC8:
+  case OpCode::ReservedC9:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:
