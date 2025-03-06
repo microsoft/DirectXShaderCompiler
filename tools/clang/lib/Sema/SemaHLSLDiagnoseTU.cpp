@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/Support/Global.h"
 #include "clang/AST/ASTContext.h"
@@ -332,7 +333,8 @@ public:
 
     if (!SM->IsSMAtLeast(6, 9)) {
       if (II && II->getName().startswith("RAYQUERY_FLAG")) {
-        sema->Diag(ET->getLocation(), diag::warn_hlsl_enum_type_not_allowed)
+        sema->Diag(ET->getLocation(),
+                   diag::warn_hlsl_builtin_constant_unavailable)
             << II->getName() << SM->GetName() << "6.9";
       }
     }
@@ -341,73 +343,20 @@ public:
   }
 
   bool IsRayFlagForceOMM2StateSet(const CallExpr *CE) {
-    const ImplicitCastExpr *RayFlagArg =
-        dyn_cast<ImplicitCastExpr>(CE->getArg(1));
-    if (!RayFlagArg)
-      return false;
-
-    const DeclRefExpr *DR = dyn_cast<DeclRefExpr>(RayFlagArg->getSubExpr());
-    if (DR) {
-      const ValueDecl *valueDecl = DR->getDecl();
-      const VarDecl *varDecl = dyn_cast<VarDecl>(valueDecl);
-
-      if (varDecl) {
-        const Expr *initializer = varDecl->getInit();
-        if (!initializer)
-          return false;
-
-        const IntegerLiteral *intLit = dyn_cast<IntegerLiteral>(initializer);
-        if (!intLit)
-          return false;
-
-        unsigned int rayFlagValue = intLit->getValue().getZExtValue();
-        if (rayFlagValue & (unsigned int)DXIL::RayFlag::ForceOMM2State) {
-          return true;
-        }
-      }
-    } else if (const IntegerLiteral *intLit =
-                   dyn_cast<IntegerLiteral>(RayFlagArg->getSubExpr())) {
-      unsigned int rayFlagValue = intLit->getValue().getZExtValue();
-      if (rayFlagValue & (unsigned int)DXIL::RayFlag::ForceOMM2State)
-        return true;
-    }
-    return false;
+    const Expr *Expr1 = CE->getArg(1);
+    llvm::APSInt constantResult;
+    return Expr1->isIntegerConstantExpr(constantResult,
+                                        sema->getASTContext()) &&
+           (constantResult.getLimitedValue() &
+            (uint64_t)DXIL::RayFlag::ForceOMM2State) != 0;
   }
 
   void DiagnoseTraceRayInline(const MemberExpr *ME,
                               CXXMemberCallExpr *callExpr) {
-    // validate that if the ray flag parameter is
-    // RAY_FLAG_FORCE_OMM_2_STATE, the ray query object
-    // has the RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS
-    // flag set, otherwise emit a diagnostic
-    bool IsRayFlagForceOMM2State = false;
-    if (ImplicitCastExpr *RayFlagArg =
-            dyn_cast<ImplicitCastExpr>(callExpr->getArg(1))) {
-      if (DeclRefExpr *DR = dyn_cast<DeclRefExpr>(RayFlagArg->getSubExpr())) {
-        ValueDecl *valueDecl = DR->getDecl();
-        VarDecl *varDecl = dyn_cast<VarDecl>(valueDecl);
-
-        if (varDecl) {
-          Expr *initializer = varDecl->getInit();
-
-          if (initializer) {
-            if (const IntegerLiteral *intLit =
-                    dyn_cast<IntegerLiteral>(initializer)) {
-              unsigned int rayFlagValue = intLit->getValue().getZExtValue();
-              if (rayFlagValue & (unsigned int)DXIL::RayFlag::ForceOMM2State) {
-                IsRayFlagForceOMM2State = true;
-              }
-            }
-          }
-        }
-      } else if (const IntegerLiteral *intLit =
-                     dyn_cast<IntegerLiteral>(RayFlagArg->getSubExpr())) {
-        unsigned int rayFlagValue = intLit->getValue().getZExtValue();
-        if (rayFlagValue & (unsigned int)DXIL::RayFlag::ForceOMM2State) {
-          IsRayFlagForceOMM2State = true;
-        }
-      }
-    }
+    // Validate if the RayFlag parameter has RAY_FLAG_FORCE_OMM_2_STATE set,
+    // the RayQuery decl must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set,
+    // otherwise emit a diagnostic.
+    bool IsRayFlagForceOMM2State = IsRayFlagForceOMM2StateSet(callExpr);
     if (IsRayFlagForceOMM2State) {
       const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ME->getBase());
       assert(DRE);
@@ -429,8 +378,9 @@ public:
       if (!IsRayQueryAllowOMMSet) {
         // Diagnose the call
         sema->Diag(callExpr->getExprLoc(),
-                   diag::warn_hlsl_unexpected_rayquery_flag);
-        sema->Diag(VD->getLocation(), diag::note_hlsl_unexpected_rayquery_flag);
+                   diag::warn_hlsl_rayquery_flags_conflict);
+        sema->Diag(VD->getLocation(), diag::note_previous_decl)
+            << "RayQueryFlags";
       }
     }
   }
@@ -447,6 +397,9 @@ public:
     if (const CXXMethodDecl *methodDecl = dyn_cast<CXXMethodDecl>(MD)) {
       auto *attr = methodDecl->getAttr<HLSLIntrinsicAttr>();
       if (!attr)
+        return true;
+      StringRef OpcodeGroup = GetHLOpcodeGroupName(HLOpcodeGroup::HLIntrinsic);
+      if (attr->getGroup() != OpcodeGroup)
         return true;
       if ((hlsl::IntrinsicOp)attr->getOpcode() ==
           hlsl::IntrinsicOp::MOP_TraceRayInline)

@@ -538,7 +538,8 @@ hlsl::DeclareRecordTypeWithHandle(ASTContext &context, StringRef name,
 // creates a global static constant unsigned integer with value.
 // equivalent to: static const uint name = val;
 static void AddConstUInt(clang::ASTContext &context, DeclContext *DC,
-                         StringRef name, unsigned val) {
+                         StringRef name, unsigned val,
+                         AvailabilityAttr *AAttr = nullptr) {
   IdentifierInfo &Id = context.Idents.get(name, tok::TokenKind::identifier);
   QualType type = context.getConstType(context.UnsignedIntTy);
   VarDecl *varDecl = VarDecl::Create(context, DC, NoLoc, NoLoc, &Id, type,
@@ -548,6 +549,8 @@ static void AddConstUInt(clang::ASTContext &context, DeclContext *DC,
       context, llvm::APInt(context.getIntWidth(type), val), type, NoLoc);
   varDecl->setInit(exprVal);
   varDecl->setImplicit(true);
+  if (AAttr)
+    varDecl->addAttr(AAttr);
   DC->addDecl(varDecl);
 }
 
@@ -563,7 +566,8 @@ struct Enumerant {
 };
 
 static void AddTypedefPseudoEnum(ASTContext &context, StringRef name,
-                                 ArrayRef<Enumerant> enumerants) {
+                                 ArrayRef<Enumerant> enumerants,
+                                 AvailabilityAttr *AAttr = nullptr) {
   DeclContext *curDC = context.getTranslationUnitDecl();
   // typedef uint <name>;
   IdentifierInfo &enumId = context.Idents.get(name, tok::TokenKind::identifier);
@@ -575,7 +579,7 @@ static void AddTypedefPseudoEnum(ASTContext &context, StringRef name,
   enumDecl->setImplicit(true);
   // static const uint <enumerant.name> = <enumerant.value>;
   for (const Enumerant &enumerant : enumerants) {
-    AddConstUInt(context, curDC, enumerant.name, enumerant.value);
+    AddConstUInt(context, curDC, enumerant.name, enumerant.value, AAttr);
   }
 }
 
@@ -602,11 +606,36 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
        {"RAY_FLAG_FORCE_OMM_2_STATE",
         (unsigned)DXIL::RayFlag::ForceOMM2State}});
 
+  // Create an availability attribute for
+  // shader model 6.9 for the RAYQUERY_FLAG enum
+  AvailabilityAttr *AAttr_6_9 = AvailabilityAttr::CreateImplicit(
+      context, &context.Idents.get("implicit"), clang::VersionTuple(6, 9),
+      clang::VersionTuple(6, 9), clang::VersionTuple(6, 9), false,
+      "potential misuse of built-in constant introduced in shader model 6.9");
+
+  // Can't use AddTypedefPseudoEnum because we want exactly one enum value
+  // to have the availability attribute.
+  DeclContext *curDC = context.getTranslationUnitDecl();
+  // typedef uint <name>;
+  IdentifierInfo &enumId =
+      context.Idents.get("RAYQUERY_FLAG", tok::TokenKind::identifier);
+  TypeSourceInfo *uintTypeSource =
+      context.getTrivialTypeSourceInfo(context.UnsignedIntTy, NoLoc);
+  TypedefDecl *enumDecl = TypedefDecl::Create(context, curDC, NoLoc, NoLoc,
+                                              &enumId, uintTypeSource);
+  curDC->addDecl(enumDecl);
+  enumDecl->setImplicit(true);
+  AddConstUInt(context, curDC, "RAYQUERY_FLAG_NONE",
+               (unsigned)DXIL::RayQueryFlag::None, nullptr);
+  AddConstUInt(context, curDC, "RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS",
+               (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps, AAttr_6_9);
+
   AddTypedefPseudoEnum(
       context, "RAYQUERY_FLAG",
       {{"RAYQUERY_FLAG_NONE", (unsigned)DXIL::RayQueryFlag::None},
        {"RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS",
-        (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps}});
+        (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps}},
+      AAttr_6_9);
 
   AddTypedefPseudoEnum(
       context, "COMMITTED_STATUS",
@@ -1172,7 +1201,8 @@ CXXRecordDecl *hlsl::DeclareRayQueryType(ASTContext &context) {
       context.DeclarationNames.getCXXConstructorName(canQualType), false,
       &pConstructorDecl, &pTypeSourceInfo);
   typeDeclBuilder.getRecordDecl()->addDecl(pConstructorDecl);
-
+  typeDeclBuilder.getRecordDecl()->addAttr(
+      HLSLRayQueryObjectAttr::CreateImplicit(context));
   return typeDeclBuilder.getRecordDecl();
 }
 
