@@ -15984,7 +15984,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
         std::string profile = S.getLangOpts().HLSLProfile;
         const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
         if (SM->IsSM69Plus() &&!PD->getAttr<HLSLMaxRecordsPerNodeAttr>()) {
-          S.Diags.Report(FD->getLocation(),
+          S.Diags.Report(PD->getLocation(),
               diag::warn_hlsl_max_records_per_node_required_attribute);
         }
       }
@@ -16006,6 +16006,8 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     auto *NodeArraySizeAttr = Param->getAttr<HLSLNodeArraySizeAttr>();
     auto *UnboundedSparseNodesAttr =
         Param->getAttr<HLSLUnboundedSparseNodesAttr>();
+    auto *MaxRecordsPerNodeAttr =
+        Param->getAttr<HLSLMaxRecordsPerNodeAttr>();
     // Check any node input is compatible with the node launch type
     if (hlsl::IsHLSLNodeInputType(ParamTy)) {
       InputCount++;
@@ -16036,7 +16038,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
       // If node output is not an array, diagnose array only attributes
       if (((uint32_t)GetNodeIOType(ParamTy) &
            (uint32_t)DXIL::NodeIOFlags::NodeArray) == 0) {
-        Attr *ArrayAttrs[] = {NodeArraySizeAttr, UnboundedSparseNodesAttr};
+        Attr *ArrayAttrs[] = {NodeArraySizeAttr, UnboundedSparseNodesAttr, MaxRecordsPerNodeAttr};
         for (auto *A : ArrayAttrs) {
           if (A) {
             S.Diags.Report(A->getLocation(),

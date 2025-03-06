@@ -2046,7 +2046,7 @@ void DxilMDHelper::DeserializeNodeProps(const MDTuple *pProps, unsigned &idx,
     nodeoutput.AllowSparseNodes = ConstMDToBool(pProps->getOperand(idx++));
     if (pProps->getNumOperands() > idx) {
       nodeoutput.RecordType.alignment =
-          ConstMDToUint32(pProps->getOperand(idx++));      
+          ConstMDToUint32(pProps->getOperand(idx++));
     }
     nodeoutput.MaxRecordsPerNode = ConstMDToUint32(pProps->getOperand(idx++));
   }
