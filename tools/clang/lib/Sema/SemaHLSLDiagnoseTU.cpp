@@ -329,14 +329,25 @@ public:
   bool VisitDeclRefExpr(DeclRefExpr *ET) {
     // Search for enum types that should only exist after
     // specific shader models.
-    IdentifierInfo *II = ET->getDecl()->getIdentifier();
 
-    if (!SM->IsSMAtLeast(6, 9)) {
-      if (II && II->getName().startswith("RAYQUERY_FLAG")) {
-        sema->Diag(ET->getLocation(),
-                   diag::warn_hlsl_builtin_constant_unavailable)
-            << II->getName() << SM->GetName() << "6.9";
-      }
+    // First step: get an availability attribute
+    AvailabilityAttr *AAttr = nullptr;
+    if (!ET->getDecl()->hasAttr<AvailabilityAttr>())
+      return true;
+
+    AAttr = ET->getDecl()->getAttr<AvailabilityAttr>();
+    VersionTuple AAttrVT = AAttr->getIntroduced();
+    VersionTuple SMVT = VersionTuple(SM->GetMajor(), SM->GetMinor());
+
+    // if the current shader model is lower than what
+    // is stated in the availability attribute, emit
+    // the warning warn_hlsl_builtin_constant_unavailable
+
+    if (SMVT < AAttrVT) {
+      IdentifierInfo *II = ET->getDecl()->getIdentifier();
+      sema->Diag(ET->getLocation(),
+                 diag::warn_hlsl_builtin_constant_unavailable)
+          << II->getName() << SM->GetName() << AAttrVT.getAsString();
     }
 
     return true;

@@ -609,8 +609,8 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
   // Create an availability attribute for
   // shader model 6.9 for the RAYQUERY_FLAG enum
   AvailabilityAttr *AAttr_6_9 = AvailabilityAttr::CreateImplicit(
-      context, &context.Idents.get("implicit"), clang::VersionTuple(6, 9),
-      clang::VersionTuple(6, 9), clang::VersionTuple(6, 9), false,
+      context, &context.Idents.get(""), clang::VersionTuple(6, 9),
+      clang::VersionTuple(), clang::VersionTuple(), false,
       "potential misuse of built-in constant introduced in shader model 6.9");
 
   // Can't use AddTypedefPseudoEnum because we want exactly one enum value
