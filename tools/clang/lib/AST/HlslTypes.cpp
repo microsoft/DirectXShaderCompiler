@@ -53,44 +53,44 @@ ConvertHLSLVecMatTypeToExtVectorType(const clang::ASTContext &context,
   return nullptr;
 }
 
+template <typename AttrType> static AttrType *getAttr(clang::QualType type) {
+  type = type.getCanonicalType();
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    if (const auto *Spec =
+            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl()))
+      if (const auto *Template =
+              dyn_cast<ClassTemplateDecl>(Spec->getSpecializedTemplate()))
+        return Template->getTemplatedDecl()->getAttr<AttrType>();
+    if (const auto *Decl = dyn_cast<CXXRecordDecl>(RT->getDecl()))
+      return Decl->getAttr<AttrType>();
+  }
+  return nullptr;
+}
+
 bool IsHLSLVecMatType(clang::QualType type) {
-  const Type *Ty = type.getCanonicalType().getTypePtr();
-  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
-      if (templateDecl->getName() == "vector") {
-        return true;
-      } else if (templateDecl->getName() == "matrix") {
-        return true;
-      }
-    }
+  type = type.getCanonicalType();
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    if (const auto *Spec =
+            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl()))
+      if (const auto *Template =
+              dyn_cast<ClassTemplateDecl>(Spec->getSpecializedTemplate()))
+        return Template->getTemplatedDecl()->getAttr<HLSLMatrixAttr>() ||
+               Template->getTemplatedDecl()->getAttr<HLSLVectorAttr>();
+    if (const auto *Decl = dyn_cast<CXXRecordDecl>(RT->getDecl()))
+      return Decl->getAttr<HLSLMatrixAttr>() || Decl->getAttr<HLSLVectorAttr>();
   }
   return false;
 }
 
 bool IsHLSLMatType(clang::QualType type) {
-  const clang::Type *Ty = type.getCanonicalType().getTypePtr();
-  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
-      if (templateDecl->getName() == "matrix") {
-        return true;
-      }
-    }
-  }
+  if (getAttr<HLSLMatrixAttr>(type))
+    return true;
   return false;
 }
 
 bool IsHLSLVecType(clang::QualType type) {
-  const clang::Type *Ty = type.getCanonicalType().getTypePtr();
-  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
-      if (templateDecl->getName() == "vector") {
-        return true;
-      }
-    }
-  }
+  if (getAttr<HLSLVectorAttr>(type))
+    return true;
   return false;
 }
 
@@ -475,20 +475,6 @@ clang::QualType GetHLSLMatElementType(clang::QualType type) {
   return elemTy;
 }
 
-template <typename AttrType> static AttrType *getAttr(clang::QualType type) {
-  type = type.getCanonicalType();
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    if (const auto *Spec =
-            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl()))
-      if (const auto *Template =
-              dyn_cast<ClassTemplateDecl>(Spec->getSpecializedTemplate()))
-        return Template->getTemplatedDecl()->getAttr<AttrType>();
-    if (const auto *Decl = dyn_cast<CXXRecordDecl>(RT->getDecl()))
-      return Decl->getAttr<AttrType>();
-  }
-  return nullptr;
-}
-
 // TODO: Add type cache to ASTContext.
 bool IsHLSLInputPatchType(QualType type) {
   type = type.getCanonicalType();
@@ -812,7 +798,11 @@ QualType GetHLSLResourceResultType(QualType type) {
   if (const ClassTemplateSpecializationDecl *templateDecl =
           dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
 
-    if (RD->getName().startswith("FeedbackTexture")) {
+    const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type);
+    if (Attr && (Attr->getResKind() ==
+                     (unsigned)DXIL::ResourceKind::FeedbackTexture2D ||
+                 Attr->getResKind() ==
+                     (unsigned)DXIL::ResourceKind::FeedbackTexture2DArray)) {
       // Feedback textures are write-only and the data is opaque,
       // so there is no result type per se.
       return {};

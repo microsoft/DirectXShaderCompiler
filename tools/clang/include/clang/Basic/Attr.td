@@ -939,6 +939,39 @@ def HLSLCXXOverload : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLVector : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLMatrix : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLTessPatch : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [BoolArgument<"IsInput">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLStreamOutput : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [UnsignedArgument<"Vertices">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLResource : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [UnsignedArgument<"ResKind">, UnsignedArgument<"ResClass">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
 def HLSLNodeLaunch : InheritableAttr {
   let Spellings = [CXX11<"", "nodelaunch", 2017>];
   let Args = [StringArgument<"LaunchType">]; // one of broadcasting, coalescing, thread
@@ -988,28 +1021,6 @@ def HLSLNodeMaxRecursionDepth : InheritableAttr {
 
 def HLSLNodeTrackRWInputSharing : InheritableAttr {
   let Spellings = [CXX11<"", "nodetrackrwinputsharing", 2017>];
-  let Subjects = SubjectList<[CXXRecord]>;
-  let Documentation = [Undocumented];
-}
-
-
-def HLSLTessPatch : InheritableAttr {
-  let Spellings = []; // No spellings!
-  let Args = [BoolArgument<"IsInput">];
-  let Subjects = SubjectList<[CXXRecord]>;
-  let Documentation = [Undocumented];
-}
-
-def HLSLStreamOutput : InheritableAttr {
-  let Spellings = []; // No spellings!
-  let Args = [UnsignedArgument<"Vertices">];
-  let Subjects = SubjectList<[CXXRecord]>;
-  let Documentation = [Undocumented];
-}
-
-def HLSLResource : InheritableAttr {
-  let Spellings = []; // No spellings!
-  let Args = [UnsignedArgument<"ResKind">, UnsignedArgument<"ResClass">];
   let Subjects = SubjectList<[CXXRecord]>;
   let Documentation = [Undocumented];
 }

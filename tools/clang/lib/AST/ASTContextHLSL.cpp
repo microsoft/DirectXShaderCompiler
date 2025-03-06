@@ -329,6 +329,9 @@ void hlsl::AddHLSLMatrixTemplate(ASTContext &context,
 
   typeDeclBuilder.addField("h", vectorArrayType);
 
+  typeDeclBuilder.getRecordDecl()->addAttr(
+      HLSLMatrixAttr::CreateImplicit(context));
+
   // Add an operator[]. The operator ranges from zero to rowcount-1, and returns
   // a vector of colcount elements.
   const unsigned int templateDepth = 0;
@@ -384,6 +387,9 @@ void hlsl::AddHLSLVectorTemplate(ASTContext &context,
       resultType, vecSizeExpr, SourceLocation());
   // Add an 'h' field to hold the handle.
   typeDeclBuilder.addField("h", vectorType);
+
+  typeDeclBuilder.getRecordDecl()->addAttr(
+      HLSLVectorAttr::CreateImplicit(context));
 
   // Add an operator[]. The operator ranges from zero to colcount-1, and returns
   // a scalar.
