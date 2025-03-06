@@ -13386,7 +13386,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
         A.getAttributeSpellingListIndex());
     break;
-   }
+  }
   case AttributeList::AT_HLSLNodeArraySize: {
     declAttr = ::new (S.Context) HLSLNodeArraySizeAttr(
         A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
@@ -15979,12 +15979,13 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
         bool OutputFound = false;
         DiagnoseDispatchGridSemantics(S, NodeStructDecl, PD->getLocation(),
                                       OutputFound);
-      }      
+      }
       if (hlsl::IsHLSLNodeOutputArrayType(ParamType)) {
         std::string profile = S.getLangOpts().HLSLProfile;
         const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
-        if (SM->IsSM69Plus() &&!PD->getAttr<HLSLMaxRecordsPerNodeAttr>()) {
-          S.Diags.Report(PD->getLocation(),
+        if (SM->IsSM69Plus() && !PD->getAttr<HLSLMaxRecordsPerNodeAttr>()) {
+          S.Diags.Report(
+              PD->getLocation(),
               diag::warn_hlsl_max_records_per_node_required_attribute);
         }
       }
@@ -16006,8 +16007,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     auto *NodeArraySizeAttr = Param->getAttr<HLSLNodeArraySizeAttr>();
     auto *UnboundedSparseNodesAttr =
         Param->getAttr<HLSLUnboundedSparseNodesAttr>();
-    auto *MaxRecordsPerNodeAttr =
-        Param->getAttr<HLSLMaxRecordsPerNodeAttr>();
+    auto *MaxRecordsPerNodeAttr = Param->getAttr<HLSLMaxRecordsPerNodeAttr>();
     // Check any node input is compatible with the node launch type
     if (hlsl::IsHLSLNodeInputType(ParamTy)) {
       InputCount++;
@@ -16038,7 +16038,8 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
       // If node output is not an array, diagnose array only attributes
       if (((uint32_t)GetNodeIOType(ParamTy) &
            (uint32_t)DXIL::NodeIOFlags::NodeArray) == 0) {
-        Attr *ArrayAttrs[] = {NodeArraySizeAttr, UnboundedSparseNodesAttr, MaxRecordsPerNodeAttr};
+        Attr *ArrayAttrs[] = {NodeArraySizeAttr, UnboundedSparseNodesAttr,
+                              MaxRecordsPerNodeAttr};
         for (auto *A : ArrayAttrs) {
           if (A) {
             S.Diags.Report(A->getLocation(),

@@ -705,7 +705,7 @@ bool IsHLSLNodeOutputArrayType(clang::QualType type) {
           (static_cast<uint32_t>(DXIL::NodeIOFlags::Output) |
            static_cast<uint32_t>(DXIL::NodeIOFlags::NodeArray) |
            static_cast<uint32_t>(DXIL::NodeIOFlags::RecordGranularityMask))) ==
-          (static_cast<uint32_t>(DXIL::NodeIOFlags::Output) | 
+         (static_cast<uint32_t>(DXIL::NodeIOFlags::Output) |
           static_cast<uint32_t>(DXIL::NodeIOFlags::NodeArray));
 }
 
