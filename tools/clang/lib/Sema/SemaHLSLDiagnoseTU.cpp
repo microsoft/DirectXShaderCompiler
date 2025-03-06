@@ -369,10 +369,10 @@ public:
     // otherwise emit a diagnostic.
     bool IsRayFlagForceOMM2State = IsRayFlagForceOMM2StateSet(callExpr);
     if (IsRayFlagForceOMM2State) {
-      const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ME->getBase());
+      const DeclRefExpr *DRE =
+          dyn_cast<DeclRefExpr>(callExpr->getImplicitObjectArgument());
       assert(DRE);
-      const VarDecl *VD = cast<VarDecl>(DRE->getDecl());
-      const QualType QT = VD->getType();
+      QualType QT = DRE->getType();
       auto typeRecordDecl = QT->getAsCXXRecordDecl();
       ClassTemplateSpecializationDecl *SpecDecl =
           llvm::dyn_cast<ClassTemplateSpecializationDecl>(typeRecordDecl);
@@ -390,7 +390,7 @@ public:
         // Diagnose the call
         sema->Diag(callExpr->getExprLoc(),
                    diag::warn_hlsl_rayquery_flags_conflict);
-        sema->Diag(VD->getLocation(), diag::note_previous_decl)
+        sema->Diag(DRE->getDecl()->getLocation(), diag::note_previous_decl)
             << "RayQueryFlags";
       }
     }
