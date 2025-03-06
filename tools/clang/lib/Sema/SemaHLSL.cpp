@@ -4620,18 +4620,6 @@ public:
     }
   }
 
-  ArBasicKind GetKindFromQualType(QualType qt, bool &found) {
-    const CXXRecordDecl *typeRecordDecl =
-        GetRecordDeclForBuiltInOrStruct(qt->getAsCXXRecordDecl());
-    int index = FindObjectBasicKindIndex(
-        GetRecordDeclForBuiltInOrStruct(typeRecordDecl));
-    if (index == -1) {
-      found = false;
-      return ArBasicKind::AR_OBJECT_NULL;
-    }
-    found = true;
-    return g_ArBasicKindsAsTypes[index];
-  }
   // Retrieves the ResourceKind and ResourceClass in `ResKind` and `ResClass`
   // respectively that correspond to the given basic kind `BasicKind`.
   // Returns true if `BasicKind` is a resource and return params are assigned.
@@ -5327,8 +5315,9 @@ public:
       int numArgs = TemplateArgList.size();
       DXASSERT(numArgs == 1 || numArgs == 2,
                "otherwise the template has not been declared properly");
-      // The first argument must be a user defined struct type that does not
-      // contain any HLSL object
+
+      // first, get the first template argument, to check if
+      // the ForceOMM2State flag is set
       const TemplateArgument &Arg1 = TemplateArgList[0].getArgument();
       Expr *Expr1 = Arg1.getAsExpr();
       llvm::APSInt Arg1val;
@@ -5337,7 +5326,7 @@ public:
           (Arg1val.getLimitedValue() &
            (uint64_t)DXIL::RayFlag::ForceOMM2State) != 0;
 
-      // if there's only one template argument, then it cannot be the
+      // if there's only one template argument, then it shouldn't be the
       // ForceOMM2State flag, since the second argument needs to be
       // DXIL::RayQueryFlag::AllowOpacityMicromaps, not the default 0
       if (numArgs == 1) {
@@ -5382,7 +5371,7 @@ public:
                          diag::warn_hlsl_builtin_constant_unavailable)
                 << DRE->getDecl()->getIdentifier()->getName() << SM->GetName()
                 << "6.9";
-          // otherwise, it could be an integer literal
+          // otherwise, it is an integer literal
           else if (auto *IL = dyn_cast<IntegerLiteral>(subExpr))
             m_sema->Diag(Template->getTemplatedDecl()->getLocStart(),
                          diag::warn_hlsl_rayquery_flags_disallowed);
@@ -5391,15 +5380,16 @@ public:
         }
       }
 
+      // if the first arg has the ForceOMM2State flag set, then the
+      // second arg must have the AllowOpacityMicromaps flag set
       if (IsRayFlagForceOMM2State) {
-        // additionally check that the expected flag is given in the
-        // second arg
         if (!(Arg2val.getZExtValue() &
               (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps))
           m_sema->Diag(Template->getTemplatedDecl()->getLocStart(),
                        diag::warn_hlsl_rayquery_flags_conflict);
       }
     }
+
     bool isMatrix = Template->getCanonicalDecl() ==
                     m_matrixTemplateDecl->getCanonicalDecl();
     bool isVector = Template->getCanonicalDecl() ==

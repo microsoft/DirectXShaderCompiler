@@ -566,8 +566,7 @@ struct Enumerant {
 };
 
 static void AddTypedefPseudoEnum(ASTContext &context, StringRef name,
-                                 ArrayRef<Enumerant> enumerants,
-                                 AvailabilityAttr *AAttr = nullptr) {
+                                 ArrayRef<Enumerant> enumerants) {
   DeclContext *curDC = context.getTranslationUnitDecl();
   // typedef uint <name>;
   IdentifierInfo &enumId = context.Idents.get(name, tok::TokenKind::identifier);
@@ -579,7 +578,7 @@ static void AddTypedefPseudoEnum(ASTContext &context, StringRef name,
   enumDecl->setImplicit(true);
   // static const uint <enumerant.name> = <enumerant.value>;
   for (const Enumerant &enumerant : enumerants) {
-    AddConstUInt(context, curDC, enumerant.name, enumerant.value, AAttr);
+    AddConstUInt(context, curDC, enumerant.name, enumerant.value);
   }
 }
 
@@ -629,13 +628,6 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
                (unsigned)DXIL::RayQueryFlag::None, nullptr);
   AddConstUInt(context, curDC, "RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS",
                (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps, AAttr_6_9);
-
-  AddTypedefPseudoEnum(
-      context, "RAYQUERY_FLAG",
-      {{"RAYQUERY_FLAG_NONE", (unsigned)DXIL::RayQueryFlag::None},
-       {"RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS",
-        (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps}},
-      AAttr_6_9);
 
   AddTypedefPseudoEnum(
       context, "COMMITTED_STATUS",

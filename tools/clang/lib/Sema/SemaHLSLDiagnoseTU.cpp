@@ -382,6 +382,8 @@ public:
 
       // Guaranteed 2 arguments since the rayquery constructor
       // automatically creates 2 template args
+      DXASSERT(SpecDecl->getTemplateArgs().size() == 2,
+               "else rayquery constructor template args are not 2");
       llvm::APSInt Arg2val = SpecDecl->getTemplateArgs()[1].getAsIntegral();
       bool IsRayQueryAllowOMMSet =
           Arg2val.getZExtValue() &
