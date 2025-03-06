@@ -140,6 +140,7 @@ struct NodeIOProperties {
   int MaxRecordsSharedWith = -1;
   unsigned OutputArraySize = 0;
   bool AllowSparseNodes = false;
+  unsigned MaxRecordsPerNode = 0;
 
 public:
   NodeIOProperties() {}

@@ -328,6 +328,7 @@ public:
   static const unsigned kDxilNodeMaxRecordsSharedWithTag = 4;
   static const unsigned kDxilNodeOutputArraySizeTag = 5;
   static const unsigned kDxilNodeAllowSparseNodesTag = 6;
+  static const unsigned kDxilNodeMaxRecordsPerNodeTag = 7;
 
   // Node Record Type
   static const unsigned kDxilNodeRecordSizeTag = 0;
