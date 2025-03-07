@@ -13,9 +13,9 @@ matrix<bool, 1, 2> m_bool;
 // vector<float, 0> v_float_small;
 // vector<SamplerState, 2> v_obj_sampler;
 
-RWBuffer<double3> rwb_struct;    /* expected-error {{Elements of typed buffers and textures must fit in four 32-bit quantities}} fxc-error {{X3037: elements of typed buffers and textures must fit in four 32-bit quantities}} */
+RWBuffer<double3> rwb_struct;    /* expected-error {{elements of typed buffers and textures must fit in four 32-bit quantities}} fxc-error {{X3037: elements of typed buffers and textures must fit in four 32-bit quantities}} */
 
-RWBuffer<SamplerState> rwb_struct_objs; /* expected-error {{'SamplerState' is an object and cannot be used as a type parameter}} fxc-pass {{}} */
+RWBuffer<SamplerState> rwb_struct_objs; /* expected-error {{'SamplerState' is an object and cannot be used as a type parameter}} */
 
 void vain() {
   // Nothing to do here.

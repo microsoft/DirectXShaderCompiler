@@ -3734,10 +3734,18 @@ private:
         DXASSERT(templateArgCount == 1 || templateArgCount == 2,
                  "otherwise a new case has been added");
 
+        InheritableAttr *Attr = nullptr;
+        DXIL::ResourceKind ResKind = DXIL::ResourceKind::NumEntries;
+        DXIL::ResourceClass ResClass = DXIL::ResourceClass::Invalid;
+        if (GetBasicKindResourceKindAndClass(kind, ResKind, ResClass)) {
+          Attr = HLSLResourceAttr::CreateImplicit(*m_context, (unsigned)ResKind,
+                                                  (unsigned)ResClass);
+        }
+
         TypeSourceInfo *typeDefault =
             TemplateHasDefaultType(kind) ? float4TypeSourceInfo : nullptr;
         recordDecl = DeclareTemplateTypeWithHandle(
-            *m_context, typeName, templateArgCount, typeDefault);
+            *m_context, typeName, templateArgCount, typeDefault, Attr);
       }
       m_objectTypeDecls[i] = recordDecl;
       m_objectTypeDeclsMap[i] = std::make_pair(recordDecl, i);
@@ -4619,6 +4627,136 @@ public:
     }
   }
 
+  // Retrieves the ResourceKind and ResourceClass in `ResKind` and `ResClass`
+  // respectively that correspond to the given basic kind `BasicKind`.
+  // Returns true if `BasicKind` is a resource and return params are assigned.
+  bool GetBasicKindResourceKindAndClass(ArBasicKind BasicKind,
+                                        DXIL::ResourceKind &ResKind,
+                                        DXIL::ResourceClass &ResClass) {
+    DXASSERT_VALIDBASICKIND(BasicKind);
+    switch (BasicKind) {
+    case AR_OBJECT_TEXTURE1D:
+      ResKind = DXIL::ResourceKind::Texture1D;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE1D:
+    case AR_OBJECT_ROVTEXTURE1D:
+      ResKind = DXIL::ResourceKind::Texture1D;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_TEXTURE1D_ARRAY:
+      ResKind = DXIL::ResourceKind::Texture1DArray;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE1D_ARRAY:
+    case AR_OBJECT_ROVTEXTURE1D_ARRAY:
+      ResKind = DXIL::ResourceKind::Texture1DArray;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_TEXTURE2D:
+      ResKind = DXIL::ResourceKind::Texture2D;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE2D:
+    case AR_OBJECT_ROVTEXTURE2D:
+      ResKind = DXIL::ResourceKind::Texture2D;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_TEXTURE2D_ARRAY:
+      ResKind = DXIL::ResourceKind::Texture2DArray;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE2D_ARRAY:
+    case AR_OBJECT_ROVTEXTURE2D_ARRAY:
+      ResKind = DXIL::ResourceKind::Texture2DArray;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_TEXTURE3D:
+      ResKind = DXIL::ResourceKind::Texture3D;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE3D:
+    case AR_OBJECT_ROVTEXTURE3D:
+      ResKind = DXIL::ResourceKind::Texture3D;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_TEXTURECUBE:
+      ResKind = DXIL::ResourceKind::TextureCube;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_TEXTURECUBE_ARRAY:
+      ResKind = DXIL::ResourceKind::TextureCubeArray;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_TEXTURE2DMS:
+      ResKind = DXIL::ResourceKind::Texture2DMS;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE2DMS:
+      ResKind = DXIL::ResourceKind::Texture2DMS;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_TEXTURE2DMS_ARRAY:
+      ResKind = DXIL::ResourceKind::Texture2DMSArray;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE2DMS_ARRAY:
+      ResKind = DXIL::ResourceKind::Texture2DMSArray;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_BUFFER:
+      ResKind = DXIL::ResourceKind::TypedBuffer;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWBUFFER:
+    case AR_OBJECT_ROVBUFFER:
+      ResKind = DXIL::ResourceKind::TypedBuffer;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_BYTEADDRESS_BUFFER:
+      ResKind = DXIL::ResourceKind::RawBuffer;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWBYTEADDRESS_BUFFER:
+    case AR_OBJECT_ROVBYTEADDRESS_BUFFER:
+      ResKind = DXIL::ResourceKind::RawBuffer;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
+    case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
+      // It may seem incorrect to make these SRV,
+      // but it is consistent with GetHLSLResourceProperties().
+    case AR_OBJECT_STRUCTURED_BUFFER:
+      ResKind = DXIL::ResourceKind::StructuredBuffer;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWSTRUCTURED_BUFFER:
+    case AR_OBJECT_ROVSTRUCTURED_BUFFER:
+      ResKind = DXIL::ResourceKind::StructuredBuffer;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_CONSTANT_BUFFER:
+      ResKind = DXIL::ResourceKind::CBuffer;
+      ResClass = DXIL::ResourceClass::CBuffer;
+      return true;
+    case AR_OBJECT_TEXTURE_BUFFER:
+      ResKind = DXIL::ResourceKind::TBuffer;
+      ResClass = DXIL::ResourceClass::CBuffer;
+      return true;
+    case AR_OBJECT_FEEDBACKTEXTURE2D:
+      ResKind = DXIL::ResourceKind::FeedbackTexture2D;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY:
+      ResKind = DXIL::ResourceKind::FeedbackTexture2DArray;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    default:
+      return false;
+    }
+    return false;
+  }
+
   /// <summary>Promotes the specified expression to an integer type if it's a
   /// boolean type.</summary <param name="E">Expression to typecast.</param>
   /// <returns>E typecast to a integer type if it's a valid boolean type; E
@@ -5201,6 +5339,30 @@ public:
           if (!IsValidTemplateArgumentType(argSrcLoc, argType, requireScalar)) {
             // NOTE: IsValidTemplateArgumentType emits its own diagnostics
             return true;
+          }
+          HLSLResourceAttr *ResAttr =
+              Template->getTemplatedDecl()->getAttr<HLSLResourceAttr>();
+          if (ResAttr && IsTyped((DXIL::ResourceKind)ResAttr->getResKind())) {
+            // Check vectors for being too large.
+            if (IsVectorType(m_sema, argType)) {
+              unsigned NumElt = hlsl::GetElementCount(argType);
+              QualType VecEltTy = hlsl::GetHLSLVecElementType(argType);
+              if (NumElt > 4 ||
+                  NumElt * m_sema->getASTContext().getTypeSize(VecEltTy) >
+                      4 * 32) {
+                m_sema->Diag(
+                    argLoc.getLocation(),
+                    diag::
+                        err_hlsl_unsupported_typedbuffer_template_parameter_size);
+                return true;
+              }
+              // Disallow non-vectors and non-scalars entirely.
+            } else if (!IsScalarType(argType)) {
+              m_sema->Diag(
+                  argLoc.getLocation(),
+                  diag::err_hlsl_unsupported_typedbuffer_template_parameter);
+              return true;
+            }
           }
         }
       } else if (arg.getKind() == TemplateArgument::ArgKind::Expression) {

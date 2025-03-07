@@ -1,5 +1,5 @@
 // RUN: %dxc -T ps_6_0 -E main %s | FileCheck %s
-// CHECK: error: Elements of typed buffers and textures must be scalars or vectors
+// CHECK: error: elements of typed buffers and textures must be scalars or vectors
 struct Struct { float f; };
 Texture2D<Struct> t;
 RWTexture2D<Struct> rwt;

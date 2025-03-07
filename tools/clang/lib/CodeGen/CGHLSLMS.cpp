@@ -3415,11 +3415,20 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
     if (const BuiltinType *BTy = EltTy->getAs<BuiltinType>()) {
       CompType::Kind kind = BuiltinTyToCompTy(BTy, bHasNormAttribute && bSNorm,
                                               bHasNormAttribute && !bSNorm);
-      // 64bits types are implemented with u32.
-      if (kind == CompType::Kind::U64 || kind == CompType::Kind::I64 ||
-          kind == CompType::Kind::SNormF64 ||
-          kind == CompType::Kind::UNormF64 || kind == CompType::Kind::F64) {
+      // Boolean, 64-bit, and packed types are implemented with u32.
+      switch (kind) {
+      case CompType::Kind::I1:
+      case CompType::Kind::U64:
+      case CompType::Kind::I64:
+      case CompType::Kind::F64:
+      case CompType::Kind::SNormF64:
+      case CompType::Kind::UNormF64:
+      case CompType::Kind::PackedS8x32:
+      case CompType::Kind::PackedU8x32:
         kind = CompType::Kind::U32;
+        break;
+      default:
+        break;
       }
       hlslRes->SetCompType(kind);
     } else {

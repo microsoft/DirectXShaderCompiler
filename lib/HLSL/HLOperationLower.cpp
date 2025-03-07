@@ -8308,20 +8308,20 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
       TranslateStructBufMatSubscript(userCall, handle, ResKind, bufIdx,
                                      baseOffset, status, OP, DL);
     }
-  } else if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
+  } else if (LoadInst *LdInst = dyn_cast<LoadInst>(user)) {
     // Load of scalar/vector within a struct or structured raw load.
-    ResLoadHelper helper(ldInst, ResKind, handle, bufIdx);
+    ResLoadHelper helper(LdInst, ResKind, handle, bufIdx);
     helper.offset = baseOffset;
     TranslateBufLoad(helper, ResKind, Builder, OP, DL);
 
-    ldInst->eraseFromParent();
-  } else if (StoreInst *stInst = dyn_cast<StoreInst>(user)) {
+    LdInst->eraseFromParent();
+  } else if (StoreInst *StInst = dyn_cast<StoreInst>(user)) {
     // Store of scalar/vector within a struct or structured raw store.
-    Type *Ty = stInst->getValueOperand()->getType();
+    Type *Ty = StInst->getValueOperand()->getType();
     Type *pOverloadTy = Ty->getScalarType();
     Value *offset = baseOffset;
 
-    Value *val = stInst->getValueOperand();
+    Value *val = StInst->getValueOperand();
     Value *undefVal = llvm::UndefValue::get(pOverloadTy);
     Value *vals[] = {undefVal, undefVal, undefVal, undefVal};
     uint8_t mask = 0;
@@ -8341,7 +8341,7 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
         OP->GetI32Const(DL.getTypeAllocSize(Ty->getScalarType()));
     GenerateStructBufSt(handle, bufIdx, offset, pOverloadTy, OP, Builder, vals,
                         mask, alignment);
-    stInst->eraseFromParent();
+    StInst->eraseFromParent();
   } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(user)) {
     // Recurse users
     for (auto U = BCI->user_begin(); U != BCI->user_end();) {
