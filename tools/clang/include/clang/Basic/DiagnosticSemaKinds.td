@@ -7976,6 +7976,14 @@ def err_hlsl_unsupported_semantic_index: Error<
   "'%0' is defined with semantic index %1, but only values 0 through %2 are supported">;
 // HLSL Change Ends
 
+// SER Change Starts
+// Shader Execution Reordering
+def err_hlsl_ser_unsupported : Error<
+   "%0 is unavailable in shader stage '%1' (requires %select{'raygeneration'|'raygeneration', 'closesthit' or 'miss'}2)">;
+def err_hlsl_ser_invalid_version : Error<
+   "Shader execution reordering requires target profile lib_6_9+ (was %0)">;
+// SER Change Ends
+
 // SPIRV Change Starts
 def err_hlsl_vulkan_specific_feature: Error<"%0 is a Vulkan specific feature">;
 // SPIRV Change Ends

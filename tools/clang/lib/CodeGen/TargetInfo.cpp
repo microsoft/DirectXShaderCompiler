@@ -17,6 +17,7 @@
 #include "CGCXXABI.h"
 #include "CGValue.h"
 #include "CodeGenFunction.h"
+#include "clang/AST/HlslTypes.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Frontend/CodeGenOptions.h"
