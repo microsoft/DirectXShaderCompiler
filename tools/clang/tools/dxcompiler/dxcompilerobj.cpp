@@ -1176,18 +1176,18 @@ public:
                    "Library targets not supported for Metal (yet).");
             IRObjectGetMetalLibBinary(AIR, Stage, MetalLib);
             size_t MetalLibSize = IRMetalLibGetBytecodeSize(MetalLib);
-            uint8_t *MetalLibBytes = new uint8_t[MetalLibSize];
-            IRMetalLibGetBytecode(MetalLib, MetalLibBytes);
+            std::unique_ptr<uint8_t[]> MetalLibBytes =
+                std::unique_ptr<uint8_t[]>(new uint8_t[MetalLibSize]);
+            IRMetalLibGetBytecode(MetalLib, MetalLibBytes.get());
 
             // Store the metallib to custom format or disk, or use to create a
             // MTLLibrary.
 
             CComPtr<IDxcBlob> MetalBlob;
             IFT(hlsl::DxcCreateBlobOnHeapCopy(
-                MetalLibBytes, (uint32_t)MetalLibSize, &MetalBlob));
+                MetalLibBytes.get(), (uint32_t)MetalLibSize, &MetalBlob));
             std::swap(pOutputBlob, MetalBlob);
 
-            delete[] MetalLibBytes;
             IRMetalLibBinaryDestroy(MetalLib);
             IRObjectDestroy(DXILObj);
             IRObjectDestroy(AIR);
