@@ -48,34 +48,31 @@ void LazyASTUnresolvedSet::getFromExternalSource(ASTContext &C) const {
 }
 
 CXXRecordDecl::DefinitionData::DefinitionData(CXXRecordDecl *D)
-  : UserDeclaredConstructor(false), UserDeclaredSpecialMembers(0),
-    Aggregate(true), PlainOldData(true), Empty(true), Polymorphic(false),
-    Abstract(false), IsStandardLayout(true), HasNoNonEmptyBases(true),
-    HasPrivateFields(false), HasProtectedFields(false), HasPublicFields(false),
-    HasMutableFields(false), HasVariantMembers(false), HasOnlyCMembers(true),
-    HasInClassInitializer(false), HasUninitializedReferenceMember(false),
-    NeedOverloadResolutionForMoveConstructor(false),
-    NeedOverloadResolutionForMoveAssignment(false),
-    NeedOverloadResolutionForDestructor(false),
-    DefaultedMoveConstructorIsDeleted(false),
-    DefaultedMoveAssignmentIsDeleted(false),
-    DefaultedDestructorIsDeleted(false),
-    HasTrivialSpecialMembers(SMF_All),
-    DeclaredNonTrivialSpecialMembers(0),
-    HasIrrelevantDestructor(true),
-    HasConstexprNonCopyMoveConstructor(false),
-    DefaultedDefaultConstructorIsConstexpr(true),
-    HasConstexprDefaultConstructor(false),
-    HasNonLiteralTypeFieldsOrBases(false), ComputedVisibleConversions(false),
-    UserProvidedDefaultConstructor(false), DeclaredSpecialMembers(0),
-    ImplicitCopyConstructorHasConstParam(true),
-    ImplicitCopyAssignmentHasConstParam(true),
-    HasDeclaredCopyConstructorWithConstParam(false),
-    HasDeclaredCopyAssignmentWithConstParam(false),
-    IsLambda(false), IsParsingBaseSpecifiers(false), NumBases(0), NumVBases(0),
-    Bases(), VBases(),
-    Definition(D), FirstFriend() {
-}
+    : UserDeclaredConstructor(false), UserDeclaredSpecialMembers(0),
+      Aggregate(true), PlainOldData(true), Empty(true), Polymorphic(false),
+      Abstract(false), IsStandardLayout(true), HasNoNonEmptyBases(true),
+      HasPrivateFields(false), HasProtectedFields(false),
+      HasPublicFields(false), HasMutableFields(false), HasVariantMembers(false),
+      HasOnlyCMembers(true), HasInClassInitializer(false),
+      HasUninitializedReferenceMember(false),
+      NeedOverloadResolutionForMoveConstructor(false),
+      NeedOverloadResolutionForMoveAssignment(false),
+      NeedOverloadResolutionForDestructor(false),
+      DefaultedMoveConstructorIsDeleted(false),
+      DefaultedMoveAssignmentIsDeleted(false),
+      DefaultedDestructorIsDeleted(false), HasTrivialSpecialMembers(SMF_All),
+      DeclaredNonTrivialSpecialMembers(0), HasIrrelevantDestructor(true),
+      HasConstexprNonCopyMoveConstructor(false),
+      DefaultedDefaultConstructorIsConstexpr(true),
+      HasConstexprDefaultConstructor(false),
+      HasNonLiteralTypeFieldsOrBases(false), ComputedVisibleConversions(false),
+      UserProvidedDefaultConstructor(false), DeclaredSpecialMembers(0),
+      ImplicitCopyConstructorHasConstParam(true),
+      ImplicitCopyAssignmentHasConstParam(true),
+      HasDeclaredCopyConstructorWithConstParam(false),
+      HasDeclaredCopyAssignmentWithConstParam(false), IsLambda(false),
+      IsParsingBaseSpecifiers(false), HasHLSLLongVector(false), NumBases(0),
+      NumVBases(0), Bases(), VBases(), Definition(D), FirstFriend() {}
 
 CXXBaseSpecifier *CXXRecordDecl::DefinitionData::getBasesSlowCase() const {
   return Bases.get(Definition->getASTContext().getExternalSource());
@@ -203,6 +200,10 @@ CXXRecordDecl::setBases(CXXBaseSpecifier const * const *Bases,
     //    -- has no non-standard-layout base classes
     if (!BaseClassDecl->isStandardLayout())
       data().IsStandardLayout = false;
+
+    // Propagate presence of long vector to child classes.
+    if (BaseClassDecl->hasHLSLLongVector())
+      data().HasHLSLLongVector = true;
 
     // Record if this base is the first non-literal field or base.
     if (!hasNonLiteralTypeFieldsOrBases() && !BaseType->isLiteralType(C))
@@ -385,6 +386,9 @@ void CXXRecordDecl::addedClassSubobject(CXXRecordDecl *Subobj) {
     data().NeedOverloadResolutionForMoveConstructor = true;
     data().NeedOverloadResolutionForDestructor = true;
   }
+
+  if (Subobj->hasHLSLLongVector())
+    data().HasHLSLLongVector = true;
 }
 
 /// Callback function for CXXRecordDecl::forallBases that acknowledges
