@@ -722,6 +722,7 @@ public:
       bool validateRootSigContainer = false;
 
       if (isPreprocessing) {
+        TimeTraceScope TimeScope("PreprocessAction", StringRef(""));
         // These settings are back-compatible with fxc.
         clang::PreprocessorOutputOptions &PPOutOpts =
             compiler.getPreprocessorOutputOpts();
@@ -867,6 +868,7 @@ public:
       compiler.getTarget().adjust(compiler.getLangOpts());
 
       if (opts.AstDump) {
+        TimeTraceScope TimeScope("DumpAST", StringRef(""));
         clang::ASTDumpAction dumpAction;
         // Consider - ASTDumpFilter, ASTDumpLookups
         compiler.getFrontendOpts().ASTDumpDecls = true;
@@ -876,6 +878,7 @@ public:
         dumpAction.EndSourceFile();
         outStream.flush();
       } else if (opts.DumpDependencies) {
+        TimeTraceScope TimeScope("DumpDependencies", StringRef(""));
         auto dependencyCollector = std::make_shared<DependencyCollector>();
         compiler.addDependencyCollector(dependencyCollector);
         compiler.createPreprocessor(clang::TranslationUnitKind::TU_Complete);
@@ -978,6 +981,7 @@ public:
         EmitBCAction action(&llvmContext);
         FrontendInputFile file(pUtf8SourceName, IK_HLSL);
         bool compileOK;
+        TimeTraceScope TimeScope("Compile Action", StringRef(""));
         if (action.BeginSourceFile(compiler, file)) {
           action.Execute();
           action.EndSourceFile();
@@ -1032,6 +1036,7 @@ public:
         // Do not create a container when there is only a a high-level
         // representation in the module.
         if (compileOK && !opts.CodeGenHighLevel) {
+          TimeTraceScope TimeScope("AssembleAndWriteContainer", StringRef(""));
           HRESULT valHR = S_OK;
           CComPtr<AbstractMemoryStream> pRootSigStream;
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(),
