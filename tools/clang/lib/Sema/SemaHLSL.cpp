@@ -3969,13 +3969,6 @@ public:
     return IsSubobjectBasicKind(GetTypeElementKind(type));
   }
 
-  bool IsRayQueryBasicKind(ArBasicKind kind) {
-    return kind == AR_OBJECT_RAY_QUERY;
-  }
-  bool IsRayQueryType(QualType type) {
-    return IsRayQueryBasicKind(GetTypeElementKind(type));
-  }
-
   void WarnMinPrecision(QualType Type, SourceLocation Loc) {
     Type = Type->getCanonicalTypeUnqualified();
     if (IsVectorType(m_sema, Type) || IsMatrixType(m_sema, Type)) {
@@ -5316,6 +5309,85 @@ public:
         return true;
       }
       return false;
+    }
+
+    else if (Template->getTemplatedDecl()->hasAttr<HLSLRayQueryObjectAttr>()) {
+      int numArgs = TemplateArgList.size();
+      DXASSERT(numArgs == 1 || numArgs == 2,
+               "otherwise the template has not been declared properly");
+
+      // first, get the first template argument, to check if
+      // the ForceOMM2State flag is set
+      const TemplateArgument &Arg1 = TemplateArgList[0].getArgument();
+      Expr *Expr1 = Arg1.getAsExpr();
+      llvm::APSInt Arg1val;
+      bool IsRayFlagForceOMM2State =
+          Expr1->isIntegerConstantExpr(Arg1val, m_sema->getASTContext()) &&
+          (Arg1val.getLimitedValue() &
+           (uint64_t)DXIL::RayFlag::ForceOMM2State) != 0;
+
+      // if there's only one template argument, then it shouldn't be the
+      // ForceOMM2State flag, since the second argument needs to be
+      // DXIL::RayQueryFlag::AllowOpacityMicromaps, not the default 0
+      if (numArgs == 1) {
+        if (IsRayFlagForceOMM2State) {
+          m_sema->Diag(Template->getTemplatedDecl()->getLocStart(),
+                       diag::warn_hlsl_rayquery_flags_conflict);
+          return true;
+        }
+        return false;
+      }
+
+      // we're guaranteed 2 args now
+
+      // ensure that if the second template argument has a non-zero value,
+      // the shader model is at least 6.9
+      const TemplateArgument &Arg2 = TemplateArgList[1].getArgument();
+      Expr *Expr2 = Arg2.getAsExpr();
+      llvm::APSInt Arg2val;
+      Expr2->isIntegerConstantExpr(Arg2val, m_sema->getASTContext());
+
+      const ShaderModel *SM = hlsl::ShaderModel::GetByName(
+          m_sema->getLangOpts().HLSLProfile.c_str());
+
+      if (Arg2val.getZExtValue() != 0 && !SM->IsSMAtLeast(6, 9)) {
+        // if it's an enum value, then emit
+        // warn_hlsl_builtin_constant_unavailable otherwise emit
+        // warn_hlsl_rayquery_flags_disallowed
+
+        // we can tell that it's an enum value if it has this AST
+        // structure:
+        //`- ImplicitCastExpr 0x2d9b604a870 'unsigned int' <LValueToRValue
+        //> |   `- DeclRefExpr 0x2d9b604a760 'const unsigned int' lvalue
+        // Var 0x2d9b6005840 'RAY_FLAG_FORCE_OMM_2_STATE' 'const unsigned
+        // int'
+
+        if (auto *castExpr =
+                dyn_cast<ImplicitCastExpr>(Arg2.getAsExpr()->IgnoreParens())) {
+          // Now check if the sub-expression is a DeclRefExpr
+          Expr *subExpr = castExpr->getSubExpr();
+          if (auto *DRE = dyn_cast<DeclRefExpr>(subExpr))
+            m_sema->Diag(DRE->getDecl()->getLocStart(),
+                         diag::warn_hlsl_builtin_constant_unavailable)
+                << DRE->getDecl()->getIdentifier()->getName() << SM->GetName()
+                << "6.9";
+          // otherwise, it is an integer literal
+          else if (auto *IL = dyn_cast<IntegerLiteral>(subExpr))
+            m_sema->Diag(Template->getTemplatedDecl()->getLocStart(),
+                         diag::warn_hlsl_rayquery_flags_disallowed);
+
+          return true;
+        }
+      }
+
+      // if the first arg has the ForceOMM2State flag set, then the
+      // second arg must have the AllowOpacityMicromaps flag set
+      if (IsRayFlagForceOMM2State) {
+        if (!(Arg2val.getZExtValue() &
+              (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps))
+          m_sema->Diag(Template->getTemplatedDecl()->getLocStart(),
+                       diag::warn_hlsl_rayquery_flags_conflict);
+      }
     }
 
     bool isMatrix = Template->getCanonicalDecl() ==

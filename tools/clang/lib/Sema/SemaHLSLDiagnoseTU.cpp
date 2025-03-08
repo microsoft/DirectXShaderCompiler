@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/Support/Global.h"
 #include "clang/AST/ASTContext.h"
@@ -322,6 +323,101 @@ public:
 
     sema->DiagnoseReachableHLSLCall(CE, SM, EntrySK, NodeLaunchTy, EntryDecl,
                                     locallyVisited);
+    return true;
+  }
+
+  bool VisitDeclRefExpr(DeclRefExpr *ET) {
+    // Search for enum types that should only exist after
+    // specific shader models.
+
+    // First step: get an availability attribute
+    AvailabilityAttr *AAttr = nullptr;
+    if (!ET->getDecl()->hasAttr<AvailabilityAttr>())
+      return true;
+
+    AAttr = ET->getDecl()->getAttr<AvailabilityAttr>();
+    VersionTuple AAttrVT = AAttr->getIntroduced();
+    VersionTuple SMVT = VersionTuple(SM->GetMajor(), SM->GetMinor());
+
+    // if the current shader model is lower than what
+    // is stated in the availability attribute, emit
+    // the warning warn_hlsl_builtin_constant_unavailable
+
+    if (SMVT < AAttrVT) {
+      IdentifierInfo *II = ET->getDecl()->getIdentifier();
+      sema->Diag(ET->getLocation(),
+                 diag::warn_hlsl_builtin_constant_unavailable)
+          << II->getName() << SM->GetName() << AAttrVT.getAsString();
+    }
+
+    return true;
+  }
+
+  bool IsRayFlagForceOMM2StateSet(const CallExpr *CE) {
+    const Expr *Expr1 = CE->getArg(1);
+    llvm::APSInt constantResult;
+    return Expr1->isIntegerConstantExpr(constantResult,
+                                        sema->getASTContext()) &&
+           (constantResult.getLimitedValue() &
+            (uint64_t)DXIL::RayFlag::ForceOMM2State) != 0;
+  }
+
+  void DiagnoseTraceRayInline(const MemberExpr *ME,
+                              CXXMemberCallExpr *callExpr) {
+    // Validate if the RayFlag parameter has RAY_FLAG_FORCE_OMM_2_STATE set,
+    // the RayQuery decl must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set,
+    // otherwise emit a diagnostic.
+    bool IsRayFlagForceOMM2State = IsRayFlagForceOMM2StateSet(callExpr);
+    if (IsRayFlagForceOMM2State) {
+      const DeclRefExpr *DRE =
+          dyn_cast<DeclRefExpr>(callExpr->getImplicitObjectArgument());
+      assert(DRE);
+      QualType QT = DRE->getType();
+      auto *typeRecordDecl = QT->getAsCXXRecordDecl();
+      ClassTemplateSpecializationDecl *SpecDecl =
+          llvm::dyn_cast<ClassTemplateSpecializationDecl>(typeRecordDecl);
+
+      if (!SpecDecl)
+        return;
+
+      // Guaranteed 2 arguments since the rayquery constructor
+      // automatically creates 2 template args
+      DXASSERT(SpecDecl->getTemplateArgs().size() == 2,
+               "else rayquery constructor template args are not 2");
+      llvm::APSInt Arg2val = SpecDecl->getTemplateArgs()[1].getAsIntegral();
+      bool IsRayQueryAllowOMMSet =
+          Arg2val.getZExtValue() &
+          (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps;
+      if (!IsRayQueryAllowOMMSet) {
+        // Diagnose the call
+        sema->Diag(callExpr->getExprLoc(),
+                   diag::warn_hlsl_rayquery_flags_conflict);
+        sema->Diag(DRE->getDecl()->getLocation(), diag::note_previous_decl)
+            << "RayQueryFlags";
+      }
+    }
+  }
+
+  bool VisitCXXMemberCallExpr(CXXMemberCallExpr *callExpr) {
+    // Diagnose TraceRayInline member call
+    const MemberExpr *ME = dyn_cast<MemberExpr>(callExpr->getCallee());
+
+    if (!ME)
+      return false;
+
+    const Decl *MD = ME->getMemberDecl();
+
+    if (const CXXMethodDecl *methodDecl = dyn_cast<CXXMethodDecl>(MD)) {
+      auto *attr = methodDecl->getAttr<HLSLIntrinsicAttr>();
+      if (!attr)
+        return true;
+      StringRef OpcodeGroup = GetHLOpcodeGroupName(HLOpcodeGroup::HLIntrinsic);
+      if (attr->getGroup() != OpcodeGroup)
+        return true;
+      if ((hlsl::IntrinsicOp)attr->getOpcode() ==
+          hlsl::IntrinsicOp::MOP_TraceRayInline)
+        DiagnoseTraceRayInline(ME, callExpr);
+    }
     return true;
   }
 

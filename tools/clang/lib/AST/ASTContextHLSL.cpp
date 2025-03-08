@@ -538,7 +538,8 @@ hlsl::DeclareRecordTypeWithHandle(ASTContext &context, StringRef name,
 // creates a global static constant unsigned integer with value.
 // equivalent to: static const uint name = val;
 static void AddConstUInt(clang::ASTContext &context, DeclContext *DC,
-                         StringRef name, unsigned val) {
+                         StringRef name, unsigned val,
+                         AvailabilityAttr *AAttr = nullptr) {
   IdentifierInfo &Id = context.Idents.get(name, tok::TokenKind::identifier);
   QualType type = context.getConstType(context.UnsignedIntTy);
   VarDecl *varDecl = VarDecl::Create(context, DC, NoLoc, NoLoc, &Id, type,
@@ -548,6 +549,8 @@ static void AddConstUInt(clang::ASTContext &context, DeclContext *DC,
       context, llvm::APInt(context.getIntWidth(type), val), type, NoLoc);
   varDecl->setInit(exprVal);
   varDecl->setImplicit(true);
+  if (AAttr)
+    varDecl->addAttr(AAttr);
   DC->addDecl(varDecl);
 }
 
@@ -583,25 +586,48 @@ static void AddTypedefPseudoEnum(ASTContext &context, StringRef name,
 void hlsl::AddRaytracingConstants(ASTContext &context) {
   AddTypedefPseudoEnum(
       context, "RAY_FLAG",
-      {
-          {"RAY_FLAG_NONE", (unsigned)DXIL::RayFlag::None},
-          {"RAY_FLAG_FORCE_OPAQUE", (unsigned)DXIL::RayFlag::ForceOpaque},
-          {"RAY_FLAG_FORCE_NON_OPAQUE",
-           (unsigned)DXIL::RayFlag::ForceNonOpaque},
-          {"RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH",
-           (unsigned)DXIL::RayFlag::AcceptFirstHitAndEndSearch},
-          {"RAY_FLAG_SKIP_CLOSEST_HIT_SHADER",
-           (unsigned)DXIL::RayFlag::SkipClosestHitShader},
-          {"RAY_FLAG_CULL_BACK_FACING_TRIANGLES",
-           (unsigned)DXIL::RayFlag::CullBackFacingTriangles},
-          {"RAY_FLAG_CULL_FRONT_FACING_TRIANGLES",
-           (unsigned)DXIL::RayFlag::CullFrontFacingTriangles},
-          {"RAY_FLAG_CULL_OPAQUE", (unsigned)DXIL::RayFlag::CullOpaque},
-          {"RAY_FLAG_CULL_NON_OPAQUE", (unsigned)DXIL::RayFlag::CullNonOpaque},
-          {"RAY_FLAG_SKIP_TRIANGLES", (unsigned)DXIL::RayFlag::SkipTriangles},
-          {"RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES",
-           (unsigned)DXIL::RayFlag::SkipProceduralPrimitives},
-      });
+      {{"RAY_FLAG_NONE", (unsigned)DXIL::RayFlag::None},
+       {"RAY_FLAG_FORCE_OPAQUE", (unsigned)DXIL::RayFlag::ForceOpaque},
+       {"RAY_FLAG_FORCE_NON_OPAQUE", (unsigned)DXIL::RayFlag::ForceNonOpaque},
+       {"RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH",
+        (unsigned)DXIL::RayFlag::AcceptFirstHitAndEndSearch},
+       {"RAY_FLAG_SKIP_CLOSEST_HIT_SHADER",
+        (unsigned)DXIL::RayFlag::SkipClosestHitShader},
+       {"RAY_FLAG_CULL_BACK_FACING_TRIANGLES",
+        (unsigned)DXIL::RayFlag::CullBackFacingTriangles},
+       {"RAY_FLAG_CULL_FRONT_FACING_TRIANGLES",
+        (unsigned)DXIL::RayFlag::CullFrontFacingTriangles},
+       {"RAY_FLAG_CULL_OPAQUE", (unsigned)DXIL::RayFlag::CullOpaque},
+       {"RAY_FLAG_CULL_NON_OPAQUE", (unsigned)DXIL::RayFlag::CullNonOpaque},
+       {"RAY_FLAG_SKIP_TRIANGLES", (unsigned)DXIL::RayFlag::SkipTriangles},
+       {"RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES",
+        (unsigned)DXIL::RayFlag::SkipProceduralPrimitives},
+       {"RAY_FLAG_FORCE_OMM_2_STATE",
+        (unsigned)DXIL::RayFlag::ForceOMM2State}});
+
+  // Create an availability attribute for
+  // shader model 6.9 for the RAYQUERY_FLAG enum
+  AvailabilityAttr *AAttr_6_9 = AvailabilityAttr::CreateImplicit(
+      context, &context.Idents.get(""), clang::VersionTuple(6, 9),
+      clang::VersionTuple(), clang::VersionTuple(), false,
+      "potential misuse of built-in constant introduced in shader model 6.9");
+
+  // Can't use AddTypedefPseudoEnum because we want exactly one enum value
+  // to have the availability attribute.
+  DeclContext *curDC = context.getTranslationUnitDecl();
+  // typedef uint <name>;
+  IdentifierInfo &enumId =
+      context.Idents.get("RAYQUERY_FLAG", tok::TokenKind::identifier);
+  TypeSourceInfo *uintTypeSource =
+      context.getTrivialTypeSourceInfo(context.UnsignedIntTy, NoLoc);
+  TypedefDecl *enumDecl = TypedefDecl::Create(context, curDC, NoLoc, NoLoc,
+                                              &enumId, uintTypeSource);
+  curDC->addDecl(enumDecl);
+  enumDecl->setImplicit(true);
+  AddConstUInt(context, curDC, "RAYQUERY_FLAG_NONE",
+               (unsigned)DXIL::RayQueryFlag::None, nullptr);
+  AddConstUInt(context, curDC, "RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS",
+               (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps, AAttr_6_9);
 
   AddTypedefPseudoEnum(
       context, "COMMITTED_STATUS",
@@ -1143,7 +1169,14 @@ CXXRecordDecl *hlsl::DeclareRayQueryType(ASTContext &context) {
   // template<uint kind> RayQuery { ... }
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(),
                                          "RayQuery");
-  typeDeclBuilder.addIntegerTemplateParam("flags", context.UnsignedIntTy);
+  typeDeclBuilder.addIntegerTemplateParam("constRayFlags",
+                                          context.UnsignedIntTy);
+  // create an optional second template argument with default value
+  // that contains the value of DXIL::RayFlag::None
+  llvm::Optional<int64_t> DefaultRayQueryFlag =
+      static_cast<int64_t>(DXIL::RayFlag::None);
+  typeDeclBuilder.addIntegerTemplateParam(
+      "RayQueryFlags", context.UnsignedIntTy, DefaultRayQueryFlag);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField(
       "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
@@ -1160,7 +1193,8 @@ CXXRecordDecl *hlsl::DeclareRayQueryType(ASTContext &context) {
       context.DeclarationNames.getCXXConstructorName(canQualType), false,
       &pConstructorDecl, &pTypeSourceInfo);
   typeDeclBuilder.getRecordDecl()->addDecl(pConstructorDecl);
-
+  typeDeclBuilder.getRecordDecl()->addAttr(
+      HLSLRayQueryObjectAttr::CreateImplicit(context));
   return typeDeclBuilder.getRecordDecl();
 }
 
