@@ -373,7 +373,7 @@ public:
           dyn_cast<DeclRefExpr>(callExpr->getImplicitObjectArgument());
       assert(DRE);
       QualType QT = DRE->getType();
-      auto typeRecordDecl = QT->getAsCXXRecordDecl();
+      auto *typeRecordDecl = QT->getAsCXXRecordDecl();
       ClassTemplateSpecializationDecl *SpecDecl =
           llvm::dyn_cast<ClassTemplateSpecializationDecl>(typeRecordDecl);
 
