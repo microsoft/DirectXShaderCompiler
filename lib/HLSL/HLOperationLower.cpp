@@ -4335,18 +4335,15 @@ void Split64bitValForStore(Type *EltTy, ArrayRef<Value *> vals, unsigned size,
 }
 
 void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
-                    Value *offset, IRBuilder<> &Builder, hlsl::OP *OP,
-                    Value *sampIdx = nullptr) {
+                    Value *Idx, Value *offset, IRBuilder<> &Builder,
+                    hlsl::OP *OP, Value *sampIdx = nullptr) {
   Type *Ty = val->getType();
-
-  // This function is no longer used for lowering stores to a
-  // structured buffer.
-  DXASSERT_NOMSG(RK != DxilResource::Kind::StructuredBuffer);
-
   OP::OpCode opcode = OP::OpCode::NumOpCodes;
+  bool isTyped = true;
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
   case DxilResource::Kind::StructuredBuffer:
+    isTyped = false;
     opcode = OP::OpCode::RawBufferStore;
     break;
   case DxilResource::Kind::TypedBuffer:
@@ -4363,10 +4360,6 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     opcode = OP::OpCode::TextureStore;
     break;
   }
-
-  bool isTyped = opcode == OP::OpCode::TextureStore ||
-                 opcode == OP::OpCode::TextureStoreSample ||
-                 RK == DxilResource::Kind::TypedBuffer;
 
   Type *i32Ty = Builder.getInt32Ty();
   Type *i64Ty = Builder.getInt64Ty();
@@ -4406,38 +4399,42 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   storeArgs.emplace_back(opArg);  // opcode
   storeArgs.emplace_back(handle); // resource handle
 
-  unsigned offset0Idx = 0;
-  if (RK == DxilResource::Kind::RawBuffer ||
-      RK == DxilResource::Kind::TypedBuffer) {
-    // Offset 0
-    if (offset->getType()->isVectorTy()) {
-      Value *scalarOffset = Builder.CreateExtractElement(offset, (uint64_t)0);
-      storeArgs.emplace_back(scalarOffset); // offset
+  unsigned OffsetIdx = 0;
+  if (opcode == OP::OpCode::RawBufferStore ||
+      opcode == OP::OpCode::BufferStore) {
+    // Append Coord0 (Index) value.
+    if (Idx->getType()->isVectorTy()) {
+      Value *ScalarIdx = Builder.CreateExtractElement(Idx, (uint64_t)0);
+      storeArgs.emplace_back(ScalarIdx); // Coord0 (Index).
     } else {
-      storeArgs.emplace_back(offset); // offset
+      storeArgs.emplace_back(Idx); // Coord0 (Index).
     }
 
-    // Store offset0 for later use
-    offset0Idx = storeArgs.size() - 1;
+    // Store OffsetIdx representing the argument that may need to be incremented
+    // later to load additional chunks of data.
+    // Only structured buffers can use the offset parameter.
+    // Others must increment the index.
+    if (RK == DxilResource::Kind::StructuredBuffer)
+      OffsetIdx = storeArgs.size();
+    else
+      OffsetIdx = storeArgs.size() - 1;
 
-    // Offset 1
-    storeArgs.emplace_back(undefI);
+    // Coord1 (Offset).
+    // Only relevant when storing more than 4 elements to structured buffers.
+    storeArgs.emplace_back(offset);
   } else {
     // texture store
     unsigned coordSize = DxilResource::GetNumCoords(RK);
 
     // Set x first.
-    if (offset->getType()->isVectorTy())
-      storeArgs.emplace_back(Builder.CreateExtractElement(offset, (uint64_t)0));
+    if (Idx->getType()->isVectorTy())
+      storeArgs.emplace_back(Builder.CreateExtractElement(Idx, (uint64_t)0));
     else
-      storeArgs.emplace_back(offset);
-
-    // Store offset0 for later use
-    offset0Idx = storeArgs.size() - 1;
+      storeArgs.emplace_back(Idx);
 
     for (unsigned i = 1; i < 3; i++) {
       if (i < coordSize)
-        storeArgs.emplace_back(Builder.CreateExtractElement(offset, i));
+        storeArgs.emplace_back(Builder.CreateExtractElement(Idx, i));
       else
         storeArgs.emplace_back(undefI);
     }
@@ -4464,23 +4461,17 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   }
 
   for (unsigned j = 0; j < storeArgsList.size(); j++) {
-
-    // For second and subsequent store calls, increment the offset0 (i.e. store
-    // index)
+    // For second and subsequent store calls, increment the resource-appropriate
+    // index or offset parameter.
     if (j > 0) {
-      // Greater than four-components store is not allowed for
-      // TypedBuffer and Textures. So greater than four elements
-      // scenario should only get hit here for RawBuffer.
-      DXASSERT_NOMSG(RK == DxilResource::Kind::RawBuffer);
       unsigned EltSize = OP->GetAllocSizeForType(EltTy);
-      unsigned newOffset = EltSize * MaxStoreElemCount * j;
-      Value *newOffsetVal = ConstantInt::get(Builder.getInt32Ty(), newOffset);
-      newOffsetVal =
-          Builder.CreateAdd(storeArgsList[0][offset0Idx], newOffsetVal);
-      storeArgsList[j][offset0Idx] = newOffsetVal;
+      unsigned NewCoord = EltSize * MaxStoreElemCount * j;
+      Value *NewCoordVal = ConstantInt::get(Builder.getInt32Ty(), NewCoord);
+      NewCoordVal = Builder.CreateAdd(storeArgsList[0][OffsetIdx], NewCoordVal);
+      storeArgsList[j][OffsetIdx] = NewCoordVal;
     }
 
-    // values
+    // Set value parameters.
     uint8_t mask = 0;
     if (Ty->isVectorTy()) {
       unsigned vecSize =
@@ -4576,7 +4567,8 @@ Value *TranslateResourceStore(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   Value *val = CI->getArgOperand(HLOperandIndex::kStoreValOpIdx);
   Value *offset = CI->getArgOperand(HLOperandIndex::kStoreOffsetOpIdx);
-  TranslateStore(RK, handle, val, offset, Builder, hlslOP);
+  Value *UndefI = UndefValue::get(Builder.getInt32Ty());
+  TranslateStore(RK, handle, val, offset, UndefI, Builder, hlslOP);
 
   return nullptr;
 }
@@ -7907,40 +7899,13 @@ Value *TranslateStructBufMatLd(CallInst *CI, IRBuilder<> &Builder,
 void TranslateStructBufMatSt(Type *matType, IRBuilder<> &Builder, Value *handle,
                              hlsl::OP *OP, Value *bufIdx, Value *baseOffset,
                              Value *val, const DataLayout &DL) {
+#ifndef NDEBUG
   HLMatrixType MatTy = HLMatrixType::cast(matType);
-  Type *EltTy = MatTy.getElementTypeForMem();
-
-  val = MatTy.emitLoweredRegToMem(val, Builder);
-
-  unsigned EltSize = DL.getTypeAllocSize(EltTy);
-  Constant *Alignment = OP->GetI32Const(EltSize);
-  Value *offset = baseOffset;
-  if (baseOffset == nullptr)
-    offset = OP->GetU32Const(0);
-
-  unsigned matSize = MatTy.getNumElements();
-  Value *undefElt = UndefValue::get(EltTy);
-
-  unsigned storeSize = matSize;
-  if (matSize % 4) {
-    storeSize = matSize + 4 - (matSize & 3);
-  }
-  std::vector<Value *> elts(storeSize, undefElt);
-  for (unsigned i = 0; i < matSize; i++)
-    elts[i] = Builder.CreateExtractElement(val, i);
-
-  for (unsigned i = 0; i < matSize; i += 4) {
-    uint8_t mask = 0;
-    for (unsigned j = 0; j < 4 && (i + j) < matSize; j++) {
-      if (elts[i + j] != undefElt)
-        mask |= (1 << j);
-    }
-    GenerateStructBufSt(handle, bufIdx, offset, EltTy, OP, Builder,
-                        {elts[i], elts[i + 1], elts[i + 2], elts[i + 3]}, mask,
-                        Alignment);
-    // Update offset by 4*4bytes.
-    offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * EltSize));
-  }
+  DXASSERT(MatTy.getLoweredVectorType(false /*MemRepr*/) == val->getType(),
+           "helper type should match vectorized matrix");
+#endif
+  TranslateStore(DxilResource::Kind::StructuredBuffer, handle, val, bufIdx,
+                 baseOffset, Builder, OP);
 }
 
 void TranslateStructBufMatLdSt(CallInst *CI, Value *handle, HLResource::Kind RK,
@@ -8085,6 +8050,9 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
 
       GEP->eraseFromParent();
     } else if (StoreInst *stUser = dyn_cast<StoreInst>(subsUser)) {
+      // Store elements of matrix in a struct. Needs to be done one scalar at a
+      // time even for vectors in the case that matrix orientation spreads the
+      // indexed scalars throughout the matrix vector.
       IRBuilder<> stBuilder(stUser);
       Value *Val = stUser->getValueOperand();
       if (Val->getType()->isVectorTy()) {
@@ -8108,6 +8076,9 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
       LoadInst *ldUser = cast<LoadInst>(subsUser);
       IRBuilder<> ldBuilder(ldUser);
       Value *ldData = UndefValue::get(resultType);
+      // Load elements of matrix in a struct. Needs to be done one scalar at a
+      // time even for vectors in the case that matrix orientation spreads the
+      // indexed scalars throughout the matrix vector.
       if (resultType->isVectorTy()) {
         for (unsigned i = 0; i < resultSize; i++) {
           Value *ResultElt;
@@ -8248,30 +8219,9 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     LdInst->eraseFromParent();
   } else if (StoreInst *StInst = dyn_cast<StoreInst>(user)) {
     // Store of scalar/vector within a struct or structured raw store.
-    Type *Ty = StInst->getValueOperand()->getType();
-    Type *pOverloadTy = Ty->getScalarType();
-    Value *offset = baseOffset;
-
     Value *val = StInst->getValueOperand();
-    Value *undefVal = llvm::UndefValue::get(pOverloadTy);
-    Value *vals[] = {undefVal, undefVal, undefVal, undefVal};
-    uint8_t mask = 0;
-    if (Ty->isVectorTy()) {
-      unsigned vectorNumElements = Ty->getVectorNumElements();
-      DXASSERT(vectorNumElements <= 4, "up to 4 elements in vector");
-      assert(vectorNumElements <= 4);
-      for (unsigned i = 0; i < vectorNumElements; i++) {
-        vals[i] = Builder.CreateExtractElement(val, i);
-        mask |= (1 << i);
-      }
-    } else {
-      vals[0] = val;
-      mask = DXIL::kCompMask_X;
-    }
-    Constant *alignment =
-        OP->GetI32Const(DL.getTypeAllocSize(Ty->getScalarType()));
-    GenerateStructBufSt(handle, bufIdx, offset, pOverloadTy, OP, Builder, vals,
-                        mask, alignment);
+    TranslateStore(DxilResource::Kind::StructuredBuffer, handle, val, bufIdx,
+                   baseOffset, Builder, OP);
     StInst->eraseFromParent();
   } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(user)) {
     // Recurse users
@@ -8418,14 +8368,15 @@ void TranslateTypedBufferSubscript(CallInst *CI, HLOperationLowerHelper &helper,
     User *user = *(It++);
     Instruction *I = cast<Instruction>(user);
     IRBuilder<> Builder(I);
+    Value *UndefI = UndefValue::get(Builder.getInt32Ty());
     if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
       TranslateTypedBufSubscript(CI, RK, RC, handle, ldInst, Builder, hlslOP,
                                  helper.dataLayout);
     } else if (StoreInst *stInst = dyn_cast<StoreInst>(user)) {
       Value *val = stInst->getValueOperand();
       TranslateStore(RK, handle, val,
-                     CI->getArgOperand(HLOperandIndex::kStoreOffsetOpIdx),
-                     Builder, hlslOP);
+                     CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx),
+                     UndefI, Builder, hlslOP);
       // delete the st
       stInst->eraseFromParent();
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
@@ -8450,9 +8401,10 @@ void TranslateTypedBufferSubscript(CallInst *CI, HLOperationLowerHelper &helper,
           // Generate St.
           // Reset insert point, UpdateVectorElt may move SI to different block.
           StBuilder.SetInsertPoint(SI);
-          TranslateStore(RK, handle, ldVal,
-                         CI->getArgOperand(HLOperandIndex::kStoreOffsetOpIdx),
-                         StBuilder, hlslOP);
+          TranslateStore(
+              RK, handle, ldVal,
+              CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx), UndefI,
+              StBuilder, hlslOP);
           SI->eraseFromParent();
           continue;
         }
@@ -8642,9 +8594,10 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     } else {
       StoreInst *stInst = cast<StoreInst>(*U);
       Value *val = stInst->getValueOperand();
+      Value *UndefI = UndefValue::get(Builder.getInt32Ty());
       TranslateStore(RK, handle, val,
-                     CI->getArgOperand(HLOperandIndex::kStoreOffsetOpIdx),
-                     Builder, hlslOP, mipLevel);
+                     CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx),
+                     UndefI, Builder, hlslOP, mipLevel);
       stInst->eraseFromParent();
     }
     Translated = true;
