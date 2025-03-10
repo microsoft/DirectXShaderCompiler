@@ -280,6 +280,7 @@ RDAT_ENUM_START(NodeAttribKind, uint32_t)
   RDAT_ENUM_VALUE(OutputArraySize, 6)
   RDAT_ENUM_VALUE(AllowSparseNodes, 7)
   RDAT_ENUM_VALUE(RecordAlignmentInBytes, 8)
+  RDAT_ENUM_VALUE(MaxRecordsPerNode, 9)
   RDAT_ENUM_VALUE_NODEF(LastValue)
 RDAT_ENUM_END()
 
@@ -415,6 +416,9 @@ RDAT_STRUCT_TABLE(NodeShaderIOAttrib, NodeShaderIOAttribTable)
                     getAttribKind() ==
                         hlsl::RDAT::NodeAttribKind::RecordAlignmentInBytes)
       RDAT_VALUE(uint32_t, RecordAlignmentInBytes)
+    RDAT_UNION_ELIF(MaxRecordsPerNode,
+                    getAttribKind() == hlsl::RDAT::NodeAttribKind::MaxRecordsPerNode)
+      RDAT_VALUE(uint32_t, MaxRecordsPerNode)
     RDAT_UNION_ENDIF()
   RDAT_UNION_END()
 RDAT_STRUCT_END()
