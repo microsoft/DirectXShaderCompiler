@@ -249,6 +249,7 @@ public:
   bool PrintAfterAll;                   // OPT_print_after_all
   std::set<std::string> PrintAfter;     // OPT_print_after
   bool EnablePayloadQualifiers = false; // OPT_enable_payload_qualifiers
+  bool EnableShaderExecutionReordering = false;
   bool HandleExceptions = false;        // OPT_disable_exception_handling
 
   // Rewriter Options

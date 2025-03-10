@@ -126,7 +126,9 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS = 49,
   LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS = 50,
 
-  LICOMPTYPE_COUNT = 51
+  LICOMPTYPE_HIT_OBJECT = 51,
+
+  LICOMPTYPE_COUNT = 52
 };
 
 static const BYTE IA_SPECIAL_BASE = 0xf0;
@@ -165,6 +167,7 @@ struct HLSL_INTRINSIC {
   BOOL bReadOnly;          // Only read memory
   BOOL bReadNone;          // Not read memory
   BOOL bIsWave;            // Is a wave-sensitive op
+  BOOL bStaticMember;      // HLSL static member function
   INT iOverloadParamIndex; // Parameter decide the overload type, -1 means ret
                            // type
   UINT uNumArgs;           // Count of arguments in pArgs.
