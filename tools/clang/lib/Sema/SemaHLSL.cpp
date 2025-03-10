@@ -5256,8 +5256,9 @@ public:
                                     diag::err_typecheck_decl_incomplete_type);
 
         if (containsLongVector(argType)) {
+          const unsigned ConstantBuffersOrTextureBuffersIdx = 0;
           m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
-              << "ConstantBuffers or TextureBuffers";
+              << ConstantBuffersOrTextureBuffersIdx;
           return true;
         }
       }
@@ -5330,9 +5331,10 @@ public:
       if (Decl && !Decl->isCompleteDefinition())
         return true;
       if (containsLongVector(arg.getAsType())) {
+        const unsigned TessellationPatchesIDx = 1;
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
-            << "tessellation patches";
+            << TessellationPatchesIDx;
         return true;
       }
     } else if (Template->getTemplatedDecl()->hasAttr<HLSLStreamOutputAttr>()) {
@@ -5348,9 +5350,10 @@ public:
       if (Decl && !Decl->isCompleteDefinition())
         return true;
       if (containsLongVector(arg.getAsType())) {
+        const unsigned GeometryStreamsIdx = 2;
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
-            << "geometry streams";
+            << GeometryStreamsIdx;
         return true;
       }
     }
@@ -11617,8 +11620,9 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
   switch (shapeKind) {
   case AR_TOBJ_VECTOR:
     if (GetHLSLVecSize(ArgTy) > DXIL::kDefaultMaxVectorLength) {
+      const unsigned NodeRecordsIdx = 3;
       self->Diag(ArgLoc.getLocation(), diag::err_hlsl_unsupported_long_vector)
-          << "node records";
+          << NodeRecordsIdx;
       Empty = false;
       return false;
     }
@@ -14741,8 +14745,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     } SD;
     RequireCompleteType(D.getLocStart(), qt, SD);
     if (containsLongVector(qt)) {
+      unsigned CbuffersOrTbuffersIdx = 4;
       Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector)
-          << "cbuffers or tbuffers";
+          << CbuffersOrTbuffersIdx;
       result = false;
     }
   }
@@ -15638,8 +15643,9 @@ static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
 // Verify that user-defined intrinsic struct args contain no long vectors
 static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
   if (containsLongVector(Arg->getType())) {
+    const unsigned UserDefinedStructParameterIdx = 5;
     S->Diag(Arg->getExprLoc(), diag::err_hlsl_unsupported_long_vector)
-        << "user-defined struct parameter";
+        << UserDefinedStructParameterIdx;
     return true;
   }
   return false;
@@ -16379,14 +16385,18 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   // Would be nice to check for resources here as they crash the compiler now.
   // See issue #7186.
   for (const auto *param : FD->params()) {
-    if (containsLongVector(param->getType()))
+    if (containsLongVector(param->getType())) {
+      const unsigned EntryFunctionParametersIdx = 6;
       S.Diag(param->getLocation(), diag::err_hlsl_unsupported_long_vector)
-          << "entry function parameters";
+          << EntryFunctionParametersIdx;
+    }
   }
 
-  if (containsLongVector(FD->getReturnType()))
+  if (containsLongVector(FD->getReturnType())) {
+    const unsigned EntryFunctionReturnIdx = 7;
     S.Diag(FD->getLocation(), diag::err_hlsl_unsupported_long_vector)
-        << "entry function return type";
+        << EntryFunctionReturnIdx;
+  }
 
   DXIL::ShaderKind Stage =
       ShaderModel::KindFromFullName(shaderAttr->getStage());
