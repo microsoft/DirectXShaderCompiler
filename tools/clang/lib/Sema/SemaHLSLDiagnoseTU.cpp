@@ -326,16 +326,45 @@ public:
     return true;
   }
 
-  bool VisitDeclRefExpr(DeclRefExpr *ET) {
+  bool VisitDeclRefExpr(DeclRefExpr *DRE) {
     // Search for enum types that should only exist after
     // specific shader models.
 
-    // First step: get an availability attribute
-    AvailabilityAttr *AAttr = nullptr;
-    if (!ET->getDecl()->hasAttr<AvailabilityAttr>())
+    // check if this declrefexpr refers to another one
+    // and drill into it if possible.
+    VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl());
+    if (!VD) {
+      return true;
+    }
+
+    ImplicitCastExpr *ICE = nullptr;
+    if (VD->getInit()) {
+      if (ICE = dyn_cast<ImplicitCastExpr>(VD->getInit())) {
+        while (true) {
+          ImplicitCastExpr *NewICE =
+              dyn_cast<ImplicitCastExpr>(ICE->getSubExpr());
+          if (!(NewICE)) {
+            break;
+          }
+          ICE = NewICE;
+        }
+      }
+    }
+
+    if (ICE) {
+      if (DeclRefExpr *newDRE = dyn_cast<DeclRefExpr>(ICE->getSubExpr())) {
+        VisitDeclRefExpr(newDRE);
+      }
+    }
+
+    if (!DRE->getDecl()->hasAttr<AvailabilityAttr>())
       return true;
 
-    AAttr = ET->getDecl()->getAttr<AvailabilityAttr>();
+    // Next step: given a valid DRE, get an availability
+    // attribute from it
+    AvailabilityAttr *AAttr = nullptr;
+
+    AAttr = DRE->getDecl()->getAttr<AvailabilityAttr>();
     VersionTuple AAttrVT = AAttr->getIntroduced();
     VersionTuple SMVT = VersionTuple(SM->GetMajor(), SM->GetMinor());
 
@@ -344,8 +373,8 @@ public:
     // the warning warn_hlsl_builtin_constant_unavailable
 
     if (SMVT < AAttrVT) {
-      IdentifierInfo *II = ET->getDecl()->getIdentifier();
-      sema->Diag(ET->getLocation(),
+      IdentifierInfo *II = DRE->getDecl()->getIdentifier();
+      sema->Diag(DRE->getLocation(),
                  diag::warn_hlsl_builtin_constant_unavailable)
           << II->getName() << SM->GetName() << AAttrVT.getAsString();
     }
