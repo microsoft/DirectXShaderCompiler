@@ -7981,7 +7981,7 @@ def err_hlsl_unsupported_semantic_index: Error<
 def err_hlsl_ser_unsupported : Error<
    "%select{dx::HitObject|dx::MaybeReorderThread}0 is unavailable in shader stage '%1' (requires 'raygeneration'%select{|, 'closesthit' or 'miss'}2)">;
 def err_hlsl_ser_invalid_version : Error<
-   "Shader execution reordering requires target profile lib_6_9+ (was %0)">;
+   "shader execution reordering is unsupported in target profile %0 requires target profile lib_6_9+">;
 // SER Change Ends
 
 // SPIRV Change Starts
