@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLModule.h"
@@ -180,10 +181,12 @@ bool LowerTypePass::runOnModule(Module &M) {
 namespace {
 class DynamicIndexingVectorToArray : public LowerTypePass {
   bool ReplaceAllVectors;
+  bool SupportsVectors;
 
 public:
   explicit DynamicIndexingVectorToArray(bool ReplaceAll = false)
-      : LowerTypePass(ID), ReplaceAllVectors(ReplaceAll) {}
+      : LowerTypePass(ID), ReplaceAllVectors(ReplaceAll),
+        SupportsVectors(false) {}
   static char ID; // Pass identification, replacement for typeid
   void applyOptions(PassOptions O) override;
   void dumpConfig(raw_ostream &OS) override;
@@ -194,6 +197,7 @@ protected:
   Type *lowerType(Type *Ty) override;
   Constant *lowerInitVal(Constant *InitVal, Type *NewTy) override;
   StringRef getGlobalPrefix() override { return ".v"; }
+  void initialize(Module &M) override;
 
 private:
   bool HasVectorDynamicIndexing(Value *V);
@@ -206,6 +210,11 @@ private:
   void ReplaceStaticIndexingOnVector(Value *V);
   void ReplaceAddrSpaceCast(ConstantExpr *CE, Value *A, IRBuilder<> &Builder);
 };
+
+void DynamicIndexingVectorToArray::initialize(Module &M) {
+  if (M.HasHLModule())
+    SupportsVectors = M.GetHLModule().GetShaderModel()->IsSM69Plus();
+}
 
 void DynamicIndexingVectorToArray::applyOptions(PassOptions O) {
   GetPassOptionBool(O, "ReplaceAllVectors", &ReplaceAllVectors,
@@ -286,7 +295,7 @@ void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
             StoreInst *stInst = cast<StoreInst>(GEPUser);
             Value *val = stInst->getValueOperand();
             Value *ldVal = Builder.CreateLoad(V);
-            ldVal = Builder.CreateInsertElement(ldVal, val, constIdx);
+            ldVal = Builder.CreateInsertElement(ldVal, val, constIdx); // UGH
             Builder.CreateStore(ldVal, V);
             stInst->eraseFromParent();
           }
@@ -306,8 +315,11 @@ void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
 }
 
 bool DynamicIndexingVectorToArray::needToLower(Value *V) {
+  // Only needed where vectors aren't supported.
+  if (SupportsVectors)
+    return false;
   Type *Ty = V->getType()->getPointerElementType();
-  if (dyn_cast<VectorType>(Ty)) {
+  if (isa<VectorType>(Ty)) {
     if (isa<GlobalVariable>(V) || ReplaceAllVectors) {
       return true;
     }

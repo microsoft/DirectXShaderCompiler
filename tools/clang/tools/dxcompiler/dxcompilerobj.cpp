@@ -1532,6 +1532,13 @@ public:
         Opts.EnablePayloadQualifiers;
     compiler.getLangOpts().HLSLProfile = compiler.getCodeGenOpts().HLSLProfile =
         Opts.TargetProfile;
+    const ShaderModel *SM = hlsl::ShaderModel::GetByName(
+        compiler.getLangOpts().HLSLProfile.c_str());
+    if (SM->IsSM69Plus())
+      compiler.getLangOpts().MaxHLSLVectorLength = DXIL::kSM69MaxVectorLength;
+    else
+      compiler.getLangOpts().MaxHLSLVectorLength =
+          DXIL::kDefaultMaxVectorLength;
 
     // Enable dumping implicit top level decls either if it was specifically
     // requested or if we are not dumping the ast from the command line. That

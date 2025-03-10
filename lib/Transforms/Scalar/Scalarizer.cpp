@@ -14,6 +14,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dxc/DXIL/DxilModule.h"
+
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
@@ -290,6 +292,10 @@ bool Scalarizer::doInitialization(Module &M) {
 }
 
 bool Scalarizer::runOnFunction(Function &F) {
+  if (F.getParent()->HasDxilModule())
+    if (F.getParent()->GetDxilModule().GetShaderModel()->IsSM69Plus())
+      return false;
+
   for (Function::iterator BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
     BasicBlock *BB = BBI;
     for (BasicBlock::iterator II = BB->begin(), IE = BB->end(); II != IE;) {

@@ -348,9 +348,10 @@ void AddHLSLNodeOutputRecordTemplate(
     _Outptr_ clang::ClassTemplateDecl **outputRecordTemplateDecl,
     bool isCompleteType = true);
 
-clang::CXXRecordDecl *DeclareRecordTypeWithHandle(clang::ASTContext &context,
-                                                  llvm::StringRef name,
-                                                  bool isCompleteType = true);
+clang::CXXRecordDecl *
+DeclareRecordTypeWithHandle(clang::ASTContext &context, llvm::StringRef name,
+                            bool isCompleteType = true,
+                            clang::InheritableAttr *Attr = nullptr);
 
 void AddRaytracingConstants(clang::ASTContext &context);
 void AddSamplerFeedbackConstants(clang::ASTContext &context);
@@ -381,14 +382,14 @@ clang::CXXRecordDecl *DeclareTemplateTypeWithHandleInDeclContext(
 
 clang::CXXRecordDecl *DeclareUIntTemplatedTypeWithHandle(
     clang::ASTContext &context, llvm::StringRef typeName,
-    llvm::StringRef templateParamName,
-    clang::TagTypeKind tagKind = clang::TagTypeKind::TTK_Class);
+    llvm::StringRef templateParamName, clang::InheritableAttr *Attr = nullptr);
 clang::CXXRecordDecl *DeclareUIntTemplatedTypeWithHandleInDeclContext(
     clang::ASTContext &context, clang::DeclContext *declContext,
     llvm::StringRef typeName, llvm::StringRef templateParamName,
-    clang::TagTypeKind tagKind = clang::TagTypeKind::TTK_Class);
-clang::CXXRecordDecl *DeclareConstantBufferViewType(clang::ASTContext &context,
-                                                    bool bTBuf);
+    clang::InheritableAttr *Attr = nullptr);
+clang::CXXRecordDecl *
+DeclareConstantBufferViewType(clang::ASTContext &context,
+                              clang::InheritableAttr *Attr);
 clang::CXXRecordDecl *DeclareRayQueryType(clang::ASTContext &context);
 clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context,
                                           bool bSampler);

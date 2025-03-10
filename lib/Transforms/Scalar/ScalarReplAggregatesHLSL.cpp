@@ -1869,7 +1869,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       // if
       // all its users can be transformed, then split up the aggregate into its
       // separate elements.
-      if (ShouldAttemptScalarRepl(AI) && isSafeAllocaToScalarRepl(AI)) {
+      if (!HLM.GetShaderModel()->IsSM69Plus() && ShouldAttemptScalarRepl(AI) &&
+          isSafeAllocaToScalarRepl(AI)) {
         std::vector<Value *> Elts;
         IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(AI));
         bool hasPrecise = HLModule::HasPreciseAttributeWithMetadata(AI);
@@ -1945,8 +1946,9 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         continue;
       }
 
-      // Flat Global vector if no dynamic vector indexing.
-      bool bFlatVector = !hasDynamicVectorIndexing(GV);
+      // Flat Global vector if no dynamic vector indexing and pre-6.9.
+      bool bFlatVector =
+          !hasDynamicVectorIndexing(GV) && !HLM.GetShaderModel()->IsSM69Plus();
 
       if (bFlatVector) {
         GVDbgOffset &dbgOffset = GVDbgOffsetMap[GV];
@@ -1980,10 +1982,12 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       } else {
         // SROA_Parameter_HLSL has no access to a domtree, if one is needed,
         // it'll be generated
-        SROAed = SROA_Helper::DoScalarReplacement(
-            GV, Elts, Builder, bFlatVector,
-            // TODO: set precise.
-            /*hasPrecise*/ false, typeSys, DL, DeadInsts, /*DT*/ nullptr);
+        if (!HLM.GetShaderModel()->IsSM69Plus()) {
+          SROAed = SROA_Helper::DoScalarReplacement(
+              GV, Elts, Builder, bFlatVector,
+              // TODO: set precise.
+              /*hasPrecise*/ false, typeSys, DL, DeadInsts, /*DT*/ nullptr);
+        }
       }
 
       if (SROAed) {
