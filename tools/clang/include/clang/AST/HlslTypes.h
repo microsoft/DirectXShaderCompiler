@@ -387,8 +387,9 @@ clang::CXXRecordDecl *DeclareUIntTemplatedTypeWithHandleInDeclContext(
     clang::ASTContext &context, clang::DeclContext *declContext,
     llvm::StringRef typeName, llvm::StringRef templateParamName,
     clang::InheritableAttr *Attr = nullptr);
-clang::CXXRecordDecl *DeclareConstantBufferViewType(clang::ASTContext &context,
-                                                    clang::InheritableAttr *Attr);
+clang::CXXRecordDecl *
+DeclareConstantBufferViewType(clang::ASTContext &context,
+                              clang::InheritableAttr *Attr);
 clang::CXXRecordDecl *DeclareRayQueryType(clang::ASTContext &context);
 clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context,
                                           bool bSampler);

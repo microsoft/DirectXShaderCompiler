@@ -426,19 +426,21 @@ GetHLSLResourceProperties(llvm::Type *Ty) {
                                             false, false, false));
 
     if (name == "SamplerComparisonState")
-      return RetType(
-          true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Sampler, /*UAV*/ false,
-                                       /*ROV*/ false, /*cmp or counter*/ true));
+      return RetType(true, MakeResourceProperties(
+                               hlsl::DXIL::ResourceKind::Sampler, /*UAV*/ false,
+                               /*ROV*/ false, /*cmp or counter*/ true));
 
     if (name.startswith("AppendStructuredBuffer<"))
-      return RetType(true, MakeResourceProperties(
-                               hlsl::DXIL::ResourceKind::StructuredBuffer,
-                               /*UAV*/ true, /*ROV*/ false, /*cmp or counter*/ true));
+      return RetType(true,
+                     MakeResourceProperties(
+                         hlsl::DXIL::ResourceKind::StructuredBuffer,
+                         /*UAV*/ true, /*ROV*/ false, /*cmp or counter*/ true));
 
     if (name.startswith("ConsumeStructuredBuffer<"))
       return RetType(true, MakeResourceProperties(
                                hlsl::DXIL::ResourceKind::StructuredBuffer,
-                               /*UAV*/ false, /*ROV*/ false, /*cmp or counter*/ true));
+                               /*UAV*/ false, /*ROV*/ false,
+                               /*cmp or counter*/ true));
 
     if (name == "RaytracingAccelerationStructure")
       return RetType(true,
@@ -447,14 +449,14 @@ GetHLSLResourceProperties(llvm::Type *Ty) {
                          /*UAV*/ false, /*ROV*/ false, false));
 
     if (name.startswith("ConstantBuffer<"))
-      return RetType(true,
-                     MakeResourceProperties(hlsl::DXIL::ResourceKind::CBuffer,
-                                            /*UAV*/ false, /*ROV*/ false, false));
+      return RetType(
+          true, MakeResourceProperties(hlsl::DXIL::ResourceKind::CBuffer,
+                                       /*UAV*/ false, /*ROV*/ false, false));
 
     if (name.startswith("TextureBuffer<"))
-      return RetType(true,
-                     MakeResourceProperties(hlsl::DXIL::ResourceKind::TBuffer,
-                                            /*UAV*/ false, /*ROV*/ false, false));
+      return RetType(
+          true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TBuffer,
+                                       /*UAV*/ false, /*ROV*/ false, false));
 
     if (ConsumePrefix(name, "FeedbackTexture2D")) {
       hlsl::DXIL::ResourceKind kind = hlsl::DXIL::ResourceKind::Invalid;
@@ -464,7 +466,9 @@ GetHLSLResourceProperties(llvm::Type *Ty) {
         kind = hlsl::DXIL::ResourceKind::FeedbackTexture2D;
 
       if (name.startswith("<"))
-        return RetType(true, MakeResourceProperties(kind, /*UAV*/ false, /*ROV*/ false, /*Cmp*/ false));
+        return RetType(true,
+                       MakeResourceProperties(kind, /*UAV*/ false,
+                                              /*ROV*/ false, /*Cmp*/ false));
 
       return FalseRet;
     }

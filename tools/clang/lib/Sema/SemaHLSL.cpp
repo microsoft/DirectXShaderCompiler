@@ -5239,8 +5239,7 @@ public:
     // Allow object type for Constant/TextureBuffer.
     HLSLResourceAttr *ResAttr =
         Template->getTemplatedDecl()->getAttr<HLSLResourceAttr>();
-    if (ResAttr &&
-        DXIL::IsCTBuffer(ResAttr->getResKind())) {
+    if (ResAttr && DXIL::IsCTBuffer(ResAttr->getResKind())) {
       if (TemplateArgList.size() == 1) {
         const TemplateArgumentLoc &argLoc = TemplateArgList[0];
         const TemplateArgument &arg = argLoc.getArgument();

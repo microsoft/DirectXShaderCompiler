@@ -1131,7 +1131,8 @@ CXXRecordDecl *hlsl::DeclareUIntTemplatedTypeWithHandleInDeclContext(
 }
 
 clang::CXXRecordDecl *
-hlsl::DeclareConstantBufferViewType(clang::ASTContext &context, InheritableAttr *Attr) {
+hlsl::DeclareConstantBufferViewType(clang::ASTContext &context,
+                                    InheritableAttr *Attr) {
   // Create ConstantBufferView template declaration in translation unit scope
   // like other resource.
   // template<typename T> ConstantBuffer { int h; }
@@ -1141,7 +1142,8 @@ hlsl::DeclareConstantBufferViewType(clang::ASTContext &context, InheritableAttr 
   const char *TypeName = "ConstantBuffer";
   if (IsTBuffer(cast<HLSLResourceAttr>(Attr)->getResKind()))
     TypeName = "TextureBuffer";
-  BuiltinTypeDeclBuilder typeDeclBuilder(DC, TypeName, TagDecl::TagKind::TTK_Struct);
+  BuiltinTypeDeclBuilder typeDeclBuilder(DC, TypeName,
+                                         TagDecl::TagKind::TTK_Struct);
   (void)typeDeclBuilder.addTypeTemplateParam("T");
   typeDeclBuilder.startDefinition();
   CXXRecordDecl *templateRecordDecl = typeDeclBuilder.getRecordDecl();

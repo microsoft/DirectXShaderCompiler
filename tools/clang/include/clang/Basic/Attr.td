@@ -960,8 +960,8 @@ def HLSLTessPatch : InheritableAttr {
 
 def HLSLStreamOutput : InheritableAttr {
   let Spellings = []; // No spellings!
-  // PrimVertices are the number of vertices that make up the streamed primitive.
-  // Points have 1. Lines have 2. Triangles have 3.
+  // PrimVertices are the number of vertices that make up the streamed
+  // primitive. Points have 1. Lines have 2. Triangles have 3.
   let Args = [UnsignedArgument<"PrimVertices">];
   let Subjects = SubjectList<[CXXRecord]>;
   let Documentation = [Undocumented];
@@ -969,13 +969,13 @@ def HLSLStreamOutput : InheritableAttr {
 
 def HLSLResource : InheritableAttr {
   let Spellings = []; // No spellings!
-  let Args = [UnsignedArgument<"ResKindUint">, UnsignedArgument<"ResClassUint">];
+  let Args = [UnsignedArgument<"ResKindUint">,
+              UnsignedArgument<"ResClassUint">];
   let Subjects = SubjectList<[CXXRecord]>;
   let Documentation = [Undocumented];
 
   // Add enum typed getters for safety and brevity.
-  let AdditionalMembers =
-  [{
+  let AdditionalMembers = [{
   hlsl::DXIL::ResourceKind getResKind() const {
     return (hlsl::DXIL::ResourceKind)getResKindUint();
   }
