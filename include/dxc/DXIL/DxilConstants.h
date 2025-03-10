@@ -147,6 +147,8 @@ const unsigned kMaxMSTotalSigRows = 32;
 const unsigned kMaxMSSMSize = 1024 * 28;
 const unsigned kMinWaveSize = 4;
 const unsigned kMaxWaveSize = 128;
+const unsigned kDefaultMaxVectorLength = 4;
+const unsigned kSM69MaxVectorLength = 1024;
 
 const float kMaxMipLodBias = 15.99f;
 const float kMinMipLodBias = -16.0f;
@@ -461,6 +463,11 @@ inline bool IsRawBuffer(DXIL::ResourceKind ResourceKind) {
 
 inline bool IsTBuffer(DXIL::ResourceKind ResourceKind) {
   return ResourceKind == DXIL::ResourceKind::TBuffer;
+}
+
+inline bool IsCTBuffer(DXIL::ResourceKind ResourceKind) {
+  return ResourceKind == DXIL::ResourceKind::CBuffer ||
+         ResourceKind == DXIL::ResourceKind::TBuffer;
 }
 
 /// Whether the resource kind is a FeedbackTexture.
