@@ -3624,7 +3624,8 @@ private:
     AddIntrinsicFunctionsToNamespace(g_DxIntrinsics, _countof(g_DxIntrinsics),
                                      m_dxNSDecl);
     // Eagerly declare HitObject methods. This is required to make lookup of
-    // 'static' HLSL member functions work without special-casing HLSL scope lookup.
+    // 'static' HLSL member functions work without special-casing HLSL scope
+    // lookup.
     CXXRecordDecl *HitObjectDecl =
         GetBasicKindType(AR_OBJECT_HIT_OBJECT)->getAsCXXRecordDecl();
     CompleteType(HitObjectDecl);
@@ -3635,15 +3636,15 @@ private:
   // It does so only if SPIR-V code generation is being done.
   // Assumes the implicit "vk" namespace has already been created.
   void AddVkIntrinsicFunctions() {
-  // If not doing SPIR-V CodeGen, return.
-  if (!m_sema->getLangOpts().SPIRV)
-    return;
+    // If not doing SPIR-V CodeGen, return.
+    if (!m_sema->getLangOpts().SPIRV)
+      return;
 
-  DXASSERT(m_vkNSDecl, "caller has not created the vk namespace yet");
+    DXASSERT(m_vkNSDecl, "caller has not created the vk namespace yet");
 
-  AddIntrinsicFunctionsToNamespace(g_VkIntrinsics, _countof(g_VkIntrinsics),
-                                   m_vkNSDecl);
-}
+    AddIntrinsicFunctionsToNamespace(g_VkIntrinsics, _countof(g_VkIntrinsics),
+                                     m_vkNSDecl);
+  }
 
   // Adds implicitly defined Vulkan-specific constants to the "vk" namespace.
   // It does so only if SPIR-V code generation is being done.
