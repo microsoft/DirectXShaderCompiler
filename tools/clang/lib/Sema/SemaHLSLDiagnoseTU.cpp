@@ -521,12 +521,12 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         }
       }
       for (const auto *param : pPatchFnDecl->params())
-        if (ContainsLongVector(param->getType()))
+        if (containsLongVector(param->getType()))
           self->Diag(param->getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
               << "patch constant function parameters";
 
-      if (ContainsLongVector(pPatchFnDecl->getReturnType()))
+      if (containsLongVector(pPatchFnDecl->getReturnType()))
         self->Diag(pPatchFnDecl->getLocation(),
                    diag::err_hlsl_unsupported_long_vector)
             << "patch constant function return type";

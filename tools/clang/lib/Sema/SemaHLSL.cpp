@@ -5257,7 +5257,7 @@ public:
         m_sema->RequireCompleteType(argSrcLoc, argType,
                                     diag::err_typecheck_decl_incomplete_type);
 
-        if (ContainsLongVector(argType)) {
+        if (containsLongVector(argType)) {
           m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
               << "ConstantBuffers or TextureBuffers";
           return true;
@@ -5331,7 +5331,7 @@ public:
       CXXRecordDecl *Decl = arg.getAsType()->getAsCXXRecordDecl();
       if (Decl && !Decl->isCompleteDefinition())
         return true;
-      if (ContainsLongVector(arg.getAsType())) {
+      if (containsLongVector(arg.getAsType())) {
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
             << "tessellation patches";
@@ -5349,7 +5349,7 @@ public:
       CXXRecordDecl *Decl = arg.getAsType()->getAsCXXRecordDecl();
       if (Decl && !Decl->isCompleteDefinition())
         return true;
-      if (ContainsLongVector(arg.getAsType())) {
+      if (containsLongVector(arg.getAsType())) {
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
             << "geometry streams";
@@ -12090,7 +12090,7 @@ bool hlsl::ShouldSkipNRVO(clang::Sema &sema, clang::QualType returnType,
   return false;
 }
 
-bool hlsl::ContainsLongVector(QualType qt) {
+bool hlsl::containsLongVector(QualType qt) {
   if (qt.isNull() || qt->isDependentType())
     return false;
 
@@ -14742,7 +14742,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       virtual void diagnose(Sema &S, SourceLocation Loc, QualType T) {}
     } SD;
     RequireCompleteType(D.getLocStart(), qt, SD);
-    if (ContainsLongVector(qt)) {
+    if (containsLongVector(qt)) {
       Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector)
           << "cbuffers or tbuffers";
       result = false;
@@ -15639,7 +15639,7 @@ static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
 
 // Verify that user-defined intrinsic struct args contain no long vectors
 static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
-  if (ContainsLongVector(Arg->getType())) {
+  if (containsLongVector(Arg->getType())) {
     S->Diag(Arg->getExprLoc(), diag::err_hlsl_unsupported_long_vector)
         << "user-defined struct parameter";
     return true;
@@ -16381,12 +16381,12 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   // Would be nice to check for resources here as they crash the compiler now.
   // See issue #7186.
   for (const auto *param : FD->params()) {
-    if (ContainsLongVector(param->getType()))
+    if (containsLongVector(param->getType()))
       S.Diag(param->getLocation(), diag::err_hlsl_unsupported_long_vector)
           << "entry function parameters";
   }
 
-  if (ContainsLongVector(FD->getReturnType()))
+  if (containsLongVector(FD->getReturnType()))
     S.Diag(FD->getLocation(), diag::err_hlsl_unsupported_long_vector)
         << "entry function return type";
 
