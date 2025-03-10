@@ -10,9 +10,9 @@ struct LongVec {
   vector<TYPE,NUM> vec;
 };
 
-HsConstantData PatchConstantFunction( // expected-error{{Vectors of over 4 elements in patch constant function return type are not supported}}
-				      vector<TYPE,NUM> vec : V, // expected-error{{Vectors of over 4 elements in patch constant function parameters are not supported}}
-				      LongVec lv : L) { // expected-error{{Vectors of over 4 elements in patch constant function parameters are not supported}}
+HsConstantData PatchConstantFunction( // expected-error{{vectors of over 4 elements in patch constant function return type are not supported}}
+				      vector<TYPE,NUM> vec : V, // expected-error{{vectors of over 4 elements in patch constant function parameters are not supported}}
+				      LongVec lv : L) { // expected-error{{vectors of over 4 elements in patch constant function parameters are not supported}}
   return (HsConstantData)0;
 }
 
