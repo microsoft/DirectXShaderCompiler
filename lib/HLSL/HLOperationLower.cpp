@@ -4137,9 +4137,8 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   Type *EltTy = Ty->getScalarType();
   unsigned numComponents = 1;
 
-  if (Ty->isVectorTy()) {
+  if (Ty->isVectorTy())
     numComponents = Ty->getVectorNumElements();
-  }
 
   Type *i32Ty = Builder.getInt32Ty();
   const bool isBool = EltTy->isIntegerTy(1);
@@ -4204,11 +4203,10 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
   DXASSERT(firstLd, "No loads created by TranslateBufLoad");
 
-  if (isBool) {
-    // Convert result back to register representation.
+  // Convert result back to register representation.
+  if (isBool)
     retValNew = Builder.CreateICmpNE(
         retValNew, Constant::getNullValue(retValNew->getType()));
-  }
 
   helper.retVal->replaceAllUsesWith(retValNew);
   helper.retVal = retValNew;
