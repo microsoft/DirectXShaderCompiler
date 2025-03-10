@@ -350,7 +350,7 @@ public:
       return true;
 
     S.Diag(TL.getLocStart(), diag::err_hlsl_ser_unsupported)
-        << "dx::HitObject" << ShaderModel::FullNameFromKind(EntrySK) << true;
+        << 0 << ShaderModel::FullNameFromKind(EntrySK) << 1;
     S.Diag(EntryDecl->getLocation(), diag::note_hlsl_entry_defined_here);
     return false;
   }

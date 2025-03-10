@@ -11762,35 +11762,49 @@ void Sema::DiagnoseReachableCallForSER(CallExpr *CE, DXIL::ShaderKind EntrySK,
   hlsl::IntrinsicOp opCode = (IntrinsicOp)IntrinsicAttr->getOpcode();
 
   bool ValidEntryForHitObject = false;
+  bool ValidEntryForReorder = false;
   switch (EntrySK) {
   default:
     break;
-  case DXIL::ShaderKind::RayGeneration:
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
     ValidEntryForHitObject = true;
     break;
+  case DXIL::ShaderKind::RayGeneration:
+    ValidEntryForHitObject = true;
+    ValidEntryForReorder = true;
+    break;
   }
 
-  // Return for anything that is not a HitObject intrinsic.
-  std::string FeatureStr = "Shader Execution Reordering";
-  bool OnlySupportedInRG = false;
+  enum {
+    FeatureDXHitObject = 0,
+    FeatureDXMaybeReorderThread = 1,
+  } DiagUnsupportedFeature = FeatureDXHitObject;
+  
+  enum {
+    ValidInRG = 0,
+    ValidInRGCHMS = 1,
+  } DiagValidShaderKinds = ValidInRGCHMS;
+
+  bool IsValidEntry = false;
   switch (opCode) {
   default:
+    // Return for anything that is not a HitObject intrinsic.
     return;
   case hlsl::IntrinsicOp::IOP_DxMaybeReorderThread:
-    FeatureStr = "dx::MaybeReorderThread";
-    OnlySupportedInRG = true;
-    ValidEntryForHitObject &= EntrySK == DXIL::ShaderKind::RayGeneration;
+    DiagUnsupportedFeature = FeatureDXMaybeReorderThread;
+    DiagValidShaderKinds = ValidInRG;
+    IsValidEntry = ValidEntryForReorder;
     break;
   case hlsl::IntrinsicOp::MOP_DxHitObject_MakeNop:
+    IsValidEntry = ValidEntryForHitObject;
     break;
   }
 
-  if (!ValidEntryForHitObject) {
+  if (!IsValidEntry) {
     Diag(Loc, diag::err_hlsl_ser_unsupported)
-        << FeatureStr << ShaderModel::FullNameFromKind(EntrySK)
-        << !OnlySupportedInRG;
+        << DiagUnsupportedFeature << ShaderModel::FullNameFromKind(EntrySK)
+        << DiagValidShaderKinds;
     Diag(EntryFD->getLocation(), diag::note_hlsl_entry_defined_here);
   }
 
@@ -16592,3 +16606,4 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   }
 }
 } // namespace hlsl
+

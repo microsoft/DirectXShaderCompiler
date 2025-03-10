@@ -7979,7 +7979,7 @@ def err_hlsl_unsupported_semantic_index: Error<
 // SER Change Starts
 // Shader Execution Reordering
 def err_hlsl_ser_unsupported : Error<
-   "%0 is unavailable in shader stage '%1' (requires %select{'raygeneration'|'raygeneration', 'closesthit' or 'miss'}2)">;
+   "%select{dx::HitObject|dx::MaybeReorderThread}0 is unavailable in shader stage '%1' (requires 'raygeneration'%select{|, 'closesthit' or 'miss'}2)">;
 def err_hlsl_ser_invalid_version : Error<
    "Shader execution reordering requires target profile lib_6_9+ (was %0)">;
 // SER Change Ends
