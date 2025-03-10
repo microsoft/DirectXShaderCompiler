@@ -4478,6 +4478,10 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   case DxilResource::Kind::StructuredBuffer:
     isTyped = false;
     opcode = OP::OpCode::RawBufferStore;
+    // Where shader model and type allows, use vector store intrinsic.
+    if (OP->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus() &&
+        Ty->isVectorTy() && Ty->getVectorNumElements() > 1)
+      opcode = OP::OpCode::RawBufferVectorStore;
     break;
   case DxilResource::Kind::TypedBuffer:
     opcode = OP::OpCode::BufferStore;
@@ -4520,7 +4524,6 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     EltTy = i32Ty;
   }
 
-  Function *F = OP->GetOpFunc(opcode, EltTy);
   llvm::Constant *opArg = OP->GetU32Const((unsigned)opcode);
 
   llvm::Value *undefI =
@@ -4534,6 +4537,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
 
   unsigned OffsetIdx = 0;
   if (opcode == OP::OpCode::RawBufferStore ||
+      opcode == OP::OpCode::RawBufferVectorStore ||
       opcode == OP::OpCode::BufferStore) {
     // Append Coord0 (Index) value.
     if (Idx->getType()->isVectorTy()) {
@@ -4553,7 +4557,6 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
       OffsetIdx = storeArgs.size() - 1;
 
     // Coord1 (Offset).
-    // Only relevant when storing more than 4 elements to structured buffers.
     storeArgs.emplace_back(offset);
   } else {
     // texture store
@@ -4573,6 +4576,16 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     }
     // TODO: support mip for texture ST
   }
+
+  // RawBufferVectorStore only takes a single value and alignment arguments.
+  if (opcode == DXIL::OpCode::RawBufferVectorStore) {
+    storeArgs.emplace_back(val);
+    storeArgs.emplace_back(Alignment);
+    Function *F = OP->GetOpFunc(DXIL::OpCode::RawBufferVectorStore, Ty);
+    Builder.CreateCall(F, storeArgs);
+    return;
+  }
+  Function *F = OP->GetOpFunc(opcode, EltTy);
 
   constexpr unsigned MaxStoreElemCount = 4;
   const unsigned CompCount = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;

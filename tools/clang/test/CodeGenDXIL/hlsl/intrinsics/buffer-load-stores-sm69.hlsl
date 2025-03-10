@@ -54,7 +54,7 @@ void main(uint ix[2] : IX) {
   vector<TYPE, NUM>  babElt2 = RoByBuf.Load< vector<TYPE, NUM>  >(ix[0]);
 
   // I1: zext <[[NUM]] x i1> %{{.*}} to [[VTYPE]]
-  // CHoCK: all void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWBY]], i32 [[IX0]]
+  // CHECK: all void @dx.op.rawBufferVectorStore.[[VTY]](i32 304, %dx.types.Handle [[ANHDLRWBY]], i32 [[IX0]]
   RwByBuf.Store< vector<TYPE, NUM>  >(ix[0], babElt1 + babElt2);
 
   // StructuredBuffer Tests
@@ -76,7 +76,7 @@ void main(uint ix[2] : IX) {
   vector<TYPE, NUM>  stbElt4 = RoStBuf[ix[1]];
 
   // I1: zext <[[NUM]] x i1> %{{.*}} to [[VTYPE]]
-  // CHoCK: all void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWST]], i32 [[IX0]]
+  // CHECK: all void @dx.op.rawBufferVectorStore.[[VTY]](i32 304, %dx.types.Handle [[ANHDLRWST]], i32 [[IX0]]
   RwStBuf[ix[0]] = stbElt1 + stbElt2 + stbElt3 + stbElt4;
 
   // {Append/Consume}StructuredBuffer Tests
@@ -89,7 +89,7 @@ void main(uint ix[2] : IX) {
   // CHECK: [[ANHDLAPP:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLAPP]]
   // CHECK: [[APPIX:%.*]] = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle [[ANHDLAPP]], i8 1) 
   // I1: zext <[[NUM]] x i1> %{{.*}} to [[VTYPE]]
-  // CHoCK: all void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLAPP]], i32 [[APPIX]]
+  // CHECK: all void @dx.op.rawBufferVectorStore.[[VTY]](i32 304, %dx.types.Handle [[ANHDLAPP]], i32 [[APPIX]]
   ApStBuf.Append(cnElt);
 
   // TypedBuffer Tests
