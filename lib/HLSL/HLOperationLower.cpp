@@ -481,6 +481,26 @@ Value *TrivialDxilOperation(OP::OpCode opcode, ArrayRef<Value *> refArgs,
   return TrivialDxilOperation(opcode, refArgs, Ty, Inst->getType(), hlslOP, B);
 }
 
+Value *TrivialDxilVectorOperation(OP::OpCode opcode, Value *src,
+				  OP *hlslOP, IRBuilder<> &Builder) {
+
+  Type *Ty = src->getType();
+
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+  Value *args[] = {opArg, src};
+
+  Function *dxilFunc = hlslOP->GetOpFunc(opcode, Ty);
+
+  if (!Ty->isVoidTy()) {
+    Value *retVal =
+      Builder.CreateCall(dxilFunc, args, hlslOP->GetOpCodeName(opcode));
+    return retVal;
+  } else {
+    // Cannot add name to void.
+    return Builder.CreateCall(dxilFunc, args);
+  }
+}
+
 Value *TrivialDxilUnaryOperationRet(OP::OpCode opcode, Value *src, Type *RetTy,
                                     hlsl::OP *hlslOP, IRBuilder<> &Builder) {
   Type *Ty = src->getType();
@@ -2211,8 +2231,11 @@ Value *TranslateExp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         ConstantVector::getSplat(Ty->getVectorNumElements(), log2eConst);
   }
   val = Builder.CreateFMul(log2eConst, val);
-  Value *exp = TrivialDxilUnaryOperation(OP::OpCode::Exp, val, hlslOP, Builder);
-  return exp;
+  if (val->getType()->isVectorTy() &&
+      hlslOP->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus())
+    return TrivialDxilVectorOperation(OP::OpCode::Exp, val, hlslOP, Builder);
+  else
+    return TrivialDxilUnaryOperation(OP::OpCode::Exp, val, hlslOP, Builder);
 }
 
 Value *TranslateLog(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -3970,6 +3993,11 @@ struct ResLoadHelper {
       : intrinsicOpCode(IntrinsicOp::Num_Intrinsics), handle(h), retVal(ldInst),
         addr(idx), offset(Offset), status(nullptr), mipLevel(mip) {
     opcode = LoadOpFromResKind(RK);
+    if (opcode == OP::OpCode::RawBufferLoad &&
+        ldInst->getType()->isVectorTy() &&
+        ldInst->getType()->getVectorNumElements() > 1 &&
+        ldInst->getModule()->GetHLModule().GetShaderModel()->IsSM69Plus())
+      opcode = OP::OpCode::RawBufferVectorLoad;
   }
   OP::OpCode opcode;
   IntrinsicOp intrinsicOpCode;
@@ -4063,6 +4091,11 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
         status = CI->getArgOperand(kStatusIdx);
     }
   } else {
+    if (opcode == OP::OpCode::RawBufferLoad &&
+        CI->getType()->isVectorTy() &&
+        CI->getType()->getVectorNumElements() > 1 &&
+        CI->getModule()->GetHLModule().GetShaderModel()->IsSM69Plus())
+      opcode = OP::OpCode::RawBufferVectorLoad;
     const unsigned kStatusIdx = HLOperandIndex::kBufLoadStatusOpIdx;
     if (argc > kStatusIdx)
       status = CI->getArgOperand(kStatusIdx);
@@ -4168,11 +4201,16 @@ static SmallVector<Value *, 12> GetBufLoadArgs(ResLoadHelper helper,
         isVectorAddr ? Builder.CreateExtractElement(helper.addr, (uint64_t)0)
                      : helper.addr);
     Args.emplace_back(helper.offset); // offset (may be changed later) @3
+
     if (opcode == OP::OpCode::RawBufferLoad) {
       // Unlike typed buffer load, raw buffer load has mask and alignment.
       Args.emplace_back(nullptr);      // mask (to be added later) @4
       Args.emplace_back(alignmentVal); // alignment @5
+    } else if (opcode == OP::OpCode::RawBufferVectorLoad) {
+      // RawBufferVectorLoad takes no mask argument.
+      Args.emplace_back(alignmentVal); // alignment @4
     }
+
   }
   return Args;
 }
@@ -4208,42 +4246,50 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   const unsigned kMaskIdx = 4;
 
   // Keep track of the first load for debug info migration.
-  Value *firstLd = nullptr;
-  // Create calls to function object.
-  // Typed buffer loads are limited to one load of up to 4 32-bit values.
-  // Raw buffer loads might need multiple loads in chunks of 4.
-  for (unsigned i = 0; i < numComponents;) {
-    unsigned chunkSize = (numComponents - i) <= 4 ? numComponents - i : 4;
+  Value *FirstLd = nullptr;
+  Value *retValNew = nullptr;
+  if (opcode == OP::OpCode::RawBufferVectorLoad) {
+    FirstLd = GenerateBufLd(OP, Builder, opcode, Ty->getScalarType(),
+                            VectorType::get(MemTy, numComponents), 1, Args,
+                            elts.begin());
+    UpdateStatus(FirstLd, helper.status, Builder, OP);
+    retValNew = elts[0];
+  } else {
+    // Create calls to function object.
+    // Typed buffer loads are limited to one load of up to 4 32-bit values.
+    // Raw buffer loads might need multiple loads in chunks of 4.
+    for (unsigned i = 0; i < numComponents;) {
+      unsigned chunkSize = (numComponents - i) <= 4 ? numComponents - i : 4;
 
-    // Assign mask for raw buffer loads.
-    if (opcode == OP::OpCode::RawBufferLoad)
-      Args[kMaskIdx] = GetRawBufferMaskForETy(MemTy, chunkSize, OP);
+      // Assign mask for raw buffer loads.
+      if (opcode == OP::OpCode::RawBufferLoad)
+        Args[kMaskIdx] = GetRawBufferMaskForETy(MemTy, chunkSize, OP);
 
-    Value *Ld = GenerateBufLd(OP, Builder, opcode, Ty->getScalarType(), MemTy,
-                              chunkSize, Args, elts.begin() + i);
-    i += chunkSize;
+      Value *Ld = GenerateBufLd(OP, Builder, opcode, Ty->getScalarType(), MemTy,
+                                chunkSize, Args, elts.begin() + i);
+      i += chunkSize;
 
-    // Update status.
-    UpdateStatus(Ld, helper.status, Builder, OP);
+      // Update status.
+      UpdateStatus(Ld, helper.status, Builder, OP);
 
-    if (!firstLd)
-      firstLd = Ld;
+      if (!FirstLd)
+        FirstLd = Ld;
 
-    if (opcode == OP::OpCode::RawBufferLoad && i < numComponents) {
-      if (RK == DxilResource::Kind::RawBuffer)
-        // Raw buffers can't use offset param. Add to coord index.
-        Args[kCoordIdx] =
-          Builder.CreateAdd(Args[kCoordIdx], OP->GetU32Const(4 * LdSize));
-      else
-        // Structured buffers increment the offset parameter.
-        Args[kOffsetIdx] =
-          Builder.CreateAdd(Args[kOffsetIdx], OP->GetU32Const(4 * LdSize));
+      if (opcode == OP::OpCode::RawBufferLoad && i < numComponents) {
+        if (RK == DxilResource::Kind::RawBuffer)
+          // Raw buffers can't use offset param. Add to coord index.
+          Args[kCoordIdx] =
+            Builder.CreateAdd(Args[kCoordIdx], OP->GetU32Const(4 * LdSize));
+        else
+          // Structured buffers increment the offset parameter.
+          Args[kOffsetIdx] =
+            Builder.CreateAdd(Args[kOffsetIdx], OP->GetU32Const(4 * LdSize));
+      }
     }
+    retValNew = ScalarizeElements(Ty, elts, Builder);
   }
 
-  Value *retValNew = ScalarizeElements(Ty, elts, Builder);
-
-  DXASSERT(firstLd, "No loads created by TranslateBufLoad");
+  DXASSERT(FirstLd, "No loads created by TranslateBufLoad");
 
   if (isBool) {
     // Convert result back to register representation.
@@ -4254,7 +4300,7 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   helper.retVal->replaceAllUsesWith(retValNew);
   helper.retVal = retValNew;
 
-  return firstLd;
+  return FirstLd;
 }
 
 Value *TranslateResourceLoad(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -7856,8 +7902,13 @@ static Value *GenerateBufLd(hlsl::OP *OP, IRBuilder<> &Builder,
     return Ld;
   }
 
-  for (unsigned i = 0; i < NumElements; i++, EltIt++)
-    *EltIt = Builder.CreateExtractValue(Ld, i);
+  if (opcode == OP::OpCode::RawBufferVectorLoad) {
+    DXASSERT(RegTy != Builder.getInt64Ty() && RegTy != Builder.getDoubleTy(),
+             "64-bit type conversions for longvecs requires op support");
+    *EltIt = Builder.CreateExtractValue(Ld, 0);
+  } else
+    for (unsigned i = 0; i < NumElements; i++, EltIt++)
+      *EltIt = Builder.CreateExtractValue(Ld, i);
 
   return Ld;
 }
