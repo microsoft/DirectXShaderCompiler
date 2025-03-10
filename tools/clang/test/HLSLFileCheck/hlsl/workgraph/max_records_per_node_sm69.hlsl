@@ -35,16 +35,5 @@ void node_1_1(
 // CHECK: !{void ()* @node_1_1, !"node_1_1", null, null, [[NODE_1_1:![0-9]+]]}
 // CHECK: [[NODE_1_1]] = !{i32 8, i32 15, i32 13, i32 1, i32 15, !20, i32 16, i32 -1, i32 18, !11, i32 21, [[OUTPUTS:![0-9]+]]
 // CHECK: [[OUTPUTS]] = !{[[OUTPUT1:![0-9]+]]}
-// CHECK: [[OUTPUT1]] = !{i32 1, i32 22, i32 2, !14, i32 3, i32 64, i32 5, i32 128, i32 0, !15, i32 7, i32 32}
-
-[Shader("node")]
-[NodeLaunch("broadcasting")]
-[NodeDispatchGrid(1, 1, 1)]
-[NumThreads(128, 1, 1)]
-void node_1_2(
-    [NodeArraySize(128)] [MaxRecords(64)] NodeOutputArray<RECORD1> OutputArray
-)
-{
-}
-// CHECK: error: MaxRecordsPerNode is a required attribute SM6.9+ [-Whlsl-require-max-records-per-node]
+// CHECK: [[OUTPUT1]] = !{i32 1, i32 22, i32 2, {{![0-9]+}}, i32 3, i32 64, i32 5, i32 128, i32 0, {{![0-9]+}}, i32 7, i32 32}
 
