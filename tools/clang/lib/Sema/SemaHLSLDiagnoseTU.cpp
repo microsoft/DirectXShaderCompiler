@@ -339,7 +339,7 @@ public:
 
     ImplicitCastExpr *ICE = nullptr;
     if (VD->getInit()) {
-      if (ICE = dyn_cast<ImplicitCastExpr>(VD->getInit())) {
+      if ((ICE = dyn_cast<ImplicitCastExpr>(VD->getInit()))) {
         while (true) {
           ImplicitCastExpr *NewICE =
               dyn_cast<ImplicitCastExpr>(ICE->getSubExpr());
