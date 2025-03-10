@@ -68,18 +68,7 @@ template <typename AttrType> static AttrType *getAttr(clang::QualType type) {
 }
 
 bool IsHLSLVecMatType(clang::QualType type) {
-  type = type.getCanonicalType();
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    if (const auto *Spec =
-            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl()))
-      if (const auto *Template =
-              dyn_cast<ClassTemplateDecl>(Spec->getSpecializedTemplate()))
-        return Template->getTemplatedDecl()->getAttr<HLSLMatrixAttr>() ||
-               Template->getTemplatedDecl()->getAttr<HLSLVectorAttr>();
-    if (const auto *Decl = dyn_cast<CXXRecordDecl>(RT->getDecl()))
-      return Decl->getAttr<HLSLMatrixAttr>() || Decl->getAttr<HLSLVectorAttr>();
-  }
-  return false;
+  return getAttr<HLSLMatrixAttr>(type) || getAttr<HLSLVectorAttr>(type);
 }
 
 bool IsHLSLMatType(clang::QualType type) {

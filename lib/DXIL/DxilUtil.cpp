@@ -439,7 +439,7 @@ GetHLSLResourceProperties(llvm::Type *Ty) {
     if (name.startswith("ConsumeStructuredBuffer<"))
       return RetType(true, MakeResourceProperties(
                                hlsl::DXIL::ResourceKind::StructuredBuffer,
-                               /*UAV*/ false, /*ROV*/ false,
+                               /*UAV*/ true, /*ROV*/ false,
                                /*cmp or counter*/ true));
 
     if (name == "RaytracingAccelerationStructure")

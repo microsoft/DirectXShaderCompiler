@@ -4736,16 +4736,14 @@ public:
       ResKind = DXIL::ResourceKind::RawBuffer;
       ResClass = DXIL::ResourceClass::UAV;
       return true;
-    case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
-    case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
-      // It may seem incorrect to make these SRV,
-      // but it is consistent with GetHLSLResourceProperties().
     case AR_OBJECT_STRUCTURED_BUFFER:
       ResKind = DXIL::ResourceKind::StructuredBuffer;
       ResClass = DXIL::ResourceClass::SRV;
       return true;
     case AR_OBJECT_RWSTRUCTURED_BUFFER:
     case AR_OBJECT_ROVSTRUCTURED_BUFFER:
+    case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
+    case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
       ResKind = DXIL::ResourceKind::StructuredBuffer;
       ResClass = DXIL::ResourceClass::UAV;
       return true;

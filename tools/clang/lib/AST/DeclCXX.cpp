@@ -48,6 +48,7 @@ void LazyASTUnresolvedSet::getFromExternalSource(ASTContext &C) const {
 }
 
 CXXRecordDecl::DefinitionData::DefinitionData(CXXRecordDecl *D)
+    // HLSL Change Begin - Add HasLongVector and clang-format
     : UserDeclaredConstructor(false), UserDeclaredSpecialMembers(0),
       Aggregate(true), PlainOldData(true), Empty(true), Polymorphic(false),
       Abstract(false), IsStandardLayout(true), HasNoNonEmptyBases(true),
@@ -73,6 +74,7 @@ CXXRecordDecl::DefinitionData::DefinitionData(CXXRecordDecl *D)
       HasDeclaredCopyAssignmentWithConstParam(false), IsLambda(false),
       IsParsingBaseSpecifiers(false), HasHLSLLongVector(false), NumBases(0),
       NumVBases(0), Bases(), VBases(), Definition(D), FirstFriend() {}
+// HLSL Change End - Add HasLongVector and clang-format
 
 CXXBaseSpecifier *CXXRecordDecl::DefinitionData::getBasesSlowCase() const {
   return Bases.get(Definition->getASTContext().getExternalSource());
@@ -201,9 +203,10 @@ CXXRecordDecl::setBases(CXXBaseSpecifier const * const *Bases,
     if (!BaseClassDecl->isStandardLayout())
       data().IsStandardLayout = false;
 
-    // Propagate presence of long vector to child classes.
+    // HLSL Change Begin - Propagate presence of long vector to child classes.
     if (BaseClassDecl->hasHLSLLongVector())
       data().HasHLSLLongVector = true;
+    // HLSL Change End
 
     // Record if this base is the first non-literal field or base.
     if (!hasNonLiteralTypeFieldsOrBases() && !BaseType->isLiteralType(C))
@@ -387,8 +390,10 @@ void CXXRecordDecl::addedClassSubobject(CXXRecordDecl *Subobj) {
     data().NeedOverloadResolutionForDestructor = true;
   }
 
+  // HLSL Change Begin - Propagate presence of long vector to child classes.
   if (Subobj->hasHLSLLongVector())
     data().HasHLSLLongVector = true;
+  // HLSL Change End
 }
 
 /// Callback function for CXXRecordDecl::forallBases that acknowledges
