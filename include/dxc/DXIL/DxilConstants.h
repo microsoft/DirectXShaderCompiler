@@ -465,6 +465,11 @@ inline bool IsTBuffer(DXIL::ResourceKind ResourceKind) {
   return ResourceKind == DXIL::ResourceKind::TBuffer;
 }
 
+inline bool IsCTBuffer(DXIL::ResourceKind ResourceKind) {
+  return ResourceKind == DXIL::ResourceKind::CBuffer ||
+         ResourceKind == DXIL::ResourceKind::TBuffer;
+}
+
 /// Whether the resource kind is a FeedbackTexture.
 inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
   return ResourceKind == DXIL::ResourceKind::FeedbackTexture2D ||

@@ -942,11 +942,6 @@ GetOrCreateVectorSpecialization(ASTContext &context, Sema *sema,
            "otherwise vector handle cannot be looked up");
 #endif
 
-  // I don't think this is necessary.
-  CXXRecordDecl *Decl = vectorSpecializationType->getAsCXXRecordDecl();
-  if (GetHLSLVecSize(vectorSpecializationType) > DXIL::kDefaultMaxVectorLength)
-    Decl->setHasHLSLLongVector();
-
   return vectorSpecializationType;
 }
 
@@ -3610,9 +3605,9 @@ private:
           break;
         }
       } else if (kind == AR_OBJECT_CONSTANT_BUFFER) {
-        recordDecl = DeclareConstantBufferViewType(*m_context, /*bTBuf*/ false);
+        recordDecl = DeclareConstantBufferViewType(*m_context, Attr);
       } else if (kind == AR_OBJECT_TEXTURE_BUFFER) {
-        recordDecl = DeclareConstantBufferViewType(*m_context, /*bTBuf*/ true);
+        recordDecl = DeclareConstantBufferViewType(*m_context, Attr);
       } else if (kind == AR_OBJECT_RAY_QUERY) {
         recordDecl = DeclareRayQueryType(*m_context);
       } else if (kind == AR_OBJECT_HEAP_RESOURCE) {
@@ -4760,7 +4755,7 @@ public:
       return true;
     case AR_OBJECT_TEXTURE_BUFFER:
       ResKind = DXIL::ResourceKind::TBuffer;
-      ResClass = DXIL::ResourceClass::CBuffer;
+      ResClass = DXIL::ResourceClass::SRV;
       return true;
     case AR_OBJECT_FEEDBACKTEXTURE2D:
       ResKind = DXIL::ResourceKind::FeedbackTexture2D;
@@ -5219,7 +5214,7 @@ public:
       MaxLength = m_sema->getLangOpts().MaxHLSLVectorLength;
     if (!sintValue.isStrictlyPositive() ||
         sintValue.getLimitedValue() > MaxLength) {
-      m_sema->Diag(diagLoc, diag::err_hlsl_invalid_range_1_plus) << MaxLength;
+      m_sema->Diag(diagLoc, diag::err_hlsl_invalid_range_1_to_max) << MaxLength;
       return true;
     }
 
@@ -5245,7 +5240,7 @@ public:
     HLSLResourceAttr *ResAttr =
         Template->getTemplatedDecl()->getAttr<HLSLResourceAttr>();
     if (ResAttr &&
-        ResAttr->getResClass() == (unsigned)DXIL::ResourceClass::CBuffer) {
+        DXIL::IsCTBuffer(ResAttr->getResKind())) {
       if (TemplateArgList.size() == 1) {
         const TemplateArgumentLoc &argLoc = TemplateArgList[0];
         const TemplateArgument &arg = argLoc.getArgument();
@@ -5265,7 +5260,7 @@ public:
 
         if (ContainsLongVector(argType)) {
           m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
-              << DXIL::kDefaultMaxVectorLength << "cbuffers";
+              << "ConstantBuffers or TextureBuffers";
           return true;
         }
       }
@@ -5340,7 +5335,7 @@ public:
       if (ContainsLongVector(arg.getAsType())) {
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
-            << DXIL::kDefaultMaxVectorLength << "tessellation patches";
+            << "tessellation patches";
         return true;
       }
     } else if (Template->getTemplatedDecl()->hasAttr<HLSLStreamOutputAttr>()) {
@@ -5358,7 +5353,7 @@ public:
       if (ContainsLongVector(arg.getAsType())) {
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
-            << DXIL::kDefaultMaxVectorLength << "geometry streams";
+            << "geometry streams";
         return true;
       }
     }
@@ -5382,7 +5377,7 @@ public:
             // NOTE: IsValidTemplateArgumentType emits its own diagnostics
             return true;
           }
-          if (ResAttr && IsTyped((DXIL::ResourceKind)ResAttr->getResKind())) {
+          if (ResAttr && IsTyped(ResAttr->getResKind())) {
             // Check vectors for being too large.
             if (IsVectorType(m_sema, argType)) {
               unsigned NumElt = hlsl::GetElementCount(argType);
@@ -11626,7 +11621,7 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
   case AR_TOBJ_VECTOR:
     if (GetHLSLVecSize(ArgTy) > DXIL::kDefaultMaxVectorLength) {
       self->Diag(ArgLoc.getLocation(), diag::err_hlsl_unsupported_long_vector)
-          << DXIL::kDefaultMaxVectorLength << "node records";
+          << "node records";
       Empty = false;
       return false;
     }
@@ -14750,7 +14745,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     RequireCompleteType(D.getLocStart(), qt, SD);
     if (ContainsLongVector(qt)) {
       Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector)
-          << DXIL::kDefaultMaxVectorLength << "cbuffers";
+          << "cbuffers or tbuffers";
       result = false;
     }
   }
@@ -15647,7 +15642,7 @@ static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
 static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
   if (ContainsLongVector(Arg->getType())) {
     S->Diag(Arg->getExprLoc(), diag::err_hlsl_unsupported_long_vector)
-        << DXIL::kDefaultMaxVectorLength << "user-defined struct parameter";
+        << "user-defined struct parameter";
     return true;
   }
   return false;
@@ -16385,15 +16380,16 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
 
   // Check general parameter characteristics
   // Would be nice to check for resources here as they crash the compiler now.
+  // See issue #7186.
   for (const auto *param : FD->params()) {
     if (ContainsLongVector(param->getType()))
       S.Diag(param->getLocation(), diag::err_hlsl_unsupported_long_vector)
-          << DXIL::kDefaultMaxVectorLength << "entry function parameters";
+          << "entry function parameters";
   }
 
   if (ContainsLongVector(FD->getReturnType()))
     S.Diag(FD->getLocation(), diag::err_hlsl_unsupported_long_vector)
-        << DXIL::kDefaultMaxVectorLength << "entry function return type";
+        << "entry function return type";
 
   DXIL::ShaderKind Stage =
       ShaderModel::KindFromFullName(shaderAttr->getStage());

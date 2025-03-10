@@ -27,27 +27,27 @@ struct LongVecTpl {
   vector<float,N> vec;
 };
 
-vector<float, NUM> global_vec; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
-vector<float, NUM> global_vec_arr[10]; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
-TYPE global_vec_rec; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
-TYPE global_vec_rec_arr[10]; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
+vector<float, NUM> global_vec; // expected-error{{Vectors of over 4 elements in cbuffers or tbuffers are not supported}}
+vector<float, NUM> global_vec_arr[10]; // expected-error{{Vectors of over 4 elements in cbuffers or tbuffers are not supported}}
+TYPE global_vec_rec; // expected-error{{Vectors of over 4 elements in cbuffers or tbuffers are not supported}}
+TYPE global_vec_rec_arr[10]; // expected-error{{Vectors of over 4 elements in cbuffers or tbuffers are not supported}}
 
 cbuffer BadBuffy {
-  vector<float, NUM> cb_vec; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
-  vector<float, NUM> cb_vec_arr[10]; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
-  TYPE cb_vec_rec; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
-  TYPE cb_vec_rec_arr[10]; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
+  vector<float, NUM> cb_vec; // expected-error{{Vectors of over 4 elements in cbuffers or tbuffers are not supported}}
+  vector<float, NUM> cb_vec_arr[10]; // expected-error{{Vectors of over 4 elements in cbuffers or tbuffers are not supported}}
+  TYPE cb_vec_rec; // expected-error{{Vectors of over 4 elements in cbuffers or tbuffers are not supported}}
+  TYPE cb_vec_rec_arr[10]; // expected-error{{Vectors of over 4 elements in cbuffers or tbuffers are not supported}}
 };
 
 tbuffer BadTuffy {
-  vector<float, NUM> tb_vec; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
-  vector<float, NUM> tb_vec_arr[10]; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
-  TYPE tb_vec_rec; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
-  TYPE tb_vec_rec_arr[10]; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
+  vector<float, NUM> tb_vec; // expected-error{{Vectors of over 4 elements in cbuffers or tbuffers are not supported}}
+  vector<float, NUM> tb_vec_arr[10]; // expected-error{{Vectors of over 4 elements in cbuffers or tbuffers are not supported}}
+  TYPE tb_vec_rec; // expected-error{{Vectors of over 4 elements in cbuffers or tbuffers are not supported}}
+  TYPE tb_vec_rec_arr[10]; // expected-error{{Vectors of over 4 elements in cbuffers or tbuffers are not supported}}
 };
 
-ConstantBuffer< TYPE > const_buf; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
-TextureBuffer< TYPE > tex_buf; // expected-error{{Vectors of over 4 elements in cbuffers are not supported}}
+ConstantBuffer< TYPE > const_buf; // expected-error{{Vectors of over 4 elements in ConstantBuffers or TextureBuffers are not supported}}
+TextureBuffer< TYPE > tex_buf; // expected-error{{Vectors of over 4 elements in ConstantBuffers or TextureBuffers are not supported}}
 
 [shader("pixel")]
 vector<float, NUM> main( // expected-error{{Vectors of over 4 elements in entry function return type are not supported}}

@@ -3,19 +3,9 @@
 // Tests that the compiler is well-behaved with regard to uses of incomplete types.
 // Regression test for GitHub #2058, which crashed in this case.
 
-// expected-note@+8 {{forward declaration of 'S'}} expected-note@+8 {{forward declaration of 'S'}} expected-note@+8 {{forward declaration of 'S'}}
-// expected-note@+7 {{forward declaration of 'S'}} expected-note@+7 {{forward declaration of 'S'}} expected-note@+7 {{forward declaration of 'S'}}
-// expected-note@+6 {{forward declaration of 'S'}} expected-note@+6 {{forward declaration of 'S'}} expected-note@+6 {{forward declaration of 'S'}}
-// expected-note@+5 {{forward declaration of 'S'}} expected-note@+5 {{forward declaration of 'S'}} expected-note@+5 {{forward declaration of 'S'}}
-// expected-note@+4 {{forward declaration of 'S'}} expected-note@+4 {{forward declaration of 'S'}} expected-note@+4 {{forward declaration of 'S'}}
-// expected-note@+3 {{forward declaration of 'S'}} expected-note@+3 {{forward declaration of 'S'}} expected-note@+3 {{forward declaration of 'S'}}
-// expected-note@+2 {{forward declaration of 'S'}} expected-note@+2 {{forward declaration of 'S'}} expected-note@+2 {{forward declaration of 'S'}}
-// expected-note@+1 {{forward declaration of 'S'}} expected-note@+1 {{forward declaration of 'S'}} expected-note@+1 {{forward declaration of 'S'}}
-struct S;
 
-// expected-note@+2 {{template is declared here}}
-// expected-note@+1 {{template is declared here}} expected-note@+1 {{template is declared here}} expected-note@+1 {{template is declared here}}
-template <int N> struct T;
+struct S; // expected-note 24 {{forward declaration of 'S'}}
+template <int N> struct T; // expected-note 4 {{template is declared here}}
 
 ConstantBuffer<S> CB; // expected-error {{variable has incomplete type 'S'}}
 ConstantBuffer<T<1> > TB; // expected-error {{implicit instantiation of undefined template 'T<1>'}}

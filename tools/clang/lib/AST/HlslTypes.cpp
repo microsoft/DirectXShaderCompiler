@@ -477,37 +477,32 @@ clang::QualType GetHLSLMatElementType(clang::QualType type) {
 
 // TODO: Add type cache to ASTContext.
 bool IsHLSLInputPatchType(QualType type) {
-  type = type.getCanonicalType();
   if (const HLSLTessPatchAttr *Attr = getAttr<HLSLTessPatchAttr>(type))
     return Attr->getIsInput();
   return false;
 }
 
 bool IsHLSLOutputPatchType(QualType type) {
-  type = type.getCanonicalType();
   if (const HLSLTessPatchAttr *Attr = getAttr<HLSLTessPatchAttr>(type))
     return !Attr->getIsInput();
   return false;
 }
 
 bool IsHLSLPointStreamType(QualType type) {
-  type = type.getCanonicalType();
   if (const HLSLStreamOutputAttr *Attr = getAttr<HLSLStreamOutputAttr>(type))
-    return Attr->getVertices() == 1;
+    return Attr->getPrimVertices() == (unsigned)DXIL::InputPrimitive::Point;
   return false;
 }
 
 bool IsHLSLLineStreamType(QualType type) {
-  type = type.getCanonicalType();
   if (const HLSLStreamOutputAttr *Attr = getAttr<HLSLStreamOutputAttr>(type))
-    return Attr->getVertices() == 2;
+    return Attr->getPrimVertices() == (unsigned)DXIL::InputPrimitive::Line;
   return false;
 }
 
 bool IsHLSLTriangleStreamType(QualType type) {
-  type = type.getCanonicalType();
   if (const HLSLStreamOutputAttr *Attr = getAttr<HLSLStreamOutputAttr>(type))
-    return Attr->getVertices() == 3;
+    return Attr->getPrimVertices() == (unsigned)DXIL::InputPrimitive::Triangle;
   return false;
 }
 
@@ -558,13 +553,13 @@ bool IsHLSLNodeType(clang::QualType type) {
 
 bool IsHLSLObjectWithImplicitMemberAccess(clang::QualType type) {
   if (const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type))
-    return Attr->getResClass() == (unsigned)DXIL::ResourceClass::CBuffer;
+    return DXIL::IsCTBuffer(Attr->getResKind());
   return false;
 }
 
 bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type) {
   if (const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type))
-    return Attr->getResClass() == (unsigned)DXIL::ResourceClass::CBuffer;
+    return DXIL::IsCTBuffer(Attr->getResKind());
   return false;
 }
 
@@ -592,7 +587,7 @@ bool IsHLSLNodeOutputType(clang::QualType type) {
 
 bool IsHLSLStructuredBufferType(clang::QualType type) {
   if (const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type))
-    return Attr->getResKind() == (unsigned)DXIL::ResourceKind::StructuredBuffer;
+    return Attr->getResKind() == DXIL::ResourceKind::StructuredBuffer;
   return false;
 }
 
@@ -799,10 +794,7 @@ QualType GetHLSLResourceResultType(QualType type) {
           dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
 
     const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type);
-    if (Attr && (Attr->getResKind() ==
-                     (unsigned)DXIL::ResourceKind::FeedbackTexture2D ||
-                 Attr->getResKind() ==
-                     (unsigned)DXIL::ResourceKind::FeedbackTexture2DArray)) {
+    if (Attr && DXIL::IsFeedbackTexture(Attr->getResKind())) {
       // Feedback textures are write-only and the data is opaque,
       // so there is no result type per se.
       return {};
