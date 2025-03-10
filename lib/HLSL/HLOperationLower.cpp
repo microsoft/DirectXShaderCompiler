@@ -4110,7 +4110,7 @@ Value *GenerateRawBufLd(Value *handle, Value *bufIdx, Value *offset,
                         Constant *alignment);
 
 static Value *GenerateBufLd(hlsl::OP *OP, IRBuilder<> &Builder,
-                            OP::OpCode opcode, Type *EltTy,
+                            OP::OpCode opcode, Type *RegTy, Type *MemTy,
                             unsigned NumElements, ArrayRef<Value *> Args,
                             std::vector<Value *>::iterator EltIt);
 
@@ -4118,12 +4118,12 @@ static Value *GenerateBufLd(hlsl::OP *OP, IRBuilder<> &Builder,
 static SmallVector<Value *, 12> GetBufLoadArgs(ResLoadHelper helper,
                                                HLResource::Kind RK,
                                                IRBuilder<> Builder, Type *EltTy,
-                                               unsigned EltSize) {
+                                               unsigned LdSize) {
   OP::OpCode opcode = helper.opcode;
   llvm::Constant *opArg = Builder.getInt32((uint32_t)opcode);
 
   unsigned alignment = RK == DxilResource::Kind::RawBuffer ? 4U : 8U;
-  alignment = std::min(alignment, EltSize);
+  alignment = std::min(alignment, LdSize);
   Constant *alignmentVal = Builder.getInt32(alignment);
 
   // Assemble args is specific to the type bab/struct/typed
@@ -4182,29 +4182,26 @@ static SmallVector<Value *, 12> GetBufLoadArgs(ResLoadHelper helper,
 Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
                         IRBuilder<> &Builder, hlsl::OP *OP,
                         const DataLayout &DL) {
+  OP::OpCode opcode = helper.opcode;
   Type *Ty = helper.retVal->getType();
-  Type *EltTy = Ty->getScalarType();
   unsigned numComponents = 1;
-  if (Ty->isVectorTy()) {
+  if (Ty->isVectorTy())
     numComponents = Ty->getVectorNumElements();
-  }
 
-  Type *i32Ty = Builder.getInt32Ty();
-  Type *i64Ty = Builder.getInt64Ty();
-  Type *doubleTy = Builder.getDoubleTy();
   const bool isTyped = DXIL::IsTyped(RK);
-  const bool is64 = (EltTy == i64Ty || EltTy == doubleTy);
+  Type *EltTy = Ty->getScalarType();
+  const bool is64 = (EltTy->isIntegerTy(64) || EltTy->isDoubleTy());
   const bool isBool = EltTy->isIntegerTy(1);
+  Type *MemTy = EltTy;
   if (isBool || (is64 && isTyped))
     // Value will be loaded in its memory representation.
-    EltTy = i32Ty;
-  unsigned EltSize = DL.getTypeAllocSize(EltTy);
+    MemTy = Builder.getInt32Ty();
+  unsigned LdSize = DL.getTypeAllocSize(MemTy);
 
   std::vector<Value *> elts(numComponents);
-  OP::OpCode opcode = helper.opcode;
 
   SmallVector<Value *, 12> Args =
-      GetBufLoadArgs(helper, RK, Builder, EltTy, EltSize);
+      GetBufLoadArgs(helper, RK, Builder, MemTy, LdSize);
 
   const unsigned kCoordIdx = 2;
   const unsigned kOffsetIdx = 3;
@@ -4220,9 +4217,9 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
     // Assign mask for raw buffer loads.
     if (opcode == OP::OpCode::RawBufferLoad)
-      Args[kMaskIdx] = GetRawBufferMaskForETy(EltTy, chunkSize, OP);
+      Args[kMaskIdx] = GetRawBufferMaskForETy(MemTy, chunkSize, OP);
 
-    Value *Ld = GenerateBufLd(OP, Builder, opcode, Ty->getScalarType(),
+    Value *Ld = GenerateBufLd(OP, Builder, opcode, Ty->getScalarType(), MemTy,
                               chunkSize, Args, elts.begin() + i);
     i += chunkSize;
 
@@ -4236,11 +4233,11 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
       if (RK == DxilResource::Kind::RawBuffer)
         // Raw buffers can't use offset param. Add to coord index.
         Args[kCoordIdx] =
-            Builder.CreateAdd(Args[kCoordIdx], OP->GetU32Const(4 * EltSize));
+          Builder.CreateAdd(Args[kCoordIdx], OP->GetU32Const(4 * LdSize));
       else
         // Structured buffers increment the offset parameter.
         Args[kOffsetIdx] =
-            Builder.CreateAdd(Args[kOffsetIdx], OP->GetU32Const(4 * EltSize));
+          Builder.CreateAdd(Args[kOffsetIdx], OP->GetU32Const(4 * LdSize));
     }
   }
 
@@ -7817,53 +7814,50 @@ namespace {
 // Returns load call return value
 //  and the elements extracted from it in `Elts`
 static Value *GenerateBufLd(hlsl::OP *OP, IRBuilder<> &Builder,
-                            OP::OpCode opcode, Type *EltTy,
+                            OP::OpCode opcode, Type *RegTy, Type *MemTy,
                             unsigned NumElements, ArrayRef<Value *> Args,
                             std::vector<Value *>::iterator EltIt) {
-  Type *i64Ty = Builder.getInt64Ty();
-  Type *doubleTy = Builder.getDoubleTy();
-  const bool is64 = (EltTy == i64Ty || EltTy == doubleTy);
-  const bool isBool = EltTy->isIntegerTy(1);
   const bool isTyped =
       (opcode == OP::OpCode::BufferLoad || opcode == OP::OpCode::TextureLoad);
-  Function *F = nullptr;
-  if (isBool || (is64 && isTyped))
-    // Value will be loaded in its memory representation.
-    F = OP->GetOpFunc(opcode, Builder.getInt32Ty());
-  else
-    F = OP->GetOpFunc(opcode, EltTy);
+  // Value will be loaded in its memory representation.
+  Function *F = OP->GetOpFunc(opcode, MemTy);
   Value *Ld = Builder.CreateCall(F, Args, OP::GetOpCodeName(opcode));
 
   // Extract values and convet to register type if needed.
   // 64-bit types need to have the two i32 merged into their result
   // bools need to use cmp to convert them to i1s.
 
-  if (!is64 || !isTyped) {
-    for (unsigned i = 0; i < NumElements; i++, EltIt++)
-      *EltIt = Builder.CreateExtractValue(Ld, i);
-  } else {
-    DXASSERT(NumElements <= 2, "typed buffer only allow 4 dwords");
-    if (EltTy == doubleTy) {
-      Function *makeDouble = OP->GetOpFunc(DXIL::OpCode::MakeDouble, doubleTy);
-      Value *makeDoubleOpArg =
-          Builder.getInt32((unsigned)DXIL::OpCode::MakeDouble);
-      for (unsigned i = 0; i < NumElements; i++, EltIt++) {
-        Value *lo = Builder.CreateExtractValue(Ld, 2 * i);
-        Value *hi = Builder.CreateExtractValue(Ld, 2 * i + 1);
-        Value *V = Builder.CreateCall(makeDouble, {makeDoubleOpArg, lo, hi});
-        *EltIt = V;
-      }
-    } else {
-      for (unsigned i = 0; i < NumElements; i++, EltIt++) {
-        Value *lo = Builder.CreateExtractValue(Ld, 2 * i);
-        Value *hi = Builder.CreateExtractValue(Ld, 2 * i + 1);
-        lo = Builder.CreateZExt(lo, i64Ty);
-        hi = Builder.CreateZExt(hi, i64Ty);
-        hi = Builder.CreateShl(hi, 32);
-        *EltIt = Builder.CreateOr(lo, hi);
-      }
+  if (isTyped && RegTy->isDoubleTy()) {
+    DXASSERT(NumElements <= 2, "typed buffers only allow 4 dwords");
+    Type *doubleTy = Builder.getDoubleTy();
+    Function *makeDouble = OP->GetOpFunc(DXIL::OpCode::MakeDouble, doubleTy);
+    Value *makeDoubleOpArg =
+        Builder.getInt32((unsigned)DXIL::OpCode::MakeDouble);
+    for (unsigned i = 0; i < NumElements; i++, EltIt++) {
+      Value *lo = Builder.CreateExtractValue(Ld, 2 * i);
+      Value *hi = Builder.CreateExtractValue(Ld, 2 * i + 1);
+      Value *V = Builder.CreateCall(makeDouble, {makeDoubleOpArg, lo, hi});
+      *EltIt = V;
     }
+    return Ld;
   }
+
+  if (isTyped && RegTy->isIntegerTy(64)) {
+    DXASSERT(NumElements <= 2, "typed buffers only allow 4 dwords");
+    Type *i64Ty = Builder.getInt64Ty();
+    for (unsigned i = 0; i < NumElements; i++, EltIt++) {
+      Value *lo = Builder.CreateExtractValue(Ld, 2 * i);
+      Value *hi = Builder.CreateExtractValue(Ld, 2 * i + 1);
+      lo = Builder.CreateZExt(lo, i64Ty);
+      hi = Builder.CreateZExt(hi, i64Ty);
+      hi = Builder.CreateShl(hi, 32);
+      *EltIt = Builder.CreateOr(lo, hi);
+    }
+    return Ld;
+  }
+
+  for (unsigned i = 0; i < NumElements; i++, EltIt++)
+    *EltIt = Builder.CreateExtractValue(Ld, i);
 
   return Ld;
 }
