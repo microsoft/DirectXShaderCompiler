@@ -363,6 +363,8 @@ enum ArBasicKind {
 
 #define IS_BPROP_STREAM(_Props) (((_Props)&BPROP_STREAM) != 0)
 
+#define IS_BPROP_PATCH(_Props) (((_Props) & BPROP_PATCH) != 0)
+
 #define IS_BPROP_SAMPLER(_Props) (((_Props)&BPROP_SAMPLER) != 0)
 
 #define IS_BPROP_TEXTURE(_Props) (((_Props)&BPROP_TEXTURE) != 0)
@@ -615,6 +617,8 @@ C_ASSERT(ARRAYSIZE(g_uBasicKindProps) == AR_BASIC_MAXIMUM_COUNT);
 #define IS_BASIC_AINT(_Kind) IS_BPROP_AINT(GetBasicKindProps(_Kind))
 
 #define IS_BASIC_STREAM(_Kind) IS_BPROP_STREAM(GetBasicKindProps(_Kind))
+
+#define IS_BASIC_PATCH(_Kind) IS_BPROP_PATCH(GetBasicKindProps(_Kind))
 
 #define IS_BASIC_SAMPLER(_Kind) IS_BPROP_SAMPLER(GetBasicKindProps(_Kind))
 #define IS_BASIC_TEXTURE(_Kind) IS_BPROP_TEXTURE(GetBasicKindProps(_Kind))
@@ -2856,8 +2860,9 @@ private:
   TypedefDecl *m_matrixShorthandTypes[HLSLScalarTypeCount][4][4];
 
   // Vector types already built.
-  QualType m_vectorTypes[HLSLScalarTypeCount][4];
-  TypedefDecl *m_vectorTypedefs[HLSLScalarTypeCount][4];
+  QualType m_vectorTypes[HLSLScalarTypeCount][DXIL::kDefaultMaxVectorLength];
+  TypedefDecl
+      *m_vectorTypedefs[HLSLScalarTypeCount][DXIL::kDefaultMaxVectorLength];
 
   // BuiltinType for each scalar type.
   QualType m_baseTypes[HLSLScalarTypeCount];
@@ -3540,6 +3545,20 @@ private:
       if (kind == AR_OBJECT_LEGACY_EFFECT)
         effectKindIndex = i;
 
+      InheritableAttr *Attr = nullptr;
+      if (IS_BASIC_STREAM(kind))
+        Attr = HLSLStreamOutputAttr::CreateImplicit(
+            *m_context, kind - AR_OBJECT_POINTSTREAM + 1);
+      else if (IS_BASIC_PATCH(kind))
+        Attr = HLSLTessPatchAttr::CreateImplicit(*m_context,
+                                                 kind == AR_OBJECT_INPUTPATCH);
+      else {
+        DXIL::ResourceKind ResKind = DXIL::ResourceKind::NumEntries;
+        DXIL::ResourceClass ResClass = DXIL::ResourceClass::Invalid;
+        if (GetBasicKindResourceKindAndClass(kind, ResKind, ResClass))
+          Attr = HLSLResourceAttr::CreateImplicit(*m_context, (unsigned)ResKind,
+                                                  (unsigned)ResClass);
+      }
       DXASSERT(kind < _countof(g_ArBasicTypeNames),
                "g_ArBasicTypeNames has the wrong number of entries");
       assert(kind < _countof(g_ArBasicTypeNames));
@@ -3586,9 +3605,9 @@ private:
           break;
         }
       } else if (kind == AR_OBJECT_CONSTANT_BUFFER) {
-        recordDecl = DeclareConstantBufferViewType(*m_context, /*bTBuf*/ false);
+        recordDecl = DeclareConstantBufferViewType(*m_context, Attr);
       } else if (kind == AR_OBJECT_TEXTURE_BUFFER) {
-        recordDecl = DeclareConstantBufferViewType(*m_context, /*bTBuf*/ true);
+        recordDecl = DeclareConstantBufferViewType(*m_context, Attr);
       } else if (kind == AR_OBJECT_RAY_QUERY) {
         recordDecl = DeclareRayQueryType(*m_context);
       } else if (kind == AR_OBJECT_HEAP_RESOURCE) {
@@ -3609,10 +3628,10 @@ private:
         }
       } else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(
-            *m_context, "FeedbackTexture2D", "kind");
+            *m_context, "FeedbackTexture2D", "kind", Attr);
       } else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(
-            *m_context, "FeedbackTexture2DArray", "kind");
+            *m_context, "FeedbackTexture2DArray", "kind", Attr);
       } else if (kind == AR_OBJECT_EMPTY_NODE_INPUT) {
         recordDecl = DeclareNodeOrRecordType(
             *m_context, DXIL::NodeIOKind::EmptyInput,
@@ -3728,20 +3747,12 @@ private:
       }
 #endif
       else if (templateArgCount == 0) {
-        recordDecl = DeclareRecordTypeWithHandle(*m_context, typeName,
-                                                 /*isCompleteType*/ false);
+        recordDecl =
+            DeclareRecordTypeWithHandle(*m_context, typeName,
+                                        /*isCompleteType*/ false, Attr);
       } else {
         DXASSERT(templateArgCount == 1 || templateArgCount == 2,
                  "otherwise a new case has been added");
-
-        InheritableAttr *Attr = nullptr;
-        DXIL::ResourceKind ResKind = DXIL::ResourceKind::NumEntries;
-        DXIL::ResourceClass ResClass = DXIL::ResourceClass::Invalid;
-        if (GetBasicKindResourceKindAndClass(kind, ResKind, ResClass)) {
-          Attr = HLSLResourceAttr::CreateImplicit(*m_context, (unsigned)ResKind,
-                                                  (unsigned)ResClass);
-        }
-
         TypeSourceInfo *typeDefault =
             TemplateHasDefaultType(kind) ? float4TypeSourceInfo : nullptr;
         recordDecl = DeclareTemplateTypeWithHandle(
@@ -3830,7 +3841,7 @@ private:
   clang::TypedefDecl *LookupVectorShorthandType(HLSLScalarType scalarType,
                                                 UINT colCount) {
     DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
-                   colCount <= 4);
+                   colCount <= DXIL::kDefaultMaxVectorLength);
     TypedefDecl *qts = m_vectorTypedefs[scalarType][colCount - 1];
     if (qts == nullptr) {
       QualType type = LookupVectorType(scalarType, colCount);
@@ -3937,7 +3948,9 @@ public:
   }
 
   QualType LookupVectorType(HLSLScalarType scalarType, unsigned int colCount) {
-    QualType qt = m_vectorTypes[scalarType][colCount - 1];
+    QualType qt;
+    if (colCount < DXIL::kDefaultMaxVectorLength)
+      qt = m_vectorTypes[scalarType][colCount - 1];
     if (qt.isNull()) {
       if (m_scalarTypes[scalarType].isNull()) {
         LookupScalarTypeDef(scalarType);
@@ -3945,7 +3958,8 @@ public:
       qt = GetOrCreateVectorSpecialization(*m_context, m_sema,
                                            m_vectorTemplateDecl,
                                            m_scalarTypes[scalarType], colCount);
-      m_vectorTypes[scalarType][colCount - 1] = qt;
+      if (colCount < DXIL::kDefaultMaxVectorLength)
+        m_vectorTypes[scalarType][colCount - 1] = qt;
     }
     return qt;
   }
@@ -4722,16 +4736,14 @@ public:
       ResKind = DXIL::ResourceKind::RawBuffer;
       ResClass = DXIL::ResourceClass::UAV;
       return true;
-    case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
-    case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
-      // It may seem incorrect to make these SRV,
-      // but it is consistent with GetHLSLResourceProperties().
     case AR_OBJECT_STRUCTURED_BUFFER:
       ResKind = DXIL::ResourceKind::StructuredBuffer;
       ResClass = DXIL::ResourceClass::SRV;
       return true;
     case AR_OBJECT_RWSTRUCTURED_BUFFER:
     case AR_OBJECT_ROVSTRUCTURED_BUFFER:
+    case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
+    case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
       ResKind = DXIL::ResourceKind::StructuredBuffer;
       ResClass = DXIL::ResourceClass::UAV;
       return true;
@@ -4741,7 +4753,7 @@ public:
       return true;
     case AR_OBJECT_TEXTURE_BUFFER:
       ResKind = DXIL::ResourceKind::TBuffer;
-      ResClass = DXIL::ResourceClass::CBuffer;
+      ResClass = DXIL::ResourceClass::SRV;
       return true;
     case AR_OBJECT_FEEDBACKTEXTURE2D:
       ResKind = DXIL::ResourceKind::FeedbackTexture2D;
@@ -4749,6 +4761,15 @@ public:
       return true;
     case AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY:
       ResKind = DXIL::ResourceKind::FeedbackTexture2DArray;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_SAMPLER:
+    case AR_OBJECT_SAMPLERCOMPARISON:
+      ResKind = DXIL::ResourceKind::Sampler;
+      ResClass = DXIL::ResourceClass::Sampler;
+      return true;
+    case AR_OBJECT_ACCELERATION_STRUCT:
+      ResKind = DXIL::ResourceKind::RTAccelerationStructure;
       ResClass = DXIL::ResourceClass::SRV;
       return true;
     default:
@@ -5033,10 +5054,6 @@ public:
            AR_BASIC_UNKNOWN;
   }
 
-  /// <summary>Checks whether the specified value is a valid vector
-  /// size.</summary>
-  bool IsValidVectorSize(size_t length) { return 1 <= length && length <= 4; }
-
   /// <summary>Checks whether the specified value is a valid matrix row or
   /// column size.</summary>
   bool IsValidMatrixColOrRowSize(size_t length) {
@@ -5072,11 +5089,6 @@ public:
                                            false);
       } else if (objectKind == AR_TOBJ_VECTOR) {
         bool valid = true;
-        if (!IsValidVectorSize(GetHLSLVecSize(type))) {
-          valid = false;
-          m_sema->Diag(argLoc, diag::err_hlsl_unsupportedvectorsize)
-              << type << GetHLSLVecSize(type);
-        }
         if (!IsScalarType(GetMatrixOrVectorElementType(type))) {
           valid = false;
           m_sema->Diag(argLoc, diag::err_hlsl_unsupportedvectortype)
@@ -5194,9 +5206,13 @@ public:
                                                 SourceLocation Loc);
 
   bool CheckRangedTemplateArgument(SourceLocation diagLoc,
-                                   llvm::APSInt &sintValue) {
-    if (!sintValue.isStrictlyPositive() || sintValue.getLimitedValue() > 4) {
-      m_sema->Diag(diagLoc, diag::err_hlsl_invalid_range_1_4);
+                                   llvm::APSInt &sintValue, bool IsVector) {
+    unsigned MaxLength = DXIL::kDefaultMaxVectorLength;
+    if (IsVector)
+      MaxLength = m_sema->getLangOpts().MaxHLSLVectorLength;
+    if (!sintValue.isStrictlyPositive() ||
+        sintValue.getLimitedValue() > MaxLength) {
+      m_sema->Diag(diagLoc, diag::err_hlsl_invalid_range_1_to_max) << MaxLength;
       return true;
     }
 
@@ -5219,11 +5235,14 @@ public:
       return false;
     }
     // Allow object type for Constant/TextureBuffer.
-    if (templateName == "ConstantBuffer" || templateName == "TextureBuffer") {
+    HLSLResourceAttr *ResAttr =
+        Template->getTemplatedDecl()->getAttr<HLSLResourceAttr>();
+    if (ResAttr && DXIL::IsCTBuffer(ResAttr->getResKind())) {
       if (TemplateArgList.size() == 1) {
         const TemplateArgumentLoc &argLoc = TemplateArgList[0];
         const TemplateArgument &arg = argLoc.getArgument();
-        DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type, "");
+        DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type,
+                 "cbuffer with non-type template arg");
         QualType argType = arg.getAsType();
         SourceLocation argSrcLoc = argLoc.getLocation();
         if (IsScalarType(argType) || IsVectorType(m_sema, argType) ||
@@ -5233,23 +5252,14 @@ public:
               << argType;
           return true;
         }
-        if (auto *TST = dyn_cast<TemplateSpecializationType>(argType)) {
-          // This is a bit of a special case we need to handle. Because the
-          // buffer types don't use their template parameter in a way that would
-          // force instantiation, we need to force specialization here.
-          GetOrCreateTemplateSpecialization(
-              *m_context, *m_sema,
-              cast<ClassTemplateDecl>(
-                  TST->getTemplateName().getAsTemplateDecl()),
-              llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
-                                               TST->getNumArgs()));
-        }
-        if (const RecordType *recordType = argType->getAs<RecordType>()) {
-          if (!recordType->getDecl()->isCompleteDefinition()) {
-            m_sema->Diag(argSrcLoc, diag::err_typecheck_decl_incomplete_type)
-                << argType;
-            return true;
-          }
+        m_sema->RequireCompleteType(argSrcLoc, argType,
+                                    diag::err_typecheck_decl_incomplete_type);
+
+        if (containsLongVector(argType)) {
+          const unsigned ConstantBuffersOrTextureBuffersIdx = 0;
+          m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
+              << ConstantBuffersOrTextureBuffersIdx;
+          return true;
         }
       }
       return false;
@@ -5279,22 +5289,13 @@ public:
       // template instantiation.
       if (ArgTy->isDependentType())
         return false;
-      if (auto *recordType = ArgTy->getAs<RecordType>()) {
-        if (CXXRecordDecl *cxxRecordDecl =
-                dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
-          if (ClassTemplateSpecializationDecl *templateSpecializationDecl =
-                  dyn_cast<ClassTemplateSpecializationDecl>(cxxRecordDecl)) {
-            if (templateSpecializationDecl->getSpecializationKind() ==
-                TSK_Undeclared) {
-              // Make sure specialization is done before IsTypeNumeric.
-              // If not, ArgTy might be treat as empty struct.
-              m_sema->RequireCompleteType(
-                  ArgLoc.getLocation(), ArgTy,
-                  diag::err_typecheck_decl_incomplete_type);
-            }
-          }
-        }
-      }
+      // Make sure specialization is done before IsTypeNumeric.
+      // If not, ArgTy might be treat as empty struct.
+      m_sema->RequireCompleteType(ArgLoc.getLocation(), ArgTy,
+                                  diag::err_typecheck_decl_incomplete_type);
+      CXXRecordDecl *Decl = ArgTy->getAsCXXRecordDecl();
+      if (Decl && !Decl->isCompleteDefinition())
+        return true;
       // The node record type must be compound - error if it is not.
       if (GetTypeObjectKind(ArgTy) != AR_TOBJ_COMPOUND) {
         m_sema->Diag(ArgLoc.getLocation(), diag::err_hlsl_node_record_type)
@@ -5316,6 +5317,45 @@ public:
         return true;
       }
       return false;
+    } else if (Template->getTemplatedDecl()->hasAttr<HLSLTessPatchAttr>()) {
+      DXASSERT(TemplateArgList.size() > 0,
+               "Tessellation patch should have at least one template args");
+      const TemplateArgumentLoc &argLoc = TemplateArgList[0];
+      const TemplateArgument &arg = argLoc.getArgument();
+      DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type,
+               "Tessellation patch requires type template arg 0");
+
+      m_sema->RequireCompleteType(argLoc.getLocation(), arg.getAsType(),
+                                  diag::err_typecheck_decl_incomplete_type);
+      CXXRecordDecl *Decl = arg.getAsType()->getAsCXXRecordDecl();
+      if (Decl && !Decl->isCompleteDefinition())
+        return true;
+      if (containsLongVector(arg.getAsType())) {
+        const unsigned TessellationPatchesIDx = 1;
+        m_sema->Diag(argLoc.getLocation(),
+                     diag::err_hlsl_unsupported_long_vector)
+            << TessellationPatchesIDx;
+        return true;
+      }
+    } else if (Template->getTemplatedDecl()->hasAttr<HLSLStreamOutputAttr>()) {
+      DXASSERT(TemplateArgList.size() > 0,
+               "Geometry streams should have at least one template args");
+      const TemplateArgumentLoc &argLoc = TemplateArgList[0];
+      const TemplateArgument &arg = argLoc.getArgument();
+      DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type,
+               "Geometry stream requires type template arg 0");
+      m_sema->RequireCompleteType(argLoc.getLocation(), arg.getAsType(),
+                                  diag::err_typecheck_decl_incomplete_type);
+      CXXRecordDecl *Decl = arg.getAsType()->getAsCXXRecordDecl();
+      if (Decl && !Decl->isCompleteDefinition())
+        return true;
+      if (containsLongVector(arg.getAsType())) {
+        const unsigned GeometryStreamsIdx = 2;
+        m_sema->Diag(argLoc.getLocation(),
+                     diag::err_hlsl_unsupported_long_vector)
+            << GeometryStreamsIdx;
+        return true;
+      }
     }
 
     bool isMatrix = Template->getCanonicalDecl() ==
@@ -5337,9 +5377,7 @@ public:
             // NOTE: IsValidTemplateArgumentType emits its own diagnostics
             return true;
           }
-          HLSLResourceAttr *ResAttr =
-              Template->getTemplatedDecl()->getAttr<HLSLResourceAttr>();
-          if (ResAttr && IsTyped((DXIL::ResourceKind)ResAttr->getResKind())) {
+          if (ResAttr && IsTyped(ResAttr->getResKind())) {
             // Check vectors for being too large.
             if (IsVectorType(m_sema, argType)) {
               unsigned NumElt = hlsl::GetElementCount(argType);
@@ -5368,17 +5406,16 @@ public:
           llvm::APSInt constantResult;
           if (expr != nullptr &&
               expr->isIntegerConstantExpr(constantResult, *m_context)) {
-            if (CheckRangedTemplateArgument(argSrcLoc, constantResult)) {
+            if (CheckRangedTemplateArgument(argSrcLoc, constantResult,
+                                            isVector))
               return true;
-            }
           }
         }
       } else if (arg.getKind() == TemplateArgument::ArgKind::Integral) {
         if (isMatrix || isVector) {
           llvm::APSInt Val = arg.getAsIntegral();
-          if (CheckRangedTemplateArgument(argSrcLoc, Val)) {
+          if (CheckRangedTemplateArgument(argSrcLoc, Val, isVector))
             return true;
-          }
         }
       }
     }
@@ -11581,10 +11618,18 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
   HLSLExternalSource *source = HLSLExternalSource::FromSema(self);
   ArTypeObjectKind shapeKind = source->GetTypeObjectKind(ArgTy);
   switch (shapeKind) {
+  case AR_TOBJ_VECTOR:
+    if (GetHLSLVecSize(ArgTy) > DXIL::kDefaultMaxVectorLength) {
+      const unsigned NodeRecordsIdx = 3;
+      self->Diag(ArgLoc.getLocation(), diag::err_hlsl_unsupported_long_vector)
+          << NodeRecordsIdx;
+      Empty = false;
+      return false;
+    }
+    LLVM_FALLTHROUGH;
   case AR_TOBJ_ARRAY:
   case AR_TOBJ_BASIC:
   case AR_TOBJ_MATRIX:
-  case AR_TOBJ_VECTOR:
     Empty = false;
     return false;
   case AR_TOBJ_OBJECT:
@@ -11603,14 +11648,15 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
     bool ErrorFound = false;
     const RecordDecl *RD = ArgTy->getAs<RecordType>()->getDecl();
     // Check the fields of the RecordDecl
-    RecordDecl::field_iterator begin = RD->field_begin();
-    RecordDecl::field_iterator end = RD->field_end();
-    while (begin != end) {
-      const FieldDecl *FD = *begin;
+    for (auto *FD : RD->fields())
       ErrorFound |=
           DiagnoseNodeStructArgument(self, ArgLoc, FD->getType(), Empty, FD);
-      begin++;
-    }
+    if (RD->isCompleteDefinition())
+      if (auto *Child = dyn_cast<CXXRecordDecl>(RD))
+        // Walk up the inheritance chain and check base class fields
+        for (auto &B : Child->bases())
+          ErrorFound |=
+              DiagnoseNodeStructArgument(self, ArgLoc, B.getType(), Empty);
     return ErrorFound;
   }
   default:
@@ -12043,6 +12089,21 @@ bool hlsl::ShouldSkipNRVO(clang::Sema &sema, clang::QualType returnType,
     }
   }
 
+  return false;
+}
+
+bool hlsl::containsLongVector(QualType qt) {
+  if (qt.isNull() || qt->isDependentType())
+    return false;
+
+  while (const ArrayType *Arr = qt->getAsArrayTypeUnsafe())
+    qt = Arr->getElementType();
+
+  if (CXXRecordDecl *Decl = qt->getAsCXXRecordDecl()) {
+    if (!Decl->isCompleteDefinition())
+      return false;
+    return Decl->hasHLSLLongVector();
+  }
   return false;
 }
 
@@ -14369,6 +14430,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
                        *pDispatchGrid = nullptr, *pMaxDispatchGrid = nullptr;
   bool usageIn = false;
   bool usageOut = false;
+  bool isGroupShared = false;
 
   for (clang::AttributeList *pAttr = D.getDeclSpec().getAttributes().getList();
        pAttr != NULL; pAttr = pAttr->getNext()) {
@@ -14392,6 +14454,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       }
       break;
     case AttributeList::AT_HLSLGroupShared:
+      isGroupShared = true;
       if (!isGlobal) {
         Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
             << pAttr->getName() << declarationType << pAttr->getRange();
@@ -14670,6 +14733,23 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
        basicKind == ArBasicKind::AR_OBJECT_TRIANGLESTREAM)) {
     Diag(D.getLocStart(), diag::err_hlsl_missing_inout_attr);
     result = false;
+  }
+
+  // Disallow long vecs from $Global cbuffers.
+  if (isGlobal && !isStatic && !isGroupShared) {
+    // Suppress actual emitting of errors for incompletable types here
+    // They are redundant to those produced in ActOnUninitializedDecl.
+    struct SilentDiagnoser : public TypeDiagnoser {
+      SilentDiagnoser() : TypeDiagnoser(true) {}
+      virtual void diagnose(Sema &S, SourceLocation Loc, QualType T) {}
+    } SD;
+    RequireCompleteType(D.getLocStart(), qt, SD);
+    if (containsLongVector(qt)) {
+      unsigned CbuffersOrTbuffersIdx = 4;
+      Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector)
+          << CbuffersOrTbuffersIdx;
+      result = false;
+    }
   }
 
   // SPIRV change starts
@@ -15560,6 +15640,17 @@ static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
   return false;
 }
 
+// Verify that user-defined intrinsic struct args contain no long vectors
+static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
+  if (containsLongVector(Arg->getType())) {
+    const unsigned UserDefinedStructParameterIdx = 5;
+    S->Diag(Arg->getExprLoc(), diag::err_hlsl_unsupported_long_vector)
+        << UserDefinedStructParameterIdx;
+    return true;
+  }
+  return false;
+}
+
 static bool CheckIntrinsicGetAttributeAtVertex(Sema *S, FunctionDecl *FDecl,
                                                CallExpr *TheCall) {
   assert(TheCall->getNumArgs() > 0);
@@ -15577,6 +15668,12 @@ static bool CheckIntrinsicGetAttributeAtVertex(Sema *S, FunctionDecl *FDecl,
 bool Sema::CheckHLSLIntrinsicCall(FunctionDecl *FDecl, CallExpr *TheCall) {
   auto attr = FDecl->getAttr<HLSLIntrinsicAttr>();
 
+  if (!attr)
+    return false;
+
+  if (!IsBuiltinTable(attr->getGroup()))
+    return false;
+
   switch (hlsl::IntrinsicOp(attr->getOpcode())) {
   case hlsl::IntrinsicOp::IOP_GetAttributeAtVertex:
     // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
@@ -15588,6 +15685,22 @@ bool Sema::CheckHLSLIntrinsicCall(FunctionDecl *FDecl, CallExpr *TheCall) {
     // existing ones. See the ExtensionTest.EvalAttributeCollision test.
     assert(FDecl->getName() == "GetAttributeAtVertex");
     return CheckIntrinsicGetAttributeAtVertex(this, FDecl, TheCall);
+  case hlsl::IntrinsicOp::IOP_DispatchMesh:
+    assert(TheCall->getNumArgs() > 3);
+    assert(FDecl->getName() == "DispatchMesh");
+    return CheckUDTIntrinsicArg(this, TheCall->getArg(3)->IgnoreCasts());
+  case hlsl::IntrinsicOp::IOP_CallShader:
+    assert(TheCall->getNumArgs() > 1);
+    assert(FDecl->getName() == "CallShader");
+    return CheckUDTIntrinsicArg(this, TheCall->getArg(1)->IgnoreCasts());
+  case hlsl::IntrinsicOp::IOP_TraceRay:
+    assert(TheCall->getNumArgs() > 7);
+    assert(FDecl->getName() == "TraceRay");
+    return CheckUDTIntrinsicArg(this, TheCall->getArg(7)->IgnoreCasts());
+  case hlsl::IntrinsicOp::IOP_ReportHit:
+    assert(TheCall->getNumArgs() > 2);
+    assert(FDecl->getName() == "ReportHit");
+    return CheckUDTIntrinsicArg(this, TheCall->getArg(2)->IgnoreCasts());
   default:
     break;
   }
@@ -16266,6 +16379,23 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
       WarnOnEntryAttrWithoutShaderAttr(S, FD);
 
     return;
+  }
+
+  // Check general parameter characteristics
+  // Would be nice to check for resources here as they crash the compiler now.
+  // See issue #7186.
+  for (const auto *param : FD->params()) {
+    if (containsLongVector(param->getType())) {
+      const unsigned EntryFunctionParametersIdx = 6;
+      S.Diag(param->getLocation(), diag::err_hlsl_unsupported_long_vector)
+          << EntryFunctionParametersIdx;
+    }
+  }
+
+  if (containsLongVector(FD->getReturnType())) {
+    const unsigned EntryFunctionReturnIdx = 7;
+    S.Diag(FD->getLocation(), diag::err_hlsl_unsupported_long_vector)
+        << EntryFunctionReturnIdx;
   }
 
   DXIL::ShaderKind Stage =
