@@ -5309,9 +5309,8 @@ public:
         return true;
       }
       return false;
-    }
-
-    else if (Template->getTemplatedDecl()->hasAttr<HLSLRayQueryObjectAttr>()) {
+    } else if (Template->getTemplatedDecl()
+                   ->hasAttr<HLSLRayQueryObjectAttr>()) {
       int numArgs = TemplateArgList.size();
       DXASSERT(numArgs == 1 || numArgs == 2,
                "otherwise the template has not been declared properly");
@@ -5321,7 +5320,7 @@ public:
       const TemplateArgument &Arg1 = TemplateArgList[0].getArgument();
       Expr *Expr1 = Arg1.getAsExpr();
       llvm::APSInt Arg1val;
-      bool IsRayFlagForceOMM2State =
+      bool HasRayFlagForceOMM2State =
           Expr1->isIntegerConstantExpr(Arg1val, m_sema->getASTContext()) &&
           (Arg1val.getLimitedValue() &
            (uint64_t)DXIL::RayFlag::ForceOMM2State) != 0;
@@ -5330,7 +5329,7 @@ public:
       // ForceOMM2State flag, since the second argument needs to be
       // DXIL::RayQueryFlag::AllowOpacityMicromaps, not the default 0
       if (numArgs == 1) {
-        if (IsRayFlagForceOMM2State) {
+        if (HasRayFlagForceOMM2State) {
           m_sema->Diag(Template->getTemplatedDecl()->getLocStart(),
                        diag::warn_hlsl_rayquery_flags_conflict);
           return true;
@@ -5382,7 +5381,7 @@ public:
 
       // if the first arg has the ForceOMM2State flag set, then the
       // second arg must have the AllowOpacityMicromaps flag set
-      if (IsRayFlagForceOMM2State) {
+      if (HasRayFlagForceOMM2State) {
         if (!(Arg2val.getZExtValue() &
               (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps))
           m_sema->Diag(Template->getTemplatedDecl()->getLocStart(),
