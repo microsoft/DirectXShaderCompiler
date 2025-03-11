@@ -337,9 +337,12 @@ void PSVContentVerifier::VerifySignatureElement(
 
   PSVSignatureElement PSVSE(StrTab, IndexTab, PSVSE0);
   if (SE.IsArbitrary())
-    Mismatch |= strcmp(PSVSE.GetSemanticName(), SE.GetName());
+    Mismatch |=
+        strcmp(PSVSE.GetSemanticName(), SE.GetName()) == 0 ? false : true;
   else
-    Mismatch |= PSVSE0->SemanticKind != static_cast<uint8_t>(SE.GetKind());
+    Mismatch |= PSVSE0->SemanticKind != static_cast<uint8_t>(SE.GetKind()) == 0
+                    ? false
+                    : true;
 
   ModulePSVSE0.SemanticName = PSVSE0->SemanticName;
   // Compare all fields.
@@ -494,7 +497,8 @@ void PSVContentVerifier::Verify(unsigned ValMajor, unsigned ValMinor,
                         std::to_string(ShaderStage));
       return;
     }
-    if (PSV1->UsesViewID != DM.m_ShaderFlags.GetViewID())
+    bool ViewIDUsed = PSV1->UsesViewID == 0 ? false : true;
+    if (ViewIDUsed != DM.m_ShaderFlags.GetViewID())
       EmitMismatchError("UsesViewID", std::to_string(PSV1->UsesViewID),
                         std::to_string(DM.m_ShaderFlags.GetViewID()));
 
