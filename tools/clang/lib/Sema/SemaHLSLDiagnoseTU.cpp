@@ -384,7 +384,7 @@ public:
     // global variables map
 
     if (VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
-      if (VD->hasGlobalStorage()) {
+      if (VD->hasGlobalStorage() && DiagnosedGlobalInit.count(VD) == 0) {
         const std::pair<VarDecl *, DeclRefExpr *> p(VD, DRE);
         if (!GlobalInitFound.lookup(VD))
           GlobalInitFound.insert(p);
