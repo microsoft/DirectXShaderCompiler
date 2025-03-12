@@ -11677,6 +11677,7 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
     break;
   case hlsl::IntrinsicOp::MOP_TraceRayInline:
     DiagnoseTraceRayInline(*this, CE);
+    break;
   default:
     break;
   }
