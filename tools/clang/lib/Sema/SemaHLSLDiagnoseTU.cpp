@@ -19,6 +19,8 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Sema/SemaDiagnostic.h"
 #include "clang/Sema/SemaHLSL.h"
+#include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 #include <optional>
 
@@ -306,12 +308,18 @@ clang::FunctionDecl *ValidateNoRecursion(CallGraphWithRecurseGuard &callGraph,
 class HLSLCallDiagnoseVisitor
     : public RecursiveASTVisitor<HLSLCallDiagnoseVisitor> {
 public:
+  typedef llvm::SmallMapVector<VarDecl *, DeclRefExpr *, 8> GlobalInitMap;
+
   explicit HLSLCallDiagnoseVisitor(
       Sema *S, const hlsl::ShaderModel *SM, DXIL::ShaderKind EntrySK,
       DXIL::NodeLaunchType NodeLaunchTy, const FunctionDecl *EntryDecl,
-      llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls)
+      llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls,
+      GlobalInitMap &GlobalInitFound,
+      llvm::SmallPtrSetImpl<VarDecl *> &DiagnosedGlobalInit)
       : sema(S), SM(SM), EntrySK(EntrySK), NodeLaunchTy(NodeLaunchTy),
-        EntryDecl(EntryDecl), DiagnosedCalls(DiagnosedCalls) {}
+        EntryDecl(EntryDecl), DiagnosedCalls(DiagnosedCalls),
+        GlobalInitFound(GlobalInitFound),
+        DiagnosedGlobalInit(DiagnosedGlobalInit) {}
 
   bool VisitCallExpr(CallExpr *CE) {
     // Set flag if already diagnosed from another entry, allowing some
@@ -326,36 +334,64 @@ public:
     return true;
   }
 
-  bool VisitDeclRefExpr(DeclRefExpr *DRE) {
-    // Search for enum types that should only exist after
-    // specific shader models.
+  void setDeclRefExpr(DeclRefExpr *Expr) { CurDeclRefExpr = Expr; }
 
-    // check if this declrefexpr refers to another one
-    // and drill into it if possible.
-    VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl());
-    if (!VD) {
-      return true;
-    }
+  bool VisitVarDecl(VarDecl *VD) {
+    QualType VarType = VD->getType();
+    if (const TemplateSpecializationType *TST =
+            dyn_cast<TemplateSpecializationType>(VarType.getTypePtr())) {
+      const TemplateDecl *TD = TST->getTemplateName().getAsTemplateDecl();
+      if (!TD)
+        return true;
 
-    ImplicitCastExpr *ICE = nullptr;
-    if (VD->getInit()) {
-      if ((ICE = dyn_cast<ImplicitCastExpr>(VD->getInit()))) {
-        while (true) {
-          ImplicitCastExpr *NewICE =
-              dyn_cast<ImplicitCastExpr>(ICE->getSubExpr());
-          if (!(NewICE)) {
-            break;
+      // verify this is a rayquery decl
+      if (TD->getTemplatedDecl()->hasAttr<HLSLRayQueryObjectAttr>()) {
+        if (TST->getNumArgs() == 1) {
+          return true;
+        }
+        // now guaranteed 2 args
+        const TemplateArgument &Arg2 = TST->getArg(1);
+        Expr *Expr2 = Arg2.getAsExpr();
+        llvm::APSInt Arg2val;
+        Expr2->isIntegerConstantExpr(Arg2val, sema->getASTContext());
+
+        const ShaderModel *SM = hlsl::ShaderModel::GetByName(
+            sema->getLangOpts().HLSLProfile.c_str());
+
+        if (Arg2val.getZExtValue() != 0 && !SM->IsSMAtLeast(6, 9)) {
+          // if it's an integer literal, emit
+          // warn_hlsl_rayquery_flags_disallowed
+          if (Arg2.getKind() == TemplateArgument::Expression) {
+            if (auto *castExpr = dyn_cast<ImplicitCastExpr>(
+                    Arg2.getAsExpr()->IgnoreParens())) {
+              // Now check if the sub-expression is a DeclRefExpr
+              Expr *subExpr = castExpr->getSubExpr();
+              if (auto *IL = dyn_cast<IntegerLiteral>(subExpr))
+                sema->Diag(TD->getTemplatedDecl()->getLocStart(),
+                           diag::warn_hlsl_rayquery_flags_disallowed);
+              return true;
+            }
           }
-          ICE = NewICE;
         }
       }
     }
+    return true;
+  }
 
-    if (ICE) {
-      if (DeclRefExpr *newDRE = dyn_cast<DeclRefExpr>(ICE->getSubExpr())) {
-        VisitDeclRefExpr(newDRE);
+  bool VisitDeclRefExpr(DeclRefExpr *DRE) {
+
+    // Firstly, add any referenced global variables to the
+    // global variables map
+
+    if (VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
+      if (VD->hasGlobalStorage()) {
+        const std::pair<VarDecl *, DeclRefExpr *> p(VD, DRE);
+        if (!GlobalInitFound.lookup(VD))
+          GlobalInitFound.insert(p);
       }
     }
+    // Search for enum types that should only exist after
+    // specific shader models.
 
     if (!DRE->getDecl()->hasAttr<AvailabilityAttr>())
       return true;
@@ -382,74 +418,6 @@ public:
     return true;
   }
 
-  bool IsRayFlagForceOMM2StateSet(const CallExpr *CE) {
-    const Expr *Expr1 = CE->getArg(1);
-    llvm::APSInt constantResult;
-    return Expr1->isIntegerConstantExpr(constantResult,
-                                        sema->getASTContext()) &&
-           (constantResult.getLimitedValue() &
-            (uint64_t)DXIL::RayFlag::ForceOMM2State) != 0;
-  }
-
-  void DiagnoseTraceRayInline(const MemberExpr *ME,
-                              CXXMemberCallExpr *callExpr) {
-    // Validate if the RayFlag parameter has RAY_FLAG_FORCE_OMM_2_STATE set,
-    // the RayQuery decl must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set,
-    // otherwise emit a diagnostic.
-    bool IsRayFlagForceOMM2State = IsRayFlagForceOMM2StateSet(callExpr);
-    if (IsRayFlagForceOMM2State) {
-      const DeclRefExpr *DRE =
-          dyn_cast<DeclRefExpr>(callExpr->getImplicitObjectArgument());
-      assert(DRE);
-      QualType QT = DRE->getType();
-      auto *typeRecordDecl = QT->getAsCXXRecordDecl();
-      ClassTemplateSpecializationDecl *SpecDecl =
-          llvm::dyn_cast<ClassTemplateSpecializationDecl>(typeRecordDecl);
-
-      if (!SpecDecl)
-        return;
-
-      // Guaranteed 2 arguments since the rayquery constructor
-      // automatically creates 2 template args
-      DXASSERT(SpecDecl->getTemplateArgs().size() == 2,
-               "else rayquery constructor template args are not 2");
-      llvm::APSInt Arg2val = SpecDecl->getTemplateArgs()[1].getAsIntegral();
-      bool IsRayQueryAllowOMMSet =
-          Arg2val.getZExtValue() &
-          (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps;
-      if (!IsRayQueryAllowOMMSet) {
-        // Diagnose the call
-        sema->Diag(callExpr->getExprLoc(),
-                   diag::warn_hlsl_rayquery_flags_conflict);
-        sema->Diag(DRE->getDecl()->getLocation(), diag::note_previous_decl)
-            << "RayQueryFlags";
-      }
-    }
-  }
-
-  bool VisitCXXMemberCallExpr(CXXMemberCallExpr *callExpr) {
-    // Diagnose TraceRayInline member call
-    const MemberExpr *ME = dyn_cast<MemberExpr>(callExpr->getCallee());
-
-    if (!ME)
-      return false;
-
-    const Decl *MD = ME->getMemberDecl();
-
-    if (const CXXMethodDecl *methodDecl = dyn_cast<CXXMethodDecl>(MD)) {
-      auto *attr = methodDecl->getAttr<HLSLIntrinsicAttr>();
-      if (!attr)
-        return true;
-      StringRef OpcodeGroup = GetHLOpcodeGroupName(HLOpcodeGroup::HLIntrinsic);
-      if (attr->getGroup() != OpcodeGroup)
-        return true;
-      if ((hlsl::IntrinsicOp)attr->getOpcode() ==
-          hlsl::IntrinsicOp::MOP_TraceRayInline)
-        DiagnoseTraceRayInline(ME, callExpr);
-    }
-    return true;
-  }
-
   clang::Sema *getSema() { return sema; }
 
 private:
@@ -459,6 +427,11 @@ private:
   DXIL::NodeLaunchType NodeLaunchTy;
   const FunctionDecl *EntryDecl;
   llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls;
+  GlobalInitMap &GlobalInitFound;
+  // When traversing global decls, this tracks where an active use was found
+  // to lead from an active entry or export function.
+  DeclRefExpr *CurDeclRefExpr;
+  llvm::SmallPtrSetImpl<VarDecl *> &DiagnosedGlobalInit;
 };
 
 std::optional<uint32_t>
@@ -555,6 +528,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 
   std::set<FunctionDecl *> DiagnosedDecls;
   llvm::SmallPtrSet<CallExpr *, 16> DiagnosedCalls;
+  llvm::SmallPtrSet<VarDecl *, 8> DiagnosedGlobalInit;
   // for each FDecl, check for recursion
   for (FunctionDecl *FDecl : FDeclsToCheck) {
     CallGraphWithRecurseGuard callGraph;
@@ -664,10 +638,20 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     }
     // Visit all visited functions in call graph to collect illegal intrinsic
     // calls.
+    HLSLCallDiagnoseVisitor::GlobalInitMap GlobalInitFound;
+    HLSLCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK, NodeLaunchTy,
+                                    FDecl, DiagnosedCalls, GlobalInitFound,
+                                    DiagnosedGlobalInit);
     for (FunctionDecl *FD : callGraph.GetVisitedFunctions()) {
-      HLSLCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK, NodeLaunchTy,
-                                      FDecl, DiagnosedCalls);
       Visitor.TraverseDecl(FD);
+    }
+
+    // Initializers might refer to other globals, adding those to
+    // GlobalInitFound, so this iteration method accounts for this.
+    for (unsigned Idx = 0; Idx < GlobalInitFound.size(); ++Idx) {
+      auto Found = GlobalInitFound.begin()[Idx];
+      Visitor.setDeclRefExpr(Found.second);
+      Visitor.TraverseDecl(Found.first);
     }
   }
 }
