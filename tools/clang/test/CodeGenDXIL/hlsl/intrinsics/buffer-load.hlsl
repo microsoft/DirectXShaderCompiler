@@ -106,7 +106,7 @@ void main(uint ix0 : IX0) {
   float2 Sld4 = SMatBuf.Load(ix0 + 4).m[1];
 
   // CHECK: [[IX:%.*]] = add i32 {{%.*}}, 5
-  // CHECK: [[HDL:%.*]] = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %\22class.RWStructuredBuffer<vector<float, 2> >\22)"(i32 0, %"class.RWStructuredBuffer<vector<float, 2> >" %142)
+  // CHECK: [[HDL:%.*]] = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %\22class.RWStructuredBuffer<vector<float, 2> >\22)"(i32 0, %"class.RWStructuredBuffer<vector<float, 2> >"
   // CHECK: [[ANHDL:%.*]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22class.RWStructuredBuffer<vector<float, 2> >\22)"(i32 14, %dx.types.Handle [[HDL]], %dx.types.ResourceProperties { i32 4108, i32 8 }, %"class.RWStructuredBuffer<vector<float, 2> >" undef)
   // CHECK: call <2 x float>* @"dx.hl.subscript.[].rn.<2 x float>* (i32, %dx.types.Handle, i32)"(i32 0, %dx.types.Handle [[ANHDL]], i32 [[IX]])
   VecBuf[ix0+5] = select(Sld0, Sld1+Sld2, Sld3+Sld4);
@@ -132,21 +132,21 @@ void main(uint ix0 : IX0) {
   // CHECK: [[IX:%.*]] = add i32 {{%.*}}, 9
   // CHECK: [[HDL:%.*]] = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %\22class.StructuredBuffer<matrix<float, 2, 2> >\22)"(i32 0, %"class.StructuredBuffer<matrix<float, 2, 2> >"
   // CHECK: [[ANHDL:%.*]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22class.StructuredBuffer<matrix<float, 2, 2> >\22)"(i32 14, %dx.types.Handle [[HDL]], %dx.types.ResourceProperties { i32 524, i32 16 }, %"class.StructuredBuffer<matrix<float, 2, 2> >" undef)
-  // CHECK: call %class.matrix.float.2.2* @"dx.hl.subscript.[].rn.%class.matrix.float.2.2* (i32, %dx.types.Handle, i32)"(i32 0, %dx.types.Handle [[ANHDL]], i32 [[IX]])
-  // CHECK: %186 = call <2 x float>* @"dx.hl.subscript.colMajor[].rn.<2 x float>* (i32, %class.matrix.float.2.2*, i32, i32)"(i32 1, %class.matrix.float.2.2* %185, i32 1, i32 3)
+  // CHECK: [[SS:%.*]] = call %class.matrix.float.2.2* @"dx.hl.subscript.[].rn.%class.matrix.float.2.2* (i32, %dx.types.Handle, i32)"(i32 0, %dx.types.Handle [[ANHDL]], i32 [[IX]])
+  // CHECK: call <2 x float>* @"dx.hl.subscript.colMajor[].rn.<2 x float>* (i32, %class.matrix.float.2.2*, i32, i32)"(i32 1, %class.matrix.float.2.2* [[SS]], i32 1, i32 3)
   float2 Sss3 = MatBuf[ix0 + 9][1];
 
   // CHECK: [[IX:%.*]] = add i32 {{%.*}}, 10
   // CHECK: [[HDL:%.*]] = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %\22class.StructuredBuffer<Matrix<float, 2, 2> >\22)"(i32 0, %"class.StructuredBuffer<Matrix<float, 2, 2> >"
   // CHECK: [[ANHDL:%.*]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22class.StructuredBuffer<Matrix<float, 2, 2> >\22)"(i32 14, %dx.types.Handle [[HDL]], %dx.types.ResourceProperties { i32 524, i32 32 }, %"class.StructuredBuffer<Matrix<float, 2, 2> >" undef)
   // CHECK: [[MSS:%.*]] = call %"struct.Matrix<float, 2, 2>"* @"dx.hl.subscript.[].rn.%\22struct.Matrix<float, 2, 2>\22* (i32, %dx.types.Handle, i32)"(i32 0, %dx.types.Handle [[ANHDL]], i32 [[IX]])
-  // CHECK: %195 = getelementptr inbounds %"struct.Matrix<float, 2, 2>", %"struct.Matrix<float, 2, 2>"* [[MSS]], i32 0, i32 1
-  // CHECK: %196 = call <2 x float>* @"dx.hl.subscript.colMajor[].rn.<2 x float>* (i32, %class.matrix.float.2.2*, i32, i32)"(i32 1, %class.matrix.float.2.2* %195, i32 1, i32 3)
+  // CHECK: [[GEP:%.*]] = getelementptr inbounds %"struct.Matrix<float, 2, 2>", %"struct.Matrix<float, 2, 2>"* [[MSS]], i32 0, i32 1
+  // CHECK: call <2 x float>* @"dx.hl.subscript.colMajor[].rn.<2 x float>* (i32, %class.matrix.float.2.2*, i32, i32)"(i32 1, %class.matrix.float.2.2* [[GEP]], i32 1, i32 3)
   float2 Sss4 = SMatBuf[ix0 + 10].m[1];
 
   // CHECK: [[IX:%.*]] = add i32 {{%.*}}, 11
   // CHECK: [[HDL:%.*]] = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %\22class.RWStructuredBuffer<vector<float, 2> >\22)"(i32 0, %"class.RWStructuredBuffer<vector<float, 2> >"
   // CHECK: [[ANHDL:%.*]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22class.RWStructuredBuffer<vector<float, 2> >\22)"(i32 14, %dx.types.Handle [[HDL]], %dx.types.ResourceProperties { i32 4108, i32 8 }, %"class.RWStructuredBuffer<vector<float, 2> >" undef)
-  // CHECK: %212 = call <2 x float>* @"dx.hl.subscript.[].rn.<2 x float>* (i32, %dx.types.Handle, i32)"(i32 0, %dx.types.Handle [[ANHDL]], i32 [[IX]])
+  // CHECK: call <2 x float>* @"dx.hl.subscript.[].rn.<2 x float>* (i32, %dx.types.Handle, i32)"(i32 0, %dx.types.Handle [[ANHDL]], i32 [[IX]])
   VecBuf[ix0+11] = select(Sss0, Sss1+Sss2, Sss3+Sss4);
 }
