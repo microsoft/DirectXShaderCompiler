@@ -76,13 +76,15 @@ Type *TryLowerMatTy(Type *Ty) {
 }
 
 class MatrixBitcastLowerPass : public FunctionPass {
-
+  bool SupportsVectors = false;
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit MatrixBitcastLowerPass() : FunctionPass(ID) {}
 
   StringRef getPassName() const override { return "Matrix Bitcast lower"; }
   bool runOnFunction(Function &F) override {
+    if (F.getParent()->HasDxilModule())
+      SupportsVectors = F.getParent()->GetDxilModule().GetShaderModel()->IsSM69Plus();
     bool bUpdated = false;
     std::unordered_set<BitCastInst *> matCastSet;
     for (auto blkIt = F.begin(); blkIt != F.end(); ++blkIt) {
@@ -194,10 +196,10 @@ void MatrixBitcastLowerPass::lowerMatrix(DxilModule &DM, Instruction *M,
         SmallVector<Value *, 2> idxList(GEP->idx_begin(), GEP->idx_end());
         DXASSERT(idxList.size() == 2,
                  "else not one dim matrix array index to matrix");
-        if (!DM.GetShaderModel()->IsSM69Plus()) {
-          HLMatrixType MatTy = HLMatrixType::cast(EltTy);
-          Value *matSize = Builder.getInt32(MatTy.getNumElements());
-          idxList.back() = Builder.CreateMul(idxList.back(), matSize);
+        unsigned NumElts = HLMatrixType::cast(EltTy).getNumElements();
+        if (!SupportsVectors || NumElts == 1) {
+          Value *MatSize = Builder.getInt32(NumElts);
+          idxList.back() = Builder.CreateMul(idxList.back(), MatSize);
         }
         Value *NewGEP = Builder.CreateGEP(A, idxList);
         lowerMatrix(DM, GEP, NewGEP);
@@ -214,18 +216,18 @@ void MatrixBitcastLowerPass::lowerMatrix(DxilModule &DM, Instruction *M,
       if (VectorType *Ty = dyn_cast<VectorType>(LI->getType())) {
         IRBuilder<> Builder(LI);
         Value *NewVec = nullptr;
-        if (DM.GetShaderModel()->IsSM69Plus()) {
-          // Just create a replacement load using the vector pointer.
-          Instruction *NewLI = LI->clone();
-          unsigned VecIdx = NewLI->getNumOperands() - 1;
-          NewLI->setOperand(VecIdx, A);
-          Builder.Insert(NewLI);
-          NewVec = NewLI;
+        unsigned VecSize = Ty->getVectorNumElements();
+        if (SupportsVectors && VecSize > 1) {
+          // Create a replacement load using the vector pointer.
+          Instruction *NewLd = LI->clone();
+          unsigned VecIdx = NewLd->getNumOperands() - 1;
+          NewLd->setOperand(VecIdx, A);
+          Builder.Insert(NewLd);
+          NewVec = NewLd;
         } else {
           Value *zeroIdx = Builder.getInt32(0);
-          unsigned vecSize = Ty->getNumElements();
           NewVec = UndefValue::get(LI->getType());
-          for (unsigned i = 0; i < vecSize; i++) {
+          for (unsigned i = 0; i < VecSize; i++) {
             Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
             Value *Elt = Builder.CreateLoad(GEP);
             NewVec = Builder.CreateInsertElement(NewVec, Elt, i);
@@ -240,12 +242,20 @@ void MatrixBitcastLowerPass::lowerMatrix(DxilModule &DM, Instruction *M,
       Value *V = ST->getValueOperand();
       if (VectorType *Ty = dyn_cast<VectorType>(V->getType())) {
         IRBuilder<> Builder(LI);
-        Value *zeroIdx = Builder.getInt32(0);
-        unsigned vecSize = Ty->getNumElements();
-        for (unsigned i = 0; i < vecSize; i++) {
-          Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
-          Value *Elt = Builder.CreateExtractElement(V, i);
-          Builder.CreateStore(Elt, GEP);
+        if (SupportsVectors && Ty->getVectorNumElements() > 1) {
+          // Create a replacement store using the vector pointer.
+          Instruction *NewSt = ST->clone();
+          unsigned VecIdx = NewSt->getNumOperands() - 1;
+          NewSt->setOperand(VecIdx, A);
+          Builder.Insert(NewSt);
+        } else {
+          Value *zeroIdx = Builder.getInt32(0);
+          unsigned vecSize = Ty->getNumElements();
+          for (unsigned i = 0; i < vecSize; i++) {
+            Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
+            Value *Elt = Builder.CreateExtractElement(V, i);
+            Builder.CreateStore(Elt, GEP);
+          }
         }
         ST->eraseFromParent();
       } else {

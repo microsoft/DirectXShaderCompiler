@@ -25,7 +25,7 @@
 // RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=float16_t -DNUM=17 -enable-16bit-types %s | FileCheck %s --check-prefixes=CHECK,NODBL
 // RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=int16_t   -DNUM=177 -enable-16bit-types %s | FileCheck %s --check-prefixes=CHECK,NODBL
 
-// Test relevant operators on an assortment bool vector sizes and types with 6.9 native vectors.
+// Test relevant operators on an assortment vector sizes and types with 6.9 native vectors.
 
 // Just a trick to capture the needed type spellings since the DXC version of FileCheck can't do that explicitly.
 // Uses non vector buffer to avoid interacting with that implementation.
@@ -117,6 +117,7 @@ export void assignments(inout vector<TYPE, NUM> things[10], TYPE scales[10]) {
   // CHECK: [[add9:%[0-9]*]] = getelementptr inbounds [10 x <[[NUM]] x [[TYPE]]>], [10 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 9
   // CHECK: [[vec9:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[add9]]
 #ifdef DBL
+  // DBL can't use remainder operator, do something anyway to keep the rest consistent.
   // DBL: [[fvec9:%[0-9]*]] = fptrunc <[[NUM]] x double> [[vec9]] to <[[NUM]] x float>
   // DBL: [[fvec5:%[0-9]*]] = fptrunc <[[NUM]] x double> [[vec5]] to <[[NUM]] x float>
   // DBL: [[fres5:%[0-9]*]] = [[REM:[ufs]?rem( fast)?]] <[[NUM]] x float> [[fvec5]], [[fvec9]]
@@ -201,6 +202,7 @@ export vector<TYPE, NUM> arithmetic(inout vector<TYPE, NUM> things[11])[11] {
   // CHECK: [[add6:%[0-9]*]] = getelementptr inbounds [11 x <[[NUM]] x [[TYPE]]>], [11 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 6
   // CHECK: [[vec6:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[add6]]
 #ifdef DBL
+  // DBL can't use remainder operator, do something anyway to keep the rest consistent.
   // DBL: [[fvec6:%[0-9]*]] = fptrunc <[[NUM]] x double> [[vec6]] to <[[NUM]] x float>
   // DBL: [[fres6:%[0-9]*]] = [[REM]] <[[NUM]] x float> [[fvec5]], [[fvec6]]
   // DBL: [[res6:%[0-9]*]] = fpext <[[NUM]] x float> [[fres6]] to <[[NUM]] x double>
@@ -387,9 +389,8 @@ export vector<bool, NUM> logic(vector<bool, NUM> truth[10], vector<TYPE, NUM> co
   // CHECK: [[add5:%[0-9]*]] = getelementptr inbounds [10 x <[[NUM]] x i32>], [10 x <[[NUM]] x i32>]* %truth, i32 0, i32 5
   // CHECK: [[vec5:%[0-9]*]] = load <[[NUM]] x i32>, <[[NUM]] x i32>* [[add5]]
   // CHECK: [[bvec5:%[0-9]*]] = icmp ne <[[NUM]] x i32> [[vec5]], zeroinitializer
-
-  // NOT RIGHT STUFF.. Select is still extracting everything, slows WAY down with over 100 elements
-
+  // CHECK: [[bres3:%[0-9]*]] = select <[[NUM]] x i1> [[bvec3]], <[[NUM]] x i1> [[bvec4]], <[[NUM]] x i1> [[bvec5]]
+  // CHECK: [[res3:%[0-9]*]] = zext <[[NUM]] x i1> [[bres3]] to <[[NUM]] x i32>
   res[3] = truth[3] ? truth[4] : truth[5];
 
   // CHECK: [[add0:%[0-9]*]] = getelementptr inbounds [10 x <[[NUM]] x [[TYPE]]>], [10 x <[[NUM]] x [[TYPE]]>]* %consequences, i32 0, i32 0
@@ -432,6 +433,12 @@ export vector<bool, NUM> logic(vector<bool, NUM> truth[10], vector<TYPE, NUM> co
 
   // CHECK: [[add0:%[0-9]*]] = getelementptr inbounds [10 x <[[NUM]] x i32>], [10 x <[[NUM]] x i32>]* %agg.result, i32 0, i32 0
   // CHECK: store <[[NUM]] x i32> [[res0]], <[[NUM]] x i32>* [[add0]]
+  // CHECK: [[add1:%[0-9]*]] = getelementptr inbounds [10 x <[[NUM]] x i32>], [10 x <[[NUM]] x i32>]* %agg.result, i32 0, i32 1
+  // CHECK: store <[[NUM]] x i32> [[res1]], <[[NUM]] x i32>* [[add1]]
+  // CHECK: [[add2:%[0-9]*]] = getelementptr inbounds [10 x <[[NUM]] x i32>], [10 x <[[NUM]] x i32>]* %agg.result, i32 0, i32 2
+  // CHECK: store <[[NUM]] x i32> [[res2]], <[[NUM]] x i32>* [[add2]]
+  // CHECK: [[add3:%[0-9]*]] = getelementptr inbounds [10 x <[[NUM]] x i32>], [10 x <[[NUM]] x i32>]* %agg.result, i32 0, i32 3
+  // CHECK: store <[[NUM]] x i32> [[res3]], <[[NUM]] x i32>* [[add3]]
   // CHECK: [[add4:%[0-9]*]] = getelementptr inbounds [10 x <[[NUM]] x i32>], [10 x <[[NUM]] x i32>]* %agg.result, i32 0, i32 4
   // CHECK: store <[[NUM]] x i32> [[res4]], <[[NUM]] x i32>* [[add4]]
   // CHECK: [[add5:%[0-9]*]] = getelementptr inbounds [10 x <[[NUM]] x i32>], [10 x <[[NUM]] x i32>]* %agg.result, i32 0, i32 5

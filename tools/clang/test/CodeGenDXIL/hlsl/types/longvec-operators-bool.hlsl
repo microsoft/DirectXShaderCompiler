@@ -4,6 +4,7 @@
 // RUN: %dxc -HV 2018 -T lib_6_9 -DNUM=9 %s | FileCheck %s
 
 // Test relevant operators on an assortment bool vector sizes with 6.9 native vectors.
+// Bools have a different representation in memory and a smaller set of interesting ops.
 
 // Just a trick to capture the needed type spellings since the DXC version of FileCheck can't do that explicitly.
 // Uses non vector buffer to avoid interacting with that implementation.

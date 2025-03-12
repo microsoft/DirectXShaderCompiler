@@ -81,6 +81,7 @@ public:
   static bool DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
                                   Type *&BrokenUpTy, uint64_t &NumInstances,
                                   IRBuilder<> &Builder, bool bFlatVector,
+                                  bool SupportsVectors,
                                   bool hasPrecise, DxilTypeSystem &typeSys,
                                   const DataLayout &DL,
                                   SmallVector<Value *, 32> &DeadInsts,
@@ -88,7 +89,7 @@ public:
 
   static bool
   DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &Elts,
-                      IRBuilder<> &Builder, bool bFlatVector, bool hasPrecise,
+                      IRBuilder<> &Builder, bool bFlatVector, bool SupportsVectors, bool hasPrecise,
                       DxilTypeSystem &typeSys, const DataLayout &DL,
                       SmallVector<Value *, 32> &DeadInsts, DominatorTree *DT);
   static unsigned GetEltAlign(unsigned ValueAlign, const DataLayout &DL,
@@ -1714,6 +1715,7 @@ bool isGroupShareOrConstStaticArray(GlobalVariable *GV) {
 
 bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
   Module &M = *HLM.GetModule();
+  bool SupportsVectors = HLM.GetShaderModel()->IsSM69Plus();
   DxilTypeSystem &typeSys = HLM.GetTypeSystem();
 
   const DataLayout &DL = M.getDataLayout();
@@ -1869,8 +1871,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       // if
       // all its users can be transformed, then split up the aggregate into its
       // separate elements.
-      if (!HLM.GetShaderModel()->IsSM69Plus() && ShouldAttemptScalarRepl(AI) &&
-          isSafeAllocaToScalarRepl(AI)) {
+      if (ShouldAttemptScalarRepl(AI) && isSafeAllocaToScalarRepl(AI)) {
         std::vector<Value *> Elts;
         IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(AI));
         bool hasPrecise = HLModule::HasPreciseAttributeWithMetadata(AI);
@@ -1879,7 +1880,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         uint64_t NumInstances = 1;
         bool SROAed = SROA_Helper::DoScalarReplacement(
             AI, Elts, BrokenUpTy, NumInstances, Builder,
-            /*bFlatVector*/ true, hasPrecise, typeSys, DL, DeadInsts, &DT);
+            /*bFlatVector*/ true, SupportsVectors, hasPrecise, typeSys, DL, DeadInsts, &DT);
 
         if (SROAed) {
           Type *Ty = AI->getAllocatedType();
@@ -1946,9 +1947,9 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         continue;
       }
 
-      // Flat Global vector if no dynamic vector indexing and pre-6.9.
+      // Flatten Global vector if no dynamic vector indexing.
       bool bFlatVector =
-          !hasDynamicVectorIndexing(GV) && !HLM.GetShaderModel()->IsSM69Plus();
+        !hasDynamicVectorIndexing(GV);
 
       if (bFlatVector) {
         GVDbgOffset &dbgOffset = GVDbgOffsetMap[GV];
@@ -1982,12 +1983,10 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       } else {
         // SROA_Parameter_HLSL has no access to a domtree, if one is needed,
         // it'll be generated
-        if (!HLM.GetShaderModel()->IsSM69Plus()) {
-          SROAed = SROA_Helper::DoScalarReplacement(
-              GV, Elts, Builder, bFlatVector,
-              // TODO: set precise.
-              /*hasPrecise*/ false, typeSys, DL, DeadInsts, /*DT*/ nullptr);
-        }
+        SROAed = SROA_Helper::DoScalarReplacement(
+            GV, Elts, Builder, bFlatVector, SupportsVectors,
+            // TODO: set precise.
+            /*hasPrecise*/ false, typeSys, DL, DeadInsts, /*DT*/ nullptr);
       }
 
       if (SROAed) {
@@ -2924,6 +2923,7 @@ static ArrayType *CreateNestArrayTy(Type *FinalEltTy,
 bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
                                       Type *&BrokenUpTy, uint64_t &NumInstances,
                                       IRBuilder<> &Builder, bool bFlatVector,
+                                      bool SupportsVectors,
                                       bool hasPrecise, DxilTypeSystem &typeSys,
                                       const DataLayout &DL,
                                       SmallVector<Value *, 32> &DeadInsts,
@@ -3037,6 +3037,10 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
       if (!bFlatVector)
         return false;
 
+      // Skip vector where supported if it has more than 1 element.
+      if (SupportsVectors && ElTy->getVectorNumElements() > 1)
+        return false;
+
       // for array of vector
       // split into arrays of scalar
       VectorType *ElVT = cast<VectorType>(ElTy);
@@ -3121,6 +3125,7 @@ unsigned SROA_Helper::GetEltAlign(unsigned ValueAlign, const DataLayout &DL,
 bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
                                       std::vector<Value *> &Elts,
                                       IRBuilder<> &Builder, bool bFlatVector,
+                                      bool SupportsVectors,
                                       bool hasPrecise, DxilTypeSystem &typeSys,
                                       const DataLayout &DL,
                                       SmallVector<Value *, 32> &DeadInsts,
@@ -3137,6 +3142,9 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
     return false;
   // Skip basic types.
   if (Ty->isSingleValueType() && !Ty->isVectorTy())
+    return false;
+  // Skip vector where supported if it has more than 1 element.
+  if (Ty->isVectorTy() && SupportsVectors && Ty->getVectorNumElements() > 1)
     return false;
   // Skip matrix types.
   if (HLMatrixType::isa(Ty))
@@ -3242,6 +3250,10 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
     } else if (ElTy->isVectorTy()) {
       // Skip vector if required.
       if (!bFlatVector)
+        return false;
+
+      // Skip vector where supported if it has more than 1 element.
+      if (SupportsVectors && ElTy->getVectorNumElements() > 1)
         return false;
 
       // for array of vector
@@ -5281,6 +5293,8 @@ void SROA_Parameter_HLSL::flattenArgument(
     std::vector<DxilParameterAnnotation> &FlatAnnotationList,
     BasicBlock *EntryBlock, ArrayRef<DbgDeclareInst *> DDIs) {
   std::deque<AnnotatedValue> WorkList;
+  bool SupportsVectors = m_pHLModule->GetShaderModel()->IsSM69Plus();
+
   WorkList.push_back({Arg, paramAnnotation});
 
   unsigned startArgIndex = FlatAnnotationList.size();
@@ -5355,7 +5369,7 @@ void SROA_Parameter_HLSL::flattenArgument(
       // DomTree isn't used by arguments
       SROAed = SROA_Helper::DoScalarReplacement(
           V, Elts, BrokenUpTy, NumInstances, Builder,
-          /*bFlatVector*/ false, annotation.IsPrecise(), dxilTypeSys, DL,
+          /*bFlatVector*/ false, SupportsVectors, annotation.IsPrecise(), dxilTypeSys, DL,
           DeadInsts, /*DT*/ nullptr);
     }
 

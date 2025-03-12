@@ -212,8 +212,18 @@ private:
 };
 
 void DynamicIndexingVectorToArray::initialize(Module &M) {
-  if (M.HasHLModule())
-    SupportsVectors = M.GetHLModule().GetShaderModel()->IsSM69Plus();
+  // Can be invoked in a few places:
+  //  - From standard compile before dxilgen.
+  //  - When linking, where dxmodule is available.
+  //  - In isolated dxopt, where the module will need to be created.
+  // Since HL module can't be created when linking, check for that first.
+  // Otherwise, either retrieve or generate the HL module.
+  if (M.HasDxilModule()) {
+    SupportsVectors = M.GetDxilModule().GetShaderModel()->IsSM69Plus();
+  } else {
+    HLModule &HLM = M.GetOrCreateHLModule();
+    SupportsVectors = HLM.GetShaderModel()->IsSM69Plus();
+  }
 }
 
 void DynamicIndexingVectorToArray::applyOptions(PassOptions O) {
@@ -295,7 +305,7 @@ void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
             StoreInst *stInst = cast<StoreInst>(GEPUser);
             Value *val = stInst->getValueOperand();
             Value *ldVal = Builder.CreateLoad(V);
-            ldVal = Builder.CreateInsertElement(ldVal, val, constIdx); // UGH
+            ldVal = Builder.CreateInsertElement(ldVal, val, constIdx);
             Builder.CreateStore(ldVal, V);
             stInst->eraseFromParent();
           }
@@ -315,12 +325,21 @@ void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
 }
 
 bool DynamicIndexingVectorToArray::needToLower(Value *V) {
-  // Only needed where vectors aren't supported.
-  if (SupportsVectors)
-    return false;
+  bool MustReplaceVector = ReplaceAllVectors;
   Type *Ty = V->getType()->getPointerElementType();
+
+  if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
+    // Array must be replaced even without dynamic indexing to remove vector
+    // type in dxil.
+    MustReplaceVector = true;
+    Ty = dxilutil::GetArrayEltTy(AT);
+  }
+
   if (isa<VectorType>(Ty)) {
-    if (isa<GlobalVariable>(V) || ReplaceAllVectors) {
+    // Only needed for 2+ vectors where native vectors unsupported.
+    if (SupportsVectors && Ty->getVectorNumElements() > 1)
+      return false;
+    if (isa<GlobalVariable>(V) || MustReplaceVector) {
       return true;
     }
     // Don't lower local vector which only static indexing.
@@ -331,12 +350,6 @@ bool DynamicIndexingVectorToArray::needToLower(Value *V) {
       ReplaceStaticIndexingOnVector(V);
       return false;
     }
-  } else if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
-    // Array must be replaced even without dynamic indexing to remove vector
-    // type in dxil.
-    // TODO: optimize static array index in later pass.
-    Type *EltTy = dxilutil::GetArrayEltTy(AT);
-    return isa<VectorType>(EltTy);
   }
   return false;
 }
