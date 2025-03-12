@@ -3966,8 +3966,8 @@ struct ResLoadHelper {
   // Alternative constructor explicitly sets the index.
   // Used for some subscript operators that feed the generic HL call inst
   // into a load op and by the matrixload call instruction.
-  ResLoadHelper(Instruction *Inst, DxilResource::Kind RK, Value *h,
-                Value *idx, Value *Offset, Value *mip = nullptr)
+  ResLoadHelper(Instruction *Inst, DxilResource::Kind RK, Value *h, Value *idx,
+                Value *Offset, Value *mip = nullptr)
       : intrinsicOpCode(IntrinsicOp::Num_Intrinsics), handle(h), retVal(Inst),
         addr(idx), offset(Offset), status(nullptr), mipLevel(mip) {
     opcode = LoadOpFromResKind(RK);
@@ -4131,7 +4131,7 @@ static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
   // Typed needs to handle the possibility of vector coords
   // Raws need to calculate alignment and mask values.
   SmallVector<Value *, 10> Args;
-  Args.emplace_back(opArg);   // opcode @0.
+  Args.emplace_back(opArg);         // opcode @0.
   Args.emplace_back(helper.handle); // Resource handle @1
 
   // Set offsets appropriate for the load operation.
@@ -4148,7 +4148,7 @@ static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
       if (i < coordSize)
         Args.emplace_back(isVectorAddr
                               ? Builder.CreateExtractElement(helper.addr, i)
-                          : helper.addr);
+                              : helper.addr);
       else
         Args.emplace_back(undefI);
 
@@ -4168,11 +4168,11 @@ static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
 
     Args.emplace_back(
         isVectorAddr ? Builder.CreateExtractElement(helper.addr, (uint64_t)0)
-        : helper.addr);
+                     : helper.addr);
     Args.emplace_back(helper.offset);
     if (opcode == OP::OpCode::RawBufferLoad) {
       // Unlike typed buffer load, raw buffer load has mask and alignment.
-      Args.emplace_back(nullptr);   // Mask will be added later %4.
+      Args.emplace_back(nullptr);      // Mask will be added later %4.
       Args.emplace_back(alignmentVal); // alignment @5.
     }
   }
@@ -4221,7 +4221,8 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
     // Assign mask for raw buffer loads.
     if (opcode == OP::OpCode::RawBufferLoad)
-      Args[DXIL::OperandIndex::kRawBufferLoadMaskOpIdx] = GetRawBufferMaskForETy(MemTy, chunkSize, OP);
+      Args[DXIL::OperandIndex::kRawBufferLoadMaskOpIdx] =
+          GetRawBufferMaskForETy(MemTy, chunkSize, OP);
 
     Value *Ld = GenerateBufLd(OP, Builder, opcode, Ty->getScalarType(), MemTy,
                               chunkSize, Args, elts.begin() + i);
@@ -4236,12 +4237,13 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
     if (opcode == OP::OpCode::RawBufferLoad && i < numComponents) {
       if (RK == DxilResource::Kind::RawBuffer)
         // Raw buffers can't use offset param. Add to coord index.
-        Args[OpIx::kRawBufferLoadIndexOpIdx] =
-          Builder.CreateAdd(Args[OpIx::kRawBufferLoadIndexOpIdx], OP->GetU32Const(4 * LdSize));
+        Args[OpIx::kRawBufferLoadIndexOpIdx] = Builder.CreateAdd(
+            Args[OpIx::kRawBufferLoadIndexOpIdx], OP->GetU32Const(4 * LdSize));
       else
         // Structured buffers increment the offset parameter.
         Args[OpIx::kRawBufferLoadElementOffsetOpIdx] =
-          Builder.CreateAdd(Args[OpIx::kRawBufferLoadElementOffsetOpIdx], OP->GetU32Const(4 * LdSize));
+            Builder.CreateAdd(Args[OpIx::kRawBufferLoadElementOffsetOpIdx],
+                              OP->GetU32Const(4 * LdSize));
     }
   }
 
@@ -8387,9 +8389,9 @@ void TranslateStructBufSubscript(CallInst *CI, Value *handle, Value *status,
 namespace {
 
 Value *TranslateTypedBufSubscript(CallInst *CI, DXIL::ResourceKind RK,
-                             DXIL::ResourceClass RC, Value *handle,
-                             LoadInst *ldInst, IRBuilder<> &Builder,
-                             hlsl::OP *hlslOP, const DataLayout &DL) {
+                                  DXIL::ResourceClass RC, Value *handle,
+                                  LoadInst *ldInst, IRBuilder<> &Builder,
+                                  hlsl::OP *hlslOP, const DataLayout &DL) {
   // The arguments to the call instruction are used to determine the access,
   // the return value and type come from the load instruction.
   ResLoadHelper ldHelper(CI, RK, RC, handle, IntrinsicOp::MOP_Load, ldInst);
@@ -8437,8 +8439,8 @@ Value *UpdateVectorElt(Value *VecVal, Value *EltVal, Value *EltIdx,
 }
 
 void TranslateTypedBufferSubscript(CallInst *CI, HLOperationLowerHelper &helper,
-                               HLObjectOperationLowerHelper *pObjHelper,
-                               bool &Translated) {
+                                   HLObjectOperationLowerHelper *pObjHelper,
+                                   bool &Translated) {
   Value *ptr = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
 
   hlsl::OP *hlslOP = &helper.hlslOP;
@@ -8455,7 +8457,7 @@ void TranslateTypedBufferSubscript(CallInst *CI, HLOperationLowerHelper &helper,
     IRBuilder<> Builder(I);
     if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
       TranslateTypedBufSubscript(CI, RK, RC, handle, ldInst, Builder, hlslOP,
-                            helper.dataLayout);
+                                 helper.dataLayout);
     } else if (StoreInst *stInst = dyn_cast<StoreInst>(user)) {
       Value *val = stInst->getValueOperand();
       TranslateStore(RK, handle, val,
