@@ -3964,10 +3964,11 @@ struct ResLoadHelper {
   ResLoadHelper(CallInst *CI, DxilResource::Kind RK, DxilResourceBase::Class RC,
                 Value *h, IntrinsicOp IOP, LoadInst *TyBufSubLoad = nullptr);
   // Alternative constructor explicitly sets the index.
-  // Used for some subscript operators.
-  ResLoadHelper(Instruction *ldInst, DxilResource::Kind RK, Value *h,
+  // Used for some subscript operators that feed the generic HL call inst
+  // into a load op and by the matrixload call instruction.
+  ResLoadHelper(Instruction *Inst, DxilResource::Kind RK, Value *h,
                 Value *idx, Value *Offset, Value *mip = nullptr)
-      : intrinsicOpCode(IntrinsicOp::Num_Intrinsics), handle(h), retVal(ldInst),
+      : intrinsicOpCode(IntrinsicOp::Num_Intrinsics), handle(h), retVal(Inst),
         addr(idx), offset(Offset), status(nullptr), mipLevel(mip) {
     opcode = LoadOpFromResKind(RK);
   }
@@ -4066,7 +4067,7 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
     const unsigned kStatusIdx = HLOperandIndex::kBufLoadStatusOpIdx;
     if (argc > kStatusIdx)
       status = CI->getArgOperand(kStatusIdx);
-    Type *i32Ty = IRBuilder<>(CI).getInt32Ty();
+    Type *i32Ty = Type::getInt32Ty(CI->getContext());
     if (DXIL::IsStructuredBuffer(RK))
       offset = ConstantInt::get(i32Ty, 0U);
     else
@@ -4115,7 +4116,7 @@ static Value *GenerateBufLd(hlsl::OP *OP, IRBuilder<> &Builder,
                             std::vector<Value *>::iterator EltIt);
 
 // Sets up arguments for buffer load call.
-static SmallVector<Value *, 12> GetBufLoadArgs(ResLoadHelper helper,
+static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
                                                HLResource::Kind RK,
                                                IRBuilder<> Builder, Type *EltTy,
                                                unsigned LdSize) {
@@ -4129,53 +4130,56 @@ static SmallVector<Value *, 12> GetBufLoadArgs(ResLoadHelper helper,
   // Assemble args is specific to the type bab/struct/typed
   // Typed needs to handle the possibility of vector coords
   // Raws need to calculate alignment and mask values.
-  SmallVector<Value *, 12> Args;
-  Args.emplace_back(opArg);         // opcode @0
-  Args.emplace_back(helper.handle); // resource handle @1
+  SmallVector<Value *, 10> Args;
+  Args.emplace_back(opArg);   // opcode @0.
+  Args.emplace_back(helper.handle); // Resource handle @1
 
   // Set offsets appropriate for the load operation.
   bool isVectorAddr = helper.addr->getType()->isVectorTy();
   if (opcode == OP::OpCode::TextureLoad) {
     llvm::Value *undefI = llvm::UndefValue::get(Builder.getInt32Ty());
 
-    // Set mip level or sample for MS texutures @3.
+    // Set mip level or sample for MS texutures @2.
     Args.emplace_back(helper.mipLevel);
-    // Set texture coords according to resource kind @4-6
+    // Set texture coords according to resource kind @3-5
     // Coords unused by the resource kind are undefs.
     unsigned coordSize = DxilResource::GetNumCoords(RK);
-    for (unsigned i = 0; i < 3; i++) {
-      if (i < coordSize) {
+    for (unsigned i = 0; i < 3; i++)
+      if (i < coordSize)
         Args.emplace_back(isVectorAddr
                               ? Builder.CreateExtractElement(helper.addr, i)
-                              : helper.addr);
-      } else
+                          : helper.addr);
+      else
         Args.emplace_back(undefI);
-    }
+
     // Set texture offsets according to resource kind @7-9
     // Coords unused by the resource kind are undefs.
     unsigned offsetSize = DxilResource::GetNumOffsets(RK);
     if (!helper.offset || isa<llvm::UndefValue>(helper.offset))
       offsetSize = 0;
-    for (unsigned i = 0; i < 3; i++) {
+    for (unsigned i = 0; i < 3; i++)
       if (i < offsetSize)
         Args.emplace_back(Builder.CreateExtractElement(helper.offset, i));
       else
         Args.emplace_back(undefI);
-    }
   } else {
-    // coord (may be changed later) @2
+    // If not TextureLoad, it could be a typed or raw buffer load.
+    // They have mostly similar arguments.
+
     Args.emplace_back(
         isVectorAddr ? Builder.CreateExtractElement(helper.addr, (uint64_t)0)
-                     : helper.addr);
-    Args.emplace_back(helper.offset); // offset (may be changed later) @3
+        : helper.addr);
+    Args.emplace_back(helper.offset);
     if (opcode == OP::OpCode::RawBufferLoad) {
       // Unlike typed buffer load, raw buffer load has mask and alignment.
-      Args.emplace_back(nullptr);      // mask (to be added later) @4
-      Args.emplace_back(alignmentVal); // alignment @5
+      Args.emplace_back(nullptr);   // Mask will be added later %4.
+      Args.emplace_back(alignmentVal); // alignment @5.
     }
   }
   return Args;
 }
+
+namespace OpIx = hlsl::DXIL::OperandIndex;
 
 // Emits as many calls as needed to load the full vector
 // Performs any needed extractions and conversions of the results.
@@ -4184,10 +4188,6 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
                         const DataLayout &DL) {
   OP::OpCode opcode = helper.opcode;
   Type *Ty = helper.retVal->getType();
-  unsigned numComponents = 1;
-
-  if (Ty->isVectorTy())
-    numComponents = Ty->getVectorNumElements();
 
   const bool isTyped = DXIL::IsTyped(RK);
   Type *EltTy = Ty->getScalarType();
@@ -4199,14 +4199,17 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
     MemTy = Builder.getInt32Ty();
   unsigned LdSize = DL.getTypeAllocSize(MemTy);
 
+  unsigned numComponents = 1;
+  Type *MaybeVecMemTy = MemTy;
+  if (Ty->isVectorTy()) {
+    numComponents = Ty->getVectorNumElements();
+    MaybeVecMemTy = VectorType::get(EltTy, numComponents);
+  }
+
   std::vector<Value *> elts(numComponents);
 
-  SmallVector<Value *, 12> Args =
+  SmallVector<Value *, 10> Args =
       GetBufLoadArgs(helper, RK, Builder, MemTy, LdSize);
-
-  const unsigned kCoordIdx = 2;
-  const unsigned kOffsetIdx = 3;
-  const unsigned kMaskIdx = 4;
 
   // Keep track of the first load for debug info migration.
   Value *firstLd = nullptr;
@@ -4218,7 +4221,7 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
     // Assign mask for raw buffer loads.
     if (opcode == OP::OpCode::RawBufferLoad)
-      Args[kMaskIdx] = GetRawBufferMaskForETy(MemTy, chunkSize, OP);
+      Args[DXIL::OperandIndex::kRawBufferLoadMaskOpIdx] = GetRawBufferMaskForETy(MemTy, chunkSize, OP);
 
     Value *Ld = GenerateBufLd(OP, Builder, opcode, Ty->getScalarType(), MemTy,
                               chunkSize, Args, elts.begin() + i);
@@ -4233,16 +4236,16 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
     if (opcode == OP::OpCode::RawBufferLoad && i < numComponents) {
       if (RK == DxilResource::Kind::RawBuffer)
         // Raw buffers can't use offset param. Add to coord index.
-        Args[kCoordIdx] =
-          Builder.CreateAdd(Args[kCoordIdx], OP->GetU32Const(4 * LdSize));
+        Args[OpIx::kRawBufferLoadIndexOpIdx] =
+          Builder.CreateAdd(Args[OpIx::kRawBufferLoadIndexOpIdx], OP->GetU32Const(4 * LdSize));
       else
         // Structured buffers increment the offset parameter.
-        Args[kOffsetIdx] =
-          Builder.CreateAdd(Args[kOffsetIdx], OP->GetU32Const(4 * LdSize));
+        Args[OpIx::kRawBufferLoadElementOffsetOpIdx] =
+          Builder.CreateAdd(Args[OpIx::kRawBufferLoadElementOffsetOpIdx], OP->GetU32Const(4 * LdSize));
     }
   }
 
-  Value *retValNew = ScalarizeElements(Ty, elts, Builder);
+  Value *retValNew = ScalarizeElements(MaybeVecMemTy, elts, Builder);
 
   DXASSERT(firstLd, "No loads created by TranslateBufLoad");
 
@@ -8339,7 +8342,7 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     DXASSERT_LOCALVAR(Ty,
                       offset->getType() == Type::getInt32Ty(Ty->getContext()),
                       "else bitness is wrong");
-    // Raw buffers can't have defined offsets, apply to index.
+    // No offset into element for Raw buffers; byte offset is in bufIdx.
     if (DXIL::IsRawBuffer(ResKind))
       bufIdx = Builder.CreateAdd(offset, bufIdx);
     else
