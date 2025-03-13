@@ -8208,6 +8208,7 @@ class db_hlsl_intrinsic(object):
         unsigned_op,
         overload_idx,
         hidden,
+        min_shader_model,
     ):
         self.name = name  # Function name
         self.idx = idx  # Unique number within namespace
@@ -8235,6 +8236,12 @@ class db_hlsl_intrinsic(object):
             overload_idx  # Parameter determines the overload type, -1 means ret type
         )
         self.hidden = hidden  # Internal high-level op, not exposed to HLSL
+        # Encoded minimum shader model for this intrinsic
+        self.min_shader_model = 0
+        if min_shader_model:
+            self.min_shader_model = (min_shader_model[0] << 4) | (
+                min_shader_model[1] & 0x0F
+            )
         self.key = (
             ("%3d" % ns_idx)
             + "!"
@@ -8612,6 +8619,7 @@ class db_hlsl(object):
                 -1
             )  # Parameter determines the overload type, -1 means ret type.
             hidden = False
+            min_shader_model = (0, 0)
             for a in attrs:
                 if a == "":
                     continue
@@ -8644,6 +8652,24 @@ class db_hlsl(object):
                 if d == "overload":
                     overload_param_index = int(v)
                     continue
+                if d == "min_sm":
+                    # min_sm is a string like "6.0" or "6.5"
+                    # Convert to a tuple of integers (major, minor)
+                    try:
+                        major_minor = v.split(".")
+                        if len(major_minor) != 2:
+                            raise ValueError
+                        major, minor = major_minor
+                        major = int(major)
+                        minor = int(minor)
+                        # minor of 15 has special meaning, and larger values
+                        # cannot be encoded in the version DWORD.
+                        if major < 0 or minor < 0 or minor > 14:
+                            raise ValueError
+                        min_shader_model = (major, minor)
+                    except ValueError:
+                        assert False, "invalid min_sm: %s" % (v)
+                    continue
                 assert False, "invalid attr %s" % (a)
 
             return (
@@ -8654,6 +8680,7 @@ class db_hlsl(object):
                 unsigned_op,
                 overload_param_index,
                 hidden,
+                min_shader_model,
             )
 
         current_namespace = None
@@ -8701,6 +8728,7 @@ class db_hlsl(object):
                     unsigned_op,
                     overload_param_index,
                     hidden,
+                    min_shader_model,
                 ) = process_attr(attr)
                 # Add an entry for this intrinsic.
                 if bracket_cleanup_re.search(opts):
@@ -8739,6 +8767,7 @@ class db_hlsl(object):
                         unsigned_op,
                         overload_param_index,
                         hidden,
+                        min_shader_model,
                     )
                 )
                 num_entries += 1
