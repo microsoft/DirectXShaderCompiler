@@ -23,7 +23,8 @@ struct TestPushConstant_t
 [[vk::push_constant]] TestPushConstant_t g_PushConstants;
 
 // CHECK: OpDecorate [[GP:%[_0-9A-Za-z]*]] AliasedPointer
-// CHECK: OpDecorate [[COPY:%[_0-9A-Za-z]*]] RestrictPointer
+// CHECK: OpDecorate [[COPY1:%[_0-9A-Za-z]*]] RestrictPointer
+// CHECK: OpDecorate [[COPY2:%[_0-9A-Za-z]*]] RestrictPointer
 // CHECK: OpMemberDecorate [[BLOCK:%[_0-9A-Za-z]*]] 1 Offset 16
 // CHECK: OpTypeForwardPointer [[PBLOCK:%[_0-9A-Za-z]*]] PhysicalStorageBuffer
 // CHECK: [[SINT:%[_0-9A-Za-z]*]] = OpTypeInt 32 1
@@ -51,14 +52,18 @@ struct TestPushConstant_t
 [numthreads(1,1,1)]
 float4 MainPs(void) : SV_Target0
 {
+  if (__has_feature(hlsl_vk_buffer_pointer)) {
       [[vk::aliased_pointer]] block_p g_p =
           vk::static_pointer_cast<block_t, 16>(g_PushConstants.root);
       g_p = g_p.Get().next;
       uint64_t addr = (uint64_t)g_p;
-      block_p copy = block_p(addr);
+      block_p copy1 = block_p(addr);
+      block_p copy2 = block_p(copy1);
       if (addr == 0) // Null pointer test
           return float4(0.0,0.0,0.0,0.0);
       return g_p.Get().x;
+  }
+  return float4(0.0,0.0,0.0,0.0);
 }
 
 // CHECK: [[MAIN]] = OpFunction
@@ -80,15 +85,17 @@ float4 MainPs(void) : SV_Target0
 // CHECK: OpStore [[ADDR:%[_0-9A-Za-z]*]] [[X7]]
 // CHECK: [[X8:%[_0-9A-Za-z]*]] = OpLoad [[ULONG]] [[ADDR]]
 // CHECK: [[X9:%[_0-9A-Za-z]*]] = OpConvertUToPtr [[PBLOCK]] [[X8]]
-// CHECK: OpStore [[COPY]] [[X9]]
-// CHECK: [[X10:%[_0-9A-Za-z]*]] = OpLoad [[ULONG]] [[ADDR]]
-// CHECK: [[X11:%[_0-9A-Za-z]*]] = OpIEqual %bool [[X10]] [[UL0]]
-// CHECK: OpBranchConditional [[X11]] [[IF_TRUE:%[_0-9A-Za-z]*]] [[IF_MERGE:%[_0-9A-Za-z]*]]
+// CHECK: OpStore [[COPY1]] [[X9]]
+// CHECK: [[X10:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[COPY1]]
+// CHECK: OpStore [[COPY2]] [[X10]]
+// CHECK: [[X11:%[_0-9A-Za-z]*]] = OpLoad [[ULONG]] [[ADDR]]
+// CHECK: [[X12:%[_0-9A-Za-z]*]] = OpIEqual %bool [[X11]] [[UL0]]
+// CHECK: OpBranchConditional [[X12]] [[IF_TRUE:%[_0-9A-Za-z]*]] [[IF_MERGE:%[_0-9A-Za-z]*]]
 // CHECK: [[IF_TRUE]] = OpLabel
 // CHECK: OpReturnValue [[CV4FLOAT]]
 // CHECK: [[IF_MERGE]] = OpLabel
-// CHECK: [[X12:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[GP]] Aligned 32
-// CHECK: [[X13:%[_0-9A-Za-z]*]] = OpAccessChain [[PV4FLOAT2]] [[X12]] [[S0]]
-// CHECK: [[X14:%[_0-9A-Za-z]*]] = OpLoad [[V4FLOAT]] [[X13]] Aligned 16
-// CHECK: OpReturnValue [[X14]]
+// CHECK: [[X13:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[GP]] Aligned 32
+// CHECK: [[X14:%[_0-9A-Za-z]*]] = OpAccessChain [[PV4FLOAT2]] [[X13]] [[S0]]
+// CHECK: [[X15:%[_0-9A-Za-z]*]] = OpLoad [[V4FLOAT]] [[X14]] Aligned 16
+// CHECK: OpReturnValue [[X15]]
 // CHECK: OpFunctionEnd
