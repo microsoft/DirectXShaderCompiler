@@ -545,6 +545,15 @@ hlsl::DeclareRecordTypeWithHandle(ASTContext &context, StringRef name,
   return typeDeclBuilder.getRecordDecl();
 }
 
+AvailabilityAttr *ConstructAvailabilityAttribute(
+    clang::ASTContext &context, VersionTuple Introduced) {
+  AvailabilityAttr *AAttr = AvailabilityAttr::CreateImplicit(
+      context, &context.Idents.get(""), clang::VersionTuple(6, 9),
+      clang::VersionTuple(), clang::VersionTuple(), false,
+      "");
+  return AAttr;
+}
+
 // creates a global static constant unsigned integer with value.
 // equivalent to: static const uint name = val;
 static void AddConstUInt(clang::ASTContext &context, DeclContext *DC,
@@ -561,6 +570,7 @@ static void AddConstUInt(clang::ASTContext &context, DeclContext *DC,
   varDecl->setImplicit(true);
   if (AAttr)
     varDecl->addAttr(AAttr);
+
   DC->addDecl(varDecl);
 }
 
@@ -599,10 +609,8 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
 
   // Create an availability attribute for
   // shader model 6.9 for the RAYQUERY_FLAG enum
-  AvailabilityAttr *AAttr_6_9 = AvailabilityAttr::CreateImplicit(
-      context, &context.Idents.get(""), clang::VersionTuple(6, 9),
-      clang::VersionTuple(), clang::VersionTuple(), false,
-      "potential misuse of built-in constant introduced in shader model 6.9");
+  VersionTuple VT69 = VersionTuple(6,9);
+  ConstructAvailabilityAttribute(context, VT69);
 
   AddTypedefPseudoEnum(
       context, "RAY_FLAG",
@@ -623,13 +631,14 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
        {"RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES",
         (unsigned)DXIL::RayFlag::SkipProceduralPrimitives},
        {"RAY_FLAG_FORCE_OMM_2_STATE", (unsigned)DXIL::RayFlag::ForceOMM2State,
-        AAttr_6_9}});
+        ConstructAvailabilityAttribute(context, VT69)}});
 
   AddTypedefPseudoEnum(
       context, "RAYQUERY_FLAG",
       {{"RAYQUERY_FLAG_NONE", (unsigned)DXIL::RayQueryFlag::None},
        {"RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS",
-        (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps, AAttr_6_9}});
+        (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps,
+        ConstructAvailabilityAttribute(context, VT69)}});
 
   AddTypedefPseudoEnum(
       context, "COMMITTED_STATUS",

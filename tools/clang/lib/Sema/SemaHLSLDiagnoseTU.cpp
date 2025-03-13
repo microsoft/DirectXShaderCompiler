@@ -341,7 +341,7 @@ public:
       Sema *S, const hlsl::ShaderModel *SM, DXIL::ShaderKind EntrySK,
       DXIL::NodeLaunchType NodeLaunchTy, const FunctionDecl *EntryDecl,
       llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls,
-      llvm::SmallPtrSetImpl<NamedDecl *> &DiagnosedDecls)
+      llvm::SmallPtrSetImpl<DeclRefExpr *> &DiagnosedDecls)
       : sema(S), SM(SM), EntrySK(EntrySK), NodeLaunchTy(NodeLaunchTy),
         EntryDecl(EntryDecl), DiagnosedCalls(DiagnosedCalls),
         DiagnosedDecls(DiagnosedDecls) {}
@@ -403,18 +403,29 @@ public:
 
   bool VisitDeclRefExpr(DeclRefExpr *DRE) {
     // Diagnose availability for referenced decl.
-    DiagnoseAvailability(DRE->getDecl(), DRE->getLocation());
+    // Skip redundant availability diagnostics for the same Decl.
+    if (DiagnosedDecls.insert(DRE).second)
+      DiagnoseAvailability(DRE, DRE->getLocation());
+    
     return true;
   }
 
-  void DiagnoseAvailability(NamedDecl *Decl, SourceLocation Loc) {
-    AvailabilityAttr *AAttr = Decl->getAttr<AvailabilityAttr>();
+  AvailabilityAttr *GetAttrAndStoreDecl(DeclRefExpr *DRE) {
+    NamedDecl *ND = DRE->getDecl();
+    if (!ND)
+      return nullptr;
+    AvailabilityAttr *AAttr = ND->getAttr<AvailabilityAttr>();
     if (!AAttr)
-      return;
+      return nullptr;
 
-    // Skip redundant availability diagnostics for the same Decl.
-    if (!DiagnosedDecls.insert(Decl).second)
-      return;
+    return AAttr;
+  }
+
+  void DiagnoseAvailability(DeclRefExpr *DRE, SourceLocation Loc) {    
+
+    AvailabilityAttr *AAttr = GetAttrAndStoreDecl(DRE);
+    if (!AAttr)
+      return;    
 
     VersionTuple AAttrVT = AAttr->getIntroduced();
     VersionTuple SMVT = VersionTuple(SM->GetMajor(), SM->GetMinor());
@@ -427,7 +438,7 @@ public:
       // TBD: Determine best way to distinguish between builtin constant decls
       // and other decls.
       sema->Diag(Loc, diag::warn_hlsl_builtin_constant_unavailable)
-          << Decl << SM->GetName() << AAttrVT.getAsString();
+          << DRE->getDecl() << SM->GetName() << AAttrVT.getAsString();
     }
   }
 
@@ -440,7 +451,7 @@ private:
   DXIL::NodeLaunchType NodeLaunchTy;
   const FunctionDecl *EntryDecl;
   llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls;
-  llvm::SmallPtrSetImpl<NamedDecl *> &DiagnosedDecls;
+  llvm::SmallPtrSetImpl<DeclRefExpr *> &DiagnosedDecls;
 };
 
 std::optional<uint32_t>
@@ -541,7 +552,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 
   std::set<FunctionDecl *> DiagnosedRecursiveDecls;
   llvm::SmallPtrSet<CallExpr *, 16> DiagnosedCalls;
-  llvm::SmallPtrSet<NamedDecl *, 16> DiagnosedDecls;
+  llvm::SmallPtrSet<DeclRefExpr *, 16> DiagnosedDecls;
   // for each FDecl, check for recursion
   for (FunctionDecl *FDecl : FDeclsToCheck) {
     CallGraphWithRecurseGuard callGraph;

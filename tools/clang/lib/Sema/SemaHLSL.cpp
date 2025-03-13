@@ -5341,7 +5341,7 @@ public:
       // finally, if ForceOMM2State is set and AllowOpacityMicromaps
       // isn't, emit a warning
       if (HasRayFlagForceOMM2State && !HasRayQueryFlagAllowOpacityMicromaps)
-        m_sema->Diag(Template->getTemplatedDecl()->getLocStart(),
+        m_sema->Diag(TemplateArgList[0].getLocation(),
                      diag::warn_hlsl_rayquery_flags_conflict);
     } else if (Template->getTemplatedDecl()->hasAttr<HLSLTessPatchAttr>()) {
       DXASSERT(TemplateArgList.size() > 0,
