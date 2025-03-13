@@ -699,6 +699,15 @@ class db_dxil(object):
             self.name_idx[i].category = "Extended Command Information"
             self.name_idx[i].shader_stages = ("vertex",)
             self.name_idx[i].shader_model = 6, 8
+        for i in ("HitObject_MakeMiss,HitObject_MakeNop").split(","):
+            self.name_idx[i].category = "Shader Execution Reordering"
+            self.name_idx[i].shader_model = 6, 9
+            self.name_idx[i].shader_stages = (
+                "library",
+                "raygeneration",
+                "closesthit",
+                "miss",
+            )
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -5550,7 +5559,43 @@ class db_dxil(object):
         next_op_idx = self.reserve_dxil_op_range("ReservedA", next_op_idx, 3)
 
         # Shader Execution Reordering
-        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 31)
+        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 3)
+
+        self.add_dxil_op(
+            "HitObject_MakeMiss",
+            next_op_idx,
+            "HitObject_MakeMiss",
+            "Creates a new HitObject representing a miss",
+            "v",
+            "rn",
+            [
+                db_dxil_param(0, "hit_object", "", "HitObject with a committed miss"),
+                db_dxil_param(2, "i32", "RayFlags", "ray flags"),
+                db_dxil_param(3, "i32", "MissShaderIndex", "Miss shader index"),
+                db_dxil_param(4, "f", "Origin_X", "Origin x of the ray"),
+                db_dxil_param(5, "f", "Origin_Y", "Origin y of the ray"),
+                db_dxil_param(6, "f", "Origin_Z", "Origin z of the ray"),
+                db_dxil_param(7, "f", "TMin", "Tmin of the ray"),
+                db_dxil_param(8, "f", "Direction_X", "Direction x of the ray"),
+                db_dxil_param(9, "f", "Direction_Y", "Direction y of the ray"),
+                db_dxil_param(10, "f", "Direction_Z", "Direction z of the ray"),
+                db_dxil_param(11, "f", "TMax", "Tmax of the ray"),
+            ],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_MakeNop",
+            next_op_idx,
+            "HitObject_MakeNop",
+            "Creates an empty nop HitObject",
+            "v",
+            "rn",
+            [db_dxil_param(0, "hit_object", "", "Empty nop HitObject")],
+        )
+        next_op_idx += 1
+
+        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 26, 5)
 
         # Reserved block C
         next_op_idx = self.reserve_dxil_op_range("ReservedC", next_op_idx, 10)
@@ -8145,10 +8190,12 @@ class db_dxil(object):
         )
         self.instr.append(i)
 
-    def reserve_dxil_op_range(self, group_name, start_id, count):
+    def reserve_dxil_op_range(self, group_name, start_id, count, start_reserved_id=0):
         "Reserve a range of dxil opcodes for future use; returns next id"
         for i in range(0, count):
-            self.add_dxil_op_reserved("{0}{1}".format(group_name, i), start_id + i)
+            self.add_dxil_op_reserved(
+                "{0}{1}".format(group_name, start_reserved_id + i), start_id + i
+            )
         return start_id + count
 
     def get_instr_by_llvm_name(self, llvm_name):

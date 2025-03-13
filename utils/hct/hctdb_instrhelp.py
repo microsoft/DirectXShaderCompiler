@@ -620,6 +620,7 @@ class db_oload_gen:
             "noderecordhandle": "A(pNodeRecordHandle);",
             "nodeproperty": "A(nodeProperty);",
             "noderecordproperty": "A(nodeRecordProperty);",
+            "hit_object": "A(pHit);",
         }
         last_category = None
         for i in self.instrs:
