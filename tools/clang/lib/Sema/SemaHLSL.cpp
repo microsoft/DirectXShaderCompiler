@@ -3701,8 +3701,6 @@ private:
     const auto *SM =
         hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
     CXXRecordDecl *nodeOutputDecl = nullptr, *emptyNodeOutputDecl = nullptr;
-    const bool EnableSER =
-        m_sema->getLangOpts().EnableShaderExecutionReordering;
 
     for (unsigned i = 0; i < _countof(g_ArBasicKindsAsTypes); i++) {
       ArBasicKind kind = g_ArBasicKindsAsTypes[i];
@@ -3779,7 +3777,7 @@ private:
         recordDecl = DeclareRayQueryType(*m_context);
       } else if (kind == AR_OBJECT_HIT_OBJECT) {
         // Declare 'HitObject' in '::dx' extension namespace.
-        if (EnableSER) {
+        if (SM->IsSM69Plus()) {
           DXASSERT(m_dxNSDecl, "namespace ::dx must be declared in SM6.9+");
           recordDecl = DeclareHitObjectType(*m_dxNSDecl);
         }
@@ -5084,13 +5082,13 @@ public:
   }
 
   bool IsEnabledIntrinsic(const HLSL_INTRINSIC *pIntrinsic,
-                          const LangOptions LangOpts) {
+                          const ShaderModel &SM) {
     switch ((IntrinsicOp)pIntrinsic->Op) {
     default:
       return true;
     case IntrinsicOp::MOP_DxHitObject_MakeNop:
     case IntrinsicOp::IOP_DxMaybeReorderThread:
-      return LangOpts.EnableShaderExecutionReordering;
+      return SM.IsSM69Plus();
     }
   }
 
@@ -5147,6 +5145,9 @@ public:
     }
 #endif // ENABLE_SPIRV_CODEGEN
 
+    const auto *SM =
+        hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
+
     IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
         table, tableCount, StringRef(), nameIdentifier, Args.size());
     IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
@@ -5159,7 +5160,7 @@ public:
       // configuration. Note that this not necessary for member functions:
       // if the builtin type is never declared, neither will any type refer
       // to the member intrinsics table.
-      if (!IsEnabledIntrinsic(*cursor, m_sema->getLangOpts()))
+      if (!IsEnabledIntrinsic(*cursor, *SM))
         continue;
 
       // If this is the intrinsic we're interested in, build up a representation
@@ -11935,7 +11936,7 @@ void Sema::DiagnoseReachableCallForSER(CallExpr *CE, DXIL::ShaderKind EntrySK,
     Diag(EntryFD->getLocation(), diag::note_hlsl_entry_defined_here);
   }
 
-  if (!getLangOpts().EnableShaderExecutionReordering) {
+  if (!SM->IsSM69Plus()) {
     // Legal entry, but version not supported
     Diag(Loc, diag::err_hlsl_ser_invalid_version) << SM->GetName();
   }
