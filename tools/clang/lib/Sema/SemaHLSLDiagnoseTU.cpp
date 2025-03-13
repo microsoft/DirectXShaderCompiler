@@ -145,13 +145,21 @@ private:
   }
 
 public:
-  void BuildForEntry(FunctionDecl *EntryFnDecl) {
+  void BuildForEntry(FunctionDecl *EntryFnDecl,
+                     llvm::ArrayRef<VarDecl *> GlobalsWithInit) {
     DXASSERT_NOMSG(EntryFnDecl);
     EntryFnDecl = getFunctionWithBody(EntryFnDecl);
     PendingFunctions pendingFunctions;
     FnReferenceVisitor visitor(m_visitedFunctions, pendingFunctions,
                                m_callNodes);
-    pendingFunctions.push_back(EntryFnDecl);
+
+    // First, traverse all initializers, then entry function.
+    m_visitedFunctions.insert(EntryFnDecl);
+    visitor.setSourceFn(EntryFnDecl);
+    for (VarDecl *VD : GlobalsWithInit)
+      visitor.TraverseDecl(VD);
+    visitor.TraverseDecl(EntryFnDecl);
+
     while (!pendingFunctions.empty()) {
       FunctionDecl *pendingDecl = pendingFunctions.pop_back_val();
       if (m_visitedFunctions.insert(pendingDecl).second == true) {
@@ -287,39 +295,56 @@ std::vector<FunctionDecl *> GetAllExportedFDecls(clang::Sema *self) {
   return AllExportedFDecls;
 }
 
+void GatherGlobalsWithInitializers(
+    DeclContext *DC, llvm::SmallVectorImpl<VarDecl *> &GlobalsWithInit) {
+  for (auto *D : DC->decls()) {
+    // Skip built-ins and function decls.
+    if (D->isImplicit() || isa<FunctionDecl>(D))
+      continue;
+    if (auto *VD = dyn_cast<VarDecl>(D)) {
+      // Add if user-defined static or groupshared global with initializer.
+      if (VD->hasInit() && VD->hasGlobalStorage() &&
+          (VD->getStorageClass() == SC_Static ||
+           VD->hasAttr<HLSLGroupSharedAttr>()))
+        GlobalsWithInit.push_back(VD);
+    } else if (auto *DC = dyn_cast<DeclContext>(D)) {
+      // Recurse into DeclContexts like namespace, cbuffer, class/struct, etc.
+      GatherGlobalsWithInitializers(DC, GlobalsWithInit);
+    }
+  }
+}
+
 // in the non-library case, this function will be run only once,
 // but in the library case, this function will be run for each
 // viable top-level function declaration by
 // ValidateNoRecursionInTranslationUnit.
 //  (viable as in, is exported)
-clang::FunctionDecl *ValidateNoRecursion(CallGraphWithRecurseGuard &callGraph,
-                                         clang::FunctionDecl *FD) {
+clang::FunctionDecl *
+ValidateNoRecursion(CallGraphWithRecurseGuard &callGraph,
+                    clang::FunctionDecl *FD,
+                    llvm::ArrayRef<VarDecl *> GlobalsWithInit) {
   // Validate that there is no recursion reachable by this function declaration
   // NOTE: the information gathered here could be used to bypass code generation
   // on functions that are unreachable (as an early form of dead code
   // elimination).
   if (FD) {
-    callGraph.BuildForEntry(FD);
+    callGraph.BuildForEntry(FD, GlobalsWithInit);
     return callGraph.CheckRecursion(FD);
   }
   return nullptr;
 }
 
-class HLSLCallDiagnoseVisitor
+class HLSLCallDiagnoseVisitor // Could rename to HLSLReachableDiagnoseVisitor
     : public RecursiveASTVisitor<HLSLCallDiagnoseVisitor> {
 public:
-  typedef llvm::SmallMapVector<VarDecl *, DeclRefExpr *, 8> GlobalInitMap;
-
   explicit HLSLCallDiagnoseVisitor(
       Sema *S, const hlsl::ShaderModel *SM, DXIL::ShaderKind EntrySK,
       DXIL::NodeLaunchType NodeLaunchTy, const FunctionDecl *EntryDecl,
       llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls,
-      GlobalInitMap &GlobalInitFound,
-      llvm::SmallPtrSetImpl<VarDecl *> &DiagnosedGlobalInit)
+      llvm::SmallPtrSetImpl<NamedDecl *> &DiagnosedDecls)
       : sema(S), SM(SM), EntrySK(EntrySK), NodeLaunchTy(NodeLaunchTy),
         EntryDecl(EntryDecl), DiagnosedCalls(DiagnosedCalls),
-        GlobalInitFound(GlobalInitFound),
-        DiagnosedGlobalInit(DiagnosedGlobalInit) {}
+        DiagnosedDecls(DiagnosedDecls) {}
 
   bool VisitCallExpr(CallExpr *CE) {
     // Set flag if already diagnosed from another entry, allowing some
@@ -333,8 +358,6 @@ public:
                                     locallyVisited);
     return true;
   }
-
-  void setDeclRefExpr(DeclRefExpr *Expr) { CurDeclRefExpr = Expr; }
 
   bool VisitVarDecl(VarDecl *VD) {
     QualType VarType = VD->getType();
@@ -367,7 +390,7 @@ public:
               // Now check if the sub-expression is a DeclRefExpr
               Expr *subExpr = castExpr->getSubExpr();
               if (auto *IL = dyn_cast<IntegerLiteral>(subExpr))
-                sema->Diag(TD->getTemplatedDecl()->getLocStart(),
+                sema->Diag(VD->getLocStart(),
                            diag::warn_hlsl_rayquery_flags_disallowed);
               return true;
             }
@@ -379,43 +402,33 @@ public:
   }
 
   bool VisitDeclRefExpr(DeclRefExpr *DRE) {
+    // Diagnose availability for referenced decl.
+    DiagnoseAvailability(DRE->getDecl(), DRE->getLocation());
+    return true;
+  }
 
-    // Firstly, add any referenced global variables to the
-    // global variables map
+  void DiagnoseAvailability(NamedDecl *Decl, SourceLocation Loc) {
+    AvailabilityAttr *AAttr = Decl->getAttr<AvailabilityAttr>();
+    if (!AAttr)
+      return;
 
-    if (VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
-      if (VD->hasGlobalStorage() && DiagnosedGlobalInit.count(VD) == 0) {
-        const std::pair<VarDecl *, DeclRefExpr *> p(VD, DRE);
-        if (!GlobalInitFound.lookup(VD))
-          GlobalInitFound.insert(p);
-      }
-    }
-    // Search for enum types that should only exist after
-    // specific shader models.
+    // Skip redundant availability diagnostics for the same Decl.
+    if (!DiagnosedDecls.insert(Decl).second)
+      return;
 
-    if (!DRE->getDecl()->hasAttr<AvailabilityAttr>())
-      return true;
-
-    // Next step: given a valid DRE, get an availability
-    // attribute from it
-    AvailabilityAttr *AAttr = nullptr;
-
-    AAttr = DRE->getDecl()->getAttr<AvailabilityAttr>();
     VersionTuple AAttrVT = AAttr->getIntroduced();
     VersionTuple SMVT = VersionTuple(SM->GetMajor(), SM->GetMinor());
 
     // if the current shader model is lower than what
     // is stated in the availability attribute, emit
-    // the warning warn_hlsl_builtin_constant_unavailable
+    // the availability warning.
 
     if (SMVT < AAttrVT) {
-      IdentifierInfo *II = DRE->getDecl()->getIdentifier();
-      sema->Diag(DRE->getLocation(),
-                 diag::warn_hlsl_builtin_constant_unavailable)
-          << II->getName() << SM->GetName() << AAttrVT.getAsString();
+      // TBD: Determine best way to distinguish between builtin constant decls
+      // and other decls.
+      sema->Diag(Loc, diag::warn_hlsl_builtin_constant_unavailable)
+          << Decl << SM->GetName() << AAttrVT.getAsString();
     }
-
-    return true;
   }
 
   clang::Sema *getSema() { return sema; }
@@ -427,11 +440,7 @@ private:
   DXIL::NodeLaunchType NodeLaunchTy;
   const FunctionDecl *EntryDecl;
   llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls;
-  GlobalInitMap &GlobalInitFound;
-  // When traversing global decls, this tracks where an active use was found
-  // to lead from an active entry or export function.
-  DeclRefExpr *CurDeclRefExpr;
-  llvm::SmallPtrSetImpl<VarDecl *> &DiagnosedGlobalInit;
+  llvm::SmallPtrSetImpl<NamedDecl *> &DiagnosedDecls;
 };
 
 std::optional<uint32_t>
@@ -526,19 +535,26 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   const auto *shaderModel =
       hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
 
-  std::set<FunctionDecl *> DiagnosedDecls;
+  llvm::SmallVector<VarDecl *, 16> GlobalsWithInit;
+  GatherGlobalsWithInitializers(self->getASTContext().getTranslationUnitDecl(),
+                                GlobalsWithInit);
+
+  std::set<FunctionDecl *> DiagnosedRecursiveDecls;
   llvm::SmallPtrSet<CallExpr *, 16> DiagnosedCalls;
-  llvm::SmallPtrSet<VarDecl *, 8> DiagnosedGlobalInit;
+  llvm::SmallPtrSet<NamedDecl *, 16> DiagnosedDecls;
   // for each FDecl, check for recursion
   for (FunctionDecl *FDecl : FDeclsToCheck) {
     CallGraphWithRecurseGuard callGraph;
-    FunctionDecl *result = ValidateNoRecursion(callGraph, FDecl);
+    ArrayRef<VarDecl *> InitGlobals = {};
+    // if entry function, include globals with initializers.
+    if (FDecl->hasAttr<HLSLShaderAttr>())
+      InitGlobals = GlobalsWithInit;
+    FunctionDecl *result = ValidateNoRecursion(callGraph, FDecl, InitGlobals);
 
     if (result) {
       // don't emit duplicate diagnostics for the same recursive function
       // if A and B call recursive function C, only emit 1 diagnostic for C.
-      if (DiagnosedDecls.find(result) == DiagnosedDecls.end()) {
-        DiagnosedDecls.insert(result);
+      if (DiagnosedRecursiveDecls.insert(result).second) {
         self->Diag(result->getSourceRange().getBegin(),
                    diag::err_hlsl_no_recursion)
             << FDecl->getQualifiedNameAsString()
@@ -562,12 +578,12 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     }
 
     if (pPatchFnDecl) {
-      FunctionDecl *patchResult = ValidateNoRecursion(callGraph, pPatchFnDecl);
+      FunctionDecl *patchResult =
+          ValidateNoRecursion(callGraph, pPatchFnDecl, GlobalsWithInit);
 
       // In this case, recursion was detected in the patch-constant function
       if (patchResult) {
-        if (DiagnosedDecls.find(patchResult) == DiagnosedDecls.end()) {
-          DiagnosedDecls.insert(patchResult);
+        if (DiagnosedRecursiveDecls.insert(patchResult).second) {
           self->Diag(patchResult->getSourceRange().getBegin(),
                      diag::err_hlsl_no_recursion)
               << pPatchFnDecl->getQualifiedNameAsString()
@@ -581,14 +597,14 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       // disconnected with respect to the call graph.
       // Only check this if neither function decl is recursive
       if (!result && !patchResult) {
-        CallGraphWithRecurseGuard CG;
-        CG.BuildForEntry(pPatchFnDecl);
+        CallGraphWithRecurseGuard CG; // Why not use already-built 'callGraph'?
+        CG.BuildForEntry(pPatchFnDecl, GlobalsWithInit);
         if (CG.CheckReachability(pPatchFnDecl, FDecl)) {
           self->Diag(FDecl->getSourceRange().getBegin(),
                      diag::err_hlsl_patch_reachability_not_allowed)
               << 1 << FDecl->getName() << 0 << pPatchFnDecl->getName();
         }
-        CG.BuildForEntry(FDecl);
+        CG.BuildForEntry(FDecl, GlobalsWithInit);
         if (CG.CheckReachability(FDecl, pPatchFnDecl)) {
           self->Diag(FDecl->getSourceRange().getBegin(),
                      diag::err_hlsl_patch_reachability_not_allowed)
@@ -652,20 +668,12 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     }
     // Visit all visited functions in call graph to collect illegal intrinsic
     // calls.
-    HLSLCallDiagnoseVisitor::GlobalInitMap GlobalInitFound;
     HLSLCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK, NodeLaunchTy,
-                                    FDecl, DiagnosedCalls, GlobalInitFound,
-                                    DiagnosedGlobalInit);
-    for (FunctionDecl *FD : callGraph.GetVisitedFunctions()) {
+                                    FDecl, DiagnosedCalls, DiagnosedDecls);
+    // Visit globals with initializers when processing entry point.
+    for (VarDecl *VD : InitGlobals)
+      Visitor.TraverseDecl(VD);
+    for (FunctionDecl *FD : callGraph.GetVisitedFunctions())
       Visitor.TraverseDecl(FD);
-    }
-
-    // Initializers might refer to other globals, adding those to
-    // GlobalInitFound, so this iteration method accounts for this.
-    for (unsigned Idx = 0; Idx < GlobalInitFound.size(); ++Idx) {
-      auto Found = GlobalInitFound.begin()[Idx];
-      Visitor.setDeclRefExpr(Found.second);
-      Visitor.TraverseDecl(Found.first);
-    }
   }
 }

@@ -4,15 +4,14 @@
 // errors when the flag appears in a namespace, and when compilation target
 // is less than shader model 6.9.
 
-namespace MyNamespace {
-  // expected-warning@+1{{potential misuse of built-in constant 'RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS' in shader model vs_6_5; introduced in shader model 6.9}}
-  static const int badVar = RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS;
-}
+
+// expected-warning@+1{{potential misuse of built-in constant 'RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS' in shader model vs_6_5; introduced in shader model 6.9}}
+groupshared const int badVar = RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS;
 
 RaytracingAccelerationStructure RTAS;
 void main(uint i : IDX, RayDesc rayDesc : RAYDESC) {
 
-  int x = MyNamespace::badVar;
+  int x = badVar;
   RayQuery<0> rayQuery0a;
 
   if (x > 4){
