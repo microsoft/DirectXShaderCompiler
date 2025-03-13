@@ -19,6 +19,7 @@
 
 // Less exhaustive testing for some other types.
 // RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=int      -DNUM=2 %s | FileCheck %s --check-prefixes=CHECK,NODBL
+// RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=uint8_t4_packed      -DNUM=4 %s | FileCheck %s --check-prefixes=CHECK,NODBL
 // RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=uint     -DNUM=5 %s | FileCheck %s --check-prefixes=CHECK,NODBL
 // RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=double   -DNUM=3 -DDBL %s | FileCheck %s --check-prefixes=CHECK,DBL
 // RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=uint64_t -DNUM=9 %s | FileCheck %s --check-prefixes=CHECK,NODBL

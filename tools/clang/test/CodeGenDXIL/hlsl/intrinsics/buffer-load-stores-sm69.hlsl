@@ -1,5 +1,6 @@
 // RUN: %dxc -DTYPE=float -DNUM=4    -T vs_6_9 %s | FileCheck %s
 // RUN: %dxc -DTYPE=bool -DNUM=4     -T vs_6_9 %s | FileCheck %s --check-prefixes=CHECK,I1
+// RUN: %dxc -DTYPE=uint8_t4_packed -DNUM=4     -T vs_6_9 %s | FileCheck %s --check-prefixes=CHECK
 
 // 64-bit types require operation/intrinsic support to convert the values to/from the i32 memory representations.
 // RUN: %dxc -DTYPE=uint64_t -DNUM=2 -T vs_6_9 %s | FileCheck %s --check-prefixes=CHECK,I64
