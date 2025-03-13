@@ -8239,8 +8239,8 @@ class db_hlsl_intrinsic(object):
         # Encoded minimum shader model for this intrinsic
         self.min_shader_model = 0
         if min_shader_model:
-            self.min_shader_model = (
-                (min_shader_model[0] << 4) | (min_shader_model[1] & 0x0F)
+            self.min_shader_model = (min_shader_model[0] << 4) | (
+                min_shader_model[1] & 0x0F
             )
         self.key = (
             ("%3d" % ns_idx)
