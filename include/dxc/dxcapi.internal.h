@@ -161,9 +161,9 @@ struct HLSL_INTRINSIC_ARGUMENT {
 };
 
 // HLSL_INTRINSIC flags
-static const UINT INTRIN_FLAG_READ_ONLY = 0x1;
-static const UINT INTRIN_FLAG_READ_NONE = 0x2;
-static const UINT INTRIN_FLAG_IS_WAVE = 0x4;
+static const UINT INTRIN_FLAG_READ_ONLY = 1U << 0;
+static const UINT INTRIN_FLAG_READ_NONE = 1U << 1;
+static const UINT INTRIN_FLAG_IS_WAVE = 1U << 2;
 
 struct HLSL_INTRINSIC {
   UINT Op;                 // Intrinsic Op ID
