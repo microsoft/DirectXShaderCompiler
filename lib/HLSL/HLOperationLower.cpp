@@ -4004,75 +4004,59 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
   const unsigned kAddrIdx = HLOperandIndex::kBufLoadAddrOpIdx;
   addr = CI->getArgOperand(kAddrIdx);
   unsigned argc = CI->getNumArgOperands();
+  Type *i32Ty = Type::getInt32Ty(CI->getContext());
+  unsigned StatusIdx = HLOperandIndex::kBufLoadStatusOpIdx;
+  unsigned OffsetIdx = HLOperandIndex::kInvalidIdx;
 
   if (opcode == OP::OpCode::TextureLoad) {
-    // mip at last channel
-    unsigned coordSize = DxilResource::GetNumCoords(RK);
-
-    if (RC == DxilResourceBase::Class::SRV) {
-      if (bForSubscript) {
-        // Use 0 when access by [].
-        mipLevel = IRBuilder<>(CI).getInt32(0);
-      } else {
-        if (coordSize == 1 && !addr->getType()->isVectorTy()) {
-          // Use addr when access by Load.
-          mipLevel = addr;
-        } else {
-          mipLevel = IRBuilder<>(CI).CreateExtractElement(addr, coordSize);
-        }
-      }
-    } else {
-      // Set mip level to undef for UAV.
-      mipLevel = UndefValue::get(Type::getInt32Ty(addr->getContext()));
-    }
-
-    if (RC == DxilResourceBase::Class::SRV) {
-      unsigned offsetIdx = HLOperandIndex::kTexLoadOffsetOpIdx;
-      unsigned statusIdx = HLOperandIndex::kTexLoadStatusOpIdx;
-      if (RK == DxilResource::Kind::Texture2DMS ||
-          RK == DxilResource::Kind::Texture2DMSArray) {
-        offsetIdx = HLOperandIndex::kTex2DMSLoadOffsetOpIdx;
-        statusIdx = HLOperandIndex::kTex2DMSLoadStatusOpIdx;
-        if (!bForSubscript)
-          mipLevel =
-              CI->getArgOperand(HLOperandIndex::kTex2DMSLoadSampleIdxOpIdx);
-      }
-
-      if (argc > offsetIdx)
-        offset = CI->getArgOperand(offsetIdx);
-
-      if (argc > statusIdx)
-        status = CI->getArgOperand(statusIdx);
-    } else if (RC == DxilResourceBase::Class::UAV &&
-               (RK == DxilResource::Kind::Texture2DMS ||
-                RK == DxilResource::Kind::Texture2DMSArray)) {
-      unsigned statusIdx = HLOperandIndex::kTex2DMSLoadStatusOpIdx;
-
-      if (!bForSubscript)
+    bool IsMS = (RK == DxilResource::Kind::Texture2DMS ||
+                 RK == DxilResource::Kind::Texture2DMSArray);
+    // Set mip and status index.
+    offset = UndefValue::get(i32Ty);
+    if (IsMS) {
+      // Retrieve appropriate MS parameters.
+      StatusIdx = HLOperandIndex::kTex2DMSLoadStatusOpIdx;
+      // MS textures keep the sample param (mipLevel) regardless of writability.
+      if (bForSubscript)
+        mipLevel = ConstantInt::get(i32Ty, 0);
+      else
         mipLevel =
             CI->getArgOperand(HLOperandIndex::kTex2DMSLoadSampleIdxOpIdx);
-      else
-        mipLevel = IRBuilder<>(CI).getInt32(0);
-
-      if (argc > statusIdx)
-        status = CI->getArgOperand(statusIdx);
-
+    } else if (RC == DxilResourceBase::Class::UAV) {
+      // DXIL requires that non-MS UAV accesses set miplevel to undef.
+      mipLevel = UndefValue::get(i32Ty);
+      StatusIdx = HLOperandIndex::kRWTexLoadStatusOpIdx;
     } else {
-      const unsigned kStatusIdx = HLOperandIndex::kRWTexLoadStatusOpIdx;
-
-      if (argc > kStatusIdx)
-        status = CI->getArgOperand(kStatusIdx);
+      // Non-MS SRV case.
+      StatusIdx = HLOperandIndex::kTexLoadStatusOpIdx;
+      if (bForSubscript)
+        // Having no miplevel param, single subscripted SRVs default to 0.
+        mipLevel = ConstantInt::get(i32Ty, 0);
+      else
+        // Mip is stored at the last channel of the coordinate vector.
+        mipLevel = IRBuilder<>(CI).CreateExtractElement(
+            addr, DxilResource::GetNumCoords(RK));
     }
-  } else {
-    const unsigned kStatusIdx = HLOperandIndex::kBufLoadStatusOpIdx;
-    if (argc > kStatusIdx)
-      status = CI->getArgOperand(kStatusIdx);
-    Type *i32Ty = Type::getInt32Ty(CI->getContext());
-    if (DXIL::IsStructuredBuffer(RK))
-      offset = ConstantInt::get(i32Ty, 0U);
-    else
-      offset = UndefValue::get(i32Ty);
+    if (RC == DxilResourceBase::Class::SRV)
+      OffsetIdx = IsMS ? HLOperandIndex::kTex2DMSLoadOffsetOpIdx
+                       : HLOperandIndex::kTexLoadOffsetOpIdx;
   }
+
+  // Set offset.
+  if (DXIL::IsStructuredBuffer(RK))
+    // Structured buffers receive no exterior offset in this constructor,
+    // but may need to increment it later.
+    offset = ConstantInt::get(i32Ty, 0U);
+  else if (argc > OffsetIdx)
+    // Textures may set the offset from an explicit argument.
+    offset = CI->getArgOperand(OffsetIdx);
+  else
+    // All other cases use undef.
+    offset = UndefValue::get(i32Ty);
+
+  // Retrieve status value if provided.
+  if (argc > StatusIdx)
+    status = CI->getArgOperand(StatusIdx);
 }
 
 void TranslateStructBufSubscript(CallInst *CI, Value *handle, Value *status,
@@ -4127,9 +4111,9 @@ static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
   alignment = std::min(alignment, LdSize);
   Constant *alignmentVal = Builder.getInt32(alignment);
 
-  // Assemble args is specific to the type bab/struct/typed
-  // Typed needs to handle the possibility of vector coords
-  // Raws need to calculate alignment and mask values.
+  // Assemble args specific to the type bab/struct/typed:
+  // - Typed needs to handle the possibility of vector coords
+  // - Raws need to calculate alignment and mask values.
   SmallVector<Value *, 10> Args;
   Args.emplace_back(opArg);         // opcode @0.
   Args.emplace_back(helper.handle); // Resource handle @1
@@ -4165,7 +4149,9 @@ static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
   } else {
     // If not TextureLoad, it could be a typed or raw buffer load.
     // They have mostly similar arguments.
-
+    DXASSERT(opcode == OP::OpCode::RawBufferLoad ||
+                 opcode == OP::OpCode::BufferLoad,
+             "Wrong opcode in get load args");
     Args.emplace_back(
         isVectorAddr ? Builder.CreateExtractElement(helper.addr, (uint64_t)0)
                      : helper.addr);
@@ -4178,8 +4164,6 @@ static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
   }
   return Args;
 }
-
-namespace OpIx = hlsl::DXIL::OperandIndex;
 
 // Emits as many calls as needed to load the full vector
 // Performs any needed extractions and conversions of the results.
@@ -4237,13 +4221,15 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
     if (opcode == OP::OpCode::RawBufferLoad && i < numComponents) {
       if (RK == DxilResource::Kind::RawBuffer)
         // Raw buffers can't use offset param. Add to coord index.
-        Args[OpIx::kRawBufferLoadIndexOpIdx] = Builder.CreateAdd(
-            Args[OpIx::kRawBufferLoadIndexOpIdx], OP->GetU32Const(4 * LdSize));
+        Args[DXIL::OperandIndex::kRawBufferLoadIndexOpIdx] = Builder.CreateAdd(
+            Args[DXIL::OperandIndex::kRawBufferLoadIndexOpIdx],
+            OP->GetU32Const(4 * LdSize));
       else
         // Structured buffers increment the offset parameter.
-        Args[OpIx::kRawBufferLoadElementOffsetOpIdx] =
-            Builder.CreateAdd(Args[OpIx::kRawBufferLoadElementOffsetOpIdx],
-                              OP->GetU32Const(4 * LdSize));
+        Args[DXIL::OperandIndex::kRawBufferLoadElementOffsetOpIdx] =
+            Builder.CreateAdd(
+                Args[DXIL::OperandIndex::kRawBufferLoadElementOffsetOpIdx],
+                OP->GetU32Const(4 * LdSize));
     }
   }
 
