@@ -1810,9 +1810,9 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
   }
   FD->addAttr(
       HLSLIntrinsicAttr::CreateImplicit(context, tableName, lowering, opcode));
-  if (pIntrinsic->Flags & INTRIN_FLAG_READ_ONLY)
-    FD->addAttr(ConstAttr::CreateImplicit(context));
   if (pIntrinsic->Flags & INTRIN_FLAG_READ_NONE)
+    FD->addAttr(ConstAttr::CreateImplicit(context));
+  if (pIntrinsic->Flags & INTRIN_FLAG_READ_ONLY)
     FD->addAttr(PureAttr::CreateImplicit(context));
   if (pIntrinsic->Flags & INTRIN_FLAG_IS_WAVE)
     FD->addAttr(HLSLWaveSensitiveAttr::CreateImplicit(context));
