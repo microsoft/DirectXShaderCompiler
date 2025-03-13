@@ -68,7 +68,6 @@ define void @main(i32 %ix1, <2 x i32> %ix2, <3 x i32> %ix3, <4 x i32> %ix4) #0 {
   ; CHECK: [[IX:%.*]] = add <2 x i32> {{%.*}}, <i32 3, i32 3>
   ; CHECK: [[HDL:%.*]] = call %dx.types.Handle @"dx.op.createHandleForLib.class.Texture2DMS<vector<bool, 2>, 0>"(i32 160, %"class.Texture2DMS<vector<bool, 2>, 0>"
   ; CHECK: [[ANHDL:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDL]], %dx.types.ResourceProperties { i32 3, i32 517 })
-  ; WTF?: extractelement <2 x i32> [[IX]], i64 2
   ; CHECK-DAG: [[IX0:%.*]] = extractelement <2 x i32> [[IX]], i64 0
   ; CHECK-DAG: [[IX1:%.*]] = extractelement <2 x i32> [[IX]], i64 1
   ; CHECK: [[LD:%.*]] = call %dx.types.ResRet.i32 @dx.op.textureLoad.i32(i32 66, %dx.types.Handle [[ANHDL]], i32 [[PIX]], i32 [[IX0]], i32 [[IX1]], i32 undef, i32 undef, i32 undef, i32 undef)

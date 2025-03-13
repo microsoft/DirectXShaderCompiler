@@ -19,7 +19,7 @@ void main(uint ix1 : IX1, uint2 ix2 : IX2, uint3 ix3 : IX3, uint4 ix4 : IX4) {
   // CHECK: [[ANHDL:%.*]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22class.RWBuffer<vector<bool, 2> >\22)"(i32 14, %dx.types.Handle [[HDL]], %dx.types.ResourceProperties { i32 4106, i32 517 }, %"class.RWBuffer<vector<bool, 2> >" undef)
   // CHECK: call <2 x i1> @"dx.hl.op.ro.<2 x i1> (i32, %dx.types.Handle, i32)"(i32 231, %dx.types.Handle [[ANHDL]], i32 [[IX]])
   bool2  Tyb0  = TyBuf.Load(ix1 + 1);
-  
+
   // CHECK: [[IX:%.*]] = add i32 {{%.*}}, 2
   // CHECK: [[HDL:%.*]] = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %\22class.RWBuffer<vector<bool, 2> >\22)"(i32 0, %"class.RWBuffer<vector<bool, 2> >"
   // CHECK: [[ANHDL:%.*]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22class.RWBuffer<vector<bool, 2> >\22)"(i32 14, %dx.types.Handle [[HDL]], %dx.types.ResourceProperties { i32 4106, i32 517 }, %"class.RWBuffer<vector<bool, 2> >" undef)
@@ -31,7 +31,7 @@ void main(uint ix1 : IX1, uint2 ix2 : IX2, uint3 ix3 : IX3, uint4 ix4 : IX4) {
   // CHECK: [[ANHDL:%.*]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22class.Texture2DMS<vector<bool, 2>, 0>\22)"(i32 14, %dx.types.Handle [[HDL]], %dx.types.ResourceProperties { i32 3, i32 517 }, %"class.Texture2DMS<vector<bool, 2>, 0>" undef),
   // CHECK: call <2 x i1> @"dx.hl.op..<2 x i1> (i32, %dx.types.Handle, <2 x i32>, i32)"(i32 231, %dx.types.Handle [[ANHDL]], <2 x i32> [[IX]]
   bool2  TxMs0  = Tex2dMs.Load(ix2 + 3, ix1);
-  
+
   // CHECK: [[IX:%.*]] = add <2 x i32> {{%.*}}, <i32 4, i32 4>
   // CHECK: [[HDL:%.*]] = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %\22class.Texture2DMS<vector<bool, 2>, 0>\22)"(i32 0, %"class.Texture2DMS<vector<bool, 2>, 0>"
   // CHECK: [[ANHDL:%.*]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22class.Texture2DMS<vector<bool, 2>, 0>\22)"(i32 14, %dx.types.Handle [[HDL]], %dx.types.ResourceProperties { i32 3, i32 517 }, %"class.Texture2DMS<vector<bool, 2>, 0>" undef)
