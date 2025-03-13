@@ -162,7 +162,6 @@ public:
   bool EnableDX9CompatMode = false;
   bool EnableFXCCompatMode = false;
   bool EnablePayloadAccessQualifiers = false;
-  bool EnableShaderExecutionReordering = false;
   bool DumpImplicitTopLevelDecls = true;
   bool ExportShadersOnly = false;
   hlsl::DXIL::DefaultLinkage DefaultLinkage =

@@ -904,9 +904,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
-  opts.EnableShaderExecutionReordering =
-      DXIL::CompareVersions(Major, Minor, 6, 9) >= 0;
-
   opts.HandleExceptions =
       !Args.hasFlag(OPT_disable_exception_handling, OPT_INVALID, false);
 
