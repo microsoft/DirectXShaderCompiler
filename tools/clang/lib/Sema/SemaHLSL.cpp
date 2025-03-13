@@ -1810,12 +1810,21 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
   }
   FD->addAttr(
       HLSLIntrinsicAttr::CreateImplicit(context, tableName, lowering, opcode));
-  if (pIntrinsic->bReadNone)
+  if (pIntrinsic->Flags & INTRIN_FLAG_READ_ONLY)
     FD->addAttr(ConstAttr::CreateImplicit(context));
-  if (pIntrinsic->bReadOnly)
+  if (pIntrinsic->Flags & INTRIN_FLAG_READ_NONE)
     FD->addAttr(PureAttr::CreateImplicit(context));
-  if (pIntrinsic->bIsWave)
+  if (pIntrinsic->Flags & INTRIN_FLAG_IS_WAVE)
     FD->addAttr(HLSLWaveSensitiveAttr::CreateImplicit(context));
+  // TBD: Add availability attribute if MinShaderModel is set.
+  // if (pIntrinsic->MinShaderModel) {
+  //  unsigned Major = pIntrinsic->MinShaderModel >> 4;
+  //  unsigned Minor = pIntrinsic->MinShaderModel & 0xF;
+  //  FD->addAttr(AvailabilityAttr::CreateImplicit(
+  //      context, &context.Idents.get(""), clang::VersionTuple(Major, Minor),
+  //      clang::VersionTuple(), clang::VersionTuple(), false,
+  //      "HLSL Intrinsic availability limited by shader model."));
+  //}
 }
 
 static FunctionDecl *

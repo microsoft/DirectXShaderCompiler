@@ -989,13 +989,23 @@ def get_hlsl_intrinsics():
                 result += "#ifdef ENABLE_SPIRV_CODEGEN\n\n"
             # SPIRV Change Ends
             arg_idx = 0
-        ns_table += "    {(UINT)%s::%s_%s, %s, %s, %s, %d, %d, g_%s_Args%s},\n" % (
+        flags = []
+        if i.readonly:
+            flags.append("INTRIN_FLAG_READ_ONLY")
+        if i.readnone:
+            flags.append("INTRIN_FLAG_READ_NONE")
+        if i.wave:
+            flags.append("INTRIN_FLAG_IS_WAVE")
+        if flags:
+            flags = " | ".join(flags)
+        else:
+            flags = "0"
+        ns_table += "    {(UINT)%s::%s_%s, %s, 0x%x, %d, %d, g_%s_Args%s},\n" % (
             opcode_namespace,
             id_prefix,
             i.name,
-            str(i.readonly).lower(),
-            str(i.readnone).lower(),
-            str(i.wave).lower(),
+            flags,
+            i.min_shader_model,
             i.overload_param_index,
             len(i.params),
             last_ns,

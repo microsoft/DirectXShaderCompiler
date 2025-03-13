@@ -160,11 +160,16 @@ struct HLSL_INTRINSIC_ARGUMENT {
               // matching input constraints.
 };
 
+// HLSL_INTRINSIC flags
+static const UINT INTRIN_FLAG_READ_ONLY = 0x1;
+static const UINT INTRIN_FLAG_READ_NONE = 0x2;
+static const UINT INTRIN_FLAG_IS_WAVE = 0x4;
+
 struct HLSL_INTRINSIC {
   UINT Op;                 // Intrinsic Op ID
-  BOOL bReadOnly;          // Only read memory
-  BOOL bReadNone;          // Not read memory
-  BOOL bIsWave;            // Is a wave-sensitive op
+  UINT Flags;              // INTRIN_FLAG_* flags
+  UINT MinShaderModel;     // Encoded minimum shader model, 0 = no minimum
+                           // (Major << 4) + (Minor & 0xf)
   INT iOverloadParamIndex; // Parameter decide the overload type, -1 means ret
                            // type
   UINT uNumArgs;           // Count of arguments in pArgs.
