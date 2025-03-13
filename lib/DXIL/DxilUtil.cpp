@@ -574,6 +574,9 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
 
     if (IsHLSLNodeIOType(Ty))
       return true;
+
+    if (IsHLSLHitObjectType(Ty))
+      return true;
   }
   return false;
 }
@@ -589,6 +592,24 @@ bool IsHLSLRayQueryType(llvm::Type *Ty) {
       return true;
   }
   return false;
+}
+
+llvm::Type *GetHLSLHitObjectType(llvm::Module *M) {
+  using namespace llvm;
+  StructType *HitObjectTy = M->getTypeByName("dx.types.HitObject");
+  if (!HitObjectTy)
+    HitObjectTy = StructType::create({Type::getInt8PtrTy(M->getContext(), 0)},
+                                     "dx.types.HitObject", false);
+  return HitObjectTy;
+}
+
+bool IsHLSLHitObjectType(llvm::Type *Ty) {
+  llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty);
+  if (!ST)
+    return false;
+  if (!ST->hasName())
+    return false;
+  return ST->getName() == "dx.types.HitObject";
 }
 
 bool IsHLSLResourceDescType(llvm::Type *Ty) {
