@@ -7519,8 +7519,8 @@ def err_hlsl_half_load_store: Error<
   "LoadHalf and StoreHalf are not supported for min precision mode">;
 def err_hlsl_interfaces_cannot_inherit: Error<
   "interfaces cannot inherit from other types">;
-def err_hlsl_invalid_range_1_4: Error<
-  "invalid value, valid range is between 1 and 4 inclusive">;
+def err_hlsl_invalid_range_1_to_max
+    : Error<"invalid value, valid range is between 1 and %0 inclusive">;
 def err_hlsl_matrix_member_bad_format: Error<
   "invalid format for matrix subscript '%0'">;
 def err_hlsl_matrix_member_empty: Error<
@@ -7701,8 +7701,6 @@ def err_hlsl_control_flow_cond_not_scalar : Error<
   "%0 statement conditional expressions must evaluate to a scalar">;
 def err_hlsl_unsupportedvectortype : Error<
   "%0 is declared with type %1, but only primitive scalar values are supported">;
-def err_hlsl_unsupportedvectorsize : Error<
-  "%0 is declared with size %1, but only values 1 through 4 are supported">;
 def err_hlsl_unsupportedmatrixsize : Error<
   "%0 is declared with size %1x%2, but only values 1 through 4 are supported">;
 def err_hlsl_norm_float_only : Error<
@@ -7853,6 +7851,14 @@ def err_hlsl_load_from_mesh_out_arrays: Error<
    "output arrays of a mesh shader can not be read from">;
 def err_hlsl_out_indices_array_incorrect_access: Error<
    "a vector in out indices array must be accessed as a whole">;
+def err_hlsl_unsupported_long_vector
+    : Error<"vectors of over 4 elements in "
+    "%select{ConstantBuffers or TextureBuffers|"
+    "tessellation patches|geometry streams|node records|"
+    "cbuffers or tbuffers|user-defined struct parameter|"
+    "entry function parameters|entry function return type|"
+    "patch constant function parameters|patch constant function return type|"
+    "payload parameters}0 are not supported">;
 def err_hlsl_logical_binop_scalar : Error<
    "operands for short-circuiting logical binary operator must be scalar, for non-scalar types use '%select{and|or}0'">;
 def err_hlsl_ternary_scalar : Error<
