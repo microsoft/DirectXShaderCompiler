@@ -43,16 +43,16 @@ import hctdb_instrhelp
 const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
     //   OpCode                       OpCode name,                OpCodeClass
     //   OpCodeClass name,              void,     h,     f,     d,    i1,    i8,
-    //   i16,   i32,   i64,   udt,   obj,  function attribute
+    //   i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     // Temporary, indexable, input, output registers void,     h,     f,     d,
-    // i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::TempRegLoad,
         "TempRegLoad",
         OCC::TempRegLoad,
         "tempRegLoad",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -61,7 +61,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::TempRegStore,
         "tempRegStore",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -70,7 +70,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::MinPrecXRegLoad,
         "minPrecXRegLoad",
         {false, true, false, false, false, false, true, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -79,7 +79,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::MinPrecXRegStore,
         "minPrecXRegStore",
         {false, true, false, false, false, false, true, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -88,7 +88,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::LoadInput,
         "loadInput",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -97,19 +97,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::StoreOutput,
         "storeOutput",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
 
     // Unary float void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::FAbs,
         "FAbs",
         OCC::Unary,
         "unary",
         {false, true, true, true, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -118,7 +118,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, true, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -127,7 +127,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::IsSpecialFloat,
         "isSpecialFloat",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -136,7 +136,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::IsSpecialFloat,
         "isSpecialFloat",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -145,7 +145,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::IsSpecialFloat,
         "isSpecialFloat",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -154,7 +154,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::IsSpecialFloat,
         "isSpecialFloat",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -163,7 +163,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -172,7 +172,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -181,7 +181,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -190,7 +190,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -199,7 +199,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -208,7 +208,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -217,7 +217,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -226,7 +226,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -235,7 +235,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -244,7 +244,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -253,7 +253,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -262,7 +262,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -271,7 +271,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -280,19 +280,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Unary float - rounding void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
+    // i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::Round_ne,
         "Round_ne",
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -301,7 +301,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -310,7 +310,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -319,19 +319,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Unary int void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::Bfrev,
         "Bfrev",
         OCC::Unary,
         "unary",
         {false, false, false, false, false, false, true, true, true, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -340,7 +340,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::UnaryBits,
         "unaryBits",
         {false, false, false, false, false, false, true, true, true, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -349,43 +349,43 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::UnaryBits,
         "unaryBits",
         {false, false, false, false, false, false, true, true, true, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Unary uint void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::FirstbitHi,
         "FirstbitHi",
         OCC::UnaryBits,
         "unaryBits",
         {false, false, false, false, false, false, true, true, true, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Unary int void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::FirstbitSHi,
         "FirstbitSHi",
         OCC::UnaryBits,
         "unaryBits",
         {false, false, false, false, false, false, true, true, true, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Binary float void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::FMax,
         "FMax",
         OCC::Binary,
         "binary",
         {false, true, true, true, false, false, false, false, false, false,
-         false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -394,19 +394,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Binary,
         "binary",
         {false, true, true, true, false, false, false, false, false, false,
-         false},
+         false, true},
         Attribute::ReadNone,
     },
 
     // Binary int void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::IMax,
         "IMax",
         OCC::Binary,
         "binary",
         {false, false, false, false, false, false, true, true, true, false,
-         false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -415,19 +415,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Binary,
         "binary",
         {false, false, false, false, false, false, true, true, true, false,
-         false},
+         false, true},
         Attribute::ReadNone,
     },
 
     // Binary uint void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::UMax,
         "UMax",
         OCC::Binary,
         "binary",
         {false, false, false, false, false, false, true, true, true, false,
-         false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -436,31 +436,31 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Binary,
         "binary",
         {false, false, false, false, false, false, true, true, true, false,
-         false},
+         false, true},
         Attribute::ReadNone,
     },
 
     // Binary int with two outputs void,     h,     f,     d,    i1,    i8, i16,
-    // i32,   i64,   udt,   obj ,  function attribute
+    // i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::IMul,
         "IMul",
         OCC::BinaryWithTwoOuts,
         "binaryWithTwoOuts",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Binary uint with two outputs void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::UMul,
         "UMul",
         OCC::BinaryWithTwoOuts,
         "binaryWithTwoOuts",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -469,19 +469,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::BinaryWithTwoOuts,
         "binaryWithTwoOuts",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Binary uint with carry or borrow void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::UAddc,
         "UAddc",
         OCC::BinaryWithCarryOrBorrow,
         "binaryWithCarryOrBorrow",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -490,19 +490,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::BinaryWithCarryOrBorrow,
         "binaryWithCarryOrBorrow",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Tertiary float void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::FMad,
         "FMad",
         OCC::Tertiary,
         "tertiary",
         {false, true, true, true, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -511,43 +511,43 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Tertiary,
         "tertiary",
         {false, false, false, true, false, false, false, false, false, false,
-         false},
+         false, true},
         Attribute::ReadNone,
     },
 
     // Tertiary int void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::IMad,
         "IMad",
         OCC::Tertiary,
         "tertiary",
         {false, false, false, false, false, false, true, true, true, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Tertiary uint void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::UMad,
         "UMad",
         OCC::Tertiary,
         "tertiary",
         {false, false, false, false, false, false, true, true, true, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Tertiary int void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::Msad,
         "Msad",
         OCC::Tertiary,
         "tertiary",
         {false, false, false, false, false, false, false, true, true, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -556,43 +556,43 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Tertiary,
         "tertiary",
         {false, false, false, false, false, false, false, true, true, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Tertiary uint void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::Ubfe,
         "Ubfe",
         OCC::Tertiary,
         "tertiary",
         {false, false, false, false, false, false, false, true, true, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Quaternary void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::Bfi,
         "Bfi",
         OCC::Quaternary,
         "quaternary",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Dot void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,
-    // obj ,  function attribute
+    // obj,   vec,  function attribute
     {
         OC::Dot2,
         "Dot2",
         OCC::Dot2,
         "dot2",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -601,7 +601,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Dot3,
         "dot3",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -610,19 +610,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Dot4,
         "dot4",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Resources void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::CreateHandle,
         "CreateHandle",
         OCC::CreateHandle,
         "createHandle",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -630,7 +630,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "CBufferLoad",
         OCC::CBufferLoad,
         "cbufferLoad",
-        {false, true, true, true, false, true, true, true, true, false, false},
+        {false, true, true, true, false, true, true, true, true, false, false,
+         false},
         Attribute::ReadOnly,
     },
     {
@@ -638,19 +639,20 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "CBufferLoadLegacy",
         OCC::CBufferLoadLegacy,
         "cbufferLoadLegacy",
-        {false, true, true, true, false, false, true, true, true, false, false},
+        {false, true, true, true, false, false, true, true, true, false, false,
+         false},
         Attribute::ReadOnly,
     },
 
     // Resources - sample void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::Sample,
         "Sample",
         OCC::Sample,
         "sample",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -659,7 +661,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::SampleBias,
         "sampleBias",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -668,7 +670,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::SampleLevel,
         "sampleLevel",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -677,7 +679,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::SampleGrad,
         "sampleGrad",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -686,7 +688,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::SampleCmp,
         "sampleCmp",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -695,19 +697,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::SampleCmpLevelZero,
         "sampleCmpLevelZero",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
 
     // Resources void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::TextureLoad,
         "TextureLoad",
         OCC::TextureLoad,
         "textureLoad",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -716,7 +718,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::TextureStore,
         "textureStore",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -725,7 +727,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::BufferLoad,
         "bufferLoad",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -734,7 +736,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::BufferStore,
         "bufferStore",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -743,7 +745,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::BufferUpdateCounter,
         "bufferUpdateCounter",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -752,7 +754,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::CheckAccessFullyMapped,
         "checkAccessFullyMapped",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -761,19 +763,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::GetDimensions,
         "getDimensions",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
 
     // Resources - gather void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::TextureGather,
         "TextureGather",
         OCC::TextureGather,
         "textureGather",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -782,19 +784,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::TextureGatherCmp,
         "textureGatherCmp",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
 
     // Resources - sample void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::Texture2DMSGetSamplePosition,
         "Texture2DMSGetSamplePosition",
         OCC::Texture2DMSGetSamplePosition,
         "texture2DMSGetSamplePosition",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -803,7 +805,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RenderTargetGetSamplePosition,
         "renderTargetGetSamplePosition",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -812,19 +814,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RenderTargetGetSampleCount,
         "renderTargetGetSampleCount",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
 
     // Synchronization void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::AtomicBinOp,
         "AtomicBinOp",
         OCC::AtomicBinOp,
         "atomicBinOp",
         {false, false, false, false, false, false, false, true, true, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -833,7 +835,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::AtomicCompareExchange,
         "atomicCompareExchange",
         {false, false, false, false, false, false, false, true, true, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -842,43 +844,43 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Barrier,
         "barrier",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::NoDuplicate,
     },
 
     // Derivatives void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::CalculateLOD,
         "CalculateLOD",
         OCC::CalculateLOD,
         "calculateLOD",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
 
     // Pixel shader void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::Discard,
         "Discard",
         OCC::Discard,
         "discard",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
 
     // Derivatives void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::DerivCoarseX,
         "DerivCoarseX",
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -887,7 +889,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -896,7 +898,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -905,19 +907,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Pixel shader void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::EvalSnapped,
         "EvalSnapped",
         OCC::EvalSnapped,
         "evalSnapped",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -926,7 +928,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::EvalSampleIndex,
         "evalSampleIndex",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -935,7 +937,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::EvalCentroid,
         "evalCentroid",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -944,7 +946,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::SampleIndex,
         "sampleIndex",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -953,7 +955,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Coverage,
         "coverage",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -962,19 +964,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::InnerCoverage,
         "innerCoverage",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Compute/Mesh/Amplification/Node shader void,     h,     f,     d,    i1,
-    // i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i8,   i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::ThreadId,
         "ThreadId",
         OCC::ThreadId,
         "threadId",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -983,7 +985,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::GroupId,
         "groupId",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -992,7 +994,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::ThreadIdInGroup,
         "threadIdInGroup",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1001,19 +1003,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::FlattenedThreadIdInGroup,
         "flattenedThreadIdInGroup",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Geometry shader void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::EmitStream,
         "EmitStream",
         OCC::EmitStream,
         "emitStream",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1022,7 +1024,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::CutStream,
         "cutStream",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1031,7 +1033,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::EmitThenCutStream,
         "emitThenCutStream",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1040,19 +1042,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::GSInstanceID,
         "gsInstanceID",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Double precision void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::MakeDouble,
         "MakeDouble",
         OCC::MakeDouble,
         "makeDouble",
         {false, false, false, true, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1061,19 +1063,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::SplitDouble,
         "splitDouble",
         {false, false, false, true, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Domain and hull shader void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
+    // i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::LoadOutputControlPoint,
         "LoadOutputControlPoint",
         OCC::LoadOutputControlPoint,
         "loadOutputControlPoint",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1082,31 +1084,31 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::LoadPatchConstant,
         "loadPatchConstant",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Domain shader void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::DomainLocation,
         "DomainLocation",
         OCC::DomainLocation,
         "domainLocation",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Hull shader void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::StorePatchConstant,
         "StorePatchConstant",
         OCC::StorePatchConstant,
         "storePatchConstant",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1115,43 +1117,43 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::OutputControlPointID,
         "outputControlPointID",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Hull, Domain and Geometry shaders void,     h,     f,     d,    i1, i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::PrimitiveID,
         "PrimitiveID",
         OCC::PrimitiveID,
         "primitiveID",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Other void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64, udt,
-    // obj ,  function attribute
+    // obj,   vec,  function attribute
     {
         OC::CycleCounterLegacy,
         "CycleCounterLegacy",
         OCC::CycleCounterLegacy,
         "cycleCounterLegacy",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
 
     // Wave void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,
-    // obj ,  function attribute
+    // obj,   vec,  function attribute
     {
         OC::WaveIsFirstLane,
         "WaveIsFirstLane",
         OCC::WaveIsFirstLane,
         "waveIsFirstLane",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1160,7 +1162,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::WaveGetLaneIndex,
         "waveGetLaneIndex",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1169,7 +1171,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::WaveGetLaneCount,
         "waveGetLaneCount",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1178,7 +1180,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::WaveAnyTrue,
         "waveAnyTrue",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1187,7 +1189,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::WaveAllTrue,
         "waveAllTrue",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1195,7 +1197,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "WaveActiveAllEqual",
         OCC::WaveActiveAllEqual,
         "waveActiveAllEqual",
-        {false, true, true, true, true, true, true, true, true, false, false},
+        {false, true, true, true, true, true, true, true, true, false, false,
+         false},
         Attribute::None,
     },
     {
@@ -1204,7 +1207,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::WaveActiveBallot,
         "waveActiveBallot",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1212,7 +1215,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "WaveReadLaneAt",
         OCC::WaveReadLaneAt,
         "waveReadLaneAt",
-        {false, true, true, true, true, true, true, true, true, false, false},
+        {false, true, true, true, true, true, true, true, true, false, false,
+         false},
         Attribute::None,
     },
     {
@@ -1220,7 +1224,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "WaveReadLaneFirst",
         OCC::WaveReadLaneFirst,
         "waveReadLaneFirst",
-        {false, true, true, true, true, true, true, true, true, false, false},
+        {false, true, true, true, true, true, true, true, true, false, false,
+         false},
         Attribute::None,
     },
     {
@@ -1228,7 +1233,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "WaveActiveOp",
         OCC::WaveActiveOp,
         "waveActiveOp",
-        {false, true, true, true, true, true, true, true, true, false, false},
+        {false, true, true, true, true, true, true, true, true, false, false,
+         false},
         Attribute::None,
     },
     {
@@ -1237,7 +1243,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::WaveActiveBit,
         "waveActiveBit",
         {false, false, false, false, false, true, true, true, true, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1245,18 +1251,20 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "WavePrefixOp",
         OCC::WavePrefixOp,
         "wavePrefixOp",
-        {false, true, true, true, false, true, true, true, true, false, false},
+        {false, true, true, true, false, true, true, true, true, false, false,
+         false},
         Attribute::None,
     },
 
     // Quad Wave Ops void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::QuadReadLaneAt,
         "QuadReadLaneAt",
         OCC::QuadReadLaneAt,
         "quadReadLaneAt",
-        {false, true, true, true, true, true, true, true, true, false, false},
+        {false, true, true, true, true, true, true, true, true, false, false,
+         false},
         Attribute::None,
     },
     {
@@ -1264,19 +1272,20 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "QuadOp",
         OCC::QuadOp,
         "quadOp",
-        {false, true, true, true, false, true, true, true, true, false, false},
+        {false, true, true, true, false, true, true, true, true, false, false,
+         false},
         Attribute::None,
     },
 
     // Bitcasts with different sizes void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::BitcastI16toF16,
         "BitcastI16toF16",
         OCC::BitcastI16toF16,
         "bitcastI16toF16",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1285,7 +1294,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::BitcastF16toI16,
         "bitcastF16toI16",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1294,7 +1303,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::BitcastI32toF32,
         "bitcastI32toF32",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1303,7 +1312,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::BitcastF32toI32,
         "bitcastF32toI32",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1312,7 +1321,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::BitcastI64toF64,
         "bitcastI64toF64",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1321,19 +1330,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::BitcastF64toI64,
         "bitcastF64toI64",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Legacy floating-point void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
+    // i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::LegacyF32ToF16,
         "LegacyF32ToF16",
         OCC::LegacyF32ToF16,
         "legacyF32ToF16",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1342,19 +1351,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::LegacyF16ToF32,
         "legacyF16ToF32",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Double precision void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::LegacyDoubleToFloat,
         "LegacyDoubleToFloat",
         OCC::LegacyDoubleToFloat,
         "legacyDoubleToFloat",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1363,7 +1372,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::LegacyDoubleToSInt32,
         "legacyDoubleToSInt32",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1372,19 +1381,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::LegacyDoubleToUInt32,
         "legacyDoubleToUInt32",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Wave void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,
-    // obj ,  function attribute
+    // obj,   vec,  function attribute
     {
         OC::WaveAllBitCount,
         "WaveAllBitCount",
         OCC::WaveAllOp,
         "waveAllOp",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1393,42 +1402,43 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::WavePrefixOp,
         "wavePrefixOp",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
 
     // Pixel shader void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::AttributeAtVertex,
         "AttributeAtVertex",
         OCC::AttributeAtVertex,
         "attributeAtVertex",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Graphics shader void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::ViewID,
         "ViewID",
         OCC::ViewID,
         "viewID",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Resources void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::RawBufferLoad,
         "RawBufferLoad",
         OCC::RawBufferLoad,
         "rawBufferLoad",
-        {false, true, true, true, false, false, true, true, true, false, false},
+        {false, true, true, true, false, false, true, true, true, false, false,
+         false},
         Attribute::ReadOnly,
     },
     {
@@ -1436,19 +1446,20 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "RawBufferStore",
         OCC::RawBufferStore,
         "rawBufferStore",
-        {false, true, true, true, false, false, true, true, true, false, false},
+        {false, true, true, true, false, false, true, true, true, false, false,
+         false},
         Attribute::None,
     },
 
     // Raytracing object space uint System Values void,     h,     f,     d, i1,
-    // i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i8,   i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::InstanceID,
         "InstanceID",
         OCC::InstanceID,
         "instanceID",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1457,43 +1468,43 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::InstanceIndex,
         "instanceIndex",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Raytracing hit uint System Values void,     h,     f,     d,    i1, i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::HitKind,
         "HitKind",
         OCC::HitKind,
         "hitKind",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Raytracing uint System Values void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::RayFlags,
         "RayFlags",
         OCC::RayFlags,
         "rayFlags",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Ray Dispatch Arguments void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
+    // i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::DispatchRaysIndex,
         "DispatchRaysIndex",
         OCC::DispatchRaysIndex,
         "dispatchRaysIndex",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1502,19 +1513,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::DispatchRaysDimensions,
         "dispatchRaysDimensions",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Ray Vectors void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::WorldRayOrigin,
         "WorldRayOrigin",
         OCC::WorldRayOrigin,
         "worldRayOrigin",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1523,19 +1534,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::WorldRayDirection,
         "worldRayDirection",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Ray object space Vectors void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
+    // i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::ObjectRayOrigin,
         "ObjectRayOrigin",
         OCC::ObjectRayOrigin,
         "objectRayOrigin",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1544,19 +1555,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::ObjectRayDirection,
         "objectRayDirection",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Ray Transforms void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::ObjectToWorld,
         "ObjectToWorld",
         OCC::ObjectToWorld,
         "objectToWorld",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1565,19 +1576,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::WorldToObject,
         "worldToObject",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // RayT void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,
-    // obj ,  function attribute
+    // obj,   vec,  function attribute
     {
         OC::RayTMin,
         "RayTMin",
         OCC::RayTMin,
         "rayTMin",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1586,19 +1597,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayTCurrent,
         "rayTCurrent",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
 
     // AnyHit Terminals void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::IgnoreHit,
         "IgnoreHit",
         OCC::IgnoreHit,
         "ignoreHit",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::NoReturn,
     },
     {
@@ -1607,19 +1618,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::AcceptHitAndEndSearch,
         "acceptHitAndEndSearch",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::NoReturn,
     },
 
     // Indirect Shader Invocation void,     h,     f,     d,    i1,    i8, i16,
-    // i32,   i64,   udt,   obj ,  function attribute
+    // i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::TraceRay,
         "TraceRay",
         OCC::TraceRay,
         "traceRay",
         {false, false, false, false, false, false, false, false, false, true,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1628,7 +1639,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::ReportHit,
         "reportHit",
         {false, false, false, false, false, false, false, false, false, true,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1637,44 +1648,44 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::CallShader,
         "callShader",
         {false, false, false, false, false, false, false, false, false, true,
-         false},
+         false, false},
         Attribute::None,
     },
 
     // Library create handle from resource struct (like HL intrinsic) void, h,
-    // f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function
-    // attribute
+    // f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,
+    // function attribute
     {
         OC::CreateHandleForLib,
         "CreateHandleForLib",
         OCC::CreateHandleForLib,
         "createHandleForLib",
         {false, false, false, false, false, false, false, false, false, false,
-         true},
+         true, false},
         Attribute::ReadOnly,
     },
 
     // Raytracing object space uint System Values void,     h,     f,     d, i1,
-    // i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i8,   i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::PrimitiveIndex,
         "PrimitiveIndex",
         OCC::PrimitiveIndex,
         "primitiveIndex",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Dot product with accumulate void,     h,     f,     d,    i1,    i8, i16,
-    // i32,   i64,   udt,   obj ,  function attribute
+    // i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::Dot2AddHalf,
         "Dot2AddHalf",
         OCC::Dot2AddHalf,
         "dot2AddHalf",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1683,7 +1694,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Dot4AddPacked,
         "dot4AddPacked",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -1692,18 +1703,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Dot4AddPacked,
         "dot4AddPacked",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Wave void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,
-    // obj ,  function attribute
+    // obj,   vec,  function attribute
     {
         OC::WaveMatch,
         "WaveMatch",
         OCC::WaveMatch,
         "waveMatch",
-        {false, true, true, true, false, true, true, true, true, false, false},
+        {false, true, true, true, false, true, true, true, true, false, false,
+         false},
         Attribute::None,
     },
     {
@@ -1711,7 +1723,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "WaveMultiPrefixOp",
         OCC::WaveMultiPrefixOp,
         "waveMultiPrefixOp",
-        {false, true, true, true, false, true, true, true, true, false, false},
+        {false, true, true, true, false, true, true, true, true, false, false,
+         false},
         Attribute::None,
     },
     {
@@ -1720,19 +1733,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::WaveMultiPrefixBitCount,
         "waveMultiPrefixBitCount",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
 
     // Mesh shader instructions void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
+    // i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::SetMeshOutputCounts,
         "SetMeshOutputCounts",
         OCC::SetMeshOutputCounts,
         "setMeshOutputCounts",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1741,7 +1754,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::EmitIndices,
         "emitIndices",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1750,7 +1763,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::GetMeshPayload,
         "getMeshPayload",
         {false, false, false, false, false, false, false, false, false, true,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1759,7 +1772,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::StoreVertexOutput,
         "storeVertexOutput",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1768,31 +1781,31 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::StorePrimitiveOutput,
         "storePrimitiveOutput",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
 
     // Amplification shader instructions void,     h,     f,     d,    i1, i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::DispatchMesh,
         "DispatchMesh",
         OCC::DispatchMesh,
         "dispatchMesh",
         {false, false, false, false, false, false, false, false, false, true,
-         false},
+         false, false},
         Attribute::None,
     },
 
     // Sampler Feedback void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::WriteSamplerFeedback,
         "WriteSamplerFeedback",
         OCC::WriteSamplerFeedback,
         "writeSamplerFeedback",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1801,7 +1814,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::WriteSamplerFeedbackBias,
         "writeSamplerFeedbackBias",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1810,7 +1823,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::WriteSamplerFeedbackLevel,
         "writeSamplerFeedbackLevel",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1819,19 +1832,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::WriteSamplerFeedbackGrad,
         "writeSamplerFeedbackGrad",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
 
     // Inline Ray Query void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::AllocateRayQuery,
         "AllocateRayQuery",
         OCC::AllocateRayQuery,
         "allocateRayQuery",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1840,7 +1853,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_TraceRayInline,
         "rayQuery_TraceRayInline",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1849,7 +1862,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_Proceed,
         "rayQuery_Proceed",
         {false, false, false, false, true, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1858,7 +1871,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_Abort,
         "rayQuery_Abort",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1867,7 +1880,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_CommitNonOpaqueTriangleHit,
         "rayQuery_CommitNonOpaqueTriangleHit",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1876,7 +1889,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_CommitProceduralPrimitiveHit,
         "rayQuery_CommitProceduralPrimitiveHit",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -1885,7 +1898,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1894,7 +1907,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1903,7 +1916,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateMatrix,
         "rayQuery_StateMatrix",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1912,7 +1925,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateMatrix,
         "rayQuery_StateMatrix",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1921,7 +1934,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateMatrix,
         "rayQuery_StateMatrix",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1930,7 +1943,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateMatrix,
         "rayQuery_StateMatrix",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1939,7 +1952,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, true, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1948,7 +1961,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, true, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1957,7 +1970,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, true, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1966,7 +1979,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateVector,
         "rayQuery_StateVector",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1975,7 +1988,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateVector,
         "rayQuery_StateVector",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1984,7 +1997,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -1993,7 +2006,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateVector,
         "rayQuery_StateVector",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2002,7 +2015,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateVector,
         "rayQuery_StateVector",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2011,7 +2024,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2020,7 +2033,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2029,7 +2042,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2038,7 +2051,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2047,7 +2060,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2056,7 +2069,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2065,7 +2078,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2074,7 +2087,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateVector,
         "rayQuery_StateVector",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2083,7 +2096,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateVector,
         "rayQuery_StateVector",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2092,7 +2105,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2101,7 +2114,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2110,7 +2123,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2119,7 +2132,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2128,7 +2141,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateVector,
         "rayQuery_StateVector",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2137,32 +2150,32 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateVector,
         "rayQuery_StateVector",
         {false, false, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
 
     // Raytracing object space uint System Values, raytracing tier 1.1 void, h,
-    // f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function
-    // attribute
+    // f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,
+    // function attribute
     {
         OC::GeometryIndex,
         "GeometryIndex",
         OCC::GeometryIndex,
         "geometryIndex",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Inline Ray Query void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::RayQuery_CandidateInstanceContributionToHitGroupIndex,
         "RayQuery_CandidateInstanceContributionToHitGroupIndex",
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2171,19 +2184,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::RayQuery_StateScalar,
         "rayQuery_StateScalar",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
 
     // Get handle from heap void,     h,     f,     d,    i1,    i8,   i16, i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::AnnotateHandle,
         "AnnotateHandle",
         OCC::AnnotateHandle,
         "annotateHandle",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -2192,7 +2205,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::CreateHandleFromBinding,
         "createHandleFromBinding",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -2201,102 +2214,102 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::CreateHandleFromHeap,
         "createHandleFromHeap",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Unpacking intrinsics void,     h,     f,     d,    i1,    i8,   i16, i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::Unpack4x8,
         "Unpack4x8",
         OCC::Unpack4x8,
         "unpack4x8",
         {false, false, false, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Packing intrinsics void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::Pack4x8,
         "Pack4x8",
         OCC::Pack4x8,
         "pack4x8",
         {false, false, false, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Helper Lanes void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::IsHelperLane,
         "IsHelperLane",
         OCC::IsHelperLane,
         "isHelperLane",
         {false, false, false, false, true, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
 
     // Quad Wave Ops void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::QuadVote,
         "QuadVote",
         OCC::QuadVote,
         "quadVote",
         {false, false, false, false, true, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
 
     // Resources - gather void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::TextureGatherRaw,
         "TextureGatherRaw",
         OCC::TextureGatherRaw,
         "textureGatherRaw",
         {false, false, false, false, false, false, true, true, true, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
 
     // Resources - sample void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::SampleCmpLevel,
         "SampleCmpLevel",
         OCC::SampleCmpLevel,
         "sampleCmpLevel",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
 
     // Resources void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    // udt,   obj,   vec,  function attribute
     {
         OC::TextureStoreSample,
         "TextureStoreSample",
         OCC::TextureStoreSample,
         "textureStoreSample",
         {false, true, true, false, false, false, true, true, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
 
-    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::Reserved0,
         "Reserved0",
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2305,7 +2318,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2314,7 +2327,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2323,7 +2336,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2332,7 +2345,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2341,7 +2354,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2350,7 +2363,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2359,7 +2372,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2368,7 +2381,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2377,7 +2390,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2386,7 +2399,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2395,43 +2408,43 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
 
     // Create/Annotate Node Handles void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::AllocateNodeOutputRecords,
         "AllocateNodeOutputRecords",
         OCC::AllocateNodeOutputRecords,
         "allocateNodeOutputRecords",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
 
     // Get Pointer to Node Record in Address Space 6 void,     h,     f,     d,
-    // i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::GetNodeRecordPtr,
         "GetNodeRecordPtr",
         OCC::GetNodeRecordPtr,
         "getNodeRecordPtr",
         {false, false, false, false, false, false, false, false, false, true,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Work Graph intrinsics void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
+    // i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::IncrementOutputCount,
         "IncrementOutputCount",
         OCC::IncrementOutputCount,
         "incrementOutputCount",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2440,7 +2453,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::OutputComplete,
         "outputComplete",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2449,7 +2462,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::GetInputRecordCount,
         "getInputRecordCount",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2458,19 +2471,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::FinishedCrossGroupSharing,
         "finishedCrossGroupSharing",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
 
     // Synchronization void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::BarrierByMemoryType,
         "BarrierByMemoryType",
         OCC::BarrierByMemoryType,
         "barrierByMemoryType",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::NoDuplicate,
     },
     {
@@ -2479,7 +2492,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::BarrierByMemoryHandle,
         "barrierByMemoryHandle",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::NoDuplicate,
     },
     {
@@ -2488,19 +2501,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::BarrierByNodeRecordHandle,
         "barrierByNodeRecordHandle",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::NoDuplicate,
     },
 
     // Create/Annotate Node Handles void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::CreateNodeOutputHandle,
         "CreateNodeOutputHandle",
         OCC::createNodeOutputHandle,
         "createNodeOutputHandle",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -2509,7 +2522,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::IndexNodeHandle,
         "indexNodeHandle",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -2518,7 +2531,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::AnnotateNodeHandle,
         "annotateNodeHandle",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -2527,7 +2540,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::CreateNodeInputRecordHandle,
         "createNodeInputRecordHandle",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -2536,19 +2549,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::AnnotateNodeRecordHandle,
         "annotateNodeRecordHandle",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Work Graph intrinsics void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
+    // i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::NodeOutputIsValid,
         "NodeOutputIsValid",
         OCC::NodeOutputIsValid,
         "nodeOutputIsValid",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2557,19 +2570,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::GetRemainingRecursionLevels,
         "getRemainingRecursionLevels",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
 
     // Comparison Samples void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::SampleCmpGrad,
         "SampleCmpGrad",
         OCC::SampleCmpGrad,
         "sampleCmpGrad",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
     {
@@ -2578,19 +2591,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::SampleCmpBias,
         "sampleCmpBias",
         {false, true, true, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::ReadOnly,
     },
 
     // Extended Command Information void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
+    // i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::StartVertexLocation,
         "StartVertexLocation",
         OCC::StartVertexLocation,
         "startVertexLocation",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
     {
@@ -2599,30 +2612,30 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::StartInstanceLocation,
         "startInstanceLocation",
         {false, false, false, false, false, false, false, true, false, false,
-         false},
+         false, false},
         Attribute::ReadNone,
     },
 
     // Inline Ray Query void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
+    // i64,   udt,   obj,   vec,  function attribute
     {
         OC::AllocateRayQuery2,
         "AllocateRayQuery2",
         OCC::AllocateRayQuery2,
         "allocateRayQuery2",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
 
-    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,  function attribute
     {
         OC::ReservedA0,
         "ReservedA0",
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2631,7 +2644,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2640,7 +2653,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2649,7 +2662,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2658,7 +2671,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2667,7 +2680,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2676,7 +2689,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2685,7 +2698,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2694,7 +2707,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2703,7 +2716,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2712,7 +2725,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2721,7 +2734,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2730,7 +2743,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2739,7 +2752,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2748,7 +2761,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2757,7 +2770,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2766,7 +2779,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2775,7 +2788,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2784,7 +2797,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2793,7 +2806,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2802,7 +2815,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2811,7 +2824,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2820,7 +2833,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2829,7 +2842,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2838,7 +2851,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2847,7 +2860,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2856,7 +2869,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2865,7 +2878,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2874,7 +2887,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2883,7 +2896,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2892,7 +2905,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2901,7 +2914,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2910,7 +2923,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2919,7 +2932,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2928,7 +2941,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2937,7 +2950,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2946,7 +2959,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2955,7 +2968,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2964,7 +2977,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2973,7 +2986,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2982,7 +2995,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -2991,7 +3004,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -3000,7 +3013,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
         Attribute::None,
     },
     {
@@ -3009,7 +3022,25 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Reserved,
         "reserved",
         {true, false, false, false, false, false, false, false, false, false,
-         false},
+         false, false},
+        Attribute::None,
+    },
+    {
+        OC::RawBufferVectorLoad,
+        "RawBufferVectorLoad",
+        OCC::RawBufferVectorLoad,
+        "rawBufferVectorLoad",
+        {false, false, false, false, false, false, false, false, false, false,
+         false, true},
+        Attribute::ReadOnly,
+    },
+    {
+        OC::RawBufferVectorStore,
+        "RawBufferVectorStore",
+        OCC::RawBufferVectorStore,
+        "rawBufferVectorStore",
+        {false, false, false, false, false, false, false, false, false, false,
+         false, true},
         Attribute::None,
     },
 };
@@ -3017,7 +3048,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
 const char *OP::m_OverloadTypeName[kNumTypeOverloads] = {
     "void", "f16", "f32", "f64", "i1",  "i8",
-    "i16",  "i32", "i64", "udt", "obj", // These should not be used
+    "i16",  "i32", "i64", "udt", "obj", // "udt" and "obj" should not be used
 };
 
 const char *OP::m_NamePrefix = "dx.op.";
@@ -3068,6 +3099,8 @@ unsigned OP::GetTypeSlot(Type *pType) {
   }
   case Type::StructTyID:
     return kObjectTypeSlot;
+  case Type::VectorTyID:
+    return kVectorTypeSlot;
   default:
     break;
   }
@@ -3091,6 +3124,12 @@ llvm::StringRef OP::GetTypeName(Type *Ty, std::string &str) {
   } else if (TypeSlot == kObjectTypeSlot) {
     StructType *ST = cast<StructType>(Ty);
     return ST->getStructName();
+  } else if (TypeSlot == kVectorTypeSlot) {
+    VectorType *VecTy = cast<VectorType>(Ty);
+    str = "v";
+    str += std::to_string(VecTy->getNumElements());
+    str += GetOverloadTypeName(OP::GetTypeSlot(VecTy->getElementType()));
+    return str;
   } else {
     raw_string_ostream os(str);
     Ty->print(os);
@@ -6023,6 +6062,23 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pV);
     A(pI32);
     break;
+  case OpCode::RawBufferVectorLoad:
+    RRT(pETy);
+    A(pI32);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::RawBufferVectorStore:
+    A(pV);
+    A(pI32);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pETy);
+    A(pI32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -6171,6 +6227,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::StoreVertexOutput:
   case OpCode::StorePrimitiveOutput:
   case OpCode::DispatchMesh:
+  case OpCode::RawBufferVectorStore:
     if (FT->getNumParams() <= 4)
       return nullptr;
     return FT->getParamType(4);
@@ -6417,7 +6474,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::TextureGatherRaw:
   case OpCode::SampleCmpLevel:
   case OpCode::SampleCmpGrad:
-  case OpCode::SampleCmpBias: {
+  case OpCode::SampleCmpBias:
+  case OpCode::RawBufferVectorLoad: {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
   }
@@ -6472,7 +6530,15 @@ bool OP::IsResRetType(llvm::Type *Ty) {
 Type *OP::GetResRetType(Type *pOverloadType) {
   unsigned TypeSlot = GetTypeSlot(pOverloadType);
 
-  if (m_pResRetType[TypeSlot] == nullptr) {
+  if (TypeSlot == kVectorTypeSlot) {
+    string TypeName("dx.types.ResRet.");
+    VectorType *VecTy = cast<VectorType>(pOverloadType);
+    TypeName += "v";
+    TypeName += std::to_string(VecTy->getNumElements());
+    TypeName += GetOverloadTypeName(OP::GetTypeSlot(VecTy->getElementType()));
+    Type *FieldTypes[2] = {pOverloadType, Type::getInt32Ty(m_Ctx)};
+    return GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
+  } else if (m_pResRetType[TypeSlot] == nullptr) {
     string TypeName("dx.types.ResRet.");
     TypeName += GetOverloadTypeName(TypeSlot);
     Type *FieldTypes[5] = {pOverloadType, pOverloadType, pOverloadType,

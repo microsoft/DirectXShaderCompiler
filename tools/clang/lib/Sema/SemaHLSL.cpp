@@ -6677,6 +6677,9 @@ bool HLSLExternalSource::MatchArguments(
     }
   }
 
+  std::string profile = m_sema->getLangOpts().HLSLProfile;
+  const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
+
   // Populate argTypes.
   for (size_t i = 0; i <= Args.size(); i++) {
     const HLSL_INTRINSIC_ARGUMENT *pArgument = &pIntrinsic->pArgs[i];
@@ -6847,8 +6850,9 @@ bool HLSLExternalSource::MatchArguments(
       }
 
       // Verify that the final results are in bounds.
-      CAB(uCols > 0 && uCols <= MaxVectorSize && uRows > 0 &&
-              uRows <= MaxVectorSize,
+      CAB((uCols > 0 && uRows > 0 &&
+           ((uCols <= MaxVectorSize && uRows <= MaxVectorSize) ||
+            (SM->IsSM69Plus() && uRows == 1))),
           i);
 
       // Const
@@ -8616,6 +8620,10 @@ ExprResult HLSLExternalSource::LookupVectorMemberExprForHLSL(
   default:
     llvm_unreachable("Unknown VectorMemberAccessError value");
   }
+
+
+  if (colCount > 4)
+    msg = diag::err_hlsl_vector_member_on_long_vector;
 
   if (msg != 0) {
     m_sema->Diag(MemberLoc, msg) << memberText;

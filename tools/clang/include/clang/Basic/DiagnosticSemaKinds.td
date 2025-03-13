@@ -7549,6 +7549,8 @@ def err_hlsl_vector_element_index_out_of_bounds: Error<
   "vector element index '%0' is out of bounds">;
 def err_hlsl_vector_member_too_many_positions: Error<
   "more than four positions are referenced in '%0'">;
+def err_hlsl_vector_member_on_long_vector: Error<
+  "Invalid swizzle '%0' on vector of over 4 elements.">;
 def err_hlsl_missing_type_specifier : Error< // Patterened after err_missing_type_specifier
   "HLSL requires a type specifier for all declarations">;
 def err_hlsl_multiple_concrete_bases : Error<
