@@ -1,8 +1,8 @@
 // RUN: %dxc -T vs_6_5 -E main -verify %s
 
 // tests that RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS usage will emit
-// errors when the flag appears in a namespace, and when compilation target
-// is less than shader model 6.9.
+// errors when the flag appears in a groupshared global variable,
+// and when compilation target is less than shader model 6.9.
 
 
 // expected-warning@+1{{potential misuse of built-in constant 'RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS' in shader model vs_6_5; introduced in shader model 6.9}}
