@@ -4052,15 +4052,13 @@ public:
     // Namespace ::dx only introduced with SM6.9
     const auto *SM =
         hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
-    if (SM->IsSM69Plus()) {
-      m_dxNSDecl =
-          NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
-                                /*Inline*/ false, SourceLocation(),
-                                SourceLocation(), &context.Idents.get("dx"),
-                                /*PrevDecl*/ nullptr);
-      m_dxNSDecl->setImplicit();
-      context.getTranslationUnitDecl()->addDecl(m_dxNSDecl);
-    }
+    m_dxNSDecl =
+        NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
+                              /*Inline*/ false, SourceLocation(),
+                              SourceLocation(), &context.Idents.get("dx"),
+                              /*PrevDecl*/ nullptr);
+    m_dxNSDecl->setImplicit();
+    context.getTranslationUnitDecl()->addDecl(m_dxNSDecl);
 
 #ifdef ENABLE_SPIRV_CODEGEN
     if (m_sema->getLangOpts().SPIRV) {
@@ -5131,8 +5129,6 @@ public:
     auto tableCount = _countof(g_Intrinsics);
     if (isDxNamespace) {
       // Namespace ::dx disabled pre SM 6.9
-      if (!m_dxNSDecl)
-        return false;
       table = g_DxIntrinsics;
       tableCount = _countof(g_DxIntrinsics);
     }
