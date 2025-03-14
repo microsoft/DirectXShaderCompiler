@@ -1149,6 +1149,13 @@ def HLSLNodeObject : InheritableAttr {
     }];
 }
 
+// HLSL Ray Query Attribute
+
+def HLSLRayQueryObject : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
 
 // HLSL Parameter Attributes
 

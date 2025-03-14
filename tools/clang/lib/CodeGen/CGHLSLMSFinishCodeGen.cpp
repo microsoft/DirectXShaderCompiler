@@ -2839,8 +2839,11 @@ void TranslateRayQueryConstructor(HLModule &HLM) {
           HLM.GetTypeSystem().GetStructAnnotation(pRQType);
       DXASSERT(SA, "otherwise, could not find type annoation for RayQuery "
                    "specialization");
-      DXASSERT(SA->GetNumTemplateArgs() == 1 &&
-                   SA->GetTemplateArgAnnotation(0).IsIntegral(),
+      DXASSERT((SA->GetNumTemplateArgs() == 1 &&
+                SA->GetTemplateArgAnnotation(0).IsIntegral()) ||
+                   (SA->GetNumTemplateArgs() == 2 &&
+                    SA->GetTemplateArgAnnotation(0).IsIntegral() &&
+                    SA->GetTemplateArgAnnotation(1).IsIntegral()),
                "otherwise, RayQuery has changed, or lacks template args");
       llvm::IRBuilder<> Builder(CI);
       llvm::Value *rayFlags =

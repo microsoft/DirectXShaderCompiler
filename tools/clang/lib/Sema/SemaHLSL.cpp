@@ -3992,13 +3992,6 @@ public:
     return IsSubobjectBasicKind(GetTypeElementKind(type));
   }
 
-  bool IsRayQueryBasicKind(ArBasicKind kind) {
-    return kind == AR_OBJECT_RAY_QUERY;
-  }
-  bool IsRayQueryType(QualType type) {
-    return IsRayQueryBasicKind(GetTypeElementKind(type));
-  }
-
   void WarnMinPrecision(QualType Type, SourceLocation Loc) {
     Type = Type->getCanonicalTypeUnqualified();
     if (IsVectorType(m_sema, Type) || IsMatrixType(m_sema, Type)) {
@@ -5326,6 +5319,39 @@ public:
         return true;
       }
       return false;
+    } else if (Template->getTemplatedDecl()
+                   ->hasAttr<HLSLRayQueryObjectAttr>()) {
+      int numArgs = TemplateArgList.size();
+      DXASSERT(numArgs == 1 || numArgs == 2,
+               "otherwise the template has not been declared properly");
+
+      // first, determine if the rayquery flag AllowOpacityMicromaps is set
+      bool HasRayQueryFlagAllowOpacityMicromaps = false;
+      if (numArgs > 1) {
+        const TemplateArgument &Arg2 = TemplateArgList[1].getArgument();
+        Expr *Expr2 = Arg2.getAsExpr();
+        llvm::APSInt Arg2val;
+        Expr2->isIntegerConstantExpr(Arg2val, m_sema->getASTContext());
+        if (Arg2val.getZExtValue() &
+            (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps)
+          HasRayQueryFlagAllowOpacityMicromaps = true;
+      }
+
+      // next, get the first template argument, to check if
+      // the ForceOMM2State flag is set
+      const TemplateArgument &Arg1 = TemplateArgList[0].getArgument();
+      Expr *Expr1 = Arg1.getAsExpr();
+      llvm::APSInt Arg1val;
+      bool HasRayFlagForceOMM2State =
+          Expr1->isIntegerConstantExpr(Arg1val, m_sema->getASTContext()) &&
+          (Arg1val.getLimitedValue() &
+           (uint64_t)DXIL::RayFlag::ForceOMM2State) != 0;
+
+      // finally, if ForceOMM2State is set and AllowOpacityMicromaps
+      // isn't, emit a warning
+      if (HasRayFlagForceOMM2State && !HasRayQueryFlagAllowOpacityMicromaps)
+        m_sema->Diag(TemplateArgList[0].getLocation(),
+                     diag::warn_hlsl_rayquery_flags_conflict);
     } else if (Template->getTemplatedDecl()->hasAttr<HLSLTessPatchAttr>()) {
       DXASSERT(TemplateArgList.size() > 0,
                "Tessellation patch should have at least one template args");
@@ -11568,6 +11594,52 @@ static void DiagnoseReachableBarrier(Sema &S, CallExpr *CE,
   }
 }
 
+bool IsRayFlagForceOMM2StateSet(Sema &sema, const CallExpr *CE) {
+  const Expr *Expr1 = CE->getArg(1);
+  llvm::APSInt constantResult;
+  return Expr1->isIntegerConstantExpr(constantResult, sema.getASTContext()) &&
+         (constantResult.getLimitedValue() &
+          (uint64_t)DXIL::RayFlag::ForceOMM2State) != 0;
+}
+
+void DiagnoseTraceRayInline(Sema &sema, CallExpr *callExpr) {
+  // Validate if the RayFlag parameter has RAY_FLAG_FORCE_OMM_2_STATE set,
+  // the RayQuery decl must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set,
+  // otherwise emit a diagnostic.
+  if (IsRayFlagForceOMM2StateSet(sema, callExpr)) {
+    CXXMemberCallExpr *CXXCallExpr = dyn_cast<CXXMemberCallExpr>(callExpr);
+    if (!CXXCallExpr) {
+      return;
+    }
+    const DeclRefExpr *DRE =
+        dyn_cast<DeclRefExpr>(CXXCallExpr->getImplicitObjectArgument());
+    assert(DRE);
+    QualType QT = DRE->getType();
+    auto *typeRecordDecl = QT->getAsCXXRecordDecl();
+    ClassTemplateSpecializationDecl *SpecDecl =
+        llvm::dyn_cast<ClassTemplateSpecializationDecl>(typeRecordDecl);
+
+    if (!SpecDecl)
+      return;
+
+    // Guaranteed 2 arguments since the rayquery constructor
+    // automatically creates 2 template args
+    DXASSERT(SpecDecl->getTemplateArgs().size() == 2,
+             "else rayquery constructor template args are not 2");
+    llvm::APSInt Arg2val = SpecDecl->getTemplateArgs()[1].getAsIntegral();
+    bool IsRayQueryAllowOMMSet =
+        Arg2val.getZExtValue() &
+        (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps;
+    if (!IsRayQueryAllowOMMSet) {
+      // Diagnose the call
+      sema.Diag(CXXCallExpr->getExprLoc(),
+                diag::warn_hlsl_rayquery_flags_conflict);
+      sema.Diag(DRE->getDecl()->getLocation(), diag::note_previous_decl)
+          << "RayQueryFlags";
+    }
+  }
+}
+
 static bool isStringLiteral(QualType type) {
   if (!type->isConstantArrayType())
     return false;
@@ -11611,6 +11683,9 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
   case hlsl::IntrinsicOp::IOP_Barrier:
     DiagnoseReachableBarrier(*this, CE, SM, EntrySK, NodeLaunchTy, EntryDecl,
                              Diags);
+    break;
+  case hlsl::IntrinsicOp::MOP_TraceRayInline:
+    DiagnoseTraceRayInline(*this, CE);
     break;
   default:
     break;

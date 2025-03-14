@@ -7652,8 +7652,17 @@ def err_payload_fields_is_payload_and_overqualified : Error<
   "payload field '%0' is a payload struct. Payload access qualifiers are not allowed on payload types.">;
 def warn_hlsl_payload_qualifer_dropped : Warning<
   "payload access qualifiers ignored. These are only supported for lib_6_7+ targets and lib_6_6 with with the -enable-payload-qualifiers flag.">, InGroup<HLSLPayloadAccessQualifer>;
+def warn_hlsl_rayquery_flags_disallowed : Warning<
+  "A non-zero value for the RayQueryFlags template argument requires"
+  " shader model 6.9 or above.">, DefaultError, InGroup<HLSLAvailability>;
+def warn_hlsl_rayquery_flags_conflict : Warning<
+  "When using 'RAY_FLAG_FORCE_OMM_2_STATE' in RayFlags, RayQueryFlags"
+  " must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set.">, DefaultError, InGroup<HLSLRayQueryFlags>;
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
+def warn_hlsl_builtin_constant_unavailable: Warning<
+  "potential misuse of built-in constant %0 in shader model %1; introduced"
+  " in shader model %2">, InGroup<HLSLAvailabilityConstant>;
 def err_hlsl_unsupported_char_literal : Error<
   "unsupported style of char literal - use a single-character char-based literal">;
 def err_hlsl_unsupported_clipplane_argument_expression : Error<
