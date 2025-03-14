@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_SPIRV_SPIRVCONTEXT_H
 #define LLVM_CLANG_SPIRV_SPIRVCONTEXT_H
@@ -317,6 +320,13 @@ public:
 
   const HybridPointerType *getPointerType(QualType pointee, spv::StorageClass);
 
+  const ForwardPointerType *getForwardPointerType(QualType pointee);
+
+  const SpirvPointerType *getForwardReference(QualType type);
+
+  void registerForwardReference(QualType type,
+                                const SpirvPointerType *pointerType);
+
   /// Generates (or reuses an existing) OpString for the given string literal.
   SpirvString *getSpirvString(llvm::StringRef str);
 
@@ -478,6 +488,8 @@ private:
   llvm::SmallVector<const HybridStructType *, 8> hybridStructTypes;
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
   llvm::SmallVector<const HybridPointerType *, 8> hybridPointerTypes;
+  llvm::MapVector<QualType, const ForwardPointerType *> forwardPointerTypes;
+  llvm::MapVector<QualType, const SpirvPointerType *> forwardReferences;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
   llvm::DenseMap<unsigned, SpirvIntrinsicType *> spirvIntrinsicTypesById;
   llvm::SmallVector<const SpirvIntrinsicType *, 8> spirvIntrinsicTypes;

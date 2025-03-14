@@ -7,6 +7,9 @@
 //                                                                           //
 // Provides non-public declarations for the DirectX Compiler component.      //
 //                                                                           //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
+// All rights reserved.                                                      //
+//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef __DXC_API_INTERNAL__
@@ -35,6 +38,7 @@ typedef struct ID3D10Blob ID3D10Blob;
 static const BYTE INTRIN_TEMPLATE_FROM_TYPE = 0xff;
 static const BYTE INTRIN_TEMPLATE_VARARGS = 0xfe;
 static const BYTE INTRIN_TEMPLATE_FROM_FUNCTION = 0xfd;
+static const BYTE INTRIN_TEMPLATE_FROM_FUNCTION_2 = 0xfc;
 
 // Use this enumeration to describe allowed templates (layouts) in intrinsics.
 enum LEGAL_INTRINSIC_TEMPLATES {
@@ -125,8 +129,9 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_ANY_NODE_OUTPUT_RECORD = 48,
   LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS = 49,
   LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS = 50,
+  LICOMPTYPE_VK_BUFFER_POINTER = 51,
 
-  LICOMPTYPE_COUNT = 51
+  LICOMPTYPE_COUNT = 52
 };
 
 static const BYTE IA_SPECIAL_BASE = 0xf0;
@@ -138,7 +143,7 @@ static const BYTE IA_SPECIAL_SLOTS = 4;
 
 struct HLSL_INTRINSIC_ARGUMENT {
   LPCSTR
-      pName; // Name of the argument; the first argument has the function name.
+  pName; // Name of the argument; the first argument has the function name.
   UINT64 qwUsage; // A combination of
                   // AR_QUAL_IN|AR_QUAL_OUT|AR_QUAL_COLMAJOR|AR_QUAL_ROWMAJOR in
                   // parameter tables; other values possible elsewhere.

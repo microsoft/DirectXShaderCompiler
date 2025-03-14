@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 #include "LowerTypeVisitor.h"
@@ -808,6 +811,32 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
   if (name == "ext_result_id") {
     QualType realType = hlsl::GetHLSLResourceTemplateParamType(type);
     return lowerType(realType, rule, llvm::None, srcLoc);
+  }
+  if (name == "BufferPointer") {
+    const size_t visitedTypeStackSize = visitedTypeStack.size();
+    (void)visitedTypeStackSize; // suppress unused warning (used only in assert)
+
+    for (QualType t : visitedTypeStack) {
+      if (t == type) {
+        return spvContext.getForwardPointerType(type);
+      }
+    }
+
+    QualType realType = hlsl::GetHLSLResourceTemplateParamType(type);
+    if (rule == SpirvLayoutRule::Void) {
+      rule = spvOptions.sBufferLayoutRule;
+    }
+    visitedTypeStack.push_back(type);
+
+    const SpirvType *spirvType = lowerType(realType, rule, llvm::None, srcLoc);
+    const auto *pointerType = spvContext.getPointerType(
+        spirvType, spv::StorageClass::PhysicalStorageBuffer);
+    spvContext.registerForwardReference(type, pointerType);
+
+    assert(visitedTypeStack.back() == type);
+    visitedTypeStack.pop_back();
+    assert(visitedTypeStack.size() == visitedTypeStackSize);
+    return pointerType;
   }
   emitError("unknown type %0 in vk namespace", srcLoc) << type;
   return nullptr;
