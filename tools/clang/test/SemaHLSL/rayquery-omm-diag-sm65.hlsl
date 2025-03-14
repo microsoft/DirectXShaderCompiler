@@ -7,8 +7,7 @@
 
 RaytracingAccelerationStructure RTAS;
 void main(RayDesc rayDesc : RAYDESC) : OUT {
-  // expected-note@+2{{RayQueryFlags declared here}}
-  // expected-note@+1{{RayQueryFlags declared here}}
+  // expected-note@+1 2 {{RayQueryFlags declared here}}
   RayQuery<0> rayQuery; // implicitly, the second arg is 0.
 
   // expected-error@+2{{When using 'RAY_FLAG_FORCE_OMM_2_STATE' in RayFlags, RayQueryFlags must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set.}}

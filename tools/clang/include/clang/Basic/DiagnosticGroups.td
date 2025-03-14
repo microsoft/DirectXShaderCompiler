@@ -799,6 +799,7 @@ def HLSLPayloadAccessQualifer: DiagGroup<"payload-access-qualifier", [
      HLSLPayloadAccessQualiferPerf,
      HLSLPayloadAccessQualiferCall
   ]>;
+def HLSLRayQueryFlags : DiagGroup<"hlsl-rayquery-flags">;
 def HLSLSemanticIdentifierCollision : DiagGroup<"semantic-identifier-collision">;
 def HLSLStructurizeExitsLifetimeMarkersConflict: DiagGroup<"structurize-exits-lifetime-markers-conflict">;
 def HLSLParameterUsage : DiagGroup<"parameter-usage">;

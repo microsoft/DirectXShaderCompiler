@@ -17,6 +17,11 @@ int retNum(){
   return RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS;
 }
 
+int retNumUncalled(){
+  // no diagnostic expected here
+  return RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS;
+}
+
 RaytracingAccelerationStructure RTAS;
 void main(uint i : IDX, RayDesc rayDesc : RAYDESC) {
 

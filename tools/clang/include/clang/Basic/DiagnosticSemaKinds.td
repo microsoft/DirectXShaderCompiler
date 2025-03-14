@@ -7657,7 +7657,7 @@ def warn_hlsl_rayquery_flags_disallowed : Warning<
   " shader model 6.9 or above.">, DefaultError, InGroup<HLSLAvailability>;
 def warn_hlsl_rayquery_flags_conflict : Warning<
   "When using 'RAY_FLAG_FORCE_OMM_2_STATE' in RayFlags, RayQueryFlags"
-  " must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set.">, DefaultError;
+  " must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set.">, DefaultError, InGroup<HLSLRayQueryFlags>;
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
 def warn_hlsl_builtin_constant_unavailable: Warning<
