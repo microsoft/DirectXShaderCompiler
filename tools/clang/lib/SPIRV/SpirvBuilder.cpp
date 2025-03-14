@@ -994,6 +994,8 @@ SpirvInstruction *SpirvBuilder::createEmulatedBitFieldExtract(
     rightShift->setResultType(baseType);
   }
 
+  rightShift->setRValue(true);
+
   return rightShift;
 }
 
