@@ -545,12 +545,11 @@ hlsl::DeclareRecordTypeWithHandle(ASTContext &context, StringRef name,
   return typeDeclBuilder.getRecordDecl();
 }
 
-AvailabilityAttr *ConstructAvailabilityAttribute(
-    clang::ASTContext &context, VersionTuple Introduced) {
+AvailabilityAttr *ConstructAvailabilityAttribute(clang::ASTContext &context,
+                                                 VersionTuple Introduced) {
   AvailabilityAttr *AAttr = AvailabilityAttr::CreateImplicit(
       context, &context.Idents.get(""), clang::VersionTuple(6, 9),
-      clang::VersionTuple(), clang::VersionTuple(), false,
-      "");
+      clang::VersionTuple(), clang::VersionTuple(), false, "");
   return AAttr;
 }
 
