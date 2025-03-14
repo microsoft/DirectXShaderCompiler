@@ -341,10 +341,10 @@ public:
       Sema *S, const hlsl::ShaderModel *SM, DXIL::ShaderKind EntrySK,
       DXIL::NodeLaunchType NodeLaunchTy, const FunctionDecl *EntryDecl,
       llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls,
-      llvm::SmallPtrSetImpl<DeclRefExpr *> &DiagnosedDecls)
+      llvm::SmallPtrSetImpl<DeclRefExpr *> &DeclAvailabilityChecked)
       : sema(S), SM(SM), EntrySK(EntrySK), NodeLaunchTy(NodeLaunchTy),
         EntryDecl(EntryDecl), DiagnosedCalls(DiagnosedCalls),
-        DiagnosedDecls(DiagnosedDecls) {}
+        DeclAvailabilityChecked(DeclAvailabilityChecked) {}
 
   bool VisitCallExpr(CallExpr *CE) {
     // Set flag if already diagnosed from another entry, allowing some
@@ -404,13 +404,12 @@ public:
   bool VisitDeclRefExpr(DeclRefExpr *DRE) {
     // Diagnose availability for referenced decl.
     // Skip redundant availability diagnostics for the same Decl.
-    if (DiagnosedDecls.insert(DRE).second)
-      DiagnoseAvailability(DRE, DRE->getLocation());
-    
+    DiagnoseAvailability(DRE);
+
     return true;
   }
 
-  AvailabilityAttr *GetAttrAndStoreDecl(DeclRefExpr *DRE) {
+  AvailabilityAttr *GetAvailabilityAttrOnce(DeclRefExpr *DRE) {
     NamedDecl *ND = DRE->getDecl();
     if (!ND)
       return nullptr;
@@ -421,11 +420,11 @@ public:
     return AAttr;
   }
 
-  void DiagnoseAvailability(DeclRefExpr *DRE, SourceLocation Loc) {    
+  void DiagnoseAvailability(DeclRefExpr *DRE) {
 
-    AvailabilityAttr *AAttr = GetAttrAndStoreDecl(DRE);
+    AvailabilityAttr *AAttr = GetAvailabilityAttrOnce(DRE);
     if (!AAttr)
-      return;    
+      return;
 
     VersionTuple AAttrVT = AAttr->getIntroduced();
     VersionTuple SMVT = VersionTuple(SM->GetMajor(), SM->GetMinor());
@@ -434,10 +433,11 @@ public:
     // is stated in the availability attribute, emit
     // the availability warning.
 
-    if (SMVT < AAttrVT) {
+    if (SMVT < AAttrVT && DeclAvailabilityChecked.insert(DRE).second) {
       // TBD: Determine best way to distinguish between builtin constant decls
       // and other decls.
-      sema->Diag(Loc, diag::warn_hlsl_builtin_constant_unavailable)
+      sema->Diag(DRE->getLocation(),
+                 diag::warn_hlsl_builtin_constant_unavailable)
           << DRE->getDecl() << SM->GetName() << AAttrVT.getAsString();
     }
   }
@@ -451,7 +451,7 @@ private:
   DXIL::NodeLaunchType NodeLaunchTy;
   const FunctionDecl *EntryDecl;
   llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls;
-  llvm::SmallPtrSetImpl<DeclRefExpr *> &DiagnosedDecls;
+  llvm::SmallPtrSetImpl<DeclRefExpr *> &DeclAvailabilityChecked;
 };
 
 std::optional<uint32_t>
@@ -552,7 +552,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 
   std::set<FunctionDecl *> DiagnosedRecursiveDecls;
   llvm::SmallPtrSet<CallExpr *, 16> DiagnosedCalls;
-  llvm::SmallPtrSet<DeclRefExpr *, 16> DiagnosedDecls;
+  llvm::SmallPtrSet<DeclRefExpr *, 16> DeclAvailabilityChecked;
   // for each FDecl, check for recursion
   for (FunctionDecl *FDecl : FDeclsToCheck) {
     CallGraphWithRecurseGuard callGraph;
@@ -608,15 +608,14 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       // disconnected with respect to the call graph.
       // Only check this if neither function decl is recursive
       if (!result && !patchResult) {
-        CallGraphWithRecurseGuard CG; // Why not use already-built 'callGraph'?
-        CG.BuildForEntry(pPatchFnDecl, GlobalsWithInit);
-        if (CG.CheckReachability(pPatchFnDecl, FDecl)) {
+        callGraph.BuildForEntry(pPatchFnDecl, GlobalsWithInit);
+        if (callGraph.CheckReachability(pPatchFnDecl, FDecl)) {
           self->Diag(FDecl->getSourceRange().getBegin(),
                      diag::err_hlsl_patch_reachability_not_allowed)
               << 1 << FDecl->getName() << 0 << pPatchFnDecl->getName();
         }
-        CG.BuildForEntry(FDecl, GlobalsWithInit);
-        if (CG.CheckReachability(FDecl, pPatchFnDecl)) {
+        callGraph.BuildForEntry(FDecl, GlobalsWithInit);
+        if (callGraph.CheckReachability(FDecl, pPatchFnDecl)) {
           self->Diag(FDecl->getSourceRange().getBegin(),
                      diag::err_hlsl_patch_reachability_not_allowed)
               << 0 << pPatchFnDecl->getName() << 1 << FDecl->getName();
@@ -680,7 +679,8 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     // Visit all visited functions in call graph to collect illegal intrinsic
     // calls.
     HLSLCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK, NodeLaunchTy,
-                                    FDecl, DiagnosedCalls, DiagnosedDecls);
+                                    FDecl, DiagnosedCalls,
+                                    DeclAvailabilityChecked);
     // Visit globals with initializers when processing entry point.
     for (VarDecl *VD : InitGlobals)
       Visitor.TraverseDecl(VD);

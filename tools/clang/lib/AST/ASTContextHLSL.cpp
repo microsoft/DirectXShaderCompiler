@@ -607,10 +607,9 @@ static void AddTypedefPseudoEnum(ASTContext &context, StringRef name,
 /// <summary> Adds all constants and enums for ray tracing </summary>
 void hlsl::AddRaytracingConstants(ASTContext &context) {
 
-  // Create an availability attribute for
-  // shader model 6.9 for the RAYQUERY_FLAG enum
-  VersionTuple VT69 = VersionTuple(6,9);
-  ConstructAvailabilityAttribute(context, VT69);
+  // Create aversion tuple for availability attributes
+  // for the RAYQUERY_FLAG enum
+  VersionTuple VT69 = VersionTuple(6, 9);
 
   AddTypedefPseudoEnum(
       context, "RAY_FLAG",
