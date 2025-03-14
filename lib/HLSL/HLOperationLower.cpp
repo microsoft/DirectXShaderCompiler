@@ -4162,9 +4162,15 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   if (isBool || (is64 && isTyped))
     EltTy = Builder.getInt32Ty();
 
+  // 64-bit types are stored as int32 pairs in typed buffers.
+  if (is64 && isTyped) {
+    DXASSERT(NumComponents <= 2, "Typed buffers only allow 4 dwords.");
+    NumComponents *= 2;
+  }
+
   unsigned LdSize = DL.getTypeAllocSize(EltTy);
 
-  std::vector<Value *> Elts(MemNumComponents);
+  std::array<Value *> Elts(NumComponents);
 
   SmallVector<Value *, 10> Args =
       GetBufLoadArgs(helper, RK, Builder, EltTy, LdSize);
@@ -4182,9 +4188,9 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   // Create calls to function object.
   // Typed buffer loads are limited to one load of up to 4 32-bit values.
   // Raw buffer loads might need multiple loads in chunks of 4.
-  for (unsigned i = 0; i < MemNumComponents;) {
+  for (unsigned i = 0; i < NumComponents;) {
     // Load 4 elements or however many less than 4 are left to load.
-    unsigned chunkSize = (MemNumComponents - i) <= 4 ? MemNumComponents - i : 4;
+    unsigned chunkSize = std::min(NumComponents - i, 4U);
 
     // Assign mask for raw buffer loads.
     if (opcode == OP::OpCode::RawBufferLoad) {
@@ -4218,6 +4224,7 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
       Function *makeDouble = OP->GetOpFunc(DXIL::OpCode::MakeDouble, RegEltTy);
       Value *makeDoubleOpArg =
           Builder.getInt32((unsigned)DXIL::OpCode::MakeDouble);
+      NumComponents /=2; // Convert back to number of doubles.
       for (unsigned i = 0; i < NumComponents; i++) {
         Value *lo = Elts[2 * i];
         Value *hi = Elts[2 * i + 1];
@@ -4225,6 +4232,7 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
       }
       EltTy = RegEltTy;
     } else if (RegEltTy->isIntegerTy(64)) {
+      NumComponents /=2; // Convert back to number of int64s.
       for (unsigned i = 0; i < NumComponents; i++) {
         Value *lo = Elts[2 * i];
         Value *hi = Elts[2 * i + 1];
@@ -4239,9 +4247,9 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
   // Package elements into a vector.
   Value *retValNew = nullptr;
-  if (!Ty->isVectorTy())
+  if (!Ty->isVectorTy()) {
     retValNew = Elts[0];
-  else {
+  } else {
     retValNew = UndefValue::get(VectorType::get(EltTy, NumComponents));
     for (unsigned i = 0; i < NumComponents; i++)
       retValNew = Builder.CreateInsertElement(retValNew, Elts[i], i);
