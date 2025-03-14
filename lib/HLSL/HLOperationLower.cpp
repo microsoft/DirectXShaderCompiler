@@ -4224,7 +4224,7 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
       Function *makeDouble = OP->GetOpFunc(DXIL::OpCode::MakeDouble, RegEltTy);
       Value *makeDoubleOpArg =
           Builder.getInt32((unsigned)DXIL::OpCode::MakeDouble);
-      NumComponents /=2; // Convert back to number of doubles.
+      NumComponents /= 2; // Convert back to number of doubles.
       for (unsigned i = 0; i < NumComponents; i++) {
         Value *lo = Elts[2 * i];
         Value *hi = Elts[2 * i + 1];
@@ -4232,7 +4232,7 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
       }
       EltTy = RegEltTy;
     } else if (RegEltTy->isIntegerTy(64)) {
-      NumComponents /=2; // Convert back to number of int64s.
+      NumComponents /= 2; // Convert back to number of int64s.
       for (unsigned i = 0; i < NumComponents; i++) {
         Value *lo = Elts[2 * i];
         Value *hi = Elts[2 * i + 1];
