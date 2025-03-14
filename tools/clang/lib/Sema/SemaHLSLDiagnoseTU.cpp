@@ -605,13 +605,11 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       // disconnected with respect to the call graph.
       // Only check this if neither function decl is recursive
       if (!result && !patchResult) {
-        callGraph.BuildForEntry(pPatchFnDecl, GlobalsWithInit);
         if (callGraph.CheckReachability(pPatchFnDecl, FDecl)) {
           self->Diag(FDecl->getSourceRange().getBegin(),
                      diag::err_hlsl_patch_reachability_not_allowed)
               << 1 << FDecl->getName() << 0 << pPatchFnDecl->getName();
         }
-        callGraph.BuildForEntry(FDecl, GlobalsWithInit);
         if (callGraph.CheckReachability(FDecl, pPatchFnDecl)) {
           self->Diag(FDecl->getSourceRange().getBegin(),
                      diag::err_hlsl_patch_reachability_not_allowed)
