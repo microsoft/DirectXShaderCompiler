@@ -364,6 +364,9 @@ bool [[ro]] IsHelperLane();
 // HL Op for allocating ray query object that default constructor uses
 uint [[hidden]] AllocateRayQuery(in uint flags);
 
+// HL Op for allocating ray query object that default constructor uses
+uint [[hidden]] AllocateRayQuery2(in uint flags, in uint rayqueryflags);
+
 resource [[hidden]] CreateResourceFromHeap(in uint index);
 
 // Replacement for vector logical &&, ||, and ternary conditional operators,
