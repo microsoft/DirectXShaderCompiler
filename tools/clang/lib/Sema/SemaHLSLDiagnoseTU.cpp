@@ -410,9 +410,13 @@ public:
   }
 
   AvailabilityAttr *GetAvailabilityAttrOnce(DeclRefExpr *DRE) {
+    if (!DeclAvailabilityChecked.insert(DRE).second)
+      return nullptr;
+
     NamedDecl *ND = DRE->getDecl();
     if (!ND)
       return nullptr;
+
     AvailabilityAttr *AAttr = ND->getAttr<AvailabilityAttr>();
     if (!AAttr)
       return nullptr;
@@ -433,7 +437,7 @@ public:
     // is stated in the availability attribute, emit
     // the availability warning.
 
-    if (SMVT < AAttrVT && DeclAvailabilityChecked.insert(DRE).second) {
+    if (SMVT < AAttrVT) {
       // TBD: Determine best way to distinguish between builtin constant decls
       // and other decls.
       sema->Diag(DRE->getLocation(),
