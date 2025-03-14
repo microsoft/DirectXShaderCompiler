@@ -17,4 +17,7 @@ void main(RayDesc rayDesc : RAYDESC) : OUT {
   
   // expected-error@+1{{When using 'RAY_FLAG_FORCE_OMM_2_STATE' in RayFlags, RayQueryFlags must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set.}}
   rayQuery.TraceRayInline(RTAS, 1024, 2, rayDesc);
+
+  // expected-error@+1{{A non-zero value for the RayQueryFlags template argument requires shader model 6.9 or above.}}
+  RayQuery<0, 1> rayQueryInvalid;
 }
