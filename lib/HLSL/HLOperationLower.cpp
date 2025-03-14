@@ -4192,8 +4192,8 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
           GetRawBufferMaskForETy(EltTy, chunkSize, OP);
       // If we've loaded a chunk already, update offset to next chunk.
       if (FirstLd != nullptr && opcode == OP::OpCode::RawBufferLoad)
-        Args[OffsetIdx] = Builder.CreateAdd( Args[OffsetIdx],
-                                             OP->GetU32Const(4 * LdSize));
+        Args[OffsetIdx] =
+            Builder.CreateAdd(Args[OffsetIdx], OP->GetU32Const(4 * LdSize));
     }
 
     Function *F = OP->GetOpFunc(opcode, EltTy);
@@ -4217,7 +4217,7 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
     if (RegEltTy->isDoubleTy()) {
       Function *makeDouble = OP->GetOpFunc(DXIL::OpCode::MakeDouble, RegEltTy);
       Value *makeDoubleOpArg =
-        Builder.getInt32((unsigned)DXIL::OpCode::MakeDouble);
+          Builder.getInt32((unsigned)DXIL::OpCode::MakeDouble);
       for (unsigned i = 0; i < NumComponents; i++) {
         Value *lo = Elts[2 * i];
         Value *hi = Elts[2 * i + 1];
@@ -4246,7 +4246,6 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
     for (unsigned i = 0; i < NumComponents; i++)
       retValNew = Builder.CreateInsertElement(retValNew, Elts[i], i);
   }
-
 
   // Convert loaded int32 bool results to i1 register representation.
   if (isBool)
