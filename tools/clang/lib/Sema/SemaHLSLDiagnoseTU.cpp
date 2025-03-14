@@ -403,33 +403,27 @@ public:
 
   bool VisitDeclRefExpr(DeclRefExpr *DRE) {
     // Diagnose availability for referenced decl.
-    // Skip redundant availability diagnostics for the same Decl.
-    DiagnoseAvailability(DRE);
+    if (AvailabilityAttr *AAttr = GetAvailabilityAttrOnce(DRE)) {
+      NamedDecl *ND = DRE->getDecl();
+      DiagnoseAvailability(AAttr, ND, DRE->getExprLoc());
+    }
 
     return true;
   }
 
   AvailabilityAttr *GetAvailabilityAttrOnce(DeclRefExpr *DRE) {
-    if (!DeclAvailabilityChecked.insert(DRE).second)
-      return nullptr;
-
-    NamedDecl *ND = DRE->getDecl();
-    if (!ND)
-      return nullptr;
-
-    AvailabilityAttr *AAttr = ND->getAttr<AvailabilityAttr>();
+    AvailabilityAttr *AAttr = DRE->getDecl()->getAttr<AvailabilityAttr>();
     if (!AAttr)
+      return nullptr;
+    // Skip redundant availability diagnostics for the same Decl.
+    if (!DeclAvailabilityChecked.insert(DRE).second)
       return nullptr;
 
     return AAttr;
   }
 
-  void DiagnoseAvailability(DeclRefExpr *DRE) {
-
-    AvailabilityAttr *AAttr = GetAvailabilityAttrOnce(DRE);
-    if (!AAttr)
-      return;
-
+  void DiagnoseAvailability(AvailabilityAttr *AAttr, NamedDecl *ND,
+                            SourceLocation Loc) {
     VersionTuple AAttrVT = AAttr->getIntroduced();
     VersionTuple SMVT = VersionTuple(SM->GetMajor(), SM->GetMinor());
 
@@ -440,9 +434,8 @@ public:
     if (SMVT < AAttrVT) {
       // TBD: Determine best way to distinguish between builtin constant decls
       // and other decls.
-      sema->Diag(DRE->getLocation(),
-                 diag::warn_hlsl_builtin_constant_unavailable)
-          << DRE->getDecl() << SM->GetName() << AAttrVT.getAsString();
+      sema->Diag(Loc, diag::warn_hlsl_builtin_constant_unavailable)
+          << ND << SM->GetName() << AAttrVT.getAsString();
     }
   }
 
