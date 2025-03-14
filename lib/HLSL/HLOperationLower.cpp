@@ -5674,6 +5674,16 @@ Value *TranslateAllocateRayQuery(CallInst *CI, IntrinsicOp IOP,
   return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
 }
 
+Value *TranslateAllocateRayQuery2(CallInst *CI, IntrinsicOp IOP,
+                                  OP::OpCode opcode,
+                                  HLOperationLowerHelper &helper,
+                                  HLObjectOperationLowerHelper *pObjHelper,
+                                  bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *refArgs[] = {nullptr, CI->getOperand(1), CI->getOperand(2)};
+  return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
+}
+
 Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                                HLOperationLowerHelper &helper,
                                HLObjectOperationLowerHelper *pObjHelper,
@@ -6190,6 +6200,8 @@ IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_AllocateRayQuery, TranslateAllocateRayQuery,
      DXIL::OpCode::AllocateRayQuery},
+    {IntrinsicOp::IOP_AllocateRayQuery2, TranslateAllocateRayQuery2,
+     DXIL::OpCode::AllocateRayQuery2},
     {IntrinsicOp::IOP_Barrier, TranslateBarrier, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_CallShader, TranslateCallShader,
      DXIL::OpCode::CallShader},

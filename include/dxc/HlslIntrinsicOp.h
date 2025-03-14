@@ -10,6 +10,7 @@ enum class IntrinsicOp {
   IOP_AllMemoryBarrier,
   IOP_AllMemoryBarrierWithGroupSync,
   IOP_AllocateRayQuery,
+  IOP_AllocateRayQuery2,
   IOP_Barrier,
   IOP_CallShader,
   IOP_CheckAccessFullyMapped,
