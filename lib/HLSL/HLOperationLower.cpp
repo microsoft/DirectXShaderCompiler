@@ -4170,7 +4170,7 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
   unsigned LdSize = DL.getTypeAllocSize(EltTy);
 
-  std::array<Value *> Elts(NumComponents);
+  SmallVector<Value *, 4> Elts(NumComponents);
 
   SmallVector<Value *, 10> Args =
       GetBufLoadArgs(helper, RK, Builder, EltTy, LdSize);
