@@ -146,6 +146,7 @@ public:
   TEST_METHOD(RootSignatureUpgrade_Annotation)
 
   TEST_METHOD(DxilPIXDXRInvocationsLog_SanityTest)
+  TEST_METHOD(DxilPIXDXRInvocationsLog_EmbeddedRootSigs)
 
   TEST_METHOD(DebugInstrumentation_TextOutput)
   TEST_METHOD(DebugInstrumentation_BlockReport)
@@ -2943,6 +2944,35 @@ void MyMiss(inout MyPayload payload)
 
   auto compiledLib = Compile(m_dllSupport, source, L"lib_6_6", {});
   RunDxilPIXDXRInvocationsLog(compiledLib);
+}
+
+TEST_F(PixTest, DxilPIXDXRInvocationsLog_EmbeddedRootSigs) {
+
+  const char *source = R"x(
+
+GlobalRootSignature grs = {"CBV(b0)"};
+int main(int i : INDEX) : SV_Target {
+  return 1;
+}
+
+)x";
+
+  auto compiledLib = Compile(m_dllSupport, source, L"lib_6_3",
+                             {L"-Qstrip_reflect"}, L"RootSig");
+  CComPtr<IDxcContainerReflection> pReflection;
+  IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+
+  // Load the reflector from the original shader
+  VERIFY_SUCCEEDED(pReflection->Load(compiledLib));
+
+  UINT32 partIndex;
+
+  VERIFY_SUCCEEDED(
+      (pReflection->FindFirstPartKind(hlsl::DFCC_RuntimeData, &partIndex)));
+  CComPtr<IDxcBlob> pPart;
+  VERIFY_SUCCEEDED(pReflection->GetPartContent(partIndex, &pPart));
+  auto wrapped = WrapInNewContainer(m_dllSupport, pPart);
+  RunDxilPIXDXRInvocationsLog(wrapped);
 }
 
 TEST_F(PixTest, DebugInstrumentation_TextOutput) {
