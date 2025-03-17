@@ -113,13 +113,13 @@ public:
 
     // Lower matrix first.
     for (BitCastInst *BCI : matCastSet) {
-      lowerMatrix(BCI, BCI->getOperand(0));
+      lowerMatrix(DM, BCI, BCI->getOperand(0));
     }
     return bUpdated;
   }
 
 private:
-  void lowerMatrix(Instruction *M, Value *A);
+  void lowerMatrix(DxilModule &DM, Instruction *M, Value *A);
   bool hasCallUser(Instruction *M);
 };
 
@@ -180,7 +180,8 @@ Value *CreateEltGEP(Value *A, unsigned i, Value *zeroIdx,
 }
 } // namespace
 
-void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
+void MatrixBitcastLowerPass::lowerMatrix(DxilModule &DM, Instruction *M,
+                                         Value *A) {
   for (auto it = M->user_begin(); it != M->user_end();) {
     User *U = *(it++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
@@ -193,31 +194,42 @@ void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
         SmallVector<Value *, 2> idxList(GEP->idx_begin(), GEP->idx_end());
         DXASSERT(idxList.size() == 2,
                  "else not one dim matrix array index to matrix");
-
-        HLMatrixType MatTy = HLMatrixType::cast(EltTy);
-        Value *matSize = Builder.getInt32(MatTy.getNumElements());
-        idxList.back() = Builder.CreateMul(idxList.back(), matSize);
+        if (!DM.GetShaderModel()->IsSM69Plus()) {
+          HLMatrixType MatTy = HLMatrixType::cast(EltTy);
+          Value *matSize = Builder.getInt32(MatTy.getNumElements());
+          idxList.back() = Builder.CreateMul(idxList.back(), matSize);
+        }
         Value *NewGEP = Builder.CreateGEP(A, idxList);
-        lowerMatrix(GEP, NewGEP);
+        lowerMatrix(DM, GEP, NewGEP);
         DXASSERT(GEP->user_empty(), "else lower matrix fail");
         GEP->eraseFromParent();
       } else {
         DXASSERT(0, "invalid GEP for matrix");
       }
     } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-      lowerMatrix(BCI, A);
+      lowerMatrix(DM, BCI, A);
       DXASSERT(BCI->user_empty(), "else lower matrix fail");
       BCI->eraseFromParent();
     } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
       if (VectorType *Ty = dyn_cast<VectorType>(LI->getType())) {
         IRBuilder<> Builder(LI);
-        Value *zeroIdx = Builder.getInt32(0);
-        unsigned vecSize = Ty->getNumElements();
-        Value *NewVec = UndefValue::get(LI->getType());
-        for (unsigned i = 0; i < vecSize; i++) {
-          Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
-          Value *Elt = Builder.CreateLoad(GEP);
-          NewVec = Builder.CreateInsertElement(NewVec, Elt, i);
+        Value *NewVec = nullptr;
+        if (DM.GetShaderModel()->IsSM69Plus()) {
+          // Just create a replacement load using the vector pointer.
+          Instruction *NewLI = LI->clone();
+          unsigned VecIdx = NewLI->getNumOperands() - 1;
+          NewLI->setOperand(VecIdx, A);
+          Builder.Insert(NewLI);
+          NewVec = NewLI;
+        } else {
+          Value *zeroIdx = Builder.getInt32(0);
+          unsigned vecSize = Ty->getNumElements();
+          NewVec = UndefValue::get(LI->getType());
+          for (unsigned i = 0; i < vecSize; i++) {
+            Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
+            Value *Elt = Builder.CreateLoad(GEP);
+            NewVec = Builder.CreateInsertElement(NewVec, Elt, i);
+          }
         }
         LI->replaceAllUsesWith(NewVec);
         LI->eraseFromParent();

@@ -2037,7 +2037,7 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
         ValCtx.EmitInstrError(CI, ValidationRule::InstrOload);
         continue;
       }
-      dxilFunc = hlslOP->GetOpFunc(dxilOpcode, Ty->getScalarType());
+      dxilFunc = hlslOP->GetOpFunc(dxilOpcode, Ty);
     }
 
     if (!dxilFunc) {
@@ -2109,17 +2109,20 @@ static bool IsDxilBuiltinStructType(StructType *ST, hlsl::OP *hlslOP) {
     return true;
 
   unsigned EltNum = ST->getNumElements();
+  Type *EltTy = ST->getElementType(0);
   switch (EltNum) {
   case 2:
+    // Check if it's a native vector resret.
+    if (EltTy->isVectorTy())
+      return ST == hlslOP->GetResRetType(EltTy);
+    LLVM_FALLTHROUGH;
   case 4:
-  case 8: { // 2 for doubles, 8 for halfs.
-    Type *EltTy = ST->getElementType(0);
+  case 8: // 2 for doubles, 8 for halfs.
     return ST == hlslOP->GetCBufferRetType(EltTy);
-  } break;
-  case 5: {
-    Type *EltTy = ST->getElementType(0);
+  break;
+  case 5:
     return ST == hlslOP->GetResRetType(EltTy);
-  } break;
+  break;
   default:
     return false;
   }
@@ -2193,6 +2196,8 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx,
     return true;
 
   if (Ty->isVectorTy()) {
+    if (ValCtx.DxilMod.GetShaderModel()->IsSM69Plus())
+      return true;
     ValCtx.EmitTypeError(Ty, ValidationRule::TypesNoVector);
     return false;
   }
