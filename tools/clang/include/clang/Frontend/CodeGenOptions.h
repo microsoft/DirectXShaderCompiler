@@ -244,6 +244,8 @@ public:
   bool HLSLEnableLifetimeMarkers = false;
   /// Put shader sources and options in the module
   bool HLSLEmbedSourcesInModule = false;
+  /// Enable Shader Execution Reordering.
+  bool HLSLEnableShaderExecutionReordering = false;
   /// Enable generation of payload access qualifier metadata. 
   bool HLSLEnablePayloadAccessQualifiers = false;
   /// Binding table for HLSL resources

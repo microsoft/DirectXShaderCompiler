@@ -599,6 +599,7 @@ class db_oload_gen:
             "noderecordhandle": "A(pNodeRecordHandle);",
             "nodeproperty": "A(nodeProperty);",
             "noderecordproperty": "A(nodeRecordProperty);",
+            "hit_object": "A(pHit);",
         }
         last_category = None
         for i in self.instrs:
@@ -971,7 +972,7 @@ def get_hlsl_intrinsics():
         if last_ns != i.ns:
             last_ns = i.ns
             id_prefix = (
-                "IOP" if last_ns == "Intrinsics" or last_ns == "VkIntrinsics" else "MOP"
+                "IOP" if last_ns.endswith("Intrinsics") else "MOP"
             )  # SPIRV Change
             if len(ns_table):
                 result += ns_table + "};\n"
@@ -996,6 +997,8 @@ def get_hlsl_intrinsics():
             flags.append("INTRIN_FLAG_READ_NONE")
         if i.wave:
             flags.append("INTRIN_FLAG_IS_WAVE")
+        if i.static_member:
+            flags.append("INTRIN_FLAG_STATIC_MEMBER")
         if flags:
             flags = " | ".join(flags)
         else:

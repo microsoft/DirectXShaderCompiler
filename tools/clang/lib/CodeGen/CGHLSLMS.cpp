@@ -2500,9 +2500,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     // Type annotation for this pointer.
     if (const CXXMethodDecl *MFD = dyn_cast<CXXMethodDecl>(FD)) {
-      const CXXRecordDecl *RD = MFD->getParent();
-      QualType Ty = CGM.getContext().getTypeDeclType(RD);
-      AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize);
+      if (!MFD->isStatic()) {
+        const CXXRecordDecl *RD = MFD->getParent();
+        QualType Ty = CGM.getContext().getTypeDeclType(RD);
+        AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize);
+      }
     }
 
     for (const ValueDecl *param : FD->params()) {
