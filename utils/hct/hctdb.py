@@ -708,6 +708,11 @@ class db_dxil(object):
                 "closesthit",
                 "miss",
             )
+        for i in ("MaybeReorderThread").split(","):
+            self.name_idx[i].shader_stages = (
+                "library",
+                "raygeneration",
+            )
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -5595,7 +5600,29 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
-        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 26, 5)
+        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 1, 5)
+
+        self.add_dxil_op(
+            "MaybeReorderThread",
+            next_op_idx,
+            "MaybeReorderThread",
+            "Reorders the current thread. Optionally accepts a HitObject arg, or undef",
+            "v",
+            "",
+            [
+                retvoid_param,
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(3, "i32", "coherenceHint", "Coherence hint"),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "numCoherenceHintBitsFromLSB",
+                    "Num coherence hint bits from LSB",
+                ),
+            ],
+        )
+        next_op_idx += 1
+        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 24, 7)
 
         # Reserved block C
         next_op_idx = self.reserve_dxil_op_range("ReservedC", next_op_idx, 10)
@@ -7539,6 +7566,12 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.NodeRecordHandleUseAfterComplete",
             "Invalid use of completed record handle.",
+        )
+
+        # Shader Execution Reordering
+        self.add_valrule(
+            "Instr.MayReorderThreadUndefCoherenceHintParam",
+            "Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.",
         )
 
         # Some legacy rules:

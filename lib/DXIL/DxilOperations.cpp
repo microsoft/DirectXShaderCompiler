@@ -2703,10 +2703,10 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         Attribute::None,
     },
     {
-        OC::ReservedB6,
-        "ReservedB6",
-        OCC::Reserved,
-        "reserved",
+        OC::MaybeReorderThread,
+        "MaybeReorderThread",
+        OCC::MaybeReorderThread,
+        "maybeReorderThread",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
@@ -3484,6 +3484,11 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
       (83 <= op && op <= 86)) {
     mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) |
            SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
+    return;
+  }
+  // Instructions: MaybeReorderThread=268
+  if (op == 268) {
+    mask = SFLAG(Library) | SFLAG(RayGeneration);
     return;
   }
   // Instructions: RenderTargetGetSamplePosition=76,
@@ -5913,8 +5918,11 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedB6:
+  case OpCode::MaybeReorderThread:
     A(pV);
+    A(pI32);
+    A(pHit);
+    A(pI32);
     A(pI32);
     break;
   case OpCode::ReservedB7:
@@ -6321,7 +6329,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::HitObject_MakeMiss:
   case OpCode::HitObject_MakeNop:
   case OpCode::ReservedB5:
-  case OpCode::ReservedB6:
+  case OpCode::MaybeReorderThread:
   case OpCode::ReservedB7:
   case OpCode::ReservedB8:
   case OpCode::ReservedB9:
