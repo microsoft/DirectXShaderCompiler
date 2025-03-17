@@ -364,7 +364,7 @@ bool [[ro]] IsHelperLane();
 // HL Op for allocating ray query object that default constructor uses
 uint [[hidden]] AllocateRayQuery(in uint flags);
 
-// HL Op for allocating ray query object that default constructor uses
+// HL Op for allocating ray query object when non-zero 2nd template argument is given
 uint [[hidden]] AllocateRayQuery2(in uint flags, in uint rayqueryflags);
 
 resource [[hidden]] CreateResourceFromHeap(in uint index);
