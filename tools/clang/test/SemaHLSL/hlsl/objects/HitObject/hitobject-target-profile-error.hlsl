@@ -4,6 +4,6 @@ namespace dx {}
 
 [shader("raygeneration")]
 void main() {
-// expected-error@+1{{no type named 'HitObject' in namespace 'dx'}}
-  dx::HitObject hit;
+  // expected-warning@+1{{potential misuse of built-in function 'dx::HitObject::MakeNop' in shader model lib_6_8; introduced in shader model 6.9}}
+  dx::HitObject::MakeNop();
 }

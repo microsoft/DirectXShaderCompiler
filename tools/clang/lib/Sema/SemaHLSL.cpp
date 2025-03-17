@@ -1941,15 +1941,14 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
     FD->addAttr(PureAttr::CreateImplicit(context));
   if (pIntrinsic->Flags & INTRIN_FLAG_IS_WAVE)
     FD->addAttr(HLSLWaveSensitiveAttr::CreateImplicit(context));
-  // TBD: Add availability attribute if MinShaderModel is set.
-  // if (pIntrinsic->MinShaderModel) {
-  //  unsigned Major = pIntrinsic->MinShaderModel >> 4;
-  //  unsigned Minor = pIntrinsic->MinShaderModel & 0xF;
-  //  FD->addAttr(AvailabilityAttr::CreateImplicit(
-  //      context, &context.Idents.get(""), clang::VersionTuple(Major, Minor),
-  //      clang::VersionTuple(), clang::VersionTuple(), false,
-  //      "HLSL Intrinsic availability limited by shader model."));
-  //}
+  if (pIntrinsic->MinShaderModel) {
+    unsigned Major = pIntrinsic->MinShaderModel >> 4;
+    unsigned Minor = pIntrinsic->MinShaderModel & 0xF;
+    FD->addAttr(AvailabilityAttr::CreateImplicit(
+        context, &context.Idents.get(""), clang::VersionTuple(Major, Minor),
+        clang::VersionTuple(), clang::VersionTuple(), false,
+        "HLSL Intrinsic availability limited by shader model."));
+  }
 }
 
 static FunctionDecl *
@@ -3781,10 +3780,8 @@ private:
         recordDecl = DeclareRayQueryType(*m_context);
       } else if (kind == AR_OBJECT_HIT_OBJECT) {
         // Declare 'HitObject' in '::dx' extension namespace.
-        if (SM->IsSM69Plus()) {
-          DXASSERT(m_dxNSDecl, "namespace ::dx must be declared in SM6.9+");
-          recordDecl = DeclareHitObjectType(*m_dxNSDecl);
-        }
+        DXASSERT(m_dxNSDecl, "namespace ::dx must be declared in SM6.9+");
+        recordDecl = DeclareHitObjectType(*m_dxNSDecl);
       } else if (kind == AR_OBJECT_HEAP_RESOURCE) {
         recordDecl = DeclareResourceType(*m_context, /*bSampler*/ false);
         if (SM->IsSM66Plus()) {
@@ -4063,8 +4060,6 @@ public:
     S.addExternalSource(this);
 
     // Namespace ::dx only introduced with SM6.9
-    const auto *SM =
-        hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
     m_dxNSDecl =
         NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
                               /*Inline*/ false, SourceLocation(),
@@ -4091,8 +4086,7 @@ public:
       AddIntrinsicTableMethods(intrinsic);
     }
 
-    if (SM->IsSM69Plus())
-      AddDxIntrinsicFunctions();
+    AddDxIntrinsicFunctions();
 
 #ifdef ENABLE_SPIRV_CODEGEN
     if (m_sema->getLangOpts().SPIRV) {
@@ -5083,17 +5077,6 @@ public:
                                            nameIdentifier, argumentCount));
   }
 
-  bool IsEnabledIntrinsic(const HLSL_INTRINSIC *pIntrinsic,
-                          const ShaderModel &SM) {
-    switch ((IntrinsicOp)pIntrinsic->Op) {
-    default:
-      return true;
-    case IntrinsicOp::MOP_DxHitObject_MakeNop:
-    case IntrinsicOp::IOP_DxMaybeReorderThread:
-      return SM.IsSM69Plus();
-    }
-  }
-
   bool AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
                                    ArrayRef<Expr *> Args,
                                    OverloadCandidateSet &CandidateSet,
@@ -5145,9 +5128,6 @@ public:
     }
 #endif // ENABLE_SPIRV_CODEGEN
 
-    const auto *SM =
-        hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
-
     IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
         table, tableCount, StringRef(), nameIdentifier, Args.size());
     IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
@@ -5155,13 +5135,6 @@ public:
 
     for (; cursor != end; ++cursor) {
       const HLSL_INTRINSIC *pIntrinsic = *cursor;
-
-      // Check whether this extension intrinsic is available in the current
-      // configuration. Note that this not necessary for member functions:
-      // if the builtin type is never declared, neither will any type refer
-      // to the member intrinsics table.
-      if (!IsEnabledIntrinsic(*cursor, *SM))
-        continue;
 
       // If this is the intrinsic we're interested in, build up a representation
       // of the types we need.
@@ -11934,11 +11907,6 @@ void Sema::DiagnoseReachableCallForSER(CallExpr *CE, DXIL::ShaderKind EntrySK,
         << DiagUnsupportedFeature << ShaderModel::FullNameFromKind(EntrySK)
         << DiagValidShaderKinds;
     Diag(EntryFD->getLocation(), diag::note_hlsl_entry_defined_here);
-  }
-
-  if (!SM->IsSM69Plus()) {
-    // Legal entry, but version not supported
-    Diag(Loc, diag::err_hlsl_ser_invalid_version) << SM->GetName();
   }
 }
 

@@ -24,6 +24,7 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include <optional>
 
 using namespace clang;
@@ -432,13 +433,27 @@ public:
     // if the current shader model is lower than what
     // is stated in the availability attribute, emit
     // the availability warning.
+    if (SMVT >= AAttrVT)
+      return;
 
-    if (SMVT < AAttrVT) {
-      // TBD: Determine best way to distinguish between builtin constant decls
-      // and other decls.
-      sema->Diag(Loc, diag::warn_hlsl_builtin_constant_unavailable)
-          << ND << SM->GetName() << AAttrVT.getAsString();
+    // TBD: Determine best way to distinguish between builtin constant decls
+    // and other decls.
+    enum class DiagKind { Constant = 0, Function = 1 };
+    DiagKind Kind;
+    switch (ND->getKind()) {
+    case Decl::Function:
+    case Decl::FunctionTemplate:
+    case Decl::CXXMethod:
+      Kind = DiagKind::Function;
+      break;
+    default:
+      Kind = DiagKind::Constant;
+      break;
     }
+
+    sema->Diag(Loc, diag::warn_hlsl_builtin_unavailable)
+        << ND->getQualifiedNameAsString() << SM->GetName()
+        << AAttrVT.getAsString() << (int)Kind;
   }
 
   clang::Sema *getSema() { return sema; }
@@ -451,29 +466,6 @@ private:
   const FunctionDecl *EntryDecl;
   llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls;
   llvm::SmallPtrSetImpl<DeclRefExpr *> &DeclAvailabilityChecked;
-};
-
-class HLSLDisallowSERDiagnoseVisitor
-    : public RecursiveASTVisitor<HLSLDisallowSERDiagnoseVisitor> {
-public:
-  explicit HLSLDisallowSERDiagnoseVisitor(Sema &S, DXIL::ShaderKind EntrySK,
-                                          const FunctionDecl *EntryDecl)
-      : S(S), EntrySK(EntrySK), EntryDecl(EntryDecl) {}
-
-  bool VisitTypeLoc(TypeLoc TL) {
-    if (!hlsl::IsHLSLHitObjectType(TL.getType()))
-      return true;
-
-    S.Diag(TL.getLocStart(), diag::err_hlsl_ser_unsupported)
-        << 0 << ShaderModel::FullNameFromKind(EntrySK) << 1;
-    S.Diag(EntryDecl->getLocation(), diag::note_hlsl_entry_defined_here);
-    return false;
-  }
-
-private:
-  clang::Sema &S;
-  DXIL::ShaderKind EntrySK;
-  const FunctionDecl *EntryDecl;
 };
 
 std::optional<uint32_t>
@@ -694,18 +686,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
               ShaderModel::NodeLaunchTypeFromName(pAttr->getLaunchType());
         else
           NodeLaunchTy = DXIL::NodeLaunchType::Broadcasting;
-      }
-    }
-
-    // Shader Execution Reordering
-    // MaybeReorderThread(..) handled elsewhere.
-    const bool AllowHitObject = (EntrySK == DXIL::ShaderKind::ClosestHit ||
-                                 EntrySK == DXIL::ShaderKind::Miss ||
-                                 EntrySK == DXIL::ShaderKind::RayGeneration);
-    if (!AllowHitObject) {
-      HLSLDisallowSERDiagnoseVisitor Visitor(*self, EntrySK, FDecl);
-      for (FunctionDecl *FD : callGraph.GetVisitedFunctions()) {
-        Visitor.TraverseDecl(FD);
       }
     }
 
