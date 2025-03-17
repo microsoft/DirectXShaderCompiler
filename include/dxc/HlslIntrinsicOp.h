@@ -333,6 +333,8 @@ enum class IntrinsicOp {
   MOP_TraceRayInline = 325,
   MOP_WorldRayDirection = 326,
   MOP_WorldRayOrigin = 327,
+  MOP_DxHitObject_MakeNop = 358,
+  IOP_DxMaybeReorderThread = 359,
   MOP_Count = 328,
   MOP_FinishedCrossGroupSharing = 329,
   MOP_GetGroupNodeOutputRecords = 330,
@@ -364,7 +366,7 @@ enum class IntrinsicOp {
   IOP_usign = 355,
   MOP_InterlockedUMax = 356,
   MOP_InterlockedUMin = 357,
-  Num_Intrinsics = 358,
+  Num_Intrinsics = 360,
 };
 inline bool HasUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
   switch (opcode) {

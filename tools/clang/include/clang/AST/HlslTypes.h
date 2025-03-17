@@ -391,6 +391,7 @@ clang::CXXRecordDecl *
 DeclareConstantBufferViewType(clang::ASTContext &context,
                               clang::InheritableAttr *Attr);
 clang::CXXRecordDecl *DeclareRayQueryType(clang::ASTContext &context);
+clang::CXXRecordDecl *DeclareHitObjectType(clang::NamespaceDecl &NSDecl);
 clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context,
                                           bool bSampler);
 
@@ -472,6 +473,7 @@ bool IsHLSLNodeInputType(clang::QualType type);
 bool IsHLSLDynamicResourceType(clang::QualType type);
 bool IsHLSLDynamicSamplerType(clang::QualType type);
 bool IsHLSLNodeType(clang::QualType type);
+bool IsHLSLHitObjectType(clang::QualType type);
 
 bool IsHLSLObjectWithImplicitMemberAccess(clang::QualType type);
 bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type);
@@ -545,6 +547,7 @@ clang::CXXMethodDecl *CreateObjectFunctionDeclarationWithParams(
     clang::QualType resultType, llvm::ArrayRef<clang::QualType> paramTypes,
     llvm::ArrayRef<clang::StringRef> paramNames,
     clang::DeclarationName declarationName, bool isConst,
+    clang::StorageClass SC = clang::StorageClass::SC_None,
     bool isTemplateFunction = false);
 
 DXIL::ResourceClass GetResourceClassForType(const clang::ASTContext &context,

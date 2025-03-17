@@ -7665,6 +7665,9 @@ def err_hlsl_unsupported_builtin_op: Error<
 def warn_hlsl_builtin_constant_unavailable: Warning<
   "potential misuse of built-in constant %0 in shader model %1; introduced"
   " in shader model %2">, InGroup<HLSLAvailabilityConstant>;
+def warn_hlsl_builtin_type_unavailable: Warning<
+  "potential misuse of built-in type %0 in shader model %1; introduced"
+  " in shader model %2">, DefaultError, InGroup<HLSLAvailability>;
 def err_hlsl_unsupported_char_literal : Error<
   "unsupported style of char literal - use a single-character char-based literal">;
 def err_hlsl_unsupported_clipplane_argument_expression : Error<
@@ -7991,6 +7994,12 @@ def warn_hlsl_legacy_integer_literal_signedness: Warning<
   InGroup<HLSLLegacyLiterals>, DefaultIgnore;
 def err_hlsl_unsupported_semantic_index: Error<
   "'%0' is defined with semantic index %1, but only values 0 through %2 are supported">;
+
+// Shader Execution Reordering
+def err_hlsl_reorder_unsupported_stage : Error<
+   "dx::MaybeReorderThread is unavailable in shader stage '%0' (requires 'raygeneration')">;
+def err_hlsl_hitobject_unsupported_stage : Error<
+   "dx::HitObject is unavailable in shader stage '%0' (requires 'raygeneration', 'closesthit' or 'miss')">;
 // HLSL Change Ends
 
 // SPIRV Change Starts
