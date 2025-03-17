@@ -999,10 +999,9 @@ def get_hlsl_intrinsics():
             flags = " | ".join(flags)
         else:
             flags = "0"
-        ns_table += "    {(UINT)%s::%s_%s, %s, 0x%x, %d, %d, g_%s_Args%s},\n" % (
+        ns_table += "    {(UINT)%s::%s, %s, 0x%x, %d, %d, g_%s_Args%s},\n" % (
             opcode_namespace,
-            id_prefix,
-            i.name,
+            i.enum_name,
             flags,
             i.min_shader_model,
             i.overload_param_index,

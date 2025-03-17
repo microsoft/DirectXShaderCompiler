@@ -1852,6 +1852,10 @@ static const char *g_DeprecatedEffectObjectNames[] = {
     "RenderTargetView",  // 16
 };
 
+static bool IsStaticMember(const HLSL_INTRINSIC *fn) {
+  return fn->Flags & INTRIN_FLAG_STATIC_MEMBER;
+}
+
 static bool IsVariadicIntrinsicFunction(const HLSL_INTRINSIC *fn) {
   return fn->pArgs[fn->uNumArgs - 1].uTemplateId == INTRIN_TEMPLATE_VARARGS;
 }
@@ -1992,7 +1996,7 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
   std::vector<QualType> fnArgTypes(functionArgQualTypes.begin() + 1,
                                    functionArgQualTypes.end());
 
-  StorageClass SC = pIntrinsic->bStaticMember ? SC_Static : SC_Extern;
+  StorageClass SC = IsStaticMember(pIntrinsic) ? SC_Static : SC_Extern;
   QualType functionType =
       context.getFunctionType(fnReturnType, fnArgTypes, protoInfo, paramMods);
   FunctionDecl *functionDecl = FunctionDecl::Create(
@@ -3194,7 +3198,7 @@ private:
         &m_context->Idents.get(StringRef(intrinsic->pArgs[0].pName));
     DeclarationName declarationName = DeclarationName(ii);
 
-    StorageClass SC = intrinsic->bStaticMember ? SC_Static : SC_None;
+    StorageClass SC = IsStaticMember(intrinsic) ? SC_Static : SC_None;
 
     CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
         *m_context, recordDecl, functionResultQT,
@@ -3595,7 +3599,7 @@ private:
       InitParamMods(intrinsic, paramMods);
 
       // Create FunctionDecl.
-      StorageClass SC = intrinsic->bStaticMember ? SC_Static : SC_Extern;
+      StorageClass SC = IsStaticMember(intrinsic) ? SC_Static : SC_Extern;
       QualType fnType = getIntrinsicFunctionType(paramTypes, paramMods);
       TypeSourceInfo *TInfo =
           m_sema->getASTContext().CreateTypeSourceInfo(fnType, 0);
@@ -5958,7 +5962,7 @@ public:
       Params.push_back(paramDecl);
     }
 
-    StorageClass SC = intrinsic->bStaticMember ? SC_Static : SC_Extern;
+    StorageClass SC = IsStaticMember(intrinsic) ? SC_Static : SC_Extern;
     QualType T = TInfo->getType();
     DeclarationNameInfo NameInfo(FunctionTemplate->getDeclName(), NoLoc);
     CXXMethodDecl *method = CXXMethodDecl::Create(
