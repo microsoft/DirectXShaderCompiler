@@ -312,7 +312,7 @@ Supported extensions
 * SPV_NV_mesh_shader
 * SPV_KHR_ray_query
 * SPV_EXT_shader_image_int64
-* SPV_KHR_fragment_shading_barycentric
+* SPV_KHR_fragment_shader_barycentric
 * SPV_KHR_physical_storage_buffer
 * SPV_KHR_vulkan_memory_model
 * SPV_NV_compute_shader_derivatives
