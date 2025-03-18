@@ -5670,17 +5670,22 @@ Value *TranslateAllocateRayQuery(CallInst *CI, IntrinsicOp IOP,
                                  HLObjectOperationLowerHelper *pObjHelper,
                                  bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  Value *refArgs[] = {nullptr, CI->getOperand(1)};
-  return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
-}
-
-Value *TranslateAllocateRayQuery2(CallInst *CI, IntrinsicOp IOP,
-                                  OP::OpCode opcode,
-                                  HLOperationLowerHelper &helper,
-                                  HLObjectOperationLowerHelper *pObjHelper,
-                                  bool &Translated) {
-  hlsl::OP *hlslOP = &helper.hlslOP;
-  Value *refArgs[] = {nullptr, CI->getOperand(1), CI->getOperand(2)};
+  // upgrade to allocateRayQuery2 if there is a non-zero 2nd arg
+  if (CI->getNumArgOperands() == 3) {
+    llvm::Value *Arg = CI->getOperand(2);
+    llvm::ConstantInt *ConstVal = llvm::dyn_cast<llvm::ConstantInt>(Arg);
+    DXASSERT(
+        ConstVal,
+        "2nd argument to allocaterayquery must always be a constant value");
+    llvm::APInt IntVal = ConstVal->getValue(); // Get APInt representation
+    uint64_t Val = IntVal.getZExtValue();      // Get as uint64_t
+    if (Val != 0) {
+      Value *refArgs[3] = {nullptr, CI->getOperand(1), CI->getOperand(2)};
+      opcode = OP::OpCode::AllocateRayQuery2;
+      return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
+    }
+  }
+  Value *refArgs[2] = {nullptr, CI->getOperand(1)};
   return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
 }
 
@@ -6200,8 +6205,6 @@ IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_AllocateRayQuery, TranslateAllocateRayQuery,
      DXIL::OpCode::AllocateRayQuery},
-    {IntrinsicOp::IOP_AllocateRayQuery2, TranslateAllocateRayQuery2,
-     DXIL::OpCode::AllocateRayQuery2},
     {IntrinsicOp::IOP_Barrier, TranslateBarrier, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_CallShader, TranslateCallShader,
      DXIL::OpCode::CallShader},

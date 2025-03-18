@@ -2795,12 +2795,21 @@ unsigned AlignBufferOffsetInLegacy(unsigned offset, unsigned size,
 }
 
 // Translate RayQuery constructor.  From:
-//  %call = call %"RayQuery<flags, <optional rayquery flags>>"
+//  %call = call %"RayQuery<flags, <zero-value optional rayquery flags>>"
 //  @<constructor>(%"RayQuery<flags>" %ptr)
 // To:
 //  i32 %handle = AllocateRayQuery(i32 <IntrinsicOp::IOP_AllocateRayQuery>, i32
 //  %flags) %gep = GEP %"RayQuery<flags>" %ptr, 0, 0 store i32* %gep, i32
 //  %handle ; and replace uses of %call with %ptr
+//
+// OR
+//  %call = call %"RayQuery<flags, <non-zero-value rayquery flag>>"
+//  @<constructor>(%"RayQuery<flags>" %ptr)
+// To:
+//  i32 %handle = AllocateRayQuery2(i32 <IntrinsicOp::IOP_AllocateRayQuery>, i32
+//  %flags, i32 %constrayqueryflags) %gep = GEP %"RayQuery<flags,
+//  constrayqueryflags>" %ptr, 0, 0 store i32* %gep, i32 %handle ; and replace
+//  uses of %call with %ptr
 void TranslateRayQueryConstructor(HLModule &HLM) {
   llvm::Module &M = *HLM.GetModule();
   SmallVector<Function *, 4> Constructors;
@@ -2839,7 +2848,6 @@ void TranslateRayQueryConstructor(HLModule &HLM) {
         // the 2nd arg's value must be non-zero for usage of allocateRayQuery2
         if (SA->GetTemplateArgAnnotation(1).GetIntegral() != 0) {
           UseAllocateRayQuery2 = true;
-          opcode = (unsigned)IntrinsicOp::IOP_AllocateRayQuery2;
           funcTy = llvm::FunctionType::get(i32Ty, {i32Ty, i32Ty, i32Ty}, false);
         }
       }
