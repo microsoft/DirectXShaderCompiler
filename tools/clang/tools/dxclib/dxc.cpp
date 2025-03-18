@@ -73,7 +73,6 @@
 #endif
 
 // SPIRV Change Starts
-#ifdef ENABLE_SPIRV_CODEGEN
 #include "spirv-tools/libspirv.hpp"
 #include "clang/SPIRV/FeatureManager.h"
 
@@ -109,7 +108,6 @@ static bool DisassembleSpirv(IDxcBlob *binaryBlob, IDxcLibrary *library,
 
   return true;
 }
-#endif
 // SPIRV Change Ends
 
 inline bool wcseq(LPCWSTR a, LPCWSTR b) {
@@ -386,7 +384,6 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob,
   CComPtr<IDxcBlobEncoding> pDisassembleResult;
 
   // SPIRV Change Starts
-#ifdef ENABLE_SPIRV_CODEGEN
   if (m_Opts.GenSPIRV) {
     CComPtr<IDxcLibrary> pLibrary;
     IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
@@ -401,7 +398,6 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob,
                "dxc failed : Internal Compiler Error - "
                "unable to disassemble generated SPIR-V.");
   } else {
-#endif // ENABLE_SPIRV_CODEGEN
     // SPIRV Change Ends
 
     if (m_Opts.IsRootSignatureProfile()) {
@@ -417,12 +413,7 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob,
       IFT(CreateInstance(CLSID_DxcCompiler, &pCompiler));
       IFT(pCompiler->Disassemble(pBlob, &pDisassembleResult));
     }
-
-    // SPIRV Change Starts
-#ifdef ENABLE_SPIRV_CODEGEN
   }
-#endif // ENABLE_SPIRV_CODEGEN
-  // SPIRV Change Ends
 
   bool disassemblyWritten = false;
   if (!m_Opts.OutputHeader.empty()) {

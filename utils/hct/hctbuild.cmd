@@ -37,7 +37,6 @@ set OFFICIAL=OFF
 set FIXED_VER=OFF
 set FIXED_LOC=
 set VENDOR=
-set SPIRV=OFF
 set SPV_TEST=OFF
 set DXILCONV=ON
 set DXC_CMAKE_SYSTEM_VERSION=
@@ -217,8 +216,7 @@ if "%1"=="-fresh" (
 
 rem Begin SPIRV change
 if "%1"=="-spirv" (
-  echo SPIR-V codegen is enabled.
-  set SPIRV=ON
+  echo SPIR-V codegen is enabled by default (deprecated flag -spirv)
   shift /1 & goto :parse_args
 )
 if "%1"=="-spirvtest" (
@@ -330,7 +328,6 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_FIXED_VER:BOOL=%FIXED_VER%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_FIXED_VER:BOOL=%FIXED_VER% -DHLSL_FIXED_VERSION_LOCATION:STRING=%FIXED_LOC%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_BUILD_DXILCONV:BOOL=%DXILCONV%
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_VENDOR:STRING=%VENDOR%
-set CMAKE_OPTS=%CMAKE_OPTS% -DENABLE_SPIRV_CODEGEN:BOOL=%SPIRV%
 set CMAKE_OPTS=%CMAKE_OPTS% -DSPIRV_BUILD_TESTS:BOOL=%SPV_TEST%
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_ARCMT:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_STATIC_ANALYZER:BOOL=OFF
@@ -421,7 +418,7 @@ echo   -official      will generate official version for build
 echo   -fv            fixes the resource version for release (utils\version\version.inc)
 echo   -fvloc ^<path^>  directory with the version.inc file
 echo   -rel           builds release rather than debug
-echo   -spirv         enable SPIR-V codegen
+echo   -spirv         enable SPIR-V codegen. (deprecated, on by default)
 echo   -spirvtest     enable building SPIR-V tests
 echo   -speak-up      enables audible build confirmation
 echo   -no-parallel   disables parallel build

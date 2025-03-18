@@ -1277,7 +1277,6 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
   return Builder.getRecordDecl();
 }
 
-#ifdef ENABLE_SPIRV_CODEGEN
 CXXRecordDecl *hlsl::DeclareInlineSpirvType(clang::ASTContext &context,
                                             clang::DeclContext *declContext,
                                             llvm::StringRef typeName,
@@ -1312,7 +1311,6 @@ CXXRecordDecl *hlsl::DeclareVkIntegralConstant(
   *templateDecl = typeDeclBuilder.getTemplateDecl();
   return typeDeclBuilder.getRecordDecl();
 }
-#endif
 
 CXXRecordDecl *hlsl::DeclareNodeOutputArray(clang::ASTContext &Ctx,
                                             DXIL::NodeIOKind Type,

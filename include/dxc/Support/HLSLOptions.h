@@ -268,11 +268,9 @@ public:
   llvm::StringRef GetPDBName() const; // Fd name
 
   // SPIRV Change Starts
-#ifdef ENABLE_SPIRV_CODEGEN
   bool GenSPIRV; // OPT_spirv
   clang::spirv::SpirvCodeGenOptions
       SpirvOptions; // All SPIR-V CodeGen-related options
-#endif
   // SPIRV Change Ends
 
   bool GenMetal = false; // OPT_metal

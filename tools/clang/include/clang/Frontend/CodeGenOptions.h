@@ -257,9 +257,7 @@ public:
   // HLSL Change Ends
 
   // SPIRV Change Starts
-#ifdef ENABLE_SPIRV_CODEGEN
   clang::spirv::SpirvCodeGenOptions SpirvOptions;
-#endif
   // SPIRV Change Ends
 
   /// Regular expression to select optimizations for which we should enable

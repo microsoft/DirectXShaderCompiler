@@ -31,9 +31,7 @@ using namespace llvm::opt;
 using namespace dxc;
 using namespace hlsl;
 using namespace hlsl::options;
-#ifdef ENABLE_SPIRV_CODEGEN
 using namespace clang::spirv;
-#endif
 
 #define PREFIX(NAME, VALUE) static const char *const NAME[] = VALUE;
 #include "dxc/Support/HLSLOptions.inc"
@@ -275,7 +273,6 @@ static std::pair<std::string, std::string> ParseDefine(std::string &argVal) {
 }
 
 // SPIRV Change Starts
-#ifdef ENABLE_SPIRV_CODEGEN
 /// Checks and collects the arguments for -fvk-{b|s|t|u}-shift into *shifts.
 static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
                               const char *name,
@@ -392,7 +389,6 @@ static const uint32_t kDefaultMaximumSourceLength = 0xFFFDu;
 static const uint32_t kTestingMaximumSourceLength = 13u;
 
 } // namespace
-#endif // ENABLE_SPIRV_CODEGEN
 // SPIRV Change Ends
 
 namespace hlsl {
@@ -1092,7 +1088,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.GenMetal = Args.hasFlag(OPT_metal, OPT_INVALID, false);
 
   // SPIRV Change Starts
-#ifdef ENABLE_SPIRV_CODEGEN
   opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
   opts.SpirvOptions.invertY =
       Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);
@@ -1275,44 +1270,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
 
   opts.SpirvOptions.floatDenormalMode = Args.getLastArgValue(OPT_denorm);
-
-#else
-  if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fvk_use_dx_position_w, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fvk_support_nonzero_base_instance, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fvk_use_scalar_layout, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fspv_use_legacy_buffer_matrix_order, OPT_INVALID,
-                   false) ||
-      Args.hasFlag(OPT_fspv_flatten_resource_arrays, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fspv_reduce_load_size, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fspv_fix_func_call_arguments, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fspv_print_all, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false) ||
-      !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
-      !Args.getLastArgValue(OPT_fspv_debug_EQ).empty() ||
-      !Args.getLastArgValue(OPT_fspv_extension_EQ).empty() ||
-      !Args.getLastArgValue(OPT_fspv_target_env_EQ).empty() ||
-      !Args.getLastArgValue(OPT_Oconfig).empty() ||
-      !Args.getLastArgValue(OPT_fvk_bind_register).empty() ||
-      !Args.getLastArgValue(OPT_fvk_bind_globals).empty() ||
-      !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||
-      !Args.getLastArgValue(OPT_fvk_t_shift).empty() ||
-      !Args.getLastArgValue(OPT_fvk_s_shift).empty() ||
-      !Args.getLastArgValue(OPT_fvk_u_shift).empty() ||
-      !Args.getLastArgValue(OPT_fvk_bind_resource_heap).empty() ||
-      !Args.getLastArgValue(OPT_fvk_bind_sampler_heap).empty() ||
-      !Args.getLastArgValue(OPT_fvk_bind_counter_heap).empty()) {
-    errors << "SPIR-V CodeGen not available. "
-              "Please recompile with -DENABLE_SPIRV_CODEGEN=ON.";
-    return 1;
-  }
-#endif // ENABLE_SPIRV_CODEGEN
   // SPIRV Change Ends
 
 #ifndef ENABLE_METAL_CODEGEN

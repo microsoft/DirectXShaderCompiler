@@ -14,8 +14,6 @@
 #ifndef LLVM_SPIRV_OPTIONS_H
 #define LLVM_SPIRV_OPTIONS_H
 
-#ifdef ENABLE_SPIRV_CODEGEN
-
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
@@ -123,5 +121,4 @@ struct SpirvCodeGenOptions {
 } // namespace spirv
 } // namespace clang
 
-#endif // ENABLE_SPIRV_CODEGEN
 #endif // LLVM_SPIRV_OPTIONS_H

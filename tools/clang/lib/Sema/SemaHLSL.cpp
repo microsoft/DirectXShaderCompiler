@@ -182,7 +182,6 @@ enum ArBasicKind {
   AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY,
 
 // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
   AR_OBJECT_VK_SUBPASS_INPUT,
   AR_OBJECT_VK_SUBPASS_INPUT_MS,
   AR_OBJECT_VK_SPIRV_TYPE,
@@ -191,7 +190,6 @@ enum ArBasicKind {
   AR_OBJECT_VK_LITERAL,
   AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
   AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
-#endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
   AR_OBJECT_INNER, // Used for internal type object
@@ -534,7 +532,6 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
 
 // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SUBPASS_INPUT
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SUBPASS_INPUT_MS
     BPROP_OBJECT,                 // AR_OBJECT_VK_SPIRV_TYPE
@@ -543,7 +540,6 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT,                 // AR_OBJECT_VK_LITERAL,
     BPROP_OBJECT, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE use recordType
     BPROP_OBJECT, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID use recordType
-#endif            // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
     BPROP_OBJECT, // AR_OBJECT_INNER
@@ -1325,12 +1321,10 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
     AR_OBJECT_FEEDBACKTEXTURE2D, AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY,
 
 // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
     AR_OBJECT_VK_SUBPASS_INPUT, AR_OBJECT_VK_SUBPASS_INPUT_MS,
     AR_OBJECT_VK_SPIRV_TYPE, AR_OBJECT_VK_SPIRV_OPAQUE_TYPE,
     AR_OBJECT_VK_INTEGRAL_CONSTANT, AR_OBJECT_VK_LITERAL,
     AR_OBJECT_VK_SPV_INTRINSIC_TYPE, AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
-#endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
     AR_OBJECT_LEGACY_EFFECT, // Used for all unsupported but ignored legacy
@@ -1424,7 +1418,6 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
     1, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
 
 // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
     1, // AR_OBJECT_VK_SUBPASS_INPUT
     1, // AR_OBJECT_VK_SUBPASS_INPUT_MS,
     1, // AR_OBJECT_VK_SPIRV_TYPE
@@ -1433,7 +1426,6 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
     1, // AR_OBJECT_VK_LITERAL,
     1, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
     1, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
-#endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
     0, // AR_OBJECT_LEGACY_EFFECT   // Used for all unsupported but ignored
@@ -1568,7 +1560,6 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
 
 // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SUBPASS_INPUT (SubpassInput)
     {0, MipsFalse,
      SampleFalse}, // AR_OBJECT_VK_SUBPASS_INPUT_MS (SubpassInputMS)
@@ -1578,7 +1569,6 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_LITERAL,
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
-#endif                           // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
     {0, MipsFalse,
@@ -1662,10 +1652,8 @@ static const char *g_ArBasicTypeNames[] = {
     "FeedbackTexture2D", "FeedbackTexture2DArray",
 
 // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
     "SubpassInput", "SubpassInputMS", "SpirvType", "SpirvOpaqueType",
     "integral_constant", "Literal", "ext_type", "ext_result_id",
-#endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
     "<internal inner type object>",
@@ -2320,7 +2308,6 @@ static void GetIntrinsicMethods(ArBasicKind kind,
     break;
 
     // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
   case AR_OBJECT_VK_SUBPASS_INPUT:
     *intrinsics = g_VkSubpassInputMethods;
     *intrinsicCount = _countof(g_VkSubpassInputMethods);
@@ -2329,7 +2316,6 @@ static void GetIntrinsicMethods(ArBasicKind kind,
     *intrinsics = g_VkSubpassInputMSMethods;
     *intrinsicCount = _countof(g_VkSubpassInputMSMethods);
     break;
-#endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
   default:
     *intrinsics = nullptr;
@@ -2386,10 +2372,8 @@ static bool TemplateHasDefaultType(ArBasicKind kind) {
   case AR_OBJECT_TEXTURECUBE:
   case AR_OBJECT_TEXTURECUBE_ARRAY:
     // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
   case AR_OBJECT_VK_SUBPASS_INPUT:
   case AR_OBJECT_VK_SUBPASS_INPUT_MS:
-#endif // ENABLE_SPIRV_CODEGEN
        // SPIRV change ends
     return true;
   default:
@@ -3312,7 +3296,6 @@ private:
       return -1;
   }
 
-#ifdef ENABLE_SPIRV_CODEGEN
   SmallVector<NamedDecl *, 1> CreateTemplateTypeParmDeclsForVkIntrinsicFunction(
       const HLSL_INTRINSIC *intrinsic) {
     SmallVector<NamedDecl *, 1> templateTypeParmDecls;
@@ -3531,7 +3514,6 @@ private:
       m_vkNSDecl->addDecl(varDecl);
     }
   }
-#endif // ENABLE_SPIRV_CODEGEN
 
   // Adds all built-in HLSL object types.
   void AddObjectTypes() {
@@ -3714,7 +3696,6 @@ private:
       } else if (kind == AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS) {
         recordDecl = m_ThreadNodeOutputRecordsTemplateDecl->getTemplatedDecl();
       }
-#ifdef ENABLE_SPIRV_CODEGEN
       else if (kind == AR_OBJECT_VK_SPIRV_TYPE) {
         if (!m_vkNSDecl)
           continue;
@@ -3754,7 +3735,6 @@ private:
             *m_context, m_vkNSDecl, typeName, 1, nullptr);
         recordDecl->setImplicit(true);
       }
-#endif
       else if (templateArgCount == 0) {
         recordDecl =
             DeclareRecordTypeWithHandle(*m_context, typeName,
@@ -3896,7 +3876,6 @@ public:
     m_sema = &S;
     S.addExternalSource(this);
 
-#ifdef ENABLE_SPIRV_CODEGEN
     if (m_sema->getLangOpts().SPIRV) {
       // Create the "vk" namespace which contains Vulkan-specific intrinsics.
       m_vkNSDecl =
@@ -3906,7 +3885,6 @@ public:
                                 /*PrevDecl*/ nullptr);
       context.getTranslationUnitDecl()->addDecl(m_vkNSDecl);
     }
-#endif // ENABLE_SPIRV_CODEGEN
 
     AddObjectTypes();
     AddStdIsEqualImplementation(context, S);
@@ -3914,13 +3892,11 @@ public:
       AddIntrinsicTableMethods(intrinsic);
     }
 
-#ifdef ENABLE_SPIRV_CODEGEN
     if (m_sema->getLangOpts().SPIRV) {
       // Add Vulkan-specific intrinsics.
       AddVkIntrinsicFunctions();
       AddVkIntrinsicConstants();
     }
-#endif // ENABLE_SPIRV_CODEGEN
   }
 
   void ForgetSema() override { m_sema = nullptr; }
@@ -4935,12 +4911,10 @@ public:
     StringRef nameIdentifier = idInfo->getName();
     const HLSL_INTRINSIC *table = g_Intrinsics;
     auto tableCount = _countof(g_Intrinsics);
-#ifdef ENABLE_SPIRV_CODEGEN
     if (isVkNamespace) {
       table = g_VkIntrinsics;
       tableCount = _countof(g_VkIntrinsics);
     }
-#endif // ENABLE_SPIRV_CODEGEN
 
     IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
         table, tableCount, StringRef(), nameIdentifier, Args.size());

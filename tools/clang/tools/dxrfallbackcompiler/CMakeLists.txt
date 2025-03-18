@@ -56,9 +56,7 @@ set(SOURCES
 add_clang_library(dxrfallbackcompiler SHARED ${SOURCES})
 target_link_libraries(dxrfallbackcompiler PRIVATE ${LIBRARIES} ${DIASDK_LIBRARIES} dxcvalidator)
 # SPIRV change starts
-if (ENABLE_SPIRV_CODEGEN)
-  target_link_libraries(dxrfallbackcompiler PRIVATE clangSPIRV)
-endif (ENABLE_SPIRV_CODEGEN)
+target_link_libraries(dxrfallbackcompiler PRIVATE clangSPIRV)
 # SPIRV change ends
 add_dependencies(dxrfallbackcompiler DxcEtw)
 include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS})
