@@ -5692,7 +5692,6 @@ Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                                HLObjectOperationLowerHelper *pObjHelper,
                                bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-
   Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
 
   Value *Args[DXIL::OperandIndex::kTraceRayInlineNumOp];
