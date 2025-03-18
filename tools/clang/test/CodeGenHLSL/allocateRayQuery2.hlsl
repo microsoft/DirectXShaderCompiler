@@ -1,7 +1,6 @@
 // RUN: %dxc -T lib_6_9 %s | FileCheck %s 
 
 RaytracingAccelerationStructure RTAS;
-// DXR entry point to ensure RDAT flags match during validation.
 [shader("vertex")]
 void main(RayDesc rayDesc : RAYDESC) {
 

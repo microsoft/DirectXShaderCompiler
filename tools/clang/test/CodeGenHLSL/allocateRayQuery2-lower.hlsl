@@ -3,11 +3,7 @@
 // CHECK: %"class.RayQuery<1024, 1>" = type { i32 }
 // CHECK: %"class.RayQuery<1, 0>" = type { i32 }
 
-
-
-
 RaytracingAccelerationStructure RTAS;
-// DXR entry point to ensure RDAT flags match during validation.
 [shader("vertex")]
 void main(RayDesc rayDesc : RAYDESC) {
 

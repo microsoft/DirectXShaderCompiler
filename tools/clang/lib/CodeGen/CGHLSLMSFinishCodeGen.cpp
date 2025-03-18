@@ -2854,7 +2854,7 @@ void TranslateRayQueryConstructor(HLModule &HLM) {
       llvm::IRBuilder<> Builder(CI);
       llvm::Value *rayFlags =
           Builder.getInt32(SA->GetTemplateArgAnnotation(0).GetIntegral());
-      // this could be a nullptr assignment if there is no 2nd template arg
+      // the default val of 0 will be assigned if there is no 2nd template arg
       llvm::Value *rayQueryFlags =
           Builder.getInt32(SA->GetTemplateArgAnnotation(1).GetIntegral());
 
