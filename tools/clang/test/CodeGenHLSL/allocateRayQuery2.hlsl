@@ -13,5 +13,4 @@ void main(RayDesc rayDesc : RAYDESC) {
   // CHECK: call i32 @dx.op.allocateRayQuery(i32 178, i32 1)  ; AllocateRayQuery(constRayFlags)
   RayQuery<RAY_FLAG_FORCE_OPAQUE> rayQuery2;
   rayQuery2.TraceRayInline(RTAS, 0, 2, rayDesc);
-
 }

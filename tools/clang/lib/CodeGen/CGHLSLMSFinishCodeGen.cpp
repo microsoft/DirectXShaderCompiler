@@ -2795,21 +2795,13 @@ unsigned AlignBufferOffsetInLegacy(unsigned offset, unsigned size,
 }
 
 // Translate RayQuery constructor.  From:
-//  %call = call %"RayQuery<flags, <zero-value optional rayquery flags>>"
-//  @<constructor>(%"RayQuery<flags>" %ptr)
-// To:
-//  i32 %handle = AllocateRayQuery(i32 <IntrinsicOp::IOP_AllocateRayQuery>, i32
-//  %flags) %gep = GEP %"RayQuery<flags>" %ptr, 0, 0 store i32* %gep, i32
-//  %handle ; and replace uses of %call with %ptr
-//
-// OR
-//  %call = call %"RayQuery<flags, <non-zero-value rayquery flag>>"
+//  %call = call %"RayQuery<flags, constrayqueryflags<optional rayquery flags>>"
 //  @<constructor>(%"RayQuery<flags>" %ptr)
 // To:
 //  i32 %handle = AllocateRayQuery2(i32 <IntrinsicOp::IOP_AllocateRayQuery>, i32
-//  %flags, i32 %constrayqueryflags) %gep = GEP %"RayQuery<flags,
-//  constrayqueryflags>" %ptr, 0, 0 store i32* %gep, i32 %handle ; and replace
-//  uses of %call with %ptr
+//  %flags, i32 %constrayqueryflags <0 if not given>) %gep = GEP
+//  %"RayQuery<flags, constrayqueryflags>" %ptr, 0, 0 store i32* %gep, i32
+//  %handle ; and replace uses of %call with %ptr
 void TranslateRayQueryConstructor(HLModule &HLM) {
   llvm::Module &M = *HLM.GetModule();
   SmallVector<Function *, 4> Constructors;
@@ -2832,26 +2824,12 @@ void TranslateRayQueryConstructor(HLModule &HLM) {
     llvm::IntegerType *i32Ty = llvm::Type::getInt32Ty(M.getContext());
     llvm::ConstantInt *i32Zero =
         llvm::ConstantInt::get(i32Ty, (uint64_t)0, false);
-    llvm::FunctionType *funcTy =
-        llvm::FunctionType::get(i32Ty, {i32Ty, i32Ty}, false);
 
+    // the third argument will default to 0 if the rayquery constructor doesn't
+    // have a second template argument
+    llvm::FunctionType *funcTy =
+        llvm::FunctionType::get(i32Ty, {i32Ty, i32Ty, i32Ty}, false);
     unsigned opcode = (unsigned)IntrinsicOp::IOP_AllocateRayQuery;
-    // reset opcode to IOP_AllocateRayQuery2 if there are 2 template args
-    bool UseAllocateRayQuery2 = false;
-    llvm::Type *RetTy = pConstructorFunc->getReturnType();
-    // Strip pointer type
-    if (auto *PT = llvm::dyn_cast<llvm::PointerType>(RetTy))
-      RetTy = PT->getElementType();
-    if (auto *ST = llvm::dyn_cast<llvm::StructType>(RetTy)) {
-      DxilStructAnnotation *SA = HLM.GetTypeSystem().GetStructAnnotation(ST);
-      if (SA && SA->GetNumTemplateArgs() == 2) {
-        // the 2nd arg's value must be non-zero for usage of allocateRayQuery2
-        if (SA->GetTemplateArgAnnotation(1).GetIntegral() != 0) {
-          UseAllocateRayQuery2 = true;
-          funcTy = llvm::FunctionType::get(i32Ty, {i32Ty, i32Ty, i32Ty}, false);
-        }
-      }
-    }
 
     llvm::ConstantInt *opVal = llvm::ConstantInt::get(i32Ty, opcode, false);
     Function *opFunc =
@@ -2876,17 +2854,12 @@ void TranslateRayQueryConstructor(HLModule &HLM) {
       llvm::IRBuilder<> Builder(CI);
       llvm::Value *rayFlags =
           Builder.getInt32(SA->GetTemplateArgAnnotation(0).GetIntegral());
-      llvm::Value *rayQueryFlags = nullptr;
-      llvm::Value *Call = nullptr;
-      if (!UseAllocateRayQuery2) {
-        Call = Builder.CreateCall(opFunc, {opVal, rayFlags}, pThis->getName());
+      // this could be a nullptr assignment if there is no 2nd template arg
+      llvm::Value *rayQueryFlags =
+          Builder.getInt32(SA->GetTemplateArgAnnotation(1).GetIntegral());
 
-      } else {
-        rayQueryFlags =
-            Builder.getInt32(SA->GetTemplateArgAnnotation(1).GetIntegral());
-        Call = Builder.CreateCall(opFunc, {opVal, rayFlags, rayQueryFlags},
-                                  pThis->getName());
-      }
+      llvm::Value *Call = Builder.CreateCall(
+          opFunc, {opVal, rayFlags, rayQueryFlags}, pThis->getName());
 
       llvm::Value *GEP = Builder.CreateInBoundsGEP(pThis, {i32Zero, i32Zero});
       Builder.CreateStore(Call, GEP);

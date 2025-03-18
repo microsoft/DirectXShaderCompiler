@@ -5670,20 +5670,18 @@ Value *TranslateAllocateRayQuery(CallInst *CI, IntrinsicOp IOP,
                                  HLObjectOperationLowerHelper *pObjHelper,
                                  bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  // upgrade to allocateRayQuery2 if there is a non-zero 2nd arg
-  if (CI->getNumArgOperands() == 3) {
-    llvm::Value *Arg = CI->getOperand(2);
-    llvm::ConstantInt *ConstVal = llvm::dyn_cast<llvm::ConstantInt>(Arg);
-    DXASSERT(
-        ConstVal,
-        "2nd argument to allocaterayquery must always be a constant value");
-    llvm::APInt IntVal = ConstVal->getValue(); // Get APInt representation
-    uint64_t Val = IntVal.getZExtValue();      // Get as uint64_t
-    if (Val != 0) {
-      Value *refArgs[3] = {nullptr, CI->getOperand(1), CI->getOperand(2)};
-      opcode = OP::OpCode::AllocateRayQuery2;
-      return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
-    }
+  // upgrade to allocateRayQuery2 if there is a non-zero 2nd template arg
+  DXASSERT(CI->getNumArgOperands() == 3,
+           "hlopcode for allocaterayquery always expects 3 arguments");
+
+  llvm::Value *Arg = CI->getOperand(2);
+  llvm::ConstantInt *ConstVal = llvm::dyn_cast<llvm::ConstantInt>(Arg);
+  DXASSERT(ConstVal,
+           "2nd argument to allocaterayquery must always be a constant value");
+  if (ConstVal->getValue().getZExtValue() != 0) {
+    Value *refArgs[3] = {nullptr, CI->getOperand(1), CI->getOperand(2)};
+    opcode = OP::OpCode::AllocateRayQuery2;
+    return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
   }
   Value *refArgs[2] = {nullptr, CI->getOperand(1)};
   return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
