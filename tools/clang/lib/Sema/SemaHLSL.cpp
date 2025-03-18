@@ -8643,6 +8643,7 @@ ExprResult HLSLExternalSource::LookupVectorMemberExprForHLSL(
     llvm_unreachable("Unknown VectorMemberAccessError value");
   }
 
+  // Hello world
   if (msg != 0) {
     m_sema->Diag(MemberLoc, msg) << memberText;
 
