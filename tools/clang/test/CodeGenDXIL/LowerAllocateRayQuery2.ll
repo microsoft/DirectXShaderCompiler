@@ -1,4 +1,5 @@
 ; RUN: %dxopt %s -hlsl-passes-resume -dxilgen -S | FileCheck %s
+; generated the IR with ExtractIRForPassTest.py -p dxilgen -o LowerAllocateRayQuery2.ll tools\clang\test\CodeGenHLSL\allocateRayQuery2.hlsl -- -T lib_6_9
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -31,19 +32,18 @@ declare i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32, i32, i32) #0
 define void @main(<3 x float>, float, <3 x float>, float) #0 {
 entry:
   ; CHECK: call i32 @dx.op.allocateRayQuery2(i32 258, i32 1024, i32 1), !dbg !8
-  %rayQuery12 = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 1024, i32 1), !dbg !42 ; line:14 col:79
-  %4 = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", !dbg !46 ; line:16 col:3
-  %5 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RaytracingAccelerationStructure)"(i32 0, %struct.RaytracingAccelerationStructure %4), !dbg !46 ; line:16 col:3
-  %6 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure zeroinitializer), !dbg !46 ; line:16 col:3
-  call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 320, i32 %rayQuery12, %dx.types.Handle %6, i32 1024, i32 2, <3 x float> %0, float %1, <3 x float> %2, float %3), !dbg !46 ; line:16 col:3
-
-  ; CHECK: call i32 @dx.op.allocateRayQuery(i32 178, i32 1), !dbg !10 ; line:19 col:35
-  %rayQuery23 = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 1, i32 0), !dbg !47 ; line:19 col:35
-  %7 = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", !dbg !48 ; line:20 col:3
-  %8 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RaytracingAccelerationStructure)"(i32 0, %struct.RaytracingAccelerationStructure %7), !dbg !48 ; line:20 col:3
-  %9 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %8, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure zeroinitializer), !dbg !48 ; line:20 col:3
-  call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 320, i32 %rayQuery23, %dx.types.Handle %9, i32 0, i32 2, <3 x float> %0, float %1, <3 x float> %2, float %3), !dbg !48 ; line:20 col:3
-  ret void, !dbg !49 ; line:21 col:1
+  %rayQuery12 = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 1024, i32 1), !dbg !42 ; line:8 col:79
+  %4 = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", !dbg !46 ; line:10 col:3
+  %5 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RaytracingAccelerationStructure)"(i32 0, %struct.RaytracingAccelerationStructure %4), !dbg !46 ; line:10 col:3
+  %6 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure zeroinitializer), !dbg !46 ; line:10 col:3
+  call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 320, i32 %rayQuery12, %dx.types.Handle %6, i32 1024, i32 2, <3 x float> %0, float %1, <3 x float> %2, float %3), !dbg !46 ; line:10 col:3
+  ; CHECK: call i32 @dx.op.allocateRayQuery(i32 178, i32 1), !dbg !10
+  %rayQuery23 = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 1, i32 0), !dbg !47 ; line:13 col:35
+  %7 = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", !dbg !48 ; line:14 col:3
+  %8 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RaytracingAccelerationStructure)"(i32 0, %struct.RaytracingAccelerationStructure %7), !dbg !48 ; line:14 col:3
+  %9 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %8, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure zeroinitializer), !dbg !48 ; line:14 col:3
+  call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 320, i32 %rayQuery23, %dx.types.Handle %9, i32 0, i32 2, <3 x float> %0, float %1, <3 x float> %2, float %3), !dbg !48 ; line:14 col:3
+  ret void, !dbg !49 ; line:15 col:1
 }
 
 ; Function Attrs: nounwind
@@ -105,11 +105,11 @@ attributes #1 = { nounwind readnone }
 !39 = !{void (<3 x float>, float, <3 x float>, float)* @main, i32 1}
 !40 = !{i32 -2147483584}
 !41 = !{i32 -1}
-!42 = !DILocation(line: 14, column: 79, scope: !43)
-!43 = !DISubprogram(name: "main", scope: !44, file: !44, line: 8, type: !45, isLocal: false, isDefinition: true, scopeLine: 8, flags: DIFlagPrototyped, isOptimized: false, function: void (<3 x float>, float, <3 x float>, float)* @main)
-!44 = !DIFile(filename: "D:\5CDXC\5Ctools\5Cclang\5Ctest\5CCodeGenHLSL\5CallocateRayQuery2-lower.hlsl", directory: "")
+!42 = !DILocation(line: 8, column: 79, scope: !43)
+!43 = !DISubprogram(name: "main", scope: !44, file: !44, line: 5, type: !45, isLocal: false, isDefinition: true, scopeLine: 5, flags: DIFlagPrototyped, isOptimized: false, function: void (<3 x float>, float, <3 x float>, float)* @main)
+!44 = !DIFile(filename: "D:\5CDXC\5Ctools\5Cclang\5Ctest\5CCodeGenHLSL\5CallocateRayQuery2.hlsl", directory: "")
 !45 = !DISubroutineType(types: !24)
-!46 = !DILocation(line: 16, column: 3, scope: !43)
-!47 = !DILocation(line: 19, column: 35, scope: !43)
-!48 = !DILocation(line: 20, column: 3, scope: !43)
-!49 = !DILocation(line: 21, column: 1, scope: !43)
+!46 = !DILocation(line: 10, column: 3, scope: !43)
+!47 = !DILocation(line: 13, column: 35, scope: !43)
+!48 = !DILocation(line: 14, column: 3, scope: !43)
+!49 = !DILocation(line: 15, column: 1, scope: !43)
