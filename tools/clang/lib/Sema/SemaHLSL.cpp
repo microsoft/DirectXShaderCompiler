@@ -8643,9 +8643,8 @@ ExprResult HLSLExternalSource::LookupVectorMemberExprForHLSL(
     llvm_unreachable("Unknown VectorMemberAccessError value");
   }
 
-  if (colCount > 4) {
+  if (colCount > 4)
     msg = diag::err_hlsl_vector_member_on_long_vector;
-  }
 
   if (msg != 0) {
     m_sema->Diag(MemberLoc, msg) << memberText;
