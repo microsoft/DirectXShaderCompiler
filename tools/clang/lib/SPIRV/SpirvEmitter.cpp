@@ -809,21 +809,17 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   spvBuilder.setMemoryModel(spv::AddressingModel::Logical,
                             spv::MemoryModel::GLSL450);
 
-  // Even though the 'workQueue' grows due to the above loop, the first
-  // 'numEntryPoints' entries in the 'workQueue' are the ones with the HLSL
-  // 'shader' attribute, and must therefore be entry functions.
-  assert(numEntryPoints <= workQueue.size());
-
-  for (uint32_t i = 0; i < numEntryPoints; ++i) {
+  for (uint32_t i = 0; i < workQueue.size(); ++i) {
     // TODO: assign specific StageVars w.r.t. to entry point
     const FunctionInfo *entryInfo = workQueue[i];
-    assert(entryInfo->isEntryFunction);
-    spvBuilder.addEntryPoint(
-        getSpirvShaderStage(
-            entryInfo->shaderModelKind,
-            featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)),
-        entryInfo->entryFunction, getEntryPointName(entryInfo),
-        getInterfacesForEntryPoint(entryInfo->entryFunction));
+    if (entryInfo->isEntryFunction) {
+      spvBuilder.addEntryPoint(
+          getSpirvShaderStage(
+              entryInfo->shaderModelKind,
+              featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)),
+          entryInfo->entryFunction, getEntryPointName(entryInfo),
+          getInterfacesForEntryPoint(entryInfo->entryFunction));
+    }
   }
 
   // Add Location decorations to stage input/output variables.
