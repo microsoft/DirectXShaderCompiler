@@ -181,7 +181,7 @@ enum ArBasicKind {
   AR_OBJECT_FEEDBACKTEXTURE2D,
   AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY,
 
-// SPIRV change starts
+  // SPIRV change starts
   AR_OBJECT_VK_SUBPASS_INPUT,
   AR_OBJECT_VK_SUBPASS_INPUT_MS,
   AR_OBJECT_VK_SPIRV_TYPE,
@@ -531,7 +531,7 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D
     BPROP_OBJECT | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
 
-// SPIRV change starts
+    // SPIRV change starts
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SUBPASS_INPUT
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SUBPASS_INPUT_MS
     BPROP_OBJECT,                 // AR_OBJECT_VK_SPIRV_TYPE
@@ -1320,7 +1320,7 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
 
     AR_OBJECT_FEEDBACKTEXTURE2D, AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY,
 
-// SPIRV change starts
+    // SPIRV change starts
     AR_OBJECT_VK_SUBPASS_INPUT, AR_OBJECT_VK_SUBPASS_INPUT_MS,
     AR_OBJECT_VK_SPIRV_TYPE, AR_OBJECT_VK_SPIRV_OPAQUE_TYPE,
     AR_OBJECT_VK_INTEGRAL_CONSTANT, AR_OBJECT_VK_LITERAL,
@@ -1417,7 +1417,7 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
     1, // AR_OBJECT_FEEDBACKTEXTURE2D
     1, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
 
-// SPIRV change starts
+    // SPIRV change starts
     1, // AR_OBJECT_VK_SUBPASS_INPUT
     1, // AR_OBJECT_VK_SUBPASS_INPUT_MS,
     1, // AR_OBJECT_VK_SPIRV_TYPE
@@ -1559,7 +1559,7 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_FEEDBACKTEXTURE2D
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
 
-// SPIRV change starts
+    // SPIRV change starts
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SUBPASS_INPUT (SubpassInput)
     {0, MipsFalse,
      SampleFalse}, // AR_OBJECT_VK_SUBPASS_INPUT_MS (SubpassInputMS)
@@ -1651,7 +1651,7 @@ static const char *g_ArBasicTypeNames[] = {
 
     "FeedbackTexture2D", "FeedbackTexture2DArray",
 
-// SPIRV change starts
+    // SPIRV change starts
     "SubpassInput", "SubpassInputMS", "SpirvType", "SpirvOpaqueType",
     "integral_constant", "Literal", "ext_type", "ext_result_id",
     // SPIRV change ends
@@ -2374,7 +2374,7 @@ static bool TemplateHasDefaultType(ArBasicKind kind) {
     // SPIRV change starts
   case AR_OBJECT_VK_SUBPASS_INPUT:
   case AR_OBJECT_VK_SUBPASS_INPUT_MS:
-       // SPIRV change ends
+    // SPIRV change ends
     return true;
   default:
     // Objects with default types return true. Everything else is false.
@@ -3695,8 +3695,7 @@ private:
         recordDecl = m_GroupNodeOutputRecordsTemplateDecl->getTemplatedDecl();
       } else if (kind == AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS) {
         recordDecl = m_ThreadNodeOutputRecordsTemplateDecl->getTemplatedDecl();
-      }
-      else if (kind == AR_OBJECT_VK_SPIRV_TYPE) {
+      } else if (kind == AR_OBJECT_VK_SPIRV_TYPE) {
         if (!m_vkNSDecl)
           continue;
         recordDecl =
@@ -3734,8 +3733,7 @@ private:
         recordDecl = DeclareTemplateTypeWithHandleInDeclContext(
             *m_context, m_vkNSDecl, typeName, 1, nullptr);
         recordDecl->setImplicit(true);
-      }
-      else if (templateArgCount == 0) {
+      } else if (templateArgCount == 0) {
         recordDecl =
             DeclareRecordTypeWithHandle(*m_context, typeName,
                                         /*isCompleteType*/ false, Attr);

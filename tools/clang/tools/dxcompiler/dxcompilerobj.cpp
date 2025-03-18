@@ -1539,7 +1539,7 @@ public:
         Opts.AstDumpImplicit || !Opts.AstDump;
     compiler.getLangOpts().HLSLDefaultRowMajor = Opts.DefaultRowMajor;
 
-// SPIRV change starts
+    // SPIRV change starts
     compiler.getLangOpts().SPIRV = Opts.GenSPIRV;
     llvm::Optional<spv_target_env> spirvTargetEnv =
         spirv::FeatureManager::stringToSpvEnvironment(
@@ -1918,7 +1918,7 @@ HRESULT DxcCompilerAdapter::WrapCompile(
     LPCWSTR EmbedDebugOpt[] = {L"-Qembed_debug"};
     if (opts.DebugInfo && !ppDebugBlob && !opts.EmbedDebug &&
         !opts.StripDebug) {
-// SPIRV change starts
+      // SPIRV change starts
       if (!opts.GenSPIRV)
         outStream << "warning: no output provided for debug - embedding PDB in "
                      "shader container.  Use -Qembed_debug to silence this "

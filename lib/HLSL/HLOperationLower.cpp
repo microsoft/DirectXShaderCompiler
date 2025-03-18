@@ -6746,7 +6746,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_OutputComplete, TranslateNodeOutputComplete,
      DXIL::OpCode::OutputComplete},
 
-// SPIRV change starts
+    // SPIRV change starts
     {IntrinsicOp::MOP_SubpassLoad, UnsupportedVulkanIntrinsic,
      DXIL::OpCode::NumOpCodes},
     // SPIRV change ends
