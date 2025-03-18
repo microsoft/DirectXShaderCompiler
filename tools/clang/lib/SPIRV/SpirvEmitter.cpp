@@ -3104,12 +3104,6 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
         argInfo && argInfo->getStorageClass() != spv::StorageClass::Function &&
         isResourceType(paramType);
 
-    // HLSL requires that the parameters be copied in and out from temporaries.
-    // This looks for cases where the copy can be elided. To generate valid
-    // SPIR-V, the argument must be a memory declaration.
-    //
-    //
-
     // If argInfo is nullptr and argInst is a rvalue, we do not have a proper
     // pointer to pass to the function. we need a temporary variable in that
     // case.
@@ -3118,7 +3112,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // create a temporary variable for it because the function definition
     // expects are point-to-pointer argument for resources, which will be
     // resolved by legalization.
-    if ((argInfo || (argInst && argInst->getopcode() == spv::Op::OpVariable)) &&
+    if ((argInfo || (argInst && !argInst->isRValue())) &&
         canActAsOutParmVar(param) && !isArgGlobalVarWithResourceType &&
         paramTypeMatchesArgType(paramType, arg->getType())) {
       // Based on SPIR-V spec, function parameter must be always Function
