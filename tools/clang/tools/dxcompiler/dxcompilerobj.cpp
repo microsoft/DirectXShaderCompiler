@@ -940,9 +940,7 @@ public:
           action.Execute();
           action.EndSourceFile();
         }
-      }
-      // SPIRV change starts
-      else if (!isPreprocessing && opts.GenSPIRV) {
+      } else if (!isPreprocessing && opts.GenSPIRV) { // SPIRV change starts
         // Since SpirvOptions is passed to the SPIR-V CodeGen as a whole
         // structure, we need to copy a few non-spirv-specific options into the
         // structure.
@@ -969,9 +967,8 @@ public:
         action.Execute();
         action.EndSourceFile();
         outStream.flush();
-      }
-      // SPIRV change ends
-      else if (!isPreprocessing) {
+        // SPIRV change ends
+      } else if (!isPreprocessing) {
         EmitBCAction action(&llvmContext);
         FrontendInputFile file(pUtf8SourceName, IK_HLSL);
         bool compileOK;
