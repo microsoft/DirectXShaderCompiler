@@ -1,4 +1,5 @@
 ; RUN: %dxopt %s -hlsl-passes-resume -dxilgen -S | FileCheck %s
+
 ; generated the IR with ExtractIRForPassTest.py -p dxilgen -o LowerAllocateRayQuery2.ll tools\clang\test\CodeGenHLSL\allocateRayQuery2.hlsl -- -T lib_6_9
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
@@ -9,7 +10,6 @@ target triple = "dxil-ms-dx"
 %dx.types.ResourceProperties = type { i32, i32 }
 %struct.RayDesc = type { <3 x float>, float, <3 x float>, float }
 %"class.RayQuery<1024, 1>" = type { i32 }
-%"class.RayQuery<1, 0>" = type { i32 }
 
 @"\01?RTAS@@3URaytracingAccelerationStructure@@A" = external global %struct.RaytracingAccelerationStructure, align 4
 
@@ -32,18 +32,12 @@ declare i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32, i32, i32) #0
 define void @main(<3 x float>, float, <3 x float>, float) #0 {
 entry:
   ; CHECK: call i32 @dx.op.allocateRayQuery2(i32 258, i32 1024, i32 1), !dbg !8
-  %rayQuery12 = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 1024, i32 1), !dbg !42 ; line:8 col:79
-  %4 = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", !dbg !46 ; line:10 col:3
-  %5 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RaytracingAccelerationStructure)"(i32 0, %struct.RaytracingAccelerationStructure %4), !dbg !46 ; line:10 col:3
-  %6 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure zeroinitializer), !dbg !46 ; line:10 col:3
-  call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 320, i32 %rayQuery12, %dx.types.Handle %6, i32 1024, i32 2, <3 x float> %0, float %1, <3 x float> %2, float %3), !dbg !46 ; line:10 col:3
-  ; CHECK: call i32 @dx.op.allocateRayQuery(i32 178, i32 1), !dbg !10
-  %rayQuery23 = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 1, i32 0), !dbg !47 ; line:13 col:35
-  %7 = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", !dbg !48 ; line:14 col:3
-  %8 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RaytracingAccelerationStructure)"(i32 0, %struct.RaytracingAccelerationStructure %7), !dbg !48 ; line:14 col:3
-  %9 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %8, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure zeroinitializer), !dbg !48 ; line:14 col:3
-  call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 320, i32 %rayQuery23, %dx.types.Handle %9, i32 0, i32 2, <3 x float> %0, float %1, <3 x float> %2, float %3), !dbg !48 ; line:14 col:3
-  ret void, !dbg !49 ; line:15 col:1
+  %rayQuery11 = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 1024, i32 1), !dbg !38 ; line:8 col:79
+  %4 = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", !dbg !42 ; line:10 col:3
+  %5 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RaytracingAccelerationStructure)"(i32 0, %struct.RaytracingAccelerationStructure %4), !dbg !42 ; line:10 col:3
+  %6 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure zeroinitializer), !dbg !42 ; line:10 col:3
+  call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 320, i32 %rayQuery11, %dx.types.Handle %6, i32 1024, i32 2, <3 x float> %0, float %1, <3 x float> %2, float %3), !dbg !42 ; line:10 col:3
+  ret void, !dbg !43 ; line:11 col:1
 }
 
 ; Function Attrs: nounwind
@@ -58,17 +52,17 @@ attributes #1 = { nounwind readnone }
 !dx.version = !{!3}
 !dx.valver = !{!3}
 !dx.shaderModel = !{!4}
-!dx.typeAnnotations = !{!5, !21}
-!dx.entryPoints = !{!34}
-!dx.fnprops = !{!39}
-!dx.options = !{!40, !41}
+!dx.typeAnnotations = !{!5, !17}
+!dx.entryPoints = !{!30}
+!dx.fnprops = !{!35}
+!dx.options = !{!36, !37}
 
 !0 = !{i32 2, !"Debug Info Version", i32 3}
 !1 = !{!"hlsl-hlemit", !"hlsl-hlensure"}
-!2 = !{!"dxc(private) 1.8.0.4825 (OMM01, 3d32cb8f2242-dirty)"}
+!2 = !{!"dxc(private) 1.8.0.4853 (lowerOMM, ca5df957eb33-dirty)"}
 !3 = !{i32 1, i32 9}
 !4 = !{!"lib", i32 6, i32 9}
-!5 = !{i32 0, %struct.RayDesc undef, !6, %"class.RayQuery<1024, 1>" undef, !11, %"class.RayQuery<1, 0>" undef, !17}
+!5 = !{i32 0, %struct.RayDesc undef, !6, %"class.RayQuery<1024, 1>" undef, !11}
 !6 = !{i32 32, !7, !8, !9, !10}
 !7 = !{i32 6, !"Origin", i32 3, i32 0, i32 7, i32 9, i32 13, i32 3}
 !8 = !{i32 6, !"TMin", i32 3, i32 12, i32 7, i32 9}
@@ -80,36 +74,30 @@ attributes #1 = { nounwind readnone }
 !14 = !{!15, !16}
 !15 = !{i32 1, i64 1024}
 !16 = !{i32 1, i64 1}
-!17 = !{i32 4, !12, !18}
-!18 = !{i32 0, !19}
-!19 = !{!16, !20}
-!20 = !{i32 1, i64 0}
-!21 = !{i32 1, void (<3 x float>, float, <3 x float>, float)* @main, !22}
-!22 = !{!23, !25, !28, !30, !32}
-!23 = !{i32 0, !24, !24}
-!24 = !{}
-!25 = !{i32 0, !26, !27}
-!26 = !{i32 4, !"RAYDESC", i32 7, i32 9}
-!27 = !{i32 0}
-!28 = !{i32 0, !26, !29}
-!29 = !{i32 1}
-!30 = !{i32 0, !26, !31}
-!31 = !{i32 2}
-!32 = !{i32 0, !26, !33}
-!33 = !{i32 3}
-!34 = !{null, !"", null, !35, null}
-!35 = !{!36, null, null, null}
-!36 = !{!37}
-!37 = !{i32 0, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", !"RTAS", i32 -1, i32 -1, i32 1, i32 16, i32 0, !38}
-!38 = !{i32 0, i32 4}
-!39 = !{void (<3 x float>, float, <3 x float>, float)* @main, i32 1}
-!40 = !{i32 -2147483584}
-!41 = !{i32 -1}
-!42 = !DILocation(line: 8, column: 79, scope: !43)
-!43 = !DISubprogram(name: "main", scope: !44, file: !44, line: 5, type: !45, isLocal: false, isDefinition: true, scopeLine: 5, flags: DIFlagPrototyped, isOptimized: false, function: void (<3 x float>, float, <3 x float>, float)* @main)
-!44 = !DIFile(filename: "D:\5CDXC\5Ctools\5Cclang\5Ctest\5CCodeGenHLSL\5CallocateRayQuery2.hlsl", directory: "")
-!45 = !DISubroutineType(types: !24)
-!46 = !DILocation(line: 10, column: 3, scope: !43)
-!47 = !DILocation(line: 13, column: 35, scope: !43)
-!48 = !DILocation(line: 14, column: 3, scope: !43)
-!49 = !DILocation(line: 15, column: 1, scope: !43)
+!17 = !{i32 1, void (<3 x float>, float, <3 x float>, float)* @main, !18}
+!18 = !{!19, !21, !24, !26, !28}
+!19 = !{i32 0, !20, !20}
+!20 = !{}
+!21 = !{i32 0, !22, !23}
+!22 = !{i32 4, !"RAYDESC", i32 7, i32 9}
+!23 = !{i32 0}
+!24 = !{i32 0, !22, !25}
+!25 = !{i32 1}
+!26 = !{i32 0, !22, !27}
+!27 = !{i32 2}
+!28 = !{i32 0, !22, !29}
+!29 = !{i32 3}
+!30 = !{null, !"", null, !31, null}
+!31 = !{!32, null, null, null}
+!32 = !{!33}
+!33 = !{i32 0, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", !"RTAS", i32 -1, i32 -1, i32 1, i32 16, i32 0, !34}
+!34 = !{i32 0, i32 4}
+!35 = !{void (<3 x float>, float, <3 x float>, float)* @main, i32 1}
+!36 = !{i32 -2147483584}
+!37 = !{i32 -1}
+!38 = !DILocation(line: 8, column: 79, scope: !39)
+!39 = !DISubprogram(name: "main", scope: !40, file: !40, line: 5, type: !41, isLocal: false, isDefinition: true, scopeLine: 5, flags: DIFlagPrototyped, isOptimized: false, function: void (<3 x float>, float, <3 x float>, float)* @main)
+!40 = !DIFile(filename: "D:\5CDXC\5Ctools\5Cclang\5Ctest\5CCodeGenHLSL\5CallocateRayQuery2.hlsl", directory: "")
+!41 = !DISubroutineType(types: !20)
+!42 = !DILocation(line: 10, column: 3, scope: !39)
+!43 = !DILocation(line: 11, column: 1, scope: !39)
