@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_9 -E main %s
+// RUN: %dxc -T lib_6_9 -E main %s | FileCheck %s
 
 // TODO: Implement lowering for dx::HitObject::MakeNop
 
