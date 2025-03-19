@@ -8251,10 +8251,6 @@ class db_hlsl_intrinsic(object):
             + "!"
             + ("%3d" % idx)
         )  # Unique key
-        self.vulkanSpecific = ns.startswith(
-            "Vk"
-        )  # Vulkan specific intrinsic - SPIRV change
-
 
 class db_hlsl_namespace(object):
     "A grouping of HLSL intrinsics"

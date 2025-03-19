@@ -398,7 +398,6 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__SHADER_TARGET_MAJOR", Twine(SM->GetMajor()));
     Builder.defineMacro("__SHADER_TARGET_MINOR", Twine(SM->GetMinor()));
     // SPIRV Change Starts
-#ifdef ENABLE_SPIRV_CODEGEN
     if (LangOpts.SPIRV) {
       Builder.defineMacro("__spirv__");
       Builder.defineMacro("__SPIRV_MAJOR_VERSION__",
@@ -406,7 +405,6 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
       Builder.defineMacro("__SPIRV_MINOR_VERSION__",
                           Twine(LangOpts.SpirvMinorVersion));
     }
-#endif // ENABLE_SPIRV_CODEGEN
     // SPIRV Change Ends
   }
   return;

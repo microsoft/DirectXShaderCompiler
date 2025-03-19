@@ -61,10 +61,8 @@
 #include <cfloat>
 
 // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
 #include "clang/SPIRV/EmitSpirvAction.h"
 #include "clang/SPIRV/FeatureManager.h"
-#endif
 // SPIRV change ends
 
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
@@ -608,7 +606,6 @@ public:
                               pSource->Encoding != 0, pSource->Encoding,
                               nullptr, &pSourceEncoding));
 
-#ifdef ENABLE_SPIRV_CODEGEN
       // We want to embed the original source code in the final SPIR-V if
       // debug information is enabled. But the compiled source requires
       // pre-seeding with #line directives. We invoke Preprocess() here
@@ -640,7 +637,6 @@ public:
               DXC_OUT_HLSL, IID_PPV_ARGS(&pSourceEncoding), nullptr));
         }
       }
-#endif // ENABLE_SPIRV_CODEGEN
 
       // Convert source code encoding
       IFC(hlsl::DxcGetBlobAsUtf8(pSourceEncoding, m_pMalloc, &utf8Source,
@@ -944,10 +940,7 @@ public:
           action.Execute();
           action.EndSourceFile();
         }
-      }
-      // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
-      else if (!isPreprocessing && opts.GenSPIRV) {
+      } else if (!isPreprocessing && opts.GenSPIRV) { // SPIRV change starts
         // Since SpirvOptions is passed to the SPIR-V CodeGen as a whole
         // structure, we need to copy a few non-spirv-specific options into the
         // structure.
@@ -974,10 +967,8 @@ public:
         action.Execute();
         action.EndSourceFile();
         outStream.flush();
-      }
-#endif
-      // SPIRV change ends
-      else if (!isPreprocessing) {
+        // SPIRV change ends
+      } else if (!isPreprocessing) {
         EmitBCAction action(&llvmContext);
         FrontendInputFile file(pUtf8SourceName, IK_HLSL);
         bool compileOK;
@@ -1225,9 +1216,7 @@ public:
       bool writePDB = opts.GeneratePDB() && produceFullContainer;
 
       // SPIRV change starts
-#if defined(ENABLE_SPIRV_CODEGEN)
       writePDB &= !opts.GenSPIRV;
-#endif
       // SPIRV change ends
 
       if (!hasErrorOccurred && writePDB) {
@@ -1547,8 +1536,7 @@ public:
         Opts.AstDumpImplicit || !Opts.AstDump;
     compiler.getLangOpts().HLSLDefaultRowMajor = Opts.DefaultRowMajor;
 
-// SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
+    // SPIRV change starts
     compiler.getLangOpts().SPIRV = Opts.GenSPIRV;
     llvm::Optional<spv_target_env> spirvTargetEnv =
         spirv::FeatureManager::stringToSpvEnvironment(
@@ -1566,7 +1554,6 @@ public:
       compiler.getLangOpts().SpirvMinorVersion =
           spirvVersion.getMinor().getValue();
     }
-#endif
     // SPIRV change ends
 
     if (Opts.WarningAsError)
@@ -1928,17 +1915,11 @@ HRESULT DxcCompilerAdapter::WrapCompile(
     LPCWSTR EmbedDebugOpt[] = {L"-Qembed_debug"};
     if (opts.DebugInfo && !ppDebugBlob && !opts.EmbedDebug &&
         !opts.StripDebug) {
-// SPIRV change starts
-#if defined(ENABLE_SPIRV_CODEGEN)
+      // SPIRV change starts
       if (!opts.GenSPIRV)
         outStream << "warning: no output provided for debug - embedding PDB in "
                      "shader container.  Use -Qembed_debug to silence this "
                      "warning.\n";
-#else
-      outStream << "warning: no output provided for debug - embedding PDB in "
-                   "shader container.  Use -Qembed_debug to silence this "
-                   "warning.\n";
-#endif
       // SPIRV change ends
       IFT(pArgs->AddArguments(EmbedDebugOpt, _countof(EmbedDebugOpt)));
     }

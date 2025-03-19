@@ -226,21 +226,11 @@ enum class IntrinsicOp {
   IOP_unpack_s8s32,
   IOP_unpack_u8u16,
   IOP_unpack_u8u32,
-#ifdef ENABLE_SPIRV_CODEGEN
   IOP_VkRawBufferLoad,
-#endif // ENABLE_SPIRV_CODEGEN
-#ifdef ENABLE_SPIRV_CODEGEN
   IOP_VkRawBufferStore,
-#endif // ENABLE_SPIRV_CODEGEN
-#ifdef ENABLE_SPIRV_CODEGEN
   IOP_VkReadClock,
-#endif // ENABLE_SPIRV_CODEGEN
-#ifdef ENABLE_SPIRV_CODEGEN
   IOP_Vkext_execution_mode,
-#endif // ENABLE_SPIRV_CODEGEN
-#ifdef ENABLE_SPIRV_CODEGEN
   IOP_Vkext_execution_mode_id,
-#endif // ENABLE_SPIRV_CODEGEN
   MOP_Append,
   MOP_RestartStrip,
   MOP_CalculateLevelOfDetail,
@@ -351,9 +341,7 @@ enum class IntrinsicOp {
   MOP_GroupIncrementOutputCount,
   MOP_ThreadIncrementOutputCount,
   MOP_OutputComplete,
-#ifdef ENABLE_SPIRV_CODEGEN
   MOP_SubpassLoad,
-#endif // ENABLE_SPIRV_CODEGEN
   // unsigned
   IOP_InterlockedUMax,
   IOP_InterlockedUMin,

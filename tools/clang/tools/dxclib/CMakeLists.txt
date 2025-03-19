@@ -25,10 +25,8 @@ if (MINGW)
   target_link_libraries(dxclib PRIVATE version)
 endif()
 
-if(ENABLE_SPIRV_CODEGEN)
-  target_link_libraries(dxclib PRIVATE SPIRV-Tools)
-  target_link_libraries(dxclib PRIVATE clangSPIRV)
-endif()
+target_link_libraries(dxclib PRIVATE SPIRV-Tools)
+target_link_libraries(dxclib PRIVATE clangSPIRV)
 
 if (MSVC)
   include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
