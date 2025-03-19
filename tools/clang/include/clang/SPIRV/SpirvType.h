@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_SPIRV_SPIRVTYPE_H
 #define LLVM_CLANG_SPIRV_SPIRVTYPE_H
@@ -53,6 +56,7 @@ public:
     TK_RuntimeArray,
     TK_Struct,
     TK_Pointer,
+    TK_ForwardPointer,
     TK_Function,
     TK_AccelerationStructureNV,
     TK_RayQueryKHR,
@@ -385,6 +389,26 @@ public:
 private:
   const SpirvType *pointeeType;
   spv::StorageClass storageClass;
+};
+
+/// Represents a SPIR-V forwarding pointer type.
+class ForwardPointerType : public SpirvType {
+public:
+  ForwardPointerType(QualType pointee)
+      : SpirvType(TK_ForwardPointer), pointeeType(pointee) {}
+
+  static bool classof(const SpirvType *t) {
+    return t->getKind() == TK_ForwardPointer;
+  }
+
+  const QualType getPointeeType() const { return pointeeType; }
+
+  bool operator==(const ForwardPointerType &that) const {
+    return pointeeType == that.pointeeType;
+  }
+
+private:
+  const QualType pointeeType;
 };
 
 /// Represents a SPIR-V function type. None of the parameters nor the return
