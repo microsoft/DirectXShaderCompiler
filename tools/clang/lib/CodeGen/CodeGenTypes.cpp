@@ -25,7 +25,7 @@
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Expr.h"
-#include "clang/AST/HlslTypes.h"
+#include "clang/AST/HlslTypes.h" // HLSL Change
 #include "clang/AST/RecordLayout.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "llvm/IR/DataLayout.h"
