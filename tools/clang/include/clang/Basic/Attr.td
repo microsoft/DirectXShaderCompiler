@@ -1157,6 +1157,14 @@ def HLSLRayQueryObject : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+// HLSL HitObject Attribute
+
+def HLSLHitObject : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
 // HLSL Parameter Attributes
 
 def HLSLMaxRecords : InheritableAttr {

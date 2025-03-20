@@ -1089,6 +1089,17 @@ uint [[ro]] CommittedInstanceContributionToHitGroupIndex();
 
 } namespace
 
+// Shader Execution Reordering
+namespace DxHitObjectMethods {
+    DxHitObject [[static,class_prefix,min_sm=6.9]] MakeNop();
+} namespace
+
+namespace DxIntrinsics {
+void [[min_sm=6.9]] MaybeReorderThread(in DxHitObject HitObject);
+void [[min_sm=6.9]] MaybeReorderThread(in uint CoherenceHint, in uint NumCoherenceHintBitsFromLSB);
+void [[min_sm=6.9]] MaybeReorderThread(in DxHitObject HitObject, in uint CoherenceHint, in uint NumCoherenceHintBitsFromLSB);
+} namespace
+
 // Work Graphs objects and methods
 
 // EmptyNodeInput
