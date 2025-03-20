@@ -2795,10 +2795,12 @@ unsigned AlignBufferOffsetInLegacy(unsigned offset, unsigned size,
 }
 
 // Translate RayQuery constructor.  From:
-//  %call = call %"RayQuery<flags>" @<constructor>(%"RayQuery<flags>" %ptr)
+//  %call = call %"RayQuery<flags, constrayqueryflags<optional rayquery flags>>"
+//  @<constructor>(%"RayQuery<flags>" %ptr)
 // To:
-//  i32 %handle = AllocateRayQuery(i32 <IntrinsicOp::IOP_AllocateRayQuery>, i32
-//  %flags) %gep = GEP %"RayQuery<flags>" %ptr, 0, 0 store i32* %gep, i32
+//  i32 %handle = AllocateRayQuery2(i32 <IntrinsicOp::IOP_AllocateRayQuery>, i32
+//  %flags, i32 %constrayqueryflags <0 if not given>) %gep = GEP
+//  %"RayQuery<flags, constrayqueryflags>" %ptr, 0, 0 store i32* %gep, i32
 //  %handle ; and replace uses of %call with %ptr
 void TranslateRayQueryConstructor(HLModule &HLM) {
   llvm::Module &M = *HLM.GetModule();
@@ -2822,9 +2824,13 @@ void TranslateRayQueryConstructor(HLModule &HLM) {
     llvm::IntegerType *i32Ty = llvm::Type::getInt32Ty(M.getContext());
     llvm::ConstantInt *i32Zero =
         llvm::ConstantInt::get(i32Ty, (uint64_t)0, false);
+
+    // the third argument will default to 0 if the rayquery constructor doesn't
+    // have a second template argument
     llvm::FunctionType *funcTy =
-        llvm::FunctionType::get(i32Ty, {i32Ty, i32Ty}, false);
+        llvm::FunctionType::get(i32Ty, {i32Ty, i32Ty, i32Ty}, false);
     unsigned opcode = (unsigned)IntrinsicOp::IOP_AllocateRayQuery;
+
     llvm::ConstantInt *opVal = llvm::ConstantInt::get(i32Ty, opcode, false);
     Function *opFunc =
         GetOrCreateHLFunction(M, funcTy, HLOpcodeGroup::HLIntrinsic, opcode);
@@ -2848,8 +2854,13 @@ void TranslateRayQueryConstructor(HLModule &HLM) {
       llvm::IRBuilder<> Builder(CI);
       llvm::Value *rayFlags =
           Builder.getInt32(SA->GetTemplateArgAnnotation(0).GetIntegral());
-      llvm::Value *Call =
-          Builder.CreateCall(opFunc, {opVal, rayFlags}, pThis->getName());
+      // the default val of 0 will be assigned if there is no 2nd template arg
+      llvm::Value *rayQueryFlags =
+          Builder.getInt32(SA->GetTemplateArgAnnotation(1).GetIntegral());
+
+      llvm::Value *Call = Builder.CreateCall(
+          opFunc, {opVal, rayFlags, rayQueryFlags}, pThis->getName());
+
       llvm::Value *GEP = Builder.CreateInBoundsGEP(pThis, {i32Zero, i32Zero});
       Builder.CreateStore(Call, GEP);
       CI->replaceAllUsesWith(pThis);

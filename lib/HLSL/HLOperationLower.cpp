@@ -5670,7 +5670,24 @@ Value *TranslateAllocateRayQuery(CallInst *CI, IntrinsicOp IOP,
                                  HLObjectOperationLowerHelper *pObjHelper,
                                  bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  Value *refArgs[] = {nullptr, CI->getOperand(1)};
+  // upgrade to allocateRayQuery2 if there is a non-zero 2nd template arg
+  DXASSERT(CI->getNumArgOperands() == 3,
+           "hlopcode for allocaterayquery always expects 3 arguments");
+
+  llvm::Value *Arg =
+      CI->getArgOperand(HLOperandIndex::kAllocateRayQueryRayQueryFlagsIdx);
+  llvm::ConstantInt *ConstVal = llvm::dyn_cast<llvm::ConstantInt>(Arg);
+  DXASSERT(ConstVal,
+           "2nd argument to allocaterayquery must always be a constant value");
+  if (ConstVal->getValue().getZExtValue() != 0) {
+    Value *refArgs[3] = {
+        nullptr, CI->getOperand(HLOperandIndex::kAllocateRayQueryRayFlagsIdx),
+        CI->getOperand(HLOperandIndex::kAllocateRayQueryRayQueryFlagsIdx)};
+    opcode = OP::OpCode::AllocateRayQuery2;
+    return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
+  }
+  Value *refArgs[2] = {
+      nullptr, CI->getOperand(HLOperandIndex::kAllocateRayQueryRayFlagsIdx)};
   return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
 }
 
@@ -5679,7 +5696,6 @@ Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                                HLObjectOperationLowerHelper *pObjHelper,
                                bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-
   Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
 
   Value *Args[DXIL::OperandIndex::kTraceRayInlineNumOp];
