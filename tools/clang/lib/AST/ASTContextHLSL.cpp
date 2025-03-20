@@ -1243,9 +1243,12 @@ CXXRecordDecl *hlsl::DeclareHitObjectType(NamespaceDecl &NSDecl) {
       static_cast<int>(hlsl::IntrinsicOp::MOP_DxHitObject_MakeNop)));
   pConstructorDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(Context));
 
+  // Add AvailabilityAttribute for SM6.9+
+  VersionTuple VT69 = VersionTuple(6, 9);
+  RecordDecl->addAttr(ConstructAvailabilityAttribute(Context, VT69));
+
   // Add the implicit HLSLHitObjectAttr attribute to unambiguously recognize the
-  // builtin HitObject type (SM6.9+). This distinguishes it from any
-  // user-defined type named 'HitObject' pre SM6.9.
+  // builtin HitObject type.
   RecordDecl->addAttr(HLSLHitObjectAttr::CreateImplicit(Context));
   RecordDecl->setImplicit(true);
 

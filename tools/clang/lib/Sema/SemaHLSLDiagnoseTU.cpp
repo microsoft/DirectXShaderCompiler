@@ -17,8 +17,10 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
+#include "clang/AST/Expr.h"
 #include "clang/AST/HlslTypes.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/AST/TypeLoc.h"
 #include "clang/Sema/SemaDiagnostic.h"
 #include "clang/Sema/SemaHLSL.h"
 #include "llvm/ADT/MapVector.h"
@@ -337,17 +339,19 @@ ValidateNoRecursion(CallGraphWithRecurseGuard &callGraph,
   return nullptr;
 }
 
-class HLSLCallDiagnoseVisitor // Could rename to HLSLReachableDiagnoseVisitor
-    : public RecursiveASTVisitor<HLSLCallDiagnoseVisitor> {
+class HLSLReachableDiagnoseVisitor
+    : public RecursiveASTVisitor<HLSLReachableDiagnoseVisitor> {
 public:
-  explicit HLSLCallDiagnoseVisitor(
+  explicit HLSLReachableDiagnoseVisitor(
       Sema *S, const hlsl::ShaderModel *SM, DXIL::ShaderKind EntrySK,
       DXIL::NodeLaunchType NodeLaunchTy, const FunctionDecl *EntryDecl,
       llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls,
-      llvm::SmallPtrSetImpl<DeclRefExpr *> &DeclAvailabilityChecked)
+      llvm::SmallPtrSetImpl<DeclRefExpr *> &DeclAvailabilityChecked,
+      llvm::SmallSet<SourceLocation, 16> &DiagnosedTypeLocs)
       : sema(S), SM(SM), EntrySK(EntrySK), NodeLaunchTy(NodeLaunchTy),
         EntryDecl(EntryDecl), DiagnosedCalls(DiagnosedCalls),
-        DeclAvailabilityChecked(DeclAvailabilityChecked) {}
+        DeclAvailabilityChecked(DeclAvailabilityChecked),
+        DiagnosedTypeLocs(DiagnosedTypeLocs) {}
 
   bool VisitCallExpr(CallExpr *CE) {
     // Set flag if already diagnosed from another entry, allowing some
@@ -404,14 +408,39 @@ public:
     return true;
   }
 
-  bool VisitDeclRefExpr(DeclRefExpr *DRE) {
-    // Diagnose availability for referenced decl.
-    if (AvailabilityAttr *AAttr = GetAvailabilityAttrOnce(DRE)) {
-      NamedDecl *ND = DRE->getDecl();
-      DiagnoseAvailability(AAttr, ND, DRE->getExprLoc());
+  bool VisitTypeLoc(TypeLoc TL) {
+    // Diagnose availability for used type.
+    if (AvailabilityAttr *AAttr = GetAvailabilityAttrOnce(TL)) {
+      UnqualTypeLoc UTL = TL.getUnqualifiedLoc();
+      DiagnoseAvailability(AAttr, TL.getType(), UTL.getLocStart());
     }
 
     return true;
+  }
+
+  bool VisitDeclRefExpr(DeclRefExpr *DRE) {
+    // Diagnose availability for referenced decl.
+    if (AvailabilityAttr *AAttr = GetAvailabilityAttrOnce(DRE)) {
+      DiagnoseAvailability(AAttr, DRE->getDecl(), DRE->getExprLoc());
+    }
+
+    return true;
+  }
+
+  AvailabilityAttr *GetAvailabilityAttrOnce(TypeLoc TL) {
+    QualType Ty = TL.getType();
+    CXXRecordDecl *RD = Ty->getAsCXXRecordDecl();
+    if (!RD)
+      return nullptr;
+    AvailabilityAttr *AAttr = RD->getAttr<AvailabilityAttr>();
+    if (!AAttr)
+      return nullptr;
+    // Skip redundant availability diagnostics for the same Type.
+    // Use the end location to avoid diagnosing the same type multiple times.
+    if (!DiagnosedTypeLocs.insert(TL.getEndLoc()).second)
+      return nullptr;
+
+    return AAttr;
   }
 
   AvailabilityAttr *GetAvailabilityAttrOnce(DeclRefExpr *DRE) {
@@ -425,32 +454,44 @@ public:
     return AAttr;
   }
 
-  void DiagnoseAvailability(AvailabilityAttr *AAttr, NamedDecl *ND,
-                            SourceLocation Loc) {
-    VersionTuple AAttrVT = AAttr->getIntroduced();
-    VersionTuple SMVT = VersionTuple(SM->GetMajor(), SM->GetMinor());
+  enum class DiagBuiltinKind { Constant = 0, Function = 1, Type = 2 };
 
-    // if the current shader model is lower than what
-    // is stated in the availability attribute, emit
-    // the availability warning.
-    if (SMVT >= AAttrVT)
-      return;
-
-    // TBD: Determine best way to distinguish between builtin constant decls
-    // and other decls.
-    enum class DiagKind { Constant = 0, Function = 1 };
-    DiagKind Kind;
+  static DiagBuiltinKind getDiagBuiltinKindFor(NamedDecl *ND) {
     switch (ND->getKind()) {
     case Decl::Function:
     case Decl::FunctionTemplate:
     case Decl::CXXMethod:
-      Kind = DiagKind::Function;
-      break;
+      return DiagBuiltinKind::Function;
     default:
-      Kind = DiagKind::Constant;
-      break;
+      return DiagBuiltinKind::Constant;
     }
+  }
 
+  bool CheckSMVersion(VersionTuple AAttrVT) {
+    VersionTuple SMVT = VersionTuple(SM->GetMajor(), SM->GetMinor());
+    return SMVT >= AAttrVT;
+  }
+
+  void DiagnoseAvailability(AvailabilityAttr *AAttr, QualType Ty,
+                            SourceLocation Loc) {
+    VersionTuple AAttrVT = AAttr->getIntroduced();
+    if (CheckSMVersion(AAttrVT))
+      return;
+
+    sema->Diag(Loc, diag::warn_hlsl_builtin_unavailable)
+        << Ty << SM->GetName() << AAttrVT.getAsString()
+        << (int)DiagBuiltinKind::Type;
+  }
+
+  void DiagnoseAvailability(AvailabilityAttr *AAttr, NamedDecl *ND,
+                            SourceLocation Loc) {
+    VersionTuple AAttrVT = AAttr->getIntroduced();
+    if (CheckSMVersion(AAttrVT))
+      return;
+
+    // TBD: Determine best way to distinguish between builtin constant decls
+    // and other decls.
+    DiagBuiltinKind Kind = getDiagBuiltinKindFor(ND);
     sema->Diag(Loc, diag::warn_hlsl_builtin_unavailable)
         << ND->getQualifiedNameAsString() << SM->GetName()
         << AAttrVT.getAsString() << (int)Kind;
@@ -466,6 +507,7 @@ private:
   const FunctionDecl *EntryDecl;
   llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls;
   llvm::SmallPtrSetImpl<DeclRefExpr *> &DeclAvailabilityChecked;
+  llvm::SmallSet<SourceLocation, 16> &DiagnosedTypeLocs;
 };
 
 std::optional<uint32_t>
@@ -567,6 +609,8 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   std::set<FunctionDecl *> DiagnosedRecursiveDecls;
   llvm::SmallPtrSet<CallExpr *, 16> DiagnosedCalls;
   llvm::SmallPtrSet<DeclRefExpr *, 16> DeclAvailabilityChecked;
+  llvm::SmallSet<SourceLocation, 16> DiagnosedTypeLocs;
+
   // for each FDecl, check for recursion
   for (FunctionDecl *FDecl : FDeclsToCheck) {
     CallGraphWithRecurseGuard callGraph;
@@ -691,9 +735,9 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 
     // Visit all visited functions in call graph to collect illegal intrinsic
     // calls.
-    HLSLCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK, NodeLaunchTy,
-                                    FDecl, DiagnosedCalls,
-                                    DeclAvailabilityChecked);
+    HLSLReachableDiagnoseVisitor Visitor(
+        self, shaderModel, EntrySK, NodeLaunchTy, FDecl, DiagnosedCalls,
+        DeclAvailabilityChecked, DiagnosedTypeLocs);
     // Visit globals with initializers when processing entry point.
     for (VarDecl *VD : InitGlobals)
       Visitor.TraverseDecl(VD);

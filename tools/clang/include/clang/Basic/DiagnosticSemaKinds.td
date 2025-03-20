@@ -7663,8 +7663,8 @@ def warn_hlsl_rayquery_flags_conflict : Warning<
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
 def warn_hlsl_builtin_unavailable: Warning<
-  "potential misuse of built-in %select{constant|function}3 '%0' in shader model %1; introduced"
-  " in shader model %2">, InGroup<HLSLAvailabilityConstant>;
+  "potential misuse of built-in %select{constant|function|type}3 '%0' in shader model %1; introduced"
+  " in shader model %2">, InGroup<HLSLAvailability>;
 def err_hlsl_unsupported_char_literal : Error<
   "unsupported style of char literal - use a single-character char-based literal">;
 def err_hlsl_unsupported_clipplane_argument_expression : Error<
@@ -7995,8 +7995,6 @@ def err_hlsl_unsupported_semantic_index: Error<
 // Shader Execution Reordering
 def err_hlsl_ser_unsupported : Error<
    "%select{dx::HitObject|dx::MaybeReorderThread}0 is unavailable in shader stage '%1' (requires 'raygeneration'%select{|, 'closesthit' or 'miss'}2)">;
-def err_hlsl_ser_invalid_version : Error<
-   "shader execution reordering is unsupported in target profile %0 requires target profile lib_6_9+">;
 // HLSL Change Ends
 
 // SPIRV Change Starts
