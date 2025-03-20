@@ -670,7 +670,9 @@ static const char *FlagToString(DXIL::RaytracingPipelineFlags Flag) {
   case DXIL::RaytracingPipelineFlags::SkipTriangles:
     return "RAYTRACING_PIPELINE_FLAG_SKIP_TRIANGLES";
   case DXIL::RaytracingPipelineFlags::SkipProceduralPrimitives:
-    return "RAYTRACING_PIPELINE_FLAG_SKIP_PROCEDURAL_PRIMITIVES";
+    return "RAYTRACING_PIPELINE_FLAG_SKIP_PROCEDURAL_PRIMITIVES";  
+  case DXIL::RaytracingPipelineFlags::AllowOpacityMicromaps:
+    return "RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS";
   }
   return "<invalid RaytracingPipelineFlags>";
 }
