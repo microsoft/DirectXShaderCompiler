@@ -19,7 +19,7 @@
 #include "CGRecordLayout.h"
 #include "CodeGenModule.h" // HLSL Change
 #include "TargetInfo.h"
-#include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DXIL/DxilUtil.h" // HLSL Change
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
