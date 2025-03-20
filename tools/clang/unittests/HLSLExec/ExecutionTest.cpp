@@ -820,10 +820,10 @@ public:
         return false;
       }
 
-      if (GetModuleHandle("d3d10warp.dll") != NULL) {
-        CHAR szFullModuleFilePath[MAX_PATH] = "";
-        GetModuleFileName(GetModuleHandle("d3d10warp.dll"),
-                          szFullModuleFilePath, sizeof(szFullModuleFilePath));
+      if (GetModuleHandleW(L"d3d10warp.dll") != NULL) {
+        WCHAR szFullModuleFilePath[MAX_PATH] = L"";
+        GetModuleFileNameW(GetModuleHandleW(L"d3d10warp.dll"),
+                           szFullModuleFilePath, sizeof(szFullModuleFilePath));
         WEX::Logging::Log::Comment(WEX::Common::String().Format(
             L"WARP driver loaded from: %S", szFullModuleFilePath));
       }
