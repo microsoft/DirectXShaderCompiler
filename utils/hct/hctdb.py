@@ -8254,6 +8254,8 @@ class db_hlsl_intrinsic(object):
         self.vulkanSpecific = ns.startswith(
             "Vk"
         )  # Vulkan specific intrinsic - SPIRV change
+        self.opcode = None  # high-level opcode assigned later
+        self.unsigned_opcode = None  # unsigned high-level opcode if appicable
 
 
 class db_hlsl_namespace(object):
@@ -8295,11 +8297,10 @@ class db_hlsl_intrisic_param(object):
         self.template_id_idx = template_id_idx  # Template ID numeric value
         self.component_id_idx = component_id_idx  # Component ID numeric value
 
-
 class db_hlsl(object):
     "A database of HLSL language data"
 
-    def __init__(self, intrinsic_defs):
+    def __init__(self, intrinsic_defs, opcode_data):
         self.base_types = {
             "bool": "LICOMPTYPE_BOOL",
             "int": "LICOMPTYPE_INT",
@@ -8371,6 +8372,13 @@ class db_hlsl(object):
         self.create_namespaces()
         self.populate_attributes()
         self.opcode_namespace = "hlsl::IntrinsicOp"
+
+        # Populate opcode data for HLSL intrinsics.
+        self.opcode_data = opcode_data
+        # If opcode data is empty, create the default structure.
+        if not self.opcode_data:
+            self.opcode_data["IntrinsicOpCodes"] = {"Num_Intrinsics": 0}
+        self.assign_opcodes()
 
     def create_namespaces(self):
         last_ns = None
@@ -8897,6 +8905,29 @@ class db_hlsl(object):
             [{"name": "Count", "type": "int"}],
         )
         self.attributes = attributes
+
+    # Iterate through all intrinsics, assigning opcodes to each one.
+    # This uses the opcode_data to preserve already-assigned opcodes.
+    def assign_opcodes(self):
+        "Assign opcodes to the intrinsics."
+        IntrinsicOpDict = self.opcode_data["IntrinsicOpCodes"]
+        Num_Intrinsics = self.opcode_data["IntrinsicOpCodes"]["Num_Intrinsics"]
+
+        def add_intrinsic(name):
+            nonlocal Num_Intrinsics
+            opcode = IntrinsicOpDict.setdefault(name, Num_Intrinsics)
+            if opcode == Num_Intrinsics:
+                Num_Intrinsics += 1
+            return opcode
+
+        sorted_intrinsics = sorted(self.intrinsics, key=lambda x: x.key)
+        for i in sorted_intrinsics:
+            i.opcode = add_intrinsic(i.enum_name)
+        for i in sorted_intrinsics:
+            if i.unsigned_op == "":
+                continue
+            i.unsigned_opcode = add_intrinsic(i.unsigned_op)
+        self.opcode_data["IntrinsicOpCodes"]["Num_Intrinsics"] = Num_Intrinsics
 
 
 if __name__ == "__main__":

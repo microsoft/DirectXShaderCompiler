@@ -686,6 +686,8 @@ add_subdirectory(include/dxc)
 # really depend on anything else in the build it is safe.
 list(APPEND LLVM_COMMON_DEPENDS HCTGen) 
 
+add_subdirectory(utils/hct)
+
 if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
   add_subdirectory(external) # SPIRV change
 endif()
