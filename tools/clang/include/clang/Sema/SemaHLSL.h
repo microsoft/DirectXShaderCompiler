@@ -129,6 +129,14 @@ unsigned CaculateInitListArraySizeForHLSL(clang::Sema *sema,
                                           const clang::QualType EltTy);
 
 bool ContainsLongVector(clang::QualType);
+bool ContainsHitObject(clang::QualType);
+
+/// \brief Determine if the given type contains a long vector or a hit object.
+/// \param QT The type to check.
+/// \param DiagTypeIdx The index of the type in the diagnostic message.
+/// \returns True if the type contains a long vector or a hit object, false
+/// otherwise.
+bool ContainsLongVecOrHitObject(clang::QualType QT, unsigned &DiagTypeIdx);
 
 bool IsConversionToLessOrEqualElements(clang::Sema *self,
                                        const clang::ExprResult &sourceExpr,

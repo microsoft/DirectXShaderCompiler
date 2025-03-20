@@ -709,19 +709,20 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
               << hullPatchCount.value();
         }
       }
-      for (const auto *param : pPatchFnDecl->params())
-        if (ContainsLongVector(param->getType())) {
-          const unsigned PatchConstantFunctionParametersIdx = 8;
-          self->Diag(param->getLocation(),
-                     diag::err_hlsl_unsupported_long_vector)
-              << PatchConstantFunctionParametersIdx;
-        }
+      for (const auto *param : pPatchFnDecl->params()) {
+        unsigned TypeDiagIdx = 0;
+        const unsigned PatchConstantFunctionParametersIdx = 8;
+        if (ContainsLongVecOrHitObject(param->getType(), TypeDiagIdx))
+          self->Diag(param->getLocation(), diag::err_hlsl_unsupported_type)
+              << TypeDiagIdx << PatchConstantFunctionParametersIdx;
+      }
 
-      if (ContainsLongVector(pPatchFnDecl->getReturnType())) {
+      unsigned TypeDiagIdx = 0;
+      if (ContainsLongVecOrHitObject(pPatchFnDecl->getReturnType(),
+                                     TypeDiagIdx)) {
         const unsigned PatchConstantFunctionReturnIdx = 9;
-        self->Diag(pPatchFnDecl->getLocation(),
-                   diag::err_hlsl_unsupported_long_vector)
-            << PatchConstantFunctionReturnIdx;
+        self->Diag(pPatchFnDecl->getLocation(), diag::err_hlsl_unsupported_type)
+            << TypeDiagIdx << PatchConstantFunctionReturnIdx;
       }
     }
     DXIL::ShaderKind EntrySK = shaderModel->GetKind();

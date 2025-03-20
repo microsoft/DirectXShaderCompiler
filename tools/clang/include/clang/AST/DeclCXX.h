@@ -469,6 +469,10 @@ class CXXRecordDecl : public RecordDecl {
     ///  class containing an HLSL vector longer than 4 elements.
     bool HasHLSLLongVector : 1;
 
+    /// \brief Whether this class contains at least one member or base
+    ///  class containing an HLSL HitObject.
+    bool HasHLSLHitObject : 1;
+
     /// \brief The number of base class specifiers in Bases.
     unsigned NumBases;
 
@@ -1028,6 +1032,11 @@ public:
   bool hasHLSLLongVector() { return data().HasHLSLLongVector; }
   /// \brief Set that this class contains an HLSL long vector of over 4 elements
   bool setHasHLSLLongVector() { return data().HasHLSLLongVector = true; }
+
+  // \brief Determine whether this class contains an HLSL HitObject.
+  bool hasHLSLHitObject() { return data().HasHLSLHitObject; }
+  /// \brief Set that this class contains an HLSL HitObject.
+  bool setHasHLSLHitObject() { return data().HasHLSLHitObject = true; }
 
   /// \brief Determine whether this class describes a lambda function object.
   bool isLambda() const {

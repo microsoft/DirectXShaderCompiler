@@ -5533,10 +5533,11 @@ public:
         m_sema->RequireCompleteType(argSrcLoc, argType,
                                     diag::err_typecheck_decl_incomplete_type);
 
-        if (ContainsLongVector(argType)) {
+        unsigned DiagTypeIdx = 0;
+        if (hlsl::ContainsLongVecOrHitObject(argType, DiagTypeIdx)) {
           const unsigned ConstantBuffersOrTextureBuffersIdx = 0;
-          m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
-              << ConstantBuffersOrTextureBuffersIdx;
+          m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_type)
+              << DiagTypeIdx << ConstantBuffersOrTextureBuffersIdx;
           return true;
         }
       }
@@ -5641,11 +5642,11 @@ public:
       CXXRecordDecl *Decl = arg.getAsType()->getAsCXXRecordDecl();
       if (Decl && !Decl->isCompleteDefinition())
         return true;
-      if (ContainsLongVector(arg.getAsType())) {
+      unsigned DiagTypeIdx = 0;
+      if (ContainsLongVecOrHitObject(arg.getAsType(), DiagTypeIdx)) {
         const unsigned TessellationPatchesIDx = 1;
-        m_sema->Diag(argLoc.getLocation(),
-                     diag::err_hlsl_unsupported_long_vector)
-            << TessellationPatchesIDx;
+        m_sema->Diag(argLoc.getLocation(), diag::err_hlsl_unsupported_type)
+            << DiagTypeIdx << TessellationPatchesIDx;
         return true;
       }
     } else if (Template->getTemplatedDecl()->hasAttr<HLSLStreamOutputAttr>()) {
@@ -5660,11 +5661,11 @@ public:
       CXXRecordDecl *Decl = arg.getAsType()->getAsCXXRecordDecl();
       if (Decl && !Decl->isCompleteDefinition())
         return true;
-      if (ContainsLongVector(arg.getAsType())) {
+      unsigned DiagTypeIdx = 0;
+      if (ContainsLongVecOrHitObject(arg.getAsType(), DiagTypeIdx)) {
         const unsigned GeometryStreamsIdx = 2;
-        m_sema->Diag(argLoc.getLocation(),
-                     diag::err_hlsl_unsupported_long_vector)
-            << GeometryStreamsIdx;
+        m_sema->Diag(argLoc.getLocation(), diag::err_hlsl_unsupported_type)
+            << DiagTypeIdx << GeometryStreamsIdx;
         return true;
       }
     }
@@ -10779,8 +10780,11 @@ bool DiagnoseIntersectionAttributes(Sema &S, SourceLocation Loc, QualType Ty) {
   }
 
   if (ContainsLongVector(Ty)) {
+    // No need to check for HitObject, checked with attributes diagnosis.
+    const unsigned LongVectorIdx = 0;
     const unsigned AttributesIdx = 11;
-    S.Diag(Loc, diag::err_hlsl_unsupported_long_vector) << AttributesIdx;
+    S.Diag(Loc, diag::err_hlsl_unsupported_type)
+        << LongVectorIdx << AttributesIdx;
     return false;
   }
   return true;
@@ -12119,9 +12123,10 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
   switch (shapeKind) {
   case AR_TOBJ_VECTOR:
     if (GetHLSLVecSize(ArgTy) > DXIL::kDefaultMaxVectorLength) {
+      const unsigned LongVectorIdx = 0;
       const unsigned NodeRecordsIdx = 3;
-      self->Diag(ArgLoc.getLocation(), diag::err_hlsl_unsupported_long_vector)
-          << NodeRecordsIdx;
+      self->Diag(ArgLoc.getLocation(), diag::err_hlsl_unsupported_type)
+          << LongVectorIdx << NodeRecordsIdx;
       Empty = false;
       return false;
     }
@@ -12591,6 +12596,24 @@ bool hlsl::ShouldSkipNRVO(clang::Sema &sema, clang::QualType returnType,
   return false;
 }
 
+bool hlsl::ContainsHitObject(QualType QT) {
+  if (QT.isNull() || QT->isDependentType())
+    return false;
+
+  while (const ArrayType *Arr = QT->getAsArrayTypeUnsafe())
+    QT = Arr->getElementType();
+
+  if (IsHLSLHitObjectType(QT))
+    return true;
+
+  if (CXXRecordDecl *Decl = QT->getAsCXXRecordDecl()) {
+    if (!Decl->isCompleteDefinition())
+      return false;
+    return Decl->hasHLSLHitObject();
+  }
+  return false;
+}
+
 bool hlsl::ContainsLongVector(QualType QT) {
   if (QT.isNull() || QT->isDependentType())
     return false;
@@ -12602,6 +12625,19 @@ bool hlsl::ContainsLongVector(QualType QT) {
     if (!Decl->isCompleteDefinition())
       return false;
     return Decl->hasHLSLLongVector();
+  }
+  return false;
+}
+
+bool hlsl::ContainsLongVecOrHitObject(clang::QualType QT,
+                                      unsigned &DiagTypeIdx) {
+  if (ContainsHitObject(QT)) {
+    DiagTypeIdx = 1;
+    return true;
+  }
+  if (ContainsLongVector(QT)) {
+    DiagTypeIdx = 0;
+    return true;
   }
   return false;
 }
@@ -15277,7 +15313,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   }
 
   // Disallow long vecs from $Global cbuffers.
-  if (isGlobal && !isStatic && !isGroupShared && !IS_BASIC_OBJECT(basicKind)) {
+  const unsigned CbuffersOrTbuffersIdx = 4;
+  if (isGlobal && !isStatic) {
     // Suppress actual emitting of errors for incompletable types here
     // They are redundant to those produced in ActOnUninitializedDecl.
     struct SilentDiagnoser : public TypeDiagnoser {
@@ -15285,10 +15322,18 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       virtual void diagnose(Sema &S, SourceLocation Loc, QualType T) {}
     } SD;
     RequireCompleteType(D.getLocStart(), qt, SD);
-    if (ContainsLongVector(qt)) {
-      unsigned CbuffersOrTbuffersIdx = 4;
-      Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector)
-          << CbuffersOrTbuffersIdx;
+    unsigned DiagTypeIdx = 0;
+    bool HasError = false;
+    if (!isGroupShared && !IS_BASIC_OBJECT(basicKind) && ContainsLongVector(qt))
+      HasError = true;
+    else if (ContainsHitObject(qt)) {
+      const unsigned HitObjectTypeIdx = 1;
+      DiagTypeIdx = HitObjectTypeIdx;
+      HasError = true;
+    }
+    if (HasError) {
+      Diag(D.getLocStart(), diag::err_hlsl_unsupported_type)
+          << DiagTypeIdx << CbuffersOrTbuffersIdx;
       result = false;
     }
   }
@@ -16195,10 +16240,11 @@ static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
 
 // Verify that user-defined intrinsic struct args contain no long vectors
 static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
-  if (ContainsLongVector(Arg->getType())) {
+  unsigned DiagTypeIdx = 0;
+  if (ContainsLongVecOrHitObject(Arg->getType(), DiagTypeIdx)) {
     const unsigned UserDefinedStructParameterIdx = 5;
-    S->Diag(Arg->getExprLoc(), diag::err_hlsl_unsupported_long_vector)
-        << UserDefinedStructParameterIdx;
+    S->Diag(Arg->getExprLoc(), diag::err_hlsl_unsupported_type)
+        << DiagTypeIdx << UserDefinedStructParameterIdx;
     return true;
   }
   return false;
@@ -16938,17 +16984,19 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   // Would be nice to check for resources here as they crash the compiler now.
   // See issue #7186.
   for (const auto *param : FD->params()) {
-    if (ContainsLongVector(param->getType())) {
+    unsigned DiagTypeIdx = 0;
+    if (ContainsLongVecOrHitObject(param->getType(), DiagTypeIdx)) {
       const unsigned EntryFunctionParametersIdx = 6;
-      S.Diag(param->getLocation(), diag::err_hlsl_unsupported_long_vector)
-          << EntryFunctionParametersIdx;
+      S.Diag(param->getLocation(), diag::err_hlsl_unsupported_type)
+          << DiagTypeIdx << EntryFunctionParametersIdx;
     }
   }
 
-  if (ContainsLongVector(FD->getReturnType())) {
+  unsigned DiagTypeIdx = 0;
+  if (ContainsLongVecOrHitObject(FD->getReturnType(), DiagTypeIdx)) {
     const unsigned EntryFunctionReturnIdx = 7;
-    S.Diag(FD->getLocation(), diag::err_hlsl_unsupported_long_vector)
-        << EntryFunctionReturnIdx;
+    S.Diag(FD->getLocation(), diag::err_hlsl_unsupported_type)
+        << DiagTypeIdx << EntryFunctionReturnIdx;
   }
 
   DXIL::ShaderKind Stage =

@@ -25,6 +25,7 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Type.h"
 #include "clang/Sema/AttributeList.h" // conceptually ParsedAttributes
+#include "clang/Sema/SemaHLSL.h"
 #include "llvm/ADT/StringSwitch.h"
 
 using namespace clang;
@@ -124,6 +125,8 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
 // which can't be annotated. But includes UDTs of trivially copyable data and
 // the builtin trivially copyable raytracing structs.
 bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT) {
+  if (ContainsHitObject(QT))
+    return false;
   return IsHLSLNumericUserDefinedType(QT) ||
          IsHLSLBuiltinRayAttributeStruct(QT);
 }

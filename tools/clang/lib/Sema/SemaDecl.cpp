@@ -13247,9 +13247,15 @@ void Sema::ActOnFields(Scope *S, SourceLocation RecLoc, Decl *EnclosingDecl,
   SmallVector<FieldDecl*, 32> RecFields;
 
   bool ARCErrReported = false;
+  bool HasHitObject = false;
   for (ArrayRef<Decl *>::iterator i = Fields.begin(), end = Fields.end();
        i != end; ++i) {
     FieldDecl *FD = cast<FieldDecl>(*i);
+
+    // HLSL Change Begin - set HitObject bit for fields
+    if (!HasHitObject && hlsl::ContainsHitObject(FD->getType()))
+      HasHitObject = true;
+    // HLSL Change End
 
     // Get the type for the field.
     const Type *FDTy = FD->getType().getTypePtr();
@@ -13439,7 +13445,12 @@ void Sema::ActOnFields(Scope *S, SourceLocation RecLoc, Decl *EnclosingDecl,
                I = CXXRecord->conversion_begin(),
                E = CXXRecord->conversion_end(); I != E; ++I)
           I.setAccess((*I)->getAccess());
-        
+
+        // HLSL Change Begin - set HitObject bit for fields
+        if (HasHitObject)
+          CXXRecord->setHasHLSLHitObject();
+        // HLSL Change End
+
         if (!CXXRecord->isDependentType()) {
           if (CXXRecord->hasUserDeclaredDestructor()) {
             // Adjust user-defined destructor exception spec.
