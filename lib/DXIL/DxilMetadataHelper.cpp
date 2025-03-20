@@ -668,10 +668,7 @@ void DxilMDHelper::GetDxilResources(const MDOperand &MDO, const MDTuple *&pSRVs,
                                     const MDTuple *&pUAVs,
                                     const MDTuple *&pCBuffers,
                                     const MDTuple *&pSamplers) {
-  if (!MDO.get()) {
-    pSRVs = pUAVs = pCBuffers = pSamplers = nullptr;
-    return;
-  }
+  IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
   IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   IFTBOOL(pTupleMD->getNumOperands() == kDxilNumResourceFields,
