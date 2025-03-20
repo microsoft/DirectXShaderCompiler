@@ -11847,36 +11847,7 @@ static bool isStringLiteral(QualType type) {
   return eType->isSpecificBuiltinType(BuiltinType::Char_S);
 }
 
-void Sema::DiagnoseReachableCallForSER(CallExpr *CE, DXIL::ShaderKind EntrySK,
-                                       const FunctionDecl *EntryFD,
-                                       const hlsl::ShaderModel *SM) {
-  FunctionDecl *FD = CE->getDirectCallee();
-  if (!FD)
-    return;
-  HLSLIntrinsicAttr *IntrinsicAttr = FD->getAttr<HLSLIntrinsicAttr>();
-  if (!IntrinsicAttr)
-    return;
-  if (!IsBuiltinTable(IntrinsicAttr->getGroup()))
-    return;
-
-  SourceLocation Loc = CE->getExprLoc();
-  hlsl::IntrinsicOp opCode = (IntrinsicOp)IntrinsicAttr->getOpcode();
-
-  bool ValidEntryForHitObject = false;
-  bool ValidEntryForReorder = false;
-  switch (EntrySK) {
-  default:
-    break;
-  case DXIL::ShaderKind::ClosestHit:
-  case DXIL::ShaderKind::Miss:
-    ValidEntryForHitObject = true;
-    break;
-  case DXIL::ShaderKind::RayGeneration:
-    ValidEntryForHitObject = true;
-    ValidEntryForReorder = true;
-    break;
-  }
-
+struct SERDiagHelper {
   enum {
     FeatureDXHitObject = 0,
     FeatureDXMaybeReorderThread = 1,
@@ -11885,29 +11856,52 @@ void Sema::DiagnoseReachableCallForSER(CallExpr *CE, DXIL::ShaderKind EntrySK,
   enum {
     ValidInRG = 0,
     ValidInRGCHMS = 1,
-  } DiagValidShaderKinds = ValidInRGCHMS;
+  } DiagValidShaderKinds = ValidInRG;
 
-  bool IsValidEntry = false;
-  switch (opCode) {
+  static SERDiagHelper GetForMaybeReorderThread() {
+    return SERDiagHelper{FeatureDXMaybeReorderThread, ValidInRG};
+  }
+
+  static SERDiagHelper GetForHitObject() {
+    return SERDiagHelper{FeatureDXHitObject, ValidInRGCHMS};
+  }
+
+  void EmitUnsupportedEntryDiagnostic(Sema &S, SourceLocation Loc,
+                                      DXIL::ShaderKind EntrySK,
+                                      SourceLocation EntryLoc) {
+    S.Diag(Loc, diag::err_hlsl_ser_unsupported)
+        << (int)DiagUnsupportedFeature << ShaderModel::FullNameFromKind(EntrySK)
+        << (int)DiagValidShaderKinds;
+    S.Diag(EntryLoc, diag::note_hlsl_entry_defined_here);
+  }
+};
+
+static void DiagnoseReachableHitObjectCall(Sema &S, CallExpr *CE,
+                                           DXIL::ShaderKind EntrySK,
+                                           const FunctionDecl *EntryFD) {
+  switch (EntrySK) {
   default:
-    // Return for anything that is not a HitObject intrinsic.
+    break;
+  case DXIL::ShaderKind::ClosestHit:
+  case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::RayGeneration:
     return;
-  case hlsl::IntrinsicOp::IOP_DxMaybeReorderThread:
-    DiagUnsupportedFeature = FeatureDXMaybeReorderThread;
-    DiagValidShaderKinds = ValidInRG;
-    IsValidEntry = ValidEntryForReorder;
-    break;
-  case hlsl::IntrinsicOp::MOP_DxHitObject_MakeNop:
-    IsValidEntry = ValidEntryForHitObject;
-    break;
   }
 
-  if (!IsValidEntry) {
-    Diag(Loc, diag::err_hlsl_ser_unsupported)
-        << DiagUnsupportedFeature << ShaderModel::FullNameFromKind(EntrySK)
-        << DiagValidShaderKinds;
-    Diag(EntryFD->getLocation(), diag::note_hlsl_entry_defined_here);
-  }
+  SERDiagHelper DiagHelper = SERDiagHelper::GetForHitObject();
+  DiagHelper.EmitUnsupportedEntryDiagnostic(S, CE->getExprLoc(), EntrySK,
+                                            EntryFD->getLocation());
+}
+
+static void DiagnoseReachableMaybeReorder(Sema &S, CallExpr *CE,
+                                          DXIL::ShaderKind EntrySK,
+                                          const FunctionDecl *EntryFD) {
+  if (EntrySK == DXIL::ShaderKind::RayGeneration)
+    return;
+
+  SERDiagHelper DiagHelper = SERDiagHelper::GetForMaybeReorderThread();
+  DiagHelper.EmitUnsupportedEntryDiagnostic(S, CE->getExprLoc(), EntrySK,
+                                            EntryFD->getLocation());
 }
 
 // Check HLSL member call constraints for used functions.
@@ -11935,8 +11929,6 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
   if (!IsBuiltinTable(IntrinsicAttr->getGroup()))
     return;
 
-  DiagnoseReachableCallForSER(CE, EntrySK, EntryDecl, SM);
-
   SourceLocation Loc = CE->getExprLoc();
   hlsl::IntrinsicOp opCode = (IntrinsicOp)IntrinsicAttr->getOpcode();
   switch (opCode) {
@@ -11951,6 +11943,12 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
     break;
   case hlsl::IntrinsicOp::MOP_TraceRayInline:
     DiagnoseTraceRayInline(*this, CE);
+    break;
+  case hlsl::IntrinsicOp::MOP_DxHitObject_MakeNop:
+    DiagnoseReachableHitObjectCall(*this, CE, EntrySK, EntryDecl);
+    break;
+  case hlsl::IntrinsicOp::IOP_DxMaybeReorderThread:
+    DiagnoseReachableMaybeReorder(*this, CE, EntrySK, EntryDecl);
     break;
   default:
     break;
