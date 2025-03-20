@@ -1946,8 +1946,7 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
     unsigned Minor = pIntrinsic->MinShaderModel & 0xF;
     FD->addAttr(AvailabilityAttr::CreateImplicit(
         context, &context.Idents.get(""), clang::VersionTuple(Major, Minor),
-        clang::VersionTuple(), clang::VersionTuple(), false,
-        "HLSL Intrinsic availability limited by shader model."));
+        clang::VersionTuple(), clang::VersionTuple(), false, ""));
   }
 }
 

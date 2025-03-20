@@ -3,20 +3,20 @@
 // CHECK: |-FunctionDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit used MaybeReorderThread 'void (dx::HitObject)' extern
 // CHECK-NEXT: | |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> HitObject 'dx::HitObject':'dx::HitObject'
 // CHECK-NEXT: | |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 329
-// CHECK-NEXT: | `-AvailabilityAttr {{[^ ]+}} <<invalid sloc>> Implicit  6.9 0 0 "HLSL Intrinsic availability limited by shader model."
+// CHECK-NEXT: | `-AvailabilityAttr {{[^ ]+}} <<invalid sloc>> Implicit  6.9 0 0 ""
 
 // CHECK: |-FunctionDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit used MaybeReorderThread 'void (dx::HitObject, unsigned int, unsigned int)' extern
 // CHECK-NEXT: | |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> HitObject 'dx::HitObject':'dx::HitObject'
 // CHECK-NEXT: | |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> CoherenceHint 'unsigned int'
 // CHECK-NEXT: | |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> NumCoherenceHintBitsFromLSB 'unsigned int'
 // CHECK-NEXT: | |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 329
-// CHECK-NEXT: | `-AvailabilityAttr {{[^ ]+}} <<invalid sloc>> Implicit  6.9 0 0 "HLSL Intrinsic availability limited by shader model."
+// CHECK-NEXT: | `-AvailabilityAttr {{[^ ]+}} <<invalid sloc>> Implicit  6.9 0 0 ""
 
 // CHECK: `-FunctionDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit used MaybeReorderThread 'void (unsigned int, unsigned int)' extern
 // CHECK-NEXT:   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> CoherenceHint 'unsigned int'
 // CHECK-NEXT:   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> NumCoherenceHintBitsFromLSB 'unsigned int'
 // CHECK-NEXT:   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 329
-// CHECK-NEXT:   `-AvailabilityAttr {{[^ ]+}} <<invalid sloc>> Implicit  6.9 0 0 "HLSL Intrinsic availability limited by shader model."
+// CHECK-NEXT:   `-AvailabilityAttr {{[^ ]+}} <<invalid sloc>> Implicit  6.9 0 0 ""
 
 
 [shader("raygeneration")]
