@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T lib_6_9 %s | FileCheck %s 
 // RUN: %dxc -T lib_6_9 -fcgl %s | FileCheck -check-prefix=FCGL %s 
 
