@@ -629,6 +629,9 @@ class db_dxil(object):
         ).split(","):
             self.name_idx[i].category = "Inline Ray Query"
             self.name_idx[i].shader_model = 6, 5
+        for i in "AllocateRayQuery2".split(","):
+            self.name_idx[i].category = "Inline Ray Query"
+            self.name_idx[i].shader_model = 6, 9
         for i in "Unpack4x8".split(","):
             self.name_idx[i].category = "Unpacking intrinsics"
             self.name_idx[i].shader_model = 6, 6
@@ -5546,6 +5549,43 @@ class db_dxil(object):
             % next_op_idx
         )
 
+        # RayQuery
+        self.add_dxil_op(
+            "AllocateRayQuery2",
+            next_op_idx,
+            "AllocateRayQuery2",
+            "allocates space for RayQuery and return handle",
+            "v",
+            "",
+            [
+                db_dxil_param(0, "i32", "", "handle to RayQuery state"),
+                db_dxil_param(
+                    2,
+                    "u32",
+                    "constRayFlags",
+                    "Valid combination of RAY_FLAGS",
+                    is_const=True,
+                ),
+                db_dxil_param(
+                    3,
+                    "u32",
+                    "constRayQueryFlags",
+                    "Valid combination of RAYQUERY_FLAGS",
+                    is_const=True,
+                ),
+            ],
+        )
+        next_op_idx += 1
+
+        # Reserved block A
+        next_op_idx = self.reserve_dxil_op_range("ReservedA", next_op_idx, 3)
+
+        # Shader Execution Reordering
+        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 31)
+
+        # Reserved block C
+        next_op_idx = self.reserve_dxil_op_range("ReservedC", next_op_idx, 10)
+
         # Set interesting properties.
         self.build_indices()
         for (
@@ -7934,6 +7974,21 @@ class db_dxil(object):
             "Function '%0' uses rayquery object in function signature.",
         )
         self.add_valrule_msg(
+            "Decl.AllocateRayQueryFlagsAreConst",
+            "RayFlags for AllocateRayQuery must be constant",
+            "constRayFlags argument of AllocateRayQuery must be constant",
+        )
+        self.add_valrule_msg(
+            "Decl.AllocateRayQuery2FlagsAreConst",
+            "constRayFlags and RayQueryFlags for AllocateRayQuery2 must be constant",
+            "constRayFlags and RayQueryFlags arguments of AllocateRayQuery2 must be constant",
+        )
+        self.add_valrule_msg(
+            "Decl.AllowOpacityMicromapsExpectedGivenForceOMM2State",
+            "When the ForceOMM2State ConstRayFlag is given as an argument to a RayQuery object, AllowOpacityMicromaps is expected as a RayQueryFlag argument",
+            "RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS must be set for RayQueryFlags when RAY_FLAG_FORCE_OMM_2_STATE is set for constRayFlags on AllocateRayQuery2 operation.",
+        )
+        self.add_valrule_msg(
             "Decl.PayloadStruct",
             "Payload parameter must be struct type",
             "Argument '%0' must be a struct type for payload in shader function '%1'.",
@@ -8121,6 +8176,12 @@ class db_dxil(object):
         )
         self.instr.append(i)
 
+    def reserve_dxil_op_range(self, group_name, start_id, count):
+        "Reserve a range of dxil opcodes for future use; returns next id"
+        for i in range(0, count):
+            self.add_dxil_op_reserved("{0}{1}".format(group_name, i), start_id + i)
+        return start_id + count
+
     def get_instr_by_llvm_name(self, llvm_name):
         "Return the instruction with the given LLVM name"
         return next(i for i in self.instr if i.llvm_name == llvm_name)
@@ -8178,6 +8239,7 @@ class db_hlsl_intrinsic(object):
         unsigned_op,
         overload_idx,
         hidden,
+        min_shader_model,
     ):
         self.name = name  # Function name
         self.idx = idx  # Unique number within namespace
@@ -8205,6 +8267,12 @@ class db_hlsl_intrinsic(object):
             overload_idx  # Parameter determines the overload type, -1 means ret type
         )
         self.hidden = hidden  # Internal high-level op, not exposed to HLSL
+        # Encoded minimum shader model for this intrinsic
+        self.min_shader_model = 0
+        if min_shader_model:
+            self.min_shader_model = (min_shader_model[0] << 4) | (
+                min_shader_model[1] & 0x0F
+            )
         self.key = (
             ("%3d" % ns_idx)
             + "!"
@@ -8217,6 +8285,8 @@ class db_hlsl_intrinsic(object):
         self.vulkanSpecific = ns.startswith(
             "Vk"
         )  # Vulkan specific intrinsic - SPIRV change
+        self.opcode = None  # high-level opcode assigned later
+        self.unsigned_opcode = None  # unsigned high-level opcode if appicable
 
 
 class db_hlsl_namespace(object):
@@ -8258,11 +8328,10 @@ class db_hlsl_intrisic_param(object):
         self.template_id_idx = template_id_idx  # Template ID numeric value
         self.component_id_idx = component_id_idx  # Component ID numeric value
 
-
 class db_hlsl(object):
     "A database of HLSL language data"
 
-    def __init__(self, intrinsic_defs):
+    def __init__(self, intrinsic_defs, opcode_data):
         self.base_types = {
             "bool": "LICOMPTYPE_BOOL",
             "int": "LICOMPTYPE_INT",
@@ -8334,6 +8403,13 @@ class db_hlsl(object):
         self.create_namespaces()
         self.populate_attributes()
         self.opcode_namespace = "hlsl::IntrinsicOp"
+
+        # Populate opcode data for HLSL intrinsics.
+        self.opcode_data = opcode_data
+        # If opcode data is empty, create the default structure.
+        if not self.opcode_data:
+            self.opcode_data["IntrinsicOpCodes"] = {"Num_Intrinsics": 0}
+        self.assign_opcodes()
 
     def create_namespaces(self):
         last_ns = None
@@ -8582,6 +8658,7 @@ class db_hlsl(object):
                 -1
             )  # Parameter determines the overload type, -1 means ret type.
             hidden = False
+            min_shader_model = (0, 0)
             for a in attrs:
                 if a == "":
                     continue
@@ -8614,6 +8691,24 @@ class db_hlsl(object):
                 if d == "overload":
                     overload_param_index = int(v)
                     continue
+                if d == "min_sm":
+                    # min_sm is a string like "6.0" or "6.5"
+                    # Convert to a tuple of integers (major, minor)
+                    try:
+                        major_minor = v.split(".")
+                        if len(major_minor) != 2:
+                            raise ValueError
+                        major, minor = major_minor
+                        major = int(major)
+                        minor = int(minor)
+                        # minor of 15 has special meaning, and larger values
+                        # cannot be encoded in the version DWORD.
+                        if major < 0 or minor < 0 or minor > 14:
+                            raise ValueError
+                        min_shader_model = (major, minor)
+                    except ValueError:
+                        assert False, "invalid min_sm: %s" % (v)
+                    continue
                 assert False, "invalid attr %s" % (a)
 
             return (
@@ -8624,6 +8719,7 @@ class db_hlsl(object):
                 unsigned_op,
                 overload_param_index,
                 hidden,
+                min_shader_model,
             )
 
         current_namespace = None
@@ -8671,6 +8767,7 @@ class db_hlsl(object):
                     unsigned_op,
                     overload_param_index,
                     hidden,
+                    min_shader_model,
                 ) = process_attr(attr)
                 # Add an entry for this intrinsic.
                 if bracket_cleanup_re.search(opts):
@@ -8709,6 +8806,7 @@ class db_hlsl(object):
                         unsigned_op,
                         overload_param_index,
                         hidden,
+                        min_shader_model,
                     )
                 )
                 num_entries += 1
@@ -8838,6 +8936,29 @@ class db_hlsl(object):
             [{"name": "Count", "type": "int"}],
         )
         self.attributes = attributes
+
+    # Iterate through all intrinsics, assigning opcodes to each one.
+    # This uses the opcode_data to preserve already-assigned opcodes.
+    def assign_opcodes(self):
+        "Assign opcodes to the intrinsics."
+        IntrinsicOpDict = self.opcode_data["IntrinsicOpCodes"]
+        Num_Intrinsics = self.opcode_data["IntrinsicOpCodes"]["Num_Intrinsics"]
+
+        def add_intrinsic(name):
+            nonlocal Num_Intrinsics
+            opcode = IntrinsicOpDict.setdefault(name, Num_Intrinsics)
+            if opcode == Num_Intrinsics:
+                Num_Intrinsics += 1
+            return opcode
+
+        sorted_intrinsics = sorted(self.intrinsics, key=lambda x: x.key)
+        for i in sorted_intrinsics:
+            i.opcode = add_intrinsic(i.enum_name)
+        for i in sorted_intrinsics:
+            if i.unsigned_op == "":
+                continue
+            i.unsigned_opcode = add_intrinsic(i.unsigned_op)
+        self.opcode_data["IntrinsicOpCodes"]["Num_Intrinsics"] = Num_Intrinsics
 
 
 if __name__ == "__main__":

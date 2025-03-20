@@ -363,6 +363,8 @@ enum ArBasicKind {
 
 #define IS_BPROP_STREAM(_Props) (((_Props)&BPROP_STREAM) != 0)
 
+#define IS_BPROP_PATCH(_Props) (((_Props) & BPROP_PATCH) != 0)
+
 #define IS_BPROP_SAMPLER(_Props) (((_Props)&BPROP_SAMPLER) != 0)
 
 #define IS_BPROP_TEXTURE(_Props) (((_Props)&BPROP_TEXTURE) != 0)
@@ -494,12 +496,14 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT | BPROP_PATCH, // AR_OBJECT_INPUTPATCH
     BPROP_OBJECT | BPROP_PATCH, // AR_OBJECT_OUTPUTPATCH
 
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE1D
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE1D_ARRAY
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2D
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2D_ARRAY
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE3D
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWBUFFER
+    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE1D
+    BPROP_OBJECT | BPROP_RWBUFFER |
+        BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE1D_ARRAY
+    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2D
+    BPROP_OBJECT | BPROP_RWBUFFER |
+        BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2D_ARRAY
+    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE3D
+    BPROP_OBJECT | BPROP_RWBUFFER,                 // AR_OBJECT_RWBUFFER
 
     BPROP_OBJECT | BPROP_RBUFFER,  // AR_OBJECT_BYTEADDRESS_BUFFER
     BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWBYTEADDRESS_BUFFER
@@ -526,10 +530,8 @@ const UINT g_uBasicKindProps[] = {
         BPROP_ROVBUFFER, // AR_OBJECT_ROVTEXTURE2D_ARRAY
     BPROP_OBJECT | BPROP_RWBUFFER | BPROP_ROVBUFFER, // AR_OBJECT_ROVTEXTURE3D
 
-    BPROP_OBJECT | BPROP_TEXTURE |
-        BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D
-    BPROP_OBJECT | BPROP_TEXTURE |
-        BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
+    BPROP_OBJECT | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D
+    BPROP_OBJECT | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -570,8 +572,9 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT, // AR_OBJECT_HEAP_RESOURCE,
     BPROP_OBJECT, // AR_OBJECT_HEAP_SAMPLER,
 
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2DMS
-    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
+    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2DMS
+    BPROP_OBJECT | BPROP_RWBUFFER |
+        BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
 
     // WorkGraphs
     BPROP_OBJECT,                  // AR_OBJECT_EMPTY_NODE_INPUT
@@ -614,6 +617,8 @@ C_ASSERT(ARRAYSIZE(g_uBasicKindProps) == AR_BASIC_MAXIMUM_COUNT);
 #define IS_BASIC_AINT(_Kind) IS_BPROP_AINT(GetBasicKindProps(_Kind))
 
 #define IS_BASIC_STREAM(_Kind) IS_BPROP_STREAM(GetBasicKindProps(_Kind))
+
+#define IS_BASIC_PATCH(_Kind) IS_BPROP_PATCH(GetBasicKindProps(_Kind))
 
 #define IS_BASIC_SAMPLER(_Kind) IS_BPROP_SAMPLER(GetBasicKindProps(_Kind))
 #define IS_BASIC_TEXTURE(_Kind) IS_BPROP_TEXTURE(GetBasicKindProps(_Kind))
@@ -1805,12 +1810,21 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
   }
   FD->addAttr(
       HLSLIntrinsicAttr::CreateImplicit(context, tableName, lowering, opcode));
-  if (pIntrinsic->bReadNone)
+  if (pIntrinsic->Flags & INTRIN_FLAG_READ_NONE)
     FD->addAttr(ConstAttr::CreateImplicit(context));
-  if (pIntrinsic->bReadOnly)
+  if (pIntrinsic->Flags & INTRIN_FLAG_READ_ONLY)
     FD->addAttr(PureAttr::CreateImplicit(context));
-  if (pIntrinsic->bIsWave)
+  if (pIntrinsic->Flags & INTRIN_FLAG_IS_WAVE)
     FD->addAttr(HLSLWaveSensitiveAttr::CreateImplicit(context));
+  // TBD: Add availability attribute if MinShaderModel is set.
+  // if (pIntrinsic->MinShaderModel) {
+  //  unsigned Major = pIntrinsic->MinShaderModel >> 4;
+  //  unsigned Minor = pIntrinsic->MinShaderModel & 0xF;
+  //  FD->addAttr(AvailabilityAttr::CreateImplicit(
+  //      context, &context.Idents.get(""), clang::VersionTuple(Major, Minor),
+  //      clang::VersionTuple(), clang::VersionTuple(), false,
+  //      "HLSL Intrinsic availability limited by shader model."));
+  //}
 }
 
 static FunctionDecl *
@@ -2855,8 +2869,9 @@ private:
   TypedefDecl *m_matrixShorthandTypes[HLSLScalarTypeCount][4][4];
 
   // Vector types already built.
-  QualType m_vectorTypes[HLSLScalarTypeCount][4];
-  TypedefDecl *m_vectorTypedefs[HLSLScalarTypeCount][4];
+  QualType m_vectorTypes[HLSLScalarTypeCount][DXIL::kDefaultMaxVectorLength];
+  TypedefDecl
+      *m_vectorTypedefs[HLSLScalarTypeCount][DXIL::kDefaultMaxVectorLength];
 
   // BuiltinType for each scalar type.
   QualType m_baseTypes[HLSLScalarTypeCount];
@@ -3539,6 +3554,20 @@ private:
       if (kind == AR_OBJECT_LEGACY_EFFECT)
         effectKindIndex = i;
 
+      InheritableAttr *Attr = nullptr;
+      if (IS_BASIC_STREAM(kind))
+        Attr = HLSLStreamOutputAttr::CreateImplicit(
+            *m_context, kind - AR_OBJECT_POINTSTREAM + 1);
+      else if (IS_BASIC_PATCH(kind))
+        Attr = HLSLTessPatchAttr::CreateImplicit(*m_context,
+                                                 kind == AR_OBJECT_INPUTPATCH);
+      else {
+        DXIL::ResourceKind ResKind = DXIL::ResourceKind::NumEntries;
+        DXIL::ResourceClass ResClass = DXIL::ResourceClass::Invalid;
+        if (GetBasicKindResourceKindAndClass(kind, ResKind, ResClass))
+          Attr = HLSLResourceAttr::CreateImplicit(*m_context, (unsigned)ResKind,
+                                                  (unsigned)ResClass);
+      }
       DXASSERT(kind < _countof(g_ArBasicTypeNames),
                "g_ArBasicTypeNames has the wrong number of entries");
       assert(kind < _countof(g_ArBasicTypeNames));
@@ -3585,9 +3614,9 @@ private:
           break;
         }
       } else if (kind == AR_OBJECT_CONSTANT_BUFFER) {
-        recordDecl = DeclareConstantBufferViewType(*m_context, /*bTBuf*/ false);
+        recordDecl = DeclareConstantBufferViewType(*m_context, Attr);
       } else if (kind == AR_OBJECT_TEXTURE_BUFFER) {
-        recordDecl = DeclareConstantBufferViewType(*m_context, /*bTBuf*/ true);
+        recordDecl = DeclareConstantBufferViewType(*m_context, Attr);
       } else if (kind == AR_OBJECT_RAY_QUERY) {
         recordDecl = DeclareRayQueryType(*m_context);
       } else if (kind == AR_OBJECT_HEAP_RESOURCE) {
@@ -3608,10 +3637,10 @@ private:
         }
       } else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(
-            *m_context, "FeedbackTexture2D", "kind");
+            *m_context, "FeedbackTexture2D", "kind", Attr);
       } else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(
-            *m_context, "FeedbackTexture2DArray", "kind");
+            *m_context, "FeedbackTexture2DArray", "kind", Attr);
       } else if (kind == AR_OBJECT_EMPTY_NODE_INPUT) {
         recordDecl = DeclareNodeOrRecordType(
             *m_context, DXIL::NodeIOKind::EmptyInput,
@@ -3727,16 +3756,12 @@ private:
       }
 #endif
       else if (templateArgCount == 0) {
-        recordDecl = DeclareRecordTypeWithHandle(*m_context, typeName,
-                                                 /*isCompleteType*/ false);
+        recordDecl =
+            DeclareRecordTypeWithHandle(*m_context, typeName,
+                                        /*isCompleteType*/ false, Attr);
       } else {
         DXASSERT(templateArgCount == 1 || templateArgCount == 2,
                  "otherwise a new case has been added");
-
-        InheritableAttr *Attr = nullptr;
-        if (kind == AR_OBJECT_INPUTPATCH || kind == AR_OBJECT_OUTPUTPATCH)
-          Attr = HLSLTessPatchAttr::CreateImplicit(*m_context);
-
         TypeSourceInfo *typeDefault =
             TemplateHasDefaultType(kind) ? float4TypeSourceInfo : nullptr;
         recordDecl = DeclareTemplateTypeWithHandle(
@@ -3825,7 +3850,7 @@ private:
   clang::TypedefDecl *LookupVectorShorthandType(HLSLScalarType scalarType,
                                                 UINT colCount) {
     DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
-                   colCount <= 4);
+                   colCount <= DXIL::kDefaultMaxVectorLength);
     TypedefDecl *qts = m_vectorTypedefs[scalarType][colCount - 1];
     if (qts == nullptr) {
       QualType type = LookupVectorType(scalarType, colCount);
@@ -3933,7 +3958,7 @@ public:
 
   QualType LookupVectorType(HLSLScalarType scalarType, unsigned int colCount) {
     QualType qt;
-    if (colCount < 4)
+    if (colCount < DXIL::kDefaultMaxVectorLength)
       qt = m_vectorTypes[scalarType][colCount - 1];
     if (qt.isNull()) {
       if (m_scalarTypes[scalarType].isNull()) {
@@ -3942,7 +3967,7 @@ public:
       qt = GetOrCreateVectorSpecialization(*m_context, m_sema,
                                            m_vectorTemplateDecl,
                                            m_scalarTypes[scalarType], colCount);
-      if (colCount < 4)
+      if (colCount < DXIL::kDefaultMaxVectorLength)
         m_vectorTypes[scalarType][colCount - 1] = qt;
     }
     return qt;
@@ -3965,13 +3990,6 @@ public:
 
   bool IsSubobjectType(QualType type) {
     return IsSubobjectBasicKind(GetTypeElementKind(type));
-  }
-
-  bool IsRayQueryBasicKind(ArBasicKind kind) {
-    return kind == AR_OBJECT_RAY_QUERY;
-  }
-  bool IsRayQueryType(QualType type) {
-    return IsRayQueryBasicKind(GetTypeElementKind(type));
   }
 
   void WarnMinPrecision(QualType Type, SourceLocation Loc) {
@@ -4625,6 +4643,143 @@ public:
     }
   }
 
+  // Retrieves the ResourceKind and ResourceClass in `ResKind` and `ResClass`
+  // respectively that correspond to the given basic kind `BasicKind`.
+  // Returns true if `BasicKind` is a resource and return params are assigned.
+  bool GetBasicKindResourceKindAndClass(ArBasicKind BasicKind,
+                                        DXIL::ResourceKind &ResKind,
+                                        DXIL::ResourceClass &ResClass) {
+    DXASSERT_VALIDBASICKIND(BasicKind);
+    switch (BasicKind) {
+    case AR_OBJECT_TEXTURE1D:
+      ResKind = DXIL::ResourceKind::Texture1D;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE1D:
+    case AR_OBJECT_ROVTEXTURE1D:
+      ResKind = DXIL::ResourceKind::Texture1D;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_TEXTURE1D_ARRAY:
+      ResKind = DXIL::ResourceKind::Texture1DArray;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE1D_ARRAY:
+    case AR_OBJECT_ROVTEXTURE1D_ARRAY:
+      ResKind = DXIL::ResourceKind::Texture1DArray;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_TEXTURE2D:
+      ResKind = DXIL::ResourceKind::Texture2D;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE2D:
+    case AR_OBJECT_ROVTEXTURE2D:
+      ResKind = DXIL::ResourceKind::Texture2D;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_TEXTURE2D_ARRAY:
+      ResKind = DXIL::ResourceKind::Texture2DArray;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE2D_ARRAY:
+    case AR_OBJECT_ROVTEXTURE2D_ARRAY:
+      ResKind = DXIL::ResourceKind::Texture2DArray;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_TEXTURE3D:
+      ResKind = DXIL::ResourceKind::Texture3D;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE3D:
+    case AR_OBJECT_ROVTEXTURE3D:
+      ResKind = DXIL::ResourceKind::Texture3D;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_TEXTURECUBE:
+      ResKind = DXIL::ResourceKind::TextureCube;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_TEXTURECUBE_ARRAY:
+      ResKind = DXIL::ResourceKind::TextureCubeArray;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_TEXTURE2DMS:
+      ResKind = DXIL::ResourceKind::Texture2DMS;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE2DMS:
+      ResKind = DXIL::ResourceKind::Texture2DMS;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_TEXTURE2DMS_ARRAY:
+      ResKind = DXIL::ResourceKind::Texture2DMSArray;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWTEXTURE2DMS_ARRAY:
+      ResKind = DXIL::ResourceKind::Texture2DMSArray;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_BUFFER:
+      ResKind = DXIL::ResourceKind::TypedBuffer;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWBUFFER:
+    case AR_OBJECT_ROVBUFFER:
+      ResKind = DXIL::ResourceKind::TypedBuffer;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_BYTEADDRESS_BUFFER:
+      ResKind = DXIL::ResourceKind::RawBuffer;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWBYTEADDRESS_BUFFER:
+    case AR_OBJECT_ROVBYTEADDRESS_BUFFER:
+      ResKind = DXIL::ResourceKind::RawBuffer;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_STRUCTURED_BUFFER:
+      ResKind = DXIL::ResourceKind::StructuredBuffer;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_RWSTRUCTURED_BUFFER:
+    case AR_OBJECT_ROVSTRUCTURED_BUFFER:
+    case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
+    case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
+      ResKind = DXIL::ResourceKind::StructuredBuffer;
+      ResClass = DXIL::ResourceClass::UAV;
+      return true;
+    case AR_OBJECT_CONSTANT_BUFFER:
+      ResKind = DXIL::ResourceKind::CBuffer;
+      ResClass = DXIL::ResourceClass::CBuffer;
+      return true;
+    case AR_OBJECT_TEXTURE_BUFFER:
+      ResKind = DXIL::ResourceKind::TBuffer;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_FEEDBACKTEXTURE2D:
+      ResKind = DXIL::ResourceKind::FeedbackTexture2D;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY:
+      ResKind = DXIL::ResourceKind::FeedbackTexture2DArray;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    case AR_OBJECT_SAMPLER:
+    case AR_OBJECT_SAMPLERCOMPARISON:
+      ResKind = DXIL::ResourceKind::Sampler;
+      ResClass = DXIL::ResourceClass::Sampler;
+      return true;
+    case AR_OBJECT_ACCELERATION_STRUCT:
+      ResKind = DXIL::ResourceKind::RTAccelerationStructure;
+      ResClass = DXIL::ResourceClass::SRV;
+      return true;
+    default:
+      return false;
+    }
+    return false;
+  }
+
   /// <summary>Promotes the specified expression to an integer type if it's a
   /// boolean type.</summary <param name="E">Expression to typecast.</param>
   /// <returns>E typecast to a integer type if it's a valid boolean type; E
@@ -4835,7 +4990,8 @@ public:
         return true;
       if (badArgIdx) {
         candidate.FailureKind = ovl_fail_bad_conversion;
-        QualType ParamType = functionArgTypes[badArgIdx];
+        QualType ParamType =
+            intrinsicFuncDecl->getParamDecl(badArgIdx - 1)->getType();
         candidate.Conversions[badArgIdx - 1].setBad(
             BadConversionSequence::no_conversion, Args[badArgIdx - 1],
             ParamType);
@@ -5052,12 +5208,13 @@ public:
                                                 SourceLocation Loc);
 
   bool CheckRangedTemplateArgument(SourceLocation diagLoc,
-                                   llvm::APSInt &sintValue) {
-    const auto *SM =
-        hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
+                                   llvm::APSInt &sintValue, bool IsVector) {
+    unsigned MaxLength = DXIL::kDefaultMaxVectorLength;
+    if (IsVector)
+      MaxLength = m_sema->getLangOpts().MaxHLSLVectorLength;
     if (!sintValue.isStrictlyPositive() ||
-        (sintValue.getLimitedValue() > 4 && !SM->IsSM69Plus())) {
-      m_sema->Diag(diagLoc, diag::err_hlsl_invalid_range_1_4);
+        sintValue.getLimitedValue() > MaxLength) {
+      m_sema->Diag(diagLoc, diag::err_hlsl_invalid_range_1_to_max) << MaxLength;
       return true;
     }
 
@@ -5080,7 +5237,9 @@ public:
       return false;
     }
     // Allow object type for Constant/TextureBuffer.
-    if (Template->getTemplatedDecl()->hasAttr<HLSLCBufferAttr>()) {
+    HLSLResourceAttr *ResAttr =
+        Template->getTemplatedDecl()->getAttr<HLSLResourceAttr>();
+    if (ResAttr && DXIL::IsCTBuffer(ResAttr->getResKind())) {
       if (TemplateArgList.size() == 1) {
         const TemplateArgumentLoc &argLoc = TemplateArgList[0];
         const TemplateArgument &arg = argLoc.getArgument();
@@ -5095,29 +5254,14 @@ public:
               << argType;
           return true;
         }
-        if (HasLongVecs(argType)) {
-          m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
-              << "cbuffers";
-          return true;
-        }
+        m_sema->RequireCompleteType(argSrcLoc, argType,
+                                    diag::err_typecheck_decl_incomplete_type);
 
-        if (auto *TST = dyn_cast<TemplateSpecializationType>(argType)) {
-          // This is a bit of a special case we need to handle. Because the
-          // buffer types don't use their template parameter in a way that would
-          // force instantiation, we need to force specialization here.
-          GetOrCreateTemplateSpecialization(
-              *m_context, *m_sema,
-              cast<ClassTemplateDecl>(
-                  TST->getTemplateName().getAsTemplateDecl()),
-              llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
-                                               TST->getNumArgs()));
-        }
-        if (const RecordType *recordType = argType->getAs<RecordType>()) {
-          if (!recordType->getDecl()->isCompleteDefinition()) {
-            m_sema->Diag(argSrcLoc, diag::err_typecheck_decl_incomplete_type)
-                << argType;
-            return true;
-          }
+        if (containsLongVector(argType)) {
+          const unsigned ConstantBuffersOrTextureBuffersIdx = 0;
+          m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
+              << ConstantBuffersOrTextureBuffersIdx;
+          return true;
         }
       }
       return false;
@@ -5147,22 +5291,13 @@ public:
       // template instantiation.
       if (ArgTy->isDependentType())
         return false;
-      if (auto *recordType = ArgTy->getAs<RecordType>()) {
-        if (CXXRecordDecl *cxxRecordDecl =
-                dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
-          if (ClassTemplateSpecializationDecl *templateSpecializationDecl =
-                  dyn_cast<ClassTemplateSpecializationDecl>(cxxRecordDecl)) {
-            if (templateSpecializationDecl->getSpecializationKind() ==
-                TSK_Undeclared) {
-              // Make sure specialization is done before IsTypeNumeric.
-              // If not, ArgTy might be treat as empty struct.
-              m_sema->RequireCompleteType(
-                  ArgLoc.getLocation(), ArgTy,
-                  diag::err_typecheck_decl_incomplete_type);
-            }
-          }
-        }
-      }
+      // Make sure specialization is done before IsTypeNumeric.
+      // If not, ArgTy might be treat as empty struct.
+      m_sema->RequireCompleteType(ArgLoc.getLocation(), ArgTy,
+                                  diag::err_typecheck_decl_incomplete_type);
+      CXXRecordDecl *Decl = ArgTy->getAsCXXRecordDecl();
+      if (Decl && !Decl->isCompleteDefinition())
+        return true;
       // The node record type must be compound - error if it is not.
       if (GetTypeObjectKind(ArgTy) != AR_TOBJ_COMPOUND) {
         m_sema->Diag(ArgLoc.getLocation(), diag::err_hlsl_node_record_type)
@@ -5184,20 +5319,80 @@ public:
         return true;
       }
       return false;
+    } else if (Template->getTemplatedDecl()
+                   ->hasAttr<HLSLRayQueryObjectAttr>()) {
+      int numArgs = TemplateArgList.size();
+      DXASSERT(numArgs == 1 || numArgs == 2,
+               "otherwise the template has not been declared properly");
+
+      // first, determine if the rayquery flag AllowOpacityMicromaps is set
+      bool HasRayQueryFlagAllowOpacityMicromaps = false;
+      if (numArgs > 1) {
+        const TemplateArgument &Arg2 = TemplateArgList[1].getArgument();
+        Expr *Expr2 = Arg2.getAsExpr();
+        llvm::APSInt Arg2val;
+        Expr2->isIntegerConstantExpr(Arg2val, m_sema->getASTContext());
+        if (Arg2val.getZExtValue() &
+            (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps)
+          HasRayQueryFlagAllowOpacityMicromaps = true;
+      }
+
+      // next, get the first template argument, to check if
+      // the ForceOMM2State flag is set
+      const TemplateArgument &Arg1 = TemplateArgList[0].getArgument();
+      Expr *Expr1 = Arg1.getAsExpr();
+      llvm::APSInt Arg1val;
+      bool HasRayFlagForceOMM2State =
+          Expr1->isIntegerConstantExpr(Arg1val, m_sema->getASTContext()) &&
+          (Arg1val.getLimitedValue() &
+           (uint64_t)DXIL::RayFlag::ForceOMM2State) != 0;
+
+      // finally, if ForceOMM2State is set and AllowOpacityMicromaps
+      // isn't, emit a warning
+      if (HasRayFlagForceOMM2State && !HasRayQueryFlagAllowOpacityMicromaps)
+        m_sema->Diag(TemplateArgList[0].getLocation(),
+                     diag::warn_hlsl_rayquery_flags_conflict);
     } else if (Template->getTemplatedDecl()->hasAttr<HLSLTessPatchAttr>()) {
       DXASSERT(TemplateArgList.size() > 0,
                "Tessellation patch should have at least one template args");
       const TemplateArgumentLoc &argLoc = TemplateArgList[0];
       const TemplateArgument &arg = argLoc.getArgument();
-      DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type, "");
-      QualType argType = arg.getAsType();
-      if (HasLongVecs(argType)) {
+      DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type,
+               "Tessellation patch requires type template arg 0");
+
+      m_sema->RequireCompleteType(argLoc.getLocation(), arg.getAsType(),
+                                  diag::err_typecheck_decl_incomplete_type);
+      CXXRecordDecl *Decl = arg.getAsType()->getAsCXXRecordDecl();
+      if (Decl && !Decl->isCompleteDefinition())
+        return true;
+      if (containsLongVector(arg.getAsType())) {
+        const unsigned TessellationPatchesIDx = 1;
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
-            << "tessellation patches";
+            << TessellationPatchesIDx;
+        return true;
+      }
+    } else if (Template->getTemplatedDecl()->hasAttr<HLSLStreamOutputAttr>()) {
+      DXASSERT(TemplateArgList.size() > 0,
+               "Geometry streams should have at least one template args");
+      const TemplateArgumentLoc &argLoc = TemplateArgList[0];
+      const TemplateArgument &arg = argLoc.getArgument();
+      DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type,
+               "Geometry stream requires type template arg 0");
+      m_sema->RequireCompleteType(argLoc.getLocation(), arg.getAsType(),
+                                  diag::err_typecheck_decl_incomplete_type);
+      CXXRecordDecl *Decl = arg.getAsType()->getAsCXXRecordDecl();
+      if (Decl && !Decl->isCompleteDefinition())
+        return true;
+      if (containsLongVector(arg.getAsType())) {
+        const unsigned GeometryStreamsIdx = 2;
+        m_sema->Diag(argLoc.getLocation(),
+                     diag::err_hlsl_unsupported_long_vector)
+            << GeometryStreamsIdx;
         return true;
       }
     }
+
     bool isMatrix = Template->getCanonicalDecl() ==
                     m_matrixTemplateDecl->getCanonicalDecl();
     bool isVector = Template->getCanonicalDecl() ==
@@ -5217,6 +5412,28 @@ public:
             // NOTE: IsValidTemplateArgumentType emits its own diagnostics
             return true;
           }
+          if (ResAttr && IsTyped(ResAttr->getResKind())) {
+            // Check vectors for being too large.
+            if (IsVectorType(m_sema, argType)) {
+              unsigned NumElt = hlsl::GetElementCount(argType);
+              QualType VecEltTy = hlsl::GetHLSLVecElementType(argType);
+              if (NumElt > 4 ||
+                  NumElt * m_sema->getASTContext().getTypeSize(VecEltTy) >
+                      4 * 32) {
+                m_sema->Diag(
+                    argLoc.getLocation(),
+                    diag::
+                        err_hlsl_unsupported_typedbuffer_template_parameter_size);
+                return true;
+              }
+              // Disallow non-vectors and non-scalars entirely.
+            } else if (!IsScalarType(argType)) {
+              m_sema->Diag(
+                  argLoc.getLocation(),
+                  diag::err_hlsl_unsupported_typedbuffer_template_parameter);
+              return true;
+            }
+          }
         }
       } else if (arg.getKind() == TemplateArgument::ArgKind::Expression) {
         if (isMatrix || isVector) {
@@ -5224,17 +5441,16 @@ public:
           llvm::APSInt constantResult;
           if (expr != nullptr &&
               expr->isIntegerConstantExpr(constantResult, *m_context)) {
-            if (CheckRangedTemplateArgument(argSrcLoc, constantResult)) {
+            if (CheckRangedTemplateArgument(argSrcLoc, constantResult,
+                                            isVector))
               return true;
-            }
           }
         }
       } else if (arg.getKind() == TemplateArgument::ArgKind::Integral) {
         if (isMatrix || isVector) {
           llvm::APSInt Val = arg.getAsIntegral();
-          if (CheckRangedTemplateArgument(argSrcLoc, Val)) {
+          if (CheckRangedTemplateArgument(argSrcLoc, Val, isVector))
             return true;
-          }
         }
       }
     }
@@ -8431,6 +8647,9 @@ ExprResult HLSLExternalSource::LookupVectorMemberExprForHLSL(
     llvm_unreachable("Unknown VectorMemberAccessError value");
   }
 
+  if (colCount > 4)
+    msg = diag::err_hlsl_vector_member_on_long_vector;
+
   if (msg != 0) {
     m_sema->Diag(MemberLoc, msg) << memberText;
 
@@ -11382,6 +11601,52 @@ static void DiagnoseReachableBarrier(Sema &S, CallExpr *CE,
   }
 }
 
+bool IsRayFlagForceOMM2StateSet(Sema &sema, const CallExpr *CE) {
+  const Expr *Expr1 = CE->getArg(1);
+  llvm::APSInt constantResult;
+  return Expr1->isIntegerConstantExpr(constantResult, sema.getASTContext()) &&
+         (constantResult.getLimitedValue() &
+          (uint64_t)DXIL::RayFlag::ForceOMM2State) != 0;
+}
+
+void DiagnoseTraceRayInline(Sema &sema, CallExpr *callExpr) {
+  // Validate if the RayFlag parameter has RAY_FLAG_FORCE_OMM_2_STATE set,
+  // the RayQuery decl must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set,
+  // otherwise emit a diagnostic.
+  if (IsRayFlagForceOMM2StateSet(sema, callExpr)) {
+    CXXMemberCallExpr *CXXCallExpr = dyn_cast<CXXMemberCallExpr>(callExpr);
+    if (!CXXCallExpr) {
+      return;
+    }
+    const DeclRefExpr *DRE =
+        dyn_cast<DeclRefExpr>(CXXCallExpr->getImplicitObjectArgument());
+    assert(DRE);
+    QualType QT = DRE->getType();
+    auto *typeRecordDecl = QT->getAsCXXRecordDecl();
+    ClassTemplateSpecializationDecl *SpecDecl =
+        llvm::dyn_cast<ClassTemplateSpecializationDecl>(typeRecordDecl);
+
+    if (!SpecDecl)
+      return;
+
+    // Guaranteed 2 arguments since the rayquery constructor
+    // automatically creates 2 template args
+    DXASSERT(SpecDecl->getTemplateArgs().size() == 2,
+             "else rayquery constructor template args are not 2");
+    llvm::APSInt Arg2val = SpecDecl->getTemplateArgs()[1].getAsIntegral();
+    bool IsRayQueryAllowOMMSet =
+        Arg2val.getZExtValue() &
+        (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps;
+    if (!IsRayQueryAllowOMMSet) {
+      // Diagnose the call
+      sema.Diag(CXXCallExpr->getExprLoc(),
+                diag::warn_hlsl_rayquery_flags_conflict);
+      sema.Diag(DRE->getDecl()->getLocation(), diag::note_previous_decl)
+          << "RayQueryFlags";
+    }
+  }
+}
+
 static bool isStringLiteral(QualType type) {
   if (!type->isConstantArrayType())
     return false;
@@ -11426,6 +11691,9 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
     DiagnoseReachableBarrier(*this, CE, SM, EntrySK, NodeLaunchTy, EntryDecl,
                              Diags);
     break;
+  case hlsl::IntrinsicOp::MOP_TraceRayInline:
+    DiagnoseTraceRayInline(*this, CE);
+    break;
   default:
     break;
   }
@@ -11442,9 +11710,10 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
   ArTypeObjectKind shapeKind = source->GetTypeObjectKind(ArgTy);
   switch (shapeKind) {
   case AR_TOBJ_VECTOR:
-    if (GetHLSLVecSize(ArgTy) > 4) {
+    if (GetHLSLVecSize(ArgTy) > DXIL::kDefaultMaxVectorLength) {
+      const unsigned NodeRecordsIdx = 3;
       self->Diag(ArgLoc.getLocation(), diag::err_hlsl_unsupported_long_vector)
-          << "node records";
+          << NodeRecordsIdx;
       Empty = false;
       return false;
     }
@@ -11470,14 +11739,15 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
     bool ErrorFound = false;
     const RecordDecl *RD = ArgTy->getAs<RecordType>()->getDecl();
     // Check the fields of the RecordDecl
-    RecordDecl::field_iterator begin = RD->field_begin();
-    RecordDecl::field_iterator end = RD->field_end();
-    while (begin != end) {
-      const FieldDecl *FD = *begin;
+    for (auto *FD : RD->fields())
       ErrorFound |=
           DiagnoseNodeStructArgument(self, ArgLoc, FD->getType(), Empty, FD);
-      begin++;
-    }
+    if (RD->isCompleteDefinition())
+      if (auto *Child = dyn_cast<CXXRecordDecl>(RD))
+        // Walk up the inheritance chain and check base class fields
+        for (auto &B : Child->bases())
+          ErrorFound |=
+              DiagnoseNodeStructArgument(self, ArgLoc, B.getType(), Empty);
     return ErrorFound;
   }
   default:
@@ -11913,29 +12183,17 @@ bool hlsl::ShouldSkipNRVO(clang::Sema &sema, clang::QualType returnType,
   return false;
 }
 
-bool hlsl::HasLongVecs(const QualType &qt) {
-  if (qt.isNull()) {
+bool hlsl::containsLongVector(QualType qt) {
+  if (qt.isNull() || qt->isDependentType())
     return false;
-  }
 
-  if (IsHLSLVecType(qt)) {
-    if (GetHLSLVecSize(qt) > 4)
-      return true;
-  } else if (qt->isArrayType()) {
-    const ArrayType *arrayType = qt->getAsArrayTypeUnsafe();
-    return HasLongVecs(arrayType->getElementType());
-  } else if (qt->isStructureOrClassType()) {
-    const RecordType *recordType = qt->getAs<RecordType>();
-    const RecordDecl *recordDecl = recordType->getDecl();
-    if (recordDecl->isInvalidDecl())
+  while (const ArrayType *Arr = qt->getAsArrayTypeUnsafe())
+    qt = Arr->getElementType();
+
+  if (CXXRecordDecl *Decl = qt->getAsCXXRecordDecl()) {
+    if (!Decl->isCompleteDefinition())
       return false;
-    RecordDecl::field_iterator begin = recordDecl->field_begin();
-    RecordDecl::field_iterator end = recordDecl->field_end();
-    for (; begin != end; begin++) {
-      const FieldDecl *fieldDecl = *begin;
-      if (HasLongVecs(fieldDecl->getType()))
-        return true;
-    }
+    return Decl->hasHLSLLongVector();
   }
   return false;
 }
@@ -14568,10 +14826,21 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     result = false;
   }
 
-  // Disallow long vecs from cbuffers.
-  if (isGlobal && !isStatic && !isGroupShared && HasLongVecs(qt)) {
-    Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector) << "cbuffers";
-    result = false;
+  // Disallow long vecs from $Global cbuffers.
+  if (isGlobal && !isStatic && !isGroupShared) {
+    // Suppress actual emitting of errors for incompletable types here
+    // They are redundant to those produced in ActOnUninitializedDecl.
+    struct SilentDiagnoser : public TypeDiagnoser {
+      SilentDiagnoser() : TypeDiagnoser(true) {}
+      virtual void diagnose(Sema &S, SourceLocation Loc, QualType T) {}
+    } SD;
+    RequireCompleteType(D.getLocStart(), qt, SD);
+    if (containsLongVector(qt)) {
+      unsigned CbuffersOrTbuffersIdx = 4;
+      Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector)
+          << CbuffersOrTbuffersIdx;
+      result = false;
+    }
   }
 
   // SPIRV change starts
@@ -15464,9 +15733,10 @@ static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
 
 // Verify that user-defined intrinsic struct args contain no long vectors
 static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
-  if (HasLongVecs(Arg->getType())) {
+  if (containsLongVector(Arg->getType())) {
+    const unsigned UserDefinedStructParameterIdx = 5;
     S->Diag(Arg->getExprLoc(), diag::err_hlsl_unsupported_long_vector)
-        << "user-defined struct parameter";
+        << UserDefinedStructParameterIdx;
     return true;
   }
   return false;
@@ -16204,14 +16474,20 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
 
   // Check general parameter characteristics
   // Would be nice to check for resources here as they crash the compiler now.
-  for (const auto *param : FD->params())
-    if (HasLongVecs(param->getType()))
+  // See issue #7186.
+  for (const auto *param : FD->params()) {
+    if (containsLongVector(param->getType())) {
+      const unsigned EntryFunctionParametersIdx = 6;
       S.Diag(param->getLocation(), diag::err_hlsl_unsupported_long_vector)
-          << "entry function parameters";
+          << EntryFunctionParametersIdx;
+    }
+  }
 
-  if (HasLongVecs(FD->getReturnType()))
+  if (containsLongVector(FD->getReturnType())) {
+    const unsigned EntryFunctionReturnIdx = 7;
     S.Diag(FD->getLocation(), diag::err_hlsl_unsupported_long_vector)
-        << "entry function return type";
+        << EntryFunctionReturnIdx;
+  }
 
   DXIL::ShaderKind Stage =
       ShaderModel::KindFromFullName(shaderAttr->getStage());
