@@ -27,6 +27,7 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/D3DReflection.h"
+#include "dxc/DXIL/DxilPDB.h"
 #include "dxc/dxcapi.h"
 #ifdef _WIN32
 #include "dxc/dxcpix.h"
@@ -54,6 +55,7 @@
 #include "dxc/Support/Unicode.h"
 
 #include <fstream>
+#include "llvm/Support/Endian.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/Path.h"
@@ -162,6 +164,7 @@ public:
   TEST_METHOD(CompileThenTestPdbUtilsStripped)
   TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
   TEST_METHOD(CompileThenTestPdbUtilsRelativePath)
+  TEST_METHOD(CompileThenTestPdbIntegrity)
   TEST_METHOD(CompileSameFilenameAndEntryThenTestPdbUtilsArgs)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
   TEST_METHOD(CompileThenSetRootSignatureThenValidate)
@@ -2071,6 +2074,90 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
 
   VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
+}
+
+// We had a bug where the block addr blocks were not included in the
+// NumBlocks member in the super block. This test makes sure that number
+// is actually correct.
+TEST_F(CompilerTest, CompileThenTestPdbIntegrity) {
+  // Normal small shader
+  std::string source_0 = R"x(
+      [RootSignature("CBV(b1)")]
+      float4 main() : SV_Target {
+        return float4(1,0,0,1);
+      }
+  )x";
+
+  // This is going to compile to a really big shader (and PDB)
+  std::string source_1 = R"x(
+      Texture1D<float> t0 : register(t0);
+      [RootSignature("CBV(b1),DescriptorTable(SRV(t0))")]
+      float main() : SV_Target {
+        float ret = 0;
+        [unroll]
+        for (int i = 0; i < 1024; i++) {
+          ret += t0.Load(i);
+        }
+        return ret;
+      }
+  )x";
+
+  CComPtr<IDxcCompiler3> pCompiler;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+
+  struct Profile {
+    llvm::StringRef src;
+    std::vector<const WCHAR *> args;
+  };
+
+  Profile profiles[] = {
+      {source_0,
+       {
+           L"/Tps_6_0",
+           L"/Zi",
+       }},
+      {source_0,
+       {
+           L"/Tps_6_0",
+           L"/Zs",
+       }},
+      {source_1, {L"/Tps_6_0", L"/Zi", L"Od"}},
+      {source_1, {L"/Tps_6_0", L"/Zs", L"Od"}},
+  };
+
+  CComPtr<IDxcPdbUtils2> pPdbUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+
+  for (Profile &p : profiles) {
+    DxcBuffer SourceBuf = {};
+    SourceBuf.Ptr = p.src.data();
+    SourceBuf.Size = p.src.size();
+    SourceBuf.Encoding = CP_UTF8;
+
+    CComPtr<IDxcResult> pResult;
+    VERIFY_SUCCEEDED(pCompiler->Compile(&SourceBuf, p.args.data(),
+                                        p.args.size(), nullptr,
+                                        IID_PPV_ARGS(&pResult)));
+
+    CComPtr<IDxcBlob> pPdb;
+    VERIFY_SUCCEEDED(
+        pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
+
+    VERIFY_IS_TRUE(sizeof(hlsl::pdb::MSF_SuperBlock) <= pPdb->GetBufferSize());
+    VERIFY_ARE_EQUAL(0, memcmp(pPdb->GetBufferPointer(), hlsl::pdb::kMsfMagic,
+                               sizeof(hlsl::pdb::kMsfMagic)));
+
+    const hlsl::pdb::MSF_SuperBlock *pSuperBlock =
+        (const hlsl::pdb::MSF_SuperBlock *)pPdb->GetBufferPointer();
+    const uint32_t NumBlocks = pSuperBlock->NumBlocks;
+    const uint32_t BlockSize = pSuperBlock->BlockSize;
+
+    VERIFY_ARE_EQUAL(BlockSize * NumBlocks, pPdb->GetBufferSize());
+
+    // Verify that the stream and block descriptions are correct by
+    // checking that PdbUtils can read out of the PDB.
+    VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
+  }
 }
 
 TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
