@@ -1,4 +1,5 @@
 ; RUN: %dxopt %s -hlsl-passes-resume -dxilgen -S | FileCheck %s
+; REQUIRES: dxil-1-9
 
 ; CHECK-NOT:  @dx.op.hitObject_
 ; CHECK-NOT:  @dx.op.maybeReorderThread
