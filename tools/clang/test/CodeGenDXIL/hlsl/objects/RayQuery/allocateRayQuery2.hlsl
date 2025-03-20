@@ -2,6 +2,10 @@
 // RUN: %dxc -T lib_6_9 %s | FileCheck %s 
 // RUN: %dxc -T lib_6_9 -fcgl %s | FileCheck -check-prefix=FCGL %s 
 
+// RUN: %dxc -T vs_6_9 %s | FileCheck %s 
+// RUN: %dxc -T vs_6_9 -fcgl %s | FileCheck -check-prefix=FCGL %s 
+
+
 RaytracingAccelerationStructure RTAS;
 [shader("vertex")]
 void main(RayDesc rayDesc : RAYDESC) {
