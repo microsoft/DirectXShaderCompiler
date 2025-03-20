@@ -661,7 +661,7 @@ CComPtr<IDxcBlob> PixTest::RunDxilPIXDXRInvocationsLog(IDxcBlob *blob) {
   CComPtr<IDxcBlob> pOptimizedModule;
   CComPtr<IDxcBlobEncoding> pText;
   VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
-      dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+      blob, Options.data(), Options.size(), &pOptimizedModule, &pText));
 
   std::string outputText;
   if (pText->GetBufferSize() != 0) {
@@ -2951,28 +2951,36 @@ TEST_F(PixTest, DxilPIXDXRInvocationsLog_EmbeddedRootSigs) {
   const char *source = R"x(
 
 GlobalRootSignature grs = {"CBV(b0)"};
-int main(int i : INDEX) : SV_Target {
-  return 1;
+struct MyPayload
+{
+    float4 color;
+};
+
+[shader("raygeneration")]
+void MyRayGen()
+{
+}
+
+[shader("closesthit")]
+void MyClosestHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+}
+
+[shader("anyhit")]
+void MyAnyHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+}
+
+[shader("miss")]
+void MyMiss(inout MyPayload payload)
+{
 }
 
 )x";
 
   auto compiledLib = Compile(m_dllSupport, source, L"lib_6_3",
                              {L"-Qstrip_reflect"}, L"RootSig");
-  CComPtr<IDxcContainerReflection> pReflection;
-  IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
-
-  // Load the reflector from the original shader
-  VERIFY_SUCCEEDED(pReflection->Load(compiledLib));
-
-  UINT32 partIndex;
-
-  VERIFY_SUCCEEDED(
-      (pReflection->FindFirstPartKind(hlsl::DFCC_RuntimeData, &partIndex)));
-  CComPtr<IDxcBlob> pPart;
-  VERIFY_SUCCEEDED(pReflection->GetPartContent(partIndex, &pPart));
-  auto wrapped = WrapInNewContainer(m_dllSupport, pPart);
-  RunDxilPIXDXRInvocationsLog(wrapped);
+  RunDxilPIXDXRInvocationsLog(compiledLib);
 }
 
 TEST_F(PixTest, DebugInstrumentation_TextOutput) {
