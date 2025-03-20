@@ -1,4 +1,4 @@
-; RUN: opt -hlsl-passes-resume -dxilgen -S %s | FileCheck %s
+; RUN: %dxopt %s -hlsl-passes-resume -dxilgen -S | FileCheck %s
 ; generated the IR with:
 ; ExtractIRForPassTest.py -p dxilgen -o LowerAllocateRayQuery2.ll tools\clang\test\CodeGenDXIL\hlsl\objects\RayQuery\allocateRayQuery2.hlsl -- -T lib_6_9
 
