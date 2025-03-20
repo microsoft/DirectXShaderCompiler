@@ -84,9 +84,9 @@ public:
 
   StringRef getPassName() const override { return "Matrix Bitcast lower"; }
   bool runOnFunction(Function &F) override {
-    if (F.getParent()->HasDxilModule())
-      SupportsVectors =
-          F.getParent()->GetDxilModule().GetShaderModel()->IsSM69Plus();
+    DxilModule &DM = F.getParent()->GetOrCreateDxilModule();
+    SupportsVectors = DM.GetShaderModel()->IsSM69Plus();
+
     bool bUpdated = false;
     std::unordered_set<BitCastInst *> matCastSet;
     for (auto blkIt = F.begin(); blkIt != F.end(); ++blkIt) {
@@ -104,7 +104,6 @@ public:
       }
     }
 
-    DxilModule &DM = F.getParent()->GetOrCreateDxilModule();
     // Remove bitcast which has CallInst user.
     if (DM.GetShaderModel()->IsLib()) {
       for (auto it = matCastSet.begin(); it != matCastSet.end();) {
