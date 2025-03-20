@@ -454,19 +454,6 @@ public:
     return AAttr;
   }
 
-  enum class DiagBuiltinKind { Constant = 0, Function = 1, Type = 2 };
-
-  static DiagBuiltinKind getDiagBuiltinKindFor(NamedDecl *ND) {
-    switch (ND->getKind()) {
-    case Decl::Function:
-    case Decl::FunctionTemplate:
-    case Decl::CXXMethod:
-      return DiagBuiltinKind::Function;
-    default:
-      return DiagBuiltinKind::Constant;
-    }
-  }
-
   bool CheckSMVersion(VersionTuple AAttrVT) {
     VersionTuple SMVT = VersionTuple(SM->GetMajor(), SM->GetMinor());
     return SMVT >= AAttrVT;
@@ -478,9 +465,8 @@ public:
     if (CheckSMVersion(AAttrVT))
       return;
 
-    sema->Diag(Loc, diag::warn_hlsl_builtin_unavailable)
-        << Ty << SM->GetName() << AAttrVT.getAsString()
-        << (int)DiagBuiltinKind::Type;
+    sema->Diag(Loc, diag::warn_hlsl_builtin_type_unavailable)
+        << Ty << SM->GetName() << AAttrVT.getAsString();
   }
 
   void DiagnoseAvailability(AvailabilityAttr *AAttr, NamedDecl *ND,
@@ -489,12 +475,15 @@ public:
     if (CheckSMVersion(AAttrVT))
       return;
 
-    // TBD: Determine best way to distinguish between builtin constant decls
-    // and other decls.
-    DiagBuiltinKind Kind = getDiagBuiltinKindFor(ND);
-    sema->Diag(Loc, diag::warn_hlsl_builtin_unavailable)
-        << ND->getQualifiedNameAsString() << SM->GetName()
-        << AAttrVT.getAsString() << (int)Kind;
+    if (isa<FunctionDecl>(ND)) {
+      sema->Diag(Loc, diag::warn_hlsl_intrinsic_in_wrong_shader_model)
+          << ND->getQualifiedNameAsString() << EntryDecl
+          << AAttrVT.getAsString();
+      return;
+    }
+
+    sema->Diag(Loc, diag::warn_hlsl_builtin_constant_unavailable)
+        << ND << SM->GetName() << AAttrVT.getAsString();
   }
 
   clang::Sema *getSema() { return sema; }

@@ -1,9 +1,9 @@
 // RUN: %dxc -T lib_6_8 %s -verify
 
-// Check that intrinsic names of Shader Execution Reordering are unclaimed pre SM 6.9.
+// Check that inciwMaybeReorderThread is unavailable pre SM 6.9.
 
 [shader("raygeneration")]
 void main() {
-  // expected-warning@+1{{potential misuse of built-in function 'dx::MaybeReorderThread' in shader model lib_6_8; introduced in shader model 6.9}}
+  // expected-error@+1{{intrinsic dx::MaybeReorderThread potentially used by ''main'' requires shader model 6.9 or greater}}
   dx::MaybeReorderThread(15u, 4u);
 }

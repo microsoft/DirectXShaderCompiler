@@ -7662,8 +7662,11 @@ def warn_hlsl_rayquery_flags_conflict : Warning<
   " must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set.">, DefaultError, InGroup<HLSLRayQueryFlags>;
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
-def warn_hlsl_builtin_unavailable: Warning<
-  "potential misuse of built-in %select{constant|function|type}3 '%0' in shader model %1; introduced"
+def warn_hlsl_builtin_constant_unavailable: Warning<
+  "potential misuse of built-in constant %0 in shader model %1; introduced"
+  " in shader model %2">, InGroup<HLSLAvailabilityConstant>;
+def warn_hlsl_builtin_type_unavailable: Warning<
+  "potential misuse of built-in type %0 in shader model %1; introduced"
   " in shader model %2">, InGroup<HLSLAvailability>;
 def err_hlsl_unsupported_char_literal : Error<
   "unsupported style of char literal - use a single-character char-based literal">;
