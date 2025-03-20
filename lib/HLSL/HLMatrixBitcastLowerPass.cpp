@@ -77,6 +77,7 @@ Type *TryLowerMatTy(Type *Ty) {
 
 class MatrixBitcastLowerPass : public FunctionPass {
   bool SupportsVectors = false;
+
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit MatrixBitcastLowerPass() : FunctionPass(ID) {}
@@ -84,7 +85,8 @@ public:
   StringRef getPassName() const override { return "Matrix Bitcast lower"; }
   bool runOnFunction(Function &F) override {
     if (F.getParent()->HasDxilModule())
-      SupportsVectors = F.getParent()->GetDxilModule().GetShaderModel()->IsSM69Plus();
+      SupportsVectors =
+          F.getParent()->GetDxilModule().GetShaderModel()->IsSM69Plus();
     bool bUpdated = false;
     std::unordered_set<BitCastInst *> matCastSet;
     for (auto blkIt = F.begin(); blkIt != F.end(); ++blkIt) {

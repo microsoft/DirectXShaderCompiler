@@ -568,12 +568,11 @@ bool Scalarizer::visitBitCastInst(BitCastInst &BCI) {
   if (!DstVT || !SrcVT)
     return false;
 
-
   unsigned DstNumElems = DstVT->getNumElements();
   unsigned SrcNumElems = SrcVT->getNumElements();
 
   // HLSL Change Begin - allow > 1 vectors where supported.
-  if (SupportsVectors &&  (DstNumElems > 1 || SrcNumElems > 1))
+  if (SupportsVectors && (DstNumElems > 1 || SrcNumElems > 1))
     return false;
   // HLSL Change End - allow > 1 vectors where supported.
 

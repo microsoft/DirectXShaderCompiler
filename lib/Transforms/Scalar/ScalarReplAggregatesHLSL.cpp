@@ -81,17 +81,18 @@ public:
   static bool DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
                                   Type *&BrokenUpTy, uint64_t &NumInstances,
                                   IRBuilder<> &Builder, bool bFlatVector,
-                                  bool SupportsVectors,
-                                  bool hasPrecise, DxilTypeSystem &typeSys,
-                                  const DataLayout &DL,
+                                  bool SupportsVectors, bool hasPrecise,
+                                  DxilTypeSystem &typeSys, const DataLayout &DL,
                                   SmallVector<Value *, 32> &DeadInsts,
                                   DominatorTree *DT);
 
-  static bool
-  DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &Elts,
-                      IRBuilder<> &Builder, bool bFlatVector, bool SupportsVectors, bool hasPrecise,
-                      DxilTypeSystem &typeSys, const DataLayout &DL,
-                      SmallVector<Value *, 32> &DeadInsts, DominatorTree *DT);
+  static bool DoScalarReplacement(GlobalVariable *GV,
+                                  std::vector<Value *> &Elts,
+                                  IRBuilder<> &Builder, bool bFlatVector,
+                                  bool SupportsVectors, bool hasPrecise,
+                                  DxilTypeSystem &typeSys, const DataLayout &DL,
+                                  SmallVector<Value *, 32> &DeadInsts,
+                                  DominatorTree *DT);
   static unsigned GetEltAlign(unsigned ValueAlign, const DataLayout &DL,
                               Type *EltTy, unsigned Offset);
   // Lower memcpy related to V.
@@ -1880,7 +1881,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         uint64_t NumInstances = 1;
         bool SROAed = SROA_Helper::DoScalarReplacement(
             AI, Elts, BrokenUpTy, NumInstances, Builder,
-            /*bFlatVector*/ true, SupportsVectors, hasPrecise, typeSys, DL, DeadInsts, &DT);
+            /*bFlatVector*/ true, SupportsVectors, hasPrecise, typeSys, DL,
+            DeadInsts, &DT);
 
         if (SROAed) {
           Type *Ty = AI->getAllocatedType();
@@ -1948,8 +1950,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       }
 
       // Flatten Global vector if no dynamic vector indexing.
-      bool bFlatVector =
-        !hasDynamicVectorIndexing(GV);
+      bool bFlatVector = !hasDynamicVectorIndexing(GV);
 
       if (bFlatVector) {
         GVDbgOffset &dbgOffset = GVDbgOffsetMap[GV];
@@ -2923,8 +2924,8 @@ static ArrayType *CreateNestArrayTy(Type *FinalEltTy,
 bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
                                       Type *&BrokenUpTy, uint64_t &NumInstances,
                                       IRBuilder<> &Builder, bool bFlatVector,
-                                      bool SupportsVectors,
-                                      bool hasPrecise, DxilTypeSystem &typeSys,
+                                      bool SupportsVectors, bool hasPrecise,
+                                      DxilTypeSystem &typeSys,
                                       const DataLayout &DL,
                                       SmallVector<Value *, 32> &DeadInsts,
                                       DominatorTree *DT) {
@@ -3122,14 +3123,11 @@ unsigned SROA_Helper::GetEltAlign(unsigned ValueAlign, const DataLayout &DL,
 
 /// DoScalarReplacement - Split V into AllocaInsts with Builder and save the new
 /// AllocaInsts into Elts. Then do SROA on V.
-bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
-                                      std::vector<Value *> &Elts,
-                                      IRBuilder<> &Builder, bool bFlatVector,
-                                      bool SupportsVectors,
-                                      bool hasPrecise, DxilTypeSystem &typeSys,
-                                      const DataLayout &DL,
-                                      SmallVector<Value *, 32> &DeadInsts,
-                                      DominatorTree *DT) {
+bool SROA_Helper::DoScalarReplacement(
+    GlobalVariable *GV, std::vector<Value *> &Elts, IRBuilder<> &Builder,
+    bool bFlatVector, bool SupportsVectors, bool hasPrecise,
+    DxilTypeSystem &typeSys, const DataLayout &DL,
+    SmallVector<Value *, 32> &DeadInsts, DominatorTree *DT) {
   DEBUG(dbgs() << "Found inst to SROA: " << *GV << '\n');
   Type *Ty = GV->getType();
   // Skip none pointer types.
@@ -5369,8 +5367,8 @@ void SROA_Parameter_HLSL::flattenArgument(
       // DomTree isn't used by arguments
       SROAed = SROA_Helper::DoScalarReplacement(
           V, Elts, BrokenUpTy, NumInstances, Builder,
-          /*bFlatVector*/ false, SupportsVectors, annotation.IsPrecise(), dxilTypeSys, DL,
-          DeadInsts, /*DT*/ nullptr);
+          /*bFlatVector*/ false, SupportsVectors, annotation.IsPrecise(),
+          dxilTypeSys, DL, DeadInsts, /*DT*/ nullptr);
     }
 
     if (SROAed) {
