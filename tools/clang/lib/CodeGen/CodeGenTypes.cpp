@@ -23,7 +23,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
-#include "clang/AST/DeclTemplate.h"
+#include "clang/AST/DeclTemplate.h" // HLSL Change - clang-format
 #include "clang/AST/Expr.h"
 #include "clang/AST/HlslTypes.h" // HLSL Change
 #include "clang/AST/RecordLayout.h"
