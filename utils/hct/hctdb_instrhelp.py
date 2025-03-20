@@ -18,15 +18,36 @@ def get_db_dxil():
     return g_db_dxil
 
 
-g_db_hlsl = None
+# opcode data contains fixed opcode assignments for HLSL intrinsics.
+g_hlsl_opcode_data = None
 
+
+def get_hlsl_opcode_data():
+    global g_hlsl_opcode_data
+    if g_hlsl_opcode_data is None:
+        # Load the intrinsic opcodes from the JSON file.
+        json_filepath = os.path.join(
+            os.path.dirname(__file__), "hlsl_intrinsic_opcodes.json"
+        )
+        try:
+            with open(json_filepath, "r") as file:
+                g_hlsl_opcode_data = json.load(file)
+        except FileNotFoundError:
+            print(f"File not found: {json_filepath}")
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from {json_filepath}: {e}")
+        if not g_hlsl_opcode_data:
+            g_hlsl_opcode_data = {}
+    return g_hlsl_opcode_data
+
+g_db_hlsl = None
 
 def get_db_hlsl():
     global g_db_hlsl
     if g_db_hlsl is None:
         thisdir = os.path.dirname(os.path.realpath(__file__))
         with open(os.path.join(thisdir, "gen_intrin_main.txt"), "r") as f:
-            g_db_hlsl = db_hlsl(f)
+            g_db_hlsl = db_hlsl(f, get_hlsl_opcode_data())
     return g_db_hlsl
 
 
@@ -1047,22 +1068,22 @@ def wrap_with_ifdef_if_vulkan_specific(intrinsic, text):
 def enum_hlsl_intrinsics():
     db = get_db_hlsl()
     result = ""
-    enumed = []
+    enumed = set()
     for i in sorted(db.intrinsics, key=lambda x: x.key):
         if i.enum_name not in enumed:
-            enumerant = "  %s,\n" % (i.enum_name)
-            result += wrap_with_ifdef_if_vulkan_specific(i, enumerant)  # SPIRV Change
-            enumed.append(i.enum_name)
+            result += "  %s = %d,\n" % (i.enum_name, i.opcode)
+            enumed.add(i.enum_name)
     # unsigned
     result += "  // unsigned\n"
 
     for i in sorted(db.intrinsics, key=lambda x: x.key):
         if i.unsigned_op != "":
             if i.unsigned_op not in enumed:
-                result += "  %s,\n" % (i.unsigned_op)
-                enumed.append(i.unsigned_op)
+                result += "  %s = %d,\n" % (i.unsigned_op, i.unsigned_opcode)
+                enumed.add(i.unsigned_op)
 
-    result += "  Num_Intrinsics,\n"
+    Num_Intrinsics = get_hlsl_opcode_data()["IntrinsicOpCodes"]["Num_Intrinsics"]
+    result += "  Num_Intrinsics = %d,\n" % (Num_Intrinsics)
     return result
 
 

@@ -6270,7 +6270,6 @@ Value *EmptyLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
 }
 
 // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
 Value *UnsupportedVulkanIntrinsic(CallInst *CI, IntrinsicOp IOP,
                                   DXIL::OpCode opcode,
                                   HLOperationLowerHelper &helper,
@@ -6280,7 +6279,6 @@ Value *UnsupportedVulkanIntrinsic(CallInst *CI, IntrinsicOp IOP,
   dxilutil::EmitErrorOnInstruction(CI, "Unsupported Vulkan intrinsic.");
   return nullptr;
 }
-#endif // ENABLE_SPIRV_CODEGEN
 // SPIRV change ends
 
 Value *StreamOutputLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
@@ -6625,7 +6623,6 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_unpack_s8s32, TranslateUnpack, DXIL::OpCode::Unpack4x8},
     {IntrinsicOp::IOP_unpack_u8u16, TranslateUnpack, DXIL::OpCode::Unpack4x8},
     {IntrinsicOp::IOP_unpack_u8u32, TranslateUnpack, DXIL::OpCode::Unpack4x8},
-#ifdef ENABLE_SPIRV_CODEGEN
     {IntrinsicOp::IOP_VkRawBufferLoad, UnsupportedVulkanIntrinsic,
      DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_VkRawBufferStore, UnsupportedVulkanIntrinsic,
@@ -6636,7 +6633,6 @@ IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_Vkext_execution_mode_id, UnsupportedVulkanIntrinsic,
      DXIL::OpCode::NumOpCodes},
-#endif // ENABLE_SPIRV_CODEGEN
     {IntrinsicOp::MOP_Append, StreamOutputLower, DXIL::OpCode::EmitStream},
     {IntrinsicOp::MOP_RestartStrip, StreamOutputLower, DXIL::OpCode::CutStream},
     {IntrinsicOp::MOP_CalculateLevelOfDetail, TranslateCalculateLOD,
@@ -6864,11 +6860,9 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_OutputComplete, TranslateNodeOutputComplete,
      DXIL::OpCode::OutputComplete},
 
-// SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
+    // SPIRV change starts
     {IntrinsicOp::MOP_SubpassLoad, UnsupportedVulkanIntrinsic,
      DXIL::OpCode::NumOpCodes},
-#endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
     // Manually added part.
