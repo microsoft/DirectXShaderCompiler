@@ -8377,7 +8377,7 @@ class db_hlsl(object):
         self.opcode_data = opcode_data
         # If opcode data is empty, create the default structure.
         if not self.opcode_data:
-            self.opcode_data['IntrinsicOpCodes'] = {'Num_Intrinsics': 0}
+            self.opcode_data["IntrinsicOpCodes"] = {"Num_Intrinsics": 0}
         self.assign_opcodes()
 
     def create_namespaces(self):
@@ -8910,14 +8910,16 @@ class db_hlsl(object):
     # This uses the opcode_data to preserve already-assigned opcodes.
     def assign_opcodes(self):
         "Assign opcodes to the intrinsics."
-        IntrinsicOpDict = self.opcode_data['IntrinsicOpCodes']
-        Num_Intrinsics = self.opcode_data['IntrinsicOpCodes']['Num_Intrinsics']
+        IntrinsicOpDict = self.opcode_data["IntrinsicOpCodes"]
+        Num_Intrinsics = self.opcode_data["IntrinsicOpCodes"]["Num_Intrinsics"]
+
         def add_intrinsic(name):
             nonlocal Num_Intrinsics
             opcode = IntrinsicOpDict.setdefault(name, Num_Intrinsics)
             if opcode == Num_Intrinsics:
                 Num_Intrinsics += 1
             return opcode
+
         sorted_intrinsics = sorted(self.intrinsics, key=lambda x: x.key)
         for i in sorted_intrinsics:
             i.opcode = add_intrinsic(i.enum_name)
@@ -8925,7 +8927,7 @@ class db_hlsl(object):
             if i.unsigned_op == "":
                 continue
             i.unsigned_opcode = add_intrinsic(i.unsigned_op)
-        self.opcode_data['IntrinsicOpCodes']['Num_Intrinsics'] = Num_Intrinsics
+        self.opcode_data["IntrinsicOpCodes"]["Num_Intrinsics"] = Num_Intrinsics
 
 
 if __name__ == "__main__":

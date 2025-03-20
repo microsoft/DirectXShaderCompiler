@@ -21,11 +21,14 @@ def get_db_dxil():
 # opcode data contains fixed opcode assignments for HLSL intrinsics.
 g_hlsl_opcode_data = None
 
+
 def get_hlsl_opcode_data():
     global g_hlsl_opcode_data
     if g_hlsl_opcode_data is None:
         # Load the intrinsic opcodes from the JSON file.
-        json_filepath = os.path.join(os.path.dirname(__file__), "hlsl_intrinsic_opcodes.json")
+        json_filepath = os.path.join(
+            os.path.dirname(__file__), "hlsl_intrinsic_opcodes.json"
+        )
         try:
             with open(json_filepath, "r") as file:
                 g_hlsl_opcode_data = json.load(file)
@@ -1087,7 +1090,7 @@ def enum_hlsl_intrinsics():
                 result += "  %s = %d,\n" % (i.unsigned_op, i.unsigned_opcode)
                 enumed.add(i.unsigned_op)
 
-    Num_Intrinsics = get_hlsl_opcode_data()['IntrinsicOpCodes']['Num_Intrinsics']
+    Num_Intrinsics = get_hlsl_opcode_data()["IntrinsicOpCodes"]["Num_Intrinsics"]
     result += "  Num_Intrinsics = %d,\n" % (Num_Intrinsics)
     return result
 

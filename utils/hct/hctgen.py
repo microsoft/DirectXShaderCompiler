@@ -233,6 +233,7 @@ def writeDxilPIXPasses(args):
     out.write("\n")
     return 0
 
+
 def writeHlslIntrinsicOpcodes(args):
     out = openOutput(args)
     # get_db_hlsl() initializes the hlsl intrinsic database and opcode_data.
