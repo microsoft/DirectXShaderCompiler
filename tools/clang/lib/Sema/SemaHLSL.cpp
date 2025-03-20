@@ -11847,61 +11847,33 @@ static bool isStringLiteral(QualType type) {
   return eType->isSpecificBuiltinType(BuiltinType::Char_S);
 }
 
-struct SERDiagHelper {
-  enum {
-    FeatureDXHitObject = 0,
-    FeatureDXMaybeReorderThread = 1,
-  } DiagUnsupportedFeature = FeatureDXHitObject;
-
-  enum {
-    ValidInRG = 0,
-    ValidInRGCHMS = 1,
-  } DiagValidShaderKinds = ValidInRG;
-
-  static SERDiagHelper GetForMaybeReorderThread() {
-    return SERDiagHelper{FeatureDXMaybeReorderThread, ValidInRG};
-  }
-
-  static SERDiagHelper GetForHitObject() {
-    return SERDiagHelper{FeatureDXHitObject, ValidInRGCHMS};
-  }
-
-  void EmitUnsupportedEntryDiagnostic(Sema &S, SourceLocation Loc,
-                                      DXIL::ShaderKind EntrySK,
-                                      SourceLocation EntryLoc) {
-    S.Diag(Loc, diag::err_hlsl_ser_unsupported)
-        << (int)DiagUnsupportedFeature << ShaderModel::FullNameFromKind(EntrySK)
-        << (int)DiagValidShaderKinds;
-    S.Diag(EntryLoc, diag::note_hlsl_entry_defined_here);
-  }
-};
-
-static void DiagnoseReachableHitObjectCall(Sema &S, CallExpr *CE,
-                                           DXIL::ShaderKind EntrySK,
-                                           const FunctionDecl *EntryFD) {
+static void DiagnoseReachableSERCall(Sema &S, CallExpr *CE,
+                                     DXIL::ShaderKind EntrySK,
+                                     const FunctionDecl *EntryDecl,
+                                     bool IsReorderOperation) {
+  bool ValidEntry = false;
   switch (EntrySK) {
   default:
     break;
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
+    ValidEntry = !IsReorderOperation;
+    break;
   case DXIL::ShaderKind::RayGeneration:
-    return;
+    ValidEntry = true;
+    break;
   }
 
-  SERDiagHelper DiagHelper = SERDiagHelper::GetForHitObject();
-  DiagHelper.EmitUnsupportedEntryDiagnostic(S, CE->getExprLoc(), EntrySK,
-                                            EntryFD->getLocation());
-}
-
-static void DiagnoseReachableMaybeReorder(Sema &S, CallExpr *CE,
-                                          DXIL::ShaderKind EntrySK,
-                                          const FunctionDecl *EntryFD) {
-  if (EntrySK == DXIL::ShaderKind::RayGeneration)
+  if (ValidEntry)
     return;
 
-  SERDiagHelper DiagHelper = SERDiagHelper::GetForMaybeReorderThread();
-  DiagHelper.EmitUnsupportedEntryDiagnostic(S, CE->getExprLoc(), EntrySK,
-                                            EntryFD->getLocation());
+  int DiagID = IsReorderOperation ? diag::err_hlsl_reorder_unsupported_stage
+                                  : diag::err_hlsl_hitobject_unsupported_stage;
+
+  SourceLocation EntryLoc = EntryDecl->getLocation();
+  SourceLocation Loc = CE->getExprLoc();
+  S.Diag(Loc, DiagID) << ShaderModel::FullNameFromKind(EntrySK);
+  S.Diag(EntryLoc, diag::note_hlsl_entry_defined_here);
 }
 
 // Check HLSL member call constraints for used functions.
@@ -11945,10 +11917,10 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
     DiagnoseTraceRayInline(*this, CE);
     break;
   case hlsl::IntrinsicOp::MOP_DxHitObject_MakeNop:
-    DiagnoseReachableHitObjectCall(*this, CE, EntrySK, EntryDecl);
+    DiagnoseReachableSERCall(*this, CE, EntrySK, EntryDecl, false);
     break;
   case hlsl::IntrinsicOp::IOP_DxMaybeReorderThread:
-    DiagnoseReachableMaybeReorder(*this, CE, EntrySK, EntryDecl);
+    DiagnoseReachableSERCall(*this, CE, EntrySK, EntryDecl, true);
     break;
   default:
     break;

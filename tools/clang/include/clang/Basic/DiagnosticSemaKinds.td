@@ -7993,8 +7993,10 @@ def err_hlsl_unsupported_semantic_index: Error<
   "'%0' is defined with semantic index %1, but only values 0 through %2 are supported">;
 
 // Shader Execution Reordering
-def err_hlsl_ser_unsupported : Error<
-   "%select{dx::HitObject|dx::MaybeReorderThread}0 is unavailable in shader stage '%1' (requires 'raygeneration'%select{|, 'closesthit' or 'miss'}2)">;
+def err_hlsl_reorder_unsupported_stage : Error<
+   "dx::MaybeReorderThread is unavailable in shader stage '%0' (requires 'raygeneration')">;
+def err_hlsl_hitobject_unsupported_stage : Error<
+   "dx::HitObject is unavailable in shader stage '%0' (requires 'raygeneration', 'closesthit' or 'miss')">;
 // HLSL Change Ends
 
 // SPIRV Change Starts
