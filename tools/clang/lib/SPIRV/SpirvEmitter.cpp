@@ -8128,7 +8128,7 @@ void SpirvEmitter::assignToMSOutIndices(
   if (indices.size() > 1) {
     vecComponent = indices.back();
   }
-  auto *var = declIdMapper.getStageVarInstruction(decl);
+  auto *var = declIdMapper.getMSOutIndicesBuiltin();
   const auto *varTypeDecl = astContext.getAsConstantArrayType(decl->getType());
   QualType varType = varTypeDecl->getElementType();
   uint32_t numVertices = 1;
