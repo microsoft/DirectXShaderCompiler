@@ -375,20 +375,20 @@ export TYPE index(TYPE things[10], int i)[10] {
 #ifdef INT
 // Test bit twiddling operators.
 // INT-LABEL: define void @"\01?bittwiddlers
-export void bittwiddlers(inout TYPE things[11]) {
-  // INT: [[adr1:%[0-9]*]] = getelementptr inbounds [11 x [[TYPE]]], [11 x [[TYPE]]]* %things, i32 0, i32 1
+export void bittwiddlers(inout TYPE things[13]) {
+  // INT: [[adr1:%[0-9]*]] = getelementptr inbounds [13 x [[TYPE]]], [13 x [[TYPE]]]* %things, i32 0, i32 1
   // INT: [[ld1:%[0-9]*]] = load [[TYPE]], [[TYPE]]* [[adr1]]
   // INT: [[val1:%[0-9]*]] = extractelement [[TYPE]] [[ld1]], i32 0
   // INT: [[xor1:%[0-9]*]] = xor [[ELTY]] [[val1]], -1
   // INT: [[res1:%.*]] = insertelement [[TYPE]] undef, [[ELTY]] [[xor1]], i32 0
-  // INT: [[adr0:%[0-9]*]] = getelementptr inbounds [11 x [[TYPE]]], [11 x [[TYPE]]]* %things, i32 0, i32 0
+  // INT: [[adr0:%[0-9]*]] = getelementptr inbounds [13 x [[TYPE]]], [13 x [[TYPE]]]* %things, i32 0, i32 0
   // INT: store [[TYPE]] [[res1]], [[TYPE]]* [[adr0]]
   things[0] = ~things[1];
 
-  // INT: [[adr2:%[0-9]*]] = getelementptr inbounds [11 x [[TYPE]]], [11 x [[TYPE]]]* %things, i32 0, i32 2
+  // INT: [[adr2:%[0-9]*]] = getelementptr inbounds [13 x [[TYPE]]], [13 x [[TYPE]]]* %things, i32 0, i32 2
   // INT: [[ld2:%[0-9]*]] = load [[TYPE]], [[TYPE]]* [[adr2]]
   // INT: [[val2:%[0-9]*]] = extractelement [[TYPE]] [[ld2]], i32 0
-  // INT: [[adr3:%[0-9]*]] = getelementptr inbounds [11 x [[TYPE]]], [11 x [[TYPE]]]* %things, i32 0, i32 3
+  // INT: [[adr3:%[0-9]*]] = getelementptr inbounds [13 x [[TYPE]]], [13 x [[TYPE]]]* %things, i32 0, i32 3
   // INT: [[ld3:%[0-9]*]] = load [[TYPE]], [[TYPE]]* [[adr3]]
   // INT: [[val3:%[0-9]*]] = extractelement [[TYPE]] [[ld3]], i32 0
   // INT: [[or1:%[0-9]*]] = or [[ELTY]] [[val3]], [[val2]]
@@ -396,7 +396,7 @@ export void bittwiddlers(inout TYPE things[11]) {
   // INT: store [[TYPE]] [[res1]], [[TYPE]]* [[adr1]]
   things[1] = things[2] | things[3];
 
-  // INT: [[adr4:%[0-9]*]] = getelementptr inbounds [11 x [[TYPE]]], [11 x [[TYPE]]]* %things, i32 0, i32 4
+  // INT: [[adr4:%[0-9]*]] = getelementptr inbounds [13 x [[TYPE]]], [13 x [[TYPE]]]* %things, i32 0, i32 4
   // INT: [[ld4:%[0-9]*]] = load [[TYPE]], [[TYPE]]* [[adr4]]
   // INT: [[val4:%[0-9]*]] = extractelement [[TYPE]] [[ld4]], i32 0
   // INT: [[and2:%[0-9]*]] = and [[ELTY]] [[val4]], [[val3]]
@@ -404,7 +404,7 @@ export void bittwiddlers(inout TYPE things[11]) {
   // INT: store [[TYPE]] [[res2]], [[TYPE]]* [[adr2]]
   things[2] = things[3] & things[4];
 
-  // INT: [[adr5:%[0-9]*]] = getelementptr inbounds [11 x [[TYPE]]], [11 x [[TYPE]]]* %things, i32 0, i32 5
+  // INT: [[adr5:%[0-9]*]] = getelementptr inbounds [13 x [[TYPE]]], [13 x [[TYPE]]]* %things, i32 0, i32 5
   // INT: [[ld5:%[0-9]*]] = load [[TYPE]], [[TYPE]]* [[adr5]]
   // INT: [[val5:%[0-9]*]] = extractelement [[TYPE]] [[ld5]], i32 0
   // INT: [[xor3:%[0-9]*]] = xor [[ELTY]] [[val5]], [[val4]]
@@ -412,7 +412,7 @@ export void bittwiddlers(inout TYPE things[11]) {
   // INT: store [[TYPE]] [[res3]], [[TYPE]]* [[adr3]]
   things[3] = things[4] ^ things[5];
 
-  // INT: [[adr6:%[0-9]*]] = getelementptr inbounds [11 x [[TYPE]]], [11 x [[TYPE]]]* %things, i32 0, i32 6
+  // INT: [[adr6:%[0-9]*]] = getelementptr inbounds [13 x [[TYPE]]], [13 x [[TYPE]]]* %things, i32 0, i32 6
   // INT: [[ld6:%[0-9]*]] = load [[TYPE]], [[TYPE]]* [[adr6]]
   // INT: [[val6:%[0-9]*]] = extractelement [[TYPE]] [[ld6]], i32 0
   // INT: [[shv6:%[0-9]*]] = and [[ELTY]] [[val6]]
@@ -421,7 +421,7 @@ export void bittwiddlers(inout TYPE things[11]) {
   // INT: store [[TYPE]] [[res4]], [[TYPE]]* [[adr4]]
   things[4] = things[5] << things[6];
 
-  // INT: [[adr7:%[0-9]*]] = getelementptr inbounds [11 x [[TYPE]]], [11 x [[TYPE]]]* %things, i32 0, i32 7
+  // INT: [[adr7:%[0-9]*]] = getelementptr inbounds [13 x [[TYPE]]], [13 x [[TYPE]]]* %things, i32 0, i32 7
   // INT: [[ld7:%[0-9]*]] = load [[TYPE]], [[TYPE]]* [[adr7]]
   // INT: [[val7:%[0-9]*]] = extractelement [[TYPE]] [[ld7]], i32 0
   // INT: [[shv7:%[0-9]*]] = and [[ELTY]] [[val7]]
@@ -431,7 +431,7 @@ export void bittwiddlers(inout TYPE things[11]) {
   // INT: store [[TYPE]] [[res5]], [[TYPE]]* [[adr5]]
   things[5] = things[6] >> things[7];
 
-  // INT: [[adr8:%[0-9]*]] = getelementptr inbounds [11 x [[TYPE]]], [11 x [[TYPE]]]* %things, i32 0, i32 8
+  // INT: [[adr8:%[0-9]*]] = getelementptr inbounds [13 x [[TYPE]]], [13 x [[TYPE]]]* %things, i32 0, i32 8
   // INT: [[ld8:%[0-9]*]] = load [[TYPE]], [[TYPE]]* [[adr8]]
   // INT: [[val8:%[0-9]*]] = extractelement [[TYPE]] [[ld8]], i32 0
   // INT: [[or6:%[0-9]*]] = or [[ELTY]] [[val8]], [[val6]]
@@ -439,7 +439,7 @@ export void bittwiddlers(inout TYPE things[11]) {
   // INT: store [[TYPE]] [[res6]], [[TYPE]]* [[adr6]]
   things[6] |= things[8];
 
-  // INT: [[adr9:%[0-9]*]] = getelementptr inbounds [11 x [[TYPE]]], [11 x [[TYPE]]]* %things, i32 0, i32 9
+  // INT: [[adr9:%[0-9]*]] = getelementptr inbounds [13 x [[TYPE]]], [13 x [[TYPE]]]* %things, i32 0, i32 9
   // INT: [[ld9:%[0-9]*]] = load [[TYPE]], [[TYPE]]* [[adr9]]
   // INT: [[val9:%[0-9]*]] = extractelement [[TYPE]] [[ld9]], i32 0
   // INT: [[and7:%[0-9]*]] = and [[ELTY]] [[val9]], [[val7]]
@@ -447,13 +447,32 @@ export void bittwiddlers(inout TYPE things[11]) {
   // INT: store [[TYPE]] [[res7]], [[TYPE]]* [[adr7]]
   things[7] &= things[9];
 
-  // INT: [[adr10:%[0-9]*]] = getelementptr inbounds [11 x [[TYPE]]], [11 x [[TYPE]]]* %things, i32 0, i32 10
+  // INT: [[adr10:%[0-9]*]] = getelementptr inbounds [13 x [[TYPE]]], [13 x [[TYPE]]]* %things, i32 0, i32 10
   // INT: [[ld10:%[0-9]*]] = load [[TYPE]], [[TYPE]]* [[adr10]]
   // INT: [[val10:%[0-9]*]] = extractelement [[TYPE]] [[ld10]], i32 0
   // INT: [[xor8:%[0-9]*]] = xor [[ELTY]] [[val10]], [[val8]]
   // INT: [[res8:%.*]] = insertelement [[TYPE]] undef, [[ELTY]] [[xor8]], i32 0
   // INT: store [[TYPE]] [[res8]], [[TYPE]]* [[adr8]]
   things[8] ^= things[10];
+
+  // INT: [[adr11:%[0-9]*]] = getelementptr inbounds [13 x [[TYPE]]], [13 x [[TYPE]]]* %things, i32 0, i32 11
+  // INT: [[ld11:%[0-9]*]] = load [[TYPE]], [[TYPE]]* [[adr11]]
+  // INT: [[val11:%[0-9]*]] = extractelement [[TYPE]] [[ld11]], i32 0
+  // INT: [[shv11:%[0-9]*]] = and [[ELTY]] [[val11]]
+  // INT: [[shl9:%[0-9]*]] = shl [[ELTY]] [[val9]], [[shv11]]
+  // INT: [[res9:%.*]] = insertelement [[TYPE]] undef, [[ELTY]] [[shl9]], i32 0
+  // INT: store [[TYPE]] [[res9]], [[TYPE]]* [[adr9]]
+  things[9] <<= things[11];
+
+  // INT: [[adr12:%[0-9]*]] = getelementptr inbounds [13 x [[TYPE]]], [13 x [[TYPE]]]* %things, i32 0, i32 12
+  // INT: [[ld12:%[0-9]*]] = load [[TYPE]], [[TYPE]]* [[adr12]]
+  // INT: [[val12:%[0-9]*]] = extractelement [[TYPE]] [[ld12]], i32 0
+  // INT: [[shv12:%[0-9]*]] = and [[ELTY]] [[val12]]
+  // UNSIG: [[shr10:%[0-9]*]] = lshr [[ELTY]] [[val10]], [[shv12]]
+  // SIG: [[shr10:%[0-9]*]] = ashr [[ELTY]] [[val10]], [[shv12]]
+  // INT: [[res10:%.*]] = insertelement [[TYPE]] undef, [[ELTY]] [[shr10]], i32 0
+  // INT: store [[TYPE]] [[res10]], [[TYPE]]* [[adr10]]
+  things[10] >>= things[12];
 
   // INT: ret void
 }

@@ -18,12 +18,12 @@
 // RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=float -DNUM=128 %s | FileCheck %s --check-prefixes=CHECK,NODBL
 
 // Less exhaustive testing for some other types.
-// RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=int      -DNUM=2 %s | FileCheck %s --check-prefixes=CHECK,NODBL
-// RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=uint     -DNUM=5 %s | FileCheck %s --check-prefixes=CHECK,NODBL
+// RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=int      -DNUM=2 -DINT %s | FileCheck %s --check-prefixes=CHECK,NODBL,INT,SIG
+// RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=uint     -DNUM=5 -DINT %s | FileCheck %s --check-prefixes=CHECK,NODBL,INT,UNSIG
 // RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=double   -DNUM=3 -DDBL %s | FileCheck %s --check-prefixes=CHECK,DBL
-// RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=uint64_t -DNUM=9 %s | FileCheck %s --check-prefixes=CHECK,NODBL
+// RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=uint64_t -DNUM=9 -DINT %s | FileCheck %s --check-prefixes=CHECK,NODBL,INT,UNSIG
 // RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=float16_t -DNUM=17 -enable-16bit-types %s | FileCheck %s --check-prefixes=CHECK,NODBL
-// RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=int16_t   -DNUM=177 -enable-16bit-types %s | FileCheck %s --check-prefixes=CHECK,NODBL
+// RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=int16_t   -DNUM=177 -DINT -enable-16bit-types %s | FileCheck %s --check-prefixes=CHECK,NODBL,INT,SIG
 
 // Test relevant operators on an assortment vector sizes and types with 6.9 native vectors.
 
@@ -496,3 +496,86 @@ export vector<TYPE, NUM> index(vector<TYPE, NUM> things[10], int i, TYPE val)[10
   // CHECK: ret void
   return res;
 }
+
+#ifdef INT
+// Test bit twiddling operators.
+// INT-LABEL: define void @"\01?bittwiddlers
+export void bittwiddlers(inout vector<TYPE, NUM> things[13]) {
+  // INT: [[adr1:%[0-9]*]] = getelementptr inbounds [13 x <[[NUM]] x [[TYPE]]>], [13 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 1
+  // INT: [[ld1:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[adr1]]
+  // INT: [[res1:%[0-9]*]] = xor <[[NUM]] x [[TYPE]]> [[ld1]], <[[TYPE]] -1
+  // INT: [[adr0:%[0-9]*]] = getelementptr inbounds [13 x <[[NUM]] x [[TYPE]]>], [13 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 0
+  // INT: store <[[NUM]] x [[TYPE]]> [[res1]], <[[NUM]] x [[TYPE]]>* [[adr0]]
+  things[0] = ~things[1];
+
+  // INT: [[adr2:%[0-9]*]] = getelementptr inbounds [13 x <[[NUM]] x [[TYPE]]>], [13 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 2
+  // INT: [[ld2:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[adr2]]
+  // INT: [[adr3:%[0-9]*]] = getelementptr inbounds [13 x <[[NUM]] x [[TYPE]]>], [13 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 3
+  // INT: [[ld3:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[adr3]]
+  // INT: [[res1:%[0-9]*]] = or <[[NUM]] x [[TYPE]]> [[ld3]], [[ld2]]
+  // INT: store <[[NUM]] x [[TYPE]]> [[res1]], <[[NUM]] x [[TYPE]]>* [[adr1]]
+  things[1] = things[2] | things[3];
+
+  // INT: [[adr4:%[0-9]*]] = getelementptr inbounds [13 x <[[NUM]] x [[TYPE]]>], [13 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 4
+  // INT: [[ld4:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[adr4]]
+  // INT: [[res2:%[0-9]*]] = and <[[NUM]] x [[TYPE]]> [[ld4]], [[ld3]]
+  // INT: store <[[NUM]] x [[TYPE]]> [[res2]], <[[NUM]] x [[TYPE]]>* [[adr2]]
+  things[2] = things[3] & things[4];
+
+  // INT: [[adr5:%[0-9]*]] = getelementptr inbounds [13 x <[[NUM]] x [[TYPE]]>], [13 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 5
+  // INT: [[ld5:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[adr5]]
+  // INT: [[res3:%[0-9]*]] = xor <[[NUM]] x [[TYPE]]> [[ld4]], [[ld5]]
+  // INT: store <[[NUM]] x [[TYPE]]> [[res3]], <[[NUM]] x [[TYPE]]>* [[adr3]]
+  things[3] = things[4] ^ things[5];
+
+  // INT: [[adr6:%[0-9]*]] = getelementptr inbounds [13 x <[[NUM]] x [[TYPE]]>], [13 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 6
+  // INT: [[ld6:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[adr6]]
+  // INT: [[shv6:%[0-9]*]] = and <[[NUM]] x [[TYPE]]> [[ld6]]
+  // INT: [[res4:%[0-9]*]] = shl <[[NUM]] x [[TYPE]]> [[ld5]], [[shv6]]
+  // INT: store <[[NUM]] x [[TYPE]]> [[res4]], <[[NUM]] x [[TYPE]]>* [[adr4]]
+  things[4] = things[5] << things[6];
+
+  // INT: [[adr7:%[0-9]*]] = getelementptr inbounds [13 x <[[NUM]] x [[TYPE]]>], [13 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 7
+  // INT: [[ld7:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[adr7]]
+  // INT: [[shv7:%[0-9]*]] = and <[[NUM]] x [[TYPE]]> [[ld7]]
+  // UNSIG: [[res5:%[0-9]*]] = lshr <[[NUM]] x [[TYPE]]> [[ld6]], [[shv7]]
+  // SIG: [[res5:%[0-9]*]] = ashr <[[NUM]] x [[TYPE]]> [[ld6]], [[shv7]]
+  // INT: store <[[NUM]] x [[TYPE]]> [[res5]], <[[NUM]] x [[TYPE]]>* [[adr5]]
+  things[5] = things[6] >> things[7];
+
+  // INT: [[adr8:%[0-9]*]] = getelementptr inbounds [13 x <[[NUM]] x [[TYPE]]>], [13 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 8
+  // INT: [[ld8:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[adr8]]
+  // INT: [[res6:%[0-9]*]] = or <[[NUM]] x [[TYPE]]> [[ld8]], [[ld6]]
+  // INT: store <[[NUM]] x [[TYPE]]> [[res6]], <[[NUM]] x [[TYPE]]>* [[adr6]]
+  things[6] |= things[8];
+
+  // INT: [[adr9:%[0-9]*]] = getelementptr inbounds [13 x <[[NUM]] x [[TYPE]]>], [13 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 9
+  // INT: [[ld9:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[adr9]]
+  // INT: [[res7:%[0-9]*]] = and <[[NUM]] x [[TYPE]]> [[ld9]], [[ld7]]
+  // INT: store <[[NUM]] x [[TYPE]]> [[res7]], <[[NUM]] x [[TYPE]]>* [[adr7]]
+  things[7] &= things[9];
+
+  // INT: [[adr10:%[0-9]*]] = getelementptr inbounds [13 x <[[NUM]] x [[TYPE]]>], [13 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 10
+  // INT: [[ld10:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[adr10]]
+  // INT: [[res8:%[0-9]*]] = xor <[[NUM]] x [[TYPE]]> [[ld8]], [[ld10]]
+  // INT: store <[[NUM]] x [[TYPE]]> [[res8]], <[[NUM]] x [[TYPE]]>* [[adr8]]
+  things[8] ^= things[10];
+
+  // INT: [[adr11:%[0-9]*]] = getelementptr inbounds [13 x <[[NUM]] x [[TYPE]]>], [13 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 11
+  // INT: [[ld11:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[adr11]]
+  // INT: [[shv11:%[0-9]*]] = and <[[NUM]] x [[TYPE]]> [[ld11]]
+  // INT: [[res9:%[0-9]*]] = shl <[[NUM]] x [[TYPE]]> [[ld9]], [[shv11]]
+  // INT: store <[[NUM]] x [[TYPE]]> [[res9]], <[[NUM]] x [[TYPE]]>* [[adr9]]
+  things[9] <<= things[11];
+
+  // INT: [[adr12:%[0-9]*]] = getelementptr inbounds [13 x <[[NUM]] x [[TYPE]]>], [13 x <[[NUM]] x [[TYPE]]>]* %things, i32 0, i32 12
+  // INT: [[ld12:%[0-9]*]] = load <[[NUM]] x [[TYPE]]>, <[[NUM]] x [[TYPE]]>* [[adr12]]
+  // INT: [[shv12:%[0-9]*]] = and <[[NUM]] x [[TYPE]]> [[ld12]]
+  // UNSIG: [[res10:%[0-9]*]] = lshr <[[NUM]] x [[TYPE]]> [[ld10]], [[shv12]]
+  // SIG: [[res10:%[0-9]*]] = ashr <[[NUM]] x [[TYPE]]> [[ld10]], [[shv12]]
+  // INT: store <[[NUM]] x [[TYPE]]> [[res10]], <[[NUM]] x [[TYPE]]>* [[adr10]]
+  things[10] >>= things[12];
+
+  // INT: ret void
+}
+#endif // INT
