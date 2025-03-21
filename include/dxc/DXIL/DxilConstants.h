@@ -520,9 +520,7 @@ enum class OpCode : unsigned {
   ReservedB27 = 289, // reserved
   ReservedB28 = 290, // reserved
   ReservedB29 = 291, // reserved
-  ReservedB3 = 265,  // reserved
   ReservedB30 = 292, // reserved
-  ReservedB4 = 266,  // reserved
   ReservedB5 = 267,  // reserved
   ReservedB6 = 268,  // reserved
   ReservedB7 = 269,  // reserved
@@ -909,6 +907,10 @@ enum class OpCode : unsigned {
   WriteSamplerFeedbackLevel = 176, // updates a feedback texture for a sampling
                                    // operation with a mipmap-level offset
 
+  // Shader Execution Reordering
+  HitObject_MakeMiss = 265, // Creates a new HitObject representing a miss
+  HitObject_MakeNop = 266,  // Creates an empty nop HitObject
+
   // Synchronization
   AtomicBinOp = 78,           // performs an atomic operation on two operands
   AtomicCompareExchange = 79, // atomic compare and exchange to memory
@@ -1281,6 +1283,10 @@ enum class OpCodeClass : unsigned {
   WriteSamplerFeedbackGrad,
   WriteSamplerFeedbackLevel,
 
+  // Shader Execution Reordering
+  HitObject_MakeMiss,
+  HitObject_MakeNop,
+
   // Synchronization
   AtomicBinOp,
   AtomicCompareExchange,
@@ -1345,7 +1351,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
 
-  NumOpClasses = 175 // exclusive last value of enumeration
+  NumOpClasses = 177 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
