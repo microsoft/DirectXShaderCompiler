@@ -76,6 +76,7 @@ Type *TryLowerMatTy(Type *Ty) {
 }
 
 class MatrixBitcastLowerPass : public FunctionPass {
+  bool SupportsVectors = false;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -83,6 +84,9 @@ public:
 
   StringRef getPassName() const override { return "Matrix Bitcast lower"; }
   bool runOnFunction(Function &F) override {
+    DxilModule &DM = F.getParent()->GetOrCreateDxilModule();
+    SupportsVectors = DM.GetShaderModel()->IsSM69Plus();
+
     bool bUpdated = false;
     std::unordered_set<BitCastInst *> matCastSet;
     for (auto blkIt = F.begin(); blkIt != F.end(); ++blkIt) {
@@ -100,7 +104,6 @@ public:
       }
     }
 
-    DxilModule &DM = F.getParent()->GetOrCreateDxilModule();
     // Remove bitcast which has CallInst user.
     if (DM.GetShaderModel()->IsLib()) {
       for (auto it = matCastSet.begin(); it != matCastSet.end();) {
@@ -113,13 +116,13 @@ public:
 
     // Lower matrix first.
     for (BitCastInst *BCI : matCastSet) {
-      lowerMatrix(BCI, BCI->getOperand(0));
+      lowerMatrix(DM, BCI, BCI->getOperand(0));
     }
     return bUpdated;
   }
 
 private:
-  void lowerMatrix(Instruction *M, Value *A);
+  void lowerMatrix(DxilModule &DM, Instruction *M, Value *A);
   bool hasCallUser(Instruction *M);
 };
 
@@ -180,7 +183,8 @@ Value *CreateEltGEP(Value *A, unsigned i, Value *zeroIdx,
 }
 } // namespace
 
-void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
+void MatrixBitcastLowerPass::lowerMatrix(DxilModule &DM, Instruction *M,
+                                         Value *A) {
   for (auto it = M->user_begin(); it != M->user_end();) {
     User *U = *(it++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
@@ -193,31 +197,42 @@ void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
         SmallVector<Value *, 2> idxList(GEP->idx_begin(), GEP->idx_end());
         DXASSERT(idxList.size() == 2,
                  "else not one dim matrix array index to matrix");
-
-        HLMatrixType MatTy = HLMatrixType::cast(EltTy);
-        Value *matSize = Builder.getInt32(MatTy.getNumElements());
-        idxList.back() = Builder.CreateMul(idxList.back(), matSize);
+        unsigned NumElts = HLMatrixType::cast(EltTy).getNumElements();
+        if (!SupportsVectors || NumElts == 1) {
+          Value *MatSize = Builder.getInt32(NumElts);
+          idxList.back() = Builder.CreateMul(idxList.back(), MatSize);
+        }
         Value *NewGEP = Builder.CreateGEP(A, idxList);
-        lowerMatrix(GEP, NewGEP);
+        lowerMatrix(DM, GEP, NewGEP);
         DXASSERT(GEP->user_empty(), "else lower matrix fail");
         GEP->eraseFromParent();
       } else {
         DXASSERT(0, "invalid GEP for matrix");
       }
     } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-      lowerMatrix(BCI, A);
+      lowerMatrix(DM, BCI, A);
       DXASSERT(BCI->user_empty(), "else lower matrix fail");
       BCI->eraseFromParent();
     } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
       if (VectorType *Ty = dyn_cast<VectorType>(LI->getType())) {
         IRBuilder<> Builder(LI);
-        Value *zeroIdx = Builder.getInt32(0);
-        unsigned vecSize = Ty->getNumElements();
-        Value *NewVec = UndefValue::get(LI->getType());
-        for (unsigned i = 0; i < vecSize; i++) {
-          Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
-          Value *Elt = Builder.CreateLoad(GEP);
-          NewVec = Builder.CreateInsertElement(NewVec, Elt, i);
+        Value *NewVec = nullptr;
+        unsigned VecSize = Ty->getVectorNumElements();
+        if (SupportsVectors && VecSize > 1) {
+          // Create a replacement load using the vector pointer.
+          Instruction *NewLd = LI->clone();
+          unsigned VecIdx = NewLd->getNumOperands() - 1;
+          NewLd->setOperand(VecIdx, A);
+          Builder.Insert(NewLd);
+          NewVec = NewLd;
+        } else {
+          Value *zeroIdx = Builder.getInt32(0);
+          NewVec = UndefValue::get(LI->getType());
+          for (unsigned i = 0; i < VecSize; i++) {
+            Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
+            Value *Elt = Builder.CreateLoad(GEP);
+            NewVec = Builder.CreateInsertElement(NewVec, Elt, i);
+          }
         }
         LI->replaceAllUsesWith(NewVec);
         LI->eraseFromParent();
@@ -228,12 +243,20 @@ void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
       Value *V = ST->getValueOperand();
       if (VectorType *Ty = dyn_cast<VectorType>(V->getType())) {
         IRBuilder<> Builder(LI);
-        Value *zeroIdx = Builder.getInt32(0);
-        unsigned vecSize = Ty->getNumElements();
-        for (unsigned i = 0; i < vecSize; i++) {
-          Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
-          Value *Elt = Builder.CreateExtractElement(V, i);
-          Builder.CreateStore(Elt, GEP);
+        if (SupportsVectors && Ty->getVectorNumElements() > 1) {
+          // Create a replacement store using the vector pointer.
+          Instruction *NewSt = ST->clone();
+          unsigned VecIdx = NewSt->getNumOperands() - 1;
+          NewSt->setOperand(VecIdx, A);
+          Builder.Insert(NewSt);
+        } else {
+          Value *zeroIdx = Builder.getInt32(0);
+          unsigned vecSize = Ty->getNumElements();
+          for (unsigned i = 0; i < vecSize; i++) {
+            Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
+            Value *Elt = Builder.CreateExtractElement(V, i);
+            Builder.CreateStore(Elt, GEP);
+          }
         }
         ST->eraseFromParent();
       } else {

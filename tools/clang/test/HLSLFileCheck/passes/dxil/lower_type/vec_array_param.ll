@@ -31,3 +31,25 @@ declare float @"\01?foo@@YAMY02V?$vector@M$02@@@Z"([3 x <3 x float>]*)
 
 attributes #0 = { nounwind }
 
+!dx.version = !{!3}
+!dx.valver = !{!4}
+!dx.shaderModel = !{!5}
+!dx.typeAnnotations = !{!6}
+!dx.entryPoints = !{!12}
+!dx.fnprops = !{}
+!dx.options = !{!13, !14}
+
+!0 = !{i32 2, !"Debug Info Version", i32 3}
+!1 = !{!"hlsl-hlemit", !"hlsl-hlensure"}
+!3 = !{i32 1, i32 6}
+!4 = !{i32 1, i32 6}
+!5 = !{!"lib", i32 6, i32 6}
+!6 = !{i32 1, float ([3 x <3 x float>]*)* @"\01?bar@@YAMY02V?$vector@M$02@@@Z", !7, float ([3 x <3 x float>]*)* @"\01?foo@@YAMY02V?$vector@M$02@@@Z", !7}
+!7 = !{!8, !11}
+!8 = !{i32 1, !9, !10}
+!9 = !{i32 7, i32 9}
+!10 = !{}
+!11 = !{i32 0, !9, !10}
+!12 = !{null, !"", null, null, null}
+!13 = !{i32 64}
+!14 = !{i32 -1}
