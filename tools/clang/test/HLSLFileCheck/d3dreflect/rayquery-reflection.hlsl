@@ -1,14 +1,22 @@
-// RUN: %dxilver 1.9 | %dxc -T lib_6_9 -validator-version 1.9 %s | FileCheck -check-prefix=NOD3D %s
-// RUN: %dxilver 1.9 | %dxc -T lib_6_9 -validator-version 1.9 %s | %D3DReflect %s | FileCheck -check-prefix=D3D %s
+// RUN: %dxilver 1.9 | %dxc -T lib_6_9 -validator-version 1.9 %s | FileCheck %s
+// RUsN: %dxilver 1.8 | %dxc -T lib_6_8 -validator-version 1.8 %s | FileCheck -check-prefix=UNDER69 %s
+// RUN: %dxilver 1.9 | %dxc -T lib_6_9 -validator-version 1.9 -ast-dump %s | FileCheck -check-prefix=AST %s
+// RUN: %dxilver 1.9 | %dxc -T lib_6_9 -validator-version 1.9 -ast-dump-implicit %s | FileCheck -check-prefix=ASTIMPL %s
 
-// NOD3D: ; RaytracingPipelineConfig1 rpc = { MaxTraceRecursionDepth = 32, Flags = RAYTRACING_PIPELINE_FLAG_SKIP_TRIANGLES | RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS };
-// D3D: MinShaderTarget: 0x10069
-RaytracingPipelineConfig1 rpc = { 32, RAYTRACING_PIPELINE_FLAG_SKIP_TRIANGLES | RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS };
+// CHECK: ; RaytracingPipelineConfig1 rpc = { MaxTraceRecursionDepth = 32, Flags = RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS };
 
-RaytracingAccelerationStructure RTAS;
-// DXR entry point to ensure RDAT flags match during validation.
-[shader("vertex")]
-void main(RayDesc rayDesc : RAYDESC) {
-  RayQuery<RAY_FLAG_FORCE_OMM_2_STATE, RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS> rayQuery1;
-  rayQuery1.TraceRayInline(RTAS, RAY_FLAG_FORCE_OMM_2_STATE, 2, rayDesc);
-}
+
+// AST: TranslationUnitDecl 0x{{.+}} <<invalid sloc>> <invalid sloc>
+// AST-NEXT: VarDecl 0x{{.+}} rpc 'RaytracingPipelineConfig1' static cinit
+// AST-NEXT: InitListExpr 0x{{.+}} 'RaytracingPipelineConfig1'
+// AST-NEXT: ImplicitCastExpr 0x{{.+}} 'unsigned int' <IntegralCast>
+// AST-NEXT: IntegerLiteral 0x{{.+}} 'literal int' 32
+// AST-NEXT: ImplicitCastExpr 0x{{.+}} 'unsigned int' <LValueToRValue>
+// AST-NEXT: DeclRefExpr 0x{{.+}} 'const unsigned int' lvalue Var 0x{{.+}} 'RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS' 'const unsigned int'
+// ASTIMPL: VarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit referenced RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS 'const unsigned int' static cinit
+// ASTIMPL-NEXT: IntegerLiteral 0x{{.+}} <<invalid sloc>> 'const unsigned int' 1024
+// ASTIMPL-NEXT: AvailabilityAttr 0x{{.+}} <<invalid sloc>> Implicit  6.9 0 0 ""
+RaytracingPipelineConfig1 rpc = { 32, RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS };
+
+// UNDER69: Potential misuse
+
