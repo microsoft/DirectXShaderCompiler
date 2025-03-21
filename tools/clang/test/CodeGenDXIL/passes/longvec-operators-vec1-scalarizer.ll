@@ -114,7 +114,7 @@ bb:
   ; CHECK: [[adr0:%.*]] = getelementptr inbounds [11 x <1 x float>], [11 x <1 x float>]* %things, i32 0, i32 0
   ; CHECK: [[ld0:%.*]] = load <1 x float>, <1 x float>* [[adr0]], align 4
   ; CHECK: [[zero:%.*]] = extractelement <1 x float> <float -0.000000e+00>, i32 0
-  ; CHECK: [[val0:%.*]] = extractelement <1 x float> [[ld0:%.*]], i32 0
+  ; CHECK: [[val0:%.*]] = extractelement <1 x float> [[ld0]], i32 0
   ; CHECK: [[sub0:%.*]] = fsub fast float [[zero]], [[val0]]
   ; CHECK: [[res0:%.*]] = insertelement <1 x float> undef, float [[sub0]], i32 0
   %tmp = getelementptr inbounds [11 x <1 x float>], [11 x <1 x float>]* %things, i32 0, i32 0
@@ -206,8 +206,8 @@ bb:
 
   ; CHECK: [[adr7:%.*]] = getelementptr inbounds [11 x <1 x float>], [11 x <1 x float>]* %things, i32 0, i32 7
   ; CHECK: [[ld7:%.*]] = load <1 x float>, <1 x float>* [[adr7]], align 4
-  ; CHECK: [[val7:%.*]] = extractelement <1 x float> [[ld7]], i32 0
-  ; CHECK: [[pos1:%.*]] = extractelement <1 x float> <float 1.000000e+00>, i32 0
+  ; CHECK-DAG: [[val7:%.*]] = extractelement <1 x float> [[ld7]], i32 0
+  ; CHECK-DAG: [[pos1:%.*]] = extractelement <1 x float> <float 1.000000e+00>, i32 0
   ; CHECK: [[add6:%.*]] = fadd fast float [[val7]], [[pos1]]
   ; CHECK: [[res6:%.*]] = insertelement <1 x float> undef, float [[add6]], i32 0
   %tmp37 = getelementptr inbounds [11 x <1 x float>], [11 x <1 x float>]* %things, i32 0, i32 7
@@ -217,8 +217,8 @@ bb:
 
   ; CHECK: [[adr8:%.*]] = getelementptr inbounds [11 x <1 x float>], [11 x <1 x float>]* %things, i32 0, i32 8
   ; CHECK: [[ld8:%.*]] = load <1 x float>, <1 x float>* [[adr8]], align 4
-  ; CHECK: [[val8:%.*]] = extractelement <1 x float> [[ld8]], i32 0
-  ; CHECK: [[neg1:%.*]] = extractelement <1 x float> <float -1.000000e+00>, i32 0
+  ; CHECK-DAG: [[val8:%.*]] = extractelement <1 x float> [[ld8]], i32 0
+  ; CHECK-DAG: [[neg1:%.*]] = extractelement <1 x float> <float -1.000000e+00>, i32 0
   ; CHECK: [[add7:%.*]] = fadd fast float [[val8]], [[neg1]]
   ; CHECK: [[res7:%.*]] = insertelement <1 x float> undef, float [[add7]], i32 0
   %tmp40 = extractelement <1 x float> %tmp38, i64 0
@@ -229,8 +229,8 @@ bb:
 
   ; CHECK: [[adr9:%.*]] = getelementptr inbounds [11 x <1 x float>], [11 x <1 x float>]* %things, i32 0, i32 9
   ; CHECK: [[ld9:%.*]] = load <1 x float>, <1 x float>* [[adr9]], align 4
-  ; CHECK: [[val9:%.*]] = extractelement <1 x float> [[ld9]], i32 0
-  ; CHECK: [[pos1:%.*]] = extractelement <1 x float> <float 1.000000e+00>, i32 0
+  ; CHECK-DAG: [[val9:%.*]] = extractelement <1 x float> [[ld9]], i32 0
+  ; CHECK-DAG: [[pos1:%.*]] = extractelement <1 x float> <float 1.000000e+00>, i32 0
   ; CHECK: [[add8:%.*]] = fadd fast float [[val9]], [[pos1]]
   ; CHECK: [[res8:%.*]] = insertelement <1 x float> undef, float [[add8]], i32 0
   %tmp44 = extractelement <1 x float> %tmp42, i64 0
@@ -241,8 +241,8 @@ bb:
 
   ; CHECK: [[adr10:%.*]] = getelementptr inbounds [11 x <1 x float>], [11 x <1 x float>]* %things, i32 0, i32 10
   ; CHECK: [[ld10:%.*]] = load <1 x float>, <1 x float>* [[adr10]], align 4
-  ; CHECK: [[val10:%.*]] = extractelement <1 x float> [[ld10]], i32 0
-  ; CHECK: [[neg1:%.*]] = extractelement <1 x float> <float -1.000000e+00>, i32 0
+  ; CHECK-DAG: [[val10:%.*]] = extractelement <1 x float> [[ld10]], i32 0
+  ; CHECK-DAG: [[neg1:%.*]] = extractelement <1 x float> <float -1.000000e+00>, i32 0
   ; CHECK: [[add9:%.*]] = fadd fast float [[val10]], [[neg1]]
   ; CHECK: [[res9:%.*]] = insertelement <1 x float> undef, float [[add9]], i32 0
   %tmp48 = extractelement <1 x float> %tmp47, i64 0

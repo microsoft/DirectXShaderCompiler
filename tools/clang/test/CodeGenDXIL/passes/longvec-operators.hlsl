@@ -175,7 +175,7 @@ export vector<bool,NUM> logic(vector<bool,NUM> truth[10], vector<TYPE, NUM> cons
   // CHECK: [[adr0:%.*]] = getelementptr inbounds [10 x <[[NUM]] x i32>], [10 x <[[NUM]] x i32>]* %truth, i32 0, i32 0
   // CHECK: [[vec0:%.*]] = load <[[NUM]] x i32>, <[[NUM]] x i32>* [[adr0]]
   // CHECK: [[bvec0:%.*]] = icmp ne <[[NUM]] x i32> [[vec0]], zeroinitializer
-  // CHECK: [[bres0:%.*]] = icmp eq <[[NUM]] x i1> %4, zeroinitializer
+  // CHECK: [[bres0:%.*]] = icmp eq <[[NUM]] x i1> [[bvec0]], zeroinitializer
   // CHECK: [[adr0:%.*]] = getelementptr inbounds [10 x <[[NUM]] x i32>], [10 x <[[NUM]] x i32>]* %res, i32 0, i32 0
   // CHECK: [[res0:%.*]] = zext <[[NUM]] x i1> [[bres0]] to <[[NUM]] x i32>
   // CHECK: store <[[NUM]] x i32> [[res0]], <[[NUM]] x i32>* [[adr0]]
