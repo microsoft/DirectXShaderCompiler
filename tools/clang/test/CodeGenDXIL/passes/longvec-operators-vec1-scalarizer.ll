@@ -113,8 +113,8 @@ define void @"\01?arithmetic@@YA$$BY0L@V?$vector@M$00@@Y0L@$$CAV1@@Z"([11 x <1 x
 bb:
   ; CHECK: [[adr0:%.*]] = getelementptr inbounds [11 x <1 x float>], [11 x <1 x float>]* %things, i32 0, i32 0
   ; CHECK: [[ld0:%.*]] = load <1 x float>, <1 x float>* [[adr0]], align 4
-  ; CHECK: [[zero:%.*]] = extractelement <1 x float> <float -0.000000e+00>, i32 0
-  ; CHECK: [[val0:%.*]] = extractelement <1 x float> [[ld0]], i32 0
+  ; CHECK-DAG: [[zero:%.*]] = extractelement <1 x float> <float -0.000000e+00>, i32 0
+  ; CHECK-DAG: [[val0:%.*]] = extractelement <1 x float> [[ld0]], i32 0
   ; CHECK: [[sub0:%.*]] = fsub fast float [[zero]], [[val0]]
   ; CHECK: [[res0:%.*]] = insertelement <1 x float> undef, float [[sub0]], i32 0
   %tmp = getelementptr inbounds [11 x <1 x float>], [11 x <1 x float>]* %things, i32 0, i32 0
