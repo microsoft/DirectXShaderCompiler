@@ -2,3 +2,9 @@
 
 // CHECK: MinShaderTarget: 0x10069
 RaytracingPipelineConfig1 rpc = { 32, RAYTRACING_PIPELINE_FLAG_SKIP_TRIANGLES | RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS };
+SubobjectToExportsAssociation sea = { "rpc", "MyRayGenShader" };
+
+[shader("raygeneration")]
+void MyRayGenShader() {
+    // The pipeline configuration affects this shader but is not directly accessible.
+}
