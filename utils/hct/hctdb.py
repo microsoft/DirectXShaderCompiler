@@ -107,6 +107,7 @@ class db_dxil_inst(object):
         self.ops = []  # the operands that this instruction takes
         self.is_allowed = True  # whether this instruction is allowed in a DXIL program
         self.oload_types = ""  # overload types if applicable
+        # Always call process_oload_types() after setting oload_types.
         self.extended_oload_types = None  # extended overload types if applicable
         self.vector_oload_types = None  # vector overload types if applicable
         self.fn_attr = ""  # attribute shorthands: rn=does not access memory,ro=only reads from memory,
@@ -140,8 +141,15 @@ class db_dxil_inst(object):
             raise ValueError(
                 f"overload for '{self.name}' should be a string - use empty if n/a"
             )
-        # Early out for LLVM instructions or void overloads.
-        if self.oload_types == "v" or not self.is_dxil_op:
+        # Early out for LLVM instructions
+        if not self.is_dxil_op:
+            return
+
+        self.extended_oload_types = [""] * dxil_max_overload_dims
+        self.vector_oload_types = [""] * dxil_max_overload_dims
+
+        # Early out for void overloads.
+        if self.oload_types == "v":
             return
 
         if self.oload_types == "":
@@ -186,7 +194,6 @@ class db_dxil_inst(object):
                 "Too many overload dimensions for DXIL op "
                 f"{self.name}: '{self.oload_types}'"
             )
-        self.vector_oload_types = [""] * len(oload_types)
         for n, oloads in enumerate(oload_types):
             if len(oloads) == 0:
                 raise ValueError(
@@ -225,11 +232,6 @@ class db_dxil_inst(object):
             self.vector_oload_types[n] = vector_oloads
         if len(oload_types) > 1:
             self.oload_types = "x"
-            self.extended_oload_types = oload_types
-            self.check_extended_oload_ops()
-        else:
-            self.oload_types = oload_types[0]
-            self.extended_oload_types = None
 
     def check_extended_oload_ops(self):
         "Ensure ops has sequential extended overload references with $x0, $x1, etc."

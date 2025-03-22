@@ -546,25 +546,14 @@ class db_oload_gen:
         oload_to_mask = lambda oload: sum(
             [1 << dxil_all_user_oload_chars.find(c) for c in oload]
         )
-        maybe_oloads_fn = lambda oloads: oloads if oloads else []
         ext_oload_fn = (
             lambda i: "{"
-            + ",".join(
-                [
-                    "0x%02x" % oload_to_mask(o)
-                    for o in maybe_oloads_fn(i.extended_oload_types)
-                ]
-            )
+            + ",".join(["0x%x" % oload_to_mask(o) for o in i.extended_oload_types])
             + "}"
         )
         vec_oload_fn = (
             lambda i: "{"
-            + ",".join(
-                [
-                    "0x%02x" % oload_to_mask(o)
-                    for o in maybe_oloads_fn(i.vector_oload_types)
-                ]
-            )
+            + ",".join(["0x%x" % oload_to_mask(o) for o in i.vector_oload_types])
             + "}"
         )
         for i in self.instrs:
