@@ -58,6 +58,8 @@ public:
   void RefreshCache();
 
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
+  llvm::Function *GetOpFunc(OpCode OpCode,
+                            llvm::ArrayRef<llvm::Type *> ExtendedOverloads);
   const llvm::SmallMapVector<llvm::Type *, llvm::Function *, 8> &
   GetOpFuncList(OpCode OpCode) const;
   bool IsDxilOpUsed(OpCode opcode) const;
@@ -83,6 +85,10 @@ public:
   llvm::Type *GetCBufferRetType(llvm::Type *pOverloadType);
   llvm::Type *GetVectorType(unsigned numElements, llvm::Type *pOverloadType);
   bool IsResRetType(llvm::Type *Ty);
+
+  // Construct an unnamed struct type containing the set of member types.
+  llvm::StructType *
+  GetExtendedOverloadType(llvm::ArrayRef<llvm::Type *> OverloadTypes);
 
   // Try to get the opcode class for a function.
   // Return true and set `opClass` if the given function is a dxil function.
@@ -141,6 +147,8 @@ public:
                                        unsigned valMinor, unsigned &major,
                                        unsigned &minor, unsigned &mask);
 
+  static bool IsDxilOpExtendedOverload(OpCode C);
+
 private:
   // Per-module properties.
   llvm::LLVMContext &m_Ctx;
@@ -166,8 +174,9 @@ private:
   static const unsigned kUserDefineTypeSlot = 9;
   static const unsigned kObjectTypeSlot = 10;
   static const unsigned kVectorTypeSlot = 11;
+  static const unsigned kExtendedTypeSlot = 12;
   static const unsigned kNumTypeOverloads =
-      12; // void, h,f,d, i1, i8,i16,i32,i64, udt, obj
+      13; // void, h,f,d, i1, i8,i16,i32,i64, udt, obj, vec, extended
 
   llvm::Type *m_pResRetType[kNumTypeOverloads];
   llvm::Type *m_pCBufferRetType[kNumTypeOverloads];
@@ -181,14 +190,39 @@ private:
 
 private:
   // Static properties.
+  struct OverloadMask {
+    // mask of type slot bits as (1 << TypeSlot)
+    uint16_t SlotMask;
+    static_assert(kNumTypeOverloads <= (sizeof(SlotMask) * 8));
+    bool operator[](unsigned TypeSlot) const {
+      return (TypeSlot < kNumTypeOverloads) ? (bool)(SlotMask & (1 << TypeSlot))
+                                            : 0;
+    }
+    operator bool() const { return SlotMask != 0; }
+  };
   struct OpCodeProperty {
     OpCode opCode;
     const char *pOpCodeName;
     OpCodeClass opCodeClass;
     const char *pOpCodeClassName;
     bool bAllowOverload[kNumTypeOverloads]; // void, h,f,d, i1, i8,i16,i32,i64,
-                                            // udt, obj, vec
+                                            // udt, obj, vec, extended
     llvm::Attribute::AttrKind FuncAttr;
+
+    // Extended Type Overloads:
+    // This is an encoding for a multi-dimensional overload.
+    // 1. Only bAllowOverload[kExtendedTypeSlot] is set to true
+    // 2. ExtendedOverloads defines allowed types for each overload index
+    // 3. AllowedVectorElements defines allowed vector component types,
+    //    when kVectorTypeSlot bit is set for the corresponding overload index.
+    //    This includes when a single vector overload type is specified with
+    //    bAllowOverload[kVectorTypeSlot].
+
+    // A bit mask of allowed type slots per extended overload
+    OverloadMask ExtendedOverloads[DXIL::kDxilMaxOloadDims];
+    // A bit mask of allowed vector element types for the vector overload
+    // or each corresponding extended vector overload.
+    OverloadMask AllowedVectorElements[DXIL::kDxilMaxOloadDims];
   };
   static const OpCodeProperty m_OpCodeProps[(unsigned)OpCode::NumOpCodes];
 

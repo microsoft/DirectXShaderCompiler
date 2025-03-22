@@ -40,7 +40,9 @@ def get_hlsl_opcode_data():
             g_hlsl_opcode_data = {}
     return g_hlsl_opcode_data
 
+
 g_db_hlsl = None
+
 
 def get_db_hlsl():
     global g_db_hlsl
@@ -49,6 +51,11 @@ def get_db_hlsl():
         with open(os.path.join(thisdir, "gen_intrin_main.txt"), "r") as f:
             g_db_hlsl = db_hlsl(f, get_hlsl_opcode_data())
     return g_db_hlsl
+
+
+def get_max_oload_dims():
+    db = get_db_dxil()
+    return f"const unsigned kDxilMaxOloadDims = {dxil_max_overload_dims};"
 
 
 def format_comment(prefix, val):
@@ -508,25 +515,23 @@ class db_oload_gen:
             )
         )
         print(
-            "//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,  function attribute"
+            "//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,   ext,  function attribute, ext oload, vec oload"
         )
         # Example formatted string:
-        #   {  OC::TempRegLoad,             "TempRegLoad",              OCC::TempRegLoad,              "tempRegLoad",                false,  true,  true, false,  true, false,  true,  true, false, Attribute::ReadOnly, },
-        # 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
-        # 0         1         2         3         4         5         6         7         8         9         0         1         2         3         4         5         6         7         8         9         0
+        #   {  OC::TempRegLoad,             "TempRegLoad",              OCC::TempRegLoad,              "tempRegLoad",                false,  true,  true, false,  true, false,  true,  true, false, false, false, false, false, Attribute::ReadOnly, {}, {0x00} },
+        # 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+        # 0         1         2         3         4         5         6         7         8         9         0         1         2         3         4         5         6         7         8         9         0         1         2         3         4         5
 
         last_category = None
-        # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong, u(dt), o(bj), vec(t)or
+        # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong, u(dt), o(bj), vec(t)or, e(x)tended
         f = lambda i, c: "true" if i.oload_types.find(c) >= 0 else "false"
         lower_exceptions = {
             "CBufferLoad": "cbufferLoad",
             "CBufferLoadLegacy": "cbufferLoadLegacy",
             "GSInstanceID": "gsInstanceID",
         }
-        lower_fn = (
-            lambda t: lower_exceptions[t]
-            if t in lower_exceptions
-            else t[:1].lower() + t[1:]
+        lower_fn = lambda t: (
+            lower_exceptions[t] if t in lower_exceptions else t[:1].lower() + t[1:]
         )
         attr_dict = {
             "": "None",
@@ -537,19 +542,48 @@ class db_oload_gen:
             "nr": "NoReturn",
             "wv": "None",
         }
-        attr_fn = lambda i: "Attribute::" + attr_dict[i.fn_attr] + ","
+        attr_fn = lambda i: "Attribute::" + attr_dict[i.fn_attr]
+        oload_to_mask = lambda oload: sum(
+            [1 << dxil_all_user_oload_chars.find(c) for c in oload]
+        )
+        maybe_oloads_fn = lambda oloads: oloads if oloads else []
+        ext_oload_fn = (
+            lambda i: "{"
+            + ",".join(
+                [
+                    "0x%02x" % oload_to_mask(o)
+                    for o in maybe_oloads_fn(i.extended_oload_types)
+                ]
+            )
+            + "}"
+        )
+        vec_oload_fn = (
+            lambda i: "{"
+            + ",".join(
+                [
+                    "0x%02x" % oload_to_mask(o)
+                    for o in maybe_oloads_fn(i.vector_oload_types)
+                ]
+            )
+            + "}"
+        )
         for i in self.instrs:
             if last_category != i.category:
                 if last_category != None:
                     print("")
                 print(
-                    "  // {category:118}  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,  function attribute".format(
+                    "  // {category:118}  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,  function attribute, ext oload, vec oload".format(
                         category=i.category
                     )
                 )
                 last_category = i.category
             print(
-                "  {{  {OC}::{name:24} {quotName:27} {OCC}::{className:25} {classNameQuot:28} {{{v:>6},{h:>6},{f:>6},{d:>6},{b:>6},{e:>6},{w:>6},{i:>6},{l:>6},{u:>6},{o:>6},{t:>6}}}, {attr:20} }},".format(
+                (
+                    "  {{  {OC}::{name:24} {quotName:27} {OCC}::{className:25} "
+                    + "{classNameQuot:28} {{{v:>6},{h:>6},{f:>6},{d:>6},{b:>6},"
+                    + "{e:>6},{w:>6},{i:>6},{l:>6},{u:>6},{o:>6},{t:>6},"
+                    + "{x:>6}}}, {attr:20}, {ext_oload:2}, {vec_oload:6} }},"
+                ).format(
                     name=i.name + ",",
                     quotName='"' + i.name + '",',
                     className=i.dxil_class + ",",
@@ -565,10 +599,13 @@ class db_oload_gen:
                     l=f(i, "l"),
                     u=f(i, "u"),
                     o=f(i, "o"),
-                    t=f(i, "t"),
+                    t=f(i, "<"),
+                    x=f(i, "x"),
                     attr=attr_fn(i),
                     OC=self.OC,
                     OCC=self.OCC,
+                    ext_oload=ext_oload_fn(i),
+                    vec_oload=vec_oload_fn(i),
                 )
             )
         print("};")
@@ -621,6 +658,9 @@ class db_oload_gen:
             "noderecordhandle": "A(pNodeRecordHandle);",
             "nodeproperty": "A(nodeProperty);",
             "noderecordproperty": "A(nodeRecordProperty);",
+            # Extended overload slots, extend as needed:
+            "$x0": "EXT(0);",
+            "$x1": "EXT(1);",
         }
         last_category = None
         for i in self.instrs:
@@ -651,12 +691,15 @@ class db_oload_gen:
         obj_ty = "obj"
         vec_ty = "$vec"
         gsptr_ty = "$gsptr"
+        extended_ty = "$x"
         last_category = None
 
         index_dict = collections.OrderedDict()
         ptr_index_dict = collections.OrderedDict()
         single_dict = collections.OrderedDict()
+        extended_dict = collections.OrderedDict()
         struct_list = []
+        extended_list = []
 
         for instr in self.instrs:
             ret_ty = instr.ops[0].llvm_type
@@ -674,6 +717,10 @@ class db_oload_gen:
 
             if ret_ty.startswith(vec_ty):
                 struct_list.append(instr.name)
+                continue
+
+            if instr.oload_types == "x":
+                extended_list.append(instr)
                 continue
 
             in_param_ty = False
@@ -730,9 +777,7 @@ class db_oload_gen:
                 "i": "IntegerType::get(Ctx, 32)",
                 "l": "IntegerType::get(Ctx, 64)",
                 "v": "Type::getVoidTy(Ctx)",
-                "u": "Type::getInt32PtrTy(Ctx)",
-                "o": "Type::getInt32PtrTy(Ctx)",
-                "t": "Type::getInt32PtrTy(Ctx)",
+                # No other types should be referenced here.
             }
             assert ty in type_code_texts, "llvm type %s is unknown" % (ty)
             ty_code = type_code_texts[ty]
@@ -791,6 +836,61 @@ class db_oload_gen:
         line = line + "  return ST->getElementType(0);\n"
         line = line + "}"
         print(line)
+
+        for instr in extended_list:
+            # Collect indices for overloaded return and types, make a tuple of
+            # indices the key, and add the opcode to a list of opcodes for that
+            # key.  Indices start with 0 for return type, and 1 for the first
+            # function parameter, which is the DXIL OpCode.
+            indices = []
+            for index, op in enumerate(instr.ops):
+                # Skip dxil opcode.
+                if op.pos == 1:
+                    continue
+
+                op_type = op.llvm_type
+                if op_type.startswith(extended_ty):
+                    try:
+                        extended_index = int(op_type[2:])
+                    except:
+                        raise ValueError(
+                            "Error parsing extended operand type "
+                            + f"'{op_type}' for DXIL op '{instr.name}'"
+                        )
+                    if extended_index != len(indices):
+                        raise ValueError(
+                            f"'$x{extended_index}' is not in sequential "
+                            + f"order for DXIL op '{instr.name}'"
+                        )
+                    indices.append(op.pos)
+
+            if len(indices) != len(instr.extended_oload_types):
+                raise ValueError(
+                    f"DXIL op {instr.name}: extended overload count "
+                    + "mismatches the number of overload types"
+                )
+            extended_dict.setdefault(tuple(indices), []).append(instr.name)
+
+        def GetTypeAtIndex(index):
+            if index == 0:
+                return "FT->getReturnType()"
+            return f"FT->getParamType({index - 1})"
+
+        for index_tuple, opcodes in extended_dict.items():
+            line = ""
+            for opcode in opcodes:
+                line = line + f"case OpCode::{opcode}:\n"
+            if index_tuple[-1] > 0:
+                line += (
+                    f"  if (FT->getNumParams() < {index_tuple[-1]})\n"
+                    + "    return nullptr;\n"
+                )
+            line += (
+                "  return llvm::StructType::get(Ctx, {"
+                + ", ".join([GetTypeAtIndex(index) for index in index_tuple])
+                + "});\n"
+            )
+            print(line)
 
 
 class db_valfns_gen:
@@ -1593,6 +1693,7 @@ static const unsigned kHighestReleasedMinor = %d;""" % (
     )
     return result
 
+
 def get_highest_shader_model():
     result = """static const unsigned kHighestMajor = %d;
 static const unsigned kHighestMinor = %d;""" % (
@@ -1600,6 +1701,7 @@ static const unsigned kHighestMinor = %d;""" % (
         highest_minor,
     )
     return result
+
 
 def get_dxil_version_minor():
     return "const unsigned kDxilMinor = %d;" % highest_minor
