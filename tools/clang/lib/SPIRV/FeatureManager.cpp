@@ -406,6 +406,10 @@ bool FeatureManager::isTargetEnvVulkan1p3OrAbove() {
 }
 
 bool FeatureManager::isTargetEnvVulkan() {
+  // This assert ensure that this list will be updated, if necessary, when
+  // a new target environment is added.
+  static_assert(SPV_ENV_VULKAN_1_4 + 1 == SPV_ENV_MAX);
+
   switch (targetEnv) {
   case SPV_ENV_VULKAN_1_0:
   case SPV_ENV_VULKAN_1_1:
