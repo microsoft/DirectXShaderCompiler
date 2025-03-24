@@ -13672,8 +13672,9 @@ ValidateMaxRecordsSharedWithAttributes(Sema &S, Decl *D,
 
 void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
   HLSLExternalSource *ExtSource = HLSLExternalSource::FromSema(this);
-  if (const HLSLGloballyCoherentAttr *HLSLGCAttr =
-          dyn_cast<HLSLGloballyCoherentAttr>(A)) {
+  const bool IsGCAttr = isa<HLSLGloballyCoherentAttr>(A);
+  const bool IsRCAttr = isa<HLSLReorderCoherentAttr>(A);
+  if (IsGCAttr || IsRCAttr) {
     const ValueDecl *TD = cast<ValueDecl>(D);
     if (TD->getType()->isDependentType())
       return;
@@ -13682,23 +13683,27 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
       DeclType = FD->getReturnType();
     while (DeclType->isArrayType())
       DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
+    const bool IsAllowedNodeIO =
+        IsGCAttr &&
+        GetNodeIOType(DeclType) == DXIL::NodeIOKind::RWDispatchNodeInputRecord;
+    const bool IsUAV =
+        hlsl::GetResourceClassForType(getASTContext(), DeclType) ==
+        hlsl::DXIL::ResourceClass::UAV;
     if (ExtSource->GetTypeObjectKind(DeclType) != AR_TOBJ_OBJECT ||
-        (hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
-             hlsl::DXIL::ResourceClass::UAV &&
-         GetNodeIOType(DeclType) !=
-             DXIL::NodeIOKind::RWDispatchNodeInputRecord)) {
+        (!IsUAV && !IsAllowedNodeIO)) {
       Diag(A->getLocation(), diag::err_hlsl_varmodifierna_decltype)
           << A << DeclType->getCanonicalTypeUnqualified() << A->getRange();
-      Diag(A->getLocation(), diag::note_hlsl_globallycoherent_applies_to)
-          << A << A->getRange();
+      const unsigned DiagID = IsGCAttr
+                                  ? diag::note_hlsl_globallycoherent_applies_to
+                                  : diag::note_hlsl_reordercoherent_applies_to;
+      Diag(A->getLocation(), DiagID) << A << A->getRange();
     }
     return;
   }
 }
 
-void Sema::DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
-                                            QualType TargetType,
-                                            SourceLocation Loc) {
+void Sema::DiagnoseCoherenceMismatch(const Expr *SrcExpr, QualType TargetType,
+                                     SourceLocation Loc) {
   QualType SrcTy = SrcExpr->getType();
   QualType DstTy = TargetType;
   if (SrcTy->isArrayType() && DstTy->isArrayType()) {
@@ -13710,9 +13715,22 @@ void Sema::DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
       GetNodeIOType(DstTy) == DXIL::NodeIOKind::RWDispatchNodeInputRecord) {
     bool SrcGL = hlsl::HasHLSLGloballyCoherent(SrcTy);
     bool DstGL = hlsl::HasHLSLGloballyCoherent(DstTy);
-    if (SrcGL != DstGL)
+    // 'reordercoherent' attribute dropped earlier in presence of
+    // 'globallycoherent'
+    bool SrcRD = hlsl::HasHLSLReorderCoherent(SrcTy);
+    bool DstRD = hlsl::HasHLSLReorderCoherent(DstTy);
+    bool DemoteToRD = SrcGL && DstRD;
+    bool PromoteToGL = SrcRD && DstGL;
+    if (DemoteToRD || PromoteToGL)
+      Diag(Loc, diag::warn_hlsl_impcast_rdc_glc_mismatch)
+          << SrcExpr->getType() << TargetType
+          << /*demotes|promotes*/ PromoteToGL;
+    else if (SrcGL != DstGL)
       Diag(Loc, diag::warn_hlsl_impcast_glc_mismatch)
           << SrcExpr->getType() << TargetType << /*loses|adds*/ DstGL;
+    else if (SrcRD != DstRD)
+      Diag(Loc, diag::warn_hlsl_impcast_rdc_mismatch)
+          << SrcExpr->getType() << TargetType << /*loses|adds*/ DstRD;
   }
 }
 
@@ -13859,6 +13877,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
     break;
   case AttributeList::AT_HLSLGloballyCoherent:
     declAttr = ::new (S.Context) HLSLGloballyCoherentAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLReorderCoherent:
+    declAttr = ::new (S.Context) HLSLReorderCoherentAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLIndices:
@@ -14925,6 +14947,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       }
       break;
     case AttributeList::AT_HLSLGloballyCoherent: // Handled elsewhere
+    case AttributeList::AT_HLSLReorderCoherent:  // Handled elsewhere
       break;
     case AttributeList::AT_HLSLUniform:
       if (!(isGlobal || isParameter)) {
@@ -15732,6 +15755,10 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     Out << "globallycoherent ";
     break;
 
+  case clang::attr::HLSLReorderCoherent:
+    Out << "reordercoherent ";
+    break;
+
   case clang::attr::HLSLIndices:
     Out << "indices ";
     break;
@@ -15939,6 +15966,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLNodeLocalRootArgumentsTableIndex:
   case clang::attr::HLSLNodeShareInputOf:
   case clang::attr::HLSLNodeTrackRWInputSharing:
+  case clang::attr::HLSLReorderCoherent:
   case clang::attr::VKBinding:
   case clang::attr::VKBuiltIn:
   case clang::attr::VKConstantId:
