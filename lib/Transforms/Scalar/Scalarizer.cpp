@@ -295,7 +295,7 @@ bool Scalarizer::doInitialization(Module &M) {
 bool Scalarizer::runOnFunction(Function &F) {
   Module *M = F.getParent();
   if (M->HasDxilModule() && M->GetDxilModule().GetShaderModel()->IsSM69Plus())
-      SupportsVectors = true;
+    SupportsVectors = true;
 
   for (Function::iterator BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
     BasicBlock *BB = BBI;

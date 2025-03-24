@@ -189,7 +189,7 @@ void MatrixBitcastLowerPass::lowerMatrix(DxilModule &DM, Instruction *M,
     User *U = *(it++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
       Type *EltTy = GEP->getType()->getPointerElementType();
-      if (HLMatrixType MatTy =  HLMatrixType::dyn_cast(EltTy)) {
+      if (HLMatrixType MatTy = HLMatrixType::dyn_cast(EltTy)) {
         // Change gep matrixArray, 0, index
         // into
         //   gep oneDimArray, 0, index * matSize
