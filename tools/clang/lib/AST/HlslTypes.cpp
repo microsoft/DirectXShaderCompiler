@@ -574,6 +574,15 @@ bool IsHLSLNodeOutputType(clang::QualType type) {
          static_cast<uint32_t>(DXIL::NodeIOFlags::Output);
 }
 
+bool IsHLSLNodeOutputArrayType(clang::QualType type) {
+  return (static_cast<uint32_t>(GetNodeIOType(type)) &
+          (static_cast<uint32_t>(DXIL::NodeIOFlags::Output) |
+           static_cast<uint32_t>(DXIL::NodeIOFlags::NodeArray) |
+           static_cast<uint32_t>(DXIL::NodeIOFlags::RecordGranularityMask))) ==
+         (static_cast<uint32_t>(DXIL::NodeIOFlags::Output) |
+          static_cast<uint32_t>(DXIL::NodeIOFlags::NodeArray));
+}
+
 bool IsHLSLStructuredBufferType(clang::QualType type) {
   if (const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type))
     return Attr->getResKind() == DXIL::ResourceKind::StructuredBuffer;

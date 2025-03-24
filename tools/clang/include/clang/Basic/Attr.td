@@ -1165,6 +1165,12 @@ def HLSLMaxRecords : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLMaxRecordsPerNode : InheritableAttr {
+  let Spellings = [CXX11<"", "MaxRecordsPerNode", 2015>];
+  let Args = [IntArgument<"maxCount">];
+  let Documentation = [Undocumented];
+}
+
 def HLSLMaxRecordsSharedWith : InheritableParamAttr {
   let Spellings = [CXX11<"", "maxrecordssharedwith", 2015>];
   let Args = [IdentifierArgument<"Name">];

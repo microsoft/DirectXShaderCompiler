@@ -1985,6 +1985,7 @@ void DxilMDHelper::SerializeNodeProps(SmallVectorImpl<llvm::Metadata *> &MDVals,
     MDVals.push_back(Uint32ToConstMD(nodeoutput.OutputArraySize));
     MDVals.push_back(BoolToConstMD(nodeoutput.AllowSparseNodes));
     MDVals.push_back(Uint32ToConstMD(nodeoutput.RecordType.alignment));
+    MDVals.push_back(Uint32ToConstMD(nodeoutput.MaxRecordsPerNode));
   }
 }
 
@@ -2047,6 +2048,7 @@ void DxilMDHelper::DeserializeNodeProps(const MDTuple *pProps, unsigned &idx,
       nodeoutput.RecordType.alignment =
           ConstMDToUint32(pProps->getOperand(idx++));
     }
+    nodeoutput.MaxRecordsPerNode = ConstMDToUint32(pProps->getOperand(idx++));
   }
 }
 
@@ -2832,6 +2834,13 @@ DxilMDHelper::EmitDxilNodeIOState(const hlsl::NodeIOProperties &Node) {
       NodeOpIDVals.emplace_back(Uint32ToConstMD(Node.OutputID.Index));
       MDVals.emplace_back(MDNode::get(m_Ctx, NodeOpIDVals));
     }
+
+    if (Node.MaxRecordsPerNode) {
+      MDVals.emplace_back(
+          Uint32ToConstMD(DxilMDHelper::kDxilNodeMaxRecordsPerNodeTag));
+      MDVals.emplace_back(Uint32ToConstMD(Node.MaxRecordsPerNode));
+    }
+
   } else {
     DXASSERT(Node.Flags.IsInputRecord(), "Invalid NodeIO Kind");
     if (Node.MaxRecords) {
@@ -2921,6 +2930,9 @@ NodeIOProperties DxilMDHelper::LoadDxilNodeIOState(const llvm::MDOperand &MDO) {
       MDNode *pNode = cast<MDNode>(MDO.get());
       Node.OutputID.Name = StringMDToString(pNode->getOperand(0));
       Node.OutputID.Index = ConstMDToUint32(pNode->getOperand(1));
+    } break;
+    case DxilMDHelper::kDxilNodeMaxRecordsPerNodeTag: {
+      Node.MaxRecordsPerNode = ConstMDToUint32(MDO);
     } break;
     default:
       m_bExtraMetadata = true;

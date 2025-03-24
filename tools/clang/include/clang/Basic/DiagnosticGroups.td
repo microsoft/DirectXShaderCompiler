@@ -807,4 +807,5 @@ def HLSLAvailability: DiagGroup<"hlsl-availability">;
 def HLSLAvailabilityConstant: DiagGroup<"hlsl-availability-constant">;
 def HLSLBarrier : DiagGroup<"hlsl-barrier">;
 def HLSLLegacyLiterals : DiagGroup<"hlsl-legacy-literal">;
+def HLSLMaxNodesPerRecordAttr : DiagGroup<"hlsl-require-max-records-per-node">;
 // HLSL Change Ends

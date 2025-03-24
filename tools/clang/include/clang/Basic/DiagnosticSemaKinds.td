@@ -7991,6 +7991,8 @@ def warn_hlsl_legacy_integer_literal_signedness: Warning<
   InGroup<HLSLLegacyLiterals>, DefaultIgnore;
 def err_hlsl_unsupported_semantic_index: Error<
   "'%0' is defined with semantic index %1, but only values 0 through %2 are supported">;
+def warn_hlsl_max_records_per_node_required_attribute: Warning<
+  "MaxRecordsPerNode is a required attribute SM6.9+">, InGroup<HLSLMaxNodesPerRecordAttr>, DefaultError;
 // HLSL Change Ends
 
 // SPIRV Change Starts
