@@ -15036,8 +15036,10 @@ void SpirvEmitter::addDerivativeGroupExecutionMode() {
   // to 2D quad rules. Using derivative operations in any numthreads
   // configuration not matching either of these is invalid and will produce an
   // error.
-  static_assert(spv::ExecutionMode::DerivativeGroupQuadsNV == spv::ExecutionMode::DerivativeGroupQuadsKHR);
-  static_assert(spv::ExecutionMode::DerivativeGroupLinearNV == spv::ExecutionMode::DerivativeGroupLinearKHR);
+  static_assert(spv::ExecutionMode::DerivativeGroupQuadsNV ==
+                spv::ExecutionMode::DerivativeGroupQuadsKHR);
+  static_assert(spv::ExecutionMode::DerivativeGroupLinearNV ==
+                spv::ExecutionMode::DerivativeGroupLinearKHR);
   spv::ExecutionMode em = spv::ExecutionMode::DerivativeGroupQuadsNV;
   if (numThreads[0] % 4 == 0 && numThreads[1] == 1 && numThreads[2] == 1) {
     em = spv::ExecutionMode::DerivativeGroupLinearNV;
