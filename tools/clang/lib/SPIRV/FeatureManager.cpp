@@ -405,5 +405,19 @@ bool FeatureManager::isTargetEnvVulkan1p3OrAbove() {
   return targetEnv >= SPV_ENV_VULKAN_1_3;
 }
 
+bool FeatureManager::isTargetEnvVulkan() {
+  switch (targetEnv) {
+  case SPV_ENV_VULKAN_1_0:
+  case SPV_ENV_VULKAN_1_1:
+  case SPV_ENV_VULKAN_1_2:
+  case SPV_ENV_VULKAN_1_1_SPIRV_1_4:
+  case SPV_ENV_VULKAN_1_3:
+  case SPV_ENV_VULKAN_1_4:
+    return true;
+  default:
+    return false;
+  }
+}
+
 } // end namespace spirv
 } // end namespace clang

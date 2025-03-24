@@ -9,6 +9,6 @@
 // UNIVERSAL: %type_buffer_image = OpTypeImage %half Buffer 2 0 0 1 Unknown
 // UNIVERSAL: %_ptr_UniformConstant_type_buffer_image = OpTypePointer UniformConstant %type_buffer_image
 // UNIVERSAL: %MyBuffer = OpVariable %_ptr_UniformConstant_type_buffer_image UniformConstant
-Buffer<half> MyBuffer;
+Buffer<half4> MyBuffer;
 
 void main(): SV_Target { }
