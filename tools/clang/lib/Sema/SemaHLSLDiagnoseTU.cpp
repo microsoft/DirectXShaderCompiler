@@ -731,6 +731,23 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     for (VarDecl *VD : InitGlobals)
       Visitor.TraverseDecl(VD);
     for (FunctionDecl *FD : callGraph.GetVisitedFunctions())
-      Visitor.TraverseDecl(FD);
+      Visitor.TraverseDecl(FD);  
+  
+    for (VarDecl *VD : GlobalsWithInit) {
+      DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
+      HLSLCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK, NodeLaunchTy,
+                                      VD, DiagnosedCalls,
+                                      DeclAvailabilityChecked);
+      if (InitListExpr *ILE = dyn_cast<InitListExpr>(VD->getInit())) {
+        if (auto RT = ILE->getType()->getAs<RecordType>()) {
+          if (const RecordDecl *RD = RT->getDecl()) {
+            if (RD->getName() == "RaytracingPipelineConfig1"){
+              Visitor.TraverseDecl(VD);
+            }
+          }
+        }
+      }
+      break;
+    }  
   }
 }

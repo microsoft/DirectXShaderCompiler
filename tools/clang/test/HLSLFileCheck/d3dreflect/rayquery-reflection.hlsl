@@ -1,10 +1,10 @@
-// RUN: %dxilver 1.9 | %dxc -T lib_6_9 -validator-version 1.9 %s | FileCheck %s
-// RUsN: %dxilver 1.8 | %dxc -T lib_6_8 -validator-version 1.8 %s | FileCheck -check-prefix=UNDER69 %s
-// RUN: %dxilver 1.9 | %dxc -T lib_6_9 -validator-version 1.9 -ast-dump %s | FileCheck -check-prefix=AST %s
-// RUN: %dxilver 1.9 | %dxc -T lib_6_9 -validator-version 1.9 -ast-dump-implicit %s | FileCheck -check-prefix=ASTIMPL %s
+// RUsN: %dxilver 1.9 | %dxc -T lib_6_9  %s | FileCheck %s
+// RUN: %dxilver 1.8 | %dxc -T lib_6_8 %s | FileCheck -check-prefix=UNDER69 %s
+// RUsN: %dxilver 1.9 | %dxc -T lib_6_9  -ast-dump %s | FileCheck -check-prefix=AST %s
+// RUsN: %dxilver 1.9 | %dxc -T lib_6_9  -ast-dump-implicit %s | FileCheck -check-prefix=ASTIMPL %s
+
 
 // CHECK: ; RaytracingPipelineConfig1 rpc = { MaxTraceRecursionDepth = 32, Flags = RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS };
-
 
 // AST: TranslationUnitDecl 0x{{.+}} <<invalid sloc>> <invalid sloc>
 // AST-NEXT: VarDecl 0x{{.+}} rpc 'RaytracingPipelineConfig1' static cinit
