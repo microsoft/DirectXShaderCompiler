@@ -306,76 +306,58 @@ bb:
   ; CHECK: [[adr1:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 1
   ; CHECK: [[ld1:%.*]] = load i32, i32* [[adr1]], align 4
   ; CHECK: [[cmp1:%.*]] = icmp ne i32 [[ld1]], 0
+  ; CHECK: [[adr2:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 2
+  ; CHECK: [[ld2:%.*]] = load i32, i32* [[adr2]], align 4
+  ; CHECK: [[cmp2:%.*]] = icmp ne i32 [[ld2]], 0
+  ; CHECK: [[bres1:%.*]] = or i1 [[cmp1]], [[cmp2]]
+  ; CHECK: [[res1:%.*]] = zext i1 [[bres1]] to i32
   %tmp5 = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 1
   %tmp6 = load i32, i32* %tmp5, align 4
   %tmp7 = icmp ne i32 %tmp6, 0
-  br i1 %tmp7, label %bb12, label %bb8
-
-bb8:                                              ; preds = %bb
-  ; CHECK: [[adr2:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 2
-  ; CHECK: [[ld2:%.*]] = load i32, i32* [[adr2]], align 4
-  ; CHECK: [[cmp2:%.*]] = icmp ne i32 [[ld2]], 0
   %tmp9 = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 2
   %tmp10 = load i32, i32* %tmp9, align 4
   %tmp11 = icmp ne i32 %tmp10, 0
-  br label %bb12
+  %tmp13 = or i1 %tmp7, %tmp11
+  %tmp14 = zext i1 %tmp13 to i32
 
-bb12:                                             ; preds = %bb8, %bb
-  ; CHECK: [[bres1:%.*]] = phi i1 [ true, %bb ], [ [[cmp2]], %bb8 ]
-  ; CHECK: [[res1:%.*]] = zext i1 [[bres1]] to i32
   ; CHECK: [[adr2:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 2
   ; CHECK: [[ld2:%.*]] = load i32, i32* [[adr2]], align 4
   ; CHECK: [[cmp2:%.*]] = icmp ne i32 [[ld2]], 0
-  %tmp13 = phi i1 [ true, %bb ], [ %tmp11, %bb8 ]
-  %tmp14 = zext i1 %tmp13 to i32
+  ; CHECK: [[adr3:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 3
+  ; CHECK: [[ld3:%.*]] = load i32, i32* [[adr3]], align 4
+  ; CHECK: [[cmp3:%.*]] = icmp ne i32 [[ld3]], 0
+  ; CHECK: [[bres2:%.*]] = and i1 [[cmp2]], [[cmp3]]
+  ; CHECK: [[res2:%.*]] = zext i1 [[bres2]] to i32
   %tmp15 = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 2
   %tmp16 = load i32, i32* %tmp15, align 4
   %tmp17 = icmp ne i32 %tmp16, 0
-  br i1 %tmp17, label %bb18, label %bb22
-
-bb18:                                             ; preds = %bb12
-  ; CHECK: [[adr3:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 3
-  ; CHECK: [[ld3:%.*]] = load i32, i32* [[adr3]], align 4
-  ; CHECK: [[cmp3:%.*]] = icmp ne i32 [[ld3]], 0
   %tmp19 = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 3
   %tmp20 = load i32, i32* %tmp19, align 4
   %tmp21 = icmp ne i32 %tmp20, 0
-  br label %bb22
+  %tmp23 = and i1 %tmp17, %tmp21
+  %tmp24 = zext i1 %tmp23 to i32
 
-bb22:                                             ; preds = %bb18, %bb12
-
-  ; CHECK: [[bres2:%.*]] = phi i1 [ false, %bb12 ], [ [[cmp3]], %bb18 ]
-  ; CHECK: [[res2:%.*]] = zext i1 [[bres2]] to i32
   ; CHECK: [[adr3:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 3
   ; CHECK: [[ld3:%.*]] = load i32, i32* [[adr3]], align 4
   ; CHECK: [[cmp3:%.*]] = icmp ne i32 [[ld3]], 0
-  %tmp23 = phi i1 [ false, %bb12 ], [ %tmp21, %bb18 ]
-  %tmp24 = zext i1 %tmp23 to i32
+  ; CHECK: [[adr4:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 4
+  ; CHECK: [[ld4:%.*]] = load i32, i32* [[adr4]], align 4
+  ; CHECK: [[cmp4:%.*]] = icmp ne i32 [[ld4]], 0
+  ; CHECK: [[adr5:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 5
+  ; CHECK: [[ld5:%.*]] = load i32, i32* [[adr5]], align 4
+  ; CHECK: [[cmp5:%.*]] = icmp ne i32 [[ld5]], 0
+  ; CHECK: [[bres3:%.*]] = select i1 [[cmp3]], i1 [[cmp4]], i1 [[cmp5]]
+  ; CHECK: [[res3:%.*]] = zext i1 [[bres3]] to i32
   %tmp25 = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 3
   %tmp26 = load i32, i32* %tmp25, align 4
   %tmp27 = icmp ne i32 %tmp26, 0
-  br i1 %tmp27, label %bb28, label %bb31
-
-bb28:                                             ; preds = %bb22
-  ; CHECK: [[adr4:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 4
-  ; CHECK: [[ld4:%.*]] = load i32, i32* [[adr4]], align 4
   %tmp29 = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 4
   %tmp30 = load i32, i32* %tmp29, align 4
-  br label %bb34
-
-bb31:                                             ; preds = %bb22
-  ; CHECK: [[adr5:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 5
-  ; CHECK: [[ld5:%.*]] = load i32, i32* [[adr5]], align 4
+  %tmp31 = icmp ne i32 %tmp30, 0
   %tmp32 = getelementptr inbounds [10 x i32], [10 x i32]* %truth, i32 0, i32 5
   %tmp33 = load i32, i32* %tmp32, align 4
-  br label %bb34
-
-bb34:                                             ; preds = %bb31, %bb28
-  ; CHECK: [[res3:%.*]] = phi i32 [ [[ld4]], %bb28 ], [ [[ld5]], %bb31 ]
-  ; CHECK: [[bres3:%.*]] = icmp ne i32 [[res3]], 0
-  ; CHECK: [[res3:%.*]] = zext i1 [[bres3]] to i32
-  %.sink = phi i32 [ %tmp30, %bb28 ], [ %tmp33, %bb31 ]
-  %tmp35 = icmp ne i32 %.sink, 0
+  %tmp34 = icmp ne i32 %tmp33, 0
+  %tmp35 = select i1 %tmp27, i1 %tmp31, i1 %tmp34
   %tmp36 = zext i1 %tmp35 to i32
 
   ; CHECK: [[adr0:%.*]] = getelementptr inbounds [10 x <1 x float>], [10 x <1 x float>]* %consequences, i32 0, i32 0

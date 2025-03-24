@@ -2672,6 +2672,21 @@ static bool IsLLVMInstructionAllowedForLib(Instruction &I,
   }
 }
 
+// Shader model specific checks for valid LLVM instructions.
+// Currently only checks for pre 6.9 usage of vector operations.
+// Returns false if shader model is pre 6.9 and I represents a vector
+// operation. Returns true otherwise.
+static bool IsLLVMInstructionAllowedForShaderModel(Instruction &I,
+                                                   ValidationContext &ValCtx) {
+  if (ValCtx.DxilMod.GetShaderModel()->IsSM69Plus())
+    return true;
+  Instruction OpCode = I.getOpcode();
+  if (OpCode == Instruction::InsertElement ||
+      OpCode == Instruction::ExtractElement ||
+      OpCode == Instruction::ShuffleVector)
+    return false;
+}
+
 static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   bool SupportsMinPrecision =
       ValCtx.DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision;

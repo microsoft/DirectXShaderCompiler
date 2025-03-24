@@ -293,8 +293,8 @@ bool Scalarizer::doInitialization(Module &M) {
 }
 
 bool Scalarizer::runOnFunction(Function &F) {
-  if (F.getParent()->HasDxilModule())
-    if (F.getParent()->GetDxilModule().GetShaderModel()->IsSM69Plus())
+  Module *M = F.getParent();
+  if (M->HasDxilModule() && M->GetDxilModule().GetShaderModel()->IsSM69Plus())
       SupportsVectors = true;
 
   for (Function::iterator BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {

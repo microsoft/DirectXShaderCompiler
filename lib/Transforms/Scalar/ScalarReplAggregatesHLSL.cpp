@@ -1949,7 +1949,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         continue;
       }
 
-      // Flatten Global vector if no dynamic vector indexing.
+      // Flatten global vector if it has no dynamic vector indexing.
       bool bFlatVector = !hasDynamicVectorIndexing(GV);
 
       if (bFlatVector) {

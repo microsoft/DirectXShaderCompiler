@@ -189,7 +189,7 @@ void MatrixBitcastLowerPass::lowerMatrix(DxilModule &DM, Instruction *M,
     User *U = *(it++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
       Type *EltTy = GEP->getType()->getPointerElementType();
-      if (HLMatrixType::isa(EltTy)) {
+      if (HLMatrixType MatTy =  HLMatrixType::dyn_cast(EltTy)) {
         // Change gep matrixArray, 0, index
         // into
         //   gep oneDimArray, 0, index * matSize
@@ -197,7 +197,7 @@ void MatrixBitcastLowerPass::lowerMatrix(DxilModule &DM, Instruction *M,
         SmallVector<Value *, 2> idxList(GEP->idx_begin(), GEP->idx_end());
         DXASSERT(idxList.size() == 2,
                  "else not one dim matrix array index to matrix");
-        unsigned NumElts = HLMatrixType::cast(EltTy).getNumElements();
+        unsigned NumElts = MatTy.getNumElements();
         if (!SupportsVectors || NumElts == 1) {
           Value *MatSize = Builder.getInt32(NumElts);
           idxList.back() = Builder.CreateMul(idxList.back(), MatSize);
