@@ -2680,11 +2680,13 @@ static bool IsLLVMInstructionAllowedForShaderModel(Instruction &I,
                                                    ValidationContext &ValCtx) {
   if (ValCtx.DxilMod.GetShaderModel()->IsSM69Plus())
     return true;
-  Instruction OpCode = I.getOpcode();
+  unsigned OpCode = I.getOpcode();
   if (OpCode == Instruction::InsertElement ||
       OpCode == Instruction::ExtractElement ||
       OpCode == Instruction::ShuffleVector)
     return false;
+
+  return true;
 }
 
 static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
@@ -2709,7 +2711,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       }
 
       // Instructions must be allowed.
-      if (!IsLLVMInstructionAllowed(I)) {
+      if (!IsLLVMInstructionAllowed(I) || !IsLLVMInstructionAllowedForShaderModel(I, ValCtx)) {
         if (!IsLLVMInstructionAllowedForLib(I, ValCtx)) {
           ValCtx.EmitInstrError(&I, ValidationRule::InstrAllowed);
           continue;
