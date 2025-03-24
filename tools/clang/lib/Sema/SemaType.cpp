@@ -4528,7 +4528,9 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
     return AttributeList::AT_HLSLColumnMajor;
   case AttributedType::attr_hlsl_globallycoherent:
     return AttributeList::AT_HLSLGloballyCoherent;
-  // HLSL Change Ends
+  case AttributedType::attr_hlsl_reordercoherent:
+    return AttributeList::AT_HLSLReorderCoherent;
+    // HLSL Change Ends
   }
   llvm_unreachable("unexpected attribute kind!");
 }
@@ -5771,6 +5773,7 @@ static bool isHLSLTypeAttr(AttributeList::Kind Kind) {
   case AttributeList::AT_HLSLSnorm:
   case AttributeList::AT_HLSLUnorm:
   case AttributeList::AT_HLSLGloballyCoherent:
+  case AttributeList::AT_HLSLReorderCoherent:
     return true;
   default:
     // Only meant to catch attr handled by handleHLSLTypeAttr, ignore the rest
@@ -5836,7 +5839,8 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
     return true;
   }
 
-  if (pGLC && Kind == AttributeList::AT_HLSLGloballyCoherent) {
+  if (pGLC && (Kind == AttributeList::AT_HLSLGloballyCoherent ||
+               Kind == AttributeList::AT_HLSLReorderCoherent)) {
     AttributedType::Kind CurAttrKind = pGLC->getAttrKind();
     if (Kind == getAttrListKind(CurAttrKind)) {
       S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)
@@ -5853,6 +5857,9 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
   case AttributeList::AT_HLSLSnorm:       TAK = AttributedType::attr_hlsl_snorm; break;
   case AttributeList::AT_HLSLGloballyCoherent:
     TAK = AttributedType::attr_hlsl_globallycoherent; break;
+  case AttributeList::AT_HLSLReorderCoherent:
+    TAK = AttributedType::attr_hlsl_reordercoherent;
+    break;
   }
 
   Type = S.Context.getAttributedType(TAK, Type, Type);
