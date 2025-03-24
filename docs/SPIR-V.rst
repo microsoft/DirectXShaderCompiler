@@ -315,6 +315,7 @@ Supported extensions
 * SPV_KHR_fragment_shader_barycentric
 * SPV_KHR_physical_storage_buffer
 * SPV_KHR_vulkan_memory_model
+* SPV_KHR_compute_shader_derivatives
 * SPV_NV_compute_shader_derivatives
 * SPV_KHR_maximal_reconvergence
 * SPV_KHR_float_controls
