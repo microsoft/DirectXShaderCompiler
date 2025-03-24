@@ -1880,6 +1880,19 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     }
   }
 
+  if (featureManager.isTargetEnvVulkan() &&
+      (isTexture(decl->getType()) || isRWTexture(decl->getType()) ||
+       isBuffer(decl->getType()) || isRWBuffer(decl->getType()))) {
+    const auto sampledType = hlsl::GetHLSLResourceResultType(decl->getType());
+    if (isFloatOrVecMatOfFloatType(sampledType) &&
+        isOrContains16BitType(sampledType, spirvOptions.enable16BitTypes)) {
+      emitError("The sampled type for textures cannot be a floating point type "
+                "smaller than 32-bits when targeting a Vulkan environment.",
+                loc);
+      return;
+    }
+  }
+
   if (decl->hasAttr<VKConstantIdAttr>()) {
     // This is a VarDecl for specialization constant.
     createSpecConstant(decl);
