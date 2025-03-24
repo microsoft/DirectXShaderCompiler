@@ -748,9 +748,6 @@ attributes #2 = { nounwind readonly }
 !dx.fnprops = !{!72}
 !dx.options = !{!73, !74}
 
-!0 = !{i32 2, !"Debug Info Version", i32 3}
-!1 = !{!"hlsl-hlemit", !"hlsl-hlensure"}
-!2 = !{!"dxc(private) 1.8.0.4820 (longvec_bab_ldst_pr, 243b35785)"}
 !3 = !{i32 1, i32 6}
 !4 = !{i32 1, i32 9}
 !5 = !{!"vs", i32 6, i32 6}
@@ -823,6 +820,3 @@ attributes #2 = { nounwind readonly }
 !72 = !{void (i32)* @main, i32 1}
 !73 = !{i32 64}
 !74 = !{i32 -1}
-!98 = !{!99, !99, i64 0}
-!99 = !{!"omnipotent char", !100, i64 0}
-!100 = !{!"Simple C/C++ TBAA"}

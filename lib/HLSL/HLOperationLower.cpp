@@ -4339,11 +4339,11 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
                     hlsl::OP *OP, Value *sampIdx = nullptr) {
   Type *Ty = val->getType();
   OP::OpCode opcode = OP::OpCode::NumOpCodes;
-  bool isTyped = true;
+  bool IsTyped = true;
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
   case DxilResource::Kind::StructuredBuffer:
-    isTyped = false;
+    IsTyped = false;
     opcode = OP::OpCode::RawBufferStore;
     break;
   case DxilResource::Kind::TypedBuffer:
@@ -4383,7 +4383,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     alignValue = 4;
   Constant *Alignment = OP->GetI32Const(alignValue);
   bool is64 = EltTy == i64Ty || EltTy == doubleTy;
-  if (is64 && isTyped) {
+  if (is64 && IsTyped) {
     EltTy = i32Ty;
   }
 
@@ -4478,7 +4478,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
           std::min((j + 1) * MaxStoreElemCount, Ty->getVectorNumElements()) -
           (j * MaxStoreElemCount);
       Value *emptyVal = undefVal;
-      if (isTyped) {
+      if (IsTyped) {
         mask = DXIL::kCompMask_All;
         emptyVal = Builder.CreateExtractElement(val, (uint64_t)0);
       }
@@ -4494,7 +4494,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
       }
 
     } else {
-      if (isTyped) {
+      if (IsTyped) {
         mask = DXIL::kCompMask_All;
         storeArgsList[j].emplace_back(val);
         storeArgsList[j].emplace_back(val);
@@ -4509,7 +4509,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
       }
     }
 
-    if (is64 && isTyped) {
+    if (is64 && IsTyped) {
       unsigned size = 1;
       if (Ty->isVectorTy()) {
         size =
