@@ -132,7 +132,7 @@ public:
   /// Returns false otherwise.
   bool isTargetEnvVulkan1p3OrAbove();
 
-  /// Return true if the target environmnet is a Vulkan environment.
+  /// Return true if the target environment is a Vulkan environment.
   bool isTargetEnvVulkan();
 
   /// Returns the spv_target_env matching the input string if possible.
