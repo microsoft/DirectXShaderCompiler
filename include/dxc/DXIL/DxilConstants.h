@@ -487,6 +487,9 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 // Enumeration for operations specified by DXIL
 enum class OpCode : unsigned {
   //
+  RawBufferVectorLoad = 303, // reads from a raw buffer and structured buffer
+  RawBufferVectorStore =
+      304,           // writes to a RWByteAddressBuffer or RWStructuredBuffer
   Reserved0 = 226,   // Reserved
   Reserved1 = 227,   // Reserved
   Reserved10 = 236,  // Reserved
@@ -1043,8 +1046,9 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
   NumOpCodes_Dxil_1_8 = 258,
+  NumOpCodes_Dxil_1_9 = 305,
 
-  NumOpCodes = 303 // exclusive last value of enumeration
+  NumOpCodes = 305 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1056,6 +1060,8 @@ enum class OpCode : unsigned {
 // Groups for DXIL operations with equivalent function templates
 enum class OpCodeClass : unsigned {
   //
+  RawBufferVectorLoad,
+  RawBufferVectorStore,
   Reserved,
 
   // Amplification shader instructions
@@ -1355,8 +1361,9 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
+  NumOpClasses_Dxil_1_9 = 179,
 
-  NumOpClasses = 177 // exclusive last value of enumeration
+  NumOpClasses = 179 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1424,7 +1431,7 @@ const unsigned kRawBufferStoreVal1OpIdx = 5;
 const unsigned kRawBufferStoreVal2OpIdx = 6;
 const unsigned kRawBufferStoreVal3OpIdx = 7;
 const unsigned kRawBufferStoreMaskOpIdx = 8;
-const unsigned kRawBufferStoreAlignmentOpIdx = 8;
+const unsigned kRawBufferStoreAlignmentOpIdx = 9;
 
 // TextureStore.
 const unsigned kTextureStoreHandleOpIdx = 1;

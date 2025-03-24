@@ -1487,7 +1487,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     DXIL::ComponentType compTy;
     DXIL::ResourceClass resClass;
     DXIL::ResourceKind resKind =
-        GetResourceKindAndCompTy(bufLd.get_srv(), compTy, resClass, ValCtx);
+        GetResourceKindAndCompTy(bufLd.get_buf(), compTy, resClass, ValCtx);
 
     if (resClass != DXIL::ResourceClass::SRV &&
         resClass != DXIL::ResourceClass::UAV) {
@@ -1496,12 +1496,9 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
 
     Value *offset = bufLd.get_elementOffset();
     Value *align = bufLd.get_alignment();
-    unsigned alignSize = 0;
     if (!isa<ConstantInt>(align)) {
       ValCtx.EmitInstrError(CI,
                             ValidationRule::InstrCoordinateCountForRawTypedBuf);
-    } else {
-      alignSize = bufLd.get_alignment_val();
     }
     switch (resKind) {
     case DXIL::ResourceKind::RawBuffer:
@@ -1551,12 +1548,9 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
 
     Value *offset = bufSt.get_elementOffset();
     Value *align = bufSt.get_alignment();
-    unsigned alignSize = 0;
     if (!isa<ConstantInt>(align)) {
       ValCtx.EmitInstrError(CI,
                             ValidationRule::InstrCoordinateCountForRawTypedBuf);
-    } else {
-      alignSize = bufSt.get_alignment_val();
     }
     switch (resKind) {
     case DXIL::ResourceKind::RawBuffer:
@@ -1683,7 +1677,9 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::CBufferLoad:
   case DXIL::OpCode::CBufferLoadLegacy:
   case DXIL::OpCode::RawBufferLoad:
+  case DXIL::OpCode::RawBufferVectorLoad:
   case DXIL::OpCode::RawBufferStore:
+  case DXIL::OpCode::RawBufferVectorStore:
     ValidateResourceDxilOp(CI, opcode, ValCtx);
     break;
   // Input output.
@@ -2714,8 +2710,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       }
 
       // Instructions must be allowed.
-      if (!IsLLVMInstructionAllowed(I) ||
-          !IsLLVMInstructionAllowedForShaderModel(I, ValCtx)) {
+      if (!IsLLVMInstructionAllowed(I) || !IsLLVMInstructionAllowedForShaderModel(I, ValCtx)) {
         if (!IsLLVMInstructionAllowedForLib(I, ValCtx)) {
           ValCtx.EmitInstrError(&I, ValidationRule::InstrAllowed);
           continue;

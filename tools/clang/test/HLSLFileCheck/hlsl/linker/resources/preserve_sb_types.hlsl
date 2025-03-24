@@ -155,5 +155,7 @@ export float4 xform(float4 v) {
 
 [shader("vertex")]
 float4 main(float3 pos : Position) : SV_Position {
-  return xform(float4(pos, 1)) * StructBuf[0].f;
+  float4 res = xform(float4(pos, 1));
+  res *=StructBuf[0].f;
+  return  res ;
 }

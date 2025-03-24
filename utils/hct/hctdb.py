@@ -604,6 +604,8 @@ class db_dxil(object):
         for i in "RawBufferLoad,RawBufferStore".split(","):
             self.name_idx[i].shader_model = 6, 2
             self.name_idx[i].shader_model_translated = 6, 0
+        for i in "RawBufferVectorLoad,RawBufferVectorStore,InsertElement,ShuffleVector,ExtractValue".split(","):
+            self.name_idx[i].shader_model = 6, 9
         for i in "DispatchRaysIndex,DispatchRaysDimensions".split(","):
             self.name_idx[i].category = "Ray Dispatch Arguments"
             self.name_idx[i].shader_model = 6, 3
@@ -3504,7 +3506,7 @@ class db_dxil(object):
             "ro",
             [
                 db_dxil_param(0, "$r", "", "the loaded value"),
-                db_dxil_param(2, "res", "srv", "handle of TypedBuffer SRV to sample"),
+                db_dxil_param(2, "res", "buf", "handle of Raw Buffer to load from"),
                 db_dxil_param(
                     3,
                     "i32",
@@ -5776,6 +5778,83 @@ class db_dxil(object):
         # Reserved block C
         next_op_idx = self.reserve_dxil_op_range("ReservedC", next_op_idx, 10)
 
+        # Long Vectors
+        self.add_dxil_op(
+            "RawBufferVectorLoad",
+            next_op_idx,
+            "RawBufferVectorLoad",
+            "reads from a raw buffer and structured buffer",
+            "hfwidl<",
+            "ro",
+            [
+                db_dxil_param(0, "$r", "", "the loaded value"),
+                db_dxil_param(2, "res", "buf", "handle of Raw Buffer to load from"),
+                db_dxil_param(
+                    3,
+                    "i32",
+                    "index",
+                    "element index for StructuredBuffer, or byte offset for ByteAddressBuffer",
+                ),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "elementOffset",
+                    "offset into element for StructuredBuffer, or undef for ByteAddressBuffer",
+                ),
+                db_dxil_param(
+                    5,
+                    "i32",
+                    "alignment",
+                    "relative load access alignment",
+                    is_const=True,
+                ),
+            ],
+            counters=("tex_load",),
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "RawBufferVectorStore",
+            next_op_idx,
+            "RawBufferVectorStore",
+            "writes to a RWByteAddressBuffer or RWStructuredBuffer",
+            "hfwidl<",
+            "",
+            [
+                db_dxil_param(0, "v", "", ""),
+                db_dxil_param(2, "res", "uav", "handle of UAV to store to"),
+                db_dxil_param(
+                    3,
+                    "i32",
+                    "index",
+                    "element index for StructuredBuffer, or byte offset for ByteAddressBuffer",
+                ),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "elementOffset",
+                    "offset into element for StructuredBuffer, or undef for ByteAddressBuffer",
+                ),
+                db_dxil_param(5, "$o", "value0", "value"),
+                db_dxil_param(
+                    6,
+                    "i32",
+                    "alignment",
+                    "relative store access alignment",
+                    is_const=True,
+                ),
+            ],
+            counters=("tex_store",),
+        )
+        next_op_idx += 1
+
+        # End of DXIL 1.9 opcodes.
+        self.set_op_count_for_version(1, 9, next_op_idx)
+        assert next_op_idx == 305, (
+            "305 is expected next operation index but encountered %d and thus opcodes are broken"
+            % next_op_idx
+        )
+
         # Set interesting properties.
         self.build_indices()
         for (
@@ -6381,6 +6460,12 @@ class db_dxil(object):
             "hlsl-dxil-lower-handle-for-lib",
             "DxilLowerCreateHandleForLib",
             "DXIL Lower createHandleForLib",
+            [],
+        )
+        add_pass(
+            "hlsl-dxil-scalarize-vector-load-stores",
+            "DxilScalarizeVectorLoadStores",
+            "DXIL scalarize vector load/stores",
             [],
         )
         add_pass(
