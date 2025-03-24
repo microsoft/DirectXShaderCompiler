@@ -7899,11 +7899,9 @@ Value *TranslateStructBufMatLd(CallInst *CI, IRBuilder<> &Builder,
 void TranslateStructBufMatSt(Type *matType, IRBuilder<> &Builder, Value *handle,
                              hlsl::OP *OP, Value *bufIdx, Value *baseOffset,
                              Value *val, const DataLayout &DL) {
-#ifndef NDEBUG
-  HLMatrixType MatTy = HLMatrixType::cast(matType);
+  [[maybe_unused]] HLMatrixType MatTy = HLMatrixType::cast(matType);
   DXASSERT(MatTy.getLoweredVectorType(false /*MemRepr*/) == val->getType(),
            "helper type should match vectorized matrix");
-#endif
   TranslateStore(DxilResource::Kind::StructuredBuffer, handle, val, bufIdx,
                  baseOffset, Builder, OP);
 }
