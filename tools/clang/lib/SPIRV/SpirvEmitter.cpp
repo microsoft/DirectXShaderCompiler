@@ -8129,16 +8129,20 @@ void SpirvEmitter::assignToMSOutIndices(
     vecComponent = indices.back();
   }
   auto *var = declIdMapper.getMSOutIndicesBuiltin();
-  const auto *varTypeDecl = astContext.getAsConstantArrayType(decl->getType());
-  QualType varType = varTypeDecl->getElementType();
+
   uint32_t numVertices = 1;
-  if (!isVectorType(varType, nullptr, &numVertices)) {
-    assert(isScalarType(varType));
-  }
-  QualType valueType = value->getAstResultType();
   uint32_t numValues = 1;
-  if (!isVectorType(valueType, nullptr, &numValues)) {
-    assert(isScalarType(valueType));
+  {
+    const auto *varTypeDecl =
+        astContext.getAsConstantArrayType(decl->getType());
+    QualType varType = varTypeDecl->getElementType();
+    if (!isVectorType(varType, nullptr, &numVertices)) {
+      assert(isScalarType(varType));
+    }
+    QualType valueType = value->getAstResultType();
+    if (!isVectorType(valueType, nullptr, &numValues)) {
+      assert(isScalarType(valueType));
+    }
   }
 
   const auto loc = decl->getLocation();
@@ -8185,7 +8189,10 @@ void SpirvEmitter::assignToMSOutIndices(
       assert(numValues == numVertices);
       if (extMesh) {
         // create accesschain for Primitive*IndicesEXT[vertIndex].
-        auto *ptr = spvBuilder.createAccessChain(varType, var, vertIndex, loc);
+        const ConstantArrayType *CAT =
+            astContext.getAsConstantArrayType(var->getAstResultType());
+        auto *ptr = spvBuilder.createAccessChain(CAT->getElementType(), var,
+                                                 vertIndex, loc);
         // finally create store for Primitive*IndicesEXT[vertIndex] = value.
         spvBuilder.createStore(ptr, value, loc);
       } else {
