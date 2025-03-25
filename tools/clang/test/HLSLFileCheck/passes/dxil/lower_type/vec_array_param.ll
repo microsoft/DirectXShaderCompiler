@@ -31,6 +31,7 @@ declare float @"\01?foo@@YAMY02V?$vector@M$02@@@Z"([3 x <3 x float>]*)
 
 attributes #0 = { nounwind }
 
+!pauseresume = !{!1}
 !dx.version = !{!3}
 !dx.valver = !{!4}
 !dx.shaderModel = !{!5}
@@ -39,7 +40,6 @@ attributes #0 = { nounwind }
 !dx.fnprops = !{}
 !dx.options = !{!13, !14}
 
-!0 = !{i32 2, !"Debug Info Version", i32 3}
 !1 = !{!"hlsl-hlemit", !"hlsl-hlensure"}
 !3 = !{i32 1, i32 6}
 !4 = !{i32 1, i32 6}

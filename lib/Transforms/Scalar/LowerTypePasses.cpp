@@ -216,10 +216,11 @@ void DynamicIndexingVectorToArray::initialize(Module &M) {
   //  - From standard compile before dxilgen.
   //  - When linking, where dxmodule is available.
   //  - In isolated dxopt, where the module will need to be created.
-  // Since HL module can't be created when linking, check for that first.
+  // When linking, we expect a dxil module and can't create an HL module,
+  //  so we try for the dxil module first.
   // Otherwise, either retrieve or generate the HL module.
   if (M.HasDxilModule()) {
-    SupportsVectors = M.GetDxilModule().GetShaderModel()->IsSM69Plus();
+    SupportsVectors = M.GetOrCreateDxilModule().GetShaderModel()->IsSM69Plus();
   } else {
     HLModule &HLM = M.GetOrCreateHLModule();
     SupportsVectors = HLM.GetShaderModel()->IsSM69Plus();

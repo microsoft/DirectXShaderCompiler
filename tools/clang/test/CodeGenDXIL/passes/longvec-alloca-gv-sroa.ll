@@ -82,7 +82,7 @@ bb:
   %stlorc1 = alloca %struct.VectRec1, align 4
   %stlorc2 = alloca %struct.VectRec2, align 4
 
-  store i32 %ix, i32* %tmp, align 4, !tbaa !25
+  store i32 %ix, i32* %tmp, align 4
   %tmp13 = load i32, i32* %tmp, align 4 ; line:53 col:7
   %tmp14 = icmp sgt i32 %tmp13, 0 ; line:53 col:10
   %tmp15 = icmp ne i1 %tmp14, false ; line:53 col:10
@@ -286,6 +286,7 @@ bb86:                                             ; preds = %bb17, %bb
 
 attributes #0 = { nounwind }
 
+!pauseresume = !{!1}
 !dx.version = !{!3}
 !dx.valver = !{!3}
 !dx.shaderModel = !{!4}
@@ -294,9 +295,7 @@ attributes #0 = { nounwind }
 !dx.fnprops = !{}
 !dx.options = !{!23, !24}
 
-!0 = !{i32 2, !"Debug Info Version", i32 3}
 !1 = !{!"hlsl-hlemit", !"hlsl-hlensure"}
-!2 = !{!"dxc(private) 1.8.0.4845 (disable_disble_spirv, 2514104b9-dirty)"}
 !3 = !{i32 1, i32 9}
 !4 = !{!"lib", i32 6, i32 9}
 !5 = !{i32 0, %struct.VectRec1 undef, !6, %struct.VectRec2 undef, !8}
@@ -323,6 +322,3 @@ attributes #0 = { nounwind }
 !26 = !{!"int", !27, i64 0}
 !27 = !{!"omnipotent char", !28, i64 0}
 !28 = !{!"Simple C/C++ TBAA"}
-!47 = !{!48, !48, i64 0}
-!48 = !{!"float", !27, i64 0}
-!155 = !{!27, !27, i64 0}

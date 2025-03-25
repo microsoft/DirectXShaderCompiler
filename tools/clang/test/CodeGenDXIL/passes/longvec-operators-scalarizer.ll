@@ -655,9 +655,7 @@ attributes #0 = { nounwind }
 attributes #1 = { nounwind readonly }
 attributes #2 = { nounwind readnone }
 
-!llvm.module.flags = !{!0}
 !pauseresume = !{!1}
-!llvm.ident = !{!2}
 !dx.version = !{!3}
 !dx.valver = !{!3}
 !dx.shaderModel = !{!4}
@@ -665,9 +663,7 @@ attributes #2 = { nounwind readnone }
 !dx.typeAnnotations = !{!9, !15}
 !dx.entryPoints = !{!35}
 
-!0 = !{i32 2, !"Debug Info Version", i32 3}
 !1 = !{!"hlsl-dxilemit", !"hlsl-dxilload"}
-!2 = !{!"dxc(private) 1.8.0.4845 (disable_disble_spirv, 2514104b9-dirty)"}
 !3 = !{i32 1, i32 9}
 !4 = !{!"lib", i32 6, i32 9}
 !5 = !{null, !6, null, null}

@@ -116,13 +116,13 @@ public:
 
     // Lower matrix first.
     for (BitCastInst *BCI : matCastSet) {
-      lowerMatrix(DM, BCI, BCI->getOperand(0));
+      lowerMatrix(BCI, BCI->getOperand(0));
     }
     return bUpdated;
   }
 
 private:
-  void lowerMatrix(DxilModule &DM, Instruction *M, Value *A);
+  void lowerMatrix(Instruction *M, Value *A);
   bool hasCallUser(Instruction *M);
 };
 
@@ -183,8 +183,7 @@ Value *CreateEltGEP(Value *A, unsigned i, Value *zeroIdx,
 }
 } // namespace
 
-void MatrixBitcastLowerPass::lowerMatrix(DxilModule &DM, Instruction *M,
-                                         Value *A) {
+void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
   for (auto it = M->user_begin(); it != M->user_end();) {
     User *U = *(it++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
@@ -203,14 +202,14 @@ void MatrixBitcastLowerPass::lowerMatrix(DxilModule &DM, Instruction *M,
           idxList.back() = Builder.CreateMul(idxList.back(), MatSize);
         }
         Value *NewGEP = Builder.CreateGEP(A, idxList);
-        lowerMatrix(DM, GEP, NewGEP);
+        lowerMatrix(GEP, NewGEP);
         DXASSERT(GEP->user_empty(), "else lower matrix fail");
         GEP->eraseFromParent();
       } else {
         DXASSERT(0, "invalid GEP for matrix");
       }
     } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-      lowerMatrix(DM, BCI, A);
+      lowerMatrix(BCI, A);
       DXASSERT(BCI->user_empty(), "else lower matrix fail");
       BCI->eraseFromParent();
     } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
