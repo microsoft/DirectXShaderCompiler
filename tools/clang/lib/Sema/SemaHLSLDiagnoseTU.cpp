@@ -590,6 +590,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 
   const auto *shaderModel =
       hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
+  DXIL::ShaderKind EntrySK = shaderModel->GetKind();
 
   llvm::SmallVector<VarDecl *, 16> GlobalsWithInit;
   GatherGlobalsWithInitializers(self->getASTContext().getTranslationUnitDecl(),
@@ -706,7 +707,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       }
     }
 
-    DXIL::ShaderKind EntrySK = shaderModel->GetKind();
     DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
     if (EntrySK == DXIL::ShaderKind::Library) {
       // For library, check if the exported function is entry with shader
@@ -731,23 +731,25 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     for (VarDecl *VD : InitGlobals)
       Visitor.TraverseDecl(VD);
     for (FunctionDecl *FD : callGraph.GetVisitedFunctions())
-      Visitor.TraverseDecl(FD);  
-  
+      Visitor.TraverseDecl(FD);
+  }
+
+  if (EntrySK == DXIL::ShaderKind::Library) {
     for (VarDecl *VD : GlobalsWithInit) {
       DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
       HLSLCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK, NodeLaunchTy,
-                                      VD, DiagnosedCalls,
+                                      nullptr, DiagnosedCalls,
                                       DeclAvailabilityChecked);
       if (InitListExpr *ILE = dyn_cast<InitListExpr>(VD->getInit())) {
         if (auto RT = ILE->getType()->getAs<RecordType>()) {
           if (const RecordDecl *RD = RT->getDecl()) {
-            if (RD->getName() == "RaytracingPipelineConfig1"){
+            if (RD->getName() == "RaytracingPipelineConfig1") {
               Visitor.TraverseDecl(VD);
             }
           }
         }
       }
       break;
-    }  
+    }
   }
 }

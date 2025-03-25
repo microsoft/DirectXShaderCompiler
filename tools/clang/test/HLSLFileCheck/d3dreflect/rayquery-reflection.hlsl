@@ -16,6 +16,7 @@
 // ASTIMPL: VarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit referenced RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS 'const unsigned int' static cinit
 // ASTIMPL-NEXT: IntegerLiteral 0x{{.+}} <<invalid sloc>> 'const unsigned int' 1024
 // ASTIMPL-NEXT: AvailabilityAttr 0x{{.+}} <<invalid sloc>> Implicit  6.9 0 0 ""
+
 RaytracingPipelineConfig1 rpc = { 32, RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS };
 
 // UNDER69: Potential misuse
