@@ -3294,9 +3294,12 @@ Modules and Linking
 ===================
 
 HLSL has linking capabilities to enable third-party libraries. The linking step happens before shader DXIL is given to the driver compilers.
-Experimental library generation is added in DXIL1.1. A library could be created by compile with lib_6_1 profile.
-A library is a dxil container like the compile result of other shader profiles. The difference is library will keep information for linking like resource link info and entry function signatures.
-Library support is not part of DXIL spec. Only requirement is linked shader must be valid DXIL.
+Experimental library generation is added in DXIL1.1. A library could be created
+by compiling with the lib_6_1 profile.
+A library is a dxil container like the compile result of other shader profiles.
+The difference is a library will keep information for linking like resource link
+info and entry function signatures.
+Library support is not part of the DXIL spec. The only requirement is linked shader must be valid DXIL.
 
 
 Additional Notes
