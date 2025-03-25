@@ -687,8 +687,8 @@ bool GetHLSLSubobjectKind(clang::QualType type,
   hgType = (DXIL::HitGroupType)(-1);
   type = type.getCanonicalType();
   if (const RecordType *RT = type->getAs<RecordType>()) {
-    RecordDecl *CXXRec = RT->getDecl();
-    if (!CXXRec->hasAttr<HLSLSubObjectAttr>()) {
+    RecordDecl *RD = RT->getDecl();
+    if (!RD->hasAttr<HLSLSubObjectAttr>()) {
       return false;
     }
 
