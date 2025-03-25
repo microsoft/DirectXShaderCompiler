@@ -2670,24 +2670,29 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::None,
     },
+
+    // Shader Execution Reordering void,     h,     f,     d,    i1,    i8, i16,
+    // i32,   i64,   udt,   obj ,  function attribute
     {
-        OC::ReservedB3,
-        "ReservedB3",
-        OCC::Reserved,
-        "reserved",
+        OC::HitObject_MakeMiss,
+        "HitObject_MakeMiss",
+        OCC::HitObject_MakeMiss,
+        "hitObject_MakeMiss",
         {true, false, false, false, false, false, false, false, false, false,
          false},
-        Attribute::None,
+        Attribute::ReadNone,
     },
     {
-        OC::ReservedB4,
-        "ReservedB4",
-        OCC::Reserved,
-        "reserved",
+        OC::HitObject_MakeNop,
+        "HitObject_MakeNop",
+        OCC::HitObject_MakeNop,
+        "hitObject_MakeNop",
         {true, false, false, false, false, false, false, false, false, false,
          false},
-        Attribute::None,
+        Attribute::ReadNone,
     },
+
+    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
     {
         OC::ReservedB5,
         "ReservedB5",
@@ -3750,6 +3755,14 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     minor = 9;
     return;
   }
+  // Instructions: HitObject_MakeMiss=265, HitObject_MakeNop=266
+  if ((265 <= op && op <= 266)) {
+    major = 6;
+    minor = 9;
+    mask =
+        SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(ClosestHit) | SFLAG(Miss);
+    return;
+  }
   // OPCODE-SMMASK:END
 }
 
@@ -3851,6 +3864,8 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
 
   m_pHandleType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
                                         "dx.types.Handle", pModule);
+  m_pHitObjectType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
+                                           "dx.types.HitObject", pModule);
   m_pNodeHandleType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
                                             "dx.types.NodeHandle", pModule);
   m_pNodeRecordHandleType = GetOrCreateStructType(
@@ -3993,6 +4008,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *pF64 = Type::getDoubleTy(m_Ctx);
   Type *pSDT = GetSplitDoubleType(); // Split double type.
   Type *p4I32 = GetFourI32Type();    // 4 i32s in a struct.
+  Type *pHit = GetHitObjectType();
 
   Type *udt = pOverloadType;
   Type *obj = pOverloadType;
@@ -5871,14 +5887,28 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedB3:
-    A(pV);
+
+    // Shader Execution Reordering
+  case OpCode::HitObject_MakeMiss:
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    break;
+  case OpCode::HitObject_MakeNop:
+    A(pHit);
     A(pI32);
     break;
-  case OpCode::ReservedB4:
-    A(pV);
-    A(pI32);
-    break;
+
+    //
   case OpCode::ReservedB5:
     A(pV);
     A(pI32);
@@ -6288,8 +6318,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedB0:
   case OpCode::ReservedB1:
   case OpCode::ReservedB2:
-  case OpCode::ReservedB3:
-  case OpCode::ReservedB4:
+  case OpCode::HitObject_MakeMiss:
+  case OpCode::HitObject_MakeNop:
   case OpCode::ReservedB5:
   case OpCode::ReservedB6:
   case OpCode::ReservedB7:
@@ -6430,6 +6460,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
 Type *OP::GetHandleType() const { return m_pHandleType; }
 
 Type *OP::GetNodeHandleType() const { return m_pNodeHandleType; }
+
+Type *OP::GetHitObjectType() const { return m_pHitObjectType; }
 
 Type *OP::GetNodeRecordHandleType() const { return m_pNodeRecordHandleType; }
 
