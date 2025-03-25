@@ -225,10 +225,10 @@ DXIL uses 32-bit pointers in its representation.
 Out-of-bounds behavior
 ----------------------
 
-Indexable thread-local accesses are done via LLVM pointer and have C-like OOB semantics.
-Groupshared accesses are done via LLVM pointer too. The origin of a groupshared pointer must be a single TGSM allocation.
-If a groupshared pointer uses in-bound GEP instruction, it should not OOB. The behavior for an OOB access for in-bound pointer is undefined.
-For groupshared pointer from regular GEP, OOB will has same behavior as DXBC. Loads return 0 for OOB accesses; OOB stores are silently dropped.
+Indexable thread-local accesses are done via LLVM pointers and have C-like OOB semantics.
+Groupshared accesses are done via LLVM pointers too. The origin of a groupshared pointer must be a single TGSM allocation.
+If a groupshared pointer uses an in-bound GEP instruction, it should not OOB. The behavior for an OOB access for in-bound pointer is undefined.
+For a groupshared pointer from regular GEP, OOB will have the same behavior as DXBC. Loads return 0 for OOB accesses; OOB stores are silently dropped.
 
 Resource accesses keeps the same out-of-bounds behavior as DXBC. Loads return 0 for OOB accesses; OOB stores are silently dropped.
 
