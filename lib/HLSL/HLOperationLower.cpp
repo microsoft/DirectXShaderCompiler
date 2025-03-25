@@ -6062,6 +6062,24 @@ Value *TranslateUnpack(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
 } // namespace
 
+// Shader Execution Reordering.
+namespace {
+Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                              HLOperationLowerHelper &helper,
+                              HLObjectOperationLowerHelper *pObjHelper,
+                              bool &Translated) {
+  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+}
+
+Value *TranslateMaybeReorderThread(CallInst *CI, IntrinsicOp IOP,
+                                   OP::OpCode opcode,
+                                   HLOperationLowerHelper &helper,
+                                   HLObjectOperationLowerHelper *pObjHelper,
+                                   bool &Translated) {
+  return nullptr; // TODO: Merge SER DXIL patches
+}
+} // namespace
+
 // Resource Handle.
 namespace {
 Value *TranslateGetHandleFromHeap(CallInst *CI, IntrinsicOp IOP,
@@ -6794,6 +6812,12 @@ IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedUMin, TranslateMopAtomicBinaryOperation,
      DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_DxHitObject_MakeNop, TranslateHitObjectMake,
+     DXIL::OpCode::NumOpCodes_Dxil_1_8}, // FIXME: Just a placeholder Dxil
+                                         // opcode
+    {IntrinsicOp::IOP_DxMaybeReorderThread, TranslateMaybeReorderThread,
+     DXIL::OpCode::NumOpCodes_Dxil_1_8}, // FIXME: Just a placeholder Dxil
+                                         // opcode
 };
 } // namespace
 static_assert(

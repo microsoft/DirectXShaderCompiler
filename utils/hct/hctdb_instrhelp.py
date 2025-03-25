@@ -620,6 +620,7 @@ class db_oload_gen:
             "noderecordhandle": "A(pNodeRecordHandle);",
             "nodeproperty": "A(nodeProperty);",
             "noderecordproperty": "A(nodeRecordProperty);",
+            "hit_object": "A(pHit);",
         }
         last_category = None
         for i in self.instrs:
@@ -985,15 +986,11 @@ def get_hlsl_intrinsics():
     last_ns = ""
     ns_table = ""
     is_vk_table = False  # SPIRV Change
-    id_prefix = ""
     arg_idx = 0
     opcode_namespace = db.opcode_namespace
     for i in sorted(db.intrinsics, key=lambda x: x.key):
         if last_ns != i.ns:
             last_ns = i.ns
-            id_prefix = (
-                "IOP" if last_ns == "Intrinsics" or last_ns == "VkIntrinsics" else "MOP"
-            )  # SPIRV Change
             if len(ns_table):
                 result += ns_table + "};\n"
                 # SPIRV Change Starts
@@ -1017,14 +1014,15 @@ def get_hlsl_intrinsics():
             flags.append("INTRIN_FLAG_READ_NONE")
         if i.wave:
             flags.append("INTRIN_FLAG_IS_WAVE")
+        if i.static_member:
+            flags.append("INTRIN_FLAG_STATIC_MEMBER")
         if flags:
             flags = " | ".join(flags)
         else:
             flags = "0"
-        ns_table += "    {(UINT)%s::%s_%s, %s, 0x%x, %d, %d, g_%s_Args%s},\n" % (
+        ns_table += "    {(UINT)%s::%s, %s, 0x%x, %d, %d, g_%s_Args%s},\n" % (
             opcode_namespace,
-            id_prefix,
-            i.name,
+            i.enum_name,
             flags,
             i.min_shader_model,
             i.overload_param_index,
