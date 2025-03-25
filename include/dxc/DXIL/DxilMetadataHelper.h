@@ -688,8 +688,8 @@ public:
   static void
   CopyMetadata(llvm::Instruction &I, llvm::Instruction &SrcInst,
                llvm::ArrayRef<unsigned> WL = llvm::ArrayRef<unsigned>());
-  static bool
-  LoadShaderModelName(const llvm::Module *pModule, std::string &str);
+  static bool LoadShaderModelName(const llvm::Module *pModule,
+                                  std::string &str);
 
 private:
   llvm::LLVMContext &m_Ctx;
