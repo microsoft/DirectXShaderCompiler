@@ -221,6 +221,10 @@ bool DeleteDeadAllocas(llvm::Function &F);
 llvm::Value *GEPIdxToOffset(llvm::GetElementPtrInst *GEP,
                             llvm::IRBuilder<> &Builder, hlsl::OP *OP,
                             const llvm::DataLayout &DL);
+
+// Returns shader model appropriate to given module.
+const ShaderModel *LoadShaderModel(const llvm::Module &M);
+
 } // namespace dxilutil
 
 } // namespace hlsl

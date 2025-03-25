@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilUtil.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/IRBuilder.h"
@@ -293,9 +294,9 @@ bool Scalarizer::doInitialization(Module &M) {
 }
 
 bool Scalarizer::runOnFunction(Function &F) {
-  Module *M = F.getParent();
-  if (M->HasDxilModule() && M->GetDxilModule().GetShaderModel()->IsSM69Plus())
-    SupportsVectors = true;
+  const Module *M = F.getParent();
+  const hlsl::ShaderModel *SM = hlsl::dxilutil::LoadShaderModel(*M);
+  SupportsVectors = SM && SM->IsSM69Plus();
 
   for (Function::iterator BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
     BasicBlock *BB = BBI;
