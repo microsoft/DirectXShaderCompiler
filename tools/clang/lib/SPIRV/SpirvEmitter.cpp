@@ -8128,7 +8128,7 @@ void SpirvEmitter::assignToMSOutIndices(
   if (indices.size() > 1) {
     vecComponent = indices.back();
   }
-  auto *var = declIdMapper.getMSOutIndicesBuiltin();
+  SpirvVariable *var = declIdMapper.getMSOutIndicesBuiltin();
 
   uint32_t numVertices = 1;
   uint32_t numValues = 1;
