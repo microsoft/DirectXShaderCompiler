@@ -882,6 +882,9 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
 
   addCapability(spv::Capability::InterpolationFunction);
 
+  addExtensionAndCapabilitiesIfEnabled(Extension::KHR_quad_control,
+                                       {spv::Capability::QuadControlKHR});
+
   return true;
 }
 

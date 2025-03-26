@@ -1514,7 +1514,8 @@ private:
 /// \brief OpGroupNonUniform* instructions
 class SpirvGroupNonUniformOp : public SpirvInstruction {
 public:
-  SpirvGroupNonUniformOp(spv::Op opcode, QualType resultType, spv::Scope scope,
+  SpirvGroupNonUniformOp(spv::Op opcode, QualType resultType,
+                         llvm::Optional<spv::Scope> scope,
                          llvm::ArrayRef<SpirvInstruction *> operands,
                          SourceLocation loc,
                          llvm::Optional<spv::GroupOperation> group);
@@ -1528,7 +1529,8 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  spv::Scope getExecutionScope() const { return execScope; }
+  bool hasExecutionScope() const { return execScope.hasValue(); }
+  spv::Scope getExecutionScope() const { return execScope.getValue(); }
 
   llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
 
@@ -1546,7 +1548,7 @@ public:
   }
 
 private:
-  spv::Scope execScope;
+  llvm::Optional<spv::Scope> execScope;
   llvm::SmallVector<SpirvInstruction *, 4> operands;
   llvm::Optional<spv::GroupOperation> groupOp;
 };

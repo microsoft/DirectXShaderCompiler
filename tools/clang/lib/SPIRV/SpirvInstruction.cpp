@@ -677,7 +677,7 @@ SpirvFunctionCall::SpirvFunctionCall(QualType resultType, SourceLocation loc,
       function(fn), args(argsVec.begin(), argsVec.end()) {}
 
 SpirvGroupNonUniformOp::SpirvGroupNonUniformOp(
-    spv::Op op, QualType resultType, spv::Scope scope,
+    spv::Op op, QualType resultType, llvm::Optional<spv::Scope> scope,
     llvm::ArrayRef<SpirvInstruction *> operandsVec, SourceLocation loc,
     llvm::Optional<spv::GroupOperation> group)
     : SpirvInstruction(IK_GroupNonUniformOp, op, resultType, loc),
@@ -709,6 +709,8 @@ SpirvGroupNonUniformOp::SpirvGroupNonUniformOp(
   case spv::Op::OpGroupNonUniformLogicalAnd:
   case spv::Op::OpGroupNonUniformLogicalOr:
   case spv::Op::OpGroupNonUniformLogicalXor:
+  case spv::Op::OpGroupNonUniformQuadAnyKHR:
+  case spv::Op::OpGroupNonUniformQuadAllKHR:
     assert(operandsVec.size() == 1);
     break;
 
@@ -739,6 +741,11 @@ SpirvGroupNonUniformOp::SpirvGroupNonUniformOp(
   default:
     assert(false && "Unexpected Group non-uniform opcode");
     break;
+  }
+
+  if (op != spv::Op::OpGroupNonUniformQuadAnyKHR &&
+      op != spv::Op::OpGroupNonUniformQuadAllKHR) {
+    assert(scope.hasValue());
   }
 }
 
