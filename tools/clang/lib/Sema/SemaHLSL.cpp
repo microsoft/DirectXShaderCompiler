@@ -51,208 +51,6 @@
 #include <bitset>
 #include <float.h>
 
-enum ArBasicKind {
-  AR_BASIC_BOOL,
-  AR_BASIC_LITERAL_FLOAT,
-  AR_BASIC_FLOAT16,
-  AR_BASIC_FLOAT32_PARTIAL_PRECISION,
-  AR_BASIC_FLOAT32,
-  AR_BASIC_FLOAT64,
-  AR_BASIC_LITERAL_INT,
-  AR_BASIC_INT8,
-  AR_BASIC_UINT8,
-  AR_BASIC_INT16,
-  AR_BASIC_UINT16,
-  AR_BASIC_INT32,
-  AR_BASIC_UINT32,
-  AR_BASIC_INT64,
-  AR_BASIC_UINT64,
-
-  AR_BASIC_MIN10FLOAT,
-  AR_BASIC_MIN16FLOAT,
-  AR_BASIC_MIN12INT,
-  AR_BASIC_MIN16INT,
-  AR_BASIC_MIN16UINT,
-  AR_BASIC_INT8_4PACKED,
-  AR_BASIC_UINT8_4PACKED,
-  AR_BASIC_ENUM,
-
-  AR_BASIC_COUNT,
-
-  //
-  // Pseudo-entries for intrinsic tables and such.
-  //
-
-  AR_BASIC_NONE,
-  AR_BASIC_UNKNOWN,
-  AR_BASIC_NOCAST,
-  AR_BASIC_DEPENDENT,
-  //
-  // The following pseudo-entries represent higher-level
-  // object types that are treated as units.
-  //
-
-  AR_BASIC_POINTER,
-  AR_BASIC_ENUM_CLASS,
-
-  AR_OBJECT_NULL,
-  AR_OBJECT_STRING_LITERAL,
-  AR_OBJECT_STRING,
-
-  // AR_OBJECT_TEXTURE,
-  AR_OBJECT_TEXTURE1D,
-  AR_OBJECT_TEXTURE1D_ARRAY,
-  AR_OBJECT_TEXTURE2D,
-  AR_OBJECT_TEXTURE2D_ARRAY,
-  AR_OBJECT_TEXTURE3D,
-  AR_OBJECT_TEXTURECUBE,
-  AR_OBJECT_TEXTURECUBE_ARRAY,
-  AR_OBJECT_TEXTURE2DMS,
-  AR_OBJECT_TEXTURE2DMS_ARRAY,
-
-  AR_OBJECT_SAMPLER,
-  AR_OBJECT_SAMPLER1D,
-  AR_OBJECT_SAMPLER2D,
-  AR_OBJECT_SAMPLER3D,
-  AR_OBJECT_SAMPLERCUBE,
-  AR_OBJECT_SAMPLERCOMPARISON,
-
-  AR_OBJECT_BUFFER,
-
-  //
-  // View objects are only used as variable/types within the Effects
-  // framework, for example in calls to OMSetRenderTargets.
-  //
-
-  AR_OBJECT_RENDERTARGETVIEW,
-  AR_OBJECT_DEPTHSTENCILVIEW,
-
-  //
-  // Shader objects are only used as variable/types within the Effects
-  // framework, for example as a result of CompileShader().
-  //
-
-  AR_OBJECT_COMPUTESHADER,
-  AR_OBJECT_DOMAINSHADER,
-  AR_OBJECT_GEOMETRYSHADER,
-  AR_OBJECT_HULLSHADER,
-  AR_OBJECT_PIXELSHADER,
-  AR_OBJECT_VERTEXSHADER,
-  AR_OBJECT_PIXELFRAGMENT,
-  AR_OBJECT_VERTEXFRAGMENT,
-
-  AR_OBJECT_STATEBLOCK,
-
-  AR_OBJECT_RASTERIZER,
-  AR_OBJECT_DEPTHSTENCIL,
-  AR_OBJECT_BLEND,
-
-  AR_OBJECT_POINTSTREAM,
-  AR_OBJECT_LINESTREAM,
-  AR_OBJECT_TRIANGLESTREAM,
-
-  AR_OBJECT_INPUTPATCH,
-  AR_OBJECT_OUTPUTPATCH,
-
-  AR_OBJECT_RWTEXTURE1D,
-  AR_OBJECT_RWTEXTURE1D_ARRAY,
-  AR_OBJECT_RWTEXTURE2D,
-  AR_OBJECT_RWTEXTURE2D_ARRAY,
-  AR_OBJECT_RWTEXTURE3D,
-  AR_OBJECT_RWBUFFER,
-
-  AR_OBJECT_BYTEADDRESS_BUFFER,
-  AR_OBJECT_RWBYTEADDRESS_BUFFER,
-  AR_OBJECT_STRUCTURED_BUFFER,
-  AR_OBJECT_RWSTRUCTURED_BUFFER,
-  AR_OBJECT_RWSTRUCTURED_BUFFER_ALLOC,
-  AR_OBJECT_RWSTRUCTURED_BUFFER_CONSUME,
-  AR_OBJECT_APPEND_STRUCTURED_BUFFER,
-  AR_OBJECT_CONSUME_STRUCTURED_BUFFER,
-
-  AR_OBJECT_CONSTANT_BUFFER,
-  AR_OBJECT_TEXTURE_BUFFER,
-
-  AR_OBJECT_ROVBUFFER,
-  AR_OBJECT_ROVBYTEADDRESS_BUFFER,
-  AR_OBJECT_ROVSTRUCTURED_BUFFER,
-  AR_OBJECT_ROVTEXTURE1D,
-  AR_OBJECT_ROVTEXTURE1D_ARRAY,
-  AR_OBJECT_ROVTEXTURE2D,
-  AR_OBJECT_ROVTEXTURE2D_ARRAY,
-  AR_OBJECT_ROVTEXTURE3D,
-
-  AR_OBJECT_FEEDBACKTEXTURE2D,
-  AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY,
-
-// SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
-  AR_OBJECT_VK_SUBPASS_INPUT,
-  AR_OBJECT_VK_SUBPASS_INPUT_MS,
-  AR_OBJECT_VK_SPIRV_TYPE,
-  AR_OBJECT_VK_SPIRV_OPAQUE_TYPE,
-  AR_OBJECT_VK_INTEGRAL_CONSTANT,
-  AR_OBJECT_VK_LITERAL,
-  AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
-  AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
-#endif // ENABLE_SPIRV_CODEGEN
-  // SPIRV change ends
-
-  AR_OBJECT_INNER, // Used for internal type object
-
-  AR_OBJECT_LEGACY_EFFECT,
-
-  AR_OBJECT_WAVE,
-
-  AR_OBJECT_RAY_DESC,
-  AR_OBJECT_ACCELERATION_STRUCT,
-  AR_OBJECT_USER_DEFINED_TYPE,
-  AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES,
-
-  // subobjects
-  AR_OBJECT_STATE_OBJECT_CONFIG,
-  AR_OBJECT_GLOBAL_ROOT_SIGNATURE,
-  AR_OBJECT_LOCAL_ROOT_SIGNATURE,
-  AR_OBJECT_SUBOBJECT_TO_EXPORTS_ASSOC,
-  AR_OBJECT_RAYTRACING_SHADER_CONFIG,
-  AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
-  AR_OBJECT_TRIANGLE_HIT_GROUP,
-  AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
-  AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
-
-  // RayQuery
-  AR_OBJECT_RAY_QUERY,
-
-  // Heap Resource
-  AR_OBJECT_HEAP_RESOURCE,
-  AR_OBJECT_HEAP_SAMPLER,
-
-  AR_OBJECT_RWTEXTURE2DMS,
-  AR_OBJECT_RWTEXTURE2DMS_ARRAY,
-
-  // Work Graphs
-  AR_OBJECT_EMPTY_NODE_INPUT,
-  AR_OBJECT_DISPATCH_NODE_INPUT_RECORD,
-  AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD,
-  AR_OBJECT_GROUP_NODE_INPUT_RECORDS,
-  AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS,
-  AR_OBJECT_THREAD_NODE_INPUT_RECORD,
-  AR_OBJECT_RWTHREAD_NODE_INPUT_RECORD,
-
-  AR_OBJECT_NODE_OUTPUT,
-  AR_OBJECT_EMPTY_NODE_OUTPUT,
-  AR_OBJECT_NODE_OUTPUT_ARRAY,
-  AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY,
-
-  AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS,
-  AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS,
-
-  // Shader Execution Reordering
-  AR_OBJECT_HIT_OBJECT,
-
-  AR_BASIC_MAXIMUM_COUNT
-};
-
 #define AR_BASIC_TEXTURE_MS_CASES                                              \
   case AR_OBJECT_TEXTURE2DMS:                                                  \
   case AR_OBJECT_TEXTURE2DMS_ARRAY:                                            \
@@ -2785,14 +2583,14 @@ AddBuiltInTriangleIntersectionAttributes(ASTContext &context,
 //
 // Subobjects
 
-static CXXRecordDecl *StartSubobjectDecl(ASTContext &context,
-                                         const char *name) {
+static CXXRecordDecl *StartSubobjectDecl(ASTContext &context, const char *name,
+                                         ArBasicKind kind) {
   IdentifierInfo &id =
       context.Idents.get(StringRef(name), tok::TokenKind::identifier);
   CXXRecordDecl *decl = CXXRecordDecl::Create(
       context, TagTypeKind::TTK_Struct, context.getTranslationUnitDecl(), NoLoc,
       NoLoc, &id, nullptr, DelayTypeCreationTrue);
-  decl->addAttr(HLSLSubObjectAttr::CreateImplicit(context));
+  decl->addAttr(HLSLSubObjectAttr::CreateImplicit(context, kind));
   decl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
   decl->startDefinition();
   return decl;
@@ -2808,8 +2606,9 @@ void FinishSubobjectDecl(ASTContext &context, CXXRecordDecl *decl) {
 // {
 //   uint32_t Flags;
 // };
-static CXXRecordDecl *CreateSubobjectStateObjectConfig(ASTContext &context) {
-  CXXRecordDecl *decl = StartSubobjectDecl(context, "StateObjectConfig");
+static CXXRecordDecl *CreateSubobjectStateObjectConfig(ASTContext &context,
+                                                       ArBasicKind kind) {
+  CXXRecordDecl *decl = StartSubobjectDecl(context, "StateObjectConfig", kind);
   CreateSimpleField(context, decl, "Flags", context.UnsignedIntTy,
                     AccessSpecifier::AS_private);
   FinishSubobjectDecl(context, decl);
@@ -2821,9 +2620,10 @@ static CXXRecordDecl *CreateSubobjectStateObjectConfig(ASTContext &context) {
 //   string signature;
 // };
 static CXXRecordDecl *CreateSubobjectRootSignature(ASTContext &context,
+                                                   ArBasicKind kind,
                                                    bool global) {
   CXXRecordDecl *decl = StartSubobjectDecl(
-      context, global ? "GlobalRootSignature" : "LocalRootSignature");
+      context, global ? "GlobalRootSignature" : "LocalRootSignature", kind);
   CreateSimpleField(context, decl, "Data", context.HLSLStringTy,
                     AccessSpecifier::AS_private);
   FinishSubobjectDecl(context, decl);
@@ -2836,9 +2636,9 @@ static CXXRecordDecl *CreateSubobjectRootSignature(ASTContext &context,
 //   string Exports;
 // };
 static CXXRecordDecl *
-CreateSubobjectSubobjectToExportsAssoc(ASTContext &context) {
+CreateSubobjectSubobjectToExportsAssoc(ASTContext &context, ArBasicKind kind) {
   CXXRecordDecl *decl =
-      StartSubobjectDecl(context, "SubobjectToExportsAssociation");
+      StartSubobjectDecl(context, "SubobjectToExportsAssociation", kind);
   CreateSimpleField(context, decl, "Subobject", context.HLSLStringTy,
                     AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "Exports", context.HLSLStringTy,
@@ -2852,9 +2652,10 @@ CreateSubobjectSubobjectToExportsAssoc(ASTContext &context) {
 //   uint32_t MaxPayloadSizeInBytes;
 //   uint32_t MaxAttributeSizeInBytes;
 // };
-static CXXRecordDecl *
-CreateSubobjectRaytracingShaderConfig(ASTContext &context) {
-  CXXRecordDecl *decl = StartSubobjectDecl(context, "RaytracingShaderConfig");
+static CXXRecordDecl *CreateSubobjectRaytracingShaderConfig(ASTContext &context,
+                                                            ArBasicKind kind) {
+  CXXRecordDecl *decl =
+      StartSubobjectDecl(context, "RaytracingShaderConfig", kind);
   CreateSimpleField(context, decl, "MaxPayloadSizeInBytes",
                     context.UnsignedIntTy, AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "MaxAttributeSizeInBytes",
@@ -2868,8 +2669,9 @@ CreateSubobjectRaytracingShaderConfig(ASTContext &context) {
 //   uint32_t MaxTraceRecursionDepth;
 // };
 static CXXRecordDecl *
-CreateSubobjectRaytracingPipelineConfig(ASTContext &context) {
-  CXXRecordDecl *decl = StartSubobjectDecl(context, "RaytracingPipelineConfig");
+CreateSubobjectRaytracingPipelineConfig(ASTContext &context, ArBasicKind kind) {
+  CXXRecordDecl *decl =
+      StartSubobjectDecl(context, "RaytracingPipelineConfig", kind);
   CreateSimpleField(context, decl, "MaxTraceRecursionDepth",
                     context.UnsignedIntTy, AccessSpecifier::AS_private);
   FinishSubobjectDecl(context, decl);
@@ -2882,9 +2684,10 @@ CreateSubobjectRaytracingPipelineConfig(ASTContext &context) {
 //   uint32_t Flags;
 // };
 static CXXRecordDecl *
-CreateSubobjectRaytracingPipelineConfig1(ASTContext &context) {
+CreateSubobjectRaytracingPipelineConfig1(ASTContext &context,
+                                         ArBasicKind kind) {
   CXXRecordDecl *decl =
-      StartSubobjectDecl(context, "RaytracingPipelineConfig1");
+      StartSubobjectDecl(context, "RaytracingPipelineConfig1", kind);
   CreateSimpleField(context, decl, "MaxTraceRecursionDepth",
                     context.UnsignedIntTy, AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "Flags", context.UnsignedIntTy,
@@ -2898,8 +2701,9 @@ CreateSubobjectRaytracingPipelineConfig1(ASTContext &context) {
 //   string AnyHit;
 //   string ClosestHit;
 // };
-static CXXRecordDecl *CreateSubobjectTriangleHitGroup(ASTContext &context) {
-  CXXRecordDecl *decl = StartSubobjectDecl(context, "TriangleHitGroup");
+static CXXRecordDecl *CreateSubobjectTriangleHitGroup(ASTContext &context,
+                                                      ArBasicKind kind) {
+  CXXRecordDecl *decl = StartSubobjectDecl(context, "TriangleHitGroup", kind);
   CreateSimpleField(context, decl, "AnyHit", context.HLSLStringTy,
                     AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "ClosestHit", context.HLSLStringTy,
@@ -2915,9 +2719,10 @@ static CXXRecordDecl *CreateSubobjectTriangleHitGroup(ASTContext &context) {
 //   string Intersection;
 // };
 static CXXRecordDecl *
-CreateSubobjectProceduralPrimitiveHitGroup(ASTContext &context) {
+CreateSubobjectProceduralPrimitiveHitGroup(ASTContext &context,
+                                           ArBasicKind kind) {
   CXXRecordDecl *decl =
-      StartSubobjectDecl(context, "ProceduralPrimitiveHitGroup");
+      StartSubobjectDecl(context, "ProceduralPrimitiveHitGroup", kind);
   CreateSimpleField(context, decl, "AnyHit", context.HLSLStringTy,
                     AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "ClosestHit", context.HLSLStringTy,
@@ -3745,31 +3550,34 @@ private:
       } else if (IsSubobjectBasicKind(kind)) {
         switch (kind) {
         case AR_OBJECT_STATE_OBJECT_CONFIG:
-          recordDecl = CreateSubobjectStateObjectConfig(*m_context);
+          recordDecl = CreateSubobjectStateObjectConfig(*m_context, kind);
           break;
         case AR_OBJECT_GLOBAL_ROOT_SIGNATURE:
-          recordDecl = CreateSubobjectRootSignature(*m_context, true);
+          recordDecl = CreateSubobjectRootSignature(*m_context, kind, true);
           break;
         case AR_OBJECT_LOCAL_ROOT_SIGNATURE:
-          recordDecl = CreateSubobjectRootSignature(*m_context, false);
+          recordDecl = CreateSubobjectRootSignature(*m_context, kind, false);
           break;
         case AR_OBJECT_SUBOBJECT_TO_EXPORTS_ASSOC:
-          recordDecl = CreateSubobjectSubobjectToExportsAssoc(*m_context);
+          recordDecl = CreateSubobjectSubobjectToExportsAssoc(*m_context, kind);
           break;
         case AR_OBJECT_RAYTRACING_SHADER_CONFIG:
-          recordDecl = CreateSubobjectRaytracingShaderConfig(*m_context);
+          recordDecl = CreateSubobjectRaytracingShaderConfig(*m_context, kind);
           break;
         case AR_OBJECT_RAYTRACING_PIPELINE_CONFIG:
-          recordDecl = CreateSubobjectRaytracingPipelineConfig(*m_context);
+          recordDecl =
+              CreateSubobjectRaytracingPipelineConfig(*m_context, kind);
           break;
         case AR_OBJECT_TRIANGLE_HIT_GROUP:
-          recordDecl = CreateSubobjectTriangleHitGroup(*m_context);
+          recordDecl = CreateSubobjectTriangleHitGroup(*m_context, kind);
           break;
         case AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP:
-          recordDecl = CreateSubobjectProceduralPrimitiveHitGroup(*m_context);
+          recordDecl =
+              CreateSubobjectProceduralPrimitiveHitGroup(*m_context, kind);
           break;
         case AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1:
-          recordDecl = CreateSubobjectRaytracingPipelineConfig1(*m_context);
+          recordDecl =
+              CreateSubobjectRaytracingPipelineConfig1(*m_context, kind);
           break;
         }
       } else if (kind == AR_OBJECT_CONSTANT_BUFFER) {

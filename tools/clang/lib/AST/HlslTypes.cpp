@@ -22,6 +22,7 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Type.h"
 #include "clang/Sema/AttributeList.h" // conceptually ParsedAttributes
+#include "clang/Sema/SemaHLSL.h"      // ArBasicObject kind enums
 #include "llvm/ADT/StringSwitch.h"
 
 using namespace clang;
@@ -692,60 +693,38 @@ bool GetHLSLSubobjectKind(clang::QualType type,
       return false;
     }
 
-    StringRef name = RT->getDecl()->getName();
-    switch (name.size()) {
-    case 17:
-      return name == "StateObjectConfig"
-                 ? (subobjectKind = DXIL::SubobjectKind::StateObjectConfig,
-                    true)
-                 : false;
-    case 18:
-      return name == "LocalRootSignature"
-                 ? (subobjectKind = DXIL::SubobjectKind::LocalRootSignature,
-                    true)
-                 : false;
-    case 19:
-      return name == "GlobalRootSignature"
-                 ? (subobjectKind = DXIL::SubobjectKind::GlobalRootSignature,
-                    true)
-                 : false;
-    case 29:
-      return name == "SubobjectToExportsAssociation"
-                 ? (subobjectKind =
-                        DXIL::SubobjectKind::SubobjectToExportsAssociation,
-                    true)
-                 : false;
-    case 22:
-      return name == "RaytracingShaderConfig"
-                 ? (subobjectKind = DXIL::SubobjectKind::RaytracingShaderConfig,
-                    true)
-                 : false;
-    case 24:
-      return name == "RaytracingPipelineConfig"
-                 ? (subobjectKind =
-                        DXIL::SubobjectKind::RaytracingPipelineConfig,
-                    true)
-                 : false;
-    case 25:
-      return name == "RaytracingPipelineConfig1"
-                 ? (subobjectKind =
-                        DXIL::SubobjectKind::RaytracingPipelineConfig1,
-                    true)
-                 : false;
-    case 16:
-      if (name == "TriangleHitGroup") {
-        subobjectKind = DXIL::SubobjectKind::HitGroup;
-        hgType = DXIL::HitGroupType::Triangle;
-        return true;
-      }
-      return false;
-    case 27:
-      if (name == "ProceduralPrimitiveHitGroup") {
-        subobjectKind = DXIL::SubobjectKind::HitGroup;
-        hgType = DXIL::HitGroupType::ProceduralPrimitive;
-        return true;
-      }
-      return false;
+    HLSLSubObjectAttr *Attr = RD->getAttr<HLSLSubObjectAttr>();
+
+    switch (Attr->getSubObjKindUint()) {
+    case ArBasicKind::AR_OBJECT_STATE_OBJECT_CONFIG:
+      subobjectKind = DXIL::SubobjectKind::StateObjectConfig;
+      return true;
+    case ArBasicKind::AR_OBJECT_LOCAL_ROOT_SIGNATURE:
+      subobjectKind = DXIL::SubobjectKind::LocalRootSignature;
+      return true;
+    case ArBasicKind::AR_OBJECT_GLOBAL_ROOT_SIGNATURE:
+      subobjectKind = DXIL::SubobjectKind::GlobalRootSignature;
+      return true;
+    case ArBasicKind::AR_OBJECT_SUBOBJECT_TO_EXPORTS_ASSOC:
+      subobjectKind = DXIL::SubobjectKind::SubobjectToExportsAssociation;
+      return true;
+    case ArBasicKind::AR_OBJECT_RAYTRACING_SHADER_CONFIG:
+      subobjectKind = DXIL::SubobjectKind::RaytracingShaderConfig;
+      return true;
+    case ArBasicKind::AR_OBJECT_RAYTRACING_PIPELINE_CONFIG:
+      subobjectKind = DXIL::SubobjectKind::RaytracingPipelineConfig;
+      return true;
+    case ArBasicKind::AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1:
+      subobjectKind = DXIL::SubobjectKind::RaytracingPipelineConfig1;
+      return true;
+    case ArBasicKind::AR_OBJECT_TRIANGLE_HIT_GROUP:
+      subobjectKind = DXIL::SubobjectKind::HitGroup;
+      hgType = DXIL::HitGroupType::Triangle;
+      return true;
+    case ArBasicKind::AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP:
+      subobjectKind = DXIL::SubobjectKind::HitGroup;
+      hgType = DXIL::HitGroupType::ProceduralPrimitive;
+      return true;
     }
   }
   return false;
