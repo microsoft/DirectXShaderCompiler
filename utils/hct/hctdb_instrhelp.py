@@ -548,12 +548,12 @@ class db_oload_gen:
         )
         ext_oload_fn = (
             lambda i: "{"
-            + ",".join(["0x%x" % oload_to_mask(o) for o in i.extended_oload_types])
+            + ",".join(["{0x%x}" % oload_to_mask(o) for o in i.extended_oload_types])
             + "}"
         )
         vec_oload_fn = (
             lambda i: "{"
-            + ",".join(["0x%x" % oload_to_mask(o) for o in i.vector_oload_types])
+            + ",".join(["{0x%x}" % oload_to_mask(o) for o in i.vector_oload_types])
             + "}"
         )
         for i in self.instrs:
