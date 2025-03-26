@@ -6070,7 +6070,7 @@ Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                               bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   IRBuilder<> Builder(CI);
-  int SrcIdx = 1;
+  unsigned SrcIdx = 1;
   Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
   if (opcode == OP::OpCode::HitObject_MakeNop) {
     Value *HitObject = TrivialDxilOperation(

@@ -434,7 +434,7 @@ const unsigned kAnnotateNodeHandleNodePropIdx = 2;
 const unsigned kAnnotateNodeRecordHandleNodeRecordPropIdx = 2;
 
 // HitObject::MakeMiss
-const int kHitObjectMakeMiss_NumOp = 8;
+const unsigned kHitObjectMakeMiss_NumOp = 8;
 const unsigned kHitObjectMakeMissRayDescOpIdx = 4;
 
 } // namespace HLOperandIndex
