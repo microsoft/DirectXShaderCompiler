@@ -12179,14 +12179,14 @@ bool hlsl::ShouldSkipNRVO(clang::Sema &sema, clang::QualType returnType,
   return false;
 }
 
-bool hlsl::ContainsLongVector(QualType qt) {
-  if (qt.isNull() || qt->isDependentType())
+bool hlsl::ContainsLongVector(QualType QT) {
+  if (QT.isNull() || QT->isDependentType())
     return false;
 
-  while (const ArrayType *Arr = qt->getAsArrayTypeUnsafe())
-    qt = Arr->getElementType();
+  while (const ArrayType *Arr = QT->getAsArrayTypeUnsafe())
+  QT = Arr->getElementType();
 
-  if (CXXRecordDecl *Decl = qt->getAsCXXRecordDecl()) {
+  if (CXXRecordDecl *Decl = QT->getAsCXXRecordDecl()) {
     if (!Decl->isCompleteDefinition())
       return false;
     return Decl->hasHLSLLongVector();
