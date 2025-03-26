@@ -294,9 +294,12 @@ bool Scalarizer::doInitialization(Module &M) {
 }
 
 bool Scalarizer::runOnFunction(Function &F) {
+  // HLSL Change start - set SupportsVectors
   const Module *M = F.getParent();
-  const hlsl::ShaderModel *SM = hlsl::dxilutil::LoadShaderModel(*M);
-  SupportsVectors = SM && SM->IsSM69Plus();
+  unsigned Major = 0, Minor = 0;
+  if (hlsl::dxilutil::LoadDxilVersion(M, Major, Minor))
+    SupportsVectors = (Major == 1 && Minor >= 9);
+  // HLSL Change end - set SupportsVectors
 
   for (Function::iterator BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
     BasicBlock *BB = BBI;

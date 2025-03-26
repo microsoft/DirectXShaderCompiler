@@ -222,8 +222,8 @@ llvm::Value *GEPIdxToOffset(llvm::GetElementPtrInst *GEP,
                             llvm::IRBuilder<> &Builder, hlsl::OP *OP,
                             const llvm::DataLayout &DL);
 
-// Returns shader model appropriate to given module.
-const ShaderModel *LoadShaderModel(const llvm::Module &M);
+// Passes back Dxil version of the given module on true return.
+bool LoadDxilVersion(const llvm::Module *M, unsigned &Major, unsigned &Minor);
 
 } // namespace dxilutil
 

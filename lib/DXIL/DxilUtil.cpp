@@ -1394,15 +1394,17 @@ bool DeleteDeadAllocas(llvm::Function &F) {
   return Changed;
 }
 
-// Retrieve stored shader model in the given module.
-// Where the module doesn't have HL nor Dxil modules,
-// it identifies and returns the shader model from the module metatdata.
-// Returns nullptr where none of that works, but that shouldn't happen much.
-const ShaderModel *LoadShaderModel(const llvm::Module &M) {
-  if (M.HasDxilModule())
-    return M.GetDxilModule().GetShaderModel();
-
-  return DxilMDHelper::LoadDxilShaderModel(&M);
+// Retrieve dxil version in the given module.
+// Where the module doesn't already have a Dxil module,
+// it identifies and returns the version info from the metatdata.
+// Returns false where none of that works, but that shouldn't happen much.
+bool LoadDxilVersion(const Module *M, unsigned &Major, unsigned &Minor) {
+  if (M->HasDxilModule()) {
+    M->GetDxilModule().GetShaderModel()->GetDxilVersion(Major, Minor);
+    return true;
+  }
+  // No module, try metadata.
+  return DxilMDHelper::LoadDxilVersion(M, Major, Minor);
 }
 
 } // namespace dxilutil

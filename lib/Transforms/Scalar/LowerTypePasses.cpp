@@ -212,15 +212,15 @@ private:
 };
 
 void DynamicIndexingVectorToArray::initialize(Module &M) {
-  // Set vector support according to available shader model.
-  // Use HLModule shader model if present.
+  // Set vector support according to available Dxil version.
+  // Use HLModule or metadata for version info.
   // Otherwise retrieve from dxil module or metadata.
-  const ShaderModel *SM = nullptr;
+  unsigned Major = 0, Minor = 0;
   if (M.HasHLModule())
-    SM = M.GetHLModule().GetShaderModel();
+    M.GetHLModule().GetShaderModel()->GetDxilVersion(Major, Minor);
   else
-    SM = dxilutil::LoadShaderModel(M);
-  SupportsVectors = SM && SM->IsSM69Plus();
+    dxilutil::LoadDxilVersion(&M, Major, Minor);
+  SupportsVectors = (Major == 1 && Minor >= 9);
 }
 
 void DynamicIndexingVectorToArray::applyOptions(PassOptions O) {

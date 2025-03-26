@@ -427,6 +427,8 @@ public:
   // Dxil version.
   void EmitDxilVersion(unsigned Major, unsigned Minor);
   void LoadDxilVersion(unsigned &Major, unsigned &Minor);
+  static bool LoadDxilVersion(const llvm::Module *pModule, unsigned &Major,
+                              unsigned &Minor);
 
   // Validator version.
   void EmitValidatorVersion(unsigned Major, unsigned Minor);
@@ -435,7 +437,6 @@ public:
   // Shader model.
   void EmitDxilShaderModel(const ShaderModel *pSM);
   void LoadDxilShaderModel(const ShaderModel *&pSM);
-  static const ShaderModel *LoadDxilShaderModel(const llvm::Module *pModule);
 
   // Intermediate flags
   void EmitDxilIntermediateOptions(uint32_t flags);
@@ -688,8 +689,6 @@ public:
   static void
   CopyMetadata(llvm::Instruction &I, llvm::Instruction &SrcInst,
                llvm::ArrayRef<unsigned> WL = llvm::ArrayRef<unsigned>());
-  static bool LoadShaderModelName(const llvm::Module *pModule,
-                                  std::string &str);
 
 private:
   llvm::LLVMContext &m_Ctx;

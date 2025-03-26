@@ -177,17 +177,28 @@ void DxilMDHelper::EmitDxilVersion(unsigned Major, unsigned Minor) {
   pDxilVersionMD->addOperand(MDNode::get(m_Ctx, MDVals));
 }
 
-void DxilMDHelper::LoadDxilVersion(unsigned &Major, unsigned &Minor) {
-  NamedMDNode *pDxilVersionMD = m_pModule->getNamedMetadata(kDxilVersionMDName);
-  IFTBOOL(pDxilVersionMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-  IFTBOOL(pDxilVersionMD->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+// Load dxil version from metadata contained in pModule.
+// Returns true and passes result through
+// the dxil major/minor version params if valid.
+// Returns false if metadata is missing or invalid.
+bool DxilMDHelper::LoadDxilVersion(const Module *pModule, unsigned &Major,
+                                   unsigned &Minor) {
+  NamedMDNode *pDxilVersionMD = pModule->getNamedMetadata(kDxilVersionMDName);
+  IFRBOOL(pDxilVersionMD != nullptr, false);
+  IFRBOOL(pDxilVersionMD->getNumOperands() == 1, false);
 
   MDNode *pVersionMD = pDxilVersionMD->getOperand(0);
-  IFTBOOL(pVersionMD->getNumOperands() == kDxilVersionNumFields,
-          DXC_E_INCORRECT_DXIL_METADATA);
+  IFRBOOL(pVersionMD->getNumOperands() == kDxilVersionNumFields, false);
 
   Major = ConstMDToUint32(pVersionMD->getOperand(kDxilVersionMajorIdx));
   Minor = ConstMDToUint32(pVersionMD->getOperand(kDxilVersionMinorIdx));
+
+  return true;
+}
+
+void DxilMDHelper::LoadDxilVersion(unsigned &Major, unsigned &Minor) {
+  IFTBOOL(LoadDxilVersion(m_pModule, Major, Minor),
+          DXC_E_INCORRECT_DXIL_METADATA);
 }
 
 //
@@ -261,49 +272,31 @@ void DxilMDHelper::EmitDxilShaderModel(const ShaderModel *pSM) {
   SetShaderModel(pSM);
 }
 
-// Retrieve the name string of the shader model for the given module.
-// Returns true and passes shader model target string through str if valid.
-// Returns false if metadata is missing or invalid.
-bool DxilMDHelper::LoadShaderModelName(const Module *pModule, string &Name) {
+void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
   NamedMDNode *pShaderModelNamedMD =
-      pModule->getNamedMetadata(kDxilShaderModelMDName);
-  IFRBOOL(pShaderModelNamedMD != nullptr, false);
-  IFRBOOL(pShaderModelNamedMD->getNumOperands() == 1, false);
+      m_pModule->getNamedMetadata(kDxilShaderModelMDName);
+  IFTBOOL(pShaderModelNamedMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  IFTBOOL(pShaderModelNamedMD->getNumOperands() == 1,
+          DXC_E_INCORRECT_DXIL_METADATA);
 
   MDNode *pShaderModelMD = pShaderModelNamedMD->getOperand(0);
-  IFRBOOL(pShaderModelMD->getNumOperands() == kDxilShaderModelNumFields, false);
+  IFTBOOL(pShaderModelMD->getNumOperands() == kDxilShaderModelNumFields,
+          DXC_E_INCORRECT_DXIL_METADATA);
 
   MDString *pShaderTypeMD =
       dyn_cast<MDString>(pShaderModelMD->getOperand(kDxilShaderModelTypeIdx));
-  IFRBOOL(pShaderTypeMD != nullptr, false);
+  IFTBOOL(pShaderTypeMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   unsigned Major =
       ConstMDToUint32(pShaderModelMD->getOperand(kDxilShaderModelMajorIdx));
   unsigned Minor =
       ConstMDToUint32(pShaderModelMD->getOperand(kDxilShaderModelMinorIdx));
-  Name = pShaderTypeMD->getString().str();
-  Name += "_" + std::to_string(Major) + "_" +
-          (Minor == ShaderModel::kOfflineMinor ? "x" : std::to_string(Minor));
-  return true;
-}
-
-// Load shader model object from metadata contained in pModule.
-// Throws exceptions if any metadata is invalid or the values
-// of the shader model are invalid.
-const ShaderModel *DxilMDHelper::LoadDxilShaderModel(const Module *pModule) {
-  string ShaderModelName;
-  IFRBOOL(LoadShaderModelName(pModule, ShaderModelName), nullptr);
-  return ShaderModel::GetByName(ShaderModelName.c_str());
-}
-
-// Load shader model object from metadata MDHelper's module
-// and set it as current for MDHelper.
-void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
-  pSM = LoadDxilShaderModel(m_pModule);
-  IFTBOOL(pSM != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  string ShaderModelName = pShaderTypeMD->getString().str();
+  ShaderModelName +=
+      "_" + std::to_string(Major) + "_" +
+      (Minor == ShaderModel::kOfflineMinor ? "x" : std::to_string(Minor));
+  pSM = ShaderModel::GetByName(ShaderModelName.c_str());
   if (!pSM->IsValidForDxil()) {
     char ErrorMsgTxt[40];
-    string ShaderModelName;
-    LoadShaderModelName(m_pModule, ShaderModelName);
     StringCchPrintfA(ErrorMsgTxt, _countof(ErrorMsgTxt),
                      "Unknown shader model '%s'", ShaderModelName.c_str());
     string ErrorMsg(ErrorMsgTxt);
