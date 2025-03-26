@@ -40,7 +40,7 @@ Before submitting a feature or substantial code contribution please discuss it w
 
 ### Coding guidelines
 
-The coding, style, and general engineering guidelines follow those described in the docs/CodingStandards.rst. For additional guidelines in code specific to HLSL, see the docs/HLSLChanges.rst file.
+The coding, style, and general engineering guidelines follow those described in the [LLVM Coding Standards](docs/CodingStandards.rst). For additional guidelines in code specific to HLSL, see the [HLSL Changes](docs/HLSLChanges.rst) docs.
 
 DXC has adopted a clang-format requirement for all incoming changes to C and C++ files. PRs to DXC should have the *changed code* clang formatted to the LLVM style, and leave the remaining portions of the file unchanged. This can be done using the `git-clang-format` tool or IDE driven workflows. A GitHub action will run on all PRs to validate that the change is properly formatted.
 
