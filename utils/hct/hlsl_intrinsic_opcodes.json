@@ -1,6 +1,6 @@
 {
   "IntrinsicOpCodes": {
-    "Num_Intrinsics": 360,
+    "Num_Intrinsics": 361,
     "IOP_AcceptHitAndEndSearch": 0,
     "IOP_AddUint64": 1,
     "IOP_AllMemoryBarrier": 2,
@@ -360,6 +360,7 @@
     "MOP_InterlockedUMax": 356,
     "MOP_InterlockedUMin": 357,
     "MOP_DxHitObject_MakeNop": 358,
-    "IOP_DxMaybeReorderThread": 359
+    "IOP_DxMaybeReorderThread": 359,
+    "MOP_DxHitObject_MakeMiss": 360
   }
 }

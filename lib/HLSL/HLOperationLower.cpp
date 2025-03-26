@@ -6068,7 +6068,53 @@ Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                               HLOperationLowerHelper &helper,
                               HLObjectOperationLowerHelper *pObjHelper,
                               bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  IRBuilder<> Builder(CI);
+  int SrcIdx = 1;
+  Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
+  if (opcode == OP::OpCode::HitObject_MakeNop) {
+    Value *HitObject = TrivialDxilOperation(
+        opcode, {nullptr}, Type::getVoidTy(CI->getContext()), CI, hlslOP);
+    Builder.CreateStore(HitObject, HitObjectPtr);
+    // Passthru the 'this' pointer when this calls 'HitObject_MakeNop' as the
+    // default constructor
+    if (!CI->getType()->isVoidTy())
+      return HitObjectPtr;
+    return nullptr;
+  }
+
+  DXASSERT_NOMSG(CI->getNumArgOperands() ==
+                 HLOperandIndex::kHitObjectMakeMiss_NumOp);
+  Value *RayFlags = CI->getArgOperand(SrcIdx++);
+  Value *MissShaderIdx = CI->getArgOperand(SrcIdx++);
+  Value *RayDescOrigin = CI->getArgOperand(SrcIdx++);
+  Value *RayDescOriginX =
+      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)0);
+  Value *RayDescOriginY =
+      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)1);
+  Value *RayDescOriginZ =
+      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)2);
+
+  Value *RayDescTMin = CI->getArgOperand(SrcIdx++);
+  Value *RayDescDirection = CI->getArgOperand(SrcIdx++);
+  Value *RayDescDirectionX =
+      Builder.CreateExtractElement(RayDescDirection, (uint64_t)0);
+  Value *RayDescDirectionY =
+      Builder.CreateExtractElement(RayDescDirection, (uint64_t)1);
+  Value *RayDescDirectionZ =
+      Builder.CreateExtractElement(RayDescDirection, (uint64_t)2);
+
+  Value *RayDescTMax = CI->getArgOperand(SrcIdx++);
+  DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
+
+  Value *OutHitObject = TrivialDxilOperation(
+      opcode,
+      {nullptr, RayFlags, MissShaderIdx, RayDescOriginX, RayDescOriginY,
+       RayDescOriginZ, RayDescTMin, RayDescDirectionX, RayDescDirectionY,
+       RayDescDirectionZ, RayDescTMax},
+      helper.voidTy, CI, hlslOP);
+  Builder.CreateStore(OutHitObject, HitObjectPtr);
+  return nullptr;
 }
 
 Value *TranslateMaybeReorderThread(CallInst *CI, IntrinsicOp IOP,
@@ -6813,11 +6859,12 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_InterlockedUMin, TranslateMopAtomicBinaryOperation,
      DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_DxHitObject_MakeNop, TranslateHitObjectMake,
-     DXIL::OpCode::NumOpCodes_Dxil_1_8}, // FIXME: Just a placeholder Dxil
-                                         // opcode
+     DXIL::OpCode::HitObject_MakeNop},
     {IntrinsicOp::IOP_DxMaybeReorderThread, TranslateMaybeReorderThread,
      DXIL::OpCode::NumOpCodes_Dxil_1_8}, // FIXME: Just a placeholder Dxil
                                          // opcode
+    {IntrinsicOp::MOP_DxHitObject_MakeMiss, TranslateHitObjectMake,
+     DXIL::OpCode::HitObject_MakeMiss},
 };
 } // namespace
 static_assert(
