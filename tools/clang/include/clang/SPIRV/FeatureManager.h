@@ -59,6 +59,7 @@ enum class Extension {
   KHR_physical_storage_buffer,
   KHR_vulkan_memory_model,
   NV_compute_shader_derivatives,
+  KHR_compute_shader_derivatives,
   KHR_fragment_shader_barycentric,
   KHR_maximal_reconvergence,
   KHR_float_controls,

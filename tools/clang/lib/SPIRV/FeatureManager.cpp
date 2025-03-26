@@ -215,6 +215,8 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_KHR_physical_storage_buffer",
             Extension::KHR_physical_storage_buffer)
       .Case("SPV_KHR_vulkan_memory_model", Extension::KHR_vulkan_memory_model)
+      .Case("SPV_KHR_compute_shader_derivatives",
+            Extension::KHR_compute_shader_derivatives)
       .Case("SPV_NV_compute_shader_derivatives",
             Extension::NV_compute_shader_derivatives)
       .Case("SPV_KHR_fragment_shader_barycentric",
@@ -283,6 +285,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_physical_storage_buffer";
   case Extension::KHR_vulkan_memory_model:
     return "SPV_KHR_vulkan_memory_model";
+  case Extension::KHR_compute_shader_derivatives:
+    return "SPV_KHR_compute_shader_derivatives";
   case Extension::NV_compute_shader_derivatives:
     return "SPV_NV_compute_shader_derivatives";
   case Extension::KHR_fragment_shader_barycentric:
@@ -370,6 +374,10 @@ bool FeatureManager::enabledByDefault(Extension ext) {
     // KHR_ray_tracing and NV_ray_tracing are mutually exclusive so enable only
     // KHR extension by default
   case Extension::NV_ray_tracing:
+    return false;
+    // KHR_compute_shader_derivatives and NV_compute_shader_derivatives are
+    // mutually exclusive so enable only KHR extension by default
+  case Extension::NV_compute_shader_derivatives:
     return false;
     // Enabling EXT_demote_to_helper_invocation changes the code generation
     // behavior for the 'discard' statement. Therefore we will only enable it if
