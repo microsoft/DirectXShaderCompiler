@@ -5848,9 +5848,97 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
-        # End of DXIL 1.9 opcodes.
+        self.add_dxil_op(
+              "MatVecMul",
+              next_op_idx,
+              "MatVecMul",
+              "Matrix-Vector Multiply",
+              "<hfwi,<hfwi",
+              "",
+              [
+                  db_dxil_param(0, "$x0", "outputVector", "output vector"),
+                  db_dxil_param(2, "$x1", "inputVector", "input vector"),
+                  db_dxil_param(3, "i1", "isInputSigned", "input signed op kind"),
+                  db_dxil_param(4, "i32", "inputInterpretation", "input interpretation"),
+                  db_dxil_param(5, "res", "matrixBuffer", "matrix resource"),
+                  db_dxil_param(6, "i32", "matrixOffset", "matrix offset"),
+                  db_dxil_param(7, "i32", "matrixIntepretation", "matrix intepretation"),
+                  db_dxil_param(8, "i32", "M", "matrix M dimension"),
+                  db_dxil_param(9, "i32", "K", "matrix K dimension"),
+                  db_dxil_param(10, "i32", "matrixLayout", "matrix layout"),
+                  db_dxil_param(11, "i1", "matrixTranspose", "matrix transpose"),
+                  db_dxil_param(12, "i32", "matrixStride", "matrix stride"),
+                  db_dxil_param(13, "i1", "isOutputSigned", "output signed op kind"),
+              ],
+          )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+              "MatVecMulAdd",
+              next_op_idx,
+              "MatVecMulAdd",
+              "Matrix-Vector Multiply Add",
+              "<hfwi,<hfwi",
+              "",
+              [
+                  db_dxil_param(0, "$x0", "outputVector", "output vector"),
+                  db_dxil_param(2, "$x1", "inputVector", "input vector"),
+                  db_dxil_param(3, "i1", "isInputSigned", "input signed op kind"),
+                  db_dxil_param(4, "i32", "inputInterpretation", "input interpretation"),
+                  db_dxil_param(5, "res", "matrixBuffer", "matrix resource"),
+                  db_dxil_param(6, "i32", "matrixOffset", "matrix offset"),
+                  db_dxil_param(7, "i32", "matrixIntepretation", "matrix intepretation"),
+                  db_dxil_param(8, "i32", "M", "matrix M dimension"),
+                  db_dxil_param(9, "i32", "K", "matrix K dimension"),
+                  db_dxil_param(10, "i32", "matrixLayout", "matrix layout"),
+                  db_dxil_param(11, "i1", "matrixTranspose", "matrix transpose"),
+                  db_dxil_param(12, "i32", "matrixStride", "matrix stride"),
+                  db_dxil_param(13, "res", "biasBuffer", "bias vector resource"),
+                  db_dxil_param(14, "i32", "biasOffset", "bias vector offset"),
+                  db_dxil_param(15, "i32", "biasIntepretation", "bias vector intepretation"),
+                  db_dxil_param(16, "i1", "isOutputSigned", "output signed op kind"),
+              ],
+          )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+              "OuterProductAccumulate",
+              next_op_idx,
+              "OuterProductAccumulate",
+              "Outer Product Accumulate",
+              "<hfwi,<hfwi",
+              "",
+              [
+                  db_dxil_param(0, "v", "", ""),
+                  db_dxil_param(2, "$x0", "inputVector1", "input vector 1"),
+                  db_dxil_param(3, "$x1", "inputVector2", "input vector 2"),
+                  db_dxil_param(4, "res", "matrixBuffer", "matrix resource"),
+                  db_dxil_param(5, "i32", "matrixOffset", "matrix offset"),
+                  db_dxil_param(6, "i32", "matrixStride", "matrix stride"),
+                  db_dxil_param(7, "i32", "matrixIntepretation", "matrix intepretation"),
+                  db_dxil_param(8, "i32", "matrixLayout", "matrix layout"),
+              ],
+          )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+              "VectorAccumulate",
+              next_op_idx,
+              "VectorAccumulate",
+              "Vector Accumulate",
+              "<hfwi",
+              "",
+              [
+                  db_dxil_param(0, "v", "", ""),
+                  db_dxil_param(2, "$o", "inputVector", "input vector 1"),
+                  db_dxil_param(3, "res", "arrayBuffer", "output array resource"),
+                  db_dxil_param(4, "i32", "arrayOffset", "output array offset"),
+              ],
+          )
+        next_op_idx += 1
+
         self.set_op_count_for_version(1, 9, next_op_idx)
-        assert next_op_idx == 305, (
+        assert next_op_idx == 309, (
             "305 is expected next operation index but encountered %d and thus opcodes are broken"
             % next_op_idx
         )

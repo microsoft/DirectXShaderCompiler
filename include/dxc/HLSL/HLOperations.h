@@ -433,6 +433,52 @@ const unsigned kNodeHandleToResCastOpIdx = 1;
 const unsigned kAnnotateNodeHandleNodePropIdx = 2;
 const unsigned kAnnotateNodeRecordHandleNodeRecordPropIdx = 2;
 
+// Linear Algebra Operations
+
+// MatVecMul
+const unsigned kMatVecMulOutputVectorIdx = 1;
+const unsigned kMatVecMulInputVectorIdx = 2;
+const unsigned kMatVecMulInputInterpretationIdx = 3;
+const unsigned kMatVecMulMatrixBufferIdx = 4;
+const unsigned kMatVecMulMatrixOffsetIdx = 5;
+const unsigned kMatVecMulMatrixInterpretationIdx = 6;
+const unsigned kMatVecMulMatrixMIdx = 7;
+const unsigned kMatVecMulMatrixKIdx = 8;
+const unsigned kMatVecMulMatrixLayoutIdx = 9;
+const unsigned kMatVecMulMatrixTransposeIdx = 10;
+const unsigned kMatVecMulMatrixStrideIdx = 11;
+
+
+// MatVecMulAdd
+const unsigned kMatVecMulAddOutputVectorIdx = 1;
+const unsigned kMatVecMulAddInputVectorIdx = 2;
+const unsigned kMatVecMulAddInputInterpretationIdx = 3;
+const unsigned kMatVecMulAddMatrixBufferIdx = 4;
+const unsigned kMatVecMulAddMatrixOffsetIdx = 5;
+const unsigned kMatVecMulAddMatrixInterpretationIdx = 6;
+const unsigned kMatVecMulAddMatrixMIdx = 7;
+const unsigned kMatVecMulAddMatrixKIdx = 8;
+const unsigned kMatVecMulAddMatrixLayoutIdx = 9;
+const unsigned kMatVecMulAddMatrixTransposeIdx = 10;
+const unsigned kMatVecMulAddMatrixStrideIdx = 11;
+const unsigned kMatVecMulAddBiasBufferIdx = 12;
+const unsigned kMatVecMulAddBiasOffsetIdx = 13;
+const unsigned kMatVecMulAddBiasInterpretationIdx = 14;
+
+
+// OuterProductAccumulate
+const unsigned kOuterProdAccInputVec1Idx = 1;
+const unsigned kOuterProdAccInputVec2Idx = 2;
+const unsigned kOuterProdAccMatrixIdx = 3;
+const unsigned kOuterProdAccMatrixOffsetIdx = 4;
+const unsigned kOuterProdAccMatrixInterpretationIdx = 5;
+const unsigned kOuterProdAccMatrixLayoutIdx = 6;
+const unsigned kOuterProdAccMatrixStrideIdx = 7;
+
+// Vector Accumulate
+const unsigned kVectorAccInputVecIdx = 1;
+const unsigned kVectorAccMatrixIdx = 2;
+const unsigned kVectorAccMatrixOffsetIdx = 3;
 } // namespace HLOperandIndex
 
 llvm::Function *GetOrCreateHLFunction(llvm::Module &M,
