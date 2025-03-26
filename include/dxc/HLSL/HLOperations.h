@@ -437,33 +437,37 @@ const unsigned kAnnotateNodeRecordHandleNodeRecordPropIdx = 2;
 
 // MatVecMul
 const unsigned kMatVecMulOutputVectorIdx = 1;
-const unsigned kMatVecMulInputVectorIdx = 2;
-const unsigned kMatVecMulInputInterpretationIdx = 3;
-const unsigned kMatVecMulMatrixBufferIdx = 4;
-const unsigned kMatVecMulMatrixOffsetIdx = 5;
-const unsigned kMatVecMulMatrixInterpretationIdx = 6;
-const unsigned kMatVecMulMatrixMIdx = 7;
-const unsigned kMatVecMulMatrixKIdx = 8;
-const unsigned kMatVecMulMatrixLayoutIdx = 9;
-const unsigned kMatVecMulMatrixTransposeIdx = 10;
-const unsigned kMatVecMulMatrixStrideIdx = 11;
+const unsigned kMatVecMulIsOutputUnsignedIdx = 2;
+const unsigned kMatVecMulInputVectorIdx = 3;
+const unsigned kMatVecMulIsInputUnsignedIdx = 4;
+const unsigned kMatVecMulInputInterpretationIdx = 5;
+const unsigned kMatVecMulMatrixBufferIdx = 6;
+const unsigned kMatVecMulMatrixOffsetIdx = 7;
+const unsigned kMatVecMulMatrixInterpretationIdx = 8;
+const unsigned kMatVecMulMatrixMIdx = 9;
+const unsigned kMatVecMulMatrixKIdx = 10;
+const unsigned kMatVecMulMatrixLayoutIdx = 11;
+const unsigned kMatVecMulMatrixTransposeIdx = 12;
+const unsigned kMatVecMulMatrixStrideIdx = 13;
 
 
 // MatVecMulAdd
 const unsigned kMatVecMulAddOutputVectorIdx = 1;
-const unsigned kMatVecMulAddInputVectorIdx = 2;
-const unsigned kMatVecMulAddInputInterpretationIdx = 3;
-const unsigned kMatVecMulAddMatrixBufferIdx = 4;
-const unsigned kMatVecMulAddMatrixOffsetIdx = 5;
-const unsigned kMatVecMulAddMatrixInterpretationIdx = 6;
-const unsigned kMatVecMulAddMatrixMIdx = 7;
-const unsigned kMatVecMulAddMatrixKIdx = 8;
-const unsigned kMatVecMulAddMatrixLayoutIdx = 9;
-const unsigned kMatVecMulAddMatrixTransposeIdx = 10;
-const unsigned kMatVecMulAddMatrixStrideIdx = 11;
-const unsigned kMatVecMulAddBiasBufferIdx = 12;
-const unsigned kMatVecMulAddBiasOffsetIdx = 13;
-const unsigned kMatVecMulAddBiasInterpretationIdx = 14;
+const unsigned kMatVecMulAddIsOutputUnsignedIdx = 2;
+const unsigned kMatVecMulAddInputVectorIdx = 3;
+const unsigned kMatVecMulAddIsInputUnsignedIdx = 4;
+const unsigned kMatVecMulAddInputInterpretationIdx = 5;
+const unsigned kMatVecMulAddMatrixBufferIdx = 6;
+const unsigned kMatVecMulAddMatrixOffsetIdx = 7;
+const unsigned kMatVecMulAddMatrixInterpretationIdx = 8;
+const unsigned kMatVecMulAddMatrixMIdx = 9;
+const unsigned kMatVecMulAddMatrixKIdx = 10;
+const unsigned kMatVecMulAddMatrixLayoutIdx = 11;
+const unsigned kMatVecMulAddMatrixTransposeIdx = 12;
+const unsigned kMatVecMulAddMatrixStrideIdx = 13;
+const unsigned kMatVecMulAddBiasBufferIdx = 14;
+const unsigned kMatVecMulAddBiasOffsetIdx = 15;
+const unsigned kMatVecMulAddBiasInterpretationIdx = 16;
 
 
 // OuterProductAccumulate
