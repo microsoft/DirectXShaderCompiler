@@ -3253,7 +3253,7 @@ bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
         return false;
       if (OloadSlot == kVectorTypeSlot) {
         unsigned EltTypeSlot =
-            GetTypeSlot(cast<VectorType>(pType)->getElementType());
+            GetTypeSlot(cast<VectorType>(ElTy)->getElementType());
         if (!OpProps.AllowedVectorElements[I][EltTypeSlot])
           return false;
       }

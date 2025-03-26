@@ -232,6 +232,10 @@ class db_dxil_inst(object):
             self.vector_oload_types[n] = vector_oloads
         if len(oload_types) > 1:
             self.oload_types = "x"
+            self.extended_oload_types[: len(oload_types)] = oload_types
+            self.check_extended_oload_ops()
+        else:
+            self.oload_types = oload_types[0]
 
     def check_extended_oload_ops(self):
         "Ensure ops has sequential extended overload references with $x0, $x1, etc."
