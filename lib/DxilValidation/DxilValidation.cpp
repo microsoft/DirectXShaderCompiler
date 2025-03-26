@@ -2193,6 +2193,9 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx,
     return true;
 
   if (Ty->isVectorTy()) {
+    if (Ty->getVectorNumElements() > 1 &&
+        ValCtx.DxilMod.GetShaderModel()->IsSM69Plus())
+      return true;
     ValCtx.EmitTypeError(Ty, ValidationRule::TypesNoVector);
     return false;
   }
@@ -2669,6 +2672,23 @@ static bool IsLLVMInstructionAllowedForLib(Instruction &I,
   }
 }
 
+// Shader model specific checks for valid LLVM instructions.
+// Currently only checks for pre 6.9 usage of vector operations.
+// Returns false if shader model is pre 6.9 and I represents a vector
+// operation. Returns true otherwise.
+static bool IsLLVMInstructionAllowedForShaderModel(Instruction &I,
+                                                   ValidationContext &ValCtx) {
+  if (ValCtx.DxilMod.GetShaderModel()->IsSM69Plus())
+    return true;
+  unsigned OpCode = I.getOpcode();
+  if (OpCode == Instruction::InsertElement ||
+      OpCode == Instruction::ExtractElement ||
+      OpCode == Instruction::ShuffleVector)
+    return false;
+
+  return true;
+}
+
 static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   bool SupportsMinPrecision =
       ValCtx.DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision;
@@ -2691,7 +2711,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       }
 
       // Instructions must be allowed.
-      if (!IsLLVMInstructionAllowed(I)) {
+      if (!IsLLVMInstructionAllowed(I) ||
+          !IsLLVMInstructionAllowedForShaderModel(I, ValCtx)) {
         if (!IsLLVMInstructionAllowedForLib(I, ValCtx)) {
           ValCtx.EmitInstrError(&I, ValidationRule::InstrAllowed);
           continue;

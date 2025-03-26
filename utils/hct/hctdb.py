@@ -1184,6 +1184,37 @@ class db_dxil(object):
         self.add_llvm_instr(
             "OTHER", 53, "VAArg", "VAArgInst", "vaarg instruction", "", []
         )
+
+        self.add_llvm_instr(
+            "OTHER",
+            54,
+            "ExtractElement",
+            "ExtractElementInst",
+            "extracts from vector",
+            "",
+            [],
+        )
+
+        self.add_llvm_instr(
+            "OTHER",
+            55,
+            "InsertElement",
+            "InsertElementInst",
+            "inserts into vector",
+            "",
+            [],
+        )
+
+        self.add_llvm_instr(
+            "OTHER",
+            56,
+            "ShuffleVector",
+            "ShuffleVectorInst",
+            "Shuffle two vectors",
+            "",
+            [],
+        )
+
         self.add_llvm_instr(
             "OTHER",
             57,
