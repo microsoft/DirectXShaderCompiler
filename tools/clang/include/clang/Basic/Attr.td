@@ -1161,7 +1161,7 @@ def HLSLSubObject : InheritableAttr {
   let Spellings = []; // No spellings!
   let Subjects = SubjectList<[CXXRecord]>;
   let Documentation = [Undocumented];
-  let Args = [UnsignedArgument<"SubObjKindUint">];
+  let Args = [UnsignedArgument<"SubObjKindUint">, DefaultIntArgument<"HitGroupType", -1>];
 }
 
 // HLSL HitObject Attribute

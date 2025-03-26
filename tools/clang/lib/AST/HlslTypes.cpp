@@ -22,7 +22,6 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Type.h"
 #include "clang/Sema/AttributeList.h" // conceptually ParsedAttributes
-#include "clang/Sema/SemaHLSL.h"      // ArBasicObject kind enums
 #include "llvm/ADT/StringSwitch.h"
 
 using namespace clang;
@@ -685,7 +684,6 @@ bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
 bool GetHLSLSubobjectKind(clang::QualType type,
                           DXIL::SubobjectKind &subobjectKind,
                           DXIL::HitGroupType &hgType) {
-  hgType = (DXIL::HitGroupType)(-1);
   type = type.getCanonicalType();
   if (const RecordType *RT = type->getAs<RecordType>()) {
     RecordDecl *RD = RT->getDecl();
@@ -694,38 +692,10 @@ bool GetHLSLSubobjectKind(clang::QualType type,
     }
 
     HLSLSubObjectAttr *Attr = RD->getAttr<HLSLSubObjectAttr>();
+    subobjectKind = (DXIL::SubobjectKind)Attr->getSubObjKindUint();
+    hgType = (DXIL::HitGroupType)Attr->getHitGroupType();
 
-    switch (Attr->getSubObjKindUint()) {
-    case ArBasicKind::AR_OBJECT_STATE_OBJECT_CONFIG:
-      subobjectKind = DXIL::SubobjectKind::StateObjectConfig;
-      return true;
-    case ArBasicKind::AR_OBJECT_LOCAL_ROOT_SIGNATURE:
-      subobjectKind = DXIL::SubobjectKind::LocalRootSignature;
-      return true;
-    case ArBasicKind::AR_OBJECT_GLOBAL_ROOT_SIGNATURE:
-      subobjectKind = DXIL::SubobjectKind::GlobalRootSignature;
-      return true;
-    case ArBasicKind::AR_OBJECT_SUBOBJECT_TO_EXPORTS_ASSOC:
-      subobjectKind = DXIL::SubobjectKind::SubobjectToExportsAssociation;
-      return true;
-    case ArBasicKind::AR_OBJECT_RAYTRACING_SHADER_CONFIG:
-      subobjectKind = DXIL::SubobjectKind::RaytracingShaderConfig;
-      return true;
-    case ArBasicKind::AR_OBJECT_RAYTRACING_PIPELINE_CONFIG:
-      subobjectKind = DXIL::SubobjectKind::RaytracingPipelineConfig;
-      return true;
-    case ArBasicKind::AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1:
-      subobjectKind = DXIL::SubobjectKind::RaytracingPipelineConfig1;
-      return true;
-    case ArBasicKind::AR_OBJECT_TRIANGLE_HIT_GROUP:
-      subobjectKind = DXIL::SubobjectKind::HitGroup;
-      hgType = DXIL::HitGroupType::Triangle;
-      return true;
-    case ArBasicKind::AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP:
-      subobjectKind = DXIL::SubobjectKind::HitGroup;
-      hgType = DXIL::HitGroupType::ProceduralPrimitive;
-      return true;
-    }
+    return true;
   }
   return false;
 }
