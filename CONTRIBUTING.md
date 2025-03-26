@@ -52,7 +52,7 @@ Note that the LLVM Coding Standards have a golden rule:
 
 > **If you are extending, enhancing, or bug fixing already implemented code, use the style that is already being used so that the source is uniform and easy to follow.**
 
-The golden rule should continue to be applied to places where DXC is self-consistent. A good example is DXC's common use of `CamelCase` instead of `camelCase` for APIs in some parts of the HLSL implementation. In any place where DXC is not self-consistent new code should follow the LLVM Coding Standard.
+The golden rule should continue to be applied to places where DXC is self-consistent. A good example is DXC's common use of `PascalCase` instead of `camelCase` for APIs in some parts of the HLSL implementation. In any place where DXC is not self-consistent new code should follow the LLVM Coding Standard.
 
 A good secondary rule to follow is:
 
