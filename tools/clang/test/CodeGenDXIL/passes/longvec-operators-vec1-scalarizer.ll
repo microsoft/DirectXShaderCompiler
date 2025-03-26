@@ -1,4 +1,4 @@
-; RUN: %dxopt %s -hlsl-passes-resume -scalarizer -S | FileCheck %s
+; RUN: %dxopt %s -scalarizer -S | FileCheck %s
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -741,45 +741,5 @@ attributes #0 = { nounwind }
 attributes #1 = { nounwind readnone }
 attributes #2 = { nounwind readonly }
 
-!pauseresume = !{!1}
 !dx.version = !{!3}
-!dx.valver = !{!3}
-!dx.shaderModel = !{!4}
-!dx.resources = !{!5}
-!dx.typeAnnotations = !{!9, !15}
-!dx.entryPoints = !{!35}
-
-!1 = !{!"hlsl-dxilemit", !"hlsl-dxilload"}
 !3 = !{i32 1, i32 9}
-!4 = !{!"lib", i32 6, i32 9}
-!5 = !{null, !6, null, null}
-!6 = !{!7}
-!7 = !{i32 0, %"class.RWStructuredBuffer<vector<float, 1> >"* @"\01?buf@@3V?$RWStructuredBuffer@V?$vector@M$00@@@@A", !"buf", i32 -1, i32 -1, i32 1, i32 12, i1 false, i1 false, i1 false, !8}
-!8 = !{i32 1, i32 4}
-!9 = !{i32 0, %"class.RWStructuredBuffer<vector<float, 1> >" undef, !10}
-!10 = !{i32 4, !11, !12}
-!11 = !{i32 6, !"h", i32 3, i32 0, i32 7, i32 9, i32 13, i32 1}
-!12 = !{i32 0, !13}
-!13 = !{!14}
-!14 = !{i32 0, <1 x float> undef}
-!15 = !{i32 1, void ([10 x <1 x float>]*)* @"\01?assignments@@YAXY09$$CAV?$vector@M$00@@@Z", !16, void ([11 x <1 x float>]*, [11 x <1 x float>]*)* @"\01?arithmetic@@YA$$BY0L@V?$vector@M$00@@Y0L@$$CAV1@@Z", !21, void ([10 x i32]*, [10 x i32]*, [10 x <1 x float>]*)* @"\01?logic@@YA$$BY09_NY09_NY09V?$vector@M$00@@@Z", !24, void ([10 x <1 x float>]*, [10 x <1 x float>]*, i32)* @"\01?index@@YA$$BY09V?$vector@M$00@@Y09V1@H@Z", !29, void ([11 x i32]*)* @"\01?bittwiddlers@@YAXY0L@$$CAI@Z", !32}
-!16 = !{!17, !19}
-!17 = !{i32 1, !18, !18}
-!18 = !{}
-!19 = !{i32 2, !20, !18}
-!20 = !{i32 7, i32 9, i32 13, i32 1}
-!21 = !{!22, !23, !19}
-!22 = !{i32 0, !18, !18}
-!23 = !{i32 1, !20, !18}
-!24 = !{!22, !25, !27, !28}
-!25 = !{i32 1, !26, !18}
-!26 = !{i32 7, i32 1}
-!27 = !{i32 0, !26, !18}
-!28 = !{i32 0, !20, !18}
-!29 = !{!22, !23, !28, !30}
-!30 = !{i32 0, !31, !18}
-!31 = !{i32 7, i32 4}
-!32 = !{!17, !33}
-!33 = !{i32 2, !34, !18}
-!34 = !{i32 7, i32 5}
-!35 = !{null, !"", null, !5, null}

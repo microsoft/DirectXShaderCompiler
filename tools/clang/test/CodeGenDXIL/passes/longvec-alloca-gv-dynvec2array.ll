@@ -1,4 +1,4 @@
-; RUN: %dxopt %s -hlsl-passes-resume -dynamic-vector-to-array,ReplaceAllVectors=0 -S | FileCheck %s
+; RUN: %dxopt %s -dynamic-vector-to-array,ReplaceAllVectors=0 -S | FileCheck %s
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -66,7 +66,7 @@ bb:
   %dylorc2.0 = alloca <2 x float>
   %stlorc2.0 = alloca <2 x float>
   %stlar1.0 = alloca [3 x float]
-  %tmp = alloca i32, align 4, !dx.temp !14
+  %tmp = alloca i32, align 4
   %dyloc1 = alloca <1 x float>, align 4
   %dyloc2 = alloca <2 x float>, align 4
   %dylar1 = alloca [3 x <1 x float>], align 4
@@ -265,32 +265,5 @@ bb76:                                             ; preds = %bb17, %bb
 
 attributes #0 = { nounwind }
 
-!pauseresume = !{!1}
 !dx.version = !{!3}
-!dx.valver = !{!3}
-!dx.shaderModel = !{!4}
-!dx.typeAnnotations = !{!5, !10}
-!dx.entryPoints = !{!19}
-!dx.fnprops = !{}
-!dx.options = !{!20, !21}
-
-!1 = !{!"hlsl-hlemit", !"hlsl-hlensure"}
 !3 = !{i32 1, i32 9}
-!4 = !{!"lib", i32 6, i32 9}
-!5 = !{i32 0, %struct.VectRec1 undef, !6, %struct.VectRec2 undef, !8}
-!6 = !{i32 4, !7}
-!7 = !{i32 6, !"f", i32 3, i32 0, i32 4, !"REC1", i32 7, i32 9, i32 13, i32 1}
-!8 = !{i32 8, !9}
-!9 = !{i32 6, !"f", i32 3, i32 0, i32 4, !"REC2", i32 7, i32 9, i32 13, i32 2}
-!10 = !{i32 1, <4 x float> (i32, [12 x float]*)* @"\01?tester@@YA?AV?$vector@M$03@@HY0M@M@Z", !11}
-!11 = !{!12, !15, !17}
-!12 = !{i32 1, !13, !14}
-!13 = !{i32 7, i32 9, i32 13, i32 4}
-!14 = !{}
-!15 = !{i32 0, !16, !14}
-!16 = !{i32 4, !"IX", i32 7, i32 4}
-!17 = !{i32 0, !18, !14}
-!18 = !{i32 4, !"VAL", i32 7, i32 9}
-!19 = !{null, !"", null, null, null}
-!20 = !{i32 64}
-!21 = !{i32 -1}
