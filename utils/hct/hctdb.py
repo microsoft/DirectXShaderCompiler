@@ -6463,6 +6463,12 @@ class db_dxil(object):
             [],
         )
         add_pass(
+            "hlsl-dxil-scalarize-vector-load-stores",
+            "DxilScalarizeVectorLoadStores",
+            "DXIL scalarize vector load/stores",
+            [],
+        )
+        add_pass(
             "hlsl-dxil-cleanup-dynamic-resource-handle",
             "DxilCleanupDynamicResourceHandle",
             "DXIL Cleanup dynamic resource handle calls",

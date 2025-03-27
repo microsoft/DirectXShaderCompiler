@@ -1247,6 +1247,10 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createDxilReinsertNopsPass());
   PM.add(createAlwaysInlinerPass(/*InsertLifeTime*/ false));
 
+  // If we need SROA and dynamicindexvector to array,
+  // do it early to allow following scalarization to go forward.
+  PM.add(createDxilScalarizeVectorLoadStoresPass());
+
   // Remove unused functions.
   PM.add(createDxilDeadFunctionEliminationPass());
 
@@ -1272,6 +1276,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
 
   // Clean up vectors, and run mem2reg again
   PM.add(createScalarizerPass());
+
   PM.add(createPromoteMemoryToRegisterPass());
 
   PM.add(createSimplifyInstPass());
