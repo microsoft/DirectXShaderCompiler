@@ -692,8 +692,8 @@ bool GetHLSLSubobjectKind(clang::QualType type,
     }
 
     HLSLSubObjectAttr *Attr = RD->getAttr<HLSLSubObjectAttr>();
-    subobjectKind = (DXIL::SubobjectKind)Attr->getSubObjKindUint();
-    hgType = (DXIL::HitGroupType)Attr->getHitGroupType();
+    subobjectKind = static_cast<DXIL::SubobjectKind>(Attr->getSubObjKindUint());
+    hgType = static_cast<DXIL::HitGroupType>(Attr->getHitGroupType());
     if (subobjectKind == DXIL::SubobjectKind::HitGroup)
       DXASSERT(DXIL::IsValidHitGroupType(hgType), "invalid hit group type");
 
