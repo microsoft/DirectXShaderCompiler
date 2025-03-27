@@ -740,16 +740,13 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       HLSLCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK, NodeLaunchTy,
                                       nullptr, DiagnosedCalls,
                                       DeclAvailabilityChecked);
-      if (InitListExpr *ILE = dyn_cast<InitListExpr>(VD->getInit())) {
-        if (auto RT = ILE->getType()->getAs<RecordType>()) {
-          if (const RecordDecl *RD = RT->getDecl()) {
-            if (RD->getName() == "RaytracingPipelineConfig1") {
-              Visitor.TraverseDecl(VD);
-            }
-          }
-        }
+      QualType QT = VD->getType();
+      if (const RecordType *RT = QT->getAs<RecordType>()) {
+        RecordDecl *RD = RT->getDecl();
+        if (!RD->hasAttr<HLSLSubObjectAttr>())
+          continue;
+        Visitor.TraverseDecl(VD);
       }
-      break;
     }
   }
 }
