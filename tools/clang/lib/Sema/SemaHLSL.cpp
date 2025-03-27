@@ -2787,15 +2787,15 @@ AddBuiltInTriangleIntersectionAttributes(ASTContext &context,
 
 static CXXRecordDecl *
 StartSubobjectDecl(ASTContext &context, const char *name,
-                   DXIL::SubobjectKind kind,
-                   DXIL::HitGroupType hgtype = (DXIL::HitGroupType)(-1)) {
+                   DXIL::SubobjectKind Kind,
+                   DXIL::HitGroupType HGT = DXIL::HitGroupType::LastEntry) {
   IdentifierInfo &id =
       context.Idents.get(StringRef(name), tok::TokenKind::identifier);
   CXXRecordDecl *decl = CXXRecordDecl::Create(
       context, TagTypeKind::TTK_Struct, context.getTranslationUnitDecl(), NoLoc,
       NoLoc, &id, nullptr, DelayTypeCreationTrue);
-  decl->addAttr(
-      HLSLSubObjectAttr::CreateImplicit(context, (unsigned)kind, (int)hgtype));
+  decl->addAttr(HLSLSubObjectAttr::CreateImplicit(
+      context, static_cast<unsigned>(Kind), static_cast<unsigned>(HGT)));
   decl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
   decl->startDefinition();
   return decl;
