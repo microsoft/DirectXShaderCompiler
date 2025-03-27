@@ -2785,13 +2785,17 @@ AddBuiltInTriangleIntersectionAttributes(ASTContext &context,
 //
 // Subobjects
 
-static CXXRecordDecl *StartSubobjectDecl(ASTContext &context,
-                                         const char *name) {
+static CXXRecordDecl *
+StartSubobjectDecl(ASTContext &context, const char *name,
+                   DXIL::SubobjectKind Kind,
+                   DXIL::HitGroupType HGT = DXIL::HitGroupType::LastEntry) {
   IdentifierInfo &id =
       context.Idents.get(StringRef(name), tok::TokenKind::identifier);
   CXXRecordDecl *decl = CXXRecordDecl::Create(
       context, TagTypeKind::TTK_Struct, context.getTranslationUnitDecl(), NoLoc,
       NoLoc, &id, nullptr, DelayTypeCreationTrue);
+  decl->addAttr(HLSLSubObjectAttr::CreateImplicit(
+      context, static_cast<unsigned>(Kind), static_cast<unsigned>(HGT)));
   decl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
   decl->startDefinition();
   return decl;
@@ -2808,7 +2812,8 @@ void FinishSubobjectDecl(ASTContext &context, CXXRecordDecl *decl) {
 //   uint32_t Flags;
 // };
 static CXXRecordDecl *CreateSubobjectStateObjectConfig(ASTContext &context) {
-  CXXRecordDecl *decl = StartSubobjectDecl(context, "StateObjectConfig");
+  CXXRecordDecl *decl = StartSubobjectDecl(
+      context, "StateObjectConfig", DXIL::SubobjectKind::StateObjectConfig);
   CreateSimpleField(context, decl, "Flags", context.UnsignedIntTy,
                     AccessSpecifier::AS_private);
   FinishSubobjectDecl(context, decl);
@@ -2822,7 +2827,10 @@ static CXXRecordDecl *CreateSubobjectStateObjectConfig(ASTContext &context) {
 static CXXRecordDecl *CreateSubobjectRootSignature(ASTContext &context,
                                                    bool global) {
   CXXRecordDecl *decl = StartSubobjectDecl(
-      context, global ? "GlobalRootSignature" : "LocalRootSignature");
+      context, global ? "GlobalRootSignature" : "LocalRootSignature",
+      global ? DXIL::SubobjectKind::GlobalRootSignature
+             : DXIL::SubobjectKind::LocalRootSignature);
+
   CreateSimpleField(context, decl, "Data", context.HLSLStringTy,
                     AccessSpecifier::AS_private);
   FinishSubobjectDecl(context, decl);
@@ -2837,7 +2845,8 @@ static CXXRecordDecl *CreateSubobjectRootSignature(ASTContext &context,
 static CXXRecordDecl *
 CreateSubobjectSubobjectToExportsAssoc(ASTContext &context) {
   CXXRecordDecl *decl =
-      StartSubobjectDecl(context, "SubobjectToExportsAssociation");
+      StartSubobjectDecl(context, "SubobjectToExportsAssociation",
+                         DXIL::SubobjectKind::SubobjectToExportsAssociation);
   CreateSimpleField(context, decl, "Subobject", context.HLSLStringTy,
                     AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "Exports", context.HLSLStringTy,
@@ -2853,7 +2862,9 @@ CreateSubobjectSubobjectToExportsAssoc(ASTContext &context) {
 // };
 static CXXRecordDecl *
 CreateSubobjectRaytracingShaderConfig(ASTContext &context) {
-  CXXRecordDecl *decl = StartSubobjectDecl(context, "RaytracingShaderConfig");
+  CXXRecordDecl *decl =
+      StartSubobjectDecl(context, "RaytracingShaderConfig",
+                         DXIL::SubobjectKind::RaytracingShaderConfig);
   CreateSimpleField(context, decl, "MaxPayloadSizeInBytes",
                     context.UnsignedIntTy, AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "MaxAttributeSizeInBytes",
@@ -2868,7 +2879,9 @@ CreateSubobjectRaytracingShaderConfig(ASTContext &context) {
 // };
 static CXXRecordDecl *
 CreateSubobjectRaytracingPipelineConfig(ASTContext &context) {
-  CXXRecordDecl *decl = StartSubobjectDecl(context, "RaytracingPipelineConfig");
+  CXXRecordDecl *decl =
+      StartSubobjectDecl(context, "RaytracingPipelineConfig",
+                         DXIL::SubobjectKind::RaytracingPipelineConfig);
   CreateSimpleField(context, decl, "MaxTraceRecursionDepth",
                     context.UnsignedIntTy, AccessSpecifier::AS_private);
   FinishSubobjectDecl(context, decl);
@@ -2883,7 +2896,8 @@ CreateSubobjectRaytracingPipelineConfig(ASTContext &context) {
 static CXXRecordDecl *
 CreateSubobjectRaytracingPipelineConfig1(ASTContext &context) {
   CXXRecordDecl *decl =
-      StartSubobjectDecl(context, "RaytracingPipelineConfig1");
+      StartSubobjectDecl(context, "RaytracingPipelineConfig1",
+                         DXIL::SubobjectKind::RaytracingPipelineConfig1);
   CreateSimpleField(context, decl, "MaxTraceRecursionDepth",
                     context.UnsignedIntTy, AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "Flags", context.UnsignedIntTy,
@@ -2898,7 +2912,9 @@ CreateSubobjectRaytracingPipelineConfig1(ASTContext &context) {
 //   string ClosestHit;
 // };
 static CXXRecordDecl *CreateSubobjectTriangleHitGroup(ASTContext &context) {
-  CXXRecordDecl *decl = StartSubobjectDecl(context, "TriangleHitGroup");
+  CXXRecordDecl *decl = StartSubobjectDecl(context, "TriangleHitGroup",
+                                           DXIL::SubobjectKind::HitGroup,
+                                           DXIL::HitGroupType::Triangle);
   CreateSimpleField(context, decl, "AnyHit", context.HLSLStringTy,
                     AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "ClosestHit", context.HLSLStringTy,
@@ -2915,8 +2931,9 @@ static CXXRecordDecl *CreateSubobjectTriangleHitGroup(ASTContext &context) {
 // };
 static CXXRecordDecl *
 CreateSubobjectProceduralPrimitiveHitGroup(ASTContext &context) {
-  CXXRecordDecl *decl =
-      StartSubobjectDecl(context, "ProceduralPrimitiveHitGroup");
+  CXXRecordDecl *decl = StartSubobjectDecl(
+      context, "ProceduralPrimitiveHitGroup", DXIL::SubobjectKind::HitGroup,
+      DXIL::HitGroupType::ProceduralPrimitive);
   CreateSimpleField(context, decl, "AnyHit", context.HLSLStringTy,
                     AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "ClosestHit", context.HLSLStringTy,

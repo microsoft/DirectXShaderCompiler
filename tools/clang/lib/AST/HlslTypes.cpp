@@ -684,64 +684,20 @@ bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
 bool GetHLSLSubobjectKind(clang::QualType type,
                           DXIL::SubobjectKind &subobjectKind,
                           DXIL::HitGroupType &hgType) {
-  hgType = (DXIL::HitGroupType)(-1);
   type = type.getCanonicalType();
   if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    switch (name.size()) {
-    case 17:
-      return name == "StateObjectConfig"
-                 ? (subobjectKind = DXIL::SubobjectKind::StateObjectConfig,
-                    true)
-                 : false;
-    case 18:
-      return name == "LocalRootSignature"
-                 ? (subobjectKind = DXIL::SubobjectKind::LocalRootSignature,
-                    true)
-                 : false;
-    case 19:
-      return name == "GlobalRootSignature"
-                 ? (subobjectKind = DXIL::SubobjectKind::GlobalRootSignature,
-                    true)
-                 : false;
-    case 29:
-      return name == "SubobjectToExportsAssociation"
-                 ? (subobjectKind =
-                        DXIL::SubobjectKind::SubobjectToExportsAssociation,
-                    true)
-                 : false;
-    case 22:
-      return name == "RaytracingShaderConfig"
-                 ? (subobjectKind = DXIL::SubobjectKind::RaytracingShaderConfig,
-                    true)
-                 : false;
-    case 24:
-      return name == "RaytracingPipelineConfig"
-                 ? (subobjectKind =
-                        DXIL::SubobjectKind::RaytracingPipelineConfig,
-                    true)
-                 : false;
-    case 25:
-      return name == "RaytracingPipelineConfig1"
-                 ? (subobjectKind =
-                        DXIL::SubobjectKind::RaytracingPipelineConfig1,
-                    true)
-                 : false;
-    case 16:
-      if (name == "TriangleHitGroup") {
-        subobjectKind = DXIL::SubobjectKind::HitGroup;
-        hgType = DXIL::HitGroupType::Triangle;
-        return true;
-      }
-      return false;
-    case 27:
-      if (name == "ProceduralPrimitiveHitGroup") {
-        subobjectKind = DXIL::SubobjectKind::HitGroup;
-        hgType = DXIL::HitGroupType::ProceduralPrimitive;
-        return true;
-      }
+    RecordDecl *RD = RT->getDecl();
+    if (!RD->hasAttr<HLSLSubObjectAttr>()) {
       return false;
     }
+
+    HLSLSubObjectAttr *Attr = RD->getAttr<HLSLSubObjectAttr>();
+    subobjectKind = static_cast<DXIL::SubobjectKind>(Attr->getSubObjKindUint());
+    hgType = static_cast<DXIL::HitGroupType>(Attr->getHitGroupType());
+    if (subobjectKind == DXIL::SubobjectKind::HitGroup)
+      DXASSERT(DXIL::IsValidHitGroupType(hgType), "invalid hit group type");
+
+    return true;
   }
   return false;
 }
