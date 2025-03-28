@@ -3270,17 +3270,6 @@ bool OP::IsDxilOpFunc(const llvm::Function *F) {
   return IsDxilOpFuncName(F->getName());
 }
 
-bool OP::IsDxilOpTypeName(StringRef name) {
-  return name.startswith(m_TypePrefix) || name.startswith(m_MatrixTypePrefix);
-}
-
-bool OP::IsDxilOpType(llvm::StructType *ST) {
-  if (!ST->hasName())
-    return false;
-  StringRef Name = ST->getName();
-  return IsDxilOpTypeName(Name);
-}
-
 bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I) {
   const CallInst *CI = dyn_cast<CallInst>(I);
   if (CI == nullptr)

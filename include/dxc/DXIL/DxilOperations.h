@@ -135,8 +135,6 @@ public:
   static bool BarrierRequiresGroup(const llvm::CallInst *CI);
   static bool BarrierRequiresNode(const llvm::CallInst *CI);
   static DXIL::BarrierMode TranslateToBarrierMode(const llvm::CallInst *CI);
-  static bool IsDxilOpTypeName(llvm::StringRef name);
-  static bool IsDxilOpType(llvm::StructType *ST);
   static void GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
                                        unsigned &major, unsigned &minor,
                                        unsigned &mask);
