@@ -23,8 +23,6 @@
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
-using std::string;
-using std::vector;
 
 namespace hlsl {
 
@@ -3133,7 +3131,7 @@ const char *OP::GetOverloadTypeName(unsigned TypeSlot) {
   return m_OverloadTypeName[TypeSlot];
 }
 
-llvm::StringRef OP::GetTypeName(Type *Ty, std::string &str) {
+StringRef OP::GetTypeName(Type *Ty, SmallVectorImpl<char> &Storage) {
   unsigned TypeSlot = OP::GetTypeSlot(Ty);
   if (TypeSlot < kUserDefineTypeSlot) {
     return GetOverloadTypeName(TypeSlot);
@@ -3147,10 +3145,10 @@ llvm::StringRef OP::GetTypeName(Type *Ty, std::string &str) {
     return ST->getStructName();
   } else if (TypeSlot == kVectorTypeSlot) {
     VectorType *VecTy = cast<VectorType>(Ty);
-    str = "v";
-    str += std::to_string(VecTy->getNumElements());
-    str += GetOverloadTypeName(OP::GetTypeSlot(VecTy->getElementType()));
-    return str;
+    return (Twine("v") + Twine(VecTy->getNumElements()) +
+            Twine(
+                GetOverloadTypeName(OP::GetTypeSlot(VecTy->getElementType()))))
+        .toStringRef(Storage);
   } else if (TypeSlot == kExtendedTypeSlot) {
     DXASSERT(isa<StructType>(Ty),
              "otherwise, extended overload type not wrapped in struct type.");
@@ -3158,33 +3156,32 @@ llvm::StringRef OP::GetTypeName(Type *Ty, std::string &str) {
     DXASSERT(ST->getNumElements() <= DXIL::kDxilMaxOloadDims,
              "otherwise, extended overload has too many dimensions.");
     // Iterate extended slots, recurse, separate with '.'
+    raw_svector_ostream OS(Storage);
     for (unsigned I = 0; I < ST->getNumElements(); ++I) {
       if (I > 0)
-        str += ".";
-      std::string TempStr;
-      str += GetTypeName(ST->getElementType(I), TempStr);
+        OS << ".";
+      SmallVector<char, 32> TempStr;
+      OS << GetTypeName(ST->getElementType(I), TempStr);
     }
-    return str;
+    return OS.str();
   } else {
-    raw_string_ostream os(str);
-    Ty->print(os);
-    os.flush();
-    return str;
+    raw_svector_ostream OS(Storage);
+    Ty->print(OS);
+    return OS.str();
   }
 }
 
-llvm::StringRef OP::ConstructOverloadName(Type *Ty, DXIL::OpCode opCode,
-                                          std::string &funcNameStorage) {
+StringRef OP::ConstructOverloadName(Type *Ty, DXIL::OpCode opCode,
+                                    SmallVectorImpl<char> &Storage) {
   if (Ty == Type::getVoidTy(Ty->getContext())) {
-    funcNameStorage =
-        (Twine(OP::m_NamePrefix) + Twine(GetOpCodeClassName(opCode))).str();
+    return (Twine(OP::m_NamePrefix) + Twine(GetOpCodeClassName(opCode)))
+        .toStringRef(Storage);
   } else {
-    funcNameStorage =
-        (Twine(OP::m_NamePrefix) + Twine(GetOpCodeClassName(opCode)) + "." +
-         GetTypeName(Ty, funcNameStorage))
-            .str();
+    llvm::SmallVector<char, 64> TempStr;
+    return (Twine(OP::m_NamePrefix) + Twine(GetOpCodeClassName(opCode)) + "." +
+            GetTypeName(Ty, TempStr))
+        .toStringRef(Storage);
   }
-  return funcNameStorage;
 }
 
 const char *OP::GetOpCodeName(OpCode opCode) {
@@ -4035,7 +4032,7 @@ void OP::FixOverloadNames() {
       if (!isa<StructType>(Ty) && !isa<PointerType>(Ty))
         continue;
 
-      std::string funcName;
+      SmallVector<char, 256> funcName;
       if (OP::ConstructOverloadName(Ty, opCode, funcName)
               .compare(F.getName()) != 0)
         F.setName(funcName);
@@ -4088,7 +4085,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     return F;
   }
 
-  vector<Type *> ArgTypes; // RetType is ArgTypes[0]
+  SmallVector<Type *, 32> ArgTypes; // RetType is ArgTypes[0]
   Type *pETy = pOverloadType;
   Type *pRes = GetHandleType();
   Type *pNodeHandle = GetNodeHandleType();
@@ -6173,14 +6170,15 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   pFT = FunctionType::get(
       ArgTypes[0], ArrayRef<Type *>(&ArgTypes[1], ArgTypes.size() - 1), false);
 
-  std::string funcName;
-  ConstructOverloadName(pOverloadType, opCode, funcName);
+  SmallVector<char, 256> FuncStorage;
+  StringRef FuncName =
+      ConstructOverloadName(pOverloadType, opCode, FuncStorage);
 
   // Try to find existing function with the same name in the module.
   // This needs to happen after the switch statement that constructs arguments
   // and return values to ensure that ResRetType is constructed in the
   // RefreshCache case.
-  if (Function *existF = m_pModule->getFunction(funcName)) {
+  if (Function *existF = m_pModule->getFunction(FuncName)) {
     if (existF->getFunctionType() != pFT)
       return nullptr;
     F = existF;
@@ -6188,7 +6186,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     return F;
   }
 
-  F = cast<Function>(m_pModule->getOrInsertFunction(funcName, pFT));
+  F = cast<Function>(m_pModule->getOrInsertFunction(FuncName, pFT));
 
   UpdateCache(opClass, pOverloadType, F);
   F->setCallingConv(CallingConv::C);
@@ -6612,16 +6610,19 @@ Type *OP::GetResRetType(Type *pOverloadType) {
   unsigned TypeSlot = GetTypeSlot(pOverloadType);
 
   if (TypeSlot == kVectorTypeSlot) {
-    string TypeName("dx.types.ResRet.");
+    SmallVector<char, 32> Storage;
     VectorType *VecTy = cast<VectorType>(pOverloadType);
-    TypeName += "v";
-    TypeName += std::to_string(VecTy->getNumElements());
-    TypeName += GetOverloadTypeName(OP::GetTypeSlot(VecTy->getElementType()));
+    StringRef TypeName =
+        (Twine("dx.types.ResRet.v") + Twine(VecTy->getNumElements()) +
+         Twine(GetOverloadTypeName(OP::GetTypeSlot(VecTy->getElementType()))))
+            .toStringRef(Storage);
     Type *FieldTypes[2] = {pOverloadType, Type::getInt32Ty(m_Ctx)};
     return GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
   } else if (m_pResRetType[TypeSlot] == nullptr) {
-    string TypeName("dx.types.ResRet.");
-    TypeName += GetOverloadTypeName(TypeSlot);
+    SmallVector<char, 32> Storage;
+    StringRef TypeName =
+        (Twine("dx.types.ResRet.") + Twine(GetOverloadTypeName(TypeSlot)))
+            .toStringRef(Storage);
     Type *FieldTypes[5] = {pOverloadType, pOverloadType, pOverloadType,
                            pOverloadType, Type::getInt32Ty(m_Ctx)};
     m_pResRetType[TypeSlot] =
@@ -6637,28 +6638,30 @@ Type *OP::GetCBufferRetType(Type *pOverloadType) {
   if (m_pCBufferRetType[TypeSlot] == nullptr) {
     DXASSERT(m_LowPrecisionMode != DXIL::LowPrecisionMode::Undefined,
              "m_LowPrecisionMode must be set before constructing type.");
-    string TypeName("dx.types.CBufRet.");
-    TypeName += GetOverloadTypeName(TypeSlot);
+    SmallVector<char, 32> Storage;
+    raw_svector_ostream OS(Storage);
+    OS << "dx.types.CBufRet.";
+    OS << GetOverloadTypeName(TypeSlot);
     Type *i64Ty = Type::getInt64Ty(pOverloadType->getContext());
     Type *i16Ty = Type::getInt16Ty(pOverloadType->getContext());
     if (pOverloadType->isDoubleTy() || pOverloadType == i64Ty) {
       Type *FieldTypes[2] = {pOverloadType, pOverloadType};
       m_pCBufferRetType[TypeSlot] =
-          GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
+          GetOrCreateStructType(m_Ctx, FieldTypes, OS.str(), m_pModule);
     } else if (!UseMinPrecision() &&
                (pOverloadType->isHalfTy() || pOverloadType == i16Ty)) {
-      TypeName += ".8"; // dx.types.CBufRet.fp16.8 for buffer of 8 halves
+      OS << ".8"; // dx.types.CBufRet.f16.8 for buffer of 8 halves
       Type *FieldTypes[8] = {
           pOverloadType, pOverloadType, pOverloadType, pOverloadType,
           pOverloadType, pOverloadType, pOverloadType, pOverloadType,
       };
       m_pCBufferRetType[TypeSlot] =
-          GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
+          GetOrCreateStructType(m_Ctx, FieldTypes, OS.str(), m_pModule);
     } else {
       Type *FieldTypes[4] = {pOverloadType, pOverloadType, pOverloadType,
                              pOverloadType};
       m_pCBufferRetType[TypeSlot] =
-          GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
+          GetOrCreateStructType(m_Ctx, FieldTypes, OS.str(), m_pModule);
     }
   }
   return m_pCBufferRetType[TypeSlot];

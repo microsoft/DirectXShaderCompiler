@@ -231,10 +231,11 @@ private:
   static const char *m_MatrixTypePrefix;
   static unsigned GetTypeSlot(llvm::Type *pType);
   static const char *GetOverloadTypeName(unsigned TypeSlot);
-  static llvm::StringRef GetTypeName(llvm::Type *Ty, std::string &str);
-  static llvm::StringRef ConstructOverloadName(llvm::Type *Ty,
-                                               DXIL::OpCode opCode,
-                                               std::string &funcNameStorage);
+  static llvm::StringRef GetTypeName(llvm::Type *Ty,
+                                     llvm::SmallVectorImpl<char> &Storage);
+  static llvm::StringRef
+  ConstructOverloadName(llvm::Type *Ty, DXIL::OpCode opCode,
+                        llvm::SmallVectorImpl<char> &Storage);
 };
 
 } // namespace hlsl
