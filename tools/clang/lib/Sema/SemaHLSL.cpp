@@ -9795,11 +9795,16 @@ bool HLSLExternalSource::CanConvert(SourceLocation loc, Expr *sourceExpr,
     goto lSuccess;
   }
 
-  // Cast from Resource to Object types.
-  if (SourceInfo.EltKind == AR_OBJECT_HEAP_RESOURCE ||
-      SourceInfo.EltKind == AR_OBJECT_HEAP_SAMPLER) {
-    // TODO: skip things like PointStream.
-    if (TargetInfo.ShapeKind == AR_TOBJ_OBJECT) {
+  if (SourceInfo.EltKind == AR_OBJECT_HEAP_SAMPLER) {
+    if (TargetInfo.ShapeKind == AR_TOBJ_OBJECT &&
+        hlsl::IsHLSLSamplerType(target)) {
+      Second = ICK_Flat_Conversion;
+      goto lSuccess;
+    }
+  }
+  if (SourceInfo.EltKind == AR_OBJECT_HEAP_RESOURCE) {
+    if (TargetInfo.ShapeKind == AR_TOBJ_OBJECT &&
+        hlsl::IsHLSLResourceType(target) && !hlsl::IsHLSLSamplerType(target)) {
       Second = ICK_Flat_Conversion;
       goto lSuccess;
     }
