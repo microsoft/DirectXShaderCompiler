@@ -1092,6 +1092,7 @@ uint [[ro]] CommittedInstanceContributionToHitGroupIndex();
 // Shader Execution Reordering
 namespace DxHitObjectMethods {
     DxHitObject [[static,class_prefix,min_sm=6.9]] MakeNop();
+    DxHitObject [[static,class_prefix,min_sm=6.9]] MakeMiss(in uint RayFlags, in uint MissShaderIndex, in ray_desc Ray);
 } namespace
 
 namespace DxIntrinsics {

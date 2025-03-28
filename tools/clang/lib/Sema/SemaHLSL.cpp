@@ -11932,6 +11932,7 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
   case hlsl::IntrinsicOp::MOP_TraceRayInline:
     DiagnoseTraceRayInline(*this, CE);
     break;
+  case hlsl::IntrinsicOp::MOP_DxHitObject_MakeMiss:
   case hlsl::IntrinsicOp::MOP_DxHitObject_MakeNop:
     DiagnoseReachableSERCall(*this, CE, EntrySK, EntryDecl, false);
     break;
