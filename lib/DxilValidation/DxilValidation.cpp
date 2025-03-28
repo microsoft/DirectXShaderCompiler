@@ -1862,6 +1862,19 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                                   {"CreateHandleForLib", "Library"});
     }
     break;
+
+  // Shader Execution Reordering
+  case DXIL::OpCode::MaybeReorderThread: {
+    Value *CoherenceHintBits = CI->getArgOperand(2);
+    Value *NumCoherenceHintBits = CI->getArgOperand(3);
+
+    if (isa<UndefValue>(CoherenceHintBits) ||
+        isa<UndefValue>(NumCoherenceHintBits)) {
+      ValCtx.EmitInstrError(
+          CI, ValidationRule::InstrMayReorderThreadUndefCoherenceHintParam);
+    }
+  } break;
+
   case DXIL::OpCode::AtomicBinOp:
   case DXIL::OpCode::AtomicCompareExchange: {
     Type *pOverloadType = OP::GetOverloadType(opcode, CI->getCalledFunction());
