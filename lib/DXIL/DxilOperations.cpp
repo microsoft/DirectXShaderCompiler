@@ -3283,30 +3283,6 @@ bool OP::IsDxilOpType(llvm::StructType *ST) {
   return IsDxilOpTypeName(Name);
 }
 
-bool OP::IsDupDxilOpType(llvm::StructType *ST) {
-  if (!ST->hasName())
-    return false;
-  StringRef Name = ST->getName();
-  if (!IsDxilOpTypeName(Name))
-    return false;
-  size_t DotPos = Name.rfind('.');
-  if (DotPos == 0 || DotPos == StringRef::npos || Name.back() == '.' ||
-      !isdigit(static_cast<unsigned char>(Name[DotPos + 1])))
-    return false;
-  return true;
-}
-
-StructType *OP::GetOriginalDxilOpType(llvm::StructType *ST, llvm::Module &M) {
-  DXASSERT(IsDupDxilOpType(ST), "else should not call GetOriginalDxilOpType");
-  StringRef Name = ST->getName();
-  size_t DotPos = Name.rfind('.');
-  StructType *OriginalST = M.getTypeByName(Name.substr(0, DotPos));
-  DXASSERT(OriginalST, "else name collison without original type");
-  DXASSERT(ST->isLayoutIdentical(OriginalST),
-           "else invalid layout for dxil types");
-  return OriginalST;
-}
-
 bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I) {
   const CallInst *CI = dyn_cast<CallInst>(I);
   if (CI == nullptr)

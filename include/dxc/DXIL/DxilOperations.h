@@ -137,9 +137,6 @@ public:
   static DXIL::BarrierMode TranslateToBarrierMode(const llvm::CallInst *CI);
   static bool IsDxilOpTypeName(llvm::StringRef name);
   static bool IsDxilOpType(llvm::StructType *ST);
-  static bool IsDupDxilOpType(llvm::StructType *ST);
-  static llvm::StructType *GetOriginalDxilOpType(llvm::StructType *ST,
-                                                 llvm::Module &M);
   static void GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
                                        unsigned &major, unsigned &minor,
                                        unsigned &mask);
