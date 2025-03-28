@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
@@ -7838,7 +7841,7 @@ def warn_hlsl_intrinsic_in_wrong_shader_model : Warning<
    "intrinsic %0 potentially used by '%1' requires shader model %2 or greater">,
     DefaultError, InGroup<HLSLAvailability>;
 def warn_hlsl_intrinsic_overload_in_wrong_shader_model : Warning<
-   "overload of intrinsic %0 requires shader model %1 or greater">, 
+   "overload of intrinsic %0 requires shader model %1 or greater">,
     DefaultError, InGroup<HLSLAvailability>;
 def err_hlsl_intrinsic_template_arg_unsupported: Error<
    "Explicit template arguments on intrinsic %0 are not supported">;
@@ -8004,6 +8007,10 @@ def err_hlsl_hitobject_unsupported_stage : Error<
 
 // SPIRV Change Starts
 def err_hlsl_vulkan_specific_feature: Error<"%0 is a Vulkan specific feature">;
+def err_hlsl_vk_pointer_cast_alignment: Error<
+  "Vulkan buffer pointer cannot be cast to greater alignment">;
+def err_hlsl_vk_static_pointer_cast_type: Error<
+  "vk::static_pointer_cast() content type must be base class of argument's content type">;
 // SPIRV Change Ends
 
 let CategoryName = "OpenMP Issue" in {

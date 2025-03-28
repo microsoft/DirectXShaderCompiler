@@ -1,6 +1,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 // See hctdb.py for the implementation of intrinsic file processing.
 //
 // Intrinsic declarations are grouped into namespaces that
@@ -393,7 +396,13 @@ void [[]] RawBufferStore(in u64 addr, in $funcT value);
 void [[]] RawBufferStore(in u64 addr, in $funcT value, in uint alignment);
 void [[]] ext_execution_mode(in uint mode, ...);
 void [[]] ext_execution_mode_id(in uint mode, ...);
+$funcT2 [[]] static_pointer_cast(in VkBufferPointer ptr);
+$funcT2 [[]] reinterpret_pointer_cast(in VkBufferPointer ptr);
 
+} namespace
+
+namespace BufferPointerMethods {
+$classT [[ro]] GetBufferContents();
 } namespace
 // SPIRV Change Ends
 
@@ -1147,4 +1156,3 @@ $classT [[]] SubpassLoad(in int sample) : subpassinputms_load;
 } namespace
 
 // SPIRV Change Ends
-
