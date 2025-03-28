@@ -313,13 +313,13 @@ void GatherGlobalsWithInitializers(
           (VD->getStorageClass() == SC_Static ||
            VD->hasAttr<HLSLGroupSharedAttr>())) {
         // Place subobjects in a separate collection.
-        QualType QT = VD->getType();
-        if (const RecordType *RT = QT->getAs<RecordType>()) {
-          RecordDecl *RD = RT->getDecl();
-          if (RD->hasAttr<HLSLSubObjectAttr>())
+        if (const RecordType *RT = VD->getType()->getAs<RecordType>()) {
+          if (RT->getDecl()->hasAttr<HLSLSubObjectAttr>()) {
             SubObjects.push_back(VD);
-        } else
-          GlobalsWithInit.push_back(VD);
+            continue;
+          }
+        }
+        GlobalsWithInit.push_back(VD);
       }
     } else if (auto *DC = dyn_cast<DeclContext>(D)) {
       // Recurse into DeclContexts like namespace, cbuffer, class/struct, etc.
@@ -611,11 +611,11 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
                                 GlobalsWithInit, SubObjects);
 
   if (shaderModel->GetKind() == DXIL::ShaderKind::Library) {
+    DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
+    HLSLReachableDiagnoseVisitor Visitor(
+        self, shaderModel, shaderModel->GetKind(), NodeLaunchTy, nullptr,
+        DiagnosedCalls, DeclAvailabilityChecked, DiagnosedTypeLocs);
     for (VarDecl *VD : SubObjects) {
-      DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
-      HLSLReachableDiagnoseVisitor Visitor(
-          self, shaderModel, shaderModel->GetKind(), NodeLaunchTy, nullptr,
-          DiagnosedCalls, DeclAvailabilityChecked, DiagnosedTypeLocs);
       Visitor.TraverseDecl(VD);
     }
   }
