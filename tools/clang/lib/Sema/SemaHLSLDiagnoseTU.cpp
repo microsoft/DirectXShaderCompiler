@@ -737,9 +737,9 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   if (EntrySK == DXIL::ShaderKind::Library) {
     for (VarDecl *VD : GlobalsWithInit) {
       DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
-      HLSLCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK, NodeLaunchTy,
-                                      nullptr, DiagnosedCalls,
-                                      DeclAvailabilityChecked);
+      HLSLReachableDiagnoseVisitor Visitor(
+          self, shaderModel, EntrySK, NodeLaunchTy, nullptr, DiagnosedCalls,
+          DeclAvailabilityChecked, DiagnosedTypeLocs);
       QualType QT = VD->getType();
       if (const RecordType *RT = QT->getAs<RecordType>()) {
         RecordDecl *RD = RT->getDecl();
