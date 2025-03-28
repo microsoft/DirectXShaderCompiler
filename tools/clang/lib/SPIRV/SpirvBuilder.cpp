@@ -432,7 +432,7 @@ SpirvSpecConstantBinaryOp *SpirvBuilder::createSpecConstantBinaryOp(
 }
 
 SpirvGroupNonUniformOp *SpirvBuilder::createGroupNonUniformOp(
-    spv::Op op, QualType resultType, spv::Scope execScope,
+    spv::Op op, QualType resultType, llvm::Optional<spv::Scope> execScope,
     llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation loc,
     llvm::Optional<spv::GroupOperation> groupOp) {
   assert(insertPoint && "null insert point");
