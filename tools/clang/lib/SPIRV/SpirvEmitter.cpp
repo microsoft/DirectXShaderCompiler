@@ -10177,8 +10177,8 @@ SpirvInstruction *SpirvEmitter::processWaveQuadAnyAll(const CallExpr *callExpr,
   const auto srcLoc = callExpr->getExprLoc();
 
   if (!featureManager.isExtensionEnabled(Extension::KHR_quad_control)) {
-    // We can't use QuadAny/QuadAll, so implement them using QuadBroadcast.
-    // We will read the value at each quad invocation, then combine them.
+    // We can't use QuadAny/QuadAll, so implement them using QuadSwap. We
+    // will read the value at each quad invocation, then combine them.
 
     spv::Op reducer = op == hlsl::IntrinsicOp::IOP_QuadAny
                           ? spv::Op::OpLogicalOr
