@@ -710,14 +710,14 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         }
       }
       for (const auto *param : pPatchFnDecl->params())
-        if (containsLongVector(param->getType())) {
+        if (ContainsLongVector(param->getType())) {
           const unsigned PatchConstantFunctionParametersIdx = 8;
           self->Diag(param->getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
               << PatchConstantFunctionParametersIdx;
         }
 
-      if (containsLongVector(pPatchFnDecl->getReturnType())) {
+      if (ContainsLongVector(pPatchFnDecl->getReturnType())) {
         const unsigned PatchConstantFunctionReturnIdx = 9;
         self->Diag(pPatchFnDecl->getLocation(),
                    diag::err_hlsl_unsupported_long_vector)
