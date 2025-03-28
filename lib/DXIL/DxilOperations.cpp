@@ -3209,10 +3209,11 @@ llvm::Attribute::AttrKind OP::GetMemAccessAttr(OpCode opCode) {
 }
 
 bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
+  if (static_cast<unsigned>(opCode) >=
+      static_cast<unsigned>(OpCode::NumOpCodes))
+    return false;
   auto &OpProps = m_OpCodeProps[static_cast<unsigned>(opCode)];
   if (!pType)
-    return false;
-  if (opCode == OpCode::NumOpCodes)
     return false;
   unsigned TypeSlot = GetTypeSlot(pType);
   if (TypeSlot >= kNumTypeOverloads)
@@ -4057,6 +4058,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   if (!pOverloadType)
     return nullptr;
   if (IsDxilOpExtendedOverload(opCode)) {
+    // Make sure pOverloadType is well formed for an extended overload.
     StructType *ST = dyn_cast<StructType>(pOverloadType);
     DXASSERT(ST != nullptr,
              "otherwise, extended overload type is not a struct");
