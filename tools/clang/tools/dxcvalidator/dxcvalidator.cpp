@@ -27,7 +27,11 @@
 #include "dxc/Support/dxcapi.impl.h"
 
 #ifdef _WIN32
+#ifdef DXC_ENABLE_ETW
 #include "dxcetw.h"
+#else
+#include "dxc/WinEtwAdapter.h"
+#endif // DXC_ENABLE_ETW
 #endif
 
 using namespace llvm;
