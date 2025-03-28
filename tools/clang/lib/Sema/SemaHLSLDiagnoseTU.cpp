@@ -590,7 +590,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 
   const auto *shaderModel =
       hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
-  DXIL::ShaderKind EntrySK = shaderModel->GetKind();
 
   llvm::SmallVector<VarDecl *, 16> GlobalsWithInit;
   GatherGlobalsWithInitializers(self->getASTContext().getTranslationUnitDecl(),
@@ -706,7 +705,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
             << PatchConstantFunctionReturnIdx;
       }
     }
-
+    DXIL::ShaderKind EntrySK = shaderModel->GetKind();
     DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
     if (EntrySK == DXIL::ShaderKind::Library) {
       // For library, check if the exported function is entry with shader
@@ -734,12 +733,12 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       Visitor.TraverseDecl(FD);
   }
 
-  if (EntrySK == DXIL::ShaderKind::Library) {
+  if (shaderModel->GetKind() == DXIL::ShaderKind::Library) {
     for (VarDecl *VD : GlobalsWithInit) {
       DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
       HLSLReachableDiagnoseVisitor Visitor(
-          self, shaderModel, EntrySK, NodeLaunchTy, nullptr, DiagnosedCalls,
-          DeclAvailabilityChecked, DiagnosedTypeLocs);
+          self, shaderModel, shaderModel->GetKind(), NodeLaunchTy, nullptr,
+          DiagnosedCalls, DeclAvailabilityChecked, DiagnosedTypeLocs);
       QualType QT = VD->getType();
       if (const RecordType *RT = QT->getAs<RecordType>()) {
         RecordDecl *RD = RT->getDecl();

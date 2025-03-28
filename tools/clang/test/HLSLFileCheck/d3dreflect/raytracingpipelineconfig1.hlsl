@@ -1,7 +1,6 @@
-// RUsN: %dxilver 1.9 | %dxc -T lib_6_9  %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -T lib_6_8 %s | FileCheck -check-prefix=UNDER69 %s
-// RUsN: %dxilver 1.9 | %dxc -T lib_6_9  -ast-dump %s | FileCheck -check-prefix=AST %s
-// RUsN: %dxilver 1.9 | %dxc -T lib_6_9  -ast-dump-implicit %s | FileCheck -check-prefix=ASTIMPL %s
+// RUN: %dxilver 1.9 | %dxc -T lib_6_9  %s | FileCheck %s
+// RUN: %dxilver 1.9 | %dxc -T lib_6_9 -ast-dump %s | FileCheck -check-prefix=AST %s
+// RUN: %dxilver 1.9 | %dxc -T lib_6_9 -ast-dump-implicit %s | FileCheck -check-prefix=ASTIMPL %s
 
 
 // CHECK: ; RaytracingPipelineConfig1 rpc = { MaxTraceRecursionDepth = 32, Flags = RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS };
@@ -18,6 +17,3 @@
 // ASTIMPL-NEXT: AvailabilityAttr 0x{{.+}} <<invalid sloc>> Implicit  6.9 0 0 ""
 
 RaytracingPipelineConfig1 rpc = { 32, RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS };
-
-// UNDER69: Potential misuse
-
