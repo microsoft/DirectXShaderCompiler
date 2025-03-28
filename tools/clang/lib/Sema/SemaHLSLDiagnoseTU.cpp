@@ -301,7 +301,8 @@ std::vector<FunctionDecl *> GetAllExportedFDecls(clang::Sema *self) {
 }
 
 void GatherGlobalsWithInitializers(
-    DeclContext *DC, llvm::SmallVectorImpl<VarDecl *> &GlobalsWithInit) {
+    DeclContext *DC, llvm::SmallVectorImpl<VarDecl *> &GlobalsWithInit,
+    llvm::SmallVectorImpl<VarDecl *> &SubObjects) {
   for (auto *D : DC->decls()) {
     // Skip built-ins and function decls.
     if (D->isImplicit() || isa<FunctionDecl>(D))
@@ -310,11 +311,19 @@ void GatherGlobalsWithInitializers(
       // Add if user-defined static or groupshared global with initializer.
       if (VD->hasInit() && VD->hasGlobalStorage() &&
           (VD->getStorageClass() == SC_Static ||
-           VD->hasAttr<HLSLGroupSharedAttr>()))
-        GlobalsWithInit.push_back(VD);
+           VD->hasAttr<HLSLGroupSharedAttr>())) {
+        // Place subobjects in a separate collection.
+        QualType QT = VD->getType();
+        if (const RecordType *RT = QT->getAs<RecordType>()) {
+          RecordDecl *RD = RT->getDecl();
+          if (RD->hasAttr<HLSLSubObjectAttr>())
+            SubObjects.push_back(VD);
+        } else
+          GlobalsWithInit.push_back(VD);
+      }
     } else if (auto *DC = dyn_cast<DeclContext>(D)) {
       // Recurse into DeclContexts like namespace, cbuffer, class/struct, etc.
-      GatherGlobalsWithInitializers(DC, GlobalsWithInit);
+      GatherGlobalsWithInitializers(DC, GlobalsWithInit, SubObjects);
     }
   }
 }
@@ -592,13 +601,24 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
 
   llvm::SmallVector<VarDecl *, 16> GlobalsWithInit;
-  GatherGlobalsWithInitializers(self->getASTContext().getTranslationUnitDecl(),
-                                GlobalsWithInit);
-
+  llvm::SmallVector<VarDecl *, 16> SubObjects;
   std::set<FunctionDecl *> DiagnosedRecursiveDecls;
   llvm::SmallPtrSet<CallExpr *, 16> DiagnosedCalls;
   llvm::SmallPtrSet<DeclRefExpr *, 16> DeclAvailabilityChecked;
   llvm::SmallSet<SourceLocation, 16> DiagnosedTypeLocs;
+
+  GatherGlobalsWithInitializers(self->getASTContext().getTranslationUnitDecl(),
+                                GlobalsWithInit, SubObjects);
+
+  if (shaderModel->GetKind() == DXIL::ShaderKind::Library) {
+    for (VarDecl *VD : SubObjects) {
+      DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
+      HLSLReachableDiagnoseVisitor Visitor(
+          self, shaderModel, shaderModel->GetKind(), NodeLaunchTy, nullptr,
+          DiagnosedCalls, DeclAvailabilityChecked, DiagnosedTypeLocs);
+      Visitor.TraverseDecl(VD);
+    }
+  }
 
   // for each FDecl, check for recursion
   for (FunctionDecl *FDecl : FDeclsToCheck) {
@@ -731,21 +751,5 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       Visitor.TraverseDecl(VD);
     for (FunctionDecl *FD : callGraph.GetVisitedFunctions())
       Visitor.TraverseDecl(FD);
-  }
-
-  if (shaderModel->GetKind() == DXIL::ShaderKind::Library) {
-    for (VarDecl *VD : GlobalsWithInit) {
-      DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
-      HLSLReachableDiagnoseVisitor Visitor(
-          self, shaderModel, shaderModel->GetKind(), NodeLaunchTy, nullptr,
-          DiagnosedCalls, DeclAvailabilityChecked, DiagnosedTypeLocs);
-      QualType QT = VD->getType();
-      if (const RecordType *RT = QT->getAs<RecordType>()) {
-        RecordDecl *RD = RT->getDecl();
-        if (!RD->hasAttr<HLSLSubObjectAttr>())
-          continue;
-        Visitor.TraverseDecl(VD);
-      }
-    }
   }
 }
