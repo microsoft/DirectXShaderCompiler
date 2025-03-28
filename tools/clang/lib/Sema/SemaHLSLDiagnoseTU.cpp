@@ -615,9 +615,8 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     HLSLReachableDiagnoseVisitor Visitor(
         self, shaderModel, shaderModel->GetKind(), NodeLaunchTy, nullptr,
         DiagnosedCalls, DeclAvailabilityChecked, DiagnosedTypeLocs);
-    for (VarDecl *VD : SubObjects) {
+    for (VarDecl *VD : SubObjects)
       Visitor.TraverseDecl(VD);
-    }
   }
 
   // for each FDecl, check for recursion
