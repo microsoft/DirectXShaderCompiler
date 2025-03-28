@@ -699,6 +699,10 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
   AddConstUInt(
       context, StringRef("RAYTRACING_PIPELINE_FLAG_SKIP_PROCEDURAL_PRIMITIVES"),
       (unsigned)DXIL::RaytracingPipelineFlags::SkipProceduralPrimitives);
+  AddConstUInt(context, context.getTranslationUnitDecl(),
+               StringRef("RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS"),
+               (unsigned)DXIL::RaytracingPipelineFlags::AllowOpacityMicromaps,
+               ConstructAvailabilityAttribute(context, VT69));
 }
 
 /// <summary> Adds all constants and enums for sampler feedback </summary>
