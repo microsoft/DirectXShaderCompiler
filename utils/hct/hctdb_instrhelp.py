@@ -514,17 +514,8 @@ class db_oload_gen:
                 OP=self.OP
             )
         )
-        print(
-            "//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,   ext,  function attribute, ext oload, vec oload"
-        )
-        # Example formatted string:
-        #   {  OC::TempRegLoad,             "TempRegLoad",              OCC::TempRegLoad,              "tempRegLoad",                false,  true,  true, false,  true, false,  true,  true, false, false, false, false, false, Attribute::ReadOnly, {}, {0x00} },
-        # 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
-        # 0         1         2         3         4         5         6         7         8         9         0         1         2         3         4         5         6         7         8         9         0         1         2         3         4         5
 
         last_category = None
-        # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong, u(dt), o(bj), vec(t)or, e(x)tended
-        f = lambda i, c: "true" if i.oload_types.find(c) >= 0 else "false"
         lower_exceptions = {
             "CBufferLoad": "cbufferLoad",
             "CBufferLoadLegacy": "cbufferLoadLegacy",
@@ -546,55 +537,41 @@ class db_oload_gen:
         oload_to_mask = lambda oload: sum(
             [1 << dxil_all_user_oload_chars.find(c) for c in oload]
         )
-        ext_oload_fn = (
-            lambda i: "{"
-            + ",".join(["{0x%x}" % oload_to_mask(o) for o in i.extended_oload_types])
-            + "}"
-        )
-        vec_oload_fn = (
-            lambda i: "{"
-            + ",".join(["{0x%x}" % oload_to_mask(o) for o in i.vector_oload_types])
-            + "}"
+        oloads_fn = lambda oloads: (
+            "{" + ",".join(["{0x%x}" % m for m in oloads]) + "}"
         )
         for i in self.instrs:
             if last_category != i.category:
                 if last_category != None:
                     print("")
-                print(
-                    "  // {category:118}  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,   vec,  function attribute, ext oload, vec oload".format(
-                        category=i.category
-                    )
-                )
+                if not i.is_reserved:
+                    print(f"  // {i.category}")
                 last_category = i.category
+            scalar_masks = []
+            vector_masks = []
+            if i.num_oloads > 0:
+                for n, o in enumerate(i.oload_types.split(",")):
+                    v = o.split("<")
+                    scalar_masks.append(oload_to_mask(v[0]))
+                    vector_masks.append(oload_to_mask(v[1]) if len(v) > 1 else 0)
             print(
                 (
                     "  {{  {OC}::{name:24} {quotName:27} {OCC}::{className:25} "
-                    + "{classNameQuot:28} {{{v:>6},{h:>6},{f:>6},{d:>6},{b:>6},"
-                    + "{e:>6},{w:>6},{i:>6},{l:>6},{u:>6},{o:>6},{t:>6},"
-                    + "{x:>6}}}, {attr:20}, {ext_oload:2}, {vec_oload:6} }},"
+                    + "{classNameQuot:28} {attr:20}, {num_oloads}, "
+                    + "{scalar_masks:16}, {vector_masks:16} }}, "
+                    + "// Overloads: {oloads}"
                 ).format(
                     name=i.name + ",",
                     quotName='"' + i.name + '",',
                     className=i.dxil_class + ",",
                     classNameQuot='"' + lower_fn(i.dxil_class) + '",',
-                    v=f(i, "v"),
-                    h=f(i, "h"),
-                    f=f(i, "f"),
-                    d=f(i, "d"),
-                    b=f(i, "1"),
-                    e=f(i, "8"),
-                    w=f(i, "w"),
-                    i=f(i, "i"),
-                    l=f(i, "l"),
-                    u=f(i, "u"),
-                    o=f(i, "o"),
-                    t=f(i, "<"),
-                    x=f(i, "x"),
                     attr=attr_fn(i),
+                    num_oloads=i.num_oloads,
+                    scalar_masks=oloads_fn(scalar_masks),
+                    vector_masks=oloads_fn(vector_masks),
+                    oloads=i.oload_types,
                     OC=self.OC,
                     OCC=self.OCC,
-                    ext_oload=ext_oload_fn(i),
-                    vec_oload=vec_oload_fn(i),
                 )
             )
         print("};")
@@ -687,11 +664,18 @@ class db_oload_gen:
         index_dict = collections.OrderedDict()
         ptr_index_dict = collections.OrderedDict()
         single_dict = collections.OrderedDict()
+        # extended_dict collects overloads with multiple overload types
+        # grouped by the set of overload parameter indices.
         extended_dict = collections.OrderedDict()
         struct_list = []
         extended_list = []
 
         for instr in self.instrs:
+            if instr.num_oloads > 1:
+                # Process extended overloads separately.
+                extended_list.append(instr)
+                continue
+
             ret_ty = instr.ops[0].llvm_type
             # Skip case return type is overload type
             if ret_ty == elt_ty:
@@ -707,10 +691,6 @@ class db_oload_gen:
 
             if ret_ty.startswith(vec_ty):
                 struct_list.append(instr.name)
-                continue
-
-            if instr.oload_types == "x":
-                extended_list.append(instr)
                 continue
 
             in_param_ty = False
@@ -854,7 +834,7 @@ class db_oload_gen:
                         )
                     indices.append(op.pos)
 
-            if len(indices) != len(instr.extended_oload_types):
+            if len(indices) != instr.num_oloads:
                 raise ValueError(
                     f"DXIL op {instr.name}: extended overload count "
                     + "mismatches the number of overload types"

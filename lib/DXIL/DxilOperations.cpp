@@ -3059,11 +3059,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 };
 // OPCODE-OLOADS:END
 
-const char *OP::m_OverloadTypeName[kNumTypeOverloads] = {
-    "void", "f16", "f32", "f64", "i1",  "i8",  "i16",
-    "i32",  "i64", "udt", "obj", "vec", "ext",
-    // "udt", "obj", "vec", and "ext" should not be used
-};
+const char *OP::m_OverloadTypeName[TS_BasicCount] = {
+    "f16", "f32", "f64", "i1", "i8", "i16", "i32", "i64"};
 
 const char *OP::m_NamePrefix = "dx.op.";
 const char *OP::m_TypePrefix = "dx.types.";
@@ -3080,34 +3077,35 @@ unsigned OP::GetTypeSlot(Type *pType) {
   Type::TypeID T = pType->getTypeID();
   switch (T) {
   case Type::VoidTyID:
-    return 0;
+    return TS_Invalid;
   case Type::HalfTyID:
-    return 1;
+    return TS_F16;
   case Type::FloatTyID:
-    return 2;
+    return TS_F32;
   case Type::DoubleTyID:
-    return 3;
+    return TS_F64;
   case Type::IntegerTyID: {
     IntegerType *pIT = dyn_cast<IntegerType>(pType);
     unsigned Bits = pIT->getBitWidth();
     switch (Bits) {
     case 1:
-      return 4;
+      return TS_I1;
     case 8:
-      return 5;
+      return TS_I8;
     case 16:
-      return 6;
+      return TS_I16;
     case 32:
-      return 7;
+      return TS_I32;
     case 64:
-      return 8;
+      return TS_I64;
     }
     llvm_unreachable("Invalid Bits size");
+    return TS_Invalid;
   }
   case Type::PointerTyID: {
     pType = cast<PointerType>(pType)->getElementType();
     if (pType->isStructTy())
-      return kUserDefineTypeSlot;
+      return TS_UDT;
     DXASSERT(!pType->isPointerTy(), "pointer-to-pointer type unsupported");
     return GetTypeSlot(pType);
   }
@@ -3115,41 +3113,42 @@ unsigned OP::GetTypeSlot(Type *pType) {
     // Named struct value (not pointer) indicates a built-in object type.
     // Anonymous struct value is used to wrap multi-overload dimensions.
     if (cast<StructType>(pType)->hasName())
-      return kObjectTypeSlot;
+      return TS_Object;
     else
-      return kExtendedTypeSlot;
+      return TS_Extended;
   case Type::VectorTyID:
-    return kVectorTypeSlot;
+    return TS_Vector;
   default:
     break;
   }
-  return UINT_MAX;
+  return TS_Invalid;
 }
 
 const char *OP::GetOverloadTypeName(unsigned TypeSlot) {
-  DXASSERT(TypeSlot < kUserDefineTypeSlot, "otherwise caller passed OOB index");
+  DXASSERT(TypeSlot < TS_BasicCount, "otherwise caller passed OOB index");
   return m_OverloadTypeName[TypeSlot];
 }
 
 StringRef OP::GetTypeName(Type *Ty, SmallVectorImpl<char> &Storage) {
+  DXASSERT(!Ty->isVoidTy(), "must not pass void type here");
   unsigned TypeSlot = OP::GetTypeSlot(Ty);
-  if (TypeSlot < kUserDefineTypeSlot) {
+  if (TypeSlot < TS_BasicCount) {
     return GetOverloadTypeName(TypeSlot);
-  } else if (TypeSlot == kUserDefineTypeSlot) {
+  } else if (TypeSlot == TS_UDT) {
     if (Ty->isPointerTy())
       Ty = Ty->getPointerElementType();
     StructType *ST = cast<StructType>(Ty);
     return ST->getStructName();
-  } else if (TypeSlot == kObjectTypeSlot) {
+  } else if (TypeSlot == TS_Object) {
     StructType *ST = cast<StructType>(Ty);
     return ST->getStructName();
-  } else if (TypeSlot == kVectorTypeSlot) {
+  } else if (TypeSlot == TS_Vector) {
     VectorType *VecTy = cast<VectorType>(Ty);
     return (Twine("v") + Twine(VecTy->getNumElements()) +
             Twine(
                 GetOverloadTypeName(OP::GetTypeSlot(VecTy->getElementType()))))
         .toStringRef(Storage);
-  } else if (TypeSlot == kExtendedTypeSlot) {
+  } else if (TypeSlot == TS_Extended) {
     DXASSERT(isa<StructType>(Ty),
              "otherwise, extended overload type not wrapped in struct type.");
     StructType *ST = cast<StructType>(Ty);
@@ -3212,40 +3211,38 @@ bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
   if (static_cast<unsigned>(opCode) >=
       static_cast<unsigned>(OpCode::NumOpCodes))
     return false;
-  auto &OpProps = m_OpCodeProps[static_cast<unsigned>(opCode)];
   if (!pType)
     return false;
-  unsigned TypeSlot = GetTypeSlot(pType);
-  if (TypeSlot >= kNumTypeOverloads)
-    return false;
-  if (!OpProps.bAllowOverload[TypeSlot])
-    return false;
+  auto &OpProps = m_OpCodeProps[static_cast<unsigned>(opCode)];
 
-  if (TypeSlot == kVectorTypeSlot) {
-    unsigned EltTypeSlot =
-        GetTypeSlot(cast<VectorType>(pType)->getElementType());
-    return OpProps.AllowedVectorElements[0][EltTypeSlot];
-  }
+  if (OpProps.NumOverloadDims == 0)
+    return pType->isVoidTy();
 
-  if (TypeSlot == kExtendedTypeSlot) {
-    StructType *ST = cast<StructType>(pType);
-    if (ST->getNumElements() < 2 ||
-        ST->getNumElements() > DXIL::kDxilMaxOloadDims)
+  // Normalize 1+ overload dimensions into array.
+  Type *Types[DXIL::kDxilMaxOloadDims] = {pType};
+  if (OpProps.NumOverloadDims > 1) {
+    StructType *ST = dyn_cast<StructType>(pType);
+    // Make sure multi-overload is well-formed.
+    if (!ST || ST->hasName() ||
+        ST->getNumContainedTypes() != OpProps.NumOverloadDims)
       return false;
-    for (unsigned I = 0; I < ST->getNumElements(); ++I) {
-      Type *ElTy = ST->getElementType(I);
-      unsigned OloadSlot = GetTypeSlot(ElTy);
-      if (!OpProps.ExtendedOverloads[I][OloadSlot])
-        return false;
-      if (OloadSlot == kVectorTypeSlot) {
-        unsigned EltTypeSlot =
-            GetTypeSlot(cast<VectorType>(ElTy)->getElementType());
-        if (!OpProps.AllowedVectorElements[I][EltTypeSlot])
-          return false;
-      }
-    }
-    return true;
+    for (unsigned I = 0; I < ST->getNumElements(); ++I)
+      Types[I] = ST->getElementType(I);
   }
+
+  for (unsigned I = 0; I < OpProps.NumOverloadDims; ++I) {
+    Type *Ty = Types[I];
+    unsigned TypeSlot = GetTypeSlot(Ty);
+    if (!OpProps.AllowedOverloads[I][TypeSlot])
+      return false;
+    if (TypeSlot == TS_Vector) {
+      unsigned EltTypeSlot =
+          GetTypeSlot(cast<VectorType>(Ty)->getElementType());
+      if (!OpProps.AllowedVectorElements[I][EltTypeSlot])
+        return false;
+    }
+  }
+
   return true;
 }
 
@@ -3362,8 +3359,7 @@ bool OP::IsDxilOpBarrier(OpCode C) {
 bool OP::IsDxilOpExtendedOverload(OpCode C) {
   if (C >= OpCode::NumOpCodes)
     return false;
-  return m_OpCodeProps[static_cast<unsigned>(C)]
-      .bAllowOverload[kExtendedTypeSlot];
+  return m_OpCodeProps[static_cast<unsigned>(C)].NumOverloadDims > 1;
 }
 
 static unsigned MaskMemoryTypeFlagsIfAllowed(unsigned memoryTypeFlags,
@@ -4014,14 +4010,11 @@ void OP::FixOverloadNames() {
     if (F.isDeclaration() && OP::IsDxilOpFunc(&F) && !F.user_empty()) {
       CallInst *CI = cast<CallInst>(*F.user_begin());
       DXIL::OpCode opCode = OP::GetDxilOpFuncCallInst(CI);
-      if (IsDxilOpExtendedOverload(opCode))
+      if (!MayHaveNonCanonicalOverload(opCode))
         continue;
       llvm::Type *Ty = OP::GetOverloadType(opCode, &F);
       if (!OP::IsOverloadLegal(opCode, Ty))
         continue;
-      if (!isa<StructType>(Ty) && !isa<PointerType>(Ty))
-        continue;
-
       SmallVector<char, 256> funcName;
       if (OP::ConstructOverloadName(Ty, opCode, funcName)
               .compare(F.getName()) != 0)
@@ -4035,17 +4028,40 @@ void OP::UpdateCache(OpCodeClass opClass, Type *Ty, llvm::Function *F) {
   m_FunctionToOpClass[F] = opClass;
 }
 
-Function *OP::GetOpFunc(OpCode opCode, ArrayRef<Type *> ExtendedOverloads) {
-  DXASSERT(IsDxilOpExtendedOverload(opCode),
-           "otherwise, Dxil Op does not support extended overload");
-  return GetOpFunc(opCode, GetExtendedOverloadType(ExtendedOverloads));
+bool OP::MayHaveNonCanonicalOverload(OpCode OC) {
+  if (OC >= OpCode::NumOpCodes)
+    return false;
+  const unsigned CheckMask = (1 << TS_UDT) | (1 << TS_Object);
+  auto &OpProps = m_OpCodeProps[static_cast<unsigned>(OC)];
+  for (unsigned I = 0; I < OpProps.NumOverloadDims; ++I)
+    if ((CheckMask & OpProps.AllowedOverloads[I].SlotMask) != 0)
+      return true;
+  return false;
+}
+
+Function *OP::GetOpFunc(OpCode OC, ArrayRef<Type *> OverloadTypes) {
+  if (OC >= OpCode::NumOpCodes)
+    return nullptr;
+  if (OverloadTypes.size() !=
+      m_OpCodeProps[static_cast<unsigned>(OC)].NumOverloadDims) {
+    llvm_unreachable("incorrect overload dimensions");
+    return nullptr;
+  }
+  if (OverloadTypes.size() == 0) {
+    return GetOpFunc(OC, Type::getVoidTy(m_Ctx));
+  } else if (OverloadTypes.size() == 1) {
+    return GetOpFunc(OC, OverloadTypes[0]);
+  }
+  return GetOpFunc(OC, GetExtendedOverloadType(OverloadTypes));
 }
 
 Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
-  if (opCode == OpCode::NumOpCodes)
+  if (opCode >= OpCode::NumOpCodes)
     return nullptr;
   if (!pOverloadType)
     return nullptr;
+
+  auto &OpProps = m_OpCodeProps[static_cast<unsigned>(opCode)];
   if (IsDxilOpExtendedOverload(opCode)) {
     // Make sure pOverloadType is well formed for an extended overload.
     StructType *ST = dyn_cast<StructType>(pOverloadType);
@@ -4053,10 +4069,9 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
              "otherwise, extended overload type is not a struct");
     if (ST == nullptr)
       return nullptr;
-    bool EltCountValid = ST->getNumElements() > 1 &&
-                         ST->getNumElements() <= DXIL::kDxilMaxOloadDims;
+    bool EltCountValid = ST->getNumElements() == OpProps.NumOverloadDims;
     DXASSERT(EltCountValid,
-             "otherwise, invalid type count for extended overload.");
+             "otherwise, incorrect type count for extended overload.");
     if (!EltCountValid)
       return nullptr;
   }
@@ -4068,7 +4083,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   // Illegal overloads of DXIL intrinsics may survive through to final DXIL,
   // but these will be caught by the validator, and this is not a regression.
 
-  OpCodeClass opClass = m_OpCodeProps[(unsigned)opCode].opCodeClass;
+  OpCodeClass opClass = OpProps.opCodeClass;
   Function *&F =
       m_OpCodeClassCache[(unsigned)opClass].pOverloads[pOverloadType];
   if (F != nullptr) {
@@ -4112,7 +4127,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 #define A(_x) ArgTypes.emplace_back(_x)
 #define RRT(_y) A(GetResRetType(_y))
 #define CBRT(_y) A(GetCBufferRetType(_y))
-#define VEC4(_y) A(GetVectorType(4, _y))
+#define VEC4(_y) A(GetStructVectorType(4, _y))
 
 // Extended Overload types are wrapped in an anonymous struct
 #define EXT(_y) A(cast<StructType>(pOverloadType)->getElementType(_y))
@@ -6182,8 +6197,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   UpdateCache(opClass, pOverloadType, F);
   F->setCallingConv(CallingConv::C);
   F->addFnAttr(Attribute::NoUnwind);
-  if (m_OpCodeProps[(unsigned)opCode].FuncAttr != Attribute::None)
-    F->addFnAttr(m_OpCodeProps[(unsigned)opCode].FuncAttr);
+  if (OpProps.FuncAttr != Attribute::None)
+    F->addFnAttr(OpProps.FuncAttr);
 
   return F;
 }
@@ -6606,7 +6621,19 @@ bool OP::IsResRetType(llvm::Type *Ty) {
 Type *OP::GetResRetType(Type *pOverloadType) {
   unsigned TypeSlot = GetTypeSlot(pOverloadType);
 
-  if (TypeSlot == kVectorTypeSlot) {
+  if (TypeSlot < TS_BasicCount) {
+    if (m_pResRetType[TypeSlot] == nullptr) {
+      SmallVector<char, 32> Storage;
+      StringRef TypeName =
+          (Twine("dx.types.ResRet.") + Twine(GetOverloadTypeName(TypeSlot)))
+              .toStringRef(Storage);
+      Type *FieldTypes[5] = {pOverloadType, pOverloadType, pOverloadType,
+                             pOverloadType, Type::getInt32Ty(m_Ctx)};
+      m_pResRetType[TypeSlot] =
+          GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
+    }
+    return m_pResRetType[TypeSlot];
+  } else if (TypeSlot == TS_Vector) {
     SmallVector<char, 32> Storage;
     VectorType *VecTy = cast<VectorType>(pOverloadType);
     StringRef TypeName =
@@ -6615,22 +6642,19 @@ Type *OP::GetResRetType(Type *pOverloadType) {
             .toStringRef(Storage);
     Type *FieldTypes[2] = {pOverloadType, Type::getInt32Ty(m_Ctx)};
     return GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
-  } else if (m_pResRetType[TypeSlot] == nullptr) {
-    SmallVector<char, 32> Storage;
-    StringRef TypeName =
-        (Twine("dx.types.ResRet.") + Twine(GetOverloadTypeName(TypeSlot)))
-            .toStringRef(Storage);
-    Type *FieldTypes[5] = {pOverloadType, pOverloadType, pOverloadType,
-                           pOverloadType, Type::getInt32Ty(m_Ctx)};
-    m_pResRetType[TypeSlot] =
-        GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
   }
 
-  return m_pResRetType[TypeSlot];
+  llvm_unreachable("Invalid overload for GetResRetType");
+  return nullptr;
 }
 
 Type *OP::GetCBufferRetType(Type *pOverloadType) {
   unsigned TypeSlot = GetTypeSlot(pOverloadType);
+
+  if (TypeSlot >= TS_BasicCount) {
+    llvm_unreachable("Invalid overload for GetResRetType");
+    return nullptr;
+  }
 
   if (m_pCBufferRetType[TypeSlot] == nullptr) {
     DXASSERT(m_LowPrecisionMode != DXIL::LowPrecisionMode::Undefined,
@@ -6664,7 +6688,7 @@ Type *OP::GetCBufferRetType(Type *pOverloadType) {
   return m_pCBufferRetType[TypeSlot];
 }
 
-Type *OP::GetVectorType(unsigned numElements, Type *pOverloadType) {
+Type *OP::GetStructVectorType(unsigned numElements, Type *pOverloadType) {
   if (numElements == 4) {
     if (pOverloadType == Type::getInt32Ty(pOverloadType->getContext())) {
       return m_pFourI32Type;

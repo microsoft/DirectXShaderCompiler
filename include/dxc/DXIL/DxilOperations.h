@@ -57,9 +57,25 @@ public:
   // caches.
   void RefreshCache();
 
+  // The single llvm::Type * "OverloadType" has one of these forms:
+  // No overloads (NumOverloadDims == 0):
+  //  - TS_Void: VoidTy
+  // For single overload dimension (NumOverloadDims == 1):
+  //  - TS_F*, TS_I*: a scalar numeric type (half, float, i1, i64, etc.),
+  //  - TS_UDT: a pointer to a StructType representing a User Defined Type,
+  //  - TS_Object: a named StructType representing a built-in object, or
+  //  - TS_Vector: a vector type (<4 x float>, <16 x i16>, etc.)
+  // For multiple overload dimensions (TS_Extended, NumOverloadDims > 1):
+  //  - an unnamed StructType containing each type for the corresponding
+  //    dimension, such as: type { i32, <2 x float> }
+  //  - contained type options are the same as for single dimension.
+
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
+
+  // N-dimension convenience version of GetOpFunc:
   llvm::Function *GetOpFunc(OpCode OpCode,
-                            llvm::ArrayRef<llvm::Type *> ExtendedOverloads);
+                            llvm::ArrayRef<llvm::Type *> OverloadTypes);
+
   const llvm::SmallMapVector<llvm::Type *, llvm::Function *, 8> &
   GetOpFuncList(OpCode OpCode) const;
   bool IsDxilOpUsed(OpCode opcode) const;
@@ -84,7 +100,8 @@ public:
 
   llvm::Type *GetResRetType(llvm::Type *pOverloadType);
   llvm::Type *GetCBufferRetType(llvm::Type *pOverloadType);
-  llvm::Type *GetVectorType(unsigned numElements, llvm::Type *pOverloadType);
+  llvm::Type *GetStructVectorType(unsigned numElements,
+                                  llvm::Type *pOverloadType);
   bool IsResRetType(llvm::Type *Ty);
 
   // Construct an unnamed struct type containing the set of member types.
@@ -145,6 +162,11 @@ public:
 
   static bool IsDxilOpExtendedOverload(OpCode C);
 
+  // Return true if the overload name for this operation may be constructed
+  // based on a type name that may not represent the same type in different
+  // modules.
+  static bool MayHaveNonCanonicalOverload(OpCode OC);
+
 private:
   // Per-module properties.
   llvm::LLVMContext &m_Ctx;
@@ -168,15 +190,33 @@ private:
 
   DXIL::LowPrecisionMode m_LowPrecisionMode;
 
-  static const unsigned kUserDefineTypeSlot = 9;
-  static const unsigned kObjectTypeSlot = 10;
-  static const unsigned kVectorTypeSlot = 11;
-  static const unsigned kExtendedTypeSlot = 12;
-  static const unsigned kNumTypeOverloads =
-      13; // void, h,f,d, i1, i8,i16,i32,i64, udt, obj, vec, extended
+  // Overload types are split into "basic" overload types and special types
+  // Basic: void, half, float, double, i1, i8, i16, i32, i64
+  //  - These have one canonical overload per TypeSlot
+  // Special: udt, obj, vec, extended
+  //  - These may have many overloads per type slot
+  enum TypeSlot : unsigned {
+    TS_F16 = 0,
+    TS_F32 = 1,
+    TS_F64 = 2,
+    TS_I1 = 3,
+    TS_I8 = 4,
+    TS_I16 = 5,
+    TS_I32 = 6,
+    TS_I64 = 7,
+    TS_BasicCount,
+    TS_UDT = 8,      // Ex: %"struct.MyStruct" *
+    TS_Object = 9,   // Ex: %"class.StructuredBuffer<Foo>"
+    TS_Vector = 10,  // Ex: <8 x i16>
+    TS_MaskBitCount, // Types used in Mask end here
+    // TS_Extended is only used to identify the unnamed struct type used to wrap
+    // multiple overloads when using GetTypeSlot.
+    TS_Extended, // Ex: type { float, <16 x i32> }
+    TS_Invalid = UINT_MAX,
+  };
 
-  llvm::Type *m_pResRetType[kNumTypeOverloads];
-  llvm::Type *m_pCBufferRetType[kNumTypeOverloads];
+  llvm::Type *m_pResRetType[TS_BasicCount];
+  llvm::Type *m_pCBufferRetType[TS_BasicCount];
 
   struct OpCodeCacheItem {
     llvm::SmallMapVector<llvm::Type *, llvm::Function *, 8> pOverloads;
@@ -190,10 +230,10 @@ private:
   struct OverloadMask {
     // mask of type slot bits as (1 << TypeSlot)
     uint16_t SlotMask;
-    static_assert(kNumTypeOverloads <= (sizeof(SlotMask) * 8));
+    static_assert(TS_MaskBitCount <= (sizeof(SlotMask) * 8));
     bool operator[](unsigned TypeSlot) const {
-      return (TypeSlot < kNumTypeOverloads) ? (bool)(SlotMask & (1 << TypeSlot))
-                                            : 0;
+      return (TypeSlot < TS_MaskBitCount) ? (bool)(SlotMask & (1 << TypeSlot))
+                                          : 0;
     }
     operator bool() const { return SlotMask != 0; }
   };
@@ -202,28 +242,21 @@ private:
     const char *pOpCodeName;
     OpCodeClass opCodeClass;
     const char *pOpCodeClassName;
-    bool bAllowOverload[kNumTypeOverloads]; // void, h,f,d, i1, i8,i16,i32,i64,
-                                            // udt, obj, vec, extended
     llvm::Attribute::AttrKind FuncAttr;
 
-    // Extended Type Overloads:
-    // This is an encoding for a multi-dimensional overload.
-    // 1. Only bAllowOverload[kExtendedTypeSlot] is set to true
-    // 2. ExtendedOverloads defines allowed types for each overload index
-    // 3. AllowedVectorElements defines allowed vector component types,
-    //    when kVectorTypeSlot bit is set for the corresponding overload index.
-    //    This includes when a single vector overload type is specified with
-    //    bAllowOverload[kVectorTypeSlot].
+    // Number of overload dimensions used by the operation.
+    unsigned int NumOverloadDims;
 
-    // A bit mask of allowed type slots per extended overload
-    OverloadMask ExtendedOverloads[DXIL::kDxilMaxOloadDims];
-    // A bit mask of allowed vector element types for the vector overload
-    // or each corresponding extended vector overload.
+    // Mask of supported overload types for each overload dimension.
+    OverloadMask AllowedOverloads[DXIL::kDxilMaxOloadDims];
+
+    // Mask of scalar components allowed for each demension where
+    // AllowedOverloads[n][TS_Vector] is true.
     OverloadMask AllowedVectorElements[DXIL::kDxilMaxOloadDims];
   };
   static const OpCodeProperty m_OpCodeProps[(unsigned)OpCode::NumOpCodes];
 
-  static const char *m_OverloadTypeName[kNumTypeOverloads];
+  static const char *m_OverloadTypeName[TS_BasicCount];
   static const char *m_NamePrefix;
   static const char *m_TypePrefix;
   static const char *m_MatrixTypePrefix;

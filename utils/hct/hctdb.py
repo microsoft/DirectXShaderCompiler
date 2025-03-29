@@ -38,7 +38,7 @@ extra_counters = [
 ]
 
 # These are the valid overload type characters for DXIL instructions.
-# - "v" is for void, and is mutually exclusive with the other types.
+# - "v" is for void, and can only be used alone.
 # - "u" is for user defined type (UDT), and is mutually exclusive with the other
 #   types.
 # - "o" is for an HLSL object type (e.g. Texture, Sampler, etc.), and is
@@ -49,14 +49,12 @@ extra_counters = [
 #     are used.
 #   - Vector component types are captured into a separate list during
 #     processing.
-# - "x" is for extended overloads, in order to support multiple overload
-#   dimensions, and is mutually exclusive with the other types.
-# - "x" is not supplied manually, but automatically used when processing
-#   overloads that use "," to separate multiple overload dimensions, which are
-#   captured into a separate list.
-# - "," is used to separate multiple overload dimensions, will be converted
-#   to a use of a single "x" overload string during processing.
-dxil_all_user_oload_chars = "vhfd18wiluo<,"
+# - "," is used to separate multiple overload dimensions.
+#   - When used, only $x0, $x1, etc. are supported for overloaded parameter
+#     types.
+# dxil_all_user_oload_chars must be kept in sync with the indices in
+# hlsl::OP::TypeSlot in DxilOperations.h.
+dxil_all_user_oload_chars = "hfd18wiluo<"
 dxil_scalar_oload_chars = "hfd18wil"
 
 # Maximum number of overload dimensions supported through the extended overload
@@ -108,8 +106,6 @@ class db_dxil_inst(object):
         self.is_allowed = True  # whether this instruction is allowed in a DXIL program
         self.oload_types = ""  # overload types if applicable
         # Always call process_oload_types() after setting oload_types.
-        self.extended_oload_types = None  # extended overload types if applicable
-        self.vector_oload_types = None  # vector overload types if applicable
         self.fn_attr = ""  # attribute shorthands: rn=does not access memory,ro=only reads from memory,
         self.is_deriv = False  # whether this is some kind of derivative
         self.is_gradient = False  # whether this requires a gradient calculation
@@ -127,6 +123,7 @@ class db_dxil_inst(object):
         self.is_reserved = self.dxil_class == "Reserved"
         self.shader_model_translated = ()  # minimum shader model required with translation by linker
         self.props = {}  # extra properties
+        self.num_oloads = 0  # number of overloads for this instruction
         if self.is_dxil_op:
             self.process_oload_types()
 
@@ -145,8 +142,7 @@ class db_dxil_inst(object):
         if not self.is_dxil_op:
             return
 
-        self.extended_oload_types = [""] * dxil_max_overload_dims
-        self.vector_oload_types = [""] * dxil_max_overload_dims
+        self.num_oloads = 0
 
         # Early out for void overloads.
         if self.oload_types == "v":
@@ -163,8 +159,7 @@ class db_dxil_inst(object):
 
         # Process oload_types for extended and vector overloads.
         # Contrived example: "hf<,<fd,i<1"
-        #   - "," splits multiple overload dimensions, setting the main overload
-        #     types to "x" for extended.
+        #   - "," splits multiple overload dimensions
         #   - In the first overload dimension "hf<":
         #     - "hf" means overloads for scalar half and float
         #     - ending with "<" means vector overload supporting the same
@@ -176,30 +171,38 @@ class db_dxil_inst(object):
         #     - "i" means it supports a scalar i32 overload
         #     - "<1" means it also supports a vector overload with an i1
         #       component type.
-        used = set()
-        for c in self.oload_types:
-            if c in used:
-                raise ValueError(
-                    f"Duplicate overload type character '{c}' used for DXIL op "
-                    f"{self.name}: '{self.oload_types}'"
-                )
-            if c not in dxil_all_user_oload_chars:
-                raise ValueError(
-                    "Invalid overload type character used for DXIL op "
-                    f"{self.name}: {c} in '{self.oload_types}'"
-                )
         oload_types = self.oload_types.split(",")
-        if len(oload_types) > dxil_max_overload_dims:
+        self.num_oloads = len(oload_types)
+        if self.num_oloads > dxil_max_overload_dims:
             raise ValueError(
                 "Too many overload dimensions for DXIL op "
                 f"{self.name}: '{self.oload_types}'"
             )
+
+        def check_duplicate_overloads(oloads):
+            if len(oloads) != len(set(oloads)):
+                raise ValueError(
+                    "Duplicate overload types specified for DXIL op "
+                    f"{self.name}: '{oloads}' in '{self.oload_types}'"
+                )
+
+        def check_overload_chars(oloads, valid_chars):
+            invalid_chars = set(oloads).difference(set(valid_chars))
+            if invalid_chars:
+                raise ValueError(
+                    "Invalid overload type character(s) used for DXIL op "
+                    f"{self.name}: '{invalid_chars}' in '{oloads}' from "
+                    f"'{self.oload_types}'"
+                )
+
         for n, oloads in enumerate(oload_types):
             if len(oloads) == 0:
                 raise ValueError(
-                    f"Invalid extended overload type syntax for DXIL op "
+                    f"Invalid empty overload type for DXIL op "
                     f"{self.name}: '{self.oload_types}'"
                 )
+            check_overload_chars(oloads, dxil_all_user_oload_chars)
+
             # split at vector for component overloads, if vector specified
             # without following components, use the scalar overloads that
             # precede the vector character.
@@ -209,36 +212,32 @@ class db_dxil_inst(object):
                 continue
             elif len(split) != 2:
                 raise ValueError(
-                    f"Invalid overload types for DXIL op {self.name}: "
-                    f"{self.oload_types}"
+                    f"Invalid vector overload for DXIL op {self.name}: "
+                    f"{oloads} in '{self.oload_types}'"
                 )
 
             # Split into scalar and vector component overloads.
             scalars, vector_oloads = split
+            check_duplicate_overloads(scalars)
             if not vector_oloads:
                 vector_oloads = scalars
+            else:
+                check_duplicate_overloads(vector_oloads)
             if not vector_oloads:
                 raise ValueError(
                     "No scalar overload types provided with vector overload "
                     f"for DXIL op {self.name}: '{self.oload_types}'"
                 )
-            for c in scalars:
-                if c not in dxil_scalar_oload_chars:
-                    raise ValueError(
-                        "Invalid overload type character used with vector for "
-                        f"DXIL op {self.name}: {c} in '{self.oload_types}'"
-                    )
-            oload_types[n] = scalars + "<"
-            self.vector_oload_types[n] = vector_oloads
-        if len(oload_types) > 1:
-            self.oload_types = "x"
-            self.extended_oload_types[: len(oload_types)] = oload_types
-            self.check_extended_oload_ops()
-        else:
-            self.oload_types = oload_types[0]
+            check_overload_chars(vector_oloads, dxil_scalar_oload_chars)
+            oload_types[n] = scalars + "<" + vector_oloads
+        # Reconstruct overload string with default vector overloads.
+        self.oload_types = ",".join(oload_types)
+        self.check_extended_oload_ops()
 
     def check_extended_oload_ops(self):
         "Ensure ops has sequential extended overload references with $x0, $x1, etc."
+        if self.num_oloads < 2:
+            return
         next_oload_idx = 0
         for i in self.ops:
             if i.llvm_type.startswith("$x"):
@@ -248,11 +247,11 @@ class db_dxil_inst(object):
                         f"DXIL op {self.name}: {i.llvm_type} != $x{next_oload_idx}"
                     )
                 next_oload_idx += 1
-        if next_oload_idx != len(self.extended_oload_types):
+        if next_oload_idx != self.num_oloads:
             raise ValueError(
                 "Extended overloads are not referenced for all overload "
                 f"dimensions in DXIL op {self.name}: {next_oload_idx} != "
-                f"{len(self.extended_oload_types)}"
+                f"{self.num_oloads}"
             )
 
 
