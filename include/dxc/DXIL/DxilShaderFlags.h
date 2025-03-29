@@ -220,6 +220,13 @@ public:
   bool GetRequiresGroup() const { return m_bRequiresGroup; }
 
 private:
+  // Each of the shader flags are defined below within a bitfield to form the
+  // shader flag bitmask of a DXIL module.
+  // These shader flags are also used to set Shader Feature Info flags via the
+  // function ShaderFlags::GetFeatureInfo().
+  // For DXBC, these shader flags are also used to set Global Flags via the
+  // function ShaderFlags::GetGlobalFlags().
+
   // Bit: 0
   unsigned
       m_bDisableOptimizations : 1; // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
