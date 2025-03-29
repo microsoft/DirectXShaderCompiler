@@ -23,7 +23,11 @@
 #include "dxc/config.h"
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
+#ifdef DXC_ENABLE_ETW
 #include "dxcetw.h"
+#else
+#include "dxc/WinEtwAdapter.h"
+#endif // DXC_ENABLE_ETW
 
 #include "DxbcConverter.h"
 
