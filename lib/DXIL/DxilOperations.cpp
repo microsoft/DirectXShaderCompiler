@@ -6590,10 +6590,16 @@ Type *OP::GetFourI32Type() const { return m_pFourI32Type; }
 Type *OP::GetFourI16Type() const { return m_pFourI16Type; }
 
 bool OP::IsResRetType(llvm::Type *Ty) {
+  if (!Ty->isStructTy())
+    return false;
   for (Type *ResTy : m_pResRetType) {
     if (Ty == ResTy)
       return true;
   }
+  StructType *ST = cast<StructType>(Ty);
+  if (!ST->hasName() || ST->getNumContainedTypes() < 2)
+    return false;
+  return Ty == GetResRetType(ST->getContainedType(0));
   return false;
 }
 
