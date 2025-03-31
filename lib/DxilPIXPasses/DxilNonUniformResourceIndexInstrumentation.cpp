@@ -137,7 +137,7 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
 
     if (OSOverride != nullptr) {
       formatted_raw_ostream FOS(*OSOverride);
-      FOS << "FoundDynamicIndexingNoNuri";
+      FOS << "\nFoundDynamicIndexingNoNuri\n";
     }
   }
 

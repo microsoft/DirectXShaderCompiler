@@ -696,9 +696,7 @@ std::vector<std::string> PixTest::RunDxilNonUniformResourceIndexInstrumentation(
   VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
       dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
 
-  if (pText->GetBufferSize() != 0) {
-    outputText = reinterpret_cast<const char *>(pText->GetBufferPointer());
-  }
+  outputText = BlobToUtf8(pText);
 
   const std::string disassembly = Disassemble(pOptimizedModule);
   return Tokenize(disassembly, "\n");
@@ -3009,7 +3007,7 @@ void PixTest::TestNuriCase(const char *source, const wchar_t *target,
     bool foundDynamicIndexingNoNuri = false;
     const std::vector<std::string> outputTextLines = Tokenize(outputText, "\n");
     for (const std::string &line : outputTextLines) {
-      if (line == "FoundDynamicIndexingNoNuri") {
+      if (line.find("FoundDynamicIndexingNoNuri") != std::string::npos) {
         foundDynamicIndexingNoNuri = true;
         break;
       }
