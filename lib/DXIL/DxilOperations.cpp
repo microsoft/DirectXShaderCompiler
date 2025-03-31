@@ -2643,15 +2643,20 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::None,
     },
+
+    // Shader Execution Reordering void,     h,     f,     d,    i1,    i8, i16,
+    // i32,   i64,   udt,   obj ,  function attribute
     {
-        OC::ReservedB0,
-        "ReservedB0",
-        OCC::Reserved,
-        "reserved",
-        {true, false, false, false, false, false, false, false, false, false,
+        OC::HitObject_TraceRay,
+        "HitObject_TraceRay",
+        OCC::HitObject_TraceRay,
+        "hitObject_TraceRay",
+        {false, false, false, false, false, false, false, false, false, true,
          false},
         Attribute::None,
     },
+
+    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
     {
         OC::ReservedB1,
         "ReservedB1",
@@ -2691,17 +2696,17 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::ReadNone,
     },
-
-    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
     {
-        OC::ReservedB5,
-        "ReservedB5",
-        OCC::Reserved,
-        "reserved",
-        {true, false, false, false, false, false, false, false, false, false,
+        OC::HitObject_Invoke,
+        "HitObject_Invoke",
+        OCC::HitObject_Invoke,
+        "hitObject_Invoke",
+        {false, false, false, false, false, false, false, false, false, true,
          false},
         Attribute::None,
     },
+
+    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
     {
         OC::ReservedB6,
         "ReservedB6",
@@ -3755,8 +3760,9 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     minor = 9;
     return;
   }
-  // Instructions: HitObject_MakeMiss=265, HitObject_MakeNop=266
-  if ((265 <= op && op <= 266)) {
+  // Instructions: HitObject_TraceRay=262, HitObject_MakeMiss=265,
+  // HitObject_MakeNop=266, HitObject_Invoke=267
+  if (op == 262 || (265 <= op && op <= 267)) {
     major = 6;
     minor = 9;
     mask =
@@ -5875,10 +5881,29 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedB0:
-    A(pV);
+
+    // Shader Execution Reordering
+  case OpCode::HitObject_TraceRay:
+    A(pHit);
     A(pI32);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(udt);
     break;
+
+    //
   case OpCode::ReservedB1:
     A(pV);
     A(pI32);
@@ -5907,12 +5932,14 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pHit);
     A(pI32);
     break;
-
-    //
-  case OpCode::ReservedB5:
+  case OpCode::HitObject_Invoke:
     A(pV);
     A(pI32);
+    A(pHit);
+    A(udt);
     break;
+
+    //
   case OpCode::ReservedB6:
     A(pV);
     A(pI32);
@@ -6190,6 +6217,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::TempRegStore:
   case OpCode::CallShader:
   case OpCode::Pack4x8:
+  case OpCode::HitObject_Invoke:
     if (FT->getNumParams() <= 2)
       return nullptr;
     return FT->getParamType(2);
@@ -6229,6 +6257,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
       return nullptr;
     return FT->getParamType(5);
   case OpCode::TraceRay:
+  case OpCode::HitObject_TraceRay:
     if (FT->getNumParams() <= 15)
       return nullptr;
     return FT->getParamType(15);
@@ -6315,12 +6344,10 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedA0:
   case OpCode::ReservedA1:
   case OpCode::ReservedA2:
-  case OpCode::ReservedB0:
   case OpCode::ReservedB1:
   case OpCode::ReservedB2:
   case OpCode::HitObject_MakeMiss:
   case OpCode::HitObject_MakeNop:
-  case OpCode::ReservedB5:
   case OpCode::ReservedB6:
   case OpCode::ReservedB7:
   case OpCode::ReservedB8:
