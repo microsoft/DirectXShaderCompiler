@@ -9,4 +9,6 @@
 void main() {
   dx::HitObject hit;
   dx::HitObject::MakeNop();
+  RayDesc ray = {{0,0,0}, {0,0,1}, 0.05, 1000.0};
+  dx::HitObject::MakeMiss(0, 1, ray);
 }
