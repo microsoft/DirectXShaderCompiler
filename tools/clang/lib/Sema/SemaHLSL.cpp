@@ -12184,7 +12184,7 @@ bool hlsl::ContainsLongVector(QualType QT) {
     return false;
 
   while (const ArrayType *Arr = QT->getAsArrayTypeUnsafe())
-  QT = Arr->getElementType();
+    QT = Arr->getElementType();
 
   if (CXXRecordDecl *Decl = QT->getAsCXXRecordDecl()) {
     if (!Decl->isCompleteDefinition())
