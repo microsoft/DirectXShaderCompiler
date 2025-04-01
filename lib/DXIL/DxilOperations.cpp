@@ -6187,8 +6187,10 @@ bool OP::IsResRetType(llvm::Type *Ty) {
     if (Ty == ResTy)
       return true;
   }
+  // Check for vector overload which isn't cached in m_pResRetType.
   StructType *ST = cast<StructType>(Ty);
-  if (!ST->hasName() || ST->getNumElements() < 2)
+  if (!ST->hasName() || ST->getNumElements() < 2 ||
+      !ST->getElementType(0)->isVectorTy())
     return false;
   return Ty == GetResRetType(ST->getElementType(0));
 }
