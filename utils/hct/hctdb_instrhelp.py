@@ -552,7 +552,7 @@ class db_oload_gen:
                 for n, o in enumerate(i.oload_types.split(",")):
                     if "<" in o:
                         v = o.split("<")
-                        scalar_masks.append(oload_to_mask(v[0]))
+                        scalar_masks.append(oload_to_mask(v[0] + "<"))
                         vector_masks.append(oload_to_mask(v[1]))
                     else:
                         scalar_masks.append(oload_to_mask(o))
