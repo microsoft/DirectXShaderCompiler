@@ -26,8 +26,6 @@ using namespace hlsl;
 
 class DxilScalarizeVectorLoadStores : public ModulePass {
 private:
-  DxilModule *m_DM;
-
   void scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
                            CallInst *CI);
   void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
@@ -43,8 +41,6 @@ public:
 
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();
-    m_DM = &DM;
-
     // Shader Model 6.9 allows native vectors and doesn't need this pass.
     if (DM.GetShaderModel()->IsSM69Plus())
       return false;
@@ -111,7 +107,7 @@ void DxilScalarizeVectorLoadStores::scalarizeVectorLoad(hlsl::OP *HlslOP,
   Args.emplace_back(VecLd.get_alignment());     // Alignment @5.
 
   // Set offset to increment depending on whether the real offset is defined.
-  unsigned OffsetIdx = 0;
+  unsigned OffsetIdx;
   if (isa<UndefValue>(VecLd.get_elementOffset()))
     // Byte Address Buffers can't use offset, so use index.
     OffsetIdx = DXIL::OperandIndex::kRawBufferLoadIndexOpIdx;
@@ -186,7 +182,7 @@ void DxilScalarizeVectorLoadStores::scalarizeVectorStore(hlsl::OP *HlslOP,
   Args.emplace_back(VecSt.get_alignment());     // Alignment @9.
 
   // Set offset to increment depending on whether the real offset is defined.
-  unsigned OffsetIdx = 0;
+  unsigned OffsetIdx;
   if (isa<UndefValue>(VecSt.get_elementOffset()))
     // Byte Address Buffers can't use offset, so use index.
     OffsetIdx = DXIL::OperandIndex::kRawBufferLoadIndexOpIdx;

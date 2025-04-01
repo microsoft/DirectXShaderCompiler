@@ -15071,7 +15071,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   }
 
   // Disallow long vecs from $Global cbuffers.
-  if (isGlobal && !isStatic && !isGroupShared) {
+  if (isGlobal && !isStatic && !isGroupShared && !IS_BASIC_OBJECT(basicKind)) {
     // Suppress actual emitting of errors for incompletable types here
     // They are redundant to those produced in ActOnUninitializedDecl.
     struct SilentDiagnoser : public TypeDiagnoser {
