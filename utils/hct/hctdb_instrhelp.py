@@ -40,7 +40,9 @@ def get_hlsl_opcode_data():
             g_hlsl_opcode_data = {}
     return g_hlsl_opcode_data
 
+
 g_db_hlsl = None
+
 
 def get_db_hlsl():
     global g_db_hlsl
@@ -49,6 +51,10 @@ def get_db_hlsl():
         with open(os.path.join(thisdir, "gen_intrin_main.txt"), "r") as f:
             g_db_hlsl = db_hlsl(f, get_hlsl_opcode_data())
     return g_db_hlsl
+
+
+def get_max_oload_dims():
+    return f"const unsigned kDxilMaxOloadDims = {dxil_max_overload_dims};"
 
 
 def format_comment(prefix, val):
@@ -507,26 +513,15 @@ class db_oload_gen:
                 OP=self.OP
             )
         )
-        print(
-            "//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,  function attribute"
-        )
-        # Example formatted string:
-        #   {  OC::TempRegLoad,             "TempRegLoad",              OCC::TempRegLoad,              "tempRegLoad",                false,  true,  true, false,  true, false,  true,  true, false, Attribute::ReadOnly, },
-        # 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
-        # 0         1         2         3         4         5         6         7         8         9         0         1         2         3         4         5         6         7         8         9         0
 
         last_category = None
-        # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong, u(dt)
-        f = lambda i, c: "true" if i.oload_types.find(c) >= 0 else "false"
         lower_exceptions = {
             "CBufferLoad": "cbufferLoad",
             "CBufferLoadLegacy": "cbufferLoadLegacy",
             "GSInstanceID": "gsInstanceID",
         }
-        lower_fn = (
-            lambda t: lower_exceptions[t]
-            if t in lower_exceptions
-            else t[:1].lower() + t[1:]
+        lower_fn = lambda t: (
+            lower_exceptions[t] if t in lower_exceptions else t[:1].lower() + t[1:]
         )
         attr_dict = {
             "": "None",
@@ -537,35 +532,47 @@ class db_oload_gen:
             "nr": "NoReturn",
             "wv": "None",
         }
-        attr_fn = lambda i: "Attribute::" + attr_dict[i.fn_attr] + ","
+        attr_fn = lambda i: "Attribute::" + attr_dict[i.fn_attr]
+        oload_to_mask = lambda oload: sum(
+            [1 << dxil_all_user_oload_chars.find(c) for c in oload]
+        )
+        oloads_fn = lambda oloads: (
+            "{" + ",".join(["{0x%x}" % m for m in oloads]) + "}"
+        )
         for i in self.instrs:
             if last_category != i.category:
                 if last_category != None:
                     print("")
-                print(
-                    "  // {category:118}  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute".format(
-                        category=i.category
-                    )
-                )
+                if not i.is_reserved:
+                    print(f"  // {i.category}")
                 last_category = i.category
+            scalar_masks = []
+            vector_masks = []
+            if i.num_oloads > 0:
+                for n, o in enumerate(i.oload_types.split(",")):
+                    if "<" in o:
+                        v = o.split("<")
+                        scalar_masks.append(oload_to_mask(v[0] + "<"))
+                        vector_masks.append(oload_to_mask(v[1]))
+                    else:
+                        scalar_masks.append(oload_to_mask(o))
+                        vector_masks.append(0)
             print(
-                "  {{  {OC}::{name:24} {quotName:27} {OCC}::{className:25} {classNameQuot:28} {{{v:>6},{h:>6},{f:>6},{d:>6},{b:>6},{e:>6},{w:>6},{i:>6},{l:>6},{u:>6},{o:>6}}}, {attr:20} }},".format(
+                (
+                    "  {{  {OC}::{name:24} {quotName:27} {OCC}::{className:25} "
+                    + "{classNameQuot:28} {attr:20}, {num_oloads}, "
+                    + "{scalar_masks:16}, {vector_masks:16} }}, "
+                    + "// Overloads: {oloads}"
+                ).format(
                     name=i.name + ",",
                     quotName='"' + i.name + '",',
                     className=i.dxil_class + ",",
                     classNameQuot='"' + lower_fn(i.dxil_class) + '",',
-                    v=f(i, "v"),
-                    h=f(i, "h"),
-                    f=f(i, "f"),
-                    d=f(i, "d"),
-                    b=f(i, "1"),
-                    e=f(i, "8"),
-                    w=f(i, "w"),
-                    i=f(i, "i"),
-                    l=f(i, "l"),
-                    u=f(i, "u"),
-                    o=f(i, "o"),
                     attr=attr_fn(i),
+                    num_oloads=i.num_oloads,
+                    scalar_masks=oloads_fn(scalar_masks),
+                    vector_masks=oloads_fn(vector_masks),
+                    oloads=i.oload_types,
                     OC=self.OC,
                     OCC=self.OCC,
                 )
@@ -621,6 +628,9 @@ class db_oload_gen:
             "nodeproperty": "A(nodeProperty);",
             "noderecordproperty": "A(nodeRecordProperty);",
             "hit_object": "A(pHit);",
+            # Extended overload slots, extend as needed:
+            "$x0": "EXT(0);",
+            "$x1": "EXT(1);",
         }
         last_category = None
         for i in self.instrs:
@@ -651,14 +661,24 @@ class db_oload_gen:
         obj_ty = "obj"
         vec_ty = "$vec"
         gsptr_ty = "$gsptr"
+        extended_ty = "$x"
         last_category = None
 
         index_dict = collections.OrderedDict()
         ptr_index_dict = collections.OrderedDict()
         single_dict = collections.OrderedDict()
+        # extended_dict collects overloads with multiple overload types
+        # grouped by the set of overload parameter indices.
+        extended_dict = collections.OrderedDict()
         struct_list = []
+        extended_list = []
 
         for instr in self.instrs:
+            if instr.num_oloads > 1:
+                # Process extended overloads separately.
+                extended_list.append(instr)
+                continue
+
             ret_ty = instr.ops[0].llvm_type
             # Skip case return type is overload type
             if ret_ty == elt_ty:
@@ -730,8 +750,7 @@ class db_oload_gen:
                 "i": "IntegerType::get(Ctx, 32)",
                 "l": "IntegerType::get(Ctx, 64)",
                 "v": "Type::getVoidTy(Ctx)",
-                "u": "Type::getInt32PtrTy(Ctx)",
-                "o": "Type::getInt32PtrTy(Ctx)",
+                # No other types should be referenced here.
             }
             assert ty in type_code_texts, "llvm type %s is unknown" % (ty)
             ty_code = type_code_texts[ty]
@@ -790,6 +809,61 @@ class db_oload_gen:
         line = line + "  return ST->getElementType(0);\n"
         line = line + "}"
         print(line)
+
+        for instr in extended_list:
+            # Collect indices for overloaded return and types, make a tuple of
+            # indices the key, and add the opcode to a list of opcodes for that
+            # key.  Indices start with 0 for return type, and 1 for the first
+            # function parameter, which is the DXIL OpCode.
+            indices = []
+            for index, op in enumerate(instr.ops):
+                # Skip dxil opcode.
+                if op.pos == 1:
+                    continue
+
+                op_type = op.llvm_type
+                if op_type.startswith(extended_ty):
+                    try:
+                        extended_index = int(op_type[2:])
+                    except:
+                        raise ValueError(
+                            "Error parsing extended operand type "
+                            + f"'{op_type}' for DXIL op '{instr.name}'"
+                        )
+                    if extended_index != len(indices):
+                        raise ValueError(
+                            f"'$x{extended_index}' is not in sequential "
+                            + f"order for DXIL op '{instr.name}'"
+                        )
+                    indices.append(op.pos)
+
+            if len(indices) != instr.num_oloads:
+                raise ValueError(
+                    f"DXIL op {instr.name}: extended overload count "
+                    + "mismatches the number of overload types"
+                )
+            extended_dict.setdefault(tuple(indices), []).append(instr.name)
+
+        def get_type_at_index(index):
+            if index == 0:
+                return "FT->getReturnType()"
+            return f"FT->getParamType({index - 1})"
+
+        for index_tuple, opcodes in extended_dict.items():
+            line = ""
+            for opcode in opcodes:
+                line = line + f"case OpCode::{opcode}:\n"
+            if index_tuple[-1] > 0:
+                line += (
+                    f"  if (FT->getNumParams() < {index_tuple[-1]})\n"
+                    + "    return nullptr;\n"
+                )
+            line += (
+                "  return llvm::StructType::get(Ctx, {"
+                + ", ".join([get_type_at_index(index) for index in index_tuple])
+                + "});\n"
+            )
+            print(line)
 
 
 class db_valfns_gen:
@@ -1599,6 +1673,7 @@ static const unsigned kHighestReleasedMinor = %d;""" % (
     )
     return result
 
+
 def get_highest_shader_model():
     result = """static const unsigned kHighestMajor = %d;
 static const unsigned kHighestMinor = %d;""" % (
@@ -1606,6 +1681,7 @@ static const unsigned kHighestMinor = %d;""" % (
         highest_minor,
     )
     return result
+
 
 def get_dxil_version_minor():
     return "const unsigned kDxilMinor = %d;" % highest_minor
