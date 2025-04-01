@@ -498,7 +498,6 @@ enum class OpCode : unsigned {
   ReservedA1 = 260,  // reserved
   ReservedA2 = 261,  // reserved
   ReservedB0 = 262,  // reserved
-  ReservedB1 = 263,  // reserved
   ReservedB10 = 272, // reserved
   ReservedB11 = 273, // reserved
   ReservedB12 = 274, // reserved
@@ -509,7 +508,6 @@ enum class OpCode : unsigned {
   ReservedB17 = 279, // reserved
   ReservedB18 = 280, // reserved
   ReservedB19 = 281, // reserved
-  ReservedB2 = 264,  // reserved
   ReservedB20 = 282, // reserved
   ReservedB21 = 283, // reserved
   ReservedB22 = 284, // reserved
@@ -908,6 +906,11 @@ enum class OpCode : unsigned {
                                    // operation with a mipmap-level offset
 
   // Shader Execution Reordering
+  HitObject_FromRayQuery = 263, // Creates a new HitObject representing a
+                                // committed hit from a RayQuery
+  HitObject_FromRayQueryWithAttrs =
+      264, // Creates a new HitObject representing a committed hit from a
+           // RayQuery and committed attributes
   HitObject_MakeMiss = 265, // Creates a new HitObject representing a miss
   HitObject_MakeNop = 266,  // Creates an empty nop HitObject
 
@@ -1284,6 +1287,8 @@ enum class OpCodeClass : unsigned {
   WriteSamplerFeedbackLevel,
 
   // Shader Execution Reordering
+  HitObject_FromRayQuery,
+  HitObject_FromRayQueryWithAttrs,
   HitObject_MakeMiss,
   HitObject_MakeNop,
 
@@ -1351,7 +1356,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
 
-  NumOpClasses = 177 // exclusive last value of enumeration
+  NumOpClasses = 179 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

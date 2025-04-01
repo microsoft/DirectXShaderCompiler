@@ -2652,27 +2652,27 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::None,
     },
-    {
-        OC::ReservedB1,
-        "ReservedB1",
-        OCC::Reserved,
-        "reserved",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::ReservedB2,
-        "ReservedB2",
-        OCC::Reserved,
-        "reserved",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
 
     // Shader Execution Reordering void,     h,     f,     d,    i1,    i8, i16,
     // i32,   i64,   udt,   obj ,  function attribute
+    {
+        OC::HitObject_FromRayQuery,
+        "HitObject_FromRayQuery",
+        OCC::HitObject_FromRayQuery,
+        "hitObject_FromRayQuery",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::ArgMemOnly,
+    },
+    {
+        OC::HitObject_FromRayQueryWithAttrs,
+        "HitObject_FromRayQueryWithAttrs",
+        OCC::HitObject_FromRayQueryWithAttrs,
+        "hitObject_FromRayQueryWithAttrs",
+        {false, false, false, false, false, false, false, false, false, true,
+         false},
+        Attribute::ArgMemOnly,
+    },
     {
         OC::HitObject_MakeMiss,
         "HitObject_MakeMiss",
@@ -3755,8 +3755,10 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     minor = 9;
     return;
   }
-  // Instructions: HitObject_MakeMiss=265, HitObject_MakeNop=266
-  if ((265 <= op && op <= 266)) {
+  // Instructions: HitObject_FromRayQuery=263,
+  // HitObject_FromRayQueryWithAttrs=264, HitObject_MakeMiss=265,
+  // HitObject_MakeNop=266
+  if ((263 <= op && op <= 266)) {
     major = 6;
     minor = 9;
     mask =
@@ -5879,16 +5881,20 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedB1:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB2:
-    A(pV);
-    A(pI32);
-    break;
 
     // Shader Execution Reordering
+  case OpCode::HitObject_FromRayQuery:
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::HitObject_FromRayQueryWithAttrs:
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(udt);
+    break;
   case OpCode::HitObject_MakeMiss:
     A(pHit);
     A(pI32);
@@ -6233,6 +6239,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
       return nullptr;
     return FT->getParamType(15);
   case OpCode::ReportHit:
+  case OpCode::HitObject_FromRayQueryWithAttrs:
     if (FT->getNumParams() <= 3)
       return nullptr;
     return FT->getParamType(3);
@@ -6316,8 +6323,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedA1:
   case OpCode::ReservedA2:
   case OpCode::ReservedB0:
-  case OpCode::ReservedB1:
-  case OpCode::ReservedB2:
+  case OpCode::HitObject_FromRayQuery:
   case OpCode::HitObject_MakeMiss:
   case OpCode::HitObject_MakeNop:
   case OpCode::ReservedB5:

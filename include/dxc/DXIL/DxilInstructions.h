@@ -8850,6 +8850,69 @@ struct DxilInst_AllocateRayQuery2 {
   }
 };
 
+/// This instruction Creates a new HitObject representing a committed hit from a
+/// RayQuery
+struct DxilInst_HitObject_FromRayQuery {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_HitObject_FromRayQuery(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::HitObject_FromRayQuery);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_rayQueryHandle = 1,
+  };
+  // Accessors
+  llvm::Value *get_rayQueryHandle() const { return Instr->getOperand(1); }
+  void set_rayQueryHandle(llvm::Value *val) { Instr->setOperand(1, val); }
+};
+
+/// This instruction Creates a new HitObject representing a committed hit from a
+/// RayQuery and committed attributes
+struct DxilInst_HitObject_FromRayQueryWithAttrs {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_HitObject_FromRayQueryWithAttrs(llvm::Instruction *pInstr)
+      : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::HitObject_FromRayQueryWithAttrs);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_rayQueryHandle = 1,
+    arg_HitKind = 2,
+    arg_CommittedAttribs = 3,
+  };
+  // Accessors
+  llvm::Value *get_rayQueryHandle() const { return Instr->getOperand(1); }
+  void set_rayQueryHandle(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_HitKind() const { return Instr->getOperand(2); }
+  void set_HitKind(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_CommittedAttribs() const { return Instr->getOperand(3); }
+  void set_CommittedAttribs(llvm::Value *val) { Instr->setOperand(3, val); }
+};
+
 /// This instruction Creates a new HitObject representing a miss
 struct DxilInst_HitObject_MakeMiss {
   llvm::Instruction *Instr;
