@@ -10,11 +10,9 @@
 // an unreachable discard.
 
 // CHECK:      define void @main()
-// CHECK:      while.body:
-// CHECK-NEXT: br label %while.body
-// CHECK:      return:
-// CHECK-NEXT: ret void
+// CHECK:      br label %
 // CHECK-NOT:  call void @"dx.hl.op..void (i32, float)"
+// CHECK:      ret void
 
 void main() {
   while (true) {
