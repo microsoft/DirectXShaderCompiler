@@ -6312,7 +6312,7 @@ Value *TranslateMatVecMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
   // input
   Value *inputVector = CI->getArgOperand(HLOperandIndex::kMatVecMulInputVectorIdx);
-  Value *isInputSigned = CI->getArgOperand(HLOperandIndex::kMatVecMulIsInputUnsignedIdx);
+  Value *isInputUnsigned = CI->getArgOperand(HLOperandIndex::kMatVecMulIsInputUnsignedIdx);
   Value *inputInterpretation =
       CI->getArgOperand(HLOperandIndex::kMatVecMulInputInterpretationIdx);
   // matrix
@@ -6327,7 +6327,7 @@ Value *TranslateMatVecMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
       CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixTransposeIdx);
   Value *matrixStride = CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixStrideIdx);
   // output
-  Value *isOutputSigned = CI->getArgOperand(HLOperandIndex::kMatVecMulIsOutputUnsignedIdx);
+  Value *isOutputUnsigned = CI->getArgOperand(HLOperandIndex::kMatVecMulIsOutputUnsignedIdx);
 
   Function *dxilFunc =
        hlslOP->GetOpFunc(opcode, {CI->getArgOperand(HLOperandIndex::kMatVecMulOutputVectorIdx)
@@ -6336,9 +6336,9 @@ Value *TranslateMatVecMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   Value *NewCI = Builder.CreateCall(
       dxilFunc,
-      {opArg, inputVector, isInputSigned, inputInterpretation, matrixBuffer,
+      {opArg, inputVector, isInputUnsigned, inputInterpretation, matrixBuffer,
        matrixOffset, matrixInterpretation, matrixM, matrixK, matrixLayout,
-       matrixTranspose, matrixStride, isOutputSigned});
+       matrixTranspose, matrixStride, isOutputUnsigned});
 
   Value *OutParam = CI->getArgOperand(HLOperandIndex::kMatVecMulOutputVectorIdx);
   Builder.CreateStore(NewCI, OutParam);
@@ -6357,7 +6357,7 @@ Value *TranslateMatVecMulAdd(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
   // input vector
   Value *inputVector = CI->getArgOperand(HLOperandIndex::kMatVecMulAddInputVectorIdx);
-  Value *isInputSigned = CI->getArgOperand(HLOperandIndex::kMatVecMulAddIsInputUnsignedIdx);
+  Value *isInputUnsigned = CI->getArgOperand(HLOperandIndex::kMatVecMulAddIsInputUnsignedIdx);
   Value *inputInterpretation =
       CI->getArgOperand(HLOperandIndex::kMatVecMulAddInputInterpretationIdx);
  // matrix
@@ -6376,7 +6376,7 @@ Value *TranslateMatVecMulAdd(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Value *biasOffset = CI->getArgOperand(HLOperandIndex::kMatVecMulAddBiasOffsetIdx);
   Value *biasInterpretation = CI->getArgOperand(HLOperandIndex::kMatVecMulAddBiasInterpretationIdx);
   // output
-  Value *isOutputSigned  = CI->getArgOperand(HLOperandIndex::kMatVecMulAddIsOutputUnsignedIdx);
+  Value *isOutputUnsigned  = CI->getArgOperand(HLOperandIndex::kMatVecMulAddIsOutputUnsignedIdx);
 
   Function *dxilFunc =
        hlslOP->GetOpFunc(opcode, {CI->getArgOperand(HLOperandIndex::kMatVecMulAddOutputVectorIdx)
@@ -6384,10 +6384,10 @@ Value *TranslateMatVecMulAdd(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                   ->getPointerElementType(), inputVector->getType()});
 
   Value *NewCI = Builder.CreateCall(
-      dxilFunc, {opArg, inputVector, isInputSigned, inputInterpretation,
+      dxilFunc, {opArg, inputVector, isInputUnsigned, inputInterpretation,
                  matrixBuffer, matrixOffset, matrixInterpretation, matrixM,
                  matrixK, matrixLayout, matrixTranspose, matrixStride,
-                 biasBuffer, biasOffset, biasInterpretation, isOutputSigned});
+                 biasBuffer, biasOffset, biasInterpretation, isOutputUnsigned});
 
   Value *OutParam = CI->getArgOperand(HLOperandIndex::kMatVecMulAddOutputVectorIdx);
   Builder.CreateStore(NewCI, OutParam);
