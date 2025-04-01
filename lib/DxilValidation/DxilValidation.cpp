@@ -1684,6 +1684,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::CBufferLoadLegacy:
   case DXIL::OpCode::RawBufferLoad:
   case DXIL::OpCode::RawBufferStore:
+  case DXIL::OpCode::RawBufferVectorLoad:
+  case DXIL::OpCode::RawBufferVectorStore:
     ValidateResourceDxilOp(CI, opcode, ValCtx);
     break;
   // Input output.

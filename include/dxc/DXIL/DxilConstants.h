@@ -898,8 +898,11 @@ enum class OpCode : unsigned {
   GetDimensions = 72,   // gets texture size information
   RawBufferLoad = 139,  // reads from a raw buffer and structured buffer
   RawBufferStore = 140, // writes to a RWByteAddressBuffer or RWStructuredBuffer
-  TextureLoad = 66,     // reads texel data without any filtering or sampling
-  TextureStore = 67,    // reads texel data without any filtering or sampling
+  RawBufferVectorLoad = 303, // reads from a raw buffer and structured buffer
+  RawBufferVectorStore =
+      304,           // writes to a RWByteAddressBuffer or RWStructuredBuffer
+  TextureLoad = 66,  // reads texel data without any filtering or sampling
+  TextureStore = 67, // reads texel data without any filtering or sampling
   TextureStoreSample = 225, // stores texel data at specified sample index
 
   // Sampler Feedback
@@ -1043,8 +1046,9 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
   NumOpCodes_Dxil_1_8 = 258,
+  NumOpCodes_Dxil_1_9 = 305,
 
-  NumOpCodes = 303 // exclusive last value of enumeration
+  NumOpCodes = 305 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1278,6 +1282,8 @@ enum class OpCodeClass : unsigned {
   GetDimensions,
   RawBufferLoad,
   RawBufferStore,
+  RawBufferVectorLoad,
+  RawBufferVectorStore,
   TextureLoad,
   TextureStore,
   TextureStoreSample,
@@ -1355,8 +1361,9 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
+  NumOpClasses_Dxil_1_9 = 179,
 
-  NumOpClasses = 177 // exclusive last value of enumeration
+  NumOpClasses = 179 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
