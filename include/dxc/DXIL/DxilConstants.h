@@ -497,7 +497,6 @@ enum class OpCode : unsigned {
   ReservedA0 = 259,  // reserved
   ReservedA1 = 260,  // reserved
   ReservedA2 = 261,  // reserved
-  ReservedB0 = 262,  // reserved
   ReservedB1 = 263,  // reserved
   ReservedB10 = 272, // reserved
   ReservedB11 = 273, // reserved
@@ -521,7 +520,6 @@ enum class OpCode : unsigned {
   ReservedB28 = 290, // reserved
   ReservedB29 = 291, // reserved
   ReservedB30 = 292, // reserved
-  ReservedB5 = 267,  // reserved
   ReservedB6 = 268,  // reserved
   ReservedB7 = 269,  // reserved
   ReservedB8 = 270,  // reserved
@@ -908,8 +906,12 @@ enum class OpCode : unsigned {
                                    // operation with a mipmap-level offset
 
   // Shader Execution Reordering
+  HitObject_Invoke = 267,   // Represents the invocation of the CH/MS shader
+                            // represented by the HitObject
   HitObject_MakeMiss = 265, // Creates a new HitObject representing a miss
   HitObject_MakeNop = 266,  // Creates an empty nop HitObject
+  HitObject_TraceRay = 262, // Analogous to TraceRay but without invoking CH/MS
+                            // and returns the intermediate state as a HitObject
 
   // Synchronization
   AtomicBinOp = 78,           // performs an atomic operation on two operands
@@ -1284,8 +1286,10 @@ enum class OpCodeClass : unsigned {
   WriteSamplerFeedbackLevel,
 
   // Shader Execution Reordering
+  HitObject_Invoke,
   HitObject_MakeMiss,
   HitObject_MakeNop,
+  HitObject_TraceRay,
 
   // Synchronization
   AtomicBinOp,
@@ -1351,7 +1355,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
 
-  NumOpClasses = 177 // exclusive last value of enumeration
+  NumOpClasses = 179 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

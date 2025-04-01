@@ -699,7 +699,10 @@ class db_dxil(object):
             self.name_idx[i].category = "Extended Command Information"
             self.name_idx[i].shader_stages = ("vertex",)
             self.name_idx[i].shader_model = 6, 8
-        for i in ("HitObject_MakeMiss,HitObject_MakeNop").split(","):
+        for i in (
+            "HitObject_MakeMiss,HitObject_MakeNop"
+            + ",HitObject_TraceRay,HitObject_Invoke"
+        ).split(","):
             self.name_idx[i].category = "Shader Execution Reordering"
             self.name_idx[i].shader_model = 6, 9
             self.name_idx[i].shader_stages = (
@@ -5590,7 +5593,72 @@ class db_dxil(object):
         next_op_idx = self.reserve_dxil_op_range("ReservedA", next_op_idx, 3)
 
         # Shader Execution Reordering
-        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 3)
+        self.add_dxil_op(
+            "HitObject_TraceRay",
+            next_op_idx,
+            "HitObject_TraceRay",
+            "Analogous to TraceRay but without invoking CH/MS and returns the intermediate state as a HitObject",
+            "u",
+            "",
+            [
+                db_dxil_param(
+                    0, "hit_object", "", "HitObject created from RayQuery object"
+                ),
+                db_dxil_param(
+                    2,
+                    "res",
+                    "accelerationStructure",
+                    "Top-level acceleration structure to use",
+                ),
+                db_dxil_param(
+                    3,
+                    "i32",
+                    "rayFlags",
+                    "Valid combination of Ray_flags",
+                ),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "instanceInclusionMask",
+                    "Bottom 8 bits of InstanceInclusionMask are used to include/reject geometry instances based on the InstanceMask in each instance: if(!((InstanceInclusionMask & InstanceMask) & 0xff)) { ignore intersection }",
+                ),
+                db_dxil_param(
+                    5,
+                    "i32",
+                    "rayContributionToHitGroupIndex",
+                    "Offset to add into Addressing calculations within shader tables for hit group indexing.  Only the bottom 4 bits of this value are used",
+                ),
+                db_dxil_param(
+                    6,
+                    "i32",
+                    "multiplierForGeometryContributionToHitGroupIndex",
+                    "Stride to multiply by per-geometry GeometryContributionToHitGroupIndex in Addressing calculations within shader tables for hit group indexing.  Only the bottom 4 bits of this value are used",
+                ),
+                db_dxil_param(
+                    7,
+                    "i32",
+                    "missShaderIndex",
+                    "Miss shader index in Addressing calculations within shader tables.  Only the bottom 16 bits of this value are used",
+                ),
+                db_dxil_param(8, "f", "Origin_X", "Origin x of the ray"),
+                db_dxil_param(9, "f", "Origin_Y", "Origin y of the ray"),
+                db_dxil_param(10, "f", "Origin_Z", "Origin z of the ray"),
+                db_dxil_param(11, "f", "TMin", "Tmin of the ray"),
+                db_dxil_param(12, "f", "Direction_X", "Direction x of the ray"),
+                db_dxil_param(13, "f", "Direction_Y", "Direction y of the ray"),
+                db_dxil_param(14, "f", "Direction_Z", "Direction z of the ray"),
+                db_dxil_param(15, "f", "TMax", "Tmax of the ray"),
+                db_dxil_param(
+                    16,
+                    "udt",
+                    "payload",
+                    "User-defined intersection attribute structure",
+                ),
+            ],
+        )
+        next_op_idx += 1
+
+        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 2, 1)
 
         self.add_dxil_op(
             "HitObject_MakeMiss",
@@ -5626,7 +5694,27 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
-        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 26, 5)
+        self.add_dxil_op(
+            "HitObject_Invoke",
+            next_op_idx,
+            "HitObject_Invoke",
+            "Represents the invocation of the CH/MS shader represented by the HitObject",
+            "u",
+            "",
+            [
+                retvoid_param,
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+                db_dxil_param(
+                    3,
+                    "udt",
+                    "payload",
+                    "User-defined intersection attribute structure",
+                ),
+            ],
+        )
+        next_op_idx += 1
+
+        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 25, 6)
 
         # Reserved block C
         next_op_idx = self.reserve_dxil_op_range("ReservedC", next_op_idx, 10)
