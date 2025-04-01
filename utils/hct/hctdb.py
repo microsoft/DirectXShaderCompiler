@@ -164,7 +164,7 @@ class db_dxil_inst(object):
         #     - "hf" means overloads for scalar half and float
         #     - ending with "<" means vector overload supporting the same
         #       components as defined for the scalar overload types.
-        #   - In the second overload dimension "<f":
+        #   - In the second overload dimension "<fd":
         #     - starting with "<" means only vector overloads are supported.
         #     - "fd" means the vector supports float or double components.
         #   - In the third overload dimension "i<1":

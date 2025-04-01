@@ -54,7 +54,6 @@ def get_db_hlsl():
 
 
 def get_max_oload_dims():
-    db = get_db_dxil()
     return f"const unsigned kDxilMaxOloadDims = {dxil_max_overload_dims};"
 
 
@@ -551,9 +550,13 @@ class db_oload_gen:
             vector_masks = []
             if i.num_oloads > 0:
                 for n, o in enumerate(i.oload_types.split(",")):
-                    v = o.split("<")
-                    scalar_masks.append(oload_to_mask(v[0]))
-                    vector_masks.append(oload_to_mask(v[1]) if len(v) > 1 else 0)
+                    if "<" in o:
+                        v = o.split("<")
+                        scalar_masks.append(oload_to_mask(v[0]))
+                        vector_masks.append(oload_to_mask(v[1]))
+                    else:
+                        scalar_masks.append(oload_to_mask(o))
+                        vector_masks.append(0)
             print(
                 (
                     "  {{  {OC}::{name:24} {quotName:27} {OCC}::{className:25} "

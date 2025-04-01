@@ -2800,8 +2800,7 @@ bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
   if (OpProps.NumOverloadDims > 1) {
     StructType *ST = dyn_cast<StructType>(pType);
     // Make sure multi-overload is well-formed.
-    if (!ST || ST->hasName() ||
-        ST->getNumContainedTypes() != OpProps.NumOverloadDims)
+    if (!ST || ST->hasName() || ST->getNumElements() != OpProps.NumOverloadDims)
       return false;
     for (unsigned I = 0; I < ST->getNumElements(); ++I)
       Types[I] = ST->getElementType(I);
@@ -6189,10 +6188,9 @@ bool OP::IsResRetType(llvm::Type *Ty) {
       return true;
   }
   StructType *ST = cast<StructType>(Ty);
-  if (!ST->hasName() || ST->getNumContainedTypes() < 2)
+  if (!ST->hasName() || ST->getNumElements() < 2)
     return false;
-  return Ty == GetResRetType(ST->getContainedType(0));
-  return false;
+  return Ty == GetResRetType(ST->getElementType(0));
 }
 
 Type *OP::GetResRetType(Type *pOverloadType) {
