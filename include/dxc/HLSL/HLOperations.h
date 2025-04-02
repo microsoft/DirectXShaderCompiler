@@ -450,7 +450,6 @@ const unsigned kMatVecMulMatrixLayoutIdx = 11;
 const unsigned kMatVecMulMatrixTransposeIdx = 12;
 const unsigned kMatVecMulMatrixStrideIdx = 13;
 
-
 // MatVecMulAdd
 const unsigned kMatVecMulAddOutputVectorIdx = 1;
 const unsigned kMatVecMulAddIsOutputUnsignedIdx = 2;
@@ -468,7 +467,6 @@ const unsigned kMatVecMulAddMatrixStrideIdx = 13;
 const unsigned kMatVecMulAddBiasBufferIdx = 14;
 const unsigned kMatVecMulAddBiasOffsetIdx = 15;
 const unsigned kMatVecMulAddBiasInterpretationIdx = 16;
-
 
 // OuterProductAccumulate
 const unsigned kOuterProdAccInputVec1Idx = 1;
