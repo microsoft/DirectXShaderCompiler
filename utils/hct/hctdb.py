@@ -5939,7 +5939,7 @@ class db_dxil(object):
 
         self.set_op_count_for_version(1, 9, next_op_idx)
         assert next_op_idx == 309, (
-            "305 is expected next operation index but encountered %d and thus opcodes are broken"
+            "309 is expected next operation index but encountered %d and thus opcodes are broken"
             % next_op_idx
         )
 
