@@ -380,7 +380,7 @@ void [[]] Barrier(in NodeRecordOrUAV o, in uint SemanticFlags);
 
 uint [[]] GetRemainingRecursionLevels();
 
-void [[]] __builtin_MatVecMul(out numeric<c> output_vector, in bool isOutputSigned, in numeric<c2> input_vector, in bool isInputUnsigned, in uint input_interpretation, in ByteAddressBuffer matrix_buffer, in uint matrix_offset, in uint matrix_interpretation, in uint M, in uint K, in uint matrix_layout, in bool matrix_is_transposed, in uint matrix_stride);
+void [[]] __builtin_MatVecMul(out numeric<c> output_vector, in bool isOutputUnsigned, in numeric<c2> input_vector, in bool isInputUnsigned, in uint input_interpretation, in ByteAddressBuffer matrix_buffer, in uint matrix_offset, in uint matrix_interpretation, in uint M, in uint K, in uint matrix_layout, in bool matrix_is_transposed, in uint matrix_stride);
  
 void [[]] __builtin_MatVecMulAdd(out numeric<c> output_vector, in bool isOutputUnsigned, in numeric<c2> input_vector, in bool isInputUnsigned, in uint input_interpretation, in ByteAddressBuffer matrix_buffer, in uint matrix_offset, in uint matrix_interpretation, in uint M, in uint K, in uint matrix_layout, in bool matrix_is_transposed, in uint matrix_stride, in ByteAddressBuffer bias_vector, in uint bias_offset, in uint bias_interpretation);
  
