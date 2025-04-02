@@ -524,42 +524,42 @@ Bit SM   Description                                                            
 1        Disable math refactoring                                                                 Not set
 2        Double-precision floating point                                                          Use of the double data type
 3        Force early depth-stencil test                                                           Shader is a pixel shader, and the ``[earlydepthstencil]`` attribute is present in the HLSL source
-4        Raw and structured buffers                                                               Use of RawBuffer or StructuredBuffer resource types
+4        Raw and Structured buffers                                                               Use of RawBuffer or StructuredBuffer resource types
 5        Low-precision data types                                                                 Use of half or i16 data types
-6        Double-precision extensions                                                              Use of FDiv, UIToFP, SIToFP, FPToUI, FPToSI, or Fma instructions with a double type
-7        Masked sum of absolute differences                                                       Use of the Msad instruction
+6        Double-precision extensions for 11.1                                                     Use of FDiv, UIToFP, SIToFP, FPToUI, FPToSI, or Fma instructions with a double type
+7        Shader extensions for 11.1                                                               Use of the Msad instruction
 8        All resources bound for the duration of shader execution                                 Command-line flag ``/all_resources_bound`` provided to DXC
-9        View port or render target array index from any shader feeding rasterizer                ViewPortArrayIndex or RenderTargetArrayIndex semantics are present in the input signature of a geometry shader, or the output signature of a vertex, domain, or hull shader. If DXIL validator version < 1.4, this flag is also required if the ViewPortArrayIndex or RenderTargetArrayIndex semantics are present in the input signature of domain and hull shaders
-10       Inner coverage                                                                           Use of the InnerCoverage instruction, or the InnerCoverage semantic is present in the output signature of a pixel shader
-11       Stencil reference value                                                                  The StencilRef semantic is present in the output signature of a pixel shader
+9        SV_RenderTargetArrayIndex or SV_ViewportArrayIndex from any shader feeding rasterizer    ViewPortArrayIndex or RenderTargetArrayIndex semantics are present in the input signature of a geometry shader, or the output signature of a vertex, domain, or hull shader. If DXIL validator version < 1.4, this flag is also required if the ViewPortArrayIndex or RenderTargetArrayIndex semantics are present in the input signature of domain and hull shaders
+10       PS Inner Coverage                                                                        Use of the InnerCoverage instruction, or the InnerCoverage semantic is present in the output signature of a pixel shader
+11       PS Output Stencil Ref                                                                    The StencilRef semantic is present in the output signature of a pixel shader
 12       Tiled resources                                                                          Use of the CheckAccessFullyMapped instruction or, if DXIL validator version >= 1.8, the use of LodClamp in intrinsics SampleGrad, SampleCmpGrad, Sample, SampleBias, SampleCmp, or SampleCmpBias
 13       Typed UAV load additional formats                                                        Use of TextureLoad or BufferLoad on a UAV with a multi-component data type. If DXIL validator version == 1.0 then this flag is set when a TextureLoad or BufferLoad is used on any UAV, regardless of its data type
 14       Comparison filtering for feature level 9                                                 Not set
 15       64 UAV slots                                                                             The presence of more than 8 UAVs. If Shader Model >= 6.6, then UAV ranges count as multiple UAVs
 16       UAVs at every shader stage                                                               The shader has UAVs and: if Shader Model >= 6.8, the shader is a vertex, hull, domain, or geometry shader; else (Shader Model < 6.8) the shader is not a compute or pixel shader
 17       CS4 raw and structured buffers                                                           Use of RawBuffer or StructuedBuffer in a Shader Model 4.x compute shader
-18       Rasterizer order views                                                                   Not set
-19       Wave-level operations                                                                    Use of any wave or quad intrinsic: WaveIsFirstLane, WaveGetLaneIndex, WaveGetLaneCount, WaveAnyTrue, WaveAllTrue, WaveActiveAllEqual, WaveActiveBallot, WaveReadLaneAt, WaveReadLaneFirst, WaveActiveOp, WaveActiveBit, WavePrefixOp, QuadReadLaneAt, QuadOp, WaveAllBitCount, WavePrefixBitCount, WaveMatch, WaveMultiPrefixOp, WaveMultiPrefixBitCount, QuadVote
-20       64-bit integers                                                                          Use of i64 data types
-21  6.1+ View instancing                                                                          Use of the ViewID instruction
+18       Raster Ordered UAVs                                                                      Not set
+19       Wave level operations                                                                    Use of any wave or quad intrinsic: WaveIsFirstLane, WaveGetLaneIndex, WaveGetLaneCount, WaveAnyTrue, WaveAllTrue, WaveActiveAllEqual, WaveActiveBallot, WaveReadLaneAt, WaveReadLaneFirst, WaveActiveOp, WaveActiveBit, WavePrefixOp, QuadReadLaneAt, QuadOp, WaveAllBitCount, WavePrefixBitCount, WaveMatch, WaveMultiPrefixOp, WaveMultiPrefixBitCount, QuadVote
+20       64-Bit integers                                                                          Use of i64 data types
+21  6.1+ View Instancing                                                                          Use of the ViewID instruction
 22  6.1+ Barycentrics                                                                             Use of the AttributeAtVertex instruction, or the Barcentrics semantic is present in the shader input signature. If DXIL validator version < 1.6 then this flag must not be set at all
-23  6.2+ Use native low-precision data types                                                      Command-line flag ``-enable-16bit-types`` is provided to DXC
-24  6.4+ Variable-rate shading                                                                    The ShadingRate semantic is present in the shader input or output signature
+23  6.2+ Use native low precision                                                                 Command-line flag ``-enable-16bit-types`` is provided to DXC
+24  6.4+ ShadingRate                                                                              The ShadingRate semantic is present in the shader input or output signature
 25  6.5+ Raytracing tier 1.1 features                                                             Use of the AllocateRayQuery, AllocateRayQuery2, or GeometryIndex instruction
 
 26  6.5+ Sampler feedback                                                                         Not set
-27  6.6+ 64-bit integer atomics on typed resources                                                Use of i64 AtomicBinOp or AtomicCompareExchange instructions on a typed resource
-28  6.6+ 64-bit integer atomics on group shared                                                   Use of i64 AtomicBinOp or AtomicCompareExchange instructions on group shared memory
-29  6.6+ Derivatives in mesh and amp shaders                                                      Use of instructions DerivFineX, DerivFineY, DerivCoarseX, DerivCoarseY, CalculateLOD, Sample, SampleBias, SampleCmp, or SampleCmpBias in a mesh or amplification shader
+27  6.6+ 64-bit Atomics on Typed Resources                                                        Use of i64 AtomicBinOp or AtomicCompareExchange instructions on a typed resource
+28  6.6+ 64-bit Atomics on Group Shared                                                           Use of i64 AtomicBinOp or AtomicCompareExchange instructions on group shared memory
+29  6.6+ Derivatives in mesh and amplification shaders                                            Use of instructions DerivFineX, DerivFineY, DerivCoarseX, DerivCoarseY, CalculateLOD, Sample, SampleBias, SampleCmp, or SampleCmpBias in a mesh or amplification shader
 30  6.6+ Resource descriptor heap indexing                                                        Use of the CreateHandleFromHeap instruction on a resource descriptor heap
 31  6.6+ Sampler descriptor heap indexing                                                         Use of the CreateHandleFromHeap instruction on a sampler descriptor heap
-32  6.6+ 64-bit integer atomics on descriptor heap resources                                      Use of i64 AtomicBinOp or AtomicCompareExchange instructions on a descriptor heap resource
+32  6.6+ 64-bit Atomics on Heap Resources                                                         Use of i64 AtomicBinOp or AtomicCompareExchange instructions on a descriptor heap resource
 33  6.7+ Any UAV may not alias any other UAV                                                      If DXIL validator version >= 1.8: use of a UAV in any function. If DXIL validator version < 1.8: global presence of a UAV. This flag is not set if the ``-res-may-alias`` command-line flag is provided to DXC
-34  6.7+ Advanced texture operations                                                              Use of SampleCmpLevel or TextureGatherRaw instructions, or the use of TextureLoad, SampleLevel, SampleCmpLevelZero, Sample Grad, SampleCmpGrad, Sample, SampleBias, SampleCamp, or SampleCmpBias with non-constant offsets
-35  6.7+ Writeable MSAA textures                                                                  Use of the TextureStoreSample instruction. Or if DXIL validator version < 1.8: the presence of Texture2DMS or Texture2DMSArray resources. Or if DXIL validator version >= 1.8: use of Texture2DMS or Texture2DMSArray resources in CreateHandle, CreateHandleForLib, or AnnotateHandle instructions
+34  6.7+ Advanced Texture Ops                                                                     Use of SampleCmpLevel or TextureGatherRaw instructions, or the use of TextureLoad, SampleLevel, SampleCmpLevelZero, Sample Grad, SampleCmpGrad, Sample, SampleBias, SampleCamp, or SampleCmpBias with non-constant offsets
+35  6.7+ Writeable MSAA Textures                                                                  Use of the TextureStoreSample instruction. Or if DXIL validator version < 1.8: the presence of Texture2DMS or Texture2DMSArray resources. Or if DXIL validator version >= 1.8: use of Texture2DMS or Texture2DMSArray resources in CreateHandle, CreateHandleForLib, or AnnotateHandle instructions
 36  6.9+ Reserved                                                                                 Unused
-37  6.8+ Expanded comparison sampling                                                             Use of the instructions SampleCmpGrad or SampleCmpBias
-38  6.8+ Extended command information                                                             Use of the instructions StartVertexLocation or StartInstanceLocation
+37  6.8+ SampleCmp with gradient or bias                                                          Use of the instructions SampleCmpGrad or SampleCmpBias
+38  6.8+ Extended command info                                                                    Use of the instructions StartVertexLocation or StartInstanceLocation
 === ==== ======================================================================================== ==========================================================================================================================================================================================================================================================================================================================================================
 
 Geometry Shader
