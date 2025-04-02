@@ -6312,33 +6312,31 @@ Value *TranslateMatVecMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
   Constant *OpArg = HlslOp->GetU32Const(static_cast<unsigned>(OpCode));
 
   // Input parameters
-  Value *InputVector = 
+  Value *InputVector =
       CI->getArgOperand(HLOperandIndex::kMatVecMulInputVectorIdx);
-  Value *IsInputUnsigned = 
+  Value *IsInputUnsigned =
       CI->getArgOperand(HLOperandIndex::kMatVecMulIsInputUnsignedIdx);
-  Value *InputInterpretation = 
+  Value *InputInterpretation =
       CI->getArgOperand(HLOperandIndex::kMatVecMulInputInterpretationIdx);
 
   // Matrix parameters
-  Value *MatrixBuffer = 
+  Value *MatrixBuffer =
       CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixBufferIdx);
-  Value *MatrixOffset = 
+  Value *MatrixOffset =
       CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixOffsetIdx);
-  Value *MatrixInterpretation = 
+  Value *MatrixInterpretation =
       CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixInterpretationIdx);
-  Value *MatrixM = 
-      CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixMIdx);
-  Value *MatrixK = 
-      CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixKIdx);
-  Value *MatrixLayout = 
+  Value *MatrixM = CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixMIdx);
+  Value *MatrixK = CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixKIdx);
+  Value *MatrixLayout =
       CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixLayoutIdx);
-  Value *MatrixTranspose = 
+  Value *MatrixTranspose =
       CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixTransposeIdx);
-  Value *MatrixStride = 
+  Value *MatrixStride =
       CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixStrideIdx);
 
   // Output parameters
-  Value *IsOutputUnsigned = 
+  Value *IsOutputUnsigned =
       CI->getArgOperand(HLOperandIndex::kMatVecMulIsOutputUnsignedIdx);
 
   // Get the DXIL function for the operation
@@ -6352,13 +6350,13 @@ Value *TranslateMatVecMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
   Value *NewCI = Builder.CreateCall(
       DxilFunc,
       {OpArg, InputVector, IsInputUnsigned, InputInterpretation, MatrixBuffer,
-       MatrixOffset, MatrixInterpretation, MatrixM, MatrixK,
-       MatrixLayout, MatrixTranspose, MatrixStride, IsOutputUnsigned});
+       MatrixOffset, MatrixInterpretation, MatrixM, MatrixK, MatrixLayout,
+       MatrixTranspose, MatrixStride, IsOutputUnsigned});
 
   // Get the output parameter and store the result
   Value *OutParam =
       CI->getArgOperand(HLOperandIndex::kMatVecMulOutputVectorIdx);
-  
+
   Builder.CreateStore(NewCI, OutParam);
 
   return nullptr;
@@ -6389,10 +6387,8 @@ Value *TranslateMatVecMulAdd(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
       CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixOffsetIdx);
   Value *MatrixInterpretation =
       CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixInterpretationIdx);
-  Value *MatrixM = 
-      CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixMIdx);
-  Value *MatrixK = 
-      CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixKIdx);
+  Value *MatrixM = CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixMIdx);
+  Value *MatrixK = CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixKIdx);
   Value *MatrixLayout =
       CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixLayoutIdx);
   Value *MatrixTranspose =
@@ -6484,12 +6480,10 @@ Value *TranslateVectorAccumulate(CallInst *CI, IntrinsicOp IOP,
   Constant *OpArg = HlslOp->GetU32Const(static_cast<unsigned>(OpCode));
 
   // Input vector parameter
-  Value *InputVector = 
-      CI->getArgOperand(HLOperandIndex::kVectorAccInputVecIdx);
+  Value *InputVector = CI->getArgOperand(HLOperandIndex::kVectorAccInputVecIdx);
 
   // Matrix parameters
-  Value *MatrixBuffer = 
-      CI->getArgOperand(HLOperandIndex::kVectorAccMatrixIdx);
+  Value *MatrixBuffer = CI->getArgOperand(HLOperandIndex::kVectorAccMatrixIdx);
   Value *MatrixOffset =
       CI->getArgOperand(HLOperandIndex::kVectorAccMatrixOffsetIdx);
 
@@ -6499,7 +6493,6 @@ Value *TranslateVectorAccumulate(CallInst *CI, IntrinsicOp IOP,
   return Builder.CreateCall(DxilFunc,
                             {OpArg, InputVector, MatrixBuffer, MatrixOffset});
 }
-
 
 } // namespace
 
