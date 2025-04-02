@@ -538,7 +538,7 @@ Bit SM   Description                                                            
 15       64 UAV slots                                                                             The presence of more than 8 UAVs. If Shader Model >= 6.6, then UAV ranges count as multiple UAVs
 16       UAVs at every shader stage                                                               The shader has UAVs and: if Shader Model >= 6.8, the shader is a vertex, hull, domain, or geometry shader; else (Shader Model < 6.8) the shader is not a compute or pixel shader
 17       CS4 raw and structured buffers                                                           Use of RawBuffer or StructuedBuffer in a Shader Model 4.x compute shader
-18       Raster Ordered UAVs                                                                      Use of raster order views (ROVs)
+18       Raster Ordered UAVs                                                                      Global presence of a rasterizer ordered view (ROV)
 19       Wave level operations                                                                    Use of any wave or quad intrinsic: WaveIsFirstLane, WaveGetLaneIndex, WaveGetLaneCount, WaveAnyTrue, WaveAllTrue, WaveActiveAllEqual, WaveActiveBallot, WaveReadLaneAt, WaveReadLaneFirst, WaveActiveOp, WaveActiveBit, WavePrefixOp, QuadReadLaneAt, QuadOp, WaveAllBitCount, WavePrefixBitCount, WaveMatch, WaveMultiPrefixOp, WaveMultiPrefixBitCount, QuadVote
 20       64-Bit integers                                                                          Use of i64 data types
 21  6.1+ View Instancing                                                                          Use of the ViewID instruction
