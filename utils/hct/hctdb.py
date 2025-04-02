@@ -1,5 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
+# Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+# All rights reserved.
 ###############################################################################
 # DXIL information.                                                           #
 ###############################################################################
@@ -8584,6 +8586,7 @@ class db_hlsl(object):
             "GroupNodeOutputRecords": "LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS",
             "ThreadNodeOutputRecords": "LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS",
             "DxHitObject": "LICOMPTYPE_HIT_OBJECT",
+            "VkBufferPointer": "LICOMPTYPE_VK_BUFFER_POINTER",
         }
 
         self.trans_rowcol = {"r": "IA_R", "c": "IA_C", "r2": "IA_R2", "c2": "IA_C2"}
@@ -8645,7 +8648,8 @@ class db_hlsl(object):
             (?:RW)?(?:Texture\w*|ByteAddressBuffer) |
             acceleration_struct | ray_desc | RayQuery | DxHitObject |
             Node\w* | RWNode\w* | EmptyNode\w* |
-            AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w*
+            AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w* |
+            VkBufferPointer
             $)""",
             flags=re.VERBOSE,
         )
@@ -8695,6 +8699,10 @@ class db_hlsl(object):
                 type_name = "void"
             if type_name == "$funcT":
                 template_id = "-3"
+                component_id = "0"
+                type_name = "void"
+            elif type_name == "$funcT2":
+                template_id = "-4"
                 component_id = "0"
                 type_name = "void"
             elif type_name == "...":
@@ -8825,6 +8833,8 @@ class db_hlsl(object):
                 template_id = "INTRIN_TEMPLATE_VARARGS"
             elif template_id == "-3":
                 template_id = "INTRIN_TEMPLATE_FROM_FUNCTION"
+            elif template_id == "-4":
+                template_id = "INTRIN_TEMPLATE_FROM_FUNCTION_2"
             if component_id == "-1":
                 component_id = "INTRIN_COMPTYPE_FROM_TYPE_ELT0"
             if component_id == "-2":

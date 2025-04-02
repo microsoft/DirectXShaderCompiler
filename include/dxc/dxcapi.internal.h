@@ -7,6 +7,9 @@
 //                                                                           //
 // Provides non-public declarations for the DirectX Compiler component.      //
 //                                                                           //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
+// All rights reserved.                                                      //
+//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef __DXC_API_INTERNAL__
@@ -35,6 +38,7 @@ typedef struct ID3D10Blob ID3D10Blob;
 static const BYTE INTRIN_TEMPLATE_FROM_TYPE = 0xff;
 static const BYTE INTRIN_TEMPLATE_VARARGS = 0xfe;
 static const BYTE INTRIN_TEMPLATE_FROM_FUNCTION = 0xfd;
+static const BYTE INTRIN_TEMPLATE_FROM_FUNCTION_2 = 0xfc;
 
 // Use this enumeration to describe allowed templates (layouts) in intrinsics.
 enum LEGAL_INTRINSIC_TEMPLATES {
@@ -128,7 +132,9 @@ enum LEGAL_INTRINSIC_COMPTYPES {
 
   LICOMPTYPE_HIT_OBJECT = 51,
 
-  LICOMPTYPE_COUNT = 52
+  LICOMPTYPE_VK_BUFFER_POINTER = 52,
+
+  LICOMPTYPE_COUNT = 53
 };
 
 static const BYTE IA_SPECIAL_BASE = 0xf0;
