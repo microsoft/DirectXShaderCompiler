@@ -4020,9 +4020,9 @@ Multiprefix   ``WaveMultiPrefixBitXor()``  ``OpGroupNonUniformLogicalXor``     `
 ============= ============================ =================================== ==============================
 
 ``QuadAny`` and ``QuadAll`` will use the ``OpGroupNonUniformQuadAnyKHR`` and
-``OpGroupNonUniformQuadAllKHR`` if the ``SPV_KHR_quad_control`` extension is
-enabled. If it is not, they will fall back to constructing the value using
-multiple calls to ``OpGroupNonUniformQuadBroadcast``.
+``OpGroupNonUniformQuadAllKHR`` instructions if the ``SPV_KHR_quad_control``
+extension is enabled. If it is not, they will fall back to constructing the
+value using multiple calls to ``OpGroupNonUniformQuadBroadcast``.
 
 The Implicit ``vk`` Namespace
 =============================
