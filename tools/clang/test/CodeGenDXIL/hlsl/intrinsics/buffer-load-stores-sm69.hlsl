@@ -15,11 +15,11 @@
 
 // CHECK: %dx.types.ResRet.[[VTY:v[0-9]*[a-z][0-9][0-9]]] = type { <[[NUM:[0-9]*]] x [[TYPE:[a-z_0-9]*]]>, i32 }
 
-  ByteAddressBuffer RoByBuf : register(t1);
+ByteAddressBuffer RoByBuf : register(t1);
 RWByteAddressBuffer RwByBuf : register(u1);
 
-StructuredBuffer< vector<TYPE, NUM> > RoStBuf : register(t2);
-RWStructuredBuffer< vector<TYPE, NUM>  > RwStBuf : register(u2);
+StructuredBuffer<vector<TYPE, NUM> > RoStBuf : register(t2);
+RWStructuredBuffer<vector<TYPE, NUM> > RwStBuf : register(u2);
 
 ConsumeStructuredBuffer<vector<TYPE, NUM> > CnStBuf : register(u4);
 AppendStructuredBuffer<vector<TYPE, NUM> > ApStBuf  : register(u5);

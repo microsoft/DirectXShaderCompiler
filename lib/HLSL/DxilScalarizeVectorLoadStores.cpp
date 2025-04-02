@@ -24,13 +24,12 @@
 using namespace llvm;
 using namespace hlsl;
 
-class DxilScalarizeVectorLoadStores : public ModulePass {
-private:
-  void scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
-                           CallInst *CI);
-  void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
-                            CallInst *CI);
+static void scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
+                                CallInst *CI);
+static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
+                                 CallInst *CI);
 
+class DxilScalarizeVectorLoadStores : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilScalarizeVectorLoadStores() : ModulePass(ID) {}
@@ -48,25 +47,22 @@ public:
     bool Changed = false;
 
     hlsl::OP *HlslOP = DM.GetOP();
-    for (auto F = M.functions().begin(), E = M.functions().end(); F != E;) {
-      Function *Func = &*(F++);
-      DXIL::OpCodeClass OpClass;
-      if (HlslOP->GetOpCodeClass(Func, OpClass)) {
-        if (OpClass == DXIL::OpCodeClass::RawBufferVectorLoad) {
-          for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
-            CallInst *CI = cast<CallInst>(*(U++));
-            scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
-            Changed = true;
-          }
-          Func->eraseFromParent();
-        } else if (OpClass == DXIL::OpCodeClass::RawBufferVectorStore) {
-          for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
-            CallInst *CI = cast<CallInst>(*(U++));
-            scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
-            Changed = true;
-          }
-          Func->eraseFromParent();
-        }
+    for (auto FIt : HlslOP->GetOpFuncList(DXIL::OpCode::RawBufferVectorLoad)) {
+      Function *Func = FIt.second;
+      if (!Func) continue;
+      for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
+        CallInst *CI = cast<CallInst>(*(U++));
+        scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
+        Changed = true;
+      }
+    }
+    for (auto FIt : HlslOP->GetOpFuncList(DXIL::OpCode::RawBufferVectorStore)) {
+      Function *Func = FIt.second;
+      if (!Func) continue;
+      for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
+        CallInst *CI = cast<CallInst>(*(U++));
+        scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
+        Changed = true;
       }
     }
     return Changed;
@@ -90,16 +86,15 @@ static unsigned GetRawBufferMask(unsigned NumComponents) {
   return DXIL::kCompMask_All;
 }
 
-void DxilScalarizeVectorLoadStores::scalarizeVectorLoad(hlsl::OP *HlslOP,
-                                                        const DataLayout &DL,
-                                                        CallInst *CI) {
+static void scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
+                                CallInst *CI) {
   IRBuilder<> Builder(CI);
   // Collect the information required to break this into scalar ops from args.
   DxilInst_RawBufferVectorLoad VecLd(CI);
   OP::OpCode OpCode = OP::OpCode::RawBufferLoad;
-  llvm::Constant *opArg = Builder.getInt32((unsigned)OpCode);
+  llvm::Constant *OpArg = Builder.getInt32((unsigned)OpCode);
   SmallVector<Value *, 10> Args;
-  Args.emplace_back(opArg);                     // opcode @0.
+  Args.emplace_back(OpArg);                     // opcode @0.
   Args.emplace_back(VecLd.get_buf());           // Resource handle @1.
   Args.emplace_back(VecLd.get_index());         // Index @2.
   Args.emplace_back(VecLd.get_elementOffset()); // Offset @3.
@@ -161,16 +156,15 @@ void DxilScalarizeVectorLoadStores::scalarizeVectorLoad(hlsl::OP *HlslOP,
   CI->eraseFromParent();
 }
 
-void DxilScalarizeVectorLoadStores::scalarizeVectorStore(hlsl::OP *HlslOP,
-                                                         const DataLayout &DL,
-                                                         CallInst *CI) {
+static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
+                                 CallInst *CI) {
   IRBuilder<> Builder(CI);
   // Collect the information required to break this into scalar ops from args.
   DxilInst_RawBufferVectorStore VecSt(CI);
   OP::OpCode OpCode = OP::OpCode::RawBufferStore;
-  llvm::Constant *opArg = Builder.getInt32((unsigned)OpCode);
+  llvm::Constant *OpArg = Builder.getInt32((unsigned)OpCode);
   SmallVector<Value *, 10> Args;
-  Args.emplace_back(opArg);                     // opcode @0.
+  Args.emplace_back(OpArg);                     // opcode @0.
   Args.emplace_back(VecSt.get_uav());           // Resource handle @1.
   Args.emplace_back(VecSt.get_index());         // Index @2.
   Args.emplace_back(VecSt.get_elementOffset()); // Offset @3.

@@ -4179,6 +4179,9 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   if (isBool || (is64 && isTyped))
     EltTy = Builder.getInt32Ty();
 
+  // Calculate load size with the scalar memory element type.
+  unsigned LdSize = DL.getTypeAllocSize(EltTy);
+
   // Adjust number of components as needed.
   if (is64 && isTyped) {
     // 64-bit types are stored as int32 pairs in typed buffers.
@@ -4190,7 +4193,6 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
     NumComponents = 1;
   }
 
-  unsigned LdSize = DL.getTypeAllocSize(EltTy);
   SmallVector<Value *, 10> Args = GetBufLoadArgs(helper, RK, Builder, LdSize);
 
   // Keep track of the first load for debug info migration.
