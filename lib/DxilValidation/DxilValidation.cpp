@@ -1625,9 +1625,10 @@ static unsigned getSemanticFlagValidMask(const ShaderModel *pSM) {
   unsigned DxilMajor, DxilMinor;
   pSM->GetDxilVersion(DxilMajor, DxilMinor);
   // DXIL version >= 1.9
-  if (DxilMajor >= 2 || DxilMinor >= 9)
-    return (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask;
-  return (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask_1_8;
+  if (hlsl::DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 9) < 0)
+    return static_cast<unsigned>(
+        hlsl::DXIL::BarrierSemanticFlag::ValidMask_1_8);
+  return static_cast<unsigned>(hlsl::DXIL::BarrierSemanticFlag::ValidMask);
 }
 
 static void ValidateDxilOperationCallInProfile(CallInst *CI,
