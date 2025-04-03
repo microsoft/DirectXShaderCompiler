@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T lib_6_9 %s | FileCheck %s
+// REQUIRES: dxil-1-9
 
 // CHECK: !"uav1", {{.+}}, ![[TAGMD:[0-9]+]]}
 // CHECK: ![[TAGMD]] = !{i32 0, i32 9, i32 4, i1 true

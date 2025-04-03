@@ -1,4 +1,5 @@
 // RUN: %dxc -T lib_6_9 -ast-dump %s | FileCheck %s
+// REQUIRES: dxil-1-9
 
 // CHECK: |-VarDecl {{.*}} used uav1 'reordercoherent RWTexture1D<float4>':'RWTexture1D<vector<float, 4> >'
 // CHECK-NEXT: | |-HLSLReorderCoherentAttr
