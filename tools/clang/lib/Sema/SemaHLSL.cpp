@@ -1237,8 +1237,10 @@ static const ArBasicKind g_AnyOutputRecordCT[] = {
 static const ArBasicKind g_DxHitObjectCT[] = {AR_OBJECT_HIT_OBJECT,
                                               AR_BASIC_UNKNOWN};
 
+#ifdef ENABLE_SPIRV_CODEGEN
 static const ArBasicKind g_VKBufferPointerCT[] = {AR_OBJECT_VK_BUFFER_POINTER,
                                                   AR_BASIC_UNKNOWN};
+#endif // ENABLE_SPIRV_CODEGEN
 
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
@@ -1295,7 +1297,9 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_GroupNodeOutputRecordsCT,  // LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
     g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
     g_DxHitObjectCT,             // LICOMPTYPE_HIT_OBJECT
-    g_VKBufferPointerCT,         // LICOMPTYPE_VK_BUFFER_POINTER
+#ifdef ENABLE_SPIRV_CODEGEN
+    g_VKBufferPointerCT, // LICOMPTYPE_VK_BUFFER_POINTER
+#endif                   // ENABLE_SPIRV_CODEGEN
 };
 static_assert(
     ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
@@ -3587,6 +3591,7 @@ private:
       case LICOMPTYPE_HIT_OBJECT:
         paramTypes.push_back(GetBasicKindType(AR_OBJECT_HIT_OBJECT));
         break;
+#ifdef ENABLE_SPIRV_CODEGEN
       case LICOMPTYPE_VK_BUFFER_POINTER: {
         const ArBasicKind *match =
             std::find(g_ArBasicKindsAsTypes,
@@ -3600,6 +3605,7 @@ private:
             m_sema->getASTContext().getTypeDeclType(m_objectTypeDecls[index]));
         break;
       }
+#endif // ENABLE_SPIRV_CODEGEN
       default:
         DXASSERT(false, "Argument type of intrinsic function is not "
                         "supported");
@@ -4856,7 +4862,10 @@ public:
     case AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY:
     case AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS:
     case AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS:
-    case AR_OBJECT_VK_BUFFER_POINTER: {
+#ifdef ENABLE_SPIRV_CODEGEN
+    case AR_OBJECT_VK_BUFFER_POINTER:
+#endif
+    {
       const ArBasicKind *match = std::find(
           g_ArBasicKindsAsTypes,
           &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], kind);
@@ -5372,8 +5381,10 @@ public:
               << type << GetMatrixOrVectorElementType(type);
         }
         return valid;
+#ifdef ENABLED_SPIRV_CODEGEN
       } else if (hlsl::IsVKBufferPointerType(qt)) {
         return true;
+#endif // ENABLED_SPIRV_CODEGEN
       } else if (qt->isStructureOrClassType()) {
         const RecordType *recordType = qt->getAs<RecordType>();
         objectKind = ClassifyRecordType(recordType);
@@ -9751,10 +9762,12 @@ bool HLSLExternalSource::CanConvert(SourceLocation loc, Expr *sourceExpr,
     return false;
   }
 
+#ifdef ENABLE_SPIRV_CODEGEN
   // Cast vk::BufferPointer to pointer address.
   if (SourceInfo.EltKind == AR_OBJECT_VK_BUFFER_POINTER) {
     return TargetInfo.EltKind == AR_BASIC_UINT64;
   }
+#endif // ENABLE_SPIRV_CODEGEN
 
   // Cast cbuffer to its result value.
   if ((SourceInfo.EltKind == AR_OBJECT_CONSTANT_BUFFER ||
@@ -11604,6 +11617,7 @@ static bool CheckBarrierCall(Sema &S, FunctionDecl *FD, CallExpr *CE) {
   return false;
 }
 
+#ifdef ENABLED_SPIRV_CODEGEN
 static bool CheckVKBufferPointerCast(Sema &S, FunctionDecl *FD, CallExpr *CE,
                                      bool isStatic) {
   const Expr *argExpr = CE->getArg(0);
@@ -11627,6 +11641,7 @@ static bool CheckVKBufferPointerCast(Sema &S, FunctionDecl *FD, CallExpr *CE,
 
   return false;
 }
+#endif // ENABLED_SPIRV_CODEGEN
 
 // Check HLSL call constraints, not fatal to creating the AST.
 void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
@@ -11646,12 +11661,14 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
   case hlsl::IntrinsicOp::IOP_Barrier:
     CheckBarrierCall(*this, FDecl, TheCall);
     break;
+#ifdef ENABLED_SPIRV_CODEGEN
   case hlsl::IntrinsicOp::IOP_Vkreinterpret_pointer_cast:
     CheckVKBufferPointerCast(*this, FDecl, TheCall, false);
     break;
   case hlsl::IntrinsicOp::IOP_Vkstatic_pointer_cast:
     CheckVKBufferPointerCast(*this, FDecl, TheCall, true);
     break;
+#endif // ENABLED_SPIRV_CODEGEN
   default:
     break;
   }
