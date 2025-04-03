@@ -618,6 +618,14 @@ public:
                                             SourceLocation,
                                             bool useIdParams = false);
 
+  /// \brief Adds an execution mode to the module under construction if it does
+  /// not already exist. Return the newly added instruction or the existing
+  /// instruction, if one already exists.
+  inline SpirvInstruction *
+  addExecutionModeId(SpirvFunction *entryPoint, spv::ExecutionMode em,
+                     llvm::ArrayRef<SpirvInstruction *> params,
+                     SourceLocation loc);
+
   /// \brief Adds an OpModuleProcessed instruction to the module under
   /// construction.
   void addModuleProcessed(llvm::StringRef process);
@@ -965,7 +973,7 @@ SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
                                llvm::ArrayRef<uint32_t> params,
                                SourceLocation loc, bool useIdParams) {
   SpirvExecutionMode *mode = nullptr;
-  SpirvExecutionMode *existingInstruction =
+  SpirvExecutionModeBase *existingInstruction =
       mod->findExecutionMode(entryPoint, em);
 
   if (!existingInstruction) {
@@ -973,7 +981,38 @@ SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
         SpirvExecutionMode(loc, entryPoint, em, params, useIdParams);
     mod->addExecutionMode(mode);
   } else {
-    mode = existingInstruction;
+    // No execution mode can be used with both OpExecutionMode and
+    // OpExecutionModeId. If this assert is triggered, then either this
+    // `addExecutionModeId` should have been called with `em` or the existing
+    // instruction is wrong.
+    assert(existingInstruction->getKind() ==
+           SpirvInstruction::IK_ExecutionMode);
+    mode = cast<SpirvExecutionMode>(existingInstruction);
+  }
+
+  return mode;
+}
+
+SpirvInstruction *SpirvBuilder::addExecutionModeId(
+    SpirvFunction *entryPoint, spv::ExecutionMode em,
+    llvm::ArrayRef<SpirvInstruction *> params, SourceLocation loc) {
+  SpirvExecutionModeId *mode = nullptr;
+  SpirvExecutionModeBase *existingInstruction =
+      mod->findExecutionMode(entryPoint, em);
+  assert(!existingInstruction || existingInstruction->getKind() ==
+                                     SpirvInstruction::IK_ExecutionModeId);
+
+  if (!existingInstruction) {
+    mode = new (context) SpirvExecutionModeId(loc, entryPoint, em, params);
+    mod->addExecutionMode(mode);
+  } else {
+    // No execution mode can be used with both OpExecutionMode and
+    // OpExecutionModeId. If this assert is triggered, then either this
+    // `addExecutionMode` should have been called with `em` or the existing
+    // instruction is wrong.
+    assert(existingInstruction->getKind() ==
+           SpirvInstruction::IK_ExecutionMode);
+    mode = cast<SpirvExecutionModeId>(existingInstruction);
   }
 
   return mode;

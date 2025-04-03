@@ -64,7 +64,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvExtInstImport)
   DEFINE_VISIT_METHOD(SpirvMemoryModel)
   DEFINE_VISIT_METHOD(SpirvEntryPoint)
-  DEFINE_VISIT_METHOD(SpirvExecutionMode)
+  DEFINE_VISIT_METHOD(SpirvExecutionModeBase)
   DEFINE_VISIT_METHOD(SpirvString)
   DEFINE_VISIT_METHOD(SpirvSource)
   DEFINE_VISIT_METHOD(SpirvModuleProcessed)
