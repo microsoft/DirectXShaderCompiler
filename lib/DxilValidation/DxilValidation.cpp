@@ -65,8 +65,8 @@ using std::vector;
 namespace hlsl {
 
 // PrintDiagnosticContext methods.
-PrintDiagnosticContext::PrintDiagnosticContext(DiagnosticPrinter &printer)
-    : m_Printer(printer), m_errorsFound(false), m_warningsFound(false) {}
+PrintDiagnosticContext::PrintDiagnosticContext(DiagnosticPrinter &Printer)
+    : m_Printer(Printer), m_errorsFound(false), m_warningsFound(false) {}
 
 bool PrintDiagnosticContext::HasErrors() const { return m_errorsFound; }
 bool PrintDiagnosticContext::HasWarnings() const { return m_warningsFound; }
@@ -269,34 +269,34 @@ DxilResourceProperties ValidationContext::GetResourceFromVal(Value *ResVal) {
 }
 
 struct ResRetUsage {
-  bool x;
-  bool y;
-  bool z;
-  bool w;
-  bool status;
-  ResRetUsage() : x(false), y(false), z(false), w(false), status(false) {}
+  bool X;
+  bool Y;
+  bool Z;
+  bool W;
+  bool Status;
+  ResRetUsage() : X(false), Y(false), Z(false), W(false), Status(false) {}
 };
 
 static void CollectGetDimResRetUsage(ResRetUsage &Usage, Instruction *ResRet,
                                      ValidationContext &ValCtx) {
   for (User *U : ResRet->users()) {
     if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(U)) {
-      for (unsigned idx : EVI->getIndices()) {
-        switch (idx) {
+      for (unsigned Idx : EVI->getIndices()) {
+        switch (Idx) {
         case 0:
-          Usage.x = true;
+          Usage.X = true;
           break;
         case 1:
-          Usage.y = true;
+          Usage.Y = true;
           break;
         case 2:
-          Usage.z = true;
+          Usage.Z = true;
           break;
         case 3:
-          Usage.w = true;
+          Usage.W = true;
           break;
         case DXIL::kResRetStatusIndex:
-          Usage.status = true;
+          Usage.Status = true;
           break;
         default:
           // Emit index out of bound.
@@ -337,9 +337,9 @@ static void ValidateCalcLODResourceDimensionCoord(CallInst *CI,
                                                   DXIL::ResourceKind ResKind,
                                                   ArrayRef<Value *> Coords,
                                                   ValidationContext &ValCtx) {
-  const unsigned KMaxNumDimCoords = 3;
+  const unsigned kMaxNumDimCoords = 3;
   unsigned NumCoords = DxilResource::GetNumDimensionsForCalcLOD(ResKind);
-  for (unsigned I = 0; I < KMaxNumDimCoords; I++) {
+  for (unsigned I = 0; I < kMaxNumDimCoords; I++) {
     if (I < NumCoords) {
       if (isa<UndefValue>(Coords[I])) {
         ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceCoordinateMiss);
@@ -1024,26 +1024,26 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
     // Mip level only for texture.
     switch (ResKind) {
     case DXIL::ResourceKind::Texture1D:
-      if (Usage.y) {
+      if (Usage.Y) {
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"y", "Texture1D"});
       }
-      if (Usage.z) {
+      if (Usage.Z) {
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"z", "Texture1D"});
       }
       break;
     case DXIL::ResourceKind::Texture1DArray:
-      if (Usage.z) {
+      if (Usage.Z) {
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"z", "Texture1DArray"});
       }
       break;
     case DXIL::ResourceKind::Texture2D:
-      if (Usage.z) {
+      if (Usage.Z) {
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"z", "Texture2D"});
@@ -1052,7 +1052,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
     case DXIL::ResourceKind::Texture2DArray:
       break;
     case DXIL::ResourceKind::Texture2DMS:
-      if (Usage.z) {
+      if (Usage.Z) {
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"z", "Texture2DMS"});
@@ -1063,7 +1063,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
     case DXIL::ResourceKind::Texture3D:
       break;
     case DXIL::ResourceKind::TextureCube:
-      if (Usage.z) {
+      if (Usage.Z) {
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"z", "TextureCube"});
@@ -1080,7 +1080,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
         ValCtx.EmitInstrError(CI, ValidationRule::InstrMipLevelForGetDimension);
       }
       if (ResKind != DXIL::ResourceKind::Invalid) {
-        if (Usage.y || Usage.z || Usage.w) {
+        if (Usage.Y || Usage.Z || Usage.W) {
           ValCtx.EmitInstrFormatError(
               CI, ValidationRule::InstrUndefResultForGetDimension,
               {"invalid", "resource"});
@@ -1092,7 +1092,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
     } break;
     }
 
-    if (Usage.status) {
+    if (Usage.Status) {
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrUndefResultForGetDimension,
           {"invalid", "resource"});
