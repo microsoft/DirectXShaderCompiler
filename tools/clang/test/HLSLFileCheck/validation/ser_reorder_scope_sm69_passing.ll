@@ -1,10 +1,5 @@
-; RUN: %dxv %s | FileCheck %s
+; RUN: %dxilver 1.9 | %dxv %s
 
-; CHECK: Validation succeeded.
-
-
-; shader hash: 55f96d488362429d3301238ab9ac07fd
-;
 ; Buffer Definitions:
 ;
 ;
@@ -54,19 +49,20 @@ attributes #3 = { nounwind readonly }
 !dx.valver = !{!0}
 !dx.shaderModel = !{!1}
 !dx.resources = !{!2}
-!dx.typeAnnotations = !{!3}
-!dx.entryPoints = !{!4, !5}
+!dx.typeAnnotations = !{!5}
+!dx.entryPoints = !{!9, !11}
 
 !0 = !{i32 1, i32 9}
 !1 = !{!"lib", i32 6, i32 9}
-!2 = !{null, !6, null, null}
-!3 = !{i32 1, void ()* @"\01?main@@YAXXZ", !7}
-!4 = !{null, !"", null, !2, !8}
-!5 = !{void ()* @"\01?main@@YAXXZ", !"\01?main@@YAXXZ", null, null, !9}
-!6 = !{!10}
-!7 = !{!11}
-!8 = !{i32 0, i64 8589934608}
-!9 = !{i32 8, i32 7, i32 5, !12}
-!10 = !{i32 0, %struct.RWByteAddressBuffer* bitcast (%dx.types.Handle* @"\01?BAB@@3URWByteAddressBuffer@@A" to %struct.RWByteAddressBuffer*), !"BAB", i32 0, i32 1, i32 1, i32 11, i1 false, i1 false, i1 false, null}
-!11 = !{i32 1, !12, !12}
-!12 = !{i32 0}
+!2 = !{null, !3, null, null}
+!3 = !{!4}
+!4 = !{i32 0, %struct.RWByteAddressBuffer* bitcast (%dx.types.Handle* @"\01?BAB@@3URWByteAddressBuffer@@A" to %struct.RWByteAddressBuffer*), !"BAB", i32 0, i32 1, i32 1, i32 11, i1 false, i1 false, i1 false, null}
+!5 = !{i32 1, void ()* @"\01?main@@YAXXZ", !6}
+!6 = !{!7}
+!7 = !{i32 1, !8, !8}
+!8 = !{}
+!9 = !{null, !"", null, !2, !10}
+!10 = !{i32 0, i64 8589934608}
+!11 = !{void ()* @"\01?main@@YAXXZ", !"\01?main@@YAXXZ", null, null, !12}
+!12 = !{i32 8, i32 7, i32 5, !13}
+!13 = !{i32 0}
