@@ -1276,7 +1276,6 @@ void DxilLinkJob::RunPreparePass(Module &M) {
 
   // Clean up vectors, and run mem2reg again
   PM.add(createScalarizerPass());
-
   PM.add(createPromoteMemoryToRegisterPass());
 
   PM.add(createSimplifyInstPass());
