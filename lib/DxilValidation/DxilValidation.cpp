@@ -1484,34 +1484,34 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     }
     LLVM_FALLTHROUGH;
   case DXIL::OpCode::RawBufferVectorLoad: {
-    Value *handle =
+    Value *Handle =
         CI->getOperand(DXIL::OperandIndex::kRawBufferLoadHandleOpIdx);
-    DXIL::ComponentType compTy;
-    DXIL::ResourceClass resClass;
-    DXIL::ResourceKind resKind =
-        GetResourceKindAndCompTy(handle, compTy, resClass, ValCtx);
+    DXIL::ComponentType CompTy;
+    DXIL::ResourceClass ResClass;
+    DXIL::ResourceKind ResKind =
+        GetResourceKindAndCompTy(Handle, CompTy, ResClass, ValCtx);
 
-    if (resClass != DXIL::ResourceClass::SRV &&
-        resClass != DXIL::ResourceClass::UAV)
+    if (ResClass != DXIL::ResourceClass::SRV &&
+        ResClass != DXIL::ResourceClass::UAV)
       ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceClassForLoad);
 
-    unsigned alignIdx = DXIL::OperandIndex::kRawBufferLoadAlignmentOpIdx;
+    unsigned AlignIdx = DXIL::OperandIndex::kRawBufferLoadAlignmentOpIdx;
     if (DXIL::OpCode::RawBufferVectorLoad == opcode)
-      alignIdx = DXIL::OperandIndex::kRawBufferVectorLoadAlignmentOpIdx;
-    if (!isa<ConstantInt>(CI->getOperand(alignIdx)))
+      AlignIdx = DXIL::OperandIndex::kRawBufferVectorLoadAlignmentOpIdx;
+    if (!isa<ConstantInt>(CI->getOperand(AlignIdx)))
       ValCtx.EmitInstrError(CI, ValidationRule::InstrConstAlignForRawBuf);
 
-    Value *offset =
+    Value *Offset =
         CI->getOperand(DXIL::OperandIndex::kRawBufferLoadElementOffsetOpIdx);
-    switch (resKind) {
+    switch (ResKind) {
     case DXIL::ResourceKind::RawBuffer:
-      if (!isa<UndefValue>(offset)) {
+      if (!isa<UndefValue>(Offset)) {
         ValCtx.EmitInstrError(
             CI, ValidationRule::InstrCoordinateCountForRawTypedBuf);
       }
       break;
     case DXIL::ResourceKind::StructuredBuffer:
-      if (isa<UndefValue>(offset)) {
+      if (isa<UndefValue>(Offset)) {
         ValCtx.EmitInstrError(CI,
                               ValidationRule::InstrCoordinateCountForStructBuf);
       }
@@ -1541,38 +1541,38 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
   }
     LLVM_FALLTHROUGH;
   case DXIL::OpCode::RawBufferVectorStore: {
-    Value *handle =
+    Value *Handle =
         CI->getOperand(DXIL::OperandIndex::kRawBufferStoreHandleOpIdx);
-    DXIL::ComponentType compTy;
-    DXIL::ResourceClass resClass;
-    DXIL::ResourceKind resKind =
-        GetResourceKindAndCompTy(handle, compTy, resClass, ValCtx);
+    DXIL::ComponentType CompTy;
+    DXIL::ResourceClass ResClass;
+    DXIL::ResourceKind ResKind =
+        GetResourceKindAndCompTy(Handle, CompTy, ResClass, ValCtx);
 
-    if (resClass != DXIL::ResourceClass::UAV)
+    if (ResClass != DXIL::ResourceClass::UAV)
       ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceClassForUAVStore);
 
-    unsigned alignIdx = DXIL::OperandIndex::kRawBufferStoreAlignmentOpIdx;
+    unsigned AlignIdx = DXIL::OperandIndex::kRawBufferStoreAlignmentOpIdx;
     if (DXIL::OpCode::RawBufferVectorStore == opcode) {
-      alignIdx = DXIL::OperandIndex::kRawBufferVectorStoreAlignmentOpIdx;
-      unsigned valueIx = DXIL::OperandIndex::kRawBufferVectorStoreValOpIdx;
-      if (isa<UndefValue>(CI->getOperand(valueIx)))
+      AlignIdx = DXIL::OperandIndex::kRawBufferVectorStoreAlignmentOpIdx;
+      unsigned ValueIx = DXIL::OperandIndex::kRawBufferVectorStoreValOpIdx;
+      if (isa<UndefValue>(CI->getOperand(ValueIx)))
         ValCtx.EmitInstrError(CI,
                               ValidationRule::InstrUndefinedValueForUAVStore);
     }
-    if (!isa<ConstantInt>(CI->getOperand(alignIdx)))
+    if (!isa<ConstantInt>(CI->getOperand(AlignIdx)))
       ValCtx.EmitInstrError(CI, ValidationRule::InstrConstAlignForRawBuf);
 
-    Value *offset =
+    Value *Offset =
         CI->getOperand(DXIL::OperandIndex::kRawBufferStoreElementOffsetOpIdx);
-    switch (resKind) {
+    switch (ResKind) {
     case DXIL::ResourceKind::RawBuffer:
-      if (!isa<UndefValue>(offset)) {
+      if (!isa<UndefValue>(Offset)) {
         ValCtx.EmitInstrError(
             CI, ValidationRule::InstrCoordinateCountForRawTypedBuf);
       }
       break;
     case DXIL::ResourceKind::StructuredBuffer:
-      if (isa<UndefValue>(offset)) {
+      if (isa<UndefValue>(Offset)) {
         ValCtx.EmitInstrError(CI,
                               ValidationRule::InstrCoordinateCountForStructBuf);
       }
