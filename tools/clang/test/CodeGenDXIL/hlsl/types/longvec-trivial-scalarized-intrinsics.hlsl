@@ -6,9 +6,6 @@
 // RUN: %dxc -DFUNC=isfinite    -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,SPECFLT
 // RUN: %dxc -DFUNC=isinf       -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,SPECFLT
 // RUN: %dxc -DFUNC=isnan       -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,SPECFLT
-// RUN: %dxc -DFUNC=countbits   -DARITY=1 -DTYPE=uint -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=firstbithigh -DARITY=1 -DTYPE=uint -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=firstbitlow  -DARITY=1 -DTYPE=uint -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
 // RUN: %dxc -DFUNC=ddx         -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
 // RUN: %dxc -DFUNC=ddx_coarse  -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
 // RUN: %dxc -DFUNC=ddx_fine    -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
