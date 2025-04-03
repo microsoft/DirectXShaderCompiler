@@ -15343,15 +15343,17 @@ static QualType getUnderlyingType(QualType Type) {
 void hlsl::GetHLSLAttributedTypes(
     clang::Sema *self, clang::QualType type,
     const clang::AttributedType **ppMatrixOrientation,
-    const clang::AttributedType **ppNorm, const clang::AttributedType **ppGLC) {
+    const clang::AttributedType **ppNorm, const clang::AttributedType **ppGLC,
+    const clang::AttributedType **ppRDC) {
   AssignOpt<const clang::AttributedType *>(nullptr, ppMatrixOrientation);
   AssignOpt<const clang::AttributedType *>(nullptr, ppNorm);
   AssignOpt<const clang::AttributedType *>(nullptr, ppGLC);
+  AssignOpt<const clang::AttributedType *>(nullptr, ppRDC);
 
   // Note: we clear output pointers once set so we can stop searching
   QualType Desugared = getUnderlyingType(type);
   const AttributedType *AT = dyn_cast<AttributedType>(Desugared);
-  while (AT && (ppMatrixOrientation || ppNorm || ppGLC)) {
+  while (AT && (ppMatrixOrientation || ppNorm || ppGLC || ppRDC)) {
     AttributedType::Kind Kind = AT->getAttrKind();
 
     if (Kind == AttributedType::attr_hlsl_row_major ||
@@ -15370,6 +15372,11 @@ void hlsl::GetHLSLAttributedTypes(
       if (ppGLC) {
         *ppGLC = AT;
         ppGLC = nullptr;
+      }
+    } else if (Kind == AttributedType::attr_hlsl_reordercoherent) {
+      if (ppRDC) {
+        *ppRDC = AT;
+        ppRDC = nullptr;
       }
     }
 

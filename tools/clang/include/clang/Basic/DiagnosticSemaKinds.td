@@ -7769,6 +7769,8 @@ def warn_hlsl_impcast_rdc_mismatch : Warning<
 def warn_hlsl_impcast_rdc_glc_mismatch : Warning<
   "implicit conversion from %0 to %1 %select{demotes globallycoherent to reordercoherent|promotes reordercoherent to globallycoherent}2 annotation">,
   InGroup<Conversion>, DefaultWarn;
+def warn_hlsl_glc_implies_rdc : Warning<
+  "attribute 'globallycoherent' implies 'reordercoherent'">, InGroup<IgnoredAttributes>;
 def warn_hlsl_narrowing : Warning<
   "conversion from larger type %0 to smaller type %1, possible loss of data">,
   InGroup<Conversion>, DefaultWarn;

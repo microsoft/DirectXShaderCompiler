@@ -5805,7 +5805,9 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
   const AttributedType *pMatrixOrientation = nullptr;
   const AttributedType *pNorm = nullptr;
   const AttributedType *pGLC = nullptr;
-  hlsl::GetHLSLAttributedTypes(&S, Type, &pMatrixOrientation, &pNorm, &pGLC);
+  const AttributedType *pRDC = nullptr;
+  hlsl::GetHLSLAttributedTypes(&S, Type, &pMatrixOrientation, &pNorm, &pGLC,
+                               &pRDC);
 
   if (pMatrixOrientation &&
     (Kind == AttributeList::AT_HLSLColumnMajor ||
@@ -5839,14 +5841,18 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
     return true;
   }
 
-  if (pGLC && (Kind == AttributeList::AT_HLSLGloballyCoherent ||
-               Kind == AttributeList::AT_HLSLReorderCoherent)) {
-    AttributedType::Kind CurAttrKind = pGLC->getAttrKind();
-    if (Kind == getAttrListKind(CurAttrKind)) {
-      S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)
-          << Attr.getName() << Attr.getRange();
-    }
-  }
+  const bool hasGLC = pGLC;
+  const bool addsGLC = Kind == AttributeList::AT_HLSLGloballyCoherent;
+  const bool hasRDC = pRDC;
+  const bool addsRDC = Kind == AttributeList::AT_HLSLReorderCoherent;
+
+  const bool hasMismatchingAttrs = hasGLC && hasRDC;
+  const bool addsMismatchingAttr = (hasGLC && addsRDC) || (hasRDC && addsGLC);
+  if ((hasGLC && addsGLC) || (hasRDC && addsRDC))
+    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)
+        << Attr.getName() << Attr.getRange();
+  else if (!hasMismatchingAttrs && addsMismatchingAttr)
+    S.Diag(Attr.getLoc(), diag::warn_hlsl_glc_implies_rdc) << Attr.getRange();
 
   AttributedType::Kind TAK;
   switch (Kind) {
