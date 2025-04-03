@@ -49,7 +49,8 @@ public:
     hlsl::OP *HlslOP = DM.GetOP();
     for (auto FIt : HlslOP->GetOpFuncList(DXIL::OpCode::RawBufferVectorLoad)) {
       Function *Func = FIt.second;
-      if (!Func) continue;
+      if (!Func)
+        continue;
       for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
         CallInst *CI = cast<CallInst>(*(U++));
         scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
@@ -58,7 +59,8 @@ public:
     }
     for (auto FIt : HlslOP->GetOpFuncList(DXIL::OpCode::RawBufferVectorStore)) {
       Function *Func = FIt.second;
-      if (!Func) continue;
+      if (!Func)
+        continue;
       for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
         CallInst *CI = cast<CallInst>(*(U++));
         scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);

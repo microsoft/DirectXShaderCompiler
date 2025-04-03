@@ -1484,7 +1484,8 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     }
     LLVM_FALLTHROUGH;
   case DXIL::OpCode::RawBufferVectorLoad: {
-    Value *handle = CI->getOperand(DXIL::OperandIndex::kRawBufferLoadHandleOpIdx);
+    Value *handle =
+        CI->getOperand(DXIL::OperandIndex::kRawBufferLoadHandleOpIdx);
     DXIL::ComponentType compTy;
     DXIL::ResourceClass resClass;
     DXIL::ResourceKind resKind =
@@ -1500,7 +1501,8 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     if (!isa<ConstantInt>(CI->getOperand(alignIdx)))
       ValCtx.EmitInstrError(CI, ValidationRule::InstrConstAlignForRawBuf);
 
-    Value *offset = CI->getOperand(DXIL::OperandIndex::kRawBufferLoadElementOffsetOpIdx);
+    Value *offset =
+        CI->getOperand(DXIL::OperandIndex::kRawBufferLoadElementOffsetOpIdx);
     switch (resKind) {
     case DXIL::ResourceKind::RawBuffer:
       if (!isa<UndefValue>(offset)) {
@@ -1530,15 +1532,17 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     DxilInst_RawBufferStore bufSt(CI);
     ConstantInt *mask = dyn_cast<ConstantInt>(bufSt.get_mask());
     unsigned stValMask =
-      StoreValueToMask({bufSt.get_value0(), bufSt.get_value1(),
-          bufSt.get_value2(), bufSt.get_value3()});
+        StoreValueToMask({bufSt.get_value0(), bufSt.get_value1(),
+                          bufSt.get_value2(), bufSt.get_value3()});
 
     if (!ValidateStorageMasks(CI, opcode, mask, stValMask, false /*isTyped*/,
                               ValCtx))
       return;
-  } LLVM_FALLTHROUGH;
+  }
+    LLVM_FALLTHROUGH;
   case DXIL::OpCode::RawBufferVectorStore: {
-    Value *handle = CI->getOperand(DXIL::OperandIndex::kRawBufferStoreHandleOpIdx);
+    Value *handle =
+        CI->getOperand(DXIL::OperandIndex::kRawBufferStoreHandleOpIdx);
     DXIL::ComponentType compTy;
     DXIL::ResourceClass resClass;
     DXIL::ResourceKind resKind =
@@ -1552,12 +1556,14 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
       alignIdx = DXIL::OperandIndex::kRawBufferVectorStoreAlignmentOpIdx;
       unsigned valueIx = DXIL::OperandIndex::kRawBufferVectorStoreValOpIdx;
       if (isa<UndefValue>(CI->getOperand(valueIx)))
-        ValCtx.EmitInstrError(CI, ValidationRule::InstrUndefinedValueForUAVStore);
+        ValCtx.EmitInstrError(CI,
+                              ValidationRule::InstrUndefinedValueForUAVStore);
     }
     if (!isa<ConstantInt>(CI->getOperand(alignIdx)))
       ValCtx.EmitInstrError(CI, ValidationRule::InstrConstAlignForRawBuf);
 
-    Value *offset = CI->getOperand(DXIL::OperandIndex::kRawBufferStoreElementOffsetOpIdx);
+    Value *offset =
+        CI->getOperand(DXIL::OperandIndex::kRawBufferStoreElementOffsetOpIdx);
     switch (resKind) {
     case DXIL::ResourceKind::RawBuffer:
       if (!isa<UndefValue>(offset)) {
