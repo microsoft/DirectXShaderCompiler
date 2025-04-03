@@ -77,8 +77,6 @@ void main(uint3 GID : SV_GroupThreadID) {
   // CHECK: [[InIx1:%.*]] = call i32 @dx.op.threadIdInGroup.i32(i32 95, i32 0)
   // CHECK: [[InIx2:%.*]] = call i32 @dx.op.threadIdInGroup.i32(i32 95, i32 1)
   // CHECK: [[OutIx:%.*]] = call i32 @dx.op.threadIdInGroup.i32(i32 95, i32 2)
-  // CHECK: [[scratch1:%.*]] = alloca [11 x [[TYPE]]]
-  // CHECK: [[scratch2:%.*]] = alloca [11 x [[TYPE]]]
 
   uint InIx1 = GID[0];
   uint InIx2 = GID[1];
@@ -493,101 +491,101 @@ VTYPE index(VTYPE things[11], int i)[11] {
   // CHECK: [[valIx:%.*]] = add i32 [[InIx1]], 5
   // CHECK: [[InHdl:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[Input]]
 
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch2]], i32 0, i32 0
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr1:%.*]], i32 0, i32 0
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[InHdl]], i32 [[valIx]], i32 [[OFF0]], i8 1, i32 [[ALN]])
   // CHECK: [[val0:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[ld]], 0
   // CHECK: store [[TYPE]] [[val0]], [[TYPE]]* [[adr]], align [[ALN]]
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch2]], i32 0, i32 1
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr1]], i32 0, i32 1
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[InHdl]], i32 [[valIx]], i32 [[OFF1]], i8 1, i32 [[ALN]])
   // CHECK: [[val1:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[ld]], 0
   // CHECK: store [[TYPE]] [[val1]], [[TYPE]]* [[adr]], align [[ALN]]
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch2]], i32 0, i32 2
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr1]], i32 0, i32 2
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[InHdl]], i32 [[valIx]], i32 [[OFF2]], i8 1, i32 [[ALN]])
   // CHECK: [[val2:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[ld]], 0
   // CHECK: store [[TYPE]] [[val2]], [[TYPE]]* [[adr]], align [[ALN]]
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch2]], i32 0, i32 3
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr1]], i32 0, i32 3
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[InHdl]], i32 [[valIx]], i32 [[OFF3]], i8 1, i32 [[ALN]])
   // CHECK: [[val3:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[ld]], 0
   // CHECK: store [[TYPE]] [[val3]], [[TYPE]]* [[adr]], align [[ALN]]
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch2]], i32 0, i32 4
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr1]], i32 0, i32 4
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[InHdl]], i32 [[valIx]], i32 [[OFF4]], i8 1, i32 [[ALN]])
   // CHECK: [[val4:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[ld]], 0
   // CHECK: store [[TYPE]] [[val4]], [[TYPE]]* [[adr]], align [[ALN]]
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch2]], i32 0, i32 5
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr1]], i32 0, i32 5
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[InHdl]], i32 [[valIx]], i32 [[OFF5]], i8 1, i32 [[ALN]])
   // CHECK: [[val5:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[ld]], 0
   // CHECK: store [[TYPE]] [[val5]], [[TYPE]]* [[adr]], align [[ALN]]
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch2]], i32 0, i32 6
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr1]], i32 0, i32 6
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[InHdl]], i32 [[valIx]], i32 [[OFF6]], i8 1, i32 [[ALN]])
   // CHECK: [[val6:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[ld]], 0
   // CHECK: store [[TYPE]] [[val6]], [[TYPE]]* [[adr]], align [[ALN]]
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch2]], i32 0, i32 7
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr1]], i32 0, i32 7
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[InHdl]], i32 [[valIx]], i32 [[OFF7]], i8 1, i32 [[ALN]])
   // CHECK: [[val7:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[ld]], 0
   // CHECK: store [[TYPE]] [[val7]], [[TYPE]]* [[adr]], align [[ALN]]
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch2]], i32 0, i32 8
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr1]], i32 0, i32 8
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[InHdl]], i32 [[valIx]], i32 [[OFF8]], i8 1, i32 [[ALN]])
   // CHECK: [[val8:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[ld]], 0
   // CHECK: store [[TYPE]] [[val8]], [[TYPE]]* [[adr]], align [[ALN]]
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch2]], i32 0, i32 9
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr1]], i32 0, i32 9
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[InHdl]], i32 [[valIx]], i32 [[OFF9]], i8 1, i32 [[ALN]])
   // CHECK: [[val9:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[ld]], 0
   // CHECK: store [[TYPE]] [[val9]], [[TYPE]]* [[adr]], align [[ALN]]
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch2]], i32 0, i32 10
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr1]], i32 0, i32 10
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[InHdl]], i32 [[valIx]], i32 [[OFF10]], i8 1, i32 [[ALN]])
   // CHECK: [[val10:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[ld]], 0
   // CHECK: store [[TYPE]] [[val10]], [[TYPE]]* [[adr]], align [[ALN]]
 
   // CHECK: [[Ix:%.*]] = add i32 [[InIx2]], 5
 
-  // CHECK: [[adr0:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch1]], i32 0, i32 0
+  // CHECK: [[adr0:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr2:%.*]], i32 0, i32 0
   // CHECK: store [[TYPE]] {{(0|0\.?0*e?\+?0*|0xH0000)}}, [[TYPE]]* [[adr0]], align [[ALN]]
   res[0] = 0;
 
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch1]], i32 0, i32 [[Ix]]
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr2]], i32 0, i32 [[Ix]]
   // CHECK: store [[TYPE]] [[POS1]], [[TYPE]]* [[adr]]
   res[i] = 1;
 
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch1]], i32 0, i32 2
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr2]], i32 0, i32 2
   // CHECK: store [[TYPE]] [[TWO:(2|2\.?0*e?\+?0*|0xH4000)]], [[TYPE]]* [[adr]]
   res[Ix] = 2;
 
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch1]], i32 0, i32 3
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr2]], i32 0, i32 3
   // CHECK: store [[TYPE]] [[val0]], [[TYPE]]* [[adr]]
   res[3] = things[0];
 
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch2]], i32 0, i32 [[Ix]]
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr1]], i32 0, i32 [[Ix]]
   // CHECK: [[vali:%.*]] = load [[TYPE]], [[TYPE]]* [[adr]], align [[ALN]]
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch1]], i32 0, i32 4
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr2]], i32 0, i32 4
   // CHECK: store [[TYPE]] [[vali]], [[TYPE]]* [[adr]]
   res[4] = things[i];
 
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch1]], i32 0, i32 5
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr2]], i32 0, i32 5
   // CHECK: store [[TYPE]] [[val2]], [[TYPE]]* [[adr]]
   res[5] = things[Ix];
 
   // CHECK: [[ld:%.*]] = load [[TYPE]], [[TYPE]]* [[adr0]], align [[ALN]]
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ResHdl]], i32 [[ResIx]], i32 0, [[TYPE]] [[ld]], [[TYPE]] undef, [[TYPE]] undef, [[TYPE]] undef, i8 1, i32 [[ALN]])
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch1]], i32 0, i32 1
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr2]], i32 0, i32 1
   // CHECK: [[ld:%.*]] = load [[TYPE]], [[TYPE]]* [[adr]], align [[ALN]]
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ResHdl]], i32 [[ResIx]], i32 [[OFF1]], [[TYPE]] [[ld]], [[TYPE]] undef, [[TYPE]] undef, [[TYPE]] undef, i8 1, i32 [[ALN]])
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ResHdl]], i32 [[ResIx]], i32 [[OFF2]], [[TYPE]] [[TWO]], [[TYPE]] undef, [[TYPE]] undef, [[TYPE]] undef, i8 1, i32 [[ALN]])
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ResHdl]], i32 [[ResIx]], i32 [[OFF3]], [[TYPE]] [[val0]], [[TYPE]] undef, [[TYPE]] undef, [[TYPE]] undef, i8 1, i32 [[ALN]])
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ResHdl]], i32 [[ResIx]], i32 [[OFF4]], [[TYPE]] [[vali]], [[TYPE]] undef, [[TYPE]] undef, [[TYPE]] undef, i8 1, i32 [[ALN]])
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ResHdl]], i32 [[ResIx]], i32 [[OFF5]], [[TYPE]] [[val2]], [[TYPE]] undef, [[TYPE]] undef, [[TYPE]] undef, i8 1, i32 [[ALN]])
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch1]], i32 0, i32 6
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr2]], i32 0, i32 6
   // CHECK: [[ld:%.*]] = load [[TYPE]], [[TYPE]]* [[adr]], align [[ALN]]
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ResHdl]], i32 [[ResIx]], i32 [[OFF6]], [[TYPE]] [[ld]], [[TYPE]] undef, [[TYPE]] undef, [[TYPE]] undef, i8 1, i32 [[ALN]])
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch1]], i32 0, i32 7
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr2]], i32 0, i32 7
   // CHECK: [[ld:%.*]] = load [[TYPE]], [[TYPE]]* [[adr]], align [[ALN]]
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ResHdl]], i32 [[ResIx]], i32 [[OFF7]], [[TYPE]] [[ld]], [[TYPE]] undef, [[TYPE]] undef, [[TYPE]] undef, i8 1, i32 [[ALN]])
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch1]], i32 0, i32 8
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr2]], i32 0, i32 8
   // CHECK: [[ld:%.*]] = load [[TYPE]], [[TYPE]]* [[adr]], align [[ALN]]
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ResHdl]], i32 [[ResIx]], i32 [[OFF8]], [[TYPE]] [[ld]], [[TYPE]] undef, [[TYPE]] undef, [[TYPE]] undef, i8 1, i32 [[ALN]])
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch1]], i32 0, i32 9
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr2]], i32 0, i32 9
   // CHECK: [[ld:%.*]] = load [[TYPE]], [[TYPE]]* [[adr]], align [[ALN]]
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ResHdl]], i32 [[ResIx]], i32 [[OFF9]], [[TYPE]] [[ld]], [[TYPE]] undef, [[TYPE]] undef, [[TYPE]] undef, i8 1, i32 [[ALN]])
-  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scratch1]], i32 0, i32 10
+  // CHECK: [[adr:%.*]] = getelementptr{{( inbounds)?}} [11 x [[TYPE]]], [11 x [[TYPE]]]* [[scr2]], i32 0, i32 10
   // CHECK: [[ld:%.*]] = load [[TYPE]], [[TYPE]]* [[adr]], align [[ALN]]
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ResHdl]], i32 [[ResIx]], i32 [[OFF10]], [[TYPE]] [[ld]], [[TYPE]] undef, [[TYPE]] undef, [[TYPE]] undef, i8 1, i32 [[ALN]])
 
