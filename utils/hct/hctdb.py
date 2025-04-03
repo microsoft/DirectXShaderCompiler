@@ -5852,7 +5852,7 @@ class db_dxil(object):
               "MatVecMul",
               next_op_idx,
               "MatVecMul",
-              "Matrix-Vector Multiply",
+              "Multiplies a MxK dimension matrix and a K sized input vector",
               "<hfwi,<hfwi",
               "",
               [
@@ -5877,7 +5877,7 @@ class db_dxil(object):
               "MatVecMulAdd",
               next_op_idx,
               "MatVecMulAdd",
-              "Matrix-Vector Multiply Add",
+              "multiplies a MxK dimension matrix and a K sized input vector and adds an M-sized bias vector",
               "<hfwi,<hfwi",
               "",
               [
@@ -5905,7 +5905,7 @@ class db_dxil(object):
               "OuterProductAccumulate",
               next_op_idx,
               "OuterProductAccumulate",
-              "Outer Product Accumulate",
+              "Computes the outer product between column vectors and an MxN matrix is accumulated component-wise atomically (with device scope) in memory",
               "<hfwi,<hfwi",
               "",
               [
@@ -5925,7 +5925,7 @@ class db_dxil(object):
               "VectorAccumulate",
               next_op_idx,
               "VectorAccumulate",
-              "Vector Accumulate",
+              "Accumulates the components of a vector component-wise atomically (with device scope) to the corresponding elements of an array in memory",
               "<hfwi",
               "",
               [
