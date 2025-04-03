@@ -6314,7 +6314,7 @@ Value *TranslateMatVecMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
   // Input parameters
   Value *InputVector =
       CI->getArgOperand(HLOperandIndex::kMatVecMulInputVectorIdx);
-  Value *IsInputUnsigned =
+  Value *InputIsUnsigned =
       CI->getArgOperand(HLOperandIndex::kMatVecMulIsInputUnsignedIdx);
   Value *InputInterpretation =
       CI->getArgOperand(HLOperandIndex::kMatVecMulInputInterpretationIdx);
@@ -6336,7 +6336,7 @@ Value *TranslateMatVecMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
       CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixStrideIdx);
 
   // Output parameters
-  Value *IsOutputUnsigned =
+  Value *OutputIsUnsigned =
       CI->getArgOperand(HLOperandIndex::kMatVecMulIsOutputUnsignedIdx);
 
   // Get the DXIL function for the operation
@@ -6349,9 +6349,9 @@ Value *TranslateMatVecMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
   // Create a call to the DXIL function
   Value *NewCI = Builder.CreateCall(
       DxilFunc,
-      {OpArg, InputVector, IsInputUnsigned, InputInterpretation, MatrixBuffer,
+      {OpArg, InputVector, InputIsUnsigned, InputInterpretation, MatrixBuffer,
        MatrixOffset, MatrixInterpretation, MatrixM, MatrixK, MatrixLayout,
-       MatrixTranspose, MatrixStride, IsOutputUnsigned});
+       MatrixTranspose, MatrixStride, OutputIsUnsigned});
 
   // Get the output parameter and store the result
   Value *OutParam =
@@ -6375,7 +6375,7 @@ Value *TranslateMatVecMulAdd(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
   // Input vector parameters
   Value *InputVector =
       CI->getArgOperand(HLOperandIndex::kMatVecMulAddInputVectorIdx);
-  Value *IsInputUnsigned =
+  Value *InputIsUnsigned =
       CI->getArgOperand(HLOperandIndex::kMatVecMulAddIsInputUnsignedIdx);
   Value *InputInterpretation =
       CI->getArgOperand(HLOperandIndex::kMatVecMulAddInputInterpretationIdx);
@@ -6405,7 +6405,7 @@ Value *TranslateMatVecMulAdd(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
       CI->getArgOperand(HLOperandIndex::kMatVecMulAddBiasInterpretationIdx);
 
   // Output parameters
-  Value *IsOutputUnsigned =
+  Value *OutputIsUnsigned =
       CI->getArgOperand(HLOperandIndex::kMatVecMulAddIsOutputUnsignedIdx);
 
   // Get the DXIL function for the operation
@@ -6417,10 +6417,10 @@ Value *TranslateMatVecMulAdd(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
 
   // Create a call to the DXIL function
   Value *NewCI = Builder.CreateCall(
-      DxilFunc, {OpArg, InputVector, IsInputUnsigned, InputInterpretation,
+      DxilFunc, {OpArg, InputVector, InputIsUnsigned, InputInterpretation,
                  MatrixBuffer, MatrixOffset, MatrixInterpretation, MatrixM,
                  MatrixK, MatrixLayout, MatrixTranspose, MatrixStride,
-                 BiasBuffer, BiasOffset, BiasInterpretation, IsOutputUnsigned});
+                 BiasBuffer, BiasOffset, BiasInterpretation, OutputIsUnsigned});
 
   // Store the result in the output parameter
   Value *OutParam =
