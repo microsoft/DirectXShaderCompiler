@@ -11561,7 +11561,8 @@ static bool CheckFinishedCrossGroupSharingCall(Sema &S, CXXMethodDecl *MD,
   return false;
 }
 
-static bool CheckBarrierCall(Sema &S, FunctionDecl *FD, CallExpr *CE) {
+static bool CheckBarrierCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
+                             const hlsl::ShaderModel *SM) {
   DXASSERT(FD->getNumParams() == 2, "otherwise, unknown Barrier overload");
 
   // Emit error when MemoryTypeFlags are known to be invalid.
@@ -11591,12 +11592,19 @@ static bool CheckBarrierCall(Sema &S, FunctionDecl *FD, CallExpr *CE) {
   llvm::APSInt SemanticFlagsVal;
   if (SemanticFlagsExpr->isIntegerConstantExpr(SemanticFlagsVal, S.Context)) {
     SemanticFlags = SemanticFlagsVal.getLimitedValue();
-    if ((uint32_t)SemanticFlags &
-        ~(uint32_t)DXIL::BarrierSemanticFlag::ValidMask) {
-      S.Diags.Report(SemanticFlagsExpr->getExprLoc(),
-                     diag::err_hlsl_barrier_invalid_semantic_flags)
-          << (uint32_t)SemanticFlags
-          << (uint32_t)DXIL::BarrierSemanticFlag::ValidMask;
+    uint32_t ValidMask = 0U;
+    unsigned DiagID = 0;
+    if (SM->IsSM69Plus()) {
+      DiagID = diag::err_hlsl_barrier_invalid_semantic_flags;
+      ValidMask =
+          static_cast<unsigned>(hlsl::DXIL::BarrierSemanticFlag::ValidMask);
+    } else {
+      DiagID = diag::err_hlsl_barrier_invalid_semantic_flags_legacy;
+      ValidMask =
+          static_cast<unsigned>(hlsl::DXIL::BarrierSemanticFlag::LegacyFlags);
+    }
+    if ((uint32_t)SemanticFlags & ~ValidMask) {
+      S.Diags.Report(SemanticFlagsExpr->getExprLoc(), DiagID);
       return true;
     }
   }
@@ -11637,6 +11645,9 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
   if (!IsBuiltinTable(IntrinsicAttr->getGroup()))
     return;
 
+  const auto *SM =
+      hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
+
   hlsl::IntrinsicOp opCode = (hlsl::IntrinsicOp)IntrinsicAttr->getOpcode();
   switch (opCode) {
   case hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing:
@@ -11644,7 +11655,7 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
                                        TheCall->getLocStart());
     break;
   case hlsl::IntrinsicOp::IOP_Barrier:
-    CheckBarrierCall(*this, FDecl, TheCall);
+    CheckBarrierCall(*this, FDecl, TheCall, SM);
     break;
   case hlsl::IntrinsicOp::IOP_Vkreinterpret_pointer_cast:
     CheckVKBufferPointerCast(*this, FDecl, TheCall, false);

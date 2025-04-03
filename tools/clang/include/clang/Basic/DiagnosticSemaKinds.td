@@ -7974,6 +7974,9 @@ def err_hlsl_controlpoints_size: Error<
 def err_hlsl_barrier_invalid_memory_flags: Error<
   "invalid MemoryTypeFlags for Barrier operation; expected 0, ALL_MEMORY, or some combination of "
   "UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags">;
+def err_hlsl_barrier_invalid_semantic_flags_legacy: Error<
+  "invalid SemanticFlags for Barrier operation; expected 0 or some combination of "
+  "GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags">;
 def err_hlsl_barrier_invalid_semantic_flags: Error<
   "invalid SemanticFlags for Barrier operation; expected 0 or some combination of "
   "GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE, REORDER_SCOPE flags">;

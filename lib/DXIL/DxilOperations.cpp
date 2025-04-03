@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/Support/Global.h"
@@ -3006,6 +3007,23 @@ bool OP::BarrierRequiresNode(const llvm::CallInst *CI) {
   }
 }
 
+bool OP::BarrierRequiresReorder(const llvm::CallInst *CI) {
+  OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
+  switch (opcode) {
+  case OpCode::BarrierByMemoryType: {
+    DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
+      unsigned semanticFlags = barrier.get_SemanticFlags_val();
+      return (semanticFlags &
+              static_cast<unsigned>(DXIL::BarrierSemanticFlag::ReorderScope)) !=
+             0U;
+    }
+    return false;
+  }
+  default:
+    return false;
+  }
+}
 DXIL::BarrierMode OP::TranslateToBarrierMode(const llvm::CallInst *CI) {
   OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
   switch (opcode) {
@@ -3026,6 +3044,12 @@ DXIL::BarrierMode OP::TranslateToBarrierMode(const llvm::CallInst *CI) {
     }
     if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
       semanticFlags = barrier.get_SemanticFlags_val();
+    }
+
+    // Disallow SM6.9+ semantic flags.
+    if (semanticFlags &
+        ~static_cast<unsigned>(DXIL::BarrierSemanticFlag::LegacyFlags)) {
+      return DXIL::BarrierMode::Invalid;
     }
 
     // Mask to legacy flags, if allowed.
@@ -3448,10 +3472,17 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI,
         minor = 8;
       }
     }
+    if (BarrierRequiresReorder(CI)) {
+      major = 6;
+      minor = 9;
+      mask &= SFLAG(Library) | SFLAG(RayGeneration);
+      return;
+    }
     if (BarrierRequiresNode(CI)) {
       mask &= SFLAG(Library) | SFLAG(Node);
       return;
-    } else if (BarrierRequiresGroup(CI)) {
+    }
+    if (BarrierRequiresGroup(CI)) {
       mask &= SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
               SFLAG(Mesh) | SFLAG(Node);
       return;

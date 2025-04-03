@@ -1626,8 +1626,7 @@ static unsigned getSemanticFlagValidMask(const ShaderModel *pSM) {
   pSM->GetDxilVersion(DxilMajor, DxilMinor);
   // DXIL version >= 1.9
   if (hlsl::DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 9) < 0)
-    return static_cast<unsigned>(
-        hlsl::DXIL::BarrierSemanticFlag::ValidMask_1_8);
+    return static_cast<unsigned>(hlsl::DXIL::BarrierSemanticFlag::LegacyFlags);
   return static_cast<unsigned>(hlsl::DXIL::BarrierSemanticFlag::ValidMask);
 }
 
