@@ -1511,7 +1511,7 @@ TEST_F(ValidationTest, StructBufLoadCoordinates) {
                           "%buf1_texture_structbuf, i32 1, i32 8)",
                           "bufferLoad.f32(i32 68, %dx.types.Handle "
                           "%buf1_texture_structbuf, i32 1, i32 undef)",
-                          "structured buffer require 2 coordinates");
+                          "structured buffer requires defined index and offset coordinates");
 }
 
 TEST_F(ValidationTest, StructBufStoreCoordinates) {
@@ -1520,7 +1520,7 @@ TEST_F(ValidationTest, StructBufStoreCoordinates) {
                           "%buf2_UAV_structbuf, i32 0, i32 0",
                           "bufferStore.f32(i32 69, %dx.types.Handle "
                           "%buf2_UAV_structbuf, i32 0, i32 undef",
-                          "structured buffer require 2 coordinates");
+                          "structured buffer requires defined index and offset coordinates");
 }
 
 TEST_F(ValidationTest, TypedBufRetType) {

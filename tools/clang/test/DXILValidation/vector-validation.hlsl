@@ -1,13 +1,10 @@
 // RUN: %dxc -T vs_6_9 %s -Od | FileCheck %s
 
-// Just HLSL source for validation that vector operations produce errors pre-6.9
+// HLSL source for validation that vector operations produce errors pre-6.9
+// See LitDxilValidation/vector-validation.ll.
 // Output is modified to have 6.8 instead.
 
-struct Vector { int i; float4 f;};
-
 RWStructuredBuffer<float4> VecBuf;
-RWStructuredBuffer<Vector> StrBuf;
-RWStructuredBuffer<float> ScalBuf;
 
 // some simple ways to generate the vector ops in question.
 // CHECK-LABEL: define void @main

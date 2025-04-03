@@ -7691,11 +7691,15 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Instr.CoordinateCountForRawTypedBuf",
-            "raw/typed buffer don't need 2 coordinates.",
+            "raw/typed buffer offset must be undef.",
+        )
+        self.add_valrule(
+            "Instr.ConstAlignForRawBuf",
+            "Raw Buffer alignment value must be a constant.",
         )
         self.add_valrule(
             "Instr.CoordinateCountForStructBuf",
-            "structured buffer require 2 coordinates.",
+            "structured buffer requires defined index and offset coordinates.",
         )
         self.add_valrule(
             "Instr.MipLevelForGetDimension",

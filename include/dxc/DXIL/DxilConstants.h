@@ -1420,6 +1420,12 @@ const unsigned kRawBufferLoadElementOffsetOpIdx = 3;
 const unsigned kRawBufferLoadMaskOpIdx = 4;
 const unsigned kRawBufferLoadAlignmentOpIdx = 5;
 
+// RawBufferVectorLoad.
+const unsigned kRawBufferVectorLoadHandleOpIdx = 1;
+const unsigned kRawBufferVectorLoadIndexOpIdx = 2;
+const unsigned kRawBufferVectorLoadElementOffsetOpIdx = 3;
+const unsigned kRawBufferVectorLoadAlignmentOpIdx = 4;
+
 // RawBufferStore
 const unsigned kRawBufferStoreHandleOpIdx = 1;
 const unsigned kRawBufferStoreIndexOpIdx = 2;
@@ -1429,7 +1435,14 @@ const unsigned kRawBufferStoreVal1OpIdx = 5;
 const unsigned kRawBufferStoreVal2OpIdx = 6;
 const unsigned kRawBufferStoreVal3OpIdx = 7;
 const unsigned kRawBufferStoreMaskOpIdx = 8;
-const unsigned kRawBufferStoreAlignmentOpIdx = 8;
+const unsigned kRawBufferStoreAlignmentOpIdx = 9;
+
+// RawBufferVectorStore
+const unsigned kRawBufferVectorStoreHandleOpIdx = 1;
+const unsigned kRawBufferVectorStoreIndexOpIdx = 2;
+const unsigned kRawBufferVectorStoreElementOffsetOpIdx = 3;
+const unsigned kRawBufferVectorStoreValOpIdx = 4;
+const unsigned kRawBufferVectorStoreAlignmentOpIdx = 5;
 
 // TextureStore.
 const unsigned kTextureStoreHandleOpIdx = 1;
