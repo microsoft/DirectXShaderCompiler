@@ -1134,9 +1134,10 @@ bool EmitVisitor::visit(SpirvGroupNonUniformOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  curInst.push_back(typeHandler.getOrCreateConstantInt(
-      llvm::APInt(32, static_cast<uint32_t>(inst->getExecutionScope())),
-      context.getUIntType(32), /* isSpecConst */ false));
+  if (inst->hasExecutionScope())
+    curInst.push_back(typeHandler.getOrCreateConstantInt(
+        llvm::APInt(32, static_cast<uint32_t>(inst->getExecutionScope())),
+        context.getUIntType(32), /* isSpecConst */ false));
   if (inst->hasGroupOp())
     curInst.push_back(static_cast<uint32_t>(inst->getGroupOp()));
   for (auto *operand : inst->getOperands())

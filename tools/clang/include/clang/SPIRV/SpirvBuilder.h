@@ -242,7 +242,7 @@ public:
   /// \brief Creates an operation with the given OpGroupNonUniform* SPIR-V
   /// opcode.
   SpirvGroupNonUniformOp *createGroupNonUniformOp(
-      spv::Op op, QualType resultType, spv::Scope execScope,
+      spv::Op op, QualType resultType, llvm::Optional<spv::Scope> execScope,
       llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation,
       llvm::Optional<spv::GroupOperation> groupOp = llvm::None);
 
