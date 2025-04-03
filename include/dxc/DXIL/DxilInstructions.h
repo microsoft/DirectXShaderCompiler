@@ -9017,7 +9017,8 @@ struct DxilInst_RawBufferVectorStore {
   }
 };
 
-/// This instruction Matrix-Vector Multiply
+/// This instruction Multiplies a MxK dimension matrix and a K sized input
+/// vector
 struct DxilInst_MatVecMul {
   llvm::Instruction *Instr;
   // Construction and identification
@@ -9076,7 +9077,8 @@ struct DxilInst_MatVecMul {
   void set_outputIsUnsigned(llvm::Value *val) { Instr->setOperand(12, val); }
 };
 
-/// This instruction Matrix-Vector Multiply Add
+/// This instruction multiplies a MxK dimension matrix and a K sized input
+/// vector and adds an M-sized bias vector
 struct DxilInst_MatVecMulAdd {
   llvm::Instruction *Instr;
   // Construction and identification
@@ -9145,7 +9147,9 @@ struct DxilInst_MatVecMulAdd {
   void set_outputIsUnsigned(llvm::Value *val) { Instr->setOperand(15, val); }
 };
 
-/// This instruction Outer Product Accumulate
+/// This instruction Computes the outer product between column vectors and an
+/// MxN matrix is accumulated component-wise atomically (with device scope) in
+/// memory
 struct DxilInst_OuterProductAccumulate {
   llvm::Instruction *Instr;
   // Construction and identification
@@ -9190,7 +9194,9 @@ struct DxilInst_OuterProductAccumulate {
   void set_matrixLayout(llvm::Value *val) { Instr->setOperand(7, val); }
 };
 
-/// This instruction Vector Accumulate
+/// This instruction Accumulates the components of a vector component-wise
+/// atomically (with device scope) to the corresponding elements of an array in
+/// memory
 struct DxilInst_VectorAccumulate {
   llvm::Instruction *Instr;
   // Construction and identification
