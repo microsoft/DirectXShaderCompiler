@@ -1298,7 +1298,7 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
     g_DxHitObjectCT,             // LICOMPTYPE_HIT_OBJECT
 #ifdef ENABLE_SPIRV_CODEGEN
-    g_VKBufferPointerCT,         // LICOMPTYPE_VK_BUFFER_POINTER
+    g_VKBufferPointerCT, // LICOMPTYPE_VK_BUFFER_POINTER
 #endif
 };
 static_assert(
