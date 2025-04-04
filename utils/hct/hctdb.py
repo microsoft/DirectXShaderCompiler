@@ -7878,6 +7878,22 @@ class db_dxil(object):
             "Invalid use of completed record handle.",
         )
 
+        # Linalg ops
+        self.add_valrule("Instr.MatVecOpIsUnsignedFlagsAreConst", "MatVec Ops Is Unsigned flag is a constant")
+
+        self.add_valrule("Instr.LinalgInterpretationParamAreConst", "Interpretation values are constants")
+
+        self.add_valrule("Instr.LinalgInvalidRegisterInterpValue", "From Register Interpretation value not in valid set")
+
+        self.add_valrule("Instr.LinalgInvalidMemoryInterpValue", "In Memory Interpolation value not in valid set")
+
+        self.add_valrule("Instr.LinalgMatrixShapeParamsAreConst", "Matrix Layout, Dimensions and isTranspose are immediate constants")
+
+        self.add_valrule("Instr.LinalgInvalidMatrixLayoutValue", "Matrix Layout for Linalg ops not in valid set")
+
+
+
+
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
         # - multiple rules regarding derivatives, which isn't a supported feature for DXIL

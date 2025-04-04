@@ -970,6 +970,175 @@ static void ValidateImmOperandForMathDxilOp(CallInst *CI, DXIL::OpCode opcode,
   }
 }
 
+static bool CheckFromRegisterInterpretations(uint32_t Ri) {
+  std::set<DXIL::ComponentType> ValidSet = {
+      DXIL::ComponentType::I16,         DXIL::ComponentType::U16,
+      DXIL::ComponentType::I32,         DXIL::ComponentType::U32,
+      DXIL::ComponentType::F16,         DXIL::ComponentType::F32,
+      DXIL::ComponentType::PackedS8x32, DXIL::ComponentType::PackedU8x32,
+      DXIL::ComponentType::U8,          DXIL::ComponentType::I8,
+      DXIL::ComponentType::F8_E4M3,     DXIL::ComponentType::F8_E5M2};
+
+  if (ValidSet.find(static_cast<DXIL::ComponentType>(Ri)) != ValidSet.end()) {
+    return true;
+  }
+  return false;
+}
+
+static bool CheckInMemoryInterpretations(uint32_t Mi) {
+  std::set<DXIL::ComponentType> ValidSet = {
+      DXIL::ComponentType::I16,     DXIL::ComponentType::U16,
+      DXIL::ComponentType::I32,     DXIL::ComponentType::U32,
+      DXIL::ComponentType::F16,     DXIL::ComponentType::F32,
+      DXIL::ComponentType::U8,      DXIL::ComponentType::I8,
+      DXIL::ComponentType::F8_E4M3, DXIL::ComponentType::F8_E5M2};
+
+  if (ValidSet.find(static_cast<DXIL::ComponentType>(Mi)) != ValidSet.end()) {
+    return true;
+  }
+  return false;
+}
+
+static bool CheckMatrixLayout(uint32_t Ml) {
+  std::set<DXIL::DXILMatrixLayout> ValidSet = {
+      DXIL::DXILMatrixLayout::RowMajor, DXIL::DXILMatrixLayout::ColumnMajor,
+      DXIL::DXILMatrixLayout::MulOptimal,
+      DXIL::DXILMatrixLayout::OuterProductOptimal};
+
+  if (ValidSet.find(static_cast<DXIL::DXILMatrixLayout>(Ml)) !=
+      ValidSet.end()) {
+    return true;
+  }
+  return false;
+}
+
+static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode opcode,
+                                            ValidationContext &ValCtx) {
+
+  // Check Common operands
+  llvm::Value *InputIsUnsigned =
+      CI->getOperand(DXIL::OperandIndex::kMatVecMulIsInputUnsignedIdx);
+  llvm::Value *InputInterpretation =
+      CI->getOperand(DXIL::OperandIndex::kMatVecMulInputInterpretationIdx);
+  llvm::Value *MatrixInterpretation =
+      CI->getOperand(DXIL::OperandIndex::kMatVecMulMatrixInterpretationIdx);
+  llvm::Value *MatrixM =
+      CI->getOperand(DXIL::OperandIndex::kMatVecMulMatrixMIdx);
+  llvm::Value *MatrixK =
+      CI->getOperand(DXIL::OperandIndex::kMatVecMulMatrixKIdx);
+  llvm::Value *MatrixLayout =
+      CI->getOperand(DXIL::OperandIndex::kMatVecMulMatrixLayoutIdx);
+  llvm::Value *MatrixTranspose =
+      CI->getOperand(DXIL::OperandIndex::kMatVecMulMatrixTransposeIdx);
+
+  if (!llvm::isa<llvm::Constant>(InputIsUnsigned)) {
+    ValCtx.EmitInstrError(CI,
+                          ValidationRule::InstrMatVecOpIsUnsignedFlagsAreConst);
+  }
+
+  if (!llvm::isa<llvm::Constant>(InputInterpretation) ||
+      !llvm::isa<llvm::Constant>(MatrixInterpretation)) {
+    ValCtx.EmitInstrError(
+        CI, ValidationRule::InstrLinalgInterpretationParamAreConst);
+  }
+
+  // Check if InputInterpretation and MatrixInterpretation are valid
+  ConstantInt *Ii = cast<ConstantInt>(InputInterpretation);
+  auto IiValue = Ii->getLimitedValue();
+  if (!CheckFromRegisterInterpretations(IiValue)) {
+    ValCtx.EmitInstrError(
+        CI, ValidationRule::InstrLinalgInvalidRegisterInterpValue);
+  }
+
+  ConstantInt *Mi = cast<ConstantInt>(MatrixInterpretation);
+  auto MiValue = Mi->getLimitedValue();
+  if (!CheckInMemoryInterpretations(MiValue)) {
+    ValCtx.EmitInstrError(CI,
+                          ValidationRule::InstrLinalgInvalidMemoryInterpValue);
+  }
+
+  if (!llvm::isa<llvm::Constant>(MatrixM) ||
+      !llvm::isa<llvm::Constant>(MatrixK) ||
+      !llvm::isa<llvm::Constant>(MatrixLayout) ||
+      !llvm::isa<llvm::Constant>(MatrixTranspose)) {
+    ValCtx.EmitInstrError(CI,
+                          ValidationRule::InstrLinalgMatrixShapeParamsAreConst);
+  }
+
+  ConstantInt *Ml = cast<ConstantInt>(MatrixLayout);
+  auto MlValue = Ml->getLimitedValue();
+  if (!CheckMatrixLayout(MlValue)) {
+    ValCtx.EmitInstrError(CI,
+                          ValidationRule::InstrLinalgInvalidMatrixLayoutValue);
+  }
+
+  switch (opcode) {
+  case DXIL::OpCode::MatVecMul: {
+    llvm::Value *OutputIsUnsigned =
+        CI->getOperand(DXIL::OperandIndex::kMatVecMulIsOutputUnsignedIdx);
+    if (!llvm::isa<llvm::Constant>(OutputIsUnsigned)) {
+      ValCtx.EmitInstrError(
+          CI, ValidationRule::InstrMatVecOpIsUnsignedFlagsAreConst);
+    }
+
+  } break;
+  case DXIL::OpCode::MatVecMulAdd: {
+    llvm::Value *OutputIsUnsigned =
+        CI->getOperand(DXIL::OperandIndex::kMatVecMulAddIsOutputUnsignedIdx);
+    if (!llvm::isa<llvm::Constant>(OutputIsUnsigned)) {
+      ValCtx.EmitInstrError(
+          CI, ValidationRule::InstrMatVecOpIsUnsignedFlagsAreConst);
+    }
+    llvm::Value *BiasInterpretation =
+        CI->getOperand(DXIL::OperandIndex::kMatVecMulAddBiasInterpretation);
+    if (!llvm::isa<llvm::Constant>(BiasInterpretation)) {
+      ValCtx.EmitInstrError(
+          CI, ValidationRule::InstrLinalgInterpretationParamAreConst);
+    }
+    ConstantInt *Bi = cast<ConstantInt>(BiasInterpretation);
+    auto BiValue = Bi->getLimitedValue();
+    if (!CheckInMemoryInterpretations(BiValue)) {
+      ValCtx.EmitInstrError(
+          CI, ValidationRule::InstrLinalgInvalidMemoryInterpValue);
+    }
+  } break;
+  default:
+    break;
+  }
+}
+
+static void ValidateImmOperandsForOuterProdAcc(CallInst *CI,
+                                               DXIL::OpCode opcode,
+                                               ValidationContext &ValCtx) {
+
+  llvm::Value *MatrixInterpretation =
+      CI->getOperand(DXIL::OperandIndex::kOuterProdAccMatrixInterpretation);
+  llvm::Value *MatrixLayout =
+      CI->getOperand(DXIL::OperandIndex::kOuterProdAccMatrixLayout);
+
+  if (!llvm::isa<llvm::Constant>(MatrixInterpretation)) {
+    ValCtx.EmitInstrError(
+        CI, ValidationRule::InstrLinalgInterpretationParamAreConst);
+  }
+  ConstantInt *Mi = cast<ConstantInt>(MatrixInterpretation);
+  auto MiValue = Mi->getLimitedValue();
+  if (!CheckInMemoryInterpretations(MiValue)) {
+    ValCtx.EmitInstrError(CI,
+                          ValidationRule::InstrLinalgInvalidMemoryInterpValue);
+  }
+
+  if (!llvm::isa<llvm::Constant>(MatrixLayout)) {
+    ValCtx.EmitInstrError(CI,
+                          ValidationRule::InstrLinalgMatrixShapeParamsAreConst);
+  }
+  ConstantInt *Ml = cast<ConstantInt>(MatrixLayout);
+  auto MlValue = Ml->getLimitedValue();
+  if (!CheckMatrixLayout(MlValue)) {
+    ValCtx.EmitInstrError(CI,
+                          ValidationRule::InstrLinalgInvalidMatrixLayoutValue);
+  }
+}
+
 // Validate the type-defined mask compared to the store value mask which
 // indicates which parts were defined returns true if caller should continue
 // validation
@@ -1940,6 +2109,16 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                                 ValidationRule::InstrSVConflictingLaunchMode,
                                 {"FlattenedThreadIdInGroup", "SV_GroupIndex",
                                  GetLaunchTypeStr(nodeLaunchType)});
+
+    break;
+  case DXIL::OpCode::MatVecMul:
+  case DXIL::OpCode::MatVecMulAdd:
+    ValidateImmOperandsForMatVecOps(CI, opcode, ValCtx);
+    break;
+  case DXIL::OpCode::OuterProductAccumulate:
+    ValidateImmOperandsForOuterProdAcc(CI, opcode, ValCtx);
+    break;
+  case DXIL::OpCode::VectorAccumulate:
 
     break;
 

@@ -163,14 +163,14 @@ const unsigned kDxilMaxOloadDims = 2;
 enum class ComponentType : uint32_t {
   Invalid = 0,
   I1,
-  I16,
-  U16,
-  I32,
-  U32,
+  I16, // = 2
+  U16, // = 3
+  I32, // = 4
+  U32, // = 5
   I64,
   U64,
-  F16,
-  F32,
+  F16, // = 8
+  F32, // = 9
   F64,
   SNormF16,
   UNormF16,
@@ -178,8 +178,16 @@ enum class ComponentType : uint32_t {
   UNormF32,
   SNormF64,
   UNormF64,
-  PackedS8x32,
-  PackedU8x32,
+  PackedS8x32, // = 17
+  PackedU8x32, // = 18
+
+  // BEGIN NEW FOR SM 6.9
+  U8,      // = 19
+  I8,      // = 20
+  F8_E4M3, // = 21
+  F8_E5M2, // = 22
+  // END
+
   LastEntry
 };
 
@@ -1536,6 +1544,28 @@ const unsigned kMSStoreOutputColOpIdx = 3;
 const unsigned kMSStoreOutputVIdxOpIdx = 4;
 const unsigned kMSStoreOutputValOpIdx = 5;
 
+// MatVec Ops
+const unsigned kMatVecMulInputVectorIdx = 1;
+const unsigned kMatVecMulIsInputUnsignedIdx = 2;
+const unsigned kMatVecMulInputInterpretationIdx = 3;
+const unsigned kMatVecMulMatrixBufferIdx = 4;
+const unsigned kMatVecMulMatrixOffsetIdx = 5;
+const unsigned kMatVecMulMatrixInterpretationIdx = 6;
+const unsigned kMatVecMulMatrixMIdx = 7;
+const unsigned kMatVecMulMatrixKIdx = 8;
+const unsigned kMatVecMulMatrixLayoutIdx = 9;
+const unsigned kMatVecMulMatrixTransposeIdx = 10;
+const unsigned kMatVecMulMatrixStrideIdx = 11;
+const unsigned kMatVecMulIsOutputUnsignedIdx = 12;
+
+// MatVecAdd
+const unsigned kMatVecMulAddBiasInterpretation = 14;
+const unsigned kMatVecMulAddIsOutputUnsignedIdx = 15;
+
+// Outer Product Accumulate
+const unsigned kOuterProdAccMatrixInterpretation = 5;
+const unsigned kOuterProdAccMatrixLayout = 6;
+
 // TODO: add operand index for all the OpCodeClass.
 } // namespace OperandIndex
 
@@ -2104,6 +2134,13 @@ extern const char *kDxIsHelperGlobalName;
 extern const char *kHostLayoutTypePrefix;
 
 extern const char *kWaveOpsIncludeHelperLanesString;
+
+enum class DXILMatrixLayout : uint32_t {
+  RowMajor = 0,
+  ColumnMajor = 1,
+  MulOptimal = 2,
+  OuterProductOptimal = 3,
+};
 
 } // namespace DXIL
 
