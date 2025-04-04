@@ -851,7 +851,7 @@ class db_dxil(object):
             + ",HitObject_IsMiss,HitObject_IsHit,HitObject_IsNop"
             + ",HitObject_RayFlags,HitObject_RayTMin,HitObject_RayTCurrent,HitObject_GeometryIndex,HitObject_InstanceIndex,HitObject_InstanceID,HitObject_PrimitiveIndex,HitObject_HitKind,HitObject_ShaderTableIndex"
             + ",HitObject_WorldRayOrigin,HitObject_WorldRayDirection,HitObject_ObjectRayOrigin,HitObject_ObjectRayDirection"
-            + ",HitObject_ObjectToWorld3x4,HitObject_ObjectToWorld4x3,HitObject_WorldToObject3x4,HitObject_WorldToObject4x3"
+            + ",HitObject_ObjectToWorld3x4,HitObject_WorldToObject3x4"
             + ",HitObject_SetShaderTableIndex,HitObject_LoadLocalRootTableConstant,HitObject_Attributes"
         ).split(","):
             self.name_idx[i].category = "Shader Execution Reordering"
@@ -5955,34 +5955,6 @@ class db_dxil(object):
         next_op_idx += 1
 
         self.add_dxil_op(
-            "HitObject_ObjectToWorld4x3",
-            next_op_idx,
-            "HitObject_StateMatrix",
-            "Returns the object to world space transformation matrix in 4x3 form",
-            "f",
-            "rn",
-            [
-                db_dxil_param(0, "f", "", "operation result"),
-                db_dxil_param(2, "hit_object", "hitObject", "hit"),
-                db_dxil_param(
-                    3,
-                    "i32",
-                    "row",
-                    "row [0..3], relative to the element",
-                    is_const=True,
-                ),
-                db_dxil_param(
-                    4,
-                    "i32",
-                    "col",
-                    "column [0..2], relative to the element",
-                    is_const=True,
-                ),
-            ],
-        )
-        next_op_idx += 1
-
-        self.add_dxil_op(
             "HitObject_WorldToObject3x4",
             next_op_idx,
             "HitObject_StateMatrix",
@@ -6004,34 +5976,6 @@ class db_dxil(object):
                     "i32",
                     "col",
                     "column [0..3], relative to the element",
-                    is_const=True,
-                ),
-            ],
-        )
-        next_op_idx += 1
-
-        self.add_dxil_op(
-            "HitObject_WorldToObject4x3",
-            next_op_idx,
-            "HitObject_StateMatrix",
-            "Returns the world to object space transformation matrix in 4x3 form",
-            "f",
-            "rn",
-            [
-                db_dxil_param(0, "f", "", "operation result"),
-                db_dxil_param(2, "hit_object", "hitObject", "hit"),
-                db_dxil_param(
-                    3,
-                    "i32",
-                    "row",
-                    "row [0..3], relative to the element",
-                    is_const=True,
-                ),
-                db_dxil_param(
-                    4,
-                    "i32",
-                    "col",
-                    "column [0..2], relative to the element",
                     is_const=True,
                 ),
             ],

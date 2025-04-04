@@ -505,19 +505,19 @@ enum class OpCode : unsigned {
   ReservedB0 = 262,  // reserved
   ReservedB1 = 263,  // reserved
   ReservedB2 = 264,  // reserved
-  ReservedB30 = 292, // reserved
+  ReservedB30 = 290, // reserved
   ReservedB5 = 267,  // reserved
   ReservedB6 = 268,  // reserved
-  ReservedC0 = 293,  // reserved
-  ReservedC1 = 294,  // reserved
-  ReservedC2 = 295,  // reserved
-  ReservedC3 = 296,  // reserved
-  ReservedC4 = 297,  // reserved
-  ReservedC5 = 298,  // reserved
-  ReservedC6 = 299,  // reserved
-  ReservedC7 = 300,  // reserved
-  ReservedC8 = 301,  // reserved
-  ReservedC9 = 302,  // reserved
+  ReservedC0 = 291,  // reserved
+  ReservedC1 = 292,  // reserved
+  ReservedC2 = 293,  // reserved
+  ReservedC3 = 294,  // reserved
+  ReservedC4 = 295,  // reserved
+  ReservedC5 = 296,  // reserved
+  ReservedC6 = 297,  // reserved
+  ReservedC7 = 298,  // reserved
+  ReservedC8 = 299,  // reserved
+  ReservedC9 = 300,  // reserved
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -890,16 +890,16 @@ enum class OpCode : unsigned {
                                    // operation with a mipmap-level offset
 
   // Shader Execution Reordering
-  HitObject_Attributes = 291, // Returns the attributes set for this HitObject
-  HitObject_GeometryIndex = 283, // Returns the geometry index committed on hit
-  HitObject_HitKind = 287,       // Returns the HitKind of the hit
-  HitObject_InstanceID = 285,    // Returns the instance id committed on hit
-  HitObject_InstanceIndex = 284, // Returns the instance index committed on hit
+  HitObject_Attributes = 289, // Returns the attributes set for this HitObject
+  HitObject_GeometryIndex = 281, // Returns the geometry index committed on hit
+  HitObject_HitKind = 285,       // Returns the HitKind of the hit
+  HitObject_InstanceID = 283,    // Returns the instance id committed on hit
+  HitObject_InstanceIndex = 282, // Returns the instance index committed on hit
   HitObject_IsHit = 270,  // Returns `true` if the HitObject is a NOP-HitObject
   HitObject_IsMiss = 269, // Returns `true` if the HitObject represents a miss
   HitObject_IsNop = 271,  // Returns `true` if the HitObject represents a nop
   HitObject_LoadLocalRootTableConstant =
-      290, // Returns the root table constant for this HitObject and offset
+      288, // Returns the root table constant for this HitObject and offset
   HitObject_MakeMiss = 265, // Creates a new HitObject representing a miss
   HitObject_MakeNop = 266,  // Creates an empty nop HitObject
   HitObject_ObjectRayDirection =
@@ -907,24 +907,20 @@ enum class OpCode : unsigned {
   HitObject_ObjectRayOrigin = 277,  // Returns the ray origin in object space
   HitObject_ObjectToWorld3x4 = 279, // Returns the object to world space
                                     // transformation matrix in 3x4 form
-  HitObject_ObjectToWorld4x3 = 280, // Returns the object to world space
-                                    // transformation matrix in 4x3 form
   HitObject_PrimitiveIndex =
-      286,                  // Returns the primitive index committed on hit
+      284,                  // Returns the primitive index committed on hit
   HitObject_RayFlags = 272, // Returns the ray flags set in the HitObject
   HitObject_RayTCurrent =
       274,                 // Returns the current T value set in the HitObject
   HitObject_RayTMin = 273, // Returns the TMin value set in the HitObject
   HitObject_SetShaderTableIndex =
-      289, // Returns a HitObject with updated shader table index
+      287, // Returns a HitObject with updated shader table index
   HitObject_ShaderTableIndex =
-      288, // Returns the shader table index set for this HitObject
+      286, // Returns the shader table index set for this HitObject
   HitObject_WorldRayDirection = 276, // Returns the ray direction in world space
   HitObject_WorldRayOrigin = 275,    // Returns the ray origin in world space
-  HitObject_WorldToObject3x4 = 281,  // Returns the world to object space
+  HitObject_WorldToObject3x4 = 280,  // Returns the world to object space
                                      // transformation matrix in 3x4 form
-  HitObject_WorldToObject4x3 = 282,  // Returns the world to object space
-                                     // transformation matrix in 4x3 form
 
   // Synchronization
   AtomicBinOp = 78,           // performs an atomic operation on two operands
@@ -1054,7 +1050,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_7 = 226,
   NumOpCodes_Dxil_1_8 = 258,
 
-  NumOpCodes = 303 // exclusive last value of enumeration
+  NumOpCodes = 301 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 

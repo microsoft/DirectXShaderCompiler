@@ -9299,59 +9299,6 @@ struct DxilInst_HitObject_ObjectToWorld3x4 {
   }
 };
 
-/// This instruction Returns the object to world space transformation matrix in
-/// 4x3 form
-struct DxilInst_HitObject_ObjectToWorld4x3 {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_HitObject_ObjectToWorld4x3(llvm::Instruction *pInstr)
-      : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::HitObject_ObjectToWorld4x3);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_hitObject = 1,
-    arg_row = 2,
-    arg_col = 3,
-  };
-  // Accessors
-  llvm::Value *get_hitObject() const { return Instr->getOperand(1); }
-  void set_hitObject(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_row() const { return Instr->getOperand(2); }
-  void set_row(llvm::Value *val) { Instr->setOperand(2, val); }
-  int32_t get_row_val() const {
-    return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))
-                         ->getZExtValue());
-  }
-  void set_row_val(int32_t val) {
-    Instr->setOperand(2, llvm::Constant::getIntegerValue(
-                             llvm::IntegerType::get(Instr->getContext(), 32),
-                             llvm::APInt(32, (uint64_t)val)));
-  }
-  llvm::Value *get_col() const { return Instr->getOperand(3); }
-  void set_col(llvm::Value *val) { Instr->setOperand(3, val); }
-  int32_t get_col_val() const {
-    return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))
-                         ->getZExtValue());
-  }
-  void set_col_val(int32_t val) {
-    Instr->setOperand(3, llvm::Constant::getIntegerValue(
-                             llvm::IntegerType::get(Instr->getContext(), 32),
-                             llvm::APInt(32, (uint64_t)val)));
-  }
-};
-
 /// This instruction Returns the world to object space transformation matrix in
 /// 3x4 form
 struct DxilInst_HitObject_WorldToObject3x4 {
@@ -9362,59 +9309,6 @@ struct DxilInst_HitObject_WorldToObject3x4 {
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(
         Instr, hlsl::OP::OpCode::HitObject_WorldToObject3x4);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_hitObject = 1,
-    arg_row = 2,
-    arg_col = 3,
-  };
-  // Accessors
-  llvm::Value *get_hitObject() const { return Instr->getOperand(1); }
-  void set_hitObject(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_row() const { return Instr->getOperand(2); }
-  void set_row(llvm::Value *val) { Instr->setOperand(2, val); }
-  int32_t get_row_val() const {
-    return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))
-                         ->getZExtValue());
-  }
-  void set_row_val(int32_t val) {
-    Instr->setOperand(2, llvm::Constant::getIntegerValue(
-                             llvm::IntegerType::get(Instr->getContext(), 32),
-                             llvm::APInt(32, (uint64_t)val)));
-  }
-  llvm::Value *get_col() const { return Instr->getOperand(3); }
-  void set_col(llvm::Value *val) { Instr->setOperand(3, val); }
-  int32_t get_col_val() const {
-    return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))
-                         ->getZExtValue());
-  }
-  void set_col_val(int32_t val) {
-    Instr->setOperand(3, llvm::Constant::getIntegerValue(
-                             llvm::IntegerType::get(Instr->getContext(), 32),
-                             llvm::APInt(32, (uint64_t)val)));
-  }
-};
-
-/// This instruction Returns the world to object space transformation matrix in
-/// 4x3 form
-struct DxilInst_HitObject_WorldToObject4x3 {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_HitObject_WorldToObject4x3(llvm::Instruction *pInstr)
-      : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::HitObject_WorldToObject4x3);
   }
   // Validation support
   bool isAllowed() const { return true; }

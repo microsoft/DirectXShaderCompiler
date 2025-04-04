@@ -2451,24 +2451,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      1,
      {{0x2}},
      {{0x0}}}, // Overloads: f
-    {OC::HitObject_ObjectToWorld4x3,
-     "HitObject_ObjectToWorld4x3",
-     OCC::HitObject_StateMatrix,
-     "hitObject_StateMatrix",
-     Attribute::ReadNone,
-     1,
-     {{0x2}},
-     {{0x0}}}, // Overloads: f
     {OC::HitObject_WorldToObject3x4,
      "HitObject_WorldToObject3x4",
-     OCC::HitObject_StateMatrix,
-     "hitObject_StateMatrix",
-     Attribute::ReadNone,
-     1,
-     {{0x2}},
-     {{0x0}}}, // Overloads: f
-    {OC::HitObject_WorldToObject4x3,
-     "HitObject_WorldToObject4x3",
      OCC::HitObject_StateMatrix,
      "hitObject_StateMatrix",
      Attribute::ReadNone,
@@ -3404,14 +3388,13 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // HitObject_RayFlags=272, HitObject_RayTMin=273, HitObject_RayTCurrent=274,
   // HitObject_WorldRayOrigin=275, HitObject_WorldRayDirection=276,
   // HitObject_ObjectRayOrigin=277, HitObject_ObjectRayDirection=278,
-  // HitObject_ObjectToWorld3x4=279, HitObject_ObjectToWorld4x3=280,
-  // HitObject_WorldToObject3x4=281, HitObject_WorldToObject4x3=282,
-  // HitObject_GeometryIndex=283, HitObject_InstanceIndex=284,
-  // HitObject_InstanceID=285, HitObject_PrimitiveIndex=286,
-  // HitObject_HitKind=287, HitObject_ShaderTableIndex=288,
-  // HitObject_SetShaderTableIndex=289,
-  // HitObject_LoadLocalRootTableConstant=290, HitObject_Attributes=291
-  if ((265 <= op && op <= 266) || (269 <= op && op <= 291)) {
+  // HitObject_ObjectToWorld3x4=279, HitObject_WorldToObject3x4=280,
+  // HitObject_GeometryIndex=281, HitObject_InstanceIndex=282,
+  // HitObject_InstanceID=283, HitObject_PrimitiveIndex=284,
+  // HitObject_HitKind=285, HitObject_ShaderTableIndex=286,
+  // HitObject_SetShaderTableIndex=287,
+  // HitObject_LoadLocalRootTableConstant=288, HitObject_Attributes=289
+  if ((265 <= op && op <= 266) || (269 <= op && op <= 289)) {
     major = 6;
     minor = 9;
     mask =
@@ -5680,21 +5663,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
-  case OpCode::HitObject_ObjectToWorld4x3:
-    A(pF32);
-    A(pI32);
-    A(pHit);
-    A(pI32);
-    A(pI32);
-    break;
   case OpCode::HitObject_WorldToObject3x4:
-    A(pF32);
-    A(pI32);
-    A(pHit);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::HitObject_WorldToObject4x3:
     A(pF32);
     A(pI32);
     A(pHit);
@@ -6157,9 +6126,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::HitObject_ObjectRayOrigin:
   case OpCode::HitObject_ObjectRayDirection:
   case OpCode::HitObject_ObjectToWorld3x4:
-  case OpCode::HitObject_ObjectToWorld4x3:
   case OpCode::HitObject_WorldToObject3x4:
-  case OpCode::HitObject_WorldToObject4x3:
     return Type::getFloatTy(Ctx);
   case OpCode::MakeDouble:
   case OpCode::SplitDouble:
