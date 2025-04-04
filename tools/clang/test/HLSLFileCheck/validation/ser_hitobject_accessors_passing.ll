@@ -1,4 +1,4 @@
-; RUN: %dxv %s | FileCheck %s
+; RUN: %dxilver 1.9 | %dxv %s
 
 ; CHECK: Validation succeeded.
 
@@ -35,29 +35,25 @@ define void @"\01?main@@YAXXZ"() #0 {
 
   %r279 = call float @dx.op.hitObject_StateMatrix.f32(i32 279, %dx.types.HitObject %nop, i32 0, i32 0)  ; HitObject_ObjectToWorld3x4(hitObject,row,col)
 
-  %r280 = call float @dx.op.hitObject_StateMatrix.f32(i32 280, %dx.types.HitObject %nop, i32 0, i32 0)  ; HitObject_ObjectToWorld4x3(hitObject,row,col)
+  %r280 = call float @dx.op.hitObject_StateMatrix.f32(i32 280, %dx.types.HitObject %nop, i32 0, i32 0)  ; HitObject_WorldToObject3x4(hitObject,row,col)
 
-  %r281 = call float @dx.op.hitObject_StateMatrix.f32(i32 281, %dx.types.HitObject %nop, i32 0, i32 0)  ; HitObject_WorldToObject3x4(hitObject,row,col)
+  %r281 = call i32 @dx.op.hitObject_StateScalar.i32(i32 281, %dx.types.HitObject %nop)  ; HitObject_GeometryIndex(hitObject)
 
-  %r282 = call float @dx.op.hitObject_StateMatrix.f32(i32 282, %dx.types.HitObject %nop, i32 0, i32 0)  ; HitObject_WorldToObject4x3(hitObject,row,col)
+  %r282 = call i32 @dx.op.hitObject_StateScalar.i32(i32 282, %dx.types.HitObject %nop)  ; HitObject_InstanceIndex(hitObject)
 
-  %r283 = call i32 @dx.op.hitObject_StateScalar.i32(i32 283, %dx.types.HitObject %nop)  ; HitObject_GeometryIndex(hitObject)
+  %r283 = call i32 @dx.op.hitObject_StateScalar.i32(i32 283, %dx.types.HitObject %nop)  ; HitObject_InstanceID(hitObject)
 
-  %r284 = call i32 @dx.op.hitObject_StateScalar.i32(i32 284, %dx.types.HitObject %nop)  ; HitObject_InstanceIndex(hitObject)
+  %r284 = call i32 @dx.op.hitObject_StateScalar.i32(i32 284, %dx.types.HitObject %nop)  ; HitObject_PrimitiveIndex(hitObject)
 
-  %r285 = call i32 @dx.op.hitObject_StateScalar.i32(i32 285, %dx.types.HitObject %nop)  ; HitObject_InstanceID(hitObject)
+  %r285 = call i32 @dx.op.hitObject_StateScalar.i32(i32 285, %dx.types.HitObject %nop)  ; HitObject_HitKind(hitObject)
 
-  %r286 = call i32 @dx.op.hitObject_StateScalar.i32(i32 286, %dx.types.HitObject %nop)  ; HitObject_PrimitiveIndex(hitObject)
+  %r286 = call i32 @dx.op.hitObject_StateScalar.i32(i32 286, %dx.types.HitObject %nop)  ; HitObject_ShaderTableIndex(hitObject)
 
-  %r287 = call i32 @dx.op.hitObject_StateScalar.i32(i32 287, %dx.types.HitObject %nop)  ; HitObject_HitKind(hitObject)
+  %r287 = call %dx.types.HitObject @dx.op.hitObject_SetShaderTableIndex(i32 287, %dx.types.HitObject %nop, i32 1)  ; HitObject_SetShaderTableIndex(hitObject,shaderTableIndex)
 
-  %r288 = call i32 @dx.op.hitObject_StateScalar.i32(i32 288, %dx.types.HitObject %nop)  ; HitObject_ShaderTableIndex(hitObject)
+  %r288 = call i32 @dx.op.hitObject_LoadLocalRootTableConstant(i32 288, %dx.types.HitObject %nop, i32 42)  ; HitObject_LoadLocalRootTableConstant(hitObject,offset)
 
-  %r289 = call %dx.types.HitObject @dx.op.hitObject_SetShaderTableIndex(i32 289, %dx.types.HitObject %nop, i32 1)  ; HitObject_SetShaderTableIndex(hitObject,shaderTableIndex)
-
-  %r290 = call i32 @dx.op.hitObject_LoadLocalRootTableConstant(i32 290, %dx.types.HitObject %nop, i32 42)  ; HitObject_LoadLocalRootTableConstant(hitObject,offset)
-
-  call void @dx.op.hitObject_Attributes.struct.AttribType(i32 291, %dx.types.HitObject %nop, %struct.AttribType* nonnull %attrs)  ; HitObject_Attributes(hitObject,attributes)
+  call void @dx.op.hitObject_Attributes.struct.AttribType(i32 289, %dx.types.HitObject %nop, %struct.AttribType* nonnull %attrs)  ; HitObject_Attributes(hitObject,attributes)
   ret void
 }
 
