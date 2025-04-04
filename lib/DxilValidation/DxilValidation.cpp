@@ -1475,34 +1475,35 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
       }
     }
   } break;
-  case DXIL::OpCode::RawBufferLoad: {
+  case DXIL::OpCode::RawBufferLoad:
     if (!ValCtx.DxilMod.GetShaderModel()->IsSM63Plus()) {
       Type *Ty = OP::GetOverloadType(DXIL::OpCode::RawBufferLoad,
                                      CI->getCalledFunction());
-      if (ValCtx.DL.getTypeAllocSizeInBits(Ty) > 32) {
+      if (ValCtx.DL.getTypeAllocSizeInBits(Ty) > 32)
         ValCtx.EmitInstrError(CI, ValidationRule::Sm64bitRawBufferLoadStore);
-      }
     }
-    DxilInst_RawBufferLoad BufLd(CI);
+    LLVM_FALLTHROUGH;
+  case DXIL::OpCode::RawBufferVectorLoad: {
+    Value *Handle =
+        CI->getOperand(DXIL::OperandIndex::kRawBufferLoadHandleOpIdx);
     DXIL::ComponentType CompTy;
     DXIL::ResourceClass ResClass;
     DXIL::ResourceKind ResKind =
-        GetResourceKindAndCompTy(BufLd.get_srv(), CompTy, ResClass, ValCtx);
+        GetResourceKindAndCompTy(Handle, CompTy, ResClass, ValCtx);
 
     if (ResClass != DXIL::ResourceClass::SRV &&
-        ResClass != DXIL::ResourceClass::UAV) {
-      ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceClassForLoad);
-    }
+        ResClass != DXIL::ResourceClass::UAV)
 
-    Value *Offset = BufLd.get_elementOffset();
-    Value *Align = BufLd.get_alignment();
-    unsigned AlignSize = 0;
-    if (!isa<ConstantInt>(Align)) {
-      ValCtx.EmitInstrError(CI,
-                            ValidationRule::InstrCoordinateCountForRawTypedBuf);
-    } else {
-      AlignSize = BufLd.get_alignment_val();
-    }
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceClassForLoad);
+
+    unsigned AlignIdx = DXIL::OperandIndex::kRawBufferLoadAlignmentOpIdx;
+    if (DXIL::OpCode::RawBufferVectorLoad == Opcode)
+      AlignIdx = DXIL::OperandIndex::kRawBufferVectorLoadAlignmentOpIdx;
+    if (!isa<ConstantInt>(CI->getOperand(AlignIdx)))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrConstAlignForRawBuf);
+
+    Value *Offset =
+        CI->getOperand(DXIL::OperandIndex::kRawBufferLoadElementOffsetOpIdx);
     switch (ResKind) {
     case DXIL::ResourceKind::RawBuffer:
       if (!isa<UndefValue>(Offset)) {
@@ -1526,38 +1527,44 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
     if (!ValCtx.DxilMod.GetShaderModel()->IsSM63Plus()) {
       Type *Ty = OP::GetOverloadType(DXIL::OpCode::RawBufferStore,
                                      CI->getCalledFunction());
-      if (ValCtx.DL.getTypeAllocSizeInBits(Ty) > 32) {
+      if (ValCtx.DL.getTypeAllocSizeInBits(Ty) > 32)
         ValCtx.EmitInstrError(CI, ValidationRule::Sm64bitRawBufferLoadStore);
-      }
     }
-    DxilInst_RawBufferStore BufSt(CI);
-    DXIL::ComponentType CompTy;
-    DXIL::ResourceClass ResClass;
-    DXIL::ResourceKind ResKind =
-        GetResourceKindAndCompTy(BufSt.get_uav(), CompTy, ResClass, ValCtx);
-
-    if (ResClass != DXIL::ResourceClass::UAV) {
-      ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceClassForUAVStore);
-    }
-
-    ConstantInt *Mask = dyn_cast<ConstantInt>(BufSt.get_mask());
+    DxilInst_RawBufferStore bufSt(CI);
+    ConstantInt *Mask = dyn_cast<ConstantInt>(bufSt.get_mask());
     unsigned StValMask =
-        StoreValueToMask({BufSt.get_value0(), BufSt.get_value1(),
-                          BufSt.get_value2(), BufSt.get_value3()});
+        StoreValueToMask({bufSt.get_value0(), bufSt.get_value1(),
+                          bufSt.get_value2(), bufSt.get_value3()});
 
     if (!ValidateStorageMasks(CI, Opcode, Mask, StValMask, false /*IsTyped*/,
                               ValCtx))
       return;
+  }
+    LLVM_FALLTHROUGH;
+  case DXIL::OpCode::RawBufferVectorStore: {
+    Value *Handle =
+        CI->getOperand(DXIL::OperandIndex::kRawBufferStoreHandleOpIdx);
+    DXIL::ComponentType CompTy;
+    DXIL::ResourceClass ResClass;
+    DXIL::ResourceKind ResKind =
+        GetResourceKindAndCompTy(Handle, CompTy, ResClass, ValCtx);
 
-    Value *Offset = BufSt.get_elementOffset();
-    Value *Align = BufSt.get_alignment();
-    unsigned AlignSize = 0;
-    if (!isa<ConstantInt>(Align)) {
-      ValCtx.EmitInstrError(CI,
-                            ValidationRule::InstrCoordinateCountForRawTypedBuf);
-    } else {
-      AlignSize = BufSt.get_alignment_val();
+    if (ResClass != DXIL::ResourceClass::UAV)
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceClassForUAVStore);
+
+    unsigned AlignIdx = DXIL::OperandIndex::kRawBufferStoreAlignmentOpIdx;
+    if (DXIL::OpCode::RawBufferVectorStore == Opcode) {
+      AlignIdx = DXIL::OperandIndex::kRawBufferVectorStoreAlignmentOpIdx;
+      unsigned ValueIx = DXIL::OperandIndex::kRawBufferVectorStoreValOpIdx;
+      if (isa<UndefValue>(CI->getOperand(ValueIx)))
+        ValCtx.EmitInstrError(CI,
+                              ValidationRule::InstrUndefinedValueForUAVStore);
     }
+    if (!isa<ConstantInt>(CI->getOperand(AlignIdx)))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrConstAlignForRawBuf);
+
+    Value *Offset =
+        CI->getOperand(DXIL::OperandIndex::kRawBufferStoreElementOffsetOpIdx);
     switch (ResKind) {
     case DXIL::ResourceKind::RawBuffer:
       if (!isa<UndefValue>(Offset)) {
@@ -1684,6 +1691,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::CBufferLoadLegacy:
   case DXIL::OpCode::RawBufferLoad:
   case DXIL::OpCode::RawBufferStore:
+  case DXIL::OpCode::RawBufferVectorLoad:
+  case DXIL::OpCode::RawBufferVectorStore:
     ValidateResourceDxilOp(CI, Opcode, ValCtx);
     break;
   // Input output.
