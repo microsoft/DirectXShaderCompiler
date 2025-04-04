@@ -1497,7 +1497,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
       ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceClassForLoad);
 
     unsigned AlignIdx = DXIL::OperandIndex::kRawBufferLoadAlignmentOpIdx;
-    if (DXIL::OpCode::RawBufferVectorLoad == opcode)
+    if (DXIL::OpCode::RawBufferVectorLoad == Opcode)
       AlignIdx = DXIL::OperandIndex::kRawBufferVectorLoadAlignmentOpIdx;
     if (!isa<ConstantInt>(CI->getOperand(AlignIdx)))
       ValCtx.EmitInstrError(CI, ValidationRule::InstrConstAlignForRawBuf);
@@ -1531,8 +1531,8 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
         ValCtx.EmitInstrError(CI, ValidationRule::Sm64bitRawBufferLoadStore);
     }
     DxilInst_RawBufferStore bufSt(CI);
-    ConstantInt *mask = dyn_cast<ConstantInt>(bufSt.get_mask());
-    unsigned stValMask =
+    ConstantInt *Mask = dyn_cast<ConstantInt>(bufSt.get_mask());
+    unsigned StValMask =
         StoreValueToMask({bufSt.get_value0(), bufSt.get_value1(),
                           bufSt.get_value2(), bufSt.get_value3()});
 
@@ -1553,7 +1553,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
       ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceClassForUAVStore);
 
     unsigned AlignIdx = DXIL::OperandIndex::kRawBufferStoreAlignmentOpIdx;
-    if (DXIL::OpCode::RawBufferVectorStore == opcode) {
+    if (DXIL::OpCode::RawBufferVectorStore == Opcode) {
       AlignIdx = DXIL::OperandIndex::kRawBufferVectorStoreAlignmentOpIdx;
       unsigned ValueIx = DXIL::OperandIndex::kRawBufferVectorStoreValOpIdx;
       if (isa<UndefValue>(CI->getOperand(ValueIx)))
@@ -1693,7 +1693,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::RawBufferStore:
   case DXIL::OpCode::RawBufferVectorLoad:
   case DXIL::OpCode::RawBufferVectorStore:
-    ValidateResourceDxilOp(CI, opcode, ValCtx);
+    ValidateResourceDxilOp(CI, Opcode, ValCtx);
     break;
   // Input output.
   case DXIL::OpCode::LoadInput:
