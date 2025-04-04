@@ -56,7 +56,8 @@ void ps_main()
 	const uint va_matrix_offset = 0;
 
 	 __builtin_VectorAccumulate(input_vector1, rw_matrix_buffer,
-	   va_matrix_offset); }
+	   va_matrix_offset);
+}
 
 // CHECK: define void @cs_main()
 // CHECK: call <4 x float> @dx.op.matVecMul

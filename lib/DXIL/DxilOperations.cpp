@@ -2649,6 +2649,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      1,
      {{0x4e7}},
      {{0xe7}}}, // Overloads: hfwidl<hfwidl
+
+    // Linear Algebra Operations
     {OC::MatVecMul,
      "MatVecMul",
      OCC::MatVecMul,
@@ -3440,8 +3442,9 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: AllocateRayQuery2=258, RawBufferVectorLoad=303,
-  // RawBufferVectorStore=304
-  if (op == 258 || (303 <= op && op <= 304)) {
+  // RawBufferVectorStore=304, MatVecMul=305, MatVecMulAdd=306,
+  // OuterProductAccumulate=307, VectorAccumulate=308
+  if (op == 258 || (303 <= op && op <= 308)) {
     major = 6;
     minor = 9;
     return;
@@ -5806,6 +5809,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     A(pI32);
     break;
+
+    // Linear Algebra Operations
   case OpCode::MatVecMul:
     EXT(0);
     A(pI32);

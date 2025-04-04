@@ -495,14 +495,6 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 // Enumeration for operations specified by DXIL
 enum class OpCode : unsigned {
   //
-  MatVecMul =
-      305, // Multiplies a MxK dimension matrix and a K sized input vector
-  MatVecMulAdd = 306, // multiplies a MxK dimension matrix and a K sized input
-                      // vector and adds an M-sized bias vector
-  OuterProductAccumulate =
-      307, // Computes the outer product between column vectors and an MxN
-           // matrix is accumulated component-wise atomically (with device
-           // scope) in memory
   RawBufferVectorLoad = 303, // reads from a raw buffer and structured buffer
   RawBufferVectorStore =
       304,           // writes to a RWByteAddressBuffer or RWStructuredBuffer
@@ -560,9 +552,6 @@ enum class OpCode : unsigned {
   ReservedC7 = 300,  // reserved
   ReservedC8 = 301,  // reserved
   ReservedC9 = 302,  // reserved
-  VectorAccumulate = 308, // Accumulates the components of a vector
-                          // component-wise atomically (with device scope) to
-                          // the corresponding elements of an array in memory
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -790,6 +779,19 @@ enum class OpCode : unsigned {
   // Library create handle from resource struct (like HL intrinsic)
   CreateHandleForLib =
       160, // create resource handle from resource struct for library
+
+  // Linear Algebra Operations
+  MatVecMul =
+      305, // Multiplies a MxK dimension matrix and a K sized input vector
+  MatVecMulAdd = 306, // multiplies a MxK dimension matrix and a K sized input
+                      // vector and adds an M-sized bias vector
+  OuterProductAccumulate =
+      307, // Computes the outer product between column vectors and an MxN
+           // matrix is accumulated component-wise atomically (with device
+           // scope) in memory
+  VectorAccumulate = 308, // Accumulates the components of a vector
+                          // component-wise atomically (with device scope) to
+                          // the corresponding elements of an array in memory
 
   // Mesh shader instructions
   EmitIndices = 169, // emit a primitive's vertex indices in a mesh shader
@@ -1079,13 +1081,9 @@ enum class OpCode : unsigned {
 // Groups for DXIL operations with equivalent function templates
 enum class OpCodeClass : unsigned {
   //
-  MatVecMul,
-  MatVecMulAdd,
-  OuterProductAccumulate,
   RawBufferVectorLoad,
   RawBufferVectorStore,
   Reserved,
-  VectorAccumulate,
 
   // Amplification shader instructions
   DispatchMesh,
@@ -1213,6 +1211,12 @@ enum class OpCodeClass : unsigned {
 
   // Library create handle from resource struct (like HL intrinsic)
   CreateHandleForLib,
+
+  // Linear Algebra Operations
+  MatVecMul,
+  MatVecMulAdd,
+  OuterProductAccumulate,
+  VectorAccumulate,
 
   // Mesh shader instructions
   EmitIndices,

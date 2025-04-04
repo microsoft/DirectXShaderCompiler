@@ -855,6 +855,9 @@ class db_dxil(object):
                 "closesthit",
                 "miss",
             )
+        for i in ("MatVecMul,MatVecMulAdd,OuterProductAccumulate,VectorAccumulate").split(","):
+            self.name_idx[i].category = "Linear Algebra Operations"
+            self.name_idx[i].shader_model = 6, 9
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
