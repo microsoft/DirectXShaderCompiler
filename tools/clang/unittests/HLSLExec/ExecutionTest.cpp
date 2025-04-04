@@ -11641,20 +11641,23 @@ void ExecuteWaveSizeRangeInstance(UINT minWaveSize, UINT maxWaveSize,
       })";
 
   // format compiler args
-  char compilerOptions[64];
+  char compilerOptions[70];
   if (usePreferred) {
     // putting spaces in between the %d's below will cause compilation issues.
-    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
-                             "-D WAVE_SIZE_ATTR=[wavesize(%d,%d,%d)]",
-                             minShaderWaveSize, maxShaderWaveSize,
-                             prefShaderWaveSize) != -1);
+    VERIFY_IS_TRUE(
+        sprintf_s(
+            compilerOptions, sizeof(compilerOptions),
+            "-D WAVE_SIZE_ATTR=[wavesize(%d,%d,%d)] -select-validator internal",
+            minShaderWaveSize, maxShaderWaveSize, prefShaderWaveSize) != -1);
     LogCommentFmt(L"Verifying wave size range test results for (min, max, "
                   L"preferred): (%d, %d, %d)",
                   minShaderWaveSize, maxShaderWaveSize, prefShaderWaveSize);
   } else {
-    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
-                             "-D WAVE_SIZE_ATTR=[wavesize(%d,%d)]",
-                             minShaderWaveSize, maxShaderWaveSize) != -1);
+    VERIFY_IS_TRUE(
+        sprintf_s(
+            compilerOptions, sizeof(compilerOptions),
+            "-D WAVE_SIZE_ATTR=[wavesize(%d,%d)] -select-validator internal",
+            minShaderWaveSize, maxShaderWaveSize) != -1);
     LogCommentFmt(
         L"Verifying wave size range test results for (min, max): (%d, %d)",
         minShaderWaveSize, maxShaderWaveSize);
