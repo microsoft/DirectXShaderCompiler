@@ -3750,4 +3750,24 @@ void MSMain(uint GID : SV_GroupIndex,
     </Shader>
   </ShaderOp>
 
+  <ShaderOp Name="LongVectorBinaryOp" CS="CS">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="SLongVectorBinaryOp&lt;T&gt;" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SLongVectorBinaryOp&lt;T&gt;" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="LongVectorUnaryOp" CS="CS">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="SLongVectorUnaryOp&lt;T&gt;" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SLongVectorUnaryOp&lt;T&gt;" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+    </Shader>
+  </ShaderOp>
+
 </ShaderOpSet>
