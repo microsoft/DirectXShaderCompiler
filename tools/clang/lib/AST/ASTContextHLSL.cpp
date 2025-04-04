@@ -6,6 +6,9 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
+// All rights reserved.                                                      //
+//                                                                           //
 //  This file implements the ASTContext interface for HLSL.                  //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
@@ -1072,6 +1075,47 @@ static void CreateConstructorDeclaration(
   (*constructorDecl)->setAccess(AccessSpecifier::AS_public);
 }
 
+CXXConstructorDecl *hlsl::CreateConstructorDeclarationWithParams(
+    ASTContext &context, CXXRecordDecl *recordDecl, QualType resultType,
+    ArrayRef<QualType> paramTypes, ArrayRef<StringRef> paramNames,
+    DeclarationName declarationName, bool isConst, bool isTemplateFunction) {
+  DXASSERT_NOMSG(recordDecl != nullptr);
+  DXASSERT_NOMSG(!resultType.isNull());
+  DXASSERT_NOMSG(paramTypes.size() == paramNames.size());
+
+  TypeSourceInfo *tinfo;
+  CXXConstructorDecl *constructorDecl;
+  CreateConstructorDeclaration(context, recordDecl, resultType, paramTypes,
+                               declarationName, isConst, &constructorDecl,
+                               &tinfo);
+
+  // Create and associate parameters to constructor.
+  SmallVector<ParmVarDecl *, 2> parmVarDecls;
+  if (!paramTypes.empty()) {
+    for (unsigned int i = 0; i < paramTypes.size(); ++i) {
+      IdentifierInfo *argIi = &context.Idents.get(paramNames[i]);
+      ParmVarDecl *parmVarDecl = ParmVarDecl::Create(
+          context, constructorDecl, NoLoc, NoLoc, argIi, paramTypes[i],
+          context.getTrivialTypeSourceInfo(paramTypes[i], NoLoc),
+          StorageClass::SC_None, nullptr);
+      parmVarDecl->setScopeInfo(0, i);
+      DXASSERT(parmVarDecl->getFunctionScopeIndex() == i,
+               "otherwise failed to set correct index");
+      parmVarDecls.push_back(parmVarDecl);
+    }
+    constructorDecl->setParams(ArrayRef<ParmVarDecl *>(parmVarDecls));
+    AssociateParametersToFunctionPrototype(tinfo, &parmVarDecls.front(),
+                                           parmVarDecls.size());
+  }
+
+  // If this is going to be part of a template function decl, don't add it to
+  // the record because the template function decl will be added instead.
+  if (!isTemplateFunction)
+    recordDecl->addDecl(constructorDecl);
+
+  return constructorDecl;
+}
+
 static void CreateObjectFunctionDeclaration(
     ASTContext &context, CXXRecordDecl *recordDecl, QualType resultType,
     ArrayRef<QualType> args, DeclarationName declarationName, bool isConst,
@@ -1324,6 +1368,41 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
 }
 
 #ifdef ENABLE_SPIRV_CODEGEN
+CXXRecordDecl *hlsl::DeclareVkBufferPointerType(ASTContext &context,
+                                                DeclContext *declContext) {
+  BuiltinTypeDeclBuilder Builder(declContext, "BufferPointer",
+                                 TagDecl::TagKind::TTK_Struct);
+  TemplateTypeParmDecl *TyParamDecl =
+      Builder.addTypeTemplateParam("recordtype");
+  Builder.addIntegerTemplateParam("alignment", context.UnsignedIntTy, 0);
+
+  Builder.startDefinition();
+
+  QualType paramType = QualType(TyParamDecl->getTypeForDecl(), 0);
+  CXXRecordDecl *recordDecl = Builder.getRecordDecl();
+
+  CXXMethodDecl *methodDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, context.getLValueReferenceType(paramType), {}, {},
+      DeclarationName(&context.Idents.get("Get")), true);
+  CanQualType canQualType =
+      recordDecl->getTypeForDecl()->getCanonicalTypeUnqualified();
+  CreateConstructorDeclarationWithParams(
+      context, recordDecl, context.VoidTy,
+      {context.getRValueReferenceType(canQualType)}, {"bufferPointer"},
+      context.DeclarationNames.getCXXConstructorName(canQualType), false);
+  CreateConstructorDeclarationWithParams(
+      context, recordDecl, context.VoidTy, {context.UnsignedIntTy}, {"address"},
+      context.DeclarationNames.getCXXConstructorName(canQualType), false);
+
+  StringRef OpcodeGroup = GetHLOpcodeGroupName(HLOpcodeGroup::HLIntrinsic);
+  unsigned Opcode = static_cast<unsigned>(IntrinsicOp::MOP_GetBufferContents);
+  methodDecl->addAttr(
+      HLSLIntrinsicAttr::CreateImplicit(context, OpcodeGroup, "", Opcode));
+  methodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  return Builder.completeDefinition();
+}
+
 CXXRecordDecl *hlsl::DeclareInlineSpirvType(clang::ASTContext &context,
                                             clang::DeclContext *declContext,
                                             llvm::StringRef typeName,

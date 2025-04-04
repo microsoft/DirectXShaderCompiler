@@ -320,6 +320,7 @@ Supported extensions
 * SPV_KHR_maximal_reconvergence
 * SPV_KHR_float_controls
 * SPV_NV_shader_subgroup_partitioned
+* SPV_KHR_quad_control
 
 Vulkan specific attributes
 --------------------------
@@ -4008,6 +4009,8 @@ Quad          ``QuadReadAcrossX()``        ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadAcrossY()``        ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadAcrossDiagonal()`` ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadLaneAt()``         ``OpGroupNonUniformQuadBroadcast``
+Quad          ``QuadAny()``                ``OpGroupNonUniformQuadAnyKHR``
+Quad          ``QuadAll()``                ``OpGroupNonUniformQuadAllKHR``
 N/A           ``WaveMatch()``              ``OpGroupNonUniformPartitionNV``
 Multiprefix   ``WaveMultiPrefixSum()``     ``OpGroupNonUniform*Add``           ``PartitionedExclusiveScanNV``
 Multiprefix   ``WaveMultiPrefixProduct()`` ``OpGroupNonUniform*Mul``           ``PartitionedExclusiveScanNV``
@@ -4015,6 +4018,11 @@ Multiprefix   ``WaveMultiPrefixBitAnd()``  ``OpGroupNonUniformLogicalAnd``     `
 Multiprefix   ``WaveMultiPrefixBitOr()``   ``OpGroupNonUniformLogicalOr``      ``PartitionedExclusiveScanNV``
 Multiprefix   ``WaveMultiPrefixBitXor()``  ``OpGroupNonUniformLogicalXor``     ``PartitionedExclusiveScanNV``
 ============= ============================ =================================== ==============================
+
+``QuadAny`` and ``QuadAll`` will use the ``OpGroupNonUniformQuadAnyKHR`` and
+``OpGroupNonUniformQuadAllKHR`` instructions if the ``SPV_KHR_quad_control``
+extension is enabled. If it is not, they will fall back to constructing the
+value using multiple calls to ``OpGroupNonUniformQuadBroadcast``.
 
 The Implicit ``vk`` Namespace
 =============================

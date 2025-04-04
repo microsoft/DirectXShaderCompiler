@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/SpirvBuilder.h"
@@ -202,6 +205,14 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
   instruction->setLayoutRule(pointer->getLayoutRule());
   instruction->setRValue(true);
 
+  if (pointer->getStorageClass() == spv::StorageClass::PhysicalStorageBuffer) {
+    AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
+    uint32_t align, size, stride;
+    std::tie(align, size) = alignmentCalc.getAlignmentAndSize(
+        resultType, pointer->getLayoutRule(), llvm::None, &stride);
+    instruction->setAlignment(align);
+  }
+
   if (pointer->containsAliasComponent() &&
       isAKindOfStructuredOrByteBuffer(resultType)) {
     instruction->setStorageClass(spv::StorageClass::Uniform);
@@ -299,6 +310,16 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
   auto *instruction =
       new (context) SpirvStore(loc, address, source, llvm::None, range);
   insertPoint->addInstruction(instruction);
+
+  if (address->getStorageClass() == spv::StorageClass::PhysicalStorageBuffer &&
+      address->getAstResultType() != QualType()) { // exclude raw buffer
+    AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
+    uint32_t align, size, stride;
+    std::tie(align, size) = alignmentCalc.getAlignmentAndSize(
+        address->getAstResultType(), address->getLayoutRule(), llvm::None,
+        &stride);
+    instruction->setAlignment(align);
+  }
 
   if (address->isRasterizerOrdered()) {
     createEndInvocationInterlockEXT(loc, range);
@@ -432,7 +453,7 @@ SpirvSpecConstantBinaryOp *SpirvBuilder::createSpecConstantBinaryOp(
 }
 
 SpirvGroupNonUniformOp *SpirvBuilder::createGroupNonUniformOp(
-    spv::Op op, QualType resultType, spv::Scope execScope,
+    spv::Op op, QualType resultType, llvm::Optional<spv::Scope> execScope,
     llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation loc,
     llvm::Optional<spv::GroupOperation> groupOp) {
   assert(insertPoint && "null insert point");
@@ -487,6 +508,22 @@ SpirvImageTexelPointer *SpirvBuilder::createImageTexelPointer(
   assert(insertPoint && "null insert point");
   auto *instruction = new (context)
       SpirvImageTexelPointer(resultType, loc, image, coordinate, sample);
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
+SpirvConvertPtrToU *SpirvBuilder::createConvertPtrToU(SpirvInstruction *ptr,
+                                                      QualType type) {
+  auto *instruction = new (context) SpirvConvertPtrToU(ptr, type);
+  instruction->setRValue(true);
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
+SpirvConvertUToPtr *SpirvBuilder::createConvertUToPtr(SpirvInstruction *val,
+                                                      QualType type) {
+  auto *instruction = new (context) SpirvConvertUToPtr(val, type);
+  instruction->setRValue(false);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
