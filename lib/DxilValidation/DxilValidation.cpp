@@ -970,8 +970,8 @@ static void ValidateImmOperandForMathDxilOp(CallInst *CI, DXIL::OpCode opcode,
   }
 }
 
-static bool CheckFromRegisterInterpretations(uint32_t Ri) {
-  std::set<DXIL::ComponentType> ValidSet = {
+static bool CheckFromRegisterInterpretations(uint32_t input) {
+  DXIL::ComponentType ValidSet[] = {
       DXIL::ComponentType::I16,         DXIL::ComponentType::U16,
       DXIL::ComponentType::I32,         DXIL::ComponentType::U32,
       DXIL::ComponentType::F16,         DXIL::ComponentType::F32,
@@ -979,35 +979,38 @@ static bool CheckFromRegisterInterpretations(uint32_t Ri) {
       DXIL::ComponentType::U8,          DXIL::ComponentType::I8,
       DXIL::ComponentType::F8_E4M3,     DXIL::ComponentType::F8_E5M2};
 
-  if (ValidSet.find(static_cast<DXIL::ComponentType>(Ri)) != ValidSet.end()) {
-    return true;
+  for (auto Val : ValidSet) {
+    if (Val == static_cast<DXIL::ComponentType>(input))
+      return true;
   }
   return false;
 }
 
-static bool CheckInMemoryInterpretations(uint32_t Mi) {
-  std::set<DXIL::ComponentType> ValidSet = {
+static bool CheckInMemoryInterpretations(uint32_t input) {
+  DXIL::ComponentType ValidSet[] = {
       DXIL::ComponentType::I16,     DXIL::ComponentType::U16,
       DXIL::ComponentType::I32,     DXIL::ComponentType::U32,
       DXIL::ComponentType::F16,     DXIL::ComponentType::F32,
       DXIL::ComponentType::U8,      DXIL::ComponentType::I8,
       DXIL::ComponentType::F8_E4M3, DXIL::ComponentType::F8_E5M2};
 
-  if (ValidSet.find(static_cast<DXIL::ComponentType>(Mi)) != ValidSet.end()) {
-    return true;
+  for (auto Val : ValidSet) {
+    if (Val == static_cast<DXIL::ComponentType>(input))
+      return true;
   }
   return false;
 }
 
-static bool CheckMatrixLayout(uint32_t Ml) {
-  std::set<DXIL::DXILMatrixLayout> ValidSet = {
+static bool CheckMatrixLayout(unsigned input) {
+
+  DXIL::DXILMatrixLayout ValidSet[] = {
       DXIL::DXILMatrixLayout::RowMajor, DXIL::DXILMatrixLayout::ColumnMajor,
       DXIL::DXILMatrixLayout::MulOptimal,
       DXIL::DXILMatrixLayout::OuterProductOptimal};
 
-  if (ValidSet.find(static_cast<DXIL::DXILMatrixLayout>(Ml)) !=
-      ValidSet.end()) {
-    return true;
+  for (auto Val : ValidSet) {
+    if (Val == static_cast<DXIL::DXILMatrixLayout>(input))
+      return true;
   }
   return false;
 }
