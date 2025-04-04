@@ -1,7 +1,6 @@
-// RUN: %dxc -T ps_6_9 %s -Od | FileCheck %s
-
-// HLSL source for validation of various invalid load/store parameters.
-// See LitDxilValidation/load-store-validation.ll.
+// This file is not used directly for testing.
+// This is the HLSL source for validation of various invalid load/store parameters.
+// It is used to generate LitDxilValidation/load-store-validation.ll using `dxc -T ps_6_9`.
 // Output is modified to trigger various validation errors.
 
 Texture1D<float4> Tex;
@@ -16,8 +15,7 @@ RWStructuredBuffer<float4> OutVecBuf;
 RWStructuredBuffer<float> OutScalBuf;
 RWByteAddressBuffer OutBaBuf;
 
-// some simple ways to generate the vector ops in question.
-// CHECK-LABEL: define void @main
+// Some simple ways to generate the vector ops in question.
 float4 main(int i : IX) : SV_Target {
   // Texture provides some invalid handles to plug in.
   float4 TexVal = Tex.Sample(Samp, i);
