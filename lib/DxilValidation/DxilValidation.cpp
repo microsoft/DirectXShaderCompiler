@@ -1621,6 +1621,15 @@ std::string GetLaunchTypeStr(DXIL::NodeLaunchType LT) {
   }
 }
 
+static unsigned getSemanticFlagValidMask(const ShaderModel *pSM) {
+  unsigned DxilMajor, DxilMinor;
+  pSM->GetDxilVersion(DxilMajor, DxilMinor);
+  // DXIL version >= 1.9
+  if (hlsl::DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 9) < 0)
+    return static_cast<unsigned>(hlsl::DXIL::BarrierSemanticFlag::LegacyFlags);
+  return static_cast<unsigned>(hlsl::DXIL::BarrierSemanticFlag::ValidMask);
+}
+
 static void ValidateDxilOperationCallInProfile(CallInst *CI,
                                                DXIL::OpCode opcode,
                                                const ShaderModel *pSM,
@@ -1829,8 +1838,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                            (unsigned)hlsl::DXIL::MemoryTypeFlag::ValidMask,
                            "memory type", "BarrierByMemoryType");
     ValidateBarrierFlagArg(ValCtx, CI, DI.get_SemanticFlags(),
-                           (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask,
-                           "semantic", "BarrierByMemoryType");
+                           getSemanticFlagValidMask(pSM), "semantic",
+                           "BarrierByMemoryType");
     if (!isLibFunc && shaderKind != DXIL::ShaderKind::Node &&
         OP::BarrierRequiresNode(CI)) {
       ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierRequiresNode);
@@ -1846,8 +1855,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                              : "barrierByMemoryHandle";
     DxilInst_BarrierByMemoryHandle DIMH(CI);
     ValidateBarrierFlagArg(ValCtx, CI, DIMH.get_SemanticFlags(),
-                           (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask,
-                           "semantic", opName);
+                           getSemanticFlagValidMask(pSM), "semantic", opName);
     if (!isLibFunc && shaderKind != DXIL::ShaderKind::Node &&
         OP::BarrierRequiresNode(CI)) {
       ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierRequiresNode);
