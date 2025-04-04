@@ -3020,6 +3020,16 @@ bool OP::BarrierRequiresReorder(const llvm::CallInst *CI) {
     }
     return false;
   }
+  case OpCode::BarrierByMemoryHandle: {
+    DxilInst_BarrierByMemoryHandle barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
+      unsigned semanticFlags = barrier.get_SemanticFlags_val();
+      return (semanticFlags &
+              static_cast<unsigned>(DXIL::BarrierSemanticFlag::ReorderScope)) !=
+             0U;
+    }
+    return false;
+  }
   default:
     return false;
   }
