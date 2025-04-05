@@ -5,8 +5,7 @@ ByteAddressBuffer matrix_buffer;
 ByteAddressBuffer bias_buffer;
 RWByteAddressBuffer rw_matrix_buffer;
 
-
-// Test use of __builtin_MatVecMulAdd in pixel shader
+// Test use of __builtin_MatVecMulAdd in compute shader
 // CHECK: define void @main()
 // CHECK:  call <4 x float> @dx.op.matVecMulAdd.v4f32.v4f32(i32 {{[0-9]+}}, <4 x float> {{%[0-9]+}}, i1 false, i32 9, %dx.types.Handle {{%[0-9]+}}, i32 0, i32 9, i32 4, i32 4, i32 0, i1 false, i32 64, %dx.types.Handle {{%[0-9]+}}, i32 0, i32 9, i1 false)
 

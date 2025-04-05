@@ -2,7 +2,7 @@
 
 RWByteAddressBuffer matrix_buffer;
 
-// Test use of __builtin_VectorAccumulate in pixel shader
+// Test use of __builtin_VectorAccumulate in compute shader
 // CHECK: define void @main()
 // CHECK: call void @dx.op.vectorAccumulate.v2i32(i32 {{[0-9]+}}, <2 x i32> <i32 5, i32 5>, %dx.types.Handle {{%[0-9]+}}, i32 0)
 
