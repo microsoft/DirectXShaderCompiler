@@ -1002,17 +1002,8 @@ static bool CheckInMemoryInterpretations(uint32_t input) {
 }
 
 static bool CheckMatrixLayout(unsigned input) {
-
-  DXIL::DXILMatrixLayout ValidSet[] = {
-      DXIL::DXILMatrixLayout::RowMajor, DXIL::DXILMatrixLayout::ColumnMajor,
-      DXIL::DXILMatrixLayout::MulOptimal,
-      DXIL::DXILMatrixLayout::OuterProductOptimal};
-
-  for (auto Val : ValidSet) {
-    if (Val == static_cast<DXIL::DXILMatrixLayout>(input))
-      return true;
-  }
-  return false;
+  return (input <=
+          static_cast<unsigned>(DXIL::DXILMatrixLayout::OuterProductOptimal));
 }
 
 static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode opcode,
