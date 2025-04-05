@@ -107,6 +107,10 @@ enum class IntrinsicOp {
   IOP_WorldToObject = 99,
   IOP_WorldToObject3x4 = 100,
   IOP_WorldToObject4x3 = 101,
+  IOP___builtin_MatVecMul = 360,
+  IOP___builtin_MatVecMulAdd = 361,
+  IOP___builtin_OuterProductAccumulate = 362,
+  IOP___builtin_VectorAccumulate = 363,
   IOP_abort = 102,
   IOP_abs = 103,
   IOP_acos = 104,
@@ -366,7 +370,7 @@ enum class IntrinsicOp {
   IOP_usign = 355,
   MOP_InterlockedUMax = 356,
   MOP_InterlockedUMin = 357,
-  Num_Intrinsics = 360,
+  Num_Intrinsics = 364,
 };
 inline bool HasUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
   switch (opcode) {

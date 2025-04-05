@@ -163,14 +163,14 @@ const unsigned kDxilMaxOloadDims = 2;
 enum class ComponentType : uint32_t {
   Invalid = 0,
   I1,
-  I16,
-  U16,
-  I32,
-  U32,
+  I16, // = 2
+  U16, // = 3
+  I32, // = 4
+  U32, // = 5
   I64,
   U64,
-  F16,
-  F32,
+  F16, // = 8
+  F32, // = 9
   F64,
   SNormF16,
   UNormF16,
@@ -178,8 +178,16 @@ enum class ComponentType : uint32_t {
   UNormF32,
   SNormF64,
   UNormF64,
-  PackedS8x32,
-  PackedU8x32,
+  PackedS8x32, // = 17
+  PackedU8x32, // = 18
+
+  // BEGIN NEW FOR SM 6.9
+  U8,      // = 19
+  I8,      // = 20
+  F8_E4M3, // = 21
+  F8_E5M2, // = 22
+  // END
+
   LastEntry
 };
 
@@ -772,6 +780,19 @@ enum class OpCode : unsigned {
   CreateHandleForLib =
       160, // create resource handle from resource struct for library
 
+  // Linear Algebra Operations
+  MatVecMul =
+      305, // Multiplies a MxK dimension matrix and a K sized input vector
+  MatVecMulAdd = 306, // multiplies a MxK dimension matrix and a K sized input
+                      // vector and adds an M-sized bias vector
+  OuterProductAccumulate =
+      307, // Computes the outer product between column vectors and an MxN
+           // matrix is accumulated component-wise atomically (with device
+           // scope) in memory
+  VectorAccumulate = 308, // Accumulates the components of a vector
+                          // component-wise atomically (with device scope) to
+                          // the corresponding elements of an array in memory
+
   // Mesh shader instructions
   EmitIndices = 169, // emit a primitive's vertex indices in a mesh shader
   GetMeshPayload =
@@ -1046,9 +1067,9 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
   NumOpCodes_Dxil_1_8 = 258,
-  NumOpCodes_Dxil_1_9 = 305,
+  NumOpCodes_Dxil_1_9 = 309,
 
-  NumOpCodes = 305 // exclusive last value of enumeration
+  NumOpCodes = 309 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1190,6 +1211,12 @@ enum class OpCodeClass : unsigned {
 
   // Library create handle from resource struct (like HL intrinsic)
   CreateHandleForLib,
+
+  // Linear Algebra Operations
+  MatVecMul,
+  MatVecMulAdd,
+  OuterProductAccumulate,
+  VectorAccumulate,
 
   // Mesh shader instructions
   EmitIndices,
@@ -1361,9 +1388,9 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
-  NumOpClasses_Dxil_1_9 = 179,
+  NumOpClasses_Dxil_1_9 = 183,
 
-  NumOpClasses = 179 // exclusive last value of enumeration
+  NumOpClasses = 183 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1520,6 +1547,28 @@ const unsigned kMSStoreOutputRowOpIdx = 2;
 const unsigned kMSStoreOutputColOpIdx = 3;
 const unsigned kMSStoreOutputVIdxOpIdx = 4;
 const unsigned kMSStoreOutputValOpIdx = 5;
+
+// MatVec Ops
+const unsigned kMatVecMulInputVectorIdx = 1;
+const unsigned kMatVecMulIsInputUnsignedIdx = 2;
+const unsigned kMatVecMulInputInterpretationIdx = 3;
+const unsigned kMatVecMulMatrixBufferIdx = 4;
+const unsigned kMatVecMulMatrixOffsetIdx = 5;
+const unsigned kMatVecMulMatrixInterpretationIdx = 6;
+const unsigned kMatVecMulMatrixMIdx = 7;
+const unsigned kMatVecMulMatrixKIdx = 8;
+const unsigned kMatVecMulMatrixLayoutIdx = 9;
+const unsigned kMatVecMulMatrixTransposeIdx = 10;
+const unsigned kMatVecMulMatrixStrideIdx = 11;
+const unsigned kMatVecMulIsOutputUnsignedIdx = 12;
+
+// MatVecAdd
+const unsigned kMatVecMulAddBiasInterpretation = 14;
+const unsigned kMatVecMulAddIsOutputUnsignedIdx = 15;
+
+// Outer Product Accumulate
+const unsigned kOuterProdAccMatrixInterpretation = 5;
+const unsigned kOuterProdAccMatrixLayout = 6;
 
 // TODO: add operand index for all the OpCodeClass.
 } // namespace OperandIndex
@@ -2089,6 +2138,13 @@ extern const char *kDxIsHelperGlobalName;
 extern const char *kHostLayoutTypePrefix;
 
 extern const char *kWaveOpsIncludeHelperLanesString;
+
+enum class DXILMatrixLayout : uint32_t {
+  RowMajor = 0,
+  ColumnMajor = 1,
+  MulOptimal = 2,
+  OuterProductOptimal = 3,
+};
 
 } // namespace DXIL
 
