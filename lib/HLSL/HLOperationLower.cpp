@@ -6064,17 +6064,17 @@ Value *TranslateUnpack(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
 // Shader Execution Reordering.
 namespace {
-Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
-                              HLOperationLowerHelper &helper,
-                              HLObjectOperationLowerHelper *pObjHelper,
+Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
+                              HLOperationLowerHelper &Helper,
+                              HLObjectOperationLowerHelper *ObjHelper,
                               bool &Translated) {
-  hlsl::OP *hlslOP = &helper.hlslOP;
+  hlsl::OP *HlslOP = &Helper.hlslOP;
   IRBuilder<> Builder(CI);
   unsigned SrcIdx = 1;
   Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
-  if (opcode == OP::OpCode::HitObject_MakeNop) {
+  if (Opcode == OP::OpCode::HitObject_MakeNop) {
     Value *HitObject = TrivialDxilOperation(
-        opcode, {nullptr}, Type::getVoidTy(CI->getContext()), CI, hlslOP);
+        Opcode, {nullptr}, Type::getVoidTy(CI->getContext()), CI, HlslOP);
     Builder.CreateStore(HitObject, HitObjectPtr);
     // Passthru the 'this' pointer when this calls 'HitObject_MakeNop' as the
     // default constructor
@@ -6108,11 +6108,11 @@ Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
 
   Value *OutHitObject = TrivialDxilOperation(
-      opcode,
+      Opcode,
       {nullptr, RayFlags, MissShaderIdx, RayDescOriginX, RayDescOriginY,
        RayDescOriginZ, RayDescTMin, RayDescDirectionX, RayDescDirectionY,
        RayDescDirectionZ, RayDescTMax},
-      helper.voidTy, CI, hlslOP);
+      Helper.voidTy, CI, HlslOP);
   Builder.CreateStore(OutHitObject, HitObjectPtr);
   return nullptr;
 }
