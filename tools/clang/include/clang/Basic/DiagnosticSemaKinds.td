@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
@@ -7519,8 +7522,8 @@ def err_hlsl_half_load_store: Error<
   "LoadHalf and StoreHalf are not supported for min precision mode">;
 def err_hlsl_interfaces_cannot_inherit: Error<
   "interfaces cannot inherit from other types">;
-def err_hlsl_invalid_range_1_4: Error<
-  "invalid value, valid range is between 1 and 4 inclusive">;
+def err_hlsl_invalid_range_1_to_max
+    : Error<"invalid value, valid range is between 1 and %0 inclusive">;
 def err_hlsl_matrix_member_bad_format: Error<
   "invalid format for matrix subscript '%0'">;
 def err_hlsl_matrix_member_empty: Error<
@@ -7549,6 +7552,8 @@ def err_hlsl_vector_element_index_out_of_bounds: Error<
   "vector element index '%0' is out of bounds">;
 def err_hlsl_vector_member_too_many_positions: Error<
   "more than four positions are referenced in '%0'">;
+def err_hlsl_vector_member_on_long_vector: Error<
+   "invalid swizzle '%0' on vector of over 4 elements.">;
 def err_hlsl_missing_type_specifier : Error< // Patterened after err_missing_type_specifier
   "HLSL requires a type specifier for all declarations">;
 def err_hlsl_multiple_concrete_bases : Error<
@@ -7652,8 +7657,20 @@ def err_payload_fields_is_payload_and_overqualified : Error<
   "payload field '%0' is a payload struct. Payload access qualifiers are not allowed on payload types.">;
 def warn_hlsl_payload_qualifer_dropped : Warning<
   "payload access qualifiers ignored. These are only supported for lib_6_7+ targets and lib_6_6 with with the -enable-payload-qualifiers flag.">, InGroup<HLSLPayloadAccessQualifer>;
+def warn_hlsl_rayquery_flags_disallowed : Warning<
+  "A non-zero value for the RayQueryFlags template argument requires"
+  " shader model 6.9 or above.">, DefaultError, InGroup<HLSLAvailability>;
+def warn_hlsl_rayquery_flags_conflict : Warning<
+  "When using 'RAY_FLAG_FORCE_OMM_2_STATE' in RayFlags, RayQueryFlags"
+  " must have RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS set.">, DefaultError, InGroup<HLSLRayQueryFlags>;
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
+def warn_hlsl_builtin_constant_unavailable: Warning<
+  "potential misuse of built-in constant %0 in shader model %1; introduced"
+  " in shader model %2">, InGroup<HLSLAvailabilityConstant>;
+def warn_hlsl_builtin_type_unavailable: Warning<
+  "potential misuse of built-in type %0 in shader model %1; introduced"
+  " in shader model %2">, DefaultError, InGroup<HLSLAvailability>;
 def err_hlsl_unsupported_char_literal : Error<
   "unsupported style of char literal - use a single-character char-based literal">;
 def err_hlsl_unsupported_clipplane_argument_expression : Error<
@@ -7701,8 +7718,6 @@ def err_hlsl_control_flow_cond_not_scalar : Error<
   "%0 statement conditional expressions must evaluate to a scalar">;
 def err_hlsl_unsupportedvectortype : Error<
   "%0 is declared with type %1, but only primitive scalar values are supported">;
-def err_hlsl_unsupportedvectorsize : Error<
-  "%0 is declared with size %1, but only values 1 through 4 are supported">;
 def err_hlsl_unsupportedmatrixsize : Error<
   "%0 is declared with size %1x%2, but only values 1 through 4 are supported">;
 def err_hlsl_norm_float_only : Error<
@@ -7826,7 +7841,7 @@ def warn_hlsl_intrinsic_in_wrong_shader_model : Warning<
    "intrinsic %0 potentially used by '%1' requires shader model %2 or greater">,
     DefaultError, InGroup<HLSLAvailability>;
 def warn_hlsl_intrinsic_overload_in_wrong_shader_model : Warning<
-   "overload of intrinsic %0 requires shader model %1 or greater">, 
+   "overload of intrinsic %0 requires shader model %1 or greater">,
     DefaultError, InGroup<HLSLAvailability>;
 def err_hlsl_intrinsic_template_arg_unsupported: Error<
    "Explicit template arguments on intrinsic %0 are not supported">;
@@ -7853,6 +7868,14 @@ def err_hlsl_load_from_mesh_out_arrays: Error<
    "output arrays of a mesh shader can not be read from">;
 def err_hlsl_out_indices_array_incorrect_access: Error<
    "a vector in out indices array must be accessed as a whole">;
+def err_hlsl_unsupported_long_vector
+    : Error<"vectors of over 4 elements in "
+    "%select{ConstantBuffers or TextureBuffers|"
+    "tessellation patches|geometry streams|node records|"
+    "cbuffers or tbuffers|user-defined struct parameter|"
+    "entry function parameters|entry function return type|"
+    "patch constant function parameters|patch constant function return type|"
+    "payload parameters}0 are not supported">;
 def err_hlsl_logical_binop_scalar : Error<
    "operands for short-circuiting logical binary operator must be scalar, for non-scalar types use '%select{and|or}0'">;
 def err_hlsl_ternary_scalar : Error<
@@ -7974,10 +7997,20 @@ def warn_hlsl_legacy_integer_literal_signedness: Warning<
   InGroup<HLSLLegacyLiterals>, DefaultIgnore;
 def err_hlsl_unsupported_semantic_index: Error<
   "'%0' is defined with semantic index %1, but only values 0 through %2 are supported">;
+
+// Shader Execution Reordering
+def err_hlsl_reorder_unsupported_stage : Error<
+   "dx::MaybeReorderThread is unavailable in shader stage '%0' (requires 'raygeneration')">;
+def err_hlsl_hitobject_unsupported_stage : Error<
+   "dx::HitObject is unavailable in shader stage '%0' (requires 'raygeneration', 'closesthit' or 'miss')">;
 // HLSL Change Ends
 
 // SPIRV Change Starts
 def err_hlsl_vulkan_specific_feature: Error<"%0 is a Vulkan specific feature">;
+def err_hlsl_vk_pointer_cast_alignment: Error<
+  "Vulkan buffer pointer cannot be cast to greater alignment">;
+def err_hlsl_vk_static_pointer_cast_type: Error<
+  "vk::static_pointer_cast() content type must be base class of argument's content type">;
 // SPIRV Change Ends
 
 let CategoryName = "OpenMP Issue" in {

@@ -4,6 +4,10 @@
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
+//
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 //
 //  This file implements a SPIR-V emitter class that takes in HLSL AST and emits
@@ -809,21 +813,17 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   spvBuilder.setMemoryModel(spv::AddressingModel::Logical,
                             spv::MemoryModel::GLSL450);
 
-  // Even though the 'workQueue' grows due to the above loop, the first
-  // 'numEntryPoints' entries in the 'workQueue' are the ones with the HLSL
-  // 'shader' attribute, and must therefore be entry functions.
-  assert(numEntryPoints <= workQueue.size());
-
-  for (uint32_t i = 0; i < numEntryPoints; ++i) {
+  for (uint32_t i = 0; i < workQueue.size(); ++i) {
     // TODO: assign specific StageVars w.r.t. to entry point
     const FunctionInfo *entryInfo = workQueue[i];
-    assert(entryInfo->isEntryFunction);
-    spvBuilder.addEntryPoint(
-        getSpirvShaderStage(
-            entryInfo->shaderModelKind,
-            featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)),
-        entryInfo->entryFunction, getEntryPointName(entryInfo),
-        getInterfacesForEntryPoint(entryInfo->entryFunction));
+    if (entryInfo->isEntryFunction) {
+      spvBuilder.addEntryPoint(
+          getSpirvShaderStage(
+              entryInfo->shaderModelKind,
+              featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)),
+          entryInfo->entryFunction, getEntryPointName(entryInfo),
+          getInterfacesForEntryPoint(entryInfo->entryFunction));
+    }
   }
 
   // Add Location decorations to stage input/output variables.
@@ -1237,12 +1237,17 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
   } else if (isa<CXXThisExpr>(expr)) {
     assert(curThis);
     result = curThis;
-  } else if (isa<CXXConstructExpr>(expr)) {
+  } else if (const auto *constructExpr = dyn_cast<CXXConstructExpr>(expr)) {
     // For RayQuery type, we should not explicitly initialize it using
     // CXXConstructExpr e.g., RayQuery<0> r = RayQuery<0>() is the same as we do
     // not have a variable initialization. Setting nullptr for the SPIR-V
     // instruction used for expr will let us skip the variable initialization.
-    if (!hlsl::IsHLSLRayQueryType(expr->getType()))
+    if (hlsl::IsVKBufferPointerType(expr->getType())) {
+      const Expr *arg = constructExpr->getArg(0);
+      SpirvInstruction *value = loadIfGLValue(arg, arg->getSourceRange());
+      result = spvBuilder.createConvertUToPtr(value, expr->getType());
+      result->setRValue();
+    } else if (!hlsl::IsHLSLRayQueryType(expr->getType()))
       result = curThis;
   } else if (const auto *unaryExpr = dyn_cast<UnaryExprOrTypeTraitExpr>(expr)) {
     result = doUnaryExprOrTypeTraitExpr(unaryExpr);
@@ -1547,7 +1552,23 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // Create all parameters.
   for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
     const ParmVarDecl *paramDecl = decl->getParamDecl(i);
-    (void)declIdMapper.createFnParam(paramDecl, i + 1 + isNonStaticMemberFn);
+    QualType paramType = paramDecl->getType();
+    auto *param =
+        declIdMapper.createFnParam(paramDecl, i + 1 + isNonStaticMemberFn);
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (hlsl::IsVKBufferPointerType(paramType)) {
+      Optional<bool> isRowMajor = llvm::None;
+      QualType desugaredType = desugarType(paramType, &isRowMajor);
+      if (hlsl::IsVKBufferPointerType(desugaredType)) {
+        spvBuilder.decorateWithLiterals(
+            param,
+            static_cast<unsigned>(paramDecl->hasAttr<VKAliasedPointerAttr>()
+                                      ? spv::Decoration::AliasedPointer
+                                      : spv::Decoration::RestrictPointer),
+            {}, loc);
+      }
+    }
+#endif
   }
 
   if (decl->hasBody()) {
@@ -1648,6 +1669,15 @@ bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
                 loc);
       success = false;
     }
+
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (hlsl::IsVKBufferPointerType(cast<VarDecl>(decl)->getType())) {
+      emitError("vk::push_constant attribute cannot be used on declarations "
+                "with vk::BufferPointer type",
+                loc);
+      success = false;
+    }
+#endif
   }
 
   // vk::shader_record_nv is supported only on cbuffer/ConstantBuffer
@@ -1884,6 +1914,19 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     }
   }
 
+  if (featureManager.isTargetEnvVulkan() &&
+      (isTexture(decl->getType()) || isRWTexture(decl->getType()) ||
+       isBuffer(decl->getType()) || isRWBuffer(decl->getType()))) {
+    const auto sampledType = hlsl::GetHLSLResourceResultType(decl->getType());
+    if (isFloatOrVecMatOfFloatType(sampledType) &&
+        isOrContains16BitType(sampledType, spirvOptions.enable16BitTypes)) {
+      emitError("The sampled type for textures cannot be a floating point type "
+                "smaller than 32-bits when targeting a Vulkan environment.",
+                loc);
+      return;
+    }
+  }
+
   if (decl->hasAttr<VKConstantIdAttr>()) {
     // This is a VarDecl for specialization constant.
     createSpecConstant(decl);
@@ -1939,6 +1982,11 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
       emitWarning("previous definition is here",
                   builtinVar->getSourceLocation());
     }
+    return;
+  }
+
+  if (hlsl::IsVKBufferPointerType(decl->getType()) && !decl->hasInit()) {
+    emitError("vk::BufferPointer has no default constructor", loc);
     return;
   }
 
@@ -2028,10 +2076,24 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
       needsLegalization = true;
   }
 
-  if (var != nullptr && decl->hasAttrs()) {
-    declIdMapper.decorateWithIntrinsicAttrs(decl, var);
-    if (auto attr = decl->getAttr<VKStorageClassExtAttr>()) {
-      var->setStorageClass(static_cast<spv::StorageClass>(attr->getStclass()));
+  if (var != nullptr) {
+    Optional<bool> isRowMajor = llvm::None;
+    QualType desugaredType = desugarType(decl->getType(), &isRowMajor);
+    if (hlsl::IsVKBufferPointerType(desugaredType)) {
+      spvBuilder.decorateWithLiterals(
+          var,
+          static_cast<unsigned>(decl->hasAttr<VKAliasedPointerAttr>()
+                                    ? spv::Decoration::AliasedPointer
+                                    : spv::Decoration::RestrictPointer),
+          {}, loc);
+    }
+
+    if (decl->hasAttrs()) {
+      declIdMapper.decorateWithIntrinsicAttrs(decl, var);
+      if (auto attr = decl->getAttr<VKStorageClassExtAttr>()) {
+        var->setStorageClass(
+            static_cast<spv::StorageClass>(attr->getStclass()));
+      }
     }
   }
 
@@ -3104,12 +3166,6 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
         argInfo && argInfo->getStorageClass() != spv::StorageClass::Function &&
         isResourceType(paramType);
 
-    // HLSL requires that the parameters be copied in and out from temporaries.
-    // This looks for cases where the copy can be elided. To generate valid
-    // SPIR-V, the argument must be a memory declaration.
-    //
-    //
-
     // If argInfo is nullptr and argInst is a rvalue, we do not have a proper
     // pointer to pass to the function. we need a temporary variable in that
     // case.
@@ -3118,7 +3174,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // create a temporary variable for it because the function definition
     // expects are point-to-pointer argument for resources, which will be
     // resolved by legalization.
-    if ((argInfo || (argInst && argInst->getopcode() == spv::Op::OpVariable)) &&
+    if ((argInfo || (argInst && !argInst->isRValue())) &&
         canActAsOutParmVar(param) && !isArgGlobalVarWithResourceType &&
         paramTypeMatchesArgType(paramType, arg->getType())) {
       // Based on SPIR-V spec, function parameter must be always Function
@@ -3657,14 +3713,22 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
       emitError("implicit cast kind '%0' unimplemented", expr->getExprLoc())
           << expr->getCastKindName() << expr->getSourceRange();
       expr->dump();
-      return 0;
+      return nullptr;
     }
+  }
+  case CastKind::CK_ToVoid:
+    return nullptr;
+  case CastKind::CK_VK_BufferPointerToIntegral: {
+    return spvBuilder.createConvertPtrToU(doExpr(subExpr, range), toType);
+  }
+  case CastKind::CK_VK_IntegralToBufferPointer: {
+    return spvBuilder.createConvertUToPtr(doExpr(subExpr, range), toType);
   }
   default:
     emitError("implicit cast kind '%0' unimplemented", expr->getExprLoc())
         << expr->getCastKindName() << expr->getSourceRange();
     expr->dump();
-    return 0;
+    return nullptr;
   }
 }
 
@@ -5437,6 +5501,8 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   case IntrinsicOp::MOP_WorldRayDirection:
   case IntrinsicOp::MOP_WorldRayOrigin:
     return processRayQueryIntrinsics(expr, opcode);
+  case IntrinsicOp::MOP_GetBufferContents:
+    return processIntrinsicGetBufferContents(expr);
   default:
     emitError("intrinsic '%0' method unimplemented",
               expr->getCallee()->getExprLoc())
@@ -7016,6 +7082,12 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
   if (const auto *recordType = valType->getAs<RecordType>()) {
     assert(recordType->isStructureType());
 
+    if (isTypeInVkNamespace(recordType) &&
+        recordType->getDecl()->getName().equals("BufferPointer")) {
+      // Uniquely among structs, vk::BufferPointer<T> lowers to a pointer type.
+      return srcVal;
+    }
+
     LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
                                       spvBuilder);
     const StructType *spirvStructType =
@@ -8128,17 +8200,21 @@ void SpirvEmitter::assignToMSOutIndices(
   if (indices.size() > 1) {
     vecComponent = indices.back();
   }
-  auto *var = declIdMapper.getStageVarInstruction(decl);
-  const auto *varTypeDecl = astContext.getAsConstantArrayType(decl->getType());
-  QualType varType = varTypeDecl->getElementType();
+  SpirvVariable *var = declIdMapper.getMSOutIndicesBuiltin();
+
   uint32_t numVertices = 1;
-  if (!isVectorType(varType, nullptr, &numVertices)) {
-    assert(isScalarType(varType));
-  }
-  QualType valueType = value->getAstResultType();
   uint32_t numValues = 1;
-  if (!isVectorType(valueType, nullptr, &numValues)) {
-    assert(isScalarType(valueType));
+  {
+    const auto *varTypeDecl =
+        astContext.getAsConstantArrayType(decl->getType());
+    QualType varType = varTypeDecl->getElementType();
+    if (!isVectorType(varType, nullptr, &numVertices)) {
+      assert(isScalarType(varType));
+    }
+    QualType valueType = value->getAstResultType();
+    if (!isVectorType(valueType, nullptr, &numValues)) {
+      assert(isScalarType(valueType));
+    }
   }
 
   const auto loc = decl->getLocation();
@@ -8185,7 +8261,10 @@ void SpirvEmitter::assignToMSOutIndices(
       assert(numValues == numVertices);
       if (extMesh) {
         // create accesschain for Primitive*IndicesEXT[vertIndex].
-        auto *ptr = spvBuilder.createAccessChain(varType, var, vertIndex, loc);
+        const ConstantArrayType *CAT =
+            astContext.getAsConstantArrayType(var->getAstResultType());
+        auto *ptr = spvBuilder.createAccessChain(CAT->getElementType(), var,
+                                                 vertIndex, loc);
         // finally create store for Primitive*IndicesEXT[vertIndex] = value.
         spvBuilder.createStore(ptr, value, loc);
       } else {
@@ -9192,6 +9271,10 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_QuadReadLaneAt:
     retVal = processWaveQuadWideShuffle(callExpr, hlslOpcode);
     break;
+  case hlsl::IntrinsicOp::IOP_QuadAny:
+  case hlsl::IntrinsicOp::IOP_QuadAll:
+    retVal = processWaveQuadAnyAll(callExpr, hlslOpcode);
+    break;
   case hlsl::IntrinsicOp::IOP_abort:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
@@ -9390,6 +9473,14 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_EvaluateAttributeAtSample:
   case hlsl::IntrinsicOp::IOP_EvaluateAttributeSnapped: {
     retVal = processEvaluateAttributeAt(callExpr, hlslOpcode, srcLoc, srcRange);
+    break;
+  }
+  case hlsl::IntrinsicOp::IOP_Vkreinterpret_pointer_cast: {
+    retVal = processIntrinsicPointerCast(callExpr, false);
+    break;
+  }
+  case hlsl::IntrinsicOp::IOP_Vkstatic_pointer_cast: {
+    retVal = processIntrinsicPointerCast(callExpr, true);
     break;
   }
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
@@ -10146,6 +10237,53 @@ SpirvEmitter::processWaveQuadWideShuffle(const CallExpr *callExpr,
       opcode, retType, spv::Scope::Subgroup, {value, target}, srcLoc);
 }
 
+SpirvInstruction *SpirvEmitter::processWaveQuadAnyAll(const CallExpr *callExpr,
+                                                      hlsl::IntrinsicOp op) {
+  // Signatures:
+  // bool QuadAny(bool localValue)
+  // bool QuadAll(bool localValue)
+  assert(callExpr->getNumArgs() == 1);
+  assert(op == hlsl::IntrinsicOp::IOP_QuadAny ||
+         op == hlsl::IntrinsicOp::IOP_QuadAll);
+  featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
+                                  callExpr->getExprLoc());
+
+  auto *predicate = doExpr(callExpr->getArg(0));
+  const auto srcLoc = callExpr->getExprLoc();
+
+  if (!featureManager.isExtensionEnabled(Extension::KHR_quad_control)) {
+    // We can't use QuadAny/QuadAll, so implement them using QuadSwap. We
+    // will read the value at each quad invocation, then combine them.
+
+    spv::Op reducer = op == hlsl::IntrinsicOp::IOP_QuadAny
+                          ? spv::Op::OpLogicalOr
+                          : spv::Op::OpLogicalAnd;
+
+    SpirvInstruction *result = predicate;
+
+    for (size_t i = 0; i < 3; i++) {
+      SpirvInstruction *invocationValue = spvBuilder.createGroupNonUniformOp(
+          spv::Op::OpGroupNonUniformQuadSwap, astContext.BoolTy,
+          spv::Scope::Subgroup,
+          {predicate, spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                llvm::APInt(32, i))},
+          srcLoc);
+      result = spvBuilder.createBinaryOp(reducer, astContext.BoolTy, result,
+                                         invocationValue, srcLoc);
+    }
+
+    return result;
+  }
+
+  spv::Op opcode = op == hlsl::IntrinsicOp::IOP_QuadAny
+                       ? spv::Op::OpGroupNonUniformQuadAnyKHR
+                       : spv::Op::OpGroupNonUniformQuadAllKHR;
+
+  return spvBuilder.createGroupNonUniformOp(opcode, astContext.BoolTy,
+                                            llvm::Optional<spv::Scope>(),
+                                            {predicate}, srcLoc);
+}
+
 SpirvInstruction *
 SpirvEmitter::processWaveActiveAllEqual(const CallExpr *callExpr) {
   assert(callExpr->getNumArgs() == 1);
@@ -10768,6 +10906,50 @@ SpirvEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
   return spvBuilder.createGLSLExtInst(returnType, glslOpcode,
                                       {argXInstr, argMinInstr, argMaxInstr},
                                       loc, range);
+}
+
+SpirvInstruction *
+SpirvEmitter::processIntrinsicPointerCast(const CallExpr *callExpr,
+                                          bool isStatic) {
+  const Expr *argExpr = callExpr->getArg(0);
+  SpirvInstruction *ptr = doExpr(argExpr);
+  QualType srcType = argExpr->getType();
+  QualType destType = callExpr->getType();
+  QualType srcTypeArg = hlsl::GetVKBufferPointerBufferType(srcType);
+  QualType destTypeArg = hlsl::GetVKBufferPointerBufferType(destType);
+  return srcTypeArg == destTypeArg
+             ? ptr
+             : spvBuilder.createUnaryOp(spv::Op::OpBitcast, destType, ptr,
+                                        callExpr->getExprLoc(),
+                                        callExpr->getSourceRange());
+}
+
+SpirvInstruction *SpirvEmitter::processIntrinsicGetBufferContents(
+    const CXXMemberCallExpr *callExpr) {
+  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                    spvBuilder);
+  Expr *obj = callExpr->getImplicitObjectArgument();
+  SpirvInstruction *bufferPointer = doExpr(obj);
+  if (!bufferPointer)
+    return nullptr;
+  unsigned align = hlsl::GetVKBufferPointerAlignment(obj->getType());
+  lowerTypeVisitor.visitInstruction(bufferPointer);
+
+  const SpirvPointerType *bufferPointerType =
+      dyn_cast<SpirvPointerType>(bufferPointer->getResultType());
+  SpirvLoad *retVal =
+      spvBuilder.createLoad(bufferPointerType->getPointeeType(), bufferPointer,
+                            callExpr->getLocStart());
+  if (!align) {
+    QualType bufferType = hlsl::GetVKBufferPointerBufferType(obj->getType());
+    AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
+    uint32_t stride;
+    std::tie(align, std::ignore) = alignmentCalc.getAlignmentAndSize(
+        bufferType, retVal->getLayoutRule(), llvm::None, &stride);
+  }
+  retVal->setAlignment(align);
+  retVal->setRValue(false);
+  return retVal;
 }
 
 SpirvInstruction *
@@ -15044,6 +15226,10 @@ void SpirvEmitter::addDerivativeGroupExecutionMode() {
   // to 2D quad rules. Using derivative operations in any numthreads
   // configuration not matching either of these is invalid and will produce an
   // error.
+  static_assert(spv::ExecutionMode::DerivativeGroupQuadsNV ==
+                spv::ExecutionMode::DerivativeGroupQuadsKHR);
+  static_assert(spv::ExecutionMode::DerivativeGroupLinearNV ==
+                spv::ExecutionMode::DerivativeGroupLinearKHR);
   spv::ExecutionMode em = spv::ExecutionMode::DerivativeGroupQuadsNV;
   if (numThreads[0] % 4 == 0 && numThreads[1] == 1 && numThreads[2] == 1) {
     em = spv::ExecutionMode::DerivativeGroupLinearNV;

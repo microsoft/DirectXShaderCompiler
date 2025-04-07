@@ -4,6 +4,10 @@
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
+//
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_SPIRV_SPIRVINSTRUCTION_H
 #define LLVM_CLANG_SPIRV_SPIRVINSTRUCTION_H
@@ -66,6 +70,10 @@ public:
     IK_ConstantFloat,
     IK_ConstantComposite,
     IK_ConstantNull,
+
+    // Pointer <-> uint conversions.
+    IK_ConvertPtrToU,
+    IK_ConvertUToPtr,
 
     // OpUndef
     IK_Undef,
@@ -1306,6 +1314,50 @@ public:
   bool operator==(const SpirvConstantNull &that) const;
 };
 
+class SpirvConvertPtrToU : public SpirvInstruction {
+public:
+  SpirvConvertPtrToU(SpirvInstruction *ptr, QualType type,
+                     SourceLocation loc = {}, SourceRange range = {});
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConvertPtrToU)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ConvertPtrToU;
+  }
+
+  bool operator==(const SpirvConvertPtrToU &that) const;
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getPtr() const { return ptr; }
+
+private:
+  SpirvInstruction *ptr;
+};
+
+class SpirvConvertUToPtr : public SpirvInstruction {
+public:
+  SpirvConvertUToPtr(SpirvInstruction *intValue, QualType type,
+                     SourceLocation loc = {}, SourceRange range = {});
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConvertUToPtr)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ConvertUToPtr;
+  }
+
+  bool operator==(const SpirvConvertUToPtr &that) const;
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getVal() const { return val; }
+
+private:
+  SpirvInstruction *val;
+};
+
 class SpirvUndef : public SpirvInstruction {
 public:
   SpirvUndef(QualType type);
@@ -1514,7 +1566,8 @@ private:
 /// \brief OpGroupNonUniform* instructions
 class SpirvGroupNonUniformOp : public SpirvInstruction {
 public:
-  SpirvGroupNonUniformOp(spv::Op opcode, QualType resultType, spv::Scope scope,
+  SpirvGroupNonUniformOp(spv::Op opcode, QualType resultType,
+                         llvm::Optional<spv::Scope> scope,
                          llvm::ArrayRef<SpirvInstruction *> operands,
                          SourceLocation loc,
                          llvm::Optional<spv::GroupOperation> group);
@@ -1528,7 +1581,8 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  spv::Scope getExecutionScope() const { return execScope; }
+  bool hasExecutionScope() const { return execScope.hasValue(); }
+  spv::Scope getExecutionScope() const { return execScope.getValue(); }
 
   llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
 
@@ -1546,7 +1600,7 @@ public:
   }
 
 private:
-  spv::Scope execScope;
+  llvm::Optional<spv::Scope> execScope;
   llvm::SmallVector<SpirvInstruction *, 4> operands;
   llvm::Optional<spv::GroupOperation> groupOp;
 };

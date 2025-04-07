@@ -215,6 +215,8 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_KHR_physical_storage_buffer",
             Extension::KHR_physical_storage_buffer)
       .Case("SPV_KHR_vulkan_memory_model", Extension::KHR_vulkan_memory_model)
+      .Case("SPV_KHR_compute_shader_derivatives",
+            Extension::KHR_compute_shader_derivatives)
       .Case("SPV_NV_compute_shader_derivatives",
             Extension::NV_compute_shader_derivatives)
       .Case("SPV_KHR_fragment_shader_barycentric",
@@ -224,6 +226,7 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_KHR_float_controls", Extension::KHR_float_controls)
       .Case("SPV_NV_shader_subgroup_partitioned",
             Extension::NV_shader_subgroup_partitioned)
+      .Case("SPV_KHR_quad_control", Extension::KHR_quad_control)
       .Default(Extension::Unknown);
 }
 
@@ -283,6 +286,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_physical_storage_buffer";
   case Extension::KHR_vulkan_memory_model:
     return "SPV_KHR_vulkan_memory_model";
+  case Extension::KHR_compute_shader_derivatives:
+    return "SPV_KHR_compute_shader_derivatives";
   case Extension::NV_compute_shader_derivatives:
     return "SPV_NV_compute_shader_derivatives";
   case Extension::KHR_fragment_shader_barycentric:
@@ -293,6 +298,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_float_controls";
   case Extension::NV_shader_subgroup_partitioned:
     return "SPV_NV_shader_subgroup_partitioned";
+  case Extension::KHR_quad_control:
+    return "SPV_KHR_quad_control";
   default:
     break;
   }
@@ -371,6 +378,10 @@ bool FeatureManager::enabledByDefault(Extension ext) {
     // KHR extension by default
   case Extension::NV_ray_tracing:
     return false;
+    // KHR_compute_shader_derivatives and NV_compute_shader_derivatives are
+    // mutually exclusive so enable only KHR extension by default
+  case Extension::NV_compute_shader_derivatives:
+    return false;
     // Enabling EXT_demote_to_helper_invocation changes the code generation
     // behavior for the 'discard' statement. Therefore we will only enable it if
     // the user explicitly asks for it.
@@ -403,6 +414,24 @@ bool FeatureManager::isTargetEnvVulkan1p2OrAbove() {
 
 bool FeatureManager::isTargetEnvVulkan1p3OrAbove() {
   return targetEnv >= SPV_ENV_VULKAN_1_3;
+}
+
+bool FeatureManager::isTargetEnvVulkan() {
+  // This assert ensure that this list will be updated, if necessary, when
+  // a new target environment is added.
+  static_assert(SPV_ENV_VULKAN_1_4 + 1 == SPV_ENV_MAX);
+
+  switch (targetEnv) {
+  case SPV_ENV_VULKAN_1_0:
+  case SPV_ENV_VULKAN_1_1:
+  case SPV_ENV_VULKAN_1_2:
+  case SPV_ENV_VULKAN_1_1_SPIRV_1_4:
+  case SPV_ENV_VULKAN_1_3:
+  case SPV_ENV_VULKAN_1_4:
+    return true;
+  default:
+    return false;
+  }
 }
 
 } // end namespace spirv

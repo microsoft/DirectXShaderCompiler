@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 #include <algorithm>
@@ -326,6 +329,29 @@ const HybridPointerType *SpirvContext::getPointerType(QualType pointee,
   const HybridPointerType *result = new (this) HybridPointerType(pointee, sc);
   hybridPointerTypes.push_back(result);
   return result;
+}
+
+const ForwardPointerType *
+SpirvContext::getForwardPointerType(QualType pointee) {
+  assert(hlsl::IsVKBufferPointerType(pointee));
+
+  auto foundPointee = forwardPointerTypes.find(pointee);
+  if (foundPointee != forwardPointerTypes.end()) {
+    return foundPointee->second;
+  }
+
+  return forwardPointerTypes[pointee] = new (this) ForwardPointerType(pointee);
+}
+
+const SpirvPointerType *SpirvContext::getForwardReference(QualType type) {
+  return forwardReferences[type];
+}
+
+void SpirvContext::registerForwardReference(
+    QualType type, const SpirvPointerType *pointerType) {
+  assert(pointerType->getStorageClass() ==
+         spv::StorageClass::PhysicalStorageBuffer);
+  forwardReferences[type] = pointerType;
 }
 
 FunctionType *

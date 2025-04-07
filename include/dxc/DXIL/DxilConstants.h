@@ -147,11 +147,18 @@ const unsigned kMaxMSTotalSigRows = 32;
 const unsigned kMaxMSSMSize = 1024 * 28;
 const unsigned kMinWaveSize = 4;
 const unsigned kMaxWaveSize = 128;
+const unsigned kDefaultMaxVectorLength = 4;
+const unsigned kSM69MaxVectorLength = 1024;
 
 const float kMaxMipLodBias = 15.99f;
 const float kMinMipLodBias = -16.0f;
 
 const unsigned kResRetStatusIndex = 4;
+
+/* <py::lines('OLOAD_DIMS-TEXT')>hctdb_instrhelp.get_max_oload_dims()</py>*/
+// OLOAD_DIMS-TEXT:BEGIN
+const unsigned kDxilMaxOloadDims = 2;
+// OLOAD_DIMS-TEXT:END
 
 enum class ComponentType : uint32_t {
   Invalid = 0,
@@ -463,6 +470,11 @@ inline bool IsTBuffer(DXIL::ResourceKind ResourceKind) {
   return ResourceKind == DXIL::ResourceKind::TBuffer;
 }
 
+inline bool IsCTBuffer(DXIL::ResourceKind ResourceKind) {
+  return ResourceKind == DXIL::ResourceKind::CBuffer ||
+         ResourceKind == DXIL::ResourceKind::TBuffer;
+}
+
 /// Whether the resource kind is a FeedbackTexture.
 inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
   return ResourceKind == DXIL::ResourceKind::FeedbackTexture2D ||
@@ -513,9 +525,7 @@ enum class OpCode : unsigned {
   ReservedB27 = 289, // reserved
   ReservedB28 = 290, // reserved
   ReservedB29 = 291, // reserved
-  ReservedB3 = 265,  // reserved
   ReservedB30 = 292, // reserved
-  ReservedB4 = 266,  // reserved
   ReservedB5 = 267,  // reserved
   ReservedB6 = 268,  // reserved
   ReservedB7 = 269,  // reserved
@@ -888,8 +898,11 @@ enum class OpCode : unsigned {
   GetDimensions = 72,   // gets texture size information
   RawBufferLoad = 139,  // reads from a raw buffer and structured buffer
   RawBufferStore = 140, // writes to a RWByteAddressBuffer or RWStructuredBuffer
-  TextureLoad = 66,     // reads texel data without any filtering or sampling
-  TextureStore = 67,    // reads texel data without any filtering or sampling
+  RawBufferVectorLoad = 303, // reads from a raw buffer and structured buffer
+  RawBufferVectorStore =
+      304,           // writes to a RWByteAddressBuffer or RWStructuredBuffer
+  TextureLoad = 66,  // reads texel data without any filtering or sampling
+  TextureStore = 67, // reads texel data without any filtering or sampling
   TextureStoreSample = 225, // stores texel data at specified sample index
 
   // Sampler Feedback
@@ -901,6 +914,10 @@ enum class OpCode : unsigned {
                                    // operation with explicit gradients
   WriteSamplerFeedbackLevel = 176, // updates a feedback texture for a sampling
                                    // operation with a mipmap-level offset
+
+  // Shader Execution Reordering
+  HitObject_MakeMiss = 265, // Creates a new HitObject representing a miss
+  HitObject_MakeNop = 266,  // Creates an empty nop HitObject
 
   // Synchronization
   AtomicBinOp = 78,           // performs an atomic operation on two operands
@@ -1030,7 +1047,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_7 = 226,
   NumOpCodes_Dxil_1_8 = 258,
 
-  NumOpCodes = 303 // exclusive last value of enumeration
+  NumOpCodes = 305 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1264,6 +1281,8 @@ enum class OpCodeClass : unsigned {
   GetDimensions,
   RawBufferLoad,
   RawBufferStore,
+  RawBufferVectorLoad,
+  RawBufferVectorStore,
   TextureLoad,
   TextureStore,
   TextureStoreSample,
@@ -1273,6 +1292,10 @@ enum class OpCodeClass : unsigned {
   WriteSamplerFeedbackBias,
   WriteSamplerFeedbackGrad,
   WriteSamplerFeedbackLevel,
+
+  // Shader Execution Reordering
+  HitObject_MakeMiss,
+  HitObject_MakeNop,
 
   // Synchronization
   AtomicBinOp,
@@ -1338,7 +1361,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
 
-  NumOpClasses = 175 // exclusive last value of enumeration
+  NumOpClasses = 179 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1397,6 +1420,12 @@ const unsigned kRawBufferLoadElementOffsetOpIdx = 3;
 const unsigned kRawBufferLoadMaskOpIdx = 4;
 const unsigned kRawBufferLoadAlignmentOpIdx = 5;
 
+// RawBufferVectorLoad.
+const unsigned kRawBufferVectorLoadHandleOpIdx = 1;
+const unsigned kRawBufferVectorLoadIndexOpIdx = 2;
+const unsigned kRawBufferVectorLoadElementOffsetOpIdx = 3;
+const unsigned kRawBufferVectorLoadAlignmentOpIdx = 4;
+
 // RawBufferStore
 const unsigned kRawBufferStoreHandleOpIdx = 1;
 const unsigned kRawBufferStoreIndexOpIdx = 2;
@@ -1406,7 +1435,14 @@ const unsigned kRawBufferStoreVal1OpIdx = 5;
 const unsigned kRawBufferStoreVal2OpIdx = 6;
 const unsigned kRawBufferStoreVal3OpIdx = 7;
 const unsigned kRawBufferStoreMaskOpIdx = 8;
-const unsigned kRawBufferStoreAlignmentOpIdx = 8;
+const unsigned kRawBufferStoreAlignmentOpIdx = 9;
+
+// RawBufferVectorStore
+const unsigned kRawBufferVectorStoreHandleOpIdx = 1;
+const unsigned kRawBufferVectorStoreIndexOpIdx = 2;
+const unsigned kRawBufferVectorStoreElementOffsetOpIdx = 3;
+const unsigned kRawBufferVectorStoreValOpIdx = 4;
+const unsigned kRawBufferVectorStoreAlignmentOpIdx = 5;
 
 // TextureStore.
 const unsigned kTextureStoreHandleOpIdx = 1;
@@ -1820,7 +1856,7 @@ enum class RayFlag : uint32_t {
   CullNonOpaque = 0x80,
   SkipTriangles = 0x100,
   SkipProceduralPrimitives = 0x200,
-  ForceOMM2State = 0x400, // Force 2-state in Opacity Micromaps
+  ForceOMM2State = 0x400
 };
 
 // Corresponds to RAYQUERY_FLAG_* in HLSL
