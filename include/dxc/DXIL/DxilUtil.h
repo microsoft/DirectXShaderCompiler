@@ -223,6 +223,10 @@ bool DeleteDeadAllocas(llvm::Function &F);
 llvm::Value *GEPIdxToOffset(llvm::GetElementPtrInst *GEP,
                             llvm::IRBuilder<> &Builder, hlsl::OP *OP,
                             const llvm::DataLayout &DL);
+
+// Passes back Dxil version of the given module on true return.
+bool LoadDxilVersion(const llvm::Module *M, unsigned &Major, unsigned &Minor);
+
 } // namespace dxilutil
 
 } // namespace hlsl

@@ -1247,6 +1247,10 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createDxilReinsertNopsPass());
   PM.add(createAlwaysInlinerPass(/*InsertLifeTime*/ false));
 
+  // If we need SROA and dynamicindexvector to array,
+  // do it early to allow following scalarization to go forward.
+  PM.add(createDxilScalarizeVectorLoadStoresPass());
+
   // Remove unused functions.
   PM.add(createDxilDeadFunctionEliminationPass());
 
@@ -1254,6 +1258,12 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createSROAPass(/*RequiresDomTree*/ false, /*SkipHLSLMat*/ false));
   // For static global handle.
   PM.add(createLowerStaticGlobalIntoAlloca());
+
+  // Change dynamic indexing vector to array where vectors aren't
+  // supported, but might be there from the initial compile.
+  if (!pSM->IsSM69Plus())
+    PM.add(
+        createDynamicIndexingVectorToArrayPass(false /* ReplaceAllVector */));
 
   // Remove MultiDimArray from function call arg.
   PM.add(createMultiDimArrayToOneDimArrayPass());

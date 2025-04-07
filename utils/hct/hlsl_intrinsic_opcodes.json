@@ -1,6 +1,6 @@
 {
   "IntrinsicOpCodes": {
-    "Num_Intrinsics": 361,
+    "Num_Intrinsics": 364,
     "IOP_AcceptHitAndEndSearch": 0,
     "IOP_AddUint64": 1,
     "IOP_AllMemoryBarrier": 2,
@@ -361,6 +361,9 @@
     "MOP_InterlockedUMin": 357,
     "MOP_DxHitObject_MakeNop": 358,
     "IOP_DxMaybeReorderThread": 359,
-    "MOP_DxHitObject_MakeMiss": 360
+    "IOP_Vkreinterpret_pointer_cast": 360,
+    "IOP_Vkstatic_pointer_cast": 361,
+    "MOP_GetBufferContents": 362,
+    "MOP_DxHitObject_MakeMiss": 363
   }
 }

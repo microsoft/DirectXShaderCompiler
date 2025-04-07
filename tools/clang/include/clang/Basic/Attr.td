@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 class DocumentationCategory<string name> {
@@ -1157,6 +1160,13 @@ def HLSLRayQueryObject : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLSubObject : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+  let Args = [UnsignedArgument<"SubObjKindUint">, UnsignedArgument<"HitGroupType">];
+}
+
 // HLSL HitObject Attribute
 
 def HLSLHitObject : InheritableAttr {
@@ -1436,6 +1446,20 @@ def VKStorageClassExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_storage_class">];
   let Subjects = SubjectList<[Var, ParmVar], ErrorDiag>;
   let Args = [UnsignedArgument<"stclass">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKBufferPointer : InheritableAttr {
+  let Spellings = [CXX11<"", "hlsl_vk_buffer_pointer", 2021>];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKAliasedPointer : InheritableAttr {
+  let Spellings = [CXX11<"vk", "aliased_pointer">];
+  let Subjects = SubjectList<[Var, ParmVar], ErrorDiag>;
+  let Args = [];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }

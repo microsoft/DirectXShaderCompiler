@@ -57,8 +57,8 @@ entry:
   store float 1.000000e+03, float* %8, !dbg !30 ; line:44 col:17
   %9 = bitcast %dx.types.HitObject* %tmp2 to i8*, !dbg !31 ; line:45 col:3
   call void @llvm.lifetime.start(i64 4, i8* %9) #0, !dbg !31 ; line:45 col:3
-; CHECK:  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 360, %dx.types.HitObject* %{{[^ ]+}}, i32 0, i32 1, <3 x float> %{{[^ ]+}}, float %{{[^ ]+}}, <3 x float> %{{[^ ]+}}, float %{{[^ ]+}})
-  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.RayDesc*)"(i32 360, %dx.types.HitObject* %tmp2, i32 0, i32 1, %struct.RayDesc* %ray), !dbg !31 ; line:45 col:3
+; CHECK:  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 363, %dx.types.HitObject* %{{[^ ]+}}, i32 0, i32 1, <3 x float> %{{[^ ]+}}, float %{{[^ ]+}}, <3 x float> %{{[^ ]+}}, float %{{[^ ]+}})
+  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.RayDesc*)"(i32 363, %dx.types.HitObject* %tmp2, i32 0, i32 1, %struct.RayDesc* %ray), !dbg !31 ; line:45 col:3
   %10 = bitcast %dx.types.HitObject* %tmp2 to i8*, !dbg !31 ; line:45 col:3
   call void @llvm.lifetime.end(i64 4, i8* %10) #0, !dbg !31 ; line:45 col:3
   %11 = bitcast %struct.RayDesc* %ray to i8*, !dbg !32 ; line:46 col:1

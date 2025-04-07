@@ -6,6 +6,9 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
+// All rights reserved.                                                      //
+//                                                                           //
 //  This file implements the semantic support for HLSL.                      //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
@@ -195,6 +198,7 @@ enum ArBasicKind {
   AR_OBJECT_VK_LITERAL,
   AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
   AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
+  AR_OBJECT_VK_BUFFER_POINTER,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -550,6 +554,7 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT,                 // AR_OBJECT_VK_LITERAL,
     BPROP_OBJECT, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE use recordType
     BPROP_OBJECT, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID use recordType
+    BPROP_OBJECT, // AR_OBJECT_VK_BUFFER_POINTER use recordType
 #endif            // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1232,6 +1237,11 @@ static const ArBasicKind g_AnyOutputRecordCT[] = {
 static const ArBasicKind g_DxHitObjectCT[] = {AR_OBJECT_HIT_OBJECT,
                                               AR_BASIC_UNKNOWN};
 
+#ifdef ENABLE_SPIRV_CODEGEN
+static const ArBasicKind g_VKBufferPointerCT[] = {AR_OBJECT_VK_BUFFER_POINTER,
+                                                  AR_BASIC_UNKNOWN};
+#endif
+
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_NullCT,               // LICOMPTYPE_VOID
@@ -1287,6 +1297,9 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_GroupNodeOutputRecordsCT,  // LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
     g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
     g_DxHitObjectCT,             // LICOMPTYPE_HIT_OBJECT
+#ifdef ENABLE_SPIRV_CODEGEN
+    g_VKBufferPointerCT, // LICOMPTYPE_VK_BUFFER_POINTER
+#endif
 };
 static_assert(
     ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
@@ -1345,6 +1358,7 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
     AR_OBJECT_VK_SPIRV_TYPE, AR_OBJECT_VK_SPIRV_OPAQUE_TYPE,
     AR_OBJECT_VK_INTEGRAL_CONSTANT, AR_OBJECT_VK_LITERAL,
     AR_OBJECT_VK_SPV_INTRINSIC_TYPE, AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
+    AR_OBJECT_VK_BUFFER_POINTER,
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1451,6 +1465,7 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
     1, // AR_OBJECT_VK_LITERAL,
     1, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
     1, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
+    2, // AR_OBJECT_VK_BUFFER_POINTER
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1599,6 +1614,7 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_LITERAL,
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
+    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_BUFFER_POINTER
 #endif                           // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1763,6 +1779,7 @@ static const char *g_ArBasicTypeNames[] = {
     "Literal",
     "ext_type",
     "ext_result_id",
+    "BufferPointer",
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -2785,13 +2802,17 @@ AddBuiltInTriangleIntersectionAttributes(ASTContext &context,
 //
 // Subobjects
 
-static CXXRecordDecl *StartSubobjectDecl(ASTContext &context,
-                                         const char *name) {
+static CXXRecordDecl *
+StartSubobjectDecl(ASTContext &context, const char *name,
+                   DXIL::SubobjectKind Kind,
+                   DXIL::HitGroupType HGT = DXIL::HitGroupType::LastEntry) {
   IdentifierInfo &id =
       context.Idents.get(StringRef(name), tok::TokenKind::identifier);
   CXXRecordDecl *decl = CXXRecordDecl::Create(
       context, TagTypeKind::TTK_Struct, context.getTranslationUnitDecl(), NoLoc,
       NoLoc, &id, nullptr, DelayTypeCreationTrue);
+  decl->addAttr(HLSLSubObjectAttr::CreateImplicit(
+      context, static_cast<unsigned>(Kind), static_cast<unsigned>(HGT)));
   decl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
   decl->startDefinition();
   return decl;
@@ -2808,7 +2829,8 @@ void FinishSubobjectDecl(ASTContext &context, CXXRecordDecl *decl) {
 //   uint32_t Flags;
 // };
 static CXXRecordDecl *CreateSubobjectStateObjectConfig(ASTContext &context) {
-  CXXRecordDecl *decl = StartSubobjectDecl(context, "StateObjectConfig");
+  CXXRecordDecl *decl = StartSubobjectDecl(
+      context, "StateObjectConfig", DXIL::SubobjectKind::StateObjectConfig);
   CreateSimpleField(context, decl, "Flags", context.UnsignedIntTy,
                     AccessSpecifier::AS_private);
   FinishSubobjectDecl(context, decl);
@@ -2822,7 +2844,10 @@ static CXXRecordDecl *CreateSubobjectStateObjectConfig(ASTContext &context) {
 static CXXRecordDecl *CreateSubobjectRootSignature(ASTContext &context,
                                                    bool global) {
   CXXRecordDecl *decl = StartSubobjectDecl(
-      context, global ? "GlobalRootSignature" : "LocalRootSignature");
+      context, global ? "GlobalRootSignature" : "LocalRootSignature",
+      global ? DXIL::SubobjectKind::GlobalRootSignature
+             : DXIL::SubobjectKind::LocalRootSignature);
+
   CreateSimpleField(context, decl, "Data", context.HLSLStringTy,
                     AccessSpecifier::AS_private);
   FinishSubobjectDecl(context, decl);
@@ -2837,7 +2862,8 @@ static CXXRecordDecl *CreateSubobjectRootSignature(ASTContext &context,
 static CXXRecordDecl *
 CreateSubobjectSubobjectToExportsAssoc(ASTContext &context) {
   CXXRecordDecl *decl =
-      StartSubobjectDecl(context, "SubobjectToExportsAssociation");
+      StartSubobjectDecl(context, "SubobjectToExportsAssociation",
+                         DXIL::SubobjectKind::SubobjectToExportsAssociation);
   CreateSimpleField(context, decl, "Subobject", context.HLSLStringTy,
                     AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "Exports", context.HLSLStringTy,
@@ -2853,7 +2879,9 @@ CreateSubobjectSubobjectToExportsAssoc(ASTContext &context) {
 // };
 static CXXRecordDecl *
 CreateSubobjectRaytracingShaderConfig(ASTContext &context) {
-  CXXRecordDecl *decl = StartSubobjectDecl(context, "RaytracingShaderConfig");
+  CXXRecordDecl *decl =
+      StartSubobjectDecl(context, "RaytracingShaderConfig",
+                         DXIL::SubobjectKind::RaytracingShaderConfig);
   CreateSimpleField(context, decl, "MaxPayloadSizeInBytes",
                     context.UnsignedIntTy, AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "MaxAttributeSizeInBytes",
@@ -2868,7 +2896,9 @@ CreateSubobjectRaytracingShaderConfig(ASTContext &context) {
 // };
 static CXXRecordDecl *
 CreateSubobjectRaytracingPipelineConfig(ASTContext &context) {
-  CXXRecordDecl *decl = StartSubobjectDecl(context, "RaytracingPipelineConfig");
+  CXXRecordDecl *decl =
+      StartSubobjectDecl(context, "RaytracingPipelineConfig",
+                         DXIL::SubobjectKind::RaytracingPipelineConfig);
   CreateSimpleField(context, decl, "MaxTraceRecursionDepth",
                     context.UnsignedIntTy, AccessSpecifier::AS_private);
   FinishSubobjectDecl(context, decl);
@@ -2883,7 +2913,8 @@ CreateSubobjectRaytracingPipelineConfig(ASTContext &context) {
 static CXXRecordDecl *
 CreateSubobjectRaytracingPipelineConfig1(ASTContext &context) {
   CXXRecordDecl *decl =
-      StartSubobjectDecl(context, "RaytracingPipelineConfig1");
+      StartSubobjectDecl(context, "RaytracingPipelineConfig1",
+                         DXIL::SubobjectKind::RaytracingPipelineConfig1);
   CreateSimpleField(context, decl, "MaxTraceRecursionDepth",
                     context.UnsignedIntTy, AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "Flags", context.UnsignedIntTy,
@@ -2898,7 +2929,9 @@ CreateSubobjectRaytracingPipelineConfig1(ASTContext &context) {
 //   string ClosestHit;
 // };
 static CXXRecordDecl *CreateSubobjectTriangleHitGroup(ASTContext &context) {
-  CXXRecordDecl *decl = StartSubobjectDecl(context, "TriangleHitGroup");
+  CXXRecordDecl *decl = StartSubobjectDecl(context, "TriangleHitGroup",
+                                           DXIL::SubobjectKind::HitGroup,
+                                           DXIL::HitGroupType::Triangle);
   CreateSimpleField(context, decl, "AnyHit", context.HLSLStringTy,
                     AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "ClosestHit", context.HLSLStringTy,
@@ -2915,8 +2948,9 @@ static CXXRecordDecl *CreateSubobjectTriangleHitGroup(ASTContext &context) {
 // };
 static CXXRecordDecl *
 CreateSubobjectProceduralPrimitiveHitGroup(ASTContext &context) {
-  CXXRecordDecl *decl =
-      StartSubobjectDecl(context, "ProceduralPrimitiveHitGroup");
+  CXXRecordDecl *decl = StartSubobjectDecl(
+      context, "ProceduralPrimitiveHitGroup", DXIL::SubobjectKind::HitGroup,
+      DXIL::HitGroupType::ProceduralPrimitive);
   CreateSimpleField(context, decl, "AnyHit", context.HLSLStringTy,
                     AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "ClosestHit", context.HLSLStringTy,
@@ -2964,6 +2998,7 @@ private:
 
   ClassTemplateDecl *m_vkIntegralConstantTemplateDecl;
   ClassTemplateDecl *m_vkLiteralTemplateDecl;
+  ClassTemplateDecl *m_vkBufferPointerTemplateDecl;
 
   // Declarations for Work Graph Output Record types
   ClassTemplateDecl *m_GroupNodeOutputRecordsTemplateDecl;
@@ -3469,6 +3504,25 @@ private:
         templateTypeParmDecls.push_back(templateTypeParmDecl);
         continue;
       }
+      if (pArgs[i].uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION_2) {
+        if (TInfo == nullptr) {
+          TInfo = m_sema->getASTContext().CreateTypeSourceInfo(
+              m_context->UnsignedIntTy, 0);
+        }
+        IdentifierInfo *idT = &context.Idents.get("T");
+        IdentifierInfo *idA = &context.Idents.get("A");
+        TemplateTypeParmDecl *templateTypeParmDecl =
+            TemplateTypeParmDecl::Create(context, m_vkNSDecl, NoLoc, NoLoc, 0,
+                                         0, idT, TypenameTrue,
+                                         ParameterPackFalse);
+        NonTypeTemplateParmDecl *nonTypeTemplateParmDecl =
+            NonTypeTemplateParmDecl::Create(context, m_vkNSDecl, NoLoc, NoLoc,
+                                            0, 1, idA, context.UnsignedIntTy,
+                                            ParameterPackFalse, TInfo);
+        templateTypeParmDecl->setDefaultArgument(TInfo);
+        templateTypeParmDecls.push_back(templateTypeParmDecl);
+        templateTypeParmDecls.push_back(nonTypeTemplateParmDecl);
+      }
     }
     return templateTypeParmDecls;
   }
@@ -3537,6 +3591,21 @@ private:
       case LICOMPTYPE_HIT_OBJECT:
         paramTypes.push_back(GetBasicKindType(AR_OBJECT_HIT_OBJECT));
         break;
+#ifdef ENABLE_SPIRV_CODEGEN
+      case LICOMPTYPE_VK_BUFFER_POINTER: {
+        const ArBasicKind *match =
+            std::find(g_ArBasicKindsAsTypes,
+                      &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)],
+                      AR_OBJECT_VK_BUFFER_POINTER);
+        DXASSERT(match !=
+                     &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)],
+                 "otherwise can't find constant in basic kinds");
+        size_t index = match - g_ArBasicKindsAsTypes;
+        paramTypes.push_back(
+            m_sema->getASTContext().getTypeDeclType(m_objectTypeDecls[index]));
+        break;
+      }
+#endif
       default:
         DXASSERT(false, "Argument type of intrinsic function is not "
                         "supported");
@@ -3915,6 +3984,12 @@ private:
         recordDecl = DeclareTemplateTypeWithHandleInDeclContext(
             *m_context, m_vkNSDecl, typeName, 1, nullptr);
         recordDecl->setImplicit(true);
+      } else if (kind == AR_OBJECT_VK_BUFFER_POINTER) {
+        if (!m_vkNSDecl)
+          continue;
+        recordDecl = DeclareVkBufferPointerType(*m_context, m_vkNSDecl);
+        recordDecl->setImplicit(true);
+        m_vkBufferPointerTemplateDecl = recordDecl->getDescribedClassTemplate();
       }
 #endif
       else if (templateArgCount == 0) {
@@ -4027,7 +4102,8 @@ public:
   HLSLExternalSource()
       : m_matrixTemplateDecl(nullptr), m_vectorTemplateDecl(nullptr),
         m_vkIntegralConstantTemplateDecl(nullptr),
-        m_vkLiteralTemplateDecl(nullptr), m_hlslNSDecl(nullptr),
+        m_vkLiteralTemplateDecl(nullptr),
+        m_vkBufferPointerTemplateDecl(nullptr), m_hlslNSDecl(nullptr),
         m_vkNSDecl(nullptr), m_dxNSDecl(nullptr), m_context(nullptr),
         m_sema(nullptr), m_hlslStringTypedef(nullptr) {
     memset(m_matrixTypes, 0, sizeof(m_matrixTypes));
@@ -4785,7 +4861,11 @@ public:
     case AR_OBJECT_NODE_OUTPUT_ARRAY:
     case AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY:
     case AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS:
-    case AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS: {
+    case AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS:
+#ifdef ENABLE_SPIRV_CODEGEN
+    case AR_OBJECT_VK_BUFFER_POINTER:
+#endif
+    {
       const ArBasicKind *match = std::find(
           g_ArBasicKindsAsTypes,
           &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], kind);
@@ -5301,6 +5381,10 @@ public:
               << type << GetMatrixOrVectorElementType(type);
         }
         return valid;
+#ifdef ENABLE_SPIRV_CODEGEN
+      } else if (hlsl::IsVKBufferPointerType(qt)) {
+        return true;
+#endif
       } else if (qt->isStructureOrClassType()) {
         const RecordType *recordType = qt->getAs<RecordType>();
         objectKind = ClassifyRecordType(recordType);
@@ -6773,6 +6857,7 @@ bool HLSLExternalSource::MatchArguments(
   if (pIntrinsic->pArgs[0].qwUsage &&
       pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_TYPE &&
       pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_FUNCTION &&
+      pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_FUNCTION_2 &&
       pIntrinsic->pArgs[0].uComponentTypeId !=
           INTRIN_COMPTYPE_FROM_NODEOUTPUT) {
     CAB(pIntrinsic->pArgs[0].uTemplateId < MaxIntrinsicArgs, 0);
@@ -6813,7 +6898,8 @@ bool HLSLExternalSource::MatchArguments(
 
     // Check template.
     if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE ||
-        pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION) {
+        pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION ||
+        pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION_2) {
       continue; // Already verified that this is available.
     }
     if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
@@ -6891,6 +6977,9 @@ bool HLSLExternalSource::MatchArguments(
       uSpecialSize[i] = 1;
     }
   }
+
+  std::string profile = m_sema->getLangOpts().HLSLProfile;
+  const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
 
   // Populate argTypes.
   for (size_t i = 0; i <= Args.size(); i++) {
@@ -6979,6 +7068,14 @@ bool HLSLExternalSource::MatchArguments(
       } else {
         pNewType = functionTemplateTypeArg;
       }
+    } else if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION_2) {
+      if (i == 0 &&
+          (builtinOp == hlsl::IntrinsicOp::IOP_Vkreinterpret_pointer_cast ||
+           builtinOp == hlsl::IntrinsicOp::IOP_Vkstatic_pointer_cast)) {
+        pNewType = Args[0]->getType();
+      } else {
+        badArgIdx = std::min(badArgIdx, i);
+      }
     } else if (pArgument->uLegalComponentTypes ==
                LICOMPTYPE_USER_DEFINED_TYPE) {
       if (objectElement.isNull()) {
@@ -7062,8 +7159,9 @@ bool HLSLExternalSource::MatchArguments(
       }
 
       // Verify that the final results are in bounds.
-      CAB(uCols > 0 && uCols <= MaxVectorSize && uRows > 0 &&
-              uRows <= MaxVectorSize,
+      CAB((uCols > 0 && uRows > 0 &&
+           ((uCols <= MaxVectorSize && uRows <= MaxVectorSize) ||
+            (SM->IsSM69Plus() && uRows == 1))),
           i);
 
       // Const
@@ -9664,6 +9762,13 @@ bool HLSLExternalSource::CanConvert(SourceLocation loc, Expr *sourceExpr,
     return false;
   }
 
+#ifdef ENABLE_SPIRV_CODEGEN
+  // Cast vk::BufferPointer to pointer address.
+  if (SourceInfo.EltKind == AR_OBJECT_VK_BUFFER_POINTER) {
+    return TargetInfo.EltKind == AR_BASIC_UINT64;
+  }
+#endif
+
   // Cast cbuffer to its result value.
   if ((SourceInfo.EltKind == AR_OBJECT_CONSTANT_BUFFER ||
        SourceInfo.EltKind == AR_OBJECT_TEXTURE_BUFFER) &&
@@ -11512,6 +11617,32 @@ static bool CheckBarrierCall(Sema &S, FunctionDecl *FD, CallExpr *CE) {
   return false;
 }
 
+#ifdef ENABLE_SPIRV_CODEGEN
+static bool CheckVKBufferPointerCast(Sema &S, FunctionDecl *FD, CallExpr *CE,
+                                     bool isStatic) {
+  const Expr *argExpr = CE->getArg(0);
+  QualType srcType = argExpr->getType();
+  QualType destType = CE->getType();
+  QualType srcTypeArg = hlsl::GetVKBufferPointerBufferType(srcType);
+  QualType destTypeArg = hlsl::GetVKBufferPointerBufferType(destType);
+
+  if (isStatic && srcTypeArg != destTypeArg &&
+      !S.IsDerivedFrom(srcTypeArg, destTypeArg)) {
+    S.Diags.Report(CE->getExprLoc(),
+                   diag::err_hlsl_vk_static_pointer_cast_type);
+    return true;
+  }
+
+  if (hlsl::GetVKBufferPointerAlignment(destType) >
+      hlsl::GetVKBufferPointerAlignment(srcType)) {
+    S.Diags.Report(CE->getExprLoc(), diag::err_hlsl_vk_pointer_cast_alignment);
+    return true;
+  }
+
+  return false;
+}
+#endif
+
 // Check HLSL call constraints, not fatal to creating the AST.
 void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
                                  const FunctionProtoType *Proto) {
@@ -11530,6 +11661,14 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
   case hlsl::IntrinsicOp::IOP_Barrier:
     CheckBarrierCall(*this, FDecl, TheCall);
     break;
+#ifdef ENABLE_SPIRV_CODEGEN
+  case hlsl::IntrinsicOp::IOP_Vkreinterpret_pointer_cast:
+    CheckVKBufferPointerCast(*this, FDecl, TheCall, false);
+    break;
+  case hlsl::IntrinsicOp::IOP_Vkstatic_pointer_cast:
+    CheckVKBufferPointerCast(*this, FDecl, TheCall, true);
+    break;
+#endif
   default:
     break;
   }
@@ -13781,6 +13920,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   // SPIRV Change Starts
+  case AttributeList::AT_VKAliasedPointer: {
+    declAttr = ::new (S.Context) VKAliasedPointerAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+  } break;
   case AttributeList::AT_VKDecorateIdExt: {
     if (A.getNumArgs() == 0 || !A.getArg(0).is<clang::Expr *>()) {
       Handled = false;
@@ -15051,7 +15194,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   }
 
   // Disallow long vecs from $Global cbuffers.
-  if (isGlobal && !isStatic && !isGroupShared) {
+  if (isGlobal && !isStatic && !isGroupShared && !IS_BASIC_OBJECT(basicKind)) {
     // Suppress actual emitting of errors for incompletable types here
     // They are redundant to those produced in ActOnUninitializedDecl.
     struct SilentDiagnoser : public TypeDiagnoser {

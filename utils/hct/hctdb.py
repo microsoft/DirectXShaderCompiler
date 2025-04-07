@@ -1,5 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
+# Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+# All rights reserved.
 ###############################################################################
 # DXIL information.                                                           #
 ###############################################################################
@@ -36,6 +38,30 @@ extra_counters = [
     "array_static_ldst",
     "array_local_ldst",
 ]
+
+# These are the valid overload type characters for DXIL instructions.
+# - "v" is for void, and can only be used alone.
+# - "u" is for user defined type (UDT), and is mutually exclusive with the other
+#   types.
+# - "o" is for an HLSL object type (e.g. Texture, Sampler, etc.), and is
+#   mutually exclusive with the other types.
+# - "<" is for vector overloads, and may be followed by a set of supported
+#   component types.
+#   - If "<" is not followed by any component types, any preceding scalar types
+#     are used.
+#   - Vector component types are captured into a separate list during
+#     processing.
+# - "," is used to separate multiple overload dimensions.
+#   - When used, only $x0, $x1, etc. are supported for overloaded parameter
+#     types.
+# dxil_all_user_oload_chars must be kept in sync with the indices in
+# hlsl::OP::TypeSlot in DxilOperations.h.
+dxil_all_user_oload_chars = "hfd18wiluo<"
+dxil_scalar_oload_chars = "hfd18wil"
+
+# Maximum number of overload dimensions supported through the extended overload
+# in DXIL instructions.
+dxil_max_overload_dims = 2
 
 
 class db_dxil_enum_value(object):
@@ -81,6 +107,7 @@ class db_dxil_inst(object):
         self.ops = []  # the operands that this instruction takes
         self.is_allowed = True  # whether this instruction is allowed in a DXIL program
         self.oload_types = ""  # overload types if applicable
+        # Always call process_oload_types() after setting oload_types.
         self.fn_attr = ""  # attribute shorthands: rn=does not access memory,ro=only reads from memory,
         self.is_deriv = False  # whether this is some kind of derivative
         self.is_gradient = False  # whether this requires a gradient calculation
@@ -98,12 +125,136 @@ class db_dxil_inst(object):
         self.is_reserved = self.dxil_class == "Reserved"
         self.shader_model_translated = ()  # minimum shader model required with translation by linker
         self.props = {}  # extra properties
+        self.num_oloads = 0  # number of overloads for this instruction
+        if self.is_dxil_op:
+            self.process_oload_types()
 
     def __str__(self):
         return self.name
 
     def fully_qualified_name(self):
         return "{}::{}".format(self.fully_qualified_name_prefix, self.name)
+
+    def process_oload_types(self):
+        if type(self.oload_types) is not str:
+            raise ValueError(
+                f"overload for '{self.name}' should be a string - use empty if n/a"
+            )
+        # Early out for LLVM instructions
+        if not self.is_dxil_op:
+            return
+
+        self.num_oloads = 0
+
+        # Early out for void overloads.
+        if self.oload_types == "v":
+            return
+
+        if self.oload_types == "":
+            raise ValueError(
+                f"overload for '{self.name}' should not be empty - use void if n/a"
+            )
+        if "v" in self.oload_types:
+            raise ValueError(
+                f"void overload should be exclusive to other types for '({self.name})'"
+            )
+
+        # Process oload_types for extended and vector overloads.
+        # Contrived example: "hf<,<fd,i<1"
+        #   - "," splits multiple overload dimensions
+        #   - In the first overload dimension "hf<":
+        #     - "hf" means overloads for scalar half and float
+        #     - ending with "<" means vector overload supporting the same
+        #       components as defined for the scalar overload types.
+        #   - In the second overload dimension "<fd":
+        #     - starting with "<" means only vector overloads are supported.
+        #     - "fd" means the vector supports float or double components.
+        #   - In the third overload dimension "i<1":
+        #     - "i" means it supports a scalar i32 overload
+        #     - "<1" means it also supports a vector overload with an i1
+        #       component type.
+        oload_types = self.oload_types.split(",")
+        self.num_oloads = len(oload_types)
+        if self.num_oloads > dxil_max_overload_dims:
+            raise ValueError(
+                "Too many overload dimensions for DXIL op "
+                f"{self.name}: '{self.oload_types}'"
+            )
+
+        def check_duplicate_overloads(oloads):
+            if len(oloads) != len(set(oloads)):
+                raise ValueError(
+                    "Duplicate overload types specified for DXIL op "
+                    f"{self.name}: '{oloads}' in '{self.oload_types}'"
+                )
+
+        def check_overload_chars(oloads, valid_chars):
+            invalid_chars = set(oloads).difference(set(valid_chars))
+            if invalid_chars:
+                raise ValueError(
+                    "Invalid overload type character(s) used for DXIL op "
+                    f"{self.name}: '{invalid_chars}' in '{oloads}' from "
+                    f"'{self.oload_types}'"
+                )
+
+        for n, oloads in enumerate(oload_types):
+            if len(oloads) == 0:
+                raise ValueError(
+                    f"Invalid empty overload type for DXIL op "
+                    f"{self.name}: '{self.oload_types}'"
+                )
+            check_overload_chars(oloads, dxil_all_user_oload_chars)
+
+            # split at vector for component overloads, if vector specified
+            # without following components, use the scalar overloads that
+            # precede the vector character.
+            split = oloads.split("<")
+            if len(split) == 1:
+                # No vector overload.
+                continue
+            elif len(split) != 2:
+                raise ValueError(
+                    f"Invalid vector overload for DXIL op {self.name}: "
+                    f"{oloads} in '{self.oload_types}'"
+                )
+
+            # Split into scalar and vector component overloads.
+            scalars, vector_oloads = split
+            check_duplicate_overloads(scalars)
+            if not vector_oloads:
+                vector_oloads = scalars
+            else:
+                check_duplicate_overloads(vector_oloads)
+            if not vector_oloads:
+                raise ValueError(
+                    "No scalar overload types provided with vector overload "
+                    f"for DXIL op {self.name}: '{self.oload_types}'"
+                )
+            check_overload_chars(vector_oloads, dxil_scalar_oload_chars)
+            oload_types[n] = scalars + "<" + vector_oloads
+        # Reconstruct overload string with default vector overloads.
+        self.oload_types = ",".join(oload_types)
+        self.check_extended_oload_ops()
+
+    def check_extended_oload_ops(self):
+        "Ensure ops has sequential extended overload references with $x0, $x1, etc."
+        if self.num_oloads < 2:
+            return
+        next_oload_idx = 0
+        for i in self.ops:
+            if i.llvm_type.startswith("$x"):
+                if i.llvm_type != "$x" + str(next_oload_idx):
+                    raise ValueError(
+                        "Extended overloads are not sequentially referenced in "
+                        f"DXIL op {self.name}: {i.llvm_type} != $x{next_oload_idx}"
+                    )
+                next_oload_idx += 1
+        if next_oload_idx != self.num_oloads:
+            raise ValueError(
+                "Extended overloads are not referenced for all overload "
+                f"dimensions in DXIL op {self.name}: {next_oload_idx} != "
+                f"{self.num_oloads}"
+            )
 
 
 class db_dxil_metadata(object):
@@ -328,7 +479,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Dot"
         for (
             i
-        ) in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,TextureStoreSample,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore".split(
+        ) in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,TextureStoreSample,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore,RawBufferVectorLoad,RawBufferVectorStore".split(
             ","
         ):
             self.name_idx[i].category = "Resources"
@@ -455,6 +606,8 @@ class db_dxil(object):
         for i in "RawBufferLoad,RawBufferStore".split(","):
             self.name_idx[i].shader_model = 6, 2
             self.name_idx[i].shader_model_translated = 6, 0
+        for i in "RawBufferVectorLoad,RawBufferVectorStore".split(","):
+            self.name_idx[i].shader_model = 6, 9
         for i in "DispatchRaysIndex,DispatchRaysDimensions".split(","):
             self.name_idx[i].category = "Ray Dispatch Arguments"
             self.name_idx[i].shader_model = 6, 3
@@ -477,9 +630,7 @@ class db_dxil(object):
                 "closesthit",
             )
         for i in "GeometryIndex".split(","):
-            self.name_idx[
-                i
-            ].category = (
+            self.name_idx[i].category = (
                 "Raytracing object space uint System Values, raytracing tier 1.1"
             )
             self.name_idx[i].shader_model = 6, 5
@@ -574,9 +725,7 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6, 3
             self.name_idx[i].shader_stages = ("library", "intersection")
         for i in "CreateHandleForLib".split(","):
-            self.name_idx[
-                i
-            ].category = (
+            self.name_idx[i].category = (
                 "Library create handle from resource struct (like HL intrinsic)"
             )
             self.name_idx[i].shader_model = 6, 3
@@ -1184,6 +1333,37 @@ class db_dxil(object):
         self.add_llvm_instr(
             "OTHER", 53, "VAArg", "VAArgInst", "vaarg instruction", "", []
         )
+
+        self.add_llvm_instr(
+            "OTHER",
+            54,
+            "ExtractElement",
+            "ExtractElementInst",
+            "extracts from vector",
+            "",
+            [],
+        )
+
+        self.add_llvm_instr(
+            "OTHER",
+            55,
+            "InsertElement",
+            "InsertElementInst",
+            "inserts into vector",
+            "",
+            [],
+        )
+
+        self.add_llvm_instr(
+            "OTHER",
+            56,
+            "ShuffleVector",
+            "ShuffleVectorInst",
+            "Shuffle two vectors",
+            "",
+            [],
+        )
+
         self.add_llvm_instr(
             "OTHER",
             57,
@@ -5600,6 +5780,84 @@ class db_dxil(object):
         # Reserved block C
         next_op_idx = self.reserve_dxil_op_range("ReservedC", next_op_idx, 10)
 
+        # Long Vectors
+        self.add_dxil_op(
+            "RawBufferVectorLoad",
+            next_op_idx,
+            "RawBufferVectorLoad",
+            "reads from a raw buffer and structured buffer",
+            "hfwidl<",
+            "ro",
+            [
+                db_dxil_param(0, "$r", "", "the loaded value"),
+                db_dxil_param(2, "res", "buf", "handle of Raw Buffer to load from"),
+                db_dxil_param(
+                    3,
+                    "i32",
+                    "index",
+                    "element index for StructuredBuffer, or byte offset for ByteAddressBuffer",
+                ),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "elementOffset",
+                    "offset into element for StructuredBuffer, or undef for ByteAddressBuffer",
+                ),
+                db_dxil_param(
+                    5,
+                    "i32",
+                    "alignment",
+                    "relative load access alignment",
+                    is_const=True,
+                ),
+            ],
+            counters=("tex_load",),
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "RawBufferVectorStore",
+            next_op_idx,
+            "RawBufferVectorStore",
+            "writes to a RWByteAddressBuffer or RWStructuredBuffer",
+            "hfwidl<",
+            "",
+            [
+                db_dxil_param(0, "v", "", ""),
+                db_dxil_param(2, "res", "uav", "handle of UAV to store to"),
+                db_dxil_param(
+                    3,
+                    "i32",
+                    "index",
+                    "element index for StructuredBuffer, or byte offset for ByteAddressBuffer",
+                ),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "elementOffset",
+                    "offset into element for StructuredBuffer, or undef for ByteAddressBuffer",
+                ),
+                db_dxil_param(5, "$o", "value0", "value"),
+                db_dxil_param(
+                    6,
+                    "i32",
+                    "alignment",
+                    "relative store access alignment",
+                    is_const=True,
+                ),
+            ],
+            counters=("tex_store",),
+        )
+        next_op_idx += 1
+
+        # End of DXIL 1.9 opcodes.
+        # NOTE!! Update and uncomment when DXIL 1.9 opcodes are finalized:
+        # self.set_op_count_for_version(1, 9, next_op_idx)
+        # assert next_op_idx == NNN, (
+        #    "NNN is expected next operation index but encountered %d and thus opcodes are broken"
+        #    % next_op_idx
+        # )
+
         # Set interesting properties.
         self.build_indices()
         for (
@@ -5621,18 +5879,6 @@ class db_dxil(object):
         )
         for i in self.instr:
             self.verify_dense(i.ops, lambda x: x.pos, lambda x: i.name)
-        for i in self.instr:
-            if i.is_dxil_op:
-                assert i.oload_types != "", (
-                    "overload for DXIL operation %s should not be empty - use void if n/a"
-                    % (i.name)
-                )
-                assert i.oload_types == "v" or i.oload_types.find("v") < 0, (
-                    "void overload should be exclusive to other types (%s)" % i.name
-                )
-            assert (
-                type(i.oload_types) is str
-            ), "overload for %s should be a string - use empty if n/a" % (i.name)
 
         # Verify that all operations in each class have the same signature.
         import itertools
@@ -6217,6 +6463,12 @@ class db_dxil(object):
             "hlsl-dxil-lower-handle-for-lib",
             "DxilLowerCreateHandleForLib",
             "DXIL Lower createHandleForLib",
+            [],
+        )
+        add_pass(
+            "hlsl-dxil-scalarize-vector-load-stores",
+            "DxilScalarizeVectorLoadStores",
+            "DXIL scalarize vector load/stores",
             [],
         )
         add_pass(
@@ -7441,11 +7693,15 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Instr.CoordinateCountForRawTypedBuf",
-            "raw/typed buffer don't need 2 coordinates.",
+            "raw/typed buffer offset must be undef.",
+        )
+        self.add_valrule(
+            "Instr.ConstAlignForRawBuf",
+            "Raw Buffer alignment value must be a constant.",
         )
         self.add_valrule(
             "Instr.CoordinateCountForStructBuf",
-            "structured buffer require 2 coordinates.",
+            "structured buffer requires defined index and offset coordinates.",
         )
         self.add_valrule(
             "Instr.MipLevelForGetDimension",
@@ -8360,6 +8616,7 @@ class db_hlsl_intrisic_param(object):
         self.template_id_idx = template_id_idx  # Template ID numeric value
         self.component_id_idx = component_id_idx  # Component ID numeric value
 
+
 class db_hlsl(object):
     "A database of HLSL language data"
 
@@ -8419,6 +8676,7 @@ class db_hlsl(object):
             "GroupNodeOutputRecords": "LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS",
             "ThreadNodeOutputRecords": "LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS",
             "DxHitObject": "LICOMPTYPE_HIT_OBJECT",
+            "VkBufferPointer": "LICOMPTYPE_VK_BUFFER_POINTER",
         }
 
         self.trans_rowcol = {"r": "IA_R", "c": "IA_C", "r2": "IA_R2", "c2": "IA_C2"}
@@ -8480,7 +8738,8 @@ class db_hlsl(object):
             (?:RW)?(?:Texture\w*|ByteAddressBuffer) |
             acceleration_struct | ray_desc | RayQuery | DxHitObject |
             Node\w* | RWNode\w* | EmptyNode\w* |
-            AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w*
+            AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w* |
+            VkBufferPointer
             $)""",
             flags=re.VERBOSE,
         )
@@ -8530,6 +8789,10 @@ class db_hlsl(object):
                 type_name = "void"
             if type_name == "$funcT":
                 template_id = "-3"
+                component_id = "0"
+                type_name = "void"
+            elif type_name == "$funcT2":
+                template_id = "-4"
                 component_id = "0"
                 type_name = "void"
             elif type_name == "...":
@@ -8660,6 +8923,8 @@ class db_hlsl(object):
                 template_id = "INTRIN_TEMPLATE_VARARGS"
             elif template_id == "-3":
                 template_id = "INTRIN_TEMPLATE_FROM_FUNCTION"
+            elif template_id == "-4":
+                template_id = "INTRIN_TEMPLATE_FROM_FUNCTION_2"
             if component_id == "-1":
                 component_id = "INTRIN_COMPTYPE_FROM_TYPE_ELT0"
             if component_id == "-2":
