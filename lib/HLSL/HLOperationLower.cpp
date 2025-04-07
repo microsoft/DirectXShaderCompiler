@@ -474,8 +474,8 @@ Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode,
 // Utility objects `HlslOp` and `Builder` are used to create a call to the given
 // `DxilFunc` with `RefArgs` arguments.
 Value *TrivialDxilVectorOperation(Function *Func, OP::OpCode Opcode,
-                                  ArrayRef<Value *> Args, Type *Ty,
-                                  OP *OP, IRBuilder<> &Builder) {
+                                  ArrayRef<Value *> Args, Type *Ty, OP *OP,
+                                  IRBuilder<> &Builder) {
   if (!Ty->isVoidTy())
     return Builder.CreateCall(Func, Args, OP->GetOpCodeName(Opcode));
   else
@@ -487,25 +487,22 @@ Value *TrivialDxilVectorOperation(Function *Func, OP::OpCode Opcode,
 // for each vector element and reconstruct the vector type from those results or
 // operate on and return native vectors depending on vector size and the value
 // of `SupportsVectors`, which is deteremined by version and opcode support.
-Value *TrivialDxilOperation(OP::OpCode Opcode, ArrayRef<Value *> Args,
-                            Type *Ty, Type *RetTy, OP *OP,
-                            IRBuilder<> &Builder,
+Value *TrivialDxilOperation(OP::OpCode Opcode, ArrayRef<Value *> Args, Type *Ty,
+                            Type *RetTy, OP *OP, IRBuilder<> &Builder,
                             bool SupportsVectors = false) {
 
   // If supported and the overload type is a vector with more than 1 element,
   // create a native vector operation.
   if (SupportsVectors && Ty->isVectorTy() && Ty->getVectorNumElements() > 1) {
     Function *Func = OP->GetOpFunc(Opcode, Ty);
-    return TrivialDxilVectorOperation(Func, Opcode, Args, Ty, OP,
-                                      Builder);
+    return TrivialDxilVectorOperation(Func, Opcode, Args, Ty, OP, Builder);
   }
 
   // Set overload type to the scalar type of `Ty` and generate call(s).
   Type *EltTy = Ty->getScalarType();
   Function *Func = OP->GetOpFunc(Opcode, EltTy);
 
-  return TrivialDxilOperation(Func, Opcode, Args, Ty, RetTy, OP,
-                              Builder);
+  return TrivialDxilOperation(Func, Opcode, Args, Ty, RetTy, OP, Builder);
 }
 
 Value *TrivialDxilOperation(OP::OpCode opcode, ArrayRef<Value *> refArgs,
@@ -540,8 +537,8 @@ Value *TrivialUnaryOperationRet(CallInst *CI, IntrinsicOp IOP,
   return TrivialDxilOperation(Opcode, Args, Ty, RetTy, OP, Builder);
 }
 
-Value *TrivialDxilUnaryOperation(OP::OpCode Opcode, Value *Src,
-                                 hlsl::OP *OP, IRBuilder<> &Builder,
+Value *TrivialDxilUnaryOperation(OP::OpCode Opcode, Value *Src, hlsl::OP *OP,
+                                 IRBuilder<> &Builder,
                                  bool SupportsVectors = false) {
   Type *Ty = Src->getType();
 
@@ -2124,7 +2121,8 @@ Value *TranslateFirstbitLo(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                            HLOperationLowerHelper &Helper,
                            HLObjectOperationLowerHelper *ObjHelper,
                            bool &Translated) {
-  return TrivialUnaryOperationRet(CI, IOP, Opcode, Helper, ObjHelper, Translated);
+  return TrivialUnaryOperationRet(CI, IOP, Opcode, Helper, ObjHelper,
+                                  Translated);
 }
 
 Value *TranslateLit(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -2273,8 +2271,7 @@ Value *TranslateDistance(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
 Value *TranslateExp(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *ObjHelper,
-                    bool &Translated) {
+                    HLObjectOperationLowerHelper *ObjHelper, bool &Translated) {
   hlsl::OP *OP = &Helper.hlslOP;
   IRBuilder<> Builder(CI);
   Type *Ty = CI->getType();
@@ -2291,8 +2288,7 @@ Value *TranslateExp(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *TranslateLog(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *ObjHelper,
-                    bool &Translated) {
+                    HLObjectOperationLowerHelper *ObjHelper, bool &Translated) {
   hlsl::OP *OP = &Helper.hlslOP;
   IRBuilder<> Builder(CI);
   Type *Ty = CI->getType();
@@ -2316,7 +2312,8 @@ Value *TranslateLog10(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
   IRBuilder<> Builder(CI);
   Type *Ty = CI->getType();
   Value *Val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-  Constant *Log2to10Const = ConstantFP::get(Ty->getScalarType(), M_LN2 / M_LN10);
+  Constant *Log2to10Const =
+      ConstantFP::get(Ty->getScalarType(), M_LN2 / M_LN10);
   if (Ty != Ty->getScalarType()) {
     Log2to10Const =
         ConstantVector::getSplat(Ty->getVectorNumElements(), Log2to10Const);
@@ -2517,8 +2514,8 @@ Value *ExpandDot(Value *Arg0, Value *Arg1, unsigned VecSize, hlsl::OP *OP,
   for (unsigned Elt = 1; Elt < VecSize; ++Elt) {
     Elt0 = Builder.CreateExtractElement(Arg0, Elt);
     Elt1 = Builder.CreateExtractElement(Arg1, Elt);
-    Result = TrivialDxilTrinaryOperation(MadOpCode, Elt0, Elt1, Result, OP,
-                                         Builder);
+    Result =
+        TrivialDxilTrinaryOperation(MadOpCode, Elt0, Elt1, Result, OP, Builder);
   }
 
   return Result;
@@ -2548,8 +2545,7 @@ Value *TranslateFDot(Value *arg0, Value *arg1, unsigned vecSize,
 
 Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *ObjHelper,
-                    bool &Translated) {
+                    HLObjectOperationLowerHelper *ObjHelper, bool &Translated) {
   hlsl::OP *OP = &Helper.hlslOP;
   Value *Arg0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Type *Ty = Arg0->getType();
@@ -3097,8 +3093,7 @@ Value *SplatToVector(Value *Elt, Type *DstTy, IRBuilder<> &Builder) {
 
 Value *TranslateMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *ObjHelper,
-                    bool &Translated) {
+                    HLObjectOperationLowerHelper *ObjHelper, bool &Translated) {
 
   hlsl::OP *OP = &Helper.hlslOP;
   Value *Arg0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
