@@ -6009,6 +6009,12 @@ class db_dxil(object):
             "HLSL DXIL Logs all non-RayGen DXR 1.0 invocations into a UAV",
             [{"n": "maxNumEntriesInLog", "t": "int", "c": 1}],
         )
+        add_pass(
+            "hlsl-dxil-non-uniform-resource-index-instrumentation",
+            "DxilNonUniformResourceIndexInstrumentation",
+            "HLSL DXIL NonUniformResourceIndex instrumentation for PIX",
+            [],
+        )
 
         category_lib = "dxil_gen"
 
