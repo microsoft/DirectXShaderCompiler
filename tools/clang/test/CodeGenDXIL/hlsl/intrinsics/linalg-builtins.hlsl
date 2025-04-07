@@ -1,4 +1,4 @@
-// RUN: dxc.exe -fcgl -T cs_6_9 -E cs_main %s
+// RUN: %dxc -fcgl -T cs_6_9 -E cs_main %s | FileCheck %s
 
 ByteAddressBuffer matrix_buffer;
 ByteAddressBuffer bias_buffer;
