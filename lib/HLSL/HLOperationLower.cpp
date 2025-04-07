@@ -2510,7 +2510,11 @@ Value *ExpandDot(Value *Arg0, Value *Arg1, unsigned VecSize, hlsl::OP *OP,
                  DXIL::OpCode MadOpCode = DXIL::OpCode::IMad) {
   Value *Elt0 = Builder.CreateExtractElement(Arg0, (uint64_t)0);
   Value *Elt1 = Builder.CreateExtractElement(Arg1, (uint64_t)0);
-  Value *Result = Builder.CreateMul(Elt0, Elt1);
+  Value *Result;
+  if (Elt0->getType()->isFloatingPointTy())
+    Result = Builder.CreateFMul(Elt0, Elt1);
+  else
+    Result = Builder.CreateMul(Elt0, Elt1);
   for (unsigned Elt = 1; Elt < VecSize; ++Elt) {
     Elt0 = Builder.CreateExtractElement(Arg0, Elt);
     Elt1 = Builder.CreateExtractElement(Arg1, Elt);

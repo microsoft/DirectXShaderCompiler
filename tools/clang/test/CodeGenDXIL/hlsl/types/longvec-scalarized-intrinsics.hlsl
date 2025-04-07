@@ -104,14 +104,15 @@ float4 main(uint i : SV_PrimitiveID, bool b : B) : SV_Target {
   // CHECK: fsub fast <8 x float>
   vec1 = modf(vec1, vec2);
 
-  // CHECK: fmul fast float
-  // CHECK: call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float %{{.*}}) ; FMad(a,b,c)
-  // CHECK: call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float %{{.*}}) ; FMad(a,b,c)
-  // CHECK: call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float %{{.*}}) ; FMad(a,b,c)
-  // CHECK: call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float %{{.*}}) ; FMad(a,b,c)
-  // CHECK: call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float %{{.*}}) ; FMad(a,b,c)
-  // CHECK: call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float %{{.*}}) ; FMad(a,b,c)
-  // CHECK: call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float %{{.*}}) ; FMad(a,b,c)
+  // CHECK: [[el:%.*]] = extractelement <8 x float>
+  // CHECK: [[mul:%.*]] = fmul fast float [[el]]
+  // CHECK: [[ping:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mul]]) ; FMad(a,b,c)
+  // CHECK: [[pong:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[ping]]) ; FMad(a,b,c)
+  // CHECK: [[ping:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[pong]]) ; FMad(a,b,c)
+  // CHECK: [[pong:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[ping]]) ; FMad(a,b,c)
+  // CHECK: [[ping:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[pong]]) ; FMad(a,b,c)
+  // CHECK: [[pong:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[ping]]) ; FMad(a,b,c)
+  // CHECK: [[ping:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[pong]]) ; FMad(a,b,c)
   vec1 = dot(vec1, vec2);
 
   vector<bool, 8> bvec = b;
