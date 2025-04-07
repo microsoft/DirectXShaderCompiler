@@ -2517,12 +2517,16 @@ Value *ExpandDot(Value *arg0, Value *arg1, unsigned vecSize, hlsl::OP *hlslOP,
                  DXIL::OpCode MadOpCode = DXIL::OpCode::IMad) {
   Value *Elt0 = Builder.CreateExtractElement(arg0, (uint64_t)0);
   Value *Elt1 = Builder.CreateExtractElement(arg1, (uint64_t)0);
-  Value *Result = Builder.CreateMul(Elt0, Elt1);
+  Value *Result;
+  if (Elt0->getType()->isFloatingPointTy())
+    Result = Builder.CreateFMul(Elt0, Elt1);
+  else
+    Result = Builder.CreateMul(Elt0, Elt1);
   for (unsigned Elt = 1; Elt < vecSize; ++Elt) {
     Elt0 = Builder.CreateExtractElement(arg0, Elt);
     Elt1 = Builder.CreateExtractElement(arg1, Elt);
-    Result = TrivialDxilTrinaryOperation(MadOpCode, Elt0, Elt1, Result, hlslOP,
-                                         Builder);
+    Result =
+        TrivialDxilTrinaryOperation(MadOpCode, Elt0, Elt1, Result, OP, Builder);
   }
 
   return Result;
