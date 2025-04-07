@@ -39,6 +39,7 @@ entry:
   %tmp10 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?rw_matrix_buffer@@3URWByteAddressBuffer@@A", !dbg !25 ; line:45 col:2
   %tmp11 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %tmp10), !dbg !25 ; line:45 col:2
   %tmp12 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %tmp11, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer zeroinitializer), !dbg !25 ; line:45 col:2
+
   ;CHECK: call void @dx.op.outerProductAccumulate.v8i32.v8i32(i32 307, <8 x i32> undef, <8 x i32> undef, %dx.types.Handle %9, i32 0, i32 5, i32 3, i32 64)
   call void @"dx.hl.op..void (i32, <8 x i32>, <8 x i32>, %dx.types.Handle, i32, i32, i32, i32)"(i32 362, <8 x i32> undef, <8 x i32> undef, %dx.types.Handle %tmp12, i32 0, i32 5, i32 3, i32 64), !dbg !25 ; line:45 col:2
   %tmp13 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?rw_matrix_buffer@@3URWByteAddressBuffer@@A", !dbg !26 ; line:51 col:3
