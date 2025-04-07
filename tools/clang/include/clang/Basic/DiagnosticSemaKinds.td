@@ -7706,10 +7706,8 @@ def err_hlsl_varmodifierna : Error<
   "%0 is not a valid modifier for a %1">;
 def err_hlsl_varmodifierna_decltype : Error<
   "%0 is not a valid modifier for a declaration of type %1">;
-def note_hlsl_globallycoherent_applies_to : Note<
-  "'globallycoherent' can only be applied to UAV or RWDispatchNodeInputRecord objects">;
-def note_hlsl_reordercoherent_applies_to : Note<
-  "'reordercoherent' can only be applied to UAV objects">;
+def note_hlsl_coherence_applies_to : Note<
+  "'%select{reordercoherent|globallycoherent}0' can only be applied to UAV%select{| or RWDispatchNodeInputRecord}0 objects">;
 def warn_hlsl_gc_implies_rc_attribute : Warning<
   "Attribute 'reordercoherent' implied by 'globallycoherent' in %0. 'reordercoherent' ignored.">;
 def err_hlsl_varmodifiersna : Error<

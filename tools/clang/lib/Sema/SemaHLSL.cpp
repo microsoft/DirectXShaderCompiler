@@ -13693,10 +13693,7 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
         (!IsUAV && !IsAllowedNodeIO)) {
       Diag(A->getLocation(), diag::err_hlsl_varmodifierna_decltype)
           << A << DeclType->getCanonicalTypeUnqualified() << A->getRange();
-      const unsigned DiagID = IsGCAttr
-                                  ? diag::note_hlsl_globallycoherent_applies_to
-                                  : diag::note_hlsl_reordercoherent_applies_to;
-      Diag(A->getLocation(), DiagID) << A << A->getRange();
+      Diag(A->getLocation(), diag::note_hlsl_coherence_applies_to) << (int) IsGCAttr << A << A->getRange();
     }
     return;
   }
