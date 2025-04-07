@@ -40,7 +40,7 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
   LLVMContext &Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
 
-  hlsl::DxilResource *PixUavResource = nullptr;
+  hlsl::DxilResource *PixUAVResource = nullptr;
 
   UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
 
@@ -57,6 +57,8 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
       HlslOP->GetU32Const((uint32_t)OP::OpCode::AtomicBinOp);
   Constant *AtomicOr = HlslOP->GetU32Const((uint32_t)DXIL::AtomicBinOpCode::Or);
 
+  std::map<Function *, CallInst *> FunctionToUAVHandle;
+
   // This is the main pass that will iterate through all of the resources that
   // are dynamically indexed. If not already marked NonUniformResourceIndex,
   // then insert WaveActiveAllEqual to determine if the index is uniform
@@ -70,15 +72,30 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
           return true;
         }
 
-        if (!PixUavResource) {
-          PixUavResource =
-              PIXPassHelpers::CreateGlobalUAVResource(DM, 0, "PixUavResource");
+        if (!PixUAVResource) {
+          PixUAVResource =
+              PIXPassHelpers::CreateGlobalUAVResource(DM, 0, "PixUAVResource");
+        }
+
+        CallInst *PixUAVHandle = nullptr;
+        Function *F = CreateHandle->getParent()->getParent();
+
+        const auto FunctionToUAVHandleIter = FunctionToUAVHandle.lower_bound(F);
+
+        if ((FunctionToUAVHandleIter != FunctionToUAVHandle.end()) &&
+            (FunctionToUAVHandleIter->first == F)) {
+          PixUAVHandle = FunctionToUAVHandleIter->second;
+        } else {
+          IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
+
+          PixUAVHandle = PIXPassHelpers::CreateHandleForResource(
+              DM, Builder, PixUAVResource, "PixUAVHandle");
+
+          FunctionToUAVHandle.insert(FunctionToUAVHandleIter,
+                                     {F, PixUAVHandle});
         }
 
         IRBuilder<> Builder(CreateHandle);
-
-        CallInst *HandleForUAV = PIXPassHelpers::CreateHandleForResource(
-            DM, Builder, PixUavResource, "PixUavHandle");
 
         uint32_t InstructionNumber = 0;
         if (!pix_dxil::PixDxilInstNum::FromInst(CreateHandle,
@@ -117,7 +134,7 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
             AtomicOpFunc,
             {
                 AtomicBinOpcode,  // i32, ; opcode
-                HandleForUAV,     // %dx.types.Handle, ; resource handle
+                PixUAVHandle,     // %dx.types.Handle, ; resource handle
                 AtomicOr,         // i32, ; binary operation code :
                                   // EXCHANGE, IADD, AND, OR, XOR
                                   // IMIN, IMAX, UMIN, UMAX
@@ -130,7 +147,7 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
         return true;
       });
 
-  const bool modified = (PixUavResource != nullptr);
+  const bool modified = (PixUAVResource != nullptr);
 
   if (modified) {
     DM.ReEmitDxilResources();
