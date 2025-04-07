@@ -11593,18 +11593,17 @@ static bool CheckBarrierCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
   if (SemanticFlagsExpr->isIntegerConstantExpr(SemanticFlagsVal, S.Context)) {
     SemanticFlags = SemanticFlagsVal.getLimitedValue();
     uint32_t ValidMask = 0U;
-    unsigned DiagID = 0;
     if (SM->IsSM69Plus()) {
-      DiagID = diag::err_hlsl_barrier_invalid_semantic_flags;
       ValidMask =
           static_cast<unsigned>(hlsl::DXIL::BarrierSemanticFlag::ValidMask);
     } else {
-      DiagID = diag::err_hlsl_barrier_invalid_semantic_flags_legacy;
       ValidMask =
           static_cast<unsigned>(hlsl::DXIL::BarrierSemanticFlag::LegacyFlags);
     }
     if ((uint32_t)SemanticFlags & ~ValidMask) {
-      S.Diags.Report(SemanticFlagsExpr->getExprLoc(), DiagID);
+      S.Diags.Report(SemanticFlagsExpr->getExprLoc(),
+                     diag::err_hlsl_barrier_invalid_semantic_flags)
+          << SM->IsSM69Plus();
       return true;
     }
   }
