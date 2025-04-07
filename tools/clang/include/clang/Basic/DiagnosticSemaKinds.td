@@ -7758,15 +7758,15 @@ def warn_hlsl_semantic_attribute_position_misuse_hint: Warning<
 def warn_hlsl_unary_negate_unsigned : Warning<
   "unary negate of unsigned value is still unsigned">,
   InGroup<Conversion>, DefaultWarn;
-def warn_hlsl_impcast_glc_mismatch : Warning<
-  "implicit conversion from %0 to %1 %select{loses|adds}2 globallycoherent annotation">,
-  InGroup<Conversion>, DefaultWarn;
-def warn_hlsl_impcast_rdc_mismatch : Warning<
-  "implicit conversion from %0 to %1 %select{loses|adds}2 reordercoherent annotation">,
-  InGroup<Conversion>, DefaultWarn;
-def warn_hlsl_impcast_rdc_glc_mismatch : Warning<
-  "implicit conversion from %0 to %1 %select{demotes globallycoherent to reordercoherent|promotes reordercoherent to globallycoherent}2 annotation">,
-  InGroup<Conversion>, DefaultWarn;
+def warn_hlsl_impcast_coherence_mismatch : Warning<
+  "implicit conversion from %0 to %1 %select{"
+  "demotes globallycoherent to reordercoherent|"
+  "promotes reordercoherent to globallycoherent|"
+  "loses reordercoherent|"
+  "loses globallycoherent|"
+  "adds reordercoherent|"
+  "adds globallycoherent}2 annotation">,
+  InGroup<Conversion>;
 def warn_hlsl_glc_implies_rdc : Warning<
   "attribute 'globallycoherent' implies 'reordercoherent'">, InGroup<IgnoredAttributes>;
 def warn_hlsl_narrowing : Warning<

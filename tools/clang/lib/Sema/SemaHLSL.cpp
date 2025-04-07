@@ -13716,18 +13716,35 @@ void Sema::DiagnoseCoherenceMismatch(const Expr *SrcExpr, QualType TargetType,
     // 'globallycoherent'
     bool SrcRD = hlsl::HasHLSLReorderCoherent(SrcTy);
     bool DstRD = hlsl::HasHLSLReorderCoherent(DstTy);
-    bool DemoteToRD = SrcGL && DstRD;
-    bool PromoteToGL = SrcRD && DstGL;
-    if (DemoteToRD || PromoteToGL)
-      Diag(Loc, diag::warn_hlsl_impcast_rdc_glc_mismatch)
-          << SrcExpr->getType() << TargetType
-          << /*demotes|promotes*/ PromoteToGL;
-    else if (SrcGL != DstGL)
-      Diag(Loc, diag::warn_hlsl_impcast_glc_mismatch)
-          << SrcExpr->getType() << TargetType << /*loses|adds*/ DstGL;
-    else if (SrcRD != DstRD)
-      Diag(Loc, diag::warn_hlsl_impcast_rdc_mismatch)
-          << SrcExpr->getType() << TargetType << /*loses|adds*/ DstRD;
+
+    enum {
+      NoMismatch = -1,
+      DemoteToRD = 0,
+      PromoteToGL = 1,
+      LosesRD = 2,
+      LosesGL = 3,
+      AddsRD = 4,
+      AddsGL = 5
+    } MismatchType = NoMismatch;
+
+    if (SrcGL && DstRD)
+      MismatchType = DemoteToRD;
+    else if (SrcRD && DstGL)
+      MismatchType = PromoteToGL;
+    else if (SrcRD && !DstRD)
+      MismatchType = LosesRD;
+    else if (SrcGL && !DstGL)
+      MismatchType = LosesGL;
+    else if (!SrcRD && DstRD)
+      MismatchType = AddsRD;
+    else if (!SrcGL && DstGL)
+      MismatchType = AddsGL;
+
+    if (MismatchType == NoMismatch)
+      return;
+
+    Diag(Loc, diag::warn_hlsl_impcast_coherence_mismatch)
+        << SrcExpr->getType() << TargetType << MismatchType;
   }
 }
 
