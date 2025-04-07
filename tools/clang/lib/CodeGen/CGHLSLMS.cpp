@@ -3509,9 +3509,8 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
   if (decl->hasAttr<HLSLGloballyCoherentAttr>()) {
     hlslRes->SetGloballyCoherent(true);
   }
-  if (decl->hasAttr<HLSLReorderCoherentAttr>()) {
+  if (decl->hasAttr<HLSLReorderCoherentAttr>())
     hlslRes->SetReorderCoherent(true);
-  }
 
   if (!SetUAVSRV(decl->getLocation(), resClass, hlslRes.get(), VarTy))
     return 0;
