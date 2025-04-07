@@ -3008,32 +3008,29 @@ bool OP::BarrierRequiresNode(const llvm::CallInst *CI) {
 }
 
 bool OP::BarrierRequiresReorder(const llvm::CallInst *CI) {
-  OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
-  switch (opcode) {
+  OpCode Opcode = OP::GetDxilOpFuncCallInst(CI);
+  switch (Opcode) {
   case OpCode::BarrierByMemoryType: {
-    DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
-    if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
-      unsigned semanticFlags = barrier.get_SemanticFlags_val();
-      return (semanticFlags &
-              static_cast<unsigned>(DXIL::BarrierSemanticFlag::ReorderScope)) !=
-             0U;
-    }
-    return false;
+    DxilInst_BarrierByMemoryType Barrier(const_cast<CallInst *>(CI));
+    if (!isa<ConstantInt>(Barrier.get_SemanticFlags()))
+      return false;
+    unsigned SemanticFlags = Barrier.get_SemanticFlags_val();
+    return (SemanticFlags & static_cast<unsigned>(
+                                DXIL::BarrierSemanticFlag::ReorderScope)) != 0U;
   }
   case OpCode::BarrierByMemoryHandle: {
-    DxilInst_BarrierByMemoryHandle barrier(const_cast<CallInst *>(CI));
-    if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
-      unsigned semanticFlags = barrier.get_SemanticFlags_val();
-      return (semanticFlags &
-              static_cast<unsigned>(DXIL::BarrierSemanticFlag::ReorderScope)) !=
-             0U;
-    }
-    return false;
+    DxilInst_BarrierByMemoryHandle Barrier(const_cast<CallInst *>(CI));
+    if (!isa<ConstantInt>(Barrier.get_SemanticFlags()))
+      return false;
+    unsigned SemanticFlags = Barrier.get_SemanticFlags_val();
+    return (SemanticFlags & static_cast<unsigned>(
+                                DXIL::BarrierSemanticFlag::ReorderScope)) != 0U;
   }
   default:
     return false;
   }
 }
+
 DXIL::BarrierMode OP::TranslateToBarrierMode(const llvm::CallInst *CI) {
   OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
   switch (opcode) {
