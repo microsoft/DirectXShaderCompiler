@@ -7711,7 +7711,7 @@ def note_hlsl_globallycoherent_applies_to : Note<
 def note_hlsl_reordercoherent_applies_to : Note<
   "'reordercoherent' can only be applied to UAV objects">;
 def warn_hlsl_gc_implies_rc_attribute : Warning<
-  "Attribute 'reordercoherent' implied by 'globallycoherent' in %0. 'reordercoherent' ignored.">, DefaultWarn;
+  "Attribute 'reordercoherent' implied by 'globallycoherent' in %0. 'reordercoherent' ignored.">;
 def err_hlsl_varmodifiersna : Error<
   "%0 and %1 cannot be used together for a %2">;
 def err_hlsl_vla : Error< // Patterened after err_opencl_vla
