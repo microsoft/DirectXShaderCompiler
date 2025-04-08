@@ -11423,7 +11423,8 @@ void ExecutionTest::LongVectorBinaryOpTestBase() {
   LongVectorBinaryOpTestBase<T, 5>();
   LongVectorBinaryOpTestBase<T, 16>();
   LongVectorBinaryOpTestBase<T, 17>();
-  LongVectorBinaryOpTestBase<T, 1024>();
+  // TODOLONGVEC: 1024 breaks the size limit for structured buffers
+  //LongVectorBinaryOpTestBase<T, 1024>();
 }
 
 template <typename T, std::size_t N>
@@ -11671,7 +11672,8 @@ void ExecutionTest::LongVectorUnaryOpTestBase() {
   LongVectorUnaryOpTestBase<T, 5>();
   LongVectorUnaryOpTestBase<T, 16>();
   LongVectorUnaryOpTestBase<T, 17>();
-  LongVectorUnaryOpTestBase<T, 1024>();
+  // TODOLONGVEC: 1024 breaks the size limit for structured buffers
+  //LongVectorUnaryOpTestBase<T, 1024>();
 }
 
 template <typename T, std::size_t N,
