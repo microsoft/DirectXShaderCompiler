@@ -805,14 +805,18 @@ public:
                                const char *pShaderModelStr, const char *pShader,
                                Ty *pInputDataPairs, unsigned inputDataCount);
 
-  template <typename T, std::size_t N>
-  //typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+  template <typename T, std::size_t N,
+  typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+  // By checking that T is an arithmetic we can keep the compiler error messages
+  // from misusing the template much cleaner.
   void LongVectorBinaryOpTestBase();
   template <typename T>
   void LongVectorBinaryOpTestBase();
 
-  template <typename T, std::size_t N>
-  //typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+  template <typename T, std::size_t N,
+  typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+  // By checking that T is an arithmetic we can keep the compiler error messages
+  // from misusing the template much cleaner.
   void LongVectorUnaryOpTestBase();
   template <typename T>
   void LongVectorUnaryOpTestBase();
@@ -11229,7 +11233,9 @@ TEST_F(ExecutionTest, PackUnpackTest) {
 // before checking in PR.
 // SLongVectorBinaryOp is used in ShaderOpArithTable.xml. The shader program
 // uses the struct defintion to read from the input global buffer.
-template <typename T, std::size_t N = 4,
+template <typename T, std::size_t N,
+// By checking that T is an arithmetic we can keep the compiler error messages
+// from misusing the template much cleaner.
 typename = std::enable_if_t<std::is_arithmetic_v<T>>>
 struct SLongVectorBinaryOp {
   T scalarInput;
@@ -11668,8 +11674,10 @@ void ExecutionTest::LongVectorUnaryOpTestBase() {
   LongVectorUnaryOpTestBase<T, 1024>();
 }
 
-template <typename T, std::size_t N>
-//typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+template <typename T, std::size_t N,
+// By checking that T is an arithmetic we can keep the compiler error messages
+// from misusing the template much cleaner.
+typename = std::enable_if_t<std::is_arithmetic_v<T>>>
 void ExecutionTest::LongVectorUnaryOpTestBase() {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
