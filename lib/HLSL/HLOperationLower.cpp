@@ -1964,8 +1964,8 @@ Value *TranslateClamp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   IRBuilder<> Builder(CI);
   // min(max(x, minVal), maxVal).
-  Value *maxXMinVal = TrivialDxilBinaryOperation(maxOp, x, minVal, hlslOP,
-                                                 Builder);
+  Value *maxXMinVal =
+      TrivialDxilBinaryOperation(maxOp, x, minVal, hlslOP, Builder);
   return TrivialDxilBinaryOperation(minOp, maxXMinVal, maxVal, hlslOP, Builder);
 }
 
