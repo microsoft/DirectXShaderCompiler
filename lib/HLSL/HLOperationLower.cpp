@@ -478,8 +478,7 @@ Value *TrivialDxilVectorOperation(Function *Func, OP::OpCode Opcode,
                                   IRBuilder<> &Builder) {
   if (!Ty->isVoidTy())
     return Builder.CreateCall(Func, Args, OP->GetOpCodeName(Opcode));
-  else
-    return Builder.CreateCall(Func, Args); // Cannot add name to void.
+  return Builder.CreateCall(Func, Args); // Cannot add name to void.
 }
 
 // Generates a DXIL operation with the overloaded type based on `Ty` and return
