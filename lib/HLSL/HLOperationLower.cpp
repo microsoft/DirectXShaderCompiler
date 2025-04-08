@@ -542,7 +542,7 @@ Value *TrivialUnaryOperationRet(CallInst *CI, IntrinsicOp IOP,
 Value *TrivialDxilUnaryOperation(OP::OpCode OpCode, Value *Src, hlsl::OP *Op,
                                  IRBuilder<> &Builder,
                                  bool SupportsVectors = false) {
-  Type *Ty = src->getType();
+  Type *Ty = Src->getType();
 
   Constant *OpArg = Op->GetU32Const((unsigned)OpCode);
   Value *Args[] = {OpArg, Src};

@@ -6606,8 +6606,10 @@ bool HLSLExternalSource::MatchArguments(
   argTypes.clear();
   const bool isVariadic = IsVariadicIntrinsicFunction(pIntrinsic);
 
-  static const UINT UnusedSize = UINT_MAX;
-  static const BYTE MaxIntrinsicArgs = g_MaxIntrinsicParamCount + 1;
+  static const uint32_t UnusedSize = std::numeric_limits<uint32_t>::max();
+  static const uint32_t MaxIntrinsicArgs = g_MaxIntrinsicParamCount + 1;
+  assert(MaxIntrinsicArgs < std::numeric_limits<uint8_t>::max() &&
+         "This should be a pretty small number");
 #define CAB(cond, arg)                                                         \
   {                                                                            \
     if (!(cond)) {                                                             \
