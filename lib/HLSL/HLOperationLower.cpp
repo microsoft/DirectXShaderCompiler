@@ -597,7 +597,9 @@ Value *TrivialBinaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Value *src1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
 
-  return TrivialDxilBinaryOperation(opcode, src0, src1, hlslOP, Builder);
+  Value *binOp =
+      TrivialDxilBinaryOperation(opcode, src0, src1, hlslOP, Builder);
+  return binOp;
 }
 
 // Translate call that trivially converts to a dxil trinary (aka tertiary)
@@ -614,7 +616,9 @@ Value *TrivialTrinaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Value *src2 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
   IRBuilder<> Builder(CI);
 
-  return TrivialDxilTrinaryOperation(opcode, src0, src1, src2, hlslOP, Builder);
+  Value *triOp =
+      TrivialDxilTrinaryOperation(opcode, src0, src1, src2, hlslOP, Builder);
+  return triOp;
 }
 
 Value *TrivialIsSpecialFloat(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -1508,7 +1512,6 @@ Value *TranslateWaveA2B(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Value *refArgs[] = {nullptr, CI->getOperand(1)};
   return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
 }
-
 // Wave ballot intrinsic.
 Value *TranslateWaveBallot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                            HLOperationLowerHelper &helper,
@@ -2081,7 +2084,7 @@ Value *TranslateFirstbitHi(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                            HLObjectOperationLowerHelper *pObjHelper,
                            bool &Translated) {
   Value *firstbitHi =
-      TrivialUnaryOperationRet(CI, IOP, opcode, helper, pObjHelper, Translated);
+      TrivialUnaryOperation(CI, IOP, opcode, helper, pObjHelper, Translated);
   // firstbitHi == -1? -1 : (bitWidth-1 -firstbitHi);
   IRBuilder<> Builder(CI);
   Constant *neg1 = Builder.getInt32(-1);
@@ -2114,7 +2117,7 @@ Value *TranslateFirstbitLo(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                            HLObjectOperationLowerHelper *pObjHelper,
                            bool &Translated) {
   Value *firstbitLo =
-      TrivialUnaryOperationRet(CI, IOP, opcode, helper, pObjHelper, Translated);
+      TrivialUnaryOperation(CI, IOP, opcode, helper, pObjHelper, Translated);
   return firstbitLo;
 }
 
@@ -2276,8 +2279,8 @@ Value *TranslateExp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         ConstantVector::getSplat(Ty->getVectorNumElements(), log2eConst);
   }
   val = Builder.CreateFMul(log2eConst, val);
-
-  return TrivialDxilUnaryOperation(OP::OpCode::Exp, val, hlslOP, Builder);
+  Value *exp = TrivialDxilUnaryOperation(OP::OpCode::Exp, val, hlslOP, Builder);
+  return exp;
 }
 
 Value *TranslateLog(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -2292,9 +2295,7 @@ Value *TranslateLog(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   if (Ty != Ty->getScalarType()) {
     ln2Const = ConstantVector::getSplat(Ty->getVectorNumElements(), ln2Const);
   }
-
-  Value *log =
-      TrivialDxilUnaryOperation(OP::OpCode::Log, val, hlslOP, Builder);
+  Value *log = TrivialDxilUnaryOperation(OP::OpCode::Log, val, hlslOP, Builder);
 
   return Builder.CreateFMul(ln2Const, log);
 }
@@ -2312,8 +2313,7 @@ Value *TranslateLog10(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     log2_10Const =
         ConstantVector::getSplat(Ty->getVectorNumElements(), log2_10Const);
   }
-  Value *log =
-      TrivialDxilUnaryOperation(OP::OpCode::Log, val, hlslOP, Builder);
+  Value *log = TrivialDxilUnaryOperation(OP::OpCode::Log, val, hlslOP, Builder);
 
   return Builder.CreateFMul(log2_10Const, log);
 }
@@ -2551,16 +2551,15 @@ Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Value *arg1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
   Type *EltTy = Ty->getScalarType();
-  if (EltTy->isFloatingPointTy() && Ty->getVectorNumElements() <= 4) {
+  if (EltTy->isFloatingPointTy() && Ty->getVectorNumElements() <= 4)
     return TranslateFDot(arg0, arg1, vecSize, hlslOP, Builder);
-  } else {
-    DXIL::OpCode MadOpCode = DXIL::OpCode::IMad;
-    if (IOP == IntrinsicOp::IOP_udot)
-      MadOpCode = DXIL::OpCode::UMad;
-    else if (EltTy->isFloatingPointTy())
-      MadOpCode = DXIL::OpCode::FMad;
-    return ExpandDot(arg0, arg1, vecSize, hlslOP, Builder, MadOpCode);
-  }
+
+  DXIL::OpCode MadOpCode = DXIL::OpCode::IMad;
+  if (IOP == IntrinsicOp::IOP_udot)
+    MadOpCode = DXIL::OpCode::UMad;
+  else if (EltTy->isFloatingPointTy())
+    MadOpCode = DXIL::OpCode::FMad;
+  return ExpandDot(arg0, arg1, vecSize, hlslOP, Builder, MadOpCode);
 }
 
 Value *TranslateNormalize(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -2676,8 +2675,8 @@ Value *TranslateSmoothStep(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Value *xSubMin = Builder.CreateFSub(x, minVal);
   Value *satVal = Builder.CreateFDiv(xSubMin, maxSubMin);
 
-  Value *s =
-      TrivialDxilUnaryOperation(DXIL::OpCode::Saturate, satVal, hlslOP, Builder);
+  Value *s = TrivialDxilUnaryOperation(DXIL::OpCode::Saturate, satVal, hlslOP,
+                                       Builder);
   // return s * s *(3-2*s).
   Constant *c2 = ConstantFP::get(CI->getType(), 2);
   Constant *c3 = ConstantFP::get(CI->getType(), 3);
