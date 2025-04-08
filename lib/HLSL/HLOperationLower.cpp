@@ -524,7 +524,7 @@ Value *TrivialDxilOperation(OP::OpCode opcode, ArrayRef<Value *> refArgs,
 // return type from the overload by passing the argument, explicit return type,
 // and helper objects to the scalarizing unary dxil operation creation.
 Value *TrivialUnaryOperationRet(CallInst *CI, IntrinsicOp IOP,
-                                OP::OpCode opcode,
+                                OP::OpCode OpCode,
                                 HLOperationLowerHelper &Helper,
                                 HLObjectOperationLowerHelper *pObjHelper,
                                 bool &Translated) {
@@ -534,21 +534,21 @@ Value *TrivialUnaryOperationRet(CallInst *CI, IntrinsicOp IOP,
   IRBuilder<> Builder(CI);
   hlsl::OP *OP = &Helper.hlslOP;
   Type *RetTy = CI->getType();
-  Constant *opArg = OP->GetU32Const((unsigned)opcode);
-  Value *args[] = {opArg, Src};
+  Constant *OpArg = OP->GetU32Const((unsigned)OpCode);
+  Value *Args[] = {OpArg, Src};
 
-  return TrivialDxilOperation(opcode, args, Ty, RetTy, OP, Builder);
+  return TrivialDxilOperation(OpCode, Args, Ty, RetTy, OP, Builder);
 }
 
-Value *TrivialDxilUnaryOperation(OP::OpCode opcode, Value *src,
-                                 hlsl::OP *hlslOP, IRBuilder<> &Builder,
+Value *TrivialDxilUnaryOperation(OP::OpCode OpCode, Value *src,
+                                 hlsl::OP *Op, IRBuilder<> &Builder,
                                  bool SupportsVectors = false) {
   Type *Ty = src->getType();
 
-  Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
+  Constant *OpArg = Op->GetU32Const((unsigned)OpCode);
   Value *Args[] = {OpArg, src};
 
-  return TrivialDxilOperation(opcode, Args, Ty, Ty, hlslOP, Builder,
+  return TrivialDxilOperation(OpCode, Args, Ty, Ty, Op, Builder,
                               SupportsVectors);
 }
 
