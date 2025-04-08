@@ -525,7 +525,7 @@ Value *TrivialDxilOperation(OP::OpCode opcode, ArrayRef<Value *> refArgs,
 Value *TrivialUnaryOperationRet(CallInst *CI, IntrinsicOp IOP,
                                 OP::OpCode OpCode,
                                 HLOperationLowerHelper &Helper,
-                                HLObjectOperationLowerHelper *pObjHelper,
+                                HLObjectOperationLowerHelper *,
                                 bool &Translated) {
   Value *Src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   Type *Ty = Src->getType();
@@ -539,13 +539,13 @@ Value *TrivialUnaryOperationRet(CallInst *CI, IntrinsicOp IOP,
   return TrivialDxilOperation(OpCode, Args, Ty, RetTy, OP, Builder);
 }
 
-Value *TrivialDxilUnaryOperation(OP::OpCode OpCode, Value *src,
+Value *TrivialDxilUnaryOperation(OP::OpCode OpCode, Value *Src,
                                  hlsl::OP *Op, IRBuilder<> &Builder,
                                  bool SupportsVectors = false) {
   Type *Ty = src->getType();
 
   Constant *OpArg = Op->GetU32Const((unsigned)OpCode);
-  Value *Args[] = {OpArg, src};
+  Value *Args[] = {OpArg, Src};
 
   return TrivialDxilOperation(OpCode, Args, Ty, Ty, Op, Builder,
                               SupportsVectors);
