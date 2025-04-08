@@ -1,5 +1,8 @@
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=2   %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=7   %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=125 %s | FileCheck %s
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=256 %s | FileCheck %s
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=1024 %s | FileCheck %s
 
 // Test vector-enabled non-trivial intrinsics that take parameters of various types.
 
