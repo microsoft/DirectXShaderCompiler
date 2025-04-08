@@ -2525,8 +2525,8 @@ Value *ExpandDot(Value *arg0, Value *arg1, unsigned vecSize, hlsl::OP *hlslOP,
   for (unsigned Elt = 1; Elt < vecSize; ++Elt) {
     Elt0 = Builder.CreateExtractElement(arg0, Elt);
     Elt1 = Builder.CreateExtractElement(arg1, Elt);
-    Result =
-        TrivialDxilTrinaryOperation(MadOpCode, Elt0, Elt1, Result, OP, Builder);
+    Result = TrivialDxilTrinaryOperation(MadOpCode, Elt0, Elt1, Result, hlslOP,
+                                         Builder);
   }
 
   return Result;
