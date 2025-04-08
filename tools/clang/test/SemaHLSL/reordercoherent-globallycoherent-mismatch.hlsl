@@ -4,7 +4,7 @@ RWByteAddressBuffer NonCBuf;
 globallycoherent RWByteAddressBuffer GCBuf;
 reordercoherent RWByteAddressBuffer RCBuf;
 // expected-warning@+2{{attribute 'globallycoherent' implies 'reordercoherent'}}
-// expected-warning@+1{{Attribute 'reordercoherent' implied by 'globallycoherent' in 'RCGCBuf'. 'reordercoherent' ignored.}}
+// expected-warning@+1{{attribute 'reordercoherent' implied by 'globallycoherent' in 'RCGCBuf'. 'reordercoherent' ignored.}}
 reordercoherent globallycoherent RWByteAddressBuffer RCGCBuf;
 
 globallycoherent RWByteAddressBuffer getPromoteRC() {
