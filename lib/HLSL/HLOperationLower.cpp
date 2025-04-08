@@ -6488,7 +6488,7 @@ Value *TranslateVectorAccumulate(CallInst *CI, IntrinsicOp IOP,
       CI->getArgOperand(HLOperandIndex::kVectorAccMatrixOffsetIdx);
 
   // Get the DXIL function for the operation
-  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, {InputVector->getType()});
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, InputVector->getType());
 
   return Builder.CreateCall(DxilFunc,
                             {OpArg, InputVector, MatrixBuffer, MatrixOffset});
