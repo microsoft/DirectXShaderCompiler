@@ -539,8 +539,8 @@ Value *TrivialUnaryOperationRet(CallInst *CI, IntrinsicOp IOP,
   return TrivialDxilOperation(OpCode, Args, Ty, RetTy, OP, Builder);
 }
 
-Value *TrivialDxilUnaryOperation(OP::OpCode OpCode, Value *Src,
-                                 hlsl::OP *Op, IRBuilder<> &Builder,
+Value *TrivialDxilUnaryOperation(OP::OpCode OpCode, Value *Src, hlsl::OP *Op,
+                                 IRBuilder<> &Builder,
                                  bool SupportsVectors = false) {
   Type *Ty = src->getType();
 
