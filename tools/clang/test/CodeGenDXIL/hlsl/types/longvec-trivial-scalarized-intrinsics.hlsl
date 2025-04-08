@@ -1,24 +1,14 @@
 // The binary part of some of these is all just a vector math ops with as many unary dxops as elements.
 // These will have apparent mismatches between the ARITY define and the check prefix.
 
-// RUN: %dxc -DFUNC=abs         -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=pow         -DARITY=2 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
 // RUN: %dxc -DFUNC=f16tof32    -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,LEGACY
 // RUN: %dxc -DFUNC=f32tof16    -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,LEGACY
 // RUN: %dxc -DFUNC=isfinite    -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,SPECFLT
 // RUN: %dxc -DFUNC=isinf       -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,SPECFLT
 // RUN: %dxc -DFUNC=isnan       -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,SPECFLT
-// RUN: %dxc -DFUNC=modf        -DARITY=2 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
 // RUN: %dxc -DFUNC=countbits   -DARITY=1 -DTYPE=uint -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
 // RUN: %dxc -DFUNC=firstbithigh -DARITY=1 -DTYPE=uint -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
 // RUN: %dxc -DFUNC=firstbitlow  -DARITY=1 -DTYPE=uint -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=ddx         -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=ddx_coarse  -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=ddx_fine    -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=ddy         -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=ddy_coarse  -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=ddy_fine    -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=fwidth      -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
 // RUN: %dxc -DFUNC=QuadReadLaneAt         -DARITY=4 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,QUAD
 // RUN: %dxc -DFUNC=QuadReadAcrossX        -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,QUAD
 // RUN: %dxc -DFUNC=QuadReadAcrossY        -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,QUAD
