@@ -7709,7 +7709,7 @@ def err_hlsl_varmodifierna_decltype : Error<
 def note_hlsl_coherence_applies_to : Note<
   "'%select{reordercoherent|globallycoherent}0' can only be applied to UAV%select{| or RWDispatchNodeInputRecord}0 objects">;
 def warn_hlsl_gc_implies_rc_attribute : Warning<
-  "Attribute 'reordercoherent' implied by 'globallycoherent' in %0. 'reordercoherent' ignored.">;
+  "attribute 'reordercoherent' implied by 'globallycoherent' in %0. 'reordercoherent' ignored.">;
 def err_hlsl_varmodifiersna : Error<
   "%0 and %1 cannot be used together for a %2">;
 def err_hlsl_vla : Error< // Patterened after err_opencl_vla
