@@ -474,8 +474,8 @@ Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode,
 // Utility objects `HlslOp` and `Builder` are used to create a call to the given
 // `DxilFunc` with `RefArgs` arguments.
 Value *TrivialDxilVectorOperation(Function *Func, OP::OpCode Opcode,
-                                  ArrayRef<Value *> Args, Type *Ty,
-                                  OP *OP, IRBuilder<> &Builder) {
+                                  ArrayRef<Value *> Args, Type *Ty, OP *OP,
+                                  IRBuilder<> &Builder) {
   if (!Ty->isVoidTy())
     return Builder.CreateCall(Func, Args, OP->GetOpCodeName(Opcode));
   else
