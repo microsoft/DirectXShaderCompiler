@@ -485,11 +485,11 @@ Value *TrivialDxilOperation(OP::OpCode opcode, ArrayRef<Value *> refArgs,
 }
 
 Value *TrivialDxilVectorOperation(Function *dxilFunc, OP::OpCode opcode,
-                            ArrayRef<Value *> refArgs, Type *Ty,
-                            OP *hlslOP, IRBuilder<> &Builder) {
+                                  ArrayRef<Value *> refArgs, Type *Ty,
+                                  OP *hlslOP, IRBuilder<> &Builder) {
   if (!Ty->isVoidTy()) {
     Value *retVal =
-      Builder.CreateCall(dxilFunc, refArgs, hlslOP->GetOpCodeName(opcode));
+        Builder.CreateCall(dxilFunc, refArgs, hlslOP->GetOpCodeName(opcode));
     return retVal;
   } else {
     // Cannot add name to void.
@@ -497,20 +497,22 @@ Value *TrivialDxilVectorOperation(Function *dxilFunc, OP::OpCode opcode,
   }
 }
 
-
-Value *TrivialDxilVectorUnaryOperationRet(OP::OpCode opcode, Value *src, Type *Ty,
-					  OP *hlslOP, IRBuilder<> &Builder) {
+Value *TrivialDxilVectorUnaryOperationRet(OP::OpCode opcode, Value *src,
+                                          Type *Ty, OP *hlslOP,
+                                          IRBuilder<> &Builder) {
 
   Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
   Value *args[] = {opArg, src};
 
   Function *dxilFunc = hlslOP->GetOpFunc(opcode, Ty);
 
-  return TrivialDxilVectorOperation(dxilFunc, opcode, args, Ty, hlslOP, Builder);
+  return TrivialDxilVectorOperation(dxilFunc, opcode, args, Ty, hlslOP,
+                                    Builder);
 }
 
-Value *TrivialDxilVectorBinaryOperation(OP::OpCode opcode, Value *src0, Value *src1,
-                                  hlsl::OP *hlslOP, IRBuilder<> &Builder) {
+Value *TrivialDxilVectorBinaryOperation(OP::OpCode opcode, Value *src0,
+                                        Value *src1, hlsl::OP *hlslOP,
+                                        IRBuilder<> &Builder) {
   Type *Ty = src0->getType();
 
   Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
@@ -518,7 +520,8 @@ Value *TrivialDxilVectorBinaryOperation(OP::OpCode opcode, Value *src0, Value *s
 
   Function *dxilFunc = hlslOP->GetOpFunc(opcode, Ty);
 
-  return TrivialDxilVectorOperation(dxilFunc, opcode, args, Ty, hlslOP, Builder);
+  return TrivialDxilVectorOperation(dxilFunc, opcode, args, Ty, hlslOP,
+                                    Builder);
 }
 
 Value *TrivialDxilUnaryOperationRet(OP::OpCode opcode, Value *src, Type *RetTy,
@@ -547,24 +550,26 @@ Value *TrivialDxilBinaryOperation(OP::OpCode opcode, Value *src0, Value *src1,
   return TrivialDxilOperation(opcode, args, Ty, Ty, hlslOP, Builder);
 }
 
-Value *TrivialDxilTrinaryOperationRet(OP::OpCode opcode, Value *src0, Value *src1,
-				      Value *src2, Type *Ty, hlsl::OP *hlslOP,
-				      IRBuilder<> &Builder) {
+Value *TrivialDxilTrinaryOperationRet(OP::OpCode opcode, Value *src0,
+                                      Value *src1, Value *src2, Type *Ty,
+                                      hlsl::OP *hlslOP, IRBuilder<> &Builder) {
   Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
   Value *args[] = {opArg, src0, src1, src2};
 
   return TrivialDxilOperation(opcode, args, Ty, Ty, hlslOP, Builder);
 }
 
-Value *TrivialDxilVectorTrinaryOperationRet(OP::OpCode opcode, Value *src0, Value *src1,
-					    Value *src2, Type *Ty, hlsl::OP *hlslOP,
-					    IRBuilder<> &Builder) {
+Value *TrivialDxilVectorTrinaryOperationRet(OP::OpCode opcode, Value *src0,
+                                            Value *src1, Value *src2, Type *Ty,
+                                            hlsl::OP *hlslOP,
+                                            IRBuilder<> &Builder) {
   Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
   Value *args[] = {opArg, src0, src1, src2};
 
   Function *dxilFunc = hlslOP->GetOpFunc(opcode, Ty);
 
-  return TrivialDxilVectorOperation(dxilFunc, opcode, args, Ty, hlslOP, Builder);
+  return TrivialDxilVectorOperation(dxilFunc, opcode, args, Ty, hlslOP,
+                                    Builder);
 }
 
 Value *TrivialUnaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -579,22 +584,20 @@ Value *TrivialUnaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return retVal;
 }
 
-Value *TrivialVectorizableUnaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
-					 HLOperationLowerHelper &helper,
-					 HLObjectOperationLowerHelper *pObjHelper,
-					 bool &Translated) {
+Value *TrivialVectorizableUnaryOperation(
+    CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+    HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper,
+    bool &Translated) {
   Value *src0 = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   Type *Ty = CI->getType();
   IRBuilder<> Builder(CI);
   hlsl::OP *hlslOP = &helper.hlslOP;
 
-  if (Ty->isVectorTy() &&
-      helper.M.GetShaderModel()->IsSM69Plus())
-    return TrivialDxilVectorUnaryOperationRet(opcode, src0, Ty,
-					      hlslOP, Builder);
+  if (Ty->isVectorTy() && helper.M.GetShaderModel()->IsSM69Plus())
+    return TrivialDxilVectorUnaryOperationRet(opcode, src0, Ty, hlslOP,
+                                              Builder);
   else
-    return TrivialDxilUnaryOperationRet(opcode, src0, Ty,
-					hlslOP, Builder);
+    return TrivialDxilUnaryOperationRet(opcode, src0, Ty, hlslOP, Builder);
 }
 
 Value *TrivialBinaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -611,10 +614,11 @@ Value *TrivialBinaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return binOp;
 }
 
-Value *TrivialVectorBinaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
-				    HLOperationLowerHelper &helper,
-				    HLObjectOperationLowerHelper *pObjHelper,
-				    bool &Translated) {
+Value *TrivialVectorBinaryOperation(CallInst *CI, IntrinsicOp IOP,
+                                    OP::OpCode opcode,
+                                    HLOperationLowerHelper &helper,
+                                    HLObjectOperationLowerHelper *pObjHelper,
+                                    bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *src0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *src1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
@@ -626,9 +630,9 @@ Value *TrivialVectorBinaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode op
 }
 
 Value *TranslateFMA(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
-		    HLOperationLowerHelper &helper,
-		    HLObjectOperationLowerHelper *pObjHelper,
-		    bool &Translated) {
+                    HLOperationLowerHelper &helper,
+                    HLObjectOperationLowerHelper *pObjHelper,
+                    bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Type *Ty = CI->getType();
   Value *src0 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
@@ -636,11 +640,12 @@ Value *TranslateFMA(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Value *src2 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
   IRBuilder<> Builder(CI);
 
-  if (Ty->isVectorTy() &&
-      helper.M.GetShaderModel()->IsSM69Plus())
-    return TrivialDxilVectorTrinaryOperationRet(opcode, src0, src1, src2, Ty, hlslOP, Builder);
+  if (Ty->isVectorTy() && helper.M.GetShaderModel()->IsSM69Plus())
+    return TrivialDxilVectorTrinaryOperationRet(opcode, src0, src1, src2, Ty,
+                                                hlslOP, Builder);
   else
-    return TrivialDxilTrinaryOperationRet(opcode, src0, src1, src2, Ty, hlslOP, Builder);
+    return TrivialDxilTrinaryOperationRet(opcode, src0, src1, src2, Ty, hlslOP,
+                                          Builder);
 }
 
 Value *TrivialIsSpecialFloat(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -1986,15 +1991,16 @@ Value *TranslateClamp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   IRBuilder<> Builder(CI);
   // min(max(x, minVal), maxVal).
-  if (Ty->isVectorTy() &&
-      helper.M.GetShaderModel()->IsSM69Plus()) {
+  if (Ty->isVectorTy() && helper.M.GetShaderModel()->IsSM69Plus()) {
     Value *maxXMinVal =
-      TrivialDxilVectorBinaryOperation(maxOp, x, minVal, hlslOP, Builder);
-    return TrivialDxilVectorBinaryOperation(minOp, maxXMinVal, maxVal, hlslOP, Builder);
+        TrivialDxilVectorBinaryOperation(maxOp, x, minVal, hlslOP, Builder);
+    return TrivialDxilVectorBinaryOperation(minOp, maxXMinVal, maxVal, hlslOP,
+                                            Builder);
   } else {
     Value *maxXMinVal =
-      TrivialDxilBinaryOperation(maxOp, x, minVal, hlslOP, Builder);
-    return TrivialDxilBinaryOperation(minOp, maxXMinVal, maxVal, hlslOP, Builder);
+        TrivialDxilBinaryOperation(maxOp, x, minVal, hlslOP, Builder);
+    return TrivialDxilBinaryOperation(minOp, maxXMinVal, maxVal, hlslOP,
+                                      Builder);
   }
 }
 
@@ -2308,11 +2314,12 @@ Value *TranslateExp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         ConstantVector::getSplat(Ty->getVectorNumElements(), log2eConst);
   }
   val = Builder.CreateFMul(log2eConst, val);
-  if (Ty->isVectorTy() &&
-      helper.M.GetShaderModel()->IsSM69Plus())
-    return TrivialDxilVectorUnaryOperationRet(OP::OpCode::Exp, val, Ty, hlslOP, Builder);
+  if (Ty->isVectorTy() && helper.M.GetShaderModel()->IsSM69Plus())
+    return TrivialDxilVectorUnaryOperationRet(OP::OpCode::Exp, val, Ty, hlslOP,
+                                              Builder);
   else
-    return TrivialDxilUnaryOperationRet(OP::OpCode::Exp, val, Ty, hlslOP, Builder);
+    return TrivialDxilUnaryOperationRet(OP::OpCode::Exp, val, Ty, hlslOP,
+                                        Builder);
 }
 
 Value *TranslateLog(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -2328,11 +2335,12 @@ Value *TranslateLog(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     ln2Const = ConstantVector::getSplat(Ty->getVectorNumElements(), ln2Const);
   }
   Value *log = nullptr;
-  if (Ty->isVectorTy() &&
-      helper.M.GetShaderModel()->IsSM69Plus())
-    log = TrivialDxilVectorUnaryOperationRet(OP::OpCode::Log, val, Ty, hlslOP, Builder);
+  if (Ty->isVectorTy() && helper.M.GetShaderModel()->IsSM69Plus())
+    log = TrivialDxilVectorUnaryOperationRet(OP::OpCode::Log, val, Ty, hlslOP,
+                                             Builder);
   else
-    log = TrivialDxilUnaryOperationRet(OP::OpCode::Log, val, Ty, hlslOP, Builder);
+    log =
+        TrivialDxilUnaryOperationRet(OP::OpCode::Log, val, Ty, hlslOP, Builder);
 
   return Builder.CreateFMul(ln2Const, log);
 }
@@ -2392,13 +2400,12 @@ Value *TranslateFUIBinary(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
       break;
     }
   }
-  if (CI->getType()->isVectorTy() &&
-      helper.M.GetShaderModel()->IsSM69Plus())
+  if (CI->getType()->isVectorTy() && helper.M.GetShaderModel()->IsSM69Plus())
     return TrivialVectorBinaryOperation(CI, IOP, opcode, helper, pObjHelper,
-					Translated);
+                                        Translated);
   else
     return TrivialBinaryOperation(CI, IOP, opcode, helper, pObjHelper,
-				  Translated);
+                                  Translated);
 }
 
 Value *TranslateFUITrinary(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -2423,7 +2430,8 @@ Value *TranslateFUITrinary(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Value *src2 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
   IRBuilder<> Builder(CI);
 
-  return TrivialDxilTrinaryOperationRet(opcode, src0, src1, src2, Ty, hlslOP, Builder);
+  return TrivialDxilTrinaryOperationRet(opcode, src0, src1, src2, Ty, hlslOP,
+                                        Builder);
 }
 
 Value *TranslateFrexp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -2547,9 +2555,8 @@ Value *TrivialDotOperation(OP::OpCode opcode, Value *src0, Value *src1,
 
 // Instead of using a DXIL intrinsic, implement a dot product operation using
 // multiply and add operations. Used for integer dots and long vectors.
-Value *ExpandDot(Value *arg0, Value *arg1, unsigned vecSize,
-		 hlsl::OP *hlslOP, IRBuilder<> &Builder,
-		 bool Unsigned = false) {
+Value *ExpandDot(Value *arg0, Value *arg1, unsigned vecSize, hlsl::OP *hlslOP,
+                 IRBuilder<> &Builder, bool Unsigned = false) {
   auto madOpCode = Unsigned ? DXIL::OpCode::UMad : DXIL::OpCode::IMad;
   if (arg0->getType()->getScalarType()->isFloatingPointTy())
     madOpCode = DXIL::OpCode::FMad;
@@ -2559,8 +2566,8 @@ Value *ExpandDot(Value *arg0, Value *arg1, unsigned vecSize,
   for (unsigned Elt = 1; Elt < vecSize; ++Elt) {
     Elt0 = Builder.CreateExtractElement(arg0, Elt);
     Elt1 = Builder.CreateExtractElement(arg1, Elt);
-    Result = TrivialDxilTrinaryOperationRet(madOpCode, Elt0, Elt1, Result, Elt0->getType(), hlslOP,
-					    Builder);
+    Result = TrivialDxilTrinaryOperationRet(madOpCode, Elt0, Elt1, Result,
+                                            Elt0->getType(), hlslOP, Builder);
   }
 
   return Result;
@@ -2598,11 +2605,12 @@ Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   unsigned vecSize = Ty->getVectorNumElements();
   Value *arg1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
-  if (Ty->getScalarType()->isFloatingPointTy() && Ty->getVectorNumElements() <= 4) {
+  if (Ty->getScalarType()->isFloatingPointTy() &&
+      Ty->getVectorNumElements() <= 4) {
     return TranslateFDot(arg0, arg1, vecSize, hlslOP, Builder);
   } else {
     return ExpandDot(arg0, arg1, vecSize, hlslOP, Builder,
-                         IOP == IntrinsicOp::IOP_udot);
+                     IOP == IntrinsicOp::IOP_udot);
   }
 }
 
@@ -2785,8 +2793,9 @@ Value *TranslateMSad4(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   byteSrc = Builder.CreateInsertElement(byteSrc, byteSrcElt, 3);
 
   // Msad on vecref and byteSrc.
-  return TrivialDxilTrinaryOperationRet(DXIL::OpCode::Msad, vecRef, byteSrc, accum,
-					vecRef->getType(), hlslOP, Builder);
+  return TrivialDxilTrinaryOperationRet(DXIL::OpCode::Msad, vecRef, byteSrc,
+                                        accum, vecRef->getType(), hlslOP,
+                                        Builder);
 }
 
 Value *TranslateRCP(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -3151,7 +3160,7 @@ Value *TranslateMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         return TranslateFDot(arg0, arg1, vecSize, hlslOP, Builder);
       } else {
         return ExpandDot(arg0, arg1, vecSize, hlslOP, Builder,
-                             IOP == IntrinsicOp::IOP_umul);
+                         IOP == IntrinsicOp::IOP_umul);
       }
     } else {
       // mul(vector, scalar) == vector * scalar-splat
@@ -6554,7 +6563,8 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_asint16, TranslateBitcast, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_asuint, TranslateAsUint, DXIL::OpCode::SplitDouble},
     {IntrinsicOp::IOP_asuint16, TranslateAsUint, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP_atan, TrivialVectorizableUnaryOperation, DXIL::OpCode::Atan},
+    {IntrinsicOp::IOP_atan, TrivialVectorizableUnaryOperation,
+     DXIL::OpCode::Atan},
     {IntrinsicOp::IOP_atan2, TranslateAtan2, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_ceil, TrivialUnaryOperation, DXIL::OpCode::Round_pi},
     {IntrinsicOp::IOP_clamp, TranslateClamp, DXIL::OpCode::NumOpCodes},
@@ -6645,7 +6655,8 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_sqrt, TrivialUnaryOperation, DXIL::OpCode::Sqrt},
     {IntrinsicOp::IOP_step, TranslateStep, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_tan, TrivialUnaryOperation, DXIL::OpCode::Tan},
-    {IntrinsicOp::IOP_tanh, TrivialVectorizableUnaryOperation, DXIL::OpCode::Htan},
+    {IntrinsicOp::IOP_tanh, TrivialVectorizableUnaryOperation,
+     DXIL::OpCode::Htan},
     {IntrinsicOp::IOP_tex1D, EmptyLower, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_tex1Dbias, EmptyLower, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_tex1Dgrad, EmptyLower, DXIL::OpCode::NumOpCodes},

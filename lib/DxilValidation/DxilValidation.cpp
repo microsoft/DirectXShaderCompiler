@@ -2723,7 +2723,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       }
 
       // Instructions must be allowed.
-      if (!IsLLVMInstructionAllowed(I) || !IsLLVMInstructionAllowedForShaderModel(I, ValCtx)) {
+      if (!IsLLVMInstructionAllowed(I) ||
+          !IsLLVMInstructionAllowedForShaderModel(I, ValCtx)) {
         if (!IsLLVMInstructionAllowedForLib(I, ValCtx)) {
           ValCtx.EmitInstrError(&I, ValidationRule::InstrAllowed);
           continue;

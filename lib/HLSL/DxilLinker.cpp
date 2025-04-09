@@ -1278,7 +1278,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createScalarizerPass());
 
   // Need dxilelimvector for pre 6.9
-  //PM.add(createDxilEliminateVectorPass());
+  // PM.add(createDxilEliminateVectorPass());
 
   PM.add(createPromoteMemoryToRegisterPass());
 
