@@ -9040,5 +9040,98 @@ struct DxilInst_HitObject_Invoke {
   llvm::Value *get_payload() const { return Instr->getOperand(2); }
   void set_payload(llvm::Value *val) { Instr->setOperand(2, val); }
 };
+
+/// This instruction reads from a raw buffer and structured buffer
+struct DxilInst_RawBufferVectorLoad {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_RawBufferVectorLoad(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::RawBufferVectorLoad);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_buf = 1,
+    arg_index = 2,
+    arg_elementOffset = 3,
+    arg_alignment = 4,
+  };
+  // Accessors
+  llvm::Value *get_buf() const { return Instr->getOperand(1); }
+  void set_buf(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_index() const { return Instr->getOperand(2); }
+  void set_index(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_elementOffset() const { return Instr->getOperand(3); }
+  void set_elementOffset(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_alignment() const { return Instr->getOperand(4); }
+  void set_alignment(llvm::Value *val) { Instr->setOperand(4, val); }
+  int32_t get_alignment_val() const {
+    return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(4))
+                         ->getZExtValue());
+  }
+  void set_alignment_val(int32_t val) {
+    Instr->setOperand(4, llvm::Constant::getIntegerValue(
+                             llvm::IntegerType::get(Instr->getContext(), 32),
+                             llvm::APInt(32, (uint64_t)val)));
+  }
+};
+
+/// This instruction writes to a RWByteAddressBuffer or RWStructuredBuffer
+struct DxilInst_RawBufferVectorStore {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_RawBufferVectorStore(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::RawBufferVectorStore);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_uav = 1,
+    arg_index = 2,
+    arg_elementOffset = 3,
+    arg_value0 = 4,
+    arg_alignment = 5,
+  };
+  // Accessors
+  llvm::Value *get_uav() const { return Instr->getOperand(1); }
+  void set_uav(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_index() const { return Instr->getOperand(2); }
+  void set_index(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_elementOffset() const { return Instr->getOperand(3); }
+  void set_elementOffset(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_value0() const { return Instr->getOperand(4); }
+  void set_value0(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_alignment() const { return Instr->getOperand(5); }
+  void set_alignment(llvm::Value *val) { Instr->setOperand(5, val); }
+  int32_t get_alignment_val() const {
+    return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))
+                         ->getZExtValue());
+  }
+  void set_alignment_val(int32_t val) {
+    Instr->setOperand(5, llvm::Constant::getIntegerValue(
+                             llvm::IntegerType::get(Instr->getContext(), 32),
+                             llvm::APInt(32, (uint64_t)val)));
+  }
+};
 // INSTR-HELPER:END
 } // namespace hlsl
