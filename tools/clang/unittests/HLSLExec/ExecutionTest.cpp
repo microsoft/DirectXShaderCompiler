@@ -805,18 +805,12 @@ public:
                                const char *pShaderModelStr, const char *pShader,
                                Ty *pInputDataPairs, unsigned inputDataCount);
 
-  template <typename T, std::size_t N,
-  typename = std::enable_if_t<std::is_arithmetic_v<T>>>
-  // By checking that T is an arithmetic we can keep the compiler error messages
-  // from misusing the template much cleaner.
+  template <typename T, std::size_t N>
   void LongVectorBinaryOpTestBase();
   template <typename T>
   void LongVectorBinaryOpTestBase();
 
-  template <typename T, std::size_t N,
-  typename = std::enable_if_t<std::is_arithmetic_v<T>>>
-  // By checking that T is an arithmetic we can keep the compiler error messages
-  // from misusing the template much cleaner.
+  template <typename T, std::size_t N>
   void LongVectorUnaryOpTestBase();
   template <typename T>
   void LongVectorUnaryOpTestBase();
@@ -11283,7 +11277,7 @@ bool DoVectorsMatch(const std::vector<T>& vec1, const std::vector<T>& vec2, doub
         for (size_t index : mismatchedIndexes) {
           std::wstringstream wss(L"");
           wss << L"Mismatch at Index: " << index;
-          wss << L" Expected Value:" << vec1[index];
+          wss << L" Expected Value:" << vec1[index] << ",";
           wss << L" Actual Value:" << vec2[index];
           WEX::Logging::Log::Error(wss.str().c_str());
         }
@@ -11315,6 +11309,43 @@ T parseStringToNumber(std::wstring& str) {
     return boolVal ;
   } else {
     VERIFY_IS_TRUE(false, L"Unsupported type for parsing string to number.");
+  }
+}
+
+// A helper to get the hlsl type as a string for a given C++ type.
+template <typename T>
+std::string GetHLSLTypeString() {
+  if (std::is_same<T, bool>::value) {
+    return "bool";
+  // TODO: Need special logic for half. No half in C++
+  //} else if (std::is_same<T, half>::value) {
+  //  return "half";
+  } else if (std::is_same<T, float>::value) {
+    return "float";
+  } else if (std::is_same<T, double>::value) {
+    return "double";
+  } else if (std::is_same<T, int16_t>::value) {
+    return "int16_t";
+  } else if (std::is_same<T, int32_t>::value) {
+    return "int";
+  } else if (std::is_same<T, int64_t>::value) {
+    return "int64_t";
+  } else if (std::is_same<T, uint16_t>::value) {
+    return "uint16_t";
+  } else if (std::is_same<T, uint32_t>::value) {
+     return "uint32_t";
+  } else if (std::is_same<T, uint64_t>::value) {
+     return "uint64_t";
+  // TODO: Need special logic for these types in C++
+  //} else if (std::is_same<T, packed_int16_t>::value) {
+  //   return "packed_int16_t";
+  //} else if (std::is_same<T, packed_uint16_t>::value) {
+  //   return "packed_uint16_t";
+  } else {
+    std::string errStr("GetHLSLTypeString() Unsupported type: ");
+    errStr.append(typeid(T).name());
+    VERIFY_IS_TRUE(false, errStr.c_str());
+    return "UnknownType";
   }
 }
 
@@ -11353,19 +11384,21 @@ std::vector<std::vector<T>> parseStringsToNumbers(const std::vector<WEX::Common:
   return result;
 }
 
+TEST_F(ExecutionTest, LongVector_BinaryOpTest_bool) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  // TODOLONGVEC: Do all the binary ops make sense on bools?
+  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped, L"Skipping bool test for now.");
+  //LongVectorBinaryOpTestBase<bool>();
+}
+
+// TODO: No half available in C++. Need to add logic for this type
 //TEST_F(ExecutionTest, LongVector_BinaryOpTest_float16) {
 //  WEX::TestExecution::SetVerifyOutput verifySettings(
 //      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 //  
 //  LongVectorBinaryOpTestBase<float>();
 //}
-
-TEST_F(ExecutionTest, LongVector_BinaryOpTest_bool) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  // TODOLONGVEC: Do all the binary ops make sense on bools?
-  //LongVectorBinaryOpTestBase<bool>();
-}
 
 TEST_F(ExecutionTest, LongVector_BinaryOpTest_float32) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -11423,12 +11456,13 @@ void ExecutionTest::LongVectorBinaryOpTestBase() {
   LongVectorBinaryOpTestBase<T, 5>();
   LongVectorBinaryOpTestBase<T, 16>();
   LongVectorBinaryOpTestBase<T, 17>();
+  LongVectorBinaryOpTestBase<T, 35>();
+  LongVectorBinaryOpTestBase<T, 100>();
   // TODOLONGVEC: 1024 breaks the size limit for structured buffers
   //LongVectorBinaryOpTestBase<T, 1024>();
 }
 
 template <typename T, std::size_t N>
-//typename = std::enable_if_t<std::is_arithmetic_v<T>>>
 void ExecutionTest::LongVectorBinaryOpTestBase() {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -11537,9 +11571,11 @@ void ExecutionTest::LongVectorBinaryOpTestBase() {
   // valid for the lifespan of the test method. Really should just use something
   // like a std::shared_ptr<std::string>
   char compilerOptions[256];
-  std::string type("float");
+  std::string type = GetHLSLTypeString<T>();
+  const bool is16BitType = (type == "int16_t" || type == "uint16_t" || type == "half");
+  std::string additionalOptions = is16BitType ? "-enable-16bit-types" : "";
   VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
-                           "-DTYPE=%s -D NUM=%zu", type.c_str(), numElementsPerVector) != -1);
+                           "-DTYPE=%s -D NUM=%zu %s", type.c_str(), numElementsPerVector, additionalOptions.c_str()) != -1);
 
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
     pDevice, m_support, pStream, "LongVectorBinaryOp", 
@@ -11548,7 +11584,7 @@ void ExecutionTest::LongVectorBinaryOpTestBase() {
     // ShaderOpArith.xml. We update with values defined in ShadoerOpArithTable.xml.
     [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
       LogCommentFmt(L"RunShaderOpTest CB. Shader Name: %S", Name);
-      VERIFY_IS_TRUE(0 == _stricmp(Name, "SLongVectorBinaryOp<T>"));
+      VERIFY_IS_TRUE(0 == _stricmp(Name, "SLongVectorBinaryOp"));
 
       const size_t size = sizeof(SLongVectorBinaryOp<T, N>) * inputVectorCount;
       Data.resize(size);
@@ -11586,7 +11622,7 @@ void ExecutionTest::LongVectorBinaryOpTestBase() {
 
   // Map the data from GPU to CPU memory so we can verify our expectations.
   MappedData data;
-  test->Test->GetReadBackData("SLongVectorBinaryOp<T>", &data);
+  test->Test->GetReadBackData("SLongVectorBinaryOp", &data);
 
   // Cast the buffer back into an array of the structs we expect.
   SLongVectorBinaryOp<T, N> *pPrimitive = (SLongVectorBinaryOp<T, N>*)data.data();
@@ -11600,7 +11636,7 @@ void ExecutionTest::LongVectorBinaryOpTestBase() {
   }
 }
 
-template <typename T, std::size_t N = 4,
+template <typename T, std::size_t N,
 typename = std::enable_if_t<std::is_arithmetic_v<T>>>
 struct SLongVectorUnaryOp {
   T clampArgC;
@@ -11609,6 +11645,7 @@ struct SLongVectorUnaryOp {
   std::array<T, N> vecOutput;
 };
 
+// TODO: No half available in C++. Need to add logic for this type
 //TEST_F(ExecutionTest, LongVector_UnaryOpTest_float16) {
 //  WEX::TestExecution::SetVerifyOutput verifySettings(
 //      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -11672,14 +11709,13 @@ void ExecutionTest::LongVectorUnaryOpTestBase() {
   LongVectorUnaryOpTestBase<T, 5>();
   LongVectorUnaryOpTestBase<T, 16>();
   LongVectorUnaryOpTestBase<T, 17>();
+  LongVectorUnaryOpTestBase<T, 35>();
+  LongVectorUnaryOpTestBase<T, 100>();
   // TODOLONGVEC: 1024 breaks the size limit for structured buffers
   //LongVectorUnaryOpTestBase<T, 1024>();
 }
 
-template <typename T, std::size_t N,
-// By checking that T is an arithmetic we can keep the compiler error messages
-// from misusing the template much cleaner.
-typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+template <typename T, std::size_t N>
 void ExecutionTest::LongVectorUnaryOpTestBase() {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -11772,9 +11808,11 @@ void ExecutionTest::LongVectorUnaryOpTestBase() {
   // valid for the lifespan of the test method. Really should just use something
   // like a std::shared_ptr<std::string>
   char compilerOptions[256];
-  std::string type("float");
+  std::string type = GetHLSLTypeString<T>();
+  const bool is16BitType = (type == "int16_t" || type == "uint16_t" || type == "half");
+  std::string additionalOptions = is16BitType ? "-enable-16bit-types" : "";
   VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
-                           "-DTYPE=%s -D NUM=%zu", type.c_str(), numElementsPerVector) != -1);
+                           "-DTYPE=%s -D NUM=%zu %s", type.c_str(), numElementsPerVector, additionalOptions.c_str()) != -1);
 
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
     pDevice, m_support, pStream, "LongVectorUnaryOp", 
@@ -11783,7 +11821,7 @@ void ExecutionTest::LongVectorUnaryOpTestBase() {
     // ShaderOpArith.xml. We update with values defined in ShadoerOpArithTable.xml.
     [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
       LogCommentFmt(L"RunShaderOpTest CB. Shader Name: %S", Name);
-      VERIFY_IS_TRUE(0 == _stricmp(Name, "SLongVectorUnaryOp<T>"));
+      VERIFY_IS_TRUE(0 == _stricmp(Name, "SLongVectorUnaryOp"));
 
       const size_t size = sizeof(SLongVectorUnaryOp<T, N>) * inputVectorCount;
       Data.resize(size);
@@ -11819,7 +11857,7 @@ void ExecutionTest::LongVectorUnaryOpTestBase() {
 
   // Map the data from GPU to CPU memory so we can verify our expectations.
   MappedData data;
-  test->Test->GetReadBackData("SLongVectorUnaryOp<T>", &data);
+  test->Test->GetReadBackData("SLongVectorUnaryOp", &data);
 
   // Cast the buffer back into an array of the structs we expect.
   SLongVectorUnaryOp<T, N> *pPrimitive = (SLongVectorUnaryOp<T, N>*)data.data();
