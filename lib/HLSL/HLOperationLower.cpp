@@ -2084,7 +2084,7 @@ Value *TranslateFirstbitHi(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                            HLObjectOperationLowerHelper *pObjHelper,
                            bool &Translated) {
   Value *firstbitHi =
-      TrivialUnaryOperation(CI, IOP, opcode, helper, pObjHelper, Translated);
+      TrivialUnaryOperationRet(CI, IOP, opcode, helper, pObjHelper, Translated);
   // firstbitHi == -1? -1 : (bitWidth-1 -firstbitHi);
   IRBuilder<> Builder(CI);
   Constant *neg1 = Builder.getInt32(-1);
@@ -2117,7 +2117,7 @@ Value *TranslateFirstbitLo(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                            HLObjectOperationLowerHelper *pObjHelper,
                            bool &Translated) {
   Value *firstbitLo =
-      TrivialUnaryOperation(CI, IOP, opcode, helper, pObjHelper, Translated);
+      TrivialUnaryOperationRet(CI, IOP, opcode, helper, pObjHelper, Translated);
   return firstbitLo;
 }
 
