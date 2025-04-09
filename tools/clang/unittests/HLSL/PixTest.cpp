@@ -146,11 +146,16 @@ public:
   TEST_METHOD(RootSignatureUpgrade_Annotation)
 
   TEST_METHOD(DxilPIXDXRInvocationsLog_SanityTest)
+  TEST_METHOD(DxilPIXDXRInvocationsLog_EmbeddedRootSigs)
 
   TEST_METHOD(DebugInstrumentation_TextOutput)
   TEST_METHOD(DebugInstrumentation_BlockReport)
 
   TEST_METHOD(DebugInstrumentation_VectorAllocaWrite_Structs)
+
+  TEST_METHOD(NonUniformResourceIndex_Resource)
+  TEST_METHOD(NonUniformResourceIndex_DescriptorHeap)
+  TEST_METHOD(NonUniformResourceIndex_Raytracing)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -443,6 +448,11 @@ public:
   std::string RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob);
   CComPtr<IDxcBlob> RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob);
   CComPtr<IDxcBlob> RunDxilPIXDXRInvocationsLog(IDxcBlob *blob);
+  std::vector<std::string>
+  RunDxilNonUniformResourceIndexInstrumentation(IDxcBlob *blob,
+                                                std::string &outputText);
+  void TestNuriCase(const char *source, const wchar_t *target,
+                    uint32_t expectedResult);
   void TestPixUAVCase(char const *hlsl, wchar_t const *model,
                       wchar_t const *entry);
   std::string Disassemble(IDxcBlob *pProgram);
@@ -660,7 +670,7 @@ CComPtr<IDxcBlob> PixTest::RunDxilPIXDXRInvocationsLog(IDxcBlob *blob) {
   CComPtr<IDxcBlob> pOptimizedModule;
   CComPtr<IDxcBlobEncoding> pText;
   VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
-      dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+      blob, Options.data(), Options.size(), &pOptimizedModule, &pText));
 
   std::string outputText;
   if (pText->GetBufferSize() != 0) {
@@ -668,6 +678,29 @@ CComPtr<IDxcBlob> PixTest::RunDxilPIXDXRInvocationsLog(IDxcBlob *blob) {
   }
 
   return pOptimizedModule;
+}
+
+std::vector<std::string> PixTest::RunDxilNonUniformResourceIndexInstrumentation(
+    IDxcBlob *blob, std::string &outputText) {
+
+  CComPtr<IDxcBlob> dxil = FindModule(DFCC_ShaderDebugInfoDXIL, blob);
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+  std::array<LPCWSTR, 4> Options = {
+      L"-opt-mod-passes", L"-dxil-dbg-value-to-dbg-declare",
+      L"-dxil-annotate-with-virtual-regs",
+      L"-hlsl-dxil-non-uniform-resource-index-instrumentation"};
+
+  CComPtr<IDxcBlob> pOptimizedModule;
+  CComPtr<IDxcBlobEncoding> pText;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+      dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+  outputText = BlobToUtf8(pText);
+
+  const std::string disassembly = Disassemble(pOptimizedModule);
+  return Tokenize(disassembly, "\n");
 }
 
 std::string
@@ -2943,6 +2976,230 @@ void MyMiss(inout MyPayload payload)
 
   auto compiledLib = Compile(m_dllSupport, source, L"lib_6_6", {});
   RunDxilPIXDXRInvocationsLog(compiledLib);
+}
+
+TEST_F(PixTest, DxilPIXDXRInvocationsLog_EmbeddedRootSigs) {
+
+  const char *source = R"x(
+
+GlobalRootSignature grs = {"CBV(b0)"};
+struct MyPayload
+{
+    float4 color;
+};
+
+[shader("raygeneration")]
+void MyRayGen()
+{
+}
+
+[shader("closesthit")]
+void MyClosestHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+}
+
+[shader("anyhit")]
+void MyAnyHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+}
+
+[shader("miss")]
+void MyMiss(inout MyPayload payload)
+{
+}
+
+)x";
+
+  auto compiledLib = Compile(m_dllSupport, source, L"lib_6_3",
+                             {L"-Qstrip_reflect"}, L"RootSig");
+  RunDxilPIXDXRInvocationsLog(compiledLib);
+}
+
+uint32_t NuriGetWaveInstructionCount(const std::vector<std::string> &lines) {
+  // This is the instruction we'll insert into the shader if we detect dynamic
+  // resource indexing
+  const char *const waveActiveAllEqual = "call i1 @dx.op.waveActiveAllEqual";
+
+  uint32_t instCount = 0;
+  for (const std::string &line : lines) {
+    instCount += line.find(waveActiveAllEqual) != std::string::npos;
+  }
+  return instCount;
+}
+
+void PixTest::TestNuriCase(const char *source, const wchar_t *target,
+                           uint32_t expectedResult) {
+
+  for (const OptimizationChoice &choice : OptimizationChoices) {
+    const std::vector<LPCWSTR> compilationOptions = {choice.Flag};
+
+    CComPtr<IDxcBlob> compiledLib =
+        Compile(m_dllSupport, source, target, compilationOptions);
+
+    std::string outputText;
+    const std::vector<std::string> dxilLines =
+        RunDxilNonUniformResourceIndexInstrumentation(compiledLib, outputText);
+
+    VERIFY_ARE_EQUAL(NuriGetWaveInstructionCount(dxilLines), expectedResult);
+
+    bool foundDynamicIndexingNoNuri = false;
+    const std::vector<std::string> outputTextLines = Tokenize(outputText, "\n");
+    for (const std::string &line : outputTextLines) {
+      if (line.find("FoundDynamicIndexingNoNuri") != std::string::npos) {
+        foundDynamicIndexingNoNuri = true;
+        break;
+      }
+    }
+
+    VERIFY_ARE_EQUAL((expectedResult != 0), foundDynamicIndexingNoNuri);
+  }
+}
+
+TEST_F(PixTest, NonUniformResourceIndex_Resource) {
+
+  const char *source = R"x(
+Texture2D tex[] : register(t0);
+float4 main(float2 uv : TEXCOORD0) : SV_TARGET
+{
+    uint index = uv.x * uv.y;
+    return tex[index].Load(int3(0, 0, 0));
+})x";
+
+  const char *sourceWithNuri = R"x(
+Texture2D tex[] : register(t0);
+float4 main(float2 uv : TEXCOORD0) : SV_TARGET
+{
+    uint i = uv.x * uv.y;
+    return tex[NonUniformResourceIndex(i)].Load(int3(0, 0, 0));
+})x";
+
+  TestNuriCase(source, L"ps_6_0", 1);
+  TestNuriCase(sourceWithNuri, L"ps_6_0", 0);
+
+  if (m_ver.SkipDxilVersion(1, 6)) {
+    return;
+  }
+
+  TestNuriCase(source, L"ps_6_6", 1);
+  TestNuriCase(sourceWithNuri, L"ps_6_6", 0);
+}
+
+TEST_F(PixTest, NonUniformResourceIndex_DescriptorHeap) {
+
+  if (m_ver.SkipDxilVersion(1, 6)) {
+    return;
+  }
+
+  const char *source = R"x(
+Texture2D tex[] : register(t0);
+float4 main(float2 uv : TEXCOORD0) : SV_TARGET
+{
+    uint i = uv.x + uv.y;
+    Texture2D<float4> dynResTex = 
+        ResourceDescriptorHeap[i];
+    SamplerState dynResSampler = 
+        SamplerDescriptorHeap[i];
+    return dynResTex.Sample(dynResSampler, uv);
+})x";
+
+  const char *sourceWithNuri = R"x(
+Texture2D tex[] : register(t0);
+float4 main(float2 uv : TEXCOORD0) : SV_TARGET
+{
+    uint i = uv.x + uv.y;
+    Texture2D<float4> dynResTex = 
+        ResourceDescriptorHeap[NonUniformResourceIndex(i)];
+    SamplerState dynResSampler = 
+        SamplerDescriptorHeap[NonUniformResourceIndex(i)];
+    return dynResTex.Sample(dynResSampler, uv);
+})x";
+
+  TestNuriCase(source, L"ps_6_6", 2);
+  TestNuriCase(sourceWithNuri, L"ps_6_6", 0);
+}
+
+TEST_F(PixTest, NonUniformResourceIndex_Raytracing) {
+
+  if (m_ver.SkipDxilVersion(1, 5)) {
+    return;
+  }
+
+  const char *source = R"x(
+RWTexture2D<float4> RT[] : register(u0);
+
+[noinline]
+void FuncNoInline(uint index)
+{
+    float2 rayIndex = DispatchRaysIndex().xy;
+    uint i = index + rayIndex.x * rayIndex.y;
+    float4 c = float4(0.5, 0.5, 0.5, 0);
+    RT[i][rayIndex.xy] += c;
+}
+
+void Func(uint index)
+{
+    float2 rayIndex = DispatchRaysIndex().xy;
+    uint i = index + rayIndex.y;
+    float4 c = float4(0, 1, 0, 0);
+    RT[i][rayIndex.xy] += c;
+}
+
+[shader("raygeneration")]
+void Main()
+{
+    float2 rayIndex = DispatchRaysIndex().xy;
+
+    uint i1 = rayIndex.x;
+    float4 c1 = float4(1, 0, 1, 1);
+    RT[i1][rayIndex.xy] += c1;
+
+    uint i2 = rayIndex.x * rayIndex.y * 0.25;
+    float4 c2 = float4(0.25, 0, 0.25, 0);
+    RT[i2][rayIndex.xy] += c2;
+
+    Func(i1);
+    FuncNoInline(i2);
+})x";
+
+  const char *sourceWithNuri = R"x(
+RWTexture2D<float4> RT[] : register(u0);
+
+[noinline]
+void FuncNoInline(uint index)
+{
+    float2 rayIndex = DispatchRaysIndex().xy;
+    uint i = index + rayIndex.x * rayIndex.y;
+    float4 c = float4(0.5, 0.5, 0.5, 0);
+    RT[NonUniformResourceIndex(i)][rayIndex.xy] += c;
+}
+
+void Func(uint index)
+{
+    float2 rayIndex = DispatchRaysIndex().xy;
+    uint i = index + rayIndex.y;
+    float4 c = float4(0, 1, 0, 0);
+    RT[NonUniformResourceIndex(i)][rayIndex.xy] += c;
+}
+
+[shader("raygeneration")]
+void Main()
+{
+    float2 rayIndex = DispatchRaysIndex().xy;
+
+    uint i1 = rayIndex.x;
+    float4 c1 = float4(1, 0, 1, 1);
+    RT[NonUniformResourceIndex(i1)][rayIndex.xy] += c1;
+
+    uint i2 = rayIndex.x * rayIndex.y * 0.25;
+    float4 c2 = float4(0.25, 0, 0.25, 0);
+    RT[NonUniformResourceIndex(i2)][rayIndex.xy] += c2;
+
+    Func(i1);
+    FuncNoInline(i2);
+})x";
+
+  TestNuriCase(source, L"lib_6_5", 4);
+  TestNuriCase(sourceWithNuri, L"lib_6_5", 0);
 }
 
 TEST_F(PixTest, DebugInstrumentation_TextOutput) {

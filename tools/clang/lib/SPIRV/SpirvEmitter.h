@@ -4,6 +4,10 @@
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
+//
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 //
 //  This file defines a SPIR-V emitter class that takes in HLSL AST and emits
@@ -491,6 +495,15 @@ private:
   /// Processes the 'lit' intrinsic function.
   SpirvInstruction *processIntrinsicLit(const CallExpr *);
 
+  /// Processes the 'vk::static_pointer_cast' and 'vk_reinterpret_pointer_cast'
+  /// intrinsic functions.
+  SpirvInstruction *processIntrinsicPointerCast(const CallExpr *,
+                                                bool isStatic);
+
+  /// Processes the vk::BufferPointer intrinsic function 'Get'.
+  SpirvInstruction *
+  processIntrinsicGetBufferContents(const CXXMemberCallExpr *);
+
   /// Processes the 'GroupMemoryBarrier', 'GroupMemoryBarrierWithGroupSync',
   /// 'DeviceMemoryBarrier', 'DeviceMemoryBarrierWithGroupSync',
   /// 'AllMemoryBarrier', and 'AllMemoryBarrierWithGroupSync' intrinsic
@@ -656,6 +669,10 @@ private:
   /// Processes SM6.0 quad-wide shuffle.
   SpirvInstruction *processWaveQuadWideShuffle(const CallExpr *,
                                                hlsl::IntrinsicOp op);
+
+  /// Processes SM6.7 quad any/all.
+  SpirvInstruction *processWaveQuadAnyAll(const CallExpr *,
+                                          hlsl::IntrinsicOp op);
 
   /// Generates the Spir-V instructions needed to implement the given call to
   /// WaveActiveAllEqual. Returns a pointer to the instruction that produces the
