@@ -226,6 +226,7 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_KHR_float_controls", Extension::KHR_float_controls)
       .Case("SPV_NV_shader_subgroup_partitioned",
             Extension::NV_shader_subgroup_partitioned)
+      .Case("SPV_KHR_quad_control", Extension::KHR_quad_control)
       .Default(Extension::Unknown);
 }
 
@@ -297,6 +298,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_float_controls";
   case Extension::NV_shader_subgroup_partitioned:
     return "SPV_NV_shader_subgroup_partitioned";
+  case Extension::KHR_quad_control:
+    return "SPV_KHR_quad_control";
   default:
     break;
   }

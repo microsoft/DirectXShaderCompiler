@@ -7,6 +7,9 @@
 //                                                                           //
 // Lower functions to lower HL operations to DXIL operations.                //
 //                                                                           //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
+// All rights reserved.                                                      //
+//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 #define _USE_MATH_DEFINES
@@ -4297,6 +4300,9 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   if (isBool || (is64 && isTyped))
     EltTy = Builder.getInt32Ty();
 
+  // Calculate load size with the scalar memory element type.
+  unsigned LdSize = DL.getTypeAllocSize(EltTy);
+
   // Adjust number of components as needed.
   if (is64 && isTyped) {
     // 64-bit types are stored as int32 pairs in typed buffers.
@@ -4308,7 +4314,6 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
     NumComponents = 1;
   }
 
-  unsigned LdSize = DL.getTypeAllocSize(EltTy);
   SmallVector<Value *, 10> Args = GetBufLoadArgs(helper, RK, Builder, LdSize);
 
   // Keep track of the first load for debug info migration.
@@ -6950,6 +6955,12 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_DxMaybeReorderThread, TranslateMaybeReorderThread,
      DXIL::OpCode::NumOpCodes_Dxil_1_8}, // FIXME: Just a placeholder Dxil
                                          // opcode
+    {IntrinsicOp::IOP_Vkstatic_pointer_cast, UnsupportedVulkanIntrinsic,
+     DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_Vkreinterpret_pointer_cast, UnsupportedVulkanIntrinsic,
+     DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_GetBufferContents, UnsupportedVulkanIntrinsic,
+     DXIL::OpCode::NumOpCodes},
 };
 } // namespace
 static_assert(

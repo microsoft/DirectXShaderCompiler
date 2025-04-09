@@ -1247,8 +1247,8 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createDxilReinsertNopsPass());
   PM.add(createAlwaysInlinerPass(/*InsertLifeTime*/ false));
 
-  // Need to lower vector load/stores to scalars here?
-  // If we need SROA and dynamicindexvector to array, it has to be here.
+  // If we need SROA and dynamicindexvector to array,
+  // do it early to allow following scalarization to go forward.
   PM.add(createDxilScalarizeVectorLoadStoresPass());
 
   // Remove unused functions.
