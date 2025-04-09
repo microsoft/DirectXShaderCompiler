@@ -5529,7 +5529,7 @@ public:
         m_sema->RequireCompleteType(argSrcLoc, argType,
                                     diag::err_typecheck_decl_incomplete_type);
 
-        if (containsLongVector(argType)) {
+        if (ContainsLongVector(argType)) {
           const unsigned ConstantBuffersOrTextureBuffersIdx = 0;
           m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
               << ConstantBuffersOrTextureBuffersIdx;
@@ -5637,7 +5637,7 @@ public:
       CXXRecordDecl *Decl = arg.getAsType()->getAsCXXRecordDecl();
       if (Decl && !Decl->isCompleteDefinition())
         return true;
-      if (containsLongVector(arg.getAsType())) {
+      if (ContainsLongVector(arg.getAsType())) {
         const unsigned TessellationPatchesIDx = 1;
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
@@ -5656,7 +5656,7 @@ public:
       CXXRecordDecl *Decl = arg.getAsType()->getAsCXXRecordDecl();
       if (Decl && !Decl->isCompleteDefinition())
         return true;
-      if (containsLongVector(arg.getAsType())) {
+      if (ContainsLongVector(arg.getAsType())) {
         const unsigned GeometryStreamsIdx = 2;
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
@@ -12545,14 +12545,14 @@ bool hlsl::ShouldSkipNRVO(clang::Sema &sema, clang::QualType returnType,
   return false;
 }
 
-bool hlsl::containsLongVector(QualType qt) {
-  if (qt.isNull() || qt->isDependentType())
+bool hlsl::ContainsLongVector(QualType QT) {
+  if (QT.isNull() || QT->isDependentType())
     return false;
 
-  while (const ArrayType *Arr = qt->getAsArrayTypeUnsafe())
-    qt = Arr->getElementType();
+  while (const ArrayType *Arr = QT->getAsArrayTypeUnsafe())
+    QT = Arr->getElementType();
 
-  if (CXXRecordDecl *Decl = qt->getAsCXXRecordDecl()) {
+  if (CXXRecordDecl *Decl = QT->getAsCXXRecordDecl()) {
     if (!Decl->isCompleteDefinition())
       return false;
     return Decl->hasHLSLLongVector();
@@ -15193,7 +15193,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   }
 
   // Disallow long vecs from $Global cbuffers.
-  if (isGlobal && !isStatic && !isGroupShared) {
+  if (isGlobal && !isStatic && !isGroupShared && !IS_BASIC_OBJECT(basicKind)) {
     // Suppress actual emitting of errors for incompletable types here
     // They are redundant to those produced in ActOnUninitializedDecl.
     struct SilentDiagnoser : public TypeDiagnoser {
@@ -15201,7 +15201,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       virtual void diagnose(Sema &S, SourceLocation Loc, QualType T) {}
     } SD;
     RequireCompleteType(D.getLocStart(), qt, SD);
-    if (containsLongVector(qt)) {
+    if (ContainsLongVector(qt)) {
       unsigned CbuffersOrTbuffersIdx = 4;
       Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector)
           << CbuffersOrTbuffersIdx;
@@ -16099,7 +16099,7 @@ static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
 
 // Verify that user-defined intrinsic struct args contain no long vectors
 static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
-  if (containsLongVector(Arg->getType())) {
+  if (ContainsLongVector(Arg->getType())) {
     const unsigned UserDefinedStructParameterIdx = 5;
     S->Diag(Arg->getExprLoc(), diag::err_hlsl_unsupported_long_vector)
         << UserDefinedStructParameterIdx;
@@ -16842,14 +16842,14 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   // Would be nice to check for resources here as they crash the compiler now.
   // See issue #7186.
   for (const auto *param : FD->params()) {
-    if (containsLongVector(param->getType())) {
+    if (ContainsLongVector(param->getType())) {
       const unsigned EntryFunctionParametersIdx = 6;
       S.Diag(param->getLocation(), diag::err_hlsl_unsupported_long_vector)
           << EntryFunctionParametersIdx;
     }
   }
 
-  if (containsLongVector(FD->getReturnType())) {
+  if (ContainsLongVector(FD->getReturnType())) {
     const unsigned EntryFunctionReturnIdx = 7;
     S.Diag(FD->getLocation(), diag::err_hlsl_unsupported_long_vector)
         << EntryFunctionReturnIdx;

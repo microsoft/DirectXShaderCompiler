@@ -479,7 +479,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Dot"
         for (
             i
-        ) in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,TextureStoreSample,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore".split(
+        ) in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,TextureStoreSample,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore,RawBufferVectorLoad,RawBufferVectorStore".split(
             ","
         ):
             self.name_idx[i].category = "Resources"
@@ -606,6 +606,8 @@ class db_dxil(object):
         for i in "RawBufferLoad,RawBufferStore".split(","):
             self.name_idx[i].shader_model = 6, 2
             self.name_idx[i].shader_model_translated = 6, 0
+        for i in "RawBufferVectorLoad,RawBufferVectorStore".split(","):
+            self.name_idx[i].shader_model = 6, 9
         for i in "DispatchRaysIndex,DispatchRaysDimensions".split(","):
             self.name_idx[i].category = "Ray Dispatch Arguments"
             self.name_idx[i].shader_model = 6, 3
@@ -6115,10 +6117,88 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
-        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 1, 30)
+        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 3, 28)
 
         # Reserved block C
         next_op_idx = self.reserve_dxil_op_range("ReservedC", next_op_idx, 10)
+
+        # Long Vectors
+        self.add_dxil_op(
+            "RawBufferVectorLoad",
+            next_op_idx,
+            "RawBufferVectorLoad",
+            "reads from a raw buffer and structured buffer",
+            "hfwidl<",
+            "ro",
+            [
+                db_dxil_param(0, "$r", "", "the loaded value"),
+                db_dxil_param(2, "res", "buf", "handle of Raw Buffer to load from"),
+                db_dxil_param(
+                    3,
+                    "i32",
+                    "index",
+                    "element index for StructuredBuffer, or byte offset for ByteAddressBuffer",
+                ),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "elementOffset",
+                    "offset into element for StructuredBuffer, or undef for ByteAddressBuffer",
+                ),
+                db_dxil_param(
+                    5,
+                    "i32",
+                    "alignment",
+                    "relative load access alignment",
+                    is_const=True,
+                ),
+            ],
+            counters=("tex_load",),
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "RawBufferVectorStore",
+            next_op_idx,
+            "RawBufferVectorStore",
+            "writes to a RWByteAddressBuffer or RWStructuredBuffer",
+            "hfwidl<",
+            "",
+            [
+                db_dxil_param(0, "v", "", ""),
+                db_dxil_param(2, "res", "uav", "handle of UAV to store to"),
+                db_dxil_param(
+                    3,
+                    "i32",
+                    "index",
+                    "element index for StructuredBuffer, or byte offset for ByteAddressBuffer",
+                ),
+                db_dxil_param(
+                    4,
+                    "i32",
+                    "elementOffset",
+                    "offset into element for StructuredBuffer, or undef for ByteAddressBuffer",
+                ),
+                db_dxil_param(5, "$o", "value0", "value"),
+                db_dxil_param(
+                    6,
+                    "i32",
+                    "alignment",
+                    "relative store access alignment",
+                    is_const=True,
+                ),
+            ],
+            counters=("tex_store",),
+        )
+        next_op_idx += 1
+
+        # End of DXIL 1.9 opcodes.
+        # NOTE!! Update and uncomment when DXIL 1.9 opcodes are finalized:
+        # self.set_op_count_for_version(1, 9, next_op_idx)
+        # assert next_op_idx == NNN, (
+        #    "NNN is expected next operation index but encountered %d and thus opcodes are broken"
+        #    % next_op_idx
+        # )
 
         # Set interesting properties.
         self.build_indices()
@@ -6602,6 +6682,12 @@ class db_dxil(object):
             "HLSL DXIL Logs all non-RayGen DXR 1.0 invocations into a UAV",
             [{"n": "maxNumEntriesInLog", "t": "int", "c": 1}],
         )
+        add_pass(
+            "hlsl-dxil-non-uniform-resource-index-instrumentation",
+            "DxilNonUniformResourceIndexInstrumentation",
+            "HLSL DXIL NonUniformResourceIndex instrumentation for PIX",
+            [],
+        )
 
         category_lib = "dxil_gen"
 
@@ -6725,6 +6811,12 @@ class db_dxil(object):
             "hlsl-dxil-lower-handle-for-lib",
             "DxilLowerCreateHandleForLib",
             "DXIL Lower createHandleForLib",
+            [],
+        )
+        add_pass(
+            "hlsl-dxil-scalarize-vector-load-stores",
+            "DxilScalarizeVectorLoadStores",
+            "DXIL scalarize vector load/stores",
             [],
         )
         add_pass(
@@ -7949,11 +8041,15 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Instr.CoordinateCountForRawTypedBuf",
-            "raw/typed buffer don't need 2 coordinates.",
+            "raw/typed buffer offset must be undef.",
+        )
+        self.add_valrule(
+            "Instr.ConstAlignForRawBuf",
+            "Raw Buffer alignment value must be a constant.",
         )
         self.add_valrule(
             "Instr.CoordinateCountForStructBuf",
-            "structured buffer require 2 coordinates.",
+            "structured buffer requires defined index and offset coordinates.",
         )
         self.add_valrule(
             "Instr.MipLevelForGetDimension",

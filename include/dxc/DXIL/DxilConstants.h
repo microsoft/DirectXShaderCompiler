@@ -505,19 +505,21 @@ enum class OpCode : unsigned {
   ReservedB0 = 262,  // reserved
   ReservedB1 = 263,  // reserved
   ReservedB2 = 264,  // reserved
-  ReservedB30 = 290, // reserved
+  ReservedB28 = 290, // reserved
+  ReservedB29 = 291, // reserved
+  ReservedB30 = 292, // reserved
   ReservedB5 = 267,  // reserved
   ReservedB6 = 268,  // reserved
-  ReservedC0 = 291,  // reserved
-  ReservedC1 = 292,  // reserved
-  ReservedC2 = 293,  // reserved
-  ReservedC3 = 294,  // reserved
-  ReservedC4 = 295,  // reserved
-  ReservedC5 = 296,  // reserved
-  ReservedC6 = 297,  // reserved
-  ReservedC7 = 298,  // reserved
-  ReservedC8 = 299,  // reserved
-  ReservedC9 = 300,  // reserved
+  ReservedC0 = 293,  // reserved
+  ReservedC1 = 294,  // reserved
+  ReservedC2 = 295,  // reserved
+  ReservedC3 = 296,  // reserved
+  ReservedC4 = 297,  // reserved
+  ReservedC5 = 298,  // reserved
+  ReservedC6 = 299,  // reserved
+  ReservedC7 = 300,  // reserved
+  ReservedC8 = 301,  // reserved
+  ReservedC9 = 302,  // reserved
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -875,8 +877,11 @@ enum class OpCode : unsigned {
   GetDimensions = 72,   // gets texture size information
   RawBufferLoad = 139,  // reads from a raw buffer and structured buffer
   RawBufferStore = 140, // writes to a RWByteAddressBuffer or RWStructuredBuffer
-  TextureLoad = 66,     // reads texel data without any filtering or sampling
-  TextureStore = 67,    // reads texel data without any filtering or sampling
+  RawBufferVectorLoad = 303, // reads from a raw buffer and structured buffer
+  RawBufferVectorStore =
+      304,           // writes to a RWByteAddressBuffer or RWStructuredBuffer
+  TextureLoad = 66,  // reads texel data without any filtering or sampling
+  TextureStore = 67, // reads texel data without any filtering or sampling
   TextureStoreSample = 225, // stores texel data at specified sample index
 
   // Sampler Feedback
@@ -1050,7 +1055,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_7 = 226,
   NumOpCodes_Dxil_1_8 = 258,
 
-  NumOpCodes = 301 // exclusive last value of enumeration
+  NumOpCodes = 305 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1284,6 +1289,8 @@ enum class OpCodeClass : unsigned {
   GetDimensions,
   RawBufferLoad,
   RawBufferStore,
+  RawBufferVectorLoad,
+  RawBufferVectorStore,
   TextureLoad,
   TextureStore,
   TextureStoreSample,
@@ -1368,7 +1375,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
 
-  NumOpClasses = 183 // exclusive last value of enumeration
+  NumOpClasses = 185 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1427,6 +1434,12 @@ const unsigned kRawBufferLoadElementOffsetOpIdx = 3;
 const unsigned kRawBufferLoadMaskOpIdx = 4;
 const unsigned kRawBufferLoadAlignmentOpIdx = 5;
 
+// RawBufferVectorLoad.
+const unsigned kRawBufferVectorLoadHandleOpIdx = 1;
+const unsigned kRawBufferVectorLoadIndexOpIdx = 2;
+const unsigned kRawBufferVectorLoadElementOffsetOpIdx = 3;
+const unsigned kRawBufferVectorLoadAlignmentOpIdx = 4;
+
 // RawBufferStore
 const unsigned kRawBufferStoreHandleOpIdx = 1;
 const unsigned kRawBufferStoreIndexOpIdx = 2;
@@ -1436,7 +1449,14 @@ const unsigned kRawBufferStoreVal1OpIdx = 5;
 const unsigned kRawBufferStoreVal2OpIdx = 6;
 const unsigned kRawBufferStoreVal3OpIdx = 7;
 const unsigned kRawBufferStoreMaskOpIdx = 8;
-const unsigned kRawBufferStoreAlignmentOpIdx = 8;
+const unsigned kRawBufferStoreAlignmentOpIdx = 9;
+
+// RawBufferVectorStore
+const unsigned kRawBufferVectorStoreHandleOpIdx = 1;
+const unsigned kRawBufferVectorStoreIndexOpIdx = 2;
+const unsigned kRawBufferVectorStoreElementOffsetOpIdx = 3;
+const unsigned kRawBufferVectorStoreValOpIdx = 4;
+const unsigned kRawBufferVectorStoreAlignmentOpIdx = 5;
 
 // TextureStore.
 const unsigned kTextureStoreHandleOpIdx = 1;

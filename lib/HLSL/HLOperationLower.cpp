@@ -3956,6 +3956,11 @@ struct ResLoadHelper {
       : intrinsicOpCode(IntrinsicOp::Num_Intrinsics), handle(h), retVal(Inst),
         addr(idx), offset(Offset), status(nullptr), mipLevel(mip) {
     opcode = LoadOpFromResKind(RK);
+    Type *Ty = Inst->getType();
+    if (opcode == OP::OpCode::RawBufferLoad && Ty->isVectorTy() &&
+        Ty->getVectorNumElements() > 1 &&
+        Inst->getModule()->GetHLModule().GetShaderModel()->IsSM69Plus())
+      opcode = OP::OpCode::RawBufferVectorLoad;
   }
   OP::OpCode opcode;
   IntrinsicOp intrinsicOpCode;
@@ -4025,6 +4030,14 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
     if (RC == DxilResourceBase::Class::SRV)
       OffsetIdx = IsMS ? HLOperandIndex::kTex2DMSLoadOffsetOpIdx
                        : HLOperandIndex::kTexLoadOffsetOpIdx;
+  } else if (opcode == OP::OpCode::RawBufferLoad) {
+    // If native vectors are available and this load had a vector
+    // with more than one elements, convert the RawBufferLod to the
+    // native vector variant RawBufferVectorLoad.
+    Type *Ty = CI->getType();
+    if (Ty->isVectorTy() && Ty->getVectorNumElements() > 1 &&
+        CI->getModule()->GetHLModule().GetShaderModel()->IsSM69Plus())
+      opcode = OP::OpCode::RawBufferVectorLoad;
   }
 
   // Set offset.
@@ -4082,7 +4095,7 @@ Value *GenerateRawBufLd(Value *handle, Value *bufIdx, Value *offset,
 // Sets up arguments for buffer load call.
 static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
                                                HLResource::Kind RK,
-                                               IRBuilder<> Builder, Type *EltTy,
+                                               IRBuilder<> Builder,
                                                unsigned LdSize) {
   OP::OpCode opcode = helper.opcode;
   llvm::Constant *opArg = Builder.getInt32((uint32_t)opcode);
@@ -4130,6 +4143,7 @@ static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
     // If not TextureLoad, it could be a typed or raw buffer load.
     // They have mostly similar arguments.
     DXASSERT(opcode == OP::OpCode::RawBufferLoad ||
+                 opcode == OP::OpCode::RawBufferVectorLoad ||
                  opcode == OP::OpCode::BufferLoad,
              "Wrong opcode in get load args");
     Args.emplace_back(
@@ -4140,6 +4154,9 @@ static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
       // Unlike typed buffer load, raw buffer load has mask and alignment.
       Args.emplace_back(nullptr);      // Mask will be added later %4.
       Args.emplace_back(alignmentVal); // alignment @5.
+    } else if (opcode == OP::OpCode::RawBufferVectorLoad) {
+      // RawBufferVectorLoad takes just alignment, no mask.
+      Args.emplace_back(alignmentVal); // alignment @4
     }
   }
   return Args;
@@ -4165,18 +4182,21 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   if (isBool || (is64 && isTyped))
     EltTy = Builder.getInt32Ty();
 
-  // 64-bit types are stored as int32 pairs in typed buffers.
-  if (is64 && isTyped) {
-    DXASSERT(NumComponents <= 2, "Typed buffers only allow 4 dwords.");
-    NumComponents *= 2;
-  }
-
+  // Calculate load size with the scalar memory element type.
   unsigned LdSize = DL.getTypeAllocSize(EltTy);
 
-  SmallVector<Value *, 4> Elts(NumComponents);
+  // Adjust number of components as needed.
+  if (is64 && isTyped) {
+    // 64-bit types are stored as int32 pairs in typed buffers.
+    DXASSERT(NumComponents <= 2, "Typed buffers only allow 4 dwords.");
+    NumComponents *= 2;
+  } else if (opcode == OP::OpCode::RawBufferVectorLoad) {
+    // Native vector loads only have a single vector element in ResRet.
+    EltTy = VectorType::get(EltTy, NumComponents);
+    NumComponents = 1;
+  }
 
-  SmallVector<Value *, 10> Args =
-      GetBufLoadArgs(helper, RK, Builder, EltTy, LdSize);
+  SmallVector<Value *, 10> Args = GetBufLoadArgs(helper, RK, Builder, LdSize);
 
   // Keep track of the first load for debug info migration.
   Value *FirstLd = nullptr;
@@ -4188,9 +4208,10 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   else if (RK == DxilResource::Kind::StructuredBuffer)
     OffsetIdx = DXIL::OperandIndex::kRawBufferLoadElementOffsetOpIdx;
 
-  // Create calls to function object.
+  // Create call(s) to function object and collect results in Elts.
   // Typed buffer loads are limited to one load of up to 4 32-bit values.
   // Raw buffer loads might need multiple loads in chunks of 4.
+  SmallVector<Value *, 4> Elts(NumComponents);
   for (unsigned i = 0; i < NumComponents;) {
     // Load 4 elements or however many less than 4 are left to load.
     unsigned chunkSize = std::min(NumComponents - i, 4U);
@@ -4200,7 +4221,7 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
       Args[DXIL::OperandIndex::kRawBufferLoadMaskOpIdx] =
           GetRawBufferMaskForETy(EltTy, chunkSize, OP);
       // If we've loaded a chunk already, update offset to next chunk.
-      if (FirstLd != nullptr && opcode == OP::OpCode::RawBufferLoad)
+      if (FirstLd != nullptr)
         Args[OffsetIdx] =
             Builder.CreateAdd(Args[OffsetIdx], OP->GetU32Const(4 * LdSize));
     }
@@ -4209,8 +4230,13 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
     Value *Ld = Builder.CreateCall(F, Args, OP::GetOpCodeName(opcode));
 
     // Extract elements from returned ResRet.
-    for (unsigned j = 0; j < chunkSize; j++, i++)
-      Elts[i] = Builder.CreateExtractValue(Ld, j);
+    // Native vector loads just have one vector element in the ResRet.
+    // Others have up to four scalars that need to be individually extracted.
+    if (opcode == OP::OpCode::RawBufferVectorLoad)
+      Elts[i++] = Builder.CreateExtractValue(Ld, 0);
+    else
+      for (unsigned j = 0; j < chunkSize; j++, i++)
+        Elts[i] = Builder.CreateExtractValue(Ld, j);
 
     // Update status.
     UpdateStatus(Ld, helper.status, Builder, OP);
@@ -4248,9 +4274,10 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
     }
   }
 
-  // Package elements into a vector.
+  // Package elements into a vector as needed.
   Value *retValNew = nullptr;
-  if (!Ty->isVectorTy()) {
+  // Scalar or native vector loads need not construct vectors from elements.
+  if (!Ty->isVectorTy() || opcode == OP::OpCode::RawBufferVectorLoad) {
     retValNew = Elts[0];
   } else {
     retValNew = UndefValue::get(VectorType::get(EltTy, NumComponents));
@@ -4348,6 +4375,10 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   case DxilResource::Kind::StructuredBuffer:
     IsTyped = false;
     opcode = OP::OpCode::RawBufferStore;
+    // Where shader model and type allows, use vector store intrinsic.
+    if (OP->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus() &&
+        Ty->isVectorTy() && Ty->getVectorNumElements() > 1)
+      opcode = OP::OpCode::RawBufferVectorStore;
     break;
   case DxilResource::Kind::TypedBuffer:
     opcode = OP::OpCode::BufferStore;
@@ -4390,7 +4421,6 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     EltTy = i32Ty;
   }
 
-  Function *F = OP->GetOpFunc(opcode, EltTy);
   llvm::Constant *opArg = OP->GetU32Const((unsigned)opcode);
 
   llvm::Value *undefI =
@@ -4404,6 +4434,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
 
   unsigned OffsetIdx = 0;
   if (opcode == OP::OpCode::RawBufferStore ||
+      opcode == OP::OpCode::RawBufferVectorStore ||
       opcode == OP::OpCode::BufferStore) {
     // Append Coord0 (Index) value.
     if (Idx->getType()->isVectorTy()) {
@@ -4423,7 +4454,6 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
       OffsetIdx = storeArgs.size() - 1;
 
     // Coord1 (Offset).
-    // Only relevant when storing more than 4 elements to structured buffers.
     storeArgs.emplace_back(offset);
   } else {
     // texture store
@@ -4443,6 +4473,16 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     }
     // TODO: support mip for texture ST
   }
+
+  // RawBufferVectorStore only takes a single value and alignment arguments.
+  if (opcode == DXIL::OpCode::RawBufferVectorStore) {
+    storeArgs.emplace_back(val);
+    storeArgs.emplace_back(Alignment);
+    Function *F = OP->GetOpFunc(DXIL::OpCode::RawBufferVectorStore, Ty);
+    Builder.CreateCall(F, storeArgs);
+    return;
+  }
+  Function *F = OP->GetOpFunc(opcode, EltTy);
 
   constexpr unsigned MaxStoreElemCount = 4;
   const unsigned CompCount = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;

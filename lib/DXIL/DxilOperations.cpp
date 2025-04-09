@@ -2532,6 +2532,22 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      {{0x100}},
      {{0x0}}}, // Overloads: u
 
+    {OC::ReservedB28,
+     "ReservedB28",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedB29,
+     "ReservedB29",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
     {OC::ReservedB30,
      "ReservedB30",
      OCC::Reserved,
@@ -2620,6 +2636,24 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      0,
      {},
      {}}, // Overloads: v
+
+    // Resources
+    {OC::RawBufferVectorLoad,
+     "RawBufferVectorLoad",
+     OCC::RawBufferVectorLoad,
+     "rawBufferVectorLoad",
+     Attribute::ReadOnly,
+     1,
+     {{0x4e7}},
+     {{0xe7}}}, // Overloads: hfwidl<hfwidl
+    {OC::RawBufferVectorStore,
+     "RawBufferVectorStore",
+     OCC::RawBufferVectorStore,
+     "rawBufferVectorStore",
+     Attribute::None,
+     1,
+     {{0x4e7}},
+     {{0xe7}}}, // Overloads: hfwidl<hfwidl
 };
 // OPCODE-OLOADS:END
 
@@ -3377,8 +3411,9 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     }
     return;
   }
-  // Instructions: AllocateRayQuery2=258
-  if (op == 258) {
+  // Instructions: AllocateRayQuery2=258, RawBufferVectorLoad=303,
+  // RawBufferVectorStore=304
+  if (op == 258 || (303 <= op && op <= 304)) {
     major = 6;
     minor = 9;
     return;
@@ -5720,6 +5755,14 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     break;
 
     //
+  case OpCode::ReservedB28:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedB29:
+    A(pV);
+    A(pI32);
+    break;
   case OpCode::ReservedB30:
     A(pV);
     A(pI32);
@@ -5762,6 +5805,25 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     break;
   case OpCode::ReservedC9:
     A(pV);
+    A(pI32);
+    break;
+
+    // Resources
+  case OpCode::RawBufferVectorLoad:
+    RRT(pETy);
+    A(pI32);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::RawBufferVectorStore:
+    A(pV);
+    A(pI32);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pETy);
     A(pI32);
     break;
   // OPCODE-OLOAD-FUNCS:END
@@ -5914,6 +5976,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::StoreVertexOutput:
   case OpCode::StorePrimitiveOutput:
   case OpCode::DispatchMesh:
+  case OpCode::RawBufferVectorStore:
     if (FT->getNumParams() <= 4)
       return nullptr;
     return FT->getParamType(4);
@@ -6037,6 +6100,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedB6:
   case OpCode::HitObject_SetShaderTableIndex:
   case OpCode::HitObject_LoadLocalRootTableConstant:
+  case OpCode::ReservedB28:
+  case OpCode::ReservedB29:
   case OpCode::ReservedB30:
   case OpCode::ReservedC0:
   case OpCode::ReservedC1:
@@ -6157,7 +6222,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::TextureGatherRaw:
   case OpCode::SampleCmpLevel:
   case OpCode::SampleCmpGrad:
-  case OpCode::SampleCmpBias: {
+  case OpCode::SampleCmpBias:
+  case OpCode::RawBufferVectorLoad: {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
   }
