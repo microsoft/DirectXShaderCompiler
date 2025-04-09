@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_LIB_SPIRV_LOWERTYPEVISITOR_H
@@ -137,6 +140,7 @@ private:
   AlignmentSizeCalculator alignmentCalc; /// alignment calculator
   bool useArrayForMat1xN;                /// SPIR-V array for HLSL Matrix 1xN
   SpirvBuilder &spvBuilder;
+  SmallVector<QualType, 4> visitedTypeStack; // for type recursion detection
 };
 
 } // end namespace spirv

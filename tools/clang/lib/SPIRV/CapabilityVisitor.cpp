@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 #include "CapabilityVisitor.h"
@@ -200,8 +203,10 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   }
   // Pointer type
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
-    addCapabilityForType(ptrType->getPointeeType(), loc, sc);
-    if (sc == spv::StorageClass::PhysicalStorageBuffer) {
+    addCapabilityForType(ptrType->getPointeeType(), loc,
+                         ptrType->getStorageClass());
+    if (ptrType->getStorageClass() ==
+        spv::StorageClass::PhysicalStorageBuffer) {
       addExtension(Extension::KHR_physical_storage_buffer,
                    "SPV_KHR_physical_storage_buffer", loc);
       addCapability(spv::Capability::PhysicalStorageBufferAddresses);
@@ -853,6 +858,12 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
       });
 
   addExtensionAndCapabilitiesIfEnabled(
+      Extension::KHR_compute_shader_derivatives,
+      {
+          spv::Capability::ComputeDerivativeGroupQuadsKHR,
+          spv::Capability::ComputeDerivativeGroupLinearKHR,
+      });
+  addExtensionAndCapabilitiesIfEnabled(
       Extension::NV_compute_shader_derivatives,
       {
           spv::Capability::ComputeDerivativeGroupQuadsNV,
@@ -875,6 +886,9 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
       {spv::Capability::GroupNonUniformPartitionedNV});
 
   addCapability(spv::Capability::InterpolationFunction);
+
+  addExtensionAndCapabilitiesIfEnabled(Extension::KHR_quad_control,
+                                       {spv::Capability::QuadControlKHR});
 
   return true;
 }

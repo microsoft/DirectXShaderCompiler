@@ -5,6 +5,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
+//
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
 //                                                                           //
 ///
 /// \file                                                                    //
@@ -684,64 +687,20 @@ bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
 bool GetHLSLSubobjectKind(clang::QualType type,
                           DXIL::SubobjectKind &subobjectKind,
                           DXIL::HitGroupType &hgType) {
-  hgType = (DXIL::HitGroupType)(-1);
   type = type.getCanonicalType();
   if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    switch (name.size()) {
-    case 17:
-      return name == "StateObjectConfig"
-                 ? (subobjectKind = DXIL::SubobjectKind::StateObjectConfig,
-                    true)
-                 : false;
-    case 18:
-      return name == "LocalRootSignature"
-                 ? (subobjectKind = DXIL::SubobjectKind::LocalRootSignature,
-                    true)
-                 : false;
-    case 19:
-      return name == "GlobalRootSignature"
-                 ? (subobjectKind = DXIL::SubobjectKind::GlobalRootSignature,
-                    true)
-                 : false;
-    case 29:
-      return name == "SubobjectToExportsAssociation"
-                 ? (subobjectKind =
-                        DXIL::SubobjectKind::SubobjectToExportsAssociation,
-                    true)
-                 : false;
-    case 22:
-      return name == "RaytracingShaderConfig"
-                 ? (subobjectKind = DXIL::SubobjectKind::RaytracingShaderConfig,
-                    true)
-                 : false;
-    case 24:
-      return name == "RaytracingPipelineConfig"
-                 ? (subobjectKind =
-                        DXIL::SubobjectKind::RaytracingPipelineConfig,
-                    true)
-                 : false;
-    case 25:
-      return name == "RaytracingPipelineConfig1"
-                 ? (subobjectKind =
-                        DXIL::SubobjectKind::RaytracingPipelineConfig1,
-                    true)
-                 : false;
-    case 16:
-      if (name == "TriangleHitGroup") {
-        subobjectKind = DXIL::SubobjectKind::HitGroup;
-        hgType = DXIL::HitGroupType::Triangle;
-        return true;
-      }
-      return false;
-    case 27:
-      if (name == "ProceduralPrimitiveHitGroup") {
-        subobjectKind = DXIL::SubobjectKind::HitGroup;
-        hgType = DXIL::HitGroupType::ProceduralPrimitive;
-        return true;
-      }
+    RecordDecl *RD = RT->getDecl();
+    if (!RD->hasAttr<HLSLSubObjectAttr>()) {
       return false;
     }
+
+    HLSLSubObjectAttr *Attr = RD->getAttr<HLSLSubObjectAttr>();
+    subobjectKind = static_cast<DXIL::SubobjectKind>(Attr->getSubObjKindUint());
+    hgType = static_cast<DXIL::HitGroupType>(Attr->getHitGroupType());
+    if (subobjectKind == DXIL::SubobjectKind::HitGroup)
+      DXASSERT(DXIL::IsValidHitGroupType(hgType), "invalid hit group type");
+
+    return true;
   }
   return false;
 }
@@ -777,6 +736,50 @@ bool IsHLSLRayQueryType(clang::QualType type) {
   }
   return false;
 }
+
+#ifdef ENABLE_SPIRV_CODEGEN
+static llvm::Optional<std::pair<clang::QualType, unsigned>>
+MaybeGetVKBufferPointerParams(clang::QualType type) {
+  const RecordType *RT = dyn_cast<RecordType>(type.getCanonicalType());
+  if (!RT)
+    return llvm::None;
+
+  const ClassTemplateSpecializationDecl *templateDecl =
+      dyn_cast<ClassTemplateSpecializationDecl>(RT->getAsCXXRecordDecl());
+  if (!templateDecl || !templateDecl->getName().equals("BufferPointer"))
+    return llvm::None;
+
+  auto *namespaceDecl =
+      dyn_cast_or_null<NamespaceDecl>(templateDecl->getDeclContext());
+  if (!namespaceDecl || !namespaceDecl->getName().equals("vk"))
+    return llvm::None;
+
+  const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
+  QualType bufferType = argList[0].getAsType();
+  unsigned align =
+      argList.size() > 1 ? argList[1].getAsIntegral().getLimitedValue() : 0;
+  return std::make_pair(bufferType, align);
+}
+
+bool IsVKBufferPointerType(clang::QualType type) {
+  return MaybeGetVKBufferPointerParams(type).hasValue();
+}
+
+QualType GetVKBufferPointerBufferType(clang::QualType type) {
+  auto bpParams = MaybeGetVKBufferPointerParams(type);
+  assert(bpParams.hasValue() &&
+         "cannot get pointer type for type that is not a vk::BufferPointer");
+  return bpParams.getValue().first;
+}
+
+unsigned GetVKBufferPointerAlignment(clang::QualType type) {
+  auto bpParams = MaybeGetVKBufferPointerParams(type);
+  assert(
+      bpParams.hasValue() &&
+      "cannot get pointer alignment for type that is not a vk::BufferPointer");
+  return bpParams.getValue().second;
+}
+#endif
 
 QualType GetHLSLResourceResultType(QualType type) {
   // Don't canonicalize the type as to not lose snorm in Buffer<snorm float>

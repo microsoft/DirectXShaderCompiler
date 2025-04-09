@@ -6,6 +6,9 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
+// All rights reserved.                                                      //
+//                                                                           //
 ///
 /// \file                                                                    //
 /// \brief Defines the HLSL type system interface.                           //
@@ -31,6 +34,7 @@
 namespace clang {
 class ASTContext;
 class AttributeList;
+class CXXConstructorDecl;
 class CXXMethodDecl;
 class CXXRecordDecl;
 class ClassTemplateDecl;
@@ -402,6 +406,10 @@ DeclareNodeOrRecordType(clang::ASTContext &Ctx, DXIL::NodeIOKind Type,
                         bool IsCompleteType = false);
 
 #ifdef ENABLE_SPIRV_CODEGEN
+clang::CXXRecordDecl *
+DeclareVkBufferPointerType(clang::ASTContext &context,
+                           clang::DeclContext *declContext);
+
 clang::CXXRecordDecl *DeclareInlineSpirvType(clang::ASTContext &context,
                                              clang::DeclContext *declContext,
                                              llvm::StringRef typeName,
@@ -427,7 +435,7 @@ clang::VarDecl *DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,
 /// method.</summary> <param name="context">AST context in which to
 /// work.</param> <param name="recordDecl">Class in which the function template
 /// is declared.</param> <param name="functionDecl">Function for which a
-/// template is created.</params> <param
+/// template is created.</param> <param
 /// name="templateParamNamedDecls">Declarations for templates to the
 /// function.</param> <param name="templateParamNamedDeclsCount">Count of
 /// template declarations.</param> <returns>A new function template declaration
@@ -532,6 +540,29 @@ bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
                                       clang::OverloadedOperatorKind opc,
                                       clang::QualType paramType);
 bool IsPatchConstantFunctionDecl(const clang::FunctionDecl *FD);
+
+#ifdef ENABLE_SPIRV_CODEGEN
+bool IsVKBufferPointerType(clang::QualType type);
+clang::QualType GetVKBufferPointerBufferType(clang::QualType type);
+unsigned GetVKBufferPointerAlignment(clang::QualType type);
+#endif
+
+/// <summary>Adds a constructor declaration to the specified class
+/// record.</summary> <param name="context">ASTContext that owns
+/// declarations.</param> <param name="recordDecl">Record declaration in which
+/// to add constructor.</param> <param name="resultType">Result type for
+/// constructor.</param> <param name="paramTypes">Types for constructor
+/// parameters.</param> <param name="paramNames">Names for constructor
+/// parameters.</param> <param name="declarationName">Name for
+/// constructor.</param> <param name="isConst">Whether the constructor is a
+/// const function.</param> <returns>The method declaration for the
+/// constructor.</returns>
+clang::CXXConstructorDecl *CreateConstructorDeclarationWithParams(
+    clang::ASTContext &context, clang::CXXRecordDecl *recordDecl,
+    clang::QualType resultType, llvm::ArrayRef<clang::QualType> paramTypes,
+    llvm::ArrayRef<clang::StringRef> paramNames,
+    clang::DeclarationName declarationName, bool isConst,
+    bool isTemplateFunction = false);
 
 /// <summary>Adds a function declaration to the specified class
 /// record.</summary> <param name="context">ASTContext that owns
