@@ -1059,9 +1059,9 @@ static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode opcode,
                           ValidationRule::InstrLinalgMatrixShapeParamsAreConst);
   }
 
-  ConstantInt *Ml = cast<ConstantInt>(MatrixLayout);
-  auto MlValue = Ml->getLimitedValue();
-  if (!CheckMatrixLayout(MlValue)) {
+  ConstantInt *ML = cast<ConstantInt>(MatrixLayout);
+  auto MLValue = ML->getLimitedValue();
+  if (!CheckMatrixLayout(MLValue)) {
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrLinalgInvalidMatrixLayoutValue);
   }
