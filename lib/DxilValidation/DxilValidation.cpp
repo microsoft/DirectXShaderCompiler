@@ -1066,7 +1066,7 @@ static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode OpCode,
                           ValidationRule::InstrLinalgInvalidMatrixLayoutValue);
   }
 
-  switch (opcode) {
+  switch (OpCode) {
   case DXIL::OpCode::MatVecMul: {
     llvm::Value *OutputIsUnsigned =
         CI->getOperand(DXIL::OperandIndex::kMatVecMulIsOutputUnsignedIdx);
@@ -2122,7 +2122,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValidateImmOperandsForMatVecOps(CI, Opcode, ValCtx);
     break;
   case DXIL::OpCode::OuterProductAccumulate:
-    ValidateImmOperandsForOuterProdAcc(CI, Opcode, ValCtx);
+    ValidateImmOperandsForOuterProdAcc(CI, ValCtx);
     break;
   case DXIL::OpCode::VectorAccumulate:
 
