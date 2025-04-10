@@ -980,7 +980,7 @@ static bool CheckFromRegisterInterpretations(uint32_t Input) {
       DXIL::ComponentType::F8_E4M3,     DXIL::ComponentType::F8_E5M2};
 
   for (auto Val : ValidSet) {
-    if (Val == static_cast<DXIL::ComponentType>(input))
+    if (Val == static_cast<DXIL::ComponentType>(Input))
       return true;
   }
   return false;
