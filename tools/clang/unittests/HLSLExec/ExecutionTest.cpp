@@ -68,6 +68,9 @@
 #pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "version.lib")
 
+const float HALF_MAX = 65504.0f;
+const float HALF_MIN = 6.10e-5f;
+
 // A more recent Windows SDK than currently required is needed for these.
 typedef HRESULT(WINAPI *D3D12EnableExperimentalFeaturesFn)(
     UINT NumFeatures, __in_ecount(NumFeatures) const IID *pIIDs,
@@ -507,10 +510,10 @@ public:
                        L"Table:ShaderOpArithTable.xml#LongVector_BinaryOpTable")
   END_TEST_METHOD()
 
-  //BEGIN_TEST_METHOD(LongVector_BinaryOpTest_float16)
-  //TEST_METHOD_PROPERTY(L"DataSource",
-  //                     L"Table:ShaderOpArithTable.xml#LongVector_BinaryOpTable")
-  //END_TEST_METHOD()
+  BEGIN_TEST_METHOD(LongVector_BinaryOpTest_float16)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:ShaderOpArithTable.xml#LongVector_BinaryOpTable")
+  END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(LongVector_BinaryOpTest_float32)
   TEST_METHOD_PROPERTY(L"DataSource",
@@ -552,10 +555,10 @@ public:
                        L"Table:ShaderOpArithTable.xml#LongVector_BinaryOpTable")
   END_TEST_METHOD()
 
-  //BEGIN_TEST_METHOD(LongVector_UnaryOpTest_float16)
-  //TEST_METHOD_PROPERTY(L"DataSource",
-  //                     L"Table:ShaderOpArithTable.xml#LongVector_UnaryOpTable")
-  //END_TEST_METHOD()
+  BEGIN_TEST_METHOD(LongVector_UnaryOpTest_float16)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:ShaderOpArithTable.xml#LongVector_UnaryOpTable")
+  END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(LongVector_UnaryOpTest_float32)
   TEST_METHOD_PROPERTY(L"DataSource",
@@ -6138,6 +6141,13 @@ public:
     return nullptr;
   }
 
+  template <typename T>
+  std::vector<T> GetTableParamByName(LPCWSTR name) {
+    std::vector<WEX::Common::String> *table = GetTableParamByName(name);
+    return parseStringsToNumbers<T>(GetTableParamByName(name));
+  }
+
+
   void clearTableParameter() {
     for (size_t i = 0; i < m_tableSize; ++i) {
       m_table[i].m_int32 = 0;
@@ -11222,15 +11232,80 @@ TEST_F(ExecutionTest, PackUnpackTest) {
   }
 }
 
+// A helper struct because C++ bools are 1 byte and HLSL bools are 4 bytes.
+// Take int32_t as a constuctor argument and convert it to bool when needed.
+// Comparisons cast to a bool because we only care if the bool representation is
+// true or false.
+struct hlslBool_t
+{
+  hlslBool_t() : val(0) {}
+  hlslBool_t(int32_t val) : val(val) {}
+  hlslBool_t(bool val) : val(val) {}
+  hlslBool_t(const hlslBool_t& other) : val(other.val) {}
+
+  bool operator==(const hlslBool_t& other) const{
+    return static_cast<bool>(val) == static_cast<bool>(other.val);
+  }
+  
+  bool operator!=(const hlslBool_t& other) const{
+    return static_cast<bool>(val) != static_cast<bool>(other.val);
+  }
+
+  // So we can construct strings using std::wostream
+  friend std::wostream& operator<<(std::wostream& os, const hlslBool_t& obj) {
+    os << static_cast<bool>(obj.val);
+    return os;
+  }
+
+  int32_t val = 0;
+};
+
+//  No native float16 type in C++. So we use uint16_t to represent it.
+struct hlslHalf_t
+{
+  hlslHalf_t() : val(0) {}
+  hlslHalf_t(uint16_t val) : val(val) {}
+  hlslHalf_t(const hlslHalf_t& other) : val(other.val) {}
+
+  bool operator==(const hlslHalf_t& other) const{
+    return val == other.val;
+  }
+
+  bool operator<(const hlslHalf_t& other) const{
+    return val < other.val;
+  }
+
+  bool operator>(const hlslHalf_t& other) const{
+    return val > other.val;
+  }
+
+  bool operator>(double d) const{
+    return static_cast<double>(val) > d;
+  }
+
+  bool operator!=(const hlslHalf_t& other) const{
+    return val != other.val;
+  }
+
+  hlslHalf_t operator-(const hlslHalf_t& other) const{
+    return hlslHalf_t(val - other.val);
+  }
+
+  // So we can construct strings using std::wostream
+  friend std::wostream& operator<<(std::wostream& os, const hlslHalf_t& obj) {
+    os << static_cast<long>(obj.val);
+    return os;
+  }
+
+  uint16_t val = 0;
+};
+
 // TODOLongVec : Need to change the members to vectors. But when I did that the
 // copy logic to read back from the shader buffer fails. Needs to fix that
 // before checking in PR.
 // SLongVectorBinaryOp is used in ShaderOpArithTable.xml. The shader program
 // uses the struct defintion to read from the input global buffer.
-template <typename T, std::size_t N,
-// By checking that T is an arithmetic we can keep the compiler error messages
-// from misusing the template much cleaner.
-typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+template <typename T, std::size_t N>
 struct SLongVectorBinaryOp {
   T scalarInput;
   std::array<T, N> vecInput1;
@@ -11238,35 +11313,31 @@ struct SLongVectorBinaryOp {
   std::array<T, N> vecOutput;
 };
 
-// vec1 == Expected vector
-// vec2 == Actual vector
-template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+// vec1 == Actual vector
+// vec2 == Expected vector
+template <typename T>
 bool DoVectorsMatch(const std::vector<T>& vec1, const std::vector<T>& vec2, double tolerance) {
-    // Ensure both vectors have the same size
+    // Sanity check. Ensure both vectors have the same size
     if (vec1.size() != vec2.size()) {
       VERIFY_IS_TRUE(false, L"Vectors are of different sizes!");
       return false;
     }
     
-    bool vectorsMatch = true;
-
     // Stash mismatched indexes for easy failure logging later
     std::vector<size_t> mismatchedIndexes;
     for (size_t i = 0; i < vec1.size(); ++i) {
       if (tolerance == 0 && vec1[i] != vec2[i]) {
-          vectorsMatch = false;
           mismatchedIndexes.push_back(i); 
-      } else if constexpr (std::is_same_v<T, bool>) {
-        // Compiler was very picky and wanted an explicit case for bools to
-        // avoid a warning about comparing bools with >.
+      } else if constexpr (std::is_same_v<T, hlslBool_t>) {
+        // Compiler was very picky and wanted an explicit case for any T that
+        // doesn't implement the operators in the below else. ( > and -). It
+        // wouldn't accept putting this constexpr as an or case in the above if.
         if (vec1[i] != vec2[i]) {
-            vectorsMatch = false;
             mismatchedIndexes.push_back(i); 
         }
       } else {
         T diff = vec1[i] > vec2[i] ? vec1[i] - vec2[i] : vec2[i] - vec1[i];
         if (diff > tolerance) {
-          vectorsMatch = false;
           mismatchedIndexes.push_back(i);
         }
       }
@@ -11277,18 +11348,33 @@ bool DoVectorsMatch(const std::vector<T>& vec1, const std::vector<T>& vec2, doub
         for (size_t index : mismatchedIndexes) {
           std::wstringstream wss(L"");
           wss << L"Mismatch at Index: " << index;
-          wss << L" Expected Value:" << vec1[index] << ",";
-          wss << L" Actual Value:" << vec2[index];
+          wss << L" Actual Value:" << vec1[index] << ",";
+          wss << L" Expected Value:" << vec2[index];
           WEX::Logging::Log::Error(wss.str().c_str());
         }
     }
 
-    return vectorsMatch;
+    return mismatchedIndexes.empty();
 }
 
-template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+template <typename T>
 T parseStringToNumber(std::wstring& str) {
-  if constexpr (std::is_same_v<T, uint16_t>) {
+  if constexpr (std::is_same_v<T, hlslBool_t>) {
+    // HLSL bool is 4 bytes. C++ bool is 1 byte.
+    // So we use an int32_t to hold the value.
+    return hlslBool_t(std::stol(str));
+  } else if constexpr (std::is_same_v<T, hlslHalf_t>) {
+    auto num = std::stod(str);
+    if(num < HALF_MIN || num > HALF_MAX) {
+      LogCommentFmt(L"Value is out of range. HALF_MIN:%f, HALF_MAX: %f, Value: %f. Will clamp.", HALF_MIN, HALF_MAX, num);
+      if(num < HALF_MIN) {
+        num = HALF_MIN;
+      } else {
+        num = HALF_MAX;
+      }
+    }
+    return static_cast<uint16_t>(num);
+  } else if constexpr (std::is_same_v<T, uint16_t>) {
     return static_cast<uint16_t>(std::stoul(str));
   } else if constexpr (std::is_same_v<T, uint32_t>) {
     return std::stoul(str);
@@ -11315,31 +11401,30 @@ T parseStringToNumber(std::wstring& str) {
 // A helper to get the hlsl type as a string for a given C++ type.
 template <typename T>
 std::string GetHLSLTypeString() {
-  if (std::is_same<T, bool>::value) {
+  if (std::is_same_v<T, hlslBool_t>) {
     return "bool";
-  // TODO: Need special logic for half. No half in C++
-  //} else if (std::is_same<T, half>::value) {
-  //  return "half";
-  } else if (std::is_same<T, float>::value) {
+  } else if (std::is_same_v<T, hlslHalf_t>) {
+    return "half";
+  } else if (std::is_same_v<T, float>) {
     return "float";
-  } else if (std::is_same<T, double>::value) {
+  } else if (std::is_same_v<T, double>) {
     return "double";
-  } else if (std::is_same<T, int16_t>::value) {
+  } else if (std::is_same_v<T, int16_t>) {
     return "int16_t";
-  } else if (std::is_same<T, int32_t>::value) {
+  } else if (std::is_same_v<T, int32_t>) {
     return "int";
-  } else if (std::is_same<T, int64_t>::value) {
+  } else if (std::is_same_v<T, int64_t>) {
     return "int64_t";
-  } else if (std::is_same<T, uint16_t>::value) {
+  } else if (std::is_same_v<T, uint16_t>) {
     return "uint16_t";
-  } else if (std::is_same<T, uint32_t>::value) {
+  } else if (std::is_same_v<T, uint32_t>) {
      return "uint32_t";
-  } else if (std::is_same<T, uint64_t>::value) {
+  } else if (std::is_same_v<T, uint64_t>) {
      return "uint64_t";
-  // TODO: Need special logic for these types in C++
-  //} else if (std::is_same<T, packed_int16_t>::value) {
+  // TODOLONGVEC: Need special logic for these types in C++
+  //} else if (std::is_same_v<T, packed_int16_t>) {
   //   return "packed_int16_t";
-  //} else if (std::is_same<T, packed_uint16_t>::value) {
+  //} else if (std::is_same_v<T, packed_uint16_t>) {
   //   return "packed_uint16_t";
   } else {
     std::string errStr("GetHLSLTypeString() Unsupported type: ");
@@ -11358,7 +11443,7 @@ std::string GetHLSLTypeString() {
 // Or three strings ["1" , "2", "3"] will parse to 3 single elements vectors.
 // Vectors for a single element is a little weird, but it allows this helper
 // function to be very flexible.
-template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+template <typename T>
 std::vector<std::vector<T>> parseStringsToNumbers(const std::vector<WEX::Common::String>* input) {
   std::vector<std::vector<T>> result = {};
   if (input == nullptr || input->empty()) {
@@ -11387,18 +11472,15 @@ std::vector<std::vector<T>> parseStringsToNumbers(const std::vector<WEX::Common:
 TEST_F(ExecutionTest, LongVector_BinaryOpTest_bool) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  // TODOLONGVEC: Do all the binary ops make sense on bools?
-  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped, L"Skipping bool test for now.");
-  //LongVectorBinaryOpTestBase<bool>();
+  LongVectorBinaryOpTestBase<hlslBool_t>();
 }
 
-// TODO: No half available in C++. Need to add logic for this type
-//TEST_F(ExecutionTest, LongVector_BinaryOpTest_float16) {
-//  WEX::TestExecution::SetVerifyOutput verifySettings(
-//      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-//  
-//  LongVectorBinaryOpTestBase<float>();
-//}
+TEST_F(ExecutionTest, LongVector_BinaryOpTest_float16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  
+  LongVectorBinaryOpTestBase<hlslHalf_t>();
+}
 
 TEST_F(ExecutionTest, LongVector_BinaryOpTest_float32) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -11457,8 +11539,8 @@ void ExecutionTest::LongVectorBinaryOpTestBase() {
   LongVectorBinaryOpTestBase<T, 16>();
   LongVectorBinaryOpTestBase<T, 17>();
   LongVectorBinaryOpTestBase<T, 35>();
-  LongVectorBinaryOpTestBase<T, 100>();
-  // TODOLONGVEC: 1024 breaks the size limit for structured buffers
+  // TODOLONGVEC: 100, 1024 breaks the size limit for structured buffers
+  //LongVectorBinaryOpTestBase<T, 100>();
   //LongVectorBinaryOpTestBase<T, 1024>();
 }
 
@@ -11526,9 +11608,15 @@ void ExecutionTest::LongVectorBinaryOpTestBase() {
   // The two operand vectors must be the same size.
   VERIFY_IS_TRUE(inputVectorCount == vecInput2.size() || inputVectorCount == scalarInputs.size());
 
-  // Additionally all elements (also vectors) in the vector must be the same
-  // size.
-  // TODO: Add check.
+  // Sanity because breaking the XML would be easy.
+  if(hasVecInput2)
+  {
+    for(size_t i = 0 ; i < vecInput1.size(); i++)
+    {
+      VERIFY_IS_TRUE(vecInput1[i].size() == vecInput2[i].size(), L"Input1 and Input2 vectors must be the same size.");
+      }
+  }
+
   // Keep filling the vectors with 'copies' of themselves until we hit N
   if(vecInput1[0].size() != N)
   {
@@ -11636,8 +11724,7 @@ void ExecutionTest::LongVectorBinaryOpTestBase() {
   }
 }
 
-template <typename T, std::size_t N,
-typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+template <typename T, std::size_t N>
 struct SLongVectorUnaryOp {
   T clampArgC;
   T clampArgT;
@@ -11645,12 +11732,11 @@ struct SLongVectorUnaryOp {
   std::array<T, N> vecOutput;
 };
 
-// TODO: No half available in C++. Need to add logic for this type
-//TEST_F(ExecutionTest, LongVector_UnaryOpTest_float16) {
-//  WEX::TestExecution::SetVerifyOutput verifySettings(
-//      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-//  LongVectorUnaryOpTestBase<float>();
-//}
+TEST_F(ExecutionTest, LongVector_UnaryOpTest_float16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorUnaryOpTestBase<hlslHalf_t>();
+}
 
 TEST_F(ExecutionTest, LongVector_UnaryOpTest_float32) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -11710,8 +11796,8 @@ void ExecutionTest::LongVectorUnaryOpTestBase() {
   LongVectorUnaryOpTestBase<T, 16>();
   LongVectorUnaryOpTestBase<T, 17>();
   LongVectorUnaryOpTestBase<T, 35>();
-  LongVectorUnaryOpTestBase<T, 100>();
-  // TODOLONGVEC: 1024 breaks the size limit for structured buffers
+  // TODOLONGVEC: 100, 1024 breaks the size limit for structured buffers
+  //LongVectorUnaryOpTestBase<T, 100>();
   //LongVectorUnaryOpTestBase<T, 1024>();
 }
 
