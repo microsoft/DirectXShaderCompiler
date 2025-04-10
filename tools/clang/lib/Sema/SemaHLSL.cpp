@@ -13674,8 +13674,9 @@ ValidateMaxRecordsSharedWithAttributes(Sema &S, Decl *D,
 
 void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
   HLSLExternalSource *ExtSource = HLSLExternalSource::FromSema(this);
-  if (const HLSLGloballyCoherentAttr *HLSLGCAttr =
-          dyn_cast<HLSLGloballyCoherentAttr>(A)) {
+  const bool IsGCAttr = isa<HLSLGloballyCoherentAttr>(A);
+  const bool IsRCAttr = isa<HLSLReorderCoherentAttr>(A);
+  if (IsGCAttr || IsRCAttr) {
     const ValueDecl *TD = cast<ValueDecl>(D);
     if (TD->getType()->isDependentType())
       return;
@@ -13684,23 +13685,25 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
       DeclType = FD->getReturnType();
     while (DeclType->isArrayType())
       DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
+    const bool IsAllowedNodeIO =
+        IsGCAttr &&
+        GetNodeIOType(DeclType) == DXIL::NodeIOKind::RWDispatchNodeInputRecord;
+    const bool IsUAV =
+        hlsl::GetResourceClassForType(getASTContext(), DeclType) ==
+        hlsl::DXIL::ResourceClass::UAV;
     if (ExtSource->GetTypeObjectKind(DeclType) != AR_TOBJ_OBJECT ||
-        (hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
-             hlsl::DXIL::ResourceClass::UAV &&
-         GetNodeIOType(DeclType) !=
-             DXIL::NodeIOKind::RWDispatchNodeInputRecord)) {
+        (!IsUAV && !IsAllowedNodeIO)) {
       Diag(A->getLocation(), diag::err_hlsl_varmodifierna_decltype)
           << A << DeclType->getCanonicalTypeUnqualified() << A->getRange();
-      Diag(A->getLocation(), diag::note_hlsl_globallycoherent_applies_to)
-          << A << A->getRange();
+      Diag(A->getLocation(), diag::note_hlsl_coherence_applies_to)
+          << (int)IsGCAttr << A << A->getRange();
     }
     return;
   }
 }
 
-void Sema::DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
-                                            QualType TargetType,
-                                            SourceLocation Loc) {
+void Sema::DiagnoseCoherenceMismatch(const Expr *SrcExpr, QualType TargetType,
+                                     SourceLocation Loc) {
   QualType SrcTy = SrcExpr->getType();
   QualType DstTy = TargetType;
   if (SrcTy->isArrayType() && DstTy->isArrayType()) {
@@ -13712,9 +13715,39 @@ void Sema::DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
       GetNodeIOType(DstTy) == DXIL::NodeIOKind::RWDispatchNodeInputRecord) {
     bool SrcGL = hlsl::HasHLSLGloballyCoherent(SrcTy);
     bool DstGL = hlsl::HasHLSLGloballyCoherent(DstTy);
-    if (SrcGL != DstGL)
-      Diag(Loc, diag::warn_hlsl_impcast_glc_mismatch)
-          << SrcExpr->getType() << TargetType << /*loses|adds*/ DstGL;
+    // 'reordercoherent' attribute dropped earlier in presence of
+    // 'globallycoherent'
+    bool SrcRD = hlsl::HasHLSLReorderCoherent(SrcTy);
+    bool DstRD = hlsl::HasHLSLReorderCoherent(DstTy);
+
+    enum {
+      NoMismatch = -1,
+      DemoteToRD = 0,
+      PromoteToGL = 1,
+      LosesRD = 2,
+      LosesGL = 3,
+      AddsRD = 4,
+      AddsGL = 5
+    } MismatchType = NoMismatch;
+
+    if (SrcGL && DstRD)
+      MismatchType = DemoteToRD;
+    else if (SrcRD && DstGL)
+      MismatchType = PromoteToGL;
+    else if (SrcRD && !DstRD)
+      MismatchType = LosesRD;
+    else if (SrcGL && !DstGL)
+      MismatchType = LosesGL;
+    else if (!SrcRD && DstRD)
+      MismatchType = AddsRD;
+    else if (!SrcGL && DstGL)
+      MismatchType = AddsGL;
+
+    if (MismatchType == NoMismatch)
+      return;
+
+    Diag(Loc, diag::warn_hlsl_impcast_coherence_mismatch)
+        << SrcExpr->getType() << TargetType << MismatchType;
   }
 }
 
@@ -13861,6 +13894,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
     break;
   case AttributeList::AT_HLSLGloballyCoherent:
     declAttr = ::new (S.Context) HLSLGloballyCoherentAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLReorderCoherent:
+    declAttr = ::new (S.Context) HLSLReorderCoherentAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLIndices:
@@ -14927,6 +14964,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       }
       break;
     case AttributeList::AT_HLSLGloballyCoherent: // Handled elsewhere
+    case AttributeList::AT_HLSLReorderCoherent:  // Handled elsewhere
       break;
     case AttributeList::AT_HLSLUniform:
       if (!(isGlobal || isParameter)) {
@@ -15322,15 +15360,17 @@ static QualType getUnderlyingType(QualType Type) {
 void hlsl::GetHLSLAttributedTypes(
     clang::Sema *self, clang::QualType type,
     const clang::AttributedType **ppMatrixOrientation,
-    const clang::AttributedType **ppNorm, const clang::AttributedType **ppGLC) {
+    const clang::AttributedType **ppNorm, const clang::AttributedType **ppGLC,
+    const clang::AttributedType **ppRDC) {
   AssignOpt<const clang::AttributedType *>(nullptr, ppMatrixOrientation);
   AssignOpt<const clang::AttributedType *>(nullptr, ppNorm);
   AssignOpt<const clang::AttributedType *>(nullptr, ppGLC);
+  AssignOpt<const clang::AttributedType *>(nullptr, ppRDC);
 
   // Note: we clear output pointers once set so we can stop searching
   QualType Desugared = getUnderlyingType(type);
   const AttributedType *AT = dyn_cast<AttributedType>(Desugared);
-  while (AT && (ppMatrixOrientation || ppNorm || ppGLC)) {
+  while (AT && (ppMatrixOrientation || ppNorm || ppGLC || ppRDC)) {
     AttributedType::Kind Kind = AT->getAttrKind();
 
     if (Kind == AttributedType::attr_hlsl_row_major ||
@@ -15349,6 +15389,11 @@ void hlsl::GetHLSLAttributedTypes(
       if (ppGLC) {
         *ppGLC = AT;
         ppGLC = nullptr;
+      }
+    } else if (Kind == AttributedType::attr_hlsl_reordercoherent) {
+      if (ppRDC) {
+        *ppRDC = AT;
+        ppRDC = nullptr;
       }
     }
 
@@ -15734,6 +15779,10 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     Out << "globallycoherent ";
     break;
 
+  case clang::attr::HLSLReorderCoherent:
+    Out << "reordercoherent ";
+    break;
+
   case clang::attr::HLSLIndices:
     Out << "indices ";
     break;
@@ -15941,6 +15990,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLNodeLocalRootArgumentsTableIndex:
   case clang::attr::HLSLNodeShareInputOf:
   case clang::attr::HLSLNodeTrackRWInputSharing:
+  case clang::attr::HLSLReorderCoherent:
   case clang::attr::VKBinding:
   case clang::attr::VKBuiltIn:
   case clang::attr::VKConstantId:
