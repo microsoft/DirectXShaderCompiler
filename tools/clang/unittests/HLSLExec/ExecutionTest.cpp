@@ -11251,7 +11251,7 @@ struct hlslBool_t
     return static_cast<bool>(val) != static_cast<bool>(other.val);
   }
 
-  // So we can construct strings using std::wostream
+  // So we can construct std::wstrings using std::wostream
   friend std::wostream& operator<<(std::wostream& os, const hlslBool_t& obj) {
     os << static_cast<bool>(obj.val);
     return os;
@@ -11260,7 +11260,8 @@ struct hlslBool_t
   int32_t val = 0;
 };
 
-//  No native float16 type in C++. So we use uint16_t to represent it.
+//  No native float16 type in C++ until C++23 . So we use uint16_t to represent
+//  it. Simple little wrapping struct to help handle the right behavior.
 struct hlslHalf_t
 {
   hlslHalf_t() : val(0) {}
@@ -11291,8 +11292,9 @@ struct hlslHalf_t
     return hlslHalf_t(val - other.val);
   }
 
-  // So we can construct strings using std::wostream
+  // So we can construct std::wstrings using std::wostream
   friend std::wostream& operator<<(std::wostream& os, const hlslHalf_t& obj) {
+    // long is larger than half. This is a safe cast.
     os << static_cast<long>(obj.val);
     return os;
   }
@@ -11300,11 +11302,8 @@ struct hlslHalf_t
   uint16_t val = 0;
 };
 
-// TODOLongVec : Need to change the members to vectors. But when I did that the
-// copy logic to read back from the shader buffer fails. Needs to fix that
-// before checking in PR.
-// SLongVectorBinaryOp is used in ShaderOpArithTable.xml. The shader program
-// uses the struct defintion to read from the input global buffer.
+// SLongVectorBinaryOp is used in ShaderOpArithTable.xml. The shaders for these
+// tests use the struct defintion to read from the input global buffer.
 template <typename T, std::size_t N>
 struct SLongVectorBinaryOp {
   T scalarInput;
@@ -11317,44 +11316,51 @@ struct SLongVectorBinaryOp {
 // vec2 == Expected vector
 template <typename T>
 bool DoVectorsMatch(const std::vector<T>& vec1, const std::vector<T>& vec2, double tolerance) {
-    // Sanity check. Ensure both vectors have the same size
-    if (vec1.size() != vec2.size()) {
-      VERIFY_IS_TRUE(false, L"Vectors are of different sizes!");
-      return false;
-    }
-    
-    // Stash mismatched indexes for easy failure logging later
-    std::vector<size_t> mismatchedIndexes;
-    for (size_t i = 0; i < vec1.size(); ++i) {
-      if (tolerance == 0 && vec1[i] != vec2[i]) {
-          mismatchedIndexes.push_back(i); 
-      } else if constexpr (std::is_same_v<T, hlslBool_t>) {
-        // Compiler was very picky and wanted an explicit case for any T that
-        // doesn't implement the operators in the below else. ( > and -). It
-        // wouldn't accept putting this constexpr as an or case in the above if.
-        if (vec1[i] != vec2[i]) {
-            mismatchedIndexes.push_back(i); 
-        }
-      } else {
-        T diff = vec1[i] > vec2[i] ? vec1[i] - vec2[i] : vec2[i] - vec1[i];
-        if (diff > tolerance) {
-          mismatchedIndexes.push_back(i);
-        }
+  // Sanity check. Ensure both vectors have the same size
+  if (vec1.size() != vec2.size()) {
+    VERIFY_IS_TRUE(false, L"Vectors are of different sizes!");
+    return false;
+  }
+  
+  // Stash mismatched indexes for easy failure logging later
+  std::vector<size_t> mismatchedIndexes;
+  for (size_t i = 0; i < vec1.size(); ++i) {
+    if constexpr (std::is_same_v<T, hlslBool_t>) {
+      // Compiler was very picky and wanted an explicit case for any T that
+      // doesn't implement the operators in the below else. ( > and -). It
+      // wouldn't accept putting this constexpr as an or case in the above if.
+      if (vec1[i] != vec2[i]) {
+        mismatchedIndexes.push_back(i);
+      }
+    else if (tolerance == 0 && vec1[i] != vec2[i]) {
+      mismatchedIndexes.push_back(i); 
+    } else if constexpr (std::is_same_v<T, hlslBool_t>) {
+      // Compiler was very picky and wanted an explicit case for any T that
+      // doesn't implement the operators in the below else. ( > and -). It
+      // wouldn't accept putting this constexpr as an or case in the above if.
+      if (vec1[i] != vec2[i]) {
+        mismatchedIndexes.push_back(i); 
+      }
+    } else {
+      T diff = vec1[i] > vec2[i] ? vec1[i] - vec2[i] : vec2[i] - vec1[i];
+      if (diff > tolerance) {
+        mismatchedIndexes.push_back(i);
       }
     }
+  }
 
-    // Print the mismatched indexes and their corresponding elements
-    if (!mismatchedIndexes.empty()) {
-        for (size_t index : mismatchedIndexes) {
-          std::wstringstream wss(L"");
-          wss << L"Mismatch at Index: " << index;
-          wss << L" Actual Value:" << vec1[index] << ",";
-          wss << L" Expected Value:" << vec2[index];
-          WEX::Logging::Log::Error(wss.str().c_str());
-        }
+  // Print the mismatched indexes and their corresponding elements
+  if (!mismatchedIndexes.empty()) {
+    for (size_t index : mismatchedIndexes) {
+      std::wstringstream wss(L"");
+      wss << L"Mismatch at Index: " << index;
+      wss << L" Actual Value:" << vec1[index] << ",";
+      wss << L" Expected Value:" << vec2[index];
+      WEX::Logging::Log::Error(wss.str().c_str());
     }
+  }
 
-    return mismatchedIndexes.empty();
+  return mismatchedIndexes.empty();
 }
 
 template <typename T>
@@ -11421,11 +11427,6 @@ std::string GetHLSLTypeString() {
      return "uint32_t";
   } else if (std::is_same_v<T, uint64_t>) {
      return "uint64_t";
-  // TODOLONGVEC: Need special logic for these types in C++
-  //} else if (std::is_same_v<T, packed_int16_t>) {
-  //   return "packed_int16_t";
-  //} else if (std::is_same_v<T, packed_uint16_t>) {
-  //   return "packed_uint16_t";
   } else {
     std::string errStr("GetHLSLTypeString() Unsupported type: ");
     errStr.append(typeid(T).name());
@@ -11447,11 +11448,10 @@ template <typename T>
 std::vector<std::vector<T>> parseStringsToNumbers(const std::vector<WEX::Common::String>* input) {
   std::vector<std::vector<T>> result = {};
   if (input == nullptr || input->empty()) {
-      return result;
+    return result;
   }
 
   for (const auto& wexStr : *input) {
-
     std::wstring wStr(wexStr);
     std::wstringstream wss(wStr);
     std::wstring number;
@@ -11463,7 +11463,7 @@ std::vector<std::vector<T>> parseStringsToNumbers(const std::vector<WEX::Common:
     result.push_back(vec);
   }
 
-  // Sanity check for bad test data.
+  // Sanity check for bad XML test data.
   VERIFY_IS_TRUE(result.size() == input->size(), L"Result vector size does not match input vector size.");
 
   return result;
@@ -11471,69 +11471,68 @@ std::vector<std::vector<T>> parseStringsToNumbers(const std::vector<WEX::Common:
 
 TEST_F(ExecutionTest, LongVector_BinaryOpTest_bool) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorBinaryOpTestBase<hlslBool_t>();
 }
 
 TEST_F(ExecutionTest, LongVector_BinaryOpTest_float16) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorBinaryOpTestBase<hlslHalf_t>();
 }
 
 TEST_F(ExecutionTest, LongVector_BinaryOpTest_float32) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorBinaryOpTestBase<float>();
 }
 
 TEST_F(ExecutionTest, LongVector_BinaryOpTest_float64) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorBinaryOpTestBase<double>();
 }
 
 TEST_F(ExecutionTest, LongVector_BinaryOpTest_int16) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorBinaryOpTestBase<int16_t>();
 }
 
 TEST_F(ExecutionTest, LongVector_BinaryOpTest_int32) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorBinaryOpTestBase<int32_t>();
 }
 
 TEST_F(ExecutionTest, LongVector_BinaryOpTest_int64) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorBinaryOpTestBase<int64_t>();
 }
 
 TEST_F(ExecutionTest, LongVector_BinaryOpTest_uint16) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorBinaryOpTestBase<uint16_t>();
 }
 
 TEST_F(ExecutionTest, LongVector_BinaryOpTest_uint32) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorBinaryOpTestBase<uint32_t>();
 }
 
 TEST_F(ExecutionTest, LongVector_BinaryOpTest_uint64) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorBinaryOpTestBase<uint64_t>();
 }
 
 template <typename T>
 void ExecutionTest::LongVectorBinaryOpTestBase() {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorBinaryOpTestBase<T, 4>();
   LongVectorBinaryOpTestBase<T, 5>();
   LongVectorBinaryOpTestBase<T, 16>();
@@ -11547,7 +11546,7 @@ void ExecutionTest::LongVectorBinaryOpTestBase() {
 template <typename T, std::size_t N>
 void ExecutionTest::LongVectorBinaryOpTestBase() {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   LogCommentFmt(L"Running LongVectorBinaryOpTestBase<%S, %zu>", typeid(T).name(), N);
 
@@ -11573,7 +11572,7 @@ void ExecutionTest::LongVectorBinaryOpTestBase() {
   // test method.
   const int tableSize = sizeof(LongVectorBinaryOpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(LongVectorBinaryOpParameters, tableSize);
- 
+
   CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
   CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
 
@@ -11734,62 +11733,62 @@ struct SLongVectorUnaryOp {
 
 TEST_F(ExecutionTest, LongVector_UnaryOpTest_float16) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorUnaryOpTestBase<hlslHalf_t>();
 }
 
 TEST_F(ExecutionTest, LongVector_UnaryOpTest_float32) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorUnaryOpTestBase<float>();
 }
 
 TEST_F(ExecutionTest, LongVector_UnaryOpTest_float64) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorUnaryOpTestBase<double>();
 }
 
 TEST_F(ExecutionTest, LongVector_UnaryOpTest_int16) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorUnaryOpTestBase<int16_t>();
 }
 
 TEST_F(ExecutionTest, LongVector_UnaryOpTest_int32) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorUnaryOpTestBase<int32_t>();
 }
 
 TEST_F(ExecutionTest, LongVector_UnaryOpTest_int64) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorUnaryOpTestBase<int64_t>();
 }
 
 TEST_F(ExecutionTest, LongVector_UnaryOpTest_uint16) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorUnaryOpTestBase<uint16_t>();
 }
 
 TEST_F(ExecutionTest, LongVector_UnaryOpTest_uint32) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorUnaryOpTestBase<uint32_t>();
 }
 
 TEST_F(ExecutionTest, LongVector_UnaryOpTest_uint64) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   LongVectorUnaryOpTestBase<uint64_t>();
 }
 
 template <typename T>
 void ExecutionTest::LongVectorUnaryOpTestBase() {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   LongVectorUnaryOpTestBase<T, 4>();
   LongVectorUnaryOpTestBase<T, 5>();
@@ -11804,7 +11803,7 @@ void ExecutionTest::LongVectorUnaryOpTestBase() {
 template <typename T, std::size_t N>
 void ExecutionTest::LongVectorUnaryOpTestBase() {
   WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   LogCommentFmt(L"Running LongVectorUnaryOpTestBase<%S, %zu>", typeid(T).name(), N);
 
@@ -11947,8 +11946,7 @@ void ExecutionTest::LongVectorUnaryOpTestBase() {
 
   // Cast the buffer back into an array of the structs we expect.
   SLongVectorUnaryOp<T, N> *pPrimitive = (SLongVectorUnaryOp<T, N>*)data.data();
-  for(size_t i = 0; i < inputVectorCount; i++)
-  {
+  for(size_t i = 0; i < inputVectorCount; i++) {
     SLongVectorUnaryOp<T, N> *p = &pPrimitive[i];
     std::vector<T> vecOutput(p->vecOutput.begin(), p->vecOutput.end());
 
