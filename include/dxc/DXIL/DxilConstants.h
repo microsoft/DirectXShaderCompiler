@@ -162,30 +162,30 @@ const unsigned kDxilMaxOloadDims = 2;
 
 enum class ComponentType : uint32_t {
   Invalid = 0,
-  I1,
-  I16, // = 2
-  U16, // = 3
-  I32, // = 4
-  U32, // = 5
-  I64,
-  U64,
-  F16, // = 8
-  F32, // = 9
-  F64,
-  SNormF16,
-  UNormF16,
-  SNormF32,
-  UNormF32,
-  SNormF64,
-  UNormF64,
-  PackedS8x32, // = 17
-  PackedU8x32, // = 18
+  I1 = 1,
+  I16 = 2,
+  U16 = 3,
+  I32 = 4,
+  U32 = 5,
+  I64 = 6,
+  U64 = 7,
+  F16 = 8,
+  F32 = 9,
+  F64 = 10,
+  SNormF16 = 11,
+  UNormF16 = 12,
+  SNormF32 = 13,
+  UNormF32 = 14,
+  SNormF64 = 15,
+  UNormF64 = 16,
+  PackedS8x32 = 17,
+  PackedU8x32 = 18,
 
   // BEGIN NEW FOR SM 6.9
-  U8,      // = 19
-  I8,      // = 20
-  F8_E4M3, // = 21
-  F8_E5M2, // = 22
+  U8 = 19,
+  I8 = 20,
+  F8_E4M3 = 21,
+  F8_E5M2 = 22,
   // END
 
   LastEntry
