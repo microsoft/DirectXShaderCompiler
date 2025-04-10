@@ -7928,6 +7928,16 @@ class db_dxil(object):
             "Matrix Layout for Linalg ops not in valid set",
         )
 
+        self.add_valrule(
+            "Instr.LinalgMatrixLayoutNotTransposable",
+            "Matrix Layout not transposable",
+        )
+
+        self.add_valrule(
+            "Instr.LinalgNotAnUnsignedType",
+            "Unsigned flag set for signed type",
+        )
+
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
         # - multiple rules regarding derivatives, which isn't a supported feature for DXIL

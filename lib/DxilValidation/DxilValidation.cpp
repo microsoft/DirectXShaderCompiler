@@ -1006,11 +1006,44 @@ static bool CheckMatrixLayout(unsigned Input) {
           static_cast<unsigned>(DXIL::DXILMatrixLayout::OuterProductOptimal));
 }
 
+static bool CheckTransposeForMatrixLayout(DXIL::DXILMatrixLayout Layout,
+                                          bool Transposed) {
+  switch (Layout) {
+  case DXIL::DXILMatrixLayout::RowMajor:
+  case DXIL::DXILMatrixLayout::ColumnMajor:
+    return !Transposed;
+
+  default:
+    return true;
+  }
+}
+
+static bool CheckUnsignedFlag(Type *VecTy, bool IsUnsigned) {
+  Type *ElemTy = VecTy->getScalarType();
+  if (ElemTy->isFloatingPointTy())
+    return !IsUnsigned;
+
+  return true;
+}
+
+static Value *getMatVecOpIsOutputUnsigned(CallInst *CI, DXIL::OpCode OpCode) {
+  switch (OpCode) {
+  case DXIL::OpCode::MatVecMul:
+    return CI->getOperand(DXIL::OperandIndex::kMatVecMulIsOutputUnsignedIdx);
+  case DXIL::OpCode::MatVecMulAdd:
+    return CI->getOperand(DXIL::OperandIndex::kMatVecMulAddIsOutputUnsignedIdx);
+
+  default:
+    DXASSERT_NOMSG(false);
+    return nullptr;
+  }
+}
+
 static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode OpCode,
                                             ValidationContext &ValCtx) {
 
   // Check Common operands
-  llvm::Value *InputIsUnsigned =
+  llvm::Value *IsInputUnsigned =
       CI->getOperand(DXIL::OperandIndex::kMatVecMulIsInputUnsignedIdx);
   llvm::Value *InputInterpretation =
       CI->getOperand(DXIL::OperandIndex::kMatVecMulInputInterpretationIdx);
@@ -1024,76 +1057,101 @@ static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode OpCode,
       CI->getOperand(DXIL::OperandIndex::kMatVecMulMatrixLayoutIdx);
   llvm::Value *MatrixTranspose =
       CI->getOperand(DXIL::OperandIndex::kMatVecMulMatrixTransposeIdx);
+  llvm::Value *IsOutputUnsigned = getMatVecOpIsOutputUnsigned(CI, OpCode);
 
-  if (!llvm::isa<llvm::Constant>(InputIsUnsigned)) {
+  ConstantInt *IsInputUnsignedConst =
+      dyn_cast<llvm::ConstantInt>(IsInputUnsigned);
+  if (!IsInputUnsignedConst) {
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrMatVecOpIsUnsignedFlagsAreConst);
+    return;
   }
 
-  if (!llvm::isa<llvm::Constant>(InputInterpretation) ||
-      !llvm::isa<llvm::Constant>(MatrixInterpretation)) {
+  ConstantInt *IsOutputUnsignedConst =
+      dyn_cast<llvm::ConstantInt>(IsOutputUnsigned);
+  if (!IsOutputUnsignedConst) {
+    ValCtx.EmitInstrError(CI,
+                          ValidationRule::InstrMatVecOpIsUnsignedFlagsAreConst);
+    return;
+  }
+
+  ConstantInt *II = dyn_cast<ConstantInt>(InputInterpretation);
+  ConstantInt *MI = dyn_cast<ConstantInt>(MatrixInterpretation);
+  if (!II || !MI) {
     ValCtx.EmitInstrError(
         CI, ValidationRule::InstrLinalgInterpretationParamAreConst);
+    return;
   }
 
   // Check if InputInterpretation and MatrixInterpretation are valid
-  ConstantInt *II = cast<ConstantInt>(InputInterpretation);
   auto IIValue = II->getLimitedValue();
   if (!CheckFromRegisterInterpretations(IIValue)) {
     ValCtx.EmitInstrError(
         CI, ValidationRule::InstrLinalgInvalidRegisterInterpValue);
+    return;
   }
 
-  ConstantInt *MI = cast<ConstantInt>(MatrixInterpretation);
   auto MIValue = MI->getLimitedValue();
   if (!CheckInMemoryInterpretations(MIValue)) {
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrLinalgInvalidMemoryInterpValue);
+    return;
   }
 
+  ConstantInt *MatrixTransposeConst = dyn_cast<ConstantInt>(MatrixTranspose);
+  ConstantInt *MatrixLayoutConst = dyn_cast<ConstantInt>(MatrixLayout);
   if (!llvm::isa<llvm::Constant>(MatrixM) ||
-      !llvm::isa<llvm::Constant>(MatrixK) ||
-      !llvm::isa<llvm::Constant>(MatrixLayout) ||
-      !llvm::isa<llvm::Constant>(MatrixTranspose)) {
+      !llvm::isa<llvm::Constant>(MatrixK) || !MatrixLayoutConst ||
+      !MatrixTransposeConst) {
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrLinalgMatrixShapeParamsAreConst);
+    return;
   }
 
-  ConstantInt *ML = cast<ConstantInt>(MatrixLayout);
-  auto MLValue = ML->getLimitedValue();
+  auto MLValue = MatrixLayoutConst->getLimitedValue();
   if (!CheckMatrixLayout(MLValue)) {
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrLinalgInvalidMatrixLayoutValue);
+    return;
+  }
+
+  if (!CheckTransposeForMatrixLayout(
+          static_cast<DXIL::DXILMatrixLayout>(MLValue),
+          MatrixTransposeConst->getLimitedValue())) {
+    ValCtx.EmitInstrError(
+        CI, ValidationRule::InstrLinalgMatrixLayoutNotTransposable);
+    return;
+  }
+
+  llvm::Value *InputVector =
+      CI->getOperand(DXIL::OperandIndex::kMatVecMulInputVectorIdx);
+  if (!CheckUnsignedFlag(InputVector->getType(),
+                         IsInputUnsignedConst->getLimitedValue())) {
+    ValCtx.EmitInstrError(CI, ValidationRule::InstrLinalgNotAnUnsignedType);
+    return;
+  }
+
+  if (!CheckUnsignedFlag(CI->getType(),
+                         IsOutputUnsignedConst->getLimitedValue())) {
+    ValCtx.EmitInstrError(CI, ValidationRule::InstrLinalgNotAnUnsignedType);
+    return;
   }
 
   switch (OpCode) {
-  case DXIL::OpCode::MatVecMul: {
-    llvm::Value *OutputIsUnsigned =
-        CI->getOperand(DXIL::OperandIndex::kMatVecMulIsOutputUnsignedIdx);
-    if (!llvm::isa<llvm::Constant>(OutputIsUnsigned)) {
-      ValCtx.EmitInstrError(
-          CI, ValidationRule::InstrMatVecOpIsUnsignedFlagsAreConst);
-    }
-
-  } break;
   case DXIL::OpCode::MatVecMulAdd: {
-    llvm::Value *OutputIsUnsigned =
-        CI->getOperand(DXIL::OperandIndex::kMatVecMulAddIsOutputUnsignedIdx);
-    if (!llvm::isa<llvm::Constant>(OutputIsUnsigned)) {
-      ValCtx.EmitInstrError(
-          CI, ValidationRule::InstrMatVecOpIsUnsignedFlagsAreConst);
-    }
     llvm::Value *BiasInterpretation =
         CI->getOperand(DXIL::OperandIndex::kMatVecMulAddBiasInterpretation);
     if (!llvm::isa<llvm::Constant>(BiasInterpretation)) {
       ValCtx.EmitInstrError(
           CI, ValidationRule::InstrLinalgInterpretationParamAreConst);
+      return;
     }
     ConstantInt *BI = cast<ConstantInt>(BiasInterpretation);
     auto BIValue = BI->getLimitedValue();
     if (!CheckInMemoryInterpretations(BIValue)) {
       ValCtx.EmitInstrError(
           CI, ValidationRule::InstrLinalgInvalidMemoryInterpValue);
+      return;
     }
   } break;
   default:
