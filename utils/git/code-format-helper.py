@@ -79,6 +79,12 @@ View the diff from {self.name} here.
         else:
             pr.as_issue().create_comment(pr_text)
 
+    def push_review(self, args: argparse.Namespace):
+        pr = repo.get_issue(args.issue_number).as_pull_request()
+        pr.create_review(
+            event='APPROVE'  
+        )
+
     def update_pr_success(self, args: argparse.Namespace):
         repo = github.Github(args.token).get_repo(args.repo)
         pr = repo.get_issue(args.issue_number).as_pull_request()
@@ -94,6 +100,7 @@ View the diff from {self.name} here.
 
     def run(self, changed_files: [str], args: argparse.Namespace):
         diff = self.format_run(changed_files, args)
+        self.push_review(args)
         if diff:
             self.update_pr(diff, args)
             return False
