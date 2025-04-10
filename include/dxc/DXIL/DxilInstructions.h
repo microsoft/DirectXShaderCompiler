@@ -5079,15 +5079,15 @@ struct DxilInst_RawBufferLoad {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_buf = 1,
+    arg_srv = 1,
     arg_index = 2,
     arg_elementOffset = 3,
     arg_mask = 4,
     arg_alignment = 5,
   };
   // Accessors
-  llvm::Value *get_buf() const { return Instr->getOperand(1); }
-  void set_buf(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_srv() const { return Instr->getOperand(1); }
+  void set_srv(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_index() const { return Instr->getOperand(2); }
   void set_index(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_elementOffset() const { return Instr->getOperand(3); }

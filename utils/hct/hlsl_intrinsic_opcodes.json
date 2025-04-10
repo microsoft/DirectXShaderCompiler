@@ -1,6 +1,6 @@
 {
   "IntrinsicOpCodes": {
-    "Num_Intrinsics": 364,
+    "Num_Intrinsics": 367,
     "IOP_AcceptHitAndEndSearch": 0,
     "IOP_AddUint64": 1,
     "IOP_AllMemoryBarrier": 2,
@@ -361,9 +361,12 @@
     "MOP_InterlockedUMin": 357,
     "MOP_DxHitObject_MakeNop": 358,
     "IOP_DxMaybeReorderThread": 359,
-    "IOP___builtin_MatVecMul": 360,
-    "IOP___builtin_MatVecMulAdd": 361,
-    "IOP___builtin_OuterProductAccumulate": 362,
-    "IOP___builtin_VectorAccumulate": 363
+    "IOP_Vkreinterpret_pointer_cast": 360,
+    "IOP_Vkstatic_pointer_cast": 361,
+    "MOP_GetBufferContents": 362,
+    "IOP___builtin_MatVecMul": 363,
+    "IOP___builtin_MatVecMulAdd": 364,
+    "IOP___builtin_OuterProductAccumulate": 365,
+    "IOP___builtin_VectorAccumulate": 366
   }
 }

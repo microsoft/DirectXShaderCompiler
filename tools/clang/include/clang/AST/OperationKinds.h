@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 //
 // This file enumerates the different kinds of operations that can be
@@ -321,6 +324,8 @@ enum CastKind {
   CK_HLSLCC_FloatingToIntegral,
   CK_HLSLCC_FloatingToBoolean,
   CK_HLSLCC_FloatingCast,
+  CK_VK_BufferPointerToIntegral,
+  CK_VK_IntegralToBufferPointer,
 
   // HLSL Change - Made CK_Invalid an enum case because otherwise it is UB to
   // assign it to a value of CastKind.

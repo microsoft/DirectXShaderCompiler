@@ -23,7 +23,7 @@ void cs_main()
 	const bool matrix_is_transposed = false; 
 	const uint matrix_stride = 64;
 
-	// CHECK: call void @"dx.hl.op..void (i32, <4 x float>*, i1, <4 x float>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 360,
+	// CHECK: call void @"dx.hl.op..void (i32, <4 x float>*, i1, <4 x float>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 363,
 	__builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
 	  is_input_unsigned, input_interpretation, matrix_buffer, matrix_offset,
 	  matrix_interpretation, matrix_dimM, matrix_dimK, matrix_layout,
@@ -32,7 +32,7 @@ void cs_main()
 	const uint bias_offset = 0;
 	const uint bias_interpretation = 9; /*F32*/
 
-	// CHECK: call void @"dx.hl.op..void (i32, <4 x float>*, i1, <4 x float>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32, %dx.types.Handle, i32, i32)"(i32 361,
+	// CHECK: call void @"dx.hl.op..void (i32, <4 x float>*, i1, <4 x float>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32, %dx.types.Handle, i32, i32)"(i32 364,
 	__builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
 	  is_input_unsigned, input_interpretation, matrix_buffer, matrix_offset,
 	  matrix_interpretation, matrix_dimM, matrix_dimK, matrix_layout,
@@ -46,14 +46,14 @@ void cs_main()
 	const uint opa_matrix_layout = 3; /*OuterProductOptimal*/
 	const uint opa_matrix_stride = 64;
 
-	// CHECK: call void @"dx.hl.op..void (i32, <8 x i32>, <8 x i32>, %dx.types.Handle, i32, i32, i32, i32)"(i32 362,
+	// CHECK: call void @"dx.hl.op..void (i32, <8 x i32>, <8 x i32>, %dx.types.Handle, i32, i32, i32, i32)"(i32 365,
 	__builtin_OuterProductAccumulate(input_vector1, input_vector2,
 	  rw_matrix_buffer, opa_matrix_offset, opa_matrix_interpretation,
 	  opa_matrix_layout, opa_matrix_stride);
 
 	const uint va_matrix_offset = 0;
 
-	// CHECK: call void @"dx.hl.op..void (i32, <8 x i32>, %dx.types.Handle, i32)"(i32 363,
+	// CHECK: call void @"dx.hl.op..void (i32, <8 x i32>, %dx.types.Handle, i32)"(i32 366,
 	 __builtin_VectorAccumulate(input_vector1, rw_matrix_buffer,
 	   va_matrix_offset); 
 }

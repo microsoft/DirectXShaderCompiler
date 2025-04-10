@@ -1,5 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
+# Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+# All rights reserved.
 ###############################################################################
 # DXIL information.                                                           #
 ###############################################################################
@@ -164,7 +166,7 @@ class db_dxil_inst(object):
         #     - "hf" means overloads for scalar half and float
         #     - ending with "<" means vector overload supporting the same
         #       components as defined for the scalar overload types.
-        #   - In the second overload dimension "<f":
+        #   - In the second overload dimension "<fd":
         #     - starting with "<" means only vector overloads are supported.
         #     - "fd" means the vector supports float or double components.
         #   - In the third overload dimension "i<1":
@@ -477,7 +479,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Dot"
         for (
             i
-        ) in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,TextureStoreSample,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore".split(
+        ) in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,TextureStoreSample,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore,RawBufferVectorLoad,RawBufferVectorStore".split(
             ","
         ):
             self.name_idx[i].category = "Resources"
@@ -604,7 +606,7 @@ class db_dxil(object):
         for i in "RawBufferLoad,RawBufferStore".split(","):
             self.name_idx[i].shader_model = 6, 2
             self.name_idx[i].shader_model_translated = 6, 0
-        for i in "RawBufferVectorLoad,RawBufferVectorStore,InsertElement,ShuffleVector,ExtractValue".split(","):
+        for i in "RawBufferVectorLoad,RawBufferVectorStore".split(","):
             self.name_idx[i].shader_model = 6, 9
         for i in "DispatchRaysIndex,DispatchRaysDimensions".split(","):
             self.name_idx[i].category = "Ray Dispatch Arguments"
@@ -1506,7 +1508,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Unary",
                 "returns the " + i,
-                "hfd",
+                "hfd<",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "operation result"),
@@ -1557,7 +1559,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Unary",
                 "returns the reverse bit pattern of the input value",
-                "wil",
+                "wil<",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "operation result"),
@@ -1677,7 +1679,7 @@ class db_dxil(object):
             next_op_idx,
             "Tertiary",
             "performs a fused multiply add (FMA) of the form a * b + c",
-            "hfd",
+            "hfd<",
             "rn",
             [
                 db_dxil_param(
@@ -1718,7 +1720,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Tertiary",
                 "performs an integral " + i,
-                "wil",
+                "wil<",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "the operation result"),
@@ -2611,7 +2613,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per stamp",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2629,7 +2631,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per stamp",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2647,7 +2649,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per pixel",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2665,7 +2667,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per pixel",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -3511,7 +3513,7 @@ class db_dxil(object):
             "ro",
             [
                 db_dxil_param(0, "$r", "", "the loaded value"),
-                db_dxil_param(2, "res", "buf", "handle of Raw Buffer to load from"),
+                db_dxil_param(2, "res", "srv", "handle of TypedBuffer SRV to sample"),
                 db_dxil_param(
                     3,
                     "i32",
@@ -6432,6 +6434,12 @@ class db_dxil(object):
             "HLSL DXIL Logs all non-RayGen DXR 1.0 invocations into a UAV",
             [{"n": "maxNumEntriesInLog", "t": "int", "c": 1}],
         )
+        add_pass(
+            "hlsl-dxil-non-uniform-resource-index-instrumentation",
+            "DxilNonUniformResourceIndexInstrumentation",
+            "HLSL DXIL NonUniformResourceIndex instrumentation for PIX",
+            [],
+        )
 
         category_lib = "dxil_gen"
 
@@ -7785,11 +7793,15 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Instr.CoordinateCountForRawTypedBuf",
-            "raw/typed buffer don't need 2 coordinates.",
+            "raw/typed buffer offset must be undef.",
+        )
+        self.add_valrule(
+            "Instr.ConstAlignForRawBuf",
+            "Raw Buffer alignment value must be a constant.",
         )
         self.add_valrule(
             "Instr.CoordinateCountForStructBuf",
-            "structured buffer require 2 coordinates.",
+            "structured buffer requires defined index and offset coordinates.",
         )
         self.add_valrule(
             "Instr.MipLevelForGetDimension",
@@ -8795,6 +8807,7 @@ class db_hlsl(object):
             "GroupNodeOutputRecords": "LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS",
             "ThreadNodeOutputRecords": "LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS",
             "DxHitObject": "LICOMPTYPE_HIT_OBJECT",
+            "VkBufferPointer": "LICOMPTYPE_VK_BUFFER_POINTER",
         }
 
         self.trans_rowcol = {"r": "IA_R", "c": "IA_C", "r2": "IA_R2", "c2": "IA_C2"}
@@ -8856,7 +8869,8 @@ class db_hlsl(object):
             (?:RW)?(?:Texture\w*|ByteAddressBuffer) |
             acceleration_struct | ray_desc | RayQuery | DxHitObject |
             Node\w* | RWNode\w* | EmptyNode\w* |
-            AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w*
+            AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w* |
+            VkBufferPointer
             $)""",
             flags=re.VERBOSE,
         )
@@ -8906,6 +8920,10 @@ class db_hlsl(object):
                 type_name = "void"
             if type_name == "$funcT":
                 template_id = "-3"
+                component_id = "0"
+                type_name = "void"
+            elif type_name == "$funcT2":
+                template_id = "-4"
                 component_id = "0"
                 type_name = "void"
             elif type_name == "...":
@@ -9036,6 +9054,8 @@ class db_hlsl(object):
                 template_id = "INTRIN_TEMPLATE_VARARGS"
             elif template_id == "-3":
                 template_id = "INTRIN_TEMPLATE_FROM_FUNCTION"
+            elif template_id == "-4":
+                template_id = "INTRIN_TEMPLATE_FROM_FUNCTION_2"
             if component_id == "-1":
                 component_id = "INTRIN_COMPTYPE_FROM_TYPE_ELT0"
             if component_id == "-2":

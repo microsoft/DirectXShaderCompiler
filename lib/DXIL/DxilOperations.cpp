@@ -96,16 +96,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x7}},
-     {{0x0}}}, // Overloads: hfd
+     {{0x407}},
+     {{0x7}}}, // Overloads: hfd<hfd
     {OC::Saturate,
      "Saturate",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x7}},
-     {{0x0}}}, // Overloads: hfd
+     {{0x407}},
+     {{0x7}}}, // Overloads: hfd<hfd
     {OC::IsNaN,
      "IsNaN",
      OCC::IsSpecialFloat,
@@ -292,8 +292,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
     {OC::Countbits,
      "Countbits",
      OCC::UnaryBits,
@@ -438,8 +438,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0x7}},
-     {{0x0}}}, // Overloads: hfd
+     {{0x407}},
+     {{0x7}}}, // Overloads: hfd<hfd
     {OC::Fma,
      "Fma",
      OCC::Tertiary,
@@ -456,8 +456,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
 
     // Tertiary uint
     {OC::UMad,
@@ -466,8 +466,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
 
     // Tertiary int
     {OC::Msad,
@@ -764,32 +764,32 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::DerivCoarseY,
      "DerivCoarseY",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::DerivFineX,
      "DerivFineX",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::DerivFineY,
      "DerivFineY",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
 
     // Pixel shader
     {OC::EvalSnapped,
@@ -2633,6 +2633,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      0,
      {},
      {}}, // Overloads: v
+
+    // Resources
     {OC::RawBufferVectorLoad,
      "RawBufferVectorLoad",
      OCC::RawBufferVectorLoad,
@@ -2850,8 +2852,7 @@ bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
   if (OpProps.NumOverloadDims > 1) {
     StructType *ST = dyn_cast<StructType>(pType);
     // Make sure multi-overload is well-formed.
-    if (!ST || ST->hasName() ||
-        ST->getNumContainedTypes() != OpProps.NumOverloadDims)
+    if (!ST || ST->hasName() || ST->getNumElements() != OpProps.NumOverloadDims)
       return false;
     for (unsigned I = 0; I < ST->getNumElements(); ++I)
       Types[I] = ST->getElementType(I);
@@ -5792,6 +5793,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pV);
     A(pI32);
     break;
+
+    // Resources
   case OpCode::RawBufferVectorLoad:
     RRT(pETy);
     A(pI32);
@@ -6328,11 +6331,12 @@ bool OP::IsResRetType(llvm::Type *Ty) {
     if (Ty == ResTy)
       return true;
   }
+  // Check for vector overload which isn't cached in m_pResRetType.
   StructType *ST = cast<StructType>(Ty);
-  if (!ST->hasName() || ST->getNumContainedTypes() < 2)
+  if (!ST->hasName() || ST->getNumElements() < 2 ||
+      !ST->getElementType(0)->isVectorTy())
     return false;
-  return Ty == GetResRetType(ST->getContainedType(0));
-  return false;
+  return Ty == GetResRetType(ST->getElementType(0));
 }
 
 Type *OP::GetResRetType(Type *pOverloadType) {

@@ -3,9 +3,9 @@
 // RUN: %dxc -DTYPE=uint64_t -DNUM=2 -T vs_6_9 %s | FileCheck %s
 // RUN: %dxc -DTYPE=double   -DNUM=2 -T vs_6_9 %s | FileCheck %s
 
-// RUN: %dxc -DTYPE=float    -DNUM=6   -T vs_6_9 %s | FileCheck %s
-// RUN: %dxc -DTYPE=bool     -DNUM=13  -T vs_6_9 %s | FileCheck %s --check-prefixes=CHECK,I1
-// RUN: %dxc -DTYPE=uint64_t -DNUM=24  -T vs_6_9 %s | FileCheck %s
+// RUN: %dxc -DTYPE=float    -DNUM=6  -T vs_6_9 %s | FileCheck %s
+// RUN: %dxc -DTYPE=bool     -DNUM=13 -T vs_6_9 %s | FileCheck %s --check-prefixes=CHECK,I1
+// RUN: %dxc -DTYPE=uint64_t -DNUM=24 -T vs_6_9 %s | FileCheck %s
 // RUN: %dxc -DTYPE=double   -DNUM=32 -T vs_6_9 %s | FileCheck %s
 
 ///////////////////////////////////////////////////////////////////////
@@ -15,16 +15,17 @@
 
 // CHECK: %dx.types.ResRet.[[VTY:v[0-9]*[a-z][0-9][0-9]]] = type { <[[NUM:[0-9]*]] x [[TYPE:[a-z_0-9]*]]>, i32 }
 
-  ByteAddressBuffer RoByBuf : register(t1);
+ByteAddressBuffer RoByBuf : register(t1);
 RWByteAddressBuffer RwByBuf : register(u1);
 
-StructuredBuffer< vector<TYPE, NUM> > RoStBuf : register(t2);
-RWStructuredBuffer< vector<TYPE, NUM>  > RwStBuf : register(u2);
+StructuredBuffer<vector<TYPE, NUM> > RoStBuf : register(t2);
+RWStructuredBuffer<vector<TYPE, NUM> > RwStBuf : register(u2);
 
 ConsumeStructuredBuffer<vector<TYPE, NUM> > CnStBuf : register(u4);
 AppendStructuredBuffer<vector<TYPE, NUM> > ApStBuf  : register(u5);
 
 // CHECK-LABEL: define void @main
+[shader("vertex")]
 void main(uint ix[2] : IX) {
   // ByteAddressBuffer Tests
 
