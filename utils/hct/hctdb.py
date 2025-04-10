@@ -5946,11 +5946,13 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
-        self.set_op_count_for_version(1, 9, next_op_idx)
-        assert next_op_idx == 309, (
-            "309 is expected next operation index but encountered %d and thus opcodes are broken"
-            % next_op_idx
-        )
+        # End of DXIL 1.9 opcodes.
+        # NOTE!! Update and uncomment when DXIL 1.9 opcodes are finalized:
+        # self.set_op_count_for_version(1, 9, next_op_idx)
+        # assert next_op_idx == NNN, (
+        #    "NNN is expected next operation index but encountered %d and thus opcodes are broken"
+        #    % next_op_idx
+        # )
 
         # Set interesting properties.
         self.build_indices()
