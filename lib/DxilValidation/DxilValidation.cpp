@@ -1089,9 +1089,9 @@ static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode opcode,
       ValCtx.EmitInstrError(
           CI, ValidationRule::InstrLinalgInterpretationParamAreConst);
     }
-    ConstantInt *Bi = cast<ConstantInt>(BiasInterpretation);
-    auto BiValue = Bi->getLimitedValue();
-    if (!CheckInMemoryInterpretations(BiValue)) {
+    ConstantInt *BI = cast<ConstantInt>(BiasInterpretation);
+    auto BIValue = BI->getLimitedValue();
+    if (!CheckInMemoryInterpretations(BIValue)) {
       ValCtx.EmitInstrError(
           CI, ValidationRule::InstrLinalgInvalidMemoryInterpValue);
     }
