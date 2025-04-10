@@ -162,9 +162,9 @@ public:
 
   static bool IsDxilOpExtendedOverload(OpCode C);
 
-  // Return true if the overload name for this operation may be constructed
-  // based on a type name that may not represent the same type in different
-  // modules.
+  // Return true if the overload name suffix for this operation may be
+  // constructed based on a user-defined or user-influenced type name
+  // that may not represent the same type in different linked modules.
   static bool MayHaveNonCanonicalOverload(OpCode OC);
 
 private:

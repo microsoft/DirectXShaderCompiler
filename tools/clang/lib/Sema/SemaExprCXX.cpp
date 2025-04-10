@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 ///
 /// \file
@@ -1052,6 +1055,31 @@ Sema::BuildCXXTypeConstructExpr(TypeSourceInfo *TInfo,
   // corresponding cast expression.
   if (Exprs.size() == 1 && !ListInitialization) {
     Expr *Arg = Exprs[0];
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (hlsl::IsVKBufferPointerType(Ty) && Arg->getType()->isIntegerType()) {
+      for (auto *ctor : Ty->getAsCXXRecordDecl()->ctors()) {
+        if (auto *functionType = ctor->getType()->getAs<FunctionProtoType>()) {
+          if (functionType->getNumParams() != 1 ||
+              !functionType->getParamType(0)->isIntegerType())
+            continue;
+
+          CanQualType argType = Arg->getType()->getCanonicalTypeUnqualified();
+          if (!Arg->isRValue()) {
+            Arg = ImpCastExprToType(Arg, argType, CK_LValueToRValue).get();
+          }
+          if (argType != Context.UnsignedLongLongTy) {
+            Arg = ImpCastExprToType(Arg, Context.UnsignedLongLongTy,
+                                    CK_IntegralCast)
+                      .get();
+          }
+          return CXXConstructExpr::Create(
+              Context, Ty, TyBeginLoc, ctor, false, {Arg}, false, false, false,
+              false, CXXConstructExpr::ConstructionKind::CK_Complete,
+              SourceRange(LParenLoc, RParenLoc));
+        }
+      }
+    }
+#endif
     return BuildCXXFunctionalCastExpr(TInfo, LParenLoc, Arg, RParenLoc);
   }
 

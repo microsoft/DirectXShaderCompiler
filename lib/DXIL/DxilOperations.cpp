@@ -2633,6 +2633,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      0,
      {},
      {}}, // Overloads: v
+
+    // Resources
     {OC::RawBufferVectorLoad,
      "RawBufferVectorLoad",
      OCC::RawBufferVectorLoad,
@@ -2816,8 +2818,7 @@ bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
   if (OpProps.NumOverloadDims > 1) {
     StructType *ST = dyn_cast<StructType>(pType);
     // Make sure multi-overload is well-formed.
-    if (!ST || ST->hasName() ||
-        ST->getNumContainedTypes() != OpProps.NumOverloadDims)
+    if (!ST || ST->hasName() || ST->getNumElements() != OpProps.NumOverloadDims)
       return false;
     for (unsigned I = 0; I < ST->getNumElements(); ++I)
       Types[I] = ST->getElementType(I);
@@ -5757,6 +5758,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pV);
     A(pI32);
     break;
+
+    // Resources
   case OpCode::RawBufferVectorLoad:
     RRT(pETy);
     A(pI32);
@@ -6224,11 +6227,12 @@ bool OP::IsResRetType(llvm::Type *Ty) {
     if (Ty == ResTy)
       return true;
   }
+  // Check for vector overload which isn't cached in m_pResRetType.
   StructType *ST = cast<StructType>(Ty);
-  if (!ST->hasName() || ST->getNumContainedTypes() < 2)
+  if (!ST->hasName() || ST->getNumElements() < 2 ||
+      !ST->getElementType(0)->isVectorTy())
     return false;
-  return Ty == GetResRetType(ST->getContainedType(0));
-  return false;
+  return Ty == GetResRetType(ST->getElementType(0));
 }
 
 Type *OP::GetResRetType(Type *pOverloadType) {
