@@ -348,7 +348,6 @@ enum ArBasicKind {
 #define BPROP_FEEDBACKTEXTURE                                                  \
   0x00800000                  // Whether the type is a feedback texture.
 #define BPROP_ENUM 0x01000000 // Whether the type is a enum
-#define BPROP_RAWBUFFER 0x02000000 // Whether the type is a raw buffer.
 
 #define GET_BPROP_PRIM_KIND(_Props)                                            \
   ((_Props) & (BPROP_BOOLEAN | BPROP_INTEGER | BPROP_FLOATING))
@@ -389,7 +388,6 @@ enum ArBasicKind {
   (IS_BPROP_AINT(_Props) && GET_BPROP_BITS(_Props) != BPROP_BITS12)
 
 #define IS_BPROP_ENUM(_Props) (((_Props)&BPROP_ENUM) != 0)
-#define IS_BPROP_RAWBUFFER(_Props) (((_Props) & BPROP_RAWBUFFER) != 0)
 
 const UINT g_uBasicKindProps[] = {
     BPROP_PRIMITIVE | BPROP_BOOLEAN | BPROP_INTEGER | BPROP_NUMERIC |
@@ -518,30 +516,22 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE3D
     BPROP_OBJECT | BPROP_RWBUFFER,                 // AR_OBJECT_RWBUFFER
 
-    BPROP_OBJECT | BPROP_RBUFFER |
-        BPROP_RAWBUFFER, // AR_OBJECT_BYTEADDRESS_BUFFER
-    BPROP_OBJECT | BPROP_RWBUFFER |
-        BPROP_RAWBUFFER, // AR_OBJECT_RWBYTEADDRESS_BUFFER
-    BPROP_OBJECT | BPROP_RBUFFER |
-        BPROP_RAWBUFFER, // AR_OBJECT_STRUCTURED_BUFFER
-    BPROP_OBJECT | BPROP_RWBUFFER |
-        BPROP_RAWBUFFER, // AR_OBJECT_RWSTRUCTURED_BUFFER
-    BPROP_OBJECT | BPROP_RWBUFFER |
-        BPROP_RAWBUFFER, // AR_OBJECT_RWSTRUCTURED_BUFFER_ALLOC
-    BPROP_OBJECT | BPROP_RWBUFFER |
-        BPROP_RAWBUFFER, // AR_OBJECT_RWSTRUCTURED_BUFFER_CONSUME
-    BPROP_OBJECT | BPROP_RWBUFFER |
-        BPROP_RAWBUFFER, // AR_OBJECT_APPEND_STRUCTURED_BUFFER
-    BPROP_OBJECT | BPROP_RWBUFFER |
-        BPROP_RAWBUFFER, // AR_OBJECT_CONSUME_STRUCTURED_BUFFER
+    BPROP_OBJECT | BPROP_RBUFFER,  // AR_OBJECT_BYTEADDRESS_BUFFER
+    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWBYTEADDRESS_BUFFER
+    BPROP_OBJECT | BPROP_RBUFFER,  // AR_OBJECT_STRUCTURED_BUFFER
+    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWSTRUCTURED_BUFFER
+    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWSTRUCTURED_BUFFER_ALLOC
+    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWSTRUCTURED_BUFFER_CONSUME
+    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_APPEND_STRUCTURED_BUFFER
+    BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_CONSUME_STRUCTURED_BUFFER
 
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_CONSTANT_BUFFER
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_TEXTURE_BUFFER
 
     BPROP_OBJECT | BPROP_RWBUFFER | BPROP_ROVBUFFER, // AR_OBJECT_ROVBUFFER
-    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_RAWBUFFER |
+    BPROP_OBJECT | BPROP_RWBUFFER |
         BPROP_ROVBUFFER, // AR_OBJECT_ROVBYTEADDRESS_BUFFER
-    BPROP_OBJECT | BPROP_RWBUFFER | BPROP_RAWBUFFER |
+    BPROP_OBJECT | BPROP_RWBUFFER |
         BPROP_ROVBUFFER, // AR_OBJECT_ROVSTRUCTURED_BUFFER
     BPROP_OBJECT | BPROP_RWBUFFER | BPROP_ROVBUFFER, // AR_OBJECT_ROVTEXTURE1D
     BPROP_OBJECT | BPROP_RWBUFFER |
@@ -655,8 +645,6 @@ C_ASSERT(ARRAYSIZE(g_uBasicKindProps) == AR_BASIC_MAXIMUM_COUNT);
 #define IS_BASIC_UNSIGNABLE(_Kind) IS_BPROP_UNSIGNABLE(GetBasicKindProps(_Kind))
 
 #define IS_BASIC_ENUM(_Kind) IS_BPROP_ENUM(GetBasicKindProps(_Kind))
-
-#define IS_BASIC_RAWBUFFER(_Kind) IS_BPROP_RAWBUFFER(GetBasicKindProps(_Kind))
 
 #define BITWISE_ENUM_OPS(_Type)                                                \
   inline _Type operator|(_Type F1, _Type F2) {                                 \
@@ -6618,8 +6606,10 @@ bool HLSLExternalSource::MatchArguments(
   argTypes.clear();
   const bool isVariadic = IsVariadicIntrinsicFunction(pIntrinsic);
 
-  static const UINT UnusedSize = 0xFF;
-  static const BYTE MaxIntrinsicArgs = g_MaxIntrinsicParamCount + 1;
+  static const uint32_t UnusedSize = std::numeric_limits<uint32_t>::max();
+  static const uint32_t MaxIntrinsicArgs = g_MaxIntrinsicParamCount + 1;
+  assert(MaxIntrinsicArgs < std::numeric_limits<uint8_t>::max() &&
+         "This should be a pretty small number");
 #define CAB(cond, arg)                                                         \
   {                                                                            \
     if (!(cond)) {                                                             \
@@ -6634,7 +6624,7 @@ bool HLSLExternalSource::MatchArguments(
   ArBasicKind
       ComponentType[MaxIntrinsicArgs]; // Component type for each argument,
                                        // AR_BASIC_UNKNOWN if unspecified.
-  UINT uSpecialSize[IA_SPECIAL_SLOTS]; // row/col matching types, UNUSED_INDEX32
+  UINT uSpecialSize[IA_SPECIAL_SLOTS]; // row/col matching types, UnusedSize
                                        // if unspecified.
   badArgIdx = MaxIntrinsicArgs;
 
