@@ -195,6 +195,7 @@ class DarkerFormatHelper(FormatHelper):
 ALL_FORMATTERS = (DarkerFormatHelper(), ClangFormatHelper())
 
 if __name__ == "__main__":
+    print("Test ci")
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--token", type=str, required=True, help="GitHub authentiation token"
