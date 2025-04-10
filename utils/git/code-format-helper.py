@@ -87,6 +87,7 @@ View the diff from {self.name} here.
 
     def update_pr_success(self, args: argparse.Namespace):
         repo = github.Github(args.token).get_repo(args.repo)
+        repo = github.Github(args.token).get_repo(args.repo)
         pr = repo.get_issue(args.issue_number).as_pull_request()
 
         existing_comment = self.find_comment(pr)
