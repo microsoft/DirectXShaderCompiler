@@ -1102,7 +1102,6 @@ static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode opcode,
 }
 
 static void ValidateImmOperandsForOuterProdAcc(CallInst *CI,
-                                               DXIL::OpCode opcode,
                                                ValidationContext &ValCtx) {
 
   llvm::Value *MatrixInterpretation =
