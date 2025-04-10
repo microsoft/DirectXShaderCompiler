@@ -9038,7 +9038,7 @@ struct DxilInst_MatVecMul {
   // Operand indexes
   enum OperandIdx {
     arg_inputVector = 1,
-    arg_inputIsUnsigned = 2,
+    arg_isInputUnsigned = 2,
     arg_inputInterpretation = 3,
     arg_matrixBuffer = 4,
     arg_matrixOffset = 5,
@@ -9048,13 +9048,13 @@ struct DxilInst_MatVecMul {
     arg_matrixLayout = 9,
     arg_matrixTranspose = 10,
     arg_matrixStride = 11,
-    arg_outputIsUnsigned = 12,
+    arg_isOutputUnsigned = 12,
   };
   // Accessors
   llvm::Value *get_inputVector() const { return Instr->getOperand(1); }
   void set_inputVector(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_inputIsUnsigned() const { return Instr->getOperand(2); }
-  void set_inputIsUnsigned(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_isInputUnsigned() const { return Instr->getOperand(2); }
+  void set_isInputUnsigned(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_inputInterpretation() const { return Instr->getOperand(3); }
   void set_inputInterpretation(llvm::Value *val) { Instr->setOperand(3, val); }
   llvm::Value *get_matrixBuffer() const { return Instr->getOperand(4); }
@@ -9073,8 +9073,8 @@ struct DxilInst_MatVecMul {
   void set_matrixTranspose(llvm::Value *val) { Instr->setOperand(10, val); }
   llvm::Value *get_matrixStride() const { return Instr->getOperand(11); }
   void set_matrixStride(llvm::Value *val) { Instr->setOperand(11, val); }
-  llvm::Value *get_outputIsUnsigned() const { return Instr->getOperand(12); }
-  void set_outputIsUnsigned(llvm::Value *val) { Instr->setOperand(12, val); }
+  llvm::Value *get_isOutputUnsigned() const { return Instr->getOperand(12); }
+  void set_isOutputUnsigned(llvm::Value *val) { Instr->setOperand(12, val); }
 };
 
 /// This instruction multiplies a MxK dimension matrix and a K sized input
@@ -9099,7 +9099,7 @@ struct DxilInst_MatVecMulAdd {
   // Operand indexes
   enum OperandIdx {
     arg_inputVector = 1,
-    arg_inputIsUnsigned = 2,
+    arg_isInputUnsigned = 2,
     arg_inputInterpretation = 3,
     arg_matrixBuffer = 4,
     arg_matrixOffset = 5,
@@ -9112,13 +9112,13 @@ struct DxilInst_MatVecMulAdd {
     arg_biasBuffer = 12,
     arg_biasOffset = 13,
     arg_biasIntepretation = 14,
-    arg_outputIsUnsigned = 15,
+    arg_isOutputUnsigned = 15,
   };
   // Accessors
   llvm::Value *get_inputVector() const { return Instr->getOperand(1); }
   void set_inputVector(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_inputIsUnsigned() const { return Instr->getOperand(2); }
-  void set_inputIsUnsigned(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_isInputUnsigned() const { return Instr->getOperand(2); }
+  void set_isInputUnsigned(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_inputInterpretation() const { return Instr->getOperand(3); }
   void set_inputInterpretation(llvm::Value *val) { Instr->setOperand(3, val); }
   llvm::Value *get_matrixBuffer() const { return Instr->getOperand(4); }
@@ -9143,8 +9143,8 @@ struct DxilInst_MatVecMulAdd {
   void set_biasOffset(llvm::Value *val) { Instr->setOperand(13, val); }
   llvm::Value *get_biasIntepretation() const { return Instr->getOperand(14); }
   void set_biasIntepretation(llvm::Value *val) { Instr->setOperand(14, val); }
-  llvm::Value *get_outputIsUnsigned() const { return Instr->getOperand(15); }
-  void set_outputIsUnsigned(llvm::Value *val) { Instr->setOperand(15, val); }
+  llvm::Value *get_isOutputUnsigned() const { return Instr->getOperand(15); }
+  void set_isOutputUnsigned(llvm::Value *val) { Instr->setOperand(15, val); }
 };
 
 /// This instruction Computes the outer product between column vectors and an

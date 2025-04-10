@@ -5865,7 +5865,7 @@ class db_dxil(object):
             [
                 db_dxil_param(0, "$x0", "outputVector", "output vector"),
                 db_dxil_param(2, "$x1", "inputVector", "input vector"),
-                db_dxil_param(3, "i1", "inputIsUnsigned", "input signed op kind"),
+                db_dxil_param(3, "i1", "isInputUnsigned", "is input unsigned"),
                 db_dxil_param(4, "i32", "inputInterpretation", "input interpretation"),
                 db_dxil_param(5, "res", "matrixBuffer", "matrix resource"),
                 db_dxil_param(6, "i32", "matrixOffset", "matrix offset"),
@@ -5875,7 +5875,7 @@ class db_dxil(object):
                 db_dxil_param(10, "i32", "matrixLayout", "matrix layout"),
                 db_dxil_param(11, "i1", "matrixTranspose", "matrix transpose"),
                 db_dxil_param(12, "i32", "matrixStride", "matrix stride"),
-                db_dxil_param(13, "i1", "outputIsUnsigned", "output signed op kind"),
+                db_dxil_param(13, "i1", "isOutputUnsigned", "is output unsigned"),
             ],
         )
         next_op_idx += 1
@@ -5890,7 +5890,7 @@ class db_dxil(object):
             [
                 db_dxil_param(0, "$x0", "outputVector", "output vector"),
                 db_dxil_param(2, "$x1", "inputVector", "input vector"),
-                db_dxil_param(3, "i1", "inputIsUnsigned", "input signed op kind"),
+                db_dxil_param(3, "i1", "isInputUnsigned", "is input unsigned"),
                 db_dxil_param(4, "i32", "inputInterpretation", "input interpretation"),
                 db_dxil_param(5, "res", "matrixBuffer", "matrix resource"),
                 db_dxil_param(6, "i32", "matrixOffset", "matrix offset"),
@@ -5905,7 +5905,7 @@ class db_dxil(object):
                 db_dxil_param(
                     15, "i32", "biasIntepretation", "bias vector intepretation"
                 ),
-                db_dxil_param(16, "i1", "outputIsUnsigned", "output signed op kind"),
+                db_dxil_param(16, "i1", "isOutputUnsigned", "is output unsigned"),
             ],
         )
         next_op_idx += 1
