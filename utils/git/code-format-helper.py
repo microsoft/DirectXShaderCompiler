@@ -80,6 +80,7 @@ View the diff from {self.name} here.
             pr.as_issue().create_comment(pr_text)
 
     def push_review(self, args: argparse.Namespace):
+        repo = github.Github(args.token).get_repo(args.repo)
         pr = repo.get_issue(args.issue_number).as_pull_request()
         pr.create_review(
             event='APPROVE'  
