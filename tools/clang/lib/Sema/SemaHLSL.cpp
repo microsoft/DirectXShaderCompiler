@@ -387,7 +387,7 @@ enum ArBasicKind {
 #define IS_BPROP_UNSIGNABLE(_Props)                                            \
   (IS_BPROP_AINT(_Props) && GET_BPROP_BITS(_Props) != BPROP_BITS12)
 
-#define IS_BPROP_ENUM(_Props) (((_Props)&BPROP_ENUM) != 0)
+#define IS_BPROP_ENUM(_Props) (((_Props) & BPROP_ENUM) != 0)
 
 const UINT g_uBasicKindProps[] = {
     BPROP_PRIMITIVE | BPROP_BOOLEAN | BPROP_INTEGER | BPROP_NUMERIC |
