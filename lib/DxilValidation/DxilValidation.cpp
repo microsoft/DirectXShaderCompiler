@@ -1006,7 +1006,7 @@ static bool CheckMatrixLayout(unsigned input) {
           static_cast<unsigned>(DXIL::DXILMatrixLayout::OuterProductOptimal));
 }
 
-static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode opcode,
+static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode OpCode,
                                             ValidationContext &ValCtx) {
 
   // Check Common operands
