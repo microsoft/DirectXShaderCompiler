@@ -986,7 +986,7 @@ static bool CheckFromRegisterInterpretations(uint32_t Input) {
   return false;
 }
 
-static bool CheckInMemoryInterpretations(uint32_t input) {
+static bool CheckInMemoryInterpretations(uint32_t Input) {
   DXIL::ComponentType ValidSet[] = {
       DXIL::ComponentType::I16,     DXIL::ComponentType::U16,
       DXIL::ComponentType::I32,     DXIL::ComponentType::U32,
