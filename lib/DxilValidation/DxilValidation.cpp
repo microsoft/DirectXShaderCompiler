@@ -1001,8 +1001,8 @@ static bool CheckInMemoryInterpretations(uint32_t Input) {
   return false;
 }
 
-static bool CheckMatrixLayout(unsigned input) {
-  return (input <=
+static bool CheckMatrixLayout(unsigned Input) {
+  return (Input <=
           static_cast<unsigned>(DXIL::DXILMatrixLayout::OuterProductOptimal));
 }
 
