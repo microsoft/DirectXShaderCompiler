@@ -1503,7 +1503,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Unary",
                 "returns the " + i,
-                "hfd",
+                "hfd<",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "operation result"),
@@ -1554,7 +1554,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Unary",
                 "returns the reverse bit pattern of the input value",
-                "wil",
+                "wil<",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "operation result"),
@@ -1674,7 +1674,7 @@ class db_dxil(object):
             next_op_idx,
             "Tertiary",
             "performs a fused multiply add (FMA) of the form a * b + c",
-            "hfd",
+            "hfd<",
             "rn",
             [
                 db_dxil_param(
@@ -1715,7 +1715,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Tertiary",
                 "performs an integral " + i,
-                "wil",
+                "wil<",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "the operation result"),
@@ -2608,7 +2608,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per stamp",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2626,7 +2626,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per stamp",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2644,7 +2644,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per pixel",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2662,7 +2662,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per pixel",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -3508,7 +3508,7 @@ class db_dxil(object):
             "ro",
             [
                 db_dxil_param(0, "$r", "", "the loaded value"),
-                db_dxil_param(2, "res", "buf", "handle of Raw Buffer to load from"),
+                db_dxil_param(2, "res", "srv", "handle of TypedBuffer SRV to sample"),
                 db_dxil_param(
                     3,
                     "i32",
