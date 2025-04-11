@@ -2795,6 +2795,31 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         }
       }
         LLVM_FALLTHROUGH;
+      case IntrinsicOp::MOP_DxHitObject_FromRayQuery: {
+        const bool IsWithAttrs =
+            CI->getNumArgOperands() ==
+            HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_NumOp;
+        if (IsWithAttrs &&
+            (OldVal ==
+             CI->getArgOperand(
+                 HLOperandIndex::
+                     kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx))) {
+          RewriteCallArg(
+              CI,
+              HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx,
+              /*bIn*/ true, /*bOut*/ false);
+          break;
+        }
+
+        // For RayQuery methods, we want to replace the RayQuery this pointer
+        // with a load and use of the underlying handle value.
+        // This will allow elimination of RayQuery types earlier.
+        RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                            /*loadElts*/ true);
+        DeadInsts.push_back(CI);
+        break;
+      }
+        LLVM_FALLTHROUGH;
       default:
         // RayQuery this pointer replacement.
         if (OldVal->getType()->isPointerTy() &&
