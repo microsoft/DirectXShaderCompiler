@@ -5,7 +5,7 @@
 
 RWByteAddressBuffer buf;
 
-export vector<float, NUM> lv_global_arr_ret() { // expected-error{{invalid value, valid range is between 1 and 1024 inclusive}}
+export vector<float, NUM> lv_global_arr_ret() {
   vector<float, NUM> d = buf.Load<vector<float, NUM> >(0);
   return d;
 }
