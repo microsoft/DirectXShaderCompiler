@@ -1,3 +1,4 @@
+; REQUIRES: dxil-1-9
 ; RUN: %dxv %s | FileCheck %s
 
 ; CHECK: Validation succeeded.
@@ -11,7 +12,9 @@ target triple = "dxil-ms-dx"
 define void @"\01?main@@YAXXZ"() #0 {
   %nop = call %dx.types.HitObject @dx.op.hitObject_MakeNop(i32 266)  ; HitObject_MakeNop()
   call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject %nop, i32 241, i32 3)  ; MaybeReorderThread(hitObject,coherenceHint,numCoherenceHintBitsFromLSB)
-  call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject undef, i32 242, i32 7)  ; MaybeReorderThread(hitObject,coherenceHint,numCoherenceHintBitsFromLSB)
+  
+  ; Coherence hint disabled, accept 'undef' coherence hint bits.
+  call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject %nop, i32 undef, i32 0)  ; MaybeReorderThread(hitObject,coherenceHint,numCoherenceHintBitsFromLSB)
   ret void
 }
 

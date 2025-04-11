@@ -7832,6 +7832,10 @@ class db_dxil(object):
 
         # Shader Execution Reordering
         self.add_valrule(
+            "Instr.UndefHitObject",
+            "HitObject is undef.",
+        )
+        self.add_valrule(
             "Instr.MayReorderThreadUndefCoherenceHintParam",
             "Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.",
         )

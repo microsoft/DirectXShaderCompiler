@@ -1,3 +1,4 @@
+; REQUIRES: dxil-1-9
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
@@ -5,22 +6,31 @@ target triple = "dxil-ms-dx"
 
 %dx.types.HitObject = type { i8* }
 
+; CHECK: Function: ?main@@YAXXZ: error: Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
+; CHECK-NEXT: note: at 'call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject %nop, i32 1, i32 undef)'
+
+; CHECK: Function: ?main@@YAXXZ: error: Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
+; CHECK-NEXT: note: at 'call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject %nop, i32 undef, i32 1)'
+
+; CHECK: Function: ?main@@YAXXZ: error: HitObject is undef.
+; CHECK-NEXT: note: at 'call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject undef, i32 11, i32 0)'
+
+; CHECK: Validation failed.
+
 ; Function Attrs: nounwind
 define void @"\01?main@@YAXXZ"() #0 {
   %nop = call %dx.types.HitObject @dx.op.hitObject_MakeNop(i32 266)  ; HitObject_MakeNop()
 
-; Validate that coherence hint is not undef.
-  call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject %nop, i32 undef, i32 0)  ; MaybeReorderThread(hitObject,coherenceHint,numCoherenceHintBitsFromLSB)
-; CHECK: Function: ?main@@YAXXZ: error: Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
-; CHECK-NEXT: note: at 'call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject %nop, i32 undef, i32 0)'
+  ; Validate that hit object is not undef.
+  call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject undef, i32 11, i32 0)  ; MaybeReorderThread(hitObject,coherenceHint,numCoherenceHintBitsFromLSB)
 
-; Validate that num coherence hint bits from LSB is not undef.
+  ; Validate that coherence hint is not undef while numCoherenceHintBitsFromLSB is not 0.
+  call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject %nop, i32 undef, i32 1)  ; MaybeReorderThread(hitObject,coherenceHint,numCoherenceHintBitsFromLSB)
+
+  ; Validate that num coherence hint bits from LSB is not undef.
   call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject %nop, i32 1, i32 undef)  ; MaybeReorderThread(hitObject,coherenceHint,numCoherenceHintBitsFromLSB)
-; CHECK-NEXT: Function: ?main@@YAXXZ: error: Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
-; CHECK-NEXT: note: at 'call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject %nop, i32 1, i32 undef)'
   ret void
 }
-; CHECK-NEXT: Validation failed.
 
 ; Function Attrs: nounwind readnone
 declare %dx.types.HitObject @dx.op.hitObject_MakeNop(i32) #1
