@@ -1047,14 +1047,16 @@ bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
     unsigned VecSize = hlsl::GetHLSLVecSize(QualTy);
     unsigned ElemSizeInBits = CGM.getContext().getTypeSize(ElemQualTy);
     unsigned CurrentAlignedOffset = 0;
-    std::string FieldNameBuf;
+    SmallString<8> FieldNameBuf;
     for (unsigned ElemIdx = 0; ElemIdx < VecSize; ++ElemIdx) {
       StringRef FieldName;
       if (VecSize <= 4) {
         FieldName = StringRef(&"xyzw"[ElemIdx], 1);
       } else {
-        FieldNameBuf = "c" + std::to_string(ElemIdx);
-        FieldName = FieldNameBuf;
+        FieldNameBuf.clear();
+        llvm::raw_svector_ostream OS(FieldNameBuf);
+        OS << 'c' << ElemIdx;
+        FieldName = OS.str();
       }
       CurrentAlignedOffset =
           llvm::RoundUpToAlignment(CurrentAlignedOffset, AlignBits);
