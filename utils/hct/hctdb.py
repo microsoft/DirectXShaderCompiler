@@ -5801,7 +5801,7 @@ class db_dxil(object):
                     16,
                     "udt",
                     "payload",
-                    "User-defined intersection attribute structure",
+                    "User-defined payload structure",
                 ),
             ],
         )
@@ -5857,7 +5857,7 @@ class db_dxil(object):
                     3,
                     "udt",
                     "payload",
-                    "User-defined intersection attribute structure",
+                    "User-defined payload structure",
                 ),
             ],
         )
