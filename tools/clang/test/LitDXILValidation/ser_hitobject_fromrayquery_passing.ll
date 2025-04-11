@@ -1,3 +1,4 @@
+; REQUIRES: dxil-1-9
 ; RUN: %dxv %s | FileCheck %s
 
 ; CHECK: Validation succeeded.
