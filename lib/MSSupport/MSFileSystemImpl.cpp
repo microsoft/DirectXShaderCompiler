@@ -322,8 +322,9 @@ typedef BOOLEAN(WINAPI *PtrCreateSymbolicLinkW)(
     /*__in*/ DWORD dwFlags);
 
 PtrCreateSymbolicLinkW create_symbolic_link_api =
-    PtrCreateSymbolicLinkW(::GetProcAddress(::GetModuleHandleW(L"Kernel32.dll"),
-                                            "CreateSymbolicLinkW"));
+    PtrCreateSymbolicLinkW(reinterpret_cast<void *>(::GetProcAddress(
+        ::GetModuleHandleW(L"Kernel32.dll"),
+                                            "CreateSymbolicLinkW")));
 } // namespace
 #endif
 
