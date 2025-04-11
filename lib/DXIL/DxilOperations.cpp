@@ -2316,7 +2316,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "HitObject_FromRayQuery",
      OCC::HitObject_FromRayQuery,
      "hitObject_FromRayQuery",
-     Attribute::ArgMemOnly,
+     Attribute::ReadOnly,
      0,
      {},
      {}}, // Overloads: v
@@ -2324,7 +2324,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "HitObject_FromRayQueryWithAttrs",
      OCC::HitObject_FromRayQueryWithAttrs,
      "hitObject_FromRayQueryWithAttrs",
-     Attribute::ArgMemOnly,
+     Attribute::ReadOnly,
      1,
      {{0x100}},
      {{0x0}}}, // Overloads: u

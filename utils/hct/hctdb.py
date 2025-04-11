@@ -5750,7 +5750,7 @@ class db_dxil(object):
             "HitObject_FromRayQuery",
             "Creates a new HitObject representing a committed hit from a RayQuery",
             "v",
-            "amo",
+            "ro",
             [
                 db_dxil_param(
                     0, "hit_object", "", "HitObject created from RayQuery object"
@@ -5766,7 +5766,7 @@ class db_dxil(object):
             "HitObject_FromRayQueryWithAttrs",
             "Creates a new HitObject representing a committed hit from a RayQuery and committed attributes",
             "u",
-            "amo",
+            "ro",
             [
                 db_dxil_param(
                     0, "hit_object", "", "HitObject created from RayQuery object"

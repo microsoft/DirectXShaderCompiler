@@ -37,22 +37,21 @@ declare i32 @dx.op.allocateRayQuery(i32, i32) #0
 ; Function Attrs: nounwind
 declare void @dx.op.rayQuery_TraceRayInline(i32, i32, %dx.types.Handle, i32, i32, float, float, float, float, float, float, float, float) #0
 
-; Function Attrs: nounwind argmemonly
-declare %dx.types.HitObject @dx.op.hitObject_FromRayQuery(i32, i32) #1
-
-; Function Attrs: nounwind argmemonly
-declare %dx.types.HitObject @dx.op.hitObject_FromRayQueryWithAttrs.struct.CustomAttrs(i32, i32, i32, %struct.CustomAttrs*) #1
-
 ; Function Attrs: nounwind readnone
-declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #2
+declare %dx.types.HitObject @dx.op.hitObject_FromRayQuery(i32, i32) #2
 
 ; Function Attrs: nounwind readonly
-declare %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32, %dx.types.Handle) #3
+declare %dx.types.HitObject @dx.op.hitObject_FromRayQueryWithAttrs.struct.CustomAttrs(i32, i32, i32, %struct.CustomAttrs*) #2
+
+; Function Attrs: nounwind readnone
+declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #1
+
+; Function Attrs: nounwind readonly
+declare %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32, %dx.types.Handle) #2
 
 attributes #0 = { nounwind }
-attributes #1 = { nounwind argmemonly }
-attributes #2 = { nounwind readnone }
-attributes #3 = { nounwind readonly }
+attributes #1 = { nounwind readnone }
+attributes #2 = { nounwind readonly }
 
 !dx.version = !{!0}
 !dx.valver = !{!0}
