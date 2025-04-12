@@ -3449,22 +3449,19 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     minor = 9;
     return;
   }
-  // Instructions: HitObject_MakeMiss=265, HitObject_MakeNop=266,
-  // HitObject_IsMiss=269, HitObject_IsHit=270, HitObject_IsNop=271,
-  // HitObject_RayFlags=272, HitObject_RayTMin=273, HitObject_RayTCurrent=274,
-  // HitObject_WorldRayOrigin=275, HitObject_WorldRayDirection=276,
-  // HitObject_ObjectRayOrigin=277, HitObject_ObjectRayDirection=278,
-  // HitObject_ObjectToWorld3x4=279, HitObject_WorldToObject3x4=280,
-  // HitObject_GeometryIndex=281, HitObject_InstanceIndex=282,
-  // HitObject_InstanceID=283, HitObject_PrimitiveIndex=284,
-  // HitObject_HitKind=285, HitObject_ShaderTableIndex=286,
-  // HitObject_SetShaderTableIndex=287,
-  // HitObject_LoadLocalRootTableConstant=288, HitObject_Attributes=289
-  if ((265 <= op && op <= 266) || (269 <= op && op <= 289)) {
   // Instructions: HitObject_FromRayQuery=263,
   // HitObject_FromRayQueryWithAttrs=264, HitObject_MakeMiss=265,
-  // HitObject_MakeNop=266
-  if ((263 <= op && op <= 266)) {
+  // HitObject_MakeNop=266, HitObject_IsMiss=269, HitObject_IsHit=270,
+  // HitObject_IsNop=271, HitObject_RayFlags=272, HitObject_RayTMin=273,
+  // HitObject_RayTCurrent=274, HitObject_WorldRayOrigin=275,
+  // HitObject_WorldRayDirection=276, HitObject_ObjectRayOrigin=277,
+  // HitObject_ObjectRayDirection=278, HitObject_ObjectToWorld3x4=279,
+  // HitObject_WorldToObject3x4=280, HitObject_GeometryIndex=281,
+  // HitObject_InstanceIndex=282, HitObject_InstanceID=283,
+  // HitObject_PrimitiveIndex=284, HitObject_HitKind=285,
+  // HitObject_ShaderTableIndex=286, HitObject_SetShaderTableIndex=287,
+  // HitObject_LoadLocalRootTableConstant=288, HitObject_Attributes=289
+  if ((263 <= op && op <= 266) || (269 <= op && op <= 289)) {
     major = 6;
     minor = 9;
     mask =

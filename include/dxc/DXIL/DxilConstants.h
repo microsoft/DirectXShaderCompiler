@@ -893,7 +893,12 @@ enum class OpCode : unsigned {
                                    // operation with a mipmap-level offset
 
   // Shader Execution Reordering
-  HitObject_Attributes = 289, // Returns the attributes set for this HitObject
+  HitObject_Attributes = 289,   // Returns the attributes set for this HitObject
+  HitObject_FromRayQuery = 263, // Creates a new HitObject representing a
+                                // committed hit from a RayQuery
+  HitObject_FromRayQueryWithAttrs =
+      264, // Creates a new HitObject representing a committed hit from a
+           // RayQuery and committed attributes
   HitObject_GeometryIndex = 281, // Returns the geometry index committed on hit
   HitObject_HitKind = 285,       // Returns the HitKind of the hit
   HitObject_InstanceID = 283,    // Returns the instance id committed on hit
@@ -903,11 +908,6 @@ enum class OpCode : unsigned {
   HitObject_IsNop = 271,  // Returns `true` if the HitObject represents a nop
   HitObject_LoadLocalRootTableConstant =
       288, // Returns the root table constant for this HitObject and offset
-  HitObject_FromRayQuery = 263, // Creates a new HitObject representing a
-                                // committed hit from a RayQuery
-  HitObject_FromRayQueryWithAttrs =
-      264, // Creates a new HitObject representing a committed hit from a
-           // RayQuery and committed attributes
   HitObject_MakeMiss = 265, // Creates a new HitObject representing a miss
   HitObject_MakeNop = 266,  // Creates an empty nop HitObject
   HitObject_ObjectRayDirection =
@@ -1306,9 +1306,9 @@ enum class OpCodeClass : unsigned {
 
   // Shader Execution Reordering
   HitObject_Attributes,
-  HitObject_LoadLocalRootTableConstant,
   HitObject_FromRayQuery,
   HitObject_FromRayQueryWithAttrs,
+  HitObject_LoadLocalRootTableConstant,
   HitObject_MakeMiss,
   HitObject_MakeNop,
   HitObject_SetShaderTableIndex,
