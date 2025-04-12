@@ -7706,8 +7706,10 @@ def err_hlsl_varmodifierna : Error<
   "%0 is not a valid modifier for a %1">;
 def err_hlsl_varmodifierna_decltype : Error<
   "%0 is not a valid modifier for a declaration of type %1">;
-def note_hlsl_globallycoherent_applies_to : Note<
-  "'globallycoherent' can only be applied to UAV or RWDispatchNodeInputRecord objects">;
+def note_hlsl_coherence_applies_to : Note<
+  "'%select{reordercoherent|globallycoherent}0' can only be applied to UAV%select{| or RWDispatchNodeInputRecord}0 objects">;
+def warn_hlsl_gc_implies_rc_attribute : Warning<
+  "attribute 'reordercoherent' implied by 'globallycoherent' in %0. 'reordercoherent' ignored.">;
 def err_hlsl_varmodifiersna : Error<
   "%0 and %1 cannot be used together for a %2">;
 def err_hlsl_vla : Error< // Patterened after err_opencl_vla
@@ -7756,9 +7758,17 @@ def warn_hlsl_semantic_attribute_position_misuse_hint: Warning<
 def warn_hlsl_unary_negate_unsigned : Warning<
   "unary negate of unsigned value is still unsigned">,
   InGroup<Conversion>, DefaultWarn;
-def warn_hlsl_impcast_glc_mismatch : Warning<
-  "implicit conversion from %0 to %1 %select{loses|adds}2 globallycoherent annotation">,
-  InGroup<Conversion>, DefaultWarn;
+def warn_hlsl_impcast_coherence_mismatch : Warning<
+  "implicit conversion from %0 to %1 %select{"
+  "demotes globallycoherent to reordercoherent|"
+  "promotes reordercoherent to globallycoherent|"
+  "loses reordercoherent|"
+  "loses globallycoherent|"
+  "adds reordercoherent|"
+  "adds globallycoherent}2 annotation">,
+  InGroup<Conversion>;
+def warn_hlsl_glc_implies_rdc : Warning<
+  "attribute 'globallycoherent' implies 'reordercoherent'">, InGroup<IgnoredAttributes>;
 def warn_hlsl_narrowing : Warning<
   "conversion from larger type %0 to smaller type %1, possible loss of data">,
   InGroup<Conversion>, DefaultWarn;
@@ -7976,7 +7986,7 @@ def err_hlsl_barrier_invalid_memory_flags: Error<
   "UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags">;
 def err_hlsl_barrier_invalid_semantic_flags: Error<
   "invalid SemanticFlags for Barrier operation; expected 0 or some combination of "
-  "GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags">;
+  "GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE%select{|, REORDER_SCOPE}0 flags">;
 def warn_hlsl_barrier_group_memory_requires_group: Warning<
   "GROUP_SHARED_MEMORY specified for Barrier operation when context has no visible group">,
   InGroup<HLSLBarrier>, DefaultError;

@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/Support/Global.h"
@@ -96,16 +97,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x7}},
-     {{0x0}}}, // Overloads: hfd
+     {{0x407}},
+     {{0x7}}}, // Overloads: hfd<hfd
     {OC::Saturate,
      "Saturate",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x7}},
-     {{0x0}}}, // Overloads: hfd
+     {{0x407}},
+     {{0x7}}}, // Overloads: hfd<hfd
     {OC::IsNaN,
      "IsNaN",
      OCC::IsSpecialFloat,
@@ -144,112 +145,112 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Sin,
      "Sin",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Tan,
      "Tan",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Acos,
      "Acos",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Asin,
      "Asin",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Atan,
      "Atan",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Hcos,
      "Hcos",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Hsin,
      "Hsin",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Htan,
      "Htan",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Exp,
      "Exp",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Frc,
      "Frc",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Log,
      "Log",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Sqrt,
      "Sqrt",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Rsqrt,
      "Rsqrt",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
 
     // Unary float - rounding
     {OC::Round_ne,
@@ -258,32 +259,32 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Round_ni,
      "Round_ni",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Round_pi,
      "Round_pi",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Round_z,
      "Round_z",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
 
     // Unary int
     {OC::Bfrev,
@@ -292,8 +293,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
     {OC::Countbits,
      "Countbits",
      OCC::UnaryBits,
@@ -338,16 +339,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "binary",
      Attribute::ReadNone,
      1,
-     {{0x7}},
-     {{0x0}}}, // Overloads: hfd
+     {{0x407}},
+     {{0x7}}}, // Overloads: hfd<hfd
     {OC::FMin,
      "FMin",
      OCC::Binary,
      "binary",
      Attribute::ReadNone,
      1,
-     {{0x7}},
-     {{0x0}}}, // Overloads: hfd
+     {{0x407}},
+     {{0x7}}}, // Overloads: hfd<hfd
 
     // Binary int
     {OC::IMax,
@@ -356,16 +357,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "binary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
     {OC::IMin,
      "IMin",
      OCC::Binary,
      "binary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
 
     // Binary uint
     {OC::UMax,
@@ -374,16 +375,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "binary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
     {OC::UMin,
      "UMin",
      OCC::Binary,
      "binary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
 
     // Binary int with two outputs
     {OC::IMul,
@@ -438,16 +439,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0x7}},
-     {{0x0}}}, // Overloads: hfd
+     {{0x407}},
+     {{0x7}}}, // Overloads: hfd<hfd
     {OC::Fma,
      "Fma",
      OCC::Tertiary,
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0x4}},
-     {{0x0}}}, // Overloads: d
+     {{0x404}},
+     {{0x4}}}, // Overloads: d<d
 
     // Tertiary int
     {OC::IMad,
@@ -456,8 +457,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
 
     // Tertiary uint
     {OC::UMad,
@@ -466,8 +467,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
 
     // Tertiary int
     {OC::Msad,
@@ -764,32 +765,32 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::DerivCoarseY,
      "DerivCoarseY",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::DerivFineX,
      "DerivFineX",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::DerivFineY,
      "DerivFineY",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
 
     // Pixel shader
     {OC::EvalSnapped,
@@ -2310,24 +2311,24 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedB1,
-     "ReservedB1",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB2,
-     "ReservedB2",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
 
     // Shader Execution Reordering
+    {OC::HitObject_FromRayQuery,
+     "HitObject_FromRayQuery",
+     OCC::HitObject_FromRayQuery,
+     "hitObject_FromRayQuery",
+     Attribute::ReadOnly,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::HitObject_FromRayQueryWithAttrs,
+     "HitObject_FromRayQueryWithAttrs",
+     OCC::HitObject_FromRayQueryWithAttrs,
+     "hitObject_FromRayQueryWithAttrs",
+     Attribute::ReadOnly,
+     1,
+     {{0x100}},
+     {{0x0}}}, // Overloads: u
     {OC::HitObject_MakeMiss,
      "HitObject_MakeMiss",
      OCC::HitObject_MakeMiss,
@@ -3027,6 +3028,30 @@ bool OP::BarrierRequiresNode(const llvm::CallInst *CI) {
   }
 }
 
+bool OP::BarrierRequiresReorder(const llvm::CallInst *CI) {
+  OpCode Opcode = OP::GetDxilOpFuncCallInst(CI);
+  switch (Opcode) {
+  case OpCode::BarrierByMemoryType: {
+    DxilInst_BarrierByMemoryType Barrier(const_cast<CallInst *>(CI));
+    if (!isa<ConstantInt>(Barrier.get_SemanticFlags()))
+      return false;
+    unsigned SemanticFlags = Barrier.get_SemanticFlags_val();
+    return (SemanticFlags & static_cast<unsigned>(
+                                DXIL::BarrierSemanticFlag::ReorderScope)) != 0U;
+  }
+  case OpCode::BarrierByMemoryHandle: {
+    DxilInst_BarrierByMemoryHandle Barrier(const_cast<CallInst *>(CI));
+    if (!isa<ConstantInt>(Barrier.get_SemanticFlags()))
+      return false;
+    unsigned SemanticFlags = Barrier.get_SemanticFlags_val();
+    return (SemanticFlags & static_cast<unsigned>(
+                                DXIL::BarrierSemanticFlag::ReorderScope)) != 0U;
+  }
+  default:
+    return false;
+  }
+}
+
 DXIL::BarrierMode OP::TranslateToBarrierMode(const llvm::CallInst *CI) {
   OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
   switch (opcode) {
@@ -3047,6 +3072,12 @@ DXIL::BarrierMode OP::TranslateToBarrierMode(const llvm::CallInst *CI) {
     }
     if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
       semanticFlags = barrier.get_SemanticFlags_val();
+    }
+
+    // Disallow SM6.9+ semantic flags.
+    if (semanticFlags &
+        ~static_cast<unsigned>(DXIL::BarrierSemanticFlag::LegacyFlags)) {
+      return DXIL::BarrierMode::Invalid;
     }
 
     // Mask to legacy flags, if allowed.
@@ -3430,6 +3461,10 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // HitObject_SetShaderTableIndex=287,
   // HitObject_LoadLocalRootTableConstant=288, HitObject_Attributes=289
   if ((265 <= op && op <= 266) || (269 <= op && op <= 289)) {
+  // Instructions: HitObject_FromRayQuery=263,
+  // HitObject_FromRayQueryWithAttrs=264, HitObject_MakeMiss=265,
+  // HitObject_MakeNop=266
+  if ((263 <= op && op <= 266)) {
     major = 6;
     minor = 9;
     mask =
@@ -3480,10 +3515,17 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI,
         minor = 8;
       }
     }
+    if (BarrierRequiresReorder(CI)) {
+      major = 6;
+      minor = 9;
+      mask &= SFLAG(Library) | SFLAG(RayGeneration);
+      return;
+    }
     if (BarrierRequiresNode(CI)) {
       mask &= SFLAG(Library) | SFLAG(Node);
       return;
-    } else if (BarrierRequiresGroup(CI)) {
+    }
+    if (BarrierRequiresGroup(CI)) {
       mask &= SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
               SFLAG(Mesh) | SFLAG(Node);
       return;
@@ -5597,16 +5639,20 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedB1:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB2:
-    A(pV);
-    A(pI32);
-    break;
 
     // Shader Execution Reordering
+  case OpCode::HitObject_FromRayQuery:
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::HitObject_FromRayQueryWithAttrs:
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(udt);
+    break;
   case OpCode::HitObject_MakeMiss:
     A(pHit);
     A(pI32);
@@ -6009,6 +6055,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
       return nullptr;
     return FT->getParamType(15);
   case OpCode::ReportHit:
+  case OpCode::HitObject_FromRayQueryWithAttrs:
     if (FT->getNumParams() <= 3)
       return nullptr;
     return FT->getParamType(3);
@@ -6092,8 +6139,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedA1:
   case OpCode::ReservedA2:
   case OpCode::ReservedB0:
-  case OpCode::ReservedB1:
-  case OpCode::ReservedB2:
+  case OpCode::HitObject_FromRayQuery:
   case OpCode::HitObject_MakeMiss:
   case OpCode::HitObject_MakeNop:
   case OpCode::ReservedB5:

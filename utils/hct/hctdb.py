@@ -850,6 +850,7 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6, 8
         for i in (
             "HitObject_MakeMiss,HitObject_MakeNop"
+            + ",HitObject_FromRayQuery,HitObject_FromRayQueryWithAttrs"
             + ",HitObject_IsMiss,HitObject_IsHit,HitObject_IsNop"
             + ",HitObject_RayFlags,HitObject_RayTMin,HitObject_RayTCurrent,HitObject_GeometryIndex,HitObject_InstanceIndex,HitObject_InstanceID,HitObject_PrimitiveIndex,HitObject_HitKind,HitObject_ShaderTableIndex"
             + ",HitObject_WorldRayOrigin,HitObject_WorldRayDirection,HitObject_ObjectRayOrigin,HitObject_ObjectRayDirection"
@@ -1510,7 +1511,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Unary",
                 "returns the " + i,
-                "hfd",
+                "hfd<",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "operation result"),
@@ -1544,7 +1545,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Unary",
                 "returns the " + i,
-                "hf",
+                "hf<",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "operation result"),
@@ -1561,7 +1562,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Unary",
                 "returns the reverse bit pattern of the input value",
-                "wil",
+                "wil<",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "operation result"),
@@ -1608,7 +1609,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Binary",
                 "returns the " + i + " of the input values",
-                "hfd",
+                "hfd<",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "operation result"),
@@ -1626,7 +1627,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Binary",
                 "returns the " + i + " of the input values",
-                "wil",
+                "wil<",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "operation result"),
@@ -1681,7 +1682,7 @@ class db_dxil(object):
             next_op_idx,
             "Tertiary",
             "performs a fused multiply add (FMA) of the form a * b + c",
-            "hfd",
+            "hfd<",
             "rn",
             [
                 db_dxil_param(
@@ -1698,7 +1699,7 @@ class db_dxil(object):
             next_op_idx,
             "Tertiary",
             "performs a fused multiply add (FMA) of the form a * b + c",
-            "d",
+            "d<",
             "rn",
             [
                 db_dxil_param(
@@ -1722,7 +1723,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Tertiary",
                 "performs an integral " + i,
-                "wil",
+                "wil<",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "the operation result"),
@@ -2615,7 +2616,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per stamp",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2633,7 +2634,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per stamp",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2651,7 +2652,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per pixel",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2669,7 +2670,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per pixel",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -5746,7 +5747,46 @@ class db_dxil(object):
         next_op_idx = self.reserve_dxil_op_range("ReservedA", next_op_idx, 3)
 
         # Shader Execution Reordering
-        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 3)
+        next_op_idx = self.reserve_dxil_op_range("ReservedB", next_op_idx, 1)
+
+        self.add_dxil_op(
+            "HitObject_FromRayQuery",
+            next_op_idx,
+            "HitObject_FromRayQuery",
+            "Creates a new HitObject representing a committed hit from a RayQuery",
+            "v",
+            "ro",
+            [
+                db_dxil_param(
+                    0, "hit_object", "", "HitObject created from RayQuery object"
+                ),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_FromRayQueryWithAttrs",
+            next_op_idx,
+            "HitObject_FromRayQueryWithAttrs",
+            "Creates a new HitObject representing a committed hit from a RayQuery and committed attributes",
+            "u",
+            "ro",
+            [
+                db_dxil_param(
+                    0, "hit_object", "", "HitObject created from RayQuery object"
+                ),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+                db_dxil_param(
+                    3,
+                    "i32",
+                    "HitKind",
+                    "User-specified value in range of 0-127 to identify the type of hit",
+                ),
+                db_dxil_param(4, "udt", "CommittedAttribs", "Committed attributes"),
+            ],
+        )
+        next_op_idx += 1
 
         self.add_dxil_op(
             "HitObject_MakeMiss",

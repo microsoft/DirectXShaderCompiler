@@ -503,8 +503,6 @@ enum class OpCode : unsigned {
   ReservedA1 = 260,  // reserved
   ReservedA2 = 261,  // reserved
   ReservedB0 = 262,  // reserved
-  ReservedB1 = 263,  // reserved
-  ReservedB2 = 264,  // reserved
   ReservedB28 = 290, // reserved
   ReservedB29 = 291, // reserved
   ReservedB30 = 292, // reserved
@@ -905,6 +903,11 @@ enum class OpCode : unsigned {
   HitObject_IsNop = 271,  // Returns `true` if the HitObject represents a nop
   HitObject_LoadLocalRootTableConstant =
       288, // Returns the root table constant for this HitObject and offset
+  HitObject_FromRayQuery = 263, // Creates a new HitObject representing a
+                                // committed hit from a RayQuery
+  HitObject_FromRayQueryWithAttrs =
+      264, // Creates a new HitObject representing a committed hit from a
+           // RayQuery and committed attributes
   HitObject_MakeMiss = 265, // Creates a new HitObject representing a miss
   HitObject_MakeNop = 266,  // Creates an empty nop HitObject
   HitObject_ObjectRayDirection =
@@ -1304,6 +1307,8 @@ enum class OpCodeClass : unsigned {
   // Shader Execution Reordering
   HitObject_Attributes,
   HitObject_LoadLocalRootTableConstant,
+  HitObject_FromRayQuery,
+  HitObject_FromRayQueryWithAttrs,
   HitObject_MakeMiss,
   HitObject_MakeNop,
   HitObject_SetShaderTableIndex,
@@ -1375,7 +1380,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
 
-  NumOpClasses = 185 // exclusive last value of enumeration
+  NumOpClasses = 187 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1919,7 +1924,9 @@ enum class BarrierSemanticFlag : uint32_t {
   GroupSync = 0x00000001,   // GROUP_SYNC
   GroupScope = 0x00000002,  // GROUP_SCOPE
   DeviceScope = 0x00000004, // DEVICE_SCOPE
-  ValidMask = 0x00000007,
+  LegacyFlags = 0x00000007,
+  ReorderScope = 0x00000008, // REORDER_SCOPE
+  ValidMask = 0x0000000F,
   GroupFlags = GroupSync | GroupScope,
 };
 
