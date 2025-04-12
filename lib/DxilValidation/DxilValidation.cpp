@@ -1009,11 +1009,8 @@ static bool ValidateStorageMasks(Instruction *I, DXIL::OpCode Opcode,
 static void ValidateASHandle(CallInst *CI, Value *Hdl,
                              ValidationContext &ValCtx) {
   DxilResourceProperties RP = ValCtx.GetResourceFromVal(Hdl);
-  if (RP.getResourceClass() == DXIL::ResourceClass::Invalid) {
-    ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceKindForTraceRay);
-    return;
-  }
-  if (RP.getResourceKind() != DXIL::ResourceKind::RTAccelerationStructure) {
+  if (RP.getResourceClass() == DXIL::ResourceClass::Invalid ||
+      RP.getResourceKind() != DXIL::ResourceKind::RTAccelerationStructure) {
     ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceKindForTraceRay);
   }
 }
