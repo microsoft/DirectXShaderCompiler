@@ -8949,12 +8949,19 @@ struct DxilInst_HitObject_FromRayQuery {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
   // Metadata
   bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_rayQueryHandle = 1,
+  };
+  // Accessors
+  llvm::Value *get_rayQueryHandle() const { return Instr->getOperand(1); }
+  void set_rayQueryHandle(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 
 /// This instruction Creates a new HitObject representing a committed hit from a

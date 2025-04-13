@@ -5657,6 +5657,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::HitObject_FromRayQuery:
     A(pHit);
     A(pI32);
+    A(pI32);
     break;
   case OpCode::HitObject_FromRayQueryWithAttrs:
     A(pHit);

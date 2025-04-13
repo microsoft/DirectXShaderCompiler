@@ -5825,6 +5825,7 @@ class db_dxil(object):
                 db_dxil_param(
                     0, "hit_object", "", "HitObject created from RayQuery object"
                 ),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
         next_op_idx += 1
