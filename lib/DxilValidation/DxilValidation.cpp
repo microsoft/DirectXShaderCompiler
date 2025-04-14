@@ -1026,7 +1026,7 @@ static bool CheckUnsignedFlag(Type *VecTy, bool IsUnsigned) {
   return true;
 }
 
-static Value *getMatVecOpIsOutputUnsigned(CallInst *CI, DXIL::OpCode OpCode) {
+static Value *GetMatVecOpIsOutputUnsigned(CallInst *CI, DXIL::OpCode OpCode) {
   switch (OpCode) {
   case DXIL::OpCode::MatVecMul:
     return CI->getOperand(DXIL::OperandIndex::kMatVecMulIsOutputUnsignedIdx);
