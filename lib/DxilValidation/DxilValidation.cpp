@@ -1091,7 +1091,7 @@ static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode OpCode,
     return;
   }
 
-  auto MIValue = MI->getLimitedValue();
+  uint64_t MIValue = MI->getLimitedValue();
   if (!CheckInMemoryInterpretations(MIValue)) {
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrLinalgInvalidMemoryInterpValue);
