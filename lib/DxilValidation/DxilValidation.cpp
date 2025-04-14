@@ -1178,10 +1178,9 @@ static void ValidateImmOperandsForOuterProdAcc(CallInst *CI,
                           ValidationRule::InstrLinalgInvalidMemoryInterpValue);
   }
 
-  if (!llvm::isa<llvm::Constant>(MatrixLayout)) {
+  if (!llvm::isa<llvm::Constant>(MatrixLayout))
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrLinalgMatrixShapeParamsAreConst);
-  }
   ConstantInt *ML = cast<ConstantInt>(MatrixLayout);
   auto MLValue = ML->getLimitedValue();
   if (!CheckMatrixLayout(MLValue)) {
