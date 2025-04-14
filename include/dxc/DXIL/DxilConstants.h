@@ -487,8 +487,7 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 // Enumeration for operations specified by DXIL
 enum class OpCode : unsigned {
   //
-  MaybeReorderThread = 268, // Reorders the current thread. Optionally accepts a
-                            // HitObject arg, or undef
+  MaybeReorderThread = 268, // Reorders the current thread
   Reserved0 = 226,          // Reserved
   Reserved1 = 227,          // Reserved
   Reserved10 = 236,         // Reserved

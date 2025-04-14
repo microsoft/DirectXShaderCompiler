@@ -8987,8 +8987,7 @@ struct DxilInst_HitObject_MakeNop {
   bool requiresUniformInputs() const { return false; }
 };
 
-/// This instruction Reorders the current thread. Optionally accepts a HitObject
-/// arg, or undef
+/// This instruction Reorders the current thread
 struct DxilInst_MaybeReorderThread {
   llvm::Instruction *Instr;
   // Construction and identification

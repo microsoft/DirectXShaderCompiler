@@ -5833,7 +5833,7 @@ class db_dxil(object):
             "MaybeReorderThread",
             next_op_idx,
             "MaybeReorderThread",
-            "Reorders the current thread. Optionally accepts a HitObject arg, or undef",
+            "Reorders the current thread",
             "v",
             "",
             [
