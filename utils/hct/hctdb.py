@@ -5845,7 +5845,9 @@ class db_dxil(object):
                     "i32",
                     "numCoherenceHintBitsFromLSB",
                     "Num coherence hint bits from LSB",
-                ),])
+                ),
+            ],
+        )
         next_op_idx += 1
 
         self.add_dxil_op(
