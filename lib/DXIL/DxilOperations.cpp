@@ -2353,8 +2353,6 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      1,
      {{0x100}},
      {{0x0}}}, // Overloads: u
-
-    //
     {OC::MaybeReorderThread,
      "MaybeReorderThread",
      OCC::MaybeReorderThread,
@@ -2363,8 +2361,6 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      0,
      {},
      {}}, // Overloads: v
-
-    // Shader Execution Reordering
     {OC::HitObject_IsMiss,
      "HitObject_IsMiss",
      OCC::HitObject_StateScalar,
@@ -3180,11 +3176,6 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
            SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
     return;
   }
-  // Instructions: MaybeReorderThread=268
-  if (op == 268) {
-    mask = SFLAG(Library) | SFLAG(RayGeneration);
-    return;
-  }
   // Instructions: RenderTargetGetSamplePosition=76,
   // RenderTargetGetSampleCount=77, Discard=82, EvalSnapped=87,
   // EvalSampleIndex=88, EvalCentroid=89, SampleIndex=90, Coverage=91,
@@ -3453,6 +3444,13 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   if (op == 258 || (303 <= op && op <= 304)) {
     major = 6;
     minor = 9;
+    return;
+  }
+  // Instructions: MaybeReorderThread=268
+  if (op == 268) {
+    major = 6;
+    minor = 9;
+    mask = SFLAG(Library) | SFLAG(RayGeneration);
     return;
   }
   // Instructions: HitObject_TraceRay=262, HitObject_FromRayQuery=263,
@@ -5696,8 +5694,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pHit);
     A(udt);
     break;
-
-    //
   case OpCode::MaybeReorderThread:
     A(pV);
     A(pI32);
@@ -5705,8 +5701,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
-
-    // Shader Execution Reordering
   case OpCode::HitObject_IsMiss:
     A(pI1);
     A(pI32);

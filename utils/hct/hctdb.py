@@ -867,6 +867,8 @@ class db_dxil(object):
                 "miss",
             )
         for i in ("MaybeReorderThread").split(","):
+            self.name_idx[i].category = "Shader Execution Reordering"
+            self.name_idx[i].shader_model = 6, 9
             self.name_idx[i].shader_stages = (
                 "library",
                 "raygeneration",

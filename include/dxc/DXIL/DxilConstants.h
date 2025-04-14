@@ -487,35 +487,34 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 // Enumeration for operations specified by DXIL
 enum class OpCode : unsigned {
   //
-  MaybeReorderThread = 268, // Reorders the current thread
-  Reserved0 = 226,          // Reserved
-  Reserved1 = 227,          // Reserved
-  Reserved10 = 236,         // Reserved
-  Reserved11 = 237,         // Reserved
-  Reserved2 = 228,          // Reserved
-  Reserved3 = 229,          // Reserved
-  Reserved4 = 230,          // Reserved
-  Reserved5 = 231,          // Reserved
-  Reserved6 = 232,          // Reserved
-  Reserved7 = 233,          // Reserved
-  Reserved8 = 234,          // Reserved
-  Reserved9 = 235,          // Reserved
-  ReservedA0 = 259,         // reserved
-  ReservedA1 = 260,         // reserved
-  ReservedA2 = 261,         // reserved
-  ReservedB28 = 290,        // reserved
-  ReservedB29 = 291,        // reserved
-  ReservedB30 = 292,        // reserved
-  ReservedC0 = 293,         // reserved
-  ReservedC1 = 294,         // reserved
-  ReservedC2 = 295,         // reserved
-  ReservedC3 = 296,         // reserved
-  ReservedC4 = 297,         // reserved
-  ReservedC5 = 298,         // reserved
-  ReservedC6 = 299,         // reserved
-  ReservedC7 = 300,         // reserved
-  ReservedC8 = 301,         // reserved
-  ReservedC9 = 302,         // reserved
+  Reserved0 = 226,   // Reserved
+  Reserved1 = 227,   // Reserved
+  Reserved10 = 236,  // Reserved
+  Reserved11 = 237,  // Reserved
+  Reserved2 = 228,   // Reserved
+  Reserved3 = 229,   // Reserved
+  Reserved4 = 230,   // Reserved
+  Reserved5 = 231,   // Reserved
+  Reserved6 = 232,   // Reserved
+  Reserved7 = 233,   // Reserved
+  Reserved8 = 234,   // Reserved
+  Reserved9 = 235,   // Reserved
+  ReservedA0 = 259,  // reserved
+  ReservedA1 = 260,  // reserved
+  ReservedA2 = 261,  // reserved
+  ReservedB28 = 290, // reserved
+  ReservedB29 = 291, // reserved
+  ReservedB30 = 292, // reserved
+  ReservedC0 = 293,  // reserved
+  ReservedC1 = 294,  // reserved
+  ReservedC2 = 295,  // reserved
+  ReservedC3 = 296,  // reserved
+  ReservedC4 = 297,  // reserved
+  ReservedC5 = 298,  // reserved
+  ReservedC6 = 299,  // reserved
+  ReservedC7 = 300,  // reserved
+  ReservedC8 = 301,  // reserved
+  ReservedC9 = 302,  // reserved
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -931,6 +930,7 @@ enum class OpCode : unsigned {
   HitObject_WorldRayOrigin = 275,    // Returns the ray origin in world space
   HitObject_WorldToObject3x4 = 280,  // Returns the world to object space
                                      // transformation matrix in 3x4 form
+  MaybeReorderThread = 268,          // Reorders the current thread
 
   // Synchronization
   AtomicBinOp = 78,           // performs an atomic operation on two operands
@@ -1072,7 +1072,6 @@ enum class OpCode : unsigned {
 // Groups for DXIL operations with equivalent function templates
 enum class OpCodeClass : unsigned {
   //
-  MaybeReorderThread,
   Reserved,
 
   // Amplification shader instructions
@@ -1320,6 +1319,7 @@ enum class OpCodeClass : unsigned {
   HitObject_StateScalar,
   HitObject_StateVector,
   HitObject_TraceRay,
+  MaybeReorderThread,
 
   // Synchronization
   AtomicBinOp,
