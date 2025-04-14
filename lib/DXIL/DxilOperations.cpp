@@ -2353,17 +2353,14 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      1,
      {{0x100}},
      {{0x0}}}, // Overloads: u
-
-    {OC::ReservedB6,
-     "ReservedB6",
-     OCC::Reserved,
-     "reserved",
+    {OC::MaybeReorderThread,
+     "MaybeReorderThread",
+     OCC::MaybeReorderThread,
+     "maybeReorderThread",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-
-    // Shader Execution Reordering
     {OC::HitObject_IsMiss,
      "HitObject_IsMiss",
      OCC::HitObject_StateScalar,
@@ -3447,6 +3444,13 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   if (op == 258 || (303 <= op && op <= 304)) {
     major = 6;
     minor = 9;
+    return;
+  }
+  // Instructions: MaybeReorderThread=268
+  if (op == 268) {
+    major = 6;
+    minor = 9;
+    mask = SFLAG(Library) | SFLAG(RayGeneration);
     return;
   }
   // Instructions: HitObject_TraceRay=262, HitObject_FromRayQuery=263,
@@ -5690,14 +5694,13 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pHit);
     A(udt);
     break;
-
-    //
-  case OpCode::ReservedB6:
+  case OpCode::MaybeReorderThread:
     A(pV);
     A(pI32);
+    A(pHit);
+    A(pI32);
+    A(pI32);
     break;
-
-    // Shader Execution Reordering
   case OpCode::HitObject_IsMiss:
     A(pI1);
     A(pI32);
@@ -6158,7 +6161,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::HitObject_FromRayQuery:
   case OpCode::HitObject_MakeMiss:
   case OpCode::HitObject_MakeNop:
-  case OpCode::ReservedB6:
+  case OpCode::MaybeReorderThread:
   case OpCode::HitObject_SetShaderTableIndex:
   case OpCode::HitObject_LoadLocalRootTableConstant:
   case OpCode::ReservedB28:

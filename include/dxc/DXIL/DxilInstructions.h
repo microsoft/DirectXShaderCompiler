@@ -9104,6 +9104,43 @@ struct DxilInst_HitObject_Invoke {
   void set_payload(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
+/// This instruction Reorders the current thread
+struct DxilInst_MaybeReorderThread {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_MaybeReorderThread(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::MaybeReorderThread);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_hitObject = 1,
+    arg_coherenceHint = 2,
+    arg_numCoherenceHintBitsFromLSB = 3,
+  };
+  // Accessors
+  llvm::Value *get_hitObject() const { return Instr->getOperand(1); }
+  void set_hitObject(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_coherenceHint() const { return Instr->getOperand(2); }
+  void set_coherenceHint(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_numCoherenceHintBitsFromLSB() const {
+    return Instr->getOperand(3);
+  }
+  void set_numCoherenceHintBitsFromLSB(llvm::Value *val) {
+    Instr->setOperand(3, val);
+  }
+};
+
 /// This instruction Returns `true` if the HitObject represents a miss
 struct DxilInst_HitObject_IsMiss {
   llvm::Instruction *Instr;
