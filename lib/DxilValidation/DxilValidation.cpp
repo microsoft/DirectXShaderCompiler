@@ -1182,7 +1182,7 @@ static void ValidateImmOperandsForOuterProdAcc(CallInst *CI,
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrLinalgMatrixShapeParamsAreConst);
   ConstantInt *ML = cast<ConstantInt>(MatrixLayout);
-  auto MLValue = ML->getLimitedValue();
+  uint64_t MLValue = ML->getLimitedValue();
   if (!CheckMatrixLayout(MLValue))
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrLinalgInvalidMatrixLayoutValue);
