@@ -1,5 +1,4 @@
 ; RUN: %dxopt %s -hlsl-passes-resume -scalarrepl-param-hlsl -S | FileCheck %s
-; REQUIRES: dxil-1-9
 
 ;
 ; Buffer Definitions:
