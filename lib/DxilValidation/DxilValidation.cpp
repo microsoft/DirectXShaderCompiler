@@ -1172,10 +1172,9 @@ static void ValidateImmOperandsForOuterProdAcc(CallInst *CI,
         CI, ValidationRule::InstrLinalgInterpretationParamAreConst);
   ConstantInt *MI = cast<ConstantInt>(MatrixInterpretation);
   uint64_t MIValue = MI->getLimitedValue();
-  if (!CheckInMemoryInterpretations(MIValue)) {
+  if (!CheckInMemoryInterpretations(MIValue))
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrLinalgInvalidMemoryInterpValue);
-  }
 
   if (!llvm::isa<llvm::Constant>(MatrixLayout))
     ValCtx.EmitInstrError(CI,
