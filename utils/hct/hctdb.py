@@ -5756,9 +5756,7 @@ class db_dxil(object):
             "u",
             "",
             [
-                db_dxil_param(
-                    0, "hit_object", "", "HitObject created from RayQuery object"
-                ),
+                db_dxil_param(0, "hit_object", "", "Resulting HitObject"),
                 db_dxil_param(
                     2,
                     "res",
@@ -5812,7 +5810,6 @@ class db_dxil(object):
             ],
         )
         next_op_idx += 1
-
 
         self.add_dxil_op(
             "HitObject_FromRayQuery",
