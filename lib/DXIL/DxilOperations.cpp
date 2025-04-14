@@ -2303,16 +2303,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedB0,
-     "ReservedB0",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
 
     // Shader Execution Reordering
+    {OC::HitObject_TraceRay,
+     "HitObject_TraceRay",
+     OCC::HitObject_TraceRay,
+     "hitObject_TraceRay",
+     Attribute::None,
+     1,
+     {{0x100}},
+     {{0x0}}}, // Overloads: u
     {OC::HitObject_FromRayQuery,
      "HitObject_FromRayQuery",
      OCC::HitObject_FromRayQuery,
@@ -2345,15 +2345,15 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      0,
      {},
      {}}, // Overloads: v
-
-    {OC::ReservedB5,
-     "ReservedB5",
-     OCC::Reserved,
-     "reserved",
+    {OC::HitObject_Invoke,
+     "HitObject_Invoke",
+     OCC::HitObject_Invoke,
+     "hitObject_Invoke",
      Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     1,
+     {{0x100}},
+     {{0x0}}}, // Overloads: u
+
     {OC::ReservedB6,
      "ReservedB6",
      OCC::Reserved,
@@ -3449,19 +3449,20 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     minor = 9;
     return;
   }
-  // Instructions: HitObject_FromRayQuery=263,
+  // Instructions: HitObject_TraceRay=262, HitObject_FromRayQuery=263,
   // HitObject_FromRayQueryWithAttrs=264, HitObject_MakeMiss=265,
-  // HitObject_MakeNop=266, HitObject_IsMiss=269, HitObject_IsHit=270,
-  // HitObject_IsNop=271, HitObject_RayFlags=272, HitObject_RayTMin=273,
-  // HitObject_RayTCurrent=274, HitObject_WorldRayOrigin=275,
-  // HitObject_WorldRayDirection=276, HitObject_ObjectRayOrigin=277,
-  // HitObject_ObjectRayDirection=278, HitObject_ObjectToWorld3x4=279,
-  // HitObject_WorldToObject3x4=280, HitObject_GeometryIndex=281,
-  // HitObject_InstanceIndex=282, HitObject_InstanceID=283,
-  // HitObject_PrimitiveIndex=284, HitObject_HitKind=285,
-  // HitObject_ShaderTableIndex=286, HitObject_SetShaderTableIndex=287,
+  // HitObject_MakeNop=266, HitObject_Invoke=267, HitObject_IsMiss=269,
+  // HitObject_IsHit=270, HitObject_IsNop=271, HitObject_RayFlags=272,
+  // HitObject_RayTMin=273, HitObject_RayTCurrent=274,
+  // HitObject_WorldRayOrigin=275, HitObject_WorldRayDirection=276,
+  // HitObject_ObjectRayOrigin=277, HitObject_ObjectRayDirection=278,
+  // HitObject_ObjectToWorld3x4=279, HitObject_WorldToObject3x4=280,
+  // HitObject_GeometryIndex=281, HitObject_InstanceIndex=282,
+  // HitObject_InstanceID=283, HitObject_PrimitiveIndex=284,
+  // HitObject_HitKind=285, HitObject_ShaderTableIndex=286,
+  // HitObject_SetShaderTableIndex=287,
   // HitObject_LoadLocalRootTableConstant=288, HitObject_Attributes=289
-  if ((263 <= op && op <= 266) || (269 <= op && op <= 289)) {
+  if ((262 <= op && op <= 267) || (269 <= op && op <= 289)) {
     major = 6;
     minor = 9;
     mask =
@@ -5632,12 +5633,27 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedB0:
-    A(pV);
-    A(pI32);
-    break;
 
     // Shader Execution Reordering
+  case OpCode::HitObject_TraceRay:
+    A(pHit);
+    A(pI32);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(udt);
+    break;
   case OpCode::HitObject_FromRayQuery:
     A(pHit);
     A(pI32);
@@ -5668,12 +5684,14 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pHit);
     A(pI32);
     break;
-
-    //
-  case OpCode::ReservedB5:
+  case OpCode::HitObject_Invoke:
     A(pV);
     A(pI32);
+    A(pHit);
+    A(udt);
     break;
+
+    //
   case OpCode::ReservedB6:
     A(pV);
     A(pI32);
@@ -6007,6 +6025,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::TempRegStore:
   case OpCode::CallShader:
   case OpCode::Pack4x8:
+  case OpCode::HitObject_Invoke:
   case OpCode::HitObject_Attributes:
     if (FT->getNumParams() <= 2)
       return nullptr;
@@ -6048,6 +6067,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
       return nullptr;
     return FT->getParamType(5);
   case OpCode::TraceRay:
+  case OpCode::HitObject_TraceRay:
     if (FT->getNumParams() <= 15)
       return nullptr;
     return FT->getParamType(15);
@@ -6135,11 +6155,9 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedA0:
   case OpCode::ReservedA1:
   case OpCode::ReservedA2:
-  case OpCode::ReservedB0:
   case OpCode::HitObject_FromRayQuery:
   case OpCode::HitObject_MakeMiss:
   case OpCode::HitObject_MakeNop:
-  case OpCode::ReservedB5:
   case OpCode::ReservedB6:
   case OpCode::HitObject_SetShaderTableIndex:
   case OpCode::HitObject_LoadLocalRootTableConstant:
