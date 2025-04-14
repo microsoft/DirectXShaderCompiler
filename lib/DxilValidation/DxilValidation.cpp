@@ -1108,7 +1108,7 @@ static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode OpCode,
     return;
   }
 
-  auto MLValue = MatrixLayoutConst->getLimitedValue();
+  uint64_t MLValue = MatrixLayoutConst->getLimitedValue();
   if (!CheckMatrixLayout(MLValue)) {
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrLinalgInvalidMatrixLayoutValue);
