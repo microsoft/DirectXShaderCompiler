@@ -505,33 +505,10 @@ enum class OpCode : unsigned {
   ReservedA1 = 260,         // reserved
   ReservedA2 = 261,         // reserved
   ReservedB0 = 262,         // reserved
-  ReservedB1 = 263,         // reserved
-  ReservedB10 = 272,        // reserved
-  ReservedB11 = 273,        // reserved
-  ReservedB12 = 274,        // reserved
-  ReservedB13 = 275,        // reserved
-  ReservedB14 = 276,        // reserved
-  ReservedB15 = 277,        // reserved
-  ReservedB16 = 278,        // reserved
-  ReservedB17 = 279,        // reserved
-  ReservedB18 = 280,        // reserved
-  ReservedB19 = 281,        // reserved
-  ReservedB2 = 264,         // reserved
-  ReservedB20 = 282,        // reserved
-  ReservedB21 = 283,        // reserved
-  ReservedB22 = 284,        // reserved
-  ReservedB23 = 285,        // reserved
-  ReservedB24 = 286,        // reserved
-  ReservedB25 = 287,        // reserved
-  ReservedB26 = 288,        // reserved
-  ReservedB27 = 289,        // reserved
   ReservedB28 = 290,        // reserved
   ReservedB29 = 291,        // reserved
   ReservedB30 = 292,        // reserved
   ReservedB5 = 267,         // reserved
-  ReservedB7 = 269,         // reserved
-  ReservedB8 = 270,         // reserved
-  ReservedB9 = 271,         // reserved
   ReservedC0 = 293,         // reserved
   ReservedC1 = 294,         // reserved
   ReservedC2 = 295,         // reserved
@@ -917,8 +894,42 @@ enum class OpCode : unsigned {
                                    // operation with a mipmap-level offset
 
   // Shader Execution Reordering
+  HitObject_Attributes = 289,   // Returns the attributes set for this HitObject
+  HitObject_FromRayQuery = 263, // Creates a new HitObject representing a
+                                // committed hit from a RayQuery
+  HitObject_FromRayQueryWithAttrs =
+      264, // Creates a new HitObject representing a committed hit from a
+           // RayQuery and committed attributes
+  HitObject_GeometryIndex = 281, // Returns the geometry index committed on hit
+  HitObject_HitKind = 285,       // Returns the HitKind of the hit
+  HitObject_InstanceID = 283,    // Returns the instance id committed on hit
+  HitObject_InstanceIndex = 282, // Returns the instance index committed on hit
+  HitObject_IsHit = 270,  // Returns `true` if the HitObject is a NOP-HitObject
+  HitObject_IsMiss = 269, // Returns `true` if the HitObject represents a miss
+  HitObject_IsNop = 271,  // Returns `true` if the HitObject represents a nop
+  HitObject_LoadLocalRootTableConstant =
+      288, // Returns the root table constant for this HitObject and offset
   HitObject_MakeMiss = 265, // Creates a new HitObject representing a miss
   HitObject_MakeNop = 266,  // Creates an empty nop HitObject
+  HitObject_ObjectRayDirection =
+      278,                          // Returns the ray direction in object space
+  HitObject_ObjectRayOrigin = 277,  // Returns the ray origin in object space
+  HitObject_ObjectToWorld3x4 = 279, // Returns the object to world space
+                                    // transformation matrix in 3x4 form
+  HitObject_PrimitiveIndex =
+      284,                  // Returns the primitive index committed on hit
+  HitObject_RayFlags = 272, // Returns the ray flags set in the HitObject
+  HitObject_RayTCurrent =
+      274,                 // Returns the current T value set in the HitObject
+  HitObject_RayTMin = 273, // Returns the TMin value set in the HitObject
+  HitObject_SetShaderTableIndex =
+      287, // Returns a HitObject with updated shader table index
+  HitObject_ShaderTableIndex =
+      286, // Returns the shader table index set for this HitObject
+  HitObject_WorldRayDirection = 276, // Returns the ray direction in world space
+  HitObject_WorldRayOrigin = 275,    // Returns the ray origin in world space
+  HitObject_WorldToObject3x4 = 280,  // Returns the world to object space
+                                     // transformation matrix in 3x4 form
 
   // Synchronization
   AtomicBinOp = 78,           // performs an atomic operation on two operands
@@ -1296,8 +1307,16 @@ enum class OpCodeClass : unsigned {
   WriteSamplerFeedbackLevel,
 
   // Shader Execution Reordering
+  HitObject_Attributes,
+  HitObject_FromRayQuery,
+  HitObject_FromRayQueryWithAttrs,
+  HitObject_LoadLocalRootTableConstant,
   HitObject_MakeMiss,
   HitObject_MakeNop,
+  HitObject_SetShaderTableIndex,
+  HitObject_StateMatrix,
+  HitObject_StateScalar,
+  HitObject_StateVector,
 
   // Synchronization
   AtomicBinOp,
@@ -1363,7 +1382,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
 
-  NumOpClasses = 180 // exclusive last value of enumeration
+  NumOpClasses = 188 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1907,7 +1926,9 @@ enum class BarrierSemanticFlag : uint32_t {
   GroupSync = 0x00000001,   // GROUP_SYNC
   GroupScope = 0x00000002,  // GROUP_SCOPE
   DeviceScope = 0x00000004, // DEVICE_SCOPE
-  ValidMask = 0x00000007,
+  LegacyFlags = 0x00000007,
+  ReorderScope = 0x00000008, // REORDER_SCOPE
+  ValidMask = 0x0000000F,
   GroupFlags = GroupSync | GroupScope,
 };
 
