@@ -1183,10 +1183,9 @@ static void ValidateImmOperandsForOuterProdAcc(CallInst *CI,
                           ValidationRule::InstrLinalgMatrixShapeParamsAreConst);
   ConstantInt *ML = cast<ConstantInt>(MatrixLayout);
   auto MLValue = ML->getLimitedValue();
-  if (!CheckMatrixLayout(MLValue)) {
+  if (!CheckMatrixLayout(MLValue))
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrLinalgInvalidMatrixLayoutValue);
-  }
 }
 
 // Validate the type-defined mask compared to the store value mask which
