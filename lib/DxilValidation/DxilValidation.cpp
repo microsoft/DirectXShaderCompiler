@@ -1084,7 +1084,7 @@ static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode OpCode,
   }
 
   // Check if InputInterpretation and MatrixInterpretation are valid
-  auto IIValue = II->getLimitedValue();
+  uint64_t IIValue = II->getLimitedValue();
   if (!CheckFromRegisterInterpretations(IIValue)) {
     ValCtx.EmitInstrError(
         CI, ValidationRule::InstrLinalgInvalidRegisterInterpValue);
