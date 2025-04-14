@@ -9,8 +9,8 @@ RWByteAddressBuffer matrix_buffer;
 [NumThreads(1,1,1)]
 void main()
 {
-	vector<uint, 2> input_vector1 = 5;
-	const uint matrix_offset = 0;
+    vector<uint, 2> input_vector1 = 5;
+    const uint matrix_offset = 0;
 
-	 __builtin_VectorAccumulate(input_vector1, matrix_buffer, matrix_offset);
+     __builtin_VectorAccumulate(input_vector1, matrix_buffer, matrix_offset);
 }

@@ -82,25 +82,25 @@ enum MatLayout {
 
 [NumThreads(1,1,1)]
 void main()
-{	
-	vector<OTY, 4> output_vector;
-	static const uint is_output_unsigned = OU;
-	
-	vector<ITY, 8> input_vector = input_vector_buffer.Load<vector<ITY, 8> >(0);
-	const uint is_input_unsigned = IU;
-	const uint input_interpretation = II;
-	
-	const uint matrix_offset = 0;
-	const uint matrix_interpretation = MI;
-	const uint matrix_dimM = 8;
-	const uint matrix_dimK = 8;
-	const uint matrix_layout = ML;
-	const bool matrix_is_transposed = (bool) MT; 
-	const uint matrix_stride = 64;
+{    
+    vector<OTY, 4> output_vector;
+    static const uint is_output_unsigned = OU;
+    
+    vector<ITY, 8> input_vector = input_vector_buffer.Load<vector<ITY, 8> >(0);
+    const uint is_input_unsigned = IU;
+    const uint input_interpretation = II;
+    
+    const uint matrix_offset = 0;
+    const uint matrix_interpretation = MI;
+    const uint matrix_dimM = 8;
+    const uint matrix_dimK = 8;
+    const uint matrix_layout = ML;
+    const bool matrix_is_transposed = (bool) MT; 
+    const uint matrix_stride = 64;
 
-	const uint bias_offset = 0;
-	const uint bias_interpretation = BI;
+    const uint bias_offset = 0;
+    const uint bias_interpretation = BI;
 
-	__builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector, is_input_unsigned, input_interpretation, matrix_buffer, matrix_offset, matrix_interpretation, 
-		matrix_dimM, matrix_dimK, matrix_layout, matrix_is_transposed, matrix_stride, bias_buffer, bias_offset, bias_interpretation);
+    __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector, is_input_unsigned, input_interpretation, matrix_buffer, matrix_offset, matrix_interpretation, 
+        matrix_dimM, matrix_dimK, matrix_layout, matrix_is_transposed, matrix_stride, bias_buffer, bias_offset, bias_interpretation);
 }
