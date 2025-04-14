@@ -1057,7 +1057,7 @@ static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode OpCode,
       CI->getOperand(DXIL::OperandIndex::kMatVecMulMatrixLayoutIdx);
   llvm::Value *MatrixTranspose =
       CI->getOperand(DXIL::OperandIndex::kMatVecMulMatrixTransposeIdx);
-  llvm::Value *IsOutputUnsigned = getMatVecOpIsOutputUnsigned(CI, OpCode);
+  llvm::Value *IsOutputUnsigned = GetMatVecOpIsOutputUnsigned(CI, OpCode);
 
   ConstantInt *IsInputUnsignedConst =
       dyn_cast<llvm::ConstantInt>(IsInputUnsigned);
