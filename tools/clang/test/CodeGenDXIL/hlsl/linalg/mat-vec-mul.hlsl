@@ -1,7 +1,5 @@
 // RUN: %dxc -T lib_6_9 -enable-16bit-types %s | FileCheck %s
 
-#include "linalg.h"
-
 ByteAddressBuffer Buf;
 
 export float4 Test1(vector<float, 4> Input) {

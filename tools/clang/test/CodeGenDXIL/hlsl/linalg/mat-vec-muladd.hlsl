@@ -1,7 +1,5 @@
 // RUN: %dxc -T lib_6_9 %s | FileCheck %s
 
-#include "linalg.h"
-
 ByteAddressBuffer Buf;
 
 export float4 Test1(float4 input) {

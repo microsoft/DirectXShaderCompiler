@@ -1,7 +1,5 @@
 // RUN: %dxc -T lib_6_9 %s | FileCheck %s
 
-#include "linalg.h"
-
 RWByteAddressBuffer RWBuf;
 
 export void Test5(vector<half, 128> Input) {
