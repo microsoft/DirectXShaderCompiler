@@ -8850,6 +8850,92 @@ struct DxilInst_AllocateRayQuery2 {
   }
 };
 
+/// This instruction Analogous to TraceRay but without invoking CH/MS and
+/// returns the intermediate state as a HitObject
+struct DxilInst_HitObject_TraceRay {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_HitObject_TraceRay(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::HitObject_TraceRay);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (16 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_accelerationStructure = 1,
+    arg_rayFlags = 2,
+    arg_instanceInclusionMask = 3,
+    arg_rayContributionToHitGroupIndex = 4,
+    arg_multiplierForGeometryContributionToHitGroupIndex = 5,
+    arg_missShaderIndex = 6,
+    arg_Origin_X = 7,
+    arg_Origin_Y = 8,
+    arg_Origin_Z = 9,
+    arg_TMin = 10,
+    arg_Direction_X = 11,
+    arg_Direction_Y = 12,
+    arg_Direction_Z = 13,
+    arg_TMax = 14,
+    arg_payload = 15,
+  };
+  // Accessors
+  llvm::Value *get_accelerationStructure() const {
+    return Instr->getOperand(1);
+  }
+  void set_accelerationStructure(llvm::Value *val) {
+    Instr->setOperand(1, val);
+  }
+  llvm::Value *get_rayFlags() const { return Instr->getOperand(2); }
+  void set_rayFlags(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_instanceInclusionMask() const {
+    return Instr->getOperand(3);
+  }
+  void set_instanceInclusionMask(llvm::Value *val) {
+    Instr->setOperand(3, val);
+  }
+  llvm::Value *get_rayContributionToHitGroupIndex() const {
+    return Instr->getOperand(4);
+  }
+  void set_rayContributionToHitGroupIndex(llvm::Value *val) {
+    Instr->setOperand(4, val);
+  }
+  llvm::Value *get_multiplierForGeometryContributionToHitGroupIndex() const {
+    return Instr->getOperand(5);
+  }
+  void set_multiplierForGeometryContributionToHitGroupIndex(llvm::Value *val) {
+    Instr->setOperand(5, val);
+  }
+  llvm::Value *get_missShaderIndex() const { return Instr->getOperand(6); }
+  void set_missShaderIndex(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_Origin_X() const { return Instr->getOperand(7); }
+  void set_Origin_X(llvm::Value *val) { Instr->setOperand(7, val); }
+  llvm::Value *get_Origin_Y() const { return Instr->getOperand(8); }
+  void set_Origin_Y(llvm::Value *val) { Instr->setOperand(8, val); }
+  llvm::Value *get_Origin_Z() const { return Instr->getOperand(9); }
+  void set_Origin_Z(llvm::Value *val) { Instr->setOperand(9, val); }
+  llvm::Value *get_TMin() const { return Instr->getOperand(10); }
+  void set_TMin(llvm::Value *val) { Instr->setOperand(10, val); }
+  llvm::Value *get_Direction_X() const { return Instr->getOperand(11); }
+  void set_Direction_X(llvm::Value *val) { Instr->setOperand(11, val); }
+  llvm::Value *get_Direction_Y() const { return Instr->getOperand(12); }
+  void set_Direction_Y(llvm::Value *val) { Instr->setOperand(12, val); }
+  llvm::Value *get_Direction_Z() const { return Instr->getOperand(13); }
+  void set_Direction_Z(llvm::Value *val) { Instr->setOperand(13, val); }
+  llvm::Value *get_TMax() const { return Instr->getOperand(14); }
+  void set_TMax(llvm::Value *val) { Instr->setOperand(14, val); }
+  llvm::Value *get_payload() const { return Instr->getOperand(15); }
+  void set_payload(llvm::Value *val) { Instr->setOperand(15, val); }
+};
+
 /// This instruction Creates a new HitObject representing a committed hit from a
 /// RayQuery
 struct DxilInst_HitObject_FromRayQuery {
@@ -8985,6 +9071,74 @@ struct DxilInst_HitObject_MakeNop {
   }
   // Metadata
   bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction Represents the invocation of the CH/MS shader represented
+/// by the HitObject
+struct DxilInst_HitObject_Invoke {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_HitObject_Invoke(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::HitObject_Invoke);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_hitObject = 1,
+    arg_payload = 2,
+  };
+  // Accessors
+  llvm::Value *get_hitObject() const { return Instr->getOperand(1); }
+  void set_hitObject(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_payload() const { return Instr->getOperand(2); }
+  void set_payload(llvm::Value *val) { Instr->setOperand(2, val); }
+};
+
+/// This instruction Reorders the current thread
+struct DxilInst_MaybeReorderThread {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_MaybeReorderThread(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::MaybeReorderThread);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_hitObject = 1,
+    arg_coherenceHint = 2,
+    arg_numCoherenceHintBitsFromLSB = 3,
+  };
+  // Accessors
+  llvm::Value *get_hitObject() const { return Instr->getOperand(1); }
+  void set_hitObject(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_coherenceHint() const { return Instr->getOperand(2); }
+  void set_coherenceHint(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_numCoherenceHintBitsFromLSB() const {
+    return Instr->getOperand(3);
+  }
+  void set_numCoherenceHintBitsFromLSB(llvm::Value *val) {
+    Instr->setOperand(3, val);
+  }
 };
 
 /// This instruction Returns `true` if the HitObject represents a miss
