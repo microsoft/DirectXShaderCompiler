@@ -718,6 +718,8 @@ void hlsl::AddSamplerFeedbackConstants(ASTContext &context) {
 
 /// <summary> Adds all enums for Barrier intrinsic</summary>
 void hlsl::AddBarrierConstants(ASTContext &context) {
+  VersionTuple VT69 = VersionTuple(6, 9);
+
   AddTypedefPseudoEnum(
       context, "MEMORY_TYPE_FLAG",
       {{"UAV_MEMORY", (unsigned)DXIL::MemoryTypeFlag::UavMemory},
@@ -730,7 +732,9 @@ void hlsl::AddBarrierConstants(ASTContext &context) {
       context, "BARRIER_SEMANTIC_FLAG",
       {{"GROUP_SYNC", (unsigned)DXIL::BarrierSemanticFlag::GroupSync},
        {"GROUP_SCOPE", (unsigned)DXIL::BarrierSemanticFlag::GroupScope},
-       {"DEVICE_SCOPE", (unsigned)DXIL::BarrierSemanticFlag::DeviceScope}});
+       {"DEVICE_SCOPE", (unsigned)DXIL::BarrierSemanticFlag::DeviceScope},
+       {"REORDER_SCOPE", (unsigned)DXIL::BarrierSemanticFlag::ReorderScope,
+        ConstructAvailabilityAttribute(context, VT69)}});
 }
 
 static Expr *IntConstantAsBoolExpr(clang::Sema &sema, uint64_t value) {

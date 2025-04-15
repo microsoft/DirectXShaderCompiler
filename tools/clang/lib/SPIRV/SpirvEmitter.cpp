@@ -10932,6 +10932,12 @@ SpirvInstruction *SpirvEmitter::processIntrinsicGetBufferContents(
   SpirvInstruction *bufferPointer = doExpr(obj);
   if (!bufferPointer)
     return nullptr;
+  if (bufferPointer->isRValue()) {
+    bufferPointer->setRValue(false);
+    bufferPointer->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+    return bufferPointer;
+  }
+
   unsigned align = hlsl::GetVKBufferPointerAlignment(obj->getType());
   lowerTypeVisitor.visitInstruction(bufferPointer);
 

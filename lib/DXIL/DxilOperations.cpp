@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/Support/Global.h"
@@ -2302,32 +2303,32 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedB0,
-     "ReservedB0",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB1,
-     "ReservedB1",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB2,
-     "ReservedB2",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
 
     // Shader Execution Reordering
+    {OC::HitObject_TraceRay,
+     "HitObject_TraceRay",
+     OCC::HitObject_TraceRay,
+     "hitObject_TraceRay",
+     Attribute::None,
+     1,
+     {{0x100}},
+     {{0x0}}}, // Overloads: u
+    {OC::HitObject_FromRayQuery,
+     "HitObject_FromRayQuery",
+     OCC::HitObject_FromRayQuery,
+     "hitObject_FromRayQuery",
+     Attribute::ReadOnly,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::HitObject_FromRayQueryWithAttrs,
+     "HitObject_FromRayQueryWithAttrs",
+     OCC::HitObject_FromRayQueryWithAttrs,
+     "hitObject_FromRayQueryWithAttrs",
+     Attribute::ReadOnly,
+     1,
+     {{0x100}},
+     {{0x0}}}, // Overloads: u
     {OC::HitObject_MakeMiss,
      "HitObject_MakeMiss",
      OCC::HitObject_MakeMiss,
@@ -2344,191 +2345,191 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      0,
      {},
      {}}, // Overloads: v
+    {OC::HitObject_Invoke,
+     "HitObject_Invoke",
+     OCC::HitObject_Invoke,
+     "hitObject_Invoke",
+     Attribute::None,
+     1,
+     {{0x100}},
+     {{0x0}}}, // Overloads: u
+    {OC::MaybeReorderThread,
+     "MaybeReorderThread",
+     OCC::MaybeReorderThread,
+     "maybeReorderThread",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::HitObject_IsMiss,
+     "HitObject_IsMiss",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     1,
+     {{0x8}},
+     {{0x0}}}, // Overloads: 1
+    {OC::HitObject_IsHit,
+     "HitObject_IsHit",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     1,
+     {{0x8}},
+     {{0x0}}}, // Overloads: 1
+    {OC::HitObject_IsNop,
+     "HitObject_IsNop",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     1,
+     {{0x8}},
+     {{0x0}}}, // Overloads: 1
+    {OC::HitObject_RayFlags,
+     "HitObject_RayFlags",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     1,
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
+    {OC::HitObject_RayTMin,
+     "HitObject_RayTMin",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+    {OC::HitObject_RayTCurrent,
+     "HitObject_RayTCurrent",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+    {OC::HitObject_WorldRayOrigin,
+     "HitObject_WorldRayOrigin",
+     OCC::HitObject_StateVector,
+     "hitObject_StateVector",
+     Attribute::ReadNone,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+    {OC::HitObject_WorldRayDirection,
+     "HitObject_WorldRayDirection",
+     OCC::HitObject_StateVector,
+     "hitObject_StateVector",
+     Attribute::ReadNone,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+    {OC::HitObject_ObjectRayOrigin,
+     "HitObject_ObjectRayOrigin",
+     OCC::HitObject_StateVector,
+     "hitObject_StateVector",
+     Attribute::ReadNone,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+    {OC::HitObject_ObjectRayDirection,
+     "HitObject_ObjectRayDirection",
+     OCC::HitObject_StateVector,
+     "hitObject_StateVector",
+     Attribute::ReadNone,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+    {OC::HitObject_ObjectToWorld3x4,
+     "HitObject_ObjectToWorld3x4",
+     OCC::HitObject_StateMatrix,
+     "hitObject_StateMatrix",
+     Attribute::ReadNone,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+    {OC::HitObject_WorldToObject3x4,
+     "HitObject_WorldToObject3x4",
+     OCC::HitObject_StateMatrix,
+     "hitObject_StateMatrix",
+     Attribute::ReadNone,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+    {OC::HitObject_GeometryIndex,
+     "HitObject_GeometryIndex",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     1,
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
+    {OC::HitObject_InstanceIndex,
+     "HitObject_InstanceIndex",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     1,
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
+    {OC::HitObject_InstanceID,
+     "HitObject_InstanceID",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     1,
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
+    {OC::HitObject_PrimitiveIndex,
+     "HitObject_PrimitiveIndex",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     1,
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
+    {OC::HitObject_HitKind,
+     "HitObject_HitKind",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     1,
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
+    {OC::HitObject_ShaderTableIndex,
+     "HitObject_ShaderTableIndex",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     1,
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
+    {OC::HitObject_SetShaderTableIndex,
+     "HitObject_SetShaderTableIndex",
+     OCC::HitObject_SetShaderTableIndex,
+     "hitObject_SetShaderTableIndex",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::HitObject_LoadLocalRootTableConstant,
+     "HitObject_LoadLocalRootTableConstant",
+     OCC::HitObject_LoadLocalRootTableConstant,
+     "hitObject_LoadLocalRootTableConstant",
+     Attribute::ReadOnly,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::HitObject_Attributes,
+     "HitObject_Attributes",
+     OCC::HitObject_Attributes,
+     "hitObject_Attributes",
+     Attribute::ArgMemOnly,
+     1,
+     {{0x100}},
+     {{0x0}}}, // Overloads: u
 
-    {OC::ReservedB5,
-     "ReservedB5",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB6,
-     "ReservedB6",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB7,
-     "ReservedB7",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB8,
-     "ReservedB8",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB9,
-     "ReservedB9",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB10,
-     "ReservedB10",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB11,
-     "ReservedB11",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB12,
-     "ReservedB12",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB13,
-     "ReservedB13",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB14,
-     "ReservedB14",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB15,
-     "ReservedB15",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB16,
-     "ReservedB16",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB17,
-     "ReservedB17",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB18,
-     "ReservedB18",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB19,
-     "ReservedB19",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB20,
-     "ReservedB20",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB21,
-     "ReservedB21",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB22,
-     "ReservedB22",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB23,
-     "ReservedB23",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB24,
-     "ReservedB24",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB25,
-     "ReservedB25",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB26,
-     "ReservedB26",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedB27,
-     "ReservedB27",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
     {OC::ReservedB28,
      "ReservedB28",
      OCC::Reserved,
@@ -3024,6 +3025,30 @@ bool OP::BarrierRequiresNode(const llvm::CallInst *CI) {
   }
 }
 
+bool OP::BarrierRequiresReorder(const llvm::CallInst *CI) {
+  OpCode Opcode = OP::GetDxilOpFuncCallInst(CI);
+  switch (Opcode) {
+  case OpCode::BarrierByMemoryType: {
+    DxilInst_BarrierByMemoryType Barrier(const_cast<CallInst *>(CI));
+    if (!isa<ConstantInt>(Barrier.get_SemanticFlags()))
+      return false;
+    unsigned SemanticFlags = Barrier.get_SemanticFlags_val();
+    return (SemanticFlags & static_cast<unsigned>(
+                                DXIL::BarrierSemanticFlag::ReorderScope)) != 0U;
+  }
+  case OpCode::BarrierByMemoryHandle: {
+    DxilInst_BarrierByMemoryHandle Barrier(const_cast<CallInst *>(CI));
+    if (!isa<ConstantInt>(Barrier.get_SemanticFlags()))
+      return false;
+    unsigned SemanticFlags = Barrier.get_SemanticFlags_val();
+    return (SemanticFlags & static_cast<unsigned>(
+                                DXIL::BarrierSemanticFlag::ReorderScope)) != 0U;
+  }
+  default:
+    return false;
+  }
+}
+
 DXIL::BarrierMode OP::TranslateToBarrierMode(const llvm::CallInst *CI) {
   OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
   switch (opcode) {
@@ -3044,6 +3069,12 @@ DXIL::BarrierMode OP::TranslateToBarrierMode(const llvm::CallInst *CI) {
     }
     if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
       semanticFlags = barrier.get_SemanticFlags_val();
+    }
+
+    // Disallow SM6.9+ semantic flags.
+    if (semanticFlags &
+        ~static_cast<unsigned>(DXIL::BarrierSemanticFlag::LegacyFlags)) {
+      return DXIL::BarrierMode::Invalid;
     }
 
     // Mask to legacy flags, if allowed.
@@ -3415,8 +3446,27 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     minor = 9;
     return;
   }
-  // Instructions: HitObject_MakeMiss=265, HitObject_MakeNop=266
-  if ((265 <= op && op <= 266)) {
+  // Instructions: MaybeReorderThread=268
+  if (op == 268) {
+    major = 6;
+    minor = 9;
+    mask = SFLAG(Library) | SFLAG(RayGeneration);
+    return;
+  }
+  // Instructions: HitObject_TraceRay=262, HitObject_FromRayQuery=263,
+  // HitObject_FromRayQueryWithAttrs=264, HitObject_MakeMiss=265,
+  // HitObject_MakeNop=266, HitObject_Invoke=267, HitObject_IsMiss=269,
+  // HitObject_IsHit=270, HitObject_IsNop=271, HitObject_RayFlags=272,
+  // HitObject_RayTMin=273, HitObject_RayTCurrent=274,
+  // HitObject_WorldRayOrigin=275, HitObject_WorldRayDirection=276,
+  // HitObject_ObjectRayOrigin=277, HitObject_ObjectRayDirection=278,
+  // HitObject_ObjectToWorld3x4=279, HitObject_WorldToObject3x4=280,
+  // HitObject_GeometryIndex=281, HitObject_InstanceIndex=282,
+  // HitObject_InstanceID=283, HitObject_PrimitiveIndex=284,
+  // HitObject_HitKind=285, HitObject_ShaderTableIndex=286,
+  // HitObject_SetShaderTableIndex=287,
+  // HitObject_LoadLocalRootTableConstant=288, HitObject_Attributes=289
+  if ((262 <= op && op <= 267) || (269 <= op && op <= 289)) {
     major = 6;
     minor = 9;
     mask =
@@ -3467,10 +3517,17 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI,
         minor = 8;
       }
     }
+    if (BarrierRequiresReorder(CI)) {
+      major = 6;
+      minor = 9;
+      mask &= SFLAG(Library) | SFLAG(RayGeneration);
+      return;
+    }
     if (BarrierRequiresNode(CI)) {
       mask &= SFLAG(Library) | SFLAG(Node);
       return;
-    } else if (BarrierRequiresGroup(CI)) {
+    }
+    if (BarrierRequiresGroup(CI)) {
       mask &= SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
               SFLAG(Mesh) | SFLAG(Node);
       return;
@@ -5580,20 +5637,39 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedB0:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB1:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB2:
-    A(pV);
-    A(pI32);
-    break;
 
     // Shader Execution Reordering
+  case OpCode::HitObject_TraceRay:
+    A(pHit);
+    A(pI32);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(udt);
+    break;
+  case OpCode::HitObject_FromRayQuery:
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::HitObject_FromRayQueryWithAttrs:
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(udt);
+    break;
   case OpCode::HitObject_MakeMiss:
     A(pHit);
     A(pI32);
@@ -5612,100 +5688,137 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pHit);
     A(pI32);
     break;
+  case OpCode::HitObject_Invoke:
+    A(pV);
+    A(pI32);
+    A(pHit);
+    A(udt);
+    break;
+  case OpCode::MaybeReorderThread:
+    A(pV);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::HitObject_IsMiss:
+    A(pI1);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_IsHit:
+    A(pI1);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_IsNop:
+    A(pI1);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_RayFlags:
+    A(pI32);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_RayTMin:
+    A(pF32);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_RayTCurrent:
+    A(pF32);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_WorldRayOrigin:
+    A(pF32);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    break;
+  case OpCode::HitObject_WorldRayDirection:
+    A(pF32);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    break;
+  case OpCode::HitObject_ObjectRayOrigin:
+    A(pF32);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    break;
+  case OpCode::HitObject_ObjectRayDirection:
+    A(pF32);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    break;
+  case OpCode::HitObject_ObjectToWorld3x4:
+    A(pF32);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::HitObject_WorldToObject3x4:
+    A(pF32);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::HitObject_GeometryIndex:
+    A(pI32);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_InstanceIndex:
+    A(pI32);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_InstanceID:
+    A(pI32);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_PrimitiveIndex:
+    A(pI32);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_HitKind:
+    A(pI32);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_ShaderTableIndex:
+    A(pI32);
+    A(pI32);
+    A(pHit);
+    break;
+  case OpCode::HitObject_SetShaderTableIndex:
+    A(pHit);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    break;
+  case OpCode::HitObject_LoadLocalRootTableConstant:
+    A(pI32);
+    A(pI32);
+    A(pHit);
+    A(pI32);
+    break;
+  case OpCode::HitObject_Attributes:
+    A(pV);
+    A(pI32);
+    A(pHit);
+    A(udt);
+    break;
 
     //
-  case OpCode::ReservedB5:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB6:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB7:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB8:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB9:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB10:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB11:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB12:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB13:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB14:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB15:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB16:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB17:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB18:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB19:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB20:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB21:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB22:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB23:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB24:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB25:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB26:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedB27:
-    A(pV);
-    A(pI32);
-    break;
   case OpCode::ReservedB28:
     A(pV);
     A(pI32);
@@ -5915,6 +6028,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::TempRegStore:
   case OpCode::CallShader:
   case OpCode::Pack4x8:
+  case OpCode::HitObject_Invoke:
+  case OpCode::HitObject_Attributes:
     if (FT->getNumParams() <= 2)
       return nullptr;
     return FT->getParamType(2);
@@ -5955,10 +6070,12 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
       return nullptr;
     return FT->getParamType(5);
   case OpCode::TraceRay:
+  case OpCode::HitObject_TraceRay:
     if (FT->getNumParams() <= 15)
       return nullptr;
     return FT->getParamType(15);
   case OpCode::ReportHit:
+  case OpCode::HitObject_FromRayQueryWithAttrs:
     if (FT->getNumParams() <= 3)
       return nullptr;
     return FT->getParamType(3);
@@ -6041,34 +6158,12 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedA0:
   case OpCode::ReservedA1:
   case OpCode::ReservedA2:
-  case OpCode::ReservedB0:
-  case OpCode::ReservedB1:
-  case OpCode::ReservedB2:
+  case OpCode::HitObject_FromRayQuery:
   case OpCode::HitObject_MakeMiss:
   case OpCode::HitObject_MakeNop:
-  case OpCode::ReservedB5:
-  case OpCode::ReservedB6:
-  case OpCode::ReservedB7:
-  case OpCode::ReservedB8:
-  case OpCode::ReservedB9:
-  case OpCode::ReservedB10:
-  case OpCode::ReservedB11:
-  case OpCode::ReservedB12:
-  case OpCode::ReservedB13:
-  case OpCode::ReservedB14:
-  case OpCode::ReservedB15:
-  case OpCode::ReservedB16:
-  case OpCode::ReservedB17:
-  case OpCode::ReservedB18:
-  case OpCode::ReservedB19:
-  case OpCode::ReservedB20:
-  case OpCode::ReservedB21:
-  case OpCode::ReservedB22:
-  case OpCode::ReservedB23:
-  case OpCode::ReservedB24:
-  case OpCode::ReservedB25:
-  case OpCode::ReservedB26:
-  case OpCode::ReservedB27:
+  case OpCode::MaybeReorderThread:
+  case OpCode::HitObject_SetShaderTableIndex:
+  case OpCode::HitObject_LoadLocalRootTableConstant:
   case OpCode::ReservedB28:
   case OpCode::ReservedB29:
   case OpCode::ReservedB30:
@@ -6120,6 +6215,13 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
   case OpCode::StartVertexLocation:
   case OpCode::StartInstanceLocation:
+  case OpCode::HitObject_RayFlags:
+  case OpCode::HitObject_GeometryIndex:
+  case OpCode::HitObject_InstanceIndex:
+  case OpCode::HitObject_InstanceID:
+  case OpCode::HitObject_PrimitiveIndex:
+  case OpCode::HitObject_HitKind:
+  case OpCode::HitObject_ShaderTableIndex:
     return IntegerType::get(Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:
@@ -6146,6 +6248,14 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CandidateObjectRayDirection:
   case OpCode::RayQuery_CommittedObjectRayOrigin:
   case OpCode::RayQuery_CommittedObjectRayDirection:
+  case OpCode::HitObject_RayTMin:
+  case OpCode::HitObject_RayTCurrent:
+  case OpCode::HitObject_WorldRayOrigin:
+  case OpCode::HitObject_WorldRayDirection:
+  case OpCode::HitObject_ObjectRayOrigin:
+  case OpCode::HitObject_ObjectRayDirection:
+  case OpCode::HitObject_ObjectToWorld3x4:
+  case OpCode::HitObject_WorldToObject3x4:
     return Type::getFloatTy(Ctx);
   case OpCode::MakeDouble:
   case OpCode::SplitDouble:
@@ -6156,6 +6266,9 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CommittedTriangleFrontFace:
   case OpCode::IsHelperLane:
   case OpCode::QuadVote:
+  case OpCode::HitObject_IsMiss:
+  case OpCode::HitObject_IsHit:
+  case OpCode::HitObject_IsNop:
     return IntegerType::get(Ctx, 1);
   case OpCode::CBufferLoadLegacy:
   case OpCode::Sample:
