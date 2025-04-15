@@ -6351,7 +6351,7 @@ class db_dxil(object):
             "MatVecMul",
             "Multiplies a MxK dimension matrix and a K sized input vector",
             "<hfwi,<hfwi",
-            "",
+            "ro",
             [
                 db_dxil_param(0, "$x0", "outputVector", "output vector"),
                 db_dxil_param(2, "$x1", "inputVector", "input vector"),
