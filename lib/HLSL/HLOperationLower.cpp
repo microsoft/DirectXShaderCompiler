@@ -6197,6 +6197,77 @@ Value *TranslateMaybeReorderThread(CallInst *CI, IntrinsicOp IOP,
                                    bool &Translated) {
   return nullptr; // TODO: Merge SER DXIL patches
 }
+
+Value *TranslateHitObjectFromRayQuery(CallInst *CI, IntrinsicOp IOP,
+                                      OP::OpCode OpCode,
+                                      HLOperationLowerHelper &Helper,
+                                      HLObjectOperationLowerHelper *pObjHelper,
+                                      bool &Translated) {
+  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+}
+
+Value *TranslateHitObjectTraceRay(CallInst *CI, IntrinsicOp IOP,
+                                  OP::OpCode OpCode,
+                                  HLOperationLowerHelper &Helper,
+                                  HLObjectOperationLowerHelper *pObjHelper,
+                                  bool &Translated) {
+  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+}
+
+Value *TranslateHitObjectInvoke(CallInst *CI, IntrinsicOp IOP,
+                                OP::OpCode OpCode,
+                                HLOperationLowerHelper &Helper,
+                                HLObjectOperationLowerHelper *pObjHelper,
+                                bool &Translated) {
+  return nullptr; // TODO: Merge SER DXIL patches
+}
+
+Value *TranslateHitObjectGetAttributes(CallInst *CI, IntrinsicOp IOP,
+                                       OP::OpCode OpCode,
+                                       HLOperationLowerHelper &Helper,
+                                       HLObjectOperationLowerHelper *pObjHelper,
+                                       bool &Translated) {
+  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+}
+
+Value *TranslateHitObjectScalarGetter(CallInst *CI, IntrinsicOp IOP,
+                                      OP::OpCode OpCode,
+                                      HLOperationLowerHelper &Helper,
+                                      HLObjectOperationLowerHelper *pObjHelper,
+                                      bool &Translated) {
+  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+}
+
+Value *TranslateHitObjectVectorGetter(CallInst *CI, IntrinsicOp IOP,
+                                      OP::OpCode OpCode,
+                                      HLOperationLowerHelper &Helper,
+                                      HLObjectOperationLowerHelper *pObjHelper,
+                                      bool &Translated) {
+  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+}
+
+Value *TranslateHitObjectMatrixGetter(CallInst *CI, IntrinsicOp IOP,
+                                      OP::OpCode OpCode,
+                                      HLOperationLowerHelper &Helper,
+                                      HLObjectOperationLowerHelper *pObjHelper,
+                                      bool &Translated) {
+  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+}
+
+Value *TranslateHitObjectLoadLocalRootTableConstant(
+    CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *pObjHelper,
+    bool &Translated) {
+  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+}
+
+Value *TranslateHitObjectSetShaderTableIndex(
+    CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *pObjHelper,
+    bool &Translated) {
+  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+}
+
 } // namespace
 
 // Resource Handle.
@@ -6908,6 +6979,63 @@ IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_GetBufferContents, UnsupportedVulkanIntrinsic,
      DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_DxHitObject_FromRayQuery, TranslateHitObjectFromRayQuery,
+     DXIL::OpCode::HitObject_FromRayQuery},
+    {IntrinsicOp::MOP_DxHitObject_GetAttributes,
+     TranslateHitObjectGetAttributes, DXIL::OpCode::HitObject_Attributes},
+    {IntrinsicOp::MOP_DxHitObject_GetGeometryIndex,
+     TranslateHitObjectScalarGetter, DXIL::OpCode::HitObject_GeometryIndex},
+    {IntrinsicOp::MOP_DxHitObject_GetHitKind, TranslateHitObjectScalarGetter,
+     DXIL::OpCode::HitObject_HitKind},
+    {IntrinsicOp::MOP_DxHitObject_GetInstanceID, TranslateHitObjectScalarGetter,
+     DXIL::OpCode::HitObject_InstanceID},
+    {IntrinsicOp::MOP_DxHitObject_GetInstanceIndex,
+     TranslateHitObjectScalarGetter, DXIL::OpCode::HitObject_InstanceIndex},
+    {IntrinsicOp::MOP_DxHitObject_GetObjectRayDirection,
+     TranslateHitObjectVectorGetter,
+     DXIL::OpCode::HitObject_ObjectRayDirection},
+    {IntrinsicOp::MOP_DxHitObject_GetObjectRayOrigin,
+     TranslateHitObjectVectorGetter, DXIL::OpCode::HitObject_ObjectRayOrigin},
+    {IntrinsicOp::MOP_DxHitObject_GetObjectToWorld3x4,
+     TranslateHitObjectMatrixGetter, DXIL::OpCode::HitObject_ObjectToWorld3x4},
+    {IntrinsicOp::MOP_DxHitObject_GetObjectToWorld4x3,
+     TranslateHitObjectMatrixGetter, DXIL::OpCode::HitObject_ObjectToWorld3x4},
+    {IntrinsicOp::MOP_DxHitObject_GetPrimitiveIndex,
+     TranslateHitObjectScalarGetter, DXIL::OpCode::HitObject_PrimitiveIndex},
+    {IntrinsicOp::MOP_DxHitObject_GetRayFlags, TranslateHitObjectScalarGetter,
+     DXIL::OpCode::HitObject_RayFlags},
+    {IntrinsicOp::MOP_DxHitObject_GetRayTCurrent,
+     TranslateHitObjectScalarGetter, DXIL::OpCode::HitObject_RayTCurrent},
+    {IntrinsicOp::MOP_DxHitObject_GetRayTMin, TranslateHitObjectScalarGetter,
+     DXIL::OpCode::HitObject_RayTMin},
+    {IntrinsicOp::MOP_DxHitObject_GetShaderTableIndex,
+     TranslateHitObjectScalarGetter, DXIL::OpCode::HitObject_ShaderTableIndex},
+    {IntrinsicOp::MOP_DxHitObject_GetWorldRayDirection,
+     TranslateHitObjectVectorGetter, DXIL::OpCode::HitObject_WorldRayDirection},
+    {IntrinsicOp::MOP_DxHitObject_GetWorldRayOrigin,
+     TranslateHitObjectVectorGetter, DXIL::OpCode::HitObject_WorldRayOrigin},
+    {IntrinsicOp::MOP_DxHitObject_GetWorldToObject3x4,
+     TranslateHitObjectMatrixGetter, DXIL::OpCode::HitObject_WorldToObject3x4},
+    {IntrinsicOp::MOP_DxHitObject_GetWorldToObject4x3,
+     TranslateHitObjectMatrixGetter, DXIL::OpCode::HitObject_WorldToObject3x4},
+    {IntrinsicOp::MOP_DxHitObject_Invoke, TranslateHitObjectInvoke,
+     DXIL::OpCode::HitObject_Invoke},
+    {IntrinsicOp::MOP_DxHitObject_IsHit, TranslateHitObjectScalarGetter,
+     DXIL::OpCode::HitObject_IsHit},
+    {IntrinsicOp::MOP_DxHitObject_IsMiss, TranslateHitObjectScalarGetter,
+     DXIL::OpCode::HitObject_IsMiss},
+    {IntrinsicOp::MOP_DxHitObject_IsNop, TranslateHitObjectScalarGetter,
+     DXIL::OpCode::HitObject_IsNop},
+    {IntrinsicOp::MOP_DxHitObject_LoadLocalRootTableConstant,
+     TranslateHitObjectLoadLocalRootTableConstant,
+     DXIL::OpCode::HitObject_LoadLocalRootTableConstant},
+    {IntrinsicOp::MOP_DxHitObject_MakeMiss, TranslateHitObjectMake,
+     DXIL::OpCode::HitObject_MakeMiss},
+    {IntrinsicOp::MOP_DxHitObject_SetShaderTableIndex,
+     TranslateHitObjectSetShaderTableIndex,
+     DXIL::OpCode::HitObject_SetShaderTableIndex},
+    {IntrinsicOp::MOP_DxHitObject_TraceRay, TranslateHitObjectTraceRay,
+     DXIL::OpCode::HitObject_TraceRay},
 };
 } // namespace
 static_assert(
