@@ -1,7 +1,5 @@
 // RUN: %dxc -T lib_6_9 -enable-16bit-types %s
 
-#include "linalg.h"
-
 namespace code_example {
 ByteAddressBuffer Model;
 

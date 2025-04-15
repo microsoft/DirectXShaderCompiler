@@ -1,7 +1,5 @@
 // RUN: not %dxc -T lib_6_9 -enable-16bit-types %s 2>&1 | FileCheck %s
 
-#include "linalg.h"
-
 RWByteAddressBuffer RWBuf;
 
 // test for inputs of different size

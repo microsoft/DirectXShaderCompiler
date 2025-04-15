@@ -1,7 +1,5 @@
 // RUN: not %dxc -T lib_6_9 %s 2>&1 | FileCheck %s
 
-#include "linalg.h"
-
 ByteAddressBuffer Buf;
 
 vector<float, 128> MixUpVectorAndMatrixArguments(vector<float, 128> Input) {
