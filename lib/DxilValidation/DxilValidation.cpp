@@ -994,7 +994,7 @@ static bool CheckLinalgInterpretation(uint32_t Input, bool InRegister) {
 
 static bool CheckMatrixLayout(unsigned Input) {
   return Input <=
-          static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal);
+         static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal);
 }
 
 static bool CheckTransposeForMatrixLayout(DXIL::LinalgMatrixLayout Layout,
