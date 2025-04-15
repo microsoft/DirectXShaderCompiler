@@ -1,8 +1,4 @@
-
 // Header for linear algebra APIs.
-//
-// This needs to find a proper home!
-//
 
 namespace dx {
 namespace linalg {
