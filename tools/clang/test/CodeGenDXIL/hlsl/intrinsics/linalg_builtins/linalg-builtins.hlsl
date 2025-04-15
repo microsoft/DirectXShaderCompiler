@@ -1,8 +1,10 @@
 // RUN: %dxc -fcgl -T cs_6_9 -E cs_main %s | FileCheck %s
 
+ByteAddressBuffer input_vector_buffer;
 ByteAddressBuffer matrix_buffer;
 ByteAddressBuffer bias_buffer;
 RWByteAddressBuffer rw_matrix_buffer;
+RWByteAddressBuffer output_vector_buffer;
 
 [Shader("compute")]
 [NumThreads(1,1,1)]
@@ -11,7 +13,7 @@ void cs_main()
     vector<float, 4> output_vector;
     static const uint is_output_unsigned = 0;
     
-    vector<float, 4> input_vector;
+    vector<float, 4> input_vector = input_vector_buffer.Load<vector<float, 4> >(0);
     const uint is_input_unsigned = 0;
     const uint input_interpretation = 9; /*F32*/
     
@@ -31,6 +33,7 @@ void cs_main()
       is_input_unsigned, input_interpretation, matrix_buffer, matrix_offset,
       matrix_interpretation, matrix_dimM, matrix_dimK, matrix_layout,
       matrix_is_transposed, matrix_stride);
+    output_vector_buffer.Store(0, output_vector);
 
     const uint bias_offset = 0;
     const uint bias_interpretation = 9; /*F32*/
@@ -47,6 +50,7 @@ void cs_main()
       matrix_interpretation, matrix_dimM, matrix_dimK, matrix_layout,
       matrix_is_transposed, matrix_stride, bias_buffer, bias_offset,
       bias_interpretation);
+    output_vector_buffer.Store(1024, output_vector);
 
     vector<uint, 8> input_vector1;
     vector<uint, 8> input_vector2;

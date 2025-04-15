@@ -4,6 +4,7 @@ ByteAddressBuffer input_vector_buffer;
 ByteAddressBuffer matrix_buffer;
 ByteAddressBuffer bias_buffer;
 RWByteAddressBuffer rw_matrix_buffer;
+RWByteAddressBuffer output_vector_buffer;
 
 // Test use of __builtin_MatVecMulAdd in compute shader
 // CHECK: define void @main()
@@ -32,4 +33,6 @@ void main()
 
     __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector, is_input_unsigned, input_interpretation, matrix_buffer, matrix_offset, matrix_interpretation, 
         matrix_dimM, matrix_dimK, matrix_layout, matrix_is_transposed, matrix_stride, bias_buffer, bias_offset, bias_interpretation);
+
+    output_vector_buffer.Store(0, output_vector);
 }
