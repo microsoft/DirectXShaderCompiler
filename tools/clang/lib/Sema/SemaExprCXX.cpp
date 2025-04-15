@@ -1059,7 +1059,7 @@ Sema::BuildCXXTypeConstructExpr(TypeSourceInfo *TInfo,
     if (hlsl::IsVKBufferPointerType(Ty) && Arg->getType()->isIntegerType()) {
       typedef DeclContext::specific_decl_iterator<FunctionTemplateDecl> ft_iter;
       auto *recordDecl = Ty->getAsCXXRecordDecl();
-      auto *specDecl = dyn_cast<ClassTemplateSpecializationDecl>(recordDecl);
+      auto *specDecl = cast<ClassTemplateSpecializationDecl>(recordDecl);
       auto *templatedDecl =
           specDecl->getSpecializedTemplate()->getTemplatedDecl();
       auto functionTemplateDecls =
