@@ -12,6 +12,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/DXIL/DxilConstants.h"
 #define _USE_MATH_DEFINES
 #include <array>
 #include <cmath>
@@ -6237,11 +6238,60 @@ Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 }
 
 Value *TranslateMaybeReorderThread(CallInst *CI, IntrinsicOp IOP,
-                                   OP::OpCode opcode,
-                                   HLOperationLowerHelper &helper,
+                                   OP::OpCode OpCode,
+                                   HLOperationLowerHelper &Helper,
                                    HLObjectOperationLowerHelper *pObjHelper,
                                    bool &Translated) {
-  return nullptr; // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+
+  // clang-format off
+  // Match MaybeReorderThread overload variants:
+  // void MaybeReorderThread(<Op>,
+  //                    HitObject Hit);
+  // void MaybeReorderThread(<Op>,
+  //                    uint CoherenceHint,
+  //                    uint NumCoherenceHintBitsFromLSB );
+  // void MaybeReorderThread(<Op>,
+  //                    HitObject Hit,
+  //                    uint CoherenceHint,
+  //                    uint NumCoherenceHintBitsFromLSB);
+  // clang-format on
+  const unsigned NumHLArgs = CI->getNumArgOperands();
+  DXASSERT_NOMSG(NumHLArgs >= 2);
+
+  // Use a NOP HitObject for MaybeReorderThread without HitObject.
+  Value *HitObject = nullptr;
+  unsigned HLIndex = 1;
+  if (3 == NumHLArgs) {
+    HitObject = TrivialDxilOperation(DXIL::OpCode::HitObject_MakeNop, {nullptr},
+                                     Type::getVoidTy(CI->getContext()), CI, OP);
+  } else {
+    Value *FirstParam = CI->getArgOperand(HLIndex);
+    DXASSERT_NOMSG(isa<PointerType>(FirstParam->getType()));
+    IRBuilder<> Builder(CI);
+    HitObject = Builder.CreateLoad(FirstParam);
+    HLIndex++;
+  }
+
+  // If there are trailing parameters, these have to be the two coherence bit
+  // parameters
+  Value *CoherenceHint = nullptr;
+  Value *NumCoherenceHintBits = nullptr;
+  if (2 != NumHLArgs) {
+    DXASSERT_NOMSG(HLIndex + 2 == NumHLArgs);
+    CoherenceHint = CI->getArgOperand(HLIndex++);
+    NumCoherenceHintBits = CI->getArgOperand(HLIndex++);
+    DXASSERT_NOMSG(Helper.i32Ty == CoherenceHint->getType());
+    DXASSERT_NOMSG(Helper.i32Ty == NumCoherenceHintBits->getType());
+  } else {
+    CoherenceHint = UndefValue::get(Helper.i32Ty);
+    NumCoherenceHintBits = OP->GetU32Const(0);
+  }
+
+  TrivialDxilOperation(
+      OpCode, {nullptr, HitObject, CoherenceHint, NumCoherenceHintBits},
+      Type::getVoidTy(CI->getContext()), CI, OP);
+  return nullptr;
 }
 } // namespace
 
@@ -6945,8 +6995,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_DxHitObject_MakeNop, TranslateHitObjectMake,
      DXIL::OpCode::HitObject_MakeNop},
     {IntrinsicOp::IOP_DxMaybeReorderThread, TranslateMaybeReorderThread,
-     DXIL::OpCode::NumOpCodes_Dxil_1_8}, // FIXME: Just a placeholder Dxil
-                                         // opcode
+     DXIL::OpCode::MaybeReorderThread},
     {IntrinsicOp::IOP_Vkstatic_pointer_cast, UnsupportedVulkanIntrinsic,
      DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_Vkreinterpret_pointer_cast, UnsupportedVulkanIntrinsic,
