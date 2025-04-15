@@ -39,7 +39,7 @@
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 358
 // AST-NEXT: | | |   `-AvailabilityAttr {{[^ ]+}} <<invalid sloc>> Implicit  6.9 0 0 ""
 
-// FCGL: %1 = call %dx.types.HitObject* @"dx.hl.op..%dx.types.HitObject* (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %{{[^ ]+}})
+// FCGL: %{{[^ ]+}} = call %dx.types.HitObject* @"dx.hl.op..%dx.types.HitObject* (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %{{[^ ]+}})
 // FCGL: call void @"dx.hl.op..void (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %{{[^ ]+}})
 // FCGL: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.RayDesc*)"(i32 363, %dx.types.HitObject* %{{[^ ]+}}, i32 0, i32 1, %struct.RayDesc* %{{[^ ]+}})
 // FCGL: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.RayDesc*)"(i32 363, %dx.types.HitObject* %{{[^ ]+}}, i32 0, i32 2, %struct.RayDesc* %{{[^ ]+}})
