@@ -905,13 +905,14 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
           case DXIL::OpCode::BufferUpdateCounter:
             readWrite = ShaderAccessFlags::Counter;
             break;
+          case DXIL::OpCode::HitObject_TraceRay:
           case DXIL::OpCode::TraceRay: {
             // Read of AccelerationStructure; doesn't match function attribute
-            auto res = GetResourceFromHandle(Call->getArgOperand(1), DM);
-            if (res.accessStyle == AccessStyle::None) {
+            auto Res = GetResourceFromHandle(Call->getArgOperand(1), DM);
+            if (Res.accessStyle == AccessStyle::None) {
               continue;
             }
-            if (EmitResourceAccess(DM, res, Call, HlslOP, Ctx,
+            if (EmitResourceAccess(DM, Res, Call, HlslOP, Ctx,
                                    ShaderAccessFlags::Read)) {
               Modified = true;
             }

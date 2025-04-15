@@ -22,6 +22,7 @@ RDAT_ENUM_START(DxilResourceFlag, uint32_t)
   RDAT_ENUM_VALUE(UAVRasterizerOrderedView, 1 << 2)
   RDAT_ENUM_VALUE(DynamicIndexing,          1 << 3)
   RDAT_ENUM_VALUE(Atomics64Use,             1 << 4)
+  RDAT_ENUM_VALUE(UAVReorderCoherent,       1 << 5)
 RDAT_ENUM_END()
 
 RDAT_ENUM_START(DxilShaderStageFlags, uint32_t)

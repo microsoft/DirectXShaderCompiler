@@ -1222,6 +1222,15 @@ static bool ValidateStorageMasks(Instruction *I, DXIL::OpCode Opcode,
   return true;
 }
 
+static void ValidateASHandle(CallInst *CI, Value *Hdl,
+                             ValidationContext &ValCtx) {
+  DxilResourceProperties RP = ValCtx.GetResourceFromVal(Hdl);
+  if (RP.getResourceClass() == DXIL::ResourceClass::Invalid ||
+      RP.getResourceKind() != DXIL::ResourceKind::RTAccelerationStructure) {
+    ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceKindForTraceRay);
+  }
+}
+
 static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
                                    ValidationContext &ValCtx) {
   switch (Opcode) {
@@ -1803,14 +1812,12 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
   case DXIL::OpCode::TraceRay: {
     DxilInst_TraceRay TraceRay(CI);
     Value *Hdl = TraceRay.get_AccelerationStructure();
-    DxilResourceProperties RP = ValCtx.GetResourceFromVal(Hdl);
-    if (RP.getResourceClass() == DXIL::ResourceClass::Invalid) {
-      ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceKindForTraceRay);
-      return;
-    }
-    if (RP.getResourceKind() != DXIL::ResourceKind::RTAccelerationStructure) {
-      ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceKindForTraceRay);
-    }
+    ValidateASHandle(CI, Hdl, ValCtx);
+  } break;
+  case DXIL::OpCode::HitObject_TraceRay: {
+    DxilInst_HitObject_TraceRay HOTraceRay(CI);
+    Value *Hdl = HOTraceRay.get_accelerationStructure();
+    ValidateASHandle(CI, Hdl, ValCtx);
   } break;
   default:
     break;
@@ -1842,6 +1849,15 @@ std::string GetLaunchTypeStr(DXIL::NodeLaunchType LT) {
   default:
     return "Invalid";
   }
+}
+
+static unsigned getSemanticFlagValidMask(const ShaderModel *pSM) {
+  unsigned DxilMajor, DxilMinor;
+  pSM->GetDxilVersion(DxilMajor, DxilMinor);
+  // DXIL version >= 1.9
+  if (hlsl::DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 9) < 0)
+    return static_cast<unsigned>(hlsl::DXIL::BarrierSemanticFlag::LegacyFlags);
+  return static_cast<unsigned>(hlsl::DXIL::BarrierSemanticFlag::ValidMask);
 }
 
 static void ValidateDxilOperationCallInProfile(CallInst *CI,
@@ -2054,8 +2070,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                            (unsigned)hlsl::DXIL::MemoryTypeFlag::ValidMask,
                            "memory type", "BarrierByMemoryType");
     ValidateBarrierFlagArg(ValCtx, CI, DI.get_SemanticFlags(),
-                           (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask,
-                           "semantic", "BarrierByMemoryType");
+                           getSemanticFlagValidMask(pSM), "semantic",
+                           "BarrierByMemoryType");
     if (!IsLibFunc && ShaderKind != DXIL::ShaderKind::Node &&
         OP::BarrierRequiresNode(CI)) {
       ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierRequiresNode);
@@ -2071,8 +2087,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                              : "barrierByMemoryHandle";
     DxilInst_BarrierByMemoryHandle DIMH(CI);
     ValidateBarrierFlagArg(ValCtx, CI, DIMH.get_SemanticFlags(),
-                           (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask,
-                           "semantic", OpName);
+                           getSemanticFlagValidMask(pSM), "semantic", OpName);
     if (!IsLibFunc && ShaderKind != DXIL::ShaderKind::Node &&
         OP::BarrierRequiresNode(CI)) {
       ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierRequiresNode);
@@ -2087,6 +2102,30 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                                   {"CreateHandleForLib", "Library"});
     }
     break;
+
+  // Shader Execution Reordering
+  case DXIL::OpCode::MaybeReorderThread: {
+    Value *HitObject = CI->getArgOperand(1);
+    Value *CoherenceHintBits = CI->getArgOperand(2);
+    Value *NumCoherenceHintBits = CI->getArgOperand(3);
+
+    if (isa<UndefValue>(HitObject))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrUndefHitObject);
+
+    if (isa<UndefValue>(NumCoherenceHintBits))
+      ValCtx.EmitInstrError(
+          CI, ValidationRule::InstrMayReorderThreadUndefCoherenceHintParam);
+
+    ConstantInt *NumCoherenceHintBitsConst =
+        dyn_cast<ConstantInt>(NumCoherenceHintBits);
+    const bool HasCoherenceHint =
+        NumCoherenceHintBitsConst &&
+        NumCoherenceHintBitsConst->getLimitedValue() != 0;
+    if (HasCoherenceHint && isa<UndefValue>(CoherenceHintBits))
+      ValCtx.EmitInstrError(
+          CI, ValidationRule::InstrMayReorderThreadUndefCoherenceHintParam);
+  } break;
+
   case DXIL::OpCode::AtomicBinOp:
   case DXIL::OpCode::AtomicCompareExchange: {
     Type *pOverloadType = OP::GetOverloadType(Opcode, CI->getCalledFunction());
