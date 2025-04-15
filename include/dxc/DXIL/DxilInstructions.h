@@ -10075,9 +10075,9 @@ struct DxilInst_OuterProductAccumulate {
     arg_inputVector2 = 2,
     arg_matrixBuffer = 3,
     arg_matrixOffset = 4,
-    arg_matrixStride = 5,
-    arg_matrixIntepretation = 6,
-    arg_matrixLayout = 7,
+    arg_matrixIntepretation = 5,
+    arg_matrixLayout = 6,
+    arg_matrixStride = 7,
   };
   // Accessors
   llvm::Value *get_inputVector1() const { return Instr->getOperand(1); }
@@ -10088,12 +10088,30 @@ struct DxilInst_OuterProductAccumulate {
   void set_matrixBuffer(llvm::Value *val) { Instr->setOperand(3, val); }
   llvm::Value *get_matrixOffset() const { return Instr->getOperand(4); }
   void set_matrixOffset(llvm::Value *val) { Instr->setOperand(4, val); }
-  llvm::Value *get_matrixStride() const { return Instr->getOperand(5); }
-  void set_matrixStride(llvm::Value *val) { Instr->setOperand(5, val); }
-  llvm::Value *get_matrixIntepretation() const { return Instr->getOperand(6); }
-  void set_matrixIntepretation(llvm::Value *val) { Instr->setOperand(6, val); }
-  llvm::Value *get_matrixLayout() const { return Instr->getOperand(7); }
-  void set_matrixLayout(llvm::Value *val) { Instr->setOperand(7, val); }
+  llvm::Value *get_matrixIntepretation() const { return Instr->getOperand(5); }
+  void set_matrixIntepretation(llvm::Value *val) { Instr->setOperand(5, val); }
+  int32_t get_matrixIntepretation_val() const {
+    return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))
+                         ->getZExtValue());
+  }
+  void set_matrixIntepretation_val(int32_t val) {
+    Instr->setOperand(5, llvm::Constant::getIntegerValue(
+                             llvm::IntegerType::get(Instr->getContext(), 32),
+                             llvm::APInt(32, (uint64_t)val)));
+  }
+  llvm::Value *get_matrixLayout() const { return Instr->getOperand(6); }
+  void set_matrixLayout(llvm::Value *val) { Instr->setOperand(6, val); }
+  int32_t get_matrixLayout_val() const {
+    return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(6))
+                         ->getZExtValue());
+  }
+  void set_matrixLayout_val(int32_t val) {
+    Instr->setOperand(6, llvm::Constant::getIntegerValue(
+                             llvm::IntegerType::get(Instr->getContext(), 32),
+                             llvm::APInt(32, (uint64_t)val)));
+  }
+  llvm::Value *get_matrixStride() const { return Instr->getOperand(7); }
+  void set_matrixStride(llvm::Value *val) { Instr->setOperand(7, val); }
 };
 
 /// This instruction Accumulates the components of a vector component-wise
