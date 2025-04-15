@@ -2382,7 +2382,7 @@ ID  Name                                                  Description
 265 HitObject_MakeMiss                                    Creates a new HitObject representing a miss
 266 HitObject_MakeNop                                     Creates an empty nop HitObject
 267 HitObject_Invoke                                      Represents the invocation of the CH/MS shader represented by the HitObject
-268 ReservedB6                                            reserved
+268 MaybeReorderThread                                    Reorders the current thread
 269 HitObject_IsMiss                                      Returns `true` if the HitObject represents a miss
 270 HitObject_IsHit                                       Returns `true` if the HitObject is a NOP-HitObject
 271 HitObject_IsNop                                       Returns `true` if the HitObject represents a nop
@@ -3134,6 +3134,7 @@ INSTR.ILLEGALDXILOPCODE                               DXILOpCode must be [0..%0]
 INSTR.ILLEGALDXILOPFUNCTION                           '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                               bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                                  Access to out-of-bounds memory is disallowed.
+INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM         Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
 INSTR.MINPRECISIONNOTPRECISE                          Instructions marked precise may not refer to minprecision values.
 INSTR.MINPRECISONBITCAST                              Bitcast on minprecison types is not allowed.
 INSTR.MIPLEVELFORGETDIMENSION                         Use mip level on buffer when GetDimensions.
@@ -3190,6 +3191,7 @@ INSTR.STRUCTBITCAST                                   Bitcast on struct types is
 INSTR.SVCONFLICTINGLAUNCHMODE                         Input system values are compatible with node shader launch mode.
 INSTR.TEXTUREOFFSET                                   offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
 INSTR.TGSMRACECOND                                    Race condition writing to shared memory detected, consider making this write conditional.
+INSTR.UNDEFHITOBJECT                                  HitObject is undef.
 INSTR.UNDEFINEDVALUEFORUAVSTORE                       Assignment of undefined values to UAV.
 INSTR.UNDEFRESULTFORGETDIMENSION                      GetDimensions used undef dimension %0 on %1.
 INSTR.WRITEMASKFORTYPEDUAVSTORE                       store on typed uav must write to all four components of the UAV.
