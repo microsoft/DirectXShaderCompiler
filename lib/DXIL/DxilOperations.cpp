@@ -2658,7 +2658,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "MatVecMul",
      OCC::MatVecMul,
      "matVecMul",
-     Attribute::None,
+     Attribute::ReadOnly,
      2,
      {{0x400}, {0x400}},
      {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
@@ -2666,7 +2666,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "MatVecMulAdd",
      OCC::MatVecMulAdd,
      "matVecMulAdd",
-     Attribute::None,
+     Attribute::ReadOnly,
      2,
      {{0x400}, {0x400}},
      {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
