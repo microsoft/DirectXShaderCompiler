@@ -970,40 +970,31 @@ static void ValidateImmOperandForMathDxilOp(CallInst *CI, DXIL::OpCode Opcode,
   }
 }
 
-static bool CheckFromRegisterInterpretations(uint32_t Input) {
-  DXIL::ComponentType ValidSet[] = {
-      DXIL::ComponentType::I16,         DXIL::ComponentType::U16,
-      DXIL::ComponentType::I32,         DXIL::ComponentType::U32,
-      DXIL::ComponentType::F16,         DXIL::ComponentType::F32,
-      DXIL::ComponentType::PackedS8x32, DXIL::ComponentType::PackedU8x32,
-      DXIL::ComponentType::U8,          DXIL::ComponentType::I8,
-      DXIL::ComponentType::F8_E4M3,     DXIL::ComponentType::F8_E5M2};
-
-  for (auto Val : ValidSet) {
-    if (Val == static_cast<DXIL::ComponentType>(Input))
-      return true;
+static bool CheckLinalgInterpretation(uint32_t Input, bool InRegister) {
+  using CT = DXIL::ComponentType;
+  switch (static_cast<CT>(Input)) {
+  case CT::I16:
+  case CT::U16:
+  case CT::I32:
+  case CT::U32:
+  case CT::F16:
+  case CT::F32:
+  case CT::U8:
+  case CT::I8:
+  case CT::F8_E4M3:
+  case CT::F8_E5M2:
+    return true;
+  case CT::PackedS8x32:
+  case CT::PackedU8x32:
+    return InRegister;
+  default:
+    return false;
   }
-  return false;
-}
-
-static bool CheckInMemoryInterpretations(uint32_t Input) {
-  DXIL::ComponentType ValidSet[] = {
-      DXIL::ComponentType::I16,     DXIL::ComponentType::U16,
-      DXIL::ComponentType::I32,     DXIL::ComponentType::U32,
-      DXIL::ComponentType::F16,     DXIL::ComponentType::F32,
-      DXIL::ComponentType::U8,      DXIL::ComponentType::I8,
-      DXIL::ComponentType::F8_E4M3, DXIL::ComponentType::F8_E5M2};
-
-  for (auto Val : ValidSet) {
-    if (Val == static_cast<DXIL::ComponentType>(Input))
-      return true;
-  }
-  return false;
 }
 
 static bool CheckMatrixLayout(unsigned Input) {
-  return (Input <=
-          static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal));
+  return Input <=
+          static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal);
 }
 
 static bool CheckTransposeForMatrixLayout(DXIL::LinalgMatrixLayout Layout,
@@ -1085,14 +1076,14 @@ static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode OpCode,
 
   // Check if InputInterpretation and MatrixInterpretation are valid
   uint64_t IIValue = II->getLimitedValue();
-  if (!CheckFromRegisterInterpretations(IIValue)) {
+  if (!CheckLinalgInterpretation(IIValue, true)) {
     ValCtx.EmitInstrError(
         CI, ValidationRule::InstrLinalgInvalidRegisterInterpValue);
     return;
   }
 
   uint64_t MIValue = MI->getLimitedValue();
-  if (!CheckInMemoryInterpretations(MIValue)) {
+  if (!CheckLinalgInterpretation(MIValue, false)) {
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrLinalgInvalidMemoryInterpValue);
     return;
@@ -1148,7 +1139,7 @@ static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode OpCode,
     }
     ConstantInt *BI = cast<ConstantInt>(BiasInterpretation);
     uint64_t BIValue = BI->getLimitedValue();
-    if (!CheckInMemoryInterpretations(BIValue)) {
+    if (!CheckLinalgInterpretation(BIValue, false)) {
       ValCtx.EmitInstrError(
           CI, ValidationRule::InstrLinalgInvalidMemoryInterpValue);
       return;
@@ -1172,7 +1163,7 @@ static void ValidateImmOperandsForOuterProdAcc(CallInst *CI,
         CI, ValidationRule::InstrLinalgInterpretationParamAreConst);
   ConstantInt *MI = cast<ConstantInt>(MatrixInterpretation);
   uint64_t MIValue = MI->getLimitedValue();
-  if (!CheckInMemoryInterpretations(MIValue))
+  if (!CheckLinalgInterpretation(MIValue, false))
     ValCtx.EmitInstrError(CI,
                           ValidationRule::InstrLinalgInvalidMemoryInterpValue);
 
