@@ -4,6 +4,7 @@
 
 RWByteAddressBuffer RWBuf;
 
+// test for inputs of different size
 export void Test4(vector<half, 128> Input1, vector<half, 64> Input2) {
   using namespace dx::linalg;
 
@@ -20,7 +21,7 @@ export void Test4(vector<half, 128> Input1, vector<half, 64> Input2) {
 }
 
 // now test for an error when element types differ
-export void Test4(vector<int, 128> Input1, vector<uint, 128> Input2) {
+export void Test5(vector<int, 128> Input1, vector<uint, 128> Input2) {
   using namespace dx::linalg;
 
   RWMatrixRef<DATA_TYPE_FLOAT16, 128, 128, MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL, true>
@@ -35,11 +36,11 @@ export void Test4(vector<int, 128> Input1, vector<uint, 128> Input2) {
   OuterProductAccumulate(Input1, Input2, matrix);  
 }
 
-// now test for an error when matrix transpose parameter is false
-export void Test4(vector<int, 128> Input1, vector<uint, 128> Input2) {
+// now test for an error when matrix transpose parameter is true
+export void Test4(vector<half, 64> Input1, vector<half, 64> Input2) {
   using namespace dx::linalg;
 
-  RWMatrixRef<DATA_TYPE_FLOAT16, 128, 128, MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL, false>
+  RWMatrixRef<DATA_TYPE_FLOAT16, 64, 64, MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL, true>
       matrix = {RWBuf, 0, 0};
 
   // clang-format off
