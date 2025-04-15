@@ -6376,7 +6376,7 @@ class db_dxil(object):
             "MatVecMulAdd",
             "multiplies a MxK dimension matrix and a K sized input vector and adds an M-sized bias vector",
             "<hfwi,<hfwi",
-            "",
+            "ro",
             [
                 db_dxil_param(0, "$x0", "outputVector", "output vector"),
                 db_dxil_param(2, "$x1", "inputVector", "input vector"),
