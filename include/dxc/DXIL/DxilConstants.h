@@ -2176,7 +2176,7 @@ extern const char *kHostLayoutTypePrefix;
 
 extern const char *kWaveOpsIncludeHelperLanesString;
 
-enum class DXILMatrixLayout : uint32_t {
+enum class LinalgMatrixLayout : uint32_t {
   RowMajor = 0,
   ColumnMajor = 1,
   MulOptimal = 2,
