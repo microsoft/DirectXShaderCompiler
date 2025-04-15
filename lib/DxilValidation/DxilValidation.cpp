@@ -1003,14 +1003,14 @@ static bool CheckInMemoryInterpretations(uint32_t Input) {
 
 static bool CheckMatrixLayout(unsigned Input) {
   return (Input <=
-          static_cast<unsigned>(DXIL::DXILMatrixLayout::OuterProductOptimal));
+          static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal));
 }
 
-static bool CheckTransposeForMatrixLayout(DXIL::DXILMatrixLayout Layout,
+static bool CheckTransposeForMatrixLayout(DXIL::LinalgMatrixLayout Layout,
                                           bool Transposed) {
   switch (Layout) {
-  case DXIL::DXILMatrixLayout::RowMajor:
-  case DXIL::DXILMatrixLayout::ColumnMajor:
+  case DXIL::LinalgMatrixLayout::RowMajor:
+  case DXIL::LinalgMatrixLayout::ColumnMajor:
     return !Transposed;
 
   default:
@@ -1116,7 +1116,7 @@ static void ValidateImmOperandsForMatVecOps(CallInst *CI, DXIL::OpCode OpCode,
   }
 
   if (!CheckTransposeForMatrixLayout(
-          static_cast<DXIL::DXILMatrixLayout>(MLValue),
+          static_cast<DXIL::LinalgMatrixLayout>(MLValue),
           MatrixTransposeConst->getLimitedValue())) {
     ValCtx.EmitInstrError(
         CI, ValidationRule::InstrLinalgMatrixLayoutNotTransposable);
