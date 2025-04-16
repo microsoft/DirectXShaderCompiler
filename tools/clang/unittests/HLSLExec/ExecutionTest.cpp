@@ -11549,7 +11549,7 @@ private:
   //  The ranges for generation. A std::uniform_real_distribution can only have
   //  a range that is equal to the types largest value. This is due to precision
   //  issues. So instead we define some large values.
-  const float FLOAT_RANGE_MIN = -1e20;
+  const float FLOAT_RANGE_MIN = -1e20f;
   const float FLOAT_RANGE_MAX = 1e20f;
   const double DOUBLE_RANGE_MIN = -1e100;
   const double DOUBLE_RANGE_MAX = 1e100;
@@ -11570,7 +11570,8 @@ bool DoVectorsMatch(const std::vector<T> &VecInput,
     if constexpr (std::is_same_v<T, HLSLBool_t>) {
       // Compiler was very picky and wanted an explicit case for any T that
       // doesn't implement the operators in the below else. ( > and -). It
-      // wouldn't accept putting this constexpr as an or case in the above if.
+      // wouldn't accept putting this constexpr as an or case with other
+      // statements.
       if (VecInput[Index] != VecExpected[Index]) {
         MismatchedIndexes.push_back(Index);
       }
@@ -11579,7 +11580,8 @@ bool DoVectorsMatch(const std::vector<T> &VecInput,
     } else if constexpr (std::is_same_v<T, HLSLBool_t>) {
       // Compiler was very picky and wanted an explicit case for any T that
       // doesn't implement the operators in the below else. ( > and -). It
-      // wouldn't accept putting this constexpr as an or case in the above if.
+      // wouldn't accept putting this constexpr as an or case with other
+      // statements.
       if (VecInput[Index] != VecExpected[Index]) {
         MismatchedIndexes.push_back(i);
       }
@@ -12110,8 +12112,13 @@ void ExecutionTest::LongVectorOpTestBase(
   LogCommentFmt(L"Running LongVectorOpTestBase<%S, %zu>", typeid(T).name(), N);
 
   CComPtr<ID3D12Device> D3DDevice;
-  if ((!m_HLKModeEnabled && !m_ExperimentalModeEnabled) &&
-      !CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
+  if (!m_ExperimentalModeEnabled
+      && !CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
+
+    if(m_HLKModeEnabled)
+      LogErrorFmt(L"Device does not support SM 6.9. Can't run these tests.");
+      return;
+
     WEX::Logging::Log::Comment(
         "Device does not support SM 6.9. Can't run these tests.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);

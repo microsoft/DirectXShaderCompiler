@@ -3756,7 +3756,8 @@ void MSMain(uint GID : SV_GroupIndex,
     <RootValues>
       <RootValue Index="0" ResName="LongVectorOp" />
     </RootValues>
-    <Shader Name="CS" Target="cs_6_0">
+    <!-- NOTE: the long vector tests override the target-->
+    <Shader Name="CS" Target="cs_6_9">
     </Shader>
   </ShaderOp>
 </ShaderOpSet>
