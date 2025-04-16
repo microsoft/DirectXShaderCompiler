@@ -105,7 +105,6 @@ EXTERN_C const GUID DECLSPEC_SELECTANY CLSID_D3D12SDKConfiguration = {
     0x7cda6aca,
     0xa03e,
     0x49c8,
-    ngVect
     {0x94, 0x58, 0x03, 0x34, 0xd2, 0x0e, 0x07, 0xce}};
 
 MIDL_INTERFACE("e9eb5314-33aa-42b2-a718-d77f58b1f1c7")
