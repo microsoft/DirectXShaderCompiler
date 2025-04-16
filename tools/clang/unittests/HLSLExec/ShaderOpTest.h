@@ -24,6 +24,7 @@
 #include <set>
 #include <unordered_set>
 #include <vector>
+#include "dxc/Support/RAIIClasses.h" // For HhEvent
 
 // We need to keep & fix these warnings to integrate smoothly with HLK
 #pragma warning(error : 4100 4146 4242 4244 4267 4701 4389)
@@ -312,7 +313,7 @@ private:
   CComPtr<ID3D12Resource> m_pQueryBuffer;
   dxc::DxcDllSupport *m_pDxcSupport = nullptr;
   CommandListRefs m_CommandList;
-  HANDLE m_hFence;
+  HhEvent m_hFence;
   ShaderOp *m_pShaderOp;
   UINT64 m_FenceValue;
   std::map<LPCSTR, CComPtr<ID3D10Blob>> m_Shaders;

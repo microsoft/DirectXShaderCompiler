@@ -290,7 +290,7 @@ void ShaderOpTest::CopyBackResources() {
   }
   pList->Close();
   ExecuteCommandList(ResCommandList.Queue, pList);
-  WaitForSignal(ResCommandList.Queue, m_pFence, m_hFence, m_FenceValue++);
+  WaitForSignal(ResCommandList.Queue, m_pFence, m_hFence.Get(), m_FenceValue++);
 }
 
 void ShaderOpTest::CreateCommandList() {
@@ -423,10 +423,7 @@ void ShaderOpTest::CreateDevice() {
   CHECK_HR(m_pDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE,
                                   __uuidof(ID3D12Fence), (void **)&m_pFence));
   m_pFence->SetName(L"ShaderOpTest Fence");
-  m_hFence = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-  if (m_hFence == nullptr) {
-    AtlThrow(HRESULT_FROM_WIN32(GetLastError()));
-  }
+  m_hFence.Init();
 }
 
 static void InitByteCode(D3D12_SHADER_BYTECODE *pBytecode, ID3D10Blob *pBlob) {
@@ -749,7 +746,7 @@ void ShaderOpTest::CreateResources() {
 
   CHECK_HR(pList->Close());
   ExecuteCommandList(ResCommandList.Queue, pList);
-  WaitForSignal(ResCommandList.Queue, m_pFence, m_hFence, m_FenceValue++);
+  WaitForSignal(ResCommandList.Queue, m_pFence, m_hFence.Get(), m_FenceValue++);
 }
 
 void ShaderOpTest::CreateRootSignature() {
@@ -1054,7 +1051,7 @@ void ShaderOpTest::RunCommandList() {
   }
   CHECK_HR(pList->Close());
   ExecuteCommandList(m_CommandList.Queue, pList);
-  WaitForSignal(m_CommandList.Queue, m_pFence, m_hFence, m_FenceValue++);
+  WaitForSignal(m_CommandList.Queue, m_pFence, m_hFence.Get(), m_FenceValue++);
 }
 
 void ShaderOpTest::RunShaderOp(ShaderOp *pShaderOp) {
@@ -1212,7 +1209,7 @@ void ShaderOpTest::PresentRenderTarget(ShaderOp *pShaderOp,
                           D3D12_RESOURCE_STATE_PRESENT);
   pList->Close();
   ExecuteCommandList(ResCommandList.Queue, pList);
-  WaitForSignal(ResCommandList.Queue, m_pFence, m_hFence, m_FenceValue++);
+  WaitForSignal(ResCommandList.Queue, m_pFence, m_hFence.Get(), m_FenceValue++);
 }
 
 ShaderOp *ShaderOpSet::GetShaderOp(LPCSTR pName) {
