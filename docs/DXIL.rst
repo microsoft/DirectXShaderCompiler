@@ -2376,34 +2376,34 @@ ID  Name                                                  Description
 259 ReservedA0                                            reserved
 260 ReservedA1                                            reserved
 261 ReservedA2                                            reserved
-262 ReservedB0                                            reserved
-263 ReservedB1                                            reserved
-264 ReservedB2                                            reserved
+262 HitObject_TraceRay                                    Analogous to TraceRay but without invoking CH/MS and returns the intermediate state as a HitObject
+263 HitObject_FromRayQuery                                Creates a new HitObject representing a committed hit from a RayQuery
+264 HitObject_FromRayQueryWithAttrs                       Creates a new HitObject representing a committed hit from a RayQuery and committed attributes
 265 HitObject_MakeMiss                                    Creates a new HitObject representing a miss
 266 HitObject_MakeNop                                     Creates an empty nop HitObject
-267 ReservedB5                                            reserved
-268 ReservedB6                                            reserved
-269 ReservedB7                                            reserved
-270 ReservedB8                                            reserved
-271 ReservedB9                                            reserved
-272 ReservedB10                                           reserved
-273 ReservedB11                                           reserved
-274 ReservedB12                                           reserved
-275 ReservedB13                                           reserved
-276 ReservedB14                                           reserved
-277 ReservedB15                                           reserved
-278 ReservedB16                                           reserved
-279 ReservedB17                                           reserved
-280 ReservedB18                                           reserved
-281 ReservedB19                                           reserved
-282 ReservedB20                                           reserved
-283 ReservedB21                                           reserved
-284 ReservedB22                                           reserved
-285 ReservedB23                                           reserved
-286 ReservedB24                                           reserved
-287 ReservedB25                                           reserved
-288 ReservedB26                                           reserved
-289 ReservedB27                                           reserved
+267 HitObject_Invoke                                      Represents the invocation of the CH/MS shader represented by the HitObject
+268 MaybeReorderThread                                    Reorders the current thread
+269 HitObject_IsMiss                                      Returns `true` if the HitObject represents a miss
+270 HitObject_IsHit                                       Returns `true` if the HitObject is a NOP-HitObject
+271 HitObject_IsNop                                       Returns `true` if the HitObject represents a nop
+272 HitObject_RayFlags                                    Returns the ray flags set in the HitObject
+273 HitObject_RayTMin                                     Returns the TMin value set in the HitObject
+274 HitObject_RayTCurrent                                 Returns the current T value set in the HitObject
+275 HitObject_WorldRayOrigin                              Returns the ray origin in world space
+276 HitObject_WorldRayDirection                           Returns the ray direction in world space
+277 HitObject_ObjectRayOrigin                             Returns the ray origin in object space
+278 HitObject_ObjectRayDirection                          Returns the ray direction in object space
+279 HitObject_ObjectToWorld3x4                            Returns the object to world space transformation matrix in 3x4 form
+280 HitObject_WorldToObject3x4                            Returns the world to object space transformation matrix in 3x4 form
+281 HitObject_GeometryIndex                               Returns the geometry index committed on hit
+282 HitObject_InstanceIndex                               Returns the instance index committed on hit
+283 HitObject_InstanceID                                  Returns the instance id committed on hit
+284 HitObject_PrimitiveIndex                              Returns the primitive index committed on hit
+285 HitObject_HitKind                                     Returns the HitKind of the hit
+286 HitObject_ShaderTableIndex                            Returns the shader table index set for this HitObject
+287 HitObject_SetShaderTableIndex                         Returns a HitObject with updated shader table index
+288 HitObject_LoadLocalRootTableConstant                  Returns the root table constant for this HitObject and offset
+289 HitObject_Attributes                                  Returns the attributes set for this HitObject
 290 ReservedB28                                           reserved
 291 ReservedB29                                           reserved
 292 ReservedB30                                           reserved
@@ -2419,10 +2419,10 @@ ID  Name                                                  Description
 302 ReservedC9                                            reserved
 303 RawBufferVectorLoad                                   reads from a raw buffer and structured buffer
 304 RawBufferVectorStore                                  writes to a RWByteAddressBuffer or RWStructuredBuffer
-305 MatVecMul                                             Matrix-Vector Multiply
-306 MatVecMulAdd                                          Matrix-Vector Multiply Add
-307 OuterProductAccumulate                                Outer Product Accumulate
-308 VectorAccumulate                                      Vector Accumulate
+305 MatVecMul                                             Multiplies a MxK dimension matrix and a K sized input vector
+306 MatVecMulAdd                                          multiplies a MxK dimension matrix and a K sized input vector and adds an M-sized bias vector
+307 OuterProductAccumulate                                Computes the outer product between column vectors and an MxN matrix is accumulated component-wise atomically (with device scope) in memory
+308 VectorAccumulate                                      Accumulates the components of a vector component-wise atomically (with device scope) to the corresponding elements of an array in memory
 === ===================================================== =======================================================================================================================================================================================================================
 
 
@@ -3124,8 +3124,9 @@ INSTR.CANNOTPULLPOSITION                              pull-model evaluation of p
 INSTR.CBUFFERCLASSFORCBUFFERHANDLE                    Expect Cbuffer for CBufferLoad handle.
 INSTR.CBUFFEROUTOFBOUND                               Cbuffer access out of bound.
 INSTR.CHECKACCESSFULLYMAPPED                          CheckAccessFullyMapped should only be used on resource status.
-INSTR.COORDINATECOUNTFORRAWTYPEDBUF                   raw/typed buffer don't need 2 coordinates.
-INSTR.COORDINATECOUNTFORSTRUCTBUF                     structured buffer require 2 coordinates.
+INSTR.CONSTALIGNFORRAWBUF                             Raw Buffer alignment value must be a constant.
+INSTR.COORDINATECOUNTFORRAWTYPEDBUF                   raw/typed buffer offset must be undef.
+INSTR.COORDINATECOUNTFORSTRUCTBUF                     structured buffer requires defined index and offset coordinates.
 INSTR.CREATEHANDLEIMMRANGEID                          Local resource must map to global resource.
 INSTR.DXILSTRUCTUSER                                  Dxil struct types should only be used by ExtractValue.
 INSTR.DXILSTRUCTUSEROUTOFBOUND                        Index out of bound when extract value from dxil struct types.
@@ -3137,6 +3138,15 @@ INSTR.ILLEGALDXILOPCODE                               DXILOpCode must be [0..%0]
 INSTR.ILLEGALDXILOPFUNCTION                           '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                               bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                                  Access to out-of-bounds memory is disallowed.
+INSTR.LINALGINTERPRETATIONPARAMARECONST               Interpretation values are constants
+INSTR.LINALGINVALIDMATRIXLAYOUTVALUE                  Matrix Layout for Linalg ops not in valid set
+INSTR.LINALGINVALIDMEMORYINTERPVALUE                  In Memory Interpolation value not in valid set
+INSTR.LINALGINVALIDREGISTERINTERPVALUE                From Register Interpretation value not in valid set
+INSTR.LINALGMATRIXLAYOUTNOTTRANSPOSABLE               Matrix Layout not transposable
+INSTR.LINALGMATRIXSHAPEPARAMSARECONST                 Matrix Layout, Dimensions and isTranspose are immediate constants
+INSTR.LINALGNOTANUNSIGNEDTYPE                         Unsigned flag set for signed type
+INSTR.MATVECOPISUNSIGNEDFLAGSARECONST                 MatVec Ops Is Unsigned flag is a constant
+INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM         Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
 INSTR.MINPRECISIONNOTPRECISE                          Instructions marked precise may not refer to minprecision values.
 INSTR.MINPRECISONBITCAST                              Bitcast on minprecison types is not allowed.
 INSTR.MIPLEVELFORGETDIMENSION                         Use mip level on buffer when GetDimensions.
@@ -3193,6 +3203,7 @@ INSTR.STRUCTBITCAST                                   Bitcast on struct types is
 INSTR.SVCONFLICTINGLAUNCHMODE                         Input system values are compatible with node shader launch mode.
 INSTR.TEXTUREOFFSET                                   offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
 INSTR.TGSMRACECOND                                    Race condition writing to shared memory detected, consider making this write conditional.
+INSTR.UNDEFHITOBJECT                                  HitObject is undef.
 INSTR.UNDEFINEDVALUEFORUAVSTORE                       Assignment of undefined values to UAV.
 INSTR.UNDEFRESULTFORGETDIMENSION                      GetDimensions used undef dimension %0 on %1.
 INSTR.WRITEMASKFORTYPEDUAVSTORE                       store on typed uav must write to all four components of the UAV.

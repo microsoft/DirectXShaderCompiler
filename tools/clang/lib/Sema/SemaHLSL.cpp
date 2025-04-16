@@ -580,9 +580,9 @@ const UINT g_uBasicKindProps[] = {
     0, // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
     0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
-    BPROP_OBJECT, // AR_OBJECT_RAY_QUERY,
-    BPROP_OBJECT, // AR_OBJECT_HEAP_RESOURCE,
-    BPROP_OBJECT, // AR_OBJECT_HEAP_SAMPLER,
+    LICOMPTYPE_RAY_QUERY, // AR_OBJECT_RAY_QUERY,
+    BPROP_OBJECT,         // AR_OBJECT_HEAP_RESOURCE,
+    BPROP_OBJECT,         // AR_OBJECT_HEAP_SAMPLER,
 
     BPROP_OBJECT | BPROP_RWBUFFER | BPROP_TEXTURE, // AR_OBJECT_RWTEXTURE2DMS
     BPROP_OBJECT | BPROP_RWBUFFER |
@@ -1135,6 +1135,9 @@ static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_HEAP_RESOURCE,
 
 static const ArBasicKind g_RayDescCT[] = {AR_OBJECT_RAY_DESC, AR_BASIC_UNKNOWN};
 
+static const ArBasicKind g_RayQueryCT[] = {AR_OBJECT_RAY_QUERY,
+                                           AR_BASIC_UNKNOWN};
+
 static const ArBasicKind g_AccelerationStructCT[] = {
     AR_OBJECT_ACCELERATION_STRUCT, AR_BASIC_UNKNOWN};
 
@@ -1297,6 +1300,7 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_GroupNodeOutputRecordsCT,  // LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
     g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
     g_DxHitObjectCT,             // LICOMPTYPE_HIT_OBJECT
+    g_RayQueryCT,                // LICOMPTYPE_RAY_QUERY
 #ifdef ENABLE_SPIRV_CODEGEN
     g_VKBufferPointerCT, // LICOMPTYPE_VK_BUFFER_POINTER
 #endif

@@ -1390,19 +1390,27 @@ CXXRecordDecl *hlsl::DeclareVkBufferPointerType(ASTContext &context,
       DeclarationName(&context.Idents.get("Get")), true);
   CanQualType canQualType =
       recordDecl->getTypeForDecl()->getCanonicalTypeUnqualified();
-  CreateConstructorDeclarationWithParams(
+  auto *copyConstructorDecl = CreateConstructorDeclarationWithParams(
       context, recordDecl, context.VoidTy,
       {context.getRValueReferenceType(canQualType)}, {"bufferPointer"},
-      context.DeclarationNames.getCXXConstructorName(canQualType), false);
-  CreateConstructorDeclarationWithParams(
+      context.DeclarationNames.getCXXConstructorName(canQualType), false, true);
+  auto *addressConstructorDecl = CreateConstructorDeclarationWithParams(
       context, recordDecl, context.VoidTy, {context.UnsignedIntTy}, {"address"},
-      context.DeclarationNames.getCXXConstructorName(canQualType), false);
+      context.DeclarationNames.getCXXConstructorName(canQualType), false, true);
+  hlsl::CreateFunctionTemplateDecl(
+      context, recordDecl, copyConstructorDecl,
+      Builder.getTemplateDecl()->getTemplateParameters()->begin(), 2);
+  hlsl::CreateFunctionTemplateDecl(
+      context, recordDecl, addressConstructorDecl,
+      Builder.getTemplateDecl()->getTemplateParameters()->begin(), 2);
 
   StringRef OpcodeGroup = GetHLOpcodeGroupName(HLOpcodeGroup::HLIntrinsic);
   unsigned Opcode = static_cast<unsigned>(IntrinsicOp::MOP_GetBufferContents);
   methodDecl->addAttr(
       HLSLIntrinsicAttr::CreateImplicit(context, OpcodeGroup, "", Opcode));
   methodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+  copyConstructorDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+  addressConstructorDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 
   return Builder.completeDefinition();
 }
