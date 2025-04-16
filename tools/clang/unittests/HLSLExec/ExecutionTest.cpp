@@ -11416,7 +11416,7 @@ template <typename T> struct LongVectorOpTestConfig {
       IsBinaryOp = false;
       break;
     default:
-      VERIFY_FAILED("Invalid LongVectorOpType");
+      VERIFY_FAIL("Invalid LongVectorOpType");
     }
   }
 
@@ -11500,7 +11500,7 @@ public:
       DoubleDist = std::uniform_real_distribution<T>(
           DOUBLE_RANGE_MIN, DOUBLE_RANGE_MAX);
     else
-      VERIFY_FAILED("Unsupported type for DeterministicNumberGenerator");
+      VERIFY_FAIL("Unsupported type for DeterministicNumberGenerator");
   }
 
   // Function to generate a random number within the range of the type. Ranges
@@ -11527,7 +11527,7 @@ public:
     if constexpr (std::is_same_v<T, uint64_t>)
       return Uint64Dist(generator);
 
-    VERIFY_FAILED("Unsupported data type for generate()");
+    VERIFY_FAIL("Unsupported data type for generate()");
   }
 
 private:
@@ -11558,7 +11558,7 @@ bool DoVectorsMatch(const std::vector<T> &VecInput,
                     const std::vector<T> &VecExpected, float Tolerance) {
   // Sanity check. Ensure both vectors have the same size
   if (VecInput.size() != VecExpected.size()) {
-    VERIFY_FAILED(L"Vectors are different sizes!");
+    VERIFY_FAIL(L"Vectors are different sizes!");
     return false;
   }
 
@@ -12213,6 +12213,7 @@ void ExecutionTest::LongVectorOpTestBase(
   }
 
   RWStructuredBuffer<LongVectorOp> g_buf : register(u0);
+  RWByteAddressBuffer g_bufByteAddr : register(u1);
   [numthreads(8,8,1)]
   void main(uint GI : SV_GroupIndex) {
     LongVectorOp LVOp = g_buf[GI];
