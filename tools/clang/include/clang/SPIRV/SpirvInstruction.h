@@ -1047,12 +1047,12 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  SpirvInstruction *getNodeIndex() { return nodeIndex; }
   SpirvInstruction *getPayloadArray() { return payloadArray; }
+  SpirvInstruction *getNodeIndex() { return nodeIndex; }
 
 private:
-  SpirvInstruction *nodeIndex;
   SpirvInstruction *payloadArray;
+  SpirvInstruction *nodeIndex;
 };
 
 /// \brief OpNodePayloadArrayLengthAMDX instruction
