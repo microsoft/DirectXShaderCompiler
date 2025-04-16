@@ -11416,7 +11416,7 @@ template <typename T> struct LongVectorOpTestConfig {
       IsBinaryOp = false;
       break;
     default:
-      VERIFY_SUCCEEDED(false, "Invalid LongVectorOpType");
+      VERIFY_FAILED("Invalid LongVectorOpType");
     }
   }
 
@@ -11500,8 +11500,7 @@ public:
       DoubleDist = std::uniform_real_distribution<T>(
           DOUBLE_RANGE_MIN, DOUBLE_RANGE_MAX);
     else
-      VERIFY_SUCCEEDED(false,
-                       "Unsupported type for DeterministicNumberGenerator");
+      VERIFY_FAILED("Unsupported type for DeterministicNumberGenerator");
   }
 
   // Function to generate a random number within the range of the type. Ranges
@@ -11528,8 +11527,7 @@ public:
     if constexpr (std::is_same_v<T, uint64_t>)
       return Uint64Dist(generator);
 
-    VERIFY_SUCCEEDED(
-        false, "Unsupported type for DeterministicNumberGenerator::generate()");
+    VERIFY_FAILED("Unsupported data type for generate()");
   }
 
 private:
@@ -11560,7 +11558,7 @@ bool DoVectorsMatch(const std::vector<T> &VecInput,
                     const std::vector<T> &VecExpected, float Tolerance) {
   // Sanity check. Ensure both vectors have the same size
   if (VecInput.size() != VecExpected.size()) {
-    VERIFY_IS_TRUE(false, L"Vectors are different sizes!");
+    VERIFY_FAILED(L"Vectors are different sizes!");
     return false;
   }
 
@@ -12112,9 +12110,8 @@ void ExecutionTest::LongVectorOpTestBase(
   LogCommentFmt(L"Running LongVectorOpTestBase<%S, %zu>", typeid(T).name(), N);
 
   CComPtr<ID3D12Device> D3DDevice;
-  if (!m_ExperimentalModeEnabled
-      && !CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
-
+  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)
+      && !m_ExperimentalModeEnabled) {
     if(m_HLKModeEnabled)
       LogErrorFmt(L"Device does not support SM 6.9. Can't run these tests.");
       return;
