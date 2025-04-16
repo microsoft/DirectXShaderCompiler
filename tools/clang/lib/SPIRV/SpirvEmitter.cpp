@@ -756,8 +756,8 @@ llvm::StringRef SpirvEmitter::getEntryPointName(const FunctionInfo *entryInfo) {
 }
 
 SpirvInstruction *
-SpirvEmitter::getAttrIntArg(ArrayRef<const DeclRefExpr *> exprs, int argNum,
-                            unsigned fallback) {
+SpirvEmitter::getAttrIntArg(ArrayRef<const DeclRefExpr *> exprs,
+                            unsigned argNum, unsigned fallback) {
   if (argNum < exprs.size()) {
     if (exprs[argNum]) {
       if (SpirvConstant *spvConst = constEvaluator.tryToEvaluateAsConst(
@@ -11180,7 +11180,6 @@ SpirvInstruction *SpirvEmitter::processIntrinsicGetBufferContents(
 
 SpirvInstruction *SpirvEmitter::processIntrinsicExtractRecordStruct(
     const CXXMemberCallExpr *callExpr) {
-  SourceLocation loc = callExpr->getExprLoc();
   Expr *obj = callExpr->getImplicitObjectArgument();
   QualType objType = obj->getType();
   unsigned n = callExpr->getNumArgs();
@@ -11229,7 +11228,6 @@ SpirvEmitter::processIntrinsicIsValid(const CXXMemberCallExpr *callExpr) {
 
   const auto *declRefExpr = dyn_cast<DeclRefExpr>(baseExpr->IgnoreImpCasts());
   const auto *paramDecl = dyn_cast<ParmVarDecl>(declRefExpr->getDecl());
-  const auto *nodeId = paramDecl->getAttr<HLSLNodeIdAttr>();
   int nodeIndex = 0;
   if (HLSLNodeIdAttr *nodeId = paramDecl->getAttr<HLSLNodeIdAttr>()) {
     nodeIndex = nodeId->getArrayIndex();
@@ -11282,8 +11280,6 @@ SpirvInstruction *SpirvEmitter::processIntrinsicGetNodeOutputRecords(
     }
   }
 
-  QualType structType =
-      hlsl::GetHLSLNodeIOResultType(astContext, baseExpr->getType());
   LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
                                     spvBuilder);
   const SpirvType *elemType = lowerTypeVisitor.lowerType(
@@ -11321,8 +11317,6 @@ SpirvInstruction *SpirvEmitter::processIntrinsicFinishedCrossGroupSharing(
     const CXXMemberCallExpr *callExpr) {
   Expr *payloadExpr = callExpr->getImplicitObjectArgument();
   SpirvInstruction *payload = doExpr(payloadExpr);
-  QualType type =
-      hlsl::GetHLSLNodeIOResultType(astContext, payloadExpr->getType());
   return spvBuilder.createFinishWritingNodePayload(payload,
                                                    callExpr->getExprLoc());
 }
@@ -14487,7 +14481,7 @@ SpirvFunction *SpirvEmitter::emitEntryFunctionWrapper(
     if (hlsl::IsHLSLNodeInputType(paramType)) {
       SpirvInstruction *value = nullptr;
       if (!declIdMapper.createStageInputVar(param, &value, false))
-        return false;
+        return nullptr;
       if (value && value->getKind() == SpirvInstruction::Kind::IK_Variable) {
         handleNodePayloadArrayType(param, value);
         params.push_back(value);

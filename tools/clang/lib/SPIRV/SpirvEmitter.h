@@ -473,7 +473,7 @@ private:
                                 SourceRange range = {});
 
   SpirvInstruction *getAttrIntArg(ArrayRef<const DeclRefExpr *> exprs,
-                                  int argNum, unsigned fallback);
+                                  unsigned argNum, unsigned fallback);
 
 private:
   /// Processes HLSL instrinsic functions.
