@@ -12,11 +12,11 @@ RWByteAddressBuffer matrix_buffer;
 
 // COMMON: define void @main()
 // DXIL-0: call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 8, i32 0, i32 64)  ; OuterProductAccumulate(inputVector1,inputVector2,matrixBuffer,matrixOffset,matrixIntepretation,matrixLayout,matrixStride)
-// HLOP-0: call void @"dx.hl.op..void (i32, <8 x half>, <8 x half>, %dx.types.Handle, i32, i32, i32, i32)"(i32 365, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 8, i32 0, i32 64)
+// HLOP-0: call void @"dx.hl.op..void (i32, <8 x half>, <8 x half>, %dx.types.Handle, i32, i32, i32, i32)"(i32 392, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 8, i32 0, i32 64)
 // DXIL-1: call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 21, i32 3, i32 64)  ; OuterProductAccumulate(inputVector1,inputVector2,matrixBuffer,matrixOffset,matrixIntepretation,matrixLayout,matrixStride)
-// HLOP-1: call void @"dx.hl.op..void (i32, <8 x half>, <8 x half>, %dx.types.Handle, i32, i32, i32, i32)"(i32 365, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 21, i32 3, i32 64)
+// HLOP-1: call void @"dx.hl.op..void (i32, <8 x half>, <8 x half>, %dx.types.Handle, i32, i32, i32, i32)"(i32 392, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 21, i32 3, i32 64)
 // DXIL-2: call void @dx.op.outerProductAccumulate.v8i32.v8i32(i32 307, <8 x i32> %{{[^ ]+}}, <8 x i32> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 19, i32 3, i32 64)  ; OuterProductAccumulate(inputVector1,inputVector2,matrixBuffer,matrixOffset,matrixIntepretation,matrixLayout,matrixStride)
-// HLOP-2: call void @"dx.hl.op..void (i32, <8 x i32>, <8 x i32>, %dx.types.Handle, i32, i32, i32, i32)"(i32 365, <8 x i32> %{{[^ ]+}}, <8 x i32> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 19, i32 3, i32 64)
+// HLOP-2: call void @"dx.hl.op..void (i32, <8 x i32>, <8 x i32>, %dx.types.Handle, i32, i32, i32, i32)"(i32 392, <8 x i32> %{{[^ ]+}}, <8 x i32> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 19, i32 3, i32 64)
 
 enum CompType {
   Invalid = 0,

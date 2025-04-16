@@ -28,7 +28,7 @@ void cs_main()
     // CHECK: %[[MLD0:[^ ]+]] = load %struct.ByteAddressBuffer, %struct.ByteAddressBuffer* @"\01?matrix_buffer@@3UByteAddressBuffer@@A"
     // CHECK: %[[MCH0:[^ ]+]] = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.ByteAddressBuffer)"(i32 0, %struct.ByteAddressBuffer %[[MLD0]])
     // CHECK: %[[MAH0:[^ ]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.ByteAddressBuffer)"(i32 14, %dx.types.Handle %[[MCH0]], %dx.types.ResourceProperties { i32 11, i32 0 }, %struct.ByteAddressBuffer undef)
-    // CHECK: call void @"dx.hl.op..void (i32, <4 x float>*, i1, <4 x float>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 363, <4 x float>* %{{[^ ]+}}, i1 false, <4 x float> %{{[^ ]+}}, i1 false, i32 9, %dx.types.Handle %[[MAH0]], i32 0, i32 9, i32 4, i32 4, i32 0, i1 false, i32 64)
+    // CHECK: call void @"dx.hl.op..void (i32, <4 x float>*, i1, <4 x float>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <4 x float>* %{{[^ ]+}}, i1 false, <4 x float> %{{[^ ]+}}, i1 false, i32 9, %dx.types.Handle %[[MAH0]], i32 0, i32 9, i32 4, i32 4, i32 0, i1 false, i32 64)
     __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
       is_input_unsigned, input_interpretation, matrix_buffer, matrix_offset,
       matrix_interpretation, matrix_dimM, matrix_dimK, matrix_layout,
@@ -44,7 +44,7 @@ void cs_main()
     // CHECK-NEXT: %[[BLD1:[^ ]+]] = load %struct.ByteAddressBuffer, %struct.ByteAddressBuffer* @"\01?bias_buffer@@3UByteAddressBuffer@@A"
     // CHECK-NEXT: %[[BCH1:[^ ]+]] = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.ByteAddressBuffer)"(i32 0, %struct.ByteAddressBuffer %[[BLD1]])
     // CHECK-NEXT: %[[BAH1:[^ ]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.ByteAddressBuffer)"(i32 14, %dx.types.Handle %[[BCH1]], %dx.types.ResourceProperties { i32 11, i32 0 }, %struct.ByteAddressBuffer undef)
-    // CHECK-NEXT: call void @"dx.hl.op..void (i32, <4 x float>*, i1, <4 x float>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32, %dx.types.Handle, i32, i32)"(i32 364, <4 x float>* %{{[^ ]+}}, i1 false, <4 x float> %{{[^ ]+}}, i1 false, i32 9, %dx.types.Handle %[[MAH1]], i32 0, i32 9, i32 4, i32 4, i32 0, i1 false, i32 64, %dx.types.Handle %[[BAH1]], i32 0, i32 9)
+    // CHECK-NEXT: call void @"dx.hl.op..void (i32, <4 x float>*, i1, <4 x float>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32, %dx.types.Handle, i32, i32)"(i32 391, <4 x float>* %{{[^ ]+}}, i1 false, <4 x float> %{{[^ ]+}}, i1 false, i32 9, %dx.types.Handle %[[MAH1]], i32 0, i32 9, i32 4, i32 4, i32 0, i1 false, i32 64, %dx.types.Handle %[[BAH1]], i32 0, i32 9)
     __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
       is_input_unsigned, input_interpretation, matrix_buffer, matrix_offset,
       matrix_interpretation, matrix_dimM, matrix_dimK, matrix_layout,
@@ -62,7 +62,7 @@ void cs_main()
     // CHECK: %[[MLD2:[^ ]+]] = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?rw_matrix_buffer@@3URWByteAddressBuffer@@A"
     // CHECK: %[[MCH2:[^ ]+]] = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %[[MLD2]])
     // CHECK: %[[MAH2:[^ ]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %[[MCH2]], %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef)
-    // CHECK: call void @"dx.hl.op..void (i32, <8 x i32>, <8 x i32>, %dx.types.Handle, i32, i32, i32, i32)"(i32 365, <8 x i32> %{{[^ ]+}}, <8 x i32> %{{[^ ]+}}, %dx.types.Handle %[[MAH2]], i32 0, i32 5, i32 3, i32 64)
+    // CHECK: call void @"dx.hl.op..void (i32, <8 x i32>, <8 x i32>, %dx.types.Handle, i32, i32, i32, i32)"(i32 392, <8 x i32> %{{[^ ]+}}, <8 x i32> %{{[^ ]+}}, %dx.types.Handle %[[MAH2]], i32 0, i32 5, i32 3, i32 64)
     __builtin_OuterProductAccumulate(input_vector1, input_vector2,
       rw_matrix_buffer, opa_matrix_offset, opa_matrix_interpretation,
       opa_matrix_layout, opa_matrix_stride);
@@ -72,7 +72,7 @@ void cs_main()
     // CHECK: %[[MLD3:[^ ]+]] = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?rw_matrix_buffer@@3URWByteAddressBuffer@@A"
     // CHECK: %[[MCH3:[^ ]+]] = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %[[MLD3]])
     // CHECK: %[[MAH3:[^ ]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %[[MCH3]], %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef)
-    // CHECK: call void @"dx.hl.op..void (i32, <8 x i32>, %dx.types.Handle, i32)"(i32 366, <8 x i32> %{{[^ ]+}}, %dx.types.Handle %[[MAH3]], i32 0)
+    // CHECK: call void @"dx.hl.op..void (i32, <8 x i32>, %dx.types.Handle, i32)"(i32 393, <8 x i32> %{{[^ ]+}}, %dx.types.Handle %[[MAH3]], i32 0)
     __builtin_VectorAccumulate(input_vector1, rw_matrix_buffer,
       va_matrix_offset); 
 }
