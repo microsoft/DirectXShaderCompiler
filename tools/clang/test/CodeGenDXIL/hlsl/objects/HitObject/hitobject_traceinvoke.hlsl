@@ -67,6 +67,9 @@
 // DXIL:  %[[HIT:[^ ]+]] = call %dx.types.HitObject @dx.op.hitObject_TraceRay.struct.Payload(i32 262, %dx.types.Handle %[[RTAS]], i32 513, i32 1, i32 2, i32 4, i32 0, float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, %struct.Payload* nonnull %{{[^ ]+}})  ; HitObject_TraceRay(accelerationStructure,rayFlags,instanceInclusionMask,rayContributionToHitGroupIndex,multiplierForGeometryContributionToHitGroupIndex,missShaderIndex,Origin_X,Origin_Y,Origin_Z,TMin,Direction_X,Direction_Y,Direction_Z,TMax,payload)
 // DXIL:  call void @dx.op.hitObject_Invoke.struct.Payload(i32 267, %dx.types.HitObject %[[HIT]], %struct.Payload* nonnull %{{[^ ]+}})  ; HitObject_Invoke(hitObject,payload)
 
+// DXIL: !dx.dxrPayloadAnnotations = !{![[MDPLD:[^ ]+]]}
+// DXIL: ![[MDPLD]] = !{i32 0, %struct.Payload undef, !{{[^ ]+}}}
+
 RaytracingAccelerationStructure RTAS;
 RWStructuredBuffer<float> UAV : register(u0);
 
