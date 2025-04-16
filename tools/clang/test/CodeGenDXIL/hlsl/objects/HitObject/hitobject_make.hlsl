@@ -28,7 +28,7 @@
 // AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> MakeMiss 'unsigned int'
 // AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> RayFlags 'unsigned int'
 // AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> MissShaderIndex 'RayDesc'
-// AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 363
+// AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 387
 // AST-NEXT: | | |   `-AvailabilityAttr {{[^ ]+}} <<invalid sloc>> Implicit  6.9 0 0 ""
 
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> MakeNop
@@ -41,8 +41,8 @@
 
 // FCGL: %{{[^ ]+}} = call %dx.types.HitObject* @"dx.hl.op..%dx.types.HitObject* (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %{{[^ ]+}})
 // FCGL: call void @"dx.hl.op..void (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %{{[^ ]+}})
-// FCGL: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.RayDesc*)"(i32 363, %dx.types.HitObject* %{{[^ ]+}}, i32 0, i32 1, %struct.RayDesc* %{{[^ ]+}})
-// FCGL: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.RayDesc*)"(i32 363, %dx.types.HitObject* %{{[^ ]+}}, i32 0, i32 2, %struct.RayDesc* %{{[^ ]+}})
+// FCGL: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.RayDesc*)"(i32 387, %dx.types.HitObject* %{{[^ ]+}}, i32 0, i32 1, %struct.RayDesc* %{{[^ ]+}})
+// FCGL: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.RayDesc*)"(i32 387, %dx.types.HitObject* %{{[^ ]+}}, i32 0, i32 2, %struct.RayDesc* %{{[^ ]+}})
 
 // Expect HitObject_Make* calls with identical parameters to be folded.
 // DXIL:  {{[^ ]+}} = call %dx.types.HitObject @dx.op.hitObject_MakeNop(i32 266)  ; HitObject_MakeNop()
