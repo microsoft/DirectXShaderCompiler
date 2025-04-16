@@ -9183,6 +9183,7 @@ class db_hlsl(object):
             "ThreadNodeOutputRecords": "LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS",
             "DxHitObject": "LICOMPTYPE_HIT_OBJECT",
             "VkBufferPointer": "LICOMPTYPE_VK_BUFFER_POINTER",
+            "RayQuery": "LICOMPTYPE_RAY_QUERY",
         }
 
         self.trans_rowcol = {"r": "IA_R", "c": "IA_C", "r2": "IA_R2", "c2": "IA_C2"}
