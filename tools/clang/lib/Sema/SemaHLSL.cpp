@@ -13823,7 +13823,6 @@ void ValidateDispatchGridValues(DiagnosticsEngine &Diags,
 void recordAttrArgs(Sema &S, const AttributeList &A, Attr *attr) {
   auto *exprs = new (S.Context) SmallVector<const DeclRefExpr *, 4>();
   for (unsigned i = 0; i < A.getNumArgs(); i++) {
-    DeclRefExpr *expr = nullptr;
     exprs->push_back(
         A.isArgExpr(i) ? dyn_cast_or_null<const DeclRefExpr>(A.getArgAsExpr(i))
                        : nullptr);
