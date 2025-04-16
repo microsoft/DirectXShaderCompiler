@@ -11494,17 +11494,11 @@ public:
       Uint64Dist = std::uniform_int_distribution<T>(
           std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
     else if constexpr (std::is_same_v<T, float>)
-      // TODO before PR completed ::min is the lowest postivie value. Passing
-      // ::lowest was causing an assert in the distribution. Need to look
-      // further into why
       FloatDist = std::uniform_real_distribution<T>(
-          std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
+          FLOAT_RANGE_MIN, FLOAT_RANGE_MAX);
     else if constexpr (std::is_same_v<T, double>)
-      // TODO before PR completed ::min is the lowest postivie value. Passing
-      // ::lowest was causing an assert in the distribution. Need to look
-      // further into why
       DoubleDist = std::uniform_real_distribution<T>(
-          std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
+          DOUBLE_RANGE_MIN, DOUBLE_RANGE_MAX);
     else
       VERIFY_SUCCEEDED(false,
                        "Unsupported type for DeterministicNumberGenerator");
@@ -11551,6 +11545,14 @@ private:
   std::uniform_int_distribution<uint64_t> Uint64Dist;
   std::uniform_real_distribution<float> FloatDist;
   std::uniform_real_distribution<double> DoubleDist;
+
+  //  The ranges for generation. A std::uniform_real_distribution can only have
+  //  a range that is equal to the types largest value. This is due to precision
+  //  issues. So instead we define some large values.
+  const float FLOAT_RANGE_MIN = -1e20;
+  const float FLOAT_RANGE_MAX = 1e20f;
+  const double DOUBLE_RANGE_MIN = -1e100;
+  const double DOUBLE_RANGE_MAX = 1e100;
 };
 
 template <typename T>
