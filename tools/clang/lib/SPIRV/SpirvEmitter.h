@@ -472,9 +472,8 @@ private:
                                 QualType toType, SourceLocation,
                                 SourceRange range = {});
 
-  SpirvInstruction *
-  SpirvEmitter::getAttrIntArg(ArrayRef<const DeclRefExpr *> exprs, int argNum,
-                              unsigned fallback);
+  SpirvInstruction *getAttrIntArg(ArrayRef<const DeclRefExpr *> exprs,
+                                  int argNum, unsigned fallback);
 
 private:
   /// Processes HLSL instrinsic functions.
