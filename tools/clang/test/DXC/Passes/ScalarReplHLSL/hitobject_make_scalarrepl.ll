@@ -34,13 +34,17 @@ entry:
   %tmp = alloca %dx.types.HitObject, align 4
   %ray = alloca %struct.RayDesc, align 4
   %tmp2 = alloca %dx.types.HitObject, align 4
+; CHECK: %[[HIT0:[^ ]+]] = alloca %dx.types.HitObject, align 4
+; CHECK: %[[HIT1:[^ ]+]] = alloca %dx.types.HitObject, align 4
+; CHECK: %[[HIT2:[^ ]+]] = alloca %dx.types.HitObject, align 4
   %0 = bitcast %dx.types.HitObject* %hit to i8*, !dbg !23 ; line:42 col:3
   call void @llvm.lifetime.start(i64 4, i8* %0) #0, !dbg !23 ; line:42 col:3
-; CHECK:  %{{[^ ]+}} = call %dx.types.HitObject* @"dx.hl.op..%dx.types.HitObject* (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %{{[^ ]+}})
+; CHECK:  %[[THIS0:[^ ]+]] = call %dx.types.HitObject* @"dx.hl.op..%dx.types.HitObject* (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %[[HIT0]])
+; CHECK-NOT: %[[THIS0]]
   %1 = call %dx.types.HitObject* @"dx.hl.op..%dx.types.HitObject* (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %hit), !dbg !27 ; line:42 col:17
   %2 = bitcast %dx.types.HitObject* %tmp to i8*, !dbg !28 ; line:43 col:3
   call void @llvm.lifetime.start(i64 4, i8* %2) #0, !dbg !28 ; line:43 col:3
-; CHECK:  call void @"dx.hl.op..void (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %{{[^ ]+}})
+; CHECK:  call void @"dx.hl.op..void (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %[[HIT1]])
   call void @"dx.hl.op..void (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %tmp), !dbg !28 ; line:43 col:3
   %3 = bitcast %dx.types.HitObject* %tmp to i8*, !dbg !28 ; line:43 col:3
   call void @llvm.lifetime.end(i64 4, i8* %3) #0, !dbg !28 ; line:43 col:3
@@ -56,7 +60,11 @@ entry:
   store float 1.000000e+03, float* %8, !dbg !30 ; line:44 col:17
   %9 = bitcast %dx.types.HitObject* %tmp2 to i8*, !dbg !31 ; line:45 col:3
   call void @llvm.lifetime.start(i64 4, i8* %9) #0, !dbg !31 ; line:45 col:3
-; CHECK:  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 387, %dx.types.HitObject* %{{[^ ]+}}, i32 0, i32 1, <3 x float> %{{[^ ]+}}, float %{{[^ ]+}}, <3 x float> %{{[^ ]+}}, float %{{[^ ]+}})
+; CHECK: %[[RDO:[^ ]+]] = load <3 x float>
+; CHECK: %[[RDTMIN:[^ ]+]] = load float
+; CHECK: %[[RDD:[^ ]+]] = load <3 x float>
+; CHECK: %[[RDTMAX:[^ ]+]] = load float
+; CHECK:  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 387, %dx.types.HitObject* %[[HIT2]], i32 0, i32 1, <3 x float> %[[RDO]], float %[[RDTMIN]], <3 x float> %[[RDD]], float %[[RDTMAX]])
   call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.RayDesc*)"(i32 387, %dx.types.HitObject* %tmp2, i32 0, i32 1, %struct.RayDesc* %ray), !dbg !31 ; line:45 col:3
   %10 = bitcast %dx.types.HitObject* %tmp2 to i8*, !dbg !31 ; line:45 col:3
   call void @llvm.lifetime.end(i64 4, i8* %10) #0, !dbg !31 ; line:45 col:3
