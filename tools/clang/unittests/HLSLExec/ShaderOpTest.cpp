@@ -863,7 +863,7 @@ void ShaderOpTest::CreateShaders() {
       CHECK_HR(m_pDxcSupport->CreateInstance(CLSID_DxcCompiler, &pCompiler));
       WEX::Logging::Log::Comment(L"Compiling shader:");
       ShaderOpLogFmt(L"\tTarget profile: %S", S.Target);
-      if(argumentsWList.size() > 0) {
+      if (argumentsWList.size() > 0) {
         ShaderOpLogFmt(L"\tArguments: %S", pArguments);
       }
       CHECK_HR(pCompiler->Compile(pTextBlob, nameW, entryPointW, targetW,
