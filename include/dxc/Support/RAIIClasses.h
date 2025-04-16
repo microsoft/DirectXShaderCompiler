@@ -26,7 +26,6 @@ class HhEvent {
         }
         return S_OK;
       }
-      HANDLE Get() { return m_handle; }
       void SetEvent() { ::SetEvent(m_handle); }
       void ResetEvent() { ::ResetEvent(m_handle); }
       ~HhEvent() {

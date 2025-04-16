@@ -290,7 +290,7 @@ void ShaderOpTest::CopyBackResources() {
   }
   pList->Close();
   ExecuteCommandList(ResCommandList.Queue, pList);
-  WaitForSignal(ResCommandList.Queue, m_pFence, m_hFence.Get(), m_FenceValue++);
+  WaitForSignal(ResCommandList.Queue, m_pFence, m_hFence.m_handle, m_FenceValue++);
 }
 
 void ShaderOpTest::CreateCommandList() {
@@ -746,7 +746,7 @@ void ShaderOpTest::CreateResources() {
 
   CHECK_HR(pList->Close());
   ExecuteCommandList(ResCommandList.Queue, pList);
-  WaitForSignal(ResCommandList.Queue, m_pFence, m_hFence.Get(), m_FenceValue++);
+  WaitForSignal(ResCommandList.Queue, m_pFence, m_hFence.m_handle, m_FenceValue++);
 }
 
 void ShaderOpTest::CreateRootSignature() {
@@ -1051,7 +1051,7 @@ void ShaderOpTest::RunCommandList() {
   }
   CHECK_HR(pList->Close());
   ExecuteCommandList(m_CommandList.Queue, pList);
-  WaitForSignal(m_CommandList.Queue, m_pFence, m_hFence.Get(), m_FenceValue++);
+  WaitForSignal(m_CommandList.Queue, m_pFence, m_hFence.m_handle, m_FenceValue++);
 }
 
 void ShaderOpTest::RunShaderOp(ShaderOp *pShaderOp) {
@@ -1209,7 +1209,7 @@ void ShaderOpTest::PresentRenderTarget(ShaderOp *pShaderOp,
                           D3D12_RESOURCE_STATE_PRESENT);
   pList->Close();
   ExecuteCommandList(ResCommandList.Queue, pList);
-  WaitForSignal(ResCommandList.Queue, m_pFence, m_hFence.Get(), m_FenceValue++);
+  WaitForSignal(ResCommandList.Queue, m_pFence, m_hFence.m_handle, m_FenceValue++);
 }
 
 ShaderOp *ShaderOpSet::GetShaderOp(LPCSTR pName) {
