@@ -6196,10 +6196,9 @@ Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
     Value *HitObject = TrivialDxilOperation(
         Opcode, {nullptr}, Type::getVoidTy(CI->getContext()), CI, HlslOP);
     Builder.CreateStore(HitObject, HitObjectPtr);
-    // Passthru the 'this' pointer when this calls 'HitObject_MakeNop' as the
-    // default constructor
-    if (!CI->getType()->isVoidTy())
-      return HitObjectPtr;
+    DXASSERT(
+        CI->use_empty(),
+        "Default ctor return type is a Clang artifact. Value must not be used");
     return nullptr;
   }
 
