@@ -12136,8 +12136,8 @@ void ExecutionTest::LongVectorOpTestBase(LongVectorOpTestConfig<T>& TestConfig) 
     }
   }
 
-  // We pass these values into the shader and they're requried to compile.
-  // So they need to set to something.
+  // We pass these values into the shader and they're requried to compile. So
+  // they need to set to something.
   T ClampArgC = 0;
   T ClampArgT = 0;
   if(TestConfig.IntrinsicString == "testClamp")
@@ -12146,7 +12146,8 @@ void ExecutionTest::LongVectorOpTestBase(LongVectorOpTestConfig<T>& TestConfig) 
     ClampArgT = NumberGenerator.generate();
     while(ClampArgC >= ClampArgT)
     {
-      // Generate a new value for ClampArgC. It needs to be smaller than ClampArgT.
+      // Generate a new value for ClampArgC. It needs to be smaller than
+      // ClampArgT.
       ClampArgT = NumberGenerator.generate();
     }
   }
@@ -12248,7 +12249,8 @@ void ExecutionTest::LongVectorOpTestBase(LongVectorOpTestConfig<T>& TestConfig) 
 
   // RunShaderOpTest is a helper function that does all device/resource creation
   // and setup. It also handles the shader compilation and execution. It takes a
-  // callback that is called when the shader is compiled, but before it is executed.
+  // callback that is called when the shader is compiled, but before it is
+  // executed.
   std::shared_ptr<ShaderOpTestResult> TestResult = RunShaderOpTest(
     D3DDevice, m_support, TestXML, "LongVectorOp", 
     [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
