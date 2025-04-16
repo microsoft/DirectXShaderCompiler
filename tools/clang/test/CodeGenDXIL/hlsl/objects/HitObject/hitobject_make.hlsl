@@ -1,4 +1,3 @@
-// REQUIRES: dxil-1-9
 // RUN: %dxc -T lib_6_9 -E main %s | FileCheck %s --check-prefix DXIL
 // RUN: %dxc -T lib_6_9 -E main %s -fcgl | FileCheck %s --check-prefix FCGL
 // RUN: %dxc -T lib_6_9 -E main %s -ast-dump-implicit | FileCheck %s --check-prefix AST
