@@ -290,8 +290,8 @@ public:
   getRuntimeArrayType(const SpirvType *elemType,
                       llvm::Optional<uint32_t> arrayStride);
   const NodePayloadArrayType *
-  SpirvContext::getNodePayloadArrayType(const SpirvType *elemType,
-                                        const ParmVarDecl *nodeDecl);
+  getNodePayloadArrayType(const SpirvType *elemType,
+                          const ParmVarDecl *nodeDecl);
 
   const StructType *getStructType(
       llvm::ArrayRef<StructType::FieldInfo> fields, llvm::StringRef name,
