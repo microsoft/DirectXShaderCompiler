@@ -11482,9 +11482,9 @@ struct LongVectorOpTestConfig
   LongVectorOpType OpType = LongVectorOpType_UnInitialized;
 };
 
-// A helper class to generate deterministic random numbers.
-// For any given seed the generated sequence will always be the same.
-// Each call to generate() will return the next number in the sequence.
+// A helper class to generate deterministic random numbers. For any given seed
+// the generated sequence will always be the same. Each call to generate() will
+// return the next number in the sequence.
 template <typename T>
 class DeterministicNumberGenerator {
 public:
@@ -11493,8 +11493,8 @@ public:
       DXHalfDist = std::uniform_int_distribution<DirectX::PackedVector::HALF>(
           HALF_MIN, HALF_MAX);
     else if constexpr (std::is_same_v<T, HLSLBool_t>)
-      // Anything non-zero, including negative values, is true as a bool.
-      // So 0 and 1 are all we need.
+      // Anything non-zero, including negative values, is true as a bool. So 0
+      // and 1 are all we need.
       Uint16Dist = std::uniform_int_distribution<uint16_t>(0, 1);
     else if constexpr (std::is_same_v<T, int16_t>)
       Int16Dist = std::uniform_int_distribution<int16_t>(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
@@ -11509,10 +11509,14 @@ public:
     else if constexpr (std::is_same_v<T, uint64_t>)
       Uint64Dist = std::uniform_int_distribution<T>(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
     else if constexpr (std::is_same_v<T, float>)
-      // TODO before PR completed ::min is the lowest postivie value. Passing ::lowest was causing an assert in the distribution. Need to look further into why
+      // TODO before PR completed ::min is the lowest postivie value. Passing
+      // ::lowest was causing an assert in the distribution. Need to look
+      // further into why
       FloatDist = std::uniform_real_distribution<T>(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
     else if constexpr (std::is_same_v<T, double>)
-      // TODO before PR completed ::min is the lowest postivie value. Passing ::lowest was causing an assert in the distribution. Need to look further into why
+      // TODO before PR completed ::min is the lowest postivie value. Passing
+      // ::lowest was causing an assert in the distribution. Need to look
+      // further into why
       DoubleDist = std::uniform_real_distribution<T>(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
     else
       VERIFY_SUCCEEDED(false, "Unsupported type for DeterministicNumberGenerator");
