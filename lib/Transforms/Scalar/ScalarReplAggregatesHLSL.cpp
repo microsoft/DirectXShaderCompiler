@@ -2777,6 +2777,14 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         RewriteCallArg(CI, HLOperandIndex::kCallShaderPayloadOpIdx,
                        /*bIn*/ true, /*bOut*/ true);
       } break;
+      case IntrinsicOp::MOP_DxHitObject_MakeMiss: {
+        if (OldVal ==
+            CI->getArgOperand(HLOperandIndex::kHitObjectMakeMissRayDescOpIdx)) {
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                              /*loadElts*/ true);
+          DeadInsts.push_back(CI);
+        }
+      } break;
       case IntrinsicOp::MOP_TraceRayInline: {
         if (OldVal ==
             CI->getArgOperand(HLOperandIndex::kTraceRayInlineRayDescOpIdx)) {

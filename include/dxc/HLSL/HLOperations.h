@@ -433,6 +433,10 @@ const unsigned kNodeHandleToResCastOpIdx = 1;
 const unsigned kAnnotateNodeHandleNodePropIdx = 2;
 const unsigned kAnnotateNodeRecordHandleNodeRecordPropIdx = 2;
 
+// HitObject::MakeMiss
+const unsigned kHitObjectMakeMiss_NumOp = 8;
+const unsigned kHitObjectMakeMissRayDescOpIdx = 4;
+
 // HitObject::TraceRay
 const unsigned kHitObjectTraceRay_RayDescOpIdx = 8;
 const unsigned kHitObjectTraceRay_NumOp = 10;
