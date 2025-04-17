@@ -5953,7 +5953,7 @@ Value *TranslateNoArgVectorOperation(CallInst *CI, IntrinsicOp IOP,
   return retVal;
 }
 
-template<typename ColElemTy>
+template <typename ColElemTy>
 static void GetMatrixIndices(Constant *&Rows, Constant *&Cols, bool Is3x4,
                              LLVMContext &Ctx) {
   if (Is3x4) {
