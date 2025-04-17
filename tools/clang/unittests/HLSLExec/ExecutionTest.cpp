@@ -285,6 +285,7 @@ struct TableParameter;
 
 template <typename T> struct LongVectorOpTestConfig; // Forward declaration
 enum LongVectorOpType;                               // Forward declaration
+
 class ExecutionTest {
 public:
   BEGIN_TEST_CLASS(ExecutionTest)
@@ -6168,11 +6169,6 @@ public:
     return nullptr;
   }
 
-  template <typename T> std::vector<T> GetTableParamByName(LPCWSTR name) {
-    std::vector<WEX::Common::String> *table = GetTableParamByName(name);
-    return parseStringsToNumbers<T>(GetTableParamByName(name));
-  }
-
   void clearTableParameter() {
     for (size_t i = 0; i < m_tableSize; ++i) {
       m_table[i].m_int32 = 0;
@@ -11356,14 +11352,35 @@ struct HLSLHalf_t {
   DirectX::PackedVector::HALF val = 0;
 };
 
-// LongVectorOp is used in ShaderOpArithTable.xml. The shaders for these
-// tests use the struct defintion to read from the input global buffer.
-template <typename T, std::size_t N> struct LongVectorOp {
-  T ScalarInput;
-  std::array<T, N> VecInput1;
-  std::array<T, N> VecInput2;
-  std::array<T, N> VecOutput;
-};
+// Helper to fill the shader buffer based on type. Convenient to be used when
+// copying HLSL*_t types so we can copy the underlying type directly instead of
+// the struct.
+template <typename T, std::size_t N>
+void FillShaderBufferWithLongVectorData(std::vector<BYTE> &ShaderData, std::array<T, N> &TestData) {
+
+  // Note: DataSize for HLSLHalf_t and HLSLBool_t may be larger than the
+  // underlying type in some cases. Thats fine. Resize just makes sure we have
+  // enough space.
+  const size_t DataSize = sizeof(T) * N;
+  ShaderData.resize(DataSize);
+
+  if constexpr (std::is_same_v<T, HLSLHalf_t>) {
+    DirectX::PackedVector::HALF *ShaderDataPtr = reinterpret_cast<DirectX::PackedVector::HALF*>(ShaderData.data());
+    for (size_t i = 0; i < N; ++i) {
+      ShaderDataPtr[i] = TestData[i].val;
+    }
+  } else if constexpr (std::is_same_v<T, HLSLBool_t>) {
+    int32_t *ShaderDataPtr = reinterpret_cast<int32_t*>(ShaderData.data());
+    for (size_t i = 0; i < N; ++i) {
+      ShaderDataPtr[i] = TestData[i].val;
+    }
+  } else {
+    T *ShaderDataPtr = reinterpret_cast<T*>(ShaderData.data());
+    for(size_t i = 0; i < N; ++i) {
+      ShaderDataPtr[i] = TestData[i];
+    }
+  }
+}
 
 enum LongVectorOpType {
   LongVectorOpType_ScalarAdd,
@@ -11382,7 +11399,7 @@ template <typename T> struct LongVectorOpTestConfig {
   LongVectorOpTestConfig() = default;
 
   LongVectorOpTestConfig(LongVectorOpType OpType) : OpType(OpType) {
-    TargetString = "cs_6_9";
+    IntrinsicString = "";
 
     switch (OpType) {
     case LongVectorOpType_ScalarAdd:
@@ -11408,11 +11425,11 @@ template <typename T> struct LongVectorOpTestConfig {
       IntrinsicString = "max";
       break;
     case LongVectorOpType_Clamp:
-      IntrinsicString = "testClamp";
+      IntrinsicString = "TestClamp";
       IsBinaryOp = false;
       break;
     case LongVectorOpType_Initialize:
-      IntrinsicString = "testInitialize";
+      IntrinsicString = "TestInitialize";
       IsBinaryOp = false;
       break;
     default:
@@ -11444,9 +11461,9 @@ template <typename T> struct LongVectorOpTestConfig {
     if (std::is_same_v<T, uint64_t>)
       return "uint64_t";
 
-    std::string errStr("GetHLSLTypeString() Unsupported type: ");
-    errStr.append(typeid(T).name());
-    VERIFY_IS_TRUE(false, errStr.c_str());
+    std::string ErrStr("GetHLSLTypeString() Unsupported type: ");
+    ErrStr.append(typeid(T).name());
+    VERIFY_IS_TRUE(false, ErrStr.c_str());
     return "UnknownType";
   }
 
@@ -11454,7 +11471,6 @@ template <typename T> struct LongVectorOpTestConfig {
   std::string OperatorString;
   // To be used for the value of -DFUNC
   std::string IntrinsicString;
-  std::string TargetString;
   // Optional, can be used to override shader code.
   bool IsScalarOp = false;
   bool IsBinaryOp = true;
@@ -11553,40 +11569,35 @@ private:
   const double DOUBLE_RANGE_MAX = 1e100;
 };
 
-template <typename T>
-bool DoVectorsMatch(const std::vector<T> &VecInput,
-                    const std::vector<T> &VecExpected, float Tolerance) {
-  // Sanity check. Ensure both vectors have the same size
-  if (VecInput.size() != VecExpected.size()) {
-    VERIFY_FAIL(L"Vectors are different sizes!");
-    return false;
-  }
 
+template <typename T, std::size_t N>
+bool DoArraysMatch(const std::array<T, N> &ActualValues,
+                   const std::array<T, N> &ExpectedValues, float Tolerance) {
   // Stash mismatched indexes for easy failure logging later
   std::vector<size_t> MismatchedIndexes;
-  for (size_t Index = 0; Index < VecInput.size(); ++Index) {
+  for (size_t Index = 0; Index < N; ++Index) {
     if constexpr (std::is_same_v<T, HLSLBool_t>) {
       // Compiler was very picky and wanted an explicit case for any T that
       // doesn't implement the operators in the below else. ( > and -). It
       // wouldn't accept putting this constexpr as an or case with other
       // statements.
-      if (VecInput[Index] != VecExpected[Index]) {
+      if (ActualValues[Index] != ExpectedValues[Index]) {
         MismatchedIndexes.push_back(Index);
       }
-    } else if (Tolerance == 0 && VecInput[Index] != VecExpected[Index]) {
+    } else if (Tolerance == 0 && ActualValues[Index] != ExpectedValues[Index]) {
       MismatchedIndexes.push_back(Index);
     } else if constexpr (std::is_same_v<T, HLSLBool_t>) {
       // Compiler was very picky and wanted an explicit case for any T that
       // doesn't implement the operators in the below else. ( > and -). It
       // wouldn't accept putting this constexpr as an or case with other
       // statements.
-      if (VecInput[Index] != VecExpected[Index]) {
+      if (ActualValues[Index] != ExpectedVector[Index]) {
         MismatchedIndexes.push_back(i);
       }
     } else {
-      T Diff = VecInput[Index] > VecExpected[Index]
-                   ? VecInput[Index] - VecExpected[Index]
-                   : VecExpected[Index] - VecInput[Index];
+      T Diff = ActualValues[Index] > ExpectedValues[Index]
+                   ? ActualValues[Index] - ExpectedValues[Index]
+                   : ExpectedValues[Index] - ActualValues[Index];
       if (Diff > Tolerance) {
         MismatchedIndexes.push_back(Index);
       }
@@ -11600,8 +11611,8 @@ bool DoVectorsMatch(const std::vector<T> &VecInput,
     for (size_t Index : MismatchedIndexes) {
       std::wstringstream Wss(L"");
       Wss << L"Mismatch at Index: " << Index;
-      Wss << L" Actual Value:" << VecInput[Index] << ",";
-      Wss << L" Expected Value:" << VecExpected[Index];
+      Wss << L" Actual Value:" << ActualValues[Index] << ",";
+      Wss << L" Expected Value:" << ExpectedValues[Index];
       WEX::Logging::Log::Error(Wss.str().c_str());
     }
   }
@@ -12096,9 +12107,9 @@ void ExecutionTest::LongVectorOpTestBase(LongVectorOpType opType) {
   LongVectorOpTestBase<T, 16>(TestConfig);
   LongVectorOpTestBase<T, 17>(TestConfig);
   LongVectorOpTestBase<T, 35>(TestConfig);
-  // TODOLONGVEC: 100, 1024 breaks the size limit for structured buffers
-  // LongVectorOpTestBase<T, 100>(TestConfig);
-  // LongVectorOpTestBase<T, 1024>(TestConfig);
+  LongVectorOpTestBase<T, 100>(TestConfig);
+  LongVectorOpTestBase<T, 256>(TestConfig);
+  LongVectorOpTestBase<T, 1024>(TestConfig);
 }
 
 template <typename T, std::size_t N>
@@ -12110,11 +12121,11 @@ void ExecutionTest::LongVectorOpTestBase(
   LogCommentFmt(L"Running LongVectorOpTestBase<%S, %zu>", typeid(T).name(), N);
 
   CComPtr<ID3D12Device> D3DDevice;
-  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)
-      && !m_ExperimentalModeEnabled) {
-    if(m_HLKModeEnabled)
-      LogErrorFmt(L"Device does not support SM 6.9. Can't run these tests.");
-      return;
+  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9) && !m_ExperimentalModeEnabled) {
+
+    if(m_HLKModeEnabled) {
+      LogErrorFmtThrow(L"Device does not support SM 6.9. Can't run these tests.");
+    }
 
     WEX::Logging::Log::Comment(
         "Device does not support SM 6.9. Can't run these tests.");
@@ -12123,19 +12134,19 @@ void ExecutionTest::LongVectorOpTestBase(
   }
 
   DeterministicNumberGenerator<T> NumberGenerator(1337);
-  std::vector<T> VecInput1 = {};
-  std::vector<T> VecInput2 = {};
-  const T ScalarInput = NumberGenerator.generate();
+  std::array<T, N> InputVector1;
+  std::array<T, N> InputVector2;
+  std::array<T, 1> ScalarInput;
+  ScalarInput[0] = NumberGenerator.generate();
   const bool IsVectorBinaryOp = TestConfig.IsBinaryOp && !TestConfig.IsScalarOp;
 
   // Fill the vector inputs with values.
-  for (size_t i = 0; i < N; i++) {
-    // Always generate input. Duh.
-    VecInput1.push_back(NumberGenerator.generate());
+  for (size_t Index = 0; Index < N; Index++) {
+    // Always generate input.
+    InputVector1[Index]=NumberGenerator.generate();
 
-    if (IsVectorBinaryOp) {
-      VecInput2.push_back(NumberGenerator.generate());
-    }
+    if (IsVectorBinaryOp)
+      InputVector2[Index] = NumberGenerator.generate();
   }
 
   // We pass these values into the shader and they're requried to compile. So
@@ -12152,75 +12163,41 @@ void ExecutionTest::LongVectorOpTestBase(
     }
   }
 
-  std::vector<T> VecExpected = {};
-  for (size_t Index = 0; Index < VecInput1.size(); Index++) {
+  std::array<T, N> ExpectedVector;
+  for (size_t Index = 0; Index < N; Index++) {
     if (TestConfig.IsBinaryOp) {
-      T Input1 = VecInput1[Index];
-      T Input2 = TestConfig.IsScalarOp ? ScalarInput : VecInput2[Index];
+      T Input1 = InputVector1[Index];
+      T Input2 = TestConfig.IsScalarOp ? ScalarInput[0] : InputVector2[Index];
       if (TestConfig.OperatorString == "*")
-        VecExpected.push_back(Input1 * Input2);
+        ExpectedVector[Index] = Input1 * Input2;
       else if (TestConfig.OperatorString == "+")
-        VecExpected.push_back(Input1 + Input2);
+        ExpectedVector[Index] = Input1 + Input2;
       else if (TestConfig.OperatorString == ",") {
         VERIFY_IS_TRUE(TestConfig.IntrinsicString != "",
                        "Expecting intrinsic string");
         if (TestConfig.IntrinsicString == "min")
-          VecExpected.push_back(std::min<T>(Input1, Input2));
+          ExpectedVector[Index] = std::min<T>(Input1, Input2);
         else if (TestConfig.IntrinsicString == "max")
-          VecExpected.push_back(std::max<T>(Input1, Input2));
+          ExpectedVector[Index] = std::max<T>(Input1, Input2);
         else
-          LogErrorFmt(L"Unrecognized BinaryOp intrinsic string: %s",
+          LogErrorFmtThrow(L"Unrecognized BinaryOp intrinsic string: %s",
                       TestConfig.IntrinsicString.c_str());
       } else
-        LogErrorFmt(
+        LogErrorFmtThrow(
             L"Don't know how to compute expected value for operatorString: %s",
             TestConfig.OperatorString.c_str());
     } else // Unary op logic
     {
-      if (TestConfig.IntrinsicString == "testClamp")
-        VecExpected.push_back(
-            std::clamp(VecInput1[Index], ClampArgC, ClampArgT));
-      else if (TestConfig.IntrinsicString == "testInitialize")
-        VecExpected.push_back(VecInput1[Index]);
+      if (TestConfig.IntrinsicString == "TestClamp")
+        ExpectedVector[Index] = 
+            std::clamp(InputVector1[Index], ClampArgC, ClampArgT);
+      else if (TestConfig.IntrinsicString == "TestInitialize")
+        ExpectedVector[Index] = InputVector1[Index];
       else
-        LogErrorFmt(L"Unrecognized intrinsic string: %s",
+        LogErrorFmtThrow(L"Unrecognized intrinsic string: %s",
                     TestConfig.IntrinsicString.c_str());
     }
   }
-
-  // 1,2, and 3 are required to compile the shader.
-  // 1. -DOPERATOR : "*" "+" "," "-" "/" etc.
-  // 2. -DOPERAND2: : l.VecInput2 or scalarInput, depending on the test.
-  // 3. -DCLAMP_ARGC, -DCLAMP_ARG2 : clamp arg 1 and 2. Required to compile.
-  // 4. Optional: -DFUNC : min, max, etc.
-  std::string ShaderText = R"(
-  struct LongVectorOp{
-    TYPE ScalarInput;
-    vector<TYPE, NUM> VecInput1;
-    vector<TYPE, NUM> VecInput2;
-    vector<TYPE, NUM> VecOutput;
-  };
-
-  vector<TYPE, NUM> testInitialize(vector<TYPE, NUM> Vec)
-  {
-    vector<TYPE, NUM> VecCopy = Vec;
-    return VecCopy;
-  }
-
-  vector<TYPE, NUM> testClamp(vector<TYPE, NUM> Vec)
-  {
-    return clamp(Vec, TYPE(CLAMP_ARGC), TYPE(CLAMP_ARGT));
-  }
-
-  RWStructuredBuffer<LongVectorOp> g_buf : register(u0);
-  RWByteAddressBuffer g_bufByteAddr : register(u1);
-  [numthreads(8,8,1)]
-  void main(uint GI : SV_GroupIndex) {
-    LongVectorOp LVOp = g_buf[GI];
-    LVOp.VecOutput = FUNC(LVOp.VecInput1 OPERATOR OPERAND2);
-    g_buf[GI] = LVOp;
-  };
-  )";
 
   // Set up the compiler options string.
   std::stringstream CompilerOptions("");
@@ -12236,72 +12213,96 @@ void ExecutionTest::LongVectorOpTestBase(
   CompilerOptions << TestConfig.OperatorString;
   CompilerOptions << " -DOPERAND2=";
   if (TestConfig.IsBinaryOp) {
-    CompilerOptions << (TestConfig.IsScalarOp ? "LVOp.ScalarInput"
-                                              : "LVOp.VecInput2");
+    CompilerOptions << (TestConfig.IsScalarOp ? "InputScalar"
+                                              : "InputVector2");
   }
   CompilerOptions << " -DFUNC=";
   CompilerOptions << TestConfig.IntrinsicString;
-  CompilerOptions << " -DCLAMP_ARGC=";
-  CompilerOptions << ClampArgC;
-  CompilerOptions << " -DCLAMP_ARGT=";
-  CompilerOptions << ClampArgT;
+  switch(TestConfig.OpType) {
+    case LongVectorOpType_Clamp:
+      CompilerOptions << " -DFUNC_CLAMP=1";
+      CompilerOptions << " -DCLAMP_ARGC=";
+      CompilerOptions << ClampArgC;
+      CompilerOptions << " -DCLAMP_ARGT=";
+      CompilerOptions << ClampArgT;
+      break;
+    case LongVectorOpType_Initialize:
+      CompilerOptions << " -DFUNC_INITIALIZE=1";
+      break;
+  }
 
   // We have to construct the string outside of the lambda. Otherwise it's
   // cleaned up when the lambda finishes executing but before the shader runs.
   std::string CompilerOptionsString = CompilerOptions.str();
 
-  // ShaderOpArith.xml defines some boiler plate for the shader code.
+  // ShaderOpArith.xml defines the input/output resources and the shader source.
   CComPtr<IStream> TestXML;
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML);
 
-  // RunShaderOpTest is a helper function that does all device/resource creation
+  // RunShaderOpTest is a helper function that handles resource creation
   // and setup. It also handles the shader compilation and execution. It takes a
   // callback that is called when the shader is compiled, but before it is
   // executed.
   std::shared_ptr<ShaderOpTestResult> TestResult = RunShaderOpTest(
       D3DDevice, m_support, TestXML, "LongVectorOp",
       [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
-        LogCommentFmt(L"RunShaderOpTest CallBack. Shader Name: %S", Name);
+        LogCommentFmt(L"RunShaderOpTest CallBack. Resource Name: %S", Name);
 
-        // Sanity. Helps diagnose test test configuration issues.
-        VERIFY_IS_TRUE(0 == _stricmp(Name, "LongVectorOp"));
+        // This callback is called once for each resource defined for
+        // "LongVectorOp" in ShaderOpArith.xml. All callbacks are fired for each
+        // resource. We determine whether they are applicable to the test case
+        // when they run.
 
-        const size_t DataSize = sizeof(LongVectorOp<T, N>);
-        ShaderData.resize(DataSize);
+        // Process the callback for the OutputVector resource.
+        if(0 == _stricmp(Name, "OutputVector")) {
+          // We only need to set the compiler options string once. So this is a
+          // convenient place to do it.
+          ShaderOp->Shaders.at(0).Arguments = CompilerOptionsString.c_str();
 
-        // Treat the data as an array of LongVectorOp<T, N> structs.
-        LongVectorOp<T, N> *ShaderStruct =
-            reinterpret_cast<LongVectorOp<T, N> *>(ShaderData.data());
-
-        std::copy(VecInput1.begin(), VecInput1.end(),
-                  ShaderStruct->VecInput1.begin());
-
-        if (TestConfig.IsBinaryOp) {
-          if (TestConfig.IsScalarOp) {
-            ShaderStruct->ScalarInput = ScalarInput;
-          } else {
-            std::copy(VecInput2.begin(), VecInput2.end(),
-                      ShaderStruct->VecInput2.begin());
-          }
+          return;
         }
 
-        // We need to set shader text (source), target, and arguments.
-        ShaderOp->Shaders.at(0).Target = TestConfig.TargetString.c_str();
-        ShaderOp->Shaders.at(0).Text = ShaderText.c_str();
-        ShaderOp->Shaders.at(0).Arguments = CompilerOptionsString.c_str();
+        // Process the callback for the InputScalar resource.
+        if(0 == _stricmp(Name, "InputScalar")) {
+          if(TestConfig.IsScalarOp) {
+            FillShaderBufferWithLongVectorData<T, 1>(ShaderData, ScalarInput);
+          }
+
+          return;
+        }
+
+        // Process the callback for the InputVector1 resource.
+        if(0 == _stricmp(Name, "InputVector1")) {
+          FillShaderBufferWithLongVectorData<T, N>(ShaderData, InputVector1);
+          return;
+        }
+
+        // Process the callback for the InputVector2 resource.
+        if(0 == _stricmp(Name, "InputVector2")) {
+          if(IsVectorBinaryOp) {
+            FillShaderBufferWithLongVectorData<T, N>(ShaderData, InputVector2);
+          }
+          return;
+        }
+
+        LogErrorFmtThrow(L"RunShaderOpTest CallBack. Unexpected Resource Name: %S", Name);
       });
 
   // Map the data from GPU to CPU memory so we can verify our expectations.
   MappedData ShaderOutData;
-  TestResult->Test->GetReadBackData("LongVectorOp", &ShaderOutData);
+  TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
 
-  // Cast the buffer back into an array of the structs we expect.
-  LongVectorOp<T, N> *LVOp =
-      reinterpret_cast<LongVectorOp<T, N> *>(ShaderOutData.data());
-  std::vector<T> VecOutput(LVOp->VecOutput.begin(), LVOp->VecOutput.end());
+  // Cast the buffer back into an array of the type we expect.
+  // TODO: We need to handle the cast properly for HLSLHalf_t and HLSLBool_t.
+  T *DataOut =
+    reinterpret_cast<T*>(ShaderOutData.data());
+  std::array<T, N> OutputVector;
+  for(size_t Index = 0; Index < N; Index++) {
+    OutputVector[Index] = DataOut[Index];
+  }
 
   VERIFY_SUCCEEDED(
-      DoVectorsMatch<T>(VecOutput, VecExpected, TestConfig.Tolerance));
+    DoArraysMatch<T>(OutputVector, ExpectedVector, TestConfig.Tolerance));
 }
 
 // This test expects a <pShader> that retrieves a signal value from each of a

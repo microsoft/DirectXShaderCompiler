@@ -86,6 +86,9 @@ static void ShaderOpLogFmt(const wchar_t *fmt, ...) {
 
 // Check the specified HRESULT and return the success value.
 static HRESULT CHECK_HR_RET(HRESULT hr) {
+  if(FAILED(hr)) {
+    DebugBreak();
+  }
   CHECK_HR(hr);
   return hr;
 }
