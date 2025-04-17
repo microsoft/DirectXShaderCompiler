@@ -1067,6 +1067,7 @@ void ShaderOpTest::RunShaderOp(ShaderOp *pShaderOp) {
   CreateCommandList();
   RunCommandList();
   CopyBackResources();
+  CloseHandle(m_hFence);
 }
 
 void ShaderOpTest::RunShaderOp(std::shared_ptr<ShaderOp> ShaderOp) {
