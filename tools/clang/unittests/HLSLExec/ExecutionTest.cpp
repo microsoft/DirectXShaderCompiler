@@ -11356,28 +11356,53 @@ struct HLSLHalf_t {
 // copying HLSL*_t types so we can copy the underlying type directly instead of
 // the struct.
 template <typename T, std::size_t N>
-void FillShaderBufferWithLongVectorData(std::vector<BYTE> &ShaderData, std::array<T, N> &TestData) {
+void FillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer, std::array<T, N> &TestData) {
 
   // Note: DataSize for HLSLHalf_t and HLSLBool_t may be larger than the
   // underlying type in some cases. Thats fine. Resize just makes sure we have
   // enough space.
   const size_t DataSize = sizeof(T) * N;
-  ShaderData.resize(DataSize);
+  ShaderBuffer.resize(DataSize);
 
   if constexpr (std::is_same_v<T, HLSLHalf_t>) {
-    DirectX::PackedVector::HALF *ShaderDataPtr = reinterpret_cast<DirectX::PackedVector::HALF*>(ShaderData.data());
+    DirectX::PackedVector::HALF *ShaderBufferPtr = reinterpret_cast<DirectX::PackedVector::HALF*>(ShaderBuffer.data());
     for (size_t i = 0; i < N; ++i) {
-      ShaderDataPtr[i] = TestData[i].val;
+      ShaderBufferPtr[i] = TestData[i].val;
     }
   } else if constexpr (std::is_same_v<T, HLSLBool_t>) {
-    int32_t *ShaderDataPtr = reinterpret_cast<int32_t*>(ShaderData.data());
+    int32_t *ShaderBufferPtr = reinterpret_cast<int32_t*>(ShaderBuffer.data());
     for (size_t i = 0; i < N; ++i) {
-      ShaderDataPtr[i] = TestData[i].val;
+      ShaderBufferPtr[i] = TestData[i].val;
     }
   } else {
-    T *ShaderDataPtr = reinterpret_cast<T*>(ShaderData.data());
+    T *ShaderBufferPtr = reinterpret_cast<T*>(ShaderBuffer.data());
     for(size_t i = 0; i < N; ++i) {
-      ShaderDataPtr[i] = TestData[i];
+      ShaderBufferPtr[i] = TestData[i];
+    }
+  }
+}
+
+// Helper to fill the test data from the shader buffer based on type. Convenient
+// to be used when copying HLSL*_t types so we can use the underlying type.
+template <typename T, std::size_t N>
+void FillLongVectorDataFromShaderBuffer(MappedData& ShaderBuffer, std::array<T, N> &TestData) {
+
+  if constexpr (std::is_same_v<T, HLSLHalf_t>) {
+    DirectX::PackedVector::HALF *ShaderBufferPtr = reinterpret_cast<DirectX::PackedVector::HALF*>(ShaderBuffer.data());
+    for (size_t i = 0; i < N; ++i) {
+      // HLSLHalf_t has a DirectX::PackedVector::HALF based constructor.
+      TestData[i] = ShaderBufferPtr[i];
+    }
+  } else if constexpr (std::is_same_v<T, HLSLBool_t>) {
+    int32_t *ShaderBufferPtr = reinterpret_cast<int32_t*>(ShaderBuffer.data());
+    for (size_t i = 0; i < N; ++i) {
+      // HLSLBool_t has a int32_t based constructor.
+      TestData[i] = ShaderBufferPtr[i];
+    }
+  } else {
+    T *ShaderBufferPtr = reinterpret_cast<T*>(ShaderBuffer.data());
+    for(size_t i = 0; i < N; ++i) {
+      TestData[i] = ShaderBufferPtr[i];
     }
   }
 }
@@ -12265,7 +12290,7 @@ void ExecutionTest::LongVectorOpTestBase(
         // Process the callback for the InputScalar resource.
         if(0 == _stricmp(Name, "InputScalar")) {
           if(TestConfig.IsScalarOp) {
-            FillShaderBufferWithLongVectorData<T, 1>(ShaderData, ScalarInput);
+            FillShaderBufferFromLongVectorData<T, 1>(ShaderData, ScalarInput);
           }
 
           return;
@@ -12273,14 +12298,14 @@ void ExecutionTest::LongVectorOpTestBase(
 
         // Process the callback for the InputVector1 resource.
         if(0 == _stricmp(Name, "InputVector1")) {
-          FillShaderBufferWithLongVectorData<T, N>(ShaderData, InputVector1);
+          FillShaderBufferFromLongVectorData<T, N>(ShaderData, InputVector1);
           return;
         }
 
         // Process the callback for the InputVector2 resource.
         if(0 == _stricmp(Name, "InputVector2")) {
           if(IsVectorBinaryOp) {
-            FillShaderBufferWithLongVectorData<T, N>(ShaderData, InputVector2);
+            FillShaderBufferFromLongVectorData<T, N>(ShaderData, InputVector2);
           }
           return;
         }
@@ -12292,14 +12317,8 @@ void ExecutionTest::LongVectorOpTestBase(
   MappedData ShaderOutData;
   TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
 
-  // Cast the buffer back into an array of the type we expect.
-  // TODO: We need to handle the cast properly for HLSLHalf_t and HLSLBool_t.
-  T *DataOut =
-    reinterpret_cast<T*>(ShaderOutData.data());
   std::array<T, N> OutputVector;
-  for(size_t Index = 0; Index < N; Index++) {
-    OutputVector[Index] = DataOut[Index];
-  }
+  FillLongVectorDataFromShaderBuffer<T, N>(ShaderOutData, OutputVector);
 
   VERIFY_SUCCEEDED(
     DoArraysMatch<T>(OutputVector, ExpectedVector, TestConfig.Tolerance));
