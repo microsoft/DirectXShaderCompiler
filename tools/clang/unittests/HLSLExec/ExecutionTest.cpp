@@ -12183,8 +12183,7 @@ void ExecutionTest::LongVectorOpTestBase(
       // Attempting to generate a clamp value for HLSLBool_t will result in an
       // infinite loop in the below while. We don't have a test case for clamp
       // with bools anyways. But adding this check to prevent the mistake.
-      LogErrorFmtThrow(
-          L"Clamp is not supported for HLSLBool_t.");
+      LogErrorFmtThrow(L"Clamp is not supported for HLSLBool_t.");
     }
 
     ClampArgC = NumberGenerator.generate();
@@ -12206,16 +12205,17 @@ void ExecutionTest::LongVectorOpTestBase(
       } else if (TestConfig.OperatorString == "+") {
         ExpectedVector[Index] = Input1 + Input2;
       } else if (TestConfig.OperatorString == ",") {
-        if (TestConfig.OpType == LongVectorOpType_Min )
+        if (TestConfig.OpType == LongVectorOpType_Min)
           ExpectedVector[Index] = std::min<T>(Input1, Input2);
         else if (TestConfig.OpType == LongVectorOpType_Max)
           ExpectedVector[Index] = std::max<T>(Input1, Input2);
         else
-          LogErrorFmtThrow(L"Unrecognized Binary LongVectorOpType: %d",TestConfig.OpType);
+          LogErrorFmtThrow(L"Unrecognized Binary LongVectorOpType: %d",
+                           TestConfig.OpType);
       } else {
         LogErrorFmtThrow(
-          L"Don't know how to compute expected value for operatorString: %s",
-          TestConfig.OperatorString.c_str());
+            L"Don't know how to compute expected value for operatorString: %s",
+            TestConfig.OperatorString.c_str());
       }
     } else // Unary op logic
     {
@@ -12225,7 +12225,8 @@ void ExecutionTest::LongVectorOpTestBase(
       } else if (TestConfig.OpType = LongVectorOpType_Initialize) {
         ExpectedVector[Index] = InputVector1[Index];
       } else {
-        LogErrorFmtThrow(L"Unrecognized Unary LongVectorOpType: %d",TestConfig.OpType);
+        LogErrorFmtThrow(L"Unrecognized Unary LongVectorOpType: %d",
+                         TestConfig.OpType);
       }
     }
   }
