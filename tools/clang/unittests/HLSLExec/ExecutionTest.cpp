@@ -11565,7 +11565,7 @@ public:
     if constexpr (std::is_same_v<T, int64_t>)
       return Int64Dist(generator);
     if constexpr (std::is_same_v<T, float>)
-      return FloatDist(generator);
+    return FloatDist(generator);
     if constexpr (std::is_same_v<T, double>)
       return DoubleDist(generator);
     if constexpr (std::is_same_v<T, uint16_t>)
@@ -11592,9 +11592,9 @@ private:
   std::uniform_real_distribution<float> FloatDist;
   std::uniform_real_distribution<double> DoubleDist;
 
-  //  The ranges for generation. A std::uniform_real_distribution can only have
-  //  a range that is equal to the types largest value. This is due to precision
-  //  issues. So instead we define some large values.
+  // The ranges for generation. A std::uniform_real_distribution can only have
+  // a range that is equal to the types largest value. This is due to precision
+  // issues. So instead we define some large values.
   const float FLOAT_RANGE_MIN = -1e20f;
   const float FLOAT_RANGE_MAX = 1e20f;
   const double DOUBLE_RANGE_MIN = -1e100;
@@ -11615,6 +11615,23 @@ bool DoArraysMatch(const std::array<T, N> &ActualValues,
       if (ActualValues[Index] != ExpectedValues[Index]) {
         MismatchedIndexes.push_back(Index);
       }
+    } else if constexpr (std::is_same_v<T, HLSLHalf_t>) {
+      const DirectX::PackedVector::HALF a = ActualValues[Index].val;
+      const DirectX::PackedVector::HALF b = ExpectedValues[Index].val;
+      if(!CompareHalfULP(a, b, Tolerance))
+      {
+        MismatchedIndexes.push_back(Index);
+      }
+    } else if constexpr (std::is_same_v<T, float>) {
+      const int IntTolerance = static_cast<int>(Tolerance);
+      if(!CompareFloatULP(ActualValues[Index], ExpectedValues[Index], IntTolerance))
+      {
+        MismatchedIndexes.push_back(Index);
+      }
+    } else if constexpr (std::is_same_v<T, double>) {
+      Log::Warning(L"Double comparison not implemented yet. Defaulting to simple comparison for now.");
+      if(ActualValues[Index] != ExpectedValues[Index])
+        MismatchedIndexes.push_back(Index);
     } else if (Tolerance == 0 && ActualValues[Index] != ExpectedValues[Index]) {
       MismatchedIndexes.push_back(Index);
     } else {
@@ -12176,8 +12193,8 @@ void ExecutionTest::LongVectorOpTestBase(
 
   // We pass these values into the shader and they're requried to compile. So
   // they need to set to something.
-  T ClampArgC = 0;
-  T ClampArgT = 0;
+  T ClampArgMin = 0;
+  T ClampArgMax = 0;
   if (TestConfig.OpType == LongVectorOpType_Clamp) {
     if constexpr (std::is_same_v<T, HLSLBool_t>) {
       // Attempting to generate a clamp value for HLSLBool_t will result in an
@@ -12186,12 +12203,12 @@ void ExecutionTest::LongVectorOpTestBase(
       LogErrorFmtThrow(L"Clamp is not supported for HLSLBool_t.");
     }
 
-    ClampArgC = NumberGenerator.generate();
-    ClampArgT = NumberGenerator.generate();
-    while (ClampArgC >= ClampArgT) {
-      // Generate a new value for ClampArgC. It needs to be smaller than
-      // or equal to ClampArgT.
-      ClampArgT = NumberGenerator.generate();
+    ClampArgMin = NumberGenerator.generate();
+    ClampArgMax = NumberGenerator.generate();
+    while (ClampArgMin >= ClampArgMax) {
+      // Generate a new value for ClampArgMin. It needs to be smaller than
+      // or equal to ClampArgMax.
+      ClampArgMax = NumberGenerator.generate();
     }
   }
 
@@ -12221,7 +12238,7 @@ void ExecutionTest::LongVectorOpTestBase(
     {
       if (TestConfig.OpType == LongVectorOpType_Clamp) {
         ExpectedVector[Index] =
-            std::clamp(InputVector1[Index], ClampArgC, ClampArgT);
+            std::clamp(InputVector1[Index], ClampArgMin, ClampArgMax);
       } else if (TestConfig.OpType = LongVectorOpType_Initialize) {
         ExpectedVector[Index] = InputVector1[Index];
       } else {
@@ -12252,10 +12269,12 @@ void ExecutionTest::LongVectorOpTestBase(
   switch (TestConfig.OpType) {
   case LongVectorOpType_Clamp:
     CompilerOptions << " -DFUNC_CLAMP=1";
-    CompilerOptions << " -DCLAMP_ARGC=";
-    CompilerOptions << ClampArgC;
-    CompilerOptions << " -DCLAMP_ARGT=";
-    CompilerOptions << ClampArgT;
+    CompilerOptions << " -DCLAMP_ARGMIN=";
+    // We need to set the precision for the float values.
+    CompilerOptions << std::setprecision(16);
+    CompilerOptions << ClampArgMin;
+    CompilerOptions << " -DCLAMP_ARGMAX=";
+    CompilerOptions << ClampArgMax;
     break;
   case LongVectorOpType_Initialize:
     CompilerOptions << " -DFUNC_INITIALIZE=1";

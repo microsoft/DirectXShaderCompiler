@@ -3788,7 +3788,7 @@ void MSMain(uint GID : SV_GroupIndex,
         #ifdef FUNC_CLAMP
         vector<TYPE, NUM> TestClamp(vector<TYPE, NUM> Vector)
         {
-          return clamp(Vector, TYPE(CLAMP_ARGC), TYPE(CLAMP_ARGT));
+          return clamp(Vector, TYPE(CLAMP_ARGMIN), TYPE(CLAMP_ARGMAX));
         }
         #endif
 
@@ -3796,7 +3796,7 @@ void MSMain(uint GID : SV_GroupIndex,
         RWByteAddressBuffer g_InputVector1 : register(u1);
         RWByteAddressBuffer g_InputVector2 : register(u2);
         RWByteAddressBuffer g_OutputVector : register(u3);
-        [numthreads(8,8,1)]
+        [numthreads(1,1,1)]
         void main(uint GI : SV_GroupIndex) {
           vector<TYPE, NUM> InputVector1 = g_InputVector1.Load< vector<TYPE, NUM> >(0);
           vector<TYPE, NUM> InputVector2 = g_InputVector2.Load< vector<TYPE, NUM> >(0);
