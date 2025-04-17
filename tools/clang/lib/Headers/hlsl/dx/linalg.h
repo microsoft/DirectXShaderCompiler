@@ -1,7 +1,7 @@
 // Header for linear algebra APIs.
 
-#if ((__SHADER_TARGET_MAJOR > 6) || \
-     (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 9)) && \
+#if ((__SHADER_TARGET_MAJOR > 6) ||                                            \
+     (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 9)) &&            \
     (__HLSL_VERSION >= 2021)
 
 namespace dx {
