@@ -3769,11 +3769,10 @@ void MSMain(uint GID : SV_GroupIndex,
       <RootValue Index="3" ResName="OutputVector" />
     </RootValues>
     <!-- This shader requires the following defines to be passed in as arguments:
-     // 1,2, and 3 are required to compile the shader.
+     // 1 and 2 are required to compile the shader.
      // 1. -DOPERATOR : "*" "+" "," "-" "/" etc.
-     // 2. -DOPERAND2: : InputVector2 or ScalarInput, depending on the test.
-     // 3. -DCLAMP_ARGC, -DCLAMP_ARG2 : clamp arg 1 and 2. Required to compile.
-     // 4. Optional: -DFUNC : min, max, etc.
+     // 2. -DOPERAND2: : InputVector2, ScalarInput, or "" depending on the test.
+     // Other defines are optional and are used to test different functions.
      -->
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
       <![CDATA[
