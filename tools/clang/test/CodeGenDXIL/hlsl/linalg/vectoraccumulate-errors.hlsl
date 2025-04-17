@@ -1,7 +1,7 @@
 // XFAIL: *
 // RUN: %dxc -I %hlsl_headers -T lib_6_9 %s | FileCheck %s
 
-#include "dx/linalg.h"
+#include <dx/linalg.h>
 
 RWByteAddressBuffer RWBuf;
 
