@@ -1,4 +1,6 @@
-// RUN: %dxc -T lib_6_9 -enable-16bit-types %s | FileCheck %s
+// RUN: %dxc -I %hlsl_headers -T lib_6_9 -enable-16bit-types %s | FileCheck %s
+
+#include <dx/linalg.h>
 
 ByteAddressBuffer Buf;
 
@@ -30,7 +32,7 @@ export vector<float, 8> Test2(vector<uint8_t4_packed, 6> Input) {
 }
 
 // test that "stride" isn't ignored in non-optimal layouts
-export vector<float, 8> Test2(vector<uint8_t4_packed, 6> Input) {
+export vector<float, 8> Test3(vector<uint8_t4_packed, 6> Input) {
   using namespace dx::linalg;
 
   MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {

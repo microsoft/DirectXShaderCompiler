@@ -1,4 +1,6 @@
-// RUN: not %dxc -T lib_6_9 -enable-16bit-types %s 2>&1 | FileCheck %s
+// RUN: %dxc -I %hlsl_headers -T lib_6_9 -enable-16bit-types %s -verify
+
+#include <dx/linalg.h>
 
 RWByteAddressBuffer RWBuf;
 
@@ -10,8 +12,8 @@ export void Test4(vector<half, 128> Input1, vector<half, 64> Input2) {
       matrix = {RWBuf, 0, 0};
 
   // clang-format off
-  // CHECK: error: no matching function for call to 'OuterProductAccumulate'
-  // CHECK: note: candidate template ignored: could not match 0 against 1
+  // expected-error@+5{{no matching function for call to 'OuterProductAccumulate'}}
+  // expected-note@dx/linalg.h:157{{candidate template ignored: could not match 0 against 1}}
   // __builtin_OuterProductAccumulate(Input1, Input2, RWBuf, 0, DATA_TYPE_FLOAT16, MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL, 0);
   // clang-format on
 
@@ -26,8 +28,8 @@ export void Test5(vector<int, 128> Input1, vector<uint, 128> Input2) {
       matrix = {RWBuf, 0, 0};
 
   // clang-format off
-  // CHECK: error: no matching function for call to 'OuterProductAccumulate'
-  // CHECK: note: candidate template ignored: could not match 0 against 1
+  // expected-error@+5{{no matching function for call to 'OuterProductAccumulate'}}
+  // expected-note@dx/linalg.h:157{{candidate template ignored: could not match 0 against 1}}
   // __builtin_OuterProductAccumulate(Input1, Input2, RWBuf, 0, DATA_TYPE_FLOAT16, MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL, 0);
   // clang-format on
 
@@ -42,8 +44,8 @@ export void Test4(vector<half, 64> Input1, vector<half, 64> Input2) {
       matrix = {RWBuf, 0, 0};
 
   // clang-format off
-  // CHECK: error: no matching function for call to 'OuterProductAccumulate'
-  // CHECK: note: candidate template ignored: could not match 0 against 1
+  // expected-error@+5{{no matching function for call to 'OuterProductAccumulate'}}
+  // expected-note@dx/linalg.h:157{{candidate template ignored: deduced conflicting types for parameter 'ElTy' ('int' vs. 'unsigned int')}}
   // __builtin_OuterProductAccumulate(Input1, Input2, RWBuf, 0, DATA_TYPE_FLOAT16, MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL, 0);
   // clang-format on
 
