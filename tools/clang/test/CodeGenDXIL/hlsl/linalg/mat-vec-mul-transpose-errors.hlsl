@@ -1,4 +1,6 @@
-// RUN: %dxc -T lib_6_9 -enable-16bit-types %s | FileCheck %s
+// RUN: %dxc -I %hlsl_headers -T lib_6_9 -enable-16bit-types %s -verify
+
+#include <dx/linalg.h>
 
 ByteAddressBuffer Buf;
 
@@ -9,6 +11,7 @@ export float4 Test1(vector<float, 4> Input) {
       Buf, 0, 0};
 
   // clang-format off
+  // PREVIEW CHECK TODO:
   // CHECK: error: something about transposing not supported for rowmajor / colmajor layouts
   return Mul<float>(    
       Matrix, MakeInterpretedVector<DATA_TYPE_FLOAT16>(Input));
@@ -22,6 +25,7 @@ export vector<float, 8> Test2(vector<uint8_t4_packed, 6> Input) {
       Buf, 0, 0};
 
   // clang-format off
+  // PREVIEW CHECK TODO:
   // CHECK: error: something about transposing not supported for rowmajor / colmajor layouts
   // clang-format on
   return Mul<float>(Matrix,

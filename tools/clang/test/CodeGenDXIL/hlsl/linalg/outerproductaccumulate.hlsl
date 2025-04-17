@@ -1,4 +1,6 @@
-// RUN: %dxc -T lib_6_9 -enable-16bit-types %s | FileCheck %s
+// RUN: %dxc -I %hlsl_headers -T lib_6_9 -enable-16bit-types %s | FileCheck %s
+
+#include <dx/linalg.h>
 
 RWByteAddressBuffer RWBuf;
 
