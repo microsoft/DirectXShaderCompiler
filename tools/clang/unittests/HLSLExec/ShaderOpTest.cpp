@@ -258,8 +258,7 @@ void CommandListRefs::CreateForDevice(ID3D12Device *pDevice, bool compute) {
                                       IID_PPV_ARGS(&List)));
 }
 
-ShaderOpTest::ShaderOpTest()
-{
+ShaderOpTest::ShaderOpTest() {
   m_hFence = CreateEvent(nullptr, FALSE, FALSE, nullptr);
   if (m_hFence == nullptr) {
     AtlThrow(HRESULT_FROM_WIN32(GetLastError()));
