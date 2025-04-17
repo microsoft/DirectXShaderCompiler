@@ -11356,7 +11356,8 @@ struct HLSLHalf_t {
 // copying HLSL*_t types so we can copy the underlying type directly instead of
 // the struct.
 template <typename T, std::size_t N>
-void FillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer, std::array<T, N> &TestData) {
+void FillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
+                                        std::array<T, N> &TestData) {
 
   // Note: DataSize for HLSLHalf_t and HLSLBool_t may be larger than the
   // underlying type in some cases. Thats fine. Resize just makes sure we have
@@ -11365,18 +11366,19 @@ void FillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer, std::ar
   ShaderBuffer.resize(DataSize);
 
   if constexpr (std::is_same_v<T, HLSLHalf_t>) {
-    DirectX::PackedVector::HALF *ShaderBufferPtr = reinterpret_cast<DirectX::PackedVector::HALF*>(ShaderBuffer.data());
+    DirectX::PackedVector::HALF *ShaderBufferPtr =
+        reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
     for (size_t i = 0; i < N; ++i) {
       ShaderBufferPtr[i] = TestData[i].val;
     }
   } else if constexpr (std::is_same_v<T, HLSLBool_t>) {
-    int32_t *ShaderBufferPtr = reinterpret_cast<int32_t*>(ShaderBuffer.data());
+    int32_t *ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
     for (size_t i = 0; i < N; ++i) {
       ShaderBufferPtr[i] = TestData[i].val;
     }
   } else {
-    T *ShaderBufferPtr = reinterpret_cast<T*>(ShaderBuffer.data());
-    for(size_t i = 0; i < N; ++i) {
+    T *ShaderBufferPtr = reinterpret_cast<T *>(ShaderBuffer.data());
+    for (size_t i = 0; i < N; ++i) {
       ShaderBufferPtr[i] = TestData[i];
     }
   }
@@ -11385,23 +11387,25 @@ void FillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer, std::ar
 // Helper to fill the test data from the shader buffer based on type. Convenient
 // to be used when copying HLSL*_t types so we can use the underlying type.
 template <typename T, std::size_t N>
-void FillLongVectorDataFromShaderBuffer(MappedData& ShaderBuffer, std::array<T, N> &TestData) {
+void FillLongVectorDataFromShaderBuffer(MappedData &ShaderBuffer,
+                                        std::array<T, N> &TestData) {
 
   if constexpr (std::is_same_v<T, HLSLHalf_t>) {
-    DirectX::PackedVector::HALF *ShaderBufferPtr = reinterpret_cast<DirectX::PackedVector::HALF*>(ShaderBuffer.data());
+    DirectX::PackedVector::HALF *ShaderBufferPtr =
+        reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
     for (size_t i = 0; i < N; ++i) {
       // HLSLHalf_t has a DirectX::PackedVector::HALF based constructor.
       TestData[i] = ShaderBufferPtr[i];
     }
   } else if constexpr (std::is_same_v<T, HLSLBool_t>) {
-    int32_t *ShaderBufferPtr = reinterpret_cast<int32_t*>(ShaderBuffer.data());
+    int32_t *ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
     for (size_t i = 0; i < N; ++i) {
       // HLSLBool_t has a int32_t based constructor.
       TestData[i] = ShaderBufferPtr[i];
     }
   } else {
-    T *ShaderBufferPtr = reinterpret_cast<T*>(ShaderBuffer.data());
-    for(size_t i = 0; i < N; ++i) {
+    T *ShaderBufferPtr = reinterpret_cast<T *>(ShaderBuffer.data());
+    for (size_t i = 0; i < N; ++i) {
       TestData[i] = ShaderBufferPtr[i];
     }
   }
@@ -11535,11 +11539,11 @@ public:
       Uint64Dist = std::uniform_int_distribution<T>(
           std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
     else if constexpr (std::is_same_v<T, float>)
-      FloatDist = std::uniform_real_distribution<T>(
-          FLOAT_RANGE_MIN, FLOAT_RANGE_MAX);
+      FloatDist =
+          std::uniform_real_distribution<T>(FLOAT_RANGE_MIN, FLOAT_RANGE_MAX);
     else if constexpr (std::is_same_v<T, double>)
-      DoubleDist = std::uniform_real_distribution<T>(
-          DOUBLE_RANGE_MIN, DOUBLE_RANGE_MAX);
+      DoubleDist =
+          std::uniform_real_distribution<T>(DOUBLE_RANGE_MIN, DOUBLE_RANGE_MAX);
     else
       VERIFY_FAIL("Unsupported type for DeterministicNumberGenerator");
   }
@@ -11593,7 +11597,6 @@ private:
   const double DOUBLE_RANGE_MIN = -1e100;
   const double DOUBLE_RANGE_MAX = 1e100;
 };
-
 
 template <typename T, std::size_t N>
 bool DoArraysMatch(const std::array<T, N> &ActualValues,
@@ -12146,10 +12149,12 @@ void ExecutionTest::LongVectorOpTestBase(
   LogCommentFmt(L"Running LongVectorOpTestBase<%S, %zu>", typeid(T).name(), N);
 
   CComPtr<ID3D12Device> D3DDevice;
-  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9) && !m_ExperimentalModeEnabled) {
+  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9) &&
+      !m_ExperimentalModeEnabled) {
 
-    if(m_HLKModeEnabled) {
-      LogErrorFmtThrow(L"Device does not support SM 6.9. Can't run these tests.");
+    if (m_HLKModeEnabled) {
+      LogErrorFmtThrow(
+          L"Device does not support SM 6.9. Can't run these tests.");
     }
 
     WEX::Logging::Log::Comment(
@@ -12168,7 +12173,7 @@ void ExecutionTest::LongVectorOpTestBase(
   // Fill the vector inputs with values.
   for (size_t Index = 0; Index < N; Index++) {
     // Always generate input.
-    InputVector1[Index]=NumberGenerator.generate();
+    InputVector1[Index] = NumberGenerator.generate();
 
     if (IsVectorBinaryOp)
       InputVector2[Index] = NumberGenerator.generate();
@@ -12206,7 +12211,7 @@ void ExecutionTest::LongVectorOpTestBase(
           ExpectedVector[Index] = std::max<T>(Input1, Input2);
         else
           LogErrorFmtThrow(L"Unrecognized BinaryOp intrinsic string: %s",
-                      TestConfig.IntrinsicString.c_str());
+                           TestConfig.IntrinsicString.c_str());
       } else
         LogErrorFmtThrow(
             L"Don't know how to compute expected value for operatorString: %s",
@@ -12214,13 +12219,13 @@ void ExecutionTest::LongVectorOpTestBase(
     } else // Unary op logic
     {
       if (TestConfig.IntrinsicString == "TestClamp")
-        ExpectedVector[Index] = 
+        ExpectedVector[Index] =
             std::clamp(InputVector1[Index], ClampArgC, ClampArgT);
       else if (TestConfig.IntrinsicString == "TestInitialize")
         ExpectedVector[Index] = InputVector1[Index];
       else
         LogErrorFmtThrow(L"Unrecognized intrinsic string: %s",
-                    TestConfig.IntrinsicString.c_str());
+                         TestConfig.IntrinsicString.c_str());
     }
   }
 
@@ -12238,22 +12243,21 @@ void ExecutionTest::LongVectorOpTestBase(
   CompilerOptions << TestConfig.OperatorString;
   CompilerOptions << " -DOPERAND2=";
   if (TestConfig.IsBinaryOp) {
-    CompilerOptions << (TestConfig.IsScalarOp ? "InputScalar"
-                                              : "InputVector2");
+    CompilerOptions << (TestConfig.IsScalarOp ? "InputScalar" : "InputVector2");
   }
   CompilerOptions << " -DFUNC=";
   CompilerOptions << TestConfig.IntrinsicString;
-  switch(TestConfig.OpType) {
-    case LongVectorOpType_Clamp:
-      CompilerOptions << " -DFUNC_CLAMP=1";
-      CompilerOptions << " -DCLAMP_ARGC=";
-      CompilerOptions << ClampArgC;
-      CompilerOptions << " -DCLAMP_ARGT=";
-      CompilerOptions << ClampArgT;
-      break;
-    case LongVectorOpType_Initialize:
-      CompilerOptions << " -DFUNC_INITIALIZE=1";
-      break;
+  switch (TestConfig.OpType) {
+  case LongVectorOpType_Clamp:
+    CompilerOptions << " -DFUNC_CLAMP=1";
+    CompilerOptions << " -DCLAMP_ARGC=";
+    CompilerOptions << ClampArgC;
+    CompilerOptions << " -DCLAMP_ARGT=";
+    CompilerOptions << ClampArgT;
+    break;
+  case LongVectorOpType_Initialize:
+    CompilerOptions << " -DFUNC_INITIALIZE=1";
+    break;
   }
 
   // We have to construct the string outside of the lambda. Otherwise it's
@@ -12279,7 +12283,7 @@ void ExecutionTest::LongVectorOpTestBase(
         // when they run.
 
         // Process the callback for the OutputVector resource.
-        if(0 == _stricmp(Name, "OutputVector")) {
+        if (0 == _stricmp(Name, "OutputVector")) {
           // We only need to set the compiler options string once. So this is a
           // convenient place to do it.
           ShaderOp->Shaders.at(0).Arguments = CompilerOptionsString.c_str();
@@ -12288,8 +12292,8 @@ void ExecutionTest::LongVectorOpTestBase(
         }
 
         // Process the callback for the InputScalar resource.
-        if(0 == _stricmp(Name, "InputScalar")) {
-          if(TestConfig.IsScalarOp) {
+        if (0 == _stricmp(Name, "InputScalar")) {
+          if (TestConfig.IsScalarOp) {
             FillShaderBufferFromLongVectorData<T, 1>(ShaderData, ScalarInput);
           }
 
@@ -12297,20 +12301,21 @@ void ExecutionTest::LongVectorOpTestBase(
         }
 
         // Process the callback for the InputVector1 resource.
-        if(0 == _stricmp(Name, "InputVector1")) {
+        if (0 == _stricmp(Name, "InputVector1")) {
           FillShaderBufferFromLongVectorData<T, N>(ShaderData, InputVector1);
           return;
         }
 
         // Process the callback for the InputVector2 resource.
-        if(0 == _stricmp(Name, "InputVector2")) {
-          if(IsVectorBinaryOp) {
+        if (0 == _stricmp(Name, "InputVector2")) {
+          if (IsVectorBinaryOp) {
             FillShaderBufferFromLongVectorData<T, N>(ShaderData, InputVector2);
           }
           return;
         }
 
-        LogErrorFmtThrow(L"RunShaderOpTest CallBack. Unexpected Resource Name: %S", Name);
+        LogErrorFmtThrow(
+            L"RunShaderOpTest CallBack. Unexpected Resource Name: %S", Name);
       });
 
   // Map the data from GPU to CPU memory so we can verify our expectations.
@@ -12321,7 +12326,7 @@ void ExecutionTest::LongVectorOpTestBase(
   FillLongVectorDataFromShaderBuffer<T, N>(ShaderOutData, OutputVector);
 
   VERIFY_SUCCEEDED(
-    DoArraysMatch<T>(OutputVector, ExpectedVector, TestConfig.Tolerance));
+      DoArraysMatch<T>(OutputVector, ExpectedVector, TestConfig.Tolerance));
 }
 
 // This test expects a <pShader> that retrieves a signal value from each of a
