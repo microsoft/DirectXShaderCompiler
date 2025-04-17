@@ -11629,7 +11629,7 @@ bool DoArraysMatch(const std::array<T, N> &ActualValues,
         MismatchedIndexes.push_back(Index);
       }
     } else if constexpr (std::is_same_v<T, double>) {
-      Log::Warning(L"Double comparison not implemented yet. Defaulting to simple comparison for now.");
+      WEX::Logging::Log::Warning(L"Double comparison not implemented yet. Defaulting to simple comparison for now.");
       if(ActualValues[Index] != ExpectedValues[Index])
         MismatchedIndexes.push_back(Index);
     } else if (Tolerance == 0 && ActualValues[Index] != ExpectedValues[Index]) {
