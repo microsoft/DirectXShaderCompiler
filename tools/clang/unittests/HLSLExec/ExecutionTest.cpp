@@ -673,12 +673,10 @@ public:
         LogCommentFmt(L"Debug layer enabled.");
       }
 
-      bool HLKModeEnabled = false;
       hr = WEX::TestExecution::RuntimeParameters::TryGetValue(L"HLKModeEnabled",
-                                                              HLKModeEnabled);
+                                                              m_HLKModeEnabled);
 
-      if (SUCCEEDED(hr) && HLKModeEnabled) {
-        m_HLKModeEnabled = true;
+      if (SUCCEEDED(hr) && m_HLKModeEnabled) {
         LogCommentFmt(L"HLK mode enabled.");
       }
     }
@@ -11306,6 +11304,11 @@ struct HLSLHalf_t {
     return a > d;
   }
 
+  bool operator<(float d) const {
+    float a = DirectX::PackedVector::XMConvertHalfToFloat(val);
+    return a < d;
+  }
+
   bool operator<=(const HLSLHalf_t &other) const {
     return DirectX::PackedVector::XMConvertHalfToFloat(val) <=
            DirectX::PackedVector::XMConvertHalfToFloat(other.val);
@@ -11614,14 +11617,6 @@ bool DoArraysMatch(const std::array<T, N> &ActualValues,
       }
     } else if (Tolerance == 0 && ActualValues[Index] != ExpectedValues[Index]) {
       MismatchedIndexes.push_back(Index);
-    } else if constexpr (std::is_same_v<T, HLSLBool_t>) {
-      // Compiler was very picky and wanted an explicit case for any T that
-      // doesn't implement the operators in the below else. ( > and -). It
-      // wouldn't accept putting this constexpr as an or case with other
-      // statements.
-      if (ActualValues[Index] != ExpectedVector[Index]) {
-        MismatchedIndexes.push_back(i);
-      }
     } else {
       T Diff = ActualValues[Index] > ExpectedValues[Index]
                    ? ActualValues[Index] - ExpectedValues[Index]
@@ -12183,12 +12178,12 @@ void ExecutionTest::LongVectorOpTestBase(
   // they need to set to something.
   T ClampArgC = 0;
   T ClampArgT = 0;
-  if (TestConfig.IntrinsicString == "testClamp") {
+  if (TestConfig.OpType == LongVectorOpType_Clamp) {
     ClampArgC = NumberGenerator.generate();
     ClampArgT = NumberGenerator.generate();
     while (ClampArgC >= ClampArgT) {
       // Generate a new value for ClampArgC. It needs to be smaller than
-      // ClampArgT.
+      // or equal to ClampArgT.
       ClampArgT = NumberGenerator.generate();
     }
   }
@@ -12198,34 +12193,32 @@ void ExecutionTest::LongVectorOpTestBase(
     if (TestConfig.IsBinaryOp) {
       T Input1 = InputVector1[Index];
       T Input2 = TestConfig.IsScalarOp ? ScalarInput[0] : InputVector2[Index];
-      if (TestConfig.OperatorString == "*")
+      if (TestConfig.OperatorString == "*") {
         ExpectedVector[Index] = Input1 * Input2;
-      else if (TestConfig.OperatorString == "+")
+      } else if (TestConfig.OperatorString == "+") {
         ExpectedVector[Index] = Input1 + Input2;
-      else if (TestConfig.OperatorString == ",") {
-        VERIFY_IS_TRUE(TestConfig.IntrinsicString != "",
-                       "Expecting intrinsic string");
-        if (TestConfig.IntrinsicString == "min")
+      } else if (TestConfig.OperatorString == ",") {
+        if (TestConfig.OpType == LongVectorOpType_Min )
           ExpectedVector[Index] = std::min<T>(Input1, Input2);
-        else if (TestConfig.IntrinsicString == "max")
+        else if (TestConfig.OpType == LongVectorOpType_Max)
           ExpectedVector[Index] = std::max<T>(Input1, Input2);
         else
-          LogErrorFmtThrow(L"Unrecognized BinaryOp intrinsic string: %s",
-                           TestConfig.IntrinsicString.c_str());
-      } else
+          LogErrorFmtThrow(L"Unrecognized Binary LongVectorOpType: %d",TestConfig.OpType);
+      } else {
         LogErrorFmtThrow(
-            L"Don't know how to compute expected value for operatorString: %s",
-            TestConfig.OperatorString.c_str());
+          L"Don't know how to compute expected value for operatorString: %s",
+          TestConfig.OperatorString.c_str());
+      }
     } else // Unary op logic
     {
-      if (TestConfig.IntrinsicString == "TestClamp")
+      if (TestConfig.OpType == LongVectorOpType_Clamp) {
         ExpectedVector[Index] =
             std::clamp(InputVector1[Index], ClampArgC, ClampArgT);
-      else if (TestConfig.IntrinsicString == "TestInitialize")
+      } else if (TestConfig.OpType = LongVectorOpType_Initialize) {
         ExpectedVector[Index] = InputVector1[Index];
-      else
-        LogErrorFmtThrow(L"Unrecognized intrinsic string: %s",
-                         TestConfig.IntrinsicString.c_str());
+      } else {
+        LogErrorFmtThrow(L"Unrecognized Unary LongVectorOpType: %d",TestConfig.OpType);
+      }
     }
   }
 
