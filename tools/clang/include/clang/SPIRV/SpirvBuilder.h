@@ -437,6 +437,25 @@ public:
       QualType resultType, NonSemanticDebugPrintfInstructions instId,
       llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation);
 
+  SpirvInstruction *createIsNodePayloadValid(SpirvInstruction *payloadArray,
+                                             SpirvInstruction *nodeIndex,
+                                             SourceLocation);
+
+  SpirvInstruction *createNodePayloadArrayLength(SpirvInstruction *payloadArray,
+                                                 SourceLocation);
+
+  SpirvInstruction *createAllocateNodePayloads(QualType resultType,
+                                               spv::Scope allocationScope,
+                                               SpirvInstruction *shaderIndex,
+                                               SpirvInstruction *recordCount,
+                                               SourceLocation);
+
+  void createEnqueueOutputNodePayloads(SpirvInstruction *payload,
+                                       SourceLocation);
+
+  SpirvInstruction *createFinishWritingNodePayload(SpirvInstruction *payload,
+                                                   SourceLocation);
+
   /// \brief Creates an OpMemoryBarrier or OpControlBarrier instruction with the
   /// given flags. If execution scope (exec) is provided, an OpControlBarrier
   /// is created; otherwise an OpMemoryBarrier is created.
@@ -444,6 +463,13 @@ public:
                      spv::MemorySemanticsMask memorySemantics,
                      llvm::Optional<spv::Scope> exec, SourceLocation,
                      SourceRange range = {});
+
+  /// \brief Creates an OpMemoryBarrier or OpControlBarrier instruction with the
+  /// given flags. If execution scope (exec) has its low-order bit set, an
+  /// OpControlBarrier is created; otherwise an OpMemoryBarrier is created.
+  void createBarrier(SpirvInstruction *memoryScope,
+                     SpirvInstruction *memorySemantics,
+                     SpirvInstruction *execScope, SourceLocation);
 
   /// \brief Creates an OpBitFieldInsert SPIR-V instruction for the given
   /// arguments.
@@ -614,9 +640,22 @@ public:
   /// instruction, if one already exists.
   inline SpirvInstruction *addExecutionMode(SpirvFunction *entryPoint,
                                             spv::ExecutionMode em,
+                                            SourceLocation);
+
+  /// \brief Adds an execution mode to the module under construction if it does
+  /// not already exist. Return the newly added instruction or the existing
+  /// instruction, if one already exists.
+  inline SpirvInstruction *addExecutionMode(SpirvFunction *entryPoint,
+                                            spv::ExecutionMode em,
                                             llvm::ArrayRef<uint32_t> params,
-                                            SourceLocation,
-                                            bool useIdParams = false);
+                                            SourceLocation);
+
+  /// \brief Adds an execution mode to the module under construction if it does
+  /// not already exist. Return the newly added instruction or the existing
+  /// instruction, if one already exists.
+  inline SpirvInstruction *
+  addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
+                   llvm::ArrayRef<SpirvInstruction *> params, SourceLocation);
 
   /// \brief Adds an OpModuleProcessed instruction to the module under
   /// construction.
@@ -759,6 +798,7 @@ public:
                        llvm::ArrayRef<SpirvConstant *> constituents,
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
+  SpirvConstant *getConstantString(llvm::StringRef str, bool specConst = false);
   SpirvUndef *getUndef(QualType);
 
   SpirvString *createString(llvm::StringRef str);
@@ -960,17 +1000,52 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
   return mainSource->getFile();
 }
 
-SpirvInstruction *
-SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
-                               llvm::ArrayRef<uint32_t> params,
-                               SourceLocation loc, bool useIdParams) {
+SpirvInstruction *SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint,
+                                                 spv::ExecutionMode em,
+                                                 SourceLocation loc) {
   SpirvExecutionMode *mode = nullptr;
   SpirvExecutionMode *existingInstruction =
       mod->findExecutionMode(entryPoint, em);
 
   if (!existingInstruction) {
     mode = new (context)
-        SpirvExecutionMode(loc, entryPoint, em, params, useIdParams);
+        SpirvExecutionMode(loc, entryPoint, em, ArrayRef<uint32_t>());
+    mod->addExecutionMode(mode);
+  } else {
+    mode = existingInstruction;
+  }
+
+  return mode;
+}
+
+SpirvInstruction *
+SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
+                               llvm::ArrayRef<uint32_t> params,
+                               SourceLocation loc) {
+  SpirvExecutionMode *mode = nullptr;
+  SpirvExecutionMode *existingInstruction =
+      mod->findExecutionMode(entryPoint, em);
+
+  if (!existingInstruction) {
+    mode = new (context) SpirvExecutionMode(loc, entryPoint, em, params);
+    mod->addExecutionMode(mode);
+  } else {
+    mode = existingInstruction;
+  }
+
+  return mode;
+}
+
+SpirvInstruction *
+SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
+                               llvm::ArrayRef<SpirvInstruction *> params,
+                               SourceLocation loc) {
+  SpirvExecutionMode *mode = nullptr;
+  SpirvExecutionMode *existingInstruction =
+      mod->findExecutionMode(entryPoint, em);
+
+  if (!existingInstruction) {
+    mode = new (context) SpirvExecutionMode(loc, entryPoint, em, params);
     mod->addExecutionMode(mode);
   } else {
     mode = existingInstruction;

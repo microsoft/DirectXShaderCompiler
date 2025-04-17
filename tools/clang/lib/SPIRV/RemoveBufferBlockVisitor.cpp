@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 #include "RemoveBufferBlockVisitor.h"
@@ -38,6 +41,8 @@ bool RemoveBufferBlockVisitor::hasStorageBufferInterfaceType(
     } else if (const auto *elemType = dyn_cast<ArrayType>(type)) {
       type = elemType->getElementType();
     } else if (const auto *elemType = dyn_cast<RuntimeArrayType>(type)) {
+      type = elemType->getElementType();
+    } else if (const auto *elemType = dyn_cast<NodePayloadArrayType>(type)) {
       type = elemType->getElementType();
     } else {
       return false;

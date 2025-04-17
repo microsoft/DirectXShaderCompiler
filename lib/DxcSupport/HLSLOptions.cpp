@@ -6,6 +6,9 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
+// All rights reserved.                                                      //
+//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/WinIncludes.h"
@@ -1238,7 +1241,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   opts.SpirvOptions.targetEnv =
-      Args.getLastArgValue(OPT_fspv_target_env_EQ, "vulkan1.0");
+      Major > 6 || (Major == 6 && Minor > 7)
+          ? Args.getLastArgValue(OPT_fspv_target_env_EQ, "vulkan1.3")
+          : Args.getLastArgValue(OPT_fspv_target_env_EQ, "vulkan1.0");
 
   llvm::APInt maxId;
 

@@ -126,6 +126,9 @@ public:
                                        SourceRange range = {});
 
 private:
+  bool handleNodePayloadArrayType(const ParmVarDecl *decl,
+                                  SpirvInstruction *instr);
+  void evaluateAttrArgExprs(const Decl *decl);
   void doFunctionDecl(const FunctionDecl *decl);
   void doVarDecl(const VarDecl *decl);
   void doRecordDecl(const RecordDecl *decl);
@@ -469,6 +472,9 @@ private:
                                 QualType toType, SourceLocation,
                                 SourceRange range = {});
 
+  SpirvInstruction *getAttrIntArg(ArrayRef<const DeclRefExpr *> exprs,
+                                  unsigned argNum, unsigned fallback);
+
 private:
   /// Processes HLSL instrinsic functions.
   SpirvInstruction *processIntrinsicCallExpr(const CallExpr *);
@@ -504,6 +510,9 @@ private:
   SpirvInstruction *
   processIntrinsicGetBufferContents(const CXXMemberCallExpr *);
 
+  /// Processes the 'Barrier' intrinsic function.
+  SpirvInstruction *processIntrinsicBarrier(const CallExpr *);
+
   /// Processes the 'GroupMemoryBarrier', 'GroupMemoryBarrierWithGroupSync',
   /// 'DeviceMemoryBarrier', 'DeviceMemoryBarrierWithGroupSync',
   /// 'AllMemoryBarrier', and 'AllMemoryBarrierWithGroupSync' intrinsic
@@ -511,6 +520,40 @@ private:
   SpirvInstruction *processIntrinsicMemoryBarrier(const CallExpr *,
                                                   bool isDevice, bool groupSync,
                                                   bool isAllBarrier);
+
+  /// Processes the 'GetRemainingRecursionLevels' intrinsic function.
+  SpirvInstruction *
+  processIntrinsicGetRemainingRecursionLevels(const CallExpr *callExpr);
+
+  /// Processes the 'IsValid' intrinsic function.
+  SpirvInstruction *processIntrinsicIsValid(const CXXMemberCallExpr *callExpr);
+
+  /// Processes the 'Get' intrinsic function for (arrays of) node records and
+  /// the array subscript operator for node record arrays.
+  SpirvInstruction *
+  processIntrinsicExtractRecordStruct(const CXXMemberCallExpr *callExpr);
+
+  /// Processes the 'GetGroupNodeOutputRecords' and 'GetThreadNodeOutputRecords'
+  /// intrinsic functions.
+  SpirvInstruction *
+  processIntrinsicGetNodeOutputRecords(const CXXMemberCallExpr *callExpr,
+                                       bool isGroupShared);
+
+  /// Processes the 'IncrementOutputCount' intrinsic function.
+  SpirvInstruction *
+  processIntrinsicIncrementOutputCount(const CXXMemberCallExpr *callExpr,
+                                       bool isGroupShared);
+
+  /// Processes the 'Count' intrinsic function for node input record arrays.
+  SpirvInstruction *
+  processIntrinsicGetRecordCount(const CXXMemberCallExpr *callExpr);
+
+  /// Processes the 'OutputComplete' intrinsic function.
+  void processIntrinsicOutputComplete(const CXXMemberCallExpr *callExpr);
+
+  /// Processes the 'FinishedCrossGroupSharing' intrinsic function.
+  SpirvInstruction *
+  processIntrinsicFinishedCrossGroupSharing(const CXXMemberCallExpr *callExpr);
 
   /// Processes the 'mad' intrinsic function.
   SpirvInstruction *processIntrinsicMad(const CallExpr *);

@@ -13165,6 +13165,17 @@ static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
     if (E->isTypeDependent() || E->isValueDependent() ||
         !E->isCXX11ConstantExpr(S.Context, &ArgNum)) {
       displayError = true;
+      if (DeclRefExpr *D = dyn_cast<DeclRefExpr>(E)) {
+        if (auto *Var = llvm::dyn_cast<VarDecl>(D->getDecl())) {
+          if (const Expr *Init = Var->getAnyInitializer()) {
+            if (Init->isCXX11ConstantExpr(S.Context, &ArgNum) &&
+                ArgNum.isInt()) {
+              value = ArgNum.getInt().getSExtValue();
+              displayError = false;
+            }
+          }
+        }
+      }
     } else {
       if (ArgNum.isInt()) {
         value = ArgNum.getInt().getSExtValue();
@@ -13810,6 +13821,16 @@ void ValidateDispatchGridValues(DiagnosticsEngine &Diags,
         << A.getName() << A.getRange();
 }
 
+void recordAttrArgs(Sema &S, const AttributeList &A, Attr *attr) {
+  auto *exprs = new (S.Context) SmallVector<const DeclRefExpr *, 4>();
+  for (unsigned i = 0; i < A.getNumArgs(); i++) {
+    exprs->push_back(
+        A.isArgExpr(i) ? dyn_cast_or_null<const DeclRefExpr>(A.getArgAsExpr(i))
+                       : nullptr);
+  }
+  S.Context.setAttrArgExprs(*exprs, attr);
+}
+
 void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
                                       bool &Handled) {
   DXASSERT_NOMSG(D != nullptr);
@@ -13940,7 +13961,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
     if (!declAttr) {
       return;
     }
-
+    recordAttrArgs(S, A, declAttr);
     break;
   case AttributeList::AT_HLSLMaxRecordsSharedWith: {
     declAttr = ValidateMaxRecordsSharedWithAttributes(S, D, A);
@@ -13967,6 +13988,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
     declAttr = ::new (S.Context) HLSLNodeIdAttr(
         A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr, 0),
         ValidateAttributeIntArg(S, A, 1), A.getAttributeSpellingListIndex());
+    recordAttrArgs(S, A, declAttr);
     break;
   case AttributeList::AT_HLSLNodeTrackRWInputSharing:
     declAttr = ::new (S.Context) HLSLNodeTrackRWInputSharingAttr(
@@ -14077,6 +14099,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
       auto numThreads = ::new (S.Context) HLSLNumThreadsAttr(
           A.getRange(), S.Context, X, Y, Z, A.getAttributeSpellingListIndex());
       declAttr = numThreads;
+      recordAttrArgs(S, A, declAttr);
     } else {
       // If the number of threads is invalid, diagnose and drop the attribute.
       S.Diags.Report(A.getLoc(), diag::warn_hlsl_numthreads_group_size)
@@ -14183,6 +14206,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
     declAttr = ::new (S.Context) HLSLNodeShareInputOfAttr(
         A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr, 0),
         ValidateAttributeIntArg(S, A, 1), A.getAttributeSpellingListIndex());
+    recordAttrArgs(S, A, declAttr);
     break;
   case AttributeList::AT_HLSLNodeDispatchGrid:
     declAttr = ::new (S.Context) HLSLNodeDispatchGridAttr(
@@ -14190,6 +14214,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
         A.getAttributeSpellingListIndex());
     ValidateDispatchGridValues(S.Diags, A, declAttr);
+    recordAttrArgs(S, A, declAttr);
     break;
   case AttributeList::AT_HLSLNodeMaxDispatchGrid:
     declAttr = ::new (S.Context) HLSLNodeMaxDispatchGridAttr(
@@ -14197,6 +14222,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
         A.getAttributeSpellingListIndex());
     ValidateDispatchGridValues(S.Diags, A, declAttr);
+    recordAttrArgs(S, A, declAttr);
     break;
   case AttributeList::AT_HLSLNodeMaxRecursionDepth:
     declAttr = ::new (S.Context) HLSLNodeMaxRecursionDepthAttr(
@@ -14206,6 +14232,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
       S.Diags.Report(declAttr->getLocation(),
                      diag::err_hlsl_maxrecursiondepth_exceeded)
           << declAttr->getRange();
+    recordAttrArgs(S, A, declAttr);
     break;
   default:
     Handled = false;

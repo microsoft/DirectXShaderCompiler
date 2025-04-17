@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 #include "GlPerVertex.h"
@@ -324,6 +327,9 @@ bool GlPerVertex::setClipCullDistanceType(SemanticIndexToTypeMap *typeMap,
 
 bool GlPerVertex::doGlPerVertexFacts(const NamedDecl *decl, QualType baseType,
                                      bool asInput) {
+  if (hlsl::IsHLSLNodeType(baseType)) {
+    return true;
+  }
 
   llvm::StringRef semanticStr;
   const hlsl::Semantic *semantic = {};

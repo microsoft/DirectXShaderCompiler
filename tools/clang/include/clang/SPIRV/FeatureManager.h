@@ -4,6 +4,10 @@
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
+//
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 //
 //  This file defines a SPIR-V version and extension manager.
@@ -57,6 +61,7 @@ enum class Extension {
   KHR_ray_query,
   EXT_shader_image_int64,
   KHR_physical_storage_buffer,
+  AMD_shader_enqueue,
   KHR_vulkan_memory_model,
   NV_compute_shader_derivatives,
   KHR_compute_shader_derivatives,
