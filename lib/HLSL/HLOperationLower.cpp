@@ -6206,6 +6206,7 @@ Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                  HLOperandIndex::kHitObjectMakeMiss_NumOp);
   Value *RayFlags = CI->getArgOperand(SrcIdx++);
   Value *MissShaderIdx = CI->getArgOperand(SrcIdx++);
+  DXASSERT_NOMSG(SrcIdx == HLOperandIndex::kHitObjectMakeMissRayDescOpIdx);
   Value *RayDescOrigin = CI->getArgOperand(SrcIdx++);
   Value *RayDescOriginX =
       Builder.CreateExtractElement(RayDescOrigin, (uint64_t)0);
