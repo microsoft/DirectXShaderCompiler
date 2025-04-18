@@ -19,6 +19,8 @@
 #include <functional>
 #include <unordered_set>
 
+#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
@@ -5718,23 +5720,9 @@ Value *TranslateCallShader(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return Builder.CreateCall(F, {opArg, ShaderIndex, Parameter});
 }
 
-Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
-                         HLOperationLowerHelper &helper,
-                         HLObjectOperationLowerHelper *pObjHelper,
-                         bool &Translated) {
-  hlsl::OP *hlslOP = &helper.hlslOP;
-
-  Value *rayDesc = CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx);
-  Value *payLoad = CI->getArgOperand(HLOperandIndex::kTraceRayPayLoadOpIdx);
-
-  Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
-
-  Value *Args[DXIL::OperandIndex::kTraceRayNumOp];
-  Args[0] = opArg;
-  for (unsigned i = 1; i < HLOperandIndex::kTraceRayRayDescOpIdx; i++) {
-    Args[i] = CI->getArgOperand(i);
-  }
-  IRBuilder<> Builder(CI);
+static unsigned LoadRayDescElementsIntoArgs(Value **Args, hlsl::OP *OP,
+                                            IRBuilder<> &Builder,
+                                            Value *RayDescPtr, unsigned Index) {
   // struct RayDesc
   //{
   //    float3 Origin;
@@ -5742,34 +5730,51 @@ Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   //    float3 Direction;
   //    float  TMax;
   //};
-  Value *zeroIdx = hlslOP->GetU32Const(0);
-  Value *origin = Builder.CreateGEP(rayDesc, {zeroIdx, zeroIdx});
-  origin = Builder.CreateLoad(origin);
-  unsigned index = DXIL::OperandIndex::kTraceRayRayDescOpIdx;
-  Args[index++] = Builder.CreateExtractElement(origin, (uint64_t)0);
-  Args[index++] = Builder.CreateExtractElement(origin, 1);
-  Args[index++] = Builder.CreateExtractElement(origin, 2);
+  Value *ZeroIdx = OP->GetU32Const(0);
+  Value *Origin = Builder.CreateGEP(RayDescPtr, {ZeroIdx, ZeroIdx});
+  Origin = Builder.CreateLoad(Origin);
+  Args[Index++] = Builder.CreateExtractElement(Origin, (uint64_t)0);
+  Args[Index++] = Builder.CreateExtractElement(Origin, 1);
+  Args[Index++] = Builder.CreateExtractElement(Origin, 2);
 
-  Value *tmin = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(1)});
-  tmin = Builder.CreateLoad(tmin);
-  Args[index++] = tmin;
+  Value *TMinPtr = Builder.CreateGEP(RayDescPtr, {ZeroIdx, OP->GetU32Const(1)});
+  Args[Index++] = Builder.CreateLoad(TMinPtr);
 
-  Value *direction =
-      Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(2)});
-  direction = Builder.CreateLoad(direction);
+  Value *DirectionPtr =
+      Builder.CreateGEP(RayDescPtr, {ZeroIdx, OP->GetU32Const(2)});
+  Value *Direction = Builder.CreateLoad(DirectionPtr);
 
-  Args[index++] = Builder.CreateExtractElement(direction, (uint64_t)0);
-  Args[index++] = Builder.CreateExtractElement(direction, 1);
-  Args[index++] = Builder.CreateExtractElement(direction, 2);
+  Args[Index++] = Builder.CreateExtractElement(Direction, (uint64_t)0);
+  Args[Index++] = Builder.CreateExtractElement(Direction, 1);
+  Args[Index++] = Builder.CreateExtractElement(Direction, 2);
 
-  Value *tmax = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(3)});
-  tmax = Builder.CreateLoad(tmax);
-  Args[index++] = tmax;
+  Value *TMaxPtr = Builder.CreateGEP(RayDescPtr, {ZeroIdx, OP->GetU32Const(3)});
+  Args[Index++] = Builder.CreateLoad(TMaxPtr);
+  return Index;
+}
 
-  Args[DXIL::OperandIndex::kTraceRayPayloadOpIdx] = payLoad;
+Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+                         HLOperationLowerHelper &Helper,
+                         HLObjectOperationLowerHelper *pObjHelper,
+                         bool &Translated) {
+  hlsl::OP *OP = &Helper.hlslOP;
 
-  Type *Ty = payLoad->getType();
-  Function *F = hlslOP->GetOpFunc(opcode, Ty);
+  Value *RayDesc = CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx);
+  Value *PayLoad = CI->getArgOperand(HLOperandIndex::kTraceRayPayLoadOpIdx);
+
+  Value *Args[DXIL::OperandIndex::kTraceRayNumOp];
+  Args[0] = OP->GetU32Const(static_cast<unsigned>(OpCode));
+  for (unsigned i = 1; i < HLOperandIndex::kTraceRayRayDescOpIdx; i++)
+    Args[i] = CI->getArgOperand(i);
+
+  IRBuilder<> Builder(CI);
+  LoadRayDescElementsIntoArgs(Args, OP, Builder, RayDesc,
+                              DXIL::OperandIndex::kTraceRayRayDescOpIdx);
+
+  Args[DXIL::OperandIndex::kTraceRayPayloadOpIdx] = PayLoad;
+
+  Type *Ty = PayLoad->getType();
+  Function *F = OP->GetOpFunc(OpCode, Ty);
 
   return Builder.CreateCall(F, Args);
 }
@@ -6307,7 +6312,37 @@ Value *TranslateHitObjectTraceRay(CallInst *CI, IntrinsicOp IOP,
                                   HLOperationLowerHelper &Helper,
                                   HLObjectOperationLowerHelper *pObjHelper,
                                   bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  const unsigned DxilNumArgs = DxilInst_HitObject_TraceRay::arg_payload + 1;
+  DXASSERT_NOMSG(CI->getNumArgOperands() ==
+                 HLOperandIndex::kHitObjectTraceRay_NumOp);
+  Value *Args[DxilNumArgs];
+  Value *OpArg = OP->GetU32Const(static_cast<unsigned>(OpCode));
+  Args[0] = OpArg;
+
+  unsigned DestIdx = 1, SrcIdx = 1;
+  Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
+  Args[DestIdx++] = CI->getArgOperand(SrcIdx++);
+  for (; SrcIdx < HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx;
+       ++SrcIdx, ++DestIdx) {
+    Args[DestIdx] = CI->getArgOperand(SrcIdx);
+  }
+
+  Value *RayDescPtr = CI->getArgOperand(SrcIdx++);
+  DestIdx = LoadRayDescElementsIntoArgs(Args, OP, Builder, RayDescPtr, DestIdx);
+  Value *Payload = CI->getArgOperand(SrcIdx++);
+  Args[DestIdx++] = Payload;
+
+  DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
+  DXASSERT_NOMSG(DestIdx == DxilNumArgs);
+
+  Function *F = OP->GetOpFunc(OpCode, Payload->getType());
+
+  Value *OutHitObject = Builder.CreateCall(F, Args);
+  Builder.CreateStore(OutHitObject, HitObjectPtr);
+  return nullptr;
 }
 
 Value *TranslateHitObjectInvoke(CallInst *CI, IntrinsicOp IOP,
@@ -6315,7 +6350,16 @@ Value *TranslateHitObjectInvoke(CallInst *CI, IntrinsicOp IOP,
                                 HLOperationLowerHelper &Helper,
                                 HLObjectOperationLowerHelper *pObjHelper,
                                 bool &Translated) {
-  return nullptr; // TODO: Merge SER DXIL patches
+  unsigned SrcIdx = 1;
+  Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
+  Value *Payload = CI->getArgOperand(SrcIdx++);
+  DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
+
+  IRBuilder<> Builder(CI);
+  Value *HitObject = Builder.CreateLoad(HitObjectPtr);
+  TrivialDxilOperation(OpCode, {nullptr, HitObject, Payload},
+                       Payload->getType(), CI, &Helper.hlslOP);
+  return nullptr;
 }
 
 Value *TranslateHitObjectGetAttributes(CallInst *CI, IntrinsicOp IOP,
