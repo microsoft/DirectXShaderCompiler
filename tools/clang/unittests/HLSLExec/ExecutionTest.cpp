@@ -12163,9 +12163,7 @@ void ExecutionTest::LongVectorOpTestBase(
   LogCommentFmt(L"Running LongVectorOpTestBase<%S, %zu>", typeid(T).name(), N);
 
   CComPtr<ID3D12Device> D3DDevice;
-  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9) &&
-      !m_ExperimentalModeEnabled) {
-
+  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
 #ifdef _HLK_CONF
     LogErrorFmtThrow(L"Device does not support SM 6.9. Can't run these tests.");
   }
