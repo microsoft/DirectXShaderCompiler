@@ -470,15 +470,13 @@ inline bool GetTestParamUseWARP(bool defaultVal) {
 
 #ifdef FP_SUBNORMAL
 
-template <typename T = float>
-inline bool isdenorm(T f) {
+template <typename T = float> inline bool isdenorm(T f) {
   return FP_SUBNORMAL == std::fpclassify(f);
 }
 
 #else
 
-template <typename T = float>
-inline bool isdenorm(T f) {
+template <typename T = float> inline bool isdenorm(T f) {
   return (std::numeric_limits<T>::denorm_min() <= f &&
           f < std::numeric_limits<T>::min()) ||
          (-std::numeric_limits<T>::min() < f &&
