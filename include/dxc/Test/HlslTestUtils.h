@@ -470,15 +470,19 @@ inline bool GetTestParamUseWARP(bool defaultVal) {
 
 #ifdef FP_SUBNORMAL
 
-inline bool isdenorm(float f) { return FP_SUBNORMAL == std::fpclassify(f); }
+template <typename T = float>
+inline bool isdenorm(T f) {
+  return FP_SUBNORMAL == std::fpclassify(f);
+}
 
 #else
 
-inline bool isdenorm(float f) {
-  return (std::numeric_limits<float>::denorm_min() <= f &&
-          f < std::numeric_limits<float>::min()) ||
-         (-std::numeric_limits<float>::min() < f &&
-          f <= -std::numeric_limits<float>::denorm_min());
+template <typename T = float>
+inline bool isdenorm(T f) {
+  return (std::numeric_limits<T>::denorm_min() <= f &&
+          f < std::numeric_limits<T>::min()) ||
+         (-std::numeric_limits<T>::min() < f &&
+          f <= -std::numeric_limits<T>::denorm_min());
 }
 
 #endif // FP_SUBNORMAL
@@ -525,6 +529,31 @@ inline bool isnanFloat16(uint16_t val) {
 // These are defined in ShaderOpTest.cpp using DirectXPackedVector functions.
 uint16_t ConvertFloat32ToFloat16(float val) throw();
 float ConvertFloat16ToFloat32(uint16_t val) throw();
+
+inline bool CompareDoubleULP(
+    const double &fsrc, const double &fref, int64_t ULPTolerance,
+    hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
+  if (fsrc == fref) {
+    return true;
+  }
+  if (std::isnan(fsrc)) {
+    return std::isnan(fref);
+  }
+
+  if (mode == hlsl::DXIL::Float32DenormMode::Any) {
+    // If denorm expected, output can be sign preserved zero. Otherwise output
+    // should pass the regular ulp testing.
+    if (isdenorm(fref) && fsrc == 0 && std::signbit(fsrc) == std::signbit(fref))
+      return true;
+  }
+
+  // For FTZ or Preserve mode, we should get the expected number within
+  // ULPTolerance for any operations.
+  int64_t diff = *((const DWORD64 *)&fsrc) - *((const DWORD64 *)&fref);
+
+  int64_t uDiff = diff < 0 ? -diff : diff;
+  return uDiff <= (unsigned int)ULPTolerance;
+}
 
 inline bool CompareFloatULP(
     const float &fsrc, const float &fref, int ULPTolerance,
