@@ -28,7 +28,7 @@ void cs_main()
 
     // CHECK: %[[MLD0:[^ ]+]] = load %struct.ByteAddressBuffer, %struct.ByteAddressBuffer* @"\01?matrix_buffer@@3UByteAddressBuffer@@A"
     // CHECK: %[[MCH0:[^ ]+]] = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.ByteAddressBuffer)"(i32 0, %struct.ByteAddressBuffer %[[MLD0]])
-    // CHECK: %[[MAH0:[^ ]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.ByteAddressBuffer)"(i32 14, %dx.types.Handle %[[MCH0]] %dx.types.ResourceProperties { i32 11, i32 0 }, %struct.ByteAddressBuffer undef)
+    // CHECK: %[[MAH0:[^ ]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.ByteAddressBuffer)"(i32 14, %dx.types.Handle %[[MCH0]], %dx.types.ResourceProperties { i32 11, i32 0 }, %struct.ByteAddressBuffer undef)
     // CHECK: call void @"dx.hl.op..void (i32, <4 x float>*, i1, <4 x float>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <4 x float>* %{{[^ ]+}}, i1 false, <4 x float> %{{[^ ]+}}, i1 false, i32 9, %dx.types.Handle %[[MAH0]], i32 0, i32 9, i32 4, i32 4, i32 0, i1 false, i32 64)
     __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
       is_input_unsigned, input_interpretation, matrix_buffer, matrix_offset,
