@@ -34,7 +34,7 @@ protected:
     m_dll = LoadLibraryA(dllName);
     if (m_dll == nullptr)
       return HRESULT_FROM_WIN32(GetLastError());
-    m_createFn = (DxcCreateInstanceProc)GetProcAddress(m_dll, fnName);
+    m_createFn = reinterpret_cast<DxcCreateInstanceProc>(reinterpret_cast<void *>(GetProcAddress(m_dll, fnName)));
 
     if (m_createFn == nullptr) {
       HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
@@ -64,7 +64,7 @@ protected:
       fnName2[s] = '2';
       fnName2[s + 1] = '\0';
 #ifdef _WIN32
-      m_createFn2 = (DxcCreateInstance2Proc)GetProcAddress(m_dll, fnName2);
+      m_createFn2 = reinterpret_cast<DxcCreateInstance2Proc>(reinterpret_cast<void *>(GetProcAddress(m_dll, fnName2)));
 #else
       m_createFn2 = (DxcCreateInstance2Proc)::dlsym(m_dll, fnName2);
 #endif
