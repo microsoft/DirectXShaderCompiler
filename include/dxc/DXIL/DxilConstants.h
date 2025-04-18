@@ -147,11 +147,18 @@ const unsigned kMaxMSTotalSigRows = 32;
 const unsigned kMaxMSSMSize = 1024 * 28;
 const unsigned kMinWaveSize = 4;
 const unsigned kMaxWaveSize = 128;
+const unsigned kDefaultMaxVectorLength = 4;
+const unsigned kSM69MaxVectorLength = 1024;
 
 const float kMaxMipLodBias = 15.99f;
 const float kMinMipLodBias = -16.0f;
 
 const unsigned kResRetStatusIndex = 4;
+
+/* <py::lines('OLOAD_DIMS-TEXT')>hctdb_instrhelp.get_max_oload_dims()</py>*/
+// OLOAD_DIMS-TEXT:BEGIN
+const unsigned kDxilMaxOloadDims = 2;
+// OLOAD_DIMS-TEXT:END
 
 enum class ComponentType : uint32_t {
   Invalid = 0,
@@ -463,6 +470,11 @@ inline bool IsTBuffer(DXIL::ResourceKind ResourceKind) {
   return ResourceKind == DXIL::ResourceKind::TBuffer;
 }
 
+inline bool IsCTBuffer(DXIL::ResourceKind ResourceKind) {
+  return ResourceKind == DXIL::ResourceKind::CBuffer ||
+         ResourceKind == DXIL::ResourceKind::TBuffer;
+}
+
 /// Whether the resource kind is a FeedbackTexture.
 inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
   return ResourceKind == DXIL::ResourceKind::FeedbackTexture2D ||
@@ -490,37 +502,9 @@ enum class OpCode : unsigned {
   ReservedA0 = 259,  // reserved
   ReservedA1 = 260,  // reserved
   ReservedA2 = 261,  // reserved
-  ReservedB0 = 262,  // reserved
-  ReservedB1 = 263,  // reserved
-  ReservedB10 = 272, // reserved
-  ReservedB11 = 273, // reserved
-  ReservedB12 = 274, // reserved
-  ReservedB13 = 275, // reserved
-  ReservedB14 = 276, // reserved
-  ReservedB15 = 277, // reserved
-  ReservedB16 = 278, // reserved
-  ReservedB17 = 279, // reserved
-  ReservedB18 = 280, // reserved
-  ReservedB19 = 281, // reserved
-  ReservedB2 = 264,  // reserved
-  ReservedB20 = 282, // reserved
-  ReservedB21 = 283, // reserved
-  ReservedB22 = 284, // reserved
-  ReservedB23 = 285, // reserved
-  ReservedB24 = 286, // reserved
-  ReservedB25 = 287, // reserved
-  ReservedB26 = 288, // reserved
-  ReservedB27 = 289, // reserved
   ReservedB28 = 290, // reserved
   ReservedB29 = 291, // reserved
-  ReservedB3 = 265,  // reserved
   ReservedB30 = 292, // reserved
-  ReservedB4 = 266,  // reserved
-  ReservedB5 = 267,  // reserved
-  ReservedB6 = 268,  // reserved
-  ReservedB7 = 269,  // reserved
-  ReservedB8 = 270,  // reserved
-  ReservedB9 = 271,  // reserved
   ReservedC0 = 293,  // reserved
   ReservedC1 = 294,  // reserved
   ReservedC2 = 295,  // reserved
@@ -888,8 +872,11 @@ enum class OpCode : unsigned {
   GetDimensions = 72,   // gets texture size information
   RawBufferLoad = 139,  // reads from a raw buffer and structured buffer
   RawBufferStore = 140, // writes to a RWByteAddressBuffer or RWStructuredBuffer
-  TextureLoad = 66,     // reads texel data without any filtering or sampling
-  TextureStore = 67,    // reads texel data without any filtering or sampling
+  RawBufferVectorLoad = 303, // reads from a raw buffer and structured buffer
+  RawBufferVectorStore =
+      304,           // writes to a RWByteAddressBuffer or RWStructuredBuffer
+  TextureLoad = 66,  // reads texel data without any filtering or sampling
+  TextureStore = 67, // reads texel data without any filtering or sampling
   TextureStoreSample = 225, // stores texel data at specified sample index
 
   // Sampler Feedback
@@ -901,6 +888,49 @@ enum class OpCode : unsigned {
                                    // operation with explicit gradients
   WriteSamplerFeedbackLevel = 176, // updates a feedback texture for a sampling
                                    // operation with a mipmap-level offset
+
+  // Shader Execution Reordering
+  HitObject_Attributes = 289,   // Returns the attributes set for this HitObject
+  HitObject_FromRayQuery = 263, // Creates a new HitObject representing a
+                                // committed hit from a RayQuery
+  HitObject_FromRayQueryWithAttrs =
+      264, // Creates a new HitObject representing a committed hit from a
+           // RayQuery and committed attributes
+  HitObject_GeometryIndex = 281, // Returns the geometry index committed on hit
+  HitObject_HitKind = 285,       // Returns the HitKind of the hit
+  HitObject_InstanceID = 283,    // Returns the instance id committed on hit
+  HitObject_InstanceIndex = 282, // Returns the instance index committed on hit
+  HitObject_Invoke = 267, // Represents the invocation of the CH/MS shader
+                          // represented by the HitObject
+  HitObject_IsHit = 270,  // Returns `true` if the HitObject is a NOP-HitObject
+  HitObject_IsMiss = 269, // Returns `true` if the HitObject represents a miss
+  HitObject_IsNop = 271,  // Returns `true` if the HitObject represents a nop
+  HitObject_LoadLocalRootTableConstant =
+      288, // Returns the root table constant for this HitObject and offset
+  HitObject_MakeMiss = 265, // Creates a new HitObject representing a miss
+  HitObject_MakeNop = 266,  // Creates an empty nop HitObject
+  HitObject_ObjectRayDirection =
+      278,                          // Returns the ray direction in object space
+  HitObject_ObjectRayOrigin = 277,  // Returns the ray origin in object space
+  HitObject_ObjectToWorld3x4 = 279, // Returns the object to world space
+                                    // transformation matrix in 3x4 form
+  HitObject_PrimitiveIndex =
+      284,                  // Returns the primitive index committed on hit
+  HitObject_RayFlags = 272, // Returns the ray flags set in the HitObject
+  HitObject_RayTCurrent =
+      274,                 // Returns the current T value set in the HitObject
+  HitObject_RayTMin = 273, // Returns the TMin value set in the HitObject
+  HitObject_SetShaderTableIndex =
+      287, // Returns a HitObject with updated shader table index
+  HitObject_ShaderTableIndex =
+      286, // Returns the shader table index set for this HitObject
+  HitObject_TraceRay = 262, // Analogous to TraceRay but without invoking CH/MS
+                            // and returns the intermediate state as a HitObject
+  HitObject_WorldRayDirection = 276, // Returns the ray direction in world space
+  HitObject_WorldRayOrigin = 275,    // Returns the ray origin in world space
+  HitObject_WorldToObject3x4 = 280,  // Returns the world to object space
+                                     // transformation matrix in 3x4 form
+  MaybeReorderThread = 268,          // Reorders the current thread
 
   // Synchronization
   AtomicBinOp = 78,           // performs an atomic operation on two operands
@@ -1030,7 +1060,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_7 = 226,
   NumOpCodes_Dxil_1_8 = 258,
 
-  NumOpCodes = 303 // exclusive last value of enumeration
+  NumOpCodes = 305 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1264,6 +1294,8 @@ enum class OpCodeClass : unsigned {
   GetDimensions,
   RawBufferLoad,
   RawBufferStore,
+  RawBufferVectorLoad,
+  RawBufferVectorStore,
   TextureLoad,
   TextureStore,
   TextureStoreSample,
@@ -1273,6 +1305,21 @@ enum class OpCodeClass : unsigned {
   WriteSamplerFeedbackBias,
   WriteSamplerFeedbackGrad,
   WriteSamplerFeedbackLevel,
+
+  // Shader Execution Reordering
+  HitObject_Attributes,
+  HitObject_FromRayQuery,
+  HitObject_FromRayQueryWithAttrs,
+  HitObject_Invoke,
+  HitObject_LoadLocalRootTableConstant,
+  HitObject_MakeMiss,
+  HitObject_MakeNop,
+  HitObject_SetShaderTableIndex,
+  HitObject_StateMatrix,
+  HitObject_StateScalar,
+  HitObject_StateVector,
+  HitObject_TraceRay,
+  MaybeReorderThread,
 
   // Synchronization
   AtomicBinOp,
@@ -1338,7 +1385,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
 
-  NumOpClasses = 175 // exclusive last value of enumeration
+  NumOpClasses = 190 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1397,6 +1444,12 @@ const unsigned kRawBufferLoadElementOffsetOpIdx = 3;
 const unsigned kRawBufferLoadMaskOpIdx = 4;
 const unsigned kRawBufferLoadAlignmentOpIdx = 5;
 
+// RawBufferVectorLoad.
+const unsigned kRawBufferVectorLoadHandleOpIdx = 1;
+const unsigned kRawBufferVectorLoadIndexOpIdx = 2;
+const unsigned kRawBufferVectorLoadElementOffsetOpIdx = 3;
+const unsigned kRawBufferVectorLoadAlignmentOpIdx = 4;
+
 // RawBufferStore
 const unsigned kRawBufferStoreHandleOpIdx = 1;
 const unsigned kRawBufferStoreIndexOpIdx = 2;
@@ -1406,7 +1459,14 @@ const unsigned kRawBufferStoreVal1OpIdx = 5;
 const unsigned kRawBufferStoreVal2OpIdx = 6;
 const unsigned kRawBufferStoreVal3OpIdx = 7;
 const unsigned kRawBufferStoreMaskOpIdx = 8;
-const unsigned kRawBufferStoreAlignmentOpIdx = 8;
+const unsigned kRawBufferStoreAlignmentOpIdx = 9;
+
+// RawBufferVectorStore
+const unsigned kRawBufferVectorStoreHandleOpIdx = 1;
+const unsigned kRawBufferVectorStoreIndexOpIdx = 2;
+const unsigned kRawBufferVectorStoreElementOffsetOpIdx = 3;
+const unsigned kRawBufferVectorStoreValOpIdx = 4;
+const unsigned kRawBufferVectorStoreAlignmentOpIdx = 5;
 
 // TextureStore.
 const unsigned kTextureStoreHandleOpIdx = 1;
@@ -1820,7 +1880,7 @@ enum class RayFlag : uint32_t {
   CullNonOpaque = 0x80,
   SkipTriangles = 0x100,
   SkipProceduralPrimitives = 0x200,
-  ForceOMM2State = 0x400, // Force 2-state in Opacity Micromaps
+  ForceOMM2State = 0x400
 };
 
 // Corresponds to RAYQUERY_FLAG_* in HLSL
@@ -1869,7 +1929,9 @@ enum class BarrierSemanticFlag : uint32_t {
   GroupSync = 0x00000001,   // GROUP_SYNC
   GroupScope = 0x00000002,  // GROUP_SCOPE
   DeviceScope = 0x00000004, // DEVICE_SCOPE
-  ValidMask = 0x00000007,
+  LegacyFlags = 0x00000007,
+  ReorderScope = 0x00000008, // REORDER_SCOPE
+  ValidMask = 0x0000000F,
   GroupFlags = GroupSync | GroupScope,
 };
 

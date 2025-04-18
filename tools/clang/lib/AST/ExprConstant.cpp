@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 //
 // This file implements the Expr constant evaluator.
@@ -7828,6 +7831,12 @@ bool IntExprEvaluator::VisitCastExpr(const CastExpr *E) {
     if (!HandleFloatToIntCast(Info, E, SrcType, F, DestType, Value))
       return false;
     return Success(Value, E);
+  }
+
+  // HLSL Change Starts
+  case CK_VK_BufferPointerToIntegral: {
+    return false;
+    // HLSL Change Ends
   }
   }
 

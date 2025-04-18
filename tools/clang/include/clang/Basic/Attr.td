@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 class DocumentationCategory<string name> {
@@ -851,6 +854,12 @@ def HLSLGloballyCoherent : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLReorderCoherent : InheritableAttr {
+  let Spellings = [CXX11<"", "reordercoherent", 2015>];
+  let Subjects = SubjectList<[Var, Function]>;
+  let Documentation = [Undocumented];
+}
+
 def HLSLShader : InheritableAttr {
   let Spellings = [CXX11<"", "shader", 2017>];
   let Args = [StringArgument<"stage">]; // one of compute, pixel, vertex, hull, domain, geometry, node
@@ -939,6 +948,52 @@ def HLSLCXXOverload : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLVector : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLMatrix : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLTessPatch : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [BoolArgument<"IsInput">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLStreamOutput : InheritableAttr {
+  let Spellings = []; // No spellings!
+  // PrimVertices are the number of vertices that make up the streamed
+  // primitive. Points have 1. Lines have 2. Triangles have 3.
+  let Args = [UnsignedArgument<"PrimVertices">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLResource : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [UnsignedArgument<"ResKindUint">,
+              UnsignedArgument<"ResClassUint">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+
+  // Add enum typed getters for safety and brevity.
+  let AdditionalMembers = [{
+  hlsl::DXIL::ResourceKind getResKind() const {
+    return (hlsl::DXIL::ResourceKind)getResKindUint();
+  }
+  hlsl::DXIL::ResourceClass getResClass() const {
+    return (hlsl::DXIL::ResourceClass)getResClassUint();
+  }
+  }];
+}
+
 def HLSLNodeLaunch : InheritableAttr {
   let Spellings = [CXX11<"", "nodelaunch", 2017>];
   let Args = [StringArgument<"LaunchType">]; // one of broadcasting, coalescing, thread
@@ -988,13 +1043,6 @@ def HLSLNodeMaxRecursionDepth : InheritableAttr {
 
 def HLSLNodeTrackRWInputSharing : InheritableAttr {
   let Spellings = [CXX11<"", "nodetrackrwinputsharing", 2017>];
-  let Subjects = SubjectList<[CXXRecord]>;
-  let Documentation = [Undocumented];
-}
-
-def HLSLResource : InheritableAttr {
-  let Spellings = []; // No spellings!
-  let Args = [UnsignedArgument<"ResKind">, UnsignedArgument<"ResClass">];
   let Subjects = SubjectList<[CXXRecord]>;
   let Documentation = [Undocumented];
 }
@@ -1110,6 +1158,28 @@ def HLSLNodeObject : InheritableAttr {
     }];
 }
 
+// HLSL Ray Query Attribute
+
+def HLSLRayQueryObject : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLSubObject : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+  let Args = [UnsignedArgument<"SubObjKindUint">, UnsignedArgument<"HitGroupType">];
+}
+
+// HLSL HitObject Attribute
+
+def HLSLHitObject : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
 
 // HLSL Parameter Attributes
 
@@ -1382,6 +1452,20 @@ def VKStorageClassExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_storage_class">];
   let Subjects = SubjectList<[Var, ParmVar], ErrorDiag>;
   let Args = [UnsignedArgument<"stclass">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKBufferPointer : InheritableAttr {
+  let Spellings = [CXX11<"", "hlsl_vk_buffer_pointer", 2021>];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKAliasedPointer : InheritableAttr {
+  let Spellings = [CXX11<"vk", "aliased_pointer">];
+  let Subjects = SubjectList<[Var, ParmVar], ErrorDiag>;
+  let Args = [];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }

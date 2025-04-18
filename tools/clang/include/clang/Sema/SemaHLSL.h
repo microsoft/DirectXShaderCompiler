@@ -128,6 +128,8 @@ unsigned CaculateInitListArraySizeForHLSL(clang::Sema *sema,
                                           const clang::InitListExpr *InitList,
                                           const clang::QualType EltTy);
 
+bool ContainsLongVector(clang::QualType);
+
 bool IsConversionToLessOrEqualElements(clang::Sema *self,
                                        const clang::ExprResult &sourceExpr,
                                        const clang::QualType &targetType,
@@ -201,7 +203,8 @@ void Indent(unsigned int Indentation, llvm::raw_ostream &Out);
 void GetHLSLAttributedTypes(clang::Sema *self, clang::QualType type,
                             const clang::AttributedType **ppMatrixOrientation,
                             const clang::AttributedType **ppNorm,
-                            const clang::AttributedType **ppGLC);
+                            const clang::AttributedType **ppGLC,
+                            const clang::AttributedType **ppRDC);
 
 bool IsMatrixType(clang::Sema *self, clang::QualType type);
 bool IsVectorType(clang::Sema *self, clang::QualType type);

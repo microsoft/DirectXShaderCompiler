@@ -37,6 +37,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/MD5.h"
+#include "llvm/Support/TimeProfiler.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <algorithm>
 #include <assert.h> // Needed for DxilPipelineStateValidation.h
@@ -1056,6 +1057,9 @@ private:
       if (pRes->IsGloballyCoherent())
         info.Flags |=
             static_cast<uint32_t>(RDAT::DxilResourceFlag::UAVGloballyCoherent);
+      if (pRes->IsReorderCoherent())
+        info.Flags |=
+            static_cast<uint32_t>(RDAT::DxilResourceFlag::UAVReorderCoherent);
       if (pRes->IsROV())
         info.Flags |= static_cast<uint32_t>(
             RDAT::DxilResourceFlag::UAVRasterizerOrderedView);
@@ -1895,6 +1899,7 @@ void hlsl::SerializeDxilContainerForModule(
     DxilShaderHash *pShaderHashOut, AbstractMemoryStream *pReflectionStreamOut,
     AbstractMemoryStream *pRootSigStreamOut, void *pPrivateData,
     size_t PrivateDataSize) {
+  llvm::TimeTraceScope TimeScope("SerializeDxilContainer", StringRef(""));
   // TODO: add a flag to update the module and remove information that is not
   // part of DXIL proper and is used only to assemble the container.
 

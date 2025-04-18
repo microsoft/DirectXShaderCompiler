@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 #include "LowerTypeVisitor.h"
@@ -549,7 +552,9 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     // checking the general struct type.
     if (const auto *spvType =
             lowerResourceType(type, rule, isRowMajor, srcLoc)) {
-      spvContext.registerStructDeclForSpirvType(spvType, decl);
+      if (!isa<SpirvPointerType>(spvType)) {
+        spvContext.registerStructDeclForSpirvType(spvType, decl);
+      }
       return spvType;
     }
 
@@ -809,6 +814,32 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     QualType realType = hlsl::GetHLSLResourceTemplateParamType(type);
     return lowerType(realType, rule, llvm::None, srcLoc);
   }
+  if (name == "BufferPointer") {
+    const size_t visitedTypeStackSize = visitedTypeStack.size();
+    (void)visitedTypeStackSize; // suppress unused warning (used only in assert)
+
+    for (QualType t : visitedTypeStack) {
+      if (t == type) {
+        return spvContext.getForwardPointerType(type);
+      }
+    }
+
+    QualType realType = hlsl::GetHLSLResourceTemplateParamType(type);
+    if (rule == SpirvLayoutRule::Void) {
+      rule = spvOptions.sBufferLayoutRule;
+    }
+    visitedTypeStack.push_back(type);
+
+    const SpirvType *spirvType = lowerType(realType, rule, llvm::None, srcLoc);
+    const auto *pointerType = spvContext.getPointerType(
+        spirvType, spv::StorageClass::PhysicalStorageBuffer);
+    spvContext.registerForwardReference(type, pointerType);
+
+    assert(visitedTypeStack.back() == type);
+    visitedTypeStack.pop_back();
+    assert(visitedTypeStack.size() == visitedTypeStackSize);
+    return pointerType;
+  }
   emitError("unknown type %0 in vk namespace", srcLoc) << type;
   return nullptr;
 }
@@ -833,26 +864,6 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
   }
 
   // TODO: avoid string comparison once hlsl::IsHLSLResouceType() does that.
-
-  // Vulkan does not yet support true 16-bit float texture objexts.
-  if (name == "Buffer" || name == "RWBuffer" || name == "Texture1D" ||
-      name == "Texture2D" || name == "Texture3D" || name == "TextureCube" ||
-      name == "Texture1DArray" || name == "Texture2DArray" ||
-      name == "Texture2DMS" || name == "Texture2DMSArray" ||
-      name == "TextureCubeArray" || name == "RWTexture1D" ||
-      name == "RWTexture2D" || name == "RWTexture3D" ||
-      name == "RWTexture1DArray" || name == "RWTexture2DArray") {
-    const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-    const auto loweredType =
-        lowerType(getElementType(astContext, sampledType), rule,
-                  /*isRowMajor*/ llvm::None, srcLoc);
-    if (const auto *floatType = dyn_cast<FloatType>(loweredType)) {
-      if (floatType->getBitwidth() == 16) {
-        emitError("16-bit texture types not yet supported with -spirv", srcLoc);
-        return nullptr;
-      }
-    }
-  }
 
   { // Texture types
     spv::Dim dim = {};

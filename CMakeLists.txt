@@ -19,15 +19,6 @@ if(POLICY CMP0022)
   cmake_policy(SET CMP0022 NEW) # automatic when 2.8.12 is required
 endif()
 
-if (POLICY CMP0051)
-  # CMake 3.1 and higher include generator expressions of the form
-  # $<TARGETLIB:obj> in the SOURCES property.  These need to be
-  # stripped everywhere that access the SOURCES property, so we just
-  # defer to the OLD behavior of not including generator expressions
-  # in the output for now.
-  cmake_policy(SET CMP0051 OLD)
-endif()
-
 if(CMAKE_VERSION VERSION_LESS 3.1.20141117)
   set(cmake_3_2_USES_TERMINAL)
 else()
@@ -696,6 +687,8 @@ add_subdirectory(include/dxc)
 # really depend on anything else in the build it is safe.
 list(APPEND LLVM_COMMON_DEPENDS HCTGen) 
 
+add_subdirectory(utils/hct)
+
 if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
   add_subdirectory(external) # SPIRV change
 endif()
@@ -779,9 +772,7 @@ if (LLVM_INCLUDE_DOCS)
   add_subdirectory(docs)
 endif()
 
-if (LLVM_BUILD_DOCS)
-  add_hlsl_hctgen(DxilDocs OUTPUT docs/DXIL.rst CODE_TAG) # HLSL Change
-endif()
+add_hlsl_hctgen(DxilDocs OUTPUT docs/DXIL.rst CODE_TAG) # HLSL Change
 
 add_subdirectory(cmake/modules)
 

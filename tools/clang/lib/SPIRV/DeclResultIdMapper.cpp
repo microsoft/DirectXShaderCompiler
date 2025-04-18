@@ -860,7 +860,7 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
         QualType arrayType = astContext.getConstantArrayType(
             type, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
 
-        stageVarInstructions[cast<DeclaratorDecl>(decl)] =
+        msOutIndicesBuiltin =
             getBuiltinVar(builtinID, arrayType, decl->getLocation());
       } else {
         // For NV_mesh_shader, the built type is PrimitiveIndicesNV
@@ -871,7 +871,7 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
             astContext.UnsignedIntTy, llvm::APInt(32, arraySize),
             clang::ArrayType::Normal, 0);
 
-        stageVarInstructions[cast<DeclaratorDecl>(decl)] =
+        msOutIndicesBuiltin =
             getBuiltinVar(builtinID, arrayType, decl->getLocation());
       }
 
@@ -3522,7 +3522,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
       // Decorate with PerPrimitiveNV for per-primitive out variables.
       spvBuilder.decoratePerPrimitiveNV(varInstr,
                                         varInstr->getSourceLocation());
-    } else {
+    } else if (stageVar.getSemanticInfo().getKind() !=
+               hlsl::Semantic::Kind::DomainLocation) {
       spvBuilder.decoratePatch(varInstr, varInstr->getSourceLocation());
     }
   }
