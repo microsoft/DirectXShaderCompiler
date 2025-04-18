@@ -628,7 +628,6 @@ public:
   bool m_D3DInitCompleted = false;
   bool m_ExperimentalModeEnabled = false;
   bool m_AgilitySDKEnabled = false;
-  bool m_HLKModeEnabled = false; // Prevent skip logic when running HLK tests.
 
   const float ClearColor[4] = {0.0f, 0.2f, 0.4f, 1.0f};
 
@@ -671,13 +670,6 @@ public:
         LogCommentFmt(L"Debug layer not enabled.");
       } else {
         LogCommentFmt(L"Debug layer enabled.");
-      }
-
-      hr = WEX::TestExecution::RuntimeParameters::TryGetValue(L"HLKModeEnabled",
-                                                              m_HLKModeEnabled);
-
-      if (SUCCEEDED(hr) && m_HLKModeEnabled) {
-        LogCommentFmt(L"HLK mode enabled.");
       }
     }
 
@@ -11433,6 +11425,9 @@ template <typename T> struct LongVectorOpTestConfig {
   LongVectorOpTestConfig(LongVectorOpType OpType) : OpType(OpType) {
     IntrinsicString = "";
 
+    if (IsFloatingPointType())
+      Tolerance = 1;
+
     switch (OpType) {
     case LongVectorOpType_ScalarAdd:
       OperatorString = "+";
@@ -11457,6 +11452,7 @@ template <typename T> struct LongVectorOpTestConfig {
       IntrinsicString = "max";
       break;
     case LongVectorOpType_Clamp:
+      OperatorString = ",";
       IntrinsicString = "TestClamp";
       IsBinaryOp = false;
       break;
@@ -11467,6 +11463,12 @@ template <typename T> struct LongVectorOpTestConfig {
     default:
       VERIFY_FAIL("Invalid LongVectorOpType");
     }
+  }
+
+  bool IsFloatingPointType() const {
+    return std::is_same_v<T, float> ||
+           std::is_same_v<T, double> ||
+           std::is_same_v<T, HLSLHalf_t>;
   }
 
   // A helper to get the hlsl type as a string for a given C++ type.
@@ -11565,7 +11567,7 @@ public:
     if constexpr (std::is_same_v<T, int64_t>)
       return Int64Dist(generator);
     if constexpr (std::is_same_v<T, float>)
-    return FloatDist(generator);
+      return FloatDist(generator);
     if constexpr (std::is_same_v<T, double>)
       return DoubleDist(generator);
     if constexpr (std::is_same_v<T, uint16_t>)
@@ -11618,20 +11620,19 @@ bool DoArraysMatch(const std::array<T, N> &ActualValues,
     } else if constexpr (std::is_same_v<T, HLSLHalf_t>) {
       const DirectX::PackedVector::HALF a = ActualValues[Index].val;
       const DirectX::PackedVector::HALF b = ExpectedValues[Index].val;
-      if(!CompareHalfULP(a, b, Tolerance))
-      {
+      if (!CompareHalfULP(a, b, Tolerance)) {
         MismatchedIndexes.push_back(Index);
       }
     } else if constexpr (std::is_same_v<T, float>) {
       const int IntTolerance = static_cast<int>(Tolerance);
-      if(!CompareFloatULP(ActualValues[Index], ExpectedValues[Index], IntTolerance))
-      {
+      if (!CompareFloatULP(ActualValues[Index], ExpectedValues[Index], IntTolerance)) {
         MismatchedIndexes.push_back(Index);
       }
     } else if constexpr (std::is_same_v<T, double>) {
-      WEX::Logging::Log::Warning(L"Double comparison not implemented yet. Defaulting to simple comparison for now.");
-      if(ActualValues[Index] != ExpectedValues[Index])
+      const int64_t IntTolerance = static_cast<int64_t>(Tolerance);
+      if (!CompareDoubleULP(ActualValues[Index], ExpectedValues[Index], IntTolerance)) {
         MismatchedIndexes.push_back(Index);
+      }
     } else if (Tolerance == 0 && ActualValues[Index] != ExpectedValues[Index]) {
       MismatchedIndexes.push_back(Index);
     } else {
@@ -12164,15 +12165,16 @@ void ExecutionTest::LongVectorOpTestBase(
   if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9) &&
       !m_ExperimentalModeEnabled) {
 
-    if (m_HLKModeEnabled) {
-      LogErrorFmtThrow(
-          L"Device does not support SM 6.9. Can't run these tests.");
+    #ifdef _HLK_CONF
+    LogErrorFmtThrow(
+      L"Device does not support SM 6.9. Can't run these tests.");
     }
-
+    #else
     WEX::Logging::Log::Comment(
         "Device does not support SM 6.9. Can't run these tests.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
+    #endif
   }
 
   DeterministicNumberGenerator<T> NumberGenerator(1337);
@@ -12260,25 +12262,30 @@ void ExecutionTest::LongVectorOpTestBase(
   CompilerOptions << (Is16BitType ? " -enable-16bit-types" : "");
   CompilerOptions << " -DOPERATOR=";
   CompilerOptions << TestConfig.OperatorString;
-  CompilerOptions << " -DOPERAND2=";
   if (TestConfig.IsBinaryOp) {
+    CompilerOptions << " -DOPERAND2=";
     CompilerOptions << (TestConfig.IsScalarOp ? "InputScalar" : "InputVector2");
-  }
-  CompilerOptions << " -DFUNC=";
-  CompilerOptions << TestConfig.IntrinsicString;
-  switch (TestConfig.OpType) {
-  case LongVectorOpType_Clamp:
-    CompilerOptions << " -DFUNC_CLAMP=1";
-    CompilerOptions << " -DCLAMP_ARGMIN=";
-    // We need to set the precision for the float values.
-    CompilerOptions << std::setprecision(16);
-    CompilerOptions << ClampArgMin;
-    CompilerOptions << " -DCLAMP_ARGMAX=";
-    CompilerOptions << ClampArgMax;
-    break;
-  case LongVectorOpType_Initialize:
-    CompilerOptions << " -DFUNC_INITIALIZE=1";
-    break;
+
+    if(TestConfig.IsScalarOp) {
+      CompilerOptions << " -DIS_SCALAR_OP=1";
+    } else {
+      CompilerOptions << " -DIS_BINARY_VECTOR_OP=1";
+    }
+    CompilerOptions << " -DFUNC=";
+    CompilerOptions << TestConfig.IntrinsicString;
+  } else {
+    CompilerOptions << " -DFUNC=";
+    CompilerOptions << TestConfig.IntrinsicString;
+    CompilerOptions << " -DOPERAND2=";
+    switch (TestConfig.OpType) {
+    case LongVectorOpType_Clamp:
+      CompilerOptions << "ClampArgMinMax";
+      CompilerOptions << " -DFUNC_CLAMP=1";
+      break;
+    case LongVectorOpType_Initialize:
+      CompilerOptions << " -DFUNC_INITIALIZE=1";
+      break;
+    }
   }
 
   // We have to construct the string outside of the lambda. Otherwise it's
@@ -12312,10 +12319,13 @@ void ExecutionTest::LongVectorOpTestBase(
           return;
         }
 
-        // Process the callback for the InputScalar resource.
-        if (0 == _stricmp(Name, "InputScalar")) {
+        // Process the callback for the InputFuncArgs resource.
+        if (0 == _stricmp(Name, "InputFuncArgs")) {
           if (TestConfig.IsScalarOp) {
             FillShaderBufferFromLongVectorData<T, 1>(ShaderData, ScalarInput);
+          } else if (TestConfig.OpType == LongVectorOpType_Clamp) {
+            std::array<T, 2> ClampArgs ={ClampArgMin, ClampArgMax};
+            FillShaderBufferFromLongVectorData<T, 2>(ShaderData, ClampArgs);
           }
 
           return;
