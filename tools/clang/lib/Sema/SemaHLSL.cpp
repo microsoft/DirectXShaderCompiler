@@ -12103,6 +12103,18 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
   case hlsl::IntrinsicOp::IOP_DxMaybeReorderThread:
     DiagnoseReachableSERCall(*this, CE, EntrySK, EntryDecl, true);
     break;
+  case hlsl::IntrinsicOp::IOP___builtin_MatVecMul:
+  case hlsl::IntrinsicOp::IOP___builtin_MatVecMulAdd:
+  case hlsl::IntrinsicOp::IOP___builtin_OuterProductAccumulate:
+  case hlsl::IntrinsicOp::IOP___builtin_VectorAccumulate:
+    if (!SM->IsSM69Plus()) {
+      Diags.Report(CE->getExprLoc(),
+                   diag::warn_hlsl_intrinsic_in_wrong_shader_model)
+          << FD->getNameAsString() << EntryDecl->getNameAsString() << "6.9";
+      return;
+    }
+
+    break;
   default:
     break;
   }

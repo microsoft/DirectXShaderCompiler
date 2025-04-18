@@ -2419,6 +2419,10 @@ ID  Name                                                  Description
 302 ReservedC9                                            reserved
 303 RawBufferVectorLoad                                   reads from a raw buffer and structured buffer
 304 RawBufferVectorStore                                  writes to a RWByteAddressBuffer or RWStructuredBuffer
+305 MatVecMul                                             Multiplies a MxK dimension matrix and a K sized input vector
+306 MatVecMulAdd                                          multiplies a MxK dimension matrix and a K sized input vector and adds an M-sized bias vector
+307 OuterProductAccumulate                                Computes the outer product between column vectors and an MxN matrix is accumulated component-wise atomically (with device scope) in memory
+308 VectorAccumulate                                      Accumulates the components of a vector component-wise atomically (with device scope) to the corresponding elements of an array in memory
 === ===================================================== =======================================================================================================================================================================================================================
 
 
@@ -3134,6 +3138,14 @@ INSTR.ILLEGALDXILOPCODE                               DXILOpCode must be [0..%0]
 INSTR.ILLEGALDXILOPFUNCTION                           '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                               bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                                  Access to out-of-bounds memory is disallowed.
+INSTR.LINALGINTERPRETATIONPARAMARECONST               In Linalg operations, Interpretation value is a constant.
+INSTR.LINALGINVALIDMATRIXLAYOUTVALUEFORMATVECOPS      Matrix Layout for Linalg Mul/MulAdd operation must be valid.
+INSTR.LINALGINVALIDMEMORYINTERPVALUE                  In Memory Interpolation value must be valid.
+INSTR.LINALGINVALIDREGISTERINTERPVALUE                From Register Interpretation value must be valid.
+INSTR.LINALGMATRIXLAYOUTNOTTRANSPOSABLE               Row Major and Column Major matrix layouts are not transposable.
+INSTR.LINALGMATRIXSHAPEPARAMSARECONST                 Matrix Layout, Dimensions and isTranspose are constants
+INSTR.LINALGNOTANUNSIGNEDTYPE                         Unsigned flag set for a float signed type
+INSTR.MATVECOPISUNSIGNEDFLAGSARECONST                 In Linalg Mul/MulAdd functions, IsUnsigned flag is a constant.
 INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM         Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
 INSTR.MINPRECISIONNOTPRECISE                          Instructions marked precise may not refer to minprecision values.
 INSTR.MINPRECISONBITCAST                              Bitcast on minprecison types is not allowed.
