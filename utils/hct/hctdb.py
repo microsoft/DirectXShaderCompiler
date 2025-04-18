@@ -8409,43 +8409,43 @@ class db_dxil(object):
         self.add_valrule_msg(
             "Instr.MatVecOpIsUnsignedFlagsAreConst",
             "In Linalg Mul/MulAdd functions, IsUnsigned flag is a constant.",
-            "'%1' is not a constant value.",
+            "'%1' is not a constant value",
         )
 
         self.add_valrule_msg(
             "Instr.LinalgInterpretationParamAreConst",
             "In Linalg operations, Interpretation value is a constant.",
-            "'%1' is not a constant value.",
+            "'%1' is not a constant value",
         )
 
         self.add_valrule_msg(
             "Instr.LinalgInvalidRegisterInterpValue",
             "From Register Interpretation value must be valid.",
-            "'%0' is not a valid %1 interpretation value.",
+            "'%0' is not a valid %1 interpretation value",
         )
 
         self.add_valrule_msg(
             "Instr.LinalgInvalidMemoryInterpValue",
             "In Memory Interpolation value must be valid.",
-            "'%0' is not a valid %1 interpretation value."
+            "'%0' is not a valid %1 interpretation value"
         )
 
         self.add_valrule_msg(
             "Instr.LinalgMatrixShapeParamsAreConst",
             "Matrix Layout, Dimensions and isTranspose are constants",
-            "'%0' is not a constant value.",
+            "'%0' is not a constant value",
         )
 
         self.add_valrule_msg(
             "Instr.LinalgInvalidMatrixLayoutValueForMatVecOps",
             "Matrix Layout for Linalg Mul/MulAdd operation must be valid.",
-            "Matrix Layout value '%0' is not valid. Must be between [%1 - %2].",
+            "matrix layout value '%0' is not valid. Must be between [%1 - %2]",
         )
 
         self.add_valrule_msg(
             "Instr.LinalgMatrixLayoutNotTransposable",
             "Row Major and Column Major matrix layouts are not transposable.",
-            "'%0' matrix layout is not transposable.",
+            "%0 matrix layout is not transposable",
         )
 
         self.add_valrule_msg(
