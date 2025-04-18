@@ -3138,14 +3138,14 @@ INSTR.ILLEGALDXILOPCODE                               DXILOpCode must be [0..%0]
 INSTR.ILLEGALDXILOPFUNCTION                           '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                               bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                                  Access to out-of-bounds memory is disallowed.
-INSTR.LINALGINTERPRETATIONPARAMARECONST               Interpretation values are constants
-INSTR.LINALGINVALIDMATRIXLAYOUTVALUE                  Matrix Layout for Linalg ops not in valid set
-INSTR.LINALGINVALIDMEMORYINTERPVALUE                  In Memory Interpolation value not in valid set
-INSTR.LINALGINVALIDREGISTERINTERPVALUE                From Register Interpretation value not in valid set
-INSTR.LINALGMATRIXLAYOUTNOTTRANSPOSABLE               Matrix Layout not transposable
-INSTR.LINALGMATRIXSHAPEPARAMSARECONST                 Matrix Layout, Dimensions and isTranspose are immediate constants
-INSTR.LINALGNOTANUNSIGNEDTYPE                         Unsigned flag set for signed type
-INSTR.MATVECOPISUNSIGNEDFLAGSARECONST                 MatVec Ops Is Unsigned flag is a constant
+INSTR.LINALGINTERPRETATIONPARAMARECONST               In Linalg operations, Interpretation value is a constant.
+INSTR.LINALGINVALIDMATRIXLAYOUTVALUEFORMATVECOPS      Matrix Layout for Linalg Mul/MulAdd operation must be valid.
+INSTR.LINALGINVALIDMEMORYINTERPVALUE                  In Memory Interpolation value must be valid.
+INSTR.LINALGINVALIDREGISTERINTERPVALUE                From Register Interpretation value must be valid.
+INSTR.LINALGMATRIXLAYOUTNOTTRANSPOSABLE               Row Major and Column Major matrix layouts are not transposable.
+INSTR.LINALGMATRIXSHAPEPARAMSARECONST                 Matrix Layout, Dimensions and isTranspose are constants
+INSTR.LINALGNOTANUNSIGNEDTYPE                         Unsigned flag set for a float signed type
+INSTR.MATVECOPISUNSIGNEDFLAGSARECONST                 In Linalg Mul/MulAdd functions, IsUnsigned flag is a constant.
 INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM         Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
 INSTR.MINPRECISIONNOTPRECISE                          Instructions marked precise may not refer to minprecision values.
 INSTR.MINPRECISONBITCAST                              Bitcast on minprecison types is not allowed.
