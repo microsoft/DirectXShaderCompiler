@@ -258,6 +258,17 @@ inline void LogErrorFmt(const wchar_t *fmt, ...) {
   WEX::Logging::Log::Error(buf.data());
 }
 
+inline void LogErrorFmtThrow(const wchar_t *fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  std::wstring buf(vFormatToWString(fmt, args));
+  va_end(args);
+  WEX::Logging::Log::Error(buf.data());
+
+  // Throws an exception to abort the test.
+  VERIFY_FAIL(L"Test error");
+}
+
 inline std::wstring
 GetPathToHlslDataFile(const wchar_t *relative,
                       LPCWSTR paramName = HLSLDATAFILEPARAM,
@@ -459,15 +470,17 @@ inline bool GetTestParamUseWARP(bool defaultVal) {
 
 #ifdef FP_SUBNORMAL
 
-inline bool isdenorm(float f) { return FP_SUBNORMAL == std::fpclassify(f); }
+template <typename T> inline bool isdenorm(T f) {
+  return FP_SUBNORMAL == std::fpclassify(f);
+}
 
 #else
 
-inline bool isdenorm(float f) {
-  return (std::numeric_limits<float>::denorm_min() <= f &&
-          f < std::numeric_limits<float>::min()) ||
-         (-std::numeric_limits<float>::min() < f &&
-          f <= -std::numeric_limits<float>::denorm_min());
+template <typename T> inline bool isdenorm(T f) {
+  return (std::numeric_limits<T>::denorm_min() <= f &&
+          f < std::numeric_limits<T>::min()) ||
+         (-std::numeric_limits<T>::min() < f &&
+          f <= -std::numeric_limits<T>::denorm_min());
 }
 
 #endif // FP_SUBNORMAL
@@ -514,6 +527,31 @@ inline bool isnanFloat16(uint16_t val) {
 // These are defined in ShaderOpTest.cpp using DirectXPackedVector functions.
 uint16_t ConvertFloat32ToFloat16(float val) throw();
 float ConvertFloat16ToFloat32(uint16_t val) throw();
+
+inline bool CompareDoubleULP(
+    const double &Src, const double &Ref, int64_t ULPTolerance,
+    hlsl::DXIL::Float32DenormMode Mode = hlsl::DXIL::Float32DenormMode::Any) {
+  if (Src == Ref) {
+    return true;
+  }
+  if (std::isnan(Src)) {
+    return std::isnan(Ref);
+  }
+
+  if (Mode == hlsl::DXIL::Float32DenormMode::Any) {
+    // If denorm expected, output can be sign preserved zero. Otherwise output
+    // should pass the regular ulp testing.
+    if (isdenorm(Ref) && Src == 0 && std::signbit(Src) == std::signbit(Ref))
+      return true;
+  }
+
+  // For FTZ or Preserve mode, we should get the expected number within
+  // ULPTolerance for any operations.
+  int64_t Diff = *((const uint64_t *)&Src) - *((const uint64_t *)&Ref);
+
+  uint64_t AbsoluteDiff = Diff < 0 ? -Diff : Diff;
+  return AbsoluteDiff <= (uint64_t)ULPTolerance;
+}
 
 inline bool CompareFloatULP(
     const float &fsrc, const float &fref, int ULPTolerance,
