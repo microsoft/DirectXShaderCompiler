@@ -433,6 +433,54 @@ const unsigned kNodeHandleToResCastOpIdx = 1;
 const unsigned kAnnotateNodeHandleNodePropIdx = 2;
 const unsigned kAnnotateNodeRecordHandleNodeRecordPropIdx = 2;
 
+// Linear Algebra Operations
+
+// MatVecMul
+const unsigned kMatVecMulOutputVectorIdx = 1;
+const unsigned kMatVecMulIsOutputUnsignedIdx = 2;
+const unsigned kMatVecMulInputVectorIdx = 3;
+const unsigned kMatVecMulIsInputUnsignedIdx = 4;
+const unsigned kMatVecMulInputInterpretationIdx = 5;
+const unsigned kMatVecMulMatrixBufferIdx = 6;
+const unsigned kMatVecMulMatrixOffsetIdx = 7;
+const unsigned kMatVecMulMatrixInterpretationIdx = 8;
+const unsigned kMatVecMulMatrixMIdx = 9;
+const unsigned kMatVecMulMatrixKIdx = 10;
+const unsigned kMatVecMulMatrixLayoutIdx = 11;
+const unsigned kMatVecMulMatrixTransposeIdx = 12;
+const unsigned kMatVecMulMatrixStrideIdx = 13;
+
+// MatVecMulAdd
+const unsigned kMatVecMulAddOutputVectorIdx = 1;
+const unsigned kMatVecMulAddIsOutputUnsignedIdx = 2;
+const unsigned kMatVecMulAddInputVectorIdx = 3;
+const unsigned kMatVecMulAddIsInputUnsignedIdx = 4;
+const unsigned kMatVecMulAddInputInterpretationIdx = 5;
+const unsigned kMatVecMulAddMatrixBufferIdx = 6;
+const unsigned kMatVecMulAddMatrixOffsetIdx = 7;
+const unsigned kMatVecMulAddMatrixInterpretationIdx = 8;
+const unsigned kMatVecMulAddMatrixMIdx = 9;
+const unsigned kMatVecMulAddMatrixKIdx = 10;
+const unsigned kMatVecMulAddMatrixLayoutIdx = 11;
+const unsigned kMatVecMulAddMatrixTransposeIdx = 12;
+const unsigned kMatVecMulAddMatrixStrideIdx = 13;
+const unsigned kMatVecMulAddBiasBufferIdx = 14;
+const unsigned kMatVecMulAddBiasOffsetIdx = 15;
+const unsigned kMatVecMulAddBiasInterpretationIdx = 16;
+
+// OuterProductAccumulate
+const unsigned kOuterProdAccInputVec1Idx = 1;
+const unsigned kOuterProdAccInputVec2Idx = 2;
+const unsigned kOuterProdAccMatrixIdx = 3;
+const unsigned kOuterProdAccMatrixOffsetIdx = 4;
+const unsigned kOuterProdAccMatrixInterpretationIdx = 5;
+const unsigned kOuterProdAccMatrixLayoutIdx = 6;
+const unsigned kOuterProdAccMatrixStrideIdx = 7;
+
+// Vector Accumulate
+const unsigned kVectorAccInputVecIdx = 1;
+const unsigned kVectorAccMatrixIdx = 2;
+const unsigned kVectorAccMatrixOffsetIdx = 3;
 } // namespace HLOperandIndex
 
 llvm::Function *GetOrCreateHLFunction(llvm::Module &M,
