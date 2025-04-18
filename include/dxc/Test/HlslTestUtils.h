@@ -470,7 +470,7 @@ inline bool GetTestParamUseWARP(bool defaultVal) {
 
 #ifdef FP_SUBNORMAL
 
-teamplate <typename T> inline bool isdenorm(T f) {
+template <typename T> inline bool isdenorm(T f) {
   return FP_SUBNORMAL == std::fpclassify(f);
 }
 
