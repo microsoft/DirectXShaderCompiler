@@ -71,10 +71,6 @@
 
 // Float values for this were taken from Microsoft online documentation for the
 // DirectX HALF data type. HALF is equivalent to IEEE 754 binary 16 format.
-const DirectX::PackedVector::HALF HALF_MIN =
-    DirectX::PackedVector::XMConvertFloatToHalf(float(6.10e-5f));
-const DirectX::PackedVector::HALF HALF_MAX =
-    DirectX::PackedVector::XMConvertFloatToHalf(float(65504.0f));
 
 // A more recent Windows SDK than currently required is needed for these.
 typedef HRESULT(WINAPI *D3D12EnableExperimentalFeaturesFn)(
@@ -11511,95 +11507,53 @@ template <typename T> struct LongVectorOpTestConfig {
   LongVectorOpType OpType = LongVectorOpType_UnInitialized;
 };
 
-// A helper class to generate deterministic random numbers. For any given seed
-// the generated sequence will always be the same. Each call to generate() will
-// return the next number in the sequence.
+template <typename T> struct LongVectorTestTraits {
+  std::uniform_int_distribution<T> UD = std::uniform_int_distribution(
+      std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
+};
+
+template <> struct LongVectorTestTraits<HLSLHalf_t> {
+  // Float values for this were taken from Microsoft online documentation for
+  // the DirectX HALF data type. HALF is equivalent to IEEE 754 binary 16
+  // format.
+  std::uniform_int_distribution<DirectX::PackedVector::HALF> UD =
+      std::uniform_int_distribution(
+          DirectX::PackedVector::XMConvertFloatToHalf(float(6.10e-5f)),
+          DirectX::PackedVector::XMConvertFloatToHalf(float(65504.0f)));
+};
+
+template <> struct LongVectorTestTraits<HLSLBool_t> {
+  std::uniform_int_distribution<uint16_t> UD =
+      std::uniform_int_distribution<uint16_t>(0u, 1u);
+};
+
+template <> struct LongVectorTestTraits<float> {
+  //  The ranges for generation. A std::uniform_real_distribution can only
+  //  have a range that is equal to the types largest value. This is due to
+  //  precision issues. So instead we define some large values.
+  std::uniform_real_distribution<float> UD =
+      std::uniform_real_distribution(-1e20f, 1e20f);
+};
+
+template <> struct LongVectorTestTraits<double> {
+  //  The ranges for generation. A std::uniform_real_distribution can only
+  //  have a range that is equal to the types largest value. This is due to
+  //  precision issues. So instead we define some large values.
+  std::uniform_real_distribution<double> UD =
+      std::uniform_real_distribution(-1e100, 1e100);
+};
+
 template <typename T> class DeterministicNumberGenerator {
+  // Mersenne Twister 'random' number generator. Generated numbers are based
+  // on the seed value and are deterministic for any given seed.
+  std::mt19937 Generator;
+
+  LongVectorTestTraits<T> UD;
+
 public:
-  DeterministicNumberGenerator(unsigned int seedValue) : generator(seedValue) {
-    if constexpr (std::is_same_v<T, HLSLHalf_t>)
-      DXHalfDist = std::uniform_int_distribution<DirectX::PackedVector::HALF>(
-          HALF_MIN, HALF_MAX);
-    else if constexpr (std::is_same_v<T, HLSLBool_t>)
-      // Anything non-zero, including negative values, is true as a bool. So 0
-      // and 1 are all we need.
-      Uint16Dist = std::uniform_int_distribution<uint16_t>(0, 1);
-    else if constexpr (std::is_same_v<T, int16_t>)
-      Int16Dist = std::uniform_int_distribution<int16_t>(
-          std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
-    else if constexpr (std::is_same_v<T, int32_t>)
-      Int32Dist = std::uniform_int_distribution<T>(
-          std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
-    else if constexpr (std::is_same_v<T, int64_t>)
-      Int64Dist = std::uniform_int_distribution<T>(
-          std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
-    else if constexpr (std::is_same_v<T, uint16_t>)
-      Uint16Dist = std::uniform_int_distribution<T>(
-          std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
-    else if constexpr (std::is_same_v<T, uint32_t>)
-      Uint32Dist = std::uniform_int_distribution<T>(
-          std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
-    else if constexpr (std::is_same_v<T, uint64_t>)
-      Uint64Dist = std::uniform_int_distribution<T>(
-          std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
-    else if constexpr (std::is_same_v<T, float>)
-      FloatDist =
-          std::uniform_real_distribution<T>(FLOAT_RANGE_MIN, FLOAT_RANGE_MAX);
-    else if constexpr (std::is_same_v<T, double>)
-      DoubleDist =
-          std::uniform_real_distribution<T>(DOUBLE_RANGE_MIN, DOUBLE_RANGE_MAX);
-    else
-      VERIFY_FAIL("Unsupported type for DeterministicNumberGenerator");
-  }
+  DeterministicNumberGenerator(unsigned SeedValue) : Generator(SeedValue) {}
 
-  // Function to generate a random number within the range of the type. Ranges
-  // are specificed at construction time.
-  T generate() {
-    if constexpr (std::is_same_v<T, int16_t>)
-      return Int16Dist(generator);
-    if constexpr (std::is_same_v<T, HLSLBool_t>)
-      return Uint16Dist(generator);
-    if constexpr (std::is_same_v<T, HLSLHalf_t>)
-      return DXHalfDist(generator);
-    if constexpr (std::is_same_v<T, int32_t>)
-      return Int32Dist(generator);
-    if constexpr (std::is_same_v<T, int64_t>)
-      return Int64Dist(generator);
-    if constexpr (std::is_same_v<T, float>)
-      return FloatDist(generator);
-    if constexpr (std::is_same_v<T, double>)
-      return DoubleDist(generator);
-    if constexpr (std::is_same_v<T, uint16_t>)
-      return Uint16Dist(generator);
-    if constexpr (std::is_same_v<T, uint32_t>)
-      return Uint32Dist(generator);
-    if constexpr (std::is_same_v<T, uint64_t>)
-      return Uint64Dist(generator);
-
-    VERIFY_FAIL("Unsupported data type for generate()");
-  }
-
-private:
-  // Mersenne Twister 'random' number generator. Generated numbers are based on
-  // the seed value and are deterministic for any given seed.
-  std::mt19937 generator;
-  std::uniform_int_distribution<int16_t> Int16Dist;
-  std::uniform_int_distribution<int32_t> Int32Dist;
-  std::uniform_int_distribution<int64_t> Int64Dist;
-  std::uniform_int_distribution<DirectX::PackedVector::HALF> DXHalfDist;
-  std::uniform_int_distribution<uint16_t> Uint16Dist;
-  std::uniform_int_distribution<uint32_t> Uint32Dist;
-  std::uniform_int_distribution<uint64_t> Uint64Dist;
-  std::uniform_real_distribution<float> FloatDist;
-  std::uniform_real_distribution<double> DoubleDist;
-
-  // The ranges for generation. A std::uniform_real_distribution can only have
-  // a range that is equal to the types largest value. This is due to precision
-  // issues. So instead we define some large values.
-  const float FLOAT_RANGE_MIN = -1e20f;
-  const float FLOAT_RANGE_MAX = 1e20f;
-  const double DOUBLE_RANGE_MIN = -1e100;
-  const double DOUBLE_RANGE_MAX = 1e100;
+  T generate() { return UD.UD(Generator); }
 };
 
 template <typename T, std::size_t N>
