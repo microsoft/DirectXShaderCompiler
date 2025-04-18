@@ -3,13 +3,33 @@
 // RUN: %dxc -T vs_6_6              -DETY=uint64_t -DCOLS=2 %s | FileCheck %s
 // RUN: %dxc -T vs_6_6              -DETY=double   -DCOLS=2 %s | FileCheck %s
 
+// RUN: %dxc -T vs_6_6              -DETY=float1    -DCOLS=4 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6              -DETY=bool1     -DCOLS=4 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6              -DETY=uint64_t1 -DCOLS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6              -DETY=double1   -DCOLS=2 %s | FileCheck %s
+
+// RUN: %dxc -T vs_6_6              -DETY=float4    -DCOLS=4 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6              -DETY=bool4     -DCOLS=4 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6              -DETY=uint64_t4 -DCOLS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6              -DETY=double4   -DCOLS=2 %s | FileCheck %s
+
 // RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=float    -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=bool     -DCOLS=2 -DROWS=2 %s | FileCheck %s
 // RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=uint64_t -DCOLS=2 -DROWS=2 %s | FileCheck %s
 // RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=double   -DCOLS=2 -DROWS=2 %s | FileCheck %s
+
 // RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=float    -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MAT
 // RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=bool     -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MAT
 // RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=uint64_t -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MAT
 // RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=double   -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MAT
+
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=float    -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=uint64_t -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=double   -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=float    -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MAT
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=bool     -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MAT
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=uint64_t -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MAT
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=double   -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MAT
 
 // RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=float    -DCOLS=4 %s | FileCheck %s
 // RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=bool     -DCOLS=4 %s | FileCheck %s
@@ -25,8 +45,6 @@
 // Test codegen for various load and store operations and conversions
 //  for different aggregate buffer types and indices.
 ///////////////////////////////////////////////////////////////////////
-
-
 
 // CHECK: %dx.types.ResRet.[[TY:[a-z][0-9][0-9]]] = type { [[TYPE:[a-z0-9]*]],
 
@@ -64,6 +82,16 @@ struct OffVector {
     ret.pad1 = 0.0;
     ret.pad2 = 0.0;
     ret.v = v + vec.v;
+    return ret;
+  }
+};
+
+template<typename T, int N, int M>
+struct Matrix {
+  matrix<T, N, M> m;
+  Matrix operator+(Matrix mat) {
+    Matrix ret;
+    ret.m = m + mat.m;
     return ret;
   }
 };
@@ -156,6 +184,8 @@ void main(uint ix[2] : IX) {
   // StructuredBuffer Tests
   // CHECK: [[ANHDLRWST:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLRWST]]
   // CHECK: call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLRWST]], i32 [[IX0]], i32 [[BOFF]]
+  // MAT:  call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLRWST]], i32 [[IX0]], i32 [[p4]]
+  // MAT:  call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLRWST]], i32 [[IX0]], i32 [[p8]]
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
@@ -163,6 +193,8 @@ void main(uint ix[2] : IX) {
   TYPE stbElt1 SS = RwStBuf.Load(ix[0]);
   // CHECK: [[IX1:%.*]] = call i32 @dx.op.loadInput.i32(i32 4,
   // CHECK: call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLRWST]], i32 [[IX1]], i32 [[BOFF]]
+  // MAT:  call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLRWST]], i32 [[IX1]], i32 [[p4]]
+  // MAT:  call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLRWST]], i32 [[IX1]], i32 [[p8]]
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0

@@ -398,6 +398,10 @@ const unsigned kAnnotateHandleResourceTypeOpIdx = 3;
 const unsigned kTraceRayRayDescOpIdx = 7;
 const unsigned kTraceRayPayLoadOpIdx = 8;
 
+// AllocateRayQuery
+const unsigned kAllocateRayQueryRayFlagsIdx = 1;
+const unsigned kAllocateRayQueryRayQueryFlagsIdx = 2;
+
 // CallShader.
 const unsigned kCallShaderPayloadOpIdx = 2;
 
@@ -428,6 +432,10 @@ const unsigned kNodeInputRecordMetadataIDIdx = 1;
 const unsigned kNodeHandleToResCastOpIdx = 1;
 const unsigned kAnnotateNodeHandleNodePropIdx = 2;
 const unsigned kAnnotateNodeRecordHandleNodeRecordPropIdx = 2;
+
+// HitObject::MakeMiss
+const unsigned kHitObjectMakeMiss_NumOp = 8;
+const unsigned kHitObjectMakeMissRayDescOpIdx = 4;
 
 } // namespace HLOperandIndex
 
