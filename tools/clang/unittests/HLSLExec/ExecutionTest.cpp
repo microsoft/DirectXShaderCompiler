@@ -11466,8 +11466,7 @@ template <typename T> struct LongVectorOpTestConfig {
   }
 
   bool IsFloatingPointType() const {
-    return std::is_same_v<T, float> ||
-           std::is_same_v<T, double> ||
+    return std::is_same_v<T, float> || std::is_same_v<T, double> ||
            std::is_same_v<T, HLSLHalf_t>;
   }
 
@@ -11625,12 +11624,14 @@ bool DoArraysMatch(const std::array<T, N> &ActualValues,
       }
     } else if constexpr (std::is_same_v<T, float>) {
       const int IntTolerance = static_cast<int>(Tolerance);
-      if (!CompareFloatULP(ActualValues[Index], ExpectedValues[Index], IntTolerance)) {
+      if (!CompareFloatULP(ActualValues[Index], ExpectedValues[Index],
+                           IntTolerance)) {
         MismatchedIndexes.push_back(Index);
       }
     } else if constexpr (std::is_same_v<T, double>) {
       const int64_t IntTolerance = static_cast<int64_t>(Tolerance);
-      if (!CompareDoubleULP(ActualValues[Index], ExpectedValues[Index], IntTolerance)) {
+      if (!CompareDoubleULP(ActualValues[Index], ExpectedValues[Index],
+                            IntTolerance)) {
         MismatchedIndexes.push_back(Index);
       }
     } else if (Tolerance == 0 && ActualValues[Index] != ExpectedValues[Index]) {
@@ -12165,199 +12166,198 @@ void ExecutionTest::LongVectorOpTestBase(
   if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9) &&
       !m_ExperimentalModeEnabled) {
 
-    #ifdef _HLK_CONF
-    LogErrorFmtThrow(
-      L"Device does not support SM 6.9. Can't run these tests.");
-    }
-    #else
+#ifdef _HLK_CONF
+    LogErrorFmtThrow(L"Device does not support SM 6.9. Can't run these tests.");
+  }
+#else
     WEX::Logging::Log::Comment(
         "Device does not support SM 6.9. Can't run these tests.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
-    #endif
+#endif
+}
+
+DeterministicNumberGenerator<T> NumberGenerator(1337);
+std::array<T, N> InputVector1;
+std::array<T, N> InputVector2;
+std::array<T, 1> ScalarInput;
+ScalarInput[0] = NumberGenerator.generate();
+const bool IsVectorBinaryOp = TestConfig.IsBinaryOp && !TestConfig.IsScalarOp;
+
+// Fill the vector inputs with values.
+for (size_t Index = 0; Index < N; Index++) {
+  // Always generate input.
+  InputVector1[Index] = NumberGenerator.generate();
+
+  if (IsVectorBinaryOp)
+    InputVector2[Index] = NumberGenerator.generate();
+}
+
+// We pass these values into the shader and they're requried to compile. So
+// they need to set to something.
+T ClampArgMin = 0;
+T ClampArgMax = 0;
+if (TestConfig.OpType == LongVectorOpType_Clamp) {
+  if constexpr (std::is_same_v<T, HLSLBool_t>) {
+    // Attempting to generate a clamp value for HLSLBool_t will result in an
+    // infinite loop in the below while. We don't have a test case for clamp
+    // with bools anyways. But adding this check to prevent the mistake.
+    LogErrorFmtThrow(L"Clamp is not supported for HLSLBool_t.");
   }
 
-  DeterministicNumberGenerator<T> NumberGenerator(1337);
-  std::array<T, N> InputVector1;
-  std::array<T, N> InputVector2;
-  std::array<T, 1> ScalarInput;
-  ScalarInput[0] = NumberGenerator.generate();
-  const bool IsVectorBinaryOp = TestConfig.IsBinaryOp && !TestConfig.IsScalarOp;
-
-  // Fill the vector inputs with values.
-  for (size_t Index = 0; Index < N; Index++) {
-    // Always generate input.
-    InputVector1[Index] = NumberGenerator.generate();
-
-    if (IsVectorBinaryOp)
-      InputVector2[Index] = NumberGenerator.generate();
-  }
-
-  // We pass these values into the shader and they're requried to compile. So
-  // they need to set to something.
-  T ClampArgMin = 0;
-  T ClampArgMax = 0;
-  if (TestConfig.OpType == LongVectorOpType_Clamp) {
-    if constexpr (std::is_same_v<T, HLSLBool_t>) {
-      // Attempting to generate a clamp value for HLSLBool_t will result in an
-      // infinite loop in the below while. We don't have a test case for clamp
-      // with bools anyways. But adding this check to prevent the mistake.
-      LogErrorFmtThrow(L"Clamp is not supported for HLSLBool_t.");
-    }
-
-    ClampArgMin = NumberGenerator.generate();
+  ClampArgMin = NumberGenerator.generate();
+  ClampArgMax = NumberGenerator.generate();
+  while (ClampArgMin >= ClampArgMax) {
+    // Generate a new value for ClampArgMin. It needs to be smaller than
+    // or equal to ClampArgMax.
     ClampArgMax = NumberGenerator.generate();
-    while (ClampArgMin >= ClampArgMax) {
-      // Generate a new value for ClampArgMin. It needs to be smaller than
-      // or equal to ClampArgMax.
-      ClampArgMax = NumberGenerator.generate();
-    }
   }
+}
 
-  std::array<T, N> ExpectedVector;
-  for (size_t Index = 0; Index < N; Index++) {
-    if (TestConfig.IsBinaryOp) {
-      T Input1 = InputVector1[Index];
-      T Input2 = TestConfig.IsScalarOp ? ScalarInput[0] : InputVector2[Index];
-      if (TestConfig.OperatorString == "*") {
-        ExpectedVector[Index] = Input1 * Input2;
-      } else if (TestConfig.OperatorString == "+") {
-        ExpectedVector[Index] = Input1 + Input2;
-      } else if (TestConfig.OperatorString == ",") {
-        if (TestConfig.OpType == LongVectorOpType_Min)
-          ExpectedVector[Index] = std::min<T>(Input1, Input2);
-        else if (TestConfig.OpType == LongVectorOpType_Max)
-          ExpectedVector[Index] = std::max<T>(Input1, Input2);
-        else
-          LogErrorFmtThrow(L"Unrecognized Binary LongVectorOpType: %d",
-                           TestConfig.OpType);
-      } else {
-        LogErrorFmtThrow(
-            L"Don't know how to compute expected value for operatorString: %s",
-            TestConfig.OperatorString.c_str());
-      }
-    } else // Unary op logic
-    {
-      if (TestConfig.OpType == LongVectorOpType_Clamp) {
-        ExpectedVector[Index] =
-            std::clamp(InputVector1[Index], ClampArgMin, ClampArgMax);
-      } else if (TestConfig.OpType = LongVectorOpType_Initialize) {
-        ExpectedVector[Index] = InputVector1[Index];
-      } else {
-        LogErrorFmtThrow(L"Unrecognized Unary LongVectorOpType: %d",
-                         TestConfig.OpType);
-      }
-    }
-  }
-
-  // Set up the compiler options string.
-  std::stringstream CompilerOptions("");
-  std::string HLSLType = TestConfig.GetHLSLTypeString();
-  CompilerOptions << "-DTYPE=";
-  CompilerOptions << HLSLType;
-  CompilerOptions << " -DNUM=";
-  CompilerOptions << N;
-  const bool Is16BitType =
-      (HLSLType == "int16_t" || HLSLType == "uint16_t" || HLSLType == "half");
-  CompilerOptions << (Is16BitType ? " -enable-16bit-types" : "");
-  CompilerOptions << " -DOPERATOR=";
-  CompilerOptions << TestConfig.OperatorString;
+std::array<T, N> ExpectedVector;
+for (size_t Index = 0; Index < N; Index++) {
   if (TestConfig.IsBinaryOp) {
-    CompilerOptions << " -DOPERAND2=";
-    CompilerOptions << (TestConfig.IsScalarOp ? "InputScalar" : "InputVector2");
-
-    if(TestConfig.IsScalarOp) {
-      CompilerOptions << " -DIS_SCALAR_OP=1";
+    T Input1 = InputVector1[Index];
+    T Input2 = TestConfig.IsScalarOp ? ScalarInput[0] : InputVector2[Index];
+    if (TestConfig.OperatorString == "*") {
+      ExpectedVector[Index] = Input1 * Input2;
+    } else if (TestConfig.OperatorString == "+") {
+      ExpectedVector[Index] = Input1 + Input2;
+    } else if (TestConfig.OperatorString == ",") {
+      if (TestConfig.OpType == LongVectorOpType_Min)
+        ExpectedVector[Index] = std::min<T>(Input1, Input2);
+      else if (TestConfig.OpType == LongVectorOpType_Max)
+        ExpectedVector[Index] = std::max<T>(Input1, Input2);
+      else
+        LogErrorFmtThrow(L"Unrecognized Binary LongVectorOpType: %d",
+                         TestConfig.OpType);
     } else {
-      CompilerOptions << " -DIS_BINARY_VECTOR_OP=1";
+      LogErrorFmtThrow(
+          L"Don't know how to compute expected value for operatorString: %s",
+          TestConfig.OperatorString.c_str());
     }
-    CompilerOptions << " -DFUNC=";
-    CompilerOptions << TestConfig.IntrinsicString;
-  } else {
-    CompilerOptions << " -DFUNC=";
-    CompilerOptions << TestConfig.IntrinsicString;
-    CompilerOptions << " -DOPERAND2=";
-    switch (TestConfig.OpType) {
-    case LongVectorOpType_Clamp:
-      CompilerOptions << "ClampArgMinMax";
-      CompilerOptions << " -DFUNC_CLAMP=1";
-      break;
-    case LongVectorOpType_Initialize:
-      CompilerOptions << " -DFUNC_INITIALIZE=1";
-      break;
+  } else // Unary op logic
+  {
+    if (TestConfig.OpType == LongVectorOpType_Clamp) {
+      ExpectedVector[Index] =
+          std::clamp(InputVector1[Index], ClampArgMin, ClampArgMax);
+    } else if (TestConfig.OpType = LongVectorOpType_Initialize) {
+      ExpectedVector[Index] = InputVector1[Index];
+    } else {
+      LogErrorFmtThrow(L"Unrecognized Unary LongVectorOpType: %d",
+                       TestConfig.OpType);
     }
   }
+}
 
-  // We have to construct the string outside of the lambda. Otherwise it's
-  // cleaned up when the lambda finishes executing but before the shader runs.
-  std::string CompilerOptionsString = CompilerOptions.str();
+// Set up the compiler options string.
+std::stringstream CompilerOptions("");
+std::string HLSLType = TestConfig.GetHLSLTypeString();
+CompilerOptions << "-DTYPE=";
+CompilerOptions << HLSLType;
+CompilerOptions << " -DNUM=";
+CompilerOptions << N;
+const bool Is16BitType =
+    (HLSLType == "int16_t" || HLSLType == "uint16_t" || HLSLType == "half");
+CompilerOptions << (Is16BitType ? " -enable-16bit-types" : "");
+CompilerOptions << " -DOPERATOR=";
+CompilerOptions << TestConfig.OperatorString;
+if (TestConfig.IsBinaryOp) {
+  CompilerOptions << " -DOPERAND2=";
+  CompilerOptions << (TestConfig.IsScalarOp ? "InputScalar" : "InputVector2");
 
-  // ShaderOpArith.xml defines the input/output resources and the shader source.
-  CComPtr<IStream> TestXML;
-  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML);
+  if (TestConfig.IsScalarOp) {
+    CompilerOptions << " -DIS_SCALAR_OP=1";
+  } else {
+    CompilerOptions << " -DIS_BINARY_VECTOR_OP=1";
+  }
+  CompilerOptions << " -DFUNC=";
+  CompilerOptions << TestConfig.IntrinsicString;
+} else {
+  CompilerOptions << " -DFUNC=";
+  CompilerOptions << TestConfig.IntrinsicString;
+  CompilerOptions << " -DOPERAND2=";
+  switch (TestConfig.OpType) {
+  case LongVectorOpType_Clamp:
+    CompilerOptions << "ClampArgMinMax";
+    CompilerOptions << " -DFUNC_CLAMP=1";
+    break;
+  case LongVectorOpType_Initialize:
+    CompilerOptions << " -DFUNC_INITIALIZE=1";
+    break;
+  }
+}
 
-  // RunShaderOpTest is a helper function that handles resource creation
-  // and setup. It also handles the shader compilation and execution. It takes a
-  // callback that is called when the shader is compiled, but before it is
-  // executed.
-  std::shared_ptr<ShaderOpTestResult> TestResult = RunShaderOpTest(
-      D3DDevice, m_support, TestXML, "LongVectorOp",
-      [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
-        LogCommentFmt(L"RunShaderOpTest CallBack. Resource Name: %S", Name);
+// We have to construct the string outside of the lambda. Otherwise it's
+// cleaned up when the lambda finishes executing but before the shader runs.
+std::string CompilerOptionsString = CompilerOptions.str();
 
-        // This callback is called once for each resource defined for
-        // "LongVectorOp" in ShaderOpArith.xml. All callbacks are fired for each
-        // resource. We determine whether they are applicable to the test case
-        // when they run.
+// ShaderOpArith.xml defines the input/output resources and the shader source.
+CComPtr<IStream> TestXML;
+ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML);
 
-        // Process the callback for the OutputVector resource.
-        if (0 == _stricmp(Name, "OutputVector")) {
-          // We only need to set the compiler options string once. So this is a
-          // convenient place to do it.
-          ShaderOp->Shaders.at(0).Arguments = CompilerOptionsString.c_str();
+// RunShaderOpTest is a helper function that handles resource creation
+// and setup. It also handles the shader compilation and execution. It takes a
+// callback that is called when the shader is compiled, but before it is
+// executed.
+std::shared_ptr<ShaderOpTestResult> TestResult = RunShaderOpTest(
+    D3DDevice, m_support, TestXML, "LongVectorOp",
+    [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
+      LogCommentFmt(L"RunShaderOpTest CallBack. Resource Name: %S", Name);
 
-          return;
+      // This callback is called once for each resource defined for
+      // "LongVectorOp" in ShaderOpArith.xml. All callbacks are fired for each
+      // resource. We determine whether they are applicable to the test case
+      // when they run.
+
+      // Process the callback for the OutputVector resource.
+      if (0 == _stricmp(Name, "OutputVector")) {
+        // We only need to set the compiler options string once. So this is a
+        // convenient place to do it.
+        ShaderOp->Shaders.at(0).Arguments = CompilerOptionsString.c_str();
+
+        return;
+      }
+
+      // Process the callback for the InputFuncArgs resource.
+      if (0 == _stricmp(Name, "InputFuncArgs")) {
+        if (TestConfig.IsScalarOp) {
+          FillShaderBufferFromLongVectorData<T, 1>(ShaderData, ScalarInput);
+        } else if (TestConfig.OpType == LongVectorOpType_Clamp) {
+          std::array<T, 2> ClampArgs = {ClampArgMin, ClampArgMax};
+          FillShaderBufferFromLongVectorData<T, 2>(ShaderData, ClampArgs);
         }
 
-        // Process the callback for the InputFuncArgs resource.
-        if (0 == _stricmp(Name, "InputFuncArgs")) {
-          if (TestConfig.IsScalarOp) {
-            FillShaderBufferFromLongVectorData<T, 1>(ShaderData, ScalarInput);
-          } else if (TestConfig.OpType == LongVectorOpType_Clamp) {
-            std::array<T, 2> ClampArgs ={ClampArgMin, ClampArgMax};
-            FillShaderBufferFromLongVectorData<T, 2>(ShaderData, ClampArgs);
-          }
+        return;
+      }
 
-          return;
+      // Process the callback for the InputVector1 resource.
+      if (0 == _stricmp(Name, "InputVector1")) {
+        FillShaderBufferFromLongVectorData<T, N>(ShaderData, InputVector1);
+        return;
+      }
+
+      // Process the callback for the InputVector2 resource.
+      if (0 == _stricmp(Name, "InputVector2")) {
+        if (IsVectorBinaryOp) {
+          FillShaderBufferFromLongVectorData<T, N>(ShaderData, InputVector2);
         }
+        return;
+      }
 
-        // Process the callback for the InputVector1 resource.
-        if (0 == _stricmp(Name, "InputVector1")) {
-          FillShaderBufferFromLongVectorData<T, N>(ShaderData, InputVector1);
-          return;
-        }
+      LogErrorFmtThrow(
+          L"RunShaderOpTest CallBack. Unexpected Resource Name: %S", Name);
+    });
 
-        // Process the callback for the InputVector2 resource.
-        if (0 == _stricmp(Name, "InputVector2")) {
-          if (IsVectorBinaryOp) {
-            FillShaderBufferFromLongVectorData<T, N>(ShaderData, InputVector2);
-          }
-          return;
-        }
+// Map the data from GPU to CPU memory so we can verify our expectations.
+MappedData ShaderOutData;
+TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
 
-        LogErrorFmtThrow(
-            L"RunShaderOpTest CallBack. Unexpected Resource Name: %S", Name);
-      });
+std::array<T, N> OutputVector;
+FillLongVectorDataFromShaderBuffer<T, N>(ShaderOutData, OutputVector);
 
-  // Map the data from GPU to CPU memory so we can verify our expectations.
-  MappedData ShaderOutData;
-  TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
-
-  std::array<T, N> OutputVector;
-  FillLongVectorDataFromShaderBuffer<T, N>(ShaderOutData, OutputVector);
-
-  VERIFY_SUCCEEDED(
-      DoArraysMatch<T>(OutputVector, ExpectedVector, TestConfig.Tolerance));
+VERIFY_SUCCEEDED(DoArraysMatch<T>(OutputVector, ExpectedVector,
+                                  TestConfig.Tolerance));
 }
 
 // This test expects a <pShader> that retrieves a signal value from each of a
