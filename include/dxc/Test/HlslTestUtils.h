@@ -529,28 +529,28 @@ uint16_t ConvertFloat32ToFloat16(float val) throw();
 float ConvertFloat16ToFloat32(uint16_t val) throw();
 
 inline bool CompareDoubleULP(
-    const double &fsrc, const double &fref, int64_t ULPTolerance,
-    hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
-  if (fsrc == fref) {
+    const double &Src, const double &Ref, int64_t ULPTolerance,
+    hlsl::DXIL::Float32DenormMode Mode = hlsl::DXIL::Float32DenormMode::Any) {
+  if (Src == Ref) {
     return true;
   }
-  if (std::isnan(fsrc)) {
-    return std::isnan(fref);
+  if (std::isnan(Src)) {
+    return std::isnan(Ref);
   }
 
-  if (mode == hlsl::DXIL::Float32DenormMode::Any) {
+  if (Mode == hlsl::DXIL::Float32DenormMode::Any) {
     // If denorm expected, output can be sign preserved zero. Otherwise output
     // should pass the regular ulp testing.
-    if (isdenorm(fref) && fsrc == 0 && std::signbit(fsrc) == std::signbit(fref))
+    if (isdenorm(Ref) && Src == 0 && std::signbit(Src) == std::signbit(Ref))
       return true;
   }
 
   // For FTZ or Preserve mode, we should get the expected number within
   // ULPTolerance for any operations.
-  int64_t diff = *((const uint64_t *)&fsrc) - *((const uint64_t *)&fref);
+  uint64_t Diff = *((const uint64_t *)&Src) - *((const uint64_t *)&Ref);
 
-  int64_t uDiff = diff < 0 ? -diff : diff;
-  return uDiff <= (unsigned int)ULPTolerance;
+  int64_t AbsolutDiff = diff < 0 ? -diff : diff;
+  return AbsoluteDiff <= (unsigned int64_t)ULPTolerance;
 }
 
 inline bool CompareFloatULP(
