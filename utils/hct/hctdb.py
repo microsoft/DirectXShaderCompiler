@@ -8427,7 +8427,7 @@ class db_dxil(object):
         self.add_valrule_msg(
             "Instr.LinalgInvalidMemoryInterpValue",
             "In Memory Interpolation value must be valid.",
-            "'%0' is not a valid %1 interpretation value"
+            "'%0' is not a valid %1 interpretation value",
         )
 
         self.add_valrule_msg(
