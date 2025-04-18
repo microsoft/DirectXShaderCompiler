@@ -547,7 +547,7 @@ inline bool CompareDoubleULP(
 
   // For FTZ or Preserve mode, we should get the expected number within
   // ULPTolerance for any operations.
-  int64_t diff = *((const DWORD64 *)&fsrc) - *((const DWORD64 *)&fref);
+  int64_t diff = *((const uint64_t *)&fsrc) - *((const uint64_t *)&fref);
 
   int64_t uDiff = diff < 0 ? -diff : diff;
   return uDiff <= (unsigned int)ULPTolerance;
