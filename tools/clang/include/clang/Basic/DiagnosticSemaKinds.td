@@ -7646,7 +7646,7 @@ def err_payload_requires_inout : Error<
 def err_attributes_requiers_in : Error<
   "intersection attributes parameter %0 must be 'in'">;
 def err_payload_attrs_must_be_udt : Error<
-  "%select{payload|attributes|callable}0 parameter %1 must be a user-defined type composed of only numeric types">;
+  "%select{payload|attributes|callable}0 %select{parameter %2|type}1 must be a user-defined type composed of only numeric types">;
 def err_shader_must_return_void : Error<
   "return type for '%0' shaders must be void">;
 def err_raytracing_entry_param_count : Error<
@@ -7885,7 +7885,7 @@ def err_hlsl_unsupported_long_vector
     "cbuffers or tbuffers|user-defined struct parameter|"
     "entry function parameters|entry function return type|"
     "patch constant function parameters|patch constant function return type|"
-    "payload parameters}0 are not supported">;
+    "payload parameters|attributes}0 are not supported">;
 def err_hlsl_logical_binop_scalar : Error<
    "operands for short-circuiting logical binary operator must be scalar, for non-scalar types use '%select{and|or}0'">;
 def err_hlsl_ternary_scalar : Error<

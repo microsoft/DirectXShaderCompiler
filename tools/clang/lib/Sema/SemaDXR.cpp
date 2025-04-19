@@ -1167,7 +1167,8 @@ void DiagnoseCallableEntry(Sema &S, FunctionDecl *FD,
 
     if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty)))
       S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
-          << /*payload|attributes|callable*/ 2 << Param;
+          << /*payload|attributes|callable*/ 2 << /*parameter %2|type*/ 0
+          << Param;
   }
   return;
 }
@@ -1208,7 +1209,8 @@ void DiagnoseMissOrAnyHitEntry(Sema &S, FunctionDecl *FD,
 
     if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty))) {
       S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
-          << /*payload|attributes|callable*/ Idx << Param;
+          << /*payload|attributes|callable*/ Idx << /*parameter %2|type*/ 0
+          << Param;
     }
   }
   return;
@@ -1261,7 +1263,8 @@ void DiagnoseClosestHitEntry(Sema &S, FunctionDecl *FD,
 
     if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty))) {
       S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
-          << /*payload|attributes|callable*/ Idx << Param;
+          << /*payload|attributes|callable*/ Idx << /*parameter %2|type*/ 0
+          << Param;
     }
   }
   return;
