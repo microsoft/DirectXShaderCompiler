@@ -52,7 +52,7 @@ stages:
 
     variables:
       macOS: macOS-latest
-      linux: Ubuntu-latest
+      linux: Ubuntu-22.04 # FIXME: #7364, DXC does not build correctly with GCC 13+
 
     strategy:
       matrix:
