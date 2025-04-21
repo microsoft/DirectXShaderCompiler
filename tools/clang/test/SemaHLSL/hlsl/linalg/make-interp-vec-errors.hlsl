@@ -9,12 +9,10 @@ export float4 Test1(vector<float, 4> Input) {
   MatrixRef<DATA_TYPE_UINT16, 4, 4, MATRIX_LAYOUT_MUL_OPTIMAL, true> Matrix = {
       Buf, 0, 0};
 
-  // clang-format off
   // expected-error@+3{{no matching function for call to 'MakeInterpretedVector'}}
   // expected-note@dx/linalg.h:93{{candidate template ignored: invalid explicitly-specified argument for template parameter 'DT'}}
   return Mul<float>(    
       Matrix, MakeInterpretedVector<2>(Input));
-  // clang-format on
 }
 
 enum DataType {
@@ -27,11 +25,9 @@ export float4 Test2(vector<float, 4> Input) {
   MatrixRef<DATA_TYPE_UINT16, 4, 4, MATRIX_LAYOUT_MUL_OPTIMAL, true> Matrix = {
       Buf, 0, 0};
 
-  // clang-format off
   // expected-error@+3{{no matching function for call to 'MakeInterpretedVector'}}
   // expected-note@dx/linalg.h:93{{candidate template ignored: invalid explicitly-specified argument for template parameter 'DT'}}
   return Mul<float>(    
       Matrix, MakeInterpretedVector<DATA_TYPE_InvalidType>(Input));
-  // clang-format on
 }
 
