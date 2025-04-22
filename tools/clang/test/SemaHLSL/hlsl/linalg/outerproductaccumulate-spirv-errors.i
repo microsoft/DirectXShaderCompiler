@@ -1,35 +1,34 @@
-// Header for linear algebra APIs.
+#line 1 "D:\\DXC\\tools\\clang\\test\\SemaHLSL\\hlsl\\linalg\\outerproductaccumulate-spirv-errors.hlsl"
 
-#if __spirv__
-#error "Cooperative matrix/vectors not (yet) supported for SPIRV"
-#endif
 
-#if ((__SHADER_TARGET_MAJOR > 6) ||                                            \
-     (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 9)) &&            \
-    (__HLSL_VERSION >= 2021)
 
+
+
+
+#line 1 "D:/DXC/tools/clang/lib/Headers/hlsl\\dx/linalg.h"
+#line 11 "D:/DXC/tools/clang/lib/Headers/hlsl\\dx/linalg.h"
 namespace dx {
 namespace linalg {
 
-// NOTE: can't be an enum class because we get this error:
-//     error: non-type template argument of type 'dx::linalg::DataType' is not
-//     an integral constant expression
-//
+
+
+
+
 enum DataType {
-  DATA_TYPE_SINT16 = 2,           // ComponentType::I16
-  DATA_TYPE_UINT16 = 3,           // ComponentType::U16
-  DATA_TYPE_SINT32 = 4,           // ComponentType::I32
-  DATA_TYPE_UINT32 = 5,           // ComponentType::U32
-  DATA_TYPE_FLOAT16 = 8,          // ComponentType::F16
-  DATA_TYPE_FLOAT32 = 9,          // ComponentType::F32
-  DATA_TYPE_SINT8_T4_PACKED = 17, // ComponentType::PackedS8x32
-  DATA_TYPE_UINT8_T4_PACKED = 18, // ComponentType::PackedU8x32
-  DATA_TYPE_UINT8 = 19,           // ComponentType::U8
-  DATA_TYPE_SINT8 = 20,           // ComponentType::I8
-  DATA_TYPE_FLOAT8_E4M3 = 21,     // ComponentType::F8_E4M3
-                                  // (1 sign, 4 exp, 3 mantissa bits)
-  DATA_TYPE_FLOAT8_E5M2 = 22,     // ComponentType::F8_E5M2
-                                  // (1 sign, 5 exp, 2 mantissa bits)
+  DATA_TYPE_SINT16 = 2,
+  DATA_TYPE_UINT16 = 3,
+  DATA_TYPE_SINT32 = 4,
+  DATA_TYPE_UINT32 = 5,
+  DATA_TYPE_FLOAT16 = 8,
+  DATA_TYPE_FLOAT32 = 9,
+  DATA_TYPE_SINT8_T4_PACKED = 17,
+  DATA_TYPE_UINT8_T4_PACKED = 18,
+  DATA_TYPE_UINT8 = 19,
+  DATA_TYPE_SINT8 = 20,
+  DATA_TYPE_FLOAT8_E4M3 = 21,
+
+  DATA_TYPE_FLOAT8_E5M2 = 22,
+
 };
 
 enum MatrixLayout {
@@ -39,23 +38,23 @@ enum MatrixLayout {
   MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL = 3
 };
 
-//
-// Helper for signedness
-//
+
+
+
 namespace details {
 template <typename T> bool IsUnsigned() { return false; }
 
-#ifdef __HLSL_ENABLE_16_BIT
+
 template <> bool IsUnsigned<uint16_t>() { return true; }
-#endif
+
 
 template <> bool IsUnsigned<uint32_t>() { return true; }
 template <> bool IsUnsigned<uint64_t>() { return true; }
-} // namespace details
+}
 
-//
-// (RW)MatrixRef
-//
+
+
+
 
 template <typename BufferTy, DataType DT, uint M, uint K, MatrixLayout ML,
           bool Transpose>
@@ -71,9 +70,9 @@ using MatrixRef = MatrixRefImpl<ByteAddressBuffer, DT, M, K, ML, Transpose>;
 template <DataType DT, uint M, uint K, MatrixLayout ML, bool Transpose = false>
 using RWMatrixRef = MatrixRefImpl<RWByteAddressBuffer, DT, M, K, ML, Transpose>;
 
-//
-// (RW)VectorRef
-//
+
+
+
 
 template <typename BufferTy, DataType DT> struct VectorRefImpl {
   BufferTy Buffer;
@@ -85,9 +84,9 @@ template <DataType DT> using VectorRef = VectorRefImpl<ByteAddressBuffer, DT>;
 template <DataType DT>
 using RWVectorRef = VectorRefImpl<RWByteAddressBuffer, DT>;
 
-//
-// Vector
-//
+
+
+
 
 template <typename T, int N, DataType DT> struct InterpretedVector {
   vector<T, N> Data;
@@ -99,9 +98,9 @@ InterpretedVector<T, N, DT> MakeInterpretedVector(vector<T, N> Vec) {
   return IV;
 }
 
-//
-// Mul
-//
+
+
+
 
 template <typename OutputElTy, typename InputElTy, int InputElCount,
           typename MatrixBufferTy, DataType InputDT, DataType MatrixDT,
@@ -116,7 +115,7 @@ Mul(MatrixRefImpl<MatrixBufferTy, MatrixDT, MatrixM, MatrixK, MatrixLayout,
   vector<OutputElTy, MatrixM> OutputVector;
 
   __builtin_MatVecMul(
-      /*out*/ OutputVector, details::IsUnsigned<OutputElTy>(), InputVector.Data,
+              OutputVector, details::IsUnsigned<OutputElTy>(), InputVector.Data,
       details::IsUnsigned<InputElTy>(), InputDT, Matrix.Buffer,
       Matrix.StartOffset, MatrixDT, MatrixM, MatrixK, MatrixLayout,
       MatrixTranspose, Matrix.Stride);
@@ -124,9 +123,9 @@ Mul(MatrixRefImpl<MatrixBufferTy, MatrixDT, MatrixM, MatrixK, MatrixLayout,
   return OutputVector;
 }
 
-//
-// MulAdd
-//
+
+
+
 
 template <typename OutputElTy, typename InputElTy, int InputElCount,
           typename MatrixBufferTy, DataType InputDT, DataType MatrixDT,
@@ -143,7 +142,7 @@ MulAdd(MatrixRefImpl<MatrixBufferTy, MatrixDT, MatrixM, MatrixK, MatrixLayout,
   vector<OutputElTy, MatrixM> OutputVector;
 
   __builtin_MatVecMulAdd(
-      /*out*/ OutputVector, details::IsUnsigned<OutputElTy>(), InputVector.Data,
+              OutputVector, details::IsUnsigned<OutputElTy>(), InputVector.Data,
       details::IsUnsigned<InputElTy>(), InputDT, Matrix.Buffer,
       Matrix.StartOffset, MatrixDT, MatrixM, MatrixK, MatrixLayout,
       MatrixTranspose, Matrix.Stride, BiasVector.Buffer, BiasVector.StartOffset,
@@ -152,9 +151,9 @@ MulAdd(MatrixRefImpl<MatrixBufferTy, MatrixDT, MatrixM, MatrixK, MatrixLayout,
   return OutputVector;
 }
 
-//
-// OuterProductAccumulate
-//
+
+
+
 
 template <typename ElTy, int MatrixM, int MatrixN, DataType MatrixDT,
           MatrixLayout MatrixLayout>
@@ -166,9 +165,9 @@ void OuterProductAccumulate(
                                    Matrix.Stride);
 }
 
-//
-// VectorAccumulate
-//
+
+
+
 
 template <typename ElTy, int ElCount>
 void VectorAccumulate(vector<ElTy, ElCount> InputVector,
@@ -176,7 +175,19 @@ void VectorAccumulate(vector<ElTy, ElCount> InputVector,
   __builtin_VectorAccumulate(InputVector, Buffer, Offset);
 }
 
-} // namespace linalg
-} // namespace dx
+}
+}
+#line 7 "D:\\DXC\\tools\\clang\\test\\SemaHLSL\\hlsl\\linalg\\outerproductaccumulate-spirv-errors.hlsl"
 
-#endif // SM 6.9 check and HV version check
+
+RWByteAddressBuffer RWBuf;
+
+export void Test4(vector<half, 128> Input1, vector<half, 64> Input2) {
+  using namespace dx::linalg;
+
+  RWMatrixRef<DATA_TYPE_FLOAT16, 128, 64, MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL>
+      matrix = {RWBuf, 0, 0};
+
+
+  OuterProductAccumulate(Input1, Input2, matrix);
+}
