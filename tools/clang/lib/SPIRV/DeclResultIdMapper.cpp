@@ -3522,7 +3522,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
       // Decorate with PerPrimitiveNV for per-primitive out variables.
       spvBuilder.decoratePerPrimitiveNV(varInstr,
                                         varInstr->getSourceLocation());
-    } else {
+    } else if (stageVar.getSemanticInfo().getKind() !=
+               hlsl::Semantic::Kind::DomainLocation) {
       spvBuilder.decoratePatch(varInstr, varInstr->getSourceLocation());
     }
   }

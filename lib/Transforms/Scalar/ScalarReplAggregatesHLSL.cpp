@@ -1540,6 +1540,8 @@ void isSafeForScalarRepl(Instruction *I, uint64_t Offset, AllocaInfo &Info) {
         // basing on IOP?
         IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(CI));
         if (IntrinsicOp::IOP_TraceRay == opcode ||
+            IntrinsicOp::MOP_DxHitObject_TraceRay == opcode ||
+            IntrinsicOp::MOP_DxHitObject_Invoke == opcode ||
             IntrinsicOp::IOP_ReportHit == opcode ||
             IntrinsicOp::IOP_CallShader == opcode) {
           return MarkUnsafe(Info, User);
@@ -2774,6 +2776,14 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
       case IntrinsicOp::IOP_CallShader: {
         RewriteCallArg(CI, HLOperandIndex::kCallShaderPayloadOpIdx,
                        /*bIn*/ true, /*bOut*/ true);
+      } break;
+      case IntrinsicOp::MOP_DxHitObject_MakeMiss: {
+        if (OldVal ==
+            CI->getArgOperand(HLOperandIndex::kHitObjectMakeMissRayDescOpIdx)) {
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                              /*loadElts*/ true);
+          DeadInsts.push_back(CI);
+        }
       } break;
       case IntrinsicOp::MOP_TraceRayInline: {
         if (OldVal ==
