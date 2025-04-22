@@ -101,6 +101,21 @@ struct RuntimeArrayTypeMapInfo {
   }
 };
 
+// Provides DenseMapInfo for NodePayloadArrayType so we can create a DenseSet of
+// node payload array types.
+struct NodePayloadArrayTypeMapInfo {
+  static inline NodePayloadArrayType *getEmptyKey() { return nullptr; }
+  static inline NodePayloadArrayType *getTombstoneKey() { return nullptr; }
+  static unsigned getHashValue(const NodePayloadArrayType *Val) {
+    return llvm::hash_combine(Val->getElementType(), Val->getNodeDecl());
+  }
+  static bool isEqual(const NodePayloadArrayType *LHS,
+                      const NodePayloadArrayType *RHS) {
+    // Either both are null, or both should have the same underlying type.
+    return (LHS == RHS) || (LHS && RHS && *LHS == *RHS);
+  }
+};
+
 // Provides DenseMapInfo for ImageType so we can create a DenseSet of
 // image types.
 struct ImageTypeMapInfo {
@@ -163,6 +178,7 @@ struct ResourceInfoToCombineSampledImage {
 class SpirvContext {
 public:
   using ShaderModelKind = hlsl::ShaderModel::Kind;
+  using NodeLaunchType = hlsl::DXIL::NodeLaunchType;
   SpirvContext();
   ~SpirvContext();
 
@@ -273,6 +289,9 @@ public:
   const RuntimeArrayType *
   getRuntimeArrayType(const SpirvType *elemType,
                       llvm::Optional<uint32_t> arrayStride);
+  const NodePayloadArrayType *
+  getNodePayloadArrayType(const SpirvType *elemType,
+                          const ParmVarDecl *nodeDecl);
 
   const StructType *getStructType(
       llvm::ArrayRef<StructType::FieldInfo> fields, llvm::StringRef name,
@@ -335,6 +354,11 @@ public:
   void setCurrentShaderModelKind(ShaderModelKind smk) {
     curShaderModelKind = smk;
   }
+#ifdef ENABLE_MESH_NODES
+  /// Functions to get/set NodeLaunchType.
+  NodeLaunchType getCurrentNodeLaunchType() { return curNodeLaunchType; }
+  void setCurrentNodeLaunchType(NodeLaunchType nlt) { curNodeLaunchType = nlt; }
+#endif
   /// Functions to get/set hlsl profile version.
   uint32_t getMajorVersion() const { return majorVersion; }
   void setMajorVersion(uint32_t major) { majorVersion = major; }
@@ -349,6 +373,7 @@ public:
   bool isDS() const { return curShaderModelKind == ShaderModelKind::Domain; }
   bool isCS() const { return curShaderModelKind == ShaderModelKind::Compute; }
   bool isLib() const { return curShaderModelKind == ShaderModelKind::Library; }
+  bool isNode() const { return curShaderModelKind == ShaderModelKind::Node; }
   bool isRay() const {
     return curShaderModelKind >= ShaderModelKind::RayGeneration &&
            curShaderModelKind <= ShaderModelKind::Callable;
@@ -440,6 +465,47 @@ public:
            instructionsWithLoweredType.end();
   }
 
+  void registerGraphicsNodeDecoration(const RecordDecl *decl, unsigned index,
+                                      spv::Decoration decor) {
+    auto iter = graphicsNodeDecorations.find(decl);
+    if (iter == graphicsNodeDecorations.end()) {
+      iter = graphicsNodeDecorations
+                 .insert(std::make_pair(
+                     decl, llvm::MapVector<unsigned, spv::Decoration>()))
+                 .first;
+    }
+    iter->second.insert(std::make_pair(index, decor));
+  }
+
+  const llvm::MapVector<unsigned, spv::Decoration>
+  getGraphicsNodeDecorations(const RecordDecl *decl) {
+    auto iter = graphicsNodeDecorations.find(decl);
+    if (iter != graphicsNodeDecorations.end()) {
+      return iter->second;
+    }
+    return {};
+  }
+
+  void registerNodeDeclPayloadType(const NodePayloadArrayType *type,
+                                   const ParmVarDecl *decl) {
+    nodeDecls[decl] = type;
+  }
+
+  const NodePayloadArrayType *getNodeDeclPayloadType(const ParmVarDecl *decl) {
+    auto iter = nodeDecls.find(decl);
+    return iter == nodeDecls.end() ? nullptr : iter->second;
+  }
+
+  void setEvaluatedAttrArgs(const Attr *attr,
+                            ArrayRef<SpirvInstruction *> instrs) {
+    evaluatedAttrArgs[attr] = instrs;
+  }
+
+  ArrayRef<SpirvInstruction *> getEvaluatedAttrArgs(const Attr *attr) {
+    return evaluatedAttrArgs.count(attr) ? evaluatedAttrArgs[attr]
+                                         : ArrayRef<SpirvInstruction *>();
+  }
+
 private:
   /// \brief The allocator used to create SPIR-V entity objects.
   ///
@@ -484,6 +550,8 @@ private:
   llvm::DenseSet<const ArrayType *, ArrayTypeMapInfo> arrayTypes;
   llvm::DenseSet<const RuntimeArrayType *, RuntimeArrayTypeMapInfo>
       runtimeArrayTypes;
+  llvm::DenseSet<const NodePayloadArrayType *, NodePayloadArrayTypeMapInfo>
+      nodePayloadArrayTypes;
   llvm::SmallVector<const StructType *, 8> structTypes;
   llvm::SmallVector<const HybridStructType *, 8> hybridStructTypes;
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
@@ -498,6 +566,8 @@ private:
 
   // Current ShaderModelKind for entry point.
   ShaderModelKind curShaderModelKind;
+  // Current NodeLaunchType for entry point.
+  NodeLaunchType curNodeLaunchType;
   // Major/Minor hlsl profile version.
   uint32_t majorVersion;
   uint32_t minorVersion;
@@ -509,6 +579,11 @@ private:
   /// recursively.
   llvm::StringMap<RichDebugInfo> debugInfo;
   SpirvDebugInstruction *currentLexicalScope;
+
+  // Mapping from graphics node input record types to member decoration maps.
+  llvm::MapVector<const RecordDecl *,
+                  llvm::MapVector<unsigned, spv::Decoration>>
+      graphicsNodeDecorations;
 
   // Mapping from SPIR-V type to debug type instruction.
   // The purpose is not to generate several DebugType* instructions for the same
@@ -541,6 +616,19 @@ private:
 
   // Set of instructions that already have lowered SPIR-V types.
   llvm::DenseSet<const SpirvInstruction *> instructionsWithLoweredType;
+
+  // Mapping from shader entry function parameter declaration to node payload
+  // array type.
+  llvm::MapVector<const ParmVarDecl *, const NodePayloadArrayType *> nodeDecls;
+
+  /// \brief A map of attributes to their evaluated arguments.
+  ///
+  /// This is used for a workaround for allowing spec constants in attributes.
+  /// Attr stores only bare constants.  To avoid changing AST data structures
+  /// and thereby disrupting code generation for other targets, we store the
+  /// original argument expressions in ASTContext during the Sema phase and
+  /// then evaluate the expressions in the entry block.
+  llvm::DenseMap<const Attr *, ArrayRef<SpirvInstruction *>> evaluatedAttrArgs;
 };
 
 } // end namespace spirv

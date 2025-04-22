@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
+// All rights reserved.                                                      //
+//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 /* <py>
@@ -309,6 +312,7 @@ DXIL::SigPointKind SigPoint::GetKind(DXIL::ShaderKind shaderKind,
     }
     break;
   case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::Node:
     switch (sigKind) {
     case DXIL::SignatureKind::Input:
       return DXIL::SigPointKind::CSIn;

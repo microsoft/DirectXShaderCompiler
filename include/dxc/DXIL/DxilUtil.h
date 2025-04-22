@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
+// All rights reserved.                                                      //
+//                                                                           //
 // DXIL helper functions.                                                    //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
@@ -178,7 +181,6 @@ bool IsHLSLRWNodeInputRecordType(llvm::Type *Ty);
 bool IsHLSLNodeOutputRecordType(llvm::Type *Ty);
 bool IsHLSLGSNodeOutputRecordType(llvm::Type *Ty);
 bool IsHLSLNodeRecordType(llvm::Type *Ty);
-bool IsHLSLNodeInputOutputType(llvm::Type *Ty);
 
 llvm::Type *
 StripArrayTypes(llvm::Type *Ty,

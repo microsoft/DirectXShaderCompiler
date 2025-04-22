@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 #include "PreciseVisitor.h"
@@ -60,6 +63,9 @@ bool isAccessingPrecise(clang::spirv::SpirvAccessChain *inst) {
     } else if (auto *raType = llvm::dyn_cast<RuntimeArrayType>(baseType)) {
       indexes.pop();
       baseType = raType->getElementType();
+    } else if (auto *npaType = llvm::dyn_cast<NodePayloadArrayType>(baseType)) {
+      indexes.pop();
+      baseType = npaType->getElementType();
     } else if (auto *structType = llvm::dyn_cast<StructType>(baseType)) {
       SpirvInstruction *index = indexes.top();
       if (auto *constInt = llvm::dyn_cast<SpirvConstantInteger>(index)) {
