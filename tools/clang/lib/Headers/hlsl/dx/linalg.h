@@ -1,7 +1,7 @@
 // Header for linear algebra APIs.
 
 #if __spirv__
-#error "Cooperative matrix/vectors not (yet) supported for SPIRV"
+#error "Cooperative vectors not (yet) supported for SPIRV"
 #endif
 
 #if ((__SHADER_TARGET_MAJOR > 6) ||                                            \

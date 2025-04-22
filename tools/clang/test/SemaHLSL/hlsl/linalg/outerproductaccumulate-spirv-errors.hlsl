@@ -4,7 +4,7 @@
 // This is a copy of \tools\clang\test\CodeGenDXIL\hlsl\linalg\outerproductaccumulate.hlsl
 // except that spirv is targeted
 
-// expected-error@dx/linalg.h:4{{Cooperative matrix/vectors not (yet) supported for SPIRV}}
+// expected-error@dx/linalg.h:4{{Cooperative vectors not (yet) supported for SPIRV}}
 #include <dx/linalg.h>
 
 RWByteAddressBuffer RWBuf;
