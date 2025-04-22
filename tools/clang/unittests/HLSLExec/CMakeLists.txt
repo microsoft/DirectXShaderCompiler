@@ -39,3 +39,10 @@ endif()
 file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" DOS_STYLE_SOURCE_DIR)
 file(TO_NATIVE_PATH "${TAEF_BIN_DIR}" DOS_TAEF_BIN_DIR)
 configure_file(ExecHLSLTests.vcxproj.user.txt ExecHLSLTests.vcxproj.user)
+
+# Copy the ShaderOpArith.xml file to the output directory. It's used by the exec
+# tests and it's convenient to have it copied here if you want to easily copy
+# the tests to another machine after building.
+set(XML_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/ShaderOpArith.xml)
+set(XML_DESTINATION ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}/bin)
+file(COPY ${XML_SOURCE} DESTINATION ${XML_DESTINATION})
