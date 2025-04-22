@@ -275,6 +275,9 @@ public:
   typedef std::function<void(LPCSTR Name, LPCSTR pText, IDxcBlob **ppShaderBlob,
                              ShaderOp *pShaderOp)>
       TShaderCallbackFn;
+
+  ShaderOpTest();
+  ~ShaderOpTest();
   void GetPipelineStats(D3D12_QUERY_DATA_PIPELINE_STATISTICS *pStats);
   void GetReadBackData(LPCSTR pResourceName, MappedData *pData);
   void RunShaderOp(ShaderOp *pShaderOp);
