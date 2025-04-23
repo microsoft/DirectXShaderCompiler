@@ -5958,19 +5958,31 @@ Value *TranslateNoArgVectorOperation(CallInst *CI, IntrinsicOp IOP,
   return retVal;
 }
 
+template <typename ColElemTy>
+static void GetMatrixIndices(Constant *&Rows, Constant *&Cols, bool Is3x4,
+                             LLVMContext &Ctx) {
+  if (Is3x4) {
+    uint32_t RVals[] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
+    Rows = ConstantDataVector::get(Ctx, RVals);
+    ColElemTy CVals[] = {0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
+    Cols = ConstantDataVector::get(Ctx, CVals);
+    return;
+  }
+  uint32_t RVals[] = {0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2};
+  Rows = ConstantDataVector::get(Ctx, RVals);
+  ColElemTy CVals[] = {0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3};
+  Cols = ConstantDataVector::get(Ctx, CVals);
+}
+
 Value *TranslateNoArgMatrix3x4Operation(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper,
     bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   VectorType *Ty = cast<VectorType>(CI->getType());
-  uint32_t rVals[] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
-  Constant *rows = ConstantDataVector::get(CI->getContext(), rVals);
-  uint8_t cVals[] = {0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
-  Constant *cols = ConstantDataVector::get(CI->getContext(), cVals);
-  Value *retVal =
-      TrivialDxilOperation(opcode, {nullptr, rows, cols}, Ty, CI, hlslOP);
-  return retVal;
+  Constant *Rows, *Cols;
+  GetMatrixIndices<uint8_t>(Rows, Cols, true, CI->getContext());
+  return TrivialDxilOperation(opcode, {nullptr, Rows, Cols}, Ty, CI, hlslOP);
 }
 
 Value *TranslateNoArgTransposedMatrix3x4Operation(
@@ -5979,13 +5991,9 @@ Value *TranslateNoArgTransposedMatrix3x4Operation(
     bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   VectorType *Ty = cast<VectorType>(CI->getType());
-  uint32_t rVals[] = {0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2};
-  Constant *rows = ConstantDataVector::get(CI->getContext(), rVals);
-  uint8_t cVals[] = {0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3};
-  Constant *cols = ConstantDataVector::get(CI->getContext(), cVals);
-  Value *retVal =
-      TrivialDxilOperation(opcode, {nullptr, rows, cols}, Ty, CI, hlslOP);
-  return retVal;
+  Constant *Rows, *Cols;
+  GetMatrixIndices<uint8_t>(Rows, Cols, false, CI->getContext());
+  return TrivialDxilOperation(opcode, {nullptr, Rows, Cols}, Ty, CI, hlslOP);
 }
 
 /*
@@ -6392,7 +6400,23 @@ Value *TranslateHitObjectGetAttributes(CallInst *CI, IntrinsicOp IOP,
                                        HLOperationLowerHelper &Helper,
                                        HLObjectOperationLowerHelper *pObjHelper,
                                        bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  Value *HitObject = Builder.CreateLoad(HitObjectPtr);
+
+  Type *AttrTy = cast<PointerType>(CI->getType())->getPointerElementType();
+
+  IRBuilder<> EntryBuilder(
+      dxilutil::FindAllocaInsertionPt(CI->getParent()->getParent()));
+  unsigned AttrAlign = Helper.dataLayout.getABITypeAlignment(AttrTy);
+  AllocaInst *AttrMem = EntryBuilder.CreateAlloca(AttrTy);
+  AttrMem->setAlignment(AttrAlign);
+  Constant *opArg = OP->GetU32Const((unsigned)OpCode);
+  TrivialDxilOperation(OpCode, {opArg, HitObject, AttrMem}, CI->getType(),
+                       Helper.voidTy, OP, Builder);
+  return AttrMem;
 }
 
 Value *TranslateHitObjectScalarGetter(CallInst *CI, IntrinsicOp IOP,
@@ -6400,7 +6424,12 @@ Value *TranslateHitObjectScalarGetter(CallInst *CI, IntrinsicOp IOP,
                                       HLOperationLowerHelper &Helper,
                                       HLObjectOperationLowerHelper *pObjHelper,
                                       bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  IRBuilder<> Builder(CI);
+  Value *HitObject = Builder.CreateLoad(HitObjectPtr);
+  return TrivialDxilOperation(OpCode, {nullptr, HitObject}, CI->getType(), CI,
+                              OP);
 }
 
 Value *TranslateHitObjectVectorGetter(CallInst *CI, IntrinsicOp IOP,
@@ -6408,7 +6437,24 @@ Value *TranslateHitObjectVectorGetter(CallInst *CI, IntrinsicOp IOP,
                                       HLOperationLowerHelper &Helper,
                                       HLObjectOperationLowerHelper *pObjHelper,
                                       bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  IRBuilder<> Builder(CI);
+  Value *HitObject = Builder.CreateLoad(HitObjectPtr);
+  VectorType *Ty = cast<VectorType>(CI->getType());
+  uint32_t Vals[] = {0, 1, 2, 3};
+  Constant *Src = ConstantDataVector::get(CI->getContext(), Vals);
+  return TrivialDxilOperation(OpCode, {nullptr, HitObject, Src}, Ty, CI, OP);
+}
+
+static bool IsHitObject3x4Getter(IntrinsicOp IOP) {
+  switch (IOP) {
+  default:
+    return false;
+  case IntrinsicOp::MOP_DxHitObject_GetObjectToWorld3x4:
+  case IntrinsicOp::MOP_DxHitObject_GetWorldToObject3x4:
+    return true;
+  }
 }
 
 Value *TranslateHitObjectMatrixGetter(CallInst *CI, IntrinsicOp IOP,
@@ -6416,21 +6462,51 @@ Value *TranslateHitObjectMatrixGetter(CallInst *CI, IntrinsicOp IOP,
                                       HLOperationLowerHelper &Helper,
                                       HLObjectOperationLowerHelper *pObjHelper,
                                       bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  IRBuilder<> Builder(CI);
+  Value *HitObject = Builder.CreateLoad(HitObjectPtr);
+
+  // Create 3x4 matrix indices
+  bool Is3x4 = IsHitObject3x4Getter(IOP);
+  Constant *Rows, *Cols;
+  GetMatrixIndices<uint32_t>(Rows, Cols, Is3x4, CI->getContext());
+
+  VectorType *Ty = cast<VectorType>(CI->getType());
+  return TrivialDxilOperation(OpCode, {nullptr, HitObject, Rows, Cols}, Ty, CI,
+                              OP);
 }
 
 Value *TranslateHitObjectLoadLocalRootTableConstant(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
     HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *pObjHelper,
     bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  Value *Offset = CI->getArgOperand(2);
+
+  Value *HitObject = Builder.CreateLoad(HitObjectPtr);
+  return TrivialDxilOperation(OpCode, {nullptr, HitObject, Offset},
+                              Helper.voidTy, CI, OP);
 }
 
 Value *TranslateHitObjectSetShaderTableIndex(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
     HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *pObjHelper,
     bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  Value *ShaderTableIndex = CI->getArgOperand(2);
+
+  Value *InHitObject = Builder.CreateLoad(HitObjectPtr);
+  Value *OutHitObject = TrivialDxilOperation(
+      OpCode, {nullptr, InHitObject, ShaderTableIndex}, Helper.voidTy, CI, OP);
+  Builder.CreateStore(OutHitObject, HitObjectPtr);
+  return nullptr;
 }
 
 } // namespace

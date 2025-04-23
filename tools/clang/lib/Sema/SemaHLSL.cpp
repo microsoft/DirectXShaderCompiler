@@ -10770,6 +10770,22 @@ HLSLExternalSource::ApplyTypeSpecSignToParsedType(clang::QualType &type,
   }
 }
 
+bool DiagnoseIntersectionAttributes(Sema &S, SourceLocation Loc, QualType Ty) {
+  // Must be a UDT
+  if (Ty.isNull() || !hlsl::IsHLSLCopyableAnnotatableRecord(Ty)) {
+    S.Diag(Loc, diag::err_payload_attrs_must_be_udt)
+        << /*payload|attributes|callable*/ 1 << /*parameter %2|type*/ 1;
+    return false;
+  }
+
+  if (ContainsLongVector(Ty)) {
+    const unsigned AttributesIdx = 11;
+    S.Diag(Loc, diag::err_hlsl_unsupported_long_vector) << AttributesIdx;
+    return false;
+  }
+  return true;
+}
+
 Sema::TemplateDeductionResult
 HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
     FunctionTemplateDecl *FunctionTemplate,
@@ -10878,6 +10894,7 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
     LPCSTR tableName = cursor.GetTableName();
     // Currently only intrinsic we allow for explicit template arguments are
     // for Load/Store for ByteAddressBuffer/RWByteAddressBuffer
+    // and HitObject::GetAttributes with user-defined intersection attributes.
 
     // Check Explicit template arguments
     UINT intrinsicOp = (*cursor)->Op;
@@ -10892,28 +10909,38 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
       IsBABLoad = intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
       IsBABStore = intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
     }
-    if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() > 0) {
-      bool isLegalTemplate = false;
+    bool IsHitObjectGetAttributes =
+        intrinsicOp == (UINT)IntrinsicOp::MOP_DxHitObject_GetAttributes;
+    if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() >= 1) {
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
-      auto TemplateDiag = diag::err_hlsl_intrinsic_template_arg_unsupported;
-      if (ExplicitTemplateArgs->size() >= 1 && (IsBABLoad || IsBABStore)) {
-        TemplateDiag = diag::err_hlsl_intrinsic_template_arg_requires_2018;
-        Loc = (*ExplicitTemplateArgs)[0].getLocation();
-        if (Is2018) {
-          TemplateDiag = diag::err_hlsl_intrinsic_template_arg_numeric;
-          if (ExplicitTemplateArgs->size() == 1 &&
-              !functionTemplateTypeArg.isNull() &&
-              hlsl::IsHLSLNumericOrAggregateOfNumericType(
-                  functionTemplateTypeArg)) {
-            isLegalTemplate = true;
-          }
-        }
-      }
-
-      if (!isLegalTemplate) {
-        getSema()->Diag(Loc, TemplateDiag) << intrinsicName;
+      if (!IsBABLoad && !IsBABStore && !IsHitObjectGetAttributes) {
+        getSema()->Diag(Loc, diag::err_hlsl_intrinsic_template_arg_unsupported)
+            << intrinsicName;
         return Sema::TemplateDeductionResult::TDK_Invalid;
       }
+      Loc = (*ExplicitTemplateArgs)[0].getLocation();
+      if (!Is2018) {
+        getSema()->Diag(Loc,
+                        diag::err_hlsl_intrinsic_template_arg_requires_2018)
+            << intrinsicName;
+        return Sema::TemplateDeductionResult::TDK_Invalid;
+      }
+
+      if (IsBABLoad || IsBABStore) {
+        const bool IsLegalTemplate =
+            !functionTemplateTypeArg.isNull() &&
+            hlsl::IsHLSLNumericOrAggregateOfNumericType(
+                functionTemplateTypeArg);
+        if (!IsLegalTemplate) {
+          getSema()->Diag(Loc, diag::err_hlsl_intrinsic_template_arg_numeric)
+              << intrinsicName;
+          return Sema::TemplateDeductionResult::TDK_Invalid;
+        }
+      }
+      if (IsHitObjectGetAttributes &&
+          !DiagnoseIntersectionAttributes(*getSema(), Loc,
+                                          functionTemplateTypeArg))
+        return Sema::TemplateDeductionResult::TDK_Invalid;
     } else if (IsBABStore) {
       // Prior to HLSL 2018, Store operation only stored scalar uint.
       if (!Is2018) {
