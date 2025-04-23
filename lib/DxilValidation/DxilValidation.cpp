@@ -1675,7 +1675,7 @@ static void ValidateConstantRangeUnsigned(Value *Val, StringRef Name,
                                 {Name, GetOpCodeName(OpCode)});
     return;
   }
-  if (C->uge(UpperBound) || !C->uge(LowerBound)) {
+  if (C->uge(UpperBound + 1U) || !C->uge(LowerBound)) {
     std::string Range =
         std::to_string(LowerBound) + "~" + std::to_string(UpperBound);
     ValCtx.EmitInstrFormatError(
