@@ -1,6 +1,6 @@
 ; RUN: %dxopt %s -hlsl-passes-resume -scalarrepl-param-hlsl -S | FileCheck %s
 
-; COM: Original HLSL source
+; COM: Original HLSL code
 ; COM: RaytracingAccelerationStructure RTAS;
 ; COM: RWStructuredBuffer<float> UAV : register(u0);
 ; COM: RWByteAddressBuffer inbuf;
@@ -29,6 +29,8 @@
 ; COM:   RayQuery<RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> q;
 ; COM:   RayDesc ray = MakeRayDesc();
 ; COM:   q.TraceRayInline(RTAS, RAY_FLAG_NONE, 0xFF, ray);
+; COM: 
+; COM:   Use(dx::HitObject::FromRayQuery(q));
 ; COM: 
 ; COM:   CustomAttrs attrs;
 ; COM:   attrs.x = inbuf.Load(0);
@@ -80,8 +82,8 @@ target triple = "dxil-ms-dx"
 %ConstantBuffer = type opaque
 %"class.RayQuery<5, 0>" = type { i32 }
 %struct.RayDesc = type { <3 x float>, float, <3 x float>, float }
-%struct.CustomAttrs = type { float, float }
 %dx.types.HitObject = type { i8* }
+%struct.CustomAttrs = type { float, float }
 %dx.types.Handle = type { i8* }
 %dx.types.ResourceProperties = type { i32, i32 }
 %"class.dx::HitObject" = type { i32 }
@@ -100,9 +102,13 @@ target triple = "dxil-ms-dx"
 
 ; COM: Check same query handle used for TraceRayInline and the FromRayQuery calls
 ; CHECK: %[[RQH:[^ ]+]] = load i32, i32* %[[RQA]]
-; CHECK: call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 325, i32 %[[RQH]], 
+; CHECK: call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 325, i32 %[[RQH]],
+    
+; COM: Check RQ handle loaded for first FromRayQuery call
+; CHECK: %[[RQH0:[^ ]+]] = load i32, i32* %[[RQA]]
+; CHECK: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32)"(i32 363, %dx.types.HitObject* %{{[^ ]+}}, i32 %[[RQH0]])
 
-; COM: Check buffer loads for first FromRayQuery call
+; COM: Check buffer loads for first FromRayQuery-with-attrs call
 ; CHECK: %[[XI0:[^ ]+]] = call i32 @"dx.hl.op.ro.i32 (i32, %dx.types.Handle, i32)"(i32 231, %dx.types.Handle %{{[^ ]+}}, i32 0)
 ; CHECK: %[[XF0:[^ ]+]] = uitofp i32 %[[XI0]] to float
 ; CHECK: store float %[[XF0]], float* %[[XATTRA]], align 4
@@ -110,17 +116,17 @@ target triple = "dxil-ms-dx"
 ; CHECK: %[[YF0:[^ ]+]] = uitofp i32 %[[YI0]] to float
 ; CHECK: store float %[[YF0]], float* %[[YATTRA]], align 4
 
-; COM: Check that values from buffer flow into first FromRayQuery call
+; COM: Check that values from buffer flow into first FromRayQuery-with-attrs call
 ; CHECK: %[[XPTR0:[^ ]+]] = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %[[ATTRA0]], i32 0, i32 0
 ; CHECK: %[[XF1:[^ ]+]] = load float, float* %[[XATTRA]]
 ; CHECK: store float %[[XF1]], float* %[[XPTR0]]
 ; CHECK: %[[YPTR0:[^ ]+]] = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %[[ATTRA0]], i32 0, i32 1
 ; CHECK: %[[YF1:[^ ]+]] = load float, float* %[[YATTRA]]
 ; CHECK: store float %[[YF1]], float* %[[YPTR0]], align 4
-; CHECK: %[[RQH0:[^ ]+]] = load i32, i32* %[[RQA]]
-; CHECK: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.CustomAttrs*)"(i32 363, %dx.types.HitObject* %{{[^ ]+}}, i32 %[[RQH0]], i32 16, %struct.CustomAttrs* %[[ATTRA0]])
+; CHECK: %[[RQH1:[^ ]+]] = load i32, i32* %[[RQA]]
+; CHECK: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.CustomAttrs*)"(i32 363, %dx.types.HitObject* %{{[^ ]+}}, i32 %[[RQH1]], i32 16, %struct.CustomAttrs* %[[ATTRA0]])
 
-; COM: Check buffer loads for second FromRayQuery call
+; COM: Check buffer loads for second FromRayQuery-with-attrs call
 ; CHECK: %[[XI1:[^ ]+]] = call i32 @"dx.hl.op.ro.i32 (i32, %dx.types.Handle, i32)"(i32 231, %dx.types.Handle %{{[^ ]+}}, i32 8)
 ; CHECK: %[[XF1:[^ ]+]] = uitofp i32 %[[XI1]] to float
 ; CHECK: store float %[[XF1]], float* %[[XATTRA]], align 4
@@ -128,96 +134,100 @@ target triple = "dxil-ms-dx"
 ; CHECK: %[[YF1:[^ ]+]] = uitofp i32 %[[YI1]] to float
 ; CHECK: store float %[[YF1]], float* %[[YATTRA]], align 4
 
-; COM: Check that values from buffer flow into second FromRayQuery call
+; COM: Check that values from buffer flow into second FromRayQuery-with-attrs call
 ; CHECK: %[[XPTR1:[^ ]+]] = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %[[ATTRA1]], i32 0, i32 0
 ; CHECK: %[[XF2:[^ ]+]] = load float, float* %[[XATTRA]]
 ; CHECK: store float %[[XF2]], float* %[[XPTR1]]
 ; CHECK: %[[YPTR1:[^ ]+]] = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %[[ATTRA1]], i32 0, i32 1
 ; CHECK: %[[YF2:[^ ]+]] = load float, float* %[[YATTRA]]
 ; CHECK: store float %[[YF2]], float* %[[YPTR1]], align 4
-; CHECK: %[[RQH1:[^ ]+]] = load i32, i32* %[[RQA]]
-; CHECK: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.CustomAttrs*)"(i32 363, %dx.types.HitObject* %{{[^ ]+}}, i32 %[[RQH1]], i32 17, %struct.CustomAttrs* %[[ATTRA1]])
+; CHECK: %[[RQH2:[^ ]+]] = load i32, i32* %[[RQA]]
+; CHECK: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.CustomAttrs*)"(i32 363, %dx.types.HitObject* %{{[^ ]+}}, i32 %[[RQH2]], i32 17, %struct.CustomAttrs* %[[ATTRA1]])
+
 
 ; Function Attrs: nounwind
 define void @"\01?main@@YAXXZ"() #0 {
 entry:
   %q = alloca %"class.RayQuery<5, 0>", align 4
   %ray = alloca %struct.RayDesc, align 4
-  %attrs = alloca %struct.CustomAttrs, align 4
   %agg.tmp = alloca %dx.types.HitObject, align 4
-  %agg.tmp10 = alloca %dx.types.HitObject, align 4
-  %0 = bitcast %"class.RayQuery<5, 0>"* %q to i8*, !dbg !45
-  call void @llvm.lifetime.start(i64 4, i8* %0) #0, !dbg !45
-  %q13 = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 5, i32 0), !dbg !49
-  %1 = getelementptr inbounds %"class.RayQuery<5, 0>", %"class.RayQuery<5, 0>"* %q, i32 0, i32 0, !dbg !49
-  store i32 %q13, i32* %1, !dbg !49
-  %2 = bitcast %struct.RayDesc* %ray to i8*, !dbg !50
-  call void @llvm.lifetime.start(i64 32, i8* %2) #0, !dbg !50
-  %Origin.i = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %ray, i32 0, i32 0, !dbg !51
-  store <3 x float> zeroinitializer, <3 x float>* %Origin.i, align 4, !dbg !54, !tbaa !55, !alias.scope !58
-  %Direction.i = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %ray, i32 0, i32 2, !dbg !61
-  store <3 x float> <float 1.000000e+00, float 0.000000e+00, float 0.000000e+00>, <3 x float>* %Direction.i, align 4, !dbg !62, !tbaa !55, !alias.scope !58
-  %TMin.i = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %ray, i32 0, i32 1, !dbg !63
-  store float 0.000000e+00, float* %TMin.i, align 4, !dbg !64, !tbaa !65, !alias.scope !58
-  %TMax.i = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %ray, i32 0, i32 3, !dbg !67
-  store float 9.999000e+03, float* %TMax.i, align 4, !dbg !68, !tbaa !65, !alias.scope !58
-  %3 = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", !dbg !69
-  %4 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RaytracingAccelerationStructure)"(i32 0, %struct.RaytracingAccelerationStructure %3), !dbg !69
-  %5 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %4, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef), !dbg !69
-  call void @"dx.hl.op..void (i32, %\22class.RayQuery<5, 0>\22*, %dx.types.Handle, i32, i32, %struct.RayDesc*)"(i32 325, %"class.RayQuery<5, 0>"* %q, %dx.types.Handle %5, i32 0, i32 255, %struct.RayDesc* %ray), !dbg !69
-  %6 = bitcast %struct.CustomAttrs* %attrs to i8*, !dbg !70
-  call void @llvm.lifetime.start(i64 8, i8* %6) #0, !dbg !70
-  %7 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?inbuf@@3URWByteAddressBuffer@@A", !dbg !71
-  %8 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %7), !dbg !71
-  %9 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %8, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef), !dbg !71
-  %10 = call i32 @"dx.hl.op.ro.i32 (i32, %dx.types.Handle, i32)"(i32 231, %dx.types.Handle %9, i32 0), !dbg !71
-  %conv = uitofp i32 %10 to float, !dbg !71
-  %x = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 0, !dbg !72
-  store float %conv, float* %x, align 4, !dbg !73, !tbaa !65
-  %11 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?inbuf@@3URWByteAddressBuffer@@A", !dbg !74
-  %12 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %11), !dbg !74
-  %13 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %12, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef), !dbg !74
-  %14 = call i32 @"dx.hl.op.ro.i32 (i32, %dx.types.Handle, i32)"(i32 231, %dx.types.Handle %13, i32 4), !dbg !74
-  %conv3 = uitofp i32 %14 to float, !dbg !74
-  %y = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 1, !dbg !75
-  store float %conv3, float* %y, align 4, !dbg !76, !tbaa !65
-  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, %\22class.RayQuery<5, 0>\22*, i32, %struct.CustomAttrs*)"(i32 363, %dx.types.HitObject* %agg.tmp, %"class.RayQuery<5, 0>"* %q, i32 16, %struct.CustomAttrs* %attrs), !dbg !77
-  call void @"dx.hl.op..void (i32, %dx.types.HitObject*)"(i32 359, %dx.types.HitObject* %agg.tmp) #0, !dbg !78
-  %15 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?inbuf@@3URWByteAddressBuffer@@A", !dbg !81
-  %16 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %15), !dbg !81
-  %17 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %16, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef), !dbg !81
-  %18 = call i32 @"dx.hl.op.ro.i32 (i32, %dx.types.Handle, i32)"(i32 231, %dx.types.Handle %17, i32 8), !dbg !81
-  %conv5 = uitofp i32 %18 to float, !dbg !81
-  %x6 = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 0, !dbg !82
-  store float %conv5, float* %x6, align 4, !dbg !83, !tbaa !65
-  %19 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?inbuf@@3URWByteAddressBuffer@@A", !dbg !84
-  %20 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %19), !dbg !84
-  %21 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %20, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef), !dbg !84
-  %22 = call i32 @"dx.hl.op.ro.i32 (i32, %dx.types.Handle, i32)"(i32 231, %dx.types.Handle %21, i32 12), !dbg !84
-  %conv8 = uitofp i32 %22 to float, !dbg !84
-  %y9 = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 1, !dbg !85
-  store float %conv8, float* %y9, align 4, !dbg !86, !tbaa !65
-  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, %\22class.RayQuery<5, 0>\22*, i32, %struct.CustomAttrs*)"(i32 363, %dx.types.HitObject* %agg.tmp10, %"class.RayQuery<5, 0>"* %q, i32 17, %struct.CustomAttrs* %attrs), !dbg !87
-  call void @"dx.hl.op..void (i32, %dx.types.HitObject*)"(i32 359, %dx.types.HitObject* %agg.tmp10) #0, !dbg !88
-  %x11 = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 0, !dbg !90
-  %23 = load float, float* %x11, align 4, !dbg !90, !tbaa !65
-  %24 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?outbuf@@3URWByteAddressBuffer@@A", !dbg !91
-  %25 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %24), !dbg !91
-  %26 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %25, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef), !dbg !91
-  call void @"dx.hl.op..void (i32, %dx.types.Handle, i32, float)"(i32 277, %dx.types.Handle %26, i32 0, float %23), !dbg !91
-  %y12 = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 1, !dbg !92
-  %27 = load float, float* %y12, align 4, !dbg !92, !tbaa !65
-  %28 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?outbuf@@3URWByteAddressBuffer@@A", !dbg !93
-  %29 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %28), !dbg !93
-  %30 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %29, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef), !dbg !93
-  call void @"dx.hl.op..void (i32, %dx.types.Handle, i32, float)"(i32 277, %dx.types.Handle %30, i32 4, float %27), !dbg !93
-  %31 = bitcast %struct.CustomAttrs* %attrs to i8*, !dbg !94
-  call void @llvm.lifetime.end(i64 8, i8* %31) #0, !dbg !94
-  %32 = bitcast %struct.RayDesc* %ray to i8*, !dbg !94
-  call void @llvm.lifetime.end(i64 32, i8* %32) #0, !dbg !94
-  %33 = bitcast %"class.RayQuery<5, 0>"* %q to i8*, !dbg !94
-  call void @llvm.lifetime.end(i64 4, i8* %33) #0, !dbg !94
-  ret void, !dbg !94
+  %attrs = alloca %struct.CustomAttrs, align 4
+  %agg.tmp4 = alloca %dx.types.HitObject, align 4
+  %agg.tmp11 = alloca %dx.types.HitObject, align 4
+  %0 = bitcast %"class.RayQuery<5, 0>"* %q to i8*, !dbg !45 ; line:26 col:3
+  call void @llvm.lifetime.start(i64 4, i8* %0) #0, !dbg !45 ; line:26 col:3
+  %q14 = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 5, i32 0), !dbg !49 ; line:26 col:78
+  %1 = getelementptr inbounds %"class.RayQuery<5, 0>", %"class.RayQuery<5, 0>"* %q, i32 0, i32 0, !dbg !49 ; line:26 col:78
+  store i32 %q14, i32* %1, !dbg !49 ; line:26 col:78
+  %2 = bitcast %struct.RayDesc* %ray to i8*, !dbg !50 ; line:27 col:3
+  call void @llvm.lifetime.start(i64 32, i8* %2) #0, !dbg !50 ; line:27 col:3
+  %Origin.i = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %ray, i32 0, i32 0, !dbg !51 ; line:8 col:8
+  store <3 x float> zeroinitializer, <3 x float>* %Origin.i, align 4, !dbg !54, !tbaa !55, !alias.scope !58 ; line:8 col:15
+  %Direction.i = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %ray, i32 0, i32 2, !dbg !61 ; line:9 col:8
+  store <3 x float> <float 1.000000e+00, float 0.000000e+00, float 0.000000e+00>, <3 x float>* %Direction.i, align 4, !dbg !62, !tbaa !55, !alias.scope !58 ; line:9 col:18
+  %TMin.i = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %ray, i32 0, i32 1, !dbg !63 ; line:10 col:8
+  store float 0.000000e+00, float* %TMin.i, align 4, !dbg !64, !tbaa !65, !alias.scope !58 ; line:10 col:13
+  %TMax.i = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %ray, i32 0, i32 3, !dbg !67 ; line:11 col:8
+  store float 9.999000e+03, float* %TMax.i, align 4, !dbg !68, !tbaa !65, !alias.scope !58 ; line:11 col:13
+  %3 = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", !dbg !69 ; line:28 col:3
+  %4 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RaytracingAccelerationStructure)"(i32 0, %struct.RaytracingAccelerationStructure %3), !dbg !69 ; line:28 col:3
+  %5 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %4, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef), !dbg !69 ; line:28 col:3
+  call void @"dx.hl.op..void (i32, %\22class.RayQuery<5, 0>\22*, %dx.types.Handle, i32, i32, %struct.RayDesc*)"(i32 325, %"class.RayQuery<5, 0>"* %q, %dx.types.Handle %5, i32 0, i32 255, %struct.RayDesc* %ray), !dbg !69 ; line:28 col:3
+  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, %\22class.RayQuery<5, 0>\22*)"(i32 363, %dx.types.HitObject* %agg.tmp, %"class.RayQuery<5, 0>"* %q), !dbg !70 ; line:30 col:7
+  call void @"dx.hl.op..void (i32, %dx.types.HitObject*)"(i32 359, %dx.types.HitObject* %agg.tmp) #0, !dbg !71 ; line:21 col:3
+  %6 = bitcast %struct.CustomAttrs* %attrs to i8*, !dbg !74 ; line:32 col:3
+  call void @llvm.lifetime.start(i64 8, i8* %6) #0, !dbg !74 ; line:32 col:3
+  %7 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?inbuf@@3URWByteAddressBuffer@@A", !dbg !75 ; line:33 col:13
+  %8 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %7), !dbg !75 ; line:33 col:13
+  %9 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %8, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef), !dbg !75 ; line:33 col:13
+  %10 = call i32 @"dx.hl.op.ro.i32 (i32, %dx.types.Handle, i32)"(i32 231, %dx.types.Handle %9, i32 0), !dbg !75 ; line:33 col:13
+  %conv = uitofp i32 %10 to float, !dbg !75 ; line:33 col:13
+  %x = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 0, !dbg !76 ; line:33 col:9
+  store float %conv, float* %x, align 4, !dbg !77, !tbaa !65 ; line:33 col:11
+  %11 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?inbuf@@3URWByteAddressBuffer@@A", !dbg !78 ; line:34 col:13
+  %12 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %11), !dbg !78 ; line:34 col:13
+  %13 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %12, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef), !dbg !78 ; line:34 col:13
+  %14 = call i32 @"dx.hl.op.ro.i32 (i32, %dx.types.Handle, i32)"(i32 231, %dx.types.Handle %13, i32 4), !dbg !78 ; line:34 col:13
+  %conv3 = uitofp i32 %14 to float, !dbg !78 ; line:34 col:13
+  %y = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 1, !dbg !79 ; line:34 col:9
+  store float %conv3, float* %y, align 4, !dbg !80, !tbaa !65 ; line:34 col:11
+  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, %\22class.RayQuery<5, 0>\22*, i32, %struct.CustomAttrs*)"(i32 363, %dx.types.HitObject* %agg.tmp4, %"class.RayQuery<5, 0>"* %q, i32 16, %struct.CustomAttrs* %attrs), !dbg !81 ; line:35 col:7
+  call void @"dx.hl.op..void (i32, %dx.types.HitObject*)"(i32 359, %dx.types.HitObject* %agg.tmp4) #0, !dbg !82 ; line:21 col:3
+  %15 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?inbuf@@3URWByteAddressBuffer@@A", !dbg !84 ; line:37 col:13
+  %16 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %15), !dbg !84 ; line:37 col:13
+  %17 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %16, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef), !dbg !84 ; line:37 col:13
+  %18 = call i32 @"dx.hl.op.ro.i32 (i32, %dx.types.Handle, i32)"(i32 231, %dx.types.Handle %17, i32 8), !dbg !84 ; line:37 col:13
+  %conv6 = uitofp i32 %18 to float, !dbg !84 ; line:37 col:13
+  %x7 = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 0, !dbg !85 ; line:37 col:9
+  store float %conv6, float* %x7, align 4, !dbg !86, !tbaa !65 ; line:37 col:11
+  %19 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?inbuf@@3URWByteAddressBuffer@@A", !dbg !87 ; line:38 col:13
+  %20 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %19), !dbg !87 ; line:38 col:13
+  %21 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %20, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef), !dbg !87 ; line:38 col:13
+  %22 = call i32 @"dx.hl.op.ro.i32 (i32, %dx.types.Handle, i32)"(i32 231, %dx.types.Handle %21, i32 12), !dbg !87 ; line:38 col:13
+  %conv9 = uitofp i32 %22 to float, !dbg !87 ; line:38 col:13
+  %y10 = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 1, !dbg !88 ; line:38 col:9
+  store float %conv9, float* %y10, align 4, !dbg !89, !tbaa !65 ; line:38 col:11
+  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, %\22class.RayQuery<5, 0>\22*, i32, %struct.CustomAttrs*)"(i32 363, %dx.types.HitObject* %agg.tmp11, %"class.RayQuery<5, 0>"* %q, i32 17, %struct.CustomAttrs* %attrs), !dbg !90 ; line:39 col:7
+  call void @"dx.hl.op..void (i32, %dx.types.HitObject*)"(i32 359, %dx.types.HitObject* %agg.tmp11) #0, !dbg !91 ; line:21 col:3
+  %x12 = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 0, !dbg !93 ; line:41 col:25
+  %23 = load float, float* %x12, align 4, !dbg !93, !tbaa !65 ; line:41 col:25
+  %24 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?outbuf@@3URWByteAddressBuffer@@A", !dbg !94 ; line:41 col:3
+  %25 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %24), !dbg !94 ; line:41 col:3
+  %26 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %25, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef), !dbg !94 ; line:41 col:3
+  call void @"dx.hl.op..void (i32, %dx.types.Handle, i32, float)"(i32 277, %dx.types.Handle %26, i32 0, float %23), !dbg !94 ; line:41 col:3
+  %y13 = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 1, !dbg !95 ; line:42 col:25
+  %27 = load float, float* %y13, align 4, !dbg !95, !tbaa !65 ; line:42 col:25
+  %28 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?outbuf@@3URWByteAddressBuffer@@A", !dbg !96 ; line:42 col:3
+  %29 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %28), !dbg !96 ; line:42 col:3
+  %30 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %29, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef), !dbg !96 ; line:42 col:3
+  call void @"dx.hl.op..void (i32, %dx.types.Handle, i32, float)"(i32 277, %dx.types.Handle %30, i32 4, float %27), !dbg !96 ; line:42 col:3
+  %31 = bitcast %struct.CustomAttrs* %attrs to i8*, !dbg !97 ; line:43 col:1
+  call void @llvm.lifetime.end(i64 8, i8* %31) #0, !dbg !97 ; line:43 col:1
+  %32 = bitcast %struct.RayDesc* %ray to i8*, !dbg !97 ; line:43 col:1
+  call void @llvm.lifetime.end(i64 32, i8* %32) #0, !dbg !97 ; line:43 col:1
+  %33 = bitcast %"class.RayQuery<5, 0>"* %q to i8*, !dbg !97 ; line:43 col:1
+  call void @llvm.lifetime.end(i64 4, i8* %33) #0, !dbg !97 ; line:43 col:1
+  ret void, !dbg !97 ; line:43 col:1
 }
 
 ; Function Attrs: nounwind
@@ -237,6 +247,9 @@ declare %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.Ra
 
 ; Function Attrs: nounwind readnone
 declare %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure) #1
+
+; Function Attrs: nounwind
+declare void @"dx.hl.op..void (i32, %dx.types.HitObject*, %\22class.RayQuery<5, 0>\22*)"(i32, %dx.types.HitObject*, %"class.RayQuery<5, 0>"*) #0
 
 ; Function Attrs: nounwind readonly
 declare i32 @"dx.hl.op.ro.i32 (i32, %dx.types.Handle, i32)"(i32, %dx.types.Handle, i32) #2
@@ -318,7 +331,7 @@ attributes #2 = { nounwind readonly }
 !45 = !DILocation(line: 26, column: 3, scope: !46)
 !46 = !DISubprogram(name: "main", scope: !47, file: !47, line: 25, type: !48, isLocal: false, isDefinition: true, scopeLine: 25, flags: DIFlagPrototyped, isOptimized: false, function: void ()* @"\01?main@@YAXXZ")
 !47 = !DIFile(filename: "hitobject_fromrayquery_scalarrepl.hlsl", directory: "")
-!48 = !DISubroutineType(types: !28)
+!48 = !DISubroutineType(types: !29)
 !49 = !DILocation(line: 26, column: 78, scope: !46)
 !50 = !DILocation(line: 27, column: 3, scope: !46)
 !51 = !DILocation(line: 8, column: 8, scope: !52, inlinedAt: !53)
@@ -340,28 +353,31 @@ attributes #2 = { nounwind readonly }
 !67 = !DILocation(line: 11, column: 8, scope: !52, inlinedAt: !53)
 !68 = !DILocation(line: 11, column: 13, scope: !52, inlinedAt: !53)
 !69 = !DILocation(line: 28, column: 3, scope: !46)
-!70 = !DILocation(line: 30, column: 3, scope: !46)
-!71 = !DILocation(line: 31, column: 13, scope: !46)
-!72 = !DILocation(line: 31, column: 9, scope: !46)
-!73 = !DILocation(line: 31, column: 11, scope: !46)
-!74 = !DILocation(line: 32, column: 13, scope: !46)
-!75 = !DILocation(line: 32, column: 9, scope: !46)
-!76 = !DILocation(line: 32, column: 11, scope: !46)
-!77 = !DILocation(line: 33, column: 7, scope: !46)
-!78 = !DILocation(line: 21, column: 3, scope: !79, inlinedAt: !80)
-!79 = !DISubprogram(name: "Use", scope: !47, file: !47, line: 20, type: !48, isLocal: false, isDefinition: true, scopeLine: 20, flags: DIFlagPrototyped, isOptimized: false)
-!80 = distinct !DILocation(line: 33, column: 3, scope: !46)
-!81 = !DILocation(line: 35, column: 13, scope: !46)
-!82 = !DILocation(line: 35, column: 9, scope: !46)
-!83 = !DILocation(line: 35, column: 11, scope: !46)
-!84 = !DILocation(line: 36, column: 13, scope: !46)
-!85 = !DILocation(line: 36, column: 9, scope: !46)
-!86 = !DILocation(line: 36, column: 11, scope: !46)
-!87 = !DILocation(line: 37, column: 7, scope: !46)
-!88 = !DILocation(line: 21, column: 3, scope: !79, inlinedAt: !89)
-!89 = distinct !DILocation(line: 37, column: 3, scope: !46)
-!90 = !DILocation(line: 39, column: 25, scope: !46)
-!91 = !DILocation(line: 39, column: 3, scope: !46)
-!92 = !DILocation(line: 40, column: 25, scope: !46)
-!93 = !DILocation(line: 40, column: 3, scope: !46)
-!94 = !DILocation(line: 41, column: 1, scope: !46)
+!70 = !DILocation(line: 30, column: 7, scope: !46)
+!71 = !DILocation(line: 21, column: 3, scope: !72, inlinedAt: !73)
+!72 = !DISubprogram(name: "Use", scope: !47, file: !47, line: 20, type: !48, isLocal: false, isDefinition: true, scopeLine: 20, flags: DIFlagPrototyped, isOptimized: false)
+!73 = distinct !DILocation(line: 30, column: 3, scope: !46)
+!74 = !DILocation(line: 32, column: 3, scope: !46)
+!75 = !DILocation(line: 33, column: 13, scope: !46)
+!76 = !DILocation(line: 33, column: 9, scope: !46)
+!77 = !DILocation(line: 33, column: 11, scope: !46)
+!78 = !DILocation(line: 34, column: 13, scope: !46)
+!79 = !DILocation(line: 34, column: 9, scope: !46)
+!80 = !DILocation(line: 34, column: 11, scope: !46)
+!81 = !DILocation(line: 35, column: 7, scope: !46)
+!82 = !DILocation(line: 21, column: 3, scope: !72, inlinedAt: !83)
+!83 = distinct !DILocation(line: 35, column: 3, scope: !46)
+!84 = !DILocation(line: 37, column: 13, scope: !46)
+!85 = !DILocation(line: 37, column: 9, scope: !46)
+!86 = !DILocation(line: 37, column: 11, scope: !46)
+!87 = !DILocation(line: 38, column: 13, scope: !46)
+!88 = !DILocation(line: 38, column: 9, scope: !46)
+!89 = !DILocation(line: 38, column: 11, scope: !46)
+!90 = !DILocation(line: 39, column: 7, scope: !46)
+!91 = !DILocation(line: 21, column: 3, scope: !72, inlinedAt: !92)
+!92 = distinct !DILocation(line: 39, column: 3, scope: !46)
+!93 = !DILocation(line: 41, column: 25, scope: !46)
+!94 = !DILocation(line: 41, column: 3, scope: !46)
+!95 = !DILocation(line: 42, column: 25, scope: !46)
+!96 = !DILocation(line: 42, column: 3, scope: !46)
+!97 = !DILocation(line: 43, column: 1, scope: !46)
