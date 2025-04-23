@@ -829,7 +829,8 @@ void DiagnoseBuiltinCallWithPayload(Sema &S, const VarDecl *Payload,
   // Verify that the payload type is legal
   if (!hlsl::IsHLSLCopyableAnnotatableRecord(Payload->getType())) {
     S.Diag(Payload->getLocation(), diag::err_payload_attrs_must_be_udt)
-        << /*payload|attributes|callable*/ 0 << Payload;
+        << /*payload|attributes|callable*/ 0 << /*parameter %2|type*/ 0
+        << Payload;
     return;
   }
 
