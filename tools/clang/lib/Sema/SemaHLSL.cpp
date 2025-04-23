@@ -5945,6 +5945,8 @@ public:
              "otherwise caller didn't initialize - there should be at least a "
              "void return type");
 
+    const bool IsStatic = IsStaticMember(intrinsic);
+
     // Create the template arguments.
     SmallVector<TemplateArgument, g_MaxIntrinsicParamCount + 1> templateArgs;
     for (size_t i = 0; i < parameterTypeCount; i++) {
@@ -6010,15 +6012,19 @@ public:
 
     SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount> Params;
     for (unsigned int i = 1; i < parameterTypeCount; i++) {
+      // The first parameter in the HLSL intrinsic record is just the intrinsic
+      // name and aliases with the 'this' pointer for non-static members. Skip
+      // this first parameter for static functions.
+      unsigned ParamIdx = IsStatic ? i : i - 1;
       IdentifierInfo *id =
-          &m_context->Idents.get(StringRef(intrinsic->pArgs[i - 1].pName));
+          &m_context->Idents.get(StringRef(intrinsic->pArgs[ParamIdx].pName));
       ParmVarDecl *paramDecl = ParmVarDecl::Create(
           *m_context, nullptr, NoLoc, NoLoc, id, parameterTypes[i], nullptr,
           StorageClass::SC_None, nullptr, paramMods[i - 1]);
       Params.push_back(paramDecl);
     }
 
-    StorageClass SC = IsStaticMember(intrinsic) ? SC_Static : SC_Extern;
+    StorageClass SC = IsStatic ? SC_Static : SC_Extern;
     QualType T = TInfo->getType();
     DeclarationNameInfo NameInfo(FunctionTemplate->getDeclName(), NoLoc);
     CXXMethodDecl *method = CXXMethodDecl::Create(

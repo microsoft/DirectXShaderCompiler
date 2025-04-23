@@ -13,8 +13,8 @@
 // AST-NEXT: | | |   |-TemplateArgument type 'void'
 // AST-NEXT: | | |   |-TemplateArgument type 'dx::HitObject':'dx::HitObject'
 // AST-NEXT: | | |   |-TemplateArgument type 'Payload'
-// AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> Invoke 'dx::HitObject':'dx::HitObject'
-// AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> ho 'Payload &&__restrict'
+// AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> ho 'dx::HitObject':'dx::HitObject'
+// AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> Payload 'Payload &&__restrict'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 382
 // AST-NEXT: | | |   `-AvailabilityAttr {{[^ ]+}} <<invalid sloc>> Implicit  6.9 0 0 ""
 
@@ -47,14 +47,14 @@
 // AST-NEXT: | | |   |-TemplateArgument type 'unsigned int'
 // AST-NEXT: | | |   |-TemplateArgument type 'RayDesc'
 // AST-NEXT: | | |   |-TemplateArgument type 'Payload'
-// AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> TraceRay 'RaytracingAccelerationStructure'
-// AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> AccelerationStructure 'unsigned int'
+// AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> AccelerationStructure 'RaytracingAccelerationStructure'
 // AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> RayFlags 'unsigned int'
 // AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> InstanceInclusionMask 'unsigned int'
 // AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> RayContributionToHitGroupIndex 'unsigned int'
 // AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> MultiplierForGeometryContributionToHitGroupIndex 'unsigned int'
-// AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> MissShaderIndex 'RayDesc'
-// AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> Ray 'Payload &&__restrict'
+// AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> MissShaderIndex 'unsigned int'
+// AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> Ray 'RayDesc'
+// AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> Payload 'Payload &&__restrict'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 389
 // AST-NEXT: | | |   `-AvailabilityAttr {{[^ ]+}} <<invalid sloc>> Implicit  6.9 0 0 ""
 
