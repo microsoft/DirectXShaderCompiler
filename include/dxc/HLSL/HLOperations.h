@@ -437,6 +437,10 @@ const unsigned kAnnotateNodeRecordHandleNodeRecordPropIdx = 2;
 const unsigned kHitObjectMakeMiss_NumOp = 8;
 const unsigned kHitObjectMakeMissRayDescOpIdx = 4;
 
+// HitObject::TraceRay
+const unsigned kHitObjectTraceRay_RayDescOpIdx = 8;
+const unsigned kHitObjectTraceRay_NumOp = 10;
+
 } // namespace HLOperandIndex
 
 llvm::Function *GetOrCreateHLFunction(llvm::Module &M,
