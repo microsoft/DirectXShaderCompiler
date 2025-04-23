@@ -1644,6 +1644,46 @@ static unsigned getSemanticFlagValidMask(const ShaderModel *pSM) {
   return static_cast<unsigned>(hlsl::DXIL::BarrierSemanticFlag::ValidMask);
 }
 
+StringRef GetOpCodeName(DXIL::OpCode OpCode) {
+  switch (OpCode) {
+  default:
+    DXASSERT(false, "Unexpected op code");
+    return "";
+  case DXIL::OpCode::HitObject_ObjectRayOrigin:
+    return "HitObject_ObjectRayOrigin";
+  case DXIL::OpCode::HitObject_WorldRayDirection:
+    return "HitObject_WorldRayDirection";
+  case DXIL::OpCode::HitObject_WorldRayOrigin:
+    return "HitObject_WorldRayOrigin";
+  case DXIL::OpCode::HitObject_ObjectRayDirection:
+    return "HitObject_ObjectRayDirection";
+  case DXIL::OpCode::HitObject_WorldToObject3x4:
+    return "HitObject_WorldToObject3x4";
+  case DXIL::OpCode::HitObject_ObjectToWorld3x4:
+    return "HitObject_ObjectToWorld3x4";
+  }
+}
+
+static void ValidateConstantRangeUnsigned(Value *Val, StringRef Name,
+                                          uint64_t LowerBound,
+                                          uint64_t UpperBound, CallInst *CI,
+                                          DXIL::OpCode OpCode,
+                                          ValidationContext &ValCtx) {
+  ConstantInt *C = dyn_cast<ConstantInt>(Val);
+  if (!C) {
+    ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
+                                {Name, GetOpCodeName(OpCode)});
+    return;
+  }
+  if (C->uge(UpperBound) || !C->uge(LowerBound)) {
+    std::string Range =
+        std::to_string(LowerBound) + "~" + std::to_string(UpperBound);
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrOperandRange,
+        {Name, Range, C->getValue().toString(10, false)});
+  }
+}
+
 static void ValidateDxilOperationCallInProfile(CallInst *CI,
                                                DXIL::OpCode Opcode,
                                                const ShaderModel *pSM,
@@ -1909,6 +1949,76 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ValCtx.EmitInstrError(
           CI, ValidationRule::InstrMayReorderThreadUndefCoherenceHintParam);
   } break;
+
+  case DXIL::OpCode::HitObject_LoadLocalRootTableConstant: {
+    Value *HitObject = CI->getArgOperand(1);
+    if (isa<UndefValue>(HitObject))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrUndefHitObject);
+    Value *Offset = CI->getArgOperand(2);
+    if (isa<UndefValue>(Offset))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+    if (ConstantInt *COffset = dyn_cast<ConstantInt>(Offset)) {
+      if (COffset->getLimitedValue() % 4 != 0)
+        ValCtx.EmitInstrFormatError(
+            CI, ValidationRule::InstrParamMultiple,
+            {"offset", "4", COffset->getValue().toString(10, false)});
+    }
+    break;
+  }
+  case DXIL::OpCode::HitObject_SetShaderTableIndex: {
+    Value *HitObject = CI->getArgOperand(1);
+    if (isa<UndefValue>(HitObject))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrUndefHitObject);
+    Value *RecordIndex = CI->getArgOperand(2);
+    if (isa<UndefValue>(RecordIndex))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+    break;
+  }
+
+  // Shader Execution Reordering - scalar getters
+  case DXIL::OpCode::HitObject_GeometryIndex:
+  case DXIL::OpCode::HitObject_HitKind:
+  case DXIL::OpCode::HitObject_InstanceID:
+  case DXIL::OpCode::HitObject_InstanceIndex:
+  case DXIL::OpCode::HitObject_IsHit:
+  case DXIL::OpCode::HitObject_IsMiss:
+  case DXIL::OpCode::HitObject_IsNop:
+  case DXIL::OpCode::HitObject_PrimitiveIndex:
+  case DXIL::OpCode::HitObject_RayFlags:
+  case DXIL::OpCode::HitObject_RayTCurrent:
+  case DXIL::OpCode::HitObject_RayTMin:
+  case DXIL::OpCode::HitObject_ShaderTableIndex: {
+    Value *HitObject = CI->getArgOperand(1);
+    if (isa<UndefValue>(HitObject))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrUndefHitObject);
+    break;
+  }
+
+  // Shader Execution Reordering - vector getters
+  case DXIL::OpCode::HitObject_ObjectRayDirection:
+  case DXIL::OpCode::HitObject_ObjectRayOrigin:
+  case DXIL::OpCode::HitObject_WorldRayDirection:
+  case DXIL::OpCode::HitObject_WorldRayOrigin: {
+    Value *HitObject = CI->getArgOperand(1);
+    if (isa<UndefValue>(HitObject))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrUndefHitObject);
+    Value *Col = CI->getArgOperand(2);
+    ValidateConstantRangeUnsigned(Col, "component", 0, 2, CI, Opcode, ValCtx);
+    break;
+  }
+
+  // Shader Execution Reordering - matrix getters
+  case DXIL::OpCode::HitObject_WorldToObject3x4:
+  case DXIL::OpCode::HitObject_ObjectToWorld3x4: {
+    Value *HitObject = CI->getArgOperand(1);
+    if (isa<UndefValue>(HitObject))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrUndefHitObject);
+    Value *Row = CI->getArgOperand(2);
+    ValidateConstantRangeUnsigned(Row, "row", 0, 2, CI, Opcode, ValCtx);
+    Value *Col = CI->getArgOperand(3);
+    ValidateConstantRangeUnsigned(Col, "column", 0, 3, CI, Opcode, ValCtx);
+    break;
+  }
 
   case DXIL::OpCode::AtomicBinOp:
   case DXIL::OpCode::AtomicCompareExchange: {
