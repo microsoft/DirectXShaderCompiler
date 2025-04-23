@@ -8301,7 +8301,7 @@ class db_dxil(object):
         self.add_valrule_msg(
             "Instr.ParamMultiple",
             "Parameter must be a valid multiple",
-            "Parameter '%0' must be a multiple of %1, got %2.",
+            "parameter '%0' must be a multiple of %1, got %2",
         )
         self.add_valrule(
             "Instr.MayReorderThreadUndefCoherenceHintParam",

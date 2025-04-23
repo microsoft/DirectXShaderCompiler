@@ -34,11 +34,11 @@ target triple = "dxil-ms-dx"
 ; CHECK: note: at '%r272 = call i32 @dx.op.hitObject_StateScalar.i32(i32 272, %dx.types.HitObject undef)' in block '#0' of function '?main@@YAXXZ'.
 ; CHECK: Function: ?main@@YAXXZ: error: HitObject is undef.
 ; CHECK: note: at '%r288_wrongmul = call i32 @dx.op.hitObject_LoadLocalRootTableConstant(i32 288, %dx.types.HitObject undef, i32 7)' in block '#0' of function '?main@@YAXXZ'.
-; CHECK: Function: ?main@@YAXXZ: error: Parameter 'offset' must be a multiple of 4, got 7.
+; CHECK: Function: ?main@@YAXXZ: error: parameter 'offset' must be a multiple of 4, got 7
 ; CHECK: note: at '%r288_wrongmul = call i32 @dx.op.hitObject_LoadLocalRootTableConstant(i32 288, %dx.types.HitObject undef, i32 7)' in block '#0' of function '?main@@YAXXZ'.
 ; CHECK: Function: ?main@@YAXXZ: error: HitObject is undef.
 ; CHECK: note: at '%r288 = call i32 @dx.op.hitObject_LoadLocalRootTableConstant(i32 288, %dx.types.HitObject undef, i32 42)' in block '#0' of function '?main@@YAXXZ'.
-; CHECK: Function: ?main@@YAXXZ: error: Parameter 'offset' must be a multiple of 4, got 42.
+; CHECK: Function: ?main@@YAXXZ: error: parameter 'offset' must be a multiple of 4, got 42
 ; CHECK: note: at '%r288 = call i32 @dx.op.hitObject_LoadLocalRootTableConstant(i32 288, %dx.types.HitObject undef, i32 42)' in block '#0' of function '?main@@YAXXZ'.
 ; CHECK: Function: ?main@@YAXXZ: error: expect component between 0~2, got 3.
 ; CHECK: note: at '%r278_oobc = call float @dx.op.hitObject_StateVector.f32(i32 278, %dx.types.HitObject %nop, i32 3)' in block '#0' of function '?main@@YAXXZ'.
