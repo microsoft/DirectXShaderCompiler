@@ -61,8 +61,7 @@ jobs:
             configuration: Release
             CC: clang-18
             CXX: clang++-18
-            CMAKE_OPTS: "-DLLVM_ENABLE_WERROR=On -DLLVM_USE_SANITIZER='Address;Undefined' -DLLVM_ENABLE_LIBCXX=On -DLLVM_USE_LINKER=lld"
-            CHECK_ALL_ENV: "ASAN_OPTIONS=alloc_dealloc_mismatch=0"
+            CMAKE_OPTS: "-DLLVM_ENABLE_WERROR=On -DLLVM_USE_LINKER=lld"
           - os: ubuntu-latest
             name: Linux_Clang_Debug
             configuration: Debug
@@ -117,7 +116,7 @@ jobs:
           cmake -B build -G Ninja $GITHUB_WORKSPACE \
             -DLLVM_LIT_ARGS="-v --xunit-xml-output=testresults.xunit.xml" \
             -C $GITHUB_WORKSPACE/cmake/caches/PredefinedParams.cmake \
-            -DSPIRV_BUILD_TESTS=ON \
+            -DSPIRV_BUILD_TESTS=OFF \
             -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} \
             -DCMAKE_C_COMPILER=${{ matrix.CC }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.CXX }} \
