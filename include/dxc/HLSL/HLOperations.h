@@ -441,6 +441,10 @@ const unsigned kHitObjectMakeMissRayDescOpIdx = 4;
 const unsigned kHitObjectTraceRay_RayDescOpIdx = 8;
 const unsigned kHitObjectTraceRay_NumOp = 10;
 
+// HitObject::FromRayQuery
+const unsigned kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx = 4;
+const unsigned kHitObjectFromRayQuery_WithAttrs_NumOp = 5;
+
 } // namespace HLOperandIndex
 
 llvm::Function *GetOrCreateHLFunction(llvm::Module &M,

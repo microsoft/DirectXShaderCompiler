@@ -6312,7 +6312,32 @@ Value *TranslateHitObjectFromRayQuery(CallInst *CI, IntrinsicOp IOP,
                                       HLOperationLowerHelper &Helper,
                                       HLObjectOperationLowerHelper *pObjHelper,
                                       bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  unsigned SrcIdx = 1;
+  Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
+  Value *RayQuery = CI->getArgOperand(SrcIdx++);
+
+  if (CI->getNumArgOperands() ==
+      HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_NumOp) {
+    Value *HitKind = CI->getArgOperand(SrcIdx++);
+    Value *AttribSrc = CI->getArgOperand(SrcIdx++);
+    DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
+    OpCode = DXIL::OpCode::HitObject_FromRayQueryWithAttrs;
+    Type *AttrTy = AttribSrc->getType();
+    Value *OutHitObject = TrivialDxilOperation(
+        OpCode, {nullptr, RayQuery, HitKind, AttribSrc}, AttrTy, CI, OP);
+    Builder.CreateStore(OutHitObject, HitObjectPtr);
+    return nullptr;
+  }
+
+  DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
+  OpCode = DXIL::OpCode::HitObject_FromRayQuery;
+  Value *OutHitObject =
+      TrivialDxilOperation(OpCode, {nullptr, RayQuery}, Helper.voidTy, CI, OP);
+  Builder.CreateStore(OutHitObject, HitObjectPtr);
+  return nullptr;
 }
 
 Value *TranslateHitObjectTraceRay(CallInst *CI, IntrinsicOp IOP,
