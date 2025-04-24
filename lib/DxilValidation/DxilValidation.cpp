@@ -165,7 +165,8 @@ ValidateSignatureAccess(Instruction *I, DxilSignature &Sig, Value *SigId,
 
 static DxilResourceProperties GetResourceFromHandle(Value *Handle,
                                                     ValidationContext &ValCtx) {
-  if (!isa<CallInst>(Handle)) {
+  CallInst *HandleCall = dyn_cast<CallInst>(Handle);
+  if (!HandleCall) {
     if (Instruction *I = dyn_cast<Instruction>(Handle))
       ValCtx.EmitInstrError(I, ValidationRule::InstrHandleNotFromCreateHandle);
     else
@@ -178,6 +179,11 @@ static DxilResourceProperties GetResourceFromHandle(Value *Handle,
   if (RP.getResourceClass() == DXIL::ResourceClass::Invalid) {
     ValCtx.EmitInstrError(cast<CallInst>(Handle),
                           ValidationRule::InstrHandleNotFromCreateHandle);
+  }
+  if (RP.Basic.IsReorderCoherent &&
+      !ValCtx.DxilMod.GetShaderModel()->IsSM69Plus()) {
+    ValCtx.EmitInstrError(HandleCall,
+                          ValidationRule::InstrReorderCoherentRequiresSM69);
   }
 
   return RP;
@@ -4182,6 +4188,9 @@ static void ValidateResourceOverlap(
 
 static void ValidateResource(hlsl::DxilResource &Res,
                              ValidationContext &ValCtx) {
+  if (Res.IsReorderCoherent() && !ValCtx.DxilMod.GetShaderModel()->IsSM69Plus())
+    ValCtx.EmitResourceError(&Res,
+                             ValidationRule::InstrReorderCoherentRequiresSM69);
   switch (Res.GetKind()) {
   case DXIL::ResourceKind::RawBuffer:
   case DXIL::ResourceKind::TypedBuffer:
@@ -4413,10 +4422,14 @@ static void ValidateResources(ValidationContext &ValCtx) {
       ValCtx.EmitResourceError(Uav.get(),
                                ValidationRule::SmCounterOnlyOnStructBuf);
     }
-    if (Uav->HasCounter() && Uav->IsGloballyCoherent())
-      ValCtx.EmitResourceFormatError(Uav.get(),
-                                     ValidationRule::MetaGlcNotOnAppendConsume,
-                                     {ValCtx.GetResourceName(Uav.get())});
+    const bool UavIsCoherent =
+        Uav->IsGloballyCoherent() || Uav->IsReorderCoherent();
+    if (Uav->HasCounter() && UavIsCoherent) {
+      StringRef Prefix = Uav->IsGloballyCoherent() ? "globally" : "reorder";
+      ValCtx.EmitResourceFormatError(
+          Uav.get(), ValidationRule::MetaCoherenceNotOnAppendConsume,
+          {Prefix, ValCtx.GetResourceName(Uav.get())});
+    }
 
     ValidateResource(*Uav, ValCtx);
     ValidateResourceOverlap(*Uav, UavAllocator, ValCtx);
