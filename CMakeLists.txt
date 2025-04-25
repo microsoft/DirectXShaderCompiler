@@ -115,7 +115,9 @@ endif()
 if(MSVC)
   # use new Standard Conforming Preprocessor
   # https://learn.microsoft.com/en-us/cpp/preprocessor/preprocessor-experimental-overview?view=msvc-170
-  add_compile_options(/Zc:preprocessor)
+  if(NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(/Zc:preprocessor)
+  endif()
 endif()
 
 # enable control flow guard
