@@ -1949,6 +1949,12 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ValCtx.EmitInstrError(
           CI, ValidationRule::InstrMayReorderThreadUndefCoherenceHintParam);
   } break;
+  case DXIL::OpCode::HitObject_MakeMiss: {
+    DxilInst_HitObject_MakeMiss MakeMiss(CI);
+    if (isa<UndefValue>(MakeMiss.get_RayFlags()) ||
+        isa<UndefValue>(MakeMiss.get_MissShaderIndex()))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+  } break;
 
   case DXIL::OpCode::HitObject_LoadLocalRootTableConstant: {
     Value *HitObject = CI->getArgOperand(1);
