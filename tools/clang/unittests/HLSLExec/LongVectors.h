@@ -10,8 +10,8 @@
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
 
-#include <Verify.h>
 #include "LongVectorTestData.h"
+#include <Verify.h>
 
 // A helper struct because C++ bools are 1 byte and HLSL bools are 4 bytes.
 // Take int32_t as a constuctor argument and convert it to bool when needed.
@@ -72,7 +72,8 @@ struct HLSLHalf_t {
     Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
   }
   HLSLHalf_t(const int I) {
-    VERIFY_IS_TRUE(I == 0, L"HLSLHalf_t constructor with int override only meant for cases when initializing to 0.");
+    VERIFY_IS_TRUE(I == 0, L"HLSLHalf_t constructor with int override only "
+                           L"meant for cases when initializing to 0.");
     const float F = static_cast<float>(I);
     Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
   }
@@ -223,42 +224,46 @@ struct LongVectorOpTypeStringToEnumValue {
 };
 
 template <typename T>
-T GetLongVectorOpType(const LongVectorOpTypeStringToEnumValue* Values, const std::wstring &OpTypeString, std::size_t Length) {
-  for(size_t i = 0; i < Length; i++) {
+T GetLongVectorOpType(const LongVectorOpTypeStringToEnumValue *Values,
+                      const std::wstring &OpTypeString, std::size_t Length) {
+  for (size_t i = 0; i < Length; i++) {
     if (Values[i].OpTypeString == OpTypeString) {
       return static_cast<T>(Values[i].OpTypeValue);
     }
   }
 
-  LogErrorFmtThrow(L"Invalid LongVectorOpType string: %s", OpTypeString.c_str());
+  LogErrorFmtThrow(L"Invalid LongVectorOpType string: %s",
+                   OpTypeString.c_str());
 
-  if(std::is_same_v<T, LongVectorBinaryOpType>)
+  if (std::is_same_v<T, LongVectorBinaryOpType>)
     return static_cast<T>(LongVectorBinaryOpType_EnumValueCount);
   else if (std::is_same_v<T, LongVectorUnaryOpType>)
     return static_cast<T>(LongVectorUnaryOpType_EnumValueCount);
 }
 
-static const LongVectorOpTypeStringToEnumValue LongVectorBinaryOpTypeStringToEnumMap[] = {
-    {L"LongVectorBinaryOpType_ScalarAdd", LongVectorBinaryOpType_ScalarAdd},
-    {L"LongVectorBinaryOpType_ScalarMultiply",
-     LongVectorBinaryOpType_ScalarMultiply},
-    {L"LongVectorBinaryOpType_Multiply", LongVectorBinaryOpType_Multiply},
-    {L"LongVectorBinaryOpType_Add", LongVectorBinaryOpType_Add},
-    {L"LongVectorBinaryOpType_Min", LongVectorBinaryOpType_Min},
-    {L"LongVectorBinaryOpType_Max", LongVectorBinaryOpType_Max},
-    {L"LongVectorBinaryOpType_ScalarMin", LongVectorBinaryOpType_ScalarMin},
-    {L"LongVectorBinaryOpType_ScalarMax", LongVectorBinaryOpType_ScalarMax},
+static const LongVectorOpTypeStringToEnumValue
+    LongVectorBinaryOpTypeStringToEnumMap[] = {
+        {L"LongVectorBinaryOpType_ScalarAdd", LongVectorBinaryOpType_ScalarAdd},
+        {L"LongVectorBinaryOpType_ScalarMultiply",
+         LongVectorBinaryOpType_ScalarMultiply},
+        {L"LongVectorBinaryOpType_Multiply", LongVectorBinaryOpType_Multiply},
+        {L"LongVectorBinaryOpType_Add", LongVectorBinaryOpType_Add},
+        {L"LongVectorBinaryOpType_Min", LongVectorBinaryOpType_Min},
+        {L"LongVectorBinaryOpType_Max", LongVectorBinaryOpType_Max},
+        {L"LongVectorBinaryOpType_ScalarMin", LongVectorBinaryOpType_ScalarMin},
+        {L"LongVectorBinaryOpType_ScalarMax", LongVectorBinaryOpType_ScalarMax},
 };
 
-static_assert(
-    _countof(LongVectorBinaryOpTypeStringToEnumMap) ==
-    LongVectorBinaryOpType_EnumValueCount,
-    "LongVectorBinaryOpTypeStringToEnumMap size mismatch. Did you add a new enum value?");
+static_assert(_countof(LongVectorBinaryOpTypeStringToEnumMap) ==
+                  LongVectorBinaryOpType_EnumValueCount,
+              "LongVectorBinaryOpTypeStringToEnumMap size mismatch. Did you "
+              "add a new enum value?");
 
-LongVectorBinaryOpType GetLongVectorBinaryOpType(
-    const std::wstring &OpTypeString) {
+LongVectorBinaryOpType
+GetLongVectorBinaryOpType(const std::wstring &OpTypeString) {
   return GetLongVectorOpType<LongVectorBinaryOpType>(
-      LongVectorBinaryOpTypeStringToEnumMap, OpTypeString, std::size(LongVectorBinaryOpTypeStringToEnumMap));
+      LongVectorBinaryOpTypeStringToEnumMap, OpTypeString,
+      std::size(LongVectorBinaryOpTypeStringToEnumMap));
 }
 
 enum LongVectorUnaryOpType {
@@ -267,53 +272,56 @@ enum LongVectorUnaryOpType {
   LongVectorUnaryOpType_EnumValueCount
 };
 
-static const LongVectorOpTypeStringToEnumValue LongVectorUnaryOpTypeStringToEnumMap[] = {
-  {L"LongVectorUnaryOpType_Clamp", LongVectorUnaryOpType_Clamp},
-  {L"LongVectorUnaryOpType_Initialize", LongVectorUnaryOpType_Initialize},
+static const LongVectorOpTypeStringToEnumValue
+    LongVectorUnaryOpTypeStringToEnumMap[] = {
+        {L"LongVectorUnaryOpType_Clamp", LongVectorUnaryOpType_Clamp},
+        {L"LongVectorUnaryOpType_Initialize", LongVectorUnaryOpType_Initialize},
 };
 
-static_assert(
-  _countof(LongVectorUnaryOpTypeStringToEnumMap) ==
-  LongVectorUnaryOpType_EnumValueCount,
-  "LongVectorUnaryOpTypeStringToEnumMap size mismatch. Did you add a new enum value?");
+static_assert(_countof(LongVectorUnaryOpTypeStringToEnumMap) ==
+                  LongVectorUnaryOpType_EnumValueCount,
+              "LongVectorUnaryOpTypeStringToEnumMap size mismatch. Did you add "
+              "a new enum value?");
 
-LongVectorUnaryOpType GetLongVectorUnaryOpType(const std::wstring &OpTypeString) {
-  return GetLongVectorOpType<LongVectorUnaryOpType>(LongVectorUnaryOpTypeStringToEnumMap, OpTypeString, std::size(LongVectorUnaryOpTypeStringToEnumMap));
+LongVectorUnaryOpType
+GetLongVectorUnaryOpType(const std::wstring &OpTypeString) {
+  return GetLongVectorOpType<LongVectorUnaryOpType>(
+      LongVectorUnaryOpTypeStringToEnumMap, OpTypeString,
+      std::size(LongVectorUnaryOpTypeStringToEnumMap));
 }
 
-template <typename T>
-std::vector<T> GetInputValueSetByKey(std::wstring Key) {
+template <typename T> std::vector<T> GetInputValueSetByKey(std::wstring Key) {
 
   if constexpr (std::is_same_v<T, HLSLBool_t>)
     return std::vector<T>(DefaultInputValueSet_bool.at(Key).begin(),
-                        DefaultInputValueSet_bool.at(Key).end());
+                          DefaultInputValueSet_bool.at(Key).end());
   else if constexpr (std::is_same_v<T, HLSLHalf_t>)
     return std::vector<T>(DefaultInputValueSet_float16.at(Key).begin(),
-                        DefaultInputValueSet_float16.at(Key).end());
+                          DefaultInputValueSet_float16.at(Key).end());
   else if constexpr (std::is_same_v<T, float>)
     return std::vector<T>(DefaultInputValueSet_float32.at(Key).begin(),
-                        DefaultInputValueSet_float32.at(Key).end());
+                          DefaultInputValueSet_float32.at(Key).end());
   else if constexpr (std::is_same_v<T, double>)
     return std::vector<T>(DefaultInputValueSet_float64.at(Key).begin(),
-                        DefaultInputValueSet_float64.at(Key).end());
+                          DefaultInputValueSet_float64.at(Key).end());
   else if constexpr (std::is_same_v<T, int16_t>)
     return std::vector<T>(DefaultInputValueSet_int16.at(Key).begin(),
-                        DefaultInputValueSet_int16.at(Key).end());
+                          DefaultInputValueSet_int16.at(Key).end());
   else if constexpr (std::is_same_v<T, int32_t>)
     return std::vector<T>(DefaultInputValueSet_int32.at(Key).begin(),
-                        DefaultInputValueSet_int32.at(Key).end());
+                          DefaultInputValueSet_int32.at(Key).end());
   else if constexpr (std::is_same_v<T, int64_t>)
     return std::vector<T>(DefaultInputValueSet_int64.at(Key).begin(),
-                        DefaultInputValueSet_int64.at(Key).end());
+                          DefaultInputValueSet_int64.at(Key).end());
   else if constexpr (std::is_same_v<T, uint16_t>)
     return std::vector<T>(DefaultInputValueSet_uint16.at(Key).begin(),
-                        DefaultInputValueSet_uint16.at(Key).end());
+                          DefaultInputValueSet_uint16.at(Key).end());
   else if constexpr (std::is_same_v<T, uint32_t>)
     return std::vector<T>(DefaultInputValueSet_uint32.at(Key).begin(),
-                        DefaultInputValueSet_uint32.at(Key).end());
+                          DefaultInputValueSet_uint32.at(Key).end());
   else if constexpr (std::is_same_v<T, uint64_t>)
     return std::vector<T>(DefaultInputValueSet_uint64.at(Key).begin(),
-                        DefaultInputValueSet_uint64.at(Key).end());
+                          DefaultInputValueSet_uint64.at(Key).end());
 
   VERIFY_FAIL("GetInputValueSetByKey() Unsupported type.");
   return std::vector<T>();
@@ -343,7 +351,8 @@ public:
     }
   }
 
-  LongVectorOpTestConfig(LongVectorBinaryOpType OpType) : BinaryOpType_(OpType) {
+  LongVectorOpTestConfig(LongVectorBinaryOpType OpType)
+      : BinaryOpType_(OpType) {
     IntrinsicString_ = "";
 
     if (IsFloatingPointType())
@@ -397,23 +406,23 @@ public:
   }
 
   bool IsScalarOp() const {
-    switch(BinaryOpType_) {
-      case LongVectorBinaryOpType_ScalarAdd:
-      case LongVectorBinaryOpType_ScalarMultiply:
-      case LongVectorBinaryOpType_ScalarMin:
-      case LongVectorBinaryOpType_ScalarMax:
-        return true;
-      default:
-        return false;
+    switch (BinaryOpType_) {
+    case LongVectorBinaryOpType_ScalarAdd:
+    case LongVectorBinaryOpType_ScalarMultiply:
+    case LongVectorBinaryOpType_ScalarMin:
+    case LongVectorBinaryOpType_ScalarMax:
+      return true;
+    default:
+      return false;
     };
   }
 
   bool HasInputArguments() const {
-    switch(UnaryOpType_) {
-      case LongVectorUnaryOpType_Clamp:
-        return true;
-      default:
-        return false;
+    switch (UnaryOpType_) {
+    case LongVectorUnaryOpType_Clamp:
+      return true;
+    default:
+      return false;
     }
   }
 
@@ -447,7 +456,7 @@ public:
     return "UnknownType";
   }
 
-  T ComputeExpectedValue(const T &A, const T &B) const{
+  T ComputeExpectedValue(const T &A, const T &B) const {
     if (IsBinaryOp()) {
       switch (BinaryOpType_) {
       case LongVectorBinaryOpType_ScalarAdd:
@@ -470,13 +479,15 @@ public:
         LogErrorFmtThrow(L"Unknown LongVectorBinaryOpType: %d", BinaryOpType_);
       }
     } else {
-      LogErrorFmtThrow(L"ComputeExpectedValue(const T &A, const T &B) called for a unary op.: %d", UnaryOpType_);
+      LogErrorFmtThrow(L"ComputeExpectedValue(const T &A, const T &B) called "
+                       L"for a unary op.: %d",
+                       UnaryOpType_);
     }
 
     return T();
   }
 
-  T ComputeExpectedValue(const T &A) const{
+  T ComputeExpectedValue(const T &A) const {
     if (IsUnaryOp()) {
       switch (UnaryOpType_) {
       case LongVectorUnaryOpType_Clamp: {
@@ -491,7 +502,9 @@ public:
         LogErrorFmtThrow(L"Unknown LongVectorUnaryOpType :%d", UnaryOpType_);
       }
     } else {
-      LogErrorFmtThrow(L"ComputeExpectedValue(const T &A) called for a binary op: %d", BinaryOpType_);
+      LogErrorFmtThrow(
+          L"ComputeExpectedValue(const T &A) called for a binary op: %d",
+          BinaryOpType_);
     }
 
     return T();
@@ -509,28 +522,26 @@ public:
     InputValueSetName2_ = InputValueSetName;
   }
 
-  std::vector<T> GetInputValueSet1() {
-    return GetInputValueSet(1);
-  }
+  std::vector<T> GetInputValueSet1() { return GetInputValueSet(1); }
 
-  std::vector<T> GetInputValueSet2() {
-    return GetInputValueSet(2);
-  }
+  std::vector<T> GetInputValueSet2() { return GetInputValueSet(2); }
 
-  std::vector<T> GetInputArgsArray() const{
+  std::vector<T> GetInputArgsArray() const {
 
     std::vector<T> InputArgs;
 
     std::wstring InputArgsArrayName = InputArgsArrayName_;
 
-    if(UnaryOpType_ == LongVectorUnaryOpType_Clamp && InputArgsArrayName == L"") {
+    if (UnaryOpType_ == LongVectorUnaryOpType_Clamp &&
+        InputArgsArrayName == L"") {
       InputArgsArrayName = L"DefaultClampArgs";
     }
 
     if (InputArgsArrayName.empty())
       VERIFY_FAIL("No args array name set.");
 
-    if(std::is_same_v<T, HLSLBool_t> && UnaryOpType_ == LongVectorUnaryOpType_Clamp)
+    if (std::is_same_v<T, HLSLBool_t> &&
+        UnaryOpType_ == LongVectorUnaryOpType_Clamp)
       VERIFY_FAIL("Clamp is not supported for bools.");
     else
       return GetInputValueSetByKey<T>(InputArgsArrayName);
@@ -539,17 +550,11 @@ public:
     return std::vector<T>();
   }
 
-  LongVectorBinaryOpType GetBinaryOpType() const {
-    return BinaryOpType_;
-  }
+  LongVectorBinaryOpType GetBinaryOpType() const { return BinaryOpType_; }
 
-  LongVectorUnaryOpType GetUnaryOpType() const {
-    return UnaryOpType_;
-  }
+  LongVectorUnaryOpType GetUnaryOpType() const { return UnaryOpType_; }
 
-  float GetTolerance() const {
-    return Tolerance_;
-  }
+  float GetTolerance() const { return Tolerance_; }
 
   std::string GetCompilerOptionsString(size_t VectorSize) {
     std::stringstream CompilerOptions("");
@@ -567,7 +572,7 @@ public:
     if (IsBinaryOp()) {
       CompilerOptions << " -DOPERAND2=";
       CompilerOptions << (IsScalarOp() ? "InputScalar" : "InputVector2");
-  
+
       if (IsScalarOp())
         CompilerOptions << " -DIS_SCALAR_OP=1";
       else
@@ -596,11 +601,11 @@ public:
 
 private:
   std::vector<T> GetInputValueSet(size_t ValueSetIndex) {
-    if(ValueSetIndex ==2 && !IsBinaryOp())
+    if (ValueSetIndex == 2 && !IsBinaryOp())
       VERIFY_FAIL("ValueSetindex==2 is only valid for binary ops.");
 
     std::wstring InputValueSetName = L"";
-    if(ValueSetIndex == 1)
+    if (ValueSetIndex == 1)
       InputValueSetName = InputValueSetName1_;
     else if (ValueSetIndex == 2)
       InputValueSetName = InputValueSetName2_;
@@ -624,16 +629,14 @@ private:
 };
 
 template <typename T> bool DoValuesMatch(T A, T B, float Tolerance) {
-    if (Tolerance == 0.0f)
-      return A == B;
+  if (Tolerance == 0.0f)
+    return A == B;
 
-    T Diff = A > B ? A - B : B - A;
-    return Diff > Tolerance;
-  }
-
-inline bool DoValuesMatch(HLSLBool_t A, HLSLBool_t B, float) {
-  return A == B; 
+  T Diff = A > B ? A - B : B - A;
+  return Diff > Tolerance;
 }
+
+inline bool DoValuesMatch(HLSLBool_t A, HLSLBool_t B, float) { return A == B; }
 
 inline bool DoValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance) {
   return CompareHalfULP(A.Val, B.Val, Tolerance);
@@ -675,42 +678,56 @@ bool DoArraysMatch(const std::array<T, N> &ActualValues,
   return false;
 }
 
-template <typename T, std::size_t N> 
-std::array<T, N> ComputeExpectedValues(const std::array<T, N> &InputVector1, const std::array<T, N> &InputVector2, const LongVectorOpTestConfig<T> &Config) {
+template <typename T, std::size_t N>
+std::array<T, N>
+ComputeExpectedValues(const std::array<T, N> &InputVector1,
+                      const std::array<T, N> &InputVector2,
+                      const LongVectorOpTestConfig<T> &Config) {
 
-  VERIFY_IS_TRUE(Config.IsBinaryOp(), L"ComputeExpectedValues() called with a non-binary op config.");
+  VERIFY_IS_TRUE(
+      Config.IsBinaryOp(),
+      L"ComputeExpectedValues() called with a non-binary op config.");
 
   std::array<T, N> ExpectedValues = {};
 
-  for(size_t i = 0; i < N; ++i) {
-    ExpectedValues[i] = Config.ComputeExpectedValue(InputVector1[i], InputVector2[i]);
+  for (size_t i = 0; i < N; ++i) {
+    ExpectedValues[i] =
+        Config.ComputeExpectedValue(InputVector1[i], InputVector2[i]);
   }
 
   return ExpectedValues;
 }
 
-template <typename T, std::size_t N> 
-std::array<T, N> ComputeExpectedValues(const std::array<T, N> &InputVector1, const T &ScalarInput, const LongVectorOpTestConfig<T> &Config) {
+template <typename T, std::size_t N>
+std::array<T, N>
+ComputeExpectedValues(const std::array<T, N> &InputVector1,
+                      const T &ScalarInput,
+                      const LongVectorOpTestConfig<T> &Config) {
 
-  VERIFY_IS_TRUE(Config.IsScalarOp(), L"ComputeExpectedValues() called with a non-binary non-scalar op config.");
+  VERIFY_IS_TRUE(Config.IsScalarOp(), L"ComputeExpectedValues() called with a "
+                                      L"non-binary non-scalar op config.");
 
   std::array<T, N> ExpectedValues = {};
 
-  for(size_t i = 0; i < N; ++i) {
-    ExpectedValues[i] = Config.ComputeExpectedValue(InputVector1[i], ScalarInput);
+  for (size_t i = 0; i < N; ++i) {
+    ExpectedValues[i] =
+        Config.ComputeExpectedValue(InputVector1[i], ScalarInput);
   }
 
   return ExpectedValues;
 }
 
-template <typename T, std::size_t N> 
-std::array<T, N> ComputeExpectedValues(const std::array<T, N> &InputVector1, const LongVectorOpTestConfig<T> &Config) {
+template <typename T, std::size_t N>
+std::array<T, N>
+ComputeExpectedValues(const std::array<T, N> &InputVector1,
+                      const LongVectorOpTestConfig<T> &Config) {
 
-  VERIFY_IS_TRUE(Config.IsUnaryOp(), L"ComputeExpectedValues() called with a non-unary op config.");
+  VERIFY_IS_TRUE(Config.IsUnaryOp(),
+                 L"ComputeExpectedValues() called with a non-unary op config.");
 
   std::array<T, N> ExpectedValues = {};
 
-  for(size_t i = 0; i < N; ++i) {
+  for (size_t i = 0; i < N; ++i) {
     ExpectedValues[i] = Config.ComputeExpectedValue(InputVector1[i]);
   }
 
@@ -719,19 +736,18 @@ std::array<T, N> ComputeExpectedValues(const std::array<T, N> &InputVector1, con
 
 template <typename T, std::size_t N>
 void LogLongVector(const std::array<T, N> &Values, std::wstring Name) {
-  WEX::Logging::Log::Comment(WEX::Common::String().Format(
-      L"LongVector Name: %s", Name.c_str()));
-  
+  WEX::Logging::Log::Comment(
+      WEX::Common::String().Format(L"LongVector Name: %s", Name.c_str()));
+
   const size_t LoggingWidth = 40;
 
   std::wstringstream Wss(L"LongVector Values: ");
   Wss << L"[";
-  for (size_t i = 0; i < N; i++)
-  {
-    if(i % LoggingWidth == 0 && i != 0)
+  for (size_t i = 0; i < N; i++) {
+    if (i % LoggingWidth == 0 && i != 0)
       Wss << L"\n ";
     Wss << Values[i];
-    if(i != N - 1)
+    if (i != N - 1)
       Wss << L", ";
   }
   Wss << L" ]";
@@ -739,10 +755,9 @@ void LogLongVector(const std::array<T, N> &Values, std::wstring Name) {
   WEX::Logging::Log::Comment(Wss.str().c_str());
 }
 
-template <typename T>
-void LogScalar(const T &Value, std::wstring Name) {
-  WEX::Logging::Log::Comment(WEX::Common::String().Format(
-      L"Scalar Name: %s", Name.c_str()));
+template <typename T> void LogScalar(const T &Value, std::wstring Name) {
+  WEX::Logging::Log::Comment(
+      WEX::Common::String().Format(L"Scalar Name: %s", Name.c_str()));
 
   std::wstringstream Wss(L"Scalar Value: ");
   Wss << Value;

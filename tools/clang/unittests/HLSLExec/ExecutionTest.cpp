@@ -785,10 +785,12 @@ public:
                                Ty *pInputDataPairs, unsigned inputDataCount);
 
   template <typename T>
-  void LongVectorOpTestDispatchByDataType(T OpType, std::wstring DataType, TableParameterHandler &Handler);
+  void LongVectorOpTestDispatchByDataType(T OpType, std::wstring DataType,
+                                          TableParameterHandler &Handler);
 
-  template <typename T, typename U> 
-  void LongVectorOpTestDispatchByVectorSize(U OpType, TableParameterHandler &Handler);
+  template <typename T, typename U>
+  void LongVectorOpTestDispatchByVectorSize(U OpType,
+                                            TableParameterHandler &Handler);
 
   template <typename T, std::size_t N>
   void LongVectorOpTestBase(LongVectorOpTestConfig<T> &TestConfig);
@@ -6589,17 +6591,17 @@ static TableParameter PackUnpackOpParameters[] = {
 };
 
 static TableParameter LongVectorBinaryOpParameters[] = {
-  {L"DataType", TableParameter::STRING, true},
-  {L"OpTypeEnum", TableParameter::STRING, true},
-  {L"InputValueSetName1", TableParameter::STRING, false},
-  {L"InputValueSetName2", TableParameter::STRING, false},
+    {L"DataType", TableParameter::STRING, true},
+    {L"OpTypeEnum", TableParameter::STRING, true},
+    {L"InputValueSetName1", TableParameter::STRING, false},
+    {L"InputValueSetName2", TableParameter::STRING, false},
 };
 
 static TableParameter LongVectorUnaryOpParameters[] = {
-  {L"DataType", TableParameter::STRING, true},
-  {L"OpTypeEnum", TableParameter::STRING, true},
-  {L"InputValueSetName1", TableParameter::STRING, false},
-  {L"InputArgsName", TableParameter::STRING, false},
+    {L"DataType", TableParameter::STRING, true},
+    {L"OpTypeEnum", TableParameter::STRING, true},
+    {L"InputValueSetName1", TableParameter::STRING, false},
+    {L"InputArgsName", TableParameter::STRING, false},
 };
 
 static bool IsHexString(PCWSTR str, uint16_t *value) {
@@ -11244,7 +11246,8 @@ TEST_F(ExecutionTest, LongVector_BinaryOpTest) {
 
   using namespace WEX::Common;
 
-  const int TableSize = sizeof(LongVectorBinaryOpParameters) / sizeof(TableParameter);
+  const int TableSize =
+      sizeof(LongVectorBinaryOpParameters) / sizeof(TableParameter);
   TableParameterHandler Handler(LongVectorBinaryOpParameters, TableSize);
 
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
@@ -11258,46 +11261,50 @@ TEST_F(ExecutionTest, LongVector_UnaryOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  const int TableSize = sizeof(LongVectorUnaryOpParameters) / sizeof(TableParameter);
+  const int TableSize =
+      sizeof(LongVectorUnaryOpParameters) / sizeof(TableParameter);
   TableParameterHandler Handler(LongVectorUnaryOpParameters, TableSize);
-  
+
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
   std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
-  
+
   auto OpType = GetLongVectorUnaryOpType(OpTypeString);
   LongVectorOpTestDispatchByDataType(OpType, DataType, Handler);
 }
 
 template <typename T>
-void ExecutionTest::LongVectorOpTestDispatchByDataType(T OpType, std::wstring DataType, TableParameterHandler &Handler) {
+void ExecutionTest::LongVectorOpTestDispatchByDataType(
+    T OpType, std::wstring DataType, TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
-  if(DataType == L"bool")
+  if (DataType == L"bool")
     LongVectorOpTestDispatchByVectorSize<HLSLBool_t>(OpType, Handler);
-  else if(DataType == L"int16")
+  else if (DataType == L"int16")
     LongVectorOpTestDispatchByVectorSize<int16_t>(OpType, Handler);
-  else if(DataType == L"int32")
+  else if (DataType == L"int32")
     LongVectorOpTestDispatchByVectorSize<int32_t>(OpType, Handler);
-  else if(DataType == L"int64")
+  else if (DataType == L"int64")
     LongVectorOpTestDispatchByVectorSize<int64_t>(OpType, Handler);
-  else if(DataType == L"uint16")
+  else if (DataType == L"uint16")
     LongVectorOpTestDispatchByVectorSize<uint16_t>(OpType, Handler);
-  else if(DataType == L"uint32")
+  else if (DataType == L"uint32")
     LongVectorOpTestDispatchByVectorSize<uint32_t>(OpType, Handler);
-  else if(DataType == L"uint64")
+  else if (DataType == L"uint64")
     LongVectorOpTestDispatchByVectorSize<uint64_t>(OpType, Handler);
-  else if(DataType == L"float16")
+  else if (DataType == L"float16")
     LongVectorOpTestDispatchByVectorSize<HLSLHalf_t>(OpType, Handler);
-  else if(DataType == L"float32")
+  else if (DataType == L"float32")
     LongVectorOpTestDispatchByVectorSize<float>(OpType, Handler);
-  else if(DataType == L"float64")
+  else if (DataType == L"float64")
     LongVectorOpTestDispatchByVectorSize<double>(OpType, Handler);
   else
-    VERIFY_FAIL(String().Format(L"DataType: %s is not recognized.", DataType.c_str()));
+    VERIFY_FAIL(
+        String().Format(L"DataType: %s is not recognized.", DataType.c_str()));
 }
 
 template <typename T, typename U>
-void ExecutionTest::LongVectorOpTestDispatchByVectorSize(U opType, TableParameterHandler &Handler) {
+void ExecutionTest::LongVectorOpTestDispatchByVectorSize(
+    U opType, TableParameterHandler &Handler) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -11305,23 +11312,26 @@ void ExecutionTest::LongVectorOpTestDispatchByVectorSize(U opType, TableParamete
 
   // InputValueSetName1 is optional. So the string may be empty. An empty
   // string will result in the default value set for this DataType being used.
-  std::wstring InputValueSet1(Handler.GetTableParamByName(L"InputValueSetName1")->m_str);
-  if(!InputValueSet1.empty()) {
+  std::wstring InputValueSet1(
+      Handler.GetTableParamByName(L"InputValueSetName1")->m_str);
+  if (!InputValueSet1.empty()) {
     TestConfig.SetInputValueSet1(InputValueSet1);
   }
 
   // InputValueSetName2 is optional. So the string may be empty. An empty
   // string will result in the default value set for this DataType being used.
-  if(TestConfig.IsBinaryOp()) {
-    std::wstring InputValueSet2(Handler.GetTableParamByName(L"InputValueSetName2")->m_str);
-    if(!InputValueSet1.empty()) {
+  if (TestConfig.IsBinaryOp()) {
+    std::wstring InputValueSet2(
+        Handler.GetTableParamByName(L"InputValueSetName2")->m_str);
+    if (!InputValueSet1.empty()) {
       TestConfig.SetInputValueSet2(InputValueSet2);
     }
   }
 
-  if(TestConfig.HasInputArguments()){
-    std::wstring InputArgsName(Handler.GetTableParamByName(L"InputArgsName")->m_str);
-    if(!InputArgsName.empty()) {
+  if (TestConfig.HasInputArguments()) {
+    std::wstring InputArgsName(
+        Handler.GetTableParamByName(L"InputArgsName")->m_str);
+    if (!InputArgsName.empty()) {
       TestConfig.SetInputArgsArrayName(InputArgsName);
     }
   }
@@ -11346,7 +11356,8 @@ void ExecutionTest::LongVectorOpTestBase(
   LogCommentFmt(L"Running LongVectorOpTestBase<%S, %zu>", typeid(T).name(), N);
 
   bool LogInputs = false;
-  WEX::TestExecution::RuntimeParameters::TryGetValue(L"LongVectorLogInputs", LogInputs);
+  WEX::TestExecution::RuntimeParameters::TryGetValue(L"LongVectorLogInputs",
+                                                     LogInputs);
 
   CComPtr<ID3D12Device> D3DDevice;
   if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
@@ -11362,14 +11373,17 @@ void ExecutionTest::LongVectorOpTestBase(
 
   std::array<T, N> InputVector1;
   std::array<T, N> InputVector2; // May be unused, but must be defined.
-  std::array<T, 1> ScalarInput; // May be unused, but must be defined.
+  std::array<T, 1> ScalarInput;  // May be unused, but must be defined.
   std::vector<T> InputArgsArray = {};
-  const bool IsVectorBinaryOp = TestConfig.IsBinaryOp() && !TestConfig.IsScalarOp();
+  const bool IsVectorBinaryOp =
+      TestConfig.IsBinaryOp() && !TestConfig.IsScalarOp();
 
   std::vector<T> InputVector1ValueSet = TestConfig.GetInputValueSet1();
-  std::vector<T> InputVector2ValueSet = TestConfig.IsBinaryOp() ? TestConfig.GetInputValueSet2() : std::vector<T>();
+  std::vector<T> InputVector2ValueSet = TestConfig.IsBinaryOp()
+                                            ? TestConfig.GetInputValueSet2()
+                                            : std::vector<T>();
 
-  if(TestConfig.IsScalarOp())
+  if (TestConfig.IsScalarOp())
     // Scalar ops are always binary ops. So InputVector2ValueSet is initialized
     // with values above.
     ScalarInput[0] = InputVector2ValueSet[0];
@@ -11377,10 +11391,12 @@ void ExecutionTest::LongVectorOpTestBase(
   // Fill the input vectors with values from the value set. Repeat the values
   // when we reach the end of the value set.
   for (size_t Index = 0; Index < N; Index++) {
-    InputVector1[Index] = InputVector1ValueSet[Index % InputVector1ValueSet.size()];
+    InputVector1[Index] =
+        InputVector1ValueSet[Index % InputVector1ValueSet.size()];
 
     if (IsVectorBinaryOp)
-      InputVector2[Index] = InputVector2ValueSet[Index % InputVector2ValueSet.size()];
+      InputVector2[Index] =
+          InputVector2ValueSet[Index % InputVector2ValueSet.size()];
   }
 
   if (TestConfig.HasInputArguments()) {
@@ -11388,22 +11404,24 @@ void ExecutionTest::LongVectorOpTestBase(
   }
 
   std::array<T, N> ExpectedVector;
-  if(IsVectorBinaryOp)
-    ExpectedVector = ComputeExpectedValues(InputVector1, InputVector2, TestConfig);
+  if (IsVectorBinaryOp)
+    ExpectedVector =
+        ComputeExpectedValues(InputVector1, InputVector2, TestConfig);
   else if (TestConfig.IsScalarOp())
-    ExpectedVector = ComputeExpectedValues(InputVector1, ScalarInput[0], TestConfig);
+    ExpectedVector =
+        ComputeExpectedValues(InputVector1, ScalarInput[0], TestConfig);
   else // Must be a unary op
     ExpectedVector = ComputeExpectedValues(InputVector1, TestConfig);
 
-  if(LogInputs){
+  if (LogInputs) {
     LogLongVector<T, N>(InputVector1, L"InputVector1");
 
-    if(IsVectorBinaryOp)
+    if (IsVectorBinaryOp)
       LogLongVector<T, N>(InputVector2, L"InputVector2");
     else if (TestConfig.IsScalarOp())
       LogLongVector<T, 1>(ScalarInput, L"ScalarInput");
 
-    if(TestConfig.GetUnaryOpType() == LongVectorUnaryOpType_Clamp) {
+    if (TestConfig.GetUnaryOpType() == LongVectorUnaryOpType_Clamp) {
       LogScalar(InputArgsArray[0], L"ClampArgMin");
       LogScalar(InputArgsArray[1], L"ClampArgMax");
     }
@@ -11448,7 +11466,8 @@ void ExecutionTest::LongVectorOpTestBase(
         if (0 == _stricmp(Name, "InputFuncArgs")) {
           if (TestConfig.IsScalarOp()) {
             FillShaderBufferFromLongVectorData<T, 1>(ShaderData, ScalarInput);
-          } else if (TestConfig.GetUnaryOpType() == LongVectorUnaryOpType_Clamp) {
+          } else if (TestConfig.GetUnaryOpType() ==
+                     LongVectorUnaryOpType_Clamp) {
             std::array<T, 2> ClampArgs = {InputArgsArray[0], InputArgsArray[1]};
             FillShaderBufferFromLongVectorData<T, 2>(ShaderData, ClampArgs);
           }
