@@ -52,19 +52,20 @@ namespace {
 bool CreateValidator(CComPtr<IDxcValidator> &pValidator,
                      hlsl::options::ValidatorSelection SelectValidator =
                          hlsl::options::ValidatorSelection::Auto) {
+  bool bInternalValidator = false;
   bool bInternal =
       SelectValidator == hlsl::options::ValidatorSelection::Internal;
   bool bExternal =
       SelectValidator == hlsl::options::ValidatorSelection::External;
-  if (!bInternal && DxilLibIsEnabled())
-    DxilLibCreateInstance(CLSID_DxcValidator, &pValidator);
 
-  bool bInternalValidator = false;
-  if (pValidator == nullptr) {
-    IFTBOOL(!bExternal, DXC_E_VALIDATOR_MISSING);
+  if (!bExternal)
     IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
-    bInternalValidator = true;
+
+  if (pValidator == nullptr && DxilLibIsEnabled()) {
+    IFTBOOL(!bInternal, DXC_E_VALIDATOR_MISSING);
+    DxilLibCreateInstance(CLSID_DxcValidator, &pValidator);
   }
+
   return bInternalValidator;
 }
 
