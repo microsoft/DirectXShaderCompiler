@@ -303,6 +303,8 @@ public:
   TEST_METHOD(SERGetAttributesTest);
   TEST_METHOD(SERTraceHitMissNopTest);
   TEST_METHOD(SERIsMissTest);
+  TEST_METHOD(SERShaderTableIndexTest);
+  TEST_METHOD(SERLoadLocalRootTableConstantTest);
   TEST_METHOD(LifetimeIntrinsicTest)
   TEST_METHOD(WaveIntrinsicsTest);
   TEST_METHOD(WaveIntrinsicsDDITest);
@@ -2248,11 +2250,12 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   CComPtr<ID3D12RootSignature> pLocalRootSignature;
   {
     CD3DX12_DESCRIPTOR_RANGE bufferRanges[1];
-    CD3DX12_ROOT_PARAMETER rootParameters[1];
+    CD3DX12_ROOT_PARAMETER rootParameters[2];
     bufferRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 1, 0,
                          2); // vertexBuffer(t1), indexBuffer(t2)
     rootParameters[0].InitAsDescriptorTable(
         _countof(bufferRanges), bufferRanges, D3D12_SHADER_VISIBILITY_ALL);
+    rootParameters[1].InitAsConstants(4, 1, 0, D3D12_SHADER_VISIBILITY_ALL);
 
     CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
     rootSignatureDesc.Init(_countof(rootParameters), rootParameters, 0, nullptr,
@@ -2316,6 +2319,9 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   if (useIS) {
     lib->DefineExport(L"intersection");
   }
+  if (useMesh && useProceduralGeometry) {
+    lib->DefineExport(L"chAABB");
+  }
 
   const int maxRecursion = 1;
   stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>()
@@ -2329,6 +2335,10 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
       stateObjectDesc
           .CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
   globalRootSigSubObj->SetRootSignature(pGlobalRootSignature);
+  // Set Local Root Signature subobject.
+  stateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>()
+      ->SetRootSignature(pLocalRootSignature);
+
   auto exports = stateObjectDesc.CreateSubobject<
       CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
   exports->SetSubobjectToAssociate(*globalRootSigSubObj);
@@ -2338,6 +2348,9 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   exports->AddExport(L"miss");
   if (useIS) {
     exports->AddExport(L"intersection");
+  }
+  if (useMesh && useProceduralGeometry) {
+    exports->AddExport(L"chAABB");
   }
 
   auto hitGroup =
@@ -2350,15 +2363,23 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   }
   hitGroup->SetHitGroupExport(L"HitGroup");
 
+  if (useMesh && useProceduralGeometry) {
+    auto hitGroupAABB =
+        stateObjectDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
+    hitGroupAABB->SetClosestHitShaderImport(L"chAABB");
+    hitGroupAABB->SetAnyHitShaderImport(L"anyhit");
+    if (useIS) {
+      hitGroup->SetIntersectionShaderImport(L"intersection");
+      hitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE);
+    }
+    hitGroupAABB->SetHitGroupExport(L"HitGroupAABB");
+  }
+
   CComPtr<ID3D12StateObject> pStateObject;
   CComPtr<ID3D12StateObjectProperties> pStateObjectProperties;
   VERIFY_SUCCEEDED(
       pDevice->CreateStateObject(stateObjectDesc, IID_PPV_ARGS(&pStateObject)));
   VERIFY_SUCCEEDED(pStateObject->QueryInterface(&pStateObjectProperties));
-  stateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>()
-      ->SetRootSignature(pLocalRootSignature);
-  stateObjectDesc.CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>()
-      ->SetRootSignature(pGlobalRootSignature);
 
   // Create SBT
   ShaderTable shaderTable;
@@ -2367,21 +2388,33 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
                    1,                                        // miss count
                    useMesh && useProceduralGeometry ? 2 : 1, // hit group count
                    1,                                        // ray type count
-                   2 // dwords per root table
+                   4 // dwords per root table
   );
 
+  int localRootConsts[4] = {12, 34, 56, 78};
   memcpy(shaderTable.GetRaygenShaderIdPtr(0),
          pStateObjectProperties->GetShaderIdentifier(L"raygen"),
          SHADER_ID_SIZE_IN_BYTES);
+  memcpy(shaderTable.GetRaygenRootTablePtr(0), localRootConsts,
+         sizeof(localRootConsts));
   memcpy(shaderTable.GetMissShaderIdPtr(0, 0),
          pStateObjectProperties->GetShaderIdentifier(L"miss"),
          SHADER_ID_SIZE_IN_BYTES);
+  memcpy(shaderTable.GetMissRootTablePtr(0, 0), localRootConsts,
+         sizeof(localRootConsts));
   memcpy(shaderTable.GetHitGroupShaderIdPtr(0, 0),
          pStateObjectProperties->GetShaderIdentifier(L"HitGroup"),
          SHADER_ID_SIZE_IN_BYTES);
+  memcpy(shaderTable.GetHitGroupRootTablePtr(0, 0), localRootConsts,
+         sizeof(localRootConsts));
+  if (useMesh && useProceduralGeometry) {
+    memcpy(shaderTable.GetHitGroupShaderIdPtr(0, 1),
+           pStateObjectProperties->GetShaderIdentifier(L"HitGroupAABB"),
+           SHADER_ID_SIZE_IN_BYTES);
+  }
 
-  auto tbl = pDescriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr;
-  memcpy(shaderTable.GetHitGroupRootTablePtr(0, 0), &tbl, 8);
+  // auto tbl = pDescriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr;
+  // memcpy(shaderTable.GetHitGroupRootTablePtr(0, 0), &tbl, 8);
 
   // Create a command allocator and list.
   CComPtr<ID3D12CommandAllocator> pCommandAllocator;
@@ -2521,6 +2554,7 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
         pDevice->GetRaytracingAccelerationStructurePrebuildInfo(&accelInputs,
                                                                 &prebuildInfo);
 
+        scratchResource.Release();
         ReallocScratchResource(pDevice, &scratchResource,
                                prebuildInfo.ScratchDataSizeInBytes);
         AllocateBuffer(pDevice, prebuildInfo.ResultDataMaxSizeInBytes,
@@ -2597,6 +2631,7 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
                                                             &prebuildInfo);
 
     // Allocate scratch and result buffers for the BLAS
+    scratchResource.Release();
     ReallocScratchResource(pDevice, &scratchResource,
                            prebuildInfo.ScratchDataSizeInBytes);
     AllocateBuffer(pDevice, prebuildInfo.ResultDataMaxSizeInBytes,
@@ -2654,6 +2689,9 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
       pDevice->GetRaytracingAccelerationStructurePrebuildInfo(&accelInputs,
                                                               &prebuildInfo);
 
+      scratchResource.Release();
+      ReallocScratchResource(pDevice, &scratchResource,
+                             prebuildInfo.ScratchDataSizeInBytes);
       AllocateBuffer(
           pDevice, prebuildInfo.ResultDataMaxSizeInBytes, &tlasResource, true,
           D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, L"TLAS");
@@ -2691,6 +2729,9 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
       pDevice->GetRaytracingAccelerationStructurePrebuildInfo(&accelInputs,
                                                               &prebuildInfo);
 
+      scratchResource.Release();
+      ReallocScratchResource(pDevice, &scratchResource,
+                             prebuildInfo.ScratchDataSizeInBytes);
       AllocateBuffer(
           pDevice, prebuildInfo.ResultDataMaxSizeInBytes, &tlasResource, true,
           D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, L"TLAS");
@@ -2709,6 +2750,13 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
         CD3DX12_RESOURCE_BARRIER::UAV(tlasResource);
     pCommandList->ResourceBarrier(1, (const D3D12_RESOURCE_BARRIER *)&barrier);
   }
+
+  // Set the local root constants.
+  pCommandList->SetComputeRootSignature(pLocalRootSignature);
+  pCommandList->SetComputeRoot32BitConstant(1, 12, 0);
+  pCommandList->SetComputeRoot32BitConstant(1, 34, 1);
+  pCommandList->SetComputeRoot32BitConstant(1, 56, 2);
+  pCommandList->SetComputeRoot32BitConstant(1, 78, 3);
 
   shaderTable.Upload(pCommandList);
 

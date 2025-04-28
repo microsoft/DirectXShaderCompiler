@@ -586,7 +586,7 @@ struct SceneConstants
 
 struct[raypayload] PerRayData
 {
-    matrix<float,ROWS,COLS> value : read(caller) : write(miss,closesthit);
+    float elems[ROWS*COLS] : read(caller) : write(miss,closesthit);
 };
 
 struct Attrs
@@ -627,7 +627,7 @@ void raygen()
     TraceRay(topObject, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, refPayload);
     for (int r = 0; r < ROWS; r++) {
       for (int c = 0; c < COLS; c++) {
-        testBuffer[id + 2 * (r * COLS + c)] = refPayload.value[r][c];
+        testBuffer[id + 2 * (r * COLS + c)] = refPayload.elems[r*COLS + c];
       }
     }
 
@@ -642,8 +642,8 @@ void raygen()
     }
 }
 
-matrix<float,ROWS,COLS> getMatIdentity() {
-  matrix<float,ROWS,COLS> mat = 0;
+matrix<float, ROWS, COLS> getMatIdentity() {
+  matrix<float, ROWS, COLS> mat = 0;
   mat[0][0] = 1.f;
   mat[1][1] = 1.f;
   mat[2][2] = 1.f;
@@ -653,7 +653,12 @@ matrix<float,ROWS,COLS> getMatIdentity() {
 [shader("miss")]
 void miss(inout PerRayData payload)
 {
-    payload.value = MISS_GET_MATRIX();
+    matrix<float, ROWS, COLS> mat = MISS_GET_MATRIX();
+    for (int r = 0; r < ROWS; r++) {
+      for (int c = 0; c < COLS; c++) {
+        payload.elems[r*COLS + c] = mat[r][c];
+      }
+    }
 }
 
 [shader("anyhit")]
@@ -665,7 +670,12 @@ void anyhit(inout PerRayData payload, in Attrs attrs)
 [shader("closesthit")]
 void closesthit(inout PerRayData payload, in Attrs attrs)
 {
-    payload.value = HIT_GET_MATRIX();
+    matrix<float, ROWS, COLS> mat = HIT_GET_MATRIX();
+    for (int r = 0; r < ROWS; r++) {
+      for (int c = 0; c < COLS; c++) {
+        payload.elems[r*COLS + c] = mat[r][c];
+      }
+    }
 }
 )";
 
@@ -950,6 +960,287 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
     VERIFY_ARE_EQUAL(histo[2], 4030);
     VERIFY_ARE_EQUAL(histo[5], 66);
   }
+}
+
+TEST_F(ExecutionTest, SERShaderTableIndexTest) {
+  // Test SER with HitObject::SetShaderTableIndex and
+  // HitObject::GetShaderTableIndex
+  static const char *pShader = R"(
+struct SceneConstants
+{
+    float4 eye;
+    float4 U;
+    float4 V;
+    float4 W;
+    float sceneScale;
+    uint2 windowSize;
+    int rayFlags;    
+};
+
+struct[raypayload] PerRayData
+{
+    uint visited : read(anyhit,closesthit,miss,caller) : write(anyhit,miss,closesthit,caller);
+};
+
+struct Attrs
+{
+    float2 barycentrics : BARYCENTRICS;
+};
+
+RWStructuredBuffer<int> testBuffer : register(u0);
+RaytracingAccelerationStructure topObject : register(t0);
+ConstantBuffer<SceneConstants> sceneConstants : register(b0);
+
+RayDesc ComputeRay()
+{
+    uint2   launchIndex = DispatchRaysIndex().xy;
+    uint2   launchDim = DispatchRaysDimensions().xy;
+
+    float2 d = float2(DispatchRaysIndex().xy) / float2(DispatchRaysDimensions().xy) * 2.0f - 1.0f;
+    RayDesc ray;
+    ray.Origin = sceneConstants.eye.xyz;
+    ray.Direction = normalize(d.x*sceneConstants.U.xyz + d.y*sceneConstants.V.xyz + sceneConstants.W.xyz);
+    ray.TMin = 0;
+    ray.TMax = 1e18;
+
+    return ray;
+}
+
+[shader("raygeneration")]
+void raygen()
+{
+    uint2   launchIndex = DispatchRaysIndex().xy;
+    uint2   launchDim = DispatchRaysDimensions().xy;
+
+    RayDesc ray = ComputeRay();
+
+    PerRayData payload;
+    payload.visited = 0;
+
+    // SER Test
+    dx::HitObject hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, payload);
+    dx::MaybeReorderThread(hitObject);
+    dx::HitObject::Invoke(hitObject, payload);
+
+    if (hitObject.IsHit())
+    {
+        // Alter the hit object to point to a new shader index to hit chAABB.
+        hitObject.SetShaderTableIndex( 1 );
+        dx::HitObject::Invoke( hitObject, payload );
+        // Poison the test data if GetShaderTableIndex does not match SetShaderTableIndex.
+        if (hitObject.GetShaderTableIndex() != 1)
+            payload.visited = 0;
+    }
+
+    int id = launchIndex.x + launchIndex.y * launchDim.x;
+    testBuffer[id] = payload.visited;
+}
+
+[shader("miss")]
+void miss(inout PerRayData payload)
+{
+    payload.visited |= 2U;
+}
+
+[shader("anyhit")]
+void anyhit(inout PerRayData payload, in Attrs attrs)
+{
+    payload.visited |= 1U;
+    AcceptHitAndEndSearch();
+}
+
+[shader("closesthit")]
+void closesthit(inout PerRayData payload, in Attrs attrs)
+{
+    payload.visited |= 4U;
+}
+
+[shader("closesthit")]
+void chAABB(inout PerRayData payload, in Attrs attrs)
+{
+    payload.visited |= 8U;
+}
+
+)";
+
+  CComPtr<ID3D12Device> pDevice;
+  bool bSM_6_9_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_9, false);
+  if (!bSM_6_9_Supported) {
+    WEX::Logging::Log::Comment(L"SERTest requires shader model 6.9+ but no "
+                               L"supported device was found.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+  bool bDXRSupported =
+      bSM_6_9_Supported && DoesDeviceSupportRayTracing(pDevice);
+
+  if (!bSM_6_9_Supported) {
+    WEX::Logging::Log::Comment(
+        L"SER tests skipped, device does not support SM 6.9.");
+  }
+  if (!bDXRSupported) {
+    WEX::Logging::Log::Comment(
+        L"SER tests skipped, device does not support DXR.");
+  }
+
+  // Initialize test data.
+  const int windowSize = 64;
+  std::vector<int> testData(windowSize * windowSize, 0);
+  LPCWSTR args[] = {L"-HV 2021", L"-Vd"};
+
+  if (bDXRSupported) {
+    WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
+    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
+               testData, windowSize, windowSize, true /*mesh*/,
+               true /*procedural geometry*/, false /*useIS*/);
+    std::map<int, int> histo;
+    for (int val : testData) {
+      ++histo[val];
+    }
+    VERIFY_ARE_EQUAL(histo.size(), 2);
+    VERIFY_ARE_EQUAL(histo[2], 4030);
+    VERIFY_ARE_EQUAL(histo[13], 66);
+  }
+}
+
+TEST_F(ExecutionTest, SERLoadLocalRootTableConstantTest) {
+  // Test SER with HitObject::LoadLocalRootTableConstant
+  static const char *pShader = R"(
+struct SceneConstants
+{
+    float4 eye;
+    float4 U;
+    float4 V;
+    float4 W;
+    float sceneScale;
+    uint2 windowSize;
+    int rayFlags;    
+};
+
+struct[raypayload] PerRayData
+{
+    uint res : read(caller) : write(miss,closesthit,caller);
+};
+
+struct Attrs
+{
+    float2 barycentrics : BARYCENTRICS;
+};
+
+struct LocalConstants
+{
+    int c0;
+    int c1;
+    int c2;
+    int c3;
+};
+
+RWStructuredBuffer<int> testBuffer : register(u0);
+RaytracingAccelerationStructure topObject : register(t0);
+ConstantBuffer<SceneConstants> sceneConstants : register(b0);
+ConstantBuffer<LocalConstants> localConstants : register(b1);
+
+RayDesc ComputeRay()
+{
+    uint2   launchIndex = DispatchRaysIndex().xy;
+    uint2   launchDim = DispatchRaysDimensions().xy;
+
+    float2 d = float2(DispatchRaysIndex().xy) / float2(DispatchRaysDimensions().xy) * 2.0f - 1.0f;
+    RayDesc ray;
+    ray.Origin = sceneConstants.eye.xyz;
+    ray.Direction = normalize(d.x*sceneConstants.U.xyz + d.y*sceneConstants.V.xyz + sceneConstants.W.xyz);
+    ray.TMin = 0;
+    ray.TMax = 1e18;
+
+    return ray;
+}
+
+[shader("raygeneration")]
+void raygen()
+{
+    uint2   launchIndex = DispatchRaysIndex().xy;
+    uint2   launchDim = DispatchRaysDimensions().xy;
+
+    RayDesc ray = ComputeRay();
+
+    PerRayData payload;
+    payload.res = 0;
+
+    // SER Test
+#if 1
+    dx::HitObject hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, payload);
+    dx::MaybeReorderThread(hitObject);
+    int c0 =  hitObject.LoadLocalRootTableConstant(0);
+    int c1 =  hitObject.LoadLocalRootTableConstant(4);
+    int c2 =  hitObject.LoadLocalRootTableConstant(8);
+    int c3 =  hitObject.LoadLocalRootTableConstant(12);
+    int res = c0 | c1 | c2 | c3;
+#else
+    TraceRay(topObject, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, payload);
+    int res = payload.res;
+#endif
+    
+    int id = launchIndex.x + launchIndex.y * launchDim.x;
+    testBuffer[id] = res;
+}
+
+[shader("miss")]
+void miss(inout PerRayData payload)
+{
+    payload.res = localConstants.c0 | localConstants.c1 | localConstants.c2 | localConstants.c3;
+}
+
+[shader("anyhit")]
+void anyhit(inout PerRayData payload, in Attrs attrs)
+{
+    // UNUSED
+}
+
+[shader("closesthit")]
+void closesthit(inout PerRayData payload, in Attrs attrs)
+{
+    payload.res = localConstants.c0 | localConstants.c1 | localConstants.c2 | localConstants.c3;
+}
+
+)";
+
+  CComPtr<ID3D12Device> pDevice;
+  bool bSM_6_9_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_9, false);
+  if (!bSM_6_9_Supported) {
+    WEX::Logging::Log::Comment(L"SERTest requires shader model 6.9+ but no "
+                               L"supported device was found.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+  bool bDXRSupported =
+      bSM_6_9_Supported && DoesDeviceSupportRayTracing(pDevice);
+
+  if (!bSM_6_9_Supported) {
+    WEX::Logging::Log::Comment(
+        L"SER tests skipped, device does not support SM 6.9.");
+  }
+  if (!bDXRSupported) {
+    WEX::Logging::Log::Comment(
+        L"SER tests skipped, device does not support DXR.");
+  }
+
+  // Initialize test data.
+  const int windowSize = 64;
+  std::vector<int> testData(windowSize * windowSize, 0);
+  LPCWSTR args[] = {L"-HV 2021", L"-Vd"};
+
+  if (!bDXRSupported)
+    return;
+  WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
+  RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
+             testData, windowSize, windowSize, true /*useMesh*/,
+             false /*useProceduralGeometry*/, false /*useIS*/);
+  std::map<int, int> histo;
+  for (int val : testData) {
+    ++histo[val];
+  }
+  VERIFY_ARE_EQUAL(histo.size(), 1);
+  VERIFY_ARE_EQUAL(histo[126], 4096);
 }
 
 TEST_F(ExecutionTest, SERRayQueryTest) {
