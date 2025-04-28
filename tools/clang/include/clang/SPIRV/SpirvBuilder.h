@@ -997,9 +997,6 @@ SpirvInstruction *SpirvBuilder::addExecutionModeId(
   SpirvExecutionModeId *mode = nullptr;
   SpirvExecutionModeBase *existingInstruction =
       mod->findExecutionMode(entryPoint, em);
-  assert(!existingInstruction || existingInstruction->getKind() ==
-                                     SpirvInstruction::IK_ExecutionModeId);
-
   if (!existingInstruction) {
     mode = new (context) SpirvExecutionModeId(loc, entryPoint, em, params);
     mod->addExecutionMode(mode);
@@ -1009,7 +1006,7 @@ SpirvInstruction *SpirvBuilder::addExecutionModeId(
     // `addExecutionMode` should have been called with `em` or the existing
     // instruction is wrong.
     assert(existingInstruction->getKind() ==
-           SpirvInstruction::IK_ExecutionMode);
+           SpirvInstruction::IK_ExecutionModeId);
     mode = cast<SpirvExecutionModeId>(existingInstruction);
   }
 

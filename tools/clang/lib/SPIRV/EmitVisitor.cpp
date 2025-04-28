@@ -628,8 +628,7 @@ bool EmitVisitor::visit(SpirvExecutionModeBase *inst) {
       curInst.push_back(getOrAssignResultId<SpirvInstruction>(param));
     }
   } else {
-    auto *exeMode = dyn_cast<SpirvExecutionMode>(inst);
-    assert(exeMode);
+    auto *exeMode = llvm::cast<SpirvExecutionMode>(inst);
     ArrayRef<uint32_t> params = exeMode->getParams();
     curInst.insert(curInst.end(), params.begin(), params.end());
   }
