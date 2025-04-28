@@ -873,6 +873,11 @@ class db_dxil(object):
                 "library",
                 "raygeneration",
             )
+        for i in (
+            "MatVecMul,MatVecMulAdd,OuterProductAccumulate,VectorAccumulate"
+        ).split(","):
+            self.name_idx[i].category = "Linear Algebra Operations"
+            self.name_idx[i].shader_model = 6, 9
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -6340,6 +6345,103 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
+        self.add_dxil_op(
+            "MatVecMul",
+            next_op_idx,
+            "MatVecMul",
+            "Multiplies a MxK dimension matrix and a K sized input vector",
+            "<hfwi,<hfwi",
+            "ro",
+            [
+                db_dxil_param(0, "$x0", "outputVector", "output vector"),
+                db_dxil_param(2, "$x1", "inputVector", "input vector"),
+                db_dxil_param(3, "i1", "isInputUnsigned", "is input unsigned"),
+                db_dxil_param(4, "i32", "inputInterpretation", "input interpretation"),
+                db_dxil_param(5, "res", "matrixBuffer", "matrix resource"),
+                db_dxil_param(6, "i32", "matrixOffset", "matrix offset"),
+                db_dxil_param(7, "i32", "matrixIntepretation", "matrix intepretation"),
+                db_dxil_param(8, "i32", "matrixM", "matrix M dimension"),
+                db_dxil_param(9, "i32", "matrixK", "matrix K dimension"),
+                db_dxil_param(10, "i32", "matrixLayout", "matrix layout"),
+                db_dxil_param(11, "i1", "matrixTranspose", "matrix transpose"),
+                db_dxil_param(12, "i32", "matrixStride", "matrix stride"),
+                db_dxil_param(13, "i1", "isOutputUnsigned", "is output unsigned"),
+            ],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "MatVecMulAdd",
+            next_op_idx,
+            "MatVecMulAdd",
+            "multiplies a MxK dimension matrix and a K sized input vector and adds an M-sized bias vector",
+            "<hfwi,<hfwi",
+            "ro",
+            [
+                db_dxil_param(0, "$x0", "outputVector", "output vector"),
+                db_dxil_param(2, "$x1", "inputVector", "input vector"),
+                db_dxil_param(3, "i1", "isInputUnsigned", "is input unsigned"),
+                db_dxil_param(4, "i32", "inputInterpretation", "input interpretation"),
+                db_dxil_param(5, "res", "matrixBuffer", "matrix resource"),
+                db_dxil_param(6, "i32", "matrixOffset", "matrix offset"),
+                db_dxil_param(7, "i32", "matrixIntepretation", "matrix intepretation"),
+                db_dxil_param(8, "i32", "matrixM", "matrix M dimension"),
+                db_dxil_param(9, "i32", "matrixK", "matrix K dimension"),
+                db_dxil_param(10, "i32", "matrixLayout", "matrix layout"),
+                db_dxil_param(11, "i1", "matrixTranspose", "matrix transpose"),
+                db_dxil_param(12, "i32", "matrixStride", "matrix stride"),
+                db_dxil_param(13, "res", "biasBuffer", "bias vector resource"),
+                db_dxil_param(14, "i32", "biasOffset", "bias vector offset"),
+                db_dxil_param(
+                    15, "i32", "biasIntepretation", "bias vector intepretation"
+                ),
+                db_dxil_param(16, "i1", "isOutputUnsigned", "is output unsigned"),
+            ],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "OuterProductAccumulate",
+            next_op_idx,
+            "OuterProductAccumulate",
+            "Computes the outer product between column vectors and an MxN matrix is accumulated component-wise atomically (with device scope) in memory",
+            "<hfwi,<hfwi",
+            "",
+            [
+                db_dxil_param(0, "v", "", ""),
+                db_dxil_param(2, "$x0", "inputVector1", "input vector 1"),
+                db_dxil_param(3, "$x1", "inputVector2", "input vector 2"),
+                db_dxil_param(4, "res", "matrixBuffer", "matrix resource"),
+                db_dxil_param(5, "i32", "matrixOffset", "matrix offset"),
+                db_dxil_param(
+                    6,
+                    "i32",
+                    "matrixIntepretation",
+                    "matrix intepretation",
+                    is_const=True,
+                ),
+                db_dxil_param(7, "i32", "matrixLayout", "matrix layout", is_const=True),
+                db_dxil_param(8, "i32", "matrixStride", "matrix stride"),
+            ],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "VectorAccumulate",
+            next_op_idx,
+            "VectorAccumulate",
+            "Accumulates the components of a vector component-wise atomically (with device scope) to the corresponding elements of an array in memory",
+            "<hfwi",
+            "",
+            [
+                db_dxil_param(0, "v", "", ""),
+                db_dxil_param(2, "$o", "inputVector", "input vector 1"),
+                db_dxil_param(3, "res", "arrayBuffer", "output array resource"),
+                db_dxil_param(4, "i32", "arrayOffset", "output array offset"),
+            ],
+        )
+        next_op_idx += 1
+
         # End of DXIL 1.9 opcodes.
         # NOTE!! Update and uncomment when DXIL 1.9 opcodes are finalized:
         # self.set_op_count_for_version(1, 9, next_op_idx)
@@ -8306,6 +8408,55 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.MayReorderThreadUndefCoherenceHintParam",
             "Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.",
+        )
+
+        # Linalg ops
+        self.add_valrule_msg(
+            "Instr.MatVecOpIsUnsignedFlagsAreConst",
+            "In Linalg Mul/MulAdd functions, IsUnsigned flag is a constant.",
+            "'%1' is not a constant value",
+        )
+
+        self.add_valrule_msg(
+            "Instr.LinalgInterpretationParamAreConst",
+            "In Linalg operations, Interpretation value is a constant.",
+            "'%1' is not a constant value",
+        )
+
+        self.add_valrule_msg(
+            "Instr.LinalgInvalidRegisterInterpValue",
+            "From Register Interpretation value must be valid.",
+            "'%0' is not a valid %1 interpretation value",
+        )
+
+        self.add_valrule_msg(
+            "Instr.LinalgInvalidMemoryInterpValue",
+            "In Memory Interpolation value must be valid.",
+            "'%0' is not a valid %1 interpretation value",
+        )
+
+        self.add_valrule_msg(
+            "Instr.LinalgMatrixShapeParamsAreConst",
+            "Matrix Layout, Dimensions and isTranspose are constants",
+            "'%0' is not a constant value",
+        )
+
+        self.add_valrule_msg(
+            "Instr.LinalgInvalidMatrixLayoutValueForMatVecOps",
+            "Matrix Layout for Linalg Mul/MulAdd operation must be valid.",
+            "matrix layout value '%0' is not valid. Must be between [%1 - %2]",
+        )
+
+        self.add_valrule_msg(
+            "Instr.LinalgMatrixLayoutNotTransposable",
+            "Row Major and Column Major matrix layouts are not transposable.",
+            "%0 matrix layout is not transposable",
+        )
+
+        self.add_valrule_msg(
+            "Instr.LinalgNotAnUnsignedType",
+            "Unsigned flag set for a float signed type",
+            "IsUnsigned flag set to true for a float type '%0' vector",
         )
 
         # Some legacy rules:
