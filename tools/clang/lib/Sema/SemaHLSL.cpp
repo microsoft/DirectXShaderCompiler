@@ -11663,6 +11663,258 @@ static bool CheckBarrierCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
   return false;
 }
 
+// MatVec Ops
+static const unsigned kMatVecMulOutputVectorIdx = 0;
+static const unsigned kMatVecMulOutputIsUnsignedIdx = 1;
+static const unsigned kMatVecMulInputVectorIdx = 2;
+static const unsigned kMatVecMulIsInputUnsignedIdx = 3;
+static const unsigned kMatVecMulInputInterpretationIdx = 4;
+static const unsigned kMatVecMulMatrixBufferIdx = 5;
+static const unsigned kMatVecMulMatrixOffsetIdx = 6;
+static const unsigned kMatVecMulMatrixInterpretationIdx = 7;
+static const unsigned kMatVecMulMatrixMIdx = 8;
+static const unsigned kMatVecMulMatrixKIdx = 9;
+static const unsigned kMatVecMulMatrixLayoutIdx = 10;
+static const unsigned kMatVecMulMatrixTransposeIdx = 11;
+static const unsigned kMatVecMulMatrixStrideIdx = 12;
+static const unsigned kMatVecMulIsOutputUnsignedIdx = 13;
+
+// MatVecAdd
+const unsigned kMatVecMulAddBiasInterpretation = 15;
+const unsigned kMatVecMulAddIsOutputUnsignedIdx = 16;
+
+static bool CheckVectorAndMatrixDimensions(Sema &S, CallExpr *CE,
+                                           unsigned InputVectorSize,
+                                           unsigned OutputVectorSize,
+                                           unsigned MatrixK, unsigned MatrixM,
+                                           bool isInputPacked) {
+  // Check is output vector size is equals to matrix dimension M
+  if (OutputVectorSize != MatrixM) {
+    S.Diags.Report(
+        CE->getExprLoc(),
+        diag::err_hlsl_linalg_output_vector_size_not_equal_to_matrix_M);
+    return true;
+  }
+
+  const unsigned PackingFactor = isInputPacked ? 4 : 1;
+  unsigned MinInputVectorSize = (MatrixK + PackingFactor - 1) / PackingFactor;
+  if (InputVectorSize != MinInputVectorSize) {
+    if (isInputPacked) {
+      S.Diags.Report(CE->getExprLoc(),
+                     diag::err_hlsl_linalg_packed_input_vector_size_incorrect);
+    } else {
+      S.Diags.Report(CE->getExprLoc(),
+                     diag::err_hlsl_linalg_unpacked_input_vector_size_not_equal_to_matrix_K);
+    }
+    return true;
+  }
+  return false;
+}
+
+static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
+                                              const hlsl::ShaderModel *SM) {
+  // Find OutputVectorType and Size and check IsUnsigned
+  bool IsOutputUnsignedFlagValue = false;
+  Expr *IsOutputUnsignedExpr = CE->getArg(kMatVecMulOutputIsUnsignedIdx);
+  llvm::APSInt IsOutputUnsignedExprVal;
+  if (IsOutputUnsignedExpr->isIntegerConstantExpr(IsOutputUnsignedExprVal,
+                                                  S.Context)) {
+    IsOutputUnsignedFlagValue = IsOutputUnsignedExprVal.getBoolValue();
+  } else {
+    S.Diags.Report(IsOutputUnsignedExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "IsOutputUnsigned";
+    return true;
+  }
+
+  Expr *OutputVector = CE->getArg(kMatVecMulOutputVectorIdx);
+  unsigned OutputVectorSizeValue = 0;
+  if (IsHLSLVecType(OutputVector->getType())) {
+    OutputVectorSizeValue = GetHLSLVecSize(OutputVector->getType());
+    QualType OutputVectorType = GetHLSLVecElementType(OutputVector->getType());
+    const Type *OutputVectorTypePtr = OutputVectorType.getTypePtr();
+    if (!OutputVectorTypePtr->isUnsignedIntegerType() &&
+        !OutputVectorTypePtr->isSignedIntegerType() &&
+        !OutputVectorTypePtr->isFloatingType()) {
+      S.Diags.Report(OutputVector->getExprLoc(),
+                     diag::err_hlsl_linalg_incorrect_type)
+          << "Output Vector";
+    }
+
+    if (IsOutputUnsignedFlagValue &&
+        !OutputVectorTypePtr->isUnsignedIntegerType()) {
+      DXASSERT_NOMSG(OutputVectorTypePtr->isSignedIntegerType() ||
+                     OutputVectorTypePtr->isFloatingType());
+      S.Diags.Report(OutputVector->getExprLoc(),
+                     diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
+          << "IsOuputUnsigned" << false
+          << (OutputVectorTypePtr->isSignedIntegerType() ? "signed int"
+                                                         : "float");
+      return true;
+
+    } else if (!IsOutputUnsignedFlagValue &&
+               OutputVectorTypePtr->isUnsignedIntegerType()) {
+      S.Diags.Report(OutputVector->getExprLoc(),
+                     diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
+          << "IsOuputUnsigned" << true << "unsigned int";
+      return true;
+    }
+  }
+
+  // Find InputVectorType and Size and check IsUnsigned
+  bool IsInputUnsignedFlagValue = false;
+  Expr *IsInputUnsignedExpr = CE->getArg(kMatVecMulIsInputUnsignedIdx);
+  llvm::APSInt IsInputUnsignedExprVal;
+  if (IsInputUnsignedExpr->isIntegerConstantExpr(IsInputUnsignedExprVal,
+                                                 S.Context)) {
+    IsInputUnsignedFlagValue = IsInputUnsignedExprVal.getBoolValue();
+  } else {
+    S.Diags.Report(IsInputUnsignedExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "IsInputUnsigned";
+    return true;
+  }
+
+  Expr *InputVector = CE->getArg(kMatVecMulInputVectorIdx);
+  unsigned InputVectorSizeValue = 0;
+  if (IsHLSLVecType(InputVector->getType())) {
+    InputVectorSizeValue = GetHLSLVecSize(InputVector->getType());
+    QualType InputVectorType = GetHLSLVecElementType(InputVector->getType());
+    const Type *InputVectorTypePtr = InputVectorType.getTypePtr();
+    if (!InputVectorTypePtr->isUnsignedIntegerType() &&
+        !InputVectorTypePtr->isSignedIntegerType() &&
+        !InputVectorTypePtr->isFloatingType()) {
+      S.Diags.Report(InputVector->getExprLoc(),
+                     diag::err_hlsl_linalg_incorrect_type)
+          << "Input Vector";
+    }
+
+    if (IsInputUnsignedFlagValue &&
+        !InputVectorTypePtr->isUnsignedIntegerType()) {
+      DXASSERT_NOMSG(InputVectorTypePtr->isSignedIntegerType() ||
+                     InputVectorTypePtr->isFloatingType());
+      S.Diags.Report(InputVector->getExprLoc(),
+                     diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
+          << "IsInputUnsigned" << false
+          << (InputVectorTypePtr->isSignedIntegerType() ? "signed int"
+                                                        : "float");
+      return true;
+
+    } else if (!IsInputUnsignedFlagValue &&
+               InputVectorTypePtr->isUnsignedIntegerType()) {
+      S.Diags.Report(InputVector->getExprLoc(),
+                     diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
+          << "IsInputUnsigned" << true << "unsigned int";
+      return true;
+    }
+  }
+  // Get Matrix Dimensions M and K, check if they are constants
+  Expr *MatrixKExpr = CE->getArg(kMatVecMulMatrixKIdx);
+  llvm::APSInt MatrixKExprVal;
+  unsigned MatrixKValue = 0;
+  if (MatrixKExpr->isIntegerConstantExpr(MatrixKExprVal, S.Context)) {
+    MatrixKValue = MatrixKExprVal.getLimitedValue();
+  } else {
+    S.Diags.Report(MatrixKExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "MatrixK";
+    return true;
+  }
+
+  Expr *MatrixMExpr = CE->getArg(kMatVecMulMatrixMIdx);
+  llvm::APSInt MatrixMExprVal;
+  unsigned MatrixMValue = 0;
+  if (MatrixMExpr->isIntegerConstantExpr(MatrixMExprVal, S.Context)) {
+    MatrixMValue = MatrixMExprVal.getLimitedValue();
+  } else {
+    S.Diags.Report(MatrixMExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "MatrixM";
+    return true;
+  }
+  
+  // Get InputInterpretation, check if it is constant
+  Expr *InputInterpretationExpr = CE->getArg(kMatVecMulInputInterpretationIdx);
+  llvm::APSInt InputInterpretationExprVal;
+  unsigned InputInterpretationValue = 0;
+  if (InputInterpretationExpr->isIntegerConstantExpr(InputInterpretationExprVal, S.Context)) {
+    InputInterpretationValue = InputInterpretationExprVal.getLimitedValue();
+  } else {
+    S.Diags.Report(InputInterpretationExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "InputInterpretation";
+    return true;
+  }
+  
+  bool isInputPacked = false;
+
+ CheckVectorAndMatrixDimensions(S, CE, InputVectorSizeValue, OutputVectorSizeValue, MatrixKValue, MatrixMValue, isInputPacked);
+
+  //Get MatrixInterpretation, check if it is constant
+  Expr *MatrixInterpretationExpr = CE->getArg(kMatVecMulMatrixInterpretationIdx);
+  llvm::APSInt MatrixInterpretationExprVal;
+  unsigned MatrixInterpretationValue = 0;
+  if (MatrixInterpretationExpr->isIntegerConstantExpr(MatrixInterpretationExprVal, S.Context)) {
+    MatrixInterpretationValue = MatrixInterpretationExprVal.getLimitedValue();
+  } else {
+    S.Diags.Report(MatrixInterpretationExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "MatrixInterpretation";
+    return true;
+  } 
+
+  // Get MatrixLayout, check if it is constant
+  Expr *MatrixLayoutExpr = CE->getArg(kMatVecMulMatrixLayoutIdx);
+  llvm::APSInt MatrixLayoutExprVal;
+  unsigned MatrixLayoutValue = 0;
+  if (MatrixLayoutExpr->isIntegerConstantExpr(MatrixLayoutExprVal, S.Context)) {
+    MatrixLayoutValue = MatrixLayoutExprVal.getLimitedValue();
+  } else {
+    S.Diags.Report(MatrixLayoutExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "MatrixLayout";
+    return true;
+  } 
+
+  // Get MatrixTranspose, check if it is constant
+  Expr *MatrixTransposeExpr = CE->getArg(kMatVecMulMatrixTransposeIdx);
+  llvm::APSInt MatrixTransposeExprVal;
+  unsigned MatrixTransposeValue = 0;  
+  if (MatrixTransposeExpr->isIntegerConstantExpr(MatrixTransposeExprVal, S.Context)) {
+    MatrixTransposeValue = MatrixTransposeExprVal.getLimitedValue();
+  } else {
+    S.Diags.Report(MatrixTransposeExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "MatrixTranspose";
+    return true;
+  } 
+  
+  return false;
+}
+
+static bool CheckMulCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
+                         const hlsl::ShaderModel *SM) {
+  CheckCommonMulandMulAddParameters(S, CE, SM);
+
+  return false;
+}
+
+static bool CheckMulAddCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
+                             const hlsl::ShaderModel *SM) {
+  return false;
+}
+
+static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
+                             const hlsl::ShaderModel *SM) {
+  return false;
+}
+
+static bool CheckVectorAccumulateCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
+                             const hlsl::ShaderModel *SM) {
+
+  return false;
+}
+
 #ifdef ENABLE_SPIRV_CODEGEN
 static bool CheckVKBufferPointerCast(Sema &S, FunctionDecl *FD, CallExpr *CE,
                                      bool isStatic) {
@@ -11709,6 +11961,9 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
     break;
   case hlsl::IntrinsicOp::IOP_Barrier:
     CheckBarrierCall(*this, FDecl, TheCall, SM);
+    break;
+  case hlsl::IntrinsicOp::IOP___builtin_MatVecMul:
+    CheckMulCall(*this, FDecl, TheCall, SM);
     break;
 #ifdef ENABLE_SPIRV_CODEGEN
   case hlsl::IntrinsicOp::IOP_Vkreinterpret_pointer_cast:

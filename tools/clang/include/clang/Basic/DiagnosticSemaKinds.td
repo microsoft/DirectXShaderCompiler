@@ -8015,6 +8015,14 @@ def err_hlsl_hitobject_unsupported_stage : Error<
    "dx::HitObject is unavailable in shader stage '%0' (requires 'raygeneration', 'closesthit' or 'miss')">;
 // HLSL Change Ends
 
+// Linear Algebra Operations
+def err_hlsl_linalg_param_must_be_const : Error<" '%0' must be a constant parameter">;
+def err_hlsl_linalg_incorrect_type : Error<"%0 is incorrect type, must be 'unsigned int', 'signed int' or 'float'">;
+def err_hlsl_linalg_isunsigned_incorrect_for_given_type : Error<"%0 must be %select{false|true}1 for a %2 vector type">;
+def err_hlsl_linalg_output_vector_size_not_equal_to_matrix_M : Error<"output vector length must be equal to Matrix M dimension in a linalg Mul/MulAdd operation">;
+def err_hlsl_linalg_unpacked_input_vector_size_not_equal_to_matrix_K :  Error<"unpacked input vector length must be equal to Matrix K dimension in a linalg Mul/MulAdd operation">;
+def err_hlsl_linalg_packed_input_vector_size_incorrect : Error<"packed input vector length must be the smallest number that can hold K values of the packed type">;
+
 // SPIRV Change Starts
 def err_hlsl_vulkan_specific_feature: Error<"%0 is a Vulkan specific feature">;
 def err_hlsl_vk_pointer_cast_alignment: Error<
