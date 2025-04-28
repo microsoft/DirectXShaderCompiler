@@ -58,8 +58,10 @@ bool CreateValidator(CComPtr<IDxcValidator> &pValidator,
   bool bExternal =
       SelectValidator == hlsl::options::ValidatorSelection::External;
 
-  if (!bExternal)
+  if (!bExternal) {
     IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
+    bInternalValidator = true;
+  }
 
   if (pValidator == nullptr && DxilLibIsEnabled()) {
     IFTBOOL(!bInternal, DXC_E_VALIDATOR_MISSING);
