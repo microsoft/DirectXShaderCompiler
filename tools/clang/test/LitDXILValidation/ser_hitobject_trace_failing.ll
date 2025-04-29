@@ -45,11 +45,6 @@ target triple = "dxil-ms-dx"
 ; CHECK-NEXT: Function: ?main@@YAXXZ: error: TraceRay should only use RTAccelerationStructure.
 ; CHECK-NEXT: note: at '%tud2 = call %dx.types.HitObject @dx.op.hitObject_TraceRay.struct.Payload(i32 262, %dx.types.Handle undef, i32 513, i32 1, i32 2, i32 4, i32 0, float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, %struct.Payload* nonnull %2)' in block '#0' of function '?main@@YAXXZ'.
 
-; CHECK-NEXT: Function: ?main@@YAXXZ: error: Instructions should not read uninitialized value.
-; CHECK-NEXT: note: at 'call void @dx.op.hitObject_Invoke.struct.Payload(i32 267, %dx.types.HitObject %tok, %struct.Payload* nonnull undef)' in block '#0' of function '?main@@YAXXZ'.
-; CHECK-NEXT: Function: ?main@@YAXXZ: error: HitObject is undef.
-; CHECK-NEXT: note: at 'call void @dx.op.hitObject_Invoke.struct.Payload(i32 267, %dx.types.HitObject undef, %struct.Payload* nonnull %2)' in block '#0' of function '?main@@YAXXZ'.
-
 ; CHECK-NEXT: Validation failed.
 
 ; Function Attrs: nounwind
@@ -77,18 +72,11 @@ define void @"\01?main@@YAXXZ"() #0 {
   %tud15 = call %dx.types.HitObject @dx.op.hitObject_TraceRay.struct.Payload(i32 262, %dx.types.Handle %4, i32 513, i32 1, i32 2, i32 4, i32 0, float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float undef, %struct.Payload* nonnull %2)  ; HitObject_TraceRay(accelerationStructure,rayFlags,instanceInclusionMask,rayContributionToHitGroupIndex,multiplierForGeometryContributionToHitGroupIndex,missShaderIndex,Origin_X,Origin_Y,Origin_Z,TMin,Direction_X,Direction_Y,Direction_Z,TMax,payload)
   %tud16 = call %dx.types.HitObject @dx.op.hitObject_TraceRay.struct.Payload(i32 262, %dx.types.Handle %4, i32 513, i32 1, i32 2, i32 4, i32 0, float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, %struct.Payload* undef)  ; HitObject_TraceRay(accelerationStructure,rayFlags,instanceInclusionMask,rayContributionToHitGroupIndex,multiplierForGeometryContributionToHitGroupIndex,missShaderIndex,Origin_X,Origin_Y,Origin_Z,TMin,Direction_X,Direction_Y,Direction_Z,TMax,payload)
 
-  call void @dx.op.hitObject_Invoke.struct.Payload(i32 267, %dx.types.HitObject %tok, %struct.Payload* nonnull %2)  ; HitObject_Invoke(hitObject,payload)
-  call void @dx.op.hitObject_Invoke.struct.Payload(i32 267, %dx.types.HitObject undef, %struct.Payload* nonnull %2)  ; HitObject_Invoke(hitObject,payload)
-  call void @dx.op.hitObject_Invoke.struct.Payload(i32 267, %dx.types.HitObject %tok, %struct.Payload* nonnull undef)  ; HitObject_Invoke(hitObject,payload)
-
   ret void
 }
 
 ; Function Attrs: nounwind
 declare %dx.types.HitObject @dx.op.hitObject_TraceRay.struct.Payload(i32, %dx.types.Handle, i32, i32, i32, i32, i32, float, float, float, float, float, float, float, float, %struct.Payload*) #0
-
-; Function Attrs: nounwind
-declare void @dx.op.hitObject_Invoke.struct.Payload(i32, %dx.types.HitObject, %struct.Payload*) #0
 
 ; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #1
