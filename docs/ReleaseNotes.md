@@ -17,11 +17,10 @@ The included licenses apply to the following files:
 
 ## Changelog
 
-### Upcoming Release
-
-Place release notes for the upcoming release below this line and remove this line upon naming this release.
+### Version 1.8.2505
 
 - Typed buffers (including ROV buffers) no longer accept types other than vectors and scalars. Any other types will produce descriptive errors. This removes support for appropriately sized matrices and structs. Though it worked in some contexts, code generated from such types was unreliable.
+- By default, the internal validator will be used instead of searching externally for an existing DXIL.dll.
 
 ### Version 1.8.2502
 
