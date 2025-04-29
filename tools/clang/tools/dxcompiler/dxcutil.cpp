@@ -49,26 +49,36 @@ HRESULT RunInternalValidator(IDxcValidator *pValidator,
 namespace {
 // AssembleToContainer helper functions.
 
+// return true if the internal validator was used, false otherwise
 bool CreateValidator(CComPtr<IDxcValidator> &pValidator,
                      hlsl::options::ValidatorSelection SelectValidator =
                          hlsl::options::ValidatorSelection::Auto) {
-  bool bInternalValidator = false;
   bool bInternal =
       SelectValidator == hlsl::options::ValidatorSelection::Internal;
   bool bExternal =
       SelectValidator == hlsl::options::ValidatorSelection::External;
+  bool bAuto = SelectValidator == hlsl::options::ValidatorSelection::Auto;
 
-  if (!bExternal) {
+  // default behavior uses internal validator, as well as
+  // explicitly specifying internal
+  if (bInternal || bAuto) {
     IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
-    bInternalValidator = true;
+    return true;
   }
 
-  if (pValidator == nullptr && DxilLibIsEnabled()) {
-    IFTBOOL(!bInternal, DXC_E_VALIDATOR_MISSING);
+  if (bExternal) {
+    // if external was explicitly specified, but no
+    // external validator could be found (no DXIL.dll), then error
+    IFTBOOL(!DxilLibIsEnabled(), DXC_E_VALIDATOR_MISSING);
     DxilLibCreateInstance(CLSID_DxcValidator, &pValidator);
+
+    // if external was explicitly specified, but the validator
+    // failed to be created, then error.
+    IFTBOOL(pValidator, DXC_E_VALIDATOR_MISSING);
+    return false;
   }
 
-  return bInternalValidator;
+  return false;
 }
 
 } // namespace
