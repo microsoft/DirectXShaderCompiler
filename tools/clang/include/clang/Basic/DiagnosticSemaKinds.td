@@ -8025,6 +8025,9 @@ def err_hlsl_linalg_packed_input_vector_size_incorrect : Error<"packed input vec
 def err_hlsl_linalg_interpretation_value_incorrect : Error<"%0 is an invalid %select{Memory|Register}1 Interpretaion value">;
 def err_hlsl_linalg_matrix_layout_for_mul_ops_invalid : Error<"matrix layout %0 is not valid, must be in the range %1 - %2">;
 def err_hlsl_linalg_matrix_layout_is_not_transposable : Error<"RowMajor and ColumnMajor matrices are not transposable">;
+def err_hlsl_linalg_outer_prod_acc_vector_type_mismatch : Error<"Both the InputVectors must have the same element type ">;
+def err_hlsl_linalg_outer_prod_acc_matrix_layout_must_be_outer_prod_acc_optimal : Error<"matrix layout must be outerproductaccumulate optimal">;
+def err_hlsl_linalg_outer_prod_acc_matrix_stride_must_be_zero : Error<"matrix stride must be zero outerproductaccumulate optimal matrix layout">;
 
 // SPIRV Change Starts
 def err_hlsl_vulkan_specific_feature: Error<"%0 is a Vulkan specific feature">;

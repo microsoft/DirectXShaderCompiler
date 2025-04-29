@@ -11695,7 +11695,7 @@ bool CheckMatrixLayoutForMulandMulAddOps(unsigned Layout) {
                        MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL);
 }
 
-bool CheckMatrixLayoutForOuterProductAccummulate(unsigned Layout) {
+bool CheckMatrixLayoutForOuterProductAccumulate(unsigned Layout) {
   return Layout == static_cast<unsigned>(
                        MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL);
 }
@@ -12040,8 +12040,98 @@ static bool CheckMulAddCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
   return false;
 }
 
-static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
-                             const hlsl::ShaderModel *SM) {
+// Linalg Outer Product Accumulate
+// OuterProductAccumulate builtin function parameters
+static const unsigned kOuterProdAccInputVector1Idx = 0;
+static const unsigned kOuterProdAccInputVector2Idx = 1;
+static const unsigned kOuterProdAccMatrixBufferIdx = 2;
+static const unsigned kOuterProdAccMatrixOffsetIdx = 3;
+static const unsigned kOuterProdAccMatrixInterpretationIdx = 4;
+static const unsigned kOuterProdAccMatrixLayoutIdx = 5;
+static const unsigned kOuterProdAccMatrixStrideIdx = 6;
+
+
+
+static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
+                                            CallExpr *CE) {
+  // Check InputVector1 and InputVector2 are the same type
+  const Expr *InputVector1Expr = CE->getArg(kOuterProdAccInputVector1Idx);
+  const Expr *InputVector2Expr = CE->getArg(kOuterProdAccInputVector2Idx);
+  QualType InputVector1Type = InputVector1Expr->getType();
+  QualType InputVector2Type = InputVector2Expr->getType();
+
+  // Get the element types of the vectors
+  const QualType InputVector1ElementType =
+      GetHLSLVecElementType(InputVector1Type);
+  const QualType InputVector2ElementType =
+      GetHLSLVecElementType(InputVector2Type);
+
+  if (!S.Context.hasSameType(InputVector1ElementType, InputVector2Type)) {
+    S.Diags.Report(CE->getExprLoc(),
+                   diag::err_hlsl_linalg_outer_prod_acc_vector_type_mismatch);
+    return true;
+  }
+
+  // Check Matrix Interpretation is a constant and valid
+  Expr *MatrixInterpretationExpr = CE->getArg(kOuterProdAccMatrixInterpretationIdx);
+  llvm::APSInt MatrixInterpretationExprVal;
+  unsigned MatrixInterpretationValue = 0;
+  if (MatrixInterpretationExpr->isIntegerConstantExpr(MatrixInterpretationExprVal,
+                                                     S.Context)) {
+    MatrixInterpretationValue = MatrixInterpretationExprVal.getLimitedValue();
+    const bool InRegisterInterpretation = false;
+    if (!CheckLinalgTypeInterpretation(MatrixInterpretationValue,
+                                       InRegisterInterpretation)) {
+      S.Diags.Report(MatrixInterpretationExpr->getExprLoc(),
+                     diag::err_hlsl_linalg_interpretation_value_incorrect)
+          << std::to_string(MatrixInterpretationValue)
+          << InRegisterInterpretation;
+      return true;
+    }
+  } else {
+    S.Diags.Report(MatrixInterpretationExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "MatrixInterpretation";
+    return true;
+  }
+
+  // Check Matrix Layout is constant and valid
+  Expr *MatrixLayoutExpr = CE->getArg(kOuterProdAccMatrixLayoutIdx);
+  llvm::APSInt MatrixLayoutExprVal;
+  unsigned MatrixLayoutValue = 0;
+  if (MatrixLayoutExpr->isIntegerConstantExpr(MatrixLayoutExprVal, S.Context)) {
+    MatrixLayoutValue = MatrixLayoutExprVal.getLimitedValue();
+    if (!CheckMatrixLayoutForOuterProductAccumulate(
+            MatrixInterpretationValue)) {
+      S.Diags.Report(
+          MatrixLayoutExpr->getExprLoc(),
+          diag::
+              err_hlsl_linalg_outer_prod_acc_matrix_layout_must_be_outer_prod_acc_optimal);
+    }
+  } else {
+    S.Diags.Report(MatrixLayoutExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "MatrixLayout";
+    return true;
+  }
+
+  // Check Matrix Stide is zero (Training Optimal)
+  Expr *MatrixStrideExpr = CE->getArg(kOuterProdAccMatrixStrideIdx);
+  llvm::APSInt MatrixStrideExprVal;
+  unsigned MatrixStrideValue = 0;
+  if (MatrixStrideExpr->isIntegerConstantExpr(MatrixStrideExprVal, S.Context)) {
+    MatrixStrideValue = MatrixStrideExprVal.getLimitedValue();
+    if (MatrixStrideValue != 0) {
+      S.Diags.Report(MatrixStrideExpr->getExprLoc(),
+                     diag::err_hlsl_linalg_outer_prod_acc_matrix_stride_must_be_zero);
+      return true;
+    }
+  } else {
+    S.Diags.Report(MatrixStrideExpr->getExprLoc(),
+                     diag::err_hlsl_linalg_outer_prod_acc_matrix_stride_must_be_zero);
+    return true;
+  }
+  
   return false;
 }
 
