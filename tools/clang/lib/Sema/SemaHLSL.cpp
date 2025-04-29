@@ -12050,8 +12050,6 @@ static const unsigned kOuterProdAccMatrixInterpretationIdx = 4;
 static const unsigned kOuterProdAccMatrixLayoutIdx = 5;
 static const unsigned kOuterProdAccMatrixStrideIdx = 6;
 
-
-
 static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
                                             CallExpr *CE) {
   // Check InputVector1 and InputVector2 are the same type
@@ -12073,11 +12071,12 @@ static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
   }
 
   // Check Matrix Interpretation is a constant and valid
-  Expr *MatrixInterpretationExpr = CE->getArg(kOuterProdAccMatrixInterpretationIdx);
+  Expr *MatrixInterpretationExpr =
+      CE->getArg(kOuterProdAccMatrixInterpretationIdx);
   llvm::APSInt MatrixInterpretationExprVal;
   unsigned MatrixInterpretationValue = 0;
-  if (MatrixInterpretationExpr->isIntegerConstantExpr(MatrixInterpretationExprVal,
-                                                     S.Context)) {
+  if (MatrixInterpretationExpr->isIntegerConstantExpr(
+          MatrixInterpretationExprVal, S.Context)) {
     MatrixInterpretationValue = MatrixInterpretationExprVal.getLimitedValue();
     const bool InRegisterInterpretation = false;
     if (!CheckLinalgTypeInterpretation(MatrixInterpretationValue,
@@ -12122,16 +12121,18 @@ static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
   if (MatrixStrideExpr->isIntegerConstantExpr(MatrixStrideExprVal, S.Context)) {
     MatrixStrideValue = MatrixStrideExprVal.getLimitedValue();
     if (MatrixStrideValue != 0) {
-      S.Diags.Report(MatrixStrideExpr->getExprLoc(),
-                     diag::err_hlsl_linalg_outer_prod_acc_matrix_stride_must_be_zero);
+      S.Diags.Report(
+          MatrixStrideExpr->getExprLoc(),
+          diag::err_hlsl_linalg_outer_prod_acc_matrix_stride_must_be_zero);
       return true;
     }
   } else {
-    S.Diags.Report(MatrixStrideExpr->getExprLoc(),
-                     diag::err_hlsl_linalg_outer_prod_acc_matrix_stride_must_be_zero);
+    S.Diags.Report(
+        MatrixStrideExpr->getExprLoc(),
+        diag::err_hlsl_linalg_outer_prod_acc_matrix_stride_must_be_zero);
     return true;
   }
-  
+
   return false;
 }
 
