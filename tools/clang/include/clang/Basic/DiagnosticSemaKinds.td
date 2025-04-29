@@ -8022,6 +8022,8 @@ def err_hlsl_linalg_isunsigned_incorrect_for_given_type : Error<"%0 must be %sel
 def err_hlsl_linalg_output_vector_size_not_equal_to_matrix_M : Error<"output vector length must be equal to Matrix M dimension in a linalg Mul/MulAdd operation">;
 def err_hlsl_linalg_unpacked_input_vector_size_not_equal_to_matrix_K :  Error<"unpacked input vector length must be equal to Matrix K dimension in a linalg Mul/MulAdd operation">;
 def err_hlsl_linalg_packed_input_vector_size_incorrect : Error<"packed input vector length must be the smallest number that can hold K values of the packed type">;
+def err_hlsl_linalg_interpretation_value_incorrect : Error<"%0 is an invalid %select{Memory|Register}1 Interpretaion value">;
+def err_hlsl_linalg_matrix_layout_for_mul_ops_invalid : Error<"matrix layout %0 is not valid, must be in the range %1 - %2">;
 
 // SPIRV Change Starts
 def err_hlsl_vulkan_specific_feature: Error<"%0 is a Vulkan specific feature">;
