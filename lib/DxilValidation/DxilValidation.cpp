@@ -2599,6 +2599,9 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx,
       if (ValCtx.HandleTy == Ty)
         return true;
       hlsl::OP *HlslOP = ValCtx.DxilMod.GetOP();
+      // Allow HitObject type.
+      if (ST == HlslOP->GetHitObjectType())
+        return true;
       if (IsDxilBuiltinStructType(ST, HlslOP)) {
         ValCtx.EmitTypeError(Ty, ValidationRule::InstrDxilStructUser);
         Result = false;
