@@ -13,140 +13,6 @@
 #include "LongVectorTestData.h"
 #include <Verify.h>
 
-// A helper struct because C++ bools are 1 byte and HLSL bools are 4 bytes.
-// Take int32_t as a constuctor argument and convert it to bool when needed.
-// Comparisons cast to a bool because we only care if the bool representation is
-// true or false.
-struct HLSLBool_t {
-  HLSLBool_t() : Val(0) {}
-  HLSLBool_t(int32_t Val) : Val(Val) {}
-  HLSLBool_t(bool Val) : Val(Val) {}
-  HLSLBool_t(const HLSLBool_t &Other) : Val(Other.Val) {}
-
-  bool operator==(const HLSLBool_t &Other) const {
-    return static_cast<bool>(Val) == static_cast<bool>(Other.Val);
-  }
-
-  bool operator!=(const HLSLBool_t &Other) const {
-    return static_cast<bool>(Val) != static_cast<bool>(Other.Val);
-  }
-
-  bool operator<(const HLSLBool_t &Other) const { return Val < Other.Val; }
-
-  bool operator>(const HLSLBool_t &Other) const { return Val > Other.Val; }
-
-  bool operator<=(const HLSLBool_t &Other) const { return Val <= Other.Val; }
-
-  bool operator>=(const HLSLBool_t &Other) const { return Val >= Other.Val; }
-
-  HLSLBool_t operator*(const HLSLBool_t &Other) const {
-    return HLSLBool_t(Val * Other.Val);
-  }
-
-  HLSLBool_t operator+(const HLSLBool_t &Other) const {
-    return HLSLBool_t(Val + Other.Val);
-  }
-
-  // So we can construct std::wstrings using std::wostream
-  friend std::wostream &operator<<(std::wostream &Os, const HLSLBool_t &Obj) {
-    Os << static_cast<bool>(Obj.Val);
-    return Os;
-  }
-
-  // So we can construct std::strings using std::ostream
-  friend std::ostream &operator<<(std::ostream &Os, const HLSLBool_t &Obj) {
-    Os << static_cast<bool>(Obj.Val);
-    return Os;
-  }
-
-  int32_t Val = 0;
-};
-
-//  No native float16 type in C++ until C++23 . So we use uint16_t to represent
-//  it. Simple little wrapping struct to help handle the right behavior.
-struct HLSLHalf_t {
-  HLSLHalf_t() : Val(0) {}
-  HLSLHalf_t(DirectX::PackedVector::HALF Val) : Val(Val) {}
-  HLSLHalf_t(const HLSLHalf_t &Other) : Val(Other.Val) {}
-  HLSLHalf_t(const float F) {
-    Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
-  }
-  HLSLHalf_t(const int I) {
-    VERIFY_IS_TRUE(I == 0, L"HLSLHalf_t constructor with int override only "
-                           L"meant for cases when initializing to 0.");
-    const float F = static_cast<float>(I);
-    Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
-  }
-
-  bool operator==(const HLSLHalf_t &Other) const { return Val == Other.Val; }
-
-  bool operator<(const HLSLHalf_t &Other) const {
-    return DirectX::PackedVector::XMConvertHalfToFloat(Val) <
-           DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-  }
-
-  bool operator>(const HLSLHalf_t &Other) const {
-    return DirectX::PackedVector::XMConvertHalfToFloat(Val) >
-           DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-  }
-
-  // Used by tolerance checks in the tests.
-  bool operator>(float F) const {
-    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
-    return A > F;
-  }
-
-  bool operator<(float F) const {
-    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
-    return A < F;
-  }
-
-  bool operator<=(const HLSLHalf_t &Other) const {
-    return DirectX::PackedVector::XMConvertHalfToFloat(Val) <=
-           DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-  }
-
-  bool operator>=(const HLSLHalf_t &Other) const {
-    return DirectX::PackedVector::XMConvertHalfToFloat(Val) >=
-           DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-  }
-
-  bool operator!=(const HLSLHalf_t &Other) const { return Val != Other.Val; }
-
-  HLSLHalf_t operator*(const HLSLHalf_t &Other) const {
-    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
-    float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A * B));
-  }
-
-  HLSLHalf_t operator+(const HLSLHalf_t &Other) const {
-    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
-    float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A + B));
-  }
-
-  HLSLHalf_t operator-(const HLSLHalf_t &Other) const {
-    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
-    float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A - B));
-  }
-
-  // So we can construct std::wstrings using std::wostream
-  friend std::wostream &operator<<(std::wostream &Os, const HLSLHalf_t &Obj) {
-    Os << DirectX::PackedVector::XMConvertHalfToFloat(Obj.Val);
-    return Os;
-  }
-
-  // So we can construct std::wstrings using std::wostream
-  friend std::ostream &operator<<(std::ostream &Os, const HLSLHalf_t &Obj) {
-    Os << DirectX::PackedVector::XMConvertHalfToFloat(Obj.Val);
-    return Os;
-  }
-
-  // HALF is an alias to uint16_t
-  DirectX::PackedVector::HALF Val = 0;
-};
-
 // Helper to fill the shader buffer based on type. Convenient to be used when
 // copying HLSL*_t types so we can copy the underlying type directly instead of
 // the struct.
@@ -290,41 +156,8 @@ GetLongVectorUnaryOpType(const std::wstring &OpTypeString) {
       std::size(LongVectorUnaryOpTypeStringToEnumMap));
 }
 
-template <typename T> std::vector<T> GetInputValueSetByKey(std::wstring Key) {
-
-  if constexpr (std::is_same_v<T, HLSLBool_t>)
-    return std::vector<T>(DefaultInputValueSet_bool.at(Key).begin(),
-                          DefaultInputValueSet_bool.at(Key).end());
-  else if constexpr (std::is_same_v<T, HLSLHalf_t>)
-    return std::vector<T>(DefaultInputValueSet_float16.at(Key).begin(),
-                          DefaultInputValueSet_float16.at(Key).end());
-  else if constexpr (std::is_same_v<T, float>)
-    return std::vector<T>(DefaultInputValueSet_float32.at(Key).begin(),
-                          DefaultInputValueSet_float32.at(Key).end());
-  else if constexpr (std::is_same_v<T, double>)
-    return std::vector<T>(DefaultInputValueSet_float64.at(Key).begin(),
-                          DefaultInputValueSet_float64.at(Key).end());
-  else if constexpr (std::is_same_v<T, int16_t>)
-    return std::vector<T>(DefaultInputValueSet_int16.at(Key).begin(),
-                          DefaultInputValueSet_int16.at(Key).end());
-  else if constexpr (std::is_same_v<T, int32_t>)
-    return std::vector<T>(DefaultInputValueSet_int32.at(Key).begin(),
-                          DefaultInputValueSet_int32.at(Key).end());
-  else if constexpr (std::is_same_v<T, int64_t>)
-    return std::vector<T>(DefaultInputValueSet_int64.at(Key).begin(),
-                          DefaultInputValueSet_int64.at(Key).end());
-  else if constexpr (std::is_same_v<T, uint16_t>)
-    return std::vector<T>(DefaultInputValueSet_uint16.at(Key).begin(),
-                          DefaultInputValueSet_uint16.at(Key).end());
-  else if constexpr (std::is_same_v<T, uint32_t>)
-    return std::vector<T>(DefaultInputValueSet_uint32.at(Key).begin(),
-                          DefaultInputValueSet_uint32.at(Key).end());
-  else if constexpr (std::is_same_v<T, uint64_t>)
-    return std::vector<T>(DefaultInputValueSet_uint64.at(Key).begin(),
-                          DefaultInputValueSet_uint64.at(Key).end());
-
-  VERIFY_FAIL("GetInputValueSetByKey() Unsupported type.");
-  return std::vector<T>();
+template <typename T> std::vector<T> GetInputValueSetByKey(const std::wstring &Key) {
+  return std::vector<T>(LongVectorTestData<T>::Data.at(Key));
 }
 
 // Used to pass into LongVectorOpTestBase
@@ -332,19 +165,19 @@ template <typename T> class LongVectorOpTestConfig {
 public:
   LongVectorOpTestConfig() = default;
 
-  LongVectorOpTestConfig(LongVectorUnaryOpType OpType) : UnaryOpType_(OpType) {
-    IntrinsicString_ = "";
+  LongVectorOpTestConfig(LongVectorUnaryOpType OpType) : UnaryOpType(OpType) {
+    IntrinsicString = "";
 
     if (IsFloatingPointType())
-      Tolerance_ = 1;
+      Tolerance = 1;
 
     switch (OpType) {
     case LongVectorUnaryOpType_Clamp:
-      OperatorString_ = ",";
-      IntrinsicString_ = "TestClamp";
+      OperatorString = ",";
+      IntrinsicString = "TestClamp";
       break;
     case LongVectorUnaryOpType_Initialize:
-      IntrinsicString_ = "TestInitialize";
+      IntrinsicString = "TestInitialize";
       break;
     default:
       VERIFY_FAIL("Invalid LongVectorBinaryOpType");
@@ -352,40 +185,40 @@ public:
   }
 
   LongVectorOpTestConfig(LongVectorBinaryOpType OpType)
-      : BinaryOpType_(OpType) {
-    IntrinsicString_ = "";
+      : BinaryOpType(OpType) {
+    IntrinsicString = "";
 
     if (IsFloatingPointType())
-      Tolerance_ = 1;
+      Tolerance = 1;
 
     switch (OpType) {
     case LongVectorBinaryOpType_ScalarAdd:
-      OperatorString_ = "+";
+      OperatorString = "+";
       break;
     case LongVectorBinaryOpType_ScalarMultiply:
-      OperatorString_ = "*";
+      OperatorString = "*";
       break;
     case LongVectorBinaryOpType_Multiply:
-      OperatorString_ = "*";
+      OperatorString = "*";
       break;
     case LongVectorBinaryOpType_Add:
-      OperatorString_ = "+";
+      OperatorString = "+";
       break;
     case LongVectorBinaryOpType_Min:
-      OperatorString_ = ",";
-      IntrinsicString_ = "min";
+      OperatorString = ",";
+      IntrinsicString = "min";
       break;
     case LongVectorBinaryOpType_Max:
-      OperatorString_ = ",";
-      IntrinsicString_ = "max";
+      OperatorString = ",";
+      IntrinsicString = "max";
       break;
     case LongVectorBinaryOpType_ScalarMin:
-      OperatorString_ = ",";
-      IntrinsicString_ = "min";
+      OperatorString = ",";
+      IntrinsicString = "min";
       break;
     case LongVectorBinaryOpType_ScalarMax:
-      OperatorString_ = ",";
-      IntrinsicString_ = "max";
+      OperatorString = ",";
+      IntrinsicString = "max";
       break;
     default:
       VERIFY_FAIL("Invalid LongVectorBinaryOpType");
@@ -398,15 +231,15 @@ public:
   }
 
   bool IsBinaryOp() const {
-    return BinaryOpType_ != LongVectorBinaryOpType_EnumValueCount;
+    return BinaryOpType != LongVectorBinaryOpType_EnumValueCount;
   }
 
   bool IsUnaryOp() const {
-    return UnaryOpType_ != LongVectorUnaryOpType_EnumValueCount;
+    return UnaryOpType != LongVectorUnaryOpType_EnumValueCount;
   }
 
   bool IsScalarOp() const {
-    switch (BinaryOpType_) {
+    switch (BinaryOpType) {
     case LongVectorBinaryOpType_ScalarAdd:
     case LongVectorBinaryOpType_ScalarMultiply:
     case LongVectorBinaryOpType_ScalarMin:
@@ -418,7 +251,7 @@ public:
   }
 
   bool HasInputArguments() const {
-    switch (UnaryOpType_) {
+    switch (UnaryOpType) {
     case LongVectorUnaryOpType_Clamp:
       return true;
     default:
@@ -458,7 +291,7 @@ public:
 
   T ComputeExpectedValue(const T &A, const T &B) const {
     if (IsBinaryOp()) {
-      switch (BinaryOpType_) {
+      switch (BinaryOpType) {
       case LongVectorBinaryOpType_ScalarAdd:
         return A + B;
       case LongVectorBinaryOpType_ScalarMultiply:
@@ -476,12 +309,12 @@ public:
       case LongVectorBinaryOpType_ScalarMax:
         return std::max(A, B);
       default:
-        LogErrorFmtThrow(L"Unknown LongVectorBinaryOpType: %d", BinaryOpType_);
+        LogErrorFmtThrow(L"Unknown LongVectorBinaryOpType: %d", BinaryOpType);
       }
     } else {
       LogErrorFmtThrow(L"ComputeExpectedValue(const T &A, const T &B) called "
                        L"for a unary op.: %d",
-                       UnaryOpType_);
+                       UnaryOpType);
     }
 
     return T();
@@ -489,7 +322,7 @@ public:
 
   T ComputeExpectedValue(const T &A) const {
     if (IsUnaryOp()) {
-      switch (UnaryOpType_) {
+      switch (UnaryOpType) {
       case LongVectorUnaryOpType_Clamp: {
         std::vector<T> ArgsArray = GetInputArgsArray();
         T Min = ArgsArray[0];
@@ -499,27 +332,27 @@ public:
       case LongVectorUnaryOpType_Initialize:
         return A;
       default:
-        LogErrorFmtThrow(L"Unknown LongVectorUnaryOpType :%d", UnaryOpType_);
+        LogErrorFmtThrow(L"Unknown LongVectorUnaryOpType :%d", UnaryOpType);
       }
     } else {
       LogErrorFmtThrow(
           L"ComputeExpectedValue(const T &A) called for a binary op: %d",
-          BinaryOpType_);
+          BinaryOpType);
     }
 
     return T();
   }
 
-  void SetInputArgsArrayName(std::wstring InputArgsArrayName) {
-    InputArgsArrayName_ = InputArgsArrayName;
+  void SetInputArgsArrayName(const std::wstring &InputArgsArrayName) {
+    this->InputArgsArrayName = InputArgsArrayName;
   }
 
-  void SetInputValueSet1(std::wstring InputValueSetName) {
-    InputValueSetName1_ = InputValueSetName;
+  void SetInputValueSet1(const std::wstring &InputValueSetName) {
+    InputValueSetName1 = InputValueSetName;
   }
 
-  void SetInputValueSet2(std::wstring InputValueSetName) {
-    InputValueSetName2_ = InputValueSetName;
+  void SetInputValueSet2(const std::wstring &InputValueSetName) {
+    InputValueSetName2 = InputValueSetName;
   }
 
   std::vector<T> GetInputValueSet1() { return GetInputValueSet(1); }
@@ -530,31 +363,31 @@ public:
 
     std::vector<T> InputArgs;
 
-    std::wstring InputArgsArrayName = InputArgsArrayName_;
+    std::wstring LocalInputArgsArrayName = InputArgsArrayName;
 
-    if (UnaryOpType_ == LongVectorUnaryOpType_Clamp &&
-        InputArgsArrayName == L"") {
-      InputArgsArrayName = L"DefaultClampArgs";
+    if (UnaryOpType == LongVectorUnaryOpType_Clamp &&
+        LocalInputArgsArrayName == L"") {
+      LocalInputArgsArrayName = L"DefaultClampArgs";
     }
 
-    if (InputArgsArrayName.empty())
+    if (LocalInputArgsArrayName.empty())
       VERIFY_FAIL("No args array name set.");
 
     if (std::is_same_v<T, HLSLBool_t> &&
-        UnaryOpType_ == LongVectorUnaryOpType_Clamp)
+        UnaryOpType == LongVectorUnaryOpType_Clamp)
       VERIFY_FAIL("Clamp is not supported for bools.");
     else
-      return GetInputValueSetByKey<T>(InputArgsArrayName);
+      return GetInputValueSetByKey<T>(LocalInputArgsArrayName);
 
     VERIFY_FAIL("Invalid type for args array.");
     return std::vector<T>();
   }
 
-  LongVectorBinaryOpType GetBinaryOpType() const { return BinaryOpType_; }
+  LongVectorBinaryOpType GetBinaryOpType() const { return BinaryOpType; }
 
-  LongVectorUnaryOpType GetUnaryOpType() const { return UnaryOpType_; }
+  LongVectorUnaryOpType GetUnaryOpType() const { return UnaryOpType; }
 
-  float GetTolerance() const { return Tolerance_; }
+  float GetTolerance() const { return Tolerance; }
 
   std::string GetCompilerOptionsString(size_t VectorSize) {
     std::stringstream CompilerOptions("");
@@ -567,7 +400,7 @@ public:
         (HLSLType == "int16_t" || HLSLType == "uint16_t" || HLSLType == "half");
     CompilerOptions << (Is16BitType ? " -enable-16bit-types" : "");
     CompilerOptions << " -DOPERATOR=";
-    CompilerOptions << OperatorString_;
+    CompilerOptions << OperatorString;
 
     if (IsBinaryOp()) {
       CompilerOptions << " -DOPERAND2=";
@@ -579,10 +412,10 @@ public:
         CompilerOptions << " -DIS_BINARY_VECTOR_OP=1";
 
       CompilerOptions << " -DFUNC=";
-      CompilerOptions << IntrinsicString_;
+      CompilerOptions << IntrinsicString;
     } else { // Unary Op
       CompilerOptions << " -DFUNC=";
-      CompilerOptions << IntrinsicString_;
+      CompilerOptions << IntrinsicString;
       CompilerOptions << " -DOPERAND2=";
 
       switch (GetUnaryOpType()) {
@@ -606,9 +439,9 @@ private:
 
     std::wstring InputValueSetName = L"";
     if (ValueSetIndex == 1)
-      InputValueSetName = InputValueSetName1_;
+      InputValueSetName = InputValueSetName1;
     else if (ValueSetIndex == 2)
-      InputValueSetName = InputValueSetName2_;
+      InputValueSetName = InputValueSetName2;
     else
       VERIFY_FAIL("Invalid ValueSetIndex");
 
@@ -616,16 +449,16 @@ private:
   }
 
   // To be used for the value of -DOPERATOR
-  std::string OperatorString_;
+  std::string OperatorString;
   // To be used for the value of -DFUNC
-  std::string IntrinsicString_;
+  std::string IntrinsicString;
   // Optional, can be used to override shader code.
-  float Tolerance_ = 0.0;
-  LongVectorBinaryOpType BinaryOpType_ = LongVectorBinaryOpType_EnumValueCount;
-  LongVectorUnaryOpType UnaryOpType_ = LongVectorUnaryOpType_EnumValueCount;
-  std::wstring InputValueSetName1_ = L"DefaultInputValueSet1";
-  std::wstring InputValueSetName2_ = L"DefaultInputValueSet2";
-  std::wstring InputArgsArrayName_ = L""; // No default args array
+  float Tolerance = 0.0;
+  LongVectorBinaryOpType BinaryOpType = LongVectorBinaryOpType_EnumValueCount;
+  LongVectorUnaryOpType UnaryOpType = LongVectorUnaryOpType_EnumValueCount;
+  std::wstring InputValueSetName1 = L"DefaultInputValueSet1";
+  std::wstring InputValueSetName2 = L"DefaultInputValueSet2";
+  std::wstring InputArgsArrayName = L""; // No default args array
 };
 
 template <typename T> bool DoValuesMatch(T A, T B, float Tolerance) {
