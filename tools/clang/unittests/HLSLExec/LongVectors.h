@@ -568,7 +568,7 @@ ComputeExpectedValues(const std::array<T, N> &InputVector1,
 }
 
 template <typename T, std::size_t N>
-void LogLongVector(const std::array<T, N> &Values, std::wstring Name) {
+void LogLongVector(const std::array<T, N> &Values, const std::wstring &Name) {
   WEX::Logging::Log::Comment(
       WEX::Common::String().Format(L"LongVector Name: %s", Name.c_str()));
 
@@ -588,7 +588,7 @@ void LogLongVector(const std::array<T, N> &Values, std::wstring Name) {
   WEX::Logging::Log::Comment(Wss.str().c_str());
 }
 
-template <typename T> void LogScalar(const T &Value, std::wstring Name) {
+template <typename T> void LogScalar(const T &Value, const std::wstring &Name) {
   WEX::Logging::Log::Comment(
       WEX::Common::String().Format(L"Scalar Name: %s", Name.c_str()));
 
