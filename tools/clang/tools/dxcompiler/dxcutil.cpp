@@ -70,11 +70,8 @@ bool CreateValidator(CComPtr<IDxcValidator> &pValidator,
     // if external was explicitly specified, but no
     // external validator could be found (no DXIL.dll), then error
     IFTBOOL(!DxilLibIsEnabled(), DXC_E_VALIDATOR_MISSING);
-    DxilLibCreateInstance(CLSID_DxcValidator, &pValidator);
+    IFT(DxilLibCreateInstance(CLSID_DxcValidator, &pValidator));
 
-    // if external was explicitly specified, but the validator
-    // failed to be created, then error.
-    IFTBOOL(pValidator, DXC_E_VALIDATOR_MISSING);
     return false;
   }
 
