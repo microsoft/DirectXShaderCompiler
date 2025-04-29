@@ -156,7 +156,8 @@ GetLongVectorUnaryOpType(const std::wstring &OpTypeString) {
       std::size(LongVectorUnaryOpTypeStringToEnumMap));
 }
 
-template <typename T> std::vector<T> GetInputValueSetByKey(const std::wstring &Key) {
+template <typename T>
+std::vector<T> GetInputValueSetByKey(const std::wstring &Key) {
   return std::vector<T>(LongVectorTestData<T>::Data.at(Key));
 }
 
@@ -184,8 +185,7 @@ public:
     }
   }
 
-  LongVectorOpTestConfig(LongVectorBinaryOpType OpType)
-      : BinaryOpType(OpType) {
+  LongVectorOpTestConfig(LongVectorBinaryOpType OpType) : BinaryOpType(OpType) {
     IntrinsicString = "";
 
     if (IsFloatingPointType())

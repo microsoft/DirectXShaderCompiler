@@ -64,7 +64,7 @@ struct HLSLHalf_t {
   }
   HLSLHalf_t(const double D) {
     float F = 0.0f;
-    if(D >= std::numeric_limits<double>::max())
+    if (D >= std::numeric_limits<double>::max())
       F = std::numeric_limits<float>::max();
     else if (D <= std::numeric_limits<double>::lowest())
       F = std::numeric_limits<float>::lowest();
@@ -149,41 +149,36 @@ struct HLSLHalf_t {
   DirectX::PackedVector::HALF Val = 0;
 };
 
-template <typename T>
-struct LongVectorTestData {
+template <typename T> struct LongVectorTestData {
   static const std::map<std::wstring, std::vector<T>> Data;
 };
 
-template <>
-struct LongVectorTestData<HLSLBool_t> {
+template <> struct LongVectorTestData<HLSLBool_t> {
   inline static const std::map<std::wstring, std::vector<HLSLBool_t>> Data = {
-    {L"DefaultInputValueSet1",
-      {false, true, false, false, false, false, true, true, true, true}},
-    {L"DefaultInputValueSet2",
-      {true, false, false, false, false, true, true, true, false, false}},
+      {L"DefaultInputValueSet1",
+       {false, true, false, false, false, false, true, true, true, true}},
+      {L"DefaultInputValueSet2",
+       {true, false, false, false, false, true, true, true, false, false}},
   };
 };
 
-template <>
-struct LongVectorTestData<int16_t> {
+template <> struct LongVectorTestData<int16_t> {
   inline static const std::map<std::wstring, std::vector<int16_t>> Data = {
-    {L"DefaultInputValueSet1", {-6, 1, 7, 3, 8, 4, -3, 8, 8, -2}},
-    {L"DefaultInputValueSet2", {5, -6, -3, -2, 9, 3, 1, -3, -7, 2}},
-    {L"DefaultClampArgs", {-1, 1}} // Min, Max values for clamp
+      {L"DefaultInputValueSet1", {-6, 1, 7, 3, 8, 4, -3, 8, 8, -2}},
+      {L"DefaultInputValueSet2", {5, -6, -3, -2, 9, 3, 1, -3, -7, 2}},
+      {L"DefaultClampArgs", {-1, 1}} // Min, Max values for clamp
   };
 };
 
-template <>
-struct LongVectorTestData<int32_t> {
+template <> struct LongVectorTestData<int32_t> {
   inline static const std::map<std::wstring, std::vector<int32_t>> Data = {
-    {L"DefaultInputValueSet1", {-6, 1, 7, 3, 8, 4, -3, 8, 8, -2}},
-    {L"DefaultInputValueSet2", {5, -6, -3, -2, 9, 3, 1, -3, -7, 2}},
-    {L"DefaultClampArgs", {-1, 1}} // Min, Max values for clamp
+      {L"DefaultInputValueSet1", {-6, 1, 7, 3, 8, 4, -3, 8, 8, -2}},
+      {L"DefaultInputValueSet2", {5, -6, -3, -2, 9, 3, 1, -3, -7, 2}},
+      {L"DefaultClampArgs", {-1, 1}} // Min, Max values for clamp
   };
 };
 
-template <>
-struct LongVectorTestData<int64_t> {
+template <> struct LongVectorTestData<int64_t> {
   inline static const std::map<std::wstring, std::vector<int64_t>> Data = {
       {L"DefaultInputValueSet1", {-6, 11, 7, 3, 8, 4, -3, 8, 8, -2}},
       {L"DefaultInputValueSet2", {5, -1337, -3, -2, 9, 3, 1, -3, 501, 2}},
@@ -191,17 +186,15 @@ struct LongVectorTestData<int64_t> {
   };
 };
 
-template <>
-struct LongVectorTestData<uint16_t> {
+template <> struct LongVectorTestData<uint16_t> {
   inline static const std::map<std::wstring, std::vector<uint16_t>> Data = {
-    {L"DefaultInputValueSet1", {1, 699, 3, 1023, 5, 6, 0, 8, 9, 10}},
-    {L"DefaultInputValueSet2", {2, 111, 3, 4, 5, 9, 21, 8, 9, 10}},
-    {L"DefaultClampArgs", {1, 2}} // Min, Max values for clamp
+      {L"DefaultInputValueSet1", {1, 699, 3, 1023, 5, 6, 0, 8, 9, 10}},
+      {L"DefaultInputValueSet2", {2, 111, 3, 4, 5, 9, 21, 8, 9, 10}},
+      {L"DefaultClampArgs", {1, 2}} // Min, Max values for clamp
   };
 };
 
-template <>
-struct LongVectorTestData<uint32_t> {
+template <> struct LongVectorTestData<uint32_t> {
   inline static const std::map<std::wstring, std::vector<uint32_t>> Data = {
       {L"DefaultInputValueSet1", {1, 2, 3, 4, 5, 0, 7, 8, 9, 10}},
       {L"DefaultInputValueSet2", {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}},
@@ -209,44 +202,40 @@ struct LongVectorTestData<uint32_t> {
   };
 };
 
-template <>
-struct LongVectorTestData<uint64_t> {
+template <> struct LongVectorTestData<uint64_t> {
   inline static const std::map<std::wstring, std::vector<uint64_t>> Data = {
-    {L"DefaultInputValueSet1", {1, 2, 3, 4, 5, 0, 7, 1000, 9, 10}},
-    {L"DefaultInputValueSet2", {1, 2, 1337, 4, 5, 6, 7, 8, 9, 10}},
-    {L"DefaultClampArgs", {1, 2}} // Min, Max values for clamp
+      {L"DefaultInputValueSet1", {1, 2, 3, 4, 5, 0, 7, 1000, 9, 10}},
+      {L"DefaultInputValueSet2", {1, 2, 1337, 4, 5, 6, 7, 8, 9, 10}},
+      {L"DefaultClampArgs", {1, 2}} // Min, Max values for clamp
   };
 };
 
-template <>
-struct LongVectorTestData<HLSLHalf_t> {
-  inline static const std::map<std::wstring, std::vector<HLSLHalf_t>> Data ={
-    {L"DefaultInputValueSet1",
-     {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
-    {L"DefaultInputValueSet2",
-     {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
-    {L"DefaultClampArgs", {-1.0, 1.0}} // Min, Max values for clamp
+template <> struct LongVectorTestData<HLSLHalf_t> {
+  inline static const std::map<std::wstring, std::vector<HLSLHalf_t>> Data = {
+      {L"DefaultInputValueSet1",
+       {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
+      {L"DefaultInputValueSet2",
+       {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
+      {L"DefaultClampArgs", {-1.0, 1.0}} // Min, Max values for clamp
   };
 };
 
-template <>
-struct LongVectorTestData<float> {
+template <> struct LongVectorTestData<float> {
   inline static const std::map<std::wstring, std::vector<float>> Data = {
-    {L"DefaultInputValueSet1",
-     {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
-    {L"DefaultInputValueSet2",
-     {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
-    {L"DefaultClampArgs", {-1.0, 1.0}} // Min, Max values for clamp
+      {L"DefaultInputValueSet1",
+       {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
+      {L"DefaultInputValueSet2",
+       {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
+      {L"DefaultClampArgs", {-1.0, 1.0}} // Min, Max values for clamp
   };
 };
 
-template <>
-struct LongVectorTestData<double> {
+template <> struct LongVectorTestData<double> {
   inline static const std::map<std::wstring, std::vector<double>> Data = {
-    {L"DefaultInputValueSet1",
-     {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
-    {L"DefaultInputValueSet2",
-     {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
-    {L"DefaultClampArgs", {-1.0, 1.0}} // Min, Max values for clamp
+      {L"DefaultInputValueSet1",
+       {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
+      {L"DefaultInputValueSet2",
+       {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
+      {L"DefaultClampArgs", {-1.0, 1.0}} // Min, Max values for clamp
   };
 };
