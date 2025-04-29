@@ -11999,8 +11999,8 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
                    diag::err_hlsl_linalg_param_must_be_const)
         << "MatrixTranspose";
     return true;
-  } 
-  
+  }
+
   return false;
 }
 
@@ -12012,7 +12012,31 @@ static bool CheckMulCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
 }
 
 static bool CheckMulAddCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
-                             const hlsl::ShaderModel *SM) {
+                            const hlsl::ShaderModel *SM) {
+  CheckCommonMulandMulAddParameters(S, CE, SM);
+
+  // Check Bias Parameters
+  Expr *BiasInterpretationExpr = CE->getArg(kMatVecMulAddBiasInterpretation);
+  llvm::APSInt BiasInterpretationExprVal;
+  unsigned BiasInterpretationValue = 0;
+  if (BiasInterpretationExpr->isIntegerConstantExpr(BiasInterpretationExprVal,
+                                                    S.Context)) {
+    BiasInterpretationValue = BiasInterpretationExprVal.getLimitedValue();
+    const bool InRegisterInterpretation = false;
+    if (!CheckLinalgTypeInterpretation(BiasInterpretationValue,
+                                       InRegisterInterpretation)) {
+      S.Diags.Report(BiasInterpretationExpr->getExprLoc(),
+                     diag::err_hlsl_linalg_interpretation_value_incorrect)
+          << std::to_string(BiasInterpretationValue)
+          << InRegisterInterpretation;
+      return true;
+    }
+  } else {
+    S.Diags.Report(BiasInterpretationExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "BiasInterpretation";
+    return true;
+  }
   return false;
 }
 
