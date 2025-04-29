@@ -11700,6 +11700,17 @@ bool CheckMatrixLayoutForOuterProductAccummulate(unsigned Layout) {
                        MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL);
 }
 
+bool CheckTransposeForMatrixLayout(unsigned Layout, bool Transposed) {
+  switch (static_cast<MatrixLayout>(Layout)) {
+  case MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR:
+  case MatrixLayout::MATRIX_LAYOUT_COLUMN_MAJOR:
+    return !Transposed;
+
+  default:
+    return true;
+  }
+}
+
 enum DataType {
   DATA_TYPE_SINT16 = 2,           // ComponentType::I16
   DATA_TYPE_UINT16 = 3,           // ComponentType::U16
@@ -11718,7 +11729,8 @@ enum DataType {
 };
 
 bool IsPackedType(DataType type) {
-  return (type == DATA_TYPE_SINT8_T4_PACKED || type == DATA_TYPE_UINT8_T4_PACKED);
+  return (type == DATA_TYPE_SINT8_T4_PACKED ||
+          type == DATA_TYPE_UINT8_T4_PACKED);
 }
 
 static bool CheckLinalgTypeInterpretation(uint32_t Input, bool InRegister) {
@@ -11885,7 +11897,7 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
   llvm::APSInt MatrixMExprVal;
   unsigned MatrixMValue = 0;
   if (MatrixMExpr->isIntegerConstantExpr(MatrixMExprVal, S.Context)) {
-    MatrixMValue = MatrixMExprVal.getLimitedValue();    
+    MatrixMValue = MatrixMExprVal.getLimitedValue();
   } else {
     S.Diags.Report(MatrixMExpr->getExprLoc(),
                    diag::err_hlsl_linalg_param_must_be_const)
@@ -11915,61 +11927,73 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
         << "InputInterpretation";
     return true;
   }
-  
-  bool isInputPacked = IsPackedType(static_cast<DataType>(InputInterpretationValue));
 
- CheckVectorAndMatrixDimensions(S, CE, InputVectorSizeValue, OutputVectorSizeValue, MatrixKValue, MatrixMValue, isInputPacked);
+  bool isInputPacked =
+      IsPackedType(static_cast<DataType>(InputInterpretationValue));
+
+  CheckVectorAndMatrixDimensions(S, CE, InputVectorSizeValue,
+                                 OutputVectorSizeValue, MatrixKValue,
+                                 MatrixMValue, isInputPacked);
 
   // Get MatrixInterpretation, check if it is constant
- Expr *MatrixInterpretationExpr = CE->getArg(kMatVecMulMatrixInterpretationIdx);
- llvm::APSInt MatrixInterpretationExprVal;
- unsigned MatrixInterpretationValue = 0;
- if (MatrixInterpretationExpr->isIntegerConstantExpr(
-         MatrixInterpretationExprVal, S.Context)) {
-   MatrixInterpretationValue = MatrixInterpretationExprVal.getLimitedValue();
-   const bool InRegisterInterpretation = false;
-   if (!CheckLinalgTypeInterpretation(MatrixInterpretationValue,
-                                      InRegisterInterpretation)) {
-     S.Diags.Report(MatrixMExpr->getExprLoc(),
-                    diag::err_hlsl_linalg_interpretation_value_incorrect)
-         << std::to_string(MatrixInterpretationValue) << InRegisterInterpretation;
-     return true;
-   }
- } else {
-   S.Diags.Report(MatrixInterpretationExpr->getExprLoc(),
-                  diag::err_hlsl_linalg_param_must_be_const)
-       << "MatrixInterpretation";
-   return true;
- } 
+  Expr *MatrixInterpretationExpr =
+      CE->getArg(kMatVecMulMatrixInterpretationIdx);
+  llvm::APSInt MatrixInterpretationExprVal;
+  unsigned MatrixInterpretationValue = 0;
+  if (MatrixInterpretationExpr->isIntegerConstantExpr(
+          MatrixInterpretationExprVal, S.Context)) {
+    MatrixInterpretationValue = MatrixInterpretationExprVal.getLimitedValue();
+    const bool InRegisterInterpretation = false;
+    if (!CheckLinalgTypeInterpretation(MatrixInterpretationValue,
+                                       InRegisterInterpretation)) {
+      S.Diags.Report(MatrixMExpr->getExprLoc(),
+                     diag::err_hlsl_linalg_interpretation_value_incorrect)
+          << std::to_string(MatrixInterpretationValue)
+          << InRegisterInterpretation;
+      return true;
+    }
+  } else {
+    S.Diags.Report(MatrixInterpretationExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "MatrixInterpretation";
+    return true;
+  }
 
   // Get MatrixLayout, check if it is constant
- Expr *MatrixLayoutExpr = CE->getArg(kMatVecMulMatrixLayoutIdx);
- llvm::APSInt MatrixLayoutExprVal;
- unsigned MatrixLayoutValue = 0;
- if (MatrixLayoutExpr->isIntegerConstantExpr(MatrixLayoutExprVal, S.Context)) {
-   MatrixLayoutValue = MatrixLayoutExprVal.getLimitedValue();
-   if (!CheckMatrixLayoutForMulandMulAddOps(MatrixInterpretationValue)) {
-     S.Diags.Report(MatrixLayoutExpr->getExprLoc(),
-                    diag::err_hlsl_linalg_matrix_layout_for_mul_ops_invalid)
-         << std::to_string(MatrixLayoutValue)
-         << std::to_string(
-                static_cast<unsigned>(MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR))
-         << std::to_string(static_cast<unsigned>(
-                MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL));
-   }
- } else {
-   S.Diags.Report(MatrixLayoutExpr->getExprLoc(),
-                  diag::err_hlsl_linalg_param_must_be_const)
-       << "MatrixLayout";
-   return true;
- } 
+  Expr *MatrixLayoutExpr = CE->getArg(kMatVecMulMatrixLayoutIdx);
+  llvm::APSInt MatrixLayoutExprVal;
+  unsigned MatrixLayoutValue = 0;
+  if (MatrixLayoutExpr->isIntegerConstantExpr(MatrixLayoutExprVal, S.Context)) {
+    MatrixLayoutValue = MatrixLayoutExprVal.getLimitedValue();
+    if (!CheckMatrixLayoutForMulandMulAddOps(MatrixInterpretationValue)) {
+      S.Diags.Report(MatrixLayoutExpr->getExprLoc(),
+                     diag::err_hlsl_linalg_matrix_layout_for_mul_ops_invalid)
+          << std::to_string(MatrixLayoutValue)
+          << std::to_string(
+                 static_cast<unsigned>(MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR))
+          << std::to_string(static_cast<unsigned>(
+                 MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL));
+    }
+  } else {
+    S.Diags.Report(MatrixLayoutExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "MatrixLayout";
+    return true;
+  }
 
   // Get MatrixTranspose, check if it is constant
   Expr *MatrixTransposeExpr = CE->getArg(kMatVecMulMatrixTransposeIdx);
   llvm::APSInt MatrixTransposeExprVal;
-  unsigned MatrixTransposeValue = 0;  
-  if (MatrixTransposeExpr->isIntegerConstantExpr(MatrixTransposeExprVal, S.Context)) {
-    MatrixTransposeValue = MatrixTransposeExprVal.getLimitedValue();
+  unsigned MatrixTransposeValue = 0;
+  if (MatrixTransposeExpr->isIntegerConstantExpr(MatrixTransposeExprVal,
+                                                 S.Context)) {
+    MatrixTransposeValue = MatrixTransposeExprVal.getBoolValue();
+    if (!CheckTransposeForMatrixLayout(MatrixLayoutValue,
+                                       MatrixTransposeValue)) {
+
+      S.Diags.Report(MatrixTransposeExpr->getExprLoc(),
+                     diag::err_hlsl_linalg_matrix_layout_is_not_transposable);
+    }
   } else {
     S.Diags.Report(MatrixTransposeExpr->getExprLoc(),
                    diag::err_hlsl_linalg_param_must_be_const)
