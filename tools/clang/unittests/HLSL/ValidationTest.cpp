@@ -623,13 +623,25 @@ public:
   bool ReplaceContainerPartsCheckMsgs(LPCSTR pSource1, LPCSTR pSource2,
                                       LPCSTR pShaderModel,
                                       llvm::ArrayRef<DxilFourCC> PartsToReplace,
-                                      llvm::ArrayRef<LPCSTR> pErrorMsgs) {
+                                      llvm::ArrayRef<LPCSTR> pErrorMsgs,
+                                      LPCWSTR *pArguments = nullptr,
+                                      UINT32 argCount = 0,
+                                      const DxcDefine *pDefines = nullptr,
+                                      UINT32 defineCount = 0) {
     CComPtr<IDxcBlob> pProgram1, pProgram2;
-    if (!CompileSource(pSource1, pShaderModel, &pProgram1))
+
+    CComPtr<IDxcBlobEncoding> pSourceBlob1;
+    CComPtr<IDxcBlobEncoding> pSourceBlob2;
+    Utf8ToBlob(m_dllSupport, pSource1, &pSourceBlob1);
+    Utf8ToBlob(m_dllSupport, pSource2, &pSourceBlob2);
+
+    if (!CompileSource(pSourceBlob1, pShaderModel, pArguments, argCount,
+                       pDefines, defineCount, &pProgram1))
       return false;
     VERIFY_IS_NOT_NULL(pProgram1);
     if (pSource2) {
-      if (!CompileSource(pSource2, pShaderModel, &pProgram2))
+      if (!CompileSource(pSourceBlob2, pShaderModel, pArguments, argCount,
+                         pDefines, defineCount, &pProgram2))
         return false;
       VERIFY_IS_NOT_NULL(pProgram2);
     } else {
@@ -707,7 +719,12 @@ bool ValidationTest::InitSupport() {
 
 TEST_F(ValidationTest, WhenCorrectThenOK) {
   CComPtr<IDxcBlob> pProgram;
-  CompileSource("float4 main() : SV_Target { return 1; }", "ps_6_0", &pProgram);
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
+  CComPtr<IDxcBlobEncoding> pSourceBlob;
+  Utf8ToBlob(m_dllSupport, "float4 main() : SV_Target { return 1; }",
+             &pSourceBlob);
+  CompileSource(pSourceBlob, "ps_6_0", pArguments.data(), 1, nullptr, 0,
+                &pProgram);
   CheckValidationMsgs(pProgram, nullptr);
 }
 
@@ -1506,8 +1523,10 @@ TEST_F(ValidationTest, StructBufStrideOutOfBound) {
 }
 
 TEST_F(ValidationTest, StructBufLoadCoordinates) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   RewriteAssemblyCheckMsg(
-      L"..\\DXILValidation\\struct_buf1.hlsl", "ps_6_0",
+      L"..\\DXILValidation\\struct_buf1.hlsl", "ps_6_0", pArguments.data(), 1,
+      nullptr, 0,
       "bufferLoad.f32(i32 68, %dx.types.Handle "
       "%buf1_texture_structbuf, i32 1, i32 8)",
       "bufferLoad.f32(i32 68, %dx.types.Handle "
@@ -1516,8 +1535,10 @@ TEST_F(ValidationTest, StructBufLoadCoordinates) {
 }
 
 TEST_F(ValidationTest, StructBufStoreCoordinates) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   RewriteAssemblyCheckMsg(
-      L"..\\DXILValidation\\struct_buf1.hlsl", "ps_6_0",
+      L"..\\DXILValidation\\struct_buf1.hlsl", "ps_6_0", pArguments.data(), 1,
+      nullptr, 0,
       "bufferStore.f32(i32 69, %dx.types.Handle "
       "%buf2_UAV_structbuf, i32 0, i32 0",
       "bufferStore.f32(i32 69, %dx.types.Handle "
@@ -2619,31 +2640,36 @@ float4 main(float4 f4 : Input, out float d0 : SV_Depth, out float d1 : SV_Target
 }
 
 TEST_F(ValidationTest, WhenRootSigMismatchThenFail) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "float c; [RootSignature ( \"RootConstants(b0, num32BitConstants = 1)\" "
       ")] float4 main() : semantic { return c; }",
       "[RootSignature ( \"\" )] float4 main() : semantic { return 0; }",
       "vs_6_0", {DFCC_RootSignature},
       {"Root Signature in DXIL container is not compatible with shader.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 TEST_F(ValidationTest, WhenRootSigCompatThenSucceed) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "[RootSignature ( \"\" )] float4 main() : semantic { return 0; }",
       "float c; [RootSignature ( \"RootConstants(b0, num32BitConstants = 1)\" "
       ")] float4 main() : semantic { return c; }",
-      "vs_6_0", {DFCC_RootSignature}, {});
+      "vs_6_0", {DFCC_RootSignature}, {}, pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_RootConstVis) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "float c; float4 main() : semantic { return c; }",
       "[RootSignature ( \"RootConstants(b0, visibility = "
       "SHADER_VISIBILITY_VERTEX, num32BitConstants = 1)\" )]"
       "  float4 main() : semantic { return 0; }",
-      "vs_6_0", {DFCC_RootSignature}, {});
+      "vs_6_0", {DFCC_RootSignature}, {}, pArguments.data(), 1);
 }
 TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootConstVis) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "float c; float4 main() : semantic { return c; }",
       "[RootSignature ( \"RootConstants(b0, visibility = "
@@ -2651,19 +2677,22 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootConstVis) {
       "  float4 main() : semantic { return 0; }",
       "vs_6_0", {DFCC_RootSignature},
       {"Root Signature in DXIL container is not compatible with shader.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_RootCBV) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { float a; int4 b; }; "
       "ConstantBuffer<Foo> cb1 : register(b2, space5); "
       "float4 main() : semantic { return cb1.b.x; }",
       "[RootSignature ( \"CBV(b2, space = 5)\" )]"
       "  float4 main() : semantic { return 0; }",
-      "vs_6_0", {DFCC_RootSignature}, {});
+      "vs_6_0", {DFCC_RootSignature}, {}, pArguments.data(), 1);
 }
 TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootCBV_Range) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { float a; int4 b; }; "
       "ConstantBuffer<Foo> cb1 : register(b0, space5); "
@@ -2672,7 +2701,8 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootCBV_Range) {
       "  float4 main() : semantic { return 0; }",
       "vs_6_0", {DFCC_RootSignature},
       {"Root Signature in DXIL container is not compatible with shader.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootCBV_Space) {
   ReplaceContainerPartsCheckMsgs(
@@ -2687,15 +2717,17 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootCBV_Space) {
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_RootSRV) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { float4 a; }; "
       "StructuredBuffer<Foo> buf1 : register(t1, space3); "
       "float4 main(float4 a : AAA) : SV_Target { return buf1[a.x].a; }",
       "[RootSignature ( \"SRV(t1, space = 3)\" )]"
       "  float4 main() : SV_Target { return 0; }",
-      "ps_6_0", {DFCC_RootSignature}, {});
+      "ps_6_0", {DFCC_RootSignature}, {}, pArguments.data(), 1);
 }
 TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootSRV_ResType) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { float4 a; }; "
       "StructuredBuffer<Foo> buf1 : register(t1, space3); "
@@ -2704,20 +2736,23 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootSRV_ResType) {
       "  float4 main() : SV_Target { return 0; }",
       "ps_6_0", {DFCC_RootSignature},
       {"Root Signature in DXIL container is not compatible with shader.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_RootUAV) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { float4 a; }; "
       "RWStructuredBuffer<Foo> buf1 : register(u1, space3); "
       "float4 main(float4 a : AAA) : SV_Target { return buf1[a.x].a; }",
       "[RootSignature ( \"UAV(u1, space = 3)\" )]"
       "  float4 main() : SV_Target { return 0; }",
-      "ps_6_0", {DFCC_RootSignature}, {});
+      "ps_6_0", {DFCC_RootSignature}, {}, pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_DescTable) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { int a; float4 b; };"
       ""
@@ -2736,10 +2771,11 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_DescTable) {
       "UAV(u33,space=17,numDescriptors=6)), "
       "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
       "  float4 main() : SV_Target { return 0; }",
-      "ps_6_0", {DFCC_RootSignature}, {});
+      "ps_6_0", {DFCC_RootSignature}, {}, pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_DescTable_GoodRange) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { int a; float4 b; };"
       ""
@@ -2758,10 +2794,11 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_DescTable_GoodRange) {
       "UAV(u33,space=17,numDescriptors=6)), "
       "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
       "  float4 main() : SV_Target { return 0; }",
-      "ps_6_0", {DFCC_RootSignature}, {});
+      "ps_6_0", {DFCC_RootSignature}, {}, pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_DescTable_Unbounded) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { int a; float4 b; };"
       ""
@@ -2780,10 +2817,11 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_DescTable_Unbounded) {
       "UAV(u10,space=17,numDescriptors=unbounded)), "
       "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
       "  float4 main() : SV_Target { return 0; }",
-      "ps_6_0", {DFCC_RootSignature}, {});
+      "ps_6_0", {DFCC_RootSignature}, {}, pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Range1) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { int a; float4 b; };"
       ""
@@ -2806,10 +2844,12 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Range1) {
       {"Shader SRV descriptor range (RegisterSpace=3, NumDescriptors=8, "
        "BaseShaderRegister=1) is not fully bound in root signature.",
        "Root Signature in DXIL container is not compatible with shader.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Range2) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { int a; float4 b; };"
       ""
@@ -2830,10 +2870,12 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Range2) {
       "  float4 main() : SV_Target { return 0; }",
       "ps_6_0", {DFCC_RootSignature},
       {"Root Signature in DXIL container is not compatible with shader.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Range3) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { int a; float4 b; };"
       ""
@@ -2854,10 +2896,12 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Range3) {
       "  float4 main() : SV_Target { return 0; }",
       "ps_6_0", {DFCC_RootSignature},
       {"Root Signature in DXIL container is not compatible with shader.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Space) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { int a; float4 b; };"
       ""
@@ -2878,10 +2922,12 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Space) {
       "  float4 main() : SV_Target { return 0; }",
       "ps_6_0", {DFCC_RootSignature},
       {"Root Signature in DXIL container is not compatible with shader.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_Unbounded) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { int a; float4 b; };"
       ""
@@ -2900,10 +2946,11 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_Unbounded) {
       "DescriptorTable( UAV(u10,space=17,numDescriptors=100)), "
       "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
       "  float4 main() : SV_Target { return 0; }",
-      "ps_6_0", {DFCC_RootSignature}, {});
+      "ps_6_0", {DFCC_RootSignature}, {}, pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderFail_Unbounded1) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { int a; float4 b; };"
       ""
@@ -2924,10 +2971,12 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderFail_Unbounded1) {
       "  float4 main() : SV_Target { return 0; }",
       "ps_6_0", {DFCC_RootSignature},
       {"Root Signature in DXIL container is not compatible with shader.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderFail_Unbounded2) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { int a; float4 b; };"
       ""
@@ -2948,10 +2997,12 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderFail_Unbounded2) {
       "  float4 main() : SV_Target { return 0; }",
       "ps_6_0", {DFCC_RootSignature},
       {"Root Signature in DXIL container is not compatible with shader.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRootSigMatchShaderFail_Unbounded3) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "struct Foo { int a; float4 b; };"
       ""
@@ -2972,7 +3023,8 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderFail_Unbounded3) {
       "  float4 main() : SV_Target { return 0; }",
       "ps_6_0", {DFCC_RootSignature},
       {"Root Signature in DXIL container is not compatible with shader.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 #define VERTEX_STRUCT1                                                         \
@@ -3067,6 +3119,7 @@ TEST_F(ValidationTest, WhenRootSigMatchShaderFail_Unbounded3) {
     } \n"
 
 TEST_F(ValidationTest, WhenProgramOutSigMissingThenFail) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       VERTEX_STRUCT1 PC_STRUCT1 PC_FUNC HS_ATTR HS_FUNC,
 
@@ -3076,10 +3129,12 @@ TEST_F(ValidationTest, WhenProgramOutSigMissingThenFail) {
       {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
       {"Container part 'Program Output Signature' does not match expected for "
        "module.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenProgramOutSigUnexpectedThenFail) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       VERTEX_STRUCT1 PC_STRUCT1 PC_FUNC_NOOUT HS_ATTR HS_FUNC_NOOUT,
 
@@ -3089,10 +3144,12 @@ TEST_F(ValidationTest, WhenProgramOutSigUnexpectedThenFail) {
       {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
       {"Container part 'Program Output Signature' does not match expected for "
        "module.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenProgramSigMismatchThenFail) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       VERTEX_STRUCT1 PC_STRUCT1 PC_FUNC HS_ATTR HS_FUNC,
 
@@ -3106,10 +3163,12 @@ TEST_F(ValidationTest, WhenProgramSigMismatchThenFail) {
        "module.",
        "Container part 'Program Patch Constant Signature' does not match "
        "expected for module.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenProgramInSigMissingThenFail) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       VERTEX_STRUCT1 PC_STRUCT1 PC_FUNC HS_ATTR HS_FUNC,
 
@@ -3120,10 +3179,13 @@ TEST_F(ValidationTest, WhenProgramInSigMissingThenFail) {
       {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
       {"Container part 'Program Input Signature' does not match expected for "
        "module.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenProgramSigMismatchThenFail2) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
+
   ReplaceContainerPartsCheckMsgs(
       VERTEX_STRUCT1 PC_STRUCT1 DS_FUNC,
 
@@ -3137,10 +3199,12 @@ TEST_F(ValidationTest, WhenProgramSigMismatchThenFail2) {
        "module.",
        "Container part 'Program Patch Constant Signature' does not match "
        "expected for module.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenProgramPCSigMissingThenFail) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       VERTEX_STRUCT1 PC_STRUCT1 DS_FUNC,
 
@@ -3153,7 +3217,8 @@ TEST_F(ValidationTest, WhenProgramPCSigMissingThenFail) {
        "Container part 'Program Output Signature' does not match expected for "
        "module.",
        "Missing part 'Program Patch Constant Signature' required by module.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 #undef VERTEX_STRUCT1
@@ -3171,6 +3236,7 @@ TEST_F(ValidationTest, WhenProgramPCSigMissingThenFail) {
 #undef DS_FUNC_NOPC
 
 TEST_F(ValidationTest, WhenPSVMismatchThenFail) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "float c; [RootSignature ( \"RootConstants(b0, num32BitConstants = 1)\" "
       ")] float4 main() : semantic { return c; }",
@@ -3178,26 +3244,31 @@ TEST_F(ValidationTest, WhenPSVMismatchThenFail) {
       "vs_6_0", {DFCC_PipelineStateValidation},
       {"Container part 'Pipeline State Validation' does not match expected for "
        "module.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenRDATMismatchThenFail) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "export float4 main(float f) : semantic { return f; }",
       "export float4 main() : semantic { return 0; }", "lib_6_3",
       {DFCC_RuntimeData},
       {"Container part 'Runtime Data (RDAT)' does not match expected for "
        "module.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, WhenFeatureInfoMismatchThenFail) {
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
   ReplaceContainerPartsCheckMsgs(
       "float4 main(uint2 foo : FOO) : SV_Target { return asdouble(foo.x, "
       "foo.y) * 2.0; }",
       "float4 main() : SV_Target { return 0; }", "ps_6_0", {DFCC_FeatureInfo},
       {"Container part 'Feature Info' does not match expected for module.",
-       "Validation failed."});
+       "Validation failed."},
+      pArguments.data(), 1);
 }
 
 TEST_F(ValidationTest, RayShaderWithSignaturesFail) {
@@ -4329,18 +4400,21 @@ TEST_F(ValidationTest, ValidateVersionNotAllowed) {
   // could rev the IDxcVersion interface to accomodate.
   std::string maxMinor = std::to_string(m_ver.m_ValMinor);
   std::string higherMinor = std::to_string(m_ver.m_ValMinor + 1);
+  std::vector<LPCWSTR> pArguments = {L"-select-validator external"};
+
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_0", pArguments.data(), 1, nullptr,
+      0, ("= !{i32 1, i32 " + maxMinor + "}").c_str(),
+      ("= !{i32 1, i32 " + higherMinor + "}").c_str(),
+      ("error: Validator version in metadata (1." + higherMinor +
+       ") is not supported; maximum: (1." + maxMinor + ")")
+          .c_str());
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_0",
-                          ("= !{i32 1, i32 " + maxMinor + "}").c_str(),
-                          ("= !{i32 1, i32 " + higherMinor + "}").c_str(),
-                          ("error: Validator version in metadata (1." +
-                           higherMinor + ") is not supported; maximum: (1." +
-                           maxMinor + ")")
-                              .c_str());
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_0",
-                          "= !{i32 1, i32 0}", "= !{i32 1, i32 1}",
+                          pArguments.data(), 1, nullptr, 0, "= !{i32 1, i32 0}",
+                          "= !{i32 1, i32 1}",
                           "error: Shader model requires Dxil Version 1.0");
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_0",
-                          "= !{i32 1, i32 0}",
+                          pArguments.data(), 1, nullptr, 0, "= !{i32 1, i32 0}",
                           ("= !{i32 1, i32 " + higherMinor + "}").c_str(),
                           ("error: Dxil version in metadata (1." + higherMinor +
                            ") is not supported; maximum: (1." + maxMinor + ")")
