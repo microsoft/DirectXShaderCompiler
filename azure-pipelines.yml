@@ -1,10 +1,12 @@
 trigger:
   - main
   - release*
+  - staging*
 
 pr: 
   - main
   - release*
+  - staging*
   
 resources:
 - repo: self

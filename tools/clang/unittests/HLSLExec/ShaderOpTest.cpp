@@ -86,6 +86,9 @@ static void ShaderOpLogFmt(const wchar_t *fmt, ...) {
 
 // Check the specified HRESULT and return the success value.
 static HRESULT CHECK_HR_RET(HRESULT hr) {
+  if (FAILED(hr)) {
+    DebugBreak();
+  }
   CHECK_HR(hr);
   return hr;
 }
@@ -866,6 +869,11 @@ void ShaderOpTest::CreateShaders() {
       CHECK_HR(pLibrary->CreateBlobWithEncodingFromPinned(
           pText, (UINT32)strlen(pText), CP_UTF8, &pTextBlob));
       CHECK_HR(m_pDxcSupport->CreateInstance(CLSID_DxcCompiler, &pCompiler));
+      WEX::Logging::Log::Comment(L"Compiling shader:");
+      ShaderOpLogFmt(L"\tTarget profile: %S", S.Target);
+      if (argumentsWList.size() > 0) {
+        ShaderOpLogFmt(L"\tArguments: %S", pArguments);
+      }
       CHECK_HR(pCompiler->Compile(pTextBlob, nameW, entryPointW, targetW,
                                   (LPCWSTR *)argumentsWList.data(),
                                   (UINT32)argumentsWList.size(), nullptr, 0,

@@ -189,7 +189,7 @@
 // FCGL:   %{{[^ ]+}} = call i32 @"dx.hl.op.rn.i32 (i32, %dx.types.HitObject*)"(i32 367, %dx.types.HitObject* %[[HIT]])
 // FCGL:   %{{[^ ]+}} = call i32 @"dx.hl.op.rn.i32 (i32, %dx.types.HitObject*)"(i32 373, %dx.types.HitObject* %[[HIT]])
 // FCGL:   %{{[^ ]+}} = call i32 @"dx.hl.op.rn.i32 (i32, %dx.types.HitObject*)"(i32 377, %dx.types.HitObject* %[[HIT]])
-// FCGL:   %{{[^ ]+}} = call i32 @"dx.hl.op.ro.i32 (i32, %dx.types.HitObject*, i32)"(i32 386, %dx.types.HitObject* %[[HIT]], i32 42)
+// FCGL:   %{{[^ ]+}} = call i32 @"dx.hl.op.ro.i32 (i32, %dx.types.HitObject*, i32)"(i32 386, %dx.types.HitObject* %[[HIT]], i32 40)
 // FCGL:   %{{[^ ]+}} = call <3 x float> @"dx.hl.op.rn.<3 x float> (i32, %dx.types.HitObject*)"(i32 379, %dx.types.HitObject* %[[HIT]])
 // FCGL:   %{{[^ ]+}} = call <3 x float> @"dx.hl.op.rn.<3 x float> (i32, %dx.types.HitObject*)"(i32 378, %dx.types.HitObject* %[[HIT]])
 // FCGL:   %{{[^ ]+}} = call <3 x float> @"dx.hl.op.rn.<3 x float> (i32, %dx.types.HitObject*)"(i32 370, %dx.types.HitObject* %[[HIT]])
@@ -238,7 +238,7 @@ void main() {
   isum += hit.GetInstanceID();
   isum += hit.GetPrimitiveIndex();
   isum += hit.GetShaderTableIndex();
-  isum += hit.LoadLocalRootTableConstant(42);
+  isum += hit.LoadLocalRootTableConstant(40);
 
   // float3 accessors
   vsum += hit.GetWorldRayOrigin();

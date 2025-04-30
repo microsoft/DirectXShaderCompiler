@@ -35,6 +35,8 @@
 #include <algorithm>
 #include <type_traits>
 #include <bitset>
+#include <random>
+#include <limits>
 
 #undef _read
 #include "dxc/Test/DxcTestUtils.h"
@@ -60,6 +62,7 @@
 #include "ShaderOpTest.h"
 #include <libloaderapi.h>
 #include <DirectXPackedVector.h>
+#include "LongVectors.h"
 #include "DXRUtil.h"
 // clang-format on
 
@@ -67,6 +70,9 @@
 #pragma comment(lib, "windowscodecs.lib")
 #pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "version.lib")
+
+// Float values for this were taken from Microsoft online documentation for the
+// DirectX HALF data type. HALF is equivalent to IEEE 754 binary 16 format.
 
 // A more recent Windows SDK than currently required is needed for these.
 typedef HRESULT(WINAPI *D3D12EnableExperimentalFeaturesFn)(
@@ -502,6 +508,116 @@ public:
                        L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
   END_TEST_METHOD()
 
+  // bool binary ops
+  TEST_METHOD(LongVector_ScalarAdd_bool)
+  TEST_METHOD(LongVector_ScalarMultiply_bool)
+  TEST_METHOD(LongVector_Multiply_bool)
+  TEST_METHOD(LongVector_Add_bool)
+  TEST_METHOD(LongVector_Min_bool)
+  TEST_METHOD(LongVector_Max_bool)
+  // bool unary ops
+  // Note that clamp doesn't make sense for bools.
+  TEST_METHOD(LongVector_Initialize_bool);
+
+  // float16 (half) binary ops
+  TEST_METHOD(LongVector_ScalarAdd_float16)
+  TEST_METHOD(LongVector_ScalarMultiply_float16)
+  TEST_METHOD(LongVector_Multiply_float16)
+  TEST_METHOD(LongVector_Add_float16)
+  TEST_METHOD(LongVector_Min_float16)
+  TEST_METHOD(LongVector_Max_float16)
+  // float16 (half) unary ops
+  TEST_METHOD(LongVector_Clamp_float16);
+  TEST_METHOD(LongVector_Initialize_float16);
+
+  // float32 binary ops
+  TEST_METHOD(LongVector_ScalarAdd_float32)
+  TEST_METHOD(LongVector_ScalarMultiply_float32)
+  TEST_METHOD(LongVector_Multiply_float32)
+  TEST_METHOD(LongVector_Add_float32)
+  TEST_METHOD(LongVector_Min_float32)
+  TEST_METHOD(LongVector_Max_float32)
+  // float32 unary ops
+  TEST_METHOD(LongVector_Clamp_float32);
+  TEST_METHOD(LongVector_Initialize_float32);
+
+  // float64 binary ops
+  TEST_METHOD(LongVector_ScalarAdd_float64)
+  TEST_METHOD(LongVector_ScalarMultiply_float64)
+  TEST_METHOD(LongVector_Multiply_float64)
+  TEST_METHOD(LongVector_Add_float64)
+  TEST_METHOD(LongVector_Min_float64)
+  TEST_METHOD(LongVector_Max_float64)
+  // float64 unary ops
+  TEST_METHOD(LongVector_Clamp_float64);
+  TEST_METHOD(LongVector_Initialize_float64);
+
+  // int16 binary ops
+  TEST_METHOD(LongVector_ScalarAdd_int16)
+  TEST_METHOD(LongVector_ScalarMultiply_int16)
+  TEST_METHOD(LongVector_Multiply_int16)
+  TEST_METHOD(LongVector_Add_int16)
+  TEST_METHOD(LongVector_Min_int16)
+  TEST_METHOD(LongVector_Max_int16)
+  // int16 unary ops
+  TEST_METHOD(LongVector_Clamp_int16);
+  TEST_METHOD(LongVector_Initialize_int16);
+
+  // int32 binary ops
+  TEST_METHOD(LongVector_ScalarAdd_int32)
+  TEST_METHOD(LongVector_ScalarMultiply_int32)
+  TEST_METHOD(LongVector_Multiply_int32)
+  TEST_METHOD(LongVector_Add_int32)
+  TEST_METHOD(LongVector_Min_int32)
+  TEST_METHOD(LongVector_Max_int32)
+  // int32 unary ops
+  TEST_METHOD(LongVector_Clamp_int32);
+  TEST_METHOD(LongVector_Initialize_int32);
+
+  // int64 binary ops
+  TEST_METHOD(LongVector_ScalarAdd_int64)
+  TEST_METHOD(LongVector_ScalarMultiply_int64)
+  TEST_METHOD(LongVector_Multiply_int64)
+  TEST_METHOD(LongVector_Add_int64)
+  TEST_METHOD(LongVector_Min_int64)
+  TEST_METHOD(LongVector_Max_int64)
+  // int64 unary ops
+  TEST_METHOD(LongVector_Clamp_int64);
+  TEST_METHOD(LongVector_Initialize_int64);
+
+  // uint16 binary ops
+  TEST_METHOD(LongVector_ScalarAdd_uint16)
+  TEST_METHOD(LongVector_ScalarMultiply_uint16)
+  TEST_METHOD(LongVector_Multiply_uint16)
+  TEST_METHOD(LongVector_Add_uint16)
+  TEST_METHOD(LongVector_Min_uint16)
+  TEST_METHOD(LongVector_Max_uint16)
+  // uint16 unary ops
+  TEST_METHOD(LongVector_Clamp_uint16);
+  TEST_METHOD(LongVector_Initialize_uint16);
+
+  // uint32 binary ops
+  TEST_METHOD(LongVector_ScalarAdd_uint32)
+  TEST_METHOD(LongVector_ScalarMultiply_uint32)
+  TEST_METHOD(LongVector_Multiply_uint32)
+  TEST_METHOD(LongVector_Add_uint32)
+  TEST_METHOD(LongVector_Min_uint32)
+  TEST_METHOD(LongVector_Max_uint32)
+  // uint32 unary ops
+  TEST_METHOD(LongVector_Clamp_uint32);
+  TEST_METHOD(LongVector_Initialize_uint32);
+
+  // uint64 binary ops
+  TEST_METHOD(LongVector_ScalarAdd_uint64)
+  TEST_METHOD(LongVector_ScalarMultiply_uint64)
+  TEST_METHOD(LongVector_Multiply_uint64)
+  TEST_METHOD(LongVector_Add_uint64)
+  TEST_METHOD(LongVector_Min_uint64)
+  TEST_METHOD(LongVector_Max_uint64)
+  // uint64 unary ops
+  TEST_METHOD(LongVector_Clamp_uint64);
+  TEST_METHOD(LongVector_Initialize_uint64);
+
   // Shader Execution Reordering tests
   TEST_METHOD(SERBasicTest);
   TEST_METHOD(SERScalarGetterTest);
@@ -724,6 +840,10 @@ public:
   void RunBasicShaderModelTest(CComPtr<ID3D12Device> pDevice,
                                const char *pShaderModelStr, const char *pShader,
                                Ty *pInputDataPairs, unsigned inputDataCount);
+
+  template <typename T, std::size_t N>
+  void LongVectorOpTestBase(LongVectorOpTestConfig<T> &TestConfig);
+  template <typename T> void LongVectorOpTestBase(LongVectorOpType OpType);
 
   template <class Ty> const wchar_t *BasicShaderModelTest_GetFormatString();
 
@@ -11847,6 +11967,702 @@ TEST_F(ExecutionTest, PackUnpackTest) {
   }
 }
 
+TEST_F(ExecutionTest, LongVector_ScalarAdd_bool) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLBool_t>(LongVectorOpType_ScalarAdd);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarMultiply_bool) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLBool_t>(LongVectorOpType_ScalarMultiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Multiply_bool) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLBool_t>(LongVectorOpType_Multiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Add_bool) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLBool_t>(LongVectorOpType_Add);
+}
+
+TEST_F(ExecutionTest, LongVector_Min_bool) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLBool_t>(LongVectorOpType_Min);
+}
+
+TEST_F(ExecutionTest, LongVector_Max_bool) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLBool_t>(LongVectorOpType_Max);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarAdd_float16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLHalf_t>(LongVectorOpType_ScalarAdd);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarMultiply_float16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLHalf_t>(LongVectorOpType_ScalarMultiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Multiply_float16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLHalf_t>(LongVectorOpType_Multiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Add_float16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLHalf_t>(LongVectorOpType_Add);
+}
+
+TEST_F(ExecutionTest, LongVector_Min_float16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLHalf_t>(LongVectorOpType_Min);
+}
+
+TEST_F(ExecutionTest, LongVector_Max_float16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLHalf_t>(LongVectorOpType_Max);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarAdd_float32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<float>(LongVectorOpType_ScalarAdd);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarMultiply_float32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<float>(LongVectorOpType_ScalarMultiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Multiply_float32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<float>(LongVectorOpType_Multiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Add_float32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<float>(LongVectorOpType_Add);
+}
+
+TEST_F(ExecutionTest, LongVector_Min_float32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<float>(LongVectorOpType_Min);
+}
+
+TEST_F(ExecutionTest, LongVector_Max_float32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<float>(LongVectorOpType_Max);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarAdd_float64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<double>(LongVectorOpType_ScalarAdd);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarMultiply_float64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<double>(LongVectorOpType_ScalarMultiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Multiply_float64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<double>(LongVectorOpType_Multiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Add_float64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<double>(LongVectorOpType_Add);
+}
+
+TEST_F(ExecutionTest, LongVector_Min_float64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<double>(LongVectorOpType_Min);
+}
+
+TEST_F(ExecutionTest, LongVector_Max_float64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<double>(LongVectorOpType_Max);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarAdd_int16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int16_t>(LongVectorOpType_ScalarAdd);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarMultiply_int16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int16_t>(LongVectorOpType_ScalarMultiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Multiply_int16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int16_t>(LongVectorOpType_Multiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Add_int16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int16_t>(LongVectorOpType_Add);
+}
+
+TEST_F(ExecutionTest, LongVector_Min_int16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int16_t>(LongVectorOpType_Min);
+}
+
+TEST_F(ExecutionTest, LongVector_Max_int16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int16_t>(LongVectorOpType_Max);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarAdd_int32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int32_t>(LongVectorOpType_ScalarAdd);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarMultiply_int32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int32_t>(LongVectorOpType_ScalarMultiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Multiply_int32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int32_t>(LongVectorOpType_Multiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Add_int32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int32_t>(LongVectorOpType_Add);
+}
+
+TEST_F(ExecutionTest, LongVector_Min_int32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int32_t>(LongVectorOpType_Min);
+}
+
+TEST_F(ExecutionTest, LongVector_Max_int32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int32_t>(LongVectorOpType_Max);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarAdd_int64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int64_t>(LongVectorOpType_ScalarAdd);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarMultiply_int64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int64_t>(LongVectorOpType_ScalarMultiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Multiply_int64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int64_t>(LongVectorOpType_Multiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Add_int64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int64_t>(LongVectorOpType_Add);
+}
+
+TEST_F(ExecutionTest, LongVector_Min_int64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int64_t>(LongVectorOpType_Min);
+}
+
+TEST_F(ExecutionTest, LongVector_Max_int64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int64_t>(LongVectorOpType_Max);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarAdd_uint16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint16_t>(LongVectorOpType_ScalarAdd);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarMultiply_uint16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint16_t>(LongVectorOpType_ScalarMultiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Multiply_uint16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint16_t>(LongVectorOpType_Multiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Add_uint16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint16_t>(LongVectorOpType_Add);
+}
+
+TEST_F(ExecutionTest, LongVector_Min_uint16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint16_t>(LongVectorOpType_Min);
+}
+
+TEST_F(ExecutionTest, LongVector_Max_uint16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint16_t>(LongVectorOpType_Max);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarAdd_uint32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint32_t>(LongVectorOpType_ScalarAdd);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarMultiply_uint32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint32_t>(LongVectorOpType_ScalarMultiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Multiply_uint32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint32_t>(LongVectorOpType_Multiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Add_uint32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint32_t>(LongVectorOpType_Add);
+}
+
+TEST_F(ExecutionTest, LongVector_Min_uint32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint32_t>(LongVectorOpType_Min);
+}
+
+TEST_F(ExecutionTest, LongVector_Max_uint32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint32_t>(LongVectorOpType_Max);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarAdd_uint64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint64_t>(LongVectorOpType_ScalarAdd);
+}
+
+TEST_F(ExecutionTest, LongVector_ScalarMultiply_uint64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint64_t>(LongVectorOpType_ScalarMultiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Multiply_uint64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint64_t>(LongVectorOpType_Multiply);
+}
+
+TEST_F(ExecutionTest, LongVector_Add_uint64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint64_t>(LongVectorOpType_Add);
+}
+
+TEST_F(ExecutionTest, LongVector_Min_uint64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint64_t>(LongVectorOpType_Min);
+}
+
+TEST_F(ExecutionTest, LongVector_Max_uint64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint64_t>(LongVectorOpType_Max);
+}
+
+TEST_F(ExecutionTest, LongVector_Initialize_bool) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLBool_t>(LongVectorOpType_Initialize);
+}
+
+TEST_F(ExecutionTest, LongVector_Clamp_float16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLHalf_t>(LongVectorOpType_Clamp);
+}
+
+TEST_F(ExecutionTest, LongVector_Initialize_float16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<HLSLHalf_t>(LongVectorOpType_Initialize);
+}
+
+TEST_F(ExecutionTest, LongVector_Clamp_float32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<float>(LongVectorOpType_Clamp);
+}
+
+TEST_F(ExecutionTest, LongVector_Initialize_float32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<float>(LongVectorOpType_Initialize);
+}
+
+TEST_F(ExecutionTest, LongVector_Clamp_float64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<double>(LongVectorOpType_Clamp);
+}
+
+TEST_F(ExecutionTest, LongVector_Initialize_float64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<double>(LongVectorOpType_Initialize);
+}
+
+TEST_F(ExecutionTest, LongVector_Clamp_int16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int16_t>(LongVectorOpType_Clamp);
+}
+
+TEST_F(ExecutionTest, LongVector_Initialize_int16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int16_t>(LongVectorOpType_Initialize);
+}
+
+TEST_F(ExecutionTest, LongVector_Clamp_int32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int32_t>(LongVectorOpType_Clamp);
+}
+
+TEST_F(ExecutionTest, LongVector_Initialize_int32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int32_t>(LongVectorOpType_Initialize);
+}
+
+TEST_F(ExecutionTest, LongVector_Clamp_int64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int64_t>(LongVectorOpType_Clamp);
+}
+
+TEST_F(ExecutionTest, LongVector_Initialize_int64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<int64_t>(LongVectorOpType_Initialize);
+}
+
+TEST_F(ExecutionTest, LongVector_Clamp_uint16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint16_t>(LongVectorOpType_Clamp);
+}
+
+TEST_F(ExecutionTest, LongVector_Initialize_uint16) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint16_t>(LongVectorOpType_Initialize);
+}
+
+TEST_F(ExecutionTest, LongVector_Clamp_uint32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint32_t>(LongVectorOpType_Clamp);
+}
+
+TEST_F(ExecutionTest, LongVector_Initialize_uint32) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint32_t>(LongVectorOpType_Initialize);
+}
+
+TEST_F(ExecutionTest, LongVector_Clamp_uint64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint64_t>(LongVectorOpType_Clamp);
+}
+
+TEST_F(ExecutionTest, LongVector_Initialize_uint64) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  LongVectorOpTestBase<uint64_t>(LongVectorOpType_Initialize);
+}
+
+template <typename T>
+void ExecutionTest::LongVectorOpTestBase(LongVectorOpType opType) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  LongVectorOpTestConfig<T> TestConfig(opType);
+
+  LongVectorOpTestBase<T, 3>(TestConfig);
+  LongVectorOpTestBase<T, 4>(TestConfig);
+  LongVectorOpTestBase<T, 5>(TestConfig);
+  LongVectorOpTestBase<T, 16>(TestConfig);
+  LongVectorOpTestBase<T, 17>(TestConfig);
+  LongVectorOpTestBase<T, 35>(TestConfig);
+  LongVectorOpTestBase<T, 100>(TestConfig);
+  LongVectorOpTestBase<T, 256>(TestConfig);
+  LongVectorOpTestBase<T, 1024>(TestConfig);
+}
+
+template <typename T, std::size_t N>
+void ExecutionTest::LongVectorOpTestBase(
+    LongVectorOpTestConfig<T> &TestConfig) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  LogCommentFmt(L"Running LongVectorOpTestBase<%S, %zu>", typeid(T).name(), N);
+
+  CComPtr<ID3D12Device> D3DDevice;
+  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
+#ifdef _HLK_CONF
+    LogErrorFmtThrow(L"Device does not support SM 6.9. Can't run these tests.");
+  }
+#else
+    WEX::Logging::Log::Comment(
+        "Device does not support SM 6.9. Can't run these tests.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+#endif
+}
+
+DeterministicNumberGenerator<T> NumberGenerator(1337);
+std::array<T, N> InputVector1;
+std::array<T, N> InputVector2;
+std::array<T, 1> ScalarInput;
+ScalarInput[0] = NumberGenerator.generate();
+const bool IsVectorBinaryOp = TestConfig.IsBinaryOp && !TestConfig.IsScalarOp;
+
+// Fill the vector inputs with values.
+for (size_t Index = 0; Index < N; Index++) {
+  // Always generate input.
+  InputVector1[Index] = NumberGenerator.generate();
+
+  if (IsVectorBinaryOp)
+    InputVector2[Index] = NumberGenerator.generate();
+}
+
+// We pass these values into the shader and they're requried to compile. So
+// they need to set to something.
+T ClampArgMin = 0;
+T ClampArgMax = 0;
+if (TestConfig.OpType == LongVectorOpType_Clamp) {
+  if constexpr (std::is_same_v<T, HLSLBool_t>) {
+    // Attempting to generate a clamp value for HLSLBool_t will result in an
+    // infinite loop in the below while. We don't have a test case for clamp
+    // with bools anyways. But adding this check to prevent the mistake.
+    LogErrorFmtThrow(L"Clamp is not supported for HLSLBool_t.");
+  }
+
+  ClampArgMin = NumberGenerator.generate();
+  ClampArgMax = NumberGenerator.generate();
+  while (ClampArgMin >= ClampArgMax) {
+    // Generate a new value for ClampArgMin. It needs to be smaller than
+    // or equal to ClampArgMax.
+    ClampArgMax = NumberGenerator.generate();
+  }
+}
+
+std::array<T, N> ExpectedVector;
+for (size_t Index = 0; Index < N; Index++) {
+  if (TestConfig.IsBinaryOp) {
+    T Input1 = InputVector1[Index];
+    T Input2 = TestConfig.IsScalarOp ? ScalarInput[0] : InputVector2[Index];
+    if (TestConfig.OperatorString == "*") {
+      ExpectedVector[Index] = Input1 * Input2;
+    } else if (TestConfig.OperatorString == "+") {
+      ExpectedVector[Index] = Input1 + Input2;
+    } else if (TestConfig.OperatorString == ",") {
+      if (TestConfig.OpType == LongVectorOpType_Min)
+        ExpectedVector[Index] = std::min<T>(Input1, Input2);
+      else if (TestConfig.OpType == LongVectorOpType_Max)
+        ExpectedVector[Index] = std::max<T>(Input1, Input2);
+      else
+        LogErrorFmtThrow(L"Unrecognized Binary LongVectorOpType: %d",
+                         TestConfig.OpType);
+    } else {
+      LogErrorFmtThrow(
+          L"Don't know how to compute expected value for operatorString: %s",
+          TestConfig.OperatorString.c_str());
+    }
+  } else // Unary op logic
+  {
+    if (TestConfig.OpType == LongVectorOpType_Clamp) {
+      ExpectedVector[Index] =
+          std::clamp(InputVector1[Index], ClampArgMin, ClampArgMax);
+    } else if (TestConfig.OpType = LongVectorOpType_Initialize) {
+      ExpectedVector[Index] = InputVector1[Index];
+    } else {
+      LogErrorFmtThrow(L"Unrecognized Unary LongVectorOpType: %d",
+                       TestConfig.OpType);
+    }
+  }
+}
+
+// Set up the compiler options string.
+std::stringstream CompilerOptions("");
+std::string HLSLType = TestConfig.GetHLSLTypeString();
+CompilerOptions << "-DTYPE=";
+CompilerOptions << HLSLType;
+CompilerOptions << " -DNUM=";
+CompilerOptions << N;
+const bool Is16BitType =
+    (HLSLType == "int16_t" || HLSLType == "uint16_t" || HLSLType == "half");
+CompilerOptions << (Is16BitType ? " -enable-16bit-types" : "");
+CompilerOptions << " -DOPERATOR=";
+CompilerOptions << TestConfig.OperatorString;
+if (TestConfig.IsBinaryOp) {
+  CompilerOptions << " -DOPERAND2=";
+  CompilerOptions << (TestConfig.IsScalarOp ? "InputScalar" : "InputVector2");
+
+  if (TestConfig.IsScalarOp) {
+    CompilerOptions << " -DIS_SCALAR_OP=1";
+  } else {
+    CompilerOptions << " -DIS_BINARY_VECTOR_OP=1";
+  }
+  CompilerOptions << " -DFUNC=";
+  CompilerOptions << TestConfig.IntrinsicString;
+} else {
+  CompilerOptions << " -DFUNC=";
+  CompilerOptions << TestConfig.IntrinsicString;
+  CompilerOptions << " -DOPERAND2=";
+  switch (TestConfig.OpType) {
+  case LongVectorOpType_Clamp:
+    CompilerOptions << "ClampArgMinMax";
+    CompilerOptions << " -DFUNC_CLAMP=1";
+    break;
+  case LongVectorOpType_Initialize:
+    CompilerOptions << " -DFUNC_INITIALIZE=1";
+    break;
+  }
+}
+
+// We have to construct the string outside of the lambda. Otherwise it's
+// cleaned up when the lambda finishes executing but before the shader runs.
+std::string CompilerOptionsString = CompilerOptions.str();
+
+// ShaderOpArith.xml defines the input/output resources and the shader source.
+CComPtr<IStream> TestXML;
+ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML);
+
+// RunShaderOpTest is a helper function that handles resource creation
+// and setup. It also handles the shader compilation and execution. It takes a
+// callback that is called when the shader is compiled, but before it is
+// executed.
+std::shared_ptr<ShaderOpTestResult> TestResult = RunShaderOpTest(
+    D3DDevice, m_support, TestXML, "LongVectorOp",
+    [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
+      LogCommentFmt(L"RunShaderOpTest CallBack. Resource Name: %S", Name);
+
+      // This callback is called once for each resource defined for
+      // "LongVectorOp" in ShaderOpArith.xml. All callbacks are fired for each
+      // resource. We determine whether they are applicable to the test case
+      // when they run.
+
+      // Process the callback for the OutputVector resource.
+      if (0 == _stricmp(Name, "OutputVector")) {
+        // We only need to set the compiler options string once. So this is a
+        // convenient place to do it.
+        ShaderOp->Shaders.at(0).Arguments = CompilerOptionsString.c_str();
+
+        return;
+      }
+
+      // Process the callback for the InputFuncArgs resource.
+      if (0 == _stricmp(Name, "InputFuncArgs")) {
+        if (TestConfig.IsScalarOp) {
+          FillShaderBufferFromLongVectorData<T, 1>(ShaderData, ScalarInput);
+        } else if (TestConfig.OpType == LongVectorOpType_Clamp) {
+          std::array<T, 2> ClampArgs = {ClampArgMin, ClampArgMax};
+          FillShaderBufferFromLongVectorData<T, 2>(ShaderData, ClampArgs);
+        }
+
+        return;
+      }
+
+      // Process the callback for the InputVector1 resource.
+      if (0 == _stricmp(Name, "InputVector1")) {
+        FillShaderBufferFromLongVectorData<T, N>(ShaderData, InputVector1);
+        return;
+      }
+
+      // Process the callback for the InputVector2 resource.
+      if (0 == _stricmp(Name, "InputVector2")) {
+        if (IsVectorBinaryOp) {
+          FillShaderBufferFromLongVectorData<T, N>(ShaderData, InputVector2);
+        }
+        return;
+      }
+
+      LogErrorFmtThrow(
+          L"RunShaderOpTest CallBack. Unexpected Resource Name: %S", Name);
+    });
+
+// Map the data from GPU to CPU memory so we can verify our expectations.
+MappedData ShaderOutData;
+TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
+
+std::array<T, N> OutputVector;
+FillLongVectorDataFromShaderBuffer<T, N>(ShaderOutData, OutputVector);
+
+VERIFY_SUCCEEDED(DoArraysMatch<T>(OutputVector, ExpectedVector,
+                                  TestConfig.Tolerance));
+}
+
 // This test expects a <pShader> that retrieves a signal value from each of a
 // few resources that are initialized here. <isDynamic> determines if it uses
 // the 6.6 Dynamic Resources feature. Values are read back from the result UAV
@@ -12392,20 +13208,23 @@ void ExecuteWaveSizeRangeInstance(UINT minWaveSize, UINT maxWaveSize,
       })";
 
   // format compiler args
-  char compilerOptions[64];
+  char compilerOptions[70];
   if (usePreferred) {
     // putting spaces in between the %d's below will cause compilation issues.
-    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
-                             "-D WAVE_SIZE_ATTR=[wavesize(%d,%d,%d)]",
-                             minShaderWaveSize, maxShaderWaveSize,
-                             prefShaderWaveSize) != -1);
+    VERIFY_IS_TRUE(
+        sprintf_s(
+            compilerOptions, sizeof(compilerOptions),
+            "-D WAVE_SIZE_ATTR=[wavesize(%d,%d,%d)] -select-validator internal",
+            minShaderWaveSize, maxShaderWaveSize, prefShaderWaveSize) != -1);
     LogCommentFmt(L"Verifying wave size range test results for (min, max, "
                   L"preferred): (%d, %d, %d)",
                   minShaderWaveSize, maxShaderWaveSize, prefShaderWaveSize);
   } else {
-    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
-                             "-D WAVE_SIZE_ATTR=[wavesize(%d,%d)]",
-                             minShaderWaveSize, maxShaderWaveSize) != -1);
+    VERIFY_IS_TRUE(
+        sprintf_s(
+            compilerOptions, sizeof(compilerOptions),
+            "-D WAVE_SIZE_ATTR=[wavesize(%d,%d)] -select-validator internal",
+            minShaderWaveSize, maxShaderWaveSize) != -1);
     LogCommentFmt(
         L"Verifying wave size range test results for (min, max): (%d, %d)",
         minShaderWaveSize, maxShaderWaveSize);

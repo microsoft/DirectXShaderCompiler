@@ -178,8 +178,8 @@ inline void EndGroup(const wchar_t *name) {
   wprintf(L"END TEST(S): <%ls>\n", name);
 }
 inline void Comment(const wchar_t *msg) {
-  fputws(msg, stdout);
-  fputwc(L'\n', stdout);
+  fputws(msg, stderr);
+  fputwc(L'\n', stderr);
 }
 inline void Error(const wchar_t *msg) {
   fputws(msg, stderr);
