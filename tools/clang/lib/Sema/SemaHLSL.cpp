@@ -12064,13 +12064,13 @@ static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
   const QualType InputVector2ElementType =
       GetHLSLVecElementType(InputVector2Type);
 
-  if (!S.Context.hasSameType(InputVector1ElementType, InputVector2Type)) {
-    S.Diags.Report(CE->getExprLoc(),
+  if (!S.Context.hasSameType(InputVector1ElementType, InputVector2ElementType)) {
+    S.Diags.Report(InputVector1Expr->getExprLoc(),
                    diag::err_hlsl_linalg_outer_prod_acc_vector_type_mismatch);
     return true;
   }
 
-  // Check Matrix Interpretation is a constant and valid
+  // Check Matrix Interpretation is a constant and a valid value
   Expr *MatrixInterpretationExpr =
       CE->getArg(kOuterProdAccMatrixInterpretationIdx);
   llvm::APSInt MatrixInterpretationExprVal;
@@ -12094,18 +12094,19 @@ static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
     return true;
   }
 
-  // Check Matrix Layout is constant and valid
+  // Check Matrix Layout must be a constant and Training Optimal
   Expr *MatrixLayoutExpr = CE->getArg(kOuterProdAccMatrixLayoutIdx);
   llvm::APSInt MatrixLayoutExprVal;
   unsigned MatrixLayoutValue = 0;
   if (MatrixLayoutExpr->isIntegerConstantExpr(MatrixLayoutExprVal, S.Context)) {
     MatrixLayoutValue = MatrixLayoutExprVal.getLimitedValue();
-    if (!CheckMatrixLayoutForOuterProductAccumulate(
-            MatrixInterpretationValue)) {
+    if (!CheckMatrixLayoutForOuterProductAccumulate(MatrixLayoutValue)) {
       S.Diags.Report(
           MatrixLayoutExpr->getExprLoc(),
           diag::
-              err_hlsl_linalg_outer_prod_acc_matrix_layout_must_be_outer_prod_acc_optimal);
+              err_hlsl_linalg_outer_prod_acc_matrix_layout_must_be_outer_prod_acc_optimal)
+          << std::to_string(static_cast<unsigned>(
+                 MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL));
     }
   } else {
     S.Diags.Report(MatrixLayoutExpr->getExprLoc(),
@@ -12114,7 +12115,7 @@ static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
     return true;
   }
 
-  // Check Matrix Stide is zero (Training Optimal)
+  // Matrix Stride must be zero (Training Optimal matrix layout)
   Expr *MatrixStrideExpr = CE->getArg(kOuterProdAccMatrixStrideIdx);
   llvm::APSInt MatrixStrideExprVal;
   unsigned MatrixStrideValue = 0;
@@ -12191,6 +12192,12 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
     break;
   case hlsl::IntrinsicOp::IOP___builtin_MatVecMul:
     CheckMulCall(*this, FDecl, TheCall, SM);
+    break;
+  case hlsl::IntrinsicOp::IOP___builtin_MatVecMulAdd:
+    CheckMulAddCall(*this, FDecl, TheCall, SM);
+    break;
+  case hlsl::IntrinsicOp::IOP___builtin_OuterProductAccumulate:
+    CheckOuterProductAccumulateCall(*this, FDecl, TheCall);
     break;
 #ifdef ENABLE_SPIRV_CODEGEN
   case hlsl::IntrinsicOp::IOP_Vkreinterpret_pointer_cast:
