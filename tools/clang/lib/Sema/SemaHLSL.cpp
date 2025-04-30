@@ -12064,7 +12064,8 @@ static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
   const QualType InputVector2ElementType =
       GetHLSLVecElementType(InputVector2Type);
 
-  if (!S.Context.hasSameType(InputVector1ElementType, InputVector2ElementType)) {
+  if (!S.Context.hasSameType(InputVector1ElementType,
+                             InputVector2ElementType)) {
     S.Diags.Report(InputVector1Expr->getExprLoc(),
                    diag::err_hlsl_linalg_outer_prod_acc_vector_type_mismatch);
     return true;
