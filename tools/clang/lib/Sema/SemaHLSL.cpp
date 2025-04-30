@@ -6737,8 +6737,8 @@ bool HLSLExternalSource::MatchArguments(
           (iArg != retArgIdx && retTypeIdx == pIntrinsicArg->uComponentTypeId);
       // For literal arg which don't affect return type, find concrete type.
       // For literal arg affect return type,
-      //   TryEvalIntrinsic in CGHLSLMS.cpp will take care of cases
-      //     where all argumentss are literal.
+      //   TryEvalIntrinsic in CGHLSLMSFinishCodeGen.cpp will take care of
+      //     cases where all arguments are literal.
       //   CombineBasicTypes will cover the rest cases.
       if (!affectRetType) {
         TypeInfoEltKind =
