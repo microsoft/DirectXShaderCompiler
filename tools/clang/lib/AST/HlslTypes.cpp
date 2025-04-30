@@ -113,6 +113,11 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
     for (auto member : RD->fields()) {
       if (!IsHLSLNumericOrAggregateOfNumericType(member->getType()))
         return false;
+      if (auto *Child = dyn_cast<CXXRecordDecl>(RD))
+        // Walk up the inheritance chain and check base class fields
+        for (auto &Base : Child->bases())
+          if (!IsHLSLNumericOrAggregateOfNumericType(Base.getType()))
+            return false;
     }
     return true;
   }
@@ -125,8 +130,6 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
 // which can't be annotated. But includes UDTs of trivially copyable data and
 // the builtin trivially copyable raytracing structs.
 bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT) {
-  if (ContainsHitObject(QT))
-    return false;
   return IsHLSLNumericUserDefinedType(QT) ||
          IsHLSLBuiltinRayAttributeStruct(QT);
 }

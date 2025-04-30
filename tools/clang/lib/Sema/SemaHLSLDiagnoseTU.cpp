@@ -710,20 +710,24 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         }
       }
       for (const auto *param : pPatchFnDecl->params()) {
-        unsigned TypeDiagIdx = 0;
         const unsigned PatchConstantFunctionParametersIdx = 8;
-        if (ContainsLongVecOrHitObject(param->getType(), TypeDiagIdx))
-          self->Diag(param->getLocation(), diag::err_hlsl_unsupported_type)
-              << TypeDiagIdx << PatchConstantFunctionParametersIdx;
+        if (ContainsLongVector(param->getType()))
+          self->Diag(param->getLocation(),
+                     diag::err_hlsl_unsupported_long_vector)
+              << PatchConstantFunctionParametersIdx;
+        DiagnoseTypeElements(*self, param->getLocation(), param->getType(),
+                             TypeDiagContext::PatchConstantFunctionParameters);
       }
 
-      unsigned TypeDiagIdx = 0;
-      if (ContainsLongVecOrHitObject(pPatchFnDecl->getReturnType(),
-                                     TypeDiagIdx)) {
+      if (ContainsLongVector(pPatchFnDecl->getReturnType())) {
         const unsigned PatchConstantFunctionReturnIdx = 9;
-        self->Diag(pPatchFnDecl->getLocation(), diag::err_hlsl_unsupported_type)
-            << TypeDiagIdx << PatchConstantFunctionReturnIdx;
+        self->Diag(pPatchFnDecl->getLocation(),
+                   diag::err_hlsl_unsupported_long_vector)
+            << PatchConstantFunctionReturnIdx;
       }
+      DiagnoseTypeElements(*self, pPatchFnDecl->getLocation(),
+                           pPatchFnDecl->getReturnType(),
+                           TypeDiagContext::PatchConstantFunctionReturnType);
     }
     DXIL::ShaderKind EntrySK = shaderModel->GetKind();
     DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;

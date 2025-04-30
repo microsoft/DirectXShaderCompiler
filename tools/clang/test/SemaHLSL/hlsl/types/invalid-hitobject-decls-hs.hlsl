@@ -1,4 +1,4 @@
-// RUN: %dxc -DTYPE=float -T hs_6_9 -verify %s
+// RUN: %dxc -T hs_6_9 -verify %s
 
 struct HsConstantData {
   float Edges[3] : SV_TessFactor;
@@ -10,10 +10,18 @@ struct LongVec {
   dx::HitObject hit;
 };
 
-HsConstantData PatchConstantFunction( // expected-error{{HitObjects in patch constant function return type are not supported}}
-				      dx::HitObject hit : V, // expected-error{{HitObjects in patch constant function parameters are not supported}}
-				      LongVec lv : L) { // expected-error{{HitObjects in patch constant function parameters are not supported}}
-  return (HsConstantData)0;
+HsConstantData
+PatchConstantFunction(
+    // expected-error@-1{{object ''dx::HitObject'' is not allowed in patch constant function return type}}
+    // expected-note@5{{'dx::HitObject' field declared here}}
+	  dx::HitObject hit : V,
+    // expected-error@-1{{object ''dx::HitObject'' is not allowed in patch constant function parameters}}
+	  LongVec lv : L)
+    // expected-error@-1{{object ''dx::HitObject'' is not allowed in patch constant function parameters}}
+    // expected-note@10{{'dx::HitObject' field declared here}}
+{
+  HsConstantData empty;
+  return empty;
 }
 
 [domain("tri")]

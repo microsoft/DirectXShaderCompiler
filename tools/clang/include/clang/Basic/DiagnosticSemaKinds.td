@@ -7558,8 +7558,6 @@ def err_hlsl_missing_type_specifier : Error< // Patterened after err_missing_typ
   "HLSL requires a type specifier for all declarations">;
 def err_hlsl_multiple_concrete_bases : Error<
   "multiple concrete base types specified">;
-def err_hlsl_objectintemplateargument : Error<
-  "%0 is an object and cannot be used as a type parameter">;
 def err_hlsl_packoffset_requires_cbuffer : Error<
   "packoffset is only allowed in a constant buffer">;
 def warn_hlsl_packoffset_mix : Warning<
@@ -7878,14 +7876,23 @@ def err_hlsl_load_from_mesh_out_arrays: Error<
    "output arrays of a mesh shader can not be read from">;
 def err_hlsl_out_indices_array_incorrect_access: Error<
    "a vector in out indices array must be accessed as a whole">;
-def err_hlsl_unsupported_type
-    : Error<"%select{vectors of over 4 elements|HitObjects}0 in "
+def err_hlsl_unsupported_long_vector
+    : Error<"vectors of over 4 elements in "
     "%select{ConstantBuffers or TextureBuffers|"
     "tessellation patches|geometry streams|node records|"
     "cbuffers or tbuffers|user-defined struct parameter|"
     "entry function parameters|entry function return type|"
     "patch constant function parameters|patch constant function return type|"
-    "payload parameters|attributes}1 are not supported">;
+    "payload parameters|attributes}0 are not supported">;
+// %select options must be compatible with err_hlsl_unsupported_long_vector (same index used)
+def err_hlsl_unsupported_object_context
+    : Error<"object '%0' is not allowed in "
+    "%select{ConstantBuffers or TextureBuffers|"
+    "tessellation patches|geometry streams|node records|"
+    "cbuffers or tbuffers|user-defined struct parameter|"
+    "entry function parameters|entry function return type|"
+    "patch constant function parameters|patch constant function return type|"
+    "payload parameters|attributes|type parameters|structured buffers|global variables|groupshared variables}1">;
 def err_hlsl_logical_binop_scalar : Error<
    "operands for short-circuiting logical binary operator must be scalar, for non-scalar types use '%select{and|or}0'">;
 def err_hlsl_ternary_scalar : Error<
@@ -7970,8 +7977,6 @@ def err_hlsl_too_many_node_inputs : Error<
    "Node shader '%0' may not have more than one input record">;
 def err_hlsl_node_record_type : Error<
    "%0 is not valid as a node record type - struct/class required">;
-def err_hlsl_node_record_object : Error<
-   "object %0 may not appear in a node record">;
 def err_hlsl_array_disallowed : Error<
    "%select{entry parameter|declaration}1 of type %0 may not be an array">;
 def err_hlsl_inputpatch_size: Error<

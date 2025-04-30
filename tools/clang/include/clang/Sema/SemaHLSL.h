@@ -59,6 +59,29 @@ bool DiagnoseNodeStructArgument(clang::Sema *self,
                                 clang::QualType ArgTy, bool &Empty,
                                 const clang::FieldDecl *FD = nullptr);
 
+// Keep this in sync with err_hlsl_unsupported_object in DiagnosticSemaKinds.td
+enum class TypeDiagContext {
+  ConstantBuffersOrTextureBuffers = 0,
+  TessellationPatches = 1,
+  GeometryStreams = 2,
+  NodeRecords = 3,
+  CBuffersOrTBuffers = 4,
+  UserDefinedStructParameter = 5,
+  EntryFunctionParameters = 6,
+  EntryFunctionReturnType = 7,
+  PatchConstantFunctionParameters = 8,
+  PatchConstantFunctionReturnType = 9,
+  PayloadParameters = 10,
+  Attributes = 11,
+  TypeParameter = 12,
+  StructuredBuffers = 13,
+  GlobalVariables = 14,
+  GroupShared = 15,
+};
+bool DiagnoseTypeElements(clang::Sema &S, clang::SourceLocation Loc,
+                          clang::QualType Ty, TypeDiagContext DiagContext,
+                          const clang::FieldDecl *FD = nullptr);
+
 void DiagnoseControlFlowConditionForHLSL(clang::Sema *self,
                                          clang::Expr *condExpr,
                                          llvm::StringRef StmtName);
@@ -129,14 +152,6 @@ unsigned CaculateInitListArraySizeForHLSL(clang::Sema *sema,
                                           const clang::QualType EltTy);
 
 bool ContainsLongVector(clang::QualType);
-bool ContainsHitObject(clang::QualType);
-
-/// \brief Determine if the given type contains a long vector or a hit object.
-/// \param QT The type to check.
-/// \param DiagTypeIdx The index of the type in the diagnostic message.
-/// \returns True if the type contains a long vector or a hit object, false
-/// otherwise.
-bool ContainsLongVecOrHitObject(clang::QualType QT, unsigned &DiagTypeIdx);
 
 bool IsConversionToLessOrEqualElements(clang::Sema *self,
                                        const clang::ExprResult &sourceExpr,
