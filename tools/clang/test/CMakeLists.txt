@@ -123,7 +123,6 @@ add_lit_testsuites(CLANG ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 if(WIN32)
-  if(DEFINED ENV{USE_WARP_FROM_NUGET})
     # Use a custom target so we can depend on it and re-run the cmake logic which downloads warp
     # from nuget if requested.
     add_custom_target(WarpFromNuget
@@ -140,7 +139,6 @@ if(WIN32)
       DEPENDS ExecHLSLTests dxexp WarpFromNuget
       ARGS ${CLANG_TEST_EXTRA_ARGS}
     )
-  endif()
 endif()
 
 # add_lit_testsuites doesn't generate targets for Visual Studio or Xcode builds

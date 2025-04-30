@@ -9,11 +9,12 @@ if(NOT DEFINED BUILD_TYPE)
 endif()
 
 if(NOT DEFINED ENV{USE_WARP_FROM_NUGET})
-    message(SEND_ERROR "Callers must set a string value for the environment variable USE_WARP_FROM_NUGET."
-            "Either 'LATEST_RELEASE' or 'LATEST_PREVIEW'")
+    message(WARNING "Defaulting USE_WARP_FROM_NUGET to LATEST_RELEASE")
+    set(USE_WARP_FROM_NUGET "LATEST_RELEASE")
+else()
+    set(USE_WARP_FROM_NUGET $ENV{USE_WARP_FROM_NUGET})
 endif()
 
-set(USE_WARP_FROM_NUGET $ENV{USE_WARP_FROM_NUGET})
 
 # Downloads nuget.exe to the given path if it doesn't exist yet.
 function(EnsureNugetExists target_path)
@@ -222,7 +223,13 @@ if(${USE_WARP_FROM_NUGET} STREQUAL "LATEST_RELEASE" OR ${USE_WARP_FROM_NUGET} ST
   endif()
 
   set(WARP_SOURCE_PATH "${Microsoft.Direct3D.WARP_SOURCE_DIR}/build/native/bin/${ARCH}")
-  set(WARP_DEST_PATH "${BINARY_DIR}/${BUILD_TYPE}/bin/")
+
+  if(CMAKE_CONFIGURATION_TYPE)
+    set(WARP_DEST_PATH "${BINARY_DIR}/${BUILD_TYPE}/bin/")
+  else()
+    set(WARP_DEST_PATH "${BINARY_DIR}/bin/")
+  endif()
+
   message("Copying d3d10warp.dll and d3d10warp.pdb \n"
            "  from:  ${WARP_SOURCE_PATH}\n"
            "  to: ${WARP_DEST_PATH}")
