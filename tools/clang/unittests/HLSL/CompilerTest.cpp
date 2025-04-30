@@ -3712,7 +3712,7 @@ TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
     LPCWSTR Target = L"ps_6_0";
     CreateBlobFromText("float4 main() : SV_Target { return 0; }", &pSource);
 
-    LPCWSTR Args[3] = {OptLevel, L"-select-validater external", L"/Odump"};
+    LPCWSTR Args[3] = {OptLevel, L"-select-validator external", L"/Odump"};
 
     // Get the passes for this optimization level.
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
