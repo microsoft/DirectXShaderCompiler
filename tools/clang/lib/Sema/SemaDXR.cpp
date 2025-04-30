@@ -829,7 +829,8 @@ void DiagnoseBuiltinCallWithPayload(Sema &S, const VarDecl *Payload,
   // Verify that the payload type is legal
   if (!hlsl::IsHLSLCopyableAnnotatableRecord(Payload->getType())) {
     S.Diag(Payload->getLocation(), diag::err_payload_attrs_must_be_udt)
-        << /*payload|attributes|callable*/ 0 << Payload;
+        << /*payload|attributes|callable*/ 0 << /*parameter %2|type*/ 0
+        << Payload;
     return;
   }
 
@@ -1194,7 +1195,8 @@ void DiagnoseCallableEntry(Sema &S, FunctionDecl *FD,
 
     if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty)))
       S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
-          << /*payload|attributes|callable*/ 2 << Param;
+          << /*payload|attributes|callable*/ 2 << /*parameter %2|type*/ 0
+          << Param;
   }
   return;
 }
@@ -1235,7 +1237,8 @@ void DiagnoseMissOrAnyHitEntry(Sema &S, FunctionDecl *FD,
 
     if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty))) {
       S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
-          << /*payload|attributes|callable*/ Idx << Param;
+          << /*payload|attributes|callable*/ Idx << /*parameter %2|type*/ 0
+          << Param;
     }
   }
   return;
@@ -1288,7 +1291,8 @@ void DiagnoseClosestHitEntry(Sema &S, FunctionDecl *FD,
 
     if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty))) {
       S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
-          << /*payload|attributes|callable*/ Idx << Param;
+          << /*payload|attributes|callable*/ Idx << /*parameter %2|type*/ 0
+          << Param;
     }
   }
   return;
