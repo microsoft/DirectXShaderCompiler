@@ -28,7 +28,6 @@ target triple = "dxil-ms-dx"
 
 ; CHECK: Function: ?main@@YAXXZ: error: TraceRay should only use RTAccelerationStructure.
 ; CHECK-NEXT: note: at '%invalid = call %dx.types.HitObject @dx.op.hitObject_TraceRay.struct.Payload(i32 262, %dx.types.Handle %7, i32 513, i32 1, i32 2, i32 4, i32 0, float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, %struct.Payload* nonnull %3)' in block '#0' of function '?main@@YAXXZ'.
-; CHECK-NEXT: Function: dx.op.hitObject_Invoke.struct.Payload: error: External function 'dx.op.hitObject_Invoke.struct.Payload' is unused.
 ; CHECK-NEXT: Validation failed.
 
 ; Function Attrs: nounwind
@@ -65,9 +64,6 @@ declare void @dx.op.rawBufferStore.f32(i32, %dx.types.Handle, i32, i32, float, f
 
 ; Function Attrs: nounwind
 declare %dx.types.HitObject @dx.op.hitObject_TraceRay.struct.Payload(i32, %dx.types.Handle, i32, i32, i32, i32, i32, float, float, float, float, float, float, float, float, %struct.Payload*) #0
-
-; Function Attrs: nounwind
-declare void @dx.op.hitObject_Invoke.struct.Payload(i32, %dx.types.HitObject, %struct.Payload*) #0
 
 ; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #1
