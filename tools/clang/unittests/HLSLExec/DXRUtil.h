@@ -10,216 +10,213 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#pragma once
+
 //= DXR Utility
 //============================================================================
 #define SHADER_ID_SIZE_IN_BYTES 32
 
 #ifndef ROUND_UP
-#define ROUND_UP(v, powerOf2Alignment)                                         \
-  (((v) + (powerOf2Alignment)-1) & ~((powerOf2Alignment)-1))
+#define ROUND_UP(v, PowerOf2Alignment)                                         \
+  (((v) + (PowerOf2Alignment)-1) & ~((PowerOf2Alignment)-1))
 #endif
 struct SceneConsts {
-  DirectX::XMFLOAT4 eye;
+  DirectX::XMFLOAT4 Eye;
   DirectX::XMFLOAT4 U;
   DirectX::XMFLOAT4 V;
   DirectX::XMFLOAT4 W;
-  float sceneScale;
-  unsigned windowSize[2];
-  int rayFlags;
+  float SceneScale;
+  unsigned WindowSize[2];
+  int RayFlags;
 };
 
 struct Instance {
-  D3D12_RAYTRACING_GEOMETRY_TYPE type;
-  DirectX::XMFLOAT4X4 matrix;
-  UINT geometryCount;
-  UINT bottomASIdx;
-  UINT instanceID;
-  UINT mask;
-  UINT flags;
+  D3D12_RAYTRACING_GEOMETRY_TYPE Type;
+  DirectX::XMFLOAT4X4 Matrix;
+  UINT GeometryCount;
+  UINT BottomASIdx;
+  UINT InstanceID;
+  UINT Mask;
+  UINT Flags;
 };
 
 class ShaderTable {
 public:
-  void Init(ID3D12Device *device, int raygenCount, int missCount,
-            int hitGroupCount, int rayTypeCount, int rootTableDwords) {
-    m_rayTypeCount = rayTypeCount;
-    m_raygenCount = raygenCount;
-    m_missCount = missCount * rayTypeCount;
-    m_hitGroupCount = hitGroupCount * rayTypeCount;
-    m_rootTableSizeInBytes = rootTableDwords * 4;
-    m_shaderRecordSizeInBytes =
-        ROUND_UP(m_rootTableSizeInBytes + SHADER_ID_SIZE_IN_BYTES,
+  void Init(ID3D12Device *Device, int RaygenCount, int MissCount,
+            int HitGroupCount, int RayTypeCount, int RootTableDwords) {
+    RayTypeCount = RayTypeCount;
+    RaygenCount = RaygenCount;
+    MissCount = MissCount * RayTypeCount;
+    HitGroupCount = HitGroupCount * RayTypeCount;
+    RootTableSizeInBytes = RootTableDwords * 4;
+    ShaderRecordSizeInBytes =
+        ROUND_UP(RootTableSizeInBytes + SHADER_ID_SIZE_IN_BYTES,
                  D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
-    m_missStartIdx = m_raygenCount;
-    m_hitGroupStartIdx = m_missStartIdx + m_missCount;
+    MissStartIdx = RaygenCount;
+    HitGroupStartIdx = MissStartIdx + MissCount;
 
-    const int m_totalSizeInBytes =
-        (m_raygenCount + m_missCount + m_hitGroupCount) *
-        m_shaderRecordSizeInBytes;
+    const int TotalSizeInBytes =
+        (RaygenCount + MissCount + HitGroupCount) * ShaderRecordSizeInBytes;
 
-    D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(
-        m_totalSizeInBytes, D3D12_RESOURCE_FLAG_NONE,
+    D3D12_RESOURCE_DESC Desc = CD3DX12_RESOURCE_DESC::Buffer(
+        TotalSizeInBytes, D3D12_RESOURCE_FLAG_NONE,
         std::max(D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT,
                  D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT));
-    CD3DX12_HEAP_PROPERTIES heap =
+    CD3DX12_HEAP_PROPERTIES Heap =
         CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-    VERIFY_SUCCEEDED(device->CreateCommittedResource(
-        &heap, D3D12_HEAP_FLAG_NONE, &desc,
+    VERIFY_SUCCEEDED(Device->CreateCommittedResource(
+        &Heap, D3D12_HEAP_FLAG_NONE, &Desc,
         D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, nullptr,
-        IID_PPV_ARGS(&m_sbtResource)));
-    m_sbtResource->SetName(L"SBT Resource Heap");
-    CD3DX12_HEAP_PROPERTIES upload =
+        IID_PPV_ARGS(&SBTResource)));
+    SBTResource->SetName(L"SBT Resource Heap");
+    CD3DX12_HEAP_PROPERTIES Upload =
         CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-    VERIFY_SUCCEEDED(device->CreateCommittedResource(
-        &upload, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ,
-        nullptr, IID_PPV_ARGS(&m_sbtUploadResource)));
-    m_sbtUploadResource->SetName(L"SBT Upload Heap");
+    VERIFY_SUCCEEDED(Device->CreateCommittedResource(
+        &Upload, D3D12_HEAP_FLAG_NONE, &Desc, D3D12_RESOURCE_STATE_GENERIC_READ,
+        nullptr, IID_PPV_ARGS(&SBTUploadResource)));
+    SBTUploadResource->SetName(L"SBT Upload Heap");
 
-    VERIFY_SUCCEEDED(m_sbtUploadResource->Map(0, nullptr, (void **)&m_hostPtr));
+    VERIFY_SUCCEEDED(SBTUploadResource->Map(0, nullptr, (void **)&HostPtr));
   }
 
-  void Upload(ID3D12GraphicsCommandList *cmdlist) {
-    CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-        m_sbtResource, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+  void Upload(ID3D12GraphicsCommandList *CmdList) {
+    CD3DX12_RESOURCE_BARRIER Barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+        SBTResource, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
         D3D12_RESOURCE_STATE_COPY_DEST);
-    cmdlist->ResourceBarrier(1, &barrier);
-    cmdlist->CopyResource(m_sbtResource, m_sbtUploadResource);
-    CD3DX12_RESOURCE_BARRIER barrier2 = CD3DX12_RESOURCE_BARRIER::Transition(
-        m_sbtResource, D3D12_RESOURCE_STATE_COPY_DEST,
+    CmdList->ResourceBarrier(1, &Barrier);
+    CmdList->CopyResource(SBTResource, SBTUploadResource);
+    CD3DX12_RESOURCE_BARRIER Barrier2 = CD3DX12_RESOURCE_BARRIER::Transition(
+        SBTResource, D3D12_RESOURCE_STATE_COPY_DEST,
         D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-    cmdlist->ResourceBarrier(1, &barrier2);
+    CmdList->ResourceBarrier(1, &Barrier2);
   }
 
-  int GetShaderRecordSizeInBytes() { return m_shaderRecordSizeInBytes; }
+  int GetShaderRecordSizeInBytes() { return ShaderRecordSizeInBytes; }
 
-  int GetRaygenShaderRecordIdx(int idx) { return idx; }
-  int GetMissShaderRecordIdx(int idx, int rayType) {
-    return m_missStartIdx + idx * m_rayTypeCount + rayType;
+  int GetRaygenShaderRecordIdx(int Idx) { return Idx; }
+  int GetMissShaderRecordIdx(int Idx, int RayType) {
+    return MissStartIdx + Idx * RayTypeCount + RayType;
   }
-  int GetHitGroupShaderRecordIdx(int idx, int rayType) {
-    return m_hitGroupStartIdx + idx * m_rayTypeCount + rayType;
-  }
-
-  void *GetRaygenShaderIdPtr(int idx) {
-    return m_hostPtr +
-           GetRaygenShaderRecordIdx(idx) * m_shaderRecordSizeInBytes;
-  }
-  void *GetMissShaderIdPtr(int idx, int rayType) {
-    return m_hostPtr +
-           GetMissShaderRecordIdx(idx, rayType) * m_shaderRecordSizeInBytes;
-  }
-  void *GetHitGroupShaderIdPtr(int idx, int rayType) {
-    return m_hostPtr +
-           GetHitGroupShaderRecordIdx(idx, rayType) * m_shaderRecordSizeInBytes;
+  int GetHitGroupShaderRecordIdx(int Idx, int RayType) {
+    return HitGroupStartIdx + Idx * RayTypeCount + RayType;
   }
 
-  void *GetRaygenRootTablePtr(int idx) {
-    return (char *)GetRaygenShaderIdPtr(idx) + SHADER_ID_SIZE_IN_BYTES;
+  void *GetRaygenShaderIdPtr(int Idx) {
+    return HostPtr + GetRaygenShaderRecordIdx(Idx) * ShaderRecordSizeInBytes;
   }
-  void *GetMissRootTablePtr(int idx, int rayType) {
-    return (char *)GetMissShaderIdPtr(idx, rayType) + SHADER_ID_SIZE_IN_BYTES;
+  void *GetMissShaderIdPtr(int Idx, int RayType) {
+    return HostPtr +
+           GetMissShaderRecordIdx(Idx, RayType) * ShaderRecordSizeInBytes;
   }
-  void *GetHitGroupRootTablePtr(int idx, int rayType) {
-    return (char *)GetHitGroupShaderIdPtr(idx, rayType) +
+  void *GetHitGroupShaderIdPtr(int Idx, int RayType) {
+    return HostPtr +
+           GetHitGroupShaderRecordIdx(Idx, RayType) * ShaderRecordSizeInBytes;
+  }
+
+  void *GetRaygenRootTablePtr(int Idx) {
+    return (char *)GetRaygenShaderIdPtr(Idx) + SHADER_ID_SIZE_IN_BYTES;
+  }
+  void *GetMissRootTablePtr(int Idx, int RayType) {
+    return (char *)GetMissShaderIdPtr(Idx, RayType) + SHADER_ID_SIZE_IN_BYTES;
+  }
+  void *GetHitGroupRootTablePtr(int Idx, int RayType) {
+    return (char *)GetHitGroupShaderIdPtr(Idx, RayType) +
            SHADER_ID_SIZE_IN_BYTES;
   }
 
-  int GetRaygenRangeInBytes() {
-    return m_raygenCount * m_shaderRecordSizeInBytes;
-  }
-  int GetMissRangeInBytes() { return m_missCount * m_shaderRecordSizeInBytes; }
+  int GetRaygenRangeInBytes() { return RaygenCount * ShaderRecordSizeInBytes; }
+  int GetMissRangeInBytes() { return MissCount * ShaderRecordSizeInBytes; }
   int GetHitGroupRangeInBytes() {
-    return m_hitGroupCount * m_shaderRecordSizeInBytes;
+    return HitGroupCount * ShaderRecordSizeInBytes;
   }
 
   D3D12_GPU_VIRTUAL_ADDRESS GetRaygenStartGpuVA() {
-    return m_sbtResource->GetGPUVirtualAddress() +
-           GetRaygenShaderRecordIdx(0) * m_shaderRecordSizeInBytes;
+    return SBTResource->GetGPUVirtualAddress() +
+           GetRaygenShaderRecordIdx(0) * ShaderRecordSizeInBytes;
   }
   D3D12_GPU_VIRTUAL_ADDRESS GetMissStartGpuVA() {
-    return m_sbtResource->GetGPUVirtualAddress() +
-           GetMissShaderRecordIdx(0, 0) * m_shaderRecordSizeInBytes;
+    return SBTResource->GetGPUVirtualAddress() +
+           GetMissShaderRecordIdx(0, 0) * ShaderRecordSizeInBytes;
   }
   D3D12_GPU_VIRTUAL_ADDRESS GetHitGroupStartGpuVA() {
-    return m_sbtResource->GetGPUVirtualAddress() +
-           GetHitGroupShaderRecordIdx(0, 0) * m_shaderRecordSizeInBytes;
+    return SBTResource->GetGPUVirtualAddress() +
+           GetHitGroupShaderRecordIdx(0, 0) * ShaderRecordSizeInBytes;
   }
 
 private:
-  CComPtr<ID3D12Resource> m_sbtResource;
-  CComPtr<ID3D12Resource> m_sbtUploadResource;
-  char *m_hostPtr = nullptr;
-  int m_rayTypeCount = 0;
-  int m_raygenCount = 0;
-  int m_missCount = 0;
-  int m_hitGroupCount = 0;
-  int m_rootTableSizeInBytes = 0;
-  int m_shaderRecordSizeInBytes = 0;
-  int m_missStartIdx = 0;
-  int m_hitGroupStartIdx = 0;
+  CComPtr<ID3D12Resource> SBTResource;
+  CComPtr<ID3D12Resource> SBTUploadResource;
+  char *HostPtr = nullptr;
+  int RayTypeCount = 0;
+  int RaygenCount = 0;
+  int MissCount = 0;
+  int HitGroupCount = 0;
+  int RootTableSizeInBytes = 0;
+  int ShaderRecordSizeInBytes = 0;
+  int MissStartIdx = 0;
+  int HitGroupStartIdx = 0;
 };
 
 //-----------------------------------------------------------------------------
 void AllocateBuffer(
-    ID3D12Device *pDevice, UINT64 bufferSize, ID3D12Resource **ppResource,
-    bool allowUAV = false,
-    D3D12_RESOURCE_STATES initialResourceState = D3D12_RESOURCE_STATE_COMMON,
-    const wchar_t *resourceName = nullptr) {
-  auto uploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-  auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(
-      bufferSize, allowUAV ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS
+    ID3D12Device *Device, UINT64 BufferSize, ID3D12Resource **Resource,
+    bool AllowUAV = false,
+    D3D12_RESOURCE_STATES InitialResourceState = D3D12_RESOURCE_STATE_COMMON,
+    const wchar_t *ResourceName = nullptr) {
+  auto UploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+  auto BufferDesc = CD3DX12_RESOURCE_DESC::Buffer(
+      BufferSize, AllowUAV ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS
                            : D3D12_RESOURCE_FLAG_NONE);
-  VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
-      &uploadHeapProperties, D3D12_HEAP_FLAG_NONE, &bufferDesc,
-      initialResourceState, nullptr, IID_PPV_ARGS(ppResource)));
-  if (resourceName) {
-    (*ppResource)->SetName(resourceName);
+  VERIFY_SUCCEEDED(Device->CreateCommittedResource(
+      &UploadHeapProperties, D3D12_HEAP_FLAG_NONE, &BufferDesc,
+      InitialResourceState, nullptr, IID_PPV_ARGS(Resource)));
+  if (ResourceName) {
+    (*Resource)->SetName(ResourceName);
   }
 }
 
 //-----------------------------------------------------------------------------
-void ReallocScratchResource(ID3D12Device *pDevice, ID3D12Resource **ppResource,
-                            UINT64 nbytes) {
-
-  if (!(*ppResource) || (*ppResource)->GetDesc().Width < nbytes) {
-    AllocateBuffer(pDevice, nbytes, ppResource, true,
+void ReallocScratchResource(ID3D12Device *Device, ID3D12Resource **Resource,
+                            UINT64 NBytes) {
+  if (!(*Resource) || (*Resource)->GetDesc().Width < NBytes) {
+    AllocateBuffer(Device, NBytes, Resource, true,
                    D3D12_RESOURCE_STATE_UNORDERED_ACCESS, L"scratchResource");
   }
 }
 
 //-----------------------------------------------------------------------------
-void AllocateUploadBuffer(ID3D12Device *pDevice, const void *pData,
-                          UINT64 datasize, ID3D12Resource **ppResource,
-                          const wchar_t *resourceName = nullptr) {
-  auto uploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-  auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(datasize);
-  VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
-      &uploadHeapProperties, D3D12_HEAP_FLAG_NONE, &bufferDesc,
-      D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(ppResource)));
-  if (resourceName) {
-    (*ppResource)->SetName(resourceName);
+void AllocateUploadBuffer(ID3D12Device *Device, const void *Data,
+                          UINT64 DataSize, ID3D12Resource **Resource,
+                          const wchar_t *ResourceName = nullptr) {
+  auto UploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+  auto BufferDesc = CD3DX12_RESOURCE_DESC::Buffer(DataSize);
+  VERIFY_SUCCEEDED(Device->CreateCommittedResource(
+      &UploadHeapProperties, D3D12_HEAP_FLAG_NONE, &BufferDesc,
+      D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(Resource)));
+  if (ResourceName) {
+    (*Resource)->SetName(ResourceName);
   }
-  void *pMappedData;
-  VERIFY_SUCCEEDED((*ppResource)->Map(0, nullptr, &pMappedData));
-  memcpy(pMappedData, pData, datasize);
-  (*ppResource)->Unmap(0, nullptr);
+  void *MappedData;
+  VERIFY_SUCCEEDED((*Resource)->Map(0, nullptr, &MappedData));
+  memcpy(MappedData, Data, DataSize);
+  (*Resource)->Unmap(0, nullptr);
 }
 
 //-----------------------------------------------------------------------------
-void AllocateBufferFromUpload(ID3D12Device *pDevice,
-                              ID3D12GraphicsCommandList *pCommandList,
-                              ID3D12Resource *uploadSource,
-                              ID3D12Resource **ppResource,
-                              D3D12_RESOURCE_STATES targetResourceState,
-                              const wchar_t *resourceName = nullptr) {
-  const bool allowUAV =
-      targetResourceState == D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-  AllocateBuffer(pDevice, uploadSource->GetDesc().Width, ppResource, allowUAV,
-                 D3D12_RESOURCE_STATE_COPY_DEST, resourceName);
-  pCommandList->CopyResource(*ppResource, uploadSource);
-  CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-      *ppResource, D3D12_RESOURCE_STATE_COPY_DEST, targetResourceState);
-  pCommandList->ResourceBarrier(1, (const D3D12_RESOURCE_BARRIER *)&barrier);
+void AllocateBufferFromUpload(ID3D12Device *Device,
+                              ID3D12GraphicsCommandList *CommandList,
+                              ID3D12Resource *UploadSource,
+                              ID3D12Resource **Resource,
+                              D3D12_RESOURCE_STATES TargetResourceState,
+                              const wchar_t *ResourceName = nullptr) {
+  const bool AllowUAV =
+      TargetResourceState == D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+  AllocateBuffer(Device, UploadSource->GetDesc().Width, Resource, AllowUAV,
+                 D3D12_RESOURCE_STATE_COPY_DEST, ResourceName);
+  CommandList->CopyResource(*Resource, UploadSource);
+  CD3DX12_RESOURCE_BARRIER Barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+      *Resource, D3D12_RESOURCE_STATE_COPY_DEST, TargetResourceState);
+  CommandList->ResourceBarrier(1, (const D3D12_RESOURCE_BARRIER *)&Barrier);
 }
 
 //= DXR Utility

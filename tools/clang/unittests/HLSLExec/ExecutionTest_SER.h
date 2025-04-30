@@ -10,9 +10,11 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#pragma once
+
 TEST_F(ExecutionTest, SERScalarGetterTest) {
   // SER: Test basic function of HitObject getters.
-  static const char *pShader = R"(
+  static const char *ShaderSrc = R"(
 struct SceneConstants
 {
     float4 eye;
@@ -20,7 +22,7 @@ struct SceneConstants
     float4 V;
     float4 W;
     float sceneScale;
-    uint2 windowSize;
+    uint2 WindowSize;
     int rayFlags;    
 };
 
@@ -96,54 +98,33 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 }
 )";
 
-  CComPtr<ID3D12Device> pDevice;
-  bool bSM_6_9_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_9, false);
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(L"SERTest requires shader model 6.9+ but no "
-                               L"supported device was found.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, true))
     return;
-  }
-  bool bDXRSupported =
-      bSM_6_9_Supported && DoesDeviceSupportRayTracing(pDevice);
-
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support SM 6.9.");
-  }
-  if (!bDXRSupported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support DXR.");
-  }
 
   // Initialize test data.
-  const int windowSize = 64;
-
-  if (!bDXRSupported)
-    return;
-
-  WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
+  const int WindowSize = 64;
 
   // RayTMin
   {
-    std::vector<int> testData(windowSize * windowSize * 2, 0);
-    LPCWSTR args[] = {L"-HV 2021",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetRayTMin()");
+    std::vector<int> TestData(WindowSize * WindowSize * 2, 0);
+    LPCWSTR Args[] = {L"-HV 2021",
                       L"-Vd",
                       L"-DVALTYPE=float",
                       L"-DHIT_GET_SCALAR=RayTMin",
                       L"-DMISS_GET_SCALAR=RayTMin",
                       L"-DSER_GET_SCALAR=GetRayTMin"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/);
-    for (int id = 0; id < testData.size(); id += 2) {
-      float *resArray = (float *)(testData.data() + id);
-      float refVal = resArray[0];
-      float serVal = resArray[1];
-      const bool passRayTMin = CompareFloatEpsilon(serVal, refVal, 0.0008f);
-      if (!passRayTMin) {
-        VERIFY_IS_TRUE(passRayTMin);
-        WEX::Logging::Log::Comment(L"HitObject::GetRayTMin() FAILED");
+    for (int Id = 0; Id < TestData.size(); Id += 2) {
+      float *ResArray = (float *)(TestData.data() + Id);
+      float RefVal = ResArray[0];
+      float SerVal = ResArray[1];
+      const bool PassRayTMin = CompareFloatEpsilon(SerVal, RefVal, 0.0008f);
+      if (!PassRayTMin) {
+        VERIFY_IS_TRUE(PassRayTMin);
         return;
       }
     }
@@ -152,24 +133,24 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   // RayTCurrent
   {
-    std::vector<int> testData(windowSize * windowSize * 2, 0);
-    LPCWSTR args[] = {L"-HV 2021",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetRayTCurrent()");
+    std::vector<int> TestData(WindowSize * WindowSize * 2, 0);
+    LPCWSTR Args[] = {L"-HV 2021",
                       L"-Vd",
                       L"-DVALTYPE=float",
                       L"-DHIT_GET_SCALAR=RayTCurrent",
                       L"-DMISS_GET_SCALAR=RayTCurrent",
                       L"-DSER_GET_SCALAR=GetRayTCurrent"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/);
-    for (int id = 0; id < testData.size(); id += 2) {
-      float *resArray = (float *)(testData.data() + id);
-      float refVal = resArray[0];
-      float serVal = resArray[1];
-      const bool passRayTCurrent = CompareFloatEpsilon(serVal, refVal, 0.0008f);
-      if (!passRayTCurrent) {
-        VERIFY_IS_TRUE(passRayTCurrent);
-        WEX::Logging::Log::Comment(L"HitObject::GetRayTCurrent() FAILED");
+    for (int Id = 0; Id < TestData.size(); Id += 2) {
+      float *ResArray = (float *)(TestData.data() + Id);
+      float RefVal = ResArray[0];
+      float SerVal = ResArray[1];
+      const bool PassRayTCurrent = CompareFloatEpsilon(SerVal, RefVal, 0.0008f);
+      if (!PassRayTCurrent) {
+        VERIFY_IS_TRUE(PassRayTCurrent);
         return;
       }
     }
@@ -178,22 +159,22 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   // RayFlags
   {
-    std::vector<int> testData(windowSize * windowSize * 2, 0);
-    LPCWSTR args[] = {L"-HV 2021",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetRayFlags()");
+    std::vector<int> TestData(WindowSize * WindowSize * 2, 0);
+    LPCWSTR Args[] = {L"-HV 2021",
                       L"-Vd",
                       L"-DVALTYPE=uint",
                       L"-DHIT_GET_SCALAR=RayFlags",
                       L"-DMISS_GET_SCALAR=RayFlags",
                       L"-DSER_GET_SCALAR=GetRayFlags"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/);
-    for (int id = 0; id < testData.size(); id += 2) {
-      const int refVal = testData[id];
-      const int serVal = testData[id + 1];
-      if (refVal != serVal) {
-        VERIFY_ARE_EQUAL(refVal, serVal);
-        WEX::Logging::Log::Comment(L"HitObject::GetRayFlags() FAILED");
+    for (int Id = 0; Id < TestData.size(); Id += 2) {
+      const int RefVal = TestData[Id];
+      const int SerVal = TestData[Id + 1];
+      if (RefVal != SerVal) {
+        VERIFY_ARE_EQUAL(RefVal, SerVal);
         return;
       }
     }
@@ -202,22 +183,22 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   // HitKind
   {
-    std::vector<int> testData(windowSize * windowSize * 2, 0);
-    LPCWSTR args[] = {L"-HV 2021",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetHitKind()");
+    std::vector<int> TestData(WindowSize * WindowSize * 2, 0);
+    LPCWSTR Args[] = {L"-HV 2021",
                       L"-Vd",
                       L"-DVALTYPE=uint",
                       L"-DHIT_GET_SCALAR=HitKind",
                       L"-DMISS_GET_SCALAR=getIntZero",
                       L"-DSER_GET_SCALAR=GetHitKind"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/);
-    for (int id = 0; id < testData.size(); id += 2) {
-      const int refVal = testData[id];
-      const int serVal = testData[id + 1];
-      if (refVal != serVal) {
-        VERIFY_ARE_EQUAL(refVal, serVal);
-        WEX::Logging::Log::Comment(L"HitObject::GetHitKind() FAILED");
+    for (int Id = 0; Id < TestData.size(); Id += 2) {
+      const int RefVal = TestData[Id];
+      const int SerVal = TestData[Id + 1];
+      if (RefVal != SerVal) {
+        VERIFY_ARE_EQUAL(RefVal, SerVal);
         return;
       }
     }
@@ -226,22 +207,22 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   // GeometryIndex
   {
-    std::vector<int> testData(windowSize * windowSize * 2, 0);
-    LPCWSTR args[] = {L"-HV 2021",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetGeometryIndex()");
+    std::vector<int> TestData(WindowSize * WindowSize * 2, 0);
+    LPCWSTR Args[] = {L"-HV 2021",
                       L"-Vd",
                       L"-DVALTYPE=uint",
                       L"-DHIT_GET_SCALAR=GeometryIndex",
                       L"-DMISS_GET_SCALAR=getIntZero",
                       L"-DSER_GET_SCALAR=GetGeometryIndex"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/);
-    for (int id = 0; id < testData.size(); id += 2) {
-      const int refVal = testData[id];
-      const int serVal = testData[id + 1];
-      if (refVal != serVal) {
-        VERIFY_ARE_EQUAL(refVal, serVal);
-        WEX::Logging::Log::Comment(L"HitObject::GetGeometryIndex() FAILED");
+    for (int Id = 0; Id < TestData.size(); Id += 2) {
+      const int RefVal = TestData[Id];
+      const int SerVal = TestData[Id + 1];
+      if (RefVal != SerVal) {
+        VERIFY_ARE_EQUAL(RefVal, SerVal);
         return;
       }
     }
@@ -250,22 +231,22 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   // InstanceIndex
   {
-    std::vector<int> testData(windowSize * windowSize * 2, 0);
-    LPCWSTR args[] = {L"-HV 2021",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetInstanceIndex()");
+    std::vector<int> TestData(WindowSize * WindowSize * 2, 0);
+    LPCWSTR Args[] = {L"-HV 2021",
                       L"-Vd",
                       L"-DVALTYPE=uint",
                       L"-DHIT_GET_SCALAR=InstanceIndex",
                       L"-DMISS_GET_SCALAR=getIntZero",
                       L"-DSER_GET_SCALAR=GetInstanceIndex"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/);
-    for (int id = 0; id < testData.size(); id += 2) {
-      const int refVal = testData[id];
-      const int serVal = testData[id + 1];
-      if (refVal != serVal) {
-        VERIFY_ARE_EQUAL(refVal, serVal);
-        WEX::Logging::Log::Comment(L"HitObject::GetInstanceIndex() FAILED");
+    for (int Id = 0; Id < TestData.size(); Id += 2) {
+      const int RefVal = TestData[Id];
+      const int SerVal = TestData[Id + 1];
+      if (RefVal != SerVal) {
+        VERIFY_ARE_EQUAL(RefVal, SerVal);
         return;
       }
     }
@@ -274,22 +255,22 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   // InstanceID
   {
-    std::vector<int> testData(windowSize * windowSize * 2, 0);
-    LPCWSTR args[] = {L"-HV 2021",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetInstanceID()");
+    std::vector<int> TestData(WindowSize * WindowSize * 2, 0);
+    LPCWSTR Args[] = {L"-HV 2021",
                       L"-Vd",
                       L"-DVALTYPE=uint",
                       L"-DHIT_GET_SCALAR=InstanceID",
                       L"-DMISS_GET_SCALAR=getIntZero",
                       L"-DSER_GET_SCALAR=GetInstanceID"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/);
-    for (int id = 0; id < testData.size(); id += 2) {
-      const int refVal = testData[id];
-      const int serVal = testData[id + 1];
-      if (refVal != serVal) {
-        VERIFY_ARE_EQUAL(refVal, serVal);
-        WEX::Logging::Log::Comment(L"HitObject::GetInstanceID() FAILED");
+    for (int Id = 0; Id < TestData.size(); Id += 2) {
+      const int RefVal = TestData[Id];
+      const int SerVal = TestData[Id + 1];
+      if (RefVal != SerVal) {
+        VERIFY_ARE_EQUAL(RefVal, SerVal);
         return;
       }
     }
@@ -298,22 +279,22 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   // PrimitiveIndex
   {
-    std::vector<int> testData(windowSize * windowSize * 2, 0);
-    LPCWSTR args[] = {L"-HV 2021",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetPrimitiveIndex()");
+    std::vector<int> TestData(WindowSize * WindowSize * 2, 0);
+    LPCWSTR Args[] = {L"-HV 2021",
                       L"-Vd",
                       L"-DVALTYPE=uint",
                       L"-DHIT_GET_SCALAR=PrimitiveIndex",
                       L"-DMISS_GET_SCALAR=getIntZero",
                       L"-DSER_GET_SCALAR=GetPrimitiveIndex"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/);
-    for (int id = 0; id < testData.size(); id += 2) {
-      const int refVal = testData[id];
-      const int serVal = testData[id + 1];
-      if (refVal != serVal) {
-        VERIFY_ARE_EQUAL(refVal, serVal);
-        WEX::Logging::Log::Comment(L"HitObject::GetPrimitiveIndex() FAILED");
+    for (int Id = 0; Id < TestData.size(); Id += 2) {
+      const int RefVal = TestData[Id];
+      const int SerVal = TestData[Id + 1];
+      if (RefVal != SerVal) {
+        VERIFY_ARE_EQUAL(RefVal, SerVal);
         return;
       }
     }
@@ -323,7 +304,7 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
 TEST_F(ExecutionTest, SERVectorGetterTest) {
   // SER: Test basic function of HitObject getters.
-  static const char *pShader = R"(
+  static const char *ShaderSrc = R"(
 struct SceneConstants
 {
     float4 eye;
@@ -331,7 +312,7 @@ struct SceneConstants
     float4 V;
     float4 W;
     float sceneScale;
-    uint2 windowSize;
+    uint2 WindowSize;
     int rayFlags;    
 };
 
@@ -410,60 +391,39 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 }
 )";
 
-  CComPtr<ID3D12Device> pDevice;
-  bool bSM_6_9_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_9, false);
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(L"SERTest requires shader model 6.9+ but no "
-                               L"supported device was found.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, true))
     return;
-  }
-  bool bDXRSupported =
-      bSM_6_9_Supported && DoesDeviceSupportRayTracing(pDevice);
-
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support SM 6.9.");
-  }
-  if (!bDXRSupported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support DXR.");
-  }
 
   // Initialize test data.
-  const int windowSize = 64;
-
-  if (!bDXRSupported)
-    return;
-
-  WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
+  const int WindowSize = 64;
 
   // WorldRayOrigin
   {
-    std::vector<int> testData(windowSize * windowSize * 6, 0);
-    LPCWSTR args[] = {L"-HV 2021", L"-Vd", L"-DHIT_GET_VECTOR=WorldRayOrigin",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetWorldRayOrigin()");
+    std::vector<int> TestData(WindowSize * WindowSize * 6, 0);
+    LPCWSTR Args[] = {L"-HV 2021", L"-Vd", L"-DHIT_GET_VECTOR=WorldRayOrigin",
                       L"-DMISS_GET_VECTOR=WorldRayOrigin",
                       L"-DSER_GET_VECTOR=GetWorldRayOrigin"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/,
                3 /*payloadCount*/);
-    for (int id = 0; id < testData.size(); id += 6) {
-      float *resArray = (float *)(testData.data() + id);
-      float refX = resArray[0];
-      float serX = resArray[1];
-      float refY = resArray[2];
-      float serY = resArray[3];
-      float refZ = resArray[4];
-      float serZ = resArray[5];
-      const bool passX = CompareFloatEpsilon(serX, refX, 0.0008f);
-      const bool passY = CompareFloatEpsilon(serY, refY, 0.0008f);
-      const bool passZ = CompareFloatEpsilon(serZ, refZ, 0.0008f);
-      if (!passX || !passY || !passZ) {
-        VERIFY_ARE_EQUAL(serX, refX);
-        VERIFY_ARE_EQUAL(serY, refY);
-        VERIFY_ARE_EQUAL(serZ, refZ);
-        WEX::Logging::Log::Comment(L"HitObject::GetWorldRayOrigin() FAILED");
+    for (int Id = 0; Id < TestData.size(); Id += 6) {
+      float *ResArray = (float *)(TestData.data() + Id);
+      float RefX = ResArray[0];
+      float SerX = ResArray[1];
+      float RefY = ResArray[2];
+      float SerY = ResArray[3];
+      float RefZ = ResArray[4];
+      float SerZ = ResArray[5];
+      const bool PassX = CompareFloatEpsilon(SerX, RefX, 0.0008f);
+      const bool PassY = CompareFloatEpsilon(SerY, RefY, 0.0008f);
+      const bool PassZ = CompareFloatEpsilon(SerZ, RefZ, 0.0008f);
+      if (!PassX || !PassY || !PassZ) {
+        VERIFY_ARE_EQUAL(SerX, RefX);
+        VERIFY_ARE_EQUAL(SerY, RefY);
+        VERIFY_ARE_EQUAL(SerZ, RefZ);
         break;
       }
     }
@@ -472,32 +432,32 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   // WorldRayDirection
   {
-    std::vector<int> testData(windowSize * windowSize * 6, 0);
-    LPCWSTR args[] = {L"-HV 2021", L"-Vd",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetWorldRayDirection()");
+    std::vector<int> TestData(WindowSize * WindowSize * 6, 0);
+    LPCWSTR Args[] = {L"-HV 2021", L"-Vd",
                       L"-DHIT_GET_VECTOR=WorldRayDirection",
                       L"-DMISS_GET_VECTOR=WorldRayDirection",
                       L"-DSER_GET_VECTOR=GetWorldRayDirection"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/,
                3 /*payloadCount*/);
-    for (int id = 0; id < testData.size(); id += 6) {
-      float *resArray = (float *)(testData.data() + id);
-      float refX = resArray[0];
-      float serX = resArray[1];
-      float refY = resArray[2];
-      float serY = resArray[3];
-      float refZ = resArray[4];
-      float serZ = resArray[5];
-      const bool passX = CompareFloatEpsilon(serX, refX, 0.0008f);
-      const bool passY = CompareFloatEpsilon(serY, refY, 0.0008f);
-      const bool passZ = CompareFloatEpsilon(serZ, refZ, 0.0008f);
-      if (!passX || !passY || !passZ) {
-        VERIFY_ARE_EQUAL(serX, refX);
-        VERIFY_ARE_EQUAL(serY, refY);
-        VERIFY_ARE_EQUAL(serZ, refZ);
-        WEX::Logging::Log::Comment(L"HitObject::GetWorldRayDirection() FAILED");
-        return;
+    for (int Id = 0; Id < TestData.size(); Id += 6) {
+      float *ResArray = (float *)(TestData.data() + Id);
+      float RefX = ResArray[0];
+      float SerX = ResArray[1];
+      float RefY = ResArray[2];
+      float SerY = ResArray[3];
+      float RefZ = ResArray[4];
+      float SerZ = ResArray[5];
+      const bool PassX = CompareFloatEpsilon(SerX, RefX, 0.0008f);
+      const bool PassY = CompareFloatEpsilon(SerY, RefY, 0.0008f);
+      const bool PassZ = CompareFloatEpsilon(SerZ, RefZ, 0.0008f);
+      if (!PassX || !PassY || !PassZ) {
+        VERIFY_ARE_EQUAL(SerX, RefX);
+        VERIFY_ARE_EQUAL(SerY, RefY);
+        VERIFY_ARE_EQUAL(SerZ, RefZ);
+        break;
       }
     }
     WEX::Logging::Log::Comment(L"HitObject::GetWorldRayDirection() PASSED");
@@ -505,30 +465,30 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   // ObjectRayOrigin
   {
-    std::vector<int> testData(windowSize * windowSize * 6, 0);
-    LPCWSTR args[] = {L"-HV 2021", L"-Vd", L"-DHIT_GET_VECTOR=ObjectRayOrigin",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetObjectRayOrigin()");
+    std::vector<int> TestData(WindowSize * WindowSize * 6, 0);
+    LPCWSTR Args[] = {L"-HV 2021", L"-Vd", L"-DHIT_GET_VECTOR=ObjectRayOrigin",
                       L"-DMISS_GET_VECTOR=WorldRayOrigin",
                       L"-DSER_GET_VECTOR=GetObjectRayOrigin"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/,
                3 /*payloadCount*/);
-    for (int id = 0; id < testData.size(); id += 6) {
-      float *resArray = (float *)(testData.data() + id);
-      float refX = resArray[0];
-      float serX = resArray[1];
-      float refY = resArray[2];
-      float serY = resArray[3];
-      float refZ = resArray[4];
-      float serZ = resArray[5];
-      const bool passX = CompareFloatEpsilon(serX, refX, 0.0008f);
-      const bool passY = CompareFloatEpsilon(serY, refY, 0.0008f);
-      const bool passZ = CompareFloatEpsilon(serZ, refZ, 0.0008f);
-      if (!passX || !passY || !passZ) {
-        VERIFY_ARE_EQUAL(serX, refX);
-        VERIFY_ARE_EQUAL(serY, refY);
-        VERIFY_ARE_EQUAL(serZ, refZ);
-        WEX::Logging::Log::Comment(L"HitObject::GetObjectRayOrigin() FAILED");
+    for (int Id = 0; Id < TestData.size(); Id += 6) {
+      float *ResArray = (float *)(TestData.data() + Id);
+      float RefX = ResArray[0];
+      float SerX = ResArray[1];
+      float RefY = ResArray[2];
+      float SerY = ResArray[3];
+      float RefZ = ResArray[4];
+      float SerZ = ResArray[5];
+      const bool PassX = CompareFloatEpsilon(SerX, RefX, 0.0008f);
+      const bool PassY = CompareFloatEpsilon(SerY, RefY, 0.0008f);
+      const bool PassZ = CompareFloatEpsilon(SerZ, RefZ, 0.0008f);
+      if (!PassX || !PassY || !PassZ) {
+        VERIFY_ARE_EQUAL(SerX, RefX);
+        VERIFY_ARE_EQUAL(SerY, RefY);
+        VERIFY_ARE_EQUAL(SerZ, RefZ);
         break;
       }
     }
@@ -537,32 +497,31 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   // ObjectRayDirection
   {
-    std::vector<int> testData(windowSize * windowSize * 6, 0);
-    LPCWSTR args[] = {L"-HV 2021", L"-Vd",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetObjectRayDirection()");
+    std::vector<int> TestData(WindowSize * WindowSize * 6, 0);
+    LPCWSTR Args[] = {L"-HV 2021", L"-Vd",
                       L"-DHIT_GET_VECTOR=ObjectRayDirection",
                       L"-DMISS_GET_VECTOR=WorldRayDirection",
                       L"-DSER_GET_VECTOR=GetObjectRayDirection"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/,
                3 /*payloadCount*/);
-    for (int id = 0; id < testData.size(); id += 6) {
-      float *resArray = (float *)(testData.data() + id);
-      float refX = resArray[0];
-      float serX = resArray[1];
-      float refY = resArray[2];
-      float serY = resArray[3];
-      float refZ = resArray[4];
-      float serZ = resArray[5];
-      const bool passX = CompareFloatEpsilon(serX, refX, 0.0008f);
-      const bool passY = CompareFloatEpsilon(serY, refY, 0.0008f);
-      const bool passZ = CompareFloatEpsilon(serZ, refZ, 0.0008f);
-      if (!passX || !passY || !passZ) {
-        VERIFY_ARE_EQUAL(serX, refX);
-        VERIFY_ARE_EQUAL(serY, refY);
-        VERIFY_ARE_EQUAL(serZ, refZ);
-        WEX::Logging::Log::Comment(
-            L"HitObject::GetObjectRayDirection() FAILED");
+    for (int Id = 0; Id < TestData.size(); Id += 6) {
+      float *ResArray = (float *)(TestData.data() + Id);
+      float RefX = ResArray[0];
+      float SerX = ResArray[1];
+      float RefY = ResArray[2];
+      float SerY = ResArray[3];
+      float RefZ = ResArray[4];
+      float SerZ = ResArray[5];
+      const bool PassX = CompareFloatEpsilon(SerX, RefX, 0.0008f);
+      const bool PassY = CompareFloatEpsilon(SerY, RefY, 0.0008f);
+      const bool PassZ = CompareFloatEpsilon(SerZ, RefZ, 0.0008f);
+      if (!PassX || !PassY || !PassZ) {
+        VERIFY_ARE_EQUAL(SerX, RefX);
+        VERIFY_ARE_EQUAL(SerY, RefY);
+        VERIFY_ARE_EQUAL(SerZ, RefZ);
         break;
       }
     }
@@ -572,7 +531,7 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
 TEST_F(ExecutionTest, SERMatrixGetterTest) {
   // SER: Test basic function of HitObject getters.
-  static const char *pShader = R"(
+  static const char *ShaderSrc = R"(
 struct SceneConstants
 {
     float4 eye;
@@ -580,7 +539,7 @@ struct SceneConstants
     float4 V;
     float4 W;
     float sceneScale;
-    uint2 windowSize;
+    uint2 WindowSize;
     int rayFlags;
 };
 
@@ -679,59 +638,38 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 }
 )";
 
-  CComPtr<ID3D12Device> pDevice;
-  bool bSM_6_9_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_9, false);
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(L"SERTest requires shader model 6.9+ but no "
-                               L"supported device was found.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    return;
-  }
-  bool bDXRSupported =
-      bSM_6_9_Supported && DoesDeviceSupportRayTracing(pDevice);
-
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support SM 6.9.");
-  }
-  if (!bDXRSupported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support DXR.");
-  }
-
-  // Initialize test data.
-  const int windowSize = 64;
-
-  if (!bDXRSupported)
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, true))
     return;
 
-  WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
+  const int WindowSize = 64;
 
   // WorldToObject3x4
   {
-    std::vector<int> testData(windowSize * windowSize * 24, 0);
-    LPCWSTR args[] = {L"-HV 2021",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetWorldToObject3x4()");
+    std::vector<int> TestData(WindowSize * WindowSize * 24, 0);
+    LPCWSTR Args[] = {L"-HV 2021",
                       L"-Vd",
                       L"-DHIT_GET_MATRIX=WorldToObject3x4",
                       L"-DMISS_GET_MATRIX=getMatIdentity",
                       L"-DSER_GET_MATRIX=GetWorldToObject3x4",
                       L"-DROWS=3",
                       L"-DCOLS=4"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/,
                12 /*payloadCount*/);
     const int ROWS = 3;
     const int COLS = 4;
-    for (int id = 0; id < testData.size(); id += 24) {
-      float *resArray = (float *)(testData.data() + id);
-      for (int r = 0; r < ROWS; r++) {
-        for (int c = 0; c < COLS; c++) {
-          int refIdx = 2 * (r * COLS + c);
-          float ref = resArray[refIdx];
-          float ser = resArray[1 + refIdx];
-          if (!CompareFloatEpsilon(ser, ref, 0.0008f)) {
-            VERIFY_ARE_EQUAL(ser, ref);
+    for (int Id = 0; Id < TestData.size(); Id += 24) {
+      float *ResArray = (float *)(TestData.data() + Id);
+      for (int RowIdx = 0; RowIdx < ROWS; RowIdx++) {
+        for (int ColIdx = 0; ColIdx < COLS; ColIdx++) {
+          int RefIdx = 2 * (RowIdx * COLS + ColIdx);
+          float Ref = ResArray[RefIdx];
+          float Ser = ResArray[1 + RefIdx];
+          if (!CompareFloatEpsilon(Ser, Ref, 0.0008f)) {
+            VERIFY_ARE_EQUAL(Ser, Ref);
           }
         }
       }
@@ -741,29 +679,30 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   // WorldToObject4x3
   {
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetWorldToObject4x3()");
     const int ROWS = 4;
     const int COLS = 3;
-    std::vector<int> testData(windowSize * windowSize * 2 * ROWS * COLS, 0);
-    LPCWSTR args[] = {L"-HV 2021",
+    std::vector<int> TestData(WindowSize * WindowSize * 2 * ROWS * COLS, 0);
+    LPCWSTR Args[] = {L"-HV 2021",
                       L"-Vd",
                       L"-DHIT_GET_MATRIX=WorldToObject4x3",
                       L"-DMISS_GET_MATRIX=getMatIdentity",
                       L"-DSER_GET_MATRIX=GetWorldToObject4x3",
                       L"-DROWS=4",
                       L"-DCOLS=3"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/,
                12 /*payloadCount*/);
-    for (int id = 0; id < testData.size(); id += 2 * ROWS * COLS) {
-      float *resArray = (float *)(testData.data() + id);
-      for (int r = 0; r < ROWS; r++) {
-        for (int c = 0; c < COLS; c++) {
-          int refIdx = 2 * (r * COLS + c);
-          float ref = resArray[refIdx];
-          float ser = resArray[1 + refIdx];
-          if (!CompareFloatEpsilon(ser, ref, 0.0008f)) {
-            VERIFY_ARE_EQUAL(ser, ref);
+    for (int Id = 0; Id < TestData.size(); Id += 2 * ROWS * COLS) {
+      float *ResArray = (float *)(TestData.data() + Id);
+      for (int RowIdx = 0; RowIdx < ROWS; RowIdx++) {
+        for (int ColIdx = 0; ColIdx < COLS; ColIdx++) {
+          int RefIdx = 2 * (RowIdx * COLS + ColIdx);
+          float Ref = ResArray[RefIdx];
+          float Ser = ResArray[1 + RefIdx];
+          if (!CompareFloatEpsilon(Ser, Ref, 0.0008f)) {
+            VERIFY_ARE_EQUAL(Ser, Ref);
           }
         }
       }
@@ -773,29 +712,30 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   // ObjectToWorld3x4
   {
-    std::vector<int> testData(windowSize * windowSize * 24, 0);
-    LPCWSTR args[] = {L"-HV 2021",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetObjectToWorld3x4()");
+    std::vector<int> TestData(WindowSize * WindowSize * 24, 0);
+    LPCWSTR Args[] = {L"-HV 2021",
                       L"-Vd",
                       L"-DHIT_GET_MATRIX=ObjectToWorld3x4",
                       L"-DMISS_GET_MATRIX=getMatIdentity",
                       L"-DSER_GET_MATRIX=GetObjectToWorld3x4",
                       L"-DROWS=3",
                       L"-DCOLS=4"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/,
                12 /*payloadCount*/);
     const int ROWS = 3;
     const int COLS = 4;
-    for (int id = 0; id < testData.size(); id += 24) {
-      float *resArray = (float *)(testData.data() + id);
-      for (int r = 0; r < ROWS; r++) {
-        for (int c = 0; c < COLS; c++) {
-          int refIdx = 2 * (r * COLS + c);
-          float ref = resArray[refIdx];
-          float ser = resArray[1 + refIdx];
-          if (!CompareFloatEpsilon(ser, ref, 0.0008f)) {
-            VERIFY_ARE_EQUAL(ser, ref);
+    for (int Id = 0; Id < TestData.size(); Id += 24) {
+      float *ResArray = (float *)(TestData.data() + Id);
+      for (int RowIdx = 0; RowIdx < ROWS; RowIdx++) {
+        for (int ColIdx = 0; ColIdx < COLS; ColIdx++) {
+          int RefIdx = 2 * (RowIdx * COLS + ColIdx);
+          float Ref = ResArray[RefIdx];
+          float Ser = ResArray[1 + RefIdx];
+          if (!CompareFloatEpsilon(Ser, Ref, 0.0008f)) {
+            VERIFY_ARE_EQUAL(Ser, Ref);
           }
         }
       }
@@ -805,31 +745,30 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   // ObjectToWorld4x3
   {
-    std::vector<int> testData(windowSize * windowSize * 24, 0);
-    LPCWSTR args[] = {L"-HV 2021",
+    WEX::Logging::Log::Comment(L"Testing HitObject::GetObjectToWorld4x3()");
+    std::vector<int> TestData(WindowSize * WindowSize * 24, 0);
+    LPCWSTR Args[] = {L"-HV 2021",
                       L"-Vd",
                       L"-DHIT_GET_MATRIX=ObjectToWorld4x3",
                       L"-DMISS_GET_MATRIX=getMatIdentity",
                       L"-DSER_GET_MATRIX=GetObjectToWorld4x3",
                       L"-DROWS=4",
                       L"-DCOLS=3"};
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
+    RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+               WindowSize, WindowSize, true /*useMesh*/,
                false /*useProceduralGeometry*/, false /*useIS*/,
                12 /*payloadCount*/);
     const int ROWS = 4;
     const int COLS = 3;
-    for (int id = 0; id < testData.size(); id += 24) {
-      float *resArray = (float *)(testData.data() + id);
-      for (int r = 0; r < ROWS; r++) {
-        for (int c = 0; c < COLS; c++) {
-          int refIdx = 2 * (r * COLS + c);
-          float ref = resArray[refIdx];
-          float ser = resArray[1 + refIdx];
-          if (!CompareFloatEpsilon(ser, ref, 0.0008f)) {
-            VERIFY_ARE_EQUAL(ser, ref);
-            WEX::Logging::Log::Comment(
-                L"HitObject::GetObjectToWorld4x3() FAILED");
+    for (int Id = 0; Id < TestData.size(); Id += 24) {
+      float *ResArray = (float *)(TestData.data() + Id);
+      for (int RowIdx = 0; RowIdx < ROWS; RowIdx++) {
+        for (int ColIdx = 0; ColIdx < COLS; ColIdx++) {
+          int RefIdx = 2 * (RowIdx * COLS + ColIdx);
+          float Ref = ResArray[RefIdx];
+          float Ser = ResArray[1 + RefIdx];
+          if (!CompareFloatEpsilon(Ser, Ref, 0.0008f)) {
+            VERIFY_ARE_EQUAL(Ser, Ref);
             break;
           }
         }
@@ -841,7 +780,7 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
 TEST_F(ExecutionTest, SERBasicTest) {
   // SER: Test basic functionality.
-  static const char *pShader = R"(
+  static const char *ShaderSrc = R"(
 struct SceneConstants
 {
     float4 eye;
@@ -849,7 +788,7 @@ struct SceneConstants
     float4 V;
     float4 W;
     float sceneScale;
-    uint2 windowSize;
+    uint2 WindowSize;
     int rayFlags;    
 };
 
@@ -922,50 +861,29 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
 )";
 
-  CComPtr<ID3D12Device> pDevice;
-  bool bSM_6_9_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_9, false);
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(L"SERTest requires shader model 6.9+ but no "
-                               L"supported device was found.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, true))
     return;
-  }
-  bool bDXRSupported =
-      bSM_6_9_Supported && DoesDeviceSupportRayTracing(pDevice);
 
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support SM 6.9.");
-  }
-  if (!bDXRSupported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support DXR.");
-  }
+  const int WindowSize = 64;
+  std::vector<int> TestData(WindowSize * WindowSize, 0);
+  LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
 
-  // Initialize test data.
-  const int windowSize = 64;
-  std::vector<int> testData(windowSize * windowSize, 0);
-  LPCWSTR args[] = {L"-HV 2021", L"-Vd"};
-
-  if (bDXRSupported) {
-    WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/);
-    std::map<int, int> histo;
-    for (int val : testData) {
-      ++histo[val];
-    }
-    VERIFY_ARE_EQUAL(histo.size(), 2);
-    VERIFY_ARE_EQUAL(histo[2], 4030);
-    VERIFY_ARE_EQUAL(histo[5], 66);
-  }
+  RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+             WindowSize, WindowSize, true /*useMesh*/,
+             false /*useProceduralGeometry*/, false /*useIS*/);
+  std::map<int, int> Histo;
+  for (int Val : TestData)
+    ++Histo[Val];
+  VERIFY_ARE_EQUAL(Histo.size(), 2);
+  VERIFY_ARE_EQUAL(Histo[2], 4030);
+  VERIFY_ARE_EQUAL(Histo[5], 66);
 }
 
 TEST_F(ExecutionTest, SERShaderTableIndexTest) {
   // Test SER with HitObject::SetShaderTableIndex and
   // HitObject::GetShaderTableIndex
-  static const char *pShader = R"(
+  static const char *ShaderSrc = R"(
 struct SceneConstants
 {
     float4 eye;
@@ -973,7 +891,7 @@ struct SceneConstants
     float4 V;
     float4 W;
     float sceneScale;
-    uint2 windowSize;
+    uint2 WindowSize;
     int rayFlags;    
 };
 
@@ -1063,49 +981,30 @@ void chAABB(inout PerRayData payload, in Attrs attrs)
 
 )";
 
-  CComPtr<ID3D12Device> pDevice;
-  bool bSM_6_9_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_9, false);
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(L"SERTest requires shader model 6.9+ but no "
-                               L"supported device was found.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, true))
     return;
-  }
-  bool bDXRSupported =
-      bSM_6_9_Supported && DoesDeviceSupportRayTracing(pDevice);
-
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support SM 6.9.");
-  }
-  if (!bDXRSupported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support DXR.");
-  }
 
   // Initialize test data.
-  const int windowSize = 64;
-  std::vector<int> testData(windowSize * windowSize, 0);
-  LPCWSTR args[] = {L"-HV 2021", L"-Vd"};
+  const int WindowSize = 64;
+  std::vector<int> TestData(WindowSize * WindowSize, 0);
+  LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
 
-  if (bDXRSupported) {
-    WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*mesh*/,
-               true /*procedural geometry*/, false /*useIS*/);
-    std::map<int, int> histo;
-    for (int val : testData) {
-      ++histo[val];
-    }
-    VERIFY_ARE_EQUAL(histo.size(), 2);
-    VERIFY_ARE_EQUAL(histo[2], 4030);
-    VERIFY_ARE_EQUAL(histo[13], 66);
-  }
+  WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
+  RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+             WindowSize, WindowSize, true /*mesh*/,
+             true /*procedural geometry*/, false /*useIS*/);
+  std::map<int, int> Histo;
+  for (int Val : TestData)
+    ++Histo[Val];
+  VERIFY_ARE_EQUAL(Histo.size(), 2);
+  VERIFY_ARE_EQUAL(Histo[2], 4030);
+  VERIFY_ARE_EQUAL(Histo[13], 66);
 }
 
 TEST_F(ExecutionTest, SERLoadLocalRootTableConstantTest) {
   // Test SER with HitObject::LoadLocalRootTableConstant
-  static const char *pShader = R"(
+  static const char *ShaderSrc = R"(
 struct SceneConstants
 {
     float4 eye;
@@ -1113,7 +1012,7 @@ struct SceneConstants
     float4 V;
     float4 W;
     float sceneScale;
-    uint2 windowSize;
+    uint2 WindowSize;
     int rayFlags;    
 };
 
@@ -1204,48 +1103,28 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
 )";
 
-  CComPtr<ID3D12Device> pDevice;
-  bool bSM_6_9_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_9, false);
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(L"SERTest requires shader model 6.9+ but no "
-                               L"supported device was found.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, true))
     return;
-  }
-  bool bDXRSupported =
-      bSM_6_9_Supported && DoesDeviceSupportRayTracing(pDevice);
-
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support SM 6.9.");
-  }
-  if (!bDXRSupported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support DXR.");
-  }
 
   // Initialize test data.
-  const int windowSize = 64;
-  std::vector<int> testData(windowSize * windowSize, 0);
-  LPCWSTR args[] = {L"-HV 2021", L"-Vd"};
+  const int WindowSize = 64;
+  std::vector<int> TestData(WindowSize * WindowSize, 0);
+  LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
 
-  if (!bDXRSupported)
-    return;
-  WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
-  RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-             testData, windowSize, windowSize, true /*useMesh*/,
+  RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+             WindowSize, WindowSize, true /*useMesh*/,
              false /*useProceduralGeometry*/, false /*useIS*/);
-  std::map<int, int> histo;
-  for (int val : testData) {
-    ++histo[val];
-  }
-  VERIFY_ARE_EQUAL(histo.size(), 1);
-  VERIFY_ARE_EQUAL(histo[126], 4096);
+  std::map<int, int> Histo;
+  for (int Val : TestData)
+    ++Histo[Val];
+  VERIFY_ARE_EQUAL(Histo.size(), 1);
+  VERIFY_ARE_EQUAL(Histo[126], 4096);
 }
 
 TEST_F(ExecutionTest, SERRayQueryTest) {
   // Test SER RayQuery
-  static const char *pShader = R"(
+  static const char *ShaderSrc = R"(
 struct SceneConstants
 {
     float4 eye;
@@ -1253,7 +1132,7 @@ struct SceneConstants
     float4 V;
     float4 W;
     float sceneScale;
-    uint2 windowSize;
+    uint2 WindowSize;
     int rayFlags;
 };
 
@@ -1381,49 +1260,29 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
 )";
 
-  CComPtr<ID3D12Device> pDevice;
-  bool bSM_6_9_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_9, false);
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(L"SERRayQueryTest requires shader model 6.9+ "
-                               L"but no supported device was found.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, true))
     return;
-  }
-  bool bDXRSupported =
-      bSM_6_9_Supported && DoesDeviceSupportRayTracing(pDevice);
-
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(
-        L"SERRayQueryTest skipped, device does not support SM 6.9.");
-  }
-  if (!bDXRSupported) {
-    WEX::Logging::Log::Comment(
-        L"SERRayQueryTest skipped, device does not support DXR.");
-  }
 
   // Initialize test data.
-  const int windowSize = 64;
-  std::vector<int> testData(windowSize * windowSize, 0);
-  LPCWSTR args[] = {L"-HV 2021", L"-Vd"};
+  const int WindowSize = 64;
+  std::vector<int> TestData(WindowSize * WindowSize, 0);
+  LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
 
-  if (bDXRSupported) {
-    WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/);
-    std::map<int, int> histo;
-    for (int val : testData) {
-      ++histo[val];
-    }
-    VERIFY_ARE_EQUAL(histo.size(), 2);
-    VERIFY_ARE_EQUAL(histo[0], 66);
-    VERIFY_ARE_EQUAL(histo[2], 4030);
-  }
+  RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+             WindowSize, WindowSize, true /*useMesh*/,
+             false /*useProceduralGeometry*/, false /*useIS*/);
+  std::map<int, int> Histo;
+  for (int Val : TestData)
+    ++Histo[Val];
+  VERIFY_ARE_EQUAL(Histo.size(), 2);
+  VERIFY_ARE_EQUAL(Histo[0], 66);
+  VERIFY_ARE_EQUAL(Histo[2], 4030);
 }
 
 TEST_F(ExecutionTest, SERIntersectionTest) {
   // Test SER with Intersection and procedural geometry
-  static const char *pShader = R"(
+  static const char *ShaderSrc = R"(
 struct SceneConstants
 {
     float4 eye;
@@ -1431,7 +1290,7 @@ struct SceneConstants
     float4 V;
     float4 W;
     float sceneScale;
-    uint2 windowSize;
+    uint2 WindowSize;
     int rayFlags;    
 };
 
@@ -1517,49 +1376,29 @@ void intersection()
 
 )";
 
-  CComPtr<ID3D12Device> pDevice;
-  bool bSM_6_9_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_9, false);
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(L"SERTest requires shader model 6.9+ but no "
-                               L"supported device was found.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, true))
     return;
-  }
-  bool bDXRSupported =
-      bSM_6_9_Supported && DoesDeviceSupportRayTracing(pDevice);
-
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support SM 6.9.");
-  }
-  if (!bDXRSupported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support DXR.");
-  }
 
   // Initialize test data.
-  const int windowSize = 64;
-  std::vector<int> testData(windowSize * windowSize, 0);
-  LPCWSTR args[] = {L"-HV 2021", L"-Vd"};
+  const int WindowSize = 64;
+  std::vector<int> TestData(WindowSize * WindowSize, 0);
+  LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
 
-  if (bDXRSupported) {
-    WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, false /*mesh*/,
-               true /*procedural geometry*/, true /*useIS*/);
-    std::map<int, int> histo;
-    for (int val : testData) {
-      ++histo[val];
-    }
-    VERIFY_ARE_EQUAL(histo.size(), 2);
-    VERIFY_ARE_EQUAL(histo[2], 3400);
-    VERIFY_ARE_EQUAL(histo[5], 696);
-  }
+  RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+             WindowSize, WindowSize, false /*mesh*/,
+             true /*procedural geometry*/, true /*useIS*/);
+  std::map<int, int> Histo;
+  for (int Val : TestData)
+    ++Histo[Val];
+  VERIFY_ARE_EQUAL(Histo.size(), 2);
+  VERIFY_ARE_EQUAL(Histo[2], 3400);
+  VERIFY_ARE_EQUAL(Histo[5], 696);
 }
 
 TEST_F(ExecutionTest, SERGetAttributesTest) {
   // Test SER with HitObject::GetAttributes
-  static const char *pShader = R"(
+  static const char *ShaderSrc = R"(
 struct SceneConstants
 {
     float4 eye;
@@ -1567,7 +1406,7 @@ struct SceneConstants
     float4 V;
     float4 W;
     float sceneScale;
-    uint2 windowSize;
+    uint2 WindowSize;
     int rayFlags;    
 };
 
@@ -1681,52 +1520,32 @@ void intersection()
 
 )";
 
-  CComPtr<ID3D12Device> pDevice;
-  bool bSM_6_9_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_9, false);
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(L"SERTest requires shader model 6.9+ but no "
-                               L"supported device was found.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, true))
     return;
-  }
-  bool bDXRSupported =
-      bSM_6_9_Supported && DoesDeviceSupportRayTracing(pDevice);
-
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support SM 6.9.");
-  }
-  if (!bDXRSupported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support DXR.");
-  }
 
   // Initialize test data.
-  const int windowSize = 64;
-  std::vector<int> testData(windowSize * windowSize, 0);
-  LPCWSTR args[] = {L"-HV 2021", L"-Vd"};
+  const int WindowSize = 64;
+  std::vector<int> TestData(WindowSize * WindowSize, 0);
+  LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
 
-  if (bDXRSupported) {
-    WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, false /*mesh*/,
-               true /*procedural geometry*/, true /*useIS*/);
-    std::map<int, int> histo;
-    for (int val : testData) {
-      ++histo[val];
-    }
-    VERIFY_ARE_EQUAL(histo.size(), 4);
-    VERIFY_ARE_EQUAL(histo[0], 328);
-    VERIFY_ARE_EQUAL(histo[1], 186);
-    VERIFY_ARE_EQUAL(histo[3], 182);
-    VERIFY_ARE_EQUAL(histo[255], 3400);
-  }
+  RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+             WindowSize, WindowSize, false /*mesh*/,
+             true /*procedural geometry*/, true /*useIS*/);
+  std::map<int, int> Histo;
+  for (int Val : TestData)
+    ++Histo[Val];
+  VERIFY_ARE_EQUAL(Histo.size(), 4);
+  VERIFY_ARE_EQUAL(Histo[0], 328);
+  VERIFY_ARE_EQUAL(Histo[1], 186);
+  VERIFY_ARE_EQUAL(Histo[3], 182);
+  VERIFY_ARE_EQUAL(Histo[255], 3400);
 }
 
 TEST_F(ExecutionTest, SERTraceHitMissNopTest) {
   // Test SER with conditional HitObject::TraceRay, HitObject::IsHit,
   // HitObject::IsMiss, HitObject::IsNop
-  static const char *pShader = R"(
+  static const char *ShaderSrc = R"(
 struct SceneConstants
 {
     float4 eye;
@@ -1734,7 +1553,7 @@ struct SceneConstants
     float4 V;
     float4 W;
     float sceneScale;
-    uint2 windowSize;
+    uint2 WindowSize;
     int rayFlags;    
 };
 
@@ -1819,56 +1638,36 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
 )";
 
-  CComPtr<ID3D12Device> pDevice;
-  bool bSM_6_9_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_9, false);
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(L"SERTest requires shader model 6.9+ but no "
-                               L"supported device was found.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, true))
     return;
-  }
-  bool bDXRSupported =
-      bSM_6_9_Supported && DoesDeviceSupportRayTracing(pDevice);
-
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support SM 6.9.");
-  }
-  if (!bDXRSupported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support DXR.");
-  }
 
   // Initialize test data.
-  const int windowSize = 64;
-  std::vector<int> testData(windowSize * windowSize, 0);
-  LPCWSTR args[] = {L"-HV 2021", L"-Vd"};
+  const int WindowSize = 64;
+  std::vector<int> TestData(WindowSize * WindowSize, 0);
+  LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
 
-  if (bDXRSupported) {
-    WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*mesh*/,
-               false /*procedural geometry*/, false /*useIS*/);
-    std::map<int, int> histo;
-    for (int val : testData) {
-      ++histo[val];
-    }
-    VERIFY_ARE_EQUAL(histo.size(), 3);
-    VERIFY_ARE_EQUAL(
-        histo[1],
-        2048); // isNop && !isMiss && !isHit && !anyhit && !closesthit && !miss
-    VERIFY_ARE_EQUAL(
-        histo[18],
-        2015); // !isNop && isMiss && !isHit && !anyhit && !closesthit && miss
-    VERIFY_ARE_EQUAL(
-        histo[44],
-        33); // !isNop && !isMiss && isHit && anyhit && closesthit && !miss
-  }
+  RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+             WindowSize, WindowSize, true /*mesh*/,
+             false /*procedural geometry*/, false /*useIS*/);
+  std::map<int, int> Histo;
+  for (int Val : TestData)
+    ++Histo[Val];
+  VERIFY_ARE_EQUAL(Histo.size(), 3);
+  VERIFY_ARE_EQUAL(
+      Histo[1],
+      2048); // isNop && !isMiss && !isHit && !anyhit && !closesthit && !miss
+  VERIFY_ARE_EQUAL(
+      Histo[18],
+      2015); // !isNop && isMiss && !isHit && !anyhit && !closesthit && miss
+  VERIFY_ARE_EQUAL(
+      Histo[44],
+      33); // !isNop && !isMiss && isHit && anyhit && closesthit && !miss
 }
 
 TEST_F(ExecutionTest, SERIsMissTest) {
   // Test SER with HitObject::IsMiss
-  static const char *pShader = R"(
+  static const char *ShaderSrc = R"(
 struct SceneConstants
 {
     float4 eye;
@@ -1876,7 +1675,7 @@ struct SceneConstants
     float4 V;
     float4 W;
     float sceneScale;
-    uint2 windowSize;
+    uint2 WindowSize;
     int rayFlags;    
 };
 
@@ -1953,42 +1752,151 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
 )";
 
-  CComPtr<ID3D12Device> pDevice;
-  bool bSM_6_9_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_9, false);
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(L"SERTest requires shader model 6.9+ but no "
-                               L"supported device was found.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, true))
     return;
-  }
-  bool bDXRSupported =
-      bSM_6_9_Supported && DoesDeviceSupportRayTracing(pDevice);
-
-  if (!bSM_6_9_Supported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support SM 6.9.");
-  }
-  if (!bDXRSupported) {
-    WEX::Logging::Log::Comment(
-        L"SER tests skipped, device does not support DXR.");
-  }
 
   // Initialize test data.
-  const int windowSize = 64;
-  std::vector<int> testData(windowSize * windowSize, 0);
-  LPCWSTR args[] = {L"-HV 2021", L"-Vd"};
+  const int WindowSize = 64;
+  std::vector<int> TestData(WindowSize * WindowSize, 0);
+  LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
 
-  if (bDXRSupported) {
-    WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
-    RunDXRTest(pDevice, pShader, D3D_SHADER_MODEL_6_9, args, _countof(args),
-               testData, windowSize, windowSize, true /*mesh*/,
-               false /*procedural geometry*/, false /*useIS*/);
-    std::map<int, int> histo;
-    for (int val : testData) {
-      ++histo[val];
+  RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+             WindowSize, WindowSize, true /*mesh*/,
+             false /*procedural geometry*/, false /*useIS*/);
+  std::map<int, int> Histo;
+  for (int Val : TestData)
+    ++Histo[Val];
+  VERIFY_ARE_EQUAL(Histo.size(), 2);
+  VERIFY_ARE_EQUAL(Histo[2], 4030);
+  VERIFY_ARE_EQUAL(Histo[5], 66);
+}
+
+TEST_F(ExecutionTest, SERInvokeNoSBTTest) {
+  // Test SER RayQuery with Invoke
+  static const char *ShaderSrc = R"(
+struct SceneConstants
+{
+    float4 eye;
+    float4 U;
+    float4 V;
+    float4 W;
+    float sceneScale;
+    uint2 WindowSize;
+    int rayFlags;
+};
+
+struct[raypayload] PerRayData
+{
+    uint visited : read(anyhit,closesthit,miss,caller) : write(anyhit,miss,closesthit,caller);
+};
+
+struct Attrs
+{
+    float2 barycentrics : BARYCENTRICS;
+};
+
+RWStructuredBuffer<int> testBuffer : register(u0);
+RaytracingAccelerationStructure topObject : register(t0);
+ConstantBuffer<SceneConstants> sceneConstants : register(b0);
+
+RayDesc ComputeRay()
+{
+    float2 d = float2(DispatchRaysIndex().xy) / float2(DispatchRaysDimensions().xy) * 2.0f - 1.0f;
+    RayDesc ray;
+    ray.Origin = sceneConstants.eye.xyz;
+    ray.Direction = normalize(d.x*sceneConstants.U.xyz + d.y*sceneConstants.V.xyz + sceneConstants.W.xyz);
+    ray.TMin = 0;
+    ray.TMax = 1e18;
+
+    return ray;
+}
+
+[shader("raygeneration")]
+void raygen()
+{
+    uint2   launchIndex = DispatchRaysIndex().xy;
+    uint2   launchDim = DispatchRaysDimensions().xy;
+
+    RayDesc ray = ComputeRay();
+
+    PerRayData payload;
+    payload.visited = 0;
+
+    // Template parameter set at runtime before compilation
+    RayQuery<RAY_FLAG_NONE> rayQ;
+
+    // Funtion parameter set at runtime before compilation
+    rayQ.TraceRayInline(topObject, RAY_FLAG_NONE, 0xFF, ray);
+
+    // Storage for procedural primitive hit attributes
+    Attrs attrs;
+    attrs.barycentrics = float2(1, 1);
+
+    while (rayQ.Proceed())
+    {
+        switch (rayQ.CandidateType())
+        {
+            case CANDIDATE_NON_OPAQUE_TRIANGLE:
+            {
+                // The system has already determined that the candidate would be the closest
+                // hit so far in the ray extents
+                rayQ.CommitNonOpaqueTriangleHit();
+            }
+        }
     }
-    VERIFY_ARE_EQUAL(histo.size(), 2);
-    VERIFY_ARE_EQUAL(histo[2], 4030);
-    VERIFY_ARE_EQUAL(histo[5], 66);
-  }
+
+    dx::HitObject hit = dx::HitObject::FromRayQuery(rayQ);
+    dx::MaybeReorderThread(hit);
+    // Set the payload based on the HitObject.
+    if (hit.IsHit())
+        payload.visited |= 8U;
+    else
+        payload.visited |= 16U;
+    // Invoke should not trigger any shader.
+    dx::HitObject::Invoke(hit, payload);
+
+    int id = launchIndex.x + launchIndex.y * launchDim.x;
+    testBuffer[id] = payload.visited;
+}
+
+[shader("miss")]
+void miss(inout PerRayData payload)
+{
+    payload.visited |= 2U;
+}
+
+[shader("anyhit")]
+void anyhit(inout PerRayData payload, in Attrs attrs)
+{
+    payload.visited |= 1U;
+    AcceptHitAndEndSearch();
+}
+
+[shader("closesthit")]
+void closesthit(inout PerRayData payload, in Attrs attrs)
+{
+    payload.visited |= 4U;
+}
+
+)";
+
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, false))
+    return;
+
+  // Initialize test data.
+  const int WindowSize = 64;
+  std::vector<int> TestData(WindowSize * WindowSize, 0);
+  LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
+
+  RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+             WindowSize, WindowSize, true /*useMesh*/,
+             false /*useProceduralGeometry*/, false /*useIS*/);
+  std::map<int, int> Histo;
+  for (int Val : TestData)
+    ++Histo[Val];
+  VERIFY_ARE_EQUAL(Histo.size(), 2);
+  VERIFY_ARE_EQUAL(Histo[8], 66);
+  VERIFY_ARE_EQUAL(Histo[16], 4030);
 }

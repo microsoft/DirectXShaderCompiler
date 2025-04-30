@@ -60,7 +60,6 @@
 #include "ShaderOpTest.h"
 #include <libloaderapi.h>
 #include <DirectXPackedVector.h>
-
 #include "DXRUtil.h"
 // clang-format on
 
@@ -294,17 +293,6 @@ public:
   TEST_METHOD(SaturateTest);
   TEST_METHOD(SignTest);
   TEST_METHOD(Int64Test);
-  TEST_METHOD(SERBasicTest);
-  TEST_METHOD(SERScalarGetterTest);
-  TEST_METHOD(SERVectorGetterTest);
-  TEST_METHOD(SERMatrixGetterTest);
-  TEST_METHOD(SERRayQueryTest);
-  TEST_METHOD(SERIntersectionTest);
-  TEST_METHOD(SERGetAttributesTest);
-  TEST_METHOD(SERTraceHitMissNopTest);
-  TEST_METHOD(SERIsMissTest);
-  TEST_METHOD(SERShaderTableIndexTest);
-  TEST_METHOD(SERLoadLocalRootTableConstantTest);
   TEST_METHOD(LifetimeIntrinsicTest)
   TEST_METHOD(WaveIntrinsicsTest);
   TEST_METHOD(WaveIntrinsicsDDITest);
@@ -513,6 +501,20 @@ public:
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
   END_TEST_METHOD()
+
+  // Shader Execution Reordering tests
+  TEST_METHOD(SERBasicTest);
+  TEST_METHOD(SERScalarGetterTest);
+  TEST_METHOD(SERVectorGetterTest);
+  TEST_METHOD(SERMatrixGetterTest);
+  TEST_METHOD(SERRayQueryTest);
+  TEST_METHOD(SERIntersectionTest);
+  TEST_METHOD(SERGetAttributesTest);
+  TEST_METHOD(SERTraceHitMissNopTest);
+  TEST_METHOD(SERIsMissTest);
+  TEST_METHOD(SERShaderTableIndexTest);
+  TEST_METHOD(SERLoadLocalRootTableConstantTest);
+  TEST_METHOD(SERInvokeNoSBTTest);
 
   dxc::DxcDllSupport m_support;
 
@@ -1930,12 +1932,15 @@ public:
                                    CComPtr<ID3D12RootSignature> &pRootSignature,
                                    LPCWSTR pTargetProfile, LPCWSTR *pOptions,
                                    int numOptions);
-  CComPtr<ID3D12Resource>
-  RunDXRTest(ID3D12Device *pDevice0, LPCSTR shader,
-             D3D_SHADER_MODEL shaderModel, LPCWSTR *pOptions, int numOptions,
-             std::vector<int> &testData, int windowWidth, int windowHeight,
-             bool useMesh, bool useProceduralGeometry, bool useIS,
-             int payloadCount = 1, int attributeCount = 2);
+  bool CreateDXRDevice(ID3D12Device **ppDevice, D3D_SHADER_MODEL testModel,
+                       bool skipUnsupported);
+  CComPtr<ID3D12Resource> RunDXRTest(ID3D12Device *Device0, LPCSTR ShaderSrc,
+                                     LPCWSTR TargetProfile, LPCWSTR *Options,
+                                     int NumOptions, std::vector<int> &TestData,
+                                     int WindowWidth, int WindowHeight,
+                                     bool UseMesh, bool UseProceduralGeometry,
+                                     bool UseIS, int PayloadCount = 1,
+                                     int AttributeCount = 2);
 
   void SetDescriptorHeap(ID3D12GraphicsCommandList *pCommandList,
                          ID3D12DescriptorHeap *pHeap) {
@@ -2097,53 +2102,42 @@ void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice,
   WaitForSignal(pCommandQueue, FO);
 }
 
-CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
-    ID3D12Device *pDevice0, LPCSTR shader, D3D_SHADER_MODEL shaderModel,
-    LPCWSTR *pOptions, int numOptions, std::vector<int> &testData,
-    int windowWidth, int windowHeight, bool useMesh, bool useProceduralGeometry,
-    bool useIS, int payloadCount, int attributeCount) {
-  CComPtr<ID3D12Device5> pDevice;
-  VERIFY_SUCCEEDED(pDevice0->QueryInterface(IID_PPV_ARGS(&pDevice)));
+bool ExecutionTest::CreateDXRDevice(ID3D12Device **ppDevice,
+                                    D3D_SHADER_MODEL testModel,
+                                    bool skipUnsupported) {
+  bool SupportsSM = CreateDevice(ppDevice, testModel, skipUnsupported);
+  if (!SupportsSM)
+    return false;
 
-  LPCWSTR pTargetProfile;
-  switch (shaderModel) {
-  case D3D_SHADER_MODEL_6_9:
-    pTargetProfile = L"lib_6_9";
-    break;
-  case D3D_SHADER_MODEL_6_8:
-    pTargetProfile = L"lib_6_8";
-    break;
-  case D3D_SHADER_MODEL_6_7:
-    pTargetProfile = L"lib_6_7";
-    break;
-  case D3D_SHADER_MODEL_6_6:
-    pTargetProfile = L"lib_6_6";
-    break;
-  case D3D_SHADER_MODEL_6_5:
-    pTargetProfile = L"lib_6_5";
-    break;
-  case D3D_SHADER_MODEL_6_4:
-    pTargetProfile = L"lib_6_4";
-    break;
-  case D3D_SHADER_MODEL_6_3:
-    pTargetProfile = L"lib_6_3";
-    break;
-  default:
-    // DXR capable shader model not found.
-    LogErrorFmt(L"DXR capable shader model not found.");
-    return nullptr;
+  if (DoesDeviceSupportRayTracing(*ppDevice))
+    return true;
+
+  if (skipUnsupported) {
+    WEX::Logging::Log::Comment(
+        L"DXR test skipped: device does not support DXR.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
   }
+  return false;
+}
+
+CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
+    ID3D12Device *Device0, LPCSTR ShaderSrc, LPCWSTR TargetProfile,
+    LPCWSTR *Options, int NumOptions, std::vector<int> &TestData,
+    int WindowWidth, int WindowHeight, bool UseMesh, bool UseProceduralGeometry,
+    bool UseIS, int PayloadCount, int AttributeCount) {
+  CComPtr<ID3D12Device5> Device;
+  VERIFY_SUCCEEDED(Device0->QueryInterface(IID_PPV_ARGS(&Device)));
 
   FenceObj FO;
-  InitFenceObj(pDevice, &FO);
+  InitFenceObj(Device, &FO);
 
   // Setup Resources
-  CComPtr<ID3D12Resource> pTestBuffer;
-  CComPtr<ID3D12Resource> pTestBufferRead;
-  CComPtr<ID3D12Resource> pSceneConstantBuffer;
+  CComPtr<ID3D12Resource> TestBuffer;
+  CComPtr<ID3D12Resource> TestBufferRead;
+  CComPtr<ID3D12Resource> SceneConstantBuffer;
 
   // Descriptor heap
-  CComPtr<ID3D12DescriptorHeap> pDescriptorHeap;
+  CComPtr<ID3D12DescriptorHeap> DescriptorHeap;
   {
     //
     // UAV descriptor heap layout:
@@ -2151,693 +2145,684 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
     //     1 - vertex buffer SRV
     //     2 - index buffer SRV
     //
-    D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
-    descriptorHeapDesc.NumDescriptors = 3;
-    descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    pDevice->CreateDescriptorHeap(&descriptorHeapDesc,
-                                  IID_PPV_ARGS(&pDescriptorHeap));
-    pDescriptorHeap->SetName(L"Descriptor Heap");
+    D3D12_DESCRIPTOR_HEAP_DESC DescriptorHeapDesc = {};
+    DescriptorHeapDesc.NumDescriptors = 3;
+    DescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    DescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    Device->CreateDescriptorHeap(&DescriptorHeapDesc,
+                                 IID_PPV_ARGS(&DescriptorHeap));
+    DescriptorHeap->SetName(L"Descriptor Heap");
   }
-  int descriptorSize = pDevice->GetDescriptorHandleIncrementSize(
+  int DescriptorSize = Device->GetDescriptorHandleIncrementSize(
       D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
   // Testbuffer
   {
-    auto resDesc = CD3DX12_RESOURCE_DESC::Buffer(
-        testData.size() * sizeof(int),
+    auto ResDesc = CD3DX12_RESOURCE_DESC::Buffer(
+        TestData.size() * sizeof(int),
         D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-    auto defaultHeapProperties =
+    auto DefaultHeapProperties =
         CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-    VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
-        &defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &resDesc,
+    VERIFY_SUCCEEDED(Device->CreateCommittedResource(
+        &DefaultHeapProperties, D3D12_HEAP_FLAG_NONE, &ResDesc,
         D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr,
-        IID_PPV_ARGS(&pTestBuffer)));
-    pTestBuffer->SetName(L"Test Buffer");
+        IID_PPV_ARGS(&TestBuffer)));
+    TestBuffer->SetName(L"Test Buffer");
 
-    const int descriptorIndex = 0;
-    D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle =
+    const int DescriptorIndex = 0;
+    D3D12_CPU_DESCRIPTOR_HANDLE CPUDescriptorHandle =
         CD3DX12_CPU_DESCRIPTOR_HANDLE(
-            pDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-            descriptorIndex, descriptorSize);
+            DescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+            DescriptorIndex, DescriptorSize);
     D3D12_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {};
     UAVDesc.Format = DXGI_FORMAT_UNKNOWN;
     UAVDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
     UAVDesc.Buffer.FirstElement = 0;
-    UAVDesc.Buffer.NumElements = (UINT)testData.size();
+    UAVDesc.Buffer.NumElements = (UINT)TestData.size();
     UAVDesc.Buffer.StructureByteStride = sizeof(int);
     UAVDesc.Buffer.CounterOffsetInBytes = 0;
     UAVDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
-    pDevice->CreateUnorderedAccessView(pTestBuffer, nullptr, &UAVDesc,
-                                       cpuDescriptorHandle);
+    Device->CreateUnorderedAccessView(TestBuffer, nullptr, &UAVDesc,
+                                      CPUDescriptorHandle);
   }
 
   // Testbuffer Readback
   {
-    CD3DX12_HEAP_PROPERTIES readHeap(D3D12_HEAP_TYPE_READBACK);
-    CD3DX12_RESOURCE_DESC readDesc(
-        CD3DX12_RESOURCE_DESC::Buffer(testData.size() * sizeof(int)));
-    pDevice->CreateCommittedResource(&readHeap, D3D12_HEAP_FLAG_NONE, &readDesc,
-                                     D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
-                                     IID_PPV_ARGS(&pTestBufferRead));
+    CD3DX12_HEAP_PROPERTIES ReadHeap(D3D12_HEAP_TYPE_READBACK);
+    CD3DX12_RESOURCE_DESC ReadDesc(
+        CD3DX12_RESOURCE_DESC::Buffer(TestData.size() * sizeof(int)));
+    Device->CreateCommittedResource(&ReadHeap, D3D12_HEAP_FLAG_NONE, &ReadDesc,
+                                    D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+                                    IID_PPV_ARGS(&TestBufferRead));
   }
 
   // Create CBV resource (sceneConstantBuffer), index 1
   {
-    const int descriptorIndex = 1;
-    const UINT constantBufferSize =
+    const int DescriptorIndex = 1;
+    const UINT ConstantBufferSize =
         (sizeof(SceneConsts) +
          (D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1)) &
         ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT -
           1); // must be a multiple 256 bytes
-    D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle =
+    D3D12_CPU_DESCRIPTOR_HANDLE CPUDescriptorHandle =
         CD3DX12_CPU_DESCRIPTOR_HANDLE(
-            pDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-            descriptorIndex, descriptorSize);
-    auto resDesc = CD3DX12_RESOURCE_DESC::Buffer(constantBufferSize);
-    auto uploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-    pDevice->CreateCommittedResource(&uploadHeapProperties,
-                                     D3D12_HEAP_FLAG_NONE, &resDesc,
-                                     D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-                                     IID_PPV_ARGS(&pSceneConstantBuffer));
+            DescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+            DescriptorIndex, DescriptorSize);
+    auto ResDesc = CD3DX12_RESOURCE_DESC::Buffer(ConstantBufferSize);
+    auto UploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+    Device->CreateCommittedResource(&UploadHeapProperties, D3D12_HEAP_FLAG_NONE,
+                                    &ResDesc, D3D12_RESOURCE_STATE_GENERIC_READ,
+                                    nullptr,
+                                    IID_PPV_ARGS(&SceneConstantBuffer));
 
-    UINT8 *sceneConstantBufferWO;
-    CD3DX12_RANGE readRange(
+    UINT8 *SceneConstantBufferWO;
+    CD3DX12_RANGE ReadRange(
         0, 0); // We do not intend to read from this resource on the CPU.
-    pSceneConstantBuffer->Map(
-        0, &readRange, reinterpret_cast<void **>(&sceneConstantBufferWO));
+    SceneConstantBuffer->Map(0, &ReadRange,
+                             reinterpret_cast<void **>(&SceneConstantBufferWO));
 
     // Setup Scene Constants
-    SceneConsts sceneConsts = {
+    SceneConsts SceneConsts = {
         {25.f, -25.f, 700.f, 0.f},
         {536.f, 0.f, 0.f, 0.f},
         {0.f, 301.f, 0.f, 0.f},
         {0.f, 0., -699.f, 0.f},
         100.f,
-        {(unsigned int)windowWidth, (unsigned int)windowHeight},
+        {(unsigned int)WindowWidth, (unsigned int)WindowHeight},
         0x00};
 
-    memcpy(sceneConstantBufferWO, &sceneConsts, sizeof(SceneConsts));
-    pSceneConstantBuffer->Unmap(0, nullptr);
+    memcpy(SceneConstantBufferWO, &SceneConsts, sizeof(SceneConsts));
+    SceneConstantBuffer->Unmap(0, nullptr);
 
-    D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
-    desc.SizeInBytes = constantBufferSize;
-    desc.BufferLocation = pSceneConstantBuffer->GetGPUVirtualAddress();
-    pDevice->CreateConstantBufferView(&desc, cpuDescriptorHandle);
+    D3D12_CONSTANT_BUFFER_VIEW_DESC Desc = {};
+    Desc.SizeInBytes = ConstantBufferSize;
+    Desc.BufferLocation = SceneConstantBuffer->GetGPUVirtualAddress();
+    Device->CreateConstantBufferView(&Desc, CPUDescriptorHandle);
   }
 
   // Local (SBT) root signature
-  CComPtr<ID3D12RootSignature> pLocalRootSignature;
+  CComPtr<ID3D12RootSignature> LocalRootSignature;
   {
-    CD3DX12_DESCRIPTOR_RANGE bufferRanges[1];
-    CD3DX12_ROOT_PARAMETER rootParameters[2];
-    bufferRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 1, 0,
+    CD3DX12_DESCRIPTOR_RANGE BufferRanges[1];
+    CD3DX12_ROOT_PARAMETER RootParameters[2];
+    BufferRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 1, 0,
                          2); // vertexBuffer(t1), indexBuffer(t2)
-    rootParameters[0].InitAsDescriptorTable(
-        _countof(bufferRanges), bufferRanges, D3D12_SHADER_VISIBILITY_ALL);
-    rootParameters[1].InitAsConstants(4, 1, 0, D3D12_SHADER_VISIBILITY_ALL);
+    RootParameters[0].InitAsDescriptorTable(
+        _countof(BufferRanges), BufferRanges, D3D12_SHADER_VISIBILITY_ALL);
+    RootParameters[1].InitAsConstants(4, 1, 0, D3D12_SHADER_VISIBILITY_ALL);
 
-    CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-    rootSignatureDesc.Init(_countof(rootParameters), rootParameters, 0, nullptr,
+    CD3DX12_ROOT_SIGNATURE_DESC RootSignatureDesc;
+    RootSignatureDesc.Init(_countof(RootParameters), RootParameters, 0, nullptr,
                            D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
-    CComPtr<ID3DBlob> signature;
-    CComPtr<ID3DBlob> error;
+    CComPtr<ID3DBlob> Signature;
+    CComPtr<ID3DBlob> Error;
     VERIFY_SUCCEEDED(D3D12SerializeRootSignature(
-        &rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
-    VERIFY_SUCCEEDED(pDevice->CreateRootSignature(
-        0, signature->GetBufferPointer(), signature->GetBufferSize(),
-        IID_PPV_ARGS(&pLocalRootSignature)));
-    pLocalRootSignature->SetName(L"Local Root Signature");
+        &RootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &Signature, &Error));
+    VERIFY_SUCCEEDED(Device->CreateRootSignature(
+        0, Signature->GetBufferPointer(), Signature->GetBufferSize(),
+        IID_PPV_ARGS(&LocalRootSignature)));
+    LocalRootSignature->SetName(L"Local Root Signature");
   }
 
   // Global root signature
-  CComPtr<ID3D12RootSignature> pGlobalRootSignature;
+  CComPtr<ID3D12RootSignature> GlobalRootSignature;
   {
-    CD3DX12_DESCRIPTOR_RANGE bufferRanges[1];
-    CD3DX12_ROOT_PARAMETER rootParameters[3];
-    bufferRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1,
+    CD3DX12_DESCRIPTOR_RANGE BufferRanges[1];
+    CD3DX12_ROOT_PARAMETER RootParameters[3];
+    BufferRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1,
                          0); // testBuffer(u0)
-    rootParameters[0].InitAsShaderResourceView(
+    RootParameters[0].InitAsShaderResourceView(
         0, 0, D3D12_SHADER_VISIBILITY_ALL);        // accelStruct(t0)
-    rootParameters[1].InitAsConstantBufferView(0); // sceneConstants(b0)
-    rootParameters[2].InitAsDescriptorTable(
-        _countof(bufferRanges), bufferRanges, D3D12_SHADER_VISIBILITY_ALL);
+    RootParameters[1].InitAsConstantBufferView(0); // sceneConstants(b0)
+    RootParameters[2].InitAsDescriptorTable(
+        _countof(BufferRanges), BufferRanges, D3D12_SHADER_VISIBILITY_ALL);
 
-    CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-    rootSignatureDesc.Init(_countof(rootParameters), rootParameters, 0, nullptr,
+    CD3DX12_ROOT_SIGNATURE_DESC RootSignatureDesc;
+    RootSignatureDesc.Init(_countof(RootParameters), RootParameters, 0, nullptr,
                            D3D12_ROOT_SIGNATURE_FLAG_NONE);
-    CComPtr<ID3DBlob> signature;
-    CComPtr<ID3DBlob> error;
+    CComPtr<ID3DBlob> Signature;
+    CComPtr<ID3DBlob> Error;
     VERIFY_SUCCEEDED(D3D12SerializeRootSignature(
-        &rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
-    VERIFY_SUCCEEDED(pDevice->CreateRootSignature(
-        0, signature->GetBufferPointer(), signature->GetBufferSize(),
-        IID_PPV_ARGS(&pGlobalRootSignature)));
-    pGlobalRootSignature->SetName(L"Global Root Signature");
+        &RootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &Signature, &Error));
+    VERIFY_SUCCEEDED(Device->CreateRootSignature(
+        0, Signature->GetBufferPointer(), Signature->GetBufferSize(),
+        IID_PPV_ARGS(&GlobalRootSignature)));
+    GlobalRootSignature->SetName(L"Global Root Signature");
   }
 
   // Create command queue.
-  CComPtr<ID3D12CommandQueue> pCommandQueue;
-  CreateCommandQueue(pDevice, L"RunDXRTest Command Queue", &pCommandQueue,
+  CComPtr<ID3D12CommandQueue> CommandQueue;
+  CreateCommandQueue(Device, L"RunDXRTest Command Queue", &CommandQueue,
                      D3D12_COMMAND_LIST_TYPE_DIRECT);
 
   // Compile raygen shader.
-  CComPtr<ID3DBlob> pShaderLib;
-  CompileFromText(shader, L"raygen", pTargetProfile, &pShaderLib, pOptions,
-                  numOptions);
+  CComPtr<ID3DBlob> ShaderLib;
+  CompileFromText(ShaderSrc, L"raygen", TargetProfile, &ShaderLib, Options,
+                  NumOptions);
 
   // Describe and create the RT pipeline state object (RTPSO).
-  CD3DX12_STATE_OBJECT_DESC stateObjectDesc(
+  CD3DX12_STATE_OBJECT_DESC StateObjectDesc(
       D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE);
-  auto lib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
-  CD3DX12_SHADER_BYTECODE byteCode(pShaderLib);
-  lib->SetDXILLibrary(&byteCode);
-  lib->DefineExport(L"raygen");
-  lib->DefineExport(L"closesthit");
-  lib->DefineExport(L"anyhit");
-  lib->DefineExport(L"miss");
-  if (useIS) {
-    lib->DefineExport(L"intersection");
-  }
-  if (useMesh && useProceduralGeometry) {
-    lib->DefineExport(L"chAABB");
-  }
+  auto Lib = StateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
+  CD3DX12_SHADER_BYTECODE ByteCode(ShaderLib);
+  Lib->SetDXILLibrary(&ByteCode);
+  Lib->DefineExport(L"raygen");
+  Lib->DefineExport(L"closesthit");
+  Lib->DefineExport(L"anyhit");
+  Lib->DefineExport(L"miss");
+  if (UseIS)
+    Lib->DefineExport(L"intersection");
+  if (UseMesh && UseProceduralGeometry)
+    Lib->DefineExport(L"chAABB");
 
-  const int maxRecursion = 1;
-  stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>()
-      ->Config(payloadCount * sizeof(float), attributeCount * sizeof(float));
-  stateObjectDesc
+  const int MaxRecursion = 1;
+  StateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>()
+      ->Config(PayloadCount * sizeof(float), AttributeCount * sizeof(float));
+  StateObjectDesc
       .CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>()
-      ->Config(maxRecursion);
+      ->Config(MaxRecursion);
 
   // Set Global Root Signature subobject.
-  auto globalRootSigSubObj =
-      stateObjectDesc
+  auto GlobalRootSigSubObj =
+      StateObjectDesc
           .CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
-  globalRootSigSubObj->SetRootSignature(pGlobalRootSignature);
+  GlobalRootSigSubObj->SetRootSignature(GlobalRootSignature);
   // Set Local Root Signature subobject.
-  stateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>()
-      ->SetRootSignature(pLocalRootSignature);
+  StateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>()
+      ->SetRootSignature(LocalRootSignature);
 
-  auto exports = stateObjectDesc.CreateSubobject<
+  auto Exports = StateObjectDesc.CreateSubobject<
       CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
-  exports->SetSubobjectToAssociate(*globalRootSigSubObj);
-  exports->AddExport(L"raygen");
-  exports->AddExport(L"closesthit");
-  exports->AddExport(L"anyhit");
-  exports->AddExport(L"miss");
-  if (useIS) {
-    exports->AddExport(L"intersection");
-  }
-  if (useMesh && useProceduralGeometry) {
-    exports->AddExport(L"chAABB");
-  }
+  Exports->SetSubobjectToAssociate(*GlobalRootSigSubObj);
+  Exports->AddExport(L"raygen");
+  Exports->AddExport(L"closesthit");
+  Exports->AddExport(L"anyhit");
+  Exports->AddExport(L"miss");
+  if (UseIS)
+    Exports->AddExport(L"intersection");
+  if (UseMesh && UseProceduralGeometry)
+    Exports->AddExport(L"chAABB");
 
-  auto hitGroup =
-      stateObjectDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
-  hitGroup->SetClosestHitShaderImport(L"closesthit");
-  hitGroup->SetAnyHitShaderImport(L"anyhit");
-  if (useIS) {
-    hitGroup->SetIntersectionShaderImport(L"intersection");
-    hitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE);
+  auto HitGroup =
+      StateObjectDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
+  HitGroup->SetClosestHitShaderImport(L"closesthit");
+  HitGroup->SetAnyHitShaderImport(L"anyhit");
+  if (UseIS) {
+    HitGroup->SetIntersectionShaderImport(L"intersection");
+    HitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE);
   }
-  hitGroup->SetHitGroupExport(L"HitGroup");
+  HitGroup->SetHitGroupExport(L"HitGroup");
 
-  if (useMesh && useProceduralGeometry) {
-    auto hitGroupAABB =
-        stateObjectDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
-    hitGroupAABB->SetClosestHitShaderImport(L"chAABB");
-    hitGroupAABB->SetAnyHitShaderImport(L"anyhit");
-    if (useIS) {
-      hitGroup->SetIntersectionShaderImport(L"intersection");
-      hitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE);
+  if (UseMesh && UseProceduralGeometry) {
+    auto HitGroupAABB =
+        StateObjectDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
+    HitGroupAABB->SetClosestHitShaderImport(L"chAABB");
+    HitGroupAABB->SetAnyHitShaderImport(L"anyhit");
+    if (UseIS) {
+      HitGroupAABB->SetIntersectionShaderImport(L"intersection");
+      HitGroupAABB->SetHitGroupType(D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE);
     }
-    hitGroupAABB->SetHitGroupExport(L"HitGroupAABB");
+    HitGroupAABB->SetHitGroupExport(L"HitGroupAABB");
   }
 
-  CComPtr<ID3D12StateObject> pStateObject;
-  CComPtr<ID3D12StateObjectProperties> pStateObjectProperties;
+  CComPtr<ID3D12StateObject> StateObject;
+  CComPtr<ID3D12StateObjectProperties> StateObjectProperties;
   VERIFY_SUCCEEDED(
-      pDevice->CreateStateObject(stateObjectDesc, IID_PPV_ARGS(&pStateObject)));
-  VERIFY_SUCCEEDED(pStateObject->QueryInterface(&pStateObjectProperties));
+      Device->CreateStateObject(StateObjectDesc, IID_PPV_ARGS(&StateObject)));
+  VERIFY_SUCCEEDED(StateObject->QueryInterface(&StateObjectProperties));
 
   // Create SBT
-  ShaderTable shaderTable;
-  shaderTable.Init(pDevice,
+  ShaderTable ShaderTable;
+  ShaderTable.Init(Device,
                    1,                                        // raygen count
                    1,                                        // miss count
-                   useMesh && useProceduralGeometry ? 2 : 1, // hit group count
+                   UseMesh && UseProceduralGeometry ? 2 : 1, // hit group count
                    1,                                        // ray type count
                    4 // dwords per root table
   );
 
-  int localRootConsts[4] = {12, 34, 56, 78};
-  memcpy(shaderTable.GetRaygenShaderIdPtr(0),
-         pStateObjectProperties->GetShaderIdentifier(L"raygen"),
+  int LocalRootConsts[4] = {12, 34, 56, 78};
+  memcpy(ShaderTable.GetRaygenShaderIdPtr(0),
+         StateObjectProperties->GetShaderIdentifier(L"raygen"),
          SHADER_ID_SIZE_IN_BYTES);
-  memcpy(shaderTable.GetRaygenRootTablePtr(0), localRootConsts,
-         sizeof(localRootConsts));
-  memcpy(shaderTable.GetMissShaderIdPtr(0, 0),
-         pStateObjectProperties->GetShaderIdentifier(L"miss"),
+  memcpy(ShaderTable.GetRaygenRootTablePtr(0), LocalRootConsts,
+         sizeof(LocalRootConsts));
+  memcpy(ShaderTable.GetMissShaderIdPtr(0, 0),
+         StateObjectProperties->GetShaderIdentifier(L"miss"),
          SHADER_ID_SIZE_IN_BYTES);
-  memcpy(shaderTable.GetMissRootTablePtr(0, 0), localRootConsts,
-         sizeof(localRootConsts));
-  memcpy(shaderTable.GetHitGroupShaderIdPtr(0, 0),
-         pStateObjectProperties->GetShaderIdentifier(L"HitGroup"),
+  memcpy(ShaderTable.GetMissRootTablePtr(0, 0), LocalRootConsts,
+         sizeof(LocalRootConsts));
+  memcpy(ShaderTable.GetHitGroupShaderIdPtr(0, 0),
+         StateObjectProperties->GetShaderIdentifier(L"HitGroup"),
          SHADER_ID_SIZE_IN_BYTES);
-  memcpy(shaderTable.GetHitGroupRootTablePtr(0, 0), localRootConsts,
-         sizeof(localRootConsts));
-  if (useMesh && useProceduralGeometry) {
-    memcpy(shaderTable.GetHitGroupShaderIdPtr(0, 1),
-           pStateObjectProperties->GetShaderIdentifier(L"HitGroupAABB"),
+  memcpy(ShaderTable.GetHitGroupRootTablePtr(0, 0), LocalRootConsts,
+         sizeof(LocalRootConsts));
+  if (UseMesh && UseProceduralGeometry)
+    memcpy(ShaderTable.GetHitGroupShaderIdPtr(0, 1),
+           StateObjectProperties->GetShaderIdentifier(L"HitGroupAABB"),
            SHADER_ID_SIZE_IN_BYTES);
-  }
-
-  // auto tbl = pDescriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr;
-  // memcpy(shaderTable.GetHitGroupRootTablePtr(0, 0), &tbl, 8);
 
   // Create a command allocator and list.
-  CComPtr<ID3D12CommandAllocator> pCommandAllocator;
-  CComPtr<ID3D12GraphicsCommandList4> pCommandList;
-  VERIFY_SUCCEEDED(pDevice->CreateCommandAllocator(
-      D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&pCommandAllocator)));
-  VERIFY_SUCCEEDED(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
-                                              pCommandAllocator, nullptr,
-                                              IID_PPV_ARGS(&pCommandList)));
-  pCommandList->SetName(L"ExecutionTest::RunDXRTest Command List");
+  CComPtr<ID3D12CommandAllocator> CommandAllocator;
+  CComPtr<ID3D12GraphicsCommandList4> CommandList;
+  VERIFY_SUCCEEDED(Device->CreateCommandAllocator(
+      D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CommandAllocator)));
+  VERIFY_SUCCEEDED(Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                             CommandAllocator, nullptr,
+                                             IID_PPV_ARGS(&CommandList)));
+  CommandList->SetName(L"ExecutionTest::RunDXRTest Command List");
 
-  pCommandList->Close();
-  ExecuteCommandList(pCommandQueue, pCommandList);
-  WaitForSignal(pCommandQueue, FO);
+  CommandList->Close();
+  ExecuteCommandList(CommandQueue, CommandList);
+  WaitForSignal(CommandQueue, FO);
 
-  VERIFY_SUCCEEDED(pCommandAllocator->Reset());
-  VERIFY_SUCCEEDED(pCommandList->Reset(pCommandAllocator, nullptr));
+  VERIFY_SUCCEEDED(CommandAllocator->Reset());
+  VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, nullptr));
 
   // Create scene geometry.
-  CComPtr<ID3D12Resource> tlasResource;
-  CComPtr<ID3D12Resource> blasMeshResource;
-  CComPtr<ID3D12Resource> blasProceduralGeometryResource;
-  CComPtr<ID3D12Resource> instanceDescs;
-  CComPtr<ID3D12Resource> scratchResource;
+  CComPtr<ID3D12Resource> TLASResource;
+  CComPtr<ID3D12Resource> BLASMeshResource;
+  CComPtr<ID3D12Resource> BLASProceduralGeometryResource;
+  CComPtr<ID3D12Resource> InstanceDescs;
+  CComPtr<ID3D12Resource> ScratchResource;
 
-  if (useMesh) {
-    CComPtr<ID3D12Resource> vertexBuffer;
-    CComPtr<ID3D12Resource> vertexBufferUpload;
-    CComPtr<ID3D12Resource> indexBuffer;
-    CComPtr<ID3D12Resource> indexBufferUpload;
+  if (UseMesh) {
+    CComPtr<ID3D12Resource> VertexBuffer;
+    CComPtr<ID3D12Resource> VertexBufferUpload;
+    CComPtr<ID3D12Resource> IndexBuffer;
+    CComPtr<ID3D12Resource> IndexBufferUpload;
 
     // Define a Quad
-    const float verts[] = {
+    const float Verts[] = {
         -50.5f, 50.5f,  0.5f, // top left
         50.5f,  -50.5f, 0.5f, // bottom right
         -50.5f, -50.5f, 0.5f, // bottom left
         50.5f,  50.5f,  0.5f  // top right
     };
-    const int indices[] = {
+    const int Indices[] = {
         0, 1, 2, // first triangle
         0, 3, 1  // second triangle
     };
 
-    const UINT64 vertexDataSize = sizeof(verts);
-    const UINT64 indexDataSize = sizeof(indices);
+    const UINT64 VertexDataSize = sizeof(Verts);
+    const UINT64 IndexDataSize = sizeof(Indices);
 
-    AllocateUploadBuffer(pDevice, verts, vertexDataSize, &vertexBufferUpload,
-                         L"vertexBufferUpload");
-    AllocateUploadBuffer(pDevice, indices, indexDataSize, &indexBufferUpload,
-                         L"indexBufferUpload");
+    AllocateUploadBuffer(Device, Verts, VertexDataSize, &VertexBufferUpload,
+                         L"VertexBufferUpload");
+    AllocateUploadBuffer(Device, Indices, IndexDataSize, &IndexBufferUpload,
+                         L"IndexBufferUpload");
 
     AllocateBufferFromUpload(
-        pDevice, pCommandList, vertexBufferUpload, &vertexBuffer,
-        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, L"vertexBuffer");
+        Device, CommandList, VertexBufferUpload, &VertexBuffer,
+        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, L"VertexBuffer");
     AllocateBufferFromUpload(
-        pDevice, pCommandList, indexBufferUpload, &indexBuffer,
-        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, L"indexBuffer");
+        Device, CommandList, IndexBufferUpload, &IndexBuffer,
+        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, L"IndexBuffer");
 
     {
-      const int descriptorIndex = 1;
-      D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle =
+      const int DescriptorIndex = 1;
+      D3D12_CPU_DESCRIPTOR_HANDLE CpuDescriptorHandle =
           CD3DX12_CPU_DESCRIPTOR_HANDLE(
-              pDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-              descriptorIndex, descriptorSize);
-      D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-      srvDesc.Shader4ComponentMapping =
+              DescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+              DescriptorIndex, DescriptorSize);
+      D3D12_SHADER_RESOURCE_VIEW_DESC SrvDesc = {};
+      SrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+      SrvDesc.Shader4ComponentMapping =
           D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-      srvDesc.Buffer.NumElements =
-          UINT(vertexDataSize / sizeof(DirectX::XMFLOAT3));
-      srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-      srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-      srvDesc.Buffer.StructureByteStride = sizeof(DirectX::XMFLOAT3);
-      pDevice->CreateShaderResourceView(vertexBuffer, &srvDesc,
-                                        cpuDescriptorHandle);
+      SrvDesc.Buffer.NumElements =
+          UINT(VertexDataSize / sizeof(DirectX::XMFLOAT3));
+      SrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+      SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+      SrvDesc.Buffer.StructureByteStride = sizeof(DirectX::XMFLOAT3);
+      Device->CreateShaderResourceView(VertexBuffer, &SrvDesc,
+                                       CpuDescriptorHandle);
     }
     {
-      const int descriptorIndex = 2;
-      D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle =
+      const int DescriptorIndex = 2;
+      D3D12_CPU_DESCRIPTOR_HANDLE CpuDescriptorHandle =
           CD3DX12_CPU_DESCRIPTOR_HANDLE(
-              pDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-              descriptorIndex, descriptorSize);
-      D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-      srvDesc.Shader4ComponentMapping =
+              DescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+              DescriptorIndex, DescriptorSize);
+      D3D12_SHADER_RESOURCE_VIEW_DESC SrvDesc = {};
+      SrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+      SrvDesc.Shader4ComponentMapping =
           D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-      srvDesc.Buffer.NumElements = UINT(indexDataSize / sizeof(int));
-      srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-      srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-      srvDesc.Buffer.StructureByteStride = sizeof(int);
-      pDevice->CreateShaderResourceView(indexBuffer, &srvDesc,
-                                        cpuDescriptorHandle);
+      SrvDesc.Buffer.NumElements = UINT(IndexDataSize / sizeof(int));
+      SrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+      SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+      SrvDesc.Buffer.StructureByteStride = sizeof(int);
+      Device->CreateShaderResourceView(IndexBuffer, &SrvDesc,
+                                       CpuDescriptorHandle);
     }
 
-    pCommandList->Close();
-    ExecuteCommandList(pCommandQueue, pCommandList);
-    WaitForSignal(pCommandQueue, FO);
+    CommandList->Close();
+    ExecuteCommandList(CommandQueue, CommandList);
+    WaitForSignal(CommandQueue, FO);
 
-    VERIFY_SUCCEEDED(pCommandAllocator->Reset());
-    VERIFY_SUCCEEDED(pCommandList->Reset(pCommandAllocator, nullptr));
+    VERIFY_SUCCEEDED(CommandAllocator->Reset());
+    VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, nullptr));
 
-    if (!useIS) {
+    if (!UseIS) {
       // Build BLAS.
       {
-        D3D12_RAYTRACING_GEOMETRY_DESC geometryDesc = {};
-        geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-        geometryDesc.Triangles.IndexBuffer =
-            indexBuffer->GetGPUVirtualAddress();
-        geometryDesc.Triangles.IndexCount =
-            static_cast<UINT>(indexBuffer->GetDesc().Width) / sizeof(int);
-        geometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
-        geometryDesc.Triangles.Transform3x4 = 0;
-        geometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-        geometryDesc.Triangles.VertexCount =
-            static_cast<UINT>(vertexBuffer->GetDesc().Width) /
+        D3D12_RAYTRACING_GEOMETRY_DESC GeometryDesc = {};
+        GeometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+        GeometryDesc.Triangles.IndexBuffer =
+            IndexBuffer->GetGPUVirtualAddress();
+        GeometryDesc.Triangles.IndexCount =
+            static_cast<UINT>(IndexBuffer->GetDesc().Width) / sizeof(int);
+        GeometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
+        GeometryDesc.Triangles.Transform3x4 = 0;
+        GeometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+        GeometryDesc.Triangles.VertexCount =
+            static_cast<UINT>(VertexBuffer->GetDesc().Width) /
             sizeof(DirectX::XMFLOAT3);
-        geometryDesc.Triangles.VertexBuffer.StartAddress =
-            vertexBuffer->GetGPUVirtualAddress();
-        geometryDesc.Triangles.VertexBuffer.StrideInBytes =
+        GeometryDesc.Triangles.VertexBuffer.StartAddress =
+            VertexBuffer->GetGPUVirtualAddress();
+        GeometryDesc.Triangles.VertexBuffer.StrideInBytes =
             sizeof(DirectX::XMFLOAT3);
-        geometryDesc.Flags =
+        GeometryDesc.Flags =
             D3D12_RAYTRACING_GEOMETRY_FLAG_NONE; // Non-opaque to trigger
                                                  // anyhit.
 
-        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS buildFlags =
+        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS BuildFlags =
             D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
 
-        D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS accelInputs = {};
-        accelInputs.Type =
+        D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS AccelInputs = {};
+        AccelInputs.Type =
             D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-        accelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-        accelInputs.pGeometryDescs = &geometryDesc;
-        accelInputs.NumDescs = 1;
-        accelInputs.Flags = buildFlags;
+        AccelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+        AccelInputs.pGeometryDescs = &GeometryDesc;
+        AccelInputs.NumDescs = 1;
+        AccelInputs.Flags = BuildFlags;
 
-        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuildInfo = {};
-        pDevice->GetRaytracingAccelerationStructurePrebuildInfo(&accelInputs,
-                                                                &prebuildInfo);
+        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO PrebuildInfo = {};
+        Device->GetRaytracingAccelerationStructurePrebuildInfo(&AccelInputs,
+                                                               &PrebuildInfo);
 
-        scratchResource.Release();
-        ReallocScratchResource(pDevice, &scratchResource,
-                               prebuildInfo.ScratchDataSizeInBytes);
-        AllocateBuffer(pDevice, prebuildInfo.ResultDataMaxSizeInBytes,
-                       &blasMeshResource, true,
+        ScratchResource.Release();
+        ReallocScratchResource(Device, &ScratchResource,
+                               PrebuildInfo.ScratchDataSizeInBytes);
+        AllocateBuffer(Device, PrebuildInfo.ResultDataMaxSizeInBytes,
+                       &BLASMeshResource, true,
                        D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
                        L"blasMesh");
 
-        D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};
-        buildDesc.Inputs = accelInputs;
-        buildDesc.ScratchAccelerationStructureData =
-            scratchResource->GetGPUVirtualAddress();
-        buildDesc.DestAccelerationStructureData =
-            blasMeshResource->GetGPUVirtualAddress();
+        D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC BuildDesc = {};
+        BuildDesc.Inputs = AccelInputs;
+        BuildDesc.ScratchAccelerationStructureData =
+            ScratchResource->GetGPUVirtualAddress();
+        BuildDesc.DestAccelerationStructureData =
+            BLASMeshResource->GetGPUVirtualAddress();
 
-        pCommandList->BuildRaytracingAccelerationStructure(&buildDesc, 0,
-                                                           nullptr);
-        CD3DX12_RESOURCE_BARRIER barrier =
-            CD3DX12_RESOURCE_BARRIER::UAV(blasMeshResource);
-        pCommandList->ResourceBarrier(1,
-                                      (const D3D12_RESOURCE_BARRIER *)&barrier);
+        CommandList->BuildRaytracingAccelerationStructure(&BuildDesc, 0,
+                                                          nullptr);
+        CD3DX12_RESOURCE_BARRIER Barrier =
+            CD3DX12_RESOURCE_BARRIER::UAV(BLASMeshResource);
+        CommandList->ResourceBarrier(1,
+                                     (const D3D12_RESOURCE_BARRIER *)&Barrier);
       }
     }
 
-    pCommandList->Close();
-    ExecuteCommandList(pCommandQueue, pCommandList);
-    WaitForSignal(pCommandQueue, FO);
+    CommandList->Close();
+    ExecuteCommandList(CommandQueue, CommandList);
+    WaitForSignal(CommandQueue, FO);
 
-    VERIFY_SUCCEEDED(pCommandAllocator->Reset());
-    VERIFY_SUCCEEDED(pCommandList->Reset(pCommandAllocator, nullptr));
+    VERIFY_SUCCEEDED(CommandAllocator->Reset());
+    VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, nullptr));
   }
 
-  if (useProceduralGeometry) {
+  if (UseProceduralGeometry) {
     // Define procedural geometry AABB for a plane
-    CComPtr<ID3D12Resource> aabbBuffer;
-    CComPtr<ID3D12Resource> aabbBufferUpload;
+    CComPtr<ID3D12Resource> AabbBuffer;
+    CComPtr<ID3D12Resource> AabbBufferUpload;
 
     // Define the AABB for the plane, matching the size of the quad defined by
     // verts[]
-    const D3D12_RAYTRACING_AABB aabb = {
+    const D3D12_RAYTRACING_AABB Aabb = {
         -150.5f, -500.5f, -1000.0f, // Min corner (x, y, z)
         150.5f,  -150.5f, 1000.0f   // Max corner (x, y, z)
     };
-    const UINT64 aabbDataSize = sizeof(aabb);
+    const UINT64 AabbDataSize = sizeof(Aabb);
 
     // Create an upload buffer for the AABB
-    AllocateUploadBuffer(pDevice, &aabb, aabbDataSize, &aabbBufferUpload,
-                         L"aabbBufferUpload");
+    AllocateUploadBuffer(Device, &Aabb, AabbDataSize, &AabbBufferUpload,
+                         L"AabbBufferUpload");
 
     // Create a GPU buffer for the AABB
-    AllocateBufferFromUpload(
-        pDevice, pCommandList, aabbBufferUpload, &aabbBuffer,
-        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, L"aabbBuffer");
+    AllocateBufferFromUpload(Device, CommandList, AabbBufferUpload, &AabbBuffer,
+                             D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+                             L"AabbBuffer");
 
     // Describe the procedural geometry
-    D3D12_RAYTRACING_GEOMETRY_DESC procGeometryDesc = {};
-    procGeometryDesc.Type =
+    D3D12_RAYTRACING_GEOMETRY_DESC ProcGeometryDesc = {};
+    ProcGeometryDesc.Type =
         D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS;
-    procGeometryDesc.AABBs.AABBs.StartAddress =
-        aabbBuffer->GetGPUVirtualAddress();
-    procGeometryDesc.AABBs.AABBs.StrideInBytes = sizeof(D3D12_RAYTRACING_AABB);
-    procGeometryDesc.AABBs.AABBCount = 1;
+    ProcGeometryDesc.AABBs.AABBs.StartAddress =
+        AabbBuffer->GetGPUVirtualAddress();
+    ProcGeometryDesc.AABBs.AABBs.StrideInBytes = sizeof(D3D12_RAYTRACING_AABB);
+    ProcGeometryDesc.AABBs.AABBCount = 1;
 
     // Build the BLAS for the procedural geometry
-    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS blasInputs = {};
-    blasInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-    blasInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-    blasInputs.NumDescs = 1;
-    blasInputs.pGeometryDescs = &procGeometryDesc;
-    blasInputs.Flags =
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS BLASInputs = {};
+    BLASInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+    BLASInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+    BLASInputs.NumDescs = 1;
+    BLASInputs.pGeometryDescs = &ProcGeometryDesc;
+    BLASInputs.Flags =
         D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
 
-    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuildInfo = {};
-    pDevice->GetRaytracingAccelerationStructurePrebuildInfo(&blasInputs,
-                                                            &prebuildInfo);
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO PrebuildInfo = {};
+    Device->GetRaytracingAccelerationStructurePrebuildInfo(&BLASInputs,
+                                                           &PrebuildInfo);
 
     // Allocate scratch and result buffers for the BLAS
-    scratchResource.Release();
-    ReallocScratchResource(pDevice, &scratchResource,
-                           prebuildInfo.ScratchDataSizeInBytes);
-    AllocateBuffer(pDevice, prebuildInfo.ResultDataMaxSizeInBytes,
-                   &blasProceduralGeometryResource, true,
+    ScratchResource.Release();
+    ReallocScratchResource(Device, &ScratchResource,
+                           PrebuildInfo.ScratchDataSizeInBytes);
+    AllocateBuffer(Device, PrebuildInfo.ResultDataMaxSizeInBytes,
+                   &BLASProceduralGeometryResource, true,
                    D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
-                   L"blasProceduralGeometry");
+                   L"BlasProceduralGeometry");
 
     // Build the BLAS
-    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC blasDesc = {};
-    blasDesc.Inputs = blasInputs;
-    blasDesc.ScratchAccelerationStructureData =
-        scratchResource->GetGPUVirtualAddress();
-    blasDesc.DestAccelerationStructureData =
-        blasProceduralGeometryResource->GetGPUVirtualAddress();
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC BLASDesc = {};
+    BLASDesc.Inputs = BLASInputs;
+    BLASDesc.ScratchAccelerationStructureData =
+        ScratchResource->GetGPUVirtualAddress();
+    BLASDesc.DestAccelerationStructureData =
+        BLASProceduralGeometryResource->GetGPUVirtualAddress();
 
-    pCommandList->BuildRaytracingAccelerationStructure(&blasDesc, 0, nullptr);
+    CommandList->BuildRaytracingAccelerationStructure(&BLASDesc, 0, nullptr);
 
     // Add a UAV barrier to ensure the BLAS is built before using it
-    CD3DX12_RESOURCE_BARRIER barrier =
-        CD3DX12_RESOURCE_BARRIER::UAV(blasProceduralGeometryResource);
-    pCommandList->ResourceBarrier(1, &barrier);
+    CD3DX12_RESOURCE_BARRIER Barrier =
+        CD3DX12_RESOURCE_BARRIER::UAV(BLASProceduralGeometryResource);
+    CommandList->ResourceBarrier(1, &Barrier);
 
-    pCommandList->Close();
-    ExecuteCommandList(pCommandQueue, pCommandList);
-    WaitForSignal(pCommandQueue, FO);
+    CommandList->Close();
+    ExecuteCommandList(CommandQueue, CommandList);
+    WaitForSignal(CommandQueue, FO);
 
-    VERIFY_SUCCEEDED(pCommandAllocator->Reset());
-    VERIFY_SUCCEEDED(pCommandList->Reset(pCommandAllocator, nullptr));
+    VERIFY_SUCCEEDED(CommandAllocator->Reset());
+    VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, nullptr));
   }
 
   // Build TLAS.
   {
-    if (useMesh) {
-      D3D12_RAYTRACING_INSTANCE_DESC instanceDesc = {};
-      instanceDesc.Transform[0][0] = instanceDesc.Transform[1][1] =
-          instanceDesc.Transform[2][2] = 1;
-      instanceDesc.InstanceMask = 1;
-      instanceDesc.AccelerationStructure =
-          blasMeshResource->GetGPUVirtualAddress();
+    if (UseMesh) {
+      D3D12_RAYTRACING_INSTANCE_DESC InstanceDesc = {};
+      InstanceDesc.Transform[0][0] = InstanceDesc.Transform[1][1] =
+          InstanceDesc.Transform[2][2] = 1;
+      InstanceDesc.InstanceMask = 1;
+      InstanceDesc.AccelerationStructure =
+          BLASMeshResource->GetGPUVirtualAddress();
 
-      AllocateUploadBuffer(pDevice, &instanceDesc, sizeof(instanceDesc),
-                           &instanceDescs, L"instanceDescs");
+      AllocateUploadBuffer(Device, &InstanceDesc, sizeof(InstanceDesc),
+                           &InstanceDescs, L"InstanceDescs");
 
-      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS buildFlags =
+      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS BuildFlags =
           D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
 
-      D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS accelInputs = {};
-      accelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
-      accelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-      accelInputs.NumDescs = 1;
-      accelInputs.Flags = buildFlags;
-      accelInputs.InstanceDescs = instanceDescs->GetGPUVirtualAddress();
+      D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS AccelInputs = {};
+      AccelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
+      AccelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+      AccelInputs.NumDescs = 1;
+      AccelInputs.Flags = BuildFlags;
+      AccelInputs.InstanceDescs = InstanceDescs->GetGPUVirtualAddress();
 
-      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuildInfo = {};
-      pDevice->GetRaytracingAccelerationStructurePrebuildInfo(&accelInputs,
-                                                              &prebuildInfo);
+      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO PrebuildInfo = {};
+      Device->GetRaytracingAccelerationStructurePrebuildInfo(&AccelInputs,
+                                                             &PrebuildInfo);
 
-      scratchResource.Release();
-      ReallocScratchResource(pDevice, &scratchResource,
-                             prebuildInfo.ScratchDataSizeInBytes);
+      ScratchResource.Release();
+      ReallocScratchResource(Device, &ScratchResource,
+                             PrebuildInfo.ScratchDataSizeInBytes);
       AllocateBuffer(
-          pDevice, prebuildInfo.ResultDataMaxSizeInBytes, &tlasResource, true,
+          Device, PrebuildInfo.ResultDataMaxSizeInBytes, &TLASResource, true,
           D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, L"TLAS");
 
-      D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};
-      buildDesc.Inputs = accelInputs;
-      buildDesc.ScratchAccelerationStructureData =
-          scratchResource->GetGPUVirtualAddress();
-      buildDesc.DestAccelerationStructureData =
-          tlasResource->GetGPUVirtualAddress();
+      D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC BuildDesc = {};
+      BuildDesc.Inputs = AccelInputs;
+      BuildDesc.ScratchAccelerationStructureData =
+          ScratchResource->GetGPUVirtualAddress();
+      BuildDesc.DestAccelerationStructureData =
+          TLASResource->GetGPUVirtualAddress();
 
-      pCommandList->BuildRaytracingAccelerationStructure(&buildDesc, 0, 0);
+      CommandList->BuildRaytracingAccelerationStructure(&BuildDesc, 0, 0);
     } else {
-      D3D12_RAYTRACING_INSTANCE_DESC instanceDesc = {};
-      instanceDesc.Transform[0][0] = instanceDesc.Transform[1][1] =
-          instanceDesc.Transform[2][2] = 1;
-      instanceDesc.InstanceMask = 1;
-      instanceDesc.AccelerationStructure =
-          blasProceduralGeometryResource->GetGPUVirtualAddress();
+      D3D12_RAYTRACING_INSTANCE_DESC InstanceDesc = {};
+      InstanceDesc.Transform[0][0] = InstanceDesc.Transform[1][1] =
+          InstanceDesc.Transform[2][2] = 1;
+      InstanceDesc.InstanceMask = 1;
+      InstanceDesc.AccelerationStructure =
+          BLASProceduralGeometryResource->GetGPUVirtualAddress();
 
-      AllocateUploadBuffer(pDevice, &instanceDesc, sizeof(instanceDesc),
-                           &instanceDescs, L"instanceDescs");
+      AllocateUploadBuffer(Device, &InstanceDesc, sizeof(InstanceDesc),
+                           &InstanceDescs, L"InstanceDescs");
 
-      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS buildFlags =
+      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS BuildFlags =
           D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
 
-      D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS accelInputs = {};
-      accelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
-      accelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-      accelInputs.NumDescs = 1;
-      accelInputs.Flags = buildFlags;
-      accelInputs.InstanceDescs = instanceDescs->GetGPUVirtualAddress();
+      D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS AccelInputs = {};
+      AccelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
+      AccelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+      AccelInputs.NumDescs = 1;
+      AccelInputs.Flags = BuildFlags;
+      AccelInputs.InstanceDescs = InstanceDescs->GetGPUVirtualAddress();
 
-      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuildInfo = {};
-      pDevice->GetRaytracingAccelerationStructurePrebuildInfo(&accelInputs,
-                                                              &prebuildInfo);
+      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO PrebuildInfo = {};
+      Device->GetRaytracingAccelerationStructurePrebuildInfo(&AccelInputs,
+                                                             &PrebuildInfo);
 
-      scratchResource.Release();
-      ReallocScratchResource(pDevice, &scratchResource,
-                             prebuildInfo.ScratchDataSizeInBytes);
+      ScratchResource.Release();
+      ReallocScratchResource(Device, &ScratchResource,
+                             PrebuildInfo.ScratchDataSizeInBytes);
       AllocateBuffer(
-          pDevice, prebuildInfo.ResultDataMaxSizeInBytes, &tlasResource, true,
+          Device, PrebuildInfo.ResultDataMaxSizeInBytes, &TLASResource, true,
           D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, L"TLAS");
 
-      D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};
-      buildDesc.Inputs = accelInputs;
-      buildDesc.ScratchAccelerationStructureData =
-          scratchResource->GetGPUVirtualAddress();
-      buildDesc.DestAccelerationStructureData =
-          tlasResource->GetGPUVirtualAddress();
+      D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC BuildDesc = {};
+      BuildDesc.Inputs = AccelInputs;
+      BuildDesc.ScratchAccelerationStructureData =
+          ScratchResource->GetGPUVirtualAddress();
+      BuildDesc.DestAccelerationStructureData =
+          TLASResource->GetGPUVirtualAddress();
 
-      pCommandList->BuildRaytracingAccelerationStructure(&buildDesc, 0, 0);
+      CommandList->BuildRaytracingAccelerationStructure(&BuildDesc, 0, 0);
     }
 
-    CD3DX12_RESOURCE_BARRIER barrier =
-        CD3DX12_RESOURCE_BARRIER::UAV(tlasResource);
-    pCommandList->ResourceBarrier(1, (const D3D12_RESOURCE_BARRIER *)&barrier);
+    CD3DX12_RESOURCE_BARRIER Barrier =
+        CD3DX12_RESOURCE_BARRIER::UAV(TLASResource);
+    CommandList->ResourceBarrier(1, (const D3D12_RESOURCE_BARRIER *)&Barrier);
   }
 
   // Set the local root constants.
-  pCommandList->SetComputeRootSignature(pLocalRootSignature);
-  pCommandList->SetComputeRoot32BitConstant(1, 12, 0);
-  pCommandList->SetComputeRoot32BitConstant(1, 34, 1);
-  pCommandList->SetComputeRoot32BitConstant(1, 56, 2);
-  pCommandList->SetComputeRoot32BitConstant(1, 78, 3);
+  CommandList->SetComputeRootSignature(LocalRootSignature);
+  CommandList->SetComputeRoot32BitConstant(1, 12, 0);
+  CommandList->SetComputeRoot32BitConstant(1, 34, 1);
+  CommandList->SetComputeRoot32BitConstant(1, 56, 2);
+  CommandList->SetComputeRoot32BitConstant(1, 78, 3);
 
-  shaderTable.Upload(pCommandList);
+  ShaderTable.Upload(CommandList);
 
-  ID3D12DescriptorHeap *const pHeaps[1] = {pDescriptorHeap};
-  pCommandList->SetDescriptorHeaps(1, pHeaps);
-  pCommandList->SetComputeRootSignature(pGlobalRootSignature);
-  pCommandList->SetComputeRootShaderResourceView(
-      0, tlasResource->GetGPUVirtualAddress());
-  pCommandList->SetComputeRootConstantBufferView(
-      1, pSceneConstantBuffer->GetGPUVirtualAddress());
-  pCommandList->SetComputeRootDescriptorTable(
-      2, pDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+  ID3D12DescriptorHeap *const Heaps[1] = {DescriptorHeap};
+  CommandList->SetDescriptorHeaps(1, Heaps);
+  CommandList->SetComputeRootSignature(GlobalRootSignature);
+  CommandList->SetComputeRootShaderResourceView(
+      0, TLASResource->GetGPUVirtualAddress());
+  CommandList->SetComputeRootConstantBufferView(
+      1, SceneConstantBuffer->GetGPUVirtualAddress());
+  CommandList->SetComputeRootDescriptorTable(
+      2, DescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
-  D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
-  dispatchDesc.RayGenerationShaderRecord.StartAddress =
-      shaderTable.GetRaygenStartGpuVA();
-  dispatchDesc.RayGenerationShaderRecord.SizeInBytes =
-      shaderTable.GetRaygenRangeInBytes();
-  dispatchDesc.MissShaderTable.StartAddress = shaderTable.GetMissStartGpuVA();
-  dispatchDesc.MissShaderTable.SizeInBytes = shaderTable.GetMissRangeInBytes();
-  dispatchDesc.MissShaderTable.StrideInBytes =
-      shaderTable.GetShaderRecordSizeInBytes();
-  dispatchDesc.HitGroupTable.StartAddress = shaderTable.GetHitGroupStartGpuVA();
-  dispatchDesc.HitGroupTable.SizeInBytes =
-      shaderTable.GetHitGroupRangeInBytes();
-  dispatchDesc.HitGroupTable.StrideInBytes =
-      shaderTable.GetShaderRecordSizeInBytes();
-  dispatchDesc.Width = windowWidth;
-  dispatchDesc.Height = windowHeight;
-  dispatchDesc.Depth = 1;
-  pCommandList->SetPipelineState1(pStateObject);
-  pCommandList->DispatchRays(&dispatchDesc);
+  D3D12_DISPATCH_RAYS_DESC DispatchDesc = {};
+  DispatchDesc.RayGenerationShaderRecord.StartAddress =
+      ShaderTable.GetRaygenStartGpuVA();
+  DispatchDesc.RayGenerationShaderRecord.SizeInBytes =
+      ShaderTable.GetRaygenRangeInBytes();
+  DispatchDesc.MissShaderTable.StartAddress = ShaderTable.GetMissStartGpuVA();
+  DispatchDesc.MissShaderTable.SizeInBytes = ShaderTable.GetMissRangeInBytes();
+  DispatchDesc.MissShaderTable.StrideInBytes =
+      ShaderTable.GetShaderRecordSizeInBytes();
+  DispatchDesc.HitGroupTable.StartAddress = ShaderTable.GetHitGroupStartGpuVA();
+  DispatchDesc.HitGroupTable.SizeInBytes =
+      ShaderTable.GetHitGroupRangeInBytes();
+  DispatchDesc.HitGroupTable.StrideInBytes =
+      ShaderTable.GetShaderRecordSizeInBytes();
+  DispatchDesc.Width = WindowWidth;
+  DispatchDesc.Height = WindowHeight;
+  DispatchDesc.Depth = 1;
+  CommandList->SetPipelineState1(StateObject);
+  CommandList->DispatchRays(&DispatchDesc);
 
-  pCommandList->Close();
-  ExecuteCommandList(pCommandQueue, pCommandList);
-  WaitForSignal(pCommandQueue, FO);
+  CommandList->Close();
+  ExecuteCommandList(CommandQueue, CommandList);
+  WaitForSignal(CommandQueue, FO);
 
-  VERIFY_SUCCEEDED(pCommandAllocator->Reset());
-  VERIFY_SUCCEEDED(pCommandList->Reset(pCommandAllocator, nullptr));
+  VERIFY_SUCCEEDED(CommandAllocator->Reset());
+  VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, nullptr));
 
   // Copy the testBuffer contents to CPU
-  D3D12_RESOURCE_BARRIER barriers[1];
-  barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-      pTestBuffer, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+  D3D12_RESOURCE_BARRIER Barriers[1];
+  Barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+      TestBuffer, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
       D3D12_RESOURCE_STATE_COPY_SOURCE);
-  pCommandList->ResourceBarrier(1, barriers);
-  pCommandList->CopyResource(pTestBufferRead, pTestBuffer);
-  barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-      pTestBuffer, D3D12_RESOURCE_STATE_COPY_SOURCE,
+  CommandList->ResourceBarrier(1, Barriers);
+  CommandList->CopyResource(TestBufferRead, TestBuffer);
+  Barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+      TestBuffer, D3D12_RESOURCE_STATE_COPY_SOURCE,
       D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-  pCommandList->ResourceBarrier(1, barriers);
+  CommandList->ResourceBarrier(1, Barriers);
 
-  pCommandList->Close();
-  ExecuteCommandList(pCommandQueue, pCommandList);
-  WaitForSignal(pCommandQueue, FO);
+  CommandList->Close();
+  ExecuteCommandList(CommandQueue, CommandList);
+  WaitForSignal(CommandQueue, FO);
 
   // Copy the shader test data into 'testData'.
-  MappedData data(pTestBufferRead, (UINT32)testData.size() * sizeof(int));
-  const int *pData = (int *)data.data();
+  MappedData Data(TestBufferRead, (UINT32)TestData.size() * sizeof(int));
+  const int *DataPtr = (int *)Data.data();
 
-  for (int i = 0; i < testData.size(); i++) {
-    testData[i] = *pData++;
-  }
+  for (int i = 0; i < TestData.size(); i++)
+    TestData[i] = *DataPtr++;
 
   // Cleanup resources
-  pTestBuffer.Release();
-  pTestBufferRead.Release();
-  pSceneConstantBuffer.Release();
-  pDescriptorHeap.Release();
-  pCommandQueue.Release();
-  pCommandAllocator.Release();
-  pCommandList.Release();
-  pStateObject.Release();
-  pStateObjectProperties.Release();
-  tlasResource.Release();
-  blasMeshResource.Release();
-  blasProceduralGeometryResource.Release();
-  instanceDescs.Release();
-  scratchResource.Release();
+  TestBuffer.Release();
+  TestBufferRead.Release();
+  SceneConstantBuffer.Release();
+  DescriptorHeap.Release();
+  CommandQueue.Release();
+  CommandAllocator.Release();
+  CommandList.Release();
+  StateObject.Release();
+  StateObjectProperties.Release();
+  TLASResource.Release();
+  BLASMeshResource.Release();
+  BLASProceduralGeometryResource.Release();
+  InstanceDescs.Release();
+  ScratchResource.Release();
 
-  return pTestBufferRead;
+  return TestBufferRead;
 }
 
 // SER TESTS
