@@ -5945,6 +5945,8 @@ public:
              "otherwise caller didn't initialize - there should be at least a "
              "void return type");
 
+    const bool IsStatic = IsStaticMember(intrinsic);
+
     // Create the template arguments.
     SmallVector<TemplateArgument, g_MaxIntrinsicParamCount + 1> templateArgs;
     for (size_t i = 0; i < parameterTypeCount; i++) {
@@ -6010,15 +6012,19 @@ public:
 
     SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount> Params;
     for (unsigned int i = 1; i < parameterTypeCount; i++) {
+      // The first parameter in the HLSL intrinsic record is just the intrinsic
+      // name and aliases with the 'this' pointer for non-static members. Skip
+      // this first parameter for static functions.
+      unsigned ParamIdx = IsStatic ? i : i - 1;
       IdentifierInfo *id =
-          &m_context->Idents.get(StringRef(intrinsic->pArgs[i - 1].pName));
+          &m_context->Idents.get(StringRef(intrinsic->pArgs[ParamIdx].pName));
       ParmVarDecl *paramDecl = ParmVarDecl::Create(
           *m_context, nullptr, NoLoc, NoLoc, id, parameterTypes[i], nullptr,
           StorageClass::SC_None, nullptr, paramMods[i - 1]);
       Params.push_back(paramDecl);
     }
 
-    StorageClass SC = IsStaticMember(intrinsic) ? SC_Static : SC_Extern;
+    StorageClass SC = IsStatic ? SC_Static : SC_Extern;
     QualType T = TInfo->getType();
     DeclarationNameInfo NameInfo(FunctionTemplate->getDeclName(), NoLoc);
     CXXMethodDecl *method = CXXMethodDecl::Create(
@@ -10770,6 +10776,22 @@ HLSLExternalSource::ApplyTypeSpecSignToParsedType(clang::QualType &type,
   }
 }
 
+bool DiagnoseIntersectionAttributes(Sema &S, SourceLocation Loc, QualType Ty) {
+  // Must be a UDT
+  if (Ty.isNull() || !hlsl::IsHLSLCopyableAnnotatableRecord(Ty)) {
+    S.Diag(Loc, diag::err_payload_attrs_must_be_udt)
+        << /*payload|attributes|callable*/ 1 << /*parameter %2|type*/ 1;
+    return false;
+  }
+
+  if (ContainsLongVector(Ty)) {
+    const unsigned AttributesIdx = 11;
+    S.Diag(Loc, diag::err_hlsl_unsupported_long_vector) << AttributesIdx;
+    return false;
+  }
+  return true;
+}
+
 Sema::TemplateDeductionResult
 HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
     FunctionTemplateDecl *FunctionTemplate,
@@ -10878,6 +10900,7 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
     LPCSTR tableName = cursor.GetTableName();
     // Currently only intrinsic we allow for explicit template arguments are
     // for Load/Store for ByteAddressBuffer/RWByteAddressBuffer
+    // and HitObject::GetAttributes with user-defined intersection attributes.
 
     // Check Explicit template arguments
     UINT intrinsicOp = (*cursor)->Op;
@@ -10892,28 +10915,38 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
       IsBABLoad = intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
       IsBABStore = intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
     }
-    if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() > 0) {
-      bool isLegalTemplate = false;
+    bool IsHitObjectGetAttributes =
+        intrinsicOp == (UINT)IntrinsicOp::MOP_DxHitObject_GetAttributes;
+    if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() >= 1) {
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
-      auto TemplateDiag = diag::err_hlsl_intrinsic_template_arg_unsupported;
-      if (ExplicitTemplateArgs->size() >= 1 && (IsBABLoad || IsBABStore)) {
-        TemplateDiag = diag::err_hlsl_intrinsic_template_arg_requires_2018;
-        Loc = (*ExplicitTemplateArgs)[0].getLocation();
-        if (Is2018) {
-          TemplateDiag = diag::err_hlsl_intrinsic_template_arg_numeric;
-          if (ExplicitTemplateArgs->size() == 1 &&
-              !functionTemplateTypeArg.isNull() &&
-              hlsl::IsHLSLNumericOrAggregateOfNumericType(
-                  functionTemplateTypeArg)) {
-            isLegalTemplate = true;
-          }
-        }
-      }
-
-      if (!isLegalTemplate) {
-        getSema()->Diag(Loc, TemplateDiag) << intrinsicName;
+      if (!IsBABLoad && !IsBABStore && !IsHitObjectGetAttributes) {
+        getSema()->Diag(Loc, diag::err_hlsl_intrinsic_template_arg_unsupported)
+            << intrinsicName;
         return Sema::TemplateDeductionResult::TDK_Invalid;
       }
+      Loc = (*ExplicitTemplateArgs)[0].getLocation();
+      if (!Is2018) {
+        getSema()->Diag(Loc,
+                        diag::err_hlsl_intrinsic_template_arg_requires_2018)
+            << intrinsicName;
+        return Sema::TemplateDeductionResult::TDK_Invalid;
+      }
+
+      if (IsBABLoad || IsBABStore) {
+        const bool IsLegalTemplate =
+            !functionTemplateTypeArg.isNull() &&
+            hlsl::IsHLSLNumericOrAggregateOfNumericType(
+                functionTemplateTypeArg);
+        if (!IsLegalTemplate) {
+          getSema()->Diag(Loc, diag::err_hlsl_intrinsic_template_arg_numeric)
+              << intrinsicName;
+          return Sema::TemplateDeductionResult::TDK_Invalid;
+        }
+      }
+      if (IsHitObjectGetAttributes &&
+          !DiagnoseIntersectionAttributes(*getSema(), Loc,
+                                          functionTemplateTypeArg))
+        return Sema::TemplateDeductionResult::TDK_Invalid;
     } else if (IsBABStore) {
       // Prior to HLSL 2018, Store operation only stored scalar uint.
       if (!Is2018) {
@@ -12066,6 +12099,7 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
   case hlsl::IntrinsicOp::MOP_TraceRayInline:
     DiagnoseTraceRayInline(*this, CE);
     break;
+  case hlsl::IntrinsicOp::MOP_DxHitObject_FromRayQuery:
   case hlsl::IntrinsicOp::MOP_DxHitObject_Invoke:
   case hlsl::IntrinsicOp::MOP_DxHitObject_MakeMiss:
   case hlsl::IntrinsicOp::MOP_DxHitObject_MakeNop:

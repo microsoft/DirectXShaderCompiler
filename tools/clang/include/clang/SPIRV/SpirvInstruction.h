@@ -57,6 +57,7 @@ public:
     IK_MemoryModel,     // OpMemoryModel
     IK_EntryPoint,      // OpEntryPoint
     IK_ExecutionMode,   // OpExecutionMode
+    IK_ExecutionModeId, // OpExecutionModeId
     IK_String,          // OpString (debug)
     IK_Source,          // OpSource (debug)
     IK_ModuleProcessed, // OpModuleProcessed (debug)
@@ -404,12 +405,34 @@ private:
   llvm::SmallVector<SpirvVariable *, 8> interfaceVec;
 };
 
+class SpirvExecutionModeBase : public SpirvInstruction {
+public:
+  SpirvExecutionModeBase(Kind kind, spv::Op opcode, SourceLocation loc,
+                         SpirvFunction *entryPointFunction,
+                         spv::ExecutionMode executionMode)
+      : SpirvInstruction(kind, opcode, QualType(), loc),
+        entryPoint(entryPointFunction), execMode(executionMode) {}
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvExecutionModeBase)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) { return false; }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvFunction *getEntryPoint() const { return entryPoint; }
+  spv::ExecutionMode getExecutionMode() const { return execMode; }
+
+private:
+  SpirvFunction *entryPoint;
+  spv::ExecutionMode execMode;
+};
+
 /// \brief OpExecutionMode and OpExecutionModeId instructions
-class SpirvExecutionMode : public SpirvInstruction {
+class SpirvExecutionMode : public SpirvExecutionModeBase {
 public:
   SpirvExecutionMode(SourceLocation loc, SpirvFunction *entryPointFunction,
-                     spv::ExecutionMode, llvm::ArrayRef<uint32_t> params,
-                     bool usesIdParams);
+                     spv::ExecutionMode, llvm::ArrayRef<uint32_t> params);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvExecutionMode)
 
@@ -420,14 +443,32 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  SpirvFunction *getEntryPoint() const { return entryPoint; }
-  spv::ExecutionMode getExecutionMode() const { return execMode; }
   llvm::ArrayRef<uint32_t> getParams() const { return params; }
 
 private:
-  SpirvFunction *entryPoint;
-  spv::ExecutionMode execMode;
   llvm::SmallVector<uint32_t, 4> params;
+};
+
+/// \brief OpExecutionModeId
+class SpirvExecutionModeId : public SpirvExecutionModeBase {
+public:
+  SpirvExecutionModeId(SourceLocation loc, SpirvFunction *entryPointFunction,
+                       spv::ExecutionMode em,
+                       llvm::ArrayRef<SpirvInstruction *> params);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvExecutionModeId)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ExecutionModeId;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  llvm::ArrayRef<SpirvInstruction *> getParams() const { return params; }
+
+private:
+  llvm::SmallVector<SpirvInstruction *, 4> params;
 };
 
 /// \brief OpString instruction
