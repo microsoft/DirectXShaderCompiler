@@ -997,11 +997,6 @@ static bool CheckMatrixLayoutForMatVecMulOps(unsigned Layout) {
          static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal);
 }
 
-static bool CheckMatrixLayoutForOuterProdAcc(unsigned Layout) {
-  return Layout ==
-         static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal);
-}
-
 std::string GetMatrixLayoutStr(unsigned Layout) {
   switch (static_cast<DXIL::LinalgMatrixLayout>(Layout)) {
   case DXIL::LinalgMatrixLayout::RowMajor:
@@ -1236,7 +1231,8 @@ static void ValidateImmOperandsForOuterProdAcc(CallInst *CI,
   }
   ConstantInt *ML = cast<ConstantInt>(MatrixLayout);
   uint64_t MLValue = ML->getLimitedValue();
-  if (!CheckMatrixLayoutForOuterProdAcc(MLValue))
+  if (MLValue !=
+      static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal))
     ValCtx.EmitInstrFormatError(
         CI,
         ValidationRule::

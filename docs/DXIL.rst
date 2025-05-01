@@ -3145,7 +3145,7 @@ INSTR.LINALGINVALIDMEMORYINTERPVALUE                          In Memory Interpol
 INSTR.LINALGINVALIDREGISTERINTERPVALUE                        From Register Interpretation value must be valid.
 INSTR.LINALGMATRIXLAYOUTNOTTRANSPOSABLE                       Row Major and Column Major matrix layouts are not transposable.
 INSTR.LINALGMATRIXSHAPEPARAMSARECONST                         Matrix Layout, Dimensions and isTranspose are constants
-INSTR.LINALGMATRIXSTRIDEZEROFOROPTIMALLAYOUTS                 Matrix Layout for optimal layouts must be zero
+INSTR.LINALGMATRIXSTRIDEZEROFOROPTIMALLAYOUTS                 For optimal layouts, matrix stride must be zero.
 INSTR.LINALGNOTANUNSIGNEDTYPE                                 Unsigned flag set for a float signed type
 INSTR.MATVECOPISUNSIGNEDFLAGSARECONST                         In Linalg Mul/MulAdd functions, IsUnsigned flag is a constant.
 INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM                 Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.

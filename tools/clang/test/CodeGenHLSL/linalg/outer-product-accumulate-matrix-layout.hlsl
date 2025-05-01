@@ -1,4 +1,3 @@
-
 // RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DML=RowMajor -DSTRIDE=64 2>&1| FileCheck %s --check-prefixes DXIL-0
 // RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DML=ColumnMajor -DSTRIDE=64 2>&1 | FileCheck %s --check-prefixes DXIL-1
 // RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DML=MulOptimal -DSTRIDE=64 2>&1 | FileCheck %s --check-prefixes DXIL-2
@@ -47,7 +46,7 @@ enum MatLayout {
 // DXIL-1: error: matrix layout value 'ColumnMajor' is not valid for outerproductaccumulate, must be 'OuterProductOptimal' 
 // DXIL-2: error: matrix layout value 'MulOptimal' is not valid for outerproductaccumulate, must be 'OuterProductOptimal' 
 // DXIL-3-NOT: error: matrix layout value 'OuterProductOptimal' is not valid for outerproductaccumulate, must be 'OuterProductOptimal' 
-// DXIL-3: error: Matrix Layout for optimal layouts must be zero 
+// DXIL-3: error: matrix stride must be zero for optimal layouts 
 // DXIL-4: call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 8, i32 3, i32 0)
 
 [Numthreads(1,1,1)]
