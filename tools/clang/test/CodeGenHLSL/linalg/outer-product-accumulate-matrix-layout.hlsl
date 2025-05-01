@@ -53,15 +53,13 @@ enum MatLayout {
 [shader("compute")]
 void main()
 {
-    vector<half, 8> input_vector1 = input_vector_buffer.Load<vector<half, 8> >(0);
-    vector<half, 8> input_vector2 = input_vector_buffer2.Load<vector<half, 8> >(0);
+  vector<half, 8> input_vector1 = input_vector_buffer.Load<vector<half, 8> >(0);
+  vector<half, 8> input_vector2 = input_vector_buffer2.Load<vector<half, 8> >(0);
 
-    const uint matrix_interpretation = CompType::F16;
-    const uint matrix_layout = ML;
-    const uint matrix_offset = 0;
-    const uint matrix_stride = STRIDE;
-    
-    // CHECK: matrix layout value 'RowMajor' is not valid for outerproductaccumulate, must be 'OuterProductOptimal' 
-    __builtin_OuterProductAccumulate(input_vector1, input_vector2, matrix_buffer, matrix_offset, matrix_interpretation, matrix_layout, matrix_stride);
+  const uint matrix_interpretation = CompType::F16;
+  const uint matrix_layout = ML;
+  const uint matrix_offset = 0;
+  const uint matrix_stride = STRIDE;
 
+  __builtin_OuterProductAccumulate(input_vector1, input_vector2, matrix_buffer, matrix_offset, matrix_interpretation, matrix_layout, matrix_stride);
 }
