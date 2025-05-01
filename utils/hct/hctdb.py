@@ -8447,9 +8447,10 @@ class db_dxil(object):
             "matrix layout value '%0' is not valid. Must be between [%1 - %2]",
         )
 
-        self.add_valrule(
+        self.add_valrule_msg(
             "Instr.LinalgMatrixStrideZeroForOptimalLayouts",
-            "Matrix Layout for optimal layouts must be zero",
+            "For optimal layouts, matrix stride must be zero.",
+            "matrix stride must be zero for optimal layouts",
         )
 
         self.add_valrule_msg(
