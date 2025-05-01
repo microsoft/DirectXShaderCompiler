@@ -1012,7 +1012,7 @@ std::string GetMatrixLayoutStr(unsigned Layout) {
     return "MulOptimal";
   case DXIL::LinalgMatrixLayout::OuterProductOptimal:
     return "OuterProductOptimal";
-  default:  
+  default:
     DXASSERT_NOMSG(false);
     return "Invalid";
   }
@@ -1238,7 +1238,9 @@ static void ValidateImmOperandsForOuterProdAcc(CallInst *CI,
   uint64_t MLValue = ML->getLimitedValue();
   if (!CheckMatrixLayoutForOuterProdAcc(MLValue))
     ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinalgInvalidMatrixLayoutValueForOuterProductAccumulate,
+        CI,
+        ValidationRule::
+            InstrLinalgInvalidMatrixLayoutValueForOuterProductAccumulate,
         {GetMatrixLayoutStr(MLValue),
          GetMatrixLayoutStr(static_cast<unsigned>(
              DXIL::LinalgMatrixLayout::OuterProductOptimal))});
