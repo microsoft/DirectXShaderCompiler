@@ -516,6 +516,12 @@ public:
                        L"Table:ShaderOpArithTable.xml#LongVectorBinaryOpTable")
   END_TEST_METHOD()
 
+  BEGIN_TEST_METHOD(LongVector_TrigonometricOpTest)
+  TEST_METHOD_PROPERTY(
+      L"DataSource",
+      L"Table:ShaderOpArithTable.xml#LongVectorUnaryOpTable_Trigonometric")
+  END_TEST_METHOD()
+
   BEGIN_TEST_METHOD(LongVector_UnaryOpTest)
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:ShaderOpArithTable.xml#LongVectorUnaryOpTable")
@@ -792,8 +798,8 @@ public:
   void LongVectorOpTestDispatchByVectorSize(U OpType,
                                             TableParameterHandler &Handler);
 
-  template <typename T, std::size_t N>
-  void LongVectorOpTestBase(LongVectorOpTestConfig<T> &TestConfig);
+  template <typename T, std::size_t N, typename U>
+  void LongVectorOpTestBase(LongVectorOpTestConfig<T, U> &TestConfig);
 
   template <class Ty> const wchar_t *BasicShaderModelTest_GetFormatString();
 
@@ -11257,6 +11263,21 @@ TEST_F(ExecutionTest, LongVector_BinaryOpTest) {
   LongVectorOpTestDispatchByDataType(OpType, DataType, Handler);
 }
 
+TEST_F(ExecutionTest, LongVector_TrigonometricOpTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  const int TableSize =
+      sizeof(LongVectorUnaryOpParameters) / sizeof(TableParameter);
+  TableParameterHandler Handler(LongVectorUnaryOpParameters, TableSize);
+
+  std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
+  std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
+
+  auto OpType = GetLongVectorTrigonometricOpType(OpTypeString);
+  LongVectorOpTestDispatchByDataType(OpType, DataType, Handler);
+}
+
 TEST_F(ExecutionTest, LongVector_UnaryOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -11308,7 +11329,7 @@ void ExecutionTest::LongVectorOpTestDispatchByVectorSize(
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  LongVectorOpTestConfig<T> TestConfig(opType);
+  LongVectorOpTestConfig<T, U> TestConfig(opType);
 
   // InputValueSetName1 is optional. So the string may be empty. An empty
   // string will result in the default value set for this DataType being used.
@@ -11347,9 +11368,9 @@ void ExecutionTest::LongVectorOpTestDispatchByVectorSize(
   LongVectorOpTestBase<T, 1024>(TestConfig);
 }
 
-template <typename T, std::size_t N>
+template <typename T, std::size_t N, typename U>
 void ExecutionTest::LongVectorOpTestBase(
-    LongVectorOpTestConfig<T> &TestConfig) {
+    LongVectorOpTestConfig<T, U> &TestConfig) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -11421,7 +11442,8 @@ void ExecutionTest::LongVectorOpTestBase(
     else if (TestConfig.IsScalarOp())
       LogLongVector<T, 1>(ScalarInput, L"ScalarInput");
 
-    if (TestConfig.GetUnaryOpType() == LongVectorUnaryOpType_Clamp) {
+    // TODO: Fix this. HasInputArgs ?
+    if (TestConfig.IsClampOp()) {
       LogScalar(InputArgsArray[0], L"ClampArgMin");
       LogScalar(InputArgsArray[1], L"ClampArgMax");
     }
@@ -11466,8 +11488,7 @@ void ExecutionTest::LongVectorOpTestBase(
         if (0 == _stricmp(Name, "InputFuncArgs")) {
           if (TestConfig.IsScalarOp()) {
             FillShaderBufferFromLongVectorData<T, 1>(ShaderData, ScalarInput);
-          } else if (TestConfig.GetUnaryOpType() ==
-                     LongVectorUnaryOpType_Clamp) {
+          } else if (TestConfig.IsClampOp()) { // TODO: 'HasInputArgs'
             std::array<T, 2> ClampArgs = {InputArgsArray[0], InputArgsArray[1]};
             FillShaderBufferFromLongVectorData<T, 2>(ShaderData, ClampArgs);
           }

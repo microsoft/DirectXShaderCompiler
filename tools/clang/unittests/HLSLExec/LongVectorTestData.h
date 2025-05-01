@@ -38,6 +38,18 @@ struct HLSLBool_t {
     return HLSLBool_t(Val + Other.Val);
   }
 
+  HLSLBool_t operator-(const HLSLBool_t &Other) const {
+    return HLSLBool_t(Val - Other.Val);
+  }
+
+  HLSLBool_t operator/(const HLSLBool_t &Other) const {
+    return HLSLBool_t(Val / Other.Val);
+  }
+
+  HLSLBool_t operator%(const HLSLBool_t &Other) const {
+    return HLSLBool_t(Val % Other.Val);
+  }
+
   // So we can construct std::wstrings using std::wostream
   friend std::wostream &operator<<(std::wostream &Os, const HLSLBool_t &Obj) {
     Os << static_cast<bool>(Obj.Val);
@@ -78,6 +90,11 @@ struct HLSLHalf_t {
                            L"meant for cases when initializing to 0.");
     const float F = static_cast<float>(I);
     Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
+  }
+
+  // Implicit conversion to float for use with things like std::acos, std::tan, etc
+  operator float() const {
+    return DirectX::PackedVector::XMConvertHalfToFloat(Val);
   }
 
   bool operator==(const HLSLHalf_t &Other) const { return Val == Other.Val; }
@@ -131,6 +148,19 @@ struct HLSLHalf_t {
     float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
     return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A - B));
+  }
+
+  HLSLHalf_t operator/(const HLSLHalf_t &Other) const {
+    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
+    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A / B));
+  }
+
+  HLSLHalf_t operator%(const HLSLHalf_t &Other) const {
+    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
+    float C = std::fmod(A, B);
+    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(C));
   }
 
   // So we can construct std::wstrings using std::wostream
@@ -213,29 +243,44 @@ template <> struct LongVectorTestData<uint64_t> {
 template <> struct LongVectorTestData<HLSLHalf_t> {
   inline static const std::map<std::wstring, std::vector<HLSLHalf_t>> Data = {
       {L"DefaultInputValueSet1",
-       {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
+       {1.0, -0.01, 1.0, -0.01, 1.0, -0.01, 1.0, -0.01, 1.0, -0.01}},
       {L"DefaultInputValueSet2",
-       {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
-      {L"DefaultClampArgs", {-1.0, 1.0}} // Min, Max values for clamp
+       {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0}},
+      {L"DefaultClampArgs", {-1.0, 1.0}}, // Min, Max values for clamp
+      // Range [ -pi/2, pi/2]
+      {L"TrigonometricInputValueSet_RangeHalfPi",
+       {-1.073,0.044,-1.047,0.313,1.447,-0.865,1.364,-0.715,-0.800,0.541}},
+      {L"TrigonometricInputValueSet_RangeOne",
+        {0.727,0.331,-0.957,0.677,-0.025,0.495,0.855,-0.673,-0.678,-0.905}},
   };
 };
 
 template <> struct LongVectorTestData<float> {
   inline static const std::map<std::wstring, std::vector<float>> Data = {
       {L"DefaultInputValueSet1",
-       {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
+       {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0}},
       {L"DefaultInputValueSet2",
-       {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
-      {L"DefaultClampArgs", {-1.0, 1.0}} // Min, Max values for clamp
+       {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0}},
+      {L"DefaultClampArgs", {-1.0, 1.0}}, // Min, Max values for clamp
+      // Range [ -pi/2, pi/2]
+      {L"TrigonometricInputValueSet_RangeHalfPi",
+       {0.315f,-0.316f,1.409f,-0.09f,-1.569f,1.302f,-0.326f,0.781f,-1.235f,0.623f}},
+      {L"TrigonometricInputValueSet_RangeOne",
+        {0.727f,0.331f,-0.957f,0.677f,-0.025f,0.495f,0.855f,-0.673f,-0.678f,-0.905f}},
   };
 };
 
 template <> struct LongVectorTestData<double> {
   inline static const std::map<std::wstring, std::vector<double>> Data = {
       {L"DefaultInputValueSet1",
-       {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
+       {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0}},
       {L"DefaultInputValueSet2",
-       {1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0}},
-      {L"DefaultClampArgs", {-1.0, 1.0}} // Min, Max values for clamp
+       {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0}},
+      {L"DefaultClampArgs", {-1.0, 1.0}}, // Min, Max values for clamp
+      // Range [ -pi/2, pi/2]
+      {L"TrigonometricInputValueSet_RangeHalfPi",
+       {0.807,0.605,1.317,0.188,1.566,-1.507,0.67,-1.553,0.194,-0.883}},
+      {L"TrigonometricInputValueSet_RangeOne",
+        {0.727,0.331,-0.957,0.677,-0.025,0.495,0.855,-0.673,-0.678,-0.905}},
   };
 };

@@ -8168,4 +8168,138 @@
         <Parameter Name="DataType">float64</Parameter>
       </Row>
     </Table>
+    <Table Id="LongVectorUnaryOpTable_Trigonometric">
+      <ParameterTypes>
+        <!-- InputValueSetName1 is optional. If no value is provided use the
+        default value set for the data type. This string is meant to be a key
+        value for the the array of std::pairs defined in LongVectorTestData.h
+        for the applicable DataType-->
+        <ParameterType Name="InputValueSetName1">String</ParameterType>
+        <!-- InputArgsName is optional and is also a key to the array of
+        std::pairs defined in LongVectorTestData.h for the applicable DataType.
+        Used for args like min and max in clamp-->
+        <ParameterType Name="DataType">String</ParameterType>
+        <ParameterType Name="OpTypeEnum">String</ParameterType>
+      </ParameterTypes>
+      <!-- LongVectorUnaryOpTable_Trigonometric DataType: float16 -->
+      <Row Name="Acos_float16">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Acos</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeOne</Parameter>
+      </Row>
+      <Row Name="Asin_float16">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Asin</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeHalfPi</Parameter>
+      </Row>
+      <Row Name="Atan_float16">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Atan</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeHalfPi</Parameter>
+      </Row>
+      <Row Name="Cos_float16">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Cos</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Cosh_float16">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Cosh</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Sin_float16">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Sin</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Sinh_float16">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Sinh</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Tan_float16">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Tan</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Tanh_float16">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Tanh</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <!-- LongVectorUnaryOpTable_Trigonometric DataType: float32 -->
+      <Row Name="Acos_float32">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Acos</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeOne</Parameter>
+      </Row>
+      <Row Name="Asin_float32">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Asin</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeHalfPi</Parameter>
+      </Row>
+      <Row Name="Atan_float32">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Atan</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeHalfPi</Parameter>
+      </Row>
+      <Row Name="Cos_float32">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Cos</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Cosh_float32">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Cosh</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Sin_float32">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Sin</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Sinh_float32">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Sinh</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Tan_float32">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Tan</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Tanh_float32">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Tanh</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <!-- LongVectorTrigonometricOpTable_Trigonometric DataType: float64 -->
+      <Row Name="Acos_float64">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Acos</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeOne</Parameter>
+      </Row>
+      <Row Name="Asin_float64">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Asin</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeHalfPi</Parameter>
+      </Row>
+      <Row Name="Atan_float64">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Atan</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeHalfPi</Parameter>
+      </Row>
+      <Row Name="Cos_float64">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Cos</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="Cosh_float64">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Cosh</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="Sin_float64">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Sin</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="Sinh_float64">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Sinh</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="Tan_float64">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Tan</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="Tanh_float64">
+        <Parameter Name="OpTypeEnum">LongVectorTrigonometricOpType_Tanh</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+    </Table>
 </Data>
