@@ -997,6 +997,11 @@ static bool CheckMatrixLayoutForMatVecMulOps(unsigned Layout) {
          static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal);
 }
 
+static bool CheckMatrixLayoutForOuterProdAcc(unsigned Layout) {
+  return Layout ==
+         static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal);
+}
+
 std::string GetMatrixLayoutStr(unsigned Layout) {
   switch (static_cast<DXIL::LinalgMatrixLayout>(Layout)) {
   case DXIL::LinalgMatrixLayout::RowMajor:
@@ -1007,7 +1012,7 @@ std::string GetMatrixLayoutStr(unsigned Layout) {
     return "MulOptimal";
   case DXIL::LinalgMatrixLayout::OuterProductOptimal:
     return "OuterProductOptimal";
-  default:
+  default:  
     DXASSERT_NOMSG(false);
     return "Invalid";
   }
@@ -1227,6 +1232,29 @@ static void ValidateImmOperandsForOuterProdAcc(CallInst *CI,
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinalgMatrixShapeParamsAreConst,
         {"MatrixLayout"});
+    return;
+  }
+  ConstantInt *ML = cast<ConstantInt>(MatrixLayout);
+  uint64_t MLValue = ML->getLimitedValue();
+  if (!CheckMatrixLayoutForOuterProdAcc(MLValue))
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinalgInvalidMatrixLayoutValueForOuterProductAccumulate,
+        {GetMatrixLayoutStr(MLValue),
+         GetMatrixLayoutStr(static_cast<unsigned>(
+             DXIL::LinalgMatrixLayout::OuterProductOptimal))});
+
+  llvm::Value *MatrixStride =
+      CI->getOperand(DXIL::OperandIndex::kOuterProdAccMatrixStride);
+  if (!llvm::isa<llvm::Constant>(MatrixStride)) {
+    ValCtx.EmitInstrError(
+        CI, ValidationRule::InstrLinalgMatrixStrideZeroForOptimalLayouts);
+    return;
+  }
+  ConstantInt *MS = cast<ConstantInt>(MatrixStride);
+  uint64_t MSValue = MS->getLimitedValue();
+  if (MSValue != 0) {
+    ValCtx.EmitInstrError(
+        CI, ValidationRule::InstrLinalgMatrixStrideZeroForOptimalLayouts);
     return;
   }
 }
