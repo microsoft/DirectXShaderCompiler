@@ -1,3 +1,4 @@
+; REQUIRES: dxil-1-9
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
 ; Confirm that 6.9 specific LLVM operations and DXIL intrinsics fail in 6.8
