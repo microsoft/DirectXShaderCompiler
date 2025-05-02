@@ -565,9 +565,13 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::ComponentType, uint32_t)
   RDAT_ENUM_VALUE_NODEF(UNormF64)
   RDAT_ENUM_VALUE_NODEF(PackedS8x32)
   RDAT_ENUM_VALUE_NODEF(PackedU8x32)
+  RDAT_ENUM_VALUE_NODEF(U8)
+  RDAT_ENUM_VALUE_NODEF(I8)
+  RDAT_ENUM_VALUE_NODEF(F8_E4M3)
+  RDAT_ENUM_VALUE_NODEF(F8_E5M2)
   RDAT_ENUM_VALUE_NODEF(LastEntry)
 #if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
-  static_assert((unsigned)hlsl::DXIL::ComponentType::LastEntry == 19,
+  static_assert((unsigned)hlsl::DXIL::ComponentType::LastEntry == 23,
                 "otherwise, RDAT_DXIL_ENUM definition needs updating");
 #endif
 RDAT_ENUM_END()

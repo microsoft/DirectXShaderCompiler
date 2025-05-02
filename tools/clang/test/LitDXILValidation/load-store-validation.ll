@@ -1,3 +1,4 @@
+; REQUIRES: dxil-1-9
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
 ; Ensure proper validation errors are produced for invalid parameters to load and store operations.

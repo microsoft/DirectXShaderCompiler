@@ -781,8 +781,9 @@ private:
   SpirvInstruction *processCooperativeMatrixGetLength(const CallExpr *call);
 
   /// Process vk::ext_execution_mode intrinsic
-  SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr,
-                                                  bool useIdParams);
+  SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr);
+  /// Process vk::ext_execution_mode_id intrinsic
+  SpirvInstruction *processIntrinsicExecutionModeId(const CallExpr *expr);
 
   /// Processes the 'firstbit{high|low}' intrinsic functions.
   SpirvInstruction *processIntrinsicFirstbit(const CallExpr *,
