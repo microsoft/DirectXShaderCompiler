@@ -2576,7 +2576,7 @@ bool CGMSHLSLRuntime::FindDispatchGridSemantic(const CXXRecordDecl *RD,
   for (const CXXBaseSpecifier &Base : RD->bases()) {
     DXASSERT(!Base.getType()->isDependentType(),
              "Node Record with dependent base class not caught by Sema");
-    if (Base.isVirtual() || Base.getType()->isDependentType())
+    if (Base.getType()->isDependentType())
       continue;
     CXXRecordDecl *BaseDecl = Base.getType()->getAsCXXRecordDecl();
     CharUnits BaseOffset = Offset + Layout.getBaseClassOffset(BaseDecl);
