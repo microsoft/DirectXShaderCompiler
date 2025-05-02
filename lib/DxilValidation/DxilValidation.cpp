@@ -2287,6 +2287,17 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     break;
   }
 
+  // Shader Execution Reordering - from ray query
+  case DXIL::OpCode::HitObject_FromRayQuery:
+  case DXIL::OpCode::HitObject_FromRayQueryWithAttrs: {
+    for (unsigned i = 1; i < CI->getNumOperands(); ++i) {
+      Value *Arg = CI->getArgOperand(i);
+      if (isa<UndefValue>(Arg))
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+    }
+    break;
+  }
+
   case DXIL::OpCode::AtomicBinOp:
   case DXIL::OpCode::AtomicCompareExchange: {
     Type *pOverloadType = OP::GetOverloadType(Opcode, CI->getCalledFunction());
