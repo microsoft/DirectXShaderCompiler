@@ -21,7 +21,7 @@
 // Catch any other unexpected error cases.
 // CHECK-NOT: error
 
-// RUN: %dxc -T vs_6_8 -select-validator internal %s | FileCheck %s
+// RUN: %dxc -T vs_6_8 %s | FileCheck %s
 // This should always be run, and always succeed.
 // CHECK: define void @main()
 
