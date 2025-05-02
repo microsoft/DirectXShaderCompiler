@@ -631,6 +631,7 @@ public:
   TEST_METHOD(SERShaderTableIndexTest);
   TEST_METHOD(SERLoadLocalRootTableConstantTest);
   TEST_METHOD(SERInvokeNoSBTTest);
+  TEST_METHOD(SERMaybeReorderThreadTest)
 
   dxc::DxcDllSupport m_support;
 

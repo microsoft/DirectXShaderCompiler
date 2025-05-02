@@ -1900,3 +1900,115 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
   VERIFY_ARE_EQUAL(Histo[8], 66);
   VERIFY_ARE_EQUAL(Histo[16], 4030);
 }
+
+TEST_F(ExecutionTest, SERMaybeReorderThreadTest) {
+  // SER: Test MaybeReorderThread variants.
+  static const char *ShaderSrc = R"(
+struct SceneConstants
+{
+    float4 eye;
+    float4 U;
+    float4 V;
+    float4 W;
+    float sceneScale;
+    uint2 windowSize;
+    int rayFlags;    
+};
+
+struct[raypayload] PerRayData
+{
+    uint visited : read(anyhit,closesthit,miss,caller) : write(anyhit,miss,closesthit,caller);
+};
+
+struct Attrs
+{
+    float2 barycentrics : BARYCENTRICS;
+};
+
+RWStructuredBuffer<int> testBuffer : register(u0);
+RaytracingAccelerationStructure topObject : register(t0);
+ConstantBuffer<SceneConstants> sceneConstants : register(b0);
+
+RayDesc ComputeRay()
+{
+    uint2   launchIndex = DispatchRaysIndex().xy;
+    uint2   launchDim = DispatchRaysDimensions().xy;
+
+    float2 d = float2(DispatchRaysIndex().xy) / float2(DispatchRaysDimensions().xy) * 2.0f - 1.0f;
+    RayDesc ray;
+    ray.Origin = sceneConstants.eye.xyz;
+    ray.Direction = normalize(d.x*sceneConstants.U.xyz + d.y*sceneConstants.V.xyz + sceneConstants.W.xyz);
+    ray.TMin = 0;
+    ray.TMax = 1e18;
+
+    return ray;
+}
+
+[shader("raygeneration")]
+void raygen()
+{
+    uint2   launchIndex = DispatchRaysIndex().xy;
+    uint2   launchDim = DispatchRaysDimensions().xy;
+
+    RayDesc ray = ComputeRay();
+
+    PerRayData payload;
+    payload.visited = 0;
+
+    dx::HitObject hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, payload);
+
+    if (launchIndex.x % 3 == 0) {
+      dx::MaybeReorderThread(hitObject);
+    }
+    else if (launchIndex.x % 3 == 1) {
+      dx::MaybeReorderThread(hitObject, 0xFF, 7);
+    }
+    else {
+      dx::MaybeReorderThread(0xFFF, 5);
+    } 
+
+    dx::HitObject::Invoke(hitObject, payload);
+
+    int id = launchIndex.x + launchIndex.y * launchDim.x;
+    testBuffer[id] = payload.visited;
+}
+
+[shader("miss")]
+void miss(inout PerRayData payload)
+{
+    payload.visited |= 2U;
+}
+
+[shader("anyhit")]
+void anyhit(inout PerRayData payload, in Attrs attrs)
+{
+    payload.visited |= 1U;
+}
+
+[shader("closesthit")]
+void closesthit(inout PerRayData payload, in Attrs attrs)
+{
+    payload.visited |= 4U;
+}
+
+)";
+
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, false))
+    return;
+
+  // Initialize test data.
+  const int WindowSize = 64;
+  std::vector<int> TestData(WindowSize * WindowSize, 0);
+  LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
+
+  RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+             WindowSize, WindowSize, true /*useMesh*/,
+             false /*useProceduralGeometry*/, false /*useIS*/);
+  std::map<int, int> Histo;
+  for (int Val : TestData)
+    ++Histo[Val];
+  VERIFY_ARE_EQUAL(Histo.size(), 2);
+  VERIFY_ARE_EQUAL(Histo[2], 4030);
+  VERIFY_ARE_EQUAL(Histo[5], 66);
+}
