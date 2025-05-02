@@ -63,7 +63,7 @@ void cs_main()
     // CHECK: %[[MLD2:[^ ]+]] = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?rw_matrix_buffer@@3URWByteAddressBuffer@@A"
     // CHECK: %[[MCH2:[^ ]+]] = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %[[MLD2]])
     // CHECK: %[[MAH2:[^ ]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %[[MCH2]], %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer undef)
-    // CHECK: call void @"dx.hl.op..void (i32, <8 x i32>, <8 x i32>, %dx.types.Handle, i32, i32, i32, i32)"(i32 392, <8 x i32> %{{[^ ]+}}, <8 x i32> %{{[^ ]+}}, %dx.types.Handle %[[MAH2]], i32 0, i32 5, i32 3, i32 0 )
+    // CHECK: call void @"dx.hl.op..void (i32, <8 x i32>, <8 x i32>, %dx.types.Handle, i32, i32, i32, i32)"(i32 392, <8 x i32> %{{[^ ]+}}, <8 x i32> %{{[^ ]+}}, %dx.types.Handle %[[MAH2]], i32 0, i32 5, i32 3, i32 0)
     __builtin_OuterProductAccumulate(input_vector1, input_vector2,
       rw_matrix_buffer, opa_matrix_offset, opa_matrix_interpretation,
       opa_matrix_layout, opa_matrix_stride);
