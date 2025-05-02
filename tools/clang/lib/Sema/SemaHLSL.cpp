@@ -11695,11 +11695,6 @@ bool CheckMatrixLayoutForMulandMulAddOps(unsigned Layout) {
                        MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL);
 }
 
-bool CheckMatrixLayoutForOuterProductAccumulate(unsigned Layout) {
-  return Layout == static_cast<unsigned>(
-                       MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL);
-}
-
 bool CheckTransposeForMatrixLayout(unsigned Layout, bool Transposed) {
   switch (static_cast<MatrixLayout>(Layout)) {
   case MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR:
@@ -11728,9 +11723,9 @@ enum DataType {
                                   // (1 sign, 5 exp, 2 mantissa bits)
 };
 
-bool IsPackedType(DataType type) {
-  return (type == DATA_TYPE_SINT8_T4_PACKED ||
-          type == DATA_TYPE_UINT8_T4_PACKED);
+bool IsPackedType(unsigned type) {
+  return (type == static_cast<unsigned>(DATA_TYPE_SINT8_T4_PACKED) ||
+          type == static_cast<unsigned>(DATA_TYPE_UINT8_T4_PACKED));
 }
 
 static bool CheckLinalgTypeInterpretation(uint32_t Input, bool InRegister) {
@@ -11762,8 +11757,9 @@ static bool CheckVectorAndMatrixDimensions(Sema &S, CallExpr *CE,
                                            bool isInputPacked) {
   // Check is output vector size is equals to matrix dimension M
   if (OutputVectorSize != MatrixM) {
+    Expr *OutputVector = CE->getArg(kMatVecMulOutputVectorIdx);
     S.Diags.Report(
-        CE->getExprLoc(),
+        OutputVector->getExprLoc(),
         diag::err_hlsl_linalg_output_vector_size_not_equal_to_matrix_M);
     return true;
   }
@@ -11771,12 +11767,15 @@ static bool CheckVectorAndMatrixDimensions(Sema &S, CallExpr *CE,
   const unsigned PackingFactor = isInputPacked ? 4 : 1;
   unsigned MinInputVectorSize = (MatrixK + PackingFactor - 1) / PackingFactor;
   if (InputVectorSize != MinInputVectorSize) {
+    Expr *InputVector = CE->getArg(kMatVecMulInputVectorIdx);
     if (isInputPacked) {
-      S.Diags.Report(CE->getExprLoc(),
+      S.Diags.Report(InputVector->getExprLoc(),
                      diag::err_hlsl_linalg_packed_input_vector_size_incorrect);
     } else {
-      S.Diags.Report(CE->getExprLoc(),
-                     diag::err_hlsl_linalg_unpacked_input_vector_size_not_equal_to_matrix_K);
+      S.Diags.Report(
+          InputVector->getExprLoc(),
+          diag::
+              err_hlsl_linalg_unpacked_input_vector_size_not_equal_to_matrix_K);
     }
     return true;
   }
@@ -11785,7 +11784,7 @@ static bool CheckVectorAndMatrixDimensions(Sema &S, CallExpr *CE,
 
 static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
                                               const hlsl::ShaderModel *SM) {
-  // Find OutputVectorType and Size and check IsUnsigned
+  // Check if IsOutputUnsigned is a const parameter
   bool IsOutputUnsignedFlagValue = false;
   Expr *IsOutputUnsignedExpr = CE->getArg(kMatVecMulOutputIsUnsignedIdx);
   llvm::APSInt IsOutputUnsignedExprVal;
@@ -11798,7 +11797,8 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
         << "IsOutputUnsigned";
     return true;
   }
-
+  // Check if IsOutputUnsigned flag matches output vector type.
+  // Must be true for unsigned int outputs, false for signed int/float outputs.
   Expr *OutputVector = CE->getArg(kMatVecMulOutputVectorIdx);
   unsigned OutputVectorSizeValue = 0;
   if (IsHLSLVecType(OutputVector->getType())) {
@@ -11823,7 +11823,6 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
           << (OutputVectorTypePtr->isSignedIntegerType() ? "signed int"
                                                          : "float");
       return true;
-
     } else if (!IsOutputUnsignedFlagValue &&
                OutputVectorTypePtr->isUnsignedIntegerType()) {
       S.Diags.Report(OutputVector->getExprLoc(),
@@ -11915,7 +11914,7 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     const bool InRegisterInterpretation = true;
     if (!CheckLinalgTypeInterpretation(InputInterpretationValue,
                                        InRegisterInterpretation)) {
-      S.Diags.Report(MatrixMExpr->getExprLoc(),
+      S.Diags.Report(InputInterpretationExpr->getExprLoc(),
                      diag::err_hlsl_linalg_interpretation_value_incorrect)
           << std::to_string(InputInterpretationValue)
           << InRegisterInterpretation;
@@ -11928,8 +11927,7 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     return true;
   }
 
-  bool isInputPacked =
-      IsPackedType(static_cast<DataType>(InputInterpretationValue));
+  bool isInputPacked = IsPackedType(InputInterpretationValue);
 
   CheckVectorAndMatrixDimensions(S, CE, InputVectorSizeValue,
                                  OutputVectorSizeValue, MatrixKValue,
@@ -11946,7 +11944,7 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     const bool InRegisterInterpretation = false;
     if (!CheckLinalgTypeInterpretation(MatrixInterpretationValue,
                                        InRegisterInterpretation)) {
-      S.Diags.Report(MatrixMExpr->getExprLoc(),
+      S.Diags.Report(MatrixInterpretationExpr->getExprLoc(),
                      diag::err_hlsl_linalg_interpretation_value_incorrect)
           << std::to_string(MatrixInterpretationValue)
           << InRegisterInterpretation;
@@ -12015,7 +12013,7 @@ static bool CheckMulAddCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
                             const hlsl::ShaderModel *SM) {
   CheckCommonMulandMulAddParameters(S, CE, SM);
 
-  // Check Bias Parameters
+  // Check if BiasInterpretation is constant and a valid value
   Expr *BiasInterpretationExpr = CE->getArg(kMatVecMulAddBiasInterpretation);
   llvm::APSInt BiasInterpretationExprVal;
   unsigned BiasInterpretationValue = 0;
@@ -12066,7 +12064,7 @@ static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
 
   if (!S.Context.hasSameType(InputVector1ElementType,
                              InputVector2ElementType)) {
-    S.Diags.Report(InputVector1Expr->getExprLoc(),
+    S.Diags.Report(InputVector2Expr->getExprLoc(),
                    diag::err_hlsl_linalg_outer_prod_acc_vector_type_mismatch);
     return true;
   }
@@ -12101,7 +12099,9 @@ static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
   unsigned MatrixLayoutValue = 0;
   if (MatrixLayoutExpr->isIntegerConstantExpr(MatrixLayoutExprVal, S.Context)) {
     MatrixLayoutValue = MatrixLayoutExprVal.getLimitedValue();
-    if (!CheckMatrixLayoutForOuterProductAccumulate(MatrixLayoutValue)) {
+    if (MatrixLayoutValue !=
+        static_cast<unsigned>(
+            MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL)) {
       S.Diags.Report(
           MatrixLayoutExpr->getExprLoc(),
           diag::
