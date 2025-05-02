@@ -14,7 +14,7 @@
 // DXIL-DAG:   %{{[^ ]+}} = call i32 @dx.op.hitObject_StateScalar.i32(i32 283, %dx.types.HitObject %[[HIT]])  ; HitObject_InstanceID(hitObject)
 // DXIL-DAG:   %{{[^ ]+}} = call i32 @dx.op.hitObject_StateScalar.i32(i32 284, %dx.types.HitObject %[[HIT]])  ; HitObject_PrimitiveIndex(hitObject)
 // DXIL-DAG:   %{{[^ ]+}} = call i32 @dx.op.hitObject_StateScalar.i32(i32 286, %dx.types.HitObject %[[HIT]])  ; HitObject_ShaderTableIndex(hitObject)
-// DXIL-DAG:   %{{[^ ]+}} = call i32 @dx.op.hitObject_LoadLocalRootTableConstant(i32 288, %dx.types.HitObject %[[HIT]], i32 42)  ; HitObject_LoadLocalRootTableConstant(hitObject,offset)
+// DXIL-DAG:   %{{[^ ]+}} = call i32 @dx.op.hitObject_LoadLocalRootTableConstant(i32 288, %dx.types.HitObject %[[HIT]], i32 40)  ; HitObject_LoadLocalRootTableConstant(hitObject,offset)
 // DXIL-DAG:   %{{[^ ]+}} = call float @dx.op.hitObject_StateVector.f32(i32 277, %dx.types.HitObject %[[HIT]], i32 0)  ; HitObject_ObjectRayOrigin(hitObject,component)
 // DXIL-DAG:   %{{[^ ]+}} = call float @dx.op.hitObject_StateVector.f32(i32 277, %dx.types.HitObject %[[HIT]], i32 1)  ; HitObject_ObjectRayOrigin(hitObject,component)
 // DXIL-DAG:   %{{[^ ]+}} = call float @dx.op.hitObject_StateVector.f32(i32 277, %dx.types.HitObject %[[HIT]], i32 2)  ; HitObject_ObjectRayOrigin(hitObject,component)
@@ -88,7 +88,7 @@ void main() {
   isum += hit.GetInstanceID();
   isum += hit.GetPrimitiveIndex();
   isum += hit.GetShaderTableIndex();
-  isum += hit.LoadLocalRootTableConstant(42);
+  isum += hit.LoadLocalRootTableConstant(40);
 
   // float3 accessors
   vsum += hit.GetWorldRayOrigin();

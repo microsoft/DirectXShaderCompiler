@@ -52,7 +52,7 @@ define void @"\01?main@@YAXXZ"() #0 {
 
   %r287 = call %dx.types.HitObject @dx.op.hitObject_SetShaderTableIndex(i32 287, %dx.types.HitObject %nop, i32 1)  ; HitObject_SetShaderTableIndex(hitObject,shaderTableIndex)
 
-  %r288 = call i32 @dx.op.hitObject_LoadLocalRootTableConstant(i32 288, %dx.types.HitObject %nop, i32 42)  ; HitObject_LoadLocalRootTableConstant(hitObject,offset)
+  %r288 = call i32 @dx.op.hitObject_LoadLocalRootTableConstant(i32 288, %dx.types.HitObject %nop, i32 16)  ; HitObject_LoadLocalRootTableConstant(hitObject,offset)
 
   call void @dx.op.hitObject_Attributes.struct.AttribType(i32 289, %dx.types.HitObject %nop, %struct.AttribType* nonnull %attrs)  ; HitObject_Attributes(hitObject,attributes)
   ret void
