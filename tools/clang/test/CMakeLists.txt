@@ -122,18 +122,22 @@ add_lit_testsuites(CLANG ${CMAKE_CURRENT_SOURCE_DIR}
   FOLDER "Clang tests/Suites"
 )
 
+include(taef_exec/DownloadWarp.cmake)
+
 # Use a custom target so we can depend on it and re-run the cmake logic which downloads warp
 # from nuget if requested.
-add_custom_target(WarpFromNuget
-  COMMAND "${CMAKE_COMMAND}"
-  -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
-  -DBUILD_TYPE=${CMAKE_BUILD_TYPE}
-  -DBINARY_DIR=${CMAKE_BINARY_DIR}
-  -P "${CMAKE_CURRENT_SOURCE_DIR}/taef_exec/DownloadWarp.cmake")
+# add_custom_target(WarpFromNuget
+#   COMMAND "${CMAKE_COMMAND}"
+#   -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
+#   -DBUILD_TYPE=${CMAKE_BUILD_TYPE}
+#   -DBINARY_DIR=${CMAKE_BINARY_DIR}
+#   -P "${CMAKE_CURRENT_SOURCE_DIR}/taef_exec/DownloadWarp.cmake")
 
-if(NOT CMAKE_CONFIGURATION_TYPES)
-  add_dependencies(check-clang-taef_exec WarpFromNuget)
-endif()
+# if(NOT CMAKE_CONFIGURATION_TYPES)
+#   add_dependencies(check-clang-taef_exec WarpFromNuget)
+# endif()
+
+# add_custom_target(TestWarp COMMAND echo "$ENV{ALLUSERSPROFILE} $ENV{MY_TEST}" DEPENDS WarpFromNuget)
 
 # add_lit_testsuites doesn't generate targets for Visual Studio or Xcode builds
 # (since these IDEs cannot handle the huge number of targets it generates).
