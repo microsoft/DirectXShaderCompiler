@@ -251,7 +251,7 @@ template <> struct LongVectorTestData<HLSLHalf_t> {
       {L"TrigonometricInputValueSet_RangeHalfPi",
        {-1.073,0.044,-1.047,0.313,1.447,-0.865,1.364,-0.715,-0.800,0.541}},
       {L"TrigonometricInputValueSet_RangeOne",
-        {0.727,0.331,-0.957,0.677,-0.025,0.495,0.855,-0.673,-0.678,-0.905}},
+        {0.331,0.727,-0.957,0.677,-0.025,0.495,0.855,-0.673,-0.678,-0.905}},
   };
 };
 
@@ -281,6 +281,6 @@ template <> struct LongVectorTestData<double> {
       {L"TrigonometricInputValueSet_RangeHalfPi",
        {0.807,0.605,1.317,0.188,1.566,-1.507,0.67,-1.553,0.194,-0.883}},
       {L"TrigonometricInputValueSet_RangeOne",
-        {0.727,0.331,-0.957,0.677,-0.025,0.495,0.855,-0.673,-0.678,-0.905}},
+        {0.331,0.277,-0.957,0.677,-0.025,0.495,0.855,-0.673,-0.678,-0.905}}
   };
 };

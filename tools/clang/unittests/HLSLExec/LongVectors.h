@@ -750,6 +750,7 @@ bool DoArraysMatch(const std::array<T, N> &ActualValues,
   if (!MismatchedIndexes.empty()) {
     for (size_t Index : MismatchedIndexes) {
       std::wstringstream Wss(L"");
+      Wss << std::setprecision(15); // Set precision for floating point types
       Wss << L"Mismatch at Index: " << Index;
       Wss << L" Actual Value:" << ActualValues[Index] << ",";
       Wss << L" Expected Value:" << ExpectedValues[Index];

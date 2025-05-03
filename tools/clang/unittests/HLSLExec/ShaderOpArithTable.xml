@@ -7536,7 +7536,7 @@
           <ParameterType Name="DataType">String</ParameterType>
           <ParameterType Name="OpTypeEnum">String</ParameterType>
         </ParameterTypes>
-        <!-- BinaryOpTypeTable DataType: bool -->
+        <!-- LongVectorBinaryOpTypeTable DataType: bool -->
         <Row Name="ScalarAdd_bool">
           <Parameter Name="OpTypeEnum">BinaryOpType_ScalarAdd</Parameter>
           <Parameter Name="DataType">bool</Parameter>
@@ -7553,7 +7553,7 @@
           <Parameter Name="OpTypeEnum">BinaryOpType_Subtract</Parameter>
           <Parameter Name="DataType">bool</Parameter>
         </Row>
-        <!-- BinaryOpTypeTable DataType: int16 -->
+        <!-- LongVectorBinaryOpTypeTable DataType: int16 -->
         <Row Name="ScalarAdd_int16">
           <Parameter Name="OpTypeEnum">BinaryOpType_ScalarAdd</Parameter>
           <Parameter Name="DataType">int16</Parameter>
@@ -7610,7 +7610,7 @@
           <Parameter Name="OpTypeEnum">BinaryOpType_Max</Parameter>
           <Parameter Name="DataType">int16</Parameter>
         </Row>
-        <!-- BinaryOpTypeTable DataType: int32 -->
+        <!-- LongVectorBinaryOpTypeTable DataType: int32 -->
         <Row Name="ScalarAdd_int32">
           <Parameter Name="OpTypeEnum">BinaryOpType_ScalarAdd</Parameter>
           <Parameter Name="DataType">int32</Parameter>
@@ -7667,7 +7667,7 @@
           <Parameter Name="OpTypeEnum">BinaryOpType_Max</Parameter>
           <Parameter Name="DataType">int32</Parameter>
         </Row>
-        <!-- BinaryOpTypeTable DataType: int64 -->
+        <!-- LongVectorBinaryOpTypeTable DataType: int64 -->
         <Row Name="ScalarAdd_int64">
           <Parameter Name="OpTypeEnum">BinaryOpType_ScalarAdd</Parameter>
           <Parameter Name="DataType">int64</Parameter>
@@ -7724,7 +7724,7 @@
           <Parameter Name="OpTypeEnum">BinaryOpType_Max</Parameter>
           <Parameter Name="DataType">int64</Parameter>
         </Row>
-        <!-- BinaryOpTypeTable DataType: uint16 -->
+        <!-- LongVectorBinaryOpTypeTable DataType: uint16 -->
         <Row Name="ScalarAdd_uint16">
           <Parameter Name="OpTypeEnum">BinaryOpType_ScalarAdd</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
@@ -7781,7 +7781,7 @@
           <Parameter Name="OpTypeEnum">BinaryOpType_Max</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
         </Row>
-        <!-- BinaryOpTypeTable DataType: uint32 -->
+        <!-- LongVectorBinaryOpTypeTable DataType: uint32 -->
         <Row Name="ScalarAdd_uint32">
           <Parameter Name="OpTypeEnum">BinaryOpType_ScalarAdd</Parameter>
           <Parameter Name="DataType">uint32</Parameter>
@@ -7838,7 +7838,7 @@
           <Parameter Name="OpTypeEnum">BinaryOpType_Max</Parameter>
           <Parameter Name="DataType">uint32</Parameter>
         </Row>
-        <!-- BinaryOpTypeTable DataType: uint64 -->
+        <!-- LongVectorBinaryOpTypeTable DataType: uint64 -->
         <Row Name="ScalarAdd_uint64">
           <Parameter Name="OpTypeEnum">BinaryOpType_ScalarAdd</Parameter>
           <Parameter Name="DataType">uint64</Parameter>
@@ -7895,7 +7895,7 @@
           <Parameter Name="OpTypeEnum">BinaryOpType_Max</Parameter>
           <Parameter Name="DataType">uint64</Parameter>
         </Row>
-        <!-- BinaryOpTypeTable DataType: float16 -->
+        <!-- LongVectorBinaryOpTypeTable DataType: float16 -->
         <Row Name="ScalarAdd_float16">
           <Parameter Name="OpTypeEnum">BinaryOpType_ScalarAdd</Parameter>
           <Parameter Name="DataType">float16</Parameter>
@@ -7952,7 +7952,7 @@
           <Parameter Name="OpTypeEnum">BinaryOpType_Max</Parameter>
           <Parameter Name="DataType">float16</Parameter>
         </Row>
-        <!-- BinaryOpTypeTable DataType: float32 -->
+        <!-- LongVectorBinaryOpTypeTable DataType: float32 -->
         <Row Name="ScalarAdd_float32">
           <Parameter Name="OpTypeEnum">BinaryOpType_ScalarAdd</Parameter>
           <Parameter Name="DataType">float32</Parameter>
@@ -8009,7 +8009,7 @@
           <Parameter Name="OpTypeEnum">BinaryOpType_Max</Parameter>
           <Parameter Name="DataType">float32</Parameter>
         </Row>
-        <!-- BinaryOpTypeTable DataType: float64 -->
+        <!-- LongVectorBinaryOpTypeTable DataType: float64 -->
         <Row Name="ScalarAdd_float64">
           <Parameter Name="OpTypeEnum">BinaryOpType_ScalarAdd</Parameter>
           <Parameter Name="DataType">float64</Parameter>
@@ -8081,12 +8081,12 @@
         <ParameterType Name="DataType">String</ParameterType>
         <ParameterType Name="OpTypeEnum">String</ParameterType>
       </ParameterTypes>
-      <!-- UnaryOpTypeTable DataType: bool -->
+      <!-- LongVectorUnaryOpTypeTable DataType: bool -->
       <Row Name="Initialize_bool">
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">bool</Parameter>
       </Row>
-      <!-- UnaryOpTypeTable DataType: int16 -->
+      <!-- LongVectorUnaryOpTypeTable DataType: int16 -->
       <Row Name="Clamp_int16">
         <Parameter Name="OpTypeEnum">UnaryOpType_Clamp</Parameter>
         <Parameter Name="DataType">int16</Parameter>
@@ -8095,7 +8095,7 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">int16</Parameter>
       </Row>
-      <!-- UnaryOpTypeTable DataType: int32 -->
+      <!-- LongVectorUnaryOpTypeTable DataType: int32 -->
       <Row Name="Clamp_int32">
         <Parameter Name="OpTypeEnum">UnaryOpType_Clamp</Parameter>
         <Parameter Name="DataType">int32</Parameter>
@@ -8104,7 +8104,7 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">int32</Parameter>
       </Row>
-      <!-- UnaryOpTypeTable DataType: int64 -->
+      <!-- LongVectorUnaryOpTypeTable DataType: int64 -->
       <Row Name="Clamp_int64">
         <Parameter Name="OpTypeEnum">UnaryOpType_Clamp</Parameter>
         <Parameter Name="DataType">int64</Parameter>
@@ -8113,7 +8113,7 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">int64</Parameter>
       </Row>
-      <!-- UnaryOpTypeTable DataType: uint16 -->
+      <!-- LongVectorUnaryOpTypeTable DataType: uint16 -->
       <Row Name="Clamp_uint16">
         <Parameter Name="OpTypeEnum">UnaryOpType_Clamp</Parameter>
         <Parameter Name="DataType">uint16</Parameter>
@@ -8122,7 +8122,7 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">uint16</Parameter>
       </Row>
-      <!-- UnaryOpTypeTable DataType: uint32 -->
+      <!-- LongVectorUnaryOpTypeTable DataType: uint32 -->
       <Row Name="Clamp_uint32">
         <Parameter Name="OpTypeEnum">UnaryOpType_Clamp</Parameter>
         <Parameter Name="DataType">uint32</Parameter>
@@ -8131,7 +8131,7 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">uint32</Parameter>
       </Row>
-      <!-- UnaryOpTypeTable DataType: uint64 -->
+      <!-- LongVectorUnaryOpTypeTable DataType: uint64 -->
       <Row Name="Clamp_uint64">
         <Parameter Name="OpTypeEnum">UnaryOpType_Clamp</Parameter>
         <Parameter Name="DataType">uint64</Parameter>
@@ -8140,7 +8140,7 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">uint64</Parameter>
       </Row>
-      <!-- UnaryOpTypeTable DataType: float16 -->
+      <!-- LongVectorUnaryOpTypeTable DataType: float16 -->
       <Row Name="Clamp_float16">
         <Parameter Name="OpTypeEnum">UnaryOpType_Clamp</Parameter>
         <Parameter Name="DataType">float16</Parameter>
@@ -8149,7 +8149,7 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">float16</Parameter>
       </Row>
-      <!-- UnaryOpTypeTable DataType: float32 -->
+      <!-- LongVectorUnaryOpTypeTable DataType: float32 -->
       <Row Name="Clamp_float32">
         <Parameter Name="OpTypeEnum">UnaryOpType_Clamp</Parameter>
         <Parameter Name="DataType">float32</Parameter>
@@ -8158,7 +8158,7 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">float32</Parameter>
       </Row>
-      <!-- UnaryOpTypeTable DataType: float64 -->
+      <!-- LongVectorUnaryOpTypeTable DataType: float64 -->
       <Row Name="Clamp_float64">
         <Parameter Name="OpTypeEnum">UnaryOpType_Clamp</Parameter>
         <Parameter Name="DataType">float64</Parameter>
@@ -8260,46 +8260,6 @@
       <Row Name="Tanh_float32">
         <Parameter Name="OpTypeEnum">TrigonometricOpType_Tanh</Parameter>
         <Parameter Name="DataType">float32</Parameter>
-      </Row>
-      <!-- LongVectorTrigonometricOpTable_Trigonometric DataType: float64 -->
-      <Row Name="Acos_float64">
-        <Parameter Name="OpTypeEnum">TrigonometricOpType_Acos</Parameter>
-        <Parameter Name="DataType">float64</Parameter>
-        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeOne</Parameter>
-      </Row>
-      <Row Name="Asin_float64">
-        <Parameter Name="OpTypeEnum">TrigonometricOpType_Asin</Parameter>
-        <Parameter Name="DataType">float64</Parameter>
-        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeHalfPi</Parameter>
-      </Row>
-      <Row Name="Atan_float64">
-        <Parameter Name="OpTypeEnum">TrigonometricOpType_Atan</Parameter>
-        <Parameter Name="DataType">float64</Parameter>
-        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeHalfPi</Parameter>
-      </Row>
-      <Row Name="Cos_float64">
-        <Parameter Name="OpTypeEnum">TrigonometricOpType_Cos</Parameter>
-        <Parameter Name="DataType">float64</Parameter>
-      </Row>
-      <Row Name="Cosh_float64">
-        <Parameter Name="OpTypeEnum">TrigonometricOpType_Cosh</Parameter>
-        <Parameter Name="DataType">float64</Parameter>
-      </Row>
-      <Row Name="Sin_float64">
-        <Parameter Name="OpTypeEnum">TrigonometricOpType_Sin</Parameter>
-        <Parameter Name="DataType">float64</Parameter>
-      </Row>
-      <Row Name="Sinh_float64">
-        <Parameter Name="OpTypeEnum">TrigonometricOpType_Sinh</Parameter>
-        <Parameter Name="DataType">float64</Parameter>
-      </Row>
-      <Row Name="Tan_float64">
-        <Parameter Name="OpTypeEnum">TrigonometricOpType_Tan</Parameter>
-        <Parameter Name="DataType">float64</Parameter>
-      </Row>
-      <Row Name="Tanh_float64">
-        <Parameter Name="OpTypeEnum">TrigonometricOpType_Tanh</Parameter>
-        <Parameter Name="DataType">float64</Parameter>
       </Row>
     </Table>
 </Data>
