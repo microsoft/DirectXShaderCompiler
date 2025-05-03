@@ -812,9 +812,10 @@ public:
       // before attempting to create the device.
       HMODULE ExplicitlyLoadedWarpDll = NULL;
       WEX::Common::String WarpDllPath;
-      if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(L"WARP_DLL", WarpDllPath))) {
+      if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
+              L"WARP_DLL", WarpDllPath))) {
         WEX::Logging::Log::Comment(WEX::Common::String().Format(
-            L"WARP_DLL requested: %ls", (const wchar_t*)WarpDllPath));
+            L"WARP_DLL requested: %ls", (const wchar_t *)WarpDllPath));
         ExplicitlyLoadedWarpDll = LoadLibraryExW(WarpDllPath, NULL, 0);
         VERIFY_WIN32_BOOL_SUCCEEDED(!!ExplicitlyLoadedWarpDll);
       }
@@ -846,12 +847,11 @@ public:
       if (GetModuleHandleW(L"d3d10warp.dll") != NULL) {
         WCHAR szFullModuleFilePath[MAX_PATH] = L"";
         GetModuleFileNameW(GetModuleHandleW(L"d3d10warp.dll"),
-                            szFullModuleFilePath, sizeof(szFullModuleFilePath));
+                           szFullModuleFilePath, sizeof(szFullModuleFilePath));
         WEX::Logging::Log::Comment(WEX::Common::String().Format(
             L"WARP driver loaded from: %ls", szFullModuleFilePath));
       }
 
-      
     } else {
       CComPtr<IDXGIAdapter1> hardwareAdapter;
       WEX::Common::String AdapterValue;
