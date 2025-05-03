@@ -129,26 +129,11 @@ add_lit_testsuites(CLANG ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 
-# Use a custom target so we can depend on it and re-run the cmake logic which downloads warp
-# from nuget if requested.
-# add_custom_target(WarpFromNuget
-#   COMMAND "${CMAKE_COMMAND}"
-#   -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
-#   -DBUILD_TYPE=${CMAKE_BUILD_TYPE}
-#   -DBINARY_DIR=${CMAKE_BINARY_DIR}
-#   -P "${CMAKE_CURRENT_SOURCE_DIR}/taef_exec/DownloadWarp.cmake")
-
-# if(NOT CMAKE_CONFIGURATION_TYPES)
-#   add_dependencies(check-clang-taef_exec WarpFromNuget)
-# endif()
-
-# add_custom_target(TestWarp COMMAND echo "$ENV{ALLUSERSPROFILE} $ENV{MY_TEST}" DEPENDS WarpFromNuget)
-
 # add_lit_testsuites doesn't generate targets for Visual Studio or Xcode builds
 # (since these IDEs cannot handle the huge number of targets it generates).
 #
-# We must manually generate targets that we want to expose in visual studio
-# builds.
+# We must manually generate targets that we want to expose when using these
+# generators.
 if(CMAKE_CONFIGURATION_TYPES)
 
   # Add the unit test suite
@@ -173,7 +158,7 @@ if(CMAKE_CONFIGURATION_TYPES)
               ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec
               PARAMS ${CLANG_TEST_PARAMS}
               adapter=${TAEF_EXEC_ADAPTER}
-              DEPENDS WarpFromNuget ExecHLSLTests dxexp
+              DEPENDS ExecHLSLTests dxexp
               ARGS ${CLANG_TEST_EXTRA_ARGS}
             )
   endif()
