@@ -2000,7 +2000,13 @@ bool EmitVisitor::visit(SpirvIntrinsicInstruction *inst) {
     }
   }
 
-  finalizeInstruction(&mainBinary);
+  auto opcode = static_cast<spv::Op>(inst->getInstruction());
+  if ((opcode == spv::Op::OpSpecConstant || opcode == spv::Op::OpConstant) &&
+      !inst->getInstructionSet()) {
+    finalizeInstruction(&typeConstantBinary);
+  } else {
+    finalizeInstruction(&mainBinary);
+  }
   return true;
 }
 
