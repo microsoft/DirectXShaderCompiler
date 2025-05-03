@@ -26,6 +26,12 @@ configure_lit_site_cfg(
   ${CMAKE_CURRENT_BINARY_DIR}/taef/lit.site.cfg
   )
 
+# HLSL Change begin 
+# This must be done before configuring taef_exec's lit.site.cfg.
+include(taef_exec/DownloadWarp.cmake)
+# HLSL Change end
+
+
 configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec/lit.site.cfg.in
   ${CMAKE_CURRENT_BINARY_DIR}/taef_exec/lit.site.cfg
@@ -122,7 +128,6 @@ add_lit_testsuites(CLANG ${CMAKE_CURRENT_SOURCE_DIR}
   FOLDER "Clang tests/Suites"
 )
 
-include(taef_exec/DownloadWarp.cmake)
 
 # Use a custom target so we can depend on it and re-run the cmake logic which downloads warp
 # from nuget if requested.
