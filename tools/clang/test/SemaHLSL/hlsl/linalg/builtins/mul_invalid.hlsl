@@ -224,9 +224,58 @@ void test_invalid_matrix_K_dimension() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 }
-/*
-//
 
+// Check is Matrix M dimension is non-zero
+void test_invalid_matrix_M_dimension_non_zero() {
+
+  vector<uint, 4> output_vector;
+  const uint is_output_unsigned = 1;
+  const uint input_interpretation = 9; // F32   
+  vector<float, 4> input_vector =
+      input_vector_buffer.Load<vector<float, 4> >(0);
+  const uint is_input_unsigned = 0;
+  const uint matrix_offset = 0;
+  const uint matrix_interpretation = 9; // F32
+  const uint matrix_dimK = 4;
+  const uint matrix_layout = 0; // RowMajor
+  const bool matrix_is_transposed = false;
+  const uint matrix_stride = 64;
+
+  const uint matrix_dimM = 0;
+  // expected-error@+3 {{matrix dimension must not be zero}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation, matrix_buffer,
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+}
+
+// Check is Matrix K dimension is non-zero
+void test_invalid_matrix_K_dimension_non_zero() {
+
+  vector<uint, 4> output_vector;
+  const uint is_output_unsigned = 1;
+  const uint input_interpretation = 9; // F32
+  vector<float, 4> input_vector =
+      input_vector_buffer.Load<vector<float, 4> >(0);
+  const uint is_input_unsigned = 0;
+  const uint matrix_offset = 0;
+  const uint matrix_interpretation = 9; // F32
+  const uint matrix_dimM = 4;
+  const uint matrix_layout = 0; // RowMajor
+  const bool matrix_is_transposed = false;
+  const uint matrix_stride = 64;
+
+  const uint matrix_dimK = 0;
+  // expected-error@+4 {{matrix dimension must not be zero}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation, matrix_buffer,
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+}
+
+/*
 // CHECK: error: __builtin_MatVecMul: input vector must be numeric
 void test_mul_non_numeric2() {
     vector<float, 4> output_vector;
