@@ -792,9 +792,9 @@ public:
 
   void RunCoopVecMulTest();
   void
-  RunCoopVecMulTestConfig(ID3D12Device *pD3DDevice,
+  RunCoopVecMulTestConfig(ID3D12Device *D3DDevice,
                           D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &MulProps);
-  void RunCoopVecMulSubtest(ID3D12Device *pD3DDevice,
+  void RunCoopVecMulSubtest(ID3D12Device *D3DDevice,
                             D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &MulProps,
                             CoopVecMulSubtestConfig &Config);
 
@@ -807,10 +807,10 @@ public:
 
   void RunCoopVecOuterProductTest();
   void RunCoopVecOuterProductTestConfig(
-      ID3D12Device *pD3DDevice,
+      ID3D12Device *D3DDevice,
       D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps);
   void RunCoopVecOuterProductSubtest(
-      ID3D12Device *pD3DDevice,
+      ID3D12Device *D3DDevice,
       D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps,
       CoopVecOuterProductSubtestConfig &Config);
 
@@ -1770,9 +1770,9 @@ public:
 #endif
   }
 
-  bool DoesDeviceSupportCooperativeVector(ID3D12Device *pDevice) {
+  bool DoesDeviceSupportCooperativeVector(ID3D12Device *Device) {
     D3D12_FEATURE_DATA_D3D12_OPTIONS_EXPERIMENTAL O;
-    if (FAILED(pDevice->CheckFeatureSupport(
+    if (FAILED(Device->CheckFeatureSupport(
             (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS_EXPERIMENTAL, &O,
             sizeof(O))))
       return false;
@@ -11995,13 +11995,13 @@ VERIFY_SUCCEEDED(DoArraysMatch<T>(OutputVector, ExpectedVector,
 // The current implementation will always write the final output data as float.
 void ExecutionTest::RunCoopVecMulTest() {
   // Create device and verify coopvec support
-  CComPtr<ID3D12Device> pD3DDevice;
-  if (!CreateDevice(&pD3DDevice, D3D_SHADER_MODEL_6_9)) {
+  CComPtr<ID3D12Device> D3DDevice;
+  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
     WEX::Logging::Log::Comment("Device does not support SM 6.9. Skipping.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
   }
-  if (!DoesDeviceSupportCooperativeVector(pD3DDevice)) {
+  if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {
     WEX::Logging::Log::Comment(
         "Device does not support cooperative vector. Skipping.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
@@ -12010,19 +12010,19 @@ void ExecutionTest::RunCoopVecMulTest() {
 
   // Query coopvec feature data. First call gets the size of the arrays. The
   // second call populates the arrays using memory we allocate.
-  D3D12_FEATURE_DATA_COOPERATIVE_VECTOR devOptions = {};
-  VERIFY_SUCCEEDED(pD3DDevice->CheckFeatureSupport(
-      (D3D12_FEATURE)D3D12_FEATURE_COOPERATIVE_VECTOR, &devOptions,
-      sizeof(devOptions)));
+  D3D12_FEATURE_DATA_COOPERATIVE_VECTOR DevOptions = {};
+  VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
+      (D3D12_FEATURE)D3D12_FEATURE_COOPERATIVE_VECTOR, &DevOptions,
+      sizeof(DevOptions)));
 
-  // Allocate memory for the arrays in devOptions
+  // Allocate memory for the arrays in DevOptions
   std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL> MulAddProps(
-      devOptions.MatrixVectorMulAddPropCount);
-  devOptions.pMatrixVectorMulAddProperties = MulAddProps.data();
+      DevOptions.MatrixVectorMulAddPropCount);
+  DevOptions.pMatrixVectorMulAddProperties = MulAddProps.data();
 
-  VERIFY_SUCCEEDED(pD3DDevice->CheckFeatureSupport(
-      (D3D12_FEATURE)D3D12_FEATURE_COOPERATIVE_VECTOR, &devOptions,
-      sizeof(devOptions)));
+  VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
+      (D3D12_FEATURE)D3D12_FEATURE_COOPERATIVE_VECTOR, &DevOptions,
+      sizeof(DevOptions)));
 
   // Test each supported data type and matrix layout
   for (auto MulAddConfig : MulAddProps) {
@@ -12104,12 +12104,12 @@ void ExecutionTest::RunCoopVecMulTest() {
     }
 
     // Run the test
-    RunCoopVecMulTestConfig(pD3DDevice, MulAddConfig);
+    RunCoopVecMulTestConfig(D3DDevice, MulAddConfig);
   }
 }
 
 void ExecutionTest::RunCoopVecMulTestConfig(
-    ID3D12Device *pD3DDevice,
+    ID3D12Device *D3DDevice,
     D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &MulProps) {
 
   LogCommentFmt(
@@ -12184,12 +12184,12 @@ void ExecutionTest::RunCoopVecMulTestConfig(
       continue;
     }
 
-    RunCoopVecMulSubtest(pD3DDevice, MulProps, Config);
+    RunCoopVecMulSubtest(D3DDevice, MulProps, Config);
   }
 }
 
 void ExecutionTest::RunCoopVecMulSubtest(
-    ID3D12Device *pD3DDevice, D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &MulProps,
+    ID3D12Device *D3DDevice, D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &MulProps,
     CoopVecMulSubtestConfig &Config) {
 
   LogCommentFmt(
@@ -12199,37 +12199,36 @@ void ExecutionTest::RunCoopVecMulSubtest(
       Config.NumLevels, Config.Bias ? L"true" : L"false",
       CoopVecHelpers::MatrixLayoutToFilterString(Config.MatrixLayout).c_str());
 
-  const int OUTPUT_BUFFER_SIZE =
-      (Config.OutputPerThread * Config.NumThreads * 4);
+  const int OutputBufferSize = (Config.OutputPerThread * Config.NumThreads * 4);
 
   // Create root signature with a single root entry for all SRVs and UAVs
-  CComPtr<ID3D12RootSignature> pRootSignature;
+  CComPtr<ID3D12RootSignature> RootSignature;
   {
-    CD3DX12_DESCRIPTOR_RANGE ranges[2];
-    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0,
+    CD3DX12_DESCRIPTOR_RANGE Ranges[2];
+    Ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0,
                    0); // InputVector, InputMatrix, InputBias
-    ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0); // OutputBuffer
-    CreateRootSignatureFromRanges(pD3DDevice, &pRootSignature, ranges, 2,
-                                  nullptr, 0);
+    Ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0); // OutputBuffer
+    CreateRootSignatureFromRanges(D3DDevice, &RootSignature, Ranges, 2, nullptr,
+                                  0);
   }
 
   // Create descriptor heap with space for 4 descriptors: 3 SRVs and 1 UAV
-  CComPtr<ID3D12DescriptorHeap> pDescriptorHeap;
+  CComPtr<ID3D12DescriptorHeap> DescriptorHeap;
   {
-    D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-    desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    desc.NumDescriptors = 4;
-    desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    VERIFY_SUCCEEDED(pD3DDevice->CreateDescriptorHeap(
-        &desc, IID_PPV_ARGS(&pDescriptorHeap)));
+    D3D12_DESCRIPTOR_HEAP_DESC Desc = {};
+    Desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    Desc.NumDescriptors = 4;
+    Desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    VERIFY_SUCCEEDED(
+        D3DDevice->CreateDescriptorHeap(&Desc, IID_PPV_ARGS(&DescriptorHeap)));
   }
-  CD3DX12_CPU_DESCRIPTOR_HANDLE baseHandle(
-      pDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+  CD3DX12_CPU_DESCRIPTOR_HANDLE BaseHandle(
+      DescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
   // Create the compute pipeline state for the CoopVec shader
-  CComPtr<ID3D12PipelineState> pComputePipelineState;
+  CComPtr<ID3D12PipelineState> ComputePipelineState;
   {
-    std::string shaderSource = R"(
+    std::string ShaderSource = R"(
 #include "dx/linalg.h"
 
 ByteAddressBuffer InputVector : register(t0);
@@ -12337,7 +12336,7 @@ void main(uint threadIdx : SV_GroupThreadID)
     auto AccumInterpretationEnumDefine = CreateDefineFromString(
         L"ACCUM_INTERPRETATION_ENUM", AccumInterpretationEnum);
 
-    LPCWSTR pOptions[] = {
+    LPCWSTR Options[] = {
         L"-enable-16bit-types",
         InputPerThreadDefine.c_str(),
         OutputPerThreadDefine.c_str(),
@@ -12353,27 +12352,27 @@ void main(uint threadIdx : SV_GroupThreadID)
         AccumInterpretationEnumDefine.c_str(),
     };
 
-    CComPtr<LinAlgHeaderIncludeHandler> pIncludeHandler =
+    CComPtr<LinAlgHeaderIncludeHandler> IncludeHandler =
         new LinAlgHeaderIncludeHandler(m_support);
 
-    CreateComputePSO(pD3DDevice, pRootSignature, shaderSource.c_str(),
-                     L"cs_6_9", &pComputePipelineState, pOptions,
-                     _countof(pOptions), pIncludeHandler);
+    CreateComputePSO(D3DDevice, RootSignature, ShaderSource.c_str(), L"cs_6_9",
+                     &ComputePipelineState, Options, _countof(Options),
+                     IncludeHandler);
   }
 
   // Create a command list for the compute shader.
-  CComPtr<ID3D12GraphicsCommandList> pCommandList;
-  CComPtr<ID3D12CommandAllocator> pCommandAllocator;
-  CComPtr<ID3D12CommandQueue> pCommandQueue;
+  CComPtr<ID3D12GraphicsCommandList> CommandList;
+  CComPtr<ID3D12CommandAllocator> CommandAllocator;
+  CComPtr<ID3D12CommandQueue> CommandQueue;
   FenceObj FO;
-  CreateCommandQueue(pD3DDevice, L"CoopVec Test Command Queue", &pCommandQueue,
+  CreateCommandQueue(D3DDevice, L"CoopVec Test Command Queue", &CommandQueue,
                      D3D12_COMMAND_LIST_TYPE_DIRECT);
-  InitFenceObj(pD3DDevice, &FO);
-  VERIFY_SUCCEEDED(pD3DDevice->CreateCommandAllocator(
-      D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&pCommandAllocator)));
-  VERIFY_SUCCEEDED(pD3DDevice->CreateCommandList(
-      0, D3D12_COMMAND_LIST_TYPE_DIRECT, pCommandAllocator,
-      pComputePipelineState, IID_PPV_ARGS(&pCommandList)));
+  InitFenceObj(D3DDevice, &FO);
+  VERIFY_SUCCEEDED(D3DDevice->CreateCommandAllocator(
+      D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CommandAllocator)));
+  VERIFY_SUCCEEDED(D3DDevice->CreateCommandList(
+      0, D3D12_COMMAND_LIST_TYPE_DIRECT, CommandAllocator, ComputePipelineState,
+      IID_PPV_ARGS(&CommandList)));
 
   // Setup input data
   auto ExpectedOutputBuffer =
@@ -12381,16 +12380,15 @@ void main(uint threadIdx : SV_GroupThreadID)
 
   // Setup input matrix as all-ones in sint8 format. This will later be
   // converted to the appropriate data type by the matrix conversion API.
-  CComPtr<ID3D12Resource> pInputMatrixSRVResource,
-      pInputMatrixSRVUploadResource;
-  std::vector<uint8_t> inputMatrix;
+  CComPtr<ID3D12Resource> InputMatrixSRVResource, InputMatrixSRVUploadResource;
+  std::vector<uint8_t> InputMatrix;
   if (MulProps.MatrixInterpretation ==
           D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED ||
       MulProps.MatrixInterpretation ==
           D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED ||
       MulProps.MatrixInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 ||
       MulProps.MatrixInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8) {
-    inputMatrix = CoopVecHelpers::CreateAllOnesInputMatrix<int8_t>(
+    InputMatrix = CoopVecHelpers::CreateAllOnesInputMatrix<int8_t>(
         Config.InputPerThread, Config.OutputPerThread);
   } else if (MulProps.MatrixInterpretation ==
                  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 ||
@@ -12400,22 +12398,22 @@ void main(uint threadIdx : SV_GroupThreadID)
                  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2) {
     // Matrix source data is fp32, which gets converted to fp16 during matrix
     // conversion
-    inputMatrix = CoopVecHelpers::CreateAllOnesInputMatrix<float>(
+    InputMatrix = CoopVecHelpers::CreateAllOnesInputMatrix<float>(
         Config.InputPerThread, Config.OutputPerThread);
   } else {
     WEX::Logging::Log::Error(L"Unsupported matrix data type");
     return;
   }
 
-  CreateTestResources(pD3DDevice, pCommandList, inputMatrix.data(),
-                      inputMatrix.size(),
-                      CD3DX12_RESOURCE_DESC::Buffer(inputMatrix.size()),
-                      &pInputMatrixSRVResource, &pInputMatrixSRVUploadResource);
+  CreateTestResources(D3DDevice, CommandList, InputMatrix.data(),
+                      InputMatrix.size(),
+                      CD3DX12_RESOURCE_DESC::Buffer(InputMatrix.size()),
+                      &InputMatrixSRVResource, &InputMatrixSRVUploadResource);
 
   // Create input vector of an appropriate type. All integer types start as
   // SINT8 for now.
-  CComPtr<ID3D12Resource> pInputVecSRVResource, pInputVecSRVUploadResource;
-  std::vector<uint8_t> inputVector;
+  CComPtr<ID3D12Resource> InputVecSRVResource, InputVecSRVUploadResource;
+  std::vector<uint8_t> InputVector;
 
   if ((MulProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32 &&
        (MulProps.InputInterpretation ==
@@ -12424,44 +12422,44 @@ void main(uint threadIdx : SV_GroupThreadID)
             D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED)) ||
       MulProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 ||
       MulProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8) {
-    inputVector = CoopVecHelpers::CreateInputVector<int8_t>(
+    InputVector = CoopVecHelpers::CreateInputVector<int8_t>(
         Config.NumThreads, Config.InputPerThread);
   } else if (MulProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 ||
              MulProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3 ||
              MulProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2) {
-    inputVector =
+    InputVector =
         CoopVecHelpers::CreateInputVector<DirectX::PackedVector::HALF>(
             Config.NumThreads, Config.InputPerThread);
   } else if (MulProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
-    inputVector = CoopVecHelpers::CreateInputVector<float>(
+    InputVector = CoopVecHelpers::CreateInputVector<float>(
         Config.NumThreads, Config.InputPerThread);
   } else if (MulProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32) {
-    inputVector = CoopVecHelpers::CreateInputVector<int32_t>(
+    InputVector = CoopVecHelpers::CreateInputVector<int32_t>(
         Config.NumThreads, Config.InputPerThread);
   } else if (MulProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32) {
-    inputVector = CoopVecHelpers::CreateInputVector<uint32_t>(
+    InputVector = CoopVecHelpers::CreateInputVector<uint32_t>(
         Config.NumThreads, Config.InputPerThread);
   } else {
     WEX::Logging::Log::Error(L"Unsupported input data type");
     return;
   }
-  if (inputVector.size() % 4 != 0) {
+  if (InputVector.size() % 4 != 0) {
     // Align size to 4 bytes for ByteAddressBuffer
-    inputVector.resize(inputVector.size() + 4 - (inputVector.size() % 4));
+    InputVector.resize(InputVector.size() + 4 - (InputVector.size() % 4));
   }
-  CreateTestResources(pD3DDevice, pCommandList, inputVector.data(),
-                      inputVector.size(),
-                      CD3DX12_RESOURCE_DESC::Buffer(inputVector.size()),
-                      &pInputVecSRVResource, &pInputVecSRVUploadResource);
+  CreateTestResources(D3DDevice, CommandList, InputVector.data(),
+                      InputVector.size(),
+                      CD3DX12_RESOURCE_DESC::Buffer(InputVector.size()),
+                      &InputVecSRVResource, &InputVecSRVUploadResource);
 
   // This increments baseHandle
-  CreateRawSRV(pD3DDevice, baseHandle,
-               (UINT)(inputVector.size() / sizeof(int32_t)),
-               pInputVecSRVResource);
+  CreateRawSRV(D3DDevice, BaseHandle,
+               (UINT)(InputVector.size() / sizeof(int32_t)),
+               InputVecSRVResource);
 
   // Create input bias
-  CComPtr<ID3D12Resource> pInputBiasSRVResource, pInputBiasSRVUploadResource;
-  std::vector<uint8_t> inputBias;
+  CComPtr<ID3D12Resource> InputBiasSRVResource, InputBiasSRVUploadResource;
+  std::vector<uint8_t> InputBias;
 
   if (MulProps.BiasInterpretation ==
           D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED ||
@@ -12469,82 +12467,82 @@ void main(uint threadIdx : SV_GroupThreadID)
           D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED ||
       MulProps.BiasInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 ||
       MulProps.BiasInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8) {
-    inputBias = CoopVecHelpers::CreateInputBias<int8_t>(Config.OutputPerThread);
+    InputBias = CoopVecHelpers::CreateInputBias<int8_t>(Config.OutputPerThread);
   } else if (MulProps.BiasInterpretation ==
              D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32) {
-    inputBias =
+    InputBias =
         CoopVecHelpers::CreateInputBias<int32_t>(Config.OutputPerThread);
   } else if (MulProps.BiasInterpretation ==
              D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32) {
-    inputBias =
+    InputBias =
         CoopVecHelpers::CreateInputBias<uint32_t>(Config.OutputPerThread);
   } else if (MulProps.BiasInterpretation ==
              D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16) {
-    inputBias = CoopVecHelpers::CreateInputBias<DirectX::PackedVector::HALF>(
+    InputBias = CoopVecHelpers::CreateInputBias<DirectX::PackedVector::HALF>(
         Config.OutputPerThread);
   } else if (MulProps.BiasInterpretation ==
              D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
-    inputBias = CoopVecHelpers::CreateInputBias<float>(Config.OutputPerThread);
+    InputBias = CoopVecHelpers::CreateInputBias<float>(Config.OutputPerThread);
   } else {
     WEX::Logging::Log::Error(L"Unsupported bias data type");
     return;
   }
 
-  if (inputBias.size() % 4 != 0) {
+  if (InputBias.size() % 4 != 0) {
     // Align size to 4 bytes for ByteAddressBuffer
-    inputBias.resize(inputBias.size() + 4 - (inputBias.size() % 4));
+    InputBias.resize(InputBias.size() + 4 - (InputBias.size() % 4));
   }
-  CreateTestResources(pD3DDevice, pCommandList, inputBias.data(),
-                      inputBias.size(),
-                      CD3DX12_RESOURCE_DESC::Buffer(inputBias.size()),
-                      &pInputBiasSRVResource, &pInputBiasSRVUploadResource);
+  CreateTestResources(D3DDevice, CommandList, InputBias.data(),
+                      InputBias.size(),
+                      CD3DX12_RESOURCE_DESC::Buffer(InputBias.size()),
+                      &InputBiasSRVResource, &InputBiasSRVUploadResource);
 
   // This increments baseHandle
-  CreateRawSRV(pD3DDevice, baseHandle,
-               (UINT)(inputBias.size() / sizeof(int32_t)),
-               pInputBiasSRVResource);
+  CreateRawSRV(D3DDevice, BaseHandle,
+               (UINT)(InputBias.size() / sizeof(int32_t)),
+               InputBiasSRVResource);
 
   // Calculate reference output
   // FIXME: This does not capture all cases, but is sufficient for the preview
   // feature set
   if (MulProps.MatrixInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8) {
     // The input bias is really an array of int32_t
-    std::vector<int32_t> inputBiasI32(inputBias.size() / sizeof(int32_t));
-    std::memcpy(inputBiasI32.data(), inputBias.data(), inputBias.size());
+    std::vector<int32_t> InputBiasI32(InputBias.size() / sizeof(int32_t));
+    std::memcpy(InputBiasI32.data(), InputBias.data(), InputBias.size());
 
     // The input vector is really an array of float if our vector input type is
     // FLOAT32
-    std::vector<float> inputVectorF32(inputVector.size() / sizeof(int32_t));
+    std::vector<float> InputVectorF32(InputVector.size() / sizeof(int32_t));
     if (MulProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
-      std::memcpy(inputVectorF32.data(), inputVector.data(),
-                  inputVector.size());
+      std::memcpy(InputVectorF32.data(), InputVector.data(),
+                  InputVector.size());
     }
 
-    for (int threadIdx = 0; threadIdx < Config.NumThreads; ++threadIdx) {
-      for (int outputIdx = 0; outputIdx < Config.OutputPerThread; ++outputIdx) {
-        int acc = 0;
+    for (int ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
+      for (int OutputIdx = 0; OutputIdx < Config.OutputPerThread; ++OutputIdx) {
+        int Acc = 0;
 
-        for (int inputIdx = 0; inputIdx < Config.InputPerThread; ++inputIdx) {
-          int inputElem;
+        for (int InputIdx = 0; InputIdx < Config.InputPerThread; ++InputIdx) {
+          int InputElem;
           if (MulProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
-            inputElem = (int)
-                inputVectorF32[threadIdx * Config.InputPerThread + inputIdx];
+            InputElem = (int)
+                InputVectorF32[ThreadIdx * Config.InputPerThread + InputIdx];
           } else {
-            inputElem =
-                inputVector[threadIdx * Config.InputPerThread + inputIdx];
+            InputElem =
+                InputVector[ThreadIdx * Config.InputPerThread + InputIdx];
           }
-          int const matrixElem =
-              inputMatrix[outputIdx * Config.InputPerThread + inputIdx];
-          acc += inputElem * matrixElem;
+          int const MatrixElem =
+              InputMatrix[OutputIdx * Config.InputPerThread + InputIdx];
+          Acc += InputElem * MatrixElem;
         }
 
         if (Config.Bias) {
-          acc += inputBiasI32[outputIdx];
+          Acc += InputBiasI32[OutputIdx];
         }
 
-        float result = float(acc);
-        ExpectedOutputBuffer[threadIdx * Config.OutputPerThread + outputIdx] =
-            result;
+        float Result = float(Acc);
+        ExpectedOutputBuffer[ThreadIdx * Config.OutputPerThread + OutputIdx] =
+            Result;
       }
     }
   } else if (MulProps.MatrixInterpretation ==
@@ -12554,188 +12552,186 @@ void main(uint threadIdx : SV_GroupThreadID)
              MulProps.MatrixInterpretation ==
                  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2) {
     // The input bias/vector is really an array of float16
-    std::vector<DirectX::PackedVector::HALF> inputVectorFP16(
-        inputVector.size() / sizeof(DirectX::PackedVector::HALF));
-    std::memcpy(inputVectorFP16.data(), inputVector.data(), inputVector.size());
+    std::vector<DirectX::PackedVector::HALF> InputVectorFP16(
+        InputVector.size() / sizeof(DirectX::PackedVector::HALF));
+    std::memcpy(InputVectorFP16.data(), InputVector.data(), InputVector.size());
 
-    std::vector<DirectX::PackedVector::HALF> inputBiasFP16(
-        inputBias.size() / sizeof(DirectX::PackedVector::HALF));
-    std::memcpy(inputBiasFP16.data(), inputBias.data(), inputBias.size());
+    std::vector<DirectX::PackedVector::HALF> InputBiasFP16(
+        InputBias.size() / sizeof(DirectX::PackedVector::HALF));
+    std::memcpy(InputBiasFP16.data(), InputBias.data(), InputBias.size());
 
     // The CPU reference matrix is float
-    std::vector<float> inputMatrixFP32(inputMatrix.size() / sizeof(float));
-    std::memcpy(inputMatrixFP32.data(), inputMatrix.data(), inputMatrix.size());
+    std::vector<float> InputMatrixFP32(InputMatrix.size() / sizeof(float));
+    std::memcpy(InputMatrixFP32.data(), InputMatrix.data(), InputMatrix.size());
 
-    for (int threadIdx = 0; threadIdx < Config.NumThreads; ++threadIdx) {
-      for (int outputIdx = 0; outputIdx < Config.OutputPerThread; ++outputIdx) {
-        float acc = 0;
+    for (int ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
+      for (int OutputIdx = 0; OutputIdx < Config.OutputPerThread; ++OutputIdx) {
+        float Acc = 0;
 
-        for (int inputIdx = 0; inputIdx < Config.InputPerThread; ++inputIdx) {
-          float const inputElem = ConvertFloat16ToFloat32(
-              inputVectorFP16[threadIdx * Config.InputPerThread + inputIdx]);
-          float const matrixElem =
-              inputMatrixFP32[outputIdx * Config.InputPerThread + inputIdx];
-          acc += inputElem * matrixElem;
+        for (int InputIdx = 0; InputIdx < Config.InputPerThread; ++InputIdx) {
+          float const InputElem = ConvertFloat16ToFloat32(
+              InputVectorFP16[ThreadIdx * Config.InputPerThread + InputIdx]);
+          float const MatrixElem =
+              InputMatrixFP32[OutputIdx * Config.InputPerThread + InputIdx];
+          Acc += InputElem * MatrixElem;
         }
 
         if (Config.Bias) {
-          acc += ConvertFloat16ToFloat32(inputBiasFP16[outputIdx]);
+          Acc += ConvertFloat16ToFloat32(InputBiasFP16[OutputIdx]);
         }
 
-        float result = acc;
-        ExpectedOutputBuffer[threadIdx * Config.OutputPerThread + outputIdx] =
-            result;
+        float Result = Acc;
+        ExpectedOutputBuffer[ThreadIdx * Config.OutputPerThread + OutputIdx] =
+            Result;
       }
     }
   }
 
-  CComPtr<ID3D12Resource> pConvertedMatrixResource;
+  CComPtr<ID3D12Resource> ConvertedMatrixResource;
   {
     // Create source matrix info
-    D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO convertInfo = {};
-    convertInfo.SrcInfo.SrcDataType =
+    D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO ConvertInfo = {};
+    ConvertInfo.SrcInfo.SrcDataType =
         CoopVecHelpers::GetMatrixSrcDataType(MulProps.MatrixInterpretation);
-    convertInfo.SrcInfo.SrcLayout =
+    ConvertInfo.SrcInfo.SrcLayout =
         D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR;
 
     // Create destination matrix info
-    convertInfo.DestInfo.DestSize = 0; // Will be populated by driver
-    int srcEltSize = 0;
-    int destEltSize = 0;
+    ConvertInfo.DestInfo.DestSize = 0; // Will be populated by driver
+    int SrcEltSize = 0;
+    int DestEltSize = 0;
     switch (MulProps.MatrixInterpretation) {
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED:
-      convertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8;
-      srcEltSize = 1;
-      destEltSize = 1;
+      ConvertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8;
+      SrcEltSize = 1;
+      DestEltSize = 1;
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
-      convertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
-      srcEltSize = 4;  // FP32
-      destEltSize = 2; // FP16
+      ConvertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
+      SrcEltSize = 4;  // FP32
+      DestEltSize = 2; // FP16
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
-      convertInfo.DestInfo.DestDataType =
+      ConvertInfo.DestInfo.DestDataType =
           D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3;
-      srcEltSize = 4;  // FP32
-      destEltSize = 1; // FP8
+      SrcEltSize = 4;  // FP32
+      DestEltSize = 1; // FP8
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
-      convertInfo.DestInfo.DestDataType =
+      ConvertInfo.DestInfo.DestDataType =
           D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2;
-      srcEltSize = 4;  // FP32
-      destEltSize = 1; // FP8
+      SrcEltSize = 4;  // FP32
+      DestEltSize = 1; // FP8
       break;
     }
-    convertInfo.SrcInfo.SrcStride = Config.InputPerThread * srcEltSize;
-    convertInfo.SrcInfo.SrcSize =
-        Config.InputPerThread * Config.OutputPerThread * srcEltSize;
+    ConvertInfo.SrcInfo.SrcStride = Config.InputPerThread * SrcEltSize;
+    ConvertInfo.SrcInfo.SrcSize =
+        Config.InputPerThread * Config.OutputPerThread * SrcEltSize;
 
-    convertInfo.DestInfo.DestLayout = Config.MatrixLayout;
-    convertInfo.DestInfo.DestStride = 0;
-    convertInfo.DestInfo.NumRows = Config.OutputPerThread;
-    convertInfo.DestInfo.NumColumns = Config.InputPerThread;
+    ConvertInfo.DestInfo.DestLayout = Config.MatrixLayout;
+    ConvertInfo.DestInfo.DestStride = 0;
+    ConvertInfo.DestInfo.NumRows = Config.OutputPerThread;
+    ConvertInfo.DestInfo.NumColumns = Config.InputPerThread;
 
     if (Config.MatrixLayout == D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR) {
-      convertInfo.DestInfo.DestStride = Config.InputPerThread * destEltSize;
+      ConvertInfo.DestInfo.DestStride = Config.InputPerThread * DestEltSize;
     } else if (Config.MatrixLayout ==
                D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR) {
-      convertInfo.DestInfo.DestStride = Config.OutputPerThread * destEltSize;
+      ConvertInfo.DestInfo.DestStride = Config.OutputPerThread * DestEltSize;
     }
 
     // Get destination size using preview interface
     {
-      CComPtr<ID3D12DevicePreview> previewDevice;
-      VERIFY_SUCCEEDED(pD3DDevice->QueryInterface(__uuidof(ID3D12DevicePreview),
-                                                  (void **)&previewDevice));
+      CComPtr<ID3D12DevicePreview> PreviewDevice;
+      VERIFY_SUCCEEDED(D3DDevice->QueryInterface(__uuidof(ID3D12DevicePreview),
+                                                 (void **)&PreviewDevice));
 
       // Query required destination size
-      previewDevice->GetLinearAlgebraMatrixConversionDestinationInfo(
-          &convertInfo.DestInfo);
+      PreviewDevice->GetLinearAlgebraMatrixConversionDestinationInfo(
+          &ConvertInfo.DestInfo);
     }
 
     // Create resource to hold matrix copy
     CreateTestResources(
-        pD3DDevice, pCommandList, nullptr, 0,
-        CD3DX12_RESOURCE_DESC::Buffer(convertInfo.DestInfo.DestSize),
-        &pConvertedMatrixResource, nullptr);
+        D3DDevice, CommandList, nullptr, 0,
+        CD3DX12_RESOURCE_DESC::Buffer(ConvertInfo.DestInfo.DestSize),
+        &ConvertedMatrixResource, nullptr);
 
     // Set up data descriptors
-    convertInfo.DataDesc.DestVA =
-        pConvertedMatrixResource->GetGPUVirtualAddress();
-    convertInfo.DataDesc.SrcVA =
-        pInputMatrixSRVResource->GetGPUVirtualAddress();
+    ConvertInfo.DataDesc.DestVA =
+        ConvertedMatrixResource->GetGPUVirtualAddress();
+    ConvertInfo.DataDesc.SrcVA = InputMatrixSRVResource->GetGPUVirtualAddress();
 
     // Get command list interface and perform conversion
-    CComPtr<ID3D12GraphicsCommandList11> commandList11;
-    VERIFY_SUCCEEDED(pCommandList->QueryInterface(
-        __uuidof(ID3D12GraphicsCommandList11), (void **)&commandList11));
-    commandList11->ConvertLinearAlgebraMatrix(&convertInfo, 1);
+    CComPtr<ID3D12GraphicsCommandList11> CommandList11;
+    VERIFY_SUCCEEDED(CommandList->QueryInterface(
+        __uuidof(ID3D12GraphicsCommandList11), (void **)&CommandList11));
+    CommandList11->ConvertLinearAlgebraMatrix(&ConvertInfo, 1);
 
     // This increments baseHandle
-    if ((convertInfo.DestInfo.DestSize % 4) != 0) {
+    if ((ConvertInfo.DestInfo.DestSize % 4) != 0) {
       WEX::Logging::Log::Error(L"DestSize is not aligned to 4 bytes");
       return;
     }
-    CreateRawSRV(pD3DDevice, baseHandle,
-                 convertInfo.DestInfo.DestSize / sizeof(int32_t),
-                 pConvertedMatrixResource);
+    CreateRawSRV(D3DDevice, BaseHandle,
+                 ConvertInfo.DestInfo.DestSize / sizeof(int32_t),
+                 ConvertedMatrixResource);
   }
 
-  CComPtr<ID3D12Resource> pUavResource;
-  CComPtr<ID3D12Resource> pUavUploadResource;
-  CComPtr<ID3D12Resource> pUavReadResource;
+  CComPtr<ID3D12Resource> UavResource;
+  CComPtr<ID3D12Resource> UavUploadResource;
+  CComPtr<ID3D12Resource> UavReadResource;
 
   // Create buffer for output and fill with 0xFF to make it obvious if it's not
   // written in the shader.
-  std::vector<uint8_t> outputBufferInit(OUTPUT_BUFFER_SIZE);
-  std::fill(outputBufferInit.begin(), outputBufferInit.end(), (uint8_t)0xFF);
+  std::vector<uint8_t> OutputBufferInit(OutputBufferSize);
+  std::fill(OutputBufferInit.begin(), OutputBufferInit.end(), (uint8_t)0xFF);
 
-  CreateTestUavs(pD3DDevice, pCommandList, outputBufferInit.data(),
-                 OUTPUT_BUFFER_SIZE, &pUavResource, &pUavUploadResource,
-                 &pUavReadResource);
-  CreateRawUAV(pD3DDevice, baseHandle, OUTPUT_BUFFER_SIZE / 4, pUavResource);
+  CreateTestUavs(D3DDevice, CommandList, OutputBufferInit.data(),
+                 OutputBufferSize, &UavResource, &UavUploadResource,
+                 &UavReadResource);
+  CreateRawUAV(D3DDevice, BaseHandle, OutputBufferSize / 4, UavResource);
 
-  pCommandList->Close();
-  ExecuteCommandList(pCommandQueue, pCommandList);
-  WaitForSignal(pCommandQueue, FO);
-  VERIFY_SUCCEEDED(pCommandAllocator->Reset());
-  VERIFY_SUCCEEDED(
-      pCommandList->Reset(pCommandAllocator, pComputePipelineState));
+  CommandList->Close();
+  ExecuteCommandList(CommandQueue, CommandList);
+  WaitForSignal(CommandQueue, FO);
+  VERIFY_SUCCEEDED(CommandAllocator->Reset());
+  VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, ComputePipelineState));
 
-  SetDescriptorHeap(pCommandList, pDescriptorHeap);
+  SetDescriptorHeap(CommandList, DescriptorHeap);
 
-  CD3DX12_GPU_DESCRIPTOR_HANDLE resHandle(
-      pDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+  CD3DX12_GPU_DESCRIPTOR_HANDLE ResHandle(
+      DescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
-  pCommandList->SetComputeRootSignature(pRootSignature);
-  pCommandList->SetComputeRootDescriptorTable(0, resHandle);
-  pCommandList->SetPipelineState(pComputePipelineState);
-  pCommandList->Dispatch(1, 1, 1);
-  RecordTransitionBarrier(pCommandList, pUavResource,
+  CommandList->SetComputeRootSignature(RootSignature);
+  CommandList->SetComputeRootDescriptorTable(0, ResHandle);
+  CommandList->SetPipelineState(ComputePipelineState);
+  CommandList->Dispatch(1, 1, 1);
+  RecordTransitionBarrier(CommandList, UavResource,
                           D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
                           D3D12_RESOURCE_STATE_COPY_SOURCE);
-  pCommandList->CopyResource(pUavReadResource, pUavResource);
-  pCommandList->Close();
-  ExecuteCommandList(pCommandQueue, pCommandList);
-  WaitForSignal(pCommandQueue, FO);
+  CommandList->CopyResource(UavReadResource, UavResource);
+  CommandList->Close();
+  ExecuteCommandList(CommandQueue, CommandList);
+  WaitForSignal(CommandQueue, FO);
 
   {
-    MappedData mappedData(pUavReadResource, OUTPUT_BUFFER_SIZE);
+    MappedData MappedData(UavReadResource, OutputBufferSize);
 
-    float *resultBuffer = (float *)mappedData.data();
-    bool equal = true;
-    for (int i = 0; i < OUTPUT_BUFFER_SIZE / sizeof(float); i++) {
-      if (isnan(resultBuffer[i]) || isnan(ExpectedOutputBuffer[i]) ||
-          fabs(resultBuffer[i] - ExpectedOutputBuffer[i]) > 0.00001) {
+    float *ResultBuffer = (float *)MappedData.data();
+    bool Equal = true;
+    for (int i = 0; i < OutputBufferSize / sizeof(float); i++) {
+      if (isnan(ResultBuffer[i]) || isnan(ExpectedOutputBuffer[i]) ||
+          fabs(ResultBuffer[i] - ExpectedOutputBuffer[i]) > 0.00001) {
         LogErrorFmt(L"Result mismatch at index %d", i);
-        LogErrorFmt(L"resultBuffer[%d]: %f, ExpectedOutputBuffer[%d]: %f", i,
-                    resultBuffer[i], i, ExpectedOutputBuffer[i]);
-        equal = false;
+        LogErrorFmt(L"ResultBuffer[%d]: %f, ExpectedOutputBuffer[%d]: %f", i,
+                    ResultBuffer[i], i, ExpectedOutputBuffer[i]);
+        Equal = false;
         break;
       }
     }
-    VERIFY_IS_TRUE(equal);
+    VERIFY_IS_TRUE(Equal);
   }
 }
 
@@ -12747,13 +12743,13 @@ TEST_F(ExecutionTest, CoopVec_Mul) {
 
 void ExecutionTest::RunCoopVecOuterProductTest() {
   // Create device and verify coopvec support
-  CComPtr<ID3D12Device> pD3DDevice;
-  if (!CreateDevice(&pD3DDevice, D3D_SHADER_MODEL_6_9)) {
+  CComPtr<ID3D12Device> D3DDevice;
+  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
     WEX::Logging::Log::Comment("Device does not support SM 6.9. Skipping.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
   }
-  if (!DoesDeviceSupportCooperativeVector(pD3DDevice)) {
+  if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {
     WEX::Logging::Log::Comment(
         "Device does not support cooperative vector. Skipping.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
@@ -12762,33 +12758,30 @@ void ExecutionTest::RunCoopVecOuterProductTest() {
 
   // Query coopvec feature data. First call gets the size of the arrays. The
   // second call populates the arrays using memory we allocate.
-  D3D12_FEATURE_DATA_COOPERATIVE_VECTOR devOptions = {};
-  VERIFY_SUCCEEDED(pD3DDevice->CheckFeatureSupport(
-      (D3D12_FEATURE)D3D12_FEATURE_COOPERATIVE_VECTOR, &devOptions,
-      sizeof(devOptions)));
+  D3D12_FEATURE_DATA_COOPERATIVE_VECTOR DevOptions = {};
+  VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
+      (D3D12_FEATURE)D3D12_FEATURE_COOPERATIVE_VECTOR, &DevOptions,
+      sizeof(DevOptions)));
 
-  // Allocate memory for the arrays in devOptions
+  // Allocate memory for the arrays in DevOptions
   std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE> AccumulateProps(
-      devOptions.OuterProductAccumulatePropCount);
-  devOptions.pOuterProductAccumulateProperties = AccumulateProps.data();
+      DevOptions.OuterProductAccumulatePropCount);
+  DevOptions.pOuterProductAccumulateProperties = AccumulateProps.data();
 
-  VERIFY_SUCCEEDED(pD3DDevice->CheckFeatureSupport(
-      (D3D12_FEATURE)D3D12_FEATURE_COOPERATIVE_VECTOR, &devOptions,
-      sizeof(devOptions)));
+  VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
+      (D3D12_FEATURE)D3D12_FEATURE_COOPERATIVE_VECTOR, &DevOptions,
+      sizeof(DevOptions)));
 
   // Test each supported data type and matrix layout
   for (auto AccumulateConfig : AccumulateProps) {
     // Run the test
-    RunCoopVecOuterProductTestConfig(pD3DDevice, AccumulateConfig);
+    RunCoopVecOuterProductTestConfig(D3DDevice, AccumulateConfig);
   }
 }
 
 void ExecutionTest::RunCoopVecOuterProductTestConfig(
-    ID3D12Device *pD3DDevice,
+    ID3D12Device *D3DDevice,
     D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps) {
-  UNREFERENCED_PARAMETER(pD3DDevice);
-  UNREFERENCED_PARAMETER(AccumulateProps);
-
   LogCommentFmt(
       L"Running test for InputType: %s, AccumulationType: %s",
       CoopVecHelpers::DataTypeToFilterString(AccumulateProps.InputType).c_str(),
@@ -12810,17 +12803,14 @@ void ExecutionTest::RunCoopVecOuterProductTestConfig(
       continue;
     }
 
-    RunCoopVecOuterProductSubtest(pD3DDevice, AccumulateProps, Config);
+    RunCoopVecOuterProductSubtest(D3DDevice, AccumulateProps, Config);
   }
 }
 
 void ExecutionTest::RunCoopVecOuterProductSubtest(
-    ID3D12Device *pD3DDevice,
+    ID3D12Device *D3DDevice,
     D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps,
     CoopVecOuterProductSubtestConfig &Config) {
-  UNREFERENCED_PARAMETER(pD3DDevice);
-  UNREFERENCED_PARAMETER(AccumulateProps);
-  UNREFERENCED_PARAMETER(Config);
 
   LogCommentFmt(
       L"Running test for DimM: %d, DimN: %d, NumThreads: %d, MatrixLayout: %s",
@@ -12828,33 +12818,33 @@ void ExecutionTest::RunCoopVecOuterProductSubtest(
       CoopVecHelpers::MatrixLayoutToFilterString(Config.MatrixLayout).c_str());
 
   // Create root signature with a single root entry for all SRVs and UAVs
-  CComPtr<ID3D12RootSignature> pRootSignature;
+  CComPtr<ID3D12RootSignature> RootSignature;
   {
     CD3DX12_DESCRIPTOR_RANGE ranges[2];
     ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0,
                    0); // InputVector1, InputVector2
     ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0); // AccumMatrix
-    CreateRootSignatureFromRanges(pD3DDevice, &pRootSignature, ranges, 2,
-                                  nullptr, 0);
+    CreateRootSignatureFromRanges(D3DDevice, &RootSignature, ranges, 2, nullptr,
+                                  0);
   }
 
   // Create descriptor heap with space for 3 descriptors: 2 SRVs and 1 UAV
-  CComPtr<ID3D12DescriptorHeap> pDescriptorHeap;
+  CComPtr<ID3D12DescriptorHeap> DescriptorHeap;
   {
-    D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-    desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    desc.NumDescriptors = 3;
-    desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    VERIFY_SUCCEEDED(pD3DDevice->CreateDescriptorHeap(
-        &desc, IID_PPV_ARGS(&pDescriptorHeap)));
+    D3D12_DESCRIPTOR_HEAP_DESC Desc = {};
+    Desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    Desc.NumDescriptors = 3;
+    Desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    VERIFY_SUCCEEDED(
+        D3DDevice->CreateDescriptorHeap(&Desc, IID_PPV_ARGS(&DescriptorHeap)));
   }
-  CD3DX12_CPU_DESCRIPTOR_HANDLE baseHandle(
-      pDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+  CD3DX12_CPU_DESCRIPTOR_HANDLE BaseHandle(
+      DescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
   // Create a compute pipeline state object.
-  CComPtr<ID3D12PipelineState> pComputePipelineState;
+  CComPtr<ID3D12PipelineState> ComputePipelineState;
   {
-    std::string shaderSource = R"(
+    std::string ShaderSource = R"(
 #include "dx/linalg.h"
 
 ByteAddressBuffer InputVector1 : register(t0);
@@ -12945,7 +12935,7 @@ void main(uint threadIdx : SV_GroupThreadID)
     auto MatrixDataTypeEnumDefine = CreateDefineFromString(
         L"MATRIX_DATA_TYPE_ENUM", MatrixDataTypeEnum.c_str());
 
-    LPCWSTR pOptions[] = {
+    LPCWSTR Options[] = {
         L"-enable-16bit-types",
         DimMDefine.c_str(),
         DimNDefine.c_str(),
@@ -12959,36 +12949,35 @@ void main(uint threadIdx : SV_GroupThreadID)
         MatrixDataTypeEnumDefine.c_str(),
     };
 
-    CComPtr<LinAlgHeaderIncludeHandler> pIncludeHandler =
+    CComPtr<LinAlgHeaderIncludeHandler> IncludeHandler =
         new LinAlgHeaderIncludeHandler(m_support);
 
-    CreateComputePSO(pD3DDevice, pRootSignature, shaderSource.c_str(),
-                     L"cs_6_9", &pComputePipelineState, pOptions,
-                     _countof(pOptions), pIncludeHandler);
+    CreateComputePSO(D3DDevice, RootSignature, ShaderSource.c_str(), L"cs_6_9",
+                     &ComputePipelineState, Options, _countof(Options),
+                     IncludeHandler);
   }
 
   // Create a command list for the compute shader.
-  CComPtr<ID3D12GraphicsCommandList> pCommandList;
-  CComPtr<ID3D12CommandAllocator> pCommandAllocator;
-  CComPtr<ID3D12CommandQueue> pCommandQueue;
+  CComPtr<ID3D12GraphicsCommandList> CommandList;
+  CComPtr<ID3D12CommandAllocator> CommandAllocator;
+  CComPtr<ID3D12CommandQueue> CommandQueue;
   FenceObj FO;
-  CreateCommandQueue(pD3DDevice, L"CoopVec Test Command Queue", &pCommandQueue,
+  CreateCommandQueue(D3DDevice, L"CoopVec Test Command Queue", &CommandQueue,
                      D3D12_COMMAND_LIST_TYPE_DIRECT);
-  InitFenceObj(pD3DDevice, &FO);
-  VERIFY_SUCCEEDED(pD3DDevice->CreateCommandAllocator(
-      D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&pCommandAllocator)));
-  VERIFY_SUCCEEDED(pD3DDevice->CreateCommandList(
-      0, D3D12_COMMAND_LIST_TYPE_DIRECT, pCommandAllocator,
-      pComputePipelineState, IID_PPV_ARGS(&pCommandList)));
+  InitFenceObj(D3DDevice, &FO);
+  VERIFY_SUCCEEDED(D3DDevice->CreateCommandAllocator(
+      D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CommandAllocator)));
+  VERIFY_SUCCEEDED(D3DDevice->CreateCommandList(
+      0, D3D12_COMMAND_LIST_TYPE_DIRECT, CommandAllocator, ComputePipelineState,
+      IID_PPV_ARGS(&CommandList)));
 
   // Setup input matrix as all-ones in sint8/fp32 format. This will later be
   // converted to the appropriate data type by the matrix conversion API.
-  CComPtr<ID3D12Resource> pInputMatrixSRVResource,
-      pInputMatrixSRVUploadResource;
-  std::vector<uint8_t> inputMatrix;
+  CComPtr<ID3D12Resource> InputMatrixSRVResource, InputMatrixSRVUploadResource;
+  std::vector<uint8_t> InputMatrix;
   if (AccumulateProps.AccumulationType == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 ||
       AccumulateProps.AccumulationType == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8) {
-    inputMatrix = CoopVecHelpers::CreateAllOnesInputMatrix<int8_t>(Config.DimN,
+    InputMatrix = CoopVecHelpers::CreateAllOnesInputMatrix<int8_t>(Config.DimN,
                                                                    Config.DimM);
   } else if (AccumulateProps.AccumulationType ==
                  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 ||
@@ -12998,29 +12987,29 @@ void main(uint threadIdx : SV_GroupThreadID)
                  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2) {
     // Matrix source data is fp32, which gets converted to fp16 during matrix
     // conversion
-    inputMatrix = CoopVecHelpers::CreateAllOnesInputMatrix<float>(Config.DimN,
+    InputMatrix = CoopVecHelpers::CreateAllOnesInputMatrix<float>(Config.DimN,
                                                                   Config.DimM);
   } else {
     WEX::Logging::Log::Error(L"Unsupported matrix data type");
     return;
   }
 
-  CreateTestResources(pD3DDevice, pCommandList, inputMatrix.data(),
-                      inputMatrix.size(),
-                      CD3DX12_RESOURCE_DESC::Buffer(inputMatrix.size()),
-                      &pInputMatrixSRVResource, &pInputMatrixSRVUploadResource);
+  CreateTestResources(D3DDevice, CommandList, InputMatrix.data(),
+                      InputMatrix.size(),
+                      CD3DX12_RESOURCE_DESC::Buffer(InputMatrix.size()),
+                      &InputMatrixSRVResource, &InputMatrixSRVUploadResource);
 
   // Create input vectors
-  CComPtr<ID3D12Resource> pInputVecSRVResource1, pInputVecSRVUploadResource1;
-  std::vector<uint8_t> inputVector1;
-  CComPtr<ID3D12Resource> pInputVecSRVResource2, pInputVecSRVUploadResource2;
-  std::vector<uint8_t> inputVector2;
+  CComPtr<ID3D12Resource> InputVecSRVResource1, InputVecSRVUploadResource1;
+  std::vector<uint8_t> InputVector1;
+  CComPtr<ID3D12Resource> InputVecSRVResource2, InputVecSRVUploadResource2;
+  std::vector<uint8_t> InputVector2;
 
   if (AccumulateProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 ||
       AccumulateProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8) {
-    inputVector1 = CoopVecHelpers::CreateInputVector<int8_t>(Config.NumThreads,
+    InputVector1 = CoopVecHelpers::CreateInputVector<int8_t>(Config.NumThreads,
                                                              Config.DimM);
-    inputVector2 = CoopVecHelpers::CreateInputVector<int8_t>(Config.NumThreads,
+    InputVector2 = CoopVecHelpers::CreateInputVector<int8_t>(Config.NumThreads,
                                                              Config.DimN);
   } else if (AccumulateProps.InputType ==
                  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 ||
@@ -13028,46 +13017,46 @@ void main(uint threadIdx : SV_GroupThreadID)
                  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3 ||
              AccumulateProps.InputType ==
                  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2) {
-    inputVector1 =
+    InputVector1 =
         CoopVecHelpers::CreateInputVector<DirectX::PackedVector::HALF>(
             Config.NumThreads, Config.DimM);
-    inputVector2 =
+    InputVector2 =
         CoopVecHelpers::CreateInputVector<DirectX::PackedVector::HALF>(
             Config.NumThreads, Config.DimN);
   } else if (AccumulateProps.InputType ==
              D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
-    inputVector1 = CoopVecHelpers::CreateInputVector<float>(Config.NumThreads,
+    InputVector1 = CoopVecHelpers::CreateInputVector<float>(Config.NumThreads,
                                                             Config.DimM);
-    inputVector2 = CoopVecHelpers::CreateInputVector<float>(Config.NumThreads,
+    InputVector2 = CoopVecHelpers::CreateInputVector<float>(Config.NumThreads,
                                                             Config.DimN);
   } else {
     WEX::Logging::Log::Error(L"Unsupported input data type");
     return;
   }
-  if (inputVector1.size() % 4 != 0) {
+  if (InputVector1.size() % 4 != 0) {
     // Align size to 4 bytes for ByteAddressBuffer
-    inputVector1.resize(inputVector1.size() + 4 - (inputVector1.size() % 4));
+    InputVector1.resize(InputVector1.size() + 4 - (InputVector1.size() % 4));
   }
-  if (inputVector2.size() % 4 != 0) {
+  if (InputVector2.size() % 4 != 0) {
     // Align size to 4 bytes for ByteAddressBuffer
-    inputVector2.resize(inputVector2.size() + 4 - (inputVector2.size() % 4));
+    InputVector2.resize(InputVector2.size() + 4 - (InputVector2.size() % 4));
   }
-  CreateTestResources(pD3DDevice, pCommandList, inputVector1.data(),
-                      inputVector1.size(),
-                      CD3DX12_RESOURCE_DESC::Buffer(inputVector1.size()),
-                      &pInputVecSRVResource1, &pInputVecSRVUploadResource1);
-  CreateTestResources(pD3DDevice, pCommandList, inputVector2.data(),
-                      inputVector2.size(),
-                      CD3DX12_RESOURCE_DESC::Buffer(inputVector2.size()),
-                      &pInputVecSRVResource2, &pInputVecSRVUploadResource2);
+  CreateTestResources(D3DDevice, CommandList, InputVector1.data(),
+                      InputVector1.size(),
+                      CD3DX12_RESOURCE_DESC::Buffer(InputVector1.size()),
+                      &InputVecSRVResource1, &InputVecSRVUploadResource1);
+  CreateTestResources(D3DDevice, CommandList, InputVector2.data(),
+                      InputVector2.size(),
+                      CD3DX12_RESOURCE_DESC::Buffer(InputVector2.size()),
+                      &InputVecSRVResource2, &InputVecSRVUploadResource2);
 
   // This increments baseHandle
-  CreateRawSRV(pD3DDevice, baseHandle,
-               (UINT)(inputVector1.size() / sizeof(int32_t)),
-               pInputVecSRVResource1);
-  CreateRawSRV(pD3DDevice, baseHandle,
-               (UINT)(inputVector2.size() / sizeof(int32_t)),
-               pInputVecSRVResource2);
+  CreateRawSRV(D3DDevice, BaseHandle,
+               (UINT)(InputVector1.size() / sizeof(int32_t)),
+               InputVecSRVResource1);
+  CreateRawSRV(D3DDevice, BaseHandle,
+               (UINT)(InputVector2.size() / sizeof(int32_t)),
+               InputVecSRVResource2);
 
   // Calculate reference output
   auto ExpectedOutputBufferI8 =
@@ -13078,186 +13067,183 @@ void main(uint threadIdx : SV_GroupThreadID)
               ExpectedOutputBufferI8.size());
 
   if (AccumulateProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16) {
-    std::vector<DirectX::PackedVector::HALF> inputVector1FP16(
-        inputVector1.size() / sizeof(DirectX::PackedVector::HALF));
-    std::memcpy(inputVector1FP16.data(), inputVector1.data(),
-                inputVector1.size());
+    std::vector<DirectX::PackedVector::HALF> InputVector1FP16(
+        InputVector1.size() / sizeof(DirectX::PackedVector::HALF));
+    std::memcpy(InputVector1FP16.data(), InputVector1.data(),
+                InputVector1.size());
 
-    std::vector<DirectX::PackedVector::HALF> inputVector2FP16(
-        inputVector2.size() / sizeof(DirectX::PackedVector::HALF));
-    std::memcpy(inputVector2FP16.data(), inputVector2.data(),
-                inputVector2.size());
+    std::vector<DirectX::PackedVector::HALF> InputVector2FP16(
+        InputVector2.size() / sizeof(DirectX::PackedVector::HALF));
+    std::memcpy(InputVector2FP16.data(), InputVector2.data(),
+                InputVector2.size());
 
-    for (int threadIdx = 0; threadIdx < Config.NumThreads; ++threadIdx) {
-      for (int m = 0; m < Config.DimM; ++m) {
-        for (int n = 0; n < Config.DimN; ++n) {
-          float acc = ConvertFloat16ToFloat32(inputVector1FP16[m]) *
-                      ConvertFloat16ToFloat32(inputVector2FP16[n]);
-          ExpectedOutputBuffer[m * Config.DimN + n] += acc;
+    for (int ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
+      for (int M = 0; M < Config.DimM; ++M) {
+        for (int N = 0; N < Config.DimN; ++N) {
+          float acc = ConvertFloat16ToFloat32(InputVector1FP16[M]) *
+                      ConvertFloat16ToFloat32(InputVector2FP16[N]);
+          ExpectedOutputBuffer[M * Config.DimN + N] += acc;
         }
       }
     }
   } else if (AccumulateProps.InputType ==
              D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
-    std::vector<float> inputVector1FP32(inputVector1.size() / sizeof(float));
-    std::memcpy(inputVector1FP32.data(), inputVector1.data(),
-                inputVector1.size());
+    std::vector<float> InputVector1FP32(InputVector1.size() / sizeof(float));
+    std::memcpy(InputVector1FP32.data(), InputVector1.data(),
+                InputVector1.size());
 
-    std::vector<float> inputVector2FP32(inputVector2.size() / sizeof(float));
-    std::memcpy(inputVector2FP32.data(), inputVector2.data(),
-                inputVector2.size());
+    std::vector<float> InputVector2FP32(InputVector2.size() / sizeof(float));
+    std::memcpy(InputVector2FP32.data(), InputVector2.data(),
+                InputVector2.size());
 
-    for (int threadIdx = 0; threadIdx < Config.NumThreads; ++threadIdx) {
-      for (int m = 0; m < Config.DimM; ++m) {
-        for (int n = 0; n < Config.DimN; ++n) {
-          float acc = inputVector1FP32[m] * inputVector2FP32[n];
-          ExpectedOutputBuffer[m * Config.DimN + n] += acc;
+    for (int ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
+      for (int M = 0; M < Config.DimM; ++M) {
+        for (int N = 0; N < Config.DimN; ++N) {
+          float Acc = InputVector1FP32[M] * InputVector2FP32[N];
+          ExpectedOutputBuffer[M * Config.DimN + N] += Acc;
         }
       }
     }
   }
 
-  CComPtr<ID3D12Resource> pConvertedMatrixResource,
-      pConvertedMatrixReadResource;
+  CComPtr<ID3D12Resource> ConvertedMatrixResource, ConvertedMatrixReadResource;
   int ConvertedMatrixSize = 0;
   {
     // Create source matrix info
-    D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_SRC_INFO srcInfo = {};
-    srcInfo.SrcDataType =
+    D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_SRC_INFO SrcInfo = {};
+    SrcInfo.SrcDataType =
         CoopVecHelpers::GetMatrixSrcDataType(AccumulateProps.AccumulationType);
-    srcInfo.SrcLayout = D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR;
+    SrcInfo.SrcLayout = D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR;
 
     // Create destination matrix info
-    D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO destInfo = {};
-    destInfo.DestSize = 0; // Will be populated by driver
-    int srcEltSize = 0;
-    int destEltSize = 0;
+    D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO DestInfo = {};
+    DestInfo.DestSize = 0; // Will be populated by driver
+    int SrcEltSize = 0;
+    int DestEltSize = 0;
     switch (AccumulateProps.AccumulationType) {
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED:
-      destInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8;
-      srcEltSize = 1;
-      destEltSize = 1;
+      DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8;
+      SrcEltSize = 1;
+      DestEltSize = 1;
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
-      destInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
-      srcEltSize = 4;  // FP32
-      destEltSize = 2; // FP16
+      DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
+      SrcEltSize = 4;  // FP32
+      DestEltSize = 2; // FP16
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
-      destInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3;
-      srcEltSize = 4;  // FP32
-      destEltSize = 1; // FP8
+      DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3;
+      SrcEltSize = 4;  // FP32
+      DestEltSize = 1; // FP8
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
-      destInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2;
-      srcEltSize = 4;  // FP32
-      destEltSize = 1; // FP8
+      DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2;
+      SrcEltSize = 4;  // FP32
+      DestEltSize = 1; // FP8
       break;
     }
-    srcInfo.SrcStride = Config.DimM * srcEltSize;
-    srcInfo.SrcSize = Config.DimM * Config.DimN * srcEltSize;
+    SrcInfo.SrcStride = Config.DimM * SrcEltSize;
+    SrcInfo.SrcSize = Config.DimM * Config.DimN * SrcEltSize;
 
-    destInfo.DestLayout = Config.MatrixLayout;
-    destInfo.DestStride = 0;
-    destInfo.NumRows = Config.DimM;
-    destInfo.NumColumns = Config.DimN;
+    DestInfo.DestLayout = Config.MatrixLayout;
+    DestInfo.DestStride = 0;
+    DestInfo.NumRows = Config.DimM;
+    DestInfo.NumColumns = Config.DimN;
 
     if (Config.MatrixLayout == D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR) {
-      destInfo.DestStride = Config.DimM * destEltSize;
+      DestInfo.DestStride = Config.DimM * DestEltSize;
     } else if (Config.MatrixLayout ==
                D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR) {
-      destInfo.DestStride = Config.DimM * destEltSize;
+      DestInfo.DestStride = Config.DimM * DestEltSize;
     }
 
     // Create conversion info
-    D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO convertInfo = {};
-    convertInfo.SrcInfo = srcInfo;
-    convertInfo.DestInfo = destInfo;
+    D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO ConvertInfo = {};
+    ConvertInfo.SrcInfo = SrcInfo;
+    ConvertInfo.DestInfo = DestInfo;
 
     // Get preview device interface
     {
-      CComPtr<ID3D12DevicePreview> previewDevice;
-      VERIFY_SUCCEEDED(pD3DDevice->QueryInterface(__uuidof(ID3D12DevicePreview),
-                                                  (void **)&previewDevice));
+      CComPtr<ID3D12DevicePreview> PreviewDevice;
+      VERIFY_SUCCEEDED(D3DDevice->QueryInterface(__uuidof(ID3D12DevicePreview),
+                                                 (void **)&PreviewDevice));
 
       // Query required destination size
-      previewDevice->GetLinearAlgebraMatrixConversionDestinationInfo(
-          &convertInfo.DestInfo);
+      PreviewDevice->GetLinearAlgebraMatrixConversionDestinationInfo(
+          &ConvertInfo.DestInfo);
     }
 
-    ConvertedMatrixSize = convertInfo.DestInfo.DestSize;
+    ConvertedMatrixSize = ConvertInfo.DestInfo.DestSize;
 
     // Hack to prevent read resource from being created with size 0
-    std::vector<uint8_t> tempData(convertInfo.DestInfo.DestSize);
-    CreateTestUavs(pD3DDevice, pCommandList, tempData.data(), tempData.size(),
-                   &pConvertedMatrixResource, nullptr,
-                   &pConvertedMatrixReadResource);
+    std::vector<uint8_t> TempData(ConvertInfo.DestInfo.DestSize);
+    CreateTestUavs(D3DDevice, CommandList, TempData.data(), TempData.size(),
+                   &ConvertedMatrixResource, nullptr,
+                   &ConvertedMatrixReadResource);
 
     // Set up data descriptors
-    D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DATA dataDesc = {};
-    dataDesc.DestVA = pConvertedMatrixResource->GetGPUVirtualAddress();
-    dataDesc.SrcVA = pInputMatrixSRVResource->GetGPUVirtualAddress();
-    convertInfo.DataDesc = dataDesc;
+    D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DATA DataDesc = {};
+    DataDesc.DestVA = ConvertedMatrixResource->GetGPUVirtualAddress();
+    DataDesc.SrcVA = InputMatrixSRVResource->GetGPUVirtualAddress();
+    ConvertInfo.DataDesc = DataDesc;
 
     // Get command list interface and perform conversion
-    CComPtr<ID3D12GraphicsCommandList11> commandList11;
-    VERIFY_SUCCEEDED(pCommandList->QueryInterface(
-        __uuidof(ID3D12GraphicsCommandList11), (void **)&commandList11));
-    commandList11->ConvertLinearAlgebraMatrix(&convertInfo, 1);
+    CComPtr<ID3D12GraphicsCommandList11> CommandList11;
+    VERIFY_SUCCEEDED(CommandList->QueryInterface(
+        __uuidof(ID3D12GraphicsCommandList11), (void **)&CommandList11));
+    CommandList11->ConvertLinearAlgebraMatrix(&ConvertInfo, 1);
 
     // This increments baseHandle
-    if ((convertInfo.DestInfo.DestSize % 4) != 0) {
+    if ((ConvertInfo.DestInfo.DestSize % 4) != 0) {
       WEX::Logging::Log::Error(L"DestSize is not aligned to 4 bytes");
       return;
     }
-    CreateRawUAV(pD3DDevice, baseHandle,
-                 convertInfo.DestInfo.DestSize / sizeof(int32_t),
-                 pConvertedMatrixResource);
+    CreateRawUAV(D3DDevice, BaseHandle,
+                 ConvertInfo.DestInfo.DestSize / sizeof(int32_t),
+                 ConvertedMatrixResource);
   }
 
-  pCommandList->Close();
-  ExecuteCommandList(pCommandQueue, pCommandList);
-  WaitForSignal(pCommandQueue, FO);
-  VERIFY_SUCCEEDED(pCommandAllocator->Reset());
-  VERIFY_SUCCEEDED(
-      pCommandList->Reset(pCommandAllocator, pComputePipelineState));
+  CommandList->Close();
+  ExecuteCommandList(CommandQueue, CommandList);
+  WaitForSignal(CommandQueue, FO);
+  VERIFY_SUCCEEDED(CommandAllocator->Reset());
+  VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, ComputePipelineState));
 
-  SetDescriptorHeap(pCommandList, pDescriptorHeap);
+  SetDescriptorHeap(CommandList, DescriptorHeap);
 
-  CD3DX12_GPU_DESCRIPTOR_HANDLE resHandle(
-      pDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+  CD3DX12_GPU_DESCRIPTOR_HANDLE ResHandle(
+      DescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
-  pCommandList->SetComputeRootSignature(pRootSignature);
-  pCommandList->SetComputeRootDescriptorTable(0, resHandle);
-  pCommandList->SetPipelineState(pComputePipelineState);
-  pCommandList->Dispatch(1, 1, 1);
-  pCommandList->Close();
-  ExecuteCommandList(pCommandQueue, pCommandList);
-  WaitForSignal(pCommandQueue, FO);
+  CommandList->SetComputeRootSignature(RootSignature);
+  CommandList->SetComputeRootDescriptorTable(0, ResHandle);
+  CommandList->SetPipelineState(ComputePipelineState);
+  CommandList->Dispatch(1, 1, 1);
+  CommandList->Close();
+  ExecuteCommandList(CommandQueue, CommandList);
+  WaitForSignal(CommandQueue, FO);
 
-  VERIFY_SUCCEEDED(pCommandAllocator->Reset());
-  VERIFY_SUCCEEDED(
-      pCommandList->Reset(pCommandAllocator, pComputePipelineState));
+  VERIFY_SUCCEEDED(CommandAllocator->Reset());
+  VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, ComputePipelineState));
 
   // Convert matrix to sint8/fp32 row-major format before reading back to the
   // CPU. A new resource is created, along with a readback resource, for the
   // matrix copy.
-  CComPtr<ID3D12Resource> pMatrixRowMajorResource, pMatrixRowMajorReadResource;
+  CComPtr<ID3D12Resource> MatrixRowMajorResource, MatrixRowMajorReadResource;
   {
     // Create source matrix info
-    D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO convertInfo = {};
-    convertInfo.SrcInfo.SrcLayout = Config.MatrixLayout;
-    convertInfo.SrcInfo.SrcSize = ConvertedMatrixSize;
-    convertInfo.SrcInfo.SrcDataType = AccumulateProps.AccumulationType;
-    convertInfo.SrcInfo.SrcStride = 0; // OUTER_PRODUCT_OPTIMAL
+    D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO ConvertInfo = {};
+    ConvertInfo.SrcInfo.SrcLayout = Config.MatrixLayout;
+    ConvertInfo.SrcInfo.SrcSize = ConvertedMatrixSize;
+    ConvertInfo.SrcInfo.SrcDataType = AccumulateProps.AccumulationType;
+    ConvertInfo.SrcInfo.SrcStride = 0; // OUTER_PRODUCT_OPTIMAL
 
     // Create destination matrix info
-    convertInfo.DestInfo.DestSize = 0; // Will be populated by driver
-    convertInfo.DestInfo.DestLayout =
+    ConvertInfo.DestInfo.DestSize = 0; // Will be populated by driver
+    ConvertInfo.DestInfo.DestLayout =
         D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR;
-    convertInfo.DestInfo.NumRows = Config.DimM;
-    convertInfo.DestInfo.NumColumns = Config.DimN;
+    ConvertInfo.DestInfo.NumRows = Config.DimM;
+    ConvertInfo.DestInfo.NumColumns = Config.DimN;
 
     if (AccumulateProps.AccumulationType ==
             D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32 ||
@@ -13267,22 +13253,22 @@ void main(uint threadIdx : SV_GroupThreadID)
             D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3 ||
         AccumulateProps.AccumulationType ==
             D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2) {
-      convertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
-      convertInfo.DestInfo.DestStride = Config.DimN * sizeof(float);
+      ConvertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
+      ConvertInfo.DestInfo.DestStride = Config.DimN * sizeof(float);
     } else {
-      convertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8;
-      convertInfo.DestInfo.DestStride = Config.DimN * sizeof(int8_t);
+      ConvertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8;
+      ConvertInfo.DestInfo.DestStride = Config.DimN * sizeof(int8_t);
     }
 
     // Get destination size using preview interface
     {
-      CComPtr<ID3D12DevicePreview> previewDevice;
-      VERIFY_SUCCEEDED(pD3DDevice->QueryInterface(__uuidof(ID3D12DevicePreview),
-                                                  (void **)&previewDevice));
+      CComPtr<ID3D12DevicePreview> PreviewDevice;
+      VERIFY_SUCCEEDED(D3DDevice->QueryInterface(__uuidof(ID3D12DevicePreview),
+                                                 (void **)&PreviewDevice));
 
       // Query required destination size
-      previewDevice->GetLinearAlgebraMatrixConversionDestinationInfo(
-          &convertInfo.DestInfo);
+      PreviewDevice->GetLinearAlgebraMatrixConversionDestinationInfo(
+          &ConvertInfo.DestInfo);
     }
 
     // Create resource to hold matrix copy and a readback resource for it
@@ -13290,50 +13276,48 @@ void main(uint threadIdx : SV_GroupThreadID)
     // size 0
     // TODO: Fix CreateTestUavs to allow creating readback resource without init
     // data
-    std::vector<uint8_t> tempData(convertInfo.DestInfo.DestSize);
-    CreateTestUavs(pD3DDevice, pCommandList, tempData.data(), tempData.size(),
-                   &pMatrixRowMajorResource, nullptr,
-                   &pMatrixRowMajorReadResource);
+    std::vector<uint8_t> TempData(ConvertInfo.DestInfo.DestSize);
+    CreateTestUavs(D3DDevice, CommandList, TempData.data(), TempData.size(),
+                   &MatrixRowMajorResource, nullptr,
+                   &MatrixRowMajorReadResource);
 
     // Set up data descriptors
-    convertInfo.DataDesc.DestVA =
-        pMatrixRowMajorResource->GetGPUVirtualAddress();
-    convertInfo.DataDesc.SrcVA =
-        pConvertedMatrixResource->GetGPUVirtualAddress();
+    ConvertInfo.DataDesc.DestVA =
+        MatrixRowMajorResource->GetGPUVirtualAddress();
+    ConvertInfo.DataDesc.SrcVA =
+        ConvertedMatrixResource->GetGPUVirtualAddress();
 
     // Get command list interface and perform conversion
-    CComPtr<ID3D12GraphicsCommandList11> commandList11;
-    VERIFY_SUCCEEDED(pCommandList->QueryInterface(
-        __uuidof(ID3D12GraphicsCommandList11), (void **)&commandList11));
-    commandList11->ConvertLinearAlgebraMatrix(&convertInfo, 1);
+    CComPtr<ID3D12GraphicsCommandList11> CommandList11;
+    VERIFY_SUCCEEDED(CommandList->QueryInterface(
+        __uuidof(ID3D12GraphicsCommandList11), (void **)&CommandList11));
+    CommandList11->ConvertLinearAlgebraMatrix(&ConvertInfo, 1);
   }
 
-  RecordTransitionBarrier(pCommandList, pMatrixRowMajorResource,
+  RecordTransitionBarrier(CommandList, MatrixRowMajorResource,
                           D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
                           D3D12_RESOURCE_STATE_COPY_SOURCE);
-  pCommandList->CopyResource(pMatrixRowMajorReadResource,
-                             pMatrixRowMajorResource);
-  pCommandList->Close();
-  ExecuteCommandList(pCommandQueue, pCommandList);
-  WaitForSignal(pCommandQueue, FO);
+  CommandList->CopyResource(MatrixRowMajorReadResource, MatrixRowMajorResource);
+  CommandList->Close();
+  ExecuteCommandList(CommandQueue, CommandList);
+  WaitForSignal(CommandQueue, FO);
 
   {
-    MappedData mappedData(pMatrixRowMajorReadResource,
-                          (UINT)inputMatrix.size());
+    MappedData MappedData(MatrixRowMajorReadResource, (UINT)InputMatrix.size());
 
-    float *resultBuffer = (float *)mappedData.data();
-    bool equal = true;
-    for (int i = 0; i < (UINT)inputMatrix.size() / sizeof(float); i++) {
-      if (isnan(resultBuffer[i]) || isnan(ExpectedOutputBuffer[i]) ||
-          fabs(resultBuffer[i] - ExpectedOutputBuffer[i]) > 0.00001) {
+    float *ResultBuffer = (float *)MappedData.data();
+    bool Equal = true;
+    for (int i = 0; i < (UINT)InputMatrix.size() / sizeof(float); i++) {
+      if (isnan(ResultBuffer[i]) || isnan(ExpectedOutputBuffer[i]) ||
+          fabs(ResultBuffer[i] - ExpectedOutputBuffer[i]) > 0.00001) {
         LogErrorFmt(L"Result mismatch at index %d", i);
-        LogErrorFmt(L"resultBuffer[%d]: %f, ExpectedOutputBuffer[%d]: %f", i,
-                    resultBuffer[i], i, ExpectedOutputBuffer[i]);
-        equal = false;
+        LogErrorFmt(L"ResultBuffer[%d]: %f, ExpectedOutputBuffer[%d]: %f", i,
+                    ResultBuffer[i], i, ExpectedOutputBuffer[i]);
+        Equal = false;
         break;
       }
     }
-    VERIFY_IS_TRUE(equal);
+    VERIFY_IS_TRUE(Equal);
   }
 }
 
