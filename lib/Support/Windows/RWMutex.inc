@@ -49,21 +49,16 @@ static bool loadSRW() {
     sChecked = true;
 
     if (HMODULE hLib = ::GetModuleHandleW(L"Kernel32.dll")) {
-      fpInitializeSRWLock =
-        (VOID (WINAPI *)(PSRWLOCK))::GetProcAddress(hLib,
-                                               "InitializeSRWLock");
-      fpAcquireSRWLockExclusive =
-        (VOID (WINAPI *)(PSRWLOCK))::GetProcAddress(hLib,
-                                               "AcquireSRWLockExclusive");
-      fpAcquireSRWLockShared =
-        (VOID (WINAPI *)(PSRWLOCK))::GetProcAddress(hLib,
-                                               "AcquireSRWLockShared");
-      fpReleaseSRWLockExclusive =
-        (VOID (WINAPI *)(PSRWLOCK))::GetProcAddress(hLib,
-                                               "ReleaseSRWLockExclusive");
-      fpReleaseSRWLockShared =
-        (VOID (WINAPI *)(PSRWLOCK))::GetProcAddress(hLib,
-                                               "ReleaseSRWLockShared");
+      fpInitializeSRWLock = reinterpret_cast<VOID (WINAPI *)(PSRWLOCK)>(
+          reinterpret_cast<void *>(::GetProcAddress(hLib, "InitializeSRWLock")));
+      fpAcquireSRWLockExclusive = reinterpret_cast<VOID (WINAPI *)(PSRWLOCK)>(
+          reinterpret_cast<void *>(::GetProcAddress(hLib, "AcquireSRWLockExclusive")));
+      fpAcquireSRWLockShared = reinterpret_cast<VOID (WINAPI *)(PSRWLOCK)>(
+          reinterpret_cast<void *>(::GetProcAddress(hLib, "AcquireSRWLockShared")));
+      fpReleaseSRWLockExclusive = reinterpret_cast<VOID (WINAPI *)(PSRWLOCK)>(
+          reinterpret_cast<void *>(::GetProcAddress(hLib, "ReleaseSRWLockExclusive")));
+      fpReleaseSRWLockShared = reinterpret_cast<VOID (WINAPI *)(PSRWLOCK)>(
+          reinterpret_cast<void *>(::GetProcAddress(hLib, "ReleaseSRWLockShared")));
 
       if (fpInitializeSRWLock != NULL) {
         sHasSRW = true;
@@ -72,6 +67,7 @@ static bool loadSRW() {
   }
   return sHasSRW;
 }
+
 
 RWMutexImpl::RWMutexImpl() {
   // TODO: harden to allocation failures - HLSL Change
