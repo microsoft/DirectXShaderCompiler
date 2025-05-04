@@ -11690,12 +11690,19 @@ enum MatrixLayout {
   MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL = 3
 };
 
-bool CheckMatrixLayoutForMulandMulAddOps(unsigned Layout) {
+bool IsValidMatrixLayoutForMulandMulAddOps(unsigned Layout) {
   return Layout <= static_cast<unsigned>(
                        MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL);
 }
 
-bool CheckTransposeForMatrixLayout(unsigned Layout, bool Transposed) {
+bool IsOptimalTypeMatrixLayout(unsigned Layout) {
+  return Layout ==
+         (static_cast<unsigned>(MatrixLayout::MATRIX_LAYOUT_MUL_OPTIMAL) ||
+          Layout == (static_cast<unsigned>(
+                        MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL)));
+}
+
+bool IsValidTransposeForMatrixLayout(unsigned Layout, bool Transposed) {
   switch (static_cast<MatrixLayout>(Layout)) {
   case MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR:
   case MatrixLayout::MATRIX_LAYOUT_COLUMN_MAJOR:
@@ -11728,7 +11735,7 @@ bool IsPackedType(unsigned type) {
           type == static_cast<unsigned>(DATA_TYPE_UINT8_T4_PACKED));
 }
 
-static bool CheckLinalgTypeInterpretation(uint32_t Input, bool InRegister) {
+static bool IsValidLinalgTypeInterpretation(uint32_t Input, bool InRegister) {
 
   switch (Input) {
   case DATA_TYPE_SINT16:
@@ -11750,18 +11757,18 @@ static bool CheckLinalgTypeInterpretation(uint32_t Input, bool InRegister) {
   }
 }
 
-static bool CheckVectorAndMatrixDimensions(Sema &S, CallExpr *CE,
-                                           unsigned InputVectorSize,
-                                           unsigned OutputVectorSize,
-                                           unsigned MatrixK, unsigned MatrixM,
-                                           bool isInputPacked) {
+static bool IsValidVectorAndMatrixDimensions(Sema &S, CallExpr *CE,
+                                             unsigned InputVectorSize,
+                                             unsigned OutputVectorSize,
+                                             unsigned MatrixK, unsigned MatrixM,
+                                             bool isInputPacked) {
   // Check is output vector size is equals to matrix dimension M
   if (OutputVectorSize != MatrixM) {
     Expr *OutputVector = CE->getArg(kMatVecMulOutputVectorIdx);
     S.Diags.Report(
         OutputVector->getExprLoc(),
         diag::err_hlsl_linalg_output_vector_size_not_equal_to_matrix_M);
-    return true;
+    return false;
   }
 
   const unsigned PackingFactor = isInputPacked ? 4 : 1;
@@ -11771,18 +11778,20 @@ static bool CheckVectorAndMatrixDimensions(Sema &S, CallExpr *CE,
     if (isInputPacked) {
       S.Diags.Report(InputVector->getExprLoc(),
                      diag::err_hlsl_linalg_packed_input_vector_size_incorrect);
+      return false;
     } else {
       S.Diags.Report(
           InputVector->getExprLoc(),
           diag::
               err_hlsl_linalg_unpacked_input_vector_size_not_equal_to_matrix_K);
+      return false;
     }
-    return true;
   }
-  return false;
+
+  return true;
 }
 
-static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
+static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
                                               const hlsl::ShaderModel *SM) {
   // Check if IsOutputUnsigned is a const parameter
   bool IsOutputUnsignedFlagValue = false;
@@ -11795,7 +11804,7 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     S.Diags.Report(IsOutputUnsignedExpr->getExprLoc(),
                    diag::err_hlsl_linalg_param_must_be_const)
         << "IsOutputUnsigned";
-    return true;
+    return;
   }
   // Check if IsOutputUnsigned flag matches output vector type.
   // Must be true for unsigned int outputs, false for signed int/float outputs.
@@ -11811,6 +11820,7 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
       S.Diags.Report(OutputVector->getExprLoc(),
                      diag::err_hlsl_linalg_incorrect_type)
           << "Output Vector";
+      return;
     }
 
     if (IsOutputUnsignedFlagValue &&
@@ -11822,13 +11832,13 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
           << "IsOuputUnsigned" << false
           << (OutputVectorTypePtr->isSignedIntegerType() ? "signed int"
                                                          : "float");
-      return true;
+      return;
     } else if (!IsOutputUnsignedFlagValue &&
                OutputVectorTypePtr->isUnsignedIntegerType()) {
       S.Diags.Report(OutputVector->getExprLoc(),
                      diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
           << "IsOuputUnsigned" << true << "unsigned int";
-      return true;
+      return;
     }
   }
 
@@ -11843,7 +11853,7 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     S.Diags.Report(IsInputUnsignedExpr->getExprLoc(),
                    diag::err_hlsl_linalg_param_must_be_const)
         << "IsInputUnsigned";
-    return true;
+    return;
   }
 
   Expr *InputVector = CE->getArg(kMatVecMulInputVectorIdx);
@@ -11851,6 +11861,17 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
   if (IsHLSLVecType(InputVector->getType())) {
     InputVectorSizeValue = GetHLSLVecSize(InputVector->getType());
     QualType InputVectorType = GetHLSLVecElementType(InputVector->getType());
+    unsigned BitWidth = S.Context.getTypeSize(InputVectorType);
+    bool Is16Bit = (BitWidth == 16);
+    bool Is32Bit = (BitWidth == 32);
+
+    if (!Is16Bit && !Is32Bit) {
+      S.Diags.Report(InputVector->getExprLoc(),
+                     diag::err_hlsl_linalg_incorrect_type)
+          << "Input Vector";
+      return;
+    }
+
     const Type *InputVectorTypePtr = InputVectorType.getTypePtr();
     if (!InputVectorTypePtr->isUnsignedIntegerType() &&
         !InputVectorTypePtr->isSignedIntegerType() &&
@@ -11858,27 +11879,28 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
       S.Diags.Report(InputVector->getExprLoc(),
                      diag::err_hlsl_linalg_incorrect_type)
           << "Input Vector";
+      return;
     }
 
     if (IsInputUnsignedFlagValue &&
         !InputVectorTypePtr->isUnsignedIntegerType()) {
       DXASSERT_NOMSG(InputVectorTypePtr->isSignedIntegerType() ||
                      InputVectorTypePtr->isFloatingType());
-      S.Diags.Report(InputVector->getExprLoc(),
+      S.Diags.Report(IsInputUnsignedExpr->getExprLoc(),
                      diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
           << "IsInputUnsigned" << false
           << (InputVectorTypePtr->isSignedIntegerType() ? "signed int"
                                                         : "float");
-      return true;
-
+      return;
     } else if (!IsInputUnsignedFlagValue &&
                InputVectorTypePtr->isUnsignedIntegerType()) {
-      S.Diags.Report(InputVector->getExprLoc(),
+      S.Diags.Report(IsInputUnsignedExpr->getExprLoc(),
                      diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
           << "IsInputUnsigned" << true << "unsigned int";
-      return true;
+      return;
     }
   }
+
   // Get Matrix Dimensions M and K, check if they are constants
   Expr *MatrixKExpr = CE->getArg(kMatVecMulMatrixKIdx);
   llvm::APSInt MatrixKExprVal;
@@ -11889,7 +11911,7 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     S.Diags.Report(MatrixKExpr->getExprLoc(),
                    diag::err_hlsl_linalg_param_must_be_const)
         << "MatrixK";
-    return true;
+    return;
   }
 
   Expr *MatrixMExpr = CE->getArg(kMatVecMulMatrixMIdx);
@@ -11901,9 +11923,41 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     S.Diags.Report(MatrixMExpr->getExprLoc(),
                    diag::err_hlsl_linalg_param_must_be_const)
         << "MatrixM";
-    return true;
+    return;
   }
-  
+
+  // Check MatrixM and MatrixK values are non-zero
+  if (MatrixMValue == 0) {
+    S.Diags.Report(MatrixMExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_matrix_dim_must_not_be_zero)
+        << std::to_string(DXIL::kSM69MaxVectorLength);
+    return;
+  }
+
+  if (MatrixKValue == 0) {
+    S.Diags.Report(MatrixKExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_matrix_dim_must_not_be_zero)
+        << std::to_string(DXIL::kSM69MaxVectorLength);
+    return;
+  }
+
+  // Check MatrixM and MatrixK values are less than max
+  // Matrix dimension cannot exceed largest vector length in a Mul/MulAdd
+  // operation
+  if (MatrixMValue > DXIL::kSM69MaxVectorLength) {
+    S.Diags.Report(MatrixMExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_exceeds_max_matrix_dim)
+        << std::to_string(DXIL::kSM69MaxVectorLength);
+    return;
+  }
+
+  if (MatrixKValue > DXIL::kSM69MaxVectorLength) {
+    S.Diags.Report(MatrixKExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_exceeds_max_matrix_dim)
+        << std::to_string(DXIL::kSM69MaxVectorLength);
+    return;
+  }
+
   // Get InputInterpretation, check if it is constant
   Expr *InputInterpretationExpr = CE->getArg(kMatVecMulInputInterpretationIdx);
   llvm::APSInt InputInterpretationExprVal;
@@ -11912,26 +11966,28 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
                                                      S.Context)) {
     InputInterpretationValue = InputInterpretationExprVal.getLimitedValue();
     const bool InRegisterInterpretation = true;
-    if (!CheckLinalgTypeInterpretation(InputInterpretationValue,
-                                       InRegisterInterpretation)) {
+    if (!IsValidLinalgTypeInterpretation(InputInterpretationValue,
+                                         InRegisterInterpretation)) {
       S.Diags.Report(InputInterpretationExpr->getExprLoc(),
                      diag::err_hlsl_linalg_interpretation_value_incorrect)
           << std::to_string(InputInterpretationValue)
           << InRegisterInterpretation;
-      return true;
+      return;
     }
   } else {
     S.Diags.Report(InputInterpretationExpr->getExprLoc(),
                    diag::err_hlsl_linalg_param_must_be_const)
         << "InputInterpretation";
-    return true;
+    return;
   }
 
   bool isInputPacked = IsPackedType(InputInterpretationValue);
 
-  CheckVectorAndMatrixDimensions(S, CE, InputVectorSizeValue,
-                                 OutputVectorSizeValue, MatrixKValue,
-                                 MatrixMValue, isInputPacked);
+  if (!IsValidVectorAndMatrixDimensions(S, CE, InputVectorSizeValue,
+                                        OutputVectorSizeValue, MatrixKValue,
+                                        MatrixMValue, isInputPacked)) {
+    return;
+  }
 
   // Get MatrixInterpretation, check if it is constant
   Expr *MatrixInterpretationExpr =
@@ -11942,19 +11998,19 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
           MatrixInterpretationExprVal, S.Context)) {
     MatrixInterpretationValue = MatrixInterpretationExprVal.getLimitedValue();
     const bool InRegisterInterpretation = false;
-    if (!CheckLinalgTypeInterpretation(MatrixInterpretationValue,
-                                       InRegisterInterpretation)) {
+    if (!IsValidLinalgTypeInterpretation(MatrixInterpretationValue,
+                                         InRegisterInterpretation)) {
       S.Diags.Report(MatrixInterpretationExpr->getExprLoc(),
                      diag::err_hlsl_linalg_interpretation_value_incorrect)
           << std::to_string(MatrixInterpretationValue)
           << InRegisterInterpretation;
-      return true;
+      return;
     }
   } else {
     S.Diags.Report(MatrixInterpretationExpr->getExprLoc(),
                    diag::err_hlsl_linalg_param_must_be_const)
         << "MatrixInterpretation";
-    return true;
+    return;
   }
 
   // Get MatrixLayout, check if it is constant
@@ -11963,7 +12019,7 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
   unsigned MatrixLayoutValue = 0;
   if (MatrixLayoutExpr->isIntegerConstantExpr(MatrixLayoutExprVal, S.Context)) {
     MatrixLayoutValue = MatrixLayoutExprVal.getLimitedValue();
-    if (!CheckMatrixLayoutForMulandMulAddOps(MatrixInterpretationValue)) {
+    if (!IsValidMatrixLayoutForMulandMulAddOps(MatrixLayoutValue)) {
       S.Diags.Report(MatrixLayoutExpr->getExprLoc(),
                      diag::err_hlsl_linalg_matrix_layout_for_mul_ops_invalid)
           << std::to_string(MatrixLayoutValue)
@@ -11971,12 +12027,13 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
                  static_cast<unsigned>(MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR))
           << std::to_string(static_cast<unsigned>(
                  MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL));
+      return;
     }
   } else {
     S.Diags.Report(MatrixLayoutExpr->getExprLoc(),
                    diag::err_hlsl_linalg_param_must_be_const)
         << "MatrixLayout";
-    return true;
+    return;
   }
 
   // Get MatrixTranspose, check if it is constant
@@ -11986,30 +12043,43 @@ static bool CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
   if (MatrixTransposeExpr->isIntegerConstantExpr(MatrixTransposeExprVal,
                                                  S.Context)) {
     MatrixTransposeValue = MatrixTransposeExprVal.getBoolValue();
-    if (!CheckTransposeForMatrixLayout(MatrixLayoutValue,
-                                       MatrixTransposeValue)) {
+    if (!IsValidTransposeForMatrixLayout(MatrixLayoutValue,
+                                         MatrixTransposeValue)) {
 
       S.Diags.Report(MatrixTransposeExpr->getExprLoc(),
                      diag::err_hlsl_linalg_matrix_layout_is_not_transposable);
+      return;
     }
   } else {
     S.Diags.Report(MatrixTransposeExpr->getExprLoc(),
                    diag::err_hlsl_linalg_param_must_be_const)
         << "MatrixTranspose";
-    return true;
+    return;
   }
 
-  return false;
+  // Get MatrixStride, check if it is constant
+  Expr *MatrixStrideExpr = CE->getArg(kMatVecMulMatrixStrideIdx);
+  llvm::APSInt MatrixStrideExprVal;
+  unsigned MatrixStrideValue = 0;
+  if (MatrixStrideExpr->isIntegerConstantExpr(MatrixStrideExprVal, S.Context)) {
+    MatrixStrideValue = MatrixStrideExprVal.getLimitedValue();
+    if (IsOptimalTypeMatrixLayout(MatrixLayoutValue) &&
+        MatrixStrideValue != 0) {
+      S.Diags.Report(
+          MatrixStrideExpr->getExprLoc(),
+          diag::
+              err_hlsl_linalg_optimal_matrix_layout_matrix_stride_must_be_zero);
+      return;
+    }
+  }
 }
 
-static bool CheckMulCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
+static void CheckMulCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
                          const hlsl::ShaderModel *SM) {
   CheckCommonMulandMulAddParameters(S, CE, SM);
-
-  return false;
 }
 
-static bool CheckMulAddCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
+static void CheckMulAddCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
                             const hlsl::ShaderModel *SM) {
   CheckCommonMulandMulAddParameters(S, CE, SM);
 
@@ -12021,21 +12091,20 @@ static bool CheckMulAddCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
                                                     S.Context)) {
     BiasInterpretationValue = BiasInterpretationExprVal.getLimitedValue();
     const bool InRegisterInterpretation = false;
-    if (!CheckLinalgTypeInterpretation(BiasInterpretationValue,
-                                       InRegisterInterpretation)) {
+    if (!IsValidLinalgTypeInterpretation(BiasInterpretationValue,
+                                         InRegisterInterpretation)) {
       S.Diags.Report(BiasInterpretationExpr->getExprLoc(),
                      diag::err_hlsl_linalg_interpretation_value_incorrect)
           << std::to_string(BiasInterpretationValue)
           << InRegisterInterpretation;
-      return true;
+      return;
     }
   } else {
     S.Diags.Report(BiasInterpretationExpr->getExprLoc(),
                    diag::err_hlsl_linalg_param_must_be_const)
         << "BiasInterpretation";
-    return true;
+    return;
   }
-  return false;
 }
 
 // Linalg Outer Product Accumulate
@@ -12048,7 +12117,7 @@ static const unsigned kOuterProdAccMatrixInterpretationIdx = 4;
 static const unsigned kOuterProdAccMatrixLayoutIdx = 5;
 static const unsigned kOuterProdAccMatrixStrideIdx = 6;
 
-static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
+static void CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
                                             CallExpr *CE) {
   // Check InputVector1 and InputVector2 are the same type
   const Expr *InputVector1Expr = CE->getArg(kOuterProdAccInputVector1Idx);
@@ -12066,7 +12135,7 @@ static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
                              InputVector2ElementType)) {
     S.Diags.Report(InputVector2Expr->getExprLoc(),
                    diag::err_hlsl_linalg_outer_prod_acc_vector_type_mismatch);
-    return true;
+    return;
   }
 
   // Check Matrix Interpretation is a constant and a valid value
@@ -12078,19 +12147,19 @@ static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
           MatrixInterpretationExprVal, S.Context)) {
     MatrixInterpretationValue = MatrixInterpretationExprVal.getLimitedValue();
     const bool InRegisterInterpretation = false;
-    if (!CheckLinalgTypeInterpretation(MatrixInterpretationValue,
-                                       InRegisterInterpretation)) {
+    if (!IsValidLinalgTypeInterpretation(MatrixInterpretationValue,
+                                         InRegisterInterpretation)) {
       S.Diags.Report(MatrixInterpretationExpr->getExprLoc(),
                      diag::err_hlsl_linalg_interpretation_value_incorrect)
           << std::to_string(MatrixInterpretationValue)
           << InRegisterInterpretation;
-      return true;
+      return;
     }
   } else {
     S.Diags.Report(MatrixInterpretationExpr->getExprLoc(),
                    diag::err_hlsl_linalg_param_must_be_const)
         << "MatrixInterpretation";
-    return true;
+    return;
   }
 
   // Check Matrix Layout must be a constant and Training Optimal
@@ -12108,12 +12177,13 @@ static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
               err_hlsl_linalg_outer_prod_acc_matrix_layout_must_be_outer_prod_acc_optimal)
           << std::to_string(static_cast<unsigned>(
                  MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL));
+      return;
     }
   } else {
     S.Diags.Report(MatrixLayoutExpr->getExprLoc(),
                    diag::err_hlsl_linalg_param_must_be_const)
         << "MatrixLayout";
-    return true;
+    return;
   }
 
   // Matrix Stride must be zero (Training Optimal matrix layout)
@@ -12125,24 +12195,20 @@ static bool CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
     if (MatrixStrideValue != 0) {
       S.Diags.Report(
           MatrixStrideExpr->getExprLoc(),
-          diag::err_hlsl_linalg_outer_prod_acc_matrix_stride_must_be_zero);
-      return true;
+          diag::
+              err_hlsl_linalg_optimal_matrix_layout_matrix_stride_must_be_zero);
+      return;
     }
   } else {
     S.Diags.Report(
         MatrixStrideExpr->getExprLoc(),
-        diag::err_hlsl_linalg_outer_prod_acc_matrix_stride_must_be_zero);
-    return true;
+        diag::err_hlsl_linalg_optimal_matrix_layout_matrix_stride_must_be_zero);
+    return;
   }
-
-  return false;
 }
 
-static bool CheckVectorAccumulateCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
-                             const hlsl::ShaderModel *SM) {
-
-  return false;
-}
+static void CheckVectorAccumulateCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
+                                      const hlsl::ShaderModel *SM) {}
 
 #ifdef ENABLE_SPIRV_CODEGEN
 static bool CheckVKBufferPointerCast(Sema &S, FunctionDecl *FD, CallExpr *CE,
