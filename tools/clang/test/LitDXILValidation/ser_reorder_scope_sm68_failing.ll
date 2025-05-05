@@ -1,4 +1,5 @@
-; RUN: %dxilver 1.8 | %dxv %s
+; REQUIRES: dxil-1-8
+; RUN: not %dxv %s 2>&1 | FileCheck %s
 
 ; Buffer Definitions:
 ;

@@ -1,4 +1,7 @@
-; RUN: %dxilver 1.9 | %dxv %s
+; REQUIRES: dxil-1-9
+; RUN: %dxv %s 2>&1 | FileCheck %s
+
+; CHECK: Validation succeeded.
 
 ; Buffer Definitions:
 ;
