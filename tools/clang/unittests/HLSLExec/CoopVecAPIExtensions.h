@@ -2,8 +2,8 @@
 
 #if D3D12_PREVIEW_SDK_VERSION < 717
 
-// This file contains the definitions of the D3D12 cooperative vector API extensions.
-// It is used to test the cooperative vector API extensions on older SDKs.
+// This file contains the definitions of the D3D12 cooperative vector API.
+// It is used to test the cooperative vector API on older SDKs.
 
 constexpr int D3D12_FEATURE_D3D12_OPTIONS_EXPERIMENTAL	= 9;
 constexpr int D3D12_FEATURE_COOPERATIVE_VECTOR = 11;
