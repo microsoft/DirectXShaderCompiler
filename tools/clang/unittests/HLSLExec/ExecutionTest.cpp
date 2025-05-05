@@ -65,7 +65,7 @@
 #include <DirectXPackedVector.h>
 #include "LongVectors.h"
 #include "CoopVec.h"
-#include "CoopVecAPIExtensions.h"
+#include "CoopVecAPI.h"
 // clang-format on
 
 #pragma comment(lib, "d3dcompiler.lib")
@@ -11997,8 +11997,6 @@ void ExecutionTest::runCoopVecMulTest() {
   // Create device and verify coopvec support
   CComPtr<ID3D12Device> D3DDevice;
   if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
-    WEX::Logging::Log::Comment("Device does not support SM 6.9. Skipping.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
   }
   if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {
@@ -12745,8 +12743,6 @@ void ExecutionTest::runCoopVecOuterProductTest() {
   // Create device and verify coopvec support
   CComPtr<ID3D12Device> D3DDevice;
   if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
-    WEX::Logging::Log::Comment("Device does not support SM 6.9. Skipping.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
   }
   if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {

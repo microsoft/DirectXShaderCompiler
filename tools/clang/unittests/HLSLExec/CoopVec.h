@@ -6,7 +6,7 @@
 
 #include "dxc/Support/microcom.h"
 
-#include "CoopVecAPIExtensions.h"
+#include "CoopVecAPI.h"
 
 struct LinAlgHeaderIncludeHandler : public IDxcIncludeHandler {
 private:
