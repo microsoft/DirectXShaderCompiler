@@ -8016,7 +8016,7 @@ def err_hlsl_hitobject_unsupported_stage : Error<
 // HLSL Change Ends
 
 // Linear Algebra Operations
-def err_hlsl_linalg_param_must_be_const : Error<" '%0' must be a constant parameter">;
+def err_hlsl_linalg_param_must_be_const : Error<"'%0' must be a constant parameter">;
 def err_hlsl_linalg_vector_incorrect_type : Error<"%0 is incorrect type, must be 16-bit or 32-bit 'unsigned int', 'signed int' or 'float'">;
 def err_hlsl_linalg_isunsigned_incorrect_for_given_type : Error<"%0 must be %select{false|true}1 for a %2 vector type">;
 def err_hlsl_linalg_interpretation_value_incorrect : Error<"%0 is an invalid %select{Memory|Register}1 Interpretation value">;
