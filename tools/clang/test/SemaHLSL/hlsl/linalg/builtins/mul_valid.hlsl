@@ -1,3 +1,5 @@
+// RUN:dxc
+
 ByteAddressBuffer input_vector_buffer;
 ByteAddressBuffer matrix_buffer; 
 RWByteAddressBuffer output_vector_buffer;
@@ -88,7 +90,7 @@ void test_valid_input_vector_type() {
       input_vector_buffer.Load<vector<int32_t, 4> >(0);
     const uint is_input_unsigned_0 = 0;
 
-// expected-error@+1 {{Input Vector is incorrect type, must be 16-bit or 32-bit 'unsigned int', 'signed int' or 'float'}}
+ // expected-no-diagnostics@+1
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_0,
                       is_input_unsigned_0, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -99,7 +101,7 @@ void test_valid_input_vector_type() {
       input_vector_buffer.Load<vector<uint32_t, 4> >(0);
     const uint is_input_unsigned_1 = 1;
 
-// expected-error@+1 {{Input Vector is incorrect type, must be 16-bit or 32-bit 'unsigned int', 'signed int' or 'float'}}   
+ // expected-no-diagnostics@+1 
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_1,
                       is_input_unsigned_1, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -110,7 +112,7 @@ void test_valid_input_vector_type() {
       input_vector_buffer.Load<vector<float16_t, 4> >(0);
     const uint is_input_unsigned_2 = 0;
 
-// expected-error@+1 {{Input Vector is incorrect type, must be 16-bit or 32-bit 'unsigned int', 'signed int' or 'float'}}
+ // expected-no-diagnostics@+1
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_2,
                       is_input_unsigned_2, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
