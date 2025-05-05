@@ -790,11 +790,11 @@ public:
     bool Bias;
   };
 
-  void RunCoopVecMulTest();
+  void runCoopVecMulTest();
   void
-  RunCoopVecMulTestConfig(ID3D12Device *D3DDevice,
+  runCoopVecMulTestConfig(ID3D12Device *D3DDevice,
                           D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &MulProps);
-  void RunCoopVecMulSubtest(ID3D12Device *D3DDevice,
+  void runCoopVecMulSubtest(ID3D12Device *D3DDevice,
                             D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &MulProps,
                             CoopVecMulSubtestConfig &Config);
 
@@ -805,11 +805,11 @@ public:
     D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT MatrixLayout;
   };
 
-  void RunCoopVecOuterProductTest();
-  void RunCoopVecOuterProductTestConfig(
+  void runCoopVecOuterProductTest();
+  void runCoopVecOuterProductTestConfig(
       ID3D12Device *D3DDevice,
       D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps);
-  void RunCoopVecOuterProductSubtest(
+  void runCoopVecOuterProductSubtest(
       ID3D12Device *D3DDevice,
       D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps,
       CoopVecOuterProductSubtestConfig &Config);
@@ -11993,7 +11993,7 @@ VERIFY_SUCCEEDED(DoArraysMatch<T>(OutputVector, ExpectedVector,
 //   -p:CoopVecMatrixLayout=MUL_OPTIMAL
 //
 // The current implementation will always write the final output data as float.
-void ExecutionTest::RunCoopVecMulTest() {
+void ExecutionTest::runCoopVecMulTest() {
   // Create device and verify coopvec support
   CComPtr<ID3D12Device> D3DDevice;
   if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
@@ -12104,11 +12104,11 @@ void ExecutionTest::RunCoopVecMulTest() {
     }
 
     // Run the test
-    RunCoopVecMulTestConfig(D3DDevice, MulAddConfig);
+    runCoopVecMulTestConfig(D3DDevice, MulAddConfig);
   }
 }
 
-void ExecutionTest::RunCoopVecMulTestConfig(
+void ExecutionTest::runCoopVecMulTestConfig(
     ID3D12Device *D3DDevice,
     D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &MulProps) {
 
@@ -12184,11 +12184,11 @@ void ExecutionTest::RunCoopVecMulTestConfig(
       continue;
     }
 
-    RunCoopVecMulSubtest(D3DDevice, MulProps, Config);
+    runCoopVecMulSubtest(D3DDevice, MulProps, Config);
   }
 }
 
-void ExecutionTest::RunCoopVecMulSubtest(
+void ExecutionTest::runCoopVecMulSubtest(
     ID3D12Device *D3DDevice, D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &MulProps,
     CoopVecMulSubtestConfig &Config) {
 
@@ -12738,10 +12738,10 @@ void main(uint threadIdx : SV_GroupThreadID)
 TEST_F(ExecutionTest, CoopVec_Mul) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  RunCoopVecMulTest();
+  runCoopVecMulTest();
 }
 
-void ExecutionTest::RunCoopVecOuterProductTest() {
+void ExecutionTest::runCoopVecOuterProductTest() {
   // Create device and verify coopvec support
   CComPtr<ID3D12Device> D3DDevice;
   if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
@@ -12775,11 +12775,11 @@ void ExecutionTest::RunCoopVecOuterProductTest() {
   // Test each supported data type and matrix layout
   for (auto AccumulateConfig : AccumulateProps) {
     // Run the test
-    RunCoopVecOuterProductTestConfig(D3DDevice, AccumulateConfig);
+    runCoopVecOuterProductTestConfig(D3DDevice, AccumulateConfig);
   }
 }
 
-void ExecutionTest::RunCoopVecOuterProductTestConfig(
+void ExecutionTest::runCoopVecOuterProductTestConfig(
     ID3D12Device *D3DDevice,
     D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps) {
   LogCommentFmt(
@@ -12803,11 +12803,11 @@ void ExecutionTest::RunCoopVecOuterProductTestConfig(
       continue;
     }
 
-    RunCoopVecOuterProductSubtest(D3DDevice, AccumulateProps, Config);
+    runCoopVecOuterProductSubtest(D3DDevice, AccumulateProps, Config);
   }
 }
 
-void ExecutionTest::RunCoopVecOuterProductSubtest(
+void ExecutionTest::runCoopVecOuterProductSubtest(
     ID3D12Device *D3DDevice,
     D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps,
     CoopVecOuterProductSubtestConfig &Config) {
@@ -13324,7 +13324,7 @@ void main(uint threadIdx : SV_GroupThreadID)
 TEST_F(ExecutionTest, CoopVec_OuterProduct) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  RunCoopVecOuterProductTest();
+  runCoopVecOuterProductTest();
 }
 
 // This test expects a <pShader> that retrieves a signal value from each of a
