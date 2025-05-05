@@ -59,7 +59,7 @@ public:
   }
 };
 
-struct CoopVecHelpers {
+namespace CoopVecHelpers {
   template <typename EltTy>
   static std::vector<uint8_t> CreateAllOnesInputMatrix(uint32_t Width,
                                                        uint32_t Height) {
@@ -72,6 +72,9 @@ struct CoopVecHelpers {
         inputMatrix[i] = ConvertFloat32ToFloat16(1.0f);
       } else if constexpr (std::is_same_v<EltTy, float>) {
         inputMatrix[i] = 1.0f;
+      } else {
+        WEX::Logging::Log::Error(L"Unsupported input type");
+        break;
       }
     }
 
@@ -104,6 +107,7 @@ struct CoopVecHelpers {
         inputVector[TID * EltsPerThread + 1] = 1.0f;
       } else {
         WEX::Logging::Log::Error(L"Unsupported input type");
+        break;
       }
     }
 
@@ -277,9 +281,7 @@ struct CoopVecHelpers {
   // This type is used in generated HLSL source to represent the vector type
   // for the given data type.
   static std::wstring GetHlslDataTypeForDataType(
-      D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
-      D3D12_LINEAR_ALGEBRA_DATATYPE InputInterpretation) {
-    UNREFERENCED_PARAMETER(InputInterpretation);
+      D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
     switch (DataType) {
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
       return L"int16_t";

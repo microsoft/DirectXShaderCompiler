@@ -12297,10 +12297,10 @@ void main(uint threadIdx : SV_GroupThreadID)
             MulProps.InputInterpretation);
     const std::wstring InputDataType =
         CoopVecHelpers::GetHlslDataTypeForDataType(
-            MulProps.InputType, MulProps.InputInterpretation);
+            MulProps.InputType);
     const std::wstring AccumDataType =
-        CoopVecHelpers::GetHlslDataTypeForDataType(MulProps.BiasInterpretation,
-                                                   MulProps.BiasInterpretation);
+        CoopVecHelpers::GetHlslDataTypeForDataType(
+            MulProps.BiasInterpretation);
     const std::wstring MatrixDataTypeEnum =
         CoopVecHelpers::GetHlslInterpretationForDataType(
             MulProps.MatrixInterpretation);
@@ -12901,11 +12901,10 @@ void main(uint threadIdx : SV_GroupThreadID)
         CoopVecHelpers::GetNumPackedElementsForInputDataType(
             AccumulateProps.InputType);
     const std::wstring InputDataType =
-        CoopVecHelpers::GetHlslDataTypeForDataType(AccumulateProps.InputType,
-                                                   AccumulateProps.InputType);
+        CoopVecHelpers::GetHlslDataTypeForDataType(AccumulateProps.InputType);
     const std::wstring AccumDataType =
         CoopVecHelpers::GetHlslDataTypeForDataType(
-            AccumulateProps.AccumulationType, AccumulateProps.AccumulationType);
+            AccumulateProps.AccumulationType);
     const std::wstring MatrixDataTypeEnum =
         CoopVecHelpers::GetHlslInterpretationForDataType(
             AccumulateProps.AccumulationType);
