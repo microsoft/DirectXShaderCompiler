@@ -13095,7 +13095,8 @@ void main(uint threadIdx : SV_GroupThreadID)
     for (int ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
       for (int M = 0; M < Config.DimM; ++M) {
         for (int N = 0; N < Config.DimN; ++N) {
-          float Acc = InputVector1FP32[M] * InputVector2FP32[N];
+          float Acc = InputVector1FP32[ThreadIdx * Config.DimM + M] *
+                      InputVector2FP32[ThreadIdx * Config.DimN + N];
           ExpectedOutputBuffer[M * Config.DimN + N] += Acc;
         }
       }
