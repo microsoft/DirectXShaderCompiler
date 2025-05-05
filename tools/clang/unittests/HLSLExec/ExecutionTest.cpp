@@ -632,6 +632,7 @@ public:
   TEST_METHOD(SERLoadLocalRootTableConstantTest);
   TEST_METHOD(SERInvokeNoSBTTest);
   TEST_METHOD(SERMaybeReorderThreadTest)
+  TEST_METHOD(SERDynamicHitObjectArrayTest);
 
   dxc::DxcDllSupport m_support;
 

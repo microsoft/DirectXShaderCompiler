@@ -2012,3 +2012,165 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
   VERIFY_ARE_EQUAL(Histo[2], 4030);
   VERIFY_ARE_EQUAL(Histo[5], 66);
 }
+
+TEST_F(ExecutionTest, SERDynamicHitObjectArrayTest) {
+  // Test SER with dynamic access to local HitObject array
+  static const char *ShaderSrc = R"(
+struct SceneConstants
+{
+    float4 eye;
+    float4 U;
+    float4 V;
+    float4 W;
+    float sceneScale;
+    uint2 windowSize;
+    int rayFlags;
+};
+
+struct Attrs
+{
+    float2 barycentrics : BARYCENTRICS;
+};
+
+struct[raypayload] PerRayData
+{
+    uint dummy : read(caller) : write(miss, closesthit);
+};
+
+struct LocalConstants
+{
+    int c0;
+    int c1;
+    int c2;
+    int c3;
+};
+
+RWStructuredBuffer<int> testBuffer : register(u0);
+RaytracingAccelerationStructure topObject : register(t0);
+ConstantBuffer<SceneConstants> sceneConstants : register(b0);
+ConstantBuffer<LocalConstants> localConstants : register(b1);
+
+RayDesc ComputeRay()
+{
+    uint2 launchIndex = DispatchRaysIndex().xy;
+    uint2 launchDim = DispatchRaysDimensions().xy;
+
+    float2 d = float2(DispatchRaysIndex().xy) / float2(DispatchRaysDimensions().xy) * 2.0f - 1.0f;
+    RayDesc ray;
+    ray.Origin = sceneConstants.eye.xyz;
+    ray.Direction = normalize(d.x * sceneConstants.U.xyz + d.y * sceneConstants.V.xyz + sceneConstants.W.xyz);
+    ray.TMin = 0;
+    ray.TMax = 1e18;
+
+    return ray;
+}
+
+[shader("raygeneration")]
+void raygen()
+{
+    uint2 launchIndex = DispatchRaysIndex().xy;
+    uint2 launchDim = DispatchRaysDimensions().xy;
+
+    RayDesc ray = ComputeRay();
+
+    int constants[4] = { localConstants.c0, localConstants.c1, localConstants.c2, localConstants.c3 };
+    
+    const int NUM_SAMPLES = 64;
+    const int NUM_HITOBJECTS = 8;
+
+    // Generate wave-incoerent sample positions
+    int sampleIndices[NUM_SAMPLES];
+    int threadOffset = launchIndex.x;
+    for (int i = 0; i < NUM_SAMPLES; i++)
+    {
+        int baseIndex = i % 4; // Cycle through the 4 constants
+        sampleIndices[i] = abs(constants[baseIndex] + threadOffset + i * 3) % NUM_HITOBJECTS;
+    }
+
+    // Define an array of ray flags
+    uint rayFlagsArray[NUM_HITOBJECTS] = {
+        RAY_FLAG_NONE,
+        RAY_FLAG_FORCE_OPAQUE,
+        RAY_FLAG_FORCE_NON_OPAQUE,
+        RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+        RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
+        RAY_FLAG_CULL_BACK_FACING_TRIANGLES,
+        RAY_FLAG_CULL_FRONT_FACING_TRIANGLES,
+        RAY_FLAG_CULL_OPAQUE
+    };
+
+    // Create a local array of HitObjects with TraceRay
+    dx::HitObject hitObjects[NUM_HITOBJECTS];
+    for (uint i = 0; i < NUM_HITOBJECTS; ++i)
+    {
+        PerRayData payload;
+        uint expectedRayFlags = rayFlagsArray[i];
+        hitObjects[i] = dx::HitObject::TraceRay(
+            topObject,          // Acceleration structure
+            expectedRayFlags,   // Unique ray flag
+            0xFF,               // Instance mask
+            0,                  // Ray contribution to hit group index
+            1,                  // Multiplier for geometry contribution
+            0,                  // Miss shader index
+            ray,                // Ray description
+            payload             // Payload
+        );
+    }
+
+    // Evaluate at sample positions.
+    int testVal = 0;
+
+    for (uint i = 0; i < NUM_SAMPLES; i++)
+    {
+        int idx = sampleIndices[i];
+        // Verify that the rayFlags match
+        uint actualRayFlags = hitObjects[idx].GetRayFlags();
+        uint expectedRayFlags = rayFlagsArray[idx];
+        if (expectedRayFlags != actualRayFlags)
+        {
+            testVal = 1; // Mark as failure if flags do not match
+        }
+    }
+
+    int id = launchIndex.x + launchIndex.y * launchDim.x;
+    testBuffer[id] = testVal;
+}
+
+[shader("miss")]
+void miss(inout PerRayData payload)
+{
+    // UNUSED
+}
+
+[shader("anyhit")]
+void anyhit(inout PerRayData payload, in Attrs attrs)
+{
+    AcceptHitAndEndSearch();
+}
+
+[shader("closesthit")]
+void closesthit(inout PerRayData payload, in Attrs attrs)
+{
+    // UNUSED
+}
+
+)";
+
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, false))
+    return;
+
+  // Initialize test data.
+  const int WindowSize = 64;
+
+  std::vector<int> TestData(WindowSize * WindowSize, 0);
+  LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
+  RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+             WindowSize, WindowSize, true /*mesh*/,
+             false /*procedural geometry*/, false /*useIS*/);
+  std::map<int, int> Histo;
+  for (int Val : TestData)
+    ++Histo[Val];
+  VERIFY_ARE_EQUAL(Histo.size(), 1);
+  VERIFY_ARE_EQUAL(Histo[0], 4096);
+}
