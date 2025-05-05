@@ -11762,7 +11762,7 @@ static bool IsValidVectorAndMatrixDimensions(Sema &S, CallExpr *CE,
                                              unsigned OutputVectorSize,
                                              unsigned MatrixK, unsigned MatrixM,
                                              bool isInputPacked) {
-  // Check is output vector size is equals to matrix dimension M
+  // Check if output vector size equals to matrix dimension M
   if (OutputVectorSize != MatrixM) {
     Expr *OutputVector = CE->getArg(kMatVecMulOutputVectorIdx);
     S.Diags.Report(
@@ -11772,6 +11772,10 @@ static bool IsValidVectorAndMatrixDimensions(Sema &S, CallExpr *CE,
     return false;
   }
 
+  // Check if input vector size equals to matrix dimension K in the unpacked
+  // case.
+  // Check if input vector size equals the smallest number that can hold
+  // matrix dimension K values
   const unsigned PackingFactor = isInputPacked ? 4 : 1;
   unsigned MinInputVectorSize = (MatrixK + PackingFactor - 1) / PackingFactor;
   if (InputVectorSize != MinInputVectorSize) {
@@ -11808,8 +11812,9 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
         << "IsOutputUnsigned";
     return;
   }
-  // Check if IsOutputUnsigned flag matches output vector type.
-  // Must be true for unsigned int outputs, false for signed int/float outputs.
+
+  // Check if output vector is unsigned int, signed int or float
+  // Check if the isUnsigned flag is set correctly
   Expr *OutputVector = CE->getArg(kMatVecMulOutputVectorIdx);
   unsigned OutputVectorSizeValue = 0;
   if (IsHLSLVecType(OutputVector->getType())) {
@@ -11824,7 +11829,9 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
           << "Output Vector";
       return;
     }
-
+    // Check if IsOutputUnsigned flag matches output vector type.
+    // Must be true for unsigned int outputs, false for signed int/float
+    // outputs.
     if (IsOutputUnsignedFlagValue &&
         !OutputVectorTypePtr->isUnsignedIntegerType()) {
       DXASSERT_NOMSG(OutputVectorTypePtr->isSignedIntegerType() ||
@@ -11844,7 +11851,7 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     }
   }
 
-  // Find InputVectorType and Size and check IsUnsigned
+  // Check if isInputUnsigned parameter is a constant
   bool IsInputUnsignedFlagValue = false;
   Expr *IsInputUnsignedExpr = CE->getArg(kMatVecMulIsInputUnsignedIdx);
   llvm::APSInt IsInputUnsignedExprVal;
@@ -11858,6 +11865,7 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     return;
   }
 
+  // Check if input vector32/16bit is unsigned int, signed int or float
   Expr *InputVector = CE->getArg(kMatVecMulInputVectorIdx);
   unsigned InputVectorSizeValue = 0;
   if (IsHLSLVecType(InputVector->getType())) {
@@ -11884,6 +11892,7 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
       return;
     }
 
+    // Check if the isUnsigned flag is set correctly
     if (IsInputUnsignedFlagValue &&
         !InputVectorTypePtr->isUnsignedIntegerType()) {
       DXASSERT_NOMSG(InputVectorTypePtr->isSignedIntegerType() ||
@@ -11996,6 +12005,7 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
   }
 
   // Get MatrixInterpretation, check if it is constant
+  // Make sure it is a valid value
   Expr *MatrixInterpretationExpr =
       CE->getArg(kMatVecMulMatrixInterpretationIdx);
   llvm::APSInt MatrixInterpretationExprVal;
@@ -12019,7 +12029,7 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     return;
   }
 
-  // Get MatrixLayout, check if it is constant
+  // Get MatrixLayout, check if it is constant and valid value
   Expr *MatrixLayoutExpr = CE->getArg(kMatVecMulMatrixLayoutIdx);
   llvm::APSInt MatrixLayoutExprVal;
   unsigned MatrixLayoutValue = 0;
