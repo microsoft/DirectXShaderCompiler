@@ -1,4 +1,5 @@
 #pragma once
+// clang-format off
 
 #if D3D12_PREVIEW_SDK_VERSION < 717
 
