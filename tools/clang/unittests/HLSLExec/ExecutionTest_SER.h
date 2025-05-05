@@ -2233,3 +2233,185 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
   VERIFY_ARE_EQUAL(Histo.size(), 1);
   VERIFY_ARE_EQUAL(Histo[0], 4096);
 }
+
+TEST_F(ExecutionTest, SERWaveIncoherentHitTest) {
+  // Test SER with wave incoherent conditional assignment of HitObject values
+  //    with and without procedural attributes.
+  static const char *ShaderSrc = R"(
+struct SceneConstants
+{
+    float4 eye;
+    float4 U;
+    float4 V;
+    float4 W;
+    float sceneScale;
+    uint2 windowSize;
+    int rayFlags;
+};
+
+struct[raypayload] PerRayData
+{
+    uint visited : read(anyhit,closesthit,miss,caller) : write(anyhit,miss,closesthit,caller);
+};
+
+struct Attrs
+{
+    float2 barycentrics : BARYCENTRICS;
+};
+
+struct CustomAttrs
+{
+    float dist;
+};
+
+RWStructuredBuffer<int> testBuffer : register(u0);
+RaytracingAccelerationStructure topObject : register(t0);
+ConstantBuffer<SceneConstants> sceneConstants : register(b0);
+
+RayDesc ComputeRay()
+{
+    uint2   launchIndex = DispatchRaysIndex().xy;
+    uint2   launchDim = DispatchRaysDimensions().xy;
+
+    float2 d = float2(DispatchRaysIndex().xy) / float2(DispatchRaysDimensions().xy) * 2.0f - 1.0f;
+    RayDesc ray;
+    ray.Origin = sceneConstants.eye.xyz;
+    ray.Direction = normalize(d.x*sceneConstants.U.xyz + d.y*sceneConstants.V.xyz + sceneConstants.W.xyz);
+    ray.TMin = 0;
+    ray.TMax = 1e18;
+
+    return ray;
+}
+
+static const uint ProceduralHitKind = 11;
+
+[shader("raygeneration")]
+void raygen()
+{
+    uint2   launchIndex = DispatchRaysIndex().xy;
+    uint2   launchDim = DispatchRaysDimensions().xy;
+
+    RayDesc ray = ComputeRay();
+
+    PerRayData payload;
+    payload.visited = 0;
+
+    dx::HitObject hitObject;
+
+    // Use wave incoherence to decide how to create the HitObject
+    if (launchIndex.x % 4 == 1)
+    {
+        ray.Origin.x += 2.0f;
+        hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xFF, 0, 0, 0, ray, payload);
+    }
+    else if (launchIndex.x % 4 == 2)
+    {
+        hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xFF, 0, 0, 0, ray, payload);
+    }
+    else if (launchIndex.x % 4 == 3)
+    {
+        hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_SKIP_TRIANGLES, 0xFF, 0, 0, 0, ray, payload);
+    }
+
+    dx::MaybeReorderThread(hitObject);
+
+    if (hitObject.IsNop())
+        payload.visited |= 1U;
+    if (hitObject.IsMiss())
+        payload.visited |= 2U;
+
+    if (hitObject.GetHitKind() == ProceduralHitKind)
+        payload.visited |= 8U;
+    else if (hitObject.IsHit())
+        payload.visited |= 4U;
+
+    dx::HitObject::Invoke(hitObject, payload);
+
+    // Store the result in the buffer
+    int id = launchIndex.x + launchIndex.y * launchDim.x;
+    testBuffer[id] = payload.visited;
+}
+
+[shader("miss")]
+void miss(inout PerRayData payload)
+{
+    // UNUSED
+}
+
+// Triangles
+[shader("anyhit")]
+void anyhit(inout PerRayData payload, in Attrs attrs)
+{
+    AcceptHitAndEndSearch();
+}
+
+[shader("closesthit")]
+void closesthit(inout PerRayData payload, in Attrs attrs)
+{
+    payload.visited |= 16U;
+}
+
+// Procedural
+[shader("closesthit")]
+void chAABB(inout PerRayData payload, in CustomAttrs attrs)
+{
+    payload.visited |= 32U;
+}
+
+[shader("anyhit")]
+void ahAABB(inout PerRayData payload, in CustomAttrs attrs)
+{
+    // UNUSED
+}
+
+[shader("intersection")]
+void intersection()
+{
+    // Intersection with circle on a plane (base, n, radius)
+    // hitPos is intersection point with plane (base, n)
+    float3 base = {0.0f,0.0f,0.5f};
+    float3 n = normalize(float3(0.0f,0.5f,0.5f));
+    float radius = 1000.f;
+    // Plane hit
+    float t = dot(n, base - ObjectRayOrigin()) / dot(n, ObjectRayDirection());
+    if (t > RayTCurrent() || t < RayTMin()) {
+        return;
+    }
+    float3 hitPos = ObjectRayOrigin() + t * ObjectRayDirection();
+    float3 relHitPos = hitPos - base;
+    // Circle hit
+    float hitDist = length(relHitPos);
+    if (hitDist > radius)
+      return;
+
+    CustomAttrs attrs;
+    attrs.dist = hitDist;
+    ReportHit(t, ProceduralHitKind, attrs);
+}
+
+)";
+
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, false))
+    return;
+
+  // Initialize test data.
+  const int WindowSize = 64;
+  std::vector<int> TestData(WindowSize * WindowSize, 0);
+  LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
+
+  RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+             WindowSize, WindowSize, true /*mesh*/,
+             true /*procedural geometry*/, 1 /*payloadCount*/,
+             2 /*attributeCount*/);
+  std::map<int, int> Histo;
+  for (int Val : TestData)
+    ++Histo[Val];
+  VERIFY_ARE_EQUAL(Histo.size(), 6);
+  VERIFY_ARE_EQUAL(Histo[1], 1024);  // nop
+  VERIFY_ARE_EQUAL(Histo[2], 1022);  // miss
+  VERIFY_ARE_EQUAL(Histo[4], 12);    // triangle hit, no ch
+  VERIFY_ARE_EQUAL(Histo[8], 1008);  // procedural hit, no ch
+  VERIFY_ARE_EQUAL(Histo[20], 11);   // triangle hit, 'closesthit' invoked
+  VERIFY_ARE_EQUAL(Histo[40], 1019); // procedural hit, 'chAABB' invoked
+}
