@@ -60,29 +60,29 @@ public:
 };
 
 namespace CoopVecHelpers {
-  template <typename EltTy>
-  static std::vector<uint8_t> CreateAllOnesInputMatrix(uint32_t Width,
-                                                       uint32_t Height) {
-    std::vector<EltTy> inputMatrix(Width * Height);
-    for (uint32_t i = 0; i < Width * Height; i++) {
-      if constexpr (std::is_same_v<EltTy, uint8_t> ||
-                    std::is_same_v<EltTy, int8_t>) {
-        inputMatrix[i] = 1;
-      } else if constexpr (std::is_same_v<EltTy, DirectX::PackedVector::HALF>) {
-        inputMatrix[i] = ConvertFloat32ToFloat16(1.0f);
-      } else if constexpr (std::is_same_v<EltTy, float>) {
-        inputMatrix[i] = 1.0f;
-      } else {
-        WEX::Logging::Log::Error(L"Unsupported input type");
-        break;
-      }
+template <typename EltTy>
+static std::vector<uint8_t> CreateAllOnesInputMatrix(uint32_t Width,
+                                                     uint32_t Height) {
+  std::vector<EltTy> inputMatrix(Width * Height);
+  for (uint32_t i = 0; i < Width * Height; i++) {
+    if constexpr (std::is_same_v<EltTy, uint8_t> ||
+                  std::is_same_v<EltTy, int8_t>) {
+      inputMatrix[i] = 1;
+    } else if constexpr (std::is_same_v<EltTy, DirectX::PackedVector::HALF>) {
+      inputMatrix[i] = ConvertFloat32ToFloat16(1.0f);
+    } else if constexpr (std::is_same_v<EltTy, float>) {
+      inputMatrix[i] = 1.0f;
+    } else {
+      WEX::Logging::Log::Error(L"Unsupported input type");
+      break;
     }
+  }
 
-    // Convert to uint8_t vector
-    std::vector<uint8_t> uint8InputMatrix(inputMatrix.size() * sizeof(EltTy));
-    std::memcpy(uint8InputMatrix.data(), inputMatrix.data(),
-                inputMatrix.size() * sizeof(EltTy));
-    return uint8InputMatrix;
+  // Convert to uint8_t vector
+  std::vector<uint8_t> uint8InputMatrix(inputMatrix.size() * sizeof(EltTy));
+  std::memcpy(uint8InputMatrix.data(), inputMatrix.data(),
+              inputMatrix.size() * sizeof(EltTy));
+  return uint8InputMatrix;
   }
 
   template <typename EltTy>
@@ -280,8 +280,8 @@ namespace CoopVecHelpers {
 
   // This type is used in generated HLSL source to represent the vector type
   // for the given data type.
-  static std::wstring GetHlslDataTypeForDataType(
-      D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
+  static std::wstring
+  GetHlslDataTypeForDataType(D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
     switch (DataType) {
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
       return L"int16_t";
@@ -353,4 +353,4 @@ namespace CoopVecHelpers {
       return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
     }
   }
-};
+  }; // namespace CoopVecHelpers

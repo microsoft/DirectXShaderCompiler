@@ -12296,11 +12296,9 @@ void main(uint threadIdx : SV_GroupThreadID)
         CoopVecHelpers::GetNumPackedElementsForInputDataType(
             MulProps.InputInterpretation);
     const std::wstring InputDataType =
-        CoopVecHelpers::GetHlslDataTypeForDataType(
-            MulProps.InputType);
+        CoopVecHelpers::GetHlslDataTypeForDataType(MulProps.InputType);
     const std::wstring AccumDataType =
-        CoopVecHelpers::GetHlslDataTypeForDataType(
-            MulProps.BiasInterpretation);
+        CoopVecHelpers::GetHlslDataTypeForDataType(MulProps.BiasInterpretation);
     const std::wstring MatrixDataTypeEnum =
         CoopVecHelpers::GetHlslInterpretationForDataType(
             MulProps.MatrixInterpretation);
