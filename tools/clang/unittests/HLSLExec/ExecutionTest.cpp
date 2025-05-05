@@ -825,7 +825,7 @@ public:
         GetModuleFileNameW(GetModuleHandleW(L"d3d10warp.dll"),
                            szFullModuleFilePath, sizeof(szFullModuleFilePath));
         WEX::Logging::Log::Comment(WEX::Common::String().Format(
-            L"WARP driver loaded from: %S", szFullModuleFilePath));
+            L"WARP driver loaded from: %ls", szFullModuleFilePath));
       }
 
     } else {
