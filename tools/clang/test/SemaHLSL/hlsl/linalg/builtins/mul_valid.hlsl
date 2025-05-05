@@ -1,4 +1,4 @@
-// RUN:dxc
+// RUN: %dxc -T lib_6_9 -enable-16bit-types %s -verify
 
 ByteAddressBuffer input_vector_buffer;
 ByteAddressBuffer matrix_buffer; 
