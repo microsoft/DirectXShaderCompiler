@@ -345,32 +345,130 @@ void test_invalid_input_interpretation_value() {
       input_vector_buffer.Load<vector<float, 4> >(0);   
   const uint is_input_unsigned = 0;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = CompType::F32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatLayout::RowMajor;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
-  const uint input_interpretation_0 = 10; // Invalid value
+  const uint input_interpretation_0 = CompType::Invalid;
 
-  // expected-error@+2 {{10 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{0 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_0, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint input_interpretation_1 = 11; // FIXME Packed interpretation
+  const uint input_interpretation_1 = CompType::I1;
 
-  // expected-error@+2 {{11 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{1 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_1, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
-}
 
+  const uint input_interpretation_2 = CompType::I64;
+
+  // expected-error@+2 {{6 is an invalid Register Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation_2, matrix_buffer,   
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_3 = CompType::U64;
+
+  // expected-error@+2 {{7 is an invalid Register Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation_3, matrix_buffer,   
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);   
+
+  const uint input_interpretation_4 = CompType::F64;
+
+  // expected-error@+2 {{10 is an invalid Register Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation_4, matrix_buffer,   
+                      matrix_offset, matrix_interpretation, matrix_dimM,    
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_5 = CompType::SNormF16;       
+
+  // expected-error@+2 {{11 is an invalid Register Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation_5, matrix_buffer,   
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_6 = CompType::UNormF16;
+
+  // expected-error@+2 {{12 is an invalid Register Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation_6, matrix_buffer,   
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_8 = CompType::SNormF32;
+
+  // expected-error@+2 {{13 is an invalid Register Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation_8, matrix_buffer,   
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_9 = CompType::UNormF32;
+
+  // expected-error@+2 {{14 is an invalid Register Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation_9, matrix_buffer,   
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_10 = CompType::SNormF64;
+
+  // expected-error@+2 {{15 is an invalid Register Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation_10, matrix_buffer,   
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_11 = CompType::UNormF64;
+
+  // expected-error@+2 {{16 is an invalid Register Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation_11, matrix_buffer,   
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_12 = 23;
+
+  // expected-error@+2 {{23 is an invalid Register Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation_12, matrix_buffer,   
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_13 = 100;
+
+  // expected-error@+2 {{100 is an invalid Register Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation_13, matrix_buffer,   
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+}
 // Check if Input and Output vector dimensions are valid -non packed
 void test_invalid_input_output_vector_dimensions_non_packed_square_matrix() {
 
