@@ -12,20 +12,20 @@
 
 struct LinAlgHeaderIncludeHandler : public IDxcIncludeHandler {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_REF_FIELD(RefCount)
   dxc::DxcDllSupport &DxcSupport;
 
 public:
   LinAlgHeaderIncludeHandler() = delete;
   LinAlgHeaderIncludeHandler(dxc::DxcDllSupport &DxcSupport)
-      : m_dwRef(0), DxcSupport(DxcSupport) {}
+      : RefCount(0), DxcSupport(DxcSupport) {}
 
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_ADDREF_RELEASE_IMPL(RefCount)
 
-  HRESULT STDMETHODCALLTYPE LoadSource(LPCWSTR pFilename,
-                                       IDxcBlob **ppIncludeSource) {
-    if (wcscmp(pFilename, L"dx/linalg.h") == 0 ||
-        wcscmp(pFilename, L".\\dx\\linalg.h") == 0) {
+  HRESULT STDMETHODCALLTYPE LoadSource(LPCWSTR Filename,
+                                       IDxcBlob **IncludeSource) {
+    if (wcscmp(Filename, L"dx/linalg.h") == 0 ||
+        wcscmp(Filename, L".\\dx\\linalg.h") == 0) {
       WEX::Common::String ParamValue;
       if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(
               L"LinAlgHeader", ParamValue))) {
@@ -37,26 +37,25 @@ public:
       LPCWSTR RealHeaderPath =
           reinterpret_cast<LPCWSTR>(ParamValue.GetBuffer());
 
-      CComPtr<IDxcUtils> pHeaderUtils;
+      CComPtr<IDxcUtils> HeaderUtils;
 
-      IFT(DxcSupport.CreateInstance(CLSID_DxcUtils, &pHeaderUtils));
+      IFT(DxcSupport.CreateInstance(CLSID_DxcUtils, &HeaderUtils));
 
-      IDxcBlobEncoding *pHeaderBlob;
-      IFT(pHeaderUtils->LoadFile(RealHeaderPath, nullptr, &pHeaderBlob));
+      IDxcBlobEncoding *HeaderBlob;
+      IFT(HeaderUtils->LoadFile(RealHeaderPath, nullptr, &HeaderBlob));
 
-      *ppIncludeSource = pHeaderBlob;
+      *IncludeSource = HeaderBlob;
 
       return S_OK;
     }
     return E_FAIL;
   }
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
-                                           void **ppvObject) override {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID IID, void **Object) override {
 // FIXME: This is a workaround for a warning-as-error about unused parameters.
 #pragma warning(push)
 #pragma warning(disable : 4100)
-    return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcIncludeHandler>(this, IID, Object);
 #pragma warning(pop)
   }
 };
@@ -65,15 +64,15 @@ namespace CoopVecHelpers {
 template <typename EltTy>
 static std::vector<uint8_t> CreateAllOnesInputMatrix(uint32_t Width,
                                                      uint32_t Height) {
-  std::vector<EltTy> inputMatrix(Width * Height);
+  std::vector<EltTy> InputMatrix(Width * Height);
   for (uint32_t i = 0; i < Width * Height; i++) {
     if constexpr (std::is_same_v<EltTy, uint8_t> ||
                   std::is_same_v<EltTy, int8_t>) {
-      inputMatrix[i] = 1;
+      InputMatrix[i] = 1;
     } else if constexpr (std::is_same_v<EltTy, DirectX::PackedVector::HALF>) {
-      inputMatrix[i] = ConvertFloat32ToFloat16(1.0f);
+      InputMatrix[i] = ConvertFloat32ToFloat16(1.0f);
     } else if constexpr (std::is_same_v<EltTy, float>) {
-      inputMatrix[i] = 1.0f;
+      InputMatrix[i] = 1.0f;
     } else {
       WEX::Logging::Log::Error(L"Unsupported input type");
       break;
@@ -81,17 +80,17 @@ static std::vector<uint8_t> CreateAllOnesInputMatrix(uint32_t Width,
   }
 
   // Convert to uint8_t vector
-  std::vector<uint8_t> uint8InputMatrix(inputMatrix.size() * sizeof(EltTy));
-  std::memcpy(uint8InputMatrix.data(), inputMatrix.data(),
-              inputMatrix.size() * sizeof(EltTy));
-  return uint8InputMatrix;
+  std::vector<uint8_t> Uint8InputMatrix(InputMatrix.size() * sizeof(EltTy));
+  std::memcpy(Uint8InputMatrix.data(), InputMatrix.data(),
+              InputMatrix.size() * sizeof(EltTy));
+  return Uint8InputMatrix;
 }
 
 template <typename EltTy>
 static std::vector<uint8_t> CreateInputVector(uint32_t NumThreads,
                                               uint32_t EltsPerThread) {
-  std::vector<EltTy> inputVector(NumThreads * EltsPerThread);
-  std::fill(inputVector.begin(), inputVector.end(), EltTy(0));
+  std::vector<EltTy> InputVector(NumThreads * EltsPerThread);
+  std::fill(InputVector.begin(), InputVector.end(), EltTy(0));
   if (EltsPerThread < 2) {
     WEX::Logging::Log::Error(L"EltsPerThread must be at least 2");
     return std::vector<uint8_t>();
@@ -99,14 +98,14 @@ static std::vector<uint8_t> CreateInputVector(uint32_t NumThreads,
   for (uint32_t TID = 0; TID < NumThreads; TID++) {
     if constexpr (std::is_same_v<EltTy, uint8_t> ||
                   std::is_same_v<EltTy, int8_t>) {
-      inputVector[TID * EltsPerThread + 0] = 1;
-      inputVector[TID * EltsPerThread + 1] = 1;
+      InputVector[TID * EltsPerThread + 0] = 1;
+      InputVector[TID * EltsPerThread + 1] = 1;
     } else if constexpr (std::is_same_v<EltTy, DirectX::PackedVector::HALF>) {
-      inputVector[TID * EltsPerThread + 0] = ConvertFloat32ToFloat16(1.0f);
-      inputVector[TID * EltsPerThread + 1] = ConvertFloat32ToFloat16(1.0f);
+      InputVector[TID * EltsPerThread + 0] = ConvertFloat32ToFloat16(1.0f);
+      InputVector[TID * EltsPerThread + 1] = ConvertFloat32ToFloat16(1.0f);
     } else if constexpr (std::is_same_v<EltTy, float>) {
-      inputVector[TID * EltsPerThread + 0] = 1.0f;
-      inputVector[TID * EltsPerThread + 1] = 1.0f;
+      InputVector[TID * EltsPerThread + 0] = 1.0f;
+      InputVector[TID * EltsPerThread + 1] = 1.0f;
     } else {
       WEX::Logging::Log::Error(L"Unsupported input type");
       break;
@@ -114,31 +113,31 @@ static std::vector<uint8_t> CreateInputVector(uint32_t NumThreads,
   }
 
   // Convert to uint8_t vector
-  std::vector<uint8_t> uint8InputVector(inputVector.size() * sizeof(EltTy));
-  std::memcpy(uint8InputVector.data(), inputVector.data(),
-              inputVector.size() * sizeof(EltTy));
-  return uint8InputVector;
+  std::vector<uint8_t> Uint8InputVector(InputVector.size() * sizeof(EltTy));
+  std::memcpy(Uint8InputVector.data(), InputVector.data(),
+              InputVector.size() * sizeof(EltTy));
+  return Uint8InputVector;
 }
 
 template <typename EltTy>
 static std::vector<uint8_t> CreateInputBias(uint32_t NumElts) {
-  std::vector<EltTy> inputBias(NumElts);
+  std::vector<EltTy> InputBias(NumElts);
   if constexpr (std::is_same_v<EltTy, uint8_t> ||
                 std::is_same_v<EltTy, int8_t>) {
-    std::fill(inputBias.begin(), inputBias.end(), EltTy(1));
+    std::fill(InputBias.begin(), InputBias.end(), EltTy(1));
   } else if constexpr (std::is_same_v<EltTy, DirectX::PackedVector::HALF>) {
-    std::fill(inputBias.begin(), inputBias.end(),
+    std::fill(InputBias.begin(), InputBias.end(),
               ConvertFloat32ToFloat16(1.0f));
   } else if constexpr (std::is_same_v<EltTy, int32_t>) {
-    std::fill(inputBias.begin(), inputBias.end(), 1);
+    std::fill(InputBias.begin(), InputBias.end(), 1);
   } else {
     WEX::Logging::Log::Error(L"Unsupported bias type");
   }
   // Convert to uint8_t vector
-  std::vector<uint8_t> uint8InputBias(inputBias.size() * sizeof(EltTy));
-  std::memcpy(uint8InputBias.data(), inputBias.data(),
-              inputBias.size() * sizeof(EltTy));
-  return uint8InputBias;
+  std::vector<uint8_t> Uint8InputBias(InputBias.size() * sizeof(EltTy));
+  std::memcpy(Uint8InputBias.data(), InputBias.data(),
+              InputBias.size() * sizeof(EltTy));
+  return Uint8InputBias;
 }
 
 static std::wstring
