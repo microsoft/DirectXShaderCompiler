@@ -781,6 +781,10 @@ public:
   void RunResourceTest(ID3D12Device *pDevice, const char *pShader,
                        const wchar_t *sm, bool isDynamic);
 
+  void runCoopVecMulTest();
+  void runCoopVecOuterProductTest();
+
+#if HAVE_COOPVEC_API
   struct CoopVecMulSubtestConfig {
     int InputPerThread;
     int OutputPerThread;
@@ -790,7 +794,6 @@ public:
     bool Bias;
   };
 
-  void runCoopVecMulTest();
   void
   runCoopVecMulTestConfig(ID3D12Device *D3DDevice,
                           D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &MulProps);
@@ -805,7 +808,6 @@ public:
     D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT MatrixLayout;
   };
 
-  void runCoopVecOuterProductTest();
   void runCoopVecOuterProductTestConfig(
       ID3D12Device *D3DDevice,
       D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps);
@@ -813,6 +815,7 @@ public:
       ID3D12Device *D3DDevice,
       D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps,
       CoopVecOuterProductSubtestConfig &Config);
+#endif // HAVE_COOPVEC_API
 
   template <class T1, class T2>
   void WaveIntrinsicsActivePrefixTest(TableParameter *pParameterList,
@@ -1771,6 +1774,7 @@ public:
   }
 
   bool DoesDeviceSupportCooperativeVector(ID3D12Device *Device) {
+#if HAVE_COOPVEC_API
     D3D12_FEATURE_DATA_D3D12_OPTIONS_EXPERIMENTAL O;
     if (FAILED(Device->CheckFeatureSupport(
             (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS_EXPERIMENTAL, &O,
@@ -1778,6 +1782,10 @@ public:
       return false;
     return O.CooperativeVectorTier !=
            D3D12_COOPERATIVE_VECTOR_TIER_NOT_SUPPORTED;
+#else
+    UNREFERENCED_PARAMETER(Device);
+    return false;
+#endif
   }
 
   bool IsFallbackPathEnabled() {
@@ -11994,6 +12002,12 @@ VERIFY_SUCCEEDED(DoArraysMatch<T>(OutputVector, ExpectedVector,
 //
 // The current implementation will always write the final output data as float.
 void ExecutionTest::runCoopVecMulTest() {
+#if !HAVE_COOPVEC_API
+  WEX::Logging::Log::Comment(
+      "Cooperative vector API not supported in build configuration. Skipping.");
+  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  return;
+#else
   // Create device and verify coopvec support
   CComPtr<ID3D12Device> D3DDevice;
   if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
@@ -12104,8 +12118,10 @@ void ExecutionTest::runCoopVecMulTest() {
     // Run the test
     runCoopVecMulTestConfig(D3DDevice, MulAddConfig);
   }
+#endif // HAVE_COOPVEC_API
 }
 
+#if HAVE_COOPVEC_API
 void ExecutionTest::runCoopVecMulTestConfig(
     ID3D12Device *D3DDevice,
     D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &MulProps) {
@@ -12730,6 +12746,7 @@ void main(uint threadIdx : SV_GroupThreadID)
     VERIFY_IS_TRUE(Equal);
   }
 }
+#endif // HAVE_COOPVEC_API
 
 TEST_F(ExecutionTest, CoopVec_Mul) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -12738,6 +12755,12 @@ TEST_F(ExecutionTest, CoopVec_Mul) {
 }
 
 void ExecutionTest::runCoopVecOuterProductTest() {
+#if !HAVE_COOPVEC_API
+  WEX::Logging::Log::Comment(
+      "Cooperative vector API not supported in build configuration. Skipping.");
+  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  return;
+#else
   // Create device and verify coopvec support
   CComPtr<ID3D12Device> D3DDevice;
   if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
@@ -12771,8 +12794,10 @@ void ExecutionTest::runCoopVecOuterProductTest() {
     // Run the test
     runCoopVecOuterProductTestConfig(D3DDevice, AccumulateConfig);
   }
+#endif // HAVE_COOPVEC_API
 }
 
+#if HAVE_COOPVEC_API
 void ExecutionTest::runCoopVecOuterProductTestConfig(
     ID3D12Device *D3DDevice,
     D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps) {
@@ -13314,6 +13339,7 @@ void main(uint threadIdx : SV_GroupThreadID)
     VERIFY_IS_TRUE(Equal);
   }
 }
+#endif // HAVE_COOPVEC_API
 
 TEST_F(ExecutionTest, CoopVec_OuterProduct) {
   WEX::TestExecution::SetVerifyOutput verifySettings(

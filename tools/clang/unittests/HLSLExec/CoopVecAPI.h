@@ -1,7 +1,10 @@
 #pragma once
 // clang-format off
 
-#if D3D12_PREVIEW_SDK_VERSION < 717
+#if !defined(D3D12_PREVIEW_SDK_VERSION) || D3D12_PREVIEW_SDK_VERSION < 717
+
+#ifdef __ID3D12GraphicsCommandList10_INTERFACE_DEFINED__
+#define HAVE_COOPVEC_API 1
 
 // This file contains the definitions of the D3D12 cooperative vector API.
 // It is used to test the cooperative vector API on older SDKs.
@@ -160,7 +163,16 @@ public:
         _In_  UINT DescCount) = 0;
     
 };
-   
+
 #endif 	/* __ID3D12GraphicsCommandList11_INTERFACE_DEFINED__ */
 
+#else // __ID3D12GraphicsCommandList10_INTERFACE_DEFINED__
+// The used d3d12.h header does not support ID3D12GraphicsCommandList10,
+// so we cannot define ID3D12GraphicsCommandList11.
+#define HAVE_COOPVEC_API 0
+#endif // __ID3D12GraphicsCommandList10_INTERFACE_DEFINED__
+
+#else // D3D12_PREVIEW_SDK_VERSION < 717
+// Preview header has CoopVec support
+#define HAVE_COOPVEC_API 1
 #endif // D3D12_PREVIEW_SDK_VERSION < 717
