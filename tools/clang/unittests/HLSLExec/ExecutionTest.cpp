@@ -12241,7 +12241,7 @@ void main(uint threadIdx : SV_GroupThreadID)
   using namespace dx::linalg;
 
   // Ensure 4-byte alignment for vector loads
-  uint inputOffset = (INPUT_PER_THREAD * threadIdx);
+  uint inputOffset = (INPUT_PER_THREAD * threadIdx * (sizeof(INPUT_DATA_TYPE) / INPUT_DIVISOR));
   inputOffset = (inputOffset + 3) & ~3; // Align to 4 bytes
   vector<INPUT_DATA_TYPE, INPUT_PER_THREAD / INPUT_DIVISOR> input = InputVector.Load<vector<INPUT_DATA_TYPE, INPUT_PER_THREAD / INPUT_DIVISOR> >(inputOffset);
 
@@ -12259,9 +12259,9 @@ void main(uint threadIdx : SV_GroupThreadID)
   vector<float, OUTPUT_PER_THREAD> result = (vector<float, OUTPUT_PER_THREAD>)accum;
 
   // Ensure 4-byte alignment for vector store
-  uint outputOffset = OUTPUT_PER_THREAD * threadIdx;
+  uint outputOffset = OUTPUT_PER_THREAD * threadIdx * sizeof(float);
   outputOffset = (outputOffset + 3) & ~3; // Align to 4 bytes
-  OutputBuffer.Store<vector<float, OUTPUT_PER_THREAD> >(outputOffset * 4, result);
+  OutputBuffer.Store<vector<float, OUTPUT_PER_THREAD> >(outputOffset, result);
 }
     )";
 
@@ -12853,11 +12853,11 @@ void main(uint threadIdx : SV_GroupThreadID)
   using namespace dx::linalg;
 
   // Ensure 4-byte alignment for vector loads
-  uint inputOffset1 = (DIM_M * threadIdx);
+  uint inputOffset1 = (DIM_M * threadIdx * sizeof(INPUT_DATA_TYPE));
   inputOffset1 = (inputOffset1 + 3) & ~3; // Align to 4 bytes
   vector<INPUT_DATA_TYPE, DIM_M / INPUT_DIVISOR> input1 = InputVector1.Load<vector<INPUT_DATA_TYPE, DIM_M / INPUT_DIVISOR> >(inputOffset1);
 
-  uint inputOffset2 = (DIM_N * threadIdx);
+  uint inputOffset2 = (DIM_N * threadIdx * sizeof(INPUT_DATA_TYPE));
   inputOffset2 = (inputOffset2 + 3) & ~3; // Align to 4 bytes
   vector<INPUT_DATA_TYPE, DIM_N / INPUT_DIVISOR> input2 = InputVector2.Load<vector<INPUT_DATA_TYPE, DIM_N / INPUT_DIVISOR> >(inputOffset2);
 
