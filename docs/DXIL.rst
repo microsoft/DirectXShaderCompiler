@@ -3217,7 +3217,7 @@ META.BARYCENTRICSTWOPERSPECTIVES                      There can only be up to tw
 META.BRANCHFLATTEN                                    Can't use branch and flatten attributes together.
 META.CLIPCULLMAXCOMPONENTS                            Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
 META.CLIPCULLMAXROWS                                  Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.
-META.COHERENCENOTONAPPENDCONSUME                      %0coherent cannot be used with append/consume buffers: '%1'.
+META.COHERENCENOTONAPPENDCONSUME                      globally/reorder coherent incompatible with append/consume/counter buffers
 META.COMPUTEWITHNODE                                  Compute entry must not have node metadata
 META.CONTROLFLOWHINTNOTONCONTROLFLOW                  Control flow hint only works on control flow inst.
 META.DENSERESIDS                                      Resource identifiers must be zero-based and dense.
