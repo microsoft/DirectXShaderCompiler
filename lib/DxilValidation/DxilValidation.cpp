@@ -176,15 +176,13 @@ static DxilResourceProperties GetResourceFromHandle(Value *Handle,
   }
 
   DxilResourceProperties RP = ValCtx.GetResourceFromVal(Handle);
-  if (RP.getResourceClass() == DXIL::ResourceClass::Invalid) {
+  if (RP.getResourceClass() == DXIL::ResourceClass::Invalid)
     ValCtx.EmitInstrError(cast<CallInst>(Handle),
                           ValidationRule::InstrHandleNotFromCreateHandle);
-  }
   if (RP.Basic.IsReorderCoherent &&
-      !ValCtx.DxilMod.GetShaderModel()->IsSM69Plus()) {
+      !ValCtx.DxilMod.GetShaderModel()->IsSM69Plus())
     ValCtx.EmitInstrError(HandleCall,
                           ValidationRule::InstrReorderCoherentRequiresSM69);
-  }
 
   return RP;
 }
