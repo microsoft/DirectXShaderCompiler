@@ -8015,7 +8015,7 @@ class db_dxil(object):
             "Hull Shader MaxTessFactor must be [%0..%1].  %2 specified.",
         )
         self.add_valrule("Meta.ValidSamplerMode", "Invalid sampler mode on sampler .")
-        self.add_valrule(
+        self.add_valrule_msg(
             "Meta.CoherenceNotOnAppendConsume",
             "globally/reorder coherent incompatible with append/consume/counter buffers",
             "%0coherent cannot be used on buffer with counter",
