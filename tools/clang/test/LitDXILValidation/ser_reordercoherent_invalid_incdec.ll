@@ -13,7 +13,7 @@
 ; COM:   buffer.DecrementCounter();
 ; COM: }
 
-; CHECK: error: reordercoherent cannot be used with append/consume buffers: 'buffer'. 'buffer'
+; CHECK: error: reordercoherent cannot be used on buffer with counter 'buffer'
 ; CHECK-NEXT: Validation failed.
 
 ; shader hash: 638950814a9023bf537d61dbb330a4c8

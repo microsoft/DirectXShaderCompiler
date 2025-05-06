@@ -8017,7 +8017,8 @@ class db_dxil(object):
         self.add_valrule("Meta.ValidSamplerMode", "Invalid sampler mode on sampler .")
         self.add_valrule(
             "Meta.CoherenceNotOnAppendConsume",
-            "%0coherent cannot be used with append/consume buffers: '%1'.",
+            "globally/reorder coherent incompatible with append/consume/counter buffers",
+            "%0coherent cannot be used on buffer with counter",
         )
         self.add_valrule_msg(
             "Meta.StructBufAlignment",
