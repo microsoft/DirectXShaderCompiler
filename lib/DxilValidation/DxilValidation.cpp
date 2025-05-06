@@ -4425,8 +4425,7 @@ static void ValidateResources(ValidationContext &ValCtx) {
     if (Uav->HasCounter() && UavIsCoherent) {
       StringRef Prefix = Uav->IsGloballyCoherent() ? "globally" : "reorder";
       ValCtx.EmitResourceFormatError(
-          Uav.get(), ValidationRule::MetaCoherenceNotOnAppendConsume,
-          {Prefix});
+          Uav.get(), ValidationRule::MetaCoherenceNotOnAppendConsume, {Prefix});
     }
 
     ValidateResource(*Uav, ValCtx);
