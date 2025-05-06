@@ -12149,6 +12149,14 @@ void ExecutionTest::runCoopVecMulTestConfig(
       {32, 8, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, true},
       {32, 8, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, false},
       {32, 8, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, true},
+      {17, 63, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, false},
+      {17, 63, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, true},
+      {17, 63, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, false},
+      {17, 63, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, true},
+      {1, 1, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, false},
+      {1, 1, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, true},
+      {1, 1, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, false},
+      {1, 1, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, true},
       {16, 16, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, false},
       {16, 16, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, true},
       {16, 16, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, false},
@@ -12157,6 +12165,14 @@ void ExecutionTest::runCoopVecMulTestConfig(
       {32, 8, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, true},
       {32, 8, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, false},
       {32, 8, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, true},
+      {17, 63, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, false},
+      {17, 63, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, true},
+      {17, 63, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, false},
+      {17, 63, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, true},
+      {1, 1, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, false},
+      {1, 1, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, true},
+      {1, 1, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, false},
+      {1, 1, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR, true},
       {16, 16, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, false},
       {16, 16, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, true},
       {16, 16, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, false},
@@ -12165,6 +12181,14 @@ void ExecutionTest::runCoopVecMulTestConfig(
       {32, 8, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, true},
       {32, 8, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, false},
       {32, 8, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, true},
+      {17, 63, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, false},
+      {17, 63, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, true},
+      {17, 63, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, false},
+      {17, 63, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, true},
+      {1, 1, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, false},
+      {1, 1, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, true},
+      {1, 1, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, false},
+      {1, 1, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, true},
       {16, 16, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
        false},
       {16, 16, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
@@ -12180,6 +12204,22 @@ void ExecutionTest::runCoopVecMulTestConfig(
       {32, 8, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
        false},
       {32, 8, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
+       true},
+      {17, 63, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
+       false},
+      {17, 63, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
+       true},
+      {17, 63, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
+       false},
+      {17, 63, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
+       true},
+      {1, 1, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
+       false},
+      {1, 1, 16, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
+       true},
+      {1, 1, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
+       false},
+      {1, 1, 32, 1, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
        true},
   };
 
@@ -12280,18 +12320,15 @@ void ExecutionTest::runCoopVecMulSubtest(
   // FIXME: This does not capture all cases, but is sufficient for the preview
   // feature set
   if (MulProps.MatrixInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8) {
-    int32_t *InputBiasI32 = (int32_t *)InputBias.getBuffer();
-    float *InputVectorF32 = (float *)InputVector.getBuffer();
-
     for (int ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
+      int32_t *InputBiasI32 = InputBias.getVector<int32_t>(0);
       for (int OutputIdx = 0; OutputIdx < Config.OutputPerThread; ++OutputIdx) {
         int Acc = 0;
 
         for (int InputIdx = 0; InputIdx < Config.InputPerThread; ++InputIdx) {
           int InputElem;
           if (MulProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
-            InputElem = (int)
-                InputVectorF32[ThreadIdx * Config.InputPerThread + InputIdx];
+            InputElem = (int)InputVector.getVector<float>(ThreadIdx)[InputIdx];
           } else {
             InputElem = InputVector.getVector<int8_t>(ThreadIdx)[InputIdx];
           }
@@ -12315,22 +12352,21 @@ void ExecutionTest::runCoopVecMulSubtest(
                  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3 ||
              MulProps.MatrixInterpretation ==
                  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2) {
-    DirectX::PackedVector::HALF *InputVectorFP16 =
-        (DirectX::PackedVector::HALF *)InputVector.getBuffer();
-    DirectX::PackedVector::HALF *InputBiasFP16 =
-        (DirectX::PackedVector::HALF *)InputBias.getBuffer();
-
     // The CPU reference matrix is float
     std::vector<float> InputMatrixFP32(InputMatrix.size() / sizeof(float));
     std::memcpy(InputMatrixFP32.data(), InputMatrix.data(), InputMatrix.size());
 
     for (int ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
+      DirectX::PackedVector::HALF *InputVectorFP16 =
+          InputVector.getVector<DirectX::PackedVector::HALF>(ThreadIdx);
+      DirectX::PackedVector::HALF *InputBiasFP16 =
+          InputBias.getVector<DirectX::PackedVector::HALF>(0);
       for (int OutputIdx = 0; OutputIdx < Config.OutputPerThread; ++OutputIdx) {
         float Acc = 0;
 
         for (int InputIdx = 0; InputIdx < Config.InputPerThread; ++InputIdx) {
-          float const InputElem = ConvertFloat16ToFloat32(
-              InputVectorFP16[ThreadIdx * Config.InputPerThread + InputIdx]);
+          float const InputElem =
+              ConvertFloat16ToFloat32(InputVectorFP16[InputIdx]);
           float const MatrixElem =
               InputMatrixFP32[OutputIdx * Config.InputPerThread + InputIdx];
           Acc += InputElem * MatrixElem;
@@ -12365,7 +12401,7 @@ void main(uint threadIdx : SV_GroupThreadID)
   using namespace dx::linalg;
 
   uint inputOffset = (threadIdx * INPUT_VECTOR_STRIDE);
-  vector<INPUT_DATA_TYPE, INPUT_PER_THREAD / INPUT_DIVISOR> input = InputVector.Load<vector<INPUT_DATA_TYPE, INPUT_PER_THREAD / INPUT_DIVISOR> >(inputOffset);
+  vector<INPUT_DATA_TYPE, INPUT_VECTOR_NUM_ELEMENTS> input = InputVector.Load<vector<INPUT_DATA_TYPE, INPUT_VECTOR_NUM_ELEMENTS> >(inputOffset);
 
   MatrixRef<MATRIX_DATA_TYPE_ENUM, OUTPUT_PER_THREAD, INPUT_PER_THREAD, HLSL_MATRIX_LAYOUT, /*transpose*/false> mat = { InputMatrix, 0, STRIDE };
 
@@ -12439,8 +12475,9 @@ void main(uint threadIdx : SV_GroupThreadID)
     auto StrideDefine = CreateDefineFromInt(L"STRIDE", Stride);
     auto InputDataTypeDefine =
         CreateDefineFromString(L"INPUT_DATA_TYPE", InputDataType);
-    auto InputDivisorDefine =
-        CreateDefineFromInt(L"INPUT_DIVISOR", InputDivisor);
+    auto InputDivisorDefine = CreateDefineFromInt(
+        L"INPUT_VECTOR_NUM_ELEMENTS",
+        (Config.InputPerThread + InputDivisor - 1) / InputDivisor);
     auto AccumDataTypeDefine =
         CreateDefineFromString(L"ACCUM_DATA_TYPE", AccumDataType);
     auto InputInterpretationEnumDefine = CreateDefineFromString(
@@ -12596,11 +12633,12 @@ void main(uint threadIdx : SV_GroupThreadID)
           &ConvertInfo.DestInfo);
     }
 
+    int SRVSize = (ConvertInfo.DestInfo.DestSize + 15) / 16 * 16;
+
     // Create resource to hold matrix copy
-    CreateTestResources(
-        D3DDevice, CommandList, nullptr, 0,
-        CD3DX12_RESOURCE_DESC::Buffer(ConvertInfo.DestInfo.DestSize),
-        &ConvertedMatrixResource, nullptr);
+    CreateTestResources(D3DDevice, CommandList, nullptr, SRVSize,
+                        CD3DX12_RESOURCE_DESC::Buffer(SRVSize),
+                        &ConvertedMatrixResource, nullptr);
 
     // Set up data descriptors
     ConvertInfo.DataDesc.DestVA =
@@ -12613,13 +12651,7 @@ void main(uint threadIdx : SV_GroupThreadID)
         __uuidof(ID3D12GraphicsCommandList11), (void **)&CommandList11));
     CommandList11->ConvertLinearAlgebraMatrix(&ConvertInfo, 1);
 
-    // This increments baseHandle
-    if ((ConvertInfo.DestInfo.DestSize % 4) != 0) {
-      WEX::Logging::Log::Error(L"DestSize is not aligned to 4 bytes");
-      return;
-    }
-    CreateRawSRV(D3DDevice, BaseHandle,
-                 ConvertInfo.DestInfo.DestSize / sizeof(int32_t),
+    CreateRawSRV(D3DDevice, BaseHandle, SRVSize / sizeof(int32_t),
                  ConvertedMatrixResource);
   }
 
