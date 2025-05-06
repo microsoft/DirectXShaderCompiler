@@ -1,6 +1,8 @@
 ; REQUIRES: dxil-1-9
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
+;Original Source: D:\git\github\DirectXShaderCompiler-acFork\DirectXShaderCompiler\tools\clang\test\CodeGenHLSL\linalg\outer-product-accumulate-matrix-layout.hlsl
+
 target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
@@ -15,7 +17,7 @@ target triple = "dxil-ms-dx"
 ; an order different from the IR. So listed them here in the
 ; order they appear and added comments for correlation
 
-
+;CHECK: error: matrix stride must be zero for optimal layouts
 ;CHECK: error: matrix stride must be zero for optimal layouts
 ;CHECK-NOT: error: matrix layout value 'OuterProductOptimal' is not valid for outerproductaccumulate, must be 'OuterProductOptimal'
 ;CHECK: error: matrix layout value 'MulOptimal' is not valid for outerproductaccumulate, must be 'OuterProductOptimal'
@@ -42,6 +44,8 @@ define void @main() {
   call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %6, <8 x half> %9, %dx.types.Handle %10, i32 0, i32 8, i32 2, i32 0)  ; OuterProductAccumulate(inputVector1,inputVector2,matrixBuffer,matrixOffset,matrixIntepretation,matrixLayout,matrixStride)
   ; error: matrix stride must be zero for optimal layouts
   call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %6, <8 x half> %9, %dx.types.Handle %10, i32 0, i32 8, i32 3, i32 64)  ; OuterProductAccumulate(inputVector1,inputVector2,matrixBuffer,matrixOffset,matrixIntepretation,matrixLayout,matrixStride)
+  ; error: matrix stride must be zero for optimal layouts
+  call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %6, <8 x half> %9, %dx.types.Handle %10, i32 0, i32 8, i32 3, i32 63)  ; OuterProductAccumulate(inputVector1,inputVector2,matrixBuffer,matrixOffset,matrixIntepretation,matrixLayout,matrixStride)
   ret void
 }
 

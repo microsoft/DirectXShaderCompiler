@@ -1,9 +1,7 @@
-// RUN: %dxc -I %hlsl_headers -T cs_6_9 %s -enable-16bit-types -DML=MATRIX_LAYOUT_ROW_MAJOR -DSTRIDE=64 2>&1| FileCheck %s --check-prefixes DXIL-0
-// RUN: %dxc -I %hlsl_headers -T cs_6_9 %s -enable-16bit-types -DML=MATRIX_LAYOUT_COLUMN_MAJOR -DSTRIDE=64 2>&1 | FileCheck %s --check-prefixes DXIL-1
-// RUN: %dxc -I %hlsl_headers -T cs_6_9 %s -enable-16bit-types -DML=MATRIX_LAYOUT_MUL_OPTIMAL -DSTRIDE=64 2>&1 | FileCheck %s --check-prefixes DXIL-2
-// RUN: %dxc -I %hlsl_headers -T cs_6_9 %s -enable-16bit-types -DML=  MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL = 3 -DSTRIDE=64 2>&1 | FileCheck %s --check-prefixes DXIL-3
-// RUN: %dxc -I %hlsl_headers -T cs_6_9 %s -enable-16bit-types -DML=  MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL = 3 -DSTRIDE=0 2>&1 | FileCheck %s --check-prefixes DXIL-4
+// RUN: %dxc -I %hlsl_headers -T cs_6_9 %s -enable-16bit-types -DML=  MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL = 3 -DSTRIDE=0 2>&1 | FileCheck %s
 
+//Source file for the IR in \tools\clang\test\LitDXILValidation\outer-product-accumulate-matrix-layout-failing.ll
+//Source file for the IR in \tools\clang\test\LitDXILValidation\outer-product-accumulate-matrix-layout-passing.ll
 
 ByteAddressBuffer input_vector_buffer;
 ByteAddressBuffer input_vector_buffer2;
@@ -11,12 +9,7 @@ RWByteAddressBuffer matrix_buffer;
 
 #include <dx/linalg.h>
 
-// DXIL-0: error: matrix layout value 'RowMajor' is not valid for outerproductaccumulate, must be 'OuterProductOptimal'
-// DXIL-1: error: matrix layout value 'ColumnMajor' is not valid for outerproductaccumulate, must be 'OuterProductOptimal' 
-// DXIL-2: error: matrix layout value 'MulOptimal' is not valid for outerproductaccumulate, must be 'OuterProductOptimal' 
-// DXIL-3-NOT: error: matrix layout value 'OuterProductOptimal' is not valid for outerproductaccumulate, must be 'OuterProductOptimal' 
-// DXIL-3: error: matrix stride must be zero for optimal layouts 
-// DXIL-4: call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 8, i32 3, i32 0)
+// CHECK: call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 8, i32 3, i32 0)
 using namespace dx::linalg;
 
 [Numthreads(1,1,1)]
