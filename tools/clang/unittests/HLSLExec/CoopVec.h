@@ -4,6 +4,8 @@
 
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
+
+#include <cstdlib>
 #include <vector>
 
 #include "dxc/Support/microcom.h"
@@ -61,6 +63,7 @@ public:
 };
 
 namespace CoopVecHelpers {
+
 template <typename EltTy>
 static std::vector<uint8_t> CreateAllOnesInputMatrix(uint32_t Width,
                                                      uint32_t Height) {
@@ -354,6 +357,203 @@ GetMatrixSrcDataType(D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInterpretation) {
     return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
   }
 }
+
+struct TestVector {
+private:
+  size_t NumVectors = 0;
+  size_t VectorSize = 0;
+  size_t ElementSize = 0;
+  size_t Stride = 0;
+  size_t TotalBytes = 0;
+  uint8_t *Buffer = nullptr;
+
+public:
+  TestVector(size_t NumVectors, size_t VectorSize, size_t ElementSize,
+             size_t Alignment = 16)
+      : NumVectors(NumVectors), VectorSize(VectorSize),
+        ElementSize(ElementSize) {
+    if (NumVectors == 0) {
+      throw std::invalid_argument("NumVectors must be greater than 0");
+    }
+    if (VectorSize == 0) {
+      throw std::invalid_argument("VectorSize must be greater than 0");
+    }
+    if (ElementSize == 0) {
+      throw std::invalid_argument("ElementSize must be greater than 0");
+    }
+
+    size_t VectorBytes = VectorSize * ElementSize;
+    Stride = ((VectorBytes + Alignment - 1) / Alignment) * Alignment;
+    TotalBytes = Stride * NumVectors;
+
+    void *Ptr = nullptr;
+#ifdef _MSC_VER
+    Ptr = _aligned_malloc(TotalBytes, Alignment);
+#else
+    Ptr = std::aligned_alloc(Alignment, TotalBytes);
+#endif
+    Buffer = reinterpret_cast<uint8_t *>(Ptr);
+    std::fill(Buffer, Buffer + TotalBytes, (uint8_t)0xFF);
+  }
+
+  // Copy constructor
+  TestVector(const TestVector &other)
+      : NumVectors(other.NumVectors), VectorSize(other.VectorSize),
+        ElementSize(other.ElementSize), Stride(other.Stride),
+        TotalBytes(other.TotalBytes) {
+
+    void *Ptr = nullptr;
+#ifdef _MSC_VER
+    Ptr = _aligned_malloc(TotalBytes, 16);
+#else
+    Ptr = std::aligned_alloc(16, TotalBytes);
+#endif
+    Buffer = reinterpret_cast<uint8_t *>(Ptr);
+
+    if (other.Buffer) {
+      std::memcpy(Buffer, other.Buffer, TotalBytes);
+    }
+  }
+
+  // Move constructor
+  TestVector(TestVector &&other) noexcept
+      : NumVectors(other.NumVectors), VectorSize(other.VectorSize),
+        ElementSize(other.ElementSize), Stride(other.Stride),
+        TotalBytes(other.TotalBytes), Buffer(other.Buffer) {
+
+    // Reset the source object
+    other.NumVectors = 0;
+    other.VectorSize = 0;
+    other.ElementSize = 0;
+    other.Stride = 0;
+    other.TotalBytes = 0;
+    other.Buffer = nullptr;
+  }
+
+  ~TestVector() {
+    if (Buffer) {
+#ifdef _MSC_VER
+      _aligned_free(Buffer);
+#else
+      std::free(Buffer);
+#endif
+    }
+  }
+
+  size_t getNumVectors() const { return NumVectors; }
+  size_t getVectorSize() const { return VectorSize; }
+  size_t getElementSize() const { return ElementSize; }
+  size_t getStride() const { return Stride; }
+  size_t getTotalBytes() const { return TotalBytes; }
+  uint8_t *getBuffer() { return Buffer; }
+  const uint8_t *getBuffer() const { return Buffer; }
+
+  template <typename T> T *getVector(size_t I) {
+    uint8_t *Ptr = Buffer + I * Stride;
+    return reinterpret_cast<T *>(Ptr);
+  }
+
+  template <typename T> const T *getVector(size_t I) const {
+    const uint8_t *Ptr = Buffer + I * Stride;
+    return reinterpret_cast<const T *>(Ptr);
+  }
+
+  template <typename T> void fill(const T &Value) {
+    for (size_t I = 0; I < NumVectors; ++I) {
+      T *Vec = getVector<T>(I);
+      for (size_t J = 0; J < VectorSize; ++J)
+        Vec[J] = Value;
+    }
+  }
+
+  template <typename T> void fillSimpleTestData() {
+    // Create a vector of (1, 1, 0, ...)
+    for (size_t I = 0; I < NumVectors; ++I) {
+      T *Vec = getVector<T>(I);
+      for (size_t J = 0; J < VectorSize; ++J)
+        if constexpr (std::is_same_v<T, DirectX::PackedVector::HALF>) {
+          // Special case for HALF, which requires conversion from float
+          Vec[J] = static_cast<T>(
+              ConvertFloat32ToFloat16((J == 0 || J == 1) ? 1.0f : 0.0f));
+        } else {
+          Vec[J] = static_cast<T>((J == 0 || J == 1) ? 1 : 0);
+        }
+    }
+  }
+
+  static TestVector
+  createSimpleTestVector(size_t NumVectors, size_t VectorSize,
+                         D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
+                         D3D12_LINEAR_ALGEBRA_DATATYPE DataInterpretation) {
+    size_t ElementSize;
+    switch (DataType) {
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8:
+      ElementSize = sizeof(int8_t);
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
+      ElementSize = sizeof(int16_t);
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
+      if (DataInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED ||
+          DataInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED) {
+        ElementSize = sizeof(int8_t);
+      } else {
+        ElementSize = sizeof(int32_t);
+      }
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
+      ElementSize = sizeof(DirectX::PackedVector::HALF);
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
+      ElementSize = sizeof(float);
+      break;
+    default:
+      throw std::invalid_argument("Unsupported data type");
+    }
+    TestVector Vec(NumVectors, VectorSize, ElementSize);
+    switch (DataType) {
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
+      Vec.fillSimpleTestData<int8_t>();
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8:
+      Vec.fillSimpleTestData<uint8_t>();
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
+      Vec.fillSimpleTestData<int16_t>();
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
+      Vec.fillSimpleTestData<uint16_t>();
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
+      Vec.fillSimpleTestData<int32_t>();
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
+      if (DataInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED ||
+          DataInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED) {
+        Vec.fillSimpleTestData<uint8_t>();
+      } else {
+        Vec.fillSimpleTestData<uint32_t>();
+      }
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
+      Vec.fillSimpleTestData<DirectX::PackedVector::HALF>();
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
+      Vec.fillSimpleTestData<float>();
+      break;
+    default:
+      throw std::invalid_argument("Unsupported data type");
+    }
+    return Vec;
+  }
+};
 }; // namespace CoopVecHelpers
 
 #endif // HAVE_COOPVEC_API
