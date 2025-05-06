@@ -23,7 +23,7 @@ struct SceneConstants
     float4 W;
     float sceneScale;
     uint2 WindowSize;
-    int rayFlags;    
+    int rayFlags;
 };
 
 struct[raypayload] PerRayData
@@ -117,7 +117,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DSER_GET_SCALAR=GetRayTMin"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/);
+               false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+               2 /*attributeCount*/);
     for (int Id = 0; Id < TestData.size(); Id += 2) {
       float *ResArray = (float *)(TestData.data() + Id);
       float RefVal = ResArray[0];
@@ -143,7 +144,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DSER_GET_SCALAR=GetRayTCurrent"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/);
+               false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+               2 /*attributeCount*/);
     for (int Id = 0; Id < TestData.size(); Id += 2) {
       float *ResArray = (float *)(TestData.data() + Id);
       float RefVal = ResArray[0];
@@ -169,7 +171,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DSER_GET_SCALAR=GetRayFlags"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/);
+               false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+               2 /*attributeCount*/);
     for (int Id = 0; Id < TestData.size(); Id += 2) {
       const int RefVal = TestData[Id];
       const int SerVal = TestData[Id + 1];
@@ -193,7 +196,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DSER_GET_SCALAR=GetHitKind"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/);
+               false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+               2 /*attributeCount*/);
     for (int Id = 0; Id < TestData.size(); Id += 2) {
       const int RefVal = TestData[Id];
       const int SerVal = TestData[Id + 1];
@@ -217,7 +221,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DSER_GET_SCALAR=GetGeometryIndex"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/);
+               false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+               2 /*attributeCount*/);
     for (int Id = 0; Id < TestData.size(); Id += 2) {
       const int RefVal = TestData[Id];
       const int SerVal = TestData[Id + 1];
@@ -241,7 +246,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DSER_GET_SCALAR=GetInstanceIndex"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/);
+               false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+               2 /*attributeCount*/);
     for (int Id = 0; Id < TestData.size(); Id += 2) {
       const int RefVal = TestData[Id];
       const int SerVal = TestData[Id + 1];
@@ -265,7 +271,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DSER_GET_SCALAR=GetInstanceID"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/);
+               false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+               2 /*attributeCount*/);
     for (int Id = 0; Id < TestData.size(); Id += 2) {
       const int RefVal = TestData[Id];
       const int SerVal = TestData[Id + 1];
@@ -289,7 +296,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DSER_GET_SCALAR=GetPrimitiveIndex"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/);
+               false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+               2 /*attributeCount*/);
     for (int Id = 0; Id < TestData.size(); Id += 2) {
       const int RefVal = TestData[Id];
       const int SerVal = TestData[Id + 1];
@@ -407,8 +415,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DSER_GET_VECTOR=GetWorldRayOrigin"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/,
-               3 /*payloadCount*/);
+               false /*useProceduralGeometry*/, 3 /*payloadCount*/,
+               2 /*attributeCount*/);
     for (int Id = 0; Id < TestData.size(); Id += 6) {
       float *ResArray = (float *)(TestData.data() + Id);
       float RefX = ResArray[0];
@@ -440,8 +448,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DSER_GET_VECTOR=GetWorldRayDirection"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/,
-               3 /*payloadCount*/);
+               false /*useProceduralGeometry*/, 3 /*payloadCount*/,
+               2 /*attributeCount*/);
     for (int Id = 0; Id < TestData.size(); Id += 6) {
       float *ResArray = (float *)(TestData.data() + Id);
       float RefX = ResArray[0];
@@ -472,8 +480,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DSER_GET_VECTOR=GetObjectRayOrigin"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/,
-               3 /*payloadCount*/);
+               false /*useProceduralGeometry*/, 3 /*payloadCount*/,
+               2 /*attributeCount*/);
     for (int Id = 0; Id < TestData.size(); Id += 6) {
       float *ResArray = (float *)(TestData.data() + Id);
       float RefX = ResArray[0];
@@ -505,8 +513,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DSER_GET_VECTOR=GetObjectRayDirection"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/,
-               3 /*payloadCount*/);
+               false /*useProceduralGeometry*/, 3 /*payloadCount*/,
+               2 /*attributeCount*/);
     for (int Id = 0; Id < TestData.size(); Id += 6) {
       float *ResArray = (float *)(TestData.data() + Id);
       float RefX = ResArray[0];
@@ -657,8 +665,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DCOLS=4"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/,
-               12 /*payloadCount*/);
+               false /*useProceduralGeometry*/, 12 /*payloadCount*/,
+               2 /*attributeCount*/);
     const int ROWS = 3;
     const int COLS = 4;
     for (int Id = 0; Id < TestData.size(); Id += 24) {
@@ -692,8 +700,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DCOLS=3"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/,
-               12 /*payloadCount*/);
+               false /*useProceduralGeometry*/, 12 /*payloadCount*/,
+               2 /*attributeCount*/);
     for (int Id = 0; Id < TestData.size(); Id += 2 * ROWS * COLS) {
       float *ResArray = (float *)(TestData.data() + Id);
       for (int RowIdx = 0; RowIdx < ROWS; RowIdx++) {
@@ -723,8 +731,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DCOLS=4"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/,
-               12 /*payloadCount*/);
+               false /*useProceduralGeometry*/, 12 /*payloadCount*/,
+               2 /*attributeCount*/);
     const int ROWS = 3;
     const int COLS = 4;
     for (int Id = 0; Id < TestData.size(); Id += 24) {
@@ -756,8 +764,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
                       L"-DCOLS=3"};
     RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
                WindowSize, WindowSize, true /*useMesh*/,
-               false /*useProceduralGeometry*/, false /*useIS*/,
-               12 /*payloadCount*/);
+               false /*useProceduralGeometry*/, 12 /*payloadCount*/,
+               2 /*attributeCount*/);
     const int ROWS = 4;
     const int COLS = 3;
     for (int Id = 0; Id < TestData.size(); Id += 24) {
@@ -871,7 +879,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
              WindowSize, WindowSize, true /*useMesh*/,
-             false /*useProceduralGeometry*/, false /*useIS*/);
+             false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+             2 /*attributeCount*/);
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];
@@ -903,6 +912,11 @@ struct[raypayload] PerRayData
 struct Attrs
 {
     float2 barycentrics : BARYCENTRICS;
+};
+
+struct CustomAttrs
+{
+    float dist;
 };
 
 RWStructuredBuffer<int> testBuffer : register(u0);
@@ -938,7 +952,6 @@ void raygen()
     // SER Test
     dx::HitObject hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, payload);
     dx::MaybeReorderThread(hitObject);
-    dx::HitObject::Invoke(hitObject, payload);
 
     if (hitObject.IsHit())
     {
@@ -947,7 +960,7 @@ void raygen()
         dx::HitObject::Invoke( hitObject, payload );
         // Poison the test data if GetShaderTableIndex does not match SetShaderTableIndex.
         if (hitObject.GetShaderTableIndex() != 1)
-            payload.visited = 0;
+            payload.visited = 12345;
     }
 
     int id = launchIndex.x + launchIndex.y * launchDim.x;
@@ -957,13 +970,14 @@ void raygen()
 [shader("miss")]
 void miss(inout PerRayData payload)
 {
-    payload.visited |= 2U;
+    payload.visited |= 1U;
 }
 
+// Triangles
 [shader("anyhit")]
 void anyhit(inout PerRayData payload, in Attrs attrs)
 {
-    payload.visited |= 1U;
+    payload.visited |= 2U;
     AcceptHitAndEndSearch();
 }
 
@@ -973,10 +987,43 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
     payload.visited |= 4U;
 }
 
+// Procedural
+[shader("intersection")]
+void intersection()
+{
+    // Intersection with circle on a plane (base, n, radius)
+    // hitPos is intersection point with plane (base, n)
+    float3 base = {0.0f,0.0f,0.5f};
+    float3 n = normalize(float3(0.2f,0.2f,0.5f));
+    float radius = 150.f;
+    // Plane hit
+    float t = dot(n, base - ObjectRayOrigin()) / dot(n, ObjectRayDirection());
+    if (t > RayTCurrent() || t < RayTMin()) {
+        return;
+    }
+    float3 hitPos = ObjectRayOrigin() + t * ObjectRayDirection();
+    float3 relHitPos = hitPos - base;
+    // Circle hit
+    float hitDist = length(relHitPos);
+    if (hitDist > radius)
+      return;
+
+    CustomAttrs attrs;
+    attrs.dist = hitDist;
+    ReportHit(t, 1, attrs);
+}
+
+[shader("anyhit")]
+void ahAABB(inout PerRayData payload, in CustomAttrs attrs)
+{
+    payload.visited |= 8U;
+    IgnoreHit();
+}
+
 [shader("closesthit")]
 void chAABB(inout PerRayData payload, in Attrs attrs)
 {
-    payload.visited |= 8U;
+    payload.visited |= 16U;
 }
 
 )";
@@ -990,16 +1037,19 @@ void chAABB(inout PerRayData payload, in Attrs attrs)
   std::vector<int> TestData(WindowSize * WindowSize, 0);
   LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
 
-  WEX::Logging::Log::Comment(L"==== DXR lib_6_9 with SER");
   RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
              WindowSize, WindowSize, true /*mesh*/,
-             true /*procedural geometry*/, false /*useIS*/);
+             true /*procedural geometry*/, 1 /*payloadCount*/,
+             2 /*attributeCount*/);
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];
-  VERIFY_ARE_EQUAL(Histo.size(), 2);
-  VERIFY_ARE_EQUAL(Histo[2], 4030);
-  VERIFY_ARE_EQUAL(Histo[13], 66);
+  VERIFY_ARE_EQUAL(Histo.size(), 3);
+  VERIFY_ARE_EQUAL(Histo[0], 3696); // Miss (not Invoked)
+  VERIFY_ARE_EQUAL(Histo[8], 334);  // AABB ignored hit -> (Miss not Invoked)
+  VERIFY_ARE_EQUAL(
+      Histo[26],
+      66); // AABB ignored hit + TriHit -> setSBT(1) -> chAABB invoked
 }
 
 TEST_F(ExecutionTest, SERLoadLocalRootTableConstantTest) {
@@ -1114,7 +1164,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
              WindowSize, WindowSize, true /*useMesh*/,
-             false /*useProceduralGeometry*/, false /*useIS*/);
+             false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+             2 /*attributeCount*/);
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];
@@ -1271,7 +1322,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
              WindowSize, WindowSize, true /*useMesh*/,
-             false /*useProceduralGeometry*/, false /*useIS*/);
+             false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+             2 /*attributeCount*/);
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];
@@ -1387,13 +1439,13 @@ void intersection()
 
   RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
              WindowSize, WindowSize, false /*mesh*/,
-             true /*procedural geometry*/, true /*useIS*/);
+             true /*procedural geometry*/, 1 /*payloadCount*/,
+             2 /*attributeCount*/);
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];
-  VERIFY_ARE_EQUAL(Histo.size(), 2);
-  VERIFY_ARE_EQUAL(Histo[2], 3400);
-  VERIFY_ARE_EQUAL(Histo[5], 696);
+  VERIFY_ARE_EQUAL(Histo.size(), 1);
+  VERIFY_ARE_EQUAL(Histo[5], 4096); // All rays hitting the procedural geometry
 }
 
 TEST_F(ExecutionTest, SERGetAttributesTest) {
@@ -1531,15 +1583,17 @@ void intersection()
 
   RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
              WindowSize, WindowSize, false /*mesh*/,
-             true /*procedural geometry*/, true /*useIS*/);
+             true /*procedural geometry*/, 1 /*payloadCount*/,
+             2 /*attributeCount*/);
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];
-  VERIFY_ARE_EQUAL(Histo.size(), 4);
-  VERIFY_ARE_EQUAL(Histo[0], 328);
-  VERIFY_ARE_EQUAL(Histo[1], 186);
-  VERIFY_ARE_EQUAL(Histo[3], 182);
-  VERIFY_ARE_EQUAL(Histo[255], 3400);
+  VERIFY_ARE_EQUAL(Histo.size(), 5);
+  VERIFY_ARE_EQUAL(Histo[0], 2009);
+  VERIFY_ARE_EQUAL(Histo[1], 561);
+  VERIFY_ARE_EQUAL(Histo[3], 587);
+  VERIFY_ARE_EQUAL(Histo[4], 454);
+  VERIFY_ARE_EQUAL(Histo[6], 485);
 }
 
 TEST_F(ExecutionTest, SERTraceHitMissNopTest) {
@@ -1649,7 +1703,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
              WindowSize, WindowSize, true /*mesh*/,
-             false /*procedural geometry*/, false /*useIS*/);
+             false /*procedural geometry*/, 1 /*payloadCount*/,
+             2 /*attributeCount*/);
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];
@@ -1763,7 +1818,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
              WindowSize, WindowSize, true /*mesh*/,
-             false /*procedural geometry*/, false /*useIS*/);
+             false /*procedural geometry*/, 1 /*payloadCount*/,
+             2 /*attributeCount*/);
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];
@@ -1892,7 +1948,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
              WindowSize, WindowSize, true /*useMesh*/,
-             false /*useProceduralGeometry*/, false /*useIS*/);
+             false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+             2 /*attributeCount*/);
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];
@@ -2004,7 +2061,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
 
   RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
              WindowSize, WindowSize, true /*useMesh*/,
-             false /*useProceduralGeometry*/, false /*useIS*/);
+             false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+             2 /*attributeCount*/);
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];
@@ -2167,7 +2225,8 @@ void closesthit(inout PerRayData payload, in Attrs attrs)
   LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
   RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
              WindowSize, WindowSize, true /*mesh*/,
-             false /*procedural geometry*/, false /*useIS*/);
+             false /*procedural geometry*/, 1 /*payloadCount*/,
+             2 /*attributeCount*/);
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];

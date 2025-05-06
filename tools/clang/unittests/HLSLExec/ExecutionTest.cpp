@@ -2061,8 +2061,7 @@ public:
                                      int NumOptions, std::vector<int> &TestData,
                                      int WindowWidth, int WindowHeight,
                                      bool UseMesh, bool UseProceduralGeometry,
-                                     bool UseIS, int PayloadCount = 1,
-                                     int AttributeCount = 2);
+                                     int PayloadCount, int AttributeCount);
 
   void SetDescriptorHeap(ID3D12GraphicsCommandList *pCommandList,
                          ID3D12DescriptorHeap *pHeap) {
@@ -2246,7 +2245,7 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
     ID3D12Device *Device0, LPCSTR ShaderSrc, LPCWSTR TargetProfile,
     LPCWSTR *Options, int NumOptions, std::vector<int> &TestData,
     int WindowWidth, int WindowHeight, bool UseMesh, bool UseProceduralGeometry,
-    bool UseIS, int PayloadCount, int AttributeCount) {
+    int PayloadCount, int AttributeCount) {
   CComPtr<ID3D12Device5> Device;
   VERIFY_SUCCEEDED(Device0->QueryInterface(IID_PPV_ARGS(&Device)));
 
@@ -2432,10 +2431,12 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   Lib->DefineExport(L"closesthit");
   Lib->DefineExport(L"anyhit");
   Lib->DefineExport(L"miss");
-  if (UseIS)
+  if (UseProceduralGeometry)
     Lib->DefineExport(L"intersection");
-  if (UseMesh && UseProceduralGeometry)
+  if (UseMesh && UseProceduralGeometry) {
+    Lib->DefineExport(L"ahAABB");
     Lib->DefineExport(L"chAABB");
+  }
 
   const int MaxRecursion = 1;
   StateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>()
@@ -2460,30 +2461,32 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   Exports->AddExport(L"closesthit");
   Exports->AddExport(L"anyhit");
   Exports->AddExport(L"miss");
-  if (UseIS)
+  if (UseProceduralGeometry)
     Exports->AddExport(L"intersection");
-  if (UseMesh && UseProceduralGeometry)
+  if (UseMesh && UseProceduralGeometry) {
+    Exports->AddExport(L"ahAABB");
     Exports->AddExport(L"chAABB");
+  }
 
   auto HitGroup =
       StateObjectDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
   HitGroup->SetClosestHitShaderImport(L"closesthit");
   HitGroup->SetAnyHitShaderImport(L"anyhit");
-  if (UseIS) {
+  if (!UseMesh && UseProceduralGeometry) {
     HitGroup->SetIntersectionShaderImport(L"intersection");
     HitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE);
+  } else {
+    HitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_TRIANGLES);
   }
   HitGroup->SetHitGroupExport(L"HitGroup");
 
   if (UseMesh && UseProceduralGeometry) {
     auto HitGroupAABB =
         StateObjectDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
+    HitGroupAABB->SetAnyHitShaderImport(L"ahAABB");
     HitGroupAABB->SetClosestHitShaderImport(L"chAABB");
-    HitGroupAABB->SetAnyHitShaderImport(L"anyhit");
-    if (UseIS) {
-      HitGroupAABB->SetIntersectionShaderImport(L"intersection");
-      HitGroupAABB->SetHitGroupType(D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE);
-    }
+    HitGroupAABB->SetIntersectionShaderImport(L"intersection");
+    HitGroupAABB->SetHitGroupType(D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE);
     HitGroupAABB->SetHitGroupExport(L"HitGroupAABB");
   }
 
@@ -2545,7 +2548,6 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   CComPtr<ID3D12Resource> TLASResource;
   CComPtr<ID3D12Resource> BLASMeshResource;
   CComPtr<ID3D12Resource> BLASProceduralGeometryResource;
-  CComPtr<ID3D12Resource> InstanceDescs;
   CComPtr<ID3D12Resource> ScratchResource;
 
   if (UseMesh) {
@@ -2624,67 +2626,58 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
     VERIFY_SUCCEEDED(CommandAllocator->Reset());
     VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, nullptr));
 
-    if (!UseIS) {
-      // Build BLAS.
-      {
-        D3D12_RAYTRACING_GEOMETRY_DESC GeometryDesc = {};
-        GeometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-        GeometryDesc.Triangles.IndexBuffer =
-            IndexBuffer->GetGPUVirtualAddress();
-        GeometryDesc.Triangles.IndexCount =
-            static_cast<UINT>(IndexBuffer->GetDesc().Width) / sizeof(int);
-        GeometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
-        GeometryDesc.Triangles.Transform3x4 = 0;
-        GeometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-        GeometryDesc.Triangles.VertexCount =
-            static_cast<UINT>(VertexBuffer->GetDesc().Width) /
-            sizeof(DirectX::XMFLOAT3);
-        GeometryDesc.Triangles.VertexBuffer.StartAddress =
-            VertexBuffer->GetGPUVirtualAddress();
-        GeometryDesc.Triangles.VertexBuffer.StrideInBytes =
-            sizeof(DirectX::XMFLOAT3);
-        GeometryDesc.Flags =
-            D3D12_RAYTRACING_GEOMETRY_FLAG_NONE; // Non-opaque to trigger
-                                                 // anyhit.
+    // Build triangle BLAS.
+    D3D12_RAYTRACING_GEOMETRY_DESC GeometryDesc = {};
+    GeometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+    GeometryDesc.Triangles.IndexBuffer = IndexBuffer->GetGPUVirtualAddress();
+    GeometryDesc.Triangles.IndexCount =
+        static_cast<UINT>(IndexBuffer->GetDesc().Width) / sizeof(int);
+    GeometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
+    GeometryDesc.Triangles.Transform3x4 = 0;
+    GeometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+    GeometryDesc.Triangles.VertexCount =
+        static_cast<UINT>(VertexBuffer->GetDesc().Width) /
+        sizeof(DirectX::XMFLOAT3);
+    GeometryDesc.Triangles.VertexBuffer.StartAddress =
+        VertexBuffer->GetGPUVirtualAddress();
+    GeometryDesc.Triangles.VertexBuffer.StrideInBytes =
+        sizeof(DirectX::XMFLOAT3);
+    GeometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_NONE; // Non-opaque to
+                                                              // trigger anyhit.
 
-        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS BuildFlags =
-            D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS BuildFlags =
+        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
 
-        D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS AccelInputs = {};
-        AccelInputs.Type =
-            D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-        AccelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-        AccelInputs.pGeometryDescs = &GeometryDesc;
-        AccelInputs.NumDescs = 1;
-        AccelInputs.Flags = BuildFlags;
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS AccelInputs = {};
+    AccelInputs.Type =
+        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+    AccelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+    AccelInputs.pGeometryDescs = &GeometryDesc;
+    AccelInputs.NumDescs = 1;
+    AccelInputs.Flags = BuildFlags;
 
-        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO PrebuildInfo = {};
-        Device->GetRaytracingAccelerationStructurePrebuildInfo(&AccelInputs,
-                                                               &PrebuildInfo);
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO PrebuildInfo = {};
+    Device->GetRaytracingAccelerationStructurePrebuildInfo(&AccelInputs,
+                                                           &PrebuildInfo);
 
-        ScratchResource.Release();
-        ReallocScratchResource(Device, &ScratchResource,
-                               PrebuildInfo.ScratchDataSizeInBytes);
-        AllocateBuffer(Device, PrebuildInfo.ResultDataMaxSizeInBytes,
-                       &BLASMeshResource, true,
-                       D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
-                       L"blasMesh");
+    ScratchResource.Release();
+    ReallocScratchResource(Device, &ScratchResource,
+                           PrebuildInfo.ScratchDataSizeInBytes);
+    AllocateBuffer(
+        Device, PrebuildInfo.ResultDataMaxSizeInBytes, &BLASMeshResource, true,
+        D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, L"blasMesh");
 
-        D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC BuildDesc = {};
-        BuildDesc.Inputs = AccelInputs;
-        BuildDesc.ScratchAccelerationStructureData =
-            ScratchResource->GetGPUVirtualAddress();
-        BuildDesc.DestAccelerationStructureData =
-            BLASMeshResource->GetGPUVirtualAddress();
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC BuildDesc = {};
+    BuildDesc.Inputs = AccelInputs;
+    BuildDesc.ScratchAccelerationStructureData =
+        ScratchResource->GetGPUVirtualAddress();
+    BuildDesc.DestAccelerationStructureData =
+        BLASMeshResource->GetGPUVirtualAddress();
 
-        CommandList->BuildRaytracingAccelerationStructure(&BuildDesc, 0,
-                                                          nullptr);
-        CD3DX12_RESOURCE_BARRIER Barrier =
-            CD3DX12_RESOURCE_BARRIER::UAV(BLASMeshResource);
-        CommandList->ResourceBarrier(1,
-                                     (const D3D12_RESOURCE_BARRIER *)&Barrier);
-      }
-    }
+    CommandList->BuildRaytracingAccelerationStructure(&BuildDesc, 0, nullptr);
+    CD3DX12_RESOURCE_BARRIER Barrier =
+        CD3DX12_RESOURCE_BARRIER::UAV(BLASMeshResource);
+    CommandList->ResourceBarrier(1, (const D3D12_RESOURCE_BARRIER *)&Barrier);
 
     CommandList->Close();
     ExecuteCommandList(CommandQueue, CommandList);
@@ -2701,9 +2694,10 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
 
     // Define the AABB for the plane, matching the size of the quad defined by
     // verts[]
+    const float BoxSize = 500.f;
     const D3D12_RAYTRACING_AABB Aabb = {
-        -150.5f, -500.5f, -1000.0f, // Min corner (x, y, z)
-        150.5f,  -150.5f, 1000.0f   // Max corner (x, y, z)
+        -BoxSize, -BoxSize, -BoxSize, // Min corner (x, y, z)
+        BoxSize,  BoxSize,  BoxSize   // Max corner (x, y, z)
     };
     const UINT64 AabbDataSize = sizeof(Aabb);
 
@@ -2771,88 +2765,64 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   }
 
   // Build TLAS.
+  CComPtr<ID3D12Resource> InstanceDescs;
   {
-    if (UseMesh) {
-      D3D12_RAYTRACING_INSTANCE_DESC InstanceDesc = {};
+    D3D12_RAYTRACING_INSTANCE_DESC CPUInstanceDescs[2] = {};
+    const int MeshIdx = 0;
+    const int ProcGeoIdx = UseMesh && UseProceduralGeometry ? 1 : 0;
+    const int NumInstanceDescs = ProcGeoIdx + 1;
+
+    for (int i = 0; i < NumInstanceDescs; ++i) {
+      D3D12_RAYTRACING_INSTANCE_DESC &InstanceDesc = CPUInstanceDescs[i];
       InstanceDesc.Transform[0][0] = InstanceDesc.Transform[1][1] =
           InstanceDesc.Transform[2][2] = 1;
+      InstanceDesc.InstanceID = i;
+      InstanceDesc.InstanceContributionToHitGroupIndex = i;
       InstanceDesc.InstanceMask = 1;
-      InstanceDesc.AccelerationStructure =
+      InstanceDesc.Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
+    }
+
+    if (UseMesh)
+      CPUInstanceDescs[MeshIdx].AccelerationStructure =
           BLASMeshResource->GetGPUVirtualAddress();
-
-      AllocateUploadBuffer(Device, &InstanceDesc, sizeof(InstanceDesc),
-                           &InstanceDescs, L"InstanceDescs");
-
-      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS BuildFlags =
-          D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
-
-      D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS AccelInputs = {};
-      AccelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
-      AccelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-      AccelInputs.NumDescs = 1;
-      AccelInputs.Flags = BuildFlags;
-      AccelInputs.InstanceDescs = InstanceDescs->GetGPUVirtualAddress();
-
-      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO PrebuildInfo = {};
-      Device->GetRaytracingAccelerationStructurePrebuildInfo(&AccelInputs,
-                                                             &PrebuildInfo);
-
-      ScratchResource.Release();
-      ReallocScratchResource(Device, &ScratchResource,
-                             PrebuildInfo.ScratchDataSizeInBytes);
-      AllocateBuffer(
-          Device, PrebuildInfo.ResultDataMaxSizeInBytes, &TLASResource, true,
-          D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, L"TLAS");
-
-      D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC BuildDesc = {};
-      BuildDesc.Inputs = AccelInputs;
-      BuildDesc.ScratchAccelerationStructureData =
-          ScratchResource->GetGPUVirtualAddress();
-      BuildDesc.DestAccelerationStructureData =
-          TLASResource->GetGPUVirtualAddress();
-
-      CommandList->BuildRaytracingAccelerationStructure(&BuildDesc, 0, 0);
-    } else {
-      D3D12_RAYTRACING_INSTANCE_DESC InstanceDesc = {};
-      InstanceDesc.Transform[0][0] = InstanceDesc.Transform[1][1] =
-          InstanceDesc.Transform[2][2] = 1;
-      InstanceDesc.InstanceMask = 1;
-      InstanceDesc.AccelerationStructure =
+    if (UseProceduralGeometry)
+      CPUInstanceDescs[ProcGeoIdx].AccelerationStructure =
           BLASProceduralGeometryResource->GetGPUVirtualAddress();
 
-      AllocateUploadBuffer(Device, &InstanceDesc, sizeof(InstanceDesc),
-                           &InstanceDescs, L"InstanceDescs");
+    AllocateUploadBuffer(Device, &CPUInstanceDescs,
+                         NumInstanceDescs *
+                             sizeof(D3D12_RAYTRACING_INSTANCE_DESC),
+                         &InstanceDescs, L"InstanceDescs");
 
-      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS BuildFlags =
-          D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS BuildFlags =
+        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
 
-      D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS AccelInputs = {};
-      AccelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
-      AccelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-      AccelInputs.NumDescs = 1;
-      AccelInputs.Flags = BuildFlags;
-      AccelInputs.InstanceDescs = InstanceDescs->GetGPUVirtualAddress();
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS AccelInputs = {};
+    AccelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
+    AccelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+    AccelInputs.NumDescs = NumInstanceDescs;
+    AccelInputs.Flags = BuildFlags;
+    AccelInputs.InstanceDescs = InstanceDescs->GetGPUVirtualAddress();
 
-      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO PrebuildInfo = {};
-      Device->GetRaytracingAccelerationStructurePrebuildInfo(&AccelInputs,
-                                                             &PrebuildInfo);
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO PrebuildInfo = {};
+    Device->GetRaytracingAccelerationStructurePrebuildInfo(&AccelInputs,
+                                                           &PrebuildInfo);
 
-      ScratchResource.Release();
-      ReallocScratchResource(Device, &ScratchResource,
-                             PrebuildInfo.ScratchDataSizeInBytes);
-      AllocateBuffer(
-          Device, PrebuildInfo.ResultDataMaxSizeInBytes, &TLASResource, true,
-          D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, L"TLAS");
+    ScratchResource.Release();
+    ReallocScratchResource(Device, &ScratchResource,
+                           PrebuildInfo.ScratchDataSizeInBytes);
+    AllocateBuffer(Device, PrebuildInfo.ResultDataMaxSizeInBytes, &TLASResource,
+                   true, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
+                   L"TLAS");
 
-      D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC BuildDesc = {};
-      BuildDesc.Inputs = AccelInputs;
-      BuildDesc.ScratchAccelerationStructureData =
-          ScratchResource->GetGPUVirtualAddress();
-      BuildDesc.DestAccelerationStructureData =
-          TLASResource->GetGPUVirtualAddress();
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC BuildDesc = {};
+    BuildDesc.Inputs = AccelInputs;
+    BuildDesc.ScratchAccelerationStructureData =
+        ScratchResource->GetGPUVirtualAddress();
+    BuildDesc.DestAccelerationStructureData =
+        TLASResource->GetGPUVirtualAddress();
 
-      CommandList->BuildRaytracingAccelerationStructure(&BuildDesc, 0, 0);
-    }
+    CommandList->BuildRaytracingAccelerationStructure(&BuildDesc, 0, 0);
 
     CD3DX12_RESOURCE_BARRIER Barrier =
         CD3DX12_RESOURCE_BARRIER::UAV(TLASResource);
