@@ -1,5 +1,7 @@
 #pragma once
 
+#if HAVE_COOPVEC_API
+
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
 #include <vector>
@@ -354,3 +356,5 @@ GetMatrixSrcDataType(D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInterpretation) {
   }
 }
 }; // namespace CoopVecHelpers
+
+#endif // HAVE_COOPVEC_API

@@ -64,8 +64,8 @@
 #include <libloaderapi.h>
 #include <DirectXPackedVector.h>
 #include "LongVectors.h"
-#include "CoopVec.h"
 #include "CoopVecAPI.h"
+#include "CoopVec.h"
 // clang-format on
 
 #pragma comment(lib, "d3dcompiler.lib")
@@ -1904,10 +1904,12 @@ public:
     std::vector<UUID> Features;
 
     Features.push_back(D3D12ExperimentalShaderModels);
+
+#if HAVE_COOPVEC_API
     if (GetTestParamBool(L"CooperativeVectorExperimental")) {
       Features.push_back(D3D12CooperativeVectorExperiment);
     }
-
+#endif
     return pD3D12EnableExperimentalFeatures((UINT)Features.size(),
                                             Features.data(), nullptr, nullptr);
   }
