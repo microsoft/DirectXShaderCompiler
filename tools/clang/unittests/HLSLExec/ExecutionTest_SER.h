@@ -2415,3 +2415,140 @@ void intersection()
   VERIFY_ARE_EQUAL(Histo[20], 11);   // triangle hit, 'closesthit' invoked
   VERIFY_ARE_EQUAL(Histo[40], 1019); // procedural hit, 'chAABB' invoked
 }
+
+TEST_F(ExecutionTest, SERReorderCoherentTest) {
+  // SER: Test reordercoherent
+  static const char *ShaderSrc = R"(
+struct SceneConstants
+{
+    float4 eye;
+    float4 U;
+    float4 V;
+    float4 W;
+    float sceneScale;
+    uint2 windowSize;
+    int rayFlags;
+};
+
+struct[raypayload] PerRayData
+{
+    uint visited : read(anyhit,closesthit,miss,caller) : write(anyhit,miss,closesthit,caller);
+};
+
+struct Attrs
+{
+    float2 barycentrics : BARYCENTRICS;
+};
+
+reordercoherent RWStructuredBuffer<int> testBuffer : register(u0);
+RaytracingAccelerationStructure topObject : register(t0);
+ConstantBuffer<SceneConstants> sceneConstants : register(b0);
+
+RayDesc ComputeRay()
+{
+    uint2   launchIndex = DispatchRaysIndex().xy;
+    uint2   launchDim = DispatchRaysDimensions().xy;
+
+    float2 d = float2(DispatchRaysIndex().xy) / float2(DispatchRaysDimensions().xy) * 2.0f - 1.0f;
+    RayDesc ray;
+    ray.Origin = sceneConstants.eye.xyz;
+    ray.Direction = normalize(d.x*sceneConstants.U.xyz + d.y*sceneConstants.V.xyz + sceneConstants.W.xyz);
+    ray.TMin = 0;
+    ray.TMax = 1e18;
+
+    return ray;
+}
+
+[shader("raygeneration")]
+void raygen()
+{
+    uint2 launchIndex = DispatchRaysIndex().xy;
+    uint2 launchDim = DispatchRaysDimensions().xy;
+    uint threadId = launchIndex.x + launchIndex.y * launchDim.x;
+
+    RayDesc ray = ComputeRay();
+
+    PerRayData payload;
+    payload.visited = 0;
+
+    // Initial test value.
+    testBuffer[threadId] = threadId;
+
+    dx::HitObject hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, payload);
+
+    // Conditionally update the test value.
+    if (hitObject.IsHit())
+    {
+        testBuffer[threadId] += 10; // Add 10 to hits
+    }
+    else
+    {
+        testBuffer[threadId] += 20; // Add 20 to misses
+    }
+
+    Barrier(UAV_MEMORY, REORDER_SCOPE);
+    dx::MaybeReorderThread(hitObject);
+
+    // Conditionally update the test value.
+    if (threadId % 2 == 0)
+    {
+        testBuffer[threadId] += 1000; // Add 1000 to even threads
+    }
+    else
+    {
+        testBuffer[threadId] += 2000; // Add 2000 to odd threads
+    }
+
+    // Verify test value.
+    uint expectedValue = (hitObject.IsHit() ? threadId + 10 : threadId + 20);
+    expectedValue += (threadId % 2 == 0 ? 1000 : 2000);
+    if (testBuffer[threadId] != expectedValue)
+    {
+        // Mark failure in the buffer if the result does not match
+        testBuffer[threadId] = 0;
+    }
+    else
+    {
+        testBuffer[threadId] = 1;
+    }
+}
+
+[shader("miss")]
+void miss(inout PerRayData payload)
+{
+    payload.visited |= 2U;
+}
+
+[shader("anyhit")]
+void anyhit(inout PerRayData payload, in Attrs attrs)
+{
+    payload.visited |= 1U;
+}
+
+[shader("closesthit")]
+void closesthit(inout PerRayData payload, in Attrs attrs)
+{
+    payload.visited |= 4U;
+}
+
+)";
+
+  CComPtr<ID3D12Device> Device;
+  if (!CreateDXRDevice(&Device, D3D_SHADER_MODEL_6_9, false))
+    return;
+
+  // Initialize test data.
+  const int WindowSize = 64;
+  std::vector<int> TestData(WindowSize * WindowSize, 0);
+  LPCWSTR Args[] = {L"-HV 2021", L"-Vd"};
+
+  RunDXRTest(Device, ShaderSrc, L"lib_6_9", Args, _countof(Args), TestData,
+             WindowSize, WindowSize, true /*useMesh*/,
+             false /*useProceduralGeometry*/, 1 /*payloadCount*/,
+             2 /*attributeCount*/);
+  std::map<int, int> Histo;
+  for (int Val : TestData)
+    ++Histo[Val];
+  VERIFY_ARE_EQUAL(Histo.size(), 1);
+  VERIFY_ARE_EQUAL(Histo[1], 4096);
+}

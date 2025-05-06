@@ -634,6 +634,7 @@ public:
   TEST_METHOD(SERMaybeReorderThreadTest)
   TEST_METHOD(SERDynamicHitObjectArrayTest);
   TEST_METHOD(SERWaveIncoherentHitTest);
+  TEST_METHOD(SERReorderCoherentTest);
 
   dxc::DxcDllSupport m_support;
 
