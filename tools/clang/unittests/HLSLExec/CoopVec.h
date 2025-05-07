@@ -448,6 +448,74 @@ public:
   uint8_t *getBuffer() { return Buffer; }
   const uint8_t *getBuffer() const { return Buffer; }
 
+  // Copy assignment operator
+  TestVector &operator=(const TestVector &other) {
+    if (this != &other) {
+      // Free existing buffer
+      if (Buffer) {
+#ifdef _MSC_VER
+        _aligned_free(Buffer);
+#else
+        std::free(Buffer);
+#endif
+        Buffer = nullptr;
+      }
+
+      // Copy metadata
+      NumVectors = other.NumVectors;
+      VectorSize = other.VectorSize;
+      ElementSize = other.ElementSize;
+      Stride = other.Stride;
+      TotalBytes = other.TotalBytes;
+
+      // Allocate new buffer
+      void *Ptr = nullptr;
+#ifdef _MSC_VER
+      Ptr = _aligned_malloc(TotalBytes, 16);
+#else
+      Ptr = std::aligned_alloc(16, TotalBytes);
+#endif
+      Buffer = reinterpret_cast<uint8_t *>(Ptr);
+
+      // Copy data
+      if (other.Buffer) {
+        std::memcpy(Buffer, other.Buffer, TotalBytes);
+      }
+    }
+    return *this;
+  }
+
+  // Move assignment operator
+  TestVector &operator=(TestVector &&other) noexcept {
+    if (this != &other) {
+      // Free existing buffer
+      if (Buffer) {
+#ifdef _MSC_VER
+        _aligned_free(Buffer);
+#else
+        std::free(Buffer);
+#endif
+      }
+
+      // Move metadata and buffer
+      NumVectors = other.NumVectors;
+      VectorSize = other.VectorSize;
+      ElementSize = other.ElementSize;
+      Stride = other.Stride;
+      TotalBytes = other.TotalBytes;
+      Buffer = other.Buffer;
+
+      // Reset the source object
+      other.NumVectors = 0;
+      other.VectorSize = 0;
+      other.ElementSize = 0;
+      other.Stride = 0;
+      other.TotalBytes = 0;
+      other.Buffer = nullptr;
+    }
+    return *this;
+  }
+
   template <typename T> T *getVector(size_t I) {
     uint8_t *Ptr = Buffer + I * Stride;
     return reinterpret_cast<T *>(Ptr);
@@ -477,6 +545,20 @@ public:
               ConvertFloat32ToFloat16((J == 0 || J == 1) ? 1.0f : 0.0f));
         } else {
           Vec[J] = static_cast<T>((J == 0 || J == 1) ? 1 : 0);
+        }
+    }
+  }
+
+  template <typename T> void fillAllOnesTestData() {
+    // Create a vector of (1, 1, 1, ...)
+    for (size_t I = 0; I < NumVectors; ++I) {
+      T *Vec = getVector<T>(I);
+      for (size_t J = 0; J < VectorSize; ++J)
+        if constexpr (std::is_same_v<T, DirectX::PackedVector::HALF>) {
+          // Special case for HALF, which requires conversion from float
+          Vec[J] = static_cast<T>(ConvertFloat32ToFloat16(1.0f));
+        } else {
+          Vec[J] = static_cast<T>(1);
         }
     }
   }
@@ -552,6 +634,199 @@ public:
       throw std::invalid_argument("Unsupported data type");
     }
     return Vec;
+  }
+
+  static TestVector
+  createAllOnesTestMatrix(size_t NumVectors, size_t VectorSize,
+                          D3D12_LINEAR_ALGEBRA_DATATYPE DataInterpretation) {
+    size_t ElementSize;
+    switch (DataInterpretation) {
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
+      ElementSize = sizeof(int8_t);
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
+      ElementSize = sizeof(float);
+      break;
+    default:
+      throw std::invalid_argument("Unsupported data type");
+    }
+    TestVector Vec(NumVectors, VectorSize, ElementSize);
+    switch (DataInterpretation) {
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
+      Vec.fillAllOnesTestData<int8_t>();
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
+      Vec.fillAllOnesTestData<float>();
+      break;
+    default:
+      throw std::invalid_argument("Unsupported data type");
+    }
+    return Vec;
+  }
+
+  D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO
+  getConversionInfo(ID3D12Device *D3DDevice,
+                    D3D12_LINEAR_ALGEBRA_DATATYPE DestDataType,
+                    D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT MatrixLayout) {
+    // Create source matrix info
+    D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO ConvertInfo = {};
+    ConvertInfo.SrcInfo.SrcDataType =
+        ::CoopVecHelpers::GetMatrixSrcDataType(DestDataType);
+    ConvertInfo.SrcInfo.SrcLayout =
+        D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR;
+
+    // Create destination matrix info
+    ConvertInfo.DestInfo.DestSize = 0; // Will be populated by driver
+    int DestEltSize = 0;
+    switch (DestDataType) {
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED:
+      ConvertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8;
+      DestEltSize = 1;
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
+      ConvertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
+      DestEltSize = 2; // FP16
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
+      ConvertInfo.DestInfo.DestDataType =
+          D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3;
+      DestEltSize = 1; // FP8
+      break;
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
+      ConvertInfo.DestInfo.DestDataType =
+          D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2;
+      DestEltSize = 1; // FP8
+      break;
+    }
+    ConvertInfo.SrcInfo.SrcStride = (UINT)getStride();
+    ConvertInfo.SrcInfo.SrcSize = (UINT)getTotalBytes();
+
+    ConvertInfo.DestInfo.DestLayout = MatrixLayout;
+    ConvertInfo.DestInfo.DestStride = 0;
+    ConvertInfo.DestInfo.NumRows = (UINT)getNumVectors();
+    ConvertInfo.DestInfo.NumColumns = (UINT)getVectorSize();
+
+    if (MatrixLayout == D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR) {
+      ConvertInfo.DestInfo.DestStride = (UINT)getVectorSize() * DestEltSize;
+    } else if (MatrixLayout ==
+               D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR) {
+      ConvertInfo.DestInfo.DestStride = (UINT)getNumVectors() * DestEltSize;
+    }
+
+    // Get destination size using preview interface
+    {
+      CComPtr<ID3D12DevicePreview> PreviewDevice;
+      VERIFY_SUCCEEDED(D3DDevice->QueryInterface(__uuidof(ID3D12DevicePreview),
+                                                 (void **)&PreviewDevice));
+
+      // Query required destination size
+      PreviewDevice->GetLinearAlgebraMatrixConversionDestinationInfo(
+          &ConvertInfo.DestInfo);
+    }
+
+    return ConvertInfo;
+  }
+
+  static TestVector
+  matrixVectorMultiply(const TestVector &Matrix, const TestVector &InputVector,
+                       const TestVector &Bias, bool HasBias,
+                       D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInterpretation,
+                       D3D12_LINEAR_ALGEBRA_DATATYPE InputType) {
+    bool IsFP32 = false;
+    switch (MatrixInterpretation) {
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
+      IsFP32 = true;
+      break;
+    default:
+      break;
+    }
+
+    TestVector ResultVec(InputVector.getNumVectors(), Matrix.getNumVectors(),
+                         sizeof(float));
+
+    if (IsFP32) {
+      for (int VecIdx = 0; VecIdx < InputVector.getNumVectors(); ++VecIdx) {
+        const DirectX::PackedVector::HALF *InputBiasFP16 =
+            Bias.getVector<DirectX::PackedVector::HALF>(0);
+        for (int OutputIdx = 0; OutputIdx < Matrix.getNumVectors();
+             ++OutputIdx) {
+          float Acc = 0;
+
+          for (int InputIdx = 0; InputIdx < Matrix.getVectorSize();
+               ++InputIdx) {
+            float InputElem;
+            if (InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
+              InputElem = InputVector.getVector<float>(VecIdx)[InputIdx];
+            } else {
+              InputElem = ConvertFloat16ToFloat32(
+                  InputVector.getVector<DirectX::PackedVector::HALF>(
+                      VecIdx)[InputIdx]);
+            }
+            float const MatrixElem =
+                Matrix.getVector<float>(OutputIdx)[InputIdx];
+            Acc += InputElem * MatrixElem;
+          }
+
+          if (HasBias) {
+            Acc += ConvertFloat16ToFloat32(InputBiasFP16[OutputIdx]);
+          }
+
+          float Result = Acc;
+          ResultVec.getVector<float>(VecIdx)[OutputIdx] = Result;
+        }
+      }
+    } else if (MatrixInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8) {
+      for (int VecIdx = 0; VecIdx < InputVector.getNumVectors(); ++VecIdx) {
+        const int32_t *InputBiasI32 = Bias.getVector<int32_t>(0);
+        for (int OutputIdx = 0; OutputIdx < Matrix.getNumVectors();
+             ++OutputIdx) {
+          int Acc = 0;
+
+          for (int InputIdx = 0; InputIdx < Matrix.getVectorSize();
+               ++InputIdx) {
+            int InputElem;
+            if (InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
+              InputElem = (int)InputVector.getVector<float>(VecIdx)[InputIdx];
+            } else {
+              InputElem = InputVector.getVector<int8_t>(VecIdx)[InputIdx];
+            }
+            int const MatrixElem =
+                Matrix.getVector<int8_t>(OutputIdx)[InputIdx];
+            Acc += InputElem * MatrixElem;
+          }
+
+          if (HasBias) {
+            Acc += InputBiasI32[OutputIdx];
+          }
+
+          float Result = float(Acc);
+          ResultVec.getVector<float>(VecIdx)[OutputIdx] = Result;
+        }
+      }
+    } else {
+      throw std::invalid_argument("Unsupported matrix interpretation");
+    }
+
+    return ResultVec;
   }
 };
 }; // namespace CoopVecHelpers
