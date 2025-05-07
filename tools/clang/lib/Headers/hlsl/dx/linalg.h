@@ -45,7 +45,7 @@ enum MatrixLayout {
 namespace details {
 
 template <typename T> struct IsUnsigned {
-  static const bool value = false;
+  static const bool Value = false;
 };
 
 template <> struct IsUnsigned<uint32_t> {
