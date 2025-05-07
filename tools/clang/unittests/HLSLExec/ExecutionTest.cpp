@@ -12350,10 +12350,11 @@ void ExecutionTest::runCoopVecMulSubtest(
 
   LogCommentFmt(
       L"Running test for InputPerThread: %d, OutputPerThread: %d, NumThreads: "
-      L"%d, NumLayers: %d, Bias: %s, MatrixLayout: %s",
+      L"%d, NumLayers: %d, Bias: %s, MatrixLayout: %s, Stage: %s",
       Config.InputPerThread, Config.OutputPerThread, Config.NumThreads,
       Config.NumLayers, Config.Bias ? L"true" : L"false",
-      CoopVecHelpers::MatrixLayoutToFilterString(Config.MatrixLayout).c_str());
+      CoopVecHelpers::MatrixLayoutToFilterString(Config.MatrixLayout).c_str(),
+      RunCompute ? L"Compute" : L"Pixel");
 
   const int OutputBufferSize = (Config.OutputPerThread * Config.NumThreads * 4);
 
@@ -12828,8 +12829,7 @@ float4 ps_main() : SV_Target {
             fabs(Result - Expected) > 0.00001) {
           LogErrorFmt(L"Result mismatch at index %d",
                       i * Config.OutputPerThread + j);
-          LogErrorFmt(L"Result: %f, Expected: %f  (stage: %s)", Result,
-                      Expected, RunCompute ? L"compute" : L"pixel");
+          LogErrorFmt(L"Result: %f, Expected: %f", Result, Expected);
           Equal = false;
         }
       }
