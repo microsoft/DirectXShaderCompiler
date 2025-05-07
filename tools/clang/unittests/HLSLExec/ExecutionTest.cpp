@@ -12423,7 +12423,7 @@ void ExecutionTest::runCoopVecMulSubtest(
   }
 
   // Create the compute pipeline state for the CoopVec shader
-  CComPtr<ID3D12PipelineState> ComputePipelineState;
+  CComPtr<ID3D12PipelineState> PipelineState;
 
   std::string ShaderSource = R"(
 #include "dx/linalg.h"
@@ -12612,7 +12612,7 @@ float4 ps_main() : SV_Target {
 
   if (RunCompute) {
     CreateComputePSO(D3DDevice, RootSignature, ShaderSource.c_str(), L"cs_6_9",
-                     &ComputePipelineState, Options, _countof(Options),
+                     &PipelineState, Options, _countof(Options),
                      IncludeHandler);
   } else {
     CComPtr<ID3DBlob> VertexShader;
@@ -12638,7 +12638,7 @@ float4 ps_main() : SV_Target {
     PsoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
     PsoDesc.SampleDesc.Count = 1;
     VERIFY_SUCCEEDED(D3DDevice->CreateGraphicsPipelineState(
-        &PsoDesc, IID_PPV_ARGS(&ComputePipelineState)));
+        &PsoDesc, IID_PPV_ARGS(&PipelineState)));
   }
 
   // Create a command list for the compute shader.
@@ -12652,7 +12652,7 @@ float4 ps_main() : SV_Target {
   VERIFY_SUCCEEDED(D3DDevice->CreateCommandAllocator(
       D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CommandAllocator)));
   VERIFY_SUCCEEDED(D3DDevice->CreateCommandList(
-      0, D3D12_COMMAND_LIST_TYPE_DIRECT, CommandAllocator, ComputePipelineState,
+      0, D3D12_COMMAND_LIST_TYPE_DIRECT, CommandAllocator, PipelineState,
       IID_PPV_ARGS(&CommandList)));
 
   std::vector<CComPtr<ID3D12Resource>> InputMatrixSRVResources(
@@ -12752,7 +12752,7 @@ float4 ps_main() : SV_Target {
   ExecuteCommandList(CommandQueue, CommandList);
   WaitForSignal(CommandQueue, FO);
   VERIFY_SUCCEEDED(CommandAllocator->Reset());
-  VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, ComputePipelineState));
+  VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, PipelineState));
 
   SetDescriptorHeap(CommandList, DescriptorHeap);
 
@@ -12766,7 +12766,7 @@ float4 ps_main() : SV_Target {
   if (RunCompute) {
     CommandList->SetComputeRootSignature(RootSignature);
     CommandList->SetComputeRootDescriptorTable(0, ResHandle);
-    CommandList->SetPipelineState(ComputePipelineState);
+    CommandList->SetPipelineState(PipelineState);
     CommandList->Dispatch(1, 1, 1);
   } else {
     UINT FrameCount = 1;
@@ -13038,7 +13038,7 @@ void ExecutionTest::runCoopVecOuterProductSubtest(
   }
 
   // Create a compute pipeline state object.
-  CComPtr<ID3D12PipelineState> ComputePipelineState;
+  CComPtr<ID3D12PipelineState> PipelineState;
 
   std::string ShaderSource = R"(
 #include "dx/linalg.h"
@@ -13173,7 +13173,7 @@ float4 ps_main() : SV_Target {
 
   if (RunCompute) {
     CreateComputePSO(D3DDevice, RootSignature, ShaderSource.c_str(), L"cs_6_9",
-                     &ComputePipelineState, Options, _countof(Options),
+                     &PipelineState, Options, _countof(Options),
                      IncludeHandler);
   } else {
     CComPtr<ID3DBlob> VertexShader;
@@ -13199,7 +13199,7 @@ float4 ps_main() : SV_Target {
     PsoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
     PsoDesc.SampleDesc.Count = 1;
     VERIFY_SUCCEEDED(D3DDevice->CreateGraphicsPipelineState(
-        &PsoDesc, IID_PPV_ARGS(&ComputePipelineState)));
+        &PsoDesc, IID_PPV_ARGS(&PipelineState)));
   }
 
   // Create a command list for the compute shader.
@@ -13213,7 +13213,7 @@ float4 ps_main() : SV_Target {
   VERIFY_SUCCEEDED(D3DDevice->CreateCommandAllocator(
       D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CommandAllocator)));
   VERIFY_SUCCEEDED(D3DDevice->CreateCommandList(
-      0, D3D12_COMMAND_LIST_TYPE_DIRECT, CommandAllocator, ComputePipelineState,
+      0, D3D12_COMMAND_LIST_TYPE_DIRECT, CommandAllocator, PipelineState,
       IID_PPV_ARGS(&CommandList)));
 
   CComPtr<ID3D12Resource> InputMatrixSRVResource, InputMatrixSRVUploadResource;
@@ -13354,7 +13354,7 @@ float4 ps_main() : SV_Target {
   ExecuteCommandList(CommandQueue, CommandList);
   WaitForSignal(CommandQueue, FO);
   VERIFY_SUCCEEDED(CommandAllocator->Reset());
-  VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, ComputePipelineState));
+  VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, PipelineState));
 
   SetDescriptorHeap(CommandList, DescriptorHeap);
 
@@ -13368,7 +13368,7 @@ float4 ps_main() : SV_Target {
   if (RunCompute) {
     CommandList->SetComputeRootSignature(RootSignature);
     CommandList->SetComputeRootDescriptorTable(0, ResHandle);
-    CommandList->SetPipelineState(ComputePipelineState);
+    CommandList->SetPipelineState(PipelineState);
     CommandList->Dispatch(1, 1, 1);
   } else {
     UINT FrameCount = 1;
@@ -13414,7 +13414,7 @@ float4 ps_main() : SV_Target {
   WaitForSignal(CommandQueue, FO);
 
   VERIFY_SUCCEEDED(CommandAllocator->Reset());
-  VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, ComputePipelineState));
+  VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, PipelineState));
 
   // Convert matrix to sint8/fp32 row-major format before reading back to the
   // CPU. A new resource is created, along with a readback resource, for the
