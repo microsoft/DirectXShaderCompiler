@@ -14019,8 +14019,8 @@ bool SpirvEmitter::processTessellationShaderAttributes(
 }
 
 bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
-    const FunctionDecl *decl, SpirvDebugFunction *debugFunction,
-    SpirvFunction *entryFuncInstr) {
+    const FunctionDecl *decl, RichDebugInfo **info,
+    SpirvDebugFunction *debugFunction, SpirvFunction *entryFuncInstr) {
   // The entry basic block.
   auto *entryLabel = spvBuilder.createBasicBlock();
   spvBuilder.setInsertPoint(entryLabel);
@@ -14128,6 +14128,10 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
 
   spvBuilder.createReturn(decl->getBody()->getLocEnd());
   spvBuilder.endFunction();
+
+  if (spirvOptions.debugInfoRich && decl->hasBody()) {
+    spvContext.popDebugLexicalScope(*info);
+  }
 
   return true;
 }
@@ -14343,7 +14347,9 @@ SpirvFunction *SpirvEmitter::emitEntryFunctionWrapper(
       astContext.VoidTy, decl->getLocStart(), decl->getName());
 
   if (spirvOptions.debugInfoRich && decl->hasBody()) {
-    *debugFunction = emitDebugFunction(decl, entryFunction, info, "wrapper");
+    *debugFunction =
+        emitDebugFunction(decl, entryFunction, info, "__dxc_setup");
+    spvContext.pushDebugLexicalScope(*info, *debugFunction);
   }
 
   // Specify that entryFunction is an entry function wrapper.
@@ -14360,7 +14366,7 @@ SpirvFunction *SpirvEmitter::emitEntryFunctionWrapper(
   entryInfo->entryFunction = entryFunction;
 
   if (spvContext.isRay()) {
-    return emitEntryFunctionWrapperForRayTracing(decl, *debugFunction,
+    return emitEntryFunctionWrapperForRayTracing(decl, info, *debugFunction,
                                                  entryFuncInstr)
                ? entryFunction
                : nullptr;
@@ -14600,6 +14606,10 @@ SpirvFunction *SpirvEmitter::emitEntryFunctionWrapper(
   // We should invoke a translation of the PCF manually.
   if (spvContext.isHS())
     doDecl(patchConstFunc);
+
+  if (spirvOptions.debugInfoRich && decl->hasBody()) {
+    spvContext.popDebugLexicalScope(*info);
+  }
 
   return entryFunction;
 }

@@ -956,6 +956,7 @@ private:
   /// The wrapper function is also responsible for initializing global static
   /// variables for some cases.
   bool emitEntryFunctionWrapperForRayTracing(const FunctionDecl *entryFunction,
+                                             RichDebugInfo **info,
                                              SpirvDebugFunction *debugFunction,
                                              SpirvFunction *entryFuncId);
 
