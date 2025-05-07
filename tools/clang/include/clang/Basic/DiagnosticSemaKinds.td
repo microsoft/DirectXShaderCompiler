@@ -8034,6 +8034,8 @@ def err_hlsl_linalg_matrix_dim_must_not_be_zero: Error<
   "matrix dimension must not be zero">;
 def err_hlsl_linalg_matrix_layout_invalid : Error<
   "matrix layout %0 is not valid, must be in the range %1 - %2">;
+def err_hlsl_linalg_function_requires_shader_model_6_9_or_above : Error<
+  "intrinsic function %0 requires shader model 6.9 or greater">;
 
 def err_hlsl_linalg_mul_muladd_output_vector_size_not_equal_to_matrix_M : Error<
   "output vector length must be equal to Matrix M dimension in a linalg Mul/MulAdd operation">;

@@ -12267,13 +12267,43 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
     CheckBarrierCall(*this, FDecl, TheCall, SM);
     break;
   case hlsl::IntrinsicOp::IOP___builtin_MatVecMul:
+    if (!SM->IsSM69Plus()) {
+      Diags.Report(
+          TheCall->getExprLoc(),
+          diag::err_hlsl_linalg_function_requires_shader_model_6_9_or_above)
+          << FDecl->getNameAsString();
+      return;
+    }
     CheckMulCall(*this, FDecl, TheCall, SM);
     break;
   case hlsl::IntrinsicOp::IOP___builtin_MatVecMulAdd:
+    if (!SM->IsSM69Plus()) {
+      Diags.Report(
+          TheCall->getExprLoc(),
+          diag::err_hlsl_linalg_function_requires_shader_model_6_9_or_above)
+          << FDecl->getNameAsString();
+      return;
+    }
     CheckMulAddCall(*this, FDecl, TheCall, SM);
     break;
   case hlsl::IntrinsicOp::IOP___builtin_OuterProductAccumulate:
+    if (!SM->IsSM69Plus()) {
+      Diags.Report(
+          TheCall->getExprLoc(),
+          diag::err_hlsl_linalg_function_requires_shader_model_6_9_or_above)
+          << FDecl->getNameAsString();
+      return;
+    }
     CheckOuterProductAccumulateCall(*this, FDecl, TheCall);
+    break;
+  case hlsl::IntrinsicOp::IOP___builtin_VectorAccumulate:
+    if (!SM->IsSM69Plus()) {
+      Diags.Report(
+          TheCall->getExprLoc(),
+          diag::err_hlsl_linalg_function_requires_shader_model_6_9_or_above)
+          << FDecl->getNameAsString();
+      return;
+    }
     break;
 #ifdef ENABLE_SPIRV_CODEGEN
   case hlsl::IntrinsicOp::IOP_Vkreinterpret_pointer_cast:
