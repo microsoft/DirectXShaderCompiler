@@ -12476,10 +12476,6 @@ void main(uint threadIdx : SV_GroupThreadID)
 }
 )";
 
-#if 0
-    printf("%s\n", ShaderSource.c_str());
-#endif
-
     auto CreateDefineFromInt = [](const wchar_t *Name, int Value) {
       std::wstringstream Stream;
       Stream << L"-D" << Name << L"=" << Value;
@@ -12573,14 +12569,6 @@ void main(uint threadIdx : SV_GroupThreadID)
         NumLayersDefine.c_str(),
         BiasInterpretationEnumDefine.c_str(),
     };
-
-#if 0
-    // Print options for debugging
-    WEX::Logging::Log::Comment(L"Shader compilation options:");
-    for (UINT i = 0; i < _countof(Options); i++) {
-      WEX::Logging::Log::Comment(Options[i]);
-    }
-#endif
 
     CComPtr<LinAlgHeaderIncludeHandler> IncludeHandler =
         new LinAlgHeaderIncludeHandler(m_support);
