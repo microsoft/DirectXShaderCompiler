@@ -33,11 +33,16 @@ entry:
   %hit = alloca %dx.types.HitObject, align 4
   %tmp = alloca %dx.types.HitObject, align 4
   %ray = alloca %struct.RayDesc, align 4
-; CHECK-NOT: %{{[^ ]+}} = alloca %struct.RayDesc
+; CHECK: %[[RDA:[^ ]+]] = alloca %struct.RayDesc
+; CHECK: %[[RDO:[^ ]+]] = alloca <3 x float>
+; CHECK: %[[RDMIN:[^ ]+]] = alloca float
+; CHECK: %[[RDD:[^ ]+]] = alloca <3 x float>
+; CHECK: %[[RDTMAX:[^ ]+]] = alloca float
   %tmp2 = alloca %dx.types.HitObject, align 4
 ; CHECK: %[[HIT0:[^ ]+]] = alloca %dx.types.HitObject, align 4
 ; CHECK: %[[HIT1:[^ ]+]] = alloca %dx.types.HitObject, align 4
 ; CHECK: %[[HIT2:[^ ]+]] = alloca %dx.types.HitObject, align 4
+; CHECK-NOT: alloca
   %0 = bitcast %dx.types.HitObject* %hit to i8*, !dbg !23 ; line:42 col:3
   call void @llvm.lifetime.start(i64 4, i8* %0) #0, !dbg !23 ; line:42 col:3
 ; CHECK:  %[[THIS0:[^ ]+]] = call %dx.types.HitObject* @"dx.hl.op..%dx.types.HitObject* (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %[[HIT0]])
@@ -61,15 +66,20 @@ entry:
   store float 1.000000e+03, float* %8, !dbg !30 ; line:44 col:17
   %9 = bitcast %dx.types.HitObject* %tmp2 to i8*, !dbg !31 ; line:45 col:3
   call void @llvm.lifetime.start(i64 4, i8* %9) #0, !dbg !31 ; line:45 col:3
-; CHECK: store <3 x float> zeroinitializer, <3 x float>* %[[pRDO:[^ ]+]],
-; CHECK: store float 0.000000e+00, float* %[[pRDTMIN:[^ ]+]],
-; CHECK: store <3 x float> <float 0.000000e+00, float 1.000000e+00, float 0x3FA99999A0000000>, <3 x float>* %[[pRDD:[^ ]+]],
-; CHECK: store float 1.000000e+03, float* %[[pRDTMAX:[^ ]+]],
-; CHECK-DAG: %[[RDO:[^ ]+]] = load <3 x float>, <3 x float>* %[[pRDO]],
-; CHECK-DAG: %[[RDTMIN:[^ ]+]] = load float, float* %[[pRDTMIN]],
-; CHECK-DAG: %[[RDD:[^ ]+]] = load <3 x float>, <3 x float>* %[[pRDD]],
-; CHECK-DAG: %[[RDTMAX:[^ ]+]] = load float, float* %[[pRDTMAX]],
-; CHECK:  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 387, %dx.types.HitObject* %[[HIT2]], i32 0, i32 1, <3 x float> %[[RDO]], float %[[RDTMIN]], <3 x float> %[[RDD]], float %[[RDTMAX]])
+; CHECK:  %[[OPTR:[^ ]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %[[RDA]], i32 0, i32 0
+; CHECK:  %[[O:[^ ]+]] = load <3 x float>, <3 x float>* %[[RDO]]
+; CHECK:  store <3 x float> %[[O]], <3 x float>* %[[OPTR]]
+; CHECK:  %[[MINPTR:[^ ]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %[[RDA]], i32 0, i32 1
+; CHECK:  %[[MIN:[^ ]+]] = load float, float* %[[RDMIN]]
+; CHECK:  store float %[[MIN]], float* %[[MINPTR]]
+; CHECK:  %[[DIRPTR:[^ ]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %[[RDA]], i32 0, i32 2
+; CHECK:  %[[DIR:[^ ]+]] = load <3 x float>, <3 x float>* %[[RDD]]
+; CHECK:  store <3 x float> %[[DIR]], <3 x float>* %[[DIRPTR]]
+; CHECK:  %[[MAXPTR:[^ ]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %[[RDA]], i32 0, i32 3
+; CHECK:  %[[MAX:[^ ]+]] = load float, float* %[[RDTMAX]]
+; CHECK:  store float %[[MAX]], float* %[[MAXPTR]]
+; CHECK:  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.RayDesc*)"(i32 387, %dx.types.HitObject* %[[HIT2]], i32 0, i32 1, %struct.RayDesc* %[[RDA]])
+
   call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.RayDesc*)"(i32 387, %dx.types.HitObject* %tmp2, i32 0, i32 1, %struct.RayDesc* %ray), !dbg !31 ; line:45 col:3
   %10 = bitcast %dx.types.HitObject* %tmp2 to i8*, !dbg !31 ; line:45 col:3
   call void @llvm.lifetime.end(i64 4, i8* %10) #0, !dbg !31 ; line:45 col:3
