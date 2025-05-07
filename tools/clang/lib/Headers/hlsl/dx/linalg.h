@@ -44,26 +44,22 @@ enum MatrixLayout {
 //
 namespace details {
 
-template <typename T> 
-  struct IsUnsigned {
-    static const bool value = false;
-  };
+template <typename T> struct IsUnsigned {
+  static const bool value = false;
+};
 
-template <>
-  struct IsUnsigned<uint32_t> {
-    static const bool value = true;
-  };
+template <> struct IsUnsigned<uint32_t> {
+  static const bool value = true;
+};
 
-template <>
-  struct IsUnsigned<uint64_t> {
-    static const bool value = true;
-  };
+template <> struct IsUnsigned<uint64_t> {
+  static const bool value = true;
+};
 
 #ifdef __HLSL_ENABLE_16_BIT
-  template <>
-  struct IsUnsigned<uint16_t> {
-    static const bool value = true;
-  };
+template <> struct IsUnsigned<uint16_t> {
+  static const bool value = true;
+};
 #endif //__HLSL_ENABLE_16_BIT
 } // namespace details
 
@@ -130,10 +126,10 @@ Mul(MatrixRefImpl<MatrixBufferTy, MatrixDT, MatrixM, MatrixK, MatrixLayout,
   vector<OutputElTy, MatrixM> OutputVector;
 
   __builtin_MatVecMul(
-      /*out*/ OutputVector, details::IsUnsigned<OutputElTy>::value, InputVector.Data,
-      details::IsUnsigned<InputElTy>::value, InputDT, Matrix.Buffer,
-      Matrix.StartOffset, MatrixDT, MatrixM, MatrixK, MatrixLayout,
-      MatrixTranspose, Matrix.Stride);
+      /*out*/ OutputVector, details::IsUnsigned<OutputElTy>::value,
+      InputVector.Data, details::IsUnsigned<InputElTy>::value, InputDT,
+      Matrix.Buffer, Matrix.StartOffset, MatrixDT, MatrixM, MatrixK,
+      MatrixLayout, MatrixTranspose, Matrix.Stride);
 
   return OutputVector;
 }
@@ -157,11 +153,11 @@ MulAdd(MatrixRefImpl<MatrixBufferTy, MatrixDT, MatrixM, MatrixK, MatrixLayout,
   vector<OutputElTy, MatrixM> OutputVector;
 
   __builtin_MatVecMulAdd(
-      /*out*/ OutputVector, details::IsUnsigned<OutputElTy>::value, InputVector.Data,
-      details::IsUnsigned<InputElTy>::value, InputDT, Matrix.Buffer,
-      Matrix.StartOffset, MatrixDT, MatrixM, MatrixK, MatrixLayout,
-      MatrixTranspose, Matrix.Stride, BiasVector.Buffer, BiasVector.StartOffset,
-      BiasVectorDT);
+      /*out*/ OutputVector, details::IsUnsigned<OutputElTy>::value,
+      InputVector.Data, details::IsUnsigned<InputElTy>::value, InputDT,
+      Matrix.Buffer, Matrix.StartOffset, MatrixDT, MatrixM, MatrixK,
+      MatrixLayout, MatrixTranspose, Matrix.Stride, BiasVector.Buffer,
+      BiasVector.StartOffset, BiasVectorDT);
 
   return OutputVector;
 }
