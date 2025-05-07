@@ -162,8 +162,7 @@ void test_invalid_bias_interpretation_value() {
                          matrix_stride, bias_buffer, bias_offset,
                          bias_interpretation_9);
 
-  const uint bias_interpretation_10 = 16;
-  
+  const uint bias_interpretation_10 = 16;  
   
   // expected-error@+6 {{16 is an invalid Memory Interpretation value}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
