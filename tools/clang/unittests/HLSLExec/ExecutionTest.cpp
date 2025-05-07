@@ -12509,6 +12509,13 @@ float4 vs_main(uint vid : SV_VertexID) : SV_Position {
 float4 ps_main() : SV_Target {
   uint threadIdx;
   InterlockedAdd(AtomicCounter[0], 1, threadIdx);
+  // threadIdx may exceed NUM_THREADS, but bounds checking on the vector
+  // loads/stores will prevent any faults from occurring. This lets us
+  // exercise the CoopVec implementation on more threads, giving us
+  // further confidence that there are no bad interactions between "good"
+  // threads and threads that fail bounds checking and operate on all-zero
+  // input data. This also gives us some additional testing of long vector
+  // bounds-checking.
   RunCoopVecTest(threadIdx);
   return float4(1, 1, 1, 1);
 }
@@ -13094,7 +13101,8 @@ float4 vs_main(uint vid : SV_VertexID) : SV_Position {
 float4 ps_main() : SV_Target {
   uint threadIdx;
   InterlockedAdd(AtomicCounter[0], 1, threadIdx);
-  RunCoopVecTest(threadIdx);
+  if (threadIdx < NUM_THREADS)
+    RunCoopVecTest(threadIdx);
   return float4(1, 1, 1, 1);
 }
 )";
