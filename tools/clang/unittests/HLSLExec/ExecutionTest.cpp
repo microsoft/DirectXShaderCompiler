@@ -814,7 +814,7 @@ public:
   void runCoopVecOuterProductSubtest(
       ID3D12Device *D3DDevice,
       D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps,
-      CoopVecOuterProductSubtestConfig &Config);
+      CoopVecOuterProductSubtestConfig &Config, bool RunCompute);
 
 #endif // HAVE_COOPVEC_API
 
@@ -12913,29 +12913,41 @@ void ExecutionTest::runCoopVecOuterProductTestConfig(
       continue;
     }
 
-    runCoopVecOuterProductSubtest(D3DDevice, AccumulateProps, Config);
+    // Run once in compute, then once in graphics (pixel shader)
+    runCoopVecOuterProductSubtest(D3DDevice, AccumulateProps, Config, true);
+    runCoopVecOuterProductSubtest(D3DDevice, AccumulateProps, Config, false);
   }
 }
 
 void ExecutionTest::runCoopVecOuterProductSubtest(
     ID3D12Device *D3DDevice,
     D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps,
-    CoopVecOuterProductSubtestConfig &Config) {
+    CoopVecOuterProductSubtestConfig &Config, bool RunCompute) {
 
   LogCommentFmt(
-      L"Running test for DimM: %d, DimN: %d, NumThreads: %d, MatrixLayout: %s",
+      L"Running test for DimM: %d, DimN: %d, NumThreads: %d, MatrixLayout: %s, "
+      L"Stage: %s",
       Config.DimM, Config.DimN, Config.NumThreads,
-      CoopVecHelpers::MatrixLayoutToFilterString(Config.MatrixLayout).c_str());
+      CoopVecHelpers::MatrixLayoutToFilterString(Config.MatrixLayout).c_str(),
+      RunCompute ? L"Compute" : L"Pixel");
 
   // Create root signature with a single root entry for all SRVs and UAVs
   CComPtr<ID3D12RootSignature> RootSignature;
   {
-    CD3DX12_DESCRIPTOR_RANGE ranges[2];
-    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0,
-                   0); // InputVector1, InputVector2
-    ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0); // AccumMatrix
-    CreateRootSignatureFromRanges(D3DDevice, &RootSignature, ranges, 2, nullptr,
-                                  0);
+    CD3DX12_DESCRIPTOR_RANGE Ranges[2];
+    Ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0);
+    Ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
+
+    CD3DX12_ROOT_PARAMETER RootParams[2];
+    RootParams[0].InitAsDescriptorTable(_countof(Ranges), Ranges,
+                                        D3D12_SHADER_VISIBILITY_ALL);
+    RootParams[1].InitAsUnorderedAccessView(/* register */ 10, /* space */ 0,
+                                            D3D12_SHADER_VISIBILITY_ALL);
+
+    CD3DX12_ROOT_SIGNATURE_DESC RootSignatureDesc;
+    RootSignatureDesc.Init(_countof(RootParams), RootParams, 0, nullptr,
+                           D3D12_ROOT_SIGNATURE_FLAG_NONE);
+    CreateRootSignatureFromDesc(D3DDevice, &RootSignatureDesc, &RootSignature);
   }
 
   // Create descriptor heap with space for 3 descriptors: 2 SRVs and 1 UAV
@@ -13027,17 +13039,17 @@ void ExecutionTest::runCoopVecOuterProductSubtest(
 
   // Create a compute pipeline state object.
   CComPtr<ID3D12PipelineState> ComputePipelineState;
-  {
-    std::string ShaderSource = R"(
+
+  std::string ShaderSource = R"(
 #include "dx/linalg.h"
 
 ByteAddressBuffer InputVector1 : register(t0);
 ByteAddressBuffer InputVector2 : register(t1);
 RWByteAddressBuffer AccumMatrix : register(u0);
 
-[shader("compute")]
-[numthreads(NUM_THREADS, 1, 1)]
-void main(uint threadIdx : SV_GroupThreadID)
+RWStructuredBuffer<uint> AtomicCounter : register(u10);
+
+void RunCoopVecTest(uint threadIdx)
 {
   using namespace dx::linalg;
 
@@ -13052,94 +13064,142 @@ void main(uint threadIdx : SV_GroupThreadID)
 
   OuterProductAccumulate(input1, input2, mat);
 }
-    )";
 
-    auto CreateDefineFromInt = [](const wchar_t *Name, int Value) {
-      std::wstringstream Stream;
-      Stream << L"-D" << Name << L"=" << Value;
-      return Stream.str();
-    };
+[shader("compute")]
+[numthreads(NUM_THREADS, 1, 1)]
+void main(uint threadIdx : SV_GroupThreadID)
+{
+  RunCoopVecTest(threadIdx);
+}
 
-    auto CreateDefineFromString = [](const wchar_t *Name,
-                                     const wchar_t *Value) {
-      std::wstringstream Stream;
-      Stream << L"-D" << Name << L"=" << Value;
-      return Stream.str();
-    };
+float4 vs_main(uint vid : SV_VertexID) : SV_Position {
+  switch (vid) {
+  case 0:
+    return float4(-1, 1, 0, 0);
+  case 1:
+    return float4(3, 1, 0, 0);
+  case 2:
+    return float4(-1, -3, 0, 0);
+  }
+  return float4(0, 0, 0, 0);
+}
 
-    int Stride = 0;
-    const std::wstring HlslMatrixLayout =
-        CoopVecHelpers::MatrixLayoutToHlslLayoutString(Config.MatrixLayout);
-    int StrideMultiplier = CoopVecHelpers::GetStrideMultiplierForMatrixDataType(
-        AccumulateProps.AccumulationType);
-    switch (Config.MatrixLayout) {
-    case D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR:
-      Stride = Config.DimN * StrideMultiplier;
-      break;
-    case D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR:
-      Stride = Config.DimM * StrideMultiplier;
-      break;
-    }
+float4 ps_main() : SV_Target {
+  uint threadIdx;
+  InterlockedAdd(AtomicCounter[0], 1, threadIdx);
+  RunCoopVecTest(threadIdx);
+  return float4(1, 1, 1, 1);
+}
+)";
 
-    const int InputDivisor =
-        CoopVecHelpers::GetNumPackedElementsForInputDataType(
-            AccumulateProps.InputType);
-    const std::wstring InputDataType =
-        CoopVecHelpers::GetHlslDataTypeForDataType(AccumulateProps.InputType);
-    const std::wstring AccumDataType =
-        CoopVecHelpers::GetHlslDataTypeForDataType(
-            AccumulateProps.AccumulationType);
-    const std::wstring MatrixDataTypeEnum =
-        CoopVecHelpers::GetHlslInterpretationForDataType(
-            AccumulateProps.AccumulationType);
-    const std::wstring InputInterpretationEnum =
-        CoopVecHelpers::GetHlslInterpretationForDataType(
-            AccumulateProps.InputType);
+  auto CreateDefineFromInt = [](const wchar_t *Name, int Value) {
+    std::wstringstream Stream;
+    Stream << L"-D" << Name << L"=" << Value;
+    return Stream.str();
+  };
 
-    auto DimMDefine = CreateDefineFromInt(L"DIM_M", Config.DimM);
-    auto DimNDefine = CreateDefineFromInt(L"DIM_N", Config.DimN);
-    auto NumThreadsDefine =
-        CreateDefineFromInt(L"NUM_THREADS", Config.NumThreads);
-    auto StrideDefine = CreateDefineFromInt(L"STRIDE", Stride);
-    auto InputDataTypeDefine =
-        CreateDefineFromString(L"INPUT_DATA_TYPE", InputDataType.c_str());
-    auto InputDivisorDefine =
-        CreateDefineFromInt(L"INPUT_DIVISOR", InputDivisor);
-    auto AccumDataTypeDefine =
-        CreateDefineFromString(L"ACCUM_DATA_TYPE", AccumDataType.c_str());
-    auto InputInterpretationEnumDefine = CreateDefineFromString(
-        L"INPUT_INTERPRETATION_ENUM", InputInterpretationEnum.c_str());
-    auto HlslMatrixLayoutDefine =
-        CreateDefineFromString(L"HLSL_MATRIX_LAYOUT", HlslMatrixLayout.c_str());
-    auto MatrixDataTypeEnumDefine = CreateDefineFromString(
-        L"MATRIX_DATA_TYPE_ENUM", MatrixDataTypeEnum.c_str());
-    auto InputVector1StrideDefine = CreateDefineFromInt(
-        L"INPUT_VECTOR_1_STRIDE", (int)InputVector1.getStride());
-    auto InputVector2StrideDefine = CreateDefineFromInt(
-        L"INPUT_VECTOR_2_STRIDE", (int)InputVector2.getStride());
+  auto CreateDefineFromString = [](const wchar_t *Name, const wchar_t *Value) {
+    std::wstringstream Stream;
+    Stream << L"-D" << Name << L"=" << Value;
+    return Stream.str();
+  };
 
-    LPCWSTR Options[] = {
-        L"-enable-16bit-types",
-        DimMDefine.c_str(),
-        DimNDefine.c_str(),
-        NumThreadsDefine.c_str(),
-        StrideDefine.c_str(),
-        InputDataTypeDefine.c_str(),
-        InputDivisorDefine.c_str(),
-        AccumDataTypeDefine.c_str(),
-        InputInterpretationEnumDefine.c_str(),
-        HlslMatrixLayoutDefine.c_str(),
-        MatrixDataTypeEnumDefine.c_str(),
-        InputVector1StrideDefine.c_str(),
-        InputVector2StrideDefine.c_str(),
-    };
+  int Stride = 0;
+  const std::wstring HlslMatrixLayout =
+      CoopVecHelpers::MatrixLayoutToHlslLayoutString(Config.MatrixLayout);
+  int StrideMultiplier = CoopVecHelpers::GetStrideMultiplierForMatrixDataType(
+      AccumulateProps.AccumulationType);
+  switch (Config.MatrixLayout) {
+  case D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR:
+    Stride = Config.DimN * StrideMultiplier;
+    break;
+  case D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR:
+    Stride = Config.DimM * StrideMultiplier;
+    break;
+  }
 
-    CComPtr<LinAlgHeaderIncludeHandler> IncludeHandler =
-        new LinAlgHeaderIncludeHandler(m_support);
+  const int InputDivisor = CoopVecHelpers::GetNumPackedElementsForInputDataType(
+      AccumulateProps.InputType);
+  const std::wstring InputDataType =
+      CoopVecHelpers::GetHlslDataTypeForDataType(AccumulateProps.InputType);
+  const std::wstring AccumDataType = CoopVecHelpers::GetHlslDataTypeForDataType(
+      AccumulateProps.AccumulationType);
+  const std::wstring MatrixDataTypeEnum =
+      CoopVecHelpers::GetHlslInterpretationForDataType(
+          AccumulateProps.AccumulationType);
+  const std::wstring InputInterpretationEnum =
+      CoopVecHelpers::GetHlslInterpretationForDataType(
+          AccumulateProps.InputType);
 
+  auto DimMDefine = CreateDefineFromInt(L"DIM_M", Config.DimM);
+  auto DimNDefine = CreateDefineFromInt(L"DIM_N", Config.DimN);
+  auto NumThreadsDefine =
+      CreateDefineFromInt(L"NUM_THREADS", Config.NumThreads);
+  auto StrideDefine = CreateDefineFromInt(L"STRIDE", Stride);
+  auto InputDataTypeDefine =
+      CreateDefineFromString(L"INPUT_DATA_TYPE", InputDataType.c_str());
+  auto InputDivisorDefine = CreateDefineFromInt(L"INPUT_DIVISOR", InputDivisor);
+  auto AccumDataTypeDefine =
+      CreateDefineFromString(L"ACCUM_DATA_TYPE", AccumDataType.c_str());
+  auto InputInterpretationEnumDefine = CreateDefineFromString(
+      L"INPUT_INTERPRETATION_ENUM", InputInterpretationEnum.c_str());
+  auto HlslMatrixLayoutDefine =
+      CreateDefineFromString(L"HLSL_MATRIX_LAYOUT", HlslMatrixLayout.c_str());
+  auto MatrixDataTypeEnumDefine = CreateDefineFromString(
+      L"MATRIX_DATA_TYPE_ENUM", MatrixDataTypeEnum.c_str());
+  auto InputVector1StrideDefine = CreateDefineFromInt(
+      L"INPUT_VECTOR_1_STRIDE", (int)InputVector1.getStride());
+  auto InputVector2StrideDefine = CreateDefineFromInt(
+      L"INPUT_VECTOR_2_STRIDE", (int)InputVector2.getStride());
+
+  LPCWSTR Options[] = {
+      L"-enable-16bit-types",
+      DimMDefine.c_str(),
+      DimNDefine.c_str(),
+      NumThreadsDefine.c_str(),
+      StrideDefine.c_str(),
+      InputDataTypeDefine.c_str(),
+      InputDivisorDefine.c_str(),
+      AccumDataTypeDefine.c_str(),
+      InputInterpretationEnumDefine.c_str(),
+      HlslMatrixLayoutDefine.c_str(),
+      MatrixDataTypeEnumDefine.c_str(),
+      InputVector1StrideDefine.c_str(),
+      InputVector2StrideDefine.c_str(),
+  };
+
+  CComPtr<LinAlgHeaderIncludeHandler> IncludeHandler =
+      new LinAlgHeaderIncludeHandler(m_support);
+
+  if (RunCompute) {
     CreateComputePSO(D3DDevice, RootSignature, ShaderSource.c_str(), L"cs_6_9",
                      &ComputePipelineState, Options, _countof(Options),
                      IncludeHandler);
+  } else {
+    CComPtr<ID3DBlob> VertexShader;
+    CComPtr<ID3DBlob> PixelShader;
+
+    CompileFromText(ShaderSource.c_str(), L"vs_main", L"vs_6_9", &VertexShader,
+                    Options, _countof(Options), IncludeHandler);
+    CompileFromText(ShaderSource.c_str(), L"ps_main", L"ps_6_9", &PixelShader,
+                    Options, _countof(Options), IncludeHandler);
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC PsoDesc = {};
+    // psoDesc.InputLayout;
+    PsoDesc.pRootSignature = RootSignature;
+    PsoDesc.VS = CD3DX12_SHADER_BYTECODE(VertexShader);
+    PsoDesc.PS = CD3DX12_SHADER_BYTECODE(PixelShader);
+    PsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    PsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    PsoDesc.DepthStencilState.DepthEnable = FALSE;
+    PsoDesc.DepthStencilState.StencilEnable = FALSE;
+    PsoDesc.SampleMask = UINT_MAX;
+    PsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    PsoDesc.NumRenderTargets = 1;
+    PsoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+    PsoDesc.SampleDesc.Count = 1;
+    VERIFY_SUCCEEDED(D3DDevice->CreateGraphicsPipelineState(
+        &PsoDesc, IID_PPV_ARGS(&ComputePipelineState)));
   }
 
   // Create a command list for the compute shader.
@@ -13282,6 +13342,14 @@ void main(uint threadIdx : SV_GroupThreadID)
                  ConvertedMatrixResource);
   }
 
+  // Create resource for atomic counter
+  CComPtr<ID3D12Resource> AtomicCounterResource;
+  uint32_t AtomicCounterInit = 0;
+  CreateTestResources(D3DDevice, CommandList, &AtomicCounterInit,
+                      sizeof(AtomicCounterInit),
+                      CD3DX12_RESOURCE_DESC::Buffer(sizeof(AtomicCounterInit)),
+                      &AtomicCounterResource, nullptr);
+
   CommandList->Close();
   ExecuteCommandList(CommandQueue, CommandList);
   WaitForSignal(CommandQueue, FO);
@@ -13293,10 +13361,54 @@ void main(uint threadIdx : SV_GroupThreadID)
   CD3DX12_GPU_DESCRIPTOR_HANDLE ResHandle(
       DescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
-  CommandList->SetComputeRootSignature(RootSignature);
-  CommandList->SetComputeRootDescriptorTable(0, ResHandle);
-  CommandList->SetPipelineState(ComputePipelineState);
-  CommandList->Dispatch(1, 1, 1);
+  CComPtr<ID3D12DescriptorHeap> RtvHeap;
+  CComPtr<ID3D12Resource> RenderTarget;
+  CComPtr<ID3D12Resource> RenderTargetRead;
+
+  if (RunCompute) {
+    CommandList->SetComputeRootSignature(RootSignature);
+    CommandList->SetComputeRootDescriptorTable(0, ResHandle);
+    CommandList->SetPipelineState(ComputePipelineState);
+    CommandList->Dispatch(1, 1, 1);
+  } else {
+    UINT FrameCount = 1;
+    UINT RtvDescSize = 0;
+    CreateRtvDescriptorHeap(D3DDevice, FrameCount, &RtvHeap, &RtvDescSize);
+    CreateRenderTargetAndReadback(D3DDevice, RtvHeap, 100, 100, &RenderTarget,
+                                  &RenderTargetRead);
+
+    D3D12_RESOURCE_DESC RtDesc = RenderTarget->GetDesc();
+    D3D12_VIEWPORT Viewport;
+    D3D12_RECT ScissorRect;
+
+    memset(&Viewport, 0, sizeof(Viewport));
+    Viewport.Height = (float)RtDesc.Height;
+    Viewport.Width = (float)RtDesc.Width;
+    Viewport.MaxDepth = 1.0f;
+    memset(&ScissorRect, 0, sizeof(ScissorRect));
+    ScissorRect.right = (long)RtDesc.Width;
+    ScissorRect.bottom = RtDesc.Height;
+    CommandList->SetGraphicsRootSignature(RootSignature);
+    CommandList->SetGraphicsRootDescriptorTable(0, ResHandle);
+    CommandList->SetGraphicsRootUnorderedAccessView(
+        1, AtomicCounterResource->GetGPUVirtualAddress());
+    CommandList->RSSetViewports(1, &Viewport);
+    CommandList->RSSetScissorRects(1, &ScissorRect);
+
+    // Indicate that the buffer will be used as a render target.
+    RecordTransitionBarrier(CommandList, RenderTarget,
+                            D3D12_RESOURCE_STATE_COPY_DEST,
+                            D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE RtvHandle(
+        RtvHeap->GetCPUDescriptorHandleForHeapStart(), 0, RtvDescSize);
+    CommandList->OMSetRenderTargets(1, &RtvHandle, FALSE, nullptr);
+
+    CommandList->ClearRenderTargetView(RtvHandle, ClearColor, 0, nullptr);
+    CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    CommandList->DrawInstanced(3, 1, 0, 0);
+  }
+
   CommandList->Close();
   ExecuteCommandList(CommandQueue, CommandList);
   WaitForSignal(CommandQueue, FO);
