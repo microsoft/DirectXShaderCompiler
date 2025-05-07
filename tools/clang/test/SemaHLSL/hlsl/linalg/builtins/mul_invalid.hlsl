@@ -1,39 +1,8 @@
-// RUN: %dxc -T lib_6_9 -enable-16bit-types %s -verify
+// RUN: %dxc -I %hlsl_headers -T lib_6_9 -enable-16bit-types %s -verify
 
-enum CompType {
-  Invalid = 0,
-  I1 = 1,
-  I16 = 2,
-  U16 = 3,
-  I32 = 4,
-  U32 = 5,
-  I64 = 6,
-  U64 = 7,
-  F16 = 8,
-  F32 = 9,
-  F64 = 10,
-  SNormF16 = 11,
-  UNormF16 = 12,
-  SNormF32 = 13,
-  UNormF32 = 14,
-  SNormF64 = 15,
-  UNormF64 = 16,
-  PackedS8x32 = 17,
-  PackedU8x32 = 18,
+#include <dx/linalg.h>
 
-  // BEGIN NEW FOR SM 6.9
-  U8 = 19,
-  I8 = 20,
-  F8_E4M3 = 21,
-  F8_E5M2 = 22,
-};
-
-enum MatLayout {
-  RowMajor = 0,
-  ColumnMajor = 1,
-  MulOptimal = 2,
-  OuterProductOptimal = 3,
-};
+using namespace dx::linalg;
 
 ByteAddressBuffer input_vector_buffer;
 ByteAddressBuffer matrix_buffer;
@@ -46,12 +15,12 @@ void test_invalid_output_vector_type() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR; // RowMajor
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -93,12 +62,12 @@ void test_invalid_is_output_unsigned_non_const() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR; // RowMajor
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -117,12 +86,12 @@ void test_invalid_input_vector_type() {
 
   vector<uint, 4> output_vector;
   const uint is_output_unsigned = 1;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR; // RowMajor
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -165,12 +134,12 @@ void test_invalid_input_vector_type_mismatch() {
 
   vector<uint, 4> output_vector;
   const uint is_output_unsigned = 1;
-  const uint input_interpretation = 9; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -213,14 +182,14 @@ void test_invalid_matrix_M_dimension() {
 
   vector<uint, 4> output_vector;
   const uint is_output_unsigned = 1;
-  const uint input_interpretation = CompType::F32; // F32   
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64; 
 
@@ -242,11 +211,11 @@ void test_invalid_matrix_K_dimension() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0; 
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -265,14 +234,14 @@ void test_invalid_matrix_M_dimension_non_zero() {
 
   vector<uint, 4> output_vector;
   const uint is_output_unsigned = 1;
-  const uint input_interpretation = CompType::F32; // F32   
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -290,14 +259,14 @@ void test_invalid_matrix_K_dimension_non_zero() {
 
   vector<uint, 4> output_vector;
   const uint is_output_unsigned = 1;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -319,10 +288,10 @@ void test_invalid_input_interpretation_non_const() {
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -345,14 +314,14 @@ void test_invalid_input_interpretation_value() {
       input_vector_buffer.Load<vector<float, 4> >(0);   
   const uint is_input_unsigned = 0;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32;
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatLayout::RowMajor;
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
-  const uint input_interpretation_0 = CompType::Invalid;
+  const uint input_interpretation_0 = 0;
 
   // expected-error@+2 {{0 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -361,7 +330,7 @@ void test_invalid_input_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint input_interpretation_1 = CompType::I1;
+  const uint input_interpretation_1 = 1;
 
   // expected-error@+2 {{1 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -370,7 +339,7 @@ void test_invalid_input_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint input_interpretation_2 = CompType::I64;
+  const uint input_interpretation_2 = 6;
 
   // expected-error@+2 {{6 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -379,7 +348,7 @@ void test_invalid_input_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint input_interpretation_3 = CompType::U64;
+  const uint input_interpretation_3 = 7;
 
   // expected-error@+2 {{7 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -388,7 +357,7 @@ void test_invalid_input_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);   
 
-  const uint input_interpretation_4 = CompType::F64;
+  const uint input_interpretation_4 = 10;
 
   // expected-error@+2 {{10 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -397,7 +366,7 @@ void test_invalid_input_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint input_interpretation_5 = CompType::SNormF16;       
+  const uint input_interpretation_5 = 11;       
 
   // expected-error@+2 {{11 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -406,7 +375,7 @@ void test_invalid_input_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint input_interpretation_6 = CompType::UNormF16;
+  const uint input_interpretation_6 = 12;
 
   // expected-error@+2 {{12 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -415,56 +384,56 @@ void test_invalid_input_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint input_interpretation_8 = CompType::SNormF32;
+  const uint input_interpretation_7 = 13;
 
   // expected-error@+2 {{13 is an invalid Register Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation_7, matrix_buffer,   
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_8 = 14;
+
+  // expected-error@+2 {{14 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_8, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint input_interpretation_9 = CompType::UNormF32;
+  const uint input_interpretation_9 = 15;
 
-  // expected-error@+2 {{14 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{15 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_9, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint input_interpretation_10 = CompType::SNormF64;
+  const uint input_interpretation_10 = 16;
 
-  // expected-error@+2 {{15 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{16 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_10, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint input_interpretation_11 = CompType::UNormF64;
+  const uint input_interpretation_11 = 23;
 
-  // expected-error@+2 {{16 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{23 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_11, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint input_interpretation_12 = 23;
-
-  // expected-error@+2 {{23 is an invalid Register Interpretation value}}
-  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
-                      is_input_unsigned, input_interpretation_12, matrix_buffer,   
-                      matrix_offset, matrix_interpretation, matrix_dimM,
-                      matrix_dimK, matrix_layout, matrix_is_transposed,
-                      matrix_stride);
-
-  const uint input_interpretation_13 = 100;
+  const uint input_interpretation_12 = 100;
 
   // expected-error@+2 {{100 is an invalid Register Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
-                      is_input_unsigned, input_interpretation_13, matrix_buffer,   
+                      is_input_unsigned, input_interpretation_12, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
@@ -474,12 +443,12 @@ void test_invalid_input_output_vector_dimensions_non_packed_square_matrix() {
 
   const uint is_output_unsigned = 1;
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
   const uint matrix_dimM = 32;
   const uint matrix_dimK = 32;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR; // RowMajor
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -511,12 +480,12 @@ void test_invalid_input_output_vector_dimensions_non_packed_rectangle_matrix() {
 
   const uint is_output_unsigned = 1;
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 16;
   const uint matrix_dimK = 32;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR; // RowMajor
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -613,12 +582,12 @@ void test_invalid_matrix_interpretation_constant_value() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -640,16 +609,15 @@ void test_invalid_matrix_interpretation_value() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
-  const uint matrix_interpretation_0 = CompType::Invalid; // Invalid value
+  const uint matrix_interpretation_0 = 0;
 
   // expected-error@+3 {{0 is an invalid Memory Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -658,7 +626,7 @@ void test_invalid_matrix_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint matrix_interpretation_1 = CompType::I1;
+  const uint matrix_interpretation_1 = 1;
 
   // expected-error@+3 {{1 is an invalid Memory Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -667,7 +635,7 @@ void test_invalid_matrix_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint matrix_interpretation_2 = CompType::I64;
+  const uint matrix_interpretation_2 = 6;
 
   // expected-error@+3 {{6 is an invalid Memory Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -676,7 +644,7 @@ void test_invalid_matrix_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint matrix_interpretation_3 = CompType::U64;
+  const uint matrix_interpretation_3 = 7;
 
   // expected-error@+3 {{7 is an invalid Memory Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -685,7 +653,7 @@ void test_invalid_matrix_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint matrix_interpretation_4 = CompType::F64;
+  const uint matrix_interpretation_4 = 10;
 
   // expected-error@+3 {{10 is an invalid Memory Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -694,7 +662,7 @@ void test_invalid_matrix_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint matrix_interpretation_5 = CompType::SNormF16;
+  const uint matrix_interpretation_5 = 11;
 
   // expected-error@+3 {{11 is an invalid Memory Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -703,7 +671,7 @@ void test_invalid_matrix_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint matrix_interpretation_6 = CompType::UNormF16;
+  const uint matrix_interpretation_6 = 12;
 
   // expected-error@+3 {{12 is an invalid Memory Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
@@ -712,39 +680,56 @@ void test_invalid_matrix_interpretation_value() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint matrix_interpretation_7 = CompType::PackedS8x32;
+  const uint matrix_interpretation_7 = 13;
 
-  // expected-error@+3 {{17 is an invalid Memory Interpretation value}} 
+  // expected-error@+3 {{13 is an invalid Memory Interpretation value}} 
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_7, matrix_dimM,
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);       
 
-  const uint matrix_interpretation_8 = CompType::PackedU8x32;
+  const uint matrix_interpretation_8 = 14;
 
-  // expected-error@+3 {{18 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{14 is an invalid Memory Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_8, matrix_dimM,
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint matrix_interpretation_9 = 23;
+  const uint matrix_interpretation_9 = 15;
 
-  // expected-error@+3 {{23 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{15 is an invalid Memory Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_9, matrix_dimM,
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  const uint matrix_interpretation_10 = 100;
+  const uint matrix_interpretation_10 = 16;
+
+  // expected-error@+3 {{16 is an invalid Memory Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation, matrix_buffer,
+                      matrix_offset, matrix_interpretation_10, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint matrix_interpretation_11 = 23;
+  // expected-error@+3 {{23 is an invalid Memory Interpretation value}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
+                      is_input_unsigned, input_interpretation, matrix_buffer,
+                      matrix_offset, matrix_interpretation_11, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint matrix_interpretation_12 = 100;
 
   // expected-error@+3 {{100 is an invalid Memory Interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
-                      matrix_offset, matrix_interpretation_10, matrix_dimM,
+                      matrix_offset, matrix_interpretation_12, matrix_dimM,
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 }
@@ -757,9 +742,9 @@ void test_invalid_matrix_layout_constant_value() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);   
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
   const bool matrix_is_transposed = false;
@@ -783,9 +768,9 @@ void test_invalid_matrix_layout_value() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
   const bool matrix_is_transposed = false;
@@ -809,12 +794,12 @@ void test_invalid_matrix_transposed_constant_value() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = constants_buffer.Load<bool>(0);
   const uint matrix_stride = 64;
 
@@ -834,14 +819,14 @@ void test_invalid_matrix_transpose_value() {
   vector<float, 4> input_vector =   
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;   
   const uint matrix_stride = 64;
 
-  const uint matrix_layout_0 = MatLayout::RowMajor; // RowMajor
+  const uint matrix_layout_0 = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed_0 = true;
 
   // expected-error@+4 {{RowMajor and ColumnMajor matrices are not transposable}}
@@ -851,7 +836,7 @@ void test_invalid_matrix_transpose_value() {
                       matrix_dimK, matrix_layout_0, matrix_is_transposed_0,
                       matrix_stride);
 
-  const uint matrix_layout_1 = MatLayout::ColumnMajor; // ColumnMajor
+  const uint matrix_layout_1 = MatrixLayout::MATRIX_LAYOUT_COLUMN_MAJOR;
   const bool matrix_is_transposed_1 = true;
 
   // expected-error@+4 {{RowMajor and ColumnMajor matrices are not transposable}}
@@ -871,14 +856,14 @@ void test_invalid_matrix_stride_constant_value() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
   const bool matrix_is_transposed = false;
 
-  const uint matrix_layout_0 = MatLayout::MulOptimal;
+  const uint matrix_layout_0 = MatrixLayout::MATRIX_LAYOUT_MUL_OPTIMAL;
   const uint matrix_stride_0 = 64;
 
   // expected-error@+5 {{for optimal matrix layout, matrix stride must be zero}}
@@ -888,7 +873,7 @@ void test_invalid_matrix_stride_constant_value() {
                       matrix_dimK, matrix_layout_0, matrix_is_transposed,
                       matrix_stride_0);
 
-  const uint matrix_layout_1 = MatLayout::OuterProductOptimal;
+  const uint matrix_layout_1 = MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL;
   const uint matrix_stride_1 = 64;
 
   // expected-error@+5 {{for optimal matrix layout, matrix stride must be zero}}

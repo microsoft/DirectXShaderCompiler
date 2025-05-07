@@ -1,32 +1,6 @@
-// RUN: %dxc -T lib_6_9 -enable-16bit-types %s -verify
+// RUN: %dxc -I %hlsl_headers -T lib_6_9 -enable-16bit-types %s -verify
 
-enum CompType {
-  Invalid = 0,
-  I1 = 1,
-  I16 = 2,
-  U16 = 3,
-  I32 = 4,
-  U32 = 5,
-  I64 = 6,
-  U64 = 7,
-  F16 = 8,
-  F32 = 9,
-  F64 = 10,
-  SNormF16 = 11,
-  UNormF16 = 12,
-  SNormF32 = 13,
-  UNormF32 = 14,
-  SNormF64 = 15,
-  UNormF64 = 16,
-  PackedS8x32 = 17,
-  PackedU8x32 = 18,
-
-  // BEGIN NEW FOR SM 6.9
-  U8 = 19,
-  I8 = 20,
-  F8_E4M3 = 21,
-  F8_E5M2 = 22,
-};
+#include <dx/linalg.h>
 
 enum MatLayout {
   RowMajor = 0,
@@ -34,6 +8,8 @@ enum MatLayout {
   MulOptimal = 2,
   OuterProductOptimal = 3,
 };
+
+using namespace dx::linalg;
 
 ByteAddressBuffer input_vector_buffer;
 ByteAddressBuffer matrix_buffer;
@@ -48,12 +24,12 @@ void test_invalid_bias_interpretation() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatLayout::RowMajor;   // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const uint matrix_is_transposed = 0;
   const uint matrix_stride = 0;
   const uint bias_offset = 0;
@@ -76,17 +52,17 @@ void test_invalid_bias_interpretation_value() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = CompType::F32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4; 
-  const uint matrix_layout = MatLayout::RowMajor;   // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const uint matrix_is_transposed = 0;
   const uint matrix_stride = 0;
   const uint bias_offset = 0;
 
-  const uint bias_interpretation_0 = CompType::Invalid;
+  const uint bias_interpretation_0 = 0;
 
   // expected-error@+6 {{0 is an invalid Memory Interpretation value}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
@@ -96,7 +72,7 @@ void test_invalid_bias_interpretation_value() {
                          matrix_stride, bias_buffer, bias_offset,
                          bias_interpretation_0);
 
-  const uint bias_interpretation_1 = CompType::I1;
+  const uint bias_interpretation_1 = 1;
 
   // expected-error@+6 {{1 is an invalid Memory Interpretation value}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
@@ -106,7 +82,7 @@ void test_invalid_bias_interpretation_value() {
                          matrix_stride, bias_buffer, bias_offset,
                          bias_interpretation_1);
 
-  const uint bias_interpretation_2 = CompType::I64;
+  const uint bias_interpretation_2 = 6;
 
   // expected-error@+6 {{6 is an invalid Memory Interpretation value}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
@@ -116,7 +92,7 @@ void test_invalid_bias_interpretation_value() {
                          matrix_stride, bias_buffer, bias_offset,
                          bias_interpretation_2);
 
-  const uint bias_interpretation_3 = CompType::U64;
+  const uint bias_interpretation_3 = 7;
 
   // expected-error@+6 {{7 is an invalid Memory Interpretation value}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
@@ -126,7 +102,7 @@ void test_invalid_bias_interpretation_value() {
                          matrix_stride, bias_buffer, bias_offset,
                          bias_interpretation_3);
 
-  const uint bias_interpretation_4 = CompType::F64;
+  const uint bias_interpretation_4 = 10;
 
   // expected-error@+6 {{10 is an invalid Memory Interpretation value}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
@@ -136,7 +112,7 @@ void test_invalid_bias_interpretation_value() {
                          matrix_stride, bias_buffer, bias_offset,
                          bias_interpretation_4);
 
-  const uint bias_interpretation_5 = CompType::SNormF16;
+  const uint bias_interpretation_5 = 11;
 
   // expected-error@+6 {{11 is an invalid Memory Interpretation value}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
@@ -146,7 +122,7 @@ void test_invalid_bias_interpretation_value() {
                          matrix_stride, bias_buffer, bias_offset,
                          bias_interpretation_5);
 
-  const uint bias_interpretation_6 = CompType::UNormF16;
+  const uint bias_interpretation_6 = 12;
 
   // expected-error@+6 {{12 is an invalid Memory Interpretation value}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
@@ -156,7 +132,7 @@ void test_invalid_bias_interpretation_value() {
                          matrix_stride, bias_buffer, bias_offset,
                          bias_interpretation_6);
 
-  const uint bias_interpretation_7 = CompType::SNormF32;
+  const uint bias_interpretation_7 = 13;
 
   // expected-error@+6 {{13 is an invalid Memory Interpretation value}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
@@ -166,7 +142,7 @@ void test_invalid_bias_interpretation_value() {
                          matrix_stride, bias_buffer, bias_offset,
                          bias_interpretation_7);
 
-  const uint bias_interpretation_8 = CompType::UNormF32;
+  const uint bias_interpretation_8 = 14;
 
   // expected-error@+6 {{14 is an invalid Memory Interpretation value}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
@@ -176,7 +152,7 @@ void test_invalid_bias_interpretation_value() {
                          matrix_stride, bias_buffer, bias_offset,
                          bias_interpretation_8);
 
-  const uint bias_interpretation_9 = CompType::SNormF64;
+  const uint bias_interpretation_9 = 15;
 
   // expected-error@+6 {{15 is an invalid Memory Interpretation value}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
@@ -186,7 +162,7 @@ void test_invalid_bias_interpretation_value() {
                          matrix_stride, bias_buffer, bias_offset,
                          bias_interpretation_9);
 
-  const uint bias_interpretation_10 = CompType::UNormF64;
+  const uint bias_interpretation_10 = 16;
   
   
   // expected-error@+6 {{16 is an invalid Memory Interpretation value}}
@@ -197,7 +173,7 @@ void test_invalid_bias_interpretation_value() {
                          matrix_stride, bias_buffer, bias_offset,
                          bias_interpretation_10);
 
-  const uint bias_interpretation_11 = CompType::PackedS8x32;
+  const uint bias_interpretation_11 = DataType::DATA_TYPE_SINT8_T4_PACKED;
 
   // expected-error@+6 {{17 is an invalid Memory Interpretation value}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
@@ -207,7 +183,7 @@ void test_invalid_bias_interpretation_value() {
                          matrix_stride, bias_buffer, bias_offset,
                          bias_interpretation_11);
 
-  const uint bias_interpretation_12 = CompType::PackedU8x32;
+  const uint bias_interpretation_12 = DataType::DATA_TYPE_UINT8_T4_PACKED;
 
   // expected-error@+6 {{18 is an invalid Memory Interpretation value}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,

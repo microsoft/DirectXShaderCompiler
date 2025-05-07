@@ -1,50 +1,19 @@
-// RUN: %dxc -T lib_6_9 -enable-16bit-types %s -verify
+// RUN: %dxc -I %hlsl_headers -T lib_6_9 -enable-16bit-types %s -verify
 
-enum CompType {
-  Invalid = 0,
-  I1 = 1,
-  I16 = 2,
-  U16 = 3,
-  I32 = 4,
-  U32 = 5,
-  I64 = 6,
-  U64 = 7,
-  F16 = 8,
-  F32 = 9,
-  F64 = 10,
-  SNormF16 = 11,
-  UNormF16 = 12,
-  SNormF32 = 13,
-  UNormF32 = 14,
-  SNormF64 = 15,
-  UNormF64 = 16,
-  PackedS8x32 = 17,
-  PackedU8x32 = 18,
+#include <dx/linalg.h>
 
-  // BEGIN NEW FOR SM 6.9
-  U8 = 19,
-  I8 = 20,
-  F8_E4M3 = 21,
-  F8_E5M2 = 22,
-};
-
-enum MatLayout {
-  RowMajor = 0,
-  ColumnMajor = 1,
-  MulOptimal = 2,
-  OuterProductOptimal = 3,
-};
+using namespace dx::linalg;
 
 ByteAddressBuffer input_vector_buffer;
 RWByteAddressBuffer accumulate_buffer;
 ByteAddressBuffer constants_buffer;
 
-// Check ofr input vectors aren't the same component type
+// Check for input vectors aren't the same component type
 void test_invalid_input_vector_component_type() {
 
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32;
-  const uint matrix_layout = MatLayout::OuterProductOptimal;
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL;
   const uint matrix_stride = 0;
 
   vector<float, 4> input_vector_0_0 = input_vector_buffer.Load<vector<float, 4> >(0);
@@ -81,8 +50,8 @@ void test_non_constant_matrix_stride() {
   vector<float, 4> input_vector_0 = input_vector_buffer.Load<vector<float, 4> >(0);
   vector<float, 4> input_vector_1 = input_vector_buffer.Load<vector<float, 4> >(0);
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = CompType::F32;
-  const uint matrix_layout = MatLayout::OuterProductOptimal;
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL;
 
   const uint matrix_stride = constants_buffer.Load<uint>(0);
 

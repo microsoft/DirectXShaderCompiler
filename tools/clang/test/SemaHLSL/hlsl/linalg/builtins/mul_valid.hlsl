@@ -1,4 +1,8 @@
-// RUN: %dxc -T lib_6_9 -enable-16bit-types %s -verify
+// RUN: %dxc -I %hlsl_headers -T lib_6_9 -enable-16bit-types %s -verify
+
+#include <dx/linalg.h>
+
+using namespace dx::linalg;
 
 ByteAddressBuffer input_vector_buffer;
 ByteAddressBuffer matrix_buffer; 
@@ -10,12 +14,12 @@ void test_invalid_output_vector_type() {
 
     vector<float, 4> input_vector = input_vector_buffer.Load<vector<float, 4> >(0);
     const uint is_input_unsigned = 0;
-    const uint input_interpretation = 9; // F32
+    const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
     const uint matrix_offset = 0;
-    const uint matrix_interpretation = 9; // F32
+    const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
     const uint matrix_dimM = 4;
     const uint matrix_dimK = 4;
-    const uint matrix_layout = 0; // RowMajor
+    const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
     const bool matrix_is_transposed = false;
     const uint matrix_stride = 64;
 
@@ -53,12 +57,12 @@ void test_invalid_is_output_unsigned_non_const() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = 9; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = 9; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = 0; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -77,12 +81,12 @@ void test_valid_input_vector_type() {
 
   vector<uint, 4> output_vector;
   const uint is_output_unsigned = 1;
-  const uint input_interpretation = 9; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = 9; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = 0; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 

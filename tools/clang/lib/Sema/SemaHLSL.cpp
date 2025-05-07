@@ -11669,8 +11669,8 @@ static const unsigned kMatVecMulOutputIsUnsignedIdx = 1;
 static const unsigned kMatVecMulInputVectorIdx = 2;
 static const unsigned kMatVecMulIsInputUnsignedIdx = 3;
 static const unsigned kMatVecMulInputInterpretationIdx = 4;
-//static const unsigned kMatVecMulMatrixBufferIdx = 5;
-//static const unsigned kMatVecMulMatrixOffsetIdx = 6;
+// static const unsigned kMatVecMulMatrixBufferIdx = 5;
+// static const unsigned kMatVecMulMatrixOffsetIdx = 6;
 static const unsigned kMatVecMulMatrixInterpretationIdx = 7;
 static const unsigned kMatVecMulMatrixMIdx = 8;
 static const unsigned kMatVecMulMatrixKIdx = 9;
@@ -12126,8 +12126,8 @@ static void CheckMulAddCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
 // OuterProductAccumulate builtin function parameters
 static const unsigned kOuterProdAccInputVector1Idx = 0;
 static const unsigned kOuterProdAccInputVector2Idx = 1;
-//static const unsigned kOuterProdAccMatrixBufferIdx = 2;
-//static const unsigned kOuterProdAccMatrixOffsetIdx = 3;
+// static const unsigned kOuterProdAccMatrixBufferIdx = 2;
+// static const unsigned kOuterProdAccMatrixOffsetIdx = 3;
 static const unsigned kOuterProdAccMatrixInterpretationIdx = 4;
 static const unsigned kOuterProdAccMatrixLayoutIdx = 5;
 static const unsigned kOuterProdAccMatrixStrideIdx = 6;
