@@ -49,7 +49,7 @@ template <typename T> struct IsUnsigned {
 };
 
 template <> struct IsUnsigned<uint32_t> {
-  static const bool value = true;
+  static const bool Value = true;
 };
 
 template <> struct IsUnsigned<uint64_t> {
@@ -126,8 +126,8 @@ Mul(MatrixRefImpl<MatrixBufferTy, MatrixDT, MatrixM, MatrixK, MatrixLayout,
   vector<OutputElTy, MatrixM> OutputVector;
 
   __builtin_MatVecMul(
-      /*out*/ OutputVector, details::IsUnsigned<OutputElTy>::value,
-      InputVector.Data, details::IsUnsigned<InputElTy>::value, InputDT,
+      /*out*/ OutputVector, details::IsUnsigned<OutputElTy>::Value,
+      InputVector.Data, details::IsUnsigned<InputElTy>::Value, InputDT,
       Matrix.Buffer, Matrix.StartOffset, MatrixDT, MatrixM, MatrixK,
       MatrixLayout, MatrixTranspose, Matrix.Stride);
 
@@ -153,8 +153,8 @@ MulAdd(MatrixRefImpl<MatrixBufferTy, MatrixDT, MatrixM, MatrixK, MatrixLayout,
   vector<OutputElTy, MatrixM> OutputVector;
 
   __builtin_MatVecMulAdd(
-      /*out*/ OutputVector, details::IsUnsigned<OutputElTy>::value,
-      InputVector.Data, details::IsUnsigned<InputElTy>::value, InputDT,
+      /*out*/ OutputVector, details::IsUnsigned<OutputElTy>::Value,
+      InputVector.Data, details::IsUnsigned<InputElTy>::Value, InputDT,
       Matrix.Buffer, Matrix.StartOffset, MatrixDT, MatrixM, MatrixK,
       MatrixLayout, MatrixTranspose, Matrix.Stride, BiasVector.Buffer,
       BiasVector.StartOffset, BiasVectorDT);
