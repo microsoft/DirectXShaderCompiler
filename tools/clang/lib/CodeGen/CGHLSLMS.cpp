@@ -325,6 +325,17 @@ public:
 };
 } // namespace
 
+static bool GetIntConstAttrArg(ASTContext &astContext, const Expr *expr,
+                               unsigned *n) {
+  llvm::APSInt val;
+  if (!expr)
+    return true;
+  if (!expr->isIntegerConstantExpr(val, astContext))
+    return false;
+  *n = val.getLimitedValue();
+  return true;
+}
+
 //------------------------------------------------------------------------------
 //
 // CGMSHLSLRuntime methods.
@@ -1419,6 +1430,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   DiagnosticsEngine &Diags = CGM.getDiags();
+  ASTContext &astContext = CGM.getTypes().getContext();
 
   std::unique_ptr<DxilFunctionProps> funcProps =
       llvm::make_unique<DxilFunctionProps>();
@@ -1629,10 +1641,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
   // Populate numThreads
   if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {
-
-    funcProps->numThreads[0] = Attr->getX();
-    funcProps->numThreads[1] = Attr->getY();
-    funcProps->numThreads[2] = Attr->getZ();
+    funcProps->numThreads[0] = 1;
+    funcProps->numThreads[1] = 1;
+    funcProps->numThreads[2] = 1;
+    GetIntConstAttrArg(astContext, Attr->getX(), &funcProps->numThreads[0]);
+    GetIntConstAttrArg(astContext, Attr->getY(), &funcProps->numThreads[1]);
+    GetIntConstAttrArg(astContext, Attr->getZ(), &funcProps->numThreads[2]);
 
     if (isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) {
       unsigned DiagID = Diags.getCustomDiagID(
@@ -1803,12 +1817,13 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->Node.IsProgramEntry = true;
     }
 
+    funcProps->NodeShaderID.Index = 0;
     if (const auto *pAttr = FD->getAttr<HLSLNodeIdAttr>()) {
       funcProps->NodeShaderID.Name = pAttr->getName().str();
-      funcProps->NodeShaderID.Index = pAttr->getArrayIndex();
+      GetIntConstAttrArg(astContext, pAttr->getArrayIndex(),
+                         &funcProps->NodeShaderID.Index);
     } else {
       funcProps->NodeShaderID.Name = FD->getName().str();
-      funcProps->NodeShaderID.Index = 0;
     }
     if (const auto *pAttr =
             FD->getAttr<HLSLNodeLocalRootArgumentsTableIndexAttr>()) {
@@ -1816,20 +1831,36 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
     if (const auto *pAttr = FD->getAttr<HLSLNodeShareInputOfAttr>()) {
       funcProps->NodeShaderSharedInput.Name = pAttr->getName().str();
-      funcProps->NodeShaderSharedInput.Index = pAttr->getArrayIndex();
+      funcProps->NodeShaderSharedInput.Index = 0;
+      GetIntConstAttrArg(astContext, pAttr->getArrayIndex(),
+                         &funcProps->NodeShaderSharedInput.Index);
     }
     if (const auto *pAttr = FD->getAttr<HLSLNodeDispatchGridAttr>()) {
-      funcProps->Node.DispatchGrid[0] = pAttr->getX();
-      funcProps->Node.DispatchGrid[1] = pAttr->getY();
-      funcProps->Node.DispatchGrid[2] = pAttr->getZ();
+      funcProps->Node.DispatchGrid[0] = 1;
+      funcProps->Node.DispatchGrid[1] = 1;
+      funcProps->Node.DispatchGrid[2] = 1;
+      GetIntConstAttrArg(astContext, pAttr->getX(),
+                         &funcProps->Node.DispatchGrid[0]);
+      GetIntConstAttrArg(astContext, pAttr->getY(),
+                         &funcProps->Node.DispatchGrid[1]);
+      GetIntConstAttrArg(astContext, pAttr->getZ(),
+                         &funcProps->Node.DispatchGrid[2]);
     }
     if (const auto *pAttr = FD->getAttr<HLSLNodeMaxDispatchGridAttr>()) {
-      funcProps->Node.MaxDispatchGrid[0] = pAttr->getX();
-      funcProps->Node.MaxDispatchGrid[1] = pAttr->getY();
-      funcProps->Node.MaxDispatchGrid[2] = pAttr->getZ();
+      funcProps->Node.MaxDispatchGrid[0] = 1;
+      funcProps->Node.MaxDispatchGrid[1] = 1;
+      funcProps->Node.MaxDispatchGrid[2] = 1;
+      GetIntConstAttrArg(astContext, pAttr->getX(),
+                         &funcProps->Node.MaxDispatchGrid[0]);
+      GetIntConstAttrArg(astContext, pAttr->getY(),
+                         &funcProps->Node.MaxDispatchGrid[1]);
+      GetIntConstAttrArg(astContext, pAttr->getZ(),
+                         &funcProps->Node.MaxDispatchGrid[2]);
     }
     if (const auto *pAttr = FD->getAttr<HLSLNodeMaxRecursionDepthAttr>()) {
-      funcProps->Node.MaxRecursionDepth = pAttr->getCount();
+      funcProps->Node.MaxRecursionDepth = 0;
+      GetIntConstAttrArg(astContext, pAttr->getCount(),
+                         &funcProps->Node.MaxRecursionDepth);
     }
     if (!FD->getAttr<HLSLNumThreadsAttr>()) {
       // NumThreads wasn't specified.
@@ -2343,8 +2374,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           NodeInputRecordParams[ArgIt].MetadataIdx = NodeInputParamIdx++;
 
           if (parmDecl->hasAttr<HLSLMaxRecordsAttr>()) {
-            node.MaxRecords =
-                parmDecl->getAttr<HLSLMaxRecordsAttr>()->getMaxCount();
+            node.MaxRecords = 1;
+            GetIntConstAttrArg(
+                astContext,
+                parmDecl->getAttr<HLSLMaxRecordsAttr>()->getMaxCount(),
+                &node.MaxRecords);
           }
           if (parmDecl->hasAttr<HLSLGloballyCoherentAttr>())
             node.Flags.SetGloballyCoherent();
@@ -2373,12 +2407,13 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           }
 
           // OutputID from attribute
+          node.OutputID.Index = 0;
           if (const auto *Attr = parmDecl->getAttr<HLSLNodeIdAttr>()) {
             node.OutputID.Name = Attr->getName().str();
-            node.OutputID.Index = Attr->getArrayIndex();
+            GetIntConstAttrArg(astContext, Attr->getArrayIndex(),
+                               &node.OutputID.Index);
           } else {
             node.OutputID.Name = parmDecl->getName().str();
-            node.OutputID.Index = 0;
           }
 
           // Insert output decls for cross referencing once all info is
@@ -2433,8 +2468,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       }
       node.MaxRecordsSharedWith = ix;
     }
-    if (const auto *Attr = parmDecl->getAttr<HLSLMaxRecordsAttr>())
-      node.MaxRecords = Attr->getMaxCount();
+    if (const auto *Attr = parmDecl->getAttr<HLSLMaxRecordsAttr>()) {
+      node.MaxRecords = 1;
+      GetIntConstAttrArg(astContext, Attr->getMaxCount(), &node.MaxRecords);
+    }
   }
 
   if (inputPatchCount > 1) {
