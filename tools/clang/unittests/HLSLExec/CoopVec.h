@@ -6,6 +6,7 @@
 #include <DirectXPackedVector.h>
 
 #include <cstdlib>
+#include <random>
 #include <vector>
 
 #include "dxc/Support/microcom.h"
@@ -358,6 +359,15 @@ GetMatrixSrcDataType(D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInterpretation) {
   }
 }
 
+bool IsIntegralDataType(D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
+  return DataType == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 ||
+         DataType == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8 ||
+         DataType == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16 ||
+         DataType == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16 ||
+         DataType == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32 ||
+         DataType == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32;
+}
+
 struct TestVector {
 private:
   size_t NumVectors = 0;
@@ -534,31 +544,51 @@ public:
     }
   }
 
-  template <typename T> void fillSimpleTestData() {
-    // Create a vector of (1, 1, 0, ...)
+  template <typename T>
+  void fillSimpleTestData(D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInterpretation,
+                          std::mt19937 &Rnd) {
     for (size_t I = 0; I < NumVectors; ++I) {
       T *Vec = getVector<T>(I);
       for (size_t J = 0; J < VectorSize; ++J)
-        if constexpr (std::is_same_v<T, DirectX::PackedVector::HALF>) {
-          // Special case for HALF, which requires conversion from float
-          Vec[J] = static_cast<T>(
-              ConvertFloat32ToFloat16((J == 0 || J == 1) ? 1.0f : 0.0f));
+        if constexpr (std::is_same_v<T, DirectX::PackedVector::HALF> ||
+                      std::is_same_v<T, float>) {
+          float Elt = 0.0f;
+          if (IsIntegralDataType(MatrixInterpretation)) {
+            Elt = (float)(Rnd() & 0x7) - 3.0f;
+          } else {
+            Elt = ((float)(Rnd() & 0x3) - 1.0f) / 2.0f;
+          }
+          if constexpr (std::is_same_v<T, DirectX::PackedVector::HALF>) {
+            Vec[J] = static_cast<T>(ConvertFloat32ToFloat16(Elt));
+          } else {
+            Vec[J] = static_cast<T>(Elt);
+          }
         } else {
-          Vec[J] = static_cast<T>((J == 0 || J == 1) ? 1 : 0);
+          if constexpr (std::is_signed_v<T>) {
+            Vec[J] = static_cast<T>((int32_t)(Rnd() & 0xf) - 8);
+          } else {
+            Vec[J] = static_cast<T>((uint32_t)(Rnd() & 0xf));
+          }
         }
     }
   }
 
-  template <typename T> void fillAllOnesTestData() {
-    // Create a vector of (1, 1, 1, ...)
+  template <typename T> void FillSimpleMatrixTestData(std::mt19937 &Rnd) {
     for (size_t I = 0; I < NumVectors; ++I) {
       T *Vec = getVector<T>(I);
       for (size_t J = 0; J < VectorSize; ++J)
         if constexpr (std::is_same_v<T, DirectX::PackedVector::HALF>) {
-          // Special case for HALF, which requires conversion from float
-          Vec[J] = static_cast<T>(ConvertFloat32ToFloat16(1.0f));
+          float Elt = ((float)(Rnd() & 0x3) - 1.0f) / 2.0f;
+          Vec[J] = static_cast<T>(ConvertFloat32ToFloat16(Elt));
+        } else if constexpr (std::is_same_v<T, float>) {
+          float Elt = ((float)(Rnd() & 0x3) - 1.0f) / 2.0f;
+          Vec[J] = static_cast<T>(Elt);
         } else {
-          Vec[J] = static_cast<T>(1);
+          if constexpr (std::is_signed_v<T>) {
+            Vec[J] = static_cast<T>((int32_t)(Rnd() & 0xf) - 8);
+          } else {
+            Vec[J] = static_cast<T>((uint32_t)(Rnd() & 0xf));
+          }
         }
     }
   }
@@ -566,7 +596,9 @@ public:
   static TestVector
   createSimpleTestVector(size_t NumVectors, size_t VectorSize,
                          D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
-                         D3D12_LINEAR_ALGEBRA_DATATYPE DataInterpretation) {
+                         D3D12_LINEAR_ALGEBRA_DATATYPE DataInterpretation,
+                         D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInterpretation,
+                         std::mt19937 &Rnd) {
     size_t ElementSize;
     switch (DataType) {
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
@@ -600,35 +632,36 @@ public:
     TestVector Vec(NumVectors, VectorSize, ElementSize);
     switch (DataType) {
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
-      Vec.fillSimpleTestData<int8_t>();
+      Vec.fillSimpleTestData<int8_t>(MatrixInterpretation, Rnd);
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8:
-      Vec.fillSimpleTestData<uint8_t>();
+      Vec.fillSimpleTestData<uint8_t>(MatrixInterpretation, Rnd);
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
-      Vec.fillSimpleTestData<int16_t>();
+      Vec.fillSimpleTestData<int16_t>(MatrixInterpretation, Rnd);
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
-      Vec.fillSimpleTestData<uint16_t>();
+      Vec.fillSimpleTestData<uint16_t>(MatrixInterpretation, Rnd);
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
-      Vec.fillSimpleTestData<int32_t>();
+      Vec.fillSimpleTestData<int32_t>(MatrixInterpretation, Rnd);
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
       if (DataInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED ||
           DataInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED) {
-        Vec.fillSimpleTestData<uint8_t>();
+        Vec.fillSimpleTestData<uint8_t>(MatrixInterpretation, Rnd);
       } else {
-        Vec.fillSimpleTestData<uint32_t>();
+        Vec.fillSimpleTestData<uint32_t>(MatrixInterpretation, Rnd);
       }
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
-      Vec.fillSimpleTestData<DirectX::PackedVector::HALF>();
+      Vec.fillSimpleTestData<DirectX::PackedVector::HALF>(MatrixInterpretation,
+                                                          Rnd);
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
-      Vec.fillSimpleTestData<float>();
+      Vec.fillSimpleTestData<float>(MatrixInterpretation, Rnd);
       break;
     default:
       throw std::invalid_argument("Unsupported data type");
@@ -638,7 +671,8 @@ public:
 
   static TestVector
   createAllOnesTestMatrix(size_t NumVectors, size_t VectorSize,
-                          D3D12_LINEAR_ALGEBRA_DATATYPE DataInterpretation) {
+                          D3D12_LINEAR_ALGEBRA_DATATYPE DataInterpretation,
+                          std::mt19937 &Rnd) {
     size_t ElementSize;
     switch (DataInterpretation) {
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
@@ -666,13 +700,13 @@ public:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
-      Vec.fillAllOnesTestData<int8_t>();
+      Vec.FillSimpleMatrixTestData<int8_t>(Rnd);
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
-      Vec.fillAllOnesTestData<float>();
+      Vec.FillSimpleMatrixTestData<float>(Rnd);
       break;
     default:
       throw std::invalid_argument("Unsupported data type");
@@ -724,10 +758,12 @@ public:
     ConvertInfo.DestInfo.NumColumns = (UINT)getVectorSize();
 
     if (MatrixLayout == D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR) {
-      ConvertInfo.DestInfo.DestStride = (UINT)getVectorSize() * DestEltSize;
+      ConvertInfo.DestInfo.DestStride =
+          ((UINT)getVectorSize() * DestEltSize + 15) & ~15;
     } else if (MatrixLayout ==
                D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR) {
-      ConvertInfo.DestInfo.DestStride = (UINT)getNumVectors() * DestEltSize;
+      ConvertInfo.DestInfo.DestStride =
+          ((UINT)getNumVectors() * DestEltSize + 15) & ~15;
     }
 
     // Get destination size using preview interface

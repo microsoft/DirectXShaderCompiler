@@ -12348,6 +12348,8 @@ void ExecutionTest::runCoopVecMulSubtest(
     ID3D12Device *D3DDevice, D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &MulProps,
     CoopVecMulSubtestConfig &Config, bool RunCompute) {
 
+  std::mt19937 Rnd(0x42);
+
   LogCommentFmt(
       L"Running test for InputPerThread: %d, OutputPerThread: %d, NumThreads: "
       L"%d, NumLayers: %d, Bias: %s, MatrixLayout: %s, Stage: %s",
@@ -12399,19 +12401,20 @@ void ExecutionTest::runCoopVecMulSubtest(
     InputMatrices.push_back(
         ::CoopVecHelpers::TestVector::createAllOnesTestMatrix(
             Config.InputPerThread, Config.InputPerThread,
-            MulProps.MatrixInterpretation));
+            MulProps.MatrixInterpretation, Rnd));
   }
   // Last layer, matrix size is OutputPerThread x InputPerThread
   InputMatrices.push_back(::CoopVecHelpers::TestVector::createAllOnesTestMatrix(
       Config.OutputPerThread, Config.InputPerThread,
-      MulProps.MatrixInterpretation));
+      MulProps.MatrixInterpretation, Rnd));
 
   auto InputVector = CoopVecHelpers::TestVector::createSimpleTestVector(
       Config.NumThreads, Config.InputPerThread, MulProps.InputType,
-      MulProps.InputInterpretation);
+      MulProps.InputInterpretation, MulProps.MatrixInterpretation, Rnd);
   auto InputBias = CoopVecHelpers::TestVector::createSimpleTestVector(
       1, std::max(Config.OutputPerThread, Config.InputPerThread),
-      MulProps.BiasInterpretation, MulProps.BiasInterpretation);
+      MulProps.BiasInterpretation, MulProps.BiasInterpretation,
+      MulProps.MatrixInterpretation, Rnd);
 
   // Calculate reference output
   auto ExpectedOutput = InputVector;
@@ -12435,20 +12438,32 @@ RWByteAddressBuffer OutputBuffer: register(u0);
 
 RWStructuredBuffer<uint> AtomicCounter : register(u10);
 
+#if USE_GROUPSHARED
+groupshared vector<INPUT_DATA_TYPE, INPUT_VECTOR_NUM_ELEMENTS> inputGS[NUM_THREADS];
+groupshared vector<float, OUTPUT_PER_THREAD> outputGS[NUM_THREADS];
+#endif
+
 void RunCoopVecTest(uint threadIdx)
 {
   using namespace dx::linalg;
 
   uint inputOffset = (threadIdx * INPUT_VECTOR_STRIDE);
   vector<INPUT_DATA_TYPE, INPUT_VECTOR_NUM_ELEMENTS> input = InputVector.Load<vector<INPUT_DATA_TYPE, INPUT_VECTOR_NUM_ELEMENTS> >(inputOffset);
-  VectorRef<BIAS_INTERPRETATION_ENUM> biasVec = { InputBias, 0 };
 
+#if USE_GROUPSHARED
+  // Use groupshared memory to grab the "next" thread's input vector.
+  inputGS[threadIdx] = input;
+  GroupMemoryBarrierWithGroupSync();
+  input = inputGS[(threadIdx + 1) % NUM_THREADS];
+#endif
+
+  VectorRef<BIAS_INTERPRETATION_ENUM> biasVec = { InputBias, 0 };
   vector<ACCUM_DATA_TYPE, OUTPUT_PER_THREAD> output;
 )";
 
   if (Config.NumLayers == 1) {
     ShaderSource += R"(
-  MatrixRef<MATRIX_DATA_TYPE_ENUM, OUTPUT_PER_THREAD, INPUT_PER_THREAD, HLSL_MATRIX_LAYOUT, /*transpose*/false> mat = { InputMatrix[0], 0, STRIDE };
+  MatrixRef<MATRIX_DATA_TYPE_ENUM, OUTPUT_PER_THREAD, INPUT_PER_THREAD, HLSL_MATRIX_LAYOUT, /*transpose*/false> mat = { InputMatrix[0], 0, STRIDE0 };
 
   if (USE_BIAS) {
     output = MulAdd<ACCUM_DATA_TYPE>(mat, MakeInterpretedVector<INPUT_INTERPRETATION_ENUM>(input), biasVec);
@@ -12460,17 +12475,17 @@ void RunCoopVecTest(uint threadIdx)
     ShaderSource += R"(
   vector<ACCUM_DATA_TYPE, INPUT_PER_THREAD> accum;
 
-  MatrixRef<MATRIX_DATA_TYPE_ENUM, INPUT_PER_THREAD, INPUT_PER_THREAD, HLSL_MATRIX_LAYOUT, /*transpose*/false> mat0 = { InputMatrix[0], 0, STRIDE };
+  MatrixRef<MATRIX_DATA_TYPE_ENUM, INPUT_PER_THREAD, INPUT_PER_THREAD, HLSL_MATRIX_LAYOUT, /*transpose*/false> mat0 = { InputMatrix[0], 0, STRIDE0 };
   if (USE_BIAS) {
     accum = MulAdd<ACCUM_DATA_TYPE>(mat0, MakeInterpretedVector<INPUT_INTERPRETATION_ENUM>(input), biasVec);
   } else {
     accum = Mul<ACCUM_DATA_TYPE>(mat0, MakeInterpretedVector<INPUT_INTERPRETATION_ENUM>(input));
   }
 
-  // Dummy activation function; all of our intermediates are positive (currently).
-  accum = max(accum, 0);
+  // Dummy activation function; all of our intermediates above -10000
+  accum = max(accum, -10000);
 
-  MatrixRef<MATRIX_DATA_TYPE_ENUM, OUTPUT_PER_THREAD, INPUT_PER_THREAD, HLSL_MATRIX_LAYOUT, /*transpose*/false> mat1 = { InputMatrix[1], 0, STRIDE };
+  MatrixRef<MATRIX_DATA_TYPE_ENUM, OUTPUT_PER_THREAD, INPUT_PER_THREAD, HLSL_MATRIX_LAYOUT, /*transpose*/false> mat1 = { InputMatrix[1], 0, STRIDE1 };
   if (USE_BIAS) {
     output = MulAdd<ACCUM_DATA_TYPE>(mat1, MakeInterpretedVector<ACCUM_INTERPRETATION_ENUM>(accum), biasVec);
   } else {
@@ -12481,6 +12496,13 @@ void RunCoopVecTest(uint threadIdx)
 
   ShaderSource += R"(
   vector<float, OUTPUT_PER_THREAD> result = (vector<float, OUTPUT_PER_THREAD>)output;
+
+#if USE_GROUPSHARED
+  // Use groupshared memory to grab the "previous" thread's output vector.
+  outputGS[threadIdx] = result;
+  GroupMemoryBarrierWithGroupSync();
+  result = outputGS[(threadIdx + NUM_THREADS - 1) % NUM_THREADS];
+#endif
 
   // Ensure 4-byte alignment for vector store
   uint outputOffset = OUTPUT_PER_THREAD * threadIdx * sizeof(float);
@@ -12534,20 +12556,8 @@ float4 ps_main() : SV_Target {
     return Stream.str();
   };
 
-  int Stride = 0;
   const std::wstring HlslMatrixLayout =
       CoopVecHelpers::MatrixLayoutToHlslLayoutString(Config.MatrixLayout);
-  int StrideMultiplier = CoopVecHelpers::GetStrideMultiplierForMatrixDataType(
-      MulProps.MatrixInterpretation);
-  switch (Config.MatrixLayout) {
-  case D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR:
-    Stride = Config.InputPerThread * StrideMultiplier;
-    break;
-  case D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR:
-    Stride = Config.OutputPerThread * StrideMultiplier;
-    break;
-  }
-
   const int InputDivisor = CoopVecHelpers::GetNumPackedElementsForInputDataType(
       MulProps.InputInterpretation);
   const std::wstring InputDataType =
@@ -12570,7 +12580,6 @@ float4 ps_main() : SV_Target {
       CreateDefineFromInt(L"OUTPUT_PER_THREAD", Config.OutputPerThread);
   auto NumThreadsDefine =
       CreateDefineFromInt(L"NUM_THREADS", Config.NumThreads);
-  auto StrideDefine = CreateDefineFromInt(L"STRIDE", Stride);
   auto InputDataTypeDefine =
       CreateDefineFromString(L"INPUT_DATA_TYPE", InputDataType);
   auto InputDivisorDefine = CreateDefineFromInt(
@@ -12594,13 +12603,14 @@ float4 ps_main() : SV_Target {
   auto NumLayersDefine = CreateDefineFromInt(L"NUM_LAYERS", Config.NumLayers);
   auto BiasInterpretationEnumDefine = CreateDefineFromString(
       L"BIAS_INTERPRETATION_ENUM", BiasInterpretationEnum);
+  auto UseGroupsharedDefine =
+      CreateDefineFromInt(L"USE_GROUPSHARED", RunCompute ? 1 : 0);
 
-  LPCWSTR Options[] = {
+  std::vector<LPCWSTR> Options = {
       L"-enable-16bit-types",
       InputPerThreadDefine.c_str(),
       OutputPerThreadDefine.c_str(),
       NumThreadsDefine.c_str(),
-      StrideDefine.c_str(),
       InputDataTypeDefine.c_str(),
       InputDivisorDefine.c_str(),
       AccumDataTypeDefine.c_str(),
@@ -12612,23 +12622,35 @@ float4 ps_main() : SV_Target {
       InputVectorStrideDefine.c_str(),
       NumLayersDefine.c_str(),
       BiasInterpretationEnumDefine.c_str(),
+      UseGroupsharedDefine.c_str(),
   };
+
+  std::vector<std::wstring> StrideDefines;
+  for (int I = 0; I < Config.NumLayers; ++I) {
+    auto ConvertInfo = InputMatrices[I].getConversionInfo(
+        D3DDevice, MulProps.MatrixInterpretation, Config.MatrixLayout);
+    wchar_t StrideName[16];
+    swprintf(StrideName, _countof(StrideName), L"STRIDE%d", I);
+    StrideDefines.push_back(
+        CreateDefineFromInt(StrideName, ConvertInfo.DestInfo.DestStride));
+    Options.push_back(StrideDefines[I].c_str());
+  }
 
   CComPtr<LinAlgHeaderIncludeHandler> IncludeHandler =
       new LinAlgHeaderIncludeHandler(m_support);
 
   if (RunCompute) {
     CreateComputePSO(D3DDevice, RootSignature, ShaderSource.c_str(), L"cs_6_9",
-                     &PipelineState, Options, _countof(Options),
+                     &PipelineState, Options.data(), (int)Options.size(),
                      IncludeHandler);
   } else {
     CComPtr<ID3DBlob> VertexShader;
     CComPtr<ID3DBlob> PixelShader;
 
     CompileFromText(ShaderSource.c_str(), L"vs_main", L"vs_6_9", &VertexShader,
-                    Options, _countof(Options), IncludeHandler);
+                    Options.data(), (int)Options.size(), IncludeHandler);
     CompileFromText(ShaderSource.c_str(), L"ps_main", L"ps_6_9", &PixelShader,
-                    Options, _countof(Options), IncludeHandler);
+                    Options.data(), (int)Options.size(), IncludeHandler);
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC PsoDesc = {};
     // psoDesc.InputLayout;
@@ -12828,16 +12850,30 @@ float4 ps_main() : SV_Target {
     float *ResultBuffer = (float *)MappedData.data();
     bool Equal = true;
 
-    for (int i = 0; i < Config.NumThreads; ++i) {
+    float MaxError = 0.00001f;
+    if (MulProps.MatrixInterpretation ==
+        D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16) {
+      // Allow for more error in fp16 relative to the fp32 reference
+      MaxError = 0.1f;
+    } else if (MulProps.MatrixInterpretation ==
+               D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3) {
+      // And even more error for the fp8 formats
+      MaxError = 1.0f;
+    } else if (MulProps.MatrixInterpretation ==
+               D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2) {
+      MaxError = 3.0f;
+    }
+
+    for (int i = 0; i < Config.NumThreads && Equal; ++i) {
       for (int j = 0; j < Config.OutputPerThread; ++j) {
         float Result = ResultBuffer[i * Config.OutputPerThread + j];
         float Expected = ExpectedOutput.getVector<float>(i)[j];
         if (isnan(Result) || isnan(Expected) ||
-            fabs(Result - Expected) > 0.00001) {
-          LogErrorFmt(L"Result mismatch at index %d",
-                      i * Config.OutputPerThread + j);
+            fabs(Result - Expected) > MaxError) {
+          LogErrorFmt(L"Result mismatch at vector %d, element %d", i, j);
           LogErrorFmt(L"Result: %f, Expected: %f", Result, Expected);
           Equal = false;
+          break;
         }
       }
     }
@@ -12938,6 +12974,8 @@ void ExecutionTest::runCoopVecOuterProductSubtest(
     D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps,
     CoopVecOuterProductSubtestConfig &Config, bool RunCompute) {
 
+  std::mt19937 Rnd(0x42);
+
   LogCommentFmt(
       L"Running test for DimM: %d, DimN: %d, NumThreads: %d, MatrixLayout: %s, "
       L"Stage: %s",
@@ -12996,17 +13034,17 @@ void ExecutionTest::runCoopVecOuterProductSubtest(
     InputMatrix = CoopVecHelpers::CreateAllOnesInputMatrix<float>(Config.DimN,
                                                                   Config.DimM);
   } else {
-    WEX::Logging::Log::Error(L"Unsupported matrix data type");
+    WEX::Logging::Log::Comment(L"Unsupported matrix data type");
     return;
   }
 
   // Create input vectors
   auto InputVector1 = CoopVecHelpers::TestVector::createSimpleTestVector(
       Config.NumThreads, Config.DimM, AccumulateProps.InputType,
-      AccumulateProps.InputType);
+      AccumulateProps.InputType, AccumulateProps.AccumulationType, Rnd);
   auto InputVector2 = CoopVecHelpers::TestVector::createSimpleTestVector(
       Config.NumThreads, Config.DimN, AccumulateProps.InputType,
-      AccumulateProps.InputType);
+      AccumulateProps.InputType, AccumulateProps.AccumulationType, Rnd);
 
   // Calculate reference output
   auto ExpectedOutputBufferI8 =
@@ -13017,14 +13055,11 @@ void ExecutionTest::runCoopVecOuterProductSubtest(
               ExpectedOutputBufferI8.size());
 
   if (AccumulateProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16) {
-    DirectX::PackedVector::HALF *InputVector1FP16 =
-        reinterpret_cast<DirectX::PackedVector::HALF *>(
-            InputVector1.getBuffer());
-    DirectX::PackedVector::HALF *InputVector2FP16 =
-        reinterpret_cast<DirectX::PackedVector::HALF *>(
-            InputVector2.getBuffer());
-
     for (int ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
+      auto *InputVector1FP16 =
+          InputVector1.getVector<DirectX::PackedVector::HALF>(ThreadIdx);
+      auto *InputVector2FP16 =
+          InputVector2.getVector<DirectX::PackedVector::HALF>(ThreadIdx);
       for (int M = 0; M < Config.DimM; ++M) {
         for (int N = 0; N < Config.DimN; ++N) {
           float acc = ConvertFloat16ToFloat32(InputVector1FP16[M]) *
@@ -13035,20 +13070,19 @@ void ExecutionTest::runCoopVecOuterProductSubtest(
     }
   } else if (AccumulateProps.InputType ==
              D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
-    float *InputVector1FP32 =
-        reinterpret_cast<float *>(InputVector1.getBuffer());
-    float *InputVector2FP32 =
-        reinterpret_cast<float *>(InputVector2.getBuffer());
-
     for (int ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
+      auto *InputVector1FP32 = InputVector1.getVector<float>(ThreadIdx);
+      auto *InputVector2FP32 = InputVector2.getVector<float>(ThreadIdx);
       for (int M = 0; M < Config.DimM; ++M) {
         for (int N = 0; N < Config.DimN; ++N) {
-          float Acc = InputVector1FP32[ThreadIdx * Config.DimM + M] *
-                      InputVector2FP32[ThreadIdx * Config.DimN + N];
+          float Acc = InputVector1FP32[M] * InputVector2FP32[N];
           ExpectedOutputBuffer[M * Config.DimN + N] += Acc;
         }
       }
     }
+  } else {
+    WEX::Logging::Log::Comment(L"Unsupported input data type");
+    return;
   }
 
   // Create a compute pipeline state object.
