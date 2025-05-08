@@ -949,15 +949,23 @@ void raygen()
     PerRayData payload;
     payload.visited = 0;
 
-    // SER Test
-    dx::HitObject hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, payload);
+    dx::HitObject hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xFF, 0, 1, 0, ray, payload);
     dx::MaybeReorderThread(hitObject);
+
+    // Invoke hit/miss for triangle
+    dx::HitObject::Invoke( hitObject, payload );
 
     if (hitObject.IsHit())
     {
-        // Alter the hit object to point to a new shader index to hit chAABB.
+        // Transform to an 'aabb' hit.
         hitObject.SetShaderTableIndex( 1 );
-        dx::HitObject::Invoke( hitObject, payload );
+    }
+
+    // Invoke hit/miss for aabb
+    dx::HitObject::Invoke( hitObject, payload );
+
+    if (hitObject.IsHit())
+    {
         // Poison the test data if GetShaderTableIndex does not match SetShaderTableIndex.
         if (hitObject.GetShaderTableIndex() != 1)
             payload.visited = 12345;
@@ -970,60 +978,44 @@ void raygen()
 [shader("miss")]
 void miss(inout PerRayData payload)
 {
-    payload.visited |= 1U;
+  if ((payload.visited & 4U) == 0)
+    payload.visited |= 4U; // First 'miss' invocation
+  else
+    payload.visited |= 8U; // Second 'miss' invocation
 }
 
 // Triangles
 [shader("anyhit")]
 void anyhit(inout PerRayData payload, in Attrs attrs)
 {
-    payload.visited |= 2U;
     AcceptHitAndEndSearch();
 }
 
+// Triangle closest hit
 [shader("closesthit")]
 void closesthit(inout PerRayData payload, in Attrs attrs)
 {
-    payload.visited |= 4U;
+    payload.visited |= 1U;
+}
+
+// AABB closest hit
+[shader("closesthit")]
+void chAABB(inout PerRayData payload, in Attrs attrs)
+{
+    payload.visited |= 2U;
 }
 
 // Procedural
 [shader("intersection")]
 void intersection()
 {
-    // Intersection with circle on a plane (base, n, radius)
-    // hitPos is intersection point with plane (base, n)
-    float3 base = {0.0f,0.0f,0.5f};
-    float3 n = normalize(float3(0.2f,0.2f,0.5f));
-    float radius = 150.f;
-    // Plane hit
-    float t = dot(n, base - ObjectRayOrigin()) / dot(n, ObjectRayDirection());
-    if (t > RayTCurrent() || t < RayTMin()) {
-        return;
-    }
-    float3 hitPos = ObjectRayOrigin() + t * ObjectRayDirection();
-    float3 relHitPos = hitPos - base;
-    // Circle hit
-    float hitDist = length(relHitPos);
-    if (hitDist > radius)
-      return;
-
-    CustomAttrs attrs;
-    attrs.dist = hitDist;
-    ReportHit(t, 1, attrs);
+   // UNUSED
 }
 
 [shader("anyhit")]
 void ahAABB(inout PerRayData payload, in CustomAttrs attrs)
 {
-    payload.visited |= 8U;
-    IgnoreHit();
-}
-
-[shader("closesthit")]
-void chAABB(inout PerRayData payload, in Attrs attrs)
-{
-    payload.visited |= 16U;
+    // UNUSED
 }
 
 )";
@@ -1044,12 +1036,12 @@ void chAABB(inout PerRayData payload, in Attrs attrs)
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];
-  VERIFY_ARE_EQUAL(Histo.size(), 3);
-  VERIFY_ARE_EQUAL(Histo[0], 3696); // Miss (not Invoked)
-  VERIFY_ARE_EQUAL(Histo[8], 334);  // AABB ignored hit -> (Miss not Invoked)
+
+  VERIFY_ARE_EQUAL(Histo.size(), 2);
   VERIFY_ARE_EQUAL(
-      Histo[26],
-      66); // AABB ignored hit + TriHit -> setSBT(1) -> chAABB invoked
+      Histo[3],
+      66); // 'closesthit' invoked at index 0, then 'chAABB' invoked at index 1
+  VERIFY_ARE_EQUAL(Histo[12], 4030); // Miss shader invoked twice
 }
 
 TEST_F(ExecutionTest, SERLoadLocalRootTableConstantTest) {
