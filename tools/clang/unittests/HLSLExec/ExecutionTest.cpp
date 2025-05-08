@@ -12450,7 +12450,6 @@ void main(uint threadIdx : SV_GroupThreadID)
   MatrixRef<MATRIX_DATA_TYPE_ENUM, INPUT_PER_THREAD, INPUT_PER_THREAD, HLSL_MATRIX_LAYOUT, /*transpose*/false> mat0 = { InputMatrix[0], 0, STRIDE };
   if (USE_BIAS) {
     accum = MulAdd<ACCUM_DATA_TYPE>(mat0, MakeInterpretedVector<INPUT_INTERPRETATION_ENUM>(input), biasVec);
-    //accum = Mul<ACCUM_DATA_TYPE>(mat0, MakeInterpretedVector<INPUT_INTERPRETATION_ENUM>(input));
   } else {
     accum = Mul<ACCUM_DATA_TYPE>(mat0, MakeInterpretedVector<INPUT_INTERPRETATION_ENUM>(input));
   }
