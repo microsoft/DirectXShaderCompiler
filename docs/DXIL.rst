@@ -3174,7 +3174,7 @@ INSTR.OPCONST                                         DXIL intrinsic requires an
 INSTR.OPCONSTRANGE                                    Constant values must be in-range for operation.
 INSTR.OPERANDRANGE                                    DXIL intrinsic operand must be within defined range
 INSTR.PARAMMULTIPLE                                   Parameter must be a valid multiple
-INSTR.PTRBITCAST                                      Pointer type bitcast must be have same size.
+INSTR.PTRBITCAST                                      Pointer type bitcast must have same size.
 INSTR.RESOURCECLASSFORLOAD                            load can only run on UAV/SRV resource.
 INSTR.RESOURCECLASSFORSAMPLERGATHER                   sample, lod and gather should be on srv resource.
 INSTR.RESOURCECLASSFORUAVSTORE                        store should be on uav resource.
