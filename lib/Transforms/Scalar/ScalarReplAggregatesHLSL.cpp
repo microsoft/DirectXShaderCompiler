@@ -2695,11 +2695,11 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
   RewriteForGEP(cast<GEPOperator>(GEP), GEPBuilder);
 }
 
-/// RewriteCallArg - For Functions which don't flat,
-///                  replace OldVal with alloca and
-///                  copy in copy out data between alloca and flattened NewElts
-///                  in CallInst.
-static void RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn, bool bOut) {
+/// memcpyAggCallArg - For an aggregate call argument, this replaces the
+/// argument with an alloca and inserts a memcpy for input (if CopyIn) and
+/// output (if CopyOut).
+static void memcpyAggCallArg(CallInst *CI, unsigned ArgIdx, bool CopyIn,
+                             bool CopyOut) {
   Function *F = CI->getParent()->getParent();
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
   const DataLayout &DL = F->getParent()->getDataLayout();
@@ -2709,21 +2709,24 @@ static void RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn, bool bOut) {
   Type *userTyElt = userTy->getElementType();
   Value *Alloca = AllocaBuilder.CreateAlloca(userTyElt);
   IRBuilder<> Builder(CI);
-  if (bIn) {
+  if (CopyIn) {
     Builder.CreateMemCpy(Alloca, userTyV, DL.getTypeAllocSize(userTyElt),
                          false);
   }
   CI->setArgOperand(ArgIdx, Alloca);
-  if (bOut) {
+  if (CopyOut) {
     Builder.SetInsertPoint(CI->getNextNode());
     Builder.CreateMemCpy(userTyV, Alloca, DL.getTypeAllocSize(userTyElt),
                          false);
   }
 }
 
-static void copyIntrinsicUDTArgs(HLModule &HLM) {
+static void copyIntrinsicAggArgs(HLModule &HLM) {
   // Iterate HLIntrinsic function users
-  // For specific intrinsics, use RewriteCallArg on UDT args
+  // For specific intrinsics, use memcpyAggCallArg on aggregate args
+  // This ensures that the call does not directly use the pointer supplied,
+  // allowing certain arguments to be flattened, and UDT args to be correctly
+  // lowered.
   for (Function &F : HLM.GetModule()->functions()) {
     if (F.isIntrinsic() || !F.isDeclaration())
       continue;
@@ -2734,32 +2737,43 @@ static void copyIntrinsicUDTArgs(HLModule &HLM) {
       if (CallInst *CI = dyn_cast<CallInst>(U)) {
         switch (static_cast<IntrinsicOp>(GetHLOpcode(CI))) {
         case IntrinsicOp::IOP_TraceRay:
-          // TODO: Remove RayDesc for flattening
-          RewriteCallArg(CI, HLOperandIndex::kTraceRayRayDescOpIdx,
-                         /*bIn*/ true, /*bOut*/ false);
-          RewriteCallArg(CI, HLOperandIndex::kTraceRayPayloadPreOpIdx,
-                         /*bIn*/ true, /*bOut*/ true);
+          memcpyAggCallArg(CI, HLOperandIndex::kTraceRayRayDescOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
+          memcpyAggCallArg(CI, HLOperandIndex::kTraceRayPayloadPreOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ true);
           break;
         case IntrinsicOp::IOP_ReportHit:
-          RewriteCallArg(CI, HLOperandIndex::kReportIntersectionAttributeOpIdx,
-                         /*bIn*/ true, /*bOut*/ false);
+          memcpyAggCallArg(CI,
+                           HLOperandIndex::kReportIntersectionAttributeOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
           break;
         case IntrinsicOp::IOP_CallShader:
-          RewriteCallArg(CI, HLOperandIndex::kCallShaderPayloadOpIdx,
-                         /*bIn*/ true, /*bOut*/ true);
+          memcpyAggCallArg(CI, HLOperandIndex::kCallShaderPayloadOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ true);
+          break;
+        case IntrinsicOp::MOP_TraceRayInline:
+          memcpyAggCallArg(CI, HLOperandIndex::kTraceRayInlineRayDescOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
           break;
         case IntrinsicOp::MOP_DxHitObject_FromRayQuery:
           if (CI->getNumArgOperands() ==
               HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_NumOp) {
-            RewriteCallArg(
+            memcpyAggCallArg(
                 CI,
                 HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx,
-                /*bIn*/ true, /*bOut*/ false);
+                /*CopyIn*/ true, /*CopyOut*/ false);
           }
           break;
+        case IntrinsicOp::MOP_DxHitObject_MakeMiss:
+          memcpyAggCallArg(CI, HLOperandIndex::kHitObjectMakeMissRayDescOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
+          break;
         case IntrinsicOp::MOP_DxHitObject_TraceRay:
-          RewriteCallArg(CI, HLOperandIndex::kHitObjectTraceRay_PayloadPreOpIdx,
-                         /*bIn*/ true, /*bOut*/ true);
+          memcpyAggCallArg(CI, HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
+          memcpyAggCallArg(CI,
+                           HLOperandIndex::kHitObjectTraceRay_PayloadPreOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ true);
           break;
         }
       }
@@ -4464,7 +4478,7 @@ public:
     }
 
     // Expand flattened copy-in/copy-out for intrinsic UDT args:
-    copyIntrinsicUDTArgs(*m_pHLModule);
+    copyIntrinsicAggArgs(*m_pHLModule);
 
     // SROA globals and allocas.
     SROAGlobalAndAllocas(*m_pHLModule, m_HasDbgInfo);
