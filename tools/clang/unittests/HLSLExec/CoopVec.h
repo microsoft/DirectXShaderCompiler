@@ -749,12 +749,13 @@ public:
                        const TestVector &Bias, bool HasBias,
                        D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInterpretation,
                        D3D12_LINEAR_ALGEBRA_DATATYPE InputType) {
-    bool IsFP32 = false;
+    // The CPU reference matrix is FP32 for all FP interpretations.
+    bool IsMatrixFP32 = false;
     switch (MatrixInterpretation) {
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
-      IsFP32 = true;
+      IsMatrixFP32 = true;
       break;
     default:
       break;
@@ -763,7 +764,7 @@ public:
     TestVector ResultVec(InputVector.getNumVectors(), Matrix.getNumVectors(),
                          sizeof(float));
 
-    if (IsFP32) {
+    if (IsMatrixFP32) {
       for (int VecIdx = 0; VecIdx < InputVector.getNumVectors(); ++VecIdx) {
         const DirectX::PackedVector::HALF *InputBiasFP16 =
             Bias.getVector<DirectX::PackedVector::HALF>(0);
