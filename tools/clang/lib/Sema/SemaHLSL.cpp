@@ -11712,7 +11712,7 @@ static bool IsPackedType(unsigned type) {
 
 static bool IsValidLinalgTypeInterpretation(uint32_t Input, bool InRegister) {
 
-  switch (Input) {
+  switch (static_cast<DXIL::ComponentType>(Input)) {
   case DXIL::ComponentType::I16:
   case DXIL::ComponentType::U16:
   case DXIL::ComponentType::I32:
