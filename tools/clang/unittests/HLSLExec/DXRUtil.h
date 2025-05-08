@@ -42,18 +42,16 @@ struct Instance {
 
 class ShaderTable {
 public:
-  void Init(ID3D12Device *Device, int RaygenCount, int MissCount,
-            int HitGroupCount, int RayTypeCount, int RootTableDwords) {
-    RayTypeCount = RayTypeCount;
-    RaygenCount = RaygenCount;
-    MissCount = MissCount * RayTypeCount;
-    HitGroupCount = HitGroupCount * RayTypeCount;
-    RootTableSizeInBytes = RootTableDwords * 4;
-    ShaderRecordSizeInBytes =
-        ROUND_UP(RootTableSizeInBytes + SHADER_ID_SIZE_IN_BYTES,
-                 D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
-    MissStartIdx = RaygenCount;
-    HitGroupStartIdx = MissStartIdx + MissCount;
+  ShaderTable(ID3D12Device *Device, int RaygenCount, int MissCount,
+              int HitGroupCount, int RayTypeCount, int RootTableDwords)
+      : RayTypeCount(RayTypeCount), RaygenCount(RaygenCount),
+        MissCount(MissCount * RayTypeCount),
+        HitGroupCount(HitGroupCount * RayTypeCount),
+        RootTableSizeInBytes(RootTableDwords * 4),
+        ShaderRecordSizeInBytes(
+            ROUND_UP(RootTableSizeInBytes + SHADER_ID_SIZE_IN_BYTES,
+                     D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT)),
+        MissStartIdx(RaygenCount), HitGroupStartIdx(MissStartIdx + MissCount) {
 
     const int TotalSizeInBytes =
         (RaygenCount + MissCount + HitGroupCount) * ShaderRecordSizeInBytes;

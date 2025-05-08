@@ -2499,13 +2499,13 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   VERIFY_SUCCEEDED(StateObject->QueryInterface(&StateObjectProperties));
 
   // Create SBT
-  ShaderTable ShaderTable;
-  ShaderTable.Init(Device,
-                   1,                                        // raygen count
-                   1,                                        // miss count
-                   UseMesh && UseProceduralGeometry ? 2 : 1, // hit group count
-                   1,                                        // ray type count
-                   4 // dwords per root table
+  ShaderTable ShaderTable(
+      Device,
+      1,                                        // raygen count
+      1,                                        // miss count
+      UseMesh && UseProceduralGeometry ? 2 : 1, // hit group count
+      1,                                        // ray type count
+      4                                         // dwords per root table
   );
 
   int LocalRootConsts[4] = {12, 34, 56, 78};
