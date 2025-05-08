@@ -2303,17 +2303,20 @@ void raygen()
 
     dx::HitObject hitObject;
 
+    int cat = (launchIndex.x + launchIndex.y) % 4;
+
     // Use wave incoherence to decide how to create the HitObject
-    if (launchIndex.x % 4 == 1)
+    if (cat == 1)
     {
-        ray.Origin.x += 2.0f;
-        hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xFF, 0, 0, 0, ray, payload);
+        // Turn this into an expected miss by moving eye behind triangles
+        ray.Origin.z -= 1000.0f;
+        hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xFF, 0, 0, 0, ray, payload);
     }
-    else if (launchIndex.x % 4 == 2)
+    else if (cat == 2)
     {
         hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xFF, 0, 0, 0, ray, payload);
     }
-    else if (launchIndex.x % 4 == 3)
+    else if (cat == 3)
     {
         hitObject = dx::HitObject::TraceRay(topObject, RAY_FLAG_SKIP_TRIANGLES, 0xFF, 0, 0, 0, ray, payload);
     }
@@ -2376,7 +2379,7 @@ void intersection()
     // hitPos is intersection point with plane (base, n)
     float3 base = {0.0f,0.0f,0.5f};
     float3 n = normalize(float3(0.0f,0.5f,0.5f));
-    float radius = 1000.f;
+    float radius = 500.f;
     // Plane hit
     float t = dot(n, base - ObjectRayOrigin()) / dot(n, ObjectRayDirection());
     if (t > RayTCurrent() || t < RayTMin()) {
@@ -2412,13 +2415,12 @@ void intersection()
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];
-  VERIFY_ARE_EQUAL(Histo.size(), 6);
-  VERIFY_ARE_EQUAL(Histo[1], 1024);  // nop
-  VERIFY_ARE_EQUAL(Histo[2], 1022);  // miss
-  VERIFY_ARE_EQUAL(Histo[4], 12);    // triangle hit, no ch
-  VERIFY_ARE_EQUAL(Histo[8], 1008);  // procedural hit, no ch
-  VERIFY_ARE_EQUAL(Histo[20], 11);   // triangle hit, 'closesthit' invoked
-  VERIFY_ARE_EQUAL(Histo[40], 1019); // procedural hit, 'chAABB' invoked
+
+  VERIFY_ARE_EQUAL(Histo.size(), 4);
+  VERIFY_ARE_EQUAL(Histo[1], 1024); // nop
+  VERIFY_ARE_EQUAL(Histo[2], 2243); // miss
+  VERIFY_ARE_EQUAL(Histo[20], 16); // triangle hit
+  VERIFY_ARE_EQUAL(Histo[40], 813); // procedural hit
 }
 
 TEST_F(ExecutionTest, SERReorderCoherentTest) {
