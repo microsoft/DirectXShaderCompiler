@@ -2419,7 +2419,7 @@ void intersection()
   VERIFY_ARE_EQUAL(Histo.size(), 4);
   VERIFY_ARE_EQUAL(Histo[1], 1024); // nop
   VERIFY_ARE_EQUAL(Histo[2], 2243); // miss
-  VERIFY_ARE_EQUAL(Histo[20], 16); // triangle hit
+  VERIFY_ARE_EQUAL(Histo[20], 16);  // triangle hit
   VERIFY_ARE_EQUAL(Histo[40], 813); // procedural hit
 }
 
