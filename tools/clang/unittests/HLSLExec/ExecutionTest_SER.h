@@ -1509,7 +1509,7 @@ void raygen()
     }
     else
     {
-        // Use 255 to keep outside the HitKind range [0, 127] we passthru for hits.
+        // Use 255 to keep outside the HitKind range [0,15] we passthru for hits.
         testVal = 255;
     }
     int id = launchIndex.x + launchIndex.y * launchDim.x;
@@ -1537,28 +1537,35 @@ void closesthit(inout PerRayData payload, in CustomAttrs attrs)
 [shader("intersection")]
 void intersection()
 {
+    // Intersection with circle on a plane (base, n, radius)
     // hitPos is intersection point with plane (base, n)
     float3 base = {0.0f,0.0f,0.5f};
     float3 n = normalize(float3(0.0f,0.5f,0.5f));
+    float radius = 500.f;
+    // Plane hit
     float t = dot(n, base - ObjectRayOrigin()) / dot(n, ObjectRayDirection());
-    if (t > RayTCurrent() || t < RayTMin()) {
+    if (t > RayTCurrent() || t < RayTMin())
         return;
-    }
     float3 hitPos = ObjectRayOrigin() + t * ObjectRayDirection();
     float3 relHitPos = hitPos - base;
-    // Encode some hit information in hitKind
-    int hitKind = 0;
-    if (relHitPos.y >= 0.0f)
-        hitKind = 1;
-    hitKind *= 2;
-    if (relHitPos.x >= 0.0f)
-        hitKind += 1;
-    hitKind *= 2;
-    if (relHitPos.z >= 0.0f)
-        hitKind += 1;
+    // Circle hit
+    float hitDist = length(relHitPos);
+    if (hitDist > radius)
+      return;
 
     CustomAttrs attrs;
-    attrs.dist = length(relHitPos);
+    attrs.dist = hitDist;
+
+    // Generate wave-incoherent hitKind
+    uint2 launchIndex = DispatchRaysIndex().xy;
+    uint hitKind = 1U;
+    if (launchIndex.x >= 32)
+        hitKind |= 2U;
+    if (launchIndex.y >= 32)
+        hitKind |= 4U;
+    if ((launchIndex.x + launchIndex.y) % 2 == 0)
+        hitKind |= 8U;
+
     ReportHit(t, hitKind, attrs);
 }
 
@@ -1580,12 +1587,18 @@ void intersection()
   std::map<int, int> Histo;
   for (int Val : TestData)
     ++Histo[Val];
-  VERIFY_ARE_EQUAL(Histo.size(), 5);
-  VERIFY_ARE_EQUAL(Histo[0], 2009);
-  VERIFY_ARE_EQUAL(Histo[1], 561);
-  VERIFY_ARE_EQUAL(Histo[3], 587);
-  VERIFY_ARE_EQUAL(Histo[4], 454);
-  VERIFY_ARE_EQUAL(Histo[6], 485);
+
+  VERIFY_ARE_EQUAL(Histo.size(), 10);
+  VERIFY_ARE_EQUAL(Histo[0], 1587);
+  VERIFY_ARE_EQUAL(Histo[1], 277);
+  VERIFY_ARE_EQUAL(Histo[3], 256);
+  VERIFY_ARE_EQUAL(Histo[5], 167);
+  VERIFY_ARE_EQUAL(Histo[7], 153);
+  VERIFY_ARE_EQUAL(Histo[9], 249);
+  VERIFY_ARE_EQUAL(Histo[11], 260);
+  VERIFY_ARE_EQUAL(Histo[13], 158);
+  VERIFY_ARE_EQUAL(Histo[15], 142);
+  VERIFY_ARE_EQUAL(Histo[255], 847);
 }
 
 TEST_F(ExecutionTest, SERTraceHitMissNopTest) {
