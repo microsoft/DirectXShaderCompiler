@@ -15,6 +15,7 @@
 
 #include "clang/Sema/SemaHLSL.h"
 #include "VkConstantsTables.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilUtil.h"
@@ -11681,29 +11682,22 @@ static const unsigned kMatVecMulMatrixStrideIdx = 12;
 // MatVecAdd
 const unsigned kMatVecMulAddBiasInterpretation = 15;
 
-enum MatrixLayout {
-  MATRIX_LAYOUT_ROW_MAJOR = 0,
-  MATRIX_LAYOUT_COLUMN_MAJOR = 1,
-  MATRIX_LAYOUT_MUL_OPTIMAL = 2,
-  MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL = 3
-};
-
-bool IsValidMatrixLayoutForMulandMulAddOps(unsigned Layout) {
-  return Layout <= static_cast<unsigned>(
-                       MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL);
+static bool IsValidMatrixLayoutForMulandMulAddOps(unsigned Layout) {
+  return Layout <=
+         static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal);
 }
 
-bool IsOptimalTypeMatrixLayout(unsigned Layout) {
-  return (Layout == (static_cast<unsigned>(
-                        MatrixLayout::MATRIX_LAYOUT_MUL_OPTIMAL)) ||
-          (Layout == (static_cast<unsigned>(
-                         MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL))));
+static bool IsOptimalTypeMatrixLayout(unsigned Layout) {
+  return (
+      Layout == (static_cast<unsigned>(DXIL::LinalgMatrixLayout::MulOptimal)) ||
+      (Layout ==
+       (static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal))));
 }
 
-bool IsValidTransposeForMatrixLayout(unsigned Layout, bool Transposed) {
-  switch (static_cast<MatrixLayout>(Layout)) {
-  case MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR:
-  case MatrixLayout::MATRIX_LAYOUT_COLUMN_MAJOR:
+static bool IsValidTransposeForMatrixLayout(unsigned Layout, bool Transposed) {
+  switch (static_cast<DXIL::LinalgMatrixLayout>(Layout)) {
+  case DXIL::LinalgMatrixLayout::RowMajor:
+  case DXIL::LinalgMatrixLayout::ColumnMajor:
     return !Transposed;
 
   default:
@@ -11711,44 +11705,27 @@ bool IsValidTransposeForMatrixLayout(unsigned Layout, bool Transposed) {
   }
 }
 
-enum DataType {
-  DATA_TYPE_SINT16 = 2,           // ComponentType::I16
-  DATA_TYPE_UINT16 = 3,           // ComponentType::U16
-  DATA_TYPE_SINT32 = 4,           // ComponentType::I32
-  DATA_TYPE_UINT32 = 5,           // ComponentType::U32
-  DATA_TYPE_FLOAT16 = 8,          // ComponentType::F16
-  DATA_TYPE_FLOAT32 = 9,          // ComponentType::F32
-  DATA_TYPE_SINT8_T4_PACKED = 17, // ComponentType::PackedS8x32
-  DATA_TYPE_UINT8_T4_PACKED = 18, // ComponentType::PackedU8x32
-  DATA_TYPE_UINT8 = 19,           // ComponentType::U8
-  DATA_TYPE_SINT8 = 20,           // ComponentType::I8
-  DATA_TYPE_FLOAT8_E4M3 = 21,     // ComponentType::F8_E4M3
-                                  // (1 sign, 4 exp, 3 mantissa bits)
-  DATA_TYPE_FLOAT8_E5M2 = 22,     // ComponentType::F8_E5M2
-                                  // (1 sign, 5 exp, 2 mantissa bits)
-};
-
-bool IsPackedType(unsigned type) {
-  return (type == static_cast<unsigned>(DATA_TYPE_SINT8_T4_PACKED) ||
-          type == static_cast<unsigned>(DATA_TYPE_UINT8_T4_PACKED));
+static bool IsPackedType(unsigned type) {
+  return (type == static_cast<unsigned>(DXIL::ComponentType::PackedS8x32) ||
+          type == static_cast<unsigned>(DXIL::ComponentType::PackedU8x32));
 }
 
 static bool IsValidLinalgTypeInterpretation(uint32_t Input, bool InRegister) {
 
   switch (Input) {
-  case DATA_TYPE_SINT16:
-  case DATA_TYPE_UINT16:
-  case DATA_TYPE_SINT32:
-  case DATA_TYPE_UINT32:
-  case DATA_TYPE_FLOAT16:
-  case DATA_TYPE_FLOAT32:
-  case DATA_TYPE_UINT8:
-  case DATA_TYPE_SINT8:
-  case DATA_TYPE_FLOAT8_E4M3:
-  case DATA_TYPE_FLOAT8_E5M2:
+  case DXIL::ComponentType::I16:
+  case DXIL::ComponentType::U16:
+  case DXIL::ComponentType::I32:
+  case DXIL::ComponentType::U32:
+  case DXIL::ComponentType::F16:
+  case DXIL::ComponentType::F32:
+  case DXIL::ComponentType::U8:
+  case DXIL::ComponentType::I8:
+  case DXIL::ComponentType::F8_E4M3:
+  case DXIL::ComponentType::F8_E5M2:
     return true;
-  case DATA_TYPE_SINT8_T4_PACKED:
-  case DATA_TYPE_UINT8_T4_PACKED:
+  case DXIL::ComponentType::PackedS8x32:
+  case DXIL::ComponentType::PackedU8x32:
     return InRegister;
   default:
     return false;
@@ -12038,9 +12015,9 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
                      diag::err_hlsl_linalg_matrix_layout_invalid)
           << std::to_string(MatrixLayoutValue)
           << std::to_string(
-                 static_cast<unsigned>(MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR))
+                 static_cast<unsigned>(DXIL::LinalgMatrixLayout::RowMajor))
           << std::to_string(static_cast<unsigned>(
-                 MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL));
+                 DXIL::LinalgMatrixLayout::OuterProductOptimal));
       return;
     }
   } else {
@@ -12184,14 +12161,13 @@ static void CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
   if (MatrixLayoutExpr->isIntegerConstantExpr(MatrixLayoutExprVal, S.Context)) {
     MatrixLayoutValue = MatrixLayoutExprVal.getLimitedValue();
     if (MatrixLayoutValue !=
-        static_cast<unsigned>(
-            MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL)) {
+        static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal)) {
       S.Diags.Report(
           MatrixLayoutExpr->getExprLoc(),
           diag::
               err_hlsl_linalg_outer_prod_acc_matrix_layout_must_be_outer_prod_acc_optimal)
           << std::to_string(static_cast<unsigned>(
-                 MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL));
+                 DXIL::LinalgMatrixLayout::OuterProductOptimal));
       return;
     }
   } else {
