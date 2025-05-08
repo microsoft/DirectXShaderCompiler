@@ -5760,7 +5760,7 @@ Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
   hlsl::OP *OP = &Helper.hlslOP;
 
   Value *RayDesc = CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx);
-  Value *PayLoad = CI->getArgOperand(HLOperandIndex::kTraceRayPayLoadOpIdx);
+  Value *PayLoad = CI->getArgOperand(HLOperandIndex::kTraceRayPayloadOpIdx);
 
   Value *Args[DXIL::OperandIndex::kTraceRayNumOp];
   Args[0] = OP->GetU32Const(static_cast<unsigned>(OpCode));
