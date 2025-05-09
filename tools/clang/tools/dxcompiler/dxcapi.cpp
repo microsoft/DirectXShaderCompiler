@@ -87,11 +87,7 @@ static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
   } else if (IsEqualCLSID(rclsid, CLSID_DxcUtils)) {
     hr = CreateDxcUtils(riid, ppv);
   } else if (IsEqualCLSID(rclsid, CLSID_DxcValidator)) {
-    if (DxilLibIsEnabled()) {
-      hr = DxilLibCreateInstance(rclsid, riid, (IUnknown **)ppv);
-    } else {
-      hr = CreateDxcValidator(riid, ppv);
-    }
+    hr = CreateDxcValidator(riid, ppv);
   } else if (IsEqualCLSID(rclsid, CLSID_DxcAssembler)) {
     hr = CreateDxcAssembler(riid, ppv);
   } else if (IsEqualCLSID(rclsid, CLSID_DxcOptimizer)) {
