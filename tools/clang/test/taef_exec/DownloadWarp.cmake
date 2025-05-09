@@ -9,7 +9,7 @@ endif()
 
 
 #
-# At runtime, the Execution Tests looks at the WARP_DLL runtime parameter to
+# At runtime, the Execution Tests look at the WARP_DLL runtime parameter to
 # decide which DLL to use. When USE_NUGET_WARP is set to true, this will
 # configure the tests by default to use the DLL from the installed nuget
 # package.
