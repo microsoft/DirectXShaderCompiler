@@ -8048,7 +8048,7 @@ def err_hlsl_linalg_mul_muladd_isUnsigned_for_packed_input_must_be_true : Error<
   "IsInputUnsigned must be true for packed input interpretations in linalg mul/muladd operations">;
 def err_hlsl_linalg_mul_muladd_packed_input_vector_must_be_uint : Error<
   "packed input vector type must be a 32-bit unsigned int in linalg mul/muladd operations, "
-    "packed formats uint8_t4_packed and sint8_t4_packed are not supported currently">;
+   "packed formats uint8_t4_packed and sint8_t4_packed are not supported currently">;
 
 def err_hlsl_linalg_outer_prod_acc_vector_type_mismatch : Error<
   "input vectors of outerproductaccumulate must have the same element type">;

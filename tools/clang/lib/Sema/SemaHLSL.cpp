@@ -11682,7 +11682,7 @@ static const unsigned kMatVecMulMatrixStrideIdx = 12;
 // MatVecAdd
 const unsigned kMatVecMulAddBiasInterpretation = 15;
 
-static bool IsValidMatrixLayoutForMulandMulAddOps(unsigned Layout) {
+static bool IsValidMatrixLayoutForMulAndMulAddOps(unsigned Layout) {
   return Layout <=
          static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal);
 }
@@ -11897,7 +11897,7 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
 
     // Check if the isUnsigned flag setting
     if (IsInputVectorPacked) {
-      // Check that the input vector type is always uint32_t
+      // Check that the input vector element type is "32bit"
       if (!Is32Bit) {
         S.Diags.Report(
             InputVectorExpr->getExprLoc(),
@@ -11905,7 +11905,7 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
         return;
       }
 
-      // Check that the input vector is unsigned int
+      // Check that the input vector element type is an unsigned int
       if (!InputVectorTypePtr->isUnsignedIntegerType()) {
         S.Diags.Report(
             InputVectorExpr->getExprLoc(),
@@ -12039,7 +12039,7 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
   unsigned MatrixLayoutValue = 0;
   if (MatrixLayoutExpr->isIntegerConstantExpr(MatrixLayoutExprVal, S.Context)) {
     MatrixLayoutValue = MatrixLayoutExprVal.getLimitedValue();
-    if (!IsValidMatrixLayoutForMulandMulAddOps(MatrixLayoutValue)) {
+    if (!IsValidMatrixLayoutForMulAndMulAddOps(MatrixLayoutValue)) {
       S.Diags.Report(MatrixLayoutExpr->getExprLoc(),
                      diag::err_hlsl_linalg_matrix_layout_invalid)
           << std::to_string(MatrixLayoutValue)
