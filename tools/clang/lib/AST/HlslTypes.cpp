@@ -25,6 +25,7 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Type.h"
 #include "clang/Sema/AttributeList.h" // conceptually ParsedAttributes
+#include "clang/Sema/SemaHLSL.h"
 #include "llvm/ADT/StringSwitch.h"
 
 using namespace clang;
@@ -112,6 +113,11 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
     for (auto member : RD->fields()) {
       if (!IsHLSLNumericOrAggregateOfNumericType(member->getType()))
         return false;
+      if (auto *Child = dyn_cast<CXXRecordDecl>(RD))
+        // Walk up the inheritance chain and check base class fields
+        for (auto &Base : Child->bases())
+          if (!IsHLSLNumericOrAggregateOfNumericType(Base.getType()))
+            return false;
     }
     return true;
   }
