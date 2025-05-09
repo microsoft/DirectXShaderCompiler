@@ -8015,9 +8015,10 @@ class db_dxil(object):
             "Hull Shader MaxTessFactor must be [%0..%1].  %2 specified.",
         )
         self.add_valrule("Meta.ValidSamplerMode", "Invalid sampler mode on sampler .")
-        self.add_valrule(
-            "Meta.GlcNotOnAppendConsume",
-            "globallycoherent cannot be used with append/consume buffers: '%0'.",
+        self.add_valrule_msg(
+            "Meta.CoherenceNotOnAppendConsume",
+            "globally/reorder coherent incompatible with append/consume/counter buffers",
+            "%0coherent cannot be used on buffer with counter",
         )
         self.add_valrule_msg(
             "Meta.StructBufAlignment",
@@ -8408,6 +8409,10 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.MayReorderThreadUndefCoherenceHintParam",
             "Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.",
+        )
+        self.add_valrule(
+            "Instr.ReorderCoherentRequiresSM69",
+            "reordercoherent requires SM 6.9 or later.",
         )
 
         # Linalg ops

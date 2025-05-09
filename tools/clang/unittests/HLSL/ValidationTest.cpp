@@ -1488,7 +1488,7 @@ TEST_F(ValidationTest, StructBufGlobalCoherentAndCounter) {
       L"..\\DXILValidation\\struct_buf1.hlsl", "ps_6_0",
       "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 false, i1 false",
       "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 true, i1 true",
-      "globallycoherent cannot be used with append/consume buffers: 'buf2'");
+      "globallycoherent cannot be used on buffer with counter 'buf2'");
 }
 
 TEST_F(ValidationTest, StructBufStrideAlign) {
