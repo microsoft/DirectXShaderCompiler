@@ -43,7 +43,7 @@ void UseCoopVec() {
     const uint opa_matrix_offset = 0;
     const uint opa_matrix_interpretation = 5; /*U32*/
     const uint opa_matrix_layout = 3; /*OuterProductOptimal*/
-    const uint opa_matrix_stride = 64;
+    const uint opa_matrix_stride = 0;
 
     __builtin_OuterProductAccumulate(input_vector1, input_vector2,
       rw_matrix_buffer, opa_matrix_offset, opa_matrix_interpretation,
