@@ -2287,6 +2287,32 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     break;
   }
 
+  // Shader Execution Reordering - from ray query
+  case DXIL::OpCode::HitObject_FromRayQuery:
+  case DXIL::OpCode::HitObject_FromRayQueryWithAttrs: {
+    for (unsigned i = 1; i < CI->getNumOperands(); ++i) {
+      Value *Arg = CI->getArgOperand(i);
+      if (isa<UndefValue>(Arg))
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+    }
+    break;
+  }
+
+  case DXIL::OpCode::HitObject_Invoke: {
+    if (isa<UndefValue>(CI->getArgOperand(1)))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrUndefHitObject);
+    if (isa<UndefValue>(CI->getArgOperand(2)))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+  } break;
+  case DXIL::OpCode::HitObject_TraceRay: {
+    Value *Hdl = CI->getArgOperand(
+        DxilInst_HitObject_TraceRay::arg_accelerationStructure);
+    ValidateASHandle(CI, Hdl, ValCtx);
+    for (unsigned ArgIdx = 2; ArgIdx < CI->getNumArgOperands(); ++ArgIdx)
+      if (isa<UndefValue>(CI->getArgOperand(ArgIdx)))
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+    DxilInst_HitObject_TraceRay HOTraceRay(CI);
+  } break;
   case DXIL::OpCode::AtomicBinOp:
   case DXIL::OpCode::AtomicCompareExchange: {
     Type *pOverloadType = OP::GetOverloadType(Opcode, CI->getCalledFunction());

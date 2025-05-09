@@ -1,3 +1,5 @@
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=abs  -DOP=6 -DNUM=7    %s | FileCheck %s
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=abs  -DOP=6 -DNUM=1022 %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=saturate  -DOP=7 -DNUM=7    %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=saturate  -DOP=7 -DNUM=1022 %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=cos  -DOP=12 -DNUM=7    %s | FileCheck %s
