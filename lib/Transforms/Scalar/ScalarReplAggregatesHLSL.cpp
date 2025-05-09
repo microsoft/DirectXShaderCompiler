@@ -1480,11 +1480,14 @@ void isSafePHISelectUseForScalarRepl(Instruction *I, uint64_t Offset,
 static bool isUDTIntrinsicArg(CallInst *CI, unsigned OpIdx) {
   if (HLOpcodeGroup::HLIntrinsic != GetHLOpcodeGroup(CI->getCalledFunction()))
     return false;
+  const unsigned NumOps = CI->getNumArgOperands();
   switch (static_cast<IntrinsicOp>(GetHLOpcode(CI))) {
   case IntrinsicOp::IOP_TraceRay:
-    if (OpIdx == HLOperandIndex::kTraceRayRayDescOpIdx)
+    if (NumOps == HLOperandIndex::kTraceRay_PreNumOp &&
+        OpIdx == HLOperandIndex::kTraceRayPayloadPreOpIdx)
       return true;
-    if (OpIdx == HLOperandIndex::kTraceRayPayloadPreOpIdx)
+    else if (NumOps == HLOperandIndex::kTraceRay_NumOp &&
+             OpIdx == HLOperandIndex::kTraceRayPayloadOpIdx)
       return true;
     break;
   case IntrinsicOp::IOP_ReportHit:
@@ -1496,15 +1499,17 @@ static bool isUDTIntrinsicArg(CallInst *CI, unsigned OpIdx) {
       return true;
     break;
   case IntrinsicOp::MOP_DxHitObject_FromRayQuery:
-    if (OpIdx ==
-        HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx)
+    if (NumOps == HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_NumOp &&
+        OpIdx ==
+            HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx)
       return true;
     break;
   case IntrinsicOp::MOP_DxHitObject_TraceRay:
-    // TODO: Remove RayDesc for flattening
-    if (OpIdx == HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx)
+    if (NumOps == HLOperandIndex::kHitObjectTraceRay_PreNumOp &&
+        OpIdx == HLOperandIndex::kHitObjectTraceRay_PayloadPreOpIdx)
       return true;
-    if (OpIdx == HLOperandIndex::kHitObjectTraceRay_PayloadPreOpIdx)
+    else if (NumOps == HLOperandIndex::kHitObjectTraceRay_NumOp &&
+             OpIdx == HLOperandIndex::kHitObjectTraceRay_PayloadOpIdx)
       return true;
     break;
   case IntrinsicOp::MOP_DxHitObject_Invoke:
@@ -2765,7 +2770,7 @@ static void copyIntrinsicAggArgs(HLModule &HLM) {
           }
           break;
         case IntrinsicOp::MOP_DxHitObject_MakeMiss:
-          memcpyAggCallArg(CI, HLOperandIndex::kHitObjectMakeMissRayDescOpIdx,
+          memcpyAggCallArg(CI, HLOperandIndex::kHitObjectMakeMiss_RayDescOpIdx,
                            /*CopyIn*/ true, /*CopyOut*/ false);
           break;
         case IntrinsicOp::MOP_DxHitObject_TraceRay:
@@ -2774,6 +2779,12 @@ static void copyIntrinsicAggArgs(HLModule &HLM) {
           memcpyAggCallArg(CI,
                            HLOperandIndex::kHitObjectTraceRay_PayloadPreOpIdx,
                            /*CopyIn*/ true, /*CopyOut*/ true);
+          break;
+        case IntrinsicOp::MOP_DxHitObject_Invoke:
+          memcpyAggCallArg(CI, HLOperandIndex::kHitObjectInvoke_PayloadOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ true);
+          break;
+        default:
           break;
         }
       }
@@ -2850,7 +2861,7 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
 
       IntrinsicOp IOP = static_cast<IntrinsicOp>(opcode);
       switch (IOP) {
-      case IntrinsicOp::MOP_Append: {
+      case IntrinsicOp::MOP_Append:
         // Buffer Append already expand in code gen.
         // Must be OutputStream Append here.
         // Every Elt has a pointer type.
@@ -2858,31 +2869,34 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
                                             /*loadElts*/ false);
         DeadInsts.push_back(CI);
-      } break;
-      //case IntrinsicOp::IOP_TraceRay:
-      //  if (OldVal ==
-      //      CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx)) {
-      //    // TODO: flatten RayDesc
-      //     RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
-      //                                        /*loadElts*/ true);
-      //     DeadInsts.push_back(CI);
-      //  }
-      //break;
-      //case IntrinsicOp::MOP_DxHitObject_TraceRay:
-      //  if (OldVal ==
-      //      CI->getArgOperand(HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx)) {
-      //    // TODO: flatten RayDesc
-      //     RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
-      //                                        /*loadElts*/ true);
-      //     DeadInsts.push_back(CI);
-      //  }
-      //  break;
-      case IntrinsicOp::MOP_DxHitObject_MakeMiss:
+        return;
+      case IntrinsicOp::IOP_TraceRay:
         if (OldVal ==
-            CI->getArgOperand(HLOperandIndex::kHitObjectMakeMissRayDescOpIdx)) {
+            CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx)) {
+          // TODO: flatten RayDesc
           RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
                                               /*loadElts*/ true);
           DeadInsts.push_back(CI);
+          return;
+        }
+        break;
+      case IntrinsicOp::MOP_DxHitObject_TraceRay:
+        if (OldVal == CI->getArgOperand(
+                          HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx)) {
+          // TODO: flatten RayDesc
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                              /*loadElts*/ true);
+          DeadInsts.push_back(CI);
+          return;
+        }
+        break;
+      case IntrinsicOp::MOP_DxHitObject_MakeMiss:
+        if (OldVal ==
+            CI->getArgOperand(HLOperandIndex::kHitObjectMakeMiss_RayDescOpIdx)) {
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                              /*loadElts*/ true);
+          DeadInsts.push_back(CI);
+          return;
         }
         break;
       case IntrinsicOp::MOP_TraceRayInline:
@@ -2891,12 +2905,13 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
           RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
                                               /*loadElts*/ true);
           DeadInsts.push_back(CI);
-          break;
+          return;
         }
-        LLVM_FALLTHROUGH;
+        break;
       default:
-        DXASSERT(0, "cannot flatten hlsl intrinsic.");
+        break;
       }
+      DXASSERT(0, "cannot flatten hlsl intrinsic.");
     }
     // TODO: check other high level dx operations if need to.
   } else {
