@@ -11794,7 +11794,8 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
   unsigned OutputVectorSizeValue = 0;
   if (IsHLSLVecType(OutputVectorExpr->getType())) {
     OutputVectorSizeValue = GetHLSLVecSize(OutputVectorExpr->getType());
-    QualType OutputVectorType = GetHLSLVecElementType(OutputVectorExpr->getType());
+    QualType OutputVectorType =
+        GetHLSLVecElementType(OutputVectorExpr->getType());
     const Type *OutputVectorTypePtr = OutputVectorType.getTypePtr();
     if (!OutputVectorTypePtr->isUnsignedIntegerType() &&
         !OutputVectorTypePtr->isSignedIntegerType() &&
