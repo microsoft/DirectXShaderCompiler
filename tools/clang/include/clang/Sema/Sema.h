@@ -8838,6 +8838,8 @@ private:
     bool HasVAListArg;
   };
 
+  bool evaluateSpecConstInt(ASTContext &astContext, const Expr *E,
+                            int64_t *value);
   bool getFormatStringInfo(const FormatAttr *Format, bool IsCXXMember,
                            FormatStringInfo *FSI);
   bool CheckFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,

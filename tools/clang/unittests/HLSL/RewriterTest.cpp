@@ -26,6 +26,7 @@
 #include <vector>
 #include <string>
 #include <cassert>
+#include <iostream>
 #include <sstream>
 #include <algorithm>
 #ifdef _WIN32
@@ -795,7 +796,7 @@ TEST_F(RewriterTest, RunExtractUniforms) {
 
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
-
+std::cout << BlobToUtf8(result).c_str();
   VERIFY_IS_TRUE(
       strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\
 [RootSignature(\"RootFlags(0),DescriptorTable(UAV(u0, numDescriptors = 1), CBV(b0, numDescriptors = 1))\")]\n\

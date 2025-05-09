@@ -13246,6 +13246,36 @@ void SpirvEmitter::processInlineSpirvAttributes(const FunctionDecl *decl) {
   }
 }
 
+bool SpirvEmitter::processNumThreadsAttr(const FunctionDecl *decl) {
+  auto *numThreadsAttr = decl->getAttr<HLSLNumThreadsAttr>();
+  if (!numThreadsAttr)
+    return false;
+
+  auto f = [this](Expr *E) {
+    APValue A;
+    if (DeclRefExpr *D = dyn_cast<DeclRefExpr>(E)) {
+      if (auto *V = llvm::dyn_cast<VarDecl>(D->getDecl())) {
+        if (const Expr *I = V->getAnyInitializer()) {
+          if (I->isCXX11ConstantExpr(astContext, &A) && A.isInt()) {
+            return (uint32_t)A.getInt().getSExtValue();
+          }
+        }
+      }
+    }
+
+    llvm::APSInt S(32, 1);
+    (void)E->isIntegerConstantExpr(S, astContext);
+    return (uint32_t)S.getSExtValue();
+  };
+
+  spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
+                              {f(numThreadsAttr->getX()),
+                               f(numThreadsAttr->getY()),
+                               f(numThreadsAttr->getZ())},
+                              decl->getLocation());
+  return true;
+}
+
 bool SpirvEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
                                                    uint32_t *arraySize) {
   bool success = true;
@@ -13422,15 +13452,9 @@ void SpirvEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
 }
 
 void SpirvEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
-  auto *numThreadsAttr = decl->getAttr<HLSLNumThreadsAttr>();
-  assert(numThreadsAttr && "thread group size missing from entry-point");
-
-  uint32_t x = static_cast<uint32_t>(numThreadsAttr->getX());
-  uint32_t y = static_cast<uint32_t>(numThreadsAttr->getY());
-  uint32_t z = static_cast<uint32_t>(numThreadsAttr->getZ());
-
-  spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
-                              {x, y, z}, decl->getLocation());
+  if (!processNumThreadsAttr(decl)) {
+    assert(false && "thread group size missing from entry-point");
+  }
 
   auto *waveSizeAttr = decl->getAttr<HLSLWaveSizeAttr>();
   if (waveSizeAttr) {
@@ -13651,14 +13675,7 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
 
 bool SpirvEmitter::processMeshOrAmplificationShaderAttributes(
     const FunctionDecl *decl, uint32_t *outVerticesArraySize) {
-  if (auto *numThreadsAttr = decl->getAttr<HLSLNumThreadsAttr>()) {
-    uint32_t x, y, z;
-    x = static_cast<uint32_t>(numThreadsAttr->getX());
-    y = static_cast<uint32_t>(numThreadsAttr->getY());
-    z = static_cast<uint32_t>(numThreadsAttr->getZ());
-    spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
-                                {x, y, z}, decl->getLocation());
-  }
+  processNumThreadsAttr(decl);
 
   // Early return for amplification shaders as they only take the 'numthreads'
   // attribute.
