@@ -1609,6 +1609,7 @@ const unsigned kMatVecMulAddIsOutputUnsignedIdx = 15;
 // Outer Product Accumulate
 const unsigned kOuterProdAccMatrixInterpretation = 5;
 const unsigned kOuterProdAccMatrixLayout = 6;
+const unsigned kOuterProdAccMatrixStride = 7;
 
 // TODO: add operand index for all the OpCodeClass.
 } // namespace OperandIndex
