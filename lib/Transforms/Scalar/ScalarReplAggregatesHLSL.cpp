@@ -1539,9 +1539,7 @@ void isSafeForScalarRepl(Instruction *I, uint64_t Offset, AllocaInfo &Info) {
         // TODO: should we check HL parameter type for UDT overload instead of
         // basing on IOP?
         IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(CI));
-        if (IntrinsicOp::IOP_TraceRay == opcode ||
-            IntrinsicOp::MOP_DxHitObject_TraceRay == opcode ||
-            IntrinsicOp::MOP_DxHitObject_Invoke == opcode ||
+        if (IntrinsicOp::MOP_DxHitObject_Invoke == opcode ||
             IntrinsicOp::IOP_ReportHit == opcode ||
             IntrinsicOp::IOP_CallShader == opcode) {
           return MarkUnsafe(Info, User);
@@ -2687,7 +2685,7 @@ void SROA_Helper::RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn,
     Builder.SetInsertPoint(CI->getNextNode());
     MemCpyInst *cpy = cast<MemCpyInst>(Builder.CreateMemCpy(
         userTyV, Alloca, DL.getTypeAllocSize(userTyElt), false));
-    RewriteMemIntrin(cpy, cpy->getRawSource());
+    RewriteMemIntrin(cpy, cpy->getRawDest());
   }
 }
 
@@ -2756,18 +2754,21 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
                                             /*loadElts*/ false);
         DeadInsts.push_back(CI);
       } break;
-      case IntrinsicOp::IOP_TraceRay: {
-        if (OldVal ==
-            CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx)) {
-          RewriteCallArg(CI, HLOperandIndex::kTraceRayRayDescOpIdx,
-                         /*bIn*/ true, /*bOut*/ false);
-        } else {
-          DXASSERT(OldVal ==
-                       CI->getArgOperand(HLOperandIndex::kTraceRayPayLoadOpIdx),
-                   "else invalid TraceRay");
-          RewriteCallArg(CI, HLOperandIndex::kTraceRayPayLoadOpIdx,
-                         /*bIn*/ true, /*bOut*/ true);
+      case IntrinsicOp::IOP_TraceRay:
+      case IntrinsicOp::MOP_DxHitObject_TraceRay: {
+        const int RayDescIdx =
+            IOP == IntrinsicOp::IOP_TraceRay
+                ? HLOperandIndex::kTraceRayRayDescOpIdx
+                : HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx;
+        if (OldVal == CI->getArgOperand(RayDescIdx)) {
+          RewriteCallArg(CI, RayDescIdx, /*bIn*/ true, /*bOut*/ false);
+          break;
         }
+        const int PayloadIdx = CI->getNumArgOperands() - 1;
+        DXASSERT(OldVal == CI->getArgOperand(PayloadIdx),
+                 "else invalid TraceRay");
+        RewriteCallArg(CI, PayloadIdx,
+                       /*bIn*/ true, /*bOut*/ true);
       } break;
       case IntrinsicOp::IOP_ReportHit: {
         RewriteCallArg(CI, HLOperandIndex::kReportIntersectionAttributeOpIdx,
@@ -2780,21 +2781,10 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
       case IntrinsicOp::MOP_DxHitObject_MakeMiss: {
         if (OldVal ==
             CI->getArgOperand(HLOperandIndex::kHitObjectMakeMissRayDescOpIdx)) {
-          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
-                                              /*loadElts*/ true);
-          DeadInsts.push_back(CI);
+          RewriteCallArg(CI, HLOperandIndex::kHitObjectMakeMissRayDescOpIdx,
+                         /*bIn*/ true, /*bOut*/ false);
         }
       } break;
-      case IntrinsicOp::MOP_TraceRayInline: {
-        if (OldVal ==
-            CI->getArgOperand(HLOperandIndex::kTraceRayInlineRayDescOpIdx)) {
-          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
-                                              /*loadElts*/ true);
-          DeadInsts.push_back(CI);
-          break;
-        }
-      }
-        LLVM_FALLTHROUGH;
       case IntrinsicOp::MOP_DxHitObject_FromRayQuery: {
         const bool IsWithAttrs =
             CI->getNumArgOperands() ==
@@ -2808,7 +2798,6 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
               CI,
               HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx,
               /*bIn*/ true, /*bOut*/ false);
-          break;
         }
 
         // For RayQuery methods, we want to replace the RayQuery this pointer
@@ -2817,8 +2806,17 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
                                             /*loadElts*/ true);
         DeadInsts.push_back(CI);
-        break;
+      } break;
+      case IntrinsicOp::MOP_TraceRayInline: {
+        if (OldVal ==
+            CI->getArgOperand(HLOperandIndex::kTraceRayInlineRayDescOpIdx)) {
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                              /*loadElts*/ true);
+          DeadInsts.push_back(CI);
+          break;
+        }
       }
+        LLVM_FALLTHROUGH;
       default:
         // RayQuery this pointer replacement.
         if (OldVal->getType()->isPointerTy() &&

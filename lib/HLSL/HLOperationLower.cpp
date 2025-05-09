@@ -6217,35 +6217,20 @@ Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
   DXASSERT_NOMSG(CI->getNumArgOperands() ==
                  HLOperandIndex::kHitObjectMakeMiss_NumOp);
-  Value *RayFlags = CI->getArgOperand(SrcIdx++);
-  Value *MissShaderIdx = CI->getArgOperand(SrcIdx++);
-  DXASSERT_NOMSG(SrcIdx == HLOperandIndex::kHitObjectMakeMissRayDescOpIdx);
-  Value *RayDescOrigin = CI->getArgOperand(SrcIdx++);
-  Value *RayDescOriginX =
-      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)0);
-  Value *RayDescOriginY =
-      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)1);
-  Value *RayDescOriginZ =
-      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)2);
-
-  Value *RayDescTMin = CI->getArgOperand(SrcIdx++);
-  Value *RayDescDirection = CI->getArgOperand(SrcIdx++);
-  Value *RayDescDirectionX =
-      Builder.CreateExtractElement(RayDescDirection, (uint64_t)0);
-  Value *RayDescDirectionY =
-      Builder.CreateExtractElement(RayDescDirection, (uint64_t)1);
-  Value *RayDescDirectionZ =
-      Builder.CreateExtractElement(RayDescDirection, (uint64_t)2);
-
-  Value *RayDescTMax = CI->getArgOperand(SrcIdx++);
+  const unsigned DxilNumArgs = DxilInst_HitObject_MakeMiss::arg_TMax + 1;
+  Value *Args[DxilNumArgs];
+  Args[0] = nullptr; // Opcode
+  unsigned DestIdx = 1;
+  Args[DestIdx++] = CI->getArgOperand(SrcIdx++); // RayFlags
+  Args[DestIdx++] = CI->getArgOperand(SrcIdx++); // MissShaderIdx
+  Value *RayDescPtr = CI->getArgOperand(SrcIdx++);
+  DestIdx = LoadRayDescElementsIntoArgs(Args, &Helper.hlslOP, Builder,
+                                        RayDescPtr, DestIdx);
   DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
+  DXASSERT_NOMSG(DestIdx == DxilNumArgs);
 
-  Value *OutHitObject = TrivialDxilOperation(
-      Opcode,
-      {nullptr, RayFlags, MissShaderIdx, RayDescOriginX, RayDescOriginY,
-       RayDescOriginZ, RayDescTMin, RayDescDirectionX, RayDescDirectionY,
-       RayDescDirectionZ, RayDescTMax},
-      Helper.voidTy, CI, HlslOP);
+  Value *OutHitObject =
+      TrivialDxilOperation(Opcode, Args, Helper.voidTy, CI, HlslOP);
   Builder.CreateStore(OutHitObject, HitObjectPtr);
   return nullptr;
 }
