@@ -1724,7 +1724,7 @@ TEST_F(ValidationTest, PtrBitCast) {
       "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
       "  %X = bitcast i32* %\\1 to double*    \n"
       "  store i32 %\\3, i32* %\\1, align 4",
-      "Pointer type bitcast must be have same size",
+      "Pointer type bitcast must have same size",
       /*bRegex*/ true);
 }
 

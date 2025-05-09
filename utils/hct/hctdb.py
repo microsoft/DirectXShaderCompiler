@@ -8068,7 +8068,7 @@ class db_dxil(object):
             "Call to DXIL intrinsic '%0' does not match an allowed overload signature.",
         )
         self.add_valrule(
-            "Instr.PtrBitCast", "Pointer type bitcast must be have same size."
+            "Instr.PtrBitCast", "Pointer type bitcast must have same size."
         )
         self.add_valrule(
             "Instr.MinPrecisonBitCast", "Bitcast on minprecison types is not allowed."
