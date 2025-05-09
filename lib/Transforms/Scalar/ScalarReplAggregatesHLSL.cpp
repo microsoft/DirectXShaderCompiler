@@ -2891,8 +2891,8 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         }
         break;
       case IntrinsicOp::MOP_DxHitObject_MakeMiss:
-        if (OldVal ==
-            CI->getArgOperand(HLOperandIndex::kHitObjectMakeMiss_RayDescOpIdx)) {
+        if (OldVal == CI->getArgOperand(
+                          HLOperandIndex::kHitObjectMakeMiss_RayDescOpIdx)) {
           RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
                                               /*loadElts*/ true);
           DeadInsts.push_back(CI);

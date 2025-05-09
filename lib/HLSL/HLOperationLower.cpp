@@ -6170,10 +6170,11 @@ Value *TranslateUnpack(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
 // Shader Execution Reordering.
 namespace {
-Value *TranslateHitObjectMakeNop(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
-                              HLOperationLowerHelper &Helper,
-                              HLObjectOperationLowerHelper *ObjHelper,
-                              bool &Translated) {
+Value *TranslateHitObjectMakeNop(CallInst *CI, IntrinsicOp IOP,
+                                 OP::OpCode Opcode,
+                                 HLOperationLowerHelper &Helper,
+                                 HLObjectOperationLowerHelper *ObjHelper,
+                                 bool &Translated) {
   hlsl::OP *HlslOP = &Helper.hlslOP;
   IRBuilder<> Builder(CI);
   Value *HitObjectPtr = CI->getArgOperand(1);
@@ -6186,10 +6187,11 @@ Value *TranslateHitObjectMakeNop(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcod
   return nullptr;
 }
 
-Value *TranslateHitObjectMakeMiss(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
-                              HLOperationLowerHelper &Helper,
-                              HLObjectOperationLowerHelper *ObjHelper,
-                              bool &Translated) {
+Value *TranslateHitObjectMakeMiss(CallInst *CI, IntrinsicOp IOP,
+                                  OP::OpCode Opcode,
+                                  HLOperationLowerHelper &Helper,
+                                  HLObjectOperationLowerHelper *ObjHelper,
+                                  bool &Translated) {
   DXASSERT_NOMSG(CI->getNumArgOperands() ==
                  HLOperandIndex::kHitObjectMakeMiss_NumOp);
   hlsl::OP *OP = &Helper.hlslOP;
