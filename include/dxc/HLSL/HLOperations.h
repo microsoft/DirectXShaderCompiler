@@ -439,7 +439,8 @@ const unsigned kHitObjectMakeMissRayDescOpIdx = 4;
 
 // HitObject::TraceRay
 const unsigned kHitObjectTraceRay_RayDescOpIdx = 8;
-const unsigned kHitObjectTraceRay_NumOp = 10;
+const unsigned kHitObjectTraceRay_PayloadOpIdx = 9;
+const unsigned kHitObjectTraceRay_NumOp = 13;
 
 // HitObject::FromRayQuery
 const unsigned kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx = 4;

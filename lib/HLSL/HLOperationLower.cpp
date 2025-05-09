@@ -5720,37 +5720,26 @@ Value *TranslateCallShader(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return Builder.CreateCall(F, {opArg, ShaderIndex, Parameter});
 }
 
-static unsigned LoadRayDescElementsIntoArgs(Value **Args, hlsl::OP *OP,
-                                            IRBuilder<> &Builder,
-                                            Value *RayDescPtr, unsigned Index) {
+static void ExtractRayDescElementsIntoArgs(Value **Args, IRBuilder<> &Builder,
+                                           CallInst *CI, unsigned &DestIndex,
+                                           unsigned &SrcIndex) {
   // struct RayDesc
   //{
   //    float3 Origin;
+  Value *Origin = CI->getArgOperand(SrcIndex++);
+  Args[DestIndex++] = Builder.CreateExtractElement(Origin, (uint64_t)0);
+  Args[DestIndex++] = Builder.CreateExtractElement(Origin, 1);
+  Args[DestIndex++] = Builder.CreateExtractElement(Origin, 2);
   //    float  TMin;
+  Args[DestIndex++] = CI->getArgOperand(SrcIndex++);
   //    float3 Direction;
+  Value *Direction = CI->getArgOperand(SrcIndex++);
+  Args[DestIndex++] = Builder.CreateExtractElement(Direction, (uint64_t)0);
+  Args[DestIndex++] = Builder.CreateExtractElement(Direction, 1);
+  Args[DestIndex++] = Builder.CreateExtractElement(Direction, 2);
   //    float  TMax;
+  Args[DestIndex++] = CI->getArgOperand(SrcIndex++);
   //};
-  Value *ZeroIdx = OP->GetU32Const(0);
-  Value *Origin = Builder.CreateGEP(RayDescPtr, {ZeroIdx, ZeroIdx});
-  Origin = Builder.CreateLoad(Origin);
-  Args[Index++] = Builder.CreateExtractElement(Origin, (uint64_t)0);
-  Args[Index++] = Builder.CreateExtractElement(Origin, 1);
-  Args[Index++] = Builder.CreateExtractElement(Origin, 2);
-
-  Value *TMinPtr = Builder.CreateGEP(RayDescPtr, {ZeroIdx, OP->GetU32Const(1)});
-  Args[Index++] = Builder.CreateLoad(TMinPtr);
-
-  Value *DirectionPtr =
-      Builder.CreateGEP(RayDescPtr, {ZeroIdx, OP->GetU32Const(2)});
-  Value *Direction = Builder.CreateLoad(DirectionPtr);
-
-  Args[Index++] = Builder.CreateExtractElement(Direction, (uint64_t)0);
-  Args[Index++] = Builder.CreateExtractElement(Direction, 1);
-  Args[Index++] = Builder.CreateExtractElement(Direction, 2);
-
-  Value *TMaxPtr = Builder.CreateGEP(RayDescPtr, {ZeroIdx, OP->GetU32Const(3)});
-  Args[Index++] = Builder.CreateLoad(TMaxPtr);
-  return Index;
 }
 
 Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
@@ -5759,18 +5748,18 @@ Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
                          bool &Translated) {
   hlsl::OP *OP = &Helper.hlslOP;
 
-  Value *RayDesc = CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx);
-  Value *PayLoad = CI->getArgOperand(HLOperandIndex::kTraceRayPayLoadOpIdx);
-
   Value *Args[DXIL::OperandIndex::kTraceRayNumOp];
   Args[0] = OP->GetU32Const(static_cast<unsigned>(OpCode));
-  for (unsigned i = 1; i < HLOperandIndex::kTraceRayRayDescOpIdx; i++)
-    Args[i] = CI->getArgOperand(i);
+  unsigned SrcIndex = 1;
+  unsigned DestIndex = 1;
+  for (; DestIndex < HLOperandIndex::kTraceRayRayDescOpIdx;
+       ++DestIndex, ++SrcIndex)
+    Args[DestIndex] = CI->getArgOperand(SrcIndex);
 
   IRBuilder<> Builder(CI);
-  LoadRayDescElementsIntoArgs(Args, OP, Builder, RayDesc,
-                              DXIL::OperandIndex::kTraceRayRayDescOpIdx);
+  ExtractRayDescElementsIntoArgs(Args, Builder, CI, DestIndex, SrcIndex);
 
+  Value *PayLoad = CI->getArgOperand(SrcIndex);
   Args[DXIL::OperandIndex::kTraceRayPayloadOpIdx] = PayLoad;
 
   Type *Ty = PayLoad->getType();
@@ -5825,25 +5814,7 @@ Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   unsigned hlIndex = HLOperandIndex::kTraceRayInlineRayDescOpIdx;
   unsigned index = DXIL::OperandIndex::kTraceRayInlineRayDescOpIdx;
 
-  // struct RayDesc
-  //{
-  //    float3 Origin;
-  Value *origin = CI->getArgOperand(hlIndex++);
-  Args[index++] = Builder.CreateExtractElement(origin, (uint64_t)0);
-  Args[index++] = Builder.CreateExtractElement(origin, 1);
-  Args[index++] = Builder.CreateExtractElement(origin, 2);
-  //    float  TMin;
-  Args[index++] = CI->getArgOperand(hlIndex++);
-  //    float3 Direction;
-  Value *direction = CI->getArgOperand(hlIndex++);
-  Args[index++] = Builder.CreateExtractElement(direction, (uint64_t)0);
-  Args[index++] = Builder.CreateExtractElement(direction, 1);
-  Args[index++] = Builder.CreateExtractElement(direction, 2);
-  //    float  TMax;
-  Args[index++] = CI->getArgOperand(hlIndex++);
-  //};
-
-  DXASSERT_NOMSG(index == DXIL::OperandIndex::kTraceRayInlineNumOp);
+  ExtractRayDescElementsIntoArgs(Args, Builder, CI, index, hlIndex);
 
   Function *F = hlslOP->GetOpFunc(opcode, Builder.getVoidTy());
 
@@ -6201,13 +6172,13 @@ Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                               HLOperationLowerHelper &Helper,
                               HLObjectOperationLowerHelper *ObjHelper,
                               bool &Translated) {
-  hlsl::OP *HlslOP = &Helper.hlslOP;
+  hlsl::OP *OP = &Helper.hlslOP;
   IRBuilder<> Builder(CI);
   unsigned SrcIdx = 1;
   Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
   if (Opcode == OP::OpCode::HitObject_MakeNop) {
     Value *HitObject = TrivialDxilOperation(
-        Opcode, {nullptr}, Type::getVoidTy(CI->getContext()), CI, HlslOP);
+        Opcode, {nullptr}, Type::getVoidTy(CI->getContext()), CI, OP);
     Builder.CreateStore(HitObject, HitObjectPtr);
     DXASSERT(
         CI->use_empty(),
@@ -6217,35 +6188,17 @@ Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
   DXASSERT_NOMSG(CI->getNumArgOperands() ==
                  HLOperandIndex::kHitObjectMakeMiss_NumOp);
-  Value *RayFlags = CI->getArgOperand(SrcIdx++);
-  Value *MissShaderIdx = CI->getArgOperand(SrcIdx++);
-  DXASSERT_NOMSG(SrcIdx == HLOperandIndex::kHitObjectMakeMissRayDescOpIdx);
-  Value *RayDescOrigin = CI->getArgOperand(SrcIdx++);
-  Value *RayDescOriginX =
-      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)0);
-  Value *RayDescOriginY =
-      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)1);
-  Value *RayDescOriginZ =
-      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)2);
+  const unsigned DxilNumArgs = DxilInst_HitObject_MakeMiss::arg_TMax + 1;
+  unsigned DestIdx = 1;
+  Value *Args[DxilNumArgs];
+  Args[0] = nullptr;                             // OpCode
+  Args[DestIdx++] = CI->getArgOperand(SrcIdx++); // RayFlags
+  Args[DestIdx++] = CI->getArgOperand(SrcIdx++); // MissShaderIndex
+  ExtractRayDescElementsIntoArgs(Args, Builder, CI, DestIdx, SrcIdx);
+  DXASSERT_NOMSG(DestIdx == DxilNumArgs);
 
-  Value *RayDescTMin = CI->getArgOperand(SrcIdx++);
-  Value *RayDescDirection = CI->getArgOperand(SrcIdx++);
-  Value *RayDescDirectionX =
-      Builder.CreateExtractElement(RayDescDirection, (uint64_t)0);
-  Value *RayDescDirectionY =
-      Builder.CreateExtractElement(RayDescDirection, (uint64_t)1);
-  Value *RayDescDirectionZ =
-      Builder.CreateExtractElement(RayDescDirection, (uint64_t)2);
-
-  Value *RayDescTMax = CI->getArgOperand(SrcIdx++);
-  DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
-
-  Value *OutHitObject = TrivialDxilOperation(
-      Opcode,
-      {nullptr, RayFlags, MissShaderIdx, RayDescOriginX, RayDescOriginY,
-       RayDescOriginZ, RayDescTMin, RayDescDirectionX, RayDescDirectionY,
-       RayDescDirectionZ, RayDescTMax},
-      Helper.voidTy, CI, HlslOP);
+  Value *OutHitObject =
+      TrivialDxilOperation(Opcode, Args, Helper.voidTy, CI, OP);
   Builder.CreateStore(OutHitObject, HitObjectPtr);
   return nullptr;
 }
@@ -6363,12 +6316,10 @@ Value *TranslateHitObjectTraceRay(CallInst *CI, IntrinsicOp IOP,
     Args[DestIdx] = CI->getArgOperand(SrcIdx);
   }
 
-  Value *RayDescPtr = CI->getArgOperand(SrcIdx++);
-  DestIdx = LoadRayDescElementsIntoArgs(Args, OP, Builder, RayDescPtr, DestIdx);
+  ExtractRayDescElementsIntoArgs(Args, Builder, CI, DestIdx, SrcIdx);
   Value *Payload = CI->getArgOperand(SrcIdx++);
   Args[DestIdx++] = Payload;
 
-  DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
   DXASSERT_NOMSG(DestIdx == DxilNumArgs);
 
   Function *F = OP->GetOpFunc(OpCode, Payload->getType());
