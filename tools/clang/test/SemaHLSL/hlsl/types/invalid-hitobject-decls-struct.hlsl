@@ -27,48 +27,48 @@ struct HitTpl {
 };
 
 TYPE global_type;
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in cbuffers or tbuffers}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in cbuffers or tbuffers}}
 // expected-note@16{{'dx::HitObject' field declared here}}
 dx::HitObject global_hit;
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in cbuffers or tbuffers}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in cbuffers or tbuffers}}
 dx::HitObject global_hit_arr[10];
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in cbuffers or tbuffers}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in cbuffers or tbuffers}}
 
 static TYPE static_gv;
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in global variables}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in global variables}}
 // expected-note@16{{'dx::HitObject' field declared here}}
 
 cbuffer BadBuffy {
   dx::HitObject cb_hit;
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in cbuffers or tbuffers}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in cbuffers or tbuffers}}
   dx::HitObject cb_hit_arr[10];
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in cbuffers or tbuffers}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in cbuffers or tbuffers}}
 };
 
 tbuffer BadTuffy {
   dx::HitObject tb_vec; 
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in cbuffers or tbuffers}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in cbuffers or tbuffers}}
   dx::HitObject tb_vec_arr[10];
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in cbuffers or tbuffers}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in cbuffers or tbuffers}}
   TYPE tb_vec_rec; 
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in cbuffers or tbuffers}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in cbuffers or tbuffers}}
   // expected-note@16{{'dx::HitObject' field declared here}}
   TYPE tb_vec_rec_arr[10]; 
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in cbuffers or tbuffers}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in cbuffers or tbuffers}}
   // expected-note@16{{'dx::HitObject' field declared here}}
 };
 
 StructuredBuffer<TYPE> struct_buf;
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in structured buffers}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in structured buffers}}
 // expected-note@16{{'dx::HitObject' field declared here}}
 RWStructuredBuffer<TYPE> rw_struct_buf;
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in structured buffers}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in structured buffers}}
 // expected-note@16{{'dx::HitObject' field declared here}}
 ConstantBuffer<TYPE> const_buf;
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in ConstantBuffers or TextureBuffers}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in ConstantBuffers or TextureBuffers}}
 // expected-note@16{{'dx::HitObject' field declared here}}
 TextureBuffer<TYPE> tex_buf;
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in ConstantBuffers or TextureBuffers}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in ConstantBuffers or TextureBuffers}}
 // expected-note@16{{'dx::HitObject' field declared here}}
 
 ByteAddressBuffer bab;
@@ -88,20 +88,20 @@ void main()
 
 [shader("pixel")]
 TYPE ps_main( 
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in entry function return type}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in entry function return type}}
 // expected-note@16{{'dx::HitObject' field declared here}}
     TYPE vec : V) : SV_Target {
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in entry function parameters}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
   return vec;
 }
 
 [shader("vertex")]
 TYPE vs_main(
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in entry function return type}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in entry function return type}}
 // expected-note@16{{'dx::HitObject' field declared here}}
     TYPE parm : P) : SV_Target {
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in entry function parameters}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
   parm.f = 0;
   return parm;
@@ -112,10 +112,10 @@ TYPE vs_main(
 [maxvertexcount(3)]
 void gs_point(
     line TYPE e,
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in entry function parameters}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
     inout PointStream<TYPE> OutputStream0)
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in geometry streams}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in geometry streams}}
     // expected-note@16{{'dx::HitObject' field declared here}}
 {}
 
@@ -123,10 +123,10 @@ void gs_point(
 [maxvertexcount(12)]
 void gs_line( 
     line TYPE a,
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in entry function parameters}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
     inout LineStream<TYPE> OutputStream0)
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in geometry streams}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in geometry streams}}
     // expected-note@16{{'dx::HitObject' field declared here}}
 {}
 
@@ -135,10 +135,10 @@ void gs_line(
 [maxvertexcount(12)]
 void gs_line(
     line TYPE a,
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in entry function parameters}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
     inout TriangleStream<TYPE> OutputStream0)
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in geometry streams}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in geometry streams}}
     // expected-note@16{{'dx::HitObject' field declared here}}
 {}
 
@@ -146,16 +146,16 @@ void gs_line(
 [domain("tri")]
 void ds_main(
     OutputPatch<TYPE, 3> TrianglePatch)
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in tessellation patches}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in tessellation patches}}
     // expected-note@16{{'dx::HitObject' field declared here}}
 {}
 
 void patch_const(
     InputPatch<TYPE, 3> inpatch,
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in tessellation patches}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in tessellation patches}}
     // expected-note@16{{'dx::HitObject' field declared here}}
     OutputPatch<TYPE, 3> outpatch)
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in tessellation patches}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in tessellation patches}}
     // expected-note@16{{'dx::HitObject' field declared here}}
 {}
 
@@ -165,7 +165,7 @@ void patch_const(
 [outputcontrolpoints(32)]
 [patchconstantfunc("patch_const")]
 void hs_main(InputPatch<TYPE, 3> TrianglePatch) {}
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in tessellation patches}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in tessellation patches}}
 // expected-note@16{{'dx::HitObject' field declared here}}
 
 RaytracingAccelerationStructure RTAS;
@@ -197,10 +197,10 @@ void raygen() {
   RTTYPE p = (RTTYPE)0;
   RayDesc ray = (RayDesc)0;
   TraceRay(RTAS, RAY_FLAG_NONE, 0, 0, 1, 0, ray, p); 
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in user-defined struct parameter}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in user-defined struct parameter}}
   // expected-note@16{{'dx::HitObject' field declared here}}
   CallShader(0, p);
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in user-defined struct parameter}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in user-defined struct parameter}}
   // expected-note@16{{'dx::HitObject' field declared here}}
   TYPE val;
   TYPE res = userFunc(val);
@@ -210,18 +210,18 @@ void raygen() {
 void closesthit(
     inout RTTYPE payload,
     // expected-error@-1{{payload parameter 'payload' must be a user-defined type composed of only numeric types}}
-    // expected-error@-2{{object ''dx::HitObject'' is not allowed in entry function parameters}}
+    // expected-error@-2{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
     in RTTYPE attribs) {
     // expected-error@-1{{attributes parameter 'attribs' must be a user-defined type composed of only numeric types}}
-    // expected-error@-2{{object ''dx::HitObject'' is not allowed in entry function parameters}}
+    // expected-error@-2{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
   RayDesc ray;
   TraceRay( RTAS, RAY_FLAG_NONE, 0xff, 0, 1, 0, ray, payload );
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in user-defined struct parameter}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in user-defined struct parameter}}
   // expected-note@16{{'dx::HitObject' field declared here}}
   CallShader(0, payload); 
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in user-defined struct parameter}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in user-defined struct parameter}}
   // expected-note@16{{'dx::HitObject' field declared here}}
 }
 
@@ -229,11 +229,11 @@ void closesthit(
 void AnyHit(
     inout RTTYPE payload, 
     // expected-error@-1{{payload parameter 'payload' must be a user-defined type composed of only numeric types}}
-    // expected-error@-2{{object ''dx::HitObject'' is not allowed in entry function parameters}}
+    // expected-error@-2{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
     in RTTYPE attribs)
     // expected-error@-1{{attributes parameter 'attribs' must be a user-defined type composed of only numeric types}}
-    // expected-error@-2{{object ''dx::HitObject'' is not allowed in entry function parameters}}
+    // expected-error@-2{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
 {
 }
@@ -242,14 +242,14 @@ void AnyHit(
 void Miss(
     inout RTTYPE payload){
     // expected-error@-1{{payload parameter 'payload' must be a user-defined type composed of only numeric types}}
-    // expected-error@-2{{object ''dx::HitObject'' is not allowed in entry function parameters}}
+    // expected-error@-2{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
   RayDesc ray;
   TraceRay( RTAS, RAY_FLAG_NONE, 0xff, 0, 1, 0, ray, payload ); 
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in user-defined struct parameter}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in user-defined struct parameter}}
   // expected-note@16{{'dx::HitObject' field declared here}}
   CallShader(0, payload);
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in user-defined struct parameter}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in user-defined struct parameter}}
   // expected-note@16{{'dx::HitObject' field declared here}}
 }
 
@@ -258,25 +258,25 @@ void Intersection() {
   float hitT = RayTCurrent();
   RTTYPE attr = (RTTYPE)0;
   bool bReported = ReportHit(hitT, 0, attr);
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in user-defined struct parameter}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in user-defined struct parameter}}
   // expected-note@16{{'dx::HitObject' field declared here}}
 }
 
 [shader("callable")]
 void callable1(
     inout RTTYPE p) { 
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in entry function parameters}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
     // expected-error@-3{{callable parameter 'p' must be a user-defined type composed of only numeric types}}
   CallShader(0, p); 
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in user-defined struct parameter}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in user-defined struct parameter}}
   // expected-note@16{{'dx::HitObject' field declared here}}
 }
 
 static groupshared TYPE gs_var;
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in groupshared variables}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in groupshared variables}}
 // expected-note@16{{'dx::HitObject' field declared here}}
-// expected-error@-3{{object ''dx::HitObject'' is not allowed in global variables}}
+// expected-error@-3{{object 'dx::HitObject' is not allowed in global variables}}
 // expected-note@16{{'dx::HitObject' field declared here}}
 
 [shader("amplification")]
@@ -284,7 +284,7 @@ static groupshared TYPE gs_var;
 void Amp() {
   TYPE as_pld;
   DispatchMesh(1,1,1,as_pld); 
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in user-defined struct parameter}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in user-defined struct parameter}}
   // expected-note@16{{'dx::HitObject' field declared here}}
 }
 
@@ -312,17 +312,17 @@ struct NodeHitTpl {
 void broadcast(
 // expected-error@-1{{Broadcasting node shader 'broadcast' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
     DispatchNodeInputRecord<NTYPE> input,
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in node records}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in node records}}
     // expected-note@16{{'dx::HitObject' field declared here}}
     NodeOutput<TYPE> output)
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in node records}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in node records}}
     // expected-note@16{{'dx::HitObject' field declared here}}
 {
   ThreadNodeOutputRecords<TYPE> touts; 
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in node records}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in node records}}
   // expected-note@16{{'dx::HitObject' field declared here}}
   GroupNodeOutputRecords<TYPE> gouts;
-  // expected-error@-1{{object ''dx::HitObject'' is not allowed in node records}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in node records}}
   // expected-note@16{{'dx::HitObject' field declared here}}
 }
 
@@ -330,11 +330,11 @@ void broadcast(
 [NodeLaunch("coalescing")]
 [NumThreads(8,1,1)]
 void coalesce(GroupNodeInputRecords<TYPE> input) {}
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in node records}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in node records}}
 // expected-note@16{{'dx::HitObject' field declared here}}
 
 [Shader("node")]
 [NodeLaunch("thread")]
 void threader(ThreadNodeInputRecord<TYPE> input) {}
-// expected-error@-1{{object ''dx::HitObject'' is not allowed in node records}}
+// expected-error@-1{{object 'dx::HitObject' is not allowed in node records}}
 // expected-note@16{{'dx::HitObject' field declared here}}

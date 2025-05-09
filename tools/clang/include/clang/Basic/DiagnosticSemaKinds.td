@@ -7886,7 +7886,7 @@ def err_hlsl_unsupported_long_vector
     "payload parameters|attributes}0 are not supported">;
 // %select options must be compatible with err_hlsl_unsupported_long_vector (same index used)
 def err_hlsl_unsupported_object_context
-    : Error<"object '%0' is not allowed in "
+    : Error<"object %0 is not allowed in "
     "%select{ConstantBuffers or TextureBuffers|"
     "tessellation patches|geometry streams|node records|"
     "cbuffers or tbuffers|user-defined struct parameter|"

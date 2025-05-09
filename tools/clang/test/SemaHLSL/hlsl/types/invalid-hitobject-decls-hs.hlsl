@@ -12,12 +12,12 @@ struct LongVec {
 
 HsConstantData
 PatchConstantFunction(
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in patch constant function return type}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in patch constant function return type}}
     // expected-note@5{{'dx::HitObject' field declared here}}
 	  dx::HitObject hit : V,
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in patch constant function parameters}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in patch constant function parameters}}
 	  LongVec lv : L)
-    // expected-error@-1{{object ''dx::HitObject'' is not allowed in patch constant function parameters}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in patch constant function parameters}}
     // expected-note@10{{'dx::HitObject' field declared here}}
 {
   HsConstantData empty;

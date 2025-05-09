@@ -16,7 +16,7 @@ struct Attribs
 [shader("raygeneration")]
 void RayGen()
 {
-  // expected-error@+2{{object ''dx::HitObject'' is not allowed in payload parameters}}
+  // expected-error@+2{{object 'dx::HitObject' is not allowed in payload parameters}}
   // expected-note@8{{'dx::HitObject' field declared here}}
   Payload payload_in_rg;
   dx::HitObject::Invoke( dx::HitObject(), payload_in_rg );
