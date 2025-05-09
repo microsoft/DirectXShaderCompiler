@@ -810,14 +810,30 @@ public:
       // The WARP_DLL runtime parameter can be used to specify a specific DLL to
       // load.  To force this to be used, we make sure that this DLL is loaded
       // before attempting to create the device.
-      HMODULE ExplicitlyLoadedWarpDll = NULL;
+
+      struct WarpDll {
+        HMODULE Module = NULL;
+
+        ~WarpDll() {
+          Close();
+        }
+
+        void Close() {
+          if (Module) {
+            FreeLibrary(Module);
+            Module = NULL;
+          }
+        }
+      };
+
+      WarpDll ExplicitlyLoadedWarpDll;
       WEX::Common::String WarpDllPath;
       if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
               L"WARP_DLL", WarpDllPath))) {
         WEX::Logging::Log::Comment(WEX::Common::String().Format(
             L"WARP_DLL requested: %ls", (const wchar_t *)WarpDllPath));
-        ExplicitlyLoadedWarpDll = LoadLibraryExW(WarpDllPath, NULL, 0);
-        VERIFY_WIN32_BOOL_SUCCEEDED(!!ExplicitlyLoadedWarpDll);
+        ExplicitlyLoadedWarpDll.Module = LoadLibraryExW(WarpDllPath, NULL, 0);
+        VERIFY_WIN32_BOOL_SUCCEEDED(!!ExplicitlyLoadedWarpDll.Module);
       }
 
       // Create the WARP device
@@ -837,10 +853,7 @@ public:
 
       // Now that the WARP device is created we can release our reference to the
       // warp dll.
-      if (ExplicitlyLoadedWarpDll) {
-        FreeLibrary(ExplicitlyLoadedWarpDll);
-        ExplicitlyLoadedWarpDll = NULL;
-      }
+      ExplicitlyLoadedWarpDll.Close();
 
       // Log the actual version of WARP that's loaded so we can be sure that
       // we're using the version we think.
