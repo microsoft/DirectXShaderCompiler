@@ -11790,16 +11790,16 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
 
   // Check if output vector is unsigned int, signed int or float
   // Check if the isUnsigned flag is set correctly
-  Expr *OutputVector = CE->getArg(kMatVecMulOutputVectorIdx);
+  Expr *OutputVectorExpr = CE->getArg(kMatVecMulOutputVectorIdx);
   unsigned OutputVectorSizeValue = 0;
-  if (IsHLSLVecType(OutputVector->getType())) {
-    OutputVectorSizeValue = GetHLSLVecSize(OutputVector->getType());
-    QualType OutputVectorType = GetHLSLVecElementType(OutputVector->getType());
+  if (IsHLSLVecType(OutputVectorExpr->getType())) {
+    OutputVectorSizeValue = GetHLSLVecSize(OutputVectorExpr->getType());
+    QualType OutputVectorType = GetHLSLVecElementType(OutputVectorExpr->getType());
     const Type *OutputVectorTypePtr = OutputVectorType.getTypePtr();
     if (!OutputVectorTypePtr->isUnsignedIntegerType() &&
         !OutputVectorTypePtr->isSignedIntegerType() &&
         !OutputVectorTypePtr->isFloatingType()) {
-      S.Diags.Report(OutputVector->getExprLoc(),
+      S.Diags.Report(OutputVectorExpr->getExprLoc(),
                      diag::err_hlsl_linalg_vector_incorrect_type)
           << "Output Vector";
       return;
@@ -11811,7 +11811,7 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
         !OutputVectorTypePtr->isUnsignedIntegerType()) {
       DXASSERT_NOMSG(OutputVectorTypePtr->isSignedIntegerType() ||
                      OutputVectorTypePtr->isFloatingType());
-      S.Diags.Report(OutputVector->getExprLoc(),
+      S.Diags.Report(IsOutputUnsignedExpr->getExprLoc(),
                      diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
           << "IsOuputUnsigned" << false
           << (OutputVectorTypePtr->isSignedIntegerType() ? "signed int"
@@ -11819,7 +11819,7 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
       return;
     } else if (!IsOutputUnsignedFlagValue &&
                OutputVectorTypePtr->isUnsignedIntegerType()) {
-      S.Diags.Report(OutputVector->getExprLoc(),
+      S.Diags.Report(IsOutputUnsignedExpr->getExprLoc(),
                      diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
           << "IsOuputUnsigned" << true << "unsigned int";
       return;
@@ -11840,18 +11840,45 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     return;
   }
 
+  // Get InputInterpretation, check if it is constant
+  Expr *InputInterpretationExpr = CE->getArg(kMatVecMulInputInterpretationIdx);
+  llvm::APSInt InputInterpretationExprVal;
+  unsigned InputInterpretationValue = 0;
+  if (InputInterpretationExpr->isIntegerConstantExpr(InputInterpretationExprVal,
+                                                     S.Context)) {
+    InputInterpretationValue = InputInterpretationExprVal.getLimitedValue();
+    const bool InRegisterInterpretation = true;
+    if (!IsValidLinalgTypeInterpretation(InputInterpretationValue,
+                                         InRegisterInterpretation)) {
+      S.Diags.Report(InputInterpretationExpr->getExprLoc(),
+                     diag::err_hlsl_linalg_interpretation_value_incorrect)
+          << std::to_string(InputInterpretationValue)
+          << InRegisterInterpretation;
+      return;
+    }
+  } else {
+    S.Diags.Report(InputInterpretationExpr->getExprLoc(),
+                   diag::err_hlsl_linalg_param_must_be_const)
+        << "InputInterpretation";
+    return;
+  }
+
+  bool IsInputVectorPacked = IsPackedType(InputInterpretationValue);
+
   // Check if input vector32/16bit is unsigned int, signed int or float
-  Expr *InputVector = CE->getArg(kMatVecMulInputVectorIdx);
+  // For packed types input vector type must be uint and isUnsigned must be
+  // true. The signedness is determined from the InputInterpretation
+  Expr *InputVectorExpr = CE->getArg(kMatVecMulInputVectorIdx);
   unsigned InputVectorSizeValue = 0;
-  if (IsHLSLVecType(InputVector->getType())) {
-    InputVectorSizeValue = GetHLSLVecSize(InputVector->getType());
-    QualType InputVectorType = GetHLSLVecElementType(InputVector->getType());
+  if (IsHLSLVecType(InputVectorExpr->getType())) {
+    InputVectorSizeValue = GetHLSLVecSize(InputVectorExpr->getType());
+    QualType InputVectorType =
+        GetHLSLVecElementType(InputVectorExpr->getType());
     unsigned BitWidth = S.Context.getTypeSize(InputVectorType);
     bool Is16Bit = (BitWidth == 16);
     bool Is32Bit = (BitWidth == 32);
-
     if (!Is16Bit && !Is32Bit) {
-      S.Diags.Report(InputVector->getExprLoc(),
+      S.Diags.Report(InputVectorExpr->getExprLoc(),
                      diag::err_hlsl_linalg_vector_incorrect_type)
           << "Input Vector";
       return;
@@ -11861,29 +11888,59 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     if (!InputVectorTypePtr->isUnsignedIntegerType() &&
         !InputVectorTypePtr->isSignedIntegerType() &&
         !InputVectorTypePtr->isFloatingType()) {
-      S.Diags.Report(InputVector->getExprLoc(),
+      S.Diags.Report(InputVectorExpr->getExprLoc(),
                      diag::err_hlsl_linalg_vector_incorrect_type)
           << "Input Vector";
       return;
     }
 
-    // Check if the isUnsigned flag is set correctly
-    if (IsInputUnsignedFlagValue &&
-        !InputVectorTypePtr->isUnsignedIntegerType()) {
-      DXASSERT_NOMSG(InputVectorTypePtr->isSignedIntegerType() ||
-                     InputVectorTypePtr->isFloatingType());
-      S.Diags.Report(IsInputUnsignedExpr->getExprLoc(),
-                     diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
-          << "IsInputUnsigned" << false
-          << (InputVectorTypePtr->isSignedIntegerType() ? "signed int"
-                                                        : "float");
-      return;
-    } else if (!IsInputUnsignedFlagValue &&
-               InputVectorTypePtr->isUnsignedIntegerType()) {
-      S.Diags.Report(IsInputUnsignedExpr->getExprLoc(),
-                     diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
-          << "IsInputUnsigned" << true << "unsigned int";
-      return;
+    // Check if the isUnsigned flag setting
+    if (IsInputVectorPacked) {
+      // Check that the input vector type is always uint32_t
+      if (!Is32Bit) {
+        S.Diags.Report(
+            InputVectorExpr->getExprLoc(),
+            diag::err_hlsl_linalg_mul_muladd_packed_input_vector_must_be_uint);
+        return;
+      }
+
+      // Check that the input vector is unsigned int
+      if (!InputVectorTypePtr->isUnsignedIntegerType()) {
+        S.Diags.Report(
+            InputVectorExpr->getExprLoc(),
+            diag::err_hlsl_linalg_mul_muladd_packed_input_vector_must_be_uint);
+        return;
+      }
+
+      // Check that isInputUnsigned is always true
+      // Actual signedness is inferred from the InputInterpretation
+      if (!IsInputUnsignedFlagValue) {
+        S.Diags.Report(
+            IsInputUnsignedExpr->getExprLoc(),
+            diag::
+                err_hlsl_linalg_mul_muladd_isUnsigned_for_packed_input_must_be_true);
+        return;
+      }
+    } else {
+      if (IsInputUnsignedFlagValue &&
+          !InputVectorTypePtr->isUnsignedIntegerType()) {
+        DXASSERT_NOMSG(InputVectorTypePtr->isSignedIntegerType() ||
+                       InputVectorTypePtr->isFloatingType());
+        S.Diags.Report(
+            IsInputUnsignedExpr->getExprLoc(),
+            diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
+            << "IsInputUnsigned" << false
+            << (InputVectorTypePtr->isSignedIntegerType() ? "signed int"
+                                                          : "float");
+        return;
+      } else if (!IsInputUnsignedFlagValue &&
+                 InputVectorTypePtr->isUnsignedIntegerType()) {
+        S.Diags.Report(
+            IsInputUnsignedExpr->getExprLoc(),
+            diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
+            << "IsInputUnsigned" << true << "unsigned int";
+        return;
+      }
     }
   }
 
@@ -11944,38 +12001,9 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     return;
   }
 
-  // Get InputInterpretation, check if it is constant
-  Expr *InputInterpretationExpr = CE->getArg(kMatVecMulInputInterpretationIdx);
-  llvm::APSInt InputInterpretationExprVal;
-  unsigned InputInterpretationValue = 0;
-  if (InputInterpretationExpr->isIntegerConstantExpr(InputInterpretationExprVal,
-                                                     S.Context)) {
-    InputInterpretationValue = InputInterpretationExprVal.getLimitedValue();
-    const bool InRegisterInterpretation = true;
-    if (!IsValidLinalgTypeInterpretation(InputInterpretationValue,
-                                         InRegisterInterpretation)) {
-      S.Diags.Report(InputInterpretationExpr->getExprLoc(),
-                     diag::err_hlsl_linalg_interpretation_value_incorrect)
-          << std::to_string(InputInterpretationValue)
-          << InRegisterInterpretation;
-      return;
-    }
-  } else {
-    S.Diags.Report(InputInterpretationExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_param_must_be_const)
-        << "InputInterpretation";
-    return;
-  }
-
-  bool isInputPacked = IsPackedType(InputInterpretationValue);
-
-  // FIXME: Add check for if input vector is packed type then
-  // input interpretation has to be the corresponding pack type.
-  // Packed type show up as floats?
-
   if (!IsValidVectorAndMatrixDimensions(S, CE, InputVectorSizeValue,
                                         OutputVectorSizeValue, MatrixKValue,
-                                        MatrixMValue, isInputPacked)) {
+                                        MatrixMValue, IsInputVectorPacked)) {
     return;
   }
 

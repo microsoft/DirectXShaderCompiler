@@ -15,12 +15,12 @@ void test_invalid_output_vector_type() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -62,12 +62,12 @@ void test_invalid_is_output_unsigned_non_const() {
   vector<float, 4> input_vector =
       input_vector_buffer.Load<vector<float, 4> >(0);
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -86,12 +86,12 @@ void test_invalid_input_vector_type() {
 
   vector<uint, 4> output_vector;
   const uint is_output_unsigned = 1;
-  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 4;
   const uint matrix_dimK = 4;
-  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -127,6 +127,172 @@ void test_invalid_input_vector_type() {
                       matrix_offset, matrix_interpretation, matrix_dimM,
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
+}
+
+// Input vector is incorrect type for packed InputInterpretation
+void test_invalid_input_vector_type_packed_input_interpretation() {
+
+  vector<uint, 4> output_vector;
+  const uint is_output_unsigned = 1;
+  const uint matrix_offset = 0;
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
+  const uint matrix_dimM = 4;
+  const uint matrix_dimK = 4;
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
+  const bool matrix_is_transposed = false;
+  const uint matrix_stride = 64;
+
+  const uint input_interpretation_0 = DataType::DATA_TYPE_SINT8_T4_PACKED;
+  vector<int16_t, 2> input_vector_0 =
+      input_vector_buffer.Load<vector<int16_t, 2> >(0);
+  const uint is_input_unsigned_0 = 1;
+
+  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int in linalg mul/muladd operations, packed formats uint8_t4_packed and sint8_t4_packed are not supported currently}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_0,
+                      is_input_unsigned_0, input_interpretation_0, matrix_buffer,
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_1 = DataType::DATA_TYPE_UINT8_T4_PACKED;
+  vector<uint16_t, 2> input_vector_1 =
+      input_vector_buffer.Load<vector<uint16_t, 2> >(0);
+  const uint is_input_unsigned_1 = 0;
+
+  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int in linalg mul/muladd operations, packed formats uint8_t4_packed and sint8_t4_packed are not supported currently}} 
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_1,
+                      is_input_unsigned_1, input_interpretation_1, matrix_buffer,
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_2 = DataType::DATA_TYPE_UINT8_T4_PACKED;
+  vector<int32_t, 1> input_vector_2 =
+      input_vector_buffer.Load<vector<int32_t, 1> >(0);
+  const uint is_input_unsigned_2 = 1;
+  
+  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int in linalg mul/muladd operations, packed formats uint8_t4_packed and sint8_t4_packed are not supported currently}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_2,
+                      is_input_unsigned_2, input_interpretation_2, matrix_buffer,
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_3 = DataType::DATA_TYPE_SINT8_T4_PACKED;
+  vector<int32_t, 1> input_vector_3 =
+      input_vector_buffer.Load<vector<int32_t, 1> >(0);
+  const uint is_input_unsigned_3 = 0;
+
+  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int in linalg mul/muladd operations, packed formats uint8_t4_packed and sint8_t4_packed are not supported currently}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_3,
+                      is_input_unsigned_3, input_interpretation_3, matrix_buffer,
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_4 = DataType::DATA_TYPE_SINT8_T4_PACKED;
+  vector<float, 1> input_vector_4 =
+      input_vector_buffer.Load<vector<float, 1> >(0);
+  const uint is_input_unsigned_4 = 0;
+
+  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int in linalg mul/muladd operations, packed formats uint8_t4_packed and sint8_t4_packed are not supported currently}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_4, 
+                      is_input_unsigned_4, input_interpretation_4, matrix_buffer,
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+}
+
+// IsInputUnsigned must be true for packed input vector type
+void test_invalid_is_input_unsigned_packed_input_vector_type() {
+
+  vector<uint, 4> output_vector;
+  const uint is_output_unsigned = 1;
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
+  const uint matrix_offset = 0;
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
+  const uint matrix_dimM = 4;
+  const uint matrix_dimK = 4;
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
+  const bool matrix_is_transposed = false;  
+  const uint matrix_stride = 64;
+  const uint bias_offset = 0;
+  const uint bias_interpretation = DataType::DATA_TYPE_FLOAT32;
+
+  const uint input_interpretation_0 = DataType::DATA_TYPE_UINT8_T4_PACKED;  
+  vector<uint, 1> input_vector_0 = 
+      input_vector_buffer.Load<vector<uint, 1> >(0);
+  const uint is_input_unsigned_0 = 0;
+
+  // expected-error@+2 {{IsInputUnsigned must be true for packed input interpretations in linalg mul/muladd operations}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_0,
+                      is_input_unsigned_0, input_interpretation_0, matrix_buffer,
+                      matrix_offset, matrix_interpretation, matrix_dimM,  
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  const uint input_interpretation_1 = DataType::DATA_TYPE_SINT8_T4_PACKED;
+  vector<uint, 1> input_vector_1 =
+      input_vector_buffer.Load<vector<uint, 1> >(0);
+  const uint is_input_unsigned_1 = 0;
+  
+  // expected-error@+2 {{IsInputUnsigned must be true for packed input interpretations in linalg mul/muladd operations}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_1,
+                      is_input_unsigned_1, input_interpretation_1, matrix_buffer,
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+}
+
+// Check packed input vector dimension
+void test_invalid_packed_input_vector_dimension() {
+
+  vector<uint, 4> output_vector;
+  const uint is_output_unsigned = 1;
+  const uint is_input_unsigned = 1;
+  const uint input_interpretation = DataType::DATA_TYPE_UINT8_T4_PACKED;
+  const uint matrix_offset = 0;
+  const uint matrix_interpretation = DataType::DATA_TYPE_UINT8;
+  const uint matrix_dimM = 4;
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_MUL_OPTIMAL;
+  const bool matrix_is_transposed = false;
+  const uint matrix_stride = 0;
+  const uint bias_offset = 0;
+  const uint bias_interpretation = DataType::DATA_TYPE_UINT32;
+
+  vector<uint, 4> input_vector_0 =
+      input_vector_buffer.Load<vector<uint, 4> >(0);
+  const uint matrix_dimK_0 = 4;
+
+  // expected-error@+1 {{packed input vector length must be the smallest number that can hold matrix dim K values of the packed(smaller) type in linalg mul/muladd operations}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_0,
+                      is_input_unsigned, input_interpretation, matrix_buffer,
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK_0, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  vector<uint, 1> input_vector_1 =
+      input_vector_buffer.Load<vector<uint, 1> >(0);
+  const uint matrix_dimK_1 = 7;
+
+  // expected-error@+1 {{packed input vector length must be the smallest number that can hold matrix dim K values of the packed(smaller) type in linalg mul/muladd operations}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_1,
+                      is_input_unsigned, input_interpretation, matrix_buffer, 
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK_1, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
+  vector<uint, 3> input_vector_2 =
+      input_vector_buffer.Load<vector<uint, 1> >(0);
+  const uint matrix_dimK_2 = 7;
+
+  // expected-error@+1 {{packed input vector length must be the smallest number that can hold matrix dim K values of the packed(smaller) type in linalg mul/muladd operations}}
+  __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_2,
+                      is_input_unsigned, input_interpretation, matrix_buffer, 
+                      matrix_offset, matrix_interpretation, matrix_dimM,
+                      matrix_dimK_2, matrix_layout, matrix_is_transposed,
+                      matrix_stride);
+
 }
 
 // Input vector type/isInputUnsigned mismatch
@@ -443,12 +609,12 @@ void test_invalid_input_output_vector_dimensions_non_packed_square_matrix() {
 
   const uint is_output_unsigned = 1;
   const uint is_input_unsigned = 0;
-  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
+  const uint input_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_offset = 0;
-  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32; // F32
+  const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 32;
   const uint matrix_dimK = 32;
-  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
@@ -485,7 +651,7 @@ void test_invalid_input_output_vector_dimensions_non_packed_rectangle_matrix() {
   const uint matrix_interpretation = DataType::DATA_TYPE_FLOAT32;
   const uint matrix_dimM = 16;
   const uint matrix_dimK = 32;
-  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR; // RowMajor
+  const uint matrix_layout = MatrixLayout::MATRIX_LAYOUT_ROW_MAJOR;
   const bool matrix_is_transposed = false;
   const uint matrix_stride = 64;
 
