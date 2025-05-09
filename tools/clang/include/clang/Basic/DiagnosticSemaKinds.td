@@ -7892,7 +7892,7 @@ def err_hlsl_unsupported_object_context
     "cbuffers or tbuffers|user-defined struct parameter|"
     "entry function parameters|entry function return type|"
     "patch constant function parameters|patch constant function return type|"
-    "payload parameters|attributes|type parameters|structured buffers|global variables|groupshared variables}1">;
+    "payload parameters|attributes|builtin template parameters|structured buffers|global variables|groupshared variables}1">;
 def err_hlsl_logical_binop_scalar : Error<
    "operands for short-circuiting logical binary operator must be scalar, for non-scalar types use '%select{and|or}0'">;
 def err_hlsl_ternary_scalar : Error<
