@@ -8028,8 +8028,6 @@ def err_hlsl_linalg_matrix_layout_is_not_transposable : Error<
   "RowMajor and ColumnMajor matrices are not transposable">;
 def err_hlsl_linalg_optimal_matrix_layout_matrix_stride_must_be_zero : Error<
   "for optimal matrix layout, matrix stride must be zero">;
-def err_hlsl_linalg_exceeds_max_matrix_dim: Error<
-  "matrix dimension for linalg operations must be less than %0">;
 def err_hlsl_linalg_matrix_dim_must_not_be_zero: Error<
   "matrix dimension must not be zero">;
 def err_hlsl_linalg_matrix_layout_invalid : Error<
@@ -8049,6 +8047,14 @@ def err_hlsl_linalg_mul_muladd_isUnsigned_for_packed_input_must_be_true : Error<
 def err_hlsl_linalg_mul_muladd_packed_input_vector_must_be_uint : Error<
   "packed input vector type must be a 32-bit unsigned int in linalg mul/muladd operations, "
   "packed formats uint8_t4_packed and sint8_t4_packed are not supported currently">;
+def err_hlsl_linalg_mul_muladd_exceeds_max_matrix_dim_m: Error<
+  "matrix dimension M must be less than %0, in a linalg Mul/MulAdd operation">;
+def err_hlsl_linalg_mul_muladd_exceeds_max_matrix_dim_k_unpacked_input: Error<
+  "matrix dimension K when using unpacked input vectors must be less than %0, in a "
+  "linalg Mul/MulAdd operation">;
+def err_hlsl_linalg_mul_muladd_exceeds_max_matrix_dim_k_packed_input: Error<
+  "matrix dimension K when using packed input vectors must be less than %0, in a "
+  "linalg Mul/MulAdd operation">;
 
 def err_hlsl_linalg_outer_prod_acc_vector_type_mismatch : Error<
   "input vectors of outerproductaccumulate must have the same element type">;

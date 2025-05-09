@@ -11987,19 +11987,36 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
 
   // Check MatrixM and MatrixK values are less than max
   // Matrix dimension cannot exceed largest vector length in a Mul/MulAdd
-  // operation
+  // operation.
   if (MatrixMValue > DXIL::kSM69MaxVectorLength) {
     S.Diags.Report(MatrixMExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_exceeds_max_matrix_dim)
+                   diag::err_hlsl_linalg_mul_muladd_exceeds_max_matrix_dim_m)
         << std::to_string(DXIL::kSM69MaxVectorLength);
     return;
   }
 
-  if (MatrixKValue > DXIL::kSM69MaxVectorLength) {
-    S.Diags.Report(MatrixKExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_exceeds_max_matrix_dim)
-        << std::to_string(DXIL::kSM69MaxVectorLength);
-    return;
+  // For packed input vectors 4 values are packed in a uint, so max Matrix K
+  // can be 4096
+  if (IsInputVectorPacked) {
+    const unsigned PackingFactor =
+        4; // Only supported packed formats: DATA_TYPE_(U)SINT8_T4_PACKED
+    if (MatrixKValue > DXIL::kSM69MaxVectorLength * PackingFactor) {
+      S.Diags.Report(
+          MatrixKExpr->getExprLoc(),
+          diag::
+              err_hlsl_linalg_mul_muladd_exceeds_max_matrix_dim_k_packed_input)
+          << std::to_string(DXIL::kSM69MaxVectorLength * PackingFactor);
+      return;
+    }
+  } else {
+    if (MatrixKValue > DXIL::kSM69MaxVectorLength) {
+      S.Diags.Report(
+          MatrixKExpr->getExprLoc(),
+          diag::
+              err_hlsl_linalg_mul_muladd_exceeds_max_matrix_dim_k_unpacked_input)
+          << std::to_string(DXIL::kSM69MaxVectorLength);
+      return;
+    }
   }
 
   if (!IsValidVectorAndMatrixDimensions(S, CE, InputVectorSizeValue,
