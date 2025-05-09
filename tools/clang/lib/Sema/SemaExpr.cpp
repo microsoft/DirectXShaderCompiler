@@ -3504,12 +3504,14 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
       Ty = Context.LitIntTy;
       if (Literal.GetIntegerValue(ResultVal)) {
         // If this value didn't fit into 64-bit literal int, report error.
-        Diag(Tok.getLocation(), diag::err_integer_literal_too_large);
+        Diag(Tok.getLocation(), diag::err_integer_literal_too_large)
+            << /* Unsigned */ 1;
       }
     } else {
 
       if (Literal.GetIntegerValue(ResultVal)) {
-        Diag(Tok.getLocation(), diag::err_integer_literal_too_large);
+        Diag(Tok.getLocation(), diag::err_integer_literal_too_large)
+            << /* Unsigned */ 1;
       }
       if (Literal.isLongLong) {
         if (Literal.isUnsigned)
