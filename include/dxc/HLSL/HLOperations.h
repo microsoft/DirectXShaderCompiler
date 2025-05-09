@@ -396,7 +396,12 @@ const unsigned kAnnotateHandleResourceTypeOpIdx = 3;
 
 // TraceRay.
 const unsigned kTraceRayRayDescOpIdx = 7;
-const unsigned kTraceRayPayLoadOpIdx = 8;
+// kTraceRayPayloadPreOpIdx is before flattening the RayDesc
+const unsigned kTraceRayPayloadPreOpIdx = 8;
+// kTraceRayPayloadOpIdx is after flattening the RayDesc
+const unsigned kTraceRayPayloadOpIdx = 11;
+const unsigned kTraceRay_PreNumOp = 9;
+const unsigned kTraceRay_NumOp = 12;
 
 // AllocateRayQuery
 const unsigned kAllocateRayQueryRayFlagsIdx = 1;
@@ -407,6 +412,10 @@ const unsigned kCallShaderPayloadOpIdx = 2;
 
 // TraceRayInline.
 const unsigned kTraceRayInlineRayDescOpIdx = 5;
+// kTraceRayInlinePayloadPreOpIdx is before flattening the RayDesc
+const unsigned kTraceRayInlinePayloadPreOpIdx = 6;
+// kTraceRayInlinePayloadOpIdx is after flattening the RayDesc
+const unsigned kTraceRayInlinePayloadOpIdx = 9;
 
 // ReportIntersection.
 const unsigned kReportIntersectionAttributeOpIdx = 3;
@@ -435,11 +444,19 @@ const unsigned kAnnotateNodeRecordHandleNodeRecordPropIdx = 2;
 
 // HitObject::MakeMiss
 const unsigned kHitObjectMakeMiss_NumOp = 8;
-const unsigned kHitObjectMakeMissRayDescOpIdx = 4;
+const unsigned kHitObjectMakeMiss_RayDescOpIdx = 4;
 
 // HitObject::TraceRay
 const unsigned kHitObjectTraceRay_RayDescOpIdx = 8;
-const unsigned kHitObjectTraceRay_NumOp = 10;
+// kHitObjectTraceRay_PayloadPreOpIdx is before flattening the RayDesc
+const unsigned kHitObjectTraceRay_PayloadPreOpIdx = 9;
+// kHitObjectTraceRay_PayloadOpIdx is after flattening the RayDesc
+const unsigned kHitObjectTraceRay_PayloadOpIdx = 12;
+const unsigned kHitObjectTraceRay_PreNumOp = 10;
+const unsigned kHitObjectTraceRay_NumOp = 13;
+
+// HitObject::Invoke
+const unsigned kHitObjectInvoke_PayloadOpIdx = 2;
 
 // HitObject::FromRayQuery
 const unsigned kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx = 4;
