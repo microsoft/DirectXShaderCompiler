@@ -12519,11 +12519,11 @@ void main(uint threadIdx : SV_GroupThreadID)
 float4 vs_main(uint vid : SV_VertexID) : SV_Position {
   switch (vid) {
   case 0:
-    return float4(-1, 1, 0, 0);
+    return float4(-1, 1, 0, 1);
   case 1:
-    return float4(3, 1, 0, 0);
+    return float4(3, 1, 0, 1);
   case 2:
-    return float4(-1, -3, 0, 0);
+    return float4(-1, -3, 0, 1);
   }
   return float4(0, 0, 0, 0);
 }
@@ -13124,11 +13124,11 @@ void main(uint threadIdx : SV_GroupThreadID)
 float4 vs_main(uint vid : SV_VertexID) : SV_Position {
   switch (vid) {
   case 0:
-    return float4(-1, 1, 0, 0);
+    return float4(-1, 1, 0, 1);
   case 1:
-    return float4(3, 1, 0, 0);
+    return float4(3, 1, 0, 1);
   case 2:
-    return float4(-1, -3, 0, 0);
+    return float4(-1, -3, 0, 1);
   }
   return float4(0, 0, 0, 0);
 }
