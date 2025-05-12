@@ -12745,10 +12745,10 @@ float4 ps_main() : SV_Target {
         InputMatrixSRVResources[I]->GetGPUVirtualAddress();
 
     // Get command list interface and perform conversion
-    CComPtr<ID3D12GraphicsCommandList11> CommandList11;
+    CComPtr<ID3D12GraphicsCommandListPreview> CommandListPreview;
     VERIFY_SUCCEEDED(CommandList->QueryInterface(
-        __uuidof(ID3D12GraphicsCommandList11), (void **)&CommandList11));
-    CommandList11->ConvertLinearAlgebraMatrix(&ConvertInfo, 1);
+        __uuidof(ID3D12GraphicsCommandListPreview), (void **)&CommandListPreview));
+    CommandListPreview->ConvertLinearAlgebraMatrix(&ConvertInfo, 1);
 
     // This increments BaseHandle
     CreateRawSRV(D3DDevice, BaseHandle, SRVSize / sizeof(int32_t),
@@ -13376,10 +13376,10 @@ float4 ps_main() : SV_Target {
     ConvertInfo.DataDesc = DataDesc;
 
     // Get command list interface and perform conversion
-    CComPtr<ID3D12GraphicsCommandList11> CommandList11;
+    CComPtr<ID3D12GraphicsCommandListPreview> CommandListPreview;
     VERIFY_SUCCEEDED(CommandList->QueryInterface(
-        __uuidof(ID3D12GraphicsCommandList11), (void **)&CommandList11));
-    CommandList11->ConvertLinearAlgebraMatrix(&ConvertInfo, 1);
+        __uuidof(ID3D12GraphicsCommandListPreview), (void **)&CommandListPreview));
+    CommandListPreview->ConvertLinearAlgebraMatrix(&ConvertInfo, 1);
 
     // This increments baseHandle
     if ((ConvertInfo.DestInfo.DestSize % 4) != 0) {
@@ -13527,10 +13527,10 @@ float4 ps_main() : SV_Target {
         ConvertedMatrixResource->GetGPUVirtualAddress();
 
     // Get command list interface and perform conversion
-    CComPtr<ID3D12GraphicsCommandList11> CommandList11;
+    CComPtr<ID3D12GraphicsCommandListPreview> CommandListPreview;
     VERIFY_SUCCEEDED(CommandList->QueryInterface(
-        __uuidof(ID3D12GraphicsCommandList11), (void **)&CommandList11));
-    CommandList11->ConvertLinearAlgebraMatrix(&ConvertInfo, 1);
+        __uuidof(ID3D12GraphicsCommandListPreview), (void **)&CommandListPreview));
+    CommandListPreview->ConvertLinearAlgebraMatrix(&ConvertInfo, 1);
   }
 
   RecordTransitionBarrier(CommandList, MatrixRowMajorResource,
