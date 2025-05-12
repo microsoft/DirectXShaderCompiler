@@ -12317,19 +12317,23 @@ void ExecutionTest::runCoopVecMulTestConfig(
       continue;
     }
 
-    if (Config.NumLayers > 1 &&
-        (MulProps.InputInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 ||
-         MulProps.InputInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8 ||
-         MulProps.InputInterpretation ==
-             D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED ||
-         MulProps.InputInterpretation ==
-             D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED) &&
-        (MulProps.BiasInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32 ||
-         MulProps.BiasInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32)) {
-      // We do not support multi-layer tests with packed types as input with
-      // full-precision integer bias Supporting this in the current framework
-      // would require repacking the accumulator vectors
-      continue;
+    if (Config.NumLayers > 1) {
+      const bool IsPackedType =
+          MulProps.InputInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 ||
+          MulProps.InputInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8 ||
+          MulProps.InputInterpretation ==
+              D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED ||
+          MulProps.InputInterpretation ==
+              D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED;
+
+      const bool IsFullPrecisionIntegerBias =
+          MulProps.BiasInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32 ||
+          MulProps.BiasInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32;
+
+      if (IsPackedType && IsFullPrecisionIntegerBias)
+        // In the current framework this would require repacking the accumulator
+        // vectors in HLSL.
+        continue;
     }
 
     bool IsInFilter = CoopVecHelpers::IsMatrixLayoutInFilter(
