@@ -75,6 +75,7 @@ void IFT_Data(HRESULT hr, LPCWSTR data) {
 
 void EnsureEnabled(DxcDllSupport &dxcSupport) {
   if (!dxcSupport.IsEnabled()) {
+    // first initialize Dxil.dll
     IFT(dxcSupport.Initialize());
   }
 }

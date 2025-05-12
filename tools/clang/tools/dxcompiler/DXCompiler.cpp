@@ -65,7 +65,6 @@ static HRESULT InitMaybeFail() throw() {
   fsSetup = true;
   IFC(hlsl::SetupRegistryPassForHLSL());
   IFC(hlsl::SetupRegistryPassForPIX());
-  IFC(DxilLibInitialize());
   if (hlsl::options::initHlslOptTable()) {
     hr = E_FAIL;
     goto Cleanup;
