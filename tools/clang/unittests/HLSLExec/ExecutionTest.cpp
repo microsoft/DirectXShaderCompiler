@@ -814,9 +814,7 @@ public:
       struct WarpDll {
         HMODULE Module = NULL;
 
-        ~WarpDll() {
-          Close();
-        }
+        ~WarpDll() { Close(); }
 
         void Close() {
           if (Module) {
