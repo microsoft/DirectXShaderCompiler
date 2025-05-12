@@ -668,7 +668,7 @@ def HLSLMaxTessFactor: InheritableAttr {
 }
 def HLSLNumThreads: InheritableAttr {
   let Spellings = [CXX11<"", "numthreads", 2015>];
-  let Args = [IntArgument<"X">, IntArgument<"Y">, IntArgument<"Z">];
+  let Args = [ExprArgument<"X">, ExprArgument<"Y">, ExprArgument<"Z">];
   let Documentation = [Undocumented];
 }
 def HLSLRootSignature: InheritableAttr {
@@ -1016,7 +1016,7 @@ def HLSLNodeIsProgramEntry : InheritableAttr {
 
 def HLSLNodeId : InheritableAttr {
   let Spellings = [CXX11<"", "nodeid", 2017>];
-  let Args = [StringArgument<"Name">,DefaultIntArgument<"ArrayIndex", 0>];
+  let Args = [StringArgument<"Name">, ExprArgument<"ArrayIndex", 1>];
   let Documentation = [Undocumented];
 }
 
@@ -1028,25 +1028,25 @@ def HLSLNodeLocalRootArgumentsTableIndex : InheritableAttr {
 
 def HLSLNodeShareInputOf : InheritableAttr {
   let Spellings = [CXX11<"", "nodeshareinputof", 2017>];
-  let Args = [StringArgument<"Name">,UnsignedArgument<"ArrayIndex", 1>];
+  let Args = [StringArgument<"Name">,ExprArgument<"ArrayIndex", 1>];
   let Documentation = [Undocumented];
 }
 
 def HLSLNodeDispatchGrid: InheritableAttr {
   let Spellings = [CXX11<"", "nodedispatchgrid", 2015>];
-  let Args = [UnsignedArgument<"X">, UnsignedArgument<"Y">, UnsignedArgument<"Z">];
+  let Args = [ExprArgument<"X">, ExprArgument<"Y">, ExprArgument<"Z">];
   let Documentation = [Undocumented];
 }
 
 def HLSLNodeMaxDispatchGrid: InheritableAttr {
   let Spellings = [CXX11<"", "nodemaxdispatchgrid", 2015>];
-  let Args = [UnsignedArgument<"X">, UnsignedArgument<"Y">, UnsignedArgument<"Z">];
+  let Args = [ExprArgument<"X">, ExprArgument<"Y">, ExprArgument<"Z">];
   let Documentation = [Undocumented];
 }
 
 def HLSLNodeMaxRecursionDepth : InheritableAttr {
   let Spellings = [CXX11<"", "nodemaxrecursiondepth", 2017>];
-  let Args = [UnsignedArgument<"Count">];
+  let Args = [ExprArgument<"Count">];
   let Documentation = [Undocumented];
 }
 
@@ -1194,7 +1194,7 @@ def HLSLHitObject : InheritableAttr {
 
 def HLSLMaxRecords : InheritableAttr {
   let Spellings = [CXX11<"", "MaxRecords", 2015>];
-  let Args = [IntArgument<"maxCount">];
+  let Args = [ExprArgument<"maxCount">];
   let Documentation = [Undocumented];
 }
 

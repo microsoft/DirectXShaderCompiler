@@ -12416,21 +12416,48 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
   }
 }
 
+static uint32_t
+getIntConstAttrArg(Sema &S, const Attr *attr, unsigned argNum, const Expr *expr,
+                   llvm::Optional<uint32_t> defaultVal = llvm::None) {
+  if (expr) {
+    llvm::APSInt apsInt;
+    APValue apValue;
+    if (expr->isIntegerConstantExpr(apsInt, S.getASTContext()))
+      return (uint32_t)apsInt.getSExtValue();
+    if (expr->isVulkanSpecConstantExpr(S.getASTContext(), &apValue) &&
+        apValue.isInt())
+      return (uint32_t)apValue.getInt().getSExtValue();
+    S.Diag(expr->getExprLoc(),
+           diag::err_hlsl_attribute_expects_integer_const_expr)
+        << attr->getSpelling() << argNum;
+    return 0;
+  }
+  if (!defaultVal.hasValue()) {
+    S.Diag(attr->getLocation(),
+           diag::err_hlsl_attribute_expects_integer_const_expr)
+        << attr->getSpelling() << argNum;
+    return 0;
+  }
+  return defaultVal.getValue();
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Check HLSL intrinsic calls reachable from entry/export functions.
 
-static void DiagnoseNumThreadsForDerivativeOp(const HLSLNumThreadsAttr *Attr,
-                                              SourceLocation LocDeriv,
-                                              FunctionDecl *FD,
-                                              const FunctionDecl *EntryDecl,
-                                              DiagnosticsEngine &Diags) {
+static void DiagnoseNumThreadsForDerivativeOp(
+    Sema &S, const HLSLNumThreadsAttr *Attr, SourceLocation LocDeriv,
+    FunctionDecl *FD, const FunctionDecl *EntryDecl, DiagnosticsEngine &Diags) {
   bool invalidNumThreads = false;
-  if (Attr->getY() != 1) {
+  uint32_t x = getIntConstAttrArg(S, Attr, 1, Attr->getX());
+  uint32_t y = getIntConstAttrArg(S, Attr, 2, Attr->getY());
+  uint32_t z = getIntConstAttrArg(S, Attr, 3, Attr->getZ());
+
+  if (y != 1) {
     // 2D mode requires x and y to be multiple of 2.
-    invalidNumThreads = !((Attr->getX() % 2) == 0 && (Attr->getY() % 2) == 0);
+    invalidNumThreads = !((x % 2) == 0 && (y % 2) == 0);
   } else {
     // 1D mode requires x to be multiple of 4 and y and z to be 1.
-    invalidNumThreads = (Attr->getX() % 4) != 0 || (Attr->getZ() != 1);
+    invalidNumThreads = (x % 4) != 0 || (z != 1);
   }
   if (invalidNumThreads) {
     Diags.Report(LocDeriv, diag::warn_hlsl_derivatives_wrong_numthreads)
@@ -12476,7 +12503,7 @@ static void DiagnoseDerivativeOp(Sema &S, FunctionDecl *FD, SourceLocation Loc,
 
   if (const HLSLNumThreadsAttr *Attr =
           EntryDecl->getAttr<HLSLNumThreadsAttr>()) {
-    DiagnoseNumThreadsForDerivativeOp(Attr, Loc, FD, EntryDecl, Diags);
+    DiagnoseNumThreadsForDerivativeOp(S, Attr, Loc, FD, EntryDecl, Diags);
   }
 }
 
@@ -13915,12 +13942,12 @@ FlattenedTypeIterator::CompareTypesForInit(HLSLExternalSource &source,
 ////////////////////////////////////////////////////////////////////////////////
 // Attribute processing support.                                              //
 
-static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
-                                   unsigned index = 0) {
-  int64_t value = 0;
+static Expr *ValidateAttributeIntArgExpr(Sema &S, const AttributeList &Attr,
+                                         unsigned index, int64_t *value,
+                                         bool allowDefinedConstant = false) {
+  Expr *E = nullptr;
 
   if (Attr.getNumArgs() > index) {
-    Expr *E = nullptr;
     if (!Attr.isArgExpr(index)) {
       // For case arg is constant variable.
       IdentifierLoc *loc = Attr.getArgAsIdent(index);
@@ -13931,13 +13958,13 @@ static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
       if (!decl) {
         S.Diag(Attr.getLoc(), diag::warn_hlsl_attribute_expects_uint_literal)
             << Attr.getName();
-        return value;
+        return nullptr;
       }
       Expr *init = decl->getInit();
       if (!init) {
         S.Diag(Attr.getLoc(), diag::warn_hlsl_attribute_expects_uint_literal)
             << Attr.getName();
-        return value;
+        return nullptr;
       }
       E = init;
     } else
@@ -13947,11 +13974,13 @@ static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
     bool displayError = false;
     if (E->isTypeDependent() || E->isValueDependent() ||
         !E->isCXX11ConstantExpr(S.Context, &ArgNum)) {
-      displayError = true;
+      displayError =
+          !allowDefinedConstant ||
+          !(E->isVulkanSpecConstantExpr(S.Context, &ArgNum) && ArgNum.isInt());
     } else {
       if (ArgNum.isInt()) {
-        value = ArgNum.getInt().getSExtValue();
-        if (!(E->getType()->isIntegralOrEnumerationType()) || value < 0) {
+        *value = ArgNum.getInt().getSExtValue();
+        if (!(E->getType()->isIntegralOrEnumerationType()) || *value < 0) {
           S.Diag(Attr.getLoc(), diag::warn_hlsl_attribute_expects_uint_literal)
               << Attr.getName();
         }
@@ -13961,8 +13990,8 @@ static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
         if (ArgNum.getFloat().convertToInteger(
                 floatInt, llvm::APFloat::rmTowardZero, &isPrecise) ==
             llvm::APFloat::opStatus::opOK) {
-          value = floatInt.getSExtValue();
-          if (value < 0) {
+          *value = floatInt.getSExtValue();
+          if (*value < 0) {
             S.Diag(Attr.getLoc(),
                    diag::warn_hlsl_attribute_expects_uint_literal)
                 << Attr.getName();
@@ -13980,9 +14009,23 @@ static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
       S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
           << Attr.getName() << AANT_ArgumentIntegerConstant
           << E->getSourceRange();
+      return nullptr;
     }
   }
 
+  return E;
+}
+
+static Expr *ValidateAttributeIntArgExpr(Sema &S, const AttributeList &Attr,
+                                         unsigned index = 0) {
+  int64_t value = 0;
+  return ValidateAttributeIntArgExpr(S, Attr, index, &value, true);
+}
+
+static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
+                                   unsigned index = 0) {
+  int64_t value = 0;
+  ValidateAttributeIntArgExpr(S, Attr, index, &value);
   return (int)value;
 }
 
@@ -14328,19 +14371,27 @@ HLSLMaxRecordsAttr *ValidateMaxRecordsAttributes(Sema &S, Decl *D,
     Expr *ArgExpr = A.getArgAsExpr(0);
     IntegerLiteral *LiteralInt =
         dyn_cast<IntegerLiteral>(ArgExpr->IgnoreParenCasts());
+    clang::SourceLocation Loc = {};
 
-    if (ExistingMRSWA || ExistingMRA->getMaxCount() != LiteralInt->getValue()) {
-      clang::SourceLocation Loc = ExistingMRA ? ExistingMRA->getLocation()
-                                              : ExistingMRSWA->getLocation();
+    if (ExistingMRSWA) {
+      Loc = ExistingMRSWA->getLocation();
+    } else if (ExistingMRA) {
+      uint32_t maxCount =
+          getIntConstAttrArg(S, ExistingMRA, 1, ExistingMRA->getMaxCount(), 0);
+      if (LiteralInt->getValue().getLimitedValue() != maxCount)
+        Loc = ExistingMRA->getLocation();
+    }
+
+    if (Loc.isValid()) {
       S.Diag(A.getLoc(), diag::err_hlsl_maxrecord_attrs_on_same_arg);
       S.Diag(Loc, diag::note_conflicting_attribute);
       return nullptr;
     }
   }
 
-  return ::new (S.Context)
-      HLSLMaxRecordsAttr(A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
-                         A.getAttributeSpellingListIndex());
+  return ::new (S.Context) HLSLMaxRecordsAttr(
+      A.getRange(), S.Context, ValidateAttributeIntArgExpr(S, A),
+      A.getAttributeSpellingListIndex());
 }
 
 // This function validates the wave size attribute in a stand-alone way,
@@ -14549,19 +14600,19 @@ void Sema::DiagnoseCoherenceMismatch(const Expr *SrcExpr, QualType TargetType,
   }
 }
 
-void ValidateDispatchGridValues(DiagnosticsEngine &Diags,
-                                const AttributeList &A, Attr *declAttr) {
+void ValidateDispatchGridValues(Sema &S, const AttributeList &A,
+                                Attr *declAttr) {
   unsigned x = 1, y = 1, z = 1;
   if (HLSLNodeDispatchGridAttr *pA =
           dyn_cast<HLSLNodeDispatchGridAttr>(declAttr)) {
-    x = pA->getX();
-    y = pA->getY();
-    z = pA->getZ();
+    x = getIntConstAttrArg(S, pA, 1, pA->getX());
+    y = getIntConstAttrArg(S, pA, 2, pA->getY());
+    z = getIntConstAttrArg(S, pA, 3, pA->getZ());
   } else if (HLSLNodeMaxDispatchGridAttr *pA =
                  dyn_cast<HLSLNodeMaxDispatchGridAttr>(declAttr)) {
-    x = pA->getX();
-    y = pA->getY();
-    z = pA->getZ();
+    x = getIntConstAttrArg(S, pA, 1, pA->getX());
+    y = getIntConstAttrArg(S, pA, 2, pA->getY());
+    z = getIntConstAttrArg(S, pA, 3, pA->getZ());
   } else {
     llvm_unreachable("ValidateDispatchGridValues() called for wrong attribute");
   }
@@ -14570,26 +14621,26 @@ void ValidateDispatchGridValues(DiagnosticsEngine &Diags,
   // If a component is out of range, we reset it to 0 to avoid also generating
   // a secondary error if the product would be out of range
   if (x < 1 || x > MaxComponentValue) {
-    Diags.Report(A.getArgAsExpr(0)->getExprLoc(),
-                 diag::err_hlsl_dispatchgrid_component)
+    S.Diags.Report(A.getArgAsExpr(0)->getExprLoc(),
+                   diag::err_hlsl_dispatchgrid_component)
         << A.getName() << "X" << A.getRange();
     x = 0;
   }
   if (y < 1 || y > MaxComponentValue) {
-    Diags.Report(A.getArgAsExpr(1)->getExprLoc(),
-                 diag::err_hlsl_dispatchgrid_component)
+    S.Diags.Report(A.getArgAsExpr(1)->getExprLoc(),
+                   diag::err_hlsl_dispatchgrid_component)
         << A.getName() << "Y" << A.getRange();
     y = 0;
   }
   if (z < 1 || z > MaxComponentValue) {
-    Diags.Report(A.getArgAsExpr(2)->getExprLoc(),
-                 diag::err_hlsl_dispatchgrid_component)
+    S.Diags.Report(A.getArgAsExpr(2)->getExprLoc(),
+                   diag::err_hlsl_dispatchgrid_component)
         << A.getName() << "Z" << A.getRange();
     z = 0;
   }
   uint64_t product = (uint64_t)x * (uint64_t)y * (uint64_t)z;
   if (product > MaxProductValue)
-    Diags.Report(A.getLoc(), diag::err_hlsl_dispatchgrid_product)
+    S.Diags.Report(A.getLoc(), diag::err_hlsl_dispatchgrid_product)
         << A.getName() << A.getRange();
 }
 
@@ -14749,7 +14800,8 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
   case AttributeList::AT_HLSLNodeId:
     declAttr = ::new (S.Context) HLSLNodeIdAttr(
         A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr, 0),
-        ValidateAttributeIntArg(S, A, 1), A.getAttributeSpellingListIndex());
+        ValidateAttributeIntArgExpr(S, A, 1),
+        A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLNodeTrackRWInputSharing:
     declAttr = ::new (S.Context) HLSLNodeTrackRWInputSharingAttr(
@@ -14852,18 +14904,20 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLNumThreads: {
-    int X = ValidateAttributeIntArg(S, A, 0);
-    int Y = ValidateAttributeIntArg(S, A, 1);
-    int Z = ValidateAttributeIntArg(S, A, 2);
-    int N = X * Y * Z;
+    int64_t X = 1, Y = 1, Z = 1;
+    auto *arg0 = ValidateAttributeIntArgExpr(S, A, 0, &X, true);
+    auto *arg1 = ValidateAttributeIntArgExpr(S, A, 1, &Y, true);
+    auto *arg2 = ValidateAttributeIntArgExpr(S, A, 2, &Z, true);
+    int64_t N = X * Y * Z;
     if (N > 0 && N <= 1024) {
-      auto numThreads = ::new (S.Context) HLSLNumThreadsAttr(
-          A.getRange(), S.Context, X, Y, Z, A.getAttributeSpellingListIndex());
+      auto numThreads = ::new (S.Context)
+          HLSLNumThreadsAttr(A.getRange(), S.Context, arg0, arg1, arg2,
+                             A.getAttributeSpellingListIndex());
       declAttr = numThreads;
     } else {
       // If the number of threads is invalid, diagnose and drop the attribute.
       S.Diags.Report(A.getLoc(), diag::warn_hlsl_numthreads_group_size)
-          << N << X << Y << Z << A.getRange();
+          << (int)N << (int)X << (int)Y << (int)Z << A.getRange();
       return;
     }
     break;
@@ -14965,31 +15019,37 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
   case AttributeList::AT_HLSLNodeShareInputOf:
     declAttr = ::new (S.Context) HLSLNodeShareInputOfAttr(
         A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr, 0),
-        ValidateAttributeIntArg(S, A, 1), A.getAttributeSpellingListIndex());
+        ValidateAttributeIntArgExpr(S, A, 1),
+        A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLNodeDispatchGrid:
     declAttr = ::new (S.Context) HLSLNodeDispatchGridAttr(
-        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
-        ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
+        A.getRange(), S.Context, ValidateAttributeIntArgExpr(S, A),
+        ValidateAttributeIntArgExpr(S, A, 1),
+        ValidateAttributeIntArgExpr(S, A, 2),
         A.getAttributeSpellingListIndex());
-    ValidateDispatchGridValues(S.Diags, A, declAttr);
+    ValidateDispatchGridValues(S, A, declAttr);
     break;
   case AttributeList::AT_HLSLNodeMaxDispatchGrid:
     declAttr = ::new (S.Context) HLSLNodeMaxDispatchGridAttr(
-        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
-        ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
+        A.getRange(), S.Context, ValidateAttributeIntArgExpr(S, A),
+        ValidateAttributeIntArgExpr(S, A, 1),
+        ValidateAttributeIntArgExpr(S, A, 2),
         A.getAttributeSpellingListIndex());
-    ValidateDispatchGridValues(S.Diags, A, declAttr);
+    ValidateDispatchGridValues(S, A, declAttr);
     break;
-  case AttributeList::AT_HLSLNodeMaxRecursionDepth:
+  case AttributeList::AT_HLSLNodeMaxRecursionDepth: {
+    int64_t maxRecursionDepth = 0;
     declAttr = ::new (S.Context) HLSLNodeMaxRecursionDepthAttr(
-        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getRange(), S.Context,
+        ValidateAttributeIntArgExpr(S, A, 0, &maxRecursionDepth, true),
         A.getAttributeSpellingListIndex());
-    if (cast<HLSLNodeMaxRecursionDepthAttr>(declAttr)->getCount() > 32)
+    if (maxRecursionDepth > 32)
       S.Diags.Report(declAttr->getLocation(),
                      diag::err_hlsl_maxrecursiondepth_exceeded)
           << declAttr->getRange();
     break;
+  }
   default:
     Handled = false;
     break; // SPIRV Change: was return;
@@ -16418,8 +16478,13 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     Attr *noconst = const_cast<Attr *>(A);
     HLSLNumThreadsAttr *ACast = static_cast<HLSLNumThreadsAttr *>(noconst);
     Indent(Indentation, Out);
-    Out << "[numthreads(" << ACast->getX() << ", " << ACast->getY() << ", "
-        << ACast->getZ() << ")]\n";
+    Out << "[numthreads(";
+    ACast->getX()->printPretty(Out, nullptr, Policy);
+    Out << ", ";
+    ACast->getY()->printPretty(Out, nullptr, Policy);
+    Out << ", ";
+    ACast->getZ()->printPretty(Out, nullptr, Policy);
+    Out << ")]\n";
     break;
   }
 
@@ -16651,11 +16716,16 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     Attr *noconst = const_cast<Attr *>(A);
     HLSLNodeIdAttr *ACast = static_cast<HLSLNodeIdAttr *>(noconst);
     Indent(Indentation, Out);
-    if (ACast->getArrayIndex() > 0)
-      Out << "[NodeId(\"" << ACast->getName() << "\"," << ACast->getArrayIndex()
-          << ")]\n";
-    else
-      Out << "[NodeId(\"" << ACast->getName() << "\")]\n";
+    Out << "[NodeId(\"" << ACast->getName();
+    if (auto *lit = dyn_cast<IntegerLiteral>(ACast->getArrayIndex())) {
+      if (!lit->getValue().isStrictlyPositive()) {
+        Out << "\")]\n";
+        break;
+      }
+    }
+    Out << "\",";
+    ACast->getArrayIndex()->printPretty(Out, nullptr, Policy);
+    Out << ")]\n";
     break;
   }
 
@@ -16673,11 +16743,16 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     HLSLNodeShareInputOfAttr *ACast =
         static_cast<HLSLNodeShareInputOfAttr *>(noconst);
     Indent(Indentation, Out);
-    if (ACast->getArrayIndex() > 0)
-      Out << "[NodeShareInputOf(\"" << ACast->getName() << "\","
-          << ACast->getArrayIndex() << ")]\n";
-    else
-      Out << "[NodeShareInputOf(\"" << ACast->getName() << "\")]\n";
+    Out << "[NodeShareInputOf(\"" << ACast->getName();
+    if (auto *lit = dyn_cast<IntegerLiteral>(ACast->getArrayIndex())) {
+      if (!lit->getValue().isStrictlyPositive()) {
+        Out << "\")]\n";
+        break;
+      }
+    }
+    Out << "\",";
+    ACast->getArrayIndex()->printPretty(Out, nullptr, Policy);
+    Out << ")]\n";
     break;
   }
 
@@ -17210,8 +17285,10 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
   // thread group size is (1,1,1)
   if (NodeLaunchTy == DXIL::NodeLaunchType::Thread) {
     if (auto NumThreads = FD->getAttr<HLSLNumThreadsAttr>()) {
-      if (NumThreads->getX() != 1 || NumThreads->getY() != 1 ||
-          NumThreads->getZ() != 1) {
+      uint32_t x = getIntConstAttrArg(S, NumThreads, 1, NumThreads->getX());
+      uint32_t y = getIntConstAttrArg(S, NumThreads, 2, NumThreads->getY());
+      uint32_t z = getIntConstAttrArg(S, NumThreads, 3, NumThreads->getZ());
+      if (x != 1 || y != 1 || z != 1) {
         S.Diags.Report(NumThreads->getLocation(),
                        diag::err_hlsl_wg_thread_launch_group_size)
             << NumThreads->getRange();
