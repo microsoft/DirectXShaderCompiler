@@ -54,7 +54,8 @@ void node_2_0(
 
 // CHECK: `-FunctionDecl 0x{{.+}} node_2_0 'void (EmptyNodeOutputArray)'
 // CHECK-NEXT:   |-ParmVarDecl 0x[[Param:[0-9a-f]+]] {{.+}} used OutputArray_2_0 'EmptyNodeOutputArray'
-// CHECK-NEXT:   | |-HLSLMaxRecordsAttr 0x{{.+}} 41
+// CHECK-NEXT:   | |-HLSLMaxRecordsAttr 0x{{.+}}
+// CHECK-NEXT:   | | `-IntegerLiteral 0x{{.+}} <col:57> 'literal int' 41
 // CHECK-NEXT:   | |-HLSLNodeArraySizeAttr 0x{{.+}} <col:25, col:42> 131
 // CHECK-NEXT:   | `-HLSLAllowSparseNodesAttr 0x{{.+}} <col:6>
 // CHECK-NEXT:   |-CompoundStmt 0x{{.+}}
@@ -68,7 +69,13 @@ void node_2_0(
 // CHECK-NEXT:   |   |     `-IntegerLiteral 0x{{.+}}{{.+}} <col:19> 'literal int' 1
 // CHECK-NEXT:   |   `-ImplicitCastExpr 0x{{.+}} <col:48> 'unsigned int' <IntegralCast>
 // CHECK-NEXT:   |     `-IntegerLiteral 0x{{.+}} <col:48> 'literal int' 10
-// CHECK-NEXT:   |-HLSLNumThreadsAttr 0x{{.+}} 1 1 1
-// CHECK-NEXT:   |-HLSLNodeDispatchGridAttr 0x{{.+}} 1 1 1
+// CHECK-NEXT:   |-HLSLNumThreadsAttr 0x{{.+}}
+// CHECK-NEXT:   | |-IntegerLiteral 0x{{.+}} <col:13> 'literal int' 1
+// CHECK-NEXT:   | |-IntegerLiteral 0x{{.+}} <col:16> 'literal int' 1
+// CHECK-NEXT:   | `-IntegerLiteral 0x{{.+}} <col:19> 'literal int' 1
+// CHECK-NEXT:   |-HLSLNodeDispatchGridAttr 0x{{.+}}
+// CHECK-NEXT:   | |-IntegerLiteral 0x{{.+}} <col:19> 'literal int' 1
+// CHECK-NEXT:   | |-IntegerLiteral 0x{{.+}} <col:22> 'literal int' 1
+// CHECK-NEXT:   | `-IntegerLiteral 0x{{.+}} <col:25> 'literal int' 1
 // CHECK-NEXT:   |-HLSLNodeLaunchAttr 0x{{.+}} "broadcasting"
 // CHECK-NEXT:   `-HLSLShaderAttr 0x{{.+}} "node"
