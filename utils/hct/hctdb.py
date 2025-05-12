@@ -8450,7 +8450,7 @@ class db_dxil(object):
         self.add_valrule_msg(
             "Instr.LinalgMatrixStrideZeroForOptimalLayouts",
             "For optimal layouts, matrix stride must be zero.",
-            "matrix stride must be zero for optimal layouts",
+            "matrix stride must be a constant zero for optimal layouts",
         )
 
         self.add_valrule_msg(

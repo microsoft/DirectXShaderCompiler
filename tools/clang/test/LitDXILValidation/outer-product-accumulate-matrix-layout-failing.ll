@@ -19,8 +19,8 @@ target triple = "dxil-ms-dx"
 ; an order different from the IR. So listed them here in the
 ; order they appear and added comments for correlation
 
-;CHECK: error: matrix stride must be zero for optimal layouts
-;CHECK: error: matrix stride must be zero for optimal layouts
+;CHECK: error: matrix stride must be a constant zero for optimal layouts
+;CHECK: error: matrix stride must be a constant zero for optimal layouts
 ;CHECK-NOT: error: matrix layout value 'OuterProductOptimal' is not valid for outerproductaccumulate, must be 'OuterProductOptimal'
 ;CHECK: error: matrix layout value 'MulOptimal' is not valid for outerproductaccumulate, must be 'OuterProductOptimal'
 ;CHECK: error: matrix layout value 'ColumnMajor' is not valid for outerproductaccumulate, must be 'OuterProductOptimal'
@@ -44,9 +44,9 @@ define void @main() {
   call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %6, <8 x half> %9, %dx.types.Handle %10, i32 0, i32 8, i32 1, i32 0)  ; OuterProductAccumulate(inputVector1,inputVector2,matrixBuffer,matrixOffset,matrixIntepretation,matrixLayout,matrixStride)
   ; matrix layout value 'MulOptimal' is not valid for outerproductaccumulate, must be 'OuterProductOptimal'
   call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %6, <8 x half> %9, %dx.types.Handle %10, i32 0, i32 8, i32 2, i32 0)  ; OuterProductAccumulate(inputVector1,inputVector2,matrixBuffer,matrixOffset,matrixIntepretation,matrixLayout,matrixStride)
-  ; error: matrix stride must be zero for optimal layouts
+  ; error: matrix stride must be a constant zero for optimal layouts
   call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %6, <8 x half> %9, %dx.types.Handle %10, i32 0, i32 8, i32 3, i32 64)  ; OuterProductAccumulate(inputVector1,inputVector2,matrixBuffer,matrixOffset,matrixIntepretation,matrixLayout,matrixStride)
-  ; error: matrix stride must be zero for optimal layouts
+  ; error: matrix stride must be a constant zero for optimal layouts
   call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %6, <8 x half> %9, %dx.types.Handle %10, i32 0, i32 8, i32 3, i32 63)  ; OuterProductAccumulate(inputVector1,inputVector2,matrixBuffer,matrixOffset,matrixIntepretation,matrixLayout,matrixStride)
   ret void
 }
