@@ -369,7 +369,62 @@ bool IsIntegralDataType(D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
          DataType == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32;
 }
 
-struct TestVector {
+static size_t
+GetVectorElementSize(D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
+                     D3D12_LINEAR_ALGEBRA_DATATYPE DataInterpretation) {
+  switch (DataType) {
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8:
+    return sizeof(int8_t);
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
+    return sizeof(int16_t);
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
+    if (DataInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED ||
+        DataInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED) {
+      return sizeof(int8_t);
+    } else {
+      return sizeof(int32_t);
+    }
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
+    return sizeof(DirectX::PackedVector::HALF);
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
+    return sizeof(float);
+  default:
+    throw std::invalid_argument("Unsupported data type");
+  }
+}
+
+static size_t
+GetMatrixElementSize(D3D12_LINEAR_ALGEBRA_DATATYPE DataInterpretation) {
+  switch (DataInterpretation) {
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
+    // The CPU reference matrix is always int8 for all integer
+    // interpretations. The GPU version will be converted to the destination
+    // format by ConvertLinearAlgebraMatrix.
+    return sizeof(int8_t);
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
+    // The CPU reference matrix is always FP32 for all FP interpretations.
+    // The GPU version will be converted to the destination format by
+    // ConvertLinearAlgebraMatrix.
+    return sizeof(float);
+  default:
+    throw std::invalid_argument("Unsupported data type");
+  }
+}
+
+class TestVector {
 private:
   size_t NumVectors = 0;
   size_t VectorSize = 0;
@@ -390,7 +445,7 @@ public:
     if (ElementSize == 0)
       throw std::invalid_argument("ElementSize must be greater than 0");
 
-    size_t VectorBytes = VectorSize * ElementSize;
+    const size_t VectorBytes = VectorSize * ElementSize;
     Stride = ((VectorBytes + Alignment - 1) / Alignment) * Alignment;
     TotalBytes = Stride * NumVectors;
 
@@ -550,22 +605,21 @@ public:
         if constexpr (std::is_same_v<T, DirectX::PackedVector::HALF> ||
                       std::is_same_v<T, float>) {
           float Elt = 0.0f;
-          if (IsIntegralDataType(MatrixInterpretation)) {
+
+          if (IsIntegralDataType(MatrixInterpretation))
             Elt = (float)(Rnd() & 0x7) - 3.0f;
-          } else {
+          else
             Elt = ((float)(Rnd() & 0x3) - 1.0f) / 2.0f;
-          }
-          if constexpr (std::is_same_v<T, DirectX::PackedVector::HALF>) {
+
+          if constexpr (std::is_same_v<T, DirectX::PackedVector::HALF>)
             Vec[J] = static_cast<T>(ConvertFloat32ToFloat16(Elt));
-          } else {
+          else
             Vec[J] = static_cast<T>(Elt);
-          }
         } else {
-          if constexpr (std::is_signed_v<T>) {
+          if constexpr (std::is_signed_v<T>)
             Vec[J] = static_cast<T>((int32_t)(Rnd() & 0xf) - 8);
-          } else {
+          else
             Vec[J] = static_cast<T>((uint32_t)(Rnd() & 0xf));
-          }
         }
     }
   }
@@ -596,36 +650,9 @@ public:
                          D3D12_LINEAR_ALGEBRA_DATATYPE DataInterpretation,
                          D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInterpretation,
                          std::mt19937 &Rnd) {
-    size_t ElementSize;
-    switch (DataType) {
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8:
-      ElementSize = sizeof(int8_t);
-      break;
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
-      ElementSize = sizeof(int16_t);
-      break;
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
-      if (DataInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED ||
-          DataInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED) {
-        ElementSize = sizeof(int8_t);
-      } else {
-        ElementSize = sizeof(int32_t);
-      }
-      break;
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
-      ElementSize = sizeof(DirectX::PackedVector::HALF);
-      break;
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
-      ElementSize = sizeof(float);
-      break;
-    default:
-      throw std::invalid_argument("Unsupported data type");
-    }
+    const size_t ElementSize =
+        ::CoopVecHelpers::GetVectorElementSize(DataType, DataInterpretation);
+
     TestVector Vec(NumVectors, VectorSize, ElementSize);
     switch (DataType) {
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
@@ -670,25 +697,9 @@ public:
   createAllOnesTestMatrix(size_t NumVectors, size_t VectorSize,
                           D3D12_LINEAR_ALGEBRA_DATATYPE DataInterpretation,
                           std::mt19937 &Rnd) {
-    size_t ElementSize;
-    switch (DataInterpretation) {
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8:
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
-      ElementSize = sizeof(int8_t);
-      break;
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
-    case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
-      ElementSize = sizeof(float);
-      break;
-    default:
-      throw std::invalid_argument("Unsupported data type");
-    }
+    const size_t ElementSize =
+        ::CoopVecHelpers::GetMatrixElementSize(DataInterpretation);
+
     TestVector Vec(NumVectors, VectorSize, ElementSize);
     switch (DataInterpretation) {
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
@@ -808,21 +819,20 @@ public:
           for (size_t InputIdx = 0; InputIdx < Matrix.getVectorSize();
                ++InputIdx) {
             float InputElem;
-            if (InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
+            if (InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32)
               InputElem = InputVector.getVector<float>(VecIdx)[InputIdx];
-            } else {
+            else
               InputElem = ConvertFloat16ToFloat32(
                   InputVector.getVector<DirectX::PackedVector::HALF>(
                       VecIdx)[InputIdx]);
-            }
+
             float const MatrixElem =
                 Matrix.getVector<float>(OutputIdx)[InputIdx];
             Acc += InputElem * MatrixElem;
           }
 
-          if (HasBias) {
+          if (HasBias)
             Acc += ConvertFloat16ToFloat32(InputBiasFP16[OutputIdx]);
-          }
 
           float Result = Acc;
           ResultVec.getVector<float>(VecIdx)[OutputIdx] = Result;
@@ -838,19 +848,19 @@ public:
           for (size_t InputIdx = 0; InputIdx < Matrix.getVectorSize();
                ++InputIdx) {
             int InputElem;
-            if (InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
-              InputElem = (int)InputVector.getVector<float>(VecIdx)[InputIdx];
-            } else {
+            if (InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32)
+              InputElem = static_cast<int>(
+                  InputVector.getVector<float>(VecIdx)[InputIdx]);
+            else
               InputElem = InputVector.getVector<int8_t>(VecIdx)[InputIdx];
-            }
+
             int const MatrixElem =
                 Matrix.getVector<int8_t>(OutputIdx)[InputIdx];
             Acc += InputElem * MatrixElem;
           }
 
-          if (HasBias) {
+          if (HasBias)
             Acc += InputBiasI32[OutputIdx];
-          }
 
           float Result = float(Acc);
           ResultVec.getVector<float>(VecIdx)[OutputIdx] = Result;

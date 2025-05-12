@@ -12013,9 +12013,9 @@ void ExecutionTest::runCoopVecMulTest() {
 #else
   // Create device and verify coopvec support
   CComPtr<ID3D12Device> D3DDevice;
-  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
+  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9))
     return;
-  }
+
   if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {
     WEX::Logging::Log::Comment(
         "Device does not support cooperative vector. Skipping.");
@@ -12351,8 +12351,9 @@ void ExecutionTest::runCoopVecMulSubtest(
   std::mt19937 Rnd(0x42);
 
   LogCommentFmt(
-      L"Running test for InputPerThread: %d, OutputPerThread: %d, NumThreads: "
-      L"%d, NumLayers: %d, Bias: %s, MatrixLayout: %s, Stage: %s",
+      L"Running test for InputPerThread: %zu, OutputPerThread: %zu, "
+      L"NumThreads: "
+      L"%zu, NumLayers: %zu, Bias: %s, MatrixLayout: %s, Stage: %s",
       Config.InputPerThread, Config.OutputPerThread, Config.NumThreads,
       Config.NumLayers, Config.Bias ? L"true" : L"false",
       CoopVecHelpers::MatrixLayoutToFilterString(Config.MatrixLayout).c_str(),
@@ -12365,8 +12366,8 @@ void ExecutionTest::runCoopVecMulSubtest(
   CComPtr<ID3D12RootSignature> RootSignature;
   {
     CD3DX12_DESCRIPTOR_RANGE Ranges[2];
-    Ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2 + (UINT)Config.NumLayers,
-                   0,
+    Ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+                   2 + static_cast<UINT>(Config.NumLayers), 0,
                    0); // InputVector, InputBias, InputMatrices[]
     Ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0); // OutputBuffer
 
@@ -12387,7 +12388,7 @@ void ExecutionTest::runCoopVecMulSubtest(
   {
     D3D12_DESCRIPTOR_HEAP_DESC Desc = {};
     Desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    Desc.NumDescriptors = 3 + (UINT)Config.NumLayers;
+    Desc.NumDescriptors = 3 + static_cast<UINT>(Config.NumLayers);
     Desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     VERIFY_SUCCEEDED(
         D3DDevice->CreateDescriptorHeap(&Desc, IID_PPV_ARGS(&DescriptorHeap)));
@@ -12656,7 +12657,6 @@ float4 ps_main() : SV_Target {
                     Options.data(), (int)Options.size(), IncludeHandler);
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC PsoDesc = {};
-    // psoDesc.InputLayout;
     PsoDesc.pRootSignature = RootSignature;
     PsoDesc.VS = CD3DX12_SHADER_BYTECODE(VertexShader);
     PsoDesc.PS = CD3DX12_SHADER_BYTECODE(PixelShader);
@@ -12711,7 +12711,7 @@ float4 ps_main() : SV_Target {
 
   // This increments baseHandle
   CreateRawSRV(D3DDevice, BaseHandle,
-               (UINT)(InputVector.getTotalBytes() / sizeof(int32_t)),
+               static_cast<UINT>(InputVector.getTotalBytes() / sizeof(int32_t)),
                InputVecSRVResource);
 
   // Create input bias
@@ -12724,7 +12724,7 @@ float4 ps_main() : SV_Target {
 
   // This increments baseHandle
   CreateRawSRV(D3DDevice, BaseHandle,
-               (UINT)(InputBias.getTotalBytes() / sizeof(int32_t)),
+               static_cast<UINT>(InputBias.getTotalBytes() / sizeof(int32_t)),
                InputBiasSRVResource);
 
   // Create converted matrix resource and SRV for each input matrix
@@ -12779,7 +12779,8 @@ float4 ps_main() : SV_Target {
   CreateTestUavs(D3DDevice, CommandList, OutputBufferInit.data(),
                  OutputBufferSize, &UavResource, &UavUploadResource,
                  &UavReadResource);
-  CreateRawUAV(D3DDevice, BaseHandle, (UINT)OutputBufferSize / 4, UavResource);
+  CreateRawUAV(D3DDevice, BaseHandle, static_cast<UINT>(OutputBufferSize / 4),
+               UavResource);
 
   CommandList->Close();
   ExecuteCommandList(CommandQueue, CommandList);
@@ -12813,12 +12814,12 @@ float4 ps_main() : SV_Target {
     D3D12_RECT ScissorRect;
 
     memset(&Viewport, 0, sizeof(Viewport));
-    Viewport.Height = (float)RtDesc.Height;
-    Viewport.Width = (float)RtDesc.Width;
+    Viewport.Height = static_cast<float>(RtDesc.Height);
+    Viewport.Width = static_cast<float>(RtDesc.Width);
     Viewport.MaxDepth = 1.0f;
     memset(&ScissorRect, 0, sizeof(ScissorRect));
-    ScissorRect.right = (long)RtDesc.Width;
-    ScissorRect.bottom = RtDesc.Height;
+    ScissorRect.right = static_cast<LONG>(RtDesc.Width);
+    ScissorRect.bottom = static_cast<LONG>(RtDesc.Height);
     CommandList->SetGraphicsRootSignature(RootSignature);
     CommandList->SetGraphicsRootDescriptorTable(0, ResHandle);
     CommandList->SetGraphicsRootUnorderedAccessView(
@@ -12849,9 +12850,9 @@ float4 ps_main() : SV_Target {
   WaitForSignal(CommandQueue, FO);
 
   {
-    MappedData MappedData(UavReadResource, (UINT)OutputBufferSize);
+    MappedData MappedData(UavReadResource, static_cast<UINT>(OutputBufferSize));
 
-    float *ResultBuffer = (float *)MappedData.data();
+    float *ResultBuffer = reinterpret_cast<float *>(MappedData.data());
     bool Equal = true;
 
     float MaxError = 0.00001f;
@@ -12874,7 +12875,7 @@ float4 ps_main() : SV_Target {
         float Expected = ExpectedOutput.getVector<float>(i)[j];
         if (isnan(Result) || isnan(Expected) ||
             fabs(Result - Expected) > MaxError) {
-          LogErrorFmt(L"Result mismatch at vector %d, element %d", i, j);
+          LogErrorFmt(L"Result mismatch at vector %zu, element %zu", i, j);
           LogErrorFmt(L"Result: %f, Expected: %f", Result, Expected);
           Equal = false;
           break;
@@ -12901,9 +12902,9 @@ void ExecutionTest::runCoopVecOuterProductTest() {
 #else
   // Create device and verify coopvec support
   CComPtr<ID3D12Device> D3DDevice;
-  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
+  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9))
     return;
-  }
+
   if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {
     WEX::Logging::Log::Comment(
         "Device does not support cooperative vector. Skipping.");
@@ -12981,7 +12982,8 @@ void ExecutionTest::runCoopVecOuterProductSubtest(
   std::mt19937 Rnd(0x42);
 
   LogCommentFmt(
-      L"Running test for DimM: %d, DimN: %d, NumThreads: %d, MatrixLayout: %s, "
+      L"Running test for DimM: %zu, DimN: %zu, NumThreads: %zu, MatrixLayout: "
+      L"%s, "
       L"Stage: %s",
       Config.DimM, Config.DimN, Config.NumThreads,
       CoopVecHelpers::MatrixLayoutToFilterString(Config.MatrixLayout).c_str(),
@@ -13241,7 +13243,6 @@ float4 ps_main() : SV_Target {
                     Options, _countof(Options), IncludeHandler);
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC PsoDesc = {};
-    // psoDesc.InputLayout;
     PsoDesc.pRootSignature = RootSignature;
     PsoDesc.VS = CD3DX12_SHADER_BYTECODE(VertexShader);
     PsoDesc.PS = CD3DX12_SHADER_BYTECODE(PixelShader);
@@ -13293,12 +13294,14 @@ float4 ps_main() : SV_Target {
       &InputVecSRVResource2, &InputVecSRVUploadResource2);
 
   // This increments baseHandle
-  CreateRawSRV(D3DDevice, BaseHandle,
-               (UINT)(InputVector1.getTotalBytes() / sizeof(int32_t)),
-               InputVecSRVResource1);
-  CreateRawSRV(D3DDevice, BaseHandle,
-               (UINT)(InputVector2.getTotalBytes() / sizeof(int32_t)),
-               InputVecSRVResource2);
+  CreateRawSRV(
+      D3DDevice, BaseHandle,
+      static_cast<UINT>(InputVector1.getTotalBytes() / sizeof(int32_t)),
+      InputVecSRVResource1);
+  CreateRawSRV(
+      D3DDevice, BaseHandle,
+      static_cast<UINT>(InputVector2.getTotalBytes() / sizeof(int32_t)),
+      InputVecSRVResource2);
 
   CComPtr<ID3D12Resource> ConvertedMatrixResource, ConvertedMatrixReadResource;
   UINT ConvertedMatrixSize = 0;
@@ -13337,19 +13340,19 @@ float4 ps_main() : SV_Target {
       DestEltSize = 1; // FP8
       break;
     }
-    SrcInfo.SrcStride = (UINT)(Config.DimM * SrcEltSize);
-    SrcInfo.SrcSize = (UINT)(Config.DimM * Config.DimN * SrcEltSize);
+    SrcInfo.SrcStride = static_cast<UINT>(Config.DimM * SrcEltSize);
+    SrcInfo.SrcSize = static_cast<UINT>(Config.DimM * Config.DimN * SrcEltSize);
 
     DestInfo.DestLayout = Config.MatrixLayout;
     DestInfo.DestStride = 0;
-    DestInfo.NumRows = (UINT)Config.DimM;
-    DestInfo.NumColumns = (UINT)Config.DimN;
+    DestInfo.NumRows = static_cast<UINT>(Config.DimM);
+    DestInfo.NumColumns = static_cast<UINT>(Config.DimN);
 
     if (Config.MatrixLayout == D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR) {
-      DestInfo.DestStride = (UINT)(Config.DimM * DestEltSize);
+      DestInfo.DestStride = static_cast<UINT>(Config.DimM * DestEltSize);
     } else if (Config.MatrixLayout ==
                D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR) {
-      DestInfo.DestStride = (UINT)(Config.DimM * DestEltSize);
+      DestInfo.DestStride = static_cast<UINT>(Config.DimM * DestEltSize);
     }
 
     // Create conversion info
@@ -13439,12 +13442,12 @@ float4 ps_main() : SV_Target {
     D3D12_RECT ScissorRect;
 
     memset(&Viewport, 0, sizeof(Viewport));
-    Viewport.Height = (float)RtDesc.Height;
-    Viewport.Width = (float)RtDesc.Width;
+    Viewport.Height = static_cast<float>(RtDesc.Height);
+    Viewport.Width = static_cast<float>(RtDesc.Width);
     Viewport.MaxDepth = 1.0f;
     memset(&ScissorRect, 0, sizeof(ScissorRect));
-    ScissorRect.right = (long)RtDesc.Width;
-    ScissorRect.bottom = RtDesc.Height;
+    ScissorRect.right = static_cast<LONG>(RtDesc.Width);
+    ScissorRect.bottom = static_cast<LONG>(RtDesc.Height);
     CommandList->SetGraphicsRootSignature(RootSignature);
     CommandList->SetGraphicsRootDescriptorTable(0, ResHandle);
     CommandList->SetGraphicsRootUnorderedAccessView(
@@ -13489,8 +13492,8 @@ float4 ps_main() : SV_Target {
     ConvertInfo.DestInfo.DestSize = 0; // Will be populated by driver
     ConvertInfo.DestInfo.DestLayout =
         D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR;
-    ConvertInfo.DestInfo.NumRows = (UINT)Config.DimM;
-    ConvertInfo.DestInfo.NumColumns = (UINT)Config.DimN;
+    ConvertInfo.DestInfo.NumRows = static_cast<UINT>(Config.DimM);
+    ConvertInfo.DestInfo.NumColumns = static_cast<UINT>(Config.DimN);
 
     if (AccumulateProps.AccumulationType ==
             D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32 ||
@@ -13501,10 +13504,12 @@ float4 ps_main() : SV_Target {
         AccumulateProps.AccumulationType ==
             D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2) {
       ConvertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
-      ConvertInfo.DestInfo.DestStride = (UINT)(Config.DimN * sizeof(float));
+      ConvertInfo.DestInfo.DestStride =
+          static_cast<UINT>(Config.DimN * sizeof(float));
     } else {
       ConvertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8;
-      ConvertInfo.DestInfo.DestStride = (UINT)(Config.DimN * sizeof(int8_t));
+      ConvertInfo.DestInfo.DestStride =
+          static_cast<UINT>(Config.DimN * sizeof(int8_t));
     }
 
     // Get destination size using preview interface
@@ -13551,15 +13556,17 @@ float4 ps_main() : SV_Target {
   WaitForSignal(CommandQueue, FO);
 
   {
-    MappedData MappedData(MatrixRowMajorReadResource, (UINT)InputMatrix.size());
+    MappedData MappedData(MatrixRowMajorReadResource,
+                          static_cast<UINT>(InputMatrix.size()));
 
     float *ResultBuffer = (float *)MappedData.data();
     bool Equal = true;
-    for (size_t i = 0; i < (UINT)InputMatrix.size() / sizeof(float); i++) {
+    for (size_t i = 0;
+         i < static_cast<UINT>(InputMatrix.size() / sizeof(float)); i++) {
       if (isnan(ResultBuffer[i]) || isnan(ExpectedOutputBuffer[i]) ||
           fabs(ResultBuffer[i] - ExpectedOutputBuffer[i]) > 0.00001) {
         LogErrorFmt(L"Result mismatch at index %d", i);
-        LogErrorFmt(L"ResultBuffer[%d]: %f, ExpectedOutputBuffer[%d]: %f", i,
+        LogErrorFmt(L"ResultBuffer[%zu]: %f, ExpectedOutputBuffer[%zu]: %f", i,
                     ResultBuffer[i], i, ExpectedOutputBuffer[i]);
         Equal = false;
         break;
