@@ -12746,8 +12746,9 @@ float4 ps_main() : SV_Target {
 
     // Get command list interface and perform conversion
     CComPtr<ID3D12GraphicsCommandListPreview> CommandListPreview;
-    VERIFY_SUCCEEDED(CommandList->QueryInterface(
-        __uuidof(ID3D12GraphicsCommandListPreview), (void **)&CommandListPreview));
+    VERIFY_SUCCEEDED(
+        CommandList->QueryInterface(__uuidof(ID3D12GraphicsCommandListPreview),
+                                    (void **)&CommandListPreview));
     CommandListPreview->ConvertLinearAlgebraMatrix(&ConvertInfo, 1);
 
     // This increments BaseHandle
@@ -13377,8 +13378,9 @@ float4 ps_main() : SV_Target {
 
     // Get command list interface and perform conversion
     CComPtr<ID3D12GraphicsCommandListPreview> CommandListPreview;
-    VERIFY_SUCCEEDED(CommandList->QueryInterface(
-        __uuidof(ID3D12GraphicsCommandListPreview), (void **)&CommandListPreview));
+    VERIFY_SUCCEEDED(
+        CommandList->QueryInterface(__uuidof(ID3D12GraphicsCommandListPreview),
+                                    (void **)&CommandListPreview));
     CommandListPreview->ConvertLinearAlgebraMatrix(&ConvertInfo, 1);
 
     // This increments baseHandle
@@ -13528,8 +13530,9 @@ float4 ps_main() : SV_Target {
 
     // Get command list interface and perform conversion
     CComPtr<ID3D12GraphicsCommandListPreview> CommandListPreview;
-    VERIFY_SUCCEEDED(CommandList->QueryInterface(
-        __uuidof(ID3D12GraphicsCommandListPreview), (void **)&CommandListPreview));
+    VERIFY_SUCCEEDED(
+        CommandList->QueryInterface(__uuidof(ID3D12GraphicsCommandListPreview),
+                                    (void **)&CommandListPreview));
     CommandListPreview->ConvertLinearAlgebraMatrix(&ConvertInfo, 1);
   }
 
