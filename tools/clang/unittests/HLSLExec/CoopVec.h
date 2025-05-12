@@ -757,21 +757,21 @@ public:
       DestEltSize = 1; // FP8
       break;
     }
-    ConvertInfo.SrcInfo.SrcStride = (UINT)getStride();
-    ConvertInfo.SrcInfo.SrcSize = (UINT)getTotalBytes();
+    ConvertInfo.SrcInfo.SrcStride = static_cast<UINT>(getStride());
+    ConvertInfo.SrcInfo.SrcSize = static_cast<UINT>(getTotalBytes());
 
     ConvertInfo.DestInfo.DestLayout = MatrixLayout;
     ConvertInfo.DestInfo.DestStride = 0;
-    ConvertInfo.DestInfo.NumRows = (UINT)getNumVectors();
-    ConvertInfo.DestInfo.NumColumns = (UINT)getVectorSize();
+    ConvertInfo.DestInfo.NumRows = static_cast<UINT>(getNumVectors());
+    ConvertInfo.DestInfo.NumColumns = static_cast<UINT>(getVectorSize());
 
     if (MatrixLayout == D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR) {
       ConvertInfo.DestInfo.DestStride =
-          ((UINT)getVectorSize() * DestEltSize + 15) & ~15;
+          (static_cast<UINT>(getVectorSize()) * DestEltSize + 15) & ~15;
     } else if (MatrixLayout ==
                D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR) {
       ConvertInfo.DestInfo.DestStride =
-          ((UINT)getNumVectors() * DestEltSize + 15) & ~15;
+          (static_cast<UINT>(getNumVectors()) * DestEltSize + 15) & ~15;
     }
 
     // Get destination size using preview interface
