@@ -34,9 +34,10 @@ public:
               L"LinAlgHeader", ParamValue))) {
         return E_FAIL;
       }
-      if (ParamValue.IsEmpty()) {
+
+      if (ParamValue.IsEmpty())
         return E_FAIL;
-      }
+
       LPCWSTR RealHeaderPath =
           reinterpret_cast<LPCWSTR>(ParamValue.GetBuffer());
 
@@ -382,15 +383,12 @@ public:
              size_t Alignment = 16)
       : NumVectors(NumVectors), VectorSize(VectorSize),
         ElementSize(ElementSize) {
-    if (NumVectors == 0) {
+    if (NumVectors == 0)
       throw std::invalid_argument("NumVectors must be greater than 0");
-    }
-    if (VectorSize == 0) {
+    if (VectorSize == 0)
       throw std::invalid_argument("VectorSize must be greater than 0");
-    }
-    if (ElementSize == 0) {
+    if (ElementSize == 0)
       throw std::invalid_argument("ElementSize must be greater than 0");
-    }
 
     size_t VectorBytes = VectorSize * ElementSize;
     Stride = ((VectorBytes + Alignment - 1) / Alignment) * Alignment;
@@ -488,9 +486,8 @@ public:
       Buffer = reinterpret_cast<uint8_t *>(Ptr);
 
       // Copy data
-      if (other.Buffer) {
+      if (other.Buffer)
         std::memcpy(Buffer, other.Buffer, TotalBytes);
-      }
     }
     return *this;
   }
