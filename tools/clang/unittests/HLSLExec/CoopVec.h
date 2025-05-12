@@ -67,10 +67,10 @@ public:
 namespace CoopVecHelpers {
 
 template <typename EltTy>
-static std::vector<uint8_t> CreateAllOnesInputMatrix(uint32_t Width,
-                                                     uint32_t Height) {
+static std::vector<uint8_t> CreateAllOnesInputMatrix(size_t Width,
+                                                     size_t Height) {
   std::vector<EltTy> InputMatrix(Width * Height);
-  for (uint32_t i = 0; i < Width * Height; i++) {
+  for (size_t i = 0; i < Width * Height; i++) {
     if constexpr (std::is_same_v<EltTy, uint8_t> ||
                   std::is_same_v<EltTy, int8_t>) {
       InputMatrix[i] = 1;
@@ -92,15 +92,15 @@ static std::vector<uint8_t> CreateAllOnesInputMatrix(uint32_t Width,
 }
 
 template <typename EltTy>
-static std::vector<uint8_t> CreateInputVector(uint32_t NumThreads,
-                                              uint32_t EltsPerThread) {
+static std::vector<uint8_t> CreateInputVector(size_t NumThreads,
+                                              size_t EltsPerThread) {
   std::vector<EltTy> InputVector(NumThreads * EltsPerThread);
   std::fill(InputVector.begin(), InputVector.end(), EltTy(0));
   if (EltsPerThread < 2) {
     WEX::Logging::Log::Error(L"EltsPerThread must be at least 2");
     return std::vector<uint8_t>();
   }
-  for (uint32_t TID = 0; TID < NumThreads; TID++) {
+  for (size_t TID = 0; TID < NumThreads; TID++) {
     if constexpr (std::is_same_v<EltTy, uint8_t> ||
                   std::is_same_v<EltTy, int8_t>) {
       InputVector[TID * EltsPerThread + 0] = 1;
@@ -125,7 +125,7 @@ static std::vector<uint8_t> CreateInputVector(uint32_t NumThreads,
 }
 
 template <typename EltTy>
-static std::vector<uint8_t> CreateInputBias(uint32_t NumElts) {
+static std::vector<uint8_t> CreateInputBias(size_t NumElts) {
   std::vector<EltTy> InputBias(NumElts);
   if constexpr (std::is_same_v<EltTy, uint8_t> ||
                 std::is_same_v<EltTy, int8_t>) {
@@ -248,7 +248,7 @@ static std::wstring MatrixLayoutToHlslLayoutString(
 
 // This multiplier is used to compute the row/column stride for a matrix
 // given it's element size.
-static int
+static size_t
 GetStrideMultiplierForMatrixDataType(D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
   switch (DataType) {
   case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED:
@@ -271,7 +271,7 @@ GetStrideMultiplierForMatrixDataType(D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
   }
 }
 
-static int GetNumPackedElementsForInputDataType(
+static size_t GetNumPackedElementsForInputDataType(
     D3D12_LINEAR_ALGEBRA_DATATYPE InputInterpretation) {
   // Int8 packed types are the only ones that have more than 1 element per
   // shader variable
@@ -724,7 +724,7 @@ public:
 
     // Create destination matrix info
     ConvertInfo.DestInfo.DestSize = 0; // Will be populated by driver
-    int DestEltSize = 0;
+    UINT DestEltSize = 0;
     switch (DestDataType) {
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED:
@@ -798,14 +798,14 @@ public:
                          sizeof(float));
 
     if (IsMatrixFP32) {
-      for (int VecIdx = 0; VecIdx < InputVector.getNumVectors(); ++VecIdx) {
+      for (size_t VecIdx = 0; VecIdx < InputVector.getNumVectors(); ++VecIdx) {
         const DirectX::PackedVector::HALF *InputBiasFP16 =
             Bias.getVector<DirectX::PackedVector::HALF>(0);
-        for (int OutputIdx = 0; OutputIdx < Matrix.getNumVectors();
+        for (size_t OutputIdx = 0; OutputIdx < Matrix.getNumVectors();
              ++OutputIdx) {
           float Acc = 0;
 
-          for (int InputIdx = 0; InputIdx < Matrix.getVectorSize();
+          for (size_t InputIdx = 0; InputIdx < Matrix.getVectorSize();
                ++InputIdx) {
             float InputElem;
             if (InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
@@ -829,13 +829,13 @@ public:
         }
       }
     } else if (MatrixInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8) {
-      for (int VecIdx = 0; VecIdx < InputVector.getNumVectors(); ++VecIdx) {
+      for (size_t VecIdx = 0; VecIdx < InputVector.getNumVectors(); ++VecIdx) {
         const int32_t *InputBiasI32 = Bias.getVector<int32_t>(0);
-        for (int OutputIdx = 0; OutputIdx < Matrix.getNumVectors();
+        for (size_t OutputIdx = 0; OutputIdx < Matrix.getNumVectors();
              ++OutputIdx) {
           int Acc = 0;
 
-          for (int InputIdx = 0; InputIdx < Matrix.getVectorSize();
+          for (size_t InputIdx = 0; InputIdx < Matrix.getVectorSize();
                ++InputIdx) {
             int InputElem;
             if (InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {

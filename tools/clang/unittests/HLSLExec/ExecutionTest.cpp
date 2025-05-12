@@ -786,10 +786,10 @@ public:
 
 #if HAVE_COOPVEC_API
   struct CoopVecMulSubtestConfig {
-    int InputPerThread;
-    int OutputPerThread;
-    int NumThreads;
-    int NumLayers;
+    size_t InputPerThread;
+    size_t OutputPerThread;
+    size_t NumThreads;
+    size_t NumLayers;
     D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT MatrixLayout;
     bool Bias;
   };
@@ -802,9 +802,9 @@ public:
                             CoopVecMulSubtestConfig &Config, bool RunCompute);
 
   struct CoopVecOuterProductSubtestConfig {
-    int DimM; // Row Count
-    int DimN; // Column Count
-    int NumThreads;
+    size_t DimM; // Row Count
+    size_t DimN; // Column Count
+    size_t NumThreads;
     D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT MatrixLayout;
   };
 
@@ -12358,13 +12358,15 @@ void ExecutionTest::runCoopVecMulSubtest(
       CoopVecHelpers::MatrixLayoutToFilterString(Config.MatrixLayout).c_str(),
       RunCompute ? L"Compute" : L"Pixel");
 
-  const int OutputBufferSize = (Config.OutputPerThread * Config.NumThreads * 4);
+  const size_t OutputBufferSize =
+      (Config.OutputPerThread * Config.NumThreads * 4);
 
   // Create root signature with a single root entry for all SRVs and UAVs
   CComPtr<ID3D12RootSignature> RootSignature;
   {
     CD3DX12_DESCRIPTOR_RANGE Ranges[2];
-    Ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2 + Config.NumLayers, 0,
+    Ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2 + (UINT)Config.NumLayers,
+                   0,
                    0); // InputVector, InputBias, InputMatrices[]
     Ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0); // OutputBuffer
 
@@ -12385,7 +12387,7 @@ void ExecutionTest::runCoopVecMulSubtest(
   {
     D3D12_DESCRIPTOR_HEAP_DESC Desc = {};
     Desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    Desc.NumDescriptors = 3 + Config.NumLayers;
+    Desc.NumDescriptors = 3 + (UINT)Config.NumLayers;
     Desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     VERIFY_SUCCEEDED(
         D3DDevice->CreateDescriptorHeap(&Desc, IID_PPV_ARGS(&DescriptorHeap)));
@@ -12396,7 +12398,7 @@ void ExecutionTest::runCoopVecMulSubtest(
   // Our input matrix is really a set of row vectors, which we can represent
   // as a TestVector.
   std::vector<::CoopVecHelpers::TestVector> InputMatrices;
-  for (int I = 0; I < Config.NumLayers - 1; ++I) {
+  for (size_t I = 0; I < Config.NumLayers - 1; ++I) {
     // Each layer except the last is InputPerThread x InputPerThread
     InputMatrices.push_back(
         ::CoopVecHelpers::TestVector::createAllOnesTestMatrix(
@@ -12418,7 +12420,7 @@ void ExecutionTest::runCoopVecMulSubtest(
 
   // Calculate reference output
   auto ExpectedOutput = InputVector;
-  for (int I = 0; I < Config.NumLayers; ++I) {
+  for (size_t I = 0; I < Config.NumLayers; ++I) {
     ExpectedOutput = ::CoopVecHelpers::TestVector::matrixVectorMultiply(
         InputMatrices[I], ExpectedOutput, InputBias, Config.Bias,
         MulProps.MatrixInterpretation,
@@ -12543,7 +12545,7 @@ float4 ps_main() : SV_Target {
 }
 )";
 
-  auto CreateDefineFromInt = [](const wchar_t *Name, int Value) {
+  auto CreateDefineFromSize = [](const wchar_t *Name, size_t Value) {
     std::wstringstream Stream;
     Stream << L"-D" << Name << L"=" << Value;
     return Stream.str();
@@ -12558,8 +12560,9 @@ float4 ps_main() : SV_Target {
 
   const std::wstring HlslMatrixLayout =
       CoopVecHelpers::MatrixLayoutToHlslLayoutString(Config.MatrixLayout);
-  const int InputDivisor = CoopVecHelpers::GetNumPackedElementsForInputDataType(
-      MulProps.InputInterpretation);
+  const size_t InputDivisor =
+      CoopVecHelpers::GetNumPackedElementsForInputDataType(
+          MulProps.InputInterpretation);
   const std::wstring InputDataType =
       CoopVecHelpers::GetHlslDataTypeForDataType(MulProps.InputType);
   const std::wstring AccumDataType =
@@ -12575,14 +12578,14 @@ float4 ps_main() : SV_Target {
           MulProps.BiasInterpretation);
 
   auto InputPerThreadDefine =
-      CreateDefineFromInt(L"INPUT_PER_THREAD", Config.InputPerThread);
+      CreateDefineFromSize(L"INPUT_PER_THREAD", Config.InputPerThread);
   auto OutputPerThreadDefine =
-      CreateDefineFromInt(L"OUTPUT_PER_THREAD", Config.OutputPerThread);
+      CreateDefineFromSize(L"OUTPUT_PER_THREAD", Config.OutputPerThread);
   auto NumThreadsDefine =
-      CreateDefineFromInt(L"NUM_THREADS", Config.NumThreads);
+      CreateDefineFromSize(L"NUM_THREADS", Config.NumThreads);
   auto InputDataTypeDefine =
       CreateDefineFromString(L"INPUT_DATA_TYPE", InputDataType);
-  auto InputDivisorDefine = CreateDefineFromInt(
+  auto InputDivisorDefine = CreateDefineFromSize(
       L"INPUT_VECTOR_NUM_ELEMENTS",
       (Config.InputPerThread + InputDivisor - 1) / InputDivisor);
   auto AccumDataTypeDefine =
@@ -12593,18 +12596,18 @@ float4 ps_main() : SV_Target {
       CreateDefineFromString(L"HLSL_MATRIX_LAYOUT", HlslMatrixLayout);
   auto MatrixDataTypeEnumDefine =
       CreateDefineFromString(L"MATRIX_DATA_TYPE_ENUM", MatrixDataTypeEnum);
-  auto UseBiasDefine = CreateDefineFromInt(L"USE_BIAS", Config.Bias ? 1 : 0);
+  auto UseBiasDefine = CreateDefineFromSize(L"USE_BIAS", Config.Bias ? 1 : 0);
   // Treat the accumulator interpretation the same as the input interpretation
   // for the purposes of MakeInterpretedVector.
   auto AccumInterpretationEnumDefine = CreateDefineFromString(
       L"ACCUM_INTERPRETATION_ENUM", InputInterpretationEnum);
   auto InputVectorStrideDefine =
-      CreateDefineFromInt(L"INPUT_VECTOR_STRIDE", (int)InputVector.getStride());
-  auto NumLayersDefine = CreateDefineFromInt(L"NUM_LAYERS", Config.NumLayers);
+      CreateDefineFromSize(L"INPUT_VECTOR_STRIDE", InputVector.getStride());
+  auto NumLayersDefine = CreateDefineFromSize(L"NUM_LAYERS", Config.NumLayers);
   auto BiasInterpretationEnumDefine = CreateDefineFromString(
       L"BIAS_INTERPRETATION_ENUM", BiasInterpretationEnum);
   auto UseGroupsharedDefine =
-      CreateDefineFromInt(L"USE_GROUPSHARED", RunCompute ? 1 : 0);
+      CreateDefineFromSize(L"USE_GROUPSHARED", RunCompute ? 1 : 0);
 
   std::vector<LPCWSTR> Options = {
       L"-enable-16bit-types",
@@ -12626,13 +12629,13 @@ float4 ps_main() : SV_Target {
   };
 
   std::vector<std::wstring> StrideDefines;
-  for (int I = 0; I < Config.NumLayers; ++I) {
+  for (size_t I = 0; I < Config.NumLayers; ++I) {
     auto ConvertInfo = InputMatrices[I].getConversionInfo(
         D3DDevice, MulProps.MatrixInterpretation, Config.MatrixLayout);
     wchar_t StrideName[16];
-    swprintf(StrideName, _countof(StrideName), L"STRIDE%d", I);
+    swprintf(StrideName, _countof(StrideName), L"STRIDE%zu", I);
     StrideDefines.push_back(
-        CreateDefineFromInt(StrideName, ConvertInfo.DestInfo.DestStride));
+        CreateDefineFromSize(StrideName, ConvertInfo.DestInfo.DestStride));
     Options.push_back(StrideDefines[I].c_str());
   }
 
@@ -12688,7 +12691,7 @@ float4 ps_main() : SV_Target {
       Config.NumLayers);
   std::vector<CComPtr<ID3D12Resource>> InputMatrixSRVUploadResources(
       Config.NumLayers);
-  for (int I = 0; I < Config.NumLayers; ++I) {
+  for (size_t I = 0; I < Config.NumLayers; ++I) {
     CreateTestResources(
         D3DDevice, CommandList, InputMatrices[I].getBuffer(),
         InputMatrices[I].getTotalBytes(),
@@ -12727,11 +12730,11 @@ float4 ps_main() : SV_Target {
   // Create converted matrix resource and SRV for each input matrix
   std::vector<CComPtr<ID3D12Resource>> ConvertedMatrixResources(
       Config.NumLayers);
-  for (int I = 0; I < Config.NumLayers; ++I) {
+  for (size_t I = 0; I < Config.NumLayers; ++I) {
     auto ConvertInfo = InputMatrices[I].getConversionInfo(
         D3DDevice, MulProps.MatrixInterpretation, Config.MatrixLayout);
 
-    int SRVSize = (ConvertInfo.DestInfo.DestSize + 15) / 16 * 16;
+    UINT SRVSize = (ConvertInfo.DestInfo.DestSize + 15) / 16 * 16;
 
     // Create resource to hold matrix copy
     CreateTestResources(D3DDevice, CommandList, nullptr, SRVSize,
@@ -12776,7 +12779,7 @@ float4 ps_main() : SV_Target {
   CreateTestUavs(D3DDevice, CommandList, OutputBufferInit.data(),
                  OutputBufferSize, &UavResource, &UavUploadResource,
                  &UavReadResource);
-  CreateRawUAV(D3DDevice, BaseHandle, OutputBufferSize / 4, UavResource);
+  CreateRawUAV(D3DDevice, BaseHandle, (UINT)OutputBufferSize / 4, UavResource);
 
   CommandList->Close();
   ExecuteCommandList(CommandQueue, CommandList);
@@ -12846,7 +12849,7 @@ float4 ps_main() : SV_Target {
   WaitForSignal(CommandQueue, FO);
 
   {
-    MappedData MappedData(UavReadResource, OutputBufferSize);
+    MappedData MappedData(UavReadResource, (UINT)OutputBufferSize);
 
     float *ResultBuffer = (float *)MappedData.data();
     bool Equal = true;
@@ -12865,8 +12868,8 @@ float4 ps_main() : SV_Target {
       MaxError = 3.0f;
     }
 
-    for (int i = 0; i < Config.NumThreads && Equal; ++i) {
-      for (int j = 0; j < Config.OutputPerThread; ++j) {
+    for (size_t i = 0; i < Config.NumThreads && Equal; ++i) {
+      for (size_t j = 0; j < Config.OutputPerThread; ++j) {
         float Result = ResultBuffer[i * Config.OutputPerThread + j];
         float Expected = ExpectedOutput.getVector<float>(i)[j];
         if (isnan(Result) || isnan(Expected) ||
@@ -13056,13 +13059,13 @@ void ExecutionTest::runCoopVecOuterProductSubtest(
               ExpectedOutputBufferI8.size());
 
   if (AccumulateProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16) {
-    for (int ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
+    for (size_t ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
       auto *InputVector1FP16 =
           InputVector1.getVector<DirectX::PackedVector::HALF>(ThreadIdx);
       auto *InputVector2FP16 =
           InputVector2.getVector<DirectX::PackedVector::HALF>(ThreadIdx);
-      for (int M = 0; M < Config.DimM; ++M) {
-        for (int N = 0; N < Config.DimN; ++N) {
+      for (size_t M = 0; M < Config.DimM; ++M) {
+        for (size_t N = 0; N < Config.DimN; ++N) {
           float acc = ConvertFloat16ToFloat32(InputVector1FP16[M]) *
                       ConvertFloat16ToFloat32(InputVector2FP16[N]);
           ExpectedOutputBuffer[M * Config.DimN + N] += acc;
@@ -13071,11 +13074,11 @@ void ExecutionTest::runCoopVecOuterProductSubtest(
     }
   } else if (AccumulateProps.InputType ==
              D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
-    for (int ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
+    for (size_t ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
       auto *InputVector1FP32 = InputVector1.getVector<float>(ThreadIdx);
       auto *InputVector2FP32 = InputVector2.getVector<float>(ThreadIdx);
-      for (int M = 0; M < Config.DimM; ++M) {
-        for (int N = 0; N < Config.DimN; ++N) {
+      for (size_t M = 0; M < Config.DimM; ++M) {
+        for (size_t N = 0; N < Config.DimN; ++N) {
           float Acc = InputVector1FP32[M] * InputVector2FP32[N];
           ExpectedOutputBuffer[M * Config.DimN + N] += Acc;
         }
@@ -13142,7 +13145,7 @@ float4 ps_main() : SV_Target {
 }
 )";
 
-  auto CreateDefineFromInt = [](const wchar_t *Name, int Value) {
+  auto CreateDefineFromSize = [](const wchar_t *Name, size_t Value) {
     std::wstringstream Stream;
     Stream << L"-D" << Name << L"=" << Value;
     return Stream.str();
@@ -13154,11 +13157,12 @@ float4 ps_main() : SV_Target {
     return Stream.str();
   };
 
-  int Stride = 0;
+  size_t Stride = 0;
   const std::wstring HlslMatrixLayout =
       CoopVecHelpers::MatrixLayoutToHlslLayoutString(Config.MatrixLayout);
-  int StrideMultiplier = CoopVecHelpers::GetStrideMultiplierForMatrixDataType(
-      AccumulateProps.AccumulationType);
+  size_t StrideMultiplier =
+      CoopVecHelpers::GetStrideMultiplierForMatrixDataType(
+          AccumulateProps.AccumulationType);
   switch (Config.MatrixLayout) {
   case D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR:
     Stride = Config.DimN * StrideMultiplier;
@@ -13168,8 +13172,9 @@ float4 ps_main() : SV_Target {
     break;
   }
 
-  const int InputDivisor = CoopVecHelpers::GetNumPackedElementsForInputDataType(
-      AccumulateProps.InputType);
+  const size_t InputDivisor =
+      CoopVecHelpers::GetNumPackedElementsForInputDataType(
+          AccumulateProps.InputType);
   const std::wstring InputDataType =
       CoopVecHelpers::GetHlslDataTypeForDataType(AccumulateProps.InputType);
   const std::wstring AccumDataType = CoopVecHelpers::GetHlslDataTypeForDataType(
@@ -13181,14 +13186,15 @@ float4 ps_main() : SV_Target {
       CoopVecHelpers::GetHlslInterpretationForDataType(
           AccumulateProps.InputType);
 
-  auto DimMDefine = CreateDefineFromInt(L"DIM_M", Config.DimM);
-  auto DimNDefine = CreateDefineFromInt(L"DIM_N", Config.DimN);
+  auto DimMDefine = CreateDefineFromSize(L"DIM_M", Config.DimM);
+  auto DimNDefine = CreateDefineFromSize(L"DIM_N", Config.DimN);
   auto NumThreadsDefine =
-      CreateDefineFromInt(L"NUM_THREADS", Config.NumThreads);
-  auto StrideDefine = CreateDefineFromInt(L"STRIDE", Stride);
+      CreateDefineFromSize(L"NUM_THREADS", Config.NumThreads);
+  auto StrideDefine = CreateDefineFromSize(L"STRIDE", Stride);
   auto InputDataTypeDefine =
       CreateDefineFromString(L"INPUT_DATA_TYPE", InputDataType.c_str());
-  auto InputDivisorDefine = CreateDefineFromInt(L"INPUT_DIVISOR", InputDivisor);
+  auto InputDivisorDefine =
+      CreateDefineFromSize(L"INPUT_DIVISOR", InputDivisor);
   auto AccumDataTypeDefine =
       CreateDefineFromString(L"ACCUM_DATA_TYPE", AccumDataType.c_str());
   auto InputInterpretationEnumDefine = CreateDefineFromString(
@@ -13197,10 +13203,10 @@ float4 ps_main() : SV_Target {
       CreateDefineFromString(L"HLSL_MATRIX_LAYOUT", HlslMatrixLayout.c_str());
   auto MatrixDataTypeEnumDefine = CreateDefineFromString(
       L"MATRIX_DATA_TYPE_ENUM", MatrixDataTypeEnum.c_str());
-  auto InputVector1StrideDefine = CreateDefineFromInt(
-      L"INPUT_VECTOR_1_STRIDE", (int)InputVector1.getStride());
-  auto InputVector2StrideDefine = CreateDefineFromInt(
-      L"INPUT_VECTOR_2_STRIDE", (int)InputVector2.getStride());
+  auto InputVector1StrideDefine =
+      CreateDefineFromSize(L"INPUT_VECTOR_1_STRIDE", InputVector1.getStride());
+  auto InputVector2StrideDefine =
+      CreateDefineFromSize(L"INPUT_VECTOR_2_STRIDE", InputVector2.getStride());
 
   LPCWSTR Options[] = {
       L"-enable-16bit-types",
@@ -13295,7 +13301,7 @@ float4 ps_main() : SV_Target {
                InputVecSRVResource2);
 
   CComPtr<ID3D12Resource> ConvertedMatrixResource, ConvertedMatrixReadResource;
-  int ConvertedMatrixSize = 0;
+  UINT ConvertedMatrixSize = 0;
   {
     // Create source matrix info
     D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_SRC_INFO SrcInfo = {};
@@ -13306,8 +13312,8 @@ float4 ps_main() : SV_Target {
     // Create destination matrix info
     D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO DestInfo = {};
     DestInfo.DestSize = 0; // Will be populated by driver
-    int SrcEltSize = 0;
-    int DestEltSize = 0;
+    UINT SrcEltSize = 0;
+    UINT DestEltSize = 0;
     switch (AccumulateProps.AccumulationType) {
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED:
@@ -13331,19 +13337,19 @@ float4 ps_main() : SV_Target {
       DestEltSize = 1; // FP8
       break;
     }
-    SrcInfo.SrcStride = Config.DimM * SrcEltSize;
-    SrcInfo.SrcSize = Config.DimM * Config.DimN * SrcEltSize;
+    SrcInfo.SrcStride = (UINT)(Config.DimM * SrcEltSize);
+    SrcInfo.SrcSize = (UINT)(Config.DimM * Config.DimN * SrcEltSize);
 
     DestInfo.DestLayout = Config.MatrixLayout;
     DestInfo.DestStride = 0;
-    DestInfo.NumRows = Config.DimM;
-    DestInfo.NumColumns = Config.DimN;
+    DestInfo.NumRows = (UINT)Config.DimM;
+    DestInfo.NumColumns = (UINT)Config.DimN;
 
     if (Config.MatrixLayout == D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR) {
-      DestInfo.DestStride = Config.DimM * DestEltSize;
+      DestInfo.DestStride = (UINT)(Config.DimM * DestEltSize);
     } else if (Config.MatrixLayout ==
                D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR) {
-      DestInfo.DestStride = Config.DimM * DestEltSize;
+      DestInfo.DestStride = (UINT)(Config.DimM * DestEltSize);
     }
 
     // Create conversion info
@@ -13483,8 +13489,8 @@ float4 ps_main() : SV_Target {
     ConvertInfo.DestInfo.DestSize = 0; // Will be populated by driver
     ConvertInfo.DestInfo.DestLayout =
         D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR;
-    ConvertInfo.DestInfo.NumRows = Config.DimM;
-    ConvertInfo.DestInfo.NumColumns = Config.DimN;
+    ConvertInfo.DestInfo.NumRows = (UINT)Config.DimM;
+    ConvertInfo.DestInfo.NumColumns = (UINT)Config.DimN;
 
     if (AccumulateProps.AccumulationType ==
             D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32 ||
@@ -13495,10 +13501,10 @@ float4 ps_main() : SV_Target {
         AccumulateProps.AccumulationType ==
             D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2) {
       ConvertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
-      ConvertInfo.DestInfo.DestStride = Config.DimN * sizeof(float);
+      ConvertInfo.DestInfo.DestStride = (UINT)(Config.DimN * sizeof(float));
     } else {
       ConvertInfo.DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8;
-      ConvertInfo.DestInfo.DestStride = Config.DimN * sizeof(int8_t);
+      ConvertInfo.DestInfo.DestStride = (UINT)(Config.DimN * sizeof(int8_t));
     }
 
     // Get destination size using preview interface
@@ -13549,7 +13555,7 @@ float4 ps_main() : SV_Target {
 
     float *ResultBuffer = (float *)MappedData.data();
     bool Equal = true;
-    for (int i = 0; i < (UINT)InputMatrix.size() / sizeof(float); i++) {
+    for (size_t i = 0; i < (UINT)InputMatrix.size() / sizeof(float); i++) {
       if (isnan(ResultBuffer[i]) || isnan(ExpectedOutputBuffer[i]) ||
           fabs(ResultBuffer[i] - ExpectedOutputBuffer[i]) > 0.00001) {
         LogErrorFmt(L"Result mismatch at index %d", i);
