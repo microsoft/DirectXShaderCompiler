@@ -95,6 +95,8 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
   } else if (type->isArrayType()) {
     return IsHLSLNumericOrAggregateOfNumericType(
         QualType(type->getArrayElementTypeNoTypeQual(), 0));
+  } else if (type->isEnumeralType()) {
+    return true;
   }
 
   // Chars can only appear as part of strings, which we don't consider numeric.
