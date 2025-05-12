@@ -14884,7 +14884,7 @@ SpirvInstruction *SpirvEmitter::invertYIfRequested(SpirvInstruction *position,
   // Negate SV_Position.y if requested and supported
 
   bool supportsInvertY = spvContext.isVS() || spvContext.isGS() ||
-                         spvContext.isGS() || spvContext.isMS();
+                         spvContext.isDS() || spvContext.isMS();
 
   if (spirvOptions.invertY && supportsInvertY) {
     const auto oldY = spvBuilder.createCompositeExtract(
