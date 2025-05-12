@@ -14881,8 +14881,12 @@ SpirvEmitter::createSpirvIntrInstExt(llvm::ArrayRef<const Attr *> attrs,
 SpirvInstruction *SpirvEmitter::invertYIfRequested(SpirvInstruction *position,
                                                    SourceLocation loc,
                                                    SourceRange range) {
-  // Negate SV_Position.y if requested
-  if (spirvOptions.invertY) {
+  // Negate SV_Position.y if requested and supported
+
+  bool supportsInvertY = spvContext.isVS() || spvContext.isGS() ||
+                         spvContext.isGS() || spvContext.isMS();
+
+  if (spirvOptions.invertY && supportsInvertY) {
     const auto oldY = spvBuilder.createCompositeExtract(
         astContext.FloatTy, position, {1}, loc, range);
     const auto newY = spvBuilder.createUnaryOp(
