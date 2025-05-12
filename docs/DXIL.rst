@@ -3177,6 +3177,7 @@ INSTR.OPCONSTRANGE                                            Constant values mu
 INSTR.OPERANDRANGE                                            DXIL intrinsic operand must be within defined range
 INSTR.PARAMMULTIPLE                                           Parameter must be a valid multiple
 INSTR.PTRBITCAST                                              Pointer type bitcast must be have same size.
+INSTR.REORDERCOHERENTREQUIRESSM69                             reordercoherent requires SM 6.9 or later.
 INSTR.RESOURCECLASSFORLOAD                                    load can only run on UAV/SRV resource.
 INSTR.RESOURCECLASSFORSAMPLERGATHER                           sample, lod and gather should be on srv resource.
 INSTR.RESOURCECLASSFORUAVSTORE                                store should be on uav resource.
@@ -3218,6 +3219,7 @@ META.BARYCENTRICSTWOPERSPECTIVES                              There can only be 
 META.BRANCHFLATTEN                                            Can't use branch and flatten attributes together.
 META.CLIPCULLMAXCOMPONENTS                                    Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
 META.CLIPCULLMAXROWS                                          Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.
+META.COHERENCENOTONAPPENDCONSUME                              globally/reorder coherent incompatible with append/consume/counter buffers
 META.COMPUTEWITHNODE                                          Compute entry must not have node metadata
 META.CONTROLFLOWHINTNOTONCONTROLFLOW                          Control flow hint only works on control flow inst.
 META.DENSERESIDS                                              Resource identifiers must be zero-based and dense.
@@ -3225,7 +3227,6 @@ META.DUPLICATESYSVALUE                                        System value may o
 META.ENTRYFUNCTION                                            entrypoint not found.
 META.FLAGSUSAGE                                               Flags must match usage.
 META.FORCECASEONSWITCH                                        Attribute forcecase only works for switch.
-META.GLCNOTONAPPENDCONSUME                                    globallycoherent cannot be used with append/consume buffers: '%0'.
 META.INTEGERINTERPMODE                                        Interpolation mode on integer must be Constant
 META.INTERPMODEINONEROW                                       Interpolation mode must be identical for all elements packed into the same row.
 META.INTERPMODEVALID                                          Interpolation mode must be valid
