@@ -758,7 +758,7 @@ public:
 #endif
   }
 
-  bool UseDebugIfaces() { return false; }
+  bool UseDebugIfaces() { return true; }
 
   bool SaveImages() { return GetTestParamBool(L"SaveImages"); }
 
