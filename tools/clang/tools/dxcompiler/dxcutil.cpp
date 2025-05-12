@@ -51,25 +51,20 @@ namespace {
 
 // return true if the internal validator was used, false otherwise
 bool CreateValidator(CComPtr<IDxcValidator> &pValidator,
-                     hlsl::options::ValidatorSelection SelectValidator =
-                         hlsl::options::ValidatorSelection::Auto) {
-  bool bInternal =
-      SelectValidator == hlsl::options::ValidatorSelection::Internal;
-  bool bExternal =
-      SelectValidator == hlsl::options::ValidatorSelection::External;
-  bool bAuto = SelectValidator == hlsl::options::ValidatorSelection::Auto;
-
-  // default behavior uses internal validator, as well as
-  // explicitly specifying internal
-  if (bInternal || bAuto) {
+                     std::string DxilDLLPath = "") {
+  
+  // default behavior uses internal validator
+  if (DxilDLLPath == "") {
     IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
     return true;
   }
 
-  if (bExternal) {
-    // if external was explicitly specified, but no
-    // external validator could be found (no DXIL.dll), then error
-    IFTBOOL(DxilLibIsEnabled(), DXC_E_VALIDATOR_MISSING);
+  // otherwise, use the external validator provided by the dxil_dll_path
+  // argument
+  else {
+    // if a valid absolute path was given, but the DXIL.dll
+    // is invalid, then error
+    IFTBOOL(DxilLibIsEnabled(DxilDLLPath), DXC_E_VALIDATOR_MISSING);
     IFT(DxilLibCreateInstance(CLSID_DxcValidator, &pValidator));
 
     return false;
@@ -90,22 +85,22 @@ AssembleInputs::AssembleInputs(
     clang::DiagnosticsEngine *pDiag, hlsl::DxilShaderHash *pShaderHashOut,
     AbstractMemoryStream *pReflectionOut, AbstractMemoryStream *pRootSigOut,
     CComPtr<IDxcBlob> pRootSigBlob, CComPtr<IDxcBlob> pPrivateBlob,
-    hlsl::options::ValidatorSelection SelectValidator)
+    std::string DxilDLLPath)
     : pM(std::move(pM)), pOutputContainerBlob(pOutputContainerBlob),
       pMalloc(pMalloc), SerializeFlags(SerializeFlags),
       ValidationFlags(ValidationFlags), pModuleBitcode(pModuleBitcode),
       DebugName(DebugName), pDiag(pDiag), pShaderHashOut(pShaderHashOut),
       pReflectionOut(pReflectionOut), pRootSigOut(pRootSigOut),
       pRootSigBlob(pRootSigBlob), pPrivateBlob(pPrivateBlob),
-      SelectValidator(SelectValidator) {}
+      DxilDLLPath(DxilDLLPath) {}
 
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor,
-                         hlsl::options::ValidatorSelection SelectValidator) {
+                         std::string DxilDLLPath) {
   if (pMajor == nullptr || pMinor == nullptr)
     return;
 
   CComPtr<IDxcValidator> pValidator;
-  CreateValidator(pValidator, SelectValidator);
+  CreateValidator(pValidator, DxilDLLPath);
 
   CComPtr<IDxcVersionInfo> pVersionInfo;
   if (SUCCEEDED(pValidator.QueryInterface(&pVersionInfo))) {
@@ -115,6 +110,7 @@ void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor,
     *pMajor = 1;
     *pMinor = 0;
   }
+  return;
 }
 
 void AssembleToContainer(AssembleInputs &inputs) {
@@ -177,8 +173,14 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   std::unique_ptr<llvm::Module> llvmModuleWithDebugInfo;
 
   CComPtr<IDxcValidator> pValidator;
-  bool bInternalValidator = CreateValidator(pValidator, inputs.SelectValidator);
-  // Warning on internal Validator
+  bool bInternalValidator = CreateValidator(pValidator, inputs.DxilDLLPath);
+  // Warning on external Validator
+  if (!bInternalValidator) {
+    unsigned diagID = inputs.pDiag->getCustomDiagID(
+          clang::DiagnosticsEngine::Level::Warning,
+        "External validator loaded at %0");
+    inputs.pDiag->Report(diagID) << inputs.DxilDLLPath;
+  }
 
   CComPtr<IDxcValidator2> pValidator2;
   if (!bInternalValidator) {
@@ -273,11 +275,11 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
 
 HRESULT ValidateRootSignatureInContainer(
     IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag,
-    hlsl::options::ValidatorSelection SelectValidator) {
+    std::string DxilDLLPath) {
   HRESULT valHR = S_OK;
   CComPtr<IDxcValidator> pValidator;
   CComPtr<IDxcOperationResult> pValResult;
-  CreateValidator(pValidator);
+  CreateValidator(pValidator, DxilDLLPath);
   IFT(pValidator->Validate(pRootSigContainer,
                            DxcValidatorFlags_RootSignatureOnly |
                                DxcValidatorFlags_InPlaceEdit,

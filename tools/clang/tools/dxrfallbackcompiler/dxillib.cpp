@@ -42,12 +42,13 @@ HRESULT DxilLibCleanup(DxilLibCleanUpType type) {
 // g_DllLibResult is S_OK by default, check again to see if dxil.dll is loaded
 // If we fail to load dxil.dll, set g_DllLibResult to E_FAIL so that we don't
 // have multiple attempts to load dxil.dll
-bool DxilLibIsEnabled() {
+bool DxilLibIsEnabled(std::string DxilDLLPath) {
   EnterCriticalSection(&cs);
   if (SUCCEEDED(g_DllLibResult)) {
     if (!g_DllSupport.IsEnabled()) {
       g_DllLibResult =
-          g_DllSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
+          g_DllSupport.InitializeForDll(DxilDLLPath == "" ? kDxilLib : DxilDLLPath.data(),
+                                                     "DxcCreateInstance");
     }
   }
   LeaveCriticalSection(&cs);

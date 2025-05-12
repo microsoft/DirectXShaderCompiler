@@ -13,6 +13,7 @@
 #define __DXCAPI_USE_H__
 
 #include "dxc/dxcapi.h"
+#include <string>
 
 namespace dxc {
 
@@ -25,6 +26,7 @@ protected:
   HMODULE m_dll;
   DxcCreateInstanceProc m_createFn;
   DxcCreateInstance2Proc m_createFn2;
+  std::string DxilDLLPath = "";
 
   HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
     if (m_dll != nullptr)
@@ -34,6 +36,12 @@ protected:
     m_dll = LoadLibraryA(dllName);
     if (m_dll == nullptr)
       return HRESULT_FROM_WIN32(GetLastError());
+    // load dxil.dll too
+    HMODULE dxildllModule =
+        LoadLibraryA(DxilDLLPath == "" ? "dxil.dll" : GetDxilDLLPath());
+    if (dxildllModule == nullptr) {
+      return HRESULT_FROM_WIN32(GetLastError());
+    }
     m_createFn = (DxcCreateInstanceProc)GetProcAddress(m_dll, fnName);
 
     if (m_createFn == nullptr) {
@@ -74,6 +82,10 @@ protected:
   }
 
 public:
+  LPCSTR GetDxilDLLPath() {return DxilDLLPath.data();}
+  void SetDxilDLLPath(LPCSTR p) {
+    DxilDLLPath = p;
+  }
   DxcDllSupport() : m_dll(nullptr), m_createFn(nullptr), m_createFn2(nullptr) {}
 
   DxcDllSupport(DxcDllSupport &&other) {
@@ -88,7 +100,8 @@ public:
   ~DxcDllSupport() { Cleanup(); }
 
   HRESULT Initialize() {
-    return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
+    // load dxcompiler.dll
+   return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
   }
 
   HRESULT InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {
