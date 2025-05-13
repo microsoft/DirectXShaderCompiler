@@ -5536,9 +5536,8 @@ public:
                                     diag::err_typecheck_decl_incomplete_type);
 
         if (ContainsLongVector(argType)) {
-          const unsigned ConstantBuffersOrTextureBuffersIdx = 0;
           m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
-              << TypeDiagContext::ConstantBuffersOrTextureBuffers;
+              << static_cast<unsigned>(TypeDiagContext::ConstantBuffersOrTextureBuffers);
           return true;
         }
         if (DiagnoseTypeElements(
@@ -5660,10 +5659,9 @@ public:
       if (Decl && !Decl->isCompleteDefinition())
         return true;
       if (ContainsLongVector(arg.getAsType())) {
-        const unsigned TessellationPatchesIDx = 1;
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
-            << TypeDiagContext::TessellationPatches;
+            << static_cast<unsigned>(TypeDiagContext::TessellationPatches);
         return true;
       }
       if (DiagnoseTypeElements(*m_sema, argLoc.getLocation(), arg.getAsType(),
@@ -5684,7 +5682,7 @@ public:
       if (ContainsLongVector(arg.getAsType())) {
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
-            << TypeDiagContext::GeometryStreams;
+            << static_cast<unsigned>(TypeDiagContext::GeometryStreams);
         return true;
       }
       if (DiagnoseTypeElements(*m_sema, argLoc.getLocation(), arg.getAsType(),
@@ -10808,8 +10806,7 @@ bool DiagnoseIntersectionAttributes(Sema &S, SourceLocation Loc, QualType Ty) {
   }
 
   if (ContainsLongVector(Ty)) {
-    const unsigned AttributesIdx = 11;
-    S.Diag(Loc, diag::err_hlsl_unsupported_long_vector) << AttributesIdx;
+    S.Diag(Loc, diag::err_hlsl_unsupported_long_vector) << static_cast<unsigned>(TypeDiagContext::Attributes);
     return false;
   }
   return true;
@@ -15405,7 +15402,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   if (isGlobal && !isStatic && !isGroupShared && !IS_BASIC_OBJECT(basicKind)) {
     if (ContainsLongVector(qt)) {
       Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector)
-          << TypeDiagContext::CbuffersOrTbuffers;
+          << static_cast<unsigned>(TypeDiagContext::CBuffersOrTBuffers);
 
       result = false;
     }
@@ -16314,9 +16311,8 @@ static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
 // Verify that user-defined intrinsic struct args contain no long vectors
 static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
   if (ContainsLongVector(Arg->getType())) {
-    const unsigned UserDefinedStructParameterIdx = 5;
     S->Diag(Arg->getExprLoc(), diag::err_hlsl_unsupported_long_vector)
-        << UserDefinedStructParameterIdx;
+        << static_cast<unsigned>(TypeDiagContext::UserDefinedStructParameter);
     return true;
   }
   return DiagnoseTypeElements(*S, Arg->getExprLoc(), Arg->getType(),
@@ -17058,9 +17054,8 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   // See issue #7186.
   for (const auto *param : FD->params()) {
     if (ContainsLongVector(param->getType())) {
-      const unsigned EntryFunctionParametersIdx = 6;
       S.Diag(param->getLocation(), diag::err_hlsl_unsupported_long_vector)
-          << EntryFunctionParametersIdx;
+          << static_cast<unsigned>(TypeDiagContext::EntryFunctionParameters);
     }
     hlsl::DiagnoseTypeElements(S, param->getLocation(), param->getType(),
                                TypeDiagContext::EntryFunctionParameters);
@@ -17068,7 +17063,7 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
 
   if (ContainsLongVector(FD->getReturnType())) {
     S.Diag(FD->getLocation(), diag::err_hlsl_unsupported_long_vector)
-        << TypeDiagContext::EntryFunctionReturnType;
+        << static_cast<unsigned>(TypeDiagContext::EntryFunctionReturnType);
   }
   DiagnoseTypeElements(S, FD->getLocation(), FD->getReturnType(),
                        TypeDiagContext::EntryFunctionReturnType);
