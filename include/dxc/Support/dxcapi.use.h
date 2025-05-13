@@ -36,12 +36,7 @@ protected:
     m_dll = LoadLibraryA(dllName);
     if (m_dll == nullptr)
       return HRESULT_FROM_WIN32(GetLastError());
-    // load dxil.dll too
-    HMODULE dxildllModule =
-        LoadLibraryA(DxilDLLPath == "" ? "dxil.dll" : GetDxilDLLPath());
-    if (dxildllModule == nullptr) {
-      return HRESULT_FROM_WIN32(GetLastError());
-    }
+
     m_createFn = (DxcCreateInstanceProc)GetProcAddress(m_dll, fnName);
 
     if (m_createFn == nullptr) {

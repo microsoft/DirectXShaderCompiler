@@ -62,8 +62,10 @@ bool CreateValidator(CComPtr<IDxcValidator> &pValidator,
   // otherwise, use the external validator provided by the dxil_dll_path
   // argument
   else {
-    // if a valid absolute path was given, but the DXIL.dll
-    // is invalid, then error
+    // this code loads the dll path on an as-needed basis.
+    // if a request to initialize the dxil lib arrives more than once
+    // then DxilLibInitialize does nothing.
+    IFT(DxilLibInitialize(DxilDLLPath));
     IFTBOOL(DxilLibIsEnabled(DxilDLLPath), DXC_E_VALIDATOR_MISSING);
     IFT(DxilLibCreateInstance(CLSID_DxcValidator, &pValidator));
 
