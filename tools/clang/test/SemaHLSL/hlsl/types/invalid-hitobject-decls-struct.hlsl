@@ -133,8 +133,8 @@ void gs_line(
 
 [shader("geometry")]
 [maxvertexcount(12)]
-void gs_line(
-    line TYPE a,
+void gs_tri(
+    triangle TYPE a,
     // expected-error@-1{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
     inout TriangleStream<TYPE> OutputStream0)
