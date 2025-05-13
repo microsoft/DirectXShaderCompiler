@@ -12235,6 +12235,8 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
     return ErrorFound;
   }
   default:
+    // Not a recursive type, no element types to check here
+    Empty = false;
     return false;
   }
 }
