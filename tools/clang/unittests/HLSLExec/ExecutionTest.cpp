@@ -12013,14 +12013,28 @@ void ExecutionTest::runCoopVecMulTest() {
 #else
   // Create device and verify coopvec support
   CComPtr<ID3D12Device> D3DDevice;
-  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9))
-    return;
-
-  if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {
+  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
+#ifdef _HLK_CONF
+    LOG_ERROR_FMT_THROW(
+        L"Device does not support SM 6.9. Can't run these tests.");
+#else
     WEX::Logging::Log::Comment(
-        "Device does not support cooperative vector. Skipping.");
+        "Device does not support SM 6.9. Can't run these tests.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
+#endif
+  }
+
+  if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {
+#ifdef _HLK_CONF
+    LOG_ERROR_FMT_THROW(
+        L"Device does not support cooperative vectors. Can't run these tests.");
+#else
+    WEX::Logging::Log::Comment(
+        "Device does not support cooperative vectors. Can't run these tests.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+#endif
   }
 
   // Query coopvec feature data. First call gets the size of the arrays. The
@@ -12906,14 +12920,28 @@ void ExecutionTest::runCoopVecOuterProductTest() {
 #else
   // Create device and verify coopvec support
   CComPtr<ID3D12Device> D3DDevice;
-  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9))
-    return;
-
-  if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {
+  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
+#ifdef _HLK_CONF
+    LOG_ERROR_FMT_THROW(
+        L"Device does not support SM 6.9. Can't run these tests.");
+#else
     WEX::Logging::Log::Comment(
-        "Device does not support cooperative vector. Skipping.");
+        "Device does not support SM 6.9. Can't run these tests.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
+#endif
+  }
+
+  if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {
+#ifdef _HLK_CONF
+    LOG_ERROR_FMT_THROW(
+        L"Device does not support cooperative vectors. Can't run these tests.");
+#else
+    WEX::Logging::Log::Comment(
+        "Device does not support cooperative vectors. Can't run these tests.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+#endif
   }
 
   // Query coopvec feature data. First call gets the size of the arrays. The

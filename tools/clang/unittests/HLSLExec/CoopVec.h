@@ -6,6 +6,7 @@
 #include <DirectXPackedVector.h>
 
 #include <cstdlib>
+#include <memory>
 #include <random>
 #include <vector>
 
@@ -13,7 +14,7 @@
 
 #include "CoopVecAPI.h"
 
-struct LinAlgHeaderIncludeHandler : public IDxcIncludeHandler {
+class LinAlgHeaderIncludeHandler : public IDxcIncludeHandler {
 private:
   DXC_MICROCOM_REF_FIELD(RefCount)
   dxc::DxcDllSupport &DxcSupport;
@@ -32,6 +33,8 @@ public:
       WEX::Common::String ParamValue;
       if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(
               L"LinAlgHeader", ParamValue))) {
+        WEX::Logging::Log::Error(
+            L"Missing expected TAEF runtime parameter LinAlgHeader");
         return E_FAIL;
       }
 
@@ -79,7 +82,7 @@ static std::vector<uint8_t> CreateAllOnesInputMatrix(size_t Width,
     } else if constexpr (std::is_same_v<EltTy, float>) {
       InputMatrix[i] = 1.0f;
     } else {
-      WEX::Logging::Log::Error(L"Unsupported input type");
+      VERIFY_FAIL(L"Unsupported input type");
       break;
     }
   }
@@ -89,60 +92,6 @@ static std::vector<uint8_t> CreateAllOnesInputMatrix(size_t Width,
   std::memcpy(Uint8InputMatrix.data(), InputMatrix.data(),
               InputMatrix.size() * sizeof(EltTy));
   return Uint8InputMatrix;
-}
-
-template <typename EltTy>
-static std::vector<uint8_t> CreateInputVector(size_t NumThreads,
-                                              size_t EltsPerThread) {
-  std::vector<EltTy> InputVector(NumThreads * EltsPerThread);
-  std::fill(InputVector.begin(), InputVector.end(), EltTy(0));
-  if (EltsPerThread < 2) {
-    WEX::Logging::Log::Error(L"EltsPerThread must be at least 2");
-    return std::vector<uint8_t>();
-  }
-  for (size_t TID = 0; TID < NumThreads; TID++) {
-    if constexpr (std::is_same_v<EltTy, uint8_t> ||
-                  std::is_same_v<EltTy, int8_t>) {
-      InputVector[TID * EltsPerThread + 0] = 1;
-      InputVector[TID * EltsPerThread + 1] = 1;
-    } else if constexpr (std::is_same_v<EltTy, DirectX::PackedVector::HALF>) {
-      InputVector[TID * EltsPerThread + 0] = ConvertFloat32ToFloat16(1.0f);
-      InputVector[TID * EltsPerThread + 1] = ConvertFloat32ToFloat16(1.0f);
-    } else if constexpr (std::is_same_v<EltTy, float>) {
-      InputVector[TID * EltsPerThread + 0] = 1.0f;
-      InputVector[TID * EltsPerThread + 1] = 1.0f;
-    } else {
-      WEX::Logging::Log::Error(L"Unsupported input type");
-      break;
-    }
-  }
-
-  // Convert to uint8_t vector
-  std::vector<uint8_t> Uint8InputVector(InputVector.size() * sizeof(EltTy));
-  std::memcpy(Uint8InputVector.data(), InputVector.data(),
-              InputVector.size() * sizeof(EltTy));
-  return Uint8InputVector;
-}
-
-template <typename EltTy>
-static std::vector<uint8_t> CreateInputBias(size_t NumElts) {
-  std::vector<EltTy> InputBias(NumElts);
-  if constexpr (std::is_same_v<EltTy, uint8_t> ||
-                std::is_same_v<EltTy, int8_t>) {
-    std::fill(InputBias.begin(), InputBias.end(), EltTy(1));
-  } else if constexpr (std::is_same_v<EltTy, DirectX::PackedVector::HALF>) {
-    std::fill(InputBias.begin(), InputBias.end(),
-              ConvertFloat32ToFloat16(1.0f));
-  } else if constexpr (std::is_same_v<EltTy, int32_t>) {
-    std::fill(InputBias.begin(), InputBias.end(), 1);
-  } else {
-    WEX::Logging::Log::Error(L"Unsupported bias type");
-  }
-  // Convert to uint8_t vector
-  std::vector<uint8_t> Uint8InputBias(InputBias.size() * sizeof(EltTy));
-  std::memcpy(Uint8InputBias.data(), InputBias.data(),
-              InputBias.size() * sizeof(EltTy));
-  return Uint8InputBias;
 }
 
 static std::wstring
@@ -173,7 +122,9 @@ DataTypeToFilterString(D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
   case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
     return L"FLOAT_E5M2";
   default:
-    return L"<UNKNOWN>";
+    VERIFY_FAIL(WEX::Common::String().Format(
+        L"Unrecognized D3D12_LINEAR_ALGEBRA_DATATYPE: %d", DataType));
+    return L"";
   }
 }
 
@@ -266,7 +217,7 @@ GetStrideMultiplierForMatrixDataType(D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
   case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
     return 4;
   default:
-    WEX::Logging::Log::Error(L"Unsupported matrix data type");
+    VERIFY_FAIL(L"Unsupported matrix data type");
     return 1;
   }
 }
@@ -302,8 +253,8 @@ GetHlslDataTypeForDataType(D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
   case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
     return L"float";
   default:
-    WEX::Logging::Log::Error(L"Unsupported input data type");
-    return L"<UNKNOWN>";
+    VERIFY_FAIL(L"Unsupported input data type");
+    return L"";
   }
 }
 
@@ -335,8 +286,8 @@ GetHlslInterpretationForDataType(D3D12_LINEAR_ALGEBRA_DATATYPE Interpretation) {
   case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
     return L"DATA_TYPE_FLOAT8_E5M2";
   default:
-    WEX::Logging::Log::Error(L"Unsupported interpretation");
-    return L"<UNKNOWN>";
+    VERIFY_FAIL(L"Unsupported interpretation");
+    return L"";
   }
 }
 
@@ -360,7 +311,7 @@ GetMatrixSrcDataType(D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInterpretation) {
   }
 }
 
-bool IsIntegralDataType(D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
+static bool IsIntegralDataType(D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
   return DataType == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 ||
          DataType == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8 ||
          DataType == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16 ||
@@ -394,7 +345,8 @@ GetVectorElementSize(D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
   case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
     return sizeof(float);
   default:
-    throw std::invalid_argument("Unsupported data type");
+    VERIFY_FAIL(L"Unsupported data type");
+    return 0;
   }
 }
 
@@ -420,7 +372,8 @@ GetMatrixElementSize(D3D12_LINEAR_ALGEBRA_DATATYPE DataInterpretation) {
     // ConvertLinearAlgebraMatrix.
     return sizeof(float);
   default:
-    throw std::invalid_argument("Unsupported data type");
+    VERIFY_FAIL(L"Unsupported data type");
+    return 0;
   }
 }
 
@@ -431,7 +384,7 @@ private:
   size_t ElementSize = 0;
   size_t Stride = 0;
   size_t TotalBytes = 0;
-  uint8_t *Buffer = nullptr;
+  std::unique_ptr<uint8_t[]> Buffer;
 
 public:
   TestVector(size_t NumVectors, size_t VectorSize, size_t ElementSize,
@@ -439,24 +392,18 @@ public:
       : NumVectors(NumVectors), VectorSize(VectorSize),
         ElementSize(ElementSize) {
     if (NumVectors == 0)
-      throw std::invalid_argument("NumVectors must be greater than 0");
+      VERIFY_FAIL(L"NumVectors must be greater than 0");
     if (VectorSize == 0)
-      throw std::invalid_argument("VectorSize must be greater than 0");
+      VERIFY_FAIL(L"VectorSize must be greater than 0");
     if (ElementSize == 0)
-      throw std::invalid_argument("ElementSize must be greater than 0");
+      VERIFY_FAIL(L"ElementSize must be greater than 0");
 
     const size_t VectorBytes = VectorSize * ElementSize;
     Stride = ((VectorBytes + Alignment - 1) / Alignment) * Alignment;
     TotalBytes = Stride * NumVectors;
 
-    void *Ptr = nullptr;
-#ifdef _MSC_VER
-    Ptr = _aligned_malloc(TotalBytes, Alignment);
-#else
-    Ptr = std::aligned_alloc(Alignment, TotalBytes);
-#endif
-    Buffer = reinterpret_cast<uint8_t *>(Ptr);
-    std::fill(Buffer, Buffer + TotalBytes, (uint8_t)0xFF);
+    Buffer = std::make_unique<uint8_t[]>(TotalBytes);
+    std::fill(Buffer.get(), Buffer.get() + TotalBytes, (uint8_t)0xFF);
   }
 
   // Copy constructor
@@ -464,17 +411,9 @@ public:
       : NumVectors(other.NumVectors), VectorSize(other.VectorSize),
         ElementSize(other.ElementSize), Stride(other.Stride),
         TotalBytes(other.TotalBytes) {
-
-    void *Ptr = nullptr;
-#ifdef _MSC_VER
-    Ptr = _aligned_malloc(TotalBytes, 16);
-#else
-    Ptr = std::aligned_alloc(16, TotalBytes);
-#endif
-    Buffer = reinterpret_cast<uint8_t *>(Ptr);
-
     if (other.Buffer) {
-      std::memcpy(Buffer, other.Buffer, TotalBytes);
+      Buffer = std::make_unique<uint8_t[]>(TotalBytes);
+      std::memcpy(Buffer.get(), other.Buffer.get(), TotalBytes);
     }
   }
 
@@ -482,48 +421,28 @@ public:
   TestVector(TestVector &&other) noexcept
       : NumVectors(other.NumVectors), VectorSize(other.VectorSize),
         ElementSize(other.ElementSize), Stride(other.Stride),
-        TotalBytes(other.TotalBytes), Buffer(other.Buffer) {
-
+        TotalBytes(other.TotalBytes), Buffer(std::move(other.Buffer)) {
     // Reset the source object
     other.NumVectors = 0;
     other.VectorSize = 0;
     other.ElementSize = 0;
     other.Stride = 0;
     other.TotalBytes = 0;
-    other.Buffer = nullptr;
   }
 
-  ~TestVector() {
-    if (Buffer) {
-#ifdef _MSC_VER
-      _aligned_free(Buffer);
-#else
-      std::free(Buffer);
-#endif
-    }
-  }
+  ~TestVector() = default;
 
   size_t getNumVectors() const { return NumVectors; }
   size_t getVectorSize() const { return VectorSize; }
   size_t getElementSize() const { return ElementSize; }
   size_t getStride() const { return Stride; }
   size_t getTotalBytes() const { return TotalBytes; }
-  uint8_t *getBuffer() { return Buffer; }
-  const uint8_t *getBuffer() const { return Buffer; }
+  uint8_t *getBuffer() { return Buffer.get(); }
+  const uint8_t *getBuffer() const { return Buffer.get(); }
 
   // Copy assignment operator
   TestVector &operator=(const TestVector &other) {
     if (this != &other) {
-      // Free existing buffer
-      if (Buffer) {
-#ifdef _MSC_VER
-        _aligned_free(Buffer);
-#else
-        std::free(Buffer);
-#endif
-        Buffer = nullptr;
-      }
-
       // Copy metadata
       NumVectors = other.NumVectors;
       VectorSize = other.VectorSize;
@@ -531,18 +450,13 @@ public:
       Stride = other.Stride;
       TotalBytes = other.TotalBytes;
 
-      // Allocate new buffer
-      void *Ptr = nullptr;
-#ifdef _MSC_VER
-      Ptr = _aligned_malloc(TotalBytes, 16);
-#else
-      Ptr = std::aligned_alloc(16, TotalBytes);
-#endif
-      Buffer = reinterpret_cast<uint8_t *>(Ptr);
-
       // Copy data
-      if (other.Buffer)
-        std::memcpy(Buffer, other.Buffer, TotalBytes);
+      if (other.Buffer) {
+        Buffer = std::make_unique<uint8_t[]>(TotalBytes);
+        std::memcpy(Buffer.get(), other.Buffer.get(), TotalBytes);
+      } else {
+        Buffer.reset();
+      }
     }
     return *this;
   }
@@ -550,22 +464,13 @@ public:
   // Move assignment operator
   TestVector &operator=(TestVector &&other) noexcept {
     if (this != &other) {
-      // Free existing buffer
-      if (Buffer) {
-#ifdef _MSC_VER
-        _aligned_free(Buffer);
-#else
-        std::free(Buffer);
-#endif
-      }
-
       // Move metadata and buffer
       NumVectors = other.NumVectors;
       VectorSize = other.VectorSize;
       ElementSize = other.ElementSize;
       Stride = other.Stride;
       TotalBytes = other.TotalBytes;
-      Buffer = other.Buffer;
+      Buffer = std::move(other.Buffer);
 
       // Reset the source object
       other.NumVectors = 0;
@@ -573,19 +478,16 @@ public:
       other.ElementSize = 0;
       other.Stride = 0;
       other.TotalBytes = 0;
-      other.Buffer = nullptr;
     }
     return *this;
   }
 
   template <typename T> T *getVector(size_t I) {
-    uint8_t *Ptr = Buffer + I * Stride;
-    return reinterpret_cast<T *>(Ptr);
+    return reinterpret_cast<T *>(Buffer.get() + I * Stride);
   }
 
   template <typename T> const T *getVector(size_t I) const {
-    const uint8_t *Ptr = Buffer + I * Stride;
-    return reinterpret_cast<const T *>(Ptr);
+    return reinterpret_cast<const T *>(Buffer.get() + I * Stride);
   }
 
   template <typename T> void fill(const T &Value) {
@@ -607,9 +509,9 @@ public:
           float Elt = 0.0f;
 
           if (IsIntegralDataType(MatrixInterpretation))
-            Elt = (float)(Rnd() & 0x7) - 3.0f;
+            Elt = static_cast<float>(Rnd() & 0x7) - 3.0f;
           else
-            Elt = ((float)(Rnd() & 0x3) - 1.0f) / 2.0f;
+            Elt = (static_cast<float>(Rnd() & 0x3) - 1.0f) / 2.0f;
 
           if constexpr (std::is_same_v<T, DirectX::PackedVector::HALF>)
             Vec[J] = static_cast<T>(ConvertFloat32ToFloat16(Elt));
@@ -629,10 +531,10 @@ public:
       T *Vec = getVector<T>(I);
       for (size_t J = 0; J < VectorSize; ++J)
         if constexpr (std::is_same_v<T, DirectX::PackedVector::HALF>) {
-          float Elt = ((float)(Rnd() & 0x3) - 1.0f) / 2.0f;
+          float Elt = (static_cast<float>(Rnd() & 0x3) - 1.0f) / 2.0f;
           Vec[J] = static_cast<T>(ConvertFloat32ToFloat16(Elt));
         } else if constexpr (std::is_same_v<T, float>) {
-          float Elt = ((float)(Rnd() & 0x3) - 1.0f) / 2.0f;
+          float Elt = (static_cast<float>(Rnd() & 0x3) - 1.0f) / 2.0f;
           Vec[J] = static_cast<T>(Elt);
         } else {
           if constexpr (std::is_signed_v<T>) {
@@ -688,7 +590,8 @@ public:
       Vec.fillSimpleTestData<float>(MatrixInterpretation, Rnd);
       break;
     default:
-      throw std::invalid_argument("Unsupported data type");
+      VERIFY_FAIL(L"Unsupported data type");
+      break;
     }
     return Vec;
   }
@@ -717,7 +620,8 @@ public:
       Vec.FillSimpleMatrixTestData<float>(Rnd);
       break;
     default:
-      throw std::invalid_argument("Unsupported data type");
+      VERIFY_FAIL(L"Unsupported data type");
+      break;
     }
     return Vec;
   }
@@ -834,8 +738,7 @@ public:
           if (HasBias)
             Acc += ConvertFloat16ToFloat32(InputBiasFP16[OutputIdx]);
 
-          float Result = Acc;
-          ResultVec.getVector<float>(VecIdx)[OutputIdx] = Result;
+          ResultVec.getVector<float>(VecIdx)[OutputIdx] = Acc;
         }
       }
     } else if (MatrixInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8) {
@@ -862,12 +765,12 @@ public:
           if (HasBias)
             Acc += InputBiasI32[OutputIdx];
 
-          float Result = float(Acc);
-          ResultVec.getVector<float>(VecIdx)[OutputIdx] = Result;
+          ResultVec.getVector<float>(VecIdx)[OutputIdx] =
+              static_cast<float>(Acc);
         }
       }
     } else {
-      throw std::invalid_argument("Unsupported matrix interpretation");
+      VERIFY_FAIL(L"Unsupported matrix interpretation");
     }
 
     return ResultVec;
