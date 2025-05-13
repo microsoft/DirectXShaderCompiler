@@ -1448,7 +1448,7 @@ int dxc::main(int argc, const char **argv_) {
       SetUnhandledExceptionFilter(ExceptionFilter);
 #endif
 
-    // Setup a helper DLL.
+    // Setup dxcompiler DLL.
     {
       std::string dllErrorString;
       llvm::raw_string_ostream dllErrorStream(dllErrorString);
@@ -1462,6 +1462,7 @@ int dxc::main(int argc, const char **argv_) {
     }
 
     EnsureEnabled(dxcSupport);
+
     DxcContext context(dxcOpts, dxcSupport);
     // Handle help request, which overrides any other processing.
     if (dxcOpts.ShowHelp) {
