@@ -61,6 +61,8 @@ bool DiagnoseNodeStructArgument(clang::Sema *self,
 
 // Keep this in sync with err_hlsl_unsupported_object in DiagnosticSemaKinds.td
 enum class TypeDiagContext {
+  // Supported indices for both `err_hlsl_unsupported_object_context` and
+  // `err_hlsl_unsupported_long_vector`
   ConstantBuffersOrTextureBuffers = 0,
   TessellationPatches = 1,
   GeometryStreams = 2,
@@ -74,6 +76,8 @@ enum class TypeDiagContext {
   PayloadParameters = 10,
   Attributes = 11,
   TypeParameter = 12,
+  LongVecDiagMaxSelectIndex = TypeParameter,
+  // Below only supported for `err_hlsl_diag_unsupported_object_context`
   StructuredBuffers = 13,
   GlobalVariables = 14,
   GroupShared = 15,

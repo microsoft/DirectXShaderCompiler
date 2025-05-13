@@ -12195,6 +12195,9 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
     // into this function. Could fold all context-dependent long vector checks
     // into this function.
     if (CheckLongVec && GetHLSLVecSize(Ty) > DXIL::kDefaultMaxVectorLength) {
+      DXASSERT_NOMSG(
+          DiagContextIdx <=
+          static_cast<unsigned>(TypeDiagContext::LongVecDiagMaxSelectIndex));
       S.Diag(Loc, diag::err_hlsl_unsupported_long_vector) << DiagContextIdx;
       Empty = false;
       return false;
