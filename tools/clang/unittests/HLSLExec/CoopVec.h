@@ -508,6 +508,9 @@ public:
                       std::is_same_v<T, float>) {
           float Elt = 0.0f;
 
+          // Generate random input in the following ranges:
+          // - Integral types: [-3, 4] by 1
+          // - FP types: [-0.5, 1] by 0.5
           if (IsIntegralDataType(MatrixInterpretation))
             Elt = static_cast<float>(Rnd() & 0x7) - 3.0f;
           else
@@ -518,6 +521,9 @@ public:
           else
             Vec[J] = static_cast<T>(Elt);
         } else {
+          // Generate random input in the following ranges:
+          // - Signed types: [-8, 7] by 1
+          // - Unsigned types: [0, 15] by 1
           if constexpr (std::is_signed_v<T>)
             Vec[J] = static_cast<T>((int32_t)(Rnd() & 0xf) - 8);
           else
@@ -676,10 +682,12 @@ public:
     ConvertInfo.DestInfo.NumColumns = static_cast<UINT>(getVectorSize());
 
     if (MatrixLayout == D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR) {
+      // Align to 16 bytes
       ConvertInfo.DestInfo.DestStride =
           (static_cast<UINT>(getVectorSize()) * DestEltSize + 15) & ~15;
     } else if (MatrixLayout ==
                D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR) {
+      // Align to 16 bytes
       ConvertInfo.DestInfo.DestStride =
           (static_cast<UINT>(getNumVectors()) * DestEltSize + 15) & ~15;
     }
