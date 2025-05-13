@@ -1477,6 +1477,8 @@ void isSafePHISelectUseForScalarRepl(Instruction *I, uint64_t Offset,
   }
 }
 
+// Returns whether the `OpIdx` argument of HL intrinsic call `CI` is expected to
+// be a user-defined-type.
 static bool isUDTIntrinsicArg(CallInst *CI, unsigned OpIdx) {
   if (HLOpcodeGroup::HLIntrinsic != GetHLOpcodeGroup(CI->getCalledFunction()))
     return false;
@@ -1579,12 +1581,9 @@ void isSafeForScalarRepl(Instruction *I, uint64_t Offset, AllocaInfo &Info) {
       // Most HL functions are safe for scalar repl.
       if (HLOpcodeGroup::NotHL == group)
         return MarkUnsafe(Info, User);
-      else if (HLOpcodeGroup::HLIntrinsic == group) {
-        for (unsigned OpIdx = 0; OpIdx < CI->getNumArgOperands(); OpIdx++) {
-          if (CI->getArgOperand(OpIdx) == I && isUDTIntrinsicArg(CI, OpIdx))
-            return MarkUnsafe(Info, User);
-        }
-      }
+      else if (HLOpcodeGroup::HLIntrinsic == group &&
+               isUDTIntrinsicArg(CI, U.getOperandNo()))
+        return MarkUnsafe(Info, User);
     } else {
       return MarkUnsafe(Info, User);
     }
@@ -2714,10 +2713,9 @@ static void memcpyAggCallArg(CallInst *CI, unsigned ArgIdx, bool CopyIn,
   Type *userTyElt = userTy->getElementType();
   Value *Alloca = AllocaBuilder.CreateAlloca(userTyElt);
   IRBuilder<> Builder(CI);
-  if (CopyIn) {
+  if (CopyIn)
     Builder.CreateMemCpy(Alloca, userTyV, DL.getTypeAllocSize(userTyElt),
                          false);
-  }
   CI->setArgOperand(ArgIdx, Alloca);
   if (CopyOut) {
     Builder.SetInsertPoint(CI->getNextNode());
