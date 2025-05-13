@@ -1233,6 +1233,32 @@ static void ValidateImmOperandsForOuterProdAcc(CallInst *CI,
         {"MatrixLayout"});
     return;
   }
+  ConstantInt *ML = cast<ConstantInt>(MatrixLayout);
+  uint64_t MLValue = ML->getLimitedValue();
+  if (MLValue !=
+      static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal))
+    ValCtx.EmitInstrFormatError(
+        CI,
+        ValidationRule::
+            InstrLinalgInvalidMatrixLayoutValueForOuterProductAccumulate,
+        {GetMatrixLayoutStr(MLValue),
+         GetMatrixLayoutStr(static_cast<unsigned>(
+             DXIL::LinalgMatrixLayout::OuterProductOptimal))});
+
+  llvm::Value *MatrixStride =
+      CI->getOperand(DXIL::OperandIndex::kOuterProdAccMatrixStride);
+  if (!llvm::isa<llvm::Constant>(MatrixStride)) {
+    ValCtx.EmitInstrError(
+        CI, ValidationRule::InstrLinalgMatrixStrideZeroForOptimalLayouts);
+    return;
+  }
+  ConstantInt *MS = cast<ConstantInt>(MatrixStride);
+  uint64_t MSValue = MS->getLimitedValue();
+  if (MSValue != 0) {
+    ValCtx.EmitInstrError(
+        CI, ValidationRule::InstrLinalgMatrixStrideZeroForOptimalLayouts);
+    return;
+  }
 }
 
 // Validate the type-defined mask compared to the store value mask which

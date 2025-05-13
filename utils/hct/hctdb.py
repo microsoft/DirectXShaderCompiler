@@ -8453,6 +8453,12 @@ class db_dxil(object):
         )
 
         self.add_valrule_msg(
+            "Instr.LinalgMatrixStrideZeroForOptimalLayouts",
+            "For optimal layouts, matrix stride must be zero.",
+            "matrix stride must be a constant zero for optimal layouts",
+        )
+
+        self.add_valrule_msg(
             "Instr.LinalgMatrixLayoutNotTransposable",
             "Row Major and Column Major matrix layouts are not transposable.",
             "%0 matrix layout is not transposable",
@@ -8462,6 +8468,12 @@ class db_dxil(object):
             "Instr.LinalgNotAnUnsignedType",
             "Unsigned flag set for a float signed type",
             "IsUnsigned flag set to true for a float type '%0' vector",
+        )
+
+        self.add_valrule_msg(
+            "Instr.LinalgInvalidMatrixLayoutValueForOuterProductAccumulate",
+            "Matrix Layout for Linalg Mul/MulAdd operation must be valid.",
+            "matrix layout value '%0' is not valid for outerproductaccumulate, must be '%1'",
         )
 
         # Some legacy rules:
