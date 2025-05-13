@@ -15404,7 +15404,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
 
   // Disallow long vecs from $Global cbuffers.
   if (isGlobal && !isStatic && !isGroupShared && !IS_BASIC_OBJECT(basicKind)) {
-    const unsigned CbuffersOrTbuffersIdx = 4;
     if (ContainsLongVector(qt)) {
       Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector)
           << TypeDiagContext::CbuffersOrTbuffers;
