@@ -5684,7 +5684,7 @@ public:
       if (ContainsLongVector(arg.getAsType())) {
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
-            << GeometryStreamsIdx;
+            << TypeDiagContext::GeometryStreams;
         return true;
       }
       if (DiagnoseTypeElements(*m_sema, argLoc.getLocation(), arg.getAsType(),
