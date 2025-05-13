@@ -7884,7 +7884,7 @@ def err_hlsl_unsupported_long_vector
     "entry function parameters|entry function return type|"
     "patch constant function parameters|patch constant function return type|"
     "payload parameters|attributes}0 are not supported">;
-// %select options must be compatible with err_hlsl_unsupported_long_vector (same index used)
+// First %select options must match err_hlsl_unsupported_long_vector (same index used)
 def err_hlsl_unsupported_object_context
     : Error<"object %0 is not allowed in "
     "%select{ConstantBuffers or TextureBuffers|"
