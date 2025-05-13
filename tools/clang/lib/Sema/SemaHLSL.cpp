@@ -5535,15 +5535,10 @@ public:
         m_sema->RequireCompleteType(argSrcLoc, argType,
                                     diag::err_typecheck_decl_incomplete_type);
 
-        if (ContainsLongVector(argType)) {
-          m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
-              << static_cast<unsigned>(
-                     TypeDiagContext::ConstantBuffersOrTextureBuffers);
-          return true;
-        }
-        if (DiagnoseTypeElements(
-                *m_sema, argSrcLoc, argType,
-                TypeDiagContext::ConstantBuffersOrTextureBuffers))
+        TypeDiagContext DiagContext =
+            TypeDiagContext::ConstantBuffersOrTextureBuffers;
+        if (DiagnoseTypeElements(*m_sema, argSrcLoc, argType, DiagContext,
+                                 DiagContext))
           return true;
       }
       return false;
@@ -5554,8 +5549,10 @@ public:
         if (Arg.getKind() == TemplateArgument::ArgKind::Type) {
           QualType ArgType = Arg.getAsType();
           SourceLocation ArgSrcLoc = ArgLoc.getLocation();
-          if (DiagnoseTypeElements(*m_sema, ArgSrcLoc, ArgType,
-                                   TypeDiagContext::StructuredBuffers))
+          if (DiagnoseTypeElements(
+                  *m_sema, ArgSrcLoc, ArgType,
+                  TypeDiagContext::StructuredBuffers /*ObjDiagContext*/,
+                  TypeDiagContext::Valid /*LongVecDiagContext*/))
             return true;
         }
       }
@@ -5659,14 +5656,9 @@ public:
       CXXRecordDecl *Decl = arg.getAsType()->getAsCXXRecordDecl();
       if (Decl && !Decl->isCompleteDefinition())
         return true;
-      if (ContainsLongVector(arg.getAsType())) {
-        m_sema->Diag(argLoc.getLocation(),
-                     diag::err_hlsl_unsupported_long_vector)
-            << static_cast<unsigned>(TypeDiagContext::TessellationPatches);
-        return true;
-      }
+      const TypeDiagContext DiagContext = TypeDiagContext::TessellationPatches;
       if (DiagnoseTypeElements(*m_sema, argLoc.getLocation(), arg.getAsType(),
-                               TypeDiagContext::TessellationPatches))
+                               DiagContext, DiagContext))
         return true;
     } else if (Template->getTemplatedDecl()->hasAttr<HLSLStreamOutputAttr>()) {
       DXASSERT(TemplateArgList.size() > 0,
@@ -5680,14 +5672,9 @@ public:
       CXXRecordDecl *Decl = arg.getAsType()->getAsCXXRecordDecl();
       if (Decl && !Decl->isCompleteDefinition())
         return true;
-      if (ContainsLongVector(arg.getAsType())) {
-        m_sema->Diag(argLoc.getLocation(),
-                     diag::err_hlsl_unsupported_long_vector)
-            << static_cast<unsigned>(TypeDiagContext::GeometryStreams);
-        return true;
-      }
+      const TypeDiagContext DiagContext = TypeDiagContext::GeometryStreams;
       if (DiagnoseTypeElements(*m_sema, argLoc.getLocation(), arg.getAsType(),
-                               TypeDiagContext::GeometryStreams))
+                               DiagContext, DiagContext))
         return true;
     }
 
@@ -10806,11 +10793,9 @@ bool DiagnoseIntersectionAttributes(Sema &S, SourceLocation Loc, QualType Ty) {
     return false;
   }
 
-  if (ContainsLongVector(Ty)) {
-    S.Diag(Loc, diag::err_hlsl_unsupported_long_vector)
-        << static_cast<unsigned>(TypeDiagContext::Attributes);
+  const TypeDiagContext DiagContext = TypeDiagContext::Attributes;
+  if (DiagnoseTypeElements(S, Loc, Ty, DiagContext, DiagContext))
     return false;
-  }
   return true;
 }
 
@@ -10964,8 +10949,10 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
               << intrinsicName;
           return Sema::TemplateDeductionResult::TDK_Invalid;
         }
-        if (DiagnoseTypeElements(*getSema(), Loc, functionTemplateTypeArg,
-                                 TypeDiagContext::TypeParameter))
+        if (DiagnoseTypeElements(
+                *getSema(), Loc, functionTemplateTypeArg,
+                TypeDiagContext::TypeParameter /*ObjDiagContext*/,
+                TypeDiagContext::Valid /*LongVecDiagContext*/))
           return Sema::TemplateDeductionResult::TDK_Invalid;
       }
       if (IsHitObjectGetAttributes &&
@@ -12176,29 +12163,34 @@ static bool AllowObjectInContext(QualType Ty, TypeDiagContext DiagContext) {
 // redundant recursive type checks.
 static bool
 DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
-                     bool CheckLongVec, TypeDiagContext DiagContext,
+                     TypeDiagContext ObjDiagContext,
+                     TypeDiagContext LongVecDiagContext,
                      llvm::SmallPtrSet<const RecordDecl *, 8> &CheckedDecls,
                      const clang::FieldDecl *FD) {
   if (Ty.isNull() || Ty->isDependentType())
     return false;
 
+  const bool CheckLongVec = LongVecDiagContext != TypeDiagContext::Valid;
+  const bool CheckObjects = ObjDiagContext != TypeDiagContext::Valid;
+
   while (const ArrayType *Arr = Ty->getAsArrayTypeUnsafe())
     Ty = Arr->getElementType();
 
-  const unsigned DiagContextIdx = static_cast<unsigned>(DiagContext);
+  const int ObjDiagContextIdx = static_cast<int>(ObjDiagContext);
+  const int LongVecDiagContextIdx = static_cast<int>(LongVecDiagContext);
+  DXASSERT_NOMSG(
+      LongVecDiagContext == TypeDiagContext::Valid ||
+      (0 <= LongVecDiagContextIdx &&
+       LongVecDiagContextIdx <=
+           static_cast<int>(TypeDiagContext::LongVecDiagMaxSelectIndex)));
 
   HLSLExternalSource *Source = HLSLExternalSource::FromSema(&S);
   ArTypeObjectKind ShapeKind = Source->GetTypeObjectKind(Ty);
   switch (ShapeKind) {
   case AR_TOBJ_VECTOR:
-    // TODO: This is only here because DiagnoseNodeStructArgument got folded
-    // into this function. Could fold all context-dependent long vector checks
-    // into this function.
     if (CheckLongVec && GetHLSLVecSize(Ty) > DXIL::kDefaultMaxVectorLength) {
-      DXASSERT_NOMSG(
-          DiagContextIdx <=
-          static_cast<unsigned>(TypeDiagContext::LongVecDiagMaxSelectIndex));
-      S.Diag(Loc, diag::err_hlsl_unsupported_long_vector) << DiagContextIdx;
+      S.Diag(Loc, diag::err_hlsl_unsupported_long_vector)
+          << LongVecDiagContextIdx;
       Empty = false;
       return false;
     }
@@ -12209,10 +12201,10 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
     return false;
   case AR_TOBJ_OBJECT:
     Empty = false;
-    if (AllowObjectInContext(Ty, DiagContext))
+    if (!CheckObjects || AllowObjectInContext(Ty, ObjDiagContext))
       return false;
     S.Diag(Loc, diag::err_hlsl_unsupported_object_context)
-        << Ty << DiagContextIdx;
+        << Ty << ObjDiagContextIdx;
     if (FD)
       S.Diag(FD->getLocation(), diag::note_field_declared_here)
           << FD->getType() << FD->getSourceRange();
@@ -12232,8 +12224,8 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
     // Check the fields of the RecordDecl
     for (auto *ElemFD : RD->fields()) {
       ErrorFound |=
-          DiagnoseElementTypes(S, Loc, ElemFD->getType(), Empty, CheckLongVec,
-                               DiagContext, CheckedDecls, ElemFD);
+          DiagnoseElementTypes(S, Loc, ElemFD->getType(), Empty, ObjDiagContext,
+                               LongVecDiagContext, CheckedDecls, ElemFD);
     }
     if (!RD->isCompleteDefinition())
       return ErrorFound;
@@ -12242,8 +12234,8 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
       // Walk up the inheritance chain and check base class fields
       for (auto &B : Child->bases())
         ErrorFound |=
-            DiagnoseElementTypes(S, Loc, B.getType(), Empty, CheckLongVec,
-                                 DiagContext, CheckedDecls, nullptr);
+            DiagnoseElementTypes(S, Loc, B.getType(), Empty, ObjDiagContext,
+                                 LongVecDiagContext, CheckedDecls, nullptr);
     return ErrorFound;
   }
   default:
@@ -12254,12 +12246,13 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
 }
 
 bool hlsl::DiagnoseTypeElements(Sema &S, SourceLocation Loc, QualType Ty,
-                                TypeDiagContext DiagContext,
+                                TypeDiagContext ObjDiagContext,
+                                TypeDiagContext LongVecDiagContext,
                                 const clang::FieldDecl *FD) {
   bool Empty = false;
   llvm::SmallPtrSet<const RecordDecl *, 8> CheckedDecls;
-  return DiagnoseElementTypes(S, Loc, Ty, Empty, false /*CheckLongVec*/,
-                              DiagContext, CheckedDecls, FD);
+  return DiagnoseElementTypes(S, Loc, Ty, Empty, ObjDiagContext,
+                              LongVecDiagContext, CheckedDecls, FD);
 }
 
 bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
@@ -12267,7 +12260,7 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
                                       const FieldDecl *FD) {
   llvm::SmallPtrSet<const RecordDecl *, 8> CheckedDecls;
   return DiagnoseElementTypes(*self, ArgLoc.getLocation(), ArgTy, Empty,
-                              true /*CheckLongVec*/,
+                              TypeDiagContext::NodeRecords,
                               TypeDiagContext::NodeRecords, CheckedDecls, FD);
 }
 
@@ -15392,23 +15385,22 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       virtual void diagnose(Sema &S, SourceLocation Loc, QualType T) {}
     } SD;
     RequireCompleteType(D.getLocStart(), qt, SD);
-    TypeDiagContext DiagContext = TypeDiagContext::CBuffersOrTBuffers;
+
+    // Disallow objects in the global context
+    TypeDiagContext ObjDiagContext = TypeDiagContext::CBuffersOrTBuffers;
     if (isGroupShared)
-      DiagContext = TypeDiagContext::GroupShared;
+      ObjDiagContext = TypeDiagContext::GroupShared;
     else if (isStatic)
-      DiagContext = TypeDiagContext::GlobalVariables;
-    if (DiagnoseTypeElements(*this, D.getLocStart(), qt, DiagContext))
-      result = false;
-  }
+      ObjDiagContext = TypeDiagContext::GlobalVariables;
 
-  // Disallow long vecs from $Global cbuffers.
-  if (isGlobal && !isStatic && !isGroupShared && !IS_BASIC_OBJECT(basicKind)) {
-    if (ContainsLongVector(qt)) {
-      Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector)
-          << static_cast<unsigned>(TypeDiagContext::CBuffersOrTBuffers);
+    TypeDiagContext LongVecDiagContext = TypeDiagContext::Valid;
 
+    // Disallow long vecs from $Global cbuffers.
+    if (!isStatic && !isGroupShared && !IS_BASIC_OBJECT(basicKind))
+      LongVecDiagContext = TypeDiagContext::CBuffersOrTBuffers;
+    if (DiagnoseTypeElements(*this, D.getLocStart(), qt, ObjDiagContext,
+                             LongVecDiagContext))
       result = false;
-    }
   }
 
   // SPIRV change starts
@@ -16313,13 +16305,10 @@ static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
 
 // Verify that user-defined intrinsic struct args contain no long vectors
 static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
-  if (ContainsLongVector(Arg->getType())) {
-    S->Diag(Arg->getExprLoc(), diag::err_hlsl_unsupported_long_vector)
-        << static_cast<unsigned>(TypeDiagContext::UserDefinedStructParameter);
-    return true;
-  }
+  const TypeDiagContext DiagContext =
+      TypeDiagContext::UserDefinedStructParameter;
   return DiagnoseTypeElements(*S, Arg->getExprLoc(), Arg->getType(),
-                              TypeDiagContext::UserDefinedStructParameter);
+                              DiagContext, DiagContext);
 }
 
 static bool CheckIntrinsicGetAttributeAtVertex(Sema *S, FunctionDecl *FDecl,
@@ -17056,20 +17045,15 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   // Would be nice to check for resources here as they crash the compiler now.
   // See issue #7186.
   for (const auto *param : FD->params()) {
-    if (ContainsLongVector(param->getType())) {
-      S.Diag(param->getLocation(), diag::err_hlsl_unsupported_long_vector)
-          << static_cast<unsigned>(TypeDiagContext::EntryFunctionParameters);
-    }
+    const TypeDiagContext DiagContext =
+        TypeDiagContext::EntryFunctionParameters;
     hlsl::DiagnoseTypeElements(S, param->getLocation(), param->getType(),
-                               TypeDiagContext::EntryFunctionParameters);
+                               DiagContext, DiagContext);
   }
 
-  if (ContainsLongVector(FD->getReturnType())) {
-    S.Diag(FD->getLocation(), diag::err_hlsl_unsupported_long_vector)
-        << static_cast<unsigned>(TypeDiagContext::EntryFunctionReturnType);
-  }
-  DiagnoseTypeElements(S, FD->getLocation(), FD->getReturnType(),
-                       TypeDiagContext::EntryFunctionReturnType);
+  const TypeDiagContext DiagContext = TypeDiagContext::EntryFunctionReturnType;
+  DiagnoseTypeElements(S, FD->getLocation(), FD->getReturnType(), DiagContext,
+                       DiagContext);
 
   DXIL::ShaderKind Stage =
       ShaderModel::KindFromFullName(shaderAttr->getStage());

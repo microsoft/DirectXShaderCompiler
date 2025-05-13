@@ -710,24 +710,17 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         }
       }
       for (const auto *param : pPatchFnDecl->params()) {
-        if (ContainsLongVector(param->getType()))
-          self->Diag(param->getLocation(),
-                     diag::err_hlsl_unsupported_long_vector)
-              << static_cast<unsigned>(
-                     TypeDiagContext::PatchConstantFunctionParameters);
+        const TypeDiagContext ParamDiagContext =
+            TypeDiagContext::PatchConstantFunctionParameters;
         DiagnoseTypeElements(*self, param->getLocation(), param->getType(),
-                             TypeDiagContext::PatchConstantFunctionParameters);
+                             ParamDiagContext, ParamDiagContext);
       }
 
-      if (ContainsLongVector(pPatchFnDecl->getReturnType())) {
-        self->Diag(pPatchFnDecl->getLocation(),
-                   diag::err_hlsl_unsupported_long_vector)
-            << static_cast<unsigned>(
-                   TypeDiagContext::PatchConstantFunctionReturnType);
-      }
+      const TypeDiagContext ReturnDiagContext =
+          TypeDiagContext::PatchConstantFunctionReturnType;
       DiagnoseTypeElements(*self, pPatchFnDecl->getLocation(),
-                           pPatchFnDecl->getReturnType(),
-                           TypeDiagContext::PatchConstantFunctionReturnType);
+                           pPatchFnDecl->getReturnType(), ReturnDiagContext,
+                           ReturnDiagContext);
     }
     DXIL::ShaderKind EntrySK = shaderModel->GetKind();
     DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
