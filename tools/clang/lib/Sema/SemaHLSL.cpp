@@ -5663,7 +5663,7 @@ public:
         const unsigned TessellationPatchesIDx = 1;
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
-            << TessellationPatchesIDx;
+            << TypeDiagContext::TessellationPatches;
         return true;
       }
       if (DiagnoseTypeElements(*m_sema, argLoc.getLocation(), arg.getAsType(),
