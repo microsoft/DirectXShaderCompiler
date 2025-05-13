@@ -5537,7 +5537,8 @@ public:
 
         if (ContainsLongVector(argType)) {
           m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
-              << static_cast<unsigned>(TypeDiagContext::ConstantBuffersOrTextureBuffers);
+              << static_cast<unsigned>(
+                     TypeDiagContext::ConstantBuffersOrTextureBuffers);
           return true;
         }
         if (DiagnoseTypeElements(
@@ -10806,7 +10807,8 @@ bool DiagnoseIntersectionAttributes(Sema &S, SourceLocation Loc, QualType Ty) {
   }
 
   if (ContainsLongVector(Ty)) {
-    S.Diag(Loc, diag::err_hlsl_unsupported_long_vector) << static_cast<unsigned>(TypeDiagContext::Attributes);
+    S.Diag(Loc, diag::err_hlsl_unsupported_long_vector)
+        << static_cast<unsigned>(TypeDiagContext::Attributes);
     return false;
   }
   return true;
@@ -12166,11 +12168,12 @@ static bool AllowObjectInContext(QualType Ty, TypeDiagContext DiagContext) {
   return true;
 }
 
-// Determine if `Ty` is valid in this `DiagContext` and/or an empty type.  If invalid returns false and Sema `S`, location `Loc`,
-// error index `DiagContext`, and FieldDecl `FD` are used to emit diagnostics.
-// If `CheckLongVec` is set, errors are produced if `Ty` is a long vector.
-// If the type is not empty, `Empty` is set to false.
-// `CheckedDecls` is used to prevent redundant recursive type checks.
+// Determine if `Ty` is valid in this `DiagContext` and/or an empty type.  If
+// invalid returns false and Sema `S`, location `Loc`, error index
+// `DiagContext`, and FieldDecl `FD` are used to emit diagnostics. If
+// `CheckLongVec` is set, errors are produced if `Ty` is a long vector. If the
+// type is not empty, `Empty` is set to false. `CheckedDecls` is used to prevent
+// redundant recursive type checks.
 static bool
 DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
                      bool CheckLongVec, TypeDiagContext DiagContext,

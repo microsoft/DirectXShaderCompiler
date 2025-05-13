@@ -713,7 +713,8 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         if (ContainsLongVector(param->getType()))
           self->Diag(param->getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
-              << static_cast<unsigned>(TypeDiagContext::PatchConstantFunctionParameters);
+              << static_cast<unsigned>(
+                     TypeDiagContext::PatchConstantFunctionParameters);
         DiagnoseTypeElements(*self, param->getLocation(), param->getType(),
                              TypeDiagContext::PatchConstantFunctionParameters);
       }
@@ -721,7 +722,8 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       if (ContainsLongVector(pPatchFnDecl->getReturnType())) {
         self->Diag(pPatchFnDecl->getLocation(),
                    diag::err_hlsl_unsupported_long_vector)
-            << static_cast<unsigned>(TypeDiagContext::PatchConstantFunctionReturnType);
+            << static_cast<unsigned>(
+                   TypeDiagContext::PatchConstantFunctionReturnType);
       }
       DiagnoseTypeElements(*self, pPatchFnDecl->getLocation(),
                            pPatchFnDecl->getReturnType(),
