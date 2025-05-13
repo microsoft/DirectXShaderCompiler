@@ -17069,9 +17069,8 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   }
 
   if (ContainsLongVector(FD->getReturnType())) {
-    const unsigned EntryFunctionReturnIdx = 7;
     S.Diag(FD->getLocation(), diag::err_hlsl_unsupported_long_vector)
-        << EntryFunctionReturnIdx;
+        << TypeDiagContext::EntryFunctionReturnType;
   }
   DiagnoseTypeElements(S, FD->getLocation(), FD->getReturnType(),
                        TypeDiagContext::EntryFunctionReturnType);
