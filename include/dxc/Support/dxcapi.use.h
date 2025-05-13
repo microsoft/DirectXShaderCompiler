@@ -77,10 +77,8 @@ protected:
   }
 
 public:
-  LPCSTR GetDxilDLLPath() {return DxilDLLPath.data();}
-  void SetDxilDLLPath(LPCSTR p) {
-    DxilDLLPath = p;
-  }
+  LPCSTR GetDxilDLLPath() { return DxilDLLPath.data(); }
+  void SetDxilDLLPath(LPCSTR p) { DxilDLLPath = p; }
   DxcDllSupport() : m_dll(nullptr), m_createFn(nullptr), m_createFn2(nullptr) {}
 
   DxcDllSupport(DxcDllSupport &&other) {
@@ -96,7 +94,7 @@ public:
 
   HRESULT Initialize() {
     // load dxcompiler.dll
-   return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
+    return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
   }
 
   HRESULT InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {

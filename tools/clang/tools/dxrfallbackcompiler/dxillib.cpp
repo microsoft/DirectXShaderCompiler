@@ -46,9 +46,9 @@ bool DxilLibIsEnabled(std::string DxilDLLPath) {
   EnterCriticalSection(&cs);
   if (SUCCEEDED(g_DllLibResult)) {
     if (!g_DllSupport.IsEnabled()) {
-      g_DllLibResult =
-          g_DllSupport.InitializeForDll(DxilDLLPath == "" ? kDxilLib : DxilDLLPath.data(),
-                                                     "DxcCreateInstance");
+      g_DllLibResult = g_DllSupport.InitializeForDll(
+          DxilDLLPath == "" ? kDxilLib : DxilDLLPath.data(),
+          "DxcCreateInstance");
     }
   }
   LeaveCriticalSection(&cs);

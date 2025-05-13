@@ -25,8 +25,8 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include <optional>
 #include <filesystem>
+#include <optional>
 
 using namespace llvm::opt;
 using namespace dxc;
@@ -1043,8 +1043,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.ValVerMinor = (unsigned long)minor64;
   }
 
-  llvm::StringRef dxilDLLPathStr =
-      Args.getLastArgValue(OPT_dxil_dll_path);
+  llvm::StringRef dxilDLLPathStr = Args.getLastArgValue(OPT_dxil_dll_path);
   std::filesystem::path p = dxilDLLPathStr.str();
 
   // when the dxil_dll_path argument has an empty string,
