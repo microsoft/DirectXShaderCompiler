@@ -12691,21 +12691,6 @@ bool hlsl::ShouldSkipNRVO(clang::Sema &sema, clang::QualType returnType,
   return false;
 }
 
-bool hlsl::ContainsLongVector(QualType QT) {
-  if (QT.isNull() || QT->isDependentType())
-    return false;
-
-  while (const ArrayType *Arr = QT->getAsArrayTypeUnsafe())
-    QT = Arr->getElementType();
-
-  if (CXXRecordDecl *Decl = QT->getAsCXXRecordDecl()) {
-    if (!Decl->isCompleteDefinition())
-      return false;
-    return Decl->hasHLSLLongVector();
-  }
-  return false;
-}
-
 bool hlsl::IsConversionToLessOrEqualElements(
     clang::Sema *self, const clang::ExprResult &sourceExpr,
     const clang::QualType &targetType, bool explicitConversion) {
