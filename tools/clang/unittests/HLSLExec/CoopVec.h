@@ -597,9 +597,9 @@ public:
   }
 
   static TestVector
-  createAllOnesTestMatrix(size_t NumVectors, size_t VectorSize,
-                          D3D12_LINEAR_ALGEBRA_DATATYPE DataInterpretation,
-                          std::mt19937 &Rnd) {
+  createSimpleTestMatrix(size_t NumVectors, size_t VectorSize,
+                         D3D12_LINEAR_ALGEBRA_DATATYPE DataInterpretation,
+                         std::mt19937 &Rnd) {
     const size_t ElementSize =
         ::CoopVecHelpers::GetMatrixElementSize(DataInterpretation);
 
@@ -611,12 +611,18 @@ public:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
+      // The CPU reference matrix is always int8 for all integer
+      // interpretations. The GPU version will be converted to the destination
+      // format by ConvertLinearAlgebraMatrix.
       Vec.FillSimpleMatrixTestData<int8_t>(Rnd);
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
+      // The CPU reference matrix is always FP32 for all FP interpretations.
+      // The GPU version will be converted to the destination format by
+      // ConvertLinearAlgebraMatrix.
       Vec.FillSimpleMatrixTestData<float>(Rnd);
       break;
     default:

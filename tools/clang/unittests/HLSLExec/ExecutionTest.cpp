@@ -12420,12 +12420,12 @@ void ExecutionTest::runCoopVecMulSubtest(
   for (size_t I = 0; I < Config.NumLayers - 1; ++I) {
     // Each layer except the last is InputPerThread x InputPerThread
     InputMatrices.push_back(
-        ::CoopVecHelpers::TestVector::createAllOnesTestMatrix(
+        ::CoopVecHelpers::TestVector::createSimpleTestMatrix(
             Config.InputPerThread, Config.InputPerThread,
             MulProps.MatrixInterpretation, Rnd));
   }
   // Last layer, matrix size is OutputPerThread x InputPerThread
-  InputMatrices.push_back(::CoopVecHelpers::TestVector::createAllOnesTestMatrix(
+  InputMatrices.push_back(::CoopVecHelpers::TestVector::createSimpleTestMatrix(
       Config.OutputPerThread, Config.InputPerThread,
       MulProps.MatrixInterpretation, Rnd));
 
