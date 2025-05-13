@@ -2873,7 +2873,6 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
       case IntrinsicOp::IOP_TraceRay:
         if (OldVal ==
             CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx)) {
-          // TODO: flatten RayDesc
           RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
                                               /*loadElts*/ true);
           DeadInsts.push_back(CI);
@@ -2883,7 +2882,6 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
       case IntrinsicOp::MOP_DxHitObject_TraceRay:
         if (OldVal == CI->getArgOperand(
                           HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx)) {
-          // TODO: flatten RayDesc
           RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
                                               /*loadElts*/ true);
           DeadInsts.push_back(CI);
