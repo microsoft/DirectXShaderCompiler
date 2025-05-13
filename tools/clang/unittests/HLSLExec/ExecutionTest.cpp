@@ -12446,9 +12446,6 @@ void ExecutionTest::runCoopVecMulSubtest(
         I == 0 ? MulProps.InputType : D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32);
   }
 
-  // Create the compute pipeline state for the CoopVec shader
-  CComPtr<ID3D12PipelineState> PipelineState;
-
   std::string ShaderSource = R"(
 #include "dx/linalg.h"
 
@@ -12660,6 +12657,9 @@ float4 ps_main() : SV_Target {
 
   CComPtr<LinAlgHeaderIncludeHandler> IncludeHandler =
       new LinAlgHeaderIncludeHandler(m_support);
+
+  // Create the pipeline state for the CoopVec shaders
+  CComPtr<ID3D12PipelineState> PipelineState;
 
   if (RunCompute) {
     CreateComputePSO(D3DDevice, RootSignature, ShaderSource.c_str(), L"cs_6_9",
@@ -13123,9 +13123,6 @@ void ExecutionTest::runCoopVecOuterProductSubtest(
     return;
   }
 
-  // Create a compute pipeline state object.
-  CComPtr<ID3D12PipelineState> PipelineState;
-
   std::string ShaderSource = R"(
 #include "dx/linalg.h"
 
@@ -13260,6 +13257,9 @@ float4 ps_main() : SV_Target {
 
   CComPtr<LinAlgHeaderIncludeHandler> IncludeHandler =
       new LinAlgHeaderIncludeHandler(m_support);
+
+  // Create the pipeline state for the CoopVec shaders
+  CComPtr<ID3D12PipelineState> PipelineState;
 
   if (RunCompute) {
     CreateComputePSO(D3DDevice, RootSignature, ShaderSource.c_str(), L"cs_6_9",
