@@ -12224,7 +12224,8 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
   case AR_TOBJ_COMPOUND: {
     bool ErrorFound = false;
     const RecordDecl *RD = Ty->getAs<RecordType>()->getDecl();
-    // Never recurse redundantly into related subtypes that have already been checked.
+    // Never recurse redundantly into related subtypes that have already been
+    // checked.
     if (!CheckedDecls.insert(RD).second)
       return false;
 
