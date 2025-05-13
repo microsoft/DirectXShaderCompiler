@@ -5681,7 +5681,6 @@ public:
       CXXRecordDecl *Decl = arg.getAsType()->getAsCXXRecordDecl();
       if (Decl && !Decl->isCompleteDefinition())
         return true;
-      const unsigned GeometryStreamsIdx = 2;
       if (ContainsLongVector(arg.getAsType())) {
         m_sema->Diag(argLoc.getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
