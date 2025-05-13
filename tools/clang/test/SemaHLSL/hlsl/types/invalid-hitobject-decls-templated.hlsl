@@ -273,8 +273,6 @@ void callable1(
 static groupshared TYPE gs_var;
 // expected-error@-1{{object 'dx::HitObject' is not allowed in groupshared variables}}
 // expected-note@23{{'dx::HitObject' field declared here}}
-// expected-error@-3{{object 'dx::HitObject' is not allowed in global variables}}
-// expected-note@23{{'dx::HitObject' field declared here}}
 
 [shader("amplification")]
 [numthreads(1,1,1)]
@@ -310,7 +308,7 @@ void broadcast(
 // expected-error@-1{{Broadcasting node shader 'broadcast' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
     DispatchNodeInputRecord<NTYPE> input,
     // expected-error@-1{{object 'dx::HitObject' is not allowed in node records}}
-    // expected-note@300{{'dx::HitObject' field declared here}}
+    // expected-note@298{{'dx::HitObject' field declared here}}
     NodeOutput<TYPE> output)
     // expected-error@-1{{object 'dx::HitObject' is not allowed in node records}}
     // expected-note@23{{'dx::HitObject' field declared here}}

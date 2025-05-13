@@ -276,8 +276,6 @@ void callable1(
 static groupshared TYPE gs_var;
 // expected-error@-1{{object 'dx::HitObject' is not allowed in groupshared variables}}
 // expected-note@16{{'dx::HitObject' field declared here}}
-// expected-error@-3{{object 'dx::HitObject' is not allowed in global variables}}
-// expected-note@16{{'dx::HitObject' field declared here}}
 
 [shader("amplification")]
 [numthreads(1,1,1)]

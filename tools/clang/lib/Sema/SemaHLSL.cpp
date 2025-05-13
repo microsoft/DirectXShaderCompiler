@@ -15382,19 +15382,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     result = false;
   }
 
-  if (isGroupShared) {
-    // Suppress actual emitting of errors for incompletable types here
-    // They are redundant to those produced in ActOnUninitializedDecl.
-    struct SilentDiagnoser : public TypeDiagnoser {
-      SilentDiagnoser() : TypeDiagnoser(true) {}
-      virtual void diagnose(Sema &S, SourceLocation Loc, QualType T) {}
-    } SD;
-    RequireCompleteType(D.getLocStart(), qt, SD);
-    if (DiagnoseTypeElements(*this, D.getLocStart(), qt,
-                             TypeDiagContext::GroupShared))
-      result = false;
-  }
-
   // Disallow intangible HLSL objects in the global scope.
   if (isGlobal) {
     // Suppress actual emitting of errors for incompletable types here
@@ -15405,7 +15392,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     } SD;
     RequireCompleteType(D.getLocStart(), qt, SD);
     TypeDiagContext DiagContext = TypeDiagContext::CBuffersOrTBuffers;
-    if (isStatic)
+    if (isGroupShared)
+      DiagContext = TypeDiagContext::GroupShared;
+    else if (isStatic)
       DiagContext = TypeDiagContext::GlobalVariables;
     if (DiagnoseTypeElements(*this, D.getLocStart(), qt, DiagContext))
       result = false;
