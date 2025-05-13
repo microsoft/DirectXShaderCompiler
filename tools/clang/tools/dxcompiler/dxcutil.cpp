@@ -52,7 +52,7 @@ namespace {
 // return true if the internal validator was used, false otherwise
 bool CreateValidator(CComPtr<IDxcValidator> &pValidator,
                      std::string DxilDLLPath = "") {
-  
+
   // default behavior uses internal validator
   if (DxilDLLPath == "") {
     IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
@@ -178,9 +178,9 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   bool bInternalValidator = CreateValidator(pValidator, inputs.DxilDLLPath);
   // Warning on external Validator
   if (!bInternalValidator) {
-    unsigned diagID = inputs.pDiag->getCustomDiagID(
-          clang::DiagnosticsEngine::Level::Warning,
-        "External validator loaded at %0");
+    unsigned diagID =
+        inputs.pDiag->getCustomDiagID(clang::DiagnosticsEngine::Level::Warning,
+                                      "External validator loaded at %0");
     inputs.pDiag->Report(diagID) << inputs.DxilDLLPath;
   }
 
@@ -275,9 +275,9 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   return valHR;
 }
 
-HRESULT ValidateRootSignatureInContainer(
-    IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag,
-    std::string DxilDLLPath) {
+HRESULT ValidateRootSignatureInContainer(IDxcBlob *pRootSigContainer,
+                                         clang::DiagnosticsEngine *pDiag,
+                                         std::string DxilDLLPath) {
   HRESULT valHR = S_OK;
   CComPtr<IDxcValidator> pValidator;
   CComPtr<IDxcOperationResult> pValResult;

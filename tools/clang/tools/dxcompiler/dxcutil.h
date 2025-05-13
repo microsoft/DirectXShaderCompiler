@@ -73,8 +73,9 @@ struct AssembleInputs {
   std::string DxilDLLPath = "";
 };
 HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs);
-HRESULT ValidateRootSignatureInContainer(
-    IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag = nullptr,
+HRESULT
+ValidateRootSignatureInContainer(IDxcBlob *pRootSigContainer,
+                                 clang::DiagnosticsEngine *pDiag = nullptr,
                                  std::string DxilDLLPath = "");
 HRESULT SetRootSignature(hlsl::DxilModule *pModule, CComPtr<IDxcBlob> pSource);
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor,

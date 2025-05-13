@@ -27,8 +27,7 @@ HRESULT DxilLibInitialize(std::string DxilDLLPath) {
   cs = new llvm::sys::Mutex;
   cs->lock();
   g_DllLibResult = g_DllSupport.InitializeForDll(
-      DxilDLLPath == "" ? kDxilLib : DxilDLLPath.data(),
-                                                 "DxcCreateInstance");
+      DxilDLLPath == "" ? kDxilLib : DxilDLLPath.data(), "DxcCreateInstance");
   cs->unlock();
   return S_OK;
 }
@@ -54,8 +53,9 @@ bool DxilLibIsEnabled(std::string DxilDLLPath) {
   cs->lock();
   if (SUCCEEDED(g_DllLibResult)) {
     if (!g_DllSupport.IsEnabled()) {
-      g_DllLibResult = g_DllSupport.InitializeForDll(DxilDLLPath == "" ? kDxilLib : DxilDLLPath.data(),
-                                                     "DxcCreateInstance");
+      g_DllLibResult = g_DllSupport.InitializeForDll(
+          DxilDLLPath == "" ? kDxilLib : DxilDLLPath.data(),
+          "DxcCreateInstance");
     }
   }
   cs->unlock();
@@ -63,8 +63,7 @@ bool DxilLibIsEnabled(std::string DxilDLLPath) {
 }
 
 HRESULT DxilLibCreateInstance(REFCLSID rclsid, REFIID riid,
-                              IUnknown **ppInterface,
-                              std::string DxilDLLPath) {
+                              IUnknown **ppInterface, std::string DxilDLLPath) {
   DXASSERT_NOMSG(ppInterface != nullptr);
   HRESULT hr = E_FAIL;
   if (DxilLibIsEnabled(DxilDLLPath)) {
