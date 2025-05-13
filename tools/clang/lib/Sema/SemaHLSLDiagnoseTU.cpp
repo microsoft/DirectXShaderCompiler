@@ -714,7 +714,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         if (ContainsLongVector(param->getType()))
           self->Diag(param->getLocation(),
                      diag::err_hlsl_unsupported_long_vector)
-              << PatchConstantFunctionParametersIdx;
+              << TypeDiagContext::PatchConstantFunctionParameters;
         DiagnoseTypeElements(*self, param->getLocation(), param->getType(),
                              TypeDiagContext::PatchConstantFunctionParameters);
       }
