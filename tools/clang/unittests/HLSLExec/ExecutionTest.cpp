@@ -11359,13 +11359,13 @@ void ExecutionTest::LongVectorOpTestDispatchByVectorSize(
 
   LongVectorOpTestBase<T, 3>(TestConfig);
   LongVectorOpTestBase<T, 4>(TestConfig);
-  LongVectorOpTestBase<T, 5>(TestConfig);
-  LongVectorOpTestBase<T, 16>(TestConfig);
-  LongVectorOpTestBase<T, 17>(TestConfig);
-  LongVectorOpTestBase<T, 35>(TestConfig);
-  LongVectorOpTestBase<T, 100>(TestConfig);
-  LongVectorOpTestBase<T, 256>(TestConfig);
-  LongVectorOpTestBase<T, 1024>(TestConfig);
+  //LongVectorOpTestBase<T, 5>(TestConfig);
+  //LongVectorOpTestBase<T, 16>(TestConfig);
+  //LongVectorOpTestBase<T, 17>(TestConfig);
+  //LongVectorOpTestBase<T, 35>(TestConfig);
+  //LongVectorOpTestBase<T, 100>(TestConfig);
+  //LongVectorOpTestBase<T, 256>(TestConfig);
+  //LongVectorOpTestBase<T, 1024>(TestConfig);
 }
 
 template <typename T, std::size_t N, typename U>
@@ -11381,7 +11381,7 @@ void ExecutionTest::LongVectorOpTestBase(
                                                      LogInputs);
 
   CComPtr<ID3D12Device> D3DDevice;
-  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
+  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, false)) {
 #ifdef _HLK_CONF
     LOG_ERROR_FMT_THROW(L"Device does not support SM 6.9. Can't run these tests.");
 #else

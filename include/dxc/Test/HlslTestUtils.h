@@ -560,10 +560,6 @@ inline bool CompareDoubleULP(
   int64_t Diff = *((const uint64_t *)&Src) - *((const uint64_t *)&Ref);
 
   uint64_t AbsoluteDiff = Diff < 0 ? -Diff : Diff;
-  WEX::Logging::Log::Comment(
-      WEX::Common::String().Format(L"CompareDoubleULP: %llx %llx %llx",
-                                   *((const uint64_t *)&Src),
-                                   *((const uint64_t *)&Ref), AbsoluteDiff));
   return AbsoluteDiff <= (uint64_t)ULPTolerance;
 }
 
@@ -586,9 +582,6 @@ inline bool CompareFloatULP(
   // ULPTolerance for any operations.
   int diff = *((const DWORD *)&fsrc) - *((const DWORD *)&fref);
   unsigned int uDiff = diff < 0 ? -diff : diff;
-  WEX::Logging::Log::Comment(
-    WEX::Common::String().Format(L"CompareFloatULP: %x %x %x", *((const DWORD *)&fsrc),
-                     *((const DWORD *)&fref), uDiff));
   return uDiff <= (unsigned int)ULPTolerance;
 }
 
@@ -628,8 +621,6 @@ inline bool CompareHalfULP(const uint16_t &fsrc, const uint16_t &fref,
   // 16-bit floating point numbers must preserve denorms
   int diff = fsrc - fref;
   unsigned int uDiff = diff < 0 ? -diff : diff;
-  WEX::Logging::Log::Comment(
-      WEX::Common::String().Format(L"CompareHalfULP: %x %x %x", fsrc, fref, uDiff));
   return uDiff <= (unsigned int)ULPTolerance;
 }
 

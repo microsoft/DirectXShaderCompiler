@@ -243,7 +243,7 @@ template <> struct LongVectorTestData<uint64_t> {
 template <> struct LongVectorTestData<HLSLHalf_t> {
   inline static const std::map<std::wstring, std::vector<HLSLHalf_t>> Data = {
       {L"DefaultInputValueSet1",
-       {1.0, -0.01, 1.0, -0.01, 1.0, -0.01, 1.0, -0.01, 1.0, -0.01}},
+       {-1.0, -1.0, 1.0, -0.01, 1.0, -0.01, 1.0, -0.01, 1.0, -0.01}},
       {L"DefaultInputValueSet2",
        {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0}},
       {L"DefaultClampArgs", {-1.0, 1.0}}, // Min, Max values for clamp

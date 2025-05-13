@@ -236,6 +236,8 @@ GetTrigonometricOpType(const std::wstring &OpTypeString) {
 
 template <typename T>
 std::vector<T> GetInputValueSetByKey(const std::wstring &Key) {
+  WEX::Logging::Log::Comment(
+      WEX::Common::String().Format(L"Using Value Set Key: %s", Key.c_str()));
   return std::vector<T>(LongVectorTestData<T>::Data.at(Key));
 }
 
@@ -824,7 +826,8 @@ void LogLongVector(const std::array<T, N> &Values, const std::wstring &Name) {
 
   const size_t LoggingWidth = 40;
 
-  std::wstringstream Wss(L"LongVector Values: ");
+  std::wstringstream Wss(L"");
+  Wss << L"LongVector Values: ";
   Wss << L"[";
   for (size_t i = 0; i < N; i++) {
     if (i % LoggingWidth == 0 && i != 0)
@@ -842,7 +845,8 @@ template <typename T> void LogScalar(const T &Value, const std::wstring &Name) {
   WEX::Logging::Log::Comment(
       WEX::Common::String().Format(L"Scalar Name: %s", Name.c_str()));
 
-  std::wstringstream Wss(L"Scalar Value: ");
+  std::wstringstream Wss(L"");
+  Wss << L"Scalar Value: ";
   Wss << Value;
   WEX::Logging::Log::Comment(Wss.str().c_str());
 }
