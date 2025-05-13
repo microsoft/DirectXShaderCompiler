@@ -145,18 +145,16 @@ public:
 #endif 	/* __ID3D12DevicePreview_INTERFACE_DEFINED__ */
 
 
-#ifndef __ID3D12GraphicsCommandList11_INTERFACE_DEFINED__
-#define __ID3D12GraphicsCommandList11_INTERFACE_DEFINED__
+#ifndef __ID3D12GraphicsCommandListPreview_INTERFACE_DEFINED__
+#define __ID3D12GraphicsCommandListPreview_INTERFACE_DEFINED__
 
-EXTERN_C const IID IID_ID3D12GraphicsCommandList11;
+EXTERN_C const IID IID_ID3D12GraphicsCommandListPreview;
 
-MIDL_INTERFACE("f0dcfabc-a84a-4fe3-b3b9-eab26b306c38")
-ID3D12GraphicsCommandList11 : public ID3D12GraphicsCommandList10
+MIDL_INTERFACE("536d9bb6-9eee-4c75-86e8-e29e29e08ed3")
+ID3D12GraphicsCommandListPreview : public ID3D12GraphicsCommandList10
 {
 public:
     virtual void STDMETHODCALLTYPE Reserved0() = 0;
-    virtual void STDMETHODCALLTYPE Reserved1() = 0;
-    virtual void STDMETHODCALLTYPE Reserved2() = 0;
 
     virtual void STDMETHODCALLTYPE ConvertLinearAlgebraMatrix( 
         _In_  const D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO *pDesc,
@@ -164,7 +162,7 @@ public:
     
 };
 
-#endif 	/* __ID3D12GraphicsCommandList11_INTERFACE_DEFINED__ */
+#endif 	/* __ID3D12GraphicsCommandListPreview_INTERFACE_DEFINED__ */
 
 #else // __ID3D12GraphicsCommandList10_INTERFACE_DEFINED__
 // The used d3d12.h header does not support ID3D12GraphicsCommandList10,
