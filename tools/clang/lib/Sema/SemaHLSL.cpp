@@ -5538,7 +5538,7 @@ public:
         if (ContainsLongVector(argType)) {
           const unsigned ConstantBuffersOrTextureBuffersIdx = 0;
           m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
-              << ConstantBuffersOrTextureBuffersIdx;
+              << TypeDiagContext::ConstantBuffersOrTextureBuffers;
           return true;
         }
         if (DiagnoseTypeElements(
