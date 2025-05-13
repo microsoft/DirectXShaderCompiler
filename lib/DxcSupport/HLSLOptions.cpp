@@ -411,7 +411,7 @@ LangStd parseHLSLVersion(llvm::StringRef Ver) {
 namespace options {
 
 bool AbsolutePathExists(const std::filesystem::path &p) {
-  // First check if it’s an absolute path
+  // First check if it is an absolute path
   if (!p.is_absolute()) {
     return false;
   }
