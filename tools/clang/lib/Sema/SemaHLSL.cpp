@@ -12166,7 +12166,7 @@ static bool AllowObjectInContext(QualType Ty, TypeDiagContext DiagContext) {
   return true;
 }
 
-// Determine if `Ty` is valid and/or empty.  If invalid returns false and Sema `S`, location `Loc`,
+// Determine if `Ty` is valid in this `DiagContext` and/or an empty type.  If invalid returns false and Sema `S`, location `Loc`,
 // error index `DiagContext`, and FieldDecl `FD` are used to emit diagnostics.
 // If `CheckLongVec` is set, errors are produced if `Ty` is a long vector.
 // If the type is not empty, `Empty` is set to false.
