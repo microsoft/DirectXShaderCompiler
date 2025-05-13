@@ -15407,7 +15407,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     const unsigned CbuffersOrTbuffersIdx = 4;
     if (ContainsLongVector(qt)) {
       Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector)
-          << CbuffersOrTbuffersIdx;
+          << TypeDiagContext::CbuffersOrTbuffers;
 
       result = false;
     }
