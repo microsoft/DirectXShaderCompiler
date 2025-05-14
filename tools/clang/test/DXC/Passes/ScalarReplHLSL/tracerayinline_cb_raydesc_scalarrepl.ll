@@ -6,7 +6,7 @@
 ; CHECK-DAG: %[[CB_H:[^ ,]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22$Globals\22)"(i32 14, %dx.types.Handle %{{[^ ,]+}}, %dx.types.ResourceProperties { i32 13, i32 32 }, %"$Globals" undef)
 ; CHECK-DAG: %[[CB_PTR:[^ ,]+]] = call %"$Globals"* @"dx.hl.subscript.cb.rn.%\22$Globals\22* (i32, %dx.types.Handle, i32)"(i32 6, %dx.types.Handle %[[CB_H]], i32 0)
 ; CHECK-DAG: %[[RAYDESC_PTR:[^ ,]+]] = getelementptr inbounds %"$Globals", %"$Globals"* %[[CB_PTR]], i32 0, i32 0
-; CHECK-DAG: %[[RTAS:[^ ,]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %{{[^ ,]+]}}, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef)
+; CHECK-DAG: %[[RTAS:[^ ,]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %{{[^ ,]+}}, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef)
 ; CHECK-DAG: %[[RQ0:[^ ,]+]] = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 513, i32 0)
 ; CHECK-DAG: store i32 %[[RQ0]], i32* %[[RQ_P0:[^ ,]+]]
 
