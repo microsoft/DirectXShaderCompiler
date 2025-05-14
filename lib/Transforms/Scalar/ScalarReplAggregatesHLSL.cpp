@@ -2760,12 +2760,11 @@ static void copyIntrinsicAggArgs(HLModule &HLM) {
           break;
         case IntrinsicOp::MOP_DxHitObject_FromRayQuery:
           if (CI->getNumArgOperands() ==
-              HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_NumOp) {
+              HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_NumOp)
             memcpyAggCallArg(
                 CI,
                 HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx,
                 /*CopyIn*/ true, /*CopyOut*/ false);
-          }
           break;
         case IntrinsicOp::MOP_DxHitObject_MakeMiss:
           memcpyAggCallArg(CI, HLOperandIndex::kHitObjectMakeMiss_RayDescOpIdx,
