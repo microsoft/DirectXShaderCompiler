@@ -97,7 +97,14 @@ struct HLSLHalf_t {
     return DirectX::PackedVector::XMConvertHalfToFloat(Val);
   }
 
-  bool operator==(const HLSLHalf_t &Other) const { return Val == Other.Val; }
+  bool operator==(const HLSLHalf_t &Other) const {
+    // Convert to floats to properly handle the '0 == -0' case which must
+    // compare to true but have different uint16_t values. 
+    // That is, 0 == -0 is true. We store Val as a uint16_t.
+    auto const  A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    auto const B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
+    return A == B;
+  }
 
   bool operator<(const HLSLHalf_t &Other) const {
     return DirectX::PackedVector::XMConvertHalfToFloat(Val) <

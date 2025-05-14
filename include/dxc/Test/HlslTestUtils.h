@@ -635,8 +635,11 @@ inline bool CompareFloatRelativeEpsilon(
 
 inline bool CompareHalfULP(const uint16_t &fsrc, const uint16_t &fref,
                            float ULPTolerance) {
-  if (fsrc == fref)
+  // Compare as floats to handle when we have '0 == -0' which should be true
+  // but won't be true if we compare as uint16_t.
+  if (ConvertFloat16ToFloat32(fsrc) == ConvertFloat16ToFloat32(fref))
     return true;
+
   if (isnanFloat16(fsrc))
     return isnanFloat16(fref);
   // 16-bit floating point numbers must preserve denorms
