@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LONGVECTORS_H
+#define LONGVECTORS_H
 
 #include <array>
 #include <limits>
@@ -900,3 +901,5 @@ template <typename T> void LogScalar(const T &Value, const std::wstring &Name) {
   Wss << Value;
   WEX::Logging::Log::Comment(Wss.str().c_str());
 }
+
+#endif // LONGVECTORS_H

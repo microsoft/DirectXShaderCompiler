@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LONGVECTORTESTDATA_H
+#define LONGVECTORTESTDATA_H
 
 #include <map>
 #include <string>
@@ -297,3 +298,5 @@ template <> struct LongVectorTestData<double> {
        {0.331, 0.277, -0.957, 0.677, -0.025, 0.495, 0.855, -0.673, -0.678,
         -0.905}}};
 };
+
+#endif // LONGVECTORTESTDATA_H
