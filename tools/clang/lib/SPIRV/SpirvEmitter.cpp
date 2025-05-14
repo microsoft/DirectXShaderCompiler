@@ -14886,7 +14886,9 @@ SpirvInstruction *SpirvEmitter::invertYIfRequested(SpirvInstruction *position,
   bool supportsInvertY = spvContext.isVS() || spvContext.isGS() ||
                          spvContext.isDS() || spvContext.isMS();
 
-  if (spirvOptions.invertY && supportsInvertY) {
+  assert(supportsInvertY && "invertY is only supported in VS/DS/GS/MS")
+
+  if (spirvOptions.invertY) {
     const auto oldY = spvBuilder.createCompositeExtract(
         astContext.FloatTy, position, {1}, loc, range);
     const auto newY = spvBuilder.createUnaryOp(
