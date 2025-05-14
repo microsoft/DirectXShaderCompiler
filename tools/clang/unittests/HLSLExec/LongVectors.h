@@ -283,6 +283,8 @@ public:
 
     if (IsFloatingPointType<T>())
       Tolerance = 1;
+    
+    BasicOpType = LongVector::BasicOpType_Unary;
 
     switch (OpType) {
     case LongVector::UnaryOpType_Clamp:
@@ -428,7 +430,7 @@ public:
   }
 
   bool HasInputArguments() const {
-    // Right now only clamp has input args. Will need to update this later.
+    // TODO: Right now only clamp has input args. Will need to update this later.
     if constexpr (std::is_same_v<U, LongVector::UnaryOpType>)
       return IsClampOp();
     else
@@ -436,12 +438,30 @@ public:
   }
 
   bool HasFunctionDefinition() const {
-    // This is real busted right now. But hacking this because I know both unary
-    // opp have function defs. TODO: Fix this.
-    if constexpr (std::is_same_v<U, LongVector::UnaryOpType>)
-      return true;
+    if constexpr (std::is_same_v<U, LongVector::UnaryOpType>) {
+      if (OpTypeTraits.OpType == LongVector::UnaryOpType_Clamp)
+        return true;
+      else if (OpTypeTraits.OpType == LongVector::UnaryOpType_Initialize)
+        return true;
+      else
+        return false;
+    }
     else
       return false;
+  }
+
+  std::string GetOPERAND2String() const {
+    if(HasFunctionDefinition()) {
+      switch (static_cast<LongVector::UnaryOpType>(OpTypeTraits.OpType)) {
+      case LongVector::UnaryOpType_Clamp:
+        return std::string("ClampArgMinMax -DFUNC_CLAMP=1");
+      case LongVector::UnaryOpType_Initialize:
+      return std::string(" -DFUNC_INITIALIZE=1");
+      default:
+        VERIFY_FAIL("Invalid UnaryOpType");
+      }
+    }
+    return std::string("");
   }
 
   // A helper to get the hlsl type as a string for a given C++ type.
@@ -612,7 +632,6 @@ public:
     InputValueSetName2 = InputValueSetName;
   }
 
-  // TODO: Properly implement this.
   bool IsClampOp() const {
     if constexpr (std::is_same_v<U, LongVector::UnaryOpType>)
       return OpTypeTraits.OpType == LongVector::UnaryOpType_Clamp;
@@ -679,22 +698,7 @@ public:
       CompilerOptions << " -DFUNC=";
       CompilerOptions << IntrinsicString;
       CompilerOptions << " -DOPERAND2=";
-
-      // TODO: This sucks. Leaving it for now to test trig functions.
-      // It probably makes sense to just add a member for this that can be
-      // toggled when constructed. The number of ops with this logic will be
-      // small. And Clamp is going to get removed, i dont think its needed.
-      if(HasFunctionDefinition()) {
-        switch (static_cast<LongVector::UnaryOpType>(OpTypeTraits.OpType)) {
-        case LongVector::UnaryOpType_Clamp:
-          CompilerOptions << "ClampArgMinMax";
-          CompilerOptions << " -DFUNC_CLAMP=1";
-          break;
-        case LongVector::UnaryOpType_Initialize:
-          CompilerOptions << " -DFUNC_INITIALIZE=1";
-          break;
-        }
-      }
+      CompilerOptions << GetOPERAND2String();
     }
 
     return CompilerOptions.str();

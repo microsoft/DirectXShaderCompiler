@@ -11359,13 +11359,13 @@ void ExecutionTest::LongVectorOpTestDispatchByVectorSize(
 
   LongVectorOpTestBase<T, 3>(TestConfig);
   LongVectorOpTestBase<T, 4>(TestConfig);
-  //LongVectorOpTestBase<T, 5>(TestConfig);
-  //LongVectorOpTestBase<T, 16>(TestConfig);
-  //LongVectorOpTestBase<T, 17>(TestConfig);
-  //LongVectorOpTestBase<T, 35>(TestConfig);
-  //LongVectorOpTestBase<T, 100>(TestConfig);
-  //LongVectorOpTestBase<T, 256>(TestConfig);
-  //LongVectorOpTestBase<T, 1024>(TestConfig);
+  LongVectorOpTestBase<T, 5>(TestConfig);
+  LongVectorOpTestBase<T, 16>(TestConfig);
+  LongVectorOpTestBase<T, 17>(TestConfig);
+  LongVectorOpTestBase<T, 35>(TestConfig);
+  LongVectorOpTestBase<T, 100>(TestConfig);
+  LongVectorOpTestBase<T, 256>(TestConfig);
+  LongVectorOpTestBase<T, 1024>(TestConfig);
 }
 
 template <typename T, std::size_t N, typename U>
@@ -11442,10 +11442,11 @@ void ExecutionTest::LongVectorOpTestBase(
     else if (TestConfig.IsScalarOp())
       LogLongVector<T, 1>(ScalarInput, L"ScalarInput");
 
-    // TODO: Fix this. HasInputArgs ?
-    if (TestConfig.IsClampOp()) {
-      LogScalar(InputArgsArray[0], L"ClampArgMin");
-      LogScalar(InputArgsArray[1], L"ClampArgMax");
+    if (TestConfig.HasInputArguments()) {
+      for(size_t Index = 0; Index < InputArgsArray.size(); Index++) {
+        std::wstring InputArgName = L"InputArg[" + std::to_wstring(Index) + L"]";
+        LogScalar(InputArgsArray[Index], InputArgName);
+      }
     }
   }
 
@@ -11488,9 +11489,16 @@ void ExecutionTest::LongVectorOpTestBase(
         if (0 == _stricmp(Name, "InputFuncArgs")) {
           if (TestConfig.IsScalarOp()) {
             FillShaderBufferFromLongVectorData<T, 1>(ShaderData, ScalarInput);
-          } else if (TestConfig.IsClampOp()) { // TODO: 'HasInputArgs'
-            std::array<T, 2> ClampArgs = {InputArgsArray[0], InputArgsArray[1]};
-            FillShaderBufferFromLongVectorData<T, 2>(ShaderData, ClampArgs);
+          } else if (TestConfig.HasInputArguments()) {
+            // We'll use less than 5 args, but this is a simple way to make use
+            // of FillShaderBufferFromLongVectorData for the input args.
+            static const size_t MaxArgs = 5;
+            VERIFY_IS_TRUE(InputArgsArray.size() <= MaxArgs, L"Failed sanity check. Do you need to increase MaxArgs size?");
+            std::array<T, MaxArgs> InputArgs;
+            for(size_t Index = 0; Index < InputArgsArray.size(); Index++) {
+              InputArgs[Index] = InputArgsArray[Index];
+            }
+            FillShaderBufferFromLongVectorData<T,MaxArgs>(ShaderData, InputArgs);
           }
 
           return;

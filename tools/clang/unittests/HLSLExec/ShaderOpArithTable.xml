@@ -8042,14 +8042,6 @@
           <Parameter Name="OpTypeEnum">BinaryOpType_Divide</Parameter>
           <Parameter Name="DataType">float64</Parameter>
         </Row>
-        <Row Name="ScalarModulus_float64">
-          <Parameter Name="OpTypeEnum">BinaryOpType_ScalarModulus</Parameter>
-          <Parameter Name="DataType">float64</Parameter>
-        </Row>
-        <Row Name="Modulus_float64">
-          <Parameter Name="OpTypeEnum">BinaryOpType_Modulus</Parameter>
-          <Parameter Name="DataType">float64</Parameter>
-        </Row>
         <Row Name="ScalarMin_float64">
           <Parameter Name="OpTypeEnum">BinaryOpType_ScalarMin</Parameter>
           <Parameter Name="DataType">float64</Parameter>
