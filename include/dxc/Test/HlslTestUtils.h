@@ -563,6 +563,27 @@ inline bool CompareDoubleULP(
   return AbsoluteDiff <= (uint64_t)ULPTolerance;
 }
 
+inline bool CompareDoubleEpsilon(
+    const double &Src, const double &Ref, float Epsilon,
+    hlsl::DXIL::Float32DenormMode Mode = hlsl::DXIL::Float32DenormMode::Any) {
+  if (Src== Ref) {
+    return true;
+  }
+  if (std::isnan(Src)) {
+    return std::isnan(Ref);
+  }
+  if (Mode == hlsl::DXIL::Float32DenormMode::Any) {
+    // If denorm expected, output can be sign preserved zero. Otherwise output
+    // should pass the regular epsilon testing.
+    if (isdenorm(Ref) && Src == 0 && std::signbit(Src) == std::signbit(Ref))
+      return true;
+  }
+  // For FTZ or Preserve mode, we should get the expected number within
+  // epsilon for any operations.
+  return fabs(Src - Ref) < Epsilon;
+}
+
+
 inline bool CompareFloatULP(
     const float &fsrc, const float &fref, int ULPTolerance,
     hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {

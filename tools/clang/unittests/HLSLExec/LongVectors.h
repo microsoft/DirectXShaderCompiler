@@ -100,6 +100,11 @@ T GetLongVectorOpType(const LongVectorOpTypeStringToEnumValue *Values,
 
 namespace LongVector {
 
+enum ValidationType {
+  ValidationType_Epsilon,
+  ValidationType_Ulp,
+};
+
 enum BasicOpType {
   BasicOpType_Binary,
   BasicOpType_Unary,
@@ -298,6 +303,7 @@ public:
 
     if (IsFloatingPointType<T>())
       Tolerance = 1;
+      ValidationType = LongVector::ValidationType_Ulp;
 
     switch (OpType) {
     case LongVector::BinaryOpType_ScalarAdd:
@@ -363,8 +369,17 @@ public:
     BasicOpType = LongVector::BasicOpType_Unary;
 
     // All trigonometric ops are floating point types.
-    // TODO: This tolerance is a hack while I'm debugging some issues.
-    Tolerance = 15;
+    // These trig functions are defined to have a max absolute error of 0.0008
+    // as per the D3D functional specs. An example with this spec for sin and
+    // cos is available here:
+    // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
+    ValidationType = LongVector::ValidationType_Epsilon;
+    if (std::is_same_v<T, HLSLHalf_t>)
+      Tolerance = 0.0010f;
+    else if (std::is_same_v<T, float>)
+      Tolerance = 0.0008f;
+    else
+      VERIFY_FAIL("Invalid type for trigonometric op. Expecting half or float.");
 
     switch (OpType) {
     case LongVector::TrigonometricOpType_Acos:
@@ -634,6 +649,7 @@ public:
   }
 
   float GetTolerance() const { return Tolerance; }
+  LongVector::ValidationType GetValidationType() const { return ValidationType; }
 
   std::string GetCompilerOptionsString(size_t VectorSize) {
     std::stringstream CompilerOptions("");
@@ -706,13 +722,14 @@ private:
   std::string IntrinsicString;
   LongVector::BasicOpType BasicOpType = LongVector::BasicOpType_EnumValueCount;
   float Tolerance = 0.0;
+  LongVector::ValidationType ValidationType = LongVector::ValidationType::ValidationType_Epsilon;
   LongVectorOpTestConfigTraits<U> OpTypeTraits;
   std::wstring InputValueSetName1 = L"DefaultInputValueSet1";
   std::wstring InputValueSetName2 = L"DefaultInputValueSet2";
   std::wstring InputArgsArrayName = L""; // No default args array
 };
 
-template <typename T> bool DoValuesMatch(T A, T B, float Tolerance) {
+template <typename T> bool DoValuesMatch(T A, T B, [[maybe_unused]] float Tolerance, [[maybe_unused]] LongVector::ValidationType ValidationType) {
   if (Tolerance == 0.0f)
     return A == B;
 
@@ -720,29 +737,61 @@ template <typename T> bool DoValuesMatch(T A, T B, float Tolerance) {
   return Diff > Tolerance;
 }
 
-inline bool DoValuesMatch(HLSLBool_t A, HLSLBool_t B, float) { return A == B; }
-
-inline bool DoValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance) {
-  return CompareHalfULP(A.Val, B.Val, Tolerance);
+inline bool DoValuesMatch(HLSLBool_t A, HLSLBool_t B, [[maybe_unused]] float Tolerance, [[maybe_unused]] LongVector::ValidationType ValidationType) { 
+  return A == B;
 }
 
-inline bool DoValuesMatch(float A, float B, float Tolerance) {
-  const int IntTolerance = static_cast<int>(Tolerance);
-  return CompareFloatULP(A, B, IntTolerance);
+inline bool DoValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance, LongVector::ValidationType ValidationType) {
+  switch(ValidationType) {
+    case LongVector::ValidationType_Epsilon:
+      return CompareHalfEpsilon(A.Val, B.Val, Tolerance);
+    case LongVector::ValidationType_Ulp:
+      return CompareHalfULP(A.Val, B.Val, Tolerance);
+    default:
+      WEX::Logging::Log::Error(L"Invalid ValidationType. Expecting Epsilon or ULP.");
+      return false;
+  }
 }
 
-inline bool DoValuesMatch(double A, double B, float Tolerance) {
-  const int64_t IntTolerance = static_cast<int64_t>(Tolerance);
-  return CompareDoubleULP(A, B, IntTolerance);
+inline bool DoValuesMatch(float A, float B, float Tolerance, LongVector::ValidationType ValidationType) {
+  switch(ValidationType) {
+    case LongVector::ValidationType_Epsilon:
+      return CompareFloatEpsilon(A, B, Tolerance);
+    case LongVector::ValidationType_Ulp:
+      {
+        // Tolerance is in ULPs. Convert to int for the comparison.
+        const int IntTolerance = static_cast<int>(Tolerance);
+        return CompareFloatULP(A, B, IntTolerance);
+      };
+    default:
+      WEX::Logging::Log::Error(L"Invalid ValidationType. Expecting Epsilon or ULP.");
+      return false;
+  }
+}
+
+inline bool DoValuesMatch(double A, double B, float Tolerance, LongVector::ValidationType ValidationType) {
+  switch(ValidationType) {
+    case LongVector::ValidationType_Epsilon:
+      return CompareDoubleEpsilon(A, B, Tolerance);
+    case LongVector::ValidationType_Ulp:
+      {
+        // Tolerance is in ULPs. Convert to int64_t for the comparison.
+        const int64_t IntTolerance = static_cast<int64_t>(Tolerance);
+        return CompareDoubleULP(A, B, IntTolerance);
+      };
+    default:
+      WEX::Logging::Log::Error(L"Invalid ValidationType. Expecting Epsilon or ULP.");
+      return false;
+  }
 }
 
 template <typename T, std::size_t N>
 bool DoArraysMatch(const std::array<T, N> &ActualValues,
-                   const std::array<T, N> &ExpectedValues, float Tolerance) {
+                   const std::array<T, N> &ExpectedValues, float Tolerance, LongVector::ValidationType ValidationType) {
   // Stash mismatched indexes for easy failure logging later
   std::vector<size_t> MismatchedIndexes;
   for (size_t i = 0; i < N; ++i) {
-    if (!DoValuesMatch(ActualValues[i], ExpectedValues[i], Tolerance))
+    if (!DoValuesMatch(ActualValues[i], ExpectedValues[i], Tolerance, ValidationType))
       MismatchedIndexes.push_back(i);
   }
 

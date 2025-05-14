@@ -11522,7 +11522,7 @@ void ExecutionTest::LongVectorOpTestBase(
   FillLongVectorDataFromShaderBuffer<T, N>(ShaderOutData, OutputVector);
 
   VERIFY_SUCCEEDED(DoArraysMatch<T>(OutputVector, ExpectedVector,
-                                    TestConfig.GetTolerance()));
+                                    TestConfig.GetTolerance(), TestConfig.GetValidationType()));
 }
 
 #if HAVE_COOPVEC_API
