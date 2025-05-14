@@ -2596,10 +2596,10 @@ bool CGMSHLSLRuntime::FindDispatchGridSemantic(const CXXRecordDecl *RD,
         return true;
     }
     // Otherwise check this field for the SV_DispatchGrid semantic annotation
-    for (const hlsl::UnusualAnnotation *it : Field->getUnusualAnnotations()) {
-      if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
-        const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
-        if (sd->SemanticName.equals("SV_DispatchGrid")) {
+    for (const hlsl::UnusualAnnotation *UA : Field->getUnusualAnnotations()) {
+      if (UA->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
+        const hlsl::SemanticDecl *SD = cast<hlsl::SemanticDecl>(UA);
+        if (SD->SemanticName.equals("SV_DispatchGrid")) {
           const llvm::Type *FTy = CGM.getTypes().ConvertType(Field->getType());
           const llvm::Type *ElTy = FTy;
           SDGRec.NumComponents = 1;
