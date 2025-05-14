@@ -11383,7 +11383,8 @@ void ExecutionTest::LongVectorOpTestBase(
   CComPtr<ID3D12Device> D3DDevice;
   if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, false)) {
 #ifdef _HLK_CONF
-    LOG_ERROR_FMT_THROW(L"Device does not support SM 6.9. Can't run these tests.");
+    LOG_ERROR_FMT_THROW(
+        L"Device does not support SM 6.9. Can't run these tests.");
 #else
     WEX::Logging::Log::Comment(
         "Device does not support SM 6.9. Can't run these tests.");
@@ -11443,8 +11444,9 @@ void ExecutionTest::LongVectorOpTestBase(
       LogLongVector<T, 1>(ScalarInput, L"ScalarInput");
 
     if (TestConfig.HasInputArguments()) {
-      for(size_t Index = 0; Index < InputArgsArray.size(); Index++) {
-        std::wstring InputArgName = L"InputArg[" + std::to_wstring(Index) + L"]";
+      for (size_t Index = 0; Index < InputArgsArray.size(); Index++) {
+        std::wstring InputArgName =
+            L"InputArg[" + std::to_wstring(Index) + L"]";
         LogScalar(InputArgsArray[Index], InputArgName);
       }
     }
@@ -11493,12 +11495,15 @@ void ExecutionTest::LongVectorOpTestBase(
             // We'll use less than 5 args, but this is a simple way to make use
             // of FillShaderBufferFromLongVectorData for the input args.
             static const size_t MaxArgs = 5;
-            VERIFY_IS_TRUE(InputArgsArray.size() <= MaxArgs, L"Failed sanity check. Do you need to increase MaxArgs size?");
+            VERIFY_IS_TRUE(
+                InputArgsArray.size() <= MaxArgs,
+                L"Failed sanity check. Do you need to increase MaxArgs size?");
             std::array<T, MaxArgs> InputArgs;
-            for(size_t Index = 0; Index < InputArgsArray.size(); Index++) {
+            for (size_t Index = 0; Index < InputArgsArray.size(); Index++) {
               InputArgs[Index] = InputArgsArray[Index];
             }
-            FillShaderBufferFromLongVectorData<T,MaxArgs>(ShaderData, InputArgs);
+            FillShaderBufferFromLongVectorData<T, MaxArgs>(ShaderData,
+                                                           InputArgs);
           }
 
           return;
@@ -11530,7 +11535,8 @@ void ExecutionTest::LongVectorOpTestBase(
   FillLongVectorDataFromShaderBuffer<T, N>(ShaderOutData, OutputVector);
 
   VERIFY_SUCCEEDED(DoArraysMatch<T>(OutputVector, ExpectedVector,
-                                    TestConfig.GetTolerance(), TestConfig.GetValidationType()));
+                                    TestConfig.GetTolerance(),
+                                    TestConfig.GetValidationType()));
 }
 
 #if HAVE_COOPVEC_API

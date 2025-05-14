@@ -92,16 +92,17 @@ struct HLSLHalf_t {
     Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
   }
 
-  // Implicit conversion to float for use with things like std::acos, std::tan, etc
+  // Implicit conversion to float for use with things like std::acos, std::tan,
+  // etc
   operator float() const {
     return DirectX::PackedVector::XMConvertHalfToFloat(Val);
   }
 
   bool operator==(const HLSLHalf_t &Other) const {
     // Convert to floats to properly handle the '0 == -0' case which must
-    // compare to true but have different uint16_t values. 
+    // compare to true but have different uint16_t values.
     // That is, 0 == -0 is true. We store Val as a uint16_t.
-    auto const  A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    auto const A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     auto const B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
     return A == B;
   }
@@ -256,9 +257,11 @@ template <> struct LongVectorTestData<HLSLHalf_t> {
       {L"DefaultClampArgs", {-1.0, 1.0}}, // Min, Max values for clamp
       // Range [ -pi/2, pi/2]
       {L"TrigonometricInputValueSet_RangeHalfPi",
-       {-1.073,0.044,-1.047,0.313,1.447,-0.865,1.364,-0.715,-0.800,0.541}},
+       {-1.073, 0.044, -1.047, 0.313, 1.447, -0.865, 1.364, -0.715, -0.800,
+        0.541}},
       {L"TrigonometricInputValueSet_RangeOne",
-        {0.331,0.727,-0.957,0.677,-0.025,0.495,0.855,-0.673,-0.678,-0.905}},
+       {0.331, 0.727, -0.957, 0.677, -0.025, 0.495, 0.855, -0.673, -0.678,
+        -0.905}},
   };
 };
 
@@ -271,9 +274,11 @@ template <> struct LongVectorTestData<float> {
       {L"DefaultClampArgs", {-1.0, 1.0}}, // Min, Max values for clamp
       // Range [ -pi/2, pi/2]
       {L"TrigonometricInputValueSet_RangeHalfPi",
-       {0.315f,-0.316f,1.409f,-0.09f,-1.569f,1.302f,-0.326f,0.781f,-1.235f,0.623f}},
+       {0.315f, -0.316f, 1.409f, -0.09f, -1.569f, 1.302f, -0.326f, 0.781f,
+        -1.235f, 0.623f}},
       {L"TrigonometricInputValueSet_RangeOne",
-        {0.727f,0.331f,-0.957f,0.677f,-0.025f,0.495f,0.855f,-0.673f,-0.678f,-0.905f}},
+       {0.727f, 0.331f, -0.957f, 0.677f, -0.025f, 0.495f, 0.855f, -0.673f,
+        -0.678f, -0.905f}},
   };
 };
 
@@ -286,8 +291,9 @@ template <> struct LongVectorTestData<double> {
       {L"DefaultClampArgs", {-1.0, 1.0}}, // Min, Max values for clamp
       // Range [ -pi/2, pi/2]
       {L"TrigonometricInputValueSet_RangeHalfPi",
-       {0.807,0.605,1.317,0.188,1.566,-1.507,0.67,-1.553,0.194,-0.883}},
+       {0.807, 0.605, 1.317, 0.188, 1.566, -1.507, 0.67, -1.553, 0.194,
+        -0.883}},
       {L"TrigonometricInputValueSet_RangeOne",
-        {0.331,0.277,-0.957,0.677,-0.025,0.495,0.855,-0.673,-0.678,-0.905}}
-  };
+       {0.331, 0.277, -0.957, 0.677, -0.025, 0.495, 0.855, -0.673, -0.678,
+        -0.905}}};
 };

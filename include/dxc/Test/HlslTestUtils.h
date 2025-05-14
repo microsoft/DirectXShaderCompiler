@@ -258,7 +258,8 @@ inline void LogErrorFmt(const wchar_t *fmt, ...) {
   WEX::Logging::Log::Error(buf.data());
 }
 
-inline void LogErrorFmtThrow(const char *fileName, int line, const wchar_t *fmt, ...) {
+inline void LogErrorFmtThrow(const char *fileName, int line, const wchar_t *fmt,
+                             ...) {
   va_list args;
   va_start(args, fmt);
   std::wstring buf(vFormatToWString(fmt, args));
@@ -266,7 +267,8 @@ inline void LogErrorFmtThrow(const char *fileName, int line, const wchar_t *fmt,
 
   std::wstringstream wss;
   wss << L"Error in file: " << fileName << L" at line: " << line << L"\n"
-      << buf.data() << L"\n" << buf;
+      << buf.data() << L"\n"
+      << buf;
 
   WEX::Logging::Log::Error(wss.str().c_str());
 
@@ -276,7 +278,7 @@ inline void LogErrorFmtThrow(const char *fileName, int line, const wchar_t *fmt,
 
 // Macro to pass the file name and line number. Otherwise TAEF prints this file
 // and line number.
-#define LOG_ERROR_FMT_THROW(fmt, ...) \
+#define LOG_ERROR_FMT_THROW(fmt, ...)                                          \
   LogErrorFmtThrow(__FILE__, __LINE__, fmt, __VA_ARGS__)
 
 inline std::wstring
@@ -566,7 +568,7 @@ inline bool CompareDoubleULP(
 inline bool CompareDoubleEpsilon(
     const double &Src, const double &Ref, float Epsilon,
     hlsl::DXIL::Float32DenormMode Mode = hlsl::DXIL::Float32DenormMode::Any) {
-  if (Src== Ref) {
+  if (Src == Ref) {
     return true;
   }
   if (std::isnan(Src)) {
@@ -582,7 +584,6 @@ inline bool CompareDoubleEpsilon(
   // epsilon for any operations.
   return fabs(Src - Ref) < Epsilon;
 }
-
 
 inline bool CompareFloatULP(
     const float &fsrc, const float &fref, int ULPTolerance,
