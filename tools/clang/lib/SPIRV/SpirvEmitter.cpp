@@ -7082,9 +7082,9 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
   // Structs
   if (const auto *recordType = valType->getAs<RecordType>()) {
     if (isTypeInVkNamespace(recordType) &&
-            (recordType->getDecl()->getName().equals("BufferPointer") ||
-             recordType->getDecl()->getName().equals("SpirvType")) ||
-        recordType->getDecl()->getName().equals("SpirvOpaqueType")) {
+        (recordType->getDecl()->getName().equals("BufferPointer") ||
+         recordType->getDecl()->getName().equals("SpirvType") ||
+         recordType->getDecl()->getName().equals("SpirvOpaqueType"))) {
       // vk::BufferPointer<T> lowers to a pointer type. No need to reconstruct
       // the value. The vk::Spirv*Type should be treated an opaque type. All we
       // can do is leave it the same.
