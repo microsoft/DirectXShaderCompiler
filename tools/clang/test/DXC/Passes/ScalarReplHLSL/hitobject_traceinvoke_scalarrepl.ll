@@ -2,41 +2,41 @@
 
 ; COM: Based on tools/clang/test/CodeGenDXIL/hlsl/objects/HitObject/hitobject_traceinvoke.hlsl
 
-; CHECK: %[[HITOBJ:[^ ]+]] = alloca %dx.types.HitObject, align 4
+; CHECK: %[[HITOBJ:[^ ,]+]] = alloca %dx.types.HitObject, align 4
 
 ; COM: Init RayDesc.
-; CHECK-DAG: store <3 x float> <float 0.000000e+00, float 1.000000e+00, float 2.000000e+00>, <3 x float>* %[[ORIGIN_P0:[^ ]+]], align 4
-; CHECK-DAG: store float 3.000000e+00, float* %[[TMIN_P0:[^ ]+]], align 4
-; CHECK-DAG: store <3 x float> <float 4.000000e+00, float 5.000000e+00, float 6.000000e+00>, <3 x float>* %[[DIRECTION_P0:[^ ]+]], align 4
-; CHECK-DAG: store float 7.000000e+00, float* %[[TMAX_P0:[^ ]+]], align 4
+; CHECK-DAG: store <3 x float> <float 0.000000e+00, float 1.000000e+00, float 2.000000e+00>, <3 x float>* %[[ORIGIN_P0:[^ ,]+]], align 4
+; CHECK-DAG: store float 3.000000e+00, float* %[[TMIN_P0:[^ ,]+]], align 4
+; CHECK-DAG: store <3 x float> <float 4.000000e+00, float 5.000000e+00, float 6.000000e+00>, <3 x float>* %[[DIRECTION_P0:[^ ,]+]], align 4
+; CHECK-DAG: store float 7.000000e+00, float* %[[TMAX_P0:[^ ,]+]], align 4
 
-; CHECK-DAG: %[[RTAS:[^ ]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %{{[^ ]+}}, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef)
+; CHECK-DAG: %[[RTAS:[^ ,]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %{{[^ ,]+}}, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef)
 
 ; COM: Copy RayDesc.
-; CHECK-DAG: %[[ORIGIN_L0:[^ ]+]] = load <3 x float>, <3 x float>* %[[ORIGIN_P0]]
-; CHECK-DAG: store <3 x float> %[[ORIGIN_L0]], <3 x float>* %[[ORIGIN_P1:[^ ]+]]
-; CHECK-DAG: %[[TMIN_L0:[^ ]+]] = load float, float* %[[TMIN_P0]]
-; CHECK-DAG: store float %[[TMIN_L0]], float* %[[TMIN_P1:[^ ]+]]
-; CHECK-DAG: %[[DIRECTION_L0:[^ ]+]] = load <3 x float>, <3 x float>* %[[DIRECTION_P0]]
-; CHECK-DAG: store <3 x float> %[[DIRECTION_L0]], <3 x float>* %[[DIRECTION_P1:[^ ]+]]
-; CHECK-DAG: %[[TMAX_L0:[^ ]+]] = load float, float* %[[TMAX_P0]]
-; CHECK-DAG: store float %[[TMAX_L0]], float* %[[TMAX_P1:[^ ]+]]
+; CHECK-DAG: %[[ORIGIN_L0:[^ ,]+]] = load <3 x float>, <3 x float>* %[[ORIGIN_P0]]
+; CHECK-DAG: store <3 x float> %[[ORIGIN_L0]], <3 x float>* %[[ORIGIN_P1:[^ ,]+]]
+; CHECK-DAG: %[[TMIN_L0:[^ ,]+]] = load float, float* %[[TMIN_P0]]
+; CHECK-DAG: store float %[[TMIN_L0]], float* %[[TMIN_P1:[^ ,]+]]
+; CHECK-DAG: %[[DIRECTION_L0:[^ ,]+]] = load <3 x float>, <3 x float>* %[[DIRECTION_P0]]
+; CHECK-DAG: store <3 x float> %[[DIRECTION_L0]], <3 x float>* %[[DIRECTION_P1:[^ ,]+]]
+; CHECK-DAG: %[[TMAX_L0:[^ ,]+]] = load float, float* %[[TMAX_P0]]
+; CHECK-DAG: store float %[[TMAX_L0]], float* %[[TMAX_P1:[^ ,]+]]
 
 ; COM: Load RayDesc.
-; CHECK-DAG: %[[ORIGIN_L1:[^ ]+]] = load <3 x float>, <3 x float>* %[[ORIGIN_P1]]
-; CHECK-DAG: %[[TMIN_L1:[^ ]+]] = load float, float* %[[TMIN_P1]]
-; CHECK-DAG: %[[DIRECTION_L1:[^ ]+]] = load <3 x float>, <3 x float>* %[[DIRECTION_P1]]
-; CHECK-DAG: %[[TMAX_L1:[^ ]+]] = load float, float* %[[TMAX_P1]]
+; CHECK-DAG: %[[ORIGIN_L1:[^ ,]+]] = load <3 x float>, <3 x float>* %[[ORIGIN_P1]]
+; CHECK-DAG: %[[TMIN_L1:[^ ,]+]] = load float, float* %[[TMIN_P1]]
+; CHECK-DAG: %[[DIRECTION_L1:[^ ,]+]] = load <3 x float>, <3 x float>* %[[DIRECTION_P1]]
+; CHECK-DAG: %[[TMAX_L1:[^ ,]+]] = load float, float* %[[TMAX_P1]]
 
 ; COM: RayDesc is scalar replaced in HL op for dx::HitObject::TraceRay.
-; CHECK: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, %dx.types.Handle, i32, i32, i32, i32, i32, <3 x float>, float, <3 x float>, float, %struct.Payload*)"(i32 389, %dx.types.HitObject* %[[HITOBJ]], %dx.types.Handle %[[RTAS]], i32 513, i32 1, i32 2, i32 4, i32 0, <3 x float> %[[ORIGIN_L1]], float %[[TMIN_L1]], <3 x float> %[[DIRECTION_L1]], float %[[TMAX_L1]], %struct.Payload* %[[PLD_P0:[^ ]+]])
+; CHECK: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, %dx.types.Handle, i32, i32, i32, i32, i32, <3 x float>, float, <3 x float>, float, %struct.Payload*)"(i32 389, %dx.types.HitObject* %[[HITOBJ]], %dx.types.Handle %[[RTAS]], i32 513, i32 1, i32 2, i32 4, i32 0, <3 x float> %[[ORIGIN_L1]], float %[[TMIN_L1]], <3 x float> %[[DIRECTION_L1]], float %[[TMAX_L1]], %struct.Payload* %[[PLD_P0:[^ ,]+]])
 
 ; COM: Copy payload.
-; CHECK: %[[GEP_PLD_P0:[^ ]+]] = getelementptr inbounds %struct.Payload, %struct.Payload* %[[PLD_P0]], i32 0, i32 0
-; CHECK: %[[PLD_L0:[^ ]+]] = load <3 x float>, <3 x float>* %[[GEP_PLD_P0]]
-; CHECK: store <3 x float> %[[PLD_L0]], <3 x float>* %[[PLD_M0_P0:[^ ]+]]
-; CHECK: %[[GEP_PLD_P1:[^ ]+]] = getelementptr inbounds %struct.Payload, %struct.Payload* %[[PLD_P1:[^ ]+]], i32 0, i32 0
-; CHECK: [[PLD_L1:[^ ]+]] = load <3 x float>, <3 x float>* %[[PLD_M0_P0]]
+; CHECK: %[[GEP_PLD_P0:[^ ,]+]] = getelementptr inbounds %struct.Payload, %struct.Payload* %[[PLD_P0]], i32 0, i32 0
+; CHECK: %[[PLD_L0:[^ ,]+]] = load <3 x float>, <3 x float>* %[[GEP_PLD_P0]]
+; CHECK: store <3 x float> %[[PLD_L0]], <3 x float>* %[[PLD_M0_P0:[^ ,]+]]
+; CHECK: %[[GEP_PLD_P1:[^ ,]+]] = getelementptr inbounds %struct.Payload, %struct.Payload* %[[PLD_P1:[^ ,]+]], i32 0, i32 0
+; CHECK: [[PLD_L1:[^ ,]+]] = load <3 x float>, <3 x float>* %[[PLD_M0_P0]]
 ; CHECK: store <3 x float> [[PLD_L1]], <3 x float>* %[[GEP_PLD_P1]]
 
 ; COM: dx::HitObject::Invoke
