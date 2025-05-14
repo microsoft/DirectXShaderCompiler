@@ -13941,10 +13941,10 @@ float4 ps_main() : SV_Target {
                  &AccumulationVecUAVResource, &AccumulationVecUAVUploadResource,
                  &AccumulationVecUAVReadResource);
 
-  CreateRawUAV(D3DDevice, BaseHandle,
-               static_cast<UINT>(AccumulationVector.getTotalBytes() /
-                                 sizeof(int32_t)),
-               AccumulationVecUAVResource);
+  CreateRawUAV(
+      D3DDevice, BaseHandle,
+      static_cast<UINT>(AccumulationVector.getTotalBytes() / sizeof(int32_t)),
+      AccumulationVecUAVResource);
 
   // Create resource for atomic counter
   CComPtr<ID3D12Resource> AtomicCounterResource;
