@@ -591,7 +591,7 @@ void test_invalid_input_interpretation_value() {
 
   const uint input_interpretation_0 = 0;
 
-  // expected-error@+2 {{0 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{0 is an invalid register interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_0, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -600,7 +600,7 @@ void test_invalid_input_interpretation_value() {
 
   const uint input_interpretation_1 = 1;
 
-  // expected-error@+2 {{1 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{1 is an invalid register interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_1, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -609,7 +609,7 @@ void test_invalid_input_interpretation_value() {
 
   const uint input_interpretation_2 = 6;
 
-  // expected-error@+2 {{6 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{6 is an invalid register interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_2, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -618,7 +618,7 @@ void test_invalid_input_interpretation_value() {
 
   const uint input_interpretation_3 = 7;
 
-  // expected-error@+2 {{7 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{7 is an invalid register interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_3, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -627,7 +627,7 @@ void test_invalid_input_interpretation_value() {
 
   const uint input_interpretation_4 = 10;
 
-  // expected-error@+2 {{10 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{10 is an invalid register interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_4, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,    
@@ -636,7 +636,7 @@ void test_invalid_input_interpretation_value() {
 
   const uint input_interpretation_5 = 11;       
 
-  // expected-error@+2 {{11 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{11 is an invalid register interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_5, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -645,7 +645,7 @@ void test_invalid_input_interpretation_value() {
 
   const uint input_interpretation_6 = 12;
 
-  // expected-error@+2 {{12 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{12 is an invalid register interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_6, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -654,7 +654,7 @@ void test_invalid_input_interpretation_value() {
 
   const uint input_interpretation_7 = 13;
 
-  // expected-error@+2 {{13 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{13 is an invalid register interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_7, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -663,7 +663,7 @@ void test_invalid_input_interpretation_value() {
 
   const uint input_interpretation_8 = 14;
 
-  // expected-error@+2 {{14 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{14 is an invalid register interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_8, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -672,7 +672,7 @@ void test_invalid_input_interpretation_value() {
 
   const uint input_interpretation_9 = 15;
 
-  // expected-error@+2 {{15 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{15 is an invalid register interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_9, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -681,7 +681,7 @@ void test_invalid_input_interpretation_value() {
 
   const uint input_interpretation_10 = 16;
 
-  // expected-error@+2 {{16 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{16 is an invalid register interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_10, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -690,7 +690,7 @@ void test_invalid_input_interpretation_value() {
 
   const uint input_interpretation_11 = 23;
 
-  // expected-error@+2 {{23 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{23 is an invalid register interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_11, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -699,7 +699,7 @@ void test_invalid_input_interpretation_value() {
 
   const uint input_interpretation_12 = 100;
 
-  // expected-error@+2 {{100 is an invalid Register Interpretation value}}
+  // expected-error@+2 {{100 is an invalid register interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation_12, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -887,7 +887,7 @@ void test_invalid_matrix_interpretation_value() {
 
   const uint matrix_interpretation_0 = 0;
 
-  // expected-error@+3 {{0 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{0 is an invalid memory interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_0, matrix_dimM,
@@ -896,7 +896,7 @@ void test_invalid_matrix_interpretation_value() {
 
   const uint matrix_interpretation_1 = 1;
 
-  // expected-error@+3 {{1 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{1 is an invalid memory interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_1, matrix_dimM,
@@ -905,7 +905,7 @@ void test_invalid_matrix_interpretation_value() {
 
   const uint matrix_interpretation_2 = 6;
 
-  // expected-error@+3 {{6 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{6 is an invalid memory interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_2, matrix_dimM,
@@ -914,7 +914,7 @@ void test_invalid_matrix_interpretation_value() {
 
   const uint matrix_interpretation_3 = 7;
 
-  // expected-error@+3 {{7 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{7 is an invalid memory interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,   
                       matrix_offset, matrix_interpretation_3, matrix_dimM,
@@ -923,7 +923,7 @@ void test_invalid_matrix_interpretation_value() {
 
   const uint matrix_interpretation_4 = 10;
 
-  // expected-error@+3 {{10 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{10 is an invalid memory interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_4, matrix_dimM,
@@ -932,7 +932,7 @@ void test_invalid_matrix_interpretation_value() {
 
   const uint matrix_interpretation_5 = 11;
 
-  // expected-error@+3 {{11 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{11 is an invalid memory interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_5, matrix_dimM,
@@ -941,7 +941,7 @@ void test_invalid_matrix_interpretation_value() {
 
   const uint matrix_interpretation_6 = 12;
 
-  // expected-error@+3 {{12 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{12 is an invalid memory interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_6, matrix_dimM,
@@ -950,7 +950,7 @@ void test_invalid_matrix_interpretation_value() {
 
   const uint matrix_interpretation_7 = 13;
 
-  // expected-error@+3 {{13 is an invalid Memory Interpretation value}} 
+  // expected-error@+3 {{13 is an invalid memory interpretation value}} 
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_7, matrix_dimM,
@@ -959,7 +959,7 @@ void test_invalid_matrix_interpretation_value() {
 
   const uint matrix_interpretation_8 = 14;
 
-  // expected-error@+3 {{14 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{14 is an invalid memory interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_8, matrix_dimM,
@@ -968,7 +968,7 @@ void test_invalid_matrix_interpretation_value() {
 
   const uint matrix_interpretation_9 = 15;
 
-  // expected-error@+3 {{15 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{15 is an invalid memory interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_9, matrix_dimM,
@@ -977,7 +977,7 @@ void test_invalid_matrix_interpretation_value() {
 
   const uint matrix_interpretation_10 = 16;
 
-  // expected-error@+3 {{16 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{16 is an invalid memory interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_10, matrix_dimM,
@@ -985,7 +985,7 @@ void test_invalid_matrix_interpretation_value() {
                       matrix_stride);
 
   const uint matrix_interpretation_11 = 23;
-  // expected-error@+3 {{23 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{23 is an invalid memory interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_11, matrix_dimM,
@@ -994,7 +994,7 @@ void test_invalid_matrix_interpretation_value() {
 
   const uint matrix_interpretation_12 = 100;
 
-  // expected-error@+3 {{100 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{100 is an invalid memory interpretation value}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_12, matrix_dimM,

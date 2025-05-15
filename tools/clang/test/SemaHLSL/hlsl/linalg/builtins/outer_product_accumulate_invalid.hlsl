@@ -64,7 +64,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation = 0;
 
-  // expected-error@+3 {{0 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{0 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation, matrix_layout,
@@ -72,7 +72,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_2 = 1;
 
-  // expected-error@+3 {{1 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{1 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_2, matrix_layout,
@@ -80,7 +80,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_3 = 6;
 
-  // expected-error@+3 {{6 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{6 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_3, matrix_layout,
@@ -88,7 +88,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_4 = 7;
 
-  // expected-error@+3 {{7 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{7 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_4, matrix_layout,
@@ -96,7 +96,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_5 = 10;
 
-  // expected-error@+3 {{10 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{10 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_5, matrix_layout,
@@ -104,7 +104,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_6 = 11;
 
-  // expected-error@+3 {{11 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{11 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_6, matrix_layout,
@@ -112,7 +112,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_7 = 12;
 
-  // expected-error@+3 {{12 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{12 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_7, matrix_layout,
@@ -120,7 +120,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_8 = 13;
 
-  // expected-error@+3 {{13 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{13 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_8, matrix_layout,
@@ -128,7 +128,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_9 = 14;
 
-  // expected-error@+3 {{14 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{14 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_9, matrix_layout,
@@ -136,7 +136,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_10 = 15;
 
-  // expected-error@+3 {{15 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{15 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_10, matrix_layout,
@@ -144,7 +144,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_11 = 16;
 
-  // expected-error@+3 {{16 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{16 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_11, matrix_layout,
@@ -152,7 +152,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_12 = DataType::DATA_TYPE_SINT8_T4_PACKED;
 
-  // expected-error@+3 {{17 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{17 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_12, matrix_layout,
@@ -160,7 +160,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_13 = DataType::DATA_TYPE_UINT8_T4_PACKED;
 
-  // expected-error@+3 {{18 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{18 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_13, matrix_layout,
@@ -168,7 +168,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_14 = 23;
 
-  // expected-error@+3 {{23 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{23 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_14, matrix_layout,
@@ -176,7 +176,7 @@ void test_invalid_matrix_interpretation() {
 
   const uint matrix_interpretation_15 = 100;
 
-  // expected-error@+3 {{100 is an invalid Memory Interpretation value}}
+  // expected-error@+3 {{100 is an invalid memory interpretation value}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation_15, matrix_layout,
