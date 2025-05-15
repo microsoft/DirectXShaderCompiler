@@ -11872,11 +11872,7 @@ static void CheckCommonMulAndMulAddParameters(Sema &S, CallExpr *CE,
     QualType InputVectorType =
         GetHLSLVecElementType(InputVectorExpr->getType());
     unsigned BitWidth = S.Context.getTypeSize(InputVectorType);
-    bool Is16Bit = (BitWidth == 16);
     bool Is32Bit = (BitWidth == 32);
-    DXASSERT(Is16Bit || Is32Bit,
-             "Linalg Input vectors must be 32 or 16 bit element types");
-
     const Type *InputVectorTypePtr = InputVectorType.getTypePtr();
 
     // Check if the isUnsigned flag setting
