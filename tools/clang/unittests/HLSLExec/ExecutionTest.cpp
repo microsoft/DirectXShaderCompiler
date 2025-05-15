@@ -13782,7 +13782,7 @@ void ExecutionTest::runCoopVecVectorAccumulateSubtest(
         ExpectedOutputVectorFP16[i] = ConvertFloat32ToFloat16(AccumVal);
       }
     } else {
-      WEX::Logging::Log::Comment(L"Unsupported input data type");
+      VERIFY_FAIL(L"Unsupported input data type");
       return;
     }
   }
