@@ -215,6 +215,7 @@ GetStrideMultiplierForMatrixDataType(D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
     return 2;
   case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
   case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
     return 4;
   default:
     VERIFY_FAIL(L"Unsupported matrix data type");
@@ -240,6 +241,10 @@ static size_t GetNumPackedElementsForInputDataType(
 static std::wstring
 GetHlslDataTypeForDataType(D3D12_LINEAR_ALGEBRA_DATATYPE DataType) {
   switch (DataType) {
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED:
+    return L"int8_t4_packed";
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED:
+    return L"uint8_t4_packed";
   case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
     return L"int16_t";
   case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
@@ -332,6 +337,8 @@ GetVectorElementSize(D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
     return sizeof(int16_t);
   case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
   case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED:
+  case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED:
     if (DataInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED ||
         DataInterpretation == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED) {
       return sizeof(int8_t);
@@ -564,9 +571,11 @@ public:
     TestVector Vec(NumVectors, VectorSize, ElementSize);
     switch (DataType) {
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED:
       Vec.fillSimpleTestData<int8_t>(MatrixInterpretation, Rnd);
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8:
+    case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED:
       Vec.fillSimpleTestData<uint8_t>(MatrixInterpretation, Rnd);
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
