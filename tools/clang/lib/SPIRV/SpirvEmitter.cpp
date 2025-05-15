@@ -2021,7 +2021,6 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   // variables) belongs to the Function storage class.
   if (isExternalVar(decl)) {
     var = declIdMapper.createExternVar(decl);
-
     if (decl->hasInit()) {
       emitWarning("Initializer of external global will be ignored",
                   decl->getLocation());
