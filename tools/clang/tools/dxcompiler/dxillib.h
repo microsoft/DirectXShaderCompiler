@@ -15,10 +15,9 @@
 
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/WinAdapter.h"
-#include <string>
 
 // Initialize Dxil library.
-HRESULT DxilLibInitialize(std::string DxilDLLPath = "");
+HRESULT DxilLibInitialize();
 
 // When dxcompiler is detached from process,
 // we should not call FreeLibrary on process termination.
@@ -29,11 +28,10 @@ enum class DxilLibCleanUpType { UnloadLibrary, ProcessTermination };
 HRESULT DxilLibCleanup(DxilLibCleanUpType type);
 
 // Check if can access dxil.dll
-bool DxilLibIsEnabled(std::string DxilDLLPath = "");
+bool DxilLibIsEnabled();
 
 HRESULT DxilLibCreateInstance(REFCLSID rclsid, REFIID riid,
-                              IUnknown **ppInterface,
-                              std::string DxilDLLPath = "");
+                              IUnknown **ppInterface);
 
 template <class TInterface>
 HRESULT DxilLibCreateInstance(REFCLSID rclsid, TInterface **ppInterface) {

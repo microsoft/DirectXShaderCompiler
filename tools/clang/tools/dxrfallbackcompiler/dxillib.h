@@ -14,7 +14,6 @@
 #define __DXC_DXILLIB__
 
 #include "dxc/Support/WinIncludes.h"
-#include <string>
 
 // Initialize Dxil library.
 HRESULT DxilLibInitialize();
@@ -28,7 +27,7 @@ enum class DxilLibCleanUpType { UnloadLibrary, ProcessTermination };
 HRESULT DxilLibCleanup(DxilLibCleanUpType type);
 
 // Check if can access dxil.dll
-bool DxilLibIsEnabled(std::string DxilDLLPath = "");
+bool DxilLibIsEnabled();
 
 HRESULT DxilLibCreateInstance(REFCLSID rclsid, REFIID riid,
                               IUnknown **ppInterface);

@@ -109,12 +109,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID reserved) {
     ::hlsl::options::cleanupHlslOptTable();
     ::llvm::sys::fs::CleanupPerThreadFileSystem();
     ::llvm::llvm_shutdown();
-    if (reserved ==
-        NULL) { // FreeLibrary has been called or the DLL load failed
-      DxilLibCleanup(DxilLibCleanUpType::UnloadLibrary);
-    } else { // Process termination. We should not call FreeLibrary()
-      DxilLibCleanup(DxilLibCleanUpType::ProcessTermination);
-    }
     DxcClearThreadMalloc();
     DxcCleanupThreadMalloc();
     DxcEtw_DXCompilerShutdown_Stop(S_OK);

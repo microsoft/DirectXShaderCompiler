@@ -23,11 +23,10 @@ static llvm::sys::Mutex *cs = nullptr;
 
 // Check if we can successfully get IDxcValidator from dxil.dll
 // This function is to prevent multiple attempts to load dxil.dll
-HRESULT DxilLibInitialize(std::string DxilDLLPath) {
+HRESULT DxilLibInitialize() {
   cs = new llvm::sys::Mutex;
   cs->lock();
-  g_DllLibResult = g_DllSupport.InitializeForDll(
-      DxilDLLPath == "" ? kDxilLib : DxilDLLPath.data(), "DxcCreateInstance");
+  g_DllLibResult = g_DllSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
   cs->unlock();
   return S_OK;
 }
@@ -49,13 +48,12 @@ HRESULT DxilLibCleanup(DxilLibCleanUpType type) {
 // g_DllLibResult is S_OK by default, check again to see if dxil.dll is loaded
 // If we fail to load dxil.dll, set g_DllLibResult to E_FAIL so that we don't
 // have multiple attempts to load dxil.dll
-bool DxilLibIsEnabled(std::string DxilDLLPath) {
+bool DxilLibIsEnabled() {
   cs->lock();
   if (SUCCEEDED(g_DllLibResult)) {
     if (!g_DllSupport.IsEnabled()) {
-      g_DllLibResult = g_DllSupport.InitializeForDll(
-          DxilDLLPath == "" ? kDxilLib : DxilDLLPath.data(),
-          "DxcCreateInstance");
+      g_DllLibResult =
+          g_DllSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
     }
   }
   cs->unlock();
@@ -63,10 +61,10 @@ bool DxilLibIsEnabled(std::string DxilDLLPath) {
 }
 
 HRESULT DxilLibCreateInstance(REFCLSID rclsid, REFIID riid,
-                              IUnknown **ppInterface, std::string DxilDLLPath) {
+                              IUnknown **ppInterface) {
   DXASSERT_NOMSG(ppInterface != nullptr);
   HRESULT hr = E_FAIL;
-  if (DxilLibIsEnabled(DxilDLLPath)) {
+  if (DxilLibIsEnabled()) {
     cs->lock();
     hr = g_DllSupport.CreateInstance(rclsid, riid, ppInterface);
     cs->unlock();

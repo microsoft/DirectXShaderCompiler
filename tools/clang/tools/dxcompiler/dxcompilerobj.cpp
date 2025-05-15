@@ -850,12 +850,9 @@ public:
           compiler.getCodeGenOpts().HLSLValidatorMajorVer = opts.ValVerMajor;
           compiler.getCodeGenOpts().HLSLValidatorMinorVer = opts.ValVerMinor;
         } else {
-          // Version internal validator, or dxil dll if specified
-          // with dxil_dll_path option
           dxcutil::GetValidatorVersion(
               &compiler.getCodeGenOpts().HLSLValidatorMajorVer,
-              &compiler.getCodeGenOpts().HLSLValidatorMinorVer,
-              opts.DxilDLLPath);
+              &compiler.getCodeGenOpts().HLSLValidatorMinorVer);
         }
 
         // Root signature-only container validation is only supported on 1.5 and
@@ -935,7 +932,7 @@ public:
             CComPtr<IDxcBlobEncoding> pValErrors;
             // Validation failure communicated through diagnostic error
             dxcutil::ValidateRootSignatureInContainer(
-                pOutputBlob, &compiler.getDiagnostics(), opts.DxilDLLPath);
+                pOutputBlob, &compiler.getDiagnostics());
           }
         }
       } else if (opts.VerifyDiagnostics) {
@@ -1055,8 +1052,7 @@ public:
               std::move(serializeModule), pOutputBlob, m_pMalloc,
               SerializeFlags, pOutputStream, 0, opts.GetPDBName(),
               &compiler.getDiagnostics(), &ShaderHashContent, pReflectionStream,
-              pRootSigStream, pRootSignatureBlob, pPrivateBlob,
-              opts.DxilDLLPath);
+              pRootSigStream, pRootSignatureBlob, pPrivateBlob);
 
           inputs.pVersionInfo = static_cast<IDxcVersionInfo *>(this);
 
@@ -1109,8 +1105,7 @@ public:
                 CComPtr<IDxcBlobEncoding> pValErrors;
                 // Validation failure communicated through diagnostic error
                 dxcutil::ValidateRootSignatureInContainer(
-                    pRootSignature, &compiler.getDiagnostics(),
-                    opts.DxilDLLPath);
+                    pRootSignature, &compiler.getDiagnostics());
               }
               IFT(pResult->SetOutputObject(DXC_OUT_ROOT_SIGNATURE,
                                            pRootSignature));

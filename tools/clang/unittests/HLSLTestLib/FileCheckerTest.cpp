@@ -519,7 +519,8 @@ FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport,
       // Convert stage to minimum dxil/validator version:
       RequiredDxilMajor = std::max(RequiredDxilMajor, (unsigned)6) - 5;
 
-      bool bInternalValidator = opts.DxilDLLPath == "";
+      // TODO: set this based on environment variable value, true good for now
+      bool bInternalValidator = true;
       bool bValVerExplicit = opts.ValVerMajor != UINT_MAX;
 
       // Normally we must check the validator version as well, but there are

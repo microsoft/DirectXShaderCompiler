@@ -60,11 +60,7 @@ HRESULT CreateDxcContainerBuilder(REFIID riid, _Out_ LPVOID *ppv) {
   // Call dxil.dll's containerbuilder
   *ppv = nullptr;
   const char *warning;
-  HRESULT hr = DxilLibInitialize();
-  if (FAILED(hr)) {
-    warning = "Unable to load dxil.dll.\n";
-  }
-  hr = DxilLibCreateInstance(CLSID_DxcContainerBuilder,
+  HRESULT hr = DxilLibCreateInstance(CLSID_DxcContainerBuilder,
                              (IDxcContainerBuilder **)ppv);
   if (FAILED(hr)) {
     warning = "Unable to create container builder from dxil.dll. Resulting "

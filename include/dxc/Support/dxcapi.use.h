@@ -13,7 +13,10 @@
 #define __DXCAPI_USE_H__
 
 #include "dxc/dxcapi.h"
+#include <cstdlib>     // for getenv
 #include <string>
+#include <filesystem>  // C++17 and later
+#include <dxc/Support/Global.h> // for hresult handling with DXC_FAILED
 
 namespace dxc {
 
@@ -26,9 +29,8 @@ protected:
   HMODULE m_dll;
   DxcCreateInstanceProc m_createFn;
   DxcCreateInstance2Proc m_createFn2;
-  std::string DxilDLLPath = "";
 
-  HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
+  HRESULT virtual InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
     if (m_dll != nullptr)
       return S_OK;
 
@@ -36,7 +38,6 @@ protected:
     m_dll = LoadLibraryA(dllName);
     if (m_dll == nullptr)
       return HRESULT_FROM_WIN32(GetLastError());
-
     m_createFn = (DxcCreateInstanceProc)GetProcAddress(m_dll, fnName);
 
     if (m_createFn == nullptr) {
@@ -77,8 +78,6 @@ protected:
   }
 
 public:
-  LPCSTR GetDxilDLLPath() { return DxilDLLPath.data(); }
-  void SetDxilDLLPath(LPCSTR p) { DxilDLLPath = p; }
   DxcDllSupport() : m_dll(nullptr), m_createFn(nullptr), m_createFn2(nullptr) {}
 
   DxcDllSupport(DxcDllSupport &&other) {
@@ -90,14 +89,13 @@ public:
     other.m_createFn2 = nullptr;
   }
 
-  ~DxcDllSupport() { Cleanup(); }
+  virtual ~DxcDllSupport() { Cleanup(); }
 
-  HRESULT Initialize() {
-    // load dxcompiler.dll
+  HRESULT virtual Initialize() {
     return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
   }
 
-  HRESULT InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {
+  HRESULT virtual InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {
     return InitializeInternal(dll, entryPoint);
   }
 
@@ -106,7 +104,8 @@ public:
     return CreateInstance(clsid, __uuidof(TInterface), (IUnknown **)pResult);
   }
 
-  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, IUnknown **pResult) {
+  HRESULT virtual CreateInstance(REFCLSID clsid, REFIID riid,
+                                 IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
     if (m_dll == nullptr)
@@ -122,7 +121,7 @@ public:
                            (IUnknown **)pResult);
   }
 
-  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
+  HRESULT virtual CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
                           IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
@@ -134,11 +133,21 @@ public:
     return hr;
   }
 
-  bool HasCreateWithMalloc() const { return m_createFn2 != nullptr; }
+  bool virtual HasCreateWithMalloc() const { return m_createFn2 != nullptr; }
 
-  bool IsEnabled() const { return m_dll != nullptr; }
+  bool virtual IsEnabled() const { return m_dll != nullptr; }
 
-  void Cleanup() {
+  bool virtual GetCreateInstanceProcs(DxcCreateInstanceProc *pCreateFn,
+                              DxcCreateInstance2Proc *pCreateFn2) const {
+    if (pCreateFn == nullptr || pCreateFn2 == nullptr ||
+         m_createFn == nullptr)
+        return false;
+    *pCreateFn = m_createFn;
+    *pCreateFn2 = m_createFn2;
+    return true;
+  }
+
+  void virtual Cleanup() {
     if (m_dll != nullptr) {
       m_createFn = nullptr;
       m_createFn2 = nullptr;
@@ -151,7 +160,7 @@ public:
     }
   }
 
-  HMODULE Detach() {
+  HMODULE virtual Detach() {
     HMODULE hModule = m_dll;
     m_dll = nullptr;
     return hModule;
@@ -184,6 +193,56 @@ void WriteOperationErrorsToConsole(IDxcOperationResult *pResult,
 void WriteOperationResultToConsole(IDxcOperationResult *pRewriteResult,
                                    bool outputWarnings);
 
+class DxcDllExtValidationSupport : public DxcDllSupport {
+  // this instance of DxcDllSupport manages the lifetime of
+  // dxil.dll
+  DxcDllSupport *m_DxilSupport = nullptr;
+
+  std::string DxilDLLPathExt = "";
+  bool InitializationSuccess = false;
+  // override DxcDllSupport's implementation of InitializeInternal,
+  // adding the environment variable value check for a path to a dxil.dll
+  // for external validation
+  HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName){
+
+    // Load dxcompiler.dll
+    HRESULT result = m_DxilSupport->InitializeForDll(dllName, fnName);
+    InitializationSuccess = DXC_FAILED(result) ? false : true;
+    if (!InitializationSuccess){
+      return result;
+    }
+
+    // now handle internal or external dxil.dll
+    const char *envVal = std::getenv("DXC_DXIL_DLL_PATH");
+    bool ValidateInternally = false;
+    if (!envVal || std::string(envVal).empty()) {
+      ValidateInternally = true;
+    }
+
+    if (!ValidateInternally){
+      std::string DllPathStr(envVal);
+      DxilDLLPathExt = DllPathStr;
+      std::filesystem::path DllPath(DllPathStr);
+
+      // Check if path is absolute and exists
+      if (!DllPath.is_absolute() || !std::filesystem::exists(DllPath)) {
+        InitializationSuccess = false;
+        // TODO: Ideally emit some diagnostic that the given absolute path doesn't exist
+        return HRESULT_FROM_WIN32(GetLastError());
+      }
+      result = m_DxilSupport->InitializeForDll(DllPathStr.data(), fnName);
+      if (DXC_FAILED(result)) {
+        InitializationSuccess = false;
+      }
+    }
+    // nothing to do if we are validating internally, dxcompiler.dll
+    // is loaded and it'll take care of validation.
+    return InitializationSuccess;
+  }
+
+  std::string GetDxilDLLPathExt() { return DxilDLLPathExt; }
+
+};
 } // namespace dxc
 
 #endif

@@ -25,7 +25,6 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include <filesystem>
 #include <optional>
 
 using namespace llvm::opt;
@@ -409,15 +408,6 @@ LangStd parseHLSLVersion(llvm::StringRef Ver) {
       .Default(hlsl::LangStd::vError);
 }
 namespace options {
-
-bool AbsolutePathExists(const std::filesystem::path &p) {
-  // First check if it is an absolute path
-  if (!p.is_absolute()) {
-    return false;
-  }
-  // Then check if it exists
-  return std::filesystem::exists(p);
-}
 
 /// Reads all options from the given argument strings, populates opts, and
 /// validates reporting errors and warnings.
@@ -1043,19 +1033,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.ValVerMinor = (unsigned long)minor64;
   }
 
-  llvm::StringRef dxilDLLPathStr = Args.getLastArgValue(OPT_dxil_dll_path);
-  std::filesystem::path p = dxilDLLPathStr.str();
-
-  // when the dxil_dll_path argument has an empty string,
-  // then the internal validator should be used
-  // otherwise, check that this path exists and is absolute
-  if (dxilDLLPathStr.str() == "" || AbsolutePathExists(p)) {
-    opts.DxilDLLPath = dxilDLLPathStr.str();
-  } else {
-    errors << "Absolute path \"" << dxilDLLPathStr << "\" does not exist.";
-    return 1;
-  }
-
   if (opts.IsLibraryProfile() && Minor == 0xF) {
     if (opts.ValVerMajor != UINT_MAX && opts.ValVerMajor != 0) {
       errors << "Offline library profile cannot be used with non-zero "
@@ -1418,8 +1395,6 @@ int SetupDxcDllSupport(const DxcOpts &opts, dxc::DxcDllSupport &dxcSupport,
       return 1;
     }
   }
-
-  dxcSupport.SetDxilDLLPath(opts.DxilDLLPath.data());
   return 0;
 }
 
