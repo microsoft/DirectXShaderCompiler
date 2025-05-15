@@ -9340,7 +9340,7 @@ class db_hlsl(object):
             "DxHitObject": "LICOMPTYPE_HIT_OBJECT",
             "VkBufferPointer": "LICOMPTYPE_VK_BUFFER_POINTER",
             "RayQuery": "LICOMPTYPE_RAY_QUERY",
-            "LinAlg": "LICOMPTYPE_LINALG"
+            "LinAlg": "LICOMPTYPE_LINALG",
         }
 
         self.trans_rowcol = {"r": "IA_R", "c": "IA_C", "r2": "IA_R2", "c2": "IA_C2"}
