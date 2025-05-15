@@ -2819,7 +2819,6 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         DeadInsts.push_back(CI);
         break;
       }
-        LLVM_FALLTHROUGH;
       default:
         // RayQuery this pointer replacement.
         if (OldVal->getType()->isPointerTy() &&

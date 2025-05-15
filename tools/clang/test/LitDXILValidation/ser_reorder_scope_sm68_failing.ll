@@ -1,4 +1,5 @@
-; RUN: %dxilver 1.9 | %dxv %s
+; REQUIRES: dxil-1-8
+; RUN: not %dxv %s 2>&1 | FileCheck %s
 
 ; Buffer Definitions:
 ;
@@ -17,6 +18,14 @@ target triple = "dxil-ms-dx"
 %struct.RWByteAddressBuffer = type { i32 }
 
 @"\01?BAB@@3URWByteAddressBuffer@@A" = external constant %dx.types.Handle, align 4
+
+; CHECK: Function: ?main@@YAXXZ: error: Invalid semantic flags on DXIL operation 'BarrierByMemoryType'
+; CHECK-NEXT: note: at 'call void @dx.op.barrierByMemoryType(i32 244, i32 1, i32 8)' in block '#0' of function '?main@@YAXXZ'.
+; CHECK-NEXT: Function: ?main@@YAXXZ: error: Invalid semantic flags on DXIL operation 'barrierByMemoryHandle'
+; CHECK-NEXT: note: at 'call void @dx.op.barrierByMemoryHandle(i32 245, %dx.types.Handle %3, i32 8)' in block '#0' of function '?main@@YAXXZ'.
+; CHECK-NEXT: Function: ?main@@YAXXZ: error: Entry function performs some operation that is incompatible with the shader stage or other entry properties.  See other errors for details.
+; CHECK-NEXT: Function: ?main@@YAXXZ: error: Function uses features incompatible with the shader model.
+; CHECK-NEXT: Validation failed.
 
 ; Function Attrs: nounwind
 define void @"\01?main@@YAXXZ"() #0 {
@@ -52,8 +61,8 @@ attributes #3 = { nounwind readonly }
 !dx.typeAnnotations = !{!5}
 !dx.entryPoints = !{!9, !11}
 
-!0 = !{i32 1, i32 9}
-!1 = !{!"lib", i32 6, i32 9}
+!0 = !{i32 1, i32 8}
+!1 = !{!"lib", i32 6, i32 8}
 !2 = !{null, !3, null, null}
 !3 = !{!4}
 !4 = !{i32 0, %struct.RWByteAddressBuffer* bitcast (%dx.types.Handle* @"\01?BAB@@3URWByteAddressBuffer@@A" to %struct.RWByteAddressBuffer*), !"BAB", i32 0, i32 1, i32 1, i32 11, i1 false, i1 false, i1 false, null}

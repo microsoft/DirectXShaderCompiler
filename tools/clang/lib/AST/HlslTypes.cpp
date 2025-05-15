@@ -25,7 +25,6 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Type.h"
 #include "clang/Sema/AttributeList.h" // conceptually ParsedAttributes
-#include "clang/Sema/SemaHLSL.h"
 #include "llvm/ADT/StringSwitch.h"
 
 using namespace clang;
@@ -104,34 +103,24 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
          BuiltinTy->getKind() != BuiltinType::Kind::Char_S;
 }
 
-bool IsHLSLNumericUserDefinedType(clang::QualType type) {
-  const clang::Type *Ty = type.getCanonicalType().getTypePtr();
-  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
-    const RecordDecl *RD = RT->getDecl();
-    if (!IsUserDefinedRecordType(type))
-      return false;
-    for (auto member : RD->fields()) {
-      if (!IsHLSLNumericOrAggregateOfNumericType(member->getType()))
-        return false;
-      if (auto *Child = dyn_cast<CXXRecordDecl>(RD))
-        // Walk up the inheritance chain and check base class fields
-        for (auto &Base : Child->bases())
-          if (!IsHLSLNumericOrAggregateOfNumericType(Base.getType()))
-            return false;
-    }
-    return true;
-  }
-  return false;
-}
-
 // In some cases we need record types that are annotatable and trivially
 // copyable from outside the shader. This excludes resource types which may be
 // trivially copyable inside the shader, and builtin matrix and vector types
 // which can't be annotated. But includes UDTs of trivially copyable data and
 // the builtin trivially copyable raytracing structs.
 bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT) {
-  return IsHLSLNumericUserDefinedType(QT) ||
-         IsHLSLBuiltinRayAttributeStruct(QT);
+  const clang::Type *Ty = QT.getCanonicalType().getTypePtr();
+  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
+    const RecordDecl *RD = RT->getDecl();
+    if (!IsUserDefinedRecordType(QT))
+      return false;
+    for (auto Member : RD->fields()) {
+      if (!IsHLSLNumericOrAggregateOfNumericType(Member->getType()))
+        return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT) {
@@ -615,7 +604,8 @@ bool IsUserDefinedRecordType(clang::QualType QT) {
   const clang::Type *Ty = QT.getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     const RecordDecl *RD = RT->getDecl();
-    if (RD->isImplicit())
+    // Built-in ray tracing struct types are considered user defined types.
+    if (RD->isImplicit() && !IsHLSLBuiltinRayAttributeStruct(QT))
       return false;
     if (auto TD = dyn_cast<ClassTemplateSpecializationDecl>(RD))
       if (TD->getSpecializedTemplate()->isImplicit())

@@ -165,7 +165,8 @@ ValidateSignatureAccess(Instruction *I, DxilSignature &Sig, Value *SigId,
 
 static DxilResourceProperties GetResourceFromHandle(Value *Handle,
                                                     ValidationContext &ValCtx) {
-  if (!isa<CallInst>(Handle)) {
+  CallInst *HandleCall = dyn_cast<CallInst>(Handle);
+  if (!HandleCall) {
     if (Instruction *I = dyn_cast<Instruction>(Handle))
       ValCtx.EmitInstrError(I, ValidationRule::InstrHandleNotFromCreateHandle);
     else
@@ -175,10 +176,13 @@ static DxilResourceProperties GetResourceFromHandle(Value *Handle,
   }
 
   DxilResourceProperties RP = ValCtx.GetResourceFromVal(Handle);
-  if (RP.getResourceClass() == DXIL::ResourceClass::Invalid) {
+  if (RP.getResourceClass() == DXIL::ResourceClass::Invalid)
     ValCtx.EmitInstrError(cast<CallInst>(Handle),
                           ValidationRule::InstrHandleNotFromCreateHandle);
-  }
+  if (RP.Basic.IsReorderCoherent &&
+      !ValCtx.DxilMod.GetShaderModel()->IsSM69Plus())
+    ValCtx.EmitInstrError(HandleCall,
+                          ValidationRule::InstrReorderCoherentRequiresSM69);
 
   return RP;
 }
@@ -1227,6 +1231,32 @@ static void ValidateImmOperandsForOuterProdAcc(CallInst *CI,
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinalgMatrixShapeParamsAreConst,
         {"MatrixLayout"});
+    return;
+  }
+  ConstantInt *ML = cast<ConstantInt>(MatrixLayout);
+  uint64_t MLValue = ML->getLimitedValue();
+  if (MLValue !=
+      static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal))
+    ValCtx.EmitInstrFormatError(
+        CI,
+        ValidationRule::
+            InstrLinalgInvalidMatrixLayoutValueForOuterProductAccumulate,
+        {GetMatrixLayoutStr(MLValue),
+         GetMatrixLayoutStr(static_cast<unsigned>(
+             DXIL::LinalgMatrixLayout::OuterProductOptimal))});
+
+  llvm::Value *MatrixStride =
+      CI->getOperand(DXIL::OperandIndex::kOuterProdAccMatrixStride);
+  if (!llvm::isa<llvm::Constant>(MatrixStride)) {
+    ValCtx.EmitInstrError(
+        CI, ValidationRule::InstrLinalgMatrixStrideZeroForOptimalLayouts);
+    return;
+  }
+  ConstantInt *MS = cast<ConstantInt>(MatrixStride);
+  uint64_t MSValue = MS->getLimitedValue();
+  if (MSValue != 0) {
+    ValCtx.EmitInstrError(
+        CI, ValidationRule::InstrLinalgMatrixStrideZeroForOptimalLayouts);
     return;
   }
 }
@@ -2287,6 +2317,32 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     break;
   }
 
+  // Shader Execution Reordering - from ray query
+  case DXIL::OpCode::HitObject_FromRayQuery:
+  case DXIL::OpCode::HitObject_FromRayQueryWithAttrs: {
+    for (unsigned i = 1; i < CI->getNumOperands(); ++i) {
+      Value *Arg = CI->getArgOperand(i);
+      if (isa<UndefValue>(Arg))
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+    }
+    break;
+  }
+
+  case DXIL::OpCode::HitObject_Invoke: {
+    if (isa<UndefValue>(CI->getArgOperand(1)))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrUndefHitObject);
+    if (isa<UndefValue>(CI->getArgOperand(2)))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+  } break;
+  case DXIL::OpCode::HitObject_TraceRay: {
+    Value *Hdl = CI->getArgOperand(
+        DxilInst_HitObject_TraceRay::arg_accelerationStructure);
+    ValidateASHandle(CI, Hdl, ValCtx);
+    for (unsigned ArgIdx = 2; ArgIdx < CI->getNumArgOperands(); ++ArgIdx)
+      if (isa<UndefValue>(CI->getArgOperand(ArgIdx)))
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+    DxilInst_HitObject_TraceRay HOTraceRay(CI);
+  } break;
   case DXIL::OpCode::AtomicBinOp:
   case DXIL::OpCode::AtomicCompareExchange: {
     Type *pOverloadType = OP::GetOverloadType(Opcode, CI->getCalledFunction());
@@ -4156,6 +4212,9 @@ static void ValidateResourceOverlap(
 
 static void ValidateResource(hlsl::DxilResource &Res,
                              ValidationContext &ValCtx) {
+  if (Res.IsReorderCoherent() && !ValCtx.DxilMod.GetShaderModel()->IsSM69Plus())
+    ValCtx.EmitResourceError(&Res,
+                             ValidationRule::InstrReorderCoherentRequiresSM69);
   switch (Res.GetKind()) {
   case DXIL::ResourceKind::RawBuffer:
   case DXIL::ResourceKind::TypedBuffer:
@@ -4387,10 +4446,13 @@ static void ValidateResources(ValidationContext &ValCtx) {
       ValCtx.EmitResourceError(Uav.get(),
                                ValidationRule::SmCounterOnlyOnStructBuf);
     }
-    if (Uav->HasCounter() && Uav->IsGloballyCoherent())
-      ValCtx.EmitResourceFormatError(Uav.get(),
-                                     ValidationRule::MetaGlcNotOnAppendConsume,
-                                     {ValCtx.GetResourceName(Uav.get())});
+    const bool UavIsCoherent =
+        Uav->IsGloballyCoherent() || Uav->IsReorderCoherent();
+    if (Uav->HasCounter() && UavIsCoherent) {
+      StringRef Prefix = Uav->IsGloballyCoherent() ? "globally" : "reorder";
+      ValCtx.EmitResourceFormatError(
+          Uav.get(), ValidationRule::MetaCoherenceNotOnAppendConsume, {Prefix});
+    }
 
     ValidateResource(*Uav, ValCtx);
     ValidateResourceOverlap(*Uav, UavAllocator, ValCtx);
