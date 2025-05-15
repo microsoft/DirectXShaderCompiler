@@ -34,7 +34,7 @@ void test_invalid_output_vector_type() {
                       matrix_dimK, matrix_layout, matrix_is_transposed,
                       matrix_stride);
 
-  vector<int64_t, 4> output_vector_1;
+  vector<int32_t, 4> output_vector_1;
   const uint is_output_unsigned_1 = 1;
 
   // expected-error@+1 {{IsOuputUnsigned must be false for vector of signed integer type}}
@@ -99,7 +99,8 @@ void test_invalid_input_vector_type() {
       input_vector_buffer.Load<vector<int64_t, 4> >(0);
     const uint is_input_unsigned_0 = 0;
 
-// expected-error@+1 {{Input Vector is incorrect type, must be 16-bit or 32-bit 'unsigned int', 'signed int' or 'float'}}
+// expected-error@+2 {{no matching function for call to '__builtin_MatVecMul'}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'vector<int64_t, 4>' to 'vector<float, 4>' for 3rd argument}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_0,
                       is_input_unsigned_0, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -110,7 +111,8 @@ void test_invalid_input_vector_type() {
       input_vector_buffer.Load<vector<uint64_t, 4> >(0);
     const uint is_input_unsigned_1 = 1;
 
-// expected-error@+1 {{Input Vector is incorrect type, must be 16-bit or 32-bit 'unsigned int', 'signed int' or 'float'}}   
+// expected-error@+2 {{no matching function for call to '__builtin_MatVecMul'}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'vector<uint64_t, 4>' to 'vector<float, 4>' for 3rd argument}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_1,
                       is_input_unsigned_1, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -121,7 +123,8 @@ void test_invalid_input_vector_type() {
       input_vector_buffer.Load<vector<float64_t, 4> >(0);
     const uint is_input_unsigned_2 = 0;
 
-// expected-error@+1 {{Input Vector is incorrect type, must be 16-bit or 32-bit 'unsigned int', 'signed int' or 'float'}}
+// expected-error@+2 {{no matching function for call to '__builtin_MatVecMul'}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'vector<float64_t, 4>' to 'vector<float, 4>' for 3rd argument}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_2,
                       is_input_unsigned_2, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,

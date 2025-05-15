@@ -1139,6 +1139,14 @@ static const ArBasicKind g_RayDescCT[] = {AR_OBJECT_RAY_DESC, AR_BASIC_UNKNOWN};
 static const ArBasicKind g_RayQueryCT[] = {AR_OBJECT_RAY_QUERY,
                                            AR_BASIC_UNKNOWN};
 
+static const ArBasicKind g_LinAlgCT[] = {
+    AR_BASIC_FLOAT32,       AR_BASIC_FLOAT32_PARTIAL_PRECISION,
+    AR_BASIC_FLOAT16,       AR_BASIC_INT32,
+    AR_BASIC_INT16,         AR_BASIC_UINT32,
+    AR_BASIC_UINT16,        AR_BASIC_INT8_4PACKED,
+    AR_BASIC_UINT8_4PACKED, AR_BASIC_NOCAST,
+    AR_BASIC_UNKNOWN};
+
 static const ArBasicKind g_AccelerationStructCT[] = {
     AR_OBJECT_ACCELERATION_STRUCT, AR_BASIC_UNKNOWN};
 
@@ -1302,6 +1310,7 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
     g_DxHitObjectCT,             // LICOMPTYPE_HIT_OBJECT
     g_RayQueryCT,                // LICOMPTYPE_RAY_QUERY
+    g_LinAlgCT,                  // LICOMPTYPE_LINALG
 #ifdef ENABLE_SPIRV_CODEGEN
     g_VKBufferPointerCT, // LICOMPTYPE_VK_BUFFER_POINTER
 #endif

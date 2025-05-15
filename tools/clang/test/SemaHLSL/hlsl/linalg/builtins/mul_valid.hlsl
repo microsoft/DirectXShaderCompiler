@@ -32,7 +32,7 @@ void test_valid_output_vector_type() {
         matrix_interpretation, matrix_dimM, matrix_dimK, matrix_layout,
         matrix_is_transposed, matrix_stride);
 
-    vector<int64_t, 4> output_vector_1;
+    vector<int32_t, 4> output_vector_1;
     const uint is_output_unsigned_1 = 0;
 
     // expected-no-diagnostics@+1
