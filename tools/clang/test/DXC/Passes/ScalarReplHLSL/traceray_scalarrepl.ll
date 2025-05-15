@@ -1,50 +1,5 @@
 ; RUN: %dxopt %s -hlsl-passes-resume -scalarrepl-param-hlsl -S | FileCheck %s
 
-; CHECK: define <4 x float> @"
-; CHECK-SAME: ?emit@@YA?AV?$vector@M$03@@AIAV?$vector@M$01@@URayDesc@@UPayload@@@Z"(<2 x float>* noalias dereferenceable(8) %f2, %struct.RayDesc* %Ray, %struct.Payload* noalias %p)
-
-; Copy Payload fields (PLD_F0, PLD_F1) to local allocas:
-; CHECK: %[[GEP:[^ ,]+]] = getelementptr inbounds %struct.Payload, %struct.Payload* %p, i32 0, i32 0
-; CHECK: %[[LOAD:[^ ,]+]] = load <2 x float>, <2 x float>* %[[GEP]]
-; CHECK: store <2 x float> %[[LOAD]], <2 x float>* %[[PLD_F0:[^ ,]+]]
-; CHECK: %[[GEP:[^ ,]+]] = getelementptr inbounds %struct.Payload, %struct.Payload* %p, i32 0, i32 1
-; CHECK: %[[LOAD:[^ ,]+]] = load <3 x i32>, <3 x i32>* %[[GEP]]
-; CHECK: store <3 x i32> %[[LOAD]], <3 x i32>* %[[PLD_F1:[^ ,]+]]
-
-; CHECK: %[[RTAS:[^ ,]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %{{[^ ,]+}}, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef)
-
-; Copy RayDesc fields (Origin, TMin, Direction, TMax) to local allocas:
-; CHECK: %[[RAY_ORIGIN_GEP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %Ray, i32 0, i32 0
-; CHECK: %[[RAY_ORIGIN_LOAD:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RAY_ORIGIN_GEP]]
-; CHECK: store <3 x float> %[[RAY_ORIGIN_LOAD]], <3 x float>* %[[RAY_ORIGIN_P0:[^ ,]+]]
-; CHECK: %[[TMIN_GEP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %Ray, i32 0, i32 1
-; CHECK: %[[TMIN_LOAD:[^ ,]+]] = load float, float* %[[TMIN_GEP]]
-; CHECK: store float %[[TMIN_LOAD]], float* %[[TMIN_P0:[^ ,]+]]
-; CHECK: %[[DIRECTION_GEP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %Ray, i32 0, i32 2
-; CHECK: %[[DIRECTION_LOAD:[^ ,]+]] = load <3 x float>, <3 x float>* %[[DIRECTION_GEP]]
-; CHECK: store <3 x float> %[[DIRECTION_LOAD]], <3 x float>* %[[DIRECTION_P0:[^ ,]+]]
-; CHECK: %[[TMAX_GEP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %Ray, i32 0, i32 3
-; CHECK: %[[TMAX_LOAD:[^ ,]+]] = load float, float* %[[TMAX_GEP]]
-; CHECK: store float %[[TMAX_LOAD]], float* %[[TMAX_P0:[^ ,]+]]
-
-; COM: Copy Payload fields into payload struct for call:
-; CHECK: %[[PLD_F0_GEP:[^ ,]+]] = getelementptr inbounds %struct.Payload, %struct.Payload* %[[PLD_P0:[^ ,]+]], i32 0, i32 0
-; CHECK: %[[PLD_F0_LOAD:[^ ,]+]] = load <2 x float>, <2 x float>* %[[PLD_F0]]
-; CHECK: store <2 x float> %[[PLD_F0_LOAD]], <2 x float>* %[[PLD_F0_GEP]]
-; CHECK: %[[PLD_F1_GEP:[^ ,]+]] = getelementptr inbounds %struct.Payload, %struct.Payload* %[[PLD_P0]], i32 0, i32 1
-; CHECK: %[[PLD_F1_LOAD:[^ ,]+]] = load <3 x i32>, <3 x i32>* %[[PLD_F1]]
-; CHECK: store <3 x i32> %[[PLD_F1_LOAD]], <3 x i32>* %[[PLD_F1_GEP]]
-
-; COM: Load RayDesc fields:
-; CHECK: %[[RAY_ORIGIN_LOAD2:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RAY_ORIGIN_P0]]
-; CHECK: %[[TMIN_LOAD2:[^ ,]+]] = load float, float* %[[TMIN_P0]]
-; CHECK: %[[DIRECTION_LOAD2:[^ ,]+]] = load <3 x float>, <3 x float>* %[[DIRECTION_P0]]
-; CHECK: %[[TMAX_LOAD2:[^ ,]+]] = load float, float* %[[TMAX_P0]]
-
-; call TraceRay with the local allocas:
-; CHECK: call void @"dx.hl.op..void (i32, %dx.types.Handle, i32, i32, i32, i32, i32, <3 x float>, float, <3 x float>, float, %struct.Payload*)"(i32 69, %dx.types.Handle %[[RTAS]], i32 %{{[^ ,]+}}, i32 %{{[^ ,]+}}, i32 %{{[^ ,]+}}, i32 %{{[^ ,]+}}, i32 %{{[^ ,]+}}, <3 x float> %[[RAY_ORIGIN_LOAD2]], float %[[TMIN_LOAD2]], <3 x float> %[[DIRECTION_LOAD2]], float %[[TMAX_LOAD2]], %struct.Payload* %[[PLD_P0]])
-
-
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
@@ -63,9 +18,21 @@ target triple = "dxil-ms-dx"
 @"\01?MissShaderIndex@@3IB" = external constant i32, align 4
 @"$Globals" = external constant %"$Globals"
 
+; CHECK: define <4 x float> @"
+; CHECK-SAME: ?emit@@YA?AV?$vector@M$03@@AIAV?$vector@M$01@@URayDesc@@UPayload@@@Z"(<2 x float>* noalias dereferenceable(8) %f2, %struct.RayDesc* %Ray, %struct.Payload* noalias %p)
+
 ; Function Attrs: nounwind
 define <4 x float> @"\01?emit@@YA?AV?$vector@M$03@@AIAV?$vector@M$01@@URayDesc@@UPayload@@@Z"(<2 x float>* noalias dereferenceable(8) %f2, %struct.RayDesc* %Ray, %struct.Payload* noalias %p) #0 {
 entry:
+
+  ; Copy Payload fields (PLD_F0, PLD_F1) to local allocas:
+  ; CHECK: %[[GEP:[^ ,]+]] = getelementptr inbounds %struct.Payload, %struct.Payload* %p, i32 0, i32 0
+  ; CHECK: %[[LOAD:[^ ,]+]] = load <2 x float>, <2 x float>* %[[GEP]]
+  ; CHECK: store <2 x float> %[[LOAD]], <2 x float>* %[[PLD_F0:[^ ,]+]]
+  ; CHECK: %[[GEP:[^ ,]+]] = getelementptr inbounds %struct.Payload, %struct.Payload* %p, i32 0, i32 1
+  ; CHECK: %[[LOAD:[^ ,]+]] = load <3 x i32>, <3 x i32>* %[[GEP]]
+  ; CHECK: store <3 x i32> %[[LOAD]], <3 x i32>* %[[PLD_F1:[^ ,]+]]
+
   %0 = alloca %struct.RayDesc, !dbg !39 ; line:22 col:61
   %1 = bitcast %struct.RayDesc* %0 to i8*, !dbg !39 ; line:22 col:61
   %2 = bitcast %struct.RayDesc* %Ray to i8*, !dbg !39 ; line:22 col:61
@@ -85,8 +52,43 @@ entry:
   %15 = load i32, i32* %6, align 4, !dbg !50, !tbaa !43 ; line:20 col:16
   %16 = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?Acc@@3URaytracingAccelerationStructure@@A", !dbg !51 ; line:20 col:3
   %17 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RaytracingAccelerationStructure)"(i32 0, %struct.RaytracingAccelerationStructure %16), !dbg !51 ; line:20 col:3
+
+  ; CHECK: %[[RTAS:[^ ,]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %{{[^ ,]+}}, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef)
   %18 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %17, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef), !dbg !51 ; line:20 col:3
+
+  ; Copy RayDesc fields (Origin, TMin, Direction, TMax) to local allocas:
+  ; CHECK: %[[RAY_ORIGIN_GEP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %Ray, i32 0, i32 0
+  ; CHECK: %[[RAY_ORIGIN_LOAD:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RAY_ORIGIN_GEP]]
+  ; CHECK: store <3 x float> %[[RAY_ORIGIN_LOAD]], <3 x float>* %[[RAY_ORIGIN_P0:[^ ,]+]]
+  ; CHECK: %[[TMIN_GEP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %Ray, i32 0, i32 1
+  ; CHECK: %[[TMIN_LOAD:[^ ,]+]] = load float, float* %[[TMIN_GEP]]
+  ; CHECK: store float %[[TMIN_LOAD]], float* %[[TMIN_P0:[^ ,]+]]
+  ; CHECK: %[[DIRECTION_GEP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %Ray, i32 0, i32 2
+  ; CHECK: %[[DIRECTION_LOAD:[^ ,]+]] = load <3 x float>, <3 x float>* %[[DIRECTION_GEP]]
+  ; CHECK: store <3 x float> %[[DIRECTION_LOAD]], <3 x float>* %[[DIRECTION_P0:[^ ,]+]]
+  ; CHECK: %[[TMAX_GEP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %Ray, i32 0, i32 3
+  ; CHECK: %[[TMAX_LOAD:[^ ,]+]] = load float, float* %[[TMAX_GEP]]
+  ; CHECK: store float %[[TMAX_LOAD]], float* %[[TMAX_P0:[^ ,]+]]
+
+  ; Copy Payload fields into payload struct for call:
+  ; CHECK: %[[PLD_F0_GEP:[^ ,]+]] = getelementptr inbounds %struct.Payload, %struct.Payload* %[[PLD_P0:[^ ,]+]], i32 0, i32 0
+  ; CHECK: %[[PLD_F0_LOAD:[^ ,]+]] = load <2 x float>, <2 x float>* %[[PLD_F0]]
+  ; CHECK: store <2 x float> %[[PLD_F0_LOAD]], <2 x float>* %[[PLD_F0_GEP]]
+  ; CHECK: %[[PLD_F1_GEP:[^ ,]+]] = getelementptr inbounds %struct.Payload, %struct.Payload* %[[PLD_P0]], i32 0, i32 1
+  ; CHECK: %[[PLD_F1_LOAD:[^ ,]+]] = load <3 x i32>, <3 x i32>* %[[PLD_F1]]
+  ; CHECK: store <3 x i32> %[[PLD_F1_LOAD]], <3 x i32>* %[[PLD_F1_GEP]]
+
+  ; Load RayDesc fields:
+  ; CHECK: %[[RAY_ORIGIN_LOAD2:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RAY_ORIGIN_P0]]
+  ; CHECK: %[[TMIN_LOAD2:[^ ,]+]] = load float, float* %[[TMIN_P0]]
+  ; CHECK: %[[DIRECTION_LOAD2:[^ ,]+]] = load <3 x float>, <3 x float>* %[[DIRECTION_P0]]
+  ; CHECK: %[[TMAX_LOAD2:[^ ,]+]] = load float, float* %[[TMAX_P0]]
+
+  ; call TraceRay with the local allocas:
+  ; CHECK: call void @"dx.hl.op..void (i32, %dx.types.Handle, i32, i32, i32, i32, i32, <3 x float>, float, <3 x float>, float, %struct.Payload*)"(i32 69, %dx.types.Handle %[[RTAS]], i32 %{{[^ ,]+}}, i32 %{{[^ ,]+}}, i32 %{{[^ ,]+}}, i32 %{{[^ ,]+}}, i32 %{{[^ ,]+}}, <3 x float> %[[RAY_ORIGIN_LOAD2]], float %[[TMIN_LOAD2]], <3 x float> %[[DIRECTION_LOAD2]], float %[[TMAX_LOAD2]], %struct.Payload* %[[PLD_P0]])
+
   call void @"dx.hl.op..void (i32, %dx.types.Handle, i32, i32, i32, i32, i32, %struct.RayDesc*, %struct.Payload*)"(i32 69, %dx.types.Handle %18, i32 %15, i32 %14, i32 %13, i32 %12, i32 %11, %struct.RayDesc* %0, %struct.Payload* %p), !dbg !51 ; line:20 col:3
+
   ret <4 x float> <float 0x4004CCCCC0000000, float 0x4004CCCCC0000000, float 0x4004CCCCC0000000, float 0x4004CCCCC0000000>, !dbg !52 ; line:24 col:4
 }
 

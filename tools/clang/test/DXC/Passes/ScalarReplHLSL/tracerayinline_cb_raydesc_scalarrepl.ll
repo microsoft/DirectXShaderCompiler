@@ -2,39 +2,6 @@
 
 ; Based on tools/clang/test/CodeGenDXIL/hlsl/objects/RayQuery/tracerayinline_cb_raydesc.hlsl
 
-; Capture CB, RayDesc ptr from CB, RTAS, and init RayQuery
-; CHECK-DAG: %[[CB_H:[^ ,]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22$Globals\22)"(i32 14, %dx.types.Handle %{{[^ ,]+}}, %dx.types.ResourceProperties { i32 13, i32 32 }, %"$Globals" undef)
-; CHECK-DAG: %[[CB_PTR:[^ ,]+]] = call %"$Globals"* @"dx.hl.subscript.cb.rn.%\22$Globals\22* (i32, %dx.types.Handle, i32)"(i32 6, %dx.types.Handle %[[CB_H]], i32 0)
-; CHECK-DAG: %[[RAYDESC_PTR:[^ ,]+]] = getelementptr inbounds %"$Globals", %"$Globals"* %[[CB_PTR]], i32 0, i32 0
-; CHECK-DAG: %[[RTAS:[^ ,]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %{{[^ ,]+}}, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef)
-; CHECK-DAG: %[[RQ0:[^ ,]+]] = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 513, i32 0)
-; CHECK-DAG: store i32 %[[RQ0]], i32* %[[RQ_P0:[^ ,]+]]
-
-; Load RayDesc fields from CB to local copy
-; CHECK-DAG: %[[ORIG_CBP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %[[RAYDESC_PTR]], i32 0, i32 0
-; CHECK-DAG: %[[ORIG_LD_CB:[^ ,]+]] = load <3 x float>, <3 x float>* %[[ORIG_CBP]]
-; CHECK-DAG: store <3 x float> %[[ORIG_LD_CB]], <3 x float>* %[[ORIG_P0:[^ ,]+]]
-; CHECK-DAG: %[[TMIN_CBP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %[[RAYDESC_PTR]], i32 0, i32 1
-; CHECK-DAG: %[[TMIN_LD_CB:[^ ,]+]] = load float, float* %[[TMIN_CBP]]
-; CHECK-DAG: store float %[[TMIN_LD_CB]], float* %[[TMIN_P0:[^ ,]+]]
-; CHECK-DAG: %[[DIR_CBP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %[[RAYDESC_PTR]], i32 0, i32 2
-; CHECK-DAG: %[[DIR_LD_CB:[^ ,]+]] = load <3 x float>, <3 x float>* %[[DIR_CBP]]
-; CHECK-DAG: store <3 x float> %[[DIR_LD_CB]], <3 x float>* %[[DIR_P0:[^ ,]+]]
-; CHECK-DAG: %[[TMAX_CBP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %[[RAYDESC_PTR]], i32 0, i32 3
-; CHECK-DAG: %[[TMAX_LD_CB:[^ ,]+]] = load float, float* %[[TMAX_CBP]]
-; CHECK-DAG: store float %[[TMAX_LD_CB]], float* %[[TMAX_P0:[^ ,]+]]
-
-; Load RayDesc fields from local copy
-; CHECK-DAG: %[[ORIG:[^ ,]+]] = load <3 x float>, <3 x float>* %[[ORIG_P0]]
-; CHECK-DAG: %[[TMIN:[^ ,]+]] = load float, float* %[[TMIN_P0]]
-; CHECK-DAG: %[[DIR:[^ ,]+]] = load <3 x float>, <3 x float>* %[[DIR_P0]]
-; CHECK-DAG: %[[TMAX:[^ ,]+]] = load float, float* %[[TMAX_P0]]
-; CHECK-DAG: %[[RQ:[^ ,]+]] = load i32, i32* %[[RQ_P0]]
-
-; Call TraceRayInline
-; CHECK: call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 325, i32 %[[RQ]], %dx.types.Handle %[[RTAS]], i32 1, i32 2, <3 x float> %[[ORIG]], float %[[TMIN]], <3 x float> %[[DIR]], float %[[TMAX]])
-
-
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
@@ -53,16 +20,59 @@ target triple = "dxil-ms-dx"
 define void @main() #0 {
 entry:
   %0 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %\22$Globals\22*, i32)"(i32 0, %"$Globals"* @"$Globals", i32 0)
+
+  ; Capture CB, RayDesc ptr from CB, RTAS, and init RayQuery
+  ; CHECK-DAG: %[[CB_H:[^ ,]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22$Globals\22)"(i32 14, %dx.types.Handle %{{[^ ,]+}}, %dx.types.ResourceProperties { i32 13, i32 32 }, %"$Globals" undef)
+
   %1 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22$Globals\22)"(i32 14, %dx.types.Handle %0, %dx.types.ResourceProperties { i32 13, i32 32 }, %"$Globals" undef)
+
+  ; CHECK-DAG: %[[CB_PTR:[^ ,]+]] = call %"$Globals"* @"dx.hl.subscript.cb.rn.%\22$Globals\22* (i32, %dx.types.Handle, i32)"(i32 6, %dx.types.Handle %[[CB_H]], i32 0)
+
   %2 = call %"$Globals"* @"dx.hl.subscript.cb.rn.%\22$Globals\22* (i32, %dx.types.Handle, i32)"(i32 6, %dx.types.Handle %1, i32 0)
+
+  ; CHECK-DAG: %[[RAYDESC_PTR:[^ ,]+]] = getelementptr inbounds %"$Globals", %"$Globals"* %[[CB_PTR]], i32 0, i32 0
+
   %3 = getelementptr inbounds %"$Globals", %"$Globals"* %2, i32 0, i32 0
+
+  ; CHECK-DAG: %[[RQ0:[^ ,]+]] = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 513, i32 0)
+  ; CHECK-DAG: store i32 %[[RQ0]], i32* %[[RQ_P0:[^ ,]+]]
+
   %rayQuery = alloca %"class.RayQuery<513, 0>", align 4
   %rayQuery1 = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 513, i32 0), !dbg !34 ; line:12 col:71
   %4 = getelementptr inbounds %"class.RayQuery<513, 0>", %"class.RayQuery<513, 0>"* %rayQuery, i32 0, i32 0, !dbg !34 ; line:12 col:71
   store i32 %rayQuery1, i32* %4, !dbg !34 ; line:12 col:71
+
   %5 = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", !dbg !38 ; line:13 col:3
   %6 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RaytracingAccelerationStructure)"(i32 0, %struct.RaytracingAccelerationStructure %5), !dbg !38 ; line:13 col:3
+
+  ; CHECK-DAG: %[[RTAS:[^ ,]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %{{[^ ,]+}}, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef)
+
   %7 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %6, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef), !dbg !38 ; line:13 col:3
+
+  ; Load RayDesc fields from CB to local copy
+  ; CHECK-DAG: %[[ORIG_CBP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %[[RAYDESC_PTR]], i32 0, i32 0
+  ; CHECK-DAG: %[[ORIG_LD_CB:[^ ,]+]] = load <3 x float>, <3 x float>* %[[ORIG_CBP]]
+  ; CHECK-DAG: store <3 x float> %[[ORIG_LD_CB]], <3 x float>* %[[ORIG_P0:[^ ,]+]]
+  ; CHECK-DAG: %[[TMIN_CBP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %[[RAYDESC_PTR]], i32 0, i32 1
+  ; CHECK-DAG: %[[TMIN_LD_CB:[^ ,]+]] = load float, float* %[[TMIN_CBP]]
+  ; CHECK-DAG: store float %[[TMIN_LD_CB]], float* %[[TMIN_P0:[^ ,]+]]
+  ; CHECK-DAG: %[[DIR_CBP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %[[RAYDESC_PTR]], i32 0, i32 2
+  ; CHECK-DAG: %[[DIR_LD_CB:[^ ,]+]] = load <3 x float>, <3 x float>* %[[DIR_CBP]]
+  ; CHECK-DAG: store <3 x float> %[[DIR_LD_CB]], <3 x float>* %[[DIR_P0:[^ ,]+]]
+  ; CHECK-DAG: %[[TMAX_CBP:[^ ,]+]] = getelementptr inbounds %struct.RayDesc, %struct.RayDesc* %[[RAYDESC_PTR]], i32 0, i32 3
+  ; CHECK-DAG: %[[TMAX_LD_CB:[^ ,]+]] = load float, float* %[[TMAX_CBP]]
+  ; CHECK-DAG: store float %[[TMAX_LD_CB]], float* %[[TMAX_P0:[^ ,]+]]
+
+  ; Load RayDesc fields from local copy
+  ; CHECK-DAG: %[[ORIG:[^ ,]+]] = load <3 x float>, <3 x float>* %[[ORIG_P0]]
+  ; CHECK-DAG: %[[TMIN:[^ ,]+]] = load float, float* %[[TMIN_P0]]
+  ; CHECK-DAG: %[[DIR:[^ ,]+]] = load <3 x float>, <3 x float>* %[[DIR_P0]]
+  ; CHECK-DAG: %[[TMAX:[^ ,]+]] = load float, float* %[[TMAX_P0]]
+  ; CHECK-DAG: %[[RQ:[^ ,]+]] = load i32, i32* %[[RQ_P0]]
+
+  ; Call TraceRayInline
+  ; CHECK: call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 325, i32 %[[RQ]], %dx.types.Handle %[[RTAS]], i32 1, i32 2, <3 x float> %[[ORIG]], float %[[TMIN]], <3 x float> %[[DIR]], float %[[TMAX]])
+
   call void @"dx.hl.op..void (i32, %\22class.RayQuery<513, 0>\22*, %dx.types.Handle, i32, i32, %struct.RayDesc*)"(i32 325, %"class.RayQuery<513, 0>"* %rayQuery, %dx.types.Handle %7, i32 1, i32 2, %struct.RayDesc* %3), !dbg !38 ; line:13 col:3
   ret void, !dbg !39 ; line:14 col:1
 }

@@ -3,52 +3,6 @@
 ; Based on tools/clang/test/CodeGenDXIL/hlsl/objects/RayQuery/tracerayinline.hlsl,
 ; with call to DoTrace commented out.
 
-; CHECK: define void @main(float* noalias, <3 x float>, float, <3 x float>, float)
-
-; Copy flattened RayDesc input to main function
-; RayDesc fields: %1: Origin, %2: TMin, %3: Direction, %4: TMax
-; CHECK: store float %4, float* %[[RD3_P0:[^ ,]+]]
-; CHECK: store <3 x float> %3, <3 x float>* %[[RD2_P0:[^ ,]+]]
-; CHECK: store float %2, float* %[[RD1_P0:[^ ,]+]]
-; CHECK: store <3 x float> %1, <3 x float>* %[[RD0_P0:[^ ,]+]]
-
-; Copy RayDesc fields again
-; CHECK: %[[LOAD:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RD0_P0]]
-; CHECK: store <3 x float> %[[LOAD]], <3 x float>* %[[RD0_P1:[^ ,]+]]
-; CHECK: %[[LOAD:[^ ,]+]] = load float, float* %[[RD1_P0]]
-; CHECK: store float %[[LOAD]], float* %[[RD1_P1:[^ ,]+]]
-; CHECK: %[[LOAD:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RD2_P0]]
-; CHECK: store <3 x float> %[[LOAD]], <3 x float>* %[[RD2_P1:[^ ,]+]]
-; CHECK: %[[LOAD:[^ ,]+]] = load float, float* %[[RD3_P0]]
-; CHECK: store float %[[LOAD]], float* %[[RD3_P1:[^ ,]+]]
-
-; Capture RayQuery ptr and RTAS handle
-; CHECK: %[[RQ0:[^ ]+]] = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 513, i32 0)
-; CHECK: store i32 %[[RQ0]], i32* %[[RQ_P0:[^ ,]+]]
-; CHECK: %[[RTAS:[^ ,]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %{{[^ ,]+}}, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef)
-
-; Copy RayDesc fields again
-; CHECK: %[[LOAD:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RD0_P1]]
-; CHECK: store <3 x float> %[[LOAD]], <3 x float>* %[[RD0_P2:[^ ,]+]]
-; CHECK: %[[LOAD:[^ ,]+]] = load float, float* %[[RD1_P1]]
-; CHECK: store float %[[LOAD]], float* %[[RD1_P2:[^ ,]+]]
-; CHECK: %[[LOAD:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RD2_P1]]
-; CHECK: store <3 x float> %[[LOAD]], <3 x float>* %[[RD2_P2:[^ ,]+]]
-; CHECK: %[[LOAD:[^ ,]+]] = load float, float* %[[RD3_P1]]
-; CHECK: store float %[[LOAD]], float* %[[RD3_P2:[^ ,]+]]
-
-; Load RayDesc fields for TraceRayInline
-; CHECK: %[[RD0:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RD0_P2]]
-; CHECK: %[[RD1:[^ ,]+]] = load float, float* %[[RD1_P2]]
-; CHECK: %[[RD2:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RD2_P2]]
-; CHECK: %[[RD3:[^ ,]+]] = load float, float* %[[RD3_P2]]
-
-; Load RayQuery
-; CHECK: %[[RQ:[^ ,]+]] = load i32, i32* %[[RQ_P0]]
-
-; TraceRayInline call
-; CHECK: call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 325, i32 %[[RQ]], %dx.types.Handle %[[RTAS]], i32 1, i32 2, <3 x float> %[[RD0]], float %[[RD1]], <3 x float> %[[RD2]], float %[[RD3]])
-
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
@@ -62,13 +16,39 @@ target triple = "dxil-ms-dx"
 @"\01?RTAS@@3URaytracingAccelerationStructure@@A" = external global %struct.RaytracingAccelerationStructure, align 4
 @"$Globals" = external constant %ConstantBuffer
 
+; CHECK: define void @main(float* noalias, <3 x float>, float, <3 x float>, float)
+
 ; Function Attrs: nounwind
 define float @main(%struct.RayDesc* %rayDesc) #0 {
 entry:
   %0 = alloca %struct.RayDesc
+
+  ; Copy flattened RayDesc input to main function
+  ; RayDesc fields: %1: Origin, %2: TMin, %3: Direction, %4: TMax
+  ; CHECK: store float %4, float* %[[RD3_P0:[^ ,]+]]
+  ; CHECK: store <3 x float> %3, <3 x float>* %[[RD2_P0:[^ ,]+]]
+  ; CHECK: store float %2, float* %[[RD1_P0:[^ ,]+]]
+  ; CHECK: store <3 x float> %1, <3 x float>* %[[RD0_P0:[^ ,]+]]
+
+  ; Copy RayDesc fields again
+  ; CHECK: %[[LOAD:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RD0_P0]]
+  ; CHECK: store <3 x float> %[[LOAD]], <3 x float>* %[[RD0_P1:[^ ,]+]]
+  ; CHECK: %[[LOAD:[^ ,]+]] = load float, float* %[[RD1_P0]]
+  ; CHECK: store float %[[LOAD]], float* %[[RD1_P1:[^ ,]+]]
+  ; CHECK: %[[LOAD:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RD2_P0]]
+  ; CHECK: store <3 x float> %[[LOAD]], <3 x float>* %[[RD2_P1:[^ ,]+]]
+  ; CHECK: %[[LOAD:[^ ,]+]] = load float, float* %[[RD3_P0]]
+  ; CHECK: store float %[[LOAD]], float* %[[RD3_P1:[^ ,]+]]
+
   %1 = bitcast %struct.RayDesc* %0 to i8*
   %2 = bitcast %struct.RayDesc* %rayDesc to i8*
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %1, i8* %2, i64 32, i32 1, i1 false)
+
+  ; Capture RayQuery ptr and RTAS handle
+  ; CHECK: %[[RQ0:[^ ]+]] = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 513, i32 0)
+  ; CHECK: store i32 %[[RQ0]], i32* %[[RQ_P0:[^ ,]+]]
+  ; CHECK: %[[RTAS:[^ ,]+]] = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %{{[^ ,]+}}, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef)
+
   %rayQuery = alloca %"class.RayQuery<513, 0>", align 4
   %rayQuery1 = call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 513, i32 0), !dbg !35 ; line:15 col:71
   %3 = getelementptr inbounds %"class.RayQuery<513, 0>", %"class.RayQuery<513, 0>"* %rayQuery, i32 0, i32 0, !dbg !35 ; line:15 col:71
@@ -76,6 +56,29 @@ entry:
   %4 = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", !dbg !39 ; line:17 col:3
   %5 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RaytracingAccelerationStructure)"(i32 0, %struct.RaytracingAccelerationStructure %4), !dbg !39 ; line:17 col:3
   %6 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure undef), !dbg !39 ; line:17 col:3
+
+  ; Copy RayDesc fields again
+  ; CHECK: %[[LOAD:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RD0_P1]]
+  ; CHECK: store <3 x float> %[[LOAD]], <3 x float>* %[[RD0_P2:[^ ,]+]]
+  ; CHECK: %[[LOAD:[^ ,]+]] = load float, float* %[[RD1_P1]]
+  ; CHECK: store float %[[LOAD]], float* %[[RD1_P2:[^ ,]+]]
+  ; CHECK: %[[LOAD:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RD2_P1]]
+  ; CHECK: store <3 x float> %[[LOAD]], <3 x float>* %[[RD2_P2:[^ ,]+]]
+  ; CHECK: %[[LOAD:[^ ,]+]] = load float, float* %[[RD3_P1]]
+  ; CHECK: store float %[[LOAD]], float* %[[RD3_P2:[^ ,]+]]
+
+  ; Load RayDesc fields for TraceRayInline
+  ; CHECK: %[[RD0:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RD0_P2]]
+  ; CHECK: %[[RD1:[^ ,]+]] = load float, float* %[[RD1_P2]]
+  ; CHECK: %[[RD2:[^ ,]+]] = load <3 x float>, <3 x float>* %[[RD2_P2]]
+  ; CHECK: %[[RD3:[^ ,]+]] = load float, float* %[[RD3_P2]]
+
+  ; Load RayQuery
+  ; CHECK: %[[RQ:[^ ,]+]] = load i32, i32* %[[RQ_P0]]
+
+  ; TraceRayInline call
+  ; CHECK: call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 325, i32 %[[RQ]], %dx.types.Handle %[[RTAS]], i32 1, i32 2, <3 x float> %[[RD0]], float %[[RD1]], <3 x float> %[[RD2]], float %[[RD3]])
+
   call void @"dx.hl.op..void (i32, %\22class.RayQuery<513, 0>\22*, %dx.types.Handle, i32, i32, %struct.RayDesc*)"(i32 325, %"class.RayQuery<513, 0>"* %rayQuery, %dx.types.Handle %6, i32 1, i32 2, %struct.RayDesc* %0), !dbg !39 ; line:17 col:3
   ret float 0.000000e+00, !dbg !40 ; line:18 col:3
 }
