@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_9 -DTYPE=HitStruct -verify %s
+// RUN: %dxc -T lib_6_9 -DTYPE=HitStructSub -verify %s
 
 
 
@@ -78,12 +78,15 @@ RWByteAddressBuffer rw_bab;
 void main()
 {
   bab.Load<TYPE>(0);
-   // expected-error@-1{{Explicit template arguments on intrinsic Load must be a single numeric type}}
+   // expected-error@-1{{object 'dx::HitObject' is not allowed in builtin template parameters}}
+   // expected-note@16{{'dx::HitObject' field declared here}}
    rw_bab.Load<TYPE>(0);
-   // expected-error@-1{{Explicit template arguments on intrinsic Load must be a single numeric type}}
+   // expected-error@-1{{object 'dx::HitObject' is not allowed in builtin template parameters}}
+   // expected-note@16{{'dx::HitObject' field declared here}}
    TYPE val;
    rw_bab.Store<TYPE>(0, val);
-   // expected-error@-1{{Explicit template arguments on intrinsic Store must be a single numeric type}}
+   // expected-error@-1{{object 'dx::HitObject' is not allowed in builtin template parameters}}
+   // expected-note@16{{'dx::HitObject' field declared here}}
 }
 
 [shader("pixel")]
@@ -209,12 +212,10 @@ void raygen() {
 [shader("closesthit")]
 void closesthit(
     inout RTTYPE payload,
-    // expected-error@-1{{payload parameter 'payload' must be a user-defined type composed of only numeric types}}
-    // expected-error@-2{{object 'dx::HitObject' is not allowed in entry function parameters}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
     in RTTYPE attribs) {
-    // expected-error@-1{{attributes parameter 'attribs' must be a user-defined type composed of only numeric types}}
-    // expected-error@-2{{object 'dx::HitObject' is not allowed in entry function parameters}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
   RayDesc ray;
   TraceRay( RTAS, RAY_FLAG_NONE, 0xff, 0, 1, 0, ray, payload );
@@ -228,12 +229,10 @@ void closesthit(
 [shader("anyhit")]
 void AnyHit(
     inout RTTYPE payload, 
-    // expected-error@-1{{payload parameter 'payload' must be a user-defined type composed of only numeric types}}
-    // expected-error@-2{{object 'dx::HitObject' is not allowed in entry function parameters}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
     in RTTYPE attribs)
-    // expected-error@-1{{attributes parameter 'attribs' must be a user-defined type composed of only numeric types}}
-    // expected-error@-2{{object 'dx::HitObject' is not allowed in entry function parameters}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
 {
 }
@@ -241,8 +240,7 @@ void AnyHit(
 [shader("miss")]
 void Miss(
     inout RTTYPE payload){
-    // expected-error@-1{{payload parameter 'payload' must be a user-defined type composed of only numeric types}}
-    // expected-error@-2{{object 'dx::HitObject' is not allowed in entry function parameters}}
+    // expected-error@-1{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
   RayDesc ray;
   TraceRay( RTAS, RAY_FLAG_NONE, 0xff, 0, 1, 0, ray, payload ); 
@@ -267,7 +265,6 @@ void callable1(
     inout RTTYPE p) { 
     // expected-error@-1{{object 'dx::HitObject' is not allowed in entry function parameters}}
     // expected-note@16{{'dx::HitObject' field declared here}}
-    // expected-error@-3{{callable parameter 'p' must be a user-defined type composed of only numeric types}}
   CallShader(0, p); 
   // expected-error@-1{{object 'dx::HitObject' is not allowed in user-defined struct parameter}}
   // expected-note@16{{'dx::HitObject' field declared here}}
