@@ -1,5 +1,5 @@
 // RUN: %dxc -T lib_6_9 -DTYPE=HitStruct -verify %s
-
+// RUN: %dxc -T lib_6_9 -DTYPE=HitStructSub -verify %s
 
 
 #define PASTE_(x,y) x##y
@@ -77,7 +77,7 @@ RWByteAddressBuffer rw_bab;
 [Shader("raygeneration")]
 void main()
 {
-  bab.Load<TYPE>(0);
+   bab.Load<TYPE>(0);
    // expected-error@-1{{Explicit template arguments on intrinsic Load must be a single numeric type}}
    rw_bab.Load<TYPE>(0);
    // expected-error@-1{{Explicit template arguments on intrinsic Load must be a single numeric type}}
