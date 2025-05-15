@@ -494,7 +494,6 @@ DXIL::NodeIOKind GetNodeIOType(clang::QualType type);
 
 bool IsHLSLStructuredBufferType(clang::QualType type);
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type);
-bool IsHLSLNumericUserDefinedType(clang::QualType type);
 bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT);
 bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT);
 bool IsHLSLAggregateType(clang::QualType type);
