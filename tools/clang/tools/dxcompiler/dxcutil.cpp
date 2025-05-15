@@ -60,8 +60,8 @@ bool CreateValidator(CComPtr<IDxcValidator> &pValidator) {
     return true;
   }
 
-  // otherwise, use the external validator provided by the dxil_dll_path
-  // argument
+  // otherwise, use the external validator provided by
+  // the environment variable
   else {
     // this code loads the dll path on an as-needed basis.
     // if a request to initialize the dxil lib arrives more than once

@@ -194,25 +194,28 @@ void WriteOperationResultToConsole(IDxcOperationResult *pRewriteResult,
                                    bool outputWarnings);
 
 class DxcDllExtValidationSupport : public DxcDllSupport {
-  // this instance of DxcDllSupport manages the lifetime of
-  // dxil.dll
+  // DxcDllExtValidationSupport manages the
+  // lifetime of dxcompiler.dll, while the member, m_DxilSupport,
+  // manages the lifetime of dxil.dll
   DxcDllSupport *m_DxilSupport = nullptr;
 
   std::string DxilDLLPathExt = "";
-  bool InitializationSuccess = false;
+  bool ExternalDxilDLLInitializationSuccess = false;
   // override DxcDllSupport's implementation of InitializeInternal,
   // adding the environment variable value check for a path to a dxil.dll
   // for external validation
   HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName){
 
     // Load dxcompiler.dll
-    HRESULT result = m_DxilSupport->InitializeForDll(dllName, fnName);
-    InitializationSuccess = DXC_FAILED(result) ? false : true;
-    if (!InitializationSuccess){
+    HRESULT result = InitializeForDll(dllName, fnName);
+    // if dxcompiler.dll fails to load, then we won't try loading dxil.dll,
+    // so set this boolean to false.
+    ExternalDxilDLLInitializationSuccess = DXC_FAILED(result) ? false : true;
+    if (!ExternalDxilDLLInitializationSuccess) {
       return result;
     }
 
-    // now handle internal or external dxil.dll
+    // now handle external dxil.dll
     const char *envVal = std::getenv("DXC_DXIL_DLL_PATH");
     bool ValidateInternally = false;
     if (!envVal || std::string(envVal).empty()) {
@@ -226,18 +229,23 @@ class DxcDllExtValidationSupport : public DxcDllSupport {
 
       // Check if path is absolute and exists
       if (!DllPath.is_absolute() || !std::filesystem::exists(DllPath)) {
-        InitializationSuccess = false;
+        ExternalDxilDLLInitializationSuccess = false;
         // TODO: Ideally emit some diagnostic that the given absolute path doesn't exist
         return HRESULT_FROM_WIN32(GetLastError());
       }
       result = m_DxilSupport->InitializeForDll(DllPathStr.data(), fnName);
       if (DXC_FAILED(result)) {
-        InitializationSuccess = false;
+        ExternalDxilDLLInitializationSuccess = false;
+        return result;
       }
+      ExternalDxilDLLInitializationSuccess = true;
+    } else {
+      // nothing to do if we are validating internally, dxcompiler.dll
+      // is loaded and it'll take care of validation.
+      // No external dxil.dll will be loaded in this case
+      ExternalDxilDLLInitializationSuccess = false;
     }
-    // nothing to do if we are validating internally, dxcompiler.dll
-    // is loaded and it'll take care of validation.
-    return InitializationSuccess;
+    return S_OK;
   }
 
   std::string GetDxilDLLPathExt() { return DxilDLLPathExt; }
