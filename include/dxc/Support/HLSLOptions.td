@@ -317,8 +317,6 @@ def print_before_all : Flag<["-", "/"], "print-before-all">, Group<hlslcomp_Grou
   HelpText<"Print LLVM IR before each pass.">;
 def print_before : Separate<["-", "/"], "print-before">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR before a specific pass. May be specificied multiple times.">;
-def dxil_dll_path : Separate<["-", "/"], "dxil-dll-path">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
-  HelpText<"Specify an absolute path to a DXIL.dll file to set the metadata version and validate the DXIL output.">;
 def print_after_all : Flag<["-", "/"], "print-after-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR after each pass.">;
 def print_after : Separate<["-", "/"], "print-after">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,

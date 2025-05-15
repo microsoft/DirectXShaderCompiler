@@ -50,11 +50,12 @@ namespace {
 // AssembleToContainer helper functions.
 
 // return true if the internal validator was used, false otherwise
-bool CreateValidator(CComPtr<IDxcValidator> &pValidator,
-                     std::string DxilDLLPath = "") {
+bool CreateValidator(CComPtr<IDxcValidator> &pValidator) {
 
   // default behavior uses internal validator
-  if (DxilDLLPath == "") {
+  // TODO: Check if environment variable is set, if so,
+  // use external validator
+  if (true) {
     IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
     return true;
   }
@@ -65,8 +66,7 @@ bool CreateValidator(CComPtr<IDxcValidator> &pValidator,
     // this code loads the dll path on an as-needed basis.
     // if a request to initialize the dxil lib arrives more than once
     // then DxilLibInitialize does nothing.
-    IFT(DxilLibInitialize(DxilDLLPath));
-    IFTBOOL(DxilLibIsEnabled(DxilDLLPath), DXC_E_VALIDATOR_MISSING);
+    IFTBOOL(DxilLibIsEnabled(), DXC_E_VALIDATOR_MISSING);
     IFT(DxilLibCreateInstance(CLSID_DxcValidator, &pValidator));
 
     return false;
@@ -86,23 +86,20 @@ AssembleInputs::AssembleInputs(
     uint32_t ValidationFlags, llvm::StringRef DebugName,
     clang::DiagnosticsEngine *pDiag, hlsl::DxilShaderHash *pShaderHashOut,
     AbstractMemoryStream *pReflectionOut, AbstractMemoryStream *pRootSigOut,
-    CComPtr<IDxcBlob> pRootSigBlob, CComPtr<IDxcBlob> pPrivateBlob,
-    std::string DxilDLLPath)
+    CComPtr<IDxcBlob> pRootSigBlob, CComPtr<IDxcBlob> pPrivateBlob)
     : pM(std::move(pM)), pOutputContainerBlob(pOutputContainerBlob),
       pMalloc(pMalloc), SerializeFlags(SerializeFlags),
       ValidationFlags(ValidationFlags), pModuleBitcode(pModuleBitcode),
       DebugName(DebugName), pDiag(pDiag), pShaderHashOut(pShaderHashOut),
       pReflectionOut(pReflectionOut), pRootSigOut(pRootSigOut),
-      pRootSigBlob(pRootSigBlob), pPrivateBlob(pPrivateBlob),
-      DxilDLLPath(DxilDLLPath) {}
+      pRootSigBlob(pRootSigBlob), pPrivateBlob(pPrivateBlob) {}
 
-void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor,
-                         std::string DxilDLLPath) {
+void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
   if (pMajor == nullptr || pMinor == nullptr)
     return;
 
   CComPtr<IDxcValidator> pValidator;
-  CreateValidator(pValidator, DxilDLLPath);
+  CreateValidator(pValidator);
 
   CComPtr<IDxcVersionInfo> pVersionInfo;
   if (SUCCEEDED(pValidator.QueryInterface(&pVersionInfo))) {
@@ -112,7 +109,6 @@ void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor,
     *pMajor = 1;
     *pMinor = 0;
   }
-  return;
 }
 
 void AssembleToContainer(AssembleInputs &inputs) {
@@ -175,14 +171,7 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   std::unique_ptr<llvm::Module> llvmModuleWithDebugInfo;
 
   CComPtr<IDxcValidator> pValidator;
-  bool bInternalValidator = CreateValidator(pValidator, inputs.DxilDLLPath);
-  // Warning on external Validator
-  if (!bInternalValidator) {
-    unsigned diagID =
-        inputs.pDiag->getCustomDiagID(clang::DiagnosticsEngine::Level::Warning,
-                                      "External validator loaded at %0");
-    inputs.pDiag->Report(diagID) << inputs.DxilDLLPath;
-  }
+  bool bInternalValidator = CreateValidator(pValidator);
 
   CComPtr<IDxcValidator2> pValidator2;
   if (!bInternalValidator) {
@@ -276,12 +265,11 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
 }
 
 HRESULT ValidateRootSignatureInContainer(IDxcBlob *pRootSigContainer,
-                                         clang::DiagnosticsEngine *pDiag,
-                                         std::string DxilDLLPath) {
+                                         clang::DiagnosticsEngine *pDiag) {
   HRESULT valHR = S_OK;
   CComPtr<IDxcValidator> pValidator;
   CComPtr<IDxcOperationResult> pValResult;
-  CreateValidator(pValidator, DxilDLLPath);
+  CreateValidator(pValidator);
   IFT(pValidator->Validate(pRootSigContainer,
                            DxcValidatorFlags_RootSignatureOnly |
                                DxcValidatorFlags_InPlaceEdit,
