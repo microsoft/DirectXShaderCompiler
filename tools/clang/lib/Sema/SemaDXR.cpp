@@ -827,15 +827,16 @@ void DiagnoseBuiltinCallWithPayload(Sema &S, const VarDecl *Payload,
   }
 
   // Verify that the payload type is legal
-  if (!hlsl::IsHLSLCopyableAnnotatableRecord(Payload->getType())) {
+  if (!hlsl::IsHLSLCopyableAnnotatableRecord(Payload->getType()))
     S.Diag(Payload->getLocation(), diag::err_payload_attrs_must_be_udt)
         << /*payload|attributes|callable*/ 0 << /*parameter %2|type*/ 0
         << Payload;
-    const TypeDiagContext DiagContext = TypeDiagContext::PayloadParameters;
-    DiagnoseTypeElements(S, Payload->getLocation(), Payload->getType(),
-                         DiagContext, DiagContext);
+
+  // This will produce more details, but also catch disallowed long vectors
+  const TypeDiagContext DiagContext = TypeDiagContext::PayloadParameters;
+  if (DiagnoseTypeElements(S, Payload->getLocation(), Payload->getType(),
+                           DiagContext, DiagContext))
     return;
-  }
 
   CollectNonAccessableFields(PayloadType, CallerStage, {}, {},
                              NonWriteableFields, NonReadableFields);

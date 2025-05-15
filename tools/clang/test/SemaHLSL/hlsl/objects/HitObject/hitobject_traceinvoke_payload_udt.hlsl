@@ -4,13 +4,16 @@ struct
 [raypayload]
 Payload
 {
-    int a : read(caller, closesthit, miss) : write(caller, closesthit, miss);
+    int a : read(closesthit, miss) : write(anyhit);
     dx::HitObject hit;
 };
 
-struct Attribs
+struct
+[raypayload]
+PayloadLV
 {
-    float2 barys;
+    int a : read(closesthit, miss) : write(anyhit);
+    vector<float, 5> b : read(closesthit, miss) : write(anyhit);
 };
 
 [shader("raygeneration")]
@@ -21,4 +24,8 @@ void RayGen()
   // expected-note@8{{'dx::HitObject' field declared here}}
   Payload payload_in_rg;
   dx::HitObject::Invoke( dx::HitObject(), payload_in_rg );
+
+  // expected-error@+1{{vectors of over 4 elements in payload parameters are not supported}}
+  PayloadLV payload_with_lv;
+  dx::HitObject::Invoke( dx::HitObject(), payload_with_lv );
 }
