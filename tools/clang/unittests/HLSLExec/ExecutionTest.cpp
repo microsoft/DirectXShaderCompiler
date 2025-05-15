@@ -13749,8 +13749,6 @@ void ExecutionTest::runCoopVecVectorAccumulateSubtest(
     VERIFY_SUCCEEDED(
         D3DDevice->CreateDescriptorHeap(&Desc, IID_PPV_ARGS(&DescriptorHeap)));
   }
-  CD3DX12_CPU_DESCRIPTOR_HANDLE BaseHandle(
-      DescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
   // Create input vectors
   auto InputVector = CoopVecHelpers::TestVector::createSimpleTestVector(
@@ -13928,6 +13926,9 @@ float4 ps_main() : SV_Target {
       CD3DX12_RESOURCE_DESC::Buffer(InputVector.getTotalBytes()),
       &InputVecSRVResource, &InputVecSRVUploadResource);
 
+  CD3DX12_CPU_DESCRIPTOR_HANDLE BaseHandle(
+      DescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+
   // This increments baseHandle
   CreateRawSRV(D3DDevice, BaseHandle,
                static_cast<UINT>(InputVector.getTotalBytes() / sizeof(int32_t)),
@@ -14032,7 +14033,6 @@ float4 ps_main() : SV_Target {
         static_cast<UINT>(AccumulationVector.getTotalBytes()));
 
     void *ResultBuffer = MappedData.data();
-    bool Equal = true;
 
     for (size_t i = 0; i < Config.VecSize; i++) {
       float Result = 0.0f;
@@ -14055,11 +14055,9 @@ float4 ps_main() : SV_Target {
           fabs(Result - Expected) > 0.00001) {
         LogErrorFmt(L"Result mismatch at index %zu", i);
         LogErrorFmt(L"Result: %f, Expected: %f", Result, Expected);
-        Equal = false;
         break;
       }
     }
-    VERIFY_IS_TRUE(Equal);
   }
 }
 #endif // HAVE_COOPVEC_API
