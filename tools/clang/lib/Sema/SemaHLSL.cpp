@@ -10947,13 +10947,12 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
         if (!IsLegalTemplate) {
           getSema()->Diag(Loc, diag::err_hlsl_intrinsic_template_arg_numeric)
               << intrinsicName;
+          DiagnoseTypeElements(
+              *getSema(), Loc, functionTemplateTypeArg,
+              TypeDiagContext::TypeParameter /*ObjDiagContext*/,
+              TypeDiagContext::Valid /*LongVecDiagContext*/);
           return Sema::TemplateDeductionResult::TDK_Invalid;
         }
-        if (DiagnoseTypeElements(
-                *getSema(), Loc, functionTemplateTypeArg,
-                TypeDiagContext::TypeParameter /*ObjDiagContext*/,
-                TypeDiagContext::Valid /*LongVecDiagContext*/))
-          return Sema::TemplateDeductionResult::TDK_Invalid;
       }
       if (IsHitObjectGetAttributes &&
           !DiagnoseIntersectionAttributes(*getSema(), Loc,

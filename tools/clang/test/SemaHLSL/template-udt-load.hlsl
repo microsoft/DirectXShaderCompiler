@@ -8,6 +8,8 @@ RWBuffer<float> Out;
 [numthreads(1,1,1)]
 void main()
 { 
-  RWBuffer<float> FB = In.Load<RWBuffer<float> >(0); // expected-error {{Explicit template arguments on intrinsic Load must be a single numeric type}}
+  RWBuffer<float> FB = In.Load<RWBuffer<float> >(0);
+  // expected-error@-1{{Explicit template arguments on intrinsic Load must be a single numeric type}}
+  // expected-error@-2{{object 'RWBuffer<float>' is not allowed in builtin template parameters}}
   Out[0] = FB[0];
 }

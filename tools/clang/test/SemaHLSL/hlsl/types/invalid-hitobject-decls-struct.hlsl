@@ -77,13 +77,19 @@ RWByteAddressBuffer rw_bab;
 [Shader("raygeneration")]
 void main()
 {
-   bab.Load<TYPE>(0);
-   // expected-error@-1{{Explicit template arguments on intrinsic Load must be a single numeric type}}
-   rw_bab.Load<TYPE>(0);
-   // expected-error@-1{{Explicit template arguments on intrinsic Load must be a single numeric type}}
-   TYPE val;
-   rw_bab.Store<TYPE>(0, val);
-   // expected-error@-1{{Explicit template arguments on intrinsic Store must be a single numeric type}}
+  bab.Load<TYPE>(0);
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in builtin template parameters}}
+  // expected-note@16{{'dx::HitObject' field declared here}}
+  // expected-error@-3{{Explicit template arguments on intrinsic Load must be a single numeric type}}
+  rw_bab.Load<TYPE>(0);
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in builtin template parameters}}
+  // expected-note@16{{'dx::HitObject' field declared here}}
+  // expected-error@-3{{Explicit template arguments on intrinsic Load must be a single numeric type}}
+  TYPE val;
+  rw_bab.Store<TYPE>(0, val);
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in builtin template parameters}}
+  // expected-note@16{{'dx::HitObject' field declared here}}
+  // expected-error@-3{{Explicit template arguments on intrinsic Store must be a single numeric type}}
 }
 
 [shader("pixel")]

@@ -16,6 +16,7 @@ struct Attribs
 [shader("raygeneration")]
 void RayGen()
 {
+  // expected-error@+3{{payload parameter 'payload_in_rg' must be a user-defined type composed of only numeric types}}
   // expected-error@+2{{object 'dx::HitObject' is not allowed in payload parameters}}
   // expected-note@8{{'dx::HitObject' field declared here}}
   Payload payload_in_rg;
