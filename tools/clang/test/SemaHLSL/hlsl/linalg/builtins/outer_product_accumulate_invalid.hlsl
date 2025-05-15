@@ -8,7 +8,7 @@ ByteAddressBuffer input_vector_buffer;
 RWByteAddressBuffer accumulate_buffer;
 ByteAddressBuffer constants_buffer;
 
-// Check ofr input vectors aren't the same component type
+// Check if input vectors aren't the same component type
 void test_invalid_input_vector_component_type() {
 
   const uint matrix_offset = 0;
