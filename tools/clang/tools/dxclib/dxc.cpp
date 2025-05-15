@@ -1448,6 +1448,7 @@ int dxc::main(int argc, const char **argv_) {
       SetUnhandledExceptionFilter(ExceptionFilter);
 #endif
 
+    // Setup a helper DLL.
     {
       std::string dllErrorString;
       llvm::raw_string_ostream dllErrorStream(dllErrorString);

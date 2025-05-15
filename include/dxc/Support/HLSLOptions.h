@@ -218,7 +218,6 @@ public:
   bool ResMayAlias = false;                  // OPT_res_may_alias
   unsigned long ValVerMajor = UINT_MAX,
                 ValVerMinor = UINT_MAX; // OPT_validator_version
-  std::string DxilDLLPath = "";         // OPT_dxil_dll_path
   unsigned ScanLimit = 0;               // OPT_memdep_block_scan_limit
   bool ForceZeroStoreLifetimes = false; // OPT_force_zero_store_lifetimes
   bool EnableLifetimeMarkers = false;   // OPT_enable_lifetime_markers
