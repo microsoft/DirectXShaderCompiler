@@ -38,3 +38,29 @@ export vector<float, 8> Test3(vector<uint, 6> Input) {
   return Mul<float>(Matrix,
                     MakeInterpretedVector<DATA_TYPE_UINT8_T4_PACKED>(Input));
 }
+
+// test that isUnsigned is set correctly for uint16_t
+export vector<uint16_t, 8> Test4(vector<uint, 6> Input) {
+  using namespace dx::linalg;
+
+  MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {
+      Buf, 0, 6 * 4 * 8};
+
+  // CHECK: %{{.+}} = call <8 x i16> @dx.op.matVecMul.v8i16.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 18, %dx.types.Handle %{{.+}}, i32 0, i32 19, i32 8, i32 24, i32 0, i1 false, i32 192, i1 true)
+  return Mul<uint16_t>(Matrix,
+                    MakeInterpretedVector<DATA_TYPE_UINT8_T4_PACKED>(Input));  
+
+}
+
+// test that isUnsigned is set correctly for uint32_t
+export vector<uint, 8> Test5(vector<uint, 6> Input) {
+  using namespace dx::linalg;
+
+  MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {
+      Buf, 0, 6 * 4 * 8};
+
+  // CHECK: %{{.+}} = call <8 x i32> @dx.op.matVecMul.v8i32.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 18, %dx.types.Handle %{{.+}}, i32 0, i32 19, i32 8, i32 24, i32 0, i1 false, i32 192, i1 true)
+  return Mul<uint>(Matrix,
+                    MakeInterpretedVector<DATA_TYPE_UINT8_T4_PACKED>(Input));  
+
+}

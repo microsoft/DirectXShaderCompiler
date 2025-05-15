@@ -12,7 +12,7 @@ export void Test4(vector<half, 128> Input1, vector<half, 64> Input2) {
       matrix = {RWBuf, 0, 0};
 
   // expected-error@+3{{no matching function for call to 'OuterProductAccumulate'}}
-  // expected-note@dx/linalg.h:171{{candidate template ignored: could not match 0 against 1}}
+  // expected-note@dx/linalg.h:167{{candidate template ignored: could not match 0 against 1}}
 
   OuterProductAccumulate(Input1, Input2, matrix);  
 }
@@ -25,7 +25,7 @@ export void Test5(vector<int, 128> Input1, vector<uint, 128> Input2) {
       matrix = {RWBuf, 0, 0};
 
   // expected-error@+3{{no matching function for call to 'OuterProductAccumulate'}}
-  // expected-note@dx/linalg.h:171{{candidate template ignored: could not match 0 against 1}}
+  // expected-note@dx/linalg.h:167{{candidate template ignored: could not match 0 against 1}}
 
   OuterProductAccumulate(Input1, Input2, matrix);  
 }
@@ -38,7 +38,7 @@ export void Test4(vector<half, 64> Input1, vector<half, 64> Input2) {
       matrix = {RWBuf, 0, 0};
 
   // expected-error@+3{{no matching function for call to 'OuterProductAccumulate'}}
-  // expected-note@dx/linalg.h:171{{candidate template ignored: deduced conflicting types for parameter 'ElTy' ('int' vs. 'unsigned int')}}
+  // expected-note@dx/linalg.h:167{{candidate template ignored: deduced conflicting types for parameter 'ElTy' ('int' vs. 'unsigned int')}}
 
   OuterProductAccumulate(Input1, Input2, matrix);  
 }
