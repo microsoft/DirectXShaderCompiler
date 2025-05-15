@@ -46,7 +46,7 @@ void test_non_constant_matrix_interpretation() {
 
   const uint matrix_interpretation = constants_buffer.Load<uint>(0);
 
-  // expected-error@+3 {{'MatrixInterpretation' must be a constant parameter}}
+  // expected-error@+3 {{expression is not an integer constant expression}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation, matrix_layout,
@@ -195,7 +195,7 @@ void test_non_constant_matrix_layout() {
 
   const uint matrix_layout = constants_buffer.Load<uint>(0);
 
-  // expected-error@+3 {{'MatrixLayout' must be a constant parameter}}
+  // expected-error@+3 {{expression is not an integer constant expression}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation, matrix_layout,

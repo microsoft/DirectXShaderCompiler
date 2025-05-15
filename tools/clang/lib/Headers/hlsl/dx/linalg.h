@@ -53,12 +53,12 @@ template <> struct IsUnsigned<uint32_t> {
 };
 
 template <> struct IsUnsigned<uint64_t> {
-  static const bool value = true;
+  static const bool Value = true;
 };
 
 #ifdef __HLSL_ENABLE_16_BIT
 template <> struct IsUnsigned<uint16_t> {
-  static const bool value = true;
+  static const bool Value = true;
 };
 #endif //__HLSL_ENABLE_16_BIT
 } // namespace details

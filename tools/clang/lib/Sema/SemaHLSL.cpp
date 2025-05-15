@@ -11772,7 +11772,7 @@ static bool IsValidVectorAndMatrixDimensions(Sema &S, CallExpr *CE,
   return true;
 }
 
-static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
+static void CheckCommonMulAndMulAddParameters(Sema &S, CallExpr *CE,
                                               const hlsl::ShaderModel *SM) {
   // Check if IsOutputUnsigned is a const parameter
   bool IsOutputUnsignedFlagValue = false;
@@ -11782,9 +11782,8 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
                                                   S.Context)) {
     IsOutputUnsignedFlagValue = IsOutputUnsignedExprVal.getBoolValue();
   } else {
-    S.Diags.Report(IsOutputUnsignedExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_param_must_be_const)
-        << "IsOutputUnsigned";
+    S.Diags.Report(IsOutputUnsignedExpr->getExprLoc(), diag::err_expr_not_ice)
+        << 0;
     return;
   }
 
@@ -11815,14 +11814,13 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
       S.Diags.Report(IsOutputUnsignedExpr->getExprLoc(),
                      diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
           << "IsOuputUnsigned" << false
-          << (OutputVectorTypePtr->isSignedIntegerType() ? "signed int"
-                                                         : "float");
+          << (OutputVectorTypePtr->isSignedIntegerType() ? 1 : 0);
       return;
     } else if (!IsOutputUnsignedFlagValue &&
                OutputVectorTypePtr->isUnsignedIntegerType()) {
       S.Diags.Report(IsOutputUnsignedExpr->getExprLoc(),
                      diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
-          << "IsOuputUnsigned" << true << "unsigned int";
+          << "IsOuputUnsigned" << true << 2;
       return;
     }
   }
@@ -11835,9 +11833,8 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
                                                  S.Context)) {
     IsInputUnsignedFlagValue = IsInputUnsignedExprVal.getBoolValue();
   } else {
-    S.Diags.Report(IsInputUnsignedExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_param_must_be_const)
-        << "IsInputUnsigned";
+    S.Diags.Report(IsInputUnsignedExpr->getExprLoc(), diag::err_expr_not_ice)
+        << 0;
     return;
   }
 
@@ -11859,8 +11856,8 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     }
   } else {
     S.Diags.Report(InputInterpretationExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_param_must_be_const)
-        << "InputInterpretation";
+                   diag::err_expr_not_ice)
+        << 0;
     return;
   }
 
@@ -11931,15 +11928,14 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
             IsInputUnsignedExpr->getExprLoc(),
             diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
             << "IsInputUnsigned" << false
-            << (InputVectorTypePtr->isSignedIntegerType() ? "signed int"
-                                                          : "float");
+            << (InputVectorTypePtr->isSignedIntegerType() ? 1 : 0);
         return;
       } else if (!IsInputUnsignedFlagValue &&
                  InputVectorTypePtr->isUnsignedIntegerType()) {
         S.Diags.Report(
             IsInputUnsignedExpr->getExprLoc(),
             diag::err_hlsl_linalg_isunsigned_incorrect_for_given_type)
-            << "IsInputUnsigned" << true << "unsigned int";
+            << "IsInputUnsigned" << true << 2;
         return;
       }
     }
@@ -11952,9 +11948,7 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
   if (MatrixKExpr->isIntegerConstantExpr(MatrixKExprVal, S.Context)) {
     MatrixKValue = MatrixKExprVal.getLimitedValue();
   } else {
-    S.Diags.Report(MatrixKExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_param_must_be_const)
-        << "MatrixK";
+    S.Diags.Report(MatrixKExpr->getExprLoc(), diag::err_expr_not_ice) << 0;
     return;
   }
 
@@ -11964,9 +11958,7 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
   if (MatrixMExpr->isIntegerConstantExpr(MatrixMExprVal, S.Context)) {
     MatrixMValue = MatrixMExprVal.getLimitedValue();
   } else {
-    S.Diags.Report(MatrixMExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_param_must_be_const)
-        << "MatrixM";
+    S.Diags.Report(MatrixMExpr->getExprLoc(), diag::err_expr_not_ice) << 0;
     return;
   }
 
@@ -12045,8 +12037,8 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
     }
   } else {
     S.Diags.Report(MatrixInterpretationExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_param_must_be_const)
-        << "MatrixInterpretation";
+                   diag::err_expr_not_ice)
+        << 0;
     return;
   }
 
@@ -12067,9 +12059,7 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
       return;
     }
   } else {
-    S.Diags.Report(MatrixLayoutExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_param_must_be_const)
-        << "MatrixLayout";
+    S.Diags.Report(MatrixLayoutExpr->getExprLoc(), diag::err_expr_not_ice) << 0;
     return;
   }
 
@@ -12088,9 +12078,8 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
       return;
     }
   } else {
-    S.Diags.Report(MatrixTransposeExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_param_must_be_const)
-        << "MatrixTranspose";
+    S.Diags.Report(MatrixTransposeExpr->getExprLoc(), diag::err_expr_not_ice)
+        << 0;
     return;
   }
 
@@ -12114,12 +12103,12 @@ static void CheckCommonMulandMulAddParameters(Sema &S, CallExpr *CE,
 
 static void CheckMulCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
                          const hlsl::ShaderModel *SM) {
-  CheckCommonMulandMulAddParameters(S, CE, SM);
+  CheckCommonMulAndMulAddParameters(S, CE, SM);
 }
 
 static void CheckMulAddCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
                             const hlsl::ShaderModel *SM) {
-  CheckCommonMulandMulAddParameters(S, CE, SM);
+  CheckCommonMulAndMulAddParameters(S, CE, SM);
 
   // Check if BiasInterpretation is constant and a valid value
   Expr *BiasInterpretationExpr = CE->getArg(kMatVecMulAddBiasInterpretation);
@@ -12138,9 +12127,8 @@ static void CheckMulAddCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
       return;
     }
   } else {
-    S.Diags.Report(BiasInterpretationExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_param_must_be_const)
-        << "BiasInterpretation";
+    S.Diags.Report(BiasInterpretationExpr->getExprLoc(), diag::err_expr_not_ice)
+        << 0;
     return;
   }
 }
@@ -12195,8 +12183,8 @@ static void CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
     }
   } else {
     S.Diags.Report(MatrixInterpretationExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_param_must_be_const)
-        << "MatrixInterpretation";
+                   diag::err_expr_not_ice)
+        << 0;
     return;
   }
 
@@ -12217,9 +12205,7 @@ static void CheckOuterProductAccumulateCall(Sema &S, FunctionDecl *FD,
       return;
     }
   } else {
-    S.Diags.Report(MatrixLayoutExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_param_must_be_const)
-        << "MatrixLayout";
+    S.Diags.Report(MatrixLayoutExpr->getExprLoc(), diag::err_expr_not_ice) << 0;
     return;
   }
 

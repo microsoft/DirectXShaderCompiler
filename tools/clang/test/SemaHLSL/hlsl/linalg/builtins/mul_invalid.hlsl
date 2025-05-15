@@ -27,7 +27,7 @@ void test_invalid_output_vector_type() {
   vector<uint, 4> output_vector_0;
   const uint is_output_unsigned_0 = 0;
 
-  // expected-error@+1 {{IsOuputUnsigned must be true for a unsigned int vector type}}
+  // expected-error@+1 {{IsOuputUnsigned must be true for vector of unsigned integer type}}
   __builtin_MatVecMul(output_vector_0, is_output_unsigned_0, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -37,7 +37,7 @@ void test_invalid_output_vector_type() {
   vector<int64_t, 4> output_vector_1;
   const uint is_output_unsigned_1 = 1;
 
-  // expected-error@+1 {{IsOuputUnsigned must be false for a signed int vector type}}
+  // expected-error@+1 {{IsOuputUnsigned must be false for vector of signed integer type}}
   __builtin_MatVecMul(output_vector_1, is_output_unsigned_1, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -47,7 +47,7 @@ void test_invalid_output_vector_type() {
   vector<float, 4> output_vector_2;
   const uint is_output_unsigned_2 = 1;
 
-  // expected-error@+1 {{IsOuputUnsigned must be false for a float vector type}}
+  // expected-error@+1 {{IsOuputUnsigned must be false for vector of floating point type}}
   __builtin_MatVecMul(output_vector_2, is_output_unsigned_2, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -73,7 +73,7 @@ void test_invalid_is_output_unsigned_non_const() {
 
   const uint is_output_unsigned_0 = constants_buffer.Load<uint>(0);
 
-  // expected-error@+1 {{IsOutputUnsigned' must be a constant parameter}}
+  // expected-error@+1 {{expression is not an integer constant expression}}
   __builtin_MatVecMul(output_vector_0, is_output_unsigned_0, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -313,7 +313,7 @@ void test_invalid_input_vector_type_mismatch() {
       input_vector_buffer.Load<vector<uint, 4> >(0);    
   const uint is_input_unsigned_0 = 0;
 
-  // expected-error@+2 {{IsInputUnsigned must be true for a unsigned int vector type}}
+  // expected-error@+2 {{IsInputUnsigned must be true for vector of unsigned integer type}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_0,
                       is_input_unsigned_0, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -324,7 +324,7 @@ void test_invalid_input_vector_type_mismatch() {
       input_vector_buffer.Load<vector<int32_t, 4> >(0);
   const uint is_input_unsigned_1 = 1;
 
-  // expected-error@+2 {{IsInputUnsigned must be false for a signed int vector type}}
+  // expected-error@+2 {{IsInputUnsigned must be false for vector of signed integer type}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_1,
                       is_input_unsigned_1, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -335,7 +335,7 @@ void test_invalid_input_vector_type_mismatch() {
       input_vector_buffer.Load<vector<float16_t, 4> >(0);
   const uint is_input_unsigned_2 = 1;
 
-  // expected-error@+2 {{IsInputUnsigned must be false for a float vector type}}
+  // expected-error@+2 {{IsInputUnsigned must be false for vector of floating point type}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector_2,
                       is_input_unsigned_2, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -361,7 +361,7 @@ void test_invalid_matrix_M_dimension() {
 
   const uint matrix_dimM = constants_buffer.Load<uint>(0);   
   
-  // expected-error@+3 {{'MatrixM' must be a constant parameter}}
+  // expected-error@+3 {{expression is not an integer constant expression}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -387,7 +387,7 @@ void test_invalid_matrix_K_dimension() {
 
   const uint matrix_dimK = constants_buffer.Load<uint>(0);
   
-  // expected-error@+4 {{'MatrixK' must be a constant parameter}}
+  // expected-error@+4 {{expression is not an integer constant expression}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -565,7 +565,7 @@ void test_invalid_input_interpretation_non_const() {
 
   const uint input_interpretation = constants_buffer.Load<uint>(0);
 
-  // expected-error@+2 {{'InputInterpretation' must be a constant parameter}}
+  // expected-error@+2 {{expression is not an integer constant expression}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -861,7 +861,7 @@ void test_invalid_matrix_interpretation_constant_value() {
 
   const uint matrix_interpretation_0 = constants_buffer.Load<uint>(0);
 
-  // expected-error@+3 {{'MatrixInterpretation' must be a constant parameter}}
+  // expected-error@+3 {{expression is not an integer constant expression}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation_0, matrix_dimM,
@@ -1020,7 +1020,7 @@ void test_invalid_matrix_layout_constant_value() {
 
   const uint matrix_layout = constants_buffer.Load<uint>(0);
 
-  // expected-error@+4 {{'MatrixLayout' must be a constant parameter}}
+  // expected-error@+4 {{expression is not an integer constant expression}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,   
                       matrix_offset, matrix_interpretation, matrix_dimM,
@@ -1071,7 +1071,7 @@ void test_invalid_matrix_transposed_constant_value() {
   const bool matrix_is_transposed = constants_buffer.Load<bool>(0);
   const uint matrix_stride = 64;
 
-  // expected-error@+4 {{'MatrixTranspose' must be a constant parameter}}
+  // expected-error@+4 {{expression is not an integer constant expression}}
   __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector,
                       is_input_unsigned, input_interpretation, matrix_buffer,
                       matrix_offset, matrix_interpretation, matrix_dimM,
