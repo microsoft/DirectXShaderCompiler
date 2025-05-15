@@ -248,7 +248,7 @@ void test_zero_matrix_stride() {
 
   const uint matrix_stride = 16;
 
-  // expected-error@+4 {{for optimal matrix layout, matrix stride must be zero}}
+  // expected-error@+4 {{for optimal matrix layout, matrix stride must be 0}}
   __builtin_OuterProductAccumulate(input_vector_0, input_vector_1,
                                   accumulate_buffer, matrix_offset,
                                   matrix_interpretation, matrix_layout,

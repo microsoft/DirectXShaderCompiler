@@ -11965,14 +11965,14 @@ static void CheckCommonMulAndMulAddParameters(Sema &S, CallExpr *CE,
   // Check MatrixM and MatrixK values are non-zero
   if (MatrixMValue == 0) {
     S.Diags.Report(MatrixMExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_matrix_dim_must_not_be_zero)
+                   diag::err_hlsl_linalg_matrix_dim_must_be_greater_than_zero)
         << std::to_string(DXIL::kSM69MaxVectorLength);
     return;
   }
 
   if (MatrixKValue == 0) {
     S.Diags.Report(MatrixKExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_matrix_dim_must_not_be_zero)
+                   diag::err_hlsl_linalg_matrix_dim_must_be_greater_than_zero)
         << std::to_string(DXIL::kSM69MaxVectorLength);
     return;
   }

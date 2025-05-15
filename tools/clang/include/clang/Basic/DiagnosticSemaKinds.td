@@ -8026,9 +8026,9 @@ def err_hlsl_linalg_interpretation_value_incorrect : Error<
 def err_hlsl_linalg_matrix_layout_is_not_transposable : Error<
   "RowMajor and ColumnMajor matrices are not transposable">;
 def err_hlsl_linalg_optimal_matrix_layout_matrix_stride_must_be_zero : Error<
-  "for optimal matrix layout, matrix stride must be zero">;
-def err_hlsl_linalg_matrix_dim_must_not_be_zero: Error<
-  "matrix dimension must not be zero">;
+  "for optimal matrix layout, matrix stride must be 0">;
+def err_hlsl_linalg_matrix_dim_must_be_greater_than_zero: Error<
+  "matrix dimension must be greater than 0">;
 def err_hlsl_linalg_matrix_layout_invalid : Error<
   "matrix layout %0 is not valid, must be in the range %1 - %2">;
 def err_hlsl_linalg_function_requires_shader_model_6_9_or_above : Error<

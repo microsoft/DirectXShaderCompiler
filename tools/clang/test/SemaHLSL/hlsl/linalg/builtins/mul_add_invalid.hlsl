@@ -429,7 +429,7 @@ void test_invalid_matrix_M_dimension_non_zero() {
   const uint bias_interpretation = DataType::DATA_TYPE_FLOAT32;
 
   const uint matrix_dimM = 0;
-  // expected-error@+3 {{matrix dimension must not be zero}}
+  // expected-error@+3 {{matrix dimension must be greater than 0}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
                         is_input_unsigned, input_interpretation, matrix_buffer,
                         matrix_offset, matrix_interpretation, matrix_dimM,
@@ -456,7 +456,7 @@ void test_invalid_matrix_K_dimension_non_zero() {
   const uint bias_interpretation = DataType::DATA_TYPE_FLOAT32;
 
   const uint matrix_dimK = 0;
-  // expected-error@+4 {{matrix dimension must not be zero}}
+  // expected-error@+4 {{matrix dimension must be greater than 0}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
                         is_input_unsigned, input_interpretation, matrix_buffer,
                         matrix_offset, matrix_interpretation, matrix_dimM,
@@ -1180,7 +1180,7 @@ void test_invalid_matrix_stride_constant_value() {
   const uint bias_offset = 0;
   const uint bias_interpretation = DataType::DATA_TYPE_FLOAT32;
 
-  // expected-error@+5 {{for optimal matrix layout, matrix stride must be zero}}
+  // expected-error@+5 {{for optimal matrix layout, matrix stride must be 0}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
                         is_input_unsigned, input_interpretation, matrix_buffer,
                         matrix_offset, matrix_interpretation, matrix_dimM,
@@ -1190,7 +1190,7 @@ void test_invalid_matrix_stride_constant_value() {
   const uint matrix_layout_1 = MatrixLayout::MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL;
   const uint matrix_stride_1 = 64;
   
-  // expected-error@+5 {{for optimal matrix layout, matrix stride must be zero}}
+  // expected-error@+5 {{for optimal matrix layout, matrix stride must be 0}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
                         is_input_unsigned, input_interpretation, matrix_buffer,   
                         matrix_offset, matrix_interpretation, matrix_dimM,
