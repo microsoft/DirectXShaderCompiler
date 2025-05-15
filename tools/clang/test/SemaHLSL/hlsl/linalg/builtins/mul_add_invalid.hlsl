@@ -1086,7 +1086,7 @@ void test_invalid_matrix_layout_value() {
 
   const uint matrix_layout_0 = 4;
 
-  // expected-error@+4 {{matrix layout 4 is not valid, must be in the range 0 - 3}}
+  // expected-error@+4 {{matrix layout 4 is not valid, must be in the range [0, 3]}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector,
                         is_input_unsigned, input_interpretation, matrix_buffer,
                         matrix_offset, matrix_interpretation, matrix_dimM,

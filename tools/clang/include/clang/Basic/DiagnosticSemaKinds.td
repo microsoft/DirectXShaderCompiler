@@ -8030,7 +8030,7 @@ def err_hlsl_linalg_optimal_matrix_layout_matrix_stride_must_be_zero : Error<
 def err_hlsl_linalg_matrix_dim_must_be_greater_than_zero: Error<
   "matrix dimension must be greater than 0">;
 def err_hlsl_linalg_matrix_layout_invalid : Error<
-  "matrix layout %0 is not valid, must be in the range %1 - %2">;
+  "matrix layout %0 is not valid, must be in the range [%1, %2]">;
 def err_hlsl_linalg_function_requires_shader_model_6_9_or_above : Error<
   "intrinsic function %0 requires shader model 6.9 or greater">;
 
