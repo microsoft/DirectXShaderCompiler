@@ -8015,9 +8015,6 @@ def err_hlsl_hitobject_unsupported_stage : Error<
    "dx::HitObject is unavailable in shader stage '%0' (requires 'raygeneration', 'closesthit' or 'miss')">;
 
 // Linear Algebra Operations
-def err_hlsl_linalg_vector_incorrect_type : Error<
-  "%0 is incorrect type, must be 16-bit or 32-bit 'unsigned int', "
-  "'signed int' or 'float'">;
 def err_hlsl_linalg_isunsigned_incorrect_for_given_type : Error<
   "%0 must be %select{false|true}1 for vector of "
   "%select{floating point|signed integer|unsigned integer}2 type">;
@@ -8044,16 +8041,11 @@ def err_hlsl_linalg_mul_muladd_packed_input_vector_size_incorrect : Error<
 def err_hlsl_linalg_mul_muladd_isUnsigned_for_packed_input_must_be_true : Error<
   "IsInputUnsigned must be true for packed input interpretations in linalg mul/muladd operations">;
 def err_hlsl_linalg_mul_muladd_packed_input_vector_must_be_uint : Error<
-  "packed input vector type must be a 32-bit unsigned int in linalg mul/muladd operations, "
-  "packed formats uint8_t4_packed and sint8_t4_packed are not supported currently">;
-def err_hlsl_linalg_mul_muladd_exceeds_max_matrix_dim_m: Error<
-  "matrix dimension M must be less than %0, in a linalg Mul/MulAdd operation">;
-def err_hlsl_linalg_mul_muladd_exceeds_max_matrix_dim_k_unpacked_input: Error<
-  "matrix dimension K when using unpacked input vectors must be less than %0, in a "
-  "linalg Mul/MulAdd operation">;
-def err_hlsl_linalg_mul_muladd_exceeds_max_matrix_dim_k_packed_input: Error<
-  "matrix dimension K when using packed input vectors must be less than %0, in a "
-  "linalg Mul/MulAdd operation">;
+  "packed input vector type must be a 32-bit unsigned int type in linalg mul/muladd operations">;
+def err_hlsl_linalg_mul_muladd_invalid_dim: Error<
+  "matrix dimension %select{M|K when using unpacked input vectors|K "
+  "when using packed input vectors}0 must be less than %1, in a linalg "
+  "Mul/MulAdd operation">;
 
 def err_hlsl_linalg_outer_prod_acc_vector_type_mismatch : Error<
   "input vectors of outerproductaccumulate must have the same element type">;

@@ -11796,8 +11796,6 @@ static void CheckCommonMulAndMulAddParameters(Sema &S, CallExpr *CE,
     return;
   }
 
-  // Check if output vector is unsigned int, signed int or float
-  // Check if the isUnsigned flag is set correctly
   Expr *OutputVectorExpr = CE->getArg(kMatVecMulOutputVectorIdx);
   unsigned OutputVectorSizeValue = 0;
   if (IsHLSLVecType(OutputVectorExpr->getType())) {
@@ -11805,14 +11803,7 @@ static void CheckCommonMulAndMulAddParameters(Sema &S, CallExpr *CE,
     QualType OutputVectorType =
         GetHLSLVecElementType(OutputVectorExpr->getType());
     const Type *OutputVectorTypePtr = OutputVectorType.getTypePtr();
-    if (!OutputVectorTypePtr->isUnsignedIntegerType() &&
-        !OutputVectorTypePtr->isSignedIntegerType() &&
-        !OutputVectorTypePtr->isFloatingType()) {
-      S.Diags.Report(OutputVectorExpr->getExprLoc(),
-                     diag::err_hlsl_linalg_vector_incorrect_type)
-          << "Output Vector";
-      return;
-    }
+
     // Check if IsOutputUnsigned flag matches output vector type.
     // Must be true for unsigned int outputs, false for signed int/float
     // outputs.
@@ -11872,7 +11863,6 @@ static void CheckCommonMulAndMulAddParameters(Sema &S, CallExpr *CE,
 
   bool IsInputVectorPacked = IsPackedType(InputInterpretationValue);
 
-  // Check if input vector32/16bit is unsigned int, signed int or float
   // For packed types input vector type must be uint and isUnsigned must be
   // true. The signedness is determined from the InputInterpretation
   Expr *InputVectorExpr = CE->getArg(kMatVecMulInputVectorIdx);
@@ -11884,22 +11874,10 @@ static void CheckCommonMulAndMulAddParameters(Sema &S, CallExpr *CE,
     unsigned BitWidth = S.Context.getTypeSize(InputVectorType);
     bool Is16Bit = (BitWidth == 16);
     bool Is32Bit = (BitWidth == 32);
-    if (!Is16Bit && !Is32Bit) {
-      S.Diags.Report(InputVectorExpr->getExprLoc(),
-                     diag::err_hlsl_linalg_vector_incorrect_type)
-          << "Input Vector";
-      return;
-    }
+    DXASSERT(Is16Bit || Is32Bit,
+             "Linalg Input vectors must be 32 or 16 bit element types");
 
     const Type *InputVectorTypePtr = InputVectorType.getTypePtr();
-    if (!InputVectorTypePtr->isUnsignedIntegerType() &&
-        !InputVectorTypePtr->isSignedIntegerType() &&
-        !InputVectorTypePtr->isFloatingType()) {
-      S.Diags.Report(InputVectorExpr->getExprLoc(),
-                     diag::err_hlsl_linalg_vector_incorrect_type)
-          << "Input Vector";
-      return;
-    }
 
     // Check if the isUnsigned flag setting
     if (IsInputVectorPacked) {
@@ -11991,8 +11969,8 @@ static void CheckCommonMulAndMulAddParameters(Sema &S, CallExpr *CE,
   // operation.
   if (MatrixMValue > DXIL::kSM69MaxVectorLength) {
     S.Diags.Report(MatrixMExpr->getExprLoc(),
-                   diag::err_hlsl_linalg_mul_muladd_exceeds_max_matrix_dim_m)
-        << std::to_string(DXIL::kSM69MaxVectorLength);
+                   diag::err_hlsl_linalg_mul_muladd_invalid_dim)
+        << 0 << std::to_string(DXIL::kSM69MaxVectorLength);
     return;
   }
 
@@ -12002,20 +11980,16 @@ static void CheckCommonMulAndMulAddParameters(Sema &S, CallExpr *CE,
     const unsigned PackingFactor =
         4; // Only supported packed formats: DATA_TYPE_(U)SINT8_T4_PACKED
     if (MatrixKValue > DXIL::kSM69MaxVectorLength * PackingFactor) {
-      S.Diags.Report(
-          MatrixKExpr->getExprLoc(),
-          diag::
-              err_hlsl_linalg_mul_muladd_exceeds_max_matrix_dim_k_packed_input)
-          << std::to_string(DXIL::kSM69MaxVectorLength * PackingFactor);
+      S.Diags.Report(MatrixKExpr->getExprLoc(),
+                     diag::err_hlsl_linalg_mul_muladd_invalid_dim)
+          << 2 << std::to_string(DXIL::kSM69MaxVectorLength * PackingFactor);
       return;
     }
   } else {
     if (MatrixKValue > DXIL::kSM69MaxVectorLength) {
-      S.Diags.Report(
-          MatrixKExpr->getExprLoc(),
-          diag::
-              err_hlsl_linalg_mul_muladd_exceeds_max_matrix_dim_k_unpacked_input)
-          << std::to_string(DXIL::kSM69MaxVectorLength);
+      S.Diags.Report(MatrixKExpr->getExprLoc(),
+                     diag::err_hlsl_linalg_mul_muladd_invalid_dim)
+          << 1 << std::to_string(DXIL::kSM69MaxVectorLength);
       return;
     }
   }

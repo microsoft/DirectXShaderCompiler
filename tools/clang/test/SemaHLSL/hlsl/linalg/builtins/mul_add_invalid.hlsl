@@ -159,7 +159,7 @@ void test_invalid_input_vector_type_packed_input_interpretation() {
       input_vector_buffer.Load<vector<int16_t, 2> >(0);
   const uint is_input_unsigned_0 = 1;
 
-  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int in linalg mul/muladd operations, packed formats uint8_t4_packed and sint8_t4_packed are not supported currently}}
+  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int type in linalg mul/muladd operations}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector_0,
                         is_input_unsigned_0, input_interpretation_0, matrix_buffer,
                         matrix_offset, matrix_interpretation, matrix_dimM,
@@ -171,7 +171,7 @@ void test_invalid_input_vector_type_packed_input_interpretation() {
       input_vector_buffer.Load<vector<uint16_t, 2> >(0);
   const uint is_input_unsigned_1 = 0;
 
-  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int in linalg mul/muladd operations, packed formats uint8_t4_packed and sint8_t4_packed are not supported currently}} 
+  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int type in linalg mul/muladd operations}} 
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector_1,
                         is_input_unsigned_1, input_interpretation_1, matrix_buffer,
                         matrix_offset, matrix_interpretation, matrix_dimM,
@@ -183,7 +183,7 @@ void test_invalid_input_vector_type_packed_input_interpretation() {
       input_vector_buffer.Load<vector<int32_t, 1> >(0);
   const uint is_input_unsigned_2 = 1;
   
-  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int in linalg mul/muladd operations, packed formats uint8_t4_packed and sint8_t4_packed are not supported currently}}
+  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int type in linalg mul/muladd operations}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector_2,
                         is_input_unsigned_2, input_interpretation_2, matrix_buffer,
                         matrix_offset, matrix_interpretation, matrix_dimM,
@@ -195,7 +195,7 @@ void test_invalid_input_vector_type_packed_input_interpretation() {
       input_vector_buffer.Load<vector<int32_t, 1> >(0);
   const uint is_input_unsigned_3 = 0;
 
-  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int in linalg mul/muladd operations, packed formats uint8_t4_packed and sint8_t4_packed are not supported currently}}
+  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int type in linalg mul/muladd operations}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector_3,
                         is_input_unsigned_3, input_interpretation_3, matrix_buffer,
                         matrix_offset, matrix_interpretation, matrix_dimM,
@@ -207,7 +207,7 @@ void test_invalid_input_vector_type_packed_input_interpretation() {
       input_vector_buffer.Load<vector<float, 1> >(0);
   const uint is_input_unsigned_4 = 0;
 
-  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int in linalg mul/muladd operations, packed formats uint8_t4_packed and sint8_t4_packed are not supported currently}}
+  // expected-error@+1 {{packed input vector type must be a 32-bit unsigned int type in linalg mul/muladd operations}}
   __builtin_MatVecMulAdd(output_vector, is_output_unsigned, input_vector_4, 
                         is_input_unsigned_4, input_interpretation_4, matrix_buffer,
                         matrix_offset, matrix_interpretation, matrix_dimM,
