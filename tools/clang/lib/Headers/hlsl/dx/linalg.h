@@ -44,8 +44,7 @@ enum MatrixLayout {
 //
 namespace details {
 
-template <typename T> struct IsUnsigned {
-};
+template <typename T> struct IsUnsigned {};
 
 template <> struct IsUnsigned<uint8_t4_packed> {
   static const bool Value = true;
