@@ -55,34 +55,20 @@ template <> struct IsUnsigned<int8_t4_packed> {
   static const bool Value = true;
 };
 
-template <> struct IsUnsigned<uint32_t> {
-  static const bool Value = true;
-};
+template <> struct IsUnsigned<uint32_t> { static const bool Value = true; };
 
-template <> struct IsUnsigned<int32_t> {
-  static const bool Value = false;
-};
+template <> struct IsUnsigned<int32_t> { static const bool Value = false; };
 
-template <> struct IsUnsigned<float32_t> {
-  static const bool Value = false;
-};
+template <> struct IsUnsigned<float32_t> { static const bool Value = false; };
 
 #ifdef __HLSL_ENABLE_16_BIT
-template <> struct IsUnsigned<uint16_t> {
-  static const bool Value = true;
-};
+template <> struct IsUnsigned<uint16_t> { static const bool Value = true; };
 
-template <> struct IsUnsigned<int16_t> {
-  static const bool Value = false;
-};
+template <> struct IsUnsigned<int16_t> { static const bool Value = false; };
 
-template <> struct IsUnsigned<float16_t> {
-  static const bool Value = false;
-};
+template <> struct IsUnsigned<float16_t> { static const bool Value = false; };
 #else // //__HLSL_ENABLE_16_BIT
-template <> struct IsUnsigned<half> {
-  static const bool Value = false;
-};
+template <> struct IsUnsigned<half> { static const bool Value = false; };
 #endif //__HLSL_ENABLE_16_BIT
 
 } // namespace details
