@@ -258,16 +258,28 @@ inline void LogErrorFmt(const wchar_t *fmt, ...) {
   WEX::Logging::Log::Error(buf.data());
 }
 
-inline void LogErrorFmtThrow(const wchar_t *fmt, ...) {
+inline void LogErrorFmtThrow(const char *fileName, int line, const wchar_t *fmt,
+                             ...) {
   va_list args;
   va_start(args, fmt);
   std::wstring buf(vFormatToWString(fmt, args));
   va_end(args);
-  WEX::Logging::Log::Error(buf.data());
+
+  std::wstringstream wss;
+  wss << L"Error in file: " << fileName << L" at line: " << line << L"\n"
+      << buf.data() << L"\n"
+      << buf;
+
+  WEX::Logging::Log::Error(wss.str().c_str());
 
   // Throws an exception to abort the test.
   VERIFY_FAIL(L"Test error");
 }
+
+// Macro to pass the file name and line number. Otherwise TAEF prints this file
+// and line number.
+#define LOG_ERROR_FMT_THROW(fmt, ...)                                          \
+  LogErrorFmtThrow(__FILE__, __LINE__, fmt, __VA_ARGS__)
 
 inline std::wstring
 GetPathToHlslDataFile(const wchar_t *relative,
@@ -553,6 +565,26 @@ inline bool CompareDoubleULP(
   return AbsoluteDiff <= (uint64_t)ULPTolerance;
 }
 
+inline bool CompareDoubleEpsilon(
+    const double &Src, const double &Ref, float Epsilon,
+    hlsl::DXIL::Float32DenormMode Mode = hlsl::DXIL::Float32DenormMode::Any) {
+  if (Src == Ref) {
+    return true;
+  }
+  if (std::isnan(Src)) {
+    return std::isnan(Ref);
+  }
+  if (Mode == hlsl::DXIL::Float32DenormMode::Any) {
+    // If denorm expected, output can be sign preserved zero. Otherwise output
+    // should pass the regular epsilon testing.
+    if (isdenorm(Ref) && Src == 0 && std::signbit(Src) == std::signbit(Ref))
+      return true;
+  }
+  // For FTZ or Preserve mode, we should get the expected number within
+  // epsilon for any operations.
+  return fabs(Src - Ref) < Epsilon;
+}
+
 inline bool CompareFloatULP(
     const float &fsrc, const float &fref, int ULPTolerance,
     hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
@@ -604,8 +636,11 @@ inline bool CompareFloatRelativeEpsilon(
 
 inline bool CompareHalfULP(const uint16_t &fsrc, const uint16_t &fref,
                            float ULPTolerance) {
-  if (fsrc == fref)
+  // Compare as floats to handle when we have '0 == -0' which should be true
+  // but won't be true if we compare as uint16_t.
+  if (ConvertFloat16ToFloat32(fsrc) == ConvertFloat16ToFloat32(fref))
     return true;
+
   if (isnanFloat16(fsrc))
     return isnanFloat16(fref);
   // 16-bit floating point numbers must preserve denorms
