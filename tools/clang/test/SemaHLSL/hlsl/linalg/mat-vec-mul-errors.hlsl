@@ -11,6 +11,6 @@ vector<float, 128> MixUpVectorAndMatrixArguments(vector<float, 128> Input) {
       Buf, 0, 0};
 
   // expected-error@+2{{no matching function for call to 'Mul'}}
-  // expected-note@dx/linalg.h:130{{candidate template ignored: could not match 'MatrixRefImpl' against 'InterpretedVector'}}
+  // expected-note@dx/linalg.h:127{{candidate template ignored: could not match 'MatrixRefImpl' against 'InterpretedVector'}}
   return Mul<float>(MakeInterpretedVector<DATA_TYPE_FLOAT16>(Input), Matrix);
 }

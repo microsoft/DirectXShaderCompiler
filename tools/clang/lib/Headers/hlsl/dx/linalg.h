@@ -46,29 +46,26 @@ namespace details {
 
 template <typename T> struct IsUnsigned {};
 
-template <> struct IsUnsigned<uint8_t4_packed> {
-  static const bool Value = true;
-};
+#define _SPECIALIZE_ISUNSIGNED(type, value)                                    \
+  template <> struct IsUnsigned<type> {                                        \
+    static const bool Value = value;                                           \
+  }
 
-template <> struct IsUnsigned<int8_t4_packed> {
-  static const bool Value = true;
-};
-
-template <> struct IsUnsigned<uint32_t> { static const bool Value = true; };
-
-template <> struct IsUnsigned<int32_t> { static const bool Value = false; };
-
-template <> struct IsUnsigned<float32_t> { static const bool Value = false; };
+_SPECIALIZE_ISUNSIGNED(uint8_t4_packed, true);
+_SPECIALIZE_ISUNSIGNED(int8_t4_packed, true);
+_SPECIALIZE_ISUNSIGNED(uint32_t, true);
+_SPECIALIZE_ISUNSIGNED(int32_t, false);
+_SPECIALIZE_ISUNSIGNED(float32_t, false);
 
 #ifdef __HLSL_ENABLE_16_BIT
-template <> struct IsUnsigned<uint16_t> { static const bool Value = true; };
-
-template <> struct IsUnsigned<int16_t> { static const bool Value = false; };
-
-template <> struct IsUnsigned<float16_t> { static const bool Value = false; };
-#else // //__HLSL_ENABLE_16_BIT
-template <> struct IsUnsigned<half> { static const bool Value = false; };
+_SPECIALIZE_ISUNSIGNED(uint16_t, true);
+_SPECIALIZE_ISUNSIGNED(int16_t, false);
+_SPECIALIZE_ISUNSIGNED(float16_t, false);
+#else  // //__HLSL_ENABLE_16_BIT
+_SPECIALIZE_ISUNSIGNED(half, false);
 #endif //__HLSL_ENABLE_16_BIT
+
+#undef _SPECIALIZE_ISUNSIGNED
 
 } // namespace details
 
