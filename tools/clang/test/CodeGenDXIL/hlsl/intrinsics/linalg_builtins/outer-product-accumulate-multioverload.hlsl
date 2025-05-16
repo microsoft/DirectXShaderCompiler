@@ -1,7 +1,6 @@
 // RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DITY=float16_t -DMI=F16 -DML=OuterProductOptimal | FileCheck %s --check-prefixes COMMON,DXIL-0
 // RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DITY=float16_t -DMI=F8_E4M3 -DML=OuterProductOptimal | FileCheck %s --check-prefixes COMMON,DXIL-1
 // RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DITY=uint -DMI=U8 -DML=OuterProductOptimal | FileCheck %s --check-prefixes COMMON,DXIL-2
-
 // RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DITY=float16_t -DMI=F16 -DML=OuterProductOptimal -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-0
 // RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DITY=float16_t -DMI=F8_E4M3 -DML=OuterProductOptimal -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-1
 // RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DITY=uint -DMI=U8 -DML=OuterProductOptimal -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-2
@@ -11,11 +10,17 @@ ByteAddressBuffer input_vector_buffer2;
 RWByteAddressBuffer matrix_buffer;
 
 // COMMON: define void @main()
+
 // DXIL-0: call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 8, i32 3, i32 0)  ; OuterProductAccumulate(inputVector1,inputVector2,matrixBuffer,matrixOffset,matrixIntepretation,matrixLayout,matrixStride)
+
 // HLOP-0: call void @"dx.hl.op..void (i32, <8 x half>, <8 x half>, %dx.types.Handle, i32, i32, i32, i32)"(i32 392, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 8, i32 3, i32 0)
+
 // DXIL-1: call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 21, i32 3, i32 0)  ; OuterProductAccumulate(inputVector1,inputVector2,matrixBuffer,matrixOffset,matrixIntepretation,matrixLayout,matrixStride)
+
 // HLOP-1: call void @"dx.hl.op..void (i32, <8 x half>, <8 x half>, %dx.types.Handle, i32, i32, i32, i32)"(i32 392, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 21, i32 3, i32 0)
+
 // DXIL-2: call void @dx.op.outerProductAccumulate.v8i32.v8i32(i32 307, <8 x i32> %{{[^ ]+}}, <8 x i32> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 19, i32 3, i32 0)  ; OuterProductAccumulate(inputVector1,inputVector2,matrixBuffer,matrixOffset,matrixIntepretation,matrixLayout,matrixStride)
+
 // HLOP-2: call void @"dx.hl.op..void (i32, <8 x i32>, <8 x i32>, %dx.types.Handle, i32, i32, i32, i32)"(i32 392, <8 x i32> %{{[^ ]+}}, <8 x i32> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 19, i32 3, i32 0)
 
 enum CompType {

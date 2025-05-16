@@ -8018,6 +8018,43 @@ def err_hlsl_reorder_unsupported_stage : Error<
    "dx::MaybeReorderThread is unavailable in shader stage '%0' (requires 'raygeneration')">;
 def err_hlsl_hitobject_unsupported_stage : Error<
    "dx::HitObject is unavailable in shader stage '%0' (requires 'raygeneration', 'closesthit' or 'miss')">;
+
+// Linear Algebra Operations
+def err_hlsl_linalg_isunsigned_incorrect_for_given_type : Error<
+  "%0 must be %select{false|true}1 for vector of "
+  "%select{floating point|signed integer|unsigned integer}2 type">;
+def err_hlsl_linalg_interpretation_value_incorrect : Error<
+  "%0 is an invalid %select{memory|register}1 interpretation value">;
+def err_hlsl_linalg_matrix_layout_is_not_transposable : Error<
+  "RowMajor and ColumnMajor matrices are not transposable">;
+def err_hlsl_linalg_optimal_matrix_layout_matrix_stride_must_be_zero : Error<
+  "for optimal matrix layout, matrix stride must be 0">;
+def err_hlsl_linalg_matrix_dim_must_be_greater_than_zero: Error<
+  "matrix dimension must be greater than 0">;
+def err_hlsl_linalg_matrix_layout_invalid : Error<
+  "matrix layout %0 is not valid, must be in the range [%1, %2]">;
+
+def err_hlsl_linalg_mul_muladd_output_vector_size_not_equal_to_matrix_M : Error<
+  "output vector length must be equal to Matrix M dimension in a linalg Mul/MulAdd operation">;
+def err_hlsl_linalg_mul_muladd_unpacked_input_vector_size_not_equal_to_matrix_K : Error<
+  "unpacked input vector length must be equal to Matrix K dimension in a linalg Mul/MulAdd operation">;
+def err_hlsl_linalg_mul_muladd_packed_input_vector_size_incorrect : Error<
+  "packed input vector length must be the smallest number that can hold matrix dim K values of the "
+  "packed(smaller) type in linalg mul/muladd operations">;
+def err_hlsl_linalg_mul_muladd_isUnsigned_for_packed_input_must_be_true : Error<
+  "IsInputUnsigned must be true for packed input interpretations in linalg mul/muladd operations">;
+def err_hlsl_linalg_mul_muladd_packed_input_vector_must_be_uint : Error<
+  "packed input vector type must be a 32-bit unsigned int type in linalg mul/muladd operations">;
+def err_hlsl_linalg_mul_muladd_invalid_dim: Error<
+  "matrix dimension %select{M|K when using unpacked input vectors|K "
+  "when using packed input vectors}0 must be less than %1, in a linalg "
+  "Mul/MulAdd operation">;
+
+def err_hlsl_linalg_outer_prod_acc_vector_type_mismatch : Error<
+  "input vectors of outerproductaccumulate must have the same element type">;
+def err_hlsl_linalg_outer_prod_acc_matrix_layout_must_be_outer_prod_acc_optimal : Error<
+  "matrix layout for outerproductaccumulate must be %0">;
+
 // HLSL Change Ends
 
 // SPIRV Change Starts

@@ -8419,13 +8419,13 @@ class db_dxil(object):
         self.add_valrule_msg(
             "Instr.MatVecOpIsUnsignedFlagsAreConst",
             "In Linalg Mul/MulAdd functions, IsUnsigned flag is a constant.",
-            "'%1' is not a constant value",
+            "%0 is not a constant value",
         )
 
         self.add_valrule_msg(
             "Instr.LinalgInterpretationParamAreConst",
             "In Linalg operations, Interpretation value is a constant.",
-            "'%1' is not a constant value",
+            "%0 is not a constant value",
         )
 
         self.add_valrule_msg(
@@ -9357,6 +9357,7 @@ class db_hlsl(object):
             "DxHitObject": "LICOMPTYPE_HIT_OBJECT",
             "VkBufferPointer": "LICOMPTYPE_VK_BUFFER_POINTER",
             "RayQuery": "LICOMPTYPE_RAY_QUERY",
+            "LinAlg": "LICOMPTYPE_LINALG",
         }
 
         self.trans_rowcol = {"r": "IA_R", "c": "IA_C", "r2": "IA_R2", "c2": "IA_C2"}
