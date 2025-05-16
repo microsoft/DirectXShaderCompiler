@@ -120,6 +120,13 @@ bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT) {
       if (!IsHLSLNumericOrAggregateOfNumericType(Member->getType()))
         return false;
     }
+    if (auto *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
+      // Walk up the inheritance chain and check base class fields
+      for (const auto &Base : CXXRD->bases()) {
+        if (!IsHLSLCopyableAnnotatableRecord(Base.getType()))
+          return false;
+      }
+    }
     return true;
   }
   return false;
