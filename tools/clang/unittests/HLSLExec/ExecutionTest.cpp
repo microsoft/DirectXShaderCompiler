@@ -622,6 +622,7 @@ public:
 
   TEST_METHOD(CoopVec_Mul);
   TEST_METHOD(CoopVec_OuterProduct);
+  TEST_METHOD(CoopVec_VectorAccumulate);
 
   dxc::DxcDllSupport m_support;
 
@@ -783,6 +784,7 @@ public:
 
   void runCoopVecMulTest();
   void runCoopVecOuterProductTest();
+  void runCoopVecVectorAccumulateTest();
 
 #if HAVE_COOPVEC_API
   struct CoopVecMulSubtestConfig {
@@ -816,6 +818,18 @@ public:
       D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps,
       CoopVecOuterProductSubtestConfig &Config, bool RunCompute);
 
+  struct CoopVecVectorAccumulateSubtestConfig {
+    size_t VecSize;
+    size_t NumThreads;
+  };
+
+  void runCoopVecVectorAccumulateTestConfig(
+      ID3D12Device *D3DDevice,
+      D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps);
+  void runCoopVecVectorAccumulateSubtest(
+      ID3D12Device *D3DDevice,
+      D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps,
+      CoopVecVectorAccumulateSubtestConfig &Config, bool RunCompute);
 #endif // HAVE_COOPVEC_API
 
   template <class T1, class T2>
@@ -13613,6 +13627,445 @@ TEST_F(ExecutionTest, CoopVec_OuterProduct) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   runCoopVecOuterProductTest();
+}
+
+void ExecutionTest::runCoopVecVectorAccumulateTest() {
+#if !HAVE_COOPVEC_API
+  WEX::Logging::Log::Comment(
+      "Cooperative vector API not supported in build configuration. Skipping.");
+  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  return;
+#else
+  // Create device and verify coopvec support
+  CComPtr<ID3D12Device> D3DDevice;
+  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
+#ifdef _HLK_CONF
+    LOG_ERROR_FMT_THROW(
+        L"Device does not support SM 6.9. Can't run these tests.");
+#else
+    WEX::Logging::Log::Comment(
+        "Device does not support SM 6.9. Can't run these tests.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+#endif
+  }
+
+  if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {
+#ifdef _HLK_CONF
+    LOG_ERROR_FMT_THROW(
+        L"Device does not support cooperative vectors. Can't run these tests.");
+#else
+    WEX::Logging::Log::Comment(
+        "Device does not support cooperative vectors. Can't run these tests.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+#endif
+  }
+
+  // Query coopvec feature data. First call gets the size of the arrays. The
+  // second call populates the arrays using memory we allocate.
+  D3D12_FEATURE_DATA_COOPERATIVE_VECTOR DevOptions = {};
+  VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
+      (D3D12_FEATURE)D3D12_FEATURE_COOPERATIVE_VECTOR, &DevOptions,
+      sizeof(DevOptions)));
+
+  // Allocate memory for the arrays in DevOptions
+  std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE> AccumulateProps(
+      DevOptions.VectorAccumulatePropCount);
+  DevOptions.pVectorAccumulateProperties = AccumulateProps.data();
+
+  VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
+      (D3D12_FEATURE)D3D12_FEATURE_COOPERATIVE_VECTOR, &DevOptions,
+      sizeof(DevOptions)));
+
+  // Test each supported data type and matrix layout
+  for (auto AccumulateConfig : AccumulateProps) {
+    // Run the test
+    runCoopVecVectorAccumulateTestConfig(D3DDevice, AccumulateConfig);
+  }
+#endif // HAVE_COOPVEC_API
+}
+
+#if HAVE_COOPVEC_API
+void ExecutionTest::runCoopVecVectorAccumulateTestConfig(
+    ID3D12Device *D3DDevice,
+    D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps) {
+  LogCommentFmt(
+      L"Running test for InputType: %s, AccumulationType: %s",
+      CoopVecHelpers::DataTypeToFilterString(AccumulateProps.InputType).c_str(),
+      CoopVecHelpers::DataTypeToFilterString(AccumulateProps.AccumulationType)
+          .c_str());
+
+  constexpr CoopVecVectorAccumulateSubtestConfig TestConfigs[] = {
+      {4, 16},  {4, 32},  {16, 16}, {16, 32},
+      {32, 16}, {32, 32}, {64, 16}, {64, 32},
+  };
+
+  for (auto Config : TestConfigs) {
+    // Run once in compute, then once in graphics (pixel shader)
+    runCoopVecVectorAccumulateSubtest(D3DDevice, AccumulateProps, Config, true);
+    runCoopVecVectorAccumulateSubtest(D3DDevice, AccumulateProps, Config,
+                                      false);
+  }
+}
+
+void ExecutionTest::runCoopVecVectorAccumulateSubtest(
+    ID3D12Device *D3DDevice,
+    D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &AccumulateProps,
+    CoopVecVectorAccumulateSubtestConfig &Config, bool RunCompute) {
+  std::mt19937 Rnd(0x42);
+
+  LogCommentFmt(L"Running test for VecSize: %zu, NumThreads: %zu, "
+                L"Stage: %s",
+                Config.VecSize, Config.NumThreads,
+                RunCompute ? L"Compute" : L"Pixel");
+
+  // Create root signature with a single root entry for all SRVs and UAVs
+  CComPtr<ID3D12RootSignature> RootSignature;
+  {
+    CD3DX12_DESCRIPTOR_RANGE Ranges[2];
+    Ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
+    Ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
+
+    CD3DX12_ROOT_PARAMETER RootParams[2];
+    RootParams[0].InitAsDescriptorTable(_countof(Ranges), Ranges,
+                                        D3D12_SHADER_VISIBILITY_ALL);
+    RootParams[1].InitAsUnorderedAccessView(/* register */ 10, /* space */ 0,
+                                            D3D12_SHADER_VISIBILITY_ALL);
+
+    CD3DX12_ROOT_SIGNATURE_DESC RootSignatureDesc;
+    RootSignatureDesc.Init(_countof(RootParams), RootParams, 0, nullptr,
+                           D3D12_ROOT_SIGNATURE_FLAG_NONE);
+    CreateRootSignatureFromDesc(D3DDevice, &RootSignatureDesc, &RootSignature);
+  }
+
+  // Create descriptor heap with space for 3 descriptors: 1 SRV and 1 UAVs
+  CComPtr<ID3D12DescriptorHeap> DescriptorHeap;
+  {
+    D3D12_DESCRIPTOR_HEAP_DESC Desc = {};
+    Desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    Desc.NumDescriptors = 2;
+    Desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    VERIFY_SUCCEEDED(
+        D3DDevice->CreateDescriptorHeap(&Desc, IID_PPV_ARGS(&DescriptorHeap)));
+  }
+
+  // Create input vectors
+  auto InputVector = CoopVecHelpers::TestVector::createSimpleTestVector(
+      Config.NumThreads, Config.VecSize, AccumulateProps.InputType,
+      AccumulateProps.InputType, AccumulateProps.AccumulationType, Rnd);
+
+  // Create accumulation vector
+  auto AccumulationVector = CoopVecHelpers::TestVector::createSimpleTestVector(
+      1, Config.VecSize, AccumulateProps.AccumulationType,
+      AccumulateProps.AccumulationType, AccumulateProps.AccumulationType, Rnd);
+
+  // Calculate reference output
+  auto ExpectedOutputVector = AccumulationVector;
+  for (size_t ThreadIdx = 0; ThreadIdx < Config.NumThreads; ++ThreadIdx) {
+    if (AccumulateProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
+      auto *InputVectorFP = InputVector.getVector<float>(ThreadIdx);
+      auto *ExpectedOutputVectorFP = ExpectedOutputVector.getVector<float>(0);
+      for (size_t i = 0; i < Config.VecSize; ++i) {
+        ExpectedOutputVectorFP[i] += InputVectorFP[i];
+      }
+    } else if (AccumulateProps.InputType ==
+               D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16) {
+      auto *InputVectorFP16 =
+          InputVector.getVector<DirectX::PackedVector::HALF>(ThreadIdx);
+      auto *ExpectedOutputVectorFP16 =
+          ExpectedOutputVector.getVector<DirectX::PackedVector::HALF>(0);
+      for (size_t i = 0; i < Config.VecSize; ++i) {
+        float VecVal = ConvertFloat16ToFloat32(InputVectorFP16[i]);
+        float AccumVal = ConvertFloat16ToFloat32(ExpectedOutputVectorFP16[i]);
+        AccumVal += VecVal;
+        ExpectedOutputVectorFP16[i] = ConvertFloat32ToFloat16(AccumVal);
+      }
+    } else {
+      VERIFY_FAIL(L"Unsupported input data type");
+      return;
+    }
+  }
+
+  std::string ShaderSource = R"(
+#include "dx/linalg.h"
+
+ByteAddressBuffer InputVector : register(t0);
+RWByteAddressBuffer OutputVector : register(u0);
+
+RWStructuredBuffer<uint> AtomicCounter : register(u10);
+
+void RunCoopVecTest(uint threadIdx)
+{
+  using namespace dx::linalg;
+
+  // Ensure 4-byte alignment for vector loads
+  uint inputOffset = threadIdx * INPUT_VECTOR_STRIDE;
+  vector<INPUT_DATA_TYPE, VEC_SIZE / INPUT_DIVISOR> input = InputVector.Load<vector<INPUT_DATA_TYPE, VEC_SIZE / INPUT_DIVISOR> >(inputOffset);
+
+  VectorAccumulate(input, OutputVector, 0);
+}
+
+[shader("compute")]
+[numthreads(NUM_THREADS, 1, 1)]
+void main(uint threadIdx : SV_GroupThreadID)
+{
+  RunCoopVecTest(threadIdx);
+}
+
+float4 vs_main(uint vid : SV_VertexID) : SV_Position {
+  switch (vid) {
+  case 0:
+    return float4(-1, 1, 0, 1);
+  case 1:
+    return float4(3, 1, 0, 1);
+  case 2:
+    return float4(-1, -3, 0, 1);
+  }
+  return float4(0, 0, 0, 0);
+}
+
+float4 ps_main() : SV_Target {
+  uint threadIdx;
+  InterlockedAdd(AtomicCounter[0], 1, threadIdx);
+  if (threadIdx < NUM_THREADS)
+    RunCoopVecTest(threadIdx);
+  return float4(1, 1, 1, 1);
+}
+)";
+
+  auto CreateDefineFromSizeT = [](const wchar_t *Name, size_t Value) {
+    std::wstringstream Stream;
+    Stream << L"-D" << Name << L"=" << Value;
+    return Stream.str();
+  };
+
+  auto CreateDefineFromString = [](const wchar_t *Name, const wchar_t *Value) {
+    std::wstringstream Stream;
+    Stream << L"-D" << Name << L"=" << Value;
+    return Stream.str();
+  };
+
+  const size_t InputDivisor =
+      CoopVecHelpers::GetNumPackedElementsForInputDataType(
+          AccumulateProps.InputType);
+  const std::wstring InputDataType =
+      CoopVecHelpers::GetHlslDataTypeForDataType(AccumulateProps.InputType);
+
+  auto VecSizeDefine = CreateDefineFromSizeT(L"VEC_SIZE", Config.VecSize);
+  auto NumThreadsDefine =
+      CreateDefineFromSizeT(L"NUM_THREADS", Config.NumThreads);
+  auto InputDivisorDefine =
+      CreateDefineFromSizeT(L"INPUT_DIVISOR", InputDivisor);
+  auto InputVectorStrideDefine =
+      CreateDefineFromSizeT(L"INPUT_VECTOR_STRIDE", InputVector.getStride());
+  auto InputDataTypeDefine =
+      CreateDefineFromString(L"INPUT_DATA_TYPE", InputDataType.c_str());
+
+  LPCWSTR Options[] = {
+      L"-enable-16bit-types",          VecSizeDefine.c_str(),
+      NumThreadsDefine.c_str(),        InputDivisorDefine.c_str(),
+      InputVectorStrideDefine.c_str(), InputDataTypeDefine.c_str(),
+  };
+
+  CComPtr<LinAlgHeaderIncludeHandler> IncludeHandler =
+      new LinAlgHeaderIncludeHandler(m_support);
+
+  // Create the pipeline state for the CoopVec shaders
+  CComPtr<ID3D12PipelineState> PipelineState;
+
+  if (RunCompute) {
+    CreateComputePSO(D3DDevice, RootSignature, ShaderSource.c_str(), L"cs_6_9",
+                     &PipelineState, Options, _countof(Options),
+                     IncludeHandler);
+  } else {
+    CComPtr<ID3DBlob> VertexShader;
+    CComPtr<ID3DBlob> PixelShader;
+
+    CompileFromText(ShaderSource.c_str(), L"vs_main", L"vs_6_9", &VertexShader,
+                    Options, _countof(Options), IncludeHandler);
+    CompileFromText(ShaderSource.c_str(), L"ps_main", L"ps_6_9", &PixelShader,
+                    Options, _countof(Options), IncludeHandler);
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC PsoDesc = {};
+    PsoDesc.pRootSignature = RootSignature;
+    PsoDesc.VS = CD3DX12_SHADER_BYTECODE(VertexShader);
+    PsoDesc.PS = CD3DX12_SHADER_BYTECODE(PixelShader);
+    PsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    PsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    PsoDesc.DepthStencilState.DepthEnable = FALSE;
+    PsoDesc.DepthStencilState.StencilEnable = FALSE;
+    PsoDesc.SampleMask = UINT_MAX;
+    PsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    PsoDesc.NumRenderTargets = 1;
+    PsoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+    PsoDesc.SampleDesc.Count = 1;
+    VERIFY_SUCCEEDED(D3DDevice->CreateGraphicsPipelineState(
+        &PsoDesc, IID_PPV_ARGS(&PipelineState)));
+  }
+
+  // Create a command list for the compute shader.
+  CComPtr<ID3D12GraphicsCommandList> CommandList;
+  CComPtr<ID3D12CommandAllocator> CommandAllocator;
+  CComPtr<ID3D12CommandQueue> CommandQueue;
+  FenceObj FO;
+  CreateCommandQueue(D3DDevice, L"CoopVec Test Command Queue", &CommandQueue,
+                     D3D12_COMMAND_LIST_TYPE_DIRECT);
+  InitFenceObj(D3DDevice, &FO);
+  VERIFY_SUCCEEDED(D3DDevice->CreateCommandAllocator(
+      D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CommandAllocator)));
+  VERIFY_SUCCEEDED(D3DDevice->CreateCommandList(
+      0, D3D12_COMMAND_LIST_TYPE_DIRECT, CommandAllocator, PipelineState,
+      IID_PPV_ARGS(&CommandList)));
+
+  CComPtr<ID3D12Resource> InputVecSRVResource, InputVecSRVUploadResource;
+
+  CreateTestResources(
+      D3DDevice, CommandList, InputVector.getBuffer(),
+      InputVector.getTotalBytes(),
+      CD3DX12_RESOURCE_DESC::Buffer(InputVector.getTotalBytes()),
+      &InputVecSRVResource, &InputVecSRVUploadResource);
+
+  CD3DX12_CPU_DESCRIPTOR_HANDLE BaseHandle(
+      DescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+
+  // This increments baseHandle
+  CreateRawSRV(D3DDevice, BaseHandle,
+               static_cast<UINT>(InputVector.getTotalBytes() / sizeof(int32_t)),
+               InputVecSRVResource);
+
+  CComPtr<ID3D12Resource> AccumulationVecUAVResource,
+      AccumulationVecUAVUploadResource, AccumulationVecUAVReadResource;
+
+  CreateTestUavs(D3DDevice, CommandList, AccumulationVector.getBuffer(),
+                 AccumulationVector.getTotalBytes(),
+                 &AccumulationVecUAVResource, &AccumulationVecUAVUploadResource,
+                 &AccumulationVecUAVReadResource);
+
+  CreateRawUAV(
+      D3DDevice, BaseHandle,
+      static_cast<UINT>(AccumulationVector.getTotalBytes() / sizeof(int32_t)),
+      AccumulationVecUAVResource);
+
+  // Create resource for atomic counter
+  CComPtr<ID3D12Resource> AtomicCounterResource;
+  uint32_t AtomicCounterInit = 0;
+  CreateTestResources(D3DDevice, CommandList, &AtomicCounterInit,
+                      sizeof(AtomicCounterInit),
+                      CD3DX12_RESOURCE_DESC::Buffer(sizeof(AtomicCounterInit)),
+                      &AtomicCounterResource, nullptr);
+
+  CommandList->Close();
+  ExecuteCommandList(CommandQueue, CommandList);
+  WaitForSignal(CommandQueue, FO);
+  VERIFY_SUCCEEDED(CommandAllocator->Reset());
+  VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, PipelineState));
+
+  SetDescriptorHeap(CommandList, DescriptorHeap);
+
+  CD3DX12_GPU_DESCRIPTOR_HANDLE ResHandle(
+      DescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+
+  CComPtr<ID3D12DescriptorHeap> RtvHeap;
+  CComPtr<ID3D12Resource> RenderTarget;
+  CComPtr<ID3D12Resource> RenderTargetRead;
+
+  if (RunCompute) {
+    CommandList->SetComputeRootSignature(RootSignature);
+    CommandList->SetComputeRootDescriptorTable(0, ResHandle);
+    CommandList->SetPipelineState(PipelineState);
+    CommandList->Dispatch(1, 1, 1);
+  } else {
+    UINT FrameCount = 1;
+    UINT RtvDescSize = 0;
+    CreateRtvDescriptorHeap(D3DDevice, FrameCount, &RtvHeap, &RtvDescSize);
+    CreateRenderTargetAndReadback(D3DDevice, RtvHeap, 100, 100, &RenderTarget,
+                                  &RenderTargetRead);
+
+    D3D12_RESOURCE_DESC RtDesc = RenderTarget->GetDesc();
+    D3D12_VIEWPORT Viewport;
+    D3D12_RECT ScissorRect;
+
+    memset(&Viewport, 0, sizeof(Viewport));
+    Viewport.Height = static_cast<float>(RtDesc.Height);
+    Viewport.Width = static_cast<float>(RtDesc.Width);
+    Viewport.MaxDepth = 1.0f;
+    memset(&ScissorRect, 0, sizeof(ScissorRect));
+    ScissorRect.right = static_cast<long>(RtDesc.Width);
+    ScissorRect.bottom = static_cast<long>(RtDesc.Height);
+    CommandList->SetGraphicsRootSignature(RootSignature);
+    CommandList->SetGraphicsRootDescriptorTable(0, ResHandle);
+    CommandList->SetGraphicsRootUnorderedAccessView(
+        1, AtomicCounterResource->GetGPUVirtualAddress());
+    CommandList->RSSetViewports(1, &Viewport);
+    CommandList->RSSetScissorRects(1, &ScissorRect);
+
+    // Indicate that the buffer will be used as a render target.
+    RecordTransitionBarrier(CommandList, RenderTarget,
+                            D3D12_RESOURCE_STATE_COPY_DEST,
+                            D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE RtvHandle(
+        RtvHeap->GetCPUDescriptorHandleForHeapStart(), 0, RtvDescSize);
+    CommandList->OMSetRenderTargets(1, &RtvHandle, FALSE, nullptr);
+
+    CommandList->ClearRenderTargetView(RtvHandle, ClearColor, 0, nullptr);
+    CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    CommandList->DrawInstanced(3, 1, 0, 0);
+  }
+
+  RecordTransitionBarrier(CommandList, AccumulationVecUAVResource,
+                          D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                          D3D12_RESOURCE_STATE_COPY_SOURCE);
+  CommandList->CopyResource(AccumulationVecUAVReadResource,
+                            AccumulationVecUAVResource);
+
+  CommandList->Close();
+  ExecuteCommandList(CommandQueue, CommandList);
+  WaitForSignal(CommandQueue, FO);
+
+  VERIFY_SUCCEEDED(CommandAllocator->Reset());
+  VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, PipelineState));
+
+  {
+    MappedData MappedData(
+        AccumulationVecUAVReadResource,
+        static_cast<UINT>(AccumulationVector.getTotalBytes()));
+
+    void *ResultBuffer = MappedData.data();
+
+    for (size_t i = 0; i < Config.VecSize; i++) {
+      float Result = 0.0f;
+      float Expected = 0.0f;
+
+      if (AccumulateProps.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
+        Result = (reinterpret_cast<float *>(ResultBuffer))[i];
+        Expected =
+            (reinterpret_cast<float *>(ExpectedOutputVector.getBuffer()))[i];
+      } else if (AccumulateProps.InputType ==
+                 D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16) {
+        Result = ConvertFloat16ToFloat32(
+            (reinterpret_cast<DirectX::PackedVector::HALF *>(ResultBuffer))[i]);
+        Expected = ConvertFloat16ToFloat32(
+            (reinterpret_cast<DirectX::PackedVector::HALF *>(
+                ExpectedOutputVector.getBuffer()))[i]);
+      }
+
+      if (isnan(Result) || isnan(Expected) ||
+          fabs(Result - Expected) > 0.00001) {
+        LogErrorFmt(L"Result mismatch at index %zu", i);
+        LogErrorFmt(L"Result: %f, Expected: %f", Result, Expected);
+        break;
+      }
+    }
+  }
+}
+#endif // HAVE_COOPVEC_API
+
+TEST_F(ExecutionTest, CoopVec_VectorAccumulate) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  runCoopVecVectorAccumulateTest();
 }
 
 // This test expects a <pShader> that retrieves a signal value from each of a
