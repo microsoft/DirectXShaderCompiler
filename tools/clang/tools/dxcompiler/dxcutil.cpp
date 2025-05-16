@@ -19,7 +19,6 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/dxcapi.h"
-#include "dxillib.h"
 #include "clang/Basic/Diagnostic.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DebugInfo.h"
@@ -50,29 +49,8 @@ namespace {
 // AssembleToContainer helper functions.
 
 // return true if the internal validator was used, false otherwise
-bool CreateValidator(CComPtr<IDxcValidator> &pValidator) {
-
-  // default behavior uses internal validator
-  // TODO: Check if environment variable is set, if so,
-  // use external validator
-  if (true) {
-    IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
-    return true;
-  }
-
-  // otherwise, use the external validator provided by
-  // the environment variable
-  else {
-    // this code loads the dll path on an as-needed basis.
-    // if a request to initialize the dxil lib arrives more than once
-    // then DxilLibInitialize does nothing.
-    IFTBOOL(DxilLibIsEnabled(), DXC_E_VALIDATOR_MISSING);
-    IFT(DxilLibCreateInstance(CLSID_DxcValidator, &pValidator));
-
-    return false;
-  }
-
-  return false;
+void CreateValidator(CComPtr<IDxcValidator> &pValidator) {
+  IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
 }
 
 } // namespace
@@ -171,16 +149,14 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   std::unique_ptr<llvm::Module> llvmModuleWithDebugInfo;
 
   CComPtr<IDxcValidator> pValidator;
-  bool bInternalValidator = CreateValidator(pValidator);
+  CreateValidator(pValidator);
 
   CComPtr<IDxcValidator2> pValidator2;
-  if (!bInternalValidator) {
-    pValidator.QueryInterface(&pValidator2);
-  }
+  pValidator.QueryInterface(&pValidator2);
 
-  if (bInternalValidator || pValidator2) {
-    // If using the internal validator or external validator supports
-    // IDxcValidator2, we'll use the modules directly. In this case, we'll want
+  if (pValidator2) {
+    // If IDxcValidator2 is supported in the given validator,
+    // we'll use the modules directly. In this case, we'll want
     // to make a clone to avoid SerializeDxilContainerForModule stripping all
     // the debug info. The debug info will be stripped from the orginal module,
     // but preserved in the cloned module.
@@ -215,31 +191,9 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   // Important: in-place edit is required so the blob is reused and thus
   // dxil.dll can be released.
   inputs.ValidationFlags |= DxcValidatorFlags_InPlaceEdit;
-  if (bInternalValidator) {
-    IFT(RunInternalValidator(pValidator, llvmModuleWithDebugInfo.get(),
-                             inputs.pOutputContainerBlob,
-                             inputs.ValidationFlags, &pValResult));
-  } else {
-    if (pValidator2 && llvmModuleWithDebugInfo) {
-      // If metadata was stripped, re-serialize the input module.
-      CComPtr<AbstractMemoryStream> pDebugModuleStream;
-      IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDebugModuleStream));
-      raw_stream_ostream outStream(pDebugModuleStream.p);
-      WriteBitcodeToFile(llvmModuleWithDebugInfo.get(), outStream, true);
-      outStream.flush();
-
-      DxcBuffer debugModule = {};
-      debugModule.Ptr = pDebugModuleStream->GetPtr();
-      debugModule.Size = pDebugModuleStream->GetPtrSize();
-
-      IFT(pValidator2->ValidateWithDebug(inputs.pOutputContainerBlob,
-                                         inputs.ValidationFlags, &debugModule,
-                                         &pValResult));
-    } else {
-      IFT(pValidator->Validate(inputs.pOutputContainerBlob,
-                               inputs.ValidationFlags, &pValResult));
-    }
-  }
+  IFT(RunInternalValidator(pValidator, llvmModuleWithDebugInfo.get(),
+                           inputs.pOutputContainerBlob, inputs.ValidationFlags,
+                           &pValResult));
   IFT(pValResult->GetStatus(&valHR));
   if (inputs.pDiag) {
     if (FAILED(valHR)) {

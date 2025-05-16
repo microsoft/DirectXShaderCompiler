@@ -56,7 +56,6 @@
 #include "dxcompileradapter.h"
 #include "dxcshadersourceinfo.h"
 #include "dxcversion.inc"
-#include "dxillib.h"
 #include <algorithm>
 #include <cfloat>
 
@@ -1322,7 +1321,7 @@ public:
       std::string msg("Internal Compiler error: ");
       switch (hr) {
       case DXC_E_VALIDATOR_MISSING:
-        msg = "Error: external validator selected, but DXIL.dll not found.";
+        msg = "Error: DXIL.dll not found.";
         break;
       default:
         break;
