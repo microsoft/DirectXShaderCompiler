@@ -19,7 +19,6 @@
 #ifdef LLVM_ON_WIN32
 #include "dxcetw.h"
 #endif
-#include "dxillib.h"
 
 namespace hlsl {
 HRESULT SetupRegistryPassForHLSL();
