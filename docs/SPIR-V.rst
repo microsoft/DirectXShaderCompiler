@@ -4227,7 +4227,7 @@ codegen for Vulkan:
 - ``-fvk-use-dx-layout``: Uses DirectX layout rules for resources.
 - ``-fvk-invert-y``: Negates (additively inverts) SV_Position.y before writing
   to stage output. Used to accommodate the difference between Vulkan's
-  coordinate system and DirectX's. Only allowed in VS/DS/GS.
+  coordinate system and DirectX's. Only allowed in VS/DS/GS/MS/Lib.
 - ``-fvk-use-dx-position-w``: Reciprocates (multiplicatively inverts)
   SV_Position.w after reading from stage input. Used to accommodate the
   difference between Vulkan DirectX: the w component of SV_Position in PS is
