@@ -1909,7 +1909,7 @@ public:
   static HRESULT
   EnableExperimentalShaderModels(HMODULE hRuntime,
                                  UUID AdditionalFeatures[] = nullptr,
-                                 UINT NumAdditionalFeatures = 0) {
+                                 size_t NumAdditionalFeatures = 0) {
     D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
         (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
             hRuntime, "D3D12EnableExperimentalFeatures");
@@ -1932,7 +1932,7 @@ public:
 
   static HRESULT
   EnableExperimentalShaderModels(UUID AdditionalFeatures[] = nullptr,
-                                 UINT NumAdditionalFeatures = 0) {
+                                 size_t NumAdditionalFeatures = 0) {
     HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
     if (hRuntime == NULL)
       return E_FAIL;
@@ -12025,7 +12025,8 @@ struct CoopVecExperimentalModeHelper {
       : HadExperimentalShaderModels(HadExperimentalShaderModels) {
     // Enable experimental features
     UUID Features[] = {D3D12CooperativeVectorExperiment};
-    if (FAILED(ExecutionTest::EnableExperimentalShaderModels(Features, 1))) {
+    if (FAILED(ExecutionTest::EnableExperimentalShaderModels(
+            Features, _countof(Features)))) {
       VERIFY_FAIL(L"Failed to enable experimental features");
     }
   }
