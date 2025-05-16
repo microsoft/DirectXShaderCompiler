@@ -1788,20 +1788,18 @@ public:
 #endif
   }
 
-  bool DoesDeviceSupportCooperativeVector(ID3D12Device *Device) {
 #if HAVE_COOPVEC_API
+  bool
+  DoesDeviceSupportCooperativeVector(ID3D12Device *Device,
+                                     D3D12_COOPERATIVE_VECTOR_TIER MinTier) {
     D3D12_FEATURE_DATA_D3D12_OPTIONS_EXPERIMENTAL O;
     if (FAILED(Device->CheckFeatureSupport(
             (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS_EXPERIMENTAL, &O,
             sizeof(O))))
       return false;
-    return O.CooperativeVectorTier !=
-           D3D12_COOPERATIVE_VECTOR_TIER_NOT_SUPPORTED;
-#else
-    UNREFERENCED_PARAMETER(Device);
-    return false;
-#endif
+    return O.CooperativeVectorTier >= MinTier;
   }
+#endif
 
   bool IsFallbackPathEnabled() {
     // Enable fallback paths with: /p:"EnableFallback=1"
@@ -1908,7 +1906,10 @@ public:
     return pD3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr);
   }
 
-  static HRESULT EnableExperimentalShaderModels(HMODULE hRuntime) {
+  static HRESULT
+  EnableExperimentalShaderModels(HMODULE hRuntime,
+                                 UUID AdditionalFeatures[] = nullptr,
+                                 size_t NumAdditionalFeatures = 0) {
     D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
         (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
             hRuntime, "D3D12EnableExperimentalFeatures");
@@ -1920,20 +1921,37 @@ public:
 
     Features.push_back(D3D12ExperimentalShaderModels);
 
-#if HAVE_COOPVEC_API
-    if (GetTestParamBool(L"CooperativeVectorExperimental")) {
-      Features.push_back(D3D12CooperativeVectorExperiment);
+    if (AdditionalFeatures != nullptr && NumAdditionalFeatures > 0) {
+      Features.insert(Features.end(), AdditionalFeatures,
+                      AdditionalFeatures + NumAdditionalFeatures);
     }
-#endif
+
     return pD3D12EnableExperimentalFeatures((UINT)Features.size(),
                                             Features.data(), nullptr, nullptr);
   }
 
-  static HRESULT EnableExperimentalShaderModels() {
+  static HRESULT
+  EnableExperimentalShaderModels(UUID AdditionalFeatures[] = nullptr,
+                                 size_t NumAdditionalFeatures = 0) {
     HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
     if (hRuntime == NULL)
       return E_FAIL;
-    return EnableExperimentalShaderModels(hRuntime);
+    return EnableExperimentalShaderModels(hRuntime, AdditionalFeatures,
+                                          NumAdditionalFeatures);
+  }
+
+  static HRESULT DisableExperimentalShaderModels() {
+    HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
+    if (hRuntime == NULL)
+      return E_FAIL;
+
+    D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
+        (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
+            hRuntime, "D3D12EnableExperimentalFeatures");
+    if (pD3D12EnableExperimentalFeatures == nullptr) {
+      return HRESULT_FROM_WIN32(GetLastError());
+    }
+    return pD3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr);
   }
 
   HRESULT EnableAgilitySDK(HMODULE hRuntime) {
@@ -11996,6 +12014,34 @@ VERIFY_SUCCEEDED(DoArraysMatch<T>(OutputVector, ExpectedVector,
                                   TestConfig.Tolerance));
 }
 
+#if HAVE_COOPVEC_API
+// Helper class to enable and disable experimental features for cooperative
+// vector tests. Uses RAII to ensure experimental features are enabled/disabled
+// when the object is created/destroyed.
+struct CoopVecExperimentalModeHelper {
+  bool HadExperimentalShaderModels;
+
+  CoopVecExperimentalModeHelper(bool HadExperimentalShaderModels)
+      : HadExperimentalShaderModels(HadExperimentalShaderModels) {
+    // Enable experimental features
+    UUID Features[] = {D3D12CooperativeVectorExperiment};
+    if (FAILED(ExecutionTest::EnableExperimentalShaderModels(
+            Features, _countof(Features)))) {
+      VERIFY_FAIL(L"Failed to enable experimental features");
+    }
+  }
+
+  ~CoopVecExperimentalModeHelper() {
+    if (HadExperimentalShaderModels) {
+      ExecutionTest::EnableExperimentalShaderModels(
+          reinterpret_cast<UUID *>(nullptr), 0);
+    } else {
+      ExecutionTest::DisableExperimentalShaderModels();
+    }
+  }
+};
+#endif
+
 // Runs a set of tests for the Cooperative Vector Mul and MulAdd operations.
 // The device will be queried for supported configurations and then each
 // supported configuration will be tested against multiple matrix and vector
@@ -12025,6 +12071,11 @@ void ExecutionTest::runCoopVecMulTest() {
   WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
   return;
 #else
+
+  // Enable experimental features
+  CoopVecExperimentalModeHelper CoopVecExperimentalMode(
+      m_ExperimentalModeEnabled);
+
   // Create device and verify coopvec support
   CComPtr<ID3D12Device> D3DDevice;
   if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
@@ -12039,13 +12090,16 @@ void ExecutionTest::runCoopVecMulTest() {
 #endif
   }
 
-  if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {
+  if (!DoesDeviceSupportCooperativeVector(D3DDevice,
+                                          D3D12_COOPERATIVE_VECTOR_TIER_1_0)) {
 #ifdef _HLK_CONF
     LOG_ERROR_FMT_THROW(
-        L"Device does not support cooperative vectors. Can't run these tests.");
+        L"Device does not support D3D12_COOPERATIVE_VECTOR_TIER_1_0. Can't run "
+        L"these tests.");
 #else
     WEX::Logging::Log::Comment(
-        "Device does not support cooperative vectors. Can't run these tests.");
+        "Device does not support D3D12_COOPERATIVE_VECTOR_TIER_1_0. Can't run "
+        "these tests.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
 #endif
@@ -12067,87 +12121,108 @@ void ExecutionTest::runCoopVecMulTest() {
       (D3D12_FEATURE)D3D12_FEATURE_COOPERATIVE_VECTOR, &DevOptions,
       sizeof(DevOptions)));
 
-  // Test each supported data type and matrix layout
-  for (auto MulAddConfig : MulAddProps) {
-    // Filter on preview test support
-    bool PreviewConfig = false;
-    if (MulAddConfig.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 &&
-        MulAddConfig.InputInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 &&
-        MulAddConfig.BiasInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 &&
-        MulAddConfig.MatrixInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 &&
-        MulAddConfig.OutputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16) {
-      PreviewConfig = true;
-    }
+  struct MinFeatureSetConfig {
+    D3D12_LINEAR_ALGEBRA_DATATYPE InputType;
+    D3D12_LINEAR_ALGEBRA_DATATYPE InputInterpretation;
+    D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInterpretation;
+    D3D12_LINEAR_ALGEBRA_DATATYPE BiasInterpretation;
+    D3D12_LINEAR_ALGEBRA_DATATYPE OutputType;
 
-    if (MulAddConfig.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 &&
-        MulAddConfig.InputInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3 &&
-        MulAddConfig.BiasInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 &&
-        MulAddConfig.MatrixInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3 &&
-        MulAddConfig.OutputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16) {
-      PreviewConfig = true;
+    bool operator==(const D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &Caps) const {
+      return InputType == Caps.InputType &&
+             InputInterpretation == Caps.InputInterpretation &&
+             MatrixInterpretation == Caps.MatrixInterpretation &&
+             BiasInterpretation == Caps.BiasInterpretation &&
+             OutputType == Caps.OutputType;
     }
+  };
 
-    if (MulAddConfig.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 &&
-        MulAddConfig.InputInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2 &&
-        MulAddConfig.BiasInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 &&
-        MulAddConfig.MatrixInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2 &&
-        MulAddConfig.OutputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16) {
-      PreviewConfig = true;
-    }
+  // See
+  // https://github.com/microsoft/hlsl-specs/blob/main/proposals/0029-cooperative-vector.md#minimum-support-set
+  constexpr MinFeatureSetConfig MinSetConfigs[] = {
+      {D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,         /* InputType */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,         /* InputInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,         /* MatrixInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,         /* BiasInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16},        /* OutputType */
+      {D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,         /* InputType */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3,      /* InputInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3,      /* MatrixInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,         /* BiasInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16},        /* OutputType */
+      {D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,         /* InputType */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2,      /* InputInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2,      /* MatrixInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,         /* BiasInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16},        /* OutputType */
+      {D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32,          /* InputType */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED, /* InputInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8,           /* MatrixInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32,          /* BiasInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32},         /* OutputType */
+      {D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED, /* InputType */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED, /* InputInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8,           /* MatrixInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32,          /* BiasInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32},         /* OutputType */
+      {D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32,         /* InputType */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8,           /* InputInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8,           /* MatrixInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32,          /* BiasInterpretation */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32},         /* OutputType */
+  };
 
-    if (MulAddConfig.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32 &&
-        MulAddConfig.InputInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED &&
-        MulAddConfig.BiasInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32 &&
-        MulAddConfig.MatrixInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 &&
-        MulAddConfig.OutputType == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32) {
-      PreviewConfig = true;
-    }
-
-    if (MulAddConfig.InputType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32 &&
-        MulAddConfig.InputInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 &&
-        MulAddConfig.BiasInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32 &&
-        MulAddConfig.MatrixInterpretation ==
-            D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 &&
-        MulAddConfig.OutputType == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32) {
-      PreviewConfig = true;
-    }
-
-    if (!PreviewConfig) {
+  for (const auto &MinSetConfig : MinSetConfigs) {
+    auto CapsIt =
+        std::find_if(MulAddProps.begin(), MulAddProps.end(),
+                     [&](const D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL &Caps) {
+                       return MinSetConfig == Caps;
+                     });
+    if (CapsIt == MulAddProps.end()) {
+      LogErrorFmt(
+          L"Minimum feature set config not supported by driver: InputType: %s, "
+          L"InputInterpretation: %s, MatrixInterpretation: %s, "
+          L"BiasInterpretation: %s, OutputType: %s",
+          CoopVecHelpers::DataTypeToFilterString(MinSetConfig.InputType)
+              .c_str(),
+          CoopVecHelpers::DataTypeToFilterString(
+              MinSetConfig.InputInterpretation)
+              .c_str(),
+          CoopVecHelpers::DataTypeToFilterString(
+              MinSetConfig.MatrixInterpretation)
+              .c_str(),
+          CoopVecHelpers::DataTypeToFilterString(
+              MinSetConfig.BiasInterpretation)
+              .c_str(),
+          CoopVecHelpers::DataTypeToFilterString(MinSetConfig.OutputType)
+              .c_str());
       continue;
     }
 
     // Apply filters
     bool IsInFilter =
         CoopVecHelpers::IsDataTypeInFilter(L"CoopVecMatrixInterp",
-                                           MulAddConfig.MatrixInterpretation) &&
+                                           MinSetConfig.MatrixInterpretation) &&
         CoopVecHelpers::IsDataTypeInFilter(L"CoopVecBiasInterp",
-                                           MulAddConfig.BiasInterpretation) &&
+                                           MinSetConfig.BiasInterpretation) &&
         CoopVecHelpers::IsDataTypeInFilter(L"CoopVecInputInterp",
-                                           MulAddConfig.InputInterpretation) &&
+                                           MinSetConfig.InputInterpretation) &&
         CoopVecHelpers::IsDataTypeInFilter(L"CoopVecInputType",
-                                           MulAddConfig.InputType) &&
+                                           MinSetConfig.InputType) &&
         CoopVecHelpers::IsDataTypeInFilter(L"CoopVecOutputType",
-                                           MulAddConfig.OutputType);
+                                           MinSetConfig.OutputType);
     if (!IsInFilter) {
       continue;
     }
 
     // Run the test
-    runCoopVecMulTestConfig(D3DDevice, MulAddConfig);
+    runCoopVecMulTestConfig(D3DDevice, *CapsIt);
+    MulAddProps.erase(CapsIt);
+  }
+
+  if (MulAddProps.size() > 0) {
+    LogCommentFmt(L"Device supports more than minimum feature set. Additional "
+                  L"configs will not be tested.");
   }
 #endif // HAVE_COOPVEC_API
 }
@@ -12932,6 +13007,11 @@ void ExecutionTest::runCoopVecOuterProductTest() {
   WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
   return;
 #else
+
+  // Enable experimental features
+  CoopVecExperimentalModeHelper CoopVecExperimentalMode(
+      m_ExperimentalModeEnabled);
+
   // Create device and verify coopvec support
   CComPtr<ID3D12Device> D3DDevice;
   if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
@@ -12946,13 +13026,16 @@ void ExecutionTest::runCoopVecOuterProductTest() {
 #endif
   }
 
-  if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {
+  if (!DoesDeviceSupportCooperativeVector(D3DDevice,
+                                          D3D12_COOPERATIVE_VECTOR_TIER_1_1)) {
 #ifdef _HLK_CONF
     LOG_ERROR_FMT_THROW(
-        L"Device does not support cooperative vectors. Can't run these tests.");
+        L"Device does not support D3D12_COOPERATIVE_VECTOR_TIER_1_1. Can't run "
+        L"these tests.");
 #else
     WEX::Logging::Log::Comment(
-        "Device does not support cooperative vectors. Can't run these tests.");
+        "Device does not support D3D12_COOPERATIVE_VECTOR_TIER_1_1. Can't run "
+        "these tests.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
 #endif
@@ -12974,10 +13057,51 @@ void ExecutionTest::runCoopVecOuterProductTest() {
       (D3D12_FEATURE)D3D12_FEATURE_COOPERATIVE_VECTOR, &DevOptions,
       sizeof(DevOptions)));
 
-  // Test each supported data type and matrix layout
-  for (auto AccumulateConfig : AccumulateProps) {
-    // Run the test
-    runCoopVecOuterProductTestConfig(D3DDevice, AccumulateConfig);
+  // Check for minimum support set and run each config
+  struct MinFeatureSetConfig {
+    D3D12_LINEAR_ALGEBRA_DATATYPE InputType;
+    D3D12_LINEAR_ALGEBRA_DATATYPE AccumulationType;
+
+    bool operator==(
+        const D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &Caps) const {
+      return InputType == Caps.InputType &&
+             AccumulationType == Caps.AccumulationType;
+    }
+  };
+
+  // See
+  // https://github.com/microsoft/hlsl-specs/blob/main/proposals/0029-cooperative-vector.md#minimum-support-set
+  constexpr MinFeatureSetConfig MinSetConfigs[] = {
+      {D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,  /* InputType */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16}, /* AccumulationType */
+      {D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,  /* InputType */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32}, /* AccumulationType */
+  };
+
+  for (const auto &MinSetConfig : MinSetConfigs) {
+    auto CapsIt = std::find_if(
+        AccumulateProps.begin(), AccumulateProps.end(),
+        [&](const D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &Caps) {
+          return MinSetConfig == Caps;
+        });
+    if (CapsIt == AccumulateProps.end()) {
+      LogErrorFmt(
+          L"Minimum feature set config not supported by driver: InputType: %s, "
+          L"AccumulationType: %s",
+          CoopVecHelpers::DataTypeToFilterString(MinSetConfig.InputType)
+              .c_str(),
+          CoopVecHelpers::DataTypeToFilterString(MinSetConfig.AccumulationType)
+              .c_str());
+      continue;
+    }
+
+    runCoopVecOuterProductTestConfig(D3DDevice, *CapsIt);
+    AccumulateProps.erase(CapsIt);
+  }
+
+  if (AccumulateProps.size() > 0) {
+    LogCommentFmt(L"Device supports more than minimum feature set. Additional "
+                  L"configs will not be tested.");
   }
 #endif // HAVE_COOPVEC_API
 }
@@ -13080,13 +13204,15 @@ void ExecutionTest::runCoopVecOuterProductSubtest(
              AccumulateProps.AccumulationType ==
                  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3 ||
              AccumulateProps.AccumulationType ==
-                 D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2) {
+                 D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2 ||
+             AccumulateProps.AccumulationType ==
+                 D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32) {
     // Matrix source data is fp32, which gets converted to fp16 during matrix
-    // conversion
+    // conversion if required
     InputMatrix = CoopVecHelpers::CreateAllOnesInputMatrix<float>(Config.DimN,
                                                                   Config.DimM);
   } else {
-    WEX::Logging::Log::Comment(L"Unsupported matrix data type");
+    VERIFY_FAIL(L"Unsupported matrix data type");
     return;
   }
 
@@ -13636,6 +13762,11 @@ void ExecutionTest::runCoopVecVectorAccumulateTest() {
   WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
   return;
 #else
+
+  // Enable experimental features
+  CoopVecExperimentalModeHelper CoopVecExperimentalMode(
+      m_ExperimentalModeEnabled);
+
   // Create device and verify coopvec support
   CComPtr<ID3D12Device> D3DDevice;
   if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9)) {
@@ -13650,13 +13781,16 @@ void ExecutionTest::runCoopVecVectorAccumulateTest() {
 #endif
   }
 
-  if (!DoesDeviceSupportCooperativeVector(D3DDevice)) {
+  if (!DoesDeviceSupportCooperativeVector(D3DDevice,
+                                          D3D12_COOPERATIVE_VECTOR_TIER_1_1)) {
 #ifdef _HLK_CONF
     LOG_ERROR_FMT_THROW(
-        L"Device does not support cooperative vectors. Can't run these tests.");
+        L"Device does not support D3D12_COOPERATIVE_VECTOR_TIER_1_1. Can't run "
+        L"these tests.");
 #else
     WEX::Logging::Log::Comment(
-        "Device does not support cooperative vectors. Can't run these tests.");
+        "Device does not support D3D12_COOPERATIVE_VECTOR_TIER_1_1. Can't run "
+        "these tests.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
 #endif
@@ -13678,10 +13812,48 @@ void ExecutionTest::runCoopVecVectorAccumulateTest() {
       (D3D12_FEATURE)D3D12_FEATURE_COOPERATIVE_VECTOR, &DevOptions,
       sizeof(DevOptions)));
 
-  // Test each supported data type and matrix layout
-  for (auto AccumulateConfig : AccumulateProps) {
-    // Run the test
-    runCoopVecVectorAccumulateTestConfig(D3DDevice, AccumulateConfig);
+  struct MinFeatureSetConfig {
+    D3D12_LINEAR_ALGEBRA_DATATYPE InputType;
+    D3D12_LINEAR_ALGEBRA_DATATYPE AccumulationType;
+
+    bool operator==(
+        const D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &Caps) const {
+      return InputType == Caps.InputType &&
+             AccumulationType == Caps.AccumulationType;
+    }
+  };
+
+  // See
+  // https://github.com/microsoft/hlsl-specs/blob/main/proposals/0029-cooperative-vector.md#minimum-support-set
+  constexpr MinFeatureSetConfig MinSetConfigs[] = {
+      {D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,  /* InputType */
+       D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16}, /* AccumulationType */
+  };
+
+  for (const auto &MinSetConfig : MinSetConfigs) {
+    auto CapsIt = std::find_if(
+        AccumulateProps.begin(), AccumulateProps.end(),
+        [&](const D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE &Caps) {
+          return MinSetConfig == Caps;
+        });
+    if (CapsIt == AccumulateProps.end()) {
+      LogErrorFmt(
+          L"Minimum feature set config not supported by driver: InputType: %s, "
+          L"AccumulationType: %s",
+          CoopVecHelpers::DataTypeToFilterString(MinSetConfig.InputType)
+              .c_str(),
+          CoopVecHelpers::DataTypeToFilterString(MinSetConfig.AccumulationType)
+              .c_str());
+      continue;
+    }
+
+    runCoopVecVectorAccumulateTestConfig(D3DDevice, *CapsIt);
+    AccumulateProps.erase(CapsIt);
+  }
+
+  if (AccumulateProps.size() > 0) {
+    LogCommentFmt(L"Device supports more than minimum feature set. Additional "
+                  L"configs will not be tested.");
   }
 #endif // HAVE_COOPVEC_API
 }
