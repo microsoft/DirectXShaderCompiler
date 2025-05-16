@@ -28,7 +28,7 @@ export vector<float, 8> Test2(vector<uint, 6> Input) {
 }
 
 // test that "stride" isn't ignored in non-optimal layouts
-export vector<float32_t, 8> Test3(vector<uint, 6> Input) {
+export vector<float, 8> Test3(vector<uint, 6> Input) {
   using namespace dx::linalg;
 
   MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {
@@ -65,7 +65,7 @@ export vector<uint, 8> Test5(vector<uint, 6> Input) {
 
 }
 
-// test that isUnsigned is set correctly for uint32_t
+// test that isUnsigned is set correctly for uint8_t4_packed
 export vector<uint, 8> Test5(vector<uint8_t4_packed, 6> Input) {
   using namespace dx::linalg;
 
@@ -78,7 +78,7 @@ export vector<uint, 8> Test5(vector<uint8_t4_packed, 6> Input) {
 
 }
 
-// test that isUnsigned is set correctly for uint32_t
+// test that isUnsigned is set correctly for int8_t4_packed
 export vector<uint, 8> Test5(vector<int8_t4_packed, 6> Input) {
   using namespace dx::linalg;
 
