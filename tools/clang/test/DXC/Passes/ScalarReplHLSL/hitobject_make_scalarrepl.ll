@@ -33,7 +33,7 @@ entry:
   %hit = alloca %dx.types.HitObject, align 4
   %tmp = alloca %dx.types.HitObject, align 4
   %ray = alloca %struct.RayDesc, align 4
-; CHECK-NOT: %{{[^ ]+}} = alloca %struct.RayDesc
+; CHECK-NOT: alloca %struct.RayDesc
   %tmp2 = alloca %dx.types.HitObject, align 4
 ; CHECK: %[[HIT0:[^ ]+]] = alloca %dx.types.HitObject, align 4
 ; CHECK: %[[HIT1:[^ ]+]] = alloca %dx.types.HitObject, align 4
@@ -69,7 +69,16 @@ entry:
 ; CHECK-DAG: %[[RDTMIN:[^ ]+]] = load float, float* %[[pRDTMIN]],
 ; CHECK-DAG: %[[RDD:[^ ]+]] = load <3 x float>, <3 x float>* %[[pRDD]],
 ; CHECK-DAG: %[[RDTMAX:[^ ]+]] = load float, float* %[[pRDTMAX]],
-; CHECK:  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 387, %dx.types.HitObject* %[[HIT2]], i32 0, i32 1, <3 x float> %[[RDO]], float %[[RDTMIN]], <3 x float> %[[RDD]], float %[[RDTMAX]])
+; Copy introduced for RayDesc argument
+; CHECK-DAG: store <3 x float> %[[RDO]], <3 x float>* %[[pRDO2:[^ ]+]],
+; CHECK-DAG: store float %[[RDTMIN]], float* %[[pRDTMIN2:[^ ]+]],
+; CHECK-DAG: store <3 x float> %[[RDD]], <3 x float>* %[[pRDD2:[^ ]+]],
+; CHECK-DAG: store float %[[RDTMAX]], float* %[[pRDTMAX2:[^ ]+]],
+; CHECK-DAG: %[[RDO2:[^ ]+]] = load <3 x float>, <3 x float>* %[[pRDO2]],
+; CHECK-DAG: %[[RDTMIN2:[^ ]+]] = load float, float* %[[pRDTMIN2]],
+; CHECK-DAG: %[[RDD2:[^ ]+]] = load <3 x float>, <3 x float>* %[[pRDD2]],
+; CHECK-DAG: %[[RDTMAX2:[^ ]+]] = load float, float* %[[pRDTMAX2]],
+; CHECK:  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 387, %dx.types.HitObject* %[[HIT2]], i32 0, i32 1, <3 x float> %[[RDO2]], float %[[RDTMIN2]], <3 x float> %[[RDD2]], float %[[RDTMAX2]])
   call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.RayDesc*)"(i32 387, %dx.types.HitObject* %tmp2, i32 0, i32 1, %struct.RayDesc* %ray), !dbg !31 ; line:45 col:3
   %10 = bitcast %dx.types.HitObject* %tmp2 to i8*, !dbg !31 ; line:45 col:3
   call void @llvm.lifetime.end(i64 4, i8* %10) #0, !dbg !31 ; line:45 col:3
