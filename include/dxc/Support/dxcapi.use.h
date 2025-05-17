@@ -13,6 +13,10 @@
 #define __DXCAPI_USE_H__
 
 #include "dxc/dxcapi.h"
+#include <cstdlib>     // for getenv
+#include <string>
+#include <filesystem>  // C++17 and later
+#include <dxc/Support/Global.h> // for hresult handling with DXC_FAILED
 
 namespace dxc {
 
@@ -26,7 +30,7 @@ protected:
   DxcCreateInstanceProc m_createFn;
   DxcCreateInstance2Proc m_createFn2;
 
-  HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
+  HRESULT virtual InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
     if (m_dll != nullptr)
       return S_OK;
 
@@ -85,13 +89,13 @@ public:
     other.m_createFn2 = nullptr;
   }
 
-  ~DxcDllSupport() { Cleanup(); }
+  virtual ~DxcDllSupport() { Cleanup(); }
 
-  HRESULT Initialize() {
+  HRESULT virtual Initialize() {
     return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
   }
 
-  HRESULT InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {
+  HRESULT virtual InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {
     return InitializeInternal(dll, entryPoint);
   }
 
@@ -100,7 +104,8 @@ public:
     return CreateInstance(clsid, __uuidof(TInterface), (IUnknown **)pResult);
   }
 
-  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, IUnknown **pResult) {
+  HRESULT virtual CreateInstance(REFCLSID clsid, REFIID riid,
+                                 IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
     if (m_dll == nullptr)
@@ -116,7 +121,7 @@ public:
                            (IUnknown **)pResult);
   }
 
-  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
+  HRESULT virtual CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
                           IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
@@ -128,11 +133,21 @@ public:
     return hr;
   }
 
-  bool HasCreateWithMalloc() const { return m_createFn2 != nullptr; }
+  bool virtual HasCreateWithMalloc() const { return m_createFn2 != nullptr; }
 
   bool IsEnabled() const { return m_dll != nullptr; }
 
-  void Cleanup() {
+  bool GetCreateInstanceProcs(DxcCreateInstanceProc *pCreateFn,
+                              DxcCreateInstance2Proc *pCreateFn2) const {
+    if (pCreateFn == nullptr || pCreateFn2 == nullptr ||
+         m_createFn == nullptr)
+        return false;
+    *pCreateFn = m_createFn;
+    *pCreateFn2 = m_createFn2;
+    return true;
+  }
+
+  void virtual Cleanup() {
     if (m_dll != nullptr) {
       m_createFn = nullptr;
       m_createFn2 = nullptr;
@@ -145,7 +160,7 @@ public:
     }
   }
 
-  HMODULE Detach() {
+  HMODULE virtual Detach() {
     HMODULE hModule = m_dll;
     m_dll = nullptr;
     return hModule;
