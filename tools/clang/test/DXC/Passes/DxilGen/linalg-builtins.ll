@@ -76,8 +76,8 @@ entry:
 
   ;CHECK: %[[RWMCH0:[^ ]+]] = call %dx.types.Handle @dx.op.createHandleForLib.struct.RWByteAddressBuffer(i32 160, %struct.RWByteAddressBuffer %[[RWMLD0]]
   ;CHECK: %[[RWMAH0:[^ ]+]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[RWMCH0]]
-  ;CHECK: call void @dx.op.outerProductAccumulate.v8i32.v8i32(i32 307, <8 x i32> %{{[^ ]+}}, <8 x i32> %{{[^ ]+}}, %dx.types.Handle %[[RWMAH0]], i32 0, i32 5, i32 3, i32 64)
-  call void @"dx.hl.op..void (i32, <8 x i32>, <8 x i32>, %dx.types.Handle, i32, i32, i32, i32)"(i32 392, <8 x i32> %tmp25, <8 x i32> %tmp29, %dx.types.Handle %tmp32, i32 0, i32 5, i32 3, i32 64), !dbg !37 ; line:67 col:5
+  ;CHECK: call void @dx.op.outerProductAccumulate.v8i32.v8i32(i32 307, <8 x i32> %{{[^ ]+}}, <8 x i32> %{{[^ ]+}}, %dx.types.Handle %[[RWMAH0]], i32 0, i32 5, i32 3, i32 0)
+  call void @"dx.hl.op..void (i32, <8 x i32>, <8 x i32>, %dx.types.Handle, i32, i32, i32, i32)"(i32 392, <8 x i32> %tmp25, <8 x i32> %tmp29, %dx.types.Handle %tmp32, i32 0, i32 5, i32 3, i32 0), !dbg !37 ; line:67 col:5
 
   
   %tmp33 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?rw_matrix_buffer@@3URWByteAddressBuffer@@A", !dbg !38 ; line:77 col:5

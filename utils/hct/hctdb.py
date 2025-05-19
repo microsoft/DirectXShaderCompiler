@@ -8015,9 +8015,10 @@ class db_dxil(object):
             "Hull Shader MaxTessFactor must be [%0..%1].  %2 specified.",
         )
         self.add_valrule("Meta.ValidSamplerMode", "Invalid sampler mode on sampler .")
-        self.add_valrule(
-            "Meta.GlcNotOnAppendConsume",
-            "globallycoherent cannot be used with append/consume buffers: '%0'.",
+        self.add_valrule_msg(
+            "Meta.CoherenceNotOnAppendConsume",
+            "globally/reorder coherent incompatible with append/consume/counter buffers",
+            "%0coherent cannot be used on buffer with counter",
         )
         self.add_valrule_msg(
             "Meta.StructBufAlignment",
@@ -8409,18 +8410,22 @@ class db_dxil(object):
             "Instr.MayReorderThreadUndefCoherenceHintParam",
             "Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.",
         )
+        self.add_valrule(
+            "Instr.ReorderCoherentRequiresSM69",
+            "reordercoherent requires SM 6.9 or later.",
+        )
 
         # Linalg ops
         self.add_valrule_msg(
             "Instr.MatVecOpIsUnsignedFlagsAreConst",
             "In Linalg Mul/MulAdd functions, IsUnsigned flag is a constant.",
-            "'%1' is not a constant value",
+            "%0 is not a constant value",
         )
 
         self.add_valrule_msg(
             "Instr.LinalgInterpretationParamAreConst",
             "In Linalg operations, Interpretation value is a constant.",
-            "'%1' is not a constant value",
+            "%0 is not a constant value",
         )
 
         self.add_valrule_msg(
@@ -8448,6 +8453,12 @@ class db_dxil(object):
         )
 
         self.add_valrule_msg(
+            "Instr.LinalgMatrixStrideZeroForOptimalLayouts",
+            "For optimal layouts, matrix stride must be zero.",
+            "matrix stride must be a constant zero for optimal layouts",
+        )
+
+        self.add_valrule_msg(
             "Instr.LinalgMatrixLayoutNotTransposable",
             "Row Major and Column Major matrix layouts are not transposable.",
             "%0 matrix layout is not transposable",
@@ -8457,6 +8468,12 @@ class db_dxil(object):
             "Instr.LinalgNotAnUnsignedType",
             "Unsigned flag set for a float signed type",
             "IsUnsigned flag set to true for a float type '%0' vector",
+        )
+
+        self.add_valrule_msg(
+            "Instr.LinalgInvalidMatrixLayoutValueForOuterProductAccumulate",
+            "Matrix Layout for Linalg Mul/MulAdd operation must be valid.",
+            "matrix layout value '%0' is not valid for outerproductaccumulate, must be '%1'",
         )
 
         # Some legacy rules:
@@ -9340,6 +9357,7 @@ class db_hlsl(object):
             "DxHitObject": "LICOMPTYPE_HIT_OBJECT",
             "VkBufferPointer": "LICOMPTYPE_VK_BUFFER_POINTER",
             "RayQuery": "LICOMPTYPE_RAY_QUERY",
+            "LinAlg": "LICOMPTYPE_LINALG",
         }
 
         self.trans_rowcol = {"r": "IA_R", "c": "IA_C", "r2": "IA_R2", "c2": "IA_C2"}

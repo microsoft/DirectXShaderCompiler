@@ -10,7 +10,7 @@ export float4 Test1(vector<float, 4> Input) {
       Buf, 0, 0};
 
   // expected-error@+3{{no matching function for call to 'MakeInterpretedVector'}}
-  // expected-note@dx/linalg.h:97{{candidate template ignored: invalid explicitly-specified argument for template parameter 'DT'}}
+  // expected-note@dx/linalg.h:113{{candidate template ignored: invalid explicitly-specified argument for template parameter 'DT'}}
   return Mul<float>(    
       Matrix, MakeInterpretedVector<2>(Input));
 }
@@ -26,7 +26,7 @@ export float4 Test2(vector<float, 4> Input) {
       Buf, 0, 0};
 
   // expected-error@+3{{no matching function for call to 'MakeInterpretedVector'}}
-  // expected-note@dx/linalg.h:97{{candidate template ignored: invalid explicitly-specified argument for template parameter 'DT'}}
+  // expected-note@dx/linalg.h:113{{candidate template ignored: invalid explicitly-specified argument for template parameter 'DT'}}
   return Mul<float>(    
       Matrix, MakeInterpretedVector<DATA_TYPE_InvalidType>(Input));
 }

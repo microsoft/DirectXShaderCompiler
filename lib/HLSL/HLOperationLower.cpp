@@ -5720,37 +5720,24 @@ Value *TranslateCallShader(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return Builder.CreateCall(F, {opArg, ShaderIndex, Parameter});
 }
 
-static unsigned LoadRayDescElementsIntoArgs(Value **Args, hlsl::OP *OP,
-                                            IRBuilder<> &Builder,
-                                            Value *RayDescPtr, unsigned Index) {
-  // struct RayDesc
-  //{
-  //    float3 Origin;
-  //    float  TMin;
-  //    float3 Direction;
-  //    float  TMax;
-  //};
-  Value *ZeroIdx = OP->GetU32Const(0);
-  Value *Origin = Builder.CreateGEP(RayDescPtr, {ZeroIdx, ZeroIdx});
-  Origin = Builder.CreateLoad(Origin);
-  Args[Index++] = Builder.CreateExtractElement(Origin, (uint64_t)0);
-  Args[Index++] = Builder.CreateExtractElement(Origin, 1);
-  Args[Index++] = Builder.CreateExtractElement(Origin, 2);
-
-  Value *TMinPtr = Builder.CreateGEP(RayDescPtr, {ZeroIdx, OP->GetU32Const(1)});
-  Args[Index++] = Builder.CreateLoad(TMinPtr);
-
-  Value *DirectionPtr =
-      Builder.CreateGEP(RayDescPtr, {ZeroIdx, OP->GetU32Const(2)});
-  Value *Direction = Builder.CreateLoad(DirectionPtr);
-
-  Args[Index++] = Builder.CreateExtractElement(Direction, (uint64_t)0);
-  Args[Index++] = Builder.CreateExtractElement(Direction, 1);
-  Args[Index++] = Builder.CreateExtractElement(Direction, 2);
-
-  Value *TMaxPtr = Builder.CreateGEP(RayDescPtr, {ZeroIdx, OP->GetU32Const(3)});
-  Args[Index++] = Builder.CreateLoad(TMaxPtr);
-  return Index;
+static void TransferRayDescArgs(Value **Args, hlsl::OP *OP,
+                                IRBuilder<> &Builder, CallInst *CI,
+                                unsigned &Index, unsigned &HLIndex) {
+  // Extract elements from flattened ray desc arguments in HL op.
+  // float3 Origin;
+  Value *origin = CI->getArgOperand(HLIndex++);
+  Args[Index++] = Builder.CreateExtractElement(origin, (uint64_t)0);
+  Args[Index++] = Builder.CreateExtractElement(origin, 1);
+  Args[Index++] = Builder.CreateExtractElement(origin, 2);
+  // float  TMin;
+  Args[Index++] = CI->getArgOperand(HLIndex++);
+  // float3 Direction;
+  Value *direction = CI->getArgOperand(HLIndex++);
+  Args[Index++] = Builder.CreateExtractElement(direction, (uint64_t)0);
+  Args[Index++] = Builder.CreateExtractElement(direction, 1);
+  Args[Index++] = Builder.CreateExtractElement(direction, 2);
+  // float  TMax;
+  Args[Index++] = CI->getArgOperand(HLIndex++);
 }
 
 Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
@@ -5759,21 +5746,24 @@ Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
                          bool &Translated) {
   hlsl::OP *OP = &Helper.hlslOP;
 
-  Value *RayDesc = CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx);
-  Value *PayLoad = CI->getArgOperand(HLOperandIndex::kTraceRayPayLoadOpIdx);
-
   Value *Args[DXIL::OperandIndex::kTraceRayNumOp];
   Args[0] = OP->GetU32Const(static_cast<unsigned>(OpCode));
-  for (unsigned i = 1; i < HLOperandIndex::kTraceRayRayDescOpIdx; i++)
-    Args[i] = CI->getArgOperand(i);
+  unsigned Index = 1, HLIndex = 1;
+  while (HLIndex < HLOperandIndex::kTraceRayRayDescOpIdx)
+    Args[Index++] = CI->getArgOperand(HLIndex++);
 
   IRBuilder<> Builder(CI);
-  LoadRayDescElementsIntoArgs(Args, OP, Builder, RayDesc,
-                              DXIL::OperandIndex::kTraceRayRayDescOpIdx);
+  TransferRayDescArgs(Args, OP, Builder, CI, Index, HLIndex);
+  DXASSERT_NOMSG(HLIndex == CI->getNumArgOperands() - 1);
+  DXASSERT_NOMSG(Index == DXIL::OperandIndex::kTraceRayPayloadOpIdx);
 
-  Args[DXIL::OperandIndex::kTraceRayPayloadOpIdx] = PayLoad;
+  Value *Payload = CI->getArgOperand(HLIndex++);
+  Args[Index++] = Payload;
 
-  Type *Ty = PayLoad->getType();
+  DXASSERT_NOMSG(HLIndex == CI->getNumArgOperands());
+  DXASSERT_NOMSG(Index == DXIL::OperandIndex::kTraceRayNumOp);
+
+  Type *Ty = Payload->getType();
   Function *F = OP->GetOpFunc(OpCode, Ty);
 
   return Builder.CreateCall(F, Args);
@@ -5817,33 +5807,16 @@ Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   Value *Args[DXIL::OperandIndex::kTraceRayInlineNumOp];
   Args[0] = opArg;
-  for (unsigned i = 1; i < HLOperandIndex::kTraceRayInlineRayDescOpIdx; i++) {
-    Args[i] = CI->getArgOperand(i);
-  }
+  unsigned Index = 1, HLIndex = 1;
+  while (HLIndex < HLOperandIndex::kTraceRayInlineRayDescOpIdx)
+    Args[Index++] = CI->getArgOperand(HLIndex++);
 
   IRBuilder<> Builder(CI);
-  unsigned hlIndex = HLOperandIndex::kTraceRayInlineRayDescOpIdx;
-  unsigned index = DXIL::OperandIndex::kTraceRayInlineRayDescOpIdx;
-
-  // struct RayDesc
-  //{
-  //    float3 Origin;
-  Value *origin = CI->getArgOperand(hlIndex++);
-  Args[index++] = Builder.CreateExtractElement(origin, (uint64_t)0);
-  Args[index++] = Builder.CreateExtractElement(origin, 1);
-  Args[index++] = Builder.CreateExtractElement(origin, 2);
-  //    float  TMin;
-  Args[index++] = CI->getArgOperand(hlIndex++);
-  //    float3 Direction;
-  Value *direction = CI->getArgOperand(hlIndex++);
-  Args[index++] = Builder.CreateExtractElement(direction, (uint64_t)0);
-  Args[index++] = Builder.CreateExtractElement(direction, 1);
-  Args[index++] = Builder.CreateExtractElement(direction, 2);
-  //    float  TMax;
-  Args[index++] = CI->getArgOperand(hlIndex++);
-  //};
-
-  DXASSERT_NOMSG(index == DXIL::OperandIndex::kTraceRayInlineNumOp);
+  DXASSERT_NOMSG(HLIndex == HLOperandIndex::kTraceRayInlineRayDescOpIdx);
+  DXASSERT_NOMSG(Index == DXIL::OperandIndex::kTraceRayInlineRayDescOpIdx);
+  TransferRayDescArgs(Args, hlslOP, Builder, CI, Index, HLIndex);
+  DXASSERT_NOMSG(HLIndex == CI->getNumArgOperands());
+  DXASSERT_NOMSG(Index == DXIL::OperandIndex::kTraceRayInlineNumOp);
 
   Function *F = hlslOP->GetOpFunc(opcode, Builder.getVoidTy());
 
@@ -6197,55 +6170,49 @@ Value *TranslateUnpack(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
 // Shader Execution Reordering.
 namespace {
-Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
-                              HLOperationLowerHelper &Helper,
-                              HLObjectOperationLowerHelper *ObjHelper,
-                              bool &Translated) {
+Value *TranslateHitObjectMakeNop(CallInst *CI, IntrinsicOp IOP,
+                                 OP::OpCode Opcode,
+                                 HLOperationLowerHelper &Helper,
+                                 HLObjectOperationLowerHelper *ObjHelper,
+                                 bool &Translated) {
   hlsl::OP *HlslOP = &Helper.hlslOP;
   IRBuilder<> Builder(CI);
-  unsigned SrcIdx = 1;
-  Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
-  if (Opcode == OP::OpCode::HitObject_MakeNop) {
-    Value *HitObject = TrivialDxilOperation(
-        Opcode, {nullptr}, Type::getVoidTy(CI->getContext()), CI, HlslOP);
-    Builder.CreateStore(HitObject, HitObjectPtr);
-    DXASSERT(
-        CI->use_empty(),
-        "Default ctor return type is a Clang artifact. Value must not be used");
-    return nullptr;
-  }
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  Value *HitObject = TrivialDxilOperation(
+      Opcode, {nullptr}, Type::getVoidTy(CI->getContext()), CI, HlslOP);
+  Builder.CreateStore(HitObject, HitObjectPtr);
+  DXASSERT(
+      CI->use_empty(),
+      "Default ctor return type is a Clang artifact. Value must not be used");
+  return nullptr;
+}
 
+Value *TranslateHitObjectMakeMiss(CallInst *CI, IntrinsicOp IOP,
+                                  OP::OpCode Opcode,
+                                  HLOperationLowerHelper &Helper,
+                                  HLObjectOperationLowerHelper *ObjHelper,
+                                  bool &Translated) {
   DXASSERT_NOMSG(CI->getNumArgOperands() ==
                  HLOperandIndex::kHitObjectMakeMiss_NumOp);
-  Value *RayFlags = CI->getArgOperand(SrcIdx++);
-  Value *MissShaderIdx = CI->getArgOperand(SrcIdx++);
-  DXASSERT_NOMSG(SrcIdx == HLOperandIndex::kHitObjectMakeMissRayDescOpIdx);
-  Value *RayDescOrigin = CI->getArgOperand(SrcIdx++);
-  Value *RayDescOriginX =
-      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)0);
-  Value *RayDescOriginY =
-      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)1);
-  Value *RayDescOriginZ =
-      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)2);
+  hlsl::OP *OP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+  Value *Args[DXIL::OperandIndex::kHitObjectMakeMiss_NumOp];
+  Args[0] = nullptr; // Filled in by TrivialDxilOperation
 
-  Value *RayDescTMin = CI->getArgOperand(SrcIdx++);
-  Value *RayDescDirection = CI->getArgOperand(SrcIdx++);
-  Value *RayDescDirectionX =
-      Builder.CreateExtractElement(RayDescDirection, (uint64_t)0);
-  Value *RayDescDirectionY =
-      Builder.CreateExtractElement(RayDescDirection, (uint64_t)1);
-  Value *RayDescDirectionZ =
-      Builder.CreateExtractElement(RayDescDirection, (uint64_t)2);
+  unsigned DestIdx = 1, SrcIdx = 1;
+  Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
+  Args[DestIdx++] = CI->getArgOperand(SrcIdx++); // RayFlags
+  Args[DestIdx++] = CI->getArgOperand(SrcIdx++); // MissShaderIdx
 
-  Value *RayDescTMax = CI->getArgOperand(SrcIdx++);
+  DXASSERT_NOMSG(SrcIdx == HLOperandIndex::kHitObjectMakeMiss_RayDescOpIdx);
+  DXASSERT_NOMSG(DestIdx ==
+                 DXIL::OperandIndex::kHitObjectMakeMiss_RayDescOpIdx);
+  TransferRayDescArgs(Args, OP, Builder, CI, DestIdx, SrcIdx);
   DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
+  DXASSERT_NOMSG(DestIdx == DXIL::OperandIndex::kHitObjectMakeMiss_NumOp);
 
-  Value *OutHitObject = TrivialDxilOperation(
-      Opcode,
-      {nullptr, RayFlags, MissShaderIdx, RayDescOriginX, RayDescOriginY,
-       RayDescOriginZ, RayDescTMin, RayDescDirectionX, RayDescDirectionY,
-       RayDescDirectionZ, RayDescTMax},
-      Helper.voidTy, CI, HlslOP);
+  Value *OutHitObject =
+      TrivialDxilOperation(Opcode, Args, Helper.voidTy, CI, OP);
   Builder.CreateStore(OutHitObject, HitObjectPtr);
   return nullptr;
 }
@@ -6348,10 +6315,9 @@ Value *TranslateHitObjectTraceRay(CallInst *CI, IntrinsicOp IOP,
   hlsl::OP *OP = &Helper.hlslOP;
   IRBuilder<> Builder(CI);
 
-  const unsigned DxilNumArgs = DxilInst_HitObject_TraceRay::arg_payload + 1;
   DXASSERT_NOMSG(CI->getNumArgOperands() ==
                  HLOperandIndex::kHitObjectTraceRay_NumOp);
-  Value *Args[DxilNumArgs];
+  Value *Args[DXIL::OperandIndex::kHitObjectTraceRay_NumOp];
   Value *OpArg = OP->GetU32Const(static_cast<unsigned>(OpCode));
   Args[0] = OpArg;
 
@@ -6363,13 +6329,19 @@ Value *TranslateHitObjectTraceRay(CallInst *CI, IntrinsicOp IOP,
     Args[DestIdx] = CI->getArgOperand(SrcIdx);
   }
 
-  Value *RayDescPtr = CI->getArgOperand(SrcIdx++);
-  DestIdx = LoadRayDescElementsIntoArgs(Args, OP, Builder, RayDescPtr, DestIdx);
+  DXASSERT_NOMSG(SrcIdx == HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx);
+  DXASSERT_NOMSG(DestIdx ==
+                 DXIL::OperandIndex::kHitObjectTraceRay_RayDescOpIdx);
+  TransferRayDescArgs(Args, OP, Builder, CI, DestIdx, SrcIdx);
+  DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands() - 1);
+  DXASSERT_NOMSG(DestIdx ==
+                 DXIL::OperandIndex::kHitObjectTraceRay_PayloadOpIdx);
+
   Value *Payload = CI->getArgOperand(SrcIdx++);
   Args[DestIdx++] = Payload;
 
   DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
-  DXASSERT_NOMSG(DestIdx == DxilNumArgs);
+  DXASSERT_NOMSG(DestIdx == DXIL::OperandIndex::kHitObjectTraceRay_NumOp);
 
   Function *F = OP->GetOpFunc(OpCode, Payload->getType());
 
@@ -7402,7 +7374,7 @@ IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedUMin, TranslateMopAtomicBinaryOperation,
      DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_DxHitObject_MakeNop, TranslateHitObjectMake,
+    {IntrinsicOp::MOP_DxHitObject_MakeNop, TranslateHitObjectMakeNop,
      DXIL::OpCode::HitObject_MakeNop},
     {IntrinsicOp::IOP_DxMaybeReorderThread, TranslateMaybeReorderThread,
      DXIL::OpCode::MaybeReorderThread},
@@ -7462,7 +7434,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_DxHitObject_LoadLocalRootTableConstant,
      TranslateHitObjectLoadLocalRootTableConstant,
      DXIL::OpCode::HitObject_LoadLocalRootTableConstant},
-    {IntrinsicOp::MOP_DxHitObject_MakeMiss, TranslateHitObjectMake,
+    {IntrinsicOp::MOP_DxHitObject_MakeMiss, TranslateHitObjectMakeMiss,
      DXIL::OpCode::HitObject_MakeMiss},
     {IntrinsicOp::MOP_DxHitObject_SetShaderTableIndex,
      TranslateHitObjectSetShaderTableIndex,
