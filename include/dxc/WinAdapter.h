@@ -925,9 +925,7 @@ public:
            "Support for Linux only handles UTF8 code pages");
     setlocale(LC_ALL, "en_US.UTF-8");
   }
-  ~ScopedLocale() {
-    setlocale(LC_ALL, m_prevLocale.c_str());
-  }
+  ~ScopedLocale() { setlocale(LC_ALL, m_prevLocale.c_str()); }
 };
 
 // The t_nBufferLength parameter is part of the published interface, but not
