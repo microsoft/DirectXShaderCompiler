@@ -1,42 +1,56 @@
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DII=F16 -DMI=F16 -DML=RowMajor -DMT=0 | FileCheck %s --check-prefixes COMMON,DXIL-0
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DII=F8_E4M3 -DMI=F8_E4M3 -DML=MulOptimal -DMT=0 | FileCheck %s --check-prefixes COMMON,DXIL-1
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DII=F8_E5M2 -DMI=F8_E5M2 -DML=MulOptimal -DMT=1 | FileCheck %s --check-prefixes COMMON,DXIL-2
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=uint -DII=PackedS8x32 -DMI=I8 -DML=OuterProductOptimal -DMT=1 | FileCheck %s --check-prefixes COMMON,DXIL-3
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=float -DII=I8 -DMI=I8 -DML=RowMajor -DMT=0 | FileCheck %s --check-prefixes COMMON,DXIL-4
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=1 -DOTY=uint -DIU=0 -DITY=float -DII=I8 -DMI=F16 -DML=RowMajor -DMT=0 | FileCheck %s --check-prefixes COMMON,DXIL-5
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DII=U8 -DMI=I8 -DML=ColumnMajor -DMT=0 | FileCheck %s --check-prefixes COMMON,DXIL-6
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=int -DII=U8 -DMI=U8 -DML=MulOptimal -DMT=1 | FileCheck %s --check-prefixes COMMON,DXIL-7
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F16 -DMI=F16 -DML=RowMajor -DMT=0 -DMST=64 | FileCheck %s --check-prefixes COMMON,DXIL-0
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F8_E4M3 -DMI=F8_E4M3 -DML=MulOptimal -DMT=0 -DMST=0 | FileCheck %s --check-prefixes COMMON,DXIL-1
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F8_E5M2 -DMI=F8_E5M2 -DML=MulOptimal -DMT=1 -DMST=0| FileCheck %s --check-prefixes COMMON,DXIL-2
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DII=PackedS8x32 -DINUM=2 -DMI=I8 -DML=OuterProductOptimal -DMT=1 -DMST=0 | FileCheck %s --check-prefixes COMMON,DXIL-3
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=float -DINUM=8 -DII=I8 -DMI=I8 -DML=RowMajor -DMT=0 -DMST=64 | FileCheck %s --check-prefixes COMMON,DXIL-4
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=1 -DOTY=uint -DIU=0 -DITY=float -DINUM=8 -DII=I8 -DMI=F16 -DINUM=8 -DML=RowMajor -DMT=0 -DMST=64 | FileCheck %s --check-prefixes COMMON,DXIL-5
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DINUM=8 -DII=U8 -DMI=I8 -DINUM=8 -DML=ColumnMajor -DMT=0 -DMST=64 | FileCheck %s --check-prefixes COMMON,DXIL-6
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=int -DINUM=8 -DII=U8 -DMI=U8 -DINUM=8 -DML=MulOptimal -DMT=1 -DMST=0 | FileCheck %s --check-prefixes COMMON,DXIL-7
 
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DII=F16 -DMI=F16 -DML=RowMajor -DMT=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-0
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DII=F8_E4M3 -DMI=F8_E4M3 -DML=MulOptimal -DMT=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-1
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DII=F8_E5M2 -DMI=F8_E5M2 -DML=MulOptimal -DMT=1 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-2
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=uint -DII=PackedS8x32 -DMI=I8 -DML=OuterProductOptimal -DMT=1 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-3
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=float -DII=I8 -DMI=I8 -DML=RowMajor -DMT=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-4
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=1 -DOTY=uint -DIU=0 -DITY=float -DII=I8 -DMI=F16 -DML=RowMajor -DMT=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-5
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DII=U8 -DMI=I8 -DML=ColumnMajor -DMT=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-6
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=int -DII=U8 -DMI=U8 -DML=MulOptimal -DMT=1 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-7
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F16 -DMI=F16 -DML=RowMajor -DMT=0 -DMST=64 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-0
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F8_E4M3 -DMI=F8_E4M3 -DML=MulOptimal -DMT=0 -DMST=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-1
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F8_E5M2 -DMI=F8_E5M2 -DML=MulOptimal -DMT=1 -DMST=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-2
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DINUM=2 -DII=PackedS8x32 -DMI=I8 -DML=OuterProductOptimal -DMT=1 -DMST=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-3
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=float -DINUM=8 -DII=I8 -DMI=I8 -DML=RowMajor -DMT=0 -DMST=64 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-4
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=1 -DOTY=uint -DIU=0 -DITY=float -DINUM=8 -DII=I8 -DMI=F16 -DML=RowMajor -DMT=0 -DMST=64 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-5
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DINUM=8 -DII=U8 -DMI=I8 -DML=ColumnMajor -DMT=0 -DMST=64 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-6
+// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=int -DINUM=8 -DII=U8 -DMI=U8 -DML=MulOptimal -DMT=1 -DMST=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-7
 
 // COMMON: define void @main()
 
 // Test minimum support set of combinations for matVecMul
-// HLOP-0: call void @"dx.hl.op..void (i32, <4 x half>*, i1, <8 x half>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <4 x half>* %output_vector, i1 false, <8 x half> %{{[^ ]+}}, i1 false, i32 8, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 8, i32 8, i32 8, i32 0, i1 false, i32 64)
-// DXIL-0: call <4 x half> @dx.op.matVecMul.v4f16.v8f16(i32 305, <8 x half> {{[^ ]+}}, i1 false, i32 8, %dx.types.Handle {{[^ ]+}}, i32 0, i32 8, i32 8, i32 8, i32 0, i1 false, i32 64, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
-// HLOP-1: call void @"dx.hl.op..void (i32, <4 x half>*, i1, <8 x half>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <4 x half>* %output_vector, i1 false, <8 x half> %{{[^ ]+}}, i1 false, i32 21, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 21, i32 8, i32 8, i32 2, i1 false, i32 64)
-// DXIL-1: call <4 x half> @dx.op.matVecMul.v4f16.v8f16(i32 305, <8 x half> {{[^ ]+}}, i1 false, i32 21, %dx.types.Handle {{[^ ]+}}, i32 0, i32 21, i32 8, i32 8, i32 2, i1 false, i32 64, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
-// HLOP-2: call void @"dx.hl.op..void (i32, <4 x half>*, i1, <8 x half>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <4 x half>* %output_vector, i1 false, <8 x half> %{{[^ ]+}}, i1 false, i32 22, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 22, i32 8, i32 8, i32 2, i1 true, i32 64)
-// DXIL-2: call <4 x half> @dx.op.matVecMul.v4f16.v8f16(i32 305, <8 x half> {{[^ ]+}}, i1 false, i32 22, %dx.types.Handle {{[^ ]+}}, i32 0, i32 22, i32 8, i32 8, i32 2, i1 true, i32 64, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
-// HLOP-3: call void @"dx.hl.op..void (i32, <4 x i32>*, i1, <8 x i32>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <4 x i32>* %output_vector, i1 false, <8 x i32> %{{[^ ]+}}, i1 false, i32 17, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 20, i32 8, i32 8, i32 3, i1 true, i32 64)
-// DXIL-3: call <4 x i32> @dx.op.matVecMul.v4i32.v8i32(i32 305, <8 x i32> {{[^ ]+}}, i1 false, i32 17, %dx.types.Handle {{[^ ]+}}, i32 0, i32 20, i32 8, i32 8, i32 3, i1 true, i32 64, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
-// HLOP-4: call void @"dx.hl.op..void (i32, <4 x i32>*, i1, <8 x float>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <4 x i32>* %output_vector, i1 false, <8 x float> %{{[^ ]+}}, i1 false, i32 20, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 20, i32 8, i32 8, i32 0, i1 false, i32 64)
-// DXIL-4: call <4 x i32> @dx.op.matVecMul.v4i32.v8f32(i32 305, <8 x float> {{[^ ]+}}, i1 false, i32 20, %dx.types.Handle {{[^ ]+}}, i32 0, i32 20, i32 8, i32 8, i32 0, i1 false, i32 64, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
+// HLOP-0: call void @"dx.hl.op..void (i32, <8 x half>*, i1, <8 x half>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <8 x half>* %output_vector, i1 false, <8 x half> %{{[^ ]+}}, i1 false, i32 8, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 8, i32 8, i32 8, i32 0, i1 false, i32 64)
+
+// DXIL-0: call <8 x half> @dx.op.matVecMul.v8f16.v8f16(i32 305, <8 x half> {{[^ ]+}}, i1 false, i32 8, %dx.types.Handle {{[^ ]+}}, i32 0, i32 8, i32 8, i32 8, i32 0, i1 false, i32 64, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
+
+// HLOP-1: call void @"dx.hl.op..void (i32, <8 x half>*, i1, <8 x half>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <8 x half>* %output_vector, i1 false, <8 x half> %{{[^ ]+}}, i1 false, i32 21, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 21, i32 8, i32 8, i32 2, i1 false, i32 0)
+
+// DXIL-1: call <8 x half> @dx.op.matVecMul.v8f16.v8f16(i32 305, <8 x half> {{[^ ]+}}, i1 false, i32 21, %dx.types.Handle {{[^ ]+}}, i32 0, i32 21, i32 8, i32 8, i32 2, i1 false, i32 0, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
+
+// HLOP-2: call void @"dx.hl.op..void (i32, <8 x half>*, i1, <8 x half>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <8 x half>* %output_vector, i1 false, <8 x half> %{{[^ ]+}}, i1 false, i32 22, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 22, i32 8, i32 8, i32 2, i1 true, i32 0)
+
+// DXIL-2: call <8 x half> @dx.op.matVecMul.v8f16.v8f16(i32 305, <8 x half> {{[^ ]+}}, i1 false, i32 22, %dx.types.Handle {{[^ ]+}}, i32 0, i32 22, i32 8, i32 8, i32 2, i1 true, i32 0, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
+
+// HLOP-3: call void @"dx.hl.op..void (i32, <8 x i32>*, i1, <2 x i32>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <8 x i32>* %output_vector, i1 false, <2 x i32> %{{[^ ]+}}, i1 true, i32 17, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 20, i32 8, i32 8, i32 3, i1 true, i32 0)
+
+// DXIL-3: call <8 x i32>  @dx.op.matVecMul.v8i32.v2i32(i32 305, <2 x i32> {{[^ ]+}}, i1 true, i32 17, %dx.types.Handle {{[^ ]+}}, i32 0, i32 20, i32 8, i32 8, i32 3, i1 true, i32 0, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
+
+// HLOP-4: call void @"dx.hl.op..void (i32, <8 x i32>*, i1, <8 x float>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <8 x i32>* %output_vector, i1 false, <8 x float> %{{[^ ]+}}, i1 false, i32 20, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 20, i32 8, i32 8, i32 0, i1 false, i32 64)
+
+// DXIL-4: call <8 x i32> @dx.op.matVecMul.v8i32.v8f32(i32 305, <8 x float> {{[^ ]+}}, i1 false, i32 20, %dx.types.Handle {{[^ ]+}}, i32 0, i32 20, i32 8, i32 8, i32 0, i1 false, i32 64, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
 
 // Test unsigned variations
-// HLOP-5: call void @"dx.hl.op..void (i32, <4 x i32>*, i1, <8 x float>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <4 x i32>* %output_vector, i1 true, <8 x float> %{{[^ ]+}}, i1 false, i32 20, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 8, i32 8, i32 8, i32 0, i1 false, i32 64)
-// DXIL-5: call <4 x i32> @dx.op.matVecMul.v4i32.v8f32(i32 305, <8 x float> {{[^ ]+}}, i1 false, i32 20, %dx.types.Handle {{[^ ]+}}, i32 0, i32 8, i32 8, i32 8, i32 0, i1 false, i32 64, i1 true)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
-// HLOP-6: call void @"dx.hl.op..void (i32, <4 x i32>*, i1, <8 x i32>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <4 x i32>* %output_vector, i1 false, <8 x i32> %{{[^ ]+}}, i1 true, i32 19, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 20, i32 8, i32 8, i32 1, i1 false, i32 64)
-// DXIL-6: call <4 x i32> @dx.op.matVecMul.v4i32.v8i32(i32 305, <8 x i32> {{[^ ]+}}, i1 true, i32 19, %dx.types.Handle {{[^ ]+}}, i32 0, i32 20, i32 8, i32 8, i32 1, i1 false, i32 64, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
-// HLOP-7: call void @"dx.hl.op..void (i32, <4 x i32>*, i1, <8 x i32>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <4 x i32>* %output_vector, i1 false, <8 x i32> %{{[^ ]+}}, i1 false, i32 19, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 19, i32 8, i32 8, i32 2, i1 true, i32 64)
-// DXIL-7: call <4 x i32> @dx.op.matVecMul.v4i32.v8i32(i32 305, <8 x i32> {{[^ ]+}}, i1 false, i32 19, %dx.types.Handle {{[^ ]+}}, i32 0, i32 19, i32 8, i32 8, i32 2, i1 true, i32 64, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
+// HLOP-5: call void @"dx.hl.op..void (i32, <8 x i32>*, i1, <8 x float>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <8 x i32>* %output_vector, i1 true, <8 x float> %{{[^ ]+}}, i1 false, i32 20, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 8, i32 8, i32 8, i32 0, i1 false, i32 64)
+
+// DXIL-5: call <8 x i32> @dx.op.matVecMul.v8i32.v8f32(i32 305, <8 x float> {{[^ ]+}}, i1 false, i32 20, %dx.types.Handle {{[^ ]+}}, i32 0, i32 8, i32 8, i32 8, i32 0, i1 false, i32 64, i1 true)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
+
+// HLOP-6: call void @"dx.hl.op..void (i32, <8 x i32>*, i1, <8 x i32>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <8 x i32>* %output_vector, i1 false, <8 x i32> %{{[^ ]+}}, i1 true, i32 19, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 20, i32 8, i32 8, i32 1, i1 false, i32 64)
+
+// DXIL-6: call <8 x i32> @dx.op.matVecMul.v8i32.v8i32(i32 305, <8 x i32> {{[^ ]+}}, i1 true, i32 19, %dx.types.Handle {{[^ ]+}}, i32 0, i32 20, i32 8, i32 8, i32 1, i1 false, i32 64, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
+
+// HLOP-7: call void @"dx.hl.op..void (i32, <8 x i32>*, i1, <8 x i32>, i1, i32, %dx.types.Handle, i32, i32, i32, i32, i32, i1, i32)"(i32 390, <8 x i32>* %output_vector, i1 false, <8 x i32> %{{[^ ]+}}, i1 false, i32 19, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 19, i32 8, i32 8, i32 2, i1 true, i32 0)
+
+// DXIL-7: call <8 x i32> @dx.op.matVecMul.v8i32.v8i32(i32 305, <8 x i32> {{[^ ]+}}, i1 false, i32 19, %dx.types.Handle {{[^ ]+}}, i32 0, i32 19, i32 8, i32 8, i32 2, i1 true, i32 0, i1 false)  ; MatVecMul(inputVector,isInputUnsigned,inputInterpretation,matrixBuffer,matrixOffset,matrixIntepretation,matrixM,matrixK,matrixLayout,matrixTranspose,matrixStride,isOutputUnsigned)
 
 
 ByteAddressBuffer input_vector_buffer; 
@@ -83,10 +97,10 @@ enum MatLayout {
 [NumThreads(1,1,1)]
 void main()
 {    
-    vector<OTY, 4> output_vector;
+    vector<OTY, 8> output_vector;
     static const uint is_output_unsigned = OU;
     
-    vector<ITY, 8> input_vector = input_vector_buffer.Load<vector<ITY, 8> >(0);
+    vector<ITY, INUM> input_vector = input_vector_buffer.Load<vector<ITY, INUM> >(0);
     const uint is_input_unsigned = IU;
     const uint input_interpretation = II;
     
@@ -96,7 +110,7 @@ void main()
     const uint matrix_dimK = 8;
     const uint matrix_layout = ML;
     const bool matrix_is_transposed = (bool) MT; 
-    const uint matrix_stride = 64;
+    const uint matrix_stride = MST;
 
     __builtin_MatVecMul(output_vector, is_output_unsigned, input_vector, is_input_unsigned, input_interpretation, matrix_buffer, matrix_offset, matrix_interpretation, 
         matrix_dimM, matrix_dimK, matrix_layout, matrix_is_transposed, matrix_stride);

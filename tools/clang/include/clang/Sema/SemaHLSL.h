@@ -59,6 +59,38 @@ bool DiagnoseNodeStructArgument(clang::Sema *self,
                                 clang::QualType ArgTy, bool &Empty,
                                 const clang::FieldDecl *FD = nullptr);
 
+// Keep this in sync with err_hlsl_unsupported_object in DiagnosticSemaKinds.td
+enum class TypeDiagContext {
+  // Indices that the type context is valid and no diagnostics should be emitted
+  // for this type category.
+  Valid = -1,
+  // Supported indices for both `err_hlsl_unsupported_object_context` and
+  // `err_hlsl_unsupported_long_vector`
+  ConstantBuffersOrTextureBuffers = 0,
+  TessellationPatches = 1,
+  GeometryStreams = 2,
+  NodeRecords = 3,
+  CBuffersOrTBuffers = 4,
+  UserDefinedStructParameter = 5,
+  EntryFunctionParameters = 6,
+  EntryFunctionReturnType = 7,
+  PatchConstantFunctionParameters = 8,
+  PatchConstantFunctionReturnType = 9,
+  PayloadParameters = 10,
+  Attributes = 11,
+  TypeParameter = 12,
+  LongVecDiagMaxSelectIndex = TypeParameter,
+  // Below only supported for `err_hlsl_diag_unsupported_object_context`
+  StructuredBuffers = 13,
+  GlobalVariables = 14,
+  GroupShared = 15,
+  DiagMaxSelectIndex = 15,
+};
+bool DiagnoseTypeElements(clang::Sema &S, clang::SourceLocation Loc,
+                          clang::QualType Ty, TypeDiagContext ObjDiagContext,
+                          TypeDiagContext LongVecDiagContext,
+                          const clang::FieldDecl *FD = nullptr);
+
 void DiagnoseControlFlowConditionForHLSL(clang::Sema *self,
                                          clang::Expr *condExpr,
                                          llvm::StringRef StmtName);

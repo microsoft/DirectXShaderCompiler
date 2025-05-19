@@ -1418,7 +1418,8 @@ def VKDecorateExt : InheritableAttr {
 
 def VKDecorateIdExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_decorate_id">];
-  let Subjects = SubjectList<[Function, Var, ParmVar, TypedefName], ErrorDiag>;
+  let Subjects =
+      SubjectList<[Function, Var, ParmVar, Field, TypedefName], ErrorDiag>;
   let Args = [UnsignedArgument<"decorate">, VariadicExprArgument<"arguments">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
@@ -1426,7 +1427,8 @@ def VKDecorateIdExt : InheritableAttr {
 
 def VKDecorateStringExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_decorate_string">];
-  let Subjects = SubjectList<[Function, Var, ParmVar, TypedefName], ErrorDiag>;
+  let Subjects =
+      SubjectList<[Function, Var, ParmVar, Field, TypedefName], ErrorDiag>;
   let Args = [UnsignedArgument<"decorate">, VariadicStringArgument<"arguments">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
