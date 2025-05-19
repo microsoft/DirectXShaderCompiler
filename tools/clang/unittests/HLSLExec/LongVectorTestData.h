@@ -103,8 +103,8 @@ struct HLSLHalf_t {
     // Convert to floats to properly handle the '0 == -0' case which must
     // compare to true but have different uint16_t values.
     // That is, 0 == -0 is true. We store Val as a uint16_t.
-    auto const A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
-    auto const B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
+    const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
     return A == B;
   }
 
@@ -120,12 +120,12 @@ struct HLSLHalf_t {
 
   // Used by tolerance checks in the tests.
   bool operator>(float F) const {
-    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     return A > F;
   }
 
   bool operator<(float F) const {
-    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     return A < F;
   }
 
@@ -142,33 +142,33 @@ struct HLSLHalf_t {
   bool operator!=(const HLSLHalf_t &Other) const { return Val != Other.Val; }
 
   HLSLHalf_t operator*(const HLSLHalf_t &Other) const {
-    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
-    float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
+    const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
     return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A * B));
   }
 
   HLSLHalf_t operator+(const HLSLHalf_t &Other) const {
-    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
-    float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
+    const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
     return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A + B));
   }
 
   HLSLHalf_t operator-(const HLSLHalf_t &Other) const {
-    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
-    float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
+    const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
     return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A - B));
   }
 
   HLSLHalf_t operator/(const HLSLHalf_t &Other) const {
-    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
-    float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
+    const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
     return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A / B));
   }
 
   HLSLHalf_t operator%(const HLSLHalf_t &Other) const {
-    float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
-    float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-    float C = std::fmod(A, B);
+    const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
+    const float C = std::fmod(A, B);
     return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(C));
   }
 

@@ -722,8 +722,7 @@ private:
 };
 
 template <typename T>
-bool DoValuesMatch(T A, T B, [[maybe_unused]] float Tolerance,
-                   [[maybe_unused]] LongVector::ValidationType ValidationType) {
+bool DoValuesMatch(T A, T B, float Tolerance, LongVector::ValidationType) {
   if (Tolerance == 0.0f)
     return A == B;
 
@@ -732,8 +731,7 @@ bool DoValuesMatch(T A, T B, [[maybe_unused]] float Tolerance,
 }
 
 inline bool
-DoValuesMatch(HLSLBool_t A, HLSLBool_t B, [[maybe_unused]] float Tolerance,
-              [[maybe_unused]] LongVector::ValidationType ValidationType) {
+DoValuesMatch(HLSLBool_t A, HLSLBool_t B, float , LongVector::ValidationType) {
   return A == B;
 }
 

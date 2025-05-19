@@ -11344,7 +11344,7 @@ void ExecutionTest::LongVectorOpTestDispatchByVectorSize(
   if (TestConfig.IsBinaryOp()) {
     std::wstring InputValueSet2(
         Handler.GetTableParamByName(L"InputValueSetName2")->m_str);
-    if (!InputValueSet1.empty()) {
+    if (!InputValueSet2.empty()) {
       TestConfig.SetInputValueSet2(InputValueSet2);
     }
   }
