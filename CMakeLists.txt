@@ -100,6 +100,13 @@ mark_as_advanced(DXC_DISABLE_ALLOCATOR_OVERRIDES)
 option(DXC_CODEGEN_EXCEPTIONS_TRAP "An exception in code generation generates a trap, ending the compiler process" OFF)
 mark_as_advanced(DXC_CODEGEN_EXCEPTIONS_TRAP)
 
+option(DXC_ENABLE_ETW "Compile with ETW Tracing" ON)
+mark_as_advanced(DXC_ENABLE_ETW)
+
+if(DXC_ENABLE_ETW)
+  add_compile_definitions(DXC_ENABLE_ETW)
+endif()
+
 # adjust link option to enable debugging from kernel mode; not compatible with incremental linking
 if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND MSVC AND NOT CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64EC")
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
@@ -108,7 +115,9 @@ endif()
 if(MSVC)
   # use new Standard Conforming Preprocessor
   # https://learn.microsoft.com/en-us/cpp/preprocessor/preprocessor-experimental-overview?view=msvc-170
-  add_compile_options(/Zc:preprocessor)
+  if(NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(/Zc:preprocessor)
+  endif()
 endif()
 
 # enable control flow guard
