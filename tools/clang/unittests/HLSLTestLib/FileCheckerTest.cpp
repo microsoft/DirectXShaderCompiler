@@ -533,7 +533,7 @@ FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport,
       // that the validator version is at least as high as the requested
       // version. When ValVerMajor is 0, validation cannot be run against
       // the module.
-      if (bValVerExplicit && opts.ValVerMajor != 0 && !bValVerExplicit)
+      if (bValVerExplicit && opts.ValVerMajor != 0 && !opts.DisableValidation)
         result = CheckDxilVer(DllSupport, opts.ValVerMajor, opts.ValVerMinor);
       if (result.AbortPipeline)
         return result;
