@@ -52,8 +52,7 @@ int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
   }
 
   size_t rv;
-  const char *prevLocale = setlocale(LC_ALL, nullptr);
-  setlocale(LC_ALL, "en_US.UTF-8");
+  ScopedLocale locale(CP_UTF8);
   if (lpMultiByteStr[cbMultiByte - 1] != '\0') {
     char *srcStr = (char *)malloc((cbMultiByte + 1) * sizeof(char));
     strncpy(srcStr, lpMultiByteStr, cbMultiByte);
@@ -63,9 +62,6 @@ int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
   } else {
     rv = mbstowcs(lpWideCharStr, lpMultiByteStr, cchWideChar);
   }
-
-  if (prevLocale)
-    setlocale(LC_ALL, prevLocale);
 
   if (rv == (size_t)cbMultiByte)
     return rv;
@@ -108,8 +104,7 @@ int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
   }
 
   size_t rv;
-  const char *prevLocale = setlocale(LC_ALL, nullptr);
-  setlocale(LC_ALL, "en_US.UTF-8");
+  ScopedLocale locale(CP_UTF8);
   if (lpWideCharStr[cchWideChar - 1] != L'\0') {
     wchar_t *srcStr = (wchar_t *)malloc((cchWideChar + 1) * sizeof(wchar_t));
     wcsncpy(srcStr, lpWideCharStr, cchWideChar);
@@ -119,9 +114,6 @@ int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
   } else {
     rv = wcstombs(lpMultiByteStr, lpWideCharStr, cbMultiByte);
   }
-
-  if (prevLocale)
-    setlocale(LC_ALL, prevLocale);
 
   if (rv == (size_t)cchWideChar)
     return rv;
