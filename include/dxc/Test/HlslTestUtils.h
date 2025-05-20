@@ -629,10 +629,23 @@ inline bool CompareFloatRelativeEpsilon(
 
 inline bool CompareHalfULP(const uint16_t &fsrc, const uint16_t &fref,
                            float ULPTolerance) {
+  // Treat +0 and -0 as equal
+  if ((fsrc & ~FLOAT16_BIT_SIGN) == 0 && (fref & ~FLOAT16_BIT_SIGN) == 0)
+    return true;
+  if (fsrc == fref)
+    return true;
   if (isnanFloat16(fsrc))
     return isnanFloat16(fref);
+
+  // Map to monotonic ordering for correct ULP diff
+  auto toOrdered = [](uint16_t h) -> int {
+    return (h & FLOAT16_BIT_SIGN) ? (~h & 0xFFFF) : (h | 0x8000);
+  };
+
   // 16-bit floating point numbers must preserve denorms
-  int diff = fsrc - fref;
+  int i_fsrc = toOrdered(fsrc);
+  int i_fref = toOrdered(fref);
+  int diff = i_fsrc - i_fref;
   unsigned int uDiff = diff < 0 ? -diff : diff;
   return uDiff <= (unsigned int)ULPTolerance;
 }

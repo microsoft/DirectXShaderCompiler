@@ -17,30 +17,31 @@
 // Helper to fill the shader buffer based on type. Convenient to be used when
 // copying HLSL*_t types so we can copy the underlying type directly instead of
 // the struct.
-template <typename DataType, std::size_t N>
+template <typename DataType>
 void FillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
-                                        std::array<DataType, N> &TestData) {
+                                        std::vector<DataType> &TestData) {
 
   // Note: DataSize for HLSLHalf_t and HLSLBool_t may be larger than the
   // underlying type in some cases. Thats fine. Resize just makes sure we have
   // enough space.
-  const size_t DataSize = sizeof(DataType) * N;
+  const size_t NumElements = TestData.size();
+  const size_t DataSize = sizeof(DataType) * NumElements;
   ShaderBuffer.resize(DataSize);
 
   if constexpr (std::is_same_v<DataType, HLSLHalf_t>) {
     DirectX::PackedVector::HALF *ShaderBufferPtr =
         reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
-    for (size_t i = 0; i < N; ++i) {
+    for (size_t i = 0; i < NumElements; ++i) {
       ShaderBufferPtr[i] = TestData[i].Val;
     }
   } else if constexpr (std::is_same_v<DataType, HLSLBool_t>) {
     int32_t *ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
-    for (size_t i = 0; i < N; ++i) {
+    for (size_t i = 0; i < NumElements; ++i) {
       ShaderBufferPtr[i] = TestData[i].Val;
     }
   } else {
     DataType *ShaderBufferPtr = reinterpret_cast<DataType *>(ShaderBuffer.data());
-    for (size_t i = 0; i < N; ++i) {
+    for (size_t i = 0; i < NumElements; ++i) {
       ShaderBufferPtr[i] = TestData[i];
     }
   }
@@ -48,27 +49,26 @@ void FillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
 
 // Helper to fill the test data from the shader buffer based on type. Convenient
 // to be used when copying HLSL*_t types so we can use the underlying type.
-template <typename DataType, std::size_t N>
+template <typename DataType>
 void FillLongVectorDataFromShaderBuffer(MappedData &ShaderBuffer,
-                                        std::array<DataType, N> &TestData) {
-
+                                        std::vector<DataType> &TestData, size_t NumElements) {
   if constexpr (std::is_same_v<DataType, HLSLHalf_t>) {
     DirectX::PackedVector::HALF *ShaderBufferPtr =
         reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
-    for (size_t i = 0; i < N; ++i) {
+    for (size_t i = 0; i < NumElements; ++i) {
       // HLSLHalf_t has a DirectX::PackedVector::HALF based constructor.
-      TestData[i] = ShaderBufferPtr[i];
+      TestData.push_back(ShaderBufferPtr[i]);
     }
   } else if constexpr (std::is_same_v<DataType, HLSLBool_t>) {
     int32_t *ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
-    for (size_t i = 0; i < N; ++i) {
+    for (size_t i = 0; i < NumElements; ++i) {
       // HLSLBool_t has a int32_t based constructor.
-      TestData[i] = ShaderBufferPtr[i];
+      TestData.push_back(ShaderBufferPtr[i]);
     }
   } else {
     DataType *ShaderBufferPtr = reinterpret_cast<DataType *>(ShaderBuffer.data());
-    for (size_t i = 0; i < N; ++i) {
-      TestData[i] = ShaderBufferPtr[i];
+    for (size_t i = 0; i < NumElements; ++i) {
+      TestData.push_back(ShaderBufferPtr[i]);
     }
   }
 }
@@ -222,9 +222,10 @@ TrigonometricOpType GetTrigonometricOpType(const std::wstring &OpTypeString) {
 }; // namespace LongVector
 
 template <typename DataType>
-std::vector<DataType> GetInputValueSetByKey(const std::wstring &Key) {
-  WEX::Logging::Log::Comment(
-      WEX::Common::String().Format(L"Using Value Set Key: %s", Key.c_str()));
+std::vector<DataType> GetInputValueSetByKey(const std::wstring &Key, bool LogKey = true) {
+  if(LogKey)
+    WEX::Logging::Log::Comment(
+        WEX::Common::String().Format(L"Using Value Set Key: %s", Key.c_str()));
   return std::vector<DataType>(LongVectorTestData<DataType>::Data.at(Key));
 }
 
@@ -240,15 +241,15 @@ template <> double Mod(const double &A, const double &B) {
   return std::fmod(A, B);
 }
 
-template <typename OpTypeT> struct LongVectorOpTestConfigTraits {
-  LongVectorOpTestConfigTraits(OpTypeT OpType) : OpType(OpType) {}
+template <typename LongVectorOpType> struct LongVectorOpTestConfigTraits {
+  LongVectorOpTestConfigTraits(LongVectorOpType OpType) : OpType(OpType) {}
   // LongVectorOpType* Enum values. We don't use a UINT because
   // we want the type data.
-  OpTypeT OpType;
+  LongVectorOpType OpType;
 };
 
 // Used to pass into LongVectorOpTestBase
-template <typename DataType, typename OpTypeT> class LongVectorOpTestConfig {
+template <typename DataType, typename LongVectorOpType> class LongVectorOpTestConfig {
 public:
   LongVectorOpTestConfig() = default;
 
@@ -410,14 +411,14 @@ public:
   bool HasInputArguments() const {
     // TODO: Right now only clamp has input args. Will need to update this
     // later.
-    if constexpr (std::is_same_v<OpTypeT, LongVector::UnaryOpType>)
+    if constexpr (std::is_same_v<LongVectorOpType, LongVector::UnaryOpType>)
       return IsClampOp();
     else
       return false;
   }
 
   bool HasFunctionDefinition() const {
-    if constexpr (std::is_same_v<OpTypeT, LongVector::UnaryOpType>) {
+    if constexpr (std::is_same_v<LongVectorOpType, LongVector::UnaryOpType>) {
       if (OpTypeTraits.OpType == LongVector::UnaryOpType_Clamp)
         return true;
       else if (OpTypeTraits.OpType == LongVector::UnaryOpType_Initialize)
@@ -472,14 +473,14 @@ public:
     return "UnknownType";
   }
 
-  template <typename DataType, typename OpTypeT>
-  DataType ComputeExpectedValue(const DataType &A, const DataType &B, OpTypeT OpType) const {
+  template <typename DataType, typename LongVectorOpType>
+  DataType ComputeExpectedValue(const DataType &A, const DataType &B, LongVectorOpType OpType) const {
     // I couldn't find a clean way to do this with templates. So I added this
     // work around for now. This gets things to compile. No caller should ever
     // hit this. But if they do, throw an exception.
     // Intend to clean this up before PR completion.
     LOG_ERROR_FMT_THROW(
-        L"ComputeExpectedValue(const DataType &A, const DataType &B, OpTypeT OpType) "
+        L"ComputeExpectedValue(const DataType &A, const DataType &B, LongVectorOpType OpType) "
         L"called on a non-binary op: %d",
         OpType);
     return DataType(A + B);
@@ -527,10 +528,10 @@ public:
     return ComputeExpectedValue<DataType>(A, B, OpTypeTraits.OpType);
   }
 
-  template <typename DataType, typename OpTypeT>
-  DataType ComputeExpectedValue(const DataType &A, OpTypeT OpType) const {
+  template <typename DataType, typename LongVectorOpType>
+  DataType ComputeExpectedValue(const DataType &A, LongVectorOpType OpType) const {
     LOG_ERROR_FMT_THROW(
-        L"ComputeExpectedValue(const DataType &A, OpTypeT OpType) called on a "
+        L"ComputeExpectedValue(const DataType &A, LongVectorOpType OpType) called on a "
         L"non-unary op: %d",
         OpType);
     return A;
@@ -570,7 +571,7 @@ public:
     }
 
     LOG_ERROR_FMT_THROW(
-        L"ComputeExpectedValue(const DataType &A, OpTypeT OpType) called on a "
+        L"ComputeExpectedValue(const DataType &A, LongVectorOpType OpType) called on a "
         L"non-float type: %d",
         OpType);
     return DataType();
@@ -618,7 +619,7 @@ public:
   }
 
   bool IsClampOp() const {
-    if constexpr (std::is_same_v<OpTypeT, LongVector::UnaryOpType>)
+    if constexpr (std::is_same_v<LongVectorOpType, LongVector::UnaryOpType>)
       return OpTypeTraits.OpType == LongVector::UnaryOpType_Clamp;
     else
       return false;
@@ -644,7 +645,7 @@ public:
     if (std::is_same_v<DataType, HLSLBool_t> && IsClampOp())
       VERIFY_FAIL("Clamp is not supported for bools.");
     else
-      return GetInputValueSetByKey<DataType>(LocalInputArgsArrayName);
+      return GetInputValueSetByKey<DataType>(LocalInputArgsArrayName, false);
 
     VERIFY_FAIL("Invalid type for args array.");
     return std::vector<DataType>();
@@ -713,7 +714,7 @@ private:
   float Tolerance = 0.0;
   LongVector::ValidationType ValidationType =
       LongVector::ValidationType::ValidationType_Epsilon;
-  LongVectorOpTestConfigTraits<OpTypeT> OpTypeTraits;
+  LongVectorOpTestConfigTraits<LongVectorOpType> OpTypeTraits;
   std::wstring InputValueSetName1 = L"DefaultInputValueSet1";
   std::wstring InputValueSetName2 = L"DefaultInputValueSet2";
   std::wstring InputArgsArrayName = L""; // No default args array
@@ -781,13 +782,16 @@ inline bool DoValuesMatch(double A, double B, float Tolerance,
   }
 }
 
-template <typename DataType, std::size_t N>
-bool DoArraysMatch(const std::array<DataType, N> &ActualValues,
-                   const std::array<DataType, N> &ExpectedValues, float Tolerance,
+template <typename DataType>
+bool DoVectorsMatch(const std::vector<DataType> &ActualValues,
+                   const std::vector<DataType> &ExpectedValues, float Tolerance,
                    LongVector::ValidationType ValidationType) {
   // Stash mismatched indexes for easy failure logging later
   std::vector<size_t> MismatchedIndexes;
-  for (size_t i = 0; i < N; ++i) {
+  VERIFY_IS_TRUE(
+      ActualValues.size() == ExpectedValues.size(),
+      L"DoVectorsMatch() called with mismatched vector sizes.");
+  for (size_t i = 0; i < ActualValues.size(); ++i) {
     if (!DoValuesMatch(ActualValues[i], ExpectedValues[i], Tolerance,
                        ValidationType))
       MismatchedIndexes.push_back(i);
@@ -810,64 +814,62 @@ bool DoArraysMatch(const std::array<DataType, N> &ActualValues,
   return false;
 }
 
-template <typename DataType, std::size_t N, typename OpTypeT>
-std::array<DataType, N>
-ComputeExpectedValues(const std::array<DataType, N> &InputVector1,
-                      const std::array<DataType, N> &InputVector2,
-                      const LongVectorOpTestConfig<DataType, OpTypeT> &Config) {
+template <typename DataType, typename LongVectorOpType>
+std::vector<DataType>
+ComputeExpectedValues(const std::vector<DataType> &InputVector1,
+                      const std::vector<DataType> &InputVector2,
+                      const LongVectorOpTestConfig<DataType, LongVectorOpType> &Config) {
 
   VERIFY_IS_TRUE(
       Config.IsBinaryOp(),
       L"ComputeExpectedValues() called with a non-binary op config.");
 
-  std::array<DataType, N> ExpectedValues = {};
+  std::vector<DataType> ExpectedValues = {};
 
-  for (size_t i = 0; i < N; ++i) {
-    ExpectedValues[i] =
-        Config.ComputeExpectedValue(InputVector1[i], InputVector2[i]);
+  for (size_t i = 0; i < InputVector1.size(); ++i) {
+    ExpectedValues.push_back(Config.ComputeExpectedValue(InputVector1[i], InputVector2[i]));
   }
 
   return ExpectedValues;
 }
 
-template <typename DataType, std::size_t N, typename OpTypeT>
-std::array<DataType, N>
-ComputeExpectedValues(const std::array<DataType, N> &InputVector1,
+template <typename DataType, typename LongVectorOpType>
+std::vector<DataType>
+ComputeExpectedValues(const std::vector<DataType> &InputVector1,
                       const DataType &ScalarInput,
-                      const LongVectorOpTestConfig<DataType, OpTypeT> &Config) {
+                      const LongVectorOpTestConfig<DataType, LongVectorOpType> &Config) {
 
   VERIFY_IS_TRUE(Config.IsScalarOp(), L"ComputeExpectedValues() called with a "
                                       L"non-binary non-scalar op config.");
 
-  std::array<DataType, N> ExpectedValues = {};
+  std::vector<DataType> ExpectedValues;
 
-  for (size_t i = 0; i < N; ++i) {
-    ExpectedValues[i] =
-        Config.ComputeExpectedValue(InputVector1[i], ScalarInput);
+  for (size_t i = 0; i < InputVector1.size(); ++i) {
+    ExpectedValues.push_back(Config.ComputeExpectedValue(InputVector1[i], ScalarInput));
   }
 
   return ExpectedValues;
 }
 
-template <typename DataType, std::size_t N, typename OpTypeT>
-std::array<DataType, N>
-ComputeExpectedValues(const std::array<DataType, N> &InputVector1,
-                      const LongVectorOpTestConfig<DataType, OpTypeT> &Config) {
+template <typename DataType, typename LongVectorOpType>
+std::vector<DataType>
+ComputeExpectedValues(const std::vector<DataType> &InputVector1,
+                      const LongVectorOpTestConfig<DataType, LongVectorOpType> &Config) {
 
   VERIFY_IS_TRUE(Config.IsUnaryOp(),
                  L"ComputeExpectedValues() called with a non-unary op config.");
 
-  std::array<DataType, N> ExpectedValues = {};
+  std::vector<DataType> ExpectedValues;
 
-  for (size_t i = 0; i < N; ++i) {
-    ExpectedValues[i] = Config.ComputeExpectedValue(InputVector1[i]);
+  for (size_t i = 0; i < InputVector1.size(); ++i) {
+    ExpectedValues.push_back(Config.ComputeExpectedValue(InputVector1[i]));
   }
 
   return ExpectedValues;
 }
 
-template <typename DataType, std::size_t N>
-void LogLongVector(const std::array<DataType, N> &Values, const std::wstring &Name) {
+template <typename DataType>
+void LogLongVector(const std::vector<DataType> &Values, const std::wstring &Name) {
   WEX::Logging::Log::Comment(
       WEX::Common::String().Format(L"LongVector Name: %s", Name.c_str()));
 
@@ -876,11 +878,12 @@ void LogLongVector(const std::array<DataType, N> &Values, const std::wstring &Na
   std::wstringstream Wss(L"");
   Wss << L"LongVector Values: ";
   Wss << L"[";
-  for (size_t i = 0; i < N; i++) {
+  const size_t NumElements = Values.size();
+  for (size_t i = 0; i < NumElements; i++) {
     if (i % LoggingWidth == 0 && i != 0)
       Wss << L"\n ";
     Wss << Values[i];
-    if (i != N - 1)
+    if (i != NumElements - 1)
       Wss << L", ";
   }
   Wss << L" ]";
