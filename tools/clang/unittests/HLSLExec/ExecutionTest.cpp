@@ -791,7 +791,8 @@ public:
                                Ty *pInputDataPairs, unsigned inputDataCount);
 
   template <typename LongVectorOpType>
-  void LongVectorOpTestDispatchByDataType(LongVectorOpType OpType, std::wstring DataType,
+  void LongVectorOpTestDispatchByDataType(LongVectorOpType OpType,
+                                          std::wstring DataType,
                                           TableParameterHandler &Handler);
 
   template <typename DataType, typename LongVectorOpType>
@@ -799,7 +800,9 @@ public:
                                             TableParameterHandler &Handler);
 
   template <typename DataType, typename LongVectorOpType>
-  void LongVectorOpTestBase(LongVectorOpTestConfig<DataType, LongVectorOpType> &TestConfig, size_t VectorSizeToTest);
+  void LongVectorOpTestBase(
+      LongVectorOpTestConfig<DataType, LongVectorOpType> &TestConfig,
+      size_t VectorSizeToTest);
 
   template <class Ty> const wchar_t *BasicShaderModelTest_GetFormatString();
 
@@ -11295,7 +11298,8 @@ TEST_F(ExecutionTest, LongVector_UnaryOpTest) {
 
 template <typename LongVectorOpType>
 void ExecutionTest::LongVectorOpTestDispatchByDataType(
-    LongVectorOpType OpType, std::wstring DataType, TableParameterHandler &Handler) {
+    LongVectorOpType OpType, std::wstring DataType,
+    TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
   if (DataType == L"bool")
@@ -11357,19 +11361,21 @@ void ExecutionTest::LongVectorOpTestDispatchByVectorSize(
     }
   }
 
-  std::vector<size_t> InputVectorSizes = {3,4,5,16,17,35,100,256,1024};
-  for(auto SizeToTest : InputVectorSizes) {
+  std::vector<size_t> InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
+  for (auto SizeToTest : InputVectorSizes) {
     LongVectorOpTestBase<DataType, LongVectorOpType>(TestConfig, SizeToTest);
   }
 }
 
 template <typename DataType, typename LongVectorOpType>
 void ExecutionTest::LongVectorOpTestBase(
-    LongVectorOpTestConfig<DataType, LongVectorOpType> &TestConfig, size_t VectorSizeToTest) {
+    LongVectorOpTestConfig<DataType, LongVectorOpType> &TestConfig,
+    size_t VectorSizeToTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  LogCommentFmt(L"Running LongVectorOpTestBase<%S, %zu>", typeid(DataType).name(), VectorSizeToTest);
+  LogCommentFmt(L"Running LongVectorOpTestBase<%S, %zu>",
+                typeid(DataType).name(), VectorSizeToTest);
 
   bool LogInputs = false;
   WEX::TestExecution::RuntimeParameters::TryGetValue(L"LongVectorLogInputs",
@@ -11392,15 +11398,15 @@ void ExecutionTest::LongVectorOpTestBase(
   InputVector1.reserve(VectorSizeToTest);
   std::vector<DataType> InputVector2; // May be unused, but must be defined.
   InputVector2.reserve(VectorSizeToTest);
-  std::vector<DataType> ScalarInput;  // May be unused, but must be defined.
+  std::vector<DataType> ScalarInput; // May be unused, but must be defined.
   std::vector<DataType> InputArgsArray;
   const bool IsVectorBinaryOp =
       TestConfig.IsBinaryOp() && !TestConfig.IsScalarOp();
 
   std::vector<DataType> InputVector1ValueSet = TestConfig.GetInputValueSet1();
-  std::vector<DataType> InputVector2ValueSet = TestConfig.IsBinaryOp()
-                                            ? TestConfig.GetInputValueSet2()
-                                            : std::vector<DataType>();
+  std::vector<DataType> InputVector2ValueSet =
+      TestConfig.IsBinaryOp() ? TestConfig.GetInputValueSet2()
+                              : std::vector<DataType>();
 
   if (TestConfig.IsScalarOp())
     // Scalar ops are always binary ops. So InputVector2ValueSet is initialized
@@ -11410,10 +11416,12 @@ void ExecutionTest::LongVectorOpTestBase(
   // Fill the input vectors with values from the value set. Repeat the values
   // when we reach the end of the value set.
   for (size_t Index = 0; Index < VectorSizeToTest; Index++) {
-    InputVector1.push_back(InputVector1ValueSet[Index % InputVector1ValueSet.size()]);
+    InputVector1.push_back(
+        InputVector1ValueSet[Index % InputVector1ValueSet.size()]);
 
     if (IsVectorBinaryOp)
-      InputVector2.push_back(InputVector2ValueSet[Index % InputVector2ValueSet.size()]);
+      InputVector2.push_back(
+          InputVector2ValueSet[Index % InputVector2ValueSet.size()]);
   }
 
   if (TestConfig.HasInputArguments()) {
@@ -11450,7 +11458,8 @@ void ExecutionTest::LongVectorOpTestBase(
 
   // We have to construct the string outside of the lambda. Otherwise it's
   // cleaned up when the lambda finishes executing but before the shader runs.
-  std::string CompilerOptionsString = TestConfig.GetCompilerOptionsString(VectorSizeToTest);
+  std::string CompilerOptionsString =
+      TestConfig.GetCompilerOptionsString(VectorSizeToTest);
 
   // The name of the shader we want to use in ShaderOpArith.xml. Could also add
   // logic to set this name in ShaderOpArithTable.xml so we can use different
@@ -11486,9 +11495,11 @@ void ExecutionTest::LongVectorOpTestBase(
         // Process the callback for the InputFuncArgs resource.
         if (0 == _stricmp(Name, "InputFuncArgs")) {
           if (TestConfig.IsScalarOp()) {
-            FillShaderBufferFromLongVectorData<DataType>(ShaderData, ScalarInput);
+            FillShaderBufferFromLongVectorData<DataType>(ShaderData,
+                                                         ScalarInput);
           } else if (TestConfig.HasInputArguments()) {
-            FillShaderBufferFromLongVectorData<DataType>(ShaderData, InputArgsArray);
+            FillShaderBufferFromLongVectorData<DataType>(ShaderData,
+                                                         InputArgsArray);
           }
 
           return;
@@ -11496,14 +11507,16 @@ void ExecutionTest::LongVectorOpTestBase(
 
         // Process the callback for the InputVector1 resource.
         if (0 == _stricmp(Name, "InputVector1")) {
-          FillShaderBufferFromLongVectorData<DataType>(ShaderData, InputVector1);
+          FillShaderBufferFromLongVectorData<DataType>(ShaderData,
+                                                       InputVector1);
           return;
         }
 
         // Process the callback for the InputVector2 resource.
         if (0 == _stricmp(Name, "InputVector2")) {
           if (IsVectorBinaryOp) {
-            FillShaderBufferFromLongVectorData<DataType>(ShaderData, InputVector2);
+            FillShaderBufferFromLongVectorData<DataType>(ShaderData,
+                                                         InputVector2);
           }
           return;
         }
@@ -11517,11 +11530,12 @@ void ExecutionTest::LongVectorOpTestBase(
   TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
 
   std::vector<DataType> OutputVector;
-  FillLongVectorDataFromShaderBuffer<DataType>(ShaderOutData, OutputVector, VectorSizeToTest);
+  FillLongVectorDataFromShaderBuffer<DataType>(ShaderOutData, OutputVector,
+                                               VectorSizeToTest);
 
   VERIFY_SUCCEEDED(DoVectorsMatch<DataType>(OutputVector, ExpectedVector,
-                                    TestConfig.GetTolerance(),
-                                    TestConfig.GetValidationType()));
+                                            TestConfig.GetTolerance(),
+                                            TestConfig.GetValidationType()));
 }
 
 #if HAVE_COOPVEC_API

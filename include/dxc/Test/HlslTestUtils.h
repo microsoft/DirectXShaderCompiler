@@ -565,8 +565,8 @@ inline bool CompareDoubleULP(
   return AbsoluteDiff <= (uint64_t)ULPTolerance;
 }
 
-inline bool CompareDoubleEpsilon(
-    const double &Src, const double &Ref, float Epsilon) {
+inline bool CompareDoubleEpsilon(const double &Src, const double &Ref,
+                                 float Epsilon) {
   if (Src == Ref) {
     return true;
   }
