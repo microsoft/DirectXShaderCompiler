@@ -151,35 +151,13 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   CComPtr<IDxcValidator> pValidator;
   CreateValidator(pValidator);
 
-  if (llvm::getDebugMetadataVersionFromModule(*inputs.pM) != 0) {
+  if (llvm::getDebugMetadataVersionFromModule(*inputs.pM) != 0)
     llvmModuleWithDebugInfo.reset(llvm::CloneModule(inputs.pM.get()));
-  }
-
-  // Verify validator version can validate this module
-  CComPtr<IDxcVersionInfo> pValidatorVersion;
-  IFT(pValidator->QueryInterface(&pValidatorVersion));
-  UINT32 ValMajor, ValMinor;
-  IFT(pValidatorVersion->GetVersion(&ValMajor, &ValMinor));
-  DxilModule &DM = inputs.pM.get()->GetOrCreateDxilModule();
-  unsigned ReqValMajor, ReqValMinor;
-  DM.GetValidatorVersion(ReqValMajor, ReqValMinor);
-  if (DXIL::CompareVersions(ValMajor, ValMinor, ReqValMajor, ReqValMinor) < 0) {
-    // Module is expecting to be validated by a newer validator.
-    if (inputs.pDiag) {
-      unsigned diagID = inputs.pDiag->getCustomDiagID(
-          clang::DiagnosticsEngine::Level::Error,
-          "The module cannot be validated by the version of the validator "
-          "currently attached.");
-      inputs.pDiag->Report(diagID);
-    }
-    return E_FAIL;
-  }
 
   AssembleToContainer(inputs);
 
   CComPtr<IDxcOperationResult> pValResult;
-  // Important: in-place edit is required so the blob is reused and thus
-  // dxil.dll can be released.
+  // In-place edit to avoid an extra copy
   inputs.ValidationFlags |= DxcValidatorFlags_InPlaceEdit;
   IFT(RunInternalValidator(pValidator, llvmModuleWithDebugInfo.get(),
                            inputs.pOutputContainerBlob, inputs.ValidationFlags,
