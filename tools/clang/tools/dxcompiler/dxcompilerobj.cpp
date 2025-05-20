@@ -1319,13 +1319,6 @@ public:
       CComPtr<IDxcResult> pResult;
       hr = e.hr;
       std::string msg("Internal Compiler error: ");
-      switch (hr) {
-      case DXC_E_VALIDATOR_MISSING:
-        msg = "Error: DXIL.dll not found.";
-        break;
-      default:
-        break;
-      }
       msg += e.msg;
       if (SUCCEEDED(DxcResult::Create(
               e.hr, DXC_OUT_NONE,

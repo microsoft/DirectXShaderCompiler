@@ -151,20 +151,6 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   CComPtr<IDxcValidator> pValidator;
   CreateValidator(pValidator);
 
-  CComPtr<IDxcValidator2> pValidator2;
-  pValidator.QueryInterface(&pValidator2);
-
-  if (pValidator2) {
-    // If IDxcValidator2 is supported in the given validator,
-    // we'll use the modules directly. In this case, we'll want
-    // to make a clone to avoid SerializeDxilContainerForModule stripping all
-    // the debug info. The debug info will be stripped from the orginal module,
-    // but preserved in the cloned module.
-    if (llvm::getDebugMetadataVersionFromModule(*inputs.pM) != 0) {
-      llvmModuleWithDebugInfo.reset(llvm::CloneModule(inputs.pM.get()));
-    }
-  }
-
   // Verify validator version can validate this module
   CComPtr<IDxcVersionInfo> pValidatorVersion;
   IFT(pValidator->QueryInterface(&pValidatorVersion));

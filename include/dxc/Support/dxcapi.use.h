@@ -13,10 +13,6 @@
 #define __DXCAPI_USE_H__
 
 #include "dxc/dxcapi.h"
-#include <cstdlib>              // for getenv
-#include <dxc/Support/Global.h> // for hresult handling with DXC_FAILED
-#include <filesystem>           // C++17 and later
-#include <string>
 
 namespace dxc {
 
@@ -30,7 +26,7 @@ protected:
   DxcCreateInstanceProc m_createFn;
   DxcCreateInstance2Proc m_createFn2;
 
-  HRESULT virtual InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
+  HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
     if (m_dll != nullptr)
       return S_OK;
 

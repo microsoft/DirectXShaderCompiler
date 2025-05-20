@@ -72,7 +72,7 @@ HRESULT CreateDxcContainerBuilder(REFIID riid, _Out_ LPVOID *ppv) {
   CComPtr<DxcContainerBuilder> Result =
       DxcContainerBuilder::Alloc(DxcGetThreadMallocNoRef());
   IFROOM(Result.p);
-  Result->Init(warning);
+  Result->Init();
   return Result->QueryInterface(riid, ppv);
 }
 
