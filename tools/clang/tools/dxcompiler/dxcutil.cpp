@@ -151,6 +151,10 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   CComPtr<IDxcValidator> pValidator;
   CreateValidator(pValidator);
 
+  if (llvm::getDebugMetadataVersionFromModule(*inputs.pM) != 0) {
+    llvmModuleWithDebugInfo.reset(llvm::CloneModule(inputs.pM.get()));
+  }
+
   // Verify validator version can validate this module
   CComPtr<IDxcVersionInfo> pValidatorVersion;
   IFT(pValidator->QueryInterface(&pValidatorVersion));
