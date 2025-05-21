@@ -1,7 +1,8 @@
 #include "TableParameterHandler.h"
 #include "dxc/Test/HlslTestUtils.h"
 
-TableParameterHandler::TableParameterHandler(TableParameter *pTable, size_t size)
+TableParameterHandler::TableParameterHandler(TableParameter *pTable,
+                                             size_t size)
     : m_table(pTable), m_tableSize(size) {
   clearTableParameter();
   VERIFY_SUCCEEDED(ParseTableRow());
@@ -366,7 +367,8 @@ HRESULT TableParameterHandler::ParseTableRow() {
       DXASSERT_NOMSG("Invalid Parameter Type");
     }
     if (errno == ERANGE) {
-      hlsl_test::LogErrorFmt(L"got out of range value for table %s", table[i].m_name);
+      hlsl_test::LogErrorFmt(L"got out of range value for table %s",
+                             table[i].m_name);
       return E_FAIL;
     }
   }

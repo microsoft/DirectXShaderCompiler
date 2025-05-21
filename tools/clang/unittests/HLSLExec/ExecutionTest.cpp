@@ -6367,7 +6367,6 @@ static TableParameter LongVectorUnaryOpParameters[] = {
     {L"InputArgsName", TableParameter::STRING, false},
 };
 
-
 static bool CompareOutputWithExpectedValueInt(int output, int ref,
                                               int tolerance) {
   return ((output - ref) <= tolerance) && ((ref - output) <= tolerance);

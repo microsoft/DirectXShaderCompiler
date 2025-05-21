@@ -1,14 +1,14 @@
 #ifndef TABLE_PARAMETER_HANDLER_H
 #define TABLE_PARAMETER_HANDLER_H
 
-#include <vector>
-#include <string>
-#include <wchar.h>
-#include <memory>
-#include <windows.h> // For LPCWSTR
-#include <WexTestClass.h>
-#include <WexString.h>
 #include <Verify.h>
+#include <WexString.h>
+#include <WexTestClass.h>
+#include <memory>
+#include <string>
+#include <vector>
+#include <wchar.h>
+#include <windows.h> // For LPCWSTR
 
 #include "dxc/Support/Global.h" // For DXASSERT_ARGS
 #include "dxc/Test/HlslTestUtils.h"
@@ -63,7 +63,6 @@ struct TableParameter {
   std::vector<bool> m_boolTable;
   std::vector<WEX::Common::String> m_StringTable;
 };
-
 
 class TableParameterHandler {
 private:
