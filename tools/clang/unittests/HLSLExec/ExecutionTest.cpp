@@ -3630,86 +3630,12 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
   }
 }
 
-struct ShaderOpTestResult {
-  st::ShaderOp *ShaderOp;
-  std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
-  std::shared_ptr<st::ShaderOpTest> Test;
-};
-
 struct SPrimitives {
   float f_float;
   float f_float2;
   float f_float_o;
   float f_float2_o;
 };
-
-std::shared_ptr<ShaderOpTestResult>
-RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
-                          LPCSTR pName,
-                          st::ShaderOpTest::TInitCallbackFn pInitCallback,
-                          st::ShaderOpTest::TShaderCallbackFn pShaderCallback,
-                          std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
-  st::ShaderOp *pShaderOp;
-  if (pName == nullptr) {
-    if (ShaderOpSet->ShaderOps.size() != 1) {
-      VERIFY_FAIL(L"Expected a single shader operation.");
-    }
-    pShaderOp = ShaderOpSet->ShaderOps[0].get();
-  } else {
-    pShaderOp = ShaderOpSet->GetShaderOp(pName);
-  }
-  if (pShaderOp == nullptr) {
-    std::string msg = "Unable to find shader op ";
-    msg += pName;
-    msg += "; available ops";
-    const char sep = ':';
-    for (auto &pAvailOp : ShaderOpSet->ShaderOps) {
-      msg += sep;
-      msg += pAvailOp->Name ? pAvailOp->Name : "[n/a]";
-    }
-    CA2W msgWide(msg.c_str());
-    VERIFY_FAIL(msgWide.m_psz);
-  }
-
-  // This won't actually be used since we're supplying the device,
-  // but let's make it consistent.
-  pShaderOp->UseWarpDevice = GetTestParamUseWARP(true);
-
-  std::shared_ptr<st::ShaderOpTest> test = std::make_shared<st::ShaderOpTest>();
-  test->SetDxcSupport(&support);
-  test->SetInitCallback(pInitCallback);
-  test->SetShaderCallback(pShaderCallback);
-  test->SetDevice(pDevice);
-  test->RunShaderOp(pShaderOp);
-
-  std::shared_ptr<ShaderOpTestResult> result =
-      std::make_shared<ShaderOpTestResult>();
-  result->ShaderOpSet = ShaderOpSet;
-  result->Test = test;
-  result->ShaderOp = pShaderOp;
-  return result;
-}
-
-std::shared_ptr<ShaderOpTestResult>
-RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
-                          LPCSTR pName,
-                          st::ShaderOpTest::TInitCallbackFn pInitCallback,
-                          std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
-  return RunShaderOpTestAfterParse(pDevice, support, pName, pInitCallback,
-                                   nullptr, ShaderOpSet);
-}
-
-std::shared_ptr<ShaderOpTestResult>
-RunShaderOpTest(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
-                IStream *pStream, LPCSTR pName,
-                st::ShaderOpTest::TInitCallbackFn pInitCallback) {
-  DXASSERT_NOMSG(pStream != nullptr);
-  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
-      std::make_shared<st::ShaderOpSet>();
-  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
-  return RunShaderOpTestAfterParse(pDevice, support, pName, pInitCallback,
-                                   ShaderOpSet);
-}
 
 TEST_F(ExecutionTest, OutOfBoundsTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -3722,8 +3648,8 @@ TEST_F(ExecutionTest, OutOfBoundsTest) {
   if (!CreateDevice(&pDevice))
     return;
 
-  std::shared_ptr<ShaderOpTestResult> test =
-      RunShaderOpTest(pDevice, m_support, pStream, "OOB", nullptr);
+  std::shared_ptr<st::ShaderOpTestResult> test =
+      st::RunShaderOpTest(pDevice, m_support, pStream, "OOB", nullptr);
   MappedData data;
   // Read back to CPU and examine contents - should get pure red.
   {
@@ -3747,8 +3673,8 @@ TEST_F(ExecutionTest, SaturateTest) {
   if (!CreateDevice(&pDevice))
     return;
 
-  std::shared_ptr<ShaderOpTestResult> test =
-      RunShaderOpTest(pDevice, m_support, pStream, "Saturate", nullptr);
+  std::shared_ptr<st::ShaderOpTestResult> test =
+      st::RunShaderOpTest(pDevice, m_support, pStream, "Saturate", nullptr);
   MappedData data;
   test->Test->GetReadBackData("U0", &data);
   const float *pValues = (float *)data.data();
@@ -3792,8 +3718,8 @@ void ExecutionTest::BasicTriangleTestSetup(LPCSTR ShaderOpName,
     return;
   }
 
-  std::shared_ptr<ShaderOpTestResult> test =
-      RunShaderOpTest(pDevice, m_support, pStream, ShaderOpName, nullptr);
+  std::shared_ptr<st::ShaderOpTestResult> test =
+      st::RunShaderOpTest(pDevice, m_support, pStream, ShaderOpName, nullptr);
   MappedData data;
   D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
   UINT width = (UINT)D.Width;
@@ -3931,8 +3857,8 @@ TEST_F(ExecutionTest, PartialDerivTest) {
   if (!CreateDevice(&pDevice))
     return;
 
-  std::shared_ptr<ShaderOpTestResult> test =
-      RunShaderOpTest(pDevice, m_support, pStream, "DerivFine", nullptr);
+  std::shared_ptr<st::ShaderOpTestResult> test =
+      st::RunShaderOpTest(pDevice, m_support, pStream, "DerivFine", nullptr);
   MappedData data;
   D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
   UINT width = (UINT)D.Width;
@@ -4172,8 +4098,9 @@ TEST_F(ExecutionTest, QuadReadTest) {
 
     // Test Compute Shader
     pShaderOp->CS = CS;
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-        pDevice, m_support, "QuadRead", nullptr, ShaderOpSet);
+    std::shared_ptr<st::ShaderOpTestResult> test =
+        st::RunShaderOpTestAfterParse(pDevice, m_support, "QuadRead", nullptr,
+                                      ShaderOpSet);
     MappedData data;
 
     test->Test->GetReadBackData("U0", &data);
@@ -4194,8 +4121,8 @@ TEST_F(ExecutionTest, QuadReadTest) {
 
       // Disable CS so mesh goes forward
       pShaderOp->CS = nullptr;
-      test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadRead", nullptr,
-                                       ShaderOpSet);
+      test = st::RunShaderOpTestAfterParse(pDevice, m_support, "QuadRead",
+                                           nullptr, ShaderOpSet);
       test->Test->GetReadBackData("U1", &data);
       pPixels = (UINT *)data.data();
       // Test first, second and center quads
@@ -4314,7 +4241,7 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   }
 
   // Test 1D compute shader
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
       pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
   MappedData data;
 
@@ -4329,8 +4256,8 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   pShaderOp->CS = CS2;
 
   test.reset();
-  test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample",
-                                   SampleInitFn, ShaderOpSet);
+  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample",
+                                       SampleInitFn, ShaderOpSet);
 
   test->Test->GetReadBackData("U0", &data);
   pPixels = (UINT *)data.data();
@@ -4342,8 +4269,8 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
     // Disable CS so mesh goes forward
     pShaderOp->CS = nullptr;
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample",
-                                     SampleInitFn, ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample",
+                                         SampleInitFn, ShaderOpSet);
     test->Test->GetReadBackData("U1", &data);
     pPixels = (UINT *)data.data();
 
@@ -4360,8 +4287,8 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
 
     pShaderOp->AS = AS2;
     pShaderOp->MS = MS2;
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample",
-                                     SampleInitFn, ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample",
+                                         SampleInitFn, ShaderOpSet);
     test->Test->GetReadBackData("U1", &data);
     pPixels = (UINT *)data.data();
 
@@ -4742,8 +4669,9 @@ TEST_F(ExecutionTest, ATOProgOffset) {
     }
 
     // Test compute shader
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-        pDevice, m_support, "ProgOffset", SampleInitFn, ShaderOpSet);
+    std::shared_ptr<st::ShaderOpTestResult> test =
+        st::RunShaderOpTestAfterParse(pDevice, m_support, "ProgOffset",
+                                      SampleInitFn, ShaderOpSet);
     MappedData data;
 
     test->Test->GetReadBackData("U0", &data);
@@ -4753,8 +4681,8 @@ TEST_F(ExecutionTest, ATOProgOffset) {
     pShaderOp->CS = nullptr;
 
     if (DoesDeviceSupportMeshShaders(pDevice)) {
-      test = RunShaderOpTestAfterParse(pDevice, m_support, "ProgOffset",
-                                       SampleInitFn, ShaderOpSet);
+      test = st::RunShaderOpTestAfterParse(pDevice, m_support, "ProgOffset",
+                                           SampleInitFn, ShaderOpSet);
 
       // PS
       test->Test->GetReadBackData("U0", &data);
@@ -4771,8 +4699,8 @@ TEST_F(ExecutionTest, ATOProgOffset) {
 
     // Disable MS so PS goes forward
     pShaderOp->MS = nullptr;
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "ProgOffset",
-                                     SampleInitFn, ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "ProgOffset",
+                                         SampleInitFn, ShaderOpSet);
 
     test->Test->GetReadBackData("U0", &data);
     VerifyProgOffsetResults((UINT *)data.data(), true);
@@ -4840,7 +4768,7 @@ TEST_F(ExecutionTest, ATOSampleCmpLevelTest) {
   };
 
   // Test compute shader
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
       pDevice, m_support, "SampleCmpLevel", SampleInitFn, ShaderOpSet);
   MappedData data;
 
@@ -4857,8 +4785,8 @@ TEST_F(ExecutionTest, ATOSampleCmpLevelTest) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     // Disable CS so mesh goes forward
     pShaderOp->CS = nullptr;
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "SampleCmpLevel",
-                                     SampleInitFn, ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "SampleCmpLevel",
+                                         SampleInitFn, ShaderOpSet);
 
     test->Test->GetReadBackData("U0", &data);
     pPixels = (UINT *)data.data();
@@ -5769,7 +5697,7 @@ void ExecutionTest::RunBasicShaderModelTest(CComPtr<ID3D12Device> pDevice,
   CComPtr<IStream> pStream;
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "BinaryFPOp",
       // this callback is called when the test is creating the resource to run
       // the test
@@ -7150,7 +7078,7 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
 
   size_t count = Validation_Input->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "UnaryFPOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -7218,7 +7146,7 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
   size_t count = Validation_Input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "BinaryFPOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -7308,7 +7236,7 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
   size_t count = Validation_Input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "TertiaryFPOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -7385,7 +7313,7 @@ TEST_F(ExecutionTest, UnaryHalfOpTest) {
 
   size_t count = Validation_Input->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "UnaryFPOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -7465,7 +7393,7 @@ TEST_F(ExecutionTest, BinaryHalfOpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
   size_t count = Validation_Input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "BinaryFPOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -7575,7 +7503,7 @@ TEST_F(ExecutionTest, TertiaryHalfOpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
   size_t count = Validation_Input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "TertiaryFPOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -7645,7 +7573,7 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
   size_t count = Validation_Input->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "UnaryIntOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -7705,7 +7633,7 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
   size_t count = Validation_Input->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "UnaryUintOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -7770,7 +7698,7 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
 
   size_t numExpected = Validation_Expected2->size() == 0 ? 1 : 2;
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "BinaryIntOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -7858,7 +7786,7 @@ TEST_F(ExecutionTest, TertiaryIntOpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
   size_t count = Validation_Input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "TertiaryIntOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -7928,7 +7856,7 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
   size_t count = Validation_Input1->size();
   int numExpected = Validation_Expected2->size() == 0 ? 1 : 2;
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "BinaryUintOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -8020,7 +7948,7 @@ TEST_F(ExecutionTest, TertiaryUintOpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
   size_t count = Validation_Input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "TertiaryUintOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -8099,7 +8027,7 @@ TEST_F(ExecutionTest, UnaryInt16OpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
   size_t count = Validation_Input->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "UnaryIntOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -8167,7 +8095,7 @@ TEST_F(ExecutionTest, UnaryUint16OpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
   size_t count = Validation_Input->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "UnaryUintOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -8242,7 +8170,7 @@ TEST_F(ExecutionTest, BinaryInt16OpTest) {
 
   size_t numExpected = Validation_Expected2->size() == 0 ? 1 : 2;
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "BinaryIntOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -8338,7 +8266,7 @@ TEST_F(ExecutionTest, TertiaryInt16OpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
   size_t count = Validation_Input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "TertiaryIntOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -8415,7 +8343,7 @@ TEST_F(ExecutionTest, BinaryUint16OpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
   size_t count = Validation_Input1->size();
   int numExpected = Validation_Expected2->size() == 0 ? 1 : 2;
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "BinaryUintOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -8514,7 +8442,7 @@ TEST_F(ExecutionTest, TertiaryUint16OpTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
   size_t count = Validation_Input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "TertiaryUintOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -9099,7 +9027,7 @@ TEST_F(ExecutionTest, DotTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
   size_t count = Validation_Input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "DotOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -9189,7 +9117,7 @@ TEST_F(ExecutionTest, Dot2AddHalfTest) {
       handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
   size_t count = validation_input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "Dot2AddHalfOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -9265,7 +9193,7 @@ TEST_F(ExecutionTest, Dot4AddI8PackedTest) {
 
   size_t count = validation_input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "Dot4AddI8PackedOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -9328,7 +9256,7 @@ TEST_F(ExecutionTest, Dot4AddU8PackedTest) {
 
   size_t count = validation_input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "Dot4AddU8PackedOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -9391,7 +9319,7 @@ TEST_F(ExecutionTest, Msad4Test) {
 
   size_t count = Validation_Expected->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "Msad4",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -9493,7 +9421,7 @@ TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
              "must have same number of expected values");
   }
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "BinaryFPOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -9606,7 +9534,7 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
              "must have same number of expected values");
   }
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "TertiaryFPOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -10034,31 +9962,33 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
     for (size_t maskIndex = 0;
          maskIndex < sizeof(MaskFunctionTable) / sizeof(MaskFunction);
          ++maskIndex) {
-      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-          pDevice, m_support, "WaveIntrinsicsOp",
-          // this callback is called when the test
-          // is creating the resource to run the test
-          [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-            VERIFY_IS_TRUE(0 == _stricmp(Name, "SWaveIntrinsicsOp"));
-            size_t size = sizeof(PerThreadData) * ThreadCount;
-            Data.resize(size);
-            PerThreadData *pPrimitives = (PerThreadData *)Data.data();
-            // 4 different inputs for each operation test
-            size_t index = 0;
-            std::vector<T1> *IntList = InputDataList[setIndex];
-            while (index < ThreadCount) {
-              PerThreadData *p = &pPrimitives[index];
-              p->firstLaneId = 0xFFFFBFFF;
-              p->laneIndex = 0xFFFFBFFF;
-              p->mask = MaskFunctionTable[maskIndex]((int)index);
-              p->input = (*IntList)[index % IntList->size()];
-              p->output = 0xFFFFBFFF;
-              index++;
-            }
-            // use shader from data table
-            pShaderOp->Shaders.at(0).Text = Text.m_psz;
-          },
-          ShaderOpSet);
+      std::shared_ptr<st::ShaderOpTestResult> test =
+          st::RunShaderOpTestAfterParse(
+              pDevice, m_support, "WaveIntrinsicsOp",
+              // this callback is called when the test
+              // is creating the resource to run the test
+              [&](LPCSTR Name, std::vector<BYTE> &Data,
+                  st::ShaderOp *pShaderOp) {
+                VERIFY_IS_TRUE(0 == _stricmp(Name, "SWaveIntrinsicsOp"));
+                size_t size = sizeof(PerThreadData) * ThreadCount;
+                Data.resize(size);
+                PerThreadData *pPrimitives = (PerThreadData *)Data.data();
+                // 4 different inputs for each operation test
+                size_t index = 0;
+                std::vector<T1> *IntList = InputDataList[setIndex];
+                while (index < ThreadCount) {
+                  PerThreadData *p = &pPrimitives[index];
+                  p->firstLaneId = 0xFFFFBFFF;
+                  p->laneIndex = 0xFFFFBFFF;
+                  p->mask = MaskFunctionTable[maskIndex]((int)index);
+                  p->input = (*IntList)[index % IntList->size()];
+                  p->output = 0xFFFFBFFF;
+                  index++;
+                }
+                // use shader from data table
+                pShaderOp->Shaders.at(0).Text = Text.m_psz;
+              },
+              ShaderOpSet);
 
       // Check the value
       MappedData data;
@@ -10287,30 +10217,31 @@ void ExecutionTest::WaveIntrinsicsMultiPrefixOpTest(
 
   for (size_t maskIndex = 0; maskIndex < _countof(MaskFunctionTable);
        ++maskIndex) {
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-        pDevice, m_support, "WaveIntrinsicsOp",
-        [&](LPCSTR name, std::vector<BYTE> &data, st::ShaderOp *pShaderOp) {
-          UNREFERENCED_PARAMETER(name);
+    std::shared_ptr<st::ShaderOpTestResult> test =
+        st::RunShaderOpTestAfterParse(
+            pDevice, m_support, "WaveIntrinsicsOp",
+            [&](LPCSTR name, std::vector<BYTE> &data, st::ShaderOp *pShaderOp) {
+              UNREFERENCED_PARAMETER(name);
 
-          const size_t dataSize = sizeof(PerThreadData) * ThreadCount;
+              const size_t dataSize = sizeof(PerThreadData) * ThreadCount;
 
-          data.resize(dataSize);
-          PerThreadData *pThreadData =
-              reinterpret_cast<PerThreadData *>(data.data());
+              data.resize(dataSize);
+              PerThreadData *pThreadData =
+                  reinterpret_cast<PerThreadData *>(data.data());
 
-          for (size_t i = 0; i != ThreadCount; ++i) {
-            pThreadData[i].key = keys->at(i % keys->size());
-            pThreadData[i].value = values->at(i % values->size());
-            pThreadData[i].firstLaneId = 0xdeadbeef;
-            pThreadData[i].laneId = 0xdeadbeef;
-            pThreadData[i].mask = MaskFunctionTable[maskIndex]((int)i);
-            pThreadData[i].result = 0xdeadbeef;
-          }
+              for (size_t i = 0; i != ThreadCount; ++i) {
+                pThreadData[i].key = keys->at(i % keys->size());
+                pThreadData[i].value = values->at(i % values->size());
+                pThreadData[i].firstLaneId = 0xdeadbeef;
+                pThreadData[i].laneId = 0xdeadbeef;
+                pThreadData[i].mask = MaskFunctionTable[maskIndex]((int)i);
+                pThreadData[i].result = 0xdeadbeef;
+              }
 
-          pShaderOp->Shaders.at(0).Text = shaderSource;
-          pShaderOp->Shaders.at(0).Target = shaderProfile;
-        },
-        ShaderOpSet);
+              pShaderOp->Shaders.at(0).Text = shaderSource;
+              pShaderOp->Shaders.at(0).Target = shaderProfile;
+            },
+            ShaderOpSet);
 
     MappedData mappedData;
     test->Test->GetReadBackData("SWaveIntrinsicsOp", &mappedData);
@@ -10403,7 +10334,7 @@ TEST_F(ExecutionTest, CBufferTestHalf) {
 
   uint16_t InputData[] = {0x3F80, 0x3F00, 0x3D80, 0x7BFF};
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "CBufferTestHalf",
       [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
         UNREFERENCED_PARAMETER(pShaderOp);
@@ -10433,7 +10364,7 @@ TEST_F(ExecutionTest, CBufferTestHalf) {
 }
 
 void TestBarycentricVariant(bool checkOrdering,
-                            std::shared_ptr<ShaderOpTestResult> test) {
+                            std::shared_ptr<st::ShaderOpTestResult> test) {
   MappedData data;
   D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
   UINT width = (UINT)D.Width;
@@ -10539,9 +10470,9 @@ TEST_F(ExecutionTest, BarycentricsTest) {
   auto ResourceCallbackFnNoShift =
       MakeBarycentricsResourceInitCallbackFn(test_iteration);
 
-  std::shared_ptr<ShaderOpTestResult> test =
-      RunShaderOpTestAfterParse(pDevice, m_support, "Barycentrics",
-                                ResourceCallbackFnNoShift, ShaderOpSet);
+  std::shared_ptr<st::ShaderOpTestResult> test =
+      st::RunShaderOpTestAfterParse(pDevice, m_support, "Barycentrics",
+                                    ResourceCallbackFnNoShift, ShaderOpSet);
   TestBarycentricVariant(false, test);
 
   // Now test that barycentric ordering is consistent
@@ -10553,8 +10484,9 @@ TEST_F(ExecutionTest, BarycentricsTest) {
     auto ResourceCallbackFn =
         MakeBarycentricsResourceInitCallbackFn(test_iteration);
 
-    std::shared_ptr<ShaderOpTestResult> test2 = RunShaderOpTestAfterParse(
-        pDevice, m_support, "Barycentrics", ResourceCallbackFn, ShaderOpSet);
+    std::shared_ptr<st::ShaderOpTestResult> test2 =
+        st::RunShaderOpTestAfterParse(pDevice, m_support, "Barycentrics",
+                                      ResourceCallbackFn, ShaderOpSet);
     TestBarycentricVariant(true, test2);
   }
 }
@@ -10937,7 +10869,7 @@ void ExecutionTest::RunComputeRawBufferLdStTest(
                            (int)sizeof(Ty), additionalOptions) != -1);
 
   // run the shader
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, shaderOpName,
       [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
         VERIFY_IS_TRUE(((0 == strncmp(Name, "SRVBuffer", 9)) ||
@@ -10992,7 +10924,7 @@ void ExecutionTest::RunGraphicsRawBufferLdStTest(
                            (int)sizeof(Ty), additionalOptions) != -1);
 
   // run the shader
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, shaderOpName,
       [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
         VERIFY_IS_TRUE(((0 == strncmp(Name, "SRVBuffer", 9)) ||
@@ -11115,7 +11047,7 @@ TEST_F(ExecutionTest, PackUnpackTest) {
   std::vector<SPackUnpackOpOutPacked> expectedPacked(count / 4);
   std::vector<SPackUnpackOpOutUnpacked> expectedUnpacked(count / 4);
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
       pDevice, m_support, pStream, "PackUnpackOp",
       // this callback is called when the test
       // is creating the resource to run the test
@@ -11473,7 +11405,7 @@ void ExecutionTest::LongVectorOpTestBase(
   // and setup. It also handles the shader compilation and execution. It takes a
   // callback that is called when the shader is compiled, but before it is
   // executed.
-  std::shared_ptr<ShaderOpTestResult> TestResult = RunShaderOpTest(
+  std::shared_ptr<st::ShaderOpTestResult> TestResult = st::RunShaderOpTest(
       D3DDevice, m_support, TestXML, ShaderName,
       [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
         LogCommentFmt(L"RunShaderOpTest CallBack. Resource Name: %S", Name);
@@ -14163,9 +14095,10 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
       // Test Compute shader
       {
         pShaderOp->CS = pShaderOp->GetString("CS66");
-        std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-            pDevice, m_support, "DynamicResourcesDynamicIndexing", nullptr,
-            ShaderOpSet);
+        std::shared_ptr<st::ShaderOpTestResult> test =
+            st::RunShaderOpTestAfterParse(pDevice, m_support,
+                                          "DynamicResourcesDynamicIndexing",
+                                          nullptr, ShaderOpSet);
 
         MappedData resultData;
         test->Test->GetReadBackData("g_result", &resultData);
@@ -14180,9 +14113,10 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
         pShaderOp->CS = nullptr;
         pShaderOp->VS = pShaderOp->GetString("VS66");
         pShaderOp->PS = pShaderOp->GetString("PS66");
-        std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-            pDevice, m_support, "DynamicResourcesDynamicIndexing", nullptr,
-            ShaderOpSet);
+        std::shared_ptr<st::ShaderOpTestResult> test =
+            st::RunShaderOpTestAfterParse(pDevice, m_support,
+                                          "DynamicResourcesDynamicIndexing",
+                                          nullptr, ShaderOpSet);
 
         MappedData resultVSData;
         MappedData resultPSData;
@@ -14245,19 +14179,20 @@ void RunWaveSizeTest(UINT minWaveSize, UINT maxWaveSize,
                              waveSize) != -1);
 
     // run the shader
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-        pDevice, m_support, "WaveSizeTest",
-        [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-          VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
-          pShaderOp->Shaders.at(0).Arguments = compilerOptions;
-          pShaderOp->Shaders.at(0).Text = waveSizeTestShader;
+    std::shared_ptr<st::ShaderOpTestResult> test =
+        st::RunShaderOpTestAfterParse(
+            pDevice, m_support, "WaveSizeTest",
+            [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+              VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
+              pShaderOp->Shaders.at(0).Arguments = compilerOptions;
+              pShaderOp->Shaders.at(0).Text = waveSizeTestShader;
 
-          VERIFY_IS_TRUE(sizeof(WaveSizeTestData) * MAX_WAVESIZE <=
-                         Data.size());
-          WaveSizeTestData *pInData = (WaveSizeTestData *)Data.data();
-          memset(pInData, 0, sizeof(WaveSizeTestData) * MAX_WAVESIZE);
-        },
-        ShaderOpSet);
+              VERIFY_IS_TRUE(sizeof(WaveSizeTestData) * MAX_WAVESIZE <=
+                             Data.size());
+              WaveSizeTestData *pInData = (WaveSizeTestData *)Data.data();
+              memset(pInData, 0, sizeof(WaveSizeTestData) * MAX_WAVESIZE);
+            },
+            ShaderOpSet);
 
     // verify expected values
     MappedData dataUav;
@@ -14336,7 +14271,7 @@ void ExecuteWaveSizeRangeInstance(UINT minWaveSize, UINT maxWaveSize,
   };
 
   // run the shader
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
       pDevice, m_support, "WaveSizeTest",
       [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
         VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
@@ -14705,7 +14640,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   }
 }
 
-void VerifyAtomicsRawTest(std::shared_ptr<ShaderOpTestResult> test,
+void VerifyAtomicsRawTest(std::shared_ptr<st::ShaderOpTestResult> test,
                           uint64_t maxIdx, size_t bitSize) {
 
   size_t stride = 8;
@@ -14754,7 +14689,7 @@ void VerifyAtomicsRawTest(std::shared_ptr<ShaderOpTestResult> test,
                       bitSize);
 }
 
-void VerifyAtomicsTypedTest(std::shared_ptr<ShaderOpTestResult> test,
+void VerifyAtomicsTypedTest(std::shared_ptr<st::ShaderOpTestResult> test,
                             uint64_t maxIdx, size_t bitSize) {
 
   size_t stride = 8;
@@ -14806,7 +14741,7 @@ void VerifyAtomicsTypedTest(std::shared_ptr<ShaderOpTestResult> test,
   VerifyAtomicResults(pUint, pSint + stride, pXchg, stride, maxIdx, bitSize);
 }
 
-void VerifyAtomicsSharedTest(std::shared_ptr<ShaderOpTestResult> test,
+void VerifyAtomicsSharedTest(std::shared_ptr<st::ShaderOpTestResult> test,
                              uint64_t maxIdx, size_t bitSize) {
 
   size_t stride = 8;
@@ -14827,7 +14762,7 @@ void VerifyAtomicsSharedTest(std::shared_ptr<ShaderOpTestResult> test,
                       bitSize);
 }
 
-void VerifyAtomicsTest(std::shared_ptr<ShaderOpTestResult> test,
+void VerifyAtomicsTest(std::shared_ptr<st::ShaderOpTestResult> test,
                        uint64_t maxIdx, size_t bitSize) {
   VerifyAtomicsRawTest(test, maxIdx, bitSize);
   VerifyAtomicsTypedTest(test, maxIdx, bitSize);
@@ -14852,7 +14787,7 @@ TEST_F(ExecutionTest, AtomicsTest) {
   // Test compute shader
   LogCommentFmt(
       L"Verifying 32-bit integer atomic operations in compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
       pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
 
   VerifyAtomicsTest(test, 32 * 32, 32);
@@ -14863,8 +14798,8 @@ TEST_F(ExecutionTest, AtomicsTest) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 32-bit integer atomic operations in "
                   L"amp/mesh/pixel shaders");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr,
-                                     ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap",
+                                         nullptr, ShaderOpSet);
     VerifyAtomicsTest(test, 8 * 8 * 2 + 8 * 8 * 2 + 64 * 64, 32);
     VerifyAtomicsSharedTest(test, 8 * 8 * 2 + 8 * 8 * 2, 32);
   }
@@ -14873,8 +14808,8 @@ TEST_F(ExecutionTest, AtomicsTest) {
   pShaderOp->MS = nullptr;
   LogCommentFmt(
       L"Verifying 32-bit integer atomic operations in vert/pixel shaders");
-  test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr,
-                                   ShaderOpSet);
+  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap",
+                                       nullptr, ShaderOpSet);
   VerifyAtomicsTest(test, 64 * 64 + 6, 32);
 }
 
@@ -14911,7 +14846,7 @@ TEST_F(ExecutionTest, Atomics64Test) {
   // Test compute shader
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in "
                 L"compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
       pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
   VerifyAtomicsRawTest(test, 32 * 32, 64);
 
@@ -14920,8 +14855,8 @@ TEST_F(ExecutionTest, Atomics64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers "
                   L"in amp/mesh/pixel shader");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr,
-                                     ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot",
+                                         nullptr, ShaderOpSet);
     VerifyAtomicsRawTest(test, 8 * 8 * 2 + 8 * 8 * 2 + 64 * 64, 64);
   }
 
@@ -14929,8 +14864,8 @@ TEST_F(ExecutionTest, Atomics64Test) {
   pShaderOp->MS = nullptr;
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in "
                 L"vert/pixel shader");
-  test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr,
-                                   ShaderOpSet);
+  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot",
+                                       nullptr, ShaderOpSet);
   VerifyAtomicsRawTest(test, 64 * 64 + 6, 64);
 }
 
@@ -14974,7 +14909,7 @@ TEST_F(ExecutionTest, AtomicsRawHeap64Test) {
   // Test compute shader
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on heap raw "
                 L"buffers in compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
       pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
   VerifyAtomicsRawTest(test, 32 * 32, 64);
 
@@ -14983,8 +14918,8 @@ TEST_F(ExecutionTest, AtomicsRawHeap64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on heap raw "
                   L"buffers in amp/mesh/pixel shader");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr,
-                                     ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap",
+                                         nullptr, ShaderOpSet);
     VerifyAtomicsRawTest(test, 8 * 8 * 2 + 8 * 8 * 2 + 64 * 64, 64);
   }
 
@@ -14992,8 +14927,8 @@ TEST_F(ExecutionTest, AtomicsRawHeap64Test) {
   pShaderOp->MS = nullptr;
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on heap raw "
                 L"buffers in vert/pixel shader");
-  test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr,
-                                   ShaderOpSet);
+  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap",
+                                       nullptr, ShaderOpSet);
   VerifyAtomicsRawTest(test, 64 * 64 + 6, 64);
 }
 
@@ -15037,7 +14972,7 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
   // Test compute shader
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed "
                 L"resources in compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
       pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
   VerifyAtomicsTypedTest(test, 32 * 32, 64);
 
@@ -15046,8 +14981,8 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed "
                   L"resources in amp/mesh/pixel shader");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr,
-                                     ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap",
+                                         nullptr, ShaderOpSet);
     VerifyAtomicsTypedTest(test, 8 * 8 * 2 + 8 * 8 * 2 + 64 * 64, 64);
   }
 
@@ -15055,8 +14990,8 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
   pShaderOp->MS = nullptr;
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed "
                 L"resources in vert/pixel shader");
-  test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr,
-                                   ShaderOpSet);
+  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap",
+                                       nullptr, ShaderOpSet);
   VerifyAtomicsTypedTest(test, 64 * 64 + 6, 64);
 }
 
@@ -15097,7 +15032,7 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
 
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared "
                 L"variables in compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
       pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
   VerifyAtomicsSharedTest(test, 32 * 32, 64);
 
@@ -15106,8 +15041,8 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared "
                   L"variables in amp/mesh/pixel shader");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr,
-                                     ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot",
+                                         nullptr, ShaderOpSet);
     VerifyAtomicsSharedTest(test, 8 * 8 * 2 + 8 * 8 * 2, 64);
   }
 }
@@ -15135,7 +15070,8 @@ void VerifyAtomicFloatResults(const float *results) {
   }
 }
 
-void VerifyAtomicsFloatSharedTest(std::shared_ptr<ShaderOpTestResult> test) {
+void VerifyAtomicsFloatSharedTest(
+    std::shared_ptr<st::ShaderOpTestResult> test) {
   MappedData Data;
   const float *pData = nullptr;
 
@@ -15147,7 +15083,7 @@ void VerifyAtomicsFloatSharedTest(std::shared_ptr<ShaderOpTestResult> test) {
   VerifyAtomicFloatResults(pData);
 }
 
-void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test) {
+void VerifyAtomicsFloatTest(std::shared_ptr<st::ShaderOpTestResult> test) {
 
   // struct mirroring that in the shader
   struct AtomicStuff {
@@ -15210,7 +15146,7 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
   // Test compute shader
   LogCommentFmt(
       L"Verifying float cmp/xchg atomic operations in compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
       pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
   VerifyAtomicsFloatTest(test);
   VerifyAtomicsFloatSharedTest(test);
@@ -15220,8 +15156,8 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying float cmp/xchg atomic operations in "
                   L"amp/mesh/pixel shaders");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics",
-                                     nullptr, ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics",
+                                         nullptr, ShaderOpSet);
     VerifyAtomicsFloatTest(test);
     VerifyAtomicsFloatSharedTest(test);
   }
@@ -15230,8 +15166,8 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
   pShaderOp->MS = nullptr;
   LogCommentFmt(
       L"Verifying float cmp/xchg atomic operations in vert/pixel shaders");
-  test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr,
-                                   ShaderOpSet);
+  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics",
+                                       nullptr, ShaderOpSet);
   VerifyAtomicsFloatTest(test);
 }
 
@@ -15278,16 +15214,17 @@ TEST_F(ExecutionTest, HelperLaneTest) {
     if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */))
       continue;
 
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-        pDevice, m_support, "HelperLaneTestNoWave",
-        // this callback is called when the test is creating the resource to
-        // run the test
-        [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-          VERIFY_IS_TRUE(0 == _stricmp(Name, "UAVBuffer0"));
-          std::fill(Data.begin(), Data.end(), (BYTE)0xCC);
-          UNREFERENCED_PARAMETER(pShaderOp);
-        },
-        ShaderOpSet);
+    std::shared_ptr<st::ShaderOpTestResult> test =
+        st::RunShaderOpTestAfterParse(
+            pDevice, m_support, "HelperLaneTestNoWave",
+            // this callback is called when the test is creating the resource to
+            // run the test
+            [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+              VERIFY_IS_TRUE(0 == _stricmp(Name, "UAVBuffer0"));
+              std::fill(Data.begin(), Data.end(), (BYTE)0xCC);
+              UNREFERENCED_PARAMETER(pShaderOp);
+            },
+            ShaderOpSet);
 
     struct HelperLaneTestResult {
       int32_t is_helper_00;
@@ -15716,9 +15653,10 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
 
     // Test Compute shader
     {
-      std::shared_ptr<ShaderOpTestResult> test =
-          RunShaderOpTestAfterParse(pDevice, m_support, "HelperLaneTestWave",
-                                    CleanUAVBuffer0Buffer, ShaderOpSet);
+      std::shared_ptr<st::ShaderOpTestResult> test =
+          st::RunShaderOpTestAfterParse(pDevice, m_support,
+                                        "HelperLaneTestWave",
+                                        CleanUAVBuffer0Buffer, ShaderOpSet);
 
       MappedData uavData;
       test->Test->GetReadBackData("UAVBuffer0", &uavData);
@@ -15740,9 +15678,10 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
     // Test Vertex + Pixel shader
     {
       pShaderOp->CS = nullptr;
-      std::shared_ptr<ShaderOpTestResult> test =
-          RunShaderOpTestAfterParse(pDevice, m_support, "HelperLaneTestWave",
-                                    CleanUAVBuffer0Buffer, ShaderOpSet);
+      std::shared_ptr<st::ShaderOpTestResult> test =
+          st::RunShaderOpTestAfterParse(pDevice, m_support,
+                                        "HelperLaneTestWave",
+                                        CleanUAVBuffer0Buffer, ShaderOpSet);
 
       MappedData uavData;
       test->Test->GetReadBackData("UAVBuffer0", &uavData);
@@ -15847,8 +15786,9 @@ TEST_F(ExecutionTest, QuadAnyAll) {
     Skipped = false;
 
     // test compute
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-        pDevice, m_support, "QuadAnyAll", CleanUAVBuffer0Buffer, ShaderOpSet);
+    std::shared_ptr<st::ShaderOpTestResult> test =
+        st::RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
+                                      CleanUAVBuffer0Buffer, ShaderOpSet);
 
     MappedData uavData;
     test->Test->GetReadBackData("UAVBuffer0", &uavData);
@@ -15860,8 +15800,8 @@ TEST_F(ExecutionTest, QuadAnyAll) {
 
     pShaderOp->CS = nullptr;
     // test AS/MS
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
-                                     CleanUAVBuffer0Buffer, ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
+                                         CleanUAVBuffer0Buffer, ShaderOpSet);
 
     test->Test->GetReadBackData("UAVBuffer0", &uavData);
     Result = VerifyQuadAnyAllResults((int2 *)uavData.data());
@@ -16066,9 +16006,10 @@ TEST_F(ExecutionTest, IsNormalTest) {
   // Test Compute shader
   {
     pShaderOp->CS = pShaderOp->GetString("CS60");
-    std::shared_ptr<ShaderOpTestResult> test =
-        RunShaderOpTestAfterParse(pDevice, m_support, "IsNormal",
-                                  ResourceInitFn, ShaderInitFn, ShaderOpSet);
+    std::shared_ptr<st::ShaderOpTestResult> test =
+        st::RunShaderOpTestAfterParse(pDevice, m_support, "IsNormal",
+                                      ResourceInitFn, ShaderInitFn,
+                                      ShaderOpSet);
 
     MappedData data;
     test->Test->GetReadBackData("g_TestData", &data);

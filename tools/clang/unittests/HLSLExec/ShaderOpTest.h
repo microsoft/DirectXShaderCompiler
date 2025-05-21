@@ -344,6 +344,32 @@ void ParseShaderOpSetFromStream(IStream *pStream, ShaderOpSet *pShaderOpSet);
 // Deserialize a ShaderOpSet from an IXmlReader instance.
 void ParseShaderOpSetFromXml(IXmlReader *pReader, ShaderOpSet *pShaderOpSet);
 
+///////////////////////////////////////////////////////////////////////////////
+// RunShaderOpTest* helper functions.
+struct ShaderOpTestResult {
+  st::ShaderOp *ShaderOp;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
+  std::shared_ptr<st::ShaderOpTest> Test;
+};
+
+std::shared_ptr<ShaderOpTestResult>
+RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
+                          LPCSTR pName,
+                          st::ShaderOpTest::TInitCallbackFn pInitCallback,
+                          st::ShaderOpTest::TShaderCallbackFn pShaderCallback,
+                          std::shared_ptr<st::ShaderOpSet> ShaderOpSet);
+
+std::shared_ptr<ShaderOpTestResult>
+RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
+                          LPCSTR pName,
+                          st::ShaderOpTest::TInitCallbackFn pInitCallback,
+                          std::shared_ptr<st::ShaderOpSet> ShaderOpSet);
+
+std::shared_ptr<ShaderOpTestResult>
+RunShaderOpTest(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
+                IStream *pStream, LPCSTR pName,
+                st::ShaderOpTest::TInitCallbackFn pInitCallback);
+
 } // namespace st
 
 #endif // __SHADEROPTEST_H__
