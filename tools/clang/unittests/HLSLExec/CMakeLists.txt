@@ -8,6 +8,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
 add_clang_library(ExecHLSLTests SHARED
   ExecutionTest.cpp
   ShaderOpTest.cpp
+  TableParameterHandler.cpp
   ExecHLSLTests.rc
   )
 

@@ -10,6 +10,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // *** THIS FILE CANNOT TAKE ANY LLVM DEPENDENCIES  *** //
+#ifndef HLSLTESTUTILS_H
+#define HLSLTESTUTILS_H
 
 #include <algorithm>
 #include <atomic>
@@ -809,3 +811,5 @@ inline UINT GetByteSizeForFormat(DXGI_FORMAT value) {
   }
 }
 #endif
+
+#endif // HLSLTESTUTILS_H
