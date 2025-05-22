@@ -3,13 +3,15 @@
 
 #include "HlslExecTestUtils.h" // TODO: Can remove?
 
-LongVector::BinaryOpType LongVector::GetBinaryOpType(const std::wstring &OpTypeString) {
+LongVector::BinaryOpType
+LongVector::GetBinaryOpType(const std::wstring &OpTypeString) {
   return GetLongVectorOpType<LongVector::BinaryOpType>(
       BinaryOpTypeStringToEnumMap, OpTypeString,
       std::size(BinaryOpTypeStringToEnumMap));
 }
 
-LongVector::UnaryOpType LongVector::GetUnaryOpType(const std::wstring &OpTypeString) {
+LongVector::UnaryOpType
+LongVector::GetUnaryOpType(const std::wstring &OpTypeString) {
   return GetLongVectorOpType<LongVector::UnaryOpType>(
       UnaryOpTypeStringToEnumMap, OpTypeString,
       std::size(UnaryOpTypeStringToEnumMap));
@@ -36,7 +38,7 @@ static TableParameter UnaryOpParameters[] = {
     {L"InputArgsName", TableParameter::STRING, false},
 };
 
-bool LongVector::Test::ClassSetup() {
+bool LongVector::OpTest::ClassSetup() {
   // Run this only once.
   if (!m_Initialized) {
     m_Initialized = true;
@@ -81,7 +83,7 @@ bool LongVector::Test::ClassSetup() {
   return true;
 }
 
-TEST_F(LongVector::Test, BinaryOpTest) {
+TEST_F(LongVector::OpTest, BinaryOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -97,7 +99,7 @@ TEST_F(LongVector::Test, BinaryOpTest) {
   DispatchTestByDataType(OpType, DataType, Handler);
 }
 
-TEST_F(LongVector::Test, TrigonometricOpTest) {
+TEST_F(LongVector::OpTest, TrigonometricOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -111,7 +113,7 @@ TEST_F(LongVector::Test, TrigonometricOpTest) {
   DispatchTestByDataType(OpType, DataType, Handler);
 }
 
-TEST_F(LongVector::Test, UnaryOpTest) {
+TEST_F(LongVector::OpTest, UnaryOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -126,9 +128,9 @@ TEST_F(LongVector::Test, UnaryOpTest) {
 }
 
 template <typename LongVectorOpTypeT>
-void LongVector::Test::DispatchTestByDataType(
-    LongVectorOpTypeT OpType, std::wstring DataType,
-    TableParameterHandler &Handler) {
+void LongVector::OpTest::DispatchTestByDataType(LongVectorOpTypeT OpType,
+                                              std::wstring DataType,
+                                              TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
   if (DataType == L"bool")
@@ -157,7 +159,7 @@ void LongVector::Test::DispatchTestByDataType(
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
-void LongVector::Test::DispatchTestByVectorSize(
+void LongVector::OpTest::DispatchTestByVectorSize(
     LongVectorOpTypeT opType, TableParameterHandler &Handler) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -197,7 +199,7 @@ void LongVector::Test::DispatchTestByVectorSize(
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
-void LongVector::Test::TestBaseMethod(
+void LongVector::OpTest::TestBaseMethod(
     LongVector::TestConfig<DataTypeT, LongVectorOpTypeT> &TestConfig,
     size_t VectorSizeToTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -326,10 +328,10 @@ void LongVector::Test::TestBaseMethod(
         if (0 == _stricmp(Name, "InputFuncArgs")) {
           if (TestConfig.IsScalarOp()) {
             FillShaderBufferFromLongVectorData<DataTypeT>(ShaderData,
-                                                         ScalarInput);
+                                                          ScalarInput);
           } else if (TestConfig.HasInputArguments()) {
             FillShaderBufferFromLongVectorData<DataTypeT>(ShaderData,
-                                                         InputArgsArray);
+                                                          InputArgsArray);
           }
 
           return;
@@ -338,7 +340,7 @@ void LongVector::Test::TestBaseMethod(
         // Process the callback for the InputVector1 resource.
         if (0 == _stricmp(Name, "InputVector1")) {
           FillShaderBufferFromLongVectorData<DataTypeT>(ShaderData,
-                                                       InputVector1);
+                                                        InputVector1);
           return;
         }
 
@@ -346,7 +348,7 @@ void LongVector::Test::TestBaseMethod(
         if (0 == _stricmp(Name, "InputVector2")) {
           if (IsVectorBinaryOp) {
             FillShaderBufferFromLongVectorData<DataTypeT>(ShaderData,
-                                                         InputVector2);
+                                                          InputVector2);
           }
           return;
         }
@@ -361,9 +363,9 @@ void LongVector::Test::TestBaseMethod(
 
   std::vector<DataTypeT> OutputVector;
   FillLongVectorDataFromShaderBuffer<DataTypeT>(ShaderOutData, OutputVector,
-                                               VectorSizeToTest);
+                                                VectorSizeToTest);
 
   VERIFY_SUCCEEDED(DoVectorsMatch<DataTypeT>(OutputVector, ExpectedVector,
-                                            TestConfig.GetTolerance(),
-                                            TestConfig.GetValidationType()));
+                                             TestConfig.GetTolerance(),
+                                             TestConfig.GetValidationType()));
 }

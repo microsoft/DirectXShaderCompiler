@@ -95,7 +95,8 @@ static UINT GetD3D12SDKVersion(std::wstring SDKPath) {
   D3DCorePath.append(L"D3D12Core.dll");
   HMODULE D3DCore = LoadLibraryW(D3DCorePath.c_str());
   if (D3DCore) {
-    if (UINT *SDKVersionOut = (UINT *)GetProcAddress(D3DCore, "D3D12SDKVersion"))
+    if (UINT *SDKVersionOut =
+            (UINT *)GetProcAddress(D3DCore, "D3D12SDKVersion"))
       SDKVersion = *SDKVersionOut;
     FreeModule(D3DCore);
   }
@@ -141,8 +142,8 @@ static bool CreateDevice(ID3D12Device **D3DDevice,
 
     if (GetModuleHandleW(L"d3d10warp.dll") != NULL) {
       WCHAR FullModuleFilePath[MAX_PATH] = L"";
-      GetModuleFileNameW(GetModuleHandleW(L"d3d10warp.dll"),
-                         FullModuleFilePath, sizeof(FullModuleFilePath));
+      GetModuleFileNameW(GetModuleHandleW(L"d3d10warp.dll"), FullModuleFilePath,
+                         sizeof(FullModuleFilePath));
       WEX::Logging::Log::Comment(WEX::Common::String().Format(
           L"WARP driver loaded from: %ls", FullModuleFilePath));
     }
@@ -229,7 +230,7 @@ static HRESULT EnableAgilitySDK(HMODULE Runtime, UINT SDKVersion,
       (D3D12GetInterfaceFn)GetProcAddress(Runtime, "D3D12GetInterface");
   CComPtr<ID3D12SDKConfiguration> D3D12SDKConfiguration;
   IFR(GetInterfaceFunc(CLSID_D3D12SDKConfiguration,
-                         IID_PPV_ARGS(&D3D12SDKConfiguration)));
+                       IID_PPV_ARGS(&D3D12SDKConfiguration)));
   IFR(D3D12SDKConfiguration->SetSDKVersion(SDKVersion, CW2A(SDKPath)));
 
   // Currently, it appears that the SetSDKVersion will succeed even when
@@ -258,8 +259,7 @@ static HRESULT EnableExperimentalShaderModels(HMODULE Runtime) {
   if (func == nullptr) {
     return HRESULT_FROM_WIN32(GetLastError());
   }
-  return func(1, &D3D12ExperimentalShaderModelsID,
-                                          nullptr, nullptr);
+  return func(1, &D3D12ExperimentalShaderModelsID, nullptr, nullptr);
 }
 
 static HRESULT EnableExperimentalShaderModels() {
