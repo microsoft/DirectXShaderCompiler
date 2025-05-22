@@ -6,9 +6,6 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
-// All rights reserved.                                                      //
-//                                                                           //
 //  This file implements the semantic support for HLSL.                      //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
