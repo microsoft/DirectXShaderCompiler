@@ -362,6 +362,16 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
       return raType;
     return spvContext.getRuntimeArrayType(loweredElemType, raType->getStride());
   }
+  // Node payload arrays could contain a hybrid type
+  else if (const auto *npaType = dyn_cast<NodePayloadArrayType>(type)) {
+    const auto *loweredElemType =
+        lowerType(npaType->getElementType(), rule, loc);
+    // If runtime array didn't contain any hybrid types, return itself.
+    if (npaType->getElementType() == loweredElemType)
+      return npaType;
+    return spvContext.getNodePayloadArrayType(loweredElemType,
+                                              npaType->getNodeDecl());
+  }
   // Pointer types could point to a hybrid type.
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
     const auto *loweredPointee =
