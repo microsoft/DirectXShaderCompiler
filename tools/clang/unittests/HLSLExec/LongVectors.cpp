@@ -1,7 +1,6 @@
 #include "LongVectors.h"
+#include "HlslExecTestUtils.h"
 #include <iomanip>
-
-#include "HlslExecTestUtils.h" // TODO: Can remove?
 
 LongVector::BinaryOpType
 LongVector::GetBinaryOpType(const std::wstring &OpTypeString) {
@@ -24,6 +23,8 @@ LongVector::GetTrigonometricOpType(const std::wstring &OpTypeString) {
       std::size(TrigonometricOpTypeStringToEnumMap));
 }
 
+// These are helper arrays to be used with the TableParameterHandler that parses
+// the *Table.xml files for us.
 static TableParameter BinaryOpParameters[] = {
     {L"DataType", TableParameter::STRING, true},
     {L"OpTypeEnum", TableParameter::STRING, true},
