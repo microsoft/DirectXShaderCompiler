@@ -532,34 +532,41 @@ DataTypeT LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::ComputeExpectedV
 template <typename DataTypeT, typename LongVectorOpTypeT>
 DataTypeT LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::ComputeExpectedValue(const DataTypeT &A,
                               LongVector::TrigonometricOpType OpType) const {
-  if constexpr (!IsFloatingPointType<DataTypeT>())
-    LOG_ERROR_FMT_THROW(L"ComputeExpectedValue(const DataTypeT &A, "
-                        L"LongVectorOpTypeT OpType) called on a "
-                        L"non-float type: %d",
-                        OpType);
-  switch (OpType) {
-  case LongVector::TrigonometricOpType_Acos:
-    return std::acos(A);
-  case LongVector::TrigonometricOpType_Asin:
-    return std::asin(A);
-  case LongVector::TrigonometricOpType_Atan:
-    return std::atan(A);
-  case LongVector::TrigonometricOpType_Cos:
-    return std::cos(A);
-  case LongVector::TrigonometricOpType_Cosh:
-    return std::cosh(A);
-  case LongVector::TrigonometricOpType_Sin:
-    return std::sin(A);
-  case LongVector::TrigonometricOpType_Sinh:
-    return std::sinh(A);
-  case LongVector::TrigonometricOpType_Tan:
-    return std::tan(A);
-  case LongVector::TrigonometricOpType_Tanh:
-    return std::tanh(A);
-  default:
-    LOG_ERROR_FMT_THROW(L"Unknown TrigonometricOpType: %d",
-                        OpTypeTraits.OpType);
+  // The trig functions are only valid on floating point types. The constexpr in
+  // this case is a relatively easy and clean way to prevent the compiler from
+  // erroring out trying to resolve these for the non floating point types. We
+  // won't use them in the first place.
+  if constexpr (IsFloatingPointType<DataTypeT>()) {
+    switch (OpType) {
+    case LongVector::TrigonometricOpType_Acos:
+      return std::acos(A);
+    case LongVector::TrigonometricOpType_Asin:
+      return std::asin(A);
+    case LongVector::TrigonometricOpType_Atan:
+      return std::atan(A);
+    case LongVector::TrigonometricOpType_Cos:
+      return std::cos(A);
+    case LongVector::TrigonometricOpType_Cosh:
+      return std::cosh(A);
+    case LongVector::TrigonometricOpType_Sin:
+      return std::sin(A);
+    case LongVector::TrigonometricOpType_Sinh:
+      return std::sinh(A);
+    case LongVector::TrigonometricOpType_Tan:
+      return std::tan(A);
+    case LongVector::TrigonometricOpType_Tanh:
+      return std::tanh(A);
+    default:
+      LOG_ERROR_FMT_THROW(L"Unknown TrigonometricOpType: %d",
+                          OpTypeTraits.OpType);
+      return DataTypeT();
+    }
   }
+
+  LOG_ERROR_FMT_THROW(L"ComputeExpectedValue(const DataTypeT &A, "
+                      L"LongVectorOpTypeT OpType) called on a "
+                      L"non-float type: %d",
+                      OpType);
 
   return DataTypeT();
 }
@@ -584,15 +591,26 @@ DataTypeT LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::ComputeExpectedV
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
 DataTypeT LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::ComputeExpectedValue(const DataTypeT &A) const {
-  if (!IsUnaryOp())
-    // We need to explicitly handle this case to keep the compiler happy. But
-    // this path is not valid.
-    LOG_ERROR_FMT_THROW(
-        L"ComputeExpectedValue(const DataType&A) called on a binary op: %d",
-        OpTypeTraits.OpType);
 
-  const auto OpType = static_cast<LongVector::UnaryOpType>(OpTypeTraits.OpType);
-  return ComputeExpectedValue(A, OpType);
+  if constexpr (std::is_same_v<LongVectorOpTypeT, LongVector::TrigonometricOpType>) {
+    const auto OpType = static_cast<LongVector::TrigonometricOpType>(OpTypeTraits.OpType);
+    // HLSLHalf_t is a struct. We need to call the constructor to get the
+    // expected value.
+    return ComputeExpectedValue(A, OpType);
+  }
+
+  if constexpr (std::is_same_v<LongVectorOpTypeT, LongVector::UnaryOpType>) {
+    const auto OpType = static_cast<LongVector::UnaryOpType>(OpTypeTraits.OpType);
+    // HLSLHalf_t is a struct. We need to call the constructor to get the
+    // expected value.
+    return ComputeExpectedValue(A, OpType);
+  }
+
+  LOG_ERROR_FMT_THROW(
+      L"ComputeExpectedValue(const DataType&A) called on an unrecognized binary op: %d",
+      OpTypeTraits.OpType);
+
+  return DataTypeT();
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
