@@ -79,6 +79,8 @@ struct HLSLHalf_t {
   }
   HLSLHalf_t(const double D) {
     float F = 0.0f;
+    // We wrap '::max' in () to prevent it from being expanded as a
+    // macro by the Windows SDK.
     if (D >= (std::numeric_limits<double>::max)())
       F = (std::numeric_limits<float>::max)();
     else if (D <= std::numeric_limits<double>::lowest())
