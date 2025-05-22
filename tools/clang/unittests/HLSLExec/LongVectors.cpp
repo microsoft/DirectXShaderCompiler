@@ -128,9 +128,9 @@ TEST_F(LongVector::OpTest, UnaryOpTest) {
 }
 
 template <typename LongVectorOpTypeT>
-void LongVector::OpTest::DispatchTestByDataType(LongVectorOpTypeT OpType,
-                                              std::wstring DataType,
-                                              TableParameterHandler &Handler) {
+void LongVector::OpTest::DispatchTestByDataType(
+    LongVectorOpTypeT OpType, std::wstring DataType,
+    TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
   if (DataType == L"bool")
