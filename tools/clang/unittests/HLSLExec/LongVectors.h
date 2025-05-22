@@ -14,10 +14,8 @@
 
 #include "LongVectorTestData.h"
 #include "ShaderOpTest.h"
-#include "dxc/Support/WinIncludes.h" // Needed for HlslTestUtils, go include there instead?
+#include "dxc/Support/WinIncludes.h"
 #include "dxc/Test/HlslTestUtils.h"
-#include <d3d12.h>   // Needed for ShaderOpTest, go include there instead?
-#include <dxgi1_4.h> // Needed for ShaderOpTest, go include there instead?
 
 // Helper to fill the shader buffer based on type. Convenient to be used when
 // copying HLSL*_t types so we can copy the underlying type directly instead of
@@ -514,13 +512,15 @@ public:
     case LongVector::BinaryOpType_Modulus:
       return Mod(A, B);
     case LongVector::BinaryOpType_Min:
-      return std::min(A, B);
+      // std::max and std::min are wrapped in () to avoid collisions with the //
+      // macro defintions for min and max in windows.h
+      return (std::min)(A, B);
     case LongVector::BinaryOpType_Max:
-      return std::max(A, B);
+      return (std::max)(A, B);
     case LongVector::BinaryOpType_ScalarMin:
-      return std::min(A, B);
+      return (std::min)(A, B);
     case LongVector::BinaryOpType_ScalarMax:
-      return std::max(A, B);
+      return (std::max)(A, B);
     default:
       LOG_ERROR_FMT_THROW(L"Unknown BinaryOpType: %d", OpTypeTraits.OpType);
       return DataType();
