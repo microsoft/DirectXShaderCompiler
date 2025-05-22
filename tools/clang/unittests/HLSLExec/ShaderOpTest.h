@@ -15,15 +15,15 @@
 #ifndef __SHADEROPTEST_H__
 #define __SHADEROPTEST_H__
 
+#include <atlbase.h>
+#include <d3d12.h>
+#include <dxgi1_4.h>
 #include <functional>
 #include <map>
 #include <memory>
 #include <set>
 #include <unordered_set>
 #include <vector>
-#include <atlbase.h>
-#include <d3d12.h>
-#include <dxgi1_4.h>
 
 // We need to keep & fix these warnings to integrate smoothly with HLK
 #pragma warning(error : 4100 4146 4242 4244 4267 4701 4389)
