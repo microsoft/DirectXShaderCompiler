@@ -352,7 +352,7 @@ private:
   std::wstring InputValueSetName1 = L"DefaultInputValueSet1";
   std::wstring InputValueSetName2 = L"DefaultInputValueSet2";
   std::wstring InputArgsArrayName = L""; // No default args array
-}; // class LongVector::TestConfig
+};                                       // class LongVector::TestConfig
 
 }; // namespace LongVector
 
