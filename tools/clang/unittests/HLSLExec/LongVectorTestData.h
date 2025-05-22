@@ -4,6 +4,8 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <limits>
+#include <Verify.h>
 
 // A helper struct because C++ bools are 1 byte and HLSL bools are 4 bytes.
 // Take int32_t as a constuctor argument and convert it to bool when needed.

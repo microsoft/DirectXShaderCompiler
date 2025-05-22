@@ -281,7 +281,7 @@ inline void LogErrorFmtThrow(const char *fileName, int line, const wchar_t *fmt,
 // Macro to pass the file name and line number. Otherwise TAEF prints this file
 // and line number.
 #define LOG_ERROR_FMT_THROW(fmt, ...)                                          \
-  LogErrorFmtThrow(__FILE__, __LINE__, fmt, __VA_ARGS__)
+  hlsl_test::LogErrorFmtThrow(__FILE__, __LINE__, fmt, __VA_ARGS__)
 
 inline std::wstring
 GetPathToHlslDataFile(const wchar_t *relative,

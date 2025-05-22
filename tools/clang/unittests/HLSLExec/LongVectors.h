@@ -2,7 +2,6 @@
 #define LONGVECTORS_H
 
 #include <array>
-#include <limits>
 #include <ostream>
 #include <random>
 #include <sstream>
@@ -11,8 +10,14 @@
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
 
-#include "LongVectorTestData.h"
 #include <Verify.h>
+
+#include "dxc/Support/WinIncludes.h" // Needed for HlslTestUtils, go include there instead?
+#include "dxc/Test/HlslTestUtils.h"
+#include <d3d12.h> // Needed for ShaderOpTest, go include there instead?
+#include <dxgi1_4.h> // Needed for ShaderOpTest, go include there instead?
+#include "ShaderOpTest.h"
+#include "LongVectorTestData.h"
 
 // Helper to fill the shader buffer based on type. Convenient to be used when
 // copying HLSL*_t types so we can copy the underlying type directly instead of
@@ -158,11 +163,7 @@ static_assert(_countof(BinaryOpTypeStringToEnumMap) ==
               "BinaryOpTypeStringToEnumMap size mismatch. Did you "
               "add a new enum value?");
 
-BinaryOpType GetBinaryOpType(const std::wstring &OpTypeString) {
-  return GetLongVectorOpType<BinaryOpType>(
-      BinaryOpTypeStringToEnumMap, OpTypeString,
-      std::size(BinaryOpTypeStringToEnumMap));
-}
+BinaryOpType GetBinaryOpType(const std::wstring &OpTypeString);
 
 enum UnaryOpType {
   UnaryOpType_Clamp,
@@ -180,11 +181,7 @@ static_assert(_countof(UnaryOpTypeStringToEnumMap) ==
               "UnaryOpTypeStringToEnumMap size mismatch. Did you add "
               "a new enum value?");
 
-UnaryOpType GetUnaryOpType(const std::wstring &OpTypeString) {
-  return GetLongVectorOpType<UnaryOpType>(
-      UnaryOpTypeStringToEnumMap, OpTypeString,
-      std::size(UnaryOpTypeStringToEnumMap));
-}
+UnaryOpType GetUnaryOpType(const std::wstring &OpTypeString);
 
 enum TrigonometricOpType {
   TrigonometricOpType_Acos,
@@ -217,11 +214,7 @@ static_assert(_countof(TrigonometricOpTypeStringToEnumMap) ==
               "TrigonometricOpTypeStringToEnumMap size mismatch. Did you add "
               "a new enum value?");
 
-TrigonometricOpType GetTrigonometricOpType(const std::wstring &OpTypeString) {
-  return GetLongVectorOpType<TrigonometricOpType>(
-      TrigonometricOpTypeStringToEnumMap, OpTypeString,
-      std::size(TrigonometricOpTypeStringToEnumMap));
-}
+TrigonometricOpType GetTrigonometricOpType(const std::wstring &OpTypeString);
 
 }; // namespace LongVector
 
@@ -237,15 +230,15 @@ std::vector<DataType> GetInputValueSetByKey(const std::wstring &Key,
 // Helpers so we do the right thing for float types. HLSLHalf_t is handled in an
 // operator overload.
 template <typename DataType>
-DataType Mod(const DataType &A, const DataType &B) {
+inline DataType Mod(const DataType &A, const DataType &B) {
   return A % B;
 }
 
-template <> float Mod(const float &A, const float &B) {
+template <> inline float Mod(const float &A, const float &B) {
   return std::fmod(A, B);
 }
 
-template <> double Mod(const double &A, const double &B) {
+template <> inline double Mod(const double &A, const double &B) {
   return std::fmod(A, B);
 }
 
@@ -916,5 +909,7 @@ void LogScalar(const DataType &Value, const std::wstring &Name) {
   Wss << Value;
   WEX::Logging::Log::Comment(Wss.str().c_str());
 }
+
+
 
 #endif // LONGVECTORS_H
