@@ -7,9 +7,6 @@
 //                                                                           //
 // Provides non-public declarations for the DirectX Compiler component.      //
 //                                                                           //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
-// All rights reserved.                                                      //
-//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef __DXC_API_INTERNAL__
