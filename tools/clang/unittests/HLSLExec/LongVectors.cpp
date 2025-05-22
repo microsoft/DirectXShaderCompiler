@@ -7,67 +7,63 @@
 // Move to HLSLTestUtils??? GetPathToHlslDataFile is in there. Would need to
 // inlcude dxcapi.use.h in the test util header.
 
-
 using namespace LongVector;
 
-class LongVectorTest: 
-    public WEX::TestClass<LongVectorTest>
-{
-  public:
-    BEGIN_TEST_CLASS(LongVectorTest)
-    TEST_CLASS_PROPERTY(L"Owner", L"alsepkow")
-    TEST_CLASS_PROPERTY(L"TestClassification", L"Feature")
-    TEST_CLASS_PROPERTY(L"BinaryUnderTest", L"mfsvr.dll")
-    END_TEST_CLASS()
+class LongVectorTest : public WEX::TestClass<LongVectorTest> {
+public:
+  BEGIN_TEST_CLASS(LongVectorTest)
+  TEST_CLASS_PROPERTY(L"Owner", L"alsepkow")
+  TEST_CLASS_PROPERTY(L"TestClassification", L"Feature")
+  TEST_CLASS_PROPERTY(L"BinaryUnderTest", L"mfsvr.dll")
+  END_TEST_CLASS()
 
-    TEST_CLASS_SETUP(ClassSetup)
+  TEST_CLASS_SETUP(ClassSetup)
 
-    BEGIN_TEST_METHOD(BinaryOpTest)
-    TEST_METHOD_PROPERTY(L"DataSource",
-                         L"Table:LongVectorOpTable.xml#BinaryOpTable")
-    END_TEST_METHOD()
+  BEGIN_TEST_METHOD(BinaryOpTest)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:LongVectorOpTable.xml#BinaryOpTable")
+  END_TEST_METHOD()
 
-    BEGIN_TEST_METHOD(TrigonometricOpTest)
-    TEST_METHOD_PROPERTY(
-        L"DataSource",
-        L"Table:LongVectorOpTable.xml#TrigonometricOpTable")
-    END_TEST_METHOD()
+  BEGIN_TEST_METHOD(TrigonometricOpTest)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:LongVectorOpTable.xml#TrigonometricOpTable")
+  END_TEST_METHOD()
 
-    BEGIN_TEST_METHOD(UnaryOpTest)
-    TEST_METHOD_PROPERTY(L"DataSource",
-                         L"Table:LongVectorOpTable.xml#UnaryOpTable")
-    END_TEST_METHOD()
+  BEGIN_TEST_METHOD(UnaryOpTest)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:LongVectorOpTable.xml#UnaryOpTable")
+  END_TEST_METHOD()
 
-    template <typename LongVectorOpType>
-    void LongVectorOpTestDispatchByDataType(LongVectorOpType OpType,
-                                            std::wstring DataType,
+  template <typename LongVectorOpType>
+  void LongVectorOpTestDispatchByDataType(LongVectorOpType OpType,
+                                          std::wstring DataType,
+                                          TableParameterHandler &Handler);
+
+  template <typename DataType, typename LongVectorOpType>
+  void LongVectorOpTestDispatchByVectorSize(LongVectorOpType OpType,
                                             TableParameterHandler &Handler);
 
-    template <typename DataType, typename LongVectorOpType>
-    void LongVectorOpTestDispatchByVectorSize(LongVectorOpType OpType,
-                                              TableParameterHandler &Handler);
+  template <typename DataType, typename LongVectorOpType>
+  void LongVectorOpTestBase(
+      LongVectorOpTestConfig<DataType, LongVectorOpType> &TestConfig,
+      size_t VectorSizeToTest);
 
-    template <typename DataType, typename LongVectorOpType>
-    void LongVectorOpTestBase(
-        LongVectorOpTestConfig<DataType, LongVectorOpType> &TestConfig,
-        size_t VectorSizeToTest);
-    
-    dxc::DxcDllSupport m_support;
-    bool m_Initialized = false;
+  dxc::DxcDllSupport m_support;
+  bool m_Initialized = false;
 };
 
 static TableParameter BinaryOpParameters[] = {
-  {L"DataType", TableParameter::STRING, true},
-  {L"OpTypeEnum", TableParameter::STRING, true},
-  {L"InputValueSetName1", TableParameter::STRING, false},
-  {L"InputValueSetName2", TableParameter::STRING, false},
+    {L"DataType", TableParameter::STRING, true},
+    {L"OpTypeEnum", TableParameter::STRING, true},
+    {L"InputValueSetName1", TableParameter::STRING, false},
+    {L"InputValueSetName2", TableParameter::STRING, false},
 };
 
 static TableParameter UnaryOpParameters[] = {
-  {L"DataType", TableParameter::STRING, true},
-  {L"OpTypeEnum", TableParameter::STRING, true},
-  {L"InputValueSetName1", TableParameter::STRING, false},
-  {L"InputArgsName", TableParameter::STRING, false},
+    {L"DataType", TableParameter::STRING, true},
+    {L"OpTypeEnum", TableParameter::STRING, true},
+    {L"InputValueSetName1", TableParameter::STRING, false},
+    {L"InputArgsName", TableParameter::STRING, false},
 };
 
 bool LongVectorTest::ClassSetup() {
@@ -94,8 +90,8 @@ bool LongVectorTest::ClassSetup() {
 
     hr = EnableExperimentalMode(hRuntime);
     if (FAILED(hr)) {
-      hlsl_test::LogCommentFmt(L"Unable to enable shader experimental mode - 0x%08x.",
-                    hr);
+      hlsl_test::LogCommentFmt(
+          L"Unable to enable shader experimental mode - 0x%08x.", hr);
     } else if (hr == S_FALSE) {
       hlsl_test::LogCommentFmt(L"Experimental mode not enabled.");
     } else {
@@ -121,8 +117,7 @@ TEST_F(LongVectorTest, BinaryOpTest) {
 
   using namespace WEX::Common;
 
-  const int TableSize =
-      sizeof(BinaryOpParameters) / sizeof(TableParameter);
+  const int TableSize = sizeof(BinaryOpParameters) / sizeof(TableParameter);
   TableParameterHandler Handler(BinaryOpParameters, TableSize);
 
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
@@ -136,8 +131,7 @@ TEST_F(LongVectorTest, TrigonometricOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  const int TableSize =
-      sizeof(UnaryOpParameters) / sizeof(TableParameter);
+  const int TableSize = sizeof(UnaryOpParameters) / sizeof(TableParameter);
   TableParameterHandler Handler(UnaryOpParameters, TableSize);
 
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
@@ -151,8 +145,7 @@ TEST_F(LongVectorTest, UnaryOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  const int TableSize =
-      sizeof(UnaryOpParameters) / sizeof(TableParameter);
+  const int TableSize = sizeof(UnaryOpParameters) / sizeof(TableParameter);
   TableParameterHandler Handler(UnaryOpParameters, TableSize);
 
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
@@ -241,7 +234,7 @@ void LongVectorTest::LongVectorOpTestBase(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   hlsl_test::LogCommentFmt(L"Running LongVectorOpTestBase<%S, %zu>",
-                typeid(DataType).name(), VectorSizeToTest);
+                           typeid(DataType).name(), VectorSizeToTest);
 
   bool LogInputs = false;
   WEX::TestExecution::RuntimeParameters::TryGetValue(L"LongVectorLogInputs",
@@ -342,7 +335,8 @@ void LongVectorTest::LongVectorOpTestBase(
   std::shared_ptr<st::ShaderOpTestResult> TestResult = st::RunShaderOpTest(
       D3DDevice, m_support, TestXML, ShaderName,
       [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
-        hlsl_test::LogCommentFmt(L"RunShaderOpTest CallBack. Resource Name: %S", Name);
+        hlsl_test::LogCommentFmt(L"RunShaderOpTest CallBack. Resource Name: %S",
+                                 Name);
 
         // This callback is called once for each resource defined for
         // "LongVectorOp" in ShaderOpArith.xml. All callbacks are fired for each
@@ -404,12 +398,10 @@ void LongVectorTest::LongVectorOpTestBase(
                                             TestConfig.GetValidationType()));
 }
 
-
 ///////////////////////////////////// Helpers
 // Helper to fill the shader buffer based on type. Convenient to be used when
 // copying HLSL*_t types so we can copy the underlying type directly instead of
 // the struct.
-
 
 BinaryOpType LongVector::GetBinaryOpType(const std::wstring &OpTypeString) {
   return GetLongVectorOpType<BinaryOpType>(
@@ -423,7 +415,8 @@ UnaryOpType LongVector::GetUnaryOpType(const std::wstring &OpTypeString) {
       std::size(UnaryOpTypeStringToEnumMap));
 }
 
-TrigonometricOpType LongVector::GetTrigonometricOpType(const std::wstring &OpTypeString) {
+TrigonometricOpType
+LongVector::GetTrigonometricOpType(const std::wstring &OpTypeString) {
   return GetLongVectorOpType<TrigonometricOpType>(
       TrigonometricOpTypeStringToEnumMap, OpTypeString,
       std::size(TrigonometricOpTypeStringToEnumMap));

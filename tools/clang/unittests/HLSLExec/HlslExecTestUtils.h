@@ -1,14 +1,13 @@
 #ifndef HLSLEXECTESTUTILS_H
 #define HLSLEXECTESTUTILS_H
 
-#include <d3d12.h>
-#include <dxgi1_4.h>
-#include <Verify.h>
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Test/HlslTestUtils.h"
+#include <Verify.h>
+#include <d3d12.h>
+#include <dxgi1_4.h>
 
-static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL =
-    D3D_SHADER_MODEL_6_9;
+static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_9;
 
 static bool UseDebugIfaces() { return true; }
 
@@ -45,7 +44,7 @@ static const GUID D3D12ExperimentalShaderModelsID =
 typedef HRESULT(WINAPI *D3D12GetInterfaceFn)(REFCLSID rclsid, REFIID riid,
                                              void **ppvDebug);
 
-                                             #ifndef __ID3D12SDKConfiguration_INTERFACE_DEFINED__
+#ifndef __ID3D12SDKConfiguration_INTERFACE_DEFINED__
 
 // Copied from AgilitySDK D3D12.h to programmatically enable when in developer
 // mode.
@@ -104,13 +103,13 @@ static UINT GetD3D12SDKVersion(std::wstring SDKPath) {
 }
 
 static bool CreateDevice(ID3D12Device **ppDevice,
-                  D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0,
-                  bool skipUnsupported = true) {
+                         D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0,
+                         bool skipUnsupported = true) {
   if (testModel > HIGHEST_SHADER_MODEL) {
     UINT minor = (UINT)testModel & 0x0f;
     hlsl_test::LogCommentFmt(L"Installed SDK does not support "
-                  L"shader model 6.%1u",
-                  minor);
+                             L"shader model 6.%1u",
+                             minor);
 
     if (skipUnsupported) {
       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
@@ -130,7 +129,8 @@ static bool CreateDevice(ID3D12Device **ppDevice,
     HRESULT createHR = D3D12CreateDevice(warpAdapter, D3D_FEATURE_LEVEL_11_0,
                                          IID_PPV_ARGS(&pDevice));
     if (FAILED(createHR)) {
-      hlsl_test::LogCommentFmt(L"The available version of WARP does not support d3d12.");
+      hlsl_test::LogCommentFmt(
+          L"The available version of WARP does not support d3d12.");
 
       if (skipUnsupported) {
         WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
@@ -159,8 +159,8 @@ static bool CreateDevice(ID3D12Device **ppDevice,
           L"Using default hardware adapter with D3D12 support.");
     }
 
-    VERIFY_SUCCEEDED(D3D12CreateDevice(
-        hardwareAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pDevice)));
+    VERIFY_SUCCEEDED(D3D12CreateDevice(hardwareAdapter, D3D_FEATURE_LEVEL_11_0,
+                                       IID_PPV_ARGS(&pDevice)));
   }
   // retrieve adapter information
   LUID adapterID = pDevice->GetAdapterLuid();
@@ -187,8 +187,8 @@ static bool CreateDevice(ID3D12Device **ppDevice,
         SMData.HighestShaderModel < testModel) {
       UINT minor = (UINT)testModel & 0x0f;
       hlsl_test::LogCommentFmt(L"The selected device does not support "
-                    L"shader model 6.%1u",
-                    minor);
+                               L"shader model 6.%1u",
+                               minor);
 
       if (skipUnsupported) {
         WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
@@ -209,47 +209,47 @@ static bool CreateDevice(ID3D12Device **ppDevice,
   return true;
 }
 
-inline void ReadHlslDataIntoNewStream(LPCWSTR relativePath, IStream **ppStream, dxc::DxcDllSupport &support) {
+inline void ReadHlslDataIntoNewStream(LPCWSTR relativePath, IStream **ppStream,
+                                      dxc::DxcDllSupport &support) {
   VERIFY_SUCCEEDED(support.Initialize());
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcBlobEncoding> pBlob;
   CComPtr<IStream> pStream;
-  std::wstring path = hlsl_test::GetPathToHlslDataFile(relativePath, HLSLDATAFILEPARAM,
-                                            DEFAULT_EXEC_TEST_DIR);
+  std::wstring path = hlsl_test::GetPathToHlslDataFile(
+      relativePath, HLSLDATAFILEPARAM, DEFAULT_EXEC_TEST_DIR);
   VERIFY_SUCCEEDED(support.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-  VERIFY_SUCCEEDED(
-      pLibrary->CreateBlobFromFile(path.c_str(), nullptr, &pBlob));
+  VERIFY_SUCCEEDED(pLibrary->CreateBlobFromFile(path.c_str(), nullptr, &pBlob));
   VERIFY_SUCCEEDED(pLibrary->CreateStreamFromBlobReadOnly(pBlob, &pStream));
   *ppStream = pStream.Detach();
 }
 
 static HRESULT EnableAgilitySDK(HMODULE hRuntime, UINT SDKVersion,
-                                  LPCWSTR SDKPath) {
-    D3D12GetInterfaceFn pD3D12GetInterface =
-        (D3D12GetInterfaceFn)GetProcAddress(hRuntime, "D3D12GetInterface");
-    CComPtr<ID3D12SDKConfiguration> pD3D12SDKConfiguration;
-    IFR(pD3D12GetInterface(CLSID_D3D12SDKConfiguration,
-                           IID_PPV_ARGS(&pD3D12SDKConfiguration)));
-    IFR(pD3D12SDKConfiguration->SetSDKVersion(SDKVersion, CW2A(SDKPath)));
+                                LPCWSTR SDKPath) {
+  D3D12GetInterfaceFn pD3D12GetInterface =
+      (D3D12GetInterfaceFn)GetProcAddress(hRuntime, "D3D12GetInterface");
+  CComPtr<ID3D12SDKConfiguration> pD3D12SDKConfiguration;
+  IFR(pD3D12GetInterface(CLSID_D3D12SDKConfiguration,
+                         IID_PPV_ARGS(&pD3D12SDKConfiguration)));
+  IFR(pD3D12SDKConfiguration->SetSDKVersion(SDKVersion, CW2A(SDKPath)));
 
-    // Currently, it appears that the SetSDKVersion will succeed even when
-    // D3D12Core is not found, or its version doesn't match.  When that's the
-    // case, will cause a failure in the very next thing that actually requires
-    // D3D12Core.dll to be loaded instead.  So, we attempt to clear experimental
-    // features next, which is a valid use case and a no-op at this point.  This
-    // requires D3D12Core to be loaded.  If this fails, we know the AgilitySDK
-    // setting actually failed.
-    D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
-        (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
-            hRuntime, "D3D12EnableExperimentalFeatures");
-    if (pD3D12EnableExperimentalFeatures == nullptr) {
-      // If this failed, D3D12 must be too old for AgilitySDK.  But if that's
-      // the case, creating D3D12SDKConfiguration should have failed.  So while
-      // this case shouldn't be hit, fail if it is.
-      return HRESULT_FROM_WIN32(GetLastError());
-    }
-    return pD3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr);
+  // Currently, it appears that the SetSDKVersion will succeed even when
+  // D3D12Core is not found, or its version doesn't match.  When that's the
+  // case, will cause a failure in the very next thing that actually requires
+  // D3D12Core.dll to be loaded instead.  So, we attempt to clear experimental
+  // features next, which is a valid use case and a no-op at this point.  This
+  // requires D3D12Core to be loaded.  If this fails, we know the AgilitySDK
+  // setting actually failed.
+  D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
+      (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
+          hRuntime, "D3D12EnableExperimentalFeatures");
+  if (pD3D12EnableExperimentalFeatures == nullptr) {
+    // If this failed, D3D12 must be too old for AgilitySDK.  But if that's
+    // the case, creating D3D12SDKConfiguration should have failed.  So while
+    // this case shouldn't be hit, fail if it is.
+    return HRESULT_FROM_WIN32(GetLastError());
   }
+  return pD3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr);
+}
 
 static HRESULT EnableExperimentalShaderModels(HMODULE hRuntime) {
   D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
@@ -297,7 +297,7 @@ static HRESULT EnableAgilitySDK(HMODULE hRuntime) {
     SDKVersion = GetD3D12SDKVersion((LPCWSTR)SDKPath);
     if (mustFind && SDKVersion == 0) {
       hlsl_test::LogErrorFmt(L"Agility SDK not found in relative path: %s",
-                  (LPCWSTR)SDKPath);
+                             (LPCWSTR)SDKPath);
       return E_FAIL;
     }
   }
@@ -311,8 +311,9 @@ static HRESULT EnableAgilitySDK(HMODULE hRuntime) {
     // If SDKVersion provided, fail if not successful.
     // 1 means we should find it, and fill in the version automatically.
     if (mustFind) {
-      hlsl_test::LogErrorFmt(L"Failed to set Agility SDK version %d at path: %s",
-                  SDKVersion, (LPCWSTR)SDKPath);
+      hlsl_test::LogErrorFmt(
+          L"Failed to set Agility SDK version %d at path: %s", SDKVersion,
+          (LPCWSTR)SDKPath);
       return hr;
     }
     return S_FALSE;
@@ -327,15 +328,15 @@ static HRESULT EnableExperimentalMode(HMODULE hRuntime) {
 #ifdef _FORCE_EXPERIMENTAL_SHADERS
   bool bExperimentalShaderModels = true;
 #else
-  bool bExperimentalShaderModels = hlsl_test::GetTestParamBool(L"ExperimentalShaders");
+  bool bExperimentalShaderModels =
+      hlsl_test::GetTestParamBool(L"ExperimentalShaders");
 #endif // _FORCE_EXPERIMENTAL_SHADERS
 
   HRESULT hr = S_FALSE;
   if (bExperimentalShaderModels) {
     hr = EnableExperimentalShaderModels(hRuntime);
     if (SUCCEEDED(hr)) {
-      WEX::Logging::Log::Comment(
-          L"Experimental shader models enabled.");
+      WEX::Logging::Log::Comment(L"Experimental shader models enabled.");
     }
   }
 

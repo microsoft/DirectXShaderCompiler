@@ -12,12 +12,12 @@
 
 #include <Verify.h>
 
+#include "LongVectorTestData.h"
+#include "ShaderOpTest.h"
 #include "dxc/Support/WinIncludes.h" // Needed for HlslTestUtils, go include there instead?
 #include "dxc/Test/HlslTestUtils.h"
-#include <d3d12.h> // Needed for ShaderOpTest, go include there instead?
+#include <d3d12.h>   // Needed for ShaderOpTest, go include there instead?
 #include <dxgi1_4.h> // Needed for ShaderOpTest, go include there instead?
-#include "ShaderOpTest.h"
-#include "LongVectorTestData.h"
 
 // Helper to fill the shader buffer based on type. Convenient to be used when
 // copying HLSL*_t types so we can copy the underlying type directly instead of
@@ -909,7 +909,5 @@ void LogScalar(const DataType &Value, const std::wstring &Name) {
   Wss << Value;
   WEX::Logging::Log::Comment(Wss.str().c_str());
 }
-
-
 
 #endif // LONGVECTORS_H
