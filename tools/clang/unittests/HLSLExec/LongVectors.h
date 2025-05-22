@@ -351,8 +351,9 @@ private:
   LongVector::TestConfigTraits<LongVectorOpTypeT> OpTypeTraits;
   std::wstring InputValueSetName1 = L"DefaultInputValueSet1";
   std::wstring InputValueSetName2 = L"DefaultInputValueSet2";
-  std::wstring InputArgsArrayName = L""; // No default args array
-};                                       // class LongVector::TestConfig
+  // No default args array
+  std::wstring InputArgsArrayName = L"";
+}; // class LongVector::TestConfig
 
 }; // namespace LongVector
 
