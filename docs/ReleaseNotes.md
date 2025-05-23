@@ -51,11 +51,14 @@ SM 6.9 Preview Additions:
   - constant buffers (cbuffer), texture buffers (tbuffer), textures and typed buffers
   - Note: some HLSL elementwise intrinsics do not yet support long vectors in this preview
 - Native vectors of up to 1024 elements are now present in DXIL. This includes vector llvm instructions, load/store, and various elementwise DXIL operations. This may result in smaller DXIL and potentially other performance improvements. See the [dxil vectors proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0030-dxil-vectors.md) for more details.
-- New Linear Algebra (LinAlg) operations (a.k.a. Cooperative Vectors). See the [cooperative vectors proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0029-cooperative-vector.md) and the [HLSL header based API proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0031-hlsl-vector-matrix-operations.md) for more details.
+- Cooperative Vector operations, a subset of Linear Algebra (LinAlg). See the [cooperative vectors proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0029-cooperative-vector.md) and the [HLSL header based API proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0031-hlsl-vector-matrix-operations.md) for more details.
   - New built-in operations are added for multiplying long vectors with a matrix in a ByteAddressBuffer, optionally with accumulation and bias data, as well as outer product and vector accumulate operations.
   - An HLSL header shipped with this release provides a more convenient API for using these built-in operations.
 - Support for [Opacity Micromaps](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0024-opacity-micromaps.md) in DXR shaders as well as for RayQuery.
-- Support for [Shader Execution Reordering](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0027-shader-execution-reordering.md) in DXR shaders.
+  - Unlocks DXR performance improvements using triangle sub-divisions for fast hit/miss detection to reduce the need for anyhit invocations.
+- Support for [Shader Execution Reordering](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0027-shader-execution-reordering.md) in DXR.
+  - Introduces `MaybeReorderThread()` to explicitly specify where and how shader execution coherence can be improved. `MaybeReorderThread()` can be used in raygeneration shaders.
+  - `HitObject` decouples traversal, intersection testing and anyhit shading from closesthit and miss shading for more control and better reordering opportunities. `HitObject` can be used in raygeneration, closesthit and miss shaders.
 
 ### Version 1.8.2502
 
