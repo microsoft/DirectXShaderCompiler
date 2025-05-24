@@ -13503,7 +13503,7 @@ float4 ps_main() : SV_Target {
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
       DestInfo.DestDataType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
-      SrcEltSize = 4; // FP32
+      SrcEltSize = 4;  // FP32
       DestEltSize = 4; // FP32
       break;
     case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
