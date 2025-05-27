@@ -80,6 +80,9 @@ public:
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
   SpirvInstruction *doExpr(const Expr *expr, SourceRange rangeOverride = {});
+  SpirvInstruction *doExprEnsuringRValue(const Expr *expr,
+                                         SourceLocation location,
+                                         SourceRange range);
 
   /// Processes the given expression and emits SPIR-V instructions. If the
   /// result is a GLValue, does an additional load.
