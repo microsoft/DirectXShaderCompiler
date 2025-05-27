@@ -636,8 +636,11 @@ inline bool CompareHalfULP(const uint16_t &fsrc, const uint16_t &fref,
     return true;
   if (fsrc == fref)
     return true;
-  if (isnanFloat16(fsrc))
-    return isnanFloat16(fref);
+
+  const bool nanRef = isnanFloat16(fref);
+  const bool nanSrc = isnanFloat16(fsrc);
+  if (nanRef || nanSrc)
+    return nanRef && nanSrc;
 
   // Map to monotonic ordering for correct ULP diff
   auto toOrdered = [](uint16_t h) -> int {
