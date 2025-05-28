@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 //
 //  This file defines a SPIR-V emitter class that takes in HLSL AST and emits
@@ -788,6 +785,21 @@ private:
   /// Processes the 'firstbit{high|low}' intrinsic functions.
   SpirvInstruction *processIntrinsicFirstbit(const CallExpr *,
                                              GLSLstd450 glslOpcode);
+
+  SpirvInstruction *
+  processMatrixDerivativeIntrinsic(hlsl::IntrinsicOp hlslOpcode,
+                                   const Expr *arg, SourceLocation loc,
+                                   SourceRange range);
+
+  SpirvInstruction *processDerivativeIntrinsic(hlsl::IntrinsicOp hlslOpcode,
+                                               const Expr *arg,
+                                               SourceLocation loc,
+                                               SourceRange range);
+
+  SpirvInstruction *processDerivativeIntrinsic(hlsl::IntrinsicOp hlslOpcode,
+                                               SpirvInstruction *arg,
+                                               SourceLocation loc,
+                                               SourceRange range);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.

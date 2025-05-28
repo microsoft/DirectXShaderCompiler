@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_SPIRV_SPIRVVISITOR_H
 #define LLVM_CLANG_SPIRV_SPIRVVISITOR_H

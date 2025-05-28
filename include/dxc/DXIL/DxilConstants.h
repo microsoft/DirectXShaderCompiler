@@ -1583,6 +1583,10 @@ const unsigned kMSStoreOutputColOpIdx = 3;
 const unsigned kMSStoreOutputVIdxOpIdx = 4;
 const unsigned kMSStoreOutputValOpIdx = 5;
 
+// HitObject::MakeMiss
+const unsigned kHitObjectMakeMiss_RayDescOpIdx = 3;
+const unsigned kHitObjectMakeMiss_NumOp = 11;
+
 // HitObject::TraceRay
 const unsigned kHitObjectTraceRay_RayDescOpIdx = 7;
 const unsigned kHitObjectTraceRay_PayloadOpIdx = 15;
@@ -1609,6 +1613,7 @@ const unsigned kMatVecMulAddIsOutputUnsignedIdx = 15;
 // Outer Product Accumulate
 const unsigned kOuterProdAccMatrixInterpretation = 5;
 const unsigned kOuterProdAccMatrixLayout = 6;
+const unsigned kOuterProdAccMatrixStride = 7;
 
 // TODO: add operand index for all the OpCodeClass.
 } // namespace OperandIndex

@@ -6,9 +6,6 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
-// All rights reserved.                                                      //
-//                                                                           //
 ///
 /// \file                                                                    //
 /// \brief Defines the HLSL type system interface.                           //
@@ -494,7 +491,6 @@ DXIL::NodeIOKind GetNodeIOType(clang::QualType type);
 
 bool IsHLSLStructuredBufferType(clang::QualType type);
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type);
-bool IsHLSLNumericUserDefinedType(clang::QualType type);
 bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT);
 bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT);
 bool IsHLSLAggregateType(clang::QualType type);

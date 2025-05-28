@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 //
 //  This file implements a SPIR-V emitter class that takes in HLSL AST and emits
@@ -604,8 +601,8 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
     emitError("unknown shader module: %0", {}) << shaderModel->GetName();
 
   if (spirvOptions.invertY && !shaderModel->IsVS() && !shaderModel->IsDS() &&
-      !shaderModel->IsGS() && !shaderModel->IsMS())
-    emitError("-fvk-invert-y can only be used in VS/DS/GS/MS", {});
+      !shaderModel->IsGS() && !shaderModel->IsMS() && !shaderModel->IsLib())
+    emitError("-fvk-invert-y can only be used in VS/DS/GS/MS/Lib", {});
 
   if (spirvOptions.useGlLayout && spirvOptions.useDxLayout)
     emitError("cannot specify both -fvk-use-dx-layout and -fvk-use-gl-layout",
@@ -2021,6 +2018,10 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   // variables) belongs to the Function storage class.
   if (isExternalVar(decl)) {
     var = declIdMapper.createExternVar(decl);
+    if (decl->hasInit()) {
+      emitWarning("Initializer of external global will be ignored",
+                  decl->getLocation());
+    }
   } else {
     // We already know the variable is not externally visible here. If it does
     // not have local storage, it should be file scope variable.
@@ -7081,14 +7082,17 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
 
   // Structs
   if (const auto *recordType = valType->getAs<RecordType>()) {
-    assert(recordType->isStructureType());
-
     if (isTypeInVkNamespace(recordType) &&
-        recordType->getDecl()->getName().equals("BufferPointer")) {
-      // Uniquely among structs, vk::BufferPointer<T> lowers to a pointer type.
+        (recordType->getDecl()->getName().equals("BufferPointer") ||
+         recordType->getDecl()->getName().equals("SpirvType") ||
+         recordType->getDecl()->getName().equals("SpirvOpaqueType"))) {
+      // vk::BufferPointer<T> lowers to a pointer type. No need to reconstruct
+      // the value. The vk::Spirv*Type should be treated an opaque type. All we
+      // can do is leave it the same.
       return srcVal;
     }
 
+    assert(recordType->isStructureType());
     LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
                                       spvBuilder);
     const StructType *spirvStructType =
@@ -9484,12 +9488,17 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processIntrinsicPointerCast(callExpr, true);
     break;
   }
-    INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
-    INTRINSIC_SPIRV_OP_CASE(ddx_coarse, DPdxCoarse, false);
-    INTRINSIC_SPIRV_OP_CASE(ddx_fine, DPdxFine, false);
-    INTRINSIC_SPIRV_OP_CASE(ddy, DPdy, true);
-    INTRINSIC_SPIRV_OP_CASE(ddy_coarse, DPdyCoarse, false);
-    INTRINSIC_SPIRV_OP_CASE(ddy_fine, DPdyFine, false);
+  case hlsl::IntrinsicOp::IOP_ddx:
+  case hlsl::IntrinsicOp::IOP_ddx_coarse:
+  case hlsl::IntrinsicOp::IOP_ddx_fine:
+  case hlsl::IntrinsicOp::IOP_ddy:
+  case hlsl::IntrinsicOp::IOP_ddy_coarse:
+  case hlsl::IntrinsicOp::IOP_ddy_fine: {
+    retVal = processDerivativeIntrinsic(hlslOpcode, callExpr->getArg(0),
+                                        callExpr->getExprLoc(),
+                                        callExpr->getSourceRange());
+    break;
+  }
     INTRINSIC_SPIRV_OP_CASE(countbits, BitCount, false);
     INTRINSIC_SPIRV_OP_CASE(fmod, FRem, true);
     INTRINSIC_SPIRV_OP_CASE(fwidth, Fwidth, true);
@@ -9570,6 +9579,77 @@ SpirvEmitter::processIntrinsicFirstbit(const CallExpr *callExpr,
 
   return processIntrinsicUsingGLSLInst(callExpr, glslOpcode, false, srcLoc,
                                        srcRange);
+}
+
+SpirvInstruction *SpirvEmitter::processMatrixDerivativeIntrinsic(
+    hlsl::IntrinsicOp hlslOpcode, const Expr *arg, SourceLocation loc,
+    SourceRange range) {
+  const auto actOnEachVec = [this, hlslOpcode, loc, range](
+                                uint32_t /*index*/, QualType inType,
+                                QualType outType, SpirvInstruction *curRow) {
+    return processDerivativeIntrinsic(hlslOpcode, curRow, loc, range);
+  };
+
+  return processEachVectorInMatrix(arg, arg->getType(), doExpr(arg),
+                                   actOnEachVec, loc, range);
+}
+
+SpirvInstruction *
+SpirvEmitter::processDerivativeIntrinsic(hlsl::IntrinsicOp hlslOpcode,
+                                         const Expr *arg, SourceLocation loc,
+                                         SourceRange range) {
+  if (isMxNMatrix(arg->getType())) {
+    return processMatrixDerivativeIntrinsic(hlslOpcode, arg, loc, range);
+  }
+  return processDerivativeIntrinsic(hlslOpcode, doExpr(arg), loc, range);
+}
+
+SpirvInstruction *SpirvEmitter::processDerivativeIntrinsic(
+    hlsl::IntrinsicOp hlslOpcode, SpirvInstruction *arg, SourceLocation loc,
+    SourceRange range) {
+  QualType returnType = arg->getAstResultType();
+  assert(isFloatOrVecOfFloatType(returnType));
+
+  if (!spvContext.isPS())
+    addDerivativeGroupExecutionMode();
+  needsLegalization = true;
+
+  QualType B32Type = astContext.FloatTy;
+  uint32_t vectorSize = 0;
+  QualType elementType = returnType;
+  if (isVectorType(returnType, &elementType, &vectorSize)) {
+    B32Type = astContext.getExtVectorType(B32Type, vectorSize);
+  }
+
+  // Derivative operations work on 32-bit floats only. Cast to 32-bit if needed.
+  SpirvInstruction *operand = castToType(arg, returnType, B32Type, loc, range);
+
+  spv::Op opcode = spv::Op::OpNop;
+  switch (hlslOpcode) {
+  case hlsl::IntrinsicOp::IOP_ddx:
+    opcode = spv::Op::OpDPdx;
+    break;
+  case hlsl::IntrinsicOp::IOP_ddx_coarse:
+    opcode = spv::Op::OpDPdxCoarse;
+    break;
+  case hlsl::IntrinsicOp::IOP_ddx_fine:
+    opcode = spv::Op::OpDPdxFine;
+    break;
+  case hlsl::IntrinsicOp::IOP_ddy:
+    opcode = spv::Op::OpDPdy;
+    break;
+  case hlsl::IntrinsicOp::IOP_ddy_coarse:
+    opcode = spv::Op::OpDPdyCoarse;
+    break;
+  case hlsl::IntrinsicOp::IOP_ddy_fine:
+    opcode = spv::Op::OpDPdyFine;
+    break;
+  };
+
+  SpirvInstruction *result =
+      spvBuilder.createUnaryOp(opcode, B32Type, operand, loc, range);
+  result = castToType(result, B32Type, returnType, loc, range);
+  return result;
 }
 
 // Returns true is the given expression can be used as an output parameter.
@@ -14881,8 +14961,12 @@ SpirvEmitter::createSpirvIntrInstExt(llvm::ArrayRef<const Attr *> attrs,
 SpirvInstruction *SpirvEmitter::invertYIfRequested(SpirvInstruction *position,
                                                    SourceLocation loc,
                                                    SourceRange range) {
-  // Negate SV_Position.y if requested
-  if (spirvOptions.invertY) {
+  // Negate SV_Position.y if requested and supported
+
+  bool supportsInvertY = spvContext.isVS() || spvContext.isGS() ||
+                         spvContext.isDS() || spvContext.isMS();
+
+  if (spirvOptions.invertY && supportsInvertY) {
     const auto oldY = spvBuilder.createCompositeExtract(
         astContext.FloatTy, position, {1}, loc, range);
     const auto newY = spvBuilder.createUnaryOp(

@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 
 // Do not change the inclusion order between "dxc/Support/*" files.
@@ -2000,7 +1997,13 @@ bool EmitVisitor::visit(SpirvIntrinsicInstruction *inst) {
     }
   }
 
-  finalizeInstruction(&mainBinary);
+  auto opcode = static_cast<spv::Op>(inst->getInstruction());
+  if ((opcode == spv::Op::OpSpecConstant || opcode == spv::Op::OpConstant) &&
+      !inst->getInstructionSet()) {
+    finalizeInstruction(&typeConstantBinary);
+  } else {
+    finalizeInstruction(&mainBinary);
+  }
   return true;
 }
 

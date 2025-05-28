@@ -317,8 +317,6 @@ def print_before_all : Flag<["-", "/"], "print-before-all">, Group<hlslcomp_Grou
   HelpText<"Print LLVM IR before each pass.">;
 def print_before : Separate<["-", "/"], "print-before">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR before a specific pass. May be specificied multiple times.">;
-def select_validator : Separate<["-", "/"], "select-validator">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
-  HelpText<"Select validator: auto: (default) use DXIL.dll if found, otherwise use internal;  internal: internal non-signing validator;  external: use DXIL.dll if found, otherwise fail compilation.">;
 def print_after_all : Flag<["-", "/"], "print-after-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR after each pass.">;
 def print_after : Separate<["-", "/"], "print-after">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
@@ -370,7 +368,7 @@ def fvk_bind_register : MultiArg<["-"], "fvk-bind-register", 4>, MetaVarName<"<t
   HelpText<"Specify Vulkan descriptor set and binding for a specific register">;
 def vkbr : MultiArg<["-"], "vkbr", 4>, Flags<[CoreOption, DriverOption]>, Alias<fvk_bind_register>;
 def fvk_invert_y: Flag<["-"], "fvk-invert-y">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
-  HelpText<"Negate SV_Position.y before writing to stage output in VS/DS/GS to accommodate Vulkan's coordinate system">;
+  HelpText<"Negate SV_Position.y before writing to stage output in VS/DS/GS/MS/Lib to accommodate Vulkan's coordinate system">;
 def fvk_use_dx_position_w: Flag<["-"], "fvk-use-dx-position-w">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Reciprocate SV_Position.w after reading from stage input in PS to accommodate the difference between Vulkan and DirectX">;
 def fvk_support_nonzero_base_instance: Flag<["-"], "fvk-support-nonzero-base-instance">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,

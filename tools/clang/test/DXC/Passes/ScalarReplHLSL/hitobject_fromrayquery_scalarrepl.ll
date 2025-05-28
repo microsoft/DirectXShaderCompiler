@@ -95,10 +95,10 @@ target triple = "dxil-ms-dx"
 @"$Globals" = external constant %ConstantBuffer
 
 ; CHECK: %[[RQA:[^ ]+]] = alloca i32
-; CHECK: %[[ATTRA0:[^ ]+]] = alloca %struct.CustomAttrs
-; CHECK: %[[ATTRA1:[^ ]+]] = alloca %struct.CustomAttrs
 ; CHECK: %[[XATTRA:[^ ]+]] = alloca float
 ; CHECK: %[[YATTRA:[^ ]+]] = alloca float
+; CHECK: %[[ATTRA0:[^ ]+]] = alloca %struct.CustomAttrs
+; CHECK: %[[ATTRA1:[^ ]+]] = alloca %struct.CustomAttrs
 
 ; COM: Check same query handle used for TraceRayInline and the FromRayQuery calls
 ; CHECK: %[[RQH:[^ ]+]] = load i32, i32* %[[RQA]]
@@ -122,7 +122,7 @@ target triple = "dxil-ms-dx"
 ; CHECK: store float %[[XF1]], float* %[[XPTR0]]
 ; CHECK: %[[YPTR0:[^ ]+]] = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %[[ATTRA0]], i32 0, i32 1
 ; CHECK: %[[YF1:[^ ]+]] = load float, float* %[[YATTRA]]
-; CHECK: store float %[[YF1]], float* %[[YPTR0]], align 4
+; CHECK: store float %[[YF1]], float* %[[YPTR0]]
 ; CHECK: %[[RQH1:[^ ]+]] = load i32, i32* %[[RQA]]
 ; CHECK: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.CustomAttrs*)"(i32 363, %dx.types.HitObject* %{{[^ ]+}}, i32 %[[RQH1]], i32 16, %struct.CustomAttrs* %[[ATTRA0]])
 
@@ -140,7 +140,7 @@ target triple = "dxil-ms-dx"
 ; CHECK: store float %[[XF2]], float* %[[XPTR1]]
 ; CHECK: %[[YPTR1:[^ ]+]] = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %[[ATTRA1]], i32 0, i32 1
 ; CHECK: %[[YF2:[^ ]+]] = load float, float* %[[YATTRA]]
-; CHECK: store float %[[YF2]], float* %[[YPTR1]], align 4
+; CHECK: store float %[[YF2]], float* %[[YPTR1]]
 ; CHECK: %[[RQH2:[^ ]+]] = load i32, i32* %[[RQA]]
 ; CHECK: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, i32, i32, %struct.CustomAttrs*)"(i32 363, %dx.types.HitObject* %{{[^ ]+}}, i32 %[[RQH2]], i32 17, %struct.CustomAttrs* %[[ATTRA1]])
 
