@@ -69,7 +69,7 @@ stages:
           configuration: Debug
           CC: clang
           CXX: clang++
-          CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On -DLLVM_USE_LINKER=lld
+          CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_USE_LINKER=lld
         Linux_Gcc_Release:
           image: ${{ variables.linux }}
           configuration: Release
@@ -80,6 +80,7 @@ stages:
           configuration: Debug
           CC: gcc-9
           CXX: g++-9
+          CMAKE_OPTS: -DLLVM_ENABLE_ASSERTIONS=ON
         MacOS_Clang_Release:
           image: ${{ variables.macOS }}
           configuration: Release
@@ -92,7 +93,7 @@ stages:
           configuration: Debug
           CC: clang
           CXX: clang++
-          CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On
+          CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On -DLLVM_ENABLE_ASSERTIONS=ON
 
     pool:
       vmImage: $(image)
