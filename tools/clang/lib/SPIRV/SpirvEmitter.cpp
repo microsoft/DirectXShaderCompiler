@@ -13021,7 +13021,7 @@ void SpirvEmitter::processDispatchMesh(const CallExpr *callExpr) {
           : spv::StorageClass::Output;
   auto *payloadArg = doExpr(args[3]);
   bool isValid = false;
-  const VarDecl *param = nullptr;
+  SpirvInstruction *param = nullptr;
   if (const auto *implCastExpr = dyn_cast<CastExpr>(args[3])) {
     if (const auto *arg = dyn_cast<DeclRefExpr>(implCastExpr->getSubExpr())) {
       if (const auto *paramDecl = dyn_cast<VarDecl>(arg->getDecl())) {
@@ -13029,7 +13029,8 @@ void SpirvEmitter::processDispatchMesh(const CallExpr *callExpr) {
           isValid = declIdMapper.createPayloadStageVars(
               sigPoint, sc, paramDecl, /*asInput=*/false, paramDecl->getType(),
               "out.var", &payloadArg);
-          param = paramDecl;
+          param =
+              declIdMapper.getDeclEvalInfo(paramDecl, paramDecl->getLocation());
         }
       }
     }
@@ -13046,7 +13047,7 @@ void SpirvEmitter::processDispatchMesh(const CallExpr *callExpr) {
 
   if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
     // for EXT_mesh_shader, create opEmitMeshTasksEXT.
-    spvBuilder.createEmitMeshTasksEXT(threadX, threadY, threadZ, loc, nullptr,
+    spvBuilder.createEmitMeshTasksEXT(threadX, threadY, threadZ, loc, param,
                                       range);
   } else {
     // for NV_mesh_shader, set TaskCountNV = threadX * threadY * threadZ.
