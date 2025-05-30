@@ -176,7 +176,8 @@ private:
   /// Overload with pre computed SpirvEvalInfo.
   ///
   /// The given expr will not be evaluated again.
-  SpirvInstruction *loadIfGLValue(const Expr *expr, SpirvInstruction *info);
+  SpirvInstruction *loadIfGLValue(const Expr *expr, SpirvInstruction *info,
+                                  SourceRange rangeOverride = {});
 
   /// Loads the pointer of the aliased-to-variable if the given expression is a
   /// DeclRefExpr referencing an alias variable. See DeclResultIdMapper for
