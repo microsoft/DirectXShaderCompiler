@@ -11016,6 +11016,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicGetBufferContents(
   if (bufferPointer->isRValue()) {
     bufferPointer->setRValue(false);
     bufferPointer->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+    bufferPointer->setLayoutRule(spirvOptions.sBufferLayoutRule);
     return bufferPointer;
   }
 
