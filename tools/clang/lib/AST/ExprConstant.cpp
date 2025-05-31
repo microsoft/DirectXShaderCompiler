@@ -3783,7 +3783,9 @@ static bool HandleIntrinsicCall(SourceLocation CallLoc, unsigned opcode,
   case hlsl::IntrinsicOp::IOP_asuint:
     assert(Args.size() == 1 && "else call should be invalid");
     if (ArgValues[0].isInt()) {
-      Result = ArgValues[0];
+      APSInt value = ArgValues[0].getInt();
+      value.setIsUnsigned(true);
+      Result = APValue(value);
     }
     else if (ArgValues[0].isFloat()) {
       const bool isUnsignedTrue = true;
