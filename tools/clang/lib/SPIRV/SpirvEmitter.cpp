@@ -1281,7 +1281,8 @@ SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr,
 }
 
 SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr,
-                                              SpirvInstruction *info) {
+                                              SpirvInstruction *info,
+                                              SourceRange rangeOverride) {
   const auto exprType = expr->getType();
 
   // Do nothing if this is already rvalue
@@ -1316,9 +1317,11 @@ SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr,
     return info;
   }
 
+  SourceRange range =
+      (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
   SpirvInstruction *loadedInstr = nullptr;
-  loadedInstr = spvBuilder.createLoad(exprType, info, expr->getExprLoc(),
-                                      expr->getSourceRange());
+  loadedInstr =
+      spvBuilder.createLoad(exprType, info, expr->getExprLoc(), range);
   assert(loadedInstr);
 
   // Special-case: According to the SPIR-V Spec: There is no physical size or
@@ -7969,15 +7972,12 @@ SpirvInstruction *SpirvEmitter::tryToAssignToVectorElements(
   }
 
   auto *vec1 = doExpr(base, range);
-  auto *vec1Val =
-      vec1->isRValue()
-          ? vec1
-          : spvBuilder.createLoad(baseType, vec1, base->getLocStart(), range);
+  auto *vec1Val = vec1->isRValue() ? vec1 : loadIfGLValue(base, vec1, range);
   auto *shuffle = spvBuilder.createVectorShuffle(
       baseType, vec1Val, rhs, selectors, lhs->getLocStart(), range);
 
   if (!tryToAssignToRWBufferRWTexture(base, shuffle))
-    spvBuilder.createStore(vec1, shuffle, lhs->getLocStart(), range);
+    storeValue(vec1, shuffle, base->getType(), lhs->getLocStart(), range);
 
   // TODO: OK, this return value is incorrect for compound assignments, for
   // which cases we should return lvalues. Should at least emit errors if
