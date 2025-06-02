@@ -98,7 +98,7 @@ bool LongVector::DoValuesMatch(DataTypeT A, DataTypeT B, float Tolerance,
     return A == B;
 
   DataTypeT Diff = A > B ? A - B : B - A;
-  return Diff > Tolerance;
+  return Diff <= Tolerance;
 }
 
 bool LongVector::DoValuesMatch(HLSLBool_t A, HLSLBool_t B, float,
