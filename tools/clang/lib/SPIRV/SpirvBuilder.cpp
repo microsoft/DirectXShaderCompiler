@@ -313,7 +313,7 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
     AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
     uint32_t align, size, stride;
     std::tie(align, size) = alignmentCalc.getAlignmentAndSize(
-        address->getAstResultType(), address->getLayoutRule(), llvm::None,
+        source->getAstResultType(), address->getLayoutRule(), llvm::None,
         &stride);
     instruction->setAlignment(align);
   }
