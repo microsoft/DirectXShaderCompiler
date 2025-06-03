@@ -51,6 +51,7 @@ public:
     TK_SampledImage,
     TK_Array,
     TK_RuntimeArray,
+    TK_NodePayloadArrayAMD,
     TK_Struct,
     TK_Pointer,
     TK_ForwardPointer,
@@ -289,6 +290,26 @@ private:
   // Two runtime arrays with different ArrayStride decorations, are in fact two
   // different types. If no layout information is needed, use llvm::None.
   llvm::Optional<uint32_t> stride;
+};
+
+class NodePayloadArrayType : public SpirvType {
+public:
+  NodePayloadArrayType(const SpirvType *elemType, const ParmVarDecl *decl)
+      : SpirvType(TK_NodePayloadArrayAMD), elementType(elemType),
+        nodeDecl(decl) {}
+
+  static bool classof(const SpirvType *t) {
+    return t->getKind() == TK_NodePayloadArrayAMD;
+  }
+
+  bool operator==(const NodePayloadArrayType &that) const;
+
+  const SpirvType *getElementType() const { return elementType; }
+  const ParmVarDecl *getNodeDecl() const { return nodeDecl; }
+
+private:
+  const SpirvType *elementType;
+  const ParmVarDecl *nodeDecl;
 };
 
 // The StructType is the lowered type that best represents what a structure type
@@ -627,6 +648,8 @@ bool SpirvType::isOrContainsType(const SpirvType *type) {
     return isOrContainsType<T, Bitwidth>(pointerType->getPointeeType());
   if (const auto *raType = dyn_cast<RuntimeArrayType>(type))
     return isOrContainsType<T, Bitwidth>(raType->getElementType());
+  if (const auto *npaType = dyn_cast<NodePayloadArrayType>(type))
+    return isOrContainsType<T, Bitwidth>(npaType->getElementType());
   if (const auto *imgType = dyn_cast<ImageType>(type))
     return isOrContainsType<T, Bitwidth>(imgType->getSampledType());
   if (const auto *sampledImageType = dyn_cast<SampledImageType>(type))

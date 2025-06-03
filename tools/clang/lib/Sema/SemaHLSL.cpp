@@ -17137,6 +17137,10 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
   DXIL::ShaderKind shaderKind = ShaderModel::KindFromFullName(StageName);
   if (shaderKind == DXIL::ShaderKind::Node) {
     NodeLoc = pAttr->getLocation();
+    // SPIR-V node shader support is experimental
+    if (S.getLangOpts().SPIRV) {
+      S.Diag(NodeLoc, diag::warn_spirv_node_shaders_experimental);
+    }
   }
   if (NodeLoc.isInvalid()) {
     return;
