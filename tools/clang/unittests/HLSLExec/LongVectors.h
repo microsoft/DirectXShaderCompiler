@@ -101,7 +101,6 @@ enum BasicOpType {
 };
 
 enum BinaryOpType {
-  // Below this line to be moved to HLSLOpType (+, -, * etc)
   BinaryOpType_ScalarAdd,
   BinaryOpType_ScalarMultiply,
   BinaryOpType_ScalarSubtract,
@@ -112,7 +111,6 @@ enum BinaryOpType {
   BinaryOpType_Subtract,
   BinaryOpType_Divide,
   BinaryOpType_Modulus,
-  // Below this line to be moved to HLSLMathOpType (min, max etc)
   BinaryOpType_Min,
   BinaryOpType_Max,
   BinaryOpType_ScalarMin,
