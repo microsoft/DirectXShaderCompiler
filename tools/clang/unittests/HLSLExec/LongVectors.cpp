@@ -3,24 +3,24 @@
 #include <iomanip>
 
 LongVector::BinaryOpType
-LongVector::GetBinaryOpType(const std::wstring &OpTypeString) {
-  return GetLongVectorOpType<LongVector::BinaryOpType>(
-      BinaryOpTypeStringToEnumMap, OpTypeString,
-      std::size(BinaryOpTypeStringToEnumMap));
+LongVector::getBinaryOpType(const std::wstring &OpTypeString) {
+  return getLongVectorOpType<LongVector::BinaryOpType>(
+      binaryOpTypeStringToEnumMap, OpTypeString,
+      std::size(binaryOpTypeStringToEnumMap));
 }
 
 LongVector::UnaryOpType
-LongVector::GetUnaryOpType(const std::wstring &OpTypeString) {
-  return GetLongVectorOpType<LongVector::UnaryOpType>(
-      UnaryOpTypeStringToEnumMap, OpTypeString,
-      std::size(UnaryOpTypeStringToEnumMap));
+LongVector::getUnaryOpType(const std::wstring &OpTypeString) {
+  return getLongVectorOpType<LongVector::UnaryOpType>(
+      unaryOpTypeStringToEnumMap, OpTypeString,
+      std::size(unaryOpTypeStringToEnumMap));
 }
 
 LongVector::TrigonometricOpType
-LongVector::GetTrigonometricOpType(const std::wstring &OpTypeString) {
-  return GetLongVectorOpType<LongVector::TrigonometricOpType>(
-      TrigonometricOpTypeStringToEnumMap, OpTypeString,
-      std::size(TrigonometricOpTypeStringToEnumMap));
+LongVector::getTrigonometricOpType(const std::wstring &OpTypeString) {
+  return getLongVectorOpType<LongVector::TrigonometricOpType>(
+      trigonometricOpTypeStringToEnumMap, OpTypeString,
+      std::size(trigonometricOpTypeStringToEnumMap));
 }
 
 // These are helper arrays to be used with the TableParameterHandler that parses
@@ -39,52 +39,50 @@ static TableParameter UnaryOpParameters[] = {
     {L"InputArgsName", TableParameter::STRING, false},
 };
 
-bool LongVector::OpTest::ClassSetup() {
+bool LongVector::OpTest::classSetup() {
   // Run this only once.
-  if (!m_Initialized) {
-    m_Initialized = true;
+  if (!initialized) {
+    initialized = true;
 
     HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
     if (Runtime == NULL)
       return false;
     // Do not: FreeLibrary(hRuntime);
     // If we actually free the library, it defeats the purpose of
-    // EnableAgilitySDK and EnableExperimentalMode.
+    // enableAgilitySDK and enableExperimentalMode.
 
     HRESULT HR;
-    HR = EnableAgilitySDK(Runtime);
-    if (FAILED(HR)) {
-      hlsl_test::LogCommentFmt(L"Unable to enable Agility SDK - 0x%08x.", HR);
-    } else if (HR == S_FALSE) {
-      hlsl_test::LogCommentFmt(L"Agility SDK not enabled.");
-    } else {
-      hlsl_test::LogCommentFmt(L"Agility SDK enabled.");
-    }
+    HR = enableAgilitySDK(Runtime);
 
-    HR = EnableExperimentalMode(Runtime);
-    if (FAILED(HR)) {
+    if (FAILED(HR))
+      hlsl_test::LogCommentFmt(L"Unable to enable Agility SDK - 0x%08x.", HR);
+    else if (HR == S_FALSE)
+      hlsl_test::LogCommentFmt(L"Agility SDK not enabled.");
+    else
+      hlsl_test::LogCommentFmt(L"Agility SDK enabled.");
+
+    HR = enableExperimentalMode(Runtime);
+    if (FAILED(HR))
       hlsl_test::LogCommentFmt(
           L"Unable to enable shader experimental mode - 0x%08x.", HR);
-    } else if (HR == S_FALSE) {
+    else if (HR == S_FALSE)
       hlsl_test::LogCommentFmt(L"Experimental mode not enabled.");
-    } else {
+    else
       hlsl_test::LogCommentFmt(L"Experimental mode enabled.");
-    }
 
-    HR = EnableDebugLayer();
-    if (FAILED(HR)) {
+    HR = enableDebugLayer();
+    if (FAILED(HR))
       hlsl_test::LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", HR);
-    } else if (HR == S_FALSE) {
+    else if (HR == S_FALSE)
       hlsl_test::LogCommentFmt(L"Debug layer not enabled.");
-    } else {
+    else
       hlsl_test::LogCommentFmt(L"Debug layer enabled.");
-    }
   }
 
   return true;
 }
 
-TEST_F(LongVector::OpTest, BinaryOpTest) {
+TEST_F(LongVector::OpTest, binaryOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -96,11 +94,11 @@ TEST_F(LongVector::OpTest, BinaryOpTest) {
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
   std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
 
-  auto OpType = LongVector::GetBinaryOpType(OpTypeString);
-  DispatchTestByDataType(OpType, DataType, Handler);
+  auto OpType = LongVector::getBinaryOpType(OpTypeString);
+  dispatchTestByDataType(OpType, DataType, Handler);
 }
 
-TEST_F(LongVector::OpTest, TrigonometricOpTest) {
+TEST_F(LongVector::OpTest, trigonometricOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -110,11 +108,11 @@ TEST_F(LongVector::OpTest, TrigonometricOpTest) {
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
   std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
 
-  auto OpType = LongVector::GetTrigonometricOpType(OpTypeString);
-  DispatchTestByDataType(OpType, DataType, Handler);
+  auto OpType = LongVector::getTrigonometricOpType(OpTypeString);
+  dispatchTestByDataType(OpType, DataType, Handler);
 }
 
-TEST_F(LongVector::OpTest, UnaryOpTest) {
+TEST_F(LongVector::OpTest, unaryOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -124,43 +122,43 @@ TEST_F(LongVector::OpTest, UnaryOpTest) {
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
   std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
 
-  auto OpType = LongVector::GetUnaryOpType(OpTypeString);
-  DispatchTestByDataType(OpType, DataType, Handler);
+  auto OpType = LongVector::getUnaryOpType(OpTypeString);
+  dispatchTestByDataType(OpType, DataType, Handler);
 }
 
 template <typename LongVectorOpTypeT>
-void LongVector::OpTest::DispatchTestByDataType(
+void LongVector::OpTest::dispatchTestByDataType(
     LongVectorOpTypeT OpType, std::wstring DataType,
     TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
   if (DataType == L"bool")
-    DispatchTestByVectorSize<HLSLBool_t>(OpType, Handler);
+    dispatchTestByVectorSize<HLSLBool_t>(OpType, Handler);
   else if (DataType == L"int16")
-    DispatchTestByVectorSize<int16_t>(OpType, Handler);
+    dispatchTestByVectorSize<int16_t>(OpType, Handler);
   else if (DataType == L"int32")
-    DispatchTestByVectorSize<int32_t>(OpType, Handler);
+    dispatchTestByVectorSize<int32_t>(OpType, Handler);
   else if (DataType == L"int64")
-    DispatchTestByVectorSize<int64_t>(OpType, Handler);
+    dispatchTestByVectorSize<int64_t>(OpType, Handler);
   else if (DataType == L"uint16")
-    DispatchTestByVectorSize<uint16_t>(OpType, Handler);
+    dispatchTestByVectorSize<uint16_t>(OpType, Handler);
   else if (DataType == L"uint32")
-    DispatchTestByVectorSize<uint32_t>(OpType, Handler);
+    dispatchTestByVectorSize<uint32_t>(OpType, Handler);
   else if (DataType == L"uint64")
-    DispatchTestByVectorSize<uint64_t>(OpType, Handler);
+    dispatchTestByVectorSize<uint64_t>(OpType, Handler);
   else if (DataType == L"float16")
-    DispatchTestByVectorSize<HLSLHalf_t>(OpType, Handler);
+    dispatchTestByVectorSize<HLSLHalf_t>(OpType, Handler);
   else if (DataType == L"float32")
-    DispatchTestByVectorSize<float>(OpType, Handler);
+    dispatchTestByVectorSize<float>(OpType, Handler);
   else if (DataType == L"float64")
-    DispatchTestByVectorSize<double>(OpType, Handler);
+    dispatchTestByVectorSize<double>(OpType, Handler);
   else
     VERIFY_FAIL(
         String().Format(L"DataType: %s is not recognized.", DataType.c_str()));
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
-void LongVector::OpTest::DispatchTestByVectorSize(
+void LongVector::OpTest::dispatchTestByVectorSize(
     LongVectorOpTypeT opType, TableParameterHandler &Handler) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -171,36 +169,33 @@ void LongVector::OpTest::DispatchTestByVectorSize(
   // string will result in the default value set for this DataType being used.
   std::wstring InputValueSet1(
       Handler.GetTableParamByName(L"InputValueSetName1")->m_str);
-  if (!InputValueSet1.empty()) {
-    TestConfig.SetInputValueSet1(InputValueSet1);
-  }
+  if (!InputValueSet1.empty())
+    TestConfig.setInputValueSet1(InputValueSet1);
 
   // InputValueSetName2 is optional. So the string may be empty. An empty
   // string will result in the default value set for this DataType being used.
-  if (TestConfig.IsBinaryOp()) {
+  if (TestConfig.isBinaryOp()) {
     std::wstring InputValueSet2(
         Handler.GetTableParamByName(L"InputValueSetName2")->m_str);
-    if (!InputValueSet2.empty()) {
-      TestConfig.SetInputValueSet2(InputValueSet2);
-    }
+    if (!InputValueSet2.empty())
+      TestConfig.setInputValueSet2(InputValueSet2);
   }
 
-  if (TestConfig.HasInputArguments()) {
+  if (TestConfig.hasInputArguments()) {
     std::wstring InputArgsName(
         Handler.GetTableParamByName(L"InputArgsName")->m_str);
-    if (!InputArgsName.empty()) {
-      TestConfig.SetInputArgsArrayName(InputArgsName);
-    }
+    if (!InputArgsName.empty())
+      TestConfig.setInputArgsArrayName(InputArgsName);
   }
 
   std::vector<size_t> InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
   for (auto SizeToTest : InputVectorSizes) {
-    TestBaseMethod<DataTypeT, LongVectorOpTypeT>(TestConfig, SizeToTest);
+    testBaseMethod<DataTypeT, LongVectorOpTypeT>(TestConfig, SizeToTest);
   }
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
-void LongVector::OpTest::TestBaseMethod(
+void LongVector::OpTest::testBaseMethod(
     LongVector::TestConfig<DataTypeT, LongVectorOpTypeT> &TestConfig,
     size_t VectorSizeToTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -214,7 +209,7 @@ void LongVector::OpTest::TestBaseMethod(
                                                      LogInputs);
 
   CComPtr<ID3D12Device> D3DDevice;
-  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, false)) {
+  if (!createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, false)) {
 #ifdef _HLK_CONF
     LOG_ERROR_FMT_THROW(
         L"Device does not support SM 6.9. Can't run these tests.");
@@ -233,14 +228,14 @@ void LongVector::OpTest::TestBaseMethod(
   std::vector<DataTypeT> ScalarInput; // May be unused, but must be defined.
   std::vector<DataTypeT> InputArgsArray;
   const bool IsVectorBinaryOp =
-      TestConfig.IsBinaryOp() && !TestConfig.IsScalarOp();
+      TestConfig.isBinaryOp() && !TestConfig.isScalarOp();
 
-  std::vector<DataTypeT> InputVector1ValueSet = TestConfig.GetInputValueSet1();
+  std::vector<DataTypeT> InputVector1ValueSet = TestConfig.getInputValueSet1();
   std::vector<DataTypeT> InputVector2ValueSet =
-      TestConfig.IsBinaryOp() ? TestConfig.GetInputValueSet2()
+      TestConfig.isBinaryOp() ? TestConfig.getInputValueSet2()
                               : std::vector<DataTypeT>();
 
-  if (TestConfig.IsScalarOp())
+  if (TestConfig.isScalarOp())
     // Scalar ops are always binary ops. So InputVector2ValueSet is initialized
     // with values above.
     ScalarInput.push_back(InputVector2ValueSet[0]);
@@ -256,34 +251,33 @@ void LongVector::OpTest::TestBaseMethod(
           InputVector2ValueSet[Index % InputVector2ValueSet.size()]);
   }
 
-  if (TestConfig.HasInputArguments()) {
-    InputArgsArray = TestConfig.GetInputArgsArray();
-  }
+  if (TestConfig.hasInputArguments())
+    InputArgsArray = TestConfig.getInputArgsArray();
 
   std::vector<DataTypeT> ExpectedVector;
   ExpectedVector.reserve(VectorSizeToTest);
   if (IsVectorBinaryOp)
     ExpectedVector =
-        ComputeExpectedValues(InputVector1, InputVector2, TestConfig);
-  else if (TestConfig.IsScalarOp())
+        computeExpectedValues(InputVector1, InputVector2, TestConfig);
+  else if (TestConfig.isScalarOp())
     ExpectedVector =
-        ComputeExpectedValues(InputVector1, ScalarInput[0], TestConfig);
+        computeExpectedValues(InputVector1, ScalarInput[0], TestConfig);
   else // Must be a unary op
-    ExpectedVector = ComputeExpectedValues(InputVector1, TestConfig);
+    ExpectedVector = computeExpectedValues(InputVector1, TestConfig);
 
   if (LogInputs) {
-    LogLongVector<DataTypeT>(InputVector1, L"InputVector1");
+    logLongVector<DataTypeT>(InputVector1, L"InputVector1");
 
     if (IsVectorBinaryOp)
-      LogLongVector<DataTypeT>(InputVector2, L"InputVector2");
-    else if (TestConfig.IsScalarOp())
-      LogLongVector<DataTypeT>(ScalarInput, L"ScalarInput");
+      logLongVector<DataTypeT>(InputVector2, L"InputVector2");
+    else if (TestConfig.isScalarOp())
+      logLongVector<DataTypeT>(ScalarInput, L"ScalarInput");
 
-    if (TestConfig.HasInputArguments()) {
+    if (TestConfig.hasInputArguments()) {
       for (size_t Index = 0; Index < InputArgsArray.size(); Index++) {
         std::wstring InputArgName =
             L"InputArg[" + std::to_wstring(Index) + L"]";
-        LogScalar(InputArgsArray[Index], InputArgName);
+        logScalar(InputArgsArray[Index], InputArgName);
       }
     }
   }
@@ -291,7 +285,7 @@ void LongVector::OpTest::TestBaseMethod(
   // We have to construct the string outside of the lambda. Otherwise it's
   // cleaned up when the lambda finishes executing but before the shader runs.
   std::string CompilerOptionsString =
-      TestConfig.GetCompilerOptionsString(VectorSizeToTest);
+      TestConfig.getCompilerOptionsString(VectorSizeToTest);
 
   // The name of the shader we want to use in ShaderOpArith.xml. Could also add
   // logic to set this name in ShaderOpArithTable.xml so we can use different
@@ -299,14 +293,14 @@ void LongVector::OpTest::TestBaseMethod(
   LPCSTR ShaderName = "LongVectorOp";
   // ShaderOpArith.xml defines the input/output resources and the shader source.
   CComPtr<IStream> TestXML;
-  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML, m_Support);
+  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML, dxcDllSupport);
 
   // RunShaderOpTest is a helper function that handles resource creation
   // and setup. It also handles the shader compilation and execution. It takes a
   // callback that is called when the shader is compiled, but before it is
   // executed.
   std::shared_ptr<st::ShaderOpTestResult> TestResult = st::RunShaderOpTest(
-      D3DDevice, m_Support, TestXML, ShaderName,
+      D3DDevice, dxcDllSupport, TestXML, ShaderName,
       [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
         hlsl_test::LogCommentFmt(L"RunShaderOpTest CallBack. Resource Name: %S",
                                  Name);
@@ -327,30 +321,29 @@ void LongVector::OpTest::TestBaseMethod(
 
         // Process the callback for the InputFuncArgs resource.
         if (0 == _stricmp(Name, "InputFuncArgs")) {
-          if (TestConfig.IsScalarOp()) {
-            FillShaderBufferFromLongVectorData<DataTypeT>(ShaderData,
+          if (TestConfig.isScalarOp())
+            fillShaderBufferFromLongVectorData<DataTypeT>(ShaderData,
                                                           ScalarInput);
-          } else if (TestConfig.HasInputArguments()) {
-            FillShaderBufferFromLongVectorData<DataTypeT>(ShaderData,
+          else if (TestConfig.hasInputArguments())
+            fillShaderBufferFromLongVectorData<DataTypeT>(ShaderData,
                                                           InputArgsArray);
-          }
 
           return;
         }
 
         // Process the callback for the InputVector1 resource.
         if (0 == _stricmp(Name, "InputVector1")) {
-          FillShaderBufferFromLongVectorData<DataTypeT>(ShaderData,
+          fillShaderBufferFromLongVectorData<DataTypeT>(ShaderData,
                                                         InputVector1);
           return;
         }
 
         // Process the callback for the InputVector2 resource.
         if (0 == _stricmp(Name, "InputVector2")) {
-          if (IsVectorBinaryOp) {
-            FillShaderBufferFromLongVectorData<DataTypeT>(ShaderData,
+          if (IsVectorBinaryOp)
+            fillShaderBufferFromLongVectorData<DataTypeT>(ShaderData,
                                                           InputVector2);
-          }
+
           return;
         }
 
@@ -363,10 +356,10 @@ void LongVector::OpTest::TestBaseMethod(
   TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
 
   std::vector<DataTypeT> OutputVector;
-  FillLongVectorDataFromShaderBuffer<DataTypeT>(ShaderOutData, OutputVector,
+  fillLongVectorDataFromShaderBuffer<DataTypeT>(ShaderOutData, OutputVector,
                                                 VectorSizeToTest);
 
-  VERIFY_SUCCEEDED(DoVectorsMatch<DataTypeT>(OutputVector, ExpectedVector,
-                                             TestConfig.GetTolerance(),
-                                             TestConfig.GetValidationType()));
+  VERIFY_SUCCEEDED(doVectorsMatch<DataTypeT>(OutputVector, ExpectedVector,
+                                             TestConfig.getTolerance(),
+                                             TestConfig.getValidationType()));
 }

@@ -69,29 +69,33 @@ public:
 };
 #endif /* __ID3D12SDKConfiguration_INTERFACE_DEFINED__ */
 
-static std::wstring GetModuleName() {
+static std::wstring getModuleName() {
   wchar_t ModuleName[MAX_PATH + 1] = {0};
   const DWORD Length = GetModuleFileNameW(NULL, ModuleName, MAX_PATH);
-  if (Length == 0 || Length == MAX_PATH) {
+
+  if (Length == 0 || Length == MAX_PATH)
     return std::wstring(); // Error condition
-  }
+
   return std::wstring(ModuleName, Length);
 }
 
-static std::wstring ComputeSDKFullPath(std::wstring SDKPath) {
-  std::wstring ModulePath = GetModuleName();
+static std::wstring computeSDKFullPath(std::wstring SDKPath) {
+  std::wstring ModulePath = getModuleName();
   const size_t Pos = ModulePath.rfind('\\');
+
   if (Pos == std::wstring::npos)
     return SDKPath;
+
   if (SDKPath.substr(0, 2) != L".\\")
     return SDKPath;
+
   return ModulePath.substr(0, Pos) + SDKPath.substr(1);
 }
 
-static UINT GetD3D12SDKVersion(std::wstring SDKPath) {
+static UINT getD3D12SDKVersion(std::wstring SDKPath) {
   // Try to automatically get the D3D12SDKVersion from the DLL
   UINT SDKVersion = 0;
-  std::wstring D3DCorePath = ComputeSDKFullPath(SDKPath);
+  std::wstring D3DCorePath = computeSDKFullPath(SDKPath);
   D3DCorePath.append(L"D3D12Core.dll");
   HMODULE D3DCore = LoadLibraryW(D3DCorePath.c_str());
   if (D3DCore) {
@@ -103,7 +107,7 @@ static UINT GetD3D12SDKVersion(std::wstring SDKPath) {
   return SDKVersion;
 }
 
-static bool CreateDevice(ID3D12Device **D3DDevice,
+static bool createDevice(ID3D12Device **D3DDevice,
                          D3D_SHADER_MODEL TestModel = D3D_SHADER_MODEL_6_0,
                          bool SkipUnsupported = true) {
   if (TestModel > HIGHEST_SHADER_MODEL) {
@@ -112,9 +116,8 @@ static bool CreateDevice(ID3D12Device **D3DDevice,
                              L"shader model 6.%1u",
                              Minor);
 
-    if (SkipUnsupported) {
+    if (SkipUnsupported)
       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    }
 
     return false;
   }
@@ -133,9 +136,8 @@ static bool CreateDevice(ID3D12Device **D3DDevice,
       hlsl_test::LogCommentFmt(
           L"The available version of WARP does not support d3d12.");
 
-      if (SkipUnsupported) {
+      if (SkipUnsupported)
         WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-      }
 
       return false;
     }
@@ -153,12 +155,11 @@ static bool CreateDevice(ID3D12Device **D3DDevice,
     WEX::Common::String AdapterValue;
     HRESULT HR = WEX::TestExecution::RuntimeParameters::TryGetValue(
         L"Adapter", AdapterValue);
-    if (SUCCEEDED(HR)) {
+    if (SUCCEEDED(HR))
       st::GetHardwareAdapter(DXGIFactory, AdapterValue, &HardwareAdapter);
-    } else {
+    else
       WEX::Logging::Log::Comment(
           L"Using default hardware adapter with D3D12 support.");
-    }
 
     VERIFY_SUCCEEDED(D3D12CreateDevice(HardwareAdapter, D3D_FEATURE_LEVEL_11_0,
                                        IID_PPV_ARGS(&D3DDeviceCom)));
@@ -191,9 +192,8 @@ static bool CreateDevice(ID3D12Device **D3DDevice,
                                L"shader model 6.%1u",
                                Minor);
 
-      if (SkipUnsupported) {
+      if (SkipUnsupported)
         WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-      }
 
       return false;
     }
@@ -201,16 +201,15 @@ static bool CreateDevice(ID3D12Device **D3DDevice,
 
   if (UseDebugIfaces()) {
     CComPtr<ID3D12InfoQueue> InfoQueue;
-    if (SUCCEEDED(D3DDeviceCom->QueryInterface(&InfoQueue))) {
+    if (SUCCEEDED(D3DDeviceCom->QueryInterface(&InfoQueue)))
       InfoQueue->SetMuteDebugOutput(FALSE);
-    }
   }
 
   *D3DDevice = D3DDeviceCom.Detach();
   return true;
 }
 
-inline void ReadHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
+inline void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
                                       dxc::DxcDllSupport &Support) {
   VERIFY_SUCCEEDED(Support.Initialize());
   CComPtr<IDxcLibrary> Library;
@@ -224,7 +223,7 @@ inline void ReadHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
   *Stream = StreamCom.Detach();
 }
 
-static HRESULT EnableAgilitySDK(HMODULE Runtime, UINT SDKVersion,
+static HRESULT enableAgilitySDK(HMODULE Runtime, UINT SDKVersion,
                                 LPCWSTR SDKPath) {
   D3D12GetInterfaceFn GetInterfaceFunc =
       (D3D12GetInterfaceFn)GetProcAddress(Runtime, "D3D12GetInterface");
@@ -243,64 +242,62 @@ static HRESULT EnableAgilitySDK(HMODULE Runtime, UINT SDKVersion,
   D3D12EnableExperimentalFeaturesFn ExperimentalFeaturesFunc =
       (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
           Runtime, "D3D12EnableExperimentalFeatures");
-  if (ExperimentalFeaturesFunc == nullptr) {
+  if (ExperimentalFeaturesFunc == nullptr)
     // If this failed, D3D12 must be too old for AgilitySDK.  But if that's
     // the case, creating D3D12SDKConfiguration should have failed.  So while
     // this case shouldn't be hit, fail if it is.
     return HRESULT_FROM_WIN32(GetLastError());
-  }
+
   return ExperimentalFeaturesFunc(0, nullptr, nullptr, nullptr);
 }
 
 static HRESULT
-EnableExperimentalShaderModels(HMODULE hRuntime,
+enableExperimentalShaderModels(HMODULE hRuntime,
                                UUID AdditionalFeatures[] = nullptr,
                                size_t NumAdditionalFeatures = 0) {
-  D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
+  D3D12EnableExperimentalFeaturesFn ExperimentalFeaturesFunc =
       (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
           hRuntime, "D3D12EnableExperimentalFeatures");
-  if (pD3D12EnableExperimentalFeatures == nullptr) {
+  if (ExperimentalFeaturesFunc == nullptr)
     return HRESULT_FROM_WIN32(GetLastError());
-  }
 
   std::vector<UUID> Features;
 
   Features.push_back(D3D12ExperimentalShaderModels);
 
-  if (AdditionalFeatures != nullptr && NumAdditionalFeatures > 0) {
+  if (AdditionalFeatures != nullptr && NumAdditionalFeatures > 0)
     Features.insert(Features.end(), AdditionalFeatures,
                     AdditionalFeatures + NumAdditionalFeatures);
-  }
 
-  return pD3D12EnableExperimentalFeatures((UINT)Features.size(),
+  return ExperimentalFeaturesFunc((UINT)Features.size(),
                                           Features.data(), nullptr, nullptr);
 }
 
 static HRESULT
-EnableExperimentalShaderModels(UUID AdditionalFeatures[] = nullptr,
+enableExperimentalShaderModels(UUID AdditionalFeatures[] = nullptr,
                                size_t NumAdditionalFeatures = 0) {
-  HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
-  if (hRuntime == NULL)
+  HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
+  if (Runtime == NULL)
     return E_FAIL;
-  return EnableExperimentalShaderModels(hRuntime, AdditionalFeatures,
+  return enableExperimentalShaderModels(Runtime, AdditionalFeatures,
                                         NumAdditionalFeatures);
 }
 
-static HRESULT DisableExperimentalShaderModels() {
-  HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
-  if (hRuntime == NULL)
+static HRESULT disableExperimentalShaderModels() {
+  HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
+  if (Runtime == NULL)
     return E_FAIL;
 
-  D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
+  D3D12EnableExperimentalFeaturesFn ExperimentalFeaturesFunc =
       (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
-          hRuntime, "D3D12EnableExperimentalFeatures");
-  if (pD3D12EnableExperimentalFeatures == nullptr) {
+          Runtime, "D3D12EnableExperimentalFeatures");
+  if (ExperimentalFeaturesFunc == nullptr)
     return HRESULT_FROM_WIN32(GetLastError());
-  }
-  return pD3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr);
+
+  return ExperimentalFeaturesFunc(0, nullptr, nullptr, nullptr);
 }
 
-static HRESULT EnableAgilitySDK(HMODULE Runtime) {
+static HRESULT enableAgilitySDK(HMODULE Runtime) {
   // D3D12SDKVersion > 1 will use provided version, otherwise, auto-detect.
   // D3D12SDKVersion == 1 means fail if we can't auto-detect.
   UINT SDKVersion = 0;
@@ -314,18 +311,17 @@ static HRESULT EnableAgilitySDK(HMODULE Runtime) {
   if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
           L"D3D12SDKPath", SDKPath))) {
     // Make sure path ends in backslash
-    if (!SDKPath.IsEmpty() && SDKPath.Right(1) != "\\") {
+    if (!SDKPath.IsEmpty() && SDKPath.Right(1) != "\\")
       SDKPath.Append("\\");
-    }
   }
-  if (SDKPath.IsEmpty()) {
+
+  if (SDKPath.IsEmpty())
     SDKPath = L".\\D3D12\\";
-  }
 
   const bool MustFind = SDKVersion > 0;
   if (SDKVersion <= 1) {
     // lookup version from D3D12Core.dll
-    SDKVersion = GetD3D12SDKVersion((LPCWSTR)SDKPath);
+    SDKVersion = getD3D12SDKVersion((LPCWSTR)SDKPath);
     if (MustFind && SDKVersion == 0) {
       hlsl_test::LogErrorFmt(L"Agility SDK not found in relative path: %s",
                              (LPCWSTR)SDKPath);
@@ -337,7 +333,7 @@ static HRESULT EnableAgilitySDK(HMODULE Runtime) {
   if (SDKVersion == 0)
     return S_FALSE;
 
-  HRESULT HR = EnableAgilitySDK(Runtime, SDKVersion, (LPCWSTR)SDKPath);
+  HRESULT HR = enableAgilitySDK(Runtime, SDKVersion, (LPCWSTR)SDKPath);
   if (FAILED(HR)) {
     // If SDKVersion provided, fail if not successful.
     // 1 means we should find it, and fill in the version automatically.
@@ -349,13 +345,13 @@ static HRESULT EnableAgilitySDK(HMODULE Runtime) {
     }
     return S_FALSE;
   }
-  if (HR == S_OK) {
+  if (HR == S_OK)
     hlsl_test::LogCommentFmt(L"Agility SDK version set to: %d", SDKVersion);
-  }
+
   return HR;
 }
 
-static HRESULT EnableExperimentalMode(HMODULE Runtime) {
+static HRESULT enableExperimentalMode(HMODULE Runtime) {
 #ifdef _FORCE_EXPERIMENTAL_SHADERS
   bool ExperimentalShaderModels = true;
 #else
@@ -365,16 +361,15 @@ static HRESULT EnableExperimentalMode(HMODULE Runtime) {
 
   HRESULT HR = S_FALSE;
   if (ExperimentalShaderModels) {
-    HR = EnableExperimentalShaderModels(Runtime);
-    if (SUCCEEDED(HR)) {
+    HR = enableExperimentalShaderModels(Runtime);
+    if (SUCCEEDED(HR))
       WEX::Logging::Log::Comment(L"Experimental shader models enabled.");
-    }
   }
 
   return HR;
 }
 
-static HRESULT EnableDebugLayer() {
+static HRESULT enableDebugLayer() {
   // The debug layer does net yet validate DXIL programs that require
   // rewriting, but basic logging should work properly.
   HRESULT HR = S_FALSE;
