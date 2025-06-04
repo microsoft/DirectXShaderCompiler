@@ -252,21 +252,52 @@ static HRESULT EnableAgilitySDK(HMODULE Runtime, UINT SDKVersion,
   return ExperimentalFeaturesFunc(0, nullptr, nullptr, nullptr);
 }
 
-static HRESULT EnableExperimentalShaderModels(HMODULE Runtime) {
-  D3D12EnableExperimentalFeaturesFn func =
+static HRESULT
+EnableExperimentalShaderModels(HMODULE hRuntime,
+                               UUID AdditionalFeatures[] = nullptr,
+                               size_t NumAdditionalFeatures = 0) {
+  D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
       (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
-          Runtime, "D3D12EnableExperimentalFeatures");
-  if (func == nullptr) {
+          hRuntime, "D3D12EnableExperimentalFeatures");
+  if (pD3D12EnableExperimentalFeatures == nullptr) {
     return HRESULT_FROM_WIN32(GetLastError());
   }
-  return func(1, &D3D12ExperimentalShaderModelsID, nullptr, nullptr);
+
+  std::vector<UUID> Features;
+
+  Features.push_back(D3D12ExperimentalShaderModels);
+
+  if (AdditionalFeatures != nullptr && NumAdditionalFeatures > 0) {
+    Features.insert(Features.end(), AdditionalFeatures,
+                    AdditionalFeatures + NumAdditionalFeatures);
+  }
+
+  return pD3D12EnableExperimentalFeatures((UINT)Features.size(),
+                                          Features.data(), nullptr, nullptr);
 }
 
-static HRESULT EnableExperimentalShaderModels() {
-  HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
-  if (Runtime == NULL)
+static HRESULT
+EnableExperimentalShaderModels(UUID AdditionalFeatures[] = nullptr,
+                               size_t NumAdditionalFeatures = 0) {
+  HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
+  if (hRuntime == NULL)
     return E_FAIL;
-  return EnableExperimentalShaderModels(Runtime);
+  return EnableExperimentalShaderModels(hRuntime, AdditionalFeatures,
+                                        NumAdditionalFeatures);
+}
+
+static HRESULT DisableExperimentalShaderModels() {
+  HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
+  if (hRuntime == NULL)
+    return E_FAIL;
+
+  D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
+      (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
+          hRuntime, "D3D12EnableExperimentalFeatures");
+  if (pD3D12EnableExperimentalFeatures == nullptr) {
+    return HRESULT_FROM_WIN32(GetLastError());
+  }
+  return pD3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr);
 }
 
 static HRESULT EnableAgilitySDK(HMODULE Runtime) {

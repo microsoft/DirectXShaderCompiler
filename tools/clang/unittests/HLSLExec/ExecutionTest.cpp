@@ -471,6 +471,8 @@ public:
   dxc::DxcDllSupport m_support;
 
   bool m_D3DInitCompleted = false;
+  bool m_ExperimentalModeEnabled = false;
+  bool m_AgilitySDKEnabled = false;
 
   const float ClearColor[4] = {0.0f, 0.2f, 0.4f, 1.0f};
 
@@ -10318,18 +10320,16 @@ struct CoopVecExperimentalModeHelper {
       : HadExperimentalShaderModels(HadExperimentalShaderModels) {
     // Enable experimental features
     UUID Features[] = {D3D12CooperativeVectorExperiment};
-    if (FAILED(ExecutionTest::EnableExperimentalShaderModels(
-            Features, _countof(Features)))) {
+    if (FAILED(EnableExperimentalShaderModels(Features, _countof(Features)))) {
       VERIFY_FAIL(L"Failed to enable experimental features");
     }
   }
 
   ~CoopVecExperimentalModeHelper() {
     if (HadExperimentalShaderModels) {
-      ExecutionTest::EnableExperimentalShaderModels(
-          reinterpret_cast<UUID *>(nullptr), 0);
+      EnableExperimentalShaderModels(reinterpret_cast<UUID *>(nullptr), 0);
     } else {
-      ExecutionTest::DisableExperimentalShaderModels();
+      DisableExperimentalShaderModels();
     }
   }
 };
