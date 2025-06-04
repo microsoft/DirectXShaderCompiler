@@ -1232,6 +1232,11 @@ void DiagnoseMissOrAnyHitEntry(Sema &S, FunctionDecl *FD,
 
     QualType Ty = Param->getType().getNonReferenceType();
 
+    // Don't diagnose here, just continue if this fails. Function parameters are
+    // checked in Sema::CheckParmsForFunctionDef.
+    if (S.RequireCompleteType(Param->getLocation(), Ty, 0))
+      continue;
+
     if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty))) {
       S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
           << /*payload|attributes|callable*/ Idx << /*parameter %2|type*/ 0
