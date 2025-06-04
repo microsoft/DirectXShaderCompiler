@@ -7,7 +7,6 @@
 #include <d3d12.h>
 #include <dxgi1_4.h>
 
-
 namespace ExecTestUtils {
 // This is defined in d3d.h for Windows 10 Anniversary Edition SDK, but we
 // only require the Windows 10 SDK.
@@ -23,9 +22,9 @@ typedef enum D3D_SHADER_MODEL {
   D3D_SHADER_MODEL_6_7 = 0x67,
   D3D_SHADER_MODEL_6_8 = 0x68,
   D3D_SHADER_MODEL_6_9 = 0x69,
-  D3D_HIGHEST_SHADER_MODEL	= D3D_SHADER_MODEL_6_9
+  D3D_HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_9
 } D3D_SHADER_MODEL;
-} // ExecTestUtils
+} // namespace ExecTestUtils
 
 static bool UseDebugIfaces() { return true; }
 
@@ -122,7 +121,8 @@ static UINT GetD3D12SDKVersion(std::wstring SDKPath) {
 }
 
 static bool CreateDevice(ID3D12Device **D3DDevice,
-                         ExecTestUtils::D3D_SHADER_MODEL TestModel = ExecTestUtils::D3D_SHADER_MODEL_6_0,
+                         ExecTestUtils::D3D_SHADER_MODEL TestModel =
+                             ExecTestUtils::D3D_SHADER_MODEL_6_0,
                          bool SkipUnsupported = true) {
   if (TestModel > ExecTestUtils::D3D_HIGHEST_SHADER_MODEL) {
     const UINT Minor = (UINT)TestModel & 0x0f;
