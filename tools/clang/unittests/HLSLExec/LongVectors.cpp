@@ -214,7 +214,7 @@ void LongVector::OpTest::TestBaseMethod(
                                                      LogInputs);
 
   CComPtr<ID3D12Device> D3DDevice;
-  if (!CreateDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, false)) {
+  if (!CreateDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false)) {
 #ifdef _HLK_CONF
     LOG_ERROR_FMT_THROW(
         L"Device does not support SM 6.9. Can't run these tests.");

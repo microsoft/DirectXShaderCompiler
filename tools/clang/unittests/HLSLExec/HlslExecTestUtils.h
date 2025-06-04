@@ -7,7 +7,25 @@
 #include <d3d12.h>
 #include <dxgi1_4.h>
 
-static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_9;
+
+namespace ExecTestUtils {
+// This is defined in d3d.h for Windows 10 Anniversary Edition SDK, but we
+// only require the Windows 10 SDK.
+typedef enum D3D_SHADER_MODEL {
+  D3D_SHADER_MODEL_5_1 = 0x51,
+  D3D_SHADER_MODEL_6_0 = 0x60,
+  D3D_SHADER_MODEL_6_1 = 0x61,
+  D3D_SHADER_MODEL_6_2 = 0x62,
+  D3D_SHADER_MODEL_6_3 = 0x63,
+  D3D_SHADER_MODEL_6_4 = 0x64,
+  D3D_SHADER_MODEL_6_5 = 0x65,
+  D3D_SHADER_MODEL_6_6 = 0x66,
+  D3D_SHADER_MODEL_6_7 = 0x67,
+  D3D_SHADER_MODEL_6_8 = 0x68,
+  D3D_SHADER_MODEL_6_9 = 0x69,
+  D3D_HIGHEST_SHADER_MODEL	= D3D_SHADER_MODEL_6_9
+} D3D_SHADER_MODEL;
+} // ExecTestUtils
 
 static bool UseDebugIfaces() { return true; }
 
@@ -104,9 +122,9 @@ static UINT GetD3D12SDKVersion(std::wstring SDKPath) {
 }
 
 static bool CreateDevice(ID3D12Device **D3DDevice,
-                         D3D_SHADER_MODEL TestModel = D3D_SHADER_MODEL_6_0,
+                         ExecTestUtils::D3D_SHADER_MODEL TestModel = ExecTestUtils::D3D_SHADER_MODEL_6_0,
                          bool SkipUnsupported = true) {
-  if (TestModel > HIGHEST_SHADER_MODEL) {
+  if (TestModel > ExecTestUtils::D3D_HIGHEST_SHADER_MODEL) {
     const UINT Minor = (UINT)TestModel & 0x0f;
     hlsl_test::LogCommentFmt(L"Installed SDK does not support "
                              L"shader model 6.%1u",
@@ -177,7 +195,7 @@ static bool CreateDevice(ID3D12Device **D3DDevice,
   if (!UseDxbc()) {
     // Check for DXIL support.
     typedef struct D3D12_FEATURE_DATA_SHADER_MODEL {
-      D3D_SHADER_MODEL HighestShaderModel;
+      ExecTestUtils::D3D_SHADER_MODEL HighestShaderModel;
     } D3D12_FEATURE_DATA_SHADER_MODEL;
     const UINT D3D12_FEATURE_SHADER_MODEL = 7;
     D3D12_FEATURE_DATA_SHADER_MODEL SMData;
