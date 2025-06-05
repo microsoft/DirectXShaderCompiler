@@ -20,7 +20,8 @@ void fn() {
   // should work because we can just instantiate it.
   s = sizeof(CompleteTemplate<int>); // This works!
 
-  // It may be incomplete because it is a lazy-initialized type from HLSL, which
-  // should work because we can just complete it.
-  s = sizeof(RayDesc);
+  // It may be incomplete because it is a lazy-initialized type from HLSL,
+  // which can be completed, and then will report a non-numeric type error.
+  // expected-error@+1{{invalid application of 'sizeof' to non-numeric type 'Buffer'}}
+  s = sizeof(Buffer);
 }
