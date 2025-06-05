@@ -11256,17 +11256,9 @@ SpirvInstruction *SpirvEmitter::processIntrinsicGetNodeOutputRecords(
 
   const auto *declRefExpr = dyn_cast<DeclRefExpr>(baseExpr->IgnoreImpCasts());
   const auto *paramDecl = dyn_cast<ParmVarDecl>(declRefExpr->getDecl());
-  const auto *nodeID = paramDecl->getAttr<HLSLNodeIdAttr>();
-  StringRef nodeName = paramDecl->getName();
-  unsigned nodeIndex = 0;
-  if (nodeID) {
-    nodeName = nodeID->getName();
-    nodeIndex = nodeID->getArrayIndex();
-  }
-
   if (!shaderIndex) {
-    shaderIndex = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                            llvm::APInt(32, nodeIndex));
+    shaderIndex =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   }
 
   LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
