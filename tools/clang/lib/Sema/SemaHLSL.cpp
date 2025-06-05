@@ -10947,14 +10947,13 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
       }
 
       if (IsBABLoad || IsBABStore) {
-        // Incomplete type is diagnosed elsewhere, so just fail here.
-        if (getSema()->RequireCompleteType(Loc, functionTemplateTypeArg, 0))
+        const bool IsNull = functionTemplateTypeArg.isNull();
+        // Incomplete type is diagnosed elsewhere, so just fail if incomplete.
+        if (!IsNull &&
+            getSema()->RequireCompleteType(Loc, functionTemplateTypeArg, 0))
           return Sema::TemplateDeductionResult::TDK_Invalid;
-        const bool IsLegalTemplate =
-            !functionTemplateTypeArg.isNull() &&
-            hlsl::IsHLSLNumericOrAggregateOfNumericType(
-                functionTemplateTypeArg);
-        if (!IsLegalTemplate) {
+        if (IsNull || !hlsl::IsHLSLNumericOrAggregateOfNumericType(
+                          functionTemplateTypeArg)) {
           getSema()->Diag(Loc, diag::err_hlsl_intrinsic_template_arg_numeric)
               << intrinsicName;
           DiagnoseTypeElements(
