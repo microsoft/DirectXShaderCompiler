@@ -12,15 +12,6 @@ void anyhit_param1( inout BuiltInTriangleIntersectionAttributes A1, BuiltInTrian
 [shader("anyhit")]
 void anyhit_param2( inout Texture2D A1, float4 A2 ) { }
 
-// expected-note@+2{{forward declaration of 'Incomplete'}}
-// expected-note@+1{{forward declaration of 'Incomplete'}}
-struct Incomplete;
-
-// expected-error@+3{{variable has incomplete type 'Incomplete'}}
-// expected-error@+2{{variable has incomplete type '__restrict Incomplete'}}
-[shader("anyhit")]
-void anyhit_param2( inout Incomplete A1, Incomplete A2) { }
-
 // expected-error@+2{{payload parameter 'D1' must be 'inout'}}
 [shader("anyhit")]
 void anyhit_param3( RayDesc D1, RayDesc D2 ) { }
@@ -190,3 +181,24 @@ void callable7(inout MyPayload payload, float F) {}
 
 [shader("callable")]
 float callable8(inout MyPayload payload) {} // expected-error{{return type for 'callable' shaders must be void}}
+
+// expected-note@+1 6 {{forward declaration of 'Incomplete'}}
+struct Incomplete;
+
+// expected-error@+3{{variable has incomplete type 'Incomplete'}}
+// expected-error@+2{{variable has incomplete type '__restrict Incomplete'}}
+[shader("anyhit")]
+void anyhit_incomplete( inout Incomplete A1, Incomplete A2) { }
+
+// expected-error@+3{{variable has incomplete type 'Incomplete'}}
+// expected-error@+2{{variable has incomplete type '__restrict Incomplete'}}
+[shader("closesthit")]
+void closesthit_incomplete( inout Incomplete payload, Incomplete attr ) {}
+
+// expected-error@+2{{variable has incomplete type '__restrict Incomplete'}}
+[shader("miss")]
+void miss_incomplete( inout Incomplete payload) { }
+
+// expected-error@+2{{variable has incomplete type '__restrict Incomplete'}}
+[shader("callable")]
+void callable_incomplete(inout Incomplete payload) {}

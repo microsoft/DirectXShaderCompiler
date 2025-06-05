@@ -10947,6 +10947,9 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
       }
 
       if (IsBABLoad || IsBABStore) {
+        // Incomplete type is diagnosed elsewhere, so just fail here.
+        if (getSema()->RequireCompleteType(Loc, functionTemplateTypeArg, 0))
+          return Sema::TemplateDeductionResult::TDK_Invalid;
         const bool IsLegalTemplate =
             !functionTemplateTypeArg.isNull() &&
             hlsl::IsHLSLNumericOrAggregateOfNumericType(
