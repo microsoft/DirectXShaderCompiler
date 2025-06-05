@@ -592,6 +592,8 @@ public:
       ExecTestUtils::D3D_SHADER_MODEL_6_8;
   static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_9 =
       ExecTestUtils::D3D_SHADER_MODEL_6_9;
+  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_HIGHEST_SHADER_MODEL =
+      ExecTestUtils::D3D_HIGHEST_SHADER_MODEL;
 
   bool SaveImages() { return GetTestParamBool(L"SaveImages"); }
 
@@ -14293,7 +14295,7 @@ bool VerifyHelperLaneWaveResults(ExecTestUtils::D3D_SHADER_MODEL sm,
         quad_tr_exp.is_helper_across_Diag, quad_tr.is_helper_across_Diag);
   }
 
-  if (sm >= D3D_SHADER_MODEL_6_5) {
+  if (sm >= ExecTestUtils::D3D_SHADER_MODEL_6_5) {
     HelperLaneWaveTestResult65 &tr65 = testResults.sm65;
     HelperLaneWaveTestResult65 &tr65exp = expectedResults.sm65;
 
