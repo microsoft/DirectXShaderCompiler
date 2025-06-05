@@ -765,7 +765,7 @@ public:
     CComPtr<ID3DBlob> pComputeShader;
 
     // Load and compile shaders.
-    if (UseDxbc()) {
+    if (useDxbc()) {
 #ifndef _HLK_CONF
       DXBCFromText(pShader, L"main", pTargetProfile, &pComputeShader);
 #endif
@@ -804,7 +804,7 @@ public:
     *ppDevice = nullptr;
 
     VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&factory)));
-    if (GetTestParamUseWARP(UseWarpByDefault())) {
+    if (GetTestParamUseWARP(useWarpByDefualt())) {
       CComPtr<IDXGIAdapter> warpAdapter;
       VERIFY_SUCCEEDED(factory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)));
       HRESULT createHR = D3D12CreateDevice(warpAdapter, D3D_FEATURE_LEVEL_11_0,
@@ -853,7 +853,7 @@ public:
     if (pDevice == nullptr)
       return false;
 
-    if (!UseDxbc()) {
+    if (!useDxbc()) {
       // Check for DXIL support.
       typedef struct D3D12_FEATURE_DATA_SHADER_MODEL {
         D3D_SHADER_MODEL HighestShaderModel;
@@ -878,7 +878,7 @@ public:
       }
     }
 
-    if (UseDebugIfaces()) {
+    if (useDebugIfaces()) {
       CComPtr<ID3D12InfoQueue> pInfoQueue;
       if (SUCCEEDED(pDevice->QueryInterface(&pInfoQueue))) {
         pInfoQueue->SetMuteDebugOutput(FALSE);
@@ -918,7 +918,7 @@ public:
     CComPtr<ID3DBlob> vertexShader;
     CComPtr<ID3DBlob> pixelShader;
 
-    if (UseDxbc()) {
+    if (useDxbc()) {
 #ifndef _HLK_CONF
       DXBCFromText(pShaders, L"VSMain", L"vs_6_0", &vertexShader);
       DXBCFromText(pShaders, L"PSMain", L"ps_6_0", &pixelShader);
@@ -2668,7 +2668,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   CComPtr<ID3D12DescriptorHeap> pUavHeap;
   CComPtr<ID3D12CommandAllocator> pCommandAllocator;
   FenceObj FO;
-  bool dxbc = UseDxbc();
+  bool dxbc = useDxbc();
 
   const size_t valueSizeInBytes = values.size() * sizeof(PerThreadData);
   CreateComputeCommandQueue(pDevice, L"WaveIntrinsicsTest Command Queue",
@@ -3056,7 +3056,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
 
   CreateVertexBuffer(pDevice, vertices, &pVertexBuffer, &vertexBufferView);
 
-  bool dxbc = UseDxbc();
+  bool dxbc = useDxbc();
 
   // Set up UAV resource.
   std::vector<PerPixelData> values;

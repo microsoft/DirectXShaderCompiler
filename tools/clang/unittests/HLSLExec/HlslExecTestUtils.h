@@ -9,9 +9,9 @@
 
 static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_9;
 
-static bool UseDebugIfaces() { return true; }
+static bool useDebugIfaces() { return true; }
 
-static bool UseDxbc() {
+static bool useDxbc() {
 #ifdef _HLK_CONF
   return false;
 #else
@@ -19,7 +19,7 @@ static bool UseDxbc() {
 #endif
 }
 
-static bool UseWarpByDefault() {
+static bool useWarpByDefualt() {
 #ifdef _HLK_CONF
   return false;
 #else
@@ -127,7 +127,7 @@ static bool createDevice(ID3D12Device **D3DDevice,
   *D3DDevice = nullptr;
 
   VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&DXGIFactory)));
-  if (hlsl_test::GetTestParamUseWARP(UseWarpByDefault())) {
+  if (hlsl_test::GetTestParamUseWARP(useWarpByDefualt())) {
     CComPtr<IDXGIAdapter> WarpAdapter;
     VERIFY_SUCCEEDED(DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&WarpAdapter)));
     HRESULT CreateHR = D3D12CreateDevice(WarpAdapter, D3D_FEATURE_LEVEL_11_0,
@@ -175,7 +175,7 @@ static bool createDevice(ID3D12Device **D3DDevice,
   if (D3DDeviceCom == nullptr)
     return false;
 
-  if (!UseDxbc()) {
+  if (!useDxbc()) {
     // Check for DXIL support.
     typedef struct D3D12_FEATURE_DATA_SHADER_MODEL {
       D3D_SHADER_MODEL HighestShaderModel;
@@ -199,7 +199,7 @@ static bool createDevice(ID3D12Device **D3DDevice,
     }
   }
 
-  if (UseDebugIfaces()) {
+  if (useDebugIfaces()) {
     CComPtr<ID3D12InfoQueue> InfoQueue;
     if (SUCCEEDED(D3DDeviceCom->QueryInterface(&InfoQueue)))
       InfoQueue->SetMuteDebugOutput(FALSE);
@@ -373,7 +373,7 @@ static HRESULT enableDebugLayer() {
   // The debug layer does net yet validate DXIL programs that require
   // rewriting, but basic logging should work properly.
   HRESULT HR = S_FALSE;
-  if (UseDebugIfaces()) {
+  if (useDebugIfaces()) {
     CComPtr<ID3D12Debug> DebugController;
     HR = D3D12GetDebugInterface(IID_PPV_ARGS(&DebugController));
     if (SUCCEEDED(HR)) {
