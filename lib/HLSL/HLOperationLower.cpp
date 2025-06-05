@@ -4028,9 +4028,9 @@ struct ResLoadHelper {
   // Used for some subscript operators that feed the generic HL call inst
   // into a load op and by the matrixload call instruction.
   ResLoadHelper(Instruction *Inst, DxilResource::Kind RK, Value *h, Value *idx,
-                Value *Offset, Value *mip = nullptr)
+                Value *Offset, Value *status = nullptr, Value *mip = nullptr)
       : intrinsicOpCode(IntrinsicOp::Num_Intrinsics), handle(h), retVal(Inst),
-        addr(idx), offset(Offset), status(nullptr), mipLevel(mip) {
+        addr(idx), offset(Offset), status(status), mipLevel(mip) {
     opcode = LoadOpFromResKind(RK);
     Type *Ty = Inst->getType();
     if (opcode == OP::OpCode::RawBufferLoad && Ty->isVectorTy() &&
@@ -8537,7 +8537,7 @@ Value *TranslateStructBufMatLd(CallInst *CI, IRBuilder<> &Builder,
                                Value *status, Value *bufIdx, Value *baseOffset,
                                const DataLayout &DL) {
 
-  ResLoadHelper helper(CI, RK, handle, bufIdx, baseOffset);
+  ResLoadHelper helper(CI, RK, handle, bufIdx, baseOffset, status);
 #ifndef NDEBUG
   Value *ptr = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx);
   Type *matType = ptr->getType()->getPointerElementType();
@@ -8864,7 +8864,7 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     }
   } else if (LoadInst *LdInst = dyn_cast<LoadInst>(user)) {
     // Load of scalar/vector within a struct or structured raw load.
-    ResLoadHelper helper(LdInst, ResKind, handle, bufIdx, baseOffset);
+    ResLoadHelper helper(LdInst, ResKind, handle, bufIdx, baseOffset, status);
     TranslateBufLoad(helper, ResKind, Builder, OP, DL);
 
     LdInst->eraseFromParent();
@@ -9239,7 +9239,8 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     IRBuilder<> Builder(CI);
     if (LoadInst *ldInst = dyn_cast<LoadInst>(*U)) {
       Value *Offset = UndefValue::get(Builder.getInt32Ty());
-      ResLoadHelper ldHelper(ldInst, RK, handle, coord, Offset, mipLevel);
+      ResLoadHelper ldHelper(ldInst, RK, handle, coord, Offset,
+                             /*status*/ nullptr, mipLevel);
       TranslateBufLoad(ldHelper, RK, Builder, hlslOP, helper.dataLayout);
       ldInst->eraseFromParent();
     } else {
