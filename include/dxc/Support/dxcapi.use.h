@@ -137,6 +137,16 @@ public:
 
   bool IsEnabled() const { return m_dll != nullptr; }
 
+  bool GetCreateInstanceProcs(DxcCreateInstanceProc *pCreateFn,
+                              DxcCreateInstance2Proc *pCreateFn2) const {
+    if (pCreateFn == nullptr || pCreateFn2 == nullptr ||
+        m_createFn == nullptr) 
+        return false;
+    *pCreateFn = m_createFn;
+    *pCreateFn2 = m_createFn2;
+    return true;
+  }
+
   void virtual Cleanup() {
     if (m_dll != nullptr) {
       m_createFn = nullptr;
