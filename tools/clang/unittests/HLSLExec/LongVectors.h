@@ -59,8 +59,8 @@ public:
       size_t VectorSizeToTest);
 
 private:
-  dxc::DxcDllSupport dxcDllSupport;
-  bool initialized = false;
+  dxc::DxcDllSupport DxcDllSupport;
+  bool Initialized = false;
 };
 
 template <typename DataTypeT>
@@ -330,7 +330,7 @@ public:
 
   float getTolerance() const { return Tolerance; }
   LongVector::ValidationType getValidationType() const {
-    return this->ValidationType;
+    return ValidationType;
   }
 
   std::string getCompilerOptionsString(size_t VectorSize) const;
