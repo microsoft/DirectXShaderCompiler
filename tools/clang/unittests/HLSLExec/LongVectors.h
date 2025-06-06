@@ -263,16 +263,16 @@ public:
   TestConfig(TrigonometricOpType OpType);
 
   bool isBinaryOp() const {
-    return basicOpType == LongVector::BasicOpType_Binary ||
-           basicOpType == LongVector::BasicOpType_ScalarBinary;
+    return BasicOpType == LongVector::BasicOpType_Binary ||
+           BasicOpType == LongVector::BasicOpType_ScalarBinary;
   }
 
   bool isUnaryOp() const {
-    return basicOpType == LongVector::BasicOpType_Unary;
+    return BasicOpType == LongVector::BasicOpType_Unary;
   }
 
   bool isScalarOp() const {
-    return basicOpType == LongVector::BasicOpType_ScalarBinary;
+    return BasicOpType == LongVector::BasicOpType_ScalarBinary;
   }
 
   bool hasInputArguments() const {
@@ -300,20 +300,20 @@ public:
   DataTypeT computeExpectedValue(const DataTypeT &A) const;
 
   void setInputArgsArrayName(const std::wstring &InputArgsArrayName) {
-    inputArgsArrayName = InputArgsArrayName;
+    this->InputArgsArrayName = InputArgsArrayName;
   }
 
   void setInputValueSet1(const std::wstring &InputValueSetName) {
-    inputValueSetName1 = InputValueSetName;
+    this->InputValueSetName1 = InputValueSetName;
   }
 
   void setInputValueSet2(const std::wstring &InputValueSetName) {
-    inputValueSetName2 = InputValueSetName;
+    this->InputValueSetName2 = InputValueSetName;
   }
 
   bool isClampOp() const {
     if constexpr (std::is_same_v<LongVectorOpTypeT, LongVector::UnaryOpType>)
-      return opTypeTraits.OpType == LongVector::UnaryOpType_Clamp;
+      return OpTypeTraits.OpType == LongVector::UnaryOpType_Clamp;
     else
       return false;
   }
@@ -328,9 +328,9 @@ public:
 
   std::vector<DataTypeT> getInputArgsArray() const;
 
-  float getTolerance() const { return tolerance; }
+  float getTolerance() const { return Tolerance; }
   LongVector::ValidationType getValidationType() const {
-    return validationType;
+    return this->ValidationType;
   }
 
   std::string getCompilerOptionsString(size_t VectorSize) const;
@@ -339,18 +339,18 @@ private:
   std::vector<DataTypeT> getInputValueSet(size_t ValueSetIndex) const;
 
   // To be used for the value of -DOPERATOR
-  std::string operatorString;
+  std::string OperatorString;
   // To be used for the value of -DFUNC
-  std::string intrinsicString;
-  LongVector::BasicOpType basicOpType = LongVector::BasicOpType_EnumValueCount;
-  float tolerance = 0.0;
-  LongVector::ValidationType validationType =
+  std::string IntrinsicString;
+  LongVector::BasicOpType BasicOpType = LongVector::BasicOpType_EnumValueCount;
+  float Tolerance = 0.0;
+  LongVector::ValidationType ValidationType =
       LongVector::ValidationType::ValidationType_Epsilon;
-  LongVector::TestConfigTraits<LongVectorOpTypeT> opTypeTraits;
-  std::wstring inputValueSetName1 = L"DefaultInputValueSet1";
-  std::wstring inputValueSetName2 = L"DefaultInputValueSet2";
+  LongVector::TestConfigTraits<LongVectorOpTypeT> OpTypeTraits;
+  std::wstring InputValueSetName1 = L"DefaultInputValueSet1";
+  std::wstring InputValueSetName2 = L"DefaultInputValueSet2";
   // No default args array
-  std::wstring inputArgsArrayName = L"";
+  std::wstring InputArgsArrayName = L"";
 }; // class LongVector::TestConfig
 
 }; // namespace LongVector
