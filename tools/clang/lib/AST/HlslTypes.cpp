@@ -111,6 +111,7 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
 // which can't be annotated. But includes UDTs of trivially copyable data and
 // the builtin trivially copyable raytracing structs.
 bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT) {
+  assert(!QT->isIncompleteType() && "Type must be complete!");
   const clang::Type *Ty = QT.getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     const RecordDecl *RD = RT->getDecl();
