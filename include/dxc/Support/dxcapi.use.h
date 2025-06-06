@@ -13,10 +13,10 @@
 #define __DXCAPI_USE_H__
 
 #include "dxc/dxcapi.h"
-#include <cstdlib>     // for getenv
-#include <string>
-#include <filesystem>  // C++17 and later
+#include <cstdlib>              // for getenv
 #include <dxc/Support/Global.h> // for hresult handling with DXC_FAILED
+#include <filesystem>           // C++17 and later
+#include <string>
 
 namespace dxc {
 
@@ -122,7 +122,7 @@ public:
   }
 
   HRESULT virtual CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
-                          IUnknown **pResult) {
+                                  IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
     if (m_dll == nullptr)
@@ -139,9 +139,8 @@ public:
 
   bool GetCreateInstanceProcs(DxcCreateInstanceProc *pCreateFn,
                               DxcCreateInstance2Proc *pCreateFn2) const {
-    if (pCreateFn == nullptr || pCreateFn2 == nullptr ||
-        m_createFn == nullptr) 
-        return false;
+    if (pCreateFn == nullptr || pCreateFn2 == nullptr || m_createFn == nullptr)
+      return false;
     *pCreateFn = m_createFn;
     *pCreateFn2 = m_createFn2;
     return true;
