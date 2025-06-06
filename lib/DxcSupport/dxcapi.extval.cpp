@@ -1,5 +1,6 @@
-#include "dxc/Support/dxcapi.extval.h"
 #include "dxc/Support/WinIncludes.h"
+// WinIncludes must come before dxcapi.extval.h
+#include "dxc/Support/dxcapi.extval.h"
 
 HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR dllName,
                                                        LPCSTR fnName) {
