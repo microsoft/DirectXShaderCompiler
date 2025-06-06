@@ -1,14 +1,5 @@
-#include "dxc/Support/WinIncludes.h"
-
-#include "dxc/Support/dxcapi.use.h"
-
-#include "dxc/Support/FileIOHelper.h"
-#include "dxc/Support/Global.h"
-#include "dxc/Support/SharedLibAffix.h" // header generated during DXC build
-#include "dxc/Support/Unicode.h"
-#include "dxc/Support/WinFunctions.h"
-
 #include "dxc/Support/dxcapi.extval.h"
+#include "dxc/Support/WinIncludes.h"
 
 HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR dllName,
                                                        LPCSTR fnName) {

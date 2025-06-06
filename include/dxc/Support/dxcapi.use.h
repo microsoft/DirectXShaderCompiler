@@ -13,10 +13,8 @@
 #define __DXCAPI_USE_H__
 
 #include "dxc/dxcapi.h"
-#include <cstdlib>              // for getenv
 #include <dxc/Support/Global.h> // for hresult handling with DXC_FAILED
 #include <filesystem>           // C++17 and later
-#include <string>
 
 namespace dxc {
 
