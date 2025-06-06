@@ -28,51 +28,51 @@ public:
   BEGIN_TEST_CLASS(OpTest)
   END_TEST_CLASS()
 
-  TEST_CLASS_SETUP(ClassSetup)
+  TEST_CLASS_SETUP(classSetup);
 
-  BEGIN_TEST_METHOD(BinaryOpTest)
+  BEGIN_TEST_METHOD(binaryOpTest)
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:LongVectorOpTable.xml#BinaryOpTable")
   END_TEST_METHOD()
 
-  BEGIN_TEST_METHOD(TrigonometricOpTest)
+  BEGIN_TEST_METHOD(trigonometricOpTest)
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:LongVectorOpTable.xml#TrigonometricOpTable")
   END_TEST_METHOD()
 
-  BEGIN_TEST_METHOD(UnaryOpTest)
+  BEGIN_TEST_METHOD(unaryOpTest)
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:LongVectorOpTable.xml#UnaryOpTable")
   END_TEST_METHOD()
 
   template <typename LongVectorOpTypeT>
-  void DispatchTestByDataType(LongVectorOpTypeT OpType, std::wstring DataType,
+  void dispatchTestByDataType(LongVectorOpTypeT OpType, std::wstring DataType,
                               TableParameterHandler &Handler);
 
   template <typename DataTypeT, typename LongVectorOpTypeT>
-  void DispatchTestByVectorSize(LongVectorOpTypeT OpType,
+  void dispatchTestByVectorSize(LongVectorOpTypeT OpType,
                                 TableParameterHandler &Handler);
 
   template <typename DataTypeT, typename LongVectorOpTypeT>
-  void TestBaseMethod(
+  void testBaseMethod(
       LongVector::TestConfig<DataTypeT, LongVectorOpTypeT> &TestConfig,
       size_t VectorSizeToTest);
 
 private:
-  dxc::DxcDllSupport m_Support;
-  bool m_Initialized = false;
+  dxc::DxcDllSupport DxcDllSupport;
+  bool Initialized = false;
 };
 
 template <typename DataTypeT>
-void FillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
+void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
                                         std::vector<DataTypeT> &TestData);
 
 template <typename DataTypeT>
-void FillLongVectorDataFromShaderBuffer(MappedData &ShaderBuffer,
+void fillLongVectorDataFromShaderBuffer(MappedData &ShaderBuffer,
                                         std::vector<DataTypeT> &TestData,
                                         size_t NumElements);
 
-template <typename DataTypeT> constexpr bool IsFloatingPointType() {
+template <typename DataTypeT> constexpr bool isFloatingPointType() {
   return std::is_same_v<DataTypeT, float> ||
          std::is_same_v<DataTypeT, double> ||
          std::is_same_v<DataTypeT, HLSLHalf_t>;
@@ -84,7 +84,7 @@ struct LongVectorOpTypeStringToEnumValue {
 };
 
 template <typename DataTypeT>
-DataTypeT GetLongVectorOpType(const LongVectorOpTypeStringToEnumValue *Values,
+DataTypeT getLongVectorOpType(const LongVectorOpTypeStringToEnumValue *Values,
                               const std::wstring &OpTypeString,
                               std::size_t Length);
 
@@ -118,7 +118,7 @@ enum BinaryOpType {
   BinaryOpType_EnumValueCount
 };
 
-static const LongVectorOpTypeStringToEnumValue BinaryOpTypeStringToEnumMap[] = {
+static const LongVectorOpTypeStringToEnumValue binaryOpTypeStringToEnumMap[] = {
     {L"BinaryOpType_ScalarAdd", BinaryOpType_ScalarAdd},
     {L"BinaryOpType_ScalarMultiply", BinaryOpType_ScalarMultiply},
     {L"BinaryOpType_ScalarSubtract", BinaryOpType_ScalarSubtract},
@@ -135,12 +135,12 @@ static const LongVectorOpTypeStringToEnumValue BinaryOpTypeStringToEnumMap[] = {
     {L"BinaryOpType_ScalarMax", BinaryOpType_ScalarMax},
 };
 
-static_assert(_countof(BinaryOpTypeStringToEnumMap) ==
+static_assert(_countof(binaryOpTypeStringToEnumMap) ==
                   BinaryOpType_EnumValueCount,
-              "BinaryOpTypeStringToEnumMap size mismatch. Did you "
+              "binaryOpTypeStringToEnumMap size mismatch. Did you "
               "add a new enum value?");
 
-BinaryOpType GetBinaryOpType(const std::wstring &OpTypeString);
+BinaryOpType getBinaryOpType(const std::wstring &OpTypeString);
 
 enum UnaryOpType {
   UnaryOpType_Clamp,
@@ -148,17 +148,17 @@ enum UnaryOpType {
   UnaryOpType_EnumValueCount
 };
 
-static const LongVectorOpTypeStringToEnumValue UnaryOpTypeStringToEnumMap[] = {
+static const LongVectorOpTypeStringToEnumValue unaryOpTypeStringToEnumMap[] = {
     {L"UnaryOpType_Clamp", UnaryOpType_Clamp},
     {L"UnaryOpType_Initialize", UnaryOpType_Initialize},
 };
 
-static_assert(_countof(UnaryOpTypeStringToEnumMap) ==
+static_assert(_countof(unaryOpTypeStringToEnumMap) ==
                   UnaryOpType_EnumValueCount,
-              "UnaryOpTypeStringToEnumMap size mismatch. Did you add "
+              "unaryOpTypeStringToEnumMap size mismatch. Did you add "
               "a new enum value?");
 
-UnaryOpType GetUnaryOpType(const std::wstring &OpTypeString);
+UnaryOpType getUnaryOpType(const std::wstring &OpTypeString);
 
 enum TrigonometricOpType {
   TrigonometricOpType_Acos,
@@ -174,7 +174,7 @@ enum TrigonometricOpType {
 };
 
 static const LongVectorOpTypeStringToEnumValue
-    TrigonometricOpTypeStringToEnumMap[] = {
+    trigonometricOpTypeStringToEnumMap[] = {
         {L"TrigonometricOpType_Acos", TrigonometricOpType_Acos},
         {L"TrigonometricOpType_Asin", TrigonometricOpType_Asin},
         {L"TrigonometricOpType_Atan", TrigonometricOpType_Atan},
@@ -186,15 +186,15 @@ static const LongVectorOpTypeStringToEnumValue
         {L"TrigonometricOpType_Tanh", TrigonometricOpType_Tanh},
 };
 
-static_assert(_countof(TrigonometricOpTypeStringToEnumMap) ==
+static_assert(_countof(trigonometricOpTypeStringToEnumMap) ==
                   TrigonometricOpType_EnumValueCount,
-              "TrigonometricOpTypeStringToEnumMap size mismatch. Did you add "
+              "trigonometricOpTypeStringToEnumMap size mismatch. Did you add "
               "a new enum value?");
 
-TrigonometricOpType GetTrigonometricOpType(const std::wstring &OpTypeString);
+TrigonometricOpType getTrigonometricOpType(const std::wstring &OpTypeString);
 
 template <typename DataTypeT>
-std::vector<DataTypeT> GetInputValueSetByKey(const std::wstring &Key,
+std::vector<DataTypeT> getInputValueSetByKey(const std::wstring &Key,
                                              bool LogKey = true) {
   if (LogKey)
     WEX::Logging::Log::Comment(
@@ -203,7 +203,7 @@ std::vector<DataTypeT> GetInputValueSetByKey(const std::wstring &Key,
 }
 
 template <typename DataTypeT>
-DataTypeT Mod(const DataTypeT &A, const DataTypeT &B);
+DataTypeT mod(const DataTypeT &A, const DataTypeT &B);
 
 template <typename LongVectorOpTypeT> struct TestConfigTraits {
   TestConfigTraits(LongVectorOpTypeT OpType) : OpType(OpType) {}
@@ -213,45 +213,45 @@ template <typename LongVectorOpTypeT> struct TestConfigTraits {
 };
 
 template <typename DataTypeT>
-bool DoValuesMatch(DataTypeT A, DataTypeT B, float Tolerance, ValidationType);
-bool DoValuesMatch(HLSLBool_t A, HLSLBool_t B, float, ValidationType);
-bool DoValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
+bool doValuesMatch(DataTypeT A, DataTypeT B, float Tolerance, ValidationType);
+bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, float, ValidationType);
+bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
                    ValidationType ValidationType);
-bool DoValuesMatch(float A, float B, float Tolerance,
+bool doValuesMatch(float A, float B, float Tolerance,
                    ValidationType ValidationType);
-bool DoValuesMatch(double A, double B, float Tolerance,
+bool doValuesMatch(double A, double B, float Tolerance,
                    ValidationType ValidationType);
 
 template <typename DataTypeT>
-bool DoVectorsMatch(const std::vector<DataTypeT> &ActualValues,
+bool doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
                     const std::vector<DataTypeT> &ExpectedValues,
                     float Tolerance, ValidationType ValidationType);
 // Binary ops
 template <typename DataTypeT, typename LongVectorOpTypeT>
 std::vector<DataTypeT>
-ComputeExpectedValues(const std::vector<DataTypeT> &InputVector1,
+computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
                       const std::vector<DataTypeT> &InputVector2,
                       const TestConfig<DataTypeT, LongVectorOpTypeT> &Config);
 
 // Binary scalar ops
 template <typename DataTypeT, typename LongVectorOpTypeT>
 std::vector<DataTypeT>
-ComputeExpectedValues(const std::vector<DataTypeT> &InputVector1,
+computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
                       const DataTypeT &ScalarInput,
                       const TestConfig<DataTypeT, LongVectorOpTypeT> &Config);
 
 // Unary ops
 template <typename DataTypeT, typename LongVectorOpTypeT>
 std::vector<DataTypeT>
-ComputeExpectedValues(const std::vector<DataTypeT> &InputVector1,
+computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
                       const TestConfig<DataTypeT, LongVectorOpTypeT> &Config);
 
 template <typename DataTypeT>
-void LogLongVector(const std::vector<DataTypeT> &Values,
+void logLongVector(const std::vector<DataTypeT> &Values,
                    const std::wstring &Name);
 
 template <typename DataTypeT>
-void LogScalar(const DataTypeT &Value, const std::wstring &Name);
+void logScalar(const DataTypeT &Value, const std::wstring &Name);
 
 // Used to pass into LongVectorOpTestBase
 template <typename DataTypeT, typename LongVectorOpTypeT> class TestConfig {
@@ -262,81 +262,81 @@ public:
   TestConfig(BinaryOpType OpType);
   TestConfig(TrigonometricOpType OpType);
 
-  bool IsBinaryOp() const {
+  bool isBinaryOp() const {
     return BasicOpType == LongVector::BasicOpType_Binary ||
            BasicOpType == LongVector::BasicOpType_ScalarBinary;
   }
 
-  bool IsUnaryOp() const {
+  bool isUnaryOp() const {
     return BasicOpType == LongVector::BasicOpType_Unary;
   }
 
-  bool IsScalarOp() const {
+  bool isScalarOp() const {
     return BasicOpType == LongVector::BasicOpType_ScalarBinary;
   }
 
-  bool HasInputArguments() const {
+  bool hasInputArguments() const {
     // TODO: Right now only clamp has input args. Will need to update this
     // later.
     if constexpr (std::is_same_v<LongVectorOpTypeT, LongVector::UnaryOpType>)
-      return IsClampOp();
+      return isClampOp();
     else
       return false;
   }
 
-  bool HasFunctionDefinition() const;
-  std::string GetOPERAND2String() const;
+  bool hasFunctionDefinition() const;
+  std::string getOPERAND2String() const;
 
   // A helper to get the hlsl type as a string for a given C++ type.
   // Used in the long vector tests.
-  std::string GetHLSLTypeString() const;
+  std::string getHLSLTypeString() const;
 
-  DataTypeT ComputeExpectedValue(const DataTypeT &A, const DataTypeT &B,
+  DataTypeT computeExpectedValue(const DataTypeT &A, const DataTypeT &B,
                                  BinaryOpType OpType) const;
-  DataTypeT ComputeExpectedValue(const DataTypeT &A, const DataTypeT &B) const;
-  DataTypeT ComputeExpectedValue(const DataTypeT &A,
+  DataTypeT computeExpectedValue(const DataTypeT &A, const DataTypeT &B) const;
+  DataTypeT computeExpectedValue(const DataTypeT &A,
                                  TrigonometricOpType OpType) const;
-  DataTypeT ComputeExpectedValue(const DataTypeT &A, UnaryOpType OpType) const;
-  DataTypeT ComputeExpectedValue(const DataTypeT &A) const;
+  DataTypeT computeExpectedValue(const DataTypeT &A, UnaryOpType OpType) const;
+  DataTypeT computeExpectedValue(const DataTypeT &A) const;
 
-  void SetInputArgsArrayName(const std::wstring &InputArgsArrayName) {
+  void setInputArgsArrayName(const std::wstring &InputArgsArrayName) {
     this->InputArgsArrayName = InputArgsArrayName;
   }
 
-  void SetInputValueSet1(const std::wstring &InputValueSetName) {
-    InputValueSetName1 = InputValueSetName;
+  void setInputValueSet1(const std::wstring &InputValueSetName) {
+    this->InputValueSetName1 = InputValueSetName;
   }
 
-  void SetInputValueSet2(const std::wstring &InputValueSetName) {
-    InputValueSetName2 = InputValueSetName;
+  void setInputValueSet2(const std::wstring &InputValueSetName) {
+    this->InputValueSetName2 = InputValueSetName;
   }
 
-  bool IsClampOp() const {
+  bool isClampOp() const {
     if constexpr (std::is_same_v<LongVectorOpTypeT, LongVector::UnaryOpType>)
       return OpTypeTraits.OpType == LongVector::UnaryOpType_Clamp;
     else
       return false;
   }
 
-  std::vector<DataTypeT> GetInputValueSet1() const {
-    return GetInputValueSet(1);
+  std::vector<DataTypeT> getInputValueSet1() const {
+    return getInputValueSet(1);
   }
 
-  std::vector<DataTypeT> GetInputValueSet2() const {
-    return GetInputValueSet(2);
+  std::vector<DataTypeT> getInputValueSet2() const {
+    return getInputValueSet(2);
   }
 
-  std::vector<DataTypeT> GetInputArgsArray() const;
+  std::vector<DataTypeT> getInputArgsArray() const;
 
-  float GetTolerance() const { return Tolerance; }
-  LongVector::ValidationType GetValidationType() const {
+  float getTolerance() const { return Tolerance; }
+  LongVector::ValidationType getValidationType() const {
     return ValidationType;
   }
 
-  std::string GetCompilerOptionsString(size_t VectorSize) const;
+  std::string getCompilerOptionsString(size_t VectorSize) const;
 
 private:
-  std::vector<DataTypeT> GetInputValueSet(size_t ValueSetIndex) const;
+  std::vector<DataTypeT> getInputValueSet(size_t ValueSetIndex) const;
 
   // To be used for the value of -DOPERATOR
   std::string OperatorString;
