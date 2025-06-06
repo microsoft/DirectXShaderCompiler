@@ -133,7 +133,7 @@ public:
     return hr;
   }
 
-  bool virtual HasCreateWithMalloc() const { return m_createFn2 != nullptr; }
+  bool HasCreateWithMalloc() const { return m_createFn2 != nullptr; }
 
   bool IsEnabled() const { return m_dll != nullptr; }
 

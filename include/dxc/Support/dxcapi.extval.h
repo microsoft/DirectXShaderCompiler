@@ -5,15 +5,15 @@ class DxcDllExtValidationSupport : public dxc::DxcDllSupport {
   // DxcDllExtValidationSupport manages the
   // lifetime of dxcompiler.dll, while the member, m_DxilSupport,
   // manages the lifetime of dxil.dll
-  dxc::DxcDllSupport m_DxilSupport;
+  dxc::DxcDllSupport DxilSupport;
 
   std::string DxilDllPath;
   // override DxcDllSupport's implementation of InitializeInternal,
   // adding the environment variable value check for a path to a dxil.dll
 
-  std::string GetDxilDLLPathExt() { return DxilDllPath; }
-  bool DxilDllSuccessfullyLoaded() {
-    return !DxilDllPath.empty() && !m_DxilSupport.IsEnabled();
+  std::string GetDxilDllPath() { return DxilDllPath; }
+  bool DxilDllFailedToLoad() {
+    return !DxilDllPath.empty() && !DxilSupport.IsEnabled();
   }
 
   HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName);

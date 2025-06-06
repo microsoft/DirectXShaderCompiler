@@ -37,7 +37,7 @@ HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR dllName,
   // to see if dxil.dll is successfully loaded.
   // the CheckDxilDLLLoaded function can determine whether there were any
   // problems loading dxil.dll or not
-  m_DxilSupport.InitializeForDll(DllPathStr.data(), fnName);
+  DxilSupport.InitializeForDll(DllPathStr.data(), fnName);
 
   return S_OK;
 }
