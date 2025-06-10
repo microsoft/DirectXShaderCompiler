@@ -525,7 +525,7 @@ Bit SM   Description                                                            
 2        Double-precision floating point                                                          Use of the double data type
 3        Force early depth-stencil test                                                           Shader is a pixel shader, and the ``[earlydepthstencil]`` attribute is present in the HLSL source
 4        Raw and Structured buffers                                                               Use of RawBuffer or StructuredBuffer resource types
-5        Low-precision data types                                                                 Use of half or i16 data types
+5        Low-precision data types present                                                         Use of half or i16 data types
 6        Double-precision extensions for 11.1                                                     Use of FDiv, UIToFP, SIToFP, FPToUI, FPToSI, or Fma instructions with a double type
 7        Shader extensions for 11.1                                                               Use of the Msad instruction
 8        All resources bound for the duration of shader execution                                 Command-line flag ``/all_resources_bound`` provided to DXC
@@ -543,7 +543,7 @@ Bit SM   Description                                                            
 20       64-Bit integers                                                                          Use of i64 data types
 21  6.1+ View Instancing                                                                          Use of the ViewID instruction
 22  6.1+ Barycentrics                                                                             Use of the AttributeAtVertex instruction, or the Barcentrics semantic is present in the shader input signature. If DXIL validator version < 1.6 then this flag must not be set at all
-23  6.2+ Use native low precision                                                                 Command-line flag ``-enable-16bit-types`` is provided to DXC
+23  6.2+ Enable native low-precision data types                                                   Command-line flag ``-enable-16bit-types`` is provided to DXC
 24  6.4+ ShadingRate                                                                              The ShadingRate semantic is present in the shader input or output signature
 25  6.5+ Raytracing tier 1.1 features                                                             Use of the AllocateRayQuery, AllocateRayQuery2, or GeometryIndex instruction
 
