@@ -1218,9 +1218,8 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
   ReplaceDxilBlobPart(pBlob->GetBufferPointer(), pBlob->GetBufferSize(),
                       pAnnotated, &pAnnotatedContainer);
 
-#if 0 // handy for debugging
+#if 1 // handy for debugging
   auto disTextW = Disassemble(pAnnotatedContainer);
-  WEX::Logging::Log::Comment(disTextW.c_str());
 #endif
 
   ModuleAndHangersOn moduleEtc(pAnnotatedContainer);

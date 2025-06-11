@@ -530,8 +530,10 @@ void DxilAnnotateWithVirtualRegister::AssignNewDxilRegister(
 
 void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(
     llvm::AllocaInst *pAlloca, std::uint32_t C) {
-  PixAllocaReg::AddMD(m_DM->GetCtx(), pAlloca, m_uVReg, C);
-  m_uVReg += C;
+  if (!PixAllocaReg::FromInst(pAlloca, nullptr, nullptr)) {
+    PixAllocaReg::AddMD(m_DM->GetCtx(), pAlloca, m_uVReg, C);
+    m_uVReg += C;
+  }
 }
 
 void DxilAnnotateWithVirtualRegister::SplitVectorStores(hlsl::OP *HlslOP,
