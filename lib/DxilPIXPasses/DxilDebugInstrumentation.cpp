@@ -1357,14 +1357,18 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
         } else {
           IndexingToken = "d"; // dynamic indexing
           int MaxArraySize = 1;
-          if (auto* Store = dyn_cast<StoreInst>(&Inst)) {
-              if (auto* GEP = dyn_cast<GetElementPtrInst>(Store->getPointerOperand())) {
-                  if (auto* Alloca = dyn_cast<AllocaInst>(GEP->getPointerOperand())) {
-                          MaxArraySize = Alloca->getAllocatedType()->getArrayNumElements();
-                  }
+          if (auto *Store = dyn_cast<StoreInst>(&Inst)) {
+            if (auto *GEP =
+                    dyn_cast<GetElementPtrInst>(Store->getPointerOperand())) {
+              if (auto *Alloca =
+                      dyn_cast<AllocaInst>(GEP->getPointerOperand())) {
+                MaxArraySize =
+                    Alloca->getAllocatedType()->getArrayNumElements();
               }
+            }
           }
-          RegisterOrStaticIndex = std::to_string(IandT->AllocaBase) + "-" + std::to_string(MaxArraySize);
+          RegisterOrStaticIndex = std::to_string(IandT->AllocaBase) + "-" +
+                                  std::to_string(MaxArraySize);
           DebugOutputForThisInstruction.ValueToWriteToDebugMemory =
               IandT->AllocaWriteIndex;
         }
@@ -1382,7 +1386,7 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
         *OSOverride << "," << *RegisterOrStaticIndex;
       }
       if (IandT->ConstantAllocaStoreValue) {
-          uint64_t value = IandT->ConstantAllocaStoreValue.value();
+        uint64_t value = IandT->ConstantAllocaStoreValue.value();
         *OSOverride << "," << std::to_string(value);
       }
       *OSOverride << ";";

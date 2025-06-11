@@ -76,28 +76,32 @@ public:
 
 private:
   void AnnotateValues(llvm::Instruction *pI);
-  void AnnotateStore(hlsl::OP* HlslOP, llvm::Instruction *pI);
+  void AnnotateStore(hlsl::OP *HlslOP, llvm::Instruction *pI);
   void SplitVectorStores(hlsl::OP *HlslOP, llvm::Instruction *pI);
-  bool IsAllocaRegisterWrite(hlsl::OP* HlslOP, llvm::Value *V, llvm::AllocaInst **pAI,
-                             llvm::Value **pIdx);
+  bool IsAllocaRegisterWrite(hlsl::OP *HlslOP, llvm::Value *V,
+                             llvm::AllocaInst **pAI, llvm::Value **pIdx);
   void AnnotateAlloca(llvm::AllocaInst *pAlloca);
   void AnnotateGeneric(llvm::Instruction *pI);
   void AssignNewDxilRegister(llvm::Instruction *pI);
   void AssignNewAllocaRegister(llvm::AllocaInst *pAlloca, std::uint32_t C);
-  llvm::Value* AddPossiblyDynamicValues(llvm::IRBuilder<>& Builder, hlsl::OP* HlslOP, llvm::Value* l, llvm::Value* r);
-  llvm::Value* MultiplyPossiblyDynamicValues(llvm::IRBuilder<>& Builder, hlsl::OP* HlslOP, llvm::Value* l, uint32_t r);
-  llvm::Value* GetStructOffset(llvm::IRBuilder<>& Builder, hlsl::OP* HlslOP, llvm::GetElementPtrInst* pGEP,
-      uint32_t& GEPOperandIndex,
-      llvm::Type* pElementType);
+  llvm::Value *AddPossiblyDynamicValues(llvm::IRBuilder<> &Builder,
+                                        hlsl::OP *HlslOP, llvm::Value *l,
+                                        llvm::Value *r);
+  llvm::Value *MultiplyPossiblyDynamicValues(llvm::IRBuilder<> &Builder,
+                                             hlsl::OP *HlslOP, llvm::Value *l,
+                                             uint32_t r);
+  llvm::Value *GetStructOffset(llvm::IRBuilder<> &Builder, hlsl::OP *HlslOP,
+                               llvm::GetElementPtrInst *pGEP,
+                               uint32_t &GEPOperandIndex,
+                               llvm::Type *pElementType);
   hlsl::DxilModule *m_DM;
   std::uint32_t m_uVReg;
   std::unique_ptr<llvm::ModuleSlotTracker> m_MST;
   int m_StartInstruction = 0;
-  struct RememberedAllocaStores
-  {
-      llvm::StoreInst* StoreInst;
-      llvm::Value* Index;
-      llvm::MDNode* AllocaReg;
+  struct RememberedAllocaStores {
+    llvm::StoreInst *StoreInst;
+    llvm::Value *Index;
+    llvm::MDNode *AllocaReg;
   };
   std::vector<RememberedAllocaStores> m_RememberedAllocaStores;
 
@@ -161,28 +165,30 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
 
   // Process all allocas referenced by dbg.declare intrinsics
-  for (auto* F : instrumentableFunctions) {
-      for (auto& block : F->getBasicBlockList()) {
-          for (auto& I : block) {
-              if (auto* DbgDeclare = llvm::dyn_cast<llvm::DbgDeclareInst>(&I)) {
-                  // The first operand of DbgDeclare is the address (typically an AllocaInst)
-                  if (auto* AddrVal = llvm::dyn_cast<llvm::Instruction>(DbgDeclare->getAddress())) {
-                      AnnotateValues(AddrVal);
-                  }
-              }
+  for (auto *F : instrumentableFunctions) {
+    for (auto &block : F->getBasicBlockList()) {
+      for (auto &I : block) {
+        if (auto *DbgDeclare = llvm::dyn_cast<llvm::DbgDeclareInst>(&I)) {
+          // The first operand of DbgDeclare is the address (typically an
+          // AllocaInst)
+          if (auto *AddrVal =
+                  llvm::dyn_cast<llvm::Instruction>(DbgDeclare->getAddress())) {
+            AnnotateValues(AddrVal);
           }
+        }
       }
+    }
   }
 
-  for (auto* F : instrumentableFunctions)
-    for (auto& block : F->getBasicBlockList()) {
-      for (llvm::Instruction& I : block.getInstList()) {
-          AnnotateStore(m_DM->GetOP(), &I);
+  for (auto *F : instrumentableFunctions)
+    for (auto &block : F->getBasicBlockList()) {
+      for (llvm::Instruction &I : block.getInstList()) {
+        AnnotateStore(m_DM->GetOP(), &I);
       }
-  }
+    }
 
   for (auto *F : instrumentableFunctions) {
-      int InstructionRangeStart = m_StartInstruction;
+    int InstructionRangeStart = m_StartInstruction;
     int InstructionRangeEnd = m_StartInstruction;
     for (auto &block : F->getBasicBlockList()) {
       for (llvm::Instruction &I : block.getInstList()) {
@@ -193,7 +199,8 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
           if (PixAllocaReg::FromInst(Alloca, &unused1, &unused2))
             continue;
         if (!llvm::isa<llvm::DbgDeclareInst>(&I)) {
-          pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, m_StartInstruction++);
+          pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I,
+                                          m_StartInstruction++);
           InstructionRangeEnd = m_StartInstruction;
         }
       }
@@ -210,9 +217,9 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     }
   }
 
-  for (auto const& as : m_RememberedAllocaStores)
-  {
-      PixAllocaRegWrite::AddMD(m_DM->GetCtx(), as.StoreInst, as.AllocaReg, as.Index);
+  for (auto const &as : m_RememberedAllocaStores) {
+    PixAllocaRegWrite::AddMD(m_DM->GetCtx(), as.StoreInst, as.AllocaReg,
+                             as.Index);
   }
 
   if (OSOverride != nullptr) {
@@ -237,7 +244,8 @@ void DxilAnnotateWithVirtualRegister::AnnotateValues(llvm::Instruction *pI) {
   }
 }
 
-void DxilAnnotateWithVirtualRegister::AnnotateStore(hlsl::OP* HlslOP, llvm::Instruction *pI) {
+void DxilAnnotateWithVirtualRegister::AnnotateStore(hlsl::OP *HlslOP,
+                                                    llvm::Instruction *pI) {
   auto *pSt = llvm::dyn_cast<llvm::StoreInst>(pI);
   if (pSt == nullptr) {
     return;
@@ -245,7 +253,8 @@ void DxilAnnotateWithVirtualRegister::AnnotateStore(hlsl::OP* HlslOP, llvm::Inst
 
   llvm::AllocaInst *Alloca;
   llvm::Value *Index;
-  if (!IsAllocaRegisterWrite(HlslOP, pSt->getPointerOperand(), &Alloca, &Index)) {
+  if (!IsAllocaRegisterWrite(HlslOP, pSt->getPointerOperand(), &Alloca,
+                             &Index)) {
     return;
   }
 
@@ -253,40 +262,43 @@ void DxilAnnotateWithVirtualRegister::AnnotateStore(hlsl::OP* HlslOP, llvm::Inst
   if (AllocaReg == nullptr) {
     return;
   }
-  m_RememberedAllocaStores.push_back({ pSt, Index, AllocaReg });
+  m_RememberedAllocaStores.push_back({pSt, Index, AllocaReg});
 }
 
-llvm::Value* DxilAnnotateWithVirtualRegister::MultiplyPossiblyDynamicValues(llvm::IRBuilder<> & Builder, hlsl::OP* HlslOP, llvm::Value* l, uint32_t r)
-{
-    if (r == 1)
-        return l;
-    if (auto* lci = llvm::dyn_cast<llvm::ConstantInt>(l))
-        return HlslOP->GetU32Const(lci->getLimitedValue() * r);
-    auto Mul = Builder.CreateMul(l, HlslOP->GetU32Const(r), "Mul_" + l->getName() + "_" + std::to_string(r));
-    AnnotateValues(llvm::dyn_cast<llvm::Instruction>(Mul));
-    return Mul;
+llvm::Value *DxilAnnotateWithVirtualRegister::MultiplyPossiblyDynamicValues(
+    llvm::IRBuilder<> &Builder, hlsl::OP *HlslOP, llvm::Value *l, uint32_t r) {
+  if (r == 1)
+    return l;
+  if (auto *lci = llvm::dyn_cast<llvm::ConstantInt>(l))
+    return HlslOP->GetU32Const(lci->getLimitedValue() * r);
+  auto Mul = Builder.CreateMul(l, HlslOP->GetU32Const(r),
+                               "Mul_" + l->getName() + "_" + std::to_string(r));
+  AnnotateValues(llvm::dyn_cast<llvm::Instruction>(Mul));
+  return Mul;
 }
 
-llvm::Value* DxilAnnotateWithVirtualRegister::AddPossiblyDynamicValues(llvm::IRBuilder<>& Builder, hlsl::OP* HlslOP, llvm::Value* l, llvm::Value* r)
-{
-    auto* rci = llvm::dyn_cast<llvm::ConstantInt>(r);
-    if (rci && rci->getLimitedValue() == 0)
-        return l;
-    auto* lci = llvm::dyn_cast<llvm::ConstantInt>(l);
-    if (lci && lci->getLimitedValue() == 0)
-        return r;
-    if (lci != nullptr && rci != nullptr)
-        return HlslOP->GetU32Const(lci->getLimitedValue() + rci->getLimitedValue());
-    auto * Add = Builder.CreateAdd(l, r, "Add_" + l->getName() + "_" + r->getName());
-    AnnotateValues(llvm::dyn_cast<llvm::Instruction>(Add));
-    return Add;
+llvm::Value *DxilAnnotateWithVirtualRegister::AddPossiblyDynamicValues(
+    llvm::IRBuilder<> &Builder, hlsl::OP *HlslOP, llvm::Value *l,
+    llvm::Value *r) {
+  auto *rci = llvm::dyn_cast<llvm::ConstantInt>(r);
+  if (rci && rci->getLimitedValue() == 0)
+    return l;
+  auto *lci = llvm::dyn_cast<llvm::ConstantInt>(l);
+  if (lci && lci->getLimitedValue() == 0)
+    return r;
+  if (lci != nullptr && rci != nullptr)
+    return HlslOP->GetU32Const(lci->getLimitedValue() + rci->getLimitedValue());
+  auto *Add =
+      Builder.CreateAdd(l, r, "Add_" + l->getName() + "_" + r->getName());
+  AnnotateValues(llvm::dyn_cast<llvm::Instruction>(Add));
+  return Add;
 }
 
-llvm::Value * DxilAnnotateWithVirtualRegister::GetStructOffset(llvm::IRBuilder<>& Builder, hlsl::OP* HlslOP, llvm::GetElementPtrInst *pGEP,
-                                uint32_t &GEPOperandIndex,
-                                llvm::Type *pElementType) {
+llvm::Value *DxilAnnotateWithVirtualRegister::GetStructOffset(
+    llvm::IRBuilder<> &Builder, hlsl::OP *HlslOP, llvm::GetElementPtrInst *pGEP,
+    uint32_t &GEPOperandIndex, llvm::Type *pElementType) {
   if (IsInstrumentableFundamentalType(pElementType)) {
-      return HlslOP->GetU32Const(0);
+    return HlslOP->GetU32Const(0);
   } else if (auto *pArray = llvm::dyn_cast<llvm::ArrayType>(pElementType)) {
     // 1D-array example:
     //
@@ -303,9 +315,12 @@ llvm::Value * DxilAnnotateWithVirtualRegister::GetStructOffset(llvm::IRBuilder<>
     auto *pArrayIndex = pGEP->getOperand(GEPOperandIndex++);
 
     auto pArrayElementType = pArray->getArrayElementType();
-    auto * MemberIndex = MultiplyPossiblyDynamicValues(Builder, HlslOP, pArrayIndex, CountStructMembers(pArrayElementType));
+    auto *MemberIndex = MultiplyPossiblyDynamicValues(
+        Builder, HlslOP, pArrayIndex, CountStructMembers(pArrayElementType));
     return AddPossiblyDynamicValues(Builder, HlslOP, MemberIndex,
-        GetStructOffset(Builder, HlslOP, pGEP, GEPOperandIndex, pArrayElementType));
+                                    GetStructOffset(Builder, HlslOP, pGEP,
+                                                    GEPOperandIndex,
+                                                    pArrayElementType));
   } else if (auto *pStruct = llvm::dyn_cast<llvm::StructType>(pElementType)) {
     DXASSERT(GEPOperandIndex < pGEP->getNumOperands(),
              "Unexpectedly read too many GetElementPtrInst operands");
@@ -324,15 +339,18 @@ llvm::Value * DxilAnnotateWithVirtualRegister::GetStructOffset(llvm::IRBuilder<>
       MemberOffset += CountStructMembers(pStruct->getElementType(i));
     }
 
-    return AddPossiblyDynamicValues(Builder, HlslOP, HlslOP->GetU32Const(MemberOffset), GetStructOffset(Builder, HlslOP, pGEP, GEPOperandIndex,
-                                          pStruct->getElementType(MemberIndex)));
+    return AddPossiblyDynamicValues(
+        Builder, HlslOP, HlslOP->GetU32Const(MemberOffset),
+        GetStructOffset(Builder, HlslOP, pGEP, GEPOperandIndex,
+                        pStruct->getElementType(MemberIndex)));
   } else {
     return HlslOP->GetU32Const(0);
   }
 }
 
-bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(hlsl::OP* HlslOP,
-    llvm::Value *V, llvm::AllocaInst **pAI, llvm::Value **pIdx) {
+bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
+    hlsl::OP *HlslOP, llvm::Value *V, llvm::AllocaInst **pAI,
+    llvm::Value **pIdx) {
 
   *pAI = nullptr;
   *pIdx = nullptr;
@@ -411,9 +429,11 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(hlsl::OP* HlslOP,
 
     llvm::IRBuilder<> B(pGEP);
 
-    auto offset = GetStructOffset(B, HlslOP, pGEP, GEPOperandIndex, pStructType);
+    auto offset =
+        GetStructOffset(B, HlslOP, pGEP, GEPOperandIndex, pStructType);
 
-    llvm::Value* IndexValue = AddPossiblyDynamicValues(B, HlslOP, offset, HlslOP->GetU32Const(precedingMemberCount));
+    llvm::Value *IndexValue = AddPossiblyDynamicValues(
+        B, HlslOP, offset, HlslOP->GetU32Const(precedingMemberCount));
 
     if (IndexValue != nullptr) {
       *pAI = Alloca;
@@ -523,7 +543,8 @@ void DxilAnnotateWithVirtualRegister::SplitVectorStores(hlsl::OP *HlslOP,
 
   llvm::AllocaInst *Alloca;
   llvm::Value *Index;
-  if (!IsAllocaRegisterWrite(HlslOP, pSt->getPointerOperand(), &Alloca, &Index)) {
+  if (!IsAllocaRegisterWrite(HlslOP, pSt->getPointerOperand(), &Alloca,
+                             &Index)) {
     return;
   }
 

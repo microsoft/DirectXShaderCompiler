@@ -36,7 +36,7 @@ using namespace PIXPassHelpers;
 
 using namespace llvm;
 
-//#define VALUE_TO_DECLARE_LOGGING
+// #define VALUE_TO_DECLARE_LOGGING
 
 #ifdef VALUE_TO_DECLARE_LOGGING
 #ifndef PIX_DEBUG_DUMP_HELPER
@@ -950,7 +950,8 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(llvm::Module &M,
       // Offset}. InitialOffset is the offset from DbgValue's expression
       // (i.e., the offset from the Variable's start), and Offset is the
       // Scalar Value's packed offset from DbgValue's value.
-      for (const ValueAndOffset &VO : SplitValue(ValueFromDbgInst, InitialOffset, B)) {
+      for (const ValueAndOffset &VO :
+           SplitValue(ValueFromDbgInst, InitialOffset, B)) {
 
         OffsetInBits AlignedOffset;
         if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
