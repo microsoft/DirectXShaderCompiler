@@ -5,9 +5,6 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
-//
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
 //                                                                           //
 ///
 /// \file                                                                    //
@@ -111,6 +108,7 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
 // which can't be annotated. But includes UDTs of trivially copyable data and
 // the builtin trivially copyable raytracing structs.
 bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT) {
+  assert(!QT->isIncompleteType() && "Type must be complete!");
   const clang::Type *Ty = QT.getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     const RecordDecl *RD = RT->getDecl();
@@ -590,11 +588,34 @@ bool IsHLSLRONodeInputRecordType(clang::QualType type) {
          static_cast<uint32_t>(DXIL::NodeIOFlags::Input);
 }
 
+bool IsHLSLDispatchNodeInputRecordType(clang::QualType type) {
+  return IsHLSLNodeInputType(type) &&
+         (static_cast<uint32_t>(GetNodeIOType(type)) &
+          static_cast<uint32_t>(DXIL::NodeIOFlags::DispatchRecord)) != 0;
+}
+
 bool IsHLSLNodeOutputType(clang::QualType type) {
   return (static_cast<uint32_t>(GetNodeIOType(type)) &
           (static_cast<uint32_t>(DXIL::NodeIOFlags::Output) |
            static_cast<uint32_t>(DXIL::NodeIOFlags::RecordGranularityMask))) ==
          static_cast<uint32_t>(DXIL::NodeIOFlags::Output);
+}
+
+bool IsHLSLNodeRecordArrayType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    if (name == "ThreadNodeOutputRecords" || name == "GroupNodeOutputRecords" ||
+        name == "GroupNodeInputRecords" || name == "RWGroupNodeInputRecords" ||
+        name == "EmptyNodeInput")
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLEmptyNodeRecordType(clang::QualType type) {
+  return (static_cast<uint32_t>(GetNodeIOType(type)) &
+          static_cast<uint32_t>(DXIL::NodeIOFlags::EmptyRecord)) ==
+         static_cast<uint32_t>(DXIL::NodeIOFlags::EmptyRecord);
 }
 
 bool IsHLSLStructuredBufferType(clang::QualType type) {
@@ -837,6 +858,23 @@ QualType GetHLSLResourceResultType(QualType type) {
   DXASSERT(HandleFieldDecl->getName() == "h",
            "Resource must have a handle field");
   return HandleFieldDecl->getType();
+}
+
+QualType GetHLSLNodeIOResultType(ASTContext &astContext, QualType type) {
+  if (hlsl::IsHLSLEmptyNodeRecordType(type)) {
+    RecordDecl *RD = astContext.buildImplicitRecord("");
+    RD->startDefinition();
+    RD->completeDefinition();
+    return astContext.getRecordType(RD);
+  } else if (hlsl::IsHLSLNodeType(type)) {
+    const RecordType *recordType = type->getAs<RecordType>();
+    if (const auto *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(recordType->getDecl())) {
+      const auto &templateArgs = templateDecl->getTemplateArgs();
+      return templateArgs[0].getAsType();
+    }
+  }
+  return type;
 }
 
 unsigned GetHLSLResourceTemplateUInt(clang::QualType type) {

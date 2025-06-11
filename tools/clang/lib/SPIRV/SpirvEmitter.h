@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 //
 //  This file defines a SPIR-V emitter class that takes in HLSL AST and emits
@@ -83,6 +80,9 @@ public:
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
   SpirvInstruction *doExpr(const Expr *expr, SourceRange rangeOverride = {});
+  SpirvInstruction *doExprEnsuringRValue(const Expr *expr,
+                                         SourceLocation location,
+                                         SourceRange range);
 
   /// Processes the given expression and emits SPIR-V instructions. If the
   /// result is a GLValue, does an additional load.
@@ -126,6 +126,8 @@ public:
                                        SourceRange range = {});
 
 private:
+  bool handleNodePayloadArrayType(const ParmVarDecl *decl,
+                                  SpirvInstruction *instr);
   void doFunctionDecl(const FunctionDecl *decl);
   void doVarDecl(const VarDecl *decl);
   void doRecordDecl(const RecordDecl *decl);
@@ -176,7 +178,8 @@ private:
   /// Overload with pre computed SpirvEvalInfo.
   ///
   /// The given expr will not be evaluated again.
-  SpirvInstruction *loadIfGLValue(const Expr *expr, SpirvInstruction *info);
+  SpirvInstruction *loadIfGLValue(const Expr *expr, SpirvInstruction *info,
+                                  SourceRange rangeOverride = {});
 
   /// Loads the pointer of the aliased-to-variable if the given expression is a
   /// DeclRefExpr referencing an alias variable. See DeclResultIdMapper for
@@ -504,6 +507,9 @@ private:
   SpirvInstruction *
   processIntrinsicGetBufferContents(const CXXMemberCallExpr *);
 
+  /// Processes the 'Barrier' intrinsic function.
+  SpirvInstruction *processIntrinsicBarrier(const CallExpr *);
+
   /// Processes the 'GroupMemoryBarrier', 'GroupMemoryBarrierWithGroupSync',
   /// 'DeviceMemoryBarrier', 'DeviceMemoryBarrierWithGroupSync',
   /// 'AllMemoryBarrier', and 'AllMemoryBarrierWithGroupSync' intrinsic
@@ -511,6 +517,40 @@ private:
   SpirvInstruction *processIntrinsicMemoryBarrier(const CallExpr *,
                                                   bool isDevice, bool groupSync,
                                                   bool isAllBarrier);
+
+  /// Processes the 'GetRemainingRecursionLevels' intrinsic function.
+  SpirvInstruction *
+  processIntrinsicGetRemainingRecursionLevels(const CallExpr *callExpr);
+
+  /// Processes the 'IsValid' intrinsic function.
+  SpirvInstruction *processIntrinsicIsValid(const CXXMemberCallExpr *callExpr);
+
+  /// Processes the 'Get' intrinsic function for (arrays of) node records and
+  /// the array subscript operator for node record arrays.
+  SpirvInstruction *
+  processIntrinsicExtractRecordStruct(const CXXMemberCallExpr *callExpr);
+
+  /// Processes the 'GetGroupNodeOutputRecords' and 'GetThreadNodeOutputRecords'
+  /// intrinsic functions.
+  SpirvInstruction *
+  processIntrinsicGetNodeOutputRecords(const CXXMemberCallExpr *callExpr,
+                                       bool isGroupShared);
+
+  /// Processes the 'IncrementOutputCount' intrinsic function.
+  SpirvInstruction *
+  processIntrinsicIncrementOutputCount(const CXXMemberCallExpr *callExpr,
+                                       bool isGroupShared);
+
+  /// Processes the 'Count' intrinsic function for node input record arrays.
+  SpirvInstruction *
+  processIntrinsicGetRecordCount(const CXXMemberCallExpr *callExpr);
+
+  /// Processes the 'OutputComplete' intrinsic function.
+  void processIntrinsicOutputComplete(const CXXMemberCallExpr *callExpr);
+
+  /// Processes the 'FinishedCrossGroupSharing' intrinsic function.
+  SpirvInstruction *
+  processIntrinsicFinishedCrossGroupSharing(const CXXMemberCallExpr *callExpr);
 
   /// Processes the 'mad' intrinsic function.
   SpirvInstruction *processIntrinsicMad(const CallExpr *);
@@ -849,6 +889,7 @@ private:
   static hlsl::ShaderModel::Kind getShaderModelKind(StringRef stageName);
   static spv::ExecutionModel getSpirvShaderStage(hlsl::ShaderModel::Kind smk,
                                                  bool);
+  void checkForWaveSizeAttr(const FunctionDecl *decl);
 
   /// \brief Handle inline SPIR-V attributes for the entry function.
   void processInlineSpirvAttributes(const FunctionDecl *entryFunction);
@@ -874,6 +915,10 @@ private:
   /// \brief Adds necessary execution modes for the compute shader based on the
   /// HLSL attributes of the entry point function.
   void processComputeShaderAttributes(const FunctionDecl *entryFunction);
+
+  /// \brief Adds necessary execution modes for the node shader based on the
+  /// HLSL attributes of the entry point function.
+  void processNodeShaderAttributes(const FunctionDecl *entryFunction);
 
   /// \brief Adds necessary execution modes for the mesh/amplification shader
   /// based on the HLSL attributes of the entry point function.

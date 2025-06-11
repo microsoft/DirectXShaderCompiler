@@ -7,9 +7,6 @@
 //                                                                           //
 // Lower functions to lower HL operations to DXIL operations.                //
 //                                                                           //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
-// All rights reserved.                                                      //
-//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilConstants.h"

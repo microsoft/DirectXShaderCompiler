@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 
 #include "LowerTypeVisitor.h"
@@ -364,6 +361,16 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
     if (raType->getElementType() == loweredElemType)
       return raType;
     return spvContext.getRuntimeArrayType(loweredElemType, raType->getStride());
+  }
+  // Node payload arrays could contain a hybrid type
+  else if (const auto *npaType = dyn_cast<NodePayloadArrayType>(type)) {
+    const auto *loweredElemType =
+        lowerType(npaType->getElementType(), rule, loc);
+    // If runtime array didn't contain any hybrid types, return itself.
+    if (npaType->getElementType() == loweredElemType)
+      return npaType;
+    return spvContext.getNodePayloadArrayType(loweredElemType,
+                                              npaType->getNodeDecl());
   }
   // Pointer types could point to a hybrid type.
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {

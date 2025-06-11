@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_SPIRV_EMITVISITOR_H
 #define LLVM_CLANG_SPIRV_EMITVISITOR_H
@@ -86,7 +83,8 @@ public:
   // parameters.
   void emitDecoration(uint32_t typeResultId, spv::Decoration,
                       llvm::ArrayRef<uint32_t> decorationParams,
-                      llvm::Optional<uint32_t> memberIndex = llvm::None);
+                      llvm::Optional<uint32_t> memberIndex = llvm::None,
+                      bool usesIdParams = false);
 
   uint32_t getOrCreateConstant(SpirvConstant *);
 
@@ -113,6 +111,7 @@ public:
   uint32_t getOrCreateConstantNull(SpirvConstantNull *);
   uint32_t getOrCreateUndef(SpirvUndef *);
   uint32_t getOrCreateConstantBool(SpirvConstantBoolean *);
+  uint32_t getOrCreateConstantString(SpirvConstantString *);
   template <typename vecType>
   void emitLiteral(const SpirvConstant *, vecType &outInst);
   template <typename vecType>
@@ -176,6 +175,7 @@ private:
       emittedConstantInts;
   llvm::DenseMap<std::pair<uint64_t, const SpirvType *>, uint32_t>
       emittedConstantFloats;
+  llvm::DenseMap<StringRef, const SpirvConstantString *> emittedConstantStrings;
   llvm::SmallVector<SpirvConstantComposite *, 8> emittedConstantComposites;
   llvm::SmallVector<SpirvConstantNull *, 8> emittedConstantNulls;
   llvm::SmallVector<SpirvUndef *, 8> emittedUndef;
@@ -251,6 +251,11 @@ public:
   bool visit(SpirvAccessChain *) override;
   bool visit(SpirvAtomic *) override;
   bool visit(SpirvBarrier *) override;
+  bool visit(SpirvIsNodePayloadValid *inst) override;
+  bool visit(SpirvNodePayloadArrayLength *inst) override;
+  bool visit(SpirvAllocateNodePayloads *inst) override;
+  bool visit(SpirvEnqueueNodePayloads *inst) override;
+  bool visit(SpirvFinishWritingNodePayload *inst) override;
   bool visit(SpirvBinaryOp *) override;
   bool visit(SpirvBitFieldExtract *) override;
   bool visit(SpirvBitFieldInsert *) override;
@@ -258,6 +263,7 @@ public:
   bool visit(SpirvConstantInteger *) override;
   bool visit(SpirvConstantFloat *) override;
   bool visit(SpirvConstantComposite *) override;
+  bool visit(SpirvConstantString *) override;
   bool visit(SpirvConstantNull *) override;
   bool visit(SpirvConvertPtrToU *) override;
   bool visit(SpirvConvertUToPtr *) override;
@@ -458,6 +464,10 @@ private:
   std::vector<uint32_t> mainBinary;
   // String literals to SpirvString objects
   llvm::StringMap<uint32_t> stringIdMap;
+  // String literals to SpirvConstantString objects
+  llvm::StringMap<uint32_t> stringConstantIdMap;
+  // String spec constants
+  llvm::DenseSet<const SpirvInstruction *> stringSpecConstantInstructions;
   // Main file information for debugging that will be used by OpLine.
   uint32_t debugMainFileId;
   // Id for Vulkan DebugInfo extended instruction set. Used when generating
