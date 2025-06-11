@@ -437,7 +437,7 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
 
     if (IndexValue != nullptr) {
       *pAI = Alloca;
-      *pIdx = offset;
+      *pIdx = IndexValue;
       return true;
     }
     return false;
