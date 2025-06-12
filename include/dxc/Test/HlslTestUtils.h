@@ -472,13 +472,6 @@ inline bool isdenorm(float f) {
           f <= -std::numeric_limits<float>::denorm_min());
 }
 
-template <typename T> inline bool isdenorm(T f) {
-  return (std::numeric_limits<T>::denorm_min() <= f &&
-          f < std::numeric_limits<T>::min()) ||
-         (-std::numeric_limits<T>::min() < f &&
-          f <= -std::numeric_limits<T>::denorm_min());
-}
-
 #endif // FP_SUBNORMAL
 
 inline float ifdenorm_flushf(float a) {
