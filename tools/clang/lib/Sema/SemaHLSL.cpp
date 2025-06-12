@@ -10947,11 +10947,13 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
       }
 
       if (IsBABLoad || IsBABStore) {
-        const bool IsLegalTemplate =
-            !functionTemplateTypeArg.isNull() &&
-            hlsl::IsHLSLNumericOrAggregateOfNumericType(
-                functionTemplateTypeArg);
-        if (!IsLegalTemplate) {
+        const bool IsNull = functionTemplateTypeArg.isNull();
+        // Incomplete type is diagnosed elsewhere, so just fail if incomplete.
+        if (!IsNull &&
+            getSema()->RequireCompleteType(Loc, functionTemplateTypeArg, 0))
+          return Sema::TemplateDeductionResult::TDK_Invalid;
+        if (IsNull || !hlsl::IsHLSLNumericOrAggregateOfNumericType(
+                          functionTemplateTypeArg)) {
           getSema()->Diag(Loc, diag::err_hlsl_intrinsic_template_arg_numeric)
               << intrinsicName;
           DiagnoseTypeElements(
@@ -17137,6 +17139,10 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
   DXIL::ShaderKind shaderKind = ShaderModel::KindFromFullName(StageName);
   if (shaderKind == DXIL::ShaderKind::Node) {
     NodeLoc = pAttr->getLocation();
+    // SPIR-V node shader support is experimental
+    if (S.getLangOpts().SPIRV) {
+      S.Diag(NodeLoc, diag::warn_spirv_node_shaders_experimental);
+    }
   }
   if (NodeLoc.isInvalid()) {
     return;

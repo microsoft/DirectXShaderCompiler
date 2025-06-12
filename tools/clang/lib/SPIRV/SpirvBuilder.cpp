@@ -81,7 +81,9 @@ SpirvBuilder::addFnParam(QualType ptrType, bool isPrecise, bool isNointerp,
     param = new (context)
         SpirvFunctionParameter(ptrType, isPrecise, isNointerp, loc);
   }
-  param->setStorageClass(spv::StorageClass::Function);
+  param->setStorageClass(hlsl::IsHLSLNodeInputType(ptrType)
+                             ? spv::StorageClass::NodePayloadAMDX
+                             : spv::StorageClass::Function);
   param->setDebugName(name);
   function->addParameter(param);
   return param;
@@ -230,6 +232,13 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
     createEndInvocationInterlockEXT(loc, range);
   }
 
+  if (context.hasLoweredType(pointer)) {
+    // preserve distinct node payload array types
+    auto *ptrType = dyn_cast<SpirvPointerType>(pointer->getResultType());
+    instruction->setResultType(ptrType->getPointeeType());
+    context.addToInstructionsWithLoweredType(instruction);
+  }
+
   const auto &bitfieldInfo = pointer->getBitfieldInfo();
   if (!bitfieldInfo.hasValue())
     return instruction;
@@ -306,6 +315,12 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
 
   auto *instruction =
       new (context) SpirvStore(loc, address, source, llvm::None, range);
+  if (context.hasLoweredType(source)) {
+    // preserve distinct node payload array types
+    address->setResultType(context.getPointerType(source->getResultType(),
+                                                  address->getStorageClass()));
+    context.addToInstructionsWithLoweredType(address);
+  }
   insertPoint->addInstruction(instruction);
 
   if (address->getStorageClass() == spv::StorageClass::PhysicalStorageBuffer &&
@@ -313,7 +328,7 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
     AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
     uint32_t align, size, stride;
     std::tie(align, size) = alignmentCalc.getAlignmentAndSize(
-        address->getAstResultType(), address->getLayoutRule(), llvm::None,
+        source->getAstResultType(), address->getLayoutRule(), llvm::None,
         &stride);
     instruction->setAlignment(align);
   }
@@ -870,6 +885,53 @@ SpirvInstruction *SpirvBuilder::createNonSemanticDebugPrintfExtInst(
                    instId, operands);
   insertPoint->addInstruction(extInst);
   return extInst;
+}
+
+SpirvInstruction *
+SpirvBuilder::createIsNodePayloadValid(SpirvInstruction *payloadArray,
+                                       SpirvInstruction *nodeIndex,
+                                       SourceLocation loc) {
+  auto *inst = new (context)
+      SpirvIsNodePayloadValid(astContext.BoolTy, loc, payloadArray, nodeIndex);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
+SpirvInstruction *
+SpirvBuilder::createNodePayloadArrayLength(SpirvInstruction *payloadArray,
+                                           SourceLocation loc) {
+  auto *inst = new (context)
+      SpirvNodePayloadArrayLength(astContext.UnsignedIntTy, loc, payloadArray);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
+SpirvInstruction *SpirvBuilder::createAllocateNodePayloads(
+    QualType resultType, spv::Scope allocationScope,
+    SpirvInstruction *shaderIndex, SpirvInstruction *recordCount,
+    SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context) SpirvAllocateNodePayloads(
+      resultType, loc, allocationScope, shaderIndex, recordCount);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
+void SpirvBuilder::createEnqueueOutputNodePayloads(SpirvInstruction *payload,
+                                                   SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context) SpirvEnqueueNodePayloads(loc, payload);
+  insertPoint->addInstruction(inst);
+}
+
+SpirvInstruction *
+SpirvBuilder::createFinishWritingNodePayload(SpirvInstruction *payload,
+                                             SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context)
+      SpirvFinishWritingNodePayload(astContext.BoolTy, loc, payload);
+  insertPoint->addInstruction(inst);
+  return inst;
 }
 
 void SpirvBuilder::createBarrier(spv::Scope memoryScope,
@@ -1864,6 +1926,14 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
   auto *nullConst = new (context) SpirvConstantNull(type);
   mod->addConstant(nullConst);
   return nullConst;
+}
+
+SpirvConstant *SpirvBuilder::getConstantString(llvm::StringRef str,
+                                               bool specConst) {
+  // We do not care about making unique constants at this point.
+  auto *stringConst = new (context) SpirvConstantString(str, specConst);
+  mod->addConstant(stringConst);
+  return stringConst;
 }
 
 SpirvUndef *SpirvBuilder::getUndef(QualType type) {
