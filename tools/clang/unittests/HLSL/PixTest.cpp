@@ -1218,7 +1218,7 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
   ReplaceDxilBlobPart(pBlob->GetBufferPointer(), pBlob->GetBufferSize(),
                       pAnnotated, &pAnnotatedContainer);
 
-#if 1 // handy for debugging
+#if 0 // handy for debugging
   auto disTextW = Disassemble(pAnnotatedContainer);
 #endif
 
