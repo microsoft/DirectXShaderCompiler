@@ -732,7 +732,7 @@ public:
         &computePsoDesc, IID_PPV_ARGS(ppComputeState)));
   }
 
-    void CreateGraphicsCommandQueue(ID3D12Device *pDevice,
+  void CreateGraphicsCommandQueue(ID3D12Device *pDevice,
                                   ID3D12CommandQueue **ppCommandQueue) {
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
     queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
@@ -10704,9 +10704,10 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
       // Test Compute shader
       {
         pShaderOp->CS = pShaderOp->GetString("CS66");
-        std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
-            pDevice, m_support, "DynamicResourcesDynamicIndexing", nullptr,
-            ShaderOpSet);
+        std::shared_ptr<st::ShaderOpTestResult> test =
+            st::RunShaderOpTestAfterParse(pDevice, m_support,
+                                          "DynamicResourcesDynamicIndexing",
+                                          nullptr, ShaderOpSet);
 
         MappedData resultData;
         test->Test->GetReadBackData("g_result", &resultData);
@@ -10721,9 +10722,10 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
         pShaderOp->CS = nullptr;
         pShaderOp->VS = pShaderOp->GetString("VS66");
         pShaderOp->PS = pShaderOp->GetString("PS66");
-        std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
-            pDevice, m_support, "DynamicResourcesDynamicIndexing", nullptr,
-            ShaderOpSet);
+        std::shared_ptr<st::ShaderOpTestResult> test =
+            st::RunShaderOpTestAfterParse(pDevice, m_support,
+                                          "DynamicResourcesDynamicIndexing",
+                                          nullptr, ShaderOpSet);
 
         MappedData resultVSData;
         MappedData resultPSData;
@@ -10786,19 +10788,20 @@ void RunWaveSizeTest(UINT minWaveSize, UINT maxWaveSize,
                              waveSize) != -1);
 
     // run the shader
-    std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
-        pDevice, m_support, "WaveSizeTest",
-        [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-          VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
-          pShaderOp->Shaders.at(0).Arguments = compilerOptions;
-          pShaderOp->Shaders.at(0).Text = waveSizeTestShader;
+    std::shared_ptr<st::ShaderOpTestResult> test =
+        st::RunShaderOpTestAfterParse(
+            pDevice, m_support, "WaveSizeTest",
+            [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+              VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
+              pShaderOp->Shaders.at(0).Arguments = compilerOptions;
+              pShaderOp->Shaders.at(0).Text = waveSizeTestShader;
 
-          VERIFY_IS_TRUE(sizeof(WaveSizeTestData) * MAX_WAVESIZE <=
-                         Data.size());
-          WaveSizeTestData *pInData = (WaveSizeTestData *)Data.data();
-          memset(pInData, 0, sizeof(WaveSizeTestData) * MAX_WAVESIZE);
-        },
-        ShaderOpSet);
+              VERIFY_IS_TRUE(sizeof(WaveSizeTestData) * MAX_WAVESIZE <=
+                             Data.size());
+              WaveSizeTestData *pInData = (WaveSizeTestData *)Data.data();
+              memset(pInData, 0, sizeof(WaveSizeTestData) * MAX_WAVESIZE);
+            },
+            ShaderOpSet);
 
     // verify expected values
     MappedData dataUav;
@@ -11401,8 +11404,8 @@ TEST_F(ExecutionTest, AtomicsTest) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 32-bit integer atomic operations in "
                   L"amp/mesh/pixel shaders");
-    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr,
-                                     ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap",
+                                         nullptr, ShaderOpSet);
     VerifyAtomicsTest(test, 8 * 8 * 2 + 8 * 8 * 2 + 64 * 64, 32);
     VerifyAtomicsSharedTest(test, 8 * 8 * 2 + 8 * 8 * 2, 32);
   }
@@ -11411,8 +11414,8 @@ TEST_F(ExecutionTest, AtomicsTest) {
   pShaderOp->MS = nullptr;
   LogCommentFmt(
       L"Verifying 32-bit integer atomic operations in vert/pixel shaders");
-  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr,
-                                   ShaderOpSet);
+  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap",
+                                       nullptr, ShaderOpSet);
   VerifyAtomicsTest(test, 64 * 64 + 6, 32);
 }
 
@@ -11458,8 +11461,8 @@ TEST_F(ExecutionTest, Atomics64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers "
                   L"in amp/mesh/pixel shader");
-    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr,
-                                     ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot",
+                                         nullptr, ShaderOpSet);
     VerifyAtomicsRawTest(test, 8 * 8 * 2 + 8 * 8 * 2 + 64 * 64, 64);
   }
 
@@ -11467,8 +11470,8 @@ TEST_F(ExecutionTest, Atomics64Test) {
   pShaderOp->MS = nullptr;
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in "
                 L"vert/pixel shader");
-  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr,
-                                   ShaderOpSet);
+  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot",
+                                       nullptr, ShaderOpSet);
   VerifyAtomicsRawTest(test, 64 * 64 + 6, 64);
 }
 
@@ -11521,8 +11524,8 @@ TEST_F(ExecutionTest, AtomicsRawHeap64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on heap raw "
                   L"buffers in amp/mesh/pixel shader");
-    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr,
-                                     ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap",
+                                         nullptr, ShaderOpSet);
     VerifyAtomicsRawTest(test, 8 * 8 * 2 + 8 * 8 * 2 + 64 * 64, 64);
   }
 
@@ -11530,8 +11533,8 @@ TEST_F(ExecutionTest, AtomicsRawHeap64Test) {
   pShaderOp->MS = nullptr;
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on heap raw "
                 L"buffers in vert/pixel shader");
-  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr,
-                                   ShaderOpSet);
+  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap",
+                                       nullptr, ShaderOpSet);
   VerifyAtomicsRawTest(test, 64 * 64 + 6, 64);
 }
 
@@ -11584,8 +11587,8 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed "
                   L"resources in amp/mesh/pixel shader");
-    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr,
-                                     ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap",
+                                         nullptr, ShaderOpSet);
     VerifyAtomicsTypedTest(test, 8 * 8 * 2 + 8 * 8 * 2 + 64 * 64, 64);
   }
 
@@ -11593,8 +11596,8 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
   pShaderOp->MS = nullptr;
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed "
                 L"resources in vert/pixel shader");
-  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr,
-                                   ShaderOpSet);
+  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap",
+                                       nullptr, ShaderOpSet);
   VerifyAtomicsTypedTest(test, 64 * 64 + 6, 64);
 }
 
@@ -11644,8 +11647,8 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared "
                   L"variables in amp/mesh/pixel shader");
-    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr,
-                                     ShaderOpSet);
+    test = st::RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot",
+                                         nullptr, ShaderOpSet);
     VerifyAtomicsSharedTest(test, 8 * 8 * 2 + 8 * 8 * 2, 64);
   }
 }
@@ -11673,7 +11676,8 @@ void VerifyAtomicFloatResults(const float *results) {
   }
 }
 
-void VerifyAtomicsFloatSharedTest(std::shared_ptr<st::ShaderOpTestResult> test) {
+void VerifyAtomicsFloatSharedTest(
+    std::shared_ptr<st::ShaderOpTestResult> test) {
   MappedData Data;
   const float *pData = nullptr;
 
@@ -11759,7 +11763,7 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
     LogCommentFmt(L"Verifying float cmp/xchg atomic operations in "
                   L"amp/mesh/pixel shaders");
     test = st::RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics",
-                                     nullptr, ShaderOpSet);
+                                         nullptr, ShaderOpSet);
     VerifyAtomicsFloatTest(test);
     VerifyAtomicsFloatSharedTest(test);
   }
@@ -11768,8 +11772,8 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
   pShaderOp->MS = nullptr;
   LogCommentFmt(
       L"Verifying float cmp/xchg atomic operations in vert/pixel shaders");
-  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr,
-                                   ShaderOpSet);
+  test = st::RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics",
+                                       nullptr, ShaderOpSet);
   VerifyAtomicsFloatTest(test);
 }
 
@@ -11816,16 +11820,17 @@ TEST_F(ExecutionTest, HelperLaneTest) {
     if (!createDevice(&pDevice, sm, false /* skipUnsupported */))
       continue;
 
-    std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
-        pDevice, m_support, "HelperLaneTestNoWave",
-        // this callback is called when the test is creating the resource to
-        // run the test
-        [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-          VERIFY_IS_TRUE(0 == _stricmp(Name, "UAVBuffer0"));
-          std::fill(Data.begin(), Data.end(), (BYTE)0xCC);
-          UNREFERENCED_PARAMETER(pShaderOp);
-        },
-        ShaderOpSet);
+    std::shared_ptr<st::ShaderOpTestResult> test =
+        st::RunShaderOpTestAfterParse(
+            pDevice, m_support, "HelperLaneTestNoWave",
+            // this callback is called when the test is creating the resource to
+            // run the test
+            [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+              VERIFY_IS_TRUE(0 == _stricmp(Name, "UAVBuffer0"));
+              std::fill(Data.begin(), Data.end(), (BYTE)0xCC);
+              UNREFERENCED_PARAMETER(pShaderOp);
+            },
+            ShaderOpSet);
 
     struct HelperLaneTestResult {
       int32_t is_helper_00;
@@ -12255,8 +12260,9 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
     // Test Compute shader
     {
       std::shared_ptr<st::ShaderOpTestResult> test =
-         st::RunShaderOpTestAfterParse(pDevice, m_support, "HelperLaneTestWave",
-                                    CleanUAVBuffer0Buffer, ShaderOpSet);
+          st::RunShaderOpTestAfterParse(pDevice, m_support,
+                                        "HelperLaneTestWave",
+                                        CleanUAVBuffer0Buffer, ShaderOpSet);
 
       MappedData uavData;
       test->Test->GetReadBackData("UAVBuffer0", &uavData);
@@ -12279,8 +12285,9 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
     {
       pShaderOp->CS = nullptr;
       std::shared_ptr<st::ShaderOpTestResult> test =
-         st::RunShaderOpTestAfterParse(pDevice, m_support, "HelperLaneTestWave",
-                                    CleanUAVBuffer0Buffer, ShaderOpSet);
+          st::RunShaderOpTestAfterParse(pDevice, m_support,
+                                        "HelperLaneTestWave",
+                                        CleanUAVBuffer0Buffer, ShaderOpSet);
 
       MappedData uavData;
       test->Test->GetReadBackData("UAVBuffer0", &uavData);
@@ -12385,8 +12392,9 @@ TEST_F(ExecutionTest, QuadAnyAll) {
     Skipped = false;
 
     // test compute
-    std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTestAfterParse(
-        pDevice, m_support, "QuadAnyAll", CleanUAVBuffer0Buffer, ShaderOpSet);
+    std::shared_ptr<st::ShaderOpTestResult> test =
+        st::RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
+                                      CleanUAVBuffer0Buffer, ShaderOpSet);
 
     MappedData uavData;
     test->Test->GetReadBackData("UAVBuffer0", &uavData);
@@ -12399,7 +12407,7 @@ TEST_F(ExecutionTest, QuadAnyAll) {
     pShaderOp->CS = nullptr;
     // test AS/MS
     test = st::RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
-                                     CleanUAVBuffer0Buffer, ShaderOpSet);
+                                         CleanUAVBuffer0Buffer, ShaderOpSet);
 
     test->Test->GetReadBackData("UAVBuffer0", &uavData);
     Result = VerifyQuadAnyAllResults((int2 *)uavData.data());
@@ -12605,8 +12613,9 @@ TEST_F(ExecutionTest, IsNormalTest) {
   {
     pShaderOp->CS = pShaderOp->GetString("CS60");
     std::shared_ptr<st::ShaderOpTestResult> test =
-       st::RunShaderOpTestAfterParse(pDevice, m_support, "IsNormal",
-                                  ResourceInitFn, ShaderInitFn, ShaderOpSet);
+        st::RunShaderOpTestAfterParse(pDevice, m_support, "IsNormal",
+                                      ResourceInitFn, ShaderInitFn,
+                                      ShaderOpSet);
 
     MappedData data;
     test->Test->GetReadBackData("g_TestData", &data);
