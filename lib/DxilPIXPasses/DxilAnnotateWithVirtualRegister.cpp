@@ -84,14 +84,9 @@ private:
   void AnnotateGeneric(llvm::Instruction *pI);
   void AssignNewDxilRegister(llvm::Instruction *pI);
   void AssignNewAllocaRegister(llvm::AllocaInst *pAlloca, std::uint32_t C);
-  llvm::Value *AddPossiblyDynamicValues(llvm::IRBuilder<> &Builder,
-                                        hlsl::OP *HlslOP, llvm::Value *l,
-                                        llvm::Value *r);
-  llvm::Value *MultiplyPossiblyDynamicValues(llvm::IRBuilder<> &Builder,
-                                             hlsl::OP *HlslOP, llvm::Value *l,
-                                             uint32_t r);
-  llvm::Value *GetStructOffset(llvm::IRBuilder<> &Builder, hlsl::OP *HlslOP,
-                               llvm::GetElementPtrInst *pGEP,
+  llvm::Value *AddConstIntValues(llvm::Value *l, llvm::Value *r);
+  llvm::Value *MultiplyConstIntValue(llvm::Value *l, uint32_t r);
+  llvm::Value *GetStructOffset(llvm::GetElementPtrInst *pGEP,
                                uint32_t &GEPOperandIndex,
                                llvm::Type *pElementType);
   hlsl::DxilModule *m_DM;
@@ -265,40 +260,44 @@ void DxilAnnotateWithVirtualRegister::AnnotateStore(hlsl::OP *HlslOP,
   m_RememberedAllocaStores.push_back({pSt, Index, AllocaReg});
 }
 
-llvm::Value *DxilAnnotateWithVirtualRegister::MultiplyPossiblyDynamicValues(
-    llvm::IRBuilder<> &Builder, hlsl::OP *HlslOP, llvm::Value *l, uint32_t r) {
+llvm::Value *
+DxilAnnotateWithVirtualRegister::MultiplyConstIntValue(llvm::Value *l,
+                                                       uint32_t r) {
   if (r == 1)
     return l;
   if (auto *lci = llvm::dyn_cast<llvm::ConstantInt>(l))
-    return HlslOP->GetU32Const(lci->getLimitedValue() * r);
-  auto Mul = Builder.CreateMul(l, HlslOP->GetU32Const(r),
-                               "Mul_" + l->getName() + "_" + std::to_string(r));
-  AnnotateValues(llvm::dyn_cast<llvm::Instruction>(Mul));
-  return Mul;
+    return m_DM->GetOP()->GetU32Const(lci->getLimitedValue() * r);
+  // Should never get here, but if we do, return the left as a reasonable
+  // default:
+  return l;
 }
 
-llvm::Value *DxilAnnotateWithVirtualRegister::AddPossiblyDynamicValues(
-    llvm::IRBuilder<> &Builder, hlsl::OP *HlslOP, llvm::Value *l,
-    llvm::Value *r) {
+llvm::Value *
+DxilAnnotateWithVirtualRegister::AddConstIntValues(llvm::Value *l,
+                                                   llvm::Value *r) {
   auto *rci = llvm::dyn_cast<llvm::ConstantInt>(r);
   if (rci && rci->getLimitedValue() == 0)
     return l;
   auto *lci = llvm::dyn_cast<llvm::ConstantInt>(l);
   if (lci && lci->getLimitedValue() == 0)
     return r;
+  // Both an assert and a check, in case of unexpected circumstances.
+  DXASSERT(lci != nullptr && rci != nullptr,
+           "Both sides of add should be constant ints");
   if (lci != nullptr && rci != nullptr)
-    return HlslOP->GetU32Const(lci->getLimitedValue() + rci->getLimitedValue());
-  auto *Add =
-      Builder.CreateAdd(l, r, "Add_" + l->getName() + "_" + r->getName());
-  AnnotateValues(llvm::dyn_cast<llvm::Instruction>(Add));
-  return Add;
+    return m_DM->GetOP()->GetU32Const(lci->getLimitedValue() +
+                                      rci->getLimitedValue());
+  // In an emergency, return the left argument. It'll be closest to
+  // the desired value.
+  return l;
 }
 
-llvm::Value *DxilAnnotateWithVirtualRegister::GetStructOffset(
-    llvm::IRBuilder<> &Builder, hlsl::OP *HlslOP, llvm::GetElementPtrInst *pGEP,
-    uint32_t &GEPOperandIndex, llvm::Type *pElementType) {
+llvm::Value *
+DxilAnnotateWithVirtualRegister::GetStructOffset(llvm::GetElementPtrInst *pGEP,
+                                                 uint32_t &GEPOperandIndex,
+                                                 llvm::Type *pElementType) {
   if (IsInstrumentableFundamentalType(pElementType)) {
-    return HlslOP->GetU32Const(0);
+    return m_DM->GetOP()->GetU32Const(0);
   } else if (auto *pArray = llvm::dyn_cast<llvm::ArrayType>(pElementType)) {
     // 1D-array example:
     //
@@ -315,12 +314,10 @@ llvm::Value *DxilAnnotateWithVirtualRegister::GetStructOffset(
     auto *pArrayIndex = pGEP->getOperand(GEPOperandIndex++);
 
     auto pArrayElementType = pArray->getArrayElementType();
-    auto *MemberIndex = MultiplyPossiblyDynamicValues(
-        Builder, HlslOP, pArrayIndex, CountStructMembers(pArrayElementType));
-    return AddPossiblyDynamicValues(Builder, HlslOP, MemberIndex,
-                                    GetStructOffset(Builder, HlslOP, pGEP,
-                                                    GEPOperandIndex,
-                                                    pArrayElementType));
+    auto *MemberIndex = MultiplyConstIntValue(
+        pArrayIndex, CountStructMembers(pArrayElementType));
+    return AddConstIntValues(
+        MemberIndex, GetStructOffset(pGEP, GEPOperandIndex, pArrayElementType));
   } else if (auto *pStruct = llvm::dyn_cast<llvm::StructType>(pElementType)) {
     DXASSERT(GEPOperandIndex < pGEP->getNumOperands(),
              "Unexpectedly read too many GetElementPtrInst operands");
@@ -329,7 +326,7 @@ llvm::Value *DxilAnnotateWithVirtualRegister::GetStructOffset(
         llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
 
     if (pMemberIndex == nullptr) {
-      return HlslOP->GetU32Const(0);
+      return m_DM->GetOP()->GetU32Const(0);
     }
 
     uint32_t MemberIndex = pMemberIndex->getLimitedValue();
@@ -339,12 +336,12 @@ llvm::Value *DxilAnnotateWithVirtualRegister::GetStructOffset(
       MemberOffset += CountStructMembers(pStruct->getElementType(i));
     }
 
-    return AddPossiblyDynamicValues(
-        Builder, HlslOP, HlslOP->GetU32Const(MemberOffset),
-        GetStructOffset(Builder, HlslOP, pGEP, GEPOperandIndex,
+    return AddConstIntValues(
+        m_DM->GetOP()->GetU32Const(MemberOffset),
+        GetStructOffset(pGEP, GEPOperandIndex,
                         pStruct->getElementType(MemberIndex)));
   } else {
-    return HlslOP->GetU32Const(0);
+    return m_DM->GetOP()->GetU32Const(0);
   }
 }
 
@@ -429,11 +426,10 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
 
     llvm::IRBuilder<> B(pGEP);
 
-    auto offset =
-        GetStructOffset(B, HlslOP, pGEP, GEPOperandIndex, pStructType);
+    auto offset = GetStructOffset(pGEP, GEPOperandIndex, pStructType);
 
-    llvm::Value *IndexValue = AddPossiblyDynamicValues(
-        B, HlslOP, offset, HlslOP->GetU32Const(precedingMemberCount));
+    llvm::Value *IndexValue =
+        AddConstIntValues(offset, HlslOP->GetU32Const(precedingMemberCount));
 
     if (IndexValue != nullptr) {
       *pAI = Alloca;
