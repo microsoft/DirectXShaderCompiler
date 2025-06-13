@@ -1156,6 +1156,13 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
 spv::ImageFormat
 LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
                                                     SourceLocation srcLoc) {
+
+  // In Vulkan 1.3, all image types can be Unknown.
+  FeatureManager &featureManager = spvBuilder.getFeatureManager();
+  if (!featureManager.isTargetEnvVulkan() ||
+      featureManager.isTargetEnvVulkan1p3OrAbove())
+    return spv::ImageFormat::Unknown;
+
   uint32_t elemCount = 1;
   QualType ty = {};
   if (!isScalarType(sampledType, &ty) &&
