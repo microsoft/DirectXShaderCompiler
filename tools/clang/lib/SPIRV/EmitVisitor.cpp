@@ -1635,12 +1635,6 @@ bool EmitVisitor::visit(SpirvDebugLexicalBlock *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugScope *inst) {
-  // Technically entry function wrappers do not exist in HLSL. They
-  // are just created by DXC. We do not want to emit DebugScope for
-  // it.
-  if (inEntryFunctionWrapper)
-    return true;
-
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
