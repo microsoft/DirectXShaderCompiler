@@ -1011,16 +1011,19 @@ right now:
    They are the default.
 2. DirectX memory layout rules for uniform buffers and storage buffers:
    they allow packing data on the application side that can be shared with
-   DirectX. They can be enabled by ``-fvk-use-dx-layout``. NOTE: This requires
-   ``VK_EXT_scalar_block_layout`` to be enabled on the application side.
+   DirectX. They can be enabled by ``-fvk-use-dx-layout``.
+   
+   NOTE: This requires ``VK_EXT_scalar_block_layout`` to be enabled on the
+   application side.
 3. Strict OpenGL ``std140`` for uniform buffers and strict OpenGL ``std430``
    for storage buffers: they allow packing data on the application side that
    can be shared with OpenGL. They can be enabled by ``-fvk-use-gl-layout``.
 4. Scalar layout rules introduced via `VK_EXT_scalar_block_layout`, which
    basically aligns all aggregrate types according to their elements'
-   natural alignment. They can be enabled by ``-fvk-use-scalar-layout``. NOTE:
-   This requires ``VK_EXT_scalar_block_layout`` to be enabled on the application
-   side.
+   natural alignment. They can be enabled by ``-fvk-use-scalar-layout``.
+   
+   NOTE: This requires ``VK_EXT_scalar_block_layout`` to be enabled on the
+   application side.
 
 In the above, "vector-relaxed OpenGL ``std140``/``std430``" rules mean OpenGL
 ``std140``/``std430`` rules with the following modification for vector type
