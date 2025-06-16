@@ -1574,7 +1574,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
     } else {
       Value *V = EVI->getOperand(0);
       StructType *StrTy = dyn_cast<StructType>(V->getType());
-      uint ExtractIndex = EVI->getIndices()[0];
+      unsigned ExtractIndex = EVI->getIndices()[0];
       // Ensure parameter is a single value that is extracted from the correct
       // ResRet struct location.
       bool IsLegal = EVI->getNumIndices() == 1 &&
