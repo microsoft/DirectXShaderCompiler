@@ -10309,6 +10309,10 @@ TEST_F(ExecutionTest, PackUnpackTest) {
   }
 }
 
+// This test expects a <pShader> that retrieves a signal value from each of a
+// few resources that are initialized here. <isDynamic> determines if it uses
+// the 6.6 Dynamic Resources feature. Values are read back from the result UAV
+// and compared to the expected signals
 void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
                                     const wchar_t *sm, bool isDynamic) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
