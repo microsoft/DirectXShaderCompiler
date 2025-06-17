@@ -78,8 +78,8 @@ private:
   void AnnotateValues(llvm::Instruction *pI);
   void AnnotateStore(hlsl::OP *HlslOP, llvm::Instruction *pI);
   void SplitVectorStores(llvm::Instruction *pI);
-  bool IsAllocaRegisterWrite(llvm::Value *V,
-                             llvm::AllocaInst **pAI, llvm::Value **pIdx);
+  bool IsAllocaRegisterWrite(llvm::Value *V, llvm::AllocaInst **pAI,
+                             llvm::Value **pIdx);
   void AnnotateAlloca(llvm::AllocaInst *pAlloca);
   void AnnotateGeneric(llvm::Instruction *pI);
   void AssignNewDxilRegister(llvm::Instruction *pI);
@@ -345,8 +345,7 @@ DxilAnnotateWithVirtualRegister::GetStructOffset(llvm::GetElementPtrInst *pGEP,
 }
 
 bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
-    llvm::Value *V, llvm::AllocaInst **pAI,
-    llvm::Value **pIdx) {
+    llvm::Value *V, llvm::AllocaInst **pAI, llvm::Value **pIdx) {
 
   *pAI = nullptr;
   *pIdx = nullptr;
@@ -427,8 +426,8 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
 
     auto offset = GetStructOffset(pGEP, GEPOperandIndex, pStructType);
 
-    llvm::Value *IndexValue =
-        AddConstIntValues(offset, m_DM->GetOP()->GetU32Const(precedingMemberCount));
+    llvm::Value *IndexValue = AddConstIntValues(
+        offset, m_DM->GetOP()->GetU32Const(precedingMemberCount));
 
     if (IndexValue != nullptr) {
       *pAI = Alloca;
