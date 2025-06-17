@@ -77,8 +77,8 @@ public:
 private:
   void AnnotateValues(llvm::Instruction *pI);
   void AnnotateStore(hlsl::OP *HlslOP, llvm::Instruction *pI);
-  void SplitVectorStores(hlsl::OP *HlslOP, llvm::Instruction *pI);
-  bool IsAllocaRegisterWrite(hlsl::OP *HlslOP, llvm::Value *V,
+  void SplitVectorStores(llvm::Instruction *pI);
+  bool IsAllocaRegisterWrite(llvm::Value *V,
                              llvm::AllocaInst **pAI, llvm::Value **pIdx);
   void AnnotateAlloca(llvm::AllocaInst *pAlloca);
   void AnnotateGeneric(llvm::Instruction *pI);
@@ -146,7 +146,7 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     for (auto &block : F->getBasicBlockList()) {
       for (auto it = block.begin(); it != block.end();) {
         llvm::Instruction *I = &*(it++);
-        SplitVectorStores(m_DM->GetOP(), I);
+        SplitVectorStores(I);
       }
     }
   }
@@ -248,8 +248,7 @@ void DxilAnnotateWithVirtualRegister::AnnotateStore(hlsl::OP *HlslOP,
 
   llvm::AllocaInst *Alloca;
   llvm::Value *Index;
-  if (!IsAllocaRegisterWrite(HlslOP, pSt->getPointerOperand(), &Alloca,
-                             &Index)) {
+  if (!IsAllocaRegisterWrite(pSt->getPointerOperand(), &Alloca, &Index)) {
     return;
   }
 
@@ -346,7 +345,7 @@ DxilAnnotateWithVirtualRegister::GetStructOffset(llvm::GetElementPtrInst *pGEP,
 }
 
 bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
-    hlsl::OP *HlslOP, llvm::Value *V, llvm::AllocaInst **pAI,
+    llvm::Value *V, llvm::AllocaInst **pAI,
     llvm::Value **pIdx) {
 
   *pAI = nullptr;
@@ -429,7 +428,7 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
     auto offset = GetStructOffset(pGEP, GEPOperandIndex, pStructType);
 
     llvm::Value *IndexValue =
-        AddConstIntValues(offset, HlslOP->GetU32Const(precedingMemberCount));
+        AddConstIntValues(offset, m_DM->GetOP()->GetU32Const(precedingMemberCount));
 
     if (IndexValue != nullptr) {
       *pAI = Alloca;
@@ -446,7 +445,7 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
     }
 
     *pAI = pAlloca;
-    *pIdx = HlslOP->GetU32Const(0);
+    *pIdx = m_DM->GetOP()->GetU32Const(0);
     return true;
   }
 
@@ -532,8 +531,7 @@ void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(
   }
 }
 
-void DxilAnnotateWithVirtualRegister::SplitVectorStores(hlsl::OP *HlslOP,
-                                                        llvm::Instruction *pI) {
+void DxilAnnotateWithVirtualRegister::SplitVectorStores(llvm::Instruction *pI) {
   auto *pSt = llvm::dyn_cast<llvm::StoreInst>(pI);
   if (pSt == nullptr) {
     return;
@@ -541,8 +539,7 @@ void DxilAnnotateWithVirtualRegister::SplitVectorStores(hlsl::OP *HlslOP,
 
   llvm::AllocaInst *Alloca;
   llvm::Value *Index;
-  if (!IsAllocaRegisterWrite(HlslOP, pSt->getPointerOperand(), &Alloca,
-                             &Index)) {
+  if (!IsAllocaRegisterWrite(pSt->getPointerOperand(), &Alloca, &Index)) {
     return;
   }
 
