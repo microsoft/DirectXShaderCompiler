@@ -185,7 +185,8 @@ dxil_debug_info::DxcPixDxilScalarStorage::Index(DWORD Index,
 STDMETHODIMP dxil_debug_info::DxcPixDxilScalarStorage::GetRegisterNumber(
     DWORD *pRegisterNumber) {
   const auto &ValueLocationMap = m_pVarInfo->m_ValueLocationMap;
-  auto RegIt = ValueLocationMap.find(m_OffsetFromStorageStartInBits);
+  // Bitfields will have been packed into their containing unit32:
+  auto RegIt = ValueLocationMap.find(m_OffsetFromStorageStartInBits & ~0x1f);
 
   if (RegIt == ValueLocationMap.end()) {
     return E_FAIL;
