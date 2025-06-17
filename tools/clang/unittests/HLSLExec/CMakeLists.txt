@@ -43,9 +43,19 @@ file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" DOS_STYLE_SOURCE_DIR)
 file(TO_NATIVE_PATH "${TAEF_BIN_DIR}" DOS_TAEF_BIN_DIR)
 configure_file(ExecHLSLTests.vcxproj.user.txt ExecHLSLTests.vcxproj.user)
 
-# Copy the ShaderOpArith.xml file to the output directory. It's used by the exec
-# tests and it's convenient to have it copied here if you want to easily copy
-# the tests to another machine after building.
-set(XML_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/ShaderOpArith.xml)
+# Copy the xml metadata files to the output directory. They're used by the
+# execution tests at runtime. It's convenient to copy them to the output bin to
+# make it easier to copy these tests to a different test machine.
+# list of XML files to copy.
+set(XML_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/ShaderOpArith.xml
+    ${CMAKE_CURRENT_SOURCE_DIR}/ShaderOpArithTable.xml
+)
+
+# Destination directory for the XML files.
 set(XML_DESTINATION ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}/bin)
-file(COPY ${XML_SOURCE} DESTINATION ${XML_DESTINATION})
+
+# Copy each XML file to the destination directory.
+foreach(XML_FILE ${XML_FILES})
+  file(COPY ${XML_FILE} DESTINATION ${XML_DESTINATION})
+endforeach()
