@@ -68,8 +68,7 @@ void fillLongVectorDataFromShaderBuffer(MappedData &ShaderBuffer,
                                         size_t NumElements);
 
 template <typename DataTypeT> constexpr bool isFloatingPointType() {
-  return std::is_same_v<DataTypeT, float> ||
-         std::is_same_v<DataTypeT, double>;
+  return std::is_same_v<DataTypeT, float> || std::is_same_v<DataTypeT, double>;
 }
 
 struct LongVectorOpTypeStringToEnumValue {
@@ -136,10 +135,7 @@ static_assert(_countof(binaryOpTypeStringToEnumMap) ==
 
 BinaryOpType getBinaryOpType(const std::wstring &OpTypeString);
 
-enum UnaryOpType {
-  UnaryOpType_Initialize,
-  UnaryOpType_EnumValueCount
-};
+enum UnaryOpType { UnaryOpType_Initialize, UnaryOpType_EnumValueCount };
 
 static const LongVectorOpTypeStringToEnumValue unaryOpTypeStringToEnumMap[] = {
     {L"UnaryOpType_Initialize", UnaryOpType_Initialize},

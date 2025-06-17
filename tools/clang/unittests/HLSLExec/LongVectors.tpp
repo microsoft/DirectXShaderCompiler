@@ -24,7 +24,7 @@ void LongVector::fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuf
   ShaderBuffer.resize(DataSize);
 
   DataTypeT *ShaderBufferPtr =
-      reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
+    reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
   for (size_t i = 0; i < NumElements; ++i)
     ShaderBufferPtr[i] = TestData[i];
 }
@@ -50,7 +50,7 @@ void LongVector::fillLongVectorDataFromShaderBuffer(MappedData &ShaderBuffer,
                                         std::vector<DataTypeT> &TestData,
                                         size_t NumElements) {
   DataTypeT *ShaderBufferPtr =
-      reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
+    reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
   for (size_t i = 0; i < NumElements; ++i)
     TestData.push_back(ShaderBufferPtr[i]);
 }
@@ -94,7 +94,7 @@ bool LongVector::doValuesMatch(double A, double B, float Tolerance,
   };
   default:
     WEX::Logging::Log::Error(
-        L"Invalid ValidationType. Expecting Epsilon or ULP.");
+      L"Invalid ValidationType. Expecting Epsilon or ULP.");
     return false;
   }
 }
@@ -102,9 +102,9 @@ bool LongVector::doValuesMatch(double A, double B, float Tolerance,
 
 template <typename DataTypeT>
 bool LongVector::doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
-                    const std::vector<DataTypeT> &ExpectedValues,
-                    float Tolerance,
-                    LongVector::ValidationType ValidationType) {
+                   const std::vector<DataTypeT> &ExpectedValues,
+                   float Tolerance,
+                   LongVector::ValidationType ValidationType) {
   // Stash mismatched indexes for easy failure logging later
   std::vector<size_t> MismatchedIndexes;
   VERIFY_IS_TRUE(ActualValues.size() == ExpectedValues.size(),
@@ -134,9 +134,9 @@ bool LongVector::doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
 std::vector<DataTypeT> LongVector::computeExpectedValues(
-    const std::vector<DataTypeT> &InputVector1,
-    const std::vector<DataTypeT> &InputVector2,
-    const LongVector::TestConfig<DataTypeT, LongVectorOpTypeT> &Config) {
+  const std::vector<DataTypeT> &InputVector1,
+  const std::vector<DataTypeT> &InputVector2,
+  const LongVector::TestConfig<DataTypeT, LongVectorOpTypeT> &Config) {
 
   VERIFY_IS_TRUE(
       Config.isBinaryOp(),
@@ -146,15 +146,15 @@ std::vector<DataTypeT> LongVector::computeExpectedValues(
 
   for (size_t i = 0; i < InputVector1.size(); ++i)
     ExpectedValues.push_back(
-        Config.computeExpectedValue(InputVector1[i], InputVector2[i]));
+      Config.computeExpectedValue(InputVector1[i], InputVector2[i]));
 
   return ExpectedValues;
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
 std::vector<DataTypeT> LongVector::computeExpectedValues(
-    const std::vector<DataTypeT> &InputVector1, const DataTypeT &ScalarInput,
-    const LongVector::TestConfig<DataTypeT, LongVectorOpTypeT> &Config) {
+  const std::vector<DataTypeT> &InputVector1, const DataTypeT &ScalarInput,
+  const LongVector::TestConfig<DataTypeT, LongVectorOpTypeT> &Config) {
 
   VERIFY_IS_TRUE(Config.isScalarOp(), L"computeExpectedValues() called with a "
                                       L"non-binary non-scalar op config.");
@@ -163,7 +163,7 @@ std::vector<DataTypeT> LongVector::computeExpectedValues(
 
   for (size_t i = 0; i < InputVector1.size(); ++i)
     ExpectedValues.push_back(
-        Config.computeExpectedValue(InputVector1[i], ScalarInput));
+      Config.computeExpectedValue(InputVector1[i], ScalarInput));
 
   return ExpectedValues;
 }
@@ -389,9 +389,9 @@ template <typename DataTypeT, typename LongVectorOpTypeT>
 DataTypeT LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::computeExpectedValue(const DataTypeT &A, const DataTypeT &B) const {
   if(!isBinaryOp())
     LOG_ERROR_FMT_THROW(
-        L"computeExpectedValue(const DataTypeT &A, const DataTypeT &B) called "
-        L"on a unary op: %d",
-        OpTypeTraits.OpType);
+      L"computeExpectedValue(const DataTypeT &A, const DataTypeT &B) called "
+      L"on a unary op: %d",
+      OpTypeTraits.OpType);
 
   return computeExpectedValue(A, B, static_cast<LongVector::BinaryOpType>(OpTypeTraits.OpType));
 }
@@ -418,8 +418,8 @@ DataTypeT LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::computeExpectedV
   }
 
   LOG_ERROR_FMT_THROW(
-      L"computeExpectedValue(const DataType&A) called on an unrecognized binary op: %d",
-      OpTypeTraits.OpType);
+    L"computeExpectedValue(const DataType&A) called on an unrecognized binary op: %d",
+    OpTypeTraits.OpType);
 
   return DataTypeT();
 }
@@ -433,7 +433,7 @@ std::string LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::getCompilerOpt
   CompilerOptions << " -DNUM=";
   CompilerOptions << VectorSize;
   const bool Is16BitType =
-      (HLSLType == "int16_t" || HLSLType == "uint16_t" || HLSLType == "half");
+    (HLSLType == "int16_t" || HLSLType == "uint16_t" || HLSLType == "half");
   CompilerOptions << (Is16BitType ? " -enable-16bit-types" : "");
   CompilerOptions << " -DOPERATOR=";
   CompilerOptions << OperatorString;
