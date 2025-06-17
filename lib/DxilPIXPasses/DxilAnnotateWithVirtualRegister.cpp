@@ -422,8 +422,6 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
     // referenced in the current struct. If that type is an (n-dimensional)
     // array, then there follow n indices.
 
-    llvm::IRBuilder<> B(pGEP);
-
     auto offset = GetStructOffset(pGEP, GEPOperandIndex, pStructType);
 
     llvm::Value *IndexValue = AddConstIntValues(
