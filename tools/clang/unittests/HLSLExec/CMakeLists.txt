@@ -48,8 +48,8 @@ configure_file(ExecHLSLTests.vcxproj.user.txt ExecHLSLTests.vcxproj.user)
 # make it easier to copy these tests to a different test machine.
 # list of XML files to copy.
 set(XML_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/ShaderOpArith.xml
-    ${CMAKE_CURRENT_SOURCE_DIR}/ShaderOpArithTable.xml
+  ${CMAKE_CURRENT_SOURCE_DIR}/ShaderOpArith.xml
+  ${CMAKE_CURRENT_SOURCE_DIR}/ShaderOpArithTable.xml
 )
 
 # Destination directory for the XML files.
