@@ -13,8 +13,6 @@
 #define __DXCAPI_USE_H__
 
 #include "dxc/dxcapi.h"
-#include <dxc/Support/Global.h> // for hresult handling with DXC_FAILED
-#include <filesystem>           // C++17 and later
 
 namespace dxc {
 
@@ -28,7 +26,7 @@ protected:
   DxcCreateInstanceProc m_createFn;
   DxcCreateInstance2Proc m_createFn2;
 
-  HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
+  virtual HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
     if (m_dll != nullptr)
       return S_OK;
 
@@ -89,11 +87,11 @@ public:
 
   virtual ~DxcDllSupport() { Cleanup(); }
 
-  HRESULT virtual Initialize() {
+  HRESULT Initialize() {
     return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
   }
 
-  HRESULT virtual InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {
+  HRESULT InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {
     return InitializeInternal(dll, entryPoint);
   }
 
@@ -102,7 +100,7 @@ public:
     return CreateInstance(clsid, __uuidof(TInterface), (IUnknown **)pResult);
   }
 
-  HRESULT virtual CreateInstance(REFCLSID clsid, REFIID riid,
+  virtual HRESULT CreateInstance(REFCLSID clsid, REFIID riid,
                                  IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
@@ -119,7 +117,7 @@ public:
                            (IUnknown **)pResult);
   }
 
-  HRESULT virtual CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
+  virtual HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
                                   IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
@@ -144,7 +142,7 @@ public:
     return true;
   }
 
-  void virtual Cleanup() {
+  virtual void Cleanup() {
     if (m_dll != nullptr) {
       m_createFn = nullptr;
       m_createFn2 = nullptr;
@@ -157,7 +155,7 @@ public:
     }
   }
 
-  HMODULE virtual Detach() {
+  virtual HMODULE Detach() {
     HMODULE hModule = m_dll;
     m_dll = nullptr;
     return hModule;

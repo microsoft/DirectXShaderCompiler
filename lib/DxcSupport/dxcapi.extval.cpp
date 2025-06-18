@@ -1,11 +1,14 @@
 #include "dxc/Support/WinIncludes.h"
+#include <dxc/Support/Global.h> // for hresult handling with DXC_FAILED
+#include <filesystem>           // C++17 and later
 // WinIncludes must come before dxcapi.extval.h
 #include "dxc/Support/dxcapi.extval.h"
+
 
 HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR dllName,
                                                        LPCSTR fnName) {
   // Load dxcompiler.dll
-  HRESULT result = InitializeForDll(dllName, fnName);
+  HRESULT result = DxcDllSupport::InitializeInternal(dllName, fnName);
   // if dxcompiler.dll fails to load, return the failed HRESULT
   if (DXC_FAILED(result)) {
     return result;
