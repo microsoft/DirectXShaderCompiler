@@ -7108,6 +7108,38 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
   }
 }
 
+bool SpirvEmitter::canUseOpCopyLogical(QualType type) const {
+  if (featureManager.getSpirvVersion(featureManager.getTargetEnv()) <
+      VersionTuple(1, 4)) {
+    return false;
+  }
+
+  if (!type->isArrayType() && !type->isRecordType()) {
+    return false;
+  }
+
+  if (const auto *recordType = type->getAs<RecordType>()) {
+    if (isTypeInVkNamespace(recordType) &&
+        (recordType->getDecl()->getName().equals("BufferPointer") ||
+         recordType->getDecl()->getName().equals("SpirvType") ||
+         recordType->getDecl()->getName().equals("SpirvOpaqueType"))) {
+      // vk::BufferPointer<T> lowers to a pointer type. No need to reconstruct
+      // the value. The vk::Spirv*Type should be treated an opaque type. All we
+      // can do is leave it the same.
+      return false;
+    }
+  }
+
+  if (hlsl::IsHLSLVecMatType(type) || hlsl::IsHLSLResourceType(type)) {
+    return false;
+  }
+
+  // If the type contains a bool it is possible that one type represents it with
+  // a bool and the other with an int. If that happens, OpCopyLogical is not
+  // valid.
+  return !isOrContainsBoolType(type);
+}
+
 SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
                                                  const QualType valType,
                                                  SpirvLayoutRule dstLR,
@@ -7170,6 +7202,13 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
     result->setLayoutRule(dstLR);
     return result;
   };
+
+  if (canUseOpCopyLogical(valType)) {
+    SpirvInstruction *copy = spvBuilder.createUnaryOp(
+        spv::Op::OpCopyLogical, valType, srcVal, srcVal->getSourceLocation());
+    copy->setLayoutRule(dstLR);
+    return copy;
+  }
 
   // Constant arrays
   if (const auto *arrayType = astContext.getAsConstantArrayType(valType)) {

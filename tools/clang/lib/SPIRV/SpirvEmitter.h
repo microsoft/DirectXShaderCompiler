@@ -228,6 +228,8 @@ private:
                   QualType lhsValType, SourceLocation loc,
                   SourceRange range = {});
 
+  bool canUseOpCopyLogical(QualType type) const;
+
   /// Decomposes and reconstructs the given srcVal of the given valType to meet
   /// the requirements of the dstLR layout rule.
   SpirvInstruction *reconstructValue(SpirvInstruction *srcVal, QualType valType,

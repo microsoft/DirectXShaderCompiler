@@ -1221,7 +1221,6 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
 
 #if 0 // handy for debugging
   auto disTextW = Disassemble(pAnnotatedContainer);
-  WEX::Logging::Log::Comment(disTextW.c_str());
 #endif
 
   ModuleAndHangersOn moduleEtc(pAnnotatedContainer);
