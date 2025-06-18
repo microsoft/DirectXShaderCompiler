@@ -141,9 +141,12 @@ static unsigned ProcessCharEscape(const char *ThisTokBegin,
     // Hex escapes are a maximal series of hex digits.
     bool Overflow = false;
     for (; ThisTokBuf != ThisTokEnd; ++ThisTokBuf) {
-      int CharVal = llvm::hexDigitValue(ThisTokBuf[0]);
-      if (CharVal == ~0u)
+      // originally returned -1 for invalid hex digits, now returns ~0u
+      // signature: static inline unsigned int llvm::hexDigitValue(char C)
+      unsigned int CharVal = llvm::hexDigitValue(ThisTokBuf[0]);
+      if (CharVal == ~0U)
         break;
+
       // About to shift out a digit?
       if (ResultChar & 0xF0000000)
         Overflow = true;
@@ -279,8 +282,9 @@ static bool ProcessUCNEscape(const char *ThisTokBegin, const char *&ThisTokBuf,
   UcnLen = (ThisTokBuf[-1] == 'u' ? 4 : 8);
   unsigned short UcnLenSave = UcnLen;
   for (; ThisTokBuf != ThisTokEnd && UcnLenSave; ++ThisTokBuf, UcnLenSave--) {
-    int CharVal = llvm::hexDigitValue(ThisTokBuf[0]);
-    if (CharVal == -1) break;
+    unsigned int CharVal = llvm::hexDigitValue(ThisTokBuf[0]);
+    if (CharVal == ~0U)
+      break;
     UcnVal <<= 4;
     UcnVal |= CharVal;
   }
