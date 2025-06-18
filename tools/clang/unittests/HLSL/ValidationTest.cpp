@@ -32,8 +32,8 @@
 #include "dxc/Support/Global.h"
 
 #include "dxc/DXIL/DxilShaderModel.h"
-#include "dxc/Test/DxcTestUtils.h" // includes dxcapi.use.h
 #include "dxc/Support/dxcapi.extval.h"
+#include "dxc/Test/DxcTestUtils.h" // includes dxcapi.use.h
 #include "dxc/Test/HlslTestUtils.h"
 
 using namespace std;
@@ -4234,7 +4234,7 @@ TEST_F(ValidationTest, ValidateWithExternalValidator) {
   CComPtr<IDxcBlob> pValidationOutput;
   pResult->GetStatus(&status);
   VERIFY_SUCCEEDED(status);
-  pResult->GetResult(&pValidationOutput);  
+  pResult->GetResult(&pValidationOutput);
 }
 
 TEST_F(ValidationTest, ValidatePreviewBypassHash) {
