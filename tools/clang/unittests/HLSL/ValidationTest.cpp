@@ -4211,6 +4211,19 @@ TEST_F(ValidationTest, ValidateWithHash) {
 }
 
 TEST_F(ValidationTest, ValidateWithExternalValidator) {
+  /*
+  // The below part of the test was run on a local machine,
+  // but shouldn't be run yet in automated scenarios, since
+  // the DXC repo does not yet have a checked-in dxil.dll.
+
+  // set the environment variable that stores the path to the extenral
+  // dxil.dll
+  SetEnvironmentVariableW(L"DXC_DXIL_DLL_PATH",
+                          L"D:\\hlsl.bin\\Debug\\bin\\dxil.dll");
+  // also update the CRT environment
+  _putenv_s("DXC_DXIL_DLL_PATH", "D:\\hlsl.bin\\Debug\\bin\\dxil.dll");
+  */
+
   if (!m_dllExtSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllExtSupport.Initialize());
   }
@@ -4235,6 +4248,17 @@ TEST_F(ValidationTest, ValidateWithExternalValidator) {
   pResult->GetStatus(&status);
   VERIFY_SUCCEEDED(status);
   pResult->GetResult(&pValidationOutput);
+
+  /*
+  // as described above, this should only be tested in local scenarios,
+  // until dxil.dll is checked into the dxc repo
+
+  // validate that m_dllExtSupport was able to capture the environment
+  // variable's value, and that loading the external validator was successful
+  VERIFY_IS_TRUE(!m_dllExtSupport.DxilDllFailedToLoad());
+  std::string extPath("D:\\hlsl.bin\\Debug\\bin\\dxil.dll");
+  VERIFY_ARE_EQUAL(m_dllExtSupport.GetDxilDllPath(), extPath);
+  */
 }
 
 TEST_F(ValidationTest, ValidatePreviewBypassHash) {
