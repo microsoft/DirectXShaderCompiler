@@ -2737,7 +2737,7 @@ uint32_t Lexer::tryReadUCN(const char *&StartPtr, const char *SlashLoc,
     char C = getCharAndSize(CurPtr, CharSize);
 
     unsigned Value = llvm::hexDigitValue(C);
-    if (Value == -1U) {
+    if (Value == std::numeric_limits<unsigned>::max()) {
       if (Result && !isLexingRawMode()) {
         if (i == 0) {
           Diag(BufferPtr, diag::warn_ucn_escape_no_digits)
