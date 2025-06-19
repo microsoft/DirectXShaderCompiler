@@ -34,7 +34,7 @@ private:
   struct Range {
     explicit Range(uint64_t LowPC = std::numeric_limits<uint64_t>::max(),
                    uint64_t HighPC = std::numeric_limits<uint64_t>::max(),
-                   uint32_t CUOffset = -std::numeric_limits<uint32_t>::max())
+                   uint32_t CUOffset = std::numeric_limits<uint32_t>::max())
         : LowPC(LowPC), Length(HighPC - LowPC), CUOffset(CUOffset) {}
 
     void setHighPC(uint64_t HighPC) {
