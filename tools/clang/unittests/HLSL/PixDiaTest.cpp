@@ -3140,8 +3140,8 @@ void main()
       RunSizeAndOffsetTestCase(hlsl, {0, 32, 52, 64}, {20, 20, 3, 32});
   // (PIX #58022343): fields that overlap their storage type are not yet
   // reflected properly in terms of their packed offsets as maintained via
-  // these PixDxc interfaces based on the dbg.declare data 
-  //RunBitfieldAdjacencyTest(bfStorage,
+  // these PixDxc interfaces based on the dbg.declare data
+  // RunBitfieldAdjacencyTest(bfStorage,
   //                         {{L"first"}, {L"second", L"third"}, {L"fourth"}});
 }
 
