@@ -1371,6 +1371,7 @@ private:
   ///  This decision is made according to the rules in
   ///  https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_Derivatives.html.
   void addDerivativeGroupExecutionMode();
+  void addDerivativeGroupExecutionModeId();
 
   /// Creates an input variable for `param` that will be used by the patch
   /// constant function. The parameter is also added to the patch constant

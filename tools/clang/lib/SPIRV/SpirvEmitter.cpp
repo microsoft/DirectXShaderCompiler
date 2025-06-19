@@ -15840,8 +15840,10 @@ void SpirvEmitter::addDerivativeGroupExecutionMode() {
   assert(spvContext.isCS());
 
   SpirvExecutionMode *numThreadsEm =
-      cast<SpirvExecutionMode>(spvBuilder.getModule()->findExecutionMode(
+      dyn_cast<SpirvExecutionMode>(spvBuilder.getModule()->findExecutionMode(
           entryFunction, spv::ExecutionMode::LocalSize));
+  if (!numThreadsEm)
+    return addDerivativeGroupExecutionModeId();
   auto numThreads = numThreadsEm->getParams();
 
   // The layout of the quad is determined by the numer of threads in each
@@ -15863,6 +15865,47 @@ void SpirvEmitter::addDerivativeGroupExecutionMode() {
     em = spv::ExecutionMode::DerivativeGroupLinearNV;
   } else {
     assert(numThreads[0] % 2 == 0 && numThreads[1] % 2 == 0);
+  }
+
+  spvBuilder.addExecutionMode(entryFunction, em, {}, SourceLocation());
+}
+
+void SpirvEmitter::addDerivativeGroupExecutionModeId() {
+  assert(spvContext.isCS());
+
+  SpirvExecutionModeId *numThreadsEm =
+      dyn_cast<SpirvExecutionModeId>(spvBuilder.getModule()->findExecutionMode(
+          entryFunction, spv::ExecutionMode::LocalSizeId));
+  auto numThreads = numThreadsEm->getParams();
+  auto f = [this](SpirvInstruction *arg) -> llvm::Optional<unsigned> {
+    if (auto con = dyn_cast<SpirvConstantInteger>(arg)) {
+      return (unsigned)con->getValue().getZExtValue();
+    }
+    return llvm::None;
+  };
+
+  // The layout of the quad is determined by the numer of threads in each
+  // dimention. From the HLSL spec
+  // (https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_Derivatives.html):
+  //
+  // Where numthreads has an X value divisible by 4 and Y and Z are both 1, the
+  // quad layouts are determined according to 1D quad rules. Where numthreads X
+  // and Y values are divisible by 2, the quad layouts are determined according
+  // to 2D quad rules. Using derivative operations in any numthreads
+  // configuration not matching either of these is invalid and will produce an
+  // error.
+  static_assert(spv::ExecutionMode::DerivativeGroupQuadsNV ==
+                spv::ExecutionMode::DerivativeGroupQuadsKHR);
+  static_assert(spv::ExecutionMode::DerivativeGroupLinearNV ==
+                spv::ExecutionMode::DerivativeGroupLinearKHR);
+  spv::ExecutionMode em = spv::ExecutionMode::DerivativeGroupQuadsNV;
+  auto x = f(numThreads[0]), y = f(numThreads[1]), z = f(numThreads[2]);
+  if (x.hasValue() && x.getValue() % 4 == 0 && y.hasValue() &&
+      y.getValue() == 1 && z.hasValue() && z.getValue() == 1) {
+    em = spv::ExecutionMode::DerivativeGroupLinearNV;
+  } else {
+    assert((!x.hasValue() || x.getValue() % 2 == 0) &&
+           (!y.hasValue() || y.getValue() % 2 == 0));
   }
 
   spvBuilder.addExecutionMode(entryFunction, em, {}, SourceLocation());

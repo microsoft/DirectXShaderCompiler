@@ -9450,18 +9450,15 @@ bool Expr::isIntegerConstantExpr(llvm::APSInt &Value, const ASTContext &Ctx,
 
 bool Expr::isVulkanSpecConstantExpr(const ASTContext &Ctx,
                                     APValue *Result) const {
-  if (auto *D = dyn_cast<DeclRefExpr>(this)) {
-    if (auto *V = dyn_cast<VarDecl>(D->getDecl())) {
-      if (V->hasAttr<VKConstantIdAttr>()) {
-        if (const Expr *I = V->getAnyInitializer()) {
-          if (!I->isCXX11ConstantExpr(Ctx, Result))
-            return false;
-        }
-        return true;
-      }
-    }
-  }
-  return false;
+  auto *D = dyn_cast<DeclRefExpr>(this);
+  if (!D)
+    return false;
+  auto *V = dyn_cast<VarDecl>(D->getDecl());
+  if (!V || !V->hasAttr<VKConstantIdAttr>())
+    return false;
+  if (const Expr *I = V->getAnyInitializer())
+    return I->isCXX11ConstantExpr(Ctx, Result);
+  return true;
 }
 
 bool Expr::isCXX98IntegralConstantExpr(const ASTContext &Ctx) const {
