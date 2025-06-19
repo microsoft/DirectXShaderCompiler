@@ -29,7 +29,9 @@ public:
   BlockFrequency(uint64_t Freq = 0) : Frequency(Freq) { }
 
   /// \brief Returns the maximum possible frequency, the saturation value.
-  static uint64_t getMaxFrequency() { return -1ULL; }
+  static uint64_t getMaxFrequency() {
+    return std::numeric_limits<uint64_t>::max();
+  }
 
   /// \brief Returns the frequency as a fixpoint number scaled by the entry
   /// frequency.
