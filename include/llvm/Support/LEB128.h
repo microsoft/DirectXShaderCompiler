@@ -67,7 +67,7 @@ inline unsigned encodeULEB128(uint64_t Value, uint8_t *p,
   } while (Value != 0);
 
   // Pad with 0x80 and emit a null byte at the end.
-  if (Padding != 0) {
+
     for (; Padding != 1; --Padding)
       *p++ = '\x80';
     *p++ = '\x00';
@@ -103,7 +103,7 @@ inline int64_t decodeSLEB128(const uint8_t *p, unsigned *n = nullptr) {
   } while (Byte >= 128);
   // Sign extend negative numbers.
   if (Byte & 0x40)
-    Value |= (-1ULL) << Shift;
+    Value |= ~0ULL << Shift;
   if (n)
     *n = (unsigned)(p - orig_p);
   return Value;
