@@ -2560,7 +2560,7 @@ void ScalarExprEmitter::EmitUndefinedBehaviorIntegerDivAndRemCheck(
     llvm::Value *IntMin =
       Builder.getInt(llvm::APInt::getSignedMinValue(Ty->getBitWidth()));
     llvm::Value *NegOne =
-        llvm::ConstantInt::get(Ty, std::numeric_limits<uint64_t>::min());
+        llvm::ConstantInt::get(Ty, std::numeric_limits<uint64_t>::max());
 
     llvm::Value *LHSCmp = Builder.CreateICmpNE(Ops.LHS, IntMin);
     llvm::Value *RHSCmp = Builder.CreateICmpNE(Ops.RHS, NegOne);
