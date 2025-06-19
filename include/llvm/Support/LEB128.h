@@ -67,7 +67,7 @@ inline unsigned encodeULEB128(uint64_t Value, uint8_t *p,
   } while (Value != 0);
 
   // Pad with 0x80 and emit a null byte at the end.
-
+  if (Padding != 0) {
     for (; Padding != 1; --Padding)
       *p++ = '\x80';
     *p++ = '\x00';
