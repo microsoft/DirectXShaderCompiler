@@ -15,6 +15,7 @@
 #define LLVM_SUPPORT_BLOCKFREQUENCY_H
 
 #include "llvm/Support/DataTypes.h"
+#include <limits>
 
 namespace llvm {
 
