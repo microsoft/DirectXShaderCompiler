@@ -32,7 +32,8 @@
 #include "dxc/Support/Global.h"
 
 #include "dxc/DXIL/DxilShaderModel.h"
-#include "dxc/Test/DxcTestUtils.h"
+#include "dxc/Support/dxcapi.extval.h"
+#include "dxc/Test/DxcTestUtils.h" // includes dxcapi.use.h
 #include "dxc/Test/HlslTestUtils.h"
 
 using namespace std;
@@ -299,6 +300,7 @@ public:
   TEST_METHOD(ValidatePrintfNotAllowed)
 
   TEST_METHOD(ValidateWithHash)
+  TEST_METHOD(ValidateWithExternalValidator)
   TEST_METHOD(ValidateVersionNotAllowed)
   TEST_METHOD(ValidatePreviewBypassHash)
   TEST_METHOD(ValidateProgramVersionAgainstDxilModule)
@@ -328,6 +330,7 @@ public:
   TEST_METHOD(WrongPSVVersion)
 
   dxc::DxcDllSupport m_dllSupport;
+  DxcDllExtValidationSupport m_dllExtSupport;
   VersionSupportInfo m_ver;
 
   void TestCheck(LPCWSTR name) {
@@ -4205,6 +4208,57 @@ TEST_F(ValidationTest, ValidateWithHash) {
   BYTE Result[DxilContainerHashSize];
   ComputeHashRetail(DataToHash, AmountToHash, Result);
   VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
+}
+
+TEST_F(ValidationTest, ValidateWithExternalValidator) {
+  /*
+  // The below part of the test was run on a local machine,
+  // but shouldn't be run yet in automated scenarios, since
+  // the DXC repo does not yet have a checked-in dxil.dll.
+
+  // set the environment variable that stores the path to the extenral
+  // dxil.dll
+  SetEnvironmentVariableW(L"DXC_DXIL_DLL_PATH",
+                          L"D:\\hlsl.bin\\Debug\\bin\\dxil.dll");
+  // also update the CRT environment
+  _putenv_s("DXC_DXIL_DLL_PATH", "D:\\hlsl.bin\\Debug\\bin\\dxil.dll");
+  */
+
+  if (!m_dllExtSupport.IsEnabled()) {
+    VERIFY_SUCCEEDED(m_dllExtSupport.Initialize());
+  }
+
+  if (m_ver.SkipDxilVersion(1, ShaderModel::kHighestReleasedMinor))
+    return;
+  CComPtr<IDxcBlob> pProgram;
+  CompileSource("float4 main(float a:A, float b:B) : SV_Target { return 1; }",
+                "ps_6_0", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllExtSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  // With hash.
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  CComPtr<IDxcBlob> pValidationOutput;
+  pResult->GetStatus(&status);
+  VERIFY_SUCCEEDED(status);
+  pResult->GetResult(&pValidationOutput);
+
+  /*
+  // as described above, this should only be tested in local scenarios,
+  // until dxil.dll is checked into the dxc repo
+
+  // validate that m_dllExtSupport was able to capture the environment
+  // variable's value, and that loading the external validator was successful
+  VERIFY_IS_TRUE(!m_dllExtSupport.DxilDllFailedToLoad());
+  std::string extPath("D:\\hlsl.bin\\Debug\\bin\\dxil.dll");
+  VERIFY_ARE_EQUAL(m_dllExtSupport.GetDxilDllPath(), extPath);
+  */
 }
 
 TEST_F(ValidationTest, ValidatePreviewBypassHash) {
