@@ -134,10 +134,15 @@ raw_ostream &raw_ostream::operator<<(unsigned long N) {
 }
 
 raw_ostream &raw_ostream::operator<<(long N) {
+  // A positive signed long has the same value when casted to its unsigned 
+  // counterpart. If its negative, then we'll handle it in the below if block.
+  unsigned long UN = static_cast<unsigned long>(N);
+
   if (N < 0 && writeBase == 10) {
     *this << '-';
-    // Avoid undefined behavior on LONG_MIN with a cast.
-    N = -(unsigned long)N;
+    // Since N is negative and we're storing the result in an unsigned Long,
+    // we can use the equivalence of -N == ~N + 1 to get the positive value.
+    UN = ~N + 1;
   }
 
   return this->operator<<(static_cast<unsigned long>(N));
