@@ -142,7 +142,7 @@ raw_ostream &raw_ostream::operator<<(long N) {
     *this << '-';
     // Since N is negative and we're storing the result in an unsigned Long,
     // we can use the equivalence of -N == ~N + 1 to get the positive value.
-    UN = ~N + 1;
+    UN = ~N + 1UL;
   }
 
   return this->operator<<(UN);
@@ -182,7 +182,7 @@ raw_ostream &raw_ostream::operator<<(long long N) {
     *this << '-';
     // Since N is negative and we're storing the result in an unsigned Long,
     // we can use the equivalence of -N == ~N + 1 to get the positive value.
-    UN = ~N + 1;
+    UN = ~N + 1ULL;
   }
 
   return this->operator<<(UN);
@@ -483,7 +483,7 @@ raw_ostream &raw_ostream::operator<<(const FormattedNumber &FN) {
     // If the value is negative, and because we are storing the result of the ~
     // operation in an unsigned value, we can use the equivalence of
     // -N == ~N + 1 to get the positive value of the negative number
-    uint64_t N = Neg ? (~FN.DecValue + 1) : FN.DecValue;
+    uint64_t N = Neg ? (~FN.DecValue + 1UL) : FN.DecValue;
     while (N) {
       *--CurPtr = '0' + char(N % 10);
       N /= 10;
