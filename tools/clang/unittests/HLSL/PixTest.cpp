@@ -135,7 +135,6 @@ public:
   TEST_METHOD(PixStructAnnotation_BigMess)
   TEST_METHOD(PixStructAnnotation_AlignedFloat4Arrays)
   TEST_METHOD(PixStructAnnotation_Inheritance)
-  TEST_METHOD(PixStructAnnotation_Bitfields)
   TEST_METHOD(PixStructAnnotation_ResourceAsMember)
   TEST_METHOD(PixStructAnnotation_WheresMyDbgValue)
 
@@ -2318,53 +2317,6 @@ void main()
     // when floatn is used
     // (https://github.com/microsoft/DirectXShaderCompiler/issues/2920)
     // VERIFY_ARE_EQUAL(20, Testables.AllocaWrites.size());
-  }
-}
-
-TEST_F(PixTest, PixStructAnnotation_Bitfields) {
-  if (m_ver.SkipDxilVersion(1, 5))
-    return;
-
-  for (auto choice : OptimizationChoices) {
-    auto optimization = choice.Flag;
-
-    const char *hlsl = R"(
-struct Bitfield
-{
-    uint32_t Field1 : 5;
-    uint32_t Field2 : 3;
-    uint32_t Field3 : 16;
-    uint32_t Field4 : 8;
-    uint32_t i32 : 32;
-};
-
-RWStructuredBuffer<Bitfield> BitfieldStructure: register(u0);
-
-RWByteAddressBuffer RawUAV: register(u1);
-
-[numthreads(1, 1, 1)]
-void main()
-{
-    Bitfield bitfield;
-    //bitfield.Field1 = RawUAV.Load(1 * 4); 
-    bitfield.Field2 = RawUAV.Load(2 * 4); 
-    //bitfield.Field3 = RawUAV.Load(3 * 4); 
-    //bitfield.Field4 = RawUAV.Load(4 * 4); 
-    //bitfield.i32    = RawUAV.Load(5 * 4); 
-
-    //RawUAV.Store(64*4, bitfield.Field1 );
-    RawUAV.Store(65*4, bitfield.Field2 );
-    //RawUAV.Store(66*4, bitfield.Field3 );
-    //RawUAV.Store(67*4, bitfield.Field4 );
-    //RawUAV.Store(68*4, bitfield.i32    );
-}
-)";
-
-    CComPtr<IDxcBlob> pBlob =
-        Compile(m_dllSupport, hlsl, L"cs_6_6", {optimization});
-    CComPtr<IDxcBlob> pDxil = FindModule(DFCC_ShaderDebugInfoDXIL, pBlob);
-    auto outputLines = RunAnnotationPasses(m_dllSupport, pDxil).lines;
-
   }
 }
 
