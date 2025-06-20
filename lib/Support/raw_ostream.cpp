@@ -134,7 +134,7 @@ raw_ostream &raw_ostream::operator<<(unsigned long N) {
 }
 
 raw_ostream &raw_ostream::operator<<(long N) {
-  // A positive signed long has the same value when casted to its unsigned 
+  // A positive signed long has the same value when casted to its unsigned
   // counterpart. If its negative, then we'll handle it in the below if block.
   unsigned long UN = static_cast<unsigned long>(N);
 
@@ -174,7 +174,7 @@ raw_ostream &raw_ostream::operator<<(unsigned long long N) {
 }
 
 raw_ostream &raw_ostream::operator<<(long long N) {
-  // A positive signed long has the same value when casted to its unsigned 
+  // A positive signed long has the same value when casted to its unsigned
   // counterpart. If its negative, then we'll handle it in the below if block.
   unsigned long long UN = static_cast<unsigned long long>(N);
 
