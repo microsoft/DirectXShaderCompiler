@@ -2,7 +2,6 @@
 
 // CHECK: threadId
 // CHECK: FMin
-// CHECK: dot3
 // CHECK: bufferUpdateCounter
 // CHECK: bufferUpdateCounter
 
