@@ -1179,7 +1179,7 @@ bool MemoryDepChecker::areDepsSafe(DepCandidates &AccessSets,
                                    MemAccessInfoSet &CheckDeps,
                                    const ValueToValueMap &Strides) {
 
-  MaxSafeDepDistBytes = -1U;
+  MaxSafeDepDistBytes = std::numeric_limits<unsigned>::max();
   while (!CheckDeps.empty()) {
     MemAccessInfo CurAccess = *CheckDeps.begin();
 
