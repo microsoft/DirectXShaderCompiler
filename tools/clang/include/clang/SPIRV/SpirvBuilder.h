@@ -812,8 +812,6 @@ public:
   /// the given target at the given source location.
   inline void requireExtension(llvm::StringRef extension, SourceLocation);
 
-  FeatureManager &getFeatureManager() { return featureManager; }
-
 private:
   /// \brief If not added already, adds an OpExtInstImport (import of extended
   /// instruction set) for the given instruction set. Returns the imported
