@@ -403,7 +403,7 @@ bool llvm::getAsSignedInteger(StringRef Str, unsigned Radix,
                    1)
     return true;
 
-  Result = (~ULLVal + 1ULL);
+  Result = (~ULLVal + 1);
   return false;
 }
 
