@@ -48,7 +48,7 @@ void main(uint ix[3] : IX) {
   // CHECK: [[IX1:%.*]] = call i32 @dx.op.loadInput.i32(i32 4,
   // CHECK: [[RESRET:%.*]] = call %dx.types.ResRet.[[VTY]] @dx.op.rawBufferVectorLoad.[[VTY]](i32 303, %dx.types.Handle [[ANHDLRWBY]], i32 [[IX1]]
   // CHECK: [[STATUS:%.*]] = extractvalue %dx.types.ResRet.[[VTY]] [[RESRET]], 1
-  // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
+  // CHECK: [[CHK1:%.*]] = call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
   // I1: icmp ne <[[NUM]] x i32> %{{.*}}, zeroinitializer
   uint status1;
   vector<TYPE, NUM>  babElt3 = RwByBuf.Load< vector<TYPE, NUM>  >(ix[1], status1);
@@ -60,14 +60,18 @@ void main(uint ix[3] : IX) {
 
   // CHECK: [[RESRET:%.*]] = call %dx.types.ResRet.[[VTY]] @dx.op.rawBufferVectorLoad.[[VTY]](i32 303, %dx.types.Handle [[ANHDLROBY]], i32 [[IX1]]
   // CHECK: [[STATUS:%.*]] = extractvalue %dx.types.ResRet.[[VTY]] [[RESRET]], 1
-  // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
+  // CHECK: [[CHK2:%.*]] = call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
   // I1: icmp ne <[[NUM]] x i32> %{{.*}}, zeroinitializer
   uint status2;
   vector<TYPE, NUM>  babElt4 = RoByBuf.Load< vector<TYPE, NUM>  >(ix[1], status2);
 
   // I1: zext <[[NUM]] x i1> %{{.*}} to <[[NUM]] x i32>
   // CHECK: all void @dx.op.rawBufferVectorStore.[[VTY]](i32 304, %dx.types.Handle [[ANHDLRWBY]], i32 [[IX0]]
-  RwByBuf.Store< vector<TYPE, NUM>  >(ix[0], babElt1 + babElt2 + babElt3 + babElt4 + status1 + status2);
+  // CHECK: and i1 [[CHK1]], [[CHK2]]
+  // CHECK: [[ANHDLRWBY:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLRWBY]]
+  // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle [[ANHDLRWBY]], i32 100
+  RwByBuf.Store< vector<TYPE, NUM>  >(ix[0], babElt1 + babElt2 + babElt3 + babElt4);
+  RwByBuf.Store< uint > (100, status1 && status2);
 
   // StructuredBuffer Tests
   // CHECK: [[ANHDLRWST:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLRWST]]
@@ -82,7 +86,7 @@ void main(uint ix[3] : IX) {
   // CHECK: [[IX2:%.*]] = call i32 @dx.op.loadInput.i32(i32 4,
   // CHECK: [[RESRET:%.*]] = call %dx.types.ResRet.[[VTY]] @dx.op.rawBufferVectorLoad.[[VTY]](i32 303, %dx.types.Handle [[ANHDLRWST]], i32 [[IX2]]
   // CHECK: [[STATUS:%.*]] = extractvalue %dx.types.ResRet.[[VTY]] [[RESRET]], 1
-  // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
+  // CHECK: [[CHK1:%.*]] = call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
   // I1: icmp ne <[[NUM]] x i32> %{{.*}}, zeroinitializer
   vector<TYPE, NUM>  stbElt5 = RwStBuf.Load(ix[2], status1);
 
@@ -97,13 +101,17 @@ void main(uint ix[3] : IX) {
 
   // CHECK: [[RESRET:%.*]] = call %dx.types.ResRet.[[VTY]] @dx.op.rawBufferVectorLoad.[[VTY]](i32 303, %dx.types.Handle [[ANHDLROST]], i32 [[IX2]]
   // CHECK: [[STATUS:%.*]] = extractvalue %dx.types.ResRet.[[VTY]] [[RESRET]], 1
-  // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
+  // CHECK: [[CHK2:%.*]] = call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
   // I1: icmp ne <[[NUM]] x i32> %{{.*}}, zeroinitializer
   vector<TYPE, NUM>  stbElt6 = RoStBuf.Load(ix[2], status2);
 
   // I1: zext <[[NUM]] x i1> %{{.*}} to <[[NUM]] x i32>
   // CHECK: all void @dx.op.rawBufferVectorStore.[[VTY]](i32 304, %dx.types.Handle [[ANHDLRWST]], i32 [[IX0]]
-  RwStBuf[ix[0]] = stbElt1 + stbElt2 + stbElt3 + stbElt4 + stbElt5 + stbElt6 + status1 + status2;
+  // CHECK: and i1 [[CHK1]], [[CHK2]]
+  // CHECK: [[ANHDLRWBY:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLRWBY]]
+  // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle [[ANHDLRWBY]], i32 200
+  RwStBuf[ix[0]] = stbElt1 + stbElt2 + stbElt3 + stbElt4 + stbElt5 + stbElt6;
+  RwByBuf.Store< uint > (200, status1 && status2);
 
   // {Append/Consume}StructuredBuffer Tests
   // CHECK: [[ANHDLCON:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLCON]]

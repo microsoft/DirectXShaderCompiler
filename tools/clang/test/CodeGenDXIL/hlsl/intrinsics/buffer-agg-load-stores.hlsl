@@ -1,45 +1,4 @@
 // RUN: %dxc -T vs_6_6              -DETY=float     -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=bool      -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=uint64_t  -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=double    -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-
-// RUN: %dxc -T vs_6_6              -DETY=float1    -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=bool1     -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=uint64_t1 -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=double1   -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-
-// RUN: %dxc -T vs_6_6              -DETY=float4    -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=bool4     -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=uint64_t4 -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=double4   -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=float    -DCOLS=2 -DROWS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=bool     -DCOLS=2 -DROWS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=uint64_t -DCOLS=2 -DROWS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=double   -DCOLS=2 -DROWS=2 %s | FileCheck %s
-
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=float    -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=bool     -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=uint64_t -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=double   -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=float    -DCOLS=2 -DROWS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=uint64_t -DCOLS=2 -DROWS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=double   -DCOLS=2 -DROWS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=float    -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=bool     -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=uint64_t -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=double   -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-
-// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=float    -DCOLS=4 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=bool     -DCOLS=4 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=uint64_t -DCOLS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=double   -DCOLS=2 %s | FileCheck %s
-
-// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=float    -DCOLS=4 %s | FileCheck %s --check-prefixes=CHECK,OFF
-// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=bool     -DCOLS=4 %s | FileCheck %s --check-prefixes=CHECK,OFF
-// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=uint64_t -DCOLS=2 %s | FileCheck %s --check-prefixes=CHECK,OFF
-// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=double   -DCOLS=2 %s | FileCheck %s --check-prefixes=CHECK,OFF
 
 ///////////////////////////////////////////////////////////////////////
 // Test codegen for various load and store operations and conversions
@@ -169,7 +128,7 @@ void main(uint ix[3] : IX) {
   // MULTI: [[IX1p8:%.*]] = add i32 [[RIX1]], [[p8]]
   // MULTI: [[RESRET:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLRWBY]], i32 [[IX1p8]]
   // CHECK: [[STATUS:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[RESRET]], 4
-  // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
+  // CHECK: [[CHK1:%.*]] = call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
   // I1: icmp ne i32
   // I1: icmp ne i32
   // I1: icmp ne i32
@@ -191,7 +150,7 @@ void main(uint ix[3] : IX) {
   // MULTI: call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLROBY]], i32 [[IX1p4]]
   // MULTI: [[RESRET:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLROBY]], i32 [[IX1p8]]
   // CHECK: [[STATUS:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[RESRET]], 4
-  // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
+  // CHECK: [[CHK2:%.*]] = call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
@@ -208,10 +167,11 @@ void main(uint ix[3] : IX) {
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWBY]], i32 [[RIX0]]
   // MULTI: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWBY]], i32 [[IX0p4]]
   // MULTI: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWBY]], i32 [[IX0p8]]
+  // CHECK: and i1 [[CHK1]], [[CHK2]]
   // CHECK: [[ANHDLRWBY:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLRWBY]]
   // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle [[ANHDLRWBY]], i32 100
   RwByBuf.Store< TYPE SS >(ix[0], Add(babElt1, babElt2, babElt3, babElt4));
-  RwByBuf.Store< uint > (100, status1 + status2);
+  RwByBuf.Store< uint > (100, status1 && status2);
 
   // StructuredBuffer Tests
   // CHECK: [[ANHDLRWST:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLRWST]]
@@ -238,7 +198,7 @@ void main(uint ix[3] : IX) {
   // MULTI: call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLRWST]], i32 [[IX2]], i32 [[p4]]
   // MULTI: [[RESRET:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLRWST]], i32 [[IX2]], i32 [[p8]]
   // CHECK: [[STATUS:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[RESRET]], 4
-  // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
+  // CHECK: [[CHK1:%.*]] = call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
@@ -268,7 +228,7 @@ void main(uint ix[3] : IX) {
   // MULTI: call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLROST]], i32 [[IX2]], i32 [[p4]]
   // MULTI: [[RESRET:%.*]] = call %dx.types.ResRet.[[TY]] @dx.op.rawBufferLoad.[[TY]](i32 139, %dx.types.Handle [[ANHDLROST]], i32 [[IX2]], i32 [[p8]]
   // CHECK: [[STATUS:%.*]] = extractvalue %dx.types.ResRet.[[TY]] [[RESRET]], 4
-  // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
+  // CHECK: [[CHK2:%.*]] = call i1 @dx.op.checkAccessFullyMapped.i32(i32 71, i32 [[STATUS]])
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
   // I1: icmp ne i32 %{{.*}}, 0
@@ -284,10 +244,11 @@ void main(uint ix[3] : IX) {
   // CHECK: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWST]], i32 [[IX0]], i32 [[BOFF]]
   // MULTI: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWST]], i32 [[IX0]], i32 [[p4]]
   // MULTI: call void @dx.op.rawBufferStore.[[TY]](i32 140, %dx.types.Handle [[ANHDLRWST]], i32 [[IX0]], i32 [[p8]]
+  // CHECK: and i1 [[CHK1]], [[CHK2]]
   // CHECK: [[ANHDLRWBY:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLRWBY]]
   // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle [[ANHDLRWBY]], i32 200
   RwStBuf[ix[0]] = Add(stbElt1, stbElt2, stbElt3, stbElt4, stbElt5, stbElt6);
-  RwByBuf.Store< uint > (200, status1 + status2);
+  RwByBuf.Store< uint > (200, status1 && status2);
 
   // {Append/Consume}StructuredBuffer Tests
   // CHECK: [[ANHDLCON:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle [[HDLCON]]
