@@ -186,7 +186,7 @@ bool LoadCombine::combineLoads(SmallVectorImpl<LoadPOPPair> &Loads) {
 
   // Find first load. This is where we put the new load.
   LoadPOPPair FirstLP;
-  FirstLP.InsertOrder = -1u;
+  FirstLP.InsertOrder = std::numeric_limits<unsigned>::max();
   for (const auto &L : Loads)
     if (L.InsertOrder < FirstLP.InsertOrder)
       FirstLP = L;
