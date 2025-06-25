@@ -1118,7 +1118,7 @@ AliasResult BasicAliasAnalysis::aliasGEP(
       if (V1Size != MemoryLocation::UnknownSize &&
           V2Size != MemoryLocation::UnknownSize) {
         // GEP1BaseOffset is negative in this else block and because we're
-        // assigning to a an unsigned variable, we can make use of
+        // assigning to an unsigned variable, we can make use of
         // -I == (~I + 1) to compute the absolute value of GEP1BaseOffset.
         const uint64_t GEP1BaseOffsetAbs = (~GEP1BaseOffset + 1ULL);
         if (GEP1BaseOffsetAbs < V1Size)
