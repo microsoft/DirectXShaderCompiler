@@ -446,7 +446,7 @@ ulpsFromBoundary(const integerPart *parts, unsigned int bits, bool isNearest)
       if (~parts[count])
         return ~(integerPart) 0; /* A lot.  */
 
-    return -parts[0];
+    return (~parts[0] + 1);
   }
 
   return ~(integerPart) 0; /* A lot.  */

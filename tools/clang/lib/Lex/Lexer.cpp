@@ -480,7 +480,7 @@ static SourceLocation getBeginningOfFileToken(SourceLocation Loc,
   }
   
   // Create a lexer starting at the beginning of this token.
-  SourceLocation LexerStartLoc = Loc.getLocWithOffset(-LocInfo.second);
+  SourceLocation LexerStartLoc = Loc.getLocWithOffset(~LocInfo.second + 1);
   Lexer TheLexer(LexerStartLoc, LangOpts, BufStart, LexStart, Buffer.end());
   TheLexer.SetCommentRetentionState(true);
   
