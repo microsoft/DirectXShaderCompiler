@@ -48,7 +48,7 @@ add_clang_library(ClangHLSLTests SHARED
   PixTestUtils.cpp
   RewriterTest.cpp
   SystemValueTest.cpp
-  ${CMAKE_SOURCE_DIR}/lib/dxcsupport/Unicode.cpp
+  ${CMAKE_SOURCE_DIR}/lib/DxcSupport/Unicode.cpp
   ValidationTest.cpp
   VerifierTest.cpp
   )
@@ -79,7 +79,7 @@ add_clang_unittest(ClangHLSLTests
   PixTestUtils.cpp
   SystemValueTest.cpp
   TestMain.cpp
-  ${CMAKE_SOURCE_DIR}/lib/dxcsupport/Unicode.cpp
+  ${CMAKE_SOURCE_DIR}/lib/DxcSupport/Unicode.cpp
   ValidationTest.cpp
   VerifierTest.cpp
   )
