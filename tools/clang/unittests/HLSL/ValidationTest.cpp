@@ -4210,6 +4210,59 @@ TEST_F(ValidationTest, ValidateWithHash) {
   VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
 }
 
+std::wstring string_to_wstring(const std::string &str) {
+  if (str.empty())
+    return L"";
+
+  int size_needed =
+      MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), nullptr, 0);
+  std::wstring wstrTo(size_needed, 0);
+  MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), &wstrTo[0],
+                      size_needed);
+  return wstrTo;
+}
+
+std::string wstring_to_utf8(const std::wstring &wstr) {
+  if (wstr.empty())
+    return "";
+
+  int size = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), -1, nullptr, 0,
+                                 nullptr, nullptr);
+  std::string result(size - 1, 0); // -1 to exclude null terminator
+  WideCharToMultiByte(CP_UTF8, 0, wstr.data(), -1, &result[0], size, nullptr,
+                      nullptr);
+  return result;
+}
+
+std::string GetEnvVarA(const std::string &varName) {
+#ifdef _WIN32
+  DWORD size = GetEnvironmentVariableA(varName.c_str(), nullptr, 0);
+  if (size == 0) {
+    return ""; // Not found or empty
+  }
+
+  std::string buffer(size - 1, '\0'); // size includes null terminator
+  GetEnvironmentVariableA(varName.c_str(), &buffer[0], size);
+  return buffer;
+#else
+  const char *result = std::getenv(varName.c_str());
+  return result ? std::string(result) : std::string();
+#endif
+}
+
+void SetEnvVarW(const std::wstring &varName, const std::wstring &varValue) {
+#ifdef _WIN32
+  VERIFY_IS_TRUE(SetEnvironmentVariableW(varName.c_str(), varValue.c_str()));
+  // also update the CRT environment
+  _putenv_s(wstring_to_utf8(varName).c_str(),
+            wstring_to_utf8(varValue).c_str());
+#else
+  std::string name_utf8 = wstring_to_utf8(varName);
+  std::string value_utf8 = wstring_to_utf8(varValue);
+  setenv(name_utf8.c_str(), value_utf8.c_str(), 1);
+#endif
+}
+
 // For now, 3 things are tested:
 // 1. The environment variable is not set. GetDxilDllPath() is empty and
 // DxilDllFailedToLoad() returns false
@@ -4225,20 +4278,23 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   DxcDllExtValidationSupport m_dllExtSupport1;
   DxcDllExtValidationSupport m_dllExtSupport2;
 
+  // capture any existing value in the environment variable,
+  // so that it can be restored after the test
+  std::string oldEnvVal = GetEnvVarA("DXC_DXIL_DLL_PATH");
+
   // 1. with no env var set, test GetDxilDllPath() and DxilDllFailedToLoad()
-  m_dllExtSupport1.Initialize();
+
+  // make sure the variable is cleared, in case other tests may have set it
+  SetEnvVarW(L"DXC_DXIL_DLL_PATH", L"");
+
+  // empty initialization should succeed
+  VERIFY_SUCCEEDED(m_dllExtSupport1.Initialize());
+
   VERIFY_IS_FALSE(m_dllExtSupport1.DxilDllFailedToLoad());
   VERIFY_ARE_EQUAL(m_dllExtSupport1.GetDxilDllPath(), "");
 
   // 2. Test with a bogus path in the environment variable
-#ifdef _WIN32
-  SetEnvironmentVariableW(L"DXC_DXIL_DLL_PATH", L"bogus");
-  // also update the CRT environment
-  _putenv_s("DXC_DXIL_DLL_PATH", "bogus");
-
-#else
-  setenv("DXC_DXIL_DLL_PATH", "bogus", 1);
-#endif
+  SetEnvVarW(L"DXC_DXIL_DLL_PATH", L"bogus");
 
   if (!m_dllExtSupport2.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllExtSupport2.Initialize());
@@ -4276,6 +4332,11 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   VERIFY_SUCCEEDED(m_dllExtSupport2.CreateInstance2(pMalloc, CLSID_DxcValidator,
                                                     __uuidof(IDxcValidator),
                                                     (IUnknown **)&pValidator));
+
+  // reset the environment variable to its previous value, if it had one.
+  if (!oldEnvVal.empty()) {
+    SetEnvVarW(L"DXC_DXIL_DLL_PATH", string_to_wstring(oldEnvVal));
+  }
 }
 
 TEST_F(ValidationTest, ValidatePreviewBypassHash) {
