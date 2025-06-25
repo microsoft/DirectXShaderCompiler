@@ -20,6 +20,7 @@
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilHash/DxilHash.h"
+#include "dxc/Support/Unicode.h" // for wstring conversions like WideToUtf8String
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
@@ -4210,39 +4211,15 @@ TEST_F(ValidationTest, ValidateWithHash) {
   VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
 }
 
-std::wstring string_to_wstring(const std::string &str) {
-  if (str.empty())
-    return L"";
-
-  int size_needed =
-      MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), nullptr, 0);
-  std::wstring wstrTo(size_needed, 0);
-  MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), &wstrTo[0],
-                      size_needed);
-  return wstrTo;
-}
-
-std::string wstring_to_utf8(const std::wstring &wstr) {
-  if (wstr.empty())
-    return "";
-
-  int size = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), -1, nullptr, 0,
-                                 nullptr, nullptr);
-  std::string result(size - 1, 0); // -1 to exclude null terminator
-  WideCharToMultiByte(CP_UTF8, 0, wstr.data(), -1, &result[0], size, nullptr,
-                      nullptr);
-  return result;
-}
-
-std::string GetEnvVarA(const std::string &varName) {
+std::wstring GetEnvVarW(const std::wstring &varName) {
 #ifdef _WIN32
-  DWORD size = GetEnvironmentVariableA(varName.c_str(), nullptr, 0);
+  DWORD size = GetEnvironmentVariableW(varName.c_str(), nullptr, 0);
   if (size == 0) {
-    return ""; // Not found or empty
+    return L""; // Not found or empty
   }
 
-  std::string buffer(size - 1, '\0'); // size includes null terminator
-  GetEnvironmentVariableA(varName.c_str(), &buffer[0], size);
+  std::wstring buffer(size - 1, '\0'); // size includes null terminator
+  GetEnvironmentVariableW(varName.c_str(), &buffer[0], size);
   return buffer;
 #else
   const char *result = std::getenv(varName.c_str());
@@ -4254,12 +4231,26 @@ void SetEnvVarW(const std::wstring &varName, const std::wstring &varValue) {
 #ifdef _WIN32
   VERIFY_IS_TRUE(SetEnvironmentVariableW(varName.c_str(), varValue.c_str()));
   // also update the CRT environment
-  _putenv_s(wstring_to_utf8(varName).c_str(),
-            wstring_to_utf8(varValue).c_str());
+  std::string varNameStr;
+  std::string varValueStr;
+  Unicode::WideToUTF8String(varName.c_str(), &varNameStr);
+  Unicode::WideToUTF8String(varValue.c_str(), &varValueStr);
+  _putenv_s(varNameStr.c_str(), varValueStr.c_str());
 #else
   std::string name_utf8 = wstring_to_utf8(varName);
   std::string value_utf8 = wstring_to_utf8(varValue);
   setenv(name_utf8.c_str(), value_utf8.c_str(), 1);
+#endif
+}
+
+void ClearEnvVarW(const std::wstring &varName) {
+  std::string varNameStr;
+  Unicode::WideToUTF8String(varName.c_str(), &varNameStr);
+#ifdef _WIN32
+  SetEnvironmentVariableW(varName.c_str(), nullptr);
+  _putenv_s(varNameStr.c_str(), "");
+#else
+  unsetenv(varNameStr.c_str());
 #endif
 }
 
@@ -4280,7 +4271,7 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
 
   // capture any existing value in the environment variable,
   // so that it can be restored after the test
-  std::string oldEnvVal = GetEnvVarA("DXC_DXIL_DLL_PATH");
+  std::wstring oldEnvVal = GetEnvVarW(L"DXC_DXIL_DLL_PATH");
 
   // 1. with no env var set, test GetDxilDllPath() and DxilDllFailedToLoad()
 
@@ -4335,7 +4326,9 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
 
   // reset the environment variable to its previous value, if it had one.
   if (!oldEnvVal.empty()) {
-    SetEnvVarW(L"DXC_DXIL_DLL_PATH", string_to_wstring(oldEnvVal));
+    SetEnvVarW(L"DXC_DXIL_DLL_PATH", oldEnvVal);
+  } else {
+    ClearEnvVarW(L"DXC_DXIL_DLL_PATH");
   }
 }
 
