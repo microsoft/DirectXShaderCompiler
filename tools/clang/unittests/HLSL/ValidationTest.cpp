@@ -300,7 +300,6 @@ public:
   TEST_METHOD(ValidatePrintfNotAllowed)
 
   TEST_METHOD(ValidateWithHash)
-  TEST_METHOD(ValidateWithExternalValidator)
   TEST_METHOD(ValidateVersionNotAllowed)
   TEST_METHOD(ValidatePreviewBypassHash)
   TEST_METHOD(ValidateProgramVersionAgainstDxilModule)
@@ -325,12 +324,12 @@ public:
   TEST_METHOD(PSVContentValidationCS)
   TEST_METHOD(PSVContentValidationMS)
   TEST_METHOD(PSVContentValidationAS)
+  TEST_METHOD(UnitTestExtValidationSupport)
   TEST_METHOD(WrongPSVSize)
   TEST_METHOD(WrongPSVSizeOnZeros)
   TEST_METHOD(WrongPSVVersion)
 
   dxc::DxcDllSupport m_dllSupport;
-  DxcDllExtValidationSupport m_dllExtSupport;
   VersionSupportInfo m_ver;
 
   void TestCheck(LPCWSTR name) {
@@ -4210,55 +4209,67 @@ TEST_F(ValidationTest, ValidateWithHash) {
   VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
 }
 
-TEST_F(ValidationTest, ValidateWithExternalValidator) {
-  /*
-  // The below part of the test was run on a local machine,
-  // but shouldn't be run yet in automated scenarios, since
-  // the DXC repo does not yet have a checked-in dxil.dll.
+// For now, 3 things are tested:
+// 1. The environment variable is not set. GetDxilDllPath() is empty and
+// DxilDllFailedToLoad() returns false
+// 2. Given a bogus path in the environment variable, GetDxilDllPath()
+// retrieves the path but fails to load it as a dll, and returns true
+// for DxilDllFailedToLoad()
+// 3. CLSID_DxcCompiler, CLSID_DxcLinker, CLSID_DxcValidator
+// may be created through DxcDllExtValidationSupport.
+// This is all to simply test that the new class, DxcDllExtValidationSupport,
+// works as intended.
 
-  // set the environment variable that stores the path to the extenral
-  // dxil.dll
-  SetEnvironmentVariableW(L"DXC_DXIL_DLL_PATH",
-                          L"D:\\hlsl.bin\\Debug\\bin\\dxil.dll");
+TEST_F(ValidationTest, UnitTestExtValidationSupport) {
+  DxcDllExtValidationSupport m_dllExtSupport1;
+  DxcDllExtValidationSupport m_dllExtSupport2;
+
+  // 1. with no env var set, test GetDxilDllPath() and DxilDllFailedToLoad()
+  m_dllExtSupport1.Initialize();
+  VERIFY_IS_FALSE(m_dllExtSupport1.DxilDllFailedToLoad());
+  VERIFY_ARE_EQUAL(m_dllExtSupport1.GetDxilDllPath(), "");
+
+  // 2. Test with a bogus path in the environment variable
+  SetEnvironmentVariableW(L"DXC_DXIL_DLL_PATH", L"bogus");
   // also update the CRT environment
-  _putenv_s("DXC_DXIL_DLL_PATH", "D:\\hlsl.bin\\Debug\\bin\\dxil.dll");
-  */
+  _putenv_s("DXC_DXIL_DLL_PATH", "bogus");
 
-  if (!m_dllExtSupport.IsEnabled()) {
-    VERIFY_SUCCEEDED(m_dllExtSupport.Initialize());
+  if (!m_dllExtSupport2.IsEnabled()) {
+    VERIFY_SUCCEEDED(m_dllExtSupport2.Initialize());
   }
 
-  if (m_ver.SkipDxilVersion(1, ShaderModel::kHighestReleasedMinor))
-    return;
-  CComPtr<IDxcBlob> pProgram;
-  CompileSource("float4 main(float a:A, float b:B) : SV_Target { return 1; }",
-                "ps_6_0", &pProgram);
+  // validate that m_dllExtSupport2 was able to capture the environment
+  // variable's value, and that loading the bogus path was unsuccessful
+  std::string extPath("bogus");
+  VERIFY_ARE_EQUAL(m_dllExtSupport2.GetDxilDllPath(), extPath);
+  VERIFY_IS_TRUE(m_dllExtSupport2.DxilDllFailedToLoad());
 
+  // 3. Test production of class IDs CLSID_DxcCompiler, CLSID_DxcLinker,
+  // and CLSID_DxcValidator through DxcDllExtValidationSupport.
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcLinker> pLinker;
   CComPtr<IDxcValidator> pValidator;
   CComPtr<IDxcOperationResult> pResult;
-  unsigned Flags = 0;
-  VERIFY_SUCCEEDED(
-      m_dllExtSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
-  // With hash.
-  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
-  // Make sure the validation was successful.
-  HRESULT status;
-  VERIFY_IS_NOT_NULL(pResult);
-  CComPtr<IDxcBlob> pValidationOutput;
-  pResult->GetStatus(&status);
-  VERIFY_SUCCEEDED(status);
-  pResult->GetResult(&pValidationOutput);
 
-  /*
-  // as described above, this should only be tested in local scenarios,
-  // until dxil.dll is checked into the dxc repo
-
-  // validate that m_dllExtSupport was able to capture the environment
-  // variable's value, and that loading the external validator was successful
-  VERIFY_IS_TRUE(!m_dllExtSupport.DxilDllFailedToLoad());
-  std::string extPath("D:\\hlsl.bin\\Debug\\bin\\dxil.dll");
-  VERIFY_ARE_EQUAL(m_dllExtSupport.GetDxilDllPath(), extPath);
-  */
+  VERIFY_SUCCEEDED(m_dllExtSupport2.CreateInstance(
+      CLSID_DxcCompiler, __uuidof(IDxcCompiler), (IUnknown **)&pCompiler));
+  VERIFY_SUCCEEDED(m_dllExtSupport2.CreateInstance(
+      CLSID_DxcLinker, __uuidof(IDxcLinker), (IUnknown **)&pLinker));
+  VERIFY_SUCCEEDED(m_dllExtSupport2.CreateInstance(
+      CLSID_DxcValidator, __uuidof(IDxcValidator), (IUnknown **)&pValidator));
+  CComPtr<IMalloc> pMalloc;
+  CComPtr<IDxcCompiler2> pCompiler2;
+  pLinker.Release();
+  pValidator.Release();
+  VERIFY_SUCCEEDED(DxcCoGetMalloc(1, &pMalloc));
+  VERIFY_SUCCEEDED(m_dllExtSupport2.CreateInstance2(pMalloc, CLSID_DxcCompiler,
+                                                    __uuidof(IDxcCompiler),
+                                                    (IUnknown **)&pCompiler2));
+  VERIFY_SUCCEEDED(m_dllExtSupport2.CreateInstance2(
+      pMalloc, CLSID_DxcLinker, __uuidof(IDxcLinker), (IUnknown **)&pLinker));
+  VERIFY_SUCCEEDED(m_dllExtSupport2.CreateInstance2(pMalloc, CLSID_DxcValidator,
+                                                    __uuidof(IDxcValidator),
+                                                    (IUnknown **)&pValidator));
 }
 
 TEST_F(ValidationTest, ValidatePreviewBypassHash) {

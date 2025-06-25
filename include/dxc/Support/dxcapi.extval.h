@@ -10,12 +10,11 @@ protected:
 
   std::string DxilDllPath;
 
+  // override DxcDllSupport's implementation of InitializeInternal,
+  // adding the environment variable value check for a path to a dxil.dll
   HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) override;
 
 public:
-  // override DxcDllSupport's implementation of InitializeInternal,
-  // adding the environment variable value check for a path to a dxil.dll
-
   std::string GetDxilDllPath() { return DxilDllPath; }
   bool DxilDllFailedToLoad() {
     return !DxilDllPath.empty() && !DxilSupport.IsEnabled();
@@ -31,4 +30,9 @@ public:
     DxilSupport.Cleanup();
     return DxcDllSupport::Detach();
   }
+
+  HRESULT CreateInstance(REFCLSID clsid, REFIID riid,
+                         IUnknown **pResult) override;
+  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
+                          IUnknown **pResult) override;
 };
