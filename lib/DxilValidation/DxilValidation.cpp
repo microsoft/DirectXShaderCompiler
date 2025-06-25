@@ -1573,9 +1573,15 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
       ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
     } else {
       Value *V = EVI->getOperand(0);
+      StructType *StrTy = dyn_cast<StructType>(V->getType());
+      unsigned ExtractIndex = EVI->getIndices()[0];
+      // Ensure parameter is a single value that is extracted from the correct
+      // ResRet struct location.
       bool IsLegal = EVI->getNumIndices() == 1 &&
-                     EVI->getIndices()[0] == DXIL::kResRetStatusIndex &&
-                     ValCtx.DxilMod.GetOP()->IsResRetType(V->getType());
+                     (ExtractIndex == DXIL::kResRetStatusIndex ||
+                      ExtractIndex == DXIL::kVecResRetStatusIndex) &&
+                     ValCtx.DxilMod.GetOP()->IsResRetType(StrTy) &&
+                     ExtractIndex == StrTy->getNumElements() - 1;
       if (!IsLegal) {
         ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
       }
