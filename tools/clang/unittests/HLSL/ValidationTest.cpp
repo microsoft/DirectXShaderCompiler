@@ -24,6 +24,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Regex.h"
+#include <cstdlib> // for setenv(), getenv(), unsetenv()
 
 #ifdef _WIN32
 #include <atlbase.h>
@@ -4230,9 +4231,14 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   VERIFY_ARE_EQUAL(m_dllExtSupport1.GetDxilDllPath(), "");
 
   // 2. Test with a bogus path in the environment variable
+#ifdef _WIN32
   SetEnvironmentVariableW(L"DXC_DXIL_DLL_PATH", L"bogus");
   // also update the CRT environment
   _putenv_s("DXC_DXIL_DLL_PATH", "bogus");
+
+#else
+  setenv("DXC_DXIL_DLL_PATH", "bogus", 1);
+#endif
 
   if (!m_dllExtSupport2.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllExtSupport2.Initialize());
