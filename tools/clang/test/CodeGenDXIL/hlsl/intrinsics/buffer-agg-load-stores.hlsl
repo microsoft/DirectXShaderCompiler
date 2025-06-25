@@ -1,4 +1,45 @@
 // RUN: %dxc -T vs_6_6              -DETY=float     -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6              -DETY=bool      -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6              -DETY=uint64_t  -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6              -DETY=double    -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+
+// RUN: %dxc -T vs_6_6              -DETY=float1    -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6              -DETY=bool1     -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6              -DETY=uint64_t1 -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6              -DETY=double1   -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+
+// RUN: %dxc -T vs_6_6              -DETY=float4    -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6              -DETY=bool4     -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6              -DETY=uint64_t4 -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6              -DETY=double4   -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=float    -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=bool     -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=uint64_t -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=double   -DCOLS=2 -DROWS=2 %s | FileCheck %s
+
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=float    -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=bool     -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=uint64_t -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=double   -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=float    -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=uint64_t -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=double   -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=float    -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=bool     -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=uint64_t -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=double   -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+
+// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=float    -DCOLS=4 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=bool     -DCOLS=4 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=uint64_t -DCOLS=2 %s | FileCheck %s
+// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=double   -DCOLS=2 %s | FileCheck %s
+
+// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=float    -DCOLS=4 %s | FileCheck %s --check-prefixes=CHECK,OFF
+// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=bool     -DCOLS=4 %s | FileCheck %s --check-prefixes=CHECK,OFF
+// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=uint64_t -DCOLS=2 %s | FileCheck %s --check-prefixes=CHECK,OFF
+// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=double   -DCOLS=2 %s | FileCheck %s --check-prefixes=CHECK,OFF
 
 ///////////////////////////////////////////////////////////////////////
 // Test codegen for various load and store operations and conversions
