@@ -4638,7 +4638,7 @@ unsigned LoopVectorizationCostModel::selectInterleaveCount(bool OptForSize,
     return 1;
 
   // We used the distance for the interleave count.
-  if (Legal->getMaxSafeDepDistBytes() != std::numeric_limits<unsigned>::max()) {
+  if (Legal->getMaxSafeDepDistBytes() != std::numeric_limits<unsigned>::max())
     return 1;
 
   // Do not interleave loops with a relatively small trip count.
@@ -4766,7 +4766,7 @@ unsigned LoopVectorizationCostModel::selectInterleaveCount(bool OptForSize,
 
   DEBUG(dbgs() << "LV: Not Interleaving.\n");
   return 1;
-  }
+}
 
 LoopVectorizationCostModel::RegisterUsage
 LoopVectorizationCostModel::calculateRegisterUsage() {
