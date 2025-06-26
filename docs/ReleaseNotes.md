@@ -17,7 +17,7 @@ The included licenses apply to the following files:
 
 ## Changelog
 
-### Upcoming Release
+### Version 1.8.2505.1
 
 - Fix regression: [#7510](https://github.com/microsoft/DirectXShaderCompiler/issues/7510) crash when calling `sizeof` on templated type.
 - Fix regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
