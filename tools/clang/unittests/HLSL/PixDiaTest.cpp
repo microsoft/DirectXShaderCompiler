@@ -2789,7 +2789,7 @@ public:
   DxcIncludeHandlerForInjectedSourcesForPix(
       PixDiaTest *pixTest,
       std::vector<std::pair<std::wstring, std::string>> files)
-      : m_dwRef(0), m_files(files), m_pixTest(pixTest) {};
+      : m_dwRef(0), m_files(files), m_pixTest(pixTest){};
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {
