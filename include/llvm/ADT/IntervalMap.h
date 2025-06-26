@@ -320,7 +320,9 @@ public:
       return Count;
     } else {
       // We want to shrink, copy to sib.
-      unsigned Count = std::min(std::min(unsigned(-Add), Size), N - SSize);
+      // Count is guaranteed to be <= INT_MAX because the inner std::min is
+      // being called on int parameters.
+      int Count = std::min(std::min(unsigned(-Add), Size), N - SSize);
       transferToLeftSib(Size, Sib, SSize, Count);
       return -Count;
     }
