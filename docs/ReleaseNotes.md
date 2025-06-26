@@ -17,13 +17,10 @@ The included licenses apply to the following files:
 
 ## Changelog
 
-### Version 1.8.2505.1
-
-DX Compiler Release for May 2025 - Patch 1
+### Upcoming Release
 
 - Fix regression: [#7510](https://github.com/microsoft/DirectXShaderCompiler/issues/7510) crash when calling `sizeof` on templated type.
 - Fix regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
-
 - Header file `dxcpix.h` was added to the release package.
 
 ### Version 1.8.2505
