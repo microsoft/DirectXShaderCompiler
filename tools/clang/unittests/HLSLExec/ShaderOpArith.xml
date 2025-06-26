@@ -3750,4 +3750,71 @@ void MSMain(uint GID : SV_GroupIndex,
     </Shader>
   </ShaderOp>
 
+  <ShaderOp Name="LongVectorOp" CS="CS">
+    <RootSignature>RootFlags(0), UAV(u0), UAV(u1), UAV(u2),
+    UAV(u3)</RootSignature>
+    <!-- Width="16" BYTES to account for two largest scalar types (64 bits)-->
+    <Resource Name="InputFuncArgs" Dimension="BUFFER" Width="16"
+    Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+    TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <!-- Width="8192" BYTES to account for largest type (64 bits) and vector
+    size of 1024 elements (the max long vector size)-->
+    <Resource Name="InputVector1" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="InputVector2" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="InputFuncArgs" />
+      <RootValue Index="1" ResName="InputVector1" />
+      <RootValue Index="2" ResName="InputVector2" />
+      <RootValue Index="3" ResName="OutputVector" />
+    </RootValues>
+    <!-- This shader requires the following defines to be passed in as arguments:
+     // 1 and 2 are required to compile the shader.
+     // 1. -DOPERATOR : "*" "+" "," "-" "/" etc.
+     // 2. -DOPERAND2: : InputVector2, ScalarInput, or "" depending on the test.
+     // Other defines are optional and are used to test different functions.
+     -->
+    <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
+      <![CDATA[
+
+        #ifdef FUNC_INITIALIZE
+        vector<TYPE, NUM> TestInitialize(vector<TYPE, NUM> Vector)
+        {
+          vector<TYPE, NUM> VectorCopy = Vector;
+          return VectorCopy;
+        }
+        #endif
+
+        RWByteAddressBuffer g_InputFuncArgs : register(u0);
+        RWByteAddressBuffer g_InputVector1 : register(u1);
+        RWByteAddressBuffer g_InputVector2 : register(u2);
+        RWByteAddressBuffer g_OutputVector : register(u3);
+        [numthreads(1,1,1)]
+        void main(uint GI : SV_GroupIndex) {
+
+          vector<TYPE, NUM> InputVector1 = g_InputVector1.Load< vector<TYPE,
+          NUM> >(0);
+
+          #ifdef IS_BINARY_VECTOR_OP
+          vector<TYPE, NUM> InputVector2 = g_InputVector2.Load< vector<TYPE,
+          NUM> >(0);
+          #endif
+
+          #ifdef IS_SCALAR_OP
+          TYPE InputScalar = g_InputFuncArgs.Load<TYPE>(0);
+          #endif
+
+          #ifdef FUNC_CLAMP
+          TYPE Clamp_ArgMin = g_InputFuncArgs.Load<TYPE>(0);
+          TYPE Clamp_ArgMax = g_InputFuncArgs.Load<TYPE>(sizeof(TYPE));
+          vector<TYPE, 2> ClampArgMinMax = {Clamp_ArgMin, Clamp_ArgMax};
+          #endif
+
+          vector<TYPE, NUM> OutputVector = FUNC(InputVector1 OPERATOR OPERAND2);
+
+          g_OutputVector.Store< vector<TYPE, NUM> >(0, OutputVector);
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
 </ShaderOpSet>

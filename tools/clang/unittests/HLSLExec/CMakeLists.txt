@@ -9,6 +9,7 @@ add_clang_library(ExecHLSLTests SHARED
   ExecutionTest.cpp
   ShaderOpTest.cpp
   TableParameterHandler.cpp
+  LongVectors.cpp
   ExecHLSLTests.rc
   )
 
