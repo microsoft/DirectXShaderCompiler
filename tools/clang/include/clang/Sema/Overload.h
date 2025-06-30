@@ -57,7 +57,7 @@ namespace clang {
   /// convert an argument to a parameter's type. The enumerator values
   /// match with Table 9 of (C++ 13.3.3.1.1) and are listed such that
   /// better conversion kinds have smaller values.
-  enum ImplicitConversionKind {
+  enum ImplicitConversionKind : unsigned int {
     ICK_Identity = 0,          ///< Identity conversion (no conversion)
     ICK_Lvalue_To_Rvalue,      ///< Lvalue-to-rvalue conversion (C++ 4.1)
     ICK_Array_To_Pointer,      ///< Array-to-pointer conversion (C++ 4.2)

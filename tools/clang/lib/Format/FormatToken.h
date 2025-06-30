@@ -86,7 +86,7 @@ namespace format {
   TYPE(UnaryOperator) \
   TYPE(Unknown)
 
-enum TokenType {
+enum TokenType : unsigned int {
 #define TYPE(X) TT_##X,
 LIST_TOKEN_TYPES
 #undef TYPE
