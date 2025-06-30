@@ -205,10 +205,17 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
   instruction->setRValue(true);
 
   if (pointer->getStorageClass() == spv::StorageClass::PhysicalStorageBuffer) {
-    AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
-    uint32_t align, size, stride;
-    std::tie(align, size) = alignmentCalc.getAlignmentAndSize(
-        resultType, pointer->getLayoutRule(), llvm::None, &stride);
+    QualType pointerType = pointer->getAstResultType();
+    uint32_t align = 0;
+    if (!pointerType.isNull() && hlsl::IsVKBufferPointerType(pointerType)) {
+      align = hlsl::GetVKBufferPointerAlignment(pointerType);
+    }
+    if (!align) {
+      AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
+      uint32_t stride;
+      std::tie(align, std::ignore) = alignmentCalc.getAlignmentAndSize(
+          resultType, pointer->getLayoutRule(), llvm::None, &stride);
+    }
     instruction->setAlignment(align);
   }
 

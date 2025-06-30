@@ -11179,36 +11179,19 @@ SpirvEmitter::processIntrinsicPointerCast(const CallExpr *callExpr,
 
 SpirvInstruction *SpirvEmitter::processIntrinsicGetBufferContents(
     const CXXMemberCallExpr *callExpr) {
-  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
-                                    spvBuilder);
-  Expr *obj = callExpr->getImplicitObjectArgument();
-  SpirvInstruction *bufferPointer = doExpr(obj);
+  SpirvInstruction *bufferPointer =
+      doExpr(callExpr->getImplicitObjectArgument());
   if (!bufferPointer)
     return nullptr;
-  if (bufferPointer->isRValue()) {
-    bufferPointer->setRValue(false);
-    bufferPointer->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
-    bufferPointer->setLayoutRule(spirvOptions.sBufferLayoutRule);
-    return bufferPointer;
-  }
 
-  unsigned align = hlsl::GetVKBufferPointerAlignment(obj->getType());
-  lowerTypeVisitor.visitInstruction(bufferPointer);
-
-  const SpirvPointerType *bufferPointerType =
-      dyn_cast<SpirvPointerType>(bufferPointer->getResultType());
-  SpirvLoad *retVal =
-      spvBuilder.createLoad(bufferPointerType->getPointeeType(), bufferPointer,
-                            callExpr->getLocStart());
-  if (!align) {
-    QualType bufferType = hlsl::GetVKBufferPointerBufferType(obj->getType());
-    AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
-    uint32_t stride;
-    std::tie(align, std::ignore) = alignmentCalc.getAlignmentAndSize(
-        bufferType, retVal->getLayoutRule(), llvm::None, &stride);
-  }
-  retVal->setAlignment(align);
+  SpirvInstruction *retVal =
+      bufferPointer->isRValue()
+          ? bufferPointer
+          : spvBuilder.createLoad(bufferPointer->getAstResultType(),
+                                  bufferPointer, callExpr->getLocStart());
   retVal->setRValue(false);
+  retVal->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+  retVal->setLayoutRule(spirvOptions.sBufferLayoutRule);
   return retVal;
 }
 
