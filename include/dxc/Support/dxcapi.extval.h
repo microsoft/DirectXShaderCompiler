@@ -8,14 +8,14 @@ class DxcDllExtValidationSupport : public dxc::DxcDllSupport {
 protected:
   dxc::DxcDllSupport DxilSupport;
 
-  std::wstring DxilDllPath;
+  std::string DxilDllPath;
 
   // override DxcDllSupport's implementation of InitializeInternal,
   // adding the environment variable value check for a path to a dxil.dll
   HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) override;
 
 public:
-  std::wstring GetDxilDllPath() { return DxilDllPath; }
+  std::string GetDxilDllPath() { return DxilDllPath; }
   bool DxilDllFailedToLoad() {
     return !DxilDllPath.empty() && !DxilSupport.IsEnabled();
   }

@@ -2,9 +2,7 @@
 #include <dxc/Support/Global.h> // for hresult handling with DXC_FAILED
 #include <filesystem>           // C++17 and later
 // WinIncludes must come before dxcapi.extval.h
-#include "dxc/Support/Unicode.h" // for wstring conversions like WideToUtf8String
 #include "dxc/Support/dxcapi.extval.h"
-#include <wchar.h> // for _wgetenv
 
 HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR dllName,
                                                        LPCSTR fnName) {
@@ -16,17 +14,14 @@ HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR dllName,
   }
 
   // now handle external dxil.dll
-  const wchar_t *EnvVarValue = _wgetenv(L"DXC_DXIL_DLL_PATH");
-  if (!EnvVarValue || std::wstring(EnvVarValue).empty()) {
+  const char *EnvVarVal = std::getenv("DXC_DXIL_DLL_PATH");
+  if (!EnvVarVal || std::string(EnvVarVal).empty()) {
     return S_OK;
   }
 
-  std::wstring DllPathWStr(EnvVarValue);
-  std::string DllPathStr;
-  Unicode::WideToUTF8String(DllPathWStr.data(), &DllPathStr);
-
-  DxilDllPath = DllPathWStr;
-  std::filesystem::path DllPath(DllPathWStr);
+  std::string DllPathStr(EnvVarVal);
+  DxilDllPath = DllPathStr;
+  std::filesystem::path DllPath(DllPathStr);
 
   // Check if path is absolute and exists
   if (!DllPath.is_absolute() || !std::filesystem::exists(DllPath)) {
@@ -36,7 +31,6 @@ HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR dllName,
   // to see if dxil.dll is successfully loaded.
   // the CheckDxilDLLLoaded function can determine whether there were any
   // problems loading dxil.dll or not
-
   DxilSupport.InitializeForDll(DllPathStr.data(), fnName);
 
   return S_OK;

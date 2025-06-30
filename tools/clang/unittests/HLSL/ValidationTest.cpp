@@ -4268,7 +4268,7 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   VERIFY_SUCCEEDED(ExtSupportEmpty.Initialize());
 
   VERIFY_IS_FALSE(ExtSupportEmpty.DxilDllFailedToLoad());
-  VERIFY_ARE_EQUAL_WSTR(ExtSupportEmpty.GetDxilDllPath().c_str(), L"");
+  VERIFY_ARE_EQUAL_STR(ExtSupportEmpty.GetDxilDllPath().c_str(), "");
 
   // 2. Test with a bogus path in the environment variable
   SetEnvVarW(L"DXC_DXIL_DLL_PATH", L"bogus");
@@ -4279,7 +4279,7 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
 
   // validate that m_dllExtSupport2 was able to capture the environment
   // variable's value, and that loading the bogus path was unsuccessful
-  VERIFY_ARE_EQUAL_WSTR(ExtSupportBogus.GetDxilDllPath().c_str(), L"bogus");
+  VERIFY_ARE_EQUAL_STR(ExtSupportBogus.GetDxilDllPath().c_str(), "bogus");
   VERIFY_IS_TRUE(ExtSupportBogus.DxilDllFailedToLoad());
 
   // 3. Test production of class IDs CLSID_DxcCompiler, CLSID_DxcLinker,
