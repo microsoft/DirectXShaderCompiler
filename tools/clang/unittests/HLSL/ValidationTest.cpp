@@ -4217,11 +4217,11 @@ std::wstring GetEnvVarW(const std::wstring &VarName) {
   if (const wchar_t *Result = _wgetenv(VarName.c_str()))
     return std::wstring(Result);
 #else
-  std::string NameUtf8;
-  WideToUTF8String(Name.c_str, &NameUtf8);
-  if (const char *Result = std::getenv(NameUtf8.c_str())) {
+  std::string VarNameUtf8;
+  WideToUTF8String(VarName.c_str, &VarNameUtf8);
+  if (const char *Result = std::getenv(VarNameUtf8.c_str())) {
     std::wstring ResultWide;
-    Unicode::UTF8ToWideString(Result.c_str(), &ResultWide);
+    Unicode::UTF8ToWideString(Result, &ResultWide);
     return std::wstring(ResultWide);
   }
 #endif
@@ -4268,7 +4268,8 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   VERIFY_SUCCEEDED(ExtSupportEmpty.Initialize());
 
   VERIFY_IS_FALSE(ExtSupportEmpty.DxilDllFailedToLoad());
-  VERIFY_ARE_EQUAL_STR(ExtSupportEmpty.GetDxilDllPath().c_str(), "");
+  std::string EmptyPath = ExtSupportBogus.GetDxilDllPath();
+  VERIFY_ARE_EQUAL_STR(EmptyPath.c_str(), "");
 
   // 2. Test with a bogus path in the environment variable
   SetEnvVarW(L"DXC_DXIL_DLL_PATH", L"bogus");
@@ -4279,7 +4280,8 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
 
   // validate that m_dllExtSupport2 was able to capture the environment
   // variable's value, and that loading the bogus path was unsuccessful
-  VERIFY_ARE_EQUAL_STR(ExtSupportBogus.GetDxilDllPath().c_str(), "bogus");
+  std::string BogusPath = ExtSupportBogus.GetDxilDllPath();
+  VERIFY_ARE_EQUAL_STR(BogusPath.c_str(), "bogus");
   VERIFY_IS_TRUE(ExtSupportBogus.DxilDllFailedToLoad());
 
   // 3. Test production of class IDs CLSID_DxcCompiler, CLSID_DxcLinker,
