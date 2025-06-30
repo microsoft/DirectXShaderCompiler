@@ -1538,7 +1538,7 @@ class db_dxil(object):
                 next_op_idx,
                 "IsSpecialFloat",
                 "returns the " + i,
-                "hf",
+                "hf<",
                 "rn",
                 [
                     db_dxil_param(0, "$otpli1", "", "operation result"),

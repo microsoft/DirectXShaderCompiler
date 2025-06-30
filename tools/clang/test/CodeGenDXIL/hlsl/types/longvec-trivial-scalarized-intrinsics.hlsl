@@ -1,11 +1,6 @@
 // The binary part of some of these is all just a vector math ops with as many unary dxops as elements.
 // These will have apparent mismatches between the ARITY define and the check prefix.
 
-// RUN: %dxc -DFUNC=f16tof32    -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,LEGACY
-// RUN: %dxc -DFUNC=f32tof16    -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,LEGACY
-// RUN: %dxc -DFUNC=isfinite    -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,SPECFLT
-// RUN: %dxc -DFUNC=isinf       -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,SPECFLT
-// RUN: %dxc -DFUNC=isnan       -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,SPECFLT
 // RUN: %dxc -DFUNC=ddx         -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
 // RUN: %dxc -DFUNC=ddx_coarse  -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
 // RUN: %dxc -DFUNC=ddx_fine    -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
@@ -62,10 +57,6 @@ float4 main(uint i : SV_PrimitiveID, uint4 m : M) : SV_Target {
   vector<TYPE, 8> arg3 = rbuf.Load< vector<TYPE, 8> >(i++*32);
 
   // UNARY: call {{.*}} [[DXOP:@dx.op.unary]]
-  // BINARY: call {{.*}} [[DXOP:@dx.op.binary]]
-  // TERTIARY: call {{.*}} [[DXOP:@dx.op.tertiary]]
-  // LEGACY: call {{.*}} [[DXOP:@dx.op.legacy]]
-  // SPECFLT: call {{.*}} [[DXOP:@dx.op.isSpecialFloat]]
   // QUAD: call {{.*}} [[DXOP:@dx.op.quad]]
   // WAVE: call {{.*}} [[DXOP:@dx.op.wave]]
   // CHECK: call {{.*}} [[DXOP]]

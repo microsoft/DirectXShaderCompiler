@@ -113,32 +113,32 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "isSpecialFloat",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::IsInf,
      "IsInf",
      OCC::IsSpecialFloat,
      "isSpecialFloat",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::IsFinite,
      "IsFinite",
      OCC::IsSpecialFloat,
      "isSpecialFloat",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::IsNormal,
      "IsNormal",
      OCC::IsSpecialFloat,
      "isSpecialFloat",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Cos,
      "Cos",
      OCC::Unary,
