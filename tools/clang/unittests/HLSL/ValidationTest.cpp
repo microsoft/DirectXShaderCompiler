@@ -26,6 +26,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Regex.h"
 #include <cstdlib> // for setenv(), getenv(), unsetenv()
+#include <wchar.h> // for _wgetenv
 
 #ifdef _WIN32
 #include <atlbase.h>

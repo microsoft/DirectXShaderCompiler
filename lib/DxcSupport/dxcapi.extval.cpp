@@ -4,6 +4,7 @@
 // WinIncludes must come before dxcapi.extval.h
 #include "dxc/Support/Unicode.h" // for wstring conversions like WideToUtf8String
 #include "dxc/Support/dxcapi.extval.h"
+#include <wchar.h> // for _wgetenv
 
 HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR dllName,
                                                        LPCSTR fnName) {
