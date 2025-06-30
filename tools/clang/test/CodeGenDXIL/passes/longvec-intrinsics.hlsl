@@ -111,6 +111,15 @@ void main() {
 
   vector<uint, NUM> uRes = signs;
 
+  // CHECK: call <13 x i32> @dx.op.unaryBits.v13i32(i32 31, <13 x i32> [[uvec2]])  ; Countbits(value)
+  uRes += countbits(uVec2);
+
+  // CHECK: call <13 x i32> @dx.op.unaryBits.v13i64(i32 32, <13 x i64> [[lvec2]])  ; FirstbitLo(value)
+  uRes += firstbitlow(lVec2);
+
+  // CHECK: call <13 x i32> @dx.op.unaryBits.v13i32(i32 33, <13 x i32> [[uvec1]])  ; FirstbitHi(value)
+  uRes += firstbithigh(uVec1);
+
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.v13i32 @dx.op.rawBufferVectorLoad.v13i32(i32 303, %dx.types.Handle {{%.*}}, i32 21, i32 0, i32 4) 
   // CHECK: [[vec:%.*]] = extractvalue %dx.types.ResRet.v13i32 [[ld]], 0
   // CHECK: [[bvec:%.*]] = icmp ne <13 x i32> [[vec]], zeroinitializer
@@ -138,6 +147,9 @@ void main() {
 
   // CHECK: select <13 x i1> [[bvec3]], <13 x i64> [[lvec1]], <13 x i64> [[lvec2]]
   vector<int64_t, NUM> lRes = select(bVec3, lVec1, lVec2);
+
+  // CHECK: call <13 x i1> @dx.op.isSpecialFloat.v13f32(i32 8, <13 x float> [[fvec2]])  ; IsNaN(value)
+  uRes += isnan(fVec2);
 
   // CHECK: [[el1:%.*]] = extractelement <13 x float> [[fvec1]]
   // CHECK: [[el2:%.*]] = extractelement <13 x float> [[fvec2]]
