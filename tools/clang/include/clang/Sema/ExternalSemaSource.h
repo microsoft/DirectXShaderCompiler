@@ -213,6 +213,7 @@ public:
   virtual bool AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
     ArrayRef<Expr *> Args,
     OverloadCandidateSet &CandidateSet,
+    Scope *S,
     bool PartialOverloading)
   {
     return false;

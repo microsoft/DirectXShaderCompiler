@@ -55,6 +55,7 @@
 using namespace clang;
 using namespace sema;
 
+// HLSL Note: This set of utilities copied to SemaHLSL.cpp.
 namespace {
   class UnqualUsingEntry {
     const DeclContext *Nominated;
@@ -4809,9 +4810,12 @@ void Sema::diagnoseTypo(const TypoCorrection &Correction,
 
   NamedDecl *ChosenDecl =
       Correction.isKeyword() ? nullptr : Correction.getCorrectionDecl();
-  if (PrevNote.getDiagID() && ChosenDecl)
+   // HLSL Change begin: don't put notes on invalid source locations.
+  if (PrevNote.getDiagID() && ChosenDecl &&
+      !ChosenDecl->getLocation().isInvalid())
     Diag(ChosenDecl->getLocation(), PrevNote)
       << CorrectedQuotedStr << (ErrorRecovery ? FixItHint() : FixTypo);
+  // HLSL Change end
 }
 
 TypoExpr *Sema::createDelayedTypo(std::unique_ptr<TypoCorrectionConsumer> TCC,

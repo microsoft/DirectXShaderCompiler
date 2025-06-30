@@ -2498,6 +2498,7 @@ public:
   void AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
                                    ArrayRef<Expr *> Args,
                                    OverloadCandidateSet &CandidateSet,
+                                   Scope *S, // HLSL Change
                                    bool PartialOverloading = false);
 
   // An enum used to represent the different possible results of building a

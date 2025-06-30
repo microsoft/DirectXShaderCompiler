@@ -373,7 +373,7 @@ enum ArBasicKind {
 
 #define IS_BPROP_STREAM(_Props) (((_Props)&BPROP_STREAM) != 0)
 
-#define IS_BPROP_PATCH(_Props) (((_Props) & BPROP_PATCH) != 0)
+#define IS_BPROP_PATCH(_Props) (((_Props)&BPROP_PATCH) != 0)
 
 #define IS_BPROP_SAMPLER(_Props) (((_Props)&BPROP_SAMPLER) != 0)
 
@@ -2990,6 +2990,159 @@ static TypedefDecl *CreateGlobalTypedef(ASTContext *context, const char *ident,
   return decl;
 }
 
+// UnqualUsingEntry & UnqualUsingDirectiveSet copied from SemaLookup.cpp.
+namespace {
+class UnqualUsingEntry {
+  const DeclContext *Nominated;
+  const DeclContext *CommonAncestor;
+
+public:
+  UnqualUsingEntry(const DeclContext *Nominated,
+                   const DeclContext *CommonAncestor)
+      : Nominated(Nominated), CommonAncestor(CommonAncestor) {}
+
+  const DeclContext *getCommonAncestor() const { return CommonAncestor; }
+
+  const DeclContext *getNominatedNamespace() const { return Nominated; }
+
+  // Sort by the pointer value of the common ancestor.
+  struct Comparator {
+    bool operator()(const UnqualUsingEntry &L, const UnqualUsingEntry &R) {
+      return L.getCommonAncestor() < R.getCommonAncestor();
+    }
+
+    bool operator()(const UnqualUsingEntry &E, const DeclContext *DC) {
+      return E.getCommonAncestor() < DC;
+    }
+
+    bool operator()(const DeclContext *DC, const UnqualUsingEntry &E) {
+      return DC < E.getCommonAncestor();
+    }
+  };
+};
+
+/// A collection of using directives, as used by C++ unqualified
+/// lookup.
+class UnqualUsingDirectiveSet {
+  typedef SmallVector<UnqualUsingEntry, 8> ListTy;
+
+  ListTy list;
+  llvm::SmallPtrSet<DeclContext *, 8> visited;
+
+public:
+  UnqualUsingDirectiveSet() {}
+
+  void visitScopeChain(Scope *S, Scope *InnermostFileScope) {
+    // C++ [namespace.udir]p1:
+    //   During unqualified name lookup, the names appear as if they
+    //   were declared in the nearest enclosing namespace which contains
+    //   both the using-directive and the nominated namespace.
+    DeclContext *InnermostFileDC = InnermostFileScope->getEntity();
+    assert(InnermostFileDC && InnermostFileDC->isFileContext());
+
+    for (; S; S = S->getParent()) {
+      // C++ [namespace.udir]p1:
+      //   A using-directive shall not appear in class scope, but may
+      //   appear in namespace scope or in block scope.
+      DeclContext *Ctx = S->getEntity();
+      if (Ctx && Ctx->isFileContext()) {
+        visit(Ctx, Ctx);
+      } else if (!Ctx || Ctx->isFunctionOrMethod()) {
+        for (auto *I : S->using_directives())
+          visit(I, InnermostFileDC);
+      }
+    }
+  }
+
+  // Visits a context and collect all of its using directives
+  // recursively.  Treats all using directives as if they were
+  // declared in the context.
+  //
+  // A given context is only every visited once, so it is important
+  // that contexts be visited from the inside out in order to get
+  // the effective DCs right.
+  void visit(DeclContext *DC, DeclContext *EffectiveDC) {
+    if (!visited.insert(DC).second)
+      return;
+
+    addUsingDirectives(DC, EffectiveDC);
+  }
+
+  // Visits a using directive and collects all of its using
+  // directives recursively.  Treats all using directives as if they
+  // were declared in the effective DC.
+  void visit(UsingDirectiveDecl *UD, DeclContext *EffectiveDC) {
+    DeclContext *NS = UD->getNominatedNamespace();
+    if (!visited.insert(NS).second)
+      return;
+
+    addUsingDirective(UD, EffectiveDC);
+    addUsingDirectives(NS, EffectiveDC);
+  }
+
+  // Adds all the using directives in a context (and those nominated
+  // by its using directives, transitively) as if they appeared in
+  // the given effective context.
+  void addUsingDirectives(DeclContext *DC, DeclContext *EffectiveDC) {
+    SmallVector<DeclContext *, 4> queue;
+    while (true) {
+      for (auto UD : DC->using_directives()) {
+        DeclContext *NS = UD->getNominatedNamespace();
+        if (visited.insert(NS).second) {
+          addUsingDirective(UD, EffectiveDC);
+          queue.push_back(NS);
+        }
+      }
+
+      if (queue.empty())
+        return;
+
+      DC = queue.pop_back_val();
+    }
+  }
+
+  // Add a using directive as if it had been declared in the given
+  // context.  This helps implement C++ [namespace.udir]p3:
+  //   The using-directive is transitive: if a scope contains a
+  //   using-directive that nominates a second namespace that itself
+  //   contains using-directives, the effect is as if the
+  //   using-directives from the second namespace also appeared in
+  //   the first.
+  void addUsingDirective(UsingDirectiveDecl *UD, DeclContext *EffectiveDC) {
+    // Find the common ancestor between the effective context and
+    // the nominated namespace.
+    DeclContext *Common = UD->getNominatedNamespace();
+    while (!Common->Encloses(EffectiveDC))
+      Common = Common->getParent();
+    Common = Common->getPrimaryContext();
+
+    list.push_back(UnqualUsingEntry(UD->getNominatedNamespace(), Common));
+  }
+
+  void done() {
+    std::sort(list.begin(), list.end(), UnqualUsingEntry::Comparator());
+  }
+
+  typedef ListTy::const_iterator const_iterator;
+
+  const_iterator begin() const { return list.begin(); }
+  const_iterator end() const { return list.end(); }
+
+  llvm::iterator_range<const_iterator> getNamespacesFor(DeclContext *DC) const {
+    return llvm::make_range(std::equal_range(begin(), end(),
+                                             DC->getPrimaryContext(),
+                                             UnqualUsingEntry::Comparator()));
+  }
+};
+} // namespace
+
+// Helper function copied from SemaLookup.cpp
+static bool isNamespaceOrTranslationUnitScope(Scope *S) {
+  if (DeclContext *Ctx = S->getEntity())
+    return Ctx->isFileContext();
+  return false;
+}
+
 class HLSLExternalSource : public ExternalSemaSource {
 private:
   // Inner types.
@@ -4152,6 +4305,7 @@ public:
                               SourceLocation(), &context.Idents.get("dx"),
                               /*PrevDecl*/ nullptr);
     m_dxNSDecl->setImplicit();
+    m_dxNSDecl->setHasExternalLexicalStorage(true);
     context.getTranslationUnitDecl()->addDecl(m_dxNSDecl);
 
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -5169,7 +5323,7 @@ public:
 
   bool AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
                                    ArrayRef<Expr *> Args,
-                                   OverloadCandidateSet &CandidateSet,
+                                   OverloadCandidateSet &CandidateSet, Scope *S,
                                    bool PartialOverloading) override {
     DXASSERT_NOMSG(ULE != nullptr);
 
@@ -5194,6 +5348,8 @@ public:
     // Exceptions:
     // - Vulkan-specific intrinsics live in the 'vk::' namespace.
     // - DirectX-specific intrinsics live in the 'dx::' namespace.
+    // - Global namespaces could just mean we have a `using` declaration... so
+    // it can be anywhere!
     if (isQualified && !isGlobalNamespace && !isVkNamespace && !isDxNamespace)
       return false;
 
@@ -5204,81 +5360,121 @@ public:
     }
 
     StringRef nameIdentifier = idInfo->getName();
-    const HLSL_INTRINSIC *table = g_Intrinsics;
-    auto tableCount = _countof(g_Intrinsics);
-    if (isDxNamespace) {
-      table = g_DxIntrinsics;
-      tableCount = _countof(g_DxIntrinsics);
-    }
+    using IntrisnicArray = llvm::ArrayRef<const HLSL_INTRINSIC>;
+    IntrisnicArray GlobalIntrinsics(g_Intrinsics);
+    IntrisnicArray DXIntrinsics(g_DxIntrinsics);
 #ifdef ENABLE_SPIRV_CODEGEN
-    if (isVkNamespace) {
-      table = g_VkIntrinsics;
-      tableCount = _countof(g_VkIntrinsics);
-    }
+    IntrisnicArray VKIntrinsics = IntrisnicArray(g_VkIntrinsics);
 #endif // ENABLE_SPIRV_CODEGEN
 
-    IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
-        table, tableCount, StringRef(), nameIdentifier, Args.size());
-    IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
-        table, tableCount, IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
+    llvm::SmallVector<std::pair<IntrisnicArray, NamespaceDecl *>, 3>
+        SearchTables;
 
-    for (; cursor != end; ++cursor) {
-      // If this is the intrinsic we're interested in, build up a representation
-      // of the types we need.
-      const HLSL_INTRINSIC *pIntrinsic = *cursor;
-      LPCSTR tableName = cursor.GetTableName();
-      LPCSTR lowering = cursor.GetLoweringStrategy();
-      DXASSERT(pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
-               "otherwise g_MaxIntrinsicParamCount needs to be updated for "
-               "wider signatures");
+    if (isDxNamespace)
+      SearchTables.push_back(std::make_pair(DXIntrinsics, m_dxNSDecl));
+#ifdef ENABLE_SPIRV_CODEGEN
+    else if (isVkNamespace)
+      SearchTables.push_back(std::make_pair(VKIntrinsics, m_vkNSDecl));
+#endif
+    else if (isGlobalNamespace)
+      SearchTables.push_back(std::make_pair(GlobalIntrinsics, m_hlslNSDecl));
+    else if (!isQualified) {
+      // If the name isn't qualified, we need to search all scopes that are
+      // accessible without qualification. This starts with the global scope and
+      // extends into any scopes that are referred to by using declarations.
+      SearchTables.push_back(std::make_pair(GlobalIntrinsics, m_hlslNSDecl));
 
-      std::vector<QualType> functionArgTypes;
-      size_t badArgIdx;
-      bool argsMatch =
-          MatchArguments(cursor, QualType(), QualType(), QualType(), Args,
-                         &functionArgTypes, badArgIdx);
-      if (!functionArgTypes.size())
-        return false;
+      // If we have a scope chain, walk it to get using declarations.
+      if (S) {
+        UnqualUsingDirectiveSet UDirs;
+        // Find the first namespace or translation-unit scope.
+        Scope *Initial = S;
+        while (S && !isNamespaceOrTranslationUnitScope(S))
+          S = S->getParent();
 
-      // Get or create the overload we're interested in.
-      FunctionDecl *intrinsicFuncDecl = nullptr;
-      std::pair<UsedIntrinsicStore::iterator, bool> insertResult =
-          m_usedIntrinsics.insert(UsedIntrinsic(pIntrinsic, functionArgTypes));
-      bool insertedNewValue = insertResult.second;
-      if (insertedNewValue) {
-        NamespaceDecl *nsDecl = m_hlslNSDecl;
-        if (isVkNamespace)
-          nsDecl = m_vkNSDecl;
-        else if (isDxNamespace)
-          nsDecl = m_dxNSDecl;
-        DXASSERT(tableName,
-                 "otherwise IDxcIntrinsicTable::GetTableName() failed");
-        intrinsicFuncDecl =
-            AddHLSLIntrinsicFunction(*m_context, nsDecl, tableName, lowering,
-                                     pIntrinsic, &functionArgTypes);
-        insertResult.first->setFunctionDecl(intrinsicFuncDecl);
-      } else {
-        intrinsicFuncDecl = (*insertResult.first).getFunctionDecl();
+        UDirs.visitScopeChain(Initial, S);
+        UDirs.done();
+        bool DXFound = false;
+        bool VKFound = false;
+        for (const auto &UD : UDirs) {
+          if (static_cast<DeclContext *>(m_dxNSDecl) == UD.getNominatedNamespace())
+            DXFound = true;
+          else if (static_cast<DeclContext *>(m_vkNSDecl) == UD.getNominatedNamespace())
+            VKFound = true;
+        }
+        if (DXFound)
+          SearchTables.push_back(std::make_pair(DXIntrinsics, m_dxNSDecl));
+        if (VKFound)
+          SearchTables.push_back(std::make_pair(VKIntrinsics, m_vkNSDecl));
       }
+    }
 
-      OverloadCandidate &candidate = CandidateSet.addCandidate(Args.size());
-      candidate.Function = intrinsicFuncDecl;
-      candidate.FoundDecl.setDecl(intrinsicFuncDecl);
-      candidate.Viable = argsMatch;
-      CandidateSet.isNewCandidate(intrinsicFuncDecl); // used to insert into set
-      if (argsMatch)
-        return true;
-      if (badArgIdx) {
-        candidate.FailureKind = ovl_fail_bad_conversion;
-        QualType ParamType =
-            intrinsicFuncDecl->getParamDecl(badArgIdx - 1)->getType();
-        candidate.Conversions[badArgIdx - 1].setBad(
-            BadConversionSequence::no_conversion, Args[badArgIdx - 1],
-            ParamType);
-      } else {
-        // A less informative error. Needed when the failure relates to the
-        // return type
-        candidate.FailureKind = ovl_fail_bad_final_conversion;
+    assert(!SearchTables.empty() && "Must have at least one search table!");
+
+    for (const auto &T : SearchTables) {
+
+      IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
+          T.first.data(), T.first.size(), StringRef(), nameIdentifier,
+          Args.size());
+      IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
+          T.first.data(), T.first.size(),
+          IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
+
+      for (; cursor != end; ++cursor) {
+        // If this is the intrinsic we're interested in, build up a
+        // representation of the types we need.
+        const HLSL_INTRINSIC *pIntrinsic = *cursor;
+        LPCSTR tableName = cursor.GetTableName();
+        LPCSTR lowering = cursor.GetLoweringStrategy();
+        DXASSERT(pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
+                 "otherwise g_MaxIntrinsicParamCount needs to be updated for "
+                 "wider signatures");
+
+        std::vector<QualType> functionArgTypes;
+        size_t badArgIdx;
+        bool argsMatch =
+            MatchArguments(cursor, QualType(), QualType(), QualType(), Args,
+                           &functionArgTypes, badArgIdx);
+        if (!functionArgTypes.size())
+          return false;
+
+        // Get or create the overload we're interested in.
+        FunctionDecl *intrinsicFuncDecl = nullptr;
+        std::pair<UsedIntrinsicStore::iterator, bool> insertResult =
+            m_usedIntrinsics.insert(
+                UsedIntrinsic(pIntrinsic, functionArgTypes));
+        bool insertedNewValue = insertResult.second;
+        if (insertedNewValue) {
+          DXASSERT(tableName,
+                   "otherwise IDxcIntrinsicTable::GetTableName() failed");
+          intrinsicFuncDecl =
+              AddHLSLIntrinsicFunction(*m_context, T.second, tableName,
+                                       lowering, pIntrinsic, &functionArgTypes);
+          insertResult.first->setFunctionDecl(intrinsicFuncDecl);
+        } else {
+          intrinsicFuncDecl = (*insertResult.first).getFunctionDecl();
+        }
+
+        OverloadCandidate &candidate = CandidateSet.addCandidate(Args.size());
+        candidate.Function = intrinsicFuncDecl;
+        candidate.FoundDecl.setDecl(intrinsicFuncDecl);
+        candidate.Viable = argsMatch;
+        CandidateSet.isNewCandidate(
+            intrinsicFuncDecl); // used to insert into set
+        if (argsMatch)
+          return true;
+        if (badArgIdx) {
+          candidate.FailureKind = ovl_fail_bad_conversion;
+          QualType ParamType =
+              intrinsicFuncDecl->getParamDecl(badArgIdx - 1)->getType();
+          candidate.Conversions[badArgIdx - 1].setBad(
+              BadConversionSequence::no_conversion, Args[badArgIdx - 1],
+              ParamType);
+        } else {
+          // A less informative error. Needed when the failure relates to the
+          // return type
+          candidate.FailureKind = ovl_fail_bad_final_conversion;
+        }
       }
     }
 
