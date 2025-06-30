@@ -4211,46 +4211,31 @@ TEST_F(ValidationTest, ValidateWithHash) {
   VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
 }
 
-std::wstring GetEnvVarW(const std::wstring &varName) {
+std::wstring GetEnvVarW(const std::wstring &VarName) {
 #ifdef _WIN32
-  DWORD size = GetEnvironmentVariableW(varName.c_str(), nullptr, 0);
-  if (size == 0) {
-    return L""; // Not found or empty
+  if (const wchar_t *Result = _wgetenv(VarName.c_str()))
+    return std::wstring(Result);
+#else
+  std::string NameUtf8;
+  WideToUTF8String(Name.c_str, &NameUtf8);
+  if (const char *Result = std::getenv(NameUtf8.c_str())) {
+    std::wstring ResultWide;
+    Unicode::UTF8ToWideString(Result.c_str(), &ResultWide);
+    return std::wstring(ResultWide);
   }
-
-  std::wstring buffer(size - 1, '\0'); // size includes null terminator
-  GetEnvironmentVariableW(varName.c_str(), &buffer[0], size);
-  return buffer;
-#else
-  const char *result = std::getenv(varName.c_str());
-  return result ? std::string(result) : std::string();
 #endif
+  return std::wstring();
 }
 
-void SetEnvVarW(const std::wstring &varName, const std::wstring &varValue) {
+void SetEnvVarW(const std::wstring &VarName, const std::wstring &VarValue) {
 #ifdef _WIN32
-  VERIFY_IS_TRUE(SetEnvironmentVariableW(varName.c_str(), varValue.c_str()));
-  // also update the CRT environment
-  std::string varNameStr;
-  std::string varValueStr;
-  Unicode::WideToUTF8String(varName.c_str(), &varNameStr);
-  Unicode::WideToUTF8String(varValue.c_str(), &varValueStr);
-  _putenv_s(varNameStr.c_str(), varValueStr.c_str());
+  _wputenv_s(VarName.c_str(), VarValue.c_str());
 #else
-  std::string name_utf8 = wstring_to_utf8(varName);
-  std::string value_utf8 = wstring_to_utf8(varValue);
-  setenv(name_utf8.c_str(), value_utf8.c_str(), 1);
-#endif
-}
-
-void ClearEnvVarW(const std::wstring &varName) {
-  std::string varNameStr;
-  Unicode::WideToUTF8String(varName.c_str(), &varNameStr);
-#ifdef _WIN32
-  SetEnvironmentVariableW(varName.c_str(), nullptr);
-  _putenv_s(varNameStr.c_str(), "");
-#else
-  unsetenv(varNameStr.c_str());
+  std::string VarNameUtf8;
+  std::string VarValueUtf8;
+  Unicode::WideToUTF8String(VarName.c_str(), &VarNameUtf8);
+  Unicode::WideToUTF8String(VarValue.c_str(), &VarValueUtf8);
+  setenv(VarNameUtf8.c_str(), VarValueUtf8.c_str(), 1);
 #endif
 }
 
@@ -4266,12 +4251,12 @@ void ClearEnvVarW(const std::wstring &varName) {
 // works as intended.
 
 TEST_F(ValidationTest, UnitTestExtValidationSupport) {
-  DxcDllExtValidationSupport m_dllExtSupport1;
-  DxcDllExtValidationSupport m_dllExtSupport2;
+  DxcDllExtValidationSupport ExtSupportEmpty;
+  DxcDllExtValidationSupport ExtSupportBogus;
 
   // capture any existing value in the environment variable,
   // so that it can be restored after the test
-  std::wstring oldEnvVal = GetEnvVarW(L"DXC_DXIL_DLL_PATH");
+  std::wstring OldEnvVal = GetEnvVarW(L"DXC_DXIL_DLL_PATH");
 
   // 1. with no env var set, test GetDxilDllPath() and DxilDllFailedToLoad()
 
@@ -4279,57 +4264,53 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   SetEnvVarW(L"DXC_DXIL_DLL_PATH", L"");
 
   // empty initialization should succeed
-  VERIFY_SUCCEEDED(m_dllExtSupport1.Initialize());
+  VERIFY_SUCCEEDED(ExtSupportEmpty.Initialize());
 
-  VERIFY_IS_FALSE(m_dllExtSupport1.DxilDllFailedToLoad());
-  VERIFY_ARE_EQUAL(m_dllExtSupport1.GetDxilDllPath(), "");
+  VERIFY_IS_FALSE(ExtSupportEmpty.DxilDllFailedToLoad());
+  VERIFY_ARE_EQUAL_WSTR(ExtSupportEmpty.GetDxilDllPath().c_str(), L"");
 
   // 2. Test with a bogus path in the environment variable
   SetEnvVarW(L"DXC_DXIL_DLL_PATH", L"bogus");
 
-  if (!m_dllExtSupport2.IsEnabled()) {
-    VERIFY_SUCCEEDED(m_dllExtSupport2.Initialize());
+  if (!ExtSupportBogus.IsEnabled()) {
+    VERIFY_SUCCEEDED(ExtSupportBogus.Initialize());
   }
 
   // validate that m_dllExtSupport2 was able to capture the environment
   // variable's value, and that loading the bogus path was unsuccessful
-  std::string extPath("bogus");
-  VERIFY_ARE_EQUAL(m_dllExtSupport2.GetDxilDllPath(), extPath);
-  VERIFY_IS_TRUE(m_dllExtSupport2.DxilDllFailedToLoad());
+  VERIFY_ARE_EQUAL_WSTR(ExtSupportBogus.GetDxilDllPath().c_str(), L"bogus");
+  VERIFY_IS_TRUE(ExtSupportBogus.DxilDllFailedToLoad());
 
   // 3. Test production of class IDs CLSID_DxcCompiler, CLSID_DxcLinker,
   // and CLSID_DxcValidator through DxcDllExtValidationSupport.
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcLinker> pLinker;
-  CComPtr<IDxcValidator> pValidator;
-  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcCompiler> Compiler;
+  CComPtr<IDxcLinker> Linker;
+  CComPtr<IDxcValidator> Validator;
 
-  VERIFY_SUCCEEDED(m_dllExtSupport2.CreateInstance(
-      CLSID_DxcCompiler, __uuidof(IDxcCompiler), (IUnknown **)&pCompiler));
-  VERIFY_SUCCEEDED(m_dllExtSupport2.CreateInstance(
-      CLSID_DxcLinker, __uuidof(IDxcLinker), (IUnknown **)&pLinker));
-  VERIFY_SUCCEEDED(m_dllExtSupport2.CreateInstance(
-      CLSID_DxcValidator, __uuidof(IDxcValidator), (IUnknown **)&pValidator));
-  CComPtr<IMalloc> pMalloc;
-  CComPtr<IDxcCompiler2> pCompiler2;
-  pLinker.Release();
-  pValidator.Release();
-  VERIFY_SUCCEEDED(DxcCoGetMalloc(1, &pMalloc));
-  VERIFY_SUCCEEDED(m_dllExtSupport2.CreateInstance2(pMalloc, CLSID_DxcCompiler,
-                                                    __uuidof(IDxcCompiler),
-                                                    (IUnknown **)&pCompiler2));
-  VERIFY_SUCCEEDED(m_dllExtSupport2.CreateInstance2(
-      pMalloc, CLSID_DxcLinker, __uuidof(IDxcLinker), (IUnknown **)&pLinker));
-  VERIFY_SUCCEEDED(m_dllExtSupport2.CreateInstance2(pMalloc, CLSID_DxcValidator,
-                                                    __uuidof(IDxcValidator),
-                                                    (IUnknown **)&pValidator));
+  VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance(
+      CLSID_DxcCompiler, __uuidof(IDxcCompiler), (IUnknown **)&Compiler));
+  VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance(
+      CLSID_DxcLinker, __uuidof(IDxcLinker), (IUnknown **)&Linker));
+  VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance(
+      CLSID_DxcValidator, __uuidof(IDxcValidator), (IUnknown **)&Validator));
 
-  // reset the environment variable to its previous value, if it had one.
-  if (!oldEnvVal.empty()) {
-    SetEnvVarW(L"DXC_DXIL_DLL_PATH", oldEnvVal);
-  } else {
-    ClearEnvVarW(L"DXC_DXIL_DLL_PATH");
-  }
+  CComPtr<IMalloc> Malloc;
+  CComPtr<IDxcCompiler2> Compiler2;
+  Linker.Release();
+  Validator.Release();
+  VERIFY_SUCCEEDED(DxcCoGetMalloc(1, &Malloc));
+  VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance2(Malloc, CLSID_DxcCompiler,
+                                                   __uuidof(IDxcCompiler),
+                                                   (IUnknown **)&Compiler2));
+  VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance2(
+      Malloc, CLSID_DxcLinker, __uuidof(IDxcLinker), (IUnknown **)&Linker));
+  VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance2(Malloc, CLSID_DxcValidator,
+                                                   __uuidof(IDxcValidator),
+                                                   (IUnknown **)&Validator));
+
+  // reset the environment variable to its previous value,
+  // or the empty string if there was no previous value
+  SetEnvVarW(L"DXC_DXIL_DLL_PATH", OldEnvVal);
 }
 
 TEST_F(ValidationTest, ValidatePreviewBypassHash) {
