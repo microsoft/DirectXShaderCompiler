@@ -41,12 +41,7 @@ HRESULT DxcDllExtValidationSupport::CreateInstance(REFCLSID clsid, REFIID riid,
   if (DxilSupport.IsEnabled() && clsid == CLSID_DxcValidator)
     return DxilSupport.CreateInstance(clsid, riid, pResult);
 
-  if (pResult == nullptr)
-    return E_POINTER;
-  if (m_dll == nullptr)
-    return E_FAIL;
-  HRESULT hr = m_createFn(clsid, riid, (LPVOID *)pResult);
-  return hr;
+  return DxcDllSupport::CreateInstance(clsid, riid, pResult);
 }
 
 HRESULT DxcDllExtValidationSupport::CreateInstance2(IMalloc *pMalloc,
@@ -55,12 +50,5 @@ HRESULT DxcDllExtValidationSupport::CreateInstance2(IMalloc *pMalloc,
   if (DxilSupport.IsEnabled() && clsid == CLSID_DxcValidator)
     return DxilSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
 
-  if (pResult == nullptr)
-    return E_POINTER;
-  if (m_dll == nullptr)
-    return E_FAIL;
-  if (m_createFn2 == nullptr)
-    return E_FAIL;
-  HRESULT hr = m_createFn2(pMalloc, clsid, riid, (LPVOID *)pResult);
-  return hr;
+  return DxcDllSupport::CreateInstance2(pMalloc, clsid, riid, pResult);
 }

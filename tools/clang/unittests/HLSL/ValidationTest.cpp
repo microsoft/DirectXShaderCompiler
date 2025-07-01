@@ -36,7 +36,7 @@
 
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/Support/dxcapi.extval.h"
-#include "dxc/Test/DxcTestUtils.h" // includes dxcapi.use.h
+#include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Test/HlslTestUtils.h"
 
 using namespace std;
