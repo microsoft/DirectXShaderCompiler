@@ -4218,7 +4218,7 @@ std::wstring GetEnvVarW(const std::wstring &VarName) {
     return std::wstring(Result);
 #else
   std::string VarNameUtf8;
-  WideToUTF8String(VarName.c_str, &VarNameUtf8);
+  Unicode::WideToUTF8String(VarName.c_str(), &VarNameUtf8);
   if (const char *Result = std::getenv(VarNameUtf8.c_str())) {
     std::wstring ResultWide;
     Unicode::UTF8ToWideString(Result, &ResultWide);
