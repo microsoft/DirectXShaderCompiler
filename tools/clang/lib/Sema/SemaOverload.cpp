@@ -146,8 +146,8 @@ ImplicitConversionRank clang::GetConversionRank(ImplicitConversionKind Kind) {
   };
   static_assert(_countof(Rank) == ICK_Num_Conversion_Kinds,
       "Otherwise, GetConversionRank is out of sync with ImplicitConversionKind"); // HLSL Change
-  assert((int)Kind < (int)ICK_Num_Conversion_Kinds); // HLSL Change
-  return Rank[(int)Kind];
+  assert(Kind < _countof(Rank)); // HLSL Change
+  return Rank[Kind];             // HLSL Change
 }
 
 /// GetImplicitConversionName - Return the name of this kind of
