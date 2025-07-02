@@ -3,13 +3,12 @@
 RWStructuredBuffer<int> g_buff;
 
 // CHECK-DAG: OpCapability VulkanMemoryModel
-// CHECK-DAG: OpCapability VulkanMemoryModelDeviceScope
 // CHECK:     OpMemoryModel Logical Vulkan
 
 [shader("raygeneration")]
 void main()
 {
-// CHECK: OpAtomicIAdd %int {{%[0-9]+}} %uint_1
-//                                      1 = Device scope
+// CHECK: OpAtomicIAdd %int {{%[0-9]+}} %uint_5
+//                                      5 = Queue family scope
     InterlockedAdd(g_buff[0], WaveGetLaneCount());
 }

@@ -42,26 +42,6 @@ static HRESULT AtlCheck(HRESULT hr) {
   return hr;
 }
 
-#ifndef NTDDI_WIN10_RS3
-#define NTDDI_WIN10_RS3 0x0A000004
-#endif
-
-#ifndef NTDDI_WIN10_RS4
-#define NTDDI_WIN10_RS4 0x0A000005
-#endif
-
-#ifndef NTDDI_WIN10_VB
-#define NTDDI_WIN10_VB 0x0A000008
-#endif
-
-#ifndef NTDDI_WIN10_FE
-#define NTDDI_WIN10_FE 0x0A00000A
-#endif
-
-#ifndef NTDDI_WIN10_NI
-#define NTDDI_WIN10_NI 0x0A00000C
-#endif
-
 #define DXEXP_HIGHEST_SHADER_MODEL D3D_SHADER_MODEL_6_8
 
 static const char *BoolToStrJson(bool value) {

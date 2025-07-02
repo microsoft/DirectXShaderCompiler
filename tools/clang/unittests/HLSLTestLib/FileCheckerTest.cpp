@@ -790,8 +790,8 @@ FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSupport,
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcAssembler> pAssembler;
   CComPtr<IDxcOperationResult> pResult;
-  CComPtr<ID3D12ShaderReflection> pShaderReflection;
-  CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+  CComPtr<ID3D12ShaderReflection1> pShaderReflection;
+  CComPtr<ID3D12LibraryReflection1> pLibraryReflection;
   CComPtr<IDxcContainerReflection> containerReflection;
   uint32_t partCount;
   CComPtr<IDxcBlob> pContainerBlob;

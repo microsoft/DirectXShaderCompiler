@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/String.h"
-#include "llvm/llvm_assert/assert.h"
+#include <assert.h>
 
 namespace clang {
 namespace spirv {

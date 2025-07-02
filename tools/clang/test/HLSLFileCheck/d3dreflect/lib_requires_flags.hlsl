@@ -16,7 +16,7 @@ float4 PSMain(float4 In : IN, out float Depth : SV_Depth) : SV_Target {
   return In;
 }
 
-// CHECK: ID3D12LibraryReflection:
+// CHECK: ID3D12LibraryReflection1:
 // CHECK:     FunctionCount: 3
 // CHECK-LABEL:     D3D12_FUNCTION_DESC: Name: \01?DoubleMAD{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       RequiredFeatureFlags: 0x1

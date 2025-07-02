@@ -40,7 +40,7 @@ HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
 // the module. It trusts that the caller didn't make any changes and is
 // kept internal because the layout of the module class may change based
 // on changes across modules, or picking a different compiler version or CRT.
-HRESULT RunInternalValidator(IDxcValidator *pValidator, llvm::Module *pModule,
+HRESULT RunInternalValidator(IDxcValidator *pValidator,
                              llvm::Module *pDebugModule, IDxcBlob *pShader,
                              UINT32 Flags, IDxcOperationResult **ppResult);
 
@@ -142,16 +142,6 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   // Warning on internal Validator
 
   if (bInternalValidator) {
-#if !DISABLE_GET_CUSTOM_DIAG_ID
-    if (inputs.pDiag) {
-      unsigned diagID = inputs.pDiag->getCustomDiagID(
-          clang::DiagnosticsEngine::Level::Warning,
-          "DXIL signing library (dxil.dll,libdxil.so) not found.  Resulting "
-          "DXIL will not be "
-          "signed for use in release environments.\r\n");
-      inputs.pDiag->Report(diagID);
-    }
-#endif
     // If using the internal validator, we'll use the modules directly.
     // In this case, we'll want to make a clone to avoid
     // SerializeDxilContainerForModule stripping all the debug info. The debug
@@ -190,8 +180,7 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   // Important: in-place edit is required so the blob is reused and thus
   // dxil.dll can be released.
   if (bInternalValidator) {
-    IFT(RunInternalValidator(pValidator, inputs.pM.get(),
-                             llvmModuleWithDebugInfo.get(),
+    IFT(RunInternalValidator(pValidator, llvmModuleWithDebugInfo.get(),
                              inputs.pOutputContainerBlob,
                              DxcValidatorFlags_InPlaceEdit, &pValResult));
   } else {

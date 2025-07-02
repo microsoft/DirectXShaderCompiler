@@ -226,13 +226,6 @@ enum ArBasicKind {
   AR_OBJECT_RWTEXTURE2DMS,
   AR_OBJECT_RWTEXTURE2DMS_ARRAY,
 
-  // WaveMatrix
-  AR_OBJECT_WAVE_MATRIX_LEFT,
-  AR_OBJECT_WAVE_MATRIX_RIGHT,
-  AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC,
-  AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC,
-  AR_OBJECT_WAVE_MATRIX_ACCUMULATOR,
-
   // Work Graphs
   AR_OBJECT_EMPTY_NODE_INPUT,
   AR_OBJECT_DISPATCH_NODE_INPUT_RECORD,
@@ -284,15 +277,6 @@ enum ArBasicKind {
   case AR_OBJECT_RASTERIZER:                                                   \
   case AR_OBJECT_DEPTHSTENCIL:                                                 \
   case AR_OBJECT_STATEBLOCK
-
-#define AR_BASIC_WAVE_MATRIX_INPUT_CASES                                       \
-  case AR_OBJECT_WAVE_MATRIX_LEFT:                                             \
-  case AR_OBJECT_WAVE_MATRIX_RIGHT
-
-#define AR_BASIC_WAVE_MATRIX_ACC_FRAG_CASES                                    \
-  case AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC:                                     \
-  case AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC:                                    \
-  case AR_OBJECT_WAVE_MATRIX_ACCUMULATOR
 
 //
 // Properties of entries in the ArBasicKind enumeration.
@@ -353,11 +337,6 @@ enum ArBasicKind {
 #define BPROP_FEEDBACKTEXTURE                                                  \
   0x00800000                  // Whether the type is a feedback texture.
 #define BPROP_ENUM 0x01000000 // Whether the type is a enum
-#define BPROP_WAVE_MATRIX_INPUT                                                \
-  0x02000000 // Whether the type is a wave matrix input object (Left/Right)
-#define BPROP_WAVE_MATRIX_ACC                                                  \
-  0x04000000 // Whether the type is a wave matrix accum object
-             // (Accumulator/LeftColAcc/RightRowAcc)
 
 #define GET_BPROP_PRIM_KIND(_Props)                                            \
   ((_Props) & (BPROP_BOOLEAN | BPROP_INTEGER | BPROP_FLOATING))
@@ -396,11 +375,6 @@ enum ArBasicKind {
   (IS_BPROP_AINT(_Props) && GET_BPROP_BITS(_Props) != BPROP_BITS12)
 
 #define IS_BPROP_ENUM(_Props) (((_Props)&BPROP_ENUM) != 0)
-
-#define IS_BPROP_WAVE_MATRIX_INPUT(_Props)                                     \
-  (((_Props) & BPROP_WAVE_MATRIX_INPUT) != 0)
-#define IS_BPROP_WAVE_MATRIX_ACC(_Props)                                       \
-  (((_Props) & BPROP_WAVE_MATRIX_ACC) != 0)
 
 const UINT g_uBasicKindProps[] = {
     BPROP_PRIMITIVE | BPROP_BOOLEAN | BPROP_INTEGER | BPROP_NUMERIC |
@@ -599,12 +573,6 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2DMS
     BPROP_OBJECT | BPROP_RWBUFFER, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
 
-    BPROP_OBJECT | BPROP_WAVE_MATRIX_INPUT, // AR_OBJECT_WAVE_MATRIX_LEFT
-    BPROP_OBJECT | BPROP_WAVE_MATRIX_INPUT, // AR_OBJECT_WAVE_MATRIX_RIGHT
-    BPROP_OBJECT | BPROP_WAVE_MATRIX_ACC, // AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC
-    BPROP_OBJECT | BPROP_WAVE_MATRIX_ACC, // AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC
-    BPROP_OBJECT | BPROP_WAVE_MATRIX_ACC, // AR_OBJECT_WAVE_MATRIX_ACCUMULATOR
-
     // WorkGraphs
     BPROP_OBJECT,                  // AR_OBJECT_EMPTY_NODE_INPUT
     BPROP_OBJECT,                  // AR_OBJECT_DISPATCH_NODE_INPUT_RECORD
@@ -657,13 +625,6 @@ C_ASSERT(ARRAYSIZE(g_uBasicKindProps) == AR_BASIC_MAXIMUM_COUNT);
 #define IS_BASIC_UNSIGNABLE(_Kind) IS_BPROP_UNSIGNABLE(GetBasicKindProps(_Kind))
 
 #define IS_BASIC_ENUM(_Kind) IS_BPROP_ENUM(GetBasicKindProps(_Kind))
-
-#define IS_BASIC_WAVE_MATRIX_INPUT(_Kind)                                      \
-  IS_BPROP_WAVE_MATRIX_INPUT(GetBasicKindProps(_Kind))
-#define IS_BASIC_WAVE_MATRIX_ACC(_Kind)                                        \
-  IS_BPROP_WAVE_MATRIX_ACC(GetBasicKindProps(_Kind))
-#define IS_BASIC_WAVE_MATRIX(_Kind)                                            \
-  (IS_BASIC_WAVE_MATRIX_INPUT(_Kind) || IS_BASIC_WAVE_MATRIX_ACC(_Kind))
 
 #define BITWISE_ENUM_OPS(_Type)                                                \
   inline _Type operator|(_Type F1, _Type F2) {                                 \
@@ -979,34 +940,6 @@ GetOrCreateVectorSpecialization(ASTContext &context, Sema *sema,
   return vectorSpecializationType;
 }
 
-// Gets component type, dimM, and dimN from WaveMatrix* instantiated type.
-// Assumes wave matrix type, returns false if anything isn't as expected.
-static bool GetWaveMatrixTemplateValues(QualType objType, QualType *compType,
-                                        unsigned *dimM, unsigned *dimN) {
-  const CXXRecordDecl *CXXRD = objType.getCanonicalType()->getAsCXXRecordDecl();
-  if (const ClassTemplateSpecializationDecl *templateSpecializationDecl =
-          dyn_cast<ClassTemplateSpecializationDecl>(CXXRD)) {
-    const clang::TemplateArgumentList &args =
-        templateSpecializationDecl->getTemplateInstantiationArgs();
-    if (args.size() != 3)
-      return false;
-    if (args[0].getKind() != TemplateArgument::Type ||
-        !args[0].getAsType()->isBuiltinType())
-      return false;
-    if (args[1].getKind() != TemplateArgument::Integral ||
-        args[2].getKind() != TemplateArgument::Integral)
-      return false;
-    if (compType)
-      *compType = args[0].getAsType();
-    if (dimM)
-      *dimM = (unsigned)args[1].getAsIntegral().getExtValue();
-    if (dimN)
-      *dimN = (unsigned)args[2].getAsIntegral().getExtValue();
-    return true;
-  }
-  return false;
-}
-
 /// <summary>Instantiates a new *NodeOutputRecords type specialization or gets
 /// an existing one from the AST.</summary>
 static QualType
@@ -1248,21 +1181,6 @@ static const ArBasicKind g_ByteAddressBufferCT[] = {
 static const ArBasicKind g_RWByteAddressBufferCT[] = {
     AR_OBJECT_RWBYTEADDRESS_BUFFER, AR_BASIC_UNKNOWN};
 
-static const ArBasicKind g_WaveMatrixLeftCT[] = {AR_OBJECT_WAVE_MATRIX_LEFT,
-                                                 AR_BASIC_UNKNOWN};
-
-static const ArBasicKind g_WaveMatrixRightCT[] = {AR_OBJECT_WAVE_MATRIX_RIGHT,
-                                                  AR_BASIC_UNKNOWN};
-
-static const ArBasicKind g_WaveMatrixLeftColAccCT[] = {
-    AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC, AR_BASIC_UNKNOWN};
-
-static const ArBasicKind g_WaveMatrixRightRowAccCT[] = {
-    AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC, AR_BASIC_UNKNOWN};
-
-static const ArBasicKind g_WaveMatrixAccumulatorCT[] = {
-    AR_OBJECT_WAVE_MATRIX_ACCUMULATOR, AR_BASIC_UNKNOWN};
-
 static const ArBasicKind g_NodeRecordOrUAVCT[] = {
     AR_OBJECT_DISPATCH_NODE_INPUT_RECORD,
     AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD,
@@ -1345,11 +1263,6 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
 
     g_ByteAddressBufferCT,       // LICOMPTYPE_BYTEADDRESSBUFFER
     g_RWByteAddressBufferCT,     // LICOMPTYPE_RWBYTEADDRESSBUFFER
-    g_WaveMatrixLeftCT,          // LICOMPTYPE_WAVE_MATRIX_LEFT
-    g_WaveMatrixRightCT,         // LICOMPTYPE_WAVE_MATRIX_RIGHT
-    g_WaveMatrixLeftColAccCT,    // LICOMPTYPE_WAVE_MATRIX_LEFT_COL_ACC
-    g_WaveMatrixRightRowAccCT,   // LICOMPTYPE_WAVE_MATRIX_RIGHT_ROW_ACC
-    g_WaveMatrixAccumulatorCT,   // LICOMPTYPE_WAVE_MATRIX_ACCUMULATOR
     g_NodeRecordOrUAVCT,         // LICOMPTYPE_NODE_RECORD_OR_UAV
     g_AnyOutputRecordCT,         // LICOMPTYPE_ANY_NODE_OUTPUT_RECORD
     g_GroupNodeOutputRecordsCT,  // LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
@@ -1432,10 +1345,6 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
 
     AR_OBJECT_RWTEXTURE2DMS,       // RWTexture2DMS
     AR_OBJECT_RWTEXTURE2DMS_ARRAY, // RWTexture2DMSArray
-
-    AR_OBJECT_WAVE_MATRIX_LEFT, AR_OBJECT_WAVE_MATRIX_RIGHT,
-    AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC, AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC,
-    AR_OBJECT_WAVE_MATRIX_ACCUMULATOR,
 
     // Work Graphs
     AR_OBJECT_EMPTY_NODE_INPUT, AR_OBJECT_DISPATCH_NODE_INPUT_RECORD,
@@ -1545,12 +1454,6 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
 
     2, // AR_OBJECT_RWTEXTURE2DMS
     2, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
-
-    3, // AR_OBJECT_WAVE_MATRIX_LEFT,
-    3, // AR_OBJECT_WAVE_MATRIX_RIGHT,
-    3, // AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC,
-    3, // AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC,
-    3, // AR_OBJECT_WAVE_MATRIX_ACCUMULATOR,
 
     // WorkGraphs
     0, // AR_OBJECT_EMPTY_NODE_INPUT,
@@ -1698,12 +1601,6 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {3, MipsFalse,
      SampleTrue}, // AR_OBJECT_RWTEXTURE2DMS_ARRAY (RWTexture2DMSArray)
 
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_WAVE_MATRIX_LEFT,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_WAVE_MATRIX_RIGHT,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_WAVE_MATRIX_ACCUMULATOR,
-
     // WorkGraphs
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_EMPTY_NODE_INPUT
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_DISPATCH_NODE_INPUT_RECORD
@@ -1781,9 +1678,6 @@ static const char *g_ArBasicTypeNames[] = {
     "RayQuery", "HEAP_Resource", "HEAP_Sampler",
 
     "RWTexture2DMS", "RWTexture2DMSArray",
-
-    "WaveMatrixLeft", "WaveMatrixRight", "WaveMatrixLeftColAcc",
-    "WaveMatrixRightRowAcc", "WaveMatrixAccumulator",
 
     // Workgraphs
     "EmptyNodeInput", "DispatchNodeInputRecord", "RWDispatchNodeInputRecord",
@@ -2383,26 +2277,6 @@ static void GetIntrinsicMethods(ArBasicKind kind,
   case AR_OBJECT_RWTEXTURE2DMS_ARRAY:
     *intrinsics = g_RWTexture2DMSArrayMethods;
     *intrinsicCount = _countof(g_RWTexture2DMSArrayMethods);
-    break;
-  case AR_OBJECT_WAVE_MATRIX_LEFT:
-    *intrinsics = g_WaveMatrixLeftMethods;
-    *intrinsicCount = _countof(g_WaveMatrixLeftMethods);
-    break;
-  case AR_OBJECT_WAVE_MATRIX_RIGHT:
-    *intrinsics = g_WaveMatrixRightMethods;
-    *intrinsicCount = _countof(g_WaveMatrixRightMethods);
-    break;
-  case AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC:
-    *intrinsics = g_WaveMatrixLeftColAccMethods;
-    *intrinsicCount = _countof(g_WaveMatrixLeftColAccMethods);
-    break;
-  case AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC:
-    *intrinsics = g_WaveMatrixRightRowAccMethods;
-    *intrinsicCount = _countof(g_WaveMatrixRightRowAccMethods);
-    break;
-  case AR_OBJECT_WAVE_MATRIX_ACCUMULATOR:
-    *intrinsics = g_WaveMatrixAccumulatorMethods;
-    *intrinsicCount = _countof(g_WaveMatrixAccumulatorMethods);
     break;
   case AR_OBJECT_EMPTY_NODE_INPUT:
     *intrinsics = g_EmptyNodeInputMethods;
@@ -3732,11 +3606,6 @@ private:
                                m_context->getRecordType(recordDecl),
                                *m_context);
         }
-
-      } else if (IsWaveMatrixBasicKind(kind)) {
-        recordDecl = DeclareWaveMatrixType(
-            *m_context,
-            (DXIL::WaveMatrixKind)(kind - AR_OBJECT_WAVE_MATRIX_LEFT));
       } else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(
             *m_context, "FeedbackTexture2D", "kind");
@@ -4096,14 +3965,6 @@ public:
   }
   bool IsRayQueryType(QualType type) {
     return IsRayQueryBasicKind(GetTypeElementKind(type));
-  }
-
-  bool IsWaveMatrixBasicKind(ArBasicKind kind) {
-    return kind >= AR_OBJECT_WAVE_MATRIX_LEFT &&
-           kind <= AR_OBJECT_WAVE_MATRIX_ACCUMULATOR;
-  }
-  bool IsWaveMatrixType(QualType type) {
-    return IsWaveMatrixBasicKind(GetTypeElementKind(type));
   }
 
   void WarnMinPrecision(QualType Type, SourceLocation Loc) {
@@ -4713,12 +4574,6 @@ public:
     case AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES:
     case AR_OBJECT_RWTEXTURE2DMS:
     case AR_OBJECT_RWTEXTURE2DMS_ARRAY:
-
-    case AR_OBJECT_WAVE_MATRIX_LEFT:
-    case AR_OBJECT_WAVE_MATRIX_RIGHT:
-    case AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC:
-    case AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC:
-    case AR_OBJECT_WAVE_MATRIX_ACCUMULATOR:
 
     case AR_OBJECT_EMPTY_NODE_INPUT:
     case AR_OBJECT_DISPATCH_NODE_INPUT_RECORD:
@@ -6226,46 +6081,6 @@ bool HLSLExternalSource::IsValidObjectElement(LPCSTR tableName,
   }
 }
 
-// Given component type of wave matrix object on which a method is called,
-// and given the component type of an argument passed by the user,
-// return either the user component type, or a valid component type,
-// if the user component type is not valid.
-static ArBasicKind GetValidWaveMatrixComponentTypeForArg(
-    ArBasicKind objKind,      // wave matrix type for this
-    ArBasicKind objEltKind,   // element type for this
-    ArBasicKind argKind,      // wave matrix type for arg
-    ArBasicKind argEltKind) { // element type for arg
-  if (IS_BASIC_WAVE_MATRIX_ACC(objKind) &&
-      IS_BASIC_WAVE_MATRIX_INPUT(argKind)) {
-    switch (objEltKind) {
-    case AR_BASIC_FLOAT32:
-      switch (argEltKind) {
-      case AR_BASIC_FLOAT32:
-      case AR_BASIC_FLOAT16:
-        return argEltKind;
-      default:
-        break;
-      }
-      // return a valid type (this will be used for error message)
-      return AR_BASIC_FLOAT32;
-    case AR_BASIC_INT32:
-      switch (argEltKind) {
-      case AR_BASIC_INT8_4PACKED:
-      case AR_BASIC_UINT8_4PACKED:
-        return argEltKind;
-      default:
-        break;
-      }
-      // return a valid type (this will be used for error message)
-      return AR_BASIC_INT8_4PACKED;
-    default:
-      break;
-    }
-  }
-  // In other cases, we return this element kind.
-  return objEltKind;
-}
-
 bool HLSLExternalSource::MatchArguments(
     const IntrinsicDefIter &cursor, QualType objectType, QualType objectElement,
     QualType functionTemplateTypeArg, ArrayRef<Expr *> Args,
@@ -6834,81 +6649,46 @@ bool HLSLExternalSource::MatchArguments(
       if ((0 == i) || !(pArgument->qwUsage & AR_QUAL_OUT))
         qwQual |= AR_QUAL_CONST;
 
-      // If the type is WaveMatrix, construct a template specialization based
-      // on the template arguments of this wave matrix object in a special way.
-      if (IsWaveMatrixBasicKind(pEltType)) {
-        CXXRecordDecl *templateRecordDecl =
-            GetBasicKindType(pEltType)->getAsCXXRecordDecl();
-        if (!templateRecordDecl->isCompleteDefinition()) {
-          // If template definition is not completed, no instantiations exist,
-          // so we can assume this candiate does not apply.
-          badArgIdx = std::min(badArgIdx, i);
-          return false;
-        }
+      DXASSERT_VALIDBASICKIND(pEltType);
+      pNewType = NewSimpleAggregateType(Template[pArgument->uTemplateId],
+                                        pEltType, qwQual, uRows, uCols);
 
-        // read template args of objectType
-        ArTypeInfo objInfo;
-        CollectInfo(objectType, &objInfo);
-        ArTypeInfo argInfo;
-        CollectInfo(Args[i - 1]->getType(), &argInfo);
-        ArBasicKind eltKind = GetValidWaveMatrixComponentTypeForArg(
-            objInfo.ObjKind, objInfo.EltKind, argInfo.ObjKind, argInfo.EltKind);
-        QualType compType = GetBasicKindType(eltKind);
-
-        // Now construct the expected argument specialization
-        TemplateArgument templateArgs[3] = {
-            TemplateArgument(compType),
-            TemplateArgument(*m_context,
-                             llvm::APSInt(llvm::APInt(32, objInfo.uRows)),
-                             m_context->UnsignedIntTy),
-            TemplateArgument(*m_context,
-                             llvm::APSInt(llvm::APInt(32, objInfo.uCols)),
-                             m_context->UnsignedIntTy)};
-        pNewType = GetOrCreateTemplateSpecialization(
-            *m_context, *m_sema,
-            templateRecordDecl->getDescribedClassTemplate(), templateArgs);
-      } else {
-        DXASSERT_VALIDBASICKIND(pEltType);
-        pNewType = NewSimpleAggregateType(Template[pArgument->uTemplateId],
-                                          pEltType, qwQual, uRows, uCols);
-
-        // If array type, wrap in the argument's array type.
-        if (i > 0 && Template[pArgument->uTemplateId] == AR_TOBJ_ARRAY) {
-          QualType arrayElt = Args[i - 1]->getType();
-          SmallVector<UINT, 4> sizes;
-          while (arrayElt->isArrayType()) {
-            UINT size = 0;
-            if (arrayElt->isConstantArrayType()) {
-              const ConstantArrayType *arrayType =
-                  (const ConstantArrayType *)arrayElt->getAsArrayTypeUnsafe();
-              size = arrayType->getSize().getLimitedValue();
-            }
-            arrayElt = QualType(arrayElt->getAsArrayTypeUnsafe()
-                                    ->getArrayElementTypeNoTypeQual(),
-                                0);
-            sizes.push_back(size);
+      // If array type, wrap in the argument's array type.
+      if (i > 0 && Template[pArgument->uTemplateId] == AR_TOBJ_ARRAY) {
+        QualType arrayElt = Args[i - 1]->getType();
+        SmallVector<UINT, 4> sizes;
+        while (arrayElt->isArrayType()) {
+          UINT size = 0;
+          if (arrayElt->isConstantArrayType()) {
+            const ConstantArrayType *arrayType =
+                (const ConstantArrayType *)arrayElt->getAsArrayTypeUnsafe();
+            size = arrayType->getSize().getLimitedValue();
           }
-          // Wrap element in matching array dimensions:
-          while (sizes.size()) {
-            uint64_t size = sizes.pop_back_val();
-            if (size) {
-              pNewType = m_context->getConstantArrayType(
-                  pNewType, llvm::APInt(32, size, false),
-                  ArrayType::ArraySizeModifier::Normal, 0);
-            } else {
-              pNewType = m_context->getIncompleteArrayType(
-                  pNewType, ArrayType::ArraySizeModifier::Normal, 0);
-            }
-          }
-          if (qwQual & AR_QUAL_CONST)
-            pNewType = QualType(pNewType.getTypePtr(), Qualifiers::Const);
-
-          if (qwQual & AR_QUAL_GROUPSHARED)
-            pNewType =
-                m_context->getAddrSpaceQualType(pNewType, DXIL::kTGSMAddrSpace);
-
-          pNewType = m_context->getLValueReferenceType(pNewType);
+          arrayElt = QualType(
+              arrayElt->getAsArrayTypeUnsafe()->getArrayElementTypeNoTypeQual(),
+              0);
+          sizes.push_back(size);
         }
+        // Wrap element in matching array dimensions:
+        while (sizes.size()) {
+          uint64_t size = sizes.pop_back_val();
+          if (size) {
+            pNewType = m_context->getConstantArrayType(
+                pNewType, llvm::APInt(32, size, false),
+                ArrayType::ArraySizeModifier::Normal, 0);
+          } else {
+            pNewType = m_context->getIncompleteArrayType(
+                pNewType, ArrayType::ArraySizeModifier::Normal, 0);
+          }
+        }
+        if (qwQual & AR_QUAL_CONST)
+          pNewType = QualType(pNewType.getTypePtr(), Qualifiers::Const);
+
+        if (qwQual & AR_QUAL_GROUPSHARED)
+          pNewType =
+              m_context->getAddrSpaceQualType(pNewType, DXIL::kTGSMAddrSpace);
+
+        pNewType = m_context->getLValueReferenceType(pNewType);
       }
     }
 
@@ -7193,18 +6973,12 @@ void HLSLExternalSource::CollectInfo(QualType type, ArTypeInfo *pTypeInfo) {
   //       when retrieving multiple properties.
   pTypeInfo->ObjKind = GetTypeElementKind(type);
   pTypeInfo->ShapeKind = GetTypeObjectKind(type);
-  if (IsWaveMatrixBasicKind(pTypeInfo->ObjKind)) {
-    QualType elTy;
-    GetWaveMatrixTemplateValues(type, &elTy, &pTypeInfo->uRows,
-                                &pTypeInfo->uCols);
-    pTypeInfo->EltKind = GetTypeElementKind(elTy);
-    pTypeInfo->EltTy = pTypeInfo->EltTy = GetStructuralForm(elTy).getTypePtr();
-  } else {
-    GetRowsAndColsForAny(type, pTypeInfo->uRows, pTypeInfo->uCols);
-    pTypeInfo->EltKind = pTypeInfo->ObjKind;
-    pTypeInfo->EltTy =
-        GetTypeElementType(type)->getCanonicalTypeUnqualified()->getTypePtr();
-  }
+
+  GetRowsAndColsForAny(type, pTypeInfo->uRows, pTypeInfo->uCols);
+  pTypeInfo->EltKind = pTypeInfo->ObjKind;
+  pTypeInfo->EltTy =
+      GetTypeElementType(type)->getCanonicalTypeUnqualified()->getTypePtr();
+
   pTypeInfo->uTotalElts = pTypeInfo->uRows * pTypeInfo->uCols;
 }
 
@@ -14337,13 +14111,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     QualType eltQt(qt->getArrayElementTypeNoTypeQual(), 0);
     while (eltQt->isArrayType())
       eltQt = QualType(eltQt->getArrayElementTypeNoTypeQual(), 0);
-    if (hlslSource->IsWaveMatrixType(eltQt)) {
-      StringRef typeName(
-          g_ArBasicTypeNames[hlslSource->GetTypeElementKind(eltQt)]);
-      Diag(D.getLocStart(), diag::err_hlsl_array_disallowed)
-          << typeName << /* declaration */ 1;
-      result = false;
-    }
     if (hlsl::IsObjectType(this, eltQt, &bDeprecatedEffectObject)) {
       bIsObject = true;
     }

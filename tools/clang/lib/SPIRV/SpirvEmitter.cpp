@@ -594,8 +594,8 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
     emitError("unknown shader module: %0", {}) << shaderModel->GetName();
 
   if (spirvOptions.invertY && !shaderModel->IsVS() && !shaderModel->IsDS() &&
-      !shaderModel->IsGS())
-    emitError("-fvk-invert-y can only be used in VS/DS/GS", {});
+      !shaderModel->IsGS() && !shaderModel->IsMS())
+    emitError("-fvk-invert-y can only be used in VS/DS/GS/MS", {});
 
   if (spirvOptions.useGlLayout && spirvOptions.useDxLayout)
     emitError("cannot specify both -fvk-use-dx-layout and -fvk-use-gl-layout",
@@ -873,6 +873,10 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   std::vector<uint32_t> m = spvBuilder.takeModule();
   if (context.getDiagnostics().hasErrorOccurred())
     return;
+
+  if (!UpgradeToVulkanMemoryModelIfNeeded(&m)) {
+    return;
+  }
 
   // Check the existance of Texture and Sampler with
   // [[vk::combinedImageSampler]] for the same descriptor set and binding.
@@ -1462,7 +1466,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
       isEntry = true;
       funcName = "src." + funcName;
       // Create wrapper for the entry function
-      if (!emitEntryFunctionWrapper(decl, func, debugFunction))
+      if (!emitEntryFunctionWrapper(decl, func))
         return;
       // Generate DebugEntryPoint if function definition
       if (spirvOptions.debugInfoVulkan && debugFunction) {
@@ -1531,8 +1535,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
     // Add DebugFunctionDefinition if we are emitting
     // NonSemantic.Shader.DebugInfo.100 debug info
-    // and we haven't already added it to the wrapper.
-    if (!isEntry && spirvOptions.debugInfoVulkan && debugFunction)
+    if (spirvOptions.debugInfoVulkan && debugFunction)
       spvBuilder.createDebugFunctionDef(debugFunction, func);
 
     // Process all statments in the body.
@@ -7933,6 +7936,9 @@ void SpirvEmitter::assignToMSOutAttribute(
     valueType = astContext.UnsignedIntTy;
   }
   varInstr = spvBuilder.createAccessChain(valueType, varInstr, indices, loc);
+  if (semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position)
+    value = invertYIfRequested(value, semanticInfo.loc);
+
   spvBuilder.createStore(varInstr, value, loc);
 }
 
@@ -13014,18 +13020,10 @@ bool SpirvEmitter::processTessellationShaderAttributes(
 }
 
 bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
-    const FunctionDecl *decl, SpirvFunction *entryFuncInstr,
-    SpirvDebugFunction *debugFunction) {
+    const FunctionDecl *decl, SpirvFunction *entryFuncInstr) {
   // The entry basic block.
   auto *entryLabel = spvBuilder.createBasicBlock();
   spvBuilder.setInsertPoint(entryLabel);
-
-  // Add DebugFunctionDefinition if we are emitting
-  // NonSemantic.Shader.DebugInfo.100 debug info.
-  // We will emit it in the wrapper rather than the
-  // user function.
-  if (spirvOptions.debugInfoVulkan && debugFunction)
-    spvBuilder.createDebugFunctionDef(debugFunction, entryFunction);
 
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
@@ -13290,8 +13288,7 @@ bool SpirvEmitter::processMeshOrAmplificationShaderAttributes(
 }
 
 bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
-                                            SpirvFunction *entryFuncInstr,
-                                            SpirvDebugFunction *debugFunction) {
+                                            SpirvFunction *entryFuncInstr) {
   // HS specific attributes
   uint32_t numOutputControlPoints = 0;
   SpirvInstruction *outputControlPointIdVal =
@@ -13326,8 +13323,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   entryInfo->entryFunction = entryFunction;
 
   if (spvContext.isRay()) {
-    return emitEntryFunctionWrapperForRayTracing(decl, entryFuncInstr,
-                                                 debugFunction);
+    return emitEntryFunctionWrapperForRayTracing(decl, entryFuncInstr);
   }
   // Handle attributes specific to each shader stage
   if (spvContext.isPS()) {
@@ -13407,13 +13403,6 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // are added to the beginning of the entry basic block, so must be called
   // after the basic block is created and insert point is set.
   processInlineSpirvAttributes(decl);
-
-  // Add DebugFunctionDefinition if we are emitting
-  // NonSemantic.Shader.DebugInfo.100 debug info.
-  // We will emit it in the wrapper rather than the
-  // user function.
-  if (spirvOptions.debugInfoVulkan && debugFunction)
-    spvBuilder.createDebugFunctionDef(debugFunction, entryFunction);
 
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
@@ -14327,6 +14316,22 @@ SpirvEmitter::createSpirvIntrInstExt(llvm::ArrayRef<const Attr *> attrs,
   return retVal;
 }
 
+SpirvInstruction *SpirvEmitter::invertYIfRequested(SpirvInstruction *position,
+                                                   SourceLocation loc,
+                                                   SourceRange range) {
+  // Negate SV_Position.y if requested
+  if (spirvOptions.invertY) {
+    const auto oldY = spvBuilder.createCompositeExtract(
+        astContext.FloatTy, position, {1}, loc, range);
+    const auto newY = spvBuilder.createUnaryOp(
+        spv::Op::OpFNegate, astContext.FloatTy, oldY, loc, range);
+    position = spvBuilder.createCompositeInsert(
+        astContext.getExtVectorType(astContext.FloatTy, 4), position, {1}, newY,
+        loc, range);
+  }
+  return position;
+}
+
 SpirvInstruction *
 SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
   const auto *funcDecl = expr->getDirectCallee();
@@ -14672,8 +14677,9 @@ SpirvEmitter::createFunctionScopeTempFromParameter(const ParmVarDecl *param) {
   return tempVar;
 }
 
-bool SpirvEmitter::spirvToolsFixupOpExtInst(std::vector<uint32_t> *mod,
-                                            std::string *messages) {
+bool SpirvEmitter::spirvToolsRunPass(std::vector<uint32_t> *mod,
+                                     spvtools::Optimizer::PassToken token,
+                                     std::string *messages) {
   spvtools::Optimizer optimizer(featureManager.getTargetEnv());
   optimizer.SetMessageConsumer(
       [messages](spv_message_level_t /*level*/, const char * /*source*/,
@@ -14690,33 +14696,28 @@ bool SpirvEmitter::spirvToolsFixupOpExtInst(std::vector<uint32_t> *mod,
   options.set_preserve_bindings(spirvOptions.preserveBindings);
   options.set_max_id_bound(spirvOptions.maxId);
 
-  optimizer.RegisterPass(
-      spvtools::CreateOpExtInstWithForwardReferenceFixupPass());
-
+  optimizer.RegisterPass(std::move(token));
   return optimizer.Run(mod->data(), mod->size(), mod, options);
+}
+
+bool SpirvEmitter::spirvToolsFixupOpExtInst(std::vector<uint32_t> *mod,
+                                            std::string *messages) {
+  spvtools::Optimizer::PassToken token =
+      spvtools::CreateOpExtInstWithForwardReferenceFixupPass();
+  return spirvToolsRunPass(mod, std::move(token), messages);
 }
 
 bool SpirvEmitter::spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
                                               std::string *messages) {
-  spvtools::Optimizer optimizer(featureManager.getTargetEnv());
-  optimizer.SetMessageConsumer(
-      [messages](spv_message_level_t /*level*/, const char * /*source*/,
-                 const spv_position_t & /*position*/,
-                 const char *message) { *messages += message; });
+  spvtools::Optimizer::PassToken token = spvtools::CreateTrimCapabilitiesPass();
+  return spirvToolsRunPass(mod, std::move(token), messages);
+}
 
-  string::RawOstreamBuf printAllBuf(llvm::errs());
-  std::ostream printAllOS(&printAllBuf);
-  if (spirvOptions.printAll)
-    optimizer.SetPrintAll(&printAllOS);
-
-  spvtools::OptimizerOptions options;
-  options.set_run_validator(false);
-  options.set_preserve_bindings(spirvOptions.preserveBindings);
-  options.set_max_id_bound(spirvOptions.maxId);
-
-  optimizer.RegisterPass(spvtools::CreateTrimCapabilitiesPass());
-
-  return optimizer.Run(mod->data(), mod->size(), mod, options);
+bool SpirvEmitter::spirvToolsUpgradeToVulkanMemoryModel(
+    std::vector<uint32_t> *mod, std::string *messages) {
+  spvtools::Optimizer::PassToken token =
+      spvtools::CreateUpgradeMemoryModelPass();
+  return spirvToolsRunPass(mod, std::move(token), messages);
 }
 
 bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
@@ -14786,13 +14787,19 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
   }
   optimizer.RegisterLegalizationPasses(spirvOptions.preserveInterface);
   // Add flattening of resources if needed.
-  if (spirvOptions.flattenResourceArrays ||
-      declIdMapper.requiresFlatteningCompositeResources()) {
+  if (spirvOptions.flattenResourceArrays) {
     optimizer.RegisterPass(
         spvtools::CreateReplaceDescArrayAccessUsingVarIndexPass());
     optimizer.RegisterPass(
         spvtools::CreateAggressiveDCEPass(spirvOptions.preserveInterface));
-    optimizer.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass());
+    optimizer.RegisterPass(
+        spvtools::CreateDescriptorArrayScalarReplacementPass());
+    optimizer.RegisterPass(
+        spvtools::CreateAggressiveDCEPass(spirvOptions.preserveInterface));
+  }
+  if (declIdMapper.requiresFlatteningCompositeResources()) {
+    optimizer.RegisterPass(
+        spvtools::CreateDescriptorCompositeScalarReplacementPass());
     // ADCE should be run after desc_sroa in order to remove potentially
     // illegal types such as structures containing opaque types.
     optimizer.RegisterPass(
@@ -15114,6 +15121,27 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
     llvm_unreachable("Trying to generate a type that we cannot generate");
   }
   return {};
+}
+
+bool SpirvEmitter::UpgradeToVulkanMemoryModelIfNeeded(
+    std::vector<uint32_t> *module) {
+  // DXC generates code assuming the vulkan memory model is not used. However,
+  // if a feature is used that requires the Vulkan memory model, then some code
+  // may need to be rewritten.
+  if (!spirvOptions.useVulkanMemoryModel &&
+      !spvBuilder.hasCapability(spv::Capability::VulkanMemoryModel))
+    return true;
+
+  std::string messages;
+  if (!spirvToolsUpgradeToVulkanMemoryModel(module, &messages)) {
+    emitFatalError("failed to use the vulkan memory model: %0", {}) << messages;
+    emitNote("please file a bug report on "
+             "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+             "with source code if possible",
+             {});
+    return false;
+  }
+  return true;
 }
 
 } // end namespace spirv

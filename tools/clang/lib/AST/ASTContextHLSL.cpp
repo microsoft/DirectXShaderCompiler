@@ -1161,24 +1161,6 @@ CXXRecordDecl *hlsl::DeclareRayQueryType(ASTContext &context) {
   return typeDeclBuilder.getRecordDecl();
 }
 
-clang::CXXRecordDecl *hlsl::DeclareWaveMatrixType(clang::ASTContext &context,
-                                                  DXIL::WaveMatrixKind kind) {
-  StringRef Name = GetWaveMatrixName(kind);
-  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(),
-                                         Name);
-  typeDeclBuilder.addTypeTemplateParam("element");
-  typeDeclBuilder.addIntegerTemplateParam("dimM", context.UnsignedIntTy);
-  typeDeclBuilder.addIntegerTemplateParam("dimN", context.UnsignedIntTy);
-
-  typeDeclBuilder.startDefinition();
-  CXXRecordDecl *templateRecordDecl = typeDeclBuilder.getRecordDecl();
-
-  // Add an 'h' field to hold the handle.
-  typeDeclBuilder.addField("h", context.UnsignedIntTy);
-
-  return templateRecordDecl;
-}
-
 CXXRecordDecl *hlsl::DeclareResourceType(ASTContext &context, bool bSampler) {
   // struct ResourceDescriptor { uint8 desc; }
   StringRef Name = bSampler ? ".Sampler" : ".Resource";
@@ -1373,15 +1355,6 @@ bool hlsl::GetIntrinsicLowering(const clang::FunctionDecl *FD,
   HLSLIntrinsicAttr *A = FD->getAttr<HLSLIntrinsicAttr>();
   S = A->getLowering();
   return true;
-}
-
-llvm::StringRef hlsl::GetWaveMatrixName(DXIL::WaveMatrixKind kind) {
-  DXASSERT_NOMSG(kind < DXIL::WaveMatrixKind::NumKinds);
-  static const char *typeNames[(unsigned)DXIL::WaveMatrixKind::NumKinds] = {
-      "WaveMatrixLeft",        "WaveMatrixRight",       "WaveMatrixLeftColAcc",
-      "WaveMatrixRightRowAcc", "WaveMatrixAccumulator",
-  };
-  return typeNames[(unsigned)kind];
 }
 
 /// <summary>Parses a column or row digit.</summary>

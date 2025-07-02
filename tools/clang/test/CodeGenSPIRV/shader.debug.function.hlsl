@@ -17,18 +17,17 @@
 
 // Check DebugFunction instructions
 //
-// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugFunction [[fooName]] [[fooFnType]] [[source]] %uint_35 %uint_1 [[compilationUnit]] [[emptyStr]] %uint_3 %uint_36
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugFunction [[fooName]] [[fooFnType]] [[source]] %uint_34 %uint_1 [[compilationUnit]] [[emptyStr]] %uint_3 %uint_35
 
 // CHECK: [[float4:%[0-9]+]] = OpExtInst %void [[set]] DebugTypeVector [[float]] %uint_4
 // CHECK: [[mainFnType:%[0-9]+]] = OpExtInst %void [[set]] DebugTypeFunction %uint_3 [[float4]] [[float4]]
-// CHECK: [[mainDbgFn:%[0-9]+]] = OpExtInst %void [[set]] DebugFunction [[mainName]] [[mainFnType]] [[source]] %uint_40 %uint_1 [[compilationUnit]] [[emptyStr]] %uint_3 %uint_41 
+// CHECK: [[mainDbgFn:%[0-9]+]] = OpExtInst %void [[set]] DebugFunction [[mainName]] [[mainFnType]] [[source]] %uint_39 %uint_1 [[compilationUnit]] [[emptyStr]] %uint_3 %uint_40 
 // CHECK: [[mainDbgEp:%[0-9]+]] = OpExtInst %void [[set]] DebugEntryPoint [[mainDbgFn]] [[compilationUnit]] {{%[0-9]+}} [[clOpts]]
 
-// Check DebugFunctionDefintion is in main
+// Check DebugFunctionDefintion is in src_main
 //
-// CHECK: %main = OpFunction %void None {{%[0-9]+}}
-// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugFunctionDefinition [[mainDbgFn]] %main
-// CHECK: OpFunctionEnd
+// CHECK: %src_main = OpFunction %v4float None {{%[0-9]+}}
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugFunctionDefinition [[mainDbgFn]] %src_main
 // CHECK: OpFunctionEnd
 // CHECK: OpFunctionEnd
 

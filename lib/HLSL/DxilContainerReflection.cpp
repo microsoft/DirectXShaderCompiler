@@ -766,6 +766,8 @@ class CInvalidFunction final : public ID3D12FunctionReflection1 {
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
   STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
   (INT ParameterIndex) { return &g_InvalidFunctionParameter; }
+
+  STDMETHOD_(UINT64, GetRequiresFlags)() { return 0; }
 };
 CInvalidFunction g_InvalidFunction;
 
@@ -2874,6 +2876,8 @@ public:
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
   STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
   (INT ParameterIndex) { return &g_InvalidFunctionParameter; }
+  
+  STDMETHOD_(UINT64, GetRequiresFlags)() { return m_FeatureFlags; }
 };
 
 HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
@@ -2961,13 +2965,15 @@ HRESULT CFunctionReflection::GetDesc1(D3D12_FUNCTION_DESC1 *pDesc) {
   }
 
   else {
-    return E_FAIL;
+    return S_OK;
   }
 
-  D3D12_COMPUTE_SHADER_DESC computeDesc = {
-      m_pProps->WaveSize.Min,       m_pProps->WaveSize.Max,
-      m_pProps->WaveSize.Preferred, m_pProps->numThreads[0],
-      m_pProps->numThreads[1],      m_pProps->numThreads[2]};
+  D3D12_COMPUTE_SHADER_DESC computeDesc = {m_pProps->WaveSize.Min,
+                                           m_pProps->WaveSize.Max,
+                                           m_pProps->WaveSize.Preferred,
+                                           {m_pProps->numThreads[0],
+                                            m_pProps->numThreads[1],
+                                            m_pProps->numThreads[2]}};
 
   pDesc->RootSignatureSize = (UINT)m_pProps->serializedRootSignature.size();
   pDesc->RootSignaturePtr = m_pProps->serializedRootSignature.data();
@@ -3127,7 +3133,7 @@ HRESULT CFunctionReflection::GetInputNode(UINT i, D3D12_NODE_DESC *pDesc) {
   if (i >= m_pProps->InputNodes.size())
     return E_BOUNDS;
 
-  NodeIOProperties prop = m_pProps->InputNodes[i];
+  const NodeIOProperties &prop = m_pProps->InputNodes[i];
 
   *pDesc = D3D12_NODE_DESC{
       (D3D12_NODE_IO_FLAGS)(uint32_t)prop.Flags,
@@ -3163,7 +3169,7 @@ HRESULT CFunctionReflection::GetOutputNode(UINT i, D3D12_NODE_DESC *pDesc) {
   if (i >= m_pProps->OutputNodes.size())
     return E_BOUNDS;
 
-  NodeIOProperties prop = m_pProps->OutputNodes[i];
+  const NodeIOProperties &prop = m_pProps->OutputNodes[i];
 
   *pDesc = D3D12_NODE_DESC{
       (D3D12_NODE_IO_FLAGS)(uint32_t)prop.Flags,

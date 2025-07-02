@@ -77,17 +77,6 @@ using namespace clang;
 using namespace hlsl;
 using std::string;
 
-// This declaration is used for the locally-linked validator.
-HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
-
-// This internal call allows the validator to avoid having to re-deserialize
-// the module. It trusts that the caller didn't make any changes and is
-// kept internal because the layout of the module class may change based
-// on changes across modules, or picking a different compiler version or CRT.
-HRESULT RunInternalValidator(IDxcValidator *pValidator, llvm::Module *pModule,
-                             llvm::Module *pDebugModule, IDxcBlob *pShader,
-                             UINT32 Flags, IDxcOperationResult **ppResult);
-
 static bool ShouldBeCopiedIntoPDB(UINT32 FourCC) {
   switch (FourCC) {
   case hlsl::DFCC_ShaderDebugName:
@@ -955,6 +944,7 @@ public:
         opts.SpirvOptions.codeGenHighLevel = opts.CodeGenHighLevel;
         opts.SpirvOptions.defaultRowMajor = opts.DefaultRowMajor;
         opts.SpirvOptions.disableValidation = opts.DisableValidation;
+        opts.SpirvOptions.IEEEStrict = opts.IEEEStrict;
         // Save a string representation of command line options and
         // input file name.
         if (opts.DebugInfo) {
@@ -1049,7 +1039,7 @@ public:
 
           dxcutil::AssembleInputs inputs(
               std::move(serializeModule), pOutputBlob, m_pMalloc,
-              SerializeFlags, pOutputStream, opts.GetPDBName(),
+              SerializeFlags, pOutputStream, 0, opts.GetPDBName(),
               &compiler.getDiagnostics(), &ShaderHashContent, pReflectionStream,
               pRootSigStream, pRootSignatureBlob, pPrivateBlob,
               opts.SelectValidator);

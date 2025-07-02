@@ -2169,9 +2169,7 @@ static void AdjustMinimumShaderModelAndFlags(const DxilFunctionProps *props,
   }
 
   // Adjust minimum shader model based on flags.
-  if (flags.GetWaveMMA())
-    DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 9);
-  else if (flags.GetSampleCmpGradientOrBias() || flags.GetExtendedCommandInfo())
+  if (flags.GetSampleCmpGradientOrBias() || flags.GetExtendedCommandInfo())
     DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 8);
   else if (flags.GetAdvancedTextureOps() || flags.GetWriteableMSAATextures())
     DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 7);

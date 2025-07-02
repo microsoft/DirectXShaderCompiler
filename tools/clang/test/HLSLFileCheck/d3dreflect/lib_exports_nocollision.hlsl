@@ -32,7 +32,7 @@ void RayGen() {
 
 // No Collision here between differently mangled functions, or to non-exported functions.
 
-// CHECK: ID3D12LibraryReflection:
+// CHECK: ID3D12LibraryReflection1:
 // CHECK:   D3D12_LIBRARY_DESC:
 // CHECK:     FunctionCount: 4
 // CHECK:   ID3D12FunctionReflection:
