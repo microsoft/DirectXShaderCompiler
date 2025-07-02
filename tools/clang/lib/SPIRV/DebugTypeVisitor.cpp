@@ -356,6 +356,17 @@ SpirvDebugType *DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     debugType = spvContext.getDebugTypeArray(spirvType, elemDebugType, counts);
     break;
   }
+  case SpirvType::TK_NodePayloadArrayAMD: {
+    auto *arrType = dyn_cast<NodePayloadArrayType>(spirvType);
+    SpirvDebugInstruction *elemDebugType =
+        lowerToDebugType(arrType->getElementType());
+
+    llvm::SmallVector<uint32_t, 4> counts;
+    counts.push_back(0u);
+
+    debugType = spvContext.getDebugTypeArray(spirvType, elemDebugType, counts);
+    break;
+  }
   case SpirvType::TK_Vector: {
     auto *vecType = dyn_cast<VectorType>(spirvType);
     SpirvDebugInstruction *elemDebugType =

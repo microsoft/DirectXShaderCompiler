@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 
 #include <algorithm>
@@ -64,6 +61,9 @@ SpirvContext::~SpirvContext() {
 
   for (auto *raType : runtimeArrayTypes)
     raType->~RuntimeArrayType();
+
+  for (auto *npaType : nodePayloadArrayTypes)
+    npaType->~NodePayloadArrayType();
 
   for (auto *fnType : functionTypes)
     fnType->~FunctionType();
@@ -273,6 +273,19 @@ SpirvContext::getRuntimeArrayType(const SpirvType *elemType,
 
   auto inserted = runtimeArrayTypes.insert(
       new (this) RuntimeArrayType(elemType, arrayStride));
+  return *(inserted.first);
+}
+
+const NodePayloadArrayType *
+SpirvContext::getNodePayloadArrayType(const SpirvType *elemType,
+                                      const ParmVarDecl *nodeDecl) {
+  NodePayloadArrayType type(elemType, nodeDecl);
+  auto found = nodePayloadArrayTypes.find(&type);
+  if (found != nodePayloadArrayTypes.end())
+    return *found;
+
+  auto inserted = nodePayloadArrayTypes.insert(
+      new (this) NodePayloadArrayType(elemType, nodeDecl));
   return *(inserted.first);
 }
 

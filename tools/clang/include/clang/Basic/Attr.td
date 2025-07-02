@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 
 class DocumentationCategory<string name> {
@@ -1418,7 +1415,8 @@ def VKDecorateExt : InheritableAttr {
 
 def VKDecorateIdExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_decorate_id">];
-  let Subjects = SubjectList<[Function, Var, ParmVar, TypedefName], ErrorDiag>;
+  let Subjects =
+      SubjectList<[Function, Var, ParmVar, Field, TypedefName], ErrorDiag>;
   let Args = [UnsignedArgument<"decorate">, VariadicExprArgument<"arguments">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
@@ -1426,7 +1424,8 @@ def VKDecorateIdExt : InheritableAttr {
 
 def VKDecorateStringExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_decorate_string">];
-  let Subjects = SubjectList<[Function, Var, ParmVar, TypedefName], ErrorDiag>;
+  let Subjects =
+      SubjectList<[Function, Var, ParmVar, Field, TypedefName], ErrorDiag>;
   let Args = [UnsignedArgument<"decorate">, VariadicStringArgument<"arguments">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];

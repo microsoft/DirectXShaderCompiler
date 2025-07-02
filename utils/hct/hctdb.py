@@ -1,7 +1,5 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
-# Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-# All rights reserved.
 ###############################################################################
 # DXIL information.                                                           #
 ###############################################################################
@@ -8419,13 +8417,13 @@ class db_dxil(object):
         self.add_valrule_msg(
             "Instr.MatVecOpIsUnsignedFlagsAreConst",
             "In Linalg Mul/MulAdd functions, IsUnsigned flag is a constant.",
-            "'%1' is not a constant value",
+            "%0 is not a constant value",
         )
 
         self.add_valrule_msg(
             "Instr.LinalgInterpretationParamAreConst",
             "In Linalg operations, Interpretation value is a constant.",
-            "'%1' is not a constant value",
+            "%0 is not a constant value",
         )
 
         self.add_valrule_msg(
@@ -8453,6 +8451,12 @@ class db_dxil(object):
         )
 
         self.add_valrule_msg(
+            "Instr.LinalgMatrixStrideZeroForOptimalLayouts",
+            "For optimal layouts, matrix stride must be zero.",
+            "matrix stride must be a constant zero for optimal layouts",
+        )
+
+        self.add_valrule_msg(
             "Instr.LinalgMatrixLayoutNotTransposable",
             "Row Major and Column Major matrix layouts are not transposable.",
             "%0 matrix layout is not transposable",
@@ -8462,6 +8466,12 @@ class db_dxil(object):
             "Instr.LinalgNotAnUnsignedType",
             "Unsigned flag set for a float signed type",
             "IsUnsigned flag set to true for a float type '%0' vector",
+        )
+
+        self.add_valrule_msg(
+            "Instr.LinalgInvalidMatrixLayoutValueForOuterProductAccumulate",
+            "Matrix Layout for Linalg Mul/MulAdd operation must be valid.",
+            "matrix layout value '%0' is not valid for outerproductaccumulate, must be '%1'",
         )
 
         # Some legacy rules:
@@ -9345,6 +9355,7 @@ class db_hlsl(object):
             "DxHitObject": "LICOMPTYPE_HIT_OBJECT",
             "VkBufferPointer": "LICOMPTYPE_VK_BUFFER_POINTER",
             "RayQuery": "LICOMPTYPE_RAY_QUERY",
+            "LinAlg": "LICOMPTYPE_LINALG",
         }
 
         self.trans_rowcol = {"r": "IA_R", "c": "IA_C", "r2": "IA_R2", "c2": "IA_C2"}

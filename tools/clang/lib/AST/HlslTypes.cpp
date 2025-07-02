@@ -5,9 +5,6 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
-//
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
 //                                                                           //
 ///
 /// \file                                                                    //
@@ -95,6 +92,8 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
   } else if (type->isArrayType()) {
     return IsHLSLNumericOrAggregateOfNumericType(
         QualType(type->getArrayElementTypeNoTypeQual(), 0));
+  } else if (type->isEnumeralType()) {
+    return true;
   }
 
   // Chars can only appear as part of strings, which we don't consider numeric.
@@ -103,29 +102,32 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
          BuiltinTy->getKind() != BuiltinType::Kind::Char_S;
 }
 
-bool IsHLSLNumericUserDefinedType(clang::QualType type) {
-  const clang::Type *Ty = type.getCanonicalType().getTypePtr();
-  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
-    const RecordDecl *RD = RT->getDecl();
-    if (!IsUserDefinedRecordType(type))
-      return false;
-    for (auto member : RD->fields()) {
-      if (!IsHLSLNumericOrAggregateOfNumericType(member->getType()))
-        return false;
-    }
-    return true;
-  }
-  return false;
-}
-
 // In some cases we need record types that are annotatable and trivially
 // copyable from outside the shader. This excludes resource types which may be
 // trivially copyable inside the shader, and builtin matrix and vector types
 // which can't be annotated. But includes UDTs of trivially copyable data and
 // the builtin trivially copyable raytracing structs.
 bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT) {
-  return IsHLSLNumericUserDefinedType(QT) ||
-         IsHLSLBuiltinRayAttributeStruct(QT);
+  assert(!QT->isIncompleteType() && "Type must be complete!");
+  const clang::Type *Ty = QT.getCanonicalType().getTypePtr();
+  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
+    const RecordDecl *RD = RT->getDecl();
+    if (!IsUserDefinedRecordType(QT))
+      return false;
+    for (auto Member : RD->fields()) {
+      if (!IsHLSLNumericOrAggregateOfNumericType(Member->getType()))
+        return false;
+    }
+    if (auto *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
+      // Walk up the inheritance chain and check base class fields
+      for (const auto &Base : CXXRD->bases()) {
+        if (!IsHLSLCopyableAnnotatableRecord(Base.getType()))
+          return false;
+      }
+    }
+    return true;
+  }
+  return false;
 }
 
 bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT) {
@@ -586,11 +588,34 @@ bool IsHLSLRONodeInputRecordType(clang::QualType type) {
          static_cast<uint32_t>(DXIL::NodeIOFlags::Input);
 }
 
+bool IsHLSLDispatchNodeInputRecordType(clang::QualType type) {
+  return IsHLSLNodeInputType(type) &&
+         (static_cast<uint32_t>(GetNodeIOType(type)) &
+          static_cast<uint32_t>(DXIL::NodeIOFlags::DispatchRecord)) != 0;
+}
+
 bool IsHLSLNodeOutputType(clang::QualType type) {
   return (static_cast<uint32_t>(GetNodeIOType(type)) &
           (static_cast<uint32_t>(DXIL::NodeIOFlags::Output) |
            static_cast<uint32_t>(DXIL::NodeIOFlags::RecordGranularityMask))) ==
          static_cast<uint32_t>(DXIL::NodeIOFlags::Output);
+}
+
+bool IsHLSLNodeRecordArrayType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    if (name == "ThreadNodeOutputRecords" || name == "GroupNodeOutputRecords" ||
+        name == "GroupNodeInputRecords" || name == "RWGroupNodeInputRecords" ||
+        name == "EmptyNodeInput")
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLEmptyNodeRecordType(clang::QualType type) {
+  return (static_cast<uint32_t>(GetNodeIOType(type)) &
+          static_cast<uint32_t>(DXIL::NodeIOFlags::EmptyRecord)) ==
+         static_cast<uint32_t>(DXIL::NodeIOFlags::EmptyRecord);
 }
 
 bool IsHLSLStructuredBufferType(clang::QualType type) {
@@ -609,7 +634,8 @@ bool IsUserDefinedRecordType(clang::QualType QT) {
   const clang::Type *Ty = QT.getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     const RecordDecl *RD = RT->getDecl();
-    if (RD->isImplicit())
+    // Built-in ray tracing struct types are considered user defined types.
+    if (RD->isImplicit() && !IsHLSLBuiltinRayAttributeStruct(QT))
       return false;
     if (auto TD = dyn_cast<ClassTemplateSpecializationDecl>(RD))
       if (TD->getSpecializedTemplate()->isImplicit())
@@ -832,6 +858,23 @@ QualType GetHLSLResourceResultType(QualType type) {
   DXASSERT(HandleFieldDecl->getName() == "h",
            "Resource must have a handle field");
   return HandleFieldDecl->getType();
+}
+
+QualType GetHLSLNodeIOResultType(ASTContext &astContext, QualType type) {
+  if (hlsl::IsHLSLEmptyNodeRecordType(type)) {
+    RecordDecl *RD = astContext.buildImplicitRecord("");
+    RD->startDefinition();
+    RD->completeDefinition();
+    return astContext.getRecordType(RD);
+  } else if (hlsl::IsHLSLNodeType(type)) {
+    const RecordType *recordType = type->getAs<RecordType>();
+    if (const auto *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(recordType->getDecl())) {
+      const auto &templateArgs = templateDecl->getTemplateArgs();
+      return templateArgs[0].getAsType();
+    }
+  }
+  return type;
 }
 
 unsigned GetHLSLResourceTemplateUInt(clang::QualType type) {

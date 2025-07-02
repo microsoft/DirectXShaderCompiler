@@ -827,19 +827,16 @@ void DiagnoseBuiltinCallWithPayload(Sema &S, const VarDecl *Payload,
   }
 
   // Verify that the payload type is legal
-  if (!hlsl::IsHLSLCopyableAnnotatableRecord(Payload->getType())) {
+  if (!hlsl::IsHLSLCopyableAnnotatableRecord(Payload->getType()))
     S.Diag(Payload->getLocation(), diag::err_payload_attrs_must_be_udt)
         << /*payload|attributes|callable*/ 0 << /*parameter %2|type*/ 0
         << Payload;
-    return;
-  }
 
-  if (ContainsLongVector(Payload->getType())) {
-    const unsigned PayloadParametersIdx = 10;
-    S.Diag(Payload->getLocation(), diag::err_hlsl_unsupported_long_vector)
-        << PayloadParametersIdx;
+  // This will produce more details, but also catch disallowed long vectors
+  const TypeDiagContext DiagContext = TypeDiagContext::PayloadParameters;
+  if (DiagnoseTypeElements(S, Payload->getLocation(), Payload->getType(),
+                           DiagContext, DiagContext))
     return;
-  }
 
   CollectNonAccessableFields(PayloadType, CallerStage, {}, {},
                              NonWriteableFields, NonReadableFields);
@@ -1193,7 +1190,10 @@ void DiagnoseCallableEntry(Sema &S, FunctionDecl *FD,
           << /*payload|callable*/ 1 << Param;
     QualType Ty = Param->getType().getNonReferenceType();
 
-    if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty)))
+    // Don't diagnose incomplete type here. Function parameters are
+    // checked in Sema::CheckParmsForFunctionDef.
+    if (!S.RequireCompleteType(Param->getLocation(), Ty, 0) &&
+        !(hlsl::IsHLSLCopyableAnnotatableRecord(Ty)))
       S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
           << /*payload|attributes|callable*/ 2 << /*parameter %2|type*/ 0
           << Param;
@@ -1234,6 +1234,11 @@ void DiagnoseMissOrAnyHitEntry(Sema &S, FunctionDecl *FD,
     Param = FD->getParamDecl(Idx);
 
     QualType Ty = Param->getType().getNonReferenceType();
+
+    // Don't diagnose here, just continue if this fails. Function parameters are
+    // checked in Sema::CheckParmsForFunctionDef.
+    if (S.RequireCompleteType(Param->getLocation(), Ty, 0))
+      continue;
 
     if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty))) {
       S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
@@ -1288,6 +1293,11 @@ void DiagnoseClosestHitEntry(Sema &S, FunctionDecl *FD,
     Param = FD->getParamDecl(Idx);
 
     QualType Ty = Param->getType().getNonReferenceType();
+
+    // Don't diagnose here, just continue if this fails. Function parameters are
+    // checked in Sema::CheckParmsForFunctionDef.
+    if (S.RequireCompleteType(Param->getLocation(), Ty, 0))
+      continue;
 
     if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty))) {
       S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)

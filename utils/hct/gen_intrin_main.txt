@@ -1,9 +1,6 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 // See hctdb.py for the implementation of intrinsic file processing.
 //
 // Intrinsic declarations are grouped into namespaces that
@@ -339,9 +336,9 @@ float<4,3> [[rn]] ObjectToWorld4x3();
 float<4,3> [[rn]] WorldToObject4x3();
 
 // Packed dot products with accumulate:
-$type3 [[rn]] dot4add_u8packed(in uint a, in $type1 b, in uint c);
-$type3 [[rn]] dot4add_i8packed(in uint a, in $type1 b, in int c);
-$type3 [[rn]] dot2add(in float16_t<2> a, in $type1 b, in float c);
+uint [[rn]] dot4add_u8packed(in uint a, in $type1 b, in uint c);
+int [[rn]] dot4add_i8packed(in uint a, in $type1 b, in int c);
+float [[rn]] dot2add(in float16_t<2> a, in $type1 b, in float c);
 
 // Unpacking intrinsics
 int16_t<4> [[rn]] unpack_s8s16(in p32i8 pk);
@@ -383,13 +380,13 @@ void [[]] Barrier(in NodeRecordOrUAV o, in uint SemanticFlags);
 
 uint [[]] GetRemainingRecursionLevels();
 
-void [[]] __builtin_MatVecMul(out numeric<c> OutputVector, in bool OutputIsUnsigned, in numeric<c2> InputVector, in bool InputIsUnsigned, in uint InputInterpretation, in ByteAddressBuffer MatrixBuffer, in uint MatrixOffset, in uint MatrixInterpretation, in uint M, in uint K, in uint MatrixLayout, in bool MatrixIsTransposed, in uint MatrixStride);
+void [[min_sm=6.9]] __builtin_MatVecMul(out LinAlg<c> OutputVector, in bool OutputIsUnsigned, in LinAlg<c2> InputVector, in bool InputIsUnsigned, in uint InputInterpretation, in ByteAddressBuffer MatrixBuffer, in uint MatrixOffset, in uint MatrixInterpretation, in uint M, in uint K, in uint MatrixLayout, in bool MatrixIsTransposed, in uint MatrixStride);
 
-void [[]] __builtin_MatVecMulAdd(out numeric<c> OutputVector, in bool OutputIsUnsigned, in numeric<c2> InputVector, in bool InputIsUnsigned, in uint InputInterpretation, in ByteAddressBuffer MatrixBuffer, in uint MatrixOffset, in uint MatrixInterpretation, in uint M, in uint K, in uint MatrixLayout, in bool MatrixIsTransposed, in uint MatrixStride, in ByteAddressBuffer BiasVector, in uint BiasOffset, in uint BiasInterpretation);
+void [[min_sm=6.9]] __builtin_MatVecMulAdd(out LinAlg<c> OutputVector, in bool OutputIsUnsigned, in LinAlg<c2> InputVector, in bool InputIsUnsigned, in uint InputInterpretation, in ByteAddressBuffer MatrixBuffer, in uint MatrixOffset, in uint MatrixInterpretation, in uint M, in uint K, in uint MatrixLayout, in bool MatrixIsTransposed, in uint MatrixStride, in ByteAddressBuffer BiasVector, in uint BiasOffset, in uint BiasInterpretation);
 
-void [[]] __builtin_OuterProductAccumulate(in numeric<c> InputVector1, in numeric<c2> InputVector2, in RWByteAddressBuffer MatrixBuffer, in uint MatrixOffset, in uint MatrixInterpretation, in uint MatrixLayout, in uint MatrixStride);
+void [[min_sm=6.9]] __builtin_OuterProductAccumulate(in LinAlg<c> InputVector1, in LinAlg<c2> InputVector2, in RWByteAddressBuffer MatrixBuffer, in uint MatrixOffset, in uint MatrixInterpretation, in uint MatrixLayout, in uint MatrixStride);
 
-void [[]] __builtin_VectorAccumulate(in numeric<c> InputVector, in RWByteAddressBuffer MatrixBuffer, in uint MatrixOffset);
+void [[min_sm=6.9]] __builtin_VectorAccumulate(in LinAlg<c> InputVector, in RWByteAddressBuffer MatrixBuffer, in uint MatrixOffset);
 
 } namespace
 
