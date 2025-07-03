@@ -10793,16 +10793,19 @@ HLSLExternalSource::ApplyTypeSpecSignToParsedType(clang::QualType &type,
 }
 
 bool DiagnoseIntersectionAttributes(Sema &S, SourceLocation Loc, QualType Ty) {
-  // Must be a UDT
+  // Identify problematic fields first (high diagnostic accuracy, may miss some
+  // invalid cases)
+  const TypeDiagContext DiagContext = TypeDiagContext::Attributes;
+  if (DiagnoseTypeElements(S, Loc, Ty, DiagContext, DiagContext))
+    return false;
+
+  // Must be a UDT (low diagnostic accuracy, catches remaining invalid cases)
   if (Ty.isNull() || !hlsl::IsHLSLCopyableAnnotatableRecord(Ty)) {
     S.Diag(Loc, diag::err_payload_attrs_must_be_udt)
         << /*payload|attributes|callable*/ 1 << /*parameter %2|type*/ 1;
     return false;
   }
 
-  const TypeDiagContext DiagContext = TypeDiagContext::Attributes;
-  if (DiagnoseTypeElements(S, Loc, Ty, DiagContext, DiagContext))
-    return false;
   return true;
 }
 
@@ -10914,7 +10917,6 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
     LPCSTR tableName = cursor.GetTableName();
     // Currently only intrinsic we allow for explicit template arguments are
     // for Load/Store for ByteAddressBuffer/RWByteAddressBuffer
-    // and HitObject::GetAttributes with user-defined intersection attributes.
 
     // Check Explicit template arguments
     UINT intrinsicOp = (*cursor)->Op;
@@ -10929,11 +10931,9 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
       IsBABLoad = intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
       IsBABStore = intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
     }
-    bool IsHitObjectGetAttributes =
-        intrinsicOp == (UINT)IntrinsicOp::MOP_DxHitObject_GetAttributes;
     if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() >= 1) {
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
-      if (!IsBABLoad && !IsBABStore && !IsHitObjectGetAttributes) {
+      if (!IsBABLoad && !IsBABStore) {
         getSema()->Diag(Loc, diag::err_hlsl_intrinsic_template_arg_unsupported)
             << intrinsicName;
         return Sema::TemplateDeductionResult::TDK_Invalid;
@@ -10963,10 +10963,6 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
           return Sema::TemplateDeductionResult::TDK_Invalid;
         }
       }
-      if (IsHitObjectGetAttributes &&
-          !DiagnoseIntersectionAttributes(*getSema(), Loc,
-                                          functionTemplateTypeArg))
-        return Sema::TemplateDeductionResult::TDK_Invalid;
     } else if (IsBABStore) {
       // Prior to HLSL 2018, Store operation only stored scalar uint.
       if (!Is2018) {
@@ -12240,6 +12236,56 @@ static bool CheckVKBufferPointerCast(Sema &S, FunctionDecl *FD, CallExpr *CE,
 }
 #endif
 
+// Query function that returns the intersection-attribute parameter index
+// Returns -1 if the function doesn't have an intersection-attribute parameter
+static int GetIntersectionAttributeParamIdx(const FunctionDecl *FD) {
+  if (!FD)
+    return -1;
+
+  // Check if it's a HitObject member function
+  if (const CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(FD)) {
+    if (Method->getParent() && Method->getParent()->getName() == "HitObject") {
+      if (FD->getName() == "GetAttributes") {
+        return 0; // First argument for member functions
+      }
+    }
+  }
+
+  // Check if it's an intrinsic with HLSLIntrinsicAttr
+  if (auto attr = FD->getAttr<HLSLIntrinsicAttr>()) {
+    if (IsBuiltinTable(attr->getGroup())) {
+      hlsl::IntrinsicOp opCode =
+          static_cast<hlsl::IntrinsicOp>(attr->getOpcode());
+      switch (opCode) {
+      case hlsl::IntrinsicOp::IOP_ReportHit:
+        return 2; // Third argument for ReportHit
+      case hlsl::IntrinsicOp::MOP_DxHitObject_GetAttributes:
+        return 3; // Fourth argument for the static version
+      default:
+        break;
+      }
+    }
+  }
+
+  return -1;
+}
+
+// Check if function has intersection-attribute parameters that need validation
+static bool HasIntersectionAttributeParam(const FunctionDecl *FD) {
+  return GetIntersectionAttributeParamIdx(FD) >= 0;
+}
+
+static void ValidateIntersectionAttributeParam(Sema &S, const FunctionDecl *FD,
+                                               CallExpr *TheCall) {
+  int attrParamIdx = GetIntersectionAttributeParamIdx(FD);
+  if (attrParamIdx == -1)
+    return;
+
+  DXASSERT_NOMSG(static_cast<unsigned>(attrParamIdx) < TheCall->getNumArgs());
+  DiagnoseIntersectionAttributes(S, TheCall->getArg(attrParamIdx)->getExprLoc(),
+                                 TheCall->getArg(attrParamIdx)->getType());
+}
+
 // Check HLSL call constraints, not fatal to creating the AST.
 void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
                                  const FunctionProtoType *Proto) {
@@ -12251,6 +12297,10 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
 
   const auto *SM =
       hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
+
+  // Check for intersection attribute validation first
+  if (HasIntersectionAttributeParam(FDecl))
+    ValidateIntersectionAttributeParam(*this, FDecl, TheCall);
 
   hlsl::IntrinsicOp opCode = (hlsl::IntrinsicOp)IntrinsicAttr->getOpcode();
   switch (opCode) {
@@ -16878,10 +16928,6 @@ bool Sema::CheckHLSLIntrinsicCall(FunctionDecl *FDecl, CallExpr *TheCall) {
     assert(TheCall->getNumArgs() > 7);
     assert(FDecl->getName() == "TraceRay");
     return CheckUDTIntrinsicArg(this, TheCall->getArg(7)->IgnoreCasts());
-  case hlsl::IntrinsicOp::IOP_ReportHit:
-    assert(TheCall->getNumArgs() > 2);
-    assert(FDecl->getName() == "ReportHit");
-    return CheckUDTIntrinsicArg(this, TheCall->getArg(2)->IgnoreCasts());
   default:
     break;
   }
