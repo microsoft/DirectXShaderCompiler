@@ -1012,17 +1012,18 @@ right now:
 2. DirectX memory layout rules for uniform buffers and storage buffers:
    they allow packing data on the application side that can be shared with
    DirectX. They can be enabled by ``-fvk-use-dx-layout``.
+   
+   NOTE: This requires ``VK_EXT_scalar_block_layout`` to be enabled on the
+   application side.
 3. Strict OpenGL ``std140`` for uniform buffers and strict OpenGL ``std430``
    for storage buffers: they allow packing data on the application side that
    can be shared with OpenGL. They can be enabled by ``-fvk-use-gl-layout``.
 4. Scalar layout rules introduced via `VK_EXT_scalar_block_layout`, which
    basically aligns all aggregrate types according to their elements'
    natural alignment. They can be enabled by ``-fvk-use-scalar-layout``.
-
-To use scalar layout, the application side need to request
-``VK_EXT_scalar_block_layout``. This is also true for using DirectX memory
-layout since there is no dedicated DirectX layout extension for Vulkan
-(at least for now). So we must request something more permissive.
+   
+   NOTE: This requires ``VK_EXT_scalar_block_layout`` to be enabled on the
+   application side.
 
 In the above, "vector-relaxed OpenGL ``std140``/``std430``" rules mean OpenGL
 ``std140``/``std430`` rules with the following modification for vector type
@@ -1032,7 +1033,7 @@ alignment:
 2. If the above causes an `improper straddle <https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#interfaces-resources-layout>`_,
    the alignment will be set to 16 bytes.
 
-As an exmaple, for the following HLSL definition:
+As an example, for the following HLSL definition:
 
 .. code:: hlsl
 
