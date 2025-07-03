@@ -3,7 +3,7 @@
 
 class DxcDllExtValidationSupport : public dxc::DxcDllSupport {
   // DxcDllExtValidationSupport manages the
-  // lifetime of dxcompiler.dll, while the member, m_DxilSupport,
+  // lifetime of dxcompiler.dll, while the member, DxilSupport,
   // manages the lifetime of dxil.dll
 protected:
   dxc::DxcDllSupport DxilSupport;
