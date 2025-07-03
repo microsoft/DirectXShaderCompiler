@@ -3785,8 +3785,7 @@ static bool HandleIntrinsicCall(SourceLocation CallLoc, unsigned opcode,
     if (ArgValues[0].isInt()) {
       Result = ArgValues[0];
       // The result of bitwise cast to uint will be unsigned.
-      const bool isUnsignedTrue = true;
-      Result.getInt().setIsSigned(!isUnsignedTrue);
+      Result.getInt().setIsSigned(false);
     }
     else if (ArgValues[0].isFloat()) {
       const bool isUnsignedTrue = true;
