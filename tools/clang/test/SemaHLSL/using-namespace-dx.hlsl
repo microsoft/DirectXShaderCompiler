@@ -6,6 +6,15 @@ struct[raypayload] RayPayload {
   float4 color : write(caller) : read(closesthit);
 };
 
+namespace MyStuff {
+  using namespace dx;
+  void MaybeReorderThread(int2 V);
+}
+
+void MyStuff::MaybeReorderThread(int2 V) {
+  MaybeReorderThread(V.x, V.y);
+}
+
 [shader("raygeneration")] void MyRaygenShader() {
   // Set the ray's extents.
   RayDesc ray;
@@ -25,6 +34,8 @@ struct[raypayload] RayPayload {
   MaybeReorderThread(sortKey, 1);
 
   HitObject::Invoke(hit, payload);
+
+  MyStuff::MaybeReorderThread(int2(sortKey, 1));
 }
 
 // Find the DeclRefExpr for the call to MaybeReorderThread:

@@ -5387,12 +5387,25 @@ public:
       // If we have a scope chain, walk it to get using declarations.
       if (S) {
         UnqualUsingDirectiveSet UDirs;
-        // Find the first namespace or translation-unit scope.
-        Scope *Initial = S;
-        while (S && !isNamespaceOrTranslationUnitScope(S))
-          S = S->getParent();
 
-        UDirs.visitScopeChain(Initial, S);
+        // Add using directives from this context up to the top level. This
+        // handles cases where the current declaration is in a context that has
+        // a using directive but might be in a scope chain that doesn't reach
+        // the using directive (i.e. a using inside a namespace or class
+        // declaration but the function definition is outside).
+        DeclContext *Ctx = S->getEntity();
+        for (DeclContext *UCtx = Ctx; UCtx; UCtx = UCtx->getParent()) {
+          if (UCtx->isTransparentContext())
+            continue;
+
+          UDirs.visit(UCtx, UCtx);
+        }
+        // Find the first namespace or translation-unit scope.
+        Scope *Innermost = S;
+        while (Innermost && !isNamespaceOrTranslationUnitScope(Innermost))
+          Innermost = Innermost->getParent();
+
+        UDirs.visitScopeChain(S, Innermost);
         UDirs.done();
         bool DXFound = false;
         bool VKFound = false;
