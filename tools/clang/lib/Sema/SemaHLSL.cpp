@@ -1984,7 +1984,9 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
                          LPCSTR tableName, LPCSTR lowering,
                          const HLSL_INTRINSIC *pIntrinsic,
                          std::vector<QualType> *functionArgQualTypesVector) {
-  DeclContext *currentDeclContext = context.getTranslationUnitDecl();
+  DeclContext *currentDeclContext =
+      NS ? static_cast<DeclContext *>(NS) : context.getTranslationUnitDecl();
+
   std::vector<QualType> &functionArgQualTypes = *functionArgQualTypesVector;
   const size_t functionArgTypeCount = functionArgQualTypes.size();
   const bool isVariadic = IsVariadicIntrinsicFunction(pIntrinsic);
@@ -2032,9 +2034,6 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
       InlineSpecifiedFalse, HasWrittenPrototypeTrue);
   currentDeclContext->addDecl(functionDecl);
 
-  functionDecl->setLexicalDeclContext(currentDeclContext);
-  // put under hlsl namespace
-  functionDecl->setDeclContext(NS);
   // Add intrinsic attribute
   AddHLSLIntrinsicAttr(functionDecl, context, tableName, lowering, pIntrinsic);
 
@@ -2057,6 +2056,9 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
 
   functionDecl->setParams(paramDecls);
   functionDecl->setImplicit(true);
+
+  if (!NS)
+    functionDecl->addAttr(HLSLBuiltinCallAttr::CreateImplicit(context));
 
   return functionDecl;
 }
@@ -5316,12 +5318,16 @@ public:
   bool Initialize(ASTContext &context) {
     m_context = &context;
 
-    m_hlslNSDecl =
-        NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
-                              /*Inline*/ false, SourceLocation(),
-                              SourceLocation(), &context.Idents.get("hlsl"),
-                              /*PrevDecl*/ nullptr);
-    m_hlslNSDecl->setImplicit();
+    // The HLSL namespace is disabled here pending a decision on whether or
+    // https://github.com/microsoft/hlsl-specs/issues/484.
+    if (false && context.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x) {
+      m_hlslNSDecl =
+          NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
+                                /*Inline*/ false, SourceLocation(),
+                                SourceLocation(), &context.Idents.get("hlsl"),
+                                /*PrevDecl*/ nullptr);
+      m_hlslNSDecl->setImplicit();
+    }
     AddBaseTypes();
     AddHLSLScalarTypes();
     AddHLSLStringType();
