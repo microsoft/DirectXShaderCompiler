@@ -373,7 +373,7 @@ enum ArBasicKind {
 
 #define IS_BPROP_STREAM(_Props) (((_Props)&BPROP_STREAM) != 0)
 
-#define IS_BPROP_PATCH(_Props) (((_Props)&BPROP_PATCH) != 0)
+#define IS_BPROP_PATCH(_Props) (((_Props) & BPROP_PATCH) != 0)
 
 #define IS_BPROP_SAMPLER(_Props) (((_Props)&BPROP_SAMPLER) != 0)
 
@@ -5366,18 +5366,22 @@ public:
         SearchTables;
 
     if (isDxNamespace)
-      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl*>(IntrisnicArray(g_DxIntrinsics), m_dxNSDecl));
+      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl *>(
+          IntrisnicArray(g_DxIntrinsics), m_dxNSDecl));
 #ifdef ENABLE_SPIRV_CODEGEN
     else if (isVkNamespace)
-      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl*>(IntrisnicArray(g_VkIntrinsics), m_vkNSDecl));
+      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl *>(
+          IntrisnicArray(g_VkIntrinsics), m_vkNSDecl));
 #endif
     else if (isGlobalNamespace)
-      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl*>(IntrisnicArray(g_Intrinsics), m_hlslNSDecl));
+      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl *>(
+          IntrisnicArray(g_Intrinsics), m_hlslNSDecl));
     else if (!isQualified) {
       // If the name isn't qualified, we need to search all scopes that are
       // accessible without qualification. This starts with the global scope and
       // extends into any scopes that are referred to by using declarations.
-      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl*>(IntrisnicArray(g_Intrinsics), m_hlslNSDecl));
+      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl *>(
+          IntrisnicArray(g_Intrinsics), m_hlslNSDecl));
 
       // If we have a scope chain, walk it to get using declarations.
       if (S) {
@@ -5405,16 +5409,20 @@ public:
         bool DXFound = false;
         bool VKFound = false;
         for (const auto &UD : UDirs) {
-          if (static_cast<DeclContext *>(m_dxNSDecl) == UD.getNominatedNamespace())
+          if (static_cast<DeclContext *>(m_dxNSDecl) ==
+              UD.getNominatedNamespace())
             DXFound = true;
-          else if (static_cast<DeclContext *>(m_vkNSDecl) == UD.getNominatedNamespace())
+          else if (static_cast<DeclContext *>(m_vkNSDecl) ==
+                   UD.getNominatedNamespace())
             VKFound = true;
         }
         if (DXFound)
-          SearchTables.push_back(std::make_pair(IntrisnicArray(g_DxIntrinsics), m_dxNSDecl));
+          SearchTables.push_back(
+              std::make_pair(IntrisnicArray(g_DxIntrinsics), m_dxNSDecl));
 #ifdef ENABLE_SPIRV_CODEGEN
         if (VKFound)
-          SearchTables.push_back(std::make_pair(IntrisnicArray(g_VkIntrinsics), m_vkNSDecl));
+          SearchTables.push_back(
+              std::make_pair(IntrisnicArray(g_VkIntrinsics), m_vkNSDecl));
 #endif
       }
     }

@@ -10660,8 +10660,8 @@ void Sema::AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
 #endif
 
   // HLSL Change - allow ExternalSource the ability to add the overloads for a call.
-  if (ExternalSource &&
-    ExternalSource->AddOverloadedCallCandidates(ULE, Args, CandidateSet, S, PartialOverloading)) {
+  if (ExternalSource && ExternalSource->AddOverloadedCallCandidates(
+                            ULE, Args, CandidateSet, S, PartialOverloading)) {
     return;
   }
 

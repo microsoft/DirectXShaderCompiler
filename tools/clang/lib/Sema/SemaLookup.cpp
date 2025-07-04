@@ -4810,7 +4810,7 @@ void Sema::diagnoseTypo(const TypoCorrection &Correction,
 
   NamedDecl *ChosenDecl =
       Correction.isKeyword() ? nullptr : Correction.getCorrectionDecl();
-   // HLSL Change begin: don't put notes on invalid source locations.
+  // HLSL Change begin: don't put notes on invalid source locations.
   if (PrevNote.getDiagID() && ChosenDecl &&
       !ChosenDecl->getLocation().isInvalid())
     Diag(ChosenDecl->getLocation(), PrevNote)
