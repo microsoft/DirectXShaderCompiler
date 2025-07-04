@@ -5469,8 +5469,8 @@ public:
           DXASSERT(tableName,
                    "otherwise IDxcIntrinsicTable::GetTableName() failed");
           intrinsicFuncDecl =
-              AddHLSLIntrinsicFunction(*m_context, T.NS, tableName,
-                                       lowering, pIntrinsic, &functionArgTypes);
+              AddHLSLIntrinsicFunction(*m_context, T.NS, tableName, lowering,
+                                       pIntrinsic, &functionArgTypes);
           insertResult.first->setFunctionDecl(intrinsicFuncDecl);
         } else {
           intrinsicFuncDecl = (*insertResult.first).getFunctionDecl();
