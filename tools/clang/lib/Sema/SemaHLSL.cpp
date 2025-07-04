@@ -5361,28 +5361,23 @@ public:
 
     StringRef nameIdentifier = idInfo->getName();
     using IntrisnicArray = llvm::ArrayRef<const HLSL_INTRINSIC>;
-    IntrisnicArray GlobalIntrinsics(g_Intrinsics);
-    IntrisnicArray DXIntrinsics(g_DxIntrinsics);
-#ifdef ENABLE_SPIRV_CODEGEN
-    IntrisnicArray VKIntrinsics = IntrisnicArray(g_VkIntrinsics);
-#endif // ENABLE_SPIRV_CODEGEN
 
     llvm::SmallVector<std::pair<IntrisnicArray, NamespaceDecl *>, 3>
         SearchTables;
 
     if (isDxNamespace)
-      SearchTables.push_back(std::make_pair(DXIntrinsics, m_dxNSDecl));
+      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl*>(IntrisnicArray(g_DxIntrinsics), m_dxNSDecl));
 #ifdef ENABLE_SPIRV_CODEGEN
     else if (isVkNamespace)
-      SearchTables.push_back(std::make_pair(VKIntrinsics, m_vkNSDecl));
+      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl*>(IntrisnicArray(g_VkIntrinsics), m_vkNSDecl));
 #endif
     else if (isGlobalNamespace)
-      SearchTables.push_back(std::make_pair(GlobalIntrinsics, m_hlslNSDecl));
+      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl*>(IntrisnicArray(g_Intrinsics), m_hlslNSDecl));
     else if (!isQualified) {
       // If the name isn't qualified, we need to search all scopes that are
       // accessible without qualification. This starts with the global scope and
       // extends into any scopes that are referred to by using declarations.
-      SearchTables.push_back(std::make_pair(GlobalIntrinsics, m_hlslNSDecl));
+      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl*>(IntrisnicArray(g_Intrinsics), m_hlslNSDecl));
 
       // If we have a scope chain, walk it to get using declarations.
       if (S) {
@@ -5416,9 +5411,11 @@ public:
             VKFound = true;
         }
         if (DXFound)
-          SearchTables.push_back(std::make_pair(DXIntrinsics, m_dxNSDecl));
+          SearchTables.push_back(std::make_pair(IntrisnicArray(g_DxIntrinsics), m_dxNSDecl));
+#ifdef ENABLE_SPIRV_CODEGEN
         if (VKFound)
-          SearchTables.push_back(std::make_pair(VKIntrinsics, m_vkNSDecl));
+          SearchTables.push_back(std::make_pair(IntrisnicArray(g_VkIntrinsics), m_vkNSDecl));
+#endif
       }
     }
 
