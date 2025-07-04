@@ -5360,28 +5360,31 @@ public:
     }
 
     StringRef nameIdentifier = idInfo->getName();
-    using IntrisnicArray = llvm::ArrayRef<const HLSL_INTRINSIC>;
+    using IntrinsicArray = llvm::ArrayRef<const HLSL_INTRINSIC>;
+    struct IntrinsicTableEntry {
+      IntrinsicArray Table;
+      NamespaceDecl *NS;
+    };
 
-    llvm::SmallVector<std::pair<IntrisnicArray, NamespaceDecl *>, 3>
-        SearchTables;
+    llvm::SmallVector<IntrinsicTableEntry, 3> SearchTables;
 
     if (isDxNamespace)
-      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl *>(
-          IntrisnicArray(g_DxIntrinsics), m_dxNSDecl));
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_DxIntrinsics), m_dxNSDecl});
 #ifdef ENABLE_SPIRV_CODEGEN
     else if (isVkNamespace)
-      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl *>(
-          IntrisnicArray(g_VkIntrinsics), m_vkNSDecl));
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_VkIntrinsics), m_vkNSDecl});
 #endif
     else if (isGlobalNamespace)
-      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl *>(
-          IntrisnicArray(g_Intrinsics), m_hlslNSDecl));
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_Intrinsics), m_hlslNSDecl});
     else if (!isQualified) {
       // If the name isn't qualified, we need to search all scopes that are
       // accessible without qualification. This starts with the global scope and
       // extends into any scopes that are referred to by using declarations.
-      SearchTables.push_back(std::pair<IntrisnicArray, NamespaceDecl *>(
-          IntrisnicArray(g_Intrinsics), m_hlslNSDecl));
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_Intrinsics), m_hlslNSDecl});
 
       // If we have a scope chain, walk it to get using declarations.
       if (S) {
@@ -5418,11 +5421,11 @@ public:
         }
         if (DXFound)
           SearchTables.push_back(
-              std::make_pair(IntrisnicArray(g_DxIntrinsics), m_dxNSDecl));
+              IntrinsicTableEntry{IntrinsicArray(g_DxIntrinsics), m_dxNSDecl});
 #ifdef ENABLE_SPIRV_CODEGEN
         if (VKFound)
           SearchTables.push_back(
-              std::make_pair(IntrisnicArray(g_VkIntrinsics), m_vkNSDecl));
+              IntrinsicTableEntry{IntrinsicArray(g_VkIntrinsics), m_vkNSDecl});
 #endif
       }
     }
@@ -5432,10 +5435,10 @@ public:
     for (const auto &T : SearchTables) {
 
       IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
-          T.first.data(), T.first.size(), StringRef(), nameIdentifier,
+          T.Table.data(), T.Table.size(), StringRef(), nameIdentifier,
           Args.size());
       IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
-          T.first.data(), T.first.size(),
+          T.Table.data(), T.Table.size(),
           IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
 
       for (; cursor != end; ++cursor) {
@@ -5466,7 +5469,7 @@ public:
           DXASSERT(tableName,
                    "otherwise IDxcIntrinsicTable::GetTableName() failed");
           intrinsicFuncDecl =
-              AddHLSLIntrinsicFunction(*m_context, T.second, tableName,
+              AddHLSLIntrinsicFunction(*m_context, T.NS, tableName,
                                        lowering, pIntrinsic, &functionArgTypes);
           insertResult.first->setFunctionDecl(intrinsicFuncDecl);
         } else {
