@@ -4212,18 +4212,15 @@ TEST_F(ValidationTest, ValidateWithHash) {
   VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
 }
 
-std::wstring GetEnvVarW(const std::wstring &VarName) {
 #ifdef _WIN32
+std::wstring GetEnvVarW(const std::wstring &VarName) {
   if (const wchar_t *Result = _wgetenv(VarName.c_str()))
     return std::wstring(Result);
-#endif
   return std::wstring();
 }
 
 void SetEnvVarW(const std::wstring &VarName, const std::wstring &VarValue) {
-#ifdef _WIN32
   _wputenv_s(VarName.c_str(), VarValue.c_str());
-#endif
 }
 
 // For now, 3 things are tested:
@@ -4303,6 +4300,7 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   // or the empty string if there was no previous value
   SetEnvVarW(L"DXC_DXIL_DLL_PATH", OldEnvVal);
 }
+#endif
 
 TEST_F(ValidationTest, ValidatePreviewBypassHash) {
   if (m_ver.SkipDxilVersion(1, ShaderModel::kHighestMinor))
