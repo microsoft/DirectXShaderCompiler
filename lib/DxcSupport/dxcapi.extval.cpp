@@ -4,10 +4,29 @@
 // WinIncludes must come before dxcapi.extval.h
 #include "dxc/Support/dxcapi.extval.h"
 
+namespace dxc {
+
+HRESULT DxcDllExtValidationSupport::CreateInstance(REFCLSID clsid, REFIID riid,
+                                                   IUnknown **pResult) {
+  if (DxilExtValSupport.IsEnabled() && clsid == CLSID_DxcValidator)
+    return DxilExtValSupport.CreateInstance(clsid, riid, pResult);
+
+  return DxcompilerSupport.CreateInstance(clsid, riid, pResult);
+}
+
+HRESULT DxcDllExtValidationSupport::CreateInstance2(IMalloc *pMalloc,
+                                                    REFCLSID clsid, REFIID riid,
+                                                    IUnknown **pResult) {
+  if (DxilExtValSupport.IsEnabled() && clsid == CLSID_DxcValidator)
+    return DxilExtValSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
+
+  return DxcompilerSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
+}
+
 HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR dllName,
                                                        LPCSTR fnName) {
   // Load dxcompiler.dll
-  HRESULT Result = DxcDllSupport::InitializeInternal(dllName, fnName);
+  HRESULT Result = DxcompilerSupport.InitializeInternal(dllName, fnName);
   // if dxcompiler.dll fails to load, return the failed HRESULT
   if (DXC_FAILED(Result)) {
     return Result;
@@ -31,24 +50,9 @@ HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR dllName,
   // to see if dxil.dll is successfully loaded.
   // the CheckDxilDLLLoaded function can determine whether there were any
   // problems loading dxil.dll or not
-  DxilSupport.InitializeForDll(DllPathStr.data(), fnName);
+  DxilExtValSupport.InitializeForDll(DllPathStr.data(), fnName);
 
   return S_OK;
 }
 
-HRESULT DxcDllExtValidationSupport::CreateInstance(REFCLSID clsid, REFIID riid,
-                                                   IUnknown **pResult) {
-  if (DxilSupport.IsEnabled() && clsid == CLSID_DxcValidator)
-    return DxilSupport.CreateInstance(clsid, riid, pResult);
-
-  return DxcDllSupport::CreateInstance(clsid, riid, pResult);
-}
-
-HRESULT DxcDllExtValidationSupport::CreateInstance2(IMalloc *pMalloc,
-                                                    REFCLSID clsid, REFIID riid,
-                                                    IUnknown **pResult) {
-  if (DxilSupport.IsEnabled() && clsid == CLSID_DxcValidator)
-    return DxilSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
-
-  return DxcDllSupport::CreateInstance2(pMalloc, clsid, riid, pResult);
-}
+} // namespace dxc

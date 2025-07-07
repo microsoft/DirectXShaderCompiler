@@ -21,12 +21,14 @@ extern const char *kDxilLib;
 
 // Helper class to dynamically load the dxcompiler or a compatible libraries.
 class DxcDllSupport {
+  friend class DxcDllExtValidationSupport;
+
 protected:
   HMODULE m_dll;
   DxcCreateInstanceProc m_createFn;
   DxcCreateInstance2Proc m_createFn2;
 
-  virtual HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
+  HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
     if (m_dll != nullptr)
       return S_OK;
 
@@ -85,7 +87,7 @@ public:
     other.m_createFn2 = nullptr;
   }
 
-  virtual ~DxcDllSupport() { Cleanup(); }
+  ~DxcDllSupport() { Cleanup(); }
 
   HRESULT Initialize() {
     return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
@@ -100,8 +102,7 @@ public:
     return CreateInstance(clsid, __uuidof(TInterface), (IUnknown **)pResult);
   }
 
-  virtual HRESULT CreateInstance(REFCLSID clsid, REFIID riid,
-                                 IUnknown **pResult) {
+  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
     if (m_dll == nullptr)
@@ -117,8 +118,8 @@ public:
                            (IUnknown **)pResult);
   }
 
-  virtual HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
-                                  IUnknown **pResult) {
+  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
+                          IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
     if (m_dll == nullptr)
@@ -142,7 +143,7 @@ public:
     return true;
   }
 
-  virtual void Cleanup() {
+  void Cleanup() {
     if (m_dll != nullptr) {
       m_createFn = nullptr;
       m_createFn2 = nullptr;
@@ -155,7 +156,7 @@ public:
     }
   }
 
-  virtual HMODULE Detach() {
+  HMODULE Detach() {
     HMODULE hModule = m_dll;
     m_dll = nullptr;
     return hModule;

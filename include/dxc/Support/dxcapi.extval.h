@@ -1,38 +1,43 @@
 #include "dxc/Support/dxcapi.use.h"
 #include <string>
 
-class DxcDllExtValidationSupport : public dxc::DxcDllSupport {
-  // DxcDllExtValidationSupport manages the
-  // lifetime of dxcompiler.dll, while the member, DxilSupport,
+namespace dxc {
+class DxcDllExtValidationSupport {
+  // DxcompilerSupport manages the
+  // lifetime of dxcompiler.dll, while DxilExtValSupport
   // manages the lifetime of dxil.dll
 protected:
-  dxc::DxcDllSupport DxilSupport;
+  dxc::DxcDllSupport DxcompilerSupport;
+  dxc::DxcDllSupport DxilExtValSupport;
 
   std::string DxilDllPath;
-
-  // override DxcDllSupport's implementation of InitializeInternal,
-  // adding the environment variable value check for a path to a dxil.dll
-  HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) override;
 
 public:
   std::string GetDxilDllPath() { return DxilDllPath; }
   bool DxilDllFailedToLoad() {
-    return !DxilDllPath.empty() && !DxilSupport.IsEnabled();
+    return !DxilDllPath.empty() && !DxilExtValSupport.IsEnabled();
   }
 
-  void Cleanup() override {
-    DxilSupport.Cleanup();
-    DxcDllSupport::Cleanup();
+  void Cleanup() {
+    DxilExtValSupport.Cleanup();
+    DxcompilerSupport.Cleanup();
   }
 
-  HMODULE Detach() override {
+  HMODULE Detach() {
     // Can't Detach and return a handle for DxilSupport. Cleanup() instead.
-    DxilSupport.Cleanup();
-    return DxcDllSupport::Detach();
+    DxilExtValSupport.Cleanup();
+    return DxcompilerSupport.Detach();
   }
 
-  HRESULT CreateInstance(REFCLSID clsid, REFIID riid,
-                         IUnknown **pResult) override;
+  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, IUnknown **pResult);
   HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
-                          IUnknown **pResult) override;
+                          IUnknown **pResult);
+
+  HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName);
+  HRESULT Initialize() {
+    return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
+  }
+
+  bool IsEnabled() const { return DxcompilerSupport.m_dll != nullptr; }
 };
+} // namespace dxc
