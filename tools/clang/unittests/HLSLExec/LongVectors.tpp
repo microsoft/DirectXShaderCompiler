@@ -19,17 +19,32 @@ DataTypeT LongVector::getLongVectorOpType(const LongVectorOpTypeStringToEnumValu
 template <typename DataTypeT>
 void LongVector::fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer, std::vector<DataTypeT> &TestData) {
 
+  // Note: DataSize for HLSLHalf_t and HLSLBool_t may be larger than the
+  // underlying type in some cases. Thats fine. Resize just makes sure we have
+  // enough space.
   const size_t NumElements = TestData.size();
   const size_t DataSize = sizeof(DataTypeT) * NumElements;
   ShaderBuffer.resize(DataSize);
 
-  DataTypeT *ShaderBufferPtr =
-    reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
-  for (size_t i = 0; i < NumElements; ++i)
-    ShaderBufferPtr[i] = TestData[i];
+  if constexpr (std::is_same_v<DataTypeT, HLSLHalf_t>) {
+    DirectX::PackedVector::HALF *ShaderBufferPtr =
+        reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
+    for (size_t i = 0; i < NumElements; ++i)
+      ShaderBufferPtr[i] = TestData[i].Val;
+  } else if constexpr (std::is_same_v<DataTypeT, HLSLBool_t>) {
+    int32_t *ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
+    for (size_t i = 0; i < NumElements; ++i)
+      ShaderBufferPtr[i] = TestData[i].Val;
+  } else {
+    DataTypeT *ShaderBufferPtr =
+        reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
+    for (size_t i = 0; i < NumElements; ++i)
+      ShaderBufferPtr[i] = TestData[i];
+  }
 }
 
-// Helpers so we do the right thing for float types.
+// Helpers so we do the right thing for float types. HLSLHalf_t is handled in an
+// operator overload.
 template <typename DataTypeT>
 DataTypeT LongVector::mod(const DataTypeT &A, const DataTypeT &B) {
   return A % B;
@@ -49,10 +64,23 @@ template <typename DataTypeT>
 void LongVector::fillLongVectorDataFromShaderBuffer(MappedData &ShaderBuffer,
                                         std::vector<DataTypeT> &TestData,
                                         size_t NumElements) {
-  DataTypeT *ShaderBufferPtr =
-    reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
-  for (size_t i = 0; i < NumElements; ++i)
-    TestData.push_back(ShaderBufferPtr[i]);
+  if constexpr (std::is_same_v<DataTypeT, HLSLHalf_t>) {
+    DirectX::PackedVector::HALF *ShaderBufferPtr =
+        reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
+    for (size_t i = 0; i < NumElements; ++i)
+      // HLSLHalf_t has a DirectX::PackedVector::HALF based constructor.
+      TestData.push_back(ShaderBufferPtr[i]);
+  } else if constexpr (std::is_same_v<DataTypeT, HLSLBool_t>) {
+    int32_t *ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
+    for (size_t i = 0; i < NumElements; ++i)
+      // HLSLBool_t has a int32_t based constructor.
+      TestData.push_back(ShaderBufferPtr[i]);
+  } else {
+    DataTypeT *ShaderBufferPtr =
+        reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
+    for (size_t i = 0; i < NumElements; ++i)
+      TestData.push_back(ShaderBufferPtr[i]);
+  }
 }
 
 template <typename DataTypeT>
@@ -63,6 +91,25 @@ bool LongVector::doValuesMatch(DataTypeT A, DataTypeT B, float Tolerance,
 
   DataTypeT Diff = A > B ? A - B : B - A;
   return Diff <= Tolerance;
+}
+
+bool LongVector::doValuesMatch(HLSLBool_t A, HLSLBool_t B, float,
+                          LongVector::ValidationType) {
+  return A == B;
+}
+
+bool LongVector::doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
+                          LongVector::ValidationType ValidationType) {
+  switch (ValidationType) {
+  case LongVector::ValidationType_Epsilon:
+    return CompareHalfEpsilon(A.Val, B.Val, Tolerance);
+  case LongVector::ValidationType_Ulp:
+    return CompareHalfULP(A.Val, B.Val, Tolerance);
+  default:
+    WEX::Logging::Log::Error(
+        L"Invalid ValidationType. Expecting Epsilon or ULP.");
+    return false;
+  }
 }
 
 bool LongVector::doValuesMatch(float A, float B, float Tolerance,
@@ -322,6 +369,10 @@ std::string LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::getOPERAND2Str
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
 std::string LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::getHLSLTypeString() const {
+  if (std::is_same_v<DataTypeT, HLSLBool_t>)
+    return "bool";
+  if (std::is_same_v<DataTypeT, HLSLHalf_t>)
+    return "half";
   if (std::is_same_v<DataTypeT, float>)
     return "float";
   if (std::is_same_v<DataTypeT, double>)
@@ -414,6 +465,8 @@ DataTypeT LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::computeExpectedV
 
   if constexpr (std::is_same_v<LongVectorOpTypeT, LongVector::UnaryOpType>) {
     const auto OpType = static_cast<LongVector::UnaryOpType>(OpTypeTraits.OpType);
+    // HLSLHalf_t is a struct. We need to call the constructor to get the
+    // expected value.
     return computeExpectedValue(A, OpType);
   }
 
@@ -433,7 +486,7 @@ std::string LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::getCompilerOpt
   CompilerOptions << " -DNUM=";
   CompilerOptions << VectorSize;
   const bool Is16BitType =
-    (HLSLType == "int16_t" || HLSLType == "uint16_t" || HLSLType == "half");
+      (HLSLType == "int16_t" || HLSLType == "uint16_t" || HLSLType == "half");
   CompilerOptions << (Is16BitType ? " -enable-16bit-types" : "");
   CompilerOptions << " -DOPERATOR=";
   CompilerOptions << OperatorString;

@@ -110,7 +110,9 @@ void LongVector::OpTest::dispatchTestByDataType(
     TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
-  if (DataType == L"int16")
+  if (DataType == L"bool")
+    dispatchTestByVectorSize<HLSLBool_t>(OpType, Handler);
+  else if (DataType == L"int16")
     dispatchTestByVectorSize<int16_t>(OpType, Handler);
   else if (DataType == L"int32")
     dispatchTestByVectorSize<int32_t>(OpType, Handler);
@@ -122,6 +124,8 @@ void LongVector::OpTest::dispatchTestByDataType(
     dispatchTestByVectorSize<uint32_t>(OpType, Handler);
   else if (DataType == L"uint64")
     dispatchTestByVectorSize<uint64_t>(OpType, Handler);
+  else if (DataType == L"float16")
+    dispatchTestByVectorSize<HLSLHalf_t>(OpType, Handler);
   else if (DataType == L"float32")
     dispatchTestByVectorSize<float>(OpType, Handler);
   else if (DataType == L"float64")
