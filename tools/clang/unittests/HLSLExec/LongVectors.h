@@ -137,10 +137,7 @@ static_assert(_countof(binaryOpTypeStringToEnumMap) ==
 
 BinaryOpType getBinaryOpType(const std::wstring &OpTypeString);
 
-enum UnaryOpType {
-  UnaryOpType_Initialize,
-  UnaryOpType_EnumValueCount
-};
+enum UnaryOpType { UnaryOpType_Initialize, UnaryOpType_EnumValueCount };
 
 static const LongVectorOpTypeStringToEnumValue unaryOpTypeStringToEnumMap[] = {
     {L"UnaryOpType_Initialize", UnaryOpType_Initialize},
