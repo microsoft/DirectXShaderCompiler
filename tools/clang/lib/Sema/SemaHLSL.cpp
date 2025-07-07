@@ -12282,8 +12282,7 @@ static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
 }
 
 // Check HLSL call constraints, not fatal to creating the AST.
-void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
-                                 const FunctionProtoType *Proto) {
+void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
   if (CheckNoInterpolationParams(FDecl, TheCall))
     return;
 
