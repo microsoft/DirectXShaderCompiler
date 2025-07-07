@@ -5402,6 +5402,15 @@ public:
         objectKind = ClassifyRecordType(recordType);
         switch (objectKind) {
         case AR_TOBJ_OBJECT:
+#ifdef ENABLE_SPIRV_CODEGEN
+          if (const auto *namespaceDecl = dyn_cast<NamespaceDecl>(
+                  recordType->getDecl()->getDeclContext());
+              namespaceDecl && namespaceDecl->getName().equals("vk") &&
+              (recordType->getDecl()->getName().equals("SpirvType") ||
+               recordType->getDecl()->getName().equals("SpirvOpaqueType"))) {
+            return true;
+          }
+#endif
           m_sema->Diag(argLoc, diag::err_hlsl_unsupported_object_context)
               << type << static_cast<unsigned>(TypeDiagContext::TypeParameter);
           return false;
