@@ -6378,18 +6378,11 @@ Value *TranslateHitObjectGetAttributes(CallInst *CI, IntrinsicOp IOP,
 
   Value *HitObjectPtr = CI->getArgOperand(1);
   Value *HitObject = Builder.CreateLoad(HitObjectPtr);
-
-  Type *AttrTy = cast<PointerType>(CI->getType())->getPointerElementType();
-
-  IRBuilder<> EntryBuilder(
-      dxilutil::FindAllocaInsertionPt(CI->getParent()->getParent()));
-  unsigned AttrAlign = Helper.dataLayout.getABITypeAlignment(AttrTy);
-  AllocaInst *AttrMem = EntryBuilder.CreateAlloca(AttrTy);
-  AttrMem->setAlignment(AttrAlign);
-  Constant *opArg = OP->GetU32Const((unsigned)OpCode);
-  TrivialDxilOperation(OpCode, {opArg, HitObject, AttrMem}, CI->getType(),
-                       Helper.voidTy, OP, Builder);
-  return AttrMem;
+  Value *AttrOutPtr =
+      CI->getArgOperand(HLOperandIndex::kHitObjectGetAttributes_AttributeOpIdx);
+  TrivialDxilOperation(OpCode, {nullptr, HitObject, AttrOutPtr},
+                       AttrOutPtr->getType(), CI, OP);
+  return nullptr;
 }
 
 Value *TranslateHitObjectScalarGetter(CallInst *CI, IntrinsicOp IOP,
