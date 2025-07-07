@@ -4213,39 +4213,22 @@ TEST_F(ValidationTest, ValidateWithHash) {
 }
 
 std::wstring GetEnvVarW(const std::wstring &VarName) {
-#ifdef _WIN32
   if (const wchar_t *Result = _wgetenv(VarName.c_str()))
     return std::wstring(Result);
-#else
-  std::string VarNameUtf8;
-  Unicode::WideToUTF8String(VarName.c_str(), &VarNameUtf8);
-  if (const char *Result = std::getenv(VarNameUtf8.c_str())) {
-    std::wstring ResultWide;
-    Unicode::UTF8ToWideString(Result, &ResultWide);
-    return std::wstring(ResultWide);
-  }
-#endif
   return std::wstring();
 }
 
 void SetEnvVarW(const std::wstring &VarName, const std::wstring &VarValue) {
-#ifdef _WIN32
   _wputenv_s(VarName.c_str(), VarValue.c_str());
-#else
-  std::string VarNameUtf8;
-  std::string VarValueUtf8;
-  Unicode::WideToUTF8String(VarName.c_str(), &VarNameUtf8);
-  Unicode::WideToUTF8String(VarValue.c_str(), &VarValueUtf8);
-  setenv(VarNameUtf8.c_str(), VarValueUtf8.c_str(), 1);
-#endif
 }
 
 // For now, 3 things are tested:
 // 1. The environment variable is not set. GetDxilDllPath() is empty and
 // DxilDllFailedToLoad() returns false
-// 2. Given a bogus path in the environment variable, GetDxilDllPath()
-// retrieves the path but fails to load it as a dll, and returns true
-// for DxilDllFailedToLoad()
+// 2. Given a bogus path in the environment variable, and an initialized
+// DxcDllExtValidationSupport object, GetDxilDllPath()
+// retrieves the bogus path despite DxcDllExtValidationSupport failing to load
+// it as a dll, and DxilDllFailedToLoad() returns true.
 // 3. CLSID_DxcCompiler, CLSID_DxcLinker, CLSID_DxcValidator
 // may be created through DxcDllExtValidationSupport.
 // This is all to simply test that the new class, DxcDllExtValidationSupport,
@@ -4301,6 +4284,7 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   CComPtr<IDxcCompiler2> Compiler2;
   Linker.Release();
   Validator.Release();
+  Compiler.Release();
   VERIFY_SUCCEEDED(DxcCoGetMalloc(1, &Malloc));
   VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance2(Malloc, CLSID_DxcCompiler,
                                                    __uuidof(IDxcCompiler),
