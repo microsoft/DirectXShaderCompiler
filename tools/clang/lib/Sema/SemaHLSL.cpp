@@ -10792,21 +10792,24 @@ HLSLExternalSource::ApplyTypeSpecSignToParsedType(clang::QualType &type,
   }
 }
 
-bool DiagnoseIntersectionAttributes(Sema &S, SourceLocation Loc, QualType Ty) {
+bool CheckIntersectionAttributeArg(Sema &S, Expr *E) {
+  SourceLocation Loc = E->getExprLoc();
+  QualType Ty = E->getType();
+
   // Identify problematic fields first (high diagnostic accuracy, may miss some
   // invalid cases)
   const TypeDiagContext DiagContext = TypeDiagContext::Attributes;
   if (DiagnoseTypeElements(S, Loc, Ty, DiagContext, DiagContext))
-    return false;
+    return true;
 
   // Must be a UDT (low diagnostic accuracy, catches remaining invalid cases)
   if (Ty.isNull() || !hlsl::IsHLSLCopyableAnnotatableRecord(Ty)) {
     S.Diag(Loc, diag::err_payload_attrs_must_be_udt)
         << /*payload|attributes|callable*/ 1 << /*parameter %2|type*/ 1;
-    return false;
+    return true;
   }
 
-  return true;
+  return false;
 }
 
 Sema::TemplateDeductionResult
@@ -12236,59 +12239,54 @@ static bool CheckVKBufferPointerCast(Sema &S, FunctionDecl *FD, CallExpr *CE,
 }
 #endif
 
-// Query function that returns the intersection-attribute parameter index
-// Returns -1 if the function doesn't have an intersection-attribute parameter
-static int GetIntersectionAttributeParamIdx(const FunctionDecl *FD) {
-  if (!FD)
-    return -1;
+static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
+  if (!E)
+    return false;
+  E = E->IgnoreCasts();
+  if (auto *DRE = dyn_cast<DeclRefExpr>(E))
+    return DRE->getDecl()->hasAttr<HLSLNoInterpolationAttr>();
 
-  // Check if it's a HitObject member function
-  if (const CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(FD)) {
-    if (Method->getParent() && Method->getParent()->getName() == "HitObject") {
-      if (FD->getName() == "GetAttributes") {
-        return 0; // First argument for member functions
-      }
-    }
-  }
+  if (auto *ME = dyn_cast<MemberExpr>(E))
+    return ME->getMemberDecl()->hasAttr<HLSLNoInterpolationAttr>() ||
+           isRelatedDeclMarkedNointerpolation(ME->getBase());
 
-  // Check if it's an intrinsic with HLSLIntrinsicAttr
-  if (auto attr = FD->getAttr<HLSLIntrinsicAttr>()) {
-    if (IsBuiltinTable(attr->getGroup())) {
-      hlsl::IntrinsicOp opCode =
-          static_cast<hlsl::IntrinsicOp>(attr->getOpcode());
-      switch (opCode) {
-      case hlsl::IntrinsicOp::IOP_ReportHit:
-        return 2; // Third argument for ReportHit
-      case hlsl::IntrinsicOp::MOP_DxHitObject_GetAttributes:
-        return 3; // Fourth argument for the static version
-      default:
-        break;
-      }
-    }
-  }
+  if (auto *HVE = dyn_cast<HLSLVectorElementExpr>(E))
+    return isRelatedDeclMarkedNointerpolation(HVE->getBase());
 
-  return -1;
+  if (auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
+    return isRelatedDeclMarkedNointerpolation(ASE->getBase());
+
+  return false;
 }
 
-// Check if function has intersection-attribute parameters that need validation
-static bool HasIntersectionAttributeParam(const FunctionDecl *FD) {
-  return GetIntersectionAttributeParamIdx(FD) >= 0;
-}
-
-static void ValidateIntersectionAttributeParam(Sema &S, const FunctionDecl *FD,
+static bool CheckIntrinsicGetAttributeAtVertex(Sema *S, FunctionDecl *FDecl,
                                                CallExpr *TheCall) {
-  int attrParamIdx = GetIntersectionAttributeParamIdx(FD);
-  if (attrParamIdx == -1)
-    return;
+  assert(TheCall->getNumArgs() > 0);
+  auto argument = TheCall->getArg(0)->IgnoreCasts();
 
-  DXASSERT_NOMSG(static_cast<unsigned>(attrParamIdx) < TheCall->getNumArgs());
-  DiagnoseIntersectionAttributes(S, TheCall->getArg(attrParamIdx)->getExprLoc(),
-                                 TheCall->getArg(attrParamIdx)->getType());
+  if (!isRelatedDeclMarkedNointerpolation(argument)) {
+    S->Diag(argument->getExprLoc(), diag::err_hlsl_parameter_requires_attribute)
+        << 0 << FDecl->getName() << "nointerpolation";
+    return true;
+  }
+
+  return false;
+}
+
+// Verify that user-defined intrinsic struct args contain no long vectors
+static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
+  const TypeDiagContext DiagContext =
+      TypeDiagContext::UserDefinedStructParameter;
+  return DiagnoseTypeElements(*S, Arg->getExprLoc(), Arg->getType(),
+                              DiagContext, DiagContext);
 }
 
 // Check HLSL call constraints, not fatal to creating the AST.
 void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
                                  const FunctionProtoType *Proto) {
+  if (CheckNoInterpolationParams(FDecl, TheCall))
+    return;
+
   HLSLIntrinsicAttr *IntrinsicAttr = FDecl->getAttr<HLSLIntrinsicAttr>();
   if (!IntrinsicAttr)
     return;
@@ -12297,10 +12295,6 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
 
   const auto *SM =
       hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
-
-  // Check for intersection attribute validation first
-  if (HasIntersectionAttributeParam(FDecl))
-    ValidateIntersectionAttributeParam(*this, FDecl, TheCall);
 
   hlsl::IntrinsicOp opCode = (hlsl::IntrinsicOp)IntrinsicAttr->getOpcode();
   switch (opCode) {
@@ -12319,6 +12313,31 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
     break;
   case hlsl::IntrinsicOp::IOP___builtin_OuterProductAccumulate:
     CheckOuterProductAccumulateCall(*this, FDecl, TheCall);
+    break;
+  case hlsl::IntrinsicOp::IOP_GetAttributeAtVertex:
+    // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
+    // to limit the scope, and fail gracefully in some cases.
+    if (!getLangOpts().SPIRV)
+      return;
+    // This should never happen for SPIR-V. But on the DXIL side, extension can
+    // be added by inserting new intrinsics, meaning opcodes can collide with
+    // existing ones. See the ExtensionTest.EvalAttributeCollision test.
+    CheckIntrinsicGetAttributeAtVertex(this, FDecl, TheCall);
+    break;
+  case hlsl::IntrinsicOp::IOP_DispatchMesh:
+    CheckUDTIntrinsicArg(this, TheCall->getArg(3)->IgnoreCasts());
+    break;
+  case hlsl::IntrinsicOp::IOP_CallShader:
+    CheckUDTIntrinsicArg(this, TheCall->getArg(1)->IgnoreCasts());
+    break;
+  case hlsl::IntrinsicOp::IOP_TraceRay:
+    CheckUDTIntrinsicArg(this, TheCall->getArg(7)->IgnoreCasts());
+    break;
+  case hlsl::IntrinsicOp::IOP_ReportHit:
+    CheckIntersectionAttributeArg(*this, TheCall->getArg(2)->IgnoreCasts());
+    break;
+  case hlsl::IntrinsicOp::MOP_DxHitObject_GetAttributes:
+    CheckIntersectionAttributeArg(*this, TheCall->getArg(0)->IgnoreCasts());
     break;
 #ifdef ENABLE_SPIRV_CODEGEN
   case hlsl::IntrinsicOp::IOP_Vkreinterpret_pointer_cast:
@@ -16854,91 +16873,7 @@ QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
   return QualType();
 }
 
-static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
-  if (!E)
-    return false;
-  E = E->IgnoreCasts();
-  if (auto *DRE = dyn_cast<DeclRefExpr>(E))
-    return DRE->getDecl()->hasAttr<HLSLNoInterpolationAttr>();
-
-  if (auto *ME = dyn_cast<MemberExpr>(E))
-    return ME->getMemberDecl()->hasAttr<HLSLNoInterpolationAttr>() ||
-           isRelatedDeclMarkedNointerpolation(ME->getBase());
-
-  if (auto *HVE = dyn_cast<HLSLVectorElementExpr>(E))
-    return isRelatedDeclMarkedNointerpolation(HVE->getBase());
-
-  if (auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
-    return isRelatedDeclMarkedNointerpolation(ASE->getBase());
-
-  return false;
-}
-
-// Verify that user-defined intrinsic struct args contain no long vectors
-static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
-  const TypeDiagContext DiagContext =
-      TypeDiagContext::UserDefinedStructParameter;
-  return DiagnoseTypeElements(*S, Arg->getExprLoc(), Arg->getType(),
-                              DiagContext, DiagContext);
-}
-
-static bool CheckIntrinsicGetAttributeAtVertex(Sema *S, FunctionDecl *FDecl,
-                                               CallExpr *TheCall) {
-  assert(TheCall->getNumArgs() > 0);
-  auto argument = TheCall->getArg(0)->IgnoreCasts();
-
-  if (!isRelatedDeclMarkedNointerpolation(argument)) {
-    S->Diag(argument->getExprLoc(), diag::err_hlsl_parameter_requires_attribute)
-        << 0 << FDecl->getName() << "nointerpolation";
-    return true;
-  }
-
-  return false;
-}
-
-bool Sema::CheckHLSLIntrinsicCall(FunctionDecl *FDecl, CallExpr *TheCall) {
-  auto attr = FDecl->getAttr<HLSLIntrinsicAttr>();
-
-  if (!attr)
-    return false;
-
-  if (!IsBuiltinTable(attr->getGroup()))
-    return false;
-
-  switch (hlsl::IntrinsicOp(attr->getOpcode())) {
-  case hlsl::IntrinsicOp::IOP_GetAttributeAtVertex:
-    // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
-    // to limit the scope, and fail gracefully in some cases.
-    if (!getLangOpts().SPIRV)
-      return false;
-    // This should never happen for SPIR-V. But on the DXIL side, extension can
-    // be added by inserting new intrinsics, meaning opcodes can collide with
-    // existing ones. See the ExtensionTest.EvalAttributeCollision test.
-    assert(FDecl->getName() == "GetAttributeAtVertex");
-    return CheckIntrinsicGetAttributeAtVertex(this, FDecl, TheCall);
-  case hlsl::IntrinsicOp::IOP_DispatchMesh:
-    assert(TheCall->getNumArgs() > 3);
-    assert(FDecl->getName() == "DispatchMesh");
-    return CheckUDTIntrinsicArg(this, TheCall->getArg(3)->IgnoreCasts());
-  case hlsl::IntrinsicOp::IOP_CallShader:
-    assert(TheCall->getNumArgs() > 1);
-    assert(FDecl->getName() == "CallShader");
-    return CheckUDTIntrinsicArg(this, TheCall->getArg(1)->IgnoreCasts());
-  case hlsl::IntrinsicOp::IOP_TraceRay:
-    assert(TheCall->getNumArgs() > 7);
-    assert(FDecl->getName() == "TraceRay");
-    return CheckUDTIntrinsicArg(this, TheCall->getArg(7)->IgnoreCasts());
-  default:
-    break;
-  }
-
-  return false;
-}
-
-bool Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
-  if (hlsl::IsIntrinsicOp(FDecl) && CheckHLSLIntrinsicCall(FDecl, TheCall))
-    return true;
-
+bool Sema::CheckNoInterpolationParams(FunctionDecl *FDecl, CallExpr *TheCall) {
   // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
   // to limit the scope, and fail gracefully in some cases.
   if (!getLangOpts().SPIRV)
