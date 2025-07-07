@@ -4213,13 +4213,17 @@ TEST_F(ValidationTest, ValidateWithHash) {
 }
 
 std::wstring GetEnvVarW(const std::wstring &VarName) {
+#ifdef _WIN32
   if (const wchar_t *Result = _wgetenv(VarName.c_str()))
     return std::wstring(Result);
+#endif
   return std::wstring();
 }
 
 void SetEnvVarW(const std::wstring &VarName, const std::wstring &VarValue) {
+#ifdef _WIN32
   _wputenv_s(VarName.c_str(), VarValue.c_str());
+#endif
 }
 
 // For now, 3 things are tested:
