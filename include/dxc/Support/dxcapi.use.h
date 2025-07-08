@@ -21,9 +21,7 @@ extern const char *kDxilLib;
 
 // Helper class to dynamically load the dxcompiler or a compatible libraries.
 class DxcDllSupport {
-  friend class DxcDllExtValidationSupport;
 
-protected:
   HMODULE m_dll;
   DxcCreateInstanceProc m_createFn;
   DxcCreateInstance2Proc m_createFn2;

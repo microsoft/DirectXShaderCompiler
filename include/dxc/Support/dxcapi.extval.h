@@ -6,11 +6,11 @@ class DxcDllExtValidationSupport {
   // DxcompilerSupport manages the
   // lifetime of dxcompiler.dll, while DxilExtValSupport
   // manages the lifetime of dxil.dll
-protected:
   dxc::DxcDllSupport DxcompilerSupport;
   dxc::DxcDllSupport DxilExtValSupport;
 
   std::string DxilDllPath;
+  HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName);
 
 public:
   std::string GetDxilDllPath() { return DxilDllPath; }
@@ -33,11 +33,10 @@ public:
   HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
                           IUnknown **pResult);
 
-  HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName);
   HRESULT Initialize() {
     return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
   }
 
-  bool IsEnabled() const { return DxcompilerSupport.m_dll != nullptr; }
+  bool IsEnabled() const { return DxcompilerSupport.IsEnabled(); }
 };
 } // namespace dxc

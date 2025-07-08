@@ -26,7 +26,7 @@ HRESULT DxcDllExtValidationSupport::CreateInstance2(IMalloc *pMalloc,
 HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR dllName,
                                                        LPCSTR fnName) {
   // Load dxcompiler.dll
-  HRESULT Result = DxcompilerSupport.InitializeInternal(dllName, fnName);
+  HRESULT Result = DxcompilerSupport.InitializeForDll(dllName, fnName);
   // if dxcompiler.dll fails to load, return the failed HRESULT
   if (DXC_FAILED(Result)) {
     return Result;
