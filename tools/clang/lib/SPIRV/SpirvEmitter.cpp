@@ -4399,9 +4399,7 @@ SpirvEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
       spvBuilder.createImageQuery(spv::Op::OpImageQueryLod, queryResultType,
                                   expr->getExprLoc(), sampledImage, coordinate);
 
-  if (spvContext.isCS() || spvContext.isNode()) {
-    addDerivativeGroupExecutionMode();
-  }
+  addDerivativeGroupExecutionMode();
   // The first component of the float2 contains the mipmap array layer.
   // The second component of the float2 represents the unclamped lod.
   return spvBuilder.createCompositeExtract(astContext.FloatTy, query,
@@ -5780,9 +5778,7 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   if (isSample) {
-    if (spvContext.isCS() || spvContext.isNode()) {
-      addDerivativeGroupExecutionMode();
-    }
+    addDerivativeGroupExecutionMode();
     return createImageSample(retType, imageType, image, sampler, coordinate,
                              /*compareVal*/ nullptr, /*bias*/ nullptr,
                              /*lod*/ nullptr, std::make_pair(nullptr, nullptr),
@@ -5870,9 +5866,9 @@ SpirvEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
 
   const auto retType = expr->getDirectCallee()->getReturnType();
 
-  if (!lod && (spvContext.isCS() || spvContext.isNode())) {
+  if (!lod)
     addDerivativeGroupExecutionMode();
-  }
+
   return createImageSample(
       retType, imageType, image, sampler, coordinate,
       /*compareVal*/ nullptr, bias, lod, std::make_pair(nullptr, nullptr),
@@ -5992,9 +5988,7 @@ SpirvEmitter::processTextureSampleCmp(const CXXMemberCallExpr *expr) {
   const auto retType = expr->getDirectCallee()->getReturnType();
   const auto imageType = imageExpr->getType();
 
-  if (spvContext.isCS()) {
-    addDerivativeGroupExecutionMode();
-  }
+  addDerivativeGroupExecutionMode();
 
   return createImageSample(
       retType, imageType, image, sampler, coordinate, compareVal,
@@ -6047,9 +6041,7 @@ SpirvEmitter::processTextureSampleCmpBias(const CXXMemberCallExpr *expr) {
   const auto retType = expr->getDirectCallee()->getReturnType();
   const auto imageType = imageExpr->getType();
 
-  if (spvContext.isCS()) {
-    addDerivativeGroupExecutionMode();
-  }
+  addDerivativeGroupExecutionMode();
 
   return createImageSample(
       retType, imageType, image, sampler, coordinate, compareVal, bias,
@@ -9782,8 +9774,7 @@ SpirvInstruction *SpirvEmitter::processDerivativeIntrinsic(
   QualType returnType = arg->getAstResultType();
   assert(isFloatOrVecOfFloatType(returnType));
 
-  if (!spvContext.isPS())
-    addDerivativeGroupExecutionMode();
+  addDerivativeGroupExecutionMode();
   needsLegalization = true;
 
   QualType B32Type = astContext.FloatTy;
@@ -12512,8 +12503,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
     case spv::Op::OpFwidth:
     case spv::Op::OpFwidthFine:
     case spv::Op::OpFwidthCoarse:
-      if (spvContext.isCS() || spvContext.isNode())
-        addDerivativeGroupExecutionMode();
+      addDerivativeGroupExecutionMode();
       needsLegalization = true;
       break;
     default:
@@ -15771,8 +15761,29 @@ bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
   return tools.Validate(mod->data(), mod->size(), options);
 }
 
+static bool canUseDerivativeGroupExecutionMode(SpirvContext::ShaderModelKind sm,
+                                               bool usingEXTMeshShader) {
+  switch (sm) {
+  case SpirvContext::ShaderModelKind::Compute:
+  case SpirvContext::ShaderModelKind::Node:
+    return true;
+
+  // The KHR extension that allows derivative instruction in mesh and task
+  // (amplification) shader does not work with SPV_NV_mesh_shader extesion.
+  case SpirvContext::ShaderModelKind::Mesh:
+  case SpirvContext::ShaderModelKind::Amplification:
+    return usingEXTMeshShader;
+  default:
+    return false;
+  }
+}
+
 void SpirvEmitter::addDerivativeGroupExecutionMode() {
-  assert(spvContext.isCS());
+  bool usingEXTMeshShader =
+      featureManager.isExtensionEnabled(Extension::EXT_mesh_shader);
+  SpirvContext::ShaderModelKind sm = spvContext.getCurrentShaderModelKind();
+  if (!canUseDerivativeGroupExecutionMode(sm, usingEXTMeshShader))
+    return;
 
   SpirvExecutionMode *numThreadsEm =
       cast<SpirvExecutionMode>(spvBuilder.getModule()->findExecutionMode(
