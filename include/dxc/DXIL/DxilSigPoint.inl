@@ -87,7 +87,7 @@ const SigPoint SigPoint::ms_SigPoints[kNumSigPointRecords] = {
   ROW(DomainLocation, NA, NA, NA, NA, NA, NA, NA, NotInSig, NA, NA, NA, NA,    \
       NA, NA, NA, NA, NA, NA, NA, NA)                                          \
   ROW(PrimitiveID, NA, NA, NotInSig, NotInSig, NA, NA, NA, NotInSig, NA, NA,   \
-      NA, Shadow, SGV, SGV, NA, NA, NA, NA, SV, NA)                            \
+      SGV, Shadow, SGV, SGV, NA, NA, NA, NA, SV, NA)                           \
   ROW(GSInstanceID, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NotInSig, NA,  \
       NA, NA, NA, NA, NA, NA, NA)                                              \
   ROW(SampleIndex, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,         \
