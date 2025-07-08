@@ -2990,152 +2990,6 @@ static TypedefDecl *CreateGlobalTypedef(ASTContext *context, const char *ident,
   return decl;
 }
 
-// UnqualUsingEntry & UnqualUsingDirectiveSet copied from SemaLookup.cpp.
-namespace {
-class UnqualUsingEntry {
-  const DeclContext *Nominated;
-  const DeclContext *CommonAncestor;
-
-public:
-  UnqualUsingEntry(const DeclContext *Nominated,
-                   const DeclContext *CommonAncestor)
-      : Nominated(Nominated), CommonAncestor(CommonAncestor) {}
-
-  const DeclContext *getCommonAncestor() const { return CommonAncestor; }
-
-  const DeclContext *getNominatedNamespace() const { return Nominated; }
-
-  // Sort by the pointer value of the common ancestor.
-  struct Comparator {
-    bool operator()(const UnqualUsingEntry &L, const UnqualUsingEntry &R) {
-      return L.getCommonAncestor() < R.getCommonAncestor();
-    }
-
-    bool operator()(const UnqualUsingEntry &E, const DeclContext *DC) {
-      return E.getCommonAncestor() < DC;
-    }
-
-    bool operator()(const DeclContext *DC, const UnqualUsingEntry &E) {
-      return DC < E.getCommonAncestor();
-    }
-  };
-};
-
-/// A collection of using directives, as used by C++ unqualified
-/// lookup.
-class UnqualUsingDirectiveSet {
-  typedef SmallVector<UnqualUsingEntry, 8> ListTy;
-
-  ListTy list;
-  llvm::SmallPtrSet<DeclContext *, 8> visited;
-
-public:
-  UnqualUsingDirectiveSet() {}
-
-  void visitScopeChain(Scope *S, Scope *InnermostFileScope) {
-    // C++ [namespace.udir]p1:
-    //   During unqualified name lookup, the names appear as if they
-    //   were declared in the nearest enclosing namespace which contains
-    //   both the using-directive and the nominated namespace.
-    DeclContext *InnermostFileDC = InnermostFileScope->getEntity();
-    assert(InnermostFileDC && InnermostFileDC->isFileContext());
-
-    for (; S; S = S->getParent()) {
-      // C++ [namespace.udir]p1:
-      //   A using-directive shall not appear in class scope, but may
-      //   appear in namespace scope or in block scope.
-      DeclContext *Ctx = S->getEntity();
-      if (Ctx && Ctx->isFileContext()) {
-        visit(Ctx, Ctx);
-      } else if (!Ctx || Ctx->isFunctionOrMethod()) {
-        for (auto *I : S->using_directives())
-          visit(I, InnermostFileDC);
-      }
-    }
-  }
-
-  // Visits a context and collect all of its using directives
-  // recursively.  Treats all using directives as if they were
-  // declared in the context.
-  //
-  // A given context is only every visited once, so it is important
-  // that contexts be visited from the inside out in order to get
-  // the effective DCs right.
-  void visit(DeclContext *DC, DeclContext *EffectiveDC) {
-    if (!visited.insert(DC).second)
-      return;
-
-    addUsingDirectives(DC, EffectiveDC);
-  }
-
-  // Visits a using directive and collects all of its using
-  // directives recursively.  Treats all using directives as if they
-  // were declared in the effective DC.
-  void visit(UsingDirectiveDecl *UD, DeclContext *EffectiveDC) {
-    DeclContext *NS = UD->getNominatedNamespace();
-    if (!visited.insert(NS).second)
-      return;
-
-    addUsingDirective(UD, EffectiveDC);
-    addUsingDirectives(NS, EffectiveDC);
-  }
-
-  // Adds all the using directives in a context (and those nominated
-  // by its using directives, transitively) as if they appeared in
-  // the given effective context.
-  void addUsingDirectives(DeclContext *DC, DeclContext *EffectiveDC) {
-    SmallVector<DeclContext *, 4> queue;
-    while (true) {
-      for (auto UD : DC->using_directives()) {
-        DeclContext *NS = UD->getNominatedNamespace();
-        if (visited.insert(NS).second) {
-          addUsingDirective(UD, EffectiveDC);
-          queue.push_back(NS);
-        }
-      }
-
-      if (queue.empty())
-        return;
-
-      DC = queue.pop_back_val();
-    }
-  }
-
-  // Add a using directive as if it had been declared in the given
-  // context.  This helps implement C++ [namespace.udir]p3:
-  //   The using-directive is transitive: if a scope contains a
-  //   using-directive that nominates a second namespace that itself
-  //   contains using-directives, the effect is as if the
-  //   using-directives from the second namespace also appeared in
-  //   the first.
-  void addUsingDirective(UsingDirectiveDecl *UD, DeclContext *EffectiveDC) {
-    // Find the common ancestor between the effective context and
-    // the nominated namespace.
-    DeclContext *Common = UD->getNominatedNamespace();
-    while (!Common->Encloses(EffectiveDC))
-      Common = Common->getParent();
-    Common = Common->getPrimaryContext();
-
-    list.push_back(UnqualUsingEntry(UD->getNominatedNamespace(), Common));
-  }
-
-  void done() {
-    std::sort(list.begin(), list.end(), UnqualUsingEntry::Comparator());
-  }
-
-  typedef ListTy::const_iterator const_iterator;
-
-  const_iterator begin() const { return list.begin(); }
-  const_iterator end() const { return list.end(); }
-
-  llvm::iterator_range<const_iterator> getNamespacesFor(DeclContext *DC) const {
-    return llvm::make_range(std::equal_range(begin(), end(),
-                                             DC->getPrimaryContext(),
-                                             UnqualUsingEntry::Comparator()));
-  }
-};
-} // namespace
-
 // Helper function copied from SemaLookup.cpp
 static bool isNamespaceOrTranslationUnitScope(Scope *S) {
   if (DeclContext *Ctx = S->getEntity())
@@ -5388,35 +5242,14 @@ public:
 
       // If we have a scope chain, walk it to get using declarations.
       if (S) {
-        UnqualUsingDirectiveSet UDirs;
-
-        // Add using directives from this context up to the top level. This
-        // handles cases where the current declaration is in a context that has
-        // a using directive but might be in a scope chain that doesn't reach
-        // the using directive (i.e. a using inside a namespace or class
-        // declaration but the function definition is outside).
-        DeclContext *Ctx = S->getEntity();
-        for (DeclContext *UCtx = Ctx; UCtx; UCtx = UCtx->getParent()) {
-          if (UCtx->isTransparentContext())
-            continue;
-
-          UDirs.visit(UCtx, UCtx);
-        }
-        // Find the first namespace or translation-unit scope.
-        Scope *Innermost = S;
-        while (Innermost && !isNamespaceOrTranslationUnitScope(Innermost))
-          Innermost = Innermost->getParent();
-
-        UDirs.visitScopeChain(S, Innermost);
-        UDirs.done();
+        SmallVector<const DeclContext *, 4> NSContexts;
+        m_sema->CollectNamespaceContexts(S, NSContexts);
         bool DXFound = false;
         bool VKFound = false;
-        for (const auto &UD : UDirs) {
-          if (static_cast<DeclContext *>(m_dxNSDecl) ==
-              UD.getNominatedNamespace())
+        for (const auto &UD : NSContexts) {
+          if (static_cast<DeclContext *>(m_dxNSDecl) == UD)
             DXFound = true;
-          else if (static_cast<DeclContext *>(m_vkNSDecl) ==
-                   UD.getNominatedNamespace())
+          else if (static_cast<DeclContext *>(m_vkNSDecl) == UD)
             VKFound = true;
         }
         if (DXFound)

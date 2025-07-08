@@ -2495,6 +2495,10 @@ public:
                                             DeclAccessPair FoundDecl,
                                             FunctionDecl *Fn);
 
+  // HLSL Change Begin
+  void CollectNamespaceContexts(Scope *,
+                                SmallVectorImpl<const DeclContext *> &);
+  // HLSL Change End
   void AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
                                    ArrayRef<Expr *> Args,
                                    OverloadCandidateSet &CandidateSet,
