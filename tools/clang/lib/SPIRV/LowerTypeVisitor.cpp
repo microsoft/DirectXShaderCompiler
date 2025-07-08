@@ -1156,6 +1156,10 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
 spv::ImageFormat
 LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
                                                     SourceLocation srcLoc) {
+
+  if (spvOptions.useUnknownImageFormat)
+    return spv::ImageFormat::Unknown;
+
   uint32_t elemCount = 1;
   QualType ty = {};
   if (!isScalarType(sampledType, &ty) &&
