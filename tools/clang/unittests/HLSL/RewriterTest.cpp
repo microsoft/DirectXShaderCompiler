@@ -26,7 +26,6 @@
 #include <vector>
 #include <string>
 #include <cassert>
-#include <iostream>
 #include <sstream>
 #include <algorithm>
 #ifdef _WIN32

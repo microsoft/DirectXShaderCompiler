@@ -9457,7 +9457,7 @@ bool Expr::isVulkanSpecConstantExpr(const ASTContext &Ctx,
   if (!V || !V->hasAttr<VKConstantIdAttr>())
     return false;
   if (const Expr *I = V->getAnyInitializer())
-    return I->isCXX11ConstantExpr(Ctx, Result);
+    return I->IgnoreParenCasts()->isCXX11ConstantExpr(Ctx, Result);
   return true;
 }
 

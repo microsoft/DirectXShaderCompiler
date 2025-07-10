@@ -13750,11 +13750,7 @@ bool SpirvEmitter::processNumThreadsAttr(const FunctionDecl *decl) {
         return (unsigned)apsInt.getZExtValue();
       if (E->isVulkanSpecConstantExpr(astContext, &apValue) &&
           apValue.isInt()) {
-        Expr::EvalResult evalResult;
-        if (E->EvaluateAsRValue(evalResult, astContext) &&
-            !evalResult.HasSideEffects) {
-          return (unsigned)evalResult.Val.getInt().getZExtValue();
-        }
+        return apValue.getInt().getZExtValue();
       }
     }
     return 1U;
@@ -15839,15 +15835,16 @@ bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
 void SpirvEmitter::addDerivativeGroupExecutionMode() {
   assert(spvContext.isCS());
 
-  SpirvExecutionMode *numThreadsEm =
-      dyn_cast<SpirvExecutionMode>(spvBuilder.getModule()->findExecutionMode(
-          entryFunction, spv::ExecutionMode::LocalSize));
+  SpirvExecutionMode *numThreadsEm = dyn_cast_or_null<SpirvExecutionMode>(
+      spvBuilder.getModule()->findExecutionMode(entryFunction,
+                                                spv::ExecutionMode::LocalSize));
+  // If there is no LocalSize, there must be LocalSizeId.
   if (!numThreadsEm)
     return addDerivativeGroupExecutionModeId();
   auto numThreads = numThreadsEm->getParams();
 
   // The layout of the quad is determined by the numer of threads in each
-  // dimention. From the HLSL spec
+  // dimension. From the HLSL spec
   // (https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_Derivatives.html):
   //
   // Where numthreads has an X value divisible by 4 and Y and Z are both 1, the
@@ -15885,7 +15882,7 @@ void SpirvEmitter::addDerivativeGroupExecutionModeId() {
   };
 
   // The layout of the quad is determined by the numer of threads in each
-  // dimention. From the HLSL spec
+  // dimension. From the HLSL spec
   // (https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_Derivatives.html):
   //
   // Where numthreads has an X value divisible by 4 and Y and Z are both 1, the
