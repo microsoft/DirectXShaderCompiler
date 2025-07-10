@@ -68,7 +68,9 @@ void fillLongVectorDataFromShaderBuffer(MappedData &ShaderBuffer,
                                         size_t NumElements);
 
 template <typename DataTypeT> constexpr bool isFloatingPointType() {
-  return std::is_same_v<DataTypeT, float> || std::is_same_v<DataTypeT, double>;
+  return std::is_same_v<DataTypeT, float> ||
+         std::is_same_v<DataTypeT, double> ||
+         std::is_same_v<DataTypeT, HLSLHalf_t>;
 }
 
 struct LongVectorOpTypeStringToEnumValue {
@@ -169,6 +171,9 @@ template <typename LongVectorOpTypeT> struct TestConfigTraits {
 
 template <typename DataTypeT>
 bool doValuesMatch(DataTypeT A, DataTypeT B, float Tolerance, ValidationType);
+bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, float, ValidationType);
+bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
+                   ValidationType ValidationType);
 bool doValuesMatch(float A, float B, float Tolerance,
                    ValidationType ValidationType);
 bool doValuesMatch(double A, double B, float Tolerance,
