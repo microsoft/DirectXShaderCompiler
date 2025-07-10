@@ -2990,13 +2990,6 @@ static TypedefDecl *CreateGlobalTypedef(ASTContext *context, const char *ident,
   return decl;
 }
 
-// Helper function copied from SemaLookup.cpp
-static bool isNamespaceOrTranslationUnitScope(Scope *S) {
-  if (DeclContext *Ctx = S->getEntity())
-    return Ctx->isFileContext();
-  return false;
-}
-
 class HLSLExternalSource : public ExternalSemaSource {
 private:
   // Inner types.
