@@ -10627,6 +10627,7 @@ static void AddOverloadedCallCandidate(Sema &S,
 void Sema::AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
                                        ArrayRef<Expr *> Args,
                                        OverloadCandidateSet &CandidateSet,
+                                       Scope *S, // HLSL Change
                                        bool PartialOverloading) {
 
 #ifndef NDEBUG
@@ -10659,8 +10660,8 @@ void Sema::AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
 #endif
 
   // HLSL Change - allow ExternalSource the ability to add the overloads for a call.
-  if (ExternalSource &&
-    ExternalSource->AddOverloadedCallCandidates(ULE, Args, CandidateSet, PartialOverloading)) {
+  if (ExternalSource && ExternalSource->AddOverloadedCallCandidates(
+                            ULE, Args, CandidateSet, S, PartialOverloading)) {
     return;
   }
 
@@ -10970,7 +10971,7 @@ bool Sema::buildOverloadedCallSet(Scope *S, Expr *Fn,
 
   // Add the functions denoted by the callee to the set of candidate
   // functions, including those from argument-dependent lookup.
-  AddOverloadedCallCandidates(ULE, Args, *CandidateSet);
+  AddOverloadedCallCandidates(ULE, Args, *CandidateSet, S); // HLSL Change
 
   if (getLangOpts().MSVCCompat &&
       CurContext->isDependentContext() && !isSFINAEContext() &&
