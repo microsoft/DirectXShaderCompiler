@@ -41,6 +41,20 @@
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=trunc -DOP=29 -DNUM=7    %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=trunc -DOP=29 -DNUM=1022 %s | FileCheck %s
 
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=ddx -DOP=83 -DNUM=7    %s | FileCheck %s -check-prefixes=CHECK,CONV
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=ddx -DOP=83 -DNUM=1022 %s | FileCheck %s -check-prefixes=CHECK,CONV
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=ddx_coarse -DOP=83 -DNUM=7    %s | FileCheck %s -check-prefixes=CHECK,CONV
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=ddx_coarse -DOP=83 -DNUM=1022 %s | FileCheck %s -check-prefixes=CHECK,CONV
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=ddx_fine -DOP=85 -DNUM=7    %s | FileCheck %s -check-prefixes=CHECK,CONV
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=ddx_fine -DOP=85 -DNUM=1022 %s | FileCheck %s -check-prefixes=CHECK,CONV
+
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=ddy -DOP=84 -DNUM=7    %s | FileCheck %s -check-prefixes=CHECK,CONV
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=ddy -DOP=84 -DNUM=1022 %s | FileCheck %s -check-prefixes=CHECK,CONV
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=ddy_coarse -DOP=84 -DNUM=7    %s | FileCheck %s -check-prefixes=CHECK,CONV
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=ddy_coarse -DOP=84 -DNUM=1022 %s | FileCheck %s -check-prefixes=CHECK,CONV
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=ddy_fine -DOP=86 -DNUM=7    %s | FileCheck %s -check-prefixes=CHECK,CONV
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=ddy_fine -DOP=86 -DNUM=1022 %s | FileCheck %s -check-prefixes=CHECK,CONV
+
 // Test vector-enabled unary intrinsics that take float-like parameters and
 // and are "trivial" in that they can be implemented with a single call
 // instruction with the same parameter and return types.
@@ -63,6 +77,9 @@ void main() {
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.[[HTY]] @dx.op.rawBufferVectorLoad.[[HTY]](i32 303, %dx.types.Handle [[buf]], i32 0
   // CHECK: [[hvec:%.*]] = extractvalue %dx.types.ResRet.[[HTY]] [[ld]], 0
   vector<float16_t, NUM> hVec = buf.Load<vector<float16_t, NUM> >(0);
+
+  // Convergent markers prevent GVN removal of redundant annotateHandle calls.
+  // CONV: [[buf:%.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })
 
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.[[FTY]] @dx.op.rawBufferVectorLoad.[[FTY]](i32 303, %dx.types.Handle [[buf]], i32 1024
   // CHECK: [[fvec:%.*]] = extractvalue %dx.types.ResRet.[[FTY]] [[ld]], 0
