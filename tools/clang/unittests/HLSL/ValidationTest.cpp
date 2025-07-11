@@ -25,7 +25,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Regex.h"
-#include <cstdlib> // for setenv(), getenv(), unsetenv()
 #include <wchar.h> // for _wgetenv
 
 #ifdef _WIN32
@@ -4281,11 +4280,12 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance(
       CLSID_DxcValidator, __uuidof(IDxcValidator), (IUnknown **)&Validator));
 
-  CComPtr<IMalloc> Malloc;
-  CComPtr<IDxcCompiler2> Compiler2;
   Linker.Release();
   Validator.Release();
   Compiler.Release();
+
+  CComPtr<IMalloc> Malloc;
+  CComPtr<IDxcCompiler2> Compiler2;
   VERIFY_SUCCEEDED(DxcCoGetMalloc(1, &Malloc));
   VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance2(Malloc, CLSID_DxcCompiler,
                                                    __uuidof(IDxcCompiler),

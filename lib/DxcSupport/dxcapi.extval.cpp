@@ -23,10 +23,9 @@ HRESULT DxcDllExtValidationSupport::CreateInstance2(IMalloc *pMalloc,
   return DxcompilerSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
 }
 
-HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR dllName,
-                                                       LPCSTR fnName) {
+HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR fnName) {
   // Load dxcompiler.dll
-  HRESULT Result = DxcompilerSupport.InitializeForDll(dllName, fnName);
+  HRESULT Result = DxcompilerSupport.InitializeForDll(kDxCompilerLib, fnName);
   // if dxcompiler.dll fails to load, return the failed HRESULT
   if (DXC_FAILED(Result)) {
     return Result;
@@ -38,21 +37,19 @@ HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR dllName,
     return S_OK;
   }
 
-  std::string DllPathStr(EnvVarVal);
-  DxilDllPath = DllPathStr;
-  std::filesystem::path DllPath(DllPathStr);
+  DxilDllPath = std::string(EnvVarVal);
+  std::filesystem::path DllPath(DxilDllPath);
 
   // Check if path is absolute and exists
   if (!DllPath.is_absolute() || !std::filesystem::exists(DllPath)) {
-    return S_OK;
+    return ERROR_DLL_INIT_FAILED;
   }
   // code that calls this function is responsible for checking
   // to see if dxil.dll is successfully loaded.
-  // the CheckDxilDLLLoaded function can determine whether there were any
+  // the DxilDllFailedToLoad function can determine whether there were any
   // problems loading dxil.dll or not
-  DxilExtValSupport.InitializeForDll(DllPathStr.data(), fnName);
 
-  return S_OK;
+  return DxilExtValSupport.InitializeForDll(DxilDllPath.c_str(), fnName);
 }
 
 } // namespace dxc

@@ -10,7 +10,7 @@ class DxcDllExtValidationSupport {
   dxc::DxcDllSupport DxilExtValSupport;
 
   std::string DxilDllPath;
-  HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName);
+  HRESULT InitializeInternal(LPCSTR fnName);
 
 public:
   std::string GetDxilDllPath() { return DxilDllPath; }
@@ -33,9 +33,7 @@ public:
   HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
                           IUnknown **pResult);
 
-  HRESULT Initialize() {
-    return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
-  }
+  HRESULT Initialize() { return InitializeInternal("DxcCreateInstance"); }
 
   bool IsEnabled() const { return DxcompilerSupport.IsEnabled(); }
 };
