@@ -403,6 +403,12 @@ def fspv_enable_maximal_reconvergence: Flag<["-"], "fspv-enable-maximal-reconver
   HelpText<"Enables the MaximallyReconvergesKHR execution mode for this module.">;
 def fspv_use_vulkan_memory_model: Flag<["-"], "fspv-use-vulkan-memory-model">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Generates SPIR-V modules that use the Vulkan memory model instead of GLSL450.">;
+def fspv_use_unknown_image_format
+    : Flag<["-"], "fspv-use-unknown-image-format">,
+      Group<spirv_Group>,
+      Flags<[CoreOption, DriverOption]>,
+      HelpText<"For storage images and texel buffers, sets the default format to 'Unknown' when not specified via the `vk::image_format` attribute. If this option is not used, the format is inferred from the resource's data type.">;
+
 def fvk_auto_shift_bindings: Flag<["-"], "fvk-auto-shift-bindings">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Apply fvk-*-shift to resources without an explicit register assignment.">;
 def Wno_vk_ignored_features : Joined<["-"], "Wno-vk-ignored-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,

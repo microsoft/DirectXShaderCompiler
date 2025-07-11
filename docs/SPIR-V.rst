@@ -896,6 +896,13 @@ are translated into SPIR-V ``OpTypeImage``, with parameters:
 The meanings of the headers in the above table is explained in ``OpTypeImage``
 of the SPIR-V spec.
 
+For storage images (e.g. ``RWTexture2D<T>``) and texel buffers (e.g. ``RWBuffer<T>``),
+the image format is typically inferred from the data type ``T``. However, the
+``-fspv-use-unknown-image-format`` command-line option can be used to change
+this behavior. When this option is active, the default format for these
+resources becomes ``Unknown`` if not otherwise specified by the
+``[[vk::image_format]]`` attribute.
+
 Vulkan specific Image Formats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
