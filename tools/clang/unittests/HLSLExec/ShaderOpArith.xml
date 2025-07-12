@@ -1976,7 +1976,7 @@
         RWStructuredBuffer<uint64_t> g_shareXchg64Buf : register(u5);
 
         groupshared uint64_t g_uint64Share[6];
-        groupshared int64_t g_sint64Share[3];
+        groupshared int64_t g_sint64Share[4];
         groupshared uint64_t g_xchg64Share[64];
 
         #define VEC_CALL(op, uav, ix, val) op(uav[ix*stride], val);
@@ -2046,7 +2046,7 @@
           // Zero-init shared memory, with special cases
           if (ix < 6)
             g_uint64Share[ix] = ix == 1 ? 99999999ULL | (99999999ULL << 32) : ix == 3 ? ~0ULL : 0;
-          if (ix < 3)
+          if (ix < 4)
             g_sint64Share[ix] = ix == 1 ? 99999999ULL | (99999999ULL << 32) : 0;
           if (ix < 64)
             g_xchg64Share[ix] = 0;
