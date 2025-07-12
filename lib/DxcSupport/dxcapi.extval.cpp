@@ -42,7 +42,8 @@ HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR fnName) {
 
   // Check if path is absolute and exists
   if (!DllPath.is_absolute() || !std::filesystem::exists(DllPath)) {
-    return ERROR_DLL_INIT_FAILED;
+    // ERROR_DLL_INIT_FAILED
+    return (HRESULT)1114L;
   }
   // code that calls this function is responsible for checking
   // to see if dxil.dll is successfully loaded.
