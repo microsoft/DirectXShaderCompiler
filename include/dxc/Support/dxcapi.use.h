@@ -21,7 +21,7 @@ extern const char *kDxilLib;
 
 // Helper class to dynamically load the dxcompiler or a compatible libraries.
 class DxcDllSupport {
-protected:
+
   HMODULE m_dll;
   DxcCreateInstanceProc m_createFn;
   DxcCreateInstance2Proc m_createFn2;
@@ -131,6 +131,15 @@ public:
   bool HasCreateWithMalloc() const { return m_createFn2 != nullptr; }
 
   bool IsEnabled() const { return m_dll != nullptr; }
+
+  bool GetCreateInstanceProcs(DxcCreateInstanceProc *pCreateFn,
+                              DxcCreateInstance2Proc *pCreateFn2) const {
+    if (pCreateFn == nullptr || pCreateFn2 == nullptr || m_createFn == nullptr)
+      return false;
+    *pCreateFn = m_createFn;
+    *pCreateFn2 = m_createFn2;
+    return true;
+  }
 
   void Cleanup() {
     if (m_dll != nullptr) {
