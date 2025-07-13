@@ -40,7 +40,7 @@ public:
   static MachinePassRegistry Registry;
 
   RegisterScheduler(const char *N, const char *D, FunctionPassCtor C)
-  : MachinePassRegistryNode(N, D, (MachinePassCtor)C)
+      : MachinePassRegistryNode(N, D, reinterpret_cast<MachinePassCtor>(reinterpret_cast<void *>(C)))
   { Registry.Add(this); }
   ~RegisterScheduler() { Registry.Remove(this); }
 
@@ -54,10 +54,10 @@ public:
     return (RegisterScheduler *)Registry.getList();
   }
   static FunctionPassCtor getDefault() {
-    return (FunctionPassCtor)Registry.getDefault();
+    return reinterpret_cast<FunctionPassCtor>(reinterpret_cast<void *>(Registry.getDefault()));
   }
   static void setDefault(FunctionPassCtor C) {
-    Registry.setDefault((MachinePassCtor)C);
+    Registry.setDefault(reinterpret_cast<MachinePassCtor>(reinterpret_cast<void *>(C)));
   }
   static void setListener(MachinePassRegistryListener *L) {
     Registry.setListener(L);
