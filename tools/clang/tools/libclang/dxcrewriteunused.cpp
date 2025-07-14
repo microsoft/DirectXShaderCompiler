@@ -12,6 +12,7 @@
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/AST/HlslTypes.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
@@ -1032,6 +1033,212 @@ static void RemoveStaticDecls(DeclContext &Ctx) {
   }
 }
 
+struct ResourceKey {
+
+  uint32_t space;
+  DXIL::ResourceClass resourceClass;
+
+  bool operator==(const ResourceKey &other) const {
+    return space == other.space && resourceClass == other.resourceClass;
+  }
+};
+
+namespace llvm {
+template<>
+struct DenseMapInfo<ResourceKey> {
+  static inline ResourceKey getEmptyKey() {
+    return { ~0u, DXIL::ResourceClass::Invalid };
+  }
+  static inline ResourceKey getTombstoneKey() {
+    return { ~0u - 1, DXIL::ResourceClass::Invalid };
+  }
+  static unsigned getHashValue(const ResourceKey &K) {
+    return llvm::hash_combine(K.space, uint32_t(K.resourceClass));
+  }
+  static bool isEqual(const ResourceKey &LHS, const ResourceKey &RHS) {
+    return LHS.space == RHS.space && LHS.resourceClass == RHS.resourceClass;
+  }
+};
+} // namespace llvm
+
+using RegisterRange = std::pair<uint32_t, uint32_t>; //(startReg, count)
+using RegisterMap = llvm::DenseMap<ResourceKey, llvm::SmallVector<RegisterRange, 8>>;
+
+//Find gap in register list and fill it
+
+uint32_t FillNextRegister(llvm::SmallVector<RegisterRange, 8> &ranges,
+                          uint32_t arraySize) {
+  
+  if (ranges.empty()) {
+    ranges.push_back({ 0, arraySize });
+    return 0;
+  }
+
+  size_t i = 0, j = ranges.size();
+  size_t curr = 0;
+
+  for (; i < j; ++i) {
+
+    const RegisterRange& range = ranges[i];
+
+    if (range.first - curr >= arraySize) {
+      ranges.insert(ranges.begin() + i, RegisterRange{curr, arraySize});
+      return curr;
+    }
+
+    curr = range.first + range.second;
+  }
+
+  ranges.emplace_back(RegisterRange{curr, arraySize});
+  return curr;
+}
+
+//Insert in the right place (keep sorted)
+
+void FillRegisterAt(llvm::SmallVector<RegisterRange, 8> &ranges,
+                        uint32_t registerNr, uint32_t arraySize,
+                    clang::DiagnosticsEngine &diags, const SourceLocation& location) {
+
+  size_t i = 0, j = ranges.size();
+
+  for (; i < j; ++i) {
+
+    const RegisterRange& range = ranges[i];
+
+    if (range.first > registerNr) {
+        
+      if (registerNr + arraySize > range.first) {
+        diags.Report(location, diag::err_hlsl_register_semantics_conflicting);
+        return;
+      }
+
+      ranges.insert(ranges.begin() + i, RegisterRange{ registerNr, arraySize });
+      break;
+    }
+
+    if (range.first + range.second > registerNr) {
+        diags.Report(location, diag::err_hlsl_register_semantics_conflicting);
+        return;
+    }
+  }
+
+  if (i == j)
+    ranges.emplace_back(RegisterRange{registerNr, arraySize});
+}
+
+static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpace) {
+
+  clang::DiagnosticsEngine &Diags =
+        Ctx.getParentASTContext().getDiagnostics();
+
+  RegisterMap map;
+  DenseSet<std::pair<VarDecl*, RegisterAssignment*>> unresolvedRegisters;
+
+  //Fill up map with fully qualified registers to avoid colliding with them later
+
+  for (auto it = Ctx.decls_begin(); it != Ctx.decls_end(); ++it) {
+
+    VarDecl *VD = dyn_cast<VarDecl>(*it);
+
+    if (!VD)
+      continue;
+
+    HLSLResourceAttr *resource = VD->getAttr<HLSLResourceAttr>();
+
+    if (!resource)
+      continue;
+
+    uint32_t arraySize = 1;
+
+    if (const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(VD->getType()))
+      arraySize = arr->getSize().getZExtValue();
+
+    const ArrayRef<hlsl::UnusualAnnotation *> &UA = VD->getUnusualAnnotations();
+
+    bool qualified = false;
+    RegisterAssignment *reg = nullptr;
+
+    for (auto It = UA.begin(), E = UA.end(); It != E; ++It) {
+
+      if ((*It)->getKind() != hlsl::UnusualAnnotation::UA_RegisterAssignment)
+        continue;
+
+      reg = cast<hlsl::RegisterAssignment>(*It);
+
+      if (!reg->RegisterType)   //Unqualified register assignment
+          break;
+
+      uint32_t space = reg->RegisterSpace.hasValue()
+                           ? reg->RegisterSpace.getValue()
+                           : autoBindingSpace;
+
+      qualified = true;
+      FillRegisterAt(map[ResourceKey{space, resource->getResClass()}],
+                     reg->RegisterNumber, arraySize, Diags, VD->getLocation());
+      break;
+    }
+
+    if (!qualified)
+      unresolvedRegisters.insert({VD, reg});
+  }
+
+  //Resolve unresolved registers (while avoiding collisions)
+
+  for (const auto& [VD, reg] : unresolvedRegisters) {
+
+     HLSLResourceAttr *resource = VD->getAttr<HLSLResourceAttr>();
+
+    uint32_t arraySize = 1;
+
+    if (const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(VD->getType()))
+      arraySize = arr->getSize().getZExtValue();
+
+    char prefix = 't';
+
+    switch (resource->getResClass()) {
+
+    case DXIL::ResourceClass::Sampler:
+      prefix = 's';
+      break;
+
+    case DXIL::ResourceClass::CBuffer:
+      prefix = 'b';
+      break;
+
+    case DXIL::ResourceClass::UAV:
+      prefix = 'u';
+      break;
+    }
+
+    uint32_t space = reg ? reg->RegisterSpace.getValue() : autoBindingSpace;
+    uint32_t registerNr = FillNextRegister(map[ResourceKey{ space, resource->getResClass() }], arraySize);
+
+    if (reg)
+    {
+        reg->RegisterType = prefix;
+        reg->RegisterNumber = registerNr;
+        reg->setIsValid(true);
+    }
+    else
+    {
+        hlsl::RegisterAssignment r;     //Keep space empty to ensure space overrides still work fine
+        r.RegisterNumber = registerNr;
+        r.RegisterType = prefix;
+        r.setIsValid(true);
+
+        const ArrayRef<hlsl::UnusualAnnotation *> &UA =
+            VD->getUnusualAnnotations();
+
+        SmallVector<hlsl::UnusualAnnotation *, 4> newVec;
+        newVec.append(UA.begin(), UA.end());
+        newVec.push_back(new (Ctx.getParentASTContext())
+                            hlsl::RegisterAssignment(r));
+
+        VD->setUnusualAnnotations(newVec);
+    }
+  }
+}
+
 static void GlobalVariableAsExternByDefault(DeclContext &Ctx) {
   for (auto it = Ctx.decls_begin(); it != Ctx.decls_end();) {
     auto cur = it++;
@@ -1064,6 +1271,10 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
               opts, msfPtr, w);
 
   TranslationUnitDecl *tu = astHelper.tu;
+
+  if (opts.RWOpt.ConsistentBindings) {
+    GenerateConsistentBindings(*tu, opts.AutoBindingSpace);
+  }
 
   if (opts.RWOpt.SkipStatic && opts.RWOpt.SkipFunctionBody) {
     // Remove static functions and globals.
