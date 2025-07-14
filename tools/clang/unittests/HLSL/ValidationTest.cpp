@@ -4258,7 +4258,7 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   SetEnvVarW(L"DXC_DXIL_DLL_PATH", L"bogus");
 
   if (!ExtSupportBogus.IsEnabled()) {
-    VERIFY_SUCCEEDED(ExtSupportBogus.Initialize());
+    VERIFY_FAILED(ExtSupportBogus.Initialize());
   }
 
   // validate that m_dllExtSupport2 was able to capture the environment
