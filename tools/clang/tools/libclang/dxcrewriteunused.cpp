@@ -1132,7 +1132,7 @@ static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpa
         Ctx.getParentASTContext().getDiagnostics();
 
   RegisterMap map;
-  DenseSet<std::pair<VarDecl*, RegisterAssignment*>> unresolvedRegisters;
+  llvm::SmallVector<std::pair<VarDecl*, RegisterAssignment*>, 8> unresolvedRegisters;
 
   //Fill up map with fully qualified registers to avoid colliding with them later
 
@@ -1143,15 +1143,18 @@ static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpa
     if (!VD)
       continue;
 
-    HLSLResourceAttr *resource = VD->getAttr<HLSLResourceAttr>();
+    uint32_t arraySize = 1;
+    QualType type = VD->getType();
 
-    if (!resource)
+    if (const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(VD->getType())) {
+      arraySize = arr->getSize().getZExtValue();
+      type = arr->getElementType();
+    }
+    
+    if (!IsHLSLResourceType(type))
       continue;
 
-    uint32_t arraySize = 1;
-
-    if (const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(VD->getType()))
-      arraySize = arr->getSize().getZExtValue();
+    hlsl::DXIL::ResourceClass resClass = GetHLSLResourceClass(type);
 
     const ArrayRef<hlsl::UnusualAnnotation *> &UA = VD->getUnusualAnnotations();
 
@@ -1173,29 +1176,32 @@ static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpa
                            : autoBindingSpace;
 
       qualified = true;
-      FillRegisterAt(map[ResourceKey{space, resource->getResClass()}],
+      FillRegisterAt(map[ResourceKey{space, resClass}],
                      reg->RegisterNumber, arraySize, Diags, VD->getLocation());
       break;
     }
 
     if (!qualified)
-      unresolvedRegisters.insert({VD, reg});
+      unresolvedRegisters.emplace_back(std::pair<VarDecl*, RegisterAssignment*>{VD, reg});
   }
 
   //Resolve unresolved registers (while avoiding collisions)
 
   for (const auto& [VD, reg] : unresolvedRegisters) {
 
-     HLSLResourceAttr *resource = VD->getAttr<HLSLResourceAttr>();
-
     uint32_t arraySize = 1;
+    QualType type = VD->getType();
 
-    if (const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(VD->getType()))
+    if (const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(VD->getType())) {
       arraySize = arr->getSize().getZExtValue();
+      type = arr->getElementType();
+    }
+
+    hlsl::DXIL::ResourceClass resClass = GetHLSLResourceClass(type);
 
     char prefix = 't';
 
-    switch (resource->getResClass()) {
+    switch (resClass) {
 
     case DXIL::ResourceClass::Sampler:
       prefix = 's';
@@ -1211,7 +1217,8 @@ static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpa
     }
 
     uint32_t space = reg ? reg->RegisterSpace.getValue() : autoBindingSpace;
-    uint32_t registerNr = FillNextRegister(map[ResourceKey{ space, resource->getResClass() }], arraySize);
+    uint32_t registerNr =
+        FillNextRegister(map[ResourceKey{space, resClass}], arraySize);
 
     if (reg)
     {
@@ -1226,15 +1233,19 @@ static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpa
         r.RegisterType = prefix;
         r.setIsValid(true);
 
+        llvm::SmallVector<UnusualAnnotation *, 8> annotations;
+
         const ArrayRef<hlsl::UnusualAnnotation *> &UA =
             VD->getUnusualAnnotations();
 
-        SmallVector<hlsl::UnusualAnnotation *, 4> newVec;
-        newVec.append(UA.begin(), UA.end());
-        newVec.push_back(new (Ctx.getParentASTContext())
-                            hlsl::RegisterAssignment(r));
+        for (auto It = UA.begin(), E = UA.end(); It != E; ++It)
+          annotations.emplace_back(*It);
 
-        VD->setUnusualAnnotations(newVec);
+        annotations.push_back(::new (Ctx.getParentASTContext())
+                                  hlsl::RegisterAssignment(r));
+
+        VD->setUnusualAnnotations(UnusualAnnotation::CopyToASTContextArray(
+            Ctx.getParentASTContext(), annotations.data(), annotations.size()));
     }
   }
 }
@@ -1294,7 +1305,7 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
                                  opts.RWOpt.RemoveUnusedFunctions, w);
     if (FAILED(hr))
       return hr;
-  } else {
+  } else if(!opts.RWOpt.ConsistentBindings) {
     o << "// Rewrite unchanged result:\n";
   }
 
