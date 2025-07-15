@@ -102,6 +102,7 @@ public:
   TEST_METHOD(RunExtractUniforms)
   TEST_METHOD(RunGlobalsUsedInMethod)
   TEST_METHOD(RunRewriterFails)
+  TEST_METHOD(GenerateConsistentBindings)
 
   dxc::DxcDllSupport m_dllSupport;
   CComPtr<IDxcIncludeHandler> m_pIncludeHandler;
@@ -126,16 +127,18 @@ public:
                                                   ppBlob));
   }
 
-  VerifyResult CheckVerifies(LPCWSTR path, LPCWSTR goldPath) {
+  VerifyResult CheckVerifies(LPCWSTR path, LPCWSTR goldPath,
+                          const llvm::SmallVector<LPCWSTR, 4> &args = { L"-HV", L"2016" }) {
     CComPtr<IDxcRewriter> pRewriter;
     VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
-    return CheckVerifies(pRewriter, path, goldPath);
+    return CheckVerifies(pRewriter, path, goldPath, args);
   }
 
   VerifyResult CheckVerifies(IDxcRewriter *pRewriter, LPCWSTR path,
-                             LPCWSTR goldPath) {
+                             LPCWSTR goldPath,
+                          const llvm::SmallVector<LPCWSTR, 4> &args = { L"-HV", L"2016" }) {
     CComPtr<IDxcOperationResult> pRewriteResult;
-    RewriteCompareGold(path, goldPath, &pRewriteResult, pRewriter);
+    RewriteCompareGold(path, goldPath, &pRewriteResult, pRewriter, args);
 
     VerifyResult toReturn;
 
@@ -165,9 +168,9 @@ public:
     return S_OK;
   }
 
-  VerifyResult CheckVerifiesHLSL(LPCWSTR name, LPCWSTR goldName) {
+  VerifyResult CheckVerifiesHLSL(LPCWSTR name, LPCWSTR goldName, const llvm::SmallVector<LPCWSTR, 4> &args = { L"-HV", L"2016" }) {
     return CheckVerifies(GetPathToHlslDataFile(name).c_str(),
-                         GetPathToHlslDataFile(goldName).c_str());
+                         GetPathToHlslDataFile(goldName).c_str(), args);
   }
 
   struct FileWithBlob {
@@ -210,7 +213,8 @@ public:
 
   void RewriteCompareGold(LPCWSTR path, LPCWSTR goldPath,
                           IDxcOperationResult **ppResult,
-                          IDxcRewriter *rewriter) {
+                          IDxcRewriter *rewriter,
+                          const llvm::SmallVector<LPCWSTR, 4> &args = {}) {
     // Get the source text from a file
     FileWithBlob source(m_dllSupport, path);
 
@@ -218,13 +222,11 @@ public:
     DxcDefine myDefines[myDefinesCount] = {
         {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
 
-    LPCWSTR args[] = {L"-HV", L"2016"};
-
     CComPtr<IDxcRewriter2> rewriter2;
     VERIFY_SUCCEEDED(rewriter->QueryInterface(&rewriter2));
     // Run rewrite unchanged on the source code
     VERIFY_SUCCEEDED(rewriter2->RewriteWithOptions(
-        source.BlobEncoding, path, args, _countof(args), myDefines,
+        source.BlobEncoding, path, (LPCWSTR*) args.data(), (uint32_t) args.size(), myDefines,
         myDefinesCount, nullptr, ppResult));
 
     // check for compilation errors
@@ -329,7 +331,7 @@ TEST_F(RewriterTest, RunArrayLength) {
 
 TEST_F(RewriterTest, RunAttributes) {
   CheckVerifiesHLSL(L"rewriter\\attributes_noerr.hlsl",
-                    L"rewriter\\correct_rewrites\\attributes_gold.hlsl");
+                  L"rewriter\\correct_rewrites\\attributes_gold.hlsl");
 }
 
 TEST_F(RewriterTest, RunAnonymousStruct) {
@@ -460,6 +462,11 @@ TEST_F(RewriterTest, RunSpirv) {
   std::string strResult = BlobToUtf8(result);
   // No built-in namespace "vk"
   VERIFY_IS_TRUE(strResult.find("namespace vk") == std::string::npos);
+}
+
+TEST_F(RewriterTest, GenerateConsistentBindings) {
+  CheckVerifiesHLSL(L"rewriter\\consistent_bindings.hlsl",
+                    L"rewriter\\correct_rewrites\\consistent_bindings_gold.hlsl", { L"-HV", L"2016", L"-consistent-bindings" });
 }
 
 TEST_F(RewriterTest, RunStructMethods) {

@@ -1064,6 +1064,15 @@ struct DenseMapInfo<ResourceKey> {
 using RegisterRange = std::pair<uint32_t, uint32_t>; //(startReg, count)
 using RegisterMap = llvm::DenseMap<ResourceKey, llvm::SmallVector<RegisterRange, 8>>;
 
+struct UnresolvedRegister {
+  hlsl::DXIL::ResourceClass cls;
+  uint32_t arraySize;
+  RegisterAssignment *reg;
+  NamedDecl *ND;
+};
+
+using UnresolvedRegisters = llvm::SmallVector<UnresolvedRegister, 8>;
+
 //Find gap in register list and fill it
 
 uint32_t FillNextRegister(llvm::SmallVector<RegisterRange, 8> &ranges,
@@ -1126,22 +1135,73 @@ void FillRegisterAt(llvm::SmallVector<RegisterRange, 8> &ranges,
     ranges.emplace_back(RegisterRange{registerNr, arraySize});
 }
 
+static void RegisterBinding(
+    NamedDecl *ND,
+    UnresolvedRegisters& unresolvedRegisters,
+    RegisterMap& map,
+    hlsl::DXIL::ResourceClass cls,
+    uint32_t arraySize,
+    clang::DiagnosticsEngine &Diags,
+    uint32_t autoBindingSpace
+) {
+
+  const ArrayRef<hlsl::UnusualAnnotation *> &UA =
+      ND->getUnusualAnnotations();
+
+  bool qualified = false;
+  RegisterAssignment *reg = nullptr;
+
+  for (auto It = UA.begin(), E = UA.end(); It != E; ++It) {
+
+      if ((*It)->getKind() != hlsl::UnusualAnnotation::UA_RegisterAssignment)
+      continue;
+
+      reg = cast<hlsl::RegisterAssignment>(*It);
+
+      if (!reg->RegisterType)   //Unqualified register assignment
+          break;
+
+      uint32_t space = reg->RegisterSpace.hasValue()
+                          ? reg->RegisterSpace.getValue()
+                          : autoBindingSpace;
+
+      qualified = true;
+      FillRegisterAt(map[ResourceKey{space, cls }],
+                      reg->RegisterNumber, arraySize, Diags, ND->getLocation());
+      break;
+  }
+
+  if (!qualified)
+      unresolvedRegisters.emplace_back(UnresolvedRegister{cls, arraySize, reg, ND});
+}
+
 static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpace) {
 
   clang::DiagnosticsEngine &Diags =
         Ctx.getParentASTContext().getDiagnostics();
 
   RegisterMap map;
-  llvm::SmallVector<std::pair<VarDecl*, RegisterAssignment*>, 8> unresolvedRegisters;
+  UnresolvedRegisters unresolvedRegisters;
 
   //Fill up map with fully qualified registers to avoid colliding with them later
 
   for (auto it = Ctx.decls_begin(); it != Ctx.decls_end(); ++it) {
 
-    VarDecl *VD = dyn_cast<VarDecl>(*it);
+    //CBuffer has special logic, since it's not technically 
+
+    if (HLSLBufferDecl *CBuffer = dyn_cast<HLSLBufferDecl>(*it)) {
+      RegisterBinding(CBuffer, unresolvedRegisters, map,
+                          hlsl::DXIL::ResourceClass::CBuffer, 1, Diags,
+                          autoBindingSpace);
+      continue;
+    }
+
+    ValueDecl *VD = dyn_cast<ValueDecl>(*it);
 
     if (!VD)
       continue;
+
+    std::string test = VD->getName();
 
     uint32_t arraySize = 1;
     QualType type = VD->getType();
@@ -1154,50 +1214,16 @@ static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpa
     if (!IsHLSLResourceType(type))
       continue;
 
-    hlsl::DXIL::ResourceClass resClass = GetHLSLResourceClass(type);
-
-    const ArrayRef<hlsl::UnusualAnnotation *> &UA = VD->getUnusualAnnotations();
-
-    bool qualified = false;
-    RegisterAssignment *reg = nullptr;
-
-    for (auto It = UA.begin(), E = UA.end(); It != E; ++It) {
-
-      if ((*It)->getKind() != hlsl::UnusualAnnotation::UA_RegisterAssignment)
-        continue;
-
-      reg = cast<hlsl::RegisterAssignment>(*It);
-
-      if (!reg->RegisterType)   //Unqualified register assignment
-          break;
-
-      uint32_t space = reg->RegisterSpace.hasValue()
-                           ? reg->RegisterSpace.getValue()
-                           : autoBindingSpace;
-
-      qualified = true;
-      FillRegisterAt(map[ResourceKey{space, resClass}],
-                     reg->RegisterNumber, arraySize, Diags, VD->getLocation());
-      break;
-    }
-
-    if (!qualified)
-      unresolvedRegisters.emplace_back(std::pair<VarDecl*, RegisterAssignment*>{VD, reg});
+    RegisterBinding(VD, unresolvedRegisters, map, GetHLSLResourceClass(type),
+                    arraySize, Diags, autoBindingSpace);
   }
 
   //Resolve unresolved registers (while avoiding collisions)
 
-  for (const auto& [VD, reg] : unresolvedRegisters) {
+  for (const UnresolvedRegister& reg : unresolvedRegisters) {
 
-    uint32_t arraySize = 1;
-    QualType type = VD->getType();
-
-    if (const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(VD->getType())) {
-      arraySize = arr->getSize().getZExtValue();
-      type = arr->getElementType();
-    }
-
-    hlsl::DXIL::ResourceClass resClass = GetHLSLResourceClass(type);
+    uint32_t arraySize = reg.arraySize;
+    hlsl::DXIL::ResourceClass resClass = reg.cls;
 
     char prefix = 't';
 
@@ -1216,15 +1242,17 @@ static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpa
       break;
     }
 
-    uint32_t space = reg ? reg->RegisterSpace.getValue() : autoBindingSpace;
+    uint32_t space =
+        reg.reg ? reg.reg->RegisterSpace.getValue() : autoBindingSpace;
+
     uint32_t registerNr =
         FillNextRegister(map[ResourceKey{space, resClass}], arraySize);
 
-    if (reg)
+    if (reg.reg)
     {
-        reg->RegisterType = prefix;
-        reg->RegisterNumber = registerNr;
-        reg->setIsValid(true);
+        reg.reg->RegisterType = prefix;
+        reg.reg->RegisterNumber = registerNr;
+        reg.reg->setIsValid(true);
     }
     else
     {
@@ -1236,7 +1264,7 @@ static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpa
         llvm::SmallVector<UnusualAnnotation *, 8> annotations;
 
         const ArrayRef<hlsl::UnusualAnnotation *> &UA =
-            VD->getUnusualAnnotations();
+            reg.ND->getUnusualAnnotations();
 
         for (auto It = UA.begin(), E = UA.end(); It != E; ++It)
           annotations.emplace_back(*It);
@@ -1244,7 +1272,7 @@ static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpa
         annotations.push_back(::new (Ctx.getParentASTContext())
                                   hlsl::RegisterAssignment(r));
 
-        VD->setUnusualAnnotations(UnusualAnnotation::CopyToASTContextArray(
+        reg.ND->setUnusualAnnotations(UnusualAnnotation::CopyToASTContextArray(
             Ctx.getParentASTContext(), annotations.data(), annotations.size()));
     }
   }
