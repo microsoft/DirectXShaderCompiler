@@ -2876,7 +2876,7 @@ public:
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
   STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
   (INT ParameterIndex) { return &g_InvalidFunctionParameter; }
-  
+
   STDMETHOD_(UINT64, GetRequiresFlags)() { return m_FeatureFlags; }
 };
 
