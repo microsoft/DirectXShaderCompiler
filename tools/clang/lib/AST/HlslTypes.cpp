@@ -526,8 +526,8 @@ bool IsHLSLResourceType(clang::QualType type) {
 
 hlsl::DXIL::ResourceClass GetHLSLResourceClass(clang::QualType type) {
 
-  if (HLSLResourceAttr* attr = getAttr<HLSLResourceAttr>(type))
-      return attr->getResClass();
+  if (HLSLResourceAttr *attr = getAttr<HLSLResourceAttr>(type))
+    return attr->getResClass();
 
   return hlsl::DXIL::ResourceClass::Invalid;
 }

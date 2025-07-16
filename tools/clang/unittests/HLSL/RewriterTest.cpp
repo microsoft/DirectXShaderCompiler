@@ -128,15 +128,16 @@ public:
   }
 
   VerifyResult CheckVerifies(LPCWSTR path, LPCWSTR goldPath,
-                          const llvm::SmallVector<LPCWSTR, 4> &args = { L"-HV", L"2016" }) {
+                             const llvm::SmallVector<LPCWSTR, 4> &args = {
+                                 L"-HV", L"2016"}) {
     CComPtr<IDxcRewriter> pRewriter;
     VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
     return CheckVerifies(pRewriter, path, goldPath, args);
   }
 
-  VerifyResult CheckVerifies(IDxcRewriter *pRewriter, LPCWSTR path,
-                             LPCWSTR goldPath,
-                          const llvm::SmallVector<LPCWSTR, 4> &args = { L"-HV", L"2016" }) {
+  VerifyResult
+  CheckVerifies(IDxcRewriter *pRewriter, LPCWSTR path, LPCWSTR goldPath,
+                const llvm::SmallVector<LPCWSTR, 4> &args = {L"-HV", L"2016"}) {
     CComPtr<IDxcOperationResult> pRewriteResult;
     RewriteCompareGold(path, goldPath, &pRewriteResult, pRewriter, args);
 
@@ -168,7 +169,9 @@ public:
     return S_OK;
   }
 
-  VerifyResult CheckVerifiesHLSL(LPCWSTR name, LPCWSTR goldName, const llvm::SmallVector<LPCWSTR, 4> &args = { L"-HV", L"2016" }) {
+  VerifyResult CheckVerifiesHLSL(LPCWSTR name, LPCWSTR goldName,
+                                 const llvm::SmallVector<LPCWSTR, 4> &args = {
+                                     L"-HV", L"2016"}) {
     return CheckVerifies(GetPathToHlslDataFile(name).c_str(),
                          GetPathToHlslDataFile(goldName).c_str(), args);
   }
@@ -226,8 +229,8 @@ public:
     VERIFY_SUCCEEDED(rewriter->QueryInterface(&rewriter2));
     // Run rewrite unchanged on the source code
     VERIFY_SUCCEEDED(rewriter2->RewriteWithOptions(
-        source.BlobEncoding, path, (LPCWSTR*) args.data(), (uint32_t) args.size(), myDefines,
-        myDefinesCount, nullptr, ppResult));
+        source.BlobEncoding, path, (LPCWSTR *)args.data(),
+        (uint32_t)args.size(), myDefines, myDefinesCount, nullptr, ppResult));
 
     // check for compilation errors
     HRESULT hrStatus;
@@ -331,7 +334,7 @@ TEST_F(RewriterTest, RunArrayLength) {
 
 TEST_F(RewriterTest, RunAttributes) {
   CheckVerifiesHLSL(L"rewriter\\attributes_noerr.hlsl",
-                  L"rewriter\\correct_rewrites\\attributes_gold.hlsl");
+                    L"rewriter\\correct_rewrites\\attributes_gold.hlsl");
 }
 
 TEST_F(RewriterTest, RunAnonymousStruct) {
@@ -465,8 +468,10 @@ TEST_F(RewriterTest, RunSpirv) {
 }
 
 TEST_F(RewriterTest, GenerateConsistentBindings) {
-  CheckVerifiesHLSL(L"rewriter\\consistent_bindings.hlsl",
-                    L"rewriter\\correct_rewrites\\consistent_bindings_gold.hlsl", { L"-HV", L"2016", L"-consistent-bindings" });
+  CheckVerifiesHLSL(
+      L"rewriter\\consistent_bindings.hlsl",
+      L"rewriter\\correct_rewrites\\consistent_bindings_gold.hlsl",
+      {L"-HV", L"2016", L"-consistent-bindings"});
 }
 
 TEST_F(RewriterTest, RunStructMethods) {

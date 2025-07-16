@@ -1349,7 +1349,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // Rewriter Options
   if (flagsToInclude & hlsl::options::RewriteOption) {
     opts.RWOpt.Unchanged = Args.hasFlag(OPT_rw_unchanged, OPT_INVALID, false);
-    opts.RWOpt.ConsistentBindings = Args.hasFlag(OPT_rw_consistent_bindings, OPT_INVALID, false);
+    opts.RWOpt.ConsistentBindings =
+        Args.hasFlag(OPT_rw_consistent_bindings, OPT_INVALID, false);
     opts.RWOpt.SkipFunctionBody =
         Args.hasFlag(OPT_rw_skip_function_body, OPT_INVALID, false);
     opts.RWOpt.SkipStatic =

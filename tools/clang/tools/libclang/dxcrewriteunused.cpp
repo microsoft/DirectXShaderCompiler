@@ -11,8 +11,8 @@
 
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/AST/HlslTypes.h"
+#include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
@@ -1044,13 +1044,12 @@ struct ResourceKey {
 };
 
 namespace llvm {
-template<>
-struct DenseMapInfo<ResourceKey> {
+template <> struct DenseMapInfo<ResourceKey> {
   static inline ResourceKey getEmptyKey() {
-    return { ~0u, DXIL::ResourceClass::Invalid };
+    return {~0u, DXIL::ResourceClass::Invalid};
   }
   static inline ResourceKey getTombstoneKey() {
-    return { ~0u - 1, DXIL::ResourceClass::Invalid };
+    return {~0u - 1, DXIL::ResourceClass::Invalid};
   }
   static unsigned getHashValue(const ResourceKey &K) {
     return llvm::hash_combine(K.space, uint32_t(K.resourceClass));
@@ -1062,7 +1061,8 @@ struct DenseMapInfo<ResourceKey> {
 } // namespace llvm
 
 using RegisterRange = std::pair<uint32_t, uint32_t>; //(startReg, count)
-using RegisterMap = llvm::DenseMap<ResourceKey, llvm::SmallVector<RegisterRange, 8>>;
+using RegisterMap =
+    llvm::DenseMap<ResourceKey, llvm::SmallVector<RegisterRange, 8>>;
 
 struct UnresolvedRegister {
   hlsl::DXIL::ResourceClass cls;
@@ -1073,13 +1073,13 @@ struct UnresolvedRegister {
 
 using UnresolvedRegisters = llvm::SmallVector<UnresolvedRegister, 8>;
 
-//Find gap in register list and fill it
+// Find gap in register list and fill it
 
 uint32_t FillNextRegister(llvm::SmallVector<RegisterRange, 8> &ranges,
                           uint32_t arraySize) {
-  
+
   if (ranges.empty()) {
-    ranges.push_back({ 0, arraySize });
+    ranges.push_back({0, arraySize});
     return 0;
   }
 
@@ -1088,7 +1088,7 @@ uint32_t FillNextRegister(llvm::SmallVector<RegisterRange, 8> &ranges,
 
   for (; i < j; ++i) {
 
-    const RegisterRange& range = ranges[i];
+    const RegisterRange &range = ranges[i];
 
     if (range.first - curr >= arraySize) {
       ranges.insert(ranges.begin() + i, RegisterRange{curr, arraySize});
@@ -1102,32 +1102,33 @@ uint32_t FillNextRegister(llvm::SmallVector<RegisterRange, 8> &ranges,
   return curr;
 }
 
-//Insert in the right place (keep sorted)
+// Insert in the right place (keep sorted)
 
 void FillRegisterAt(llvm::SmallVector<RegisterRange, 8> &ranges,
-                        uint32_t registerNr, uint32_t arraySize,
-                    clang::DiagnosticsEngine &diags, const SourceLocation& location) {
+                    uint32_t registerNr, uint32_t arraySize,
+                    clang::DiagnosticsEngine &diags,
+                    const SourceLocation &location) {
 
   size_t i = 0, j = ranges.size();
 
   for (; i < j; ++i) {
 
-    const RegisterRange& range = ranges[i];
+    const RegisterRange &range = ranges[i];
 
     if (range.first > registerNr) {
-        
+
       if (registerNr + arraySize > range.first) {
         diags.Report(location, diag::err_hlsl_register_semantics_conflicting);
         return;
       }
 
-      ranges.insert(ranges.begin() + i, RegisterRange{ registerNr, arraySize });
+      ranges.insert(ranges.begin() + i, RegisterRange{registerNr, arraySize});
       break;
     }
 
     if (range.first + range.second > registerNr) {
-        diags.Report(location, diag::err_hlsl_register_semantics_conflicting);
-        return;
+      diags.Report(location, diag::err_hlsl_register_semantics_conflicting);
+      return;
     }
   }
 
@@ -1135,64 +1136,61 @@ void FillRegisterAt(llvm::SmallVector<RegisterRange, 8> &ranges,
     ranges.emplace_back(RegisterRange{registerNr, arraySize});
 }
 
-static void RegisterBinding(
-    NamedDecl *ND,
-    UnresolvedRegisters& unresolvedRegisters,
-    RegisterMap& map,
-    hlsl::DXIL::ResourceClass cls,
-    uint32_t arraySize,
-    clang::DiagnosticsEngine &Diags,
-    uint32_t autoBindingSpace
-) {
+static void RegisterBinding(NamedDecl *ND,
+                            UnresolvedRegisters &unresolvedRegisters,
+                            RegisterMap &map, hlsl::DXIL::ResourceClass cls,
+                            uint32_t arraySize, clang::DiagnosticsEngine &Diags,
+                            uint32_t autoBindingSpace) {
 
-  const ArrayRef<hlsl::UnusualAnnotation *> &UA =
-      ND->getUnusualAnnotations();
+  const ArrayRef<hlsl::UnusualAnnotation *> &UA = ND->getUnusualAnnotations();
 
   bool qualified = false;
   RegisterAssignment *reg = nullptr;
 
   for (auto It = UA.begin(), E = UA.end(); It != E; ++It) {
 
-      if ((*It)->getKind() != hlsl::UnusualAnnotation::UA_RegisterAssignment)
+    if ((*It)->getKind() != hlsl::UnusualAnnotation::UA_RegisterAssignment)
       continue;
 
-      reg = cast<hlsl::RegisterAssignment>(*It);
+    reg = cast<hlsl::RegisterAssignment>(*It);
 
-      if (!reg->RegisterType)   //Unqualified register assignment
-          break;
-
-      uint32_t space = reg->RegisterSpace.hasValue()
-                          ? reg->RegisterSpace.getValue()
-                          : autoBindingSpace;
-
-      qualified = true;
-      FillRegisterAt(map[ResourceKey{space, cls }],
-                      reg->RegisterNumber, arraySize, Diags, ND->getLocation());
+    if (!reg->RegisterType) // Unqualified register assignment
       break;
+
+    uint32_t space = reg->RegisterSpace.hasValue()
+                         ? reg->RegisterSpace.getValue()
+                         : autoBindingSpace;
+
+    qualified = true;
+    FillRegisterAt(map[ResourceKey{space, cls}], reg->RegisterNumber, arraySize,
+                   Diags, ND->getLocation());
+    break;
   }
 
   if (!qualified)
-      unresolvedRegisters.emplace_back(UnresolvedRegister{cls, arraySize, reg, ND});
+    unresolvedRegisters.emplace_back(
+        UnresolvedRegister{cls, arraySize, reg, ND});
 }
 
-static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpace) {
+static void GenerateConsistentBindings(DeclContext &Ctx,
+                                       uint32_t autoBindingSpace) {
 
-  clang::DiagnosticsEngine &Diags =
-        Ctx.getParentASTContext().getDiagnostics();
+  clang::DiagnosticsEngine &Diags = Ctx.getParentASTContext().getDiagnostics();
 
   RegisterMap map;
   UnresolvedRegisters unresolvedRegisters;
 
-  //Fill up map with fully qualified registers to avoid colliding with them later
+  // Fill up map with fully qualified registers to avoid colliding with them
+  // later
 
   for (auto it = Ctx.decls_begin(); it != Ctx.decls_end(); ++it) {
 
-    //CBuffer has special logic, since it's not technically 
+    // CBuffer has special logic, since it's not technically
 
     if (HLSLBufferDecl *CBuffer = dyn_cast<HLSLBufferDecl>(*it)) {
       RegisterBinding(CBuffer, unresolvedRegisters, map,
-                          hlsl::DXIL::ResourceClass::CBuffer, 1, Diags,
-                          autoBindingSpace);
+                      hlsl::DXIL::ResourceClass::CBuffer, 1, Diags,
+                      autoBindingSpace);
       continue;
     }
 
@@ -1206,11 +1204,12 @@ static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpa
     uint32_t arraySize = 1;
     QualType type = VD->getType();
 
-    if (const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(VD->getType())) {
+    if (const ConstantArrayType *arr =
+            dyn_cast<ConstantArrayType>(VD->getType())) {
       arraySize = arr->getSize().getZExtValue();
       type = arr->getElementType();
     }
-    
+
     if (!IsHLSLResourceType(type))
       continue;
 
@@ -1218,9 +1217,9 @@ static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpa
                     arraySize, Diags, autoBindingSpace);
   }
 
-  //Resolve unresolved registers (while avoiding collisions)
+  // Resolve unresolved registers (while avoiding collisions)
 
-  for (const UnresolvedRegister& reg : unresolvedRegisters) {
+  for (const UnresolvedRegister &reg : unresolvedRegisters) {
 
     uint32_t arraySize = reg.arraySize;
     hlsl::DXIL::ResourceClass resClass = reg.cls;
@@ -1248,32 +1247,30 @@ static void GenerateConsistentBindings(DeclContext &Ctx, uint32_t autoBindingSpa
     uint32_t registerNr =
         FillNextRegister(map[ResourceKey{space, resClass}], arraySize);
 
-    if (reg.reg)
-    {
-        reg.reg->RegisterType = prefix;
-        reg.reg->RegisterNumber = registerNr;
-        reg.reg->setIsValid(true);
-    }
-    else
-    {
-        hlsl::RegisterAssignment r;     //Keep space empty to ensure space overrides still work fine
-        r.RegisterNumber = registerNr;
-        r.RegisterType = prefix;
-        r.setIsValid(true);
+    if (reg.reg) {
+      reg.reg->RegisterType = prefix;
+      reg.reg->RegisterNumber = registerNr;
+      reg.reg->setIsValid(true);
+    } else {
+      hlsl::RegisterAssignment
+          r; // Keep space empty to ensure space overrides still work fine
+      r.RegisterNumber = registerNr;
+      r.RegisterType = prefix;
+      r.setIsValid(true);
 
-        llvm::SmallVector<UnusualAnnotation *, 8> annotations;
+      llvm::SmallVector<UnusualAnnotation *, 8> annotations;
 
-        const ArrayRef<hlsl::UnusualAnnotation *> &UA =
-            reg.ND->getUnusualAnnotations();
+      const ArrayRef<hlsl::UnusualAnnotation *> &UA =
+          reg.ND->getUnusualAnnotations();
 
-        for (auto It = UA.begin(), E = UA.end(); It != E; ++It)
-          annotations.emplace_back(*It);
+      for (auto It = UA.begin(), E = UA.end(); It != E; ++It)
+        annotations.emplace_back(*It);
 
-        annotations.push_back(::new (Ctx.getParentASTContext())
-                                  hlsl::RegisterAssignment(r));
+      annotations.push_back(::new (Ctx.getParentASTContext())
+                                hlsl::RegisterAssignment(r));
 
-        reg.ND->setUnusualAnnotations(UnusualAnnotation::CopyToASTContextArray(
-            Ctx.getParentASTContext(), annotations.data(), annotations.size()));
+      reg.ND->setUnusualAnnotations(UnusualAnnotation::CopyToASTContextArray(
+          Ctx.getParentASTContext(), annotations.data(), annotations.size()));
     }
   }
 }
@@ -1333,7 +1330,7 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
                                  opts.RWOpt.RemoveUnusedFunctions, w);
     if (FAILED(hr))
       return hr;
-  } else if(!opts.RWOpt.ConsistentBindings) {
+  } else if (!opts.RWOpt.ConsistentBindings) {
     o << "// Rewrite unchanged result:\n";
   }
 
