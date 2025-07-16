@@ -65,7 +65,7 @@ private:
   // This method sorts a field list in the following order:
   //  - fields with register annotation first, sorted by register index.
   //  - then fields without annotation, in order of declaration.
-  std::vector<const HybridStructType::FieldInfo*>
+  std::vector<const HybridStructType::FieldInfo *>
   sortFields(llvm::ArrayRef<HybridStructType::FieldInfo> fields);
 
   /// Lowers the given Hybrid type into a SPIR-V type.

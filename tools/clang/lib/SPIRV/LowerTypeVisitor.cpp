@@ -37,7 +37,6 @@ inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
 
 } // end anonymous namespace
 
-
 static void setDefaultFieldSize(const AlignmentSizeCalculator &alignmentCalc,
                                 const SpirvLayoutRule rule,
                                 const HybridStructType::FieldInfo *currentField,
@@ -266,35 +265,35 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   return true;
 }
 
-std::vector<const HybridStructType::FieldInfo*>
-LowerTypeVisitor::sortFields(llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
-    std::vector<const HybridStructType::FieldInfo*> output;
-    output.resize(fields.size());
+std::vector<const HybridStructType::FieldInfo *> LowerTypeVisitor::sortFields(
+    llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
+  std::vector<const HybridStructType::FieldInfo *> output;
+  output.resize(fields.size());
 
-    auto back_inserter = output.rbegin();
-    std::map<uint32_t, const HybridStructType::FieldInfo*> fixed_fields;
-    for (auto it = fields.rbegin(); it < fields.rend(); it++) {
-        if (it->registerC) {
-            auto insertionResult = fixed_fields.insert({ it->registerC->RegisterNumber, &*it });
-            if (!insertionResult.second) {
-                emitError("field \"%0\" at register(c%1) overlaps with previous members",
-                    it->registerC->Loc)
-                    << it->name
-                    << it->registerC->RegisterNumber;
-            }
-        }
-        else {
-            *back_inserter = &*it;
-            back_inserter++;
-        }
+  auto back_inserter = output.rbegin();
+  std::map<uint32_t, const HybridStructType::FieldInfo *> fixed_fields;
+  for (auto it = fields.rbegin(); it < fields.rend(); it++) {
+    if (it->registerC) {
+      auto insertionResult =
+          fixed_fields.insert({it->registerC->RegisterNumber, &*it});
+      if (!insertionResult.second) {
+        emitError(
+            "field \"%0\" at register(c%1) overlaps with previous members",
+            it->registerC->Loc)
+            << it->name << it->registerC->RegisterNumber;
+      }
+    } else {
+      *back_inserter = &*it;
+      back_inserter++;
     }
+  }
 
-    auto front_inserter = output.begin();
-    for (const auto& item : fixed_fields) {
-        *front_inserter = item.second;
-        front_inserter++;
-    }
-    return output;
+  auto front_inserter = output.begin();
+  for (const auto &item : fixed_fields) {
+    *front_inserter = item.second;
+    front_inserter++;
+  }
+  return output;
 }
 
 const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
@@ -1388,8 +1387,8 @@ LowerTypeVisitor::populateLayoutInformation(
     const size_t fieldIndexForMap = loweredFields.size();
 
     // Can happen if sortFields runs over fields with the same register(c#)
-    if(!sortedFields[i]) {
-        return result;
+    if (!sortedFields[i]) {
+      return result;
     }
 
     loweredFields.emplace_back(fieldVisitor(
