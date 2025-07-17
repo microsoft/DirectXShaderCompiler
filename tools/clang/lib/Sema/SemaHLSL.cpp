@@ -12318,9 +12318,6 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
     // to limit the scope, and fail gracefully in some cases.
     if (!getLangOpts().SPIRV)
       return;
-    // This should never happen for SPIR-V. But on the DXIL side, extension can
-    // be added by inserting new intrinsics, meaning opcodes can collide with
-    // existing ones. See the ExtensionTest.EvalAttributeCollision test.
     CheckIntrinsicGetAttributeAtVertex(this, FDecl, TheCall);
     break;
   case hlsl::IntrinsicOp::IOP_DispatchMesh:
