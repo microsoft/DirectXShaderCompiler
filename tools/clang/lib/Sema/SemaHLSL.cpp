@@ -12273,17 +12273,42 @@ static bool CheckIntrinsicGetAttributeAtVertex(Sema &S, FunctionDecl *FDecl,
   return false;
 }
 
+static bool CheckNoInterpolationParams(Sema &S, FunctionDecl *FDecl,
+                                       CallExpr *TheCall) {
+  // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
+  // to limit the scope, and fail gracefully in some cases.
+  if (!getLangOpts().SPIRV)
+    return false;
+
+  bool error = false;
+  for (unsigned i = 0; i < FDecl->getNumParams(); i++) {
+    assert(i < TheCall->getNumArgs());
+
+    if (!FDecl->getParamDecl(i)->hasAttr<HLSLNoInterpolationAttr>())
+      continue;
+
+    if (!isRelatedDeclMarkedNointerpolation(TheCall->getArg(i))) {
+      S.Diag(TheCall->getArg(i)->getExprLoc(),
+             diag::err_hlsl_parameter_requires_attribute)
+          << i << FDecl->getName() << "nointerpolation";
+      error = true;
+    }
+  }
+
+  return error;
+}
+
 // Verify that user-defined intrinsic struct args contain no long vectors
 static bool CheckUDTIntrinsicArg(Sema &S, Expr *Arg) {
   const TypeDiagContext DiagContext =
       TypeDiagContext::UserDefinedStructParameter;
-  return DiagnoseTypeElements(S, Arg->getExprLoc(), Arg->getType(),
-                              DiagContext, DiagContext);
+  return DiagnoseTypeElements(S, Arg->getExprLoc(), Arg->getType(), DiagContext,
+                              DiagContext);
 }
 
 // Check HLSL call constraints, not fatal to creating the AST.
 void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
-  if (CheckNoInterpolationParams(FDecl, TheCall))
+  if (CheckNoInterpolationParams(*this, FDecl, TheCall))
     return;
 
   HLSLIntrinsicAttr *IntrinsicAttr = FDecl->getAttr<HLSLIntrinsicAttr>();
@@ -16867,30 +16892,6 @@ QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
                                Decl->getSourceRange().getEnd(), EmptyArgs);
   }
   return QualType();
-}
-
-bool Sema::CheckNoInterpolationParams(FunctionDecl *FDecl, CallExpr *TheCall) {
-  // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
-  // to limit the scope, and fail gracefully in some cases.
-  if (!getLangOpts().SPIRV)
-    return false;
-
-  bool error = false;
-  for (unsigned i = 0; i < FDecl->getNumParams(); i++) {
-    assert(i < TheCall->getNumArgs());
-
-    if (!FDecl->getParamDecl(i)->hasAttr<HLSLNoInterpolationAttr>())
-      continue;
-
-    if (!isRelatedDeclMarkedNointerpolation(TheCall->getArg(i))) {
-      Diag(TheCall->getArg(i)->getExprLoc(),
-           diag::err_hlsl_parameter_requires_attribute)
-          << i << FDecl->getName() << "nointerpolation";
-      error = true;
-    }
-  }
-
-  return error;
 }
 
 namespace hlsl {

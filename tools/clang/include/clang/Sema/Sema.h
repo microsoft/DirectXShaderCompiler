@@ -8825,7 +8825,6 @@ private:
                         bool AllowOnePastEnd=true, bool IndexNegated=false);
   // HLSL Change Starts - checking array subscript access to vector or matrix member
   void CheckHLSLArrayAccess(const Expr *expr);
-  bool CheckNoInterpolationParams(FunctionDecl *FDecl, CallExpr *TheCall);
   // HLSL Change ends
   void CheckArrayAccess(const Expr *E);
   // Used to grab the relevant information from a FormatAttr and a
