@@ -9,6 +9,7 @@ CustomAttrs {
 [shader("raygeneration")]
 void main() {
   dx::HitObject hit;
-  // expected-error@+1{{vectors of over 4 elements in attributes are not supported}}
-  CustomAttrs attrs = hit.GetAttributes<CustomAttrs>();
+  // expected-error@+2{{vectors of over 4 elements in attributes are not supported}}
+  CustomAttrs attrs;
+  hit.GetAttributes(attrs);
 }
