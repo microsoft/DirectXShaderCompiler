@@ -12277,7 +12277,7 @@ static bool CheckNoInterpolationParams(Sema &S, FunctionDecl *FDecl,
                                        CallExpr *TheCall) {
   // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
   // to limit the scope, and fail gracefully in some cases.
-  if (!getLangOpts().SPIRV)
+  if (!S.getLangOpts().SPIRV)
     return false;
 
   bool error = false;
@@ -12343,16 +12343,16 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
     // to limit the scope, and fail gracefully in some cases.
     if (!getLangOpts().SPIRV)
       return;
-    CheckIntrinsicGetAttributeAtVertex(this, FDecl, TheCall);
+    CheckIntrinsicGetAttributeAtVertex(*this, FDecl, TheCall);
     break;
   case hlsl::IntrinsicOp::IOP_DispatchMesh:
-    CheckUDTIntrinsicArg(this, TheCall->getArg(3)->IgnoreCasts());
+    CheckUDTIntrinsicArg(*this, TheCall->getArg(3)->IgnoreCasts());
     break;
   case hlsl::IntrinsicOp::IOP_CallShader:
-    CheckUDTIntrinsicArg(this, TheCall->getArg(1)->IgnoreCasts());
+    CheckUDTIntrinsicArg(*this, TheCall->getArg(1)->IgnoreCasts());
     break;
   case hlsl::IntrinsicOp::IOP_TraceRay:
-    CheckUDTIntrinsicArg(this, TheCall->getArg(7)->IgnoreCasts());
+    CheckUDTIntrinsicArg(*this, TheCall->getArg(7)->IgnoreCasts());
     break;
   case hlsl::IntrinsicOp::IOP_ReportHit:
     CheckIntersectionAttributeArg(*this, TheCall->getArg(2)->IgnoreCasts());
