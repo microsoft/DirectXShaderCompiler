@@ -12259,13 +12259,13 @@ static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
   return false;
 }
 
-static bool CheckIntrinsicGetAttributeAtVertex(Sema *S, FunctionDecl *FDecl,
+static bool CheckIntrinsicGetAttributeAtVertex(Sema &S, FunctionDecl *FDecl,
                                                CallExpr *TheCall) {
   assert(TheCall->getNumArgs() > 0);
   auto argument = TheCall->getArg(0)->IgnoreCasts();
 
   if (!isRelatedDeclMarkedNointerpolation(argument)) {
-    S->Diag(argument->getExprLoc(), diag::err_hlsl_parameter_requires_attribute)
+    S.Diag(argument->getExprLoc(), diag::err_hlsl_parameter_requires_attribute)
         << 0 << FDecl->getName() << "nointerpolation";
     return true;
   }
@@ -12274,10 +12274,10 @@ static bool CheckIntrinsicGetAttributeAtVertex(Sema *S, FunctionDecl *FDecl,
 }
 
 // Verify that user-defined intrinsic struct args contain no long vectors
-static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
+static bool CheckUDTIntrinsicArg(Sema &S, Expr *Arg) {
   const TypeDiagContext DiagContext =
       TypeDiagContext::UserDefinedStructParameter;
-  return DiagnoseTypeElements(*S, Arg->getExprLoc(), Arg->getType(),
+  return DiagnoseTypeElements(S, Arg->getExprLoc(), Arg->getType(),
                               DiagContext, DiagContext);
 }
 
