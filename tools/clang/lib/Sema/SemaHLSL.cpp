@@ -4152,6 +4152,7 @@ public:
                               SourceLocation(), &context.Idents.get("dx"),
                               /*PrevDecl*/ nullptr);
     m_dxNSDecl->setImplicit();
+    m_dxNSDecl->setHasExternalLexicalStorage(true);
     context.getTranslationUnitDecl()->addDecl(m_dxNSDecl);
 
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -5169,7 +5170,7 @@ public:
 
   bool AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
                                    ArrayRef<Expr *> Args,
-                                   OverloadCandidateSet &CandidateSet,
+                                   OverloadCandidateSet &CandidateSet, Scope *S,
                                    bool PartialOverloading) override {
     DXASSERT_NOMSG(ULE != nullptr);
 
@@ -5194,6 +5195,8 @@ public:
     // Exceptions:
     // - Vulkan-specific intrinsics live in the 'vk::' namespace.
     // - DirectX-specific intrinsics live in the 'dx::' namespace.
+    // - Global namespaces could just mean we have a `using` declaration... so
+    // it can be anywhere!
     if (isQualified && !isGlobalNamespace && !isVkNamespace && !isDxNamespace)
       return false;
 
@@ -5204,81 +5207,106 @@ public:
     }
 
     StringRef nameIdentifier = idInfo->getName();
-    const HLSL_INTRINSIC *table = g_Intrinsics;
-    auto tableCount = _countof(g_Intrinsics);
-    if (isDxNamespace) {
-      table = g_DxIntrinsics;
-      tableCount = _countof(g_DxIntrinsics);
-    }
-#ifdef ENABLE_SPIRV_CODEGEN
-    if (isVkNamespace) {
-      table = g_VkIntrinsics;
-      tableCount = _countof(g_VkIntrinsics);
-    }
-#endif // ENABLE_SPIRV_CODEGEN
+    using IntrinsicArray = llvm::ArrayRef<const HLSL_INTRINSIC>;
+    struct IntrinsicTableEntry {
+      IntrinsicArray Table;
+      NamespaceDecl *NS;
+    };
 
-    IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
-        table, tableCount, StringRef(), nameIdentifier, Args.size());
-    IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
-        table, tableCount, IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
+    llvm::SmallVector<IntrinsicTableEntry, 3> SearchTables;
 
-    for (; cursor != end; ++cursor) {
-      // If this is the intrinsic we're interested in, build up a representation
-      // of the types we need.
-      const HLSL_INTRINSIC *pIntrinsic = *cursor;
-      LPCSTR tableName = cursor.GetTableName();
-      LPCSTR lowering = cursor.GetLoweringStrategy();
-      DXASSERT(pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
-               "otherwise g_MaxIntrinsicParamCount needs to be updated for "
-               "wider signatures");
+    bool SearchDX = isDxNamespace;
+    bool SearchVK = isVkNamespace;
+    if (isGlobalNamespace || !isQualified)
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_Intrinsics), m_hlslNSDecl});
 
-      std::vector<QualType> functionArgTypes;
-      size_t badArgIdx;
-      bool argsMatch =
-          MatchArguments(cursor, QualType(), QualType(), QualType(), Args,
-                         &functionArgTypes, badArgIdx);
-      if (!functionArgTypes.size())
-        return false;
-
-      // Get or create the overload we're interested in.
-      FunctionDecl *intrinsicFuncDecl = nullptr;
-      std::pair<UsedIntrinsicStore::iterator, bool> insertResult =
-          m_usedIntrinsics.insert(UsedIntrinsic(pIntrinsic, functionArgTypes));
-      bool insertedNewValue = insertResult.second;
-      if (insertedNewValue) {
-        NamespaceDecl *nsDecl = m_hlslNSDecl;
-        if (isVkNamespace)
-          nsDecl = m_vkNSDecl;
-        else if (isDxNamespace)
-          nsDecl = m_dxNSDecl;
-        DXASSERT(tableName,
-                 "otherwise IDxcIntrinsicTable::GetTableName() failed");
-        intrinsicFuncDecl =
-            AddHLSLIntrinsicFunction(*m_context, nsDecl, tableName, lowering,
-                                     pIntrinsic, &functionArgTypes);
-        insertResult.first->setFunctionDecl(intrinsicFuncDecl);
-      } else {
-        intrinsicFuncDecl = (*insertResult.first).getFunctionDecl();
+    if (S && !isQualified) {
+      SmallVector<const DeclContext *, 4> NSContexts;
+      m_sema->CollectNamespaceContexts(S, NSContexts);
+      for (const auto &UD : NSContexts) {
+        if (static_cast<DeclContext *>(m_dxNSDecl) == UD)
+          SearchDX = true;
+        else if (static_cast<DeclContext *>(m_vkNSDecl) == UD)
+          SearchVK = true;
       }
+    }
 
-      OverloadCandidate &candidate = CandidateSet.addCandidate(Args.size());
-      candidate.Function = intrinsicFuncDecl;
-      candidate.FoundDecl.setDecl(intrinsicFuncDecl);
-      candidate.Viable = argsMatch;
-      CandidateSet.isNewCandidate(intrinsicFuncDecl); // used to insert into set
-      if (argsMatch)
-        return true;
-      if (badArgIdx) {
-        candidate.FailureKind = ovl_fail_bad_conversion;
-        QualType ParamType =
-            intrinsicFuncDecl->getParamDecl(badArgIdx - 1)->getType();
-        candidate.Conversions[badArgIdx - 1].setBad(
-            BadConversionSequence::no_conversion, Args[badArgIdx - 1],
-            ParamType);
-      } else {
-        // A less informative error. Needed when the failure relates to the
-        // return type
-        candidate.FailureKind = ovl_fail_bad_final_conversion;
+    if (SearchDX)
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_DxIntrinsics), m_dxNSDecl});
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (SearchVK)
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_VkIntrinsics), m_vkNSDecl});
+#endif
+
+    assert(!SearchTables.empty() && "Must have at least one search table!");
+
+    for (const auto &T : SearchTables) {
+
+      IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
+          T.Table.data(), T.Table.size(), StringRef(), nameIdentifier,
+          Args.size());
+      IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
+          T.Table.data(), T.Table.size(),
+          IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
+
+      for (; cursor != end; ++cursor) {
+        // If this is the intrinsic we're interested in, build up a
+        // representation of the types we need.
+        const HLSL_INTRINSIC *pIntrinsic = *cursor;
+        LPCSTR tableName = cursor.GetTableName();
+        LPCSTR lowering = cursor.GetLoweringStrategy();
+        DXASSERT(pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
+                 "otherwise g_MaxIntrinsicParamCount needs to be updated for "
+                 "wider signatures");
+
+        std::vector<QualType> functionArgTypes;
+        size_t badArgIdx;
+        bool argsMatch =
+            MatchArguments(cursor, QualType(), QualType(), QualType(), Args,
+                           &functionArgTypes, badArgIdx);
+        if (!functionArgTypes.size())
+          return false;
+
+        // Get or create the overload we're interested in.
+        FunctionDecl *intrinsicFuncDecl = nullptr;
+        std::pair<UsedIntrinsicStore::iterator, bool> insertResult =
+            m_usedIntrinsics.insert(
+                UsedIntrinsic(pIntrinsic, functionArgTypes));
+        bool insertedNewValue = insertResult.second;
+        if (insertedNewValue) {
+          DXASSERT(tableName,
+                   "otherwise IDxcIntrinsicTable::GetTableName() failed");
+          intrinsicFuncDecl =
+              AddHLSLIntrinsicFunction(*m_context, T.NS, tableName, lowering,
+                                       pIntrinsic, &functionArgTypes);
+          insertResult.first->setFunctionDecl(intrinsicFuncDecl);
+        } else {
+          intrinsicFuncDecl = (*insertResult.first).getFunctionDecl();
+        }
+
+        OverloadCandidate &candidate = CandidateSet.addCandidate(Args.size());
+        candidate.Function = intrinsicFuncDecl;
+        candidate.FoundDecl.setDecl(intrinsicFuncDecl);
+        candidate.Viable = argsMatch;
+        CandidateSet.isNewCandidate(
+            intrinsicFuncDecl); // used to insert into set
+        if (argsMatch)
+          return true;
+        if (badArgIdx) {
+          candidate.FailureKind = ovl_fail_bad_conversion;
+          QualType ParamType =
+              intrinsicFuncDecl->getParamDecl(badArgIdx - 1)->getType();
+          candidate.Conversions[badArgIdx - 1].setBad(
+              BadConversionSequence::no_conversion, Args[badArgIdx - 1],
+              ParamType);
+        } else {
+          // A less informative error. Needed when the failure relates to the
+          // return type
+          candidate.FailureKind = ovl_fail_bad_final_conversion;
+        }
       }
     }
 
