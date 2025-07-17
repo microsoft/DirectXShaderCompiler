@@ -5215,46 +5215,31 @@ public:
 
     llvm::SmallVector<IntrinsicTableEntry, 3> SearchTables;
 
-    if (isDxNamespace)
-      SearchTables.push_back(
-          IntrinsicTableEntry{IntrinsicArray(g_DxIntrinsics), m_dxNSDecl});
-#ifdef ENABLE_SPIRV_CODEGEN
-    else if (isVkNamespace)
-      SearchTables.push_back(
-          IntrinsicTableEntry{IntrinsicArray(g_VkIntrinsics), m_vkNSDecl});
-#endif
-    else if (isGlobalNamespace)
-      SearchTables.push_back(
-          IntrinsicTableEntry{IntrinsicArray(g_Intrinsics), m_hlslNSDecl});
-    else if (!isQualified) {
-      // If the name isn't qualified, we need to search all scopes that are
-      // accessible without qualification. This starts with the global scope and
-      // extends into any scopes that are referred to by using declarations.
+    bool SearchDX = isDxNamespace;
+    bool SearchVK = isVkNamespace;
+    if (isGlobalNamespace || !isQualified)
       SearchTables.push_back(
           IntrinsicTableEntry{IntrinsicArray(g_Intrinsics), m_hlslNSDecl});
 
-      // If we have a scope chain, walk it to get using declarations.
-      if (S) {
-        SmallVector<const DeclContext *, 4> NSContexts;
-        m_sema->CollectNamespaceContexts(S, NSContexts);
-        bool DXFound = false;
-        bool VKFound = false;
-        for (const auto &UD : NSContexts) {
-          if (static_cast<DeclContext *>(m_dxNSDecl) == UD)
-            DXFound = true;
-          else if (static_cast<DeclContext *>(m_vkNSDecl) == UD)
-            VKFound = true;
-        }
-        if (DXFound)
-          SearchTables.push_back(
-              IntrinsicTableEntry{IntrinsicArray(g_DxIntrinsics), m_dxNSDecl});
-#ifdef ENABLE_SPIRV_CODEGEN
-        if (VKFound)
-          SearchTables.push_back(
-              IntrinsicTableEntry{IntrinsicArray(g_VkIntrinsics), m_vkNSDecl});
-#endif
+    if (S && !isQualified) {
+      SmallVector<const DeclContext *, 4> NSContexts;
+      m_sema->CollectNamespaceContexts(S, NSContexts);
+      for (const auto &UD : NSContexts) {
+        if (static_cast<DeclContext *>(m_dxNSDecl) == UD)
+          SearchDX = true;
+        else if (static_cast<DeclContext *>(m_vkNSDecl) == UD)
+          SearchVK = true;
       }
     }
+
+    if (SearchDX)
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_DxIntrinsics), m_dxNSDecl});
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (SearchVK)
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_VkIntrinsics), m_vkNSDecl});
+#endif
 
     assert(!SearchTables.empty() && "Must have at least one search table!");
 
