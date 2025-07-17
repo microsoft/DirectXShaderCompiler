@@ -136,6 +136,8 @@ uint32_t getHeaderVersion(spv_target_env env) {
 std::string
 ReadSourceCode(llvm::StringRef filePath,
                const clang::spirv::SpirvCodeGenOptions &spvOptions) {
+
+  std::string localFilePath(filePath.begin(), filePath.end());
   try {
     dxc::DxcDllSupport dllSupport;
     IFT(dllSupport.Initialize());
@@ -154,7 +156,10 @@ ReadSourceCode(llvm::StringRef filePath,
   } catch (...) {
     // An exception has occurred while reading the file
     // return the original source (which may have been supplied directly)
-    if (!spvOptions.origSource.empty()) {
+    // only for the main input file
+    if ((!strcmp(localFilePath.c_str(), "hlsl.hlsl") &&
+         spvOptions.inputFile.empty()) ||
+        !strcmp(localFilePath.c_str(), spvOptions.inputFile.c_str())) {
       return spvOptions.origSource.c_str();
     }
     return "";
