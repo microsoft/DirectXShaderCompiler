@@ -15874,8 +15874,12 @@ void SpirvEmitter::addDerivativeGroupExecutionModeId() {
       dyn_cast<SpirvExecutionModeId>(spvBuilder.getModule()->findExecutionMode(
           entryFunction, spv::ExecutionMode::LocalSizeId));
   auto numThreads = numThreadsEm->getParams();
-  auto f = [this](SpirvInstruction *arg) -> llvm::Optional<unsigned> {
+  bool numThreadsHasSpecConst = false;
+  auto f = [&numThreadsHasSpecConst](
+               SpirvInstruction *arg) -> llvm::Optional<unsigned> {
     if (auto con = dyn_cast<SpirvConstantInteger>(arg)) {
+      if (con->isSpecConstant())
+        numThreadsHasSpecConst = true;
       return (unsigned)con->getValue().getZExtValue();
     }
     return llvm::None;
@@ -15905,6 +15909,16 @@ void SpirvEmitter::addDerivativeGroupExecutionModeId() {
            (!y.hasValue() || y.getValue() % 2 == 0));
   }
 
+  if (numThreadsHasSpecConst) {
+    // This code probably belongs in DiagnoseNumThreadsForDerivativeOp() in
+    // SemaHLSL.cpp, but that function apparently isn't invoked in all
+    // applicable situations.
+    diags.Report(
+        numThreadsEm->getSourceLocation(),
+        diags.getCustomDiagID(DiagnosticsEngine::Level::Warning,
+                              "NumThreads spec constant default value used to "
+                              "determine derivative group mode"));
+  }
   spvBuilder.addExecutionMode(entryFunction, em, {}, SourceLocation());
 }
 
