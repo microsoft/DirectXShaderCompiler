@@ -152,7 +152,8 @@ void node_1_1(
 
 // CHECK:`-FunctionDecl 0x{{.+}} <line:16:1, line:21:1> line:16:6 node_1_1 'void (NodeOutputArray<RECORD1>)'
 // CHECK-NEXT:  |-ParmVarDecl 0x[[ParmVar:[0-9a-f]+]] <line:18:5, col:30> col:30 used OutputArray_1_1 'NodeOutputArray<RECORD1>':'NodeOutputArray<RECORD1>'
-// CHECK-NEXT:  | |-HLSLMaxRecordsAttr 0x{{.+}} <line:17:29, col:42> 37
+// CHECK-NEXT:  | |-HLSLMaxRecordsAttr 0x{{.+}} <line:17:29, col:42>
+// CHECK-NEXT:  | | `-IntegerLiteral 0x{{.+}} <col:40> 'literal int' 37
 // CHECK-NEXT:  | `-HLSLUnboundedSparseNodesAttr 0x{{.+}} <col:6>
 // CHECK-NEXT:  |-CompoundStmt 0x{{.+}} <line:18:47, line:21:1>
 // CHECK-NEXT:  | |-DeclStmt 0x{{.+}} <line:19:3, col:93>
@@ -170,7 +171,13 @@ void node_1_1(
 // CHECK-NEXT:  | `-CXXMemberCallExpr 0x{{.+}} <line:20:3, col:25> 'void'
 // CHECK-NEXT:  |   `-MemberExpr 0x{{.+}} <col:3, col:10> '<bound member function type>' .OutputComplete 0x[[OutComplete]]
 // CHECK-NEXT:  |     `-DeclRefExpr 0x{{.+}} <col:3> 'ThreadNodeOutputRecords<RECORD1>':'ThreadNodeOutputRecords<RECORD1>' lvalue Var 0x[[OutRec]] 'outRec' 'ThreadNodeOutputRecords<RECORD1>':'ThreadNodeOutputRecords<RECORD1>'
-// CHECK-NEXT:  |-HLSLNumThreadsAttr 0x{{.+}} <line:15:2, col:20> 1 1 1
-// CHECK-NEXT:  |-HLSLNodeDispatchGridAttr 0x{{.+}} <line:14:2, col:26> 1 1 1
+// CHECK-NEXT:  |-HLSLNumThreadsAttr 0x{{.+}} <line:15:2, col:20>
+// CHECK-NEXT:  | |-IntegerLiteral 0x{{.+}} <col:13> 'literal int' 1
+// CHECK-NEXT:  | |-IntegerLiteral 0x{{.+}} <col:16> 'literal int' 1
+// CHECK-NEXT:  | `-IntegerLiteral 0x{{.+}} <col:19> 'literal int' 1
+// CHECK-NEXT:  |-HLSLNodeDispatchGridAttr 0x{{.+}} <line:14:2, col:26>
+// CHECK-NEXT:  | |-IntegerLiteral 0x{{.+}} <col:19> 'literal int' 1
+// CHECK-NEXT:  | |-IntegerLiteral 0x{{.+}} <col:22> 'literal int' 1
+// CHECK-NEXT:  | `-IntegerLiteral 0x{{.+}} <col:25> 'literal int' 1
 // CHECK-NEXT:  |-HLSLNodeLaunchAttr 0x{{.+}} <line:13:2, col:27> "broadcasting"
 // CHECK-NEXT:  `-HLSLShaderAttr 0x{{.+}} <line:12:2, col:15> "node"
