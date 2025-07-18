@@ -945,6 +945,18 @@ def HLSLCXXOverload : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+// This attribute means something subtly different from the HLSLIntrinsic
+// attribute. Prior to this being introduced a subset of the HLSL intrinsics
+// were placed in the `hlsl` namespace, but not in a way that actually qualified
+// their name lookup. The presence of the namespace as the declcontext was then
+// sused in CGExpr to determine how to emit the call. This attribute replaces
+// the namespace in that context.
+def HLSLBuiltinCall : InheritableAttr {
+  let Spellings = [];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [Undocumented];
+}
+
 def HLSLVector : InheritableAttr {
   let Spellings = []; // No spellings!
   let Subjects = SubjectList<[CXXRecord]>;
