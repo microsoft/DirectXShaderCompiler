@@ -34,9 +34,8 @@ public:
 
   bool IsEnabled() const { return DxCompilerSupport.IsEnabled(); }
 
-  bool DxcDllExtValidationSupport::GetCreateInstanceProcs(
-      DxcCreateInstanceProc *pCreateFn,
-      DxcCreateInstance2Proc *pCreateFn2) const;
+  bool GetCreateInstanceProcs(DxcCreateInstanceProc *pCreateFn,
+                              DxcCreateInstance2Proc *pCreateFn2) const;
 
   void Cleanup() {
     DxilExtValSupport.Cleanup();
