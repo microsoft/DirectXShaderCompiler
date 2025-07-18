@@ -19,8 +19,51 @@ namespace dxc {
 extern const char *kDxCompilerLib;
 extern const char *kDxilLib;
 
+// Interface for common dll operations
+class IDllSupport {
+public:
+  IDllSupport() = default;
+
+  IDllSupport(IDllSupport &&other) = default;
+
+  virtual ~IDllSupport() = default;
+
+  virtual HRESULT Initialize() = 0;
+
+  virtual HRESULT InitializeForDll(LPCSTR dll, LPCSTR entryPoint) = 0;
+
+  template <typename TInterface>
+  HRESULT CreateInstance(REFCLSID clsid, TInterface **pResult) {
+    return CreateInstance(clsid, __uuidof(TInterface), (IUnknown **)pResult);
+  }
+
+  virtual HRESULT CreateInstance(REFCLSID clsid, REFIID riid,
+                                 IUnknown **pResult) = 0;
+
+  template <typename TInterface>
+  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid,
+                          TInterface **pResult) {
+    return CreateInstance2(pMalloc, clsid, __uuidof(TInterface),
+                           (IUnknown **)pResult);
+  }
+
+  virtual HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
+                                  IUnknown **pResult) = 0;
+
+  virtual bool HasCreateWithMalloc() const = 0;
+
+  virtual bool IsEnabled() const = 0;
+
+  virtual bool
+  GetCreateInstanceProcs(DxcCreateInstanceProc *pCreateFn,
+                         DxcCreateInstance2Proc *pCreateFn2) const = 0;
+
+  virtual void Cleanup() = 0;
+  virtual HMODULE Detach() = 0;
+};
+
 // Helper class to dynamically load the dxcompiler or a compatible libraries.
-class DxcDllSupport {
+class DxcDllSupport : public IDllSupport {
 
   HMODULE m_dll;
   DxcCreateInstanceProc m_createFn;
@@ -95,11 +138,9 @@ public:
     return InitializeInternal(dll, entryPoint);
   }
 
-  template <typename TInterface>
-  HRESULT CreateInstance(REFCLSID clsid, TInterface **pResult) {
-    return CreateInstance(clsid, __uuidof(TInterface), (IUnknown **)pResult);
-  }
-
+  // Also bring visibility into the interface definition of this function
+  // which takes 2 args
+  using IDllSupport::CreateInstance;
   HRESULT CreateInstance(REFCLSID clsid, REFIID riid, IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
@@ -109,13 +150,9 @@ public:
     return hr;
   }
 
-  template <typename TInterface>
-  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid,
-                          TInterface **pResult) {
-    return CreateInstance2(pMalloc, clsid, __uuidof(TInterface),
-                           (IUnknown **)pResult);
-  }
-
+  // Also bring visibility into the interface definition of this function
+  // which takes 3 args
+  using IDllSupport::CreateInstance2;
   HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
                           IUnknown **pResult) {
     if (pResult == nullptr)

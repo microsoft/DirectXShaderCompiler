@@ -11,7 +11,7 @@ HRESULT DxcDllExtValidationSupport::CreateInstance(REFCLSID clsid, REFIID riid,
   if (DxilExtValSupport.IsEnabled() && clsid == CLSID_DxcValidator)
     return DxilExtValSupport.CreateInstance(clsid, riid, pResult);
 
-  return DxcompilerSupport.CreateInstance(clsid, riid, pResult);
+  return DxCompilerSupport.CreateInstance(clsid, riid, pResult);
 }
 
 HRESULT DxcDllExtValidationSupport::CreateInstance2(IMalloc *pMalloc,
@@ -20,12 +20,12 @@ HRESULT DxcDllExtValidationSupport::CreateInstance2(IMalloc *pMalloc,
   if (DxilExtValSupport.IsEnabled() && clsid == CLSID_DxcValidator)
     return DxilExtValSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
 
-  return DxcompilerSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
+  return DxCompilerSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
 }
 
 HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR fnName) {
   // Load dxcompiler.dll
-  HRESULT Result = DxcompilerSupport.InitializeForDll(kDxCompilerLib, fnName);
+  HRESULT Result = DxCompilerSupport.InitializeForDll(kDxCompilerLib, fnName);
   // if dxcompiler.dll fails to load, return the failed HRESULT
   if (DXC_FAILED(Result)) {
     return Result;
@@ -46,6 +46,16 @@ HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR fnName) {
   }
 
   return DxilExtValSupport.InitializeForDll(DxilDllPath.c_str(), fnName);
+}
+
+bool DxcDllExtValidationSupport::GetCreateInstanceProcs(
+    DxcCreateInstanceProc *pCreateFn,
+    DxcCreateInstance2Proc *pCreateFn2) const {
+  if (pCreateFn == nullptr || pCreateFn2 == nullptr || m_createFn == nullptr)
+    return false;
+  *pCreateFn = m_createFn;
+  *pCreateFn2 = m_createFn2;
+  return true;
 }
 
 } // namespace dxc
