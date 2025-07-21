@@ -1582,8 +1582,15 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   if (spirvOptions.debugInfoRich) {
     if (srcDebugFunction) {
       spvContext.pushDebugLexicalScope(info, srcDebugFunction);
-    } else {
+    } else if (debugFunction) {
       spvContext.pushDebugLexicalScope(info, debugFunction);
+    } else {
+      // A function which is not called directly in HLSL, and therefore does not
+      // reside in the workQueue
+      if (decl->hasBody()) {
+        debugFunction = emitDebugFunction(decl, func, &info, funcName);
+        spvContext.pushDebugLexicalScope(info, debugFunction);
+      }
     }
   }
 
