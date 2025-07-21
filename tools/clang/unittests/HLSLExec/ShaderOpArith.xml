@@ -2552,11 +2552,11 @@
 
         void InitSharedMem(uint ix) {
           // Zero-init shared memory, with special cases
-          if (ix < 6)
+          if (ix < 7)
             g_uintShare[ix] = ix == 1 ? 99999999 : ix == 3 ? -1 : 0;
-          if (ix < 3)
+          if (ix < 4)
             g_sintShare[ix] = ix == 1 ? 99999999 : 0;
-          if (ix < 64)
+          if (ix < 65)
             g_xchgShare[ix] = 0;
 
           GroupMemoryBarrierWithGroupSync();
