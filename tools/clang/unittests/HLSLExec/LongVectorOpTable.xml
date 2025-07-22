@@ -596,4 +596,98 @@
         <Parameter Name="DataType">float64</Parameter>
       </Row>
     </Table>
+    <Table Id="TrigonometricOpTable">
+      <ParameterTypes>
+        <!-- InputValueSetName1 is optional. If no value is provided use the
+        default value set for the data type. This string is meant to be a key
+        value for the the array of std::pairs defined in LongVectorTestData.h
+        for the applicable DataType-->
+        <ParameterType Name="InputValueSetName1">String</ParameterType>
+        <!-- InputArgsName is optional and is also a key to the array of
+        std::pairs defined in LongVectorTestData.h for the applicable DataType.
+        Used for args like min and max in clamp-->
+        <ParameterType Name="DataType">String</ParameterType>
+        <ParameterType Name="OpTypeEnum">String</ParameterType>
+      </ParameterTypes>
+      <!-- LongVectorUnaryOpTable_Trigonometric DataType: float16 -->
+      <Row Name="Acos_float16">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Acos</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeOne</Parameter>
+      </Row>
+      <Row Name="Asin_float16">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Asin</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeHalfPi</Parameter>
+      </Row>
+      <Row Name="Atan_float16">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Atan</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeHalfPi</Parameter>
+      </Row>
+      <Row Name="Cos_float16">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Cos</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Cosh_float16">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Cosh</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Sin_float16">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Sin</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Sinh_float16">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Sinh</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Tan_float16">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Tan</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Tanh_float16">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Tanh</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <!-- LongVectorUnaryOpTable_Trigonometric DataType: float32 -->
+      <Row Name="Acos_float32">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Acos</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeOne</Parameter>
+      </Row>
+      <Row Name="Asin_float32">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Asin</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeHalfPi</Parameter>
+      </Row>
+      <Row Name="Atan_float32">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Atan</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+        <Parameter Name="InputValueSetName1">TrigonometricInputValueSet_RangeHalfPi</Parameter>
+      </Row>
+      <Row Name="Cos_float32">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Cos</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Cosh_float32">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Cosh</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Sin_float32">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Sin</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Sinh_float32">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Sinh</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Tan_float32">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Tan</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Tanh_float32">
+        <Parameter Name="OpTypeEnum">TrigonometricOpType_Tanh</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+    </Table>
 </Data>

@@ -35,6 +35,11 @@ public:
                        L"Table:LongVectorOpTable.xml#BinaryOpTable")
   END_TEST_METHOD()
 
+  BEGIN_TEST_METHOD(trigonometricOpTest)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:LongVectorOpTable.xml#TrigonometricOpTable")
+  END_TEST_METHOD()
+
   BEGIN_TEST_METHOD(unaryOpTest)
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:LongVectorOpTable.xml#UnaryOpTable")
@@ -150,6 +155,39 @@ static_assert(_countof(unaryOpTypeStringToEnumMap) ==
 
 UnaryOpType getUnaryOpType(const std::wstring &OpTypeString);
 
+enum TrigonometricOpType {
+  TrigonometricOpType_Acos,
+  TrigonometricOpType_Asin,
+  TrigonometricOpType_Atan,
+  TrigonometricOpType_Cos,
+  TrigonometricOpType_Cosh,
+  TrigonometricOpType_Sin,
+  TrigonometricOpType_Sinh,
+  TrigonometricOpType_Tan,
+  TrigonometricOpType_Tanh,
+  TrigonometricOpType_EnumValueCount
+};
+
+static const LongVectorOpTypeStringToEnumValue
+    trigonometricOpTypeStringToEnumMap[] = {
+        {L"TrigonometricOpType_Acos", TrigonometricOpType_Acos},
+        {L"TrigonometricOpType_Asin", TrigonometricOpType_Asin},
+        {L"TrigonometricOpType_Atan", TrigonometricOpType_Atan},
+        {L"TrigonometricOpType_Cos", TrigonometricOpType_Cos},
+        {L"TrigonometricOpType_Cosh", TrigonometricOpType_Cosh},
+        {L"TrigonometricOpType_Sin", TrigonometricOpType_Sin},
+        {L"TrigonometricOpType_Sinh", TrigonometricOpType_Sinh},
+        {L"TrigonometricOpType_Tan", TrigonometricOpType_Tan},
+        {L"TrigonometricOpType_Tanh", TrigonometricOpType_Tanh},
+};
+
+static_assert(_countof(trigonometricOpTypeStringToEnumMap) ==
+                  TrigonometricOpType_EnumValueCount,
+              "trigonometricOpTypeStringToEnumMap size mismatch. Did you add "
+              "a new enum value?");
+
+TrigonometricOpType getTrigonometricOpType(const std::wstring &OpTypeString);
+
 template <typename DataTypeT>
 std::vector<DataTypeT> getInputValueSetByKey(const std::wstring &Key,
                                              bool LogKey = true) {
@@ -214,6 +252,7 @@ public:
 
   TestConfig(UnaryOpType OpType);
   TestConfig(BinaryOpType OpType);
+  TestConfig(TrigonometricOpType OpType);
 
   bool isBinaryOp() const {
     return BasicOpType == LongVector::BasicOpType_Binary ||
@@ -238,8 +277,14 @@ public:
   DataTypeT computeExpectedValue(const DataTypeT &A, const DataTypeT &B,
                                  BinaryOpType OpType) const;
   DataTypeT computeExpectedValue(const DataTypeT &A, const DataTypeT &B) const;
+  DataTypeT computeExpectedValue(const DataTypeT &A,
+                                 TrigonometricOpType OpType) const;
   DataTypeT computeExpectedValue(const DataTypeT &A, UnaryOpType OpType) const;
   DataTypeT computeExpectedValue(const DataTypeT &A) const;
+
+  void setInputArgsArrayName(const std::wstring &InputArgsArrayName) {
+    this->InputArgsArrayName = InputArgsArrayName;
+  }
 
   void setInputValueSet1(const std::wstring &InputValueSetName) {
     this->InputValueSetName1 = InputValueSetName;
@@ -256,6 +301,8 @@ public:
   std::vector<DataTypeT> getInputValueSet2() const {
     return getInputValueSet(2);
   }
+
+  std::vector<DataTypeT> getInputArgsArray() const;
 
   float getTolerance() const { return Tolerance; }
   LongVector::ValidationType getValidationType() const {
@@ -278,6 +325,8 @@ private:
   LongVector::TestConfigTraits<LongVectorOpTypeT> OpTypeTraits;
   std::wstring InputValueSetName1 = L"DefaultInputValueSet1";
   std::wstring InputValueSetName2 = L"DefaultInputValueSet2";
+  // No default args array
+  std::wstring InputArgsArrayName = L"";
 }; // class LongVector::TestConfig
 
 }; // namespace LongVector

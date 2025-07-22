@@ -343,6 +343,59 @@ LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::TestConfig(LongVector::Bin
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
+LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::TestConfig(LongVector::TrigonometricOpType OpType)
+    : OpTypeTraits(OpType) {
+  IntrinsicString = "";
+  BasicOpType = LongVector::BasicOpType_Unary;
+
+  // All trigonometric ops are floating point types.
+  // These trig functions are defined to have a max absolute error of 0.0008
+  // as per the D3D functional specs. An example with this spec for sin and
+  // cos is available here:
+  // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
+  ValidationType = LongVector::ValidationType_Epsilon;
+  if (std::is_same_v<DataTypeT, HLSLHalf_t>)
+    Tolerance = 0.0010f;
+  else if (std::is_same_v<DataTypeT, float>)
+    Tolerance = 0.0008f;
+  else
+    VERIFY_FAIL(
+        "Invalid type for trigonometric op. Expecting half or float.");
+
+  switch (OpType) {
+  case LongVector::TrigonometricOpType_Acos:
+    IntrinsicString = "acos";
+    break;
+  case LongVector::TrigonometricOpType_Asin:
+    IntrinsicString = "asin";
+    break;
+  case LongVector::TrigonometricOpType_Atan:
+    IntrinsicString = "atan";
+    break;
+  case LongVector::TrigonometricOpType_Cos:
+    IntrinsicString = "cos";
+    break;
+  case LongVector::TrigonometricOpType_Cosh:
+    IntrinsicString = "cosh";
+    break;
+  case LongVector::TrigonometricOpType_Sin:
+    IntrinsicString = "sin";
+    break;
+  case LongVector::TrigonometricOpType_Sinh:
+    IntrinsicString = "sinh";
+    break;
+  case LongVector::TrigonometricOpType_Tan:
+    IntrinsicString = "tan";
+    break;
+  case LongVector::TrigonometricOpType_Tanh:
+    IntrinsicString = "tanh";
+    break;
+  default:
+    VERIFY_FAIL("Invalid TrigonometricOpType");
+  }
+}
+
+template <typename DataTypeT, typename LongVectorOpTypeT>
 bool LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::hasFunctionDefinition() const {
   if constexpr (std::is_same_v<LongVectorOpTypeT, LongVector::UnaryOpType>) {
     if (OpTypeTraits.OpType == LongVector::UnaryOpType_Initialize)
@@ -463,6 +516,13 @@ DataTypeT LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::computeExpectedV
 template <typename DataTypeT, typename LongVectorOpTypeT>
 DataTypeT LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::computeExpectedValue(const DataTypeT &A) const {
 
+  if constexpr (std::is_same_v<LongVectorOpTypeT, LongVector::TrigonometricOpType>) {
+    const auto OpType = static_cast<LongVector::TrigonometricOpType>(OpTypeTraits.OpType);
+    // HLSLHalf_t is a struct. We need to call the constructor to get the
+    // expected value.
+    return computeExpectedValue(A, OpType);
+  }
+
   if constexpr (std::is_same_v<LongVectorOpTypeT, LongVector::UnaryOpType>) {
     const auto OpType = static_cast<LongVector::UnaryOpType>(OpTypeTraits.OpType);
     // HLSLHalf_t is a struct. We need to call the constructor to get the
@@ -475,6 +535,67 @@ DataTypeT LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::computeExpectedV
     OpTypeTraits.OpType);
 
   return DataTypeT();
+}
+
+template <typename DataTypeT, typename LongVectorOpTypeT>
+DataTypeT LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::computeExpectedValue(const DataTypeT &A,
+                              LongVector::TrigonometricOpType OpType) const {
+  // The trig functions are only valid on floating point types. The constexpr in
+  // this case is a relatively easy and clean way to prevent the compiler from
+  // erroring out trying to resolve these for the non floating point types. We
+  // won't use them in the first place.
+  if constexpr (isFloatingPointType<DataTypeT>()) {
+    switch (OpType) {
+    case LongVector::TrigonometricOpType_Acos:
+      return std::acos(A);
+    case LongVector::TrigonometricOpType_Asin:
+      return std::asin(A);
+    case LongVector::TrigonometricOpType_Atan:
+      return std::atan(A);
+    case LongVector::TrigonometricOpType_Cos:
+      return std::cos(A);
+    case LongVector::TrigonometricOpType_Cosh:
+      return std::cosh(A);
+    case LongVector::TrigonometricOpType_Sin:
+      return std::sin(A);
+    case LongVector::TrigonometricOpType_Sinh:
+      return std::sinh(A);
+    case LongVector::TrigonometricOpType_Tan:
+      return std::tan(A);
+    case LongVector::TrigonometricOpType_Tanh:
+      return std::tanh(A);
+    default:
+      LOG_ERROR_FMT_THROW(L"Unknown TrigonometricOpType: %d",
+                          OpTypeTraits.OpType);
+      return DataTypeT();
+    }
+  }
+
+  LOG_ERROR_FMT_THROW(L"ComputeExpectedValue(const DataTypeT &A, "
+                      L"LongVectorOpTypeT OpType) called on a "
+                      L"non-float type: %d",
+                      OpType);
+
+  return DataTypeT();
+}
+
+template <typename DataTypeT, typename LongVectorOpTypeT>
+std::vector<DataTypeT>  LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::getInputArgsArray() const {
+
+  std::vector<DataTypeT> InputArgs;
+
+  std::wstring InputArgsArrayName = this->InputArgsArrayName;
+
+  if (InputArgsArrayName.empty())
+    VERIFY_FAIL("No args array name set.");
+
+  if (std::is_same_v<DataTypeT, HLSLBool_t> && isClampOp())
+    VERIFY_FAIL("Clamp is not supported for bools.");
+  else
+    return getInputValueSetByKey<DataTypeT>(InputArgsArrayName, false);
+
+  VERIFY_FAIL("Invalid type for args array.");
+  return std::vector<DataTypeT>();
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
