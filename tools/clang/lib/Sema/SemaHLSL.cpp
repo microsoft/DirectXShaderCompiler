@@ -5318,7 +5318,7 @@ public:
   bool Initialize(ASTContext &context) {
     m_context = &context;
 
-    // The HLSL namespace is disabled here pending a decision on whether or
+    // The HLSL namespace is disabled here pending a decision on
     // https://github.com/microsoft/hlsl-specs/issues/484.
     if (false && context.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x) {
       m_hlslNSDecl =
