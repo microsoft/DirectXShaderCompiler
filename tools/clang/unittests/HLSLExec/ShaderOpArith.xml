@@ -3785,6 +3785,15 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_CLAMP
+        vector<TYPE, NUM> TestClamp(vector<TYPE, NUM> Vector, vector<TYPE, 2> ClampArgMinMax)
+        {
+          TYPE ClampArgMin = ClampArgMinMax[0];
+          TYPE ClampArgMax = ClampArgMinMax[1];
+          return clamp(Vector, ClampArgMin, ClampArgMax);
+        }
+        #endif
+
         RWByteAddressBuffer g_InputFuncArgs : register(u0);
         RWByteAddressBuffer g_InputVector1 : register(u1);
         RWByteAddressBuffer g_InputVector2 : register(u2);
@@ -3810,9 +3819,9 @@ void MSMain(uint GID : SV_GroupIndex,
           vector<TYPE, 2> ClampArgMinMax = {Clamp_ArgMin, Clamp_ArgMax};
           #endif
 
-          vector<TYPE, NUM> OutputVector = FUNC(InputVector1 OPERATOR OPERAND2);
+          vector<OUT_TYPE, NUM> OutputVector = FUNC(InputVector1 OPERATOR OPERAND2);
 
-          g_OutputVector.Store< vector<TYPE, NUM> >(0, OutputVector);
+          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, OutputVector);
         };
       ]]>
     </Shader>
