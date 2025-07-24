@@ -16,6 +16,13 @@ LongVector::getUnaryOpType(const std::wstring &OpTypeString) {
       std::size(unaryOpTypeStringToEnumMap));
 }
 
+LongVector::TrigonometricOpType
+LongVector::getTrigonometricOpType(const std::wstring &OpTypeString) {
+  return getLongVectorOpType<LongVector::TrigonometricOpType>(
+      trigonometricOpTypeStringToEnumMap, OpTypeString,
+      std::size(trigonometricOpTypeStringToEnumMap));
+}
+
 // These are helper arrays to be used with the TableParameterHandler that parses
 // the LongVectorOpTable.xml file for us.
 static TableParameter BinaryOpParameters[] = {
@@ -87,6 +94,20 @@ TEST_F(LongVector::OpTest, binaryOpTest) {
   std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
 
   auto OpType = LongVector::getBinaryOpType(OpTypeString);
+  dispatchTestByDataType(OpType, DataType, Handler);
+}
+
+TEST_F(LongVector::OpTest, trigonometricOpTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  const int TableSize = sizeof(UnaryOpParameters) / sizeof(TableParameter);
+  TableParameterHandler Handler(UnaryOpParameters, TableSize);
+
+  std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
+  std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
+
+  auto OpType = LongVector::getTrigonometricOpType(OpTypeString);
   dispatchTestByDataType(OpType, DataType, Handler);
 }
 
