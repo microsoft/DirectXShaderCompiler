@@ -25,7 +25,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Regex.h"
-#include <wchar.h> // for _wgetenv
+#include <wchar.h>
 
 #ifdef _WIN32
 #include <atlbase.h>
