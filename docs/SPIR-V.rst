@@ -896,6 +896,13 @@ are translated into SPIR-V ``OpTypeImage``, with parameters:
 The meanings of the headers in the above table is explained in ``OpTypeImage``
 of the SPIR-V spec.
 
+For storage images (e.g. ``RWTexture2D<T>``) and texel buffers (e.g. ``RWBuffer<T>``),
+the image format is typically inferred from the data type ``T``. However, the
+``-fspv-use-unknown-image-format`` command-line option can be used to change
+this behavior. When this option is active, the default format for these
+resources becomes ``Unknown`` if not otherwise specified by the
+``[[vk::image_format]]`` attribute.
+
 Vulkan specific Image Formats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1012,17 +1019,18 @@ right now:
 2. DirectX memory layout rules for uniform buffers and storage buffers:
    they allow packing data on the application side that can be shared with
    DirectX. They can be enabled by ``-fvk-use-dx-layout``.
+   
+   NOTE: This requires ``VK_EXT_scalar_block_layout`` to be enabled on the
+   application side.
 3. Strict OpenGL ``std140`` for uniform buffers and strict OpenGL ``std430``
    for storage buffers: they allow packing data on the application side that
    can be shared with OpenGL. They can be enabled by ``-fvk-use-gl-layout``.
 4. Scalar layout rules introduced via `VK_EXT_scalar_block_layout`, which
    basically aligns all aggregrate types according to their elements'
    natural alignment. They can be enabled by ``-fvk-use-scalar-layout``.
-
-To use scalar layout, the application side need to request
-``VK_EXT_scalar_block_layout``. This is also true for using DirectX memory
-layout since there is no dedicated DirectX layout extension for Vulkan
-(at least for now). So we must request something more permissive.
+   
+   NOTE: This requires ``VK_EXT_scalar_block_layout`` to be enabled on the
+   application side.
 
 In the above, "vector-relaxed OpenGL ``std140``/``std430``" rules mean OpenGL
 ``std140``/``std430`` rules with the following modification for vector type
@@ -1032,7 +1040,7 @@ alignment:
 2. If the above causes an `improper straddle <https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#interfaces-resources-layout>`_,
    the alignment will be set to 16 bytes.
 
-As an exmaple, for the following HLSL definition:
+As an example, for the following HLSL definition:
 
 .. code:: hlsl
 
@@ -3967,7 +3975,7 @@ RayQuery Mapping to SPIR-V
 +---------------------------------------------------+-------------------------------------------------------------------------+
 |``.WorldRayDirection``                             | ``OpRayQueryGetWorldRayDirectionKHR``                                   |
 +---------------------------------------------------+-------------------------------------------------------------------------+
-|``.WorldRayOrigin`                                 | ``OpRayQueryGetWorldRayOriginKHR``                                      |
+|``.WorldRayOrigin``                                | ``OpRayQueryGetWorldRayOriginKHR``                                      |
 +---------------------------------------------------+-------------------------------------------------------------------------+
 
 Shader Model 6.0+ Wave Intrinsics
@@ -4227,7 +4235,7 @@ codegen for Vulkan:
 - ``-fvk-use-dx-layout``: Uses DirectX layout rules for resources.
 - ``-fvk-invert-y``: Negates (additively inverts) SV_Position.y before writing
   to stage output. Used to accommodate the difference between Vulkan's
-  coordinate system and DirectX's. Only allowed in VS/DS/GS.
+  coordinate system and DirectX's. Only allowed in VS/DS/GS/MS/Lib.
 - ``-fvk-use-dx-position-w``: Reciprocates (multiplicatively inverts)
   SV_Position.w after reading from stage input. Used to accommodate the
   difference between Vulkan DirectX: the w component of SV_Position in PS is

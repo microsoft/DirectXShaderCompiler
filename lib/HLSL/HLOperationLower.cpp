@@ -7,9 +7,6 @@
 //                                                                           //
 // Lower functions to lower HL operations to DXIL operations.                //
 //                                                                           //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
-// All rights reserved.                                                      //
-//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilConstants.h"
@@ -19,6 +16,8 @@
 #include <functional>
 #include <unordered_set>
 
+#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
@@ -3064,10 +3063,10 @@ static Value *ScalarizeResRet(Type *RetTy, Value *ResRet,
 }
 
 void UpdateStatus(Value *ResRet, Value *status, IRBuilder<> &Builder,
-                  hlsl::OP *hlslOp) {
+                  hlsl::OP *hlslOp,
+                  unsigned StatusIndex = DXIL::kResRetStatusIndex) {
   if (status && !isa<UndefValue>(status)) {
-    Value *statusVal =
-        Builder.CreateExtractValue(ResRet, DXIL::kResRetStatusIndex);
+    Value *statusVal = Builder.CreateExtractValue(ResRet, StatusIndex);
     Value *checkAccessOp = hlslOp->GetI32Const(
         static_cast<unsigned>(DXIL::OpCode::CheckAccessFullyMapped));
     Function *checkAccessFn = hlslOp->GetOpFunc(
@@ -4029,9 +4028,9 @@ struct ResLoadHelper {
   // Used for some subscript operators that feed the generic HL call inst
   // into a load op and by the matrixload call instruction.
   ResLoadHelper(Instruction *Inst, DxilResource::Kind RK, Value *h, Value *idx,
-                Value *Offset, Value *mip = nullptr)
+                Value *Offset, Value *status = nullptr, Value *mip = nullptr)
       : intrinsicOpCode(IntrinsicOp::Num_Intrinsics), handle(h), retVal(Inst),
-        addr(idx), offset(Offset), status(nullptr), mipLevel(mip) {
+        addr(idx), offset(Offset), status(status), mipLevel(mip) {
     opcode = LoadOpFromResKind(RK);
     Type *Ty = Inst->getType();
     if (opcode == OP::OpCode::RawBufferLoad && Ty->isVectorTy() &&
@@ -4305,18 +4304,22 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
     Function *F = OP->GetOpFunc(opcode, EltTy);
     Value *Ld = Builder.CreateCall(F, Args, OP::GetOpCodeName(opcode));
+    unsigned StatusIndex;
 
     // Extract elements from returned ResRet.
     // Native vector loads just have one vector element in the ResRet.
     // Others have up to four scalars that need to be individually extracted.
-    if (opcode == OP::OpCode::RawBufferVectorLoad)
+    if (opcode == OP::OpCode::RawBufferVectorLoad) {
       Elts[i++] = Builder.CreateExtractValue(Ld, 0);
-    else
+      StatusIndex = DXIL::kVecResRetStatusIndex;
+    } else {
       for (unsigned j = 0; j < chunkSize; j++, i++)
         Elts[i] = Builder.CreateExtractValue(Ld, j);
+      StatusIndex = DXIL::kResRetStatusIndex;
+    }
 
     // Update status.
-    UpdateStatus(Ld, helper.status, Builder, OP);
+    UpdateStatus(Ld, helper.status, Builder, OP, StatusIndex);
 
     if (!FirstLd)
       FirstLd = Ld;
@@ -5718,58 +5721,51 @@ Value *TranslateCallShader(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return Builder.CreateCall(F, {opArg, ShaderIndex, Parameter});
 }
 
-Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
-                         HLOperationLowerHelper &helper,
+static void TransferRayDescArgs(Value **Args, hlsl::OP *OP,
+                                IRBuilder<> &Builder, CallInst *CI,
+                                unsigned &Index, unsigned &HLIndex) {
+  // Extract elements from flattened ray desc arguments in HL op.
+  // float3 Origin;
+  Value *origin = CI->getArgOperand(HLIndex++);
+  Args[Index++] = Builder.CreateExtractElement(origin, (uint64_t)0);
+  Args[Index++] = Builder.CreateExtractElement(origin, 1);
+  Args[Index++] = Builder.CreateExtractElement(origin, 2);
+  // float  TMin;
+  Args[Index++] = CI->getArgOperand(HLIndex++);
+  // float3 Direction;
+  Value *direction = CI->getArgOperand(HLIndex++);
+  Args[Index++] = Builder.CreateExtractElement(direction, (uint64_t)0);
+  Args[Index++] = Builder.CreateExtractElement(direction, 1);
+  Args[Index++] = Builder.CreateExtractElement(direction, 2);
+  // float  TMax;
+  Args[Index++] = CI->getArgOperand(HLIndex++);
+}
+
+Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+                         HLOperationLowerHelper &Helper,
                          HLObjectOperationLowerHelper *pObjHelper,
                          bool &Translated) {
-  hlsl::OP *hlslOP = &helper.hlslOP;
-
-  Value *rayDesc = CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx);
-  Value *payLoad = CI->getArgOperand(HLOperandIndex::kTraceRayPayLoadOpIdx);
-
-  Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
+  hlsl::OP *OP = &Helper.hlslOP;
 
   Value *Args[DXIL::OperandIndex::kTraceRayNumOp];
-  Args[0] = opArg;
-  for (unsigned i = 1; i < HLOperandIndex::kTraceRayRayDescOpIdx; i++) {
-    Args[i] = CI->getArgOperand(i);
-  }
+  Args[0] = OP->GetU32Const(static_cast<unsigned>(OpCode));
+  unsigned Index = 1, HLIndex = 1;
+  while (HLIndex < HLOperandIndex::kTraceRayRayDescOpIdx)
+    Args[Index++] = CI->getArgOperand(HLIndex++);
+
   IRBuilder<> Builder(CI);
-  // struct RayDesc
-  //{
-  //    float3 Origin;
-  //    float  TMin;
-  //    float3 Direction;
-  //    float  TMax;
-  //};
-  Value *zeroIdx = hlslOP->GetU32Const(0);
-  Value *origin = Builder.CreateGEP(rayDesc, {zeroIdx, zeroIdx});
-  origin = Builder.CreateLoad(origin);
-  unsigned index = DXIL::OperandIndex::kTraceRayRayDescOpIdx;
-  Args[index++] = Builder.CreateExtractElement(origin, (uint64_t)0);
-  Args[index++] = Builder.CreateExtractElement(origin, 1);
-  Args[index++] = Builder.CreateExtractElement(origin, 2);
+  TransferRayDescArgs(Args, OP, Builder, CI, Index, HLIndex);
+  DXASSERT_NOMSG(HLIndex == CI->getNumArgOperands() - 1);
+  DXASSERT_NOMSG(Index == DXIL::OperandIndex::kTraceRayPayloadOpIdx);
 
-  Value *tmin = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(1)});
-  tmin = Builder.CreateLoad(tmin);
-  Args[index++] = tmin;
+  Value *Payload = CI->getArgOperand(HLIndex++);
+  Args[Index++] = Payload;
 
-  Value *direction =
-      Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(2)});
-  direction = Builder.CreateLoad(direction);
+  DXASSERT_NOMSG(HLIndex == CI->getNumArgOperands());
+  DXASSERT_NOMSG(Index == DXIL::OperandIndex::kTraceRayNumOp);
 
-  Args[index++] = Builder.CreateExtractElement(direction, (uint64_t)0);
-  Args[index++] = Builder.CreateExtractElement(direction, 1);
-  Args[index++] = Builder.CreateExtractElement(direction, 2);
-
-  Value *tmax = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(3)});
-  tmax = Builder.CreateLoad(tmax);
-  Args[index++] = tmax;
-
-  Args[DXIL::OperandIndex::kTraceRayPayloadOpIdx] = payLoad;
-
-  Type *Ty = payLoad->getType();
-  Function *F = hlslOP->GetOpFunc(opcode, Ty);
+  Type *Ty = Payload->getType();
+  Function *F = OP->GetOpFunc(OpCode, Ty);
 
   return Builder.CreateCall(F, Args);
 }
@@ -5812,33 +5808,16 @@ Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   Value *Args[DXIL::OperandIndex::kTraceRayInlineNumOp];
   Args[0] = opArg;
-  for (unsigned i = 1; i < HLOperandIndex::kTraceRayInlineRayDescOpIdx; i++) {
-    Args[i] = CI->getArgOperand(i);
-  }
+  unsigned Index = 1, HLIndex = 1;
+  while (HLIndex < HLOperandIndex::kTraceRayInlineRayDescOpIdx)
+    Args[Index++] = CI->getArgOperand(HLIndex++);
 
   IRBuilder<> Builder(CI);
-  unsigned hlIndex = HLOperandIndex::kTraceRayInlineRayDescOpIdx;
-  unsigned index = DXIL::OperandIndex::kTraceRayInlineRayDescOpIdx;
-
-  // struct RayDesc
-  //{
-  //    float3 Origin;
-  Value *origin = CI->getArgOperand(hlIndex++);
-  Args[index++] = Builder.CreateExtractElement(origin, (uint64_t)0);
-  Args[index++] = Builder.CreateExtractElement(origin, 1);
-  Args[index++] = Builder.CreateExtractElement(origin, 2);
-  //    float  TMin;
-  Args[index++] = CI->getArgOperand(hlIndex++);
-  //    float3 Direction;
-  Value *direction = CI->getArgOperand(hlIndex++);
-  Args[index++] = Builder.CreateExtractElement(direction, (uint64_t)0);
-  Args[index++] = Builder.CreateExtractElement(direction, 1);
-  Args[index++] = Builder.CreateExtractElement(direction, 2);
-  //    float  TMax;
-  Args[index++] = CI->getArgOperand(hlIndex++);
-  //};
-
-  DXASSERT_NOMSG(index == DXIL::OperandIndex::kTraceRayInlineNumOp);
+  DXASSERT_NOMSG(HLIndex == HLOperandIndex::kTraceRayInlineRayDescOpIdx);
+  DXASSERT_NOMSG(Index == DXIL::OperandIndex::kTraceRayInlineRayDescOpIdx);
+  TransferRayDescArgs(Args, hlslOP, Builder, CI, Index, HLIndex);
+  DXASSERT_NOMSG(HLIndex == CI->getNumArgOperands());
+  DXASSERT_NOMSG(Index == DXIL::OperandIndex::kTraceRayInlineNumOp);
 
   Function *F = hlslOP->GetOpFunc(opcode, Builder.getVoidTy());
 
@@ -5953,19 +5932,31 @@ Value *TranslateNoArgVectorOperation(CallInst *CI, IntrinsicOp IOP,
   return retVal;
 }
 
+template <typename ColElemTy>
+static void GetMatrixIndices(Constant *&Rows, Constant *&Cols, bool Is3x4,
+                             LLVMContext &Ctx) {
+  if (Is3x4) {
+    uint32_t RVals[] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
+    Rows = ConstantDataVector::get(Ctx, RVals);
+    ColElemTy CVals[] = {0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
+    Cols = ConstantDataVector::get(Ctx, CVals);
+    return;
+  }
+  uint32_t RVals[] = {0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2};
+  Rows = ConstantDataVector::get(Ctx, RVals);
+  ColElemTy CVals[] = {0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3};
+  Cols = ConstantDataVector::get(Ctx, CVals);
+}
+
 Value *TranslateNoArgMatrix3x4Operation(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper,
     bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   VectorType *Ty = cast<VectorType>(CI->getType());
-  uint32_t rVals[] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
-  Constant *rows = ConstantDataVector::get(CI->getContext(), rVals);
-  uint8_t cVals[] = {0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
-  Constant *cols = ConstantDataVector::get(CI->getContext(), cVals);
-  Value *retVal =
-      TrivialDxilOperation(opcode, {nullptr, rows, cols}, Ty, CI, hlslOP);
-  return retVal;
+  Constant *Rows, *Cols;
+  GetMatrixIndices<uint8_t>(Rows, Cols, true, CI->getContext());
+  return TrivialDxilOperation(opcode, {nullptr, Rows, Cols}, Ty, CI, hlslOP);
 }
 
 Value *TranslateNoArgTransposedMatrix3x4Operation(
@@ -5974,13 +5965,9 @@ Value *TranslateNoArgTransposedMatrix3x4Operation(
     bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   VectorType *Ty = cast<VectorType>(CI->getType());
-  uint32_t rVals[] = {0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2};
-  Constant *rows = ConstantDataVector::get(CI->getContext(), rVals);
-  uint8_t cVals[] = {0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3};
-  Constant *cols = ConstantDataVector::get(CI->getContext(), cVals);
-  Value *retVal =
-      TrivialDxilOperation(opcode, {nullptr, rows, cols}, Ty, CI, hlslOP);
-  return retVal;
+  Constant *Rows, *Cols;
+  GetMatrixIndices<uint8_t>(Rows, Cols, false, CI->getContext());
+  return TrivialDxilOperation(opcode, {nullptr, Rows, Cols}, Ty, CI, hlslOP);
 }
 
 /*
@@ -6184,55 +6171,49 @@ Value *TranslateUnpack(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
 // Shader Execution Reordering.
 namespace {
-Value *TranslateHitObjectMake(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
-                              HLOperationLowerHelper &Helper,
-                              HLObjectOperationLowerHelper *ObjHelper,
-                              bool &Translated) {
+Value *TranslateHitObjectMakeNop(CallInst *CI, IntrinsicOp IOP,
+                                 OP::OpCode Opcode,
+                                 HLOperationLowerHelper &Helper,
+                                 HLObjectOperationLowerHelper *ObjHelper,
+                                 bool &Translated) {
   hlsl::OP *HlslOP = &Helper.hlslOP;
   IRBuilder<> Builder(CI);
-  unsigned SrcIdx = 1;
-  Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
-  if (Opcode == OP::OpCode::HitObject_MakeNop) {
-    Value *HitObject = TrivialDxilOperation(
-        Opcode, {nullptr}, Type::getVoidTy(CI->getContext()), CI, HlslOP);
-    Builder.CreateStore(HitObject, HitObjectPtr);
-    DXASSERT(
-        CI->use_empty(),
-        "Default ctor return type is a Clang artifact. Value must not be used");
-    return nullptr;
-  }
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  Value *HitObject = TrivialDxilOperation(
+      Opcode, {nullptr}, Type::getVoidTy(CI->getContext()), CI, HlslOP);
+  Builder.CreateStore(HitObject, HitObjectPtr);
+  DXASSERT(
+      CI->use_empty(),
+      "Default ctor return type is a Clang artifact. Value must not be used");
+  return nullptr;
+}
 
+Value *TranslateHitObjectMakeMiss(CallInst *CI, IntrinsicOp IOP,
+                                  OP::OpCode Opcode,
+                                  HLOperationLowerHelper &Helper,
+                                  HLObjectOperationLowerHelper *ObjHelper,
+                                  bool &Translated) {
   DXASSERT_NOMSG(CI->getNumArgOperands() ==
                  HLOperandIndex::kHitObjectMakeMiss_NumOp);
-  Value *RayFlags = CI->getArgOperand(SrcIdx++);
-  Value *MissShaderIdx = CI->getArgOperand(SrcIdx++);
-  DXASSERT_NOMSG(SrcIdx == HLOperandIndex::kHitObjectMakeMissRayDescOpIdx);
-  Value *RayDescOrigin = CI->getArgOperand(SrcIdx++);
-  Value *RayDescOriginX =
-      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)0);
-  Value *RayDescOriginY =
-      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)1);
-  Value *RayDescOriginZ =
-      Builder.CreateExtractElement(RayDescOrigin, (uint64_t)2);
+  hlsl::OP *OP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+  Value *Args[DXIL::OperandIndex::kHitObjectMakeMiss_NumOp];
+  Args[0] = nullptr; // Filled in by TrivialDxilOperation
 
-  Value *RayDescTMin = CI->getArgOperand(SrcIdx++);
-  Value *RayDescDirection = CI->getArgOperand(SrcIdx++);
-  Value *RayDescDirectionX =
-      Builder.CreateExtractElement(RayDescDirection, (uint64_t)0);
-  Value *RayDescDirectionY =
-      Builder.CreateExtractElement(RayDescDirection, (uint64_t)1);
-  Value *RayDescDirectionZ =
-      Builder.CreateExtractElement(RayDescDirection, (uint64_t)2);
+  unsigned DestIdx = 1, SrcIdx = 1;
+  Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
+  Args[DestIdx++] = CI->getArgOperand(SrcIdx++); // RayFlags
+  Args[DestIdx++] = CI->getArgOperand(SrcIdx++); // MissShaderIdx
 
-  Value *RayDescTMax = CI->getArgOperand(SrcIdx++);
+  DXASSERT_NOMSG(SrcIdx == HLOperandIndex::kHitObjectMakeMiss_RayDescOpIdx);
+  DXASSERT_NOMSG(DestIdx ==
+                 DXIL::OperandIndex::kHitObjectMakeMiss_RayDescOpIdx);
+  TransferRayDescArgs(Args, OP, Builder, CI, DestIdx, SrcIdx);
   DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
+  DXASSERT_NOMSG(DestIdx == DXIL::OperandIndex::kHitObjectMakeMiss_NumOp);
 
-  Value *OutHitObject = TrivialDxilOperation(
-      Opcode,
-      {nullptr, RayFlags, MissShaderIdx, RayDescOriginX, RayDescOriginY,
-       RayDescOriginZ, RayDescTMin, RayDescDirectionX, RayDescDirectionY,
-       RayDescDirectionZ, RayDescTMax},
-      Helper.voidTy, CI, HlslOP);
+  Value *OutHitObject =
+      TrivialDxilOperation(Opcode, Args, Helper.voidTy, CI, OP);
   Builder.CreateStore(OutHitObject, HitObjectPtr);
   return nullptr;
 }
@@ -6299,7 +6280,32 @@ Value *TranslateHitObjectFromRayQuery(CallInst *CI, IntrinsicOp IOP,
                                       HLOperationLowerHelper &Helper,
                                       HLObjectOperationLowerHelper *pObjHelper,
                                       bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  unsigned SrcIdx = 1;
+  Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
+  Value *RayQuery = CI->getArgOperand(SrcIdx++);
+
+  if (CI->getNumArgOperands() ==
+      HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_NumOp) {
+    Value *HitKind = CI->getArgOperand(SrcIdx++);
+    Value *AttribSrc = CI->getArgOperand(SrcIdx++);
+    DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
+    OpCode = DXIL::OpCode::HitObject_FromRayQueryWithAttrs;
+    Type *AttrTy = AttribSrc->getType();
+    Value *OutHitObject = TrivialDxilOperation(
+        OpCode, {nullptr, RayQuery, HitKind, AttribSrc}, AttrTy, CI, OP);
+    Builder.CreateStore(OutHitObject, HitObjectPtr);
+    return nullptr;
+  }
+
+  DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
+  OpCode = DXIL::OpCode::HitObject_FromRayQuery;
+  Value *OutHitObject =
+      TrivialDxilOperation(OpCode, {nullptr, RayQuery}, Helper.voidTy, CI, OP);
+  Builder.CreateStore(OutHitObject, HitObjectPtr);
+  return nullptr;
 }
 
 Value *TranslateHitObjectTraceRay(CallInst *CI, IntrinsicOp IOP,
@@ -6307,7 +6313,42 @@ Value *TranslateHitObjectTraceRay(CallInst *CI, IntrinsicOp IOP,
                                   HLOperationLowerHelper &Helper,
                                   HLObjectOperationLowerHelper *pObjHelper,
                                   bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  DXASSERT_NOMSG(CI->getNumArgOperands() ==
+                 HLOperandIndex::kHitObjectTraceRay_NumOp);
+  Value *Args[DXIL::OperandIndex::kHitObjectTraceRay_NumOp];
+  Value *OpArg = OP->GetU32Const(static_cast<unsigned>(OpCode));
+  Args[0] = OpArg;
+
+  unsigned DestIdx = 1, SrcIdx = 1;
+  Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
+  Args[DestIdx++] = CI->getArgOperand(SrcIdx++);
+  for (; SrcIdx < HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx;
+       ++SrcIdx, ++DestIdx) {
+    Args[DestIdx] = CI->getArgOperand(SrcIdx);
+  }
+
+  DXASSERT_NOMSG(SrcIdx == HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx);
+  DXASSERT_NOMSG(DestIdx ==
+                 DXIL::OperandIndex::kHitObjectTraceRay_RayDescOpIdx);
+  TransferRayDescArgs(Args, OP, Builder, CI, DestIdx, SrcIdx);
+  DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands() - 1);
+  DXASSERT_NOMSG(DestIdx ==
+                 DXIL::OperandIndex::kHitObjectTraceRay_PayloadOpIdx);
+
+  Value *Payload = CI->getArgOperand(SrcIdx++);
+  Args[DestIdx++] = Payload;
+
+  DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
+  DXASSERT_NOMSG(DestIdx == DXIL::OperandIndex::kHitObjectTraceRay_NumOp);
+
+  Function *F = OP->GetOpFunc(OpCode, Payload->getType());
+
+  Value *OutHitObject = Builder.CreateCall(F, Args);
+  Builder.CreateStore(OutHitObject, HitObjectPtr);
+  return nullptr;
 }
 
 Value *TranslateHitObjectInvoke(CallInst *CI, IntrinsicOp IOP,
@@ -6315,7 +6356,16 @@ Value *TranslateHitObjectInvoke(CallInst *CI, IntrinsicOp IOP,
                                 HLOperationLowerHelper &Helper,
                                 HLObjectOperationLowerHelper *pObjHelper,
                                 bool &Translated) {
-  return nullptr; // TODO: Merge SER DXIL patches
+  unsigned SrcIdx = 1;
+  Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
+  Value *Payload = CI->getArgOperand(SrcIdx++);
+  DXASSERT_NOMSG(SrcIdx == CI->getNumArgOperands());
+
+  IRBuilder<> Builder(CI);
+  Value *HitObject = Builder.CreateLoad(HitObjectPtr);
+  TrivialDxilOperation(OpCode, {nullptr, HitObject, Payload},
+                       Payload->getType(), CI, &Helper.hlslOP);
+  return nullptr;
 }
 
 Value *TranslateHitObjectGetAttributes(CallInst *CI, IntrinsicOp IOP,
@@ -6323,7 +6373,16 @@ Value *TranslateHitObjectGetAttributes(CallInst *CI, IntrinsicOp IOP,
                                        HLOperationLowerHelper &Helper,
                                        HLObjectOperationLowerHelper *pObjHelper,
                                        bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  Value *HitObject = Builder.CreateLoad(HitObjectPtr);
+  Value *AttrOutPtr =
+      CI->getArgOperand(HLOperandIndex::kHitObjectGetAttributes_AttributeOpIdx);
+  TrivialDxilOperation(OpCode, {nullptr, HitObject, AttrOutPtr},
+                       AttrOutPtr->getType(), CI, OP);
+  return nullptr;
 }
 
 Value *TranslateHitObjectScalarGetter(CallInst *CI, IntrinsicOp IOP,
@@ -6331,7 +6390,12 @@ Value *TranslateHitObjectScalarGetter(CallInst *CI, IntrinsicOp IOP,
                                       HLOperationLowerHelper &Helper,
                                       HLObjectOperationLowerHelper *pObjHelper,
                                       bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  IRBuilder<> Builder(CI);
+  Value *HitObject = Builder.CreateLoad(HitObjectPtr);
+  return TrivialDxilOperation(OpCode, {nullptr, HitObject}, CI->getType(), CI,
+                              OP);
 }
 
 Value *TranslateHitObjectVectorGetter(CallInst *CI, IntrinsicOp IOP,
@@ -6339,7 +6403,24 @@ Value *TranslateHitObjectVectorGetter(CallInst *CI, IntrinsicOp IOP,
                                       HLOperationLowerHelper &Helper,
                                       HLObjectOperationLowerHelper *pObjHelper,
                                       bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  IRBuilder<> Builder(CI);
+  Value *HitObject = Builder.CreateLoad(HitObjectPtr);
+  VectorType *Ty = cast<VectorType>(CI->getType());
+  uint32_t Vals[] = {0, 1, 2, 3};
+  Constant *Src = ConstantDataVector::get(CI->getContext(), Vals);
+  return TrivialDxilOperation(OpCode, {nullptr, HitObject, Src}, Ty, CI, OP);
+}
+
+static bool IsHitObject3x4Getter(IntrinsicOp IOP) {
+  switch (IOP) {
+  default:
+    return false;
+  case IntrinsicOp::MOP_DxHitObject_GetObjectToWorld3x4:
+  case IntrinsicOp::MOP_DxHitObject_GetWorldToObject3x4:
+    return true;
+  }
 }
 
 Value *TranslateHitObjectMatrixGetter(CallInst *CI, IntrinsicOp IOP,
@@ -6347,21 +6428,51 @@ Value *TranslateHitObjectMatrixGetter(CallInst *CI, IntrinsicOp IOP,
                                       HLOperationLowerHelper &Helper,
                                       HLObjectOperationLowerHelper *pObjHelper,
                                       bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  IRBuilder<> Builder(CI);
+  Value *HitObject = Builder.CreateLoad(HitObjectPtr);
+
+  // Create 3x4 matrix indices
+  bool Is3x4 = IsHitObject3x4Getter(IOP);
+  Constant *Rows, *Cols;
+  GetMatrixIndices<uint32_t>(Rows, Cols, Is3x4, CI->getContext());
+
+  VectorType *Ty = cast<VectorType>(CI->getType());
+  return TrivialDxilOperation(OpCode, {nullptr, HitObject, Rows, Cols}, Ty, CI,
+                              OP);
 }
 
 Value *TranslateHitObjectLoadLocalRootTableConstant(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
     HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *pObjHelper,
     bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  Value *Offset = CI->getArgOperand(2);
+
+  Value *HitObject = Builder.CreateLoad(HitObjectPtr);
+  return TrivialDxilOperation(OpCode, {nullptr, HitObject, Offset},
+                              Helper.voidTy, CI, OP);
 }
 
 Value *TranslateHitObjectSetShaderTableIndex(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
     HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *pObjHelper,
     bool &Translated) {
-  return UndefValue::get(CI->getType()); // TODO: Merge SER DXIL patches
+  hlsl::OP *OP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *HitObjectPtr = CI->getArgOperand(1);
+  Value *ShaderTableIndex = CI->getArgOperand(2);
+
+  Value *InHitObject = Builder.CreateLoad(HitObjectPtr);
+  Value *OutHitObject = TrivialDxilOperation(
+      OpCode, {nullptr, InHitObject, ShaderTableIndex}, Helper.voidTy, CI, OP);
+  Builder.CreateStore(OutHitObject, HitObjectPtr);
+  return nullptr;
 }
 
 } // namespace
@@ -6417,6 +6528,200 @@ Value *TranslateSelect(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   return Builder.CreateSelect(cond, t, f);
 }
+
+Value *TranslateMatVecMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+                          HLOperationLowerHelper &Helper,
+                          HLObjectOperationLowerHelper *ObjHelper,
+                          bool &Translated) {
+
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Constant *OpArg = HlslOp->GetU32Const(static_cast<unsigned>(OpCode));
+
+  // Input parameters
+  Value *InputVector =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulInputVectorIdx);
+  Value *InputIsUnsigned =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulIsInputUnsignedIdx);
+  Value *InputInterpretation =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulInputInterpretationIdx);
+
+  // Matrix parameters
+  Value *MatrixBuffer =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixBufferIdx);
+  Value *MatrixOffset =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixOffsetIdx);
+  Value *MatrixInterpretation =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixInterpretationIdx);
+  Value *MatrixM = CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixMIdx);
+  Value *MatrixK = CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixKIdx);
+  Value *MatrixLayout =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixLayoutIdx);
+  Value *MatrixTranspose =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixTransposeIdx);
+  Value *MatrixStride =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulMatrixStrideIdx);
+
+  // Output parameters
+  Value *OutputIsUnsigned =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulIsOutputUnsignedIdx);
+
+  // Get the DXIL function for the operation
+  Function *DxilFunc = HlslOp->GetOpFunc(
+      OpCode, {CI->getArgOperand(HLOperandIndex::kMatVecMulOutputVectorIdx)
+                   ->getType()
+                   ->getPointerElementType(),
+               InputVector->getType()});
+
+  // Create a call to the DXIL function
+  Value *NewCI = Builder.CreateCall(
+      DxilFunc,
+      {OpArg, InputVector, InputIsUnsigned, InputInterpretation, MatrixBuffer,
+       MatrixOffset, MatrixInterpretation, MatrixM, MatrixK, MatrixLayout,
+       MatrixTranspose, MatrixStride, OutputIsUnsigned});
+
+  // Get the output parameter and store the result
+  Value *OutParam =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulOutputVectorIdx);
+
+  Builder.CreateStore(NewCI, OutParam);
+
+  return nullptr;
+}
+
+Value *TranslateMatVecMulAdd(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+                             HLOperationLowerHelper &Helper,
+                             HLObjectOperationLowerHelper *ObjHelper,
+                             bool &Translated) {
+
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Constant *OpArg = HlslOp->GetU32Const(static_cast<unsigned>(OpCode));
+
+  // Input vector parameters
+  Value *InputVector =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddInputVectorIdx);
+  Value *InputIsUnsigned =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddIsInputUnsignedIdx);
+  Value *InputInterpretation =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddInputInterpretationIdx);
+
+  // Matrix parameters
+  Value *MatrixBuffer =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixBufferIdx);
+  Value *MatrixOffset =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixOffsetIdx);
+  Value *MatrixInterpretation =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixInterpretationIdx);
+  Value *MatrixM = CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixMIdx);
+  Value *MatrixK = CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixKIdx);
+  Value *MatrixLayout =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixLayoutIdx);
+  Value *MatrixTranspose =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixTransposeIdx);
+  Value *MatrixStride =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddMatrixStrideIdx);
+
+  // Bias parameters
+  Value *BiasBuffer =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddBiasBufferIdx);
+  Value *BiasOffset =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddBiasOffsetIdx);
+  Value *BiasInterpretation =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddBiasInterpretationIdx);
+
+  // Output parameters
+  Value *OutputIsUnsigned =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddIsOutputUnsignedIdx);
+
+  // Get the DXIL function for the operation
+  Function *DxilFunc = HlslOp->GetOpFunc(
+      OpCode, {CI->getArgOperand(HLOperandIndex::kMatVecMulAddOutputVectorIdx)
+                   ->getType()
+                   ->getPointerElementType(),
+               InputVector->getType()});
+
+  // Create a call to the DXIL function
+  Value *NewCI = Builder.CreateCall(
+      DxilFunc, {OpArg, InputVector, InputIsUnsigned, InputInterpretation,
+                 MatrixBuffer, MatrixOffset, MatrixInterpretation, MatrixM,
+                 MatrixK, MatrixLayout, MatrixTranspose, MatrixStride,
+                 BiasBuffer, BiasOffset, BiasInterpretation, OutputIsUnsigned});
+
+  // Store the result in the output parameter
+  Value *OutParam =
+      CI->getArgOperand(HLOperandIndex::kMatVecMulAddOutputVectorIdx);
+  Builder.CreateStore(NewCI, OutParam);
+
+  return nullptr;
+}
+
+Value *TranslateOuterProductAccumulate(CallInst *CI, IntrinsicOp IOP,
+                                       OP::OpCode OpCode,
+                                       HLOperationLowerHelper &Helper,
+                                       HLObjectOperationLowerHelper *ObjHelper,
+                                       bool &Translated) {
+
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Constant *OpArg = HlslOp->GetU32Const(static_cast<unsigned>(OpCode));
+
+  // Input vector parameters
+  Value *InputVector1 =
+      CI->getArgOperand(HLOperandIndex::kOuterProdAccInputVec1Idx);
+  Value *InputVector2 =
+      CI->getArgOperand(HLOperandIndex::kOuterProdAccInputVec2Idx);
+
+  // Matrix parameters
+  Value *MatrixBuffer =
+      CI->getArgOperand(HLOperandIndex::kOuterProdAccMatrixIdx);
+  Value *MatrixOffset =
+      CI->getArgOperand(HLOperandIndex::kOuterProdAccMatrixOffsetIdx);
+  Value *MatrixInterpretation =
+      CI->getArgOperand(HLOperandIndex::kOuterProdAccMatrixInterpretationIdx);
+  Value *MatrixLayout =
+      CI->getArgOperand(HLOperandIndex::kOuterProdAccMatrixLayoutIdx);
+  Value *MatrixStride =
+      CI->getArgOperand(HLOperandIndex::kOuterProdAccMatrixStrideIdx);
+
+  // Get the DXIL function for the operation
+  Function *DxilFunc = HlslOp->GetOpFunc(
+      OpCode, {InputVector1->getType(), InputVector2->getType()});
+
+  return Builder.CreateCall(
+      DxilFunc, {OpArg, InputVector1, InputVector2, MatrixBuffer, MatrixOffset,
+                 MatrixInterpretation, MatrixLayout, MatrixStride});
+}
+
+Value *TranslateVectorAccumulate(CallInst *CI, IntrinsicOp IOP,
+                                 OP::OpCode OpCode,
+                                 HLOperationLowerHelper &Helper,
+                                 HLObjectOperationLowerHelper *ObjHelper,
+                                 bool &Translated) {
+
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Constant *OpArg = HlslOp->GetU32Const(static_cast<unsigned>(OpCode));
+
+  // Input vector parameter
+  Value *InputVector = CI->getArgOperand(HLOperandIndex::kVectorAccInputVecIdx);
+
+  // Matrix parameters
+  Value *MatrixBuffer = CI->getArgOperand(HLOperandIndex::kVectorAccMatrixIdx);
+  Value *MatrixOffset =
+      CI->getArgOperand(HLOperandIndex::kVectorAccMatrixOffsetIdx);
+
+  // Get the DXIL function for the operation
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, InputVector->getType());
+
+  return Builder.CreateCall(DxilFunc,
+                            {OpArg, InputVector, MatrixBuffer, MatrixOffset});
+}
+
 } // namespace
 
 // Lower table.
@@ -7063,7 +7368,7 @@ IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedUMin, TranslateMopAtomicBinaryOperation,
      DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_DxHitObject_MakeNop, TranslateHitObjectMake,
+    {IntrinsicOp::MOP_DxHitObject_MakeNop, TranslateHitObjectMakeNop,
      DXIL::OpCode::HitObject_MakeNop},
     {IntrinsicOp::IOP_DxMaybeReorderThread, TranslateMaybeReorderThread,
      DXIL::OpCode::MaybeReorderThread},
@@ -7123,13 +7428,22 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_DxHitObject_LoadLocalRootTableConstant,
      TranslateHitObjectLoadLocalRootTableConstant,
      DXIL::OpCode::HitObject_LoadLocalRootTableConstant},
-    {IntrinsicOp::MOP_DxHitObject_MakeMiss, TranslateHitObjectMake,
+    {IntrinsicOp::MOP_DxHitObject_MakeMiss, TranslateHitObjectMakeMiss,
      DXIL::OpCode::HitObject_MakeMiss},
     {IntrinsicOp::MOP_DxHitObject_SetShaderTableIndex,
      TranslateHitObjectSetShaderTableIndex,
      DXIL::OpCode::HitObject_SetShaderTableIndex},
     {IntrinsicOp::MOP_DxHitObject_TraceRay, TranslateHitObjectTraceRay,
      DXIL::OpCode::HitObject_TraceRay},
+
+    {IntrinsicOp::IOP___builtin_MatVecMul, TranslateMatVecMul,
+     DXIL::OpCode::MatVecMul},
+    {IntrinsicOp::IOP___builtin_MatVecMulAdd, TranslateMatVecMulAdd,
+     DXIL::OpCode::MatVecMulAdd},
+    {IntrinsicOp::IOP___builtin_OuterProductAccumulate,
+     TranslateOuterProductAccumulate, DXIL::OpCode::OuterProductAccumulate},
+    {IntrinsicOp::IOP___builtin_VectorAccumulate, TranslateVectorAccumulate,
+     DXIL::OpCode::VectorAccumulate},
 };
 } // namespace
 static_assert(
@@ -8220,7 +8534,7 @@ Value *TranslateStructBufMatLd(CallInst *CI, IRBuilder<> &Builder,
                                Value *status, Value *bufIdx, Value *baseOffset,
                                const DataLayout &DL) {
 
-  ResLoadHelper helper(CI, RK, handle, bufIdx, baseOffset);
+  ResLoadHelper helper(CI, RK, handle, bufIdx, baseOffset, status);
 #ifndef NDEBUG
   Value *ptr = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx);
   Type *matType = ptr->getType()->getPointerElementType();
@@ -8547,7 +8861,7 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     }
   } else if (LoadInst *LdInst = dyn_cast<LoadInst>(user)) {
     // Load of scalar/vector within a struct or structured raw load.
-    ResLoadHelper helper(LdInst, ResKind, handle, bufIdx, baseOffset);
+    ResLoadHelper helper(LdInst, ResKind, handle, bufIdx, baseOffset, status);
     TranslateBufLoad(helper, ResKind, Builder, OP, DL);
 
     LdInst->eraseFromParent();
@@ -8922,7 +9236,8 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     IRBuilder<> Builder(CI);
     if (LoadInst *ldInst = dyn_cast<LoadInst>(*U)) {
       Value *Offset = UndefValue::get(Builder.getInt32Ty());
-      ResLoadHelper ldHelper(ldInst, RK, handle, coord, Offset, mipLevel);
+      ResLoadHelper ldHelper(ldInst, RK, handle, coord, Offset,
+                             /*status*/ nullptr, mipLevel);
       TranslateBufLoad(ldHelper, RK, Builder, hlslOP, helper.dataLayout);
       ldInst->eraseFromParent();
     } else {

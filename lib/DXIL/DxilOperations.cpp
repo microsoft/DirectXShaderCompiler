@@ -765,32 +765,32 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x403}},
-     {{0x3}}}, // Overloads: hf<hf
+     {{0x3}},
+     {{0x0}}}, // Overloads: hf
     {OC::DerivCoarseY,
      "DerivCoarseY",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x403}},
-     {{0x3}}}, // Overloads: hf<hf
+     {{0x3}},
+     {{0x0}}}, // Overloads: hf
     {OC::DerivFineX,
      "DerivFineX",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x403}},
-     {{0x3}}}, // Overloads: hf<hf
+     {{0x3}},
+     {{0x0}}}, // Overloads: hf
     {OC::DerivFineY,
      "DerivFineY",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x403}},
-     {{0x3}}}, // Overloads: hf<hf
+     {{0x3}},
+     {{0x0}}}, // Overloads: hf
 
     // Pixel shader
     {OC::EvalSnapped,
@@ -2652,6 +2652,40 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      1,
      {{0x4e7}},
      {{0xe7}}}, // Overloads: hfwidl<hfwidl
+
+    // Linear Algebra Operations
+    {OC::MatVecMul,
+     "MatVecMul",
+     OCC::MatVecMul,
+     "matVecMul",
+     Attribute::ReadOnly,
+     2,
+     {{0x400}, {0x400}},
+     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
+    {OC::MatVecMulAdd,
+     "MatVecMulAdd",
+     OCC::MatVecMulAdd,
+     "matVecMulAdd",
+     Attribute::ReadOnly,
+     2,
+     {{0x400}, {0x400}},
+     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
+    {OC::OuterProductAccumulate,
+     "OuterProductAccumulate",
+     OCC::OuterProductAccumulate,
+     "outerProductAccumulate",
+     Attribute::None,
+     2,
+     {{0x400}, {0x400}},
+     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
+    {OC::VectorAccumulate,
+     "VectorAccumulate",
+     OCC::VectorAccumulate,
+     "vectorAccumulate",
+     Attribute::None,
+     1,
+     {{0x400}},
+     {{0x63}}}, // Overloads: <hfwi
 };
 // OPCODE-OLOADS:END
 
@@ -3440,8 +3474,9 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: AllocateRayQuery2=258, RawBufferVectorLoad=303,
-  // RawBufferVectorStore=304
-  if (op == 258 || (303 <= op && op <= 304)) {
+  // RawBufferVectorStore=304, MatVecMul=305, MatVecMulAdd=306,
+  // OuterProductAccumulate=307, VectorAccumulate=308
+  if (op == 258 || (303 <= op && op <= 308)) {
     major = 6;
     minor = 9;
     return;
@@ -5890,6 +5925,61 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     A(pI32);
     break;
+
+    // Linear Algebra Operations
+  case OpCode::MatVecMul:
+    EXT(0);
+    A(pI32);
+    EXT(1);
+    A(pI1);
+    A(pI32);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI1);
+    A(pI32);
+    A(pI1);
+    break;
+  case OpCode::MatVecMulAdd:
+    EXT(0);
+    A(pI32);
+    EXT(1);
+    A(pI1);
+    A(pI32);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI1);
+    A(pI32);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pI1);
+    break;
+  case OpCode::OuterProductAccumulate:
+    A(pV);
+    A(pI32);
+    EXT(0);
+    EXT(1);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::VectorAccumulate:
+    A(pV);
+    A(pI32);
+    A(pETy);
+    A(pRes);
+    A(pI32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -6061,6 +6151,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::WaveActiveAllEqual:
   case OpCode::CreateHandleForLib:
   case OpCode::WaveMatch:
+  case OpCode::VectorAccumulate:
     if (FT->getNumParams() <= 1)
       return nullptr;
     return FT->getParamType(1);
@@ -6291,6 +6382,19 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
   }
+  case OpCode::MatVecMul:
+  case OpCode::MatVecMulAdd:
+    if (FT->getNumParams() < 2)
+      return nullptr;
+    return llvm::StructType::get(Ctx,
+                                 {FT->getReturnType(), FT->getParamType(1)});
+
+  case OpCode::OuterProductAccumulate:
+    if (FT->getNumParams() < 3)
+      return nullptr;
+    return llvm::StructType::get(Ctx,
+                                 {FT->getParamType(1), FT->getParamType(2)});
+
   // OPCODE-OLOAD-TYPES:END
   default:
     return Ty;
@@ -6334,7 +6438,7 @@ Type *OP::GetFourI32Type() const { return m_pFourI32Type; }
 Type *OP::GetFourI16Type() const { return m_pFourI16Type; }
 
 bool OP::IsResRetType(llvm::Type *Ty) {
-  if (!Ty->isStructTy())
+  if (!Ty || !Ty->isStructTy())
     return false;
   for (Type *ResTy : m_pResRetType) {
     if (Ty == ResTy)

@@ -7,9 +7,6 @@
 //                                                                           //
 // Provides non-public declarations for the DirectX Compiler component.      //
 //                                                                           //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
-// All rights reserved.                                                      //
-//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef __DXC_API_INTERNAL__
@@ -133,11 +130,15 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_HIT_OBJECT = 51,
   LICOMPTYPE_RAY_QUERY = 52,
 
+  LICOMPTYPE_LINALG = 53, // f32, partial-precision-f32, f16,
+                          // i32, i16, u32, u16,
+                          // int8_4packed, uint8_4packed
+
 #ifdef ENABLE_SPIRV_CODEGEN
-  LICOMPTYPE_VK_BUFFER_POINTER = 53,
-  LICOMPTYPE_COUNT = 54
+  LICOMPTYPE_VK_BUFFER_POINTER = 54,
+  LICOMPTYPE_COUNT = 55
 #else
-  LICOMPTYPE_COUNT = 53
+  LICOMPTYPE_COUNT = 54
 #endif
 };
 

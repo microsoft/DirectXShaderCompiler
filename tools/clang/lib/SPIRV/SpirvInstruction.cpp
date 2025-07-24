@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 //
 //  This file implements the in-memory representation of SPIR-V instructions.
@@ -33,7 +30,9 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExtension)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExtInstImport)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvMemoryModel)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEntryPoint)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExecutionModeBase)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExecutionMode)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExecutionModeId)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvString)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvModuleProcessed)
@@ -53,6 +52,11 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUnreachable)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvAccessChain)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvAtomic)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBarrier)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvIsNodePayloadValid)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvNodePayloadArrayLength)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvAllocateNodePayloads)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEnqueueNodePayloads)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvFinishWritingNodePayload)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBinaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldExtract)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldInsert)
@@ -60,6 +64,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantBoolean)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantInteger)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantFloat)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantComposite)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantString)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantNull)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConvertPtrToU)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConvertUToPtr)
@@ -207,13 +212,16 @@ SpirvEntryPoint::SpirvEntryPoint(SourceLocation loc,
 // OpExecutionMode and OpExecutionModeId instructions
 SpirvExecutionMode::SpirvExecutionMode(SourceLocation loc, SpirvFunction *entry,
                                        spv::ExecutionMode em,
-                                       llvm::ArrayRef<uint32_t> paramsVec,
-                                       bool usesIdParams)
-    : SpirvInstruction(IK_ExecutionMode,
-                       usesIdParams ? spv::Op::OpExecutionModeId
-                                    : spv::Op::OpExecutionMode,
-                       QualType(), loc),
-      entryPoint(entry), execMode(em),
+                                       llvm::ArrayRef<uint32_t> paramsVec)
+    : SpirvExecutionModeBase(IK_ExecutionMode, spv::Op::OpExecutionMode, loc,
+                             entry, em),
+      params(paramsVec.begin(), paramsVec.end()) {}
+
+SpirvExecutionModeId::SpirvExecutionModeId(
+    SourceLocation loc, SpirvFunction *entry, spv::ExecutionMode em,
+    llvm::ArrayRef<SpirvInstruction *> paramsVec)
+    : SpirvExecutionModeBase(IK_ExecutionModeId, spv::Op::OpExecutionModeId,
+                             loc, entry, em),
       params(paramsVec.begin(), paramsVec.end()) {}
 
 SpirvString::SpirvString(SourceLocation loc, llvm::StringRef stringLiteral)
@@ -467,6 +475,41 @@ SpirvBarrier::SpirvBarrier(SourceLocation loc, spv::Scope memScope,
       memoryScope(memScope), memorySemantics(memSemantics),
       executionScope(execScope) {}
 
+SpirvIsNodePayloadValid::SpirvIsNodePayloadValid(QualType resultType,
+                                                 SourceLocation loc,
+                                                 SpirvInstruction *payloadArray,
+                                                 SpirvInstruction *nodeIndex)
+    : SpirvInstruction(IK_IsNodePayloadValid, spv::Op::OpIsNodePayloadValidAMDX,
+                       resultType, loc),
+      payloadArray(payloadArray), nodeIndex(nodeIndex) {}
+
+SpirvNodePayloadArrayLength::SpirvNodePayloadArrayLength(
+    QualType resultType, SourceLocation loc, SpirvInstruction *payloadArray)
+    : SpirvInstruction(IK_NodePayloadArrayLength,
+                       spv::Op::OpNodePayloadArrayLengthAMDX, resultType, loc),
+      payloadArray(payloadArray) {}
+
+SpirvAllocateNodePayloads::SpirvAllocateNodePayloads(
+    QualType resultType, SourceLocation loc, spv::Scope allocationScope,
+    SpirvInstruction *shaderIndex, SpirvInstruction *recordCount)
+    : SpirvInstruction(IK_AllocateNodePayloads,
+                       spv::Op::OpAllocateNodePayloadsAMDX, resultType, loc),
+      allocationScope(allocationScope), shaderIndex(shaderIndex),
+      recordCount(recordCount) {}
+
+SpirvEnqueueNodePayloads::SpirvEnqueueNodePayloads(SourceLocation loc,
+                                                   SpirvInstruction *payload)
+    : SpirvInstruction(IK_EnqueueNodePayloads,
+                       spv::Op::OpEnqueueNodePayloadsAMDX, QualType(), loc),
+      payload(payload) {}
+
+SpirvFinishWritingNodePayload::SpirvFinishWritingNodePayload(
+    QualType resultType, SourceLocation loc, SpirvInstruction *payload)
+    : SpirvInstruction(IK_FinishWritingNodePayload,
+                       spv::Op::OpFinishWritingNodePayloadAMDX, resultType,
+                       loc),
+      payload(payload) {}
+
 SpirvBinaryOp::SpirvBinaryOp(spv::Op opcode, QualType resultType,
                              SourceLocation loc, SpirvInstruction *op1,
                              SpirvInstruction *op2, SourceRange range)
@@ -563,7 +606,8 @@ bool SpirvConstant::isSpecConstant() const {
   return opcode == spv::Op::OpSpecConstant ||
          opcode == spv::Op::OpSpecConstantTrue ||
          opcode == spv::Op::OpSpecConstantFalse ||
-         opcode == spv::Op::OpSpecConstantComposite;
+         opcode == spv::Op::OpSpecConstantComposite ||
+         opcode == spv::Op::OpSpecConstantStringAMDX;
 }
 
 SpirvConstantBoolean::SpirvConstantBoolean(QualType type, bool val,
@@ -617,6 +661,19 @@ SpirvConstantComposite::SpirvConstantComposite(
                                 : spv::Op::OpConstantComposite,
                     type),
       constituents(constituentsVec.begin(), constituentsVec.end()) {}
+
+SpirvConstantString::SpirvConstantString(llvm::StringRef stringLiteral,
+                                         bool isSpecConst)
+    : SpirvConstant(IK_ConstantString,
+                    isSpecConst ? spv::Op::OpSpecConstantStringAMDX
+                                : spv::Op::OpConstantStringAMDX,
+                    QualType()),
+      str(stringLiteral) {}
+
+bool SpirvConstantString::operator==(const SpirvConstantString &that) const {
+  return opcode == that.opcode && resultType == that.resultType &&
+         str == that.str;
+}
 
 SpirvConstantNull::SpirvConstantNull(QualType type)
     : SpirvConstant(IK_ConstantNull, spv::Op::OpConstantNull, type) {}

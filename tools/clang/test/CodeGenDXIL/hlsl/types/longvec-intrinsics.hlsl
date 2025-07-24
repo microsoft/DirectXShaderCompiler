@@ -2,7 +2,6 @@
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=7   %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=125 %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=256 %s | FileCheck %s
-// RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=1024 %s | FileCheck %s
 
 // Test vector-enabled non-trivial intrinsics that take parameters of various types.
 
@@ -205,6 +204,36 @@ void main() {
 
   // CHECK-NOT: extractelement
   // CHECK-NOT: insertelement
+  // CHECK: [[tmp:%.*]] = call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 23, <[[NUM]] x half> [[hvec2]])  ; Log(value)
+  // CHECK: [[tmp2:%.*]] = fmul fast <[[NUM]] x half> [[tmp]], [[hvec1]]
+  // CHECK: call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 21, <[[NUM]] x half> [[tmp2]])  ; Exp(value)
+  hRes += pow(hVec2, hVec1);
+
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[tmp:%.*]] = call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 23, <[[NUM]] x float> [[fvec2]])  ; Log(value)
+  // CHECK: [[tmp2:%.*]] = fmul fast <[[NUM]] x float> [[tmp]], [[fvec1]]
+  // CHECK: call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 21, <[[NUM]] x float> [[tmp2]])  ; Exp(value)
+  fRes += pow(fVec2, fVec1);
+
+  vector<half, NUM> hVal;
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[tmp:%.*]] = call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 29, <[[NUM]] x half> [[hvec1]])  ; Round_z(value)
+  // CHECK: fsub fast <[[NUM]] x half> [[hvec1]], [[tmp]]
+  hRes *= modf(hVec1, hVal);
+  hRes += hVal;
+
+  vector<float, NUM> fVal;
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[tmp:%.*]] = call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 29, <[[NUM]] x float> [[fvec1]])  ; Round_z(value)
+  // CHECK: fsub fast <[[NUM]] x float> [[fvec1]], [[tmp]]
+  fRes *= modf(fVec1, fVal);
+  fRes += fVal;
+
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
   // CHECK: [[sub:%.*]] = fsub fast <[[NUM]] x half> [[hvec2]], [[hvec1]]
   // CHECK: [[xsub:%.*]] = fsub fast <[[NUM]] x half> [[hvec3]], [[hvec1]]
   // CHECK: [[div:%.*]] = fdiv fast <[[NUM]] x half> [[xsub]], [[sub]]
@@ -226,6 +255,25 @@ void main() {
   // CHECK: [[mul:%.*]] = fmul fast <[[NUM]] x float> [[sat]], [[sat]]
   // CHECK: fmul fast <[[NUM]] x float> [[mul]], [[sub]]
   fRes += smoothstep(fVec1, fVec2, fVec3);
+
+  // Note that Fabs is tested in longvec-trivial-unary-float-intrinsics.
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[tmp:%.*]] = sub <[[NUM]] x i16> zeroinitializer, [[svec1]]
+  // CHECK: call <[[NUM]] x i16> @dx.op.binary.[[STY]](i32 37, <[[NUM]] x i16> [[svec1]], <[[NUM]] x i16> [[tmp]])  ; IMax(a,b)
+  sRes += abs(sVec1);
+
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[tmp:%.*]] = sub <[[NUM]] x i32> zeroinitializer, [[ivec1]]
+  // CHECK: call <[[NUM]] x i32> @dx.op.binary.[[ITY]](i32 37, <[[NUM]] x i32> [[ivec1]], <[[NUM]] x i32> [[tmp]])  ; IMax(a,b)
+  iRes += abs(iVec1);
+
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[tmp:%.*]] = sub <[[NUM]] x i64> zeroinitializer, [[lvec1]]
+  // CHECK: call <[[NUM]] x i64> @dx.op.binary.[[LTY]](i32 37, <[[NUM]] x i64> [[lvec1]], <[[NUM]] x i64> [[tmp]])  ; IMax(a,b)
+  lRes += abs(lVec1);
 
   // Intrinsics that expand into llvm ops.
 

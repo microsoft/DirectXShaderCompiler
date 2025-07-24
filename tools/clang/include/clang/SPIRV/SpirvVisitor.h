@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_SPIRV_SPIRVVISITOR_H
 #define LLVM_CLANG_SPIRV_SPIRVVISITOR_H
@@ -64,7 +61,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvExtInstImport)
   DEFINE_VISIT_METHOD(SpirvMemoryModel)
   DEFINE_VISIT_METHOD(SpirvEntryPoint)
-  DEFINE_VISIT_METHOD(SpirvExecutionMode)
+  DEFINE_VISIT_METHOD(SpirvExecutionModeBase)
   DEFINE_VISIT_METHOD(SpirvString)
   DEFINE_VISIT_METHOD(SpirvSource)
   DEFINE_VISIT_METHOD(SpirvModuleProcessed)
@@ -85,6 +82,11 @@ public:
   DEFINE_VISIT_METHOD(SpirvAccessChain)
   DEFINE_VISIT_METHOD(SpirvAtomic)
   DEFINE_VISIT_METHOD(SpirvBarrier)
+  DEFINE_VISIT_METHOD(SpirvIsNodePayloadValid)
+  DEFINE_VISIT_METHOD(SpirvNodePayloadArrayLength)
+  DEFINE_VISIT_METHOD(SpirvAllocateNodePayloads)
+  DEFINE_VISIT_METHOD(SpirvEnqueueNodePayloads)
+  DEFINE_VISIT_METHOD(SpirvFinishWritingNodePayload)
   DEFINE_VISIT_METHOD(SpirvBinaryOp)
   DEFINE_VISIT_METHOD(SpirvBitFieldExtract)
   DEFINE_VISIT_METHOD(SpirvBitFieldInsert)
@@ -92,6 +94,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvConstantInteger)
   DEFINE_VISIT_METHOD(SpirvConstantFloat)
   DEFINE_VISIT_METHOD(SpirvConstantComposite)
+  DEFINE_VISIT_METHOD(SpirvConstantString)
   DEFINE_VISIT_METHOD(SpirvConstantNull)
   DEFINE_VISIT_METHOD(SpirvConvertPtrToU)
   DEFINE_VISIT_METHOD(SpirvConvertUToPtr)

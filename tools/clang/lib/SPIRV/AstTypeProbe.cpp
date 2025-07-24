@@ -1353,6 +1353,27 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
   return false;
 }
 
+bool isOrContainsBoolType(QualType type) {
+  if (isBoolOrVecMatOfBoolType(type)) {
+    return true;
+  }
+
+  if (const auto *arrayType = type->getAsArrayTypeUnsafe()) {
+    return isOrContainsBoolType(arrayType->getElementType());
+  }
+
+  if (const auto *recordType = type->getAs<RecordType>()) {
+    for (auto field : recordType->getDecl()->fields()) {
+      if (isOrContainsBoolType(field->getType())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  return false;
+}
+
 bool isTypeInVkNamespace(const RecordType *type) {
   if (const auto *nameSpaceDecl =
           dyn_cast<NamespaceDecl>(type->getDecl()->getDeclContext())) {

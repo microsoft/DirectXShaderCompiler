@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_LIB_SPIRV_LOWERTYPEVISITOR_H
@@ -64,6 +61,12 @@ private:
         clang::DiagnosticsEngine::Error, message);
     return astContext.getDiagnostics().Report(srcLoc, diagId);
   }
+
+  // This method sorts a field list in the following order:
+  //  - fields with register annotation first, sorted by register index.
+  //  - then fields without annotation, in order of declaration.
+  std::vector<const HybridStructType::FieldInfo *>
+  sortFields(llvm::ArrayRef<HybridStructType::FieldInfo> fields);
 
   /// Lowers the given Hybrid type into a SPIR-V type.
   ///
