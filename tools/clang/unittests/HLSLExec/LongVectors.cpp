@@ -132,32 +132,32 @@ void LongVector::OpTest::dispatchTestByDataType(
   using namespace WEX::Common;
 
   if (DataType == L"bool")
-    dispatchTestByVectorSize<HLSLBool_t>(OpType, Handler);
+    dispatchTestByVectorLength<HLSLBool_t>(OpType, Handler);
   else if (DataType == L"int16")
-    dispatchTestByVectorSize<int16_t>(OpType, Handler);
+    dispatchTestByVectorLength<int16_t>(OpType, Handler);
   else if (DataType == L"int32")
-    dispatchTestByVectorSize<int32_t>(OpType, Handler);
+    dispatchTestByVectorLength<int32_t>(OpType, Handler);
   else if (DataType == L"int64")
-    dispatchTestByVectorSize<int64_t>(OpType, Handler);
+    dispatchTestByVectorLength<int64_t>(OpType, Handler);
   else if (DataType == L"uint16")
-    dispatchTestByVectorSize<uint16_t>(OpType, Handler);
+    dispatchTestByVectorLength<uint16_t>(OpType, Handler);
   else if (DataType == L"uint32")
-    dispatchTestByVectorSize<uint32_t>(OpType, Handler);
+    dispatchTestByVectorLength<uint32_t>(OpType, Handler);
   else if (DataType == L"uint64")
-    dispatchTestByVectorSize<uint64_t>(OpType, Handler);
+    dispatchTestByVectorLength<uint64_t>(OpType, Handler);
   else if (DataType == L"float16")
-    dispatchTestByVectorSize<HLSLHalf_t>(OpType, Handler);
+    dispatchTestByVectorLength<HLSLHalf_t>(OpType, Handler);
   else if (DataType == L"float32")
-    dispatchTestByVectorSize<float>(OpType, Handler);
+    dispatchTestByVectorLength<float>(OpType, Handler);
   else if (DataType == L"float64")
-    dispatchTestByVectorSize<double>(OpType, Handler);
+    dispatchTestByVectorLength<double>(OpType, Handler);
   else
     VERIFY_FAIL(
         String().Format(L"DataType: %s is not recognized.", DataType.c_str()));
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
-void LongVector::OpTest::dispatchTestByVectorSize(
+void LongVector::OpTest::dispatchTestByVectorLength(
     LongVectorOpTypeT opType, TableParameterHandler &Handler) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -180,21 +180,36 @@ void LongVector::OpTest::dispatchTestByVectorSize(
       TestConfig.setInputValueSet2(InputValueSet2);
   }
 
-  std::vector<size_t> InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
+  // Manual override to test a specific vector size. Convenient for debugging
+  // issues.
+  size_t InputSizeToTestOverride = 0;
+  WEX::TestExecution::RuntimeParameters::TryGetValue(L"LongVectorInputSize",
+                                                     InputSizeToTestOverride);
+
+  std::vector<size_t> InputVectorSizes;
+  if (InputSizeToTestOverride)
+    InputVectorSizes.push_back(InputSizeToTestOverride);
+  else
+    InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
+
   for (auto SizeToTest : InputVectorSizes) {
-    testBaseMethod<DataTypeT, LongVectorOpTypeT>(TestConfig, SizeToTest);
+    // We could create a new config for each test case with the new length, but
+    // that feels wasteful. Instead, we just update the length to test.
+    TestConfig.setLengthToTest(SizeToTest);
+    testBaseMethod<DataTypeT, LongVectorOpTypeT>(TestConfig);
   }
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
 void LongVector::OpTest::testBaseMethod(
-    LongVector::TestConfig<DataTypeT, LongVectorOpTypeT> &TestConfig,
-    size_t VectorSizeToTest) {
+    LongVector::TestConfig<DataTypeT, LongVectorOpTypeT> &TestConfig) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
+  const size_t VectorLengthToTest = TestConfig.getLengthToTest();
+
   hlsl_test::LogCommentFmt(L"Running LongVectorOpTestBase<%S, %zu>",
-                           typeid(DataTypeT).name(), VectorSizeToTest);
+                           typeid(DataTypeT).name(), VectorLengthToTest);
 
   bool LogInputs = false;
   WEX::TestExecution::RuntimeParameters::TryGetValue(L"LongVectorLogInputs",
@@ -214,9 +229,9 @@ void LongVector::OpTest::testBaseMethod(
   }
 
   std::vector<DataTypeT> InputVector1;
-  InputVector1.reserve(VectorSizeToTest);
+  InputVector1.reserve(VectorLengthToTest);
   std::vector<DataTypeT> InputVector2; // May be unused, but must be defined.
-  InputVector2.reserve(VectorSizeToTest);
+  InputVector2.reserve(VectorLengthToTest);
   std::vector<DataTypeT> ScalarInput; // May be unused, but must be defined.
   const bool IsVectorBinaryOp =
       TestConfig.isBinaryOp() && !TestConfig.isScalarOp();
@@ -233,7 +248,7 @@ void LongVector::OpTest::testBaseMethod(
 
   // Fill the input vectors with values from the value set. Repeat the values
   // when we reach the end of the value set.
-  for (size_t Index = 0; Index < VectorSizeToTest; Index++) {
+  for (size_t Index = 0; Index < VectorLengthToTest; Index++) {
     InputVector1.push_back(
         InputVector1ValueSet[Index % InputVector1ValueSet.size()]);
 
@@ -242,16 +257,12 @@ void LongVector::OpTest::testBaseMethod(
           InputVector2ValueSet[Index % InputVector2ValueSet.size()]);
   }
 
-  std::vector<DataTypeT> ExpectedVector;
-  ExpectedVector.reserve(VectorSizeToTest);
   if (IsVectorBinaryOp)
-    ExpectedVector =
-        computeExpectedValues(InputVector1, InputVector2, TestConfig);
+    computeExpectedValues(InputVector1, InputVector2, TestConfig);
   else if (TestConfig.isScalarOp())
-    ExpectedVector =
-        computeExpectedValues(InputVector1, ScalarInput[0], TestConfig);
+    computeExpectedValues(InputVector1, ScalarInput[0], TestConfig);
   else // Must be a unary op
-    ExpectedVector = computeExpectedValues(InputVector1, TestConfig);
+    computeExpectedValues(InputVector1, TestConfig);
 
   if (LogInputs) {
     logLongVector<DataTypeT>(InputVector1, L"InputVector1");
@@ -264,8 +275,7 @@ void LongVector::OpTest::testBaseMethod(
 
   // We have to construct the string outside of the lambda. Otherwise it's
   // cleaned up when the lambda finishes executing but before the shader runs.
-  std::string CompilerOptionsString =
-      TestConfig.getCompilerOptionsString(VectorSizeToTest);
+  std::string CompilerOptionsString = TestConfig.getCompilerOptionsString();
 
   // The name of the shader we want to use in ShaderOpArith.xml. Could also add
   // logic to set this name in ShaderOpArithTable.xml so we can use different
@@ -331,11 +341,10 @@ void LongVector::OpTest::testBaseMethod(
   MappedData ShaderOutData;
   TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
 
-  std::vector<DataTypeT> OutputVector;
-  fillLongVectorDataFromShaderBuffer<DataTypeT>(ShaderOutData, OutputVector,
-                                                VectorSizeToTest);
-
-  VERIFY_SUCCEEDED(doVectorsMatch<DataTypeT>(OutputVector, ExpectedVector,
-                                             TestConfig.getTolerance(),
-                                             TestConfig.getValidationType()));
+  // The TestConfig object help handles more complicated verification cases. We
+  // pass in the MappedData instead of the typed data because the TestConfig may
+  // need to resolve the output type for test cases where the return type of the
+  // intrinsic being tested does not match the input type, such as the AsType*
+  // intrinsics (AsInt, AsInt16, AsFloat, ... etc).
+  VERIFY_SUCCEEDED(TestConfig.verifyOutput(ShaderOutData));
 }
