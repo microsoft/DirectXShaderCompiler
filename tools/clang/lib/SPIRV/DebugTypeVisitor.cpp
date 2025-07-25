@@ -62,7 +62,7 @@ SpirvDebugTypeComposite *DebugTypeVisitor::createDebugTypeComposite(
     } else {
       auto *dbgSrc = spvBuilder.createDebugSource(file);
       setDefaultDebugInfo(dbgSrc);
-      auto dbgCompUnit = spvBuilder.createDebugCompilationUnit(dbgSrc);
+      auto dbgCompUnit = spvBuilder.getModule()->getDebugCompilationUnit();
       setDefaultDebugInfo(dbgCompUnit);
       debugInfo =
           &debugInfoMap.insert({file, RichDebugInfo(dbgSrc, dbgCompUnit)})
