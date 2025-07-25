@@ -1131,7 +1131,7 @@ namespace DxHitObjectMethods {
     uint [[rn,class_prefix,min_sm=6.9]] GetPrimitiveIndex();
     uint [[rn,class_prefix,min_sm=6.9]] GetHitKind();
     uint [[rn,class_prefix,min_sm=6.9]] GetShaderTableIndex();
-    $funcT [[class_prefix,min_sm=6.9]] GetAttributes();
+    void [[class_prefix,min_sm=6.9]] GetAttributes(out udt Attributes);
     void [[class_prefix,min_sm=6.9]] SetShaderTableIndex(in uint RecordIndex);
     uint [[ro,class_prefix,min_sm=6.9]] LoadLocalRootTableConstant(in uint RootConstantOffsetInBytes);
 } namespace

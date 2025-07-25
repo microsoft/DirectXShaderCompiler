@@ -10,7 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // We need to keep & fix these warnings to integrate smoothly with HLK
-#pragma warning(error : 4100 4146 4242 4244 4267 4701 4389)
+#pragma warning(error : 4100 4242 4244 4267 4701 4389)
 
 #include "d3dx12.h"
 #include <atlbase.h>
