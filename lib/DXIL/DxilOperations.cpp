@@ -3787,14 +3787,15 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *pPos = GetSamplePosType();
   Type *pV = Type::getVoidTy(m_Ctx);
   Type *pI1 = Type::getInt1Ty(m_Ctx);
-  Type *pOTplI1 = Type::getInt1Ty(m_Ctx);
+  Type *pOlTplI1 = Type::getInt1Ty(m_Ctx);
   Type *pI8 = Type::getInt8Ty(m_Ctx);
   Type *pI16 = Type::getInt16Ty(m_Ctx);
   Type *pI32 = Type::getInt32Ty(m_Ctx);
-  Type *pOTplI32 = Type::getInt32Ty(m_Ctx);
+  Type *pOlTplI32 = Type::getInt32Ty(m_Ctx);
   if (pOverloadType->isVectorTy()) {
-    pOTplI32 = VectorType::get(pOTplI32, pOverloadType->getVectorNumElements());
-    pOTplI1 = VectorType::get(pOTplI1, pOverloadType->getVectorNumElements());
+    pOlTplI32 =
+        VectorType::get(pOlTplI32, pOverloadType->getVectorNumElements());
+    pOlTplI1 = VectorType::get(pOlTplI1, pOverloadType->getVectorNumElements());
   }
 
   Type *pPI32 = Type::getInt32PtrTy(m_Ctx);
@@ -3885,22 +3886,22 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     break;
   case OpCode::IsNaN:
-    A(pOTplI1);
+    A(pOlTplI1);
     A(pI32);
     A(pETy);
     break;
   case OpCode::IsInf:
-    A(pOTplI1);
+    A(pOlTplI1);
     A(pI32);
     A(pETy);
     break;
   case OpCode::IsFinite:
-    A(pOTplI1);
+    A(pOlTplI1);
     A(pI32);
     A(pETy);
     break;
   case OpCode::IsNormal:
-    A(pOTplI1);
+    A(pOlTplI1);
     A(pI32);
     A(pETy);
     break;
@@ -4004,26 +4005,26 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     break;
   case OpCode::Countbits:
-    A(pOTplI32);
+    A(pOlTplI32);
     A(pI32);
     A(pETy);
     break;
   case OpCode::FirstbitLo:
-    A(pOTplI32);
+    A(pOlTplI32);
     A(pI32);
     A(pETy);
     break;
 
     // Unary uint
   case OpCode::FirstbitHi:
-    A(pOTplI32);
+    A(pOlTplI32);
     A(pI32);
     A(pETy);
     break;
 
     // Unary int
   case OpCode::FirstbitSHi:
-    A(pOTplI32);
+    A(pOlTplI32);
     A(pI32);
     A(pETy);
     break;
@@ -4668,7 +4669,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI1);
     break;
   case OpCode::WaveActiveAllEqual:
-    A(pOTplI1);
+    A(pOlTplI1);
     A(pI32);
     A(pETy);
     break;
@@ -5404,7 +5405,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Quad Wave Ops
   case OpCode::QuadVote:
-    A(pOTplI1);
+    A(pOlTplI1);
     A(pI32);
     A(pI1);
     A(pI8);

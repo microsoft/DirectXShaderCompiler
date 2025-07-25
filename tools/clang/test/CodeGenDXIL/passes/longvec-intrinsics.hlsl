@@ -117,7 +117,9 @@ void main() {
   // CHECK: call <13 x i32> @dx.op.unaryBits.v13i64(i32 32, <13 x i64> [[lvec2]])  ; FirstbitLo(value)
   uRes += firstbitlow(lVec2);
 
-  // CHECK: call <13 x i32> @dx.op.unaryBits.v13i32(i32 33, <13 x i32> [[uvec1]])  ; FirstbitHi(value)
+  // CHECK: [[bit:%.*]] = call <13 x i32> @dx.op.unaryBits.v13i32(i32 33, <13 x i32> [[uvec1]])  ; FirstbitHi(value)
+  // CHECK: sub <13 x i32> <i32 31, {{.*}}>, [[bit]]
+  // CHECK: icmp eq <13 x i32> [[bit]], <i32 -1,
   uRes += firstbithigh(uVec1);
 
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.v13i32 @dx.op.rawBufferVectorLoad.v13i32(i32 303, %dx.types.Handle {{%.*}}, i32 21, i32 0, i32 4) 

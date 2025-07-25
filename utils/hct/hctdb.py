@@ -1406,7 +1406,7 @@ class db_dxil(object):
         # $o in a parameter type means the overload type
         # $r in a parameter type means the resource type
         # $cb in a parameter type means cbuffer legacy load return type
-        # $otpl{component} in a return type means the overload template shape with the specified component type
+        # $o_{component} in a return type means the overload template shape with the specified component type
         # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong
         self.opcode_param = db_dxil_param(1, "i32", "opcode", "DXIL opcode")
         retvoid_param = db_dxil_param(0, "v", "", "no return value")
@@ -1541,7 +1541,7 @@ class db_dxil(object):
                 "hf<",
                 "rn",
                 [
-                    db_dxil_param(0, "$otpli1", "", "operation result"),
+                    db_dxil_param(0, "$o_i1", "", "operation result"),
                     db_dxil_param(2, "$o", "value", "input value"),
                 ],
                 counters=("floats",),
@@ -1592,7 +1592,7 @@ class db_dxil(object):
                 "wil<",
                 "rn",
                 [
-                    db_dxil_param(0, "$otpli32", "", "operation result"),
+                    db_dxil_param(0, "$o_i32", "", "operation result"),
                     db_dxil_param(2, "$o", "value", "input value"),
                 ],
                 counters=("uints",),
@@ -1607,7 +1607,7 @@ class db_dxil(object):
                 "wil<",
                 "rn",
                 [
-                    db_dxil_param(0, "$otpli32", "", "operation result"),
+                    db_dxil_param(0, "$o_i32", "", "operation result"),
                     db_dxil_param(2, "$o", "value", "input value"),
                 ],
                 counters=("uints",),
@@ -3095,7 +3095,7 @@ class db_dxil(object):
             "hfd18wil",
             "",
             [
-                db_dxil_param(0, "$otpli1", "", "operation result"),
+                db_dxil_param(0, "$o_i1", "", "operation result"),
                 db_dxil_param(2, "$o", "value", "value to compare"),
             ],
         )
@@ -5053,7 +5053,7 @@ class db_dxil(object):
             "1",
             "",
             [
-                db_dxil_param(0, "$otpli1", "", "result - uniform across quad"),
+                db_dxil_param(0, "$o_i1", "", "result - uniform across quad"),
                 db_dxil_param(2, "i1", "cond", "condition"),
                 db_dxil_param(
                     3,

@@ -584,8 +584,8 @@ class db_oload_gen:
         op_type_texts = {
             "$cb": "CBRT(pETy);",
             "$o": "A(pETy);",
-            "$otpli1": "A(pOTplI1);",
-            "$otpli32": "A(pOTplI32);",
+            "$o_i1": "A(pOlTplI1);",
+            "$o_i32": "A(pOlTplI32);",
             "$r": "RRT(pETy);",
             "d": "A(pF64);",
             "dims": "A(pDim);",
