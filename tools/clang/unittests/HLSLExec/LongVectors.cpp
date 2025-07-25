@@ -180,13 +180,14 @@ void LongVector::OpTest::dispatchTestByVectorLength(
       TestConfig.setInputValueSet2(InputValueSet2);
   }
 
-  // Manual override to test a specific vector size. Convenient for debugging issues.
+  // Manual override to test a specific vector size. Convenient for debugging
+  // issues.
   size_t InputSizeToTestOverride = 0;
   WEX::TestExecution::RuntimeParameters::TryGetValue(L"LongVectorInputSize",
                                                      InputSizeToTestOverride);
 
   std::vector<size_t> InputVectorSizes;
-  if(InputSizeToTestOverride)
+  if (InputSizeToTestOverride)
     InputVectorSizes.push_back(InputSizeToTestOverride);
   else
     InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
@@ -274,8 +275,7 @@ void LongVector::OpTest::testBaseMethod(
 
   // We have to construct the string outside of the lambda. Otherwise it's
   // cleaned up when the lambda finishes executing but before the shader runs.
-  std::string CompilerOptionsString =
-      TestConfig.getCompilerOptionsString();
+  std::string CompilerOptionsString = TestConfig.getCompilerOptionsString();
 
   // The name of the shader we want to use in ShaderOpArith.xml. Could also add
   // logic to set this name in ShaderOpArithTable.xml so we can use different
@@ -346,6 +346,5 @@ void LongVector::OpTest::testBaseMethod(
   // need to resolve the output type for test cases where the return type of the
   // intrinsic being tested does not match the input type, such as the AsType*
   // intrinsics (AsInt, AsInt16, AsFloat, ... etc).
-  VERIFY_SUCCEEDED(
-      TestConfig.verifyOutput(ShaderOutData));
+  VERIFY_SUCCEEDED(TestConfig.verifyOutput(ShaderOutData));
 }

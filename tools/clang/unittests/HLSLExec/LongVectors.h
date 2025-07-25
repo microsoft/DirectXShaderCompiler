@@ -87,8 +87,7 @@ using VariantVector =
 // A helper struct to clear a VariantVector using std::visit.
 // Example usage: std::visit(ClearVariantVector{}, MyVariantVector);
 struct ClearVariantVector {
-  template <typename T>
-  void operator()(std::vector<T> &vec) const {
+  template <typename T> void operator()(std::vector<T> &vec) const {
     vec.clear();
   }
 };
@@ -264,8 +263,7 @@ HLSLHalf_t asFloat16(const uint16_t &A) {
   return HLSLHalf_t(LongVector::bit_cast<DirectX::PackedVector::HALF>(A));
 }
 
-template <typename DataTypeInT>
-float asFloat(const DataTypeInT&) {
+template <typename DataTypeInT> float asFloat(const DataTypeInT &) {
   LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsFloat DataTypeInT: %s",
                       typeid(DataTypeInT).name());
   return float();
@@ -353,19 +351,19 @@ bool doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
 // Binary ops
 template <typename DataTypeT, typename LongVectorOpTypeT>
 void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
-                      const std::vector<DataTypeT> &InputVector2,
-                      TestConfig<DataTypeT, LongVectorOpTypeT> &Config);
+                           const std::vector<DataTypeT> &InputVector2,
+                           TestConfig<DataTypeT, LongVectorOpTypeT> &Config);
 
 // Binary scalar ops
 template <typename DataTypeT, typename LongVectorOpTypeT>
 void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
-                      const DataTypeT &ScalarInput,
-                      TestConfig<DataTypeT, LongVectorOpTypeT> &Config);
+                           const DataTypeT &ScalarInput,
+                           TestConfig<DataTypeT, LongVectorOpTypeT> &Config);
 
 // Unary ops
 template <typename DataTypeT, typename LongVectorOpTypeT>
 void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
-                      TestConfig<DataTypeT, LongVectorOpTypeT> &Config);
+                           TestConfig<DataTypeT, LongVectorOpTypeT> &Config);
 
 template <typename DataTypeT>
 void logLongVector(const std::vector<DataTypeT> &Values,
@@ -409,7 +407,8 @@ public:
                                  TrigonometricOpType OpType) const;
   DataTypeT computeExpectedValue(const DataTypeT &A, UnaryOpType OpType) const;
   DataTypeT computeExpectedValue(const DataTypeT &A) const;
-  void computeExpectedValuesForAsTypeOp(const std::vector<DataTypeT> &InputVector1);
+  void
+  computeExpectedValuesForAsTypeOp(const std::vector<DataTypeT> &InputVector1);
 
   void setInputArgsArrayName(const std::wstring &InputArgsArrayName) {
     this->InputArgsArrayName = InputArgsArrayName;
@@ -431,7 +430,7 @@ public:
     this->LengthToTest = LengthToTest;
   }
 
-  size_t getLengthToTest() const { return LengthToTest; } 
+  size_t getLengthToTest() const { return LengthToTest; }
 
   std::vector<DataTypeT> getInputValueSet1() const {
     return getInputValueSet(1);
@@ -450,21 +449,18 @@ public:
 
   std::string getCompilerOptionsString() const;
 
-  LongVector::VariantVector& getExpectedVector() {
-    return ExpectedVector;
-  }
+  LongVector::VariantVector &getExpectedVector() { return ExpectedVector; }
 
   bool verifyOutput(MappedData &ShaderOutData);
 
 private:
   bool isAsTypeOp(LongVector::UnaryOpType OpType) const;
-  bool isAsTypeOp(LongVector::BinaryOpType) const { return false;}
+  bool isAsTypeOp(LongVector::BinaryOpType) const { return false; }
   bool isAsTypeOp(LongVector::TrigonometricOpType) const { return false; }
 
   std::string HLSLOutputTypeString(LongVector::UnaryOpType OpType) const;
 
-  bool
-  resolveOutputTypeAndVerifyOutput(MappedData &ShaderOutData);
+  bool resolveOutputTypeAndVerifyOutput(MappedData &ShaderOutData);
 
   // Templated version to be used when the output data type does not match the
   // input data type.
