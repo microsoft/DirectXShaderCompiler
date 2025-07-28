@@ -16,7 +16,7 @@
 
 using namespace dxc;
 
-static DxcDllSupport g_DllSupport;
+static dxc::SpecificDllLoader g_DllSupport;
 static HRESULT g_DllLibResult = S_OK;
 
 static llvm::sys::Mutex *cs = nullptr;

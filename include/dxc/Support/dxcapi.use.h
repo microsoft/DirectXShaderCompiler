@@ -20,13 +20,13 @@ extern const char *kDxCompilerLib;
 extern const char *kDxilLib;
 
 // Interface for common dll operations
-class IDllSupport {
+class DllLoader {
 public:
-  IDllSupport() = default;
+  DllLoader() = default;
 
-  IDllSupport(IDllSupport &&other) = default;
+  DllLoader(DllLoader &&other) = default;
 
-  virtual ~IDllSupport() = default;
+  virtual ~DllLoader() = default;
 
   virtual HRESULT Initialize() = 0;
 
@@ -63,7 +63,7 @@ public:
 };
 
 // Helper class to dynamically load the dxcompiler or a compatible libraries.
-class DxcDllSupport : public IDllSupport {
+class SpecificDllLoader : public DllLoader {
 
   HMODULE m_dll;
   DxcCreateInstanceProc m_createFn;
@@ -117,9 +117,10 @@ class DxcDllSupport : public IDllSupport {
   }
 
 public:
-  DxcDllSupport() : m_dll(nullptr), m_createFn(nullptr), m_createFn2(nullptr) {}
+  SpecificDllLoader()
+      : m_dll(nullptr), m_createFn(nullptr), m_createFn2(nullptr) {}
 
-  DxcDllSupport(DxcDllSupport &&other) {
+  SpecificDllLoader(SpecificDllLoader &&other) {
     m_dll = other.m_dll;
     other.m_dll = nullptr;
     m_createFn = other.m_createFn;
@@ -128,7 +129,7 @@ public:
     other.m_createFn2 = nullptr;
   }
 
-  ~DxcDllSupport() { Cleanup(); }
+  ~SpecificDllLoader() { Cleanup(); }
 
   HRESULT Initialize() {
     return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
@@ -140,7 +141,7 @@ public:
 
   // Also bring visibility into the interface definition of this function
   // which takes 2 args
-  using IDllSupport::CreateInstance;
+  using DllLoader::CreateInstance;
   HRESULT CreateInstance(REFCLSID clsid, REFIID riid, IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
@@ -152,7 +153,7 @@ public:
 
   // Also bring visibility into the interface definition of this function
   // which takes 3 args
-  using IDllSupport::CreateInstance2;
+  using DllLoader::CreateInstance2;
   HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
                           IUnknown **pResult) {
     if (pResult == nullptr)
@@ -208,8 +209,8 @@ inline DxcDefine GetDefine(LPCWSTR name, LPCWSTR value) {
 // Checks an HRESULT and formats an error message with the appended data.
 void IFT_Data(HRESULT hr, LPCWSTR data);
 
-void EnsureEnabled(DxcDllSupport &dxcSupport);
-void ReadFileIntoBlob(DxcDllSupport &dxcSupport, LPCWSTR pFileName,
+void EnsureEnabled(SpecificDllLoader &dxcSupport);
+void ReadFileIntoBlob(SpecificDllLoader &dxcSupport, LPCWSTR pFileName,
                       IDxcBlobEncoding **ppBlobEncoding);
 void WriteBlobToConsole(IDxcBlob *pBlob, DWORD streamType = STD_OUTPUT_HANDLE);
 void WriteBlobToFile(IDxcBlob *pBlob, LPCWSTR pFileName, UINT32 textCodePage);

@@ -19,7 +19,7 @@
 #include <vector>
 
 namespace dxc {
-class DxcDllSupport;
+class SpecificDllLoader;
 }
 
 namespace pix_test {
@@ -27,23 +27,24 @@ namespace pix_test {
 std::vector<std::string> SplitAndPreserveEmptyLines(std::string const &str,
                                                     char delimeter);
 
-CComPtr<IDxcBlob> GetDebugPart(dxc::DxcDllSupport &dllSupport,
+CComPtr<IDxcBlob> GetDebugPart(dxc::SpecificDllLoader &dllSupport,
                                IDxcBlob *container);
-void CreateBlobFromText(dxc::DxcDllSupport &dllSupport, const char *pText,
+void CreateBlobFromText(dxc::SpecificDllLoader &dllSupport, const char *pText,
                         IDxcBlobEncoding **ppBlob);
 
-HRESULT CreateCompiler(dxc::DxcDllSupport &dllSupport, IDxcCompiler **ppResult);
-CComPtr<IDxcBlob> Compile(dxc::DxcDllSupport &dllSupport, const char *hlsl,
+HRESULT CreateCompiler(dxc::SpecificDllLoader &dllSupport,
+                       IDxcCompiler **ppResult);
+CComPtr<IDxcBlob> Compile(dxc::SpecificDllLoader &dllSupport, const char *hlsl,
                           const wchar_t *target,
                           std::vector<const wchar_t *> extraArgs = {},
                           const wchar_t *entry = L"main");
 
-void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+void CompileAndLogErrors(dxc::SpecificDllLoader &dllSupport, LPCSTR pText,
                          LPCWSTR pTargetProfile, std::vector<LPCWSTR> &args,
                          IDxcIncludeHandler *includer,
                          _Outptr_ IDxcBlob **ppResult);
 
-CComPtr<IDxcBlob> WrapInNewContainer(dxc::DxcDllSupport &dllSupport,
+CComPtr<IDxcBlob> WrapInNewContainer(dxc::SpecificDllLoader &dllSupport,
                                      IDxcBlob *part);
 
 struct ValueLocation {
@@ -56,8 +57,8 @@ struct PassOutput {
   std::vector<std::string> lines;
 };
 
-PassOutput RunAnnotationPasses(dxc::DxcDllSupport &dllSupport, IDxcBlob *dxil,
-                               int startingLineNumber = 0);
+PassOutput RunAnnotationPasses(dxc::SpecificDllLoader &dllSupport,
+                               IDxcBlob *dxil, int startingLineNumber = 0);
 
 struct DebuggerInterfaces {
   CComPtr<IDxcPixDxilDebugInfo> debugInfo;

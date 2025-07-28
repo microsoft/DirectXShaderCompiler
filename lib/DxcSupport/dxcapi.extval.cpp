@@ -6,24 +6,24 @@
 
 namespace dxc {
 
-HRESULT DxcDllExtValidationSupport::CreateInstance(REFCLSID clsid, REFIID riid,
-                                                   IUnknown **pResult) {
+HRESULT DxcDllExtValidationLoader::CreateInstance(REFCLSID clsid, REFIID riid,
+                                                  IUnknown **pResult) {
   if (DxilExtValSupport.IsEnabled() && clsid == CLSID_DxcValidator)
     return DxilExtValSupport.CreateInstance(clsid, riid, pResult);
 
   return DxCompilerSupport.CreateInstance(clsid, riid, pResult);
 }
 
-HRESULT DxcDllExtValidationSupport::CreateInstance2(IMalloc *pMalloc,
-                                                    REFCLSID clsid, REFIID riid,
-                                                    IUnknown **pResult) {
+HRESULT DxcDllExtValidationLoader::CreateInstance2(IMalloc *pMalloc,
+                                                   REFCLSID clsid, REFIID riid,
+                                                   IUnknown **pResult) {
   if (DxilExtValSupport.IsEnabled() && clsid == CLSID_DxcValidator)
     return DxilExtValSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
 
   return DxCompilerSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
 }
 
-HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR fnName) {
+HRESULT DxcDllExtValidationLoader::InitializeInternal(LPCSTR fnName) {
   // Load dxcompiler.dll
   HRESULT Result = DxCompilerSupport.InitializeForDll(kDxCompilerLib, fnName);
   // if dxcompiler.dll fails to load, return the failed HRESULT
@@ -48,7 +48,7 @@ HRESULT DxcDllExtValidationSupport::InitializeInternal(LPCSTR fnName) {
   return DxilExtValSupport.InitializeForDll(DxilDllPath.c_str(), fnName);
 }
 
-bool DxcDllExtValidationSupport::GetCreateInstanceProcs(
+bool DxcDllExtValidationLoader::GetCreateInstanceProcs(
     DxcCreateInstanceProc *pCreateFn,
     DxcCreateInstance2Proc *pCreateFn2) const {
   if (pCreateFn == nullptr || pCreateFn2 == nullptr || m_createFn == nullptr)

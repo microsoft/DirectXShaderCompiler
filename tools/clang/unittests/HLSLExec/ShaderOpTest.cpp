@@ -25,7 +25,7 @@
 #include "HlslTestUtils.h"          // LogCommentFmt
 #include "dxc/DXIL/DxilConstants.h" // ComponentType
 #include "dxc/Support/Global.h"     // OutputDebugBytes
-#include "dxc/Support/dxcapi.use.h" // DxcDllSupport
+#include "dxc/Support/dxcapi.use.h" // SpecificDllLoader
 #include "dxc/dxcapi.h"             // IDxcCompiler
 
 #include <DirectXMath.h>
@@ -1143,7 +1143,7 @@ void ShaderOpTest::SetRootValues(ID3D12GraphicsCommandList *pList,
 
 void ShaderOpTest::SetDevice(ID3D12Device *pDevice) { m_pDevice = pDevice; }
 
-void ShaderOpTest::SetDxcSupport(dxc::DxcDllSupport *pDxcSupport) {
+void ShaderOpTest::SetSpecificDllLoader(dxc::SpecificDllLoader *pDxcSupport) {
   m_pDxcSupport = pDxcSupport;
 }
 

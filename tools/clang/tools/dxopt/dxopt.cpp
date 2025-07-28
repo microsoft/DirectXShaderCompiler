@@ -43,7 +43,7 @@ inline bool wcsieqopt(LPCWSTR text, LPCWSTR opt) {
   return (text[0] == L'-' || text[0] == L'/') && wcsieq(text + 1, opt);
 }
 
-static dxc::DxcDllSupport g_DxcSupport;
+static dxc::SpecificDllLoader g_DxcSupport;
 
 enum class ProgramAction {
   PrintHelp,

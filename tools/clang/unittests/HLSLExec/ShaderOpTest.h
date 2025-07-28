@@ -31,7 +31,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Forward declarations.
 namespace dxc {
-class DxcDllSupport;
+class SpecificDllLoader;
 }
 struct IStream;
 struct IXmlReader;
@@ -283,7 +283,7 @@ public:
   void RunShaderOp(ShaderOp *pShaderOp);
   void RunShaderOp(std::shared_ptr<ShaderOp> pShaderOp);
   void SetDevice(ID3D12Device *pDevice);
-  void SetDxcSupport(dxc::DxcDllSupport *pDxcSupport);
+  void SetSpecificDllLoader(dxc::SpecificDllLoader *pDxcSupport);
   void SetInitCallback(TInitCallbackFn InitCallbackFn);
   void SetShaderCallback(TShaderCallbackFn ShaderCallbackFn);
   void SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
@@ -313,7 +313,7 @@ private:
   CComPtr<ID3D12RootSignature> m_pRootSignature;
   CComPtr<ID3D12QueryHeap> m_pQueryHeap;
   CComPtr<ID3D12Resource> m_pQueryBuffer;
-  dxc::DxcDllSupport *m_pDxcSupport = nullptr;
+  dxc::SpecificDllLoader *m_pDxcSupport = nullptr;
   CommandListRefs m_CommandList;
   HANDLE m_hFence;
   ShaderOp *m_pShaderOp;

@@ -40,7 +40,7 @@ public:
 
 private:
   CComPtr<IDxcRewriter> m_pRewriter;
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::SpecificDllLoader m_dllSupport;
 };
 
 HRESULT NoFuncBodyRewriter::RewriteToNoFuncBody(

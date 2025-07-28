@@ -166,7 +166,8 @@ DxilRegisterToNameMap BuildDxilRegisterToNameMap(char const *disassembly) {
   return ret;
 }
 
-std::wstring Disassemble(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram) {
+std::wstring Disassemble(dxc::SpecificDllLoader &dllSupport,
+                         IDxcBlob *pProgram) {
   CComPtr<IDxcCompiler> pCompiler;
   VERIFY_SUCCEEDED(pix_test::CreateCompiler(dllSupport, &pCompiler));
 
@@ -182,7 +183,7 @@ std::wstring Disassemble(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram) {
 // For CreateBlobFromText
 namespace {
 
-void CreateBlobPinned(dxc::DxcDllSupport &dllSupport,
+void CreateBlobPinned(dxc::SpecificDllLoader &dllSupport,
                       _In_bytecount_(size) LPCVOID data, SIZE_T size,
                       UINT32 codePage, IDxcBlobEncoding **ppBlob) {
   CComPtr<IDxcLibrary> library;
@@ -215,7 +216,7 @@ std::vector<std::string> SplitAndPreserveEmptyLines(std::string const &str,
   return lines;
 }
 
-void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+void CompileAndLogErrors(dxc::SpecificDllLoader &dllSupport, LPCSTR pText,
                          LPCWSTR pTargetProfile, std::vector<LPCWSTR> &args,
                          IDxcIncludeHandler *includer,
                          _Outptr_ IDxcBlob **ppResult) {
@@ -241,8 +242,8 @@ void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
   VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
 }
 
-PassOutput RunAnnotationPasses(dxc::DxcDllSupport &dllSupport, IDxcBlob *dxil,
-                               int startingLineNumber) {
+PassOutput RunAnnotationPasses(dxc::SpecificDllLoader &dllSupport,
+                               IDxcBlob *dxil, int startingLineNumber) {
   CComPtr<IDxcOptimizer> pOptimizer;
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
   std::vector<LPCWSTR> Options;
@@ -334,7 +335,7 @@ GatherDebugLocLabelsFromDxcUtils(DebuggerInterfaces &debuggerInterfaces) {
   return std::make_unique<InstructionOffsetSeekerImpl>(debuggerInterfaces);
 }
 
-CComPtr<IDxcBlob> GetDebugPart(dxc::DxcDllSupport &dllSupport,
+CComPtr<IDxcBlob> GetDebugPart(dxc::SpecificDllLoader &dllSupport,
                                IDxcBlob *container) {
 
   CComPtr<IDxcLibrary> pLib;
@@ -355,17 +356,17 @@ CComPtr<IDxcBlob> GetDebugPart(dxc::DxcDllSupport &dllSupport,
   return debugPart;
 }
 
-void CreateBlobFromText(dxc::DxcDllSupport &dllSupport, const char *pText,
+void CreateBlobFromText(dxc::SpecificDllLoader &dllSupport, const char *pText,
                         IDxcBlobEncoding **ppBlob) {
   CreateBlobPinned(dllSupport, pText, strlen(pText) + 1, CP_UTF8, ppBlob);
 }
 
-HRESULT CreateCompiler(dxc::DxcDllSupport &dllSupport,
+HRESULT CreateCompiler(dxc::SpecificDllLoader &dllSupport,
                        IDxcCompiler **ppResult) {
   return dllSupport.CreateInstance(CLSID_DxcCompiler, ppResult);
 }
 
-CComPtr<IDxcBlob> Compile(dxc::DxcDllSupport &dllSupport, const char *hlsl,
+CComPtr<IDxcBlob> Compile(dxc::SpecificDllLoader &dllSupport, const char *hlsl,
                           const wchar_t *target,
                           std::vector<const wchar_t *> extraArgs,
                           const wchar_t *entry) {
@@ -428,7 +429,7 @@ CComPtr<IDxcBlob> Compile(dxc::DxcDllSupport &dllSupport, const char *hlsl,
   return pProgram;
 }
 
-CComPtr<IDxcBlob> WrapInNewContainer(dxc::DxcDllSupport &dllSupport,
+CComPtr<IDxcBlob> WrapInNewContainer(dxc::SpecificDllLoader &dllSupport,
                                      IDxcBlob *part) {
   CComPtr<IDxcAssembler> pAssembler;
   IFT(dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));

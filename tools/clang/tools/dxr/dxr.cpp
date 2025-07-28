@@ -50,7 +50,7 @@ int main(int argc, const char **argv) {
     const OptTable *optionTable = getHlslOptTable();
     MainArgs argStrings(argc, argv_);
     DxcOpts dxcOpts;
-    DxcDllSupport dxcSupport;
+    SpecificDllLoader dxcSupport;
 
     // Read options and check errors.
     {
@@ -76,7 +76,8 @@ int main(int argc, const char **argv) {
     {
       std::string dllErrorString;
       llvm::raw_string_ostream dllErrorStream(dllErrorString);
-      int dllResult = SetupDxcDllSupport(dxcOpts, dxcSupport, dllErrorStream);
+      int dllResult =
+          SetupSpecificDllLoader(dxcOpts, dxcSupport, dllErrorStream);
       dllErrorStream.flush();
       if (dllErrorString.size()) {
         fprintf(stderr, "%s\n", dllErrorString.data());

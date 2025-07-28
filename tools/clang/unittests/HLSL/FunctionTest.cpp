@@ -36,7 +36,7 @@ public:
   TEST_METHOD(AllowedInParamUsesClass)
   TEST_METHOD(ParseRootSignature)
 
-  dxc::DxcDllSupport m_support;
+  dxc::SpecificDllLoader m_support;
   std::vector<char> rootSigText;
 
   std::string BuildSampleFunction(const char *StorageClassKeyword) {

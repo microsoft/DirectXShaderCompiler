@@ -125,7 +125,7 @@ class DxcContext {
 
 private:
   DxcOpts &m_Opts;
-  DxcDllSupport &m_dxcSupport;
+  SpecificDllLoader &m_dxcSupport;
 
   int ActOnBlob(IDxcBlob *pBlob);
   int ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugBlobName);
@@ -155,7 +155,7 @@ private:
   }
 
 public:
-  DxcContext(DxcOpts &Opts, DxcDllSupport &dxcSupport)
+  DxcContext(DxcOpts &Opts, SpecificDllLoader &dxcSupport)
       : m_Opts(Opts), m_dxcSupport(dxcSupport) {}
 
   int Compile();
@@ -1235,7 +1235,7 @@ namespace dxc {
 // Writes compiler version info to stream
 void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS, const char *ExternalLib,
                                 const char *ExternalFn,
-                                DxcDllSupport &DxcSupport) {
+                                SpecificDllLoader &DxcSupport) {
   if (DxcSupport.IsEnabled()) {
     UINT32 compilerMajor = 1;
     UINT32 compilerMinor = 0;
@@ -1294,7 +1294,8 @@ void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS, const char *ExternalLib,
 }
 
 // Writes compiler version info to stream
-void WriteDXILVersionInfo(llvm::raw_ostream &OS, DxcDllSupport &DxilSupport) {
+void WriteDXILVersionInfo(llvm::raw_ostream &OS,
+                          SpecificDllLoader &DxilSupport) {
   if (DxilSupport.IsEnabled()) {
     CComPtr<IDxcVersionInfo> VerInfo;
     if (SUCCEEDED(DxilSupport.CreateInstance(CLSID_DxcValidator, &VerInfo))) {
@@ -1325,7 +1326,7 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
       m_dxcSupport);
 
   // Print validator if exists
-  DxcDllSupport DxilSupport;
+  SpecificDllLoader DxilSupport;
   DxilSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
   WriteDXILVersionInfo(OS, DxilSupport);
 }
@@ -1417,7 +1418,7 @@ int dxc::main(int argc, const char **argv_) {
     const OptTable *optionTable = getHlslOptTable();
     MainArgs argStrings(argc, argv_);
     DxcOpts dxcOpts;
-    DxcDllSupport dxcSupport;
+    SpecificDllLoader dxcSupport;
 
     // Read options and check errors.
     {
@@ -1452,7 +1453,8 @@ int dxc::main(int argc, const char **argv_) {
     {
       std::string dllErrorString;
       llvm::raw_string_ostream dllErrorStream(dllErrorString);
-      int dllResult = SetupDxcDllSupport(dxcOpts, dxcSupport, dllErrorStream);
+      int dllResult =
+          SetupSpecificDllLoader(dxcOpts, dxcSupport, dllErrorStream);
       dllErrorStream.flush();
       if (dllErrorString.size()) {
         fprintf(stderr, "%s\n", dllErrorString.data());

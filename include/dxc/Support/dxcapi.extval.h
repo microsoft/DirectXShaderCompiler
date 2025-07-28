@@ -2,12 +2,12 @@
 #include <string>
 
 namespace dxc {
-class DxcDllExtValidationSupport : public IDllSupport {
+class DxcDllExtValidationLoader : public DllLoader {
   // DxCompilerSupport manages the
   // lifetime of dxcompiler.dll, while DxilExtValSupport
   // manages the lifetime of dxil.dll
-  dxc::DxcDllSupport DxCompilerSupport;
-  dxc::DxcDllSupport DxilExtValSupport;
+  dxc::SpecificDllLoader DxCompilerSupport;
+  dxc::SpecificDllLoader DxilExtValSupport;
 
   DxcCreateInstanceProc m_createFn;
   DxcCreateInstance2Proc m_createFn2;

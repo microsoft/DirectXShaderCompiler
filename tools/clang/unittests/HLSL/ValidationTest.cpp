@@ -331,7 +331,7 @@ public:
   TEST_METHOD(WrongPSVSizeOnZeros)
   TEST_METHOD(WrongPSVVersion)
 
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::SpecificDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
   void TestCheck(LPCWSTR name) {
@@ -4235,8 +4235,8 @@ void SetEnvVarW(const std::wstring &VarName, const std::wstring &VarValue) {
 // works as intended.
 
 TEST_F(ValidationTest, UnitTestExtValidationSupport) {
-  dxc::DxcDllExtValidationSupport ExtSupportEmpty;
-  dxc::DxcDllExtValidationSupport ExtSupportBogus;
+  dxc::DxcDllExtValidationLoader ExtSupportEmpty;
+  dxc::DxcDllExtValidationLoader ExtSupportBogus;
 
   // capture any existing value in the environment variable,
   // so that it can be restored after the test
