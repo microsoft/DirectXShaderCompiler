@@ -498,37 +498,37 @@ std::string LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::getHLSLOutputT
   if (auto* Vec = std::get_if<std::vector<DataTypeT>>(&ExpectedVector))
     return LongVector::getHLSLTypeString<DataTypeT>();
 
-  // The unary AsType ops have a different output type.
-  if ( isUnaryOp() ) {
-    auto OpType = static_cast<LongVector::UnaryOpType>(OpTypeTraits.OpType);
-    switch (OpType) {
-      case LongVector::UnaryOpType_AsFloat16:
-        return LongVector::getHLSLTypeString<HLSLHalf_t>();
-      case LongVector::UnaryOpType_AsFloat:
-        return LongVector::getHLSLTypeString<float>();
-      case LongVector::UnaryOpType_AsInt:
-        return LongVector::getHLSLTypeString<int32_t>();
-      case LongVector::UnaryOpType_AsInt16:
-        return LongVector::getHLSLTypeString<int16_t>();
-      case LongVector::UnaryOpType_AsUint:
-        return LongVector::getHLSLTypeString<uint32_t>();
-      case LongVector::UnaryOpType_AsUint16:
-        return LongVector::getHLSLTypeString<uint16_t>();
-      default:
-        LOG_ERROR_FMT_THROW(L"getHLSLOutputTypeString() called with an unsupported op type: %d", OpType);
-        return std::string("UnknownType");
-    }
+  if(!isAsTypeOp())  {
+    LOG_ERROR_FMT_THROW(L"getHLSLOutputTypeString() called with an unsupported op type: %d", OpTypeTraits.OpType);
+    return std::string("UnknownType");
   }
 
-  LOG_ERROR_FMT_THROW(L"getHLSLOutputTypeString() called with an unsupported op type: %d", OpTypeTraits.OpType);
-  return std::string("UnknownType");
+  // The unary AsType ops have a different output type.
+  auto OpType = static_cast<LongVector::UnaryOpType>(OpTypeTraits.OpType);
+  switch (OpType) {
+    case LongVector::UnaryOpType_AsFloat16:
+      return LongVector::getHLSLTypeString<HLSLHalf_t>();
+    case LongVector::UnaryOpType_AsFloat:
+      return LongVector::getHLSLTypeString<float>();
+    case LongVector::UnaryOpType_AsInt:
+      return LongVector::getHLSLTypeString<int32_t>();
+    case LongVector::UnaryOpType_AsInt16:
+      return LongVector::getHLSLTypeString<int16_t>();
+    case LongVector::UnaryOpType_AsUint:
+      return LongVector::getHLSLTypeString<uint32_t>();
+    case LongVector::UnaryOpType_AsUint16:
+      return LongVector::getHLSLTypeString<uint16_t>();
+    default:
+      LOG_ERROR_FMT_THROW(L"getHLSLOutputTypeString() called with an unsupported op type: %d", OpType);
+      return std::string("UnknownType");
+  }
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
 void LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::computeExpectedValuesForAsTypeOp(
     const std::vector<DataTypeT>& InputVector1) {
 
-  VERIFY_IS_TRUE(isAsTypeOp(OpTypeTraits.OpType),
+  VERIFY_IS_TRUE(isAsTypeOp(),
                  L"computeExpectedValuesForAsTypeOp() called with a non-AsType op config.");
 
   const auto OpType = static_cast<LongVector::UnaryOpType>(OpTypeTraits.OpType);
@@ -565,16 +565,12 @@ void LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::computeExpectedValues
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
 bool LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::isAsTypeOp(LongVector::UnaryOpType OpType) const {
-  if( OpType == LongVector::UnaryOpType_AsFloat ||
+  return ( OpType == LongVector::UnaryOpType_AsFloat ||
       OpType == LongVector::UnaryOpType_AsFloat16 ||
       OpType == LongVector::UnaryOpType_AsInt ||
       OpType == LongVector::UnaryOpType_AsInt16 ||
       OpType == LongVector::UnaryOpType_AsUint ||
-      OpType == LongVector::UnaryOpType_AsUint16) {
-    return true;
-  }
-
-  return false;
+      OpType == LongVector::UnaryOpType_AsUint16);
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
@@ -673,13 +669,14 @@ DataTypeT LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::computeExpectedV
 template <typename DataTypeT, typename LongVectorOpTypeT>
 DataTypeT LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::computeExpectedValue(const DataTypeT &A,
                               LongVector::UnaryOpType OpType) const {
-  switch (OpType) {
-  case LongVector::UnaryOpType_Initialize:
-    return A;
-  default:
+
+  // Initialize is currently the only unary op that calls this basic computeExpectedValue
+  if (OpType != LongVector::UnaryOpType_Initialize) {
     LOG_ERROR_FMT_THROW(L"Unknown UnaryOpType :%d", OpTypeTraits.OpType);
     return DataTypeT();
   }
+
+  return A;
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
@@ -765,31 +762,32 @@ std::vector<DataTypeT> LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::get
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
 bool LongVector::TestConfig<DataTypeT, LongVectorOpTypeT>::resolveOutputTypeAndVerifyOutput(MappedData &ShaderOutData) {
-
-  if constexpr (std::is_same_v<LongVectorOpTypeT, LongVector::UnaryOpType>) {
-    switch (static_cast<LongVector::UnaryOpType>(OpTypeTraits.OpType)) {
-    case LongVector::UnaryOpType_AsFloat:
-        return verifyOutput<float>(ShaderOutData);
-    case LongVector::UnaryOpType_AsFloat16:
-        return verifyOutput<HLSLHalf_t>(ShaderOutData);
-    case LongVector::UnaryOpType_AsInt:
-        return verifyOutput<int32_t>(ShaderOutData);
-    case LongVector::UnaryOpType_AsInt16:
-        return verifyOutput<int16_t>(ShaderOutData);
-    case LongVector::UnaryOpType_AsUint:
-        return verifyOutput<uint32_t>(ShaderOutData);
-    case LongVector::UnaryOpType_AsUint16:
-        return verifyOutput<uint16_t>(ShaderOutData);
-    default:
-      LOG_ERROR_FMT_THROW(L"verifyOutput() called with an unsupported UnaryOpType: %d", OpTypeTraits.OpType);
-      return false;
-    }
+  if(!isAsTypeOp()) {
+    // Currently only AsType ops are supported to have an output type that
+    // doesn't match the input type. This may change in the future when more
+    // tests cases are added. If it does then this check will need to be updated
+    // at that point.
+    LOG_ERROR_FMT_THROW(L"resolveOutputTypeAndVerifyOutput() called with a non-unary op: %d", OpTypeTraits.OpType);
+    return false;
   }
 
-  // If you're hitting this, you probably need to add a case for a new
-  // LongVector::OpType
-  LOG_ERROR_FMT_THROW(L"resolveOutputTypeAndVerifyOutput() called with unrecognized OpType: %d", OpTypeTraits.OpType);
-  return false;
+  switch (static_cast<LongVector::UnaryOpType>(OpTypeTraits.OpType)) {
+  case LongVector::UnaryOpType_AsFloat:
+      return verifyOutput<float>(ShaderOutData);
+  case LongVector::UnaryOpType_AsFloat16:
+      return verifyOutput<HLSLHalf_t>(ShaderOutData);
+  case LongVector::UnaryOpType_AsInt:
+      return verifyOutput<int32_t>(ShaderOutData);
+  case LongVector::UnaryOpType_AsInt16:
+      return verifyOutput<int16_t>(ShaderOutData);
+  case LongVector::UnaryOpType_AsUint:
+      return verifyOutput<uint32_t>(ShaderOutData);
+  case LongVector::UnaryOpType_AsUint16:
+      return verifyOutput<uint16_t>(ShaderOutData);
+  default:
+    LOG_ERROR_FMT_THROW(L"verifyOutput() called with an unsupported UnaryOpType: %d", OpTypeTraits.OpType);
+    return false;
+  }
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
