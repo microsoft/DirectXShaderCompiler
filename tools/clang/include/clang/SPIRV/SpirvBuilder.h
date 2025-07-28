@@ -678,9 +678,20 @@ public:
                bool isPrecise, bool isNointerp, llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
+
+  // Adds a variable to the module.
   SpirvVariable *
   addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
                bool isPrecise, bool isNointerp, llvm::StringRef name = "",
+               llvm::Optional<SpirvInstruction *> init = llvm::None,
+               SourceLocation loc = {});
+
+  // Adds a variable to the module. It will be placed in the variable list
+  // before `pos`.
+  SpirvVariable *
+  addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
+               bool isPrecise, bool isNointerp, SpirvInstruction *before,
+               llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
 
