@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 
 // Do not change the inclusion order between "dxc/Support/*" files.
@@ -139,6 +136,8 @@ uint32_t getHeaderVersion(spv_target_env env) {
 std::string
 ReadSourceCode(llvm::StringRef filePath,
                const clang::spirv::SpirvCodeGenOptions &spvOptions) {
+
+  std::string localFilePath(filePath.begin(), filePath.end());
   try {
     dxc::DxcDllSupport dllSupport;
     IFT(dllSupport.Initialize());
@@ -157,7 +156,10 @@ ReadSourceCode(llvm::StringRef filePath,
   } catch (...) {
     // An exception has occurred while reading the file
     // return the original source (which may have been supplied directly)
-    if (!spvOptions.origSource.empty()) {
+    // only for the main input file
+    if ((!strcmp(localFilePath.c_str(), "hlsl.hlsl") &&
+         spvOptions.inputFile.empty()) ||
+        !strcmp(localFilePath.c_str(), spvOptions.inputFile.c_str())) {
       return spvOptions.origSource.c_str();
     }
     return "";
@@ -941,6 +943,73 @@ bool EmitVisitor::visit(SpirvBarrier *inst) {
   curInst.push_back(memoryScopeId);
   curInst.push_back(memorySemanticsId);
   finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvIsNodePayloadValid *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getPayloadArray()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getNodeIndex()));
+  finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvNodePayloadArrayLength *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getPayloadArray()));
+  finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvAllocateNodePayloads *inst) {
+  const uint32_t allocationScopeId = typeHandler.getOrCreateConstantInt(
+      llvm::APInt(32, static_cast<uint32_t>(inst->getAllocationScope())),
+      context.getUIntType(32), /*isSpecConst */ false);
+
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(allocationScopeId);
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getRecordCount()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getShaderIndex()));
+  finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvEnqueueNodePayloads *inst) {
+  initInstruction(inst);
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPayload()));
+  finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvFinishWritingNodePayload *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPayload()));
+  finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
@@ -1008,6 +1077,13 @@ bool EmitVisitor::visit(SpirvConstantFloat *inst) {
 }
 
 bool EmitVisitor::visit(SpirvConstantComposite *inst) {
+  typeHandler.getOrCreateConstant(inst);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvConstantString *inst) {
   typeHandler.getOrCreateConstant(inst);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
@@ -1564,12 +1640,6 @@ bool EmitVisitor::visit(SpirvDebugLexicalBlock *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugScope *inst) {
-  // Technically entry function wrappers do not exist in HLSL. They
-  // are just created by DXC. We do not want to emit DebugScope for
-  // it.
-  if (inEntryFunctionWrapper)
-    return true;
-
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
@@ -2081,6 +2151,8 @@ uint32_t EmitTypeHandler::getOrCreateConstant(SpirvConstant *inst) {
     return getOrCreateConstantNull(constNull);
   } else if (auto *constBool = dyn_cast<SpirvConstantBoolean>(inst)) {
     return getOrCreateConstantBool(constBool);
+  } else if (auto *constString = dyn_cast<SpirvConstantString>(inst)) {
+    return getOrCreateConstantString(constString);
   } else if (auto *constUndef = dyn_cast<SpirvUndef>(inst)) {
     return getOrCreateUndef(constUndef);
   }
@@ -2113,6 +2185,36 @@ uint32_t EmitTypeHandler::getOrCreateConstantBool(SpirvConstantBoolean *inst) {
       emittedSpecConstantInstructions.insert(inst);
     } else {
       emittedConstantBools[index] = inst;
+    }
+  }
+
+  return inst->getResultId();
+}
+
+uint32_t EmitTypeHandler::getOrCreateConstantString(SpirvConstantString *inst) {
+  const StringRef str = inst->getString();
+  const bool isSpecConst = inst->isSpecConstant();
+
+  if (!isSpecConst &&
+      emittedConstantStrings.find(str) != emittedConstantStrings.end()) {
+    // Already emitted this constant value. Reuse.
+    inst->setResultId(emittedConstantStrings[str]->getResultId());
+  } else if (isSpecConst && emittedSpecConstantInstructions.find(inst) !=
+                                emittedSpecConstantInstructions.end()) {
+    // We've already emitted this SpecConstant. Reuse.
+    return inst->getResultId();
+  } else {
+    // Constant wasn't emitted in the past.
+    const auto &words = string::encodeSPIRVString(inst->getString());
+    initTypeInstruction(inst->getopcode());
+    curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+    curTypeInst.insert(curTypeInst.end(), words.begin(), words.end());
+    finalizeTypeInstruction();
+    // Remember this constant for the future (if not a spec constant)
+    if (isSpecConst) {
+      emittedSpecConstantInstructions.insert(inst);
+    } else {
+      emittedConstantStrings[str] = inst;
     }
   }
 
@@ -2539,6 +2641,84 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     if (stride.hasValue())
       emitDecoration(id, spv::Decoration::ArrayStride, {stride.getValue()});
   }
+  // NodePayloadArray types
+  else if (const auto *npaType = dyn_cast<NodePayloadArrayType>(type)) {
+    const uint32_t elemTypeId = emitType(npaType->getElementType());
+    initTypeInstruction(spv::Op::OpTypeNodePayloadArrayAMDX);
+    curTypeInst.push_back(id);
+    curTypeInst.push_back(elemTypeId);
+    finalizeTypeInstruction();
+
+    // Emit decorations
+    const ParmVarDecl *nodeDecl = npaType->getNodeDecl();
+    if (hlsl::IsHLSLNodeOutputType(nodeDecl->getType())) {
+      StringRef name = nodeDecl->getName();
+      unsigned index = 0;
+      if (auto nodeID = nodeDecl->getAttr<HLSLNodeIdAttr>()) {
+        name = nodeID->getName();
+        index = nodeID->getArrayIndex();
+      }
+
+      auto *str = new (context) SpirvConstantString(name);
+      uint32_t nodeName = getOrCreateConstantString(str);
+      emitDecoration(id, spv::Decoration::PayloadNodeNameAMDX, {nodeName},
+                     llvm::None, true);
+      if (index) {
+        uint32_t baseIndex = getOrCreateConstantInt(
+            llvm::APInt(32, index), context.getUIntType(32), false);
+        emitDecoration(id, spv::Decoration::PayloadNodeBaseIndexAMDX,
+                       {baseIndex}, llvm::None, true);
+      }
+    }
+
+    uint32_t maxRecords;
+    if (const auto *attr = nodeDecl->getAttr<HLSLMaxRecordsAttr>()) {
+      maxRecords = getOrCreateConstantInt(llvm::APInt(32, attr->getMaxCount()),
+                                          context.getUIntType(32), false);
+    } else {
+      maxRecords = getOrCreateConstantInt(llvm::APInt(32, 1),
+                                          context.getUIntType(32), false);
+    }
+    emitDecoration(id, spv::Decoration::NodeMaxPayloadsAMDX, {maxRecords},
+                   llvm::None, true);
+
+    if (const auto *attr = nodeDecl->getAttr<HLSLMaxRecordsSharedWithAttr>()) {
+      const DeclContext *dc = nodeDecl->getParentFunctionOrMethod();
+      if (const auto *funDecl = dyn_cast_or_null<FunctionDecl>(dc)) {
+        IdentifierInfo *ii = attr->getName();
+        bool alreadyExists = false;
+        for (auto *paramDecl : funDecl->params()) {
+          if (paramDecl->getIdentifier() == ii) {
+            assert(paramDecl != nodeDecl);
+            auto otherType = context.getNodeDeclPayloadType(paramDecl);
+            const uint32_t otherId =
+                getResultIdForType(otherType, &alreadyExists);
+            assert(alreadyExists && "forward references not allowed in "
+                                    "MaxRecordsSharedWith attribute");
+            emitDecoration(id, spv::Decoration::NodeSharesPayloadLimitsWithAMDX,
+                           {otherId}, llvm::None, true);
+            break;
+          }
+        }
+        assert(alreadyExists &&
+               "invalid reference in MaxRecordsSharedWith attribute");
+      }
+    }
+    if (const auto *attr = nodeDecl->getAttr<HLSLAllowSparseNodesAttr>()) {
+      emitDecoration(id, spv::Decoration::PayloadNodeSparseArrayAMDX, {},
+                     llvm::None);
+    }
+    if (const auto *attr = nodeDecl->getAttr<HLSLUnboundedSparseNodesAttr>()) {
+      emitDecoration(id, spv::Decoration::PayloadNodeSparseArrayAMDX, {},
+                     llvm::None);
+    }
+    if (const auto *attr = nodeDecl->getAttr<HLSLNodeArraySizeAttr>()) {
+      uint32_t arraySize = getOrCreateConstantInt(
+          llvm::APInt(32, attr->getCount()), context.getUIntType(32), false);
+      emitDecoration(id, spv::Decoration::PayloadNodeArraySizeAMDX, {arraySize},
+                     llvm::None, true);
+    }
+  }
   // Structure types
   else if (const auto *structType = dyn_cast<StructType>(type)) {
     std::vector<std::reference_wrapper<const StructType::FieldInfo>>
@@ -2549,6 +2729,15 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
         if (i > 0 && isFieldMergeWithPrevious(fields[i - 1], fields[i]))
           continue;
         fieldsToGenerate.push_back(std::ref(fields[i]));
+      }
+    }
+
+    if (const auto recordDecl = dyn_cast_or_null<RecordDecl>(
+            context.getStructDeclForSpirvType(structType))) {
+      auto index = context.getDispatchGridIndex(recordDecl);
+      if (index.hasValue()) {
+        emitDecoration(id, spv::Decoration::PayloadDispatchIndirectAMDX, {},
+                       index);
       }
     }
 
@@ -2613,6 +2802,13 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
                      {});
     else if (interfaceType == StructInterfaceType::UniformBuffer)
       emitDecoration(id, spv::Decoration::Block, {});
+
+    // Emit NodeTrackRWInputSharing decoration if attribute is present.
+    const auto *structDecl = dyn_cast_or_null<RecordDecl>(
+        context.getStructDeclForSpirvType(structType));
+    if (structDecl && structDecl->hasAttr<HLSLNodeTrackRWInputSharingAttr>()) {
+      emitDecoration(id, spv::Decoration::TrackFinishWritingAMDX, {});
+    }
 
     initTypeInstruction(spv::Op::OpTypeStruct);
     curTypeInst.push_back(id);
@@ -2756,13 +2952,16 @@ void EmitTypeHandler::emitLiteral(const SpirvConstant *literal,
 void EmitTypeHandler::emitDecoration(uint32_t typeResultId,
                                      spv::Decoration decoration,
                                      llvm::ArrayRef<uint32_t> decorationParams,
-                                     llvm::Optional<uint32_t> memberIndex) {
-
+                                     llvm::Optional<uint32_t> memberIndex,
+                                     bool usesIdParams) {
   spv::Op op =
       memberIndex.hasValue() ? spv::Op::OpMemberDecorate : spv::Op::OpDecorate;
   if (decoration == spv::Decoration::UserTypeGOOGLE) {
     op = memberIndex.hasValue() ? spv::Op::OpMemberDecorateString
                                 : spv::Op::OpDecorateString;
+  }
+  if (usesIdParams) {
+    op = spv::Op::OpDecorateId;
   }
 
   assert(curDecorationInst.empty());

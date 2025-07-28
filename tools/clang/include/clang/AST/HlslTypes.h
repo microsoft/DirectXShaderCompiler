@@ -6,9 +6,6 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
-// All rights reserved.                                                      //
-//                                                                           //
 ///
 /// \file                                                                    //
 /// \brief Defines the HLSL type system interface.                           //
@@ -488,7 +485,10 @@ bool IsHLSLObjectWithImplicitMemberAccess(clang::QualType type);
 bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type);
 bool IsHLSLRWNodeInputRecordType(clang::QualType type);
 bool IsHLSLRONodeInputRecordType(clang::QualType type);
+bool IsHLSLDispatchNodeInputRecordType(clang::QualType type);
+bool IsHLSLNodeRecordArrayType(clang::QualType type);
 bool IsHLSLNodeOutputType(clang::QualType type);
+bool IsHLSLEmptyNodeRecordType(clang::QualType type);
 
 DXIL::NodeIOKind GetNodeIOType(clang::QualType type);
 
@@ -498,6 +498,8 @@ bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT);
 bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT);
 bool IsHLSLAggregateType(clang::QualType type);
 clang::QualType GetHLSLResourceResultType(clang::QualType type);
+clang::QualType GetHLSLNodeIOResultType(clang::ASTContext &astContext,
+                                        clang::QualType type);
 unsigned GetHLSLResourceTemplateUInt(clang::QualType type);
 bool IsIncompleteHLSLResourceArrayType(clang::ASTContext &context,
                                        clang::QualType type);
