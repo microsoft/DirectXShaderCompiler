@@ -139,6 +139,10 @@ public:
   // Adds a variable to the module.
   void addVariable(SpirvVariable *);
 
+  // Adds a variable to the module immediately before `pos`.
+  // If `pos` is not found, `var` is added at the end of the variable list.
+  void addVariable(SpirvVariable *var, SpirvInstruction *pos);
+
   // Adds a decoration to the module.
   void addDecoration(SpirvDecoration *);
 
