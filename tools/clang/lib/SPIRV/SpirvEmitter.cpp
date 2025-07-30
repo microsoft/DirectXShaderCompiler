@@ -1021,6 +1021,17 @@ void SpirvEmitter::doDecl(const Decl *decl) {
       // functions inside namespaces.
       if (!isa<FunctionDecl>(subDecl))
         doDecl(subDecl);
+  } else if (const auto *classTemplateDecl =
+                 dyn_cast<ClassTemplateDecl>(decl)) {
+    doClassTemplateDecl(classTemplateDecl);
+  } else if (const auto *classTemplateDecl =
+                 dyn_cast<ClassTemplatePartialSpecializationDecl>(decl)) {
+    // Do nothing. We cannot generate any code with a partial specialization,
+    // and when there is a specialization of this decl it will be a
+    // specialization of the orginal ClassTemplateDecl that this specializes.
+    // The code for the full specialization will be handlded when processing the
+    // ClassTemplateDecl. Note that this is also a RecordDecl, so we must check
+    // for it before RecordDecl.
   } else if (const auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
     doFunctionDecl(funcDecl);
   } else if (const auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl)) {
@@ -1029,9 +1040,6 @@ void SpirvEmitter::doDecl(const Decl *decl) {
     doRecordDecl(recordDecl);
   } else if (const auto *enumDecl = dyn_cast<EnumDecl>(decl)) {
     doEnumDecl(enumDecl);
-  } else if (const auto *classTemplateDecl =
-                 dyn_cast<ClassTemplateDecl>(decl)) {
-    doClassTemplateDecl(classTemplateDecl);
   } else if (isa<TypedefNameDecl>(decl)) {
     declIdMapper.recordsSpirvTypeAlias(decl);
   } else if (isa<FunctionTemplateDecl>(decl)) {
