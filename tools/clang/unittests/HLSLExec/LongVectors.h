@@ -146,6 +146,7 @@ enum BinaryOpType {
   BinaryOpType_Max,
   BinaryOpType_ScalarMin,
   BinaryOpType_ScalarMax,
+  BinaryOpType_AsDouble,
   BinaryOpType_EnumValueCount
 };
 
@@ -164,6 +165,7 @@ static const LongVectorOpTypeStringToEnumValue binaryOpTypeStringToEnumMap[] = {
     {L"BinaryOpType_Max", BinaryOpType_Max},
     {L"BinaryOpType_ScalarMin", BinaryOpType_ScalarMin},
     {L"BinaryOpType_ScalarMax", BinaryOpType_ScalarMax},
+    {L"BinaryOpType_AsDouble", BinaryOpType_AsDouble},
 };
 
 static_assert(_countof(binaryOpTypeStringToEnumMap) ==
@@ -180,6 +182,7 @@ enum UnaryOpType {
   UnaryOpType_AsInt,
   UnaryOpType_AsInt16,
   UnaryOpType_AsUint,
+  UnaryOpType_AsUint_SplitDouble,
   UnaryOpType_AsUint16,
   UnaryOpType_EnumValueCount
 };
@@ -191,6 +194,7 @@ static const LongVectorOpTypeStringToEnumValue unaryOpTypeStringToEnumMap[] = {
     {L"UnaryOpType_AsInt", UnaryOpType_AsInt},
     {L"UnaryOpType_AsInt16", UnaryOpType_AsInt16},
     {L"UnaryOpType_AsUint", UnaryOpType_AsUint},
+    {L"UnaryOpType_AsUint_SplitDouble", UnaryOpType_AsUint_SplitDouble},
     {L"UnaryOpType_AsUint16", UnaryOpType_AsUint16},
 };
 
@@ -327,6 +331,33 @@ unsigned int asUint(const int &A) {
   return LongVector::bit_cast<unsigned int>(A);
 }
 
+template <typename DataTypeInT>
+void splitDouble ([[maybe_unused]] const DataTypeInT &A, [[maybe_unused]]uint32_t &LowBits, [[maybe_unused]] uint32_t &HighBits) {
+  LOG_ERROR_FMT_THROW(L"Programmer Error: splitDouble only accepts a double as input. Have DataTypeInT: %S",
+                      typeid(DataTypeInT).name());
+}
+
+void splitDouble(const double&A, uint32_t &LowBits, uint32_t &HighBits) {
+  uint64_t Bits = 0;
+  std::memcpy(&Bits, &A, sizeof(Bits));
+  LowBits = static_cast<uint32_t>(Bits & 0xFFFFFFFF);
+  HighBits = static_cast<uint32_t>(Bits >> 32);
+}
+
+template <typename DataTypeInT>
+double asDouble ([[maybe_unused]] const DataTypeInT &LowBits, [[maybe_unused]] const DataTypeInT &HighBits) {
+  LOG_ERROR_FMT_THROW(L"Programmer Error: asDouble only accepts two uint32_t inputs. Have DataTypeInT : %S",
+                      typeid(DataTypeInT).name());
+  return 0.0;
+}
+
+double asDouble(const uint32_t &LowBits, const uint32_t &HighBits) {
+  uint64_t Bits = (static_cast<uint64_t>(HighBits) << 32) | LowBits;
+  double Result;
+  std::memcpy(&Result, &Bits, sizeof(Result));
+  return Result;
+}
+
 template <typename LongVectorOpTypeT> struct TestConfigTraits {
   TestConfigTraits(LongVectorOpTypeT OpType) : OpType(OpType) {}
   // LongVectorOpTypeT* Enum values. We don't use a UINT because
@@ -393,9 +424,6 @@ public:
 
   bool isAsTypeOp() const { return isAsTypeOp(OpTypeTraits.OpType); }
 
-  bool hasFunctionDefinition() const;
-  std::string getOPERAND2String() const;
-
   // Helpers to get the hlsl type as a string for a given C++ type.
   std::string getHLSLInputTypeString() const;
   std::string getHLSLOutputTypeString() const;
@@ -409,6 +437,7 @@ public:
   DataTypeT computeExpectedValue(const DataTypeT &A) const;
   void
   computeExpectedValuesForAsTypeOp(const std::vector<DataTypeT> &InputVector1);
+  void computeExpectedValuesForAsTypeOp(const std::vector<DataTypeT> &InputVector1, const std::vector<DataTypeT> &InputVector2);
 
   void setInputArgsArrayName(const std::wstring &InputArgsArrayName) {
     this->InputArgsArrayName = InputArgsArrayName;
@@ -451,21 +480,19 @@ public:
 
   LongVector::VariantVector &getExpectedVector() { return ExpectedVector; }
 
-  bool verifyOutput(MappedData &ShaderOutData);
+  bool verifyOutput(const std::shared_ptr<st::ShaderOpTestResult> &TestResult);
 
 private:
   bool isAsTypeOp(LongVector::UnaryOpType OpType) const;
-  bool isAsTypeOp(LongVector::BinaryOpType) const { return false; }
+  bool isAsTypeOp(LongVector::BinaryOpType) const;
   bool isAsTypeOp(LongVector::TrigonometricOpType) const { return false; }
 
-  std::string HLSLOutputTypeString(LongVector::UnaryOpType OpType) const;
-
-  bool resolveOutputTypeAndVerifyOutput(MappedData &ShaderOutData);
+  bool resolveOutputTypeAndVerifyOutput(const std::shared_ptr<st::ShaderOpTestResult> &TestResult);
 
   // Templated version to be used when the output data type does not match the
   // input data type.
   template <typename OutputDataTypeT>
-  bool verifyOutput(MappedData &ShaderOutData);
+  bool verifyOutput(const std::shared_ptr<st::ShaderOpTestResult> &TestResult);
 
   std::vector<DataTypeT> getInputValueSet(size_t ValueSetIndex) const;
 
@@ -473,6 +500,8 @@ private:
   std::string OperatorString;
   // To be used for the value of -DFUNC
   std::string IntrinsicString;
+  // Used to add special -D defines to the compiler options.
+  std::string SpecialDefines = "";
   LongVector::BasicOpType BasicOpType = LongVector::BasicOpType_EnumValueCount;
   float Tolerance = 0.0;
   LongVector::ValidationType ValidationType =

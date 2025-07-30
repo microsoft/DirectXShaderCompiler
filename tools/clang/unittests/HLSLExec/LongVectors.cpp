@@ -337,14 +337,7 @@ void LongVector::OpTest::testBaseMethod(
             L"RunShaderOpTest CallBack. Unexpected Resource Name: %S", Name);
       });
 
-  // Map the data from GPU to CPU memory so we can verify our expectations.
-  MappedData ShaderOutData;
-  TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
-
-  // The TestConfig object help handles more complicated verification cases. We
-  // pass in the MappedData instead of the typed data because the TestConfig may
-  // need to resolve the output type for test cases where the return type of the
-  // intrinsic being tested does not match the input type, such as the AsType*
-  // intrinsics (AsInt, AsInt16, AsFloat, ... etc).
-  VERIFY_SUCCEEDED(TestConfig.verifyOutput(ShaderOutData));
+  // The TestConfig object handles the logic for extracting the shader output
+  // based on the op type.
+  VERIFY_SUCCEEDED(TestConfig.verifyOutput(TestResult));
 }

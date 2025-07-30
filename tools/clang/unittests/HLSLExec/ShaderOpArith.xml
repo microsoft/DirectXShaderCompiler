@@ -3776,6 +3776,10 @@ void MSMain(uint GID : SV_GroupIndex,
      -->
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
       <![CDATA[
+        RWByteAddressBuffer g_InputFuncArgs : register(u0);
+        RWByteAddressBuffer g_InputVector1 : register(u1);
+        RWByteAddressBuffer g_InputVector2 : register(u2);
+        RWByteAddressBuffer g_OutputVector : register(u3);
 
         #ifdef FUNC_INITIALIZE
         vector<TYPE, NUM> TestInitialize(vector<TYPE, NUM> Vector)
@@ -3785,19 +3789,24 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-        #ifdef FUNC_CLAMP
-        vector<TYPE, NUM> TestClamp(vector<TYPE, NUM> Vector, vector<TYPE, 2> ClampArgMinMax)
+        #ifdef FUNC_ASUINT_SPLITDOUBLE
+        vector<OUT_TYPE, NUM> TestAsUintSplitDouble(vector<TYPE, NUM> Vector)
         {
-          TYPE ClampArgMin = ClampArgMinMax[0];
-          TYPE ClampArgMax = ClampArgMinMax[1];
-          return clamp(Vector, ClampArgMin, ClampArgMax);
+          vector<OUT_TYPE, NUM> LowBits;
+          vector<OUT_TYPE, NUM> HighBits;
+          asuint(Vector, LowBits, HighBits);
+
+          // Store the high bits in the second half of the output vector.
+          // Because we know the outputs of asuint are always 32 bits, we can
+          // use 4 bytes per element for our offset.
+          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(4 * NUM, HighBits);
+
+          // Generic store logic in main handles storing LowBits in
+          // g_OutputVector.
+          return LowBits;
         }
         #endif
 
-        RWByteAddressBuffer g_InputFuncArgs : register(u0);
-        RWByteAddressBuffer g_InputVector1 : register(u1);
-        RWByteAddressBuffer g_InputVector2 : register(u2);
-        RWByteAddressBuffer g_OutputVector : register(u3);
         [numthreads(1,1,1)]
         void main(uint GI : SV_GroupIndex) {
 
@@ -3813,14 +3822,8 @@ void MSMain(uint GID : SV_GroupIndex,
           TYPE InputScalar = g_InputFuncArgs.Load<TYPE>(0);
           #endif
 
-          #ifdef FUNC_CLAMP
-          TYPE Clamp_ArgMin = g_InputFuncArgs.Load<TYPE>(0);
-          TYPE Clamp_ArgMax = g_InputFuncArgs.Load<TYPE>(sizeof(TYPE));
-          vector<TYPE, 2> ClampArgMinMax = {Clamp_ArgMin, Clamp_ArgMax};
-          #endif
-
-          vector<OUT_TYPE, NUM> OutputVector = FUNC(InputVector1 OPERATOR OPERAND2);
-
+          vector<OUT_TYPE, NUM> OutputVector = FUNC(InputVector1 OPERATOR
+          OPERAND2);
           g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, OutputVector);
         };
       ]]>

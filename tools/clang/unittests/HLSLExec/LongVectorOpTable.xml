@@ -314,6 +314,10 @@
           <Parameter Name="OpTypeEnum">BinaryOpType_Max</Parameter>
           <Parameter Name="DataType">uint32</Parameter>
         </Row>
+        <Row Name="AsDouble_uint32">
+          <Parameter Name="OpTypeEnum">BinaryOpType_AsDouble</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
         <!-- LongVectorBinaryOpTypeTable DataType: uint64 -->
         <Row Name="ScalarAdd_uint64">
           <Parameter Name="OpTypeEnum">BinaryOpType_ScalarAdd</Parameter>
@@ -654,6 +658,13 @@
       <Row Name="Initialize_float64">
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="AsUint_SplitDouble_float64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_AsUint_SplitDouble</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+        <!-- Use a special InputValueSetName1 so we verify with values that
+        produce non-zero outputs for HighBits and LowBits -->
+        <Parameter Name="InputValueSetName1">SplitDoubleInputValueSet</Parameter>
       </Row>
     </Table>
     <Table Id="TrigonometricOpTable">
