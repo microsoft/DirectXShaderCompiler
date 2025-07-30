@@ -189,9 +189,8 @@ ComputeFnT ComputeFn) {
 
   VERIFY_IS_NOT_NULL(TypedExpectedValues);
 
-  for (size_t Index = 0; Index < Count; ++Index) {
+  for (size_t Index = 0; Index < Count; ++Index)
     TypedExpectedValues->push_back(ComputeFn(Index));
-  }
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
