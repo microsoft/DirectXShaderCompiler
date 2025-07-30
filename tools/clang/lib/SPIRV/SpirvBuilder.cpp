@@ -1214,6 +1214,7 @@ SpirvBuilder::createDebugCompilationUnit(SpirvDebugSource *source) {
   auto *inst = new (context) SpirvDebugCompilationUnit(
       /*version*/ 1, /*DWARF version*/ 4, source);
   mod->addDebugInfo(inst);
+  mod->setDebugCompilationUnit(inst);
   return inst;
 }
 

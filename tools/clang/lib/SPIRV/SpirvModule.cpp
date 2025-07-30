@@ -382,5 +382,16 @@ void SpirvModule::addModuleProcessed(SpirvModuleProcessed *p) {
   moduleProcesses.push_back(p);
 }
 
+SpirvDebugCompilationUnit *SpirvModule::getDebugCompilationUnit() {
+  SpirvDebugCompilationUnit *unit = debugCompilationUnit;
+  assert(unit && "null DebugCompilationUnit");
+  return unit;
+}
+
+void SpirvModule::setDebugCompilationUnit(SpirvDebugCompilationUnit *unit) {
+  assert(unit);
+  debugCompilationUnit = unit;
+}
+
 } // end namespace spirv
 } // end namespace clang

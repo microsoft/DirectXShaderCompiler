@@ -165,6 +165,10 @@ public:
     return debugInstructions;
   }
 
+  // Access the one DebugCompilationUnit per module
+  SpirvDebugCompilationUnit *getDebugCompilationUnit();
+  void setDebugCompilationUnit(SpirvDebugCompilationUnit *unit);
+
   // Adds the given OpModuleProcessed to the module.
   void addModuleProcessed(SpirvModuleProcessed *);
 
@@ -224,6 +228,10 @@ private:
 
   // Keep all rich DebugInfo instructions.
   llvm::SmallVector<SpirvDebugInstruction *, 32> debugInstructions;
+
+  // There is one debugCompilationUnit per module
+  SpirvDebugCompilationUnit *debugCompilationUnit;
+
   // Whether current module is in pervertex interpolation mode.
   bool perVertexInterp;
 };

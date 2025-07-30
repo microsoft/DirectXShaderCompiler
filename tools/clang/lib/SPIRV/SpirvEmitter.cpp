@@ -1073,9 +1073,10 @@ SpirvEmitter::getOrCreateRichDebugInfoImpl(llvm::StringRef file) {
   // returns {{string key, RichDebugInfo}, true /*Success*/}.
   // debugInfo.insert().first->second is a RichDebugInfo.
   return &debugInfo
-              .insert({file, RichDebugInfo(
-                                 dbgSrc, spvBuilder.createDebugCompilationUnit(
-                                             dbgSrc))})
+              .insert({file,
+                       RichDebugInfo(
+                           dbgSrc,
+                           spvBuilder.getModule()->getDebugCompilationUnit())})
               .first->second;
 }
 
