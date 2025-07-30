@@ -332,12 +332,15 @@ unsigned int asUint(const int &A) {
 }
 
 template <typename DataTypeInT>
-void splitDouble ([[maybe_unused]] const DataTypeInT &A, [[maybe_unused]]uint32_t &LowBits, [[maybe_unused]] uint32_t &HighBits) {
-  LOG_ERROR_FMT_THROW(L"Programmer Error: splitDouble only accepts a double as input. Have DataTypeInT: %S",
+void splitDouble([[maybe_unused]] const DataTypeInT &A,
+                 [[maybe_unused]] uint32_t &LowBits,
+                 [[maybe_unused]] uint32_t &HighBits) {
+  LOG_ERROR_FMT_THROW(L"Programmer Error: splitDouble only accepts a double as "
+                      L"input. Have DataTypeInT: %S",
                       typeid(DataTypeInT).name());
 }
 
-void splitDouble(const double&A, uint32_t &LowBits, uint32_t &HighBits) {
+void splitDouble(const double &A, uint32_t &LowBits, uint32_t &HighBits) {
   uint64_t Bits = 0;
   std::memcpy(&Bits, &A, sizeof(Bits));
   LowBits = static_cast<uint32_t>(Bits & 0xFFFFFFFF);
@@ -345,8 +348,10 @@ void splitDouble(const double&A, uint32_t &LowBits, uint32_t &HighBits) {
 }
 
 template <typename DataTypeInT>
-double asDouble ([[maybe_unused]] const DataTypeInT &LowBits, [[maybe_unused]] const DataTypeInT &HighBits) {
-  LOG_ERROR_FMT_THROW(L"Programmer Error: asDouble only accepts two uint32_t inputs. Have DataTypeInT : %S",
+double asDouble([[maybe_unused]] const DataTypeInT &LowBits,
+                [[maybe_unused]] const DataTypeInT &HighBits) {
+  LOG_ERROR_FMT_THROW(L"Programmer Error: asDouble only accepts two uint32_t "
+                      L"inputs. Have DataTypeInT : %S",
                       typeid(DataTypeInT).name());
   return 0.0;
 }
@@ -437,7 +442,9 @@ public:
   DataTypeT computeExpectedValue(const DataTypeT &A) const;
   void
   computeExpectedValuesForAsTypeOp(const std::vector<DataTypeT> &InputVector1);
-  void computeExpectedValuesForAsTypeOp(const std::vector<DataTypeT> &InputVector1, const std::vector<DataTypeT> &InputVector2);
+  void
+  computeExpectedValuesForAsTypeOp(const std::vector<DataTypeT> &InputVector1,
+                                   const std::vector<DataTypeT> &InputVector2);
 
   void setInputArgsArrayName(const std::wstring &InputArgsArrayName) {
     this->InputArgsArrayName = InputArgsArrayName;
@@ -487,7 +494,8 @@ private:
   bool isAsTypeOp(LongVector::BinaryOpType) const;
   bool isAsTypeOp(LongVector::TrigonometricOpType) const { return false; }
 
-  bool resolveOutputTypeAndVerifyOutput(const std::shared_ptr<st::ShaderOpTestResult> &TestResult);
+  bool resolveOutputTypeAndVerifyOutput(
+      const std::shared_ptr<st::ShaderOpTestResult> &TestResult);
 
   // Templated version to be used when the output data type does not match the
   // input data type.
