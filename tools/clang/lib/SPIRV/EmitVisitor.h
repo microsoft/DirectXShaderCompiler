@@ -135,6 +135,10 @@ private:
   void emitNameForType(llvm::StringRef name, uint32_t targetTypeId,
                        llvm::Optional<uint32_t> memberIndex = llvm::None);
 
+  void
+  emitDecorationsForNodePayloadArrayTypes(const NodePayloadArrayType *npaType,
+                                          uint32_t id);
+
   // There is no guarantee that an instruction or a function or a basic block
   // has been assigned result-id. This method returns the result-id for the
   // given object. If a result-id has not been assigned yet, it'll assign

@@ -292,7 +292,10 @@ template <> struct LongVectorTestData<double> {
         -0.883}},
       {L"TrigonometricInputValueSet_RangeOne",
        {0.331, 0.277, -0.957, 0.677, -0.025, 0.495, 0.855, -0.673, -0.678,
-        -0.905}}};
+        -0.905}},
+      {L"SplitDoubleInputValueSet",
+       {0.0, -1.0, 1.0, -1.0, 12345678.87654321, -1.0, 1.0, -1.0, 1.0, -1.0}},
+  };
 };
 
 #endif // LONGVECTORTESTDATA_H
