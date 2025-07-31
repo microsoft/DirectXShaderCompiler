@@ -73,7 +73,7 @@ public:
       LongVector::TestConfig<DataTypeT, LongVectorOpTypeT> &TestConfig);
 
 private:
-  dxc::DxcDllSupport DxcDllSupport;
+  dxc::SpecificDllLoader SpecificDllLoader;
   bool Initialized = false;
 };
 

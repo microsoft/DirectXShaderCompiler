@@ -228,7 +228,7 @@ static bool createDevice(ID3D12Device **D3DDevice,
 }
 
 inline void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
-                                      dxc::DxcDllSupport &Support) {
+                                      dxc::SpecificDllLoader &Support) {
   VERIFY_SUCCEEDED(Support.Initialize());
   CComPtr<IDxcLibrary> Library;
   CComPtr<IDxcBlobEncoding> Blob;

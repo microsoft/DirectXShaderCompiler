@@ -103,7 +103,7 @@ public:
   TEST_METHOD(RunGlobalsUsedInMethod)
   TEST_METHOD(RunRewriterFails)
 
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::SpecificDllLoader m_dllSupport;
   CComPtr<IDxcIncludeHandler> m_pIncludeHandler;
 
   struct VerifyResult {
@@ -173,7 +173,7 @@ public:
   struct FileWithBlob {
     CComPtr<IDxcBlobEncoding> BlobEncoding;
 
-    FileWithBlob(dxc::DxcDllSupport &support, LPCWSTR path) {
+    FileWithBlob(dxc::SpecificDllLoader &support, LPCWSTR path) {
       CComPtr<IDxcLibrary> library;
       IFT(support.CreateInstance(CLSID_DxcLibrary, &library));
       UINT32 codePage = CP_UTF8;
