@@ -35,8 +35,7 @@ bit_cast(const FromT &Src) {
   return Dst;
 }
 
-template <typename DataTypeT, typename LongVectorOpTypeT>
-class TestConfig; // Forward declaration
+template <typename DataTypeT> class TestConfig; // Forward declaration
 
 class OpTest {
 public:
@@ -60,6 +59,11 @@ public:
                        L"Table:LongVectorOpTable.xml#UnaryOpTable")
   END_TEST_METHOD()
 
+  BEGIN_TEST_METHOD(asTypeOpTest)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:LongVectorOpTable.xml#AsTypeOpTable")
+  END_TEST_METHOD()
+
   template <typename LongVectorOpTypeT>
   void dispatchTestByDataType(LongVectorOpTypeT OpType, std::wstring DataType,
                               TableParameterHandler &Handler);
@@ -70,13 +74,16 @@ public:
 
   template <typename DataTypeT, typename LongVectorOpTypeT>
   void testBaseMethod(
-      LongVector::TestConfig<DataTypeT, LongVectorOpTypeT> &TestConfig);
+      std::shared_ptr<LongVector::TestConfig<DataTypeT>> &TestConfig);
 
 private:
   dxc::DxcDllSupport DxcDllSupport;
   bool Initialized = false;
 };
 
+// Used so we can dynamically resolve the type of data stored out the output
+// LongVector for a test case. Leveraging another template paramter for an
+// output data type on the TestConfig was too much.
 using VariantVector =
     std::variant<std::vector<HLSLBool_t>, std::vector<HLSLHalf_t>,
                  std::vector<float>, std::vector<double>, std::vector<int16_t>,
@@ -146,7 +153,6 @@ enum BinaryOpType {
   BinaryOpType_Max,
   BinaryOpType_ScalarMin,
   BinaryOpType_ScalarMax,
-  BinaryOpType_AsDouble,
   BinaryOpType_EnumValueCount
 };
 
@@ -165,7 +171,6 @@ static const LongVectorOpTypeStringToEnumValue binaryOpTypeStringToEnumMap[] = {
     {L"BinaryOpType_Max", BinaryOpType_Max},
     {L"BinaryOpType_ScalarMin", BinaryOpType_ScalarMin},
     {L"BinaryOpType_ScalarMax", BinaryOpType_ScalarMax},
-    {L"BinaryOpType_AsDouble", BinaryOpType_AsDouble},
 };
 
 static_assert(_countof(binaryOpTypeStringToEnumMap) ==
@@ -175,27 +180,10 @@ static_assert(_countof(binaryOpTypeStringToEnumMap) ==
 
 BinaryOpType getBinaryOpType(const std::wstring &OpTypeString);
 
-enum UnaryOpType {
-  UnaryOpType_Initialize,
-  UnaryOpType_AsFloat,
-  UnaryOpType_AsFloat16,
-  UnaryOpType_AsInt,
-  UnaryOpType_AsInt16,
-  UnaryOpType_AsUint,
-  UnaryOpType_AsUint_SplitDouble,
-  UnaryOpType_AsUint16,
-  UnaryOpType_EnumValueCount
-};
+enum UnaryOpType { UnaryOpType_Initialize, UnaryOpType_EnumValueCount };
 
 static const LongVectorOpTypeStringToEnumValue unaryOpTypeStringToEnumMap[] = {
     {L"UnaryOpType_Initialize", UnaryOpType_Initialize},
-    {L"UnaryOpType_AsFloat", UnaryOpType_AsFloat},
-    {L"UnaryOpType_AsFloat16", UnaryOpType_AsFloat16},
-    {L"UnaryOpType_AsInt", UnaryOpType_AsInt},
-    {L"UnaryOpType_AsInt16", UnaryOpType_AsInt16},
-    {L"UnaryOpType_AsUint", UnaryOpType_AsUint},
-    {L"UnaryOpType_AsUint_SplitDouble", UnaryOpType_AsUint_SplitDouble},
-    {L"UnaryOpType_AsUint16", UnaryOpType_AsUint16},
 };
 
 static_assert(_countof(unaryOpTypeStringToEnumMap) ==
@@ -204,6 +192,36 @@ static_assert(_countof(unaryOpTypeStringToEnumMap) ==
               "a new enum value?");
 
 UnaryOpType getUnaryOpType(const std::wstring &OpTypeString);
+
+enum AsTypeOpType {
+  AsTypeOpType_AsFloat,
+  AsTypeOpType_AsFloat16,
+  AsTypeOpType_AsInt,
+  AsTypeOpType_AsInt16,
+  AsTypeOpType_AsUint,
+  AsTypeOpType_AsUint_SplitDouble,
+  AsTypeOpType_AsUint16,
+  AsTypeOpType_AsDouble,
+  AsTypeOpType_EnumValueCount
+};
+
+static const LongVectorOpTypeStringToEnumValue asTypeOpTypeStringToEnumMap[] = {
+    {L"AsTypeOpType_AsFloat", AsTypeOpType_AsFloat},
+    {L"AsTypeOpType_AsFloat16", AsTypeOpType_AsFloat16},
+    {L"AsTypeOpType_AsInt", AsTypeOpType_AsInt},
+    {L"AsTypeOpType_AsInt16", AsTypeOpType_AsInt16},
+    {L"AsTypeOpType_AsUint", AsTypeOpType_AsUint},
+    {L"AsTypeOpType_AsUint_SplitDouble", AsTypeOpType_AsUint_SplitDouble},
+    {L"AsTypeOpType_AsUint16", AsTypeOpType_AsUint16},
+    {L"AsTypeOpType_AsDouble", AsTypeOpType_AsDouble},
+};
+
+static_assert(_countof(asTypeOpTypeStringToEnumMap) ==
+                  AsTypeOpType_EnumValueCount,
+              "asTypeOpTypeStringToEnumMap size mismatch. Did you add "
+              "a new enum value?");
+
+AsTypeOpType getAsTypeOpType(const std::wstring &OpTypeString);
 
 enum TrigonometricOpType {
   TrigonometricOpType_Acos,
@@ -248,129 +266,6 @@ std::vector<DataTypeT> getInputValueSetByKey(const std::wstring &Key,
 }
 
 template <typename DataTypeT>
-DataTypeT mod(const DataTypeT &A, const DataTypeT &B);
-
-template <typename DataTypeInT>
-HLSLHalf_t asFloat16([[maybe_unused]] const DataTypeInT &A) {
-  LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsFloat16 DataTypeInT: %s",
-                      typeid(DataTypeInT).name());
-  return HLSLHalf_t();
-}
-
-HLSLHalf_t asFloat16(const HLSLHalf_t &A) { return HLSLHalf_t(A.Val); }
-
-HLSLHalf_t asFloat16(const int16_t &A) {
-  return HLSLHalf_t(LongVector::bit_cast<DirectX::PackedVector::HALF>(A));
-}
-
-HLSLHalf_t asFloat16(const uint16_t &A) {
-  return HLSLHalf_t(LongVector::bit_cast<DirectX::PackedVector::HALF>(A));
-}
-
-template <typename DataTypeInT> float asFloat(const DataTypeInT &) {
-  LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsFloat DataTypeInT: %s",
-                      typeid(DataTypeInT).name());
-  return float();
-}
-
-float asFloat(const float &A) { return float(A); }
-float asFloat(const int32_t &A) { return LongVector::bit_cast<float>(A); }
-float asFloat(const uint32_t &A) { return LongVector::bit_cast<float>(A); }
-
-template <typename DataTypeInT>
-int32_t asInt([[maybe_unused]] const DataTypeInT &A) {
-  LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsInt DataTypeInT: %s",
-                      typeid(DataTypeInT).name());
-  return int32_t();
-}
-
-int32_t asInt(const float &A) { return LongVector::bit_cast<int32_t>(A); }
-int32_t asInt(const int32_t &A) { return A; }
-int32_t asInt(const uint32_t &A) { return LongVector::bit_cast<int32_t>(A); }
-
-template <typename DataTypeInT>
-int16_t asInt16([[maybe_unused]] const DataTypeInT &A) {
-  LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsInt16 DataTypeInT: %s",
-                      typeid(DataTypeInT).name());
-  return int16_t();
-}
-
-int16_t asInt16(const HLSLHalf_t &A) {
-  return LongVector::bit_cast<int16_t>(A.Val);
-}
-int16_t asInt16(const int16_t &A) { return A; }
-int16_t asInt16(const uint16_t &A) { return LongVector::bit_cast<int16_t>(A); }
-
-template <typename DataTypeInT>
-uint16_t asUint16([[maybe_unused]] const DataTypeInT &A) {
-  LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsInt16 DataTypeInT: %s",
-                      typeid(DataTypeInT).name());
-  return uint16_t();
-}
-
-uint16_t asUint16(const HLSLHalf_t &A) {
-  return LongVector::bit_cast<uint16_t>(A.Val);
-}
-uint16_t asUint16(const uint16_t &A) { return A; }
-uint16_t asUint16(const int16_t &A) {
-  return LongVector::bit_cast<uint16_t>(A);
-}
-
-template <typename DataTypeInT>
-unsigned int asUint([[maybe_unused]] const DataTypeInT &A) {
-  LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsInt16 DataTypeInT: %s",
-                      typeid(DataTypeInT).name());
-  return unsigned int();
-}
-
-unsigned int asUint(const unsigned int &A) { return A; }
-unsigned int asUint(const float &A) {
-  return LongVector::bit_cast<unsigned int>(A);
-}
-unsigned int asUint(const int &A) {
-  return LongVector::bit_cast<unsigned int>(A);
-}
-
-template <typename DataTypeInT>
-void splitDouble([[maybe_unused]] const DataTypeInT &A,
-                 [[maybe_unused]] uint32_t &LowBits,
-                 [[maybe_unused]] uint32_t &HighBits) {
-  LOG_ERROR_FMT_THROW(L"Programmer Error: splitDouble only accepts a double as "
-                      L"input. Have DataTypeInT: %S",
-                      typeid(DataTypeInT).name());
-}
-
-void splitDouble(const double &A, uint32_t &LowBits, uint32_t &HighBits) {
-  uint64_t Bits = 0;
-  std::memcpy(&Bits, &A, sizeof(Bits));
-  LowBits = static_cast<uint32_t>(Bits & 0xFFFFFFFF);
-  HighBits = static_cast<uint32_t>(Bits >> 32);
-}
-
-template <typename DataTypeInT>
-double asDouble([[maybe_unused]] const DataTypeInT &LowBits,
-                [[maybe_unused]] const DataTypeInT &HighBits) {
-  LOG_ERROR_FMT_THROW(L"Programmer Error: asDouble only accepts two uint32_t "
-                      L"inputs. Have DataTypeInT : %S",
-                      typeid(DataTypeInT).name());
-  return 0.0;
-}
-
-double asDouble(const uint32_t &LowBits, const uint32_t &HighBits) {
-  uint64_t Bits = (static_cast<uint64_t>(HighBits) << 32) | LowBits;
-  double Result;
-  std::memcpy(&Result, &Bits, sizeof(Result));
-  return Result;
-}
-
-template <typename LongVectorOpTypeT> struct TestConfigTraits {
-  TestConfigTraits(LongVectorOpTypeT OpType) : OpType(OpType) {}
-  // LongVectorOpTypeT* Enum values. We don't use a UINT because
-  // we want the type data.
-  LongVectorOpTypeT OpType;
-};
-
-template <typename DataTypeT>
 bool doValuesMatch(DataTypeT A, DataTypeT B, float Tolerance, ValidationType);
 bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, float, ValidationType);
 bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
@@ -384,35 +279,20 @@ template <typename DataTypeT>
 bool doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
                     const std::vector<DataTypeT> &ExpectedValues,
                     float Tolerance, ValidationType ValidationType);
-// Binary ops
-template <typename DataTypeT, typename LongVectorOpTypeT>
-void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
-                           const std::vector<DataTypeT> &InputVector2,
-                           TestConfig<DataTypeT, LongVectorOpTypeT> &Config);
-
-// Binary scalar ops
-template <typename DataTypeT, typename LongVectorOpTypeT>
-void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
-                           const DataTypeT &ScalarInput,
-                           TestConfig<DataTypeT, LongVectorOpTypeT> &Config);
-
-// Unary ops
-template <typename DataTypeT, typename LongVectorOpTypeT>
-void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
-                           TestConfig<DataTypeT, LongVectorOpTypeT> &Config);
 
 template <typename DataTypeT>
 void logLongVector(const std::vector<DataTypeT> &Values,
                    const std::wstring &Name);
 
-// Used to pass into LongVectorOpTestBase
-template <typename DataTypeT, typename LongVectorOpTypeT> class TestConfig {
+// Helps handle the test configuration for LongVector operations.
+// It was particularly useful helping manage logic of computing expected values
+// and verifying the output. Especially helpful due to templating on the
+// different data types and giving us a relatively clean way to leverage
+// different logic paths for different HLSL instrinsics while keeping the main
+// test code pretty generic.
+template <typename DataTypeT> class TestConfig {
 public:
-  TestConfig() = default;
-
-  TestConfig(UnaryOpType OpType);
-  TestConfig(BinaryOpType OpType);
-  TestConfig(TrigonometricOpType OpType);
+  virtual ~TestConfig() = default;
 
   bool isBinaryOp() const {
     return BasicOpType == LongVector::BasicOpType_Binary ||
@@ -427,28 +307,17 @@ public:
     return BasicOpType == LongVector::BasicOpType_ScalarBinary;
   }
 
-  bool isAsTypeOp() const { return isAsTypeOp(OpTypeTraits.OpType); }
-
   // Helpers to get the hlsl type as a string for a given C++ type.
   std::string getHLSLInputTypeString() const;
-  std::string getHLSLOutputTypeString() const;
+  virtual std::string getHLSLOutputTypeString() const;
 
-  DataTypeT computeExpectedValue(const DataTypeT &A, const DataTypeT &B,
-                                 BinaryOpType OpType) const;
-  DataTypeT computeExpectedValue(const DataTypeT &A, const DataTypeT &B) const;
-  DataTypeT computeExpectedValue(const DataTypeT &A,
-                                 TrigonometricOpType OpType) const;
-  DataTypeT computeExpectedValue(const DataTypeT &A, UnaryOpType OpType) const;
-  DataTypeT computeExpectedValue(const DataTypeT &A) const;
-  void
-  computeExpectedValuesForAsTypeOp(const std::vector<DataTypeT> &InputVector1);
-  void
-  computeExpectedValuesForAsTypeOp(const std::vector<DataTypeT> &InputVector1,
-                                   const std::vector<DataTypeT> &InputVector2);
-
-  void setInputArgsArrayName(const std::wstring &InputArgsArrayName) {
-    this->InputArgsArrayName = InputArgsArrayName;
-  }
+  virtual void
+  computeExpectedValues(const std::vector<DataTypeT> &InputVector1);
+  virtual void
+  computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
+                        const std::vector<DataTypeT> &InputVector2);
+  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
+                             const DataTypeT &ScalarInput);
 
   void setInputValueSet1(const std::wstring &InputValueSetName) {
     InputValueSetName1 = InputValueSetName;
@@ -485,24 +354,48 @@ public:
 
   std::string getCompilerOptionsString() const;
 
-  LongVector::VariantVector &getExpectedVector() { return ExpectedVector; }
+  virtual bool
+  verifyOutput(const std::shared_ptr<st::ShaderOpTestResult> &TestResult);
 
-  bool verifyOutput(const std::shared_ptr<st::ShaderOpTestResult> &TestResult);
+  void setOpTypeNameForLogging(const std::wstring &OpTypeNameForLogging) {
+    OpTypeName = OpTypeNameForLogging;
+  }
 
 private:
-  bool isAsTypeOp(LongVector::UnaryOpType OpType) const;
-  bool isAsTypeOp(LongVector::BinaryOpType) const;
-  bool isAsTypeOp(LongVector::TrigonometricOpType) const { return false; }
+  std::vector<DataTypeT> getInputValueSet(size_t ValueSetIndex) const;
 
-  bool resolveOutputTypeAndVerifyOutput(
-      const std::shared_ptr<st::ShaderOpTestResult> &TestResult);
+  std::wstring InputValueSetName1 = L"DefaultInputValueSet1";
+  std::wstring InputValueSetName2 = L"DefaultInputValueSet2";
+  // No default args array
+  std::wstring InputArgsArrayName = L"";
+
+protected:
+  // Prevent instances of TestConfig from being created directly. Want to force
+  // a derived class to be used for creation.
+  TestConfig() = default;
 
   // Templated version to be used when the output data type does not match the
   // input data type.
   template <typename OutputDataTypeT>
   bool verifyOutput(const std::shared_ptr<st::ShaderOpTestResult> &TestResult);
 
-  std::vector<DataTypeT> getInputValueSet(size_t ValueSetIndex) const;
+  // The appropriate computeExpectedValue should be implemented in derived
+  // classes. Impelemented as virtual here to prevent requiring all derived
+  // class from needing to implement. The OS builds disable RTTI, so using
+  // dynamic casting to expose interfaces for these based on type isn't an
+  // option. You're intended to use COM for that. But I'm not going to add all
+  // of the COM overhead to this class just for that.
+  virtual DataTypeT
+  computeExpectedValue([[maybe_unused]] const DataTypeT &A,
+                       [[maybe_unused]] const DataTypeT &B) const {
+    LOG_ERROR_FMT_THROW(L"E_NOT_IMPL: computeExpectedValue for a Binary Op");
+    return DataTypeT();
+  }
+  virtual DataTypeT
+  computeExpectedValue([[maybe_unused]] const DataTypeT &A) const {
+    LOG_ERROR_FMT_THROW(L"E_NOT_IMPL: computeExpectedValue for a Unary Op");
+    return DataTypeT();
+  }
 
   // To be used for the value of -DOPERATOR
   std::string OperatorString;
@@ -514,19 +407,233 @@ private:
   float Tolerance = 0.0;
   LongVector::ValidationType ValidationType =
       LongVector::ValidationType::ValidationType_Epsilon;
-  LongVector::TestConfigTraits<LongVectorOpTypeT> OpTypeTraits;
-  std::wstring InputValueSetName1 = L"DefaultInputValueSet1";
-  std::wstring InputValueSetName2 = L"DefaultInputValueSet2";
-  // No default args array
-  std::wstring InputArgsArrayName = L"";
+  // The input value sets are used to fill the shader buffer.
   // Default the TypedOutputVector to use DataTypeT, Ops that don't have a
   // matching output type will override this.
   LongVector::VariantVector ExpectedVector = std::vector<DataTypeT>{};
   size_t LengthToTest = 0;
+
+  // Just used for logging purposes.
+  std::wstring OpTypeName = L"UnknownOpType";
 }; // class LongVector::TestConfig
 
-}; // namespace LongVector
+template <typename DataTypeT>
+class TestConfigAsType : public LongVector::TestConfig<DataTypeT> {
+public:
+  TestConfigAsType(LongVector::AsTypeOpType OpType);
 
-#include "LongVectors.tpp"
+  void
+  computeExpectedValues(const std::vector<DataTypeT> &InputVector1) override;
+  void
+  computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
+                        const std::vector<DataTypeT> &InputVector2) override;
+  std::string getHLSLOutputTypeString() const override;
+  bool verifyOutput(
+      const std::shared_ptr<st::ShaderOpTestResult> &TestResult) override;
+
+private:
+  template <typename DataTypeInT>
+  HLSLHalf_t asFloat16([[maybe_unused]] const DataTypeInT &A) const {
+    LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsFloat16 DataTypeInT: %s",
+                        typeid(DataTypeInT).name());
+    return HLSLHalf_t();
+  }
+
+  HLSLHalf_t asFloat16(const HLSLHalf_t &A) const { return HLSLHalf_t(A.Val); }
+
+  HLSLHalf_t asFloat16(const int16_t &A) const {
+    return HLSLHalf_t(LongVector::bit_cast<DirectX::PackedVector::HALF>(A));
+  }
+
+  HLSLHalf_t asFloat16(const uint16_t &A) const {
+    return HLSLHalf_t(LongVector::bit_cast<DirectX::PackedVector::HALF>(A));
+  }
+
+  template <typename DataTypeInT> float asFloat(const DataTypeInT &) const {
+    LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsFloat DataTypeInT: %S",
+                        typeid(DataTypeInT).name());
+    return float();
+  }
+
+  float asFloat(const float &A) const { return float(A); }
+  float asFloat(const int32_t &A) const {
+    return LongVector::bit_cast<float>(A);
+  }
+  float asFloat(const uint32_t &A) const {
+    return LongVector::bit_cast<float>(A);
+  }
+
+  template <typename DataTypeInT>
+  int32_t asInt([[maybe_unused]] const DataTypeInT &A) const {
+    // This path is unexpected outside of an issue when brining up new tests. So
+    // throwing an exception is appropriate.
+    LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsInt DataTypeInT: %S",
+                        typeid(DataTypeInT).name());
+    return int32_t();
+  }
+
+  int32_t asInt(const float &A) const {
+    return LongVector::bit_cast<int32_t>(A);
+  }
+  int32_t asInt(const int32_t &A) const { return A; }
+  int32_t asInt(const uint32_t &A) const {
+    return LongVector::bit_cast<int32_t>(A);
+  }
+
+  template <typename DataTypeInT>
+  int16_t asInt16([[maybe_unused]] const DataTypeInT &A) const {
+    // This path is unexpected outside of an issue when brining up new tests. So
+    // throwing an exception is appropriate.
+    LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsInt16 DataTypeInT: %S",
+                        typeid(DataTypeInT).name());
+    return int16_t();
+  }
+
+  int16_t asInt16(const HLSLHalf_t &A) const {
+    return LongVector::bit_cast<int16_t>(A.Val);
+  }
+  int16_t asInt16(const int16_t &A) const { return A; }
+  int16_t asInt16(const uint16_t &A) const {
+    return LongVector::bit_cast<int16_t>(A);
+  }
+
+  template <typename DataTypeInT>
+  uint16_t asUint16([[maybe_unused]] const DataTypeInT &A) const {
+    // This path is unexpected outside of an issue when brining up new tests. So
+    // throwing an exception is appropriate.
+    LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsUint16 DataTypeInT: %S",
+                        typeid(DataTypeInT).name());
+    return uint16_t();
+  }
+
+  uint16_t asUint16(const HLSLHalf_t &A) const {
+    return LongVector::bit_cast<uint16_t>(A.Val);
+  }
+  uint16_t asUint16(const uint16_t &A) const { return A; }
+  uint16_t asUint16(const int16_t &A) const {
+    return LongVector::bit_cast<uint16_t>(A);
+  }
+
+  template <typename DataTypeInT>
+  unsigned int asUint([[maybe_unused]] const DataTypeInT &A) const {
+    // This path is unexpected outside of an issue when brining up new tests. So
+    // throwing an exception is appropriate.
+    LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsUint DataTypeInT: %S",
+                        typeid(DataTypeInT).name());
+    return unsigned int();
+  }
+
+  unsigned int asUint(const unsigned int &A) const { return A; }
+  unsigned int asUint(const float &A) const {
+    return LongVector::bit_cast<unsigned int>(A);
+  }
+  unsigned int asUint(const int &A) const {
+    return LongVector::bit_cast<unsigned int>(A);
+  }
+
+  template <typename DataTypeInT>
+  void splitDouble([[maybe_unused]] const DataTypeInT &A,
+                   [[maybe_unused]] uint32_t &LowBits,
+                   [[maybe_unused]] uint32_t &HighBits) const {
+    // This path is unexpected outside of an issue when brining up new tests. So
+    // throwing an exception is appropriate.
+    LOG_ERROR_FMT_THROW(L"Programmer Error: splitDouble only accepts a double "
+                        L"as input. Have DataTypeInT: %s",
+                        typeid(DataTypeInT).name());
+  }
+
+  void splitDouble(const double &A, uint32_t &LowBits,
+                   uint32_t &HighBits) const {
+    uint64_t Bits = 0;
+    std::memcpy(&Bits, &A, sizeof(Bits));
+    LowBits = static_cast<uint32_t>(Bits & 0xFFFFFFFF);
+    HighBits = static_cast<uint32_t>(Bits >> 32);
+  }
+
+  template <typename DataTypeInT>
+  double asDouble([[maybe_unused]] const DataTypeInT &LowBits,
+                  [[maybe_unused]] const DataTypeInT &HighBits) const {
+    // This path is unexpected outside of an issue when brining up new tests. So
+    // throwing an exception is appropriate.
+    LOG_ERROR_FMT_THROW(L"Programmer Error: asDouble only accepts two uint32_t "
+                        L"inputs. Have DataTypeInT : %S",
+                        typeid(DataTypeInT).name());
+    return 0.0;
+  }
+
+  double asDouble(const uint32_t &LowBits, const uint32_t &HighBits) const {
+    uint64_t Bits = (static_cast<uint64_t>(HighBits) << 32) | LowBits;
+    double Result;
+    std::memcpy(&Result, &Bits, sizeof(Result));
+    return Result;
+  }
+
+  AsTypeOpType OpType = LongVector::AsTypeOpType_EnumValueCount;
+};
+
+template <typename DataTypeT>
+class TestConfigTrigonometric : public LongVector::TestConfig<DataTypeT> {
+public:
+  TestConfigTrigonometric(LongVector::TrigonometricOpType OpType);
+  DataTypeT computeExpectedValue(const DataTypeT &A) const override;
+
+private:
+  LongVector::TrigonometricOpType OpType =
+      LongVector::TrigonometricOpType_EnumValueCount;
+};
+
+template <typename DataTypeT>
+class TestConfigUnary : public LongVector::TestConfig<DataTypeT> {
+public:
+  TestConfigUnary(LongVector::UnaryOpType OpType);
+  DataTypeT computeExpectedValue(const DataTypeT &A) const override;
+
+private:
+  LongVector::UnaryOpType OpType = LongVector::UnaryOpType_EnumValueCount;
+};
+
+template <typename DataTypeT>
+class TestConfigBinary : public LongVector::TestConfig<DataTypeT> {
+public:
+  TestConfigBinary(LongVector::BinaryOpType OpType);
+  DataTypeT computeExpectedValue(const DataTypeT &A,
+                                 const DataTypeT &B) const override;
+
+private:
+  LongVector::BinaryOpType OpType = LongVector::BinaryOpType_EnumValueCount;
+
+  // Helpers so we do the right thing for float types. HLSLHalf_t is handled in
+  // an operator overload.
+  template <typename DataTypeT>
+  DataTypeT mod(const DataTypeT &A, const DataTypeT &B) const {
+    return A % B;
+  }
+
+  template <> float mod(const float &A, const float &B) const {
+    return std::fmod(A, B);
+  }
+
+  template <> double mod(const double &A, const double &B) const {
+    return std::fmod(A, B);
+  }
+};
+
+template <typename DataTypeT>
+std::shared_ptr<LongVector::TestConfig<DataTypeT>>
+MakeTestConfig(UnaryOpType OpType);
+
+template <typename DataTypeT>
+std::shared_ptr<LongVector::TestConfig<DataTypeT>>
+MakeTestConfig(BinaryOpType OpType);
+
+template <typename DataTypeT>
+std::shared_ptr<LongVector::TestConfig<DataTypeT>>
+MakeTestConfig(TrigonometricOpType OpType);
+
+template <typename DataTypeT>
+std::shared_ptr<LongVector::TestConfig<DataTypeT>>
+MakeTestConfig(AsTypeOpType OpType);
+
+}; // namespace LongVector
 
 #endif // LONGVECTORS_H
