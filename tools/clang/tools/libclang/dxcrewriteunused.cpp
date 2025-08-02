@@ -12,6 +12,7 @@
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/HlslTypes.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
@@ -44,6 +45,8 @@
 #include "dxc/Support/dxcfilesystem.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxc/dxctools.h"
+
+#include "d3d12shader.h"
 
 // From dxcutil.h
 namespace dxcutil {
@@ -1075,6 +1078,8 @@ using UnresolvedRegisters = llvm::SmallVector<UnresolvedRegister, 8>;
 
 // Find gap in register list and fill it
 
+//TODO: Niels, check multi dim arrays
+
 uint32_t FillNextRegister(llvm::SmallVector<RegisterRange, 8> &ranges,
                           uint32_t arraySize) {
 
@@ -1104,7 +1109,7 @@ uint32_t FillNextRegister(llvm::SmallVector<RegisterRange, 8> &ranges,
 
 // Insert in the right place (keep sorted)
 
-void FillRegisterAt(llvm::SmallVector<RegisterRange, 8> &ranges,
+void FillConsistentRegisterAt(llvm::SmallVector<RegisterRange, 8> &ranges,
                     uint32_t registerNr, uint32_t arraySize,
                     clang::DiagnosticsEngine &diags,
                     const SourceLocation &location) {
@@ -1136,7 +1141,7 @@ void FillRegisterAt(llvm::SmallVector<RegisterRange, 8> &ranges,
     ranges.emplace_back(RegisterRange{registerNr, arraySize});
 }
 
-static void RegisterBinding(NamedDecl *ND,
+static void RegisterConsistentBinding(NamedDecl *ND,
                             UnresolvedRegisters &unresolvedRegisters,
                             RegisterMap &map, hlsl::DXIL::ResourceClass cls,
                             uint32_t arraySize, clang::DiagnosticsEngine &Diags,
@@ -1162,7 +1167,7 @@ static void RegisterBinding(NamedDecl *ND,
                          : autoBindingSpace;
 
     qualified = true;
-    FillRegisterAt(map[ResourceKey{space, cls}], reg->RegisterNumber, arraySize,
+    FillConsistentRegisterAt(map[ResourceKey{space, cls}], reg->RegisterNumber, arraySize,
                    Diags, ND->getLocation());
     break;
   }
@@ -1183,18 +1188,18 @@ static void GenerateConsistentBindings(DeclContext &Ctx,
   // Fill up map with fully qualified registers to avoid colliding with them
   // later
 
-  for (auto it = Ctx.decls_begin(); it != Ctx.decls_end(); ++it) {
+  for (Decl *it : Ctx.decls()) {
 
     // CBuffer has special logic, since it's not technically
 
-    if (HLSLBufferDecl *CBuffer = dyn_cast<HLSLBufferDecl>(*it)) {
-      RegisterBinding(CBuffer, unresolvedRegisters, map,
+    if (HLSLBufferDecl *CBuffer = dyn_cast<HLSLBufferDecl>(it)) {
+      RegisterConsistentBinding(CBuffer, unresolvedRegisters, map,
                       hlsl::DXIL::ResourceClass::CBuffer, 1, Diags,
                       autoBindingSpace);
       continue;
     }
 
-    ValueDecl *VD = dyn_cast<ValueDecl>(*it);
+    ValueDecl *VD = dyn_cast<ValueDecl>(it);
 
     if (!VD)
       continue;
@@ -1213,7 +1218,7 @@ static void GenerateConsistentBindings(DeclContext &Ctx,
     if (!IsHLSLResourceType(type))
       continue;
 
-    RegisterBinding(VD, unresolvedRegisters, map, GetHLSLResourceClass(type),
+    RegisterConsistentBinding(VD, unresolvedRegisters, map, GetHLSLResourceClass(type),
                     arraySize, Diags, autoBindingSpace);
   }
 
@@ -1275,6 +1280,620 @@ static void GenerateConsistentBindings(DeclContext &Ctx,
   }
 }
 
+enum class DxcHLSLNodeType : uint64_t {
+  Register,
+  CBuffer,
+  Function,
+  Enum,
+  Namespace,
+  Typedef,
+  Using,
+  Variable,
+  Annotation
+};
+
+struct DxcHLSLNode {
+
+  std::string Name;                 // Local name (not including parent's name)
+
+  DxcHLSLNodeType NodeType : 4;
+  uint64_t LocalId : 24;            // For example if Enum, maps into Enums[LocalId]
+  uint64_t AnnotationStart : 20;
+  uint64_t FileNameId : 16;         // Index into Sources; 65535 == None
+
+  uint64_t ChildCount : 24;         // Children start at next node. childCount includes
+                                    // recursive children
+  uint64_t ParentId : 24;
+  uint64_t SourceLineCount : 16;
+
+  uint64_t SourceLineStart : 20;    // U20_MAX = No source range
+  uint64_t SourceColumnStart : 17;
+  uint64_t SourceColumnEnd : 17;
+  uint64_t AnnotationCount : 10;
+};
+
+struct DxcEnumDesc {
+  uint32_t NodeId;
+  uint32_t ValueCount;
+  uint32_t ValueLocation;
+};
+
+struct DxcEnumValue {
+  std::string Name;
+  int64_t Value;
+};
+
+struct DxcHLSLFunction {
+  uint32_t NodeId;
+  uint32_t NumParameters : 31;
+  uint32_t HasReturn : 1;
+};
+
+struct DxcHLSLRegister {        //Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus the Name (and uID replaced with NodeID)
+    
+    D3D_SHADER_INPUT_TYPE       Type;           // Type of resource (e.g. texture, cbuffer, etc.)
+    uint32_t                    BindPoint;      // Starting bind point
+    uint32_t                    BindCount;      // Number of contiguous bind points (for arrays)
+
+    uint32_t                    uFlags;         // Input binding flags
+    D3D_RESOURCE_RETURN_TYPE    ReturnType;     // Return type (if texture)
+    D3D_SRV_DIMENSION           Dimension;      // Dimension (if texture)
+    uint32_t                    NumSamples;     // Number of samples (0 if not MS texture)
+    uint32_t                    Space;          // Register space
+    uint32_t                    NodeId;
+};
+
+struct ReflectionData {
+  std::vector<DxcHLSLNode> Nodes;       //0 = Root node (global scope)
+  std::vector<std::string> Sources;
+  std::unordered_map<std::string, uint16_t> SourceToFileId;
+  std::vector<DxcHLSLRegister> Registers;
+  std::vector<DxcHLSLFunction> Functions;
+  std::vector<DxcEnumDesc> Enums;
+  std::vector<DxcEnumValue> EnumValues;
+};
+
+static uint32_t PushNextNodeId(ReflectionData &Refl, const SourceManager &SM,
+                               const LangOptions &LangOpts,
+                               const std::string &UnqualifiedName, Decl *Decl,
+                               DxcHLSLNodeType Type, uint32_t ParentNodeId,
+                               uint32_t LocalId) {
+
+  assert(Refl.Nodes.size() < (uint32_t)(1 << 24) && "Nodes overflow");
+  assert(LocalId < (uint32_t)(1 << 24) && "LocalId overflow");
+
+  uint32_t nodeId = Refl.Nodes.size();
+
+  uint32_t annotationStart = 0; // TODO:
+  uint32_t annotationCount = 0; // TODO:
+
+  uint32_t sourceLineCount = 0;
+  uint32_t sourceLineStart = (1 << 20) - 1;
+  uint32_t sourceColumnStart = 0;
+  uint32_t sourceColumnEnd = 0;
+
+  uint16_t fileNameId = (uint16_t)-1;
+
+  SourceRange range = Decl->getSourceRange();
+  SourceLocation start = range.getBegin();
+  SourceLocation end = range.getEnd();
+
+  if (start.isValid() && end.isValid()) {
+
+    PresumedLoc presumed = SM.getPresumedLoc(start);
+
+    SourceLocation realEnd = SM.getFileLoc(end);
+    SourceLocation endOfToken =
+        Lexer::getLocForEndOfToken(realEnd, 0, SM, LangOpts);
+    PresumedLoc presumedEnd = SM.getPresumedLoc(endOfToken);
+
+    if (presumed.isValid() && presumedEnd.isValid()) {
+
+      uint32_t startLine = presumed.getLine();
+      uint32_t startCol = presumed.getColumn();
+      uint32_t endLine = presumedEnd.getLine();
+      uint32_t endCol = presumedEnd.getColumn();
+
+      std::string fileName = presumed.getFilename();
+
+      assert(fileName == presumedEnd.getFilename() &&
+             "End and start are not in the same file");
+
+      auto it = Refl.SourceToFileId.find(fileName);
+      uint32_t i;
+
+      if (it == Refl.SourceToFileId.end()) {
+        i = (uint32_t)Refl.Sources.size();
+        Refl.Sources.push_back(fileName);
+        Refl.SourceToFileId[fileName] = i;
+      }
+
+      else {
+        i = it->second;
+      }
+
+      assert(i < 65535 && "Source file count is limited to 16-bit");
+      assert((endLine - startLine) < 65535 &&
+             "Source line count is limited to 16-bit");
+      assert(startLine < 1048576 && "Source line start is limited to 20-bit");
+      assert(startCol < 131072 && "Column start is limited to 17-bit");
+      assert(endCol < 131072 && "Column end is limited to 17-bit");
+
+      sourceLineCount = endLine - startLine + 1;
+      sourceLineStart = startLine;
+      sourceColumnStart = startCol;
+      sourceColumnEnd = endCol;
+      fileNameId = (uint16_t)i;
+    }
+  }
+
+  Refl.Nodes.push_back({UnqualifiedName, Type, LocalId, annotationStart,
+                        fileNameId, 0, ParentNodeId, sourceLineCount,
+                        sourceLineStart, sourceColumnStart, sourceColumnEnd,
+                        annotationCount});
+
+  uint32_t parentParent = ParentNodeId;
+
+  while (parentParent != 0) {
+    DxcHLSLNode &parent = Refl.Nodes[parentParent];
+    ++parent.ChildCount;
+    parentParent = parent.ParentId;
+  }
+
+  ++Refl.Nodes[0].ChildCount;
+
+  return nodeId;
+}
+
+struct DxcRegisterTypeInfo {
+  D3D_SHADER_INPUT_TYPE RegisterType;
+  D3D_SHADER_INPUT_FLAGS RegisterFlags;
+  D3D_SRV_DIMENSION TextureDimension;
+  D3D_RESOURCE_RETURN_TYPE TextureValue;
+  uint32_t SampleCount;
+};
+
+class PrintfStream : public llvm::raw_ostream {
+public:
+  PrintfStream() { SetUnbuffered(); }
+
+private:
+  void write_impl(const char *Ptr, size_t Size) override {
+    printf("%.*s\n", (int)Size, Ptr); // Print the raw buffer directly
+  }
+
+  uint64_t current_pos() const override { return 0; }
+};
+
+static DxcRegisterTypeInfo GetTextureRegisterInfo(ASTContext &ASTCtx,
+                                                  std::string TypeName,
+                                                  bool IsWrite,
+                                                  const CXXRecordDecl *RecordDecl) {
+    
+  DxcRegisterTypeInfo type = {};
+  type.RegisterType = IsWrite ? D3D_SIT_UAV_RWTYPED : D3D_SIT_TEXTURE;
+  type.SampleCount = (uint32_t)-1;
+
+  //Parse return type and dimensions
+
+  const ClassTemplateSpecializationDecl *textureTemplate =
+      dyn_cast<ClassTemplateSpecializationDecl>(RecordDecl);
+
+  assert(textureTemplate && "Expected texture template");
+
+  const ArrayRef<TemplateArgument>& textureParams = textureTemplate->getTemplateArgs().asArray();
+
+  assert(textureParams.size() == 1 && !textureParams[0].getAsType().isNull() &&
+         "Expected template args");
+
+  QualType valueType = textureParams[0].getAsType();
+  QualType desugared = valueType.getDesugaredType(ASTCtx);
+
+  const RecordType *RT = desugared->getAs<RecordType>();
+  assert(RT && "Expected record type");
+
+  const CXXRecordDecl *RD = dyn_cast<CXXRecordDecl>(RT->getDecl());
+  assert(RT && "Expected record decl");
+
+  const ClassTemplateSpecializationDecl *vectorType =
+      dyn_cast<ClassTemplateSpecializationDecl>(RD);
+
+  assert(vectorType &&
+         "Expected vector type as template inside of texture template");
+
+  const ArrayRef<TemplateArgument> &vectorParams =
+      vectorType->getTemplateArgs().asArray();
+
+  assert(vectorParams.size() == 2 && !vectorParams[0].getAsType().isNull() &&
+         vectorParams[1].getKind() == TemplateArgument::Integral &&
+         "Expected vector to be vector<T, N>");
+
+  valueType = vectorParams[0].getAsType();
+  desugared = valueType.getDesugaredType(ASTCtx);
+
+  if (desugared->isFloatingType()) {
+    type.TextureValue = desugared->isSpecificBuiltinType(BuiltinType::Double)
+                            ? D3D_RETURN_TYPE_DOUBLE
+                            : D3D_RETURN_TYPE_FLOAT;
+  } else if (desugared->isIntegerType()) {
+    const auto &semantics = ASTCtx.getTypeInfo(desugared);
+    if (semantics.Width == 64) {
+      type.TextureValue = D3D_RETURN_TYPE_MIXED;
+    } else {
+      type.TextureValue = desugared->isUnsignedIntegerType()
+                              ? D3D_RETURN_TYPE_UINT
+                              : D3D_RETURN_TYPE_SINT;
+    }
+  }
+
+  else {
+    type.TextureValue = D3D_RETURN_TYPE_MIXED;
+  }
+
+  switch (vectorParams[1].getAsIntegral().getZExtValue()) {
+  case 2:
+    type.RegisterFlags = (D3D_SHADER_INPUT_FLAGS)D3D_SIF_TEXTURE_COMPONENT_0;
+    break;
+  case 3:
+    type.RegisterFlags = (D3D_SHADER_INPUT_FLAGS)D3D_SIF_TEXTURE_COMPONENT_1;
+    break;
+  case 4:
+    type.RegisterFlags = (D3D_SHADER_INPUT_FLAGS)D3D_SIF_TEXTURE_COMPONENTS;
+    break;
+  }
+
+  //Parse type
+
+  if (TypeName == "Buffer") {
+    type.TextureDimension = D3D_SRV_DIMENSION_BUFFER;
+    return type;
+  }
+
+  bool isFeedback = false;
+
+  if (TypeName.size() > 8 && TypeName.substr(0, 8) == "Feedback") {
+    isFeedback = true;
+    TypeName = TypeName.substr(8);
+    type.RegisterType = D3D_SIT_UAV_FEEDBACKTEXTURE;
+  }
+
+  bool isArray = false;
+
+  if (TypeName.size() > 5 && TypeName.substr(TypeName.size() - 5) == "Array") {
+    isArray = true;
+    TypeName = TypeName.substr(0, TypeName.size() - 5);
+  }
+
+  if (TypeName == "Texture2D")
+    type.TextureDimension = D3D_SRV_DIMENSION_TEXTURE2D;
+
+  else if (TypeName == "TextureCube")
+    type.TextureDimension = D3D_SRV_DIMENSION_TEXTURECUBE;
+
+  else if (TypeName == "Texture3D")
+    type.TextureDimension = D3D_SRV_DIMENSION_TEXTURE3D;
+
+  else if (TypeName == "Texture1D")
+    type.TextureDimension = D3D_SRV_DIMENSION_TEXTURE1D;
+
+  else if (TypeName == "Texture2DMS") {
+    type.TextureDimension = D3D_SRV_DIMENSION_TEXTURE2DMS;
+    type.SampleCount = 0;
+  }
+
+  if (isArray)      //Arrays are always 1 behind the regular type
+    type.TextureDimension = (D3D_SRV_DIMENSION)(type.TextureDimension + 1);
+
+  return type;
+}
+
+static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
+                                               QualType Type) {
+
+  QualType realType = Type.getDesugaredType(ASTCtx);
+  const RecordType *RT = realType->getAs<RecordType>();
+  assert(RT && "GetRegisterTypeInfo() type is not a RecordType");
+
+  const CXXRecordDecl *recordDecl = RT->getAsCXXRecordDecl();
+  assert(recordDecl && "GetRegisterTypeInfo() type is not a CXXRecordDecl");
+
+  std::string typeName = recordDecl->getNameAsString();
+
+  if (typeName.size() >= 17 &&
+      typeName.substr(0, 17) == "RasterizerOrdered") {
+    typeName = typeName.substr(17);
+  }
+
+  if (typeName == "SamplerState" || typeName == "SamplerComparisonState") {
+    return {D3D_SIT_SAMPLER, typeName == "SamplerComparisonState"
+                                 ? D3D_SIF_COMPARISON_SAMPLER
+                                 : (D3D_SHADER_INPUT_FLAGS)0};
+  }
+  
+  DxcRegisterTypeInfo info = {};
+
+  if (const ClassTemplateSpecializationDecl *spec =
+          dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
+
+    const ArrayRef<TemplateArgument> &array =
+        spec->getTemplateArgs().asArray();
+
+    if (array.size() == 1)
+      info.SampleCount = (uint32_t) (ASTCtx.getTypeSize(array[0].getAsType()) / 8);
+  }
+
+  if (typeName == "AppendStructuredBuffer") {
+    info.RegisterType = D3D_SIT_UAV_APPEND_STRUCTURED;
+    return info;
+  }
+
+  if (typeName == "ConsumeStructuredBuffer") {
+    info.RegisterType = D3D_SIT_UAV_CONSUME_STRUCTURED;
+    return info;
+  }
+
+  if (typeName == "RaytracingAccelerationStructure") {
+    info.RegisterType = D3D_SIT_RTACCELERATIONSTRUCTURE;
+    info.SampleCount = (uint32_t)-1;
+    return info;
+  }
+
+  if (typeName == "TextureBuffer") {
+    info.RegisterType = D3D_SIT_TBUFFER;
+    return info;
+  }
+
+  if (typeName == "ConstantBuffer") {
+    info.RegisterType = D3D_SIT_CBUFFER;
+    return info;
+  }
+
+  bool isWrite =
+      typeName.size() > 2 && typeName[0] == 'R' && typeName[1] == 'W';
+
+  if (isWrite)
+    typeName = typeName.substr(2);
+
+  if (typeName == "StructuredBuffer") {
+    info.RegisterType =
+        isWrite ? D3D_SIT_UAV_RWSTRUCTURED : D3D_SIT_STRUCTURED;
+    return info;
+  }
+
+  if (typeName == "ByteAddressBuffer") {
+    info.RegisterType =
+        isWrite ? D3D_SIT_UAV_RWBYTEADDRESS : D3D_SIT_BYTEADDRESS;
+    return info;
+  }
+
+  return GetTextureRegisterInfo(ASTCtx, typeName, isWrite, recordDecl);
+}
+
+static void FillReflectionRegisterAt(const DeclContext &Ctx, ASTContext &ASTCtx,
+                                     const SourceManager &SM,
+                                     DiagnosticsEngine &Diag, QualType Type,
+                                     uint32_t ArraySize, ValueDecl *ValDesc,
+                                     ReflectionData &Refl,
+                                     uint32_t AutoBindingSpace,
+                                     uint32_t ParentNodeId) {
+
+  ArrayRef<hlsl::UnusualAnnotation *> UA = ValDesc->getUnusualAnnotations();
+
+  hlsl::RegisterAssignment *reg = nullptr;
+
+  for (auto It = UA.begin(), E = UA.end(); It != E; ++It) {
+
+    if ((*It)->getKind() != hlsl::UnusualAnnotation::UA_RegisterAssignment)
+      continue;
+
+    reg = cast<hlsl::RegisterAssignment>(*It);
+  }
+
+  assert(reg && "Found a register missing a RegisterAssignment, even though "
+                "GenerateConsistentBindings should have already generated it");
+
+  DxcRegisterTypeInfo inputType = GetRegisterTypeInfo(ASTCtx, Type);
+
+  uint32_t nodeId = PushNextNodeId(
+      Refl, SM, ASTCtx.getLangOpts(), ValDesc->getName(), ValDesc,
+      DxcHLSLNodeType::Register, ParentNodeId, (uint32_t)Refl.Registers.size());
+
+  DxcHLSLRegister regD3D12 = {
+
+      inputType.RegisterType,
+      reg->RegisterNumber,
+      ArraySize,
+      (uint32_t)inputType.RegisterFlags,
+      inputType.TextureValue,
+      inputType.TextureDimension,
+      inputType.SampleCount,
+      reg->RegisterSpace.hasValue() ? reg->RegisterSpace.getValue()
+                                    : AutoBindingSpace,
+      nodeId};
+
+  Refl.Registers.push_back(regD3D12);
+}
+
+enum InclusionFlag {
+  InclusionFlag_Default             = 0,        //Includes cbuffer and registers
+  InclusionFlag_Functions           = 1 << 0,
+  InclusionFlag_Namespaces          = 1 << 1,
+  InclusionFlag_UserTypes           = 1 << 2,   //Include user types (struct, enum, typedef, etc.)
+  InclusionFlag_FunctionInternals   = 1 << 3,   //Variables, structs, functions defined in functions
+  InclusionFlag_Variables           = 1 << 4,   //Variables not included in $Global or cbuffers
+  InclusionFlag_Annotations         = 1 << 5,   //Annotations e.g. [[myAnnotation]] for additional reflection
+  InclusionFlag_All                 = (1 << 6) - 1
+};
+
+static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
+                                 DiagnosticsEngine &Diags,
+                                 const SourceManager &SM,
+                                 ReflectionData &Refl,
+                                 uint32_t AutoBindingSpace,
+                                 uint32_t Depth,
+                                 InclusionFlag InclusionFlags,
+                                 uint32_t ParentNodeId) {
+
+  PrintfStream pfStream;
+
+  PrintingPolicy printingPolicy(ASTCtx.getLangOpts());
+
+  printingPolicy.SuppressInitializers = true;
+  printingPolicy.AnonymousTagLocations = false;
+  printingPolicy.TerseOutput =
+      true; // No inheritance list, trailing semicolons, etc.
+  printingPolicy.PolishForDeclaration = true; // Makes it print as a decl
+  printingPolicy.SuppressSpecifiers = false; // Prints e.g. "static" or "inline"
+  printingPolicy.SuppressScope = true;
+
+  // Traverse AST to grab reflection data
+
+  //TODO: Niels, Annotations, sources, scopes (if/switch/for/empty scope), nodes for tooling, 
+  // flags for determining how heavy reflection should be (e.g. -reflect_hlsl = -reflect_hlsl_registers -reflect_hlsl_cbuffer -reflect_
+
+  for (Decl *it : Ctx.decls()) {
+
+    SourceLocation Loc = it->getLocation();
+    if (Loc.isInvalid() || SM.isInSystemHeader(Loc))
+      continue;
+
+    if (HLSLBufferDecl *CBuffer = dyn_cast<HLSLBufferDecl>(it)) {
+      CBuffer->print(pfStream, printingPolicy);
+    }
+
+    else if (FunctionDecl *Func = dyn_cast<FunctionDecl>(it)) {
+
+      if (!(InclusionFlags & InclusionFlag_Functions))
+        continue;
+
+      //TODO: Skip declaration, if full function is already declared,
+      //      Otherwise take ownership of the previously declared one
+
+      Func->print(pfStream, printingPolicy);
+
+      const FunctionDecl *Definition = nullptr;
+
+      //if (Func->hasBody(Definition))
+      //  RecursiveReflectHLSL(*Definition, ASTCtx, Diags, SM, Refl,
+      //                       AutoBindingSpace, Depth + 1, InclusionFlags, nodeId);
+    }
+
+    else if (FieldDecl *Field = dyn_cast<FieldDecl>(it)) {
+
+      if (!(InclusionFlags & InclusionFlag_UserTypes))
+        continue;
+
+      Field->print(pfStream, printingPolicy);
+    }
+
+    else if (TypedefDecl *Typedef = dyn_cast<TypedefDecl>(it)) {
+
+      if (!(InclusionFlags & InclusionFlag_UserTypes))
+        continue;
+
+      Typedef->print(pfStream, printingPolicy);
+    }
+
+    else if (TypeAliasDecl *TypeAlias = dyn_cast<TypeAliasDecl>(it)) {
+
+      if (!(InclusionFlags & InclusionFlag_UserTypes))
+        continue;
+
+      TypeAlias->print(pfStream, printingPolicy);
+    }
+
+    else if (EnumDecl *Enum = dyn_cast<EnumDecl>(it)) {
+
+      if (!(InclusionFlags & InclusionFlag_UserTypes))
+        continue;
+
+      uint32_t enumStart = (uint32_t)Refl.EnumValues.size();
+
+      for (EnumConstantDecl *EnumValue : Enum->enumerators())
+        Refl.EnumValues.push_back({EnumValue->getName(),
+                                   EnumValue->getInitVal().getSExtValue()});
+
+      assert(Refl.EnumValues.size() < (uint32_t)(1 << 30) && "Enum values overflow");
+
+      uint32_t nodeId = PushNextNodeId(
+          Refl, SM, ASTCtx.getLangOpts(), Enum->getName(), Enum,
+          DxcHLSLNodeType::Enum, ParentNodeId, (uint32_t)Refl.Enums.size());
+
+      Refl.Enums.push_back(
+          {nodeId, (uint32_t)(Refl.EnumValues.size() - enumStart), enumStart});
+    }
+
+    else if (ValueDecl *ValDecl = dyn_cast<ValueDecl>(it)) {
+
+      //TODO: Handle values
+
+      ValDecl->print(pfStream);
+
+      uint32_t arraySize = 1;
+      QualType type = ValDecl->getType();
+
+      if (const ConstantArrayType *arr =
+              dyn_cast<ConstantArrayType>(ValDecl->getType())) {
+        arraySize = arr->getSize().getZExtValue();
+        type = arr->getElementType();
+      }
+
+      if (!IsHLSLResourceType(type))
+        continue;
+
+      ValDecl->print(pfStream, printingPolicy);
+
+      if (Depth != 0)       //TODO: Add for reflection even though it might not be important
+        continue;
+
+      FillReflectionRegisterAt(Ctx, ASTCtx, SM, Diags, type, arraySize, ValDecl,
+                               Refl, AutoBindingSpace, ParentNodeId);
+    }
+
+    else if (RecordDecl *RecDecl = dyn_cast<RecordDecl>(it)) {
+
+      if (!(InclusionFlags & InclusionFlag_UserTypes))
+        continue;
+
+      RecDecl->print(pfStream, printingPolicy);
+      /*RecursiveReflectHLSL(*RecDecl, ASTCtx, Diags, SM, Refl,
+                           AutoBindingSpace, Depth + 1, InclusionFlags, nodeId);*/
+    }
+
+    else if (NamespaceDecl *Namespace = dyn_cast<NamespaceDecl>(it)) {
+
+      if (!(InclusionFlags & InclusionFlag_Namespaces))
+        continue;
+
+      uint32_t nodeId = PushNextNodeId(
+          Refl, SM, ASTCtx.getLangOpts(), Namespace->getName(), Namespace,
+          DxcHLSLNodeType::Namespace, ParentNodeId, 0);
+
+      RecursiveReflectHLSL(*Namespace, ASTCtx, Diags, SM, Refl,
+                           AutoBindingSpace, Depth + 1, InclusionFlags, nodeId);
+    }
+  }
+}
+
+static void ReflectHLSL(ASTHelper &astHelper, ReflectionData& Refl,
+                        uint32_t AutoBindingSpace) {
+
+  TranslationUnitDecl &Ctx = *astHelper.tu;
+  DiagnosticsEngine &Diags = Ctx.getParentASTContext().getDiagnostics();
+  const SourceManager &SM = astHelper.compiler.getSourceManager();
+
+  Refl.Nodes.push_back({
+      "",
+      DxcHLSLNodeType::Namespace,
+      0,
+      0,
+      0xFFFF
+  });
+
+  RecursiveReflectHLSL(Ctx, astHelper.compiler.getASTContext(), Diags, SM, Refl,
+                       AutoBindingSpace, 0, InclusionFlag_All, 0);
+}
+
 static void GlobalVariableAsExternByDefault(DeclContext &Ctx) {
   for (auto it = Ctx.decls_begin(); it != Ctx.decls_end();) {
     auto cur = it++;
@@ -1290,6 +1909,34 @@ static void GlobalVariableAsExternByDefault(DeclContext &Ctx) {
       GlobalVariableAsExternByDefault(*DC);
     }
   }
+}
+
+char RegisterGetSpaceChar(const DxcHLSLRegister &reg) {
+
+  switch (reg.Type) {
+
+  case D3D_SIT_UAV_RWTYPED:
+  case D3D_SIT_UAV_RWSTRUCTURED:
+  case D3D_SIT_UAV_RWBYTEADDRESS:
+  case D3D_SIT_UAV_APPEND_STRUCTURED:
+  case D3D_SIT_UAV_CONSUME_STRUCTURED:
+  case D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER:
+  case D3D_SIT_UAV_FEEDBACKTEXTURE:
+    return 'u';
+
+  case D3D_SIT_CBUFFER:
+    return 'b';
+
+  case D3D_SIT_SAMPLER:
+    return 's';
+
+  default:
+    return 't';
+  }
+}
+
+std::string RegisterGetArraySize(uint32_t count) {
+  return count > 1 ? "[" + std::to_string(count) + "]" : "";
 }
 
 static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
@@ -1308,8 +1955,34 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
 
   TranslationUnitDecl *tu = astHelper.tu;
 
-  if (opts.RWOpt.ConsistentBindings) {
+  if (opts.RWOpt.ConsistentBindings || opts.RWOpt.ReflectHLSL) {
     GenerateConsistentBindings(*tu, opts.AutoBindingSpace);
+  }
+
+  if (opts.RWOpt.ReflectHLSL) {
+    ReflectionData Refl;
+    ReflectHLSL(astHelper, Refl, opts.AutoBindingSpace);
+    
+    for (DxcEnumDesc en : Refl.Enums) {
+      printf("Enum: %s (%u values starting at %u)\n", Refl.Nodes[en.NodeId].Name.c_str(),
+             en.ValueCount, en.ValueLocation);
+
+      for (uint32_t i = 0; i < en.ValueCount; ++i)
+        printf("%u %s = %" PRIi64 "\n", i,
+               Refl.EnumValues[en.ValueLocation + i].Name.c_str(),
+               Refl.EnumValues[en.ValueLocation + i].Value);
+    }
+
+    for (DxcHLSLRegister reg : Refl.Registers) {
+      printf("%s%s : register(%c%u, space%u);\n",
+             Refl.Nodes[reg.NodeId].Name.c_str(),
+             RegisterGetArraySize(reg.BindCount).c_str(),
+             RegisterGetSpaceChar(reg),
+             reg.BindPoint,
+             reg.Space);
+    }
+
+    printf("%p\n", &Refl);
   }
 
   if (opts.RWOpt.SkipStatic && opts.RWOpt.SkipFunctionBody) {
@@ -1330,7 +2003,7 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
                                  opts.RWOpt.RemoveUnusedFunctions, w);
     if (FAILED(hr))
       return hr;
-  } else if (!opts.RWOpt.ConsistentBindings) {
+  } else if (!opts.RWOpt.ConsistentBindings && !opts.RWOpt.ReflectHLSL) {
     o << "// Rewrite unchanged result:\n";
   }
 

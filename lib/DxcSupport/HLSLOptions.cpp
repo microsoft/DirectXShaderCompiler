@@ -1351,6 +1351,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.RWOpt.Unchanged = Args.hasFlag(OPT_rw_unchanged, OPT_INVALID, false);
     opts.RWOpt.ConsistentBindings =
         Args.hasFlag(OPT_rw_consistent_bindings, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSL =
+        Args.hasFlag(OPT_rw_reflect_hlsl, OPT_INVALID, false);
     opts.RWOpt.SkipFunctionBody =
         Args.hasFlag(OPT_rw_skip_function_body, OPT_INVALID, false);
     opts.RWOpt.SkipStatic =

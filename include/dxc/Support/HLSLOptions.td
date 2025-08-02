@@ -565,6 +565,8 @@ def rw_unchanged : Flag<["-", "/"], "unchanged">, Group<hlslrewrite_Group>, Flag
   HelpText<"Rewrite HLSL, without changes.">;
 def rw_consistent_bindings : Flag<["-", "/"], "consistent-bindings">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Generate bindings for registers that aren't fully qualified (to have consistent bindings).">;
+def rw_reflect_hlsl : Flag<["-", "/"], "reflect-hlsl">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Reflect HLSL and generate consistent bindings.">;
 def rw_skip_function_body : Flag<["-", "/"], "skip-fn-body">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Translate function definitions to declarations">;
 def rw_skip_static : Flag<["-", "/"], "skip-static">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
