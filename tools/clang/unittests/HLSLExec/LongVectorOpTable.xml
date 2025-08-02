@@ -697,9 +697,7 @@
         value for the the array of std::pairs defined in LongVectorTestData.h
         for the applicable DataTypeIn-->
         <ParameterType Name="InputValueSetName1">String</ParameterType>
-        <!-- InputArgsName is optional and is also a key to the array of
-        std::pairs defined in LongVectorTestData.h for the applicable DataTypeIn.
-        Used for args like min and max in clamp-->
+        <ParameterType Name="InputValueSetName2">String</ParameterType>
         <ParameterType Name="DataTypeIn">String</ParameterType>
         <ParameterType Name="OpTypeEnum">String</ParameterType>
       </ParameterTypes>
@@ -774,7 +772,7 @@
       </Row>
       <!-- AsTypeOpTable_AsType DataTypeIn: float64 -->
       <Row Name="AsUint_SplitDouble_float64">
-        <Parameter Name="OpTypeEnum">AsTypeOp_AsUint_SplitDouble</Parameter>
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsUint_SplitDouble</Parameter>
         <Parameter Name="DataTypeIn">float64</Parameter>
         <!-- Use a special InputValueSetName1 so we verify with values that
         produce non-zero outputs for HighBits and LowBits -->
