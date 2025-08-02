@@ -1285,11 +1285,12 @@ enum class DxcHLSLNodeType : uint64_t {
   CBuffer,
   Function,
   Enum,
+  EnumValue,
   Namespace,
   Typedef,
   Using,
   Variable,
-  Annotation
+  Parameter
 };
 
 struct DxcHLSLNode {
@@ -1314,19 +1315,32 @@ struct DxcHLSLNode {
 
 struct DxcEnumDesc {
   uint32_t NodeId;
-  uint32_t ValueCount;
-  uint32_t ValueLocation;
+  D3D12_HLSL_ENUM_TYPE Type;
 };
 
 struct DxcEnumValue {
-  std::string Name;
   int64_t Value;
+  uint32_t NodeId;
+};
+
+struct DxcHLSLParameter {       //Mirrors D3D12_PARAMETER_DESC (ex. First(In/Out)(Register/Component)), but with std::string and NodeId
+  std::string SemanticName;
+  D3D_SHADER_VARIABLE_TYPE Type;              // Element type.
+  D3D_SHADER_VARIABLE_CLASS Class;            // Scalar/Vector/Matrix.
+  uint32_t Rows;                              // Rows are for matrix parameters.
+  uint32_t Columns;                           // Components or Columns in matrix.
+  D3D_INTERPOLATION_MODE InterpolationMode;   // Interpolation mode.
+  D3D_PARAMETER_FLAGS Flags;                  // Parameter modifiers.
+  uint32_t NodeId;
+
+  //TODO: Array info
 };
 
 struct DxcHLSLFunction {
   uint32_t NodeId;
-  uint32_t NumParameters : 31;
+  uint32_t NumParameters : 30;
   uint32_t HasReturn : 1;
+  uint32_t HasDefinition : 1;
 };
 
 struct DxcHLSLRegister {        //Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus the Name (and uID replaced with NodeID)
@@ -1351,6 +1365,7 @@ struct ReflectionData {
   std::vector<DxcHLSLFunction> Functions;
   std::vector<DxcEnumDesc> Enums;
   std::vector<DxcEnumValue> EnumValues;
+  std::vector<DxcHLSLParameter> Parameters;
 };
 
 static uint32_t PushNextNodeId(ReflectionData &Refl, const SourceManager &SM,
@@ -1714,6 +1729,55 @@ static void FillReflectionRegisterAt(const DeclContext &Ctx, ASTContext &ASTCtx,
   Refl.Registers.push_back(regD3D12);
 }
 
+/*
+static void AddFunctionParameters(ASTContext &ASTCtx, QualType Type, Decl *Decl,
+                                  ReflectionData &Refl, const SourceManager &SM,
+                                  uint32_t ParentNodeId) {
+
+  PrintingPolicy printingPolicy(ASTCtx.getLangOpts());
+
+  QualType desugared = Type.getDesugaredType(ASTCtx);
+
+  PrintfStream str;
+  desugared.print(str, printingPolicy);
+
+  if (Decl)
+    Decl->print(str);
+
+  //Generate parameter
+
+  uint32_t nodeId = PushNextNodeId(
+      Refl, SM, ASTCtx.getLangOpts(),
+      Decl && dyn_cast<NamedDecl>(Decl) ? dyn_cast<NamedDecl>(Decl)->getName()
+                                        : "",
+      Decl, DxcHLSLNodeType::Parameter, ParentNodeId,
+      (uint32_t)Refl.Parameters.size());
+
+  std::string semanticName;
+
+  if (NamedDecl *ValDesc = dyn_cast<NamedDecl>(Decl)) {
+
+    ArrayRef<hlsl::UnusualAnnotation *> UA = ValDesc->getUnusualAnnotations();
+
+    for (auto It = UA.begin(), E = UA.end(); It != E; ++It) {
+
+      if ((*It)->getKind() != hlsl::UnusualAnnotation::UA_SemanticDecl)
+        continue;
+
+      semanticName = cast<hlsl::SemanticDecl>(*It)->SemanticName;
+    }
+  }
+
+  DxcHLSLParameter parameter{std::move(semanticName)};
+
+  type, clss, rows, columns, interpolationMode, flags;
+  parameter.NodeId = nodeId;
+
+  Refl.Parameters.push_back(parameter);
+
+  //It's a struct, add parameters recursively
+}*/
+
 enum InclusionFlag {
   InclusionFlag_Default             = 0,        //Includes cbuffer and registers
   InclusionFlag_Functions           = 1 << 0,
@@ -1766,16 +1830,34 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       if (!(InclusionFlags & InclusionFlag_Functions))
         continue;
 
-      //TODO: Skip declaration, if full function is already declared,
-      //      Otherwise take ownership of the previously declared one
-
-      Func->print(pfStream, printingPolicy);
-
       const FunctionDecl *Definition = nullptr;
 
-      //if (Func->hasBody(Definition))
-      //  RecursiveReflectHLSL(*Definition, ASTCtx, Diags, SM, Refl,
-      //                       AutoBindingSpace, Depth + 1, InclusionFlags, nodeId);
+      uint32_t nodeId =
+          PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), Func->getName(), Func,
+                         DxcHLSLNodeType::Function, ParentNodeId,
+                         (uint32_t)Refl.Functions.size());
+
+      bool hasDefinition = Func->hasBody(Definition);
+      DxcHLSLFunction func = {nodeId, Func->getNumParams(),
+                              !Func->getReturnType().getTypePtr()->isVoidType(),
+                              hasDefinition};
+
+      /*
+      for (uint32_t i = 0; i < func.NumParameters; ++i)
+        AddFunctionParameters(ASTCtx, Func->getParamDecl(i)->getType(),
+                              Func->getParamDecl(i), Refl, SM, nodeId);
+
+      if (func.HasReturn)
+        AddFunctionParameters(ASTCtx, Func->getReturnType(), nullptr, Refl, SM,
+                              nodeId);*/
+
+      Refl.Functions.push_back(std::move(func));
+
+      if (hasDefinition && (InclusionFlags & InclusionFlag_FunctionInternals)) {
+        RecursiveReflectHLSL(*Definition, ASTCtx, Diags, SM, Refl,
+                             AutoBindingSpace, Depth + 1, InclusionFlags,
+                             nodeId);
+      }
     }
 
     else if (FieldDecl *Field = dyn_cast<FieldDecl>(it)) {
@@ -1807,20 +1889,52 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       if (!(InclusionFlags & InclusionFlag_UserTypes))
         continue;
 
-      uint32_t enumStart = (uint32_t)Refl.EnumValues.size();
-
-      for (EnumConstantDecl *EnumValue : Enum->enumerators())
-        Refl.EnumValues.push_back({EnumValue->getName(),
-                                   EnumValue->getInitVal().getSExtValue()});
-
-      assert(Refl.EnumValues.size() < (uint32_t)(1 << 30) && "Enum values overflow");
-
       uint32_t nodeId = PushNextNodeId(
           Refl, SM, ASTCtx.getLangOpts(), Enum->getName(), Enum,
           DxcHLSLNodeType::Enum, ParentNodeId, (uint32_t)Refl.Enums.size());
 
-      Refl.Enums.push_back(
-          {nodeId, (uint32_t)(Refl.EnumValues.size() - enumStart), enumStart});
+      for (EnumConstantDecl *EnumValue : Enum->enumerators()) {
+
+        uint32_t childNodeId =
+            PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), EnumValue->getName(),
+                           EnumValue, DxcHLSLNodeType::EnumValue, nodeId,
+                           (uint32_t)Refl.EnumValues.size());
+
+        Refl.EnumValues.push_back(
+            {EnumValue->getInitVal().getSExtValue(), childNodeId});
+      }
+
+      assert(Refl.EnumValues.size() < (uint32_t)(1 << 30) &&
+             "Enum values overflow");
+
+      QualType enumType = Enum->getIntegerType();
+      QualType desugared = enumType.getDesugaredType(ASTCtx);
+      const auto &semantics = ASTCtx.getTypeInfo(desugared);
+
+      D3D12_HLSL_ENUM_TYPE type;
+
+      switch (semantics.Width) {
+
+      default:
+      case 32:
+        type = desugared->isUnsignedIntegerType() ? D3D12_HLSL_ENUM_TYPE_UINT
+                                                  : D3D12_HLSL_ENUM_TYPE_INT;
+        break;
+
+      case 16:
+        type = desugared->isUnsignedIntegerType()
+                   ? D3D12_HLSL_ENUM_TYPE_UINT16_T
+                   : D3D12_HLSL_ENUM_TYPE_INT16_T;
+        break;
+
+      case 64:
+        type = desugared->isUnsignedIntegerType()
+                   ? D3D12_HLSL_ENUM_TYPE_UINT64_T
+                   : D3D12_HLSL_ENUM_TYPE_INT64_T;
+        break;
+      }
+
+      Refl.Enums.push_back({nodeId, type});
     }
 
     else if (ValueDecl *ValDecl = dyn_cast<ValueDecl>(it)) {
@@ -1939,6 +2053,15 @@ std::string RegisterGetArraySize(uint32_t count) {
   return count > 1 ? "[" + std::to_string(count) + "]" : "";
 }
 
+std::string EnumTypeToString(D3D12_HLSL_ENUM_TYPE type) {
+
+  const char *arr[] = {
+      "uint", "int", "uint64_t", "int64_t", "uint16_t", "int16_t",
+  };
+
+  return arr[type];
+}
+
 static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
                                LPCSTR pFileName, ASTUnit::RemappedFile *pRemap,
                                hlsl::options::DxcOpts &opts,
@@ -1964,13 +2087,19 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
     ReflectHLSL(astHelper, Refl, opts.AutoBindingSpace);
     
     for (DxcEnumDesc en : Refl.Enums) {
-      printf("Enum: %s (%u values starting at %u)\n", Refl.Nodes[en.NodeId].Name.c_str(),
-             en.ValueCount, en.ValueLocation);
 
-      for (uint32_t i = 0; i < en.ValueCount; ++i)
-        printf("%u %s = %" PRIi64 "\n", i,
-               Refl.EnumValues[en.ValueLocation + i].Name.c_str(),
-               Refl.EnumValues[en.ValueLocation + i].Value);
+      printf("Enum: %s (: %s)\n", Refl.Nodes[en.NodeId].Name.c_str(),
+             EnumTypeToString(en.Type).c_str());
+
+      DxcHLSLNode node = Refl.Nodes[en.NodeId];
+
+      for (uint32_t i = 0; i < node.ChildCount; ++i) {
+
+        DxcHLSLNode child = Refl.Nodes[en.NodeId + 1 + i];
+
+        printf("%u %s = %" PRIi64 "\n", i, child.Name.c_str(),
+               Refl.EnumValues[child.LocalId].Value);
+      }
     }
 
     for (DxcHLSLRegister reg : Refl.Registers) {
@@ -1980,6 +2109,14 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
              RegisterGetSpaceChar(reg),
              reg.BindPoint,
              reg.Space);
+    }
+
+    for (DxcHLSLFunction func : Refl.Functions) {
+      printf("%s (return: %s, hasDefinition: %s, numParams: %u)\n",
+             Refl.Nodes[func.NodeId].Name.c_str(),
+             func.HasReturn ? "true" : "false",
+             func.HasDefinition ? "true" : "false",
+             func.NumParameters);
     }
 
     printf("%p\n", &Refl);
