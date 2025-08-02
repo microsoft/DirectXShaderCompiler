@@ -394,7 +394,7 @@ void LongVector::OpTest::dispatchTestByVectorLength(
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  auto TestConfig = LongVector::MakeTestConfig<DataTypeT>(opType);
+  auto TestConfig = LongVector::makeTestConfig<DataTypeT>(opType);
 
   std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
   TestConfig->setOpTypeNameForLogging(OpTypeString);
@@ -609,26 +609,26 @@ void LongVector::fillShaderBufferFromLongVectorData(
 
 template <typename DataTypeT>
 std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-LongVector::MakeTestConfig(UnaryOpType OpType) {
+LongVector::makeTestConfig(UnaryOpType OpType) {
   return std::make_shared<LongVector::TestConfigUnary<DataTypeT>>(OpType);
 }
 
 template <typename DataTypeT>
 std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-LongVector::MakeTestConfig(BinaryOpType OpType) {
+LongVector::makeTestConfig(BinaryOpType OpType) {
   return std::make_shared<LongVector::TestConfigBinary<DataTypeT>>(OpType);
 }
 
 template <typename DataTypeT>
 std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-LongVector::MakeTestConfig(TrigonometricOpType OpType) {
+LongVector::makeTestConfig(TrigonometricOpType OpType) {
   return std::make_shared<LongVector::TestConfigTrigonometric<DataTypeT>>(
       OpType);
 }
 
 template <typename DataTypeT>
 std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-LongVector::MakeTestConfig(AsTypeOpType OpType) {
+LongVector::makeTestConfig(AsTypeOpType OpType) {
   return std::make_shared<LongVector::TestConfigAsType<DataTypeT>>(OpType);
 }
 

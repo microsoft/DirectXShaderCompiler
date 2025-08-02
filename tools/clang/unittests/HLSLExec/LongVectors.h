@@ -620,19 +620,19 @@ private:
 
 template <typename DataTypeT>
 std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-MakeTestConfig(UnaryOpType OpType);
+makeTestConfig(UnaryOpType OpType);
 
 template <typename DataTypeT>
 std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-MakeTestConfig(BinaryOpType OpType);
+makeTestConfig(BinaryOpType OpType);
 
 template <typename DataTypeT>
 std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-MakeTestConfig(TrigonometricOpType OpType);
+makeTestConfig(TrigonometricOpType OpType);
 
 template <typename DataTypeT>
 std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-MakeTestConfig(AsTypeOpType OpType);
+makeTestConfig(AsTypeOpType OpType);
 
 }; // namespace LongVector
 
