@@ -314,10 +314,6 @@
           <Parameter Name="OpTypeEnum">BinaryOpType_Max</Parameter>
           <Parameter Name="DataType">uint32</Parameter>
         </Row>
-        <Row Name="AsDouble_uint32">
-          <Parameter Name="OpTypeEnum">BinaryOpType_AsDouble</Parameter>
-          <Parameter Name="DataType">uint32</Parameter>
-        </Row>
         <!-- LongVectorBinaryOpTypeTable DataType: uint64 -->
         <Row Name="ScalarAdd_uint64">
           <Parameter Name="OpTypeEnum">BinaryOpType_ScalarAdd</Parameter>
@@ -559,33 +555,9 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">int16</Parameter>
       </Row>
-      <Row Name="AsFloat16_int16">
-          <Parameter Name="OpTypeEnum">UnaryOpType_AsFloat16</Parameter>
-          <Parameter Name="DataType">int16</Parameter>
-      </Row>
-      <Row Name="AsInt16_int16">
-          <Parameter Name="OpTypeEnum">UnaryOpType_AsInt16</Parameter>
-          <Parameter Name="DataType">int16</Parameter>
-      </Row>
-      <Row Name="AsUint16_int16">
-          <Parameter Name="OpTypeEnum">UnaryOpType_AsUint16</Parameter>
-          <Parameter Name="DataType">int16</Parameter>
-      </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: int32 -->
       <Row Name="Initialize_int32">
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-      </Row>
-      <Row Name="AsFloat_int32">
-        <Parameter Name="OpTypeEnum">UnaryOpType_AsFloat</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-      </Row>
-      <Row Name="AsInt_int32">
-        <Parameter Name="OpTypeEnum">UnaryOpType_AsInt</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-      </Row>
-      <Row Name="AsUint_int32">
-        <Parameter Name="OpTypeEnum">UnaryOpType_AsUint</Parameter>
         <Parameter Name="DataType">int32</Parameter>
       </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: int64 -->
@@ -598,33 +570,9 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">uint16</Parameter>
       </Row>
-      <Row Name="AsFloat16_uint16">
-          <Parameter Name="OpTypeEnum">UnaryOpType_AsFloat16</Parameter>
-          <Parameter Name="DataType">uint16</Parameter>
-      </Row>
-      <Row Name="AsInt16_uint16">
-          <Parameter Name="OpTypeEnum">UnaryOpType_AsInt16</Parameter>
-          <Parameter Name="DataType">uint16</Parameter>
-      </Row>
-      <Row Name="AsUint16_uint16">
-          <Parameter Name="OpTypeEnum">UnaryOpType_AsUint16</Parameter>
-          <Parameter Name="DataType">uint16</Parameter>
-      </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: uint32 -->
       <Row Name="Initialize_uint32">
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-      </Row>
-      <Row Name="AsFloat_uint32">
-        <Parameter Name="OpTypeEnum">UnaryOpType_AsFloat</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-      </Row>
-      <Row Name="AsInt_uint32">
-        <Parameter Name="OpTypeEnum">UnaryOpType_AsInt</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-      </Row>
-      <Row Name="AsUint_uint32">
-        <Parameter Name="OpTypeEnum">UnaryOpType_AsUint</Parameter>
         <Parameter Name="DataType">uint32</Parameter>
       </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: uint64 -->
@@ -637,18 +585,6 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">float16</Parameter>
       </Row>
-      <Row Name="AsFloat16_float16">
-        <Parameter Name="OpTypeEnum">UnaryOpType_AsFloat16</Parameter>
-        <Parameter Name="DataType">float16</Parameter>
-      </Row>
-      <Row Name="AsInt16_float16">
-        <Parameter Name="OpTypeEnum">UnaryOpType_AsInt16</Parameter>
-        <Parameter Name="DataType">float16</Parameter>
-      </Row>
-      <Row Name="AsUint16_float16">
-        <Parameter Name="OpTypeEnum">UnaryOpType_AsUint16</Parameter>
-        <Parameter Name="DataType">float16</Parameter>
-      </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: float32 -->
       <Row Name="Initialize_float32">
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
@@ -658,13 +594,6 @@
       <Row Name="Initialize_float64">
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">float64</Parameter>
-      </Row>
-      <Row Name="AsUint_SplitDouble_float64">
-        <Parameter Name="OpTypeEnum">UnaryOpType_AsUint_SplitDouble</Parameter>
-        <Parameter Name="DataType">float64</Parameter>
-        <!-- Use a special InputValueSetName1 so we verify with values that
-        produce non-zero outputs for HighBits and LowBits -->
-        <Parameter Name="InputValueSetName1">SplitDoubleInputValueSet</Parameter>
       </Row>
     </Table>
     <Table Id="TrigonometricOpTable">
@@ -759,6 +688,97 @@
       <Row Name="Tanh_float32">
         <Parameter Name="OpTypeEnum">TrigonometricOpType_Tanh</Parameter>
         <Parameter Name="DataType">float32</Parameter>
+      </Row>
+    </Table>
+    <Table Id="AsTypeOpTable">
+      <ParameterTypes>
+        <!-- InputValueSetName1 is optional. If no value is provided use the
+        default value set for the data type. This string is meant to be a key
+        value for the the array of std::pairs defined in LongVectorTestData.h
+        for the applicable DataTypeIn-->
+        <ParameterType Name="InputValueSetName1">String</ParameterType>
+        <!-- InputArgsName is optional and is also a key to the array of
+        std::pairs defined in LongVectorTestData.h for the applicable DataTypeIn.
+        Used for args like min and max in clamp-->
+        <ParameterType Name="DataTypeIn">String</ParameterType>
+        <ParameterType Name="OpTypeEnum">String</ParameterType>
+      </ParameterTypes>
+      <!-- AsTypeOpTable_AsType DataTypeIn: int16 -->
+      <Row Name="AsFloat16_int16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsFloat16</Parameter>
+        <Parameter Name="DataTypeIn">int16</Parameter>
+      </Row>
+      <Row Name="AsInt16_int16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsInt16</Parameter>
+        <Parameter Name="DataTypeIn">int16</Parameter>
+      </Row>
+      <Row Name="AsUint16_int16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsUint16</Parameter>
+        <Parameter Name="DataTypeIn">int16</Parameter>
+      </Row>
+      <!-- AsTypeOpTable_AsType DataTypeIn: int32 -->
+      <Row Name="AsFloat_int32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsFloat</Parameter>
+        <Parameter Name="DataTypeIn">int32</Parameter>
+      </Row>
+      <Row Name="AsInt_int32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsInt</Parameter>
+        <Parameter Name="DataTypeIn">int32</Parameter>
+      </Row>
+      <Row Name="AsUint_int32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsUint</Parameter>
+        <Parameter Name="DataTypeIn">int32</Parameter>
+      </Row>
+      <!-- AsTypeOpTable_AsType DataTypeIn: uint16 -->
+      <Row Name="AsFloat16_uint16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsFloat16</Parameter>
+        <Parameter Name="DataTypeIn">uint16</Parameter>
+      </Row>
+      <Row Name="AsInt16_uint16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsInt16</Parameter>
+        <Parameter Name="DataTypeIn">uint16</Parameter>
+      </Row>
+      <Row Name="AsUint16_uint16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsUint16</Parameter>
+        <Parameter Name="DataTypeIn">uint16</Parameter>
+      </Row>
+      <!-- AsTypeOpTable_AsType DataTypeIn: uint32 -->
+      <Row Name="AsFloat_uint32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsFloat</Parameter>
+        <Parameter Name="DataTypeIn">uint32</Parameter>
+      </Row>
+      <Row Name="AsInt_uint32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsInt</Parameter>
+        <Parameter Name="DataTypeIn">uint32</Parameter>
+      </Row>
+      <Row Name="AsUint_uint32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsUint</Parameter>
+        <Parameter Name="DataTypeIn">uint32</Parameter>
+      </Row>
+      <Row Name="AsDouble_uint32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsDouble</Parameter>
+        <Parameter Name="DataTypeIn">uint32</Parameter>
+      </Row>
+      <!-- AsTypeOpTable_AsType DataTypeIn: float16-->
+      <Row Name="AsFloat16_float16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsFloat16</Parameter>
+        <Parameter Name="DataTypeIn">float16</Parameter>
+      </Row>
+      <Row Name="AsInt16_float16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsInt16</Parameter>
+        <Parameter Name="DataTypeIn">float16</Parameter>
+      </Row>
+      <Row Name="AsUint16_float16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsUint16</Parameter>
+        <Parameter Name="DataTypeIn">float16</Parameter>
+      </Row>
+      <!-- AsTypeOpTable_AsType DataTypeIn: float64 -->
+      <Row Name="AsUint_SplitDouble_float64">
+        <Parameter Name="OpTypeEnum">AsTypeOp_AsUint_SplitDouble</Parameter>
+        <Parameter Name="DataTypeIn">float64</Parameter>
+        <!-- Use a special InputValueSetName1 so we verify with values that
+        produce non-zero outputs for HighBits and LowBits -->
+        <Parameter Name="InputValueSetName1">SplitDoubleInputValueSet</Parameter>
       </Row>
     </Table>
 </Data>
