@@ -1313,12 +1313,12 @@ struct DxcHLSLNode {
   uint64_t AnnotationCount : 10;
 };
 
-struct DxcEnumDesc {
+struct DxcHLSLEnumDesc {
   uint32_t NodeId;
   D3D12_HLSL_ENUM_TYPE Type;
 };
 
-struct DxcEnumValue {
+struct DxcHLSLEnumValue {
   int64_t Value;
   uint32_t NodeId;
 };
@@ -1343,18 +1343,32 @@ struct DxcHLSLFunction {
   uint32_t HasDefinition : 1;
 };
 
-struct DxcHLSLRegister {        //Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus the Name (and uID replaced with NodeID)
-    
-    D3D_SHADER_INPUT_TYPE       Type;           // Type of resource (e.g. texture, cbuffer, etc.)
-    uint32_t                    BindPoint;      // Starting bind point
-    uint32_t                    BindCount;      // Number of contiguous bind points (for arrays)
+struct DxcHLSLRegister {        //Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus the Name (and uID replaced with NodeID) and added arrayIndex
 
-    uint32_t                    uFlags;         // Input binding flags
-    D3D_RESOURCE_RETURN_TYPE    ReturnType;     // Return type (if texture)
-    D3D_SRV_DIMENSION           Dimension;      // Dimension (if texture)
-    uint32_t                    NumSamples;     // Number of samples (0 if not MS texture)
-    uint32_t                    Space;          // Register space
-    uint32_t                    NodeId;
+  D3D_SHADER_INPUT_TYPE       Type;           // Type of resource (e.g. texture, cbuffer, etc.)
+  uint32_t                    BindPoint;      // Starting bind point
+  uint32_t                    BindCount;      // Number of contiguous bind points (for arrays)
+
+  uint32_t                    uFlags;         // Input binding flags
+  D3D_RESOURCE_RETURN_TYPE    ReturnType;     // Return type (if texture)
+  D3D_SRV_DIMENSION           Dimension;      // Dimension (if texture)
+  uint32_t                    NumSamples;     // Number of samples (0 if not MS texture)
+  uint32_t                    Space;          // Register space
+  uint32_t                    NodeId;
+  uint32_t                    ArrayId;        // Only accessible if BindCount > 1 and the array is multi dimensional
+};
+
+struct DxcHLSLArray { 
+  uint32_t ArrayElem : 4;       // Array of up to 8 recursion levels deep (like spirv)
+  uint32_t ArrayStart : 28;     // Index into ArraySizes with ArraySize
+};
+
+struct DxcRegisterTypeInfo {
+  D3D_SHADER_INPUT_TYPE RegisterType;
+  D3D_SHADER_INPUT_FLAGS RegisterFlags;
+  D3D_SRV_DIMENSION TextureDimension;
+  D3D_RESOURCE_RETURN_TYPE TextureValue;
+  uint32_t SampleCount;
 };
 
 struct ReflectionData {
@@ -1363,22 +1377,12 @@ struct ReflectionData {
   std::unordered_map<std::string, uint16_t> SourceToFileId;
   std::vector<DxcHLSLRegister> Registers;
   std::vector<DxcHLSLFunction> Functions;
-  std::vector<DxcEnumDesc> Enums;
-  std::vector<DxcEnumValue> EnumValues;
+  std::vector<DxcHLSLEnumDesc> Enums;
+  std::vector<DxcHLSLEnumValue> EnumValues;
   std::vector<DxcHLSLParameter> Parameters;
   std::vector<std::string> Annotations;
-};
-
-class PrintfStream : public llvm::raw_ostream {
-public:
-  PrintfStream() { SetUnbuffered(); }
-
-private:
-  void write_impl(const char *Ptr, size_t Size) override {
-    printf("%.*s\n", (int)Size, Ptr); // Print the raw buffer directly
-  }
-
-  uint64_t current_pos() const override { return 0; }
+  std::vector<DxcHLSLArray> Arrays;
+  std::vector<uint32_t> ArraySizes;
 };
 
 static uint32_t PushNextNodeId(ReflectionData &Refl, const SourceManager &SM,
@@ -1396,14 +1400,9 @@ static uint32_t PushNextNodeId(ReflectionData &Refl, const SourceManager &SM,
   uint32_t annotationCount = 0;
 
   if (Decl) {
-
-    PrintfStream pfStream;
-
-    LangOptions dummy;
-    PrintingPolicy printingPolicy(dummy);
-
     for (const Attr *attr : Decl->attrs()) {
       if (const AnnotateAttr *annotate = dyn_cast<AnnotateAttr>(attr)) {
+        assert(Refl.Annotations.size() < (1 << 20) && "Out of annotations");
         Refl.Annotations.push_back(annotate->getAnnotation().str());
         ++annotationCount;
       }
@@ -1487,14 +1486,6 @@ static uint32_t PushNextNodeId(ReflectionData &Refl, const SourceManager &SM,
 
   return nodeId;
 }
-
-struct DxcRegisterTypeInfo {
-  D3D_SHADER_INPUT_TYPE RegisterType;
-  D3D_SHADER_INPUT_FLAGS RegisterFlags;
-  D3D_SRV_DIMENSION TextureDimension;
-  D3D_RESOURCE_RETURN_TYPE TextureValue;
-  uint32_t SampleCount;
-};
 
 static DxcRegisterTypeInfo GetTextureRegisterInfo(ASTContext &ASTCtx,
                                                   std::string TypeName,
@@ -1700,13 +1691,41 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
   return GetTextureRegisterInfo(ASTCtx, typeName, isWrite, recordDecl);
 }
 
-static void FillReflectionRegisterAt(const DeclContext &Ctx, ASTContext &ASTCtx,
-                                     const SourceManager &SM,
-                                     DiagnosticsEngine &Diag, QualType Type,
-                                     uint32_t ArraySize, ValueDecl *ValDesc,
-                                     ReflectionData &Refl,
-                                     uint32_t AutoBindingSpace,
-                                     uint32_t ParentNodeId) {
+static uint32_t PushArray(ReflectionData &Refl, uint32_t ArraySizeFlat,
+                          const std::vector<uint32_t> &ArraySize) {
+
+  if (ArraySizeFlat <= 1 || ArraySize.size() <= 1)
+    return (uint32_t)-1;
+
+  assert(Refl.Arrays.size() < (uint32_t)-1 && "Arrays would overflow");
+  uint32_t arrayId = (uint32_t)Refl.Arrays.size();
+
+  uint32_t arrayCountStart = (uint32_t)Refl.ArraySizes.size();
+  uint32_t numArrayElements = std::min((size_t)8, ArraySize.size());
+  assert(Refl.ArraySizes.size() + numArrayElements < ((1 << 28) - 1) &&
+         "Array elements would overflow");
+
+  for (uint32_t i = 0; i < ArraySize.size() && i < 8; ++i) {
+
+    uint32_t arraySize = ArraySize[i];
+
+    // Flatten rest of array to at least keep consistent array elements
+    if (i == 7)
+      for (uint32_t j = i + 1; j < ArraySize.size(); ++j)
+        arraySize *= ArraySize[j];
+
+    Refl.ArraySizes.push_back(arraySize);
+  }
+
+  Refl.Arrays.push_back({numArrayElements, arrayCountStart});
+  return arrayId;
+}
+
+static void FillReflectionRegisterAt(
+    const DeclContext &Ctx, ASTContext &ASTCtx, const SourceManager &SM,
+    DiagnosticsEngine &Diag, QualType Type, uint32_t ArraySizeFlat,
+    ValueDecl *ValDesc, const std::vector<uint32_t> &ArraySize,
+    ReflectionData &Refl, uint32_t AutoBindingSpace, uint32_t ParentNodeId) {
 
   ArrayRef<hlsl::UnusualAnnotation *> UA = ValDesc->getUnusualAnnotations();
 
@@ -1729,18 +1748,22 @@ static void FillReflectionRegisterAt(const DeclContext &Ctx, ASTContext &ASTCtx,
       Refl, SM, ASTCtx.getLangOpts(), ValDesc->getName(), ValDesc,
       DxcHLSLNodeType::Register, ParentNodeId, (uint32_t)Refl.Registers.size());
 
+  uint32_t arrayId = PushArray(Refl, ArraySizeFlat, ArraySize);
+
   DxcHLSLRegister regD3D12 = {
 
       inputType.RegisterType,
       reg->RegisterNumber,
-      ArraySize,
+      ArraySizeFlat,
       (uint32_t)inputType.RegisterFlags,
       inputType.TextureValue,
       inputType.TextureDimension,
       inputType.SampleCount,
       reg->RegisterSpace.hasValue() ? reg->RegisterSpace.getValue()
                                     : AutoBindingSpace,
-      nodeId};
+      nodeId,
+      arrayId
+  };
 
   Refl.Registers.push_back(regD3D12);
 }
@@ -1805,6 +1828,19 @@ enum InclusionFlag {
   InclusionFlag_All                 = (1 << 6) - 1
 };
 
+class PrintfStream : public llvm::raw_ostream {
+public:
+  PrintfStream() { SetUnbuffered(); }
+
+private:
+  void write_impl(const char *Ptr, size_t Size) override {
+    printf("%.*s\n", (int)Size, Ptr); // Print the raw buffer directly
+  }
+
+  uint64_t current_pos() const override { return 0; }
+};
+
+
 static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
                                  DiagnosticsEngine &Diags,
                                  const SourceManager &SM,
@@ -1814,6 +1850,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
                                  InclusionFlag InclusionFlags,
                                  uint32_t ParentNodeId) {
 
+  /*
   PrintfStream pfStream;
 
   PrintingPolicy printingPolicy(ASTCtx.getLangOpts());
@@ -1824,7 +1861,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       true; // No inheritance list, trailing semicolons, etc.
   printingPolicy.PolishForDeclaration = true; // Makes it print as a decl
   printingPolicy.SuppressSpecifiers = false; // Prints e.g. "static" or "inline"
-  printingPolicy.SuppressScope = true;
+  printingPolicy.SuppressScope = true;*/
 
   // Traverse AST to grab reflection data
 
@@ -1961,9 +1998,12 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
       uint32_t arraySize = 1;
       QualType type = ValDecl->getType();
+      std::vector<uint32_t> arrayElem;
 
       while (const ConstantArrayType *arr =
               dyn_cast<ConstantArrayType>(type)) {
+        uint32_t current = arr->getSize().getZExtValue();
+        arrayElem.push_back(current);
         arraySize *= arr->getSize().getZExtValue();
         type = arr->getElementType();
       }
@@ -1977,7 +2017,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
         continue;
 
       FillReflectionRegisterAt(Ctx, ASTCtx, SM, Diags, type, arraySize, ValDecl,
-                               Refl, AutoBindingSpace, ParentNodeId);
+                               arrayElem, Refl, AutoBindingSpace, ParentNodeId);
     }
 
     else if (RecordDecl *RecDecl = dyn_cast<RecordDecl>(it)) {
@@ -2065,8 +2105,20 @@ char RegisterGetSpaceChar(const DxcHLSLRegister &reg) {
   }
 }
 
-std::string RegisterGetArraySize(uint32_t count) {
-  return count > 1 ? "[" + std::to_string(count) + "]" : "";
+std::string RegisterGetArraySize(const ReflectionData &Refl, const DxcHLSLRegister &reg) {
+
+  if (reg.ArrayId != (uint32_t)-1) {
+
+    DxcHLSLArray arr = Refl.Arrays[reg.ArrayId];
+    std::string str;
+
+    for (uint32_t i = 0; i < arr.ArrayElem; ++i)
+      str += "[" + std::to_string(Refl.ArraySizes[arr.ArrayStart + i]) + "]";
+
+    return str;
+  }
+
+  return reg.BindCount > 1 ? "[" + std::to_string(reg.BindCount) + "]" : "";
 }
 
 std::string EnumTypeToString(D3D12_HLSL_ENUM_TYPE type) {
@@ -2132,7 +2184,7 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
     ReflectionData Refl;
     ReflectHLSL(astHelper, Refl, opts.AutoBindingSpace);
     
-    for (DxcEnumDesc en : Refl.Enums) {
+    for (DxcHLSLEnumDesc en : Refl.Enums) {
 
       printf("Enum: %s (: %s)\n", Refl.Nodes[en.NodeId].Name.c_str(),
              EnumTypeToString(en.Type).c_str());
@@ -2151,7 +2203,7 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
     for (DxcHLSLRegister reg : Refl.Registers) {
       printf("%s%s : register(%c%u, space%u);\n",
              Refl.Nodes[reg.NodeId].Name.c_str(),
-             RegisterGetArraySize(reg.BindCount).c_str(),
+             RegisterGetArraySize(Refl, reg).c_str(),
              RegisterGetSpaceChar(reg),
              reg.BindPoint,
              reg.Space);
