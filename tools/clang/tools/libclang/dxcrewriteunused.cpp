@@ -1963,9 +1963,9 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       uint32_t arraySize = 1;
       QualType type = ValDecl->getType();
 
-      if (const ConstantArrayType *arr =
-              dyn_cast<ConstantArrayType>(ValDecl->getType())) {
-        arraySize = arr->getSize().getZExtValue();
+      while (const ConstantArrayType *arr =
+              dyn_cast<ConstantArrayType>(type)) {
+        arraySize *= arr->getSize().getZExtValue();
         type = arr->getElementType();
       }
 
