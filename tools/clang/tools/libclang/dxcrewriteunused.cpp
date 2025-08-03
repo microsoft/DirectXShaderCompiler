@@ -1210,9 +1210,8 @@ static void GenerateConsistentBindings(DeclContext &Ctx,
     uint32_t arraySize = 1;
     QualType type = VD->getType();
 
-    if (const ConstantArrayType *arr =
-            dyn_cast<ConstantArrayType>(VD->getType())) {
-      arraySize = arr->getSize().getZExtValue();
+    while (const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(type)) {
+      arraySize *= arr->getSize().getZExtValue();
       type = arr->getElementType();
     }
 
