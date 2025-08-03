@@ -544,6 +544,7 @@ void SetupCompilerCommon(CompilerInstance &compiler,
     compiler.getDiagnostics().setWarningsAsErrors(true);
   compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
   compiler.getLangOpts().HLSLVersion = opts.HLSLVersion;
+  compiler.getLangOpts().PreserveUnknownAnnotations = opts.RWOpt.ReflectHLSL;
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
   compiler.getLangOpts().EnableDX9CompatMode = opts.EnableDX9CompatMode;
   compiler.getLangOpts().EnableFXCCompatMode = opts.EnableFXCCompatMode;
@@ -1366,6 +1367,19 @@ struct ReflectionData {
   std::vector<DxcEnumDesc> Enums;
   std::vector<DxcEnumValue> EnumValues;
   std::vector<DxcHLSLParameter> Parameters;
+  std::vector<std::string> Annotations;
+};
+
+class PrintfStream : public llvm::raw_ostream {
+public:
+  PrintfStream() { SetUnbuffered(); }
+
+private:
+  void write_impl(const char *Ptr, size_t Size) override {
+    printf("%.*s\n", (int)Size, Ptr); // Print the raw buffer directly
+  }
+
+  uint64_t current_pos() const override { return 0; }
 };
 
 static uint32_t PushNextNodeId(ReflectionData &Refl, const SourceManager &SM,
@@ -1379,8 +1393,23 @@ static uint32_t PushNextNodeId(ReflectionData &Refl, const SourceManager &SM,
 
   uint32_t nodeId = Refl.Nodes.size();
 
-  uint32_t annotationStart = 0; // TODO:
-  uint32_t annotationCount = 0; // TODO:
+  uint32_t annotationStart = (uint32_t) Refl.Annotations.size();
+  uint32_t annotationCount = 0;
+
+  if (Decl) {
+
+    PrintfStream pfStream;
+
+    LangOptions dummy;
+    PrintingPolicy printingPolicy(dummy);
+
+    for (const Attr *attr : Decl->attrs()) {
+      if (const AnnotateAttr *annotate = dyn_cast<AnnotateAttr>(attr)) {
+        Refl.Annotations.push_back(annotate->getAnnotation().str());
+        ++annotationCount;
+      }
+    }
+  }
 
   uint32_t sourceLineCount = 0;
   uint32_t sourceLineStart = (1 << 20) - 1;
@@ -1466,18 +1495,6 @@ struct DxcRegisterTypeInfo {
   D3D_SRV_DIMENSION TextureDimension;
   D3D_RESOURCE_RETURN_TYPE TextureValue;
   uint32_t SampleCount;
-};
-
-class PrintfStream : public llvm::raw_ostream {
-public:
-  PrintfStream() { SetUnbuffered(); }
-
-private:
-  void write_impl(const char *Ptr, size_t Size) override {
-    printf("%.*s\n", (int)Size, Ptr); // Print the raw buffer directly
-  }
-
-  uint64_t current_pos() const override { return 0; }
 };
 
 static DxcRegisterTypeInfo GetTextureRegisterInfo(ASTContext &ASTCtx,
@@ -1822,7 +1839,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       continue;
 
     if (HLSLBufferDecl *CBuffer = dyn_cast<HLSLBufferDecl>(it)) {
-      CBuffer->print(pfStream, printingPolicy);
+      //CBuffer->print(pfStream, printingPolicy);
     }
 
     else if (FunctionDecl *Func = dyn_cast<FunctionDecl>(it)) {
@@ -1865,7 +1882,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       if (!(InclusionFlags & InclusionFlag_UserTypes))
         continue;
 
-      Field->print(pfStream, printingPolicy);
+      //Field->print(pfStream, printingPolicy);
     }
 
     else if (TypedefDecl *Typedef = dyn_cast<TypedefDecl>(it)) {
@@ -1873,7 +1890,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       if (!(InclusionFlags & InclusionFlag_UserTypes))
         continue;
 
-      Typedef->print(pfStream, printingPolicy);
+      // Typedef->print(pfStream, printingPolicy);
     }
 
     else if (TypeAliasDecl *TypeAlias = dyn_cast<TypeAliasDecl>(it)) {
@@ -1881,7 +1898,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       if (!(InclusionFlags & InclusionFlag_UserTypes))
         continue;
 
-      TypeAlias->print(pfStream, printingPolicy);
+      // TypeAlias->print(pfStream, printingPolicy);
     }
 
     else if (EnumDecl *Enum = dyn_cast<EnumDecl>(it)) {
@@ -1941,7 +1958,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
       //TODO: Handle values
 
-      ValDecl->print(pfStream);
+      //ValDecl->print(pfStream);
 
       uint32_t arraySize = 1;
       QualType type = ValDecl->getType();
@@ -1955,7 +1972,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       if (!IsHLSLResourceType(type))
         continue;
 
-      ValDecl->print(pfStream, printingPolicy);
+      //ValDecl->print(pfStream, printingPolicy);
 
       if (Depth != 0)       //TODO: Add for reflection even though it might not be important
         continue;
@@ -1969,7 +1986,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       if (!(InclusionFlags & InclusionFlag_UserTypes))
         continue;
 
-      RecDecl->print(pfStream, printingPolicy);
+      //RecDecl->print(pfStream, printingPolicy);
       /*RecursiveReflectHLSL(*RecDecl, ASTCtx, Diags, SM, Refl,
                            AutoBindingSpace, Depth + 1, InclusionFlags, nodeId);*/
     }
@@ -2062,6 +2079,36 @@ std::string EnumTypeToString(D3D12_HLSL_ENUM_TYPE type) {
   return arr[type];
 }
 
+std::string NodeTypeToString(DxcHLSLNodeType type) {
+
+  const char *arr[] = {"Register",  "CBuffer",   "Function", "Enum",
+                       "EnumValue", "Namespace", "Typedef",  "Using",
+                       "Variable",  "Parameter"};
+
+  return arr[(int)type];
+}
+
+uint32_t RecursePrint(const ReflectionData &Refl, uint32_t NodeId,
+                      uint32_t Depth) {
+
+  const DxcHLSLNode &node = Refl.Nodes[NodeId];
+
+  if (NodeId) {
+
+    printf("%s%s %s\n", std::string(Depth - 1, '\t').c_str(),
+           NodeTypeToString(node.NodeType).c_str(), node.Name.c_str());
+
+    for (uint32_t i = 0; i < node.AnnotationCount; ++i)
+      printf("%s[[%s]]\n", std::string(Depth, '\t').c_str(),
+             Refl.Annotations[i].c_str());
+  }
+
+  for (uint32_t i = 0; i < node.ChildCount; ++i)
+    i += RecursePrint(Refl, NodeId + 1 + i, Depth + 1);
+
+  return node.ChildCount;
+}
+
 static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
                                LPCSTR pFileName, ASTUnit::RemappedFile *pRemap,
                                hlsl::options::DxcOpts &opts,
@@ -2118,6 +2165,8 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
              func.HasDefinition ? "true" : "false",
              func.NumParameters);
     }
+
+    RecursePrint(Refl, 0, 0);
 
     printf("%p\n", &Refl);
   }
