@@ -73,21 +73,20 @@ template <typename DataTypeT> std::string getHLSLTypeString();
 // Helpful metadata struct so we can define some common properties for a test in
 // a single place. IntrinsicString and Operator are passed in with -D defines to
 // the compiler and expanded as macros in the HLSL code.
-template <typename LongVectorOpTypeT>
-struct OpTypeMetaData {
+template <typename LongVectorOpTypeT> struct OpTypeMetaData {
   // Only the OpTypeString is a wstring because thats how it gets parsed from
   // the XML file.
   std::wstring OpTypeString;
   LongVectorOpTypeT OpType;
-  std::string IntrinsicString = ""; // The name of the intrinsic function in HLSL.
+  std::string IntrinsicString =
+      "";                    // The name of the intrinsic function in HLSL.
   std::string Operator = ""; // Things like '+', '-', '*', etc.
 };
 
 template <typename LongVectorOpTypeT>
-const OpTypeMetaData<LongVectorOpTypeT>&
+const OpTypeMetaData<LongVectorOpTypeT> &
 getLongVectorOpType(const OpTypeMetaData<LongVectorOpTypeT> *Values,
-                                      const std::wstring &OpTypeString,
-                                      std::size_t Length);
+                    const std::wstring &OpTypeString, std::size_t Length);
 
 enum ValidationType {
   ValidationType_Epsilon,
@@ -141,7 +140,7 @@ static_assert(_countof(binaryOpTypeStringToEnumMap) ==
               "binaryOpTypeStringToEnumMap size mismatch. Did you "
               "add a new enum value?");
 
-const LongVector::OpTypeMetaData<LongVector::BinaryOpType>&
+const LongVector::OpTypeMetaData<LongVector::BinaryOpType> &
 getBinaryOpType(const std::wstring &OpTypeString);
 
 enum UnaryOpType { UnaryOpType_Initialize, UnaryOpType_EnumValueCount };
@@ -155,7 +154,7 @@ static_assert(_countof(unaryOpTypeStringToEnumMap) ==
               "unaryOpTypeStringToEnumMap size mismatch. Did you add "
               "a new enum value?");
 
-const LongVector::OpTypeMetaData<LongVector::UnaryOpType>&
+const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &
 getUnaryOpType(const std::wstring &OpTypeString);
 
 enum AsTypeOpType {
@@ -176,7 +175,8 @@ static const OpTypeMetaData<AsTypeOpType> asTypeOpTypeStringToEnumMap[] = {
     {L"AsTypeOpType_AsInt", AsTypeOpType_AsInt, "asint"},
     {L"AsTypeOpType_AsInt16", AsTypeOpType_AsInt16, "asint16"},
     {L"AsTypeOpType_AsUint", AsTypeOpType_AsUint, "asuint"},
-    {L"AsTypeOpType_AsUint_SplitDouble", AsTypeOpType_AsUint_SplitDouble, "TestAsUintSplitDouble"},
+    {L"AsTypeOpType_AsUint_SplitDouble", AsTypeOpType_AsUint_SplitDouble,
+     "TestAsUintSplitDouble"},
     {L"AsTypeOpType_AsUint16", AsTypeOpType_AsUint16, "asuint16"},
     {L"AsTypeOpType_AsDouble", AsTypeOpType_AsDouble, "asdouble"},
 };
@@ -186,7 +186,7 @@ static_assert(_countof(asTypeOpTypeStringToEnumMap) ==
               "asTypeOpTypeStringToEnumMap size mismatch. Did you add "
               "a new enum value?");
 
-const LongVector::OpTypeMetaData<LongVector::AsTypeOpType>&
+const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &
 getAsTypeOpType(const std::wstring &OpTypeString);
 
 enum TrigonometricOpType {
@@ -220,7 +220,7 @@ static_assert(_countof(trigonometricOpTypeStringToEnumMap) ==
               "trigonometricOpTypeStringToEnumMap size mismatch. Did you add "
               "a new enum value?");
 
-const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType>&
+const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &
 getTrigonometricOpType(const std::wstring &OpTypeString);
 
 template <typename DataTypeT>
@@ -262,13 +262,20 @@ public:
   END_TEST_METHOD()
 
   template <typename LongVectorOpTypeT>
-  void dispatchTestByDataType(const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMD, std::wstring DataType, TableParameterHandler &Handler);
+  void dispatchTestByDataType(
+      const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMD,
+      std::wstring DataType, TableParameterHandler &Handler);
 
   template <>
-  void dispatchTestByDataType(const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &OpTypeMD, std::wstring DataType, TableParameterHandler &Handler);
+  void dispatchTestByDataType(
+      const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType>
+          &OpTypeMD,
+      std::wstring DataType, TableParameterHandler &Handler);
 
   template <typename DataTypeT, typename LongVectorOpTypeT>
-  void dispatchTestByVectorLength(const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMD, TableParameterHandler &Handler);
+  void dispatchTestByVectorLength(
+      const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMD,
+      TableParameterHandler &Handler);
 
   template <typename DataTypeT>
   void testBaseMethod(
@@ -383,7 +390,10 @@ protected:
   // Prevent instances of TestConfig from being created directly. Want to force
   // a derived class to be used for creation.
   template <typename LongVectorOpTypeT>
-  TestConfig(const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd) : OpTypeName(OpTypeMd.OpTypeString), IntrinsicString(OpTypeMd.IntrinsicString), OperatorString(OpTypeMd.Operator) {}
+  TestConfig(const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd)
+      : OpTypeName(OpTypeMd.OpTypeString),
+        IntrinsicString(OpTypeMd.IntrinsicString),
+        OperatorString(OpTypeMd.Operator) {}
 
   // Templated version to be used when the output data type does not match the
   // input data type.
@@ -431,7 +441,8 @@ protected:
 template <typename DataTypeT>
 class TestConfigAsType : public LongVector::TestConfig<DataTypeT> {
 public:
-  TestConfigAsType(const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &OpTypeMd);
+  TestConfigAsType(
+      const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &OpTypeMd);
 
   void
   computeExpectedValues(const std::vector<DataTypeT> &InputVector1) override;
@@ -585,7 +596,9 @@ private:
 template <typename DataTypeT>
 class TestConfigTrigonometric : public LongVector::TestConfig<DataTypeT> {
 public:
-  TestConfigTrigonometric(const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &OpTypeMd);
+  TestConfigTrigonometric(
+      const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType>
+          &OpTypeMd);
   DataTypeT computeExpectedValue(const DataTypeT &A) const override;
 
 private:
@@ -596,7 +609,8 @@ private:
 template <typename DataTypeT>
 class TestConfigUnary : public LongVector::TestConfig<DataTypeT> {
 public:
-  TestConfigUnary(const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &OpTypeMd);
+  TestConfigUnary(
+      const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &OpTypeMd);
   DataTypeT computeExpectedValue(const DataTypeT &A) const override;
 
 private:
@@ -631,20 +645,21 @@ private:
 };
 
 template <typename DataTypeT>
-std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-makeTestConfig(const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &OpTypeMetaData);
+std::shared_ptr<LongVector::TestConfig<DataTypeT>> makeTestConfig(
+    const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &OpTypeMetaData);
+
+template <typename DataTypeT>
+std::shared_ptr<LongVector::TestConfig<DataTypeT>> makeTestConfig(
+    const LongVector::OpTypeMetaData<LongVector::BinaryOpType> &OpTypeMetaData);
 
 template <typename DataTypeT>
 std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-makeTestConfig(const LongVector::OpTypeMetaData<LongVector::BinaryOpType> &OpTypeMetaData);
+makeTestConfig(const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType>
+                   &OpTypeMetaData);
 
 template <typename DataTypeT>
-std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-makeTestConfig(const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &OpTypeMetaData);
-
-template <typename DataTypeT>
-std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-makeTestConfig(const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &OpTypeMetaData);
+std::shared_ptr<LongVector::TestConfig<DataTypeT>> makeTestConfig(
+    const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &OpTypeMetaData);
 }; // namespace LongVector
 
 #endif // LONGVECTORS_H

@@ -3,7 +3,7 @@
 #include <iomanip>
 
 template <typename LongVectorOpTypeT>
-const LongVector::OpTypeMetaData<LongVectorOpTypeT>&
+const LongVector::OpTypeMetaData<LongVectorOpTypeT> &
 LongVector::getLongVectorOpType(const OpTypeMetaData<LongVectorOpTypeT> *Values,
                                 const std::wstring &OpTypeString,
                                 std::size_t Length) {
@@ -18,28 +18,28 @@ LongVector::getLongVectorOpType(const OpTypeMetaData<LongVectorOpTypeT> *Values,
   throw std::runtime_error("Invalid LongVectorOpType string");
 }
 
-const LongVector::OpTypeMetaData<LongVector::BinaryOpType>&
+const LongVector::OpTypeMetaData<LongVector::BinaryOpType> &
 LongVector::getBinaryOpType(const std::wstring &OpTypeString) {
   return getLongVectorOpType<LongVector::BinaryOpType>(
       binaryOpTypeStringToEnumMap, OpTypeString,
       std::size(binaryOpTypeStringToEnumMap));
 }
 
-const LongVector::OpTypeMetaData<LongVector::UnaryOpType>&
+const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &
 LongVector::getUnaryOpType(const std::wstring &OpTypeString) {
   return getLongVectorOpType<LongVector::UnaryOpType>(
       unaryOpTypeStringToEnumMap, OpTypeString,
       std::size(unaryOpTypeStringToEnumMap));
 }
 
-const LongVector::OpTypeMetaData<LongVector::AsTypeOpType>&
+const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &
 LongVector::getAsTypeOpType(const std::wstring &OpTypeString) {
   return getLongVectorOpType<LongVector::AsTypeOpType>(
       asTypeOpTypeStringToEnumMap, OpTypeString,
       std::size(asTypeOpTypeStringToEnumMap));
 }
 
-const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType>&
+const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &
 LongVector::getTrigonometricOpType(const std::wstring &OpTypeString) {
   return getLongVectorOpType<LongVector::TrigonometricOpType>(
       trigonometricOpTypeStringToEnumMap, OpTypeString,
@@ -360,8 +360,8 @@ TEST_F(LongVector::OpTest, asTypeOpTest) {
 
 template <typename LongVectorOpTypeT>
 void LongVector::OpTest::dispatchTestByDataType(
-    const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd, std::wstring DataType,
-    TableParameterHandler &Handler) {
+    const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd,
+    std::wstring DataType, TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
   if (DataType == L"bool")
@@ -391,8 +391,8 @@ void LongVector::OpTest::dispatchTestByDataType(
 
 template <>
 void LongVector::OpTest::dispatchTestByDataType(
-    const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &OpTypeMd, std::wstring DataType,
-    TableParameterHandler &Handler) {
+    const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &OpTypeMd,
+    std::wstring DataType, TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
   if (DataType == L"float16")
@@ -403,14 +403,15 @@ void LongVector::OpTest::dispatchTestByDataType(
     dispatchTestByVectorLength<double>(OpTypeMd, Handler);
   else
     LOG_ERROR_FMT_THROW(
-      L"Trigonometric ops are only supported for floating point types. "
-      L"DataType: %ls is not recognized.",
-      DataType.c_str());
+        L"Trigonometric ops are only supported for floating point types. "
+        L"DataType: %ls is not recognized.",
+        DataType.c_str());
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
 void LongVector::OpTest::dispatchTestByVectorLength(
-    const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd, TableParameterHandler &Handler) {
+    const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd,
+    TableParameterHandler &Handler) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -622,26 +623,28 @@ void LongVector::fillShaderBufferFromLongVectorData(
 }
 
 template <typename DataTypeT>
-std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-LongVector::makeTestConfig(const LongVector::OpTypeMetaData<LongVector::UnaryOpType>& OpTypeMd) {
+std::shared_ptr<LongVector::TestConfig<DataTypeT>> LongVector::makeTestConfig(
+    const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &OpTypeMd) {
   return std::make_shared<LongVector::TestConfigUnary<DataTypeT>>(OpTypeMd);
 }
 
 template <typename DataTypeT>
-std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-LongVector::makeTestConfig(const LongVector::OpTypeMetaData<LongVector::BinaryOpType>& OpTypeMd) {
+std::shared_ptr<LongVector::TestConfig<DataTypeT>> LongVector::makeTestConfig(
+    const LongVector::OpTypeMetaData<LongVector::BinaryOpType> &OpTypeMd) {
   return std::make_shared<LongVector::TestConfigBinary<DataTypeT>>(OpTypeMd);
 }
 
 template <typename DataTypeT>
-std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-LongVector::makeTestConfig(const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType>& OpTypeMd) {
-  return std::make_shared<LongVector::TestConfigTrigonometric<DataTypeT>>(OpTypeMd);
+std::shared_ptr<LongVector::TestConfig<DataTypeT>> LongVector::makeTestConfig(
+    const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType>
+        &OpTypeMd) {
+  return std::make_shared<LongVector::TestConfigTrigonometric<DataTypeT>>(
+      OpTypeMd);
 }
 
 template <typename DataTypeT>
-std::shared_ptr<LongVector::TestConfig<DataTypeT>>
-LongVector::makeTestConfig(const LongVector::OpTypeMetaData<LongVector::AsTypeOpType>& OpTypeMd) {
+std::shared_ptr<LongVector::TestConfig<DataTypeT>> LongVector::makeTestConfig(
+    const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &OpTypeMd) {
   return std::make_shared<LongVector::TestConfigAsType<DataTypeT>>(OpTypeMd);
 }
 
@@ -824,9 +827,8 @@ void LongVector::TestConfig<DataTypeT>::computeExpectedValues(
 
 template <typename DataTypeT>
 LongVector::TestConfigAsType<DataTypeT>::TestConfigAsType(
-const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &OpTypeMd)
-    : LongVector::TestConfig<DataTypeT>(OpTypeMd),
-    OpType(OpTypeMd.OpType) {
+    const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &OpTypeMd)
+    : LongVector::TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
   BasicOpType = LongVector::BasicOpType_Unary;
 
@@ -1001,11 +1003,11 @@ bool LongVector::TestConfigAsType<DataTypeT>::verifyOutput(
 template <typename DataTypeT>
 LongVector::TestConfigTrigonometric<DataTypeT>::TestConfigTrigonometric(
     const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &OpTypeMd)
-    : LongVector::TestConfig<DataTypeT>(OpTypeMd),
-    OpType(OpTypeMd.OpType) {
+    : LongVector::TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
-  static_assert(isFloatingPointType<DataTypeT>(),
-                "Trigonometric ops are only supported for floating point types.");
+  static_assert(
+      isFloatingPointType<DataTypeT>(),
+      "Trigonometric ops are only supported for floating point types.");
 
   BasicOpType = LongVector::BasicOpType_Unary;
 
@@ -1026,37 +1028,36 @@ template <typename DataTypeT>
 DataTypeT LongVector::TestConfigTrigonometric<DataTypeT>::computeExpectedValue(
     const DataTypeT &A) const {
 
-    switch (OpType) {
-    case LongVector::TrigonometricOpType_Acos:
-      return std::acos(A);
-    case LongVector::TrigonometricOpType_Asin:
-      return std::asin(A);
-    case LongVector::TrigonometricOpType_Atan:
-      return std::atan(A);
-    case LongVector::TrigonometricOpType_Cos:
-      return std::cos(A);
-    case LongVector::TrigonometricOpType_Cosh:
-      return std::cosh(A);
-    case LongVector::TrigonometricOpType_Sin:
-      return std::sin(A);
-    case LongVector::TrigonometricOpType_Sinh:
-      return std::sinh(A);
-    case LongVector::TrigonometricOpType_Tan:
-      return std::tan(A);
-    case LongVector::TrigonometricOpType_Tanh:
-      return std::tanh(A);
-    default:
-      LOG_ERROR_FMT_THROW(L"Unknown TrigonometricOpType: %ls",
-                          OpTypeName.c_str());
-      return DataTypeT();
-    }
+  switch (OpType) {
+  case LongVector::TrigonometricOpType_Acos:
+    return std::acos(A);
+  case LongVector::TrigonometricOpType_Asin:
+    return std::asin(A);
+  case LongVector::TrigonometricOpType_Atan:
+    return std::atan(A);
+  case LongVector::TrigonometricOpType_Cos:
+    return std::cos(A);
+  case LongVector::TrigonometricOpType_Cosh:
+    return std::cosh(A);
+  case LongVector::TrigonometricOpType_Sin:
+    return std::sin(A);
+  case LongVector::TrigonometricOpType_Sinh:
+    return std::sinh(A);
+  case LongVector::TrigonometricOpType_Tan:
+    return std::tan(A);
+  case LongVector::TrigonometricOpType_Tanh:
+    return std::tanh(A);
+  default:
+    LOG_ERROR_FMT_THROW(L"Unknown TrigonometricOpType: %ls",
+                        OpTypeName.c_str());
+    return DataTypeT();
+  }
 }
 
 template <typename DataTypeT>
 LongVector::TestConfigUnary<DataTypeT>::TestConfigUnary(
     const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &OpTypeMd)
-    : LongVector::TestConfig<DataTypeT>(OpTypeMd),
-      OpType(OpTypeMd.OpType){
+    : LongVector::TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
   BasicOpType = LongVector::BasicOpType_Unary;
 
@@ -1085,8 +1086,7 @@ DataTypeT LongVector::TestConfigUnary<DataTypeT>::computeExpectedValue(
 template <typename DataTypeT>
 LongVector::TestConfigBinary<DataTypeT>::TestConfigBinary(
     const LongVector::OpTypeMetaData<LongVector::BinaryOpType> &OpTypeMd)
-    : LongVector::TestConfig<DataTypeT>(OpTypeMd),
-      OpType(OpTypeMd.OpType) {
+    : LongVector::TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
   if (isFloatingPointType<DataTypeT>()) {
     Tolerance = 1;
