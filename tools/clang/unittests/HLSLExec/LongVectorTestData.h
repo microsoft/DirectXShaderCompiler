@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+namespace LongVector {
+
 // A helper struct because C++ bools are 1 byte and HLSL bools are 4 bytes.
 // Take int32_t as a constuctor argument and convert it to bool when needed.
 // Comparisons cast to a bool because we only care if the bool representation is
@@ -192,11 +194,11 @@ struct HLSLHalf_t {
   DirectX::PackedVector::HALF Val = 0;
 };
 
-template <typename T> struct LongVectorTestData {
+template <typename T> struct TestData {
   static const std::map<std::wstring, std::vector<T>> Data;
 };
 
-template <> struct LongVectorTestData<HLSLBool_t> {
+template <> struct TestData<HLSLBool_t> {
   inline static const std::map<std::wstring, std::vector<HLSLBool_t>> Data = {
       {L"DefaultInputValueSet1",
        {false, true, false, false, false, false, true, true, true, true}},
@@ -205,49 +207,49 @@ template <> struct LongVectorTestData<HLSLBool_t> {
   };
 };
 
-template <> struct LongVectorTestData<int16_t> {
+template <> struct TestData<int16_t> {
   inline static const std::map<std::wstring, std::vector<int16_t>> Data = {
       {L"DefaultInputValueSet1", {-6, 1, 7, 3, 8, 4, -3, 8, 8, -2}},
       {L"DefaultInputValueSet2", {5, -6, -3, -2, 9, 3, 1, -3, -7, 2}},
   };
 };
 
-template <> struct LongVectorTestData<int32_t> {
+template <> struct TestData<int32_t> {
   inline static const std::map<std::wstring, std::vector<int32_t>> Data = {
       {L"DefaultInputValueSet1", {-6, 1, 7, 3, 8, 4, -3, 8, 8, -2}},
       {L"DefaultInputValueSet2", {5, -6, -3, -2, 9, 3, 1, -3, -7, 2}},
   };
 };
 
-template <> struct LongVectorTestData<int64_t> {
+template <> struct TestData<int64_t> {
   inline static const std::map<std::wstring, std::vector<int64_t>> Data = {
       {L"DefaultInputValueSet1", {-6, 11, 7, 3, 8, 4, -3, 8, 8, -2}},
       {L"DefaultInputValueSet2", {5, -1337, -3, -2, 9, 3, 1, -3, 501, 2}},
   };
 };
 
-template <> struct LongVectorTestData<uint16_t> {
+template <> struct TestData<uint16_t> {
   inline static const std::map<std::wstring, std::vector<uint16_t>> Data = {
       {L"DefaultInputValueSet1", {1, 699, 3, 1023, 5, 6, 0, 8, 9, 10}},
       {L"DefaultInputValueSet2", {2, 111, 3, 4, 5, 9, 21, 8, 9, 10}},
   };
 };
 
-template <> struct LongVectorTestData<uint32_t> {
+template <> struct TestData<uint32_t> {
   inline static const std::map<std::wstring, std::vector<uint32_t>> Data = {
       {L"DefaultInputValueSet1", {1, 2, 3, 4, 5, 0, 7, 8, 9, 10}},
       {L"DefaultInputValueSet2", {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}},
   };
 };
 
-template <> struct LongVectorTestData<uint64_t> {
+template <> struct TestData<uint64_t> {
   inline static const std::map<std::wstring, std::vector<uint64_t>> Data = {
       {L"DefaultInputValueSet1", {1, 2, 3, 4, 5, 0, 7, 1000, 9, 10}},
       {L"DefaultInputValueSet2", {1, 2, 1337, 4, 5, 6, 7, 8, 9, 10}},
   };
 };
 
-template <> struct LongVectorTestData<HLSLHalf_t> {
+template <> struct TestData<HLSLHalf_t> {
   inline static const std::map<std::wstring, std::vector<HLSLHalf_t>> Data = {
       {L"DefaultInputValueSet1",
        {-1.0, -1.0, 1.0, -0.01, 1.0, -0.01, 1.0, -0.01, 1.0, -0.01}},
@@ -264,7 +266,7 @@ template <> struct LongVectorTestData<HLSLHalf_t> {
   };
 };
 
-template <> struct LongVectorTestData<float> {
+template <> struct TestData<float> {
   inline static const std::map<std::wstring, std::vector<float>> Data = {
       {L"DefaultInputValueSet1",
        {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0}},
@@ -280,7 +282,7 @@ template <> struct LongVectorTestData<float> {
   };
 };
 
-template <> struct LongVectorTestData<double> {
+template <> struct TestData<double> {
   inline static const std::map<std::wstring, std::vector<double>> Data = {
       {L"DefaultInputValueSet1",
        {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0}},
@@ -299,3 +301,5 @@ template <> struct LongVectorTestData<double> {
 };
 
 #endif // LONGVECTORTESTDATA_H
+
+}; // namespace LongVector
