@@ -129,10 +129,10 @@ static const OpTypeMetaData<BinaryOpType> binaryOpTypeStringToOpMetaData[] = {
     {L"BinaryOpType_Subtract", BinaryOpType_Subtract, "", "-"},
     {L"BinaryOpType_Divide", BinaryOpType_Divide, "", "/"},
     {L"BinaryOpType_Modulus", BinaryOpType_Modulus, "", "%"},
-    {L"BinaryOpType_Min", BinaryOpType_Min, "min"},
-    {L"BinaryOpType_Max", BinaryOpType_Max, "max"},
-    {L"BinaryOpType_ScalarMin", BinaryOpType_ScalarMin, "min"},
-    {L"BinaryOpType_ScalarMax", BinaryOpType_ScalarMax, "max"},
+    {L"BinaryOpType_Min", BinaryOpType_Min, "min", ","},
+    {L"BinaryOpType_Max", BinaryOpType_Max, "max", ","},
+    {L"BinaryOpType_ScalarMin", BinaryOpType_ScalarMin, "min", ","},
+    {L"BinaryOpType_ScalarMax", BinaryOpType_ScalarMax, "max", ","},
 };
 
 static_assert(_countof(binaryOpTypeStringToOpMetaData) ==
