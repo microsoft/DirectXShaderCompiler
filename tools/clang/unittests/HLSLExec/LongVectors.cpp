@@ -21,29 +21,29 @@ LongVector::getLongVectorOpType(const OpTypeMetaData<LongVectorOpTypeT> *Values,
 const LongVector::OpTypeMetaData<LongVector::BinaryOpType> &
 LongVector::getBinaryOpType(const std::wstring &OpTypeString) {
   return getLongVectorOpType<LongVector::BinaryOpType>(
-      binaryOpTypeStringToEnumMap, OpTypeString,
-      std::size(binaryOpTypeStringToEnumMap));
+      binaryOpTypeStringToOpMetaData, OpTypeString,
+      std::size(binaryOpTypeStringToOpMetaData));
 }
 
 const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &
 LongVector::getUnaryOpType(const std::wstring &OpTypeString) {
   return getLongVectorOpType<LongVector::UnaryOpType>(
-      unaryOpTypeStringToEnumMap, OpTypeString,
-      std::size(unaryOpTypeStringToEnumMap));
+      unaryOpTypeStringToOpMetaData, OpTypeString,
+      std::size(unaryOpTypeStringToOpMetaData));
 }
 
 const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &
 LongVector::getAsTypeOpType(const std::wstring &OpTypeString) {
   return getLongVectorOpType<LongVector::AsTypeOpType>(
-      asTypeOpTypeStringToEnumMap, OpTypeString,
-      std::size(asTypeOpTypeStringToEnumMap));
+      asTypeOpTypeStringToOpMetaData, OpTypeString,
+      std::size(asTypeOpTypeStringToOpMetaData));
 }
 
 const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &
 LongVector::getTrigonometricOpType(const std::wstring &OpTypeString) {
   return getLongVectorOpType<LongVector::TrigonometricOpType>(
-      trigonometricOpTypeStringToEnumMap, OpTypeString,
-      std::size(trigonometricOpTypeStringToEnumMap));
+      trigonometricOpTypeStringToOpMetaData, OpTypeString,
+      std::size(trigonometricOpTypeStringToOpMetaData));
 }
 
 // Helper to fill the test data from the shader buffer based on type. Convenient

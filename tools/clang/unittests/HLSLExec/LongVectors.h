@@ -118,7 +118,7 @@ enum BinaryOpType {
   BinaryOpType_EnumValueCount
 };
 
-static const OpTypeMetaData<BinaryOpType> binaryOpTypeStringToEnumMap[] = {
+static const OpTypeMetaData<BinaryOpType> binaryOpTypeStringToOpMetaData[] = {
     {L"BinaryOpType_ScalarAdd", BinaryOpType_ScalarAdd, "", "+"},
     {L"BinaryOpType_ScalarMultiply", BinaryOpType_ScalarMultiply, "", "*"},
     {L"BinaryOpType_ScalarSubtract", BinaryOpType_ScalarSubtract, "", "-"},
@@ -135,9 +135,9 @@ static const OpTypeMetaData<BinaryOpType> binaryOpTypeStringToEnumMap[] = {
     {L"BinaryOpType_ScalarMax", BinaryOpType_ScalarMax, "max"},
 };
 
-static_assert(_countof(binaryOpTypeStringToEnumMap) ==
+static_assert(_countof(binaryOpTypeStringToOpMetaData) ==
                   BinaryOpType_EnumValueCount,
-              "binaryOpTypeStringToEnumMap size mismatch. Did you "
+              "binaryOpTypeStringToOpMetaData size mismatch. Did you "
               "add a new enum value?");
 
 const LongVector::OpTypeMetaData<LongVector::BinaryOpType> &
@@ -145,13 +145,13 @@ getBinaryOpType(const std::wstring &OpTypeString);
 
 enum UnaryOpType { UnaryOpType_Initialize, UnaryOpType_EnumValueCount };
 
-static const OpTypeMetaData<UnaryOpType> unaryOpTypeStringToEnumMap[] = {
+static const OpTypeMetaData<UnaryOpType> unaryOpTypeStringToOpMetaData[] = {
     {L"UnaryOpType_Initialize", UnaryOpType_Initialize, "TestInitialize"},
 };
 
-static_assert(_countof(unaryOpTypeStringToEnumMap) ==
+static_assert(_countof(unaryOpTypeStringToOpMetaData) ==
                   UnaryOpType_EnumValueCount,
-              "unaryOpTypeStringToEnumMap size mismatch. Did you add "
+              "unaryOpTypeStringToOpMetaData size mismatch. Did you add "
               "a new enum value?");
 
 const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &
@@ -169,7 +169,7 @@ enum AsTypeOpType {
   AsTypeOpType_EnumValueCount
 };
 
-static const OpTypeMetaData<AsTypeOpType> asTypeOpTypeStringToEnumMap[] = {
+static const OpTypeMetaData<AsTypeOpType> asTypeOpTypeStringToOpMetaData[] = {
     {L"AsTypeOpType_AsFloat", AsTypeOpType_AsFloat, "asfloat"},
     {L"AsTypeOpType_AsFloat16", AsTypeOpType_AsFloat16, "asfloat16"},
     {L"AsTypeOpType_AsInt", AsTypeOpType_AsInt, "asint"},
@@ -181,9 +181,9 @@ static const OpTypeMetaData<AsTypeOpType> asTypeOpTypeStringToEnumMap[] = {
     {L"AsTypeOpType_AsDouble", AsTypeOpType_AsDouble, "asdouble"},
 };
 
-static_assert(_countof(asTypeOpTypeStringToEnumMap) ==
+static_assert(_countof(asTypeOpTypeStringToOpMetaData) ==
                   AsTypeOpType_EnumValueCount,
-              "asTypeOpTypeStringToEnumMap size mismatch. Did you add "
+              "asTypeOpTypeStringToOpMetaData size mismatch. Did you add "
               "a new enum value?");
 
 const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &
@@ -203,7 +203,7 @@ enum TrigonometricOpType {
 };
 
 static const OpTypeMetaData<TrigonometricOpType>
-    trigonometricOpTypeStringToEnumMap[] = {
+    trigonometricOpTypeStringToOpMetaData[] = {
         {L"TrigonometricOpType_Acos", TrigonometricOpType_Acos, "acos"},
         {L"TrigonometricOpType_Asin", TrigonometricOpType_Asin, "asin"},
         {L"TrigonometricOpType_Atan", TrigonometricOpType_Atan, "atan"},
@@ -215,10 +215,11 @@ static const OpTypeMetaData<TrigonometricOpType>
         {L"TrigonometricOpType_Tanh", TrigonometricOpType_Tanh, "tanh"},
 };
 
-static_assert(_countof(trigonometricOpTypeStringToEnumMap) ==
-                  TrigonometricOpType_EnumValueCount,
-              "trigonometricOpTypeStringToEnumMap size mismatch. Did you add "
-              "a new enum value?");
+static_assert(
+    _countof(trigonometricOpTypeStringToOpMetaData) ==
+        TrigonometricOpType_EnumValueCount,
+    "trigonometricOpTypeStringToOpMetaData size mismatch. Did you add "
+    "a new enum value?");
 
 const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &
 getTrigonometricOpType(const std::wstring &OpTypeString);
