@@ -36,8 +36,7 @@ bit_cast(const FromT &Src) {
 }
 
 // Used so we can dynamically resolve the type of data stored out the output
-// LongVector for a test case. Leveraging another template paramter for an
-// output data type on the TestConfig was too much.
+// LongVector for a test case.
 using VariantVector =
     std::variant<std::vector<HLSLBool_t>, std::vector<HLSLHalf_t>,
                  std::vector<float>, std::vector<double>, std::vector<int16_t>,
@@ -72,15 +71,29 @@ template <typename DataTypeT> std::string getHLSLTypeString();
 
 // Helpful metadata struct so we can define some common properties for a test in
 // a single place. IntrinsicString and Operator are passed in with -D defines to
-// the compiler and expanded as macros in the HLSL code.
+// the compiler and expanded as macros in the HLSL code. For a better
+// understanding of expansion you can reference the shader source used in
+// ShaderOpArith.xml under the 'LongVectorOp' entry.
+//
+// OpTypeString : This is populated by the TableParamaterHandler parsing the
+// LongVectorOpTable.xml file. It's used to find the enum value in one of the
+// arrays below. Such as binaryOpTypeStringToOpMetaData.
+//
+// OpType : Populated via the lookup with OpTypeString.
+//
+// IntrinsicString : May be empty. Used to expand the intrinsic name in the
+// compiled HLSL code via macro expansion. See getCompilerOptionsString() in
+// LongVector.cpp in addition to the shader source.
+//
+// Operator : Used to expand the operator in the compiled HLSL code via macro
+// expansion. May be empty. See getCompilerOptionsString() in LongVector.cpp and
+// 'LongVectorOp' entry ShaderOpArith.xml. Expands to things like '+', '-',
+// '*', etc.
 template <typename LongVectorOpTypeT> struct OpTypeMetaData {
-  // Only the OpTypeString is a wstring because thats how it gets parsed from
-  // the XML file.
   std::wstring OpTypeString;
   LongVectorOpTypeT OpType;
-  std::string IntrinsicString =
-      "";                    // The name of the intrinsic function in HLSL.
-  std::string Operator = ""; // Things like '+', '-', '*', etc.
+  std::string IntrinsicString = "";
+  std::string Operator = "";
 };
 
 template <typename LongVectorOpTypeT>
@@ -382,6 +395,7 @@ public:
 private:
   std::vector<DataTypeT> getInputValueSet(size_t ValueSetIndex) const;
 
+  // The input value sets are used to fill the shader buffer.
   std::wstring InputValueSetName1 = L"DefaultInputValueSet1";
   std::wstring InputValueSetName2 = L"DefaultInputValueSet2";
   // No default args array
@@ -403,10 +417,10 @@ protected:
 
   // The appropriate computeExpectedValue should be implemented in derived
   // classes. Impelemented as virtual here to prevent requiring all derived
-  // class from needing to implement. The OS builds disable RTTI, so using
+  // classes from needing to implement. The OS builds disable RTTI, so using
   // dynamic casting to expose interfaces for these based on type isn't an
-  // option. You're intended to use COM for that. But I'm not going to add all
-  // of the COM overhead to this class just for that.
+  // option. COM is the usual solution for this. But it's not worth it to add
+  // all of the COM overhead to this class just for that.
   virtual DataTypeT
   computeExpectedValue([[maybe_unused]] const DataTypeT &A,
                        [[maybe_unused]] const DataTypeT &B) const {
@@ -429,7 +443,6 @@ protected:
   float Tolerance = 0.0;
   LongVector::ValidationType ValidationType =
       LongVector::ValidationType::ValidationType_Epsilon;
-  // The input value sets are used to fill the shader buffer.
   // Default the TypedOutputVector to use DataTypeT, Ops that don't have a
   // matching output type will override this.
   LongVector::VariantVector ExpectedVector = std::vector<DataTypeT>{};

@@ -3768,11 +3768,24 @@ void MSMain(uint GID : SV_GroupIndex,
       <RootValue Index="2" ResName="InputVector2" />
       <RootValue Index="3" ResName="OutputVector" />
     </RootValues>
-    <!-- This shader requires the following defines to be passed in as arguments:
-     // 1 and 2 are required to compile the shader.
-     // 1. -DOPERATOR : "*" "+" "," "-" "/" etc.
-     // 2. -DOPERAND2: : InputVector2, ScalarInput, or "" depending on the test.
-     // Other defines are optional and are used to test different functions.
+    <!-- This shader has the following defines to be passed in as arguments:
+     TYPE : The type of the input vector, e.g. float, double, int, uint.
+     OUT_TYPE : The type of the output vector, e.g. float, double, int, uint.
+                In most cases will OUT_TYPE == TYPE.
+     
+     NUM : The number of elements in the vector, e.g. 2, 3, 4, 8, 16, 32,
+     
+     FUNC : Used to expand to the HLSL intrinsic being tested. e.g cos, cosh,
+            abs, etc.
+            OR In some cases FUNC is expanded to a function call to handle
+            special logic, e.g. asuint_splitdouble.
+            OR it is intentionally left empty when testing operators like
+            '+', '-', '*', '/', etc.
+     
+     OPERATOR : The operator being tested, e.g. '+', '-', '*', '/', etc.
+                OR for binary operations for an intrinsic it is expanded 
+                ','/
+                OR for unary intrinsics it is expanded to ' ' (empty).
      -->
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
       <![CDATA[

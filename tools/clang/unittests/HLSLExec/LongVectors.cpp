@@ -52,23 +52,29 @@ template <typename DataTypeT>
 void LongVector::fillLongVectorDataFromShaderBuffer(
     MappedData &ShaderBuffer, std::vector<DataTypeT> &TestData,
     size_t NumElements) {
+
   if constexpr (std::is_same_v<DataTypeT, HLSLHalf_t>) {
     DirectX::PackedVector::HALF *ShaderBufferPtr =
         reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
     for (size_t i = 0; i < NumElements; ++i)
       // HLSLHalf_t has a DirectX::PackedVector::HALF based constructor.
       TestData.push_back(ShaderBufferPtr[i]);
-  } else if constexpr (std::is_same_v<DataTypeT, HLSLBool_t>) {
+    return;
+  }
+
+  if constexpr (std::is_same_v<DataTypeT, HLSLBool_t>) {
     int32_t *ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
     for (size_t i = 0; i < NumElements; ++i)
       // HLSLBool_t has a int32_t based constructor.
       TestData.push_back(ShaderBufferPtr[i]);
-  } else {
-    DataTypeT *ShaderBufferPtr =
-        reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
-    for (size_t i = 0; i < NumElements; ++i)
-      TestData.push_back(ShaderBufferPtr[i]);
+    return;
   }
+
+  DataTypeT *ShaderBufferPtr =
+      reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
+  for (size_t i = 0; i < NumElements; ++i)
+    TestData.push_back(ShaderBufferPtr[i]);
+  return;
 }
 
 template <typename DataTypeT>
@@ -139,10 +145,13 @@ bool LongVector::doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
                                 const std::vector<DataTypeT> &ExpectedValues,
                                 float Tolerance,
                                 LongVector::ValidationType ValidationType) {
+
+  DXASSERT(
+      ActualValues.size() == ExpectedValues.size(),
+      "Programmer error: Actual and Expected vectors must be the same size.");
+
   // Stash mismatched indexes for easy failure logging later
   std::vector<size_t> MismatchedIndexes;
-  VERIFY_IS_TRUE(ActualValues.size() == ExpectedValues.size(),
-                 L"doVectorsMatch() called with mismatched vector sizes.");
   for (size_t i = 0; i < ActualValues.size(); ++i) {
     if (!doValuesMatch(ActualValues[i], ExpectedValues[i], Tolerance,
                        ValidationType))
@@ -610,16 +619,21 @@ void LongVector::fillShaderBufferFromLongVectorData(
         reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
     for (size_t i = 0; i < NumElements; ++i)
       ShaderBufferPtr[i] = TestData[i].Val;
-  } else if constexpr (std::is_same_v<DataTypeT, HLSLBool_t>) {
+    return;
+  }
+
+  if constexpr (std::is_same_v<DataTypeT, HLSLBool_t>) {
     int32_t *ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
     for (size_t i = 0; i < NumElements; ++i)
       ShaderBufferPtr[i] = TestData[i].Val;
-  } else {
-    DataTypeT *ShaderBufferPtr =
-        reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
-    for (size_t i = 0; i < NumElements; ++i)
-      ShaderBufferPtr[i] = TestData[i];
+    return;
   }
+
+  DataTypeT *ShaderBufferPtr =
+      reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
+  for (size_t i = 0; i < NumElements; ++i)
+    ShaderBufferPtr[i] = TestData[i];
+  return;
 }
 
 template <typename DataTypeT>
@@ -668,6 +682,9 @@ std::string LongVector::TestConfig<DataTypeT>::getHLSLOutputTypeString() const {
   return std::string("UnknownType");
 }
 
+// Returns the compiler options string to be used for the shader compilation.
+// Reference ShaderOpArith.xml and the 'LongVectorOp' shader source to see how
+// the defines are used in the shader code.
 template <typename DataTypeT>
 std::string
 LongVector::TestConfig<DataTypeT>::getCompilerOptionsString() const {
@@ -931,6 +948,7 @@ void LongVector::TestConfigAsType<DataTypeT>::computeExpectedValues(
     const std::vector<DataTypeT> &InputVector2) {
 
   // AsTypeOpType_AsDouble is the only binary op type for AsType. The rest are
+  // Unary ops.
   DXASSERT_NOMSG(OpType == LongVector::AsTypeOpType_AsDouble);
 
   fillExpectedVector<double>(
