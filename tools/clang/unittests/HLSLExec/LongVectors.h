@@ -2,6 +2,7 @@
 #define LONGVECTORS_H
 
 #include <array>
+#include <optional>
 #include <ostream>
 #include <random>
 #include <sstream>
@@ -70,7 +71,7 @@ template <typename DataTypeT> constexpr bool isFloatingPointType() {
 template <typename DataTypeT> std::string getHLSLTypeString();
 
 // Helpful metadata struct so we can define some common properties for a test in
-// a single place. IntrinsicString and Operator are passed in with -D defines to
+// a single place. Intrinsic and Operator are passed in with -D defines to
 // the compiler and expanded as macros in the HLSL code. For a better
 // understanding of expansion you can reference the shader source used in
 // ShaderOpArith.xml under the 'LongVectorOp' entry.
@@ -92,8 +93,8 @@ template <typename DataTypeT> std::string getHLSLTypeString();
 template <typename LongVectorOpTypeT> struct OpTypeMetaData {
   std::wstring OpTypeString;
   LongVectorOpTypeT OpType;
-  std::optional<std::wstring> Intrinsic = std::nullopt;
-  std::optional<std::wstring> Operator = std::nullopt;
+  std::optional<std::string> Intrinsic = std::nullopt;
+  std::optional<std::string> Operator = std::nullopt;
 };
 
 template <typename LongVectorOpTypeT>
@@ -133,19 +134,23 @@ enum BinaryOpType {
 
 static const OpTypeMetaData<BinaryOpType> binaryOpTypeStringToOpMetaData[] = {
     {L"BinaryOpType_ScalarAdd", BinaryOpType_ScalarAdd, std::nullopt, "+"},
-    {L"BinaryOpType_ScalarMultiply", BinaryOpType_ScalarMultiply, std::nullopt, "*"},
-    {L"BinaryOpType_ScalarSubtract", BinaryOpType_ScalarSubtract, std::nullopt, "-"},
-    {L"BinaryOpType_ScalarDivide", BinaryOpType_ScalarDivide, std::nullopt, "/"},
-    {L"BinaryOpType_ScalarModulus", BinaryOpType_ScalarModulus, std::nullopt, "%"},
+    {L"BinaryOpType_ScalarMultiply", BinaryOpType_ScalarMultiply, std::nullopt,
+     "*"},
+    {L"BinaryOpType_ScalarSubtract", BinaryOpType_ScalarSubtract, std::nullopt,
+     "-"},
+    {L"BinaryOpType_ScalarDivide", BinaryOpType_ScalarDivide, std::nullopt,
+     "/"},
+    {L"BinaryOpType_ScalarModulus", BinaryOpType_ScalarModulus, std::nullopt,
+     "%"},
     {L"BinaryOpType_Add", BinaryOpType_Add, std::nullopt, "+"},
     {L"BinaryOpType_Multiply", BinaryOpType_Multiply, std::nullopt, "*"},
     {L"BinaryOpType_Subtract", BinaryOpType_Subtract, std::nullopt, "-"},
     {L"BinaryOpType_Divide", BinaryOpType_Divide, std::nullopt, "/"},
     {L"BinaryOpType_Modulus", BinaryOpType_Modulus, std::nullopt, "%"},
-    {L"BinaryOpType_Min", BinaryOpType_Min, std::nullopt, ","},
-    {L"BinaryOpType_Max", BinaryOpType_Max, std::nullopt, ","},
-    {L"BinaryOpType_ScalarMin", BinaryOpType_ScalarMin, std::nullopt, ","},
-    {L"BinaryOpType_ScalarMax", BinaryOpType_ScalarMax, std::nullopt, ","},
+    {L"BinaryOpType_Min", BinaryOpType_Min, "min", ","},
+    {L"BinaryOpType_Max", BinaryOpType_Max, "max", ","},
+    {L"BinaryOpType_ScalarMin", BinaryOpType_ScalarMin, "min", ","},
+    {L"BinaryOpType_ScalarMax", BinaryOpType_ScalarMax, "max", ","},
 };
 
 static_assert(_countof(binaryOpTypeStringToOpMetaData) ==
@@ -191,7 +196,7 @@ static const OpTypeMetaData<AsTypeOpType> asTypeOpTypeStringToOpMetaData[] = {
     {L"AsTypeOpType_AsUint_SplitDouble", AsTypeOpType_AsUint_SplitDouble,
      "TestAsUintSplitDouble"},
     {L"AsTypeOpType_AsUint16", AsTypeOpType_AsUint16, "asuint16"},
-    {L"AsTypeOpType_AsDouble", AsTypeOpType_AsDouble, "asdouble"},
+    {L"AsTypeOpType_AsDouble", AsTypeOpType_AsDouble, "asdouble", ","},
 };
 
 static_assert(_countof(asTypeOpTypeStringToOpMetaData) ==
@@ -406,9 +411,8 @@ protected:
   // a derived class to be used for creation.
   template <typename LongVectorOpTypeT>
   TestConfig(const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd)
-      : OpTypeName(OpTypeMd.OpTypeString),
-        IntrinsicString(OpTypeMd.IntrinsicString),
-        OperatorString(OpTypeMd.Operator) {}
+      : OpTypeName(OpTypeMd.OpTypeString), Intrinsic(OpTypeMd.Intrinsic),
+        Operator(OpTypeMd.Operator) {}
 
   // Templated version to be used when the output data type does not match the
   // input data type.
@@ -659,32 +663,30 @@ private:
 };
 
 template <typename DataTypeT>
-std::shared_ptr<LongVector::TestConfig<DataTypeT>> makeTestConfig(
-    const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &OpTypeMetaData);
-
-template <typename DataTypeT>
 std::unique_ptr<LongVector::TestConfig<DataTypeT>> makeTestConfig(
     const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &OpTypeMetaData) {
-  return std::make_shared<TestConfigUnary<DataTypeT>>(OpTypeMetaData);
+  return std::make_unique<TestConfigUnary<DataTypeT>>(OpTypeMetaData);
 }
 
 template <typename DataTypeT>
 std::unique_ptr<LongVector::TestConfig<DataTypeT>>
 makeTestConfig(const LongVector::OpTypeMetaData<LongVector::BinaryOpType>
                    &OpTypeMetaData) {
-  return std::make_shared<TestConfigBinary<DataTypeT>>(OpTypeMetaData);
+  return std::make_unique<TestConfigBinary<DataTypeT>>(OpTypeMetaData);
 }
 
 template <typename DataTypeT>
 std::unique_ptr<LongVector::TestConfig<DataTypeT>>
 makeTestConfig(const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType>
-                   &OpTypeMetaData);
+                   &OpTypeMetaData) {
+  return std::make_unique<TestConfigTrigonometric<DataTypeT>>(OpTypeMetaData);
+}
 
 template <typename DataTypeT>
 std::unique_ptr<LongVector::TestConfig<DataTypeT>>
 makeTestConfig(const LongVector::OpTypeMetaData<LongVector::AsTypeOpType>
                    &OpTypeMetaData) {
-  return std::make_shared<TestConfigAsType<DataTypeT>>(OpTypeMetaData);
+  return std::make_unique<TestConfigAsType<DataTypeT>>(OpTypeMetaData);
 }
 
 }; // namespace LongVector
