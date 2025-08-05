@@ -3771,7 +3771,7 @@ void MSMain(uint GID : SV_GroupIndex,
     <!-- This shader has the following defines to be passed in as arguments:
      TYPE : The type of the input vector, e.g. float, double, int, uint.
      OUT_TYPE : The type of the output vector, e.g. float, double, int, uint.
-                In most cases will OUT_TYPE == TYPE.
+                In most cases OUT_TYPE == TYPE.
      
      NUM : The number of elements in the vector, e.g. 2, 3, 4, 8, 16, 32,
      
