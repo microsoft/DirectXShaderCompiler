@@ -102,18 +102,23 @@ public:
 };
 
 struct RewriterOpts {
-  bool Unchanged = false;             // OPT_rw_unchanged
-  bool ConsistentBindings = false;    // OPT_rw_consistent_bindings
-  bool ReflectHLSL = false;           // OPT_rw_reflect_hlsl
-  bool SkipFunctionBody = false;      // OPT_rw_skip_function_body
-  bool SkipStatic = false;            // OPT_rw_skip_static
-  bool GlobalExternByDefault = false; // OPT_rw_global_extern_by_default
-  bool KeepUserMacro = false;         // OPT_rw_keep_user_macro
-  bool ExtractEntryUniforms = false;  // OPT_rw_extract_entry_uniforms
-  bool RemoveUnusedGlobals = false;   // OPT_rw_remove_unused_globals
-  bool RemoveUnusedFunctions = false; // OPT_rw_remove_unused_functions
-  bool WithLineDirective = false;     // OPT_rw_line_directive
-  bool DeclGlobalCB = false;          // OPT_rw_decl_global_cb
+  bool Unchanged = false;                     // OPT_rw_unchanged
+  bool ConsistentBindings = false;            // OPT_rw_consistent_bindings
+  bool ReflectHLSLBasics = false;             // OPT_rw_reflect_hlsl_basics
+  bool ReflectHLSLFunctions = false;          // OPT_rw_reflect_hlsl_functions
+  bool ReflectHLSLNamespaces = false;         // OPT_rw_reflect_hlsl_namespaces
+  bool ReflectHLSLUserTypes = false;          // OPT_rw_reflect_hlsl_user_types
+  bool ReflectHLSLFunctionInternals = false;  // OPT_rw_reflect_hlsl_function_internals
+  bool ReflectHLSLVariables = false;          // OPT_rw_reflect_hlsl_variables
+  bool SkipFunctionBody = false;              // OPT_rw_skip_function_body
+  bool SkipStatic = false;                    // OPT_rw_skip_static
+  bool GlobalExternByDefault = false;         // OPT_rw_global_extern_by_default
+  bool KeepUserMacro = false;                 // OPT_rw_keep_user_macro
+  bool ExtractEntryUniforms = false;          // OPT_rw_extract_entry_uniforms
+  bool RemoveUnusedGlobals = false;           // OPT_rw_remove_unused_globals
+  bool RemoveUnusedFunctions = false;         // OPT_rw_remove_unused_functions
+  bool WithLineDirective = false;             // OPT_rw_line_directive
+  bool DeclGlobalCB = false;                  // OPT_rw_decl_global_cb
 };
 
 /// Use this class to capture all options.

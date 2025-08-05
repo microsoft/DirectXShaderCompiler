@@ -1351,8 +1351,18 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.RWOpt.Unchanged = Args.hasFlag(OPT_rw_unchanged, OPT_INVALID, false);
     opts.RWOpt.ConsistentBindings =
         Args.hasFlag(OPT_rw_consistent_bindings, OPT_INVALID, false);
-    opts.RWOpt.ReflectHLSL =
-        Args.hasFlag(OPT_rw_reflect_hlsl, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLBasics =
+        Args.hasFlag(OPT_rw_reflect_hlsl_basics, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLFunctions =
+        Args.hasFlag(OPT_rw_reflect_hlsl_functions, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLNamespaces =
+        Args.hasFlag(OPT_rw_reflect_hlsl_namespaces, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLUserTypes =
+        Args.hasFlag(OPT_rw_reflect_hlsl_user_types, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLFunctionInternals =
+        Args.hasFlag(OPT_rw_reflect_hlsl_function_internals, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLVariables =
+        Args.hasFlag(OPT_rw_reflect_hlsl_variables, OPT_INVALID, false);
     opts.RWOpt.SkipFunctionBody =
         Args.hasFlag(OPT_rw_skip_function_body, OPT_INVALID, false);
     opts.RWOpt.SkipStatic =

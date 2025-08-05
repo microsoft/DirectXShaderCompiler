@@ -544,7 +544,7 @@ void SetupCompilerCommon(CompilerInstance &compiler,
     compiler.getDiagnostics().setWarningsAsErrors(true);
   compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
   compiler.getLangOpts().HLSLVersion = opts.HLSLVersion;
-  compiler.getLangOpts().PreserveUnknownAnnotations = opts.RWOpt.ReflectHLSL;
+  compiler.getLangOpts().PreserveUnknownAnnotations = opts.RWOpt.ReflectHLSLBasics;
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
   compiler.getLangOpts().EnableDX9CompatMode = opts.EnableDX9CompatMode;
   compiler.getLangOpts().EnableFXCCompatMode = opts.EnableFXCCompatMode;
@@ -1817,16 +1817,19 @@ static void AddFunctionParameters(ASTContext &ASTCtx, QualType Type, Decl *Decl,
   //It's a struct, add parameters recursively
 }*/
 
-enum InclusionFlag {
-  InclusionFlag_Default             = 0,        //Includes cbuffer and registers
-  InclusionFlag_Functions           = 1 << 0,
-  InclusionFlag_Namespaces          = 1 << 1,
-  InclusionFlag_UserTypes           = 1 << 2,   //Include user types (struct, enum, typedef, etc.)
-  InclusionFlag_FunctionInternals   = 1 << 3,   //Variables, structs, functions defined in functions
-  InclusionFlag_Variables           = 1 << 4,   //Variables not included in $Global or cbuffers
-  InclusionFlag_Annotations         = 1 << 5,   //Annotations e.g. [[myAnnotation]] for additional reflection
-  InclusionFlag_All                 = (1 << 6) - 1
+enum ReflectionMask : uint32_t {
+  ReflectionMask_None               = 0,
+  ReflectionMask_Basics             = 1 << 0,     //Includes cbuffer and registers
+  ReflectionMask_Functions          = 1 << 1,
+  ReflectionMask_Namespaces         = 1 << 2,
+  ReflectionMask_UserTypes          = 1 << 3,     //Include user types (struct, enum, typedef, etc.)
+  ReflectionMask_FunctionInternals  = 1 << 4,     //Variables, structs, functions defined in functions
+  ReflectionMask_Variables          = 1 << 5      //Variables not included in $Global or cbuffers
 };
+
+ReflectionMask& operator|=(ReflectionMask &a, ReflectionMask b) {
+  return a = (ReflectionMask)((uint32_t)a | (uint32_t)b);
+}
 
 class PrintfStream : public llvm::raw_ostream {
 public:
@@ -1847,7 +1850,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
                                  ReflectionData &Refl,
                                  uint32_t AutoBindingSpace,
                                  uint32_t Depth,
-                                 InclusionFlag InclusionFlags,
+                                 ReflectionMask InclusionFlags,
                                  uint32_t ParentNodeId) {
 
   /*
@@ -1875,12 +1878,16 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       continue;
 
     if (HLSLBufferDecl *CBuffer = dyn_cast<HLSLBufferDecl>(it)) {
+
+      if(!(InclusionFlags & ReflectionMask_Basics))
+        continue;
+
       //CBuffer->print(pfStream, printingPolicy);
     }
 
     else if (FunctionDecl *Func = dyn_cast<FunctionDecl>(it)) {
 
-      if (!(InclusionFlags & InclusionFlag_Functions))
+      if (!(InclusionFlags & ReflectionMask_Functions))
         continue;
 
       const FunctionDecl *Definition = nullptr;
@@ -1906,7 +1913,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
       Refl.Functions.push_back(std::move(func));
 
-      if (hasDefinition && (InclusionFlags & InclusionFlag_FunctionInternals)) {
+      if (hasDefinition && (InclusionFlags & ReflectionMask_FunctionInternals)) {
         RecursiveReflectHLSL(*Definition, ASTCtx, Diags, SM, Refl,
                              AutoBindingSpace, Depth + 1, InclusionFlags,
                              nodeId);
@@ -1915,7 +1922,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (FieldDecl *Field = dyn_cast<FieldDecl>(it)) {
 
-      if (!(InclusionFlags & InclusionFlag_UserTypes))
+      if (!(InclusionFlags & ReflectionMask_UserTypes))
         continue;
 
       //Field->print(pfStream, printingPolicy);
@@ -1923,7 +1930,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (TypedefDecl *Typedef = dyn_cast<TypedefDecl>(it)) {
 
-      if (!(InclusionFlags & InclusionFlag_UserTypes))
+      if (!(InclusionFlags & ReflectionMask_UserTypes))
         continue;
 
       // Typedef->print(pfStream, printingPolicy);
@@ -1931,7 +1938,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (TypeAliasDecl *TypeAlias = dyn_cast<TypeAliasDecl>(it)) {
 
-      if (!(InclusionFlags & InclusionFlag_UserTypes))
+      if (!(InclusionFlags & ReflectionMask_UserTypes))
         continue;
 
       // TypeAlias->print(pfStream, printingPolicy);
@@ -1939,7 +1946,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (EnumDecl *Enum = dyn_cast<EnumDecl>(it)) {
 
-      if (!(InclusionFlags & InclusionFlag_UserTypes))
+      if (!(InclusionFlags & ReflectionMask_UserTypes))
         continue;
 
       uint32_t nodeId = PushNextNodeId(
@@ -1992,6 +1999,9 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (ValueDecl *ValDecl = dyn_cast<ValueDecl>(it)) {
 
+      if(!(InclusionFlags & ReflectionMask_Basics))
+        continue;
+
       //TODO: Handle values
 
       //ValDecl->print(pfStream);
@@ -2022,7 +2032,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (RecordDecl *RecDecl = dyn_cast<RecordDecl>(it)) {
 
-      if (!(InclusionFlags & InclusionFlag_UserTypes))
+      if (!(InclusionFlags & ReflectionMask_UserTypes))
         continue;
 
       //RecDecl->print(pfStream, printingPolicy);
@@ -2032,7 +2042,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (NamespaceDecl *Namespace = dyn_cast<NamespaceDecl>(it)) {
 
-      if (!(InclusionFlags & InclusionFlag_Namespaces))
+      if (!(InclusionFlags & ReflectionMask_Namespaces))
         continue;
 
       uint32_t nodeId = PushNextNodeId(
@@ -2046,7 +2056,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 }
 
 static void ReflectHLSL(ASTHelper &astHelper, ReflectionData& Refl,
-                        uint32_t AutoBindingSpace) {
+                        uint32_t AutoBindingSpace, ReflectionMask ReflectMask) {
 
   TranslationUnitDecl &Ctx = *astHelper.tu;
   DiagnosticsEngine &Diags = Ctx.getParentASTContext().getDiagnostics();
@@ -2061,7 +2071,7 @@ static void ReflectHLSL(ASTHelper &astHelper, ReflectionData& Refl,
   });
 
   RecursiveReflectHLSL(Ctx, astHelper.compiler.getASTContext(), Diags, SM, Refl,
-                       AutoBindingSpace, 0, InclusionFlag_All, 0);
+                       AutoBindingSpace, 0, ReflectMask, 0);
 }
 
 static void GlobalVariableAsExternByDefault(DeclContext &Ctx) {
@@ -2176,13 +2186,34 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
 
   TranslationUnitDecl *tu = astHelper.tu;
 
-  if (opts.RWOpt.ConsistentBindings || opts.RWOpt.ReflectHLSL) {
+  if (opts.RWOpt.ConsistentBindings || opts.RWOpt.ReflectHLSLBasics) {
     GenerateConsistentBindings(*tu, opts.AutoBindingSpace);
   }
 
-  if (opts.RWOpt.ReflectHLSL) {
+  ReflectionMask reflectMask = ReflectionMask_None;
+
+  if(opts.RWOpt.ReflectHLSLBasics)
+    reflectMask |= ReflectionMask_Basics;
+
+  if(opts.RWOpt.ReflectHLSLFunctions)
+    reflectMask |= ReflectionMask_Functions;
+
+  if(opts.RWOpt.ReflectHLSLNamespaces)
+    reflectMask |= ReflectionMask_Namespaces;
+
+  if(opts.RWOpt.ReflectHLSLUserTypes)
+    reflectMask |= ReflectionMask_UserTypes;
+
+  if(opts.RWOpt.ReflectHLSLFunctionInternals)
+    reflectMask |= ReflectionMask_FunctionInternals;
+
+  if(opts.RWOpt.ReflectHLSLVariables)
+    reflectMask |= ReflectionMask_Variables;
+
+  if (reflectMask) {
+
     ReflectionData Refl;
-    ReflectHLSL(astHelper, Refl, opts.AutoBindingSpace);
+    ReflectHLSL(astHelper, Refl, opts.AutoBindingSpace, reflectMask);
     
     for (DxcHLSLEnumDesc en : Refl.Enums) {
 
@@ -2240,7 +2271,7 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
                                  opts.RWOpt.RemoveUnusedFunctions, w);
     if (FAILED(hr))
       return hr;
-  } else if (!opts.RWOpt.ConsistentBindings && !opts.RWOpt.ReflectHLSL) {
+  } else if (!opts.RWOpt.ConsistentBindings && (reflectMask & ReflectionMask_Basics)) {
     o << "// Rewrite unchanged result:\n";
   }
 
