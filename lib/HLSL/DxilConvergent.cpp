@@ -92,7 +92,7 @@ void DxilConvergentMark::MarkConvergent(Value *V, IRBuilder<> &Builder,
   Type *Ty = V->getType();
   bool NeedVectorExpansion = false;
   VectorType *VTy = dyn_cast<VectorType>(Ty);
-  if (VTy && !SupportsVectors || VTy->getNumElements() == 1) {
+  if (VTy && (!SupportsVectors || VTy->getNumElements() == 1)) {
     Ty = Ty->getScalarType();
     NeedVectorExpansion = true;
   }
