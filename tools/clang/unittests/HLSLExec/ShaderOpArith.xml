@@ -3786,6 +3786,12 @@ void MSMain(uint GID : SV_GroupIndex,
                 OR for binary operations for an intrinsic it is expanded 
                 ','/
                 OR for unary intrinsics it is expanded to ' ' (empty).
+
+     // For binary operations only. Unary operations leave these empty.
+     IS_SCALAR_OP : If defined, the second operand is loaded as a scalar.
+     IS_BINARY_VECTOR_OP : If defined, the second operand is loaded as a vector.
+     OPERAND2 : The second operand to the operation, e.g. InputVector2 or
+     InputScalar. Used in conjuction with one of the above.
      -->
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
       <![CDATA[
