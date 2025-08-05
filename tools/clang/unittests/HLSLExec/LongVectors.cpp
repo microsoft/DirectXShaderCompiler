@@ -464,7 +464,7 @@ void LongVector::OpTest::dispatchTestByVectorLength(
 
 template <typename DataTypeT>
 void LongVector::OpTest::testBaseMethod(
-    std::shared_ptr<LongVector::TestConfig<DataTypeT>> &TestConfig) {
+    std::unique_ptr<LongVector::TestConfig<DataTypeT>> &TestConfig) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -637,29 +637,29 @@ void LongVector::fillShaderBufferFromLongVectorData(
 }
 
 template <typename DataTypeT>
-std::shared_ptr<LongVector::TestConfig<DataTypeT>> LongVector::makeTestConfig(
+std::unique_ptr<LongVector::TestConfig<DataTypeT>> LongVector::makeTestConfig(
     const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &OpTypeMd) {
-  return std::make_shared<LongVector::TestConfigUnary<DataTypeT>>(OpTypeMd);
+  return std::make_unique<LongVector::TestConfigUnary<DataTypeT>>(OpTypeMd);
 }
 
 template <typename DataTypeT>
-std::shared_ptr<LongVector::TestConfig<DataTypeT>> LongVector::makeTestConfig(
+std::unique_ptr<LongVector::TestConfig<DataTypeT>> LongVector::makeTestConfig(
     const LongVector::OpTypeMetaData<LongVector::BinaryOpType> &OpTypeMd) {
-  return std::make_shared<LongVector::TestConfigBinary<DataTypeT>>(OpTypeMd);
+  return std::make_unique<LongVector::TestConfigBinary<DataTypeT>>(OpTypeMd);
 }
 
 template <typename DataTypeT>
-std::shared_ptr<LongVector::TestConfig<DataTypeT>> LongVector::makeTestConfig(
+std::unique_ptr<LongVector::TestConfig<DataTypeT>> LongVector::makeTestConfig(
     const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType>
         &OpTypeMd) {
-  return std::make_shared<LongVector::TestConfigTrigonometric<DataTypeT>>(
+  return std::make_unique<LongVector::TestConfigTrigonometric<DataTypeT>>(
       OpTypeMd);
 }
 
 template <typename DataTypeT>
-std::shared_ptr<LongVector::TestConfig<DataTypeT>> LongVector::makeTestConfig(
+std::unique_ptr<LongVector::TestConfig<DataTypeT>> LongVector::makeTestConfig(
     const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &OpTypeMd) {
-  return std::make_shared<LongVector::TestConfigAsType<DataTypeT>>(OpTypeMd);
+  return std::make_unique<LongVector::TestConfigAsType<DataTypeT>>(OpTypeMd);
 }
 
 template <typename DataTypeT>
@@ -701,7 +701,7 @@ LongVector::TestConfig<DataTypeT>::getCompilerOptionsString() const {
        HLSLInputType == "half");
   CompilerOptions << (Is16BitType ? " -enable-16bit-types" : "");
   CompilerOptions << " -DOPERATOR=";
-  CompilerOptions << OperatorString;
+  CompilerOptions << (Operator ? *Operator : " ");
 
   if (isBinaryOp()) {
     CompilerOptions << " -DOPERAND2=";
@@ -713,10 +713,10 @@ LongVector::TestConfig<DataTypeT>::getCompilerOptionsString() const {
       CompilerOptions << " -DIS_BINARY_VECTOR_OP=1";
 
     CompilerOptions << " -DFUNC=";
-    CompilerOptions << IntrinsicString;
+    CompilerOptions << (Intrinsic ? *Intrinsic : " ");
   } else { // Unary Op
     CompilerOptions << " -DFUNC=";
-    CompilerOptions << IntrinsicString;
+    CompilerOptions << (Intrinsic ? *Intrinsic : " ");
     // Not used for unary ops, but needs to be a " " for compilation of the
     // shader after macro expansion.
     CompilerOptions << " -DOPERAND2= ";
@@ -873,7 +873,6 @@ LongVector::TestConfigAsType<DataTypeT>::TestConfigAsType(
     ExpectedVector = std::vector<uint16_t>{};
     break;
   case LongVector::AsTypeOpType_AsDouble:
-    OperatorString = ",";
     ExpectedVector = std::vector<double>{};
     BasicOpType = LongVector::BasicOpType_Binary;
     break;
