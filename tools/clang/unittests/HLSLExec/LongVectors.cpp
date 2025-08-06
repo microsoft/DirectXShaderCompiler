@@ -2,9 +2,11 @@
 #include "HlslExecTestUtils.h"
 #include <iomanip>
 
+namespace LongVector {
+
 template <typename T>
-const LongVector::OpTypeMetaData<T> &
-LongVector::getLongVectorOpType(const OpTypeMetaData<T> *Values,
+const OpTypeMetaData<T> &
+getLongVectorOpType(const OpTypeMetaData<T> *Values,
                                 const std::wstring &OpTypeString,
                                 std::size_t Length) {
   for (size_t I = 0; I < Length; I++) {
@@ -18,30 +20,30 @@ LongVector::getLongVectorOpType(const OpTypeMetaData<T> *Values,
   throw std::runtime_error("Invalid LongVectorOpType string");
 }
 
-const LongVector::OpTypeMetaData<LongVector::BinaryOpType> &
-LongVector::getBinaryOpType(const std::wstring &OpTypeString) {
-  return getLongVectorOpType<LongVector::BinaryOpType>(
+const OpTypeMetaData<BinaryOpType> &
+getBinaryOpType(const std::wstring &OpTypeString) {
+  return getLongVectorOpType<BinaryOpType>(
       binaryOpTypeStringToOpMetaData, OpTypeString,
       std::size(binaryOpTypeStringToOpMetaData));
 }
 
-const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &
-LongVector::getUnaryOpType(const std::wstring &OpTypeString) {
-  return getLongVectorOpType<LongVector::UnaryOpType>(
+const OpTypeMetaData<UnaryOpType> &
+getUnaryOpType(const std::wstring &OpTypeString) {
+  return getLongVectorOpType<UnaryOpType>(
       unaryOpTypeStringToOpMetaData, OpTypeString,
       std::size(unaryOpTypeStringToOpMetaData));
 }
 
-const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &
-LongVector::getAsTypeOpType(const std::wstring &OpTypeString) {
-  return getLongVectorOpType<LongVector::AsTypeOpType>(
+const OpTypeMetaData<AsTypeOpType> &
+getAsTypeOpType(const std::wstring &OpTypeString) {
+  return getLongVectorOpType<AsTypeOpType>(
       asTypeOpTypeStringToOpMetaData, OpTypeString,
       std::size(asTypeOpTypeStringToOpMetaData));
 }
 
-const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &
-LongVector::getTrigonometricOpType(const std::wstring &OpTypeString) {
-  return getLongVectorOpType<LongVector::TrigonometricOpType>(
+const OpTypeMetaData<TrigonometricOpType> &
+getTrigonometricOpType(const std::wstring &OpTypeString) {
+  return getLongVectorOpType<TrigonometricOpType>(
       trigonometricOpTypeStringToOpMetaData, OpTypeString,
       std::size(trigonometricOpTypeStringToOpMetaData));
 }
@@ -49,7 +51,7 @@ LongVector::getTrigonometricOpType(const std::wstring &OpTypeString) {
 // Helper to fill the test data from the shader buffer based on type. Convenient
 // to be used when copying HLSL*_t types so we can use the underlying type.
 template <typename DataTypeT>
-void LongVector::fillLongVectorDataFromShaderBuffer(
+void fillLongVectorDataFromShaderBuffer(
     const MappedData &ShaderBuffer, std::vector<DataTypeT> &TestData,
     size_t NumElements) {
 
@@ -76,8 +78,8 @@ void LongVector::fillLongVectorDataFromShaderBuffer(
 }
 
 template <typename DataTypeT>
-bool LongVector::doValuesMatch(DataTypeT A, DataTypeT B, float Tolerance,
-                               LongVector::ValidationType) {
+bool doValuesMatch(DataTypeT A, DataTypeT B, float Tolerance,
+                               ValidationType) {
   if (Tolerance == 0.0f)
     return A == B;
 
@@ -85,17 +87,17 @@ bool LongVector::doValuesMatch(DataTypeT A, DataTypeT B, float Tolerance,
   return Diff <= Tolerance;
 }
 
-bool LongVector::doValuesMatch(HLSLBool_t A, HLSLBool_t B, float,
-                               LongVector::ValidationType) {
+bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, float,
+                               ValidationType) {
   return A == B;
 }
 
-bool LongVector::doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
-                               LongVector::ValidationType ValidationType) {
+bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
+                               ValidationType ValidationType) {
   switch (ValidationType) {
-  case LongVector::ValidationType_Epsilon:
+  case ValidationType_Epsilon:
     return CompareHalfEpsilon(A.Val, B.Val, Tolerance);
-  case LongVector::ValidationType_Ulp:
+  case ValidationType_Ulp:
     return CompareHalfULP(A.Val, B.Val, Tolerance);
   default:
     WEX::Logging::Log::Error(
@@ -104,12 +106,12 @@ bool LongVector::doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
   }
 }
 
-bool LongVector::doValuesMatch(float A, float B, float Tolerance,
-                               LongVector::ValidationType ValidationType) {
+bool doValuesMatch(float A, float B, float Tolerance,
+                               ValidationType ValidationType) {
   switch (ValidationType) {
-  case LongVector::ValidationType_Epsilon:
+  case ValidationType_Epsilon:
     return CompareFloatEpsilon(A, B, Tolerance);
-  case LongVector::ValidationType_Ulp: {
+  case ValidationType_Ulp: {
     // Tolerance is in ULPs. Convert to int for the comparison.
     const int IntTolerance = static_cast<int>(Tolerance);
     return CompareFloatULP(A, B, IntTolerance);
@@ -121,12 +123,12 @@ bool LongVector::doValuesMatch(float A, float B, float Tolerance,
   }
 }
 
-bool LongVector::doValuesMatch(double A, double B, float Tolerance,
-                               LongVector::ValidationType ValidationType) {
+bool doValuesMatch(double A, double B, float Tolerance,
+                               ValidationType ValidationType) {
   switch (ValidationType) {
-  case LongVector::ValidationType_Epsilon:
+  case ValidationType_Epsilon:
     return CompareDoubleEpsilon(A, B, Tolerance);
-  case LongVector::ValidationType_Ulp: {
+  case ValidationType_Ulp: {
     // Tolerance is in ULPs. Convert to int64_t for the comparison.
     const int64_t IntTolerance = static_cast<int64_t>(Tolerance);
     return CompareDoubleULP(A, B, IntTolerance);
@@ -139,10 +141,10 @@ bool LongVector::doValuesMatch(double A, double B, float Tolerance,
 }
 
 template <typename DataTypeT>
-bool LongVector::doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
+bool doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
                                 const std::vector<DataTypeT> &ExpectedValues,
                                 float Tolerance,
-                                LongVector::ValidationType ValidationType) {
+                                ValidationType ValidationType) {
 
   DXASSERT(
       ActualValues.size() == ExpectedValues.size(),
@@ -176,7 +178,7 @@ bool LongVector::doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
 // A helper to fill the expected vector with computed values. Lets us factor out
 // the re-used std::get_if code and the for loop.
 template <typename DataTypeT, typename ComputeFnT>
-void fillExpectedVector(LongVector::VariantVector &ExpectedVector, size_t Count,
+void fillExpectedVector(VariantVector &ExpectedVector, size_t Count,
                         ComputeFnT ComputeFn) {
   auto *TypedExpectedValues =
       std::get_if<std::vector<DataTypeT>>(&ExpectedVector);
@@ -189,7 +191,7 @@ void fillExpectedVector(LongVector::VariantVector &ExpectedVector, size_t Count,
 }
 
 template <typename DataTypeT>
-void LongVector::logLongVector(const std::vector<DataTypeT> &Values,
+void logLongVector(const std::vector<DataTypeT> &Values,
                                const std::wstring &Name) {
   WEX::Logging::Log::Comment(
       WEX::Common::String().Format(L"LongVector Name: %s", Name.c_str()));
@@ -212,7 +214,7 @@ void LongVector::logLongVector(const std::vector<DataTypeT> &Values,
   WEX::Logging::Log::Comment(Wss.str().c_str());
 }
 
-template <typename DataTypeT> std::string LongVector::getHLSLTypeString() {
+template <typename DataTypeT> std::string getHLSLTypeString() {
   if (std::is_same_v<DataTypeT, HLSLBool_t>)
     return "bool";
   if (std::is_same_v<DataTypeT, HLSLHalf_t>)
@@ -264,7 +266,7 @@ static TableParameter AsTypeOpParameters[] = {
     {L"InputValueSetName2", TableParameter::STRING, false},
 };
 
-bool LongVector::OpTest::classSetup() {
+bool OpTest::classSetup() {
   // Run this only once.
   if (!Initialized) {
     Initialized = true;
@@ -307,7 +309,7 @@ bool LongVector::OpTest::classSetup() {
   return true;
 }
 
-TEST_F(LongVector::OpTest, binaryOpTest) {
+TEST_F(OpTest, binaryOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -319,11 +321,11 @@ TEST_F(LongVector::OpTest, binaryOpTest) {
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
   std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
 
-  auto OpTypeMD = LongVector::getBinaryOpType(OpTypeString);
+  auto OpTypeMD = getBinaryOpType(OpTypeString);
   dispatchTestByDataType(OpTypeMD, DataType, Handler);
 }
 
-TEST_F(LongVector::OpTest, trigonometricOpTest) {
+TEST_F(OpTest, trigonometricOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -333,11 +335,11 @@ TEST_F(LongVector::OpTest, trigonometricOpTest) {
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
   std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
 
-  auto OpTypeMD = LongVector::getTrigonometricOpType(OpTypeString);
+  auto OpTypeMD = getTrigonometricOpType(OpTypeString);
   dispatchTestByDataType(OpTypeMD, DataType, Handler);
 }
 
-TEST_F(LongVector::OpTest, unaryOpTest) {
+TEST_F(OpTest, unaryOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -347,11 +349,11 @@ TEST_F(LongVector::OpTest, unaryOpTest) {
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
   std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
 
-  auto OpTypeMD = LongVector::getUnaryOpType(OpTypeString);
+  auto OpTypeMD = getUnaryOpType(OpTypeString);
   dispatchTestByDataType(OpTypeMD, DataType, Handler);
 }
 
-TEST_F(LongVector::OpTest, asTypeOpTest) {
+TEST_F(OpTest, asTypeOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -361,13 +363,13 @@ TEST_F(LongVector::OpTest, asTypeOpTest) {
   std::wstring DataTypeIn(Handler.GetTableParamByName(L"DataTypeIn")->m_str);
   std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
 
-  auto OpTypeMD = LongVector::getAsTypeOpType(OpTypeString);
+  auto OpTypeMD = getAsTypeOpType(OpTypeString);
   dispatchTestByDataType(OpTypeMD, DataTypeIn, Handler);
 }
 
 template <typename LongVectorOpTypeT>
-void LongVector::OpTest::dispatchTestByDataType(
-    const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd,
+void OpTest::dispatchTestByDataType(
+    const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd,
     std::wstring DataType, TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
@@ -397,8 +399,8 @@ void LongVector::OpTest::dispatchTestByDataType(
 }
 
 template <>
-void LongVector::OpTest::dispatchTestByDataType(
-    const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &OpTypeMd,
+void OpTest::dispatchTestByDataType(
+    const OpTypeMetaData<TrigonometricOpType> &OpTypeMd,
     std::wstring DataType, TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
@@ -416,13 +418,13 @@ void LongVector::OpTest::dispatchTestByDataType(
 }
 
 template <typename DataTypeT, typename LongVectorOpTypeT>
-void LongVector::OpTest::dispatchTestByVectorLength(
-    const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd,
+void OpTest::dispatchTestByVectorLength(
+    const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd,
     TableParameterHandler &Handler) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  auto TestConfig = LongVector::makeTestConfig<DataTypeT>(OpTypeMd);
+  auto TestConfig = makeTestConfig<DataTypeT>(OpTypeMd);
 
   // InputValueSetName1 is optional. So the string may be empty. An empty
   // string will result in the default value set for this DataType being used.
@@ -461,8 +463,8 @@ void LongVector::OpTest::dispatchTestByVectorLength(
 }
 
 template <typename DataTypeT>
-void LongVector::OpTest::testBaseMethod(
-    std::unique_ptr<LongVector::TestConfig<DataTypeT>> &TestConfig) {
+void OpTest::testBaseMethod(
+    std::unique_ptr<TestConfig<DataTypeT>> &TestConfig) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -602,7 +604,7 @@ void LongVector::OpTest::testBaseMethod(
 // copying HLSL*_t types so we can copy the underlying type directly instead of
 // the struct.
 template <typename DataTypeT>
-void LongVector::fillShaderBufferFromLongVectorData(
+void fillShaderBufferFromLongVectorData(
     std::vector<BYTE> &ShaderBuffer, const std::vector<DataTypeT> &TestData) {
 
   // Note: DataSize for HLSLHalf_t and HLSLBool_t may be larger than the
@@ -633,16 +635,16 @@ void LongVector::fillShaderBufferFromLongVectorData(
 }
 
 template <typename DataTypeT>
-std::string LongVector::TestConfig<DataTypeT>::getHLSLInputTypeString() const {
-  return LongVector::getHLSLTypeString<DataTypeT>();
+std::string TestConfig<DataTypeT>::getHLSLInputTypeString() const {
+  return getHLSLTypeString<DataTypeT>();
 }
 
 template <typename DataTypeT>
-std::string LongVector::TestConfig<DataTypeT>::getHLSLOutputTypeString() const {
+std::string TestConfig<DataTypeT>::getHLSLOutputTypeString() const {
 
   // Normal case, output matches input type ( DataTypeT )
   if (auto *Vec = std::get_if<std::vector<DataTypeT>>(&ExpectedVector))
-    return LongVector::getHLSLTypeString<DataTypeT>();
+    return getHLSLTypeString<DataTypeT>();
 
   // Non normal cases should be handled in a derived TestConfig class. i.e
   // TestConfigAsType::getHLSLOutputTypeString()
@@ -657,7 +659,7 @@ std::string LongVector::TestConfig<DataTypeT>::getHLSLOutputTypeString() const {
 // the defines are used in the shader code.
 template <typename DataTypeT>
 std::string
-LongVector::TestConfig<DataTypeT>::getCompilerOptionsString() const {
+TestConfig<DataTypeT>::getCompilerOptionsString() const {
 
   std::stringstream CompilerOptions("");
   std::string HLSLInputType = getHLSLInputTypeString();
@@ -703,7 +705,7 @@ LongVector::TestConfig<DataTypeT>::getCompilerOptionsString() const {
 }
 
 template <typename DataTypeT>
-std::vector<DataTypeT> LongVector::TestConfig<DataTypeT>::getInputValueSet(
+std::vector<DataTypeT> TestConfig<DataTypeT>::getInputValueSet(
     size_t ValueSetIndex) const {
 
   // Calling with ValueSetIndex == 2 is only valid for binary ops.
@@ -723,7 +725,7 @@ std::vector<DataTypeT> LongVector::TestConfig<DataTypeT>::getInputValueSet(
 // Public version of verifyOutput. Handles logic to dispatch to the correct
 // templated verifyOutput based on the expected output type.
 template <typename DataTypeT>
-bool LongVector::TestConfig<DataTypeT>::verifyOutput(
+bool TestConfig<DataTypeT>::verifyOutput(
     const std::shared_ptr<st::ShaderOpTestResult> &TestResult) {
   // First try the most common case where the output datatype matches the input
   // datatype (DataTypeT). std::get_if will return a null pointer if the variant
@@ -750,7 +752,7 @@ bool LongVector::TestConfig<DataTypeT>::verifyOutput(
 // resolved what the expected output type is.
 template <typename DataTypeT>
 template <typename OutputDataTypeT>
-bool LongVector::TestConfig<DataTypeT>::verifyOutput(
+bool TestConfig<DataTypeT>::verifyOutput(
     const std::shared_ptr<st::ShaderOpTestResult> &TestResult) {
 
   if (auto TypedExpectedValues =
@@ -782,7 +784,7 @@ bool LongVector::TestConfig<DataTypeT>::verifyOutput(
 // Generic computeExpectedValues for Unary ops. Derived classes override
 // computeExpectedValue.
 template <typename DataTypeT>
-void LongVector::TestConfig<DataTypeT>::computeExpectedValues(
+void TestConfig<DataTypeT>::computeExpectedValues(
     const std::vector<DataTypeT> &InputVector1) {
   fillExpectedVector<DataTypeT>(
       ExpectedVector, InputVector1.size(),
@@ -792,7 +794,7 @@ void LongVector::TestConfig<DataTypeT>::computeExpectedValues(
 // Generic computeExpectedValues for Binary ops. Derived classes override
 // computeExpectedValue.
 template <typename DataTypeT>
-void LongVector::TestConfig<DataTypeT>::computeExpectedValues(
+void TestConfig<DataTypeT>::computeExpectedValues(
     const std::vector<DataTypeT> &InputVector1,
     const std::vector<DataTypeT> &InputVector2) {
   fillExpectedVector<DataTypeT>(
@@ -804,7 +806,7 @@ void LongVector::TestConfig<DataTypeT>::computeExpectedValues(
 // Generic computeExpectedValues for Scalar Binary ops. Derived classes override
 // computeExpectedValue.
 template <typename DataTypeT>
-void LongVector::TestConfig<DataTypeT>::computeExpectedValues(
+void TestConfig<DataTypeT>::computeExpectedValues(
     const std::vector<DataTypeT> &InputVector1, const DataTypeT &ScalarInput) {
   fillExpectedVector<DataTypeT>(
       ExpectedVector, InputVector1.size(), [&](size_t Index) {
@@ -813,38 +815,38 @@ void LongVector::TestConfig<DataTypeT>::computeExpectedValues(
 }
 
 template <typename DataTypeT>
-LongVector::TestConfigAsType<DataTypeT>::TestConfigAsType(
-    const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &OpTypeMd)
-    : LongVector::TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
+TestConfigAsType<DataTypeT>::TestConfigAsType(
+    const OpTypeMetaData<AsTypeOpType> &OpTypeMd)
+    : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
-  BasicOpType = LongVector::BasicOpType_Unary;
+  BasicOpType = BasicOpType_Unary;
 
   switch (OpType) {
-  case LongVector::AsTypeOpType_AsFloat16:
+  case AsTypeOpType_AsFloat16:
     ExpectedVector = std::vector<HLSLHalf_t>{};
     break;
-  case LongVector::AsTypeOpType_AsFloat:
+  case AsTypeOpType_AsFloat:
     ExpectedVector = std::vector<float>{};
     break;
-  case LongVector::AsTypeOpType_AsInt:
+  case AsTypeOpType_AsInt:
     ExpectedVector = std::vector<int32_t>{};
     break;
-  case LongVector::AsTypeOpType_AsInt16:
+  case AsTypeOpType_AsInt16:
     ExpectedVector = std::vector<int16_t>{};
     break;
-  case LongVector::AsTypeOpType_AsUint:
+  case AsTypeOpType_AsUint:
     ExpectedVector = std::vector<uint32_t>{};
     break;
-  case LongVector::AsTypeOpType_AsUint_SplitDouble:
+  case AsTypeOpType_AsUint_SplitDouble:
     SpecialDefines = " -DFUNC_ASUINT_SPLITDOUBLE=1";
     ExpectedVector = std::vector<uint32_t>{};
     break;
-  case LongVector::AsTypeOpType_AsUint16:
+  case AsTypeOpType_AsUint16:
     ExpectedVector = std::vector<uint16_t>{};
     break;
-  case LongVector::AsTypeOpType_AsDouble:
+  case AsTypeOpType_AsDouble:
     ExpectedVector = std::vector<double>{};
-    BasicOpType = LongVector::BasicOpType_Binary;
+    BasicOpType = BasicOpType_Binary;
     break;
   default:
     VERIFY_FAIL("Invalid AsTypeOpType");
@@ -852,7 +854,7 @@ LongVector::TestConfigAsType<DataTypeT>::TestConfigAsType(
 }
 
 template <typename DataTypeT>
-void LongVector::TestConfigAsType<DataTypeT>::computeExpectedValues(
+void TestConfigAsType<DataTypeT>::computeExpectedValues(
     const std::vector<DataTypeT> &InputVector1) {
 
   switch (OpType) {
@@ -912,13 +914,13 @@ void LongVector::TestConfigAsType<DataTypeT>::computeExpectedValues(
 }
 
 template <typename DataTypeT>
-void LongVector::TestConfigAsType<DataTypeT>::computeExpectedValues(
+void TestConfigAsType<DataTypeT>::computeExpectedValues(
     const std::vector<DataTypeT> &InputVector1,
     const std::vector<DataTypeT> &InputVector2) {
 
   // AsTypeOpType_AsDouble is the only binary op type for AsType. The rest are
   // Unary ops.
-  DXASSERT_NOMSG(OpType == LongVector::AsTypeOpType_AsDouble);
+  DXASSERT_NOMSG(OpType == AsTypeOpType_AsDouble);
 
   fillExpectedVector<double>(
       ExpectedVector, InputVector1.size(), [&](size_t Index) {
@@ -928,25 +930,25 @@ void LongVector::TestConfigAsType<DataTypeT>::computeExpectedValues(
 
 template <typename DataTypeT>
 std::string
-LongVector::TestConfigAsType<DataTypeT>::getHLSLOutputTypeString() const {
+TestConfigAsType<DataTypeT>::getHLSLOutputTypeString() const {
 
   switch (OpType) {
-  case LongVector::AsTypeOpType_AsFloat16:
-    return LongVector::getHLSLTypeString<HLSLHalf_t>();
-  case LongVector::AsTypeOpType_AsFloat:
-    return LongVector::getHLSLTypeString<float>();
-  case LongVector::AsTypeOpType_AsInt:
-    return LongVector::getHLSLTypeString<int32_t>();
-  case LongVector::AsTypeOpType_AsInt16:
-    return LongVector::getHLSLTypeString<int16_t>();
-  case LongVector::AsTypeOpType_AsUint:
-    return LongVector::getHLSLTypeString<uint32_t>();
-  case LongVector::AsTypeOpType_AsUint_SplitDouble:
-    return LongVector::getHLSLTypeString<uint32_t>();
-  case LongVector::AsTypeOpType_AsUint16:
-    return LongVector::getHLSLTypeString<uint16_t>();
-  case LongVector::AsTypeOpType_AsDouble:
-    return LongVector::getHLSLTypeString<double>();
+  case AsTypeOpType_AsFloat16:
+    return getHLSLTypeString<HLSLHalf_t>();
+  case AsTypeOpType_AsFloat:
+    return getHLSLTypeString<float>();
+  case AsTypeOpType_AsInt:
+    return getHLSLTypeString<int32_t>();
+  case AsTypeOpType_AsInt16:
+    return getHLSLTypeString<int16_t>();
+  case AsTypeOpType_AsUint:
+    return getHLSLTypeString<uint32_t>();
+  case AsTypeOpType_AsUint_SplitDouble:
+    return getHLSLTypeString<uint32_t>();
+  case AsTypeOpType_AsUint16:
+    return getHLSLTypeString<uint16_t>();
+  case AsTypeOpType_AsDouble:
+    return getHLSLTypeString<double>();
   default:
     LOG_ERROR_FMT_THROW(
         L"getHLSLOutputTypeString() called with an unsupported op type: %ls",
@@ -959,25 +961,25 @@ LongVector::TestConfigAsType<DataTypeT>::getHLSLOutputTypeString() const {
 // doesn't match the input type of the config. Calls a private templated version
 // of verifyOutput with the correct data type based on the op.
 template <typename DataTypeT>
-bool LongVector::TestConfigAsType<DataTypeT>::verifyOutput(
+bool TestConfigAsType<DataTypeT>::verifyOutput(
     const std::shared_ptr<st::ShaderOpTestResult> &TestResult) {
 
   switch (OpType) {
-  case LongVector::AsTypeOpType_AsFloat:
+  case AsTypeOpType_AsFloat:
     return TestConfig::verifyOutput<float>(TestResult);
-  case LongVector::AsTypeOpType_AsFloat16:
+  case AsTypeOpType_AsFloat16:
     return TestConfig::verifyOutput<HLSLHalf_t>(TestResult);
-  case LongVector::AsTypeOpType_AsInt:
+  case AsTypeOpType_AsInt:
     return TestConfig::verifyOutput<int32_t>(TestResult);
-  case LongVector::AsTypeOpType_AsInt16:
+  case AsTypeOpType_AsInt16:
     return TestConfig::verifyOutput<int16_t>(TestResult);
-  case LongVector::AsTypeOpType_AsUint:
+  case AsTypeOpType_AsUint:
     return TestConfig::verifyOutput<uint32_t>(TestResult);
-  case LongVector::AsTypeOpType_AsUint_SplitDouble:
+  case AsTypeOpType_AsUint_SplitDouble:
     return TestConfig::verifyOutput<uint32_t>(TestResult);
-  case LongVector::AsTypeOpType_AsUint16:
+  case AsTypeOpType_AsUint16:
     return TestConfig::verifyOutput<uint16_t>(TestResult);
-  case LongVector::AsTypeOpType_AsDouble:
+  case AsTypeOpType_AsDouble:
     return TestConfig::verifyOutput<double>(TestResult);
   default:
     LOG_ERROR_FMT_THROW(
@@ -988,22 +990,22 @@ bool LongVector::TestConfigAsType<DataTypeT>::verifyOutput(
 }
 
 template <typename DataTypeT>
-LongVector::TestConfigTrigonometric<DataTypeT>::TestConfigTrigonometric(
-    const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &OpTypeMd)
-    : LongVector::TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
+TestConfigTrigonometric<DataTypeT>::TestConfigTrigonometric(
+    const OpTypeMetaData<TrigonometricOpType> &OpTypeMd)
+    : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
   static_assert(
       isFloatingPointType<DataTypeT>(),
       "Trigonometric ops are only supported for floating point types.");
 
-  BasicOpType = LongVector::BasicOpType_Unary;
+  BasicOpType = BasicOpType_Unary;
 
   // All trigonometric ops are floating point types.
   // These trig functions are defined to have a max absolute error of 0.0008
   // as per the D3D functional specs. An example with this spec for sin and
   // cos is available here:
   // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
-  ValidationType = LongVector::ValidationType_Epsilon;
+  ValidationType = ValidationType_Epsilon;
   if (std::is_same_v<DataTypeT, HLSLHalf_t>)
     Tolerance = 0.0010f;
   else if (std::is_same_v<DataTypeT, float>)
@@ -1012,27 +1014,27 @@ LongVector::TestConfigTrigonometric<DataTypeT>::TestConfigTrigonometric(
 
 // computeExpectedValue Trigonometric
 template <typename DataTypeT>
-DataTypeT LongVector::TestConfigTrigonometric<DataTypeT>::computeExpectedValue(
+DataTypeT TestConfigTrigonometric<DataTypeT>::computeExpectedValue(
     const DataTypeT &A) const {
 
   switch (OpType) {
-  case LongVector::TrigonometricOpType_Acos:
+  case TrigonometricOpType_Acos:
     return std::acos(A);
-  case LongVector::TrigonometricOpType_Asin:
+  case TrigonometricOpType_Asin:
     return std::asin(A);
-  case LongVector::TrigonometricOpType_Atan:
+  case TrigonometricOpType_Atan:
     return std::atan(A);
-  case LongVector::TrigonometricOpType_Cos:
+  case TrigonometricOpType_Cos:
     return std::cos(A);
-  case LongVector::TrigonometricOpType_Cosh:
+  case TrigonometricOpType_Cosh:
     return std::cosh(A);
-  case LongVector::TrigonometricOpType_Sin:
+  case TrigonometricOpType_Sin:
     return std::sin(A);
-  case LongVector::TrigonometricOpType_Sinh:
+  case TrigonometricOpType_Sinh:
     return std::sinh(A);
-  case LongVector::TrigonometricOpType_Tan:
+  case TrigonometricOpType_Tan:
     return std::tan(A);
-  case LongVector::TrigonometricOpType_Tanh:
+  case TrigonometricOpType_Tanh:
     return std::tanh(A);
   default:
     LOG_ERROR_FMT_THROW(L"Unknown TrigonometricOpType: %ls",
@@ -1042,14 +1044,14 @@ DataTypeT LongVector::TestConfigTrigonometric<DataTypeT>::computeExpectedValue(
 }
 
 template <typename DataTypeT>
-LongVector::TestConfigUnary<DataTypeT>::TestConfigUnary(
-    const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &OpTypeMd)
-    : LongVector::TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
+TestConfigUnary<DataTypeT>::TestConfigUnary(
+    const OpTypeMetaData<UnaryOpType> &OpTypeMd)
+    : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
-  BasicOpType = LongVector::BasicOpType_Unary;
+  BasicOpType = BasicOpType_Unary;
 
   switch (OpType) {
-  case LongVector::UnaryOpType_Initialize:
+  case UnaryOpType_Initialize:
     SpecialDefines = " -DFUNC_INITIALIZE=1";
     break;
   default:
@@ -1058,11 +1060,11 @@ LongVector::TestConfigUnary<DataTypeT>::TestConfigUnary(
 }
 
 template <typename DataTypeT>
-DataTypeT LongVector::TestConfigUnary<DataTypeT>::computeExpectedValue(
+DataTypeT TestConfigUnary<DataTypeT>::computeExpectedValue(
     const DataTypeT &A) const {
-  if (OpType != LongVector::UnaryOpType_Initialize) {
+  if (OpType != UnaryOpType_Initialize) {
     LOG_ERROR_FMT_THROW(L"computeExpectedValue(const DataTypeT &A, "
-                        L"LongVector::UnaryOpType OpType) called on an "
+                        L"UnaryOpType OpType) called on an "
                         L"unrecognized unary op: %ls",
                         OpTypeName.c_str());
   }
@@ -1071,33 +1073,33 @@ DataTypeT LongVector::TestConfigUnary<DataTypeT>::computeExpectedValue(
 }
 
 template <typename DataTypeT>
-LongVector::TestConfigBinary<DataTypeT>::TestConfigBinary(
-    const LongVector::OpTypeMetaData<LongVector::BinaryOpType> &OpTypeMd)
-    : LongVector::TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
+TestConfigBinary<DataTypeT>::TestConfigBinary(
+    const OpTypeMetaData<BinaryOpType> &OpTypeMd)
+    : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
   if (isFloatingPointType<DataTypeT>()) {
     Tolerance = 1;
-    ValidationType = LongVector::ValidationType_Ulp;
+    ValidationType = ValidationType_Ulp;
   }
 
   switch (OpType) {
-  case LongVector::BinaryOpType_ScalarAdd:
-  case LongVector::BinaryOpType_ScalarMultiply:
-  case LongVector::BinaryOpType_ScalarSubtract:
-  case LongVector::BinaryOpType_ScalarDivide:
-  case LongVector::BinaryOpType_ScalarModulus:
-  case LongVector::BinaryOpType_ScalarMin:
-  case LongVector::BinaryOpType_ScalarMax:
-    BasicOpType = LongVector::BasicOpType_ScalarBinary;
+  case BinaryOpType_ScalarAdd:
+  case BinaryOpType_ScalarMultiply:
+  case BinaryOpType_ScalarSubtract:
+  case BinaryOpType_ScalarDivide:
+  case BinaryOpType_ScalarModulus:
+  case BinaryOpType_ScalarMin:
+  case BinaryOpType_ScalarMax:
+    BasicOpType = BasicOpType_ScalarBinary;
     break;
-  case LongVector::BinaryOpType_Multiply:
-  case LongVector::BinaryOpType_Add:
-  case LongVector::BinaryOpType_Subtract:
-  case LongVector::BinaryOpType_Divide:
-  case LongVector::BinaryOpType_Modulus:
-  case LongVector::BinaryOpType_Min:
-  case LongVector::BinaryOpType_Max:
-    BasicOpType = LongVector::BasicOpType_Binary;
+  case BinaryOpType_Multiply:
+  case BinaryOpType_Add:
+  case BinaryOpType_Subtract:
+  case BinaryOpType_Divide:
+  case BinaryOpType_Modulus:
+  case BinaryOpType_Min:
+  case BinaryOpType_Max:
+    BasicOpType = BasicOpType_Binary;
     break;
   default:
     VERIFY_FAIL("Invalid BinaryOpType");
@@ -1105,41 +1107,43 @@ LongVector::TestConfigBinary<DataTypeT>::TestConfigBinary(
 }
 
 template <typename DataTypeT>
-DataTypeT LongVector::TestConfigBinary<DataTypeT>::computeExpectedValue(
+DataTypeT TestConfigBinary<DataTypeT>::computeExpectedValue(
     const DataTypeT &A, const DataTypeT &B) const {
   switch (OpType) {
-  case LongVector::BinaryOpType_ScalarAdd:
+  case BinaryOpType_ScalarAdd:
     return A + B;
-  case LongVector::BinaryOpType_ScalarMultiply:
+  case BinaryOpType_ScalarMultiply:
     return A * B;
-  case LongVector::BinaryOpType_ScalarSubtract:
+  case BinaryOpType_ScalarSubtract:
     return A - B;
-  case LongVector::BinaryOpType_ScalarDivide:
+  case BinaryOpType_ScalarDivide:
     return A / B;
-  case LongVector::BinaryOpType_ScalarModulus:
+  case BinaryOpType_ScalarModulus:
     return mod(A, B);
-  case LongVector::BinaryOpType_Multiply:
+  case BinaryOpType_Multiply:
     return A * B;
-  case LongVector::BinaryOpType_Add:
+  case BinaryOpType_Add:
     return A + B;
-  case LongVector::BinaryOpType_Subtract:
+  case BinaryOpType_Subtract:
     return A - B;
-  case LongVector::BinaryOpType_Divide:
+  case BinaryOpType_Divide:
     return A / B;
-  case LongVector::BinaryOpType_Modulus:
+  case BinaryOpType_Modulus:
     return mod(A, B);
-  case LongVector::BinaryOpType_Min:
+  case BinaryOpType_Min:
     // std::max and std::min are wrapped in () to avoid collisions with the //
     // macro defintions for min and max in windows.h
     return (std::min)(A, B);
-  case LongVector::BinaryOpType_Max:
+  case BinaryOpType_Max:
     return (std::max)(A, B);
-  case LongVector::BinaryOpType_ScalarMin:
+  case BinaryOpType_ScalarMin:
     return (std::min)(A, B);
-  case LongVector::BinaryOpType_ScalarMax:
+  case BinaryOpType_ScalarMax:
     return (std::max)(A, B);
   default:
     LOG_ERROR_FMT_THROW(L"Unknown BinaryOpType: %ls", OpTypeName.c_str());
     return DataTypeT();
   }
 }
+
+}; // namespace LongVector

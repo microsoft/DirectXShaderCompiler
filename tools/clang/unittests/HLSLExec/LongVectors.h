@@ -97,9 +97,9 @@ template <typename LongVectorOpTypeT> struct OpTypeMetaData {
   std::optional<std::string> Operator = std::nullopt;
 };
 
-template <typename LongVectorOpTypeT>
-const OpTypeMetaData<LongVectorOpTypeT> &
-getLongVectorOpType(const OpTypeMetaData<LongVectorOpTypeT> *Values,
+template <typename T>
+const OpTypeMetaData<T> &
+getLongVectorOpType(const OpTypeMetaData<T> *Values,
                     const std::wstring &OpTypeString, std::size_t Length);
 
 enum ValidationType {
@@ -158,7 +158,7 @@ static_assert(_countof(binaryOpTypeStringToOpMetaData) ==
               "binaryOpTypeStringToOpMetaData size mismatch. Did you "
               "add a new enum value?");
 
-const LongVector::OpTypeMetaData<LongVector::BinaryOpType> &
+const OpTypeMetaData<BinaryOpType> &
 getBinaryOpType(const std::wstring &OpTypeString);
 
 enum UnaryOpType { UnaryOpType_Initialize, UnaryOpType_EnumValueCount };
@@ -172,7 +172,7 @@ static_assert(_countof(unaryOpTypeStringToOpMetaData) ==
               "unaryOpTypeStringToOpMetaData size mismatch. Did you add "
               "a new enum value?");
 
-const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &
+const OpTypeMetaData<UnaryOpType> &
 getUnaryOpType(const std::wstring &OpTypeString);
 
 enum AsTypeOpType {
@@ -204,7 +204,7 @@ static_assert(_countof(asTypeOpTypeStringToOpMetaData) ==
               "asTypeOpTypeStringToOpMetaData size mismatch. Did you add "
               "a new enum value?");
 
-const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &
+const OpTypeMetaData<AsTypeOpType> &
 getAsTypeOpType(const std::wstring &OpTypeString);
 
 enum TrigonometricOpType {
@@ -239,7 +239,7 @@ static_assert(
     "trigonometricOpTypeStringToOpMetaData size mismatch. Did you add "
     "a new enum value?");
 
-const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType> &
+const OpTypeMetaData<TrigonometricOpType> &
 getTrigonometricOpType(const std::wstring &OpTypeString);
 
 template <typename DataTypeT>
@@ -282,23 +282,23 @@ public:
 
   template <typename LongVectorOpTypeT>
   void dispatchTestByDataType(
-      const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMD,
+      const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMD,
       std::wstring DataType, TableParameterHandler &Handler);
 
   template <>
   void dispatchTestByDataType(
-      const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType>
+      const OpTypeMetaData<TrigonometricOpType>
           &OpTypeMD,
       std::wstring DataType, TableParameterHandler &Handler);
 
   template <typename DataTypeT, typename LongVectorOpTypeT>
   void dispatchTestByVectorLength(
-      const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMD,
+      const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMD,
       TableParameterHandler &Handler);
 
   template <typename DataTypeT>
   void testBaseMethod(
-      std::unique_ptr<LongVector::TestConfig<DataTypeT>> &TestConfig);
+      std::unique_ptr<TestConfig<DataTypeT>> &TestConfig);
 
 private:
   dxc::DxcDllSupport DxcDllSupport;
@@ -335,16 +335,16 @@ public:
   virtual ~TestConfig() = default;
 
   bool isBinaryOp() const {
-    return BasicOpType == LongVector::BasicOpType_Binary ||
-           BasicOpType == LongVector::BasicOpType_ScalarBinary;
+    return BasicOpType == BasicOpType_Binary ||
+           BasicOpType == BasicOpType_ScalarBinary;
   }
 
   bool isUnaryOp() const {
-    return BasicOpType == LongVector::BasicOpType_Unary;
+    return BasicOpType == BasicOpType_Unary;
   }
 
   bool isScalarOp() const {
-    return BasicOpType == LongVector::BasicOpType_ScalarBinary;
+    return BasicOpType == BasicOpType_ScalarBinary;
   }
 
   // Helpers to get the hlsl type as a string for a given C++ type.
@@ -388,7 +388,7 @@ public:
   std::vector<DataTypeT> getInputArgsArray() const;
 
   float getTolerance() const { return Tolerance; }
-  LongVector::ValidationType getValidationType() const {
+  ValidationType getValidationType() const {
     return ValidationType;
   }
 
@@ -410,7 +410,7 @@ protected:
   // Prevent instances of TestConfig from being created directly. Want to force
   // a derived class to be used for creation.
   template <typename LongVectorOpTypeT>
-  TestConfig(const LongVector::OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd)
+  TestConfig(const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd)
       : OpTypeName(OpTypeMd.OpTypeString), Intrinsic(OpTypeMd.Intrinsic),
         Operator(OpTypeMd.Operator) {}
 
@@ -443,24 +443,24 @@ protected:
   std::optional<std::string> Intrinsic;
   // Used to add special -D defines to the compiler options.
   std::optional<std::string> SpecialDefines = std::nullopt;
-  LongVector::BasicOpType BasicOpType = LongVector::BasicOpType_EnumValueCount;
+  BasicOpType BasicOpType = BasicOpType_EnumValueCount;
   float Tolerance = 0.0;
-  LongVector::ValidationType ValidationType =
-      LongVector::ValidationType::ValidationType_Epsilon;
+  ValidationType ValidationType =
+      ValidationType::ValidationType_Epsilon;
   // Default the TypedOutputVector to use DataTypeT, Ops that don't have a
   // matching output type will override this.
-  LongVector::VariantVector ExpectedVector = std::vector<DataTypeT>{};
+  VariantVector ExpectedVector = std::vector<DataTypeT>{};
   size_t LengthToTest = 0;
 
   // Just used for logging purposes.
   std::wstring OpTypeName = L"UnknownOpType";
-}; // class LongVector::TestConfig
+}; // class TestConfig
 
 template <typename DataTypeT>
-class TestConfigAsType : public LongVector::TestConfig<DataTypeT> {
+class TestConfigAsType : public TestConfig<DataTypeT> {
 public:
   TestConfigAsType(
-      const LongVector::OpTypeMetaData<LongVector::AsTypeOpType> &OpTypeMd);
+      const OpTypeMetaData<AsTypeOpType> &OpTypeMd);
 
   void
   computeExpectedValues(const std::vector<DataTypeT> &InputVector1) override;
@@ -482,11 +482,11 @@ private:
   HLSLHalf_t asFloat16(const HLSLHalf_t &A) const { return HLSLHalf_t(A.Val); }
 
   HLSLHalf_t asFloat16(const int16_t &A) const {
-    return HLSLHalf_t(LongVector::bit_cast<DirectX::PackedVector::HALF>(A));
+    return HLSLHalf_t(bit_cast<DirectX::PackedVector::HALF>(A));
   }
 
   HLSLHalf_t asFloat16(const uint16_t &A) const {
-    return HLSLHalf_t(LongVector::bit_cast<DirectX::PackedVector::HALF>(A));
+    return HLSLHalf_t(bit_cast<DirectX::PackedVector::HALF>(A));
   }
 
   template <typename DataTypeInT> float asFloat(const DataTypeInT &) const {
@@ -497,10 +497,10 @@ private:
 
   float asFloat(const float &A) const { return float(A); }
   float asFloat(const int32_t &A) const {
-    return LongVector::bit_cast<float>(A);
+    return bit_cast<float>(A);
   }
   float asFloat(const uint32_t &A) const {
-    return LongVector::bit_cast<float>(A);
+    return bit_cast<float>(A);
   }
 
   template <typename DataTypeInT>
@@ -513,11 +513,11 @@ private:
   }
 
   int32_t asInt(const float &A) const {
-    return LongVector::bit_cast<int32_t>(A);
+    return bit_cast<int32_t>(A);
   }
   int32_t asInt(const int32_t &A) const { return A; }
   int32_t asInt(const uint32_t &A) const {
-    return LongVector::bit_cast<int32_t>(A);
+    return bit_cast<int32_t>(A);
   }
 
   template <typename DataTypeInT>
@@ -530,11 +530,11 @@ private:
   }
 
   int16_t asInt16(const HLSLHalf_t &A) const {
-    return LongVector::bit_cast<int16_t>(A.Val);
+    return bit_cast<int16_t>(A.Val);
   }
   int16_t asInt16(const int16_t &A) const { return A; }
   int16_t asInt16(const uint16_t &A) const {
-    return LongVector::bit_cast<int16_t>(A);
+    return bit_cast<int16_t>(A);
   }
 
   template <typename DataTypeInT>
@@ -547,11 +547,11 @@ private:
   }
 
   uint16_t asUint16(const HLSLHalf_t &A) const {
-    return LongVector::bit_cast<uint16_t>(A.Val);
+    return bit_cast<uint16_t>(A.Val);
   }
   uint16_t asUint16(const uint16_t &A) const { return A; }
   uint16_t asUint16(const int16_t &A) const {
-    return LongVector::bit_cast<uint16_t>(A);
+    return bit_cast<uint16_t>(A);
   }
 
   template <typename DataTypeInT>
@@ -565,10 +565,10 @@ private:
 
   unsigned int asUint(const unsigned int &A) const { return A; }
   unsigned int asUint(const float &A) const {
-    return LongVector::bit_cast<unsigned int>(A);
+    return bit_cast<unsigned int>(A);
   }
   unsigned int asUint(const int &A) const {
-    return LongVector::bit_cast<unsigned int>(A);
+    return bit_cast<unsigned int>(A);
   }
 
   template <typename DataTypeInT>
@@ -608,43 +608,43 @@ private:
     return Result;
   }
 
-  AsTypeOpType OpType = LongVector::AsTypeOpType_EnumValueCount;
+  AsTypeOpType OpType = AsTypeOpType_EnumValueCount;
 };
 
 template <typename DataTypeT>
-class TestConfigTrigonometric : public LongVector::TestConfig<DataTypeT> {
+class TestConfigTrigonometric : public TestConfig<DataTypeT> {
 public:
   TestConfigTrigonometric(
-      const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType>
+      const OpTypeMetaData<TrigonometricOpType>
           &OpTypeMd);
   DataTypeT computeExpectedValue(const DataTypeT &A) const override;
 
 private:
-  LongVector::TrigonometricOpType OpType =
-      LongVector::TrigonometricOpType_EnumValueCount;
+  TrigonometricOpType OpType =
+      TrigonometricOpType_EnumValueCount;
 };
 
 template <typename DataTypeT>
-class TestConfigUnary : public LongVector::TestConfig<DataTypeT> {
+class TestConfigUnary : public TestConfig<DataTypeT> {
 public:
   TestConfigUnary(
-      const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &OpTypeMd);
+      const OpTypeMetaData<UnaryOpType> &OpTypeMd);
   DataTypeT computeExpectedValue(const DataTypeT &A) const override;
 
 private:
-  LongVector::UnaryOpType OpType = LongVector::UnaryOpType_EnumValueCount;
+  UnaryOpType OpType = UnaryOpType_EnumValueCount;
 };
 
 template <typename DataTypeT>
-class TestConfigBinary : public LongVector::TestConfig<DataTypeT> {
+class TestConfigBinary : public TestConfig<DataTypeT> {
 public:
   TestConfigBinary(
-      const LongVector::OpTypeMetaData<LongVector::BinaryOpType> &OpTypeMd);
+      const OpTypeMetaData<BinaryOpType> &OpTypeMd);
   DataTypeT computeExpectedValue(const DataTypeT &A,
                                  const DataTypeT &B) const override;
 
 private:
-  LongVector::BinaryOpType OpType = LongVector::BinaryOpType_EnumValueCount;
+  BinaryOpType OpType = BinaryOpType_EnumValueCount;
 
   // Helpers so we do the right thing for float types. HLSLHalf_t is handled in
   // an operator overload.
@@ -663,28 +663,28 @@ private:
 };
 
 template <typename DataTypeT>
-std::unique_ptr<LongVector::TestConfig<DataTypeT>> makeTestConfig(
-    const LongVector::OpTypeMetaData<LongVector::UnaryOpType> &OpTypeMetaData) {
+std::unique_ptr<TestConfig<DataTypeT>> makeTestConfig(
+    const OpTypeMetaData<UnaryOpType> &OpTypeMetaData) {
   return std::make_unique<TestConfigUnary<DataTypeT>>(OpTypeMetaData);
 }
 
 template <typename DataTypeT>
-std::unique_ptr<LongVector::TestConfig<DataTypeT>>
-makeTestConfig(const LongVector::OpTypeMetaData<LongVector::BinaryOpType>
+std::unique_ptr<TestConfig<DataTypeT>>
+makeTestConfig(const OpTypeMetaData<BinaryOpType>
                    &OpTypeMetaData) {
   return std::make_unique<TestConfigBinary<DataTypeT>>(OpTypeMetaData);
 }
 
 template <typename DataTypeT>
-std::unique_ptr<LongVector::TestConfig<DataTypeT>>
-makeTestConfig(const LongVector::OpTypeMetaData<LongVector::TrigonometricOpType>
+std::unique_ptr<TestConfig<DataTypeT>>
+makeTestConfig(const OpTypeMetaData<TrigonometricOpType>
                    &OpTypeMetaData) {
   return std::make_unique<TestConfigTrigonometric<DataTypeT>>(OpTypeMetaData);
 }
 
 template <typename DataTypeT>
-std::unique_ptr<LongVector::TestConfig<DataTypeT>>
-makeTestConfig(const LongVector::OpTypeMetaData<LongVector::AsTypeOpType>
+std::unique_ptr<TestConfig<DataTypeT>>
+makeTestConfig(const OpTypeMetaData<AsTypeOpType>
                    &OpTypeMetaData) {
   return std::make_unique<TestConfigAsType<DataTypeT>>(OpTypeMetaData);
 }
