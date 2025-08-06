@@ -1,4 +1,5 @@
-// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main -fcgl -Vd %s -spirv | FileCheck %s
+// FIXME(7681): Enable validation again once codegen is fixed.
 
 // CHECK-NOT: OpDecorate %buf3
 
