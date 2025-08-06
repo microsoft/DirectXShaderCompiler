@@ -40,14 +40,15 @@ void MyStuff::MaybeReorderThread(int2 V) {
 
 // Find the DeclRefExpr for the call to MaybeReorderThread:
 
-// CHECK: FunctionDecl [[MyDeclAddr:0x[0-9a-fA-F]+]] parent {{.*}} used MaybeReorderThread 'void (int2)'
-// CHECK: DeclRefExpr {{.*}} 'void (unsigned int, unsigned int)' lvalue Function [[DeclAddr:0x[0-9a-fA-F]+]] 'MaybeReorderThread' 'void (unsigned int, unsigned int)'
-
-// CHECK: FunctionDecl [[DeclAddr]] <<invalid sloc>> <invalid sloc> implicit used MaybeReorderThread 'void (unsigned int, unsigned int)' extern
+// CHECK: NamespaceDecl {{.*}} implicit dx
+// CHECK: FunctionDecl [[DeclAddr:0x[0-9a-fA-F]+]] <<invalid sloc>> <invalid sloc> implicit used MaybeReorderThread 'void (unsigned int, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} CoherenceHint 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} NumCoherenceHintBitsFromLSB 'unsigned int'
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 359
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.9 0 0 ""
+
+// CHECK: FunctionDecl [[MyDeclAddr:0x[0-9a-fA-F]+]] parent {{.*}} used MaybeReorderThread 'void (int2)'
+// CHECK: DeclRefExpr {{.*}} 'void (unsigned int, unsigned int)' lvalue Function [[DeclAddr]] 'MaybeReorderThread' 'void (unsigned int, unsigned int)'
 
 // CHECK-LABEL: MyRaygenShader
 

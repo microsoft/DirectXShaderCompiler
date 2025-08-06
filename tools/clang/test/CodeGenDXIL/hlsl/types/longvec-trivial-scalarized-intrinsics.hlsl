@@ -1,13 +1,6 @@
 // The binary part of some of these is all just a vector math ops with as many unary dxops as elements.
 // These will have apparent mismatches between the ARITY define and the check prefix.
 
-// RUN: %dxc -DFUNC=ddx         -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=ddx_coarse  -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=ddx_fine    -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=ddy         -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=ddy_coarse  -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=ddy_fine    -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
-// RUN: %dxc -DFUNC=fwidth      -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,UNARY
 // RUN: %dxc -DFUNC=QuadReadLaneAt         -DARITY=4 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,QUAD
 // RUN: %dxc -DFUNC=QuadReadAcrossX        -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,QUAD
 // RUN: %dxc -DFUNC=QuadReadAcrossY        -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,QUAD

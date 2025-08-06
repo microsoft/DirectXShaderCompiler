@@ -2628,7 +2628,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per stamp",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2646,7 +2646,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per stamp",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2664,7 +2664,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per pixel",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2682,7 +2682,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per pixel",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(

@@ -133,6 +133,15 @@ bb:
   %tmp45 = call <7 x half> @"dx.hl.op.rn.<7 x half> (i32, <7 x half>, <7 x half>, <7 x half>)"(i32 157, <7 x half> %tmp25, <7 x half> %tmp30, <7 x half> %tmp20) ; line:83 col:11
   %tmp46 = fadd <7 x half> %tmp35, %tmp45 ; line:83 col:8
 
+  ;  Fwidth operation.
+  ; [[ddx:%.*]] = call <7 x float> @dx.op.unary.v7f32(i32 83, <7 x float> [[fvec1]])
+  ; [[fabsx:%.*]] = call <7 x float> @dx.op.unary.v7f32(i32 6, <7 x float> [[ddx]])
+  ; [[ddy:%.*]] = call <7 x float> @dx.op.unary.v7f32(i32 84, <7 x float> [[fvec1]])
+  ; [[fabsy:%.*]] = call <7 x float> @dx.op.unary.v7f32(i32 6, <7 x float> [[ddy]])
+  ; fadd fast <7 x float> [[fabsx]], [[fabsy]]
+  %fwidth = call <7 x float> @"dx.hl.op.rn.<7 x float> (i32, <7 x float>)"(i32 151, <7 x float> %tmp4)
+  %widsum = fadd <7 x float> %tmp44, %fwidth
+
   ; CHECK: [[ld:%.*]] = call %dx.types.ResRet.v7i32 @dx.op.rawBufferVectorLoad.v7i32(i32 303, %dx.types.Handle {{%.*}}, i32 17, i32 0, i32 4)
   ; CHECK: [[uvec1:%.*]] = extractvalue %dx.types.ResRet.v7i32 [[ld]], 0
   ; CHECK: [[ld:%.*]] = call %dx.types.ResRet.v7i32 @dx.op.rawBufferVectorLoad.v7i32(i32 303, %dx.types.Handle {{%.*}}, i32 18, i32 0, i32 4)
@@ -280,7 +289,7 @@ bb:
   %tmp103 = call float @"dx.hl.op.rn.float (i32, <7 x float>, <7 x float>)"(i32 134, <7 x float> %tmp4, <7 x float> %tmp9) ; line:152 col:11
   %tmp104 = insertelement <7 x float> undef, float %tmp103, i32 0 ; line:152 col:11
   %tmp105 = shufflevector <7 x float> %tmp104, <7 x float> undef, <7 x i32> zeroinitializer ; line:152 col:11
-  %tmp106 = fadd <7 x float> %tmp44, %tmp105 ; line:152 col:8
+  %tmp106 = fadd <7 x float> %widsum, %tmp105 ; line:152 col:8
 
   ; Atan operation.
   ; CHECK: call <7 x float> @dx.op.unary.v7f32(i32 17, <7 x float> [[fvec1]])
@@ -296,6 +305,11 @@ bb:
   ; CHECK: call <7 x float> @dx.op.tertiary.v7f32(i32 46, <7 x float> [[fvec1]], <7 x float> [[fvec2]], <7 x float> [[fvec3]])
   %tmp111 = call <7 x float> @"dx.hl.op.rn.<7 x float> (i32, <7 x float>, <7 x float>, <7 x float>)"(i32 162, <7 x float> %tmp4, <7 x float> %tmp9, <7 x float> %tmp14) ; line:161 col:11
   %tmp112 = fadd <7 x float> %tmp108, %tmp111 ; line:161 col:8
+
+  ; Ddx_fine operation.
+  ; CHECK: call <7 x half> @dx.op.unary.v7f16(i32 85, <7 x half> [[hvec1]])
+  %ddx = call <7 x half> @"dx.hl.op.rn.<7 x half> (i32, <7 x half>)"(i32 127, <7 x half> %tmp20)
+  %ddxsum = fadd <7 x half> %tmp46, %ddx
 
   ; CHECK: [[ld:%.*]] = call %dx.types.ResRet.v7f64 @dx.op.rawBufferVectorLoad.v7f64(i32 303, %dx.types.Handle {{%.*}}, i32 24, i32 0, i32 8) 
   ; CHECK: [[dvec1:%.*]] = extractvalue %dx.types.ResRet.v7f64 [[ld]], 0
@@ -326,7 +340,7 @@ bb:
   %tmp130 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %\22class.RWStructuredBuffer<vector<half, 7> >\22)"(i32 0, %"class.RWStructuredBuffer<vector<half, 7> >" %tmp129) ; line:176 col:3
   %tmp131 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22class.RWStructuredBuffer<vector<half, 7> >\22)"(i32 14, %dx.types.Handle %tmp130, %dx.types.ResourceProperties { i32 4108, i32 14 }, %"class.RWStructuredBuffer<vector<half, 7> >" zeroinitializer) ; line:176 col:3
   %tmp132 = call <7 x half>* @"dx.hl.subscript.[].rn.<7 x half>* (i32, %dx.types.Handle, i32)"(i32 0, %dx.types.Handle %tmp131, i32 0) ; line:176 col:3
-  store <7 x half> %tmp46, <7 x half>* %tmp132 ; line:176 col:11
+  store <7 x half> %ddxsum, <7 x half>* %tmp132 ; line:176 col:11
   %tmp133 = load %"class.RWStructuredBuffer<vector<float, 7> >", %"class.RWStructuredBuffer<vector<float, 7> >"* @"\01?fBuf@@3V?$RWStructuredBuffer@V?$vector@M$06@@@@A" ; line:177 col:3
   %tmp134 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %\22class.RWStructuredBuffer<vector<float, 7> >\22)"(i32 0, %"class.RWStructuredBuffer<vector<float, 7> >" %tmp133) ; line:177 col:3
   %tmp135 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22class.RWStructuredBuffer<vector<float, 7> >\22)"(i32 14, %dx.types.Handle %tmp134, %dx.types.ResourceProperties { i32 4108, i32 28 }, %"class.RWStructuredBuffer<vector<float, 7> >" zeroinitializer) ; line:177 col:3

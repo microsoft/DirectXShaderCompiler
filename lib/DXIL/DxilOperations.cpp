@@ -765,32 +765,32 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::DerivCoarseY,
      "DerivCoarseY",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::DerivFineX,
      "DerivFineX",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::DerivFineY,
      "DerivFineY",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
 
     // Pixel shader
     {OC::EvalSnapped,
