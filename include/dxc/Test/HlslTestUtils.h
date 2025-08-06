@@ -261,8 +261,8 @@ inline void LogErrorFmt(const wchar_t *fmt, ...) {
 }
 
 [[noreturn]] // This function will throw an exception.
-inline void LogErrorFmtThrow(const char *fileName, int line, const wchar_t *fmt,
-                             ...) {
+inline void
+LogErrorFmtThrow(const char *fileName, int line, const wchar_t *fmt, ...) {
   va_list args;
   va_start(args, fmt);
   std::wstring buf(vFormatToWString(fmt, args));

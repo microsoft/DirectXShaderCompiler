@@ -97,10 +97,10 @@ template <typename LongVectorOpTypeT> struct OpTypeMetaData {
   std::optional<std::string> Operator = std::nullopt;
 };
 
-template <typename T>
+template <typename T, size_t Length>
 const OpTypeMetaData<T> &
-getLongVectorOpType(const OpTypeMetaData<T> *Values,
-                    const std::wstring &OpTypeString, std::size_t Length);
+getLongVectorOpType(const OpTypeMetaData<T> (&Values)[Length],
+                    const std::wstring &OpTypeString);
 
 enum ValidationType {
   ValidationType_Epsilon,
@@ -281,24 +281,22 @@ public:
   END_TEST_METHOD()
 
   template <typename LongVectorOpTypeT>
-  void dispatchTestByDataType(
-      const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMD,
-      std::wstring DataType, TableParameterHandler &Handler);
+  void dispatchTestByDataType(const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMD,
+                              std::wstring DataType,
+                              TableParameterHandler &Handler);
 
   template <>
-  void dispatchTestByDataType(
-      const OpTypeMetaData<TrigonometricOpType>
-          &OpTypeMD,
-      std::wstring DataType, TableParameterHandler &Handler);
+  void
+  dispatchTestByDataType(const OpTypeMetaData<TrigonometricOpType> &OpTypeMD,
+                         std::wstring DataType, TableParameterHandler &Handler);
 
   template <typename DataTypeT, typename LongVectorOpTypeT>
-  void dispatchTestByVectorLength(
-      const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMD,
-      TableParameterHandler &Handler);
+  void
+  dispatchTestByVectorLength(const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMD,
+                             TableParameterHandler &Handler);
 
   template <typename DataTypeT>
-  void testBaseMethod(
-      std::unique_ptr<TestConfig<DataTypeT>> &TestConfig);
+  void testBaseMethod(std::unique_ptr<TestConfig<DataTypeT>> &TestConfig);
 
 private:
   dxc::DxcDllSupport DxcDllSupport;
@@ -339,13 +337,9 @@ public:
            BasicOpType == BasicOpType_ScalarBinary;
   }
 
-  bool isUnaryOp() const {
-    return BasicOpType == BasicOpType_Unary;
-  }
+  bool isUnaryOp() const { return BasicOpType == BasicOpType_Unary; }
 
-  bool isScalarOp() const {
-    return BasicOpType == BasicOpType_ScalarBinary;
-  }
+  bool isScalarOp() const { return BasicOpType == BasicOpType_ScalarBinary; }
 
   // Helpers to get the hlsl type as a string for a given C++ type.
   std::string getHLSLInputTypeString() const;
@@ -388,9 +382,7 @@ public:
   std::vector<DataTypeT> getInputArgsArray() const;
 
   float getTolerance() const { return Tolerance; }
-  ValidationType getValidationType() const {
-    return ValidationType;
-  }
+  ValidationType getValidationType() const { return ValidationType; }
 
   std::string getCompilerOptionsString() const;
 
@@ -445,8 +437,7 @@ protected:
   std::optional<std::string> SpecialDefines = std::nullopt;
   BasicOpType BasicOpType = BasicOpType_EnumValueCount;
   float Tolerance = 0.0;
-  ValidationType ValidationType =
-      ValidationType::ValidationType_Epsilon;
+  ValidationType ValidationType = ValidationType::ValidationType_Epsilon;
   // Default the TypedOutputVector to use DataTypeT, Ops that don't have a
   // matching output type will override this.
   VariantVector ExpectedVector = std::vector<DataTypeT>{};
@@ -459,8 +450,7 @@ protected:
 template <typename DataTypeT>
 class TestConfigAsType : public TestConfig<DataTypeT> {
 public:
-  TestConfigAsType(
-      const OpTypeMetaData<AsTypeOpType> &OpTypeMd);
+  TestConfigAsType(const OpTypeMetaData<AsTypeOpType> &OpTypeMd);
 
   void
   computeExpectedValues(const std::vector<DataTypeT> &InputVector1) override;
@@ -496,12 +486,8 @@ private:
   }
 
   float asFloat(const float &A) const { return float(A); }
-  float asFloat(const int32_t &A) const {
-    return bit_cast<float>(A);
-  }
-  float asFloat(const uint32_t &A) const {
-    return bit_cast<float>(A);
-  }
+  float asFloat(const int32_t &A) const { return bit_cast<float>(A); }
+  float asFloat(const uint32_t &A) const { return bit_cast<float>(A); }
 
   template <typename DataTypeInT>
   int32_t asInt([[maybe_unused]] const DataTypeInT &A) const {
@@ -512,13 +498,9 @@ private:
     return int32_t();
   }
 
-  int32_t asInt(const float &A) const {
-    return bit_cast<int32_t>(A);
-  }
+  int32_t asInt(const float &A) const { return bit_cast<int32_t>(A); }
   int32_t asInt(const int32_t &A) const { return A; }
-  int32_t asInt(const uint32_t &A) const {
-    return bit_cast<int32_t>(A);
-  }
+  int32_t asInt(const uint32_t &A) const { return bit_cast<int32_t>(A); }
 
   template <typename DataTypeInT>
   int16_t asInt16([[maybe_unused]] const DataTypeInT &A) const {
@@ -533,9 +515,7 @@ private:
     return bit_cast<int16_t>(A.Val);
   }
   int16_t asInt16(const int16_t &A) const { return A; }
-  int16_t asInt16(const uint16_t &A) const {
-    return bit_cast<int16_t>(A);
-  }
+  int16_t asInt16(const uint16_t &A) const { return bit_cast<int16_t>(A); }
 
   template <typename DataTypeInT>
   uint16_t asUint16([[maybe_unused]] const DataTypeInT &A) const {
@@ -550,9 +530,7 @@ private:
     return bit_cast<uint16_t>(A.Val);
   }
   uint16_t asUint16(const uint16_t &A) const { return A; }
-  uint16_t asUint16(const int16_t &A) const {
-    return bit_cast<uint16_t>(A);
-  }
+  uint16_t asUint16(const int16_t &A) const { return bit_cast<uint16_t>(A); }
 
   template <typename DataTypeInT>
   unsigned int asUint([[maybe_unused]] const DataTypeInT &A) const {
@@ -567,9 +545,7 @@ private:
   unsigned int asUint(const float &A) const {
     return bit_cast<unsigned int>(A);
   }
-  unsigned int asUint(const int &A) const {
-    return bit_cast<unsigned int>(A);
-  }
+  unsigned int asUint(const int &A) const { return bit_cast<unsigned int>(A); }
 
   template <typename DataTypeInT>
   void splitDouble([[maybe_unused]] const DataTypeInT &A,
@@ -614,21 +590,17 @@ private:
 template <typename DataTypeT>
 class TestConfigTrigonometric : public TestConfig<DataTypeT> {
 public:
-  TestConfigTrigonometric(
-      const OpTypeMetaData<TrigonometricOpType>
-          &OpTypeMd);
+  TestConfigTrigonometric(const OpTypeMetaData<TrigonometricOpType> &OpTypeMd);
   DataTypeT computeExpectedValue(const DataTypeT &A) const override;
 
 private:
-  TrigonometricOpType OpType =
-      TrigonometricOpType_EnumValueCount;
+  TrigonometricOpType OpType = TrigonometricOpType_EnumValueCount;
 };
 
 template <typename DataTypeT>
 class TestConfigUnary : public TestConfig<DataTypeT> {
 public:
-  TestConfigUnary(
-      const OpTypeMetaData<UnaryOpType> &OpTypeMd);
+  TestConfigUnary(const OpTypeMetaData<UnaryOpType> &OpTypeMd);
   DataTypeT computeExpectedValue(const DataTypeT &A) const override;
 
 private:
@@ -638,8 +610,7 @@ private:
 template <typename DataTypeT>
 class TestConfigBinary : public TestConfig<DataTypeT> {
 public:
-  TestConfigBinary(
-      const OpTypeMetaData<BinaryOpType> &OpTypeMd);
+  TestConfigBinary(const OpTypeMetaData<BinaryOpType> &OpTypeMd);
   DataTypeT computeExpectedValue(const DataTypeT &A,
                                  const DataTypeT &B) const override;
 
@@ -663,29 +634,26 @@ private:
 };
 
 template <typename DataTypeT>
-std::unique_ptr<TestConfig<DataTypeT>> makeTestConfig(
-    const OpTypeMetaData<UnaryOpType> &OpTypeMetaData) {
+std::unique_ptr<TestConfig<DataTypeT>>
+makeTestConfig(const OpTypeMetaData<UnaryOpType> &OpTypeMetaData) {
   return std::make_unique<TestConfigUnary<DataTypeT>>(OpTypeMetaData);
 }
 
 template <typename DataTypeT>
 std::unique_ptr<TestConfig<DataTypeT>>
-makeTestConfig(const OpTypeMetaData<BinaryOpType>
-                   &OpTypeMetaData) {
+makeTestConfig(const OpTypeMetaData<BinaryOpType> &OpTypeMetaData) {
   return std::make_unique<TestConfigBinary<DataTypeT>>(OpTypeMetaData);
 }
 
 template <typename DataTypeT>
 std::unique_ptr<TestConfig<DataTypeT>>
-makeTestConfig(const OpTypeMetaData<TrigonometricOpType>
-                   &OpTypeMetaData) {
+makeTestConfig(const OpTypeMetaData<TrigonometricOpType> &OpTypeMetaData) {
   return std::make_unique<TestConfigTrigonometric<DataTypeT>>(OpTypeMetaData);
 }
 
 template <typename DataTypeT>
 std::unique_ptr<TestConfig<DataTypeT>>
-makeTestConfig(const OpTypeMetaData<AsTypeOpType>
-                   &OpTypeMetaData) {
+makeTestConfig(const OpTypeMetaData<AsTypeOpType> &OpTypeMetaData) {
   return std::make_unique<TestConfigAsType<DataTypeT>>(OpTypeMetaData);
 }
 

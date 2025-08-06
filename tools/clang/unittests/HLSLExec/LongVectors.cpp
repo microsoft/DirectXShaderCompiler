@@ -4,11 +4,10 @@
 
 namespace LongVector {
 
-template <typename T>
+template <typename T, size_t Length>
 const OpTypeMetaData<T> &
-getLongVectorOpType(const OpTypeMetaData<T> *Values,
-                                const std::wstring &OpTypeString,
-                                std::size_t Length) {
+getLongVectorOpType(const OpTypeMetaData<T> (&Values)[Length],
+                    const std::wstring &OpTypeString) {
   for (size_t I = 0; I < Length; I++) {
     if (Values[I].OpTypeString == OpTypeString)
       return Values[I];
@@ -22,41 +21,38 @@ getLongVectorOpType(const OpTypeMetaData<T> *Values,
 
 const OpTypeMetaData<BinaryOpType> &
 getBinaryOpType(const std::wstring &OpTypeString) {
-  return getLongVectorOpType<BinaryOpType>(
-      binaryOpTypeStringToOpMetaData, OpTypeString,
-      std::size(binaryOpTypeStringToOpMetaData));
+  return getLongVectorOpType<BinaryOpType>(binaryOpTypeStringToOpMetaData,
+                                           OpTypeString);
 }
 
 const OpTypeMetaData<UnaryOpType> &
 getUnaryOpType(const std::wstring &OpTypeString) {
-  return getLongVectorOpType<UnaryOpType>(
-      unaryOpTypeStringToOpMetaData, OpTypeString,
-      std::size(unaryOpTypeStringToOpMetaData));
+  return getLongVectorOpType<UnaryOpType>(unaryOpTypeStringToOpMetaData,
+                                          OpTypeString);
 }
 
 const OpTypeMetaData<AsTypeOpType> &
 getAsTypeOpType(const std::wstring &OpTypeString) {
-  return getLongVectorOpType<AsTypeOpType>(
-      asTypeOpTypeStringToOpMetaData, OpTypeString,
-      std::size(asTypeOpTypeStringToOpMetaData));
+  return getLongVectorOpType<AsTypeOpType>(asTypeOpTypeStringToOpMetaData,
+                                           OpTypeString);
 }
 
 const OpTypeMetaData<TrigonometricOpType> &
 getTrigonometricOpType(const std::wstring &OpTypeString) {
   return getLongVectorOpType<TrigonometricOpType>(
-      trigonometricOpTypeStringToOpMetaData, OpTypeString,
-      std::size(trigonometricOpTypeStringToOpMetaData));
+      trigonometricOpTypeStringToOpMetaData, OpTypeString);
 }
 
 // Helper to fill the test data from the shader buffer based on type. Convenient
 // to be used when copying HLSL*_t types so we can use the underlying type.
 template <typename DataTypeT>
-void fillLongVectorDataFromShaderBuffer(
-    const MappedData &ShaderBuffer, std::vector<DataTypeT> &TestData,
-    size_t NumElements) {
+void fillLongVectorDataFromShaderBuffer(const MappedData &ShaderBuffer,
+                                        std::vector<DataTypeT> &TestData,
+                                        size_t NumElements) {
 
   if constexpr (std::is_same_v<DataTypeT, HLSLHalf_t>) {
-    auto ShaderBufferPtr = static_cast<const DirectX::PackedVector::HALF *>(ShaderBuffer.data());
+    auto ShaderBufferPtr =
+        static_cast<const DirectX::PackedVector::HALF *>(ShaderBuffer.data());
     for (size_t I = 0; I < NumElements; I++)
       // HLSLHalf_t has a DirectX::PackedVector::HALF based constructor.
       TestData.push_back(ShaderBufferPtr[I]);
@@ -78,8 +74,7 @@ void fillLongVectorDataFromShaderBuffer(
 }
 
 template <typename DataTypeT>
-bool doValuesMatch(DataTypeT A, DataTypeT B, float Tolerance,
-                               ValidationType) {
+bool doValuesMatch(DataTypeT A, DataTypeT B, float Tolerance, ValidationType) {
   if (Tolerance == 0.0f)
     return A == B;
 
@@ -87,13 +82,12 @@ bool doValuesMatch(DataTypeT A, DataTypeT B, float Tolerance,
   return Diff <= Tolerance;
 }
 
-bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, float,
-                               ValidationType) {
+bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, float, ValidationType) {
   return A == B;
 }
 
 bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
-                               ValidationType ValidationType) {
+                   ValidationType ValidationType) {
   switch (ValidationType) {
   case ValidationType_Epsilon:
     return CompareHalfEpsilon(A.Val, B.Val, Tolerance);
@@ -107,7 +101,7 @@ bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
 }
 
 bool doValuesMatch(float A, float B, float Tolerance,
-                               ValidationType ValidationType) {
+                   ValidationType ValidationType) {
   switch (ValidationType) {
   case ValidationType_Epsilon:
     return CompareFloatEpsilon(A, B, Tolerance);
@@ -124,7 +118,7 @@ bool doValuesMatch(float A, float B, float Tolerance,
 }
 
 bool doValuesMatch(double A, double B, float Tolerance,
-                               ValidationType ValidationType) {
+                   ValidationType ValidationType) {
   switch (ValidationType) {
   case ValidationType_Epsilon:
     return CompareDoubleEpsilon(A, B, Tolerance);
@@ -142,9 +136,8 @@ bool doValuesMatch(double A, double B, float Tolerance,
 
 template <typename DataTypeT>
 bool doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
-                                const std::vector<DataTypeT> &ExpectedValues,
-                                float Tolerance,
-                                ValidationType ValidationType) {
+                    const std::vector<DataTypeT> &ExpectedValues,
+                    float Tolerance, ValidationType ValidationType) {
 
   DXASSERT(
       ActualValues.size() == ExpectedValues.size(),
@@ -192,7 +185,7 @@ void fillExpectedVector(VariantVector &ExpectedVector, size_t Count,
 
 template <typename DataTypeT>
 void logLongVector(const std::vector<DataTypeT> &Values,
-                               const std::wstring &Name) {
+                   const std::wstring &Name) {
   WEX::Logging::Log::Comment(
       WEX::Common::String().Format(L"LongVector Name: %s", Name.c_str()));
 
@@ -369,8 +362,8 @@ TEST_F(OpTest, asTypeOpTest) {
 
 template <typename LongVectorOpTypeT>
 void OpTest::dispatchTestByDataType(
-    const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd,
-    std::wstring DataType, TableParameterHandler &Handler) {
+    const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd, std::wstring DataType,
+    TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
   if (DataType == L"bool")
@@ -400,8 +393,8 @@ void OpTest::dispatchTestByDataType(
 
 template <>
 void OpTest::dispatchTestByDataType(
-    const OpTypeMetaData<TrigonometricOpType> &OpTypeMd,
-    std::wstring DataType, TableParameterHandler &Handler) {
+    const OpTypeMetaData<TrigonometricOpType> &OpTypeMd, std::wstring DataType,
+    TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
   if (DataType == L"float16")
@@ -615,7 +608,8 @@ void fillShaderBufferFromLongVectorData(
   ShaderBuffer.resize(DataSize);
 
   if constexpr (std::is_same_v<DataTypeT, HLSLHalf_t>) {
-    auto ShaderBufferPtr = reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
+    auto ShaderBufferPtr =
+        reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
     for (size_t I = 0; I < NumElements; I++)
       ShaderBufferPtr[I] = TestData[I].Val;
     return;
@@ -658,8 +652,7 @@ std::string TestConfig<DataTypeT>::getHLSLOutputTypeString() const {
 // Reference ShaderOpArith.xml and the 'LongVectorOp' shader source to see how
 // the defines are used in the shader code.
 template <typename DataTypeT>
-std::string
-TestConfig<DataTypeT>::getCompilerOptionsString() const {
+std::string TestConfig<DataTypeT>::getCompilerOptionsString() const {
 
   std::stringstream CompilerOptions("");
   std::string HLSLInputType = getHLSLInputTypeString();
@@ -705,8 +698,8 @@ TestConfig<DataTypeT>::getCompilerOptionsString() const {
 }
 
 template <typename DataTypeT>
-std::vector<DataTypeT> TestConfig<DataTypeT>::getInputValueSet(
-    size_t ValueSetIndex) const {
+std::vector<DataTypeT>
+TestConfig<DataTypeT>::getInputValueSet(size_t ValueSetIndex) const {
 
   // Calling with ValueSetIndex == 2 is only valid for binary ops.
   DXASSERT_NOMSG(!(ValueSetIndex == 2 && !isBinaryOp()));
@@ -929,8 +922,7 @@ void TestConfigAsType<DataTypeT>::computeExpectedValues(
 }
 
 template <typename DataTypeT>
-std::string
-TestConfigAsType<DataTypeT>::getHLSLOutputTypeString() const {
+std::string TestConfigAsType<DataTypeT>::getHLSLOutputTypeString() const {
 
   switch (OpType) {
   case AsTypeOpType_AsFloat16:
@@ -1060,8 +1052,8 @@ TestConfigUnary<DataTypeT>::TestConfigUnary(
 }
 
 template <typename DataTypeT>
-DataTypeT TestConfigUnary<DataTypeT>::computeExpectedValue(
-    const DataTypeT &A) const {
+DataTypeT
+TestConfigUnary<DataTypeT>::computeExpectedValue(const DataTypeT &A) const {
   if (OpType != UnaryOpType_Initialize) {
     LOG_ERROR_FMT_THROW(L"computeExpectedValue(const DataTypeT &A, "
                         L"UnaryOpType OpType) called on an "
@@ -1107,8 +1099,9 @@ TestConfigBinary<DataTypeT>::TestConfigBinary(
 }
 
 template <typename DataTypeT>
-DataTypeT TestConfigBinary<DataTypeT>::computeExpectedValue(
-    const DataTypeT &A, const DataTypeT &B) const {
+DataTypeT
+TestConfigBinary<DataTypeT>::computeExpectedValue(const DataTypeT &A,
+                                                  const DataTypeT &B) const {
   switch (OpType) {
   case BinaryOpType_ScalarAdd:
     return A + B;
