@@ -20,17 +20,9 @@ extern const char *kDxCompilerLib;
 extern const char *kDxilLib;
 
 // Interface for common dll operations
-class DllLoader {
+class IDllLoader {
 public:
-  DllLoader() = default;
-
-  DllLoader(DllLoader &&other) = default;
-
-  virtual ~DllLoader() = default;
-
-  virtual HRESULT Initialize() = 0;
-
-  virtual HRESULT InitializeForDll(LPCSTR dll, LPCSTR entryPoint) = 0;
+  virtual HRESULT OverrideDll(LPCSTR dll, LPCSTR entryPoint) = 0;
 
   template <typename TInterface>
   HRESULT CreateInstance(REFCLSID clsid, TInterface **pResult) {
@@ -63,7 +55,7 @@ public:
 };
 
 // Helper class to dynamically load the dxcompiler or a compatible libraries.
-class SpecificDllLoader : public DllLoader {
+class SpecificDllLoader : public IDllLoader {
 
   HMODULE m_dll;
   DxcCreateInstanceProc m_createFn;
@@ -135,13 +127,13 @@ public:
     return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
   }
 
-  HRESULT InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {
+  HRESULT OverrideDll(LPCSTR dll, LPCSTR entryPoint) {
     return InitializeInternal(dll, entryPoint);
   }
 
   // Also bring visibility into the interface definition of this function
   // which takes 2 args
-  using DllLoader::CreateInstance;
+  using IDllLoader::CreateInstance;
   HRESULT CreateInstance(REFCLSID clsid, REFIID riid, IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
@@ -153,7 +145,7 @@ public:
 
   // Also bring visibility into the interface definition of this function
   // which takes 3 args
-  using DllLoader::CreateInstance2;
+  using IDllLoader::CreateInstance2;
   HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
                           IUnknown **pResult) {
     if (pResult == nullptr)

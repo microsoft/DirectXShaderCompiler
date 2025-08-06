@@ -25,7 +25,7 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2(IMalloc *pMalloc,
 
 HRESULT DxcDllExtValidationLoader::InitializeInternal(LPCSTR fnName) {
   // Load dxcompiler.dll
-  HRESULT Result = DxCompilerSupport.InitializeForDll(kDxCompilerLib, fnName);
+  HRESULT Result = DxCompilerSupport.OverrideDll(kDxCompilerLib, fnName);
   // if dxcompiler.dll fails to load, return the failed HRESULT
   if (DXC_FAILED(Result)) {
     return Result;
@@ -45,7 +45,7 @@ HRESULT DxcDllExtValidationLoader::InitializeInternal(LPCSTR fnName) {
     return E_INVALIDARG;
   }
 
-  return DxilExtValSupport.InitializeForDll(DxilDllPath.c_str(), fnName);
+  return DxilExtValSupport.OverrideDll(DxilDllPath.c_str(), fnName);
 }
 
 bool DxcDllExtValidationLoader::GetCreateInstanceProcs(

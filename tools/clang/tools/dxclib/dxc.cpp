@@ -1327,7 +1327,7 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
 
   // Print validator if exists
   SpecificDllLoader DxilSupport;
-  DxilSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
+  DxilSupport.OverrideDll(kDxilLib, "DxcCreateInstance");
   WriteDXILVersionInfo(OS, DxilSupport);
 }
 

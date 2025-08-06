@@ -2,7 +2,7 @@
 #include <string>
 
 namespace dxc {
-class DxcDllExtValidationLoader : public DllLoader {
+class DxcDllExtValidationLoader : public IDllLoader {
   // DxCompilerSupport manages the
   // lifetime of dxcompiler.dll, while DxilExtValSupport
   // manages the lifetime of dxil.dll
@@ -26,7 +26,7 @@ public:
                           IUnknown **pResult);
 
   HRESULT Initialize() { return InitializeInternal("DxcCreateInstance"); }
-  HRESULT InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {
+  HRESULT OverrideDll(LPCSTR dll, LPCSTR entryPoint) {
     return InitializeInternal(dll);
   }
 
