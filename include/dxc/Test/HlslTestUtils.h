@@ -260,6 +260,7 @@ inline void LogErrorFmt(const wchar_t *fmt, ...) {
   WEX::Logging::Log::Error(buf.data());
 }
 
+[[noreturn]] // This function will throw an exception.
 inline void LogErrorFmtThrow(const char *fileName, int line, const wchar_t *fmt,
                              ...) {
   va_list args;
