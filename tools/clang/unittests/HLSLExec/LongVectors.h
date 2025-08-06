@@ -55,10 +55,10 @@ struct ClearVariantVector {
 
 template <typename DataTypeT>
 void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
-                                        std::vector<DataTypeT> &TestData);
+                                        const std::vector<DataTypeT> &TestData);
 
 template <typename DataTypeT>
-void fillLongVectorDataFromShaderBuffer(MappedData &ShaderBuffer,
+void fillLongVectorDataFromShaderBuffer(const MappedData &ShaderBuffer,
                                         std::vector<DataTypeT> &TestData,
                                         size_t NumElements);
 

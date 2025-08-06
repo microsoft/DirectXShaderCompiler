@@ -2,14 +2,14 @@
 #include "HlslExecTestUtils.h"
 #include <iomanip>
 
-template <typename LongVectorOpTypeT>
-const LongVector::OpTypeMetaData<LongVectorOpTypeT> &
-LongVector::getLongVectorOpType(const OpTypeMetaData<LongVectorOpTypeT> *Values,
+template <typename T>
+const LongVector::OpTypeMetaData<T> &
+LongVector::getLongVectorOpType(const OpTypeMetaData<T> *Values,
                                 const std::wstring &OpTypeString,
                                 std::size_t Length) {
-  for (size_t i = 0; i < Length; i++) {
-    if (Values[i].OpTypeString == OpTypeString)
-      return Values[i];
+  for (size_t I = 0; I < Length; I++) {
+    if (Values[I].OpTypeString == OpTypeString)
+      return Values[I];
   }
 
   LOG_ERROR_FMT_THROW(L"Invalid LongVectorOpType string: %s",
@@ -50,30 +50,28 @@ LongVector::getTrigonometricOpType(const std::wstring &OpTypeString) {
 // to be used when copying HLSL*_t types so we can use the underlying type.
 template <typename DataTypeT>
 void LongVector::fillLongVectorDataFromShaderBuffer(
-    MappedData &ShaderBuffer, std::vector<DataTypeT> &TestData,
+    const MappedData &ShaderBuffer, std::vector<DataTypeT> &TestData,
     size_t NumElements) {
 
   if constexpr (std::is_same_v<DataTypeT, HLSLHalf_t>) {
-    DirectX::PackedVector::HALF *ShaderBufferPtr =
-        reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
-    for (size_t i = 0; i < NumElements; ++i)
+    auto ShaderBufferPtr = static_cast<const DirectX::PackedVector::HALF *>(ShaderBuffer.data());
+    for (size_t I = 0; I < NumElements; I++)
       // HLSLHalf_t has a DirectX::PackedVector::HALF based constructor.
-      TestData.push_back(ShaderBufferPtr[i]);
+      TestData.push_back(ShaderBufferPtr[I]);
     return;
   }
 
   if constexpr (std::is_same_v<DataTypeT, HLSLBool_t>) {
-    int32_t *ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
-    for (size_t i = 0; i < NumElements; ++i)
+    auto ShaderBufferPtr = static_cast<const int32_t *>(ShaderBuffer.data());
+    for (size_t I = 0; I < NumElements; I++)
       // HLSLBool_t has a int32_t based constructor.
-      TestData.push_back(ShaderBufferPtr[i]);
+      TestData.push_back(ShaderBufferPtr[I]);
     return;
   }
 
-  DataTypeT *ShaderBufferPtr =
-      reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
-  for (size_t i = 0; i < NumElements; ++i)
-    TestData.push_back(ShaderBufferPtr[i]);
+  auto ShaderBufferPtr = static_cast<const DataTypeT *>(ShaderBuffer.data());
+  for (size_t I = 0; I < NumElements; I++)
+    TestData.push_back(ShaderBufferPtr[I]);
   return;
 }
 
@@ -152,10 +150,10 @@ bool LongVector::doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
 
   // Stash mismatched indexes for easy failure logging later
   std::vector<size_t> MismatchedIndexes;
-  for (size_t i = 0; i < ActualValues.size(); ++i) {
-    if (!doValuesMatch(ActualValues[i], ExpectedValues[i], Tolerance,
+  for (size_t I = 0; I < ActualValues.size(); I++) {
+    if (!doValuesMatch(ActualValues[I], ExpectedValues[I], Tolerance,
                        ValidationType))
-      MismatchedIndexes.push_back(i);
+      MismatchedIndexes.push_back(I);
   }
 
   if (MismatchedIndexes.empty())
@@ -202,11 +200,11 @@ void LongVector::logLongVector(const std::vector<DataTypeT> &Values,
   Wss << L"LongVector Values: ";
   Wss << L"[";
   const size_t NumElements = Values.size();
-  for (size_t i = 0; i < NumElements; i++) {
-    if (i % LoggingWidth == 0 && i != 0)
+  for (size_t I = 0; I < NumElements; I++) {
+    if (I % LoggingWidth == 0 && I != 0)
       Wss << L"\n ";
-    Wss << Values[i];
-    if (i != NumElements - 1)
+    Wss << Values[I];
+    if (I != NumElements - 1)
       Wss << L", ";
   }
   Wss << L" ]";
@@ -315,7 +313,7 @@ TEST_F(LongVector::OpTest, binaryOpTest) {
 
   using namespace WEX::Common;
 
-  const int TableSize = sizeof(BinaryOpParameters) / sizeof(TableParameter);
+  const size_t TableSize = sizeof(BinaryOpParameters) / sizeof(TableParameter);
   TableParameterHandler Handler(BinaryOpParameters, TableSize);
 
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
@@ -329,7 +327,7 @@ TEST_F(LongVector::OpTest, trigonometricOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  const int TableSize = sizeof(UnaryOpParameters) / sizeof(TableParameter);
+  const size_t TableSize = sizeof(UnaryOpParameters) / sizeof(TableParameter);
   TableParameterHandler Handler(UnaryOpParameters, TableSize);
 
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
@@ -343,7 +341,7 @@ TEST_F(LongVector::OpTest, unaryOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  const int TableSize = sizeof(UnaryOpParameters) / sizeof(TableParameter);
+  const size_t TableSize = sizeof(UnaryOpParameters) / sizeof(TableParameter);
   TableParameterHandler Handler(UnaryOpParameters, TableSize);
 
   std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
@@ -357,7 +355,7 @@ TEST_F(LongVector::OpTest, asTypeOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  const int TableSize = sizeof(AsTypeOpParameters) / sizeof(TableParameter);
+  const size_t TableSize = sizeof(AsTypeOpParameters) / sizeof(TableParameter);
   TableParameterHandler Handler(AsTypeOpParameters, TableSize);
 
   std::wstring DataTypeIn(Handler.GetTableParamByName(L"DataTypeIn")->m_str);
@@ -605,7 +603,7 @@ void LongVector::OpTest::testBaseMethod(
 // the struct.
 template <typename DataTypeT>
 void LongVector::fillShaderBufferFromLongVectorData(
-    std::vector<BYTE> &ShaderBuffer, std::vector<DataTypeT> &TestData) {
+    std::vector<BYTE> &ShaderBuffer, const std::vector<DataTypeT> &TestData) {
 
   // Note: DataSize for HLSLHalf_t and HLSLBool_t may be larger than the
   // underlying type in some cases. Thats fine. Resize just makes sure we have
@@ -615,24 +613,22 @@ void LongVector::fillShaderBufferFromLongVectorData(
   ShaderBuffer.resize(DataSize);
 
   if constexpr (std::is_same_v<DataTypeT, HLSLHalf_t>) {
-    DirectX::PackedVector::HALF *ShaderBufferPtr =
-        reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
-    for (size_t i = 0; i < NumElements; ++i)
-      ShaderBufferPtr[i] = TestData[i].Val;
+    auto ShaderBufferPtr = reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
+    for (size_t I = 0; I < NumElements; I++)
+      ShaderBufferPtr[I] = TestData[I].Val;
     return;
   }
 
   if constexpr (std::is_same_v<DataTypeT, HLSLBool_t>) {
-    int32_t *ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
-    for (size_t i = 0; i < NumElements; ++i)
-      ShaderBufferPtr[i] = TestData[i].Val;
+    auto ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
+    for (size_t I = 0; I < NumElements; I++)
+      ShaderBufferPtr[I] = TestData[I].Val;
     return;
   }
 
-  DataTypeT *ShaderBufferPtr =
-      reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
-  for (size_t i = 0; i < NumElements; ++i)
-    ShaderBufferPtr[i] = TestData[i];
+  auto ShaderBufferPtr = reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
+  for (size_t I = 0; I < NumElements; I++)
+    ShaderBufferPtr[I] = TestData[I];
   return;
 }
 

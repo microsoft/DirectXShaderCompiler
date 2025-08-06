@@ -67,6 +67,7 @@ public:
   }
   ~MappedData() { reset(); }
   void *data() { return m_pData; }
+  const void *data() const { return m_pData; }
   UINT32 size() const { return m_size; }
   void dump() const;
   void reset();
