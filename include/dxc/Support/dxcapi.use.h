@@ -132,14 +132,15 @@ public:
     return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
   }
 
-  HRESULT OverrideDll(LPCSTR dll, LPCSTR entryPoint) {
+  HRESULT OverrideDll(LPCSTR dll, LPCSTR entryPoint) override {
     return InitializeInternal(dll, entryPoint);
   }
 
   // Also bring visibility into the interface definition of this function
   // which takes 2 args
   using DllLoader::CreateInstanceImpl;
-  HRESULT CreateInstanceImpl(REFCLSID clsid, REFIID riid, IUnknown **pResult) {
+  HRESULT CreateInstanceImpl(REFCLSID clsid, REFIID riid,
+                             IUnknown **pResult) override {
     if (pResult == nullptr)
       return E_POINTER;
     if (m_dll == nullptr)
@@ -152,7 +153,7 @@ public:
   // which takes 3 args
   using DllLoader::CreateInstance2Impl;
   HRESULT CreateInstance2Impl(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
-                              IUnknown **pResult) {
+                              IUnknown **pResult) override {
     if (pResult == nullptr)
       return E_POINTER;
     if (m_dll == nullptr)
@@ -163,9 +164,9 @@ public:
     return hr;
   }
 
-  bool HasCreateWithMalloc() const { return m_createFn2 != nullptr; }
+  bool HasCreateWithMalloc() const override { return m_createFn2 != nullptr; }
 
-  bool IsEnabled() const { return m_dll != nullptr; }
+  bool IsEnabled() const override { return m_dll != nullptr; }
 
   bool GetCreateInstanceProcs(DxcCreateInstanceProc *pCreateFn,
                               DxcCreateInstance2Proc *pCreateFn2) const {
@@ -189,7 +190,7 @@ public:
     }
   }
 
-  HMODULE Detach() {
+  HMODULE Detach() override {
     HMODULE hModule = m_dll;
     m_dll = nullptr;
     return hModule;
