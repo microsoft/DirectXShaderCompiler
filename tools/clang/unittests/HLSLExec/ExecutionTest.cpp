@@ -12427,7 +12427,7 @@ TEST_F(ExecutionTest, QuadAnyAll) {
 // input string pointers.
 st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     std::vector<std::wstring> dxcArgs, std::vector<std::string> lookFors,
-    std::vector<std::string> replacements, dxc::SpecificDllLoader &dllSupport) {
+    std::vector<std::string> replacements, dxc::DllLoader &dllSupport) {
 
   auto ShaderInitFn = [dxcArgs, lookFors, replacements, &dllSupport](
                           LPCSTR Name, LPCSTR pText, IDxcBlob **ppShaderBlob,

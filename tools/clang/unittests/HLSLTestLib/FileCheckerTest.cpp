@@ -59,7 +59,7 @@ FileRunCommandPart::FileRunCommandPart(const std::string &command,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunHashTests(dxc::SpecificDllLoader &DllSupport) {
+FileRunCommandPart::RunHashTests(dxc::DllLoader &DllSupport) {
   if (0 == _stricmp(Command.c_str(), "%dxc")) {
     return RunDxcHashTest(DllSupport);
   } else {
@@ -68,7 +68,7 @@ FileRunCommandPart::RunHashTests(dxc::SpecificDllLoader &DllSupport) {
 }
 
 FileRunCommandResult
-FileRunCommandPart::Run(dxc::SpecificDllLoader &DllSupport,
+FileRunCommandPart::Run(dxc::DllLoader &DllSupport,
                         const FileRunCommandResult *Prior,
                         PluginToolsPaths *pPluginToolsPaths /*=nullptr*/,
                         LPCWSTR dumpName /*=nullptr*/) {
@@ -302,7 +302,7 @@ static void AddOutputsToFileMap(IUnknown *pUnkResult, FileMap *pVFS) {
 
 static HRESULT CompileForHash(hlsl::options::DxcOpts &opts,
                               LPCWSTR CommandFileName,
-                              dxc::SpecificDllLoader &DllSupport,
+                              dxc::DllLoader &DllSupport,
                               std::vector<LPCWSTR> &flags,
                               IDxcBlob **ppHashBlob, std::string &output) {
   CComPtr<IDxcLibrary> pLibrary;
@@ -375,7 +375,7 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunDxcHashTest(dxc::SpecificDllLoader &DllSupport) {
+FileRunCommandPart::RunDxcHashTest(dxc::DllLoader &DllSupport) {
   hlsl::options::MainArgs args;
   hlsl::options::DxcOpts opts;
   ReadOptsForDxc(args, opts);
@@ -453,7 +453,7 @@ FileRunCommandPart::RunDxcHashTest(dxc::SpecificDllLoader &DllSupport) {
   return FileRunCommandResult::Success();
 }
 
-static FileRunCommandResult CheckDxilVer(dxc::SpecificDllLoader &DllSupport,
+static FileRunCommandResult CheckDxilVer(dxc::DllLoader &DllSupport,
                                          unsigned RequiredDxilMajor,
                                          unsigned RequiredDxilMinor,
                                          bool bCheckValidator = true) {
@@ -487,7 +487,7 @@ static FileRunCommandResult CheckDxilVer(dxc::SpecificDllLoader &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunDxc(dxc::SpecificDllLoader &DllSupport,
+FileRunCommandPart::RunDxc(dxc::DllLoader &DllSupport,
                            const FileRunCommandResult *Prior) {
   // Support piping stdin from prior if needed.
   UNREFERENCED_PARAMETER(Prior);
@@ -597,7 +597,7 @@ FileRunCommandPart::RunDxc(dxc::SpecificDllLoader &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunDxv(dxc::SpecificDllLoader &DllSupport,
+FileRunCommandPart::RunDxv(dxc::DllLoader &DllSupport,
                            const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
   const char *inputPos = strstr(args.c_str(), "%s");
@@ -650,7 +650,7 @@ FileRunCommandPart::RunDxv(dxc::SpecificDllLoader &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunOpt(dxc::SpecificDllLoader &DllSupport,
+FileRunCommandPart::RunOpt(dxc::DllLoader &DllSupport,
                            const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
   const char *inputPos = strstr(args.c_str(), "%s");
@@ -701,7 +701,7 @@ FileRunCommandPart::RunOpt(dxc::SpecificDllLoader &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunListParts(dxc::SpecificDllLoader &DllSupport,
+FileRunCommandPart::RunListParts(dxc::DllLoader &DllSupport,
                                  const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
   const char *inputPos = strstr(args.c_str(), "%s");
@@ -769,7 +769,7 @@ FileRunCommandPart::RunListParts(dxc::SpecificDllLoader &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunD3DReflect(dxc::SpecificDllLoader &DllSupport,
+FileRunCommandPart::RunD3DReflect(dxc::DllLoader &DllSupport,
                                   const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
   if (args != "%s")
@@ -865,7 +865,7 @@ FileRunCommandPart::RunD3DReflect(dxc::SpecificDllLoader &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunDxr(dxc::SpecificDllLoader &DllSupport,
+FileRunCommandPart::RunDxr(dxc::DllLoader &DllSupport,
                            const FileRunCommandResult *Prior) {
   // Support piping stdin from prior if needed.
   UNREFERENCED_PARAMETER(Prior);
@@ -918,7 +918,7 @@ FileRunCommandPart::RunDxr(dxc::SpecificDllLoader &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunLink(dxc::SpecificDllLoader &DllSupport,
+FileRunCommandPart::RunLink(dxc::DllLoader &DllSupport,
                             const FileRunCommandResult *Prior) {
   hlsl::options::MainArgs args;
   hlsl::options::DxcOpts opts;
@@ -1153,7 +1153,7 @@ FileRunCommandPart::RunXFail(const FileRunCommandResult *Prior) {
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunDxilVer(dxc::SpecificDllLoader &DllSupport,
+FileRunCommandPart::RunDxilVer(dxc::DllLoader &DllSupport,
                                const FileRunCommandResult *Prior) {
   Arguments = strtrim(Arguments);
   if (Arguments.size() != 3 || !std::isdigit(Arguments[0]) ||

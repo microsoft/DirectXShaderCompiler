@@ -18,14 +18,12 @@ class raw_ostream;
 }
 
 namespace dxc {
-class SpecificDllLoader;
+class DllLoader;
 
 // Writes compiler version info to stream
 void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS, const char *ExternalLib,
-                                const char *ExternalFn,
-                                dxc::SpecificDllLoader &DxcSupport);
-void WriteDXILVersionInfo(llvm::raw_ostream &OS,
-                          dxc::SpecificDllLoader &DxilSupport);
+                                const char *ExternalFn, DllLoader &DxcSupport);
+void WriteDXILVersionInfo(llvm::raw_ostream &OS, DllLoader &DxilSupport);
 
 #ifdef _WIN32
 int main(int argc, const wchar_t **argv_);

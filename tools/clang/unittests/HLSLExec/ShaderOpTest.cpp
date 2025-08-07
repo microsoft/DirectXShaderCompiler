@@ -25,7 +25,7 @@
 #include "HlslTestUtils.h"          // LogCommentFmt
 #include "dxc/DXIL/DxilConstants.h" // ComponentType
 #include "dxc/Support/Global.h"     // OutputDebugBytes
-#include "dxc/Support/dxcapi.use.h" // SpecificDllLoader
+#include "dxc/Support/dxcapi.use.h" // *DllLoader
 #include "dxc/dxcapi.h"             // IDxcCompiler
 
 #include <DirectXMath.h>

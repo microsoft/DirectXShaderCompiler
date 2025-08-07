@@ -20,42 +20,47 @@ extern const char *kDxCompilerLib;
 extern const char *kDxilLib;
 
 // Interface for common dll operations
-class IDllLoader {
+class DllLoader {
 public:
   virtual HRESULT OverrideDll(LPCSTR dll, LPCSTR entryPoint) = 0;
 
+protected:
+  virtual HRESULT CreateInstanceImpl(REFCLSID clsid, REFIID riid,
+                                     IUnknown **pResult) = 0;
+  virtual HRESULT CreateInstance2Impl(IMalloc *pMalloc, REFCLSID clsid,
+                                      REFIID riid, IUnknown **pResult) = 0;
+
+public:
   template <typename TInterface>
   HRESULT CreateInstance(REFCLSID clsid, TInterface **pResult) {
-    return CreateInstance(clsid, __uuidof(TInterface), (IUnknown **)pResult);
+    return CreateInstanceImpl(clsid, __uuidof(TInterface),
+                              (IUnknown **)pResult);
   }
-
-  virtual HRESULT CreateInstance(REFCLSID clsid, REFIID riid,
-                                 IUnknown **pResult) = 0;
+  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, IUnknown **pResult) {
+    return CreateInstanceImpl(clsid, riid, (IUnknown **)pResult);
+  }
 
   template <typename TInterface>
   HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid,
                           TInterface **pResult) {
-    return CreateInstance2(pMalloc, clsid, __uuidof(TInterface),
-                           (IUnknown **)pResult);
+    return CreateInstance2Impl(pMalloc, clsid, __uuidof(TInterface),
+                               (IUnknown **)pResult);
   }
-
-  virtual HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
-                                  IUnknown **pResult) = 0;
+  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
+                          IUnknown **pResult) {
+    return CreateInstance2Impl(pMalloc, clsid, riid, (IUnknown **)pResult);
+  }
 
   virtual bool HasCreateWithMalloc() const = 0;
 
   virtual bool IsEnabled() const = 0;
-
-  virtual bool
-  GetCreateInstanceProcs(DxcCreateInstanceProc *pCreateFn,
-                         DxcCreateInstance2Proc *pCreateFn2) const = 0;
 
   virtual void Cleanup() = 0;
   virtual HMODULE Detach() = 0;
 };
 
 // Helper class to dynamically load the dxcompiler or a compatible libraries.
-class SpecificDllLoader : public IDllLoader {
+class SpecificDllLoader : public DllLoader {
 
   HMODULE m_dll;
   DxcCreateInstanceProc m_createFn;
@@ -133,8 +138,8 @@ public:
 
   // Also bring visibility into the interface definition of this function
   // which takes 2 args
-  using IDllLoader::CreateInstance;
-  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, IUnknown **pResult) {
+  using DllLoader::CreateInstanceImpl;
+  HRESULT CreateInstanceImpl(REFCLSID clsid, REFIID riid, IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
     if (m_dll == nullptr)
@@ -145,9 +150,9 @@ public:
 
   // Also bring visibility into the interface definition of this function
   // which takes 3 args
-  using IDllLoader::CreateInstance2;
-  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
-                          IUnknown **pResult) {
+  using DllLoader::CreateInstance2Impl;
+  HRESULT CreateInstance2Impl(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
+                              IUnknown **pResult) {
     if (pResult == nullptr)
       return E_POINTER;
     if (m_dll == nullptr)
@@ -171,7 +176,7 @@ public:
     return true;
   }
 
-  void Cleanup() {
+  void Cleanup() override {
     if (m_dll != nullptr) {
       m_createFn = nullptr;
       m_createFn2 = nullptr;
@@ -201,8 +206,8 @@ inline DxcDefine GetDefine(LPCWSTR name, LPCWSTR value) {
 // Checks an HRESULT and formats an error message with the appended data.
 void IFT_Data(HRESULT hr, LPCWSTR data);
 
-void EnsureEnabled(SpecificDllLoader &dxcSupport);
-void ReadFileIntoBlob(SpecificDllLoader &dxcSupport, LPCWSTR pFileName,
+void EnsureEnabled(DllLoader &dxcSupport);
+void ReadFileIntoBlob(DllLoader &dxcSupport, LPCWSTR pFileName,
                       IDxcBlobEncoding **ppBlobEncoding);
 void WriteBlobToConsole(IDxcBlob *pBlob, DWORD streamType = STD_OUTPUT_HANDLE);
 void WriteBlobToFile(IDxcBlob *pBlob, LPCWSTR pFileName, UINT32 textCodePage);

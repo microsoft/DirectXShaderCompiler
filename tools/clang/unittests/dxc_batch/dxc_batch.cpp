@@ -913,8 +913,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     {
       std::string dllErrorString;
       llvm::raw_string_ostream dllErrorStream(dllErrorString);
-      int dllResult =
-          SetupSpecificDllLoader(dxcOpts, dxcSupport, dllErrorStream);
+      int dllResult = SetupDllLoader(dxcOpts, dxcSupport, dllErrorStream);
       dllErrorStream.flush();
       if (dllErrorString.size()) {
         fprintf(stderr, "%s", dllErrorString.data());

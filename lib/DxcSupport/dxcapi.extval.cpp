@@ -6,17 +6,19 @@
 
 namespace dxc {
 
-HRESULT DxcDllExtValidationLoader::CreateInstance(REFCLSID clsid, REFIID riid,
-                                                  IUnknown **pResult) {
+HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
+                                                      REFIID riid,
+                                                      IUnknown **pResult) {
   if (DxilExtValSupport.IsEnabled() && clsid == CLSID_DxcValidator)
     return DxilExtValSupport.CreateInstance(clsid, riid, pResult);
 
   return DxCompilerSupport.CreateInstance(clsid, riid, pResult);
 }
 
-HRESULT DxcDllExtValidationLoader::CreateInstance2(IMalloc *pMalloc,
-                                                   REFCLSID clsid, REFIID riid,
-                                                   IUnknown **pResult) {
+HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
+                                                       REFCLSID clsid,
+                                                       REFIID riid,
+                                                       IUnknown **pResult) {
   if (DxilExtValSupport.IsEnabled() && clsid == CLSID_DxcValidator)
     return DxilExtValSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
 
@@ -47,15 +49,4 @@ HRESULT DxcDllExtValidationLoader::InitializeInternal(LPCSTR fnName) {
 
   return DxilExtValSupport.OverrideDll(DxilDllPath.c_str(), fnName);
 }
-
-bool DxcDllExtValidationLoader::GetCreateInstanceProcs(
-    DxcCreateInstanceProc *pCreateFn,
-    DxcCreateInstance2Proc *pCreateFn2) const {
-  if (pCreateFn == nullptr || pCreateFn2 == nullptr || m_createFn == nullptr)
-    return false;
-  *pCreateFn = m_createFn;
-  *pCreateFn2 = m_createFn2;
-  return true;
-}
-
 } // namespace dxc

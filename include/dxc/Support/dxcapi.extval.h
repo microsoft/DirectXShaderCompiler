@@ -1,16 +1,14 @@
 #include "dxc/Support/dxcapi.use.h"
+#include <cassert>
 #include <string>
 
 namespace dxc {
-class DxcDllExtValidationLoader : public IDllLoader {
+class DxcDllExtValidationLoader : public DllLoader {
   // DxCompilerSupport manages the
   // lifetime of dxcompiler.dll, while DxilExtValSupport
   // manages the lifetime of dxil.dll
   dxc::SpecificDllLoader DxCompilerSupport;
   dxc::SpecificDllLoader DxilExtValSupport;
-
-  DxcCreateInstanceProc m_createFn;
-  DxcCreateInstance2Proc m_createFn2;
 
   std::string DxilDllPath;
   HRESULT InitializeInternal(LPCSTR fnName);
@@ -21,23 +19,29 @@ public:
     return !DxilDllPath.empty() && !DxilExtValSupport.IsEnabled();
   }
 
-  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, IUnknown **pResult);
-  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
-                          IUnknown **pResult);
+  HRESULT CreateInstanceImpl(REFCLSID clsid, REFIID riid, IUnknown **pResult);
+  HRESULT CreateInstance2Impl(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
+                              IUnknown **pResult);
 
   HRESULT Initialize() { return InitializeInternal("DxcCreateInstance"); }
+
+  /* Note, OverrideDll takes this dll argument and ignores it
+  to satisfy the IDllLoader interface. The parameter is ignored
+  because the relevant dlls are specific and known: dxcompiler.dll
+  and dxil.dll. This class is not designed to handle any other dlls */
   HRESULT OverrideDll(LPCSTR dll, LPCSTR entryPoint) {
-    return InitializeInternal(dll);
+    return InitializeInternal(entryPoint);
   }
 
-  bool HasCreateWithMalloc() const { return m_createFn2 != nullptr; }
+  bool HasCreateWithMalloc() const {
+    assert(DxCompilerSupport.HasCreateWithMalloc() &&
+           DxilExtValSupport.HasCreateWithMalloc());
+    return true;
+  }
 
   bool IsEnabled() const { return DxCompilerSupport.IsEnabled(); }
 
-  bool GetCreateInstanceProcs(DxcCreateInstanceProc *pCreateFn,
-                              DxcCreateInstance2Proc *pCreateFn2) const;
-
-  void Cleanup() {
+  void Cleanup() override {
     DxilExtValSupport.Cleanup();
     DxCompilerSupport.Cleanup();
   }

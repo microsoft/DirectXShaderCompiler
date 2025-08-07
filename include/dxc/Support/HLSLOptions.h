@@ -37,6 +37,7 @@ class raw_ostream;
 
 namespace dxc {
 class SpecificDllLoader;
+class DllLoader;
 }
 
 namespace hlsl {
@@ -304,10 +305,9 @@ int ReadDxcOpts(const llvm::opt::OptTable *optionTable, unsigned flagsToInclude,
                 const MainArgs &argStrings, DxcOpts &opts,
                 llvm::raw_ostream &errors);
 
-/// Sets up the specified SpecificDllLoader instance as per the given options.
-int SetupSpecificDllLoader(const DxcOpts &opts,
-                           dxc::SpecificDllLoader &dxcSupport,
-                           llvm::raw_ostream &errors);
+/// Sets up the specified DllLoader instance as per the given options.
+int SetupDllLoader(const DxcOpts &opts, dxc::DllLoader &dxcSupport,
+                   llvm::raw_ostream &errors);
 
 void CopyArgsToWStrings(const llvm::opt::InputArgList &inArgs,
                         unsigned flagsToInclude,

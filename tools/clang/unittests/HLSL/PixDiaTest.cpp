@@ -85,7 +85,7 @@ const char *DataKindText[] = {
     "FileStatic", "Global", "Member",      "StaticMember", "Constant",
 };
 
-static void CompileAndGetDebugPart(dxc::SpecificDllLoader &dllSupport,
+static void CompileAndGetDebugPart(dxc::DllLoader &dllSupport,
                                    const char *source, const wchar_t *profile,
                                    IDxcBlob **ppDebugPart) {
   CComPtr<IDxcBlob> pContainer;
@@ -641,14 +641,12 @@ public:
   }
 
   void CompileAndRunAnnotationAndGetDebugPart(
-      dxc::SpecificDllLoader &dllSupport, const char *source,
-      const wchar_t *profile, IDxcIncludeHandler *includer,
-      IDxcBlob **ppDebugPart,
+      dxc::DllLoader &dllSupport, const char *source, const wchar_t *profile,
+      IDxcIncludeHandler *includer, IDxcBlob **ppDebugPart,
       std::vector<const wchar_t *> extraArgs = {L"-Od"});
   void CompileAndRunAnnotationAndLoadDiaSource(
-      dxc::SpecificDllLoader &dllSupport, const char *source,
-      const wchar_t *profile, IDxcIncludeHandler *includer,
-      IDiaDataSource **ppDataSource,
+      dxc::DllLoader &dllSupport, const char *source, const wchar_t *profile,
+      IDxcIncludeHandler *includer, IDiaDataSource **ppDataSource,
       std::vector<const wchar_t *> extraArgs = {L"-Od"});
 
   struct VariableComponentInfo {
@@ -781,9 +779,9 @@ bool PixDiaTest::InitSupport() {
 }
 
 void PixDiaTest::CompileAndRunAnnotationAndGetDebugPart(
-    dxc::SpecificDllLoader &dllSupport, const char *source,
-    const wchar_t *profile, IDxcIncludeHandler *includer,
-    IDxcBlob **ppDebugPart, std::vector<const wchar_t *> extraArgs) {
+    dxc::DllLoader &dllSupport, const char *source, const wchar_t *profile,
+    IDxcIncludeHandler *includer, IDxcBlob **ppDebugPart,
+    std::vector<const wchar_t *> extraArgs) {
 
   CComPtr<IDxcBlob> pContainer;
   std::vector<LPCWSTR> args;
@@ -1022,7 +1020,7 @@ TEST_F(PixDiaTest, DiaLoadBadBitcodeThenFail) {
   VERIFY_FAILED(pDiaSource->loadDataFromIStream(pStream));
 }
 
-static void CompileTestAndLoadDiaSource(dxc::SpecificDllLoader &dllSupport,
+static void CompileTestAndLoadDiaSource(dxc::DllLoader &dllSupport,
                                         const char *source,
                                         const wchar_t *profile,
                                         IDiaDataSource **ppDataSource) {
@@ -1042,7 +1040,7 @@ static void CompileTestAndLoadDiaSource(dxc::SpecificDllLoader &dllSupport,
   }
 }
 
-static void CompileTestAndLoadDia(dxc::SpecificDllLoader &dllSupport,
+static void CompileTestAndLoadDia(dxc::DllLoader &dllSupport,
                                   IDiaDataSource **ppDataSource) {
   CompileTestAndLoadDiaSource(dllSupport, "[numthreads(8,8,1)] void main() { }",
                               L"cs_6_0", ppDataSource);
@@ -1204,7 +1202,7 @@ TEST_F(PixDiaTest, DiaCompileArgs) {
     args.push_back(L"/D");
     args.push_back(DefineList[i]);
   }
-  auto CompileAndGetDebugPart = [&args](dxc::SpecificDllLoader &dllSupport,
+  auto CompileAndGetDebugPart = [&args](dxc::DllLoader &dllSupport,
                                         const char *source,
                                         const wchar_t *profile,
                                         IDxcBlob **ppDebugPart) {
@@ -1464,7 +1462,7 @@ TEST_F(PixDiaTest, PixDebugCompileInfo) {
     args.push_back(DefineList[i]);
   }
 
-  auto CompileAndGetDebugPart = [&args](dxc::SpecificDllLoader &dllSupport,
+  auto CompileAndGetDebugPart = [&args](dxc::DllLoader &dllSupport,
                                         const char *source,
                                         const wchar_t *profile,
                                         IDxcBlob **ppDebugPart) {
@@ -1532,9 +1530,9 @@ TEST_F(PixDiaTest, PixDebugCompileInfo) {
 }
 
 void PixDiaTest::CompileAndRunAnnotationAndLoadDiaSource(
-    dxc::SpecificDllLoader &dllSupport, const char *source,
-    const wchar_t *profile, IDxcIncludeHandler *includer,
-    IDiaDataSource **ppDataSource, std::vector<const wchar_t *> extraArgs) {
+    dxc::DllLoader &dllSupport, const char *source, const wchar_t *profile,
+    IDxcIncludeHandler *includer, IDiaDataSource **ppDataSource,
+    std::vector<const wchar_t *> extraArgs) {
   CComPtr<IDxcBlob> pDebugContent;
   CComPtr<IStream> pStream;
   CComPtr<IDiaDataSource> pDiaSource;

@@ -1234,8 +1234,7 @@ namespace dxc {
 
 // Writes compiler version info to stream
 void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS, const char *ExternalLib,
-                                const char *ExternalFn,
-                                SpecificDllLoader &DxcSupport) {
+                                const char *ExternalFn, DllLoader &DxcSupport) {
   if (DxcSupport.IsEnabled()) {
     UINT32 compilerMajor = 1;
     UINT32 compilerMinor = 0;
@@ -1294,8 +1293,7 @@ void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS, const char *ExternalLib,
 }
 
 // Writes compiler version info to stream
-void WriteDXILVersionInfo(llvm::raw_ostream &OS,
-                          SpecificDllLoader &DxilSupport) {
+void WriteDXILVersionInfo(llvm::raw_ostream &OS, DllLoader &DxilSupport) {
   if (DxilSupport.IsEnabled()) {
     CComPtr<IDxcVersionInfo> VerInfo;
     if (SUCCEEDED(DxilSupport.CreateInstance(CLSID_DxcValidator, &VerInfo))) {
@@ -1453,8 +1451,7 @@ int dxc::main(int argc, const char **argv_) {
     {
       std::string dllErrorString;
       llvm::raw_string_ostream dllErrorStream(dllErrorString);
-      int dllResult =
-          SetupSpecificDllLoader(dxcOpts, dxcSupport, dllErrorStream);
+      int dllResult = SetupDllLoader(dxcOpts, dxcSupport, dllErrorStream);
       dllErrorStream.flush();
       if (dllErrorString.size()) {
         fprintf(stderr, "%s\n", dllErrorString.data());

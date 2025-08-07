@@ -49,11 +49,11 @@ void printErrors(CComPtr<IDxcOperationResult> pResult) {
   // IFTMSG(status, msg);
 }
 
-void CompileToDxilFromFile(SpecificDllLoader &dxcSupport,
-                           LPCWSTR pShaderTextFilePath, LPCWSTR pEntryPoint,
-                           LPCWSTR pTargetProfile, LPCWSTR *pArgs,
-                           UINT32 argCount, const DxcDefine *pDefines,
-                           UINT32 defineCount, IDxcBlob **ppBlob) {
+void CompileToDxilFromFile(DllLoader &dxcSupport, LPCWSTR pShaderTextFilePath,
+                           LPCWSTR pEntryPoint, LPCWSTR pTargetProfile,
+                           LPCWSTR *pArgs, UINT32 argCount,
+                           const DxcDefine *pDefines, UINT32 defineCount,
+                           IDxcBlob **ppBlob) {
   CComPtr<IDxcLibrary> pLibrary;
   IFT(dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
 
@@ -83,8 +83,8 @@ void CompileToDxilFromFile(SpecificDllLoader &dxcSupport,
   }
 }
 
-bool DxrCompile(SpecificDllLoader &dxrFallbackSupport,
-                const std::string &entryName, std::vector<IDxcBlob *> &libs,
+bool DxrCompile(DllLoader &dxrFallbackSupport, const std::string &entryName,
+                std::vector<IDxcBlob *> &libs,
                 const std::vector<std::string> &shaderNames,
                 std::vector<DxcShaderInfo> &shaderIds, bool findCalledShaders,
                 IDxcBlob **ppResultBlob) {

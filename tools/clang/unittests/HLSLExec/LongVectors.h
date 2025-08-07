@@ -59,7 +59,7 @@ public:
       size_t VectorSizeToTest);
 
 private:
-  dxc::SpecificDllLoader SpecificDllLoader;
+  dxc::SpecificDllLoader DxilDllLoader;
   bool Initialized = false;
 };
 

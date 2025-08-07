@@ -173,7 +173,7 @@ public:
   struct FileWithBlob {
     CComPtr<IDxcBlobEncoding> BlobEncoding;
 
-    FileWithBlob(dxc::SpecificDllLoader &support, LPCWSTR path) {
+    FileWithBlob(dxc::DllLoader &support, LPCWSTR path) {
       CComPtr<IDxcLibrary> library;
       IFT(support.CreateInstance(CLSID_DxcLibrary, &library));
       UINT32 codePage = CP_UTF8;

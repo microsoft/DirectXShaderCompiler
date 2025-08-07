@@ -76,8 +76,7 @@ int main(int argc, const char **argv) {
     {
       std::string dllErrorString;
       llvm::raw_string_ostream dllErrorStream(dllErrorString);
-      int dllResult =
-          SetupSpecificDllLoader(dxcOpts, dxcSupport, dllErrorStream);
+      int dllResult = SetupDllLoader(dxcOpts, dxcSupport, dllErrorStream);
       dllErrorStream.flush();
       if (dllErrorString.size()) {
         fprintf(stderr, "%s\n", dllErrorString.data());
@@ -93,7 +92,7 @@ int main(int argc, const char **argv) {
       llvm::raw_string_ostream helpStream(helpString);
       std::string version;
       llvm::raw_string_ostream versionStream(version);
-      WriteDxCompilerVersionInfo(
+      dxc::WriteDxCompilerVersionInfo(
           versionStream,
           dxcOpts.ExternalLib.empty() ? (LPCSTR) nullptr
                                       : dxcOpts.ExternalLib.data(),
@@ -112,7 +111,7 @@ int main(int argc, const char **argv) {
     if (dxcOpts.ShowVersion) {
       std::string version;
       llvm::raw_string_ostream versionStream(version);
-      WriteDxCompilerVersionInfo(
+      dxc::WriteDxCompilerVersionInfo(
           versionStream,
           dxcOpts.ExternalLib.empty() ? (LPCSTR) nullptr
                                       : dxcOpts.ExternalLib.data(),

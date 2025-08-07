@@ -109,11 +109,11 @@ public:
   FileRunCommandPart(const FileRunCommandPart &) = default;
   FileRunCommandPart(FileRunCommandPart &&) = default;
 
-  FileRunCommandResult Run(dxc::SpecificDllLoader &DllSupport,
+  FileRunCommandResult Run(dxc::DllLoader &DllSupport,
                            const FileRunCommandResult *Prior,
                            PluginToolsPaths *pPluginToolsPaths = nullptr,
                            LPCWSTR dumpName = nullptr);
-  FileRunCommandResult RunHashTests(dxc::SpecificDllLoader &DllSupport);
+  FileRunCommandResult RunHashTests(dxc::DllLoader &DllSupport);
 
   FileRunCommandResult ReadOptsForDxc(hlsl::options::MainArgs &argStrings,
                                       hlsl::options::DxcOpts &Opts,
@@ -127,30 +127,30 @@ public:
 private:
   FileRunCommandResult RunFileChecker(const FileRunCommandResult *Prior,
                                       LPCWSTR dumpName = nullptr);
-  FileRunCommandResult RunDxc(dxc::SpecificDllLoader &DllSupport,
+  FileRunCommandResult RunDxc(dxc::DllLoader &DllSupport,
                               const FileRunCommandResult *Prior);
-  FileRunCommandResult RunDxv(dxc::SpecificDllLoader &DllSupport,
+  FileRunCommandResult RunDxv(dxc::DllLoader &DllSupport,
                               const FileRunCommandResult *Prior);
-  FileRunCommandResult RunOpt(dxc::SpecificDllLoader &DllSupport,
+  FileRunCommandResult RunOpt(dxc::DllLoader &DllSupport,
                               const FileRunCommandResult *Prior);
-  FileRunCommandResult RunListParts(dxc::SpecificDllLoader &DllSupport,
+  FileRunCommandResult RunListParts(dxc::DllLoader &DllSupport,
                                     const FileRunCommandResult *Prior);
-  FileRunCommandResult RunD3DReflect(dxc::SpecificDllLoader &DllSupport,
+  FileRunCommandResult RunD3DReflect(dxc::DllLoader &DllSupport,
                                      const FileRunCommandResult *Prior);
-  FileRunCommandResult RunDxr(dxc::SpecificDllLoader &DllSupport,
+  FileRunCommandResult RunDxr(dxc::DllLoader &DllSupport,
                               const FileRunCommandResult *Prior);
-  FileRunCommandResult RunLink(dxc::SpecificDllLoader &DllSupport,
+  FileRunCommandResult RunLink(dxc::DllLoader &DllSupport,
                                const FileRunCommandResult *Prior);
   FileRunCommandResult RunTee(const FileRunCommandResult *Prior);
   FileRunCommandResult RunXFail(const FileRunCommandResult *Prior);
-  FileRunCommandResult RunDxilVer(dxc::SpecificDllLoader &DllSupport,
+  FileRunCommandResult RunDxilVer(dxc::DllLoader &DllSupport,
                                   const FileRunCommandResult *Prior);
-  FileRunCommandResult RunDxcHashTest(dxc::SpecificDllLoader &DllSupport);
+  FileRunCommandResult RunDxcHashTest(dxc::DllLoader &DllSupport);
   FileRunCommandResult RunFromPath(const std::string &path,
                                    const FileRunCommandResult *Prior);
   FileRunCommandResult RunFileCompareText(const FileRunCommandResult *Prior);
 #ifdef _WIN32
-  FileRunCommandResult RunFxc(dxc::SpecificDllLoader &DllSupport,
+  FileRunCommandResult RunFxc(dxc::DllLoader &DllSupport,
                               const FileRunCommandResult *Prior);
 #endif
 
@@ -180,7 +180,7 @@ public:
                       LPCWSTR dumpName = nullptr);
 };
 
-void AssembleToContainer(dxc::SpecificDllLoader &dllSupport, IDxcBlob *pModule,
+void AssembleToContainer(dxc::DllLoader &dllSupport, IDxcBlob *pModule,
                          IDxcBlob **pContainer);
 std::string BlobToUtf8(IDxcBlob *pBlob);
 std::wstring BlobToWide(IDxcBlob *pBlob);
@@ -195,36 +195,33 @@ bool CheckMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
                size_t errorMsgCount, bool bRegex);
 bool CheckNotMsgs(const LPCSTR pText, size_t TextCount,
                   const LPCSTR *pErrorMsgs, size_t errorMsgCount, bool bRegex);
-void GetDxilPart(dxc::SpecificDllLoader &dllSupport, IDxcBlob *pProgram,
+void GetDxilPart(dxc::DllLoader &dllSupport, IDxcBlob *pProgram,
                  IDxcBlob **pDxilPart);
-std::string DisassembleProgram(dxc::SpecificDllLoader &dllSupport,
-                               IDxcBlob *pProgram);
+std::string DisassembleProgram(dxc::DllLoader &dllSupport, IDxcBlob *pProgram);
 void SplitPassList(LPWSTR pPassesBuffer, std::vector<LPCWSTR> &passes);
-void MultiByteStringToBlob(dxc::SpecificDllLoader &dllSupport,
-                           const std::string &val, UINT32 codePoint,
-                           IDxcBlob **ppBlob);
-void MultiByteStringToBlob(dxc::SpecificDllLoader &dllSupport,
-                           const std::string &val, UINT32 codePoint,
-                           IDxcBlobEncoding **ppBlob);
-void Utf8ToBlob(dxc::SpecificDllLoader &dllSupport, const std::string &val,
+void MultiByteStringToBlob(dxc::DllLoader &dllSupport, const std::string &val,
+                           UINT32 codePoint, IDxcBlob **ppBlob);
+void MultiByteStringToBlob(dxc::DllLoader &dllSupport, const std::string &val,
+                           UINT32 codePoint, IDxcBlobEncoding **ppBlob);
+void Utf8ToBlob(dxc::DllLoader &dllSupport, const std::string &val,
                 IDxcBlob **ppBlob);
-void Utf8ToBlob(dxc::SpecificDllLoader &dllSupport, const std::string &val,
+void Utf8ToBlob(dxc::DllLoader &dllSupport, const std::string &val,
                 IDxcBlobEncoding **ppBlob);
-void Utf8ToBlob(dxc::SpecificDllLoader &dllSupport, const char *pVal,
+void Utf8ToBlob(dxc::DllLoader &dllSupport, const char *pVal,
                 IDxcBlobEncoding **ppBlob);
-void WideToBlob(dxc::SpecificDllLoader &dllSupport, const std::wstring &val,
+void WideToBlob(dxc::DllLoader &dllSupport, const std::wstring &val,
                 IDxcBlob **ppBlob);
-void WideToBlob(dxc::SpecificDllLoader &dllSupport, const std::wstring &val,
+void WideToBlob(dxc::DllLoader &dllSupport, const std::wstring &val,
                 IDxcBlobEncoding **ppBlob);
-void VerifyCompileOK(dxc::SpecificDllLoader &dllSupport, LPCSTR pText,
+void VerifyCompileOK(dxc::DllLoader &dllSupport, LPCSTR pText,
                      LPCWSTR pTargetProfile, LPCWSTR pArgs,
                      IDxcBlob **ppResult);
-void VerifyCompileOK(dxc::SpecificDllLoader &dllSupport, LPCSTR pText,
+void VerifyCompileOK(dxc::DllLoader &dllSupport, LPCSTR pText,
                      LPCWSTR pTargetProfile, std::vector<LPCWSTR> &args,
                      IDxcBlob **ppResult);
 
-HRESULT GetVersion(dxc::SpecificDllLoader &DllSupport, REFCLSID clsid,
-                   unsigned &Major, unsigned &Minor);
+HRESULT GetVersion(dxc::DllLoader &DllSupport, REFCLSID clsid, unsigned &Major,
+                   unsigned &Minor);
 bool ParseTargetProfile(llvm::StringRef targetProfile,
                         llvm::StringRef &outStage, unsigned &outMajor,
                         unsigned &outMinor);
@@ -240,7 +237,7 @@ public:
 
   VersionSupportInfo();
   // Initialize version info structure.  TODO: add device shader model support
-  void Initialize(dxc::SpecificDllLoader &dllSupport);
+  void Initialize(dxc::DllLoader &dllSupport);
   // Return true if IR sensitive test should be skipped, and log comment
   bool SkipIRSensitiveTest();
   // Return true if test requiring DXIL of given version should be skipped, and

@@ -1264,8 +1264,8 @@ TEST_F(CompilerTest, CompileThenTestReflectionThreadSizeMS) {
 }
 
 static void VerifyPdbUtil(
-    dxc::SpecificDllLoader &dllSupport, IDxcBlob *pBlob,
-    IDxcPdbUtils *pPdbUtils, const WCHAR *pMainFileName,
+    dxc::DllLoader &dllSupport, IDxcBlob *pBlob, IDxcPdbUtils *pPdbUtils,
+    const WCHAR *pMainFileName,
     llvm::ArrayRef<std::pair<const WCHAR *, const WCHAR *>> ExpectedArgs,
     llvm::ArrayRef<std::pair<const WCHAR *, const WCHAR *>> ExpectedFlags,
     llvm::ArrayRef<const WCHAR *> ExpectedDefines, IDxcCompiler *pCompiler,
