@@ -15,8 +15,6 @@ getLongVectorOpType(const OpTypeMetaData<T> (&Values)[Length],
 
   LOG_ERROR_FMT_THROW(L"Invalid LongVectorOpType string: %s",
                       OpTypeString.c_str());
-
-  throw std::runtime_error("Invalid LongVectorOpType string");
 }
 
 const OpTypeMetaData<BinaryOpType> &
@@ -645,7 +643,6 @@ std::string TestConfig<DataTypeT>::getHLSLOutputTypeString() const {
   LOG_ERROR_FMT_THROW(
       L"getHLSLOutputTypeString() called with an unsupported op type: %ls",
       OpTypeName.c_str());
-  return std::string("UnknownType");
 }
 
 // Returns the compiler options string to be used for the shader compilation.
@@ -738,7 +735,6 @@ bool TestConfig<DataTypeT>::verifyOutput(
   LOG_ERROR_FMT_THROW(
       L"verifyOutput() called with an unsupported expected vector type: %ls.",
       typeid(ExpectedVector).name());
-  return false;
 }
 
 // Private version of verifyOutput. Expected to be called internally when we've
@@ -771,7 +767,6 @@ bool TestConfig<DataTypeT>::verifyOutput(
   LOG_ERROR_FMT_THROW(L"PRIVATE verifyOutput() called with an unsupported "
                       L"expected vector type: %ls.",
                       typeid(ExpectedVector).name());
-  return false;
 }
 
 // Generic computeExpectedValues for Unary ops. Derived classes override
@@ -945,7 +940,6 @@ std::string TestConfigAsType<DataTypeT>::getHLSLOutputTypeString() const {
     LOG_ERROR_FMT_THROW(
         L"getHLSLOutputTypeString() called with an unsupported op type: %ls",
         OpTypeName.c_str());
-    return std::string("UnknownType");
   }
 }
 
@@ -977,7 +971,6 @@ bool TestConfigAsType<DataTypeT>::verifyOutput(
     LOG_ERROR_FMT_THROW(
         L"verifyOutput() called with an unsupported AsTypeOpType: %ls",
         OpTypeName.c_str());
-    return false;
   }
 }
 
@@ -1031,7 +1024,6 @@ DataTypeT TestConfigTrigonometric<DataTypeT>::computeExpectedValue(
   default:
     LOG_ERROR_FMT_THROW(L"Unknown TrigonometricOpType: %ls",
                         OpTypeName.c_str());
-    return DataTypeT();
   }
 }
 
@@ -1135,7 +1127,6 @@ TestConfigBinary<DataTypeT>::computeExpectedValue(const DataTypeT &A,
     return (std::max)(A, B);
   default:
     LOG_ERROR_FMT_THROW(L"Unknown BinaryOpType: %ls", OpTypeName.c_str());
-    return DataTypeT();
   }
 }
 

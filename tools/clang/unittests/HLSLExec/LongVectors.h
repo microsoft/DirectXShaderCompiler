@@ -421,12 +421,10 @@ protected:
   computeExpectedValue([[maybe_unused]] const DataTypeT &A,
                        [[maybe_unused]] const DataTypeT &B) const {
     LOG_ERROR_FMT_THROW(L"E_NOT_IMPL: computeExpectedValue for a Binary Op");
-    return DataTypeT();
   }
   virtual DataTypeT
   computeExpectedValue([[maybe_unused]] const DataTypeT &A) const {
     LOG_ERROR_FMT_THROW(L"E_NOT_IMPL: computeExpectedValue for a Unary Op");
-    return DataTypeT();
   }
 
   // To be used for the value of -DOPERATOR
@@ -466,7 +464,6 @@ private:
   HLSLHalf_t asFloat16([[maybe_unused]] const DataTypeInT &A) const {
     LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsFloat16 DataTypeInT: %s",
                         typeid(DataTypeInT).name());
-    return HLSLHalf_t();
   }
 
   HLSLHalf_t asFloat16(const HLSLHalf_t &A) const { return HLSLHalf_t(A.Val); }
@@ -482,7 +479,6 @@ private:
   template <typename DataTypeInT> float asFloat(const DataTypeInT &) const {
     LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsFloat DataTypeInT: %S",
                         typeid(DataTypeInT).name());
-    return float();
   }
 
   float asFloat(const float &A) const { return float(A); }
@@ -495,7 +491,6 @@ private:
     // throwing an exception is appropriate.
     LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsInt DataTypeInT: %S",
                         typeid(DataTypeInT).name());
-    return int32_t();
   }
 
   int32_t asInt(const float &A) const { return bit_cast<int32_t>(A); }
@@ -508,7 +503,6 @@ private:
     // throwing an exception is appropriate.
     LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsInt16 DataTypeInT: %S",
                         typeid(DataTypeInT).name());
-    return int16_t();
   }
 
   int16_t asInt16(const HLSLHalf_t &A) const {
@@ -523,7 +517,6 @@ private:
     // throwing an exception is appropriate.
     LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsUint16 DataTypeInT: %S",
                         typeid(DataTypeInT).name());
-    return uint16_t();
   }
 
   uint16_t asUint16(const HLSLHalf_t &A) const {
@@ -538,7 +531,6 @@ private:
     // throwing an exception is appropriate.
     LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsUint DataTypeInT: %S",
                         typeid(DataTypeInT).name());
-    return unsigned int();
   }
 
   unsigned int asUint(const unsigned int &A) const { return A; }
@@ -574,7 +566,6 @@ private:
     LOG_ERROR_FMT_THROW(L"Programmer Error: asDouble only accepts two uint32_t "
                         L"inputs. Have DataTypeInT : %S",
                         typeid(DataTypeInT).name());
-    return 0.0;
   }
 
   double asDouble(const uint32_t &LowBits, const uint32_t &HighBits) const {
