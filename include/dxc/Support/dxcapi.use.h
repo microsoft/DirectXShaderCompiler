@@ -126,7 +126,7 @@ public:
     other.m_createFn2 = nullptr;
   }
 
-  ~SpecificDllLoader() { Cleanup(); }
+  virtual ~SpecificDllLoader() { Cleanup(); }
 
   HRESULT Initialize() {
     return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
