@@ -15,6 +15,17 @@ getLongVectorOpType(const OpTypeMetaData<T> (&Values)[Length],
 
   LOG_ERROR_FMT_THROW(L"Invalid LongVectorOpType string: %s",
                       OpTypeString.c_str());
+
+  // We need to return something to satisfy the compiler. We can't annotate
+  // LOG_ERROR_FMT_THROW with [[noreturn]] because the TAEF VERIFY_* macros that
+  // it uses are re-mapped on Unix to not throw exceptions, so they naturally
+  // return. If we hit this point it is a programmer error when implementing a
+  // test. Specifically, an entry for this OpTypeString is missing in the
+  // static LongVectorOpTypeStringToOpMetaData array. Or something has been
+  // corrupted. Test execution is invalid at this point. Usin std::abort() keeps
+  // the compiler happy about no return path. And LOG_ERROR_FMT_THROW will still
+  // provide a useful error message via gtest logging on Unix systems.
+  std::abort();
 }
 
 const OpTypeMetaData<BinaryOpType> &
@@ -643,6 +654,7 @@ std::string TestConfig<DataTypeT>::getHLSLOutputTypeString() const {
   LOG_ERROR_FMT_THROW(
       L"getHLSLOutputTypeString() called with an unsupported op type: %ls",
       OpTypeName.c_str());
+  return "UnknownType";
 }
 
 // Returns the compiler options string to be used for the shader compilation.
@@ -735,6 +747,7 @@ bool TestConfig<DataTypeT>::verifyOutput(
   LOG_ERROR_FMT_THROW(
       L"verifyOutput() called with an unsupported expected vector type: %ls.",
       typeid(ExpectedVector).name());
+  return false;
 }
 
 // Private version of verifyOutput. Expected to be called internally when we've
@@ -767,6 +780,7 @@ bool TestConfig<DataTypeT>::verifyOutput(
   LOG_ERROR_FMT_THROW(L"PRIVATE verifyOutput() called with an unsupported "
                       L"expected vector type: %ls.",
                       typeid(ExpectedVector).name());
+  return false;
 }
 
 // Generic computeExpectedValues for Unary ops. Derived classes override
@@ -850,27 +864,27 @@ void TestConfigAsType<DataTypeT>::computeExpectedValues(
     fillExpectedVector<HLSLHalf_t>(
         ExpectedVector, InputVector1.size(),
         [&](size_t Index) { return asFloat16(InputVector1[Index]); });
-    break;
+    return;
   case AsTypeOpType_AsFloat:
     fillExpectedVector<float>(
         ExpectedVector, InputVector1.size(),
         [&](size_t Index) { return asFloat(InputVector1[Index]); });
-    break;
+    return;
   case AsTypeOpType_AsInt:
     fillExpectedVector<int32_t>(
         ExpectedVector, InputVector1.size(),
         [&](size_t Index) { return asInt(InputVector1[Index]); });
-    break;
+    return;
   case AsTypeOpType_AsInt16:
     fillExpectedVector<int16_t>(
         ExpectedVector, InputVector1.size(),
         [&](size_t Index) { return asInt16(InputVector1[Index]); });
-    break;
+    return;
   case AsTypeOpType_AsUint:
     fillExpectedVector<uint32_t>(
         ExpectedVector, InputVector1.size(),
         [&](size_t Index) { return asUint(InputVector1[Index]); });
-    break;
+    return;
   case AsTypeOpType_AsUint_SplitDouble: {
     // SplitDouble is a special case. We fill the first half of the expected
     // vector with the expected low bits of each input double and the second
@@ -889,13 +903,13 @@ void TestConfigAsType<DataTypeT>::computeExpectedValues(
       (*TypedExpectedValues)[Index] = LowBits;
       (*TypedExpectedValues)[Index + InputSize] = HighBits;
     }
-    break;
+    return;
   }
   case AsTypeOpType_AsUint16:
     fillExpectedVector<uint16_t>(
         ExpectedVector, InputVector1.size(),
         [&](size_t Index) { return asUint16(InputVector1[Index]); });
-    break;
+    return;
   default:
     LOG_ERROR_FMT_THROW(L"Unsupported AsType op: %ls", OpTypeName.c_str());
   }
@@ -940,6 +954,7 @@ std::string TestConfigAsType<DataTypeT>::getHLSLOutputTypeString() const {
     LOG_ERROR_FMT_THROW(
         L"getHLSLOutputTypeString() called with an unsupported op type: %ls",
         OpTypeName.c_str());
+    return "UnknownType";
   }
 }
 
@@ -971,6 +986,7 @@ bool TestConfigAsType<DataTypeT>::verifyOutput(
     LOG_ERROR_FMT_THROW(
         L"verifyOutput() called with an unsupported AsTypeOpType: %ls",
         OpTypeName.c_str());
+    return false;
   }
 }
 
@@ -1024,6 +1040,7 @@ DataTypeT TestConfigTrigonometric<DataTypeT>::computeExpectedValue(
   default:
     LOG_ERROR_FMT_THROW(L"Unknown TrigonometricOpType: %ls",
                         OpTypeName.c_str());
+    return DataTypeT();
   }
 }
 
@@ -1051,6 +1068,7 @@ TestConfigUnary<DataTypeT>::computeExpectedValue(const DataTypeT &A) const {
                         L"UnaryOpType OpType) called on an "
                         L"unrecognized unary op: %ls",
                         OpTypeName.c_str());
+    return DataTypeT();
   }
 
   return DataTypeT(A);
@@ -1127,6 +1145,7 @@ TestConfigBinary<DataTypeT>::computeExpectedValue(const DataTypeT &A,
     return (std::max)(A, B);
   default:
     LOG_ERROR_FMT_THROW(L"Unknown BinaryOpType: %ls", OpTypeName.c_str());
+    return DataTypeT();
   }
 }
 
