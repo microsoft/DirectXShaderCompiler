@@ -5,9 +5,8 @@
 namespace LongVector {
 
 template <typename T, size_t Length>
-const OpTypeMetaData<T> &
-getLongVectorOpType(const OpTypeMetaData<T> (&Values)[Length],
-                    const std::wstring &OpTypeString) {
+const OpTypeMetaData<T> &getOpType(const OpTypeMetaData<T> (&Values)[Length],
+                                   const std::wstring &OpTypeString) {
   for (size_t I = 0; I < Length; I++) {
     if (Values[I].OpTypeString == OpTypeString)
       return Values[I];
@@ -20,7 +19,7 @@ getLongVectorOpType(const OpTypeMetaData<T> (&Values)[Length],
   // it uses are re-mapped on Unix to not throw exceptions, so they naturally
   // return. If we hit this point it is a programmer error when implementing a
   // test. Specifically, an entry for this OpTypeString is missing in the
-  // static LongVectorOpTypeStringToOpMetaData array. Or something has been
+  // static OpTypeStringToOpMetaData array. Or something has been
   // corrupted. Test execution is invalid at this point. Usin std::abort() keeps
   // the compiler happy about no return path. And LOG_ERROR_FMT_THROW will still
   // provide a useful error message via gtest logging on Unix systems.
@@ -361,10 +360,10 @@ TEST_F(OpTest, unaryMathOpTest) {
   dispatchTestByDataType(OpTypeMD, DataTypeIn, Handler);
 }
 
-template <typename LongVectorOpTypeT>
-void OpTest::dispatchTestByDataType(
-    const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd, std::wstring DataType,
-    TableParameterHandler &Handler) {
+template <typename OpTypeT>
+void OpTest::dispatchTestByDataType(const OpTypeMetaData<OpTypeT> &OpTypeMd,
+                                    std::wstring DataType,
+                                    TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
   if (DataType == L"bool")
@@ -445,10 +444,9 @@ void OpTest::dispatchTestByDataType(
         DataType.c_str());
 }
 
-template <typename DataTypeT, typename LongVectorOpTypeT>
-void OpTest::dispatchTestByVectorLength(
-    const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd,
-    TableParameterHandler &Handler) {
+template <typename DataTypeT, typename OpTypeT>
+void OpTest::dispatchTestByVectorLength(const OpTypeMetaData<OpTypeT> &OpTypeMd,
+                                        TableParameterHandler &Handler) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
