@@ -42,7 +42,7 @@ public:
 
   bool IsEnabled() const override { return DxCompilerSupport.IsEnabled(); }
 
-  void Cleanup() override {
+  void Cleanup() {
     DxilExtValSupport.Cleanup();
     DxCompilerSupport.Cleanup();
   }

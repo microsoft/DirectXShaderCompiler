@@ -23,6 +23,9 @@ extern const char *kDxilLib;
 class DllLoader {
 public:
   virtual HRESULT OverrideDll(LPCSTR dll, LPCSTR entryPoint) = 0;
+  DllLoader() = default;
+  DllLoader(const DllLoader &) = delete;
+  DllLoader(DllLoader &&) = delete;
 
 protected:
   virtual HRESULT CreateInstanceImpl(REFCLSID clsid, REFIID riid,
@@ -55,7 +58,6 @@ public:
 
   virtual bool IsEnabled() const = 0;
 
-  virtual void Cleanup() = 0;
   virtual HMODULE Detach() = 0;
 };
 
@@ -177,7 +179,7 @@ public:
     return true;
   }
 
-  void Cleanup() override {
+  void Cleanup() {
     if (m_dll != nullptr) {
       m_createFn = nullptr;
       m_createFn2 = nullptr;
