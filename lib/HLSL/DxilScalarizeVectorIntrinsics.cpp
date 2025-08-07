@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilScalarizeVectorLoadStores.cpp                                         //
+// DxilScalarizeVectorIntrinsics.cpp                                         //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -30,10 +30,10 @@ static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
                                  CallInst *CI);
 static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI);
 
-class DxilScalarizeVectorLoadStores : public ModulePass {
+class DxilScalarizeVectorIntrinsics : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilScalarizeVectorLoadStores() : ModulePass(ID) {}
+  explicit DxilScalarizeVectorIntrinsics() : ModulePass(ID) {}
 
   StringRef getPassName() const override {
     return "DXIL scalarize vector load/stores";
@@ -260,12 +260,13 @@ static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI) {
   CI->replaceAllUsesWith(RetVal);
 }
 
-char DxilScalarizeVectorLoadStores::ID = 0;
+char DxilScalarizeVectorIntrinsics::ID = 0;
 
-ModulePass *llvm::createDxilScalarizeVectorLoadStoresPass() {
-  return new DxilScalarizeVectorLoadStores();
+ModulePass *llvm::createDxilScalarizeVectorIntrinsicsPass() {
+  return new DxilScalarizeVectorIntrinsics();
 }
 
-INITIALIZE_PASS(DxilScalarizeVectorLoadStores,
-                "hlsl-dxil-scalarize-vector-load-stores",
-                "DXIL scalarize vector load/stores", false, false)
+INITIALIZE_PASS(
+    DxilScalarizeVectorIntrinsics, "hlsl-dxil-scalarize-vector-intrinsics",
+    "Scalarize native vector DXIL loads, stores, and other intrinsics", false,
+    false)
