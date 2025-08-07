@@ -186,6 +186,17 @@ bb:
   %tmp68 = call <7 x i32> @"dx.hl.op.rn.<7 x i32> (i32, <7 x i64>)"(i32 185, <7 x i64> %tmp67) ; line:110 col:12
   %tmp69 = mul <7 x i32> %tmp57, %tmp68 ; line:110 col:9
 
+  ; UnaryBits operations.
+  ; CHECK: call <7 x i32> @dx.op.unaryBits.v7i32(i32 31, <7 x i32> [[uvec2]])
+  %countbits = call <7 x i32> @"dx.hl.op.rn.<7 x i32> (i32, <7 x i32>)"(i32 123, <7 x i32> %tmp56)
+  %ub1 = add <7 x i32> %tmp69, %countbits
+  ; CHECK: call <7 x i32> @dx.op.unaryBits.v7i64(i32 32, <7 x i64> [[lvec2]])
+  %lobit = call <7 x i32> @"dx.hl.op.rn.<7 x i32> (i32, <7 x i64>)"(i32 145, <7 x i64> %tmp67)
+  %ub2 = add <7 x i32> %ub1, %lobit
+  ; CHECK: call <7 x i32> @dx.op.unaryBits.v7i32(i32 33, <7 x i32> [[uvec1]])
+  %hibit = call <7 x i32> @"dx.hl.op.rn.<7 x i32> (i32, <7 x i32>)"(i32 350, <7 x i32> %tmp51)
+  %ub3 = add <7 x i32> %ub2, %hibit
+
   ; CHECK: [[ld:%.*]] = call %dx.types.ResRet.v7i32 @dx.op.rawBufferVectorLoad.v7i32(i32 303, %dx.types.Handle {{%.*}}, i32 21, i32 0, i32 4) 
   ; CHECK: [[vec:%.*]] = extractvalue %dx.types.ResRet.v7i32 [[ld]], 0
   ; CHECK: [[bvec:%.*]] = icmp ne <7 x i32> [[vec]], zeroinitializer
@@ -229,7 +240,7 @@ bb:
   %tmp92 = icmp ne <7 x i32> %tmp76, zeroinitializer ; line:133 col:14
   %tmp93 = call <7 x i1> @"dx.hl.op.rn.<7 x i1> (i32, <7 x i1>, <7 x i1>)"(i32 169, <7 x i1> %tmp92, <7 x i1> %tmp91) ; line:133 col:11
   %tmp94 = zext <7 x i1> %tmp93 to <7 x i32> ; line:133 col:11
-  %tmp95 = add <7 x i32> %tmp69, %tmp94 ; line:133 col:8
+  %tmp95 = add <7 x i32> %ub3, %tmp94 ; line:133 col:8
 
   ; And() operation.
   ; CHECK: [[bvec3:%.*]] = icmp ne <7 x i32> [[vec3]], zeroinitializer
@@ -246,7 +257,12 @@ bb:
   ; CHECK: select <7 x i1> [[bvec3]], <7 x i64> [[lvec1]], <7 x i64> [[lvec2]]
   %tmp101 = icmp ne <7 x i32> %tmp90, zeroinitializer ; line:140 col:38
   %tmp102 = call <7 x i64> @"dx.hl.op.rn.<7 x i64> (i32, <7 x i1>, <7 x i64>, <7 x i64>)"(i32 184, <7 x i1> %tmp101, <7 x i64> %tmp62, <7 x i64> %tmp67) ; line:140 col:31
-  %tmp103 = call float @"dx.hl.op.rn.float (i32, <7 x float>, <7 x float>)"(i32 134, <7 x float> %tmp4, <7 x float> %tmp9) ; line:152 col:11
+
+  ; IsNan operation.
+  ; CHECK: call <7 x i1> @dx.op.isSpecialFloat.v7f32(i32 8, <7 x float> [[fvec2]])
+  %isnan = call <7 x i1> @"dx.hl.op.rn.<7 x i1> (i32, <7 x float>)"(i32 154, <7 x float> %tmp9)
+  %inext = zext <7 x i1> %isnan to <7 x i32>
+  %inres = add <7 x i32> %tmp100, %inext
 
   ; Dot operation.
   ; CHECK: [[el1:%.*]] = extractelement <7 x float> [[fvec1]], i64 0
@@ -270,6 +286,7 @@ bb:
   ; CHECK: [[el1:%.*]] = extractelement <7 x float> [[fvec1]], i64 6
   ; CHECK: [[el2:%.*]] = extractelement <7 x float> [[fvec2]], i64 6
   ; CHECK: call float @dx.op.tertiary.f32(i32 46, float [[el1]], float [[el2]], float [[mad5]])
+  %tmp103 = call float @"dx.hl.op.rn.float (i32, <7 x float>, <7 x float>)"(i32 134, <7 x float> %tmp4, <7 x float> %tmp9) ; line:152 col:11
   %tmp104 = insertelement <7 x float> undef, float %tmp103, i32 0 ; line:152 col:11
   %tmp105 = shufflevector <7 x float> %tmp104, <7 x float> undef, <7 x i32> zeroinitializer ; line:152 col:11
   %tmp106 = fadd <7 x float> %widsum, %tmp105 ; line:152 col:8
@@ -282,7 +299,7 @@ bb:
   ; Min operation.
   ; CHECK: call <7 x i32> @dx.op.binary.v7i32(i32 40, <7 x i32> [[uvec1]], <7 x i32> [[uvec2]])
   %tmp109 = call <7 x i32> @"dx.hl.op.rn.<7 x i32> (i32, <7 x i32>, <7 x i32>)"(i32 353, <7 x i32> %tmp51, <7 x i32> %tmp56) ; line:158 col:11
-  %tmp110 = add <7 x i32> %tmp100, %tmp109 ; line:158 col:8
+  %tmp110 = add <7 x i32> %inres, %tmp109 ; line:158 col:8
 
   ; Mad operation.
   ; CHECK: call <7 x float> @dx.op.tertiary.v7f32(i32 46, <7 x float> [[fvec1]], <7 x float> [[fvec2]], <7 x float> [[fvec3]])
@@ -371,6 +388,7 @@ declare %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %\22class.
 declare %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22class.RWStructuredBuffer<vector<bool, 7> >\22)"(i32, %dx.types.Handle, %dx.types.ResourceProperties, %"class.RWStructuredBuffer<vector<bool, 7> >") #1
 declare <7 x i1> @"dx.hl.op.rn.<7 x i1> (i32, <7 x i1>, <7 x i1>)"(i32, <7 x i1>, <7 x i1>) #1
 declare <7 x i64> @"dx.hl.op.rn.<7 x i64> (i32, <7 x i1>, <7 x i64>, <7 x i64>)"(i32, <7 x i1>, <7 x i64>, <7 x i64>) #1
+declare <7 x i1> @"dx.hl.op.rn.<7 x i1> (i32, <7 x float>)"(i32, <7 x float>) #1
 declare float @"dx.hl.op.rn.float (i32, <7 x float>, <7 x float>)"(i32, <7 x float>, <7 x float>) #1
 declare <7 x i32> @"dx.hl.op.rn.<7 x i32> (i32, <7 x i32>, <7 x i32>)"(i32, <7 x i32>, <7 x i32>) #1
 declare <7 x double>* @"dx.hl.subscript.[].rn.<7 x double>* (i32, %dx.types.Handle, i32)"(i32, %dx.types.Handle, i32) #1
