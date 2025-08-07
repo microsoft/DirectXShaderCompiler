@@ -28,6 +28,7 @@ static void scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
                                 CallInst *CI);
 static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
                                  CallInst *CI);
+static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI);
 
 class DxilScalarizeVectorLoadStores : public ModulePass {
 public:
@@ -47,24 +48,29 @@ public:
     bool Changed = false;
 
     hlsl::OP *HlslOP = DM.GetOP();
-    for (auto FIt : HlslOP->GetOpFuncList(DXIL::OpCode::RawBufferVectorLoad)) {
-      Function *Func = FIt.second;
-      if (!Func)
-        continue;
-      for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
-        CallInst *CI = cast<CallInst>(*(U++));
-        scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
-        Changed = true;
-      }
-    }
-    for (auto FIt : HlslOP->GetOpFuncList(DXIL::OpCode::RawBufferVectorStore)) {
-      Function *Func = FIt.second;
-      if (!Func)
-        continue;
-      for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
-        CallInst *CI = cast<CallInst>(*(U++));
-        scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
-        Changed = true;
+
+    // Iterate and scalarize native vector loads, stores, and other intrinsics.
+    for (auto F = M.functions().begin(); F != M.functions().end();) {
+      Function *Func = &*(F++);
+      DXIL::OpCodeClass OpClass;
+      if (HlslOP->GetOpCodeClass(Func, OpClass)) {
+        if (OpClass == DXIL::OpCodeClass::RawBufferVectorLoad)
+          for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
+            CallInst *CI = cast<CallInst>(*(U++));
+            scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
+            Changed = true;
+          }
+        else if (OpClass == DXIL::OpCodeClass::RawBufferVectorStore)
+          for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
+            CallInst *CI = cast<CallInst>(*(U++));
+            scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
+            Changed = true;
+          }
+        else if (Func->getReturnType()->isVectorTy())
+          for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
+            CallInst *CI = cast<CallInst>(*(U++));
+            scalarizeVectorIntrinsic(HlslOP, CI);
+          }
       }
     }
     return Changed;
@@ -218,6 +224,40 @@ static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
     Builder.CreateCall(F, Args);
   }
   CI->eraseFromParent();
+}
+
+// Scalarize native vector operation represented by `CI`, generating
+// scalar calls for each element of the its vector parameters.
+// Use `HlslOP` to retrieve the associated scalar op function.
+static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI) {
+
+  IRBuilder<> Builder(CI);
+  VectorType *VT = cast<VectorType>(CI->getType());
+  unsigned VecSize = VT->getNumElements();
+  unsigned ArgNum = CI->getNumArgOperands();
+  OP::OpCode Opcode = OP::getOpCode(CI);
+  Type *Ty = OP::GetOverloadType(Opcode, CI->getCalledFunction());
+  Function *Func = HlslOP->GetOpFunc(Opcode, Ty->getScalarType());
+  SmallVector<Value *, 4> Args(ArgNum);
+  Args[0] = CI->getArgOperand(0); // Copy opcode over.
+
+  // For each element in the vector, generate a new call instruction.
+  // Insert results into a result vector.
+  Value *RetVal = UndefValue::get(CI->getType());
+  for (unsigned ElIx = 0; ElIx < VecSize; ElIx++) {
+    // Replace each vector argument with the result of an extraction.
+    // Skip known opcode arg as it can't be a vector.
+    for (unsigned ArgIx = 1; ArgIx < ArgNum; ArgIx++) {
+      Value *Arg = CI->getArgOperand(ArgIx);
+      if (Arg->getType()->isVectorTy())
+        Args[ArgIx] = Builder.CreateExtractElement(Arg, ElIx);
+      else
+        Args[ArgIx] = Arg;
+    }
+    Value *ElCI = Builder.CreateCall(Func, Args, CI->getName());
+    RetVal = Builder.CreateInsertElement(RetVal, ElCI, ElIx);
+  }
+  CI->replaceAllUsesWith(RetVal);
 }
 
 char DxilScalarizeVectorLoadStores::ID = 0;
