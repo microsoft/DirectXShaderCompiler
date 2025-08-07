@@ -5,51 +5,25 @@
 namespace LongVector {
 
 template <typename T, size_t Length>
-const OpTypeMetaData<T> &
-getLongVectorOpType(const OpTypeMetaData<T> (&Values)[Length],
-                    const std::wstring &OpTypeString) {
+const OpTypeMetaData<T> &getOpType(const OpTypeMetaData<T> (&Values)[Length],
+                                   const std::wstring &OpTypeString) {
   for (size_t I = 0; I < Length; I++) {
     if (Values[I].OpTypeString == OpTypeString)
       return Values[I];
   }
 
-  LOG_ERROR_FMT_THROW(L"Invalid LongVectorOpType string: %s",
-                      OpTypeString.c_str());
+  LOG_ERROR_FMT_THROW(L"Invalid OpType string: %ls", OpTypeString.c_str());
 
   // We need to return something to satisfy the compiler. We can't annotate
   // LOG_ERROR_FMT_THROW with [[noreturn]] because the TAEF VERIFY_* macros that
   // it uses are re-mapped on Unix to not throw exceptions, so they naturally
   // return. If we hit this point it is a programmer error when implementing a
   // test. Specifically, an entry for this OpTypeString is missing in the
-  // static LongVectorOpTypeStringToOpMetaData array. Or something has been
+  // static OpTypeStringToOpMetaData array. Or something has been
   // corrupted. Test execution is invalid at this point. Usin std::abort() keeps
   // the compiler happy about no return path. And LOG_ERROR_FMT_THROW will still
   // provide a useful error message via gtest logging on Unix systems.
   std::abort();
-}
-
-const OpTypeMetaData<BinaryOpType> &
-getBinaryOpType(const std::wstring &OpTypeString) {
-  return getLongVectorOpType<BinaryOpType>(binaryOpTypeStringToOpMetaData,
-                                           OpTypeString);
-}
-
-const OpTypeMetaData<UnaryOpType> &
-getUnaryOpType(const std::wstring &OpTypeString) {
-  return getLongVectorOpType<UnaryOpType>(unaryOpTypeStringToOpMetaData,
-                                          OpTypeString);
-}
-
-const OpTypeMetaData<AsTypeOpType> &
-getAsTypeOpType(const std::wstring &OpTypeString) {
-  return getLongVectorOpType<AsTypeOpType>(asTypeOpTypeStringToOpMetaData,
-                                           OpTypeString);
-}
-
-const OpTypeMetaData<TrigonometricOpType> &
-getTrigonometricOpType(const std::wstring &OpTypeString) {
-  return getLongVectorOpType<TrigonometricOpType>(
-      trigonometricOpTypeStringToOpMetaData, OpTypeString);
 }
 
 // Helper to fill the test data from the shader buffer based on type. Convenient
@@ -185,8 +159,13 @@ void fillExpectedVector(VariantVector &ExpectedVector, size_t Count,
   auto *TypedExpectedValues =
       std::get_if<std::vector<DataTypeT>>(&ExpectedVector);
 
-  VERIFY_IS_NOT_NULL(TypedExpectedValues,
-                     L"Expected vector is not of the correct type.");
+  VERIFY_IS_NOT_NULL(
+      TypedExpectedValues,
+      L"Programmer error: Expected vector is not of the correct type.");
+
+  // A TestConfig may be reused for a different vector length. So this is a
+  // good time to make sure we clear the expected vector.
+  TypedExpectedValues->clear();
 
   for (size_t Index = 0; Index < Count; ++Index)
     TypedExpectedValues->push_back(ComputeFn(Index));
@@ -238,9 +217,7 @@ template <typename DataTypeT> std::string getHLSLTypeString() {
   if (std::is_same_v<DataTypeT, uint64_t>)
     return "uint64_t";
 
-  std::string ErrStr("getHLSLTypeString() Unsupported type: ");
-  ErrStr.append(typeid(DataTypeT).name());
-  VERIFY_IS_TRUE(false, ErrStr.c_str());
+  LOG_ERROR_FMT_THROW(L"Unsupported type: %S", typeid(DataTypeT).name());
   return "UnknownType";
 }
 
@@ -369,10 +346,24 @@ TEST_F(OpTest, asTypeOpTest) {
   dispatchTestByDataType(OpTypeMD, DataTypeIn, Handler);
 }
 
-template <typename LongVectorOpTypeT>
-void OpTest::dispatchTestByDataType(
-    const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd, std::wstring DataType,
-    TableParameterHandler &Handler) {
+TEST_F(OpTest, unaryMathOpTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  const int TableSize = sizeof(UnaryOpParameters) / sizeof(TableParameter);
+  TableParameterHandler Handler(UnaryOpParameters, TableSize);
+
+  std::wstring DataTypeIn(Handler.GetTableParamByName(L"DataType")->m_str);
+  std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
+
+  auto OpTypeMD = getUnaryMathOpType(OpTypeString);
+  dispatchTestByDataType(OpTypeMD, DataTypeIn, Handler);
+}
+
+template <typename OpTypeT>
+void OpTest::dispatchTestByDataType(const OpTypeMetaData<OpTypeT> &OpTypeMd,
+                                    std::wstring DataType,
+                                    TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
   if (DataType == L"bool")
@@ -396,8 +387,42 @@ void OpTest::dispatchTestByDataType(
   else if (DataType == L"float64")
     dispatchTestByVectorLength<double>(OpTypeMd, Handler);
   else
-    VERIFY_FAIL(
-        String().Format(L"DataType: %ls is not recognized.", DataType.c_str()));
+    LOG_ERROR_FMT_THROW(L"Unrecognized DataType: %ls for OpType: %ls.",
+                        DataType.c_str(), OpTypeMd.OpTypeString.c_str());
+}
+
+template <>
+void OpTest::dispatchTestByDataType(
+    const OpTypeMetaData<UnaryMathOpType> &OpTypeMd, std::wstring DataType,
+    TableParameterHandler &Handler) {
+  using namespace WEX::Common;
+
+  // Unary math ops don't support HLSLBool_t. If we included a dispatcher for
+  // them by allowing the generic dispatchTestByDataType then we would get
+  // compile errors for a bunch of the templated std lib functions we call to
+  // compute unary math ops. This is easier and cleaner than guarding against in
+  // at that point.
+  if (DataType == L"int16")
+    dispatchTestByVectorLength<int16_t>(OpTypeMd, Handler);
+  else if (DataType == L"int32")
+    dispatchTestByVectorLength<int32_t>(OpTypeMd, Handler);
+  else if (DataType == L"int64")
+    dispatchTestByVectorLength<int64_t>(OpTypeMd, Handler);
+  else if (DataType == L"uint16")
+    dispatchTestByVectorLength<uint16_t>(OpTypeMd, Handler);
+  else if (DataType == L"uint32")
+    dispatchTestByVectorLength<uint32_t>(OpTypeMd, Handler);
+  else if (DataType == L"uint64")
+    dispatchTestByVectorLength<uint64_t>(OpTypeMd, Handler);
+  else if (DataType == L"float16")
+    dispatchTestByVectorLength<HLSLHalf_t>(OpTypeMd, Handler);
+  else if (DataType == L"float32")
+    dispatchTestByVectorLength<float>(OpTypeMd, Handler);
+  else if (DataType == L"float64")
+    dispatchTestByVectorLength<double>(OpTypeMd, Handler);
+  else
+    LOG_ERROR_FMT_THROW(L"Invalid UnaryMathOpType DataType: %ls.",
+                        DataType.c_str());
 }
 
 template <>
@@ -419,10 +444,9 @@ void OpTest::dispatchTestByDataType(
         DataType.c_str());
 }
 
-template <typename DataTypeT, typename LongVectorOpTypeT>
-void OpTest::dispatchTestByVectorLength(
-    const OpTypeMetaData<LongVectorOpTypeT> &OpTypeMd,
-    TableParameterHandler &Handler) {
+template <typename DataTypeT, typename OpTypeT>
+void OpTest::dispatchTestByVectorLength(const OpTypeMetaData<OpTypeT> &OpTypeMd,
+                                        TableParameterHandler &Handler) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -637,26 +661,6 @@ void fillShaderBufferFromLongVectorData(
   return;
 }
 
-template <typename DataTypeT>
-std::string TestConfig<DataTypeT>::getHLSLInputTypeString() const {
-  return getHLSLTypeString<DataTypeT>();
-}
-
-template <typename DataTypeT>
-std::string TestConfig<DataTypeT>::getHLSLOutputTypeString() const {
-
-  // Normal case, output matches input type ( DataTypeT )
-  if (auto *Vec = std::get_if<std::vector<DataTypeT>>(&ExpectedVector))
-    return getHLSLTypeString<DataTypeT>();
-
-  // Non normal cases should be handled in a derived TestConfig class. i.e
-  // TestConfigAsType::getHLSLOutputTypeString()
-  LOG_ERROR_FMT_THROW(
-      L"getHLSLOutputTypeString() called with an unsupported op type: %ls",
-      OpTypeName.c_str());
-  return "UnknownType";
-}
-
 // Returns the compiler options string to be used for the shader compilation.
 // Reference ShaderOpArith.xml and the 'LongVectorOp' shader source to see how
 // the defines are used in the shader code.
@@ -687,10 +691,10 @@ std::string TestConfig<DataTypeT>::getCompilerOptionsString() const {
       CompilerOptions << " -DIS_BINARY_VECTOR_OP=1";
 
     CompilerOptions << " -DFUNC=";
-    CompilerOptions << (Intrinsic ? *Intrinsic : "");
+    CompilerOptions << (Intrinsic ? *Intrinsic : " ");
   } else { // Unary Op
     CompilerOptions << " -DFUNC=";
-    CompilerOptions << (Intrinsic ? *Intrinsic : "");
+    CompilerOptions << (Intrinsic ? *Intrinsic : " ");
     // Not used for unary ops, but needs to be a " " for compilation of the
     // shader after macro expansion.
     CompilerOptions << " -DOPERAND2= ";
@@ -719,68 +723,67 @@ TestConfig<DataTypeT>::getInputValueSet(size_t ValueSetIndex) const {
   else if (ValueSetIndex == 2)
     InputValueSetName = InputValueSetName2;
   else
-    VERIFY_FAIL("Invalid ValueSetIndex");
+    LOG_ERROR_FMT_THROW(L"Invalid ValueSetIndex: %zu. Expected 1 or 2.",
+                        ValueSetIndex);
 
   return getInputValueSetByKey<DataTypeT>(InputValueSetName);
 }
 
-// Public version of verifyOutput. Handles logic to dispatch to the correct
-// templated verifyOutput based on the expected output type.
+template <typename DataTypeT>
+std::string TestConfig<DataTypeT>::getHLSLOutputTypeString() const {
+  // std::visit allows us to dispatch a call to getHLSLTypeString<T>() with the
+  // the current underlying element type of ExpectedVector.
+  return std::visit(
+      [](const auto &Vec) {
+        using ElementType = typename std::decay_t<decltype(Vec)>::value_type;
+        return getHLSLTypeString<ElementType>();
+      },
+      ExpectedVector);
+}
+
 template <typename DataTypeT>
 bool TestConfig<DataTypeT>::verifyOutput(
     const std::shared_ptr<st::ShaderOpTestResult> &TestResult) {
-  // First try the most common case where the output datatype matches the input
-  // datatype (DataTypeT). std::get_if will return a null pointer if the variant
-  // isn't holding a std::vector<DataTypeT>
-  if (auto TypedExpectedValues =
-          std::get_if<std::vector<DataTypeT>>(&ExpectedVector)) {
-    return verifyOutput<DataTypeT>(TestResult);
-  }
 
-  // If we get here, its likely a programmer error. DataTypeT is the DataType
-  // passed in to the TestConfig when its created. The only time the
-  // ExpectedVector has a diffferent type is for a handful of ops, such as
-  // casting, where the output type is different from the input type. But proper
-  // dispatching to verifyOutput with the correct data type is intended to be
-  // handled by derived classes. Hence, we throw an error here. See callers of
-  // the private version of verifyOutput for examples of proper usage.
-  LOG_ERROR_FMT_THROW(
-      L"verifyOutput() called with an unsupported expected vector type: %ls.",
-      typeid(ExpectedVector).name());
-  return false;
+  // std::visit allows us to dispatch a call to the private version of
+  // verifyOutput using a std::vector<T> that matches the type currently held in
+  // ExpectedVector. This works because ExpectedVector is a std::variant of
+  // vector types, and the lambda receives the active type at runtime. It's
+  // important that the TestConfig instance has correctly assigned the expected
+  // output type to ExpectedVector. By default, this is std::vector<DataTypeT>,
+  // but ops like AsTypeOpType must override it. For example,
+  // AsTypeOpType_AsFloat16 sets ExpectedVector to std::vector<HLSLHalf_t>.
+  return std::visit(
+      [this, &TestResult](const auto &Vec) {
+        using ElementType = typename std::decay_t<decltype(Vec)>::value_type;
+        return this->verifyOutput<ElementType>(TestResult, Vec);
+      },
+      ExpectedVector);
 }
 
-// Private version of verifyOutput. Expected to be called internally when we've
-// resolved what the expected output type is.
+// Private version of verifyOutput. Called by the public version of verifyOutput
+// which resolves OutputDataTypeT based on the ExpectedVector type.
 template <typename DataTypeT>
 template <typename OutputDataTypeT>
 bool TestConfig<DataTypeT>::verifyOutput(
-    const std::shared_ptr<st::ShaderOpTestResult> &TestResult) {
+    const std::shared_ptr<st::ShaderOpTestResult> &TestResult,
+    const std::vector<OutputDataTypeT> &ExpectedVector) {
 
-  if (auto TypedExpectedValues =
-          std::get_if<std::vector<OutputDataTypeT>>(&ExpectedVector)) {
-    MappedData ShaderOutData;
-    TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
+  WEX::Logging::Log::Comment(WEX::Common::String().Format(
+      L"verifyOutput with OpType: %ls ExpectedVector<%S>", OpTypeName.c_str(),
+      typeid(OutputDataTypeT).name()));
 
-    // For most of the ops, the output vector size is the same as the input
-    // vector size. But some, such as the AsUint_SplitDouble op, have an
-    // output vector size that is double the input vector size.
-    const size_t OutputVectorSize = (*TypedExpectedValues).size();
+  MappedData ShaderOutData;
+  TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
 
-    std::vector<OutputDataTypeT> ActualValues;
-    fillLongVectorDataFromShaderBuffer(ShaderOutData, ActualValues,
-                                       OutputVectorSize);
+  const size_t OutputVectorSize = ExpectedVector.size();
 
-    return doVectorsMatch(ActualValues, *TypedExpectedValues, Tolerance,
-                          ValidationType);
-  }
+  std::vector<OutputDataTypeT> ActualValues;
+  fillLongVectorDataFromShaderBuffer(ShaderOutData, ActualValues,
+                                     OutputVectorSize);
 
-  // This is the private TestConfig::VerifyOutput. If this is hitting its most
-  // likely a new test case for a new op type that is misconfigured.
-  LOG_ERROR_FMT_THROW(L"PRIVATE verifyOutput() called with an unsupported "
-                      L"expected vector type: %ls.",
-                      typeid(ExpectedVector).name());
-  return false;
+  return doVectorsMatch(ActualValues, ExpectedVector, Tolerance,
+                        ValidationType);
 }
 
 // Generic computeExpectedValues for Unary ops. Derived classes override
@@ -851,7 +854,7 @@ TestConfigAsType<DataTypeT>::TestConfigAsType(
     BasicOpType = BasicOpType_Binary;
     break;
   default:
-    VERIFY_FAIL("Invalid AsTypeOpType");
+    LOG_ERROR_FMT_THROW(L"Unsupported AsTypeOpType: %ls", OpTypeName.c_str());
   }
 }
 
@@ -931,66 +934,6 @@ void TestConfigAsType<DataTypeT>::computeExpectedValues(
 }
 
 template <typename DataTypeT>
-std::string TestConfigAsType<DataTypeT>::getHLSLOutputTypeString() const {
-
-  switch (OpType) {
-  case AsTypeOpType_AsFloat16:
-    return getHLSLTypeString<HLSLHalf_t>();
-  case AsTypeOpType_AsFloat:
-    return getHLSLTypeString<float>();
-  case AsTypeOpType_AsInt:
-    return getHLSLTypeString<int32_t>();
-  case AsTypeOpType_AsInt16:
-    return getHLSLTypeString<int16_t>();
-  case AsTypeOpType_AsUint:
-    return getHLSLTypeString<uint32_t>();
-  case AsTypeOpType_AsUint_SplitDouble:
-    return getHLSLTypeString<uint32_t>();
-  case AsTypeOpType_AsUint16:
-    return getHLSLTypeString<uint16_t>();
-  case AsTypeOpType_AsDouble:
-    return getHLSLTypeString<double>();
-  default:
-    LOG_ERROR_FMT_THROW(
-        L"getHLSLOutputTypeString() called with an unsupported op type: %ls",
-        OpTypeName.c_str());
-    return "UnknownType";
-  }
-}
-
-// Override verifyOutput for AsTypeOpType as the output type for these ops
-// doesn't match the input type of the config. Calls a private templated version
-// of verifyOutput with the correct data type based on the op.
-template <typename DataTypeT>
-bool TestConfigAsType<DataTypeT>::verifyOutput(
-    const std::shared_ptr<st::ShaderOpTestResult> &TestResult) {
-
-  switch (OpType) {
-  case AsTypeOpType_AsFloat:
-    return TestConfig::verifyOutput<float>(TestResult);
-  case AsTypeOpType_AsFloat16:
-    return TestConfig::verifyOutput<HLSLHalf_t>(TestResult);
-  case AsTypeOpType_AsInt:
-    return TestConfig::verifyOutput<int32_t>(TestResult);
-  case AsTypeOpType_AsInt16:
-    return TestConfig::verifyOutput<int16_t>(TestResult);
-  case AsTypeOpType_AsUint:
-    return TestConfig::verifyOutput<uint32_t>(TestResult);
-  case AsTypeOpType_AsUint_SplitDouble:
-    return TestConfig::verifyOutput<uint32_t>(TestResult);
-  case AsTypeOpType_AsUint16:
-    return TestConfig::verifyOutput<uint16_t>(TestResult);
-  case AsTypeOpType_AsDouble:
-    return TestConfig::verifyOutput<double>(TestResult);
-  default:
-    LOG_ERROR_FMT_THROW(
-        L"verifyOutput() called with an unsupported AsTypeOpType: %ls",
-        OpTypeName.c_str());
-    return false;
-  }
-}
-
-template <typename DataTypeT>
 TestConfigTrigonometric<DataTypeT>::TestConfigTrigonometric(
     const OpTypeMetaData<TrigonometricOpType> &OpTypeMd)
     : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
@@ -1056,7 +999,7 @@ TestConfigUnary<DataTypeT>::TestConfigUnary(
     SpecialDefines = " -DFUNC_INITIALIZE=1";
     break;
   default:
-    VERIFY_FAIL("Invalid UnaryOpType");
+    LOG_ERROR_FMT_THROW(L"Unsupported UnaryOpType: %ls", OpTypeName.c_str());
   }
 }
 
@@ -1104,7 +1047,7 @@ TestConfigBinary<DataTypeT>::TestConfigBinary(
     BasicOpType = BasicOpType_Binary;
     break;
   default:
-    VERIFY_FAIL("Invalid BinaryOpType");
+    LOG_ERROR_FMT_THROW(L"Invalid BinaryOpType: %ls", OpTypeName.c_str());
   }
 }
 
@@ -1147,6 +1090,86 @@ TestConfigBinary<DataTypeT>::computeExpectedValue(const DataTypeT &A,
     LOG_ERROR_FMT_THROW(L"Unknown BinaryOpType: %ls", OpTypeName.c_str());
     return DataTypeT();
   }
+}
+
+template <typename DataTypeT>
+TestConfigUnaryMath<DataTypeT>::TestConfigUnaryMath(
+    const OpTypeMetaData<UnaryMathOpType> &OpTypeMd)
+    : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
+
+  BasicOpType = BasicOpType_Unary;
+
+  if (isFloatingPointType<DataTypeT>()) {
+    Tolerance = 1;
+    ValidationType = ValidationType_Ulp;
+  }
+
+  if (OpType == UnaryMathOpType_Sign)
+    ExpectedVector = std::vector<int32_t>{};
+}
+
+template <typename DataTypeT>
+DataTypeT
+TestConfigUnaryMath<DataTypeT>::computeExpectedValue(const DataTypeT &A) const {
+
+  // A bunch of the std match functions here are  wrapped in () to avoid
+  // collisions with the macro defitions for various functions in windows.h
+  switch (OpType) {
+  case UnaryMathOpType_Abs:
+    return abs(A);
+  case UnaryMathOpType_Ceil:
+    return (std::ceil)(A);
+  case UnaryMathOpType_Floor:
+    return (std::floor)(A);
+  case UnaryMathOpType_Trunc:
+    return (std::trunc)(A);
+  case UnaryMathOpType_Round:
+    return (std::round)(A);
+  case UnaryMathOpType_Frac:
+    // std::frac is not a standard C++ function, but we can implement it as
+    return A - DataTypeT((std::floor)(A));
+  case UnaryMathOpType_Sqrt:
+    return (std::sqrt)(A);
+  case UnaryMathOpType_Rsqrt:
+    // std::rsqrt is not a standard C++ function, but we can implement it as
+    return DataTypeT(1.0) / DataTypeT((std::sqrt)(A));
+  case UnaryMathOpType_Exp:
+    return (std::exp)(A);
+  case UnaryMathOpType_Exp2:
+    return (std::exp2)(A);
+  case UnaryMathOpType_Log:
+    return (std::log)(A);
+  case UnaryMathOpType_Log2:
+    return (std::log2)(A);
+  case UnaryMathOpType_Log10:
+    return (std::log10)(A);
+  case UnaryMathOpType_Rcp:
+    // std::.rcp is not a standard C++ function, but we can implement it as
+    return DataTypeT(1.0) / A;
+  default:
+    LOG_ERROR_FMT_THROW(L"computeExpectedValue(const DataTypeT &A)"
+                        L"called on an unrecognized unary math op: %ls",
+                        OpTypeName.c_str());
+    return DataTypeT();
+  }
+}
+
+template <typename DataTypeT>
+void TestConfigUnaryMath<DataTypeT>::computeExpectedValues(
+    const std::vector<DataTypeT> &InputVector1) {
+
+  if (OpType == UnaryMathOpType_Sign) {
+    fillExpectedVector<int32_t>(
+        ExpectedVector, InputVector1.size(),
+        // The sign function returns an int32_t value, so we handle here instead
+        // of in the templated computeExpectedValue function.
+        [&](size_t Index) { return sign(InputVector1[Index]); });
+    return;
+  }
+
+  fillExpectedVector<DataTypeT>(
+      ExpectedVector, InputVector1.size(),
+      [&](size_t Index) { return computeExpectedValue(InputVector1[Index]); });
 }
 
 }; // namespace LongVector

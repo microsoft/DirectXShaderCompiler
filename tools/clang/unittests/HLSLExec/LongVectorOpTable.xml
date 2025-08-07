@@ -779,4 +779,200 @@
         <Parameter Name="InputValueSetName1">SplitDoubleInputValueSet</Parameter>
       </Row>
     </Table>
+      <Table Id="UnaryMathOpTable">
+      <ParameterTypes>
+        <!-- InputValueSetName1 is optional. If no value is provided use the
+        default value set for the data type. This string is meant to be a key
+        value for the the array of std::pairs defined in LongVectorTestData.h
+        for the applicable DataType-->
+        <ParameterType Name="InputValueSetName1">String</ParameterType>
+        <ParameterType Name="DataType">String</ParameterType>
+        <ParameterType Name="OpTypeEnum">String</ParameterType>
+      </ParameterTypes>
+      <!--UnaryMathOpTable int16-->
+      <Row Name="Abs_int16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Abs</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="Sign_int16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Sign</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <!--UnaryMathOpTable int32-->
+      <Row Name="Abs_int32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Abs</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="Sign_int32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Sign</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <!--UnaryMathOpTable int64-->
+      <Row Name="Abs_int64">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Abs</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="Sign_int64">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Sign</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <!--UnaryMathOpTable uint16-->
+      <Row Name="Abs_uint16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Abs</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="Sign_uint16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Sign</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <!--UnaryMathOpTable uint32-->
+      <Row Name="Abs_uint32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Abs</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="Sign_uint32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Sign</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <!--UnaryMathOpTable uint64-->
+      <Row Name="Abs_uint64">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Abs</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="Sign_uint64">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Sign</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <!--UnaryMathOpTable float16-->
+      <Row Name="Abs_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Abs</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Ceil_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Ceil</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Exp_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Exp</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Floor_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Floor</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Frac_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Frac</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Log_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Log</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Rcp_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Rcp</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Round_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Round</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Rsqrt_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Rsqrt</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Sign_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Sign</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Sqrt_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Sqrt</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Trunc_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Trunc</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Exp2_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Exp2</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Log10_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Log10</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="Log2_float16">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Log2</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <!--UnaryMathOpTable float32-->
+      <Row Name="Abs_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Abs</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Ceil_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Ceil</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Exp_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Exp</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Floor_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Floor</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Frac_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Frac</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Log_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Log</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Rcp_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Rcp</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Round_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Round</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Rsqrt_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Rsqrt</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Sign_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Sign</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Sqrt_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Sqrt</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Trunc_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Trunc</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Exp2_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Exp2</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Log10_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Log10</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Log2_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Log2</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <!--UnaryMathOpTable float64-->
+      <Row Name="Abs_float64">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Abs</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="Sign_float64">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Sign</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+    </Table>
 </Data>
