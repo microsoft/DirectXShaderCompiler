@@ -2083,42 +2083,58 @@ Value *TranslateFirstbitHi(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                            HLOperationLowerHelper &helper,
                            HLObjectOperationLowerHelper *pObjHelper,
                            bool &Translated) {
-  Value *firstbitHi =
-      TrivialUnaryOperationRet(CI, IOP, opcode, helper, pObjHelper, Translated);
-  // firstbitHi == -1? -1 : (bitWidth-1 -firstbitHi);
+  hlsl::OP *OP = &helper.hlslOP;
   IRBuilder<> Builder(CI);
-  Constant *neg1 = Builder.getInt32(-1);
-  Value *src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  Value *Src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
 
-  Type *Ty = src->getType();
-  IntegerType *EltTy = cast<IntegerType>(Ty->getScalarType());
-  Constant *bitWidth = Builder.getInt32(EltTy->getBitWidth() - 1);
-
-  if (Ty == Ty->getScalarType()) {
-    Value *sub = Builder.CreateSub(bitWidth, firstbitHi);
-    Value *cond = Builder.CreateICmpEQ(neg1, firstbitHi);
-    return Builder.CreateSelect(cond, neg1, sub);
-  } else {
-    Value *result = UndefValue::get(CI->getType());
-    unsigned vecSize = Ty->getVectorNumElements();
-    for (unsigned i = 0; i < vecSize; i++) {
-      Value *EltFirstBit = Builder.CreateExtractElement(firstbitHi, i);
-      Value *sub = Builder.CreateSub(bitWidth, EltFirstBit);
-      Value *cond = Builder.CreateICmpEQ(neg1, EltFirstBit);
-      Value *Elt = Builder.CreateSelect(cond, neg1, sub);
-      result = Builder.CreateInsertElement(result, Elt, i);
-    }
-    return result;
+  Type *Ty = Src->getType();
+  Type *RetTy = Type::getInt32Ty(CI->getContext());
+  unsigned NumElements = 0;
+  if (Ty->isVectorTy()) {
+    NumElements = Ty->getVectorNumElements();
+    RetTy = VectorType::get(RetTy, NumElements);
   }
+
+  Constant *OpArg = OP->GetU32Const((unsigned)opcode);
+  Value *Args[] = {OpArg, Src};
+
+  Value *FirstbitHi =
+      TrivialDxilOperation(opcode, Args, Ty, RetTy, OP, Builder);
+
+  IntegerType *EltTy = cast<IntegerType>(Ty->getScalarType());
+  Constant *Neg1 = Builder.getInt32(-1);
+  Constant *BitWidth = Builder.getInt32(EltTy->getBitWidth() - 1);
+
+  if (NumElements > 0) {
+    Neg1 = ConstantVector::getSplat(NumElements, Neg1);
+    BitWidth = ConstantVector::getSplat(NumElements, BitWidth);
+  }
+
+  Value *Sub = Builder.CreateSub(BitWidth, FirstbitHi);
+  Value *Cond = Builder.CreateICmpEQ(Neg1, FirstbitHi);
+  return Builder.CreateSelect(Cond, Neg1, Sub);
 }
 
 Value *TranslateFirstbitLo(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                            HLOperationLowerHelper &helper,
                            HLObjectOperationLowerHelper *pObjHelper,
                            bool &Translated) {
-  Value *firstbitLo =
-      TrivialUnaryOperationRet(CI, IOP, opcode, helper, pObjHelper, Translated);
-  return firstbitLo;
+  hlsl::OP *OP = &helper.hlslOP;
+  IRBuilder<> Builder(CI);
+  Value *Src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+
+  Type *Ty = Src->getType();
+  Type *RetTy = Type::getInt32Ty(CI->getContext());
+  if (Ty->isVectorTy())
+    RetTy = VectorType::get(RetTy, Ty->getVectorNumElements());
+
+  Constant *OpArg = OP->GetU32Const((unsigned)opcode);
+  Value *Args[] = {OpArg, Src};
+
+  Value *FirstbitLo =
+      TrivialDxilOperation(opcode, Args, Ty, RetTy, OP, Builder);
+
+  return FirstbitLo;
 }
 
 Value *TranslateLit(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -6981,17 +6997,15 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_countbits, TrivialUnaryOperationRet,
      DXIL::OpCode::Countbits},
     {IntrinsicOp::IOP_cross, TranslateCross, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP_ddx, TrivialUnaryOperationRet,
+    {IntrinsicOp::IOP_ddx, TrivialUnaryOperation, DXIL::OpCode::DerivCoarseX},
+    {IntrinsicOp::IOP_ddx_coarse, TrivialUnaryOperation,
      DXIL::OpCode::DerivCoarseX},
-    {IntrinsicOp::IOP_ddx_coarse, TrivialUnaryOperationRet,
-     DXIL::OpCode::DerivCoarseX},
-    {IntrinsicOp::IOP_ddx_fine, TrivialUnaryOperationRet,
+    {IntrinsicOp::IOP_ddx_fine, TrivialUnaryOperation,
      DXIL::OpCode::DerivFineX},
-    {IntrinsicOp::IOP_ddy, TrivialUnaryOperationRet,
+    {IntrinsicOp::IOP_ddy, TrivialUnaryOperation, DXIL::OpCode::DerivCoarseY},
+    {IntrinsicOp::IOP_ddy_coarse, TrivialUnaryOperation,
      DXIL::OpCode::DerivCoarseY},
-    {IntrinsicOp::IOP_ddy_coarse, TrivialUnaryOperationRet,
-     DXIL::OpCode::DerivCoarseY},
-    {IntrinsicOp::IOP_ddy_fine, TrivialUnaryOperationRet,
+    {IntrinsicOp::IOP_ddy_fine, TrivialUnaryOperation,
      DXIL::OpCode::DerivFineY},
     {IntrinsicOp::IOP_degrees, TranslateDegrees, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_determinant, EmptyLower, DXIL::OpCode::NumOpCodes},

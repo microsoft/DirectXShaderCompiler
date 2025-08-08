@@ -3768,14 +3768,37 @@ void MSMain(uint GID : SV_GroupIndex,
       <RootValue Index="2" ResName="InputVector2" />
       <RootValue Index="3" ResName="OutputVector" />
     </RootValues>
-    <!-- This shader requires the following defines to be passed in as arguments:
-     // 1 and 2 are required to compile the shader.
-     // 1. -DOPERATOR : "*" "+" "," "-" "/" etc.
-     // 2. -DOPERAND2: : InputVector2, ScalarInput, or "" depending on the test.
-     // Other defines are optional and are used to test different functions.
+    <!-- This shader has the following defines to be passed in as arguments:
+     TYPE : The type of the input vector, e.g. float, double, int, uint.
+     OUT_TYPE : The type of the output vector, e.g. float, double, int, uint.
+                In most cases OUT_TYPE == TYPE.
+     
+     NUM : The number of elements in the vector, e.g. 2, 3, 4, 8, 16, 32,
+     
+     FUNC : Used to expand to the HLSL intrinsic being tested. e.g cos, cosh,
+            abs, etc.
+            OR In some cases FUNC is expanded to a function call to handle
+            special logic, e.g. asuint_splitdouble.
+            OR it is intentionally left empty when testing operators like
+            '+', '-', '*', '/', etc.
+     
+     OPERATOR : The operator being tested, e.g. '+', '-', '*', '/', etc.
+                OR for binary operations for an intrinsic it is expanded 
+                ','/
+                OR for unary intrinsics it is expanded to ' ' (empty).
+
+     // For binary operations only. Unary operations leave these empty.
+     IS_SCALAR_OP : If defined, the second operand is loaded as a scalar.
+     IS_BINARY_VECTOR_OP : If defined, the second operand is loaded as a vector.
+     OPERAND2 : The second operand to the operation, e.g. InputVector2 or
+     InputScalar. Used in conjuction with one of the above.
      -->
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
       <![CDATA[
+        RWByteAddressBuffer g_InputFuncArgs : register(u0);
+        RWByteAddressBuffer g_InputVector1 : register(u1);
+        RWByteAddressBuffer g_InputVector2 : register(u2);
+        RWByteAddressBuffer g_OutputVector : register(u3);
 
         #ifdef FUNC_INITIALIZE
         vector<TYPE, NUM> TestInitialize(vector<TYPE, NUM> Vector)
@@ -3785,10 +3808,24 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-        RWByteAddressBuffer g_InputFuncArgs : register(u0);
-        RWByteAddressBuffer g_InputVector1 : register(u1);
-        RWByteAddressBuffer g_InputVector2 : register(u2);
-        RWByteAddressBuffer g_OutputVector : register(u3);
+        #ifdef FUNC_ASUINT_SPLITDOUBLE
+        vector<OUT_TYPE, NUM> TestAsUintSplitDouble(vector<TYPE, NUM> Vector)
+        {
+          vector<OUT_TYPE, NUM> LowBits;
+          vector<OUT_TYPE, NUM> HighBits;
+          asuint(Vector, LowBits, HighBits);
+
+          // Store the high bits in the second half of the output vector.
+          // Because we know the outputs of asuint are always 32 bits, we can
+          // use 4 bytes per element for our offset.
+          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(4 * NUM, HighBits);
+
+          // Generic store logic in main handles storing LowBits in
+          // g_OutputVector.
+          return LowBits;
+        }
+        #endif
+
         [numthreads(1,1,1)]
         void main(uint GI : SV_GroupIndex) {
 
@@ -3804,15 +3841,9 @@ void MSMain(uint GID : SV_GroupIndex,
           TYPE InputScalar = g_InputFuncArgs.Load<TYPE>(0);
           #endif
 
-          #ifdef FUNC_CLAMP
-          TYPE Clamp_ArgMin = g_InputFuncArgs.Load<TYPE>(0);
-          TYPE Clamp_ArgMax = g_InputFuncArgs.Load<TYPE>(sizeof(TYPE));
-          vector<TYPE, 2> ClampArgMinMax = {Clamp_ArgMin, Clamp_ArgMax};
-          #endif
-
-          vector<TYPE, NUM> OutputVector = FUNC(InputVector1 OPERATOR OPERAND2);
-
-          g_OutputVector.Store< vector<TYPE, NUM> >(0, OutputVector);
+          vector<OUT_TYPE, NUM> OutputVector = FUNC(InputVector1 OPERATOR
+          OPERAND2);
+          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, OutputVector);
         };
       ]]>
     </Shader>

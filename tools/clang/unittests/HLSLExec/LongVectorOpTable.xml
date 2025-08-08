@@ -690,4 +690,93 @@
         <Parameter Name="DataType">float32</Parameter>
       </Row>
     </Table>
+    <Table Id="AsTypeOpTable">
+      <ParameterTypes>
+        <!-- InputValueSetName1 is optional. If no value is provided use the
+        default value set for the data type. This string is meant to be a key
+        value for the the array of std::pairs defined in LongVectorTestData.h
+        for the applicable DataTypeIn-->
+        <ParameterType Name="InputValueSetName1">String</ParameterType>
+        <ParameterType Name="InputValueSetName2">String</ParameterType>
+        <ParameterType Name="DataTypeIn">String</ParameterType>
+        <ParameterType Name="OpTypeEnum">String</ParameterType>
+      </ParameterTypes>
+      <!-- AsTypeOpTable_AsType DataTypeIn: int16 -->
+      <Row Name="AsFloat16_int16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsFloat16</Parameter>
+        <Parameter Name="DataTypeIn">int16</Parameter>
+      </Row>
+      <Row Name="AsInt16_int16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsInt16</Parameter>
+        <Parameter Name="DataTypeIn">int16</Parameter>
+      </Row>
+      <Row Name="AsUint16_int16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsUint16</Parameter>
+        <Parameter Name="DataTypeIn">int16</Parameter>
+      </Row>
+      <!-- AsTypeOpTable_AsType DataTypeIn: int32 -->
+      <Row Name="AsFloat_int32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsFloat</Parameter>
+        <Parameter Name="DataTypeIn">int32</Parameter>
+      </Row>
+      <Row Name="AsInt_int32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsInt</Parameter>
+        <Parameter Name="DataTypeIn">int32</Parameter>
+      </Row>
+      <Row Name="AsUint_int32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsUint</Parameter>
+        <Parameter Name="DataTypeIn">int32</Parameter>
+      </Row>
+      <!-- AsTypeOpTable_AsType DataTypeIn: uint16 -->
+      <Row Name="AsFloat16_uint16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsFloat16</Parameter>
+        <Parameter Name="DataTypeIn">uint16</Parameter>
+      </Row>
+      <Row Name="AsInt16_uint16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsInt16</Parameter>
+        <Parameter Name="DataTypeIn">uint16</Parameter>
+      </Row>
+      <Row Name="AsUint16_uint16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsUint16</Parameter>
+        <Parameter Name="DataTypeIn">uint16</Parameter>
+      </Row>
+      <!-- AsTypeOpTable_AsType DataTypeIn: uint32 -->
+      <Row Name="AsFloat_uint32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsFloat</Parameter>
+        <Parameter Name="DataTypeIn">uint32</Parameter>
+      </Row>
+      <Row Name="AsInt_uint32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsInt</Parameter>
+        <Parameter Name="DataTypeIn">uint32</Parameter>
+      </Row>
+      <Row Name="AsUint_uint32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsUint</Parameter>
+        <Parameter Name="DataTypeIn">uint32</Parameter>
+      </Row>
+      <Row Name="AsDouble_uint32">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsDouble</Parameter>
+        <Parameter Name="DataTypeIn">uint32</Parameter>
+      </Row>
+      <!-- AsTypeOpTable_AsType DataTypeIn: float16-->
+      <Row Name="AsFloat16_float16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsFloat16</Parameter>
+        <Parameter Name="DataTypeIn">float16</Parameter>
+      </Row>
+      <Row Name="AsInt16_float16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsInt16</Parameter>
+        <Parameter Name="DataTypeIn">float16</Parameter>
+      </Row>
+      <Row Name="AsUint16_float16">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsUint16</Parameter>
+        <Parameter Name="DataTypeIn">float16</Parameter>
+      </Row>
+      <!-- AsTypeOpTable_AsType DataTypeIn: float64 -->
+      <Row Name="AsUint_SplitDouble_float64">
+        <Parameter Name="OpTypeEnum">AsTypeOpType_AsUint_SplitDouble</Parameter>
+        <Parameter Name="DataTypeIn">float64</Parameter>
+        <!-- Use a special InputValueSetName1 so we verify with values that
+        produce non-zero outputs for HighBits and LowBits -->
+        <Parameter Name="InputValueSetName1">SplitDoubleInputValueSet</Parameter>
+      </Row>
+    </Table>
 </Data>

@@ -28,11 +28,11 @@ struct[raypayload] RayPayload {
 
   {
     int sortKey = 1;
-    MaybeReorderThread(sortKey, 1); // expected-error{{use of undeclared identifier 'MaybeReorderThread'; did you mean 'MaybeReorderThread'?}}
+    MaybeReorderThread(sortKey, 1); // expected-error{{use of undeclared identifier 'MaybeReorderThread'}}
   }
 
   int sortKey = 1;
-  MaybeReorderThread(sortKey, 1); // expected-error{{use of undeclared identifier 'MaybeReorderThread'; did you mean 'MaybeReorderThread'?}}
+  MaybeReorderThread(sortKey, 1); // expected-error{{use of undeclared identifier 'MaybeReorderThread'}}
 
   HitObject hit = // expected-error{{unknown type name 'HitObject'}}
         HitObject::TraceRay(Scene, RAY_FLAG_NONE, ~0, 0, 1, 0,

@@ -58,9 +58,9 @@ float4 main(VertexOutput v) : SV_Position
 }
 )";
   std::string spirv = compileCodeAndGetSpirvAsm(code);
-  EXPECT_THAT(spirv, ContainsRegex("%50 = OpString \"// RUN: %dxc -T vs_6_0 -E "
+  EXPECT_THAT(spirv, ContainsRegex("%23 = OpString \"// RUN: %dxc -T vs_6_0 -E "
                                    "main -fspv-debug=vulkan-with-source"));
-  EXPECT_THAT(spirv, ContainsRegex("DebugSource %23\n"));
-  EXPECT_THAT(spirv, ContainsRegex("DebugSource %5 %50\n"));
+  EXPECT_THAT(spirv, ContainsRegex("DebugSource %5 %23\n"));
+  EXPECT_THAT(spirv, ContainsRegex("DebugSource %28\n"));
 }
 } // namespace
