@@ -31,7 +31,7 @@ protected:
 
 public:
   DllLoader() = default;
-  DllLoader(const DllLoader &) = default; // needed for HlslIntellisenseSupport
+  DllLoader(const DllLoader &) = delete;
   DllLoader(DllLoader &&) = delete;
 
   template <typename TInterface>

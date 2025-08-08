@@ -104,8 +104,6 @@ public:
 class HlslIntellisenseSupport : public dxc::SpecificDllLoader {
 public:
   HlslIntellisenseSupport() {}
-  HlslIntellisenseSupport(HlslIntellisenseSupport &&other)
-      : dxc::SpecificDllLoader(std::move(other)) {}
 
   HRESULT CreateIntellisense(IDxcIntelliSense **pResult) {
     return CreateInstance(CLSID_DxcIntelliSense, pResult);
