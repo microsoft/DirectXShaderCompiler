@@ -67,7 +67,7 @@ public:
   END_TEST_METHOD()
 
 private:
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::SpecificDllLoader m_dllSupport;
   PluginToolsPaths m_TestToolPaths;
 
   void DxilConvTestCheckFile(LPCWSTR path) {
@@ -170,7 +170,7 @@ private:
 bool DxilConvTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(
-        m_dllSupport.InitializeForDll("dxilconv.dll", "DxcCreateInstance"));
+        m_dllSupport.OverrideDll("dxilconv.dll", "DxcCreateInstance"));
   }
 
   if (!FindToolInBinDir("%dxbc2dxil", "dxbc2dxil.exe")) {

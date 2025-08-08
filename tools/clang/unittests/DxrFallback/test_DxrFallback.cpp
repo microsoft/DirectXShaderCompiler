@@ -49,11 +49,11 @@ void printErrors(CComPtr<IDxcOperationResult> pResult) {
   // IFTMSG(status, msg);
 }
 
-void CompileToDxilFromFile(DxcDllSupport &dxcSupport,
-                           LPCWSTR pShaderTextFilePath, LPCWSTR pEntryPoint,
-                           LPCWSTR pTargetProfile, LPCWSTR *pArgs,
-                           UINT32 argCount, const DxcDefine *pDefines,
-                           UINT32 defineCount, IDxcBlob **ppBlob) {
+void CompileToDxilFromFile(DllLoader &dxcSupport, LPCWSTR pShaderTextFilePath,
+                           LPCWSTR pEntryPoint, LPCWSTR pTargetProfile,
+                           LPCWSTR *pArgs, UINT32 argCount,
+                           const DxcDefine *pDefines, UINT32 defineCount,
+                           IDxcBlob **ppBlob) {
   CComPtr<IDxcLibrary> pLibrary;
   IFT(dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
 
@@ -83,7 +83,7 @@ void CompileToDxilFromFile(DxcDllSupport &dxcSupport,
   }
 }
 
-bool DxrCompile(DxcDllSupport &dxrFallbackSupport, const std::string &entryName,
+bool DxrCompile(DllLoader &dxrFallbackSupport, const std::string &entryName,
                 std::vector<IDxcBlob *> &libs,
                 const std::vector<std::string> &shaderNames,
                 std::vector<DxcShaderInfo> &shaderIds, bool findCalledShaders,
@@ -140,8 +140,8 @@ public:
   Tester(const std::string &deviceName, const std::string &path)
       : m_deviceName(s2ws(deviceName)), m_path(path) {
     dxc::EnsureEnabled(m_dxcSupport);
-    m_dxrFallbackSupport.InitializeForDll("DxrFallbackCompiler.dll",
-                                          "DxcCreateDxrFallbackCompiler");
+    m_dxrFallbackSupport.OverrideDll("DxrFallbackCompiler.dll",
+                                     "DxcCreateDxrFallbackCompiler");
   }
 
   void setFiles(const std::vector<std::string> &files) {
@@ -161,8 +161,8 @@ public:
   }
 
 protected:
-  DxcDllSupport m_dxcSupport;
-  DxcDllSupport m_dxrFallbackSupport;
+  SpecificDllLoader m_dxcSupport;
+  SpecificDllLoader m_dxrFallbackSupport;
   std::wstring m_deviceName;
   std::vector<CComPtr<IDxcBlob>> m_inputBlobs;
   std::vector<IDxcBlob *> m_inputBlobPtrs;

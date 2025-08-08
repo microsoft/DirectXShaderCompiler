@@ -15,7 +15,7 @@
 
 using namespace dxc;
 
-static DxcDllSupport g_DllSupport;
+static SpecificDllLoader g_DllSupport;
 static HRESULT g_DllLibResult = S_OK;
 static CRITICAL_SECTION cs;
 
@@ -46,8 +46,7 @@ bool DxilLibIsEnabled() {
   EnterCriticalSection(&cs);
   if (SUCCEEDED(g_DllLibResult)) {
     if (!g_DllSupport.IsEnabled()) {
-      g_DllLibResult =
-          g_DllSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
+      g_DllLibResult = g_DllSupport.OverrideDll(kDxilLib, "DxcCreateInstance");
     }
   }
   LeaveCriticalSection(&cs);

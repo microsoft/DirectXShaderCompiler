@@ -156,7 +156,7 @@ public:
   TEST_METHOD(NonUniformResourceIndex_DescriptorHeap)
   TEST_METHOD(NonUniformResourceIndex_Raytracing)
 
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::SpecificDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
   HRESULT CreateContainerBuilder(IDxcContainerBuilder **ppResult) {

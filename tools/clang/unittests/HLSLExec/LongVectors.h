@@ -299,7 +299,7 @@ public:
   void testBaseMethod(std::unique_ptr<TestConfig<DataTypeT>> &TestConfig);
 
 private:
-  dxc::DxcDllSupport DxcDllSupport;
+  dxc::SpecificDllLoader DxilDllLoader;
   bool Initialized = false;
 };
 

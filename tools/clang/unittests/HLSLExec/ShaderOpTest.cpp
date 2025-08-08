@@ -25,7 +25,7 @@
 #include "HlslTestUtils.h"          // LogCommentFmt
 #include "dxc/DXIL/DxilConstants.h" // ComponentType
 #include "dxc/Support/Global.h"     // OutputDebugBytes
-#include "dxc/Support/dxcapi.use.h" // DxcDllSupport
+#include "dxc/Support/dxcapi.use.h" // *DllLoader
 #include "dxc/dxcapi.h"             // IDxcCompiler
 
 #include <DirectXMath.h>
@@ -1148,7 +1148,7 @@ void ShaderOpTest::SetRootValues(ID3D12GraphicsCommandList *pList,
 
 void ShaderOpTest::SetDevice(ID3D12Device *pDevice) { m_pDevice = pDevice; }
 
-void ShaderOpTest::SetDxcSupport(dxc::DxcDllSupport *pDxcSupport) {
+void ShaderOpTest::SetSpecificDllLoader(dxc::SpecificDllLoader *pDxcSupport) {
   m_pDxcSupport = pDxcSupport;
 }
 
@@ -2758,8 +2758,8 @@ bool ShaderOpParser::ReadAtElementName(IXmlReader *pReader, LPCWSTR pName) {
 }
 
 std::shared_ptr<ShaderOpTestResult>
-RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
-                          LPCSTR pName,
+RunShaderOpTestAfterParse(ID3D12Device *pDevice,
+                          dxc::SpecificDllLoader &support, LPCSTR pName,
                           st::ShaderOpTest::TInitCallbackFn pInitCallback,
                           st::ShaderOpTest::TShaderCallbackFn pShaderCallback,
                           std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
@@ -2790,7 +2790,7 @@ RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
   pShaderOp->UseWarpDevice = hlsl_test::GetTestParamUseWARP(true);
 
   std::shared_ptr<st::ShaderOpTest> test = std::make_shared<st::ShaderOpTest>();
-  test->SetDxcSupport(&support);
+  test->SetSpecificDllLoader(&support);
   test->SetInitCallback(pInitCallback);
   test->SetShaderCallback(pShaderCallback);
   test->SetDevice(pDevice);
@@ -2805,8 +2805,8 @@ RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
 }
 
 std::shared_ptr<ShaderOpTestResult>
-RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
-                          LPCSTR pName,
+RunShaderOpTestAfterParse(ID3D12Device *pDevice,
+                          dxc::SpecificDllLoader &support, LPCSTR pName,
                           st::ShaderOpTest::TInitCallbackFn pInitCallback,
                           std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
   return RunShaderOpTestAfterParse(pDevice, support, pName, pInitCallback,
@@ -2814,7 +2814,7 @@ RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
 }
 
 std::shared_ptr<ShaderOpTestResult>
-RunShaderOpTest(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
+RunShaderOpTest(ID3D12Device *pDevice, dxc::SpecificDllLoader &support,
                 IStream *pStream, LPCSTR pName,
                 st::ShaderOpTest::TInitCallbackFn pInitCallback) {
   DXASSERT_NOMSG(pStream != nullptr);
