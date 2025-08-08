@@ -228,7 +228,7 @@ static bool createDevice(ID3D12Device **D3DDevice,
 }
 
 inline void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
-                                      dxc::DllLoader &Support) {
+                                      dxc::SpecificDllLoader &Support) {
   VERIFY_SUCCEEDED(
       Support.OverrideDll(dxc::kDxCompilerLib, "DxcCreateInstance"));
   CComPtr<IDxcLibrary> Library;

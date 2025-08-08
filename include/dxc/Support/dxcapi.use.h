@@ -21,19 +21,19 @@ extern const char *kDxilLib;
 
 // Interface for common dll operations
 class DllLoader {
-public:
-  virtual HRESULT OverrideDll(LPCSTR dll, LPCSTR entryPoint) = 0;
-  DllLoader() = default;
-  DllLoader(const DllLoader &) = delete;
-  DllLoader(DllLoader &&) = delete;
 
 protected:
   virtual HRESULT CreateInstanceImpl(REFCLSID clsid, REFIID riid,
                                      IUnknown **pResult) = 0;
   virtual HRESULT CreateInstance2Impl(IMalloc *pMalloc, REFCLSID clsid,
                                       REFIID riid, IUnknown **pResult) = 0;
+  virtual ~DllLoader() {}
 
 public:
+  DllLoader() = default;
+  DllLoader(const DllLoader &) = delete;
+  DllLoader(DllLoader &&) = delete;
+
   template <typename TInterface>
   HRESULT CreateInstance(REFCLSID clsid, TInterface **pResult) {
     return CreateInstanceImpl(clsid, __uuidof(TInterface),
@@ -54,11 +54,7 @@ public:
     return CreateInstance2Impl(pMalloc, clsid, riid, (IUnknown **)pResult);
   }
 
-  virtual bool HasCreateWithMalloc() const = 0;
-
   virtual bool IsEnabled() const = 0;
-
-  virtual HMODULE Detach() = 0;
 };
 
 // Helper class to dynamically load the dxcompiler or a compatible libraries.
@@ -128,13 +124,13 @@ public:
     other.m_createFn2 = nullptr;
   }
 
-  virtual ~SpecificDllLoader() { Cleanup(); }
+  ~SpecificDllLoader() override { Cleanup(); }
 
   HRESULT Initialize() {
     return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
   }
 
-  HRESULT OverrideDll(LPCSTR dll, LPCSTR entryPoint) override {
+  HRESULT OverrideDll(LPCSTR dll, LPCSTR entryPoint) {
     return InitializeInternal(dll, entryPoint);
   }
 
@@ -166,7 +162,7 @@ public:
     return hr;
   }
 
-  bool HasCreateWithMalloc() const override { return m_createFn2 != nullptr; }
+  bool HasCreateWithMalloc() const { return m_createFn2 != nullptr; }
 
   bool IsEnabled() const override { return m_dll != nullptr; }
 
@@ -192,7 +188,7 @@ public:
     }
   }
 
-  HMODULE Detach() override {
+  HMODULE Detach() {
     HMODULE hModule = m_dll;
     m_dll = nullptr;
     return hModule;
@@ -209,7 +205,7 @@ inline DxcDefine GetDefine(LPCWSTR name, LPCWSTR value) {
 // Checks an HRESULT and formats an error message with the appended data.
 void IFT_Data(HRESULT hr, LPCWSTR data);
 
-void EnsureEnabled(DllLoader &dxcSupport);
+void EnsureEnabled(SpecificDllLoader &dxcSupport);
 void ReadFileIntoBlob(DllLoader &dxcSupport, LPCWSTR pFileName,
                       IDxcBlobEncoding **ppBlobEncoding);
 void WriteBlobToConsole(IDxcBlob *pBlob, DWORD streamType = STD_OUTPUT_HANDLE);

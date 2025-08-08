@@ -181,7 +181,8 @@ bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
       maySucceedAnyway, bRegex);
 }
 
-std::string DisassembleProgram(dxc::DllLoader &dllSupport, IDxcBlob *pProgram) {
+std::string DisassembleProgram(dxc::SpecificDllLoader &dllSupport,
+                               IDxcBlob *pProgram) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pDisassembly;
 
