@@ -31,7 +31,7 @@ protected:
 
 public:
   DllLoader() = default;
-  DllLoader(const DllLoader &) = delete;
+  DllLoader(const DllLoader &) = default; // needed for HlslIntellisenseSupport
   DllLoader(DllLoader &&) = delete;
 
   template <typename TInterface>
@@ -114,15 +114,6 @@ class SpecificDllLoader : public DllLoader {
 public:
   SpecificDllLoader()
       : m_dll(nullptr), m_createFn(nullptr), m_createFn2(nullptr) {}
-
-  SpecificDllLoader(SpecificDllLoader &&other) {
-    m_dll = other.m_dll;
-    other.m_dll = nullptr;
-    m_createFn = other.m_createFn;
-    other.m_createFn = nullptr;
-    m_createFn2 = other.m_createFn2;
-    other.m_createFn2 = nullptr;
-  }
 
   ~SpecificDllLoader() override { Cleanup(); }
 

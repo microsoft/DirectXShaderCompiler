@@ -26,26 +26,7 @@ public:
 
   HRESULT Initialize() { return InitializeInternal("DxcCreateInstance"); }
 
-  /* Note, OverrideDll takes this dll argument and ignores it
-  to satisfy the IDllLoader interface. The parameter is ignored
-  because the relevant dlls are specific and known: dxcompiler.dll
-  and dxil.dll. This class is not designed to handle any other dlls */
-  HRESULT OverrideDll(LPCSTR dll, LPCSTR entryPoint) {
-    return InitializeInternal(entryPoint);
-  }
-
-  bool HasCreateWithMalloc() const {
-    assert(DxCompilerSupport.HasCreateWithMalloc() &&
-           DxilExtValSupport.HasCreateWithMalloc());
-    return true;
-  }
-
+  
   bool IsEnabled() const override { return DxCompilerSupport.IsEnabled(); }
-
-  HMODULE Detach() {
-    // Can't Detach and return a handle for DxilSupport. Cleanup() instead.
-    DxilExtValSupport.Cleanup();
-    return DxCompilerSupport.Detach();
-  }
 };
 } // namespace dxc
