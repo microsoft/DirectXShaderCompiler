@@ -7063,9 +7063,9 @@ class db_dxil(object):
             [],
         )
         add_pass(
-            "hlsl-dxil-scalarize-vector-load-stores",
-            "DxilScalarizeVectorLoadStores",
-            "DXIL scalarize vector load/stores",
+            "hlsl-dxil-scalarize-vector-intrinsics",
+            "DxilScalarizeVectorIntrinsics",
+            "Scalarize native vector DXIL loads, stores, and other intrinsics",
             [],
         )
         add_pass(

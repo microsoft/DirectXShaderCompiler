@@ -1,3 +1,7 @@
+// This is a temporary measure to verify that intrinsics are not lowered
+//  to native vectors in SM6.9 unintentionally.
+// Ultimately, this file will be deleted when all are correctly lowered.
+
 // The binary part of some of these is all just a vector math ops with as many unary dxops as elements.
 // These will have apparent mismatches between the ARITY define and the check prefix.
 

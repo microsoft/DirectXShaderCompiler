@@ -2,6 +2,9 @@
 
 // Long vector tests for vec ops that scalarize to something more complex
 //  than a simple repetition of the same dx.op calls.
+// This is a temporary measure to verify that intrinsics are not lowered
+//  to native vectors in SM6.9 unintentionally.
+// Ultimately, this file will be deleted when all are correctly lowered.
 
 // CHECK-LABEL: test_atan2
 // CHECK: fdiv fast <8 x float>
@@ -101,15 +104,14 @@ export void test_all(vector<float, 8> vec1, inout vector<bool, 8> bvec) {
 }
 
 // CHECK-LABEL: test_WaveMatch
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
+// CHECK: call {{.*}} @dx.op.waveMatch
+// CHECK: call {{.*}} @dx.op.waveMatch
+// CHECK: call {{.*}} @dx.op.waveMatch
+// CHECK: call {{.*}} @dx.op.waveMatch
+// CHECK: call {{.*}} @dx.op.waveMatch
+// CHECK: call {{.*}} @dx.op.waveMatch
+// CHECK: call {{.*}} @dx.op.waveMatch
+// CHECK: call {{.*}} @dx.op.waveMatch
 export uint4 test_WaveMatch(vector<bool, 8> bvec) {
   return WaveMatch(bvec);
 }
