@@ -26,7 +26,6 @@ public:
 
   HRESULT Initialize() { return InitializeInternal("DxcCreateInstance"); }
 
-  
   bool IsEnabled() const override { return DxCompilerSupport.IsEnabled(); }
 };
 } // namespace dxc
