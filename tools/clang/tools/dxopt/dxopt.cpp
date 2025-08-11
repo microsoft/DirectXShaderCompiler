@@ -317,7 +317,7 @@ int main(int argc, const char **argv) {
     if (externalLib) {
       CW2A externalFnA(externalFn);
       CW2A externalLibA(externalLib);
-      IFT(g_DxcSupport.OverrideDll(externalLibA, externalFnA));
+      IFT(g_DxcSupport.InitializeForDll(externalLibA, externalFnA));
     } else {
       IFT(g_DxcSupport.Initialize());
     }

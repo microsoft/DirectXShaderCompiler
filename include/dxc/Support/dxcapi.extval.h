@@ -9,9 +9,7 @@ class DxcDllExtValidationLoader : public DllLoader {
   // manages the lifetime of dxil.dll
   dxc::SpecificDllLoader DxCompilerSupport;
   dxc::SpecificDllLoader DxilExtValSupport;
-
   std::string DxilDllPath;
-  HRESULT InitializeInternal(LPCSTR fnName);
 
 public:
   std::string GetDxilDllPath() { return DxilDllPath; }
@@ -24,7 +22,7 @@ public:
   HRESULT CreateInstance2Impl(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
                               IUnknown **pResult) override;
 
-  HRESULT Initialize() { return InitializeInternal("DxcCreateInstance"); }
+  HRESULT Initialize();
 
   bool IsEnabled() const override { return DxCompilerSupport.IsEnabled(); }
 };

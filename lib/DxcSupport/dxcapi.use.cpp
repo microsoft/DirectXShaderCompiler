@@ -75,7 +75,7 @@ void IFT_Data(HRESULT hr, LPCWSTR data) {
 
 void EnsureEnabled(SpecificDllLoader &dxcSupport) {
   if (!dxcSupport.IsEnabled()) {
-    IFT(dxcSupport.OverrideDll(kDxCompilerLib, "DxcCreateInstance"));
+    IFT(dxcSupport.InitializeForDll(kDxCompilerLib, "DxcCreateInstance"));
   }
 }
 

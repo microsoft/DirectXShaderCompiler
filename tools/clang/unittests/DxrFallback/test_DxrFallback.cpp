@@ -140,8 +140,8 @@ public:
   Tester(const std::string &deviceName, const std::string &path)
       : m_deviceName(s2ws(deviceName)), m_path(path) {
     dxc::EnsureEnabled(m_dxcSupport);
-    m_dxrFallbackSupport.OverrideDll("DxrFallbackCompiler.dll",
-                                     "DxcCreateDxrFallbackCompiler");
+    m_dxrFallbackSupport.InitializeForDll("DxrFallbackCompiler.dll",
+                                          "DxcCreateDxrFallbackCompiler");
   }
 
   void setFiles(const std::vector<std::string> &files) {

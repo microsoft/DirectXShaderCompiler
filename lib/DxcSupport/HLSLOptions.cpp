@@ -1388,8 +1388,8 @@ int SetupDllLoader(const DxcOpts &opts, dxc::SpecificDllLoader &dxcSupport,
                    llvm::raw_ostream &errors) {
   if (!opts.ExternalLib.empty()) {
     DXASSERT(!opts.ExternalFn.empty(), "else ReadDxcOpts should have failed");
-    HRESULT hrLoad =
-        dxcSupport.OverrideDll(opts.ExternalLib.data(), opts.ExternalFn.data());
+    HRESULT hrLoad = dxcSupport.InitializeForDll(opts.ExternalLib.data(),
+                                                 opts.ExternalFn.data());
     if (DXC_FAILED(hrLoad)) {
       errors << "Unable to load support for external DLL " << opts.ExternalLib
              << " with function " << opts.ExternalFn << " - error 0x";

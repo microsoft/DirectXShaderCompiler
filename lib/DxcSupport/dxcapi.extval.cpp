@@ -25,9 +25,10 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
   return DxCompilerSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
 }
 
-HRESULT DxcDllExtValidationLoader::InitializeInternal(LPCSTR fnName) {
+HRESULT DxcDllExtValidationLoader::Initialize() {
   // Load dxcompiler.dll
-  HRESULT Result = DxCompilerSupport.OverrideDll(kDxCompilerLib, fnName);
+  HRESULT Result =
+      DxCompilerSupport.InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
   // if dxcompiler.dll fails to load, return the failed HRESULT
   if (DXC_FAILED(Result)) {
     return Result;
@@ -47,6 +48,7 @@ HRESULT DxcDllExtValidationLoader::InitializeInternal(LPCSTR fnName) {
     return E_INVALIDARG;
   }
 
-  return DxilExtValSupport.OverrideDll(DxilDllPath.c_str(), fnName);
+  return DxilExtValSupport.InitializeForDll(DxilDllPath.c_str(),
+                                            "DxcCreateInstance");
 }
 } // namespace dxc

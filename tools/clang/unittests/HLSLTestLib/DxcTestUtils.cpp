@@ -188,7 +188,7 @@ std::string DisassembleProgram(dxc::SpecificDllLoader &dllSupport,
 
   if (!dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(
-        dllSupport.OverrideDll(dxc::kDxCompilerLib, "DxcCreateInstance"));
+        dllSupport.InitializeForDll(dxc::kDxCompilerLib, "DxcCreateInstance"));
   }
 
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));

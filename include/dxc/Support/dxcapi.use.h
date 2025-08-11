@@ -121,13 +121,12 @@ public:
     return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
   }
 
-  HRESULT OverrideDll(LPCSTR dll, LPCSTR entryPoint) {
+  HRESULT InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {
     return InitializeInternal(dll, entryPoint);
   }
 
   // Also bring visibility into the interface definition of this function
   // which takes 2 args
-  using DllLoader::CreateInstanceImpl;
   HRESULT CreateInstanceImpl(REFCLSID clsid, REFIID riid,
                              IUnknown **pResult) override {
     if (pResult == nullptr)
@@ -140,7 +139,6 @@ public:
 
   // Also bring visibility into the interface definition of this function
   // which takes 3 args
-  using DllLoader::CreateInstance2Impl;
   HRESULT CreateInstance2Impl(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
                               IUnknown **pResult) override {
     if (pResult == nullptr)
