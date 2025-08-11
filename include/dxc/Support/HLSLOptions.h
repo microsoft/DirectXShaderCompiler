@@ -305,8 +305,9 @@ int ReadDxcOpts(const llvm::opt::OptTable *optionTable, unsigned flagsToInclude,
                 llvm::raw_ostream &errors);
 
 /// Sets up a SpecificDllLoader instance as per the given options.
-int SetupDllLoader(const DxcOpts &opts, dxc::SpecificDllLoader &dxcSupport,
-                   llvm::raw_ostream &errors);
+int SetupSpecificDllLoader(const DxcOpts &opts,
+                           dxc::SpecificDllLoader &dxcSupport,
+                           llvm::raw_ostream &errors);
 
 void CopyArgsToWStrings(const llvm::opt::InputArgList &inArgs,
                         unsigned flagsToInclude,

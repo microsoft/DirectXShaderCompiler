@@ -1451,7 +1451,8 @@ int dxc::main(int argc, const char **argv_) {
     {
       std::string dllErrorString;
       llvm::raw_string_ostream dllErrorStream(dllErrorString);
-      int dllResult = SetupDllLoader(dxcOpts, dxcSupport, dllErrorStream);
+      int dllResult =
+          SetupSpecificDllLoader(dxcOpts, dxcSupport, dllErrorStream);
       dllErrorStream.flush();
       if (dllErrorString.size()) {
         fprintf(stderr, "%s\n", dllErrorString.data());

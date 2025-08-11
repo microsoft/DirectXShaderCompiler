@@ -1383,9 +1383,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   return 0;
 }
 
-/// Sets up the specified DllLoader instance as per the given options.
-int SetupDllLoader(const DxcOpts &opts, dxc::SpecificDllLoader &dxcSupport,
-                   llvm::raw_ostream &errors) {
+/// Sets up a SpecificDllLoader instance as per the given options.
+int SetupSpecificDllLoader(const DxcOpts &opts,
+                           dxc::SpecificDllLoader &dxcSupport,
+                           llvm::raw_ostream &errors) {
   if (!opts.ExternalLib.empty()) {
     DXASSERT(!opts.ExternalFn.empty(), "else ReadDxcOpts should have failed");
     HRESULT hrLoad = dxcSupport.InitializeForDll(opts.ExternalLib.data(),
