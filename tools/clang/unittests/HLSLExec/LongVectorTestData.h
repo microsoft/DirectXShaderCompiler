@@ -300,6 +300,6 @@ template <> struct TestData<double> {
   };
 };
 
-#endif // LONGVECTORTESTDATA_H
-
 }; // namespace LongVector
+
+#endif // LONGVECTORTESTDATA_H
