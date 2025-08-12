@@ -31,7 +31,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Forward declarations.
 namespace dxc {
-class DllLoader;
 class SpecificDllLoader;
 }
 struct IStream;
