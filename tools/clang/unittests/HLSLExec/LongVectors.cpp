@@ -366,29 +366,41 @@ void OpTest::dispatchTestByDataType(const OpTypeMetaData<OpTypeT> &OpTypeMd,
                                     TableParameterHandler &Handler) {
   using namespace WEX::Common;
 
-  if (DataType == L"bool")
+  switch (Hash_djb2a(DataType)) {
+  case Hash_djb2a(L"bool"):
     dispatchTestByVectorLength<HLSLBool_t>(OpTypeMd, Handler);
-  else if (DataType == L"int16")
+    break;
+  case Hash_djb2a(L"int16"):
     dispatchTestByVectorLength<int16_t>(OpTypeMd, Handler);
-  else if (DataType == L"int32")
+    break;
+  case Hash_djb2a(L"int32"):
     dispatchTestByVectorLength<int32_t>(OpTypeMd, Handler);
-  else if (DataType == L"int64")
+    break;
+  case Hash_djb2a(L"int64"):
     dispatchTestByVectorLength<int64_t>(OpTypeMd, Handler);
-  else if (DataType == L"uint16")
+    break;
+  case Hash_djb2a(L"uint16"):
     dispatchTestByVectorLength<uint16_t>(OpTypeMd, Handler);
-  else if (DataType == L"uint32")
+    break;
+  case Hash_djb2a(L"uint32"):
     dispatchTestByVectorLength<uint32_t>(OpTypeMd, Handler);
-  else if (DataType == L"uint64")
+    break;
+  case Hash_djb2a(L"uint64"):
     dispatchTestByVectorLength<uint64_t>(OpTypeMd, Handler);
-  else if (DataType == L"float16")
+    break;
+  case Hash_djb2a(L"float16"):
     dispatchTestByVectorLength<HLSLHalf_t>(OpTypeMd, Handler);
-  else if (DataType == L"float32")
+    break;
+  case Hash_djb2a(L"float32"):
     dispatchTestByVectorLength<float>(OpTypeMd, Handler);
-  else if (DataType == L"float64")
+    break;
+  case Hash_djb2a(L"float64"):
     dispatchTestByVectorLength<double>(OpTypeMd, Handler);
-  else
+    break;
+  default:
     LOG_ERROR_FMT_THROW(L"Unrecognized DataType: %ls for OpType: %ls.",
                         DataType.c_str(), OpTypeMd.OpTypeString.c_str());
+  }
 }
 
 template <>
@@ -402,27 +414,38 @@ void OpTest::dispatchTestByDataType(
   // compile errors for a bunch of the templated std lib functions we call to
   // compute unary math ops. This is easier and cleaner than guarding against in
   // at that point.
-  if (DataType == L"int16")
+  switch (Hash_djb2a(DataType)) {
+  case Hash_djb2a(L"int16"):
     dispatchTestByVectorLength<int16_t>(OpTypeMd, Handler);
-  else if (DataType == L"int32")
+    break;
+  case Hash_djb2a(L"int32"):
     dispatchTestByVectorLength<int32_t>(OpTypeMd, Handler);
-  else if (DataType == L"int64")
+    break;
+  case Hash_djb2a(L"int64"):
     dispatchTestByVectorLength<int64_t>(OpTypeMd, Handler);
-  else if (DataType == L"uint16")
+    break;
+  case Hash_djb2a(L"uint16"):
     dispatchTestByVectorLength<uint16_t>(OpTypeMd, Handler);
-  else if (DataType == L"uint32")
+    break;
+  case Hash_djb2a(L"uint32"):
     dispatchTestByVectorLength<uint32_t>(OpTypeMd, Handler);
-  else if (DataType == L"uint64")
+    break;
+  case Hash_djb2a(L"uint64"):
     dispatchTestByVectorLength<uint64_t>(OpTypeMd, Handler);
-  else if (DataType == L"float16")
+    break;
+  case Hash_djb2a(L"float16"):
     dispatchTestByVectorLength<HLSLHalf_t>(OpTypeMd, Handler);
-  else if (DataType == L"float32")
+    break;
+  case Hash_djb2a(L"float32"):
     dispatchTestByVectorLength<float>(OpTypeMd, Handler);
-  else if (DataType == L"float64")
+    break;
+  case Hash_djb2a(L"float64"):
     dispatchTestByVectorLength<double>(OpTypeMd, Handler);
-  else
+    break;
+  default:
     LOG_ERROR_FMT_THROW(L"Invalid UnaryMathOpType DataType: %ls.",
                         DataType.c_str());
+  }
 }
 
 template <>

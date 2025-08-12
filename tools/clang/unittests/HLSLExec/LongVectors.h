@@ -7,6 +7,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <variant>
 
@@ -23,6 +24,18 @@
 #include "dxc/Test/HlslTestUtils.h"
 
 namespace LongVector {
+
+// Used to compute the hash of a std::wstring at compile time. Gives us a way to
+// create switch statements with a std::wstring.
+// Note: Because this is evaluated at compile time the compiler detects hash
+// collisions via an duplicate case statement error.
+inline constexpr auto Hash_djb2a(const std::wstring_view String) {
+  unsigned long Hash{1337};
+  for (wchar_t c : String) {
+    Hash = ((Hash << 5) + Hash) ^ static_cast<std::size_t>(c);
+  }
+  return Hash;
+}
 
 // We don't have std::bit_cast in C++17, so we define our own version.
 template <typename ToT, typename FromT>
