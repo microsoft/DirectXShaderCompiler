@@ -73,6 +73,12 @@ template <typename DataTypeT> constexpr bool isFloatingPointType() {
          std::is_same_v<DataTypeT, HLSLHalf_t>;
 }
 
+template <typename DataTypeT> constexpr bool is16BitType() {
+  return std::is_same_v<DataTypeT, int16_t> ||
+         std::is_same_v<DataTypeT, uint16_t> ||
+         std::is_same_v<DataTypeT, HLSLHalf_t>;
+}
+
 template <typename DataTypeT> std::string getHLSLTypeString();
 
 // Helpful metadata struct so we can define some common properties for a test in
@@ -83,7 +89,7 @@ template <typename DataTypeT> std::string getHLSLTypeString();
 //
 // OpTypeString : This is populated by the TableParamaterHandler parsing the
 // LongVectorOpTable.xml file. It's used to find the enum value in one of the
-// arrays below. Such as binaryOpTypeStringToOpMetaData.
+// arrays below. Such as binaryMathOpTypeStringToOpMetaData.
 //
 // OpType : Populated via the lookup with OpTypeString.
 //
@@ -117,55 +123,6 @@ enum BasicOpType {
   BasicOpType_ScalarBinary,
   BasicOpType_EnumValueCount
 };
-
-enum BinaryOpType {
-  BinaryOpType_ScalarAdd,
-  BinaryOpType_ScalarMultiply,
-  BinaryOpType_ScalarSubtract,
-  BinaryOpType_ScalarDivide,
-  BinaryOpType_ScalarModulus,
-  BinaryOpType_Multiply,
-  BinaryOpType_Add,
-  BinaryOpType_Subtract,
-  BinaryOpType_Divide,
-  BinaryOpType_Modulus,
-  BinaryOpType_Min,
-  BinaryOpType_Max,
-  BinaryOpType_ScalarMin,
-  BinaryOpType_ScalarMax,
-  BinaryOpType_EnumValueCount
-};
-
-static const OpTypeMetaData<BinaryOpType> binaryOpTypeStringToOpMetaData[] = {
-    {L"BinaryOpType_ScalarAdd", BinaryOpType_ScalarAdd, std::nullopt, "+"},
-    {L"BinaryOpType_ScalarMultiply", BinaryOpType_ScalarMultiply, std::nullopt,
-     "*"},
-    {L"BinaryOpType_ScalarSubtract", BinaryOpType_ScalarSubtract, std::nullopt,
-     "-"},
-    {L"BinaryOpType_ScalarDivide", BinaryOpType_ScalarDivide, std::nullopt,
-     "/"},
-    {L"BinaryOpType_ScalarModulus", BinaryOpType_ScalarModulus, std::nullopt,
-     "%"},
-    {L"BinaryOpType_Add", BinaryOpType_Add, std::nullopt, "+"},
-    {L"BinaryOpType_Multiply", BinaryOpType_Multiply, std::nullopt, "*"},
-    {L"BinaryOpType_Subtract", BinaryOpType_Subtract, std::nullopt, "-"},
-    {L"BinaryOpType_Divide", BinaryOpType_Divide, std::nullopt, "/"},
-    {L"BinaryOpType_Modulus", BinaryOpType_Modulus, std::nullopt, "%"},
-    {L"BinaryOpType_Min", BinaryOpType_Min, "min", ","},
-    {L"BinaryOpType_Max", BinaryOpType_Max, "max", ","},
-    {L"BinaryOpType_ScalarMin", BinaryOpType_ScalarMin, "min", ","},
-    {L"BinaryOpType_ScalarMax", BinaryOpType_ScalarMax, "max", ","},
-};
-
-static_assert(_countof(binaryOpTypeStringToOpMetaData) ==
-                  BinaryOpType_EnumValueCount,
-              "binaryOpTypeStringToOpMetaData size mismatch. Did you "
-              "add a new enum value?");
-
-const OpTypeMetaData<BinaryOpType> &
-getBinaryOpType(const std::wstring &OpTypeString) {
-  return getOpType<BinaryOpType>(binaryOpTypeStringToOpMetaData, OpTypeString);
-}
 
 enum UnaryOpType { UnaryOpType_Initialize, UnaryOpType_EnumValueCount };
 
@@ -304,6 +261,64 @@ getUnaryMathOpType(const std::wstring &OpTypeString) {
                                     OpTypeString);
 }
 
+enum BinaryMathOpType {
+  BinaryMathOpType_Scalar_Add,
+  BinaryMathOpType_Scalar_Multiply,
+  BinaryMathOpType_Scalar_Subtract,
+  BinaryMathOpType_Scalar_Divide,
+  BinaryMathOpType_Scalar_Modulus,
+  BinaryMathOpType_Multiply,
+  BinaryMathOpType_Add,
+  BinaryMathOpType_Subtract,
+  BinaryMathOpType_Divide,
+  BinaryMathOpType_Modulus,
+  BinaryMathOpType_Min,
+  BinaryMathOpType_Max,
+  BinaryMathOpType_Scalar_Min,
+  BinaryMathOpType_Scalar_Max,
+  BinaryMathOpType_EnumValueCount
+};
+
+static const OpTypeMetaData<BinaryMathOpType>
+    binaryMathOpTypeStringToOpMetaData[] = {
+        {L"BinaryMathOpType_Scalar_Add", BinaryMathOpType_Scalar_Add,
+         std::nullopt, "+"},
+        {L"BinaryMathOpType_Scalar_Multiply", BinaryMathOpType_Scalar_Multiply,
+         std::nullopt, "*"},
+        {L"BinaryMathOpType_Scalar_Subtract", BinaryMathOpType_Scalar_Subtract,
+         std::nullopt, "-"},
+        {L"BinaryMathOpType_Scalar_Divide", BinaryMathOpType_Scalar_Divide,
+         std::nullopt, "/"},
+        {L"BinaryMathOpType_Scalar_Modulus", BinaryMathOpType_Scalar_Modulus,
+         std::nullopt, "%"},
+        {L"BinaryMathOpType_Add", BinaryMathOpType_Add, std::nullopt, "+"},
+        {L"BinaryMathOpType_Multiply", BinaryMathOpType_Multiply, std::nullopt,
+         "*"},
+        {L"BinaryMathOpType_Subtract", BinaryMathOpType_Subtract, std::nullopt,
+         "-"},
+        {L"BinaryMathOpType_Divide", BinaryMathOpType_Divide, std::nullopt,
+         "/"},
+        {L"BinaryMathOpType_Modulus", BinaryMathOpType_Modulus, std::nullopt,
+         "%"},
+        {L"BinaryMathOpType_Min", BinaryMathOpType_Min, "min", ","},
+        {L"BinaryMathOpType_Max", BinaryMathOpType_Max, "max", ","},
+        {L"BinaryMathOpType_Scalar_Min", BinaryMathOpType_Scalar_Min, "min",
+         ","},
+        {L"BinaryMathOpType_Scalar_Max", BinaryMathOpType_Scalar_Max, "max",
+         ","},
+};
+
+static_assert(_countof(binaryMathOpTypeStringToOpMetaData) ==
+                  BinaryMathOpType_EnumValueCount,
+              "binaryMathOpTypeStringToOpMetaData size mismatch. Did you "
+              "add a new enum value?");
+
+const OpTypeMetaData<BinaryMathOpType> &
+getBinaryMathOpType(const std::wstring &OpTypeString) {
+  return getOpType<BinaryMathOpType>(binaryMathOpTypeStringToOpMetaData,
+                                     OpTypeString);
+}
+
 template <typename DataTypeT>
 std::vector<DataTypeT> getInputValueSetByKey(const std::wstring &Key,
                                              bool LogKey = true) {
@@ -322,9 +337,9 @@ public:
 
   TEST_CLASS_SETUP(classSetup);
 
-  BEGIN_TEST_METHOD(binaryOpTest)
+  BEGIN_TEST_METHOD(binaryMathOpTest)
   TEST_METHOD_PROPERTY(L"DataSource",
-                       L"Table:LongVectorOpTable.xml#BinaryOpTable")
+                       L"Table:LongVectorOpTable.xml#BinaryMathOpTable")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(trigonometricOpTest)
@@ -674,14 +689,14 @@ private:
 };
 
 template <typename DataTypeT>
-class TestConfigBinary : public TestConfig<DataTypeT> {
+class TestConfigBinaryMath : public TestConfig<DataTypeT> {
 public:
-  TestConfigBinary(const OpTypeMetaData<BinaryOpType> &OpTypeMd);
+  TestConfigBinaryMath(const OpTypeMetaData<BinaryMathOpType> &OpTypeMd);
   DataTypeT computeExpectedValue(const DataTypeT &A,
                                  const DataTypeT &B) const override;
 
 private:
-  BinaryOpType OpType = BinaryOpType_EnumValueCount;
+  BinaryMathOpType OpType = BinaryMathOpType_EnumValueCount;
 
   // Helpers so we do the right thing for float types. HLSLHalf_t is handled in
   // an operator overload.
@@ -733,12 +748,6 @@ makeTestConfig(const OpTypeMetaData<UnaryOpType> &OpTypeMetaData) {
 
 template <typename DataTypeT>
 std::unique_ptr<TestConfig<DataTypeT>>
-makeTestConfig(const OpTypeMetaData<BinaryOpType> &OpTypeMetaData) {
-  return std::make_unique<TestConfigBinary<DataTypeT>>(OpTypeMetaData);
-}
-
-template <typename DataTypeT>
-std::unique_ptr<TestConfig<DataTypeT>>
 makeTestConfig(const OpTypeMetaData<TrigonometricOpType> &OpTypeMetaData) {
   return std::make_unique<TestConfigTrigonometric<DataTypeT>>(OpTypeMetaData);
 }
@@ -753,6 +762,12 @@ template <typename DataTypeT>
 std::unique_ptr<TestConfig<DataTypeT>>
 makeTestConfig(const OpTypeMetaData<UnaryMathOpType> &OpTypeMetaData) {
   return std::make_unique<TestConfigUnaryMath<DataTypeT>>(OpTypeMetaData);
+}
+
+template <typename DataTypeT>
+std::unique_ptr<TestConfig<DataTypeT>>
+makeTestConfig(const OpTypeMetaData<BinaryMathOpType> &OpTypeMetaData) {
+  return std::make_unique<TestConfigBinaryMath<DataTypeT>>(OpTypeMetaData);
 }
 
 }; // namespace LongVector

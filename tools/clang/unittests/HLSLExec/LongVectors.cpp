@@ -288,22 +288,6 @@ bool OpTest::classSetup() {
   return true;
 }
 
-TEST_F(OpTest, binaryOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
-  using namespace WEX::Common;
-
-  const size_t TableSize = sizeof(BinaryOpParameters) / sizeof(TableParameter);
-  TableParameterHandler Handler(BinaryOpParameters, TableSize);
-
-  std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
-  std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
-
-  auto OpTypeMD = getBinaryOpType(OpTypeString);
-  dispatchTestByDataType(OpTypeMD, DataType, Handler);
-}
-
 TEST_F(OpTest, trigonometricOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -358,6 +342,22 @@ TEST_F(OpTest, unaryMathOpTest) {
 
   auto OpTypeMD = getUnaryMathOpType(OpTypeString);
   dispatchTestByDataType(OpTypeMD, DataTypeIn, Handler);
+}
+
+TEST_F(OpTest, binaryMathOpTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  using namespace WEX::Common;
+
+  const size_t TableSize = sizeof(BinaryOpParameters) / sizeof(TableParameter);
+  TableParameterHandler Handler(BinaryOpParameters, TableSize);
+
+  std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
+  std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
+
+  auto OpTypeMD = getBinaryMathOpType(OpTypeString);
+  dispatchTestByDataType(OpTypeMD, DataType, Handler);
 }
 
 template <typename OpTypeT>
@@ -691,44 +691,34 @@ template <typename DataTypeT>
 std::string TestConfig<DataTypeT>::getCompilerOptionsString() const {
 
   std::stringstream CompilerOptions("");
-  std::string HLSLInputType = getHLSLInputTypeString();
 
-  CompilerOptions << "-DTYPE=";
-  CompilerOptions << HLSLInputType;
-  CompilerOptions << " -DNUM=";
-  CompilerOptions << LengthToTest;
-  const bool Is16BitType =
-      (HLSLInputType == "int16_t" || HLSLInputType == "uint16_t" ||
-       HLSLInputType == "half");
-  CompilerOptions << (Is16BitType ? " -enable-16bit-types" : "");
+  if (is16BitType<DataTypeT>())
+    CompilerOptions << " -enable-16bit-types";
+
+  CompilerOptions << " -DTYPE=" << getHLSLInputTypeString();
+  CompilerOptions << " -DNUM=" << LengthToTest;
+
   CompilerOptions << " -DOPERATOR=";
-  CompilerOptions << (Operator ? *Operator : " ");
+  if (Operator)
+    CompilerOptions << *Operator;
 
+  CompilerOptions << " -DFUNC=";
+  if (Intrinsic)
+    CompilerOptions << *Intrinsic;
+
+  const bool IsScalarOp = isScalarOp();
+  CompilerOptions << " -DOPERAND2=";
   if (isBinaryOp()) {
-    CompilerOptions << " -DOPERAND2=";
-    CompilerOptions << (isScalarOp() ? "InputScalar" : "InputVector2");
-
-    if (isScalarOp())
-      CompilerOptions << " -DIS_SCALAR_OP=1";
-    else
-      CompilerOptions << " -DIS_BINARY_VECTOR_OP=1";
-
-    CompilerOptions << " -DFUNC=";
-    CompilerOptions << (Intrinsic ? *Intrinsic : " ");
-  } else { // Unary Op
-    CompilerOptions << " -DFUNC=";
-    CompilerOptions << (Intrinsic ? *Intrinsic : " ");
-    // Not used for unary ops, but needs to be a " " for compilation of the
-    // shader after macro expansion.
-    CompilerOptions << " -DOPERAND2= ";
+    CompilerOptions << (IsScalarOp ? "InputScalar" : "InputVector2");
+    CompilerOptions << (IsScalarOp ? " -DIS_SCALAR_OP=1"
+                                   : " -DIS_BINARY_VECTOR_OP=1");
   }
 
-  // For most of the ops this string is empty.
-  CompilerOptions << (SpecialDefines ? *SpecialDefines : " ");
+  // For most of the ops this string is std::nullopt.
+  if (SpecialDefines)
+    CompilerOptions << " " << *SpecialDefines;
 
-  std::string HLSLOutputType = getHLSLOutputTypeString();
-  CompilerOptions << " -DOUT_TYPE=";
-  CompilerOptions << HLSLOutputType;
+  CompilerOptions << " -DOUT_TYPE=" << getHLSLOutputTypeString();
 
   return CompilerOptions.str();
 }
@@ -1041,81 +1031,6 @@ TestConfigUnary<DataTypeT>::computeExpectedValue(const DataTypeT &A) const {
 }
 
 template <typename DataTypeT>
-TestConfigBinary<DataTypeT>::TestConfigBinary(
-    const OpTypeMetaData<BinaryOpType> &OpTypeMd)
-    : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
-
-  if (isFloatingPointType<DataTypeT>()) {
-    Tolerance = 1;
-    ValidationType = ValidationType_Ulp;
-  }
-
-  switch (OpType) {
-  case BinaryOpType_ScalarAdd:
-  case BinaryOpType_ScalarMultiply:
-  case BinaryOpType_ScalarSubtract:
-  case BinaryOpType_ScalarDivide:
-  case BinaryOpType_ScalarModulus:
-  case BinaryOpType_ScalarMin:
-  case BinaryOpType_ScalarMax:
-    BasicOpType = BasicOpType_ScalarBinary;
-    break;
-  case BinaryOpType_Multiply:
-  case BinaryOpType_Add:
-  case BinaryOpType_Subtract:
-  case BinaryOpType_Divide:
-  case BinaryOpType_Modulus:
-  case BinaryOpType_Min:
-  case BinaryOpType_Max:
-    BasicOpType = BasicOpType_Binary;
-    break;
-  default:
-    LOG_ERROR_FMT_THROW(L"Invalid BinaryOpType: %ls", OpTypeName.c_str());
-  }
-}
-
-template <typename DataTypeT>
-DataTypeT
-TestConfigBinary<DataTypeT>::computeExpectedValue(const DataTypeT &A,
-                                                  const DataTypeT &B) const {
-  switch (OpType) {
-  case BinaryOpType_ScalarAdd:
-    return A + B;
-  case BinaryOpType_ScalarMultiply:
-    return A * B;
-  case BinaryOpType_ScalarSubtract:
-    return A - B;
-  case BinaryOpType_ScalarDivide:
-    return A / B;
-  case BinaryOpType_ScalarModulus:
-    return mod(A, B);
-  case BinaryOpType_Multiply:
-    return A * B;
-  case BinaryOpType_Add:
-    return A + B;
-  case BinaryOpType_Subtract:
-    return A - B;
-  case BinaryOpType_Divide:
-    return A / B;
-  case BinaryOpType_Modulus:
-    return mod(A, B);
-  case BinaryOpType_Min:
-    // std::max and std::min are wrapped in () to avoid collisions with the //
-    // macro defintions for min and max in windows.h
-    return (std::min)(A, B);
-  case BinaryOpType_Max:
-    return (std::max)(A, B);
-  case BinaryOpType_ScalarMin:
-    return (std::min)(A, B);
-  case BinaryOpType_ScalarMax:
-    return (std::max)(A, B);
-  default:
-    LOG_ERROR_FMT_THROW(L"Unknown BinaryOpType: %ls", OpTypeName.c_str());
-    return DataTypeT();
-  }
-}
-
-template <typename DataTypeT>
 TestConfigUnaryMath<DataTypeT>::TestConfigUnaryMath(
     const OpTypeMetaData<UnaryMathOpType> &OpTypeMd)
     : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
@@ -1193,6 +1108,80 @@ void TestConfigUnaryMath<DataTypeT>::computeExpectedValues(
   fillExpectedVector<DataTypeT>(
       ExpectedVector, InputVector1.size(),
       [&](size_t Index) { return computeExpectedValue(InputVector1[Index]); });
+}
+
+template <typename DataTypeT>
+TestConfigBinaryMath<DataTypeT>::TestConfigBinaryMath(
+    const OpTypeMetaData<BinaryMathOpType> &OpTypeMd)
+    : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
+
+  if (isFloatingPointType<DataTypeT>()) {
+    Tolerance = 1;
+    ValidationType = ValidationType_Ulp;
+  }
+
+  switch (OpType) {
+  case BinaryMathOpType_Scalar_Add:
+  case BinaryMathOpType_Scalar_Multiply:
+  case BinaryMathOpType_Scalar_Subtract:
+  case BinaryMathOpType_Scalar_Divide:
+  case BinaryMathOpType_Scalar_Modulus:
+  case BinaryMathOpType_Scalar_Min:
+  case BinaryMathOpType_Scalar_Max:
+    BasicOpType = BasicOpType_ScalarBinary;
+    break;
+  case BinaryMathOpType_Multiply:
+  case BinaryMathOpType_Add:
+  case BinaryMathOpType_Subtract:
+  case BinaryMathOpType_Divide:
+  case BinaryMathOpType_Modulus:
+  case BinaryMathOpType_Min:
+  case BinaryMathOpType_Max:
+    BasicOpType = BasicOpType_Binary;
+    break;
+  default:
+    LOG_ERROR_FMT_THROW(L"Invalid BinaryMathOpType: %ls", OpTypeName.c_str());
+  }
+}
+
+template <typename DataTypeT>
+DataTypeT TestConfigBinaryMath<DataTypeT>::computeExpectedValue(
+    const DataTypeT &A, const DataTypeT &B) const {
+  switch (OpType) {
+  case BinaryMathOpType_Scalar_Add:
+    return A + B;
+  case BinaryMathOpType_Scalar_Multiply:
+    return A * B;
+  case BinaryMathOpType_Scalar_Subtract:
+    return A - B;
+  case BinaryMathOpType_Scalar_Divide:
+    return A / B;
+  case BinaryMathOpType_Scalar_Modulus:
+    return mod(A, B);
+  case BinaryMathOpType_Multiply:
+    return A * B;
+  case BinaryMathOpType_Add:
+    return A + B;
+  case BinaryMathOpType_Subtract:
+    return A - B;
+  case BinaryMathOpType_Divide:
+    return A / B;
+  case BinaryMathOpType_Modulus:
+    return mod(A, B);
+  case BinaryMathOpType_Min:
+    // std::max and std::min are wrapped in () to avoid collisions with the //
+    // macro defintions for min and max in windows.h
+    return (std::min)(A, B);
+  case BinaryMathOpType_Max:
+    return (std::max)(A, B);
+  case BinaryMathOpType_Scalar_Min:
+    return (std::min)(A, B);
+  case BinaryMathOpType_Scalar_Max:
+    return (std::max)(A, B);
+  default:
+    LOG_ERROR_FMT_THROW(L"Unknown BinaryMathOpType: %ls", OpTypeName.c_str());
+    return DataTypeT();
+  }
 }
 
 }; // namespace LongVector
