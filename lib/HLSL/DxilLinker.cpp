@@ -1249,7 +1249,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
 
   // If we need SROA and dynamicindexvector to array,
   // do it early to allow following scalarization to go forward.
-  PM.add(createDxilScalarizeVectorLoadStoresPass());
+  PM.add(createDxilScalarizeVectorIntrinsicsPass());
 
   // Remove unused functions.
   PM.add(createDxilDeadFunctionEliminationPass());
