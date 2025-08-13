@@ -130,7 +130,7 @@ bool compileCodeWithSpirvGeneration(const llvm::StringRef code,
     rest.emplace_back(arg.begin(), arg.end());
 
   try {
-    dxc::SpecificDllLoader dllSupport;
+    dxc::DxCompilerDllLoader dllSupport;
     IFT(dllSupport.Initialize());
 
     if (hlsl::options::initHlslOptTable())
