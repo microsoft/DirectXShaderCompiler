@@ -864,9 +864,10 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
 
   // For Vulkan 1.2 and later, add SignedZeroInfNanPreserve when -Gis is
   // provided to preserve NaN/Inf and signed zeros.
-  if (spirvOptions.IEEEStrict &&
-      featureManager.getSpirvVersion(featureManager.getTargetEnv()) >=
-          VersionTuple(1, 2)) {
+  if (spirvOptions.IEEEStrict) {
+    if (featureManager.getSpirvVersion(featureManager.getTargetEnv()) <
+        VersionTuple(1, 2))
+      spvBuilder.requireExtension("SPV_KHR_float_controls", SourceLocation());
     spvBuilder.addExecutionMode(entryFunction,
                                 spv::ExecutionMode::SignedZeroInfNanPreserve,
                                 {32}, SourceLocation());

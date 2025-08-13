@@ -1,11 +1,10 @@
-// RUN: %dxc -T cs_6_0 -spirv -Gis %s| FileCheck %s --check-prefixes=CHECK,OLD
-// RUN: %dxc -T cs_6_0 -spirv -Gis -fspv-target-env=vulkan1.2 %s| FileCheck %s --check-prefixes=CHECK,NEW
+// RUN: %dxc -T cs_6_0 -spirv -Gis %s| FileCheck %s --check-prefixes=CHECK,PRE_1_3
+// RUN: %dxc -T cs_6_0 -spirv -Gis -fspv-target-env=vulkan1.2 %s| FileCheck %s 
 
-// OLD-NOT: OpCapability SignedZeroInfNanPreserve
-// NEW: OpCapability SignedZeroInfNanPreserve
+// CHECK: OpCapability SignedZeroInfNanPreserve
+// PRE_1_3: OpExtension "SPV_KHR_float_controls"
 // CHECK: OpEntryPoint
-// OLD-NOT: OpExecutionMode %main SignedZeroInfNanPreserve 32
-// NEW: OpExecutionMode %main SignedZeroInfNanPreserve 32
+// CHECK: OpExecutionMode %main SignedZeroInfNanPreserve 32
 
 [numthreads(8,1,1)]
 void main() {}
