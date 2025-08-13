@@ -201,7 +201,7 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_VariableScopes_Function)
   TEST_METHOD(DxcPixDxilDebugInfo_VariableScopes_Member)
 
-  dxc::SpecificDllLoader m_dllSupport;
+  dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
   void RunSubProgramsCase(const char *hlsl);

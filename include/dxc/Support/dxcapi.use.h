@@ -117,10 +117,6 @@ public:
 
   ~SpecificDllLoader() override { Cleanup(); }
 
-  HRESULT Initialize() {
-    return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
-  }
-
   HRESULT InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {
     return InitializeInternal(dll, entryPoint);
   }
@@ -181,6 +177,13 @@ public:
     HMODULE hModule = m_dll;
     m_dll = nullptr;
     return hModule;
+  }
+};
+
+class DxCompilerDllLoader : public SpecificDllLoader {
+public:
+  HRESULT Initialize() {
+    return InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
   }
 };
 

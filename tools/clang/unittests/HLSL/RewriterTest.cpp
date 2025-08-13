@@ -103,7 +103,7 @@ public:
   TEST_METHOD(RunGlobalsUsedInMethod)
   TEST_METHOD(RunRewriterFails)
 
-  dxc::SpecificDllLoader m_dllSupport;
+  dxc::DxCompilerDllLoader m_dllSupport;
   CComPtr<IDxcIncludeHandler> m_pIncludeHandler;
 
   struct VerifyResult {

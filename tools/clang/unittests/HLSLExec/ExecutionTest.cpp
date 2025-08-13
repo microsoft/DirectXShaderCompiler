@@ -459,7 +459,7 @@ public:
                        L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
   END_TEST_METHOD()
 
-  dxc::SpecificDllLoader m_support;
+  dxc::DxCompilerDllLoader m_support;
 
   bool m_D3DInitCompleted = false;
   bool m_ExperimentalModeEnabled = false;
@@ -12743,7 +12743,7 @@ __declspec(dllexport) HRESULT WINAPI
     pOutputStrFn(pStrCtx, L"Unable to enable info queue for D3D.\r\n.");
   }
   try {
-    dxc::SpecificDllLoader m_support;
+    dxc::DxCompilerDllLoader m_support;
     m_support.Initialize();
 
     const char *pName = nullptr;

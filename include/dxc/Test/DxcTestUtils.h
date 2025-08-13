@@ -175,7 +175,7 @@ public:
                       PluginToolsPaths *pPluginToolsPaths = nullptr,
                       LPCWSTR dumpName = nullptr);
   static FileRunTestResult
-  RunFromFileCommands(LPCWSTR fileName, dxc::SpecificDllLoader &dllSupport,
+  RunFromFileCommands(LPCWSTR fileName, dxc::DxCompilerDllLoader &dllSupport,
                       PluginToolsPaths *pPluginToolsPaths = nullptr,
                       LPCWSTR dumpName = nullptr);
 };

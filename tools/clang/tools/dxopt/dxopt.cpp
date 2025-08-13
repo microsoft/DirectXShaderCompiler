@@ -12,6 +12,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/dxcapi.use.h"
 #include <string>
 #include <vector>
 
@@ -29,6 +30,8 @@
 #include <limits>
 
 #include "llvm/Support/FileSystem.h"
+
+extern const char *kDxCompilerLib;
 
 inline bool wcseq(LPCWSTR a, LPCWSTR b) {
   return (a == nullptr && b == nullptr) ||
@@ -319,7 +322,8 @@ int main(int argc, const char **argv) {
       CW2A externalLibA(externalLib);
       IFT(g_DxcSupport.InitializeForDll(externalLibA, externalFnA));
     } else {
-      IFT(g_DxcSupport.Initialize());
+      IFT(g_DxcSupport.InitializeForDll(dxc::kDxCompilerLib,
+                                        "DxcCreateInstance"));
     }
 
     CComPtr<IDxcBlob> pBlob;

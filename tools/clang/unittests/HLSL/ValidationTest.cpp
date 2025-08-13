@@ -331,7 +331,7 @@ public:
   TEST_METHOD(WrongPSVSizeOnZeros)
   TEST_METHOD(WrongPSVVersion)
 
-  dxc::SpecificDllLoader m_dllSupport;
+  dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
   void TestCheck(LPCWSTR name) {

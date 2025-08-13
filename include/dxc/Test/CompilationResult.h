@@ -101,7 +101,7 @@ public:
   }
 };
 
-class HlslIntellisenseSupport : public dxc::SpecificDllLoader {
+class HlslIntellisenseSupport : public dxc::DxCompilerDllLoader {
 public:
   HlslIntellisenseSupport() {}
 

@@ -80,7 +80,7 @@ public:
   TEST_METHOD(RunLinkWithDxcResultRdat)
   TEST_METHOD(RunLinkWithDxcResultErrors)
 
-  dxc::SpecificDllLoader m_dllSupport;
+  dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
   void CreateLinker(IDxcLinker **pResultLinker) {

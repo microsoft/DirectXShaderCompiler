@@ -46,7 +46,7 @@ public:
 
   TEST_CLASS_SETUP(InitSupport);
 
-  dxc::SpecificDllLoader m_dllSupport;
+  dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
   // Basic loading tests.

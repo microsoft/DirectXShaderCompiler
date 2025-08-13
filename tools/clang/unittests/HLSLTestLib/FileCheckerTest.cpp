@@ -1258,7 +1258,7 @@ FileRunCommandPart::RunFromPath(const std::string &toolPath,
 #endif //_WIN32
 
 class FileRunTestResultImpl : public FileRunTestResult {
-  dxc::SpecificDllLoader &m_support;
+  dxc::DxCompilerDllLoader &m_support;
   PluginToolsPaths *m_pPluginToolsPaths;
   LPCWSTR m_dumpName = nullptr;
   // keep track of virtual files for duration of this test (for all RUN lines)
@@ -1332,7 +1332,7 @@ class FileRunTestResultImpl : public FileRunTestResult {
   }
 
 public:
-  FileRunTestResultImpl(dxc::SpecificDllLoader &support,
+  FileRunTestResultImpl(dxc::DxCompilerDllLoader &support,
                         PluginToolsPaths *pPluginToolsPaths = nullptr,
                         LPCWSTR dumpName = nullptr)
       : m_support(support), m_pPluginToolsPaths(pPluginToolsPaths),
@@ -1371,7 +1371,7 @@ public:
 
 FileRunTestResult
 FileRunTestResult::RunHashTestFromFileCommands(LPCWSTR fileName) {
-  dxc::SpecificDllLoader dllSupport;
+  dxc::DxCompilerDllLoader dllSupport;
   IFT(dllSupport.Initialize());
   FileRunTestResultImpl result(dllSupport);
   result.RunHashTestFromFileCommands(fileName);
@@ -1381,7 +1381,7 @@ FileRunTestResult::RunHashTestFromFileCommands(LPCWSTR fileName) {
 FileRunTestResult FileRunTestResult::RunFromFileCommands(
     LPCWSTR fileName, PluginToolsPaths *pPluginToolsPaths /*=nullptr*/,
     LPCWSTR dumpName /*=nullptr*/) {
-  dxc::SpecificDllLoader dllSupport;
+  dxc::DxCompilerDllLoader dllSupport;
   IFT(dllSupport.Initialize());
   FileRunTestResultImpl result(dllSupport, pPluginToolsPaths, dumpName);
   result.RunFileCheckFromFileCommands(fileName);
@@ -1389,7 +1389,7 @@ FileRunTestResult FileRunTestResult::RunFromFileCommands(
 }
 
 FileRunTestResult FileRunTestResult::RunFromFileCommands(
-    LPCWSTR fileName, dxc::SpecificDllLoader &dllSupport,
+    LPCWSTR fileName, dxc::DxCompilerDllLoader &dllSupport,
     PluginToolsPaths *pPluginToolsPaths /*=nullptr*/,
     LPCWSTR dumpName /*=nullptr*/) {
   FileRunTestResultImpl result(dllSupport, pPluginToolsPaths, dumpName);
