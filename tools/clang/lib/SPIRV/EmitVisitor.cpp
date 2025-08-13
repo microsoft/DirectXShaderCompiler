@@ -139,7 +139,7 @@ ReadSourceCode(llvm::StringRef filePath,
 
   std::string localFilePath(filePath.begin(), filePath.end());
   try {
-    dxc::SpecificDllLoader dllSupport;
+    dxc::DxCompilerDllLoader dllSupport;
     IFT(dllSupport.Initialize());
 
     CComPtr<IDxcLibrary> pLibrary;

@@ -96,7 +96,7 @@ bool DxilModuleTest::InitSupport() {
 namespace {
 class Compiler {
 public:
-  Compiler(dxc::SpecificDllLoader &dll)
+  Compiler(dxc::DxCompilerDllLoader &dll)
       : m_dllSupport(dll), m_msf(CreateMSFileSystem()), m_pts(m_msf.get()) {
     m_ver.Initialize(m_dllSupport);
     VERIFY_SUCCEEDED(
@@ -179,7 +179,7 @@ public:
     return msfPtr;
   }
 
-  dxc::SpecificDllLoader &m_dllSupport;
+  dxc::DxCompilerDllLoader &m_dllSupport;
   VersionSupportInfo m_ver;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pCodeBlob;
