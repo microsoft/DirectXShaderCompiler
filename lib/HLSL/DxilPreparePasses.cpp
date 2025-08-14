@@ -692,27 +692,27 @@ public:
     for (auto FnIt : hlslOP->GetOpFuncList(DXIL::OpCode::IsInf)) {
       Function *F = FnIt.second;
       if (!F)
-	continue;
+        continue;
       if (!F->getFunctionType()->getParamType(1)->isHalfTy())
-	continue;
-      
+        continue;
+
       for (auto UserIt = F->user_begin(); UserIt != F->user_end();) {
         CallInst *CI = cast<CallInst>(*(UserIt++));
 
-	uint64_t OpKind = cast<ConstantInt>(CI->getOperand(0))->getZExtValue();
-	switch (OpKind) {
-	case (uint64_t)DXIL::OpCode::IsInf:
-	  convertIsInf(M, CI);
-	  continue;
-	case (uint64_t)DXIL::OpCode::IsNaN:
-	  convertIsNaN(M, CI);
-	  continue;
-	case (uint64_t)DXIL::OpCode::IsFinite:
-	  convertIsFinite(M, CI);
-	  continue;
-	default:
-	  continue;
-	}
+        uint64_t OpKind = cast<ConstantInt>(CI->getOperand(0))->getZExtValue();
+        switch (OpKind) {
+        case (uint64_t)DXIL::OpCode::IsInf:
+          convertIsInf(M, CI);
+          continue;
+        case (uint64_t)DXIL::OpCode::IsNaN:
+          convertIsNaN(M, CI);
+          continue;
+        case (uint64_t)DXIL::OpCode::IsFinite:
+          convertIsFinite(M, CI);
+          continue;
+        default:
+          continue;
+        }
       }
     }
   }
