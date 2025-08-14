@@ -20,7 +20,8 @@ CustomAttrs {
 [shader("raygeneration")]
 void main() {
   dx::HitObject hit;
-  CustomAttrs attrs = hit.GetAttributes<CustomAttrs>();
+  CustomAttrs attrs;
+  hit.GetAttributes(attrs);
   float sum = attrs.v.x + attrs.v.y + attrs.v.z + attrs.v.w + attrs.y;
   outbuf.Store(0, sum);
 }

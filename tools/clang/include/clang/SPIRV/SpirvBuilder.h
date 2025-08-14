@@ -678,9 +678,20 @@ public:
                bool isPrecise, bool isNointerp, llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
+
+  // Adds a variable to the module.
   SpirvVariable *
   addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
                bool isPrecise, bool isNointerp, llvm::StringRef name = "",
+               llvm::Optional<SpirvInstruction *> init = llvm::None,
+               SourceLocation loc = {});
+
+  // Adds a variable to the module. It will be placed in the variable list
+  // before `pos`.
+  SpirvVariable *
+  addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
+               bool isPrecise, bool isNointerp, SpirvInstruction *before,
+               llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
 
@@ -811,8 +822,6 @@ public:
   /// \brief Adds an extension to the module under construction for translating
   /// the given target at the given source location.
   inline void requireExtension(llvm::StringRef extension, SourceLocation);
-
-  FeatureManager &getFeatureManager() { return featureManager; }
 
 private:
   /// \brief If not added already, adds an OpExtInstImport (import of extended

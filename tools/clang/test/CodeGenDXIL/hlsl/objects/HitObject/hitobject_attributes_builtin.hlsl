@@ -5,7 +5,7 @@
 // as a template argument to GetAttributes.
 
 // For -fcgl, just check the form of the HL call.
-// FCGL: %{{[^ ]+}} = call %struct.BuiltInTriangleIntersectionAttributes* @"dx.hl.op..%struct.BuiltInTriangleIntersectionAttributes* (i32, %dx.types.HitObject*)"(i32 364, %dx.types.HitObject* %{{[^ ]+}})
+// FCGL: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, %struct.BuiltInTriangleIntersectionAttributes*)"(i32 364, %dx.types.HitObject* %{{[^ ]+}}, %struct.BuiltInTriangleIntersectionAttributes* %{{[^ ]+}})
 
 // CHECK: %[[ATTR:[^ ]+]] = alloca %struct.BuiltInTriangleIntersectionAttributes
 // CHECK: call void @dx.op.hitObject_Attributes.struct.BuiltInTriangleIntersectionAttributes(i32 289, %dx.types.HitObject %{{[^ ]+}}, %struct.BuiltInTriangleIntersectionAttributes* nonnull %[[ATTR]])
@@ -34,7 +34,8 @@ void MyRaygenShader()
 
     dx::HitObject hit = dx::HitObject::TraceRay(Scene, RAY_FLAG_NONE, ~0, 0, 1, 0, ray, payload);
 
-    MyAttribs attr = hit.GetAttributes<MyAttribs>();
+    MyAttribs attr;
+    hit.GetAttributes(attr);
     payload.color += float4(attr,0,1);
 
     // Write the raytraced color to the output texture.

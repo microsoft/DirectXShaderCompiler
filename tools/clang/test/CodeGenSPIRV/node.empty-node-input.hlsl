@@ -19,7 +19,7 @@ void emptynodeinput(EmptyNodeInput input)
 
 // CHECK-DAG: [[UINT:%[^ ]*]] = OpTypeInt 32 0
 // CHECK-DAG: [[U0:%[^ ]*]] = OpConstant [[UINT]] 0
-// CHECK-DAG: [[IMG:%[^ ]*]] = OpTypeImage [[UINT]] Buffer 2 0 0 2 Unknown
+// CHECK-DAG: [[IMG:%[^ ]*]] = OpTypeImage [[UINT]] Buffer 2 0 0 2 R32ui
 // CHECK-DAG: [[IMGPTR:%[^ ]*]] = OpTypePointer UniformConstant [[IMG]]
 // CHECK-DAG: [[BUF:%[^ ]*]] = OpVariable [[IMGPTR]] UniformConstant
 

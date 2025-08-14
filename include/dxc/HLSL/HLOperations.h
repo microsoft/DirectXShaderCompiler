@@ -462,6 +462,9 @@ const unsigned kHitObjectInvoke_PayloadOpIdx = 2;
 const unsigned kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx = 4;
 const unsigned kHitObjectFromRayQuery_WithAttrs_NumOp = 5;
 
+// HitObject::GetAttributes
+const unsigned kHitObjectGetAttributes_AttributeOpIdx = 2;
+
 // Linear Algebra Operations
 
 // MatVecMul

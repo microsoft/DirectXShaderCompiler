@@ -19,7 +19,9 @@ The included licenses apply to the following files:
 
 ### Upcoming Release
 
-Place release notes for the upcoming release below this line and remove this line upon naming this release.
+- Fix regression: [#7510](https://github.com/microsoft/DirectXShaderCompiler/issues/7510) crash when calling `sizeof` on templated type.
+- Fix regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
+- Header file `dxcpix.h` was added to the release package.
 
 ### Version 1.8.2505
 

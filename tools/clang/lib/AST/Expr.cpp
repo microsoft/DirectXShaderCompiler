@@ -3883,25 +3883,21 @@ GenericSelectionExpr::GenericSelectionExpr(const ASTContext &Context,
   std::copy(AssocExprs.begin(), AssocExprs.end(), SubExprs+END_EXPR);
 }
 
-GenericSelectionExpr::GenericSelectionExpr(const ASTContext &Context,
-                               SourceLocation GenericLoc, Expr *ControllingExpr,
-                               ArrayRef<TypeSourceInfo*> AssocTypes,
-                               ArrayRef<Expr*> AssocExprs,
-                               SourceLocation DefaultLoc,
-                               SourceLocation RParenLoc,
-                               bool ContainsUnexpandedParameterPack)
-  : Expr(GenericSelectionExprClass,
-         Context.DependentTy,
-         VK_RValue,
-         OK_Ordinary,
-         /*isTypeDependent=*/true,
-         /*isValueDependent=*/true,
-         /*isInstantiationDependent=*/true,
-         ContainsUnexpandedParameterPack),
-    AssocTypes(new (Context) TypeSourceInfo*[AssocTypes.size()]),
-    SubExprs(new (Context) Stmt*[END_EXPR+AssocExprs.size()]),
-    NumAssocs(AssocExprs.size()), ResultIndex(-1U), GenericLoc(GenericLoc),
-    DefaultLoc(DefaultLoc), RParenLoc(RParenLoc) {
+GenericSelectionExpr::GenericSelectionExpr(
+    const ASTContext &Context, SourceLocation GenericLoc, Expr *ControllingExpr,
+    ArrayRef<TypeSourceInfo *> AssocTypes, ArrayRef<Expr *> AssocExprs,
+    SourceLocation DefaultLoc, SourceLocation RParenLoc,
+    bool ContainsUnexpandedParameterPack)
+    : Expr(GenericSelectionExprClass, Context.DependentTy, VK_RValue,
+           OK_Ordinary,
+           /*isTypeDependent=*/true,
+           /*isValueDependent=*/true,
+           /*isInstantiationDependent=*/true, ContainsUnexpandedParameterPack),
+      AssocTypes(new(Context) TypeSourceInfo *[AssocTypes.size()]),
+      SubExprs(new(Context) Stmt *[END_EXPR + AssocExprs.size()]),
+      NumAssocs(AssocExprs.size()),
+      ResultIndex(std::numeric_limits<unsigned>::max()), GenericLoc(GenericLoc),
+      DefaultLoc(DefaultLoc), RParenLoc(RParenLoc) {
   SubExprs[CONTROLLING] = ControllingExpr;
   assert(AssocTypes.size() == AssocExprs.size());
   std::copy(AssocTypes.begin(), AssocTypes.end(), this->AssocTypes);

@@ -37,8 +37,8 @@ void main() {
 // CHECK: [[TEST:%[_0-9A-Za-z]*]] = OpVariable [[PFPPUINT]] Function
 // CHECK: [[X1:%[_0-9A-Za-z]*]] = OpConvertUToPtr [[PPUINT]]
 // CHECK: OpStore [[TEST]] [[X1]]
-// CHECK: [[X2:%[_0-9A-Za-z]*]] = OpLoad [[PPUINT]] [[TEST]] Aligned 32
-// CHECK: [[X3:%[_0-9A-Za-z]*]] = OpLoad [[UINT]] [[X2]] Aligned 4
+// CHECK: [[X2:%[_0-9A-Za-z]*]] = OpLoad [[PPUINT]] [[TEST]]
+// CHECK: [[X3:%[_0-9A-Za-z]*]] = OpLoad [[UINT]] [[X2]] Aligned 32
 // CHECK: [[X4:%[_0-9A-Za-z]*]] = OpAccessChain [[PUUINT]] [[OUTPUT]] [[I0]] [[U0]]
 // CHECK: OpStore [[X4]] [[X3]]
 // CHECK: OpReturn

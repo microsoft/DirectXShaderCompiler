@@ -1,5 +1,5 @@
 // RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s --check-prefixes=CHECK,INFER
-// RUN: %dxc -fspv-target-env=vulkan1.3 -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s --check-prefixes=CHECK,UNKNOWN
+// RUN: %dxc -fspv-use-unknown-image-format -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s --check-prefixes=CHECK,UNKNOWN
 
 // CHECK: OpCapability Image1D
 

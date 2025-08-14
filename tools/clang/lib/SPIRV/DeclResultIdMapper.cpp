@@ -1862,7 +1862,7 @@ void DeclResultIdMapper::createCounterVar(
   }
 
   SpirvVariable *counterInstr = spvBuilder.addModuleVar(
-      counterType, sc, /*isPrecise*/ false, false, counterName);
+      counterType, sc, /*isPrecise*/ false, false, declInstr, counterName);
 
   if (!isAlias) {
     // Non-alias counter variables should be put in to resourceVars so that

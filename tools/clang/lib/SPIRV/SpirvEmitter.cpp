@@ -1021,6 +1021,17 @@ void SpirvEmitter::doDecl(const Decl *decl) {
       // functions inside namespaces.
       if (!isa<FunctionDecl>(subDecl))
         doDecl(subDecl);
+  } else if (const auto *classTemplateDecl =
+                 dyn_cast<ClassTemplateDecl>(decl)) {
+    doClassTemplateDecl(classTemplateDecl);
+  } else if (const auto *classTemplateDecl =
+                 dyn_cast<ClassTemplatePartialSpecializationDecl>(decl)) {
+    // Do nothing. We cannot generate any code with a partial specialization,
+    // and when there is a specialization of this decl it will be a
+    // specialization of the orginal ClassTemplateDecl that this specializes.
+    // The code for the full specialization will be handlded when processing the
+    // ClassTemplateDecl. Note that this is also a RecordDecl, so we must check
+    // for it before RecordDecl.
   } else if (const auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
     doFunctionDecl(funcDecl);
   } else if (const auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl)) {
@@ -1029,9 +1040,6 @@ void SpirvEmitter::doDecl(const Decl *decl) {
     doRecordDecl(recordDecl);
   } else if (const auto *enumDecl = dyn_cast<EnumDecl>(decl)) {
     doEnumDecl(enumDecl);
-  } else if (const auto *classTemplateDecl =
-                 dyn_cast<ClassTemplateDecl>(decl)) {
-    doClassTemplateDecl(classTemplateDecl);
   } else if (isa<TypedefNameDecl>(decl)) {
     declIdMapper.recordsSpirvTypeAlias(decl);
   } else if (isa<FunctionTemplateDecl>(decl)) {
@@ -1065,9 +1073,10 @@ SpirvEmitter::getOrCreateRichDebugInfoImpl(llvm::StringRef file) {
   // returns {{string key, RichDebugInfo}, true /*Success*/}.
   // debugInfo.insert().first->second is a RichDebugInfo.
   return &debugInfo
-              .insert({file, RichDebugInfo(
-                                 dbgSrc, spvBuilder.createDebugCompilationUnit(
-                                             dbgSrc))})
+              .insert({file,
+                       RichDebugInfo(
+                           dbgSrc,
+                           spvBuilder.getModule()->getDebugCompilationUnit())})
               .first->second;
 }
 
@@ -1582,8 +1591,15 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   if (spirvOptions.debugInfoRich) {
     if (srcDebugFunction) {
       spvContext.pushDebugLexicalScope(info, srcDebugFunction);
-    } else {
+    } else if (debugFunction) {
       spvContext.pushDebugLexicalScope(info, debugFunction);
+    } else {
+      // A function which is not called directly in HLSL, and therefore does not
+      // reside in the workQueue
+      if (decl->hasBody()) {
+        debugFunction = emitDebugFunction(decl, func, &info, funcName);
+        spvContext.pushDebugLexicalScope(info, debugFunction);
+      }
     }
   }
 
@@ -4399,9 +4415,7 @@ SpirvEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
       spvBuilder.createImageQuery(spv::Op::OpImageQueryLod, queryResultType,
                                   expr->getExprLoc(), sampledImage, coordinate);
 
-  if (spvContext.isCS() || spvContext.isNode()) {
-    addDerivativeGroupExecutionMode();
-  }
+  addDerivativeGroupExecutionMode();
   // The first component of the float2 contains the mipmap array layer.
   // The second component of the float2 represents the unclamped lod.
   return spvBuilder.createCompositeExtract(astContext.FloatTy, query,
@@ -5780,9 +5794,7 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   if (isSample) {
-    if (spvContext.isCS() || spvContext.isNode()) {
-      addDerivativeGroupExecutionMode();
-    }
+    addDerivativeGroupExecutionMode();
     return createImageSample(retType, imageType, image, sampler, coordinate,
                              /*compareVal*/ nullptr, /*bias*/ nullptr,
                              /*lod*/ nullptr, std::make_pair(nullptr, nullptr),
@@ -5870,9 +5882,9 @@ SpirvEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
 
   const auto retType = expr->getDirectCallee()->getReturnType();
 
-  if (!lod && (spvContext.isCS() || spvContext.isNode())) {
+  if (!lod)
     addDerivativeGroupExecutionMode();
-  }
+
   return createImageSample(
       retType, imageType, image, sampler, coordinate,
       /*compareVal*/ nullptr, bias, lod, std::make_pair(nullptr, nullptr),
@@ -5992,9 +6004,7 @@ SpirvEmitter::processTextureSampleCmp(const CXXMemberCallExpr *expr) {
   const auto retType = expr->getDirectCallee()->getReturnType();
   const auto imageType = imageExpr->getType();
 
-  if (spvContext.isCS()) {
-    addDerivativeGroupExecutionMode();
-  }
+  addDerivativeGroupExecutionMode();
 
   return createImageSample(
       retType, imageType, image, sampler, coordinate, compareVal,
@@ -6047,9 +6057,7 @@ SpirvEmitter::processTextureSampleCmpBias(const CXXMemberCallExpr *expr) {
   const auto retType = expr->getDirectCallee()->getReturnType();
   const auto imageType = imageExpr->getType();
 
-  if (spvContext.isCS()) {
-    addDerivativeGroupExecutionMode();
-  }
+  addDerivativeGroupExecutionMode();
 
   return createImageSample(
       retType, imageType, image, sampler, coordinate, compareVal, bias,
@@ -9782,8 +9790,7 @@ SpirvInstruction *SpirvEmitter::processDerivativeIntrinsic(
   QualType returnType = arg->getAstResultType();
   assert(isFloatOrVecOfFloatType(returnType));
 
-  if (!spvContext.isPS())
-    addDerivativeGroupExecutionMode();
+  addDerivativeGroupExecutionMode();
   needsLegalization = true;
 
   QualType B32Type = astContext.FloatTy;
@@ -11179,36 +11186,19 @@ SpirvEmitter::processIntrinsicPointerCast(const CallExpr *callExpr,
 
 SpirvInstruction *SpirvEmitter::processIntrinsicGetBufferContents(
     const CXXMemberCallExpr *callExpr) {
-  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
-                                    spvBuilder);
-  Expr *obj = callExpr->getImplicitObjectArgument();
-  SpirvInstruction *bufferPointer = doExpr(obj);
+  SpirvInstruction *bufferPointer =
+      doExpr(callExpr->getImplicitObjectArgument());
   if (!bufferPointer)
     return nullptr;
-  if (bufferPointer->isRValue()) {
-    bufferPointer->setRValue(false);
-    bufferPointer->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
-    bufferPointer->setLayoutRule(spirvOptions.sBufferLayoutRule);
-    return bufferPointer;
-  }
 
-  unsigned align = hlsl::GetVKBufferPointerAlignment(obj->getType());
-  lowerTypeVisitor.visitInstruction(bufferPointer);
-
-  const SpirvPointerType *bufferPointerType =
-      dyn_cast<SpirvPointerType>(bufferPointer->getResultType());
-  SpirvLoad *retVal =
-      spvBuilder.createLoad(bufferPointerType->getPointeeType(), bufferPointer,
-                            callExpr->getLocStart());
-  if (!align) {
-    QualType bufferType = hlsl::GetVKBufferPointerBufferType(obj->getType());
-    AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
-    uint32_t stride;
-    std::tie(align, std::ignore) = alignmentCalc.getAlignmentAndSize(
-        bufferType, retVal->getLayoutRule(), llvm::None, &stride);
-  }
-  retVal->setAlignment(align);
+  SpirvInstruction *retVal =
+      bufferPointer->isRValue()
+          ? bufferPointer
+          : spvBuilder.createLoad(bufferPointer->getAstResultType(),
+                                  bufferPointer, callExpr->getLocStart());
   retVal->setRValue(false);
+  retVal->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+  retVal->setLayoutRule(spirvOptions.sBufferLayoutRule);
   return retVal;
 }
 
@@ -12525,8 +12515,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
     case spv::Op::OpFwidth:
     case spv::Op::OpFwidthFine:
     case spv::Op::OpFwidthCoarse:
-      if (spvContext.isCS() || spvContext.isNode())
-        addDerivativeGroupExecutionMode();
+      addDerivativeGroupExecutionMode();
       needsLegalization = true;
       break;
     default:
@@ -14111,8 +14100,8 @@ bool SpirvEmitter::processTessellationShaderAttributes(
 }
 
 bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
-    const FunctionDecl *decl, SpirvDebugFunction *debugFunction,
-    SpirvFunction *entryFuncInstr) {
+    const FunctionDecl *decl, RichDebugInfo **info,
+    SpirvDebugFunction *debugFunction, SpirvFunction *entryFuncInstr) {
   // The entry basic block.
   auto *entryLabel = spvBuilder.createBasicBlock();
   spvBuilder.setInsertPoint(entryLabel);
@@ -14220,6 +14209,10 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
 
   spvBuilder.createReturn(decl->getBody()->getLocEnd());
   spvBuilder.endFunction();
+
+  if (spirvOptions.debugInfoRich && decl->hasBody()) {
+    spvContext.popDebugLexicalScope(*info);
+  }
 
   return true;
 }
@@ -14428,7 +14421,9 @@ SpirvFunction *SpirvEmitter::emitEntryFunctionWrapper(
       astContext.VoidTy, decl->getLocStart(), decl->getName());
 
   if (spirvOptions.debugInfoRich && decl->hasBody()) {
-    *debugFunction = emitDebugFunction(decl, entryFunction, info, "wrapper");
+    *debugFunction =
+        emitDebugFunction(decl, entryFunction, info, "__dxc_setup");
+    spvContext.pushDebugLexicalScope(*info, *debugFunction);
   }
 
   // Specify that entryFunction is an entry function wrapper.
@@ -14445,7 +14440,7 @@ SpirvFunction *SpirvEmitter::emitEntryFunctionWrapper(
   entryInfo->entryFunction = entryFunction;
 
   if (spvContext.isRay()) {
-    return emitEntryFunctionWrapperForRayTracing(decl, *debugFunction,
+    return emitEntryFunctionWrapperForRayTracing(decl, info, *debugFunction,
                                                  entryFuncInstr)
                ? entryFunction
                : nullptr;
@@ -14685,6 +14680,10 @@ SpirvFunction *SpirvEmitter::emitEntryFunctionWrapper(
   // We should invoke a translation of the PCF manually.
   if (spvContext.isHS())
     doDecl(patchConstFunc);
+
+  if (spirvOptions.debugInfoRich && decl->hasBody()) {
+    spvContext.popDebugLexicalScope(*info);
+  }
 
   return entryFunction;
 }
@@ -15832,8 +15831,29 @@ bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
   return tools.Validate(mod->data(), mod->size(), options);
 }
 
+static bool canUseDerivativeGroupExecutionMode(SpirvContext::ShaderModelKind sm,
+                                               bool usingEXTMeshShader) {
+  switch (sm) {
+  case SpirvContext::ShaderModelKind::Compute:
+  case SpirvContext::ShaderModelKind::Node:
+    return true;
+
+  // The KHR extension that allows derivative instruction in mesh and task
+  // (amplification) shader does not work with SPV_NV_mesh_shader extesion.
+  case SpirvContext::ShaderModelKind::Mesh:
+  case SpirvContext::ShaderModelKind::Amplification:
+    return usingEXTMeshShader;
+  default:
+    return false;
+  }
+}
+
 void SpirvEmitter::addDerivativeGroupExecutionMode() {
-  assert(spvContext.isCS());
+  bool usingEXTMeshShader =
+      featureManager.isExtensionEnabled(Extension::EXT_mesh_shader);
+  SpirvContext::ShaderModelKind sm = spvContext.getCurrentShaderModelKind();
+  if (!canUseDerivativeGroupExecutionMode(sm, usingEXTMeshShader))
+    return;
 
   SpirvExecutionMode *numThreadsEm = dyn_cast_or_null<SpirvExecutionMode>(
       spvBuilder.getModule()->findExecutionMode(entryFunction,

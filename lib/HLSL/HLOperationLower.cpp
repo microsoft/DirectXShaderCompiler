@@ -2083,42 +2083,58 @@ Value *TranslateFirstbitHi(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                            HLOperationLowerHelper &helper,
                            HLObjectOperationLowerHelper *pObjHelper,
                            bool &Translated) {
-  Value *firstbitHi =
-      TrivialUnaryOperationRet(CI, IOP, opcode, helper, pObjHelper, Translated);
-  // firstbitHi == -1? -1 : (bitWidth-1 -firstbitHi);
+  hlsl::OP *OP = &helper.hlslOP;
   IRBuilder<> Builder(CI);
-  Constant *neg1 = Builder.getInt32(-1);
-  Value *src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  Value *Src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
 
-  Type *Ty = src->getType();
-  IntegerType *EltTy = cast<IntegerType>(Ty->getScalarType());
-  Constant *bitWidth = Builder.getInt32(EltTy->getBitWidth() - 1);
-
-  if (Ty == Ty->getScalarType()) {
-    Value *sub = Builder.CreateSub(bitWidth, firstbitHi);
-    Value *cond = Builder.CreateICmpEQ(neg1, firstbitHi);
-    return Builder.CreateSelect(cond, neg1, sub);
-  } else {
-    Value *result = UndefValue::get(CI->getType());
-    unsigned vecSize = Ty->getVectorNumElements();
-    for (unsigned i = 0; i < vecSize; i++) {
-      Value *EltFirstBit = Builder.CreateExtractElement(firstbitHi, i);
-      Value *sub = Builder.CreateSub(bitWidth, EltFirstBit);
-      Value *cond = Builder.CreateICmpEQ(neg1, EltFirstBit);
-      Value *Elt = Builder.CreateSelect(cond, neg1, sub);
-      result = Builder.CreateInsertElement(result, Elt, i);
-    }
-    return result;
+  Type *Ty = Src->getType();
+  Type *RetTy = Type::getInt32Ty(CI->getContext());
+  unsigned NumElements = 0;
+  if (Ty->isVectorTy()) {
+    NumElements = Ty->getVectorNumElements();
+    RetTy = VectorType::get(RetTy, NumElements);
   }
+
+  Constant *OpArg = OP->GetU32Const((unsigned)opcode);
+  Value *Args[] = {OpArg, Src};
+
+  Value *FirstbitHi =
+      TrivialDxilOperation(opcode, Args, Ty, RetTy, OP, Builder);
+
+  IntegerType *EltTy = cast<IntegerType>(Ty->getScalarType());
+  Constant *Neg1 = Builder.getInt32(-1);
+  Constant *BitWidth = Builder.getInt32(EltTy->getBitWidth() - 1);
+
+  if (NumElements > 0) {
+    Neg1 = ConstantVector::getSplat(NumElements, Neg1);
+    BitWidth = ConstantVector::getSplat(NumElements, BitWidth);
+  }
+
+  Value *Sub = Builder.CreateSub(BitWidth, FirstbitHi);
+  Value *Cond = Builder.CreateICmpEQ(Neg1, FirstbitHi);
+  return Builder.CreateSelect(Cond, Neg1, Sub);
 }
 
 Value *TranslateFirstbitLo(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                            HLOperationLowerHelper &helper,
                            HLObjectOperationLowerHelper *pObjHelper,
                            bool &Translated) {
-  Value *firstbitLo =
-      TrivialUnaryOperationRet(CI, IOP, opcode, helper, pObjHelper, Translated);
-  return firstbitLo;
+  hlsl::OP *OP = &helper.hlslOP;
+  IRBuilder<> Builder(CI);
+  Value *Src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+
+  Type *Ty = Src->getType();
+  Type *RetTy = Type::getInt32Ty(CI->getContext());
+  if (Ty->isVectorTy())
+    RetTy = VectorType::get(RetTy, Ty->getVectorNumElements());
+
+  Constant *OpArg = OP->GetU32Const((unsigned)opcode);
+  Value *Args[] = {OpArg, Src};
+
+  Value *FirstbitLo =
+      TrivialDxilOperation(opcode, Args, Ty, RetTy, OP, Builder);
+
+  return FirstbitLo;
 }
 
 Value *TranslateLit(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -3063,10 +3079,10 @@ static Value *ScalarizeResRet(Type *RetTy, Value *ResRet,
 }
 
 void UpdateStatus(Value *ResRet, Value *status, IRBuilder<> &Builder,
-                  hlsl::OP *hlslOp) {
+                  hlsl::OP *hlslOp,
+                  unsigned StatusIndex = DXIL::kResRetStatusIndex) {
   if (status && !isa<UndefValue>(status)) {
-    Value *statusVal =
-        Builder.CreateExtractValue(ResRet, DXIL::kResRetStatusIndex);
+    Value *statusVal = Builder.CreateExtractValue(ResRet, StatusIndex);
     Value *checkAccessOp = hlslOp->GetI32Const(
         static_cast<unsigned>(DXIL::OpCode::CheckAccessFullyMapped));
     Function *checkAccessFn = hlslOp->GetOpFunc(
@@ -4028,9 +4044,9 @@ struct ResLoadHelper {
   // Used for some subscript operators that feed the generic HL call inst
   // into a load op and by the matrixload call instruction.
   ResLoadHelper(Instruction *Inst, DxilResource::Kind RK, Value *h, Value *idx,
-                Value *Offset, Value *mip = nullptr)
+                Value *Offset, Value *status = nullptr, Value *mip = nullptr)
       : intrinsicOpCode(IntrinsicOp::Num_Intrinsics), handle(h), retVal(Inst),
-        addr(idx), offset(Offset), status(nullptr), mipLevel(mip) {
+        addr(idx), offset(Offset), status(status), mipLevel(mip) {
     opcode = LoadOpFromResKind(RK);
     Type *Ty = Inst->getType();
     if (opcode == OP::OpCode::RawBufferLoad && Ty->isVectorTy() &&
@@ -4304,18 +4320,22 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
     Function *F = OP->GetOpFunc(opcode, EltTy);
     Value *Ld = Builder.CreateCall(F, Args, OP::GetOpCodeName(opcode));
+    unsigned StatusIndex;
 
     // Extract elements from returned ResRet.
     // Native vector loads just have one vector element in the ResRet.
     // Others have up to four scalars that need to be individually extracted.
-    if (opcode == OP::OpCode::RawBufferVectorLoad)
+    if (opcode == OP::OpCode::RawBufferVectorLoad) {
       Elts[i++] = Builder.CreateExtractValue(Ld, 0);
-    else
+      StatusIndex = DXIL::kVecResRetStatusIndex;
+    } else {
       for (unsigned j = 0; j < chunkSize; j++, i++)
         Elts[i] = Builder.CreateExtractValue(Ld, j);
+      StatusIndex = DXIL::kResRetStatusIndex;
+    }
 
     // Update status.
-    UpdateStatus(Ld, helper.status, Builder, OP);
+    UpdateStatus(Ld, helper.status, Builder, OP, StatusIndex);
 
     if (!FirstLd)
       FirstLd = Ld;
@@ -6374,18 +6394,11 @@ Value *TranslateHitObjectGetAttributes(CallInst *CI, IntrinsicOp IOP,
 
   Value *HitObjectPtr = CI->getArgOperand(1);
   Value *HitObject = Builder.CreateLoad(HitObjectPtr);
-
-  Type *AttrTy = cast<PointerType>(CI->getType())->getPointerElementType();
-
-  IRBuilder<> EntryBuilder(
-      dxilutil::FindAllocaInsertionPt(CI->getParent()->getParent()));
-  unsigned AttrAlign = Helper.dataLayout.getABITypeAlignment(AttrTy);
-  AllocaInst *AttrMem = EntryBuilder.CreateAlloca(AttrTy);
-  AttrMem->setAlignment(AttrAlign);
-  Constant *opArg = OP->GetU32Const((unsigned)OpCode);
-  TrivialDxilOperation(OpCode, {opArg, HitObject, AttrMem}, CI->getType(),
-                       Helper.voidTy, OP, Builder);
-  return AttrMem;
+  Value *AttrOutPtr =
+      CI->getArgOperand(HLOperandIndex::kHitObjectGetAttributes_AttributeOpIdx);
+  TrivialDxilOperation(OpCode, {nullptr, HitObject, AttrOutPtr},
+                       AttrOutPtr->getType(), CI, OP);
+  return nullptr;
 }
 
 Value *TranslateHitObjectScalarGetter(CallInst *CI, IntrinsicOp IOP,
@@ -6984,17 +6997,15 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_countbits, TrivialUnaryOperationRet,
      DXIL::OpCode::Countbits},
     {IntrinsicOp::IOP_cross, TranslateCross, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP_ddx, TrivialUnaryOperationRet,
+    {IntrinsicOp::IOP_ddx, TrivialUnaryOperation, DXIL::OpCode::DerivCoarseX},
+    {IntrinsicOp::IOP_ddx_coarse, TrivialUnaryOperation,
      DXIL::OpCode::DerivCoarseX},
-    {IntrinsicOp::IOP_ddx_coarse, TrivialUnaryOperationRet,
-     DXIL::OpCode::DerivCoarseX},
-    {IntrinsicOp::IOP_ddx_fine, TrivialUnaryOperationRet,
+    {IntrinsicOp::IOP_ddx_fine, TrivialUnaryOperation,
      DXIL::OpCode::DerivFineX},
-    {IntrinsicOp::IOP_ddy, TrivialUnaryOperationRet,
+    {IntrinsicOp::IOP_ddy, TrivialUnaryOperation, DXIL::OpCode::DerivCoarseY},
+    {IntrinsicOp::IOP_ddy_coarse, TrivialUnaryOperation,
      DXIL::OpCode::DerivCoarseY},
-    {IntrinsicOp::IOP_ddy_coarse, TrivialUnaryOperationRet,
-     DXIL::OpCode::DerivCoarseY},
-    {IntrinsicOp::IOP_ddy_fine, TrivialUnaryOperationRet,
+    {IntrinsicOp::IOP_ddy_fine, TrivialUnaryOperation,
      DXIL::OpCode::DerivFineY},
     {IntrinsicOp::IOP_degrees, TranslateDegrees, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_determinant, EmptyLower, DXIL::OpCode::NumOpCodes},
@@ -8537,7 +8548,7 @@ Value *TranslateStructBufMatLd(CallInst *CI, IRBuilder<> &Builder,
                                Value *status, Value *bufIdx, Value *baseOffset,
                                const DataLayout &DL) {
 
-  ResLoadHelper helper(CI, RK, handle, bufIdx, baseOffset);
+  ResLoadHelper helper(CI, RK, handle, bufIdx, baseOffset, status);
 #ifndef NDEBUG
   Value *ptr = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx);
   Type *matType = ptr->getType()->getPointerElementType();
@@ -8864,7 +8875,7 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     }
   } else if (LoadInst *LdInst = dyn_cast<LoadInst>(user)) {
     // Load of scalar/vector within a struct or structured raw load.
-    ResLoadHelper helper(LdInst, ResKind, handle, bufIdx, baseOffset);
+    ResLoadHelper helper(LdInst, ResKind, handle, bufIdx, baseOffset, status);
     TranslateBufLoad(helper, ResKind, Builder, OP, DL);
 
     LdInst->eraseFromParent();
@@ -9239,7 +9250,8 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     IRBuilder<> Builder(CI);
     if (LoadInst *ldInst = dyn_cast<LoadInst>(*U)) {
       Value *Offset = UndefValue::get(Builder.getInt32Ty());
-      ResLoadHelper ldHelper(ldInst, RK, handle, coord, Offset, mipLevel);
+      ResLoadHelper ldHelper(ldInst, RK, handle, coord, Offset,
+                             /*status*/ nullptr, mipLevel);
       TranslateBufLoad(ldHelper, RK, Builder, hlslOP, helper.dataLayout);
       ldInst->eraseFromParent();
     } else {
