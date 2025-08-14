@@ -34,9 +34,7 @@ void main() {
 
   // CHECK-NOT: extractelement
   // CHECK-NOT: insertelement
-  // NOTE: This behavior will change with #7588
-  // CHECK: [[tmp:%.*]] = fpext <[[NUM]] x half> [[hvec]] to <[[NUM]] x float>
-  // CHECK: call <[[NUM]] x i1> @dx.op.isSpecialFloat.[[FTY]](i32 [[OP]], <[[NUM]] x float> [[tmp]])
+  // CHECK: call <[[NUM]] x i1> @dx.op.isSpecialFloat.[[HTY]](i32 [[OP]], <[[NUM]] x half> [[hvec]])
   vector<bool, NUM> hRes = FUNC(hVec);
 
   // CHECK-NOT: extractelement

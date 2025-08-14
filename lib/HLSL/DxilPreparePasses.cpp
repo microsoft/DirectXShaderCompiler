@@ -640,6 +640,83 @@ public:
     }
   }
 
+  void convertIsInf(Module &M, CallInst *CI) {
+    IRBuilder<> Builder(CI);
+    Value *Val = CI->getOperand(1);
+    Type *IType = Type::getInt16Ty(M.getContext());
+    Constant *Inf1 = ConstantInt::get(IType, 0x7c00);
+    Constant *Inf2 = ConstantInt::get(IType, 0xfc00);
+
+    Value *IVal = Builder.CreateBitCast(Val, IType);
+    Value *B1 = Builder.CreateICmpEQ(IVal, Inf1);
+    Value *B2 = Builder.CreateICmpEQ(IVal, Inf2);
+    Value *B3 = Builder.CreateOr(B1, B2);
+    CI->replaceAllUsesWith(B3);
+    CI->eraseFromParent();
+  }
+
+  void convertIsNaN(Module &M, CallInst *CI) {
+    IRBuilder<> Builder(CI);
+    Value *Val = CI->getOperand(1);
+    Type *IType = Type::getInt16Ty(M.getContext());
+
+    Constant *ExpBitMask = ConstantInt::get(IType, 0x7c00);
+    Constant *SigBitMask = ConstantInt::get(IType, 0x3ff);
+
+    Value *IVal = Builder.CreateBitCast(Val, IType);
+    Value *Exp = Builder.CreateAnd(IVal, ExpBitMask);
+    Value *B1 = Builder.CreateICmpEQ(Exp, ExpBitMask);
+
+    Value *Sig = Builder.CreateAnd(IVal, SigBitMask);
+    Value *B2 = Builder.CreateICmpNE(Sig, ConstantInt::get(IType, 0));
+    Value *B3 = Builder.CreateAnd(B1, B2);
+    CI->replaceAllUsesWith(B3);
+    CI->eraseFromParent();
+  }
+
+  void convertIsFinite(Module &M, CallInst *CI) {
+    IRBuilder<> Builder(CI);
+    Value *Val = CI->getOperand(1);
+    Type *IType = Type::getInt16Ty(M.getContext());
+
+    Constant *ExpBitMask = ConstantInt::get(IType, 0x7c00);
+
+    Value *IVal = Builder.CreateBitCast(Val, IType);
+    Value *Exp = Builder.CreateAnd(IVal, ExpBitMask);
+    Value *B1 = Builder.CreateICmpNE(Exp, ExpBitMask);
+    CI->replaceAllUsesWith(B1);
+    CI->eraseFromParent();
+  }
+
+  void convertIsSpecialFloat(Module &M, hlsl::OP *hlslOP) {
+    for (auto FnIt : hlslOP->GetOpFuncList(DXIL::OpCode::IsInf)) {
+      Function *F = FnIt.second;
+      if (!F)
+	continue;
+      if (!F->getFunctionType()->getParamType(1)->isHalfTy())
+	continue;
+      
+      for (auto UserIt = F->user_begin(); UserIt != F->user_end();) {
+        CallInst *CI = cast<CallInst>(*(UserIt++));
+
+	uint64_t OpKind = cast<ConstantInt>(CI->getOperand(0))->getZExtValue();
+	switch (OpKind) {
+	case (uint64_t)DXIL::OpCode::IsInf:
+	  convertIsInf(M, CI);
+	  continue;
+	case (uint64_t)DXIL::OpCode::IsNaN:
+	  convertIsNaN(M, CI);
+	  continue;
+	case (uint64_t)DXIL::OpCode::IsFinite:
+	  convertIsFinite(M, CI);
+	  continue;
+	default:
+	  continue;
+	}
+      }
+    }
+  }
+
   void convertQuadVote(Module &M, hlsl::OP *hlslOP) {
     for (auto FnIt : hlslOP->GetOpFuncList(DXIL::OpCode::QuadVote)) {
       Function *F = FnIt.second;
@@ -836,6 +913,11 @@ public:
       // Convert quad vote
       if (DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 7) < 0) {
         convertQuadVote(M, DM.GetOP());
+      }
+
+      // Convert IsSpecialFloat intrinsics
+      if (DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 9) < 0) {
+        convertIsSpecialFloat(M, DM.GetOP());
       }
 
       // Remove store undef output.
