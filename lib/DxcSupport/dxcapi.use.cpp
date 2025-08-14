@@ -73,9 +73,9 @@ void IFT_Data(HRESULT hr, LPCWSTR data) {
   throw ::hlsl::Exception(hr, errMsg);
 }
 
-void EnsureEnabled(LibraryDllLoader &dxcSupport) {
+void EnsureEnabled(DXCLibraryDllLoader &dxcSupport) {
   if (!dxcSupport.IsEnabled()) {
-    IFT(dxcSupport.InitializeForDll(kDxCompilerLib, "DxcCreateInstance"));
+    IFT(dxcSupport.Initialize());
   }
 }
 

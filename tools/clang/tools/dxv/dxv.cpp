@@ -160,8 +160,8 @@ int main(int argc, const char **argv) {
       return 2;
     }
 
-    LibraryDllLoader dxcSupport;
-    dxc::EnsureEnabled(dxcSupport);
+    DxCompilerDllLoader dxcSupport;
+    IFT(dxcSupport.Initialize());
 
     DxvContext context(dxcSupport);
     pStage = "Validation";

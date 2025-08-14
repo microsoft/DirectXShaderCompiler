@@ -193,7 +193,7 @@ public:
 // subset of any dlls that would give DxcLibrary functionality.
 // e.g, load a IDxcLibrary object.
 // Includes but isn't limited to dxcompiler.dll and dxil.dll
-class LibraryDllLoader : public SpecificDllLoader {
+class DXCLibraryDllLoader : public SpecificDllLoader {
 public:
   HRESULT Initialize() {
     return InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
@@ -210,7 +210,7 @@ inline DxcDefine GetDefine(LPCWSTR name, LPCWSTR value) {
 // Checks an HRESULT and formats an error message with the appended data.
 void IFT_Data(HRESULT hr, LPCWSTR data);
 
-void EnsureEnabled(LibraryDllLoader &dxcSupport);
+void EnsureEnabled(DXCLibraryDllLoader &dxcSupport);
 void ReadFileIntoBlob(DllLoader &dxcSupport, LPCWSTR pFileName,
                       IDxcBlobEncoding **ppBlobEncoding);
 void WriteBlobToConsole(IDxcBlob *pBlob, DWORD streamType = STD_OUTPUT_HANDLE);

@@ -546,8 +546,8 @@ int main(int argc, const char **argv) {
       return 2;
     }
 
-    LibraryDllLoader dxcSupport;
-    dxc::EnsureEnabled(dxcSupport);
+    DxCompilerDllLoader dxcSupport;
+    IFT(dxcSupport.Initialize());
     DxaContext context(dxcSupport);
     if (ListParts) {
       pStage = "Listing parts";
