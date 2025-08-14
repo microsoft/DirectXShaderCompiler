@@ -8,7 +8,6 @@
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <variant>
 
 #include <DirectXMath.h>
@@ -81,6 +80,13 @@ template <typename DataTypeT> constexpr bool is16BitType() {
 
 template <typename DataTypeT> std::string getHLSLTypeString();
 
+enum SCALAR_INPUT_FLAGS {
+  // SCALAR_INPUT_FLAGS_OPERAND_1_IS_SCALAR is intentionally omitted. Input 1 is
+  // always a vector.
+  SCALAR_INPUT_FLAGS_OPERAND_2_IS_SCALAR = 0x2,
+  SCALAR_INPUT_FLAGS_OPERAND_3_IS_SCALAR = 0x4,
+};
+
 // Helpful metadata struct so we can define some common properties for a test in
 // a single place. Intrinsic and Operator are passed in with -D defines to
 // the compiler and expanded as macros in the HLSL code. For a better
@@ -106,6 +112,7 @@ template <typename OpTypeT> struct OpTypeMetaData {
   OpTypeT OpType;
   std::optional<std::string> Intrinsic = std::nullopt;
   std::optional<std::string> Operator = std::nullopt;
+  uint16_t ScalarInputFlags = 0x0;
 };
 
 template <typename T, size_t Length>
@@ -118,9 +125,9 @@ enum ValidationType {
 };
 
 enum BasicOpType {
-  BasicOpType_Binary,
   BasicOpType_Unary,
-  BasicOpType_ScalarBinary,
+  BasicOpType_Binary,
+  BasicOpType_Ternary,
   BasicOpType_EnumValueCount
 };
 
@@ -262,11 +269,6 @@ getUnaryMathOpType(const std::wstring &OpTypeString) {
 }
 
 enum BinaryMathOpType {
-  BinaryMathOpType_Scalar_Add,
-  BinaryMathOpType_Scalar_Multiply,
-  BinaryMathOpType_Scalar_Subtract,
-  BinaryMathOpType_Scalar_Divide,
-  BinaryMathOpType_Scalar_Modulus,
   BinaryMathOpType_Multiply,
   BinaryMathOpType_Add,
   BinaryMathOpType_Subtract,
@@ -274,23 +276,11 @@ enum BinaryMathOpType {
   BinaryMathOpType_Modulus,
   BinaryMathOpType_Min,
   BinaryMathOpType_Max,
-  BinaryMathOpType_Scalar_Min,
-  BinaryMathOpType_Scalar_Max,
   BinaryMathOpType_EnumValueCount
 };
 
 static const OpTypeMetaData<BinaryMathOpType>
     binaryMathOpTypeStringToOpMetaData[] = {
-        {L"BinaryMathOpType_Scalar_Add", BinaryMathOpType_Scalar_Add,
-         std::nullopt, "+"},
-        {L"BinaryMathOpType_Scalar_Multiply", BinaryMathOpType_Scalar_Multiply,
-         std::nullopt, "*"},
-        {L"BinaryMathOpType_Scalar_Subtract", BinaryMathOpType_Scalar_Subtract,
-         std::nullopt, "-"},
-        {L"BinaryMathOpType_Scalar_Divide", BinaryMathOpType_Scalar_Divide,
-         std::nullopt, "/"},
-        {L"BinaryMathOpType_Scalar_Modulus", BinaryMathOpType_Scalar_Modulus,
-         std::nullopt, "%"},
         {L"BinaryMathOpType_Add", BinaryMathOpType_Add, std::nullopt, "+"},
         {L"BinaryMathOpType_Multiply", BinaryMathOpType_Multiply, std::nullopt,
          "*"},
@@ -302,10 +292,6 @@ static const OpTypeMetaData<BinaryMathOpType>
          "%"},
         {L"BinaryMathOpType_Min", BinaryMathOpType_Min, "min", ","},
         {L"BinaryMathOpType_Max", BinaryMathOpType_Max, "max", ","},
-        {L"BinaryMathOpType_Scalar_Min", BinaryMathOpType_Scalar_Min, "min",
-         ","},
-        {L"BinaryMathOpType_Scalar_Max", BinaryMathOpType_Scalar_Max, "max",
-         ","},
 };
 
 static_assert(_countof(binaryMathOpTypeStringToOpMetaData) ==
@@ -317,6 +303,32 @@ const OpTypeMetaData<BinaryMathOpType> &
 getBinaryMathOpType(const std::wstring &OpTypeString) {
   return getOpType<BinaryMathOpType>(binaryMathOpTypeStringToOpMetaData,
                                      OpTypeString);
+}
+
+enum TernaryMathOpType {
+  TernaryMathOpType_Fma,
+  TernaryMathOpType_Mad,
+  TernaryMathOpType_SmoothStep,
+  TernaryMathOpType_EnumValueCount
+};
+
+static const OpTypeMetaData<TernaryMathOpType>
+    ternaryMathOpTypeStringToOpMetaData[] = {
+        {L"TernaryMathOpType_Fma", TernaryMathOpType_Fma, "fma"},
+        {L"TernaryMathOpType_Mad", TernaryMathOpType_Mad, "mad"},
+        {L"TernaryMathOpType_SmoothStep", TernaryMathOpType_SmoothStep,
+         "smoothstep"},
+};
+
+static_assert(_countof(ternaryMathOpTypeStringToOpMetaData) ==
+                  TernaryMathOpType_EnumValueCount,
+              "ternaryMathOpTypeStringToOpMetaData size mismatch. Did you "
+              "add a new enum value?");
+
+const OpTypeMetaData<TernaryMathOpType> &
+getTernaryMathOpType(const std::wstring &OpTypeString) {
+  return getOpType<TernaryMathOpType>(ternaryMathOpTypeStringToOpMetaData,
+                                      OpTypeString);
 }
 
 template <typename DataTypeT>
@@ -337,9 +349,19 @@ public:
 
   TEST_CLASS_SETUP(classSetup);
 
+  BEGIN_TEST_METHOD(unaryMathOpTest)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:LongVectorOpTable.xml#UnaryMathOpTable")
+  END_TEST_METHOD()
+
   BEGIN_TEST_METHOD(binaryMathOpTest)
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:LongVectorOpTable.xml#BinaryMathOpTable")
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(ternaryMathOpTest)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:LongVectorOpTable.xml#TernaryMathOpTable")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(trigonometricOpTest)
@@ -355,11 +377,6 @@ public:
   BEGIN_TEST_METHOD(asTypeOpTest)
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:LongVectorOpTable.xml#AsTypeOpTable")
-  END_TEST_METHOD()
-
-  BEGIN_TEST_METHOD(unaryMathOpTest)
-  TEST_METHOD_PROPERTY(L"DataSource",
-                       L"Table:LongVectorOpTable.xml#UnaryMathOpTable")
   END_TEST_METHOD()
 
   template <typename OpTypeT>
@@ -387,6 +404,7 @@ public:
 private:
   dxc::SpecificDllLoader DxilDllLoader;
   bool Initialized = false;
+  bool VerboseLogging = false;
 };
 
 template <typename DataTypeT>
@@ -402,11 +420,109 @@ bool doValuesMatch(double A, double B, float Tolerance,
 template <typename DataTypeT>
 bool doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
                     const std::vector<DataTypeT> &ExpectedValues,
-                    float Tolerance, ValidationType ValidationType);
+                    float Tolerance, ValidationType ValidationType,
+                    bool VerboseLogging = false);
 
 template <typename DataTypeT>
 void logLongVector(const std::vector<DataTypeT> &Values,
                    const std::wstring &Name);
+
+// Once created and configured, the presence of an input vector can be used to
+// infer the operand type (vector or scalar) for the operation.
+template <typename DataTypeT> struct TestInputs {
+  std::vector<DataTypeT> InputVector1;
+  std::optional<std::vector<DataTypeT>> InputVector2 = std::nullopt;
+  std::optional<std::vector<DataTypeT>> InputVector3 = std::nullopt;
+};
+
+template <typename DataTypeT> class TestConfigBasicUnary {
+public:
+  TestConfigBasicUnary() {};
+  virtual ~TestConfigBasicUnary() = default;
+
+  virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
+                                     VariantVector &ExpectedVector) {
+    computeExpectedValues(Inputs.InputVector1, ExpectedVector);
+  }
+
+  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
+                             VariantVector &ExpectedVector) {
+    fillExpectedVector<DataTypeT>(
+        ExpectedVector, InputVector1.size(), [&](size_t Index) {
+          return computeExpectedValue(InputVector1[Index]);
+        });
+  }
+
+  virtual DataTypeT computeExpectedValue(const DataTypeT &A) const = 0;
+};
+
+template <typename DataTypeT> class TestConfigBasicBinary {
+public:
+  TestConfigBasicBinary() {};
+  virtual ~TestConfigBasicBinary() = default;
+
+  virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
+                                     VariantVector &ExpectedVector) {
+    DXASSERT_NOMSG(Inputs.InputVector2.has_value());
+
+    if (Inputs.InputVector2.value().size() > 1)
+      computeExpectedValues(Inputs.InputVector1, Inputs.InputVector2.value(),
+                            ExpectedVector);
+    else
+      computeExpectedValues(Inputs.InputVector1, Inputs.InputVector2.value()[0],
+                            ExpectedVector);
+  }
+
+  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
+                             const std::vector<DataTypeT> &InputVector2,
+                             VariantVector &ExpectedVector) {
+    fillExpectedVector<DataTypeT>(
+        ExpectedVector, InputVector1.size(), [&](size_t Index) {
+          return computeExpectedValue(InputVector1[Index], InputVector2[Index]);
+        });
+  }
+
+  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
+                             const DataTypeT &ScalarInput,
+                             VariantVector &ExpectedVector) {
+    fillExpectedVector<DataTypeT>(
+        ExpectedVector, InputVector1.size(), [&](size_t Index) {
+          return computeExpectedValue(InputVector1[Index], ScalarInput);
+        });
+  }
+
+  virtual DataTypeT computeExpectedValue(const DataTypeT &A,
+                                         const DataTypeT &B) const = 0;
+};
+
+template <typename DataTypeT> class TestConfigBasicTernary {
+public:
+  TestConfigBasicTernary() {};
+  virtual ~TestConfigBasicTernary() = default;
+
+  virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
+                                     VariantVector &ExpectedVector) {
+
+    const auto &Input1 = Inputs.InputVector1;
+
+    DXASSERT_NOMSG(Inputs.InputVector2.has_value());
+    const auto &Input2 = Inputs.InputVector2.value();
+
+    DXASSERT_NOMSG(Inputs.InputVector3.has_value());
+    const auto &Input3 = Inputs.InputVector3.value();
+
+    fillExpectedVector<DataTypeT>(
+        ExpectedVector, Input1.size(), [&](size_t Index) {
+          const DataTypeT &B = (Input2.size() == 1 ? Input2[0] : Input2[Index]);
+          const DataTypeT &C = (Input3.size() == 1 ? Input3[0] : Input3[Index]);
+
+          return computeExpectedValue(Input1[Index], B, C);
+        });
+  }
+
+  virtual DataTypeT computeExpectedValue(const DataTypeT &A, const DataTypeT &B,
+                                         const DataTypeT &C) const = 0;
+};
 
 // Helps handle the test configuration for LongVector operations.
 // It was particularly useful helping manage logic of computing expected values
@@ -418,62 +534,39 @@ template <typename DataTypeT> class TestConfig {
 public:
   virtual ~TestConfig() = default;
 
-  bool isBinaryOp() const {
-    return BasicOpType == BasicOpType_Binary ||
-           BasicOpType == BasicOpType_ScalarBinary;
+  void fillInputs(TestInputs<DataTypeT> &Inputs) const;
+
+  virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) = 0;
+
+  void setInputValueSetKey(const std::wstring &InputValueSetName,
+                           size_t Index) {
+    VERIFY_IS_TRUE(Index < (InputValueSetKeys.size()),
+                   L"Index out of bounds for InputValueSetKeys");
+    InputValueSetKeys[Index] = InputValueSetName;
   }
 
-  bool isUnaryOp() const { return BasicOpType == BasicOpType_Unary; }
+  void setLengthToTest(size_t LengthToTest) {
+    this->LengthToTest = LengthToTest;
+  }
+  void setVerboseLogging(bool VerboseLogging) {
+    this->VerboseLogging = VerboseLogging;
+  }
 
-  bool isScalarOp() const { return BasicOpType == BasicOpType_ScalarBinary; }
+  std::string getCompilerOptionsString() const;
+
+  bool verifyOutput(const std::shared_ptr<st::ShaderOpTestResult> &TestResult);
+
+  size_t getNumOperands() const;
+  std::string getBasicOpTypeHexString() const;
+
+private:
+  std::vector<DataTypeT> getInputValueSet(size_t ValueSetIndex) const;
 
   // Helpers to get the hlsl type as a string for a given C++ type.
   std::string getHLSLInputTypeString() const {
     return getHLSLTypeString<DataTypeT>();
   }
   std::string getHLSLOutputTypeString() const;
-
-  virtual void
-  computeExpectedValues(const std::vector<DataTypeT> &InputVector1);
-  virtual void
-  computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
-                        const std::vector<DataTypeT> &InputVector2);
-  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
-                             const DataTypeT &ScalarInput);
-
-  void setInputValueSet1(const std::wstring &InputValueSetName) {
-    InputValueSetName1 = InputValueSetName;
-  }
-
-  void setInputValueSet2(const std::wstring &InputValueSetName) {
-    InputValueSetName2 = InputValueSetName;
-  }
-
-  void setLengthToTest(size_t LengthToTest) {
-    this->LengthToTest = LengthToTest;
-  }
-
-  size_t getLengthToTest() const { return LengthToTest; }
-
-  std::vector<DataTypeT> getInputValueSet1() const {
-    return getInputValueSet(1);
-  }
-
-  std::vector<DataTypeT> getInputValueSet2() const {
-    return getInputValueSet(2);
-  }
-
-  std::vector<DataTypeT> getInputArgsArray() const;
-
-  float getTolerance() const { return Tolerance; }
-  ValidationType getValidationType() const { return ValidationType; }
-
-  std::string getCompilerOptionsString() const;
-
-  bool verifyOutput(const std::shared_ptr<st::ShaderOpTestResult> &TestResult);
-
-private:
-  std::vector<DataTypeT> getInputValueSet(size_t ValueSetIndex) const;
 
   // Templated version to be used when the output data type does not match the
   // input data type.
@@ -482,10 +575,9 @@ private:
                     const std::vector<OutputDataTypeT> &ExpectedVector);
 
   // The input value sets are used to fill the shader buffer.
-  std::wstring InputValueSetName1 = L"DefaultInputValueSet1";
-  std::wstring InputValueSetName2 = L"DefaultInputValueSet2";
-  // No default args array
-  std::wstring InputArgsArrayName = L"";
+  std::array<std::wstring, 3> InputValueSetKeys = {L"DefaultInputValueSet1",
+                                                   L"DefaultInputValueSet2",
+                                                   L"DefaultInputValueSet3"};
 
 protected:
   // Prevent instances of TestConfig from being created directly. Want to force
@@ -493,25 +585,8 @@ protected:
   template <typename OpTypeT>
   TestConfig(const OpTypeMetaData<OpTypeT> &OpTypeMd)
       : OpTypeName(OpTypeMd.OpTypeString), Intrinsic(OpTypeMd.Intrinsic),
-        Operator(OpTypeMd.Operator) {}
-
-  // The appropriate computeExpectedValue should be implemented in derived
-  // classes. Impelemented as virtual here to prevent requiring all derived
-  // classes from needing to implement. The OS builds disable RTTI, so using
-  // dynamic casting to expose interfaces for these based on type isn't an
-  // option. COM is the usual solution for this. But it's not worth it to add
-  // all of the COM overhead to this class just for that.
-  virtual DataTypeT
-  computeExpectedValue([[maybe_unused]] const DataTypeT &A,
-                       [[maybe_unused]] const DataTypeT &B) const {
-    LOG_ERROR_FMT_THROW(L"E_NOT_IMPL: computeExpectedValue for a Binary Op");
-    return DataTypeT();
-  }
-  virtual DataTypeT
-  computeExpectedValue([[maybe_unused]] const DataTypeT &A) const {
-    LOG_ERROR_FMT_THROW(L"E_NOT_IMPL: computeExpectedValue for a Unary Op");
-    return DataTypeT();
-  }
+        Operator(OpTypeMd.Operator),
+        ScalarInputFlags(OpTypeMd.ScalarInputFlags) {}
 
   // To be used for the value of -DOPERATOR
   std::optional<std::string> Operator;
@@ -529,6 +604,9 @@ protected:
 
   // Just used for logging purposes.
   std::wstring OpTypeName = L"UnknownOpType";
+  bool VerboseLogging = false;
+
+  const uint16_t ScalarInputFlags;
 }; // class TestConfig
 
 template <typename DataTypeT>
@@ -536,13 +614,16 @@ class TestConfigAsType : public TestConfig<DataTypeT> {
 public:
   TestConfigAsType(const OpTypeMetaData<AsTypeOpType> &OpTypeMd);
 
-  void
-  computeExpectedValues(const std::vector<DataTypeT> &InputVector1) override;
-  void
-  computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
-                        const std::vector<DataTypeT> &InputVector2) override;
+  void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) override;
 
 private:
+  // Private implementation that dispatches based on the output type.
+  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1);
+  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
+                             const std::vector<DataTypeT> &InputVector2);
+  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
+                             const DataTypeT &ScalarInput);
+
   template <typename DataTypeInT>
   HLSLHalf_t asFloat16([[maybe_unused]] const DataTypeInT &A) const {
     LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsFloat16 DataTypeInT: %s",
@@ -669,9 +750,16 @@ private:
 };
 
 template <typename DataTypeT>
-class TestConfigTrigonometric : public TestConfig<DataTypeT> {
+class TestConfigTrigonometric : public TestConfig<DataTypeT>,
+                                public TestConfigBasicUnary<DataTypeT> {
 public:
   TestConfigTrigonometric(const OpTypeMetaData<TrigonometricOpType> &OpTypeMd);
+
+  void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) override {
+    TestConfigBasicUnary<DataTypeT>::computeExpectedValues(Inputs.InputVector1,
+                                                           ExpectedVector);
+  }
+
   DataTypeT computeExpectedValue(const DataTypeT &A) const override;
 
 private:
@@ -679,9 +767,16 @@ private:
 };
 
 template <typename DataTypeT>
-class TestConfigUnary : public TestConfig<DataTypeT> {
+class TestConfigUnary : public TestConfig<DataTypeT>,
+                        public TestConfigBasicUnary<DataTypeT> {
 public:
   TestConfigUnary(const OpTypeMetaData<UnaryOpType> &OpTypeMd);
+
+  void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) override {
+    TestConfigBasicUnary<DataTypeT>::computeExpectedValues(Inputs.InputVector1,
+                                                           ExpectedVector);
+  }
+
   DataTypeT computeExpectedValue(const DataTypeT &A) const override;
 
 private:
@@ -689,11 +784,49 @@ private:
 };
 
 template <typename DataTypeT>
-class TestConfigBinaryMath : public TestConfig<DataTypeT> {
+class TestConfigUnaryMath : public TestConfig<DataTypeT>,
+                            public TestConfigBasicUnary<DataTypeT> {
+public:
+  TestConfigUnaryMath(const OpTypeMetaData<UnaryMathOpType> &OpTypeMd);
+
+  void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) override {
+    computeExpectedValues(Inputs.InputVector1);
+  }
+
+  DataTypeT computeExpectedValue(const DataTypeT &A) const override;
+
+private:
+  UnaryMathOpType OpType = UnaryMathOpType_EnumValueCount;
+
+  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1);
+
+  template <typename DataTypeT> int32_t sign(const DataTypeT &A) const {
+    // Return 1 for positive, -1 for negative, 0 for zero.
+    // Wrap comparison operands in DataTypeInT constructor to make sure
+    // we are comparing the same type.
+    return A > DataTypeT(0) ? 1 : A < DataTypeT(0) ? -1 : 0;
+  }
+
+  template <typename DataTypeT> DataTypeT abs(const DataTypeT &A) const {
+    if constexpr (std::is_unsigned<DataTypeT>::value)
+      return DataTypeT(A);
+    else
+      return (std::abs)(A);
+  }
+};
+
+template <typename DataTypeT>
+class TestConfigBinaryMath : public TestConfig<DataTypeT>,
+                             public TestConfigBasicBinary<DataTypeT> {
 public:
   TestConfigBinaryMath(const OpTypeMetaData<BinaryMathOpType> &OpTypeMd);
   DataTypeT computeExpectedValue(const DataTypeT &A,
                                  const DataTypeT &B) const override;
+
+  void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) override {
+    TestConfigBasicBinary<DataTypeT>::computeExpectedValues(Inputs,
+                                                            ExpectedVector);
+  }
 
 private:
   BinaryMathOpType OpType = BinaryMathOpType_EnumValueCount;
@@ -715,28 +848,97 @@ private:
 };
 
 template <typename DataTypeT>
-class TestConfigUnaryMath : public TestConfig<DataTypeT> {
+class TestConfigTernaryMath : public TestConfig<DataTypeT>,
+                              public TestConfigBasicTernary<DataTypeT> {
 public:
-  TestConfigUnaryMath(const OpTypeMetaData<UnaryMathOpType> &OpTypeMd);
-  DataTypeT computeExpectedValue(const DataTypeT &A) const override;
-  void
-  computeExpectedValues(const std::vector<DataTypeT> &InputVector1) override;
+  TestConfigTernaryMath(const OpTypeMetaData<TernaryMathOpType> &OpTypeMd);
 
-private:
-  UnaryMathOpType OpType = UnaryMathOpType_EnumValueCount;
-
-  template <typename DataTypeT> int32_t sign(const DataTypeT &A) const {
-    // Return 1 for positive, -1 for negative, 0 for zero.
-    // Wrap comparison operands in DataTypeInT constructor to make sure
-    // we are comparing the same type.
-    return A > DataTypeT(0) ? 1 : A < DataTypeT(0) ? -1 : 0;
+  void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) override {
+    TestConfigBasicTernary<DataTypeT>::computeExpectedValues(Inputs,
+                                                             ExpectedVector);
   }
 
-  template <typename DataTypeT> DataTypeT abs(const DataTypeT &A) const {
-    if constexpr (std::is_unsigned<DataTypeT>::value)
-      return DataTypeT(A);
-    else
-      return (std::abs)(A);
+  DataTypeT computeExpectedValue(const DataTypeT &A, const DataTypeT &B,
+                                 const DataTypeT &C) const override {
+    switch (OpType) {
+    case TernaryMathOpType_Fma:
+      return fma(A, B, C);
+    case TernaryMathOpType_Mad:
+      return mad(A, B, C);
+    case TernaryMathOpType_SmoothStep:
+      return smoothStep(A, B, C);
+    default:
+      LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid TernaryMathOpType: %d",
+                          OpType);
+      return DataTypeT();
+    }
+  }
+
+private:
+  TernaryMathOpType OpType = TernaryMathOpType_EnumValueCount;
+
+  template <typename T = DataTypeT>
+  T fma([[maybe_unused]] const T &A, [[maybe_unused]] const T &B,
+        const T &C) const {
+    LOG_ERROR_FMT_THROW(L"Programmer Error: fma only accepts doubles. Have "
+                        L"DataTypeT: %s",
+                        typeid(T).name());
+    return T();
+  }
+
+  // fma only accepts doubles
+  template <>
+  double fma(const double &A, const double &B, const double &C) const {
+    return A * B + C;
+  }
+
+  // Mad is only enabled for numeric types. Capture that by having an fallback
+  // that errors out if bool is used.
+  template <typename T>
+  typename std::enable_if<std::is_same<T, HLSLBool_t>::value, T>::type
+  mad([[maybe_unused]] const T &A, [[maybe_unused]] const T &B,
+      const T &C) const {
+    LOG_ERROR_FMT_THROW(L"Programmer Error: mad does not support HLSLBool_t");
+    return T();
+  }
+
+  template <typename T>
+  typename std::enable_if<!std::is_same<T, HLSLBool_t>::value, T>::type
+  mad(const T &A, const T &B, const T &C) const {
+    return A * B + C;
+  }
+
+  // Smoothstep Fallback: only enabled when T is NOT a floatlike
+  template <typename T = DataTypeT>
+  typename std::enable_if<!(std::is_same<T, float>::value ||
+                            std::is_same<T, HLSLHalf_t>::value ||
+                            std::is_same<T, double>::value),
+                          T>::type
+  smoothStep([[maybe_unused]] const T &Min, [[maybe_unused]] const T &Max,
+             [[maybe_unused]] const T &X) const {
+    LOG_ERROR_FMT_THROW(L"Programmer Error: smoothStep only accepts "
+                        L"floatlikes. Have DataTypeT: %s",
+                        typeid(T).name());
+    return T();
+  }
+
+  // Smoothstep only enabled for floatlikes
+  template <typename T = DataTypeT>
+  typename std::enable_if<std::is_same<T, float>::value ||
+                              std::is_same<T, HLSLHalf_t>::value ||
+                              std::is_same<T, double>::value,
+                          T>::type
+  smoothStep(const T &Min, const T &Max, const T &X) const {
+    DXASSERT_NOMSG(Min < Max);
+
+    if (X <= Min)
+      return T(0);
+    if (X >= Max)
+      return T(1);
+
+    T NormalizedX = (X - Min) / (Max - Min);
+    NormalizedX = std::clamp(NormalizedX, T(0), T(1));
+    return NormalizedX * NormalizedX * (T(3) - T(2) * NormalizedX);
   }
 };
 
@@ -770,6 +972,11 @@ makeTestConfig(const OpTypeMetaData<BinaryMathOpType> &OpTypeMetaData) {
   return std::make_unique<TestConfigBinaryMath<DataTypeT>>(OpTypeMetaData);
 }
 
+template <typename DataTypeT>
+std::unique_ptr<TestConfig<DataTypeT>>
+makeTestConfig(const OpTypeMetaData<TernaryMathOpType> &OpTypeMetaData) {
+  return std::make_unique<TestConfigTernaryMath<DataTypeT>>(OpTypeMetaData);
+}
 }; // namespace LongVector
 
 #endif // LONGVECTORS_H
