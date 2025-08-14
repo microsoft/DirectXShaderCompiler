@@ -161,7 +161,7 @@ public:
   }
 
 protected:
-  DxCompilerDllLoader m_dxcSupport;
+  LibraryDllLoader m_dxcSupport;
   SpecificDllLoader m_dxrFallbackSupport;
   std::wstring m_deviceName;
   std::vector<CComPtr<IDxcBlob>> m_inputBlobs;

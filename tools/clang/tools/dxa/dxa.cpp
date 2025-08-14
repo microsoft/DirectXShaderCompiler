@@ -546,7 +546,7 @@ int main(int argc, const char **argv) {
       return 2;
     }
 
-    SpecificDllLoader dxcSupport;
+    LibraryDllLoader dxcSupport;
     dxc::EnsureEnabled(dxcSupport);
     DxaContext context(dxcSupport);
     if (ListParts) {

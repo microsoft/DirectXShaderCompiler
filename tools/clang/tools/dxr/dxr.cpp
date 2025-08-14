@@ -50,7 +50,7 @@ int main(int argc, const char **argv) {
     const OptTable *optionTable = getHlslOptTable();
     MainArgs argStrings(argc, argv_);
     DxcOpts dxcOpts;
-    SpecificDllLoader dxcSupport;
+    LibraryDllLoader dxcSupport;
 
     // Read options and check errors.
     {

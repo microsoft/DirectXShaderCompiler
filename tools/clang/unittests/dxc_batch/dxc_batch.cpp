@@ -880,7 +880,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     MainArgs batchArgStrings(refArgs);
 
     DxcOpts dxcOpts;
-    SpecificDllLoader dxcSupport;
+    LibraryDllLoader dxcSupport;
 
     // Read options and check errors.
     {
