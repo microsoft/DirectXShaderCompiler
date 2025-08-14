@@ -1282,7 +1282,6 @@ static void GenerateConsistentBindings(DeclContext &Ctx,
 
 enum class DxcHLSLNodeType : uint64_t {
   Register,
-  CBuffer,
   Function,
   Enum,
   EnumValue,
@@ -1290,7 +1289,8 @@ enum class DxcHLSLNodeType : uint64_t {
   Typedef,
   Using,
   Variable,
-  Parameter
+  Parameter,
+  Type
 };
 
 struct DxcHLSLNode {
@@ -1323,17 +1323,20 @@ struct DxcHLSLEnumValue {
   uint32_t NodeId;
 };
 
-struct DxcHLSLParameter {       //Mirrors D3D12_PARAMETER_DESC (ex. First(In/Out)(Register/Component)), but with std::string and NodeId
+struct DxcHLSLParameter { // Mirrors D3D12_PARAMETER_DESC (ex.
+                          // First(In/Out)(Register/Component)), but with
+                          // std::string and NodeId
+
   std::string SemanticName;
-  D3D_SHADER_VARIABLE_TYPE Type;              // Element type.
-  D3D_SHADER_VARIABLE_CLASS Class;            // Scalar/Vector/Matrix.
-  uint32_t Rows;                              // Rows are for matrix parameters.
-  uint32_t Columns;                           // Components or Columns in matrix.
-  D3D_INTERPOLATION_MODE InterpolationMode;   // Interpolation mode.
-  D3D_PARAMETER_FLAGS Flags;                  // Parameter modifiers.
+  D3D_SHADER_VARIABLE_TYPE Type;            // Element type.
+  D3D_SHADER_VARIABLE_CLASS Class;          // Scalar/Vector/Matrix.
+  uint32_t Rows;                            // Rows are for matrix parameters.
+  uint32_t Columns;                         // Components or Columns in matrix.
+  D3D_INTERPOLATION_MODE InterpolationMode; // Interpolation mode.
+  D3D_PARAMETER_FLAGS Flags;                // Parameter modifiers.
   uint32_t NodeId;
 
-  //TODO: Array info
+  // TODO: Array info
 };
 
 struct DxcHLSLFunction {
@@ -1343,24 +1346,96 @@ struct DxcHLSLFunction {
   uint32_t HasDefinition : 1;
 };
 
-struct DxcHLSLRegister {        //Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus the Name (and uID replaced with NodeID) and added arrayIndex
+struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
+                         // the Name (and uID replaced with NodeID) and added
+                         // arrayIndex
 
-  D3D_SHADER_INPUT_TYPE       Type;           // Type of resource (e.g. texture, cbuffer, etc.)
-  uint32_t                    BindPoint;      // Starting bind point
-  uint32_t                    BindCount;      // Number of contiguous bind points (for arrays)
+  D3D_SHADER_INPUT_TYPE Type; // Type of resource (e.g. texture, cbuffer, etc.)
+  uint32_t BindPoint;         // Starting bind point
+  uint32_t BindCount;         // Number of contiguous bind points (for arrays)
 
-  uint32_t                    uFlags;         // Input binding flags
-  D3D_RESOURCE_RETURN_TYPE    ReturnType;     // Return type (if texture)
-  D3D_SRV_DIMENSION           Dimension;      // Dimension (if texture)
-  uint32_t                    NumSamples;     // Number of samples (0 if not MS texture)
-  uint32_t                    Space;          // Register space
-  uint32_t                    NodeId;
-  uint32_t                    ArrayId;        // Only accessible if BindCount > 1 and the array is multi dimensional
+  uint32_t uFlags;                     // Input binding flags
+  D3D_RESOURCE_RETURN_TYPE ReturnType; // Return type (if texture)
+  D3D_SRV_DIMENSION Dimension;         // Dimension (if texture)
+  uint32_t NumSamples; // Number of samples (0 if not MS texture)
+  uint32_t Space;      // Register space
+  uint32_t NodeId;
+  uint32_t ArrayId;  // Only accessible if BindCount > 1 and the array is multi
+                     // dimensional
+  uint32_t BufferId; //If cbuffer or structured buffer
 };
 
-struct DxcHLSLArray { 
-  uint32_t ArrayElem : 4;       // Array of up to 8 recursion levels deep (like spirv)
-  uint32_t ArrayStart : 28;     // Index into ArraySizes with ArraySize
+union DxcHLSLArray {
+
+  struct {
+    uint32_t ArrayElem : 4;   // Array of up to 8 deep (like spirv)
+    uint32_t ArrayStart : 28; // Index into ArraySizes with ArraySize
+  };
+
+  uint32_t Data;
+
+  bool operator==(const DxcHLSLArray &Other) const {
+    return Other.Data == Data;
+  }
+};
+
+struct DxcHLSLType { // Almost maps to CShaderReflectionType and
+                     // D3D12_SHADER_TYPE_DESC, except tightly packed and
+                     // relatively serializable
+
+  std::string Name; // Can be empty
+  std::vector<uint32_t> MemberTypes;
+  std::vector<uint32_t> Interfaces;
+
+  union {
+    struct {
+      D3D_SHADER_VARIABLE_CLASS Class : 8;
+      D3D_SHADER_VARIABLE_TYPE Type : 8;
+      uint32_t Rows : 8;
+      uint32_t Columns : 8;
+    };
+    uint32_t ClassTypeRowsColums;
+  };
+
+  union {
+    uint32_t ElementsOrArrayId;
+    struct {
+      uint32_t HasArrayInfo0 : 1; // If 0, indicates that elements represents 1D
+                                  // array
+      uint32_t Elements : 31;     // Number of elements (0 if not an array)
+    };
+    struct {
+      uint32_t HasArrayInfo1 : 1; // If 1, indicates that elements represents
+                                  // multi dimensional array
+      uint32_t ArrayId : 31;      // Array id
+    };
+  };
+
+  uint32_t BaseClass; // -1 if none, otherwise a type index
+  uint32_t SubType;   // -1 if none, otherwise a type index
+
+  bool operator==(const DxcHLSLType &Other) const {
+    return Other.Name == Name && Other.MemberTypes == MemberTypes &&
+           Other.Interfaces == Interfaces &&
+           ClassTypeRowsColums == Other.ClassTypeRowsColums &&
+           ElementsOrArrayId == Other.ElementsOrArrayId &&
+           BaseClass == Other.BaseClass && SubType == Other.SubType;
+  }
+};
+
+struct DxcHLSLVariable { // Almost maps to CShaderReflectionVariable and
+                         // D3D12_SHADER_VARIABLE_DESC, but tightly packed and
+                         // easily serializable
+
+  uint32_t ConstantBuffer;
+  uint32_t Type;
+
+  std::string Name; // Can be empty
+
+  bool operator==(const DxcHLSLVariable &Other) const {
+    return Other.ConstantBuffer == ConstantBuffer && Other.Type == Type &&
+           Other.Name == Name;
+  }
 };
 
 struct DxcRegisterTypeInfo {
@@ -1371,7 +1446,15 @@ struct DxcRegisterTypeInfo {
   uint32_t SampleCount;
 };
 
-struct ReflectionData {
+struct DxcHLSLBuffer {     //Almost maps to CShaderReflectionConstantBuffer and D3D12_SHADER_BUFFER_DESC
+
+  std::vector<uint32_t> Variables;
+
+  D3D_CBUFFER_TYPE Type;
+  uint32_t NodeId;
+};
+
+struct DxcReflectionData {
   std::vector<DxcHLSLNode> Nodes;       //0 = Root node (global scope)
   std::vector<std::string> Sources;
   std::unordered_map<std::string, uint16_t> SourceToFileId;
@@ -1383,9 +1466,12 @@ struct ReflectionData {
   std::vector<std::string> Annotations;
   std::vector<DxcHLSLArray> Arrays;
   std::vector<uint32_t> ArraySizes;
+  std::vector<DxcHLSLType> Types;
+  std::vector<DxcHLSLVariable> Variables;
+  std::vector<DxcHLSLBuffer> Buffers;
 };
 
-static uint32_t PushNextNodeId(ReflectionData &Refl, const SourceManager &SM,
+static uint32_t PushNextNodeId(DxcReflectionData &Refl, const SourceManager &SM,
                                const LangOptions &LangOpts,
                                const std::string &UnqualifiedName, Decl *Decl,
                                DxcHLSLNodeType Type, uint32_t ParentNodeId,
@@ -1691,13 +1777,13 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
   return GetTextureRegisterInfo(ASTCtx, typeName, isWrite, recordDecl);
 }
 
-static uint32_t PushArray(ReflectionData &Refl, uint32_t ArraySizeFlat,
+static uint32_t PushArray(DxcReflectionData &Refl, uint32_t ArraySizeFlat,
                           const std::vector<uint32_t> &ArraySize) {
 
   if (ArraySizeFlat <= 1 || ArraySize.size() <= 1)
     return (uint32_t)-1;
 
-  assert(Refl.Arrays.size() < (uint32_t)-1 && "Arrays would overflow");
+  assert(Refl.Arrays.size() < (uint32_t)((1u << 31) - 1) && "Arrays would overflow");
   uint32_t arrayId = (uint32_t)Refl.Arrays.size();
 
   uint32_t arrayCountStart = (uint32_t)Refl.ArraySizes.size();
@@ -1717,7 +1803,13 @@ static uint32_t PushArray(ReflectionData &Refl, uint32_t ArraySizeFlat,
     Refl.ArraySizes.push_back(arraySize);
   }
 
-  Refl.Arrays.push_back({numArrayElements, arrayCountStart});
+  DxcHLSLArray arr = {numArrayElements, arrayCountStart};
+
+  for (uint32_t i = 0; i < Refl.Arrays.size(); ++i)
+    if (Refl.Arrays[i] == arr)
+      return i;
+
+  Refl.Arrays.push_back(arr);
   return arrayId;
 }
 
@@ -1725,7 +1817,7 @@ static void FillReflectionRegisterAt(
     const DeclContext &Ctx, ASTContext &ASTCtx, const SourceManager &SM,
     DiagnosticsEngine &Diag, QualType Type, uint32_t ArraySizeFlat,
     ValueDecl *ValDesc, const std::vector<uint32_t> &ArraySize,
-    ReflectionData &Refl, uint32_t AutoBindingSpace, uint32_t ParentNodeId) {
+    DxcReflectionData &Refl, uint32_t AutoBindingSpace, uint32_t ParentNodeId) {
 
   ArrayRef<hlsl::UnusualAnnotation *> UA = ValDesc->getUnusualAnnotations();
 
@@ -1768,9 +1860,292 @@ static void FillReflectionRegisterAt(
   Refl.Registers.push_back(regD3D12);
 }
 
+class PrintfStream : public llvm::raw_ostream {
+public:
+  PrintfStream() { SetUnbuffered(); }
+
+private:
+  void write_impl(const char *Ptr, size_t Size) override {
+    printf("%.*s\n", (int)Size, Ptr); // Print the raw buffer directly
+  }
+
+  uint64_t current_pos() const override { return 0; }
+};
+
+uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
+                          Decl *Decl, bool DefaultRowMaj) {
+
+  ValueDecl *valDecl = dyn_cast<ValueDecl>(Decl);
+  assert(valDecl && "Decl was expected to be a ValueDecl but wasn't");
+
+  DxcHLSLType type = {};
+
+  // Name; Omit struct, class and const keywords
+
+  PrintingPolicy policy(valDecl->getASTContext().getLangOpts());
+  policy.SuppressScope = false;
+  policy.AnonymousTagLocations = false;
+  policy.SuppressTagKeyword = true; 
+
+  type.Name = valDecl->getType().getLocalUnqualifiedType().getAsString(policy);
+
+  // Unwrap array
+
+  uint32_t arraySize = 1;
+  QualType underlying = valDecl->getType();
+  QualType original = underlying;
+  std::vector<uint32_t> arrayElem;
+
+  while (const ConstantArrayType *arr =
+             dyn_cast<ConstantArrayType>(underlying)) {
+    uint32_t current = arr->getSize().getZExtValue();
+    arrayElem.push_back(current);
+    arraySize *= arr->getSize().getZExtValue();
+    underlying = arr->getElementType();
+
+    type.Name =
+        underlying.getLocalUnqualifiedType().getAsString(policy);
+
+    underlying = underlying.getCanonicalType();
+  }
+
+  underlying = underlying.getCanonicalType();
+
+  uint32_t arrayId = PushArray(Refl, arraySize, arrayElem);
+
+  if (arrayId != (uint32_t)-1) {
+    type.HasArrayInfo1 = 1;
+    type.ArrayId = arrayId;
+  }
+
+  else {
+    type.HasArrayInfo1 = 0;
+    type.Elements = arraySize > 1 ? arraySize : 0;
+  }
+
+  //Unwrap vector and matrix
+
+  type.Class = D3D_SVC_STRUCT;
+
+  if (const RecordType *record =
+          underlying->getAs<RecordType>()) {
+
+    if (const ClassTemplateSpecializationDecl *templateClass =
+            dyn_cast<ClassTemplateSpecializationDecl>(record->getDecl())) {
+
+      const std::string &name = templateClass->getIdentifier()->getName();
+
+      const ArrayRef<TemplateArgument> &params =
+          templateClass->getTemplateArgs().asArray();
+
+      uint32_t magic = 0;
+      std::memcpy(&magic, name.c_str(), std::min(sizeof(magic), name.size()));
+
+      std::string_view subs =
+          name.size() < sizeof(magic)
+              ? std::string_view()
+              : std::string_view(name).substr(sizeof(magic));
+
+      switch (magic) {
+
+      case DXC_FOURCC('v', 'e', 'c', 't'):
+
+        if (subs == "or") {
+
+          type.Rows = 1;
+
+          assert(params.size() == 2 && !params[0].getAsType().isNull() &&
+                 params[1].getKind() == TemplateArgument::Integral &&
+                 "Expected vector to be vector<T, N>");
+
+          underlying = params[0].getAsType();
+          type.Columns = params[1].getAsIntegral().getSExtValue();
+          type.Class = D3D_SVC_VECTOR;
+        }
+
+        break;
+
+      case DXC_FOURCC('m', 'a', 't', 'r'):
+
+        if (subs == "ix") {
+
+          assert(params.size() == 3 && !params[0].getAsType().isNull() &&
+                 params[1].getKind() == TemplateArgument::Integral &&
+                 params[2].getKind() == TemplateArgument::Integral &&
+                 "Expected matrix to be matrix<T, R, C>");
+
+          underlying = params[0].getAsType();
+          type.Columns = params[1].getAsIntegral().getSExtValue();
+          type.Rows = params[2].getAsIntegral().getSExtValue();
+
+          bool isRowMajor = DefaultRowMaj;
+
+          HasHLSLMatOrientation(original, &isRowMajor);
+
+          if (!isRowMajor) {
+            uint32_t rows = type.Rows;
+            type.Rows = type.Columns;
+            type.Columns = rows;
+          }
+
+          type.Class =
+              isRowMajor ? D3D_SVC_MATRIX_ROWS : D3D_SVC_MATRIX_COLUMNS;
+        }
+
+        break;
+      }
+    }
+  }
+
+  //Type name
+
+  if (const BuiltinType *bt = dyn_cast<BuiltinType>(underlying)) {
+
+    if (!type.Rows)
+      type.Rows = type.Columns = 1;
+
+    if (type.Class == D3D_SVC_STRUCT)
+      type.Class = D3D_SVC_SCALAR;
+
+    switch (bt->getKind()) {
+
+    case BuiltinType::Void:
+      type.Type = D3D_SVT_VOID;
+      break;
+
+    case BuiltinType::Min10Float:
+      type.Type = D3D_SVT_MIN10FLOAT;
+      break;
+
+    case BuiltinType::Min16Float:
+      type.Type = D3D_SVT_MIN16FLOAT;
+      break;
+
+    case BuiltinType::HalfFloat:
+    case BuiltinType::Half:
+      type.Type = D3D_SVT_FLOAT16;
+      break;
+
+    case BuiltinType::Short:
+      type.Type = D3D_SVT_INT16;
+      break;
+
+    case BuiltinType::Min12Int:
+      type.Type = D3D_SVT_MIN12INT;
+      break;
+
+    case BuiltinType::Min16Int:
+      type.Type = D3D_SVT_MIN16INT;
+      break;
+
+    case BuiltinType::Min16UInt:
+      type.Type = D3D_SVT_MIN16UINT;
+      break;
+
+    case BuiltinType::UShort:
+      type.Type = D3D_SVT_UINT16;
+      break;
+
+    case BuiltinType::Float:
+      type.Type = D3D_SVT_FLOAT;
+      break;
+
+    case BuiltinType::Int:
+      type.Type = D3D_SVT_INT;
+      break;
+
+    case BuiltinType::UInt:
+      type.Type = D3D_SVT_UINT;
+      break;
+
+    case BuiltinType::Bool:
+      type.Type = D3D_SVT_BOOL;
+      break;
+
+    case BuiltinType::Double:
+      type.Type = D3D_SVT_DOUBLE;
+      break;
+
+    case BuiltinType::ULongLong:
+      type.Type = D3D_SVT_UINT64;
+      break;
+
+    case BuiltinType::LongLong:
+      type.Type = D3D_SVT_INT64;
+      break;
+
+    default:
+      assert(false && "Invalid builtin type");
+      break;
+    }
+  }
+
+  assert(Refl.Types.size() < (uint32_t)-1 && "Type id out of bounds");
+
+  uint32_t i = 0, j = (uint32_t)Refl.Types.size();
+
+  for (; i < j; ++i)
+    if (Refl.Types[i] == type)
+      break;
+
+  if (i == j)
+    Refl.Types.push_back(type);
+
+  return i;
+}
+
+std::vector<uint32_t> RecurseBuffer(ASTContext &ASTCtx, DxcReflectionData &Refl,
+                                    DeclContext *Buffer, uint32_t BufferId,
+                                    bool DefaultRowMaj) {
+
+  std::vector<uint32_t> variables;
+
+  for (Decl *decl : Buffer->decls()) {
+
+    DxcHLSLVariable variable = {BufferId};
+
+    if (NamedDecl *named = dyn_cast<NamedDecl>(decl))
+      variable.Name = named->getName();
+
+    variable.Type = GenerateTypeInfo(ASTCtx, Refl, decl, DefaultRowMaj);
+    assert(Refl.Variables.size() < (uint32_t)-1 && "Variable id out of bounds");
+
+    uint32_t i = 0, j = (uint32_t)Refl.Variables.size();
+
+    for (; i < j; ++i)
+      if (Refl.Variables[i] == variable)
+          break;
+
+    if (i == j)
+      Refl.Variables.push_back(variable);
+
+    variables.push_back(i);
+  }
+
+  return variables;
+}
+
+uint32_t RegisterBuffer(ASTContext &ASTCtx, DxcReflectionData &Refl,
+                        DeclContext *Buffer, uint32_t NodeId,
+                        D3D_CBUFFER_TYPE Type, bool DefaultRowMaj) {
+
+  assert(Refl.Buffers.size() < (uint32_t)-1 && "Buffer id out of bounds");
+  uint32_t bufferId = (uint32_t)Refl.Buffers.size();
+
+  std::vector<uint32_t> variables =
+      RecurseBuffer(ASTCtx, Refl, Buffer, bufferId, DefaultRowMaj);
+
+  Refl.Buffers.push_back({
+      variables,
+      Type,
+      NodeId});
+
+  return bufferId;
+}
+
 /*
 static void AddFunctionParameters(ASTContext &ASTCtx, QualType Type, Decl *Decl,
-                                  ReflectionData &Refl, const SourceManager &SM,
+                                  DxcReflectionData &Refl, const SourceManager &SM,
                                   uint32_t ParentNodeId) {
 
   PrintingPolicy printingPolicy(ASTCtx.getLangOpts());
@@ -1831,29 +2206,15 @@ ReflectionMask& operator|=(ReflectionMask &a, ReflectionMask b) {
   return a = (ReflectionMask)((uint32_t)a | (uint32_t)b);
 }
 
-class PrintfStream : public llvm::raw_ostream {
-public:
-  PrintfStream() { SetUnbuffered(); }
-
-private:
-  void write_impl(const char *Ptr, size_t Size) override {
-    printf("%.*s\n", (int)Size, Ptr); // Print the raw buffer directly
-  }
-
-  uint64_t current_pos() const override { return 0; }
-};
-
-
 static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
                                  DiagnosticsEngine &Diags,
                                  const SourceManager &SM,
-                                 ReflectionData &Refl,
+                                 DxcReflectionData &Refl,
                                  uint32_t AutoBindingSpace,
                                  uint32_t Depth,
                                  ReflectionMask InclusionFlags,
-                                 uint32_t ParentNodeId) {
+                                 uint32_t ParentNodeId, bool DefaultRowMaj) {
 
-  /*
   PrintfStream pfStream;
 
   PrintingPolicy printingPolicy(ASTCtx.getLangOpts());
@@ -1864,7 +2225,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       true; // No inheritance list, trailing semicolons, etc.
   printingPolicy.PolishForDeclaration = true; // Makes it print as a decl
   printingPolicy.SuppressSpecifiers = false; // Prints e.g. "static" or "inline"
-  printingPolicy.SuppressScope = true;*/
+  printingPolicy.SuppressScope = true;
 
   // Traverse AST to grab reflection data
 
@@ -1881,8 +2242,52 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
       if(!(InclusionFlags & ReflectionMask_Basics))
         continue;
+      
+      // TODO: Add for reflection even though it might not be important
 
-      //CBuffer->print(pfStream, printingPolicy);
+      if (Depth != 0)
+        continue;
+
+      hlsl::RegisterAssignment *reg = nullptr;
+      ArrayRef<hlsl::UnusualAnnotation *> UA = CBuffer->getUnusualAnnotations();
+
+      for (auto It = UA.begin(), E = UA.end(); It != E; ++It) {
+
+        if ((*It)->getKind() != hlsl::UnusualAnnotation::UA_RegisterAssignment)
+          continue;
+
+        reg = cast<hlsl::RegisterAssignment>(*It);
+      }
+
+      assert(reg &&
+             "Found a cbuffer missing a RegisterAssignment, even though "
+             "GenerateConsistentBindings should have already generated it");
+
+      uint32_t nodeId =
+          PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), CBuffer->getName(),
+                         CBuffer, DxcHLSLNodeType::Register, ParentNodeId,
+                         (uint32_t)Refl.Registers.size());
+      
+      uint32_t bufferId = RegisterBuffer(ASTCtx, Refl, CBuffer, nodeId,
+                                         D3D_CT_CBUFFER, DefaultRowMaj);
+
+      DxcHLSLRegister regD3D12 = {
+
+          D3D_SIT_CBUFFER,
+          reg->RegisterNumber,
+          1,
+          (uint32_t) D3D_SIF_USERPACKED,
+          (D3D_RESOURCE_RETURN_TYPE) 0,
+          D3D_SRV_DIMENSION_UNKNOWN,
+          0,
+          reg->RegisterSpace.hasValue() ? reg->RegisterSpace.getValue()
+                                        : AutoBindingSpace,
+          nodeId,
+          (uint32_t)-1,
+          bufferId
+      };
+
+      Refl.Registers.push_back(regD3D12);
     }
 
     else if (FunctionDecl *Func = dyn_cast<FunctionDecl>(it)) {
@@ -1916,7 +2321,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       if (hasDefinition && (InclusionFlags & ReflectionMask_FunctionInternals)) {
         RecursiveReflectHLSL(*Definition, ASTCtx, Diags, SM, Refl,
                              AutoBindingSpace, Depth + 1, InclusionFlags,
-                             nodeId);
+                             nodeId, DefaultRowMaj);
       }
     }
 
@@ -2021,9 +2426,9 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       if (!IsHLSLResourceType(type))
         continue;
 
-      //ValDecl->print(pfStream, printingPolicy);
+      // TODO: Add for reflection even though it might not be important
 
-      if (Depth != 0)       //TODO: Add for reflection even though it might not be important
+      if (Depth != 0)
         continue;
 
       FillReflectionRegisterAt(Ctx, ASTCtx, SM, Diags, type, arraySize, ValDecl,
@@ -2050,13 +2455,15 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
           DxcHLSLNodeType::Namespace, ParentNodeId, 0);
 
       RecursiveReflectHLSL(*Namespace, ASTCtx, Diags, SM, Refl,
-                           AutoBindingSpace, Depth + 1, InclusionFlags, nodeId);
+                           AutoBindingSpace, Depth + 1, InclusionFlags, nodeId,
+                           DefaultRowMaj);
     }
   }
 }
 
-static void ReflectHLSL(ASTHelper &astHelper, ReflectionData& Refl,
-                        uint32_t AutoBindingSpace, ReflectionMask ReflectMask) {
+static void ReflectHLSL(ASTHelper &astHelper, DxcReflectionData& Refl,
+                        uint32_t AutoBindingSpace, ReflectionMask ReflectMask,
+                        bool DefaultRowMaj) {
 
   TranslationUnitDecl &Ctx = *astHelper.tu;
   DiagnosticsEngine &Diags = Ctx.getParentASTContext().getDiagnostics();
@@ -2071,7 +2478,7 @@ static void ReflectHLSL(ASTHelper &astHelper, ReflectionData& Refl,
   });
 
   RecursiveReflectHLSL(Ctx, astHelper.compiler.getASTContext(), Diags, SM, Refl,
-                       AutoBindingSpace, 0, ReflectMask, 0);
+                       AutoBindingSpace, 0, ReflectMask, 0, DefaultRowMaj);
 }
 
 static void GlobalVariableAsExternByDefault(DeclContext &Ctx) {
@@ -2115,7 +2522,7 @@ char RegisterGetSpaceChar(const DxcHLSLRegister &reg) {
   }
 }
 
-std::string RegisterGetArraySize(const ReflectionData &Refl, const DxcHLSLRegister &reg) {
+std::string RegisterGetArraySize(const DxcReflectionData &Refl, const DxcHLSLRegister &reg) {
 
   if (reg.ArrayId != (uint32_t)-1) {
 
@@ -2142,14 +2549,14 @@ std::string EnumTypeToString(D3D12_HLSL_ENUM_TYPE type) {
 
 std::string NodeTypeToString(DxcHLSLNodeType type) {
 
-  const char *arr[] = {"Register",  "CBuffer",   "Function", "Enum",
-                       "EnumValue", "Namespace", "Typedef",  "Using",
-                       "Variable",  "Parameter"};
+  const char *arr[] = {"Register",  "Function",  "Enum",
+                       "EnumValue", "Namespace", "Typedef",  "Using", "Variable",
+                       "Parameter", "Type" };
 
   return arr[(int)type];
 }
 
-uint32_t RecursePrint(const ReflectionData &Refl, uint32_t NodeId,
+uint32_t RecursePrint(const DxcReflectionData &Refl, uint32_t NodeId,
                       uint32_t Depth) {
 
   const DxcHLSLNode &node = Refl.Nodes[NodeId];
@@ -2212,8 +2619,9 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
 
   if (reflectMask) {
 
-    ReflectionData Refl;
-    ReflectHLSL(astHelper, Refl, opts.AutoBindingSpace, reflectMask);
+    DxcReflectionData Refl;
+    ReflectHLSL(astHelper, Refl, opts.AutoBindingSpace, reflectMask,
+                opts.DefaultRowMajor);
     
     for (DxcHLSLEnumDesc en : Refl.Enums) {
 
