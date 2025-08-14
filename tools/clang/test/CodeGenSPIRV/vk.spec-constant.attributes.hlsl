@@ -1,4 +1,5 @@
-// RUN: %dxc -spirv -Vd -Od -T lib_6_8 -fspv-target-env=vulkan1.3 %s | FileCheck %s
+// RUN: %dxc -spirv -Vd -Od -T lib_6_8 -fspv-target-env=vulkan1.3 -DSPEC=1 %s | FileCheck %s
+// RUN: not %dxc -spirv -Vd -Od -T lib_6_8 -fspv-target-env=vulkan1.3 %s 2>&1 | FileCheck --check-prefix=NOSPEC %s
 
 // Note: validation disabled until NodePayloadAMDX pointers are allowed
 // as function arguments
@@ -11,14 +12,22 @@ struct OutputPayload {
   uint foo;
 };
 
-[[vk::constant_id(0)]]
-const uint MaxPayloads = 1;
-[[vk::constant_id(1)]]
-const uint WorkgroupSizeX = 1;
-[[vk::constant_id(2)]]
-const uint ShaderIndex = 0;
-[[vk::constant_id(3)]]
-const uint NumThreadsX = 512;
+#ifdef SPEC
+[[vk::constant_id(0)]] const
+#endif
+uint MaxPayloads = 1;
+#ifdef SPEC
+[[vk::constant_id(1)]] const
+#endif
+uint WorkgroupSizeX = 1;
+#ifdef SPEC
+[[vk::constant_id(2)]] const
+#endif
+uint ShaderIndex = 0;
+#ifdef SPEC
+[[vk::constant_id(3)]] const
+#endif
+uint NumThreadsX = 512;
 
 [Shader("node")]
 [NodeLaunch("broadcasting")]
@@ -50,4 +59,9 @@ void main(const uint svGroupIndex : SV_GroupIndex,
 // CHECK-DAG: [[WGSIZEX:%[_0-9A-Za-z]*]] = OpSpecConstant [[UINT]] 1
 // CHECK-DAG: [[SHADERINDEX:%[_0-9A-Za-z]*]] = OpSpecConstant [[UINT]] 0
 // CHECK-DAG: [[NUMTHREADSX:%[_0-9A-Za-z]*]] = OpSpecConstant [[UINT]] 512
+
+// NOSPEC-DAG: error: 'MaxRecords' attribute requires an integer constant
+// NOSPEC-DAG: error: 'NodeID' attribute requires an integer constant
+// NOSPEC-DAG: error: 'NodeDispatchGrid' attribute requires an integer constant
+// NOSPEC-DAG: error: 'NumThreads' attribute requires an integer constant
 

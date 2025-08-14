@@ -12283,17 +12283,29 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
   }
 }
 
-static uint32_t GetIntConstAttrArg(ASTContext &astContext, const Expr *expr,
-                                   uint32_t defaultVal = 0) {
+static uint32_t
+getIntConstAttrArg(Sema &S, const Attr *attr, unsigned argNum, const Expr *expr,
+                   llvm::Optional<uint32_t> defaultVal = llvm::None) {
   if (expr) {
     llvm::APSInt apsInt;
     APValue apValue;
-    if (expr->isIntegerConstantExpr(apsInt, astContext))
+    if (expr->isIntegerConstantExpr(apsInt, S.getASTContext()))
       return (uint32_t)apsInt.getSExtValue();
-    if (expr->isVulkanSpecConstantExpr(astContext, &apValue) && apValue.isInt())
+    if (expr->isVulkanSpecConstantExpr(S.getASTContext(), &apValue) &&
+        apValue.isInt())
       return (uint32_t)apValue.getInt().getSExtValue();
+    S.Diag(expr->getExprLoc(),
+           diag::err_hlsl_attribute_expects_integer_const_expr)
+        << attr->getSpelling() << argNum;
+    return 0;
   }
-  return defaultVal;
+  if (!defaultVal.hasValue()) {
+    S.Diag(attr->getLocation(),
+           diag::err_hlsl_attribute_expects_integer_const_expr)
+        << attr->getSpelling() << argNum;
+    return 0;
+  }
+  return defaultVal.getValue();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -12303,10 +12315,9 @@ static void DiagnoseNumThreadsForDerivativeOp(
     Sema &S, const HLSLNumThreadsAttr *Attr, SourceLocation LocDeriv,
     FunctionDecl *FD, const FunctionDecl *EntryDecl, DiagnosticsEngine &Diags) {
   bool invalidNumThreads = false;
-  ASTContext &astContext = S.getASTContext();
-  uint32_t x = GetIntConstAttrArg(astContext, Attr->getX(), 1);
-  uint32_t y = GetIntConstAttrArg(astContext, Attr->getY(), 1);
-  uint32_t z = GetIntConstAttrArg(astContext, Attr->getZ(), 1);
+  uint32_t x = getIntConstAttrArg(S, Attr, 1, Attr->getX());
+  uint32_t y = getIntConstAttrArg(S, Attr, 2, Attr->getY());
+  uint32_t z = getIntConstAttrArg(S, Attr, 3, Attr->getZ());
 
   if (y != 1) {
     // 2D mode requires x and y to be multiple of 2.
@@ -14233,7 +14244,7 @@ HLSLMaxRecordsAttr *ValidateMaxRecordsAttributes(Sema &S, Decl *D,
       Loc = ExistingMRSWA->getLocation();
     } else if (ExistingMRA) {
       uint32_t maxCount =
-          GetIntConstAttrArg(S.getASTContext(), ExistingMRA->getMaxCount(), 0);
+          getIntConstAttrArg(S, ExistingMRA, 1, ExistingMRA->getMaxCount(), 0);
       if (LiteralInt->getValue().getLimitedValue() != maxCount)
         Loc = ExistingMRA->getLocation();
     }
@@ -14459,17 +14470,16 @@ void Sema::DiagnoseCoherenceMismatch(const Expr *SrcExpr, QualType TargetType,
 void ValidateDispatchGridValues(Sema &S, const AttributeList &A,
                                 Attr *declAttr) {
   unsigned x = 1, y = 1, z = 1;
-  ASTContext &astContext = S.getASTContext();
   if (HLSLNodeDispatchGridAttr *pA =
           dyn_cast<HLSLNodeDispatchGridAttr>(declAttr)) {
-    x = GetIntConstAttrArg(astContext, pA->getX(), 1);
-    y = GetIntConstAttrArg(astContext, pA->getY(), 1);
-    z = GetIntConstAttrArg(astContext, pA->getZ(), 1);
+    x = getIntConstAttrArg(S, pA, 1, pA->getX());
+    y = getIntConstAttrArg(S, pA, 2, pA->getY());
+    z = getIntConstAttrArg(S, pA, 3, pA->getZ());
   } else if (HLSLNodeMaxDispatchGridAttr *pA =
                  dyn_cast<HLSLNodeMaxDispatchGridAttr>(declAttr)) {
-    x = GetIntConstAttrArg(astContext, pA->getX(), 1);
-    y = GetIntConstAttrArg(astContext, pA->getY(), 1);
-    z = GetIntConstAttrArg(astContext, pA->getZ(), 1);
+    x = getIntConstAttrArg(S, pA, 1, pA->getX());
+    y = getIntConstAttrArg(S, pA, 2, pA->getY());
+    z = getIntConstAttrArg(S, pA, 3, pA->getZ());
   } else {
     llvm_unreachable("ValidateDispatchGridValues() called for wrong attribute");
   }
@@ -17227,10 +17237,9 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
   // thread group size is (1,1,1)
   if (NodeLaunchTy == DXIL::NodeLaunchType::Thread) {
     if (auto NumThreads = FD->getAttr<HLSLNumThreadsAttr>()) {
-      ASTContext &astContext = S.getASTContext();
-      uint32_t x = GetIntConstAttrArg(astContext, NumThreads->getX(), 1);
-      uint32_t y = GetIntConstAttrArg(astContext, NumThreads->getY(), 1);
-      uint32_t z = GetIntConstAttrArg(astContext, NumThreads->getZ(), 1);
+      uint32_t x = getIntConstAttrArg(S, NumThreads, 1, NumThreads->getX());
+      uint32_t y = getIntConstAttrArg(S, NumThreads, 2, NumThreads->getY());
+      uint32_t z = getIntConstAttrArg(S, NumThreads, 3, NumThreads->getZ());
       if (x != 1 || y != 1 || z != 1) {
         S.Diags.Report(NumThreads->getLocation(),
                        diag::err_hlsl_wg_thread_launch_group_size)
