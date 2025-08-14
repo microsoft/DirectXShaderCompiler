@@ -1295,7 +1295,8 @@ enum class DxcHLSLNodeType : uint64_t {
 
 struct DxcHLSLNode {
 
-  std::string Name;                 // Local name (not including parent's name)
+  uint32_t NameId;                  // Local name (not including parent's name)
+  uint32_t SourceScopeInfo;         // TODO:
 
   DxcHLSLNodeType NodeType : 4;
   uint64_t LocalId : 24;            // For example if Enum, maps into Enums[LocalId]
@@ -1383,7 +1384,7 @@ struct DxcHLSLType { // Almost maps to CShaderReflectionType and
                      // D3D12_SHADER_TYPE_DESC, except tightly packed and
                      // relatively serializable
 
-  std::string Name; // Can be empty
+  uint32_t NameId;   //Can be empty
   std::vector<uint32_t> MemberTypes;
   std::vector<uint32_t> Interfaces;
 
@@ -1415,7 +1416,7 @@ struct DxcHLSLType { // Almost maps to CShaderReflectionType and
   uint32_t SubType;   // -1 if none, otherwise a type index
 
   bool operator==(const DxcHLSLType &Other) const {
-    return Other.Name == Name && Other.MemberTypes == MemberTypes &&
+    return Other.NameId == NameId && Other.MemberTypes == MemberTypes &&
            Other.Interfaces == Interfaces &&
            ClassTypeRowsColums == Other.ClassTypeRowsColums &&
            ElementsOrArrayId == Other.ElementsOrArrayId &&
@@ -1429,12 +1430,11 @@ struct DxcHLSLVariable { // Almost maps to CShaderReflectionVariable and
 
   uint32_t ConstantBuffer;
   uint32_t Type;
-
-  std::string Name; // Can be empty
+  uint32_t NameId; // Can be empty
 
   bool operator==(const DxcHLSLVariable &Other) const {
     return Other.ConstantBuffer == ConstantBuffer && Other.Type == Type &&
-           Other.Name == Name;
+           Other.NameId == NameId;
   }
 };
 
@@ -1455,21 +1455,48 @@ struct DxcHLSLBuffer {     //Almost maps to CShaderReflectionConstantBuffer and 
 };
 
 struct DxcReflectionData {
+
+  std::vector<std::string> Strings;
+  std::unordered_map<std::string, uint32_t> StringsToId;
+
+  std::vector<uint32_t> Sources;
+  std::unordered_map<std::string, uint16_t> StringToSourceId;
+
   std::vector<DxcHLSLNode> Nodes;       //0 = Root node (global scope)
-  std::vector<std::string> Sources;
-  std::unordered_map<std::string, uint16_t> SourceToFileId;
+
   std::vector<DxcHLSLRegister> Registers;
   std::vector<DxcHLSLFunction> Functions;
+
   std::vector<DxcHLSLEnumDesc> Enums;
   std::vector<DxcHLSLEnumValue> EnumValues;
+
   std::vector<DxcHLSLParameter> Parameters;
-  std::vector<std::string> Annotations;
+  std::vector<uint32_t> Annotations;
+
   std::vector<DxcHLSLArray> Arrays;
   std::vector<uint32_t> ArraySizes;
+
   std::vector<DxcHLSLType> Types;
   std::vector<DxcHLSLVariable> Variables;
   std::vector<DxcHLSLBuffer> Buffers;
 };
+
+static uint32_t RegisterString(DxcReflectionData &Refl,
+    const std::string &Name) {
+
+  assert(Refl.Strings.size() < (uint32_t)-1 && "Strings overflow");
+
+  auto it = Refl.StringsToId.find(Name);
+
+  if (it != Refl.StringsToId.end())
+    return it->second;
+
+  uint32_t stringId = (uint32_t) Refl.Strings.size();
+
+  Refl.Strings.push_back(Name);
+  Refl.StringsToId[Name] = stringId;
+  return stringId;
+}
 
 static uint32_t PushNextNodeId(DxcReflectionData &Refl, const SourceManager &SM,
                                const LangOptions &LangOpts,
@@ -1489,7 +1516,8 @@ static uint32_t PushNextNodeId(DxcReflectionData &Refl, const SourceManager &SM,
     for (const Attr *attr : Decl->attrs()) {
       if (const AnnotateAttr *annotate = dyn_cast<AnnotateAttr>(attr)) {
         assert(Refl.Annotations.size() < (1 << 20) && "Out of annotations");
-        Refl.Annotations.push_back(annotate->getAnnotation().str());
+        Refl.Annotations.push_back(
+            RegisterString(Refl, annotate->getAnnotation().str()));
         ++annotationCount;
       }
     }
@@ -1527,13 +1555,13 @@ static uint32_t PushNextNodeId(DxcReflectionData &Refl, const SourceManager &SM,
       assert(fileName == presumedEnd.getFilename() &&
              "End and start are not in the same file");
 
-      auto it = Refl.SourceToFileId.find(fileName);
+      auto it = Refl.StringToSourceId.find(fileName);
       uint32_t i;
 
-      if (it == Refl.SourceToFileId.end()) {
+      if (it == Refl.StringToSourceId.end()) {
         i = (uint32_t)Refl.Sources.size();
-        Refl.Sources.push_back(fileName);
-        Refl.SourceToFileId[fileName] = i;
+        Refl.Sources.push_back(RegisterString(Refl, fileName));
+        Refl.StringToSourceId[fileName] = i;
       }
 
       else {
@@ -1555,10 +1583,11 @@ static uint32_t PushNextNodeId(DxcReflectionData &Refl, const SourceManager &SM,
     }
   }
 
-  Refl.Nodes.push_back({UnqualifiedName, Type, LocalId, annotationStart,
-                        fileNameId, 0, ParentNodeId, sourceLineCount,
-                        sourceLineStart, sourceColumnStart, sourceColumnEnd,
-                        annotationCount});
+  uint32_t nameId = RegisterString(Refl, UnqualifiedName);
+
+  Refl.Nodes.push_back({nameId, 0, Type, LocalId, annotationStart, fileNameId,
+                        0, ParentNodeId, sourceLineCount, sourceLineStart,
+                        sourceColumnStart, sourceColumnEnd, annotationCount});
 
   uint32_t parentParent = ParentNodeId;
 
@@ -1879,6 +1908,24 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
   assert(valDecl && "Decl was expected to be a ValueDecl but wasn't");
 
   DxcHLSLType type = {};
+  QualType original = valDecl->getType();
+
+  // Unwrap array
+
+  uint32_t arraySize = 1;
+  QualType underlying = original, forName = original;
+  std::vector<uint32_t> arrayElem;
+
+  while (const ConstantArrayType *arr =
+             dyn_cast<ConstantArrayType>(underlying)) {
+    uint32_t current = arr->getSize().getZExtValue();
+    arrayElem.push_back(current);
+    arraySize *= arr->getSize().getZExtValue();
+    forName = arr->getElementType();
+    underlying = forName.getCanonicalType();
+  }
+
+  underlying = underlying.getCanonicalType();
 
   // Name; Omit struct, class and const keywords
 
@@ -1887,29 +1934,7 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
   policy.AnonymousTagLocations = false;
   policy.SuppressTagKeyword = true; 
 
-  type.Name = valDecl->getType().getLocalUnqualifiedType().getAsString(policy);
-
-  // Unwrap array
-
-  uint32_t arraySize = 1;
-  QualType underlying = valDecl->getType();
-  QualType original = underlying;
-  std::vector<uint32_t> arrayElem;
-
-  while (const ConstantArrayType *arr =
-             dyn_cast<ConstantArrayType>(underlying)) {
-    uint32_t current = arr->getSize().getZExtValue();
-    arrayElem.push_back(current);
-    arraySize *= arr->getSize().getZExtValue();
-    underlying = arr->getElementType();
-
-    type.Name =
-        underlying.getLocalUnqualifiedType().getAsString(policy);
-
-    underlying = underlying.getCanonicalType();
-  }
-
-  underlying = underlying.getCanonicalType();
+  type.NameId = RegisterString(Refl, forName.getLocalUnqualifiedType().getAsString(policy));
 
   uint32_t arrayId = PushArray(Refl, arraySize, arrayElem);
 
@@ -1927,8 +1952,7 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
 
   type.Class = D3D_SVC_STRUCT;
 
-  if (const RecordType *record =
-          underlying->getAs<RecordType>()) {
+  if (const RecordType *record = underlying->getAs<RecordType>()) {
 
     if (const ClassTemplateSpecializationDecl *templateClass =
             dyn_cast<ClassTemplateSpecializationDecl>(record->getDecl())) {
@@ -1994,6 +2018,38 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
 
         break;
       }
+
+      // TODO:
+      //           D3D_SVT_TEXTURE	= 5,
+      //  D3D_SVT_TEXTURE1D	= 6,
+      //  D3D_SVT_TEXTURE2D	= 7,
+      //  D3D_SVT_TEXTURE3D	= 8,
+      //  D3D_SVT_TEXTURECUBE	= 9,
+      //  D3D_SVT_SAMPLER	= 10,
+      //  D3D_SVT_SAMPLER1D	= 11,
+      //  D3D_SVT_SAMPLER2D	= 12,
+      //  D3D_SVT_SAMPLER3D	= 13,
+      //  D3D_SVT_SAMPLERCUBE	= 14,
+      //  D3D_SVT_BUFFER	= 25,
+      //  D3D_SVT_CBUFFER	= 26,
+      //  D3D_SVT_TBUFFER	= 27,
+      //  D3D_SVT_TEXTURE1DARRAY	= 28,
+      //  D3D_SVT_TEXTURE2DARRAY	= 29,
+      //  D3D_SVT_TEXTURE2DMS	= 32,
+      //  D3D_SVT_TEXTURE2DMSARRAY	= 33,
+      //  D3D_SVT_TEXTURECUBEARRAY	= 34,
+      //  D3D_SVT_RWTEXTURE1D	= 40,
+      //  D3D_SVT_RWTEXTURE1DARRAY	= 41,
+      //  D3D_SVT_RWTEXTURE2D	= 42,
+      //  D3D_SVT_RWTEXTURE2DARRAY	= 43,
+      //  D3D_SVT_RWTEXTURE3D	= 44,
+      //  D3D_SVT_RWBUFFER	= 45,
+      //  D3D_SVT_BYTEADDRESS_BUFFER	= 46,
+      //  D3D_SVT_RWBYTEADDRESS_BUFFER	= 47,
+      //  D3D_SVT_STRUCTURED_BUFFER	= 48,
+      //  D3D_SVT_RWSTRUCTURED_BUFFER	= 49,
+      //  D3D_SVT_APPEND_STRUCTURED_BUFFER	= 50,
+      //  D3D_SVT_CONSUME_STRUCTURED_BUFFER	= 51,
     }
   }
 
@@ -2080,6 +2136,10 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
     }
   }
 
+  //TODO: Struct recurse
+
+  //TODO: Interfaces, base class
+
   assert(Refl.Types.size() < (uint32_t)-1 && "Type id out of bounds");
 
   uint32_t i = 0, j = (uint32_t)Refl.Types.size();
@@ -2105,7 +2165,7 @@ std::vector<uint32_t> RecurseBuffer(ASTContext &ASTCtx, DxcReflectionData &Refl,
     DxcHLSLVariable variable = {BufferId};
 
     if (NamedDecl *named = dyn_cast<NamedDecl>(decl))
-      variable.Name = named->getName();
+      variable.NameId = RegisterString(Refl, named->getName());
 
     variable.Type = GenerateTypeInfo(ASTCtx, Refl, decl, DefaultRowMaj);
     assert(Refl.Variables.size() < (uint32_t)-1 && "Variable id out of bounds");
@@ -2469,8 +2529,11 @@ static void ReflectHLSL(ASTHelper &astHelper, DxcReflectionData& Refl,
   DiagnosticsEngine &Diags = Ctx.getParentASTContext().getDiagnostics();
   const SourceManager &SM = astHelper.compiler.getSourceManager();
 
+  Refl.Strings.push_back("");
+  Refl.StringsToId[""] = 0;
+
   Refl.Nodes.push_back({
-      "",
+      0, 0,
       DxcHLSLNodeType::Namespace,
       0,
       0,
@@ -2557,22 +2620,68 @@ std::string NodeTypeToString(DxcHLSLNodeType type) {
 }
 
 uint32_t RecursePrint(const DxcReflectionData &Refl, uint32_t NodeId,
-                      uint32_t Depth) {
+                      uint32_t Depth, uint32_t IndexInParent) {
 
   const DxcHLSLNode &node = Refl.Nodes[NodeId];
 
   if (NodeId) {
 
     printf("%s%s %s\n", std::string(Depth - 1, '\t').c_str(),
-           NodeTypeToString(node.NodeType).c_str(), node.Name.c_str());
+           NodeTypeToString(node.NodeType).c_str(),
+           Refl.Strings[node.NameId].c_str());
 
     for (uint32_t i = 0; i < node.AnnotationCount; ++i)
       printf("%s[[%s]]\n", std::string(Depth, '\t').c_str(),
-             Refl.Annotations[i].c_str());
+             Refl.Strings[Refl.Annotations[i]].c_str());
+
+    switch (node.NodeType) {
+        
+    case DxcHLSLNodeType::Register: {
+      const DxcHLSLRegister &reg = Refl.Registers[node.LocalId];
+      printf("%s%s : register(%c%u, space%u);\n",
+             std::string(Depth, '\t').c_str(),
+             RegisterGetArraySize(Refl, reg).c_str(), RegisterGetSpaceChar(reg),
+             reg.BindPoint, reg.Space);
+      break;
+    }
+
+    case DxcHLSLNodeType::Function: {
+      const DxcHLSLFunction &func = Refl.Functions[node.LocalId];
+      printf("%sreturn: %s, hasDefinition: %s, numParams: %u\n",
+             std::string(Depth, '\t').c_str(),
+             func.HasReturn ? "true" : "false",
+             func.HasDefinition ? "true" : "false", func.NumParameters);
+
+      break;
+    }
+
+    case DxcHLSLNodeType::Enum:
+      printf("%s: %s\n", std::string(Depth, '\t').c_str(),
+             EnumTypeToString(Refl.Enums[node.LocalId].Type).c_str());
+      break;
+
+    case DxcHLSLNodeType::EnumValue: {
+      printf("%s#%u = %" PRIi64 "\n", std::string(Depth, '\t').c_str(),
+             IndexInParent, Refl.EnumValues[node.LocalId].Value);
+        break;
+    }
+
+    //TODO:
+    case DxcHLSLNodeType::Type:
+    case DxcHLSLNodeType::Typedef:
+    case DxcHLSLNodeType::Using:
+    case DxcHLSLNodeType::Variable:
+    case DxcHLSLNodeType::Parameter:
+        break;
+
+    case DxcHLSLNodeType::Namespace:
+    default:
+      break;
+    }
   }
 
-  for (uint32_t i = 0; i < node.ChildCount; ++i)
-    i += RecursePrint(Refl, NodeId + 1 + i, Depth + 1);
+  for (uint32_t i = 0, j = 0; i < node.ChildCount; ++i, ++j)
+    i += RecursePrint(Refl, NodeId + 1 + i, Depth + 1, j);
 
   return node.ChildCount;
 }
@@ -2622,41 +2731,8 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
     DxcReflectionData Refl;
     ReflectHLSL(astHelper, Refl, opts.AutoBindingSpace, reflectMask,
                 opts.DefaultRowMajor);
-    
-    for (DxcHLSLEnumDesc en : Refl.Enums) {
 
-      printf("Enum: %s (: %s)\n", Refl.Nodes[en.NodeId].Name.c_str(),
-             EnumTypeToString(en.Type).c_str());
-
-      DxcHLSLNode node = Refl.Nodes[en.NodeId];
-
-      for (uint32_t i = 0; i < node.ChildCount; ++i) {
-
-        DxcHLSLNode child = Refl.Nodes[en.NodeId + 1 + i];
-
-        printf("%u %s = %" PRIi64 "\n", i, child.Name.c_str(),
-               Refl.EnumValues[child.LocalId].Value);
-      }
-    }
-
-    for (DxcHLSLRegister reg : Refl.Registers) {
-      printf("%s%s : register(%c%u, space%u);\n",
-             Refl.Nodes[reg.NodeId].Name.c_str(),
-             RegisterGetArraySize(Refl, reg).c_str(),
-             RegisterGetSpaceChar(reg),
-             reg.BindPoint,
-             reg.Space);
-    }
-
-    for (DxcHLSLFunction func : Refl.Functions) {
-      printf("%s (return: %s, hasDefinition: %s, numParams: %u)\n",
-             Refl.Nodes[func.NodeId].Name.c_str(),
-             func.HasReturn ? "true" : "false",
-             func.HasDefinition ? "true" : "false",
-             func.NumParameters);
-    }
-
-    RecursePrint(Refl, 0, 0);
+    RecursePrint(Refl, 0, 0, 0);
 
     printf("%p\n", &Refl);
   }
