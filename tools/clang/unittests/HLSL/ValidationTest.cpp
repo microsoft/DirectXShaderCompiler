@@ -20,10 +20,12 @@
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilHash/DxilHash.h"
+#include "dxc/Support/Unicode.h" // for wstring conversions like WideToUtf8String
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Regex.h"
+#include <wchar.h>
 
 #ifdef _WIN32
 #include <atlbase.h>
@@ -32,6 +34,7 @@
 #include "dxc/Support/Global.h"
 
 #include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/Support/dxcapi.extval.h"
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Test/HlslTestUtils.h"
 
@@ -323,11 +326,12 @@ public:
   TEST_METHOD(PSVContentValidationCS)
   TEST_METHOD(PSVContentValidationMS)
   TEST_METHOD(PSVContentValidationAS)
+  TEST_METHOD(UnitTestExtValidationSupport)
   TEST_METHOD(WrongPSVSize)
   TEST_METHOD(WrongPSVSizeOnZeros)
   TEST_METHOD(WrongPSVVersion)
 
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
   void TestCheck(LPCWSTR name) {
@@ -4206,6 +4210,97 @@ TEST_F(ValidationTest, ValidateWithHash) {
   ComputeHashRetail(DataToHash, AmountToHash, Result);
   VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
 }
+
+#ifdef _WIN32
+std::wstring GetEnvVarW(const std::wstring &VarName) {
+  if (const wchar_t *Result = _wgetenv(VarName.c_str()))
+    return std::wstring(Result);
+  return std::wstring();
+}
+
+void SetEnvVarW(const std::wstring &VarName, const std::wstring &VarValue) {
+  _wputenv_s(VarName.c_str(), VarValue.c_str());
+}
+
+// For now, 3 things are tested:
+// 1. The environment variable is not set. GetDxilDllPath() is empty and
+// DxilDllFailedToLoad() returns false
+// 2. Given a bogus path in the environment variable, and an initialized
+// DxcDllExtValidationSupport object, GetDxilDllPath()
+// retrieves the bogus path despite DxcDllExtValidationSupport failing to load
+// it as a dll, and DxilDllFailedToLoad() returns true.
+// 3. CLSID_DxcCompiler, CLSID_DxcLinker, CLSID_DxcValidator
+// may be created through DxcDllExtValidationSupport.
+// This is all to simply test that the new class, DxcDllExtValidationSupport,
+// works as intended.
+
+TEST_F(ValidationTest, UnitTestExtValidationSupport) {
+  dxc::DxcDllExtValidationLoader ExtSupportEmpty;
+  dxc::DxcDllExtValidationLoader ExtSupportBogus;
+
+  // capture any existing value in the environment variable,
+  // so that it can be restored after the test
+  std::wstring OldEnvVal = GetEnvVarW(L"DXC_DXIL_DLL_PATH");
+
+  // 1. with no env var set, test GetDxilDllPath() and DxilDllFailedToLoad()
+
+  // make sure the variable is cleared, in case other tests may have set it
+  SetEnvVarW(L"DXC_DXIL_DLL_PATH", L"");
+
+  // empty initialization should succeed
+  VERIFY_SUCCEEDED(ExtSupportEmpty.Initialize());
+
+  VERIFY_IS_FALSE(ExtSupportEmpty.DxilDllFailedToLoad());
+  std::string EmptyPath = ExtSupportBogus.GetDxilDllPath();
+  VERIFY_ARE_EQUAL_STR(EmptyPath.c_str(), "");
+
+  // 2. Test with a bogus path in the environment variable
+  SetEnvVarW(L"DXC_DXIL_DLL_PATH", L"bogus");
+
+  if (!ExtSupportBogus.IsEnabled()) {
+    VERIFY_FAILED(ExtSupportBogus.Initialize());
+  }
+
+  // validate that m_dllExtSupport2 was able to capture the environment
+  // variable's value, and that loading the bogus path was unsuccessful
+  std::string BogusPath = ExtSupportBogus.GetDxilDllPath();
+  VERIFY_ARE_EQUAL_STR(BogusPath.c_str(), "bogus");
+  VERIFY_IS_TRUE(ExtSupportBogus.DxilDllFailedToLoad());
+
+  // 3. Test production of class IDs CLSID_DxcCompiler, CLSID_DxcLinker,
+  // and CLSID_DxcValidator through DxcDllExtValidationSupport.
+  CComPtr<IDxcCompiler> Compiler;
+  CComPtr<IDxcLinker> Linker;
+  CComPtr<IDxcValidator> Validator;
+
+  VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance(
+      CLSID_DxcCompiler, __uuidof(IDxcCompiler), (IUnknown **)&Compiler));
+  VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance(
+      CLSID_DxcLinker, __uuidof(IDxcLinker), (IUnknown **)&Linker));
+  VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance(
+      CLSID_DxcValidator, __uuidof(IDxcValidator), (IUnknown **)&Validator));
+
+  Linker.Release();
+  Validator.Release();
+  Compiler.Release();
+
+  CComPtr<IMalloc> Malloc;
+  CComPtr<IDxcCompiler2> Compiler2;
+  VERIFY_SUCCEEDED(DxcCoGetMalloc(1, &Malloc));
+  VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance2(Malloc, CLSID_DxcCompiler,
+                                                   __uuidof(IDxcCompiler),
+                                                   (IUnknown **)&Compiler2));
+  VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance2(
+      Malloc, CLSID_DxcLinker, __uuidof(IDxcLinker), (IUnknown **)&Linker));
+  VERIFY_SUCCEEDED(ExtSupportBogus.CreateInstance2(Malloc, CLSID_DxcValidator,
+                                                   __uuidof(IDxcValidator),
+                                                   (IUnknown **)&Validator));
+
+  // reset the environment variable to its previous value,
+  // or the empty string if there was no previous value
+  SetEnvVarW(L"DXC_DXIL_DLL_PATH", OldEnvVal);
+}
+#endif
 
 TEST_F(ValidationTest, ValidatePreviewBypassHash) {
   if (m_ver.SkipDxilVersion(1, ShaderModel::kHighestMinor))

@@ -10,6 +10,7 @@ add_llvm_library(LLVMDxcSupport
   WinAdapter.cpp
   WinIncludes.cpp
   WinFunctions.cpp
+  dxcapi.extval.cpp
   )
 
 #generate header with platform-specific library name
