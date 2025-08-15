@@ -644,12 +644,12 @@ public:
     IRBuilder<> Builder(CI);
     Value *Val = CI->getOperand(1);
     Type *IType = Type::getInt16Ty(M.getContext());
-    Constant *Inf1 = ConstantInt::get(IType, 0x7c00);
-    Constant *Inf2 = ConstantInt::get(IType, 0xfc00);
+    Constant *PosInf = ConstantInt::get(IType, 0x7c00);
+    Constant *NegInf = ConstantInt::get(IType, 0xfc00);
 
     Value *IVal = Builder.CreateBitCast(Val, IType);
-    Value *B1 = Builder.CreateICmpEQ(IVal, Inf1);
-    Value *B2 = Builder.CreateICmpEQ(IVal, Inf2);
+    Value *B1 = Builder.CreateICmpEQ(IVal, PosInf);
+    Value *B2 = Builder.CreateICmpEQ(IVal, NegInf);
     Value *B3 = Builder.CreateOr(B1, B2);
     CI->replaceAllUsesWith(B3);
     CI->eraseFromParent();
