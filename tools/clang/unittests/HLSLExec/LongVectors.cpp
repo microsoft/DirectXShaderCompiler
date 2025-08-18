@@ -594,14 +594,14 @@ void OpTest::testBaseMethod(
   LPCSTR ShaderName = "LongVectorOp";
   // ShaderOpArith.xml defines the input/output resources and the shader source.
   CComPtr<IStream> TestXML;
-  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML, DxcDllSupport);
+  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML, DxilDllLoader);
 
   // RunShaderOpTest is a helper function that handles resource creation
   // and setup. It also handles the shader compilation and execution. It takes a
   // callback that is called when the shader is compiled, but before it is
   // executed.
   std::shared_ptr<st::ShaderOpTestResult> TestResult = st::RunShaderOpTest(
-      D3DDevice, DxcDllSupport, TestXML, ShaderName,
+      D3DDevice, DxilDllLoader, TestXML, ShaderName,
       [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
         hlsl_test::LogCommentFmt(L"RunShaderOpTest CallBack. Resource Name: %S",
                                  Name);

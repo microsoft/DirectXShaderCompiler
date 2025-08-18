@@ -572,7 +572,7 @@ public:
     auto Check = [pName](const std::vector<std::string> &errors,
                          IDxcBlobEncoding **blob) {
       if (std::find(errors.begin(), errors.end(), pName) != errors.end()) {
-        dxc::DxcDllSupport dllSupport;
+        dxc::DxCompilerDllLoader dllSupport;
         VERIFY_SUCCEEDED(dllSupport.Initialize());
         std::string error("bad define: ");
         error.append(pName);
@@ -601,7 +601,7 @@ static std::string GetCompileErrors(IDxcOperationResult *pResult) {
 
 class Compiler {
 public:
-  Compiler(dxc::DxcDllSupport &dll) : m_dllSupport(dll) {
+  Compiler(dxc::DxCompilerDllLoader &dll) : m_dllSupport(dll) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
@@ -654,7 +654,7 @@ public:
     return DisassembleProgram(m_dllSupport, pBlob);
   }
 
-  dxc::DxcDllSupport &m_dllSupport;
+  dxc::DxCompilerDllLoader &m_dllSupport;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcLangExtensions3> pLangExtensions;
   CComPtr<IDxcBlobEncoding> pCodeBlob;
@@ -677,7 +677,7 @@ public:
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::DxCompilerDllLoader m_dllSupport;
 
   TEST_METHOD(EvalAttributeCollision)
   TEST_METHOD(NoUnwind)

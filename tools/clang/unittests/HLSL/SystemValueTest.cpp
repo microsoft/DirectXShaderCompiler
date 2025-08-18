@@ -198,7 +198,7 @@ public:
     VERIFY_IS_TRUE(bMessageFound);
   }
 
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
   unsigned m_HighestMajor, m_HighestMinor; // Shader Model Supported
 
