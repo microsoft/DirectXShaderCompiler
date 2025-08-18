@@ -862,6 +862,19 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
                                 SourceLocation());
   }
 
+  // For Vulkan 1.2 and later, add SignedZeroInfNanPreserve when -Gis is
+  // provided to preserve NaN/Inf and signed zeros.
+  if (spirvOptions.IEEEStrict) {
+    if (featureManager.getSpirvVersion(featureManager.getTargetEnv()) <
+        VersionTuple(1, 2))
+      spvBuilder.requireExtension("SPV_KHR_float_controls", SourceLocation());
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::SignedZeroInfNanPreserve,
+                                {32}, SourceLocation());
+    spvBuilder.requireCapability(spv::Capability::SignedZeroInfNanPreserve,
+                                 SourceLocation());
+  }
+
   llvm::StringRef denormMode = spirvOptions.floatDenormalMode;
   if (!denormMode.empty()) {
     if (denormMode.equals_lower("preserve")) {
