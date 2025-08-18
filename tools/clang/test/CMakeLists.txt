@@ -122,6 +122,8 @@ add_lit_testsuites(CLANG ${CMAKE_CURRENT_SOURCE_DIR}
   FOLDER "Clang tests/Suites"
 )
 
+include(DxilBackCompat.cmake)
+
 # Manually generate targets that we need to expose in visual studio builds.
 
 # The code below here _ONLY_ executes when building with Visual Studio or Xcode.
