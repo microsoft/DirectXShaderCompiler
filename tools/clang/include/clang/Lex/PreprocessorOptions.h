@@ -149,6 +149,7 @@ public:
 public:
   PreprocessorOptions() : UsePredefines(true), DetailedRecord(false),
                           IgnoreLineDirectives(false), // HLSL Change - ignore line directives.
+                          ExpandTokPastingArg(false), // HLSL Change - allow pre-expand
                           DisablePCHValidation(false),
                           AllowPCHWithCompilerErrors(false),
                           DumpDeserializedPCHDecls(false),
