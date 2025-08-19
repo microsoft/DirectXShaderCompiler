@@ -1280,6 +1280,20 @@ bool isUintOrVecOfUintType(QualType type) {
          elemType->isUnsignedIntegerType();
 }
 
+/// Returns true if the given type is a half or vector of half type.
+bool isHalfOrVecOfHalfType(QualType type) {
+  QualType elemType = {};
+  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
+         elemType->isHalfType();
+}
+
+/// Returns true if the given type is a float 32 or vector of float 32 type.
+bool isFloat32OrVecOfFloat32Type(QualType type) {
+  QualType elemType = {};
+  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
+         elemType->isSpecificBuiltinType(clang::BuiltinType::Float);
+}
+
 /// Returns true if the given type is a float or vector of float type.
 bool isFloatOrVecOfFloatType(QualType type) {
   QualType elemType = {};
@@ -1308,6 +1322,22 @@ bool isUintOrVecMatOfUintType(QualType type) {
   return isUintOrVecOfUintType(type) ||
          (hlsl::IsHLSLMatType(type) &&
           hlsl::GetHLSLMatElementType(type)->isUnsignedIntegerType());
+}
+
+/// Returns true if the given type is a half or vector/matrix of half type.
+bool isHalfOrVecMatOfHalfType(QualType type) {
+  return isHalfOrVecOfHalfType(type) ||
+         (hlsl::IsHLSLMatType(type) &&
+          hlsl::GetHLSLMatElementType(type)->isHalfType());
+}
+
+/// Returns true if the given type is a float32 or vector/matrix of float32
+/// type.
+bool isFloat32OrVecMatOfFloat32Type(QualType type) {
+  return isFloat32OrVecOfFloat32Type(type) ||
+         (hlsl::IsHLSLMatType(type) &&
+          hlsl::GetHLSLMatElementType(type)->isSpecificBuiltinType(
+              clang::BuiltinType::Float));
 }
 
 /// Returns true if the given type is a float or vector/matrix of float type.

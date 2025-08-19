@@ -1,6 +1,6 @@
 {
   "IntrinsicOpCodes": {
-    "Num_Intrinsics": 394,
+    "Num_Intrinsics": 395,
     "IOP_AcceptHitAndEndSearch": 0,
     "IOP_AddUint64": 1,
     "IOP_AllMemoryBarrier": 2,
@@ -394,6 +394,7 @@
     "IOP___builtin_MatVecMul": 390,
     "IOP___builtin_MatVecMulAdd": 391,
     "IOP___builtin_OuterProductAccumulate": 392,
-    "IOP___builtin_VectorAccumulate": 393
+    "IOP___builtin_VectorAccumulate": 393,
+    "IOP_isnormal": 394
   }
 }

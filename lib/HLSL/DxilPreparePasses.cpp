@@ -694,6 +694,25 @@ public:
     CI->eraseFromParent();
   }
 
+  static void emulateIsNormal(Module &M, CallInst *CI) {
+    IRBuilder<> Builder(CI);
+    Value *Val = CI->getOperand(1);
+    DXASSERT(Val->getType()->isHalfTy(),
+             "Only emulates Half overload of IsNormal");
+    Type *IType = Type::getInt16Ty(M.getContext());
+
+    Constant *ExpBitMask = ConstantInt::get(IType, 0x7c00);
+    Constant *Zero = ConstantInt::get(IType, 0);
+
+    Value *IVal = Builder.CreateBitCast(Val, IType);
+    Value *Exp = Builder.CreateAnd(IVal, ExpBitMask);
+    Value *NotAllZeroes = Builder.CreateICmpNE(Exp, Zero);
+    Value *NotAllOnes = Builder.CreateICmpNE(Exp, ExpBitMask);
+    Value *B1 = Builder.CreateAnd(NotAllZeroes, NotAllOnes);
+    CI->replaceAllUsesWith(B1);
+    CI->eraseFromParent();
+  }
+
   // Emulate IsSpecialFloat for Half pre sm6.9
   static void emulateIsSpecialFloat(Module &M, hlsl::OP *hlslOP) {
     // Finds the OpCodeClass that IsInf belongs to, IsSpecialFloat
@@ -719,6 +738,8 @@ public:
         case (uint64_t)DXIL::OpCode::IsFinite:
           emulateIsFinite(M, CI);
           continue;
+        case (uint64_t)DXIL::OpCode::IsNormal:
+          emulateIsNormal(M, CI);
         default:
           continue;
         }
