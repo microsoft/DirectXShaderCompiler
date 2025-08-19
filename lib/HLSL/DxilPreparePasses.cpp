@@ -644,7 +644,7 @@ public:
     IRBuilder<> Builder(CI);
     Value *Val = CI->getOperand(1);
     DXASSERT(Val->getType()->isHalfTy(),
-	     "Only emulates Half overload of IsInf");
+             "Only emulates Half overload of IsInf");
     Type *IType = Type::getInt16Ty(M.getContext());
     Constant *PosInf = ConstantInt::get(IType, 0x7c00);
     Constant *NegInf = ConstantInt::get(IType, 0xfc00);
@@ -661,7 +661,7 @@ public:
     IRBuilder<> Builder(CI);
     Value *Val = CI->getOperand(1);
     DXASSERT(Val->getType()->isHalfTy(),
-	     "Only emulates Half overload of IsNaN");
+             "Only emulates Half overload of IsNaN");
     Type *IType = Type::getInt16Ty(M.getContext());
 
     Constant *ExpBitMask = ConstantInt::get(IType, 0x7c00);
@@ -682,7 +682,7 @@ public:
     IRBuilder<> Builder(CI);
     Value *Val = CI->getOperand(1);
     DXASSERT(Val->getType()->isHalfTy(),
-	     "Only emulates Half overload of IsFinite");
+             "Only emulates Half overload of IsFinite");
     Type *IType = Type::getInt16Ty(M.getContext());
 
     Constant *ExpBitMask = ConstantInt::get(IType, 0x7c00);
