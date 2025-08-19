@@ -640,9 +640,11 @@ public:
     }
   }
 
-  void convertIsInf(Module &M, CallInst *CI) {
+  static void emulateIsInf(Module &M, CallInst *CI) {
     IRBuilder<> Builder(CI);
     Value *Val = CI->getOperand(1);
+    DXASSERT(Val->getType()->isHalfTy(),
+	     "Only emulates Half overload of IsInf");
     Type *IType = Type::getInt16Ty(M.getContext());
     Constant *PosInf = ConstantInt::get(IType, 0x7c00);
     Constant *NegInf = ConstantInt::get(IType, 0xfc00);
@@ -655,9 +657,11 @@ public:
     CI->eraseFromParent();
   }
 
-  void convertIsNaN(Module &M, CallInst *CI) {
+  static void emulateIsNaN(Module &M, CallInst *CI) {
     IRBuilder<> Builder(CI);
     Value *Val = CI->getOperand(1);
+    DXASSERT(Val->getType()->isHalfTy(),
+	     "Only emulates Half overload of IsNaN");
     Type *IType = Type::getInt16Ty(M.getContext());
 
     Constant *ExpBitMask = ConstantInt::get(IType, 0x7c00);
@@ -674,9 +678,11 @@ public:
     CI->eraseFromParent();
   }
 
-  void convertIsFinite(Module &M, CallInst *CI) {
+  static void emulateIsFinite(Module &M, CallInst *CI) {
     IRBuilder<> Builder(CI);
     Value *Val = CI->getOperand(1);
+    DXASSERT(Val->getType()->isHalfTy(),
+	     "Only emulates Half overload of IsFinite");
     Type *IType = Type::getInt16Ty(M.getContext());
 
     Constant *ExpBitMask = ConstantInt::get(IType, 0x7c00);
@@ -688,9 +694,12 @@ public:
     CI->eraseFromParent();
   }
 
-  void convertIsSpecialFloat(Module &M, hlsl::OP *hlslOP) {
-    for (auto FnIt : hlslOP->GetOpFuncList(DXIL::OpCode::IsInf)) {
-      Function *F = FnIt.second;
+  // Emulate IsSpecialFloat for Half pre sm6.9
+  static void emulateIsSpecialFloat(Module &M, hlsl::OP *hlslOP) {
+    // Finds the OpCodeClass that IsInf belongs to, IsSpecialFloat
+    // This IsNan, IsFinite, and IsNormal also belong to this OpCodeClass
+    for (auto Fn : hlslOP->GetOpFuncList(DXIL::OpCode::IsInf)) {
+      Function *F = Fn.second;
       if (!F)
         continue;
       if (!F->getFunctionType()->getParamType(1)->isHalfTy())
@@ -702,13 +711,13 @@ public:
         uint64_t OpKind = cast<ConstantInt>(CI->getOperand(0))->getZExtValue();
         switch (OpKind) {
         case (uint64_t)DXIL::OpCode::IsInf:
-          convertIsInf(M, CI);
+          emulateIsInf(M, CI);
           continue;
         case (uint64_t)DXIL::OpCode::IsNaN:
-          convertIsNaN(M, CI);
+          emulateIsNaN(M, CI);
           continue;
         case (uint64_t)DXIL::OpCode::IsFinite:
-          convertIsFinite(M, CI);
+          emulateIsFinite(M, CI);
           continue;
         default:
           continue;
@@ -722,8 +731,8 @@ public:
       Function *F = FnIt.second;
       if (!F)
         continue;
-      for (auto UserIt = F->user_begin(); UserIt != F->user_end();) {
-        CallInst *CI = cast<CallInst>(*(UserIt++));
+      for (auto User = F->user_begin(); User != F->user_end();) {
+        CallInst *CI = cast<CallInst>(*(User++));
 
         IRBuilder<> B(CI);
         DXASSERT_NOMSG(CI->getOperand(1)->getType() ==
@@ -915,9 +924,11 @@ public:
         convertQuadVote(M, DM.GetOP());
       }
 
-      // Convert IsSpecialFloat intrinsics
+      // Convert IsSpecialFloat intrinsics for half in SM6.8 and below
+      // Because 16 bit overload of IsSpecialFloat is not available
+      // until SM6.9 and later
       if (DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 9) < 0) {
-        convertIsSpecialFloat(M, DM.GetOP());
+        emulateIsSpecialFloat(M, DM.GetOP());
       }
 
       // Remove store undef output.

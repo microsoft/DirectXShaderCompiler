@@ -17,7 +17,7 @@ export bool test_isinf(half h) {
 
 // CHECK-LABEL: test_isnan
 // CHECK: [[V1:%.*]] = bitcast half {{.*}} to i16
-// CHECK: [[V2:%.*]] = and i16 [[V1]], 31744 ; 
+// CHECK: [[V2:%.*]] = and i16 [[V1]], 31744 
 // CHECK: [[V3:%.*]] = icmp eq i16 [[V2]], 31744
 // CHECK: [[V4:%.*]] = and i16 [[V1]], 1023
 // CHECK: [[V5:%.*]] = icmp ne i16 [[V4]], 0
