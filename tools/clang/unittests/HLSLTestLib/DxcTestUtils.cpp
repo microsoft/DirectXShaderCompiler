@@ -196,6 +196,21 @@ std::string DisassembleProgram(dxc::DxCompilerDllLoader &dllSupport,
   return BlobToUtf8(pDisassembly);
 }
 
+std::string DisassembleProgram(dxc::DxcDllExtValidationLoader &dllSupport,
+                               IDxcBlob *pProgram) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+
+  if (!dllSupport.IsEnabled()) {
+    VERIFY_SUCCEEDED(
+        dllSupport.Initialize());
+  }
+
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
+  return BlobToUtf8(pDisassembly);
+}
+
 void AssembleToContainer(dxc::DllLoader &dllSupport, IDxcBlob *pModule,
                          IDxcBlob **pContainer) {
   CComPtr<IDxcAssembler> pAssembler;

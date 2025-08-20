@@ -121,10 +121,86 @@ add_lit_testsuites(CLANG ${CMAKE_CURRENT_SOURCE_DIR}
   DEPENDS ${CLANG_TEST_DEPS}
   FOLDER "Clang tests/Suites"
 )
+# -------------------------------------------------------------------------
+# DXIL Backward Compatibility Section
+# -------------------------------------------------------------------------
 
-include(DxilBackCompat.cmake)
+# Define DXC releases as (NAME VERSION) pairs
+set(DXC_RELEASES
+  dxc_2025_07_14 v1.8.2505.1
+  dxc_2025_05_24 v1.8.2505
+  dxc_2025_02_20 v1.8.2502
+  dxc_2023_08_14 v1.7.2308
+  dxc_2021_12_08 v1.6.2112
+)
 
-# Manually generate targets that we need to expose in visual studio builds.
+# Download a DXC release
+function(add_released_dxc name version)
+  ExternalProject_Add(${name}
+      URL https://github.com/microsoft/DirectXShaderCompiler/releases/download/${version}/${name}.zip
+      DOWNLOAD_DIR ${CMAKE_BINARY_DIR}/tools/clang/test/dxc_releases
+      SOURCE_DIR ${CMAKE_BINARY_DIR}/tools/clang/test/dxc_releases/${version}/${name}
+      CONFIGURE_COMMAND ""
+      BUILD_COMMAND ""
+      INSTALL_COMMAND ""
+  )
+endfunction()
+
+# Iterate over releases
+list(LENGTH DXC_RELEASES DXC_RELEASES_LENGTH)
+math(EXPR num_pairs "${DXC_RELEASES_LENGTH} / 2")
+math(EXPR loop_end "${num_pairs} - 1")
+foreach(i RANGE 0 ${loop_end})
+  math(EXPR idx_name "${i}*2")
+  math(EXPR idx_version "${i}*2 + 1")  
+
+  list(GET DXC_RELEASES ${idx_name} name)
+  list(GET DXC_RELEASES ${idx_version} version)
+
+  add_released_dxc(${name} ${version})
+
+  if(WIN32)
+  # Determine target architecture for DXC binaries
+    if(CMAKE_GENERATOR MATCHES "Visual Studio")
+        # Multi-config generators (VS/Xcode)
+        if(NOT DEFINED CMAKE_GENERATOR_PLATFORM)
+            message(FATAL_ERROR "CMAKE_GENERATOR_PLATFORM not set for multi-config generator")
+        endif()
+        set(TARGET_ARCH ${CMAKE_GENERATOR_PLATFORM})
+    else()
+        # Single-config generators (Ninja, Makefiles)
+        # Use pointer size to guess x86 vs x64
+        if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+            set(TARGET_ARCH x64)
+        elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+            set(TARGET_ARCH x86)
+        else()
+            message(FATAL_ERROR "Unknown pointer size: ${CMAKE_SIZEOF_VOID_P}")
+        endif()
+    endif()
+
+    message("TARGET_ARCH IS ${TARGET_ARCH}")
+
+    # Path to dxil.dll for this release
+    set(DXC_PATH ${CMAKE_BINARY_DIR}/tools/clang/test/dxc_releases/${version}/${name}/bin/${TARGET_ARCH}/dxil.dll)
+
+    # Create a lit target for this release
+    add_lit_target("check-clang-${name}" "Running clang regression tests with ${name}\n"
+      ${CMAKE_CURRENT_BINARY_DIR}
+      PARAMS ${CLANG_TEST_PARAMS} DXC_DXIL_DLL_PATH=${DXC_PATH}
+      DEPENDS ${CLANG_TEST_DEPS} ${name}
+      ARGS ${CLANG_TEST_EXTRA_ARGS}
+    )
+
+    # Hook into check-all
+    if (WIN32 AND TARGET check-all)
+      add_dependencies(check-all "check-clang-${name}")
+    endif()  
+  endif()
+endforeach()
+# -------------------------------------------------------------------------
+
+include(DxilBackCompat.cmake OPTIONAL)
 
 # The code below here _ONLY_ executes when building with Visual Studio or Xcode.
 if (NOT CMAKE_CONFIGURATION_TYPES)

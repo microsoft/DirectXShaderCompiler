@@ -34,7 +34,6 @@
 #include "dxc/Support/Global.h"
 
 #include "dxc/DXIL/DxilShaderModel.h"
-#include "dxc/Support/dxcapi.extval.h"
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Test/HlslTestUtils.h"
 
@@ -327,11 +326,12 @@ public:
   TEST_METHOD(PSVContentValidationMS)
   TEST_METHOD(PSVContentValidationAS)
   TEST_METHOD(UnitTestExtValidationSupport)
+  TEST_METHOD(UnitTestValidationBackCompatibility)
   TEST_METHOD(WrongPSVSize)
   TEST_METHOD(WrongPSVSizeOnZeros)
   TEST_METHOD(WrongPSVVersion)
 
-  dxc::DxCompilerDllLoader m_dllSupport;
+  dxc::DxcDllExtValidationLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
   void TestCheck(LPCWSTR name) {
@@ -4301,6 +4301,17 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   SetEnvVarW(L"DXC_DXIL_DLL_PATH", OldEnvVal);
 }
 #endif
+
+// Building on the above test, this test uses the DxcDllExtValidationLoader
+// class to instantiate loader objects using previously released
+// dxcompiler.dll's. The environment will also be set up so that the previous
+// dxil.dll's will also be loaded (to be used for external validation).
+TEST_F(ValidationTest, UnitTestValidationBackCompatibility) {
+  dxc::DxcDllExtValidationLoader ExtSupport;
+  ExtSupport.Initialize();
+  std::string dllPath = ExtSupport.GetDxilDllPath();
+  VERIFY_IS_TRUE(dllPath.empty());
+}
 
 TEST_F(ValidationTest, ValidatePreviewBypassHash) {
   if (m_ver.SkipDxilVersion(1, ShaderModel::kHighestMinor))
