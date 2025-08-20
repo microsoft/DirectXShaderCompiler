@@ -8,6 +8,8 @@ set( LLVM_LINK_COMPONENTS
   Support    # just for assert and raw streams
   )
 
+set(DXCSUPPORT_DIR "${LLVM_SOURCE_DIR}/lib/DxcSupport")
+
 add_clang_executable(dxopt
   dxopt.cpp
   )
