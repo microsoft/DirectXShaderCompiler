@@ -186,7 +186,7 @@ foreach(i RANGE 0 ${loop_end})
 
     # Create a lit target for this release
     add_lit_target("check-clang-${name}" "Running clang regression tests with ${name}\n"
-      ${CMAKE_CURRENT_BINARY_DIR}
+      ${CMAKE_CURRENT_SOURCE_DIR}
       PARAMS ${CLANG_TEST_PARAMS} DXC_DXIL_DLL_PATH=${DXC_PATH}
       DEPENDS ${CLANG_TEST_DEPS} ${name}
       ARGS ${CLANG_TEST_EXTRA_ARGS}
@@ -199,8 +199,6 @@ foreach(i RANGE 0 ${loop_end})
   endif()
 endforeach()
 # -------------------------------------------------------------------------
-
-include(DxilBackCompat.cmake OPTIONAL)
 
 # The code below here _ONLY_ executes when building with Visual Studio or Xcode.
 if (NOT CMAKE_CONFIGURATION_TYPES)
