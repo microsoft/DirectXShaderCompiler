@@ -13,8 +13,8 @@
 
 #include "dxc/Support/WinIncludes.h"
 
-#include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/dxcapi.extval.h"
+#include "dxc/Support/dxcapi.use.h"
 #include "dxc/dxcapi.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringMap.h"

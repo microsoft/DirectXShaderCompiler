@@ -202,8 +202,7 @@ std::string DisassembleProgram(dxc::DxcDllExtValidationLoader &dllSupport,
   CComPtr<IDxcBlobEncoding> pDisassembly;
 
   if (!dllSupport.IsEnabled()) {
-    VERIFY_SUCCEEDED(
-        dllSupport.Initialize());
+    VERIFY_SUCCEEDED(dllSupport.Initialize());
   }
 
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
