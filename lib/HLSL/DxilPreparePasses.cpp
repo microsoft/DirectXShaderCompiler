@@ -640,13 +640,99 @@ public:
     }
   }
 
+  static void emulateIsInf(Module &M, CallInst *CI) {
+    IRBuilder<> Builder(CI);
+    Value *Val = CI->getOperand(1);
+    DXASSERT(Val->getType()->isHalfTy(),
+             "Only emulates Half overload of IsInf");
+    Type *IType = Type::getInt16Ty(M.getContext());
+    Constant *PosInf = ConstantInt::get(IType, 0x7c00);
+    Constant *NegInf = ConstantInt::get(IType, 0xfc00);
+
+    Value *IVal = Builder.CreateBitCast(Val, IType);
+    Value *B1 = Builder.CreateICmpEQ(IVal, PosInf);
+    Value *B2 = Builder.CreateICmpEQ(IVal, NegInf);
+    Value *B3 = Builder.CreateOr(B1, B2);
+    CI->replaceAllUsesWith(B3);
+    CI->eraseFromParent();
+  }
+
+  static void emulateIsNaN(Module &M, CallInst *CI) {
+    IRBuilder<> Builder(CI);
+    Value *Val = CI->getOperand(1);
+    DXASSERT(Val->getType()->isHalfTy(),
+             "Only emulates Half overload of IsNaN");
+    Type *IType = Type::getInt16Ty(M.getContext());
+
+    Constant *ExpBitMask = ConstantInt::get(IType, 0x7c00);
+    Constant *SigBitMask = ConstantInt::get(IType, 0x3ff);
+
+    Value *IVal = Builder.CreateBitCast(Val, IType);
+    Value *Exp = Builder.CreateAnd(IVal, ExpBitMask);
+    Value *B1 = Builder.CreateICmpEQ(Exp, ExpBitMask);
+
+    Value *Sig = Builder.CreateAnd(IVal, SigBitMask);
+    Value *B2 = Builder.CreateICmpNE(Sig, ConstantInt::get(IType, 0));
+    Value *B3 = Builder.CreateAnd(B1, B2);
+    CI->replaceAllUsesWith(B3);
+    CI->eraseFromParent();
+  }
+
+  static void emulateIsFinite(Module &M, CallInst *CI) {
+    IRBuilder<> Builder(CI);
+    Value *Val = CI->getOperand(1);
+    DXASSERT(Val->getType()->isHalfTy(),
+             "Only emulates Half overload of IsFinite");
+    Type *IType = Type::getInt16Ty(M.getContext());
+
+    Constant *ExpBitMask = ConstantInt::get(IType, 0x7c00);
+
+    Value *IVal = Builder.CreateBitCast(Val, IType);
+    Value *Exp = Builder.CreateAnd(IVal, ExpBitMask);
+    Value *B1 = Builder.CreateICmpNE(Exp, ExpBitMask);
+    CI->replaceAllUsesWith(B1);
+    CI->eraseFromParent();
+  }
+
+  // Emulate IsSpecialFloat for Half pre sm6.9
+  static void emulateIsSpecialFloat(Module &M, hlsl::OP *hlslOP) {
+    // Finds the OpCodeClass that IsInf belongs to, IsSpecialFloat
+    // This IsNan, IsFinite, and IsNormal also belong to this OpCodeClass
+    for (auto Fn : hlslOP->GetOpFuncList(DXIL::OpCode::IsInf)) {
+      Function *F = Fn.second;
+      if (!F)
+        continue;
+      if (!F->getFunctionType()->getParamType(1)->isHalfTy())
+        continue;
+
+      for (auto UserIt = F->user_begin(); UserIt != F->user_end();) {
+        CallInst *CI = cast<CallInst>(*(UserIt++));
+
+        uint64_t OpKind = cast<ConstantInt>(CI->getOperand(0))->getZExtValue();
+        switch (OpKind) {
+        case (uint64_t)DXIL::OpCode::IsInf:
+          emulateIsInf(M, CI);
+          continue;
+        case (uint64_t)DXIL::OpCode::IsNaN:
+          emulateIsNaN(M, CI);
+          continue;
+        case (uint64_t)DXIL::OpCode::IsFinite:
+          emulateIsFinite(M, CI);
+          continue;
+        default:
+          continue;
+        }
+      }
+    }
+  }
+
   void convertQuadVote(Module &M, hlsl::OP *hlslOP) {
     for (auto FnIt : hlslOP->GetOpFuncList(DXIL::OpCode::QuadVote)) {
       Function *F = FnIt.second;
       if (!F)
         continue;
-      for (auto UserIt = F->user_begin(); UserIt != F->user_end();) {
-        CallInst *CI = cast<CallInst>(*(UserIt++));
+      for (auto User = F->user_begin(); User != F->user_end();) {
+        CallInst *CI = cast<CallInst>(*(User++));
 
         IRBuilder<> B(CI);
         DXASSERT_NOMSG(CI->getOperand(1)->getType() ==
@@ -836,6 +922,13 @@ public:
       // Convert quad vote
       if (DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 7) < 0) {
         convertQuadVote(M, DM.GetOP());
+      }
+
+      // Convert IsSpecialFloat intrinsics for half in SM6.8 and below
+      // Because 16 bit overload of IsSpecialFloat is not available
+      // until SM6.9 and later
+      if (DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 9) < 0) {
+        emulateIsSpecialFloat(M, DM.GetOP());
       }
 
       // Remove store undef output.
