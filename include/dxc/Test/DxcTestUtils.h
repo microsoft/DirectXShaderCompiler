@@ -200,8 +200,6 @@ void GetDxilPart(dxc::DllLoader &dllSupport, IDxcBlob *pProgram,
                  IDxcBlob **pDxilPart);
 std::string DisassembleProgram(dxc::DxCompilerDllLoader &dllSupport,
                                IDxcBlob *pProgram);
-std::string DisassembleProgram(dxc::DxcDllExtValidationLoader &dllSupport,
-                               IDxcBlob *pProgram);
 void SplitPassList(LPWSTR pPassesBuffer, std::vector<LPCWSTR> &passes);
 void MultiByteStringToBlob(dxc::DllLoader &dllSupport, const std::string &val,
                            UINT32 codePoint, IDxcBlob **ppBlob);

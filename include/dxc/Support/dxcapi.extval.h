@@ -7,7 +7,7 @@ class DxcDllExtValidationLoader : public DllLoader {
   // DxCompilerSupport manages the
   // lifetime of dxcompiler.dll, while DxilExtValSupport
   // manages the lifetime of dxil.dll
-  dxc::DxCompilerDllLoader DxCompilerSupport;
+  dxc::SpecificDllLoader DxCompilerSupport;
   dxc::SpecificDllLoader DxilExtValSupport;
   std::string DxilDllPath;
 

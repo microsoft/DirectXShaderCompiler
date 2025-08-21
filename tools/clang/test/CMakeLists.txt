@@ -169,17 +169,22 @@ foreach(i RANGE 0 ${loop_end})
         set(TARGET_ARCH ${CMAKE_GENERATOR_PLATFORM})
     else()
         # Single-config generators (Ninja, Makefiles)
-        # Use pointer size to guess x86 vs x64
-        if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-            set(TARGET_ARCH x64)
-        elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" SYSTEM_PROCESSOR_LOWER)
+
+        if(SYSTEM_PROCESSOR_LOWER MATCHES "^(x86|i[3-6]86)$")
             set(TARGET_ARCH x86)
+        elseif(SYSTEM_PROCESSOR_LOWER MATCHES "^(x64|amd64|x86_64)$")
+            set(TARGET_ARCH x64)
+        elseif(SYSTEM_PROCESSOR_LOWER MATCHES "^(arm64|aarch64)$")
+            set(TARGET_ARCH arm64)
+        elseif(SYSTEM_PROCESSOR_LOWER MATCHES "^arm")
+            set(TARGET_ARCH arm)
         else()
-            message(FATAL_ERROR "Unknown pointer size: ${CMAKE_SIZEOF_VOID_P}")
+            message(FATAL_ERROR "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
         endif()
     endif()
 
-    message("TARGET_ARCH IS ${TARGET_ARCH}")
+    message(STATUS "TARGET_ARCH is ${TARGET_ARCH}")
 
     # Path to dxil.dll for this release
     set(DXC_PATH ${CMAKE_BINARY_DIR}/tools/clang/test/dxc_releases/${version}/${name}/bin/${TARGET_ARCH}/dxil.dll)
