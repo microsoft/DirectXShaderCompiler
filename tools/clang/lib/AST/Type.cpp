@@ -377,7 +377,8 @@ bool Type::isInterfaceType() const {
 bool Type::isStructureOrClassType() const {
   if (const RecordType *RT = getAs<RecordType>()) {
     RecordDecl *RD = RT->getDecl();
-    return RD->isStruct() || RD->isClass() || RD->isInterface();
+    return RD->isStruct() || RD->isClass() || RD->isInterface() ||
+           RD->isUnion();
   }
   return false;
 }
