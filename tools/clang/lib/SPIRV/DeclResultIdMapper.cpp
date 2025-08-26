@@ -1479,8 +1479,7 @@ void DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     if (shouldSkipInStructLayout(subDecl))
       continue;
 
-    // If subDecl is a variable with resource type, we already added a separate
-    // OpVariable for it in createStructOrStructArrayVarOfExplicitLayout().
+    // If the subDecl is a resource, it is lowered as a standalone variable.
     const auto *varDecl = cast<VarDecl>(subDecl);
     if (isResourceType(varDecl->getType())) {
       createExternVar(varDecl);
