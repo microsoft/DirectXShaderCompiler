@@ -437,7 +437,7 @@ template <typename DataTypeT> struct TestInputs {
 
 template <typename DataTypeT> class TestConfigBasicUnary {
 public:
-  TestConfigBasicUnary() {};
+  TestConfigBasicUnary(){};
   virtual ~TestConfigBasicUnary() = default;
 
   virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
@@ -458,7 +458,7 @@ public:
 
 template <typename DataTypeT> class TestConfigBasicBinary {
 public:
-  TestConfigBasicBinary() {};
+  TestConfigBasicBinary(){};
   virtual ~TestConfigBasicBinary() = default;
 
   virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
@@ -497,7 +497,7 @@ public:
 
 template <typename DataTypeT> class TestConfigBasicTernary {
 public:
-  TestConfigBasicTernary() {};
+  TestConfigBasicTernary(){};
   virtual ~TestConfigBasicTernary() = default;
 
   virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
