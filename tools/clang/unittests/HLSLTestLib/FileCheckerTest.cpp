@@ -1258,7 +1258,8 @@ FileRunCommandPart::RunFromPath(const std::string &toolPath,
 #endif //_WIN32
 
 class FileRunTestResultImpl : public FileRunTestResult {
-  dxc::DxCompilerDllLoader &m_support;
+  dxc::SpecificDllLoader &m_support;
+  dxc::DxcDllExtValidationLoader m_extval_support;
   PluginToolsPaths *m_pPluginToolsPaths;
   LPCWSTR m_dumpName = nullptr;
   // keep track of virtual files for duration of this test (for all RUN lines)
@@ -1332,7 +1333,7 @@ class FileRunTestResultImpl : public FileRunTestResult {
   }
 
 public:
-  FileRunTestResultImpl(dxc::DxCompilerDllLoader &support,
+  FileRunTestResultImpl(dxc::SpecificDllLoader &support,
                         PluginToolsPaths *pPluginToolsPaths = nullptr,
                         LPCWSTR dumpName = nullptr)
       : m_support(support), m_pPluginToolsPaths(pPluginToolsPaths),
@@ -1389,7 +1390,7 @@ FileRunTestResult FileRunTestResult::RunFromFileCommands(
 }
 
 FileRunTestResult FileRunTestResult::RunFromFileCommands(
-    LPCWSTR fileName, dxc::DxCompilerDllLoader &dllSupport,
+    LPCWSTR fileName, dxc::SpecificDllLoader &dllSupport,
     PluginToolsPaths *pPluginToolsPaths /*=nullptr*/,
     LPCWSTR dumpName /*=nullptr*/) {
   FileRunTestResultImpl result(dllSupport, pPluginToolsPaths, dumpName);

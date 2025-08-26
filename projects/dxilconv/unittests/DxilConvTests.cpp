@@ -67,7 +67,8 @@ public:
   END_TEST_METHOD()
 
 private:
-  dxc::DxCompilerDllLoader m_dllSupport;
+  // this loader only loads dxilconv.dll
+  dxc::SpecificDllLoader m_dllSupport;
   PluginToolsPaths m_TestToolPaths;
 
   void DxilConvTestCheckFile(LPCWSTR path) {
