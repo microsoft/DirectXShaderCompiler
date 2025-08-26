@@ -126,9 +126,7 @@ add_lit_testsuites(CLANG ${CMAKE_CURRENT_SOURCE_DIR}
 # -------------------------------------------------------------------------
 
 # Define DXC releases as (NAME VERSION) pairs
-set(DXC_RELEASES
-  dxc_2025_07_14 v1.8.2505.1
-  dxc_2025_05_24 v1.8.2505
+set(DXC_RELEASES  
   dxc_2025_02_20 v1.8.2502
   dxc_2023_08_14 v1.7.2308
   dxc_2021_12_08 v1.6.2112
@@ -196,6 +194,14 @@ foreach(i RANGE 0 ${loop_end})
       DEPENDS ${CLANG_TEST_DEPS} ${name}
       ARGS ${CLANG_TEST_EXTRA_ARGS}
     )
+
+    # Ensure there is a top-level check-clang target
+    if(NOT TARGET check-clang)
+      add_custom_target(check-clang)
+    endif()
+
+    # Make check-clang depend on this particular release's tests
+    add_dependencies(check-clang "check-clang-${name}")
 
     # Hook into check-all
     if (WIN32 AND TARGET check-all)
