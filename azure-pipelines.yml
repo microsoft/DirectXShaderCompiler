@@ -13,7 +13,8 @@ stages:
 - stage: Build
   jobs:
   - job: Windows
-    timeoutInMinutes: 120
+    # Including back-compat tests with 3 older validators, about 15 minutes each
+    timeoutInMinutes: 165
 
     pool:
       vmImage: windows-2022
