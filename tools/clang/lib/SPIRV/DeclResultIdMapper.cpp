@@ -1474,6 +1474,33 @@ void DeclResultIdMapper::createEnumConstant(const EnumConstantDecl *decl) {
 }
 
 SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
+
+  SmallVector<const VarDecl *, 4> VariablesToDeclare;
+  SmallVector<const VarDecl *, 4> ResourceVars;
+  for (const auto *subDecl : decl->decls()) {
+    if (shouldSkipInStructLayout(subDecl))
+      continue;
+
+    // If subDecl is a variable with resource type, we already added a separate
+    // OpVariable for it in createStructOrStructArrayVarOfExplicitLayout().
+    const auto *varDecl = cast<VarDecl>(subDecl);
+    if (isResourceType(varDecl->getType())) {
+      ResourceVars.push_back(varDecl);
+      continue;
+    }
+
+    VariablesToDeclare.push_back(varDecl);
+  }
+
+  // If the cbuffer is empty or only contains resources, skip the variable
+  // creation.
+  if (VariablesToDeclare.size() == 0) {
+    // But don't forget to lower the contained resources, if any.
+    for (const VarDecl *VD : ResourceVars)
+      createExternVar(VD);
+    return nullptr;
+  }
+
   // This function handles creation of cbuffer or tbuffer.
   const auto usageKind =
       decl->isCBuffer() ? ContextUsageKind::CBuffer : ContextUsageKind::TBuffer;
@@ -1486,26 +1513,13 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   // mapped to the <result-id> of the buffer object, which means when querying
   // querying the <result-id> for a certain VarDecl, we need to do an extra
   // OpAccessChain.
-  int index = 0;
-  for (const auto *subDecl : decl->decls()) {
-    if (shouldSkipInStructLayout(subDecl))
-      continue;
+  for (unsigned I = 0; I < VariablesToDeclare.size(); ++I)
+    registerVariableForDecl(VariablesToDeclare[I],
+                            createDeclSpirvInfo(bufferVar, I));
 
-    // If subDecl is a variable with resource type, we already added a separate
-    // OpVariable for it in createStructOrStructArrayVarOfExplicitLayout().
-    const auto *varDecl = cast<VarDecl>(subDecl);
-    if (isResourceType(varDecl->getType()))
-      continue;
-
-    registerVariableForDecl(varDecl, createDeclSpirvInfo(bufferVar, index++));
-  }
-  // If it does not contains a member with non-resource type, we do not want to
-  // set a dedicated binding number.
-  if (index != 0) {
-    resourceVars.emplace_back(
-        bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
-        decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
-  }
+  resourceVars.emplace_back(
+      bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
+      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
   if (!spirvOptions.debugInfoRich) {
     return bufferVar;
