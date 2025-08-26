@@ -1381,7 +1381,6 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
       }
 
       if (isResourceType(varType)) {
-        createExternVar(fieldVar);
         continue;
       }
     }
@@ -1473,10 +1472,9 @@ void DeclResultIdMapper::createEnumConstant(const EnumConstantDecl *decl) {
   astDecls[valueDecl] = createDeclSpirvInfo(varInstr);
 }
 
-SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
+void DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
 
-  SmallVector<const VarDecl *, 4> VariablesToDeclare;
-  SmallVector<const VarDecl *, 4> ResourceVars;
+  SmallVector<const VarDecl *, 4> variablesToDeclare;
   for (const auto *subDecl : decl->decls()) {
     if (shouldSkipInStructLayout(subDecl))
       continue;
@@ -1485,21 +1483,17 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     // OpVariable for it in createStructOrStructArrayVarOfExplicitLayout().
     const auto *varDecl = cast<VarDecl>(subDecl);
     if (isResourceType(varDecl->getType())) {
-      ResourceVars.push_back(varDecl);
+      createExternVar(varDecl);
       continue;
     }
 
-    VariablesToDeclare.push_back(varDecl);
+    variablesToDeclare.push_back(varDecl);
   }
 
   // If the cbuffer is empty or only contains resources, skip the variable
   // creation.
-  if (VariablesToDeclare.size() == 0) {
-    // But don't forget to lower the contained resources, if any.
-    for (const VarDecl *VD : ResourceVars)
-      createExternVar(VD);
-    return nullptr;
-  }
+  if (variablesToDeclare.size() == 0)
+    return;
 
   // This function handles creation of cbuffer or tbuffer.
   const auto usageKind =
@@ -1513,17 +1507,16 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   // mapped to the <result-id> of the buffer object, which means when querying
   // querying the <result-id> for a certain VarDecl, we need to do an extra
   // OpAccessChain.
-  for (unsigned I = 0; I < VariablesToDeclare.size(); ++I)
-    registerVariableForDecl(VariablesToDeclare[I],
+  for (unsigned I = 0; I < variablesToDeclare.size(); ++I)
+    registerVariableForDecl(variablesToDeclare[I],
                             createDeclSpirvInfo(bufferVar, I));
 
   resourceVars.emplace_back(
       bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
-  if (!spirvOptions.debugInfoRich) {
-    return bufferVar;
-  }
+  if (!spirvOptions.debugInfoRich)
+    return;
 
   auto *dbgGlobalVar = createDebugGlobalVariable(
       bufferVar, QualType(), decl->getLocation(), decl->getName());
@@ -1543,7 +1536,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   // mapping.
   spvContext.registerStructDeclForSpirvType(resultType, decl);
 
-  return bufferVar;
+  return;
 }
 
 SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
