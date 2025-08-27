@@ -694,6 +694,7 @@ public:
     CI->eraseFromParent();
   }
 
+  // Check if exponent bits are neither all 0s nor all 1s
   static void emulateIsNormal(Module &M, CallInst *CI) {
     IRBuilder<> Builder(CI);
     Value *Val = CI->getOperand(1);
@@ -740,6 +741,7 @@ public:
           continue;
         case (uint64_t)DXIL::OpCode::IsNormal:
           emulateIsNormal(M, CI);
+          continue;
         default:
           continue;
         }

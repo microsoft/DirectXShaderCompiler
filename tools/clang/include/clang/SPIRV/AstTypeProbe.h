@@ -316,9 +316,6 @@ bool isUintOrVecOfUintType(QualType type);
 /// Returns true if the given type is a half or vector of half type.
 bool isHalfOrVecOfHalfType(QualType type);
 
-/// Returns true if the given type is a float32 or vector of float32 type.
-bool isFloat32OrVecOfFloat32Type(QualType type);
-
 /// Returns true if the given type is a float or vector of float type.
 bool isFloatOrVecOfFloatType(QualType type);
 
@@ -332,13 +329,6 @@ bool isSintOrVecMatOfSintType(QualType type);
 /// Returns true if the given type is an unsigned integer or vector/matrix of
 /// unsigned integer type.
 bool isUintOrVecMatOfUintType(QualType type);
-
-/// Returns true if the given type is a half or vector/matrix of half type.
-bool isHalfOrVecMatOfHalfType(QualType type);
-
-/// Returns true if the given type is a float32 or vector/matrix of
-/// float32 type.
-bool isFloat32OrVecMatOfFloat32Type(QualType type);
 
 /// Returns true if the given type is a float or vector/matrix of float type.
 bool isFloatOrVecMatOfFloatType(QualType type);
