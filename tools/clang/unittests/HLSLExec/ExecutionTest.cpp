@@ -623,9 +623,7 @@ public:
 
   // Shader Execution Reordering tests
   TEST_METHOD(SERBasicTest);
-  TEST_METHOD(SERScalarGetterTest);
-  TEST_METHOD(SERVectorGetterTest);
-  TEST_METHOD(SERMatrixGetterTest);
+  TEST_METHOD(SERNOPValuesTest);
   TEST_METHOD(SERRayQueryTest);
   TEST_METHOD(SERIntersectionTest);
   TEST_METHOD(SERGetAttributesTest);
@@ -638,6 +636,9 @@ public:
   TEST_METHOD(SERDynamicHitObjectArrayTest);
   TEST_METHOD(SERWaveIncoherentHitTest);
   TEST_METHOD(SERReorderCoherentTest);
+  TEST_METHOD(SERGetterPermutationTest);
+  TEST_METHOD(SERAttributesPermutationTest);
+  TEST_METHOD(SERMultiPayloadTest);
 
   // CoopVec tests
   TEST_METHOD(CoopVec_Mul);
@@ -2128,12 +2129,40 @@ public:
                                    int numOptions);
   bool CreateDXRDevice(ID3D12Device **ppDevice, D3D_SHADER_MODEL testModel,
                        bool skipUnsupported);
+  struct DXRRunConfig {
+    int WindowWidth = 64;
+    int WindowHeight = 64;
+    bool UseMesh = true;
+    bool UseProceduralGeometry = false;
+    int PayloadCount = 1;
+    int AttributeCount = 2;
+    int MaxRecursion = 1;
+    int NumMissShaders = 1;
+    int NumHitGroups = 1;
+  };
+  CComPtr<ID3D12Resource>
+  RunDXRTest(ID3D12Device *Device0, LPCSTR ShaderSrc, LPCWSTR TargetProfile,
+             LPCWSTR *Options, int NumOptions, std::vector<int> &TestData,
+             const DXRRunConfig &Config);
+
   CComPtr<ID3D12Resource> RunDXRTest(ID3D12Device *Device0, LPCSTR ShaderSrc,
                                      LPCWSTR TargetProfile, LPCWSTR *Options,
                                      int NumOptions, std::vector<int> &TestData,
                                      int WindowWidth, int WindowHeight,
                                      bool UseMesh, bool UseProceduralGeometry,
-                                     int PayloadCount, int AttributeCount);
+                                     int PayloadCount, int AttributeCount) {
+    DXRRunConfig Config = {WindowWidth,
+                           WindowHeight,
+                           UseMesh,
+                           UseProceduralGeometry,
+                           PayloadCount,
+                           AttributeCount,
+                           1,
+                           1,
+                           1};
+    return RunDXRTest(Device0, ShaderSrc, TargetProfile, Options, NumOptions,
+                      TestData, Config);
+  }
 
   void SetDescriptorHeap(ID3D12GraphicsCommandList *pCommandList,
                          ID3D12DescriptorHeap *pHeap) {
@@ -2313,11 +2342,11 @@ bool ExecutionTest::CreateDXRDevice(ID3D12Device **ppDevice,
   return false;
 }
 
-CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
-    ID3D12Device *Device0, LPCSTR ShaderSrc, LPCWSTR TargetProfile,
-    LPCWSTR *Options, int NumOptions, std::vector<int> &TestData,
-    int WindowWidth, int WindowHeight, bool UseMesh, bool UseProceduralGeometry,
-    int PayloadCount, int AttributeCount) {
+CComPtr<ID3D12Resource>
+ExecutionTest::RunDXRTest(ID3D12Device *Device0, LPCSTR ShaderSrc,
+                          LPCWSTR TargetProfile, LPCWSTR *Options,
+                          int NumOptions, std::vector<int> &TestData,
+                          const DXRRunConfig &Config) {
   CComPtr<ID3D12Device5> Device;
   VERIFY_SUCCEEDED(Device0->QueryInterface(IID_PPV_ARGS(&Device)));
 
@@ -2421,7 +2450,7 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
         {0.f, 301.f, 0.f, 0.f},
         {0.f, 0., -699.f, 0.f},
         100.f,
-        {(unsigned int)WindowWidth, (unsigned int)WindowHeight},
+        {(unsigned int)Config.WindowWidth, (unsigned int)Config.WindowHeight},
         0x00};
 
     memcpy(SceneConstantBufferWO, &SceneConsts, sizeof(SceneConsts));
@@ -2493,29 +2522,77 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   CompileFromText(ShaderSrc, L"raygen", TargetProfile, &ShaderLib, Options,
                   NumOptions);
 
+  // Construct HitGroups
+  struct HitGroupDesc {
+    std::wstring ClosestHit;
+    std::wstring AnyHit;
+    std::wstring Intersection;
+    std::wstring HitGroupName;
+    const bool IsProcedural() const { return !Intersection.empty();}
+  };
+  std::vector<HitGroupDesc> HitGroupDescs;
+
+  const bool PrimaryHitGroupsAreAABB = !Config.UseMesh && Config.UseProceduralGeometry;
+  const bool EnableSecondaryHitGroups = Config.UseMesh && Config.UseProceduralGeometry;
+
+  // Base hit group
+  HitGroupDesc PrimaryHitGroup{L"closesthit", L"anyhit", L"", L"HitGroup"};
+  if (PrimaryHitGroupsAreAABB)
+    PrimaryHitGroup.Intersection = L"intersection";
+  HitGroupDescs.push_back(PrimaryHitGroup);
+
+  for (int i = 1; i < Config.NumHitGroups; i++) {
+    std::wstring ClosestHit = L"closesthit" + std::to_wstring(i);
+    std::wstring AnyHit = L"anyhit" + std::to_wstring(i);
+    std::wstring Intersection = L"";
+    if (PrimaryHitGroupsAreAABB)
+      Intersection = L"intersection" + std::to_wstring(i);
+    std::wstring HitGroupName = L"HitGroup" + std::to_wstring(i);
+    HitGroupDescs.push_back(
+        HitGroupDesc{ClosestHit, AnyHit, Intersection, HitGroupName});
+  }
+
+  if (EnableSecondaryHitGroups) {
+    HitGroupDescs.push_back(
+        HitGroupDesc{L"chAABB", L"ahAABB", L"intersection", L"HitGroupAABB"});
+    for (int i = 1; i < Config.NumHitGroups; i++) {
+      std::wstring ClosestHit = L"chAABB" + std::to_wstring(i);
+      std::wstring AnyHit = L"ahAABB" + std::to_wstring(i);
+      std::wstring Intersection = L"intersection" + std::to_wstring(i);
+      std::wstring HitGroupName = L"HitGroupAABB" + std::to_wstring(i);
+      HitGroupDescs.push_back(
+          HitGroupDesc{ClosestHit, AnyHit, Intersection, HitGroupName});
+    }
+  }
+
+  // Collect required shader names from HitGroups
+  std::vector<std::wstring> ShaderNames;
+  ShaderNames.push_back(L"raygen");
+  ShaderNames.push_back(L"miss");
+  for (int i = 1; i < Config.NumMissShaders; i++)
+    ShaderNames.push_back(L"miss" + std::to_wstring(i));
+  for (const HitGroupDesc &HitGroupDesc : HitGroupDescs) {
+    ShaderNames.push_back(HitGroupDesc.ClosestHit);
+    ShaderNames.push_back(HitGroupDesc.AnyHit);
+    if (HitGroupDesc.IsProcedural())
+      ShaderNames.push_back(HitGroupDesc.Intersection);
+  }
+
   // Describe and create the RT pipeline state object (RTPSO).
   CD3DX12_STATE_OBJECT_DESC StateObjectDesc(
       D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE);
   auto Lib = StateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
   CD3DX12_SHADER_BYTECODE ByteCode(ShaderLib);
   Lib->SetDXILLibrary(&ByteCode);
-  Lib->DefineExport(L"raygen");
-  Lib->DefineExport(L"closesthit");
-  Lib->DefineExport(L"anyhit");
-  Lib->DefineExport(L"miss");
-  if (UseProceduralGeometry)
-    Lib->DefineExport(L"intersection");
-  if (UseMesh && UseProceduralGeometry) {
-    Lib->DefineExport(L"ahAABB");
-    Lib->DefineExport(L"chAABB");
-  }
 
-  const int MaxRecursion = 1;
+  for (std::wstring Export : ShaderNames)
+    Lib->DefineExport(Export.c_str());
+
   StateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>()
-      ->Config(PayloadCount * sizeof(float), AttributeCount * sizeof(float));
+      ->Config(Config.PayloadCount * sizeof(float), Config.AttributeCount * sizeof(float));
   StateObjectDesc
       .CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>()
-      ->Config(MaxRecursion);
+      ->Config(Config.MaxRecursion);
 
   // Set Global Root Signature subobject.
   auto GlobalRootSigSubObj =
@@ -2529,37 +2606,21 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   auto Exports = StateObjectDesc.CreateSubobject<
       CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
   Exports->SetSubobjectToAssociate(*GlobalRootSigSubObj);
-  Exports->AddExport(L"raygen");
-  Exports->AddExport(L"closesthit");
-  Exports->AddExport(L"anyhit");
-  Exports->AddExport(L"miss");
-  if (UseProceduralGeometry)
-    Exports->AddExport(L"intersection");
-  if (UseMesh && UseProceduralGeometry) {
-    Exports->AddExport(L"ahAABB");
-    Exports->AddExport(L"chAABB");
-  }
+  for (std::wstring Export : ShaderNames)
+    Exports->AddExport(Export.c_str());
 
-  auto HitGroup =
-      StateObjectDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
-  HitGroup->SetClosestHitShaderImport(L"closesthit");
-  HitGroup->SetAnyHitShaderImport(L"anyhit");
-  if (!UseMesh && UseProceduralGeometry) {
-    HitGroup->SetIntersectionShaderImport(L"intersection");
-    HitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE);
-  } else {
-    HitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_TRIANGLES);
-  }
-  HitGroup->SetHitGroupExport(L"HitGroup");
-
-  if (UseMesh && UseProceduralGeometry) {
-    auto HitGroupAABB =
+  for (const HitGroupDesc &HitGroupDesc : HitGroupDescs) {
+    auto HitGroup =
         StateObjectDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
-    HitGroupAABB->SetAnyHitShaderImport(L"ahAABB");
-    HitGroupAABB->SetClosestHitShaderImport(L"chAABB");
-    HitGroupAABB->SetIntersectionShaderImport(L"intersection");
-    HitGroupAABB->SetHitGroupType(D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE);
-    HitGroupAABB->SetHitGroupExport(L"HitGroupAABB");
+    HitGroup->SetClosestHitShaderImport(HitGroupDesc.ClosestHit.c_str());
+    HitGroup->SetAnyHitShaderImport(HitGroupDesc.AnyHit.c_str());
+    if (HitGroupDesc.IsProcedural()) {
+      HitGroup->SetIntersectionShaderImport(HitGroupDesc.Intersection.c_str());
+      HitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE);
+    } else {
+      HitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_TRIANGLES);
+    }
+    HitGroup->SetHitGroupExport(HitGroupDesc.HitGroupName.c_str());
   }
 
   CComPtr<ID3D12StateObject> StateObject;
@@ -2572,32 +2633,46 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   ShaderTable ShaderTable(
       Device,
       1,                                        // raygen count
-      1,                                        // miss count
-      UseMesh && UseProceduralGeometry ? 2 : 1, // hit group count
+      Config.NumMissShaders,                    // miss count
+      (int) HitGroupDescs.size(),               // hit group count
       1,                                        // ray type count
       4                                         // dwords per root table
   );
 
   int LocalRootConsts[4] = {12, 34, 56, 78};
+
+  // raygen
   memcpy(ShaderTable.GetRaygenShaderIdPtr(0),
          StateObjectProperties->GetShaderIdentifier(L"raygen"),
          SHADER_ID_SIZE_IN_BYTES);
   memcpy(ShaderTable.GetRaygenRootTablePtr(0), LocalRootConsts,
          sizeof(LocalRootConsts));
+
+  // miss shaders
   memcpy(ShaderTable.GetMissShaderIdPtr(0, 0),
          StateObjectProperties->GetShaderIdentifier(L"miss"),
          SHADER_ID_SIZE_IN_BYTES);
   memcpy(ShaderTable.GetMissRootTablePtr(0, 0), LocalRootConsts,
          sizeof(LocalRootConsts));
-  memcpy(ShaderTable.GetHitGroupShaderIdPtr(0, 0),
-         StateObjectProperties->GetShaderIdentifier(L"HitGroup"),
-         SHADER_ID_SIZE_IN_BYTES);
-  memcpy(ShaderTable.GetHitGroupRootTablePtr(0, 0), LocalRootConsts,
-         sizeof(LocalRootConsts));
-  if (UseMesh && UseProceduralGeometry)
-    memcpy(ShaderTable.GetHitGroupShaderIdPtr(0, 1),
-           StateObjectProperties->GetShaderIdentifier(L"HitGroupAABB"),
+  for (int i = 1; i < Config.NumMissShaders; i++) {
+    std::wstring MissShaderName = L"miss" + std::to_wstring(i);
+    memcpy(ShaderTable.GetMissShaderIdPtr(i, 0),
+           StateObjectProperties->GetShaderIdentifier(MissShaderName.c_str()),
            SHADER_ID_SIZE_IN_BYTES);
+    memcpy(ShaderTable.GetMissRootTablePtr(i, 0), LocalRootConsts,
+           sizeof(LocalRootConsts));
+  }
+
+  // hit groups
+  for (int HitGroupIdx = 0; HitGroupIdx < HitGroupDescs.size(); HitGroupIdx++) {
+    const HitGroupDesc &HitGroupDesc = HitGroupDescs[HitGroupIdx];
+    memcpy(
+        ShaderTable.GetHitGroupShaderIdPtr(HitGroupIdx, 0),
+        StateObjectProperties->GetShaderIdentifier(HitGroupDesc.HitGroupName.c_str()),
+        SHADER_ID_SIZE_IN_BYTES);
+    memcpy(ShaderTable.GetHitGroupRootTablePtr(HitGroupIdx, 0), LocalRootConsts,
+           sizeof(LocalRootConsts));
+  }
 
   // Create a command allocator and list.
   CComPtr<ID3D12CommandAllocator> CommandAllocator;
@@ -2622,7 +2697,7 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   CComPtr<ID3D12Resource> BLASProceduralGeometryResource;
   CComPtr<ID3D12Resource> ScratchResource;
 
-  if (UseMesh) {
+  if (Config.UseMesh) {
     CComPtr<ID3D12Resource> VertexBuffer;
     CComPtr<ID3D12Resource> VertexBufferUpload;
     CComPtr<ID3D12Resource> IndexBuffer;
@@ -2759,7 +2834,7 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
     VERIFY_SUCCEEDED(CommandList->Reset(CommandAllocator, nullptr));
   }
 
-  if (UseProceduralGeometry) {
+  if (Config.UseProceduralGeometry) {
     // Define procedural geometry AABB for a plane
     CComPtr<ID3D12Resource> AabbBuffer;
     CComPtr<ID3D12Resource> AabbBufferUpload;
@@ -2841,7 +2916,7 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
   {
     D3D12_RAYTRACING_INSTANCE_DESC CPUInstanceDescs[2] = {};
     const int MeshIdx = 0;
-    const int ProcGeoIdx = UseMesh && UseProceduralGeometry ? 1 : 0;
+    const int ProcGeoIdx = Config.UseMesh && Config.UseProceduralGeometry ? 1 : 0;
     const int NumInstanceDescs = ProcGeoIdx + 1;
 
     for (int i = 0; i < NumInstanceDescs; ++i) {
@@ -2849,15 +2924,16 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
       InstanceDesc.Transform[0][0] = InstanceDesc.Transform[1][1] =
           InstanceDesc.Transform[2][2] = 1;
       InstanceDesc.InstanceID = i;
-      InstanceDesc.InstanceContributionToHitGroupIndex = i;
+      InstanceDesc.InstanceContributionToHitGroupIndex =
+          i * Config.NumHitGroups;
       InstanceDesc.InstanceMask = 1;
       InstanceDesc.Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
     }
 
-    if (UseMesh)
+    if (Config.UseMesh)
       CPUInstanceDescs[MeshIdx].AccelerationStructure =
           BLASMeshResource->GetGPUVirtualAddress();
-    if (UseProceduralGeometry)
+    if (Config.UseProceduralGeometry)
       CPUInstanceDescs[ProcGeoIdx].AccelerationStructure =
           BLASProceduralGeometryResource->GetGPUVirtualAddress();
 
@@ -2934,8 +3010,8 @@ CComPtr<ID3D12Resource> ExecutionTest::RunDXRTest(
       ShaderTable.GetHitGroupRangeInBytes();
   DispatchDesc.HitGroupTable.StrideInBytes =
       ShaderTable.GetShaderRecordSizeInBytes();
-  DispatchDesc.Width = WindowWidth;
-  DispatchDesc.Height = WindowHeight;
+  DispatchDesc.Width = Config.WindowWidth;
+  DispatchDesc.Height = Config.WindowHeight;
   DispatchDesc.Depth = 1;
   CommandList->SetPipelineState1(StateObject);
   CommandList->DispatchRays(&DispatchDesc);
