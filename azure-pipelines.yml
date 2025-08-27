@@ -49,7 +49,8 @@ stages:
       displayName: 'DXIL Execution Tests (Nuget WARP)'
 
   - job: Nix
-    timeoutInMinutes: 120
+    # Including back-compat tests with 3 older validators, about 15 minutes each
+    timeoutInMinutes: 165
 
     variables:
       macOS: macOS-latest
