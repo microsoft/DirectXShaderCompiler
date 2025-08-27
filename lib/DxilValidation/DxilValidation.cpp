@@ -2443,7 +2443,15 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::VectorAccumulate:
 
     break;
-
+  case DXIL::OpCode::IsInf:
+  case DXIL::OpCode::IsNaN:
+  case DXIL::OpCode::IsFinite:
+  case DXIL::OpCode::IsNormal: {
+    if (hlsl::DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 9) < 0 &&
+        CI->getOperand(1)->getType()->getScalarType()->isHalfTy())
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmIsSpecialFloat, {});
+    break;
+  }
   default:
     // TODO: make sure every Opcode is checked.
     // Skip opcodes don't need special check.
