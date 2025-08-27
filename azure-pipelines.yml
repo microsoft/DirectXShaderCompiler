@@ -13,7 +13,6 @@ stages:
 - stage: Build
   jobs:
   - job: Windows
-    # Including back-compat tests with 3 older validators, about 15 minutes each
     timeoutInMinutes: 165
 
     pool:
@@ -49,7 +48,6 @@ stages:
       displayName: 'DXIL Execution Tests (Nuget WARP)'
 
   - job: Nix
-    # Including back-compat tests with 3 older validators, about 15 minutes each
     timeoutInMinutes: 165
 
     variables:
