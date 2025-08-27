@@ -169,8 +169,6 @@ foreach(i RANGE 0 ${loop_end})
         endif()
     endif()
 
-    message(STATUS "TARGET_ARCH is ${TARGET_ARCH}")
-
     # Path to dxil.dll for this release
     set(DXC_PATH ${CMAKE_BINARY_DIR}/tools/clang/test/dxc_releases/${version}/${name}/bin/${TARGET_ARCH}/dxil.dll)
 
