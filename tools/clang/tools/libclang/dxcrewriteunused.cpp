@@ -1380,12 +1380,22 @@ union DxcHLSLArray {
   }
 };
 
+struct DxcHLSLMember {
+
+  uint32_t NameId;
+  uint32_t TypeId;
+
+  bool operator==(const DxcHLSLMember &Other) const {
+    return Other.NameId == NameId && Other.TypeId == TypeId;
+  }
+};
+
 struct DxcHLSLType { // Almost maps to CShaderReflectionType and
                      // D3D12_SHADER_TYPE_DESC, except tightly packed and
                      // relatively serializable
 
   uint32_t NameId;   //Can be empty
-  std::vector<uint32_t> MemberTypes;    //Member variables (node id to variable)
+  std::vector<DxcHLSLMember> Members;
 
   union {
     struct {
@@ -1412,7 +1422,7 @@ struct DxcHLSLType { // Almost maps to CShaderReflectionType and
   uint32_t BaseClass; // -1 if none, otherwise a type index
 
   bool operator==(const DxcHLSLType &Other) const {
-    return Other.NameId == NameId && Other.MemberTypes == MemberTypes &&
+    return Other.NameId == NameId && Other.Members == Members &&
            ClassTypeRowsColums == Other.ClassTypeRowsColums &&
            ElementsOrArrayId == Other.ElementsOrArrayId &&
            BaseClass == Other.BaseClass;
@@ -1481,7 +1491,7 @@ static uint32_t PushNextNodeId(DxcReflectionData &Refl, const SourceManager &SM,
                                const LangOptions &LangOpts,
                                const std::string &UnqualifiedName, Decl *Decl,
                                DxcHLSLNodeType Type, uint32_t ParentNodeId,
-                               uint32_t LocalId) {
+                               uint32_t LocalId, const SourceRange *Range = nullptr) {
 
   assert(Refl.Nodes.size() < (uint32_t)(1 << 24) && "Nodes overflow");
   assert(LocalId < (uint32_t)(1 << 24) && "LocalId overflow");
@@ -1509,7 +1519,9 @@ static uint32_t PushNextNodeId(DxcReflectionData &Refl, const SourceManager &SM,
 
   uint16_t fileNameId = (uint16_t)-1;
 
-  SourceRange range = Decl->getSourceRange();
+  SourceRange range =
+      Decl ? Decl->getSourceRange() : (Range ? *Range : SourceRange());
+
   SourceLocation start = range.getBegin();
   SourceLocation end = range.getEnd();
 
@@ -1821,78 +1833,15 @@ static uint32_t PushArray(DxcReflectionData &Refl, uint32_t ArraySizeFlat,
   return arrayId;
 }
 
-static void FillReflectionRegisterAt(
-    const DeclContext &Ctx, ASTContext &ASTCtx, const SourceManager &SM,
-    DiagnosticsEngine &Diag, QualType Type, uint32_t ArraySizeFlat,
-    ValueDecl *ValDesc, const std::vector<uint32_t> &ArraySize,
-    DxcReflectionData &Refl, uint32_t AutoBindingSpace, uint32_t ParentNodeId) {
-
-  ArrayRef<hlsl::UnusualAnnotation *> UA = ValDesc->getUnusualAnnotations();
-
-  hlsl::RegisterAssignment *reg = nullptr;
-
-  for (auto It = UA.begin(), E = UA.end(); It != E; ++It) {
-
-    if ((*It)->getKind() != hlsl::UnusualAnnotation::UA_RegisterAssignment)
-      continue;
-
-    reg = cast<hlsl::RegisterAssignment>(*It);
-  }
-
-  assert(reg && "Found a register missing a RegisterAssignment, even though "
-                "GenerateConsistentBindings should have already generated it");
-
-  DxcRegisterTypeInfo inputType = GetRegisterTypeInfo(ASTCtx, Type);
-
-  uint32_t nodeId = PushNextNodeId(
-      Refl, SM, ASTCtx.getLangOpts(), ValDesc->getName(), ValDesc,
-      DxcHLSLNodeType::Register, ParentNodeId, (uint32_t)Refl.Registers.size());
-
-  uint32_t arrayId = PushArray(Refl, ArraySizeFlat, ArraySize);
-
-  DxcHLSLRegister regD3D12 = {
-
-      inputType.RegisterType,
-      reg->RegisterNumber,
-      ArraySizeFlat,
-      (uint32_t)inputType.RegisterFlags,
-      inputType.TextureValue,
-      inputType.TextureDimension,
-      inputType.SampleCount,
-      reg->RegisterSpace.hasValue() ? reg->RegisterSpace.getValue()
-                                    : AutoBindingSpace,
-      nodeId,
-      arrayId
-  };
-
-  Refl.Registers.push_back(regD3D12);
-}
-
-class PrintfStream : public llvm::raw_ostream {
-public:
-  PrintfStream() { SetUnbuffered(); }
-
-private:
-  void write_impl(const char *Ptr, size_t Size) override {
-    printf("%.*s\n", (int)Size, Ptr); // Print the raw buffer directly
-  }
-
-  uint64_t current_pos() const override { return 0; }
-};
-
 uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
-                          Decl *Decl, bool DefaultRowMaj) {
-
-  ValueDecl *valDecl = dyn_cast<ValueDecl>(Decl);
-  assert(valDecl && "Decl was expected to be a ValueDecl but wasn't");
+                          QualType Original, bool DefaultRowMaj) {
 
   DxcHLSLType type = {};
-  QualType original = valDecl->getType();
 
   // Unwrap array
 
   uint32_t arraySize = 1;
-  QualType underlying = original, forName = original;
+  QualType underlying = Original, forName = Original;
   std::vector<uint32_t> arrayElem;
 
   while (const ConstantArrayType *arr =
@@ -1908,7 +1857,7 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
 
   // Name; Omit struct, class and const keywords
 
-  PrintingPolicy policy(valDecl->getASTContext().getLangOpts());
+  PrintingPolicy policy(ASTCtx.getLangOpts());
   policy.SuppressScope = false;
   policy.AnonymousTagLocations = false;
   policy.SuppressTagKeyword = true; 
@@ -1933,8 +1882,12 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
 
   if (const RecordType *record = underlying->getAs<RecordType>()) {
 
+     bool standardType = false;
+
+    RecordDecl *recordDecl = record->getDecl();
+
     if (const ClassTemplateSpecializationDecl *templateClass =
-            dyn_cast<ClassTemplateSpecializationDecl>(record->getDecl())) {
+            dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
 
       const std::string &name = templateClass->getIdentifier()->getName();
 
@@ -1964,6 +1917,7 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
           underlying = params[0].getAsType();
           type.Columns = params[1].getAsIntegral().getSExtValue();
           type.Class = D3D_SVC_VECTOR;
+          standardType = true;
         }
 
         break;
@@ -1983,7 +1937,7 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
 
           bool isRowMajor = DefaultRowMaj;
 
-          HasHLSLMatOrientation(original, &isRowMajor);
+          HasHLSLMatOrientation(Original, &isRowMajor);
 
           if (!isRowMajor) {
             uint32_t rows = type.Rows;
@@ -1993,6 +1947,7 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
 
           type.Class =
               isRowMajor ? D3D_SVC_MATRIX_ROWS : D3D_SVC_MATRIX_COLUMNS;
+          standardType = true;
         }
 
         break;
@@ -2029,6 +1984,30 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
       //  D3D_SVT_RWSTRUCTURED_BUFFER	= 49,
       //  D3D_SVT_APPEND_STRUCTURED_BUFFER	= 50,
       //  D3D_SVT_CONSUME_STRUCTURED_BUFFER	= 51,
+    }
+
+    // Fill members
+
+    if (!standardType && recordDecl->isCompleteDefinition()) {
+
+      for (Decl *decl : recordDecl->decls()) {
+
+        // TODO: We could query other types VarDecl
+
+        FieldDecl *fieldDecl = dyn_cast<FieldDecl>(decl);
+
+        if (!fieldDecl)
+          continue;
+
+        QualType original = fieldDecl->getType();
+        std::string name = fieldDecl->getName();
+
+        uint32_t nameId = RegisterString(Refl, name);
+        uint32_t typeId =
+            GenerateTypeInfo(ASTCtx, Refl, original, DefaultRowMaj);
+
+        type.Members.push_back(DxcHLSLMember{nameId, typeId});
+      }
     }
   }
 
@@ -2115,10 +2094,6 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
     }
   }
 
-  //TODO: Struct recurse
-
-  (void) type.MemberTypes;
-
   //TODO: Base class
 
   type.BaseClass = (uint32_t) -1;
@@ -2137,21 +2112,139 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
   return i;
 }
 
+static void FillReflectionRegisterAt(
+    const DeclContext &Ctx, ASTContext &ASTCtx, const SourceManager &SM,
+    DiagnosticsEngine &Diag, QualType Type, uint32_t ArraySizeFlat,
+    ValueDecl *ValDesc, const std::vector<uint32_t> &ArraySize,
+    DxcReflectionData &Refl, uint32_t AutoBindingSpace, uint32_t ParentNodeId,
+    bool DefaultRowMaj) {
+
+  ArrayRef<hlsl::UnusualAnnotation *> UA = ValDesc->getUnusualAnnotations();
+
+  hlsl::RegisterAssignment *reg = nullptr;
+
+  for (auto It = UA.begin(), E = UA.end(); It != E; ++It) {
+
+    if ((*It)->getKind() != hlsl::UnusualAnnotation::UA_RegisterAssignment)
+      continue;
+
+    reg = cast<hlsl::RegisterAssignment>(*It);
+  }
+
+  assert(reg && "Found a register missing a RegisterAssignment, even though "
+                "GenerateConsistentBindings should have already generated it");
+
+  DxcRegisterTypeInfo inputType = GetRegisterTypeInfo(ASTCtx, Type);
+
+  uint32_t nodeId = PushNextNodeId(
+      Refl, SM, ASTCtx.getLangOpts(), ValDesc->getName(), ValDesc,
+      DxcHLSLNodeType::Register, ParentNodeId, (uint32_t)Refl.Registers.size());
+
+  uint32_t arrayId = PushArray(Refl, ArraySizeFlat, ArraySize);
+
+  DxcHLSLRegister regD3D12 = {
+
+      inputType.RegisterType,
+      reg->RegisterNumber,
+      ArraySizeFlat,
+      (uint32_t)inputType.RegisterFlags,
+      inputType.TextureValue,
+      inputType.TextureDimension,
+      inputType.SampleCount,
+      reg->RegisterSpace.hasValue() ? reg->RegisterSpace.getValue()
+                                    : AutoBindingSpace,
+      nodeId,
+      arrayId};
+
+  Refl.Registers.push_back(regD3D12);
+
+  bool isListType = true;
+
+  switch (inputType.RegisterType) {
+
+  case D3D_SIT_CBUFFER:
+  case D3D_SIT_TBUFFER:
+    isListType = false;
+    [[fallthrough]];
+
+  case D3D_SIT_STRUCTURED:
+  case D3D_SIT_UAV_RWSTRUCTURED:
+  case D3D_SIT_UAV_APPEND_STRUCTURED:
+  case D3D_SIT_UAV_CONSUME_STRUCTURED:
+  case D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER: {
+
+    const RecordType *recordType = Type->getAs<RecordType>();
+
+    assert(recordType && "Invalid type (not RecordType)");
+
+    const ClassTemplateSpecializationDecl *templateDesc =
+        dyn_cast<ClassTemplateSpecializationDecl>(recordType->getDecl());
+
+    assert(templateDesc && "Invalid template type");
+
+    const ArrayRef<TemplateArgument> &params =
+        templateDesc->getTemplateArgs().asArray();
+
+    assert(params.size() == 1 && "Expected Type<T>");
+
+    QualType innerType = params[0].getAsType();
+
+    // The name of the inner struct is $Element if 'array', otherwise equal to
+    // register name
+
+    uint32_t typeId = GenerateTypeInfo(ASTCtx, Refl, innerType, DefaultRowMaj);
+
+    SourceRange sourceRange = ValDesc->getSourceRange();
+
+    uint32_t nestNodeId =
+        PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(),
+                       isListType ? "$Element" : ValDesc->getName(), nullptr,
+                       DxcHLSLNodeType::Variable, nodeId, typeId, &sourceRange);
+
+    break;
+  }
+  }
+}
+
+class PrintfStream : public llvm::raw_ostream {
+public:
+  PrintfStream() { SetUnbuffered(); }
+
+private:
+  void write_impl(const char *Ptr, size_t Size) override {
+    printf("%.*s\n", (int)Size, Ptr); // Print the raw buffer directly
+  }
+
+  uint64_t current_pos() const override { return 0; }
+};
+
+template<typename T>
 void RecurseBuffer(ASTContext &ASTCtx, const SourceManager &SM,
-                   DxcReflectionData &Refl, DeclContext *Buffer,
+                   DxcReflectionData &Refl, const T& Decls,
                    bool DefaultRowMaj, uint32_t ParentId) {
 
-  for (Decl *decl : Buffer->decls()) {
+  for (Decl *decl : Decls) {
 
-    std::string name;
+    ValueDecl *valDecl = dyn_cast<ValueDecl>(decl);
+    assert(valDecl && "Decl was expected to be a ValueDecl but wasn't");
+    QualType original = valDecl->getType();
 
-    if (NamedDecl *named = dyn_cast<NamedDecl>(decl))
-      name = named->getName();
+    std::string name = valDecl->getName();
 
-    uint32_t typeId = GenerateTypeInfo(ASTCtx, Refl, decl, DefaultRowMaj);
+    uint32_t typeId = GenerateTypeInfo(ASTCtx, Refl, original, DefaultRowMaj);
 
-    PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), name, decl,
+    uint32_t nodeId = PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), name, decl,
                    DxcHLSLNodeType::Variable, ParentId, typeId);
+
+    //Handle struct recursion
+
+    if (RecordDecl *recordDecl = dyn_cast<RecordDecl>(decl)) {
+
+      if (!recordDecl->isCompleteDefinition())
+        continue;
+
+      RecurseBuffer(ASTCtx, SM, Refl, recordDecl->fields(), DefaultRowMaj, nodeId);
+    }
   }
 }
 
@@ -2163,7 +2256,7 @@ uint32_t RegisterBuffer(ASTContext &ASTCtx, DxcReflectionData &Refl,
   assert(Refl.Buffers.size() < (uint32_t)-1 && "Buffer id out of bounds");
   uint32_t bufferId = (uint32_t)Refl.Buffers.size();
 
-  RecurseBuffer(ASTCtx, SM, Refl, Buffer, DefaultRowMaj, NodeId);
+  RecurseBuffer(ASTCtx, SM, Refl, Buffer->decls(), DefaultRowMaj, NodeId);
 
   Refl.Buffers.push_back({Type, NodeId});
 
@@ -2459,7 +2552,8 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
         continue;
 
       FillReflectionRegisterAt(Ctx, ASTCtx, SM, Diags, type, arraySize, ValDecl,
-                               arrayElem, Refl, AutoBindingSpace, ParentNodeId);
+                               arrayElem, Refl, AutoBindingSpace, ParentNodeId,
+                               DefaultRowMaj);
     }
 
     else if (RecordDecl *RecDecl = dyn_cast<RecordDecl>(it)) {
@@ -2701,17 +2795,33 @@ std::string PrintTypeInfo(const DxcReflectionData &Refl,
   else if (Type.Elements)
     result += "[" + std::to_string(Type.Elements) + "]";
 
-  //Obtain type name (returns empty if it's not a builtin type)
+  // Obtain type name (returns empty if it's not a builtin type)
 
   std::string underlyingTypeName = GetBuiltinTypeName(Refl, Type);
 
-  if (PreviousTypeName != underlyingTypeName)
+  if (PreviousTypeName != underlyingTypeName && underlyingTypeName.size())
     result += " (" + underlyingTypeName + ")";
 
   if (Type.BaseClass != (uint32_t)-1)
     result += " : " + Refl.Strings[Refl.Types[Type.BaseClass].NameId];
 
   return result;
+}
+
+void RecursePrintType(const DxcReflectionData &Refl, uint32_t TypeId,
+                      uint32_t Depth, const char *Prefix = "") {
+
+  const DxcHLSLType &type = Refl.Types[TypeId];
+
+  const std::string &name = Refl.Strings[type.NameId];
+
+  printf("%s%s%s%s\n", std::string(Depth, '\t').c_str(), Prefix, name.c_str(),
+         PrintTypeInfo(Refl, type, name).c_str());
+
+  for (uint32_t i = 0; i < type.Members.size(); ++i) {
+    std::string prefix = Refl.Strings[type.Members[i].NameId] + ": ";
+    RecursePrintType(Refl, type.Members[i].TypeId, Depth + 1, prefix.c_str());
+  }
 }
 
 uint32_t RecursePrint(const DxcReflectionData &Refl, uint32_t NodeId,
@@ -2780,18 +2890,8 @@ uint32_t RecursePrint(const DxcReflectionData &Refl, uint32_t NodeId,
     }
   }
 
-  if (typeToPrint != (uint32_t)-1) {
-
-    const DxcHLSLType &type = Refl.Types[typeToPrint];
-
-    const std::string &name = Refl.Strings[type.NameId];
-
-    printf("%s%s%s\n", std::string(Depth, '\t').c_str(), name.c_str(),
-           PrintTypeInfo(Refl, type, name).c_str());
-
-    for (uint32_t i = 0; i < type.MemberTypes.size(); ++i)
-      RecursePrint(Refl, type.MemberTypes[i], Depth + 1, i);
-  }
+  if (typeToPrint != (uint32_t)-1)
+    RecursePrintType(Refl, typeToPrint, Depth);
 
   for (uint32_t i = 0, j = 0; i < node.ChildCount; ++i, ++j)
     i += RecursePrint(Refl, NodeId + 1 + i, Depth + 1, j);
