@@ -1443,31 +1443,39 @@ struct DxcHLSLMember {
 };
 
 struct DxcHLSLType { // Almost maps to CShaderReflectionType and
-                     // D3D12_SHADER_TYPE_DESC, except tightly packed and
-                     // relatively serializable
-
-  std::vector<DxcHLSLMember> Members;
-
-  uint32_t NameId; // Can be empty
+                     // D3D12_SHADER_TYPE_DESC, but tightly packed and
+                     // easily serializable
+  union {
+    struct {
+      uint32_t MembersCount;
+      uint32_t MembersStart;
+    };
+    uint64_t MembersData;
+  };
 
   union {
     struct {
-      uint8_t Class; // D3D_SHADER_VARIABLE_CLASS
-      uint8_t Type;  // D3D_SHADER_VARIABLE_TYPE
+      uint32_t NameId; // Can be empty
+      uint8_t Class;   // D3D_SHADER_VARIABLE_CLASS
+      uint8_t Type;    // D3D_SHADER_VARIABLE_TYPE
       uint8_t Rows;
       uint8_t Columns;
     };
-    uint32_t ClassTypeRowsColums;
+    uint64_t NameIdClassTypeRowsColums;
   };
 
-  uint32_t ElementsOrArrayId;
-  uint32_t BaseClass; // -1 if none, otherwise a type index
+  union {
+    struct {
+      uint32_t ElementsOrArrayId;
+      uint32_t BaseClass; // -1 if none, otherwise a type index
+    };
+    uint64_t ElementsOrArrayIdBaseClass;
+  };
 
   bool operator==(const DxcHLSLType &Other) const {
-    return Other.NameId == NameId && Other.Members == Members &&
-           ClassTypeRowsColums == Other.ClassTypeRowsColums &&
-           ElementsOrArrayId == Other.ElementsOrArrayId &&
-           BaseClass == Other.BaseClass;
+    return Other.MembersData == MembersData &&
+           NameIdClassTypeRowsColums == Other.NameIdClassTypeRowsColums &&
+           ElementsOrArrayIdBaseClass == Other.ElementsOrArrayIdBaseClass;
   }
 
   bool IsMultiDimensionalArray() const { return ElementsOrArrayId >> 31; }
@@ -1486,11 +1494,11 @@ struct DxcHLSLType { // Almost maps to CShaderReflectionType and
   DxcHLSLType() = default;
   DxcHLSLType(uint32_t NameId, uint32_t BaseClass, uint32_t ElementsOrArrayId,
               D3D_SHADER_VARIABLE_CLASS Class, D3D_SHADER_VARIABLE_TYPE Type,
-              uint8_t Rows, uint8_t Columns,
-              const std::vector<DxcHLSLMember> &Members)
-      : Members(Members), NameId(NameId), Class(Class), Type(Type), Rows(Rows),
-        Columns(Columns), ElementsOrArrayId(ElementsOrArrayId),
-        BaseClass(BaseClass) {
+              uint8_t Rows, uint8_t Columns, uint32_t MembersCount,
+              uint32_t MembersStart)
+      : MembersStart(MembersStart), MembersCount(MembersCount), NameId(NameId),
+        Class(Class), Type(Type), Rows(Rows), Columns(Columns),
+        ElementsOrArrayId(ElementsOrArrayId), BaseClass(BaseClass) {
 
     assert(Class >= D3D_SVC_SCALAR && Class <= D3D_SVC_INTERFACE_POINTER &&
            "Invalid class");
@@ -1533,6 +1541,7 @@ struct DxcReflectionData {
   std::vector<DxcHLSLArray> Arrays;
   std::vector<uint32_t> ArraySizes;
 
+  std::vector<DxcHLSLMember> Members;
   std::vector<DxcHLSLType> Types;
   std::vector<DxcHLSLBuffer> Buffers;
 };
@@ -1941,7 +1950,9 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
 
   D3D_SHADER_VARIABLE_CLASS cls = D3D_SVC_STRUCT;
   uint8_t rows = 0, columns = 0;
-  std::vector<DxcHLSLMember> members;
+
+  uint32_t membersCount = 0;
+  uint32_t membersOffset = 0;
 
   if (const RecordType *record = underlying->getAs<RecordType>()) {
 
@@ -2065,7 +2076,12 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
         uint32_t typeId =
             GenerateTypeInfo(ASTCtx, Refl, original, DefaultRowMaj);
 
-        members.push_back(DxcHLSLMember{nameId, typeId});
+        if (!membersCount)
+          membersOffset = (uint32_t) Refl.Members.size();
+
+        assert(Refl.Members.size() <= (uint32_t)-1 && "Members out of bounds");
+        Refl.Members.push_back(DxcHLSLMember{nameId, typeId});
+        ++membersCount;
       }
     }
   }
@@ -2162,7 +2178,7 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
   assert(Refl.Types.size() < (uint32_t)-1 && "Type id out of bounds");
 
   DxcHLSLType hlslType(nameId, baseClass, elementsOrArrayId, cls, type, rows,
-                   columns, members);
+                   columns, membersCount, membersOffset);
 
   uint32_t i = 0, j = (uint32_t)Refl.Types.size();
 
@@ -2885,9 +2901,10 @@ void RecursePrintType(const DxcReflectionData &Refl, uint32_t TypeId,
   printf("%s%s%s%s\n", std::string(Depth, '\t').c_str(), Prefix, name.c_str(),
          PrintTypeInfo(Refl, type, name).c_str());
 
-  for (uint32_t i = 0; i < type.Members.size(); ++i) {
-    std::string prefix = Refl.Strings[type.Members[i].NameId] + ": ";
-    RecursePrintType(Refl, type.Members[i].TypeId, Depth + 1, prefix.c_str());
+  for (uint32_t i = 0; i < type.MembersCount; ++i) {
+    const DxcHLSLMember &member = Refl.Members[type.MembersStart + i];
+    std::string prefix = Refl.Strings[member.NameId] + ": ";
+    RecursePrintType(Refl, member.TypeId, Depth + 1, prefix.c_str());
   }
 }
 
