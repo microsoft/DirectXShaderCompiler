@@ -1290,38 +1290,160 @@ enum class DxcHLSLNodeType : uint64_t {
   Using,
   Variable,         //localId points to the type for a variable
   Parameter,
-  Type
+  Type,
+
+  Start = Register,
+  End = Type
 };
 
 struct DxcHLSLNode {
 
-  uint32_t NameId;                  // Local name (not including parent's name)
-  uint32_t SourceScopeInfo;         // TODO:
+  union {
+    struct {
+      uint32_t NameId; // Local name (not including parent's name)
 
-  DxcHLSLNodeType NodeType : 4;
-  uint64_t LocalId : 24;            // For example if Enum, maps into Enums[LocalId]
-  uint64_t AnnotationStart : 20;
-  uint64_t FileNameId : 16;         // Index into Sources; 65535 == None
+      uint16_t FileNameId;
+      uint16_t SourceLineCount;
+    };
+    uint64_t NameIdFileNameIdSourceLineCount;
+  };
 
-  uint64_t ChildCount : 24;         // Children start at next node. childCount includes
-                                    // recursive children
-  uint64_t ParentId : 24;
-  uint64_t SourceLineCount : 16;
+  uint64_t LocalIdAnnotationSourceLineStart;
 
-  uint64_t SourceLineStart : 20;    // U20_MAX = No source range
-  uint64_t SourceColumnStart : 17;
-  uint64_t SourceColumnEnd : 17;
-  uint64_t AnnotationCount : 10;
+  uint64_t TypeChildsParentAnnotationsSourceColumnHi;
+
+  union {
+    struct {
+      uint16_t SourceColumnStartLo;
+      uint16_t SourceColumnEndLo;
+      uint32_t Padding;
+    };
+    uint64_t SourceColumnStartEndLo;
+  };
+
+  DxcHLSLNode() = default;
+
+  DxcHLSLNode(uint32_t NameId,
+
+              DxcHLSLNodeType NodeType, uint32_t LocalId,
+              uint32_t AnnotationStart, uint16_t FileNameId,
+
+              uint32_t ChildCount, uint32_t ParentId, uint16_t SourceLineCount,
+
+              uint32_t SourceLineStart, uint32_t SourceColumnStart,
+              uint32_t SourceColumnEnd, uint16_t AnnotationCount)
+      : NameId(NameId), FileNameId(FileNameId),
+        SourceLineCount(SourceLineCount),
+        SourceColumnStartLo(uint16_t(SourceColumnStart)),
+        SourceColumnEndLo(uint16_t(SourceColumnEnd)),
+        LocalIdAnnotationSourceLineStart((uint64_t(LocalId) << (64 - 24)) |
+                                         (uint64_t(AnnotationStart) << 20) |
+                                         SourceLineStart),
+        TypeChildsParentAnnotationsSourceColumnHi((uint64_t(NodeType) << 60) |
+                                                  (uint64_t(ChildCount) << (10 + 2 + 24)) |
+                                                  (uint64_t(AnnotationCount) << (2 + 24)) |
+                                                  (SourceColumnStart >> 16 << 24) |
+                                                  (SourceColumnEnd >> 16 << 25) |
+                                                  (ParentId)) {
+
+    assert(NodeType >= DxcHLSLNodeType::Start &&
+           NodeType <= DxcHLSLNodeType::End && "Invalid enum value");
+
+    assert(LocalId < ((1 << 24) - 1) && "LocalId out of bounds");
+    assert(ParentId < ((1 << 24) - 1) && "ParentId out of bounds");
+    assert(ChildCount < ((1 << 24) - 1) && "ChildCount out of bounds");
+    assert(SourceColumnStart < (1 << 17) && "SourceColumnStart out of bounds");
+    assert(SourceColumnEnd < (1 << 17) && "SourceColumnEnd out of bounds");
+    assert(AnnotationCount < (1 << 10) && "AnnotationCount out of bounds");
+
+    assert(AnnotationStart < ((1 << 20) - 1) &&
+           "AnnotationStart out of bounds");
+
+    assert(SourceLineStart < ((1 << 20) - 1) &&
+           "SourceLineStart out of bounds");
+  }
+
+  // For example if Enum, maps into Enums[LocalId]
+  uint32_t GetLocalId() const {
+    return LocalIdAnnotationSourceLineStart >> (64 - 24);
+  }
+
+  uint32_t GetAnnotationStart() const {
+    return uint32_t(LocalIdAnnotationSourceLineStart << 24 >> (64 - 20));
+  }
+
+  uint32_t GetSourceLineStart() const {
+    return uint32_t(LocalIdAnnotationSourceLineStart & ((1 << 20) - 1));
+  }
+
+  DxcHLSLNodeType GetNodeType() const {
+    return DxcHLSLNodeType(TypeChildsParentAnnotationsSourceColumnHi >> 60);
+  }
+
+  // Includes recursive children
+  uint32_t GetChildCount() const {
+    return uint32_t(TypeChildsParentAnnotationsSourceColumnHi << 4 >>
+                    (64 - 24));
+  }
+
+  uint32_t GetAnnotationCount() const {
+    return uint32_t(TypeChildsParentAnnotationsSourceColumnHi << (4 + 24) >>
+                    (64 - 10));
+  }
+
+  uint32_t GetParentId() const {
+    return uint32_t(TypeChildsParentAnnotationsSourceColumnHi &
+                    ((1 << 24) - 1));
+  }
+
+  uint32_t GetSourceColumnStart() const {
+    return SourceColumnStartLo |
+           ((TypeChildsParentAnnotationsSourceColumnHi & (1 << 24)) >>
+            (24 - 16));
+  }
+
+  uint32_t GetSourceColumnEnd() const {
+    return SourceColumnEndLo |
+           ((TypeChildsParentAnnotationsSourceColumnHi & (1 << 25)) >>
+            (25 - 16));
+  }
+
+  void IncreaseChildCount() {
+    uint32_t childCount = GetChildCount();
+    assert(childCount < ((1 << 24) - 1) && "Child count out of bounds");
+    TypeChildsParentAnnotationsSourceColumnHi += uint64_t(1) << (10 + 2 + 24);
+  }
+
+  bool operator==(const DxcHLSLNode &other) const {
+    return NameIdFileNameIdSourceLineCount ==
+               other.NameIdFileNameIdSourceLineCount &&
+           SourceColumnStartEndLo == other.SourceColumnStartEndLo &&
+           TypeChildsParentAnnotationsSourceColumnHi ==
+               other.TypeChildsParentAnnotationsSourceColumnHi &&
+           LocalIdAnnotationSourceLineStart ==
+               other.LocalIdAnnotationSourceLineStart;
+  }
 };
 
 struct DxcHLSLEnumDesc {
+
   uint32_t NodeId;
   D3D12_HLSL_ENUM_TYPE Type;
+
+  bool operator==(const DxcHLSLEnumDesc &other) const {
+    return NodeId == other.NodeId && Type == other.Type;
+  }
 };
 
 struct DxcHLSLEnumValue {
+
   int64_t Value;
   uint32_t NodeId;
+
+  bool operator==(const DxcHLSLEnumValue &other) const {
+    return Value == other.Value &&
+           NodeId == other.NodeId;
+  }
 };
 
 struct DxcHLSLParameter { // Mirrors D3D12_PARAMETER_DESC (ex.
@@ -1367,25 +1489,53 @@ struct DxcHLSLFunction {
   bool HasDefinition() const {
     return (NumParametersHasReturnAndDefinition >> 31) & 1;
   }
+
+  bool operator==(const DxcHLSLFunction &other) const {
+    return NodeId == other.NodeId &&
+           NumParametersHasReturnAndDefinition ==
+               other.NumParametersHasReturnAndDefinition;
+  }
 };
 
 struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
                          // the Name (and uID replaced with NodeID) and added
                          // arrayIndex and better packing
 
-  uint8_t Type;       // D3D_SHADER_INPUT_TYPE
-  uint8_t Dimension;  // D3D_SRV_DIMENSION
-  uint8_t ReturnType; // D3D_RESOURCE_RETURN_TYPE
-  uint8_t uFlags;
+  union {
+    struct {
+      uint8_t Type;       // D3D_SHADER_INPUT_TYPE
+      uint8_t Dimension;  // D3D_SRV_DIMENSION
+      uint8_t ReturnType; // D3D_RESOURCE_RETURN_TYPE
+      uint8_t uFlags;
 
-  uint32_t BindPoint;
-  uint32_t Space;
-  uint32_t BindCount;
+      uint32_t BindPoint;
+    };
+    uint64_t TypeDimensionReturnTypeFlagsBindPoint;
+  };
 
-  uint32_t NumSamplesOrStride;
-  uint32_t NodeId;
-  uint32_t ArrayId;  // Only if BindCount > 1 and the array is 2D+
-  uint32_t BufferId; // If cbuffer or structured buffer
+  union {
+    struct {
+      uint32_t Space;
+      uint32_t BindCount;
+    };
+    uint64_t SpaceBindCount;
+  };
+
+  union {
+    struct {
+      uint32_t NumSamplesOrStride;
+      uint32_t NodeId;
+    };
+    uint64_t NumSamplesOrStrideNodeId;
+  };
+
+  union {
+    struct {
+      uint32_t ArrayId;  // Only if BindCount > 1 and the array is 2D+
+      uint32_t BufferId; // If cbuffer or structured buffer
+    };
+    uint64_t ArrayIdBufferId;
+  };
 
   DxcHLSLRegister() = default;
   DxcHLSLRegister(D3D_SHADER_INPUT_TYPE Type, uint32_t BindPoint,
@@ -1402,13 +1552,21 @@ struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
     assert(Type >= D3D_SIT_CBUFFER && Type <= D3D_SIT_UAV_FEEDBACKTEXTURE &&
            "Invalid type");
 
-    assert(ReturnType >= 0 &&
-           ReturnType <= D3D_RETURN_TYPE_CONTINUED && "Invalid return type");
+    assert(ReturnType >= 0 && ReturnType <= D3D_RETURN_TYPE_CONTINUED &&
+           "Invalid return type");
 
     assert(Dimension >= D3D_SRV_DIMENSION_UNKNOWN &&
            Dimension <= D3D_SRV_DIMENSION_BUFFEREX && "Invalid srv dimension");
 
     assert(!(uFlags >> 8) && "Invalid user flags");
+  }
+
+  bool operator==(const DxcHLSLRegister &other) const {
+    return TypeDimensionReturnTypeFlagsBindPoint ==
+               other.TypeDimensionReturnTypeFlagsBindPoint &&
+           SpaceBindCount == other.SpaceBindCount &&
+           NumSamplesOrStrideNodeId == other.NumSamplesOrStrideNodeId &&
+           ArrayIdBufferId == other.ArrayIdBufferId;
   }
 };
 
@@ -1514,9 +1672,15 @@ struct DxcRegisterTypeInfo {
   uint32_t SampleCount;
 };
 
-struct DxcHLSLBuffer {     //Almost maps to CShaderReflectionConstantBuffer and D3D12_SHADER_BUFFER_DESC
+struct DxcHLSLBuffer { // Almost maps to CShaderReflectionConstantBuffer and
+                       // D3D12_SHADER_BUFFER_DESC
+
   D3D_CBUFFER_TYPE Type;
   uint32_t NodeId;
+
+  bool operator==(const DxcHLSLBuffer &other) const {
+    return Type == other.Type && NodeId == other.NodeId;
+  }
 };
 
 struct DxcReflectionData {
@@ -1544,12 +1708,28 @@ struct DxcReflectionData {
   std::vector<DxcHLSLMember> Members;
   std::vector<DxcHLSLType> Types;
   std::vector<DxcHLSLBuffer> Buffers;
+
+  void Dump(std::vector<std::byte> &Bytes) const;
+
+  DxcReflectionData() = default;
+  DxcReflectionData(const std::vector<std::byte> &Bytes);
+
+  bool operator==(const DxcReflectionData& other) const {
+    return Strings == other.Strings && Sources == other.Sources &&
+           Nodes == other.Nodes && Registers == other.Registers &&
+           Functions == other.Functions && Enums == other.Enums &&
+           EnumValues == other.EnumValues && Annotations == other.Annotations &&
+           Arrays == other.Arrays && ArraySizes == other.ArraySizes &&
+           Members == other.Members && Types == other.Types &&
+           Buffers == other.Buffers;
+  }
 };
 
 static uint32_t RegisterString(DxcReflectionData &Refl,
     const std::string &Name) {
 
   assert(Refl.Strings.size() < (uint32_t)-1 && "Strings overflow");
+  assert(Name.size() < 32768 && "Strings are limited to 32767");
 
   auto it = Refl.StringsToId.find(Name);
 
@@ -1575,7 +1755,7 @@ static uint32_t PushNextNodeId(DxcReflectionData &Refl, const SourceManager &SM,
   uint32_t nodeId = Refl.Nodes.size();
 
   uint32_t annotationStart = (uint32_t) Refl.Annotations.size();
-  uint32_t annotationCount = 0;
+  uint16_t annotationCount = 0;
 
   if (Decl) {
     for (const Attr *attr : Decl->attrs()) {
@@ -1583,13 +1763,15 @@ static uint32_t PushNextNodeId(DxcReflectionData &Refl, const SourceManager &SM,
         assert(Refl.Annotations.size() < (1 << 20) && "Out of annotations");
         Refl.Annotations.push_back(
             RegisterString(Refl, annotate->getAnnotation().str()));
+        assert(annotationCount != uint16_t(-1) &&
+               "Annotation count out of bounds");
         ++annotationCount;
       }
     }
   }
 
-  uint32_t sourceLineCount = 0;
-  uint32_t sourceLineStart = (1 << 20) - 1;
+  uint16_t sourceLineCount = 0;
+  uint32_t sourceLineStart = 0;
   uint32_t sourceColumnStart = 0;
   uint32_t sourceColumnEnd = 0;
 
@@ -1642,7 +1824,7 @@ static uint32_t PushNextNodeId(DxcReflectionData &Refl, const SourceManager &SM,
       assert(startCol < 131072 && "Column start is limited to 17-bit");
       assert(endCol < 131072 && "Column end is limited to 17-bit");
 
-      sourceLineCount = endLine - startLine + 1;
+      sourceLineCount = uint16_t(endLine - startLine + 1);
       sourceLineStart = startLine;
       sourceColumnStart = startCol;
       sourceColumnEnd = endCol;
@@ -1652,7 +1834,7 @@ static uint32_t PushNextNodeId(DxcReflectionData &Refl, const SourceManager &SM,
 
   uint32_t nameId = RegisterString(Refl, UnqualifiedName);
 
-  Refl.Nodes.push_back({nameId, 0, Type, LocalId, annotationStart, fileNameId,
+  Refl.Nodes.push_back(DxcHLSLNode{nameId, Type, LocalId, annotationStart, fileNameId,
                         0, ParentNodeId, sourceLineCount, sourceLineStart,
                         sourceColumnStart, sourceColumnEnd, annotationCount});
 
@@ -1660,11 +1842,11 @@ static uint32_t PushNextNodeId(DxcReflectionData &Refl, const SourceManager &SM,
 
   while (parentParent != 0) {
     DxcHLSLNode &parent = Refl.Nodes[parentParent];
-    ++parent.ChildCount;
-    parentParent = parent.ParentId;
+    parent.IncreaseChildCount();
+    parentParent = parent.GetParentId();
   }
 
-  ++Refl.Nodes[0].ChildCount;
+  Refl.Nodes[0].IncreaseChildCount();
 
   return nodeId;
 }
@@ -2431,8 +2613,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
   // Traverse AST to grab reflection data
 
-  //TODO: Niels, Annotations, sources, scopes (if/switch/for/empty scope), nodes for tooling, 
-  // flags for determining how heavy reflection should be (e.g. -reflect_hlsl = -reflect_hlsl_registers -reflect_hlsl_cbuffer -reflect_
+  //TODO: Niels, scopes (if/switch/for/empty scope)
 
   for (Decl *it : Ctx.decls()) {
 
@@ -2675,13 +2856,8 @@ static void ReflectHLSL(ASTHelper &astHelper, DxcReflectionData& Refl,
   Refl.Strings.push_back("");
   Refl.StringsToId[""] = 0;
 
-  Refl.Nodes.push_back({
-      0, 0,
-      DxcHLSLNodeType::Namespace,
-      0,
-      0,
-      0xFFFF
-  });
+  Refl.Nodes.push_back(DxcHLSLNode{0, DxcHLSLNodeType::Namespace, 0, 0, 0, 0,
+                                   0xFFFF, 0, 0, 0, 0, 0});
 
   RecursiveReflectHLSL(Ctx, astHelper.compiler.getASTContext(), Diags, SM, Refl,
                        AutoBindingSpace, 0, ReflectMask, 0, DefaultRowMaj);
@@ -2918,17 +3094,20 @@ uint32_t RecursePrint(const DxcReflectionData &Refl, uint32_t NodeId,
   if (NodeId) {
 
     printf("%s%s %s\n", std::string(Depth - 1, '\t').c_str(),
-           NodeTypeToString(node.NodeType).c_str(),
+           NodeTypeToString(node.GetNodeType()).c_str(),
            Refl.Strings[node.NameId].c_str());
 
-    for (uint32_t i = 0; i < node.AnnotationCount; ++i)
+    for (uint32_t i = 0; i < node.GetAnnotationCount(); ++i)
       printf("%s[[%s]]\n", std::string(Depth, '\t').c_str(),
-             Refl.Strings[Refl.Annotations[i]].c_str());
+             Refl.Strings[Refl.Annotations[node.GetAnnotationStart() + i]]
+                 .c_str());
 
-    switch (node.NodeType) {
+    uint32_t localId = node.GetLocalId();
+
+    switch (node.GetNodeType()) {
         
     case DxcHLSLNodeType::Register: {
-      const DxcHLSLRegister &reg = Refl.Registers[node.LocalId];
+      const DxcHLSLRegister &reg = Refl.Registers[localId];
       printf("%s%s : register(%c%u, space%u);\n",
              std::string(Depth, '\t').c_str(),
              RegisterGetArraySize(Refl, reg).c_str(), RegisterGetSpaceChar(reg),
@@ -2937,11 +3116,11 @@ uint32_t RecursePrint(const DxcReflectionData &Refl, uint32_t NodeId,
     }
         
     case DxcHLSLNodeType::Variable:
-      typeToPrint = node.LocalId;
+      typeToPrint = localId;
       break;
 
     case DxcHLSLNodeType::Function: {
-      const DxcHLSLFunction &func = Refl.Functions[node.LocalId];
+      const DxcHLSLFunction &func = Refl.Functions[localId];
       printf("%sreturn: %s, hasDefinition: %s, numParams: %u\n",
              std::string(Depth, '\t').c_str(),
              func.HasReturn() ? "true" : "false",
@@ -2952,12 +3131,12 @@ uint32_t RecursePrint(const DxcReflectionData &Refl, uint32_t NodeId,
 
     case DxcHLSLNodeType::Enum:
       printf("%s: %s\n", std::string(Depth, '\t').c_str(),
-             EnumTypeToString(Refl.Enums[node.LocalId].Type).c_str());
+             EnumTypeToString(Refl.Enums[localId].Type).c_str());
       break;
 
     case DxcHLSLNodeType::EnumValue: {
       printf("%s#%u = %" PRIi64 "\n", std::string(Depth, '\t').c_str(),
-             IndexInParent, Refl.EnumValues[node.LocalId].Value);
+             IndexInParent, Refl.EnumValues[localId].Value);
         break;
     }
 
@@ -2977,11 +3156,240 @@ uint32_t RecursePrint(const DxcReflectionData &Refl, uint32_t NodeId,
   if (typeToPrint != (uint32_t)-1)
     RecursePrintType(Refl, typeToPrint, Depth);
 
-  for (uint32_t i = 0, j = 0; i < node.ChildCount; ++i, ++j)
+  for (uint32_t i = 0, j = 0; i < node.GetChildCount(); ++i, ++j)
     i += RecursePrint(Refl, NodeId + 1 + i, Depth + 1, j);
 
-  return node.ChildCount;
+  return node.GetChildCount();
 }
+
+struct DxcHLSLHeader {
+
+  uint32_t MagicNumber;
+  uint16_t Version;
+  uint16_t Sources;
+
+  uint32_t Strings;
+  uint32_t Nodes;
+
+  uint32_t Registers;
+  uint32_t Functions;
+
+  uint32_t Enums;
+  uint32_t EnumValues;
+
+  uint32_t Annotations;
+  uint32_t Arrays;
+
+  uint32_t ArraySizes;
+  uint32_t Members;
+
+  uint32_t Types;
+  uint32_t Buffers;
+};
+
+template <typename T>
+T &UnsafeCast(std::vector<std::byte> &Bytes, uint64_t Offset) {
+  return *(T *)(Bytes.data() + Offset);
+}
+
+template <typename T>
+const T &UnsafeCast(const std::vector<std::byte> &Bytes, uint64_t Offset) {
+  return *(const T *)(Bytes.data() + Offset);
+}
+
+template <typename T>
+void SkipPadding(uint64_t& Offset) {
+  Offset = (Offset + alignof(T) - 1) / alignof(T) * alignof(T);
+}
+
+template <typename T>
+void Skip(uint64_t& Offset, const std::vector<T>& Vec) {
+  Offset += Vec.size() * sizeof(T);
+}
+
+template <typename T>
+void Advance(uint64_t& Offset, const std::vector<T>& Vec) {
+  SkipPadding<T>(Offset);
+  Skip(Offset, Vec);
+}
+
+template <>
+void Advance<std::string>(uint64_t &Offset,
+                          const std::vector<std::string> &Vec) {
+  for (const std::string &str : Vec) {
+    Offset += str.size() >= 128 ? 2 : 1;
+    Offset += str.size();
+  }
+}
+
+template <typename T, typename T2, typename ...args>
+void Advance(uint64_t& Offset, const std::vector<T>& Vec, const std::vector<T2>& Vec2, args... arg) {
+  Advance(Offset, Vec);
+  Advance(Offset, Vec2, arg...);
+}
+
+template<typename T>
+void Append(std::vector<std::byte> &Bytes, uint64_t &Offset,
+            const std::vector<T> &Vec) {
+  static_assert(std::is_pod_v<T>, "Append only works on POD types");
+  SkipPadding<T>(Offset);
+  std::memcpy(&UnsafeCast<uint8_t>(Bytes, Offset), Vec.data(),
+              Vec.size() * sizeof(T));
+  Skip(Offset, Vec);
+}
+
+template <>
+void Append<std::string>(std::vector<std::byte> &Bytes, uint64_t &Offset,
+                         const std::vector<std::string> &Vec) {
+
+  for (const std::string &str : Vec) {
+
+    if (str.size() >= 128) {
+      UnsafeCast<uint8_t>(Bytes, Offset++) =
+          (uint8_t)(str.size() & 0x7F) | 0x80;
+      UnsafeCast<uint8_t>(Bytes, Offset++) = (uint8_t)(str.size() >> 7);
+    }
+
+    else
+      UnsafeCast<uint8_t>(Bytes, Offset++) = (uint8_t)str.size();
+
+    std::memcpy(&UnsafeCast<char>(Bytes, Offset), str.data(), str.size());
+    Offset += str.size();
+  }
+}
+
+template <typename T, typename T2, typename ...args>
+void Append(std::vector<std::byte> &Bytes, uint64_t &Offset,
+            const std::vector<T> &Vec, const std::vector<T2> &Vec2,
+            args... arg) {
+  Append(Bytes, Offset, Vec);
+  Append(Bytes, Offset, Vec2, arg...);
+}
+
+template <typename T, typename = std::enable_if_t<std::is_pod_v<T>>>
+void Consume(const std::vector<std::byte> &Bytes, uint64_t &Offset, T &t) {
+
+  static_assert(std::is_pod_v<T>, "Consume only works on POD types");
+
+  SkipPadding<T>(Offset);
+
+  if (Offset + sizeof(T) > Bytes.size())
+    throw std::out_of_range("Couldn't consume; out of bounds!");
+
+  std::memcpy(&t, &UnsafeCast<uint8_t>(Bytes, Offset), sizeof(T));
+  Offset += sizeof(T);
+}
+
+template <typename T>
+void Consume(const std::vector<std::byte> &Bytes, uint64_t &Offset, T *target,
+             uint64_t Len) {
+
+  static_assert(std::is_pod_v<T>, "Consume only works on POD types");
+
+  SkipPadding<T>(Offset);
+
+  if (Offset + sizeof(T) * Len > Bytes.size())
+    throw std::out_of_range("Couldn't consume; out of bounds!");
+
+  std::memcpy(target, &UnsafeCast<uint8_t>(Bytes, Offset), sizeof(T) * Len);
+  Offset += sizeof(T) * Len;
+}
+
+template <typename T>
+void Consume(const std::vector<std::byte> &Bytes, uint64_t &Offset,
+            std::vector<T> &Vec, uint64_t Len) {
+  Vec.resize(Len);
+  Consume(Bytes, Offset, Vec.data(), Len);
+}
+
+template <>
+void Consume<std::string>(const std::vector<std::byte> &Bytes, uint64_t &Offset,
+                          std::vector<std::string> &Vec, uint64_t Len) {
+  Vec.resize(Len);
+
+  for (uint64_t i = 0; i < Len; ++i) {
+
+      if (Offset >= Bytes.size())
+        throw std::out_of_range("Couldn't consume string len; out of bounds!");
+  
+      uint16_t ourLen = uint8_t(Bytes.at(Offset++));
+
+      if (ourLen >> 7) {
+
+        if (Offset >= Bytes.size())
+          throw std::out_of_range("Couldn't consume string len; out of bounds!");
+
+        ourLen &= ~(1 << 7);
+        ourLen |= uint16_t(Bytes.at(Offset++)) << 7;
+      }
+
+      if (Offset + ourLen > Bytes.size())
+        throw std::out_of_range("Couldn't consume string len; out of bounds!");
+
+      Vec[i].resize(ourLen);
+      std::memcpy(Vec[i].data(), Bytes.data() + Offset, ourLen);
+      Offset += ourLen;
+  }
+}
+
+template <typename T, typename T2, typename ...args>
+void Consume(const std::vector<std::byte> &Bytes, uint64_t &Offset,
+             std::vector<T> &Vec, uint64_t Len, std::vector<T2> &Vec2,
+             uint64_t Len2, args&... arg) {
+  Consume(Bytes, Offset, Vec, Len);
+  Consume(Bytes, Offset, Vec2, Len2, arg...);
+}
+
+static constexpr uint32_t DxcReflectionDataMagic = DXC_FOURCC('D', 'H', 'R', 'D');
+static constexpr uint16_t DxcReflectionDataVersion = 0;
+
+void DxcReflectionData::Dump(std::vector<std::byte> &Bytes) const {
+
+  uint64_t toReserve = sizeof(DxcHLSLHeader);
+
+  Advance(toReserve, Strings, Sources, Nodes, Registers, Functions, Enums,
+          EnumValues, Annotations, ArraySizes, Members, Types, Buffers);
+
+  Bytes.resize(toReserve);
+
+  toReserve = 0;
+
+  UnsafeCast<DxcHLSLHeader>(Bytes, toReserve) = {
+      DxcReflectionDataMagic,      DxcReflectionDataVersion,
+      uint16_t(Sources.size()),    uint32_t(Strings.size()),
+      uint32_t(Nodes.size()),      uint32_t(Registers.size()),
+      uint32_t(Functions.size()),  uint32_t(Enums.size()),
+      uint32_t(EnumValues.size()), uint32_t(Annotations.size()),
+      uint32_t(Arrays.size()),     uint32_t(ArraySizes.size()),
+      uint32_t(Members.size()),    uint32_t(Types.size()),
+      uint32_t(Buffers.size())};
+
+  toReserve += sizeof(DxcHLSLHeader);
+
+  Append(Bytes, toReserve, Strings, Sources, Nodes, Registers, Functions, Enums, EnumValues, Annotations,
+          ArraySizes, Members, Types, Buffers);
+}
+
+DxcReflectionData::DxcReflectionData(const std::vector<std::byte> &Bytes) {
+
+  uint64_t off = 0;
+  DxcHLSLHeader header;
+  Consume<DxcHLSLHeader>(Bytes, off, header);
+
+  if (header.MagicNumber != DxcReflectionDataMagic)
+    throw std::invalid_argument("Invalid magic number");
+
+  if (header.Version != DxcReflectionDataVersion)
+    throw std::invalid_argument("Unrecognized version number");
+
+  Consume(Bytes, off, Strings, header.Strings, Sources, header.Sources, Nodes, header.Nodes, Registers,
+          header.Registers, Functions, header.Functions, Enums, header.Enums,
+          EnumValues, header.EnumValues, Annotations, header.Annotations, ArraySizes, header.ArraySizes, Members,
+          header.Members, Types, header.Types, Buffers, header.Buffers);
+
+  //TODO: Run validation!!!
+
+};
 
 static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
                                LPCSTR pFileName, ASTUnit::RemappedFile *pRemap,
@@ -3031,7 +3439,14 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
 
     RecursePrint(Refl, 0, 0, 0);
 
-    printf("%p\n", &Refl);
+    std::vector<std::byte> bytes;
+    Refl.Dump(bytes);
+
+    DxcReflectionData Deserialized(bytes);
+
+    assert(Deserialized == Refl && "Dump or Deserialize doesn't match");
+
+    printf("Reflection size: %" PRIu64 "\n", bytes.size());
   }
 
   if (opts.RWOpt.SkipStatic && opts.RWOpt.SkipFunctionBody) {
