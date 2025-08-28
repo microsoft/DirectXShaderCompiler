@@ -1341,43 +1341,95 @@ struct DxcHLSLParameter { // Mirrors D3D12_PARAMETER_DESC (ex.
 };
 
 struct DxcHLSLFunction {
+
   uint32_t NodeId;
-  uint32_t NumParameters : 30;
-  uint32_t HasReturn : 1;
-  uint32_t HasDefinition : 1;
+  uint32_t NumParametersHasReturnAndDefinition;
+
+  DxcHLSLFunction() = default;
+
+  DxcHLSLFunction(uint32_t NodeId, uint32_t NumParameters, bool HasReturn,
+                  bool HasDefinition)
+      : NumParametersHasReturnAndDefinition(NumParameters |
+                                            (HasReturn ? (1 << 30) : 0) |
+                                            (HasDefinition ? (1 << 31) : 0)) {
+
+    assert(NumParameters < (1 << 30) && "NumParameters out of bounds");
+  }
+
+  uint32_t GetNumParameters() const {
+    return NumParametersHasReturnAndDefinition << 2 >> 2;
+  }
+
+  bool HasReturn() const {
+    return (NumParametersHasReturnAndDefinition >> 30) & 1;
+  }
+
+  bool HasDefinition() const {
+    return (NumParametersHasReturnAndDefinition >> 31) & 1;
+  }
 };
 
 struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
                          // the Name (and uID replaced with NodeID) and added
-                         // arrayIndex
+                         // arrayIndex and better packing
 
-  D3D_SHADER_INPUT_TYPE Type; // Type of resource (e.g. texture, cbuffer, etc.)
-  uint32_t BindPoint;         // Starting bind point
-  uint32_t BindCount;         // Number of contiguous bind points (for arrays)
+  uint8_t Type;       // D3D_SHADER_INPUT_TYPE
+  uint8_t Dimension;  // D3D_SRV_DIMENSION
+  uint8_t ReturnType; // D3D_RESOURCE_RETURN_TYPE
+  uint8_t uFlags;
 
-  uint32_t uFlags;                     // Input binding flags
-  D3D_RESOURCE_RETURN_TYPE ReturnType; // Return type (if texture)
-  D3D_SRV_DIMENSION Dimension;         // Dimension (if texture)
-  uint32_t NumSamples; // Number of samples (0 if not MS texture)
-  uint32_t Space;      // Register space
+  uint32_t BindPoint;
+  uint32_t Space;
+  uint32_t BindCount;
+
+  uint32_t NumSamplesOrStride;
   uint32_t NodeId;
-  uint32_t ArrayId;  // Only accessible if BindCount > 1 and the array is multi
-                     // dimensional
-  uint32_t BufferId; //If cbuffer or structured buffer
+  uint32_t ArrayId;  // Only if BindCount > 1 and the array is 2D+
+  uint32_t BufferId; // If cbuffer or structured buffer
+
+  DxcHLSLRegister() = default;
+  DxcHLSLRegister(D3D_SHADER_INPUT_TYPE Type, uint32_t BindPoint,
+                  uint32_t BindCount, uint32_t uFlags,
+                  D3D_RESOURCE_RETURN_TYPE ReturnType,
+                  D3D_SRV_DIMENSION Dimension, uint32_t NumSamples,
+                  uint32_t Space, uint32_t NodeId, uint32_t ArrayId,
+                  uint32_t BufferId)
+      : Type(Type), BindPoint(BindPoint), BindCount(BindCount), uFlags(uFlags),
+        ReturnType(ReturnType), Dimension(Dimension),
+        NumSamplesOrStride(NumSamples), Space(Space), NodeId(NodeId),
+        ArrayId(ArrayId), BufferId(BufferId) {
+
+    assert(Type >= D3D_SIT_CBUFFER && Type <= D3D_SIT_UAV_FEEDBACKTEXTURE &&
+           "Invalid type");
+
+    assert(ReturnType >= 0 &&
+           ReturnType <= D3D_RETURN_TYPE_CONTINUED && "Invalid return type");
+
+    assert(Dimension >= D3D_SRV_DIMENSION_UNKNOWN &&
+           Dimension <= D3D_SRV_DIMENSION_BUFFEREX && "Invalid srv dimension");
+
+    assert(!(uFlags >> 8) && "Invalid user flags");
+  }
 };
 
-union DxcHLSLArray {
+struct DxcHLSLArray {
 
-  struct {
-    uint32_t ArrayElem : 4;   // Array of up to 8 deep (like spirv)
-    uint32_t ArrayStart : 28; // Index into ArraySizes with ArraySize
-  };
+  uint32_t ArrayElemStart;
 
-  uint32_t Data;
+  DxcHLSLArray() = default;
+  DxcHLSLArray(uint32_t ArrayElem, uint32_t ArrayStart)
+      : ArrayElemStart((ArrayElem << 28) | ArrayStart) {
+
+    assert(ArrayElem <= 8 && ArrayElem > 1 && "ArrayElem out of bounds");
+    assert(ArrayStart < (1 << 28) && "ArrayStart out of bounds");
+  }
 
   bool operator==(const DxcHLSLArray &Other) const {
-    return Other.Data == Data;
+    return Other.ArrayElemStart == ArrayElemStart;
   }
+
+  uint32_t ArrayElem() const { return ArrayElemStart >> 28; }
+  uint32_t ArrayStart() const { return ArrayElemStart << 4 >> 4; }
 };
 
 struct DxcHLSLMember {
@@ -1394,31 +1446,21 @@ struct DxcHLSLType { // Almost maps to CShaderReflectionType and
                      // D3D12_SHADER_TYPE_DESC, except tightly packed and
                      // relatively serializable
 
-  uint32_t NameId;   //Can be empty
   std::vector<DxcHLSLMember> Members;
+
+  uint32_t NameId; // Can be empty
 
   union {
     struct {
-      D3D_SHADER_VARIABLE_CLASS Class : 8;
-      D3D_SHADER_VARIABLE_TYPE Type : 8;
-      uint32_t Rows : 8;
-      uint32_t Columns : 8;
+      uint8_t Class; // D3D_SHADER_VARIABLE_CLASS
+      uint8_t Type;  // D3D_SHADER_VARIABLE_TYPE
+      uint8_t Rows;
+      uint8_t Columns;
     };
     uint32_t ClassTypeRowsColums;
   };
 
-  union {
-    uint32_t ElementsOrArrayId;
-    struct {
-      uint32_t HasArrayInfo0 : 1; // If 0, 1D array with size of Elements
-      uint32_t Elements : 31;     // Number of elements (0 if not an array)
-    };
-    struct {
-      uint32_t HasArrayInfo1 : 1; // If 1, nD array at Refl.Arrays[ArrayId]
-      uint32_t ArrayId : 31;      // Array id
-    };
-  };
-
+  uint32_t ElementsOrArrayId;
   uint32_t BaseClass; // -1 if none, otherwise a type index
 
   bool operator==(const DxcHLSLType &Other) const {
@@ -1428,7 +1470,32 @@ struct DxcHLSLType { // Almost maps to CShaderReflectionType and
            BaseClass == Other.BaseClass;
   }
 
+  bool IsMultiDimensionalArray() const { return ElementsOrArrayId >> 31; }
+  bool IsArray() const { return ElementsOrArrayId; }
+  bool Is1DArray() const { return IsArray() && !IsMultiDimensionalArray(); }
+
+  uint32_t Get1DElements() const {
+    return IsMultiDimensionalArray() ? 0 : ElementsOrArrayId;
+  }
+
+  uint32_t GetMultiDimensionalArrayId() const {
+    return IsMultiDimensionalArray() ? (ElementsOrArrayId << 1 >> 1)
+                                     : (uint32_t)-1;
+  }
+
   DxcHLSLType() = default;
+  DxcHLSLType(uint32_t NameId, uint32_t BaseClass, uint32_t ElementsOrArrayId,
+              D3D_SHADER_VARIABLE_CLASS Class, D3D_SHADER_VARIABLE_TYPE Type,
+              uint8_t Rows, uint8_t Columns,
+              const std::vector<DxcHLSLMember> &Members)
+      : Members(Members), NameId(NameId), Class(Class), Type(Type), Rows(Rows),
+        Columns(Columns), ElementsOrArrayId(ElementsOrArrayId),
+        BaseClass(BaseClass) {
+
+    assert(Class >= D3D_SVC_SCALAR && Class <= D3D_SVC_INTERFACE_POINTER &&
+           "Invalid class");
+    assert(Type >= D3D_SVT_VOID && Type <= D3D_SVT_UINT64 && "Invalid type");
+  }
 };
 
 struct DxcRegisterTypeInfo {
@@ -1460,7 +1527,7 @@ struct DxcReflectionData {
   std::vector<DxcHLSLEnumDesc> Enums;
   std::vector<DxcHLSLEnumValue> EnumValues;
 
-  std::vector<DxcHLSLParameter> Parameters;
+  //std::vector<DxcHLSLParameter> Parameters;
   std::vector<uint32_t> Annotations;
 
   std::vector<DxcHLSLArray> Arrays;
@@ -1836,8 +1903,6 @@ static uint32_t PushArray(DxcReflectionData &Refl, uint32_t ArraySizeFlat,
 uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
                           QualType Original, bool DefaultRowMaj) {
 
-  DxcHLSLType type = {};
-
   // Unwrap array
 
   uint32_t arraySize = 1;
@@ -1862,23 +1927,21 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
   policy.AnonymousTagLocations = false;
   policy.SuppressTagKeyword = true; 
 
-  type.NameId = RegisterString(Refl, forName.getLocalUnqualifiedType().getAsString(policy));
-
+  uint32_t nameId = RegisterString(Refl, forName.getLocalUnqualifiedType().getAsString(policy));
   uint32_t arrayId = PushArray(Refl, arraySize, arrayElem);
+  uint32_t elementsOrArrayId = 0;
 
-  if (arrayId != (uint32_t)-1) {
-    type.HasArrayInfo1 = 1;
-    type.ArrayId = arrayId;
-  }
+  if (arrayId != (uint32_t)-1)
+    elementsOrArrayId = (1u << 31) | arrayId;
 
-  else {
-    type.HasArrayInfo1 = 0;
-    type.Elements = arraySize > 1 ? arraySize : 0;
-  }
+  else
+    elementsOrArrayId = arraySize > 1 ? arraySize : 0;
 
   //Unwrap vector and matrix
 
-  type.Class = D3D_SVC_STRUCT;
+  D3D_SHADER_VARIABLE_CLASS cls = D3D_SVC_STRUCT;
+  uint8_t rows = 0, columns = 0;
+  std::vector<DxcHLSLMember> members;
 
   if (const RecordType *record = underlying->getAs<RecordType>()) {
 
@@ -1908,15 +1971,15 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
 
         if (subs == "or") {
 
-          type.Rows = 1;
+          rows = 1;
 
           assert(params.size() == 2 && !params[0].getAsType().isNull() &&
                  params[1].getKind() == TemplateArgument::Integral &&
                  "Expected vector to be vector<T, N>");
 
           underlying = params[0].getAsType();
-          type.Columns = params[1].getAsIntegral().getSExtValue();
-          type.Class = D3D_SVC_VECTOR;
+          columns = params[1].getAsIntegral().getSExtValue();
+          cls = D3D_SVC_VECTOR;
           standardType = true;
         }
 
@@ -1932,21 +1995,17 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
                  "Expected matrix to be matrix<T, R, C>");
 
           underlying = params[0].getAsType();
-          type.Columns = params[1].getAsIntegral().getSExtValue();
-          type.Rows = params[2].getAsIntegral().getSExtValue();
+          columns = params[1].getAsIntegral().getSExtValue();
+          rows = params[2].getAsIntegral().getSExtValue();
 
           bool isRowMajor = DefaultRowMaj;
 
           HasHLSLMatOrientation(Original, &isRowMajor);
 
-          if (!isRowMajor) {
-            uint32_t rows = type.Rows;
-            type.Rows = type.Columns;
-            type.Columns = rows;
-          }
+          if (!isRowMajor)
+            std::swap(rows, columns);
 
-          type.Class =
-              isRowMajor ? D3D_SVC_MATRIX_ROWS : D3D_SVC_MATRIX_COLUMNS;
+          cls = isRowMajor ? D3D_SVC_MATRIX_ROWS : D3D_SVC_MATRIX_COLUMNS;
           standardType = true;
         }
 
@@ -2006,86 +2065,88 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
         uint32_t typeId =
             GenerateTypeInfo(ASTCtx, Refl, original, DefaultRowMaj);
 
-        type.Members.push_back(DxcHLSLMember{nameId, typeId});
+        members.push_back(DxcHLSLMember{nameId, typeId});
       }
     }
   }
 
   //Type name
 
+  D3D_SHADER_VARIABLE_TYPE type = D3D_SVT_VOID;
+
   if (const BuiltinType *bt = dyn_cast<BuiltinType>(underlying)) {
 
-    if (!type.Rows)
-      type.Rows = type.Columns = 1;
+    if (!rows)
+      rows = columns = 1;
 
-    if (type.Class == D3D_SVC_STRUCT)
-      type.Class = D3D_SVC_SCALAR;
+    if (cls == D3D_SVC_STRUCT)
+      cls = D3D_SVC_SCALAR;
 
     switch (bt->getKind()) {
 
     case BuiltinType::Void:
-      type.Type = D3D_SVT_VOID;
+      type = D3D_SVT_VOID;
       break;
 
     case BuiltinType::Min10Float:
-      type.Type = D3D_SVT_MIN10FLOAT;
+      type = D3D_SVT_MIN10FLOAT;
       break;
 
     case BuiltinType::Min16Float:
-      type.Type = D3D_SVT_MIN16FLOAT;
+      type = D3D_SVT_MIN16FLOAT;
       break;
 
     case BuiltinType::HalfFloat:
     case BuiltinType::Half:
-      type.Type = D3D_SVT_FLOAT16;
+      type = D3D_SVT_FLOAT16;
       break;
 
     case BuiltinType::Short:
-      type.Type = D3D_SVT_INT16;
+      type = D3D_SVT_INT16;
       break;
 
     case BuiltinType::Min12Int:
-      type.Type = D3D_SVT_MIN12INT;
+      type = D3D_SVT_MIN12INT;
       break;
 
     case BuiltinType::Min16Int:
-      type.Type = D3D_SVT_MIN16INT;
+      type = D3D_SVT_MIN16INT;
       break;
 
     case BuiltinType::Min16UInt:
-      type.Type = D3D_SVT_MIN16UINT;
+      type = D3D_SVT_MIN16UINT;
       break;
 
     case BuiltinType::UShort:
-      type.Type = D3D_SVT_UINT16;
+      type = D3D_SVT_UINT16;
       break;
 
     case BuiltinType::Float:
-      type.Type = D3D_SVT_FLOAT;
+      type = D3D_SVT_FLOAT;
       break;
 
     case BuiltinType::Int:
-      type.Type = D3D_SVT_INT;
+      type = D3D_SVT_INT;
       break;
 
     case BuiltinType::UInt:
-      type.Type = D3D_SVT_UINT;
+      type = D3D_SVT_UINT;
       break;
 
     case BuiltinType::Bool:
-      type.Type = D3D_SVT_BOOL;
+      type = D3D_SVT_BOOL;
       break;
 
     case BuiltinType::Double:
-      type.Type = D3D_SVT_DOUBLE;
+      type = D3D_SVT_DOUBLE;
       break;
 
     case BuiltinType::ULongLong:
-      type.Type = D3D_SVT_UINT64;
+      type = D3D_SVT_UINT64;
       break;
 
     case BuiltinType::LongLong:
-      type.Type = D3D_SVT_INT64;
+      type = D3D_SVT_INT64;
       break;
 
     default:
@@ -2096,18 +2157,21 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
 
   //TODO: Base class
 
-  type.BaseClass = (uint32_t) -1;
+  uint32_t baseClass = (uint32_t) -1;
 
   assert(Refl.Types.size() < (uint32_t)-1 && "Type id out of bounds");
+
+  DxcHLSLType hlslType(nameId, baseClass, elementsOrArrayId, cls, type, rows,
+                   columns, members);
 
   uint32_t i = 0, j = (uint32_t)Refl.Types.size();
 
   for (; i < j; ++i)
-    if (Refl.Types[i] == type)
+    if (Refl.Types[i] == hlslType)
       break;
 
   if (i == j)
-    Refl.Types.push_back(type);
+    Refl.Types.push_back(hlslType);
 
   return i;
 }
@@ -2154,7 +2218,9 @@ static void FillReflectionRegisterAt(
       reg->RegisterSpace.hasValue() ? reg->RegisterSpace.getValue()
                                     : AutoBindingSpace,
       nodeId,
-      arrayId};
+      arrayId,
+      0
+  };
 
   Refl.Registers.push_back(regD3D12);
 
@@ -2653,8 +2719,8 @@ std::string RegisterGetArraySize(const DxcReflectionData &Refl, const DxcHLSLReg
     DxcHLSLArray arr = Refl.Arrays[reg.ArrayId];
     std::string str;
 
-    for (uint32_t i = 0; i < arr.ArrayElem; ++i)
-      str += "[" + std::to_string(Refl.ArraySizes[arr.ArrayStart + i]) + "]";
+    for (uint32_t i = 0; i < arr.ArrayElem(); ++i)
+      str += "[" + std::to_string(Refl.ArraySizes[arr.ArrayStart() + i]) + "]";
 
     return str;
   }
@@ -2783,17 +2849,18 @@ std::string PrintTypeInfo(const DxcReflectionData &Refl,
 
   std::string result;
 
-  if (Type.HasArrayInfo1) {
+  if (Type.IsMultiDimensionalArray()) {
 
-    const DxcHLSLArray &arr = Refl.Arrays[Type.ArrayId];
+    const DxcHLSLArray &arr = Refl.Arrays[Type.GetMultiDimensionalArrayId()];
 
-    for (uint32_t i = 0; i < arr.ArrayElem; ++i)
-      result += "[" + std::to_string(Refl.ArraySizes[arr.ArrayStart + i]) + "]";
+    for (uint32_t i = 0; i < arr.ArrayElem(); ++i)
+      result +=
+          "[" + std::to_string(Refl.ArraySizes[arr.ArrayStart() + i]) + "]";
 
   }
 
-  else if (Type.Elements)
-    result += "[" + std::to_string(Type.Elements) + "]";
+  else if (Type.IsArray())
+    result += "[" + std::to_string(Type.Get1DElements()) + "]";
 
   // Obtain type name (returns empty if it's not a builtin type)
 
@@ -2860,8 +2927,8 @@ uint32_t RecursePrint(const DxcReflectionData &Refl, uint32_t NodeId,
       const DxcHLSLFunction &func = Refl.Functions[node.LocalId];
       printf("%sreturn: %s, hasDefinition: %s, numParams: %u\n",
              std::string(Depth, '\t').c_str(),
-             func.HasReturn ? "true" : "false",
-             func.HasDefinition ? "true" : "false", func.NumParameters);
+             func.HasReturn() ? "true" : "false",
+             func.HasDefinition() ? "true" : "false", func.GetNumParameters());
 
       break;
     }
