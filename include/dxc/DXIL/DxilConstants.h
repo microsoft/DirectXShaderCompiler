@@ -496,18 +496,18 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 // Enumeration for operations specified by DXIL
 enum class OpCode : unsigned {
   //
-  Reserved0 = 226,   // Reserved
-  Reserved1 = 227,   // Reserved
-  Reserved10 = 236,  // Reserved
-  Reserved11 = 237,  // Reserved
-  Reserved2 = 228,   // Reserved
-  Reserved3 = 229,   // Reserved
-  Reserved4 = 230,   // Reserved
-  Reserved5 = 231,   // Reserved
-  Reserved6 = 232,   // Reserved
-  Reserved7 = 233,   // Reserved
-  Reserved8 = 234,   // Reserved
-  Reserved9 = 235,   // Reserved
+  Reserved0 = 226,   // reserved
+  Reserved1 = 227,   // reserved
+  Reserved10 = 236,  // reserved
+  Reserved11 = 237,  // reserved
+  Reserved2 = 228,   // reserved
+  Reserved3 = 229,   // reserved
+  Reserved4 = 230,   // reserved
+  Reserved5 = 231,   // reserved
+  Reserved6 = 232,   // reserved
+  Reserved7 = 233,   // reserved
+  Reserved8 = 234,   // reserved
+  Reserved9 = 235,   // reserved
   ReservedA0 = 259,  // reserved
   ReservedA1 = 260,  // reserved
   ReservedA2 = 261,  // reserved
