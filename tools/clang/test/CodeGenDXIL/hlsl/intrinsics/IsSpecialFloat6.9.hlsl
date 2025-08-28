@@ -1,6 +1,7 @@
 // RUN: %dxc -T lib_6_9 -enable-16bit-types -DFUNC=isnan %s | FileCheck %s
 // RUN: %dxc -T lib_6_9 -enable-16bit-types -DFUNC=isinf %s | FileCheck %s
 // RUN: %dxc -T lib_6_9 -enable-16bit-types -DFUNC=isfinite %s | FileCheck %s
+// RUN: %dxc -T lib_6_9 -enable-16bit-types -DFUNC=isnormal %s | FileCheck %s
 
 // CHECK-LABEL: test_func
 // CHECK:  call i1 @dx.op.isSpecialFloat.f16(i32 [[OP:[0-9]*]], half

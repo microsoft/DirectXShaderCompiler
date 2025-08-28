@@ -1280,6 +1280,13 @@ bool isUintOrVecOfUintType(QualType type) {
          elemType->isUnsignedIntegerType();
 }
 
+/// Returns true if the given type is a half or vector of half type.
+bool isHalfOrVecOfHalfType(QualType type) {
+  QualType elemType = {};
+  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
+         elemType->isHalfType();
+}
+
 /// Returns true if the given type is a float or vector of float type.
 bool isFloatOrVecOfFloatType(QualType type) {
   QualType elemType = {};

@@ -7450,6 +7450,7 @@ IntrinsicLower gLowerTable[] = {
      TranslateOuterProductAccumulate, DXIL::OpCode::OuterProductAccumulate},
     {IntrinsicOp::IOP___builtin_VectorAccumulate, TranslateVectorAccumulate,
      DXIL::OpCode::VectorAccumulate},
+    {IntrinsicOp::IOP_isnormal, TrivialIsSpecialFloat, DXIL::OpCode::IsNormal},
 };
 } // namespace
 static_assert(

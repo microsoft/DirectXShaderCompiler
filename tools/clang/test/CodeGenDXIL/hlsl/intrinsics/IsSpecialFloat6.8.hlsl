@@ -35,3 +35,14 @@ export bool test_isnan(half h) {
 export bool test_isfinite(half h) {
   return isfinite(h);
 }
+
+// CHECK-LABEL: test_isnormal
+// CHECK: [[V1:%.*]] = bitcast half {{.*}} to i16
+// CHECK: [[V2:%.*]] = and i16 [[V1]], 31744
+// CHECK: [[V3:%.*]] = icmp ne i16 [[V2]], 0
+// CHECK: [[V4:%.*]] = icmp ne i16 [[V2]], 31744
+// CHECK: [[V5:%.*]] = and i1 [[V3]], [[V4]]
+// CHECK: ret i1 [[V5]]
+export bool test_isnormal(half h) {
+  return isnormal(h);
+}

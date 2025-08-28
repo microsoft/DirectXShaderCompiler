@@ -639,6 +639,9 @@ private:
   /// Processes the 'isFinite' intrinsic function.
   SpirvInstruction *processIntrinsicIsFinite(const CallExpr *);
 
+  /// Processes the 'isNormal' intrinsic function.
+  SpirvInstruction *processIntrinsicIsNormal(const CallExpr *);
+
   /// Processes the 'rcp' intrinsic function.
   SpirvInstruction *processIntrinsicRcp(const CallExpr *);
 
