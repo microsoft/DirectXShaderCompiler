@@ -12382,17 +12382,11 @@ SpirvEmitter::processIntrinsicIsNormal(const CallExpr *callExpr) {
     auto *masked = spvBuilder.createBinaryOp(spv::Op::OpBitwiseAnd, intTy,
                                              bitCast, expMask, loc, range);
     masked->setLayoutRule(SpirvLayoutRule::Void);
-    auto *eqZero = spvBuilder.createBinaryOp(spv::Op::OpIEqual, boolTy, masked,
-                                             zero, loc, range);
-    eqZero->setLayoutRule(SpirvLayoutRule::Void);
-    auto *eqOnes = spvBuilder.createBinaryOp(spv::Op::OpIEqual, boolTy, masked,
-                                             expMask, loc, range);
-    eqOnes->setLayoutRule(SpirvLayoutRule::Void);
-    auto *notZero = spvBuilder.createUnaryOp(spv::Op::OpLogicalNot, boolTy,
-                                             eqZero, loc, range);
+    auto *notZero = spvBuilder.createBinaryOp(spv::Op::OpINotEqual, boolTy,
+                                              masked, zero, loc, range);
     notZero->setLayoutRule(SpirvLayoutRule::Void);
-    auto *notOnes = spvBuilder.createUnaryOp(spv::Op::OpLogicalNot, boolTy,
-                                             eqOnes, loc, range);
+    auto *notOnes = spvBuilder.createBinaryOp(spv::Op::OpINotEqual, boolTy,
+                                              masked, expMask, loc, range);
     notOnes->setLayoutRule(SpirvLayoutRule::Void);
     auto *isNormal = spvBuilder.createBinaryOp(spv::Op::OpLogicalAnd, boolTy,
                                                notZero, notOnes, loc, range);
