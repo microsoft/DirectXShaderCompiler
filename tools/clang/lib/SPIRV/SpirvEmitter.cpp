@@ -1942,7 +1942,7 @@ void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
         bufferDecl,
         DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferKHR);
   } else {
-    (void)declIdMapper.createCTBuffer(bufferDecl);
+    declIdMapper.createCTBuffer(bufferDecl);
   }
 }
 
