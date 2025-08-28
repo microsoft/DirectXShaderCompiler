@@ -458,13 +458,10 @@ Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode,
   }
 
   // Cannot add name to void.
-  if (RetTy->isVoidTy()) {
+  if (RetTy->isVoidTy())
     return Builder.CreateCall(dxilFunc, args);
-  }
 
-  Value *retVal =
-      Builder.CreateCall(dxilFunc, args, hlslOP->GetOpCodeName(opcode));
-  return retVal;
+  return Builder.CreateCall(dxilFunc, args, hlslOP->GetOpCodeName(opcode));
 }
 
 // Creates a native vector call to for a "trivial" operation where only a single
@@ -748,7 +745,7 @@ Value *TranslateD3DColorToUByte4(CallInst *CI, IntrinsicOp IOP,
 
     toByteConst = ConstantVector::getSplat(supportedVecElemCount, toByteConst);
     // Swizzle the input val -> val.zyxw
-    std::vector<int> mask{2, 1, 0, 3};
+    SmallVector<int, 4> mask{2, 1, 0, 3};
     val = Builder.CreateShuffleVector(val, val, mask);
   }
 
@@ -874,13 +871,11 @@ Value *TranslatePowImpl(hlsl::OP *hlslOP, IRBuilder<> &Builder, Value *x,
   // As applicable implement pow using only mul ops as done by Fxc.
   int32_t p = 0;
   if (CanUseFxcMulOnlyPatternForPow(Builder, x, y, p)) {
-    if (isFXCCompatMode) {
+    if (isFXCCompatMode)
       return TranslatePowUsingFxcMulOnlyPattern(Builder, x, p);
-    }
-    if (p == 2) {
-      // Only take care 2 for it will not affect register pressure.
+    // Only take care 2 for it will not affect register pressure.
+    if (p == 2)
       return Builder.CreateFMul(x, x);
-    }
   }
 
   // Default to log-mul-exp pattern if previous scenarios don't apply.
@@ -1858,9 +1853,8 @@ Value *TranslateAsUint(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                        HLOperationLowerHelper &helper,
                        HLObjectOperationLowerHelper *pObjHelper,
                        bool &Translated) {
-  if (CI->getNumArgOperands() == 2) {
+  if (CI->getNumArgOperands() == 2)
     return TranslateBitcast(CI, IOP, opcode, helper, pObjHelper, Translated);
-  }
 
   DXASSERT_NOMSG(CI->getNumArgOperands() == 4);
   hlsl::OP *hlslOP = &helper.hlslOP;
