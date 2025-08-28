@@ -746,8 +746,7 @@ Value *TranslateD3DColorToUByte4(CallInst *CI, IntrinsicOp IOP,
       return UndefValue::get(CI->getType());
     }
 
-    toByteConst =
-        ConstantVector::getSplat(supportedVecElemCount, toByteConst);
+    toByteConst = ConstantVector::getSplat(supportedVecElemCount, toByteConst);
     // Swizzle the input val -> val.zyxw
     std::vector<int> mask{2, 1, 0, 3};
     val = Builder.CreateShuffleVector(val, val, mask);
