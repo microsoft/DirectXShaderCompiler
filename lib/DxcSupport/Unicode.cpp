@@ -64,7 +64,7 @@ int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
     isNullTerminated = true;
   }
 
-  if (rv == (size_t)-1) {
+  if (rv == ~(size_t)0) {
     // mbstowcs returns -1 on error.
     SetLastError(ERROR_INVALID_PARAMETER);
     return 0;
@@ -127,7 +127,7 @@ int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
     isNullTerminated = true;
   }
 
-  if (rv == (size_t)-1) {
+  if (rv == ~(size_t)0) {
     // wcstombs returns -1 on error.
     SetLastError(ERROR_INVALID_PARAMETER);
     return 0;
@@ -147,7 +147,7 @@ namespace Unicode {
 
 bool WideToEncodedString(const wchar_t *text, size_t cWide, DWORD cp,
                          DWORD flags, std::string *pValue, bool *lossy) {
-  DXASSERT_NOMSG(cWide == (size_t)-1 || cWide < INT32_MAX);
+  DXASSERT_NOMSG(cWide == ~(size_t)0 || cWide < INT32_MAX);
   BOOL usedDefaultChar;
   LPBOOL pUsedDefaultChar = (lossy == nullptr) ? nullptr : &usedDefaultChar;
   if (lossy != nullptr)
@@ -173,7 +173,7 @@ bool WideToEncodedString(const wchar_t *text, size_t cWide, DWORD cp,
                                  &(*pValue)[0], pValue->size(), nullptr,
                                  pUsedDefaultChar);
   DXASSERT(cbUTF8 > 0, "otherwise contents have changed");
-  if ((cWide == (size_t)-1 || text[cWide - 1] == L'\0') &&
+  if ((cWide == ~(size_t)0 || text[cWide - 1] == L'\0') &&
       (*pValue)[pValue->size() - 1] == '\0') {
     // When the input is null-terminated, the output includes the null
     // terminator. Reduce the size by 1 to remove the embedded null terminator
@@ -194,7 +194,7 @@ bool UTF8ToWideString(const char *pUTF8, std::wstring *pWide) {
 
 bool UTF8ToWideString(const char *pUTF8, size_t cbUTF8, std::wstring *pWide) {
   DXASSERT_NOMSG(pWide != nullptr);
-  DXASSERT_NOMSG(cbUTF8 == (size_t)-1 || cbUTF8 < INT32_MAX);
+  DXASSERT_NOMSG(cbUTF8 == ~(size_t)0 || cbUTF8 < INT32_MAX);
 
   // Handle zero-length as a special case; it's a special value to indicate
   // errors in MultiByteToWideChar.
@@ -214,7 +214,7 @@ bool UTF8ToWideString(const char *pUTF8, size_t cbUTF8, std::wstring *pWide) {
                                 static_cast<int>(cbUTF8), &(*pWide)[0],
                                 pWide->size());
   DXASSERT(cWide > 0, "otherwise contents changed");
-  if ((cbUTF8 == (size_t)-1 || pUTF8[cbUTF8 - 1] == '\0') &&
+  if ((cbUTF8 == ~(size_t)0 || pUTF8[cbUTF8 - 1] == '\0') &&
       (*pWide)[pWide->size() - 1] == '\0') {
     // When the input is null-terminated, the output includes the null
     // terminator. Reduce the size by 1 to remove the embedded null terminator
@@ -249,7 +249,7 @@ bool UTF8ToConsoleString(const char *text, size_t textLen, std::string *pValue,
 }
 
 bool UTF8ToConsoleString(const char *text, std::string *pValue, bool *lossy) {
-  return UTF8ToConsoleString(text, (size_t)-1, pValue, lossy);
+  return UTF8ToConsoleString(text, ~(size_t)0, pValue, lossy);
 }
 
 bool WideToConsoleString(const wchar_t *text, size_t textLen,
@@ -262,7 +262,7 @@ bool WideToConsoleString(const wchar_t *text, size_t textLen,
 
 bool WideToConsoleString(const wchar_t *text, std::string *pValue,
                          bool *lossy) {
-  return WideToConsoleString(text, (size_t)-1, pValue, lossy);
+  return WideToConsoleString(text, ~(size_t)0, pValue, lossy);
 }
 
 bool WideToUTF8String(const wchar_t *pWide, size_t cWide, std::string *pUTF8) {
@@ -274,7 +274,7 @@ bool WideToUTF8String(const wchar_t *pWide, size_t cWide, std::string *pUTF8) {
 bool WideToUTF8String(const wchar_t *pWide, std::string *pUTF8) {
   DXASSERT_NOMSG(pWide != nullptr);
   DXASSERT_NOMSG(pUTF8 != nullptr);
-  return WideToEncodedString(pWide, (size_t)-1, CP_UTF8, 0, pUTF8, nullptr);
+  return WideToEncodedString(pWide, ~(size_t)0, CP_UTF8, 0, pUTF8, nullptr);
 }
 
 std::string WideToUTF8StringOrThrow(const wchar_t *pWide) {
