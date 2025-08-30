@@ -1702,11 +1702,16 @@ struct DxcReflectionData {
   std::vector<uint32_t> MemberNameIds;
   std::vector<uint32_t> TypeNameIds;
 
+  std::unordered_map<std::string, uint32_t> FullyResolvedToNodeId;
+  std::vector<std::string> NodeIdToFullyResolved;
+  std::unordered_map<std::string, uint32_t> FullyResolvedToMemberId;
+
   void Dump(std::vector<std::byte> &Bytes) const;
   void StripSymbols();
+  bool GenerateNameLookupTable();
 
   DxcReflectionData() = default;
-  DxcReflectionData(const std::vector<std::byte> &Bytes);
+  DxcReflectionData(const std::vector<std::byte> &Bytes, bool MakeNameLookupTable);
 
   bool IsSameNonDebug(const DxcReflectionData &other) const {
     return StringsNonDebug == other.StringsNonDebug && Nodes == other.Nodes &&
@@ -3443,11 +3448,87 @@ static constexpr uint16_t DxcReflectionDataVersion = 0;
 
 void DxcReflectionData::StripSymbols() {
   Strings.clear();
+  StringsToId.clear();
   Sources.clear();
+  StringToSourceId.clear();
+  FullyResolvedToNodeId.clear();
+  NodeIdToFullyResolved.clear();
+  FullyResolvedToMemberId.clear();
   NodeSymbols.clear();
   TypeNameIds.clear();
   MemberNameIds.clear();
   Features &= ~D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
+}
+
+void RecurseNameGenerationType(DxcReflectionData &Refl, uint32_t TypeId,
+                               uint32_t LocalId, const std::string &Parent) {
+
+  const DxcHLSLType &type = Refl.Types[TypeId];
+
+  if (type.Class == D3D_SVC_STRUCT)
+      for (uint32_t i = 0; i < type.GetMemberCount(); ++i) {
+
+        uint32_t memberId = i + type.GetMemberStart();
+        std::string memberName =
+            Parent + "." + Refl.Strings[Refl.MemberNameIds[memberId]];
+
+        Refl.FullyResolvedToMemberId[memberName] = memberId;
+
+        RecurseNameGenerationType(Refl, Refl.MemberTypeIds[memberId], i,
+                                  memberName);
+      }
+}
+
+uint32_t RecurseNameGeneration(DxcReflectionData &Refl, uint32_t NodeId,
+                               uint32_t LocalId, const std::string &Parent,
+                               bool IsDot) {
+
+  const DxcHLSLNode &node = Refl.Nodes[NodeId];
+  std::string self = Refl.Strings[Refl.NodeSymbols[NodeId].NameId];
+
+  if (self.empty() && NodeId)
+      self = std::to_string(LocalId);
+
+  self = Parent.empty() ? self : Parent + (IsDot ? "." : "::") + self;
+  Refl.FullyResolvedToNodeId[self] = NodeId;
+  Refl.NodeIdToFullyResolved[NodeId] = self;
+
+  bool isDotChild = node.GetNodeType() == DxcHLSLNodeType::Register;
+  bool isVar = node.GetNodeType() == DxcHLSLNodeType::Variable;
+
+  for (uint32_t i = 0, j = 0; i < node.GetChildCount(); ++i, ++j)
+      i += RecurseNameGeneration(Refl, NodeId + 1 + i, j, self, isDotChild);
+
+  if (isVar) {
+
+      uint32_t typeId = node.GetLocalId();
+      const DxcHLSLType &type = Refl.Types[typeId];
+
+      if (type.Class == D3D_SVC_STRUCT)
+        for (uint32_t i = 0; i < type.GetMemberCount(); ++i) {
+
+          uint32_t memberId = i + type.GetMemberStart();
+          std::string memberName =
+              self + "." + Refl.Strings[Refl.MemberNameIds[memberId]];
+
+          Refl.FullyResolvedToMemberId[memberName] = memberId;
+
+          RecurseNameGenerationType(Refl, Refl.MemberTypeIds[memberId], i,
+                                    memberName);
+        }
+  }
+
+  return node.GetChildCount();
+}
+
+bool DxcReflectionData::GenerateNameLookupTable() {
+
+  if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO) || Nodes.empty())
+      return false;
+
+  NodeIdToFullyResolved.resize(Nodes.size());
+  RecurseNameGeneration(*this, 0, 0, "", false);
+  return true;
 }
 
 void DxcReflectionData::Dump(std::vector<std::byte> &Bytes) const {
@@ -3480,7 +3561,8 @@ void DxcReflectionData::Dump(std::vector<std::byte> &Bytes) const {
          MemberNameIds, Types, TypeNameIds, Buffers);
 }
 
-DxcReflectionData::DxcReflectionData(const std::vector<std::byte> &Bytes) {
+DxcReflectionData::DxcReflectionData(const std::vector<std::byte> &Bytes,
+                                     bool MakeNameLookupTable) {
 
   uint64_t off = 0;
   DxcHLSLHeader header;
@@ -3842,6 +3924,9 @@ DxcReflectionData::DxcReflectionData(const std::vector<std::byte> &Bytes) {
                                   " has an invalid class");
     }
   }
+
+  if (MakeNameLookupTable)
+    GenerateNameLookupTable();
 };
 
 static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
@@ -3892,35 +3977,35 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
 
     //Reflect
 
-    DxcReflectionData Refl;
-    ReflectHLSL(astHelper, Refl, opts.AutoBindingSpace, reflectMask,
+    DxcReflectionData refl;
+    ReflectHLSL(astHelper, refl, opts.AutoBindingSpace, reflectMask,
                 opts.DefaultRowMajor);
 
     //Print
 
-    RecursePrint(Refl, 0, 0, 0);
+    RecursePrint(refl, 0, 0, 0);
 
     //Test serialization
 
     std::vector<std::byte> bytes;
-    Refl.Dump(bytes);
+    refl.Dump(bytes);
 
-    DxcReflectionData Deserialized(bytes);
+    DxcReflectionData deserialized(bytes, true);
 
-    assert(Deserialized == Refl && "Dump or Deserialize doesn't match");
+    assert(deserialized == refl && "Dump or Deserialize doesn't match");
 
     printf("Reflection size: %" PRIu64 "\n", bytes.size());
 
     //Test stripping symbols
 
-    Refl.StripSymbols();
-    RecursePrint(Refl, 0, 0, 0);
+    refl.StripSymbols();
+    RecursePrint(refl, 0, 0, 0);
 
-    Refl.Dump(bytes);
+    refl.Dump(bytes);
 
-    Deserialized = bytes;
+    deserialized = DxcReflectionData(bytes, false);
 
-    assert(Deserialized == Refl && "Dump or Deserialize doesn't match");
+    assert(deserialized == refl && "Dump or Deserialize doesn't match");
 
     printf("Stripped reflection size: %" PRIu64 "\n", bytes.size());
   }
