@@ -1359,8 +1359,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
         Args.hasFlag(OPT_rw_reflect_hlsl_namespaces, OPT_INVALID, false);
     opts.RWOpt.ReflectHLSLUserTypes =
         Args.hasFlag(OPT_rw_reflect_hlsl_user_types, OPT_INVALID, false);
-    opts.RWOpt.ReflectHLSLFunctionInternals =
-        Args.hasFlag(OPT_rw_reflect_hlsl_function_internals, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLScopes =
+        Args.hasFlag(OPT_rw_reflect_hlsl_scopes, OPT_INVALID, false);
     opts.RWOpt.ReflectHLSLVariables =
         Args.hasFlag(OPT_rw_reflect_hlsl_variables, OPT_INVALID, false);
     opts.RWOpt.SkipFunctionBody =

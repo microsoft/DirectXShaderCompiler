@@ -76,7 +76,28 @@ struct IDxcRewriter2 : public IDxcRewriter {
 //You could use it to find all entrypoints even if [shader("")] isn't used,
 //Find struct/enum information, find out about optimized out registers, etc.
 
+enum D3D12_HLSL_REFLECTION_FEATURE {
+
+  D3D12_HLSL_REFLECTION_FEATURE_NONE = 0,
+
+  // Includes cbuffer and registers only
+  D3D12_HLSL_REFLECTION_FEATURE_BASICS = 1 << 0,
+
+  D3D12_HLSL_REFLECTION_FEATURE_FUNCTIONS = 1 << 1,
+  D3D12_HLSL_REFLECTION_FEATURE_NAMESPACES = 1 << 2,
+
+  // Include user types (struct, enum, typedef, etc.)
+  D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES = 1 << 3,
+
+  // Variables, structs, functions defined in functions, scopes & structs
+  D3D12_HLSL_REFLECTION_FEATURE_SCOPES = 1 << 4,
+
+  // Variables not included in $Global or cbuffers
+  D3D12_HLSL_REFLECTION_FEATURE_VARIABLES = 1 << 5
+};
+
 struct D3D12_HLSL_REFLECTION_DESC {
+  D3D12_HLSL_REFLECTION_FEATURE Features;
   UINT ConstantBufferCount;
   UINT ResourceCount;
   UINT FunctionCount;

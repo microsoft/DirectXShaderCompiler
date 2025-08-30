@@ -1079,8 +1079,6 @@ using UnresolvedRegisters = llvm::SmallVector<UnresolvedRegister, 8>;
 
 // Find gap in register list and fill it
 
-//TODO: Niels, check multi dim arrays
-
 uint32_t FillNextRegister(llvm::SmallVector<RegisterRange, 8> &ranges,
                           uint32_t arraySize) {
 
@@ -1685,6 +1683,8 @@ struct DxcHLSLBuffer { // Almost maps to CShaderReflectionConstantBuffer and
 };
 
 struct DxcReflectionData {
+
+  D3D12_HLSL_REFLECTION_FEATURE Features;
 
   std::vector<std::string> Strings;
   std::unordered_map<std::string, uint32_t> StringsToId;
@@ -2607,18 +2607,9 @@ static void AddFunctionParameters(ASTContext &ASTCtx, QualType Type, Decl *Decl,
   //It's a struct, add parameters recursively
 }*/
 
-enum ReflectionMask : uint32_t {
-  ReflectionMask_None               = 0,
-  ReflectionMask_Basics             = 1 << 0,     //Includes cbuffer and registers
-  ReflectionMask_Functions          = 1 << 1,
-  ReflectionMask_Namespaces         = 1 << 2,
-  ReflectionMask_UserTypes          = 1 << 3,     //Include user types (struct, enum, typedef, etc.)
-  ReflectionMask_FunctionInternals  = 1 << 4,     //Variables, structs, functions defined in functions
-  ReflectionMask_Variables          = 1 << 5      //Variables not included in $Global or cbuffers
-};
-
-ReflectionMask& operator|=(ReflectionMask &a, ReflectionMask b) {
-  return a = (ReflectionMask)((uint32_t)a | (uint32_t)b);
+D3D12_HLSL_REFLECTION_FEATURE &operator|=(D3D12_HLSL_REFLECTION_FEATURE &a,
+                                          D3D12_HLSL_REFLECTION_FEATURE b) {
+  return a = (D3D12_HLSL_REFLECTION_FEATURE)((uint32_t)a | (uint32_t)b);
 }
 
 static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
@@ -2627,7 +2618,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
                                  DxcReflectionData &Refl,
                                  uint32_t AutoBindingSpace,
                                  uint32_t Depth,
-                                 ReflectionMask InclusionFlags,
+                                 D3D12_HLSL_REFLECTION_FEATURE Features,
                                  uint32_t ParentNodeId, bool DefaultRowMaj) {
 
   PrintfStream pfStream;
@@ -2654,7 +2645,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     if (HLSLBufferDecl *CBuffer = dyn_cast<HLSLBufferDecl>(it)) {
 
-      if(!(InclusionFlags & ReflectionMask_Basics))
+      if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_BASICS))
         continue;
       
       // TODO: Add for reflection even though it might not be important
@@ -2706,7 +2697,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (FunctionDecl *Func = dyn_cast<FunctionDecl>(it)) {
 
-      if (!(InclusionFlags & ReflectionMask_Functions))
+      if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_FUNCTIONS))
         continue;
 
       const FunctionDecl *Definition = nullptr;
@@ -2732,16 +2723,16 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
       Refl.Functions.push_back(std::move(func));
 
-      if (hasDefinition && (InclusionFlags & ReflectionMask_FunctionInternals)) {
+      if (hasDefinition && (Features & D3D12_HLSL_REFLECTION_FEATURE_SCOPES)) {
         RecursiveReflectHLSL(*Definition, ASTCtx, Diags, SM, Refl,
-                             AutoBindingSpace, Depth + 1, InclusionFlags,
+                             AutoBindingSpace, Depth + 1, Features,
                              nodeId, DefaultRowMaj);
       }
     }
 
     else if (FieldDecl *Field = dyn_cast<FieldDecl>(it)) {
 
-      if (!(InclusionFlags & ReflectionMask_UserTypes))
+      if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
         continue;
 
       //Field->print(pfStream, printingPolicy);
@@ -2749,7 +2740,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (TypedefDecl *Typedef = dyn_cast<TypedefDecl>(it)) {
 
-      if (!(InclusionFlags & ReflectionMask_UserTypes))
+      if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
         continue;
 
       // Typedef->print(pfStream, printingPolicy);
@@ -2757,7 +2748,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (TypeAliasDecl *TypeAlias = dyn_cast<TypeAliasDecl>(it)) {
 
-      if (!(InclusionFlags & ReflectionMask_UserTypes))
+      if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
         continue;
 
       // TypeAlias->print(pfStream, printingPolicy);
@@ -2765,7 +2756,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (EnumDecl *Enum = dyn_cast<EnumDecl>(it)) {
 
-      if (!(InclusionFlags & ReflectionMask_UserTypes))
+      if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
         continue;
 
       uint32_t nodeId = PushNextNodeId(
@@ -2818,7 +2809,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (ValueDecl *ValDecl = dyn_cast<ValueDecl>(it)) {
 
-      if(!(InclusionFlags & ReflectionMask_Basics))
+      if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_BASICS))
         continue;
 
       //TODO: Handle values
@@ -2852,7 +2843,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (RecordDecl *RecDecl = dyn_cast<RecordDecl>(it)) {
 
-      if (!(InclusionFlags & ReflectionMask_UserTypes))
+      if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
         continue;
 
       //RecDecl->print(pfStream, printingPolicy);
@@ -2862,7 +2853,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
     else if (NamespaceDecl *Namespace = dyn_cast<NamespaceDecl>(it)) {
 
-      if (!(InclusionFlags & ReflectionMask_Namespaces))
+      if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_NAMESPACES))
         continue;
 
       uint32_t nodeId = PushNextNodeId(
@@ -2870,20 +2861,23 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
           DxcHLSLNodeType::Namespace, ParentNodeId, 0);
 
       RecursiveReflectHLSL(*Namespace, ASTCtx, Diags, SM, Refl,
-                           AutoBindingSpace, Depth + 1, InclusionFlags, nodeId,
+                           AutoBindingSpace, Depth + 1, Features, nodeId,
                            DefaultRowMaj);
     }
   }
 }
 
 static void ReflectHLSL(ASTHelper &astHelper, DxcReflectionData& Refl,
-                        uint32_t AutoBindingSpace, ReflectionMask ReflectMask,
+                        uint32_t AutoBindingSpace,
+                        D3D12_HLSL_REFLECTION_FEATURE Features,
                         bool DefaultRowMaj) {
 
   TranslationUnitDecl &Ctx = *astHelper.tu;
   DiagnosticsEngine &Diags = Ctx.getParentASTContext().getDiagnostics();
   const SourceManager &SM = astHelper.compiler.getSourceManager();
 
+  Refl = {};
+  Refl.Features = Features;
   Refl.Strings.push_back("");
   Refl.StringsToId[""] = 0;
 
@@ -2891,7 +2885,7 @@ static void ReflectHLSL(ASTHelper &astHelper, DxcReflectionData& Refl,
                                    0xFFFF, 0, 0, 0, 0, 0});
 
   RecursiveReflectHLSL(Ctx, astHelper.compiler.getASTContext(), Diags, SM, Refl,
-                       AutoBindingSpace, 0, ReflectMask, 0, DefaultRowMaj);
+                       AutoBindingSpace, 0, Features, 0, DefaultRowMaj);
 }
 
 static void GlobalVariableAsExternByDefault(DeclContext &Ctx) {
@@ -3199,6 +3193,8 @@ struct DxcHLSLHeader {
   uint16_t Version;
   uint16_t Sources;
 
+  D3D12_HLSL_REFLECTION_FEATURE Features;
+
   uint32_t Strings;
   uint32_t Nodes;
 
@@ -3387,7 +3383,7 @@ void DxcReflectionData::Dump(std::vector<std::byte> &Bytes) const {
 
   UnsafeCast<DxcHLSLHeader>(Bytes, toReserve) = {
       DxcReflectionDataMagic,      DxcReflectionDataVersion,
-      uint16_t(Sources.size()),    uint32_t(Strings.size()),
+      uint16_t(Sources.size()),    Features, uint32_t(Strings.size()),
       uint32_t(Nodes.size()),      uint32_t(Registers.size()),
       uint32_t(Functions.size()),  uint32_t(Enums.size()),
       uint32_t(EnumValues.size()), uint32_t(Annotations.size()),
@@ -3412,6 +3408,8 @@ DxcReflectionData::DxcReflectionData(const std::vector<std::byte> &Bytes) {
 
   if (header.Version != DxcReflectionDataVersion)
     throw std::invalid_argument("Unrecognized version number");
+
+  Features = header.Features;
 
   Consume(Bytes, off, Strings, header.Strings, Sources, header.Sources, Nodes, header.Nodes, Registers,
           header.Registers, Functions, header.Functions, Enums, header.Enums,
@@ -3767,25 +3765,26 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
     GenerateConsistentBindings(*tu, opts.AutoBindingSpace);
   }
 
-  ReflectionMask reflectMask = ReflectionMask_None;
+  D3D12_HLSL_REFLECTION_FEATURE reflectMask =
+      D3D12_HLSL_REFLECTION_FEATURE_NONE;
 
   if(opts.RWOpt.ReflectHLSLBasics)
-    reflectMask |= ReflectionMask_Basics;
+    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_BASICS;
 
   if(opts.RWOpt.ReflectHLSLFunctions)
-    reflectMask |= ReflectionMask_Functions;
+    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_FUNCTIONS;
 
   if(opts.RWOpt.ReflectHLSLNamespaces)
-    reflectMask |= ReflectionMask_Namespaces;
+    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_NAMESPACES;
 
   if(opts.RWOpt.ReflectHLSLUserTypes)
-    reflectMask |= ReflectionMask_UserTypes;
+    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES;
 
-  if(opts.RWOpt.ReflectHLSLFunctionInternals)
-    reflectMask |= ReflectionMask_FunctionInternals;
+  if(opts.RWOpt.ReflectHLSLScopes)
+    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SCOPES;
 
   if(opts.RWOpt.ReflectHLSLVariables)
-    reflectMask |= ReflectionMask_Variables;
+    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_VARIABLES;
 
   if (reflectMask) {
 
@@ -3823,7 +3822,8 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
                                  opts.RWOpt.RemoveUnusedFunctions, w);
     if (FAILED(hr))
       return hr;
-  } else if (!opts.RWOpt.ConsistentBindings && (reflectMask & ReflectionMask_Basics)) {
+  } else if (!opts.RWOpt.ConsistentBindings &&
+             (reflectMask & D3D12_HLSL_REFLECTION_FEATURE_BASICS)) {
     o << "// Rewrite unchanged result:\n";
   }
 

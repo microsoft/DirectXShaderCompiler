@@ -573,8 +573,8 @@ def rw_reflect_hlsl_namespaces : Flag<["-", "/"], "reflect-hlsl-namespaces">, Gr
   HelpText<"Reflect HLSL nodes in namespaces rather than only the root namespace.">;
 def rw_reflect_hlsl_user_types : Flag<["-", "/"], "reflect-hlsl-user-types">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Reflect HLSL user types (typedef, using, struct, enum).">;
-def rw_reflect_hlsl_function_internals : Flag<["-", "/"], "reflect-hlsl-function-internals">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
-  HelpText<"Reflect HLSL function internals (variables and structs defined in functions).">;
+def rw_reflect_hlsl_scopes : Flag<["-", "/"], "reflect-hlsl-scopes">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Reflect HLSL scopes (variables and structs defined in functions, structs and scopes).">;
 def rw_reflect_hlsl_variables : Flag<["-", "/"], "reflect-hlsl-variables">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Reflect HLSL static variables.">;
 def rw_skip_function_body : Flag<["-", "/"], "skip-fn-body">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
