@@ -1523,10 +1523,10 @@ struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
 
   union {
     struct {
-      uint32_t NumSamplesOrStride;
+      uint32_t NumSamples;
       uint32_t NodeId;
     };
-    uint64_t NumSamplesOrStrideNodeId;
+    uint64_t NumSamplesNodeId;
   };
 
   union {
@@ -1546,7 +1546,7 @@ struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
                   uint32_t BufferId)
       : Type(Type), BindPoint(BindPoint), BindCount(BindCount), uFlags(uFlags),
         ReturnType(ReturnType), Dimension(Dimension),
-        NumSamplesOrStride(NumSamples), Space(Space), NodeId(NodeId),
+        NumSamples(NumSamples), Space(Space), NodeId(NodeId),
         ArrayId(ArrayId), BufferId(BufferId) {
 
     assert(Type >= D3D_SIT_CBUFFER && Type <= D3D_SIT_UAV_FEEDBACKTEXTURE &&
@@ -1565,7 +1565,7 @@ struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
     return TypeDimensionReturnTypeFlagsBindPoint ==
                other.TypeDimensionReturnTypeFlagsBindPoint &&
            SpaceBindCount == other.SpaceBindCount &&
-           NumSamplesOrStrideNodeId == other.NumSamplesOrStrideNodeId &&
+           NumSamplesNodeId == other.NumSamplesNodeId &&
            ArrayIdBufferId == other.ArrayIdBufferId;
   }
 };
@@ -2404,6 +2404,30 @@ static void FillReflectionRegisterAt(
 
   uint32_t arrayId = PushArray(Refl, ArraySizeFlat, ArraySize);
 
+  uint32_t bufferId = 0;
+  D3D_CBUFFER_TYPE bufferType = D3D_CT_INTERFACE_POINTERS;  //Invalid
+
+  switch(inputType.registerType) {
+    
+  case D3D_SIT_CBUFFER:
+  case D3D_SIT_TBUFFER:
+    bufferType = D3D_CT_CBUFFER;
+    break;
+
+  case D3D_SIT_STRUCTURED:
+  case D3D_SIT_UAV_RWSTRUCTURED:
+  case D3D_SIT_UAV_APPEND_STRUCTURED:
+  case D3D_SIT_UAV_CONSUME_STRUCTURED:
+  case D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER:
+    bufferType = D3D_CT_RESOURCE_BIND_INFO;
+    break;
+  }
+  
+  if(bufferType != D3D_CT_INTERFACE_POINTERS) {
+    Refl.Buffers.push_back({bufferType, nodeId});
+    bufferId = (uint32_t) Refl.Buffers.size();
+  }
+
   DxcHLSLRegister regD3D12 = {
 
       inputType.RegisterType,
@@ -2417,7 +2441,7 @@ static void FillReflectionRegisterAt(
                                     : AutoBindingSpace,
       nodeId,
       arrayId,
-      0
+      bufferId
   };
 
   Refl.Registers.push_back(regD3D12);
@@ -3386,6 +3410,159 @@ DxcReflectionData::DxcReflectionData(const std::vector<std::byte> &Bytes) {
           header.Registers, Functions, header.Functions, Enums, header.Enums,
           EnumValues, header.EnumValues, Annotations, header.Annotations, ArraySizes, header.ArraySizes, Members,
           header.Members, Types, header.Types, Buffers, header.Buffers);
+
+  //Validation errors are throws to prevent accessing invalid data
+
+  for(uint32_t i = 0; i < header.Sources; ++i)
+    if(Sources[i] >= header.Strings)
+      throw std::invalid_argument("Source path out of bounds");
+
+  for(uint32_t i = 0; i < header.Nodes; ++i) {
+
+    const DxcHLSLNode &node = Nodes[i];
+
+    if(
+      node.NameId >= header.Strings || 
+      node.FileNameId >= header.Sources ||
+      node.GetAnnotationStart() + node.GetAnnotationCount() > header.Annotations ||
+      node.GetNodeType() > DxcHLSLNodeType::End ||
+      (i && node.GetParentId() >= i) ||
+      i + node.GetChildCount() > header.Nodes
+    )
+      throw std::invalid_argument("Node " + std::to_string(i) + " is invalid");
+
+    uint32_t maxValue = 1;
+
+    switch(node.GetNodeType()) {
+      case DxcHLSLNodeType::Register:
+        maxValue = header.Registers;
+        break;
+      case DxcHLSLNodeType::Function:
+        maxValue = header.Functions;
+        break;
+      case DxcHLSLNodeType::Enum:
+        maxValue = header.Enums;
+        break;
+      case DxcHLSLNodeType::EnumValue:
+        maxValue = header.EnumValues;
+        break;
+      case DxcHLSLNodeType::Typedef:
+      case DxcHLSLNodeType::Using:
+      case DxcHLSLNodeType::Type:
+        maxValue = header.Types;
+        break;
+      case DxcHLSLNodeType::Variable:
+        maxValue = header.Variables;
+        break;
+      case DxcHLSLNodeType::Parameter:
+        throw std::invalid_argument("Node " + std::to_string(i) + " has unsupported 'parameter' type");
+        break;
+    }
+
+    if(node.GetLocalId() >= maxValue)
+      throw std::invalid_argument("Node " + std::to_string(i) + " has invalid localId");
+  }
+
+  for(uint32_t i = 0; i < header.Registers; ++i) {
+
+    const DxcHLSLRegister &reg = Registers[i];
+
+    if(
+      reg.NodeId >= header.Nodes || 
+      Nodes[reg.NodeId].GetNodeType() != DxcHLSLNodeType::Register ||
+      Nodes[reg.NodeId].GetLocalId() != i
+    )
+      throw std::invalid_argument("Register " + std::to_string(i) + " points to an invalid nodeId");
+
+    if(
+      reg.Type > D3D_SIT_UAV_FEEDBACKTEXTURE ||
+      reg.ReturnType > D3D_RETURN_TYPE_CONTINUED ||
+      reg.Dimension > D3D_SRV_DIMENSION_BUFFEREX ||
+      !reg.BindCount ||
+      (reg.BindCount > 1 && reg.ArrayId >= header.Arrays)
+    )
+      throw std::invalid_argument("Register " + std::to_string(i) + " invalid type, returnType, bindCount or dimension");
+    
+  D3D_CBUFFER_TYPE bufferType = D3D_CT_INTERFACE_POINTERS;  //Invalid
+
+    switch(reg.Type) {
+      
+    case D3D_SIT_CBUFFER:
+    case D3D_SIT_TBUFFER:
+      bufferType = D3D_CT_CBUFFER;
+      break;
+
+    case D3D_SIT_STRUCTURED:
+    case D3D_SIT_UAV_RWSTRUCTURED:
+    case D3D_SIT_UAV_APPEND_STRUCTURED:
+    case D3D_SIT_UAV_CONSUME_STRUCTURED:
+    case D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER:
+      bufferType = D3D_CT_RESOURCE_BIND_INFO;
+      break;
+    }
+
+    //Check buffer
+
+    if(bufferType != D3D_CT_INTERFACE_POINTERS) {
+
+      if(
+        reg.BufferId >= header.Buffers ||
+        Buffers[reg.BufferId].NodeId != reg.NodeId ||
+        Buffers[reg.BufferId].Type !+ bufferType
+      )
+      throw std::invalid_argument("Register " + std::to_string(i) + " invalid buffer referenced by register");
+
+    }
+  }
+
+  for(uint32_t i = 0; i < header.Functions; ++i) {
+    
+    const DxcHLSLFunction &func = Functions[i];
+
+    if(
+      func.NodeId >= header.Nodes || 
+      Nodes[func.NodeId].GetNodeType() != DxcHLSLNodeType::Function ||
+      Nodes[func.NodeId].GetLocalId() != i
+    )
+      throw std::invalid_argument("Function " + std::to_string(i) + " points to an invalid nodeId");
+  }
+
+  for(uint32_t i = 0; i < header.Enums; ++i) {
+    
+    const DxcHLSLEnumDesc &enm = Enums[i];
+
+    if(
+      enm.NodeId >= header.Nodes || 
+      Nodes[enm.NodeId].GetNodeType() != DxcHLSLNodeType::Enum ||
+      Nodes[enm.NodeId].GetLocalId() != i
+    )
+      throw std::invalid_argument("Function " + std::to_string(i) + " points to an invalid nodeId");
+
+    if(enm.Type < D3D12_HLSL_ENUM_TYPE_START || enm.Type > D3D12_HLSL_ENUM_TYPE_END)
+      throw std::invalid_argument("Enum " + std::to_string(i) + " has an invalid type");
+  }
+
+  EnumValues, Array, ArraySizes, Members,
+          Types
+
+  for(uint32_t i = 0; i < header.Annotations; ++i)
+    if(Annotations[i] >= header.Strings)
+      throw std::invalid_argument("Annotation " + std::to_string(i) + " points to an invalid string");
+
+  for(uint32_t i = 0; i < header.Buffers; ++i) {
+    
+    const DxcHLSLBuffer &buf = Buffers[i];
+
+    if(
+      buf.NodeId >= header.Nodes || 
+      Nodes[buf.NodeId].GetNodeType() != DxcHLSLNodeType::Buffer ||
+      Nodes[buf.NodeId].GetLocalId() != i
+    )
+      throw std::invalid_argument("Buffer " + std::to_string(i) + " points to an invalid nodeId");
+  }
+
+  //TODO: Ensure EnumValue is a child of Enum
+  //      Ensure Variable is a child of Buffer?
 
   //TODO: Run validation!!!
 
