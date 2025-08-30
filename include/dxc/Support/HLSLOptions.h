@@ -110,6 +110,7 @@ struct RewriterOpts {
   bool ReflectHLSLUserTypes = false;          // OPT_rw_reflect_hlsl_user_types
   bool ReflectHLSLScopes = false;             // OPT_rw_reflect_hlsl_scopes
   bool ReflectHLSLVariables = false;          // OPT_rw_reflect_hlsl_variables
+  bool ReflectHLSLDisableSymbols = false;     // OPT_rw_reflect_hlsl_disable_symbols
   bool SkipFunctionBody = false;              // OPT_rw_skip_function_body
   bool SkipStatic = false;                    // OPT_rw_skip_static
   bool GlobalExternByDefault = false;         // OPT_rw_global_extern_by_default

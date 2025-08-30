@@ -577,6 +577,8 @@ def rw_reflect_hlsl_scopes : Flag<["-", "/"], "reflect-hlsl-scopes">, Group<hlsl
   HelpText<"Reflect HLSL scopes (variables and structs defined in functions, structs and scopes).">;
 def rw_reflect_hlsl_variables : Flag<["-", "/"], "reflect-hlsl-variables">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Reflect HLSL static variables.">;
+def rw_reflect_hlsl_disable_symbols : Flag<["-", "/"], "reflect-hlsl-disable-symbols">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Reflect HLSL disable symbols.">;
 def rw_skip_function_body : Flag<["-", "/"], "skip-fn-body">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Translate function definitions to declarations">;
 def rw_skip_static : Flag<["-", "/"], "skip-static">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,

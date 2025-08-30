@@ -93,7 +93,10 @@ enum D3D12_HLSL_REFLECTION_FEATURE {
   D3D12_HLSL_REFLECTION_FEATURE_SCOPES = 1 << 4,
 
   // Variables not included in $Global or cbuffers
-  D3D12_HLSL_REFLECTION_FEATURE_VARIABLES = 1 << 5
+  D3D12_HLSL_REFLECTION_FEATURE_VARIABLES = 1 << 5,
+
+  // Symbol info (stripping this will remove names and file location info)
+  D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO = 1 << 6
 };
 
 struct D3D12_HLSL_REFLECTION_DESC {
