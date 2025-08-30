@@ -1471,7 +1471,8 @@ struct DxcHLSLFunction {
 
   DxcHLSLFunction(uint32_t NodeId, uint32_t NumParameters, bool HasReturn,
                   bool HasDefinition)
-      : NumParametersHasReturnAndDefinition(NumParameters |
+      : NodeId(NodeId),
+        NumParametersHasReturnAndDefinition(NumParameters |
                                             (HasReturn ? (1 << 30) : 0) |
                                             (HasDefinition ? (1 << 31) : 0)) {
 
@@ -1531,7 +1532,7 @@ struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
 
   union {
     struct {
-      uint32_t ArrayId;  // Only if BindCount > 1 and the array is 2D+
+      uint32_t ArrayId;  // Only if BindCount > 1 and the array is 2D+ (else -1)
       uint32_t BufferId; // If cbuffer or structured buffer
     };
     uint64_t ArrayIdBufferId;
@@ -2374,6 +2375,28 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
   return i;
 }
 
+D3D_CBUFFER_TYPE GetBufferType(uint8_t Type) {
+
+  switch (Type) {
+
+  case D3D_SIT_CBUFFER:
+    return D3D_CT_CBUFFER;
+
+  case D3D_SIT_TBUFFER:
+    return D3D_CT_TBUFFER;
+
+  case D3D_SIT_STRUCTURED:
+  case D3D_SIT_UAV_RWSTRUCTURED:
+  case D3D_SIT_UAV_APPEND_STRUCTURED:
+  case D3D_SIT_UAV_CONSUME_STRUCTURED:
+  case D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER:
+    return D3D_CT_RESOURCE_BIND_INFO;
+
+  default:
+    return D3D_CT_INTERFACE_POINTERS;
+  }
+}
+
 static void FillReflectionRegisterAt(
     const DeclContext &Ctx, ASTContext &ASTCtx, const SourceManager &SM,
     DiagnosticsEngine &Diag, QualType Type, uint32_t ArraySizeFlat,
@@ -2405,27 +2428,11 @@ static void FillReflectionRegisterAt(
   uint32_t arrayId = PushArray(Refl, ArraySizeFlat, ArraySize);
 
   uint32_t bufferId = 0;
-  D3D_CBUFFER_TYPE bufferType = D3D_CT_INTERFACE_POINTERS;  //Invalid
-
-  switch(inputType.registerType) {
-    
-  case D3D_SIT_CBUFFER:
-  case D3D_SIT_TBUFFER:
-    bufferType = D3D_CT_CBUFFER;
-    break;
-
-  case D3D_SIT_STRUCTURED:
-  case D3D_SIT_UAV_RWSTRUCTURED:
-  case D3D_SIT_UAV_APPEND_STRUCTURED:
-  case D3D_SIT_UAV_CONSUME_STRUCTURED:
-  case D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER:
-    bufferType = D3D_CT_RESOURCE_BIND_INFO;
-    break;
-  }
+  D3D_CBUFFER_TYPE bufferType = GetBufferType(inputType.RegisterType);
   
   if(bufferType != D3D_CT_INTERFACE_POINTERS) {
-    Refl.Buffers.push_back({bufferType, nodeId});
     bufferId = (uint32_t) Refl.Buffers.size();
+    Refl.Buffers.push_back({bufferType, nodeId});
   }
 
   DxcHLSLRegister regD3D12 = {
@@ -2979,7 +2986,7 @@ std::string GetBuiltinTypeName(const DxcReflectionData &Refl,
                                 "Texture2D",
                                 "Texture3D",
                                 "TextureCube",
-                                NULL,
+                                "SamplerState",
                                 NULL,
                                 NULL,
                                 NULL,
@@ -3449,14 +3456,11 @@ DxcReflectionData::DxcReflectionData(const std::vector<std::byte> &Bytes) {
       case DxcHLSLNodeType::Typedef:
       case DxcHLSLNodeType::Using:
       case DxcHLSLNodeType::Type:
-        maxValue = header.Types;
-        break;
       case DxcHLSLNodeType::Variable:
-        maxValue = header.Variables;
+        maxValue = header.Types;
         break;
       case DxcHLSLNodeType::Parameter:
         throw std::invalid_argument("Node " + std::to_string(i) + " has unsupported 'parameter' type");
-        break;
     }
 
     if(node.GetLocalId() >= maxValue)
@@ -3474,44 +3478,24 @@ DxcReflectionData::DxcReflectionData(const std::vector<std::byte> &Bytes) {
     )
       throw std::invalid_argument("Register " + std::to_string(i) + " points to an invalid nodeId");
 
-    if(
-      reg.Type > D3D_SIT_UAV_FEEDBACKTEXTURE ||
-      reg.ReturnType > D3D_RETURN_TYPE_CONTINUED ||
-      reg.Dimension > D3D_SRV_DIMENSION_BUFFEREX ||
-      !reg.BindCount ||
-      (reg.BindCount > 1 && reg.ArrayId >= header.Arrays)
-    )
-      throw std::invalid_argument("Register " + std::to_string(i) + " invalid type, returnType, bindCount or dimension");
+    if (reg.Type > D3D_SIT_UAV_FEEDBACKTEXTURE ||
+        reg.ReturnType > D3D_RETURN_TYPE_CONTINUED ||
+        reg.Dimension > D3D_SRV_DIMENSION_BUFFEREX || !reg.BindCount ||
+        (reg.ArrayId != uint32_t(-1) && reg.ArrayId >= header.Arrays) ||
+        (reg.ArrayId != uint32_t(-1) && reg.BindCount <= 1))
+      throw std::invalid_argument(
+          "Register " + std::to_string(i) +
+          " invalid type, returnType, bindCount, array or dimension");
     
-  D3D_CBUFFER_TYPE bufferType = D3D_CT_INTERFACE_POINTERS;  //Invalid
-
-    switch(reg.Type) {
-      
-    case D3D_SIT_CBUFFER:
-    case D3D_SIT_TBUFFER:
-      bufferType = D3D_CT_CBUFFER;
-      break;
-
-    case D3D_SIT_STRUCTURED:
-    case D3D_SIT_UAV_RWSTRUCTURED:
-    case D3D_SIT_UAV_APPEND_STRUCTURED:
-    case D3D_SIT_UAV_CONSUME_STRUCTURED:
-    case D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER:
-      bufferType = D3D_CT_RESOURCE_BIND_INFO;
-      break;
-    }
-
-    //Check buffer
+    D3D_CBUFFER_TYPE bufferType = GetBufferType(reg.Type);
 
     if(bufferType != D3D_CT_INTERFACE_POINTERS) {
 
-      if(
-        reg.BufferId >= header.Buffers ||
-        Buffers[reg.BufferId].NodeId != reg.NodeId ||
-        Buffers[reg.BufferId].Type !+ bufferType
-      )
-      throw std::invalid_argument("Register " + std::to_string(i) + " invalid buffer referenced by register");
-
+      if (reg.BufferId >= header.Buffers ||
+          Buffers[reg.BufferId].NodeId != reg.NodeId ||
+          Buffers[reg.BufferId].Type != bufferType)
+          throw std::invalid_argument("Register " + std::to_string(i) +
+                                      " invalid buffer referenced by register");
     }
   }
 
@@ -3519,53 +3503,248 @@ DxcReflectionData::DxcReflectionData(const std::vector<std::byte> &Bytes) {
     
     const DxcHLSLFunction &func = Functions[i];
 
-    if(
-      func.NodeId >= header.Nodes || 
-      Nodes[func.NodeId].GetNodeType() != DxcHLSLNodeType::Function ||
-      Nodes[func.NodeId].GetLocalId() != i
-    )
-      throw std::invalid_argument("Function " + std::to_string(i) + " points to an invalid nodeId");
+    if (func.NodeId >= header.Nodes ||
+        Nodes[func.NodeId].GetNodeType() != DxcHLSLNodeType::Function ||
+        Nodes[func.NodeId].GetLocalId() != i)
+      throw std::invalid_argument("Function " + std::to_string(i) +
+                                  " points to an invalid nodeId");
   }
 
   for(uint32_t i = 0; i < header.Enums; ++i) {
     
     const DxcHLSLEnumDesc &enm = Enums[i];
 
-    if(
-      enm.NodeId >= header.Nodes || 
-      Nodes[enm.NodeId].GetNodeType() != DxcHLSLNodeType::Enum ||
-      Nodes[enm.NodeId].GetLocalId() != i
-    )
-      throw std::invalid_argument("Function " + std::to_string(i) + " points to an invalid nodeId");
+    if (enm.NodeId >= header.Nodes ||
+        Nodes[enm.NodeId].GetNodeType() != DxcHLSLNodeType::Enum ||
+        Nodes[enm.NodeId].GetLocalId() != i)
+      throw std::invalid_argument("Function " + std::to_string(i) +
+                                  " points to an invalid nodeId");
 
-    if(enm.Type < D3D12_HLSL_ENUM_TYPE_START || enm.Type > D3D12_HLSL_ENUM_TYPE_END)
-      throw std::invalid_argument("Enum " + std::to_string(i) + " has an invalid type");
+    if (enm.Type < D3D12_HLSL_ENUM_TYPE_START ||
+        enm.Type > D3D12_HLSL_ENUM_TYPE_END)
+      throw std::invalid_argument("Enum " + std::to_string(i) +
+                                  " has an invalid type");
+
+    const DxcHLSLNode &node = Nodes[enm.NodeId];
+
+    for (uint32_t j = 0; j < node.GetChildCount(); ++j) {
+    
+        const DxcHLSLNode &child = Nodes[enm.NodeId + 1 + j];
+
+        if (child.GetChildCount() != 0 ||
+            child.GetNodeType() != DxcHLSLNodeType::EnumValue)
+          throw std::invalid_argument("Enum " + std::to_string(i) +
+                                      " has an invalid enum value");
+    }
   }
 
-  EnumValues, Array, ArraySizes, Members,
-          Types
-
-  for(uint32_t i = 0; i < header.Annotations; ++i)
-    if(Annotations[i] >= header.Strings)
-      throw std::invalid_argument("Annotation " + std::to_string(i) + " points to an invalid string");
-
-  for(uint32_t i = 0; i < header.Buffers; ++i) {
+  for(uint32_t i = 0; i < header.EnumValues; ++i) {
     
+    const DxcHLSLEnumValue &enumVal = EnumValues[i];
+
+    if (enumVal.NodeId >= header.Nodes ||
+        Nodes[enumVal.NodeId].GetNodeType() != DxcHLSLNodeType::EnumValue ||
+        Nodes[enumVal.NodeId].GetLocalId() != i ||
+        Nodes[Nodes[enumVal.NodeId].GetParentId()].GetNodeType() !=
+            DxcHLSLNodeType::Enum)
+      throw std::invalid_argument("Enum " + std::to_string(i) +
+                                  " points to an invalid nodeId");
+  }
+
+  for (uint32_t i = 0; i < header.Arrays; ++i) {
+
+    const DxcHLSLArray &arr = Arrays[i];
+
+    if (arr.ArrayElem() <= 1 || arr.ArrayElem() > 8 ||
+        arr.ArrayStart() + arr.ArrayElem() > header.ArraySizes)
+      throw std::invalid_argument("Array " + std::to_string(i) +
+                                  " points to an invalid array element");
+  }
+
+  for (uint32_t i = 0; i < header.Members; ++i) {
+
+    const DxcHLSLMember &mem = Members[i];
+
+    if (mem.NameId >= header.Strings || mem.TypeId >= header.Types)
+      throw std::invalid_argument("Member " + std::to_string(i) +
+                                  " points to an invalid string or type");
+  }
+
+  for (uint32_t i = 0; i < header.Annotations; ++i)
+    if (Annotations[i] >= header.Strings)
+      throw std::invalid_argument("Annotation " + std::to_string(i) +
+                                  " points to an invalid string");
+
+  for (uint32_t i = 0; i < header.Buffers; ++i) {
+
     const DxcHLSLBuffer &buf = Buffers[i];
 
-    if(
-      buf.NodeId >= header.Nodes || 
-      Nodes[buf.NodeId].GetNodeType() != DxcHLSLNodeType::Buffer ||
-      Nodes[buf.NodeId].GetLocalId() != i
-    )
-      throw std::invalid_argument("Buffer " + std::to_string(i) + " points to an invalid nodeId");
+    if (buf.NodeId >= header.Nodes ||
+        Nodes[buf.NodeId].GetNodeType() != DxcHLSLNodeType::Register ||
+        Nodes[buf.NodeId].GetLocalId() >= header.Registers ||
+        Registers[Nodes[buf.NodeId].GetLocalId()].BufferId != i)
+      throw std::invalid_argument("Buffer " + std::to_string(i) +
+                                  " points to an invalid nodeId");
+
+    const DxcHLSLNode &node = Nodes[buf.NodeId];
+
+    if (!node.GetChildCount())
+      throw std::invalid_argument("Buffer " + std::to_string(i) +
+                                  " requires at least one Variable child");
+
+    for (uint32_t j = 0; j < node.GetChildCount(); ++j) {
+
+      const DxcHLSLNode &child = Nodes[buf.NodeId + 1 + j];
+
+      if (child.GetChildCount() != 0 ||
+          child.GetNodeType() != DxcHLSLNodeType::Variable)
+          throw std::invalid_argument("Buffer " + std::to_string(i) +
+                                      " has to have only Variable child nodes");
+    }
   }
 
-  //TODO: Ensure EnumValue is a child of Enum
-  //      Ensure Variable is a child of Buffer?
+  for (uint32_t i = 0; i < header.Members; ++i) {
 
-  //TODO: Run validation!!!
+    const DxcHLSLMember &mem = Members[i];
 
+    if (mem.NameId >= header.Strings || mem.TypeId >= header.Types)
+      throw std::invalid_argument("Member " + std::to_string(i) +
+                                  " points to an invalid string or type");
+  }
+  
+  for (uint32_t i = 0; i < header.Types; ++i) {
+
+    const DxcHLSLType &type = Types[i];
+
+    if (type.NameId >= header.Strings ||
+        (type.BaseClass != uint32_t(-1) && type.BaseClass >= header.Types) ||
+        (uint64_t)type.MembersStart + type.MembersCount > header.Members ||
+        (type.ElementsOrArrayId >> 31 &&
+         (type.ElementsOrArrayId << 1 >> 1) >= header.Arrays))
+      throw std::invalid_argument(
+          "Type " + std::to_string(i) +
+          " points to an invalid string, base class or member");
+
+    switch (type.Class) {
+
+    case D3D_SVC_SCALAR:
+
+      if (type.Columns != 1)
+          throw std::invalid_argument("Type (scalar) " + std::to_string(i) +
+                                      " should have columns == 1");
+
+      [[fallthrough]];
+
+    case D3D_SVC_VECTOR:
+
+      if (type.Rows != 1)
+          throw std::invalid_argument("Type (scalar/vector) " +
+                                      std::to_string(i) +
+                                      " should have rows == 1");
+
+      [[fallthrough]];
+
+    case D3D_SVC_MATRIX_ROWS:
+    case D3D_SVC_MATRIX_COLUMNS:
+
+        if (!type.Rows || !type.Columns || type.Rows > 128 || type.Columns > 128)
+          throw std::invalid_argument("Type (scalar/vector/matrix) " +
+                                      std::to_string(i) +
+                                      " has invalid rows or columns");
+        
+        switch (type.Type) {
+        case D3D_SVT_BOOL:
+        case D3D_SVT_INT:
+        case D3D_SVT_FLOAT:
+        case D3D_SVT_MIN8FLOAT:
+        case D3D_SVT_MIN10FLOAT:
+        case D3D_SVT_MIN16FLOAT:
+        case D3D_SVT_MIN12INT:
+        case D3D_SVT_MIN16INT:
+        case D3D_SVT_MIN16UINT:
+        case D3D_SVT_INT16:
+        case D3D_SVT_UINT16:
+        case D3D_SVT_FLOAT16:
+        case D3D_SVT_INT64:
+        case D3D_SVT_UINT64:
+        case D3D_SVT_UINT:
+        case D3D_SVT_DOUBLE:
+          break;
+
+        default:
+          throw std::invalid_argument("Type (scalar/matrix/vector) " +
+                                      std::to_string(i) +
+                                      " is of invalid type");
+        }
+
+        break;
+
+    case D3D_SVC_STRUCT:
+
+        if (!type.MembersCount)
+          throw std::invalid_argument("Type (struct) " + std::to_string(i) +
+                                      " is missing children");
+        if (type.Type)
+          throw std::invalid_argument("Type (struct) " +
+                                      std::to_string(i) +
+                                      " shouldn't have rows or columns");
+
+        if (type.Rows || type.Columns)
+          throw std::invalid_argument("Type (struct) " +
+                                      std::to_string(i) +
+                                      " shouldn't have rows or columns");
+
+        break;
+
+    case D3D_SVC_OBJECT:
+
+        switch (type.Type) {
+            
+        case D3D_SVT_STRING:
+        case D3D_SVT_TEXTURE1D:
+        case D3D_SVT_TEXTURE2D:
+        case D3D_SVT_TEXTURE3D:
+        case D3D_SVT_TEXTURECUBE:
+        case D3D_SVT_SAMPLER:
+        case D3D_SVT_BUFFER:
+        case D3D_SVT_CBUFFER:
+        case D3D_SVT_TBUFFER:
+        case D3D_SVT_TEXTURE1DARRAY:
+        case D3D_SVT_TEXTURE2DARRAY:
+        case D3D_SVT_TEXTURE2DMS:
+        case D3D_SVT_TEXTURE2DMSARRAY:
+        case D3D_SVT_TEXTURECUBEARRAY:
+        case D3D_SVT_RWTEXTURE1D:
+        case D3D_SVT_RWTEXTURE1DARRAY:
+        case D3D_SVT_RWTEXTURE2D:
+        case D3D_SVT_RWTEXTURE2DARRAY:
+        case D3D_SVT_RWTEXTURE3D:
+        case D3D_SVT_RWBUFFER:
+        case D3D_SVT_BYTEADDRESS_BUFFER:
+        case D3D_SVT_RWBYTEADDRESS_BUFFER:
+        case D3D_SVT_STRUCTURED_BUFFER:
+        case D3D_SVT_RWSTRUCTURED_BUFFER:
+        case D3D_SVT_APPEND_STRUCTURED_BUFFER:
+        case D3D_SVT_CONSUME_STRUCTURED_BUFFER:
+          break;
+
+        default:
+          throw std::invalid_argument("Type (object) " + std::to_string(i) +
+                                      " is of invalid type");
+        }
+
+        if (type.Rows || type.Columns)
+          throw std::invalid_argument("Type (object) " +
+                                      std::to_string(i) +
+                                      " shouldn't have rows or columns");
+
+      break;
+
+    default:
+      throw std::invalid_argument("Type " + std::to_string(i) +
+                                  " has an invalid class");
+    }
+  }
 };
 
 static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
