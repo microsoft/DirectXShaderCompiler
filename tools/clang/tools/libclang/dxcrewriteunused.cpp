@@ -1708,18 +1708,21 @@ struct DxcReflectionData {
   DxcReflectionData() = default;
   DxcReflectionData(const std::vector<std::byte> &Bytes);
 
-  bool operator==(const DxcReflectionData &other) const {
-    return Strings == other.Strings &&
-           StringsNonDebug == other.StringsNonDebug &&
-           Sources == other.Sources && Nodes == other.Nodes &&
-           NodeSymbols == other.NodeSymbols && Registers == other.Registers &&
-           Functions == other.Functions && Enums == other.Enums &&
-           EnumValues == other.EnumValues && Annotations == other.Annotations &&
-           Arrays == other.Arrays && ArraySizes == other.ArraySizes &&
-           MemberTypeIds == other.MemberTypeIds &&
-           MemberNameIds == other.MemberNameIds &&
-           TypeNameIds == other.TypeNameIds && Types == other.Types &&
+  bool IsSameNonDebug(const DxcReflectionData &other) const {
+    return StringsNonDebug == other.StringsNonDebug && Nodes == other.Nodes &&
+           Registers == other.Registers && Functions == other.Functions &&
+           Enums == other.Enums && EnumValues == other.EnumValues &&
+           Annotations == other.Annotations && Arrays == other.Arrays &&
+           ArraySizes == other.ArraySizes &&
+           MemberTypeIds == other.MemberTypeIds && Types == other.Types &&
            Buffers == other.Buffers;
+  }
+
+  bool operator==(const DxcReflectionData &other) const {
+    return IsSameNonDebug(other) && Strings == other.Strings &&
+           Sources == other.Sources && NodeSymbols == other.NodeSymbols &&
+           MemberNameIds == other.MemberNameIds &&
+           TypeNameIds == other.TypeNameIds;
   }
 };
 
