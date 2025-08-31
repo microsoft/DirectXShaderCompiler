@@ -1665,6 +1665,28 @@ struct DxcHLSLBuffer { // Almost maps to CShaderReflectionConstantBuffer and
   }
 };
 
+struct DxcHLSLAnnotation {
+
+  uint32_t StringNonDebugAndIsBuiltin;
+
+  DxcHLSLAnnotation() = default;
+
+  DxcHLSLAnnotation(uint32_t StringNonDebug, bool IsBuiltin)
+      : StringNonDebugAndIsBuiltin(StringNonDebug |
+                                   (IsBuiltin ? (1u << 31) : 0)) {
+    assert(StringNonDebug < (1u << 31) && "String non debug out of bounds");
+  }
+
+  bool operator==(const DxcHLSLAnnotation &other) const {
+    return StringNonDebugAndIsBuiltin == other.StringNonDebugAndIsBuiltin;
+  }
+
+  bool GetIsBuiltin() const { return StringNonDebugAndIsBuiltin >> 31; }
+  uint32_t GetStringNonDebug() const {
+    return StringNonDebugAndIsBuiltin << 1 >> 1;
+  }
+};
+
 struct DxcReflectionData {
 
   D3D12_HLSL_REFLECTION_FEATURE Features;
@@ -1687,7 +1709,7 @@ struct DxcReflectionData {
   std::vector<DxcHLSLEnumValue> EnumValues;
 
   // std::vector<DxcHLSLParameter> Parameters;
-  std::vector<uint32_t> Annotations;
+  std::vector<DxcHLSLAnnotation> Annotations;
 
   std::vector<DxcHLSLArray> Arrays;
   std::vector<uint32_t> ArraySizes;
@@ -1783,9 +1805,27 @@ static uint32_t PushNextNodeId(DxcReflectionData &Refl, const SourceManager &SM,
   if (Decl) {
     for (const Attr *attr : Decl->attrs()) {
       if (const AnnotateAttr *annotate = dyn_cast<AnnotateAttr>(attr)) {
+
         assert(Refl.Annotations.size() < (1 << 20) && "Out of annotations");
-        Refl.Annotations.push_back(
-            RegisterString(Refl, annotate->getAnnotation().str(), true));
+
+        Refl.Annotations.push_back(DxcHLSLAnnotation(
+            RegisterString(Refl, annotate->getAnnotation().str(), true),
+            false));
+
+        assert(annotationCount != uint16_t(-1) &&
+               "Annotation count out of bounds");
+        ++annotationCount;
+
+      } else if (const HLSLShaderAttr *shaderAttr =
+                     dyn_cast<HLSLShaderAttr>(attr)) {
+
+        assert(Refl.Annotations.size() < (1 << 20) && "Out of annotations");
+
+        Refl.Annotations.push_back(DxcHLSLAnnotation(
+            RegisterString(
+                Refl, "shader(\"" + shaderAttr->getStage().str() + "\")", true),
+            true));
+
         assert(annotationCount != uint16_t(-1) &&
                "Annotation count out of bounds");
         ++annotationCount;
@@ -2165,12 +2205,15 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
     elementsOrArrayId = arraySize > 1 ? arraySize : 0;
 
   //Unwrap vector and matrix
+  //And base type
 
   D3D_SHADER_VARIABLE_CLASS cls = D3D_SVC_STRUCT;
   uint8_t rows = 0, columns = 0;
 
   uint32_t membersCount = 0;
   uint32_t membersOffset = 0;
+
+  uint32_t baseType = uint32_t(-1);
 
   if (const RecordType *record = underlying->getAs<RecordType>()) {
 
@@ -2277,6 +2320,28 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
     // Fill members
 
     if (!standardType && recordDecl->isCompleteDefinition()) {
+
+      //Base types
+
+      if (CXXRecordDecl *cxxRecordDecl = dyn_cast<CXXRecordDecl>(recordDecl))
+        if (cxxRecordDecl->getNumBases()) {
+          for (auto &I : cxxRecordDecl->bases()) {
+
+            QualType qualType = I.getType();
+            CXXRecordDecl *BaseDecl =
+                cast<CXXRecordDecl>(qualType->castAs<RecordType>()->getDecl());
+
+            if (BaseDecl->isInterface())
+              continue;
+
+            assert(baseType == uint32_t(-1) &&
+                   "Multiple base types isn't supported in HLSL");
+
+            baseType = GenerateTypeInfo(ASTCtx, Refl, qualType, DefaultRowMaj);
+          }
+        }
+
+      //Inner types
 
       for (Decl *decl : recordDecl->decls()) {
 
@@ -2395,13 +2460,11 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcReflectionData &Refl,
     }
   }
 
-  //TODO: Base class
-
-  uint32_t baseClass = (uint32_t) -1;
+  //Insert
 
   assert(Refl.Types.size() < (uint32_t)-1 && "Type id out of bounds");
 
-  DxcHLSLType hlslType(baseClass, elementsOrArrayId, cls, type, rows,
+  DxcHLSLType hlslType(baseType, elementsOrArrayId, cls, type, rows,
                    columns, membersCount, membersOffset);
 
   uint32_t i = 0, j = (uint32_t)Refl.Types.size();
@@ -3145,13 +3208,6 @@ std::string PrintTypeInfo(const DxcReflectionData &Refl,
   if (PreviousTypeName != underlyingTypeName && underlyingTypeName.size())
     result += " (" + underlyingTypeName + ")";
 
-  if (Type.BaseClass != (uint32_t)-1) {
-    bool hasSymbols = Refl.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
-    result += " : " + hasSymbols
-                  ? Refl.Strings[Refl.TypeNameIds[Type.BaseClass]]
-                  : "(unknown)";
-  }
-
   return result;
 }
 
@@ -3170,6 +3226,9 @@ void RecursePrintType(const DxcReflectionData &Refl, uint32_t TypeId,
 
   printf("%s%s%s%s\n", std::string(Depth, '\t').c_str(), Prefix, name.c_str(),
          PrintTypeInfo(Refl, type, name).c_str());
+
+  if (type.BaseClass != uint32_t(-1))
+    RecursePrintType(Refl, type.BaseClass, Depth + 1, Prefix);
 
   for (uint32_t i = 0; i < type.GetMemberCount(); ++i) {
 
@@ -3197,10 +3256,16 @@ uint32_t RecursePrint(const DxcReflectionData &Refl, uint32_t NodeId,
            hasSymbols ? Refl.Strings[Refl.NodeSymbols[NodeId].NameId].c_str()
                       : "(unknown)");
 
-    for (uint32_t i = 0; i < node.GetAnnotationCount(); ++i)
-      printf("%s[[%s]]\n", std::string(Depth, '\t').c_str(),
-             Refl.StringsNonDebug[Refl.Annotations[node.GetAnnotationStart() + i]]
-                 .c_str());
+    for (uint32_t i = 0; i < node.GetAnnotationCount(); ++i) {
+
+      const DxcHLSLAnnotation &annotation =
+          Refl.Annotations[node.GetAnnotationStart() + i];
+
+      printf(annotation.GetIsBuiltin() ? "%s[%s]\n" : "%s[[%s]]\n",
+             std::string(Depth, '\t').c_str(),
+             Refl.StringsNonDebug[annotation.GetStringNonDebug()]
+              .c_str());
+    }
 
     uint32_t localId = node.GetLocalId();
 
@@ -3745,7 +3810,7 @@ DxcReflectionData::DxcReflectionData(const std::vector<std::byte> &Bytes,
   }
 
   for (uint32_t i = 0; i < header.Annotations; ++i)
-    if (Annotations[i] >= header.StringsNonDebug)
+    if (Annotations[i].GetStringNonDebug() >= header.StringsNonDebug)
       throw std::invalid_argument("Annotation " + std::to_string(i) +
                                   " points to an invalid string");
 
