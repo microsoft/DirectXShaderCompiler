@@ -99,6 +99,22 @@ enum D3D12_HLSL_REFLECTION_FEATURE {
   D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO = 1 << 6
 };
 
+inline D3D12_HLSL_REFLECTION_FEATURE &operator|=(D3D12_HLSL_REFLECTION_FEATURE &a,
+                                          D3D12_HLSL_REFLECTION_FEATURE b) {
+  return a = (D3D12_HLSL_REFLECTION_FEATURE)((uint32_t)a | (uint32_t)b);
+}
+
+inline D3D12_HLSL_REFLECTION_FEATURE &
+operator&=(D3D12_HLSL_REFLECTION_FEATURE &a,
+                                          D3D12_HLSL_REFLECTION_FEATURE b) {
+  return a = (D3D12_HLSL_REFLECTION_FEATURE)((uint32_t)a & (uint32_t)b);
+}
+
+inline D3D12_HLSL_REFLECTION_FEATURE
+operator~(D3D12_HLSL_REFLECTION_FEATURE a) {
+  return (D3D12_HLSL_REFLECTION_FEATURE) ~(uint32_t)a;
+}
+
 struct D3D12_HLSL_REFLECTION_DESC {
   D3D12_HLSL_REFLECTION_FEATURE Features;
   UINT ConstantBufferCount;
