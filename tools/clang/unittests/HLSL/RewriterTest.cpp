@@ -102,7 +102,6 @@ public:
   TEST_METHOD(RunExtractUniforms)
   TEST_METHOD(RunGlobalsUsedInMethod)
   TEST_METHOD(RunRewriterFails)
-  TEST_METHOD(GenerateConsistentBindings)
 
   dxc::DxcDllSupport m_dllSupport;
   CComPtr<IDxcIncludeHandler> m_pIncludeHandler;
@@ -465,13 +464,6 @@ TEST_F(RewriterTest, RunSpirv) {
   std::string strResult = BlobToUtf8(result);
   // No built-in namespace "vk"
   VERIFY_IS_TRUE(strResult.find("namespace vk") == std::string::npos);
-}
-
-TEST_F(RewriterTest, GenerateConsistentBindings) {
-  CheckVerifiesHLSL(
-      L"rewriter\\consistent_bindings.hlsl",
-      L"rewriter\\correct_rewrites\\consistent_bindings_gold.hlsl",
-      {L"-HV", L"2016", L"-consistent-bindings"});
 }
 
 TEST_F(RewriterTest, RunStructMethods) {

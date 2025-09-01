@@ -103,7 +103,6 @@ public:
 
 struct RewriterOpts {
   bool Unchanged = false;                     // OPT_rw_unchanged
-  bool ConsistentBindings = false;            // OPT_rw_consistent_bindings
   bool ReflectHLSLBasics = false;             // OPT_rw_reflect_hlsl_basics
   bool ReflectHLSLFunctions = false;          // OPT_rw_reflect_hlsl_functions
   bool ReflectHLSLNamespaces = false;         // OPT_rw_reflect_hlsl_namespaces
@@ -235,6 +234,7 @@ public:
   std::string TimeTrace = "";           // OPT_ftime_trace[EQ]
   unsigned TimeTraceGranularity = 500;  // OPT_ftime_trace_granularity_EQ
   bool VerifyDiagnostics = false;       // OPT_verify
+  bool ConsistentBindings = false;      // OPT_consistent_bindings
 
   // Optimization pass enables, disables and selects
   OptimizationToggles

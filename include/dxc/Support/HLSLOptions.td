@@ -558,13 +558,14 @@ def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, Flags<[DriverOption
 def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,
   HelpText<"Suppress copyright message">;
 
+def consistent_bindings : Flag<["-", "/"], "consistent-bindings">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Generate bindings for registers with no pre-declared binding (consistently regardless of optimization).">;
+
 //////////////////////////////////////////////////////////////////////////////
 // Rewriter Options
 
 def rw_unchanged : Flag<["-", "/"], "unchanged">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Rewrite HLSL, without changes.">;
-def rw_consistent_bindings : Flag<["-", "/"], "consistent-bindings">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
-  HelpText<"Generate bindings for registers that aren't fully qualified (to have consistent bindings).">;
 def rw_reflect_hlsl_basics : Flag<["-", "/"], "reflect-hlsl-basics">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Reflect HLSL (registers, constants and annotations) and generate consistent bindings.">;
 def rw_reflect_hlsl_functions : Flag<["-", "/"], "reflect-hlsl-functions">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,

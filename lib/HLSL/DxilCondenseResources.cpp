@@ -550,7 +550,8 @@ public:
     ResourceRegisterAllocator.GatherReservedRegisters(DM);
 
     // Remove unused resources.
-    DM.RemoveResourcesWithUnusedSymbols();
+    if (!DM.GetConsistentBindings())
+        DM.RemoveResourcesWithUnusedSymbols();
 
     unsigned newResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
@@ -570,6 +571,9 @@ public:
     }
 
     bChanged |= ResourceRegisterAllocator.AllocateRegisters(DM);
+
+    if (DM.GetConsistentBindings())
+      DM.RemoveResourcesWithUnusedSymbols();
 
     // Fill in top-level CBuffer variable usage bit
     UpdateCBufferUsage();
