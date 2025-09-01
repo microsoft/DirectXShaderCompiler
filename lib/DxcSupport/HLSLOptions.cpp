@@ -871,6 +871,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.TimeReport = Args.hasFlag(OPT_ftime_report, OPT_INVALID, false);
   opts.TimeTrace = Args.hasFlag(OPT_ftime_trace, OPT_INVALID, false) ? "-" : "";
   opts.VerifyDiagnostics = Args.hasFlag(OPT_verify, OPT_INVALID, false);
+
+  opts.ConsistentBindings =
+      Args.hasFlag(OPT_consistent_bindings, OPT_INVALID, false);
+
   if (Args.hasArg(OPT_ftime_trace_EQ))
     opts.TimeTrace = Args.getLastArgValue(OPT_ftime_trace_EQ);
   if (Arg *A = Args.getLastArg(OPT_ftime_trace_granularity_EQ)) {
@@ -1349,8 +1353,20 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // Rewriter Options
   if (flagsToInclude & hlsl::options::RewriteOption) {
     opts.RWOpt.Unchanged = Args.hasFlag(OPT_rw_unchanged, OPT_INVALID, false);
-    opts.RWOpt.ConsistentBindings =
-        Args.hasFlag(OPT_rw_consistent_bindings, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLBasics =
+        Args.hasFlag(OPT_rw_reflect_hlsl_basics, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLFunctions =
+        Args.hasFlag(OPT_rw_reflect_hlsl_functions, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLNamespaces =
+        Args.hasFlag(OPT_rw_reflect_hlsl_namespaces, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLUserTypes =
+        Args.hasFlag(OPT_rw_reflect_hlsl_user_types, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLScopes =
+        Args.hasFlag(OPT_rw_reflect_hlsl_scopes, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLVariables =
+        Args.hasFlag(OPT_rw_reflect_hlsl_variables, OPT_INVALID, false);
+    opts.RWOpt.ReflectHLSLDisableSymbols =
+        Args.hasFlag(OPT_rw_reflect_hlsl_disable_symbols, OPT_INVALID, false);
     opts.RWOpt.SkipFunctionBody =
         Args.hasFlag(OPT_rw_skip_function_body, OPT_INVALID, false);
     opts.RWOpt.SkipStatic =
