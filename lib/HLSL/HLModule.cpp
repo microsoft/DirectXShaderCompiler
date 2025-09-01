@@ -231,12 +231,12 @@ void HLModule::RemoveFunction(llvm::Function *F) {
 namespace {
 template <typename TResource>
 bool RemoveResource(std::vector<std::unique_ptr<TResource>> &vec,
-                    GlobalVariable *pVariable, bool keepAllocated, bool dontUpdateIds) {
+                    GlobalVariable *pVariable, bool keepAllocated, bool consistentBindings) {
   for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
     if ((*p)->GetGlobalSymbol() != pVariable)
       continue;
 
-    if ((keepAllocated && (*p)->IsAllocated()) || dontUpdateIds) {
+    if ((keepAllocated && (*p)->IsAllocated()) || consistentBindings) {
       // Keep the resource, but it has no more symbol.
       (*p)->SetGlobalSymbol(UndefValue::get(pVariable->getType()));
     } else {

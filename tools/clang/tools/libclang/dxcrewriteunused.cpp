@@ -1083,7 +1083,6 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
                                  opts.RWOpt.RemoveUnusedFunctions, w);
     if (FAILED(hr))
       return hr;
-
   } else {
     o << "// Rewrite unchanged result:\n";
   }
