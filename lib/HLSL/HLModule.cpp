@@ -266,7 +266,8 @@ void HLModule::RemoveGlobal(llvm::GlobalVariable *GV) {
 
   // Consistent bindings are different than -flegacy-resource-reservation;
   // We need the IDs to stay the same, but it's fine to remove unused registers.
-  // It's actually wanted, because that allows us to know what registers are optimized out.
+  // It's actually wanted, because that allows us to know what registers are
+  // optimized out.
   bool consistentBindings = GetHLOptions().bConsistentBindings;
 
   // This could be considerably faster - check variable type to see which

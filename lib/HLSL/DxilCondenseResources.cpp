@@ -551,7 +551,7 @@ public:
 
     // Remove unused resources.
     if (!DM.GetConsistentBindings())
-        DM.RemoveResourcesWithUnusedSymbols();
+      DM.RemoveResourcesWithUnusedSymbols();
 
     unsigned newResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();

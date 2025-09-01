@@ -54,8 +54,7 @@ struct HLOptions {
         bDisableOptimizations(false), PackingStrategy(0),
         bUseMinPrecision(false), bDX9CompatMode(false), bFXCCompatMode(false),
         bLegacyResourceReservation(false), bForceZeroStoreLifetimes(false),
-        bConsistentBindings(false),
-        unused(0) {}
+        bConsistentBindings(false), unused(0) {}
   uint32_t GetHLOptionsRaw() const;
   void SetHLOptionsRaw(uint32_t data);
   unsigned bDefaultRowMajor : 1;
