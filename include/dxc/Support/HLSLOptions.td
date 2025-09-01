@@ -566,20 +566,6 @@ def consistent_bindings : Flag<["-", "/"], "consistent-bindings">, Group<hlslcom
 
 def rw_unchanged : Flag<["-", "/"], "unchanged">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Rewrite HLSL, without changes.">;
-def rw_reflect_hlsl_basics : Flag<["-", "/"], "reflect-hlsl-basics">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
-  HelpText<"Reflect HLSL (registers, constants and annotations) and generate consistent bindings.">;
-def rw_reflect_hlsl_functions : Flag<["-", "/"], "reflect-hlsl-functions">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
-  HelpText<"Reflect HLSL functions.">;
-def rw_reflect_hlsl_namespaces : Flag<["-", "/"], "reflect-hlsl-namespaces">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
-  HelpText<"Reflect HLSL nodes in namespaces rather than only the root namespace.">;
-def rw_reflect_hlsl_user_types : Flag<["-", "/"], "reflect-hlsl-user-types">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
-  HelpText<"Reflect HLSL user types (typedef, using, struct, enum).">;
-def rw_reflect_hlsl_scopes : Flag<["-", "/"], "reflect-hlsl-scopes">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
-  HelpText<"Reflect HLSL scopes (variables and structs defined in functions, structs and scopes).">;
-def rw_reflect_hlsl_variables : Flag<["-", "/"], "reflect-hlsl-variables">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
-  HelpText<"Reflect HLSL static variables.">;
-def rw_reflect_hlsl_disable_symbols : Flag<["-", "/"], "reflect-hlsl-disable-symbols">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
-  HelpText<"Reflect HLSL disable symbols.">;
 def rw_skip_function_body : Flag<["-", "/"], "skip-fn-body">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Translate function definitions to declarations">;
 def rw_skip_static : Flag<["-", "/"], "skip-static">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,

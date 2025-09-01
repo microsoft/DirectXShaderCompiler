@@ -497,7 +497,6 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type);
 bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT);
 bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT);
 bool IsHLSLAggregateType(clang::QualType type);
-hlsl::DXIL::ResourceClass GetHLSLResourceClass(clang::QualType type);
 clang::QualType GetHLSLResourceResultType(clang::QualType type);
 clang::QualType GetHLSLNodeIOResultType(clang::ASTContext &astContext,
                                         clang::QualType type);
