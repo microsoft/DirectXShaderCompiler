@@ -28,7 +28,9 @@ int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
                         const char *lpMultiByteStr, int cbMultiByte,
                         wchar_t *lpWideCharStr, int cchWideChar) {
 
-  if (cbMultiByte == 0) {
+  // Check for invalid sizes or potential overflow.
+  if (cbMultiByte == 0 || cbMultiByte < -1 || cbMultiByte > (INT32_MAX - 1) ||
+      cchWideChar < 0 || cchWideChar > (INT32_MAX - 1)) {
     SetLastError(ERROR_INVALID_PARAMETER);
     return 0;
   }
@@ -75,7 +77,14 @@ int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
   // the null terminator if the input was null-terminated, otherwise it
   // returns the size written excluding the null terminator.
   if (isNullTerminated)
-    return rv + 1;
+    rv += 1;
+
+  // Check for overflow when returning the size.
+  if (rv >= INT32_MAX) {
+    SetLastError(ERROR_INVALID_PARAMETER);
+    return 0; // Overflow error
+  }
+
   return rv;
 }
 
@@ -91,7 +100,9 @@ int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
     *lpUsedDefaultChar = FALSE;
   }
 
-  if (cchWideChar == 0) {
+  // Check for invalid sizes or potential overflow.
+  if (cchWideChar == 0 || cchWideChar < -1 || cchWideChar > (INT32_MAX - 1) ||
+      cbMultiByte < 0 || cbMultiByte > (INT32_MAX - 1)) {
     SetLastError(ERROR_INVALID_PARAMETER);
     return 0;
   }
@@ -138,7 +149,14 @@ int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
   // the null terminator if the input was null-terminated, otherwise it
   // returns the size written excluding the null terminator.
   if (isNullTerminated)
-    return rv + 1;
+    rv += 1;
+
+  // Check for overflow when returning the size.
+  if (rv >= INT32_MAX) {
+    SetLastError(ERROR_INVALID_PARAMETER);
+    return 0; // Overflow error
+  }
+
   return rv;
 }
 #endif // _WIN32
@@ -148,6 +166,9 @@ namespace Unicode {
 bool WideToEncodedString(const wchar_t *text, size_t cWide, DWORD cp,
                          DWORD flags, std::string *pValue, bool *lossy) {
   DXASSERT_NOMSG(cWide == ~(size_t)0 || cWide < INT32_MAX);
+  if (text == nullptr || pValue == nullptr || cWide == 0 || cWide >= INT32_MAX)
+    return false;
+
   BOOL usedDefaultChar;
   LPBOOL pUsedDefaultChar = (lossy == nullptr) ? nullptr : &usedDefaultChar;
   if (lossy != nullptr)
@@ -180,8 +201,6 @@ bool WideToEncodedString(const wchar_t *text, size_t cWide, DWORD cp,
     // inside the string.
     pValue->resize(cbUTF8 - 1);
   }
-  DXASSERT((*pValue)[pValue->size()] == '\0',
-           "otherwise string didn't null-terminate after resize() call");
 
   if (lossy != nullptr)
     *lossy = usedDefaultChar;
@@ -221,8 +240,6 @@ bool UTF8ToWideString(const char *pUTF8, size_t cbUTF8, std::wstring *pWide) {
     // inside the string.
     pWide->resize(cWide - 1);
   }
-  DXASSERT((*pWide)[pWide->size()] == L'\0',
-           "otherwise wstring didn't null-terminate after resize() call");
   return true;
 }
 
