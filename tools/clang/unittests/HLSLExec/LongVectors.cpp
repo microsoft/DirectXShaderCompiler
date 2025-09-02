@@ -243,7 +243,7 @@ static TableParameter BinaryOpParameters[] = {
     {L"ScalarInputFlags", TableParameter::STRING, false},
 };
 
-static TableParameter ternaryOpParameters[] = {
+static TableParameter TernaryOpParameters[] = {
     {L"DataType", TableParameter::STRING, true},
     {L"OpTypeEnum", TableParameter::STRING, true},
     {L"InputValueSetName1", TableParameter::STRING, false},

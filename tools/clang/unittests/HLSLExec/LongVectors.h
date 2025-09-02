@@ -429,8 +429,17 @@ template <typename DataTypeT>
 void logLongVector(const std::vector<DataTypeT> &Values,
                    const std::wstring &Name);
 
-// Once created and configured, the presence of an input vector can be used to
-// infer the operand type (vector or scalar) for the operation.
+// The TestInputs struct is used to help simplify calls to
+// TestConfig::computeExpectedValues and to help us re-infer information about
+// the number and type of inputs for the intrinsic being tested.
+// InputVector1 represnts the first argument to the intrinsic being tested.
+// InputVector1 is always present as all intrinsics being tested take at least
+// one input.
+// The other std::optional InputVectorN members represent the argument N for the
+// intrinsic. They are stored as std::optional as they may not be present. It
+// depends on the intrinsic being tested.
+// The length of the InputVector is used to infer if the argument is a scalar
+// or vector.
 template <typename DataTypeT> struct TestInputs {
   std::vector<DataTypeT> InputVector1;
   std::optional<std::vector<DataTypeT>> InputVector2 = std::nullopt;
@@ -442,7 +451,7 @@ public:
   TestConfigBasicUnary(){};
   virtual ~TestConfigBasicUnary() = default;
 
-  virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
+  void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
                                      VariantVector &ExpectedVector) {
     computeExpectedValues(Inputs.InputVector1, ExpectedVector);
   }
@@ -464,7 +473,7 @@ public:
   virtual ~TestConfigBasicBinary() = default;
 
   virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
-                                     VariantVector &ExpectedVector) {
+                                              VariantVector &ExpectedVector) {
     DXASSERT_NOMSG(Inputs.InputVector2.has_value());
 
     if (Inputs.InputVector2.value().size() > 1)
