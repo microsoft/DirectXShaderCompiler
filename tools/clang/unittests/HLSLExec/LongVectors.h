@@ -80,9 +80,10 @@ template <typename DataTypeT> constexpr bool is16BitType() {
 
 template <typename DataTypeT> std::string getHLSLTypeString();
 
-enum SCALAR_INPUT_FLAGS {
+enum SCALAR_INPUT_FLAGS : uint16_t {
   // SCALAR_INPUT_FLAGS_OPERAND_1_IS_SCALAR is intentionally omitted. Input 1 is
   // always a vector.
+  SCALAR_INPUT_FLAGS_NONE = 0x0,
   SCALAR_INPUT_FLAGS_OPERAND_2_IS_SCALAR = 0x2,
   SCALAR_INPUT_FLAGS_OPERAND_3_IS_SCALAR = 0x4,
 };
@@ -112,7 +113,8 @@ template <typename OpTypeT> struct OpTypeMetaData {
   OpTypeT OpType;
   std::optional<std::string> Intrinsic = std::nullopt;
   std::optional<std::string> Operator = std::nullopt;
-  uint16_t ScalarInputFlags = 0x0;
+  uint16_t ScalarInputFlags =
+      static_cast<uint16_t>(SCALAR_INPUT_FLAGS::SCALAR_INPUT_FLAGS_NONE);
 };
 
 template <typename T, size_t Length>
@@ -437,7 +439,7 @@ template <typename DataTypeT> struct TestInputs {
 
 template <typename DataTypeT> class TestConfigBasicUnary {
 public:
-  TestConfigBasicUnary(){};
+  TestConfigBasicUnary() {};
   virtual ~TestConfigBasicUnary() = default;
 
   virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
@@ -458,7 +460,7 @@ public:
 
 template <typename DataTypeT> class TestConfigBasicBinary {
 public:
-  TestConfigBasicBinary(){};
+  TestConfigBasicBinary() {};
   virtual ~TestConfigBasicBinary() = default;
 
   virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
@@ -497,7 +499,7 @@ public:
 
 template <typename DataTypeT> class TestConfigBasicTernary {
 public:
-  TestConfigBasicTernary(){};
+  TestConfigBasicTernary() {};
   virtual ~TestConfigBasicTernary() = default;
 
   virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,

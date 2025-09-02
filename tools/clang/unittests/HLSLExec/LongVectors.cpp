@@ -842,9 +842,8 @@ void TestConfig<DataTypeT>::fillInputs(TestInputs<DataTypeT> &Inputs) const {
   auto fillVecFromValueSet = [this](std::vector<DataTypeT> &Vec,
                                     size_t ValueSetIndex, size_t Count) {
     std::vector<DataTypeT> ValueSet = getInputValueSet(ValueSetIndex);
-    for (size_t Index = 0; Index < Count; Index++) {
+    for (size_t Index = 0; Index < Count; Index++)
       Vec.push_back(ValueSet[Index % ValueSet.size()]);
-    }
   };
 
   size_t ValueSetIndex = 0;
@@ -920,11 +919,10 @@ template <typename DataTypeT>
 void TestConfigAsType<DataTypeT>::computeExpectedValues(
     const TestInputs<DataTypeT> &Inputs) {
 
-  if (BasicOpType != BasicOpType_Unary && BasicOpType != BasicOpType_Binary) {
+  if (BasicOpType != BasicOpType_Unary && BasicOpType != BasicOpType_Binary)
     LOG_ERROR_FMT_THROW(L"Programmer Error: computeExpectedValue called with "
                         L"unexpected BasicOpType: %d",
                         static_cast<int>(BasicOpType));
-  }
 
   switch (BasicOpType) {
   case BasicOpType_Unary:

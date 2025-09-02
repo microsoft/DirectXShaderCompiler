@@ -126,21 +126,6 @@
           <Parameter Name="ScalarInputFlags">0x4</Parameter>
         </Row>
         <!-- LongVectorTernaryMathOpTypeTable DataType: float64 -->
-        <Row Name="SmoothStep_float64">
-          <Parameter Name="OpTypeEnum">TernaryMathOpType_SmoothStep</Parameter>
-          <Parameter Name="DataType">float64</Parameter>
-          <Parameter Name="InputValueSetName1">SmoothStepMin</Parameter>
-          <Parameter Name="InputValueSetName2">SmoothStepMax</Parameter>
-          <Parameter Name="InputValueSetName3">SmoothStepInputValueSet</Parameter>
-        </Row>
-        <Row Name="ScalarSmoothStep_float64">
-          <Parameter Name="OpTypeEnum">TernaryMathOpType_SmoothStep</Parameter>
-          <Parameter Name="DataType">float64</Parameter>
-          <Parameter Name="InputValueSetName1">SmoothStepMin</Parameter>
-          <Parameter Name="InputValueSetName2">SmoothStepMax</Parameter>
-          <Parameter Name="InputValueSetName3">SmoothStepInputValueSet</Parameter>
-          <Parameter Name="ScalarInputFlags">0x4</Parameter>
-        </Row>
         <Row Name="fma_float64">
           <Parameter Name="OpTypeEnum">TernaryMathOpType_Fma</Parameter>
           <Parameter Name="DataType">float64</Parameter>
