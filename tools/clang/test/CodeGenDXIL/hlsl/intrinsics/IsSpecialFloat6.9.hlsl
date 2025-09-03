@@ -26,3 +26,27 @@ export bool3 test_func3(half3 h) {
 export bool4 test_func4(half4 h) {
   return FUNC(h);
 }
+
+// CHECK-LABEL: test_float
+// CHECK:  call i1 @dx.op.isSpecialFloat.f32(i32 [[OP:[0-9]*]], float
+export bool test_float(float h) {
+  return FUNC(h);
+}
+
+// CHECK-LABEL: test_float2
+// CHECK:  call <2 x i1> @dx.op.isSpecialFloat.v2f32(i32 [[OP:[0-9]*]], <2 x float>
+export bool2 test_float2(float2 h) {
+  return FUNC(h);
+}
+
+// CHECK-LABEL: test_float3
+// CHECK:  call <3 x i1> @dx.op.isSpecialFloat.v3f32(i32 [[OP:[0-9]*]], <3 x float>
+export bool3 test_float3(float3 h) {
+  return FUNC(h);
+}
+
+// CHECK-LABEL: test_float4
+// CHECK:  call <4 x i1> @dx.op.isSpecialFloat.v4f32(i32 [[OP:[0-9]*]], <4 x float>
+export bool4 test_float4(float4 h) {
+  return FUNC(h);
+}
