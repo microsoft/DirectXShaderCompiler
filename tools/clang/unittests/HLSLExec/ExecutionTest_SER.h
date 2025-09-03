@@ -490,14 +490,31 @@ void CallTraceMethod(int recursionDepth) {
 ///// Query hit object getter directly
 #if RESULT_FROM_HITOBJECT
 #if ATTRIBUTES_TEST
-  // TODO: Update GetAttributes API
   if (hitObject.IsMiss()) {
     // Test for zero-init of miss
-    StoreTriangleAttributes(hitObject.GetAttributes<TriangleAttrs>());
+    TriangleAttrs attrs;
+#if NEW_GETATTRIBUTES_API
+    hitObject.GetAttributes<TriangleAttrs>(attrs);
+#else
+    attrs = hitObject.GetAttributes<TriangleAttrs>();
+#endif
+    StoreTriangleAttributes(attrs);
   } else if (hitObject.GetHitKind() == ProceduralHitKind) {
-    StoreProceduralAttributes(hitObject.GetAttributes<CustomAttrs>());
+    CustomAttrs attrs;
+#if NEW_GETATTRIBUTES_API
+    hitObject.GetAttributes<CustomAttrs>(attrs);
+#else
+    attrs = hitObject.GetAttributes<CustomAttrs>();
+#endif
+    StoreProceduralAttributes(attrs);
   } else {
-    StoreTriangleAttributes(hitObject.GetAttributes<TriangleAttrs>());
+    TriangleAttrs attrs;
+#if NEW_GETATTRIBUTES_API
+    hitObject.GetAttributes<TriangleAttrs>(attrs);
+#else
+    attrs = hitObject.GetAttributes<TriangleAttrs>();
+#endif
+    StoreTriangleAttributes(attrs);
   }
 #else
   StoreResult(hitObject.HITOBJECT_GET_RESULT());
@@ -930,7 +947,12 @@ void raygen()
 {
    dx::HitObject hitObject = dx::HitObject::MakeNop();
 #if TEST_ATTRIBUTES
-  CustomAttrs attrs = hitObject.GetAttributes<CustomAttrs>();
+  CustomAttrs attrs;
+#if NEW_GETATTRIBUTES_API
+  hitObject.GetAttributes<CustomAttrs>(attrs);
+#else
+  attrs = hitObject.GetAttributes<CustomAttrs>();
+#endif
   testBuffer[0] = attrs.x;
   testBuffer[1] = attrs.y;
   testBuffer[2] = attrs.z;
@@ -2127,7 +2149,12 @@ void raygen()
     dx::MaybeReorderThread(hitObject);
     
     // Check Attributes for hit detection.
-    CustomAttrs customAttrs = hitObject.GetAttributes<CustomAttrs>();
+    CustomAttrs customAttrs;
+#if NEW_GETATTRIBUTES_API
+    hitObject.GetAttributes<CustomAttrs>(customAttrs);
+#else
+    customAttrs = hitObject.GetAttributes<CustomAttrs>();
+#endif
     bool isHit = hitObject.IsHit();
 
     int testVal = 0;
