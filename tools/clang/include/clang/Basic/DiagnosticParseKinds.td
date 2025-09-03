@@ -1025,6 +1025,8 @@ def warn_hlsl_effect_technique : Warning <
 def warn_hlsl_semantic_identifier_collision : Warning <
   "'%0' interpreted as semantic; previous definition(s) ignored">,
   InGroup< HLSLSemanticIdentifierCollision >;
+def err_hlsl_register_is_misspelled : Error <
+  "Syntax similar to : register() was used but unexpected keyword '%0' was used instead.">;
 def err_hlsl_enum : Error<
   "enum is unsupported in HLSL before 2017">;
 def warn_hlsl_new_feature : Warning <
