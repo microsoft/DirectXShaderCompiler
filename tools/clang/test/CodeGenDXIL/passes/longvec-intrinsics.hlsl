@@ -23,7 +23,7 @@ void main() {
   vector<float, NUM> fVec1 = fBuf[11];
   vector<float, NUM> fVec2 = fBuf[12];
   vector<float, NUM> fVec3 = fBuf[13];
-  
+
   // CHECK: [[tmp:%.*]] = call <13 x float> @dx.op.binary.v13f32(i32 35, <13 x float> [[fvec1]], <13 x float> [[fvec2]])  ; FMax(a,b)
   // CHECK: call <13 x float> @dx.op.binary.v13f32(i32 36, <13 x float> [[tmp]], <13 x float> [[fvec3]])  ; FMin(a,b)
   vector<float, NUM> fRes = clamp(fVec1, fVec2, fVec3);
@@ -149,6 +149,14 @@ void main() {
   // CHECK: [[bvec3:%.*]] = icmp ne <13 x i32> [[vec3]], zeroinitializer
   // CHECK: and <13 x i1> [[bvec3]], [[bvec2]]
   uRes += and(bVec2, bVec3);
+
+  // CHECK: [[reduceand:%.*]] = call i64 @dx.op.vectorReduce.v13i64(i32 309, <13 x i64> [[lvec1]])  ; VectorReduceAnd(a)
+  // CHECK: icmp ne i64 [[reduceand]], 0
+  uRes += all(lVec1);
+
+  // CHECK: [[reduceor:%.*]] = call i64 @dx.op.vectorReduce.v13i64(i32 310, <13 x i64> [[lvec1]])  ; VectorReduceOr(a)
+  // CHECK: icmp ne i64 [[reduceor]], 0
+  uRes += any(lVec1);
 
   // CHECK: select <13 x i1> [[bvec3]], <13 x i64> [[lvec1]], <13 x i64> [[lvec2]]
   vector<int64_t, NUM> lRes = select(bVec3, lVec1, lVec2);

@@ -2687,22 +2687,23 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      {{0x400}},
      {{0x63}}}, // Overloads: <hfwi
 
-    {OC::ReservedD0,
-     "ReservedD0",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedD1,
-     "ReservedD1",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+    // Vector reduce to scalar
+    {OC::VectorReduceAnd,
+     "VectorReduceAnd",
+     OCC::VectorReduce,
+     "vectorReduce",
+     Attribute::ReadNone,
+     1,
+     {{0x400}},
+     {{0xf8}}}, // Overloads: <18wil
+    {OC::VectorReduceOr,
+     "VectorReduceOr",
+     OCC::VectorReduce,
+     "vectorReduce",
+     Attribute::ReadNone,
+     1,
+     {{0x400}},
+     {{0xf8}}}, // Overloads: <18wil
 
     // Dot
     {OC::FDot,
@@ -6018,14 +6019,16 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
 
-    //
-  case OpCode::ReservedD0:
-    A(pV);
+    // Vector reduce to scalar
+  case OpCode::VectorReduceAnd:
+    A(pVecElt);
     A(pI32);
+    A(pETy);
     break;
-  case OpCode::ReservedD1:
-    A(pV);
+  case OpCode::VectorReduceOr:
+    A(pVecElt);
     A(pI32);
+    A(pETy);
     break;
 
     // Dot
@@ -6207,6 +6210,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::CreateHandleForLib:
   case OpCode::WaveMatch:
   case OpCode::VectorAccumulate:
+  case OpCode::VectorReduceAnd:
+  case OpCode::VectorReduceOr:
   case OpCode::FDot:
     if (FT->getNumParams() <= 1)
       return nullptr;
@@ -6324,8 +6329,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedC7:
   case OpCode::ReservedC8:
   case OpCode::ReservedC9:
-  case OpCode::ReservedD0:
-  case OpCode::ReservedD1:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:
