@@ -468,8 +468,8 @@ public:
   void computeExpectedValues(const TestInputs<T1> &Inputs,
                              VariantVector &ExpectedVector) {
     fillExpectedVector<T2>(
-      ExpectedVector, Inputs.InputVector1.size(),
-      [&](size_t Index) { return ComputeFunc(Inputs.InputVector1[Index]); });
+        ExpectedVector, Inputs.InputVector1.size(),
+        [&](size_t Index) { return ComputeFunc(Inputs.InputVector1[Index]); });
   }
 
 private:
