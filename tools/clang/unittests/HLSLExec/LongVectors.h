@@ -386,13 +386,11 @@ public:
                               std::wstring DataType,
                               TableParameterHandler &Handler);
 
-  template <>
   void
-  dispatchTestByDataType(const OpTypeMetaData<TrigonometricOpType> &OpTypeMD,
+  dispatchTrigonometricOpTestByDataType(const OpTypeMetaData<TrigonometricOpType> &OpTypeMD,
                          std::wstring DataType, TableParameterHandler &Handler);
 
-  template <>
-  void dispatchTestByDataType(const OpTypeMetaData<UnaryMathOpType> &OpTypeMD,
+  void dispatchUnaryMathOpTestByDataType(const OpTypeMetaData<UnaryMathOpType> &OpTypeMD,
                               std::wstring DataType,
                               TableParameterHandler &Handler);
 

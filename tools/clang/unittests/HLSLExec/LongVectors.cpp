@@ -322,7 +322,7 @@ TEST_F(OpTest, trigonometricOpTest) {
   std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
 
   auto OpTypeMD = getTrigonometricOpType(OpTypeString);
-  dispatchTestByDataType(OpTypeMD, DataType, Handler);
+  dispatchTrigonometricOpTestByDataType(OpTypeMD, DataType, Handler);
 }
 
 TEST_F(OpTest, unaryOpTest) {
@@ -364,7 +364,7 @@ TEST_F(OpTest, unaryMathOpTest) {
   std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
 
   auto OpTypeMD = getUnaryMathOpType(OpTypeString);
-  dispatchTestByDataType(OpTypeMD, DataTypeIn, Handler);
+  dispatchUnaryMathOpTestByDataType(OpTypeMD, DataTypeIn, Handler);
 }
 
 TEST_F(OpTest, binaryMathOpTest) {
@@ -413,6 +413,7 @@ TEST_F(OpTest, ternaryMathOpTest) {
   dispatchTestByDataType(OpTypeMD, DataType, Handler);
 }
 
+// Generic dispatch that dispatchs all DataTypes recognized in these tests
 template <typename OpTypeT>
 void OpTest::dispatchTestByDataType(const OpTypeMetaData<OpTypeT> &OpTypeMd,
                                     std::wstring DataType,
@@ -454,16 +455,15 @@ void OpTest::dispatchTestByDataType(const OpTypeMetaData<OpTypeT> &OpTypeMd,
   }
 }
 
-template <>
-void OpTest::dispatchTestByDataType(
+// Unary math ops don't support HLSLBool_t. If we included a dispatcher for
+// them by allowing the generic dispatchTestByDataType then we would get
+// compile errors for a bunch of the templated std lib functions we call to
+// compute unary math ops. This is easier and cleaner than guarding against in
+// at that point.
+void OpTest::dispatchUnaryMathOpTestByDataType(
     const OpTypeMetaData<UnaryMathOpType> &OpTypeMd, std::wstring DataType,
     TableParameterHandler &Handler) {
 
-  // Unary math ops don't support HLSLBool_t. If we included a dispatcher for
-  // them by allowing the generic dispatchTestByDataType then we would get
-  // compile errors for a bunch of the templated std lib functions we call to
-  // compute unary math ops. This is easier and cleaner than guarding against in
-  // at that point.
   switch (Hash_djb2a(DataType)) {
   case Hash_djb2a(L"int16"):
     dispatchTestByVectorLength<int16_t>(OpTypeMd, Handler);
@@ -498,8 +498,12 @@ void OpTest::dispatchTestByDataType(
   }
 }
 
-template <>
-void OpTest::dispatchTestByDataType(
+// Specialized dispatch for Trigonometric op tests (tan, sin, etc)
+// Trig ops only support fp16, fp32, and fp64. So we don't want to
+// to generate code paths for any other types. Emit a runtime error via
+// LOG_ERROR_FMT_THROW if someone accidentally trys to add support for
+// a different DataType.
+void OpTest::dispatchTrigonometricOpTestByDataType(
     const OpTypeMetaData<TrigonometricOpType> &OpTypeMd, std::wstring DataType,
     TableParameterHandler &Handler) {
 
