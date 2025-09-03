@@ -157,17 +157,14 @@ bool doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
   return false;
 }
 
-// A helper to fill the expected vector with computed values. Lets us factor out
-// the re-used std::get_if code and the for loop.
+// A helper to create and fill the expected vector with computed values.
+// Also helps us factor out the generic fill loop via a passed in ComputeFn.
 template <typename DataTypeT, typename ComputeFnT>
-void fillExpectedVector(VariantVector &ExpectedVector, size_t Count,
-                        ComputeFnT ComputeFn) {
+VariantVector generateExpectedVector(size_t Count, ComputeFnT ComputeFn) {
+
+  VariantVector ExpectedVector = std::vector<DataTypeT>{};
   auto *TypedExpectedValues =
       std::get_if<std::vector<DataTypeT>>(&ExpectedVector);
-
-  VERIFY_IS_NOT_NULL(
-      TypedExpectedValues,
-      L"Programmer error: Expected vector is not of the correct type.");
 
   // A TestConfig may be reused for a different vector length. So this is a
   // good time to make sure we clear the expected vector.
@@ -175,6 +172,8 @@ void fillExpectedVector(VariantVector &ExpectedVector, size_t Count,
 
   for (size_t Index = 0; Index < Count; ++Index)
     TypedExpectedValues->push_back(ComputeFn(Index));
+
+  return ExpectedVector;
 }
 
 template <typename DataTypeT>
@@ -967,7 +966,6 @@ void AsTypeOpTestConfig<DataTypeT>::computeExpectedValues_SplitDouble(
     const std::vector<DataTypeT> &InputVector1) {
 
   DXASSERT_NOMSG(OpType == AsTypeOpType_AsUint_SplitDouble);
-
 
   // SplitDouble is a special case. We fill the first half of the expected
   // vector with the expected low bits of each input double and the second

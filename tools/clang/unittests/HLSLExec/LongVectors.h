@@ -463,9 +463,8 @@ public:
   using ComputeFuncPtr = std::function<T2(const T1 &)>;
   UnaryOpExpectedValueComputer(ComputeFuncPtr func) : ComputeFunc(func) {}
   VariantVector computeExpectedValues(const TestInputs<T1> &Inputs) override {
-    VariantVector ExpectedVector = std::vector<T2>{};
-    fillExpectedVector<T2>(
-        ExpectedVector, Inputs.InputVector1.size(),
+    VariantVector ExpectedVector = generateExpectedVector<T2>(
+        Inputs.InputVector1.size(),
         [&](size_t Index) { return ComputeFunc(Inputs.InputVector1[Index]); });
     return ExpectedVector;
   }
@@ -488,9 +487,7 @@ public:
     DXASSERT_NOMSG(Inputs.InputVector2.has_value());
     const auto &Input2 = Inputs.InputVector2.value();
 
-    VariantVector ExpectedVector = std::vector<T2>{};
-
-    fillExpectedVector<T2>(ExpectedVector, Input1.size(), [&](size_t Index) {
+    VariantVector ExpectedVector = generateExpectedVector<T2>(Input1.size(), [&](size_t Index) {
       const T1 &B = (Input2.size() == 1 ? Input2[0] : Input2[Index]);
 
       return ComputeFunc(Input1[Index], B);
@@ -521,9 +518,7 @@ public:
     DXASSERT_NOMSG(Inputs.InputVector3.has_value());
     const auto &Input3 = Inputs.InputVector3.value();
 
-    VariantVector ExpectedVector = std::vector<T2>{};
-
-    fillExpectedVector<T2>(ExpectedVector, Input1.size(), [&](size_t Index) {
+    VariantVector ExpectedVector = generateExpectedVector<T2>(Input1.size(), [&](size_t Index) {
       const T1 &B = (Input2.size() == 1 ? Input2[0] : Input2[Index]);
       const T1 &C = (Input3.size() == 1 ? Input3[0] : Input3[Index]);
 
@@ -813,7 +808,7 @@ template <typename DataTypeT>
 class TrigonometricOpTestConfig : public TestConfig<DataTypeT> {
 public:
   TrigonometricOpTestConfig(const OpTypeMetaData<TrigonometricOpType> &OpTypeMd);
-
+ 
   DataTypeT computeExpectedValue(const DataTypeT &A) const;
 
 private:
