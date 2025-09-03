@@ -440,78 +440,79 @@ void logLongVector(const std::vector<DataTypeT> &Values,
 // depends on the intrinsic being tested.
 // The length of the InputVector is used to infer if the argument is a scalar
 // or vector.
-template <typename DataTypeT> struct TestInputs {
-  std::vector<DataTypeT> InputVector1;
-  std::optional<std::vector<DataTypeT>> InputVector2 = std::nullopt;
-  std::optional<std::vector<DataTypeT>> InputVector3 = std::nullopt;
+template <typename T> struct TestInputs {
+  std::vector<T> InputVector1;
+  std::optional<std::vector<T>> InputVector2 = std::nullopt;
+  std::optional<std::vector<T>> InputVector3 = std::nullopt;
 };
 
-template <typename DataTypeT> class TestConfigBasicUnary {
+// Base interface for an ExpectedValueComputer. Derived classes implement
+// based on their operation type. This class and its derived classes are
+// responsible for computing the expected values for a given set of inputs.
+// This class pattern allows us to abstract common logic for filling the
+// expected vector based on operation type.
+template <typename T> class ExpectedValueComputerBase {
 public:
-  TestConfigBasicUnary(){};
-  virtual ~TestConfigBasicUnary() = default;
+  virtual ~ExpectedValueComputerBase() = default;
+  virtual void computeExpectedValues(const TestInputs<T> &Inputs,
+                                     VariantVector &ExpectedVector) = 0;
+};
 
-  void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
-                                     VariantVector &ExpectedVector) {
-    computeExpectedValues(Inputs.InputVector1, ExpectedVector);
-  }
+template <typename T1, typename T2 = T1>
+class UnaryOpExpectedValueComputer : public ExpectedValueComputerBase<T1> {
+public:
+  using ComputeFuncPtr = std::function<T2(const T1 &)>;
+  UnaryOpExpectedValueComputer(ComputeFuncPtr func) : ComputeFunc(func) {}
+  virtual ~UnaryOpExpectedValueComputer() = default;
 
-  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
+  void computeExpectedValues(const TestInputs<T1> &Inputs,
                              VariantVector &ExpectedVector) {
-    fillExpectedVector<DataTypeT>(
-        ExpectedVector, InputVector1.size(), [&](size_t Index) {
-          return computeExpectedValue(InputVector1[Index]);
-        });
+    fillExpectedVector<T2>(
+      ExpectedVector, Inputs.InputVector1.size(),
+      [&](size_t Index) { return ComputeFunc(Inputs.InputVector1[Index]); });
   }
 
-  virtual DataTypeT computeExpectedValue(const DataTypeT &A) const = 0;
+private:
+  const ComputeFuncPtr ComputeFunc;
 };
 
-template <typename DataTypeT> class TestConfigBasicBinary {
+template <typename T1, typename T2 = T1>
+class BinaryOpExpectedValueComputer : public ExpectedValueComputerBase<T1> {
 public:
-  TestConfigBasicBinary(){};
-  virtual ~TestConfigBasicBinary() = default;
+  using ComputeFuncPtr = std::function<T2(const T1 &, const T1 &)>;
 
-  virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
-                                              VariantVector &ExpectedVector) {
+  BinaryOpExpectedValueComputer(ComputeFuncPtr func) : ComputeFunc(func) {}
+  virtual ~BinaryOpExpectedValueComputer() = default;
+
+  void computeExpectedValues(const TestInputs<T1> &Inputs,
+                             VariantVector &ExpectedVector) {
+
+    const auto &Input1 = Inputs.InputVector1;
+
     DXASSERT_NOMSG(Inputs.InputVector2.has_value());
+    const auto &Input2 = Inputs.InputVector2.value();
 
-    if (Inputs.InputVector2.value().size() > 1)
-      computeExpectedValues(Inputs.InputVector1, Inputs.InputVector2.value(),
-                            ExpectedVector);
-    else
-      computeExpectedValues(Inputs.InputVector1, Inputs.InputVector2.value()[0],
-                            ExpectedVector);
+    fillExpectedVector<T2>(ExpectedVector, Input1.size(), [&](size_t Index) {
+      const T1 &B = (Input2.size() == 1 ? Input2[0] : Input2[Index]);
+
+      return ComputeFunc(Input1[Index], B);
+    });
   }
 
-  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
-                             const std::vector<DataTypeT> &InputVector2,
-                             VariantVector &ExpectedVector) {
-    fillExpectedVector<DataTypeT>(
-        ExpectedVector, InputVector1.size(), [&](size_t Index) {
-          return computeExpectedValue(InputVector1[Index], InputVector2[Index]);
-        });
-  }
-
-  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
-                             const DataTypeT &ScalarInput,
-                             VariantVector &ExpectedVector) {
-    fillExpectedVector<DataTypeT>(
-        ExpectedVector, InputVector1.size(), [&](size_t Index) {
-          return computeExpectedValue(InputVector1[Index], ScalarInput);
-        });
-  }
-
-  virtual DataTypeT computeExpectedValue(const DataTypeT &A,
-                                         const DataTypeT &B) const = 0;
+private:
+  const ComputeFuncPtr ComputeFunc;
 };
 
-template <typename DataTypeT> class TestConfigBasicTernary {
-public:
-  TestConfigBasicTernary(){};
-  virtual ~TestConfigBasicTernary() = default;
+template <typename T1, typename T2 = T1>
+class TernaryOpExpectedValueComputer : public ExpectedValueComputerBase<T1> {
 
-  virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs,
+public:
+  using ComputeFuncPtr = std::function<T2(const T1 &, const T1 &, const T1 &)>;
+
+  TernaryOpExpectedValueComputer(ComputeFuncPtr func) : ComputeFunc(func) {}
+  virtual ~TernaryOpExpectedValueComputer() = default;
+
+  virtual void computeExpectedValues(const TestInputs<T1> &Inputs,
                                      VariantVector &ExpectedVector) {
 
     const auto &Input1 = Inputs.InputVector1;
@@ -522,17 +523,16 @@ public:
     DXASSERT_NOMSG(Inputs.InputVector3.has_value());
     const auto &Input3 = Inputs.InputVector3.value();
 
-    fillExpectedVector<DataTypeT>(
-        ExpectedVector, Input1.size(), [&](size_t Index) {
-          const DataTypeT &B = (Input2.size() == 1 ? Input2[0] : Input2[Index]);
-          const DataTypeT &C = (Input3.size() == 1 ? Input3[0] : Input3[Index]);
+    fillExpectedVector<T2>(ExpectedVector, Input1.size(), [&](size_t Index) {
+      const T1 &B = (Input2.size() == 1 ? Input2[0] : Input2[Index]);
+      const T1 &C = (Input3.size() == 1 ? Input3[0] : Input3[Index]);
 
-          return computeExpectedValue(Input1[Index], B, C);
-        });
+      return ComputeFunc(Input1[Index], B, C);
+    });
   }
 
-  virtual DataTypeT computeExpectedValue(const DataTypeT &A, const DataTypeT &B,
-                                         const DataTypeT &C) const = 0;
+private:
+  const ComputeFuncPtr ComputeFunc;
 };
 
 // Helps handle the test configuration for LongVector operations.
@@ -547,7 +547,9 @@ public:
 
   void fillInputs(TestInputs<DataTypeT> &Inputs) const;
 
-  virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) = 0;
+  // Derived classes don't need to implement this function if they configure and
+  // set a ExpectedValueComputer member.
+  virtual void computeExpectedValues(const TestInputs<DataTypeT> &Inputs);
 
   void setInputValueSetKey(const std::wstring &InputValueSetName,
                            size_t Index) {
@@ -599,6 +601,43 @@ protected:
         Operator(OpTypeMd.Operator),
         ScalarInputFlags(OpTypeMd.ScalarInputFlags) {}
 
+  // Helper to initialize a unary value computer.
+  template <typename DataTypeOutT>
+  void InitUnaryOpValueComputer(
+      std::function<DataTypeOutT(const DataTypeT &)> ComputeFunc) {
+    DXASSERT_NOMSG(BasicOpType == BasicOpType_Unary);
+    DXASSERT_NOMSG(ExpectedValueComputer == nullptr);
+    ExpectedValueComputer =
+        std::make_unique<UnaryOpExpectedValueComputer<DataTypeT, DataTypeOutT>>(
+            ComputeFunc);
+  }
+
+  // Helper to initialize a binary value computer.
+  template <typename DataTypeOutT>
+  void InitBinaryOpValueComputer(
+      std::function<DataTypeOutT(const DataTypeT &, const DataTypeT &)>
+          ComputeFunc) {
+    DXASSERT_NOMSG(BasicOpType == BasicOpType_Binary);
+    DXASSERT_NOMSG(ExpectedValueComputer == nullptr);
+    ExpectedValueComputer = std::make_unique<
+        BinaryOpExpectedValueComputer<DataTypeT, DataTypeOutT>>(ComputeFunc);
+  }
+
+  // Helper to initialize a ternary value computer.
+  template <typename DataTypeOutT>
+  void InitTernaryOpValueComputer(
+      std::function<DataTypeOutT(const DataTypeT &, const DataTypeT &,
+                                 const DataTypeT &)>
+          ComputeFunc) {
+    DXASSERT_NOMSG(BasicOpType == BasicOpType_Ternary);
+    DXASSERT_NOMSG(ExpectedValueComputer == nullptr);
+    ExpectedValueComputer = std::make_unique<
+        TernaryOpExpectedValueComputer<DataTypeT, DataTypeOutT>>(ComputeFunc);
+  }
+
+  std::unique_ptr<ExpectedValueComputerBase<DataTypeT>> ExpectedValueComputer =
+      nullptr;
+
   // To be used for the value of -DOPERATOR
   std::optional<std::string> Operator;
   // To be used for the value of -DFUNC
@@ -625,15 +664,13 @@ class TestConfigAsType : public TestConfig<DataTypeT> {
 public:
   TestConfigAsType(const OpTypeMetaData<AsTypeOpType> &OpTypeMd);
 
+  // Override the base class method so we can handle split double as it has two
+  // out parameters.
   void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) override;
 
 private:
-  // Private implementation that dispatches based on the output type.
-  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1);
-  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
-                             const std::vector<DataTypeT> &InputVector2);
-  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1,
-                             const DataTypeT &ScalarInput);
+  void
+  computeExpectedValues_SplitDouble(const std::vector<DataTypeT> &InputVector1);
 
   template <typename DataTypeInT>
   HLSLHalf_t asFloat16([[maybe_unused]] const DataTypeInT &A) const {
@@ -761,55 +798,36 @@ private:
 };
 
 template <typename DataTypeT>
-class TestConfigTrigonometric : public TestConfig<DataTypeT>,
-                                public TestConfigBasicUnary<DataTypeT> {
+class TestConfigTrigonometric : public TestConfig<DataTypeT> {
 public:
   TestConfigTrigonometric(const OpTypeMetaData<TrigonometricOpType> &OpTypeMd);
 
-  void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) override {
-    TestConfigBasicUnary<DataTypeT>::computeExpectedValues(Inputs.InputVector1,
-                                                           ExpectedVector);
-  }
-
-  DataTypeT computeExpectedValue(const DataTypeT &A) const override;
+  DataTypeT computeExpectedValue(const DataTypeT &A) const;
 
 private:
   TrigonometricOpType OpType = TrigonometricOpType_EnumValueCount;
 };
 
 template <typename DataTypeT>
-class TestConfigUnary : public TestConfig<DataTypeT>,
-                        public TestConfigBasicUnary<DataTypeT> {
+class TestConfigUnary : public TestConfig<DataTypeT> {
 public:
   TestConfigUnary(const OpTypeMetaData<UnaryOpType> &OpTypeMd);
 
-  void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) override {
-    TestConfigBasicUnary<DataTypeT>::computeExpectedValues(Inputs.InputVector1,
-                                                           ExpectedVector);
-  }
-
-  DataTypeT computeExpectedValue(const DataTypeT &A) const override;
+  DataTypeT computeExpectedValue(const DataTypeT &A) const;
 
 private:
   UnaryOpType OpType = UnaryOpType_EnumValueCount;
 };
 
 template <typename DataTypeT>
-class TestConfigUnaryMath : public TestConfig<DataTypeT>,
-                            public TestConfigBasicUnary<DataTypeT> {
+class TestConfigUnaryMath : public TestConfig<DataTypeT> {
 public:
   TestConfigUnaryMath(const OpTypeMetaData<UnaryMathOpType> &OpTypeMd);
 
-  void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) override {
-    computeExpectedValues(Inputs.InputVector1);
-  }
-
-  DataTypeT computeExpectedValue(const DataTypeT &A) const override;
+  DataTypeT computeExpectedValue(const DataTypeT &A) const;
 
 private:
   UnaryMathOpType OpType = UnaryMathOpType_EnumValueCount;
-
-  void computeExpectedValues(const std::vector<DataTypeT> &InputVector1);
 
   template <typename DataTypeT> int32_t sign(const DataTypeT &A) const {
     // Return 1 for positive, -1 for negative, 0 for zero.
@@ -822,22 +840,20 @@ private:
     if constexpr (std::is_unsigned<DataTypeT>::value)
       return DataTypeT(A);
     else
-      return (std::abs)(A);
+      // Cast to DataTypeT for the int16_t case because std::abs implicitly
+      // converts to and returns an int. Without the cast back to an int the
+      // compiler will complain that the implicit conversion back to int16_t has
+      // lost precision.
+      return static_cast<DataTypeT>((std::abs)(A));
   }
 };
 
 template <typename DataTypeT>
-class TestConfigBinaryMath : public TestConfig<DataTypeT>,
-                             public TestConfigBasicBinary<DataTypeT> {
+class TestConfigBinaryMath : public TestConfig<DataTypeT> {
 public:
   TestConfigBinaryMath(const OpTypeMetaData<BinaryMathOpType> &OpTypeMd);
-  DataTypeT computeExpectedValue(const DataTypeT &A,
-                                 const DataTypeT &B) const override;
 
-  void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) override {
-    TestConfigBasicBinary<DataTypeT>::computeExpectedValues(Inputs,
-                                                            ExpectedVector);
-  }
+  DataTypeT computeExpectedValue(const DataTypeT &A, const DataTypeT &B) const;
 
 private:
   BinaryMathOpType OpType = BinaryMathOpType_EnumValueCount;
@@ -859,18 +875,12 @@ private:
 };
 
 template <typename DataTypeT>
-class TestConfigTernaryMath : public TestConfig<DataTypeT>,
-                              public TestConfigBasicTernary<DataTypeT> {
+class TestConfigTernaryMath : public TestConfig<DataTypeT> {
 public:
   TestConfigTernaryMath(const OpTypeMetaData<TernaryMathOpType> &OpTypeMd);
 
-  void computeExpectedValues(const TestInputs<DataTypeT> &Inputs) override {
-    TestConfigBasicTernary<DataTypeT>::computeExpectedValues(Inputs,
-                                                             ExpectedVector);
-  }
-
   DataTypeT computeExpectedValue(const DataTypeT &A, const DataTypeT &B,
-                                 const DataTypeT &C) const override {
+                                 const DataTypeT &C) const {
     switch (OpType) {
     case TernaryMathOpType_Fma:
       return fma(A, B, C);
