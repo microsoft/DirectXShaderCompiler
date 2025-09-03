@@ -114,7 +114,7 @@ template <typename OpTypeT> struct OpTypeMetaData {
   std::optional<std::string> Intrinsic = std::nullopt;
   std::optional<std::string> Operator = std::nullopt;
   uint16_t ScalarInputFlags =
-      static_cast<uint16_t>(SCALAR_INPUT_FLAGS::SCALAR_INPUT_FLAGS_NONE);
+      static_cast<uint16_t>(SCALAR_INPUT_FLAGS_NONE);
 };
 
 template <typename T, size_t Length>
@@ -454,8 +454,7 @@ template <typename T> struct TestInputs {
 template <typename T> class ExpectedValueComputerBase {
 public:
   virtual ~ExpectedValueComputerBase() = default;
-  virtual void computeExpectedValues(const TestInputs<T> &Inputs,
-                                     VariantVector &ExpectedVector) = 0;
+  virtual VariantVector computeExpectedValues(const TestInputs<T> &Inputs) = 0;
 };
 
 template <typename T1, typename T2 = T1>
@@ -463,13 +462,12 @@ class UnaryOpExpectedValueComputer : public ExpectedValueComputerBase<T1> {
 public:
   using ComputeFuncPtr = std::function<T2(const T1 &)>;
   UnaryOpExpectedValueComputer(ComputeFuncPtr func) : ComputeFunc(func) {}
-  virtual ~UnaryOpExpectedValueComputer() = default;
-
-  void computeExpectedValues(const TestInputs<T1> &Inputs,
-                             VariantVector &ExpectedVector) {
+  VariantVector computeExpectedValues(const TestInputs<T1> &Inputs) override {
+    VariantVector ExpectedVector = std::vector<T2>{};
     fillExpectedVector<T2>(
         ExpectedVector, Inputs.InputVector1.size(),
         [&](size_t Index) { return ComputeFunc(Inputs.InputVector1[Index]); });
+    return ExpectedVector;
   }
 
 private:
@@ -482,21 +480,23 @@ public:
   using ComputeFuncPtr = std::function<T2(const T1 &, const T1 &)>;
 
   BinaryOpExpectedValueComputer(ComputeFuncPtr func) : ComputeFunc(func) {}
-  virtual ~BinaryOpExpectedValueComputer() = default;
 
-  void computeExpectedValues(const TestInputs<T1> &Inputs,
-                             VariantVector &ExpectedVector) {
+  VariantVector computeExpectedValues(const TestInputs<T1> &Inputs) override {
 
     const auto &Input1 = Inputs.InputVector1;
 
     DXASSERT_NOMSG(Inputs.InputVector2.has_value());
     const auto &Input2 = Inputs.InputVector2.value();
 
+    VariantVector ExpectedVector = std::vector<T2>{};
+
     fillExpectedVector<T2>(ExpectedVector, Input1.size(), [&](size_t Index) {
       const T1 &B = (Input2.size() == 1 ? Input2[0] : Input2[Index]);
 
       return ComputeFunc(Input1[Index], B);
     });
+    
+    return ExpectedVector;
   }
 
 private:
@@ -510,10 +510,8 @@ public:
   using ComputeFuncPtr = std::function<T2(const T1 &, const T1 &, const T1 &)>;
 
   TernaryOpExpectedValueComputer(ComputeFuncPtr func) : ComputeFunc(func) {}
-  virtual ~TernaryOpExpectedValueComputer() = default;
 
-  virtual void computeExpectedValues(const TestInputs<T1> &Inputs,
-                                     VariantVector &ExpectedVector) {
+  VariantVector computeExpectedValues(const TestInputs<T1> &Inputs) override {
 
     const auto &Input1 = Inputs.InputVector1;
 
@@ -523,12 +521,16 @@ public:
     DXASSERT_NOMSG(Inputs.InputVector3.has_value());
     const auto &Input3 = Inputs.InputVector3.value();
 
+    VariantVector ExpectedVector = std::vector<T2>{};
+
     fillExpectedVector<T2>(ExpectedVector, Input1.size(), [&](size_t Index) {
       const T1 &B = (Input2.size() == 1 ? Input2[0] : Input2[Index]);
       const T1 &C = (Input3.size() == 1 ? Input3[0] : Input3[Index]);
 
       return ComputeFunc(Input1[Index], B, C);
     });
+
+    return ExpectedVector;
   }
 
 private:
@@ -536,11 +538,16 @@ private:
 };
 
 // Helps handle the test configuration for LongVector operations.
-// It was particularly useful helping manage logic of computing expected values
+// It is particularly useful helping manage logic of computing expected values
 // and verifying the output. Especially helpful due to templating on the
 // different data types and giving us a relatively clean way to leverage
 // different logic paths for different HLSL instrinsics while keeping the main
 // test code pretty generic.
+// For each *OpType enum defined a *TestConfig specialization should be
+// implemented to handle the specific logic for that operation. Generally that
+// includes some basic setup like setting the BasicOpType as well as logic to
+// compute expected values. See ExpectedValueComputer* use and definitions for
+// more details on computing expected values.
 template <typename DataTypeT> class TestConfig {
 public:
   virtual ~TestConfig() = default;
@@ -659,10 +666,15 @@ protected:
   const uint16_t ScalarInputFlags;
 }; // class TestConfig
 
+// Specialized TestConfig for AsType operations. Implements logic for computing
+// expected values. Also includes overrides of individual functions for
+// computing expected values to provide runtime errors if an unsupported data
+// type is used for a given intrinsic. See the individual overrides of functions
+// for more details.
 template <typename DataTypeT>
-class TestConfigAsType : public TestConfig<DataTypeT> {
+class AsTypeOpTestConfig : public TestConfig<DataTypeT> {
 public:
-  TestConfigAsType(const OpTypeMetaData<AsTypeOpType> &OpTypeMd);
+  AsTypeOpTestConfig(const OpTypeMetaData<AsTypeOpType> &OpTypeMd);
 
   // Override the base class method so we can handle split double as it has two
   // out parameters.
@@ -798,9 +810,9 @@ private:
 };
 
 template <typename DataTypeT>
-class TestConfigTrigonometric : public TestConfig<DataTypeT> {
+class TrigonometricOpTestConfig : public TestConfig<DataTypeT> {
 public:
-  TestConfigTrigonometric(const OpTypeMetaData<TrigonometricOpType> &OpTypeMd);
+  TrigonometricOpTestConfig(const OpTypeMetaData<TrigonometricOpType> &OpTypeMd);
 
   DataTypeT computeExpectedValue(const DataTypeT &A) const;
 
@@ -809,9 +821,9 @@ private:
 };
 
 template <typename DataTypeT>
-class TestConfigUnary : public TestConfig<DataTypeT> {
+class UnaryOpTestConfig : public TestConfig<DataTypeT> {
 public:
-  TestConfigUnary(const OpTypeMetaData<UnaryOpType> &OpTypeMd);
+  UnaryOpTestConfig(const OpTypeMetaData<UnaryOpType> &OpTypeMd);
 
   DataTypeT computeExpectedValue(const DataTypeT &A) const;
 
@@ -820,15 +832,17 @@ private:
 };
 
 template <typename DataTypeT>
-class TestConfigUnaryMath : public TestConfig<DataTypeT> {
+class UnaryMathOpTestConfig : public TestConfig<DataTypeT> {
 public:
-  TestConfigUnaryMath(const OpTypeMetaData<UnaryMathOpType> &OpTypeMd);
+  UnaryMathOpTestConfig(const OpTypeMetaData<UnaryMathOpType> &OpTypeMd);
 
   DataTypeT computeExpectedValue(const DataTypeT &A) const;
 
 private:
   UnaryMathOpType OpType = UnaryMathOpType_EnumValueCount;
 
+  // The majority of HLSL intrinsics return a DataType matching the
+  // input DataType. However, Sign always returns an int32_t.
   template <typename DataTypeT> int32_t sign(const DataTypeT &A) const {
     // Return 1 for positive, -1 for negative, 0 for zero.
     // Wrap comparison operands in DataTypeInT constructor to make sure
@@ -849,9 +863,9 @@ private:
 };
 
 template <typename DataTypeT>
-class TestConfigBinaryMath : public TestConfig<DataTypeT> {
+class BinaryMathOpTestConfig : public TestConfig<DataTypeT> {
 public:
-  TestConfigBinaryMath(const OpTypeMetaData<BinaryMathOpType> &OpTypeMd);
+  BinaryMathOpTestConfig(const OpTypeMetaData<BinaryMathOpType> &OpTypeMd);
 
   DataTypeT computeExpectedValue(const DataTypeT &A, const DataTypeT &B) const;
 
@@ -875,9 +889,9 @@ private:
 };
 
 template <typename DataTypeT>
-class TestConfigTernaryMath : public TestConfig<DataTypeT> {
+class TernaryMathOpTestConfig : public TestConfig<DataTypeT> {
 public:
-  TestConfigTernaryMath(const OpTypeMetaData<TernaryMathOpType> &OpTypeMd);
+  TernaryMathOpTestConfig(const OpTypeMetaData<TernaryMathOpType> &OpTypeMd);
 
   DataTypeT computeExpectedValue(const DataTypeT &A, const DataTypeT &B,
                                  const DataTypeT &C) const {
@@ -943,7 +957,7 @@ private:
     return T();
   }
 
-  // Smoothstep only enabled for floatlikes
+  // Smoothstep is only enabled for floatlikes
   template <typename T = DataTypeT>
   typename std::enable_if<std::is_same<T, float>::value ||
                               std::is_same<T, HLSLHalf_t>::value ||
@@ -966,37 +980,37 @@ private:
 template <typename DataTypeT>
 std::unique_ptr<TestConfig<DataTypeT>>
 makeTestConfig(const OpTypeMetaData<UnaryOpType> &OpTypeMetaData) {
-  return std::make_unique<TestConfigUnary<DataTypeT>>(OpTypeMetaData);
+  return std::make_unique<UnaryOpTestConfig<DataTypeT>>(OpTypeMetaData);
 }
 
 template <typename DataTypeT>
 std::unique_ptr<TestConfig<DataTypeT>>
 makeTestConfig(const OpTypeMetaData<TrigonometricOpType> &OpTypeMetaData) {
-  return std::make_unique<TestConfigTrigonometric<DataTypeT>>(OpTypeMetaData);
+  return std::make_unique<TrigonometricOpTestConfig<DataTypeT>>(OpTypeMetaData);
 }
 
 template <typename DataTypeT>
 std::unique_ptr<TestConfig<DataTypeT>>
 makeTestConfig(const OpTypeMetaData<AsTypeOpType> &OpTypeMetaData) {
-  return std::make_unique<TestConfigAsType<DataTypeT>>(OpTypeMetaData);
+  return std::make_unique<AsTypeOpTestConfig<DataTypeT>>(OpTypeMetaData);
 }
 
 template <typename DataTypeT>
 std::unique_ptr<TestConfig<DataTypeT>>
 makeTestConfig(const OpTypeMetaData<UnaryMathOpType> &OpTypeMetaData) {
-  return std::make_unique<TestConfigUnaryMath<DataTypeT>>(OpTypeMetaData);
+  return std::make_unique<UnaryMathOpTestConfig<DataTypeT>>(OpTypeMetaData);
 }
 
 template <typename DataTypeT>
 std::unique_ptr<TestConfig<DataTypeT>>
 makeTestConfig(const OpTypeMetaData<BinaryMathOpType> &OpTypeMetaData) {
-  return std::make_unique<TestConfigBinaryMath<DataTypeT>>(OpTypeMetaData);
+  return std::make_unique<BinaryMathOpTestConfig<DataTypeT>>(OpTypeMetaData);
 }
 
 template <typename DataTypeT>
 std::unique_ptr<TestConfig<DataTypeT>>
 makeTestConfig(const OpTypeMetaData<TernaryMathOpType> &OpTypeMetaData) {
-  return std::make_unique<TestConfigTernaryMath<DataTypeT>>(OpTypeMetaData);
+  return std::make_unique<TernaryMathOpTestConfig<DataTypeT>>(OpTypeMetaData);
 }
 }; // namespace LongVector
 

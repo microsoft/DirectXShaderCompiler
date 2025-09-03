@@ -877,7 +877,7 @@ void TestConfig<DataTypeT>::fillInputs(TestInputs<DataTypeT> &Inputs) const {
 }
 
 template <typename DataTypeT>
-TestConfigAsType<DataTypeT>::TestConfigAsType(
+AsTypeOpTestConfig<DataTypeT>::AsTypeOpTestConfig(
     const OpTypeMetaData<AsTypeOpType> &OpTypeMd)
     : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
@@ -885,48 +885,40 @@ TestConfigAsType<DataTypeT>::TestConfigAsType(
 
   switch (OpType) {
   case AsTypeOpType_AsFloat16: {
-    ExpectedVector = std::vector<HLSLHalf_t>{};
     auto ComputeFunc = [this](const DataTypeT &Val) { return asFloat16(Val); };
     InitUnaryOpValueComputer<HLSLHalf_t>(ComputeFunc);
     break;
   }
   case AsTypeOpType_AsFloat: {
-    ExpectedVector = std::vector<float>{};
     auto ComputeFunc = [this](const DataTypeT &Val) { return asFloat(Val); };
     InitUnaryOpValueComputer<float>(ComputeFunc);
     break;
   }
   case AsTypeOpType_AsInt: {
-    ExpectedVector = std::vector<int32_t>{};
     auto ComputeFunc = [this](const DataTypeT &Val) { return asInt(Val); };
     InitUnaryOpValueComputer<int32_t>(ComputeFunc);
     break;
   }
   case AsTypeOpType_AsInt16: {
-    ExpectedVector = std::vector<int16_t>{};
     auto ComputeFunc = [this](const DataTypeT &Val) { return asInt16(Val); };
     InitUnaryOpValueComputer<int16_t>(ComputeFunc);
     break;
   }
   case AsTypeOpType_AsUint: {
-    ExpectedVector = std::vector<uint32_t>{};
     auto ComputeFunc = [this](const DataTypeT &Val) { return asUint(Val); };
     InitUnaryOpValueComputer<uint32_t>(ComputeFunc);
     break;
   }
   case AsTypeOpType_AsUint_SplitDouble: {
     SpecialDefines = " -DFUNC_ASUINT_SPLITDOUBLE=1";
-    ExpectedVector = std::vector<uint32_t>{};
     break;
   }
   case AsTypeOpType_AsUint16: {
-    ExpectedVector = std::vector<uint16_t>{};
     auto ComputeFunc = [this](const DataTypeT &Val) { return asUint16(Val); };
     InitUnaryOpValueComputer<uint16_t>(ComputeFunc);
     break;
   }
   case AsTypeOpType_AsDouble: {
-    ExpectedVector = std::vector<double>{};
     BasicOpType = BasicOpType_Binary;
     auto ComputeFunc = [this](const DataTypeT &A, const DataTypeT &B) {
       return asDouble(A, B);
@@ -950,11 +942,11 @@ void TestConfig<DataTypeT>::computeExpectedValues(
         L"Programmer Error: ExpectedValueComputer is not set for OpType: %ls.",
         OpTypeName.c_str());
 
-  ExpectedValueComputer->computeExpectedValues(Inputs, ExpectedVector);
+  ExpectedVector = ExpectedValueComputer->computeExpectedValues(Inputs);
 }
 
 template <typename DataTypeT>
-void TestConfigAsType<DataTypeT>::computeExpectedValues(
+void AsTypeOpTestConfig<DataTypeT>::computeExpectedValues(
     const TestInputs<DataTypeT> &Inputs) {
 
   if (BasicOpType != BasicOpType_Unary && BasicOpType != BasicOpType_Binary)
@@ -963,7 +955,7 @@ void TestConfigAsType<DataTypeT>::computeExpectedValues(
                         static_cast<int>(BasicOpType));
 
   if (ExpectedValueComputer)
-    ExpectedValueComputer->computeExpectedValues(Inputs, ExpectedVector);
+    ExpectedVector = ExpectedValueComputer->computeExpectedValues(Inputs);
   else
     // Only SplitDouble has special handling. All other ops will have an
     // ExpectedValueComputer set.
@@ -971,20 +963,20 @@ void TestConfigAsType<DataTypeT>::computeExpectedValues(
 }
 
 template <typename DataTypeT>
-void TestConfigAsType<DataTypeT>::computeExpectedValues_SplitDouble(
+void AsTypeOpTestConfig<DataTypeT>::computeExpectedValues_SplitDouble(
     const std::vector<DataTypeT> &InputVector1) {
 
   DXASSERT_NOMSG(OpType == AsTypeOpType_AsUint_SplitDouble);
+
 
   // SplitDouble is a special case. We fill the first half of the expected
   // vector with the expected low bits of each input double and the second
   // half with the high bits of each input double. Doing things this way
   // helps keep the rest of the generic logic in the LongVector test code
   // simple.
+  ExpectedVector = std::vector<uint32_t>{};
   auto *TypedExpectedValues =
       std::get_if<std::vector<uint32_t>>(&ExpectedVector);
-  VERIFY_IS_NOT_NULL(TypedExpectedValues,
-                     L"Expected vector is not of the correct type.");
   TypedExpectedValues->resize(InputVector1.size() * 2);
   uint32_t LowBits, HighBits;
   const size_t InputSize = InputVector1.size();
@@ -996,7 +988,7 @@ void TestConfigAsType<DataTypeT>::computeExpectedValues_SplitDouble(
 }
 
 template <typename DataTypeT>
-TestConfigTrigonometric<DataTypeT>::TestConfigTrigonometric(
+TrigonometricOpTestConfig<DataTypeT>::TrigonometricOpTestConfig(
     const OpTypeMetaData<TrigonometricOpType> &OpTypeMd)
     : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
@@ -1025,7 +1017,7 @@ TestConfigTrigonometric<DataTypeT>::TestConfigTrigonometric(
 
 // computeExpectedValue Trigonometric
 template <typename DataTypeT>
-DataTypeT TestConfigTrigonometric<DataTypeT>::computeExpectedValue(
+DataTypeT TrigonometricOpTestConfig<DataTypeT>::computeExpectedValue(
     const DataTypeT &A) const {
 
   switch (OpType) {
@@ -1055,7 +1047,7 @@ DataTypeT TestConfigTrigonometric<DataTypeT>::computeExpectedValue(
 }
 
 template <typename DataTypeT>
-TestConfigUnary<DataTypeT>::TestConfigUnary(
+UnaryOpTestConfig<DataTypeT>::UnaryOpTestConfig(
     const OpTypeMetaData<UnaryOpType> &OpTypeMd)
     : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
@@ -1077,7 +1069,7 @@ TestConfigUnary<DataTypeT>::TestConfigUnary(
 
 template <typename DataTypeT>
 DataTypeT
-TestConfigUnary<DataTypeT>::computeExpectedValue(const DataTypeT &A) const {
+UnaryOpTestConfig<DataTypeT>::computeExpectedValue(const DataTypeT &A) const {
   if (OpType != UnaryOpType_Initialize) {
     LOG_ERROR_FMT_THROW(L"computeExpectedValue(const DataTypeT &A, "
                         L"UnaryOpType OpType) called on an "
@@ -1090,7 +1082,7 @@ TestConfigUnary<DataTypeT>::computeExpectedValue(const DataTypeT &A) const {
 }
 
 template <typename DataTypeT>
-TestConfigUnaryMath<DataTypeT>::TestConfigUnaryMath(
+UnaryMathOpTestConfig<DataTypeT>::UnaryMathOpTestConfig(
     const OpTypeMetaData<UnaryMathOpType> &OpTypeMd)
     : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
@@ -1102,12 +1094,10 @@ TestConfigUnaryMath<DataTypeT>::TestConfigUnaryMath(
   }
 
   if (OpType == UnaryMathOpType_Sign) {
-    ExpectedVector = std::vector<int32_t>{};
     // Sign has overridden special logic.
     auto ComputeFunc = [this](const DataTypeT &A) { return this->sign(A); };
     InitUnaryOpValueComputer<int32_t>(ComputeFunc);
   } else {
-    // Sign has overridden special logic.
     auto ComputeFunc = [this](const DataTypeT &A) {
       return this->computeExpectedValue(A);
     };
@@ -1117,7 +1107,7 @@ TestConfigUnaryMath<DataTypeT>::TestConfigUnaryMath(
 
 template <typename DataTypeT>
 DataTypeT
-TestConfigUnaryMath<DataTypeT>::computeExpectedValue(const DataTypeT &A) const {
+UnaryMathOpTestConfig<DataTypeT>::computeExpectedValue(const DataTypeT &A) const {
 
   if constexpr (std::is_integral<DataTypeT>::value) {
     // Abs and Sign are the only UnaryMathOps thats support integral types.
@@ -1184,7 +1174,7 @@ TestConfigUnaryMath<DataTypeT>::computeExpectedValue(const DataTypeT &A) const {
 }
 
 template <typename DataTypeT>
-TestConfigBinaryMath<DataTypeT>::TestConfigBinaryMath(
+BinaryMathOpTestConfig<DataTypeT>::BinaryMathOpTestConfig(
     const OpTypeMetaData<BinaryMathOpType> &OpTypeMd)
     : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
@@ -1202,7 +1192,7 @@ TestConfigBinaryMath<DataTypeT>::TestConfigBinaryMath(
 }
 
 template <typename DataTypeT>
-DataTypeT TestConfigBinaryMath<DataTypeT>::computeExpectedValue(
+DataTypeT BinaryMathOpTestConfig<DataTypeT>::computeExpectedValue(
     const DataTypeT &A, const DataTypeT &B) const {
 
   switch (OpType) {
@@ -1229,7 +1219,7 @@ DataTypeT TestConfigBinaryMath<DataTypeT>::computeExpectedValue(
 }
 
 template <typename DataTypeT>
-TestConfigTernaryMath<DataTypeT>::TestConfigTernaryMath(
+TernaryMathOpTestConfig<DataTypeT>::TernaryMathOpTestConfig(
     const OpTypeMetaData<TernaryMathOpType> &OpTypeMd)
     : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
