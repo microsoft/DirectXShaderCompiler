@@ -524,6 +524,8 @@ enum class OpCode : unsigned {
   ReservedC7 = 300,  // reserved
   ReservedC8 = 301,  // reserved
   ReservedC9 = 302,  // reserved
+  ReservedD0 = 309,  // reserved
+  ReservedD1 = 310,  // reserved
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -562,6 +564,9 @@ enum class OpCode : unsigned {
   // Binary uint
   UMax = 39, // unsigned integer maximum. UMax(a,b) = a > b ? a : b
   UMin = 40, // unsigned integer minimum. UMin(a,b) = a < b ? a : b
+
+  // Binary vector reduce to scalar
+  FDot = 311, // n-dimensional vector dot-product
 
   // Bitcasts with different sizes
   BitcastF16toI16 = 125, // bitcast between different sizes
@@ -1082,7 +1087,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_7 = 226,
   NumOpCodes_Dxil_1_8 = 258,
 
-  NumOpCodes = 309 // exclusive last value of enumeration
+  NumOpCodes = 312 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1111,6 +1116,9 @@ enum class OpCodeClass : unsigned {
 
   // Binary uint
   Binary,
+
+  // Binary vector reduce to scalar
+  BinaryReduce,
 
   // Bitcasts with different sizes
   BitcastF16toI16,
@@ -1413,7 +1421,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
 
-  NumOpClasses = 194 // exclusive last value of enumeration
+  NumOpClasses = 195 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
