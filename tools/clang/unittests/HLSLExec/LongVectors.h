@@ -113,8 +113,7 @@ template <typename OpTypeT> struct OpTypeMetaData {
   OpTypeT OpType;
   std::optional<std::string> Intrinsic = std::nullopt;
   std::optional<std::string> Operator = std::nullopt;
-  uint16_t ScalarInputFlags =
-      static_cast<uint16_t>(SCALAR_INPUT_FLAGS_NONE);
+  uint16_t ScalarInputFlags = static_cast<uint16_t>(SCALAR_INPUT_FLAGS_NONE);
 };
 
 template <typename T, size_t Length>
@@ -485,12 +484,13 @@ public:
     DXASSERT_NOMSG(Inputs.InputVector2.has_value());
     const auto &Input2 = Inputs.InputVector2.value();
 
-    VariantVector ExpectedVector = generateExpectedVector<T2>(Input1.size(), [&](size_t Index) {
-      const T1 &B = (Input2.size() == 1 ? Input2[0] : Input2[Index]);
+    VariantVector ExpectedVector =
+        generateExpectedVector<T2>(Input1.size(), [&](size_t Index) {
+          const T1 &B = (Input2.size() == 1 ? Input2[0] : Input2[Index]);
 
-      return ComputeFunc(Input1[Index], B);
-    });
-    
+          return ComputeFunc(Input1[Index], B);
+        });
+
     return ExpectedVector;
   }
 
@@ -516,12 +516,13 @@ public:
     DXASSERT_NOMSG(Inputs.InputVector3.has_value());
     const auto &Input3 = Inputs.InputVector3.value();
 
-    VariantVector ExpectedVector = generateExpectedVector<T2>(Input1.size(), [&](size_t Index) {
-      const T1 &B = (Input2.size() == 1 ? Input2[0] : Input2[Index]);
-      const T1 &C = (Input3.size() == 1 ? Input3[0] : Input3[Index]);
+    VariantVector ExpectedVector =
+        generateExpectedVector<T2>(Input1.size(), [&](size_t Index) {
+          const T1 &B = (Input2.size() == 1 ? Input2[0] : Input2[Index]);
+          const T1 &C = (Input3.size() == 1 ? Input3[0] : Input3[Index]);
 
-      return ComputeFunc(Input1[Index], B, C);
-    });
+          return ComputeFunc(Input1[Index], B, C);
+        });
 
     return ExpectedVector;
   }
@@ -805,8 +806,9 @@ private:
 template <typename DataTypeT>
 class TrigonometricOpTestConfig : public TestConfig<DataTypeT> {
 public:
-  TrigonometricOpTestConfig(const OpTypeMetaData<TrigonometricOpType> &OpTypeMd);
- 
+  TrigonometricOpTestConfig(
+      const OpTypeMetaData<TrigonometricOpType> &OpTypeMd);
+
   DataTypeT computeExpectedValue(const DataTypeT &A) const;
 
 private:

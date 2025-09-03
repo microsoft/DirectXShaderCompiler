@@ -1108,8 +1108,8 @@ UnaryMathOpTestConfig<DataTypeT>::UnaryMathOpTestConfig(
 }
 
 template <typename DataTypeT>
-DataTypeT
-UnaryMathOpTestConfig<DataTypeT>::computeExpectedValue(const DataTypeT &A) const {
+DataTypeT UnaryMathOpTestConfig<DataTypeT>::computeExpectedValue(
+    const DataTypeT &A) const {
 
   if constexpr (std::is_integral<DataTypeT>::value) {
     // Abs and Sign are the only UnaryMathOps thats support integral types.
