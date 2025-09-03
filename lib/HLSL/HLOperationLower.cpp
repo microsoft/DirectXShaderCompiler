@@ -2559,14 +2559,15 @@ Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Type *EltTy = Ty->getScalarType();
 
   // SM6.9 introduced a binop for vectorized dot product
-  if (hlslOP->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus()
-      && EltTy->isFloatingPointTy()) {
+  if (hlslOP->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus() &&
+      EltTy->isFloatingPointTy()) {
     Value *arg1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
     IRBuilder<> Builder(CI);
     Constant *opArg = hlslOP->GetU32Const((unsigned)DXIL::OpCode::FDot);
     Value *args[] = {opArg, arg0, arg1};
     Function *dxilFunc = hlslOP->GetOpFunc(DXIL::OpCode::FDot, Ty);
-    return TrivialDxilVectorOperation(dxilFunc, DXIL::OpCode::FDot, args,Ty,hlslOP, Builder);
+    return TrivialDxilVectorOperation(dxilFunc, DXIL::OpCode::FDot, args, Ty,
+                                      hlslOP, Builder);
   }
 
   unsigned vecSize = Ty->getVectorNumElements();
