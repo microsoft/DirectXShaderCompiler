@@ -654,7 +654,6 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
 
       // Likely a misspell of register() or a mismatching macro:
       // registers() would cause a crash without this fix.
-      // registers()
 
       if (Tok.is(tok::l_paren)) {
 
