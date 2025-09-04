@@ -48,25 +48,25 @@ export bool test_isnormal(half h) {
 }
 
 // CHECK-LABEL: test_isinf32
-// CHECK: call i1 @dx.op.isSpecialFloat.f32(i32 [[OP:[0-9]*]], float
+// CHECK: call i1 @dx.op.isSpecialFloat.f32(i32 9, float
 export bool test_isinf32(float f) {
   return isinf(f);
 }
 
 // CHECK-LABEL: test_isnan32
-// CHECK: call i1 @dx.op.isSpecialFloat.f32(i32 [[OP:[0-9]*]], float
+// CHECK: call i1 @dx.op.isSpecialFloat.f32(i32 8, float
 export bool test_isnan32(float f) {
   return isnan(f);
 }
 
 // CHECK-LABEL: test_isfinite32
-// CHECK: call i1 @dx.op.isSpecialFloat.f32(i32 [[OP:[0-9]*]], float
+// CHECK: call i1 @dx.op.isSpecialFloat.f32(i32 10, float
 export bool test_isfinite32(float f) {
   return isfinite(f);
 }
 
 // CHECK-LABEL: test_isnormal32
-// CHECK: call i1 @dx.op.isSpecialFloat.f32(i32 [[OP:[0-9]*]], float
+// CHECK: call i1 @dx.op.isSpecialFloat.f32(i32 11, float
 export bool test_isnormal32(float f) {
   return isnormal(f);
 }
