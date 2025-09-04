@@ -1091,28 +1091,29 @@ UnaryMathOpTestConfig<T>::UnaryMathOpTestConfig(
   }
 
   switch (OpType) {
-  case (UnaryMathOpType_Sign) : {
+  case (UnaryMathOpType_Sign): {
     // Sign has overridden special logic.
     auto ComputeFunc = [this](const T &A) { return this->sign(A); };
     InitUnaryOpValueComputer<int32_t>(ComputeFunc);
     break;
   }
-  case (UnaryMathOpType_Frexp) :
+  case (UnaryMathOpType_Frexp):
     // Don't initialize a ValueComputer, Frexp has special logic for handling
     // its output
     SpecialDefines = " -DFUNC_FREXP=1";
     break;
-  default : {
+  default: {
     auto ComputeFunc = [this](const T &A) {
       return this->computeExpectedValue(A);
     };
     InitUnaryOpValueComputer<T>(ComputeFunc);
   }
-}
+  }
 }
 
 template <typename T>
-void UnaryMathOpTestConfig<T>::computeExpectedValues(const TestInputs<T> &Inputs) {
+void UnaryMathOpTestConfig<T>::computeExpectedValues(
+    const TestInputs<T> &Inputs) {
 
   // Base case
   if (ExpectedValueComputer) {
@@ -1126,7 +1127,8 @@ void UnaryMathOpTestConfig<T>::computeExpectedValues(const TestInputs<T> &Inputs
 // Frexp has a return value as well as an output paramater. So we handle it
 // with special logic. Frexp is only supported for fp32 values.
 template <typename T>
-void UnaryMathOpTestConfig<T>::computeExpectedValues_Frexp(const std::vector<T> &InputVector) {
+void UnaryMathOpTestConfig<T>::computeExpectedValues_Frexp(
+    const std::vector<T> &InputVector) {
 
   DXASSERT_NOMSG(OpType == UnaryMathOpType_Frexp);
 

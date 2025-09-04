@@ -889,7 +889,9 @@ private:
 
   // Helpers so we do the right thing for float types. HLSLHalf_t is handled in
   // an operator overload.
-  template <typename T = DataTypeT> T mod(const T &A, const T &B) const { return A % B; }
+  template <typename T = DataTypeT> T mod(const T &A, const T &B) const {
+    return A % B;
+  }
 
   template <> float mod(const float &A, const float &B) const {
     return std::fmod(A, B);
