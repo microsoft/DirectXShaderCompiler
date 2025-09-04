@@ -3827,6 +3827,23 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_FREXP
+        vector<OUT_TYPE, NUM> TestFrexp(vector<TYPE, NUM> Vector)
+        {
+          vector<OUT_TYPE, NUM> Mantissa;
+          vector<OUT_TYPE, NUM> Exponent;
+
+          Mantissa = frexp(Vector, Exponent);
+
+          // Store the exponent outputs in the second half of the output vector.
+          // Exponent values are always floats, so we can use 4 bytes per
+          // element for our offset.
+          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(4 * NUM, Exponent);
+
+          return Mantissa;
+        }
+        #endif
+
         [numthreads(1,1,1)]
         void main(uint GI : SV_GroupIndex) {
 

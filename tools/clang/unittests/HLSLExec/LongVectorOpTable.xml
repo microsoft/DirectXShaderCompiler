@@ -625,6 +625,15 @@
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
           <Parameter Name="DataType">float16</Parameter>
         </Row>
+        <Row Name="Ldexp_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Ldexp</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="ScalarLdexp_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Ldexp</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: float32 -->
         <Row Name="ScalarAdd_float32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
@@ -688,6 +697,15 @@
         <Row Name="Max_float32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
           <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="Ldexp_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Ldexp</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="ScalarLdexp_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Ldexp</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: float64 -->
         <Row Name="ScalarAdd_float64">
@@ -1179,6 +1197,10 @@
       </Row>
       <Row Name="Log2_float32">
         <Parameter Name="OpTypeEnum">UnaryMathOpType_Log2</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="Frexp_float32">
+        <Parameter Name="OpTypeEnum">UnaryMathOpType_Frexp</Parameter>
         <Parameter Name="DataType">float32</Parameter>
       </Row>
       <!--UnaryMathOpTable float64-->
