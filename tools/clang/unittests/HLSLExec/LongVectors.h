@@ -604,9 +604,7 @@ protected:
         ScalarInputFlags(OpTypeMd.ScalarInputFlags) {}
 
   // Helper to initialize a unary value computer.
-  // OutT defaults to T as most intrinsics have a return type that matches the
-  // input type.
-  template <typename OutT = T>
+  template <typename OutT>
   void InitUnaryOpValueComputer(std::function<OutT(const T &)> ComputeFunc) {
     DXASSERT_NOMSG(BasicOpType == BasicOpType_Unary);
     DXASSERT_NOMSG(ExpectedValueComputer == nullptr);
@@ -615,9 +613,7 @@ protected:
   }
 
   // Helper to initialize a binary value computer.
-  // OutT defaults to T as most intrinsics have a return type that matches the
-  // input type.
-  template <typename OutT = T>
+  template <typename OutT>
   void InitBinaryOpValueComputer(
       std::function<OutT(const T &, const T &)> ComputeFunc) {
     DXASSERT_NOMSG(BasicOpType == BasicOpType_Binary);
@@ -627,9 +623,7 @@ protected:
   }
 
   // Helper to initialize a ternary value computer.
-  // OutT defaults to T as most intrinsics have a return type that matches the
-  // input type.
-  template <typename OutT = T>
+  template <typename OutT>
   void InitTernaryOpValueComputer(
       std::function<OutT(const T &, const T &, const T &)> ComputeFunc) {
     DXASSERT_NOMSG(BasicOpType == BasicOpType_Ternary);
@@ -893,7 +887,7 @@ public:
 private:
   TernaryMathOpType OpType = TernaryMathOpType_EnumValueCount;
 
-  template <typename T = T>
+  template <typename T>
   T fma([[maybe_unused]] const T &A, [[maybe_unused]] const T &B,
         const T &C) const {
     LOG_ERROR_FMT_THROW(L"Programmer Error: fma only accepts doubles. Have "
@@ -925,7 +919,7 @@ private:
   }
 
   // Smoothstep Fallback: only enabled when T is NOT a floatlike
-  template <typename T = T>
+  template <typename T>
   typename std::enable_if<!(std::is_same<T, float>::value ||
                             std::is_same<T, HLSLHalf_t>::value ||
                             std::is_same<T, double>::value),
