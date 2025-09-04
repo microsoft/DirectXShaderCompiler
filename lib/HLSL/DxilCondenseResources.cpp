@@ -550,7 +550,8 @@ public:
     ResourceRegisterAllocator.GatherReservedRegisters(DM);
 
     // Remove unused resources.
-    DM.RemoveResourcesWithUnusedSymbols();
+    if (!DM.GetKeepAllResources())
+        DM.RemoveResourcesWithUnusedSymbols();
 
     unsigned newResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
@@ -564,7 +565,9 @@ public:
       bool bLocalChanged = LegalizeResources(M, DVC);
       if (bLocalChanged) {
         // Remove unused resources.
-        DM.RemoveResourcesWithUnusedSymbols();
+
+        if (!DM.GetKeepAllResources())
+          DM.RemoveResourcesWithUnusedSymbols();
       }
       bChanged |= bLocalChanged;
     }
@@ -2122,6 +2125,15 @@ void DxilLowerCreateHandleForLib::ReplaceResourceUserWithHandle(
 void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
     DxilResourceBase &res) {
   OP *hlslOP = m_DM->GetOP();
+
+  Value *GV = res.GetGlobalSymbol();
+
+  if (isa<UndefValue>(GV))
+    return;
+
+  DXASSERT(isa<GlobalValue>(GV),
+           "DxilLowerCreateHandleForLib cannot deal with resources that aren't GlobalValue.");
+
   // Generate createHandleFromBinding for sm66 and later.
   bool bCreateFromBinding = m_DM->GetShaderModel()->IsSM66Plus();
   OP::OpCode createOp = bCreateFromBinding ? OP::OpCode::CreateHandleFromBinding
@@ -2148,10 +2160,6 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
   Value *resLowerBound = hlslOP->GetU32Const(res.GetLowerBound());
 
   Value *isUniformRes = hlslOP->GetI1Const(0);
-
-  Value *GV = res.GetGlobalSymbol();
-  DXASSERT(isa<GlobalValue>(GV),
-           "DxilLowerCreateHandleForLib cannot deal with unused resources.");
 
   Module *pM = m_DM->GetModule();
   // TODO: add debug info to create handle.
