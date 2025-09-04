@@ -2447,7 +2447,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::IsNaN:
   case DXIL::OpCode::IsFinite:
   case DXIL::OpCode::IsNormal: {
-    if (hlsl::DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 9) < 0 &&
+    if (!ValCtx.DxilMod.GetShaderModel()->IsSM69Plus() &&
         CI->getOperand(1)->getType()->getScalarType()->isHalfTy())
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmIsSpecialFloat, {});
     break;
