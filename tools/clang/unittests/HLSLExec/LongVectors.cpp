@@ -4,9 +4,10 @@
 
 namespace LongVector {
 
-template <typename T, size_t Length>
-const OpTypeMetaData<T> &getOpType(const OpTypeMetaData<T> (&Values)[Length],
-                                   const std::wstring &OpTypeString) {
+template <typename OpT, size_t Length>
+const OpTypeMetaData<OpT> &
+getOpType(const OpTypeMetaData<OpT> (&Values)[Length],
+          const std::wstring &OpTypeString) {
   for (size_t I = 0; I < Length; I++) {
     if (Values[I].OpTypeString == OpTypeString)
       return Values[I];
@@ -28,12 +29,12 @@ const OpTypeMetaData<T> &getOpType(const OpTypeMetaData<T> (&Values)[Length],
 
 // Helper to fill the test data from the shader buffer based on type. Convenient
 // to be used when copying HLSL*_t types so we can use the underlying type.
-template <typename DataTypeT>
+template <typename T>
 void fillLongVectorDataFromShaderBuffer(const MappedData &ShaderBuffer,
-                                        std::vector<DataTypeT> &TestData,
+                                        std::vector<T> &TestData,
                                         size_t NumElements) {
 
-  if constexpr (std::is_same_v<DataTypeT, HLSLHalf_t>) {
+  if constexpr (std::is_same_v<T, HLSLHalf_t>) {
     auto ShaderBufferPtr =
         static_cast<const DirectX::PackedVector::HALF *>(ShaderBuffer.data());
     for (size_t I = 0; I < NumElements; I++)
@@ -42,7 +43,7 @@ void fillLongVectorDataFromShaderBuffer(const MappedData &ShaderBuffer,
     return;
   }
 
-  if constexpr (std::is_same_v<DataTypeT, HLSLBool_t>) {
+  if constexpr (std::is_same_v<T, HLSLBool_t>) {
     auto ShaderBufferPtr = static_cast<const int32_t *>(ShaderBuffer.data());
     for (size_t I = 0; I < NumElements; I++)
       // HLSLBool_t has a int32_t based constructor.
@@ -50,18 +51,18 @@ void fillLongVectorDataFromShaderBuffer(const MappedData &ShaderBuffer,
     return;
   }
 
-  auto ShaderBufferPtr = static_cast<const DataTypeT *>(ShaderBuffer.data());
+  auto ShaderBufferPtr = static_cast<const T *>(ShaderBuffer.data());
   for (size_t I = 0; I < NumElements; I++)
     TestData.push_back(ShaderBufferPtr[I]);
   return;
 }
 
-template <typename DataTypeT>
-bool doValuesMatch(DataTypeT A, DataTypeT B, float Tolerance, ValidationType) {
+template <typename T>
+bool doValuesMatch(T A, T B, float Tolerance, ValidationType) {
   if (Tolerance == 0.0f)
     return A == B;
 
-  DataTypeT Diff = A > B ? A - B : B - A;
+  T Diff = A > B ? A - B : B - A;
   return Diff <= Tolerance;
 }
 
@@ -117,11 +118,10 @@ bool doValuesMatch(double A, double B, float Tolerance,
   }
 }
 
-template <typename DataTypeT>
-bool doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
-                    const std::vector<DataTypeT> &ExpectedValues,
-                    float Tolerance, ValidationType ValidationType,
-                    bool VerboseLogging) {
+template <typename T>
+bool doVectorsMatch(const std::vector<T> &ActualValues,
+                    const std::vector<T> &ExpectedValues, float Tolerance,
+                    ValidationType ValidationType, bool VerboseLogging) {
 
   DXASSERT(
       ActualValues.size() == ExpectedValues.size(),
@@ -159,12 +159,11 @@ bool doVectorsMatch(const std::vector<DataTypeT> &ActualValues,
 
 // A helper to create and fill the expected vector with computed values.
 // Also helps us factor out the generic fill loop via a passed in ComputeFn.
-template <typename DataTypeT, typename ComputeFnT>
+template <typename T, typename ComputeFnT>
 VariantVector generateExpectedVector(size_t Count, ComputeFnT ComputeFn) {
 
-  VariantVector ExpectedVector = std::vector<DataTypeT>{};
-  auto *TypedExpectedValues =
-      std::get_if<std::vector<DataTypeT>>(&ExpectedVector);
+  VariantVector ExpectedVector = std::vector<T>{};
+  auto *TypedExpectedValues = std::get_if<std::vector<T>>(&ExpectedVector);
 
   // A TestConfig may be reused for a different vector length. So this is a
   // good time to make sure we clear the expected vector.
@@ -176,9 +175,8 @@ VariantVector generateExpectedVector(size_t Count, ComputeFnT ComputeFn) {
   return ExpectedVector;
 }
 
-template <typename DataTypeT>
-void logLongVector(const std::vector<DataTypeT> &Values,
-                   const std::wstring &Name) {
+template <typename T>
+void logLongVector(const std::vector<T> &Values, const std::wstring &Name) {
   WEX::Logging::Log::Comment(
       WEX::Common::String().Format(L"LongVector Name: %s", Name.c_str()));
 
@@ -200,29 +198,29 @@ void logLongVector(const std::vector<DataTypeT> &Values,
   WEX::Logging::Log::Comment(Wss.str().c_str());
 }
 
-template <typename DataTypeT> std::string getHLSLTypeString() {
-  if (std::is_same_v<DataTypeT, HLSLBool_t>)
+template <typename T> std::string getHLSLTypeString() {
+  if (std::is_same_v<T, HLSLBool_t>)
     return "bool";
-  if (std::is_same_v<DataTypeT, HLSLHalf_t>)
+  if (std::is_same_v<T, HLSLHalf_t>)
     return "half";
-  if (std::is_same_v<DataTypeT, float>)
+  if (std::is_same_v<T, float>)
     return "float";
-  if (std::is_same_v<DataTypeT, double>)
+  if (std::is_same_v<T, double>)
     return "double";
-  if (std::is_same_v<DataTypeT, int16_t>)
+  if (std::is_same_v<T, int16_t>)
     return "int16_t";
-  if (std::is_same_v<DataTypeT, int32_t>)
+  if (std::is_same_v<T, int32_t>)
     return "int";
-  if (std::is_same_v<DataTypeT, int64_t>)
+  if (std::is_same_v<T, int64_t>)
     return "int64_t";
-  if (std::is_same_v<DataTypeT, uint16_t>)
+  if (std::is_same_v<T, uint16_t>)
     return "uint16_t";
-  if (std::is_same_v<DataTypeT, uint32_t>)
+  if (std::is_same_v<T, uint32_t>)
     return "uint32_t";
-  if (std::is_same_v<DataTypeT, uint64_t>)
+  if (std::is_same_v<T, uint64_t>)
     return "uint64_t";
 
-  LOG_ERROR_FMT_THROW(L"Unsupported type: %S", typeid(DataTypeT).name());
+  LOG_ERROR_FMT_THROW(L"Unsupported type: %S", typeid(T).name());
   return "UnknownType";
 }
 
@@ -414,8 +412,8 @@ TEST_F(OpTest, ternaryMathOpTest) {
 }
 
 // Generic dispatch that dispatchs all DataTypes recognized in these tests
-template <typename OpTypeT>
-void OpTest::dispatchTestByDataType(const OpTypeMetaData<OpTypeT> &OpTypeMd,
+template <typename OpT>
+void OpTest::dispatchTestByDataType(const OpTypeMetaData<OpT> &OpTypeMd,
                                     std::wstring DataType,
                                     TableParameterHandler &Handler) {
   switch (Hash_djb2a(DataType)) {
@@ -520,13 +518,13 @@ void OpTest::dispatchTrigonometricOpTestByDataType(
         DataType.c_str());
 }
 
-template <typename DataTypeT, typename OpTypeT>
-void OpTest::dispatchTestByVectorLength(const OpTypeMetaData<OpTypeT> &OpTypeMd,
+template <typename T, typename OpT>
+void OpTest::dispatchTestByVectorLength(const OpTypeMetaData<OpT> &OpTypeMd,
                                         TableParameterHandler &Handler) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  auto TestConfig = makeTestConfig<DataTypeT>(OpTypeMd);
+  auto TestConfig = makeTestConfig<T>(OpTypeMd);
   TestConfig->setVerboseLogging(VerboseLogging);
   auto OperandCount = TestConfig->getNumOperands();
 
@@ -555,13 +553,12 @@ void OpTest::dispatchTestByVectorLength(const OpTypeMetaData<OpTypeT> &OpTypeMd,
     // We could create a new config for each test case with the new length, but
     // that feels wasteful. Instead, we just update the length to test.
     TestConfig->setLengthToTest(SizeToTest);
-    testBaseMethod<DataTypeT>(TestConfig);
+    testBaseMethod<T>(TestConfig);
   }
 }
 
-template <typename DataTypeT>
-void OpTest::testBaseMethod(
-    std::unique_ptr<TestConfig<DataTypeT>> &TestConfig) {
+template <typename T>
+void OpTest::testBaseMethod(std::unique_ptr<TestConfig<T>> &TestConfig) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -578,7 +575,7 @@ void OpTest::testBaseMethod(
 #endif
   }
 
-  TestInputs<DataTypeT> Inputs = TestInputs<DataTypeT>();
+  TestInputs<T> Inputs = TestInputs<T>();
   TestConfig->fillInputs(Inputs);
 
   TestConfig->computeExpectedValues(Inputs);
@@ -661,18 +658,18 @@ void OpTest::testBaseMethod(
 // Helper to fill the shader buffer based on type. Convenient to be used when
 // copying HLSL*_t types so we can copy the underlying type directly instead of
 // the struct.
-template <typename DataTypeT>
-void fillShaderBufferFromLongVectorData(
-    std::vector<BYTE> &ShaderBuffer, const std::vector<DataTypeT> &TestData) {
+template <typename T>
+void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
+                                        const std::vector<T> &TestData) {
 
   // Note: DataSize for HLSLHalf_t and HLSLBool_t may be larger than the
   // underlying type in some cases. Thats fine. Resize just makes sure we have
   // enough space.
   const size_t NumElements = TestData.size();
-  const size_t DataSize = sizeof(DataTypeT) * NumElements;
+  const size_t DataSize = sizeof(T) * NumElements;
   ShaderBuffer.resize(DataSize);
 
-  if constexpr (std::is_same_v<DataTypeT, HLSLHalf_t>) {
+  if constexpr (std::is_same_v<T, HLSLHalf_t>) {
     auto ShaderBufferPtr =
         reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
     for (size_t I = 0; I < NumElements; I++)
@@ -680,14 +677,14 @@ void fillShaderBufferFromLongVectorData(
     return;
   }
 
-  if constexpr (std::is_same_v<DataTypeT, HLSLBool_t>) {
+  if constexpr (std::is_same_v<T, HLSLBool_t>) {
     auto ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
     for (size_t I = 0; I < NumElements; I++)
       ShaderBufferPtr[I] = TestData[I].Val;
     return;
   }
 
-  auto ShaderBufferPtr = reinterpret_cast<DataTypeT *>(ShaderBuffer.data());
+  auto ShaderBufferPtr = reinterpret_cast<T *>(ShaderBuffer.data());
   for (size_t I = 0; I < NumElements; I++)
     ShaderBufferPtr[I] = TestData[I];
   return;
@@ -696,12 +693,12 @@ void fillShaderBufferFromLongVectorData(
 // Returns the compiler options string to be used for the shader compilation.
 // Reference ShaderOpArith.xml and the 'LongVectorOp' shader source to see how
 // the defines are used in the shader code.
-template <typename DataTypeT>
-std::string TestConfig<DataTypeT>::getCompilerOptionsString() const {
+template <typename T>
+std::string TestConfig<T>::getCompilerOptionsString() const {
 
   std::stringstream CompilerOptions("");
 
-  if (is16BitType<DataTypeT>())
+  if (is16BitType<T>())
     CompilerOptions << " -enable-16bit-types";
 
   CompilerOptions << " -DTYPE=" << getHLSLInputTypeString();
@@ -729,8 +726,8 @@ std::string TestConfig<DataTypeT>::getCompilerOptionsString() const {
   return CompilerOptions.str();
 }
 
-template <typename DataTypeT>
-std::string TestConfig<DataTypeT>::getBasicOpTypeHexString() const {
+template <typename T>
+std::string TestConfig<T>::getBasicOpTypeHexString() const {
 
   if (BasicOpType == BasicOpType_Unary)
     return "0x1";
@@ -744,8 +741,7 @@ std::string TestConfig<DataTypeT>::getBasicOpTypeHexString() const {
   return "0x0";
 }
 
-template <typename DataTypeT>
-size_t TestConfig<DataTypeT>::getNumOperands() const {
+template <typename T> size_t TestConfig<T>::getNumOperands() const {
   if (BasicOpType == BasicOpType_Unary)
     return 1;
 
@@ -760,25 +756,24 @@ size_t TestConfig<DataTypeT>::getNumOperands() const {
   return 0;
 }
 
-template <typename DataTypeT>
-std::vector<DataTypeT>
-TestConfig<DataTypeT>::getInputValueSet(size_t ValueSetIndex) const {
+template <typename T>
+std::vector<T> TestConfig<T>::getInputValueSet(size_t ValueSetIndex) const {
   if (BasicOpType == BasicOpType_Unary && ValueSetIndex == 0)
-    return getInputValueSetByKey<DataTypeT>(InputValueSetKeys[ValueSetIndex]);
+    return getInputValueSetByKey<T>(InputValueSetKeys[ValueSetIndex]);
 
   if (BasicOpType == BasicOpType_Binary && ValueSetIndex <= 1)
-    return getInputValueSetByKey<DataTypeT>(InputValueSetKeys[ValueSetIndex]);
+    return getInputValueSetByKey<T>(InputValueSetKeys[ValueSetIndex]);
 
   if (BasicOpType == BasicOpType_Ternary && ValueSetIndex <= 2)
-    return getInputValueSetByKey<DataTypeT>(InputValueSetKeys[ValueSetIndex]);
+    return getInputValueSetByKey<T>(InputValueSetKeys[ValueSetIndex]);
 
   LOG_ERROR_FMT_THROW(L"Invalid ValueSetIndex: %d for OpType: %ls",
                       ValueSetIndex, OpTypeName.c_str());
-  return std::vector<DataTypeT>();
+  return std::vector<T>();
 }
 
-template <typename DataTypeT>
-std::string TestConfig<DataTypeT>::getHLSLOutputTypeString() const {
+template <typename T>
+std::string TestConfig<T>::getHLSLOutputTypeString() const {
   // std::visit allows us to dispatch a call to getHLSLTypeString<T>() with the
   // the current underlying element type of ExpectedVector.
   return std::visit(
@@ -789,8 +784,8 @@ std::string TestConfig<DataTypeT>::getHLSLOutputTypeString() const {
       ExpectedVector);
 }
 
-template <typename DataTypeT>
-bool TestConfig<DataTypeT>::verifyOutput(
+template <typename T>
+bool TestConfig<T>::verifyOutput(
     const std::shared_ptr<st::ShaderOpTestResult> &TestResult) {
 
   // std::visit allows us to dispatch a call to the private version of
@@ -798,7 +793,7 @@ bool TestConfig<DataTypeT>::verifyOutput(
   // ExpectedVector. This works because ExpectedVector is a std::variant of
   // vector types, and the lambda receives the active type at runtime. It's
   // important that the TestConfig instance has correctly assigned the expected
-  // output type to ExpectedVector. By default, this is std::vector<DataTypeT>,
+  // output type to ExpectedVector. By default, this is std::vector<T>,
   // but ops like AsTypeOpType must override it. For example,
   // AsTypeOpType_AsFloat16 sets ExpectedVector to std::vector<HLSLHalf_t>.
   return std::visit(
@@ -810,16 +805,18 @@ bool TestConfig<DataTypeT>::verifyOutput(
 }
 
 // Private version of verifyOutput. Called by the public version of verifyOutput
-// which resolves OutputDataTypeT based on the ExpectedVector type.
-template <typename DataTypeT>
-template <typename OutputDataTypeT>
-bool TestConfig<DataTypeT>::verifyOutput(
+// which resolves OutT based on the ExpectedVector type. Most intrinsics will
+// have an OutT that matches the input type being tested (which is T). But some,
+// such as the 'AsType' ops, i.e 'AsUint' have an OutT that doesn't match T.
+template <typename T>    // Primary template from TestConfig
+template <typename OutT> // Secondary template for verifyOutput
+bool TestConfig<T>::verifyOutput(
     const std::shared_ptr<st::ShaderOpTestResult> &TestResult,
-    const std::vector<OutputDataTypeT> &ExpectedVector) {
+    const std::vector<OutT> &ExpectedVector) {
 
   WEX::Logging::Log::Comment(WEX::Common::String().Format(
       L"verifyOutput with OpType: %ls ExpectedVector<%S>", OpTypeName.c_str(),
-      typeid(OutputDataTypeT).name()));
+      typeid(OutT).name()));
 
   DXASSERT(!ExpectedVector.empty(),
            "Programmer Error: ExpectedVector is empty.");
@@ -829,7 +826,7 @@ bool TestConfig<DataTypeT>::verifyOutput(
 
   const size_t OutputVectorSize = ExpectedVector.size();
 
-  std::vector<OutputDataTypeT> ActualValues;
+  std::vector<OutT> ActualValues;
   fillLongVectorDataFromShaderBuffer(ShaderOutData, ActualValues,
                                      OutputVectorSize);
 
@@ -839,12 +836,12 @@ bool TestConfig<DataTypeT>::verifyOutput(
 
 // Generic fillInput. Fill the inputs based on the OpType and the
 // ScalarInputFlags.
-template <typename DataTypeT>
-void TestConfig<DataTypeT>::fillInputs(TestInputs<DataTypeT> &Inputs) const {
+template <typename T>
+void TestConfig<T>::fillInputs(TestInputs<T> &Inputs) const {
 
-  auto fillVecFromValueSet = [this](std::vector<DataTypeT> &Vec,
-                                    size_t ValueSetIndex, size_t Count) {
-    std::vector<DataTypeT> ValueSet = getInputValueSet(ValueSetIndex);
+  auto fillVecFromValueSet = [this](std::vector<T> &Vec, size_t ValueSetIndex,
+                                    size_t Count) {
+    std::vector<T> ValueSet = getInputValueSet(ValueSetIndex);
     for (size_t Index = 0; Index < Count; Index++)
       Vec.push_back(ValueSet[Index % ValueSet.size()]);
   };
@@ -863,7 +860,7 @@ void TestConfig<DataTypeT>::fillInputs(TestInputs<DataTypeT> &Inputs) const {
       (ScalarInputFlags & SCALAR_INPUT_FLAGS_OPERAND_2_IS_SCALAR)
           ? 1
           : LengthToTest;
-  Inputs.InputVector2 = std::vector<DataTypeT>();
+  Inputs.InputVector2 = std::vector<T>();
   fillVecFromValueSet(*Inputs.InputVector2, ValueSetIndex++, Input2Length);
 
   if (BasicOpType == BasicOpType_Binary)
@@ -875,40 +872,40 @@ void TestConfig<DataTypeT>::fillInputs(TestInputs<DataTypeT> &Inputs) const {
       (ScalarInputFlags & SCALAR_INPUT_FLAGS_OPERAND_3_IS_SCALAR)
           ? 1
           : LengthToTest;
-  Inputs.InputVector3 = std::vector<DataTypeT>();
+  Inputs.InputVector3 = std::vector<T>();
   fillVecFromValueSet(*Inputs.InputVector3, ValueSetIndex++, Input3Length);
 }
 
-template <typename DataTypeT>
-AsTypeOpTestConfig<DataTypeT>::AsTypeOpTestConfig(
+template <typename T>
+AsTypeOpTestConfig<T>::AsTypeOpTestConfig(
     const OpTypeMetaData<AsTypeOpType> &OpTypeMd)
-    : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
+    : TestConfig<T>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
   BasicOpType = BasicOpType_Unary;
 
   switch (OpType) {
   case AsTypeOpType_AsFloat16: {
-    auto ComputeFunc = [this](const DataTypeT &Val) { return asFloat16(Val); };
+    auto ComputeFunc = [this](const T &Val) { return asFloat16(Val); };
     InitUnaryOpValueComputer<HLSLHalf_t>(ComputeFunc);
     break;
   }
   case AsTypeOpType_AsFloat: {
-    auto ComputeFunc = [this](const DataTypeT &Val) { return asFloat(Val); };
+    auto ComputeFunc = [this](const T &Val) { return asFloat(Val); };
     InitUnaryOpValueComputer<float>(ComputeFunc);
     break;
   }
   case AsTypeOpType_AsInt: {
-    auto ComputeFunc = [this](const DataTypeT &Val) { return asInt(Val); };
+    auto ComputeFunc = [this](const T &Val) { return asInt(Val); };
     InitUnaryOpValueComputer<int32_t>(ComputeFunc);
     break;
   }
   case AsTypeOpType_AsInt16: {
-    auto ComputeFunc = [this](const DataTypeT &Val) { return asInt16(Val); };
+    auto ComputeFunc = [this](const T &Val) { return asInt16(Val); };
     InitUnaryOpValueComputer<int16_t>(ComputeFunc);
     break;
   }
   case AsTypeOpType_AsUint: {
-    auto ComputeFunc = [this](const DataTypeT &Val) { return asUint(Val); };
+    auto ComputeFunc = [this](const T &Val) { return asUint(Val); };
     InitUnaryOpValueComputer<uint32_t>(ComputeFunc);
     break;
   }
@@ -917,13 +914,13 @@ AsTypeOpTestConfig<DataTypeT>::AsTypeOpTestConfig(
     break;
   }
   case AsTypeOpType_AsUint16: {
-    auto ComputeFunc = [this](const DataTypeT &Val) { return asUint16(Val); };
+    auto ComputeFunc = [this](const T &Val) { return asUint16(Val); };
     InitUnaryOpValueComputer<uint16_t>(ComputeFunc);
     break;
   }
   case AsTypeOpType_AsDouble: {
     BasicOpType = BasicOpType_Binary;
-    auto ComputeFunc = [this](const DataTypeT &A, const DataTypeT &B) {
+    auto ComputeFunc = [this](const T &A, const T &B) {
       return asDouble(A, B);
     };
     InitBinaryOpValueComputer<double>(ComputeFunc);
@@ -934,9 +931,8 @@ AsTypeOpTestConfig<DataTypeT>::AsTypeOpTestConfig(
   }
 }
 
-template <typename DataTypeT>
-void TestConfig<DataTypeT>::computeExpectedValues(
-    const TestInputs<DataTypeT> &Inputs) {
+template <typename T>
+void TestConfig<T>::computeExpectedValues(const TestInputs<T> &Inputs) {
 
   // Either a ExpectedValueComputer member should be set or the deriving class
   // should have overridden computeExpectedValues.
@@ -948,9 +944,8 @@ void TestConfig<DataTypeT>::computeExpectedValues(
   ExpectedVector = ExpectedValueComputer->computeExpectedValues(Inputs);
 }
 
-template <typename DataTypeT>
-void AsTypeOpTestConfig<DataTypeT>::computeExpectedValues(
-    const TestInputs<DataTypeT> &Inputs) {
+template <typename T>
+void AsTypeOpTestConfig<T>::computeExpectedValues(const TestInputs<T> &Inputs) {
 
   if (BasicOpType != BasicOpType_Unary && BasicOpType != BasicOpType_Binary)
     LOG_ERROR_FMT_THROW(L"Programmer Error: computeExpectedValue called with "
@@ -965,9 +960,9 @@ void AsTypeOpTestConfig<DataTypeT>::computeExpectedValues(
     computeExpectedValues_SplitDouble(Inputs.InputVector1);
 }
 
-template <typename DataTypeT>
-void AsTypeOpTestConfig<DataTypeT>::computeExpectedValues_SplitDouble(
-    const std::vector<DataTypeT> &InputVector1) {
+template <typename T>
+void AsTypeOpTestConfig<T>::computeExpectedValues_SplitDouble(
+    const std::vector<T> &InputVector1) {
 
   DXASSERT_NOMSG(OpType == AsTypeOpType_AsUint_SplitDouble);
 
@@ -989,13 +984,13 @@ void AsTypeOpTestConfig<DataTypeT>::computeExpectedValues_SplitDouble(
   }
 }
 
-template <typename DataTypeT>
-TrigonometricOpTestConfig<DataTypeT>::TrigonometricOpTestConfig(
+template <typename T>
+TrigonometricOpTestConfig<T>::TrigonometricOpTestConfig(
     const OpTypeMetaData<TrigonometricOpType> &OpTypeMd)
-    : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
+    : TestConfig<T>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
   static_assert(
-      isFloatingPointType<DataTypeT>(),
+      isFloatingPointType<T>(),
       "Trigonometric ops are only supported for floating point types.");
 
   BasicOpType = BasicOpType_Unary;
@@ -1006,21 +1001,20 @@ TrigonometricOpTestConfig<DataTypeT>::TrigonometricOpTestConfig(
   // cos is available here:
   // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
   ValidationType = ValidationType_Epsilon;
-  if (std::is_same_v<DataTypeT, HLSLHalf_t>)
+  if (std::is_same_v<T, HLSLHalf_t>)
     Tolerance = 0.0010f;
-  else if (std::is_same_v<DataTypeT, float>)
+  else if (std::is_same_v<T, float>)
     Tolerance = 0.0008f;
 
-  auto ComputeFunc = [this](const DataTypeT &A) {
+  auto ComputeFunc = [this](const T &A) {
     return this->computeExpectedValue(A);
   };
-  InitUnaryOpValueComputer<DataTypeT>(ComputeFunc);
+  InitUnaryOpValueComputer<T>(ComputeFunc);
 }
 
 // computeExpectedValue Trigonometric
-template <typename DataTypeT>
-DataTypeT TrigonometricOpTestConfig<DataTypeT>::computeExpectedValue(
-    const DataTypeT &A) const {
+template <typename T>
+T TrigonometricOpTestConfig<T>::computeExpectedValue(const T &A) const {
 
   switch (OpType) {
   case TrigonometricOpType_Acos:
@@ -1044,14 +1038,14 @@ DataTypeT TrigonometricOpTestConfig<DataTypeT>::computeExpectedValue(
   default:
     LOG_ERROR_FMT_THROW(L"Unknown TrigonometricOpType: %ls",
                         OpTypeName.c_str());
-    return DataTypeT();
+    return T();
   }
 }
 
-template <typename DataTypeT>
-UnaryOpTestConfig<DataTypeT>::UnaryOpTestConfig(
+template <typename T>
+UnaryOpTestConfig<T>::UnaryOpTestConfig(
     const OpTypeMetaData<UnaryOpType> &OpTypeMd)
-    : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
+    : TestConfig<T>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
   BasicOpType = BasicOpType_Unary;
 
@@ -1063,72 +1057,70 @@ UnaryOpTestConfig<DataTypeT>::UnaryOpTestConfig(
     LOG_ERROR_FMT_THROW(L"Unsupported UnaryOpType: %ls", OpTypeName.c_str());
   }
 
-  auto ComputeFunc = [this](const DataTypeT &A) {
+  auto ComputeFunc = [this](const T &A) {
     return this->computeExpectedValue(A);
   };
-  InitUnaryOpValueComputer<DataTypeT>(ComputeFunc);
+  InitUnaryOpValueComputer<T>(ComputeFunc);
 }
 
-template <typename DataTypeT>
-DataTypeT
-UnaryOpTestConfig<DataTypeT>::computeExpectedValue(const DataTypeT &A) const {
+template <typename T>
+T UnaryOpTestConfig<T>::computeExpectedValue(const T &A) const {
   if (OpType != UnaryOpType_Initialize) {
-    LOG_ERROR_FMT_THROW(L"computeExpectedValue(const DataTypeT &A, "
+    LOG_ERROR_FMT_THROW(L"computeExpectedValue(const T &A, "
                         L"UnaryOpType OpType) called on an "
                         L"unrecognized unary op: %ls",
                         OpTypeName.c_str());
-    return DataTypeT();
+    return T();
   }
 
-  return DataTypeT(A);
+  return T(A);
 }
 
-template <typename DataTypeT>
-UnaryMathOpTestConfig<DataTypeT>::UnaryMathOpTestConfig(
+template <typename T>
+UnaryMathOpTestConfig<T>::UnaryMathOpTestConfig(
     const OpTypeMetaData<UnaryMathOpType> &OpTypeMd)
-    : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
+    : TestConfig<T>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
   BasicOpType = BasicOpType_Unary;
 
-  if (isFloatingPointType<DataTypeT>()) {
+  if (isFloatingPointType<T>()) {
     Tolerance = 1;
     ValidationType = ValidationType_Ulp;
   }
 
   if (OpType == UnaryMathOpType_Sign) {
     // Sign has overridden special logic.
-    auto ComputeFunc = [this](const DataTypeT &A) { return this->sign(A); };
+    auto ComputeFunc = [this](const T &A) { return this->sign(A); };
     InitUnaryOpValueComputer<int32_t>(ComputeFunc);
   } else {
-    auto ComputeFunc = [this](const DataTypeT &A) {
+    auto ComputeFunc = [this](const T &A) {
       return this->computeExpectedValue(A);
     };
-    InitUnaryOpValueComputer<DataTypeT>(ComputeFunc);
+    InitUnaryOpValueComputer<T>(ComputeFunc);
   }
 }
 
-template <typename DataTypeT>
-DataTypeT UnaryMathOpTestConfig<DataTypeT>::computeExpectedValue(
-    const DataTypeT &A) const {
+template <typename T>
+T UnaryMathOpTestConfig<T>::computeExpectedValue(const T &A) const {
 
-  if constexpr (std::is_integral<DataTypeT>::value) {
+  if constexpr (std::is_integral<T>::value) {
     // Abs and Sign are the only UnaryMathOps thats support integral types.
     // Sign always returns int32 values, so its handled elsewhere.
     DXASSERT_NOMSG(OpType == UnaryMathOpType_Abs);
     return abs(A);
   }
 
-  if constexpr (!isFloatingPointType<DataTypeT>()) {
+  if constexpr (!isFloatingPointType<T>()) {
     LOG_ERROR_FMT_THROW(L"Programmer error: UnaryMathOpType OpType: %ls only "
                         L"supports floating point types",
                         OpTypeName.c_str());
-    return DataTypeT();
+    return T();
   }
 
   // Most of the std math functions here are only defined for floating point
   // types. If we don't use a mechanism to ensure that we're only using floating
   // point types then the compiler will complain about implicit conversions.
-  if constexpr (isFloatingPointType<DataTypeT>()) {
+  if constexpr (isFloatingPointType<T>()) {
     // A bunch of the std match functions here are  wrapped in () to avoid
     // collisions with the macro defitions for various functions in windows.h
     switch (OpType) {
@@ -1147,12 +1139,12 @@ DataTypeT UnaryMathOpTestConfig<DataTypeT>::computeExpectedValue(
       return (std::round)(A);
     case UnaryMathOpType_Frac:
       // std::frac is not a standard C++ function, but we can implement it as
-      return A - DataTypeT((std::floor)(A));
+      return A - T((std::floor)(A));
     case UnaryMathOpType_Sqrt:
       return (std::sqrt)(A);
     case UnaryMathOpType_Rsqrt:
       // std::rsqrt is not a standard C++ function, but we can implement it as
-      return DataTypeT(1.0) / DataTypeT((std::sqrt)(A));
+      return T(1.0) / T((std::sqrt)(A));
     case UnaryMathOpType_Exp:
       return (std::exp)(A);
     case UnaryMathOpType_Exp2:
@@ -1165,37 +1157,37 @@ DataTypeT UnaryMathOpTestConfig<DataTypeT>::computeExpectedValue(
       return (std::log10)(A);
     case UnaryMathOpType_Rcp:
       // std::.rcp is not a standard C++ function, but we can implement it as
-      return DataTypeT(1.0) / A;
+      return T(1.0) / A;
     default:
-      LOG_ERROR_FMT_THROW(L"computeExpectedValue(const DataTypeT &A)"
+      LOG_ERROR_FMT_THROW(L"computeExpectedValue(const T &A)"
                           L"called on an unrecognized unary math op: %ls",
                           OpTypeName.c_str());
-      return DataTypeT();
+      return T();
     }
   }
 }
 
-template <typename DataTypeT>
-BinaryMathOpTestConfig<DataTypeT>::BinaryMathOpTestConfig(
+template <typename T>
+BinaryMathOpTestConfig<T>::BinaryMathOpTestConfig(
     const OpTypeMetaData<BinaryMathOpType> &OpTypeMd)
-    : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
+    : TestConfig<T>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
-  if (isFloatingPointType<DataTypeT>()) {
+  if (isFloatingPointType<T>()) {
     Tolerance = 1;
     ValidationType = ValidationType_Ulp;
   }
 
   BasicOpType = BasicOpType_Binary;
 
-  auto ComputeFunc = [this](const DataTypeT &A, const DataTypeT &B) {
+  auto ComputeFunc = [this](const T &A, const T &B) {
     return this->computeExpectedValue(A, B);
   };
-  InitBinaryOpValueComputer<DataTypeT>(ComputeFunc);
+  InitBinaryOpValueComputer<T>(ComputeFunc);
 }
 
-template <typename DataTypeT>
-DataTypeT BinaryMathOpTestConfig<DataTypeT>::computeExpectedValue(
-    const DataTypeT &A, const DataTypeT &B) const {
+template <typename T>
+T BinaryMathOpTestConfig<T>::computeExpectedValue(const T &A,
+                                                  const T &B) const {
 
   switch (OpType) {
   case BinaryMathOpType_Multiply:
@@ -1216,16 +1208,16 @@ DataTypeT BinaryMathOpTestConfig<DataTypeT>::computeExpectedValue(
     return (std::max)(A, B);
   default:
     LOG_ERROR_FMT_THROW(L"Unknown BinaryMathOpType: %ls", OpTypeName.c_str());
-    return DataTypeT();
+    return T();
   }
 }
 
-template <typename DataTypeT>
-TernaryMathOpTestConfig<DataTypeT>::TernaryMathOpTestConfig(
+template <typename T>
+TernaryMathOpTestConfig<T>::TernaryMathOpTestConfig(
     const OpTypeMetaData<TernaryMathOpType> &OpTypeMd)
-    : TestConfig<DataTypeT>(OpTypeMd), OpType(OpTypeMd.OpType) {
+    : TestConfig<T>(OpTypeMd), OpType(OpTypeMd.OpType) {
 
-  if (isFloatingPointType<DataTypeT>()) {
+  if (isFloatingPointType<T>()) {
     Tolerance = 1;
     ValidationType = ValidationType_Ulp;
   }
@@ -1241,11 +1233,10 @@ TernaryMathOpTestConfig<DataTypeT>::TernaryMathOpTestConfig(
     LOG_ERROR_FMT_THROW(L"Invalid TernaryMathOpType: %ls", OpTypeName.c_str());
   }
 
-  auto ComputeFunc = [this](const DataTypeT &A, const DataTypeT &B,
-                            const DataTypeT &C) {
+  auto ComputeFunc = [this](const T &A, const T &B, const T &C) {
     return this->computeExpectedValue(A, B, C);
   };
-  InitTernaryOpValueComputer<DataTypeT>(ComputeFunc);
+  InitTernaryOpValueComputer<T>(ComputeFunc);
 }
 
 }; // namespace LongVector
