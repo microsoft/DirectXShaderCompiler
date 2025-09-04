@@ -231,7 +231,8 @@ void HLModule::RemoveFunction(llvm::Function *F) {
 namespace {
 template <typename TResource>
 bool RemoveResource(std::vector<std::unique_ptr<TResource>> &vec,
-                    GlobalVariable *pVariable, bool keepAllocated, bool keepAllResources) {
+                    GlobalVariable *pVariable, bool keepAllocated,
+                    bool keepAllResources) {
   for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
     if ((*p)->GetGlobalSymbol() != pVariable)
       continue;
@@ -262,7 +263,8 @@ void HLModule::RemoveGlobal(llvm::GlobalVariable *GV) {
   // register range from being allocated to other resources.
   bool keepAllocated = GetHLOptions().bLegacyResourceReservation;
 
-  // Keep all resources is for reflection purposes to simulate -Od with -spirv for dxil.
+  // Keep all resources is for reflection purposes to simulate -Od with -spirv
+  // for dxil.
   bool keepAllResources = GetHLOptions().bKeepAllResources;
 
   // This could be considerably faster - check variable type to see which

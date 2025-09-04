@@ -348,7 +348,8 @@ private:
 
   enum IntermediateFlags : uint32_t {
     LegacyResourceReservation = 1 << 0,
-    KeepAllResources = 1 << 2           //To be compatible with ConsistentBindings in different PR
+    KeepAllResources =
+        1 << 2 // To be compatible with ConsistentBindings in different PR
   };
 
   llvm::LLVMContext &m_Ctx;

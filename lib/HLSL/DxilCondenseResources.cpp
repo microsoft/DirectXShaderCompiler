@@ -551,7 +551,7 @@ public:
 
     // Remove unused resources.
     if (!DM.GetKeepAllResources())
-        DM.RemoveResourcesWithUnusedSymbols();
+      DM.RemoveResourcesWithUnusedSymbols();
 
     unsigned newResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
@@ -2131,8 +2131,8 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
   if (isa<UndefValue>(GV))
     return;
 
-  DXASSERT(isa<GlobalValue>(GV),
-           "DxilLowerCreateHandleForLib cannot deal with resources that aren't GlobalValue.");
+  DXASSERT(isa<GlobalValue>(GV), "DxilLowerCreateHandleForLib cannot deal with "
+                                 "resources that aren't GlobalValue.");
 
   // Generate createHandleFromBinding for sm66 and later.
   bool bCreateFromBinding = m_DM->GetShaderModel()->IsSM66Plus();
