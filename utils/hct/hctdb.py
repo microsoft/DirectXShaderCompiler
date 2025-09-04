@@ -8738,7 +8738,7 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Sm.IsSpecialFloat",
-            "16 bit IsSpecialFloat overloads are allowed in SM 6.9 and later.",
+            "16 bit IsSpecialFloat overloads require Shader Model 6.9 or higher.",
         )
 
         # fxc relaxed check of gradient check.
