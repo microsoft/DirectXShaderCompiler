@@ -807,7 +807,7 @@ bool TestConfig<T>::verifyOutput(
 // which resolves OutT based on the ExpectedVector type. Most intrinsics will
 // have an OutT that matches the input type being tested (which is T). But some,
 // such as the 'AsType' ops, i.e 'AsUint' have an OutT that doesn't match T.
-template <typename T>  // Primary template from TestConfig
+template <typename T>    // Primary template from TestConfig
 template <typename OutT> // Secondary template for verifyOutput
 bool TestConfig<T>::verifyOutput(
     const std::shared_ptr<st::ShaderOpTestResult> &TestResult,
