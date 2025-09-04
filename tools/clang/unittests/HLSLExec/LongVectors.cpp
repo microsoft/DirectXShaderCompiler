@@ -4,9 +4,10 @@
 
 namespace LongVector {
 
-template <typename T, size_t Length>
-const OpTypeMetaData<T> &getOpType(const OpTypeMetaData<T> (&Values)[Length],
-                                   const std::wstring &OpTypeString) {
+template <typename OpT, size_t Length>
+const OpTypeMetaData<OpT> &
+getOpType(const OpTypeMetaData<OpT> (&Values)[Length],
+          const std::wstring &OpTypeString) {
   for (size_t I = 0; I < Length; I++) {
     if (Values[I].OpTypeString == OpTypeString)
       return Values[I];
@@ -411,8 +412,8 @@ TEST_F(OpTest, ternaryMathOpTest) {
 }
 
 // Generic dispatch that dispatchs all DataTypes recognized in these tests
-template <typename T>
-void OpTest::dispatchTestByDataType(const OpTypeMetaData<T> &OpTypeMd,
+template <typename OpT>
+void OpTest::dispatchTestByDataType(const OpTypeMetaData<OpT> &OpTypeMd,
                                     std::wstring DataType,
                                     TableParameterHandler &Handler) {
   switch (Hash_djb2a(DataType)) {
@@ -517,8 +518,8 @@ void OpTest::dispatchTrigonometricOpTestByDataType(
         DataType.c_str());
 }
 
-template <typename T, typename T2>
-void OpTest::dispatchTestByVectorLength(const OpTypeMetaData<T2> &OpTypeMd,
+template <typename T, typename OpT>
+void OpTest::dispatchTestByVectorLength(const OpTypeMetaData<OpT> &OpTypeMd,
                                         TableParameterHandler &Handler) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);

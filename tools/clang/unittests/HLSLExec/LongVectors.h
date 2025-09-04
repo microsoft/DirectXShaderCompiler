@@ -114,9 +114,10 @@ template <typename T> struct OpTypeMetaData {
   uint16_t ScalarInputFlags = static_cast<uint16_t>(SCALAR_INPUT_FLAGS_NONE);
 };
 
-template <typename T, size_t Length>
-const OpTypeMetaData<T> &getOpType(const OpTypeMetaData<T> (&Values)[Length],
-                                   const std::wstring &OpTypeString);
+template <typename OpT, size_t Length>
+const OpTypeMetaData<OpT> &
+getOpType(const OpTypeMetaData<OpT> (&Values)[Length],
+          const std::wstring &OpTypeString);
 
 enum ValidationType {
   ValidationType_Epsilon,
@@ -378,8 +379,8 @@ public:
                        L"Table:LongVectorOpTable.xml#AsTypeOpTable")
   END_TEST_METHOD()
 
-  template <typename T>
-  void dispatchTestByDataType(const OpTypeMetaData<T> &OpTypeMD,
+  template <typename OpT>
+  void dispatchTestByDataType(const OpTypeMetaData<OpT> &OpTypeMD,
                               std::wstring DataType,
                               TableParameterHandler &Handler);
 
@@ -391,8 +392,8 @@ public:
       const OpTypeMetaData<UnaryMathOpType> &OpTypeMD, std::wstring DataType,
       TableParameterHandler &Handler);
 
-  template <typename T, typename T2>
-  void dispatchTestByVectorLength(const OpTypeMetaData<T2> &OpTypeMD,
+  template <typename T, typename OpT>
+  void dispatchTestByVectorLength(const OpTypeMetaData<OpT> &OpTypeMD,
                                   TableParameterHandler &Handler);
 
   template <typename T>
@@ -597,8 +598,8 @@ private:
 protected:
   // Prevent instances of TestConfig from being created directly. Want to force
   // a derived class to be used for creation.
-  template <typename T>
-  TestConfig(const OpTypeMetaData<T> &OpTypeMd)
+  template <typename OpT>
+  TestConfig(const OpTypeMetaData<OpT> &OpTypeMd)
       : OpTypeName(OpTypeMd.OpTypeString), Intrinsic(OpTypeMd.Intrinsic),
         Operator(OpTypeMd.Operator),
         ScalarInputFlags(OpTypeMd.ScalarInputFlags) {}
