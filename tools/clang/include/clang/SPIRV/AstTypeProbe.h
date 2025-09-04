@@ -313,6 +313,9 @@ bool isSintOrVecOfSintType(QualType type);
 /// integer type.
 bool isUintOrVecOfUintType(QualType type);
 
+/// Returns true if the given type is a half or vector of half type.
+bool isHalfOrVecOfHalfType(QualType type);
+
 /// Returns true if the given type is a float or vector of float type.
 bool isFloatOrVecOfFloatType(QualType type);
 

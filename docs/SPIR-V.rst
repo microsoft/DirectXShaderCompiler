@@ -2477,6 +2477,8 @@ extended instruction mapping, so they are handled with additional steps:
 - ``isfinite`` : Determines if the specified value is finite. Since ``OpIsFinite``
   requires the ``Kernel`` capability, translation is done using ``OpIsNan`` and
   ``OpIsInf``.  A given value is finite iff it is not NaN and not infinite.
+- ``isnormal`` : Determines if the specified value is normal (not zero, INF, NAN or subnormal).
+  Since ``OpIsNormal`` requires the ``Kernel`` capability, the operation is emulated.
 - ``clip``: Discards the current pixel if the specified value is less than zero.
   Uses conditional control flow as well as SPIR-V ``OpKill``.
 - ``rcp``: Calculates a fast, approximate, per-component reciprocal.
