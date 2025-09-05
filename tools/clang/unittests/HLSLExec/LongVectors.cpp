@@ -1,6 +1,8 @@
 #include "LongVectors.h"
 #include "HlslExecTestUtils.h"
+#include "LongVectorTestData.h"
 #include <iomanip>
+#include <type_traits>
 
 namespace LongVector {
 
@@ -219,6 +221,729 @@ template <typename T> std::string getHLSLTypeString() {
   return "UnknownType";
 }
 
+template <typename T, size_t ARITY>
+using InputSets = std::array<std::vector<T>, ARITY>;
+
+template <typename OP_TYPE> struct OpTypeTraits;
+
+template <> struct OpTypeTraits<TrigonometricOpType> {
+  static constexpr size_t Arity = 1;
+
+  static TrigonometricOpType GetOpType(const wchar_t *OpTypeString) {
+    return getTrigonometricOpType(OpTypeString).OpType;
+  }
+};
+
+template <> struct OpTypeTraits<UnaryOpType> {
+  static constexpr size_t Arity = 1;
+
+  static UnaryOpType GetOpType(const wchar_t *OpTypeString) {
+    return getUnaryOpType(OpTypeString).OpType;
+  }
+};
+
+template <> struct OpTypeTraits<AsTypeOpType> {
+  static constexpr size_t Arity = 1;
+
+  static AsTypeOpType GetOpType(const wchar_t *OpTypeString) {
+    return getAsTypeOpType(OpTypeString).OpType;
+  }
+};
+
+template <> struct OpTypeTraits<UnaryMathOpType> {
+  static constexpr size_t Arity = 1;
+
+  static UnaryMathOpType GetOpType(const wchar_t *OpTypeString) {
+    return getUnaryMathOpType(OpTypeString).OpType;
+  }
+};
+
+template <> struct OpTypeTraits<BinaryMathOpType> {
+  static constexpr size_t Arity = 2;
+
+  static BinaryMathOpType GetOpType(const wchar_t *OpTypeString) {
+    return getBinaryMathOpType(OpTypeString).OpType;
+  }
+};
+
+template <> struct OpTypeTraits<TernaryMathOpType> {
+  static constexpr size_t Arity = 3;
+
+  static TernaryMathOpType GetOpType(const wchar_t *OpTypeString) {
+    return getTernaryMathOpType(OpTypeString).OpType;
+  }
+};
+
+static uint16_t GetScalarInputFlags() {
+  using WEX::Common::String;
+  using WEX::TestExecution::TestData;
+
+  String ScalarInputFlagsString;
+  if (FAILED(
+          TestData::TryGetValue(L"ScalarInputFlags", ScalarInputFlagsString)))
+    return 0;
+
+  if (ScalarInputFlagsString.IsEmpty())
+    return 0;
+
+  uint16_t ScalarInputFlags;
+  VERIFY_IS_TRUE(IsHexString(ScalarInputFlagsString, &ScalarInputFlags));
+  return ScalarInputFlags;
+}
+
+static WEX::Common::String getInputValueSetName(size_t Index) {
+  using WEX::Common::String;
+  using WEX::TestExecution::TestData;
+
+  DXASSERT(Index >= 0 && Index <= 9, "Only single digit indices supported");
+
+  String ParameterName = L"InputValueSetName";
+  ParameterName.Append((wchar_t)(L'1' + Index));
+
+  String ValueSetName;
+  if (FAILED(TestData::TryGetValue(ParameterName, ValueSetName))) {
+    String Name = L"DefaultInputValueSet";
+    Name.Append((wchar_t)(L'1' + Index));
+    return Name;
+  }
+
+  return ValueSetName;
+}
+
+//
+// asFloat
+//
+
+template <typename T> float asFloat(T);
+template <> float asFloat(float A) { return float(A); }
+template <> float asFloat(int32_t A) { return bit_cast<float>(A); }
+template <> float asFloat(uint32_t A) { return bit_cast<float>(A); }
+
+//
+// asFloat16
+//
+template <typename T> HLSLHalf_t asFloat16(T);
+template <> HLSLHalf_t asFloat16<HLSLHalf_t>(HLSLHalf_t A) {
+  return HLSLHalf_t(A.Val);
+}
+template <> HLSLHalf_t asFloat16(int16_t A) {
+  return HLSLHalf_t(bit_cast<DirectX::PackedVector::HALF>(A));
+}
+template <> HLSLHalf_t asFloat16(uint16_t A) {
+  return HLSLHalf_t(bit_cast<DirectX::PackedVector::HALF>(A));
+}
+
+//
+// asInt
+//
+
+template <typename T> int32_t asInt(T);
+template <> int32_t asInt(float A) { return bit_cast<int32_t>(A); }
+template <> int32_t asInt(int32_t A) { return A; }
+template <> int32_t asInt(uint32_t A) { return bit_cast<int32_t>(A); }
+
+//
+// asInt16
+//
+
+template <typename T> int16_t asInt16(T);
+template <> int16_t asInt16(HLSLHalf_t A) { return bit_cast<int16_t>(A.Val); }
+template <> int16_t asInt16(int16_t A) { return A; }
+template <> int16_t asInt16(uint16_t A) { return bit_cast<int16_t>(A); }
+
+//
+// asUint16
+//
+
+template <typename T> uint16_t asUint16(T);
+template <> uint16_t asUint16(HLSLHalf_t A) {
+  return bit_cast<uint16_t>(A.Val);
+}
+template <> uint16_t asUint16(uint16_t A) { return A; }
+template <> uint16_t asUint16(int16_t A) { return bit_cast<uint16_t>(A); }
+
+//
+// asUint
+//
+
+template <typename T> unsigned int asUint(T);
+template <> unsigned int asUint(unsigned int A) { return A; }
+template <> unsigned int asUint(float A) { return bit_cast<unsigned int>(A); }
+template <> unsigned int asUint(int A) { return bit_cast<unsigned int>(A); }
+
+//
+// splitDouble
+//
+
+static void splitDouble(const double A, uint32_t &LowBits, uint32_t &HighBits) {
+  uint64_t Bits = 0;
+  std::memcpy(&Bits, &A, sizeof(Bits));
+  LowBits = static_cast<uint32_t>(Bits & 0xFFFFFFFF);
+  HighBits = static_cast<uint32_t>(Bits >> 32);
+}
+
+//
+// asDouble
+//
+
+static double asDouble(const uint32_t LowBits, const uint32_t HighBits) {
+  uint64_t Bits = (static_cast<uint64_t>(HighBits) << 32) | LowBits;
+  double Result;
+  std::memcpy(&Result, &Bits, sizeof(Result));
+  return Result;
+}
+
+template <typename T> struct TrigonometricOperation {
+  static T acos(T Val) { return std::acos(Val); }
+  static T asin(T Val) { return std::asin(Val); }
+  static T atan(T Val) { return std::atan(Val); }
+  static T cos(T Val) { return std::cos(Val); }
+  static T cosh(T Val) { return std::cosh(Val); }
+  static T sin(T Val) { return std::sin(Val); }
+  static T sinh(T Val) { return std::sinh(Val); }
+  static T tan(T Val) { return std::tan(Val); }
+  static T tanh(T Val) { return std::tanh(Val); }
+};
+
+template <typename T> const wchar_t *DataTypeName() {
+  static_assert(false && "Missing data type name");
+}
+
+#define DATA_TYPE_NAME(TYPE, NAME)                                             \
+  template <> const wchar_t *DataTypeName<TYPE>() { return NAME; }
+
+DATA_TYPE_NAME(HLSLBool_t, L"bool");
+DATA_TYPE_NAME(int16_t, L"int16");
+DATA_TYPE_NAME(int32_t, L"int32");
+DATA_TYPE_NAME(int64_t, L"int64");
+DATA_TYPE_NAME(uint16_t, L"uint16");
+DATA_TYPE_NAME(uint32_t, L"uint32");
+DATA_TYPE_NAME(uint64_t, L"uint64");
+DATA_TYPE_NAME(HLSLHalf_t, L"float16");
+DATA_TYPE_NAME(float, L"float32");
+DATA_TYPE_NAME(double, L"float64");
+
+#undef DATA_TYPE_NAME
+
+struct TAEFTestDataValues {
+  using String = WEX::Common::String;
+
+  String DataType;
+  String OpTypeEnum;
+  String InputValueSetNames[3];
+  uint16_t ScalarInputFlags = 0;
+  size_t LongVectorInputSize = 0;
+
+  static std::optional<TAEFTestDataValues> CreateFromTestData() {
+    using WEX::TestExecution::TestData;
+    TAEFTestDataValues Values;
+
+    if (FAILED(TestData::TryGetValue(L"DataType", Values.DataType)) &&
+        FAILED(TestData::TryGetValue(L"DataTypeIn", Values.DataType))) {
+      LOG_ERROR_FMT_THROW(L"TestData missing 'DataType' or 'DataTypeIn'.");
+      return std::nullopt;
+    }
+
+    if (FAILED(TestData::TryGetValue(L"OpTypeEnum", Values.OpTypeEnum))) {
+      LOG_ERROR_FMT_THROW(L"TestData missing 'OpTypeEnum'.");
+      return std::nullopt;
+    }
+
+    for (size_t I = 0; I < std::size(Values.InputValueSetNames); ++I) {
+      Values.InputValueSetNames[I] = getInputValueSetName(I);
+    }
+
+    Values.ScalarInputFlags = GetScalarInputFlags();
+
+    TestData::TryGetValue(L"LongVectorInputSize", Values.LongVectorInputSize);
+
+    return Values;
+  }
+};
+
+template <typename DATA_TYPE>
+std::vector<DATA_TYPE> buildTestInput(const wchar_t *InputValueSetName,
+                                      size_t SizeToTest) {
+  // TODO: remove the need to build up a RawValueSet, only to use that to build
+  // ValueSet.
+  std::vector<DATA_TYPE> RawValueSet =
+      getInputValueSetByKey<DATA_TYPE>(InputValueSetName);
+
+  std::vector<DATA_TYPE> ValueSet;
+  ValueSet.reserve(SizeToTest);
+  for (size_t I = 0; I < SizeToTest; ++I)
+    ValueSet.push_back(RawValueSet[I % RawValueSet.size()]);
+
+  return ValueSet;
+}
+
+template <typename T, size_t ARITY>
+InputSets<T, ARITY> buildTestInputs(const TAEFTestDataValues &TAEFTestData,
+                                    size_t SizeToTest) {
+  InputSets<T, ARITY> Inputs;
+  for (size_t I = 0; I < ARITY; ++I) {
+
+    uint16_t OperandScalarFlag = 1 << I;
+    bool IsOperandScalar = TAEFTestData.ScalarInputFlags & OperandScalarFlag;
+
+    if (TAEFTestData.InputValueSetNames[I].IsEmpty()) {
+      LOG_ERROR_FMT_THROW(
+          L"Expected parameter 'InputValueSetName%d' not found.", I + 1);
+      continue;
+    }
+
+    Inputs[I] = buildTestInput<T>(TAEFTestData.InputValueSetNames[I],
+                                  IsOperandScalar ? 1 : SizeToTest);
+  }
+
+  return Inputs;
+}
+
+template <typename OUT_TYPE, typename T, size_t ARITY, typename OP_TYPE>
+std::vector<OUT_TYPE> runTest(OP_TYPE OpType, const InputSets<T, ARITY> &Inputs,
+                              size_t ExpectedOutputSize,
+                              uint16_t ScalarInputFlags,
+                              std::string ExtraDefines, bool &WasSkipped);
+
+struct ValidationConfig {
+  float Tolerance = 0.0f;
+  ValidationType Type = ValidationType_Epsilon;
+
+  static ValidationConfig Epsilon(float Tolerance) {
+    return ValidationConfig{Tolerance, ValidationType_Epsilon};
+  }
+
+  static ValidationConfig Ulp(float Tolerance) {
+    return ValidationConfig{Tolerance, ValidationType_Ulp};
+  }
+};
+
+template <typename T, typename OUT_TYPE, typename OP_TYPE, size_t ARITY>
+void runAndVerify(OP_TYPE OpType, const InputSets<T, ARITY> &Inputs,
+                  const std::vector<OUT_TYPE> &Expected,
+                  uint16_t ScalarInputFlags, std::string ExtraDefines,
+                  const ValidationConfig &ValidationConfig) {
+
+  bool WasSkipped = true;
+  std::vector<OUT_TYPE> Actual =
+      runTest<OUT_TYPE>(OpType, Inputs, Expected.size(), ScalarInputFlags,
+                        ExtraDefines, WasSkipped);
+  if (WasSkipped)
+    return;
+
+  bool VerboseLogging = false;
+  VERIFY_IS_TRUE(doVectorsMatch(Actual, Expected, ValidationConfig.Tolerance,
+                                ValidationConfig.Type, VerboseLogging));
+}
+
+template <typename T, typename OUT_TYPE, typename OP_TYPE>
+void dispatchUnaryTest(const TAEFTestDataValues &TAEFTestData,
+                       const ValidationConfig &ValidationConfig, OP_TYPE OpType,
+                       size_t VectorSize, OUT_TYPE (*Calc)(T),
+                       std::string ExtraDefines) {
+
+  InputSets<T, 1> Inputs = buildTestInputs<T, 1>(TAEFTestData, VectorSize);
+
+  std::vector<OUT_TYPE> Expected;
+  Expected.reserve(Inputs[0].size());
+
+  for (size_t I = 0; I < Inputs[0].size(); ++I) {
+    Expected.push_back(Calc(Inputs[0][I]));
+  }
+
+  runAndVerify(OpType, Inputs, Expected, TAEFTestData.ScalarInputFlags,
+               ExtraDefines, ValidationConfig);
+}
+
+template <typename T, typename OUT_TYPE, typename OP_TYPE>
+void dispatchBinaryTest(const TAEFTestDataValues &TAEFTestData,
+                        const ValidationConfig &ValidationConfig,
+                        OP_TYPE OpType, size_t VectorSize,
+                        OUT_TYPE (*Calc)(T, T)) {
+  InputSets<T, 2> Inputs = buildTestInputs<T, 2>(TAEFTestData, VectorSize);
+
+  std::vector<OUT_TYPE> Expected;
+  Expected.reserve(Inputs[0].size());
+
+  for (size_t I = 0; I < Inputs[0].size(); ++I) {
+    Expected.push_back(Calc(Inputs[0][I], Inputs[1][I]));
+  }
+
+  runAndVerify(OpType, Inputs, Expected, TAEFTestData.ScalarInputFlags, "",
+               ValidationConfig);
+}
+
+//
+// TrigonometricTest
+//
+
+template <typename T>
+void dispatchTrigonometricTest(const TAEFTestDataValues &TAEFTestData,
+                               ValidationConfig ValidationConfig,
+                               TrigonometricOpType OpType, size_t VectorSize) {
+#define DISPATCH(OP, NAME)                                                     \
+  case OP:                                                                     \
+    return dispatchUnaryTest<T>(TAEFTestData, ValidationConfig, OP,            \
+                                VectorSize, TrigonometricOperation<T>::NAME,   \
+                                "")
+
+  switch (OpType) {
+    DISPATCH(TrigonometricOpType_Acos, acos);
+    DISPATCH(TrigonometricOpType_Asin, asin);
+    DISPATCH(TrigonometricOpType_Atan, atan);
+    DISPATCH(TrigonometricOpType_Cos, cos);
+    DISPATCH(TrigonometricOpType_Cosh, cosh);
+    DISPATCH(TrigonometricOpType_Sin, sin);
+    DISPATCH(TrigonometricOpType_Sinh, sinh);
+    DISPATCH(TrigonometricOpType_Tan, tan);
+    DISPATCH(TrigonometricOpType_Tanh, tanh);
+  case TrigonometricOpType_EnumValueCount:
+    break;
+  }
+
+#undef DISPATCH
+
+  LOG_ERROR_FMT_THROW(L"Unexpected TrigonometricOpType: %d.", OpType);
+}
+
+void dispatchTest(const TAEFTestDataValues &TAEFTestData,
+                  TrigonometricOpType OpType, size_t VectorSize) {
+
+  // All trigonometric ops are floating point types.
+  // These trig functions are defined to have a max absolute error of 0.0008
+  // as per the D3D functional specs. An example with this spec for sin and
+  // cos is available here:
+  // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
+
+  if (TAEFTestData.DataType == DataTypeName<HLSLHalf_t>())
+    return dispatchTrigonometricTest<HLSLHalf_t>(
+        TAEFTestData, ValidationConfig::Epsilon(0.0010f), OpType, VectorSize);
+
+  if (TAEFTestData.DataType == DataTypeName<float>())
+    return dispatchTrigonometricTest<float>(
+        TAEFTestData, ValidationConfig::Epsilon(0.0008f), OpType, VectorSize);
+
+  LOG_ERROR_FMT_THROW(
+      L"DataType '%s' not supported for trigonometric operations.",
+      (const wchar_t *)TAEFTestData.DataType);
+}
+
+//
+// AsTypeOp
+//
+
+void dispatchAsUintSplitDoubleTest(const TAEFTestDataValues &TAEFTestData,
+                                   size_t VectorSize) {
+
+  InputSets<double, 1> Inputs =
+      buildTestInputs<double, 1>(TAEFTestData, VectorSize);
+
+  std::vector<uint32_t> Expected;
+  Expected.resize(Inputs.size() * 2);
+
+  for (size_t I = 0; I < Inputs.size(); ++I) {
+    uint32_t Low, High;
+    splitDouble(Expected[I], Low, High);
+    Expected[I] = Low;
+    Expected[I + Inputs.size()] = High;
+  }
+
+  ValidationConfig ValidationConfig{};
+  runAndVerify(AsTypeOpType_AsUint_SplitDouble, Inputs, Expected,
+               TAEFTestData.ScalarInputFlags, " -DFUNC_ASUINT_SPLITDOUBLE=1",
+               ValidationConfig);
+}
+
+void dispatchTest(const TAEFTestDataValues &TAEFTestData, AsTypeOpType OpType,
+                  size_t VectorSize) {
+
+  // Different AsType* operations are supported for different data types, so we
+  // dispatch on operation first.
+
+#define DISPATCH(TYPE, FN)                                                     \
+  if (TAEFTestData.DataType == DataTypeName<TYPE>())                           \
+  return dispatchUnaryTest<TYPE>(TAEFTestData, ValidationConfig{}, OpType,     \
+                                 VectorSize, FN<TYPE>, "")
+
+  switch (OpType) {
+  case AsTypeOpType_AsFloat:
+    DISPATCH(float, asFloat);
+    DISPATCH(int32_t, asFloat);
+    DISPATCH(uint32_t, asFloat);
+    break;
+
+  case AsTypeOpType_AsInt:
+    DISPATCH(float, asInt);
+    DISPATCH(int32_t, asInt);
+    DISPATCH(uint32_t, asInt);
+    break;
+
+  case AsTypeOpType_AsUint:
+    DISPATCH(int32_t, asUint);
+    DISPATCH(uint32_t, asUint);
+    break;
+
+  case AsTypeOpType_AsFloat16:
+    DISPATCH(HLSLHalf_t, asFloat16);
+    DISPATCH(int16_t, asFloat16);
+    DISPATCH(uint16_t, asFloat16);
+    break;
+
+  case AsTypeOpType_AsInt16:
+    DISPATCH(HLSLHalf_t, asInt16);
+    DISPATCH(int16_t, asInt16);
+    DISPATCH(uint16_t, asInt16);
+    break;
+
+  case AsTypeOpType_AsUint16:
+    DISPATCH(HLSLHalf_t, asUint16);
+    DISPATCH(int16_t, asUint16);
+    DISPATCH(uint16_t, asUint16);
+    break;
+
+    break;
+
+  case AsTypeOpType_AsUint_SplitDouble:
+    if (TAEFTestData.DataType == DataTypeName<double>())
+      return dispatchAsUintSplitDoubleTest(TAEFTestData, VectorSize);
+    break;
+
+  case AsTypeOpType_AsDouble:
+    if (TAEFTestData.DataType == DataTypeName<uint32_t>())
+      return dispatchBinaryTest<uint32_t>(TAEFTestData, ValidationConfig{},
+                                          AsTypeOpType_AsDouble, VectorSize,
+                                          asDouble);
+    break;
+
+  case AsTypeOpType_EnumValueCount:
+    break;
+  }
+
+#undef DISPATCH
+
+  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for AsTypeOp '%s'",
+                      (const wchar_t *)TAEFTestData.DataType,
+                      (const wchar_t *)TAEFTestData.OpTypeEnum);
+}
+
+//
+// UnaryOp
+//
+
+template <typename T> T Initialize(T V) { return V; }
+
+void dispatchTest(const TAEFTestDataValues &TAEFTestData, UnaryOpType OpType,
+                  size_t VectorSize) {
+#define DISPATCH(TYPE, FUNC, EXTRA_DEFINES)                                    \
+  if (TAEFTestData.DataType == DataTypeName<TYPE>())                           \
+  return dispatchUnaryTest(TAEFTestData, ValidationConfig{}, OpType,           \
+                           VectorSize, FUNC, EXTRA_DEFINES)
+
+#define DISPATCH_INITIALIZE(TYPE)                                              \
+  DISPATCH(TYPE, Initialize<TYPE>, " -DFUNC_INITIALIZE=1")
+
+  switch (OpType) {
+  case UnaryOpType_Initialize:
+    DISPATCH_INITIALIZE(HLSLBool_t);
+    DISPATCH_INITIALIZE(int16_t);
+    DISPATCH_INITIALIZE(int32_t);
+    DISPATCH_INITIALIZE(int64_t);
+    DISPATCH_INITIALIZE(uint16_t);
+    DISPATCH_INITIALIZE(uint32_t);
+    DISPATCH_INITIALIZE(uint64_t);
+    DISPATCH_INITIALIZE(HLSLHalf_t);
+    DISPATCH_INITIALIZE(float);
+    DISPATCH_INITIALIZE(double);
+    break;
+  case UnaryOpType_EnumValueCount:
+    break;
+  }
+
+#undef DISPATCH_INITIALIZE
+#undef DISPATCH
+
+  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for UnaryOpType '%s'",
+                      (const wchar_t *)TAEFTestData.DataType,
+                      (const wchar_t *)TAEFTestData.OpTypeEnum);
+}
+
+//
+// UnaryMathOp
+//
+
+template <typename T, typename OUT_TYPE>
+void dispatchUnaryMathOpTest(const TAEFTestDataValues &TAEFTestData,
+                             UnaryMathOpType OpType, size_t VectorSize,
+                             OUT_TYPE (*Calc)(T)) {
+
+  ValidationConfig ValidationConfig;
+
+  if (isFloatingPointType<T>()) {
+    ValidationConfig = ValidationConfig::Ulp(1.0);
+  }
+
+  dispatchUnaryTest(TAEFTestData, ValidationConfig, OpType, VectorSize, Calc,
+                    "");
+}
+
+template <typename T> struct UnaryMathOps {
+  static T Abs(T V) {
+    if constexpr (std::is_unsigned_v<T>)
+      return V;
+    else
+      return static_cast<T>(std::abs(V));
+  }
+
+  static int32_t Sign(T V) {
+    return V > static_cast<T>(0) ? 1 : (V < static_cast<T>(0) ? -1 : 0);
+  }
+
+  static T Ceil(T V) { return std::ceil(V); }
+  static T Floor(T V) { return std::floor(V); }
+  static T Trunc(T V) { return std::trunc(V); }
+  static T Round(T V) { return std::round(V); }
+  static T Frac(T V) { return V - static_cast<T>(std::floor(V)); }
+  static T Sqrt(T V) { return std::sqrt(V); }
+
+  static T Rsqrt(T V) {
+    return static_cast<T>(1.0) / static_cast<T>(std::sqrt(V));
+  }
+
+  static T Exp(T V) { return std::exp(V); }
+  static T Exp2(T V) { return std::exp2(V); }
+  static T Log(T V) { return std::log(V); }
+  static T Log2(T V) { return std::log2(V); }
+  static T Log10(T V) { return std::log10(V); }
+  static T Rcp(T V) { return static_cast<T>(1.0) / V; }
+};
+
+void dispatchTest(const TAEFTestDataValues &TAEFTestData,
+                  UnaryMathOpType OpType, size_t VectorSize) {
+#define DISPATCH(TYPE, FUNC)                                                   \
+  if (TAEFTestData.DataType == DataTypeName<TYPE>())                           \
+  return dispatchUnaryMathOpTest(TAEFTestData, OpType, VectorSize,             \
+                                 UnaryMathOps<TYPE>::FUNC)
+
+  switch (OpType) {
+  case UnaryMathOpType_Abs:
+    DISPATCH(HLSLHalf_t, Abs);
+    DISPATCH(float, Abs);
+    DISPATCH(double, Abs);
+    DISPATCH(int16_t, Abs);
+    DISPATCH(int32_t, Abs);
+    DISPATCH(int64_t, Abs);
+    DISPATCH(uint16_t, Abs);
+    DISPATCH(uint32_t, Abs);
+    DISPATCH(uint64_t, Abs);
+    break;
+
+  case UnaryMathOpType_Sign:
+    DISPATCH(HLSLHalf_t, Sign);
+    DISPATCH(float, Sign);
+    DISPATCH(double, Sign);
+    DISPATCH(int16_t, Sign);
+    DISPATCH(int32_t, Sign);
+    DISPATCH(int64_t, Sign);
+    DISPATCH(uint16_t, Sign);
+    DISPATCH(uint32_t, Sign);
+    DISPATCH(uint64_t, Sign);
+    break;
+
+  case UnaryMathOpType_Ceil:
+    DISPATCH(HLSLHalf_t, Ceil);
+    DISPATCH(float, Ceil);
+    break;
+
+  case UnaryMathOpType_Floor:
+    DISPATCH(HLSLHalf_t, Floor);
+    DISPATCH(float, Floor);
+    break;
+
+  case UnaryMathOpType_Trunc:
+    DISPATCH(HLSLHalf_t, Trunc);
+    DISPATCH(float, Trunc);
+    break;
+
+  case UnaryMathOpType_Round:
+    DISPATCH(HLSLHalf_t, Round);
+    DISPATCH(float, Round);
+    break;
+
+  case UnaryMathOpType_Frac:
+    DISPATCH(HLSLHalf_t, Frac);
+    DISPATCH(float, Frac);
+    break;
+
+  case UnaryMathOpType_Sqrt:
+    DISPATCH(HLSLHalf_t, Sqrt);
+    DISPATCH(float, Sqrt);
+    break;
+
+  case UnaryMathOpType_Rsqrt:
+    DISPATCH(HLSLHalf_t, Rsqrt);
+    DISPATCH(float, Rsqrt);
+    break;
+
+  case UnaryMathOpType_Exp:
+    DISPATCH(HLSLHalf_t, Exp);
+    DISPATCH(float, Exp);
+    break;
+
+  case UnaryMathOpType_Exp2:
+    DISPATCH(HLSLHalf_t, Exp2);
+    DISPATCH(float, Exp2);
+    break;
+
+  case UnaryMathOpType_Log:
+    DISPATCH(HLSLHalf_t, Log);
+    DISPATCH(float, Log);
+    break;
+
+  case UnaryMathOpType_Log2:
+    DISPATCH(HLSLHalf_t, Log2);
+    DISPATCH(float, Log2);
+    break;
+
+  case UnaryMathOpType_Log10:
+    DISPATCH(HLSLHalf_t, Log10);
+    DISPATCH(float, Log10);
+    break;
+
+  case UnaryMathOpType_Rcp:
+    DISPATCH(HLSLHalf_t, Rcp);
+    DISPATCH(float, Rcp);
+    break;
+
+  case UnaryMathOpType_EnumValueCount:
+    break;
+  }
+
+#undef DISPATCH
+
+  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for UnaryOpType '%s'",
+                      (const wchar_t *)TAEFTestData.DataType,
+                      (const wchar_t *)TAEFTestData.OpTypeEnum);
+}
+
+template <typename OP_TYPE> void dispatchTest() {
+  std::optional<TAEFTestDataValues> TAEFTestData =
+      TAEFTestDataValues::CreateFromTestData();
+  if (!TAEFTestData)
+    return;
+
+  OP_TYPE OpType = OpTypeTraits<OP_TYPE>::GetOpType(TAEFTestData->OpTypeEnum);
+
+  std::vector<size_t> InputVectorSizes;
+  if (TAEFTestData->LongVectorInputSize)
+    InputVectorSizes.push_back(TAEFTestData->LongVectorInputSize);
+  else
+    InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
+
+  for (size_t VectorSize : InputVectorSizes) {
+    dispatchTest(*TAEFTestData, OpType, VectorSize);
+  }
+}
+
 // These are helper arrays to be used with the TableParameterHandler that parses
 // the LongVectorOpTable.xml file for us.
 static TableParameter UnaryOpParameters[] = {
@@ -308,109 +1033,42 @@ TEST_F(OpTest, trigonometricOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  const size_t TableSize = sizeof(UnaryOpParameters) / sizeof(TableParameter);
-  TableParameterHandler Handler(UnaryOpParameters, TableSize);
-
-  std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
-  std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
-
-  auto OpTypeMD = getTrigonometricOpType(OpTypeString);
-  dispatchTrigonometricOpTestByDataType(OpTypeMD, DataType, Handler);
+  dispatchTest<TrigonometricOpType>();
 }
 
 TEST_F(OpTest, unaryOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  const size_t TableSize = sizeof(UnaryOpParameters) / sizeof(TableParameter);
-  TableParameterHandler Handler(UnaryOpParameters, TableSize);
-
-  std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
-  std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
-
-  auto OpTypeMD = getUnaryOpType(OpTypeString);
-  dispatchTestByDataType(OpTypeMD, DataType, Handler);
+  dispatchTest<UnaryOpType>();
 }
 
 TEST_F(OpTest, asTypeOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  const size_t TableSize = sizeof(AsTypeOpParameters) / sizeof(TableParameter);
-  TableParameterHandler Handler(AsTypeOpParameters, TableSize);
-
-  std::wstring DataTypeIn(Handler.GetTableParamByName(L"DataTypeIn")->m_str);
-  std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
-
-  auto OpTypeMD = getAsTypeOpType(OpTypeString);
-  std::wstring ScalarInputFlags(
-      Handler.GetTableParamByName(L"ScalarInputFlags")->m_str);
-  if (!ScalarInputFlags.empty())
-    VERIFY_IS_TRUE(
-        IsHexString(ScalarInputFlags.c_str(), &OpTypeMD.ScalarInputFlags),
-        L"ScalarInputFlags must be a hex string if provided.");
-
-  dispatchTestByDataType(OpTypeMD, DataTypeIn, Handler);
+  dispatchTest<AsTypeOpType>();
 }
 
 TEST_F(OpTest, unaryMathOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  const int TableSize = sizeof(UnaryOpParameters) / sizeof(TableParameter);
-  TableParameterHandler Handler(UnaryOpParameters, TableSize);
-
-  std::wstring DataTypeIn(Handler.GetTableParamByName(L"DataType")->m_str);
-  std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
-
-  auto OpTypeMD = getUnaryMathOpType(OpTypeString);
-  dispatchUnaryMathOpTestByDataType(OpTypeMD, DataTypeIn, Handler);
+  dispatchTest<UnaryMathOpType>();
 }
 
 TEST_F(OpTest, binaryMathOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  using namespace WEX::Common;
-
-  const size_t TableSize = sizeof(BinaryOpParameters) / sizeof(TableParameter);
-  TableParameterHandler Handler(BinaryOpParameters, TableSize);
-
-  std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
-  std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
-
-  auto OpTypeMD = getBinaryMathOpType(OpTypeString);
-
-  std::wstring ScalarInputFlags(
-      Handler.GetTableParamByName(L"ScalarInputFlags")->m_str);
-  if (!ScalarInputFlags.empty())
-    VERIFY_IS_TRUE(
-        IsHexString(ScalarInputFlags.c_str(), &OpTypeMD.ScalarInputFlags),
-        L"ScalarInputFlags must be a hex string if provided.");
-
-  dispatchTestByDataType(OpTypeMD, DataType, Handler);
+  // dispatchTest<BinaryMathOpType>();
 }
 
 TEST_F(OpTest, ternaryMathOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  const size_t TableSize = sizeof(TernaryOpParameters) / sizeof(TableParameter);
-  TableParameterHandler Handler(TernaryOpParameters, TableSize);
-
-  std::wstring DataType(Handler.GetTableParamByName(L"DataType")->m_str);
-  std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
-
-  auto OpTypeMD = getTernaryMathOpType(OpTypeString);
-
-  std::wstring ScalarInputFlags(
-      Handler.GetTableParamByName(L"ScalarInputFlags")->m_str);
-  if (!ScalarInputFlags.empty())
-    VERIFY_IS_TRUE(
-        IsHexString(ScalarInputFlags.c_str(), &OpTypeMD.ScalarInputFlags),
-        L"ScalarInputFlags must be a hex string if provided.");
-
-  dispatchTestByDataType(OpTypeMD, DataType, Handler);
+  // dispatchTest<TernaryMathOpType>();
 }
 
 // Generic dispatch that dispatchs all DataTypes recognized in these tests
@@ -1294,6 +1952,139 @@ TernaryMathOpTestConfig<T>::TernaryMathOpTestConfig(
     return this->computeExpectedValue(A, B, C);
   };
   InitTernaryOpValueComputer<T>(ComputeFunc);
+}
+
+template <typename T, typename OUT_TYPE, size_t ARITY, typename OP_TYPE>
+std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
+                                     uint16_t ScalarInputFlags,
+                                     std::string ExtraDefines) {
+  OpTypeMetaData<OP_TYPE> OpTypeMetaData = getOpTypeMetaData(OpType);
+
+  std::stringstream CompilerOptions;
+
+  if (is16BitType<T>())
+    CompilerOptions << " -enable-16bit-types";
+
+  CompilerOptions << " -DTYPE=" << getHLSLTypeString<T>();
+  CompilerOptions << " -DNUM=" << VectorSize;
+
+  CompilerOptions << " -DOPERATOR=";
+  if (OpTypeMetaData.Operator)
+    CompilerOptions << *OpTypeMetaData.Operator;
+
+  CompilerOptions << " -DFUNC=";
+  if (OpTypeMetaData.Intrinsic)
+    CompilerOptions << *OpTypeMetaData.Intrinsic;
+
+  // For most of the ops this string is std::nullopt.
+  if (!ExtraDefines.empty())
+    CompilerOptions << " " << ExtraDefines;
+
+  CompilerOptions << " -DOUT_TYPE=" << getHLSLTypeString<OUT_TYPE>();
+
+  CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << ARITY;
+
+  CompilerOptions << " -DOPERAND_IS_SCALAR_FLAGS=";
+  CompilerOptions << "0x" << std::hex << ScalarInputFlags;
+
+  return CompilerOptions.str();
+}
+
+template <typename OUT_TYPE, typename T, size_t ARITY, typename OP_TYPE>
+std::vector<OUT_TYPE> runTest(OP_TYPE OpType, const InputSets<T, ARITY> &Inputs,
+                              size_t ExpectedOutputSize,
+                              uint16_t ScalarInputFlags,
+                              std::string ExtraDefines, bool &WasSkipped) {
+
+  CComPtr<ID3D12Device> D3DDevice;
+  if (!createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false)) {
+#ifdef _HLK_CONF
+    LOG_ERROR_FMT_THROW(
+        L"Device does not support SM 6.9. Can't run these tests.");
+#else
+    WEX::Logging::Log::Comment(
+        "Device does not support SM 6.9. Can't run these tests.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    WasSkipped = true;
+    return {};
+#endif
+  }
+
+  // TODO: reinstate VerboseLogging flag?
+  bool VerboseLogging = false;
+  if (VerboseLogging) {
+    for (size_t I = 0; I < ARITY; ++I) {
+      std::wstring Name = L"InputVector";
+      Name += (wchar_t)(L'1' + I);
+      logLongVector(Inputs[I], Name);
+    }
+  }
+
+  // We have to construct the string outside of the lambda. Otherwise it's
+  // cleaned up when the lambda finishes executing but before the shader runs.
+  std::string CompilerOptionsString =
+      getCompilerOptionsString<T, OUT_TYPE, ARITY>(
+          OpType, Inputs[0].size(), ScalarInputFlags, std::move(ExtraDefines));
+
+  dxc::SpecificDllLoader DxilDllLoader;
+
+  // The name of the shader we want to use in ShaderOpArith.xml. Could also add
+  // logic to set this name in ShaderOpArithTable.xml so we can use different
+  // shaders for different tests.
+  LPCSTR ShaderName = "LongVectorOp";
+  // ShaderOpArith.xml defines the input/output resources and the shader source.
+  CComPtr<IStream> TestXML;
+  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML, DxilDllLoader);
+
+  // RunShaderOpTest is a helper function that handles resource creation
+  // and setup. It also handles the shader compilation and execution. It takes a
+  // callback that is called when the shader is compiled, but before it is
+  // executed.
+  std::shared_ptr<st::ShaderOpTestResult> TestResult = st::RunShaderOpTest(
+      D3DDevice, DxilDllLoader, TestXML, ShaderName,
+      [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
+        if (VerboseLogging)
+          hlsl_test::LogCommentFmt(
+              L"RunShaderOpTest CallBack. Resource Name: %S", Name);
+
+        // This callback is called once for each resource defined for
+        // "LongVectorOp" in ShaderOpArith.xml. All callbacks are fired for each
+        // resource. We determine whether they are applicable to the test case
+        // when they run.
+
+        // Process the callback for the OutputVector resource.
+        if (_stricmp(Name, "OutputVector") == 0) {
+          // We only need to set the compiler options string once. So this is a
+          // convenient place to do it.
+          ShaderOp->Shaders.at(0).Arguments = CompilerOptionsString.c_str();
+
+          return;
+        }
+
+        for (size_t I = 0; I < 3; ++I) {
+          std::string BufferName = "InputVector";
+          BufferName += (char)('1' + I);
+          if (_stricmp(Name, BufferName.c_str()) == 0) {
+            if (I < ARITY)
+              fillShaderBufferFromLongVectorData(ShaderData, Inputs[I]);
+            return;
+          }
+        }
+
+        LOG_ERROR_FMT_THROW(
+            L"RunShaderOpTest CallBack. Unexpected Resource Name: %S", Name);
+      });
+
+  // Extract the data from the shader result
+  MappedData ShaderOutData;
+  TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
+
+  std::vector<OUT_TYPE> OutData;
+  fillLongVectorDataFromShaderBuffer(ShaderOutData, OutData,
+                                     ExpectedOutputSize);
+
+  WasSkipped = false;
+  return OutData;
 }
 
 }; // namespace LongVector

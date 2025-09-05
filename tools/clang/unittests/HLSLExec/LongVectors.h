@@ -335,6 +335,33 @@ getTernaryMathOpType(const std::wstring &OpTypeString) {
                                       OpTypeString);
 }
 
+template <typename OP_TYPE, size_t N>
+OpTypeMetaData<OP_TYPE>
+getOpTypeMetaData(const OpTypeMetaData<OP_TYPE> (&Values)[N], OP_TYPE OpType) {
+  for (size_t I = 0; I < N; ++I) {
+    if (Values[I].OpType == OpType)
+      return Values[I];
+  }
+
+  DXASSERT(false, "Missing OpType metadata");
+  std::abort();
+}
+
+template <typename OP_TYPE>
+OpTypeMetaData<OP_TYPE> getOpTypeMetaData(OP_TYPE OpType);
+
+#define OP_TYPE_META_DATA(TYPE, ARRAY)                                         \
+  template <> OpTypeMetaData<TYPE> getOpTypeMetaData(TYPE OpType) {            \
+    return getOpTypeMetaData(ARRAY, OpType);                                   \
+  }
+
+OP_TYPE_META_DATA(UnaryOpType, unaryOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(AsTypeOpType, asTypeOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(TrigonometricOpType, trigonometricOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(UnaryMathOpType, unaryMathOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(BinaryMathOpType, binaryMathOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(TernaryMathOpType, ternaryMathOpTypeStringToOpMetaData);
+
 template <typename T>
 std::vector<T> getInputValueSetByKey(const std::wstring &Key,
                                      bool LogKey = true) {
@@ -675,124 +702,6 @@ public:
 
 private:
   void computeExpectedValues_SplitDouble(const std::vector<T> &InputVector);
-
-  template <typename T>
-  HLSLHalf_t asFloat16([[maybe_unused]] const T &A) const {
-    LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsFloat16 T: %s",
-                        typeid(T).name());
-    return HLSLHalf_t();
-  }
-
-  HLSLHalf_t asFloat16(const HLSLHalf_t &A) const { return HLSLHalf_t(A.Val); }
-
-  HLSLHalf_t asFloat16(const int16_t &A) const {
-    return HLSLHalf_t(bit_cast<DirectX::PackedVector::HALF>(A));
-  }
-
-  HLSLHalf_t asFloat16(const uint16_t &A) const {
-    return HLSLHalf_t(bit_cast<DirectX::PackedVector::HALF>(A));
-  }
-
-  template <typename T> float asFloat(const T &) const {
-    LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsFloat T: %S",
-                        typeid(T).name());
-    return 0.0f;
-  }
-
-  float asFloat(const float &A) const { return float(A); }
-  float asFloat(const int32_t &A) const { return bit_cast<float>(A); }
-  float asFloat(const uint32_t &A) const { return bit_cast<float>(A); }
-
-  template <typename T> int32_t asInt([[maybe_unused]] const T &A) const {
-    // This path is unexpected outside of an issue when brining up new tests. So
-    // throwing an exception is appropriate.
-    LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsInt T: %S",
-                        typeid(T).name());
-    return 0;
-  }
-
-  int32_t asInt(const float &A) const { return bit_cast<int32_t>(A); }
-  int32_t asInt(const int32_t &A) const { return A; }
-  int32_t asInt(const uint32_t &A) const { return bit_cast<int32_t>(A); }
-
-  template <typename T> int16_t asInt16([[maybe_unused]] const T &A) const {
-    // This path is unexpected outside of an issue when brining up new tests. So
-    // throwing an exception is appropriate.
-    LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsInt16 T: %S",
-                        typeid(T).name());
-    return 0;
-  }
-
-  int16_t asInt16(const HLSLHalf_t &A) const {
-    return bit_cast<int16_t>(A.Val);
-  }
-  int16_t asInt16(const int16_t &A) const { return A; }
-  int16_t asInt16(const uint16_t &A) const { return bit_cast<int16_t>(A); }
-
-  template <typename T> uint16_t asUint16([[maybe_unused]] const T &A) const {
-    // This path is unexpected outside of an issue when brining up new tests. So
-    // throwing an exception is appropriate.
-    LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsUint16 T: %S",
-                        typeid(T).name());
-    return 0;
-  }
-
-  uint16_t asUint16(const HLSLHalf_t &A) const {
-    return bit_cast<uint16_t>(A.Val);
-  }
-  uint16_t asUint16(const uint16_t &A) const { return A; }
-  uint16_t asUint16(const int16_t &A) const { return bit_cast<uint16_t>(A); }
-
-  template <typename T> unsigned int asUint([[maybe_unused]] const T &A) const {
-    // This path is unexpected outside of an issue when brining up new tests. So
-    // throwing an exception is appropriate.
-    LOG_ERROR_FMT_THROW(L"Programmer Error: Invalid AsUint T: %S",
-                        typeid(T).name());
-    return 0;
-  }
-
-  unsigned int asUint(const unsigned int &A) const { return A; }
-  unsigned int asUint(const float &A) const {
-    return bit_cast<unsigned int>(A);
-  }
-  unsigned int asUint(const int &A) const { return bit_cast<unsigned int>(A); }
-
-  template <typename T>
-  void splitDouble([[maybe_unused]] const T &A,
-                   [[maybe_unused]] uint32_t &LowBits,
-                   [[maybe_unused]] uint32_t &HighBits) const {
-    // This path is unexpected outside of an issue when brining up new tests. So
-    // throwing an exception is appropriate.
-    LOG_ERROR_FMT_THROW(L"Programmer Error: splitDouble only accepts a double "
-                        L"as input. Have DataTypeInT: %s",
-                        typeid(T).name());
-  }
-
-  void splitDouble(const double &A, uint32_t &LowBits,
-                   uint32_t &HighBits) const {
-    uint64_t Bits = 0;
-    std::memcpy(&Bits, &A, sizeof(Bits));
-    LowBits = static_cast<uint32_t>(Bits & 0xFFFFFFFF);
-    HighBits = static_cast<uint32_t>(Bits >> 32);
-  }
-
-  template <typename T>
-  double asDouble([[maybe_unused]] const T &LowBits,
-                  [[maybe_unused]] const T &HighBits) const {
-    // This path is unexpected outside of an issue when brining up new tests. So
-    // throwing an exception is appropriate.
-    LOG_ERROR_FMT_THROW(L"Programmer Error: asDouble only accepts two uint32_t "
-                        L"inputs. Have T : %S",
-                        typeid(T).name());
-    return 0.0;
-  }
-
-  double asDouble(const uint32_t &LowBits, const uint32_t &HighBits) const {
-    uint64_t Bits = (static_cast<uint64_t>(HighBits) << 32) | LowBits;
-    double Result;
-    std::memcpy(&Result, &Bits, sizeof(Result));
-    return Result;
-  }
 
   AsTypeOpType OpType = AsTypeOpType_EnumValueCount;
 };
