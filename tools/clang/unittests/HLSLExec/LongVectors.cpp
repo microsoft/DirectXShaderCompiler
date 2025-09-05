@@ -566,7 +566,8 @@ void dispatchBinaryTest(const TAEFTestDataValues &TAEFTestData,
   Expected.reserve(Inputs[0].size());
 
   for (size_t I = 0; I < Inputs[0].size(); ++I) {
-    Expected.push_back(Calc(Inputs[0][I], Inputs[1][I]));
+    size_t Index1 = (TAEFTestData.ScalarInputFlags & (1 << 1)) ? 0 : I;
+    Expected.push_back(Calc(Inputs[0][I], Inputs[1][Index1]));
   }
 
   runAndVerify(OpType, Inputs, Expected, TAEFTestData.ScalarInputFlags, "",
