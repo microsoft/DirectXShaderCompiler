@@ -167,7 +167,7 @@ VariantVector generateExpectedVector(size_t Count, ComputeFnT ComputeFn) {
   for (size_t Index = 0; Index < Count; ++Index)
     Values.push_back(ComputeFn(Index));
 
-  return std::move(Values);
+  return Values;
 }
 
 template <typename T>
