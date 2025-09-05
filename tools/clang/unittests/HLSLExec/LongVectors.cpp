@@ -966,6 +966,162 @@ void dispatchTest(const TAEFTestDataValues &TAEFTestData,
                       (const wchar_t *)TAEFTestData.OpTypeEnum);
 }
 
+//
+// BinaryMathOp
+//
+
+template <typename T, typename OUT_TYPE>
+void dispatchBinaryMathOpTest(const TAEFTestDataValues &TAEFTestData,
+                              BinaryMathOpType OpType, size_t VectorSize,
+                              OUT_TYPE (*Calc)(T, T)) {
+
+  ValidationConfig ValidationConfig;
+
+  if (isFloatingPointType<T>()) {
+    ValidationConfig = ValidationConfig::Ulp(1.0);
+  }
+
+  dispatchBinaryTest(TAEFTestData, ValidationConfig, OpType, VectorSize, Calc);
+}
+
+template <typename T> struct BinaryMathOps {
+  static T Multiply(T A, T B) { return A * B; }
+  static T Add(T A, T B) { return A + B; }
+  static T Subtract(T A, T B) { return A - B; }
+  static T Divide(T A, T B) { return A / B; }
+
+  static T FmodModulus(T A, T B) {
+    static_assert(isFloatingPointType<T>());
+    return std::fmod(A, B);
+  }
+
+  static T OperatorModulus(T A, T B) {
+    // note: as well as integral types, HLSLHalf_t go through this code path
+    return A % B;
+  }
+
+  // std::max and std::min are wrapped in () to avoid collisions with the macro
+  // defintions for min and max in windows.h
+
+  static T Min(T A, T B) { return (std::min)(A, B); }
+  static T Max(T A, T B) { return (std::max)(A, B); }
+
+  static T Ldexp(T A, T B) { return A * static_cast<T>(std::pow(2.0f, B)); }
+};
+
+void dispatchTest(const TAEFTestDataValues &TAEFTestData,
+                  BinaryMathOpType OpType, size_t VectorSize) {
+
+#define DISPATCH(TYPE, FUNC)                                                   \
+  if (TAEFTestData.DataType == DataTypeName<TYPE>())                           \
+  return dispatchBinaryMathOpTest(TAEFTestData, OpType, VectorSize,            \
+                                  BinaryMathOps<TYPE>::FUNC)
+
+  switch (OpType) {
+  case BinaryMathOpType_Multiply:
+    DISPATCH(HLSLHalf_t, Multiply);
+    DISPATCH(float, Multiply);
+    DISPATCH(double, Multiply);
+    DISPATCH(int16_t, Multiply);
+    DISPATCH(int32_t, Multiply);
+    DISPATCH(int64_t, Multiply);
+    DISPATCH(uint16_t, Multiply);
+    DISPATCH(uint32_t, Multiply);
+    DISPATCH(uint64_t, Multiply);
+    break;
+
+  case BinaryMathOpType_Add:
+    DISPATCH(HLSLBool_t, Add);
+    DISPATCH(HLSLHalf_t, Add);
+    DISPATCH(float, Add);
+    DISPATCH(double, Add);
+    DISPATCH(int16_t, Add);
+    DISPATCH(int32_t, Add);
+    DISPATCH(int64_t, Add);
+    DISPATCH(uint16_t, Add);
+    DISPATCH(uint32_t, Add);
+    DISPATCH(uint64_t, Add);
+    break;
+
+  case BinaryMathOpType_Subtract:
+    DISPATCH(HLSLBool_t, Subtract);
+    DISPATCH(HLSLHalf_t, Subtract);
+    DISPATCH(float, Subtract);
+    DISPATCH(double, Subtract);
+    DISPATCH(int16_t, Subtract);
+    DISPATCH(int32_t, Subtract);
+    DISPATCH(int64_t, Subtract);
+    DISPATCH(uint16_t, Subtract);
+    DISPATCH(uint32_t, Subtract);
+    DISPATCH(uint64_t, Subtract);
+    break;
+
+  case BinaryMathOpType_Divide:
+    DISPATCH(HLSLHalf_t, Divide);
+    DISPATCH(float, Divide);
+    DISPATCH(double, Divide);
+    DISPATCH(int16_t, Divide);
+    DISPATCH(int32_t, Divide);
+    DISPATCH(int64_t, Divide);
+    DISPATCH(uint16_t, Divide);
+    DISPATCH(uint32_t, Divide);
+    DISPATCH(uint64_t, Divide);
+    break;
+
+  case BinaryMathOpType_Modulus:
+    DISPATCH(HLSLHalf_t, OperatorModulus);
+    DISPATCH(float, FmodModulus);
+    DISPATCH(int16_t, OperatorModulus);
+    DISPATCH(int32_t, OperatorModulus);
+    DISPATCH(int64_t, OperatorModulus);
+    DISPATCH(uint16_t, OperatorModulus);
+    DISPATCH(uint32_t, OperatorModulus);
+    DISPATCH(uint64_t, OperatorModulus);
+    break;
+
+  case BinaryMathOpType_Min:
+    DISPATCH(HLSLHalf_t, Min);
+    DISPATCH(float, Min);
+    DISPATCH(double, Min);
+    DISPATCH(int16_t, Min);
+    DISPATCH(int32_t, Min);
+    DISPATCH(int64_t, Min);
+    DISPATCH(uint16_t, Min);
+    DISPATCH(uint32_t, Min);
+    DISPATCH(uint64_t, Min);
+    break;
+
+  case BinaryMathOpType_Max:
+    DISPATCH(HLSLHalf_t, Max);
+    DISPATCH(float, Max);
+    DISPATCH(double, Max);
+    DISPATCH(int16_t, Max);
+    DISPATCH(int32_t, Max);
+    DISPATCH(int64_t, Max);
+    DISPATCH(uint16_t, Max);
+    DISPATCH(uint32_t, Max);
+    DISPATCH(uint64_t, Max);
+    break;
+
+  case BinaryMathOpType_Ldexp:
+    DISPATCH(HLSLHalf_t, Ldexp);
+    DISPATCH(float, Ldexp);
+    break;
+
+  case BinaryMathOpType_EnumValueCount:
+    break;
+  }
+
+#undef DISPATCH
+
+  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for BinaryMathOpType '%s'",
+                      (const wchar_t *)TAEFTestData.DataType,
+                      (const wchar_t *)TAEFTestData.OpTypeEnum);
+}
+
+//
+//
+//
 template <typename OP_TYPE> void dispatchTest() {
   std::optional<TAEFTestDataValues> TAEFTestData =
       TAEFTestDataValues::CreateFromTestData();
@@ -1102,7 +1258,7 @@ TEST_F(OpTest, binaryMathOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  // dispatchTest<BinaryMathOpType>();
+  dispatchTest<BinaryMathOpType>();
 }
 
 TEST_F(OpTest, ternaryMathOpTest) {
