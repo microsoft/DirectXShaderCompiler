@@ -162,17 +162,12 @@ bool doVectorsMatch(const std::vector<T> &ActualValues,
 template <typename T, typename ComputeFnT>
 VariantVector generateExpectedVector(size_t Count, ComputeFnT ComputeFn) {
 
-  VariantVector ExpectedVector = std::vector<T>{};
-  auto *TypedExpectedValues = std::get_if<std::vector<T>>(&ExpectedVector);
-
-  // A TestConfig may be reused for a different vector length. So this is a
-  // good time to make sure we clear the expected vector.
-  TypedExpectedValues->clear();
+  std::vector<T> Values;
 
   for (size_t Index = 0; Index < Count; ++Index)
-    TypedExpectedValues->push_back(ComputeFn(Index));
+    Values.push_back(ComputeFn(Index));
 
-  return ExpectedVector;
+  return Values;
 }
 
 template <typename T>
@@ -962,7 +957,7 @@ void AsTypeOpTestConfig<T>::computeExpectedValues(const TestInputs<T> &Inputs) {
 
 template <typename T>
 void AsTypeOpTestConfig<T>::computeExpectedValues_SplitDouble(
-    const std::vector<T> &InputVector1) {
+    const std::vector<T> &InputVector) {
 
   DXASSERT_NOMSG(OpType == AsTypeOpType_AsUint_SplitDouble);
 
@@ -971,17 +966,19 @@ void AsTypeOpTestConfig<T>::computeExpectedValues_SplitDouble(
   // half with the high bits of each input double. Doing things this way
   // helps keep the rest of the generic logic in the LongVector test code
   // simple.
-  ExpectedVector = std::vector<uint32_t>{};
-  auto *TypedExpectedValues =
-      std::get_if<std::vector<uint32_t>>(&ExpectedVector);
-  TypedExpectedValues->resize(InputVector1.size() * 2);
+  std::vector<uint32_t> Values;
+  Values.resize(InputVector.size() * 2);
+
   uint32_t LowBits, HighBits;
-  const size_t InputSize = InputVector1.size();
+  const size_t InputSize = InputVector.size();
+
   for (size_t Index = 0; Index < InputSize; ++Index) {
-    splitDouble(InputVector1[Index], LowBits, HighBits);
-    (*TypedExpectedValues)[Index] = LowBits;
-    (*TypedExpectedValues)[Index + InputSize] = HighBits;
+    splitDouble(InputVector[Index], LowBits, HighBits);
+    Values[Index] = LowBits;
+    Values[Index + InputSize] = HighBits;
   }
+
+  ExpectedVector = std::move(Values);
 }
 
 template <typename T>
@@ -1088,16 +1085,67 @@ UnaryMathOpTestConfig<T>::UnaryMathOpTestConfig(
     ValidationType = ValidationType_Ulp;
   }
 
-  if (OpType == UnaryMathOpType_Sign) {
+  switch (OpType) {
+  case UnaryMathOpType_Sign: {
     // Sign has overridden special logic.
     auto ComputeFunc = [this](const T &A) { return this->sign(A); };
     InitUnaryOpValueComputer<int32_t>(ComputeFunc);
-  } else {
+    break;
+  }
+  case UnaryMathOpType_Frexp:
+    // Don't initialize a ValueComputer, Frexp has special logic for handling
+    // its output
+    SpecialDefines = " -DFUNC_FREXP=1";
+    break;
+  default: {
     auto ComputeFunc = [this](const T &A) {
       return this->computeExpectedValue(A);
     };
     InitUnaryOpValueComputer<T>(ComputeFunc);
   }
+  }
+}
+
+template <typename T>
+void UnaryMathOpTestConfig<T>::computeExpectedValues(
+    const TestInputs<T> &Inputs) {
+
+  // Base case
+  if (ExpectedValueComputer) {
+    ExpectedVector = ExpectedValueComputer->computeExpectedValues(Inputs);
+    return;
+  }
+
+  computeExpectedValues_Frexp(Inputs.InputVector1);
+}
+
+// Frexp has a return value as well as an output paramater. So we handle it
+// with special logic. Frexp is only supported for fp32 values.
+template <typename T>
+void UnaryMathOpTestConfig<T>::computeExpectedValues_Frexp(
+    const std::vector<T> &InputVector) {
+
+  DXASSERT_NOMSG(OpType == UnaryMathOpType_Frexp);
+
+  std::vector<float> Values;
+
+  // Expected values size is doubled. In the first half we store the Mantissas
+  // and in the second half we store the Exponents. This way we can leverage the
+  // existing logic which verify expected values in a single vector. We just
+  // need to make sure that we organize the output in the same way in the shader
+  // and when we read it back.
+  const size_t InputSize = InputVector.size();
+  Values.resize(InputSize * 2);
+  float Exp = 0;
+  float Man = 0;
+
+  for (size_t Index = 0; Index < InputSize; ++Index) {
+    Man = frexp(InputVector[Index], &Exp);
+    Values[Index] = Man;
+    Values[Index + InputSize] = Exp;
+  }
+
+  ExpectedVector = std::move(Values);
 }
 
 template <typename T>
@@ -1206,6 +1254,8 @@ T BinaryMathOpTestConfig<T>::computeExpectedValue(const T &A,
     return (std::min)(A, B);
   case BinaryMathOpType_Max:
     return (std::max)(A, B);
+  case BinaryMathOpType_Ldexp:
+    return ldexp(A, B);
   default:
     LOG_ERROR_FMT_THROW(L"Unknown BinaryMathOpType: %ls", OpTypeName.c_str());
     return T();
