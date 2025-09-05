@@ -8736,6 +8736,10 @@ class db_dxil(object):
             "Sm.AmplificationShaderPayloadSizeDeclared",
             "For amplification shader with entry '%0', payload size %1 is greater than declared size of %2 bytes.",
         )
+        self.add_valrule(
+            "Sm.IsSpecialFloat",
+            "16 bit IsSpecialFloat overloads require Shader Model 6.9 or higher.",
+        )
 
         # fxc relaxed check of gradient check.
         # self.add_valrule("Uni.NoUniInDiv", "TODO - No instruction requiring uniform execution can be present in divergent block")

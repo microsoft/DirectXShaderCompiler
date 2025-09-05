@@ -3298,6 +3298,7 @@ SM.INVALIDRESOURCEKIND                                        Invalid resources 
 SM.INVALIDSAMPLERFEEDBACKTYPE                                 Invalid sampler feedback type.
 SM.INVALIDTEXTUREKINDONUAV                                    TextureCube[Array] resources are not supported with UAVs.
 SM.ISOLINEOUTPUTPRIMITIVEMISMATCH                             Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
+SM.ISSPECIALFLOAT                                             16 bit IsSpecialFloat overloads require Shader Model 6.9 or higher.
 SM.MAXMSSMSIZE                                                Total Thread Group Shared Memory storage is %0, exceeded %1.
 SM.MAXTGSMSIZE                                                Total Thread Group Shared Memory storage is %0, exceeded %1.
 SM.MAXTHEADGROUP                                              Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1.
