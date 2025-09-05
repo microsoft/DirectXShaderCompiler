@@ -343,6 +343,13 @@ TEST_F(OpTest, asTypeOpTest) {
   std::wstring OpTypeString(Handler.GetTableParamByName(L"OpTypeEnum")->m_str);
 
   auto OpTypeMD = getAsTypeOpType(OpTypeString);
+  std::wstring ScalarInputFlags(
+      Handler.GetTableParamByName(L"ScalarInputFlags")->m_str);
+  if (!ScalarInputFlags.empty())
+    VERIFY_IS_TRUE(
+        IsHexString(ScalarInputFlags.c_str(), &OpTypeMD.ScalarInputFlags),
+        L"ScalarInputFlags must be a hex string if provided.");
+
   dispatchTestByDataType(OpTypeMD, DataTypeIn, Handler);
 }
 
