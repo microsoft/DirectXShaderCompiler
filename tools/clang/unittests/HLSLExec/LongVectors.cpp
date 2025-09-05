@@ -818,6 +818,41 @@ template <typename T> struct UnaryMathOps {
   static T Rcp(T V) { return static_cast<T>(1.0) / V; }
 };
 
+void dispatchFrexpTest(const TAEFTestDataValues &TAEFTestData,
+                       size_t VectorSize) {
+  // Frexp has a return value as well as an output paramater. So we handle it
+  // with special logic. Frexp is only supported for fp32 values.
+
+  InputSets<float, 1> Inputs =
+      buildTestInputs<float, 1>(TAEFTestData, VectorSize);
+
+  std::vector<float> Expected;
+
+  // Expected values size is doubled. In the first half we store the Mantissas
+  // and in the second half we store the Exponents. This way we can leverage the
+  // existing logic which verify expected values in a single vector. We just
+  // need to make sure that we organize the output in the same way in the shader
+  // and when we read it back.
+
+  Expected.resize(VectorSize * 2);
+
+  for (size_t I = 0; I < VectorSize; ++I) {
+    int Exp = 0;
+    float Man = std::frexp(Inputs[0][I], &Exp);
+
+    // std::frexp returns a signed mantissa. But the HLSL implmentation returns
+    // an unsigned mantissa.
+    Man = std::abs(Man);
+
+    Expected[I] = Man;
+
+    // std::frexp returns the exponent as an int, but HLSL stores it as a float.
+    // However, the HLSL exponents fractional component is always 0. So it can
+    // conversion between float and int is safe.
+    Expected[I + VectorSize] = static_cast<float>(Exp);
+  }
+}
+
 void dispatchTest(const TAEFTestDataValues &TAEFTestData,
                   UnaryMathOpType OpType, size_t VectorSize) {
 #define DISPATCH(TYPE, FUNC)                                                   \
@@ -913,6 +948,11 @@ void dispatchTest(const TAEFTestDataValues &TAEFTestData,
   case UnaryMathOpType_Rcp:
     DISPATCH(HLSLHalf_t, Rcp);
     DISPATCH(float, Rcp);
+    break;
+
+  case UnaryMathOpType_Frexp:
+    if (TAEFTestData.DataType == DataTypeName<float>())
+      return dispatchFrexpTest(TAEFTestData, VectorSize);
     break;
 
   case UnaryMathOpType_EnumValueCount:
