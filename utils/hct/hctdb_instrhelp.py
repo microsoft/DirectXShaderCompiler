@@ -582,6 +582,7 @@ class db_oload_gen:
     def print_opfunc_table(self):
         # Print the table for OP::GetOpFunc
         op_type_texts = {
+            "$elt": "A(pVecElt);",
             "$cb": "CBRT(pETy);",
             "$o": "A(pETy);",
             "$o_i1": "A(pOlTplI1);",
