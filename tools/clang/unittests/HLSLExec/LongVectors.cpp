@@ -1120,6 +1120,98 @@ void dispatchTest(const TAEFTestDataValues &TAEFTestData,
 }
 
 //
+// TernaryMathOp
+//
+
+template <typename T, typename OUT_TYPE>
+void dispatchTernaryMathOpTest(const TAEFTestDataValues &TAEFTestData,
+                               TernaryMathOpType OpType, size_t VectorSize,
+                               OUT_TYPE (*Calc)(T, T, T)) {
+
+  ValidationConfig ValidationConfig;
+
+  if (isFloatingPointType<T>()) {
+    ValidationConfig = ValidationConfig::Ulp(1.0);
+  }
+
+  InputSets<T, 3> Inputs = buildTestInputs<T, 3>(TAEFTestData, VectorSize);
+
+  std::vector<OUT_TYPE> Expected;
+  Expected.reserve(Inputs[0].size());
+
+  for (size_t I = 0; I < Inputs[0].size(); ++I) {
+    size_t Index1 = (TAEFTestData.ScalarInputFlags & (1 << 1)) ? 0 : I;
+    size_t Index2 = (TAEFTestData.ScalarInputFlags & (1 << 2)) ? 0 : I;
+    Expected.push_back(
+        Calc(Inputs[0][I], Inputs[1][Index1], Inputs[2][Index2]));
+  }
+
+  runAndVerify(OpType, Inputs, Expected, TAEFTestData.ScalarInputFlags, "",
+               ValidationConfig);
+}
+
+namespace TernaryMathOps {
+
+template <typename T> T Fma(T, T, T);
+template <> double Fma(double A, double B, double C) { return A * B + C; }
+
+template <typename T> T Mad(T A, T B, T C) { return A * B + C; }
+
+template <typename T> T SmoothStep(T Min, T Max, T X) {
+  DXASSERT_NOMSG(Min < Max);
+
+  if (X <= Min)
+    return T(0);
+  if (X >= Max)
+    return T(1);
+
+  T NormalizedX = (X - Min) / (Max - Min);
+  NormalizedX = std::clamp(NormalizedX, T(0), T(1));
+  return NormalizedX * NormalizedX * (T(3) - T(2) * NormalizedX);
+}
+
+} // namespace TernaryMathOps
+
+void dispatchTest(const TAEFTestDataValues &TAEFTestData,
+                  TernaryMathOpType OpType, size_t VectorSize) {
+
+#define DISPATCH(TYPE, FUNC)                                                   \
+  if (TAEFTestData.DataType == DataTypeName<TYPE>())                           \
+  return dispatchTernaryMathOpTest(TAEFTestData, OpType, VectorSize,           \
+                                   TernaryMathOps::FUNC<TYPE>)
+
+  switch (OpType) {
+  case TernaryMathOpType_Fma:
+    DISPATCH(double, Fma);
+    break;
+
+  case TernaryMathOpType_Mad:
+    DISPATCH(HLSLHalf_t, Mad);
+    DISPATCH(float, Mad);
+    DISPATCH(double, Mad);
+    DISPATCH(int16_t, Mad);
+    DISPATCH(int32_t, Mad);
+    DISPATCH(int64_t, Mad);
+    DISPATCH(uint16_t, Mad);
+    DISPATCH(uint32_t, Mad);
+    DISPATCH(uint64_t, Mad);
+    break;
+
+  case TernaryMathOpType_SmoothStep:
+    DISPATCH(HLSLHalf_t, SmoothStep);
+    DISPATCH(double, SmoothStep);
+    break;
+
+  case TernaryMathOpType_EnumValueCount:
+    break;
+  }
+
+  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for TernaryMathOpType '%s'",
+                      (const wchar_t *)TAEFTestData.DataType,
+                      (const wchar_t *)TAEFTestData.OpTypeEnum);
+} // namespace TernaryMathOps
+
+//
 //
 //
 template <typename OP_TYPE> void dispatchTest() {
@@ -1265,7 +1357,7 @@ TEST_F(OpTest, ternaryMathOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  // dispatchTest<TernaryMathOpType>();
+  dispatchTest<TernaryMathOpType>();
 }
 
 // Generic dispatch that dispatchs all DataTypes recognized in these tests
@@ -2283,5 +2375,4 @@ std::vector<OUT_TYPE> runTest(OP_TYPE OpType, const InputSets<T, ARITY> &Inputs,
   WasSkipped = false;
   return OutData;
 }
-
 }; // namespace LongVector
