@@ -916,7 +916,7 @@ unsigned int SysStringLen(const BSTR bstrString);
 // RAII style mechanism for setting/unsetting a locale for the specified Windows
 // codepage
 class ScopedLocale {
-  const char *m_prevLocale;
+  std::string m_prevLocale;
 
 public:
   explicit ScopedLocale(uint32_t codePage)
@@ -925,11 +925,7 @@ public:
            "Support for Linux only handles UTF8 code pages");
     setlocale(LC_ALL, "en_US.UTF-8");
   }
-  ~ScopedLocale() {
-    if (m_prevLocale != nullptr) {
-      setlocale(LC_ALL, m_prevLocale);
-    }
-  }
+  ~ScopedLocale() { setlocale(LC_ALL, m_prevLocale.c_str()); }
 };
 
 // The t_nBufferLength parameter is part of the published interface, but not
@@ -937,12 +933,12 @@ public:
 template <int t_nBufferLength = 128> class CW2AEX {
 public:
   CW2AEX(LPCWSTR psz) {
-    ScopedLocale locale(CP_UTF8);
-
     if (!psz) {
       m_psz = NULL;
       return;
     }
+
+    ScopedLocale locale(CP_UTF8);
 
     int len = (wcslen(psz) + 1) * 4;
     m_psz = new char[len];
@@ -962,12 +958,12 @@ typedef CW2AEX<> CW2A;
 template <int t_nBufferLength = 128> class CA2WEX {
 public:
   CA2WEX(LPCSTR psz) {
-    ScopedLocale locale(CP_UTF8);
-
     if (!psz) {
       m_psz = NULL;
       return;
     }
+
+    ScopedLocale locale(CP_UTF8);
 
     int len = strlen(psz) + 1;
     m_psz = new wchar_t[len];
