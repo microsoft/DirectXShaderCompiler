@@ -303,33 +303,6 @@ getTernaryMathOpType(const std::wstring &OpTypeString) {
                                       OpTypeString);
 }
 
-template <typename OP_TYPE, size_t N>
-OpTypeMetaData<OP_TYPE>
-getOpTypeMetaData(const OpTypeMetaData<OP_TYPE> (&Values)[N], OP_TYPE OpType) {
-  for (size_t I = 0; I < N; ++I) {
-    if (Values[I].OpType == OpType)
-      return Values[I];
-  }
-
-  DXASSERT(false, "Missing OpType metadata");
-  std::abort();
-}
-
-template <typename OP_TYPE>
-OpTypeMetaData<OP_TYPE> getOpTypeMetaData(OP_TYPE OpType);
-
-#define OP_TYPE_META_DATA(TYPE, ARRAY)                                         \
-  template <> OpTypeMetaData<TYPE> getOpTypeMetaData(TYPE OpType) {            \
-    return getOpTypeMetaData(ARRAY, OpType);                                   \
-  }
-
-OP_TYPE_META_DATA(UnaryOpType, unaryOpTypeStringToOpMetaData);
-OP_TYPE_META_DATA(AsTypeOpType, asTypeOpTypeStringToOpMetaData);
-OP_TYPE_META_DATA(TrigonometricOpType, trigonometricOpTypeStringToOpMetaData);
-OP_TYPE_META_DATA(UnaryMathOpType, unaryMathOpTypeStringToOpMetaData);
-OP_TYPE_META_DATA(BinaryMathOpType, binaryMathOpTypeStringToOpMetaData);
-OP_TYPE_META_DATA(TernaryMathOpType, ternaryMathOpTypeStringToOpMetaData);
-
 template <typename T>
 std::vector<T> getInputValueSetByKey(const std::wstring &Key,
                                      bool LogKey = true) {

@@ -37,6 +37,33 @@ getOpType(const OpTypeMetaData<OpT> (&Values)[Length],
   std::abort();
 }
 
+template <typename OP_TYPE, size_t N>
+OpTypeMetaData<OP_TYPE>
+getOpTypeMetaData(const OpTypeMetaData<OP_TYPE> (&Values)[N], OP_TYPE OpType) {
+  for (size_t I = 0; I < N; ++I) {
+    if (Values[I].OpType == OpType)
+      return Values[I];
+  }
+
+  DXASSERT(false, "Missing OpType metadata");
+  std::abort();
+}
+
+template <typename OP_TYPE>
+OpTypeMetaData<OP_TYPE> getOpTypeMetaData(OP_TYPE OpType);
+
+#define OP_TYPE_META_DATA(TYPE, ARRAY)                                         \
+  template <> OpTypeMetaData<TYPE> getOpTypeMetaData(TYPE OpType) {            \
+    return getOpTypeMetaData(ARRAY, OpType);                                   \
+  }
+
+OP_TYPE_META_DATA(UnaryOpType, unaryOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(AsTypeOpType, asTypeOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(TrigonometricOpType, trigonometricOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(UnaryMathOpType, unaryMathOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(BinaryMathOpType, binaryMathOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(TernaryMathOpType, ternaryMathOpTypeStringToOpMetaData);
+
 // Helper to fill the test data from the shader buffer based on type. Convenient
 // to be used when copying HLSL*_t types so we can use the underlying type.
 template <typename T>
@@ -216,58 +243,224 @@ template <typename T> std::string getHLSLTypeString() {
   return "UnknownType";
 }
 
+bool OpTest::classSetup() {
+  // Run this only once.
+  if (!Initialized) {
+    Initialized = true;
+
+    HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
+    if (Runtime == NULL)
+      return false;
+    // Do not: FreeLibrary(hRuntime);
+    // If we actually free the library, it defeats the purpose of
+    // enableAgilitySDK and enableExperimentalMode.
+
+    HRESULT HR;
+    HR = enableAgilitySDK(Runtime);
+
+    if (FAILED(HR))
+      hlsl_test::LogCommentFmt(L"Unable to enable Agility SDK - 0x%08x.", HR);
+    else if (HR == S_FALSE)
+      hlsl_test::LogCommentFmt(L"Agility SDK not enabled.");
+    else
+      hlsl_test::LogCommentFmt(L"Agility SDK enabled.");
+
+    HR = enableExperimentalMode(Runtime);
+    if (FAILED(HR))
+      hlsl_test::LogCommentFmt(
+          L"Unable to enable shader experimental mode - 0x%08x.", HR);
+    else if (HR == S_FALSE)
+      hlsl_test::LogCommentFmt(L"Experimental mode not enabled.");
+    else
+      hlsl_test::LogCommentFmt(L"Experimental mode enabled.");
+
+    HR = enableDebugLayer();
+    if (FAILED(HR))
+      hlsl_test::LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", HR);
+    else if (HR == S_FALSE)
+      hlsl_test::LogCommentFmt(L"Debug layer not enabled.");
+    else
+      hlsl_test::LogCommentFmt(L"Debug layer enabled.");
+
+    WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
+                                                       VerboseLogging);
+    if (VerboseLogging)
+      WEX::Logging::Log::Comment(L"Verbose logging is enabled for this test.");
+    else
+      WEX::Logging::Log::Comment(L"Verbose logging is disabled for this test.");
+  }
+
+  return true;
+}
+
 template <typename T, size_t ARITY>
 using InputSets = std::array<std::vector<T>, ARITY>;
 
-template <typename OP_TYPE> struct OpTypeTraits;
+template <typename OUT_TYPE, typename T, size_t ARITY, typename OP_TYPE>
+std::vector<OUT_TYPE>
+runTest(bool VerboseLogging, OP_TYPE OpType, const InputSets<T, ARITY> &Inputs,
+        size_t ExpectedOutputSize, uint16_t ScalarInputFlags,
+        std::string ExtraDefines, bool &WasSkipped) {
 
-template <> struct OpTypeTraits<TrigonometricOpType> {
-  static constexpr size_t Arity = 1;
-
-  static TrigonometricOpType GetOpType(const wchar_t *OpTypeString) {
-    return getTrigonometricOpType(OpTypeString).OpType;
+  CComPtr<ID3D12Device> D3DDevice;
+  if (!createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false)) {
+#ifdef _HLK_CONF
+    LOG_ERROR_FMT_THROW(
+        L"Device does not support SM 6.9. Can't run these tests.");
+#else
+    WEX::Logging::Log::Comment(
+        "Device does not support SM 6.9. Can't run these tests.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    WasSkipped = true;
+    return {};
+#endif
   }
-};
 
-template <> struct OpTypeTraits<UnaryOpType> {
-  static constexpr size_t Arity = 1;
-
-  static UnaryOpType GetOpType(const wchar_t *OpTypeString) {
-    return getUnaryOpType(OpTypeString).OpType;
+  if (VerboseLogging) {
+    for (size_t I = 0; I < ARITY; ++I) {
+      std::wstring Name = L"InputVector";
+      Name += (wchar_t)(L'1' + I);
+      logLongVector(Inputs[I], Name);
+    }
   }
-};
 
-template <> struct OpTypeTraits<AsTypeOpType> {
-  static constexpr size_t Arity = 1;
+  // We have to construct the string outside of the lambda. Otherwise it's
+  // cleaned up when the lambda finishes executing but before the shader runs.
+  std::string CompilerOptionsString =
+      getCompilerOptionsString<T, OUT_TYPE, ARITY>(
+          OpType, Inputs[0].size(), ScalarInputFlags, std::move(ExtraDefines));
 
-  static AsTypeOpType GetOpType(const wchar_t *OpTypeString) {
-    return getAsTypeOpType(OpTypeString).OpType;
+  dxc::SpecificDllLoader DxilDllLoader;
+
+  // The name of the shader we want to use in ShaderOpArith.xml. Could also add
+  // logic to set this name in ShaderOpArithTable.xml so we can use different
+  // shaders for different tests.
+  LPCSTR ShaderName = "LongVectorOp";
+  // ShaderOpArith.xml defines the input/output resources and the shader source.
+  CComPtr<IStream> TestXML;
+  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML, DxilDllLoader);
+
+  // RunShaderOpTest is a helper function that handles resource creation
+  // and setup. It also handles the shader compilation and execution. It takes a
+  // callback that is called when the shader is compiled, but before it is
+  // executed.
+  std::shared_ptr<st::ShaderOpTestResult> TestResult = st::RunShaderOpTest(
+      D3DDevice, DxilDllLoader, TestXML, ShaderName,
+      [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
+        if (VerboseLogging)
+          hlsl_test::LogCommentFmt(
+              L"RunShaderOpTest CallBack. Resource Name: %S", Name);
+
+        // This callback is called once for each resource defined for
+        // "LongVectorOp" in ShaderOpArith.xml. All callbacks are fired for each
+        // resource. We determine whether they are applicable to the test case
+        // when they run.
+
+        // Process the callback for the OutputVector resource.
+        if (_stricmp(Name, "OutputVector") == 0) {
+          // We only need to set the compiler options string once. So this is a
+          // convenient place to do it.
+          ShaderOp->Shaders.at(0).Arguments = CompilerOptionsString.c_str();
+
+          return;
+        }
+
+        for (size_t I = 0; I < 3; ++I) {
+          std::string BufferName = "InputVector";
+          BufferName += (char)('1' + I);
+          if (_stricmp(Name, BufferName.c_str()) == 0) {
+            if (I < ARITY)
+              fillShaderBufferFromLongVectorData(ShaderData, Inputs[I]);
+            return;
+          }
+        }
+
+        LOG_ERROR_FMT_THROW(
+            L"RunShaderOpTest CallBack. Unexpected Resource Name: %S", Name);
+      });
+
+  // Extract the data from the shader result
+  MappedData ShaderOutData;
+  TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
+
+  std::vector<OUT_TYPE> OutData;
+  fillLongVectorDataFromShaderBuffer(ShaderOutData, OutData,
+                                     ExpectedOutputSize);
+
+  WasSkipped = false;
+  return OutData;
+}
+
+// Helper to fill the shader buffer based on type. Convenient to be used when
+// copying HLSL*_t types so we can copy the underlying type directly instead of
+// the struct.
+template <typename T>
+void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
+                                        const std::vector<T> &TestData) {
+
+  // Note: DataSize for HLSLHalf_t and HLSLBool_t may be larger than the
+  // underlying type in some cases. Thats fine. Resize just makes sure we have
+  // enough space.
+  const size_t NumElements = TestData.size();
+  const size_t DataSize = sizeof(T) * NumElements;
+  ShaderBuffer.resize(DataSize);
+
+  if constexpr (std::is_same_v<T, HLSLHalf_t>) {
+    auto ShaderBufferPtr =
+        reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
+    for (size_t I = 0; I < NumElements; I++)
+      ShaderBufferPtr[I] = TestData[I].Val;
+    return;
   }
-};
 
-template <> struct OpTypeTraits<UnaryMathOpType> {
-  static constexpr size_t Arity = 1;
-
-  static UnaryMathOpType GetOpType(const wchar_t *OpTypeString) {
-    return getUnaryMathOpType(OpTypeString).OpType;
+  if constexpr (std::is_same_v<T, HLSLBool_t>) {
+    auto ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
+    for (size_t I = 0; I < NumElements; I++)
+      ShaderBufferPtr[I] = TestData[I].Val;
+    return;
   }
-};
 
-template <> struct OpTypeTraits<BinaryMathOpType> {
-  static constexpr size_t Arity = 2;
+  auto ShaderBufferPtr = reinterpret_cast<T *>(ShaderBuffer.data());
+  for (size_t I = 0; I < NumElements; I++)
+    ShaderBufferPtr[I] = TestData[I];
+  return;
+}
 
-  static BinaryMathOpType GetOpType(const wchar_t *OpTypeString) {
-    return getBinaryMathOpType(OpTypeString).OpType;
-  }
-};
+template <typename T, typename OUT_TYPE, size_t ARITY, typename OP_TYPE>
+std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
+                                     uint16_t ScalarInputFlags,
+                                     std::string ExtraDefines) {
+  OpTypeMetaData<OP_TYPE> OpTypeMetaData = getOpTypeMetaData(OpType);
 
-template <> struct OpTypeTraits<TernaryMathOpType> {
-  static constexpr size_t Arity = 3;
+  std::stringstream CompilerOptions;
 
-  static TernaryMathOpType GetOpType(const wchar_t *OpTypeString) {
-    return getTernaryMathOpType(OpTypeString).OpType;
-  }
-};
+  if (is16BitType<T>())
+    CompilerOptions << " -enable-16bit-types";
+
+  CompilerOptions << " -DTYPE=" << getHLSLTypeString<T>();
+  CompilerOptions << " -DNUM=" << VectorSize;
+
+  CompilerOptions << " -DOPERATOR=";
+  if (OpTypeMetaData.Operator)
+    CompilerOptions << *OpTypeMetaData.Operator;
+
+  CompilerOptions << " -DFUNC=";
+  if (OpTypeMetaData.Intrinsic)
+    CompilerOptions << *OpTypeMetaData.Intrinsic;
+
+  // For most of the ops this string is std::nullopt.
+  if (!ExtraDefines.empty())
+    CompilerOptions << " " << ExtraDefines;
+
+  CompilerOptions << " -DOUT_TYPE=" << getHLSLTypeString<OUT_TYPE>();
+
+  CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << ARITY;
+
+  CompilerOptions << " -DOPERAND_IS_SCALAR_FLAGS=";
+  CompilerOptions << "0x" << std::hex << ScalarInputFlags;
+
+  return CompilerOptions.str();
+}
 
 static uint16_t GetScalarInputFlags() {
   using WEX::Common::String;
@@ -493,12 +686,6 @@ InputSets<T, ARITY> buildTestInputs(const TAEFTestDataValues &TAEFTestData,
 
   return Inputs;
 }
-
-template <typename OUT_TYPE, typename T, size_t ARITY, typename OP_TYPE>
-std::vector<OUT_TYPE>
-runTest(bool VerboseLogging, OP_TYPE OpType, const InputSets<T, ARITY> &Inputs,
-        size_t ExpectedOutputSize, uint16_t ScalarInputFlags,
-        std::string ExtraDefines, bool &WasSkipped);
 
 struct ValidationConfig {
   float Tolerance = 0.0f;
@@ -858,7 +1045,8 @@ void dispatchFrexpTest(bool VerboseLogging,
   }
 
   runAndVerify(VerboseLogging, UnaryMathOpType_Frexp, Inputs, Expected,
-               TAEFTestData.ScalarInputFlags, " -DFUNC_FREXP=1", ValidationConfig{});
+               TAEFTestData.ScalarInputFlags, " -DFUNC_FREXP=1",
+               ValidationConfig{});
 }
 
 void dispatchTest(bool VerboseLogging, const TAEFTestDataValues &TAEFTestData,
@@ -1220,18 +1408,45 @@ void dispatchTest(bool VerboseLogging, const TAEFTestDataValues &TAEFTestData,
   LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for TernaryMathOpType '%s'",
                       (const wchar_t *)TAEFTestData.DataType,
                       (const wchar_t *)TAEFTestData.OpTypeEnum);
-} // namespace TernaryMathOps
+}
 
 //
+// dispatchTest
 //
-//
+
+template <typename OP_TYPE> OP_TYPE GetOpType(const wchar_t *OpTypeString);
+
+template <> TrigonometricOpType GetOpType(const wchar_t *OpTypeString) {
+  return getTrigonometricOpType(OpTypeString).OpType;
+}
+
+template <> UnaryOpType GetOpType(const wchar_t *OpTypeString) {
+  return getUnaryOpType(OpTypeString).OpType;
+}
+
+template <> AsTypeOpType GetOpType(const wchar_t *OpTypeString) {
+  return getAsTypeOpType(OpTypeString).OpType;
+}
+
+template <> UnaryMathOpType GetOpType(const wchar_t *OpTypeString) {
+  return getUnaryMathOpType(OpTypeString).OpType;
+}
+
+template <> BinaryMathOpType GetOpType(const wchar_t *OpTypeString) {
+  return getBinaryMathOpType(OpTypeString).OpType;
+}
+
+template <> TernaryMathOpType GetOpType(const wchar_t *OpTypeString) {
+  return getTernaryMathOpType(OpTypeString).OpType;
+}
+
 template <typename OP_TYPE> void dispatchTest(bool VerboseLogging) {
   std::optional<TAEFTestDataValues> TAEFTestData =
       TAEFTestDataValues::CreateFromTestData();
   if (!TAEFTestData)
     return;
 
-  OP_TYPE OpType = OpTypeTraits<OP_TYPE>::GetOpType(TAEFTestData->OpTypeEnum);
+  OP_TYPE OpType = GetOpType<OP_TYPE>(TAEFTestData->OpTypeEnum);
 
   std::vector<size_t> InputVectorSizes;
   if (TAEFTestData->LongVectorInputSize)
@@ -1244,90 +1459,7 @@ template <typename OP_TYPE> void dispatchTest(bool VerboseLogging) {
   }
 }
 
-// These are helper arrays to be used with the TableParameterHandler that parses
-// the LongVectorOpTable.xml file for us.
-static TableParameter UnaryOpParameters[] = {
-    {L"DataType", TableParameter::STRING, true},
-    {L"OpTypeEnum", TableParameter::STRING, true},
-    {L"InputValueSetName1", TableParameter::STRING, false},
-};
-
-static TableParameter BinaryOpParameters[] = {
-    {L"DataType", TableParameter::STRING, true},
-    {L"OpTypeEnum", TableParameter::STRING, true},
-    {L"InputValueSetName1", TableParameter::STRING, false},
-    {L"InputValueSetName2", TableParameter::STRING, false},
-    {L"ScalarInputFlags", TableParameter::STRING, false},
-};
-
-static TableParameter TernaryOpParameters[] = {
-    {L"DataType", TableParameter::STRING, true},
-    {L"OpTypeEnum", TableParameter::STRING, true},
-    {L"InputValueSetName1", TableParameter::STRING, false},
-    {L"InputValueSetName2", TableParameter::STRING, false},
-    {L"InputValueSetName3", TableParameter::STRING, false},
-    {L"ScalarInputFlags", TableParameter::STRING, false},
-};
-
-static TableParameter AsTypeOpParameters[] = {
-    // DataTypeOut is determined at runtime based on the OpType.
-    // For example...AsUint has an output type of uint32_t.
-    {L"DataTypeIn", TableParameter::STRING, true},
-    {L"OpTypeEnum", TableParameter::STRING, true},
-    {L"InputValueSetName1", TableParameter::STRING, false},
-    {L"InputValueSetName2", TableParameter::STRING, false},
-    {L"ScalarInputFlags", TableParameter::STRING, false},
-};
-
-bool OpTest::classSetup() {
-  // Run this only once.
-  if (!Initialized) {
-    Initialized = true;
-
-    HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
-    if (Runtime == NULL)
-      return false;
-    // Do not: FreeLibrary(hRuntime);
-    // If we actually free the library, it defeats the purpose of
-    // enableAgilitySDK and enableExperimentalMode.
-
-    HRESULT HR;
-    HR = enableAgilitySDK(Runtime);
-
-    if (FAILED(HR))
-      hlsl_test::LogCommentFmt(L"Unable to enable Agility SDK - 0x%08x.", HR);
-    else if (HR == S_FALSE)
-      hlsl_test::LogCommentFmt(L"Agility SDK not enabled.");
-    else
-      hlsl_test::LogCommentFmt(L"Agility SDK enabled.");
-
-    HR = enableExperimentalMode(Runtime);
-    if (FAILED(HR))
-      hlsl_test::LogCommentFmt(
-          L"Unable to enable shader experimental mode - 0x%08x.", HR);
-    else if (HR == S_FALSE)
-      hlsl_test::LogCommentFmt(L"Experimental mode not enabled.");
-    else
-      hlsl_test::LogCommentFmt(L"Experimental mode enabled.");
-
-    HR = enableDebugLayer();
-    if (FAILED(HR))
-      hlsl_test::LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", HR);
-    else if (HR == S_FALSE)
-      hlsl_test::LogCommentFmt(L"Debug layer not enabled.");
-    else
-      hlsl_test::LogCommentFmt(L"Debug layer enabled.");
-
-    WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
-                                                       VerboseLogging);
-    if (VerboseLogging)
-      WEX::Logging::Log::Comment(L"Verbose logging is enabled for this test.");
-    else
-      WEX::Logging::Log::Comment(L"Verbose logging is disabled for this test.");
-  }
-
-  return true;
-}
+// TAEF test entry points
 
 TEST_F(OpTest, trigonometricOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -1369,172 +1501,6 @@ TEST_F(OpTest, ternaryMathOpTest) {
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   dispatchTest<TernaryMathOpType>(VerboseLogging);
-}
-
-// Helper to fill the shader buffer based on type. Convenient to be used when
-// copying HLSL*_t types so we can copy the underlying type directly instead of
-// the struct.
-template <typename T>
-void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
-                                        const std::vector<T> &TestData) {
-
-  // Note: DataSize for HLSLHalf_t and HLSLBool_t may be larger than the
-  // underlying type in some cases. Thats fine. Resize just makes sure we have
-  // enough space.
-  const size_t NumElements = TestData.size();
-  const size_t DataSize = sizeof(T) * NumElements;
-  ShaderBuffer.resize(DataSize);
-
-  if constexpr (std::is_same_v<T, HLSLHalf_t>) {
-    auto ShaderBufferPtr =
-        reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
-    for (size_t I = 0; I < NumElements; I++)
-      ShaderBufferPtr[I] = TestData[I].Val;
-    return;
-  }
-
-  if constexpr (std::is_same_v<T, HLSLBool_t>) {
-    auto ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
-    for (size_t I = 0; I < NumElements; I++)
-      ShaderBufferPtr[I] = TestData[I].Val;
-    return;
-  }
-
-  auto ShaderBufferPtr = reinterpret_cast<T *>(ShaderBuffer.data());
-  for (size_t I = 0; I < NumElements; I++)
-    ShaderBufferPtr[I] = TestData[I];
-  return;
-}
-
-template <typename T, typename OUT_TYPE, size_t ARITY, typename OP_TYPE>
-std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
-                                     uint16_t ScalarInputFlags,
-                                     std::string ExtraDefines) {
-  OpTypeMetaData<OP_TYPE> OpTypeMetaData = getOpTypeMetaData(OpType);
-
-  std::stringstream CompilerOptions;
-
-  if (is16BitType<T>())
-    CompilerOptions << " -enable-16bit-types";
-
-  CompilerOptions << " -DTYPE=" << getHLSLTypeString<T>();
-  CompilerOptions << " -DNUM=" << VectorSize;
-
-  CompilerOptions << " -DOPERATOR=";
-  if (OpTypeMetaData.Operator)
-    CompilerOptions << *OpTypeMetaData.Operator;
-
-  CompilerOptions << " -DFUNC=";
-  if (OpTypeMetaData.Intrinsic)
-    CompilerOptions << *OpTypeMetaData.Intrinsic;
-
-  // For most of the ops this string is std::nullopt.
-  if (!ExtraDefines.empty())
-    CompilerOptions << " " << ExtraDefines;
-
-  CompilerOptions << " -DOUT_TYPE=" << getHLSLTypeString<OUT_TYPE>();
-
-  CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << ARITY;
-
-  CompilerOptions << " -DOPERAND_IS_SCALAR_FLAGS=";
-  CompilerOptions << "0x" << std::hex << ScalarInputFlags;
-
-  return CompilerOptions.str();
-}
-
-template <typename OUT_TYPE, typename T, size_t ARITY, typename OP_TYPE>
-std::vector<OUT_TYPE>
-runTest(bool VerboseLogging, OP_TYPE OpType, const InputSets<T, ARITY> &Inputs,
-        size_t ExpectedOutputSize, uint16_t ScalarInputFlags,
-        std::string ExtraDefines, bool &WasSkipped) {
-
-  CComPtr<ID3D12Device> D3DDevice;
-  if (!createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false)) {
-#ifdef _HLK_CONF
-    LOG_ERROR_FMT_THROW(
-        L"Device does not support SM 6.9. Can't run these tests.");
-#else
-    WEX::Logging::Log::Comment(
-        "Device does not support SM 6.9. Can't run these tests.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    WasSkipped = true;
-    return {};
-#endif
-  }
-
-  if (VerboseLogging) {
-    for (size_t I = 0; I < ARITY; ++I) {
-      std::wstring Name = L"InputVector";
-      Name += (wchar_t)(L'1' + I);
-      logLongVector(Inputs[I], Name);
-    }
-  }
-
-  // We have to construct the string outside of the lambda. Otherwise it's
-  // cleaned up when the lambda finishes executing but before the shader runs.
-  std::string CompilerOptionsString =
-      getCompilerOptionsString<T, OUT_TYPE, ARITY>(
-          OpType, Inputs[0].size(), ScalarInputFlags, std::move(ExtraDefines));
-
-  dxc::SpecificDllLoader DxilDllLoader;
-
-  // The name of the shader we want to use in ShaderOpArith.xml. Could also add
-  // logic to set this name in ShaderOpArithTable.xml so we can use different
-  // shaders for different tests.
-  LPCSTR ShaderName = "LongVectorOp";
-  // ShaderOpArith.xml defines the input/output resources and the shader source.
-  CComPtr<IStream> TestXML;
-  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML, DxilDllLoader);
-
-  // RunShaderOpTest is a helper function that handles resource creation
-  // and setup. It also handles the shader compilation and execution. It takes a
-  // callback that is called when the shader is compiled, but before it is
-  // executed.
-  std::shared_ptr<st::ShaderOpTestResult> TestResult = st::RunShaderOpTest(
-      D3DDevice, DxilDllLoader, TestXML, ShaderName,
-      [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
-        if (VerboseLogging)
-          hlsl_test::LogCommentFmt(
-              L"RunShaderOpTest CallBack. Resource Name: %S", Name);
-
-        // This callback is called once for each resource defined for
-        // "LongVectorOp" in ShaderOpArith.xml. All callbacks are fired for each
-        // resource. We determine whether they are applicable to the test case
-        // when they run.
-
-        // Process the callback for the OutputVector resource.
-        if (_stricmp(Name, "OutputVector") == 0) {
-          // We only need to set the compiler options string once. So this is a
-          // convenient place to do it.
-          ShaderOp->Shaders.at(0).Arguments = CompilerOptionsString.c_str();
-
-          return;
-        }
-
-        for (size_t I = 0; I < 3; ++I) {
-          std::string BufferName = "InputVector";
-          BufferName += (char)('1' + I);
-          if (_stricmp(Name, BufferName.c_str()) == 0) {
-            if (I < ARITY)
-              fillShaderBufferFromLongVectorData(ShaderData, Inputs[I]);
-            return;
-          }
-        }
-
-        LOG_ERROR_FMT_THROW(
-            L"RunShaderOpTest CallBack. Unexpected Resource Name: %S", Name);
-      });
-
-  // Extract the data from the shader result
-  MappedData ShaderOutData;
-  TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
-
-  std::vector<OUT_TYPE> OutData;
-  fillLongVectorDataFromShaderBuffer(ShaderOutData, OutData,
-                                     ExpectedOutputSize);
-
-  WasSkipped = false;
-  return OutData;
 }
 
 } // namespace LongVector
