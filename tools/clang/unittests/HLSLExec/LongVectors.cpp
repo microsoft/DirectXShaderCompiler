@@ -1377,7 +1377,7 @@ void dispatchTest(const TestConfig &Config, TernaryMathOpType OpType,
 
   case TernaryMathOpType_SmoothStep:
     DISPATCH(HLSLHalf_t, SmoothStep);
-    DISPATCH(double, SmoothStep);
+    DISPATCH(float, SmoothStep);
     break;
 
   case TernaryMathOpType_EnumValueCount:
