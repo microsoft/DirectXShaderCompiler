@@ -91,16 +91,15 @@ template <typename T> struct OpTypeMetaData {
   uint16_t ScalarInputFlags = 0;
 };
 
-template <typename OpT, size_t Length>
-const OpTypeMetaData<OpT> &
-getOpType(const OpTypeMetaData<OpT> (&Values)[Length],
-          const std::wstring &OpTypeString) {
-  for (size_t I = 0; I < Length; I++) {
+template <typename OP_TYPE, size_t N>
+OP_TYPE getOpType(const OpTypeMetaData<OP_TYPE> (&Values)[N],
+                  const wchar_t *OpTypeString) {
+  for (size_t I = 0; I < N; ++I) {
     if (Values[I].OpTypeString == OpTypeString)
-      return Values[I];
+      return Values[I].OpType;
   }
 
-  LOG_ERROR_FMT_THROW(L"Invalid OpType string: %ls", OpTypeString.c_str());
+  LOG_ERROR_FMT_THROW(L"Invalid OpType string: %ls", OpTypeString);
 
   // We need to return something to satisfy the compiler. We can't annotate
   // LOG_ERROR_FMT_THROW with [[noreturn]] because the TAEF VERIFY_* macros
@@ -116,16 +115,17 @@ getOpType(const OpTypeMetaData<OpT> (&Values)[Length],
 }
 
 template <typename OP_TYPE, size_t N>
-OpTypeMetaData<OP_TYPE>
+const OpTypeMetaData<OP_TYPE> &
 getOpTypeMetaData(const OpTypeMetaData<OP_TYPE> (&Values)[N], OP_TYPE OpType) {
   for (size_t I = 0; I < N; ++I) {
     if (Values[I].OpType == OpType)
       return Values[I];
   }
-
-  DXASSERT(false, "Missing OpType metadata");
+  LOG_ERROR_FMT_THROW(L"Invalid OpType: %d", OpType);
   std::abort();
 }
+
+template <typename OP_TYPE> OP_TYPE getOpType(const wchar_t *Name);
 
 template <typename OP_TYPE>
 OpTypeMetaData<OP_TYPE> getOpTypeMetaData(OP_TYPE OpType);
@@ -133,6 +133,9 @@ OpTypeMetaData<OP_TYPE> getOpTypeMetaData(OP_TYPE OpType);
 #define OP_TYPE_META_DATA(TYPE, ARRAY)                                         \
   template <> OpTypeMetaData<TYPE> getOpTypeMetaData(TYPE OpType) {            \
     return getOpTypeMetaData(ARRAY, OpType);                                   \
+  }                                                                            \
+  template <> TYPE getOpType(const wchar_t *Name) {                            \
+    return getOpType(ARRAY, Name);                                             \
   }
 
 // Helper to fill the test data from the shader buffer based on type.
@@ -729,12 +732,6 @@ static_assert(
     "trigonometricOpTypeStringToOpMetaData size mismatch. Did you add "
     "a new enum value?");
 
-const OpTypeMetaData<TrigonometricOpType> &
-getTrigonometricOpType(const std::wstring &OpTypeString) {
-  return getOpType<TrigonometricOpType>(trigonometricOpTypeStringToOpMetaData,
-                                        OpTypeString);
-}
-
 OP_TYPE_META_DATA(TrigonometricOpType, trigonometricOpTypeStringToOpMetaData);
 
 template <typename T> struct TrigonometricOperation {
@@ -832,11 +829,6 @@ static_assert(_countof(asTypeOpTypeStringToOpMetaData) ==
                   AsTypeOpType_EnumValueCount,
               "asTypeOpTypeStringToOpMetaData size mismatch. Did you add "
               "a new enum value?");
-
-const OpTypeMetaData<AsTypeOpType> &
-getAsTypeOpType(const std::wstring &OpTypeString) {
-  return getOpType<AsTypeOpType>(asTypeOpTypeStringToOpMetaData, OpTypeString);
-}
 
 OP_TYPE_META_DATA(AsTypeOpType, asTypeOpTypeStringToOpMetaData);
 
@@ -1023,11 +1015,6 @@ static_assert(_countof(unaryOpTypeStringToOpMetaData) ==
               "unaryOpTypeStringToOpMetaData size mismatch. Did you add "
               "a new enum value?");
 
-const OpTypeMetaData<UnaryOpType> &
-getUnaryOpType(const std::wstring &OpTypeString) {
-  return getOpType<UnaryOpType>(unaryOpTypeStringToOpMetaData, OpTypeString);
-}
-
 OP_TYPE_META_DATA(UnaryOpType, unaryOpTypeStringToOpMetaData);
 
 template <typename T> T Initialize(T V) { return V; }
@@ -1115,12 +1102,6 @@ static_assert(_countof(unaryMathOpTypeStringToOpMetaData) ==
                   UnaryMathOpType_EnumValueCount,
               "unaryMathOpTypeStringToOpMetaData size mismatch. Did you add "
               "a new enum value?");
-
-const OpTypeMetaData<UnaryMathOpType> &
-getUnaryMathOpType(const std::wstring &OpTypeString) {
-  return getOpType<UnaryMathOpType>(unaryMathOpTypeStringToOpMetaData,
-                                    OpTypeString);
-}
 
 OP_TYPE_META_DATA(UnaryMathOpType, unaryMathOpTypeStringToOpMetaData);
 
@@ -1363,12 +1344,6 @@ static_assert(_countof(binaryMathOpTypeStringToOpMetaData) ==
               "binaryMathOpTypeStringToOpMetaData size mismatch. Did you "
               "add a new enum value?");
 
-const OpTypeMetaData<BinaryMathOpType> &
-getBinaryMathOpType(const std::wstring &OpTypeString) {
-  return getOpType<BinaryMathOpType>(binaryMathOpTypeStringToOpMetaData,
-                                     OpTypeString);
-}
-
 OP_TYPE_META_DATA(BinaryMathOpType, binaryMathOpTypeStringToOpMetaData);
 
 template <typename T, typename OUT_TYPE>
@@ -1535,17 +1510,6 @@ static const OpTypeMetaData<TernaryMathOpType>
          "smoothstep"},
 };
 
-static_assert(_countof(ternaryMathOpTypeStringToOpMetaData) ==
-                  TernaryMathOpType_EnumValueCount,
-              "ternaryMathOpTypeStringToOpMetaData size mismatch. Did you "
-              "add a new enum value?");
-
-const OpTypeMetaData<TernaryMathOpType> &
-getTernaryMathOpType(const std::wstring &OpTypeString) {
-  return getOpType<TernaryMathOpType>(ternaryMathOpTypeStringToOpMetaData,
-                                      OpTypeString);
-}
-
 OP_TYPE_META_DATA(TernaryMathOpType, ternaryMathOpTypeStringToOpMetaData);
 
 template <typename T, typename OUT_TYPE>
@@ -1639,34 +1603,8 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 // dispatchTest
 //
 
-template <typename OP_TYPE> OP_TYPE GetOpType(const wchar_t *OpTypeString);
-
-template <> TrigonometricOpType GetOpType(const wchar_t *OpTypeString) {
-  return getTrigonometricOpType(OpTypeString).OpType;
-}
-
-template <> UnaryOpType GetOpType(const wchar_t *OpTypeString) {
-  return getUnaryOpType(OpTypeString).OpType;
-}
-
-template <> AsTypeOpType GetOpType(const wchar_t *OpTypeString) {
-  return getAsTypeOpType(OpTypeString).OpType;
-}
-
-template <> UnaryMathOpType GetOpType(const wchar_t *OpTypeString) {
-  return getUnaryMathOpType(OpTypeString).OpType;
-}
-
-template <> BinaryMathOpType GetOpType(const wchar_t *OpTypeString) {
-  return getBinaryMathOpType(OpTypeString).OpType;
-}
-
-template <> TernaryMathOpType GetOpType(const wchar_t *OpTypeString) {
-  return getTernaryMathOpType(OpTypeString).OpType;
-}
-
 template <typename OP_TYPE> void dispatchTest(const TestConfig &Config) {
-  OP_TYPE OpType = GetOpType<OP_TYPE>(Config.OpTypeEnum);
+  OP_TYPE OpType = getOpType<OP_TYPE>(Config.OpTypeEnum);
 
   std::vector<size_t> InputVectorSizes;
   if (Config.LongVectorInputSize)
