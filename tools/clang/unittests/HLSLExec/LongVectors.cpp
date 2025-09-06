@@ -32,14 +32,15 @@ getOpType(const OpTypeMetaData<OpT> (&Values)[Length],
   LOG_ERROR_FMT_THROW(L"Invalid OpType string: %ls", OpTypeString.c_str());
 
   // We need to return something to satisfy the compiler. We can't annotate
-  // LOG_ERROR_FMT_THROW with [[noreturn]] because the TAEF VERIFY_* macros that
-  // it uses are re-mapped on Unix to not throw exceptions, so they naturally
-  // return. If we hit this point it is a programmer error when implementing a
-  // test. Specifically, an entry for this OpTypeString is missing in the
-  // static OpTypeStringToOpMetaData array. Or something has been
-  // corrupted. Test execution is invalid at this point. Usin std::abort() keeps
-  // the compiler happy about no return path. And LOG_ERROR_FMT_THROW will still
-  // provide a useful error message via gtest logging on Unix systems.
+  // LOG_ERROR_FMT_THROW with [[noreturn]] because the TAEF VERIFY_* macros
+  // that it uses are re-mapped on Unix to not throw exceptions, so they
+  // naturally return. If we hit this point it is a programmer error when
+  // implementing a test. Specifically, an entry for this OpTypeString is
+  // missing in the static OpTypeStringToOpMetaData array. Or something has
+  // been corrupted. Test execution is invalid at this point. Usin
+  // std::abort() keeps the compiler happy about no return path. And
+  // LOG_ERROR_FMT_THROW will still provide a useful error message via gtest
+  // logging on Unix systems.
   std::abort();
 }
 
@@ -70,8 +71,9 @@ OP_TYPE_META_DATA(UnaryMathOpType, unaryMathOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(BinaryMathOpType, binaryMathOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(TernaryMathOpType, ternaryMathOpTypeStringToOpMetaData);
 
-// Helper to fill the test data from the shader buffer based on type. Convenient
-// to be used when copying HLSL*_t types so we can use the underlying type.
+// Helper to fill the test data from the shader buffer based on type.
+// Convenient to be used when copying HLSL*_t types so we can use the
+// underlying type.
 template <typename T>
 void fillLongVectorDataFromShaderBuffer(const MappedData &ShaderBuffer,
                                         std::vector<T> &TestData,
@@ -413,8 +415,8 @@ std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
 }
 
 // Helper to fill the shader buffer based on type. Convenient to be used when
-// copying HLSL*_t types so we can copy the underlying type directly instead of
-// the struct.
+// copying HLSL*_t types so we can copy the underlying type directly instead
+// of the struct.
 template <typename T>
 void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
                                         const std::vector<T> &TestData) {
@@ -483,17 +485,18 @@ runTest(const TestConfig &Config, OP_TYPE OpType,
 
   dxc::SpecificDllLoader DxilDllLoader;
 
-  // The name of the shader we want to use in ShaderOpArith.xml. Could also add
-  // logic to set this name in ShaderOpArithTable.xml so we can use different
-  // shaders for different tests.
+  // The name of the shader we want to use in ShaderOpArith.xml. Could also
+  // add logic to set this name in ShaderOpArithTable.xml so we can use
+  // different shaders for different tests.
   LPCSTR ShaderName = "LongVectorOp";
-  // ShaderOpArith.xml defines the input/output resources and the shader source.
+  // ShaderOpArith.xml defines the input/output resources and the shader
+  // source.
   CComPtr<IStream> TestXML;
   readHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML, DxilDllLoader);
 
   // RunShaderOpTest is a helper function that handles resource creation
-  // and setup. It also handles the shader compilation and execution. It takes a
-  // callback that is called when the shader is compiled, but before it is
+  // and setup. It also handles the shader compilation and execution. It takes
+  // a callback that is called when the shader is compiled, but before it is
   // executed.
   std::shared_ptr<st::ShaderOpTestResult> TestResult = st::RunShaderOpTest(
       D3DDevice, DxilDllLoader, TestXML, ShaderName,
@@ -503,14 +506,14 @@ runTest(const TestConfig &Config, OP_TYPE OpType,
               L"RunShaderOpTest CallBack. Resource Name: %S", Name);
 
         // This callback is called once for each resource defined for
-        // "LongVectorOp" in ShaderOpArith.xml. All callbacks are fired for each
-        // resource. We determine whether they are applicable to the test case
-        // when they run.
+        // "LongVectorOp" in ShaderOpArith.xml. All callbacks are fired for
+        // each resource. We determine whether they are applicable to the test
+        // case when they run.
 
         // Process the callback for the OutputVector resource.
         if (_stricmp(Name, "OutputVector") == 0) {
-          // We only need to set the compiler options string once. So this is a
-          // convenient place to do it.
+          // We only need to set the compiler options string once. So this is
+          // a convenient place to do it.
           ShaderOp->Shaders.at(0).Arguments = CompilerOptionsString.c_str();
 
           return;
@@ -540,87 +543,6 @@ runTest(const TestConfig &Config, OP_TYPE OpType,
                                      ExpectedOutputSize);
 
   return OutData;
-}
-
-//
-// asFloat
-//
-
-template <typename T> float asFloat(T);
-template <> float asFloat(float A) { return float(A); }
-template <> float asFloat(int32_t A) { return bit_cast<float>(A); }
-template <> float asFloat(uint32_t A) { return bit_cast<float>(A); }
-
-//
-// asFloat16
-//
-template <typename T> HLSLHalf_t asFloat16(T);
-template <> HLSLHalf_t asFloat16(HLSLHalf_t A) { return A; }
-template <> HLSLHalf_t asFloat16(int16_t A) {
-  return HLSLHalf_t::FromHALF(bit_cast<DirectX::PackedVector::HALF>(A));
-}
-template <> HLSLHalf_t asFloat16(uint16_t A) {
-  return HLSLHalf_t::FromHALF(bit_cast<DirectX::PackedVector::HALF>(A));
-}
-
-//
-// asInt
-//
-
-template <typename T> int32_t asInt(T);
-template <> int32_t asInt(float A) { return bit_cast<int32_t>(A); }
-template <> int32_t asInt(int32_t A) { return A; }
-template <> int32_t asInt(uint32_t A) { return bit_cast<int32_t>(A); }
-
-//
-// asInt16
-//
-
-template <typename T> int16_t asInt16(T);
-template <> int16_t asInt16(HLSLHalf_t A) { return bit_cast<int16_t>(A.Val); }
-template <> int16_t asInt16(int16_t A) { return A; }
-template <> int16_t asInt16(uint16_t A) { return bit_cast<int16_t>(A); }
-
-//
-// asUint16
-//
-
-template <typename T> uint16_t asUint16(T);
-template <> uint16_t asUint16(HLSLHalf_t A) {
-  return bit_cast<uint16_t>(A.Val);
-}
-template <> uint16_t asUint16(uint16_t A) { return A; }
-template <> uint16_t asUint16(int16_t A) { return bit_cast<uint16_t>(A); }
-
-//
-// asUint
-//
-
-template <typename T> unsigned int asUint(T);
-template <> unsigned int asUint(unsigned int A) { return A; }
-template <> unsigned int asUint(float A) { return bit_cast<unsigned int>(A); }
-template <> unsigned int asUint(int A) { return bit_cast<unsigned int>(A); }
-
-//
-// splitDouble
-//
-
-static void splitDouble(const double A, uint32_t &LowBits, uint32_t &HighBits) {
-  uint64_t Bits = 0;
-  std::memcpy(&Bits, &A, sizeof(Bits));
-  LowBits = static_cast<uint32_t>(Bits & 0xFFFFFFFF);
-  HighBits = static_cast<uint32_t>(Bits >> 32);
-}
-
-//
-// asDouble
-//
-
-static double asDouble(const uint32_t LowBits, const uint32_t HighBits) {
-  uint64_t Bits = (static_cast<uint64_t>(HighBits) << 32) | LowBits;
-  double Result;
-  std::memcpy(&Result, &Bits, sizeof(Result));
-  return Result;
 }
 
 template <typename T> struct TrigonometricOperation {
@@ -819,6 +741,84 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 // AsTypeOp
 //
 
+// We don't have std::bit_cast in C++17, so we define our own version.
+template <typename ToT, typename FromT>
+typename std::enable_if<sizeof(ToT) == sizeof(FromT) &&
+                            std::is_trivially_copyable<FromT>::value &&
+                            std::is_trivially_copyable<ToT>::value,
+                        ToT>::type
+bit_cast(const FromT &Src) {
+  ToT Dst;
+  std::memcpy(&Dst, &Src, sizeof(ToT));
+  return Dst;
+}
+
+// asFloat
+
+template <typename T> float asFloat(T);
+template <> float asFloat(float A) { return float(A); }
+template <> float asFloat(int32_t A) { return bit_cast<float>(A); }
+template <> float asFloat(uint32_t A) { return bit_cast<float>(A); }
+
+// asFloat16
+
+template <typename T> HLSLHalf_t asFloat16(T);
+template <> HLSLHalf_t asFloat16(HLSLHalf_t A) { return A; }
+template <> HLSLHalf_t asFloat16(int16_t A) {
+  return HLSLHalf_t::FromHALF(bit_cast<DirectX::PackedVector::HALF>(A));
+}
+template <> HLSLHalf_t asFloat16(uint16_t A) {
+  return HLSLHalf_t::FromHALF(bit_cast<DirectX::PackedVector::HALF>(A));
+}
+
+// asInt
+
+template <typename T> int32_t asInt(T);
+template <> int32_t asInt(float A) { return bit_cast<int32_t>(A); }
+template <> int32_t asInt(int32_t A) { return A; }
+template <> int32_t asInt(uint32_t A) { return bit_cast<int32_t>(A); }
+
+// asInt16
+
+template <typename T> int16_t asInt16(T);
+template <> int16_t asInt16(HLSLHalf_t A) { return bit_cast<int16_t>(A.Val); }
+template <> int16_t asInt16(int16_t A) { return A; }
+template <> int16_t asInt16(uint16_t A) { return bit_cast<int16_t>(A); }
+
+// asUint16
+
+template <typename T> uint16_t asUint16(T);
+template <> uint16_t asUint16(HLSLHalf_t A) {
+  return bit_cast<uint16_t>(A.Val);
+}
+template <> uint16_t asUint16(uint16_t A) { return A; }
+template <> uint16_t asUint16(int16_t A) { return bit_cast<uint16_t>(A); }
+
+// asUint
+
+template <typename T> unsigned int asUint(T);
+template <> unsigned int asUint(unsigned int A) { return A; }
+template <> unsigned int asUint(float A) { return bit_cast<unsigned int>(A); }
+template <> unsigned int asUint(int A) { return bit_cast<unsigned int>(A); }
+
+// splitDouble
+
+static void splitDouble(const double A, uint32_t &LowBits, uint32_t &HighBits) {
+  uint64_t Bits = 0;
+  std::memcpy(&Bits, &A, sizeof(Bits));
+  LowBits = static_cast<uint32_t>(Bits & 0xFFFFFFFF);
+  HighBits = static_cast<uint32_t>(Bits >> 32);
+}
+
+// asDouble
+
+static double asDouble(const uint32_t LowBits, const uint32_t HighBits) {
+  uint64_t Bits = (static_cast<uint64_t>(HighBits) << 32) | LowBits;
+  double Result;
+  std::memcpy(&Result, &Bits, sizeof(Result));
+  return Result;
+}
+
 void dispatchAsUintSplitDoubleTest(const TestConfig &Config,
                                    size_t VectorSize) {
 
@@ -842,8 +842,8 @@ void dispatchAsUintSplitDoubleTest(const TestConfig &Config,
 void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                        AsTypeOpType OpType, size_t VectorSize) {
 
-  // Different AsType* operations are supported for different data types, so we
-  // dispatch on operation first.
+  // Different AsType* operations are supported for different data types, so
+  // we dispatch on operation first.
 
 #define DISPATCH(TYPE, FN)                                                     \
   if (Config.DataType == DataTypeName<TYPE>())                                 \
@@ -1015,10 +1015,10 @@ void dispatchFrexpTest(const TestConfig &Config, size_t VectorSize) {
   std::vector<float> Expected;
 
   // Expected values size is doubled. In the first half we store the Mantissas
-  // and in the second half we store the Exponents. This way we can leverage the
-  // existing logic which verify expected values in a single vector. We just
-  // need to make sure that we organize the output in the same way in the shader
-  // and when we read it back.
+  // and in the second half we store the Exponents. This way we can leverage
+  // the existing logic which verify expected values in a single vector. We
+  // just need to make sure that we organize the output in the same way in the
+  // shader and when we read it back.
 
   Expected.resize(VectorSize * 2);
 
@@ -1026,15 +1026,15 @@ void dispatchFrexpTest(const TestConfig &Config, size_t VectorSize) {
     int Exp = 0;
     float Man = std::frexp(Inputs[0][I], &Exp);
 
-    // std::frexp returns a signed mantissa. But the HLSL implmentation returns
-    // an unsigned mantissa.
+    // std::frexp returns a signed mantissa. But the HLSL implmentation
+    // returns an unsigned mantissa.
     Man = std::abs(Man);
 
     Expected[I] = Man;
 
-    // std::frexp returns the exponent as an int, but HLSL stores it as a float.
-    // However, the HLSL exponents fractional component is always 0. So it can
-    // conversion between float and int is safe.
+    // std::frexp returns the exponent as an int, but HLSL stores it as a
+    // float. However, the HLSL exponents fractional component is always 0. So
+    // it can conversion between float and int is safe.
     Expected[I + VectorSize] = static_cast<float>(Exp);
   }
 

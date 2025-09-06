@@ -13,18 +13,6 @@
 
 namespace LongVector {
 
-// We don't have std::bit_cast in C++17, so we define our own version.
-template <typename ToT, typename FromT>
-typename std::enable_if<sizeof(ToT) == sizeof(FromT) &&
-                            std::is_trivially_copyable<FromT>::value &&
-                            std::is_trivially_copyable<ToT>::value,
-                        ToT>::type
-bit_cast(const FromT &Src) {
-  ToT Dst;
-  std::memcpy(&Dst, &Src, sizeof(ToT));
-  return Dst;
-}
-
 template <typename T> constexpr bool isFloatingPointType() {
   return std::is_same_v<T, float> || std::is_same_v<T, double> ||
          std::is_same_v<T, HLSLHalf_t>;
