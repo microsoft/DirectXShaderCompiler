@@ -12,7 +12,6 @@
 #include <DirectXPackedVector.h>
 
 #include "LongVectorTestData.h"
-#include "ShaderOpTest.h"
 
 namespace LongVector {
 
@@ -28,15 +27,6 @@ bit_cast(const FromT &Src) {
   return Dst;
 }
 
-template <typename T>
-void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
-                                        const std::vector<T> &TestData);
-
-template <typename T>
-void fillLongVectorDataFromShaderBuffer(const MappedData &ShaderBuffer,
-                                        std::vector<T> &TestData,
-                                        size_t NumElements);
-
 template <typename T> constexpr bool isFloatingPointType() {
   return std::is_same_v<T, float> || std::is_same_v<T, double> ||
          std::is_same_v<T, HLSLHalf_t>;
@@ -46,8 +36,6 @@ template <typename T> constexpr bool is16BitType() {
   return std::is_same_v<T, int16_t> || std::is_same_v<T, uint16_t> ||
          std::is_same_v<T, HLSLHalf_t>;
 }
-
-template <typename T> std::string getHLSLTypeString();
 
 // Helpful metadata struct so we can define some common properties for a test in
 // a single place. Intrinsic and Operator are passed in with -D defines to

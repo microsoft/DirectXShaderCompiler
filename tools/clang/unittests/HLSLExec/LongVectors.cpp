@@ -2,10 +2,10 @@
 #include "LongVectorTestData.h"
 
 #include "dxc/Support/Global.h"
+#include "ShaderOpTest.h"
 
 #include "HlslExecTestUtils.h"
 #include "TableParameterHandler.h"
-#include "dxc/Support/Global.h"
 
 #include <array>
 #include <iomanip>
