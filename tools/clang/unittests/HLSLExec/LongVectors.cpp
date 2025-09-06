@@ -409,6 +409,41 @@ std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
   return CompilerOptions.str();
 }
 
+// Helper to fill the shader buffer based on type. Convenient to be used when
+// copying HLSL*_t types so we can copy the underlying type directly instead of
+// the struct.
+template <typename T>
+void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
+                                        const std::vector<T> &TestData) {
+
+  // Note: DataSize for HLSLHalf_t and HLSLBool_t may be larger than the
+  // underlying type in some cases. Thats fine. Resize just makes sure we have
+  // enough space.
+  const size_t NumElements = TestData.size();
+  const size_t DataSize = sizeof(T) * NumElements;
+  ShaderBuffer.resize(DataSize);
+
+  if constexpr (std::is_same_v<T, HLSLHalf_t>) {
+    auto *ShaderBufferPtr =
+        reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
+    for (size_t I = 0; I < NumElements; I++)
+      ShaderBufferPtr[I] = TestData[I].Val;
+    return;
+  }
+
+  if constexpr (std::is_same_v<T, HLSLBool_t>) {
+    auto *ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
+    for (size_t I = 0; I < NumElements; I++)
+      ShaderBufferPtr[I] = TestData[I].Val;
+    return;
+  }
+
+  auto *ShaderBufferPtr = reinterpret_cast<T *>(ShaderBuffer.data());
+  for (size_t I = 0; I < NumElements; I++)
+    ShaderBufferPtr[I] = TestData[I];
+  return;
+}
+
 template <typename OUT_TYPE, typename T, size_t ARITY, typename OP_TYPE>
 std::optional<std::vector<OUT_TYPE>>
 runTest(const TestConfig &Config, OP_TYPE OpType,
@@ -502,41 +537,6 @@ runTest(const TestConfig &Config, OP_TYPE OpType,
                                      ExpectedOutputSize);
 
   return OutData;
-}
-
-// Helper to fill the shader buffer based on type. Convenient to be used when
-// copying HLSL*_t types so we can copy the underlying type directly instead of
-// the struct.
-template <typename T>
-void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
-                                        const std::vector<T> &TestData) {
-
-  // Note: DataSize for HLSLHalf_t and HLSLBool_t may be larger than the
-  // underlying type in some cases. Thats fine. Resize just makes sure we have
-  // enough space.
-  const size_t NumElements = TestData.size();
-  const size_t DataSize = sizeof(T) * NumElements;
-  ShaderBuffer.resize(DataSize);
-
-  if constexpr (std::is_same_v<T, HLSLHalf_t>) {
-    auto *ShaderBufferPtr =
-        reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
-    for (size_t I = 0; I < NumElements; I++)
-      ShaderBufferPtr[I] = TestData[I].Val;
-    return;
-  }
-
-  if constexpr (std::is_same_v<T, HLSLBool_t>) {
-    auto *ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
-    for (size_t I = 0; I < NumElements; I++)
-      ShaderBufferPtr[I] = TestData[I].Val;
-    return;
-  }
-
-  auto *ShaderBufferPtr = reinterpret_cast<T *>(ShaderBuffer.data());
-  for (size_t I = 0; I < NumElements; I++)
-    ShaderBufferPtr[I] = TestData[I];
-  return;
 }
 
 //
