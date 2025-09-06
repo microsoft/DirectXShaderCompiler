@@ -74,7 +74,7 @@ void fillLongVectorDataFromShaderBuffer(const MappedData &ShaderBuffer,
                                         size_t NumElements) {
 
   if constexpr (std::is_same_v<T, HLSLHalf_t>) {
-    auto ShaderBufferPtr =
+    auto *ShaderBufferPtr =
         static_cast<const DirectX::PackedVector::HALF *>(ShaderBuffer.data());
     for (size_t I = 0; I < NumElements; I++)
       // HLSLHalf_t has a DirectX::PackedVector::HALF based constructor.
@@ -83,14 +83,14 @@ void fillLongVectorDataFromShaderBuffer(const MappedData &ShaderBuffer,
   }
 
   if constexpr (std::is_same_v<T, HLSLBool_t>) {
-    auto ShaderBufferPtr = static_cast<const int32_t *>(ShaderBuffer.data());
+    auto *ShaderBufferPtr = static_cast<const int32_t *>(ShaderBuffer.data());
     for (size_t I = 0; I < NumElements; I++)
       // HLSLBool_t has a int32_t based constructor.
       TestData.push_back(ShaderBufferPtr[I]);
     return;
   }
 
-  auto ShaderBufferPtr = static_cast<const T *>(ShaderBuffer.data());
+  auto *ShaderBufferPtr = static_cast<const T *>(ShaderBuffer.data());
   for (size_t I = 0; I < NumElements; I++)
     TestData.push_back(ShaderBufferPtr[I]);
   return;
@@ -519,7 +519,7 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
   ShaderBuffer.resize(DataSize);
 
   if constexpr (std::is_same_v<T, HLSLHalf_t>) {
-    auto ShaderBufferPtr =
+    auto *ShaderBufferPtr =
         reinterpret_cast<DirectX::PackedVector::HALF *>(ShaderBuffer.data());
     for (size_t I = 0; I < NumElements; I++)
       ShaderBufferPtr[I] = TestData[I].Val;
@@ -527,13 +527,13 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
   }
 
   if constexpr (std::is_same_v<T, HLSLBool_t>) {
-    auto ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
+    auto *ShaderBufferPtr = reinterpret_cast<int32_t *>(ShaderBuffer.data());
     for (size_t I = 0; I < NumElements; I++)
       ShaderBufferPtr[I] = TestData[I].Val;
     return;
   }
 
-  auto ShaderBufferPtr = reinterpret_cast<T *>(ShaderBuffer.data());
+  auto *ShaderBufferPtr = reinterpret_cast<T *>(ShaderBuffer.data());
   for (size_t I = 0; I < NumElements; I++)
     ShaderBufferPtr[I] = TestData[I];
   return;
