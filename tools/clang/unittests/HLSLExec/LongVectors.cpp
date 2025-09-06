@@ -4,7 +4,6 @@
 #include "ShaderOpTest.h"
 #include "dxc/Support/Global.h"
 
-
 #include "HlslExecTestUtils.h"
 #include "TableParameterHandler.h"
 
