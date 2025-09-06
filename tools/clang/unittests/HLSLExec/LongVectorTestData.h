@@ -22,7 +22,6 @@ struct HLSLBool_t {
   HLSLBool_t() : Val(0) {}
   HLSLBool_t(int32_t Val) : Val(Val) {}
   HLSLBool_t(bool Val) : Val(Val) {}
-  HLSLBool_t(const HLSLBool_t &Other) : Val(Other.Val) {}
 
   bool operator==(const HLSLBool_t &Other) const {
     return static_cast<bool>(Val) == static_cast<bool>(Other.Val);
