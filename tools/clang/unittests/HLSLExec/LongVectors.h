@@ -7,12 +7,9 @@
 
 #include <optional>
 #include <string>
-#include <variant>
 
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
-
-#include "dxc/Support/Global.h"
 
 #include "LongVectorTestData.h"
 #include "ShaderOpTest.h"

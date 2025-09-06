@@ -1,6 +1,8 @@
 #include "LongVectors.h"
 #include "LongVectorTestData.h"
 
+#include "dxc/Support/Global.h"
+
 #include "HlslExecTestUtils.h"
 #include "TableParameterHandler.h"
 #include "dxc/Support/Global.h"
