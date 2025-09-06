@@ -1,7 +1,10 @@
 #ifndef LONGVECTORS_H
 #define LONGVECTORS_H
 
-#include <array>
+#include <Verify.h>
+#include <WexString.h>
+#include <WexTestClass.h>
+
 #include <optional>
 #include <string>
 #include <variant>
@@ -9,13 +12,10 @@
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
 
-#include <Verify.h>
+#include "dxc/Support/Global.h"
 
 #include "LongVectorTestData.h"
 #include "ShaderOpTest.h"
-#include "TableParameterHandler.h"
-#include "dxc/Support/dxcapi.use.h"
-#include "dxc/Test/HlslTestUtils.h"
 
 namespace LongVector {
 
@@ -60,7 +60,6 @@ template <typename T> constexpr bool is16BitType() {
 }
 
 template <typename T> std::string getHLSLTypeString();
-
 
 // Helpful metadata struct so we can define some common properties for a test in
 // a single place. Intrinsic and Operator are passed in with -D defines to
