@@ -545,18 +545,6 @@ runTest(const TestConfig &Config, OP_TYPE OpType,
   return OutData;
 }
 
-template <typename T> struct TrigonometricOperation {
-  static T acos(T Val) { return std::acos(Val); }
-  static T asin(T Val) { return std::asin(Val); }
-  static T atan(T Val) { return std::atan(Val); }
-  static T cos(T Val) { return std::cos(Val); }
-  static T cosh(T Val) { return std::cosh(Val); }
-  static T sin(T Val) { return std::sin(Val); }
-  static T sinh(T Val) { return std::sinh(Val); }
-  static T tan(T Val) { return std::tan(Val); }
-  static T tanh(T Val) { return std::tanh(Val); }
-};
-
 template <typename T> const wchar_t *DataTypeName() {
   static_assert(false && "Missing data type name");
 }
@@ -685,6 +673,18 @@ void dispatchBinaryTest(const TestConfig &Config,
 //
 // TrigonometricTest
 //
+
+template <typename T> struct TrigonometricOperation {
+  static T acos(T Val) { return std::acos(Val); }
+  static T asin(T Val) { return std::asin(Val); }
+  static T atan(T Val) { return std::atan(Val); }
+  static T cos(T Val) { return std::cos(Val); }
+  static T cosh(T Val) { return std::cosh(Val); }
+  static T sin(T Val) { return std::sin(Val); }
+  static T sinh(T Val) { return std::sinh(Val); }
+  static T tan(T Val) { return std::tan(Val); }
+  static T tanh(T Val) { return std::tanh(Val); }
+};
 
 template <typename T>
 void dispatchTrigonometricTest(const TestConfig &Config,
