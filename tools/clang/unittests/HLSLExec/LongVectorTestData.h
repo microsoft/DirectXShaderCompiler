@@ -9,6 +9,9 @@
 #include <string>
 #include <vector>
 
+#include <DirectXMath.h>
+#include <DirectXPackedVector.h>
+
 namespace LongVector {
 
 // A helper struct because C++ bools are 1 byte and HLSL bools are 4 bytes.
