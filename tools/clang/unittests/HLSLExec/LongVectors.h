@@ -13,16 +13,6 @@
 
 namespace LongVector {
 
-template <typename T> constexpr bool isFloatingPointType() {
-  return std::is_same_v<T, float> || std::is_same_v<T, double> ||
-         std::is_same_v<T, HLSLHalf_t>;
-}
-
-template <typename T> constexpr bool is16BitType() {
-  return std::is_same_v<T, int16_t> || std::is_same_v<T, uint16_t> ||
-         std::is_same_v<T, HLSLHalf_t>;
-}
-
 // Helpful metadata struct so we can define some common properties for a test in
 // a single place. Intrinsic and Operator are passed in with -D defines to
 // the compiler and expanded as macros in the HLSL code. For a better

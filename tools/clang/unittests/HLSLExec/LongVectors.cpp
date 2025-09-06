@@ -20,6 +20,45 @@
 
 namespace LongVector {
 
+//
+// Data Types
+//
+
+template <typename T> const wchar_t *getDataTypeName() {
+  static_assert(false && "Missing data type name");
+}
+
+template <typename T> const char *getHLSLTypeString() {
+  static_assert(false && "Missing HLSL type string");
+}
+
+#define DATA_TYPE_NAME(TYPE, NAME, HLSL_STRING)                                \
+  template <> const wchar_t *getDataTypeName<TYPE>() { return NAME; }          \
+  template <> const char *getHLSLTypeString<TYPE>() { return HLSL_STRING; }
+
+DATA_TYPE_NAME(HLSLBool_t, L"bool", "bool");
+DATA_TYPE_NAME(int16_t, L"int16", "int16_t");
+DATA_TYPE_NAME(int32_t, L"int32", "int");
+DATA_TYPE_NAME(int64_t, L"int64", "int64_t");
+DATA_TYPE_NAME(uint16_t, L"uint16", "uint16_t");
+DATA_TYPE_NAME(uint32_t, L"uint32", "uint32_");
+DATA_TYPE_NAME(uint64_t, L"uint64", "uint64_t");
+DATA_TYPE_NAME(HLSLHalf_t, L"float16", "half");
+DATA_TYPE_NAME(float, L"float32", "float");
+DATA_TYPE_NAME(double, L"float64", "double");
+
+#undef DATA_TYPE_NAME
+
+template <typename T> constexpr bool isFloatingPointType() {
+  return std::is_same_v<T, float> || std::is_same_v<T, double> ||
+         std::is_same_v<T, HLSLHalf_t>;
+}
+
+template <typename T> constexpr bool is16BitType() {
+  return std::is_same_v<T, int16_t> || std::is_same_v<T, uint16_t> ||
+         std::is_same_v<T, HLSLHalf_t>;
+}
+
 template <typename OpT, size_t Length>
 const OpTypeMetaData<OpT> &
 getOpType(const OpTypeMetaData<OpT> (&Values)[Length],
@@ -222,32 +261,6 @@ bool doVectorsMatch(const std::vector<T> &ActualValues,
   }
 
   return false;
-}
-
-template <typename T> std::string getHLSLTypeString() {
-  if (std::is_same_v<T, HLSLBool_t>)
-    return "bool";
-  if (std::is_same_v<T, HLSLHalf_t>)
-    return "half";
-  if (std::is_same_v<T, float>)
-    return "float";
-  if (std::is_same_v<T, double>)
-    return "double";
-  if (std::is_same_v<T, int16_t>)
-    return "int16_t";
-  if (std::is_same_v<T, int32_t>)
-    return "int";
-  if (std::is_same_v<T, int64_t>)
-    return "int64_t";
-  if (std::is_same_v<T, uint16_t>)
-    return "uint16_t";
-  if (std::is_same_v<T, uint32_t>)
-    return "uint32_t";
-  if (std::is_same_v<T, uint64_t>)
-    return "uint64_t";
-
-  LOG_ERROR_FMT_THROW(L"Unsupported type: %S", typeid(T).name());
-  return "UnknownType";
 }
 
 bool OpTest::classSetup() {
@@ -545,26 +558,6 @@ runTest(const TestConfig &Config, OP_TYPE OpType,
   return OutData;
 }
 
-template <typename T> const wchar_t *DataTypeName() {
-  static_assert(false && "Missing data type name");
-}
-
-#define DATA_TYPE_NAME(TYPE, NAME)                                             \
-  template <> const wchar_t *DataTypeName<TYPE>() { return NAME; }
-
-DATA_TYPE_NAME(HLSLBool_t, L"bool");
-DATA_TYPE_NAME(int16_t, L"int16");
-DATA_TYPE_NAME(int32_t, L"int32");
-DATA_TYPE_NAME(int64_t, L"int64");
-DATA_TYPE_NAME(uint16_t, L"uint16");
-DATA_TYPE_NAME(uint32_t, L"uint32");
-DATA_TYPE_NAME(uint64_t, L"uint64");
-DATA_TYPE_NAME(HLSLHalf_t, L"float16");
-DATA_TYPE_NAME(float, L"float32");
-DATA_TYPE_NAME(double, L"float64");
-
-#undef DATA_TYPE_NAME
-
 template <typename DATA_TYPE>
 std::vector<DATA_TYPE> buildTestInput(const wchar_t *InputValueSetName,
                                       size_t SizeToTest) {
@@ -724,11 +717,11 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
   // cos is available here:
   // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
 
-  if (Config.DataType == DataTypeName<HLSLHalf_t>())
+  if (Config.DataType == getDataTypeName<HLSLHalf_t>())
     return dispatchTrigonometricTest<HLSLHalf_t>(
         Config, ValidationConfig::Epsilon(0.0010f), OpType, VectorSize);
 
-  if (Config.DataType == DataTypeName<float>())
+  if (Config.DataType == getDataTypeName<float>())
     return dispatchTrigonometricTest<float>(
         Config, ValidationConfig::Epsilon(0.0008f), OpType, VectorSize);
 
@@ -846,7 +839,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
   // we dispatch on operation first.
 
 #define DISPATCH(TYPE, FN)                                                     \
-  if (Config.DataType == DataTypeName<TYPE>())                                 \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
   return dispatchUnaryTest<TYPE>(Config, ValidationConfig{}, OpType,           \
                                  VectorSize, FN<TYPE>, "")
 
@@ -887,12 +880,12 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     break;
 
   case AsTypeOpType_AsUint_SplitDouble:
-    if (Config.DataType == DataTypeName<double>())
+    if (Config.DataType == getDataTypeName<double>())
       return dispatchAsUintSplitDoubleTest(Config, VectorSize);
     break;
 
   case AsTypeOpType_AsDouble:
-    if (Config.DataType == DataTypeName<uint32_t>())
+    if (Config.DataType == getDataTypeName<uint32_t>())
       return dispatchBinaryTest<uint32_t>(Config, ValidationConfig{},
                                           AsTypeOpType_AsDouble, VectorSize,
                                           asDouble);
@@ -918,7 +911,7 @@ template <typename T> T Initialize(T V) { return V; }
 void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                        UnaryOpType OpType, size_t VectorSize) {
 #define DISPATCH(TYPE, FUNC, EXTRA_DEFINES)                                    \
-  if (Config.DataType == DataTypeName<TYPE>())                                 \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
   return dispatchUnaryTest(Config, ValidationConfig{}, OpType, VectorSize,     \
                            FUNC, EXTRA_DEFINES)
 
@@ -1046,7 +1039,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                        UnaryMathOpType OpType,
                                        size_t VectorSize) {
 #define DISPATCH(TYPE, FUNC)                                                   \
-  if (Config.DataType == DataTypeName<TYPE>())                                 \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
   return dispatchUnaryMathOpTest(Config, OpType, VectorSize,                   \
                                  UnaryMathOps<TYPE>::FUNC)
 
@@ -1141,7 +1134,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     break;
 
   case UnaryMathOpType_Frexp:
-    if (Config.DataType == DataTypeName<float>())
+    if (Config.DataType == getDataTypeName<float>())
       return dispatchFrexpTest(Config, VectorSize);
     break;
 
@@ -1199,7 +1192,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                        size_t VectorSize) {
 
 #define DISPATCH(TYPE, FUNC)                                                   \
-  if (Config.DataType == DataTypeName<TYPE>())                                 \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
   return dispatchBinaryMathOpTest(Config, OpType, VectorSize,                  \
                                   BinaryMathOps<TYPE>::FUNC)
 
@@ -1361,7 +1354,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                        size_t VectorSize) {
 
 #define DISPATCH(TYPE, FUNC)                                                   \
-  if (Config.DataType == DataTypeName<TYPE>())                                 \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
   return dispatchTernaryMathOpTest(Config, OpType, VectorSize,                 \
                                    TernaryMathOps::FUNC<TYPE>)
 
