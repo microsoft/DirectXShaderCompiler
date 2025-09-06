@@ -97,6 +97,29 @@ void fillLongVectorDataFromShaderBuffer(const MappedData &ShaderBuffer,
 }
 
 template <typename T>
+void logLongVector(const std::vector<T> &Values, const std::wstring &Name) {
+  WEX::Logging::Log::Comment(
+      WEX::Common::String().Format(L"LongVector Name: %s", Name.c_str()));
+
+  const size_t LoggingWidth = 40;
+
+  std::wstringstream Wss(L"");
+  Wss << L"LongVector Values: ";
+  Wss << L"[";
+  const size_t NumElements = Values.size();
+  for (size_t I = 0; I < NumElements; I++) {
+    if (I % LoggingWidth == 0 && I != 0)
+      Wss << L"\n ";
+    Wss << Values[I];
+    if (I != NumElements - 1)
+      Wss << L", ";
+  }
+  Wss << L" ]";
+
+  WEX::Logging::Log::Comment(Wss.str().c_str());
+}
+
+template <typename T>
 bool doValuesMatch(T A, T B, float Tolerance, ValidationType) {
   if (Tolerance == 0.0f)
     return A == B;
@@ -194,29 +217,6 @@ bool doVectorsMatch(const std::vector<T> &ActualValues,
   }
 
   return false;
-}
-
-template <typename T>
-void logLongVector(const std::vector<T> &Values, const std::wstring &Name) {
-  WEX::Logging::Log::Comment(
-      WEX::Common::String().Format(L"LongVector Name: %s", Name.c_str()));
-
-  const size_t LoggingWidth = 40;
-
-  std::wstringstream Wss(L"");
-  Wss << L"LongVector Values: ";
-  Wss << L"[";
-  const size_t NumElements = Values.size();
-  for (size_t I = 0; I < NumElements; I++) {
-    if (I % LoggingWidth == 0 && I != 0)
-      Wss << L"\n ";
-    Wss << Values[I];
-    if (I != NumElements - 1)
-      Wss << L", ";
-  }
-  Wss << L" ]";
-
-  WEX::Logging::Log::Comment(Wss.str().c_str());
 }
 
 template <typename T> std::string getHLSLTypeString() {
