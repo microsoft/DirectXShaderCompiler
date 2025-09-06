@@ -886,8 +886,6 @@ void dispatchTest(const TestConfig &Config, AsTypeOpType OpType,
     DISPATCH(uint16_t, asUint16);
     break;
 
-    break;
-
   case AsTypeOpType_AsUint_SplitDouble:
     if (Config.DataType == DataTypeName<double>())
       return dispatchAsUintSplitDoubleTest(Config, VectorSize);
