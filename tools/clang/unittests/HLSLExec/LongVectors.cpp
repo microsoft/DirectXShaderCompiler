@@ -495,10 +495,10 @@ InputSets<T, ARITY> buildTestInputs(const TAEFTestDataValues &TAEFTestData,
 }
 
 template <typename OUT_TYPE, typename T, size_t ARITY, typename OP_TYPE>
-std::vector<OUT_TYPE> runTest(OP_TYPE OpType, const InputSets<T, ARITY> &Inputs,
-                              size_t ExpectedOutputSize,
-                              uint16_t ScalarInputFlags,
-                              std::string ExtraDefines, bool &WasSkipped);
+std::vector<OUT_TYPE>
+runTest(bool VerboseLogging, OP_TYPE OpType, const InputSets<T, ARITY> &Inputs,
+        size_t ExpectedOutputSize, uint16_t ScalarInputFlags,
+        std::string ExtraDefines, bool &WasSkipped);
 
 struct ValidationConfig {
   float Tolerance = 0.0f;
@@ -514,25 +514,26 @@ struct ValidationConfig {
 };
 
 template <typename T, typename OUT_TYPE, typename OP_TYPE, size_t ARITY>
-void runAndVerify(OP_TYPE OpType, const InputSets<T, ARITY> &Inputs,
+void runAndVerify(bool VerboseLogging, OP_TYPE OpType,
+                  const InputSets<T, ARITY> &Inputs,
                   const std::vector<OUT_TYPE> &Expected,
                   uint16_t ScalarInputFlags, std::string ExtraDefines,
                   const ValidationConfig &ValidationConfig) {
 
   bool WasSkipped = true;
   std::vector<OUT_TYPE> Actual =
-      runTest<OUT_TYPE>(OpType, Inputs, Expected.size(), ScalarInputFlags,
-                        ExtraDefines, WasSkipped);
+      runTest<OUT_TYPE>(VerboseLogging, OpType, Inputs, Expected.size(),
+                        ScalarInputFlags, ExtraDefines, WasSkipped);
   if (WasSkipped)
     return;
 
-  bool VerboseLogging = false;
   VERIFY_IS_TRUE(doVectorsMatch(Actual, Expected, ValidationConfig.Tolerance,
                                 ValidationConfig.Type, VerboseLogging));
 }
 
 template <typename T, typename OUT_TYPE, typename OP_TYPE>
-void dispatchUnaryTest(const TAEFTestDataValues &TAEFTestData,
+void dispatchUnaryTest(bool VerboseLogging,
+                       const TAEFTestDataValues &TAEFTestData,
                        const ValidationConfig &ValidationConfig, OP_TYPE OpType,
                        size_t VectorSize, OUT_TYPE (*Calc)(T),
                        std::string ExtraDefines) {
@@ -546,12 +547,13 @@ void dispatchUnaryTest(const TAEFTestDataValues &TAEFTestData,
     Expected.push_back(Calc(Inputs[0][I]));
   }
 
-  runAndVerify(OpType, Inputs, Expected, TAEFTestData.ScalarInputFlags,
-               ExtraDefines, ValidationConfig);
+  runAndVerify(VerboseLogging, OpType, Inputs, Expected,
+               TAEFTestData.ScalarInputFlags, ExtraDefines, ValidationConfig);
 }
 
 template <typename T, typename OUT_TYPE, typename OP_TYPE>
-void dispatchBinaryTest(const TAEFTestDataValues &TAEFTestData,
+void dispatchBinaryTest(bool VerboseLogging,
+                        const TAEFTestDataValues &TAEFTestData,
                         const ValidationConfig &ValidationConfig,
                         OP_TYPE OpType, size_t VectorSize,
                         OUT_TYPE (*Calc)(T, T)) {
@@ -565,8 +567,8 @@ void dispatchBinaryTest(const TAEFTestDataValues &TAEFTestData,
     Expected.push_back(Calc(Inputs[0][I], Inputs[1][Index1]));
   }
 
-  runAndVerify(OpType, Inputs, Expected, TAEFTestData.ScalarInputFlags, "",
-               ValidationConfig);
+  runAndVerify(VerboseLogging, OpType, Inputs, Expected,
+               TAEFTestData.ScalarInputFlags, "", ValidationConfig);
 }
 
 //
@@ -574,14 +576,15 @@ void dispatchBinaryTest(const TAEFTestDataValues &TAEFTestData,
 //
 
 template <typename T>
-void dispatchTrigonometricTest(const TAEFTestDataValues &TAEFTestData,
+void dispatchTrigonometricTest(bool VerboseLogging,
+                               const TAEFTestDataValues &TAEFTestData,
                                ValidationConfig ValidationConfig,
                                TrigonometricOpType OpType, size_t VectorSize) {
 #define DISPATCH(OP, NAME)                                                     \
   case OP:                                                                     \
-    return dispatchUnaryTest<T>(TAEFTestData, ValidationConfig, OP,            \
-                                VectorSize, TrigonometricOperation<T>::NAME,   \
-                                "")
+    return dispatchUnaryTest<T>(VerboseLogging, TAEFTestData,                  \
+                                ValidationConfig, OP, VectorSize,              \
+                                TrigonometricOperation<T>::NAME, "")
 
   switch (OpType) {
     DISPATCH(TrigonometricOpType_Acos, acos);
@@ -602,7 +605,7 @@ void dispatchTrigonometricTest(const TAEFTestDataValues &TAEFTestData,
   LOG_ERROR_FMT_THROW(L"Unexpected TrigonometricOpType: %d.", OpType);
 }
 
-void dispatchTest(const TAEFTestDataValues &TAEFTestData,
+void dispatchTest(bool VerboseLogging, const TAEFTestDataValues &TAEFTestData,
                   TrigonometricOpType OpType, size_t VectorSize) {
 
   // All trigonometric ops are floating point types.
@@ -613,11 +616,13 @@ void dispatchTest(const TAEFTestDataValues &TAEFTestData,
 
   if (TAEFTestData.DataType == DataTypeName<HLSLHalf_t>())
     return dispatchTrigonometricTest<HLSLHalf_t>(
-        TAEFTestData, ValidationConfig::Epsilon(0.0010f), OpType, VectorSize);
+        VerboseLogging, TAEFTestData, ValidationConfig::Epsilon(0.0010f),
+        OpType, VectorSize);
 
   if (TAEFTestData.DataType == DataTypeName<float>())
-    return dispatchTrigonometricTest<float>(
-        TAEFTestData, ValidationConfig::Epsilon(0.0008f), OpType, VectorSize);
+    return dispatchTrigonometricTest<float>(VerboseLogging, TAEFTestData,
+                                            ValidationConfig::Epsilon(0.0008f),
+                                            OpType, VectorSize);
 
   LOG_ERROR_FMT_THROW(
       L"DataType '%s' not supported for trigonometric operations.",
@@ -628,7 +633,8 @@ void dispatchTest(const TAEFTestDataValues &TAEFTestData,
 // AsTypeOp
 //
 
-void dispatchAsUintSplitDoubleTest(const TAEFTestDataValues &TAEFTestData,
+void dispatchAsUintSplitDoubleTest(bool VerboseLogging,
+                                   const TAEFTestDataValues &TAEFTestData,
                                    size_t VectorSize) {
 
   InputSets<double, 1> Inputs =
@@ -645,21 +651,22 @@ void dispatchAsUintSplitDoubleTest(const TAEFTestDataValues &TAEFTestData,
   }
 
   ValidationConfig ValidationConfig{};
-  runAndVerify(AsTypeOpType_AsUint_SplitDouble, Inputs, Expected,
-               TAEFTestData.ScalarInputFlags, " -DFUNC_ASUINT_SPLITDOUBLE=1",
-               ValidationConfig);
+  runAndVerify(VerboseLogging, AsTypeOpType_AsUint_SplitDouble, Inputs,
+               Expected, TAEFTestData.ScalarInputFlags,
+               " -DFUNC_ASUINT_SPLITDOUBLE=1", ValidationConfig);
 }
 
-void dispatchTest(const TAEFTestDataValues &TAEFTestData, AsTypeOpType OpType,
-                  size_t VectorSize) {
+void dispatchTest(bool VerboseLogging, const TAEFTestDataValues &TAEFTestData,
+                  AsTypeOpType OpType, size_t VectorSize) {
 
   // Different AsType* operations are supported for different data types, so we
   // dispatch on operation first.
 
 #define DISPATCH(TYPE, FN)                                                     \
   if (TAEFTestData.DataType == DataTypeName<TYPE>())                           \
-  return dispatchUnaryTest<TYPE>(TAEFTestData, ValidationConfig{}, OpType,     \
-                                 VectorSize, FN<TYPE>, "")
+  return dispatchUnaryTest<TYPE>(VerboseLogging, TAEFTestData,                 \
+                                 ValidationConfig{}, OpType, VectorSize,       \
+                                 FN<TYPE>, "")
 
   switch (OpType) {
   case AsTypeOpType_AsFloat:
@@ -701,14 +708,15 @@ void dispatchTest(const TAEFTestDataValues &TAEFTestData, AsTypeOpType OpType,
 
   case AsTypeOpType_AsUint_SplitDouble:
     if (TAEFTestData.DataType == DataTypeName<double>())
-      return dispatchAsUintSplitDoubleTest(TAEFTestData, VectorSize);
+      return dispatchAsUintSplitDoubleTest(VerboseLogging, TAEFTestData,
+                                           VectorSize);
     break;
 
   case AsTypeOpType_AsDouble:
     if (TAEFTestData.DataType == DataTypeName<uint32_t>())
-      return dispatchBinaryTest<uint32_t>(TAEFTestData, ValidationConfig{},
-                                          AsTypeOpType_AsDouble, VectorSize,
-                                          asDouble);
+      return dispatchBinaryTest<uint32_t>(
+          VerboseLogging, TAEFTestData, ValidationConfig{},
+          AsTypeOpType_AsDouble, VectorSize, asDouble);
     break;
 
   case AsTypeOpType_EnumValueCount:
@@ -728,12 +736,12 @@ void dispatchTest(const TAEFTestDataValues &TAEFTestData, AsTypeOpType OpType,
 
 template <typename T> T Initialize(T V) { return V; }
 
-void dispatchTest(const TAEFTestDataValues &TAEFTestData, UnaryOpType OpType,
-                  size_t VectorSize) {
+void dispatchTest(bool VerboseLogging, const TAEFTestDataValues &TAEFTestData,
+                  UnaryOpType OpType, size_t VectorSize) {
 #define DISPATCH(TYPE, FUNC, EXTRA_DEFINES)                                    \
   if (TAEFTestData.DataType == DataTypeName<TYPE>())                           \
-  return dispatchUnaryTest(TAEFTestData, ValidationConfig{}, OpType,           \
-                           VectorSize, FUNC, EXTRA_DEFINES)
+  return dispatchUnaryTest(VerboseLogging, TAEFTestData, ValidationConfig{},   \
+                           OpType, VectorSize, FUNC, EXTRA_DEFINES)
 
 #define DISPATCH_INITIALIZE(TYPE)                                              \
   DISPATCH(TYPE, Initialize<TYPE>, " -DFUNC_INITIALIZE=1")
@@ -768,7 +776,8 @@ void dispatchTest(const TAEFTestDataValues &TAEFTestData, UnaryOpType OpType,
 //
 
 template <typename T, typename OUT_TYPE>
-void dispatchUnaryMathOpTest(const TAEFTestDataValues &TAEFTestData,
+void dispatchUnaryMathOpTest(bool VerboseLogging,
+                             const TAEFTestDataValues &TAEFTestData,
                              UnaryMathOpType OpType, size_t VectorSize,
                              OUT_TYPE (*Calc)(T)) {
 
@@ -778,8 +787,8 @@ void dispatchUnaryMathOpTest(const TAEFTestDataValues &TAEFTestData,
     ValidationConfig = ValidationConfig::Ulp(1.0);
   }
 
-  dispatchUnaryTest(TAEFTestData, ValidationConfig, OpType, VectorSize, Calc,
-                    "");
+  dispatchUnaryTest(VerboseLogging, TAEFTestData, ValidationConfig, OpType,
+                    VectorSize, Calc, "");
 }
 
 template <typename T> struct UnaryMathOps {
@@ -813,7 +822,8 @@ template <typename T> struct UnaryMathOps {
   static T Rcp(T V) { return static_cast<T>(1.0) / V; }
 };
 
-void dispatchFrexpTest(const TAEFTestDataValues &TAEFTestData,
+void dispatchFrexpTest(bool VerboseLogging,
+                       const TAEFTestDataValues &TAEFTestData,
                        size_t VectorSize) {
   // Frexp has a return value as well as an output paramater. So we handle it
   // with special logic. Frexp is only supported for fp32 values.
@@ -846,14 +856,17 @@ void dispatchFrexpTest(const TAEFTestDataValues &TAEFTestData,
     // conversion between float and int is safe.
     Expected[I + VectorSize] = static_cast<float>(Exp);
   }
+
+  runAndVerify(VerboseLogging, UnaryMathOpType_Frexp, Inputs, Expected,
+               TAEFTestData.ScalarInputFlags, " -DFUNC_FREXP=1", ValidationConfig{});
 }
 
-void dispatchTest(const TAEFTestDataValues &TAEFTestData,
+void dispatchTest(bool VerboseLogging, const TAEFTestDataValues &TAEFTestData,
                   UnaryMathOpType OpType, size_t VectorSize) {
 #define DISPATCH(TYPE, FUNC)                                                   \
   if (TAEFTestData.DataType == DataTypeName<TYPE>())                           \
-  return dispatchUnaryMathOpTest(TAEFTestData, OpType, VectorSize,             \
-                                 UnaryMathOps<TYPE>::FUNC)
+  return dispatchUnaryMathOpTest(VerboseLogging, TAEFTestData, OpType,         \
+                                 VectorSize, UnaryMathOps<TYPE>::FUNC)
 
   switch (OpType) {
   case UnaryMathOpType_Abs:
@@ -947,7 +960,7 @@ void dispatchTest(const TAEFTestDataValues &TAEFTestData,
 
   case UnaryMathOpType_Frexp:
     if (TAEFTestData.DataType == DataTypeName<float>())
-      return dispatchFrexpTest(TAEFTestData, VectorSize);
+      return dispatchFrexpTest(VerboseLogging, TAEFTestData, VectorSize);
     break;
 
   case UnaryMathOpType_EnumValueCount:
@@ -966,7 +979,8 @@ void dispatchTest(const TAEFTestDataValues &TAEFTestData,
 //
 
 template <typename T, typename OUT_TYPE>
-void dispatchBinaryMathOpTest(const TAEFTestDataValues &TAEFTestData,
+void dispatchBinaryMathOpTest(bool VerboseLogging,
+                              const TAEFTestDataValues &TAEFTestData,
                               BinaryMathOpType OpType, size_t VectorSize,
                               OUT_TYPE (*Calc)(T, T)) {
 
@@ -976,7 +990,8 @@ void dispatchBinaryMathOpTest(const TAEFTestDataValues &TAEFTestData,
     ValidationConfig = ValidationConfig::Ulp(1.0);
   }
 
-  dispatchBinaryTest(TAEFTestData, ValidationConfig, OpType, VectorSize, Calc);
+  dispatchBinaryTest(VerboseLogging, TAEFTestData, ValidationConfig, OpType,
+                     VectorSize, Calc);
 }
 
 template <typename T> struct BinaryMathOps {
@@ -1004,13 +1019,13 @@ template <typename T> struct BinaryMathOps {
   static T Ldexp(T A, T B) { return A * static_cast<T>(std::pow(2.0f, B)); }
 };
 
-void dispatchTest(const TAEFTestDataValues &TAEFTestData,
+void dispatchTest(bool VerboseLogging, const TAEFTestDataValues &TAEFTestData,
                   BinaryMathOpType OpType, size_t VectorSize) {
 
 #define DISPATCH(TYPE, FUNC)                                                   \
   if (TAEFTestData.DataType == DataTypeName<TYPE>())                           \
-  return dispatchBinaryMathOpTest(TAEFTestData, OpType, VectorSize,            \
-                                  BinaryMathOps<TYPE>::FUNC)
+  return dispatchBinaryMathOpTest(VerboseLogging, TAEFTestData, OpType,        \
+                                  VectorSize, BinaryMathOps<TYPE>::FUNC)
 
   switch (OpType) {
   case BinaryMathOpType_Multiply:
@@ -1119,7 +1134,8 @@ void dispatchTest(const TAEFTestDataValues &TAEFTestData,
 //
 
 template <typename T, typename OUT_TYPE>
-void dispatchTernaryMathOpTest(const TAEFTestDataValues &TAEFTestData,
+void dispatchTernaryMathOpTest(bool VerboseLogging,
+                               const TAEFTestDataValues &TAEFTestData,
                                TernaryMathOpType OpType, size_t VectorSize,
                                OUT_TYPE (*Calc)(T, T, T)) {
 
@@ -1141,8 +1157,8 @@ void dispatchTernaryMathOpTest(const TAEFTestDataValues &TAEFTestData,
         Calc(Inputs[0][I], Inputs[1][Index1], Inputs[2][Index2]));
   }
 
-  runAndVerify(OpType, Inputs, Expected, TAEFTestData.ScalarInputFlags, "",
-               ValidationConfig);
+  runAndVerify(VerboseLogging, OpType, Inputs, Expected,
+               TAEFTestData.ScalarInputFlags, "", ValidationConfig);
 }
 
 namespace TernaryMathOps {
@@ -1167,13 +1183,13 @@ template <typename T> T SmoothStep(T Min, T Max, T X) {
 
 } // namespace TernaryMathOps
 
-void dispatchTest(const TAEFTestDataValues &TAEFTestData,
+void dispatchTest(bool VerboseLogging, const TAEFTestDataValues &TAEFTestData,
                   TernaryMathOpType OpType, size_t VectorSize) {
 
 #define DISPATCH(TYPE, FUNC)                                                   \
   if (TAEFTestData.DataType == DataTypeName<TYPE>())                           \
-  return dispatchTernaryMathOpTest(TAEFTestData, OpType, VectorSize,           \
-                                   TernaryMathOps::FUNC<TYPE>)
+  return dispatchTernaryMathOpTest(VerboseLogging, TAEFTestData, OpType,       \
+                                   VectorSize, TernaryMathOps::FUNC<TYPE>)
 
   switch (OpType) {
   case TernaryMathOpType_Fma:
@@ -1209,7 +1225,7 @@ void dispatchTest(const TAEFTestDataValues &TAEFTestData,
 //
 //
 //
-template <typename OP_TYPE> void dispatchTest() {
+template <typename OP_TYPE> void dispatchTest(bool VerboseLogging) {
   std::optional<TAEFTestDataValues> TAEFTestData =
       TAEFTestDataValues::CreateFromTestData();
   if (!TAEFTestData)
@@ -1224,7 +1240,7 @@ template <typename OP_TYPE> void dispatchTest() {
     InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
 
   for (size_t VectorSize : InputVectorSizes) {
-    dispatchTest(*TAEFTestData, OpType, VectorSize);
+    dispatchTest(VerboseLogging, *TAEFTestData, OpType, VectorSize);
   }
 }
 
@@ -1317,42 +1333,42 @@ TEST_F(OpTest, trigonometricOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  dispatchTest<TrigonometricOpType>();
+  dispatchTest<TrigonometricOpType>(VerboseLogging);
 }
 
 TEST_F(OpTest, unaryOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  dispatchTest<UnaryOpType>();
+  dispatchTest<UnaryOpType>(VerboseLogging);
 }
 
 TEST_F(OpTest, asTypeOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  dispatchTest<AsTypeOpType>();
+  dispatchTest<AsTypeOpType>(VerboseLogging);
 }
 
 TEST_F(OpTest, unaryMathOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  dispatchTest<UnaryMathOpType>();
+  dispatchTest<UnaryMathOpType>(VerboseLogging);
 }
 
 TEST_F(OpTest, binaryMathOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  dispatchTest<BinaryMathOpType>();
+  dispatchTest<BinaryMathOpType>(VerboseLogging);
 }
 
 TEST_F(OpTest, ternaryMathOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  dispatchTest<TernaryMathOpType>();
+  dispatchTest<TernaryMathOpType>(VerboseLogging);
 }
 
 // Helper to fill the shader buffer based on type. Convenient to be used when
@@ -1427,10 +1443,10 @@ std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
 }
 
 template <typename OUT_TYPE, typename T, size_t ARITY, typename OP_TYPE>
-std::vector<OUT_TYPE> runTest(OP_TYPE OpType, const InputSets<T, ARITY> &Inputs,
-                              size_t ExpectedOutputSize,
-                              uint16_t ScalarInputFlags,
-                              std::string ExtraDefines, bool &WasSkipped) {
+std::vector<OUT_TYPE>
+runTest(bool VerboseLogging, OP_TYPE OpType, const InputSets<T, ARITY> &Inputs,
+        size_t ExpectedOutputSize, uint16_t ScalarInputFlags,
+        std::string ExtraDefines, bool &WasSkipped) {
 
   CComPtr<ID3D12Device> D3DDevice;
   if (!createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false)) {
@@ -1446,8 +1462,6 @@ std::vector<OUT_TYPE> runTest(OP_TYPE OpType, const InputSets<T, ARITY> &Inputs,
 #endif
   }
 
-  // TODO: reinstate VerboseLogging flag?
-  bool VerboseLogging = false;
   if (VerboseLogging) {
     for (size_t I = 0; I < ARITY; ++I) {
       std::wstring Name = L"InputVector";
