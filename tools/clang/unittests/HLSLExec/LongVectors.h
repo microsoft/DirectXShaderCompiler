@@ -31,15 +31,6 @@ bit_cast(const FromT &Src) {
   return Dst;
 }
 
-// Used so we can dynamically resolve the type of data stored out the output
-// LongVector for a test case.
-using VariantVector =
-    std::variant<std::vector<HLSLBool_t>, std::vector<HLSLHalf_t>,
-                 std::vector<float>, std::vector<double>, std::vector<int16_t>,
-                 std::vector<int32_t>, std::vector<int64_t>,
-                 std::vector<uint16_t>, std::vector<uint32_t>,
-                 std::vector<uint64_t>>;
-
 template <typename T>
 void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
                                         const std::vector<T> &TestData);
