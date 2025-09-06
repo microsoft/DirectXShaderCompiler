@@ -191,9 +191,9 @@ void logLongVector(const std::vector<T> &Values, const std::wstring &Name) {
   WEX::Logging::Log::Comment(Wss.str().c_str());
 }
 
-enum ValidationType {
-  ValidationType_Epsilon,
-  ValidationType_Ulp,
+enum class ValidationType {
+  Epsilon,
+  Ulp,
 };
 
 template <typename T>
@@ -212,9 +212,9 @@ bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, float, ValidationType) {
 bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
                    ValidationType ValidationType) {
   switch (ValidationType) {
-  case ValidationType_Epsilon:
+  case ValidationType::Epsilon:
     return CompareHalfEpsilon(A.Val, B.Val, Tolerance);
-  case ValidationType_Ulp:
+  case ValidationType::Ulp:
     return CompareHalfULP(A.Val, B.Val, Tolerance);
   default:
     WEX::Logging::Log::Error(
@@ -226,9 +226,9 @@ bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
 bool doValuesMatch(float A, float B, float Tolerance,
                    ValidationType ValidationType) {
   switch (ValidationType) {
-  case ValidationType_Epsilon:
+  case ValidationType::Epsilon:
     return CompareFloatEpsilon(A, B, Tolerance);
-  case ValidationType_Ulp: {
+  case ValidationType::Ulp: {
     // Tolerance is in ULPs. Convert to int for the comparison.
     const int IntTolerance = static_cast<int>(Tolerance);
     return CompareFloatULP(A, B, IntTolerance);
@@ -243,9 +243,9 @@ bool doValuesMatch(float A, float B, float Tolerance,
 bool doValuesMatch(double A, double B, float Tolerance,
                    ValidationType ValidationType) {
   switch (ValidationType) {
-  case ValidationType_Epsilon:
+  case ValidationType::Epsilon:
     return CompareDoubleEpsilon(A, B, Tolerance);
-  case ValidationType_Ulp: {
+  case ValidationType::Ulp: {
     // Tolerance is in ULPs. Convert to int64_t for the comparison.
     const int64_t IntTolerance = static_cast<int64_t>(Tolerance);
     return CompareDoubleULP(A, B, IntTolerance);
@@ -631,14 +631,14 @@ InputSets<T, ARITY> buildTestInputs(const TestConfig &Config,
 
 struct ValidationConfig {
   float Tolerance = 0.0f;
-  ValidationType Type = ValidationType_Epsilon;
+  ValidationType Type = ValidationType::Epsilon;
 
   static ValidationConfig Epsilon(float Tolerance) {
-    return ValidationConfig{Tolerance, ValidationType_Epsilon};
+    return ValidationConfig{Tolerance, ValidationType::Epsilon};
   }
 
   static ValidationConfig Ulp(float Tolerance) {
-    return ValidationConfig{Tolerance, ValidationType_Ulp};
+    return ValidationConfig{Tolerance, ValidationType::Ulp};
   }
 };
 
@@ -700,35 +700,35 @@ void dispatchBinaryTest(const TestConfig &Config,
 // TrigonometricTest
 //
 
-enum TrigonometricOpType {
-  TrigonometricOpType_Acos,
-  TrigonometricOpType_Asin,
-  TrigonometricOpType_Atan,
-  TrigonometricOpType_Cos,
-  TrigonometricOpType_Cosh,
-  TrigonometricOpType_Sin,
-  TrigonometricOpType_Sinh,
-  TrigonometricOpType_Tan,
-  TrigonometricOpType_Tanh,
-  TrigonometricOpType_EnumValueCount
+enum class TrigonometricOpType {
+  Acos,
+  Asin,
+  Atan,
+  Cos,
+  Cosh,
+  Sin,
+  Sinh,
+  Tan,
+  Tanh,
+  EnumValueCount
 };
 
 static const OpTypeMetaData<TrigonometricOpType>
     trigonometricOpTypeStringToOpMetaData[] = {
-        {L"TrigonometricOpType_Acos", TrigonometricOpType_Acos, "acos"},
-        {L"TrigonometricOpType_Asin", TrigonometricOpType_Asin, "asin"},
-        {L"TrigonometricOpType_Atan", TrigonometricOpType_Atan, "atan"},
-        {L"TrigonometricOpType_Cos", TrigonometricOpType_Cos, "cos"},
-        {L"TrigonometricOpType_Cosh", TrigonometricOpType_Cosh, "cosh"},
-        {L"TrigonometricOpType_Sin", TrigonometricOpType_Sin, "sin"},
-        {L"TrigonometricOpType_Sinh", TrigonometricOpType_Sinh, "sinh"},
-        {L"TrigonometricOpType_Tan", TrigonometricOpType_Tan, "tan"},
-        {L"TrigonometricOpType_Tanh", TrigonometricOpType_Tanh, "tanh"},
+        {L"TrigonometricOpType_Acos", TrigonometricOpType::Acos, "acos"},
+        {L"TrigonometricOpType_Asin", TrigonometricOpType::Asin, "asin"},
+        {L"TrigonometricOpType_Atan", TrigonometricOpType::Atan, "atan"},
+        {L"TrigonometricOpType_Cos", TrigonometricOpType::Cos, "cos"},
+        {L"TrigonometricOpType_Cosh", TrigonometricOpType::Cosh, "cosh"},
+        {L"TrigonometricOpType_Sin", TrigonometricOpType::Sin, "sin"},
+        {L"TrigonometricOpType_Sinh", TrigonometricOpType::Sinh, "sinh"},
+        {L"TrigonometricOpType_Tan", TrigonometricOpType::Tan, "tan"},
+        {L"TrigonometricOpType_Tanh", TrigonometricOpType::Tanh, "tanh"},
 };
 
 static_assert(
     _countof(trigonometricOpTypeStringToOpMetaData) ==
-        TrigonometricOpType_EnumValueCount,
+        (size_t)TrigonometricOpType::EnumValueCount,
     "trigonometricOpTypeStringToOpMetaData size mismatch. Did you add "
     "a new enum value?");
 
@@ -756,16 +756,16 @@ void dispatchTrigonometricTest(const TestConfig &Config,
                                 TrigonometricOperation<T>::NAME, "")
 
   switch (OpType) {
-    DISPATCH(TrigonometricOpType_Acos, acos);
-    DISPATCH(TrigonometricOpType_Asin, asin);
-    DISPATCH(TrigonometricOpType_Atan, atan);
-    DISPATCH(TrigonometricOpType_Cos, cos);
-    DISPATCH(TrigonometricOpType_Cosh, cosh);
-    DISPATCH(TrigonometricOpType_Sin, sin);
-    DISPATCH(TrigonometricOpType_Sinh, sinh);
-    DISPATCH(TrigonometricOpType_Tan, tan);
-    DISPATCH(TrigonometricOpType_Tanh, tanh);
-  case TrigonometricOpType_EnumValueCount:
+    DISPATCH(TrigonometricOpType::Acos, acos);
+    DISPATCH(TrigonometricOpType::Asin, asin);
+    DISPATCH(TrigonometricOpType::Atan, atan);
+    DISPATCH(TrigonometricOpType::Cos, cos);
+    DISPATCH(TrigonometricOpType::Cosh, cosh);
+    DISPATCH(TrigonometricOpType::Sin, sin);
+    DISPATCH(TrigonometricOpType::Sinh, sinh);
+    DISPATCH(TrigonometricOpType::Tan, tan);
+    DISPATCH(TrigonometricOpType::Tanh, tanh);
+  case TrigonometricOpType::EnumValueCount:
     break;
   }
 
@@ -801,32 +801,32 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 // AsTypeOp
 //
 
-enum AsTypeOpType {
-  AsTypeOpType_AsFloat,
-  AsTypeOpType_AsFloat16,
-  AsTypeOpType_AsInt,
-  AsTypeOpType_AsInt16,
-  AsTypeOpType_AsUint,
-  AsTypeOpType_AsUint_SplitDouble,
-  AsTypeOpType_AsUint16,
-  AsTypeOpType_AsDouble,
-  AsTypeOpType_EnumValueCount
+enum class AsTypeOpType {
+  AsFloat,
+  AsFloat16,
+  AsInt,
+  AsInt16,
+  AsUint,
+  AsUint_SplitDouble,
+  AsUint16,
+  AsDouble,
+  EnumValueCount
 };
 
 static const OpTypeMetaData<AsTypeOpType> asTypeOpTypeStringToOpMetaData[] = {
-    {L"AsTypeOpType_AsFloat", AsTypeOpType_AsFloat, "asfloat"},
-    {L"AsTypeOpType_AsFloat16", AsTypeOpType_AsFloat16, "asfloat16"},
-    {L"AsTypeOpType_AsInt", AsTypeOpType_AsInt, "asint"},
-    {L"AsTypeOpType_AsInt16", AsTypeOpType_AsInt16, "asint16"},
-    {L"AsTypeOpType_AsUint", AsTypeOpType_AsUint, "asuint"},
-    {L"AsTypeOpType_AsUint_SplitDouble", AsTypeOpType_AsUint_SplitDouble,
+    {L"AsTypeOpType_AsFloat", AsTypeOpType::AsFloat, "asfloat"},
+    {L"AsTypeOpType_AsFloat16", AsTypeOpType::AsFloat16, "asfloat16"},
+    {L"AsTypeOpType_AsInt", AsTypeOpType::AsInt, "asint"},
+    {L"AsTypeOpType_AsInt16", AsTypeOpType::AsInt16, "asint16"},
+    {L"AsTypeOpType_AsUint", AsTypeOpType::AsUint, "asuint"},
+    {L"AsTypeOpType_AsUint_SplitDouble", AsTypeOpType::AsUint_SplitDouble,
      "TestAsUintSplitDouble"},
-    {L"AsTypeOpType_AsUint16", AsTypeOpType_AsUint16, "asuint16"},
-    {L"AsTypeOpType_AsDouble", AsTypeOpType_AsDouble, "asdouble", ","},
+    {L"AsTypeOpType_AsUint16", AsTypeOpType::AsUint16, "asuint16"},
+    {L"AsTypeOpType_AsDouble", AsTypeOpType::AsDouble, "asdouble", ","},
 };
 
 static_assert(_countof(asTypeOpTypeStringToOpMetaData) ==
-                  AsTypeOpType_EnumValueCount,
+                  (size_t)AsTypeOpType::EnumValueCount,
               "asTypeOpTypeStringToOpMetaData size mismatch. Did you add "
               "a new enum value?");
 
@@ -926,7 +926,7 @@ void dispatchAsUintSplitDoubleTest(const TestConfig &Config,
   }
 
   ValidationConfig ValidationConfig{};
-  runAndVerify(Config, AsTypeOpType_AsUint_SplitDouble, Inputs, Expected,
+  runAndVerify(Config, AsTypeOpType::AsUint_SplitDouble, Inputs, Expected,
                " -DFUNC_ASUINT_SPLITDOUBLE=1", ValidationConfig);
 }
 
@@ -942,54 +942,54 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                  VectorSize, FN<TYPE>, "")
 
   switch (OpType) {
-  case AsTypeOpType_AsFloat:
+  case AsTypeOpType::AsFloat:
     DISPATCH(float, asFloat);
     DISPATCH(int32_t, asFloat);
     DISPATCH(uint32_t, asFloat);
     break;
 
-  case AsTypeOpType_AsInt:
+  case AsTypeOpType::AsInt:
     DISPATCH(float, asInt);
     DISPATCH(int32_t, asInt);
     DISPATCH(uint32_t, asInt);
     break;
 
-  case AsTypeOpType_AsUint:
+  case AsTypeOpType::AsUint:
     DISPATCH(int32_t, asUint);
     DISPATCH(uint32_t, asUint);
     break;
 
-  case AsTypeOpType_AsFloat16:
+  case AsTypeOpType::AsFloat16:
     DISPATCH(HLSLHalf_t, asFloat16);
     DISPATCH(int16_t, asFloat16);
     DISPATCH(uint16_t, asFloat16);
     break;
 
-  case AsTypeOpType_AsInt16:
+  case AsTypeOpType::AsInt16:
     DISPATCH(HLSLHalf_t, asInt16);
     DISPATCH(int16_t, asInt16);
     DISPATCH(uint16_t, asInt16);
     break;
 
-  case AsTypeOpType_AsUint16:
+  case AsTypeOpType::AsUint16:
     DISPATCH(HLSLHalf_t, asUint16);
     DISPATCH(int16_t, asUint16);
     DISPATCH(uint16_t, asUint16);
     break;
 
-  case AsTypeOpType_AsUint_SplitDouble:
+  case AsTypeOpType::AsUint_SplitDouble:
     if (Config.DataType == getDataTypeName<double>())
       return dispatchAsUintSplitDoubleTest(Config, VectorSize);
     break;
 
-  case AsTypeOpType_AsDouble:
+  case AsTypeOpType::AsDouble:
     if (Config.DataType == getDataTypeName<uint32_t>())
       return dispatchBinaryTest<uint32_t>(Config, ValidationConfig{},
-                                          AsTypeOpType_AsDouble, VectorSize,
+                                          AsTypeOpType::AsDouble, VectorSize,
                                           asDouble);
     break;
 
-  case AsTypeOpType_EnumValueCount:
+  case AsTypeOpType::EnumValueCount:
     break;
   }
 
@@ -1004,14 +1004,14 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 // UnaryOp
 //
 
-enum UnaryOpType { UnaryOpType_Initialize, UnaryOpType_EnumValueCount };
+enum class UnaryOpType { Initialize, EnumValueCount };
 
 static const OpTypeMetaData<UnaryOpType> unaryOpTypeStringToOpMetaData[] = {
-    {L"UnaryOpType_Initialize", UnaryOpType_Initialize, "TestInitialize"},
+    {L"UnaryOpType_Initialize", UnaryOpType::Initialize, "TestInitialize"},
 };
 
 static_assert(_countof(unaryOpTypeStringToOpMetaData) ==
-                  UnaryOpType_EnumValueCount,
+                  (size_t)UnaryOpType::EnumValueCount,
               "unaryOpTypeStringToOpMetaData size mismatch. Did you add "
               "a new enum value?");
 
@@ -1030,7 +1030,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
   DISPATCH(TYPE, Initialize<TYPE>, " -DFUNC_INITIALIZE=1")
 
   switch (OpType) {
-  case UnaryOpType_Initialize:
+  case UnaryOpType::Initialize:
     DISPATCH_INITIALIZE(HLSLBool_t);
     DISPATCH_INITIALIZE(int16_t);
     DISPATCH_INITIALIZE(int32_t);
@@ -1042,7 +1042,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH_INITIALIZE(float);
     DISPATCH_INITIALIZE(double);
     break;
-  case UnaryOpType_EnumValueCount:
+  case UnaryOpType::EnumValueCount:
     break;
   }
 
@@ -1058,48 +1058,48 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 // UnaryMathOp
 //
 
-enum UnaryMathOpType {
-  UnaryMathOpType_Abs,
-  UnaryMathOpType_Sign,
-  UnaryMathOpType_Ceil,
-  UnaryMathOpType_Floor,
-  UnaryMathOpType_Trunc,
-  UnaryMathOpType_Round,
-  UnaryMathOpType_Frac,
-  UnaryMathOpType_Sqrt,
-  UnaryMathOpType_Rsqrt,
-  UnaryMathOpType_Exp,
-  UnaryMathOpType_Exp2,
-  UnaryMathOpType_Log,
-  UnaryMathOpType_Log2,
-  UnaryMathOpType_Log10,
-  UnaryMathOpType_Rcp,
-  UnaryMathOpType_Frexp,
-  UnaryMathOpType_EnumValueCount
+enum class UnaryMathOpType {
+  Abs,
+  Sign,
+  Ceil,
+  Floor,
+  Trunc,
+  Round,
+  Frac,
+  Sqrt,
+  Rsqrt,
+  Exp,
+  Exp2,
+  Log,
+  Log2,
+  Log10,
+  Rcp,
+  Frexp,
+  EnumValueCount
 };
 
 static const OpTypeMetaData<UnaryMathOpType>
     unaryMathOpTypeStringToOpMetaData[] = {
-        {L"UnaryMathOpType_Abs", UnaryMathOpType_Abs, "abs"},
-        {L"UnaryMathOpType_Sign", UnaryMathOpType_Sign, "sign"},
-        {L"UnaryMathOpType_Ceil", UnaryMathOpType_Ceil, "ceil"},
-        {L"UnaryMathOpType_Floor", UnaryMathOpType_Floor, "floor"},
-        {L"UnaryMathOpType_Trunc", UnaryMathOpType_Trunc, "trunc"},
-        {L"UnaryMathOpType_Round", UnaryMathOpType_Round, "round"},
-        {L"UnaryMathOpType_Frac", UnaryMathOpType_Frac, "frac"},
-        {L"UnaryMathOpType_Sqrt", UnaryMathOpType_Sqrt, "sqrt"},
-        {L"UnaryMathOpType_Rsqrt", UnaryMathOpType_Rsqrt, "rsqrt"},
-        {L"UnaryMathOpType_Exp", UnaryMathOpType_Exp, "exp"},
-        {L"UnaryMathOpType_Exp2", UnaryMathOpType_Exp2, "exp2"},
-        {L"UnaryMathOpType_Log", UnaryMathOpType_Log, "log"},
-        {L"UnaryMathOpType_Log2", UnaryMathOpType_Log2, "log2"},
-        {L"UnaryMathOpType_Log10", UnaryMathOpType_Log10, "log10"},
-        {L"UnaryMathOpType_Rcp", UnaryMathOpType_Rcp, "rcp"},
-        {L"UnaryMathOpType_Frexp", UnaryMathOpType_Frexp, "TestFrexp"},
+        {L"UnaryMathOpType_Abs", UnaryMathOpType::Abs, "abs"},
+        {L"UnaryMathOpType_Sign", UnaryMathOpType::Sign, "sign"},
+        {L"UnaryMathOpType_Ceil", UnaryMathOpType::Ceil, "ceil"},
+        {L"UnaryMathOpType_Floor", UnaryMathOpType::Floor, "floor"},
+        {L"UnaryMathOpType_Trunc", UnaryMathOpType::Trunc, "trunc"},
+        {L"UnaryMathOpType_Round", UnaryMathOpType::Round, "round"},
+        {L"UnaryMathOpType_Frac", UnaryMathOpType::Frac, "frac"},
+        {L"UnaryMathOpType_Sqrt", UnaryMathOpType::Sqrt, "sqrt"},
+        {L"UnaryMathOpType_Rsqrt", UnaryMathOpType::Rsqrt, "rsqrt"},
+        {L"UnaryMathOpType_Exp", UnaryMathOpType::Exp, "exp"},
+        {L"UnaryMathOpType_Exp2", UnaryMathOpType::Exp2, "exp2"},
+        {L"UnaryMathOpType_Log", UnaryMathOpType::Log, "log"},
+        {L"UnaryMathOpType_Log2", UnaryMathOpType::Log2, "log2"},
+        {L"UnaryMathOpType_Log10", UnaryMathOpType::Log10, "log10"},
+        {L"UnaryMathOpType_Rcp", UnaryMathOpType::Rcp, "rcp"},
+        {L"UnaryMathOpType_Frexp", UnaryMathOpType::Frexp, "TestFrexp"},
 };
 
 static_assert(_countof(unaryMathOpTypeStringToOpMetaData) ==
-                  UnaryMathOpType_EnumValueCount,
+                  (size_t)UnaryMathOpType::EnumValueCount,
               "unaryMathOpTypeStringToOpMetaData size mismatch. Did you add "
               "a new enum value?");
 
@@ -1189,7 +1189,7 @@ void dispatchFrexpTest(const TestConfig &Config, size_t VectorSize) {
     Expected[I + VectorSize] = static_cast<float>(Exp);
   }
 
-  runAndVerify(Config, UnaryMathOpType_Frexp, Inputs, Expected,
+  runAndVerify(Config, UnaryMathOpType::Frexp, Inputs, Expected,
                " -DFUNC_FREXP=1", ValidationConfig{});
 }
 
@@ -1202,7 +1202,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                  UnaryMathOps<TYPE>::FUNC)
 
   switch (OpType) {
-  case UnaryMathOpType_Abs:
+  case UnaryMathOpType::Abs:
     DISPATCH(HLSLHalf_t, Abs);
     DISPATCH(float, Abs);
     DISPATCH(double, Abs);
@@ -1214,7 +1214,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Abs);
     break;
 
-  case UnaryMathOpType_Sign:
+  case UnaryMathOpType::Sign:
     DISPATCH(HLSLHalf_t, Sign);
     DISPATCH(float, Sign);
     DISPATCH(double, Sign);
@@ -1226,77 +1226,77 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Sign);
     break;
 
-  case UnaryMathOpType_Ceil:
+  case UnaryMathOpType::Ceil:
     DISPATCH(HLSLHalf_t, Ceil);
     DISPATCH(float, Ceil);
     break;
 
-  case UnaryMathOpType_Floor:
+  case UnaryMathOpType::Floor:
     DISPATCH(HLSLHalf_t, Floor);
     DISPATCH(float, Floor);
     break;
 
-  case UnaryMathOpType_Trunc:
+  case UnaryMathOpType::Trunc:
     DISPATCH(HLSLHalf_t, Trunc);
     DISPATCH(float, Trunc);
     break;
 
-  case UnaryMathOpType_Round:
+  case UnaryMathOpType::Round:
     DISPATCH(HLSLHalf_t, Round);
     DISPATCH(float, Round);
     break;
 
-  case UnaryMathOpType_Frac:
+  case UnaryMathOpType::Frac:
     DISPATCH(HLSLHalf_t, Frac);
     DISPATCH(float, Frac);
     break;
 
-  case UnaryMathOpType_Sqrt:
+  case UnaryMathOpType::Sqrt:
     DISPATCH(HLSLHalf_t, Sqrt);
     DISPATCH(float, Sqrt);
     break;
 
-  case UnaryMathOpType_Rsqrt:
+  case UnaryMathOpType::Rsqrt:
     DISPATCH(HLSLHalf_t, Rsqrt);
     DISPATCH(float, Rsqrt);
     break;
 
-  case UnaryMathOpType_Exp:
+  case UnaryMathOpType::Exp:
     DISPATCH(HLSLHalf_t, Exp);
     DISPATCH(float, Exp);
     break;
 
-  case UnaryMathOpType_Exp2:
+  case UnaryMathOpType::Exp2:
     DISPATCH(HLSLHalf_t, Exp2);
     DISPATCH(float, Exp2);
     break;
 
-  case UnaryMathOpType_Log:
+  case UnaryMathOpType::Log:
     DISPATCH(HLSLHalf_t, Log);
     DISPATCH(float, Log);
     break;
 
-  case UnaryMathOpType_Log2:
+  case UnaryMathOpType::Log2:
     DISPATCH(HLSLHalf_t, Log2);
     DISPATCH(float, Log2);
     break;
 
-  case UnaryMathOpType_Log10:
+  case UnaryMathOpType::Log10:
     DISPATCH(HLSLHalf_t, Log10);
     DISPATCH(float, Log10);
     break;
 
-  case UnaryMathOpType_Rcp:
+  case UnaryMathOpType::Rcp:
     DISPATCH(HLSLHalf_t, Rcp);
     DISPATCH(float, Rcp);
     break;
 
-  case UnaryMathOpType_Frexp:
+  case UnaryMathOpType::Frexp:
     if (Config.DataType == getDataTypeName<float>())
       return dispatchFrexpTest(Config, VectorSize);
     break;
 
-  case UnaryMathOpType_EnumValueCount:
+  case UnaryMathOpType::EnumValueCount:
     break;
   }
 
@@ -1311,36 +1311,36 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 // BinaryMathOp
 //
 
-enum BinaryMathOpType {
-  BinaryMathOpType_Multiply,
-  BinaryMathOpType_Add,
-  BinaryMathOpType_Subtract,
-  BinaryMathOpType_Divide,
-  BinaryMathOpType_Modulus,
-  BinaryMathOpType_Min,
-  BinaryMathOpType_Max,
-  BinaryMathOpType_Ldexp,
-  BinaryMathOpType_EnumValueCount
+enum class BinaryMathOpType {
+  Multiply,
+  Add,
+  Subtract,
+  Divide,
+  Modulus,
+  Min,
+  Max,
+  Ldexp,
+  EnumValueCount
 };
 
 static const OpTypeMetaData<BinaryMathOpType>
     binaryMathOpTypeStringToOpMetaData[] = {
-        {L"BinaryMathOpType_Add", BinaryMathOpType_Add, std::nullopt, "+"},
-        {L"BinaryMathOpType_Multiply", BinaryMathOpType_Multiply, std::nullopt,
+        {L"BinaryMathOpType_Add", BinaryMathOpType::Add, std::nullopt, "+"},
+        {L"BinaryMathOpType_Multiply", BinaryMathOpType::Multiply, std::nullopt,
          "*"},
-        {L"BinaryMathOpType_Subtract", BinaryMathOpType_Subtract, std::nullopt,
+        {L"BinaryMathOpType_Subtract", BinaryMathOpType::Subtract, std::nullopt,
          "-"},
-        {L"BinaryMathOpType_Divide", BinaryMathOpType_Divide, std::nullopt,
+        {L"BinaryMathOpType_Divide", BinaryMathOpType::Divide, std::nullopt,
          "/"},
-        {L"BinaryMathOpType_Modulus", BinaryMathOpType_Modulus, std::nullopt,
+        {L"BinaryMathOpType_Modulus", BinaryMathOpType::Modulus, std::nullopt,
          "%"},
-        {L"BinaryMathOpType_Min", BinaryMathOpType_Min, "min", ","},
-        {L"BinaryMathOpType_Max", BinaryMathOpType_Max, "max", ","},
-        {L"BinaryMathOpType_Ldexp", BinaryMathOpType_Ldexp, "ldexp", ","},
+        {L"BinaryMathOpType_Min", BinaryMathOpType::Min, "min", ","},
+        {L"BinaryMathOpType_Max", BinaryMathOpType::Max, "max", ","},
+        {L"BinaryMathOpType_Ldexp", BinaryMathOpType::Ldexp, "ldexp", ","},
 };
 
 static_assert(_countof(binaryMathOpTypeStringToOpMetaData) ==
-                  BinaryMathOpType_EnumValueCount,
+                  (size_t)BinaryMathOpType::EnumValueCount,
               "binaryMathOpTypeStringToOpMetaData size mismatch. Did you "
               "add a new enum value?");
 
@@ -1390,7 +1390,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                   BinaryMathOps<TYPE>::FUNC)
 
   switch (OpType) {
-  case BinaryMathOpType_Multiply:
+  case BinaryMathOpType::Multiply:
     DISPATCH(HLSLHalf_t, Multiply);
     DISPATCH(float, Multiply);
     DISPATCH(double, Multiply);
@@ -1402,7 +1402,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Multiply);
     break;
 
-  case BinaryMathOpType_Add:
+  case BinaryMathOpType::Add:
     DISPATCH(HLSLBool_t, Add);
     DISPATCH(HLSLHalf_t, Add);
     DISPATCH(float, Add);
@@ -1415,7 +1415,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Add);
     break;
 
-  case BinaryMathOpType_Subtract:
+  case BinaryMathOpType::Subtract:
     DISPATCH(HLSLBool_t, Subtract);
     DISPATCH(HLSLHalf_t, Subtract);
     DISPATCH(float, Subtract);
@@ -1428,7 +1428,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Subtract);
     break;
 
-  case BinaryMathOpType_Divide:
+  case BinaryMathOpType::Divide:
     DISPATCH(HLSLHalf_t, Divide);
     DISPATCH(float, Divide);
     DISPATCH(double, Divide);
@@ -1440,7 +1440,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Divide);
     break;
 
-  case BinaryMathOpType_Modulus:
+  case BinaryMathOpType::Modulus:
     DISPATCH(HLSLHalf_t, OperatorModulus);
     DISPATCH(float, FmodModulus);
     DISPATCH(int16_t, OperatorModulus);
@@ -1451,7 +1451,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, OperatorModulus);
     break;
 
-  case BinaryMathOpType_Min:
+  case BinaryMathOpType::Min:
     DISPATCH(HLSLHalf_t, Min);
     DISPATCH(float, Min);
     DISPATCH(double, Min);
@@ -1463,7 +1463,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Min);
     break;
 
-  case BinaryMathOpType_Max:
+  case BinaryMathOpType::Max:
     DISPATCH(HLSLHalf_t, Max);
     DISPATCH(float, Max);
     DISPATCH(double, Max);
@@ -1475,12 +1475,12 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Max);
     break;
 
-  case BinaryMathOpType_Ldexp:
+  case BinaryMathOpType::Ldexp:
     DISPATCH(HLSLHalf_t, Ldexp);
     DISPATCH(float, Ldexp);
     break;
 
-  case BinaryMathOpType_EnumValueCount:
+  case BinaryMathOpType::EnumValueCount:
     break;
   }
 
@@ -1495,20 +1495,20 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 // TernaryMathOp
 //
 
-enum TernaryMathOpType {
-  TernaryMathOpType_Fma,
-  TernaryMathOpType_Mad,
-  TernaryMathOpType_SmoothStep,
-  TernaryMathOpType_EnumValueCount
-};
+enum class TernaryMathOpType { Fma, Mad, SmoothStep, EnumValueCount };
 
 static const OpTypeMetaData<TernaryMathOpType>
     ternaryMathOpTypeStringToOpMetaData[] = {
-        {L"TernaryMathOpType_Fma", TernaryMathOpType_Fma, "fma"},
-        {L"TernaryMathOpType_Mad", TernaryMathOpType_Mad, "mad"},
-        {L"TernaryMathOpType_SmoothStep", TernaryMathOpType_SmoothStep,
+        {L"TernaryMathOpType_Fma", TernaryMathOpType::Fma, "fma"},
+        {L"TernaryMathOpType_Mad", TernaryMathOpType::Mad, "mad"},
+        {L"TernaryMathOpType_SmoothStep", TernaryMathOpType::SmoothStep,
          "smoothstep"},
 };
+
+static_assert(_countof(ternaryMathOpTypeStringToOpMetaData) ==
+                  (size_t)TernaryMathOpType::EnumValueCount,
+              "ternaryMathOpTypeStringToOpMetaData size mismatch. Did you add "
+              "a new enum value?");
 
 OP_TYPE_META_DATA(TernaryMathOpType, ternaryMathOpTypeStringToOpMetaData);
 
@@ -1569,11 +1569,11 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                    TernaryMathOps::FUNC<TYPE>)
 
   switch (OpType) {
-  case TernaryMathOpType_Fma:
+  case TernaryMathOpType::Fma:
     DISPATCH(double, Fma);
     break;
 
-  case TernaryMathOpType_Mad:
+  case TernaryMathOpType::Mad:
     DISPATCH(HLSLHalf_t, Mad);
     DISPATCH(float, Mad);
     DISPATCH(double, Mad);
@@ -1585,12 +1585,12 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Mad);
     break;
 
-  case TernaryMathOpType_SmoothStep:
+  case TernaryMathOpType::SmoothStep:
     DISPATCH(HLSLHalf_t, SmoothStep);
     DISPATCH(float, SmoothStep);
     break;
 
-  case TernaryMathOpType_EnumValueCount:
+  case TernaryMathOpType::EnumValueCount:
     break;
   }
 
