@@ -375,6 +375,40 @@ struct TestConfig {
 template <typename T, size_t ARITY>
 using InputSets = std::array<std::vector<T>, ARITY>;
 
+template <typename T, typename OUT_TYPE, size_t ARITY, typename OP_TYPE>
+std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
+                                     uint16_t ScalarInputFlags,
+                                     std::string ExtraDefines) {
+  OpTypeMetaData<OP_TYPE> OpTypeMetaData = getOpTypeMetaData(OpType);
+
+  std::stringstream CompilerOptions;
+
+  if (is16BitType<T>())
+    CompilerOptions << " -enable-16bit-types";
+
+  CompilerOptions << " -DTYPE=" << getHLSLTypeString<T>();
+  CompilerOptions << " -DNUM=" << VectorSize;
+
+  CompilerOptions << " -DOPERATOR=";
+  if (OpTypeMetaData.Operator)
+    CompilerOptions << *OpTypeMetaData.Operator;
+
+  CompilerOptions << " -DFUNC=";
+  if (OpTypeMetaData.Intrinsic)
+    CompilerOptions << *OpTypeMetaData.Intrinsic;
+
+  CompilerOptions << " " << ExtraDefines;
+
+  CompilerOptions << " -DOUT_TYPE=" << getHLSLTypeString<OUT_TYPE>();
+
+  CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << ARITY;
+
+  CompilerOptions << " -DOPERAND_IS_SCALAR_FLAGS=";
+  CompilerOptions << "0x" << std::hex << ScalarInputFlags;
+
+  return CompilerOptions.str();
+}
+
 template <typename OUT_TYPE, typename T, size_t ARITY, typename OP_TYPE>
 std::optional<std::vector<OUT_TYPE>>
 runTest(const TestConfig &Config, OP_TYPE OpType,
@@ -503,40 +537,6 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
   for (size_t I = 0; I < NumElements; I++)
     ShaderBufferPtr[I] = TestData[I];
   return;
-}
-
-template <typename T, typename OUT_TYPE, size_t ARITY, typename OP_TYPE>
-std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
-                                     uint16_t ScalarInputFlags,
-                                     std::string ExtraDefines) {
-  OpTypeMetaData<OP_TYPE> OpTypeMetaData = getOpTypeMetaData(OpType);
-
-  std::stringstream CompilerOptions;
-
-  if (is16BitType<T>())
-    CompilerOptions << " -enable-16bit-types";
-
-  CompilerOptions << " -DTYPE=" << getHLSLTypeString<T>();
-  CompilerOptions << " -DNUM=" << VectorSize;
-
-  CompilerOptions << " -DOPERATOR=";
-  if (OpTypeMetaData.Operator)
-    CompilerOptions << *OpTypeMetaData.Operator;
-
-  CompilerOptions << " -DFUNC=";
-  if (OpTypeMetaData.Intrinsic)
-    CompilerOptions << *OpTypeMetaData.Intrinsic;
-
-  CompilerOptions << " " << ExtraDefines;
-
-  CompilerOptions << " -DOUT_TYPE=" << getHLSLTypeString<OUT_TYPE>();
-
-  CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << ARITY;
-
-  CompilerOptions << " -DOPERAND_IS_SCALAR_FLAGS=";
-  CompilerOptions << "0x" << std::hex << ScalarInputFlags;
-
-  return CompilerOptions.str();
 }
 
 //
