@@ -77,8 +77,7 @@ void fillLongVectorDataFromShaderBuffer(const MappedData &ShaderBuffer,
     auto *ShaderBufferPtr =
         static_cast<const DirectX::PackedVector::HALF *>(ShaderBuffer.data());
     for (size_t I = 0; I < NumElements; I++)
-      // HLSLHalf_t has a DirectX::PackedVector::HALF based constructor.
-      TestData.push_back(ShaderBufferPtr[I]);
+      TestData.push_back(HLSLHalf_t::FromHALF(ShaderBufferPtr[I]));
     return;
   }
 
@@ -552,14 +551,12 @@ template <> float asFloat(uint32_t A) { return bit_cast<float>(A); }
 // asFloat16
 //
 template <typename T> HLSLHalf_t asFloat16(T);
-template <> HLSLHalf_t asFloat16<HLSLHalf_t>(HLSLHalf_t A) {
-  return HLSLHalf_t(A.Val);
-}
+template <> HLSLHalf_t asFloat16(HLSLHalf_t A) { return A; }
 template <> HLSLHalf_t asFloat16(int16_t A) {
-  return HLSLHalf_t(bit_cast<DirectX::PackedVector::HALF>(A));
+  return HLSLHalf_t::FromHALF(bit_cast<DirectX::PackedVector::HALF>(A));
 }
 template <> HLSLHalf_t asFloat16(uint16_t A) {
-  return HLSLHalf_t(bit_cast<DirectX::PackedVector::HALF>(A));
+  return HLSLHalf_t::FromHALF(bit_cast<DirectX::PackedVector::HALF>(A));
 }
 
 //
@@ -975,10 +972,12 @@ template <typename T> struct UnaryMathOps {
   }
 
   static int32_t Sign(T V) {
-    if (V > static_cast<T>(0))
+    const T Zero = T();
+
+    if (V > Zero)
       return 1;
 
-    if (V < static_cast<T>(0))
+    if (V < Zero)
       return -1;
 
     return 0;
@@ -1345,13 +1344,13 @@ template <typename T> T SmoothStep(T Min, T Max, T X) {
   DXASSERT_NOMSG(Min < Max);
 
   if (X <= Min)
-    return T(0);
+    return 0.0;
   if (X >= Max)
-    return T(1);
+    return 1.0;
 
   T NormalizedX = (X - Min) / (Max - Min);
-  NormalizedX = std::clamp(NormalizedX, T(0), T(1));
-  return NormalizedX * NormalizedX * (T(3) - T(2) * NormalizedX);
+  NormalizedX = std::clamp(NormalizedX, T(0.0), T(1.0));
+  return NormalizedX * NormalizedX * (T(3.0) - T(2.0) * NormalizedX);
 }
 
 } // namespace TernaryMathOps
