@@ -1,3 +1,7 @@
+#ifndef NOMINMAX
+#define NOMINMAX 1
+#endif
+
 #include "LongVectors.h"
 #include "LongVectorTestData.h"
 
@@ -1184,11 +1188,8 @@ template <typename T> struct BinaryMathOps {
     return A % B;
   }
 
-  // std::max and std::min are wrapped in () to avoid collisions with the macro
-  // defintions for min and max in windows.h
-
-  static T Min(T A, T B) { return (std::min)(A, B); }
-  static T Max(T A, T B) { return (std::max)(A, B); }
+  static T Min(T A, T B) { return std::min(A, B); }
+  static T Max(T A, T B) { return std::max(A, B); }
 
   static T Ldexp(T A, T B) { return A * static_cast<T>(std::pow(2.0f, B)); }
 };
