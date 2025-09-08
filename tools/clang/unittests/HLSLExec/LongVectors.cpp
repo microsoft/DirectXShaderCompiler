@@ -527,9 +527,7 @@ std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
   if (OpTypeMetaData.Intrinsic)
     CompilerOptions << *OpTypeMetaData.Intrinsic;
 
-  // For most of the ops this string is std::nullopt.
-  if (!ExtraDefines.empty())
-    CompilerOptions << " " << ExtraDefines;
+  CompilerOptions << " " << ExtraDefines;
 
   CompilerOptions << " -DOUT_TYPE=" << getHLSLTypeString<OUT_TYPE>();
 
