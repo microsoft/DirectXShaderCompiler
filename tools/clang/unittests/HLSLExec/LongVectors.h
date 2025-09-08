@@ -1,8 +1,6 @@
 #ifndef LONGVECTORS_H
 #define LONGVECTORS_H
 
-#include <Verify.h>
-#include <WexString.h>
 #include <WexTestClass.h>
 
 #include <optional>
