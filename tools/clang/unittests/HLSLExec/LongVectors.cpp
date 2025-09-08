@@ -377,10 +377,10 @@ template <typename T, size_t ARITY>
 using InputSets = std::array<std::vector<T>, ARITY>;
 
 template <typename OUT_TYPE, typename T, size_t ARITY, typename OP_TYPE>
-std::vector<OUT_TYPE> runTest(const TestConfig &Config, OP_TYPE OpType,
-                              const InputSets<T, ARITY> &Inputs,
-                              size_t ExpectedOutputSize,
-                              std::string ExtraDefines, bool &WasSkipped) {
+std::optional<std::vector<OUT_TYPE>>
+runTest(const TestConfig &Config, OP_TYPE OpType,
+        const InputSets<T, ARITY> &Inputs, size_t ExpectedOutputSize,
+        std::string ExtraDefines) {
 
   CComPtr<ID3D12Device> D3DDevice;
   if (!createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false)) {
@@ -391,8 +391,7 @@ std::vector<OUT_TYPE> runTest(const TestConfig &Config, OP_TYPE OpType,
     WEX::Logging::Log::Comment(
         "Device does not support SM 6.9. Can't run these tests.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    WasSkipped = true;
-    return {};
+    return std::nullopt;
 #endif
   }
 
@@ -468,7 +467,6 @@ std::vector<OUT_TYPE> runTest(const TestConfig &Config, OP_TYPE OpType,
   fillLongVectorDataFromShaderBuffer(ShaderOutData, OutData,
                                      ExpectedOutputSize);
 
-  WasSkipped = false;
   return OutData;
 }
 
@@ -716,13 +714,15 @@ void runAndVerify(const TestConfig &Config, OP_TYPE OpType,
                   std::string ExtraDefines,
                   const ValidationConfig &ValidationConfig) {
 
-  bool WasSkipped = true;
-  std::vector<OUT_TYPE> Actual = runTest<OUT_TYPE>(
-      Config, OpType, Inputs, Expected.size(), ExtraDefines, WasSkipped);
-  if (WasSkipped)
-    return;
+  std::optional<std::vector<OUT_TYPE>> Actual =
+      runTest<OUT_TYPE>(Config, OpType, Inputs, Expected.size(), ExtraDefines);
 
-  VERIFY_IS_TRUE(doVectorsMatch(Actual, Expected, ValidationConfig.Tolerance,
+  if (!Actual) {
+    // The test didn't actually run, so there's nothing to verify.
+    return;
+  }
+
+  VERIFY_IS_TRUE(doVectorsMatch(*Actual, Expected, ValidationConfig.Tolerance,
                                 ValidationConfig.Type, Config.VerboseLogging));
 }
 
