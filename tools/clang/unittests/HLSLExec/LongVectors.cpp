@@ -342,7 +342,9 @@ struct TestConfig {
   bool VerboseLogging = false;
 
   static std::optional<TestConfig> Create(bool VerboseLogging) {
+    using WEX::TestExecution::RuntimeParameters;
     using WEX::TestExecution::TestData;
+
     TestConfig Values;
 
     if (FAILED(TestData::TryGetValue(L"DataType", Values.DataType)) &&
@@ -362,7 +364,8 @@ struct TestConfig {
 
     Values.ScalarInputFlags = GetScalarInputFlags();
 
-    TestData::TryGetValue(L"LongVectorInputSize", Values.LongVectorInputSize);
+    RuntimeParameters::TryGetValue(L"LongVectorInputSize",
+                                   Values.LongVectorInputSize);
 
     Values.VerboseLogging = VerboseLogging;
 
