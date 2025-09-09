@@ -35,7 +35,7 @@ struct DxcHLSLNode {
 
   DxcHLSLNode() = default;
 
-  DxcHLSLNode(DxcHLSLNodeType NodeType, uint32_t LocalId,
+  DxcHLSLNode(D3D12_HLSL_NODE_TYPE NodeType, uint32_t LocalId,
               uint32_t AnnotationStart, uint32_t ChildCount, uint32_t ParentId,
               uint16_t AnnotationCount)
       : LocalIdParentLo(LocalId | (ParentId << 24)),
@@ -46,8 +46,8 @@ struct DxcHLSLNode {
             (uint32_t(AnnotationCount) << 16) |
             (ParentId >> 8)) {
 
-    assert(NodeType >= DxcHLSLNodeType::Start &&
-           NodeType <= DxcHLSLNodeType::End && "Invalid enum value");
+    assert(NodeType >= D3D12_HLSL_NODE_TYPE_START &&
+           NodeType <= D3D12_HLSL_NODE_TYPE_END && "Invalid enum value");
 
     assert(LocalId < ((1 << 24) - 1) && "LocalId out of bounds");
     assert(ParentId < ((1 << 24) - 1) && "ParentId out of bounds");

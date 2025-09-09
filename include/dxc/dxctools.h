@@ -209,7 +209,7 @@ typedef interface IDxcHLSLReflection IDxcHLSLReflection;
 // {7016F834-AE85-4C86-A473-8C2C981DD370}
 interface DECLSPEC_UUID("7016f834-ae85-4c86-a473-8c2c981dd370")
     IDxcHLSLReflection;
-DEFINE_GUID(IID_IDxcHLSLReflection, 0x7016f834, 0xae85, 0x4c86, 0xa473, 0x8c,
+DEFINE_GUID(IID_IDxcHLSLReflection, 0x7016f834, 0xae85, 0x4c86, 0xa4, 0x73, 0x8c,
             0x2c, 0x98, 0x1d, 0xd3, 0x70);
 
 #undef INTERFACE
