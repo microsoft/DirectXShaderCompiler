@@ -1453,8 +1453,7 @@ TEST_F(OpTest, unaryOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  auto Config = TestConfig::Create(VerboseLogging);
-  if (Config)
+  if (auto Config = TestConfig::Create(VerboseLogging))
     dispatchTest<UnaryOpType>(*Config);
 }
 
@@ -1462,8 +1461,7 @@ TEST_F(OpTest, asTypeOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  auto Config = TestConfig::Create(VerboseLogging);
-  if (Config)
+  if (auto Config = TestConfig::Create(VerboseLogging))
     dispatchTest<AsTypeOpType>(*Config);
 }
 
@@ -1471,8 +1469,7 @@ TEST_F(OpTest, unaryMathOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  auto Config = TestConfig::Create(VerboseLogging);
-  if (Config)
+  if (auto Config = TestConfig::Create(VerboseLogging))
     dispatchTest<UnaryMathOpType>(*Config);
 }
 
@@ -1480,8 +1477,7 @@ TEST_F(OpTest, binaryMathOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  auto Config = TestConfig::Create(VerboseLogging);
-  if (Config)
+  if (auto Config = TestConfig::Create(VerboseLogging))
     dispatchTest<BinaryMathOpType>(*Config);
 }
 
@@ -1489,8 +1485,7 @@ TEST_F(OpTest, ternaryMathOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  auto Config = TestConfig::Create(VerboseLogging);
-  if (Config)
+  if (auto Config = TestConfig::Create(VerboseLogging))
     dispatchTest<TernaryMathOpType>(*Config);
 }
 
