@@ -10,12 +10,13 @@
 
 #include "dxc/Support/WinIncludes.h"
 
+#include "dxc/Support/dxcapi.use.h"
+
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
-#include "dxc/Support/dxcapi.use.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
