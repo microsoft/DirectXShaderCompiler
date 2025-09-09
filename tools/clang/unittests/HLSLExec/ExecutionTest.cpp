@@ -338,8 +338,8 @@ public:
                        L"Table:ShaderOpArithTable.xml#UnaryHalfOpTable")
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(IsSpecialFloatHalfOpTest)
-  TEST_METHOD_PROPERTY(L"DataSource",
-                       L"Table:ShaderOpArithTable.xml#IsSpecialFloatHalfOpTable")
+  TEST_METHOD_PROPERTY(
+      L"DataSource", L"Table:ShaderOpArithTable.xml#IsSpecialFloatHalfOpTable")
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(BinaryHalfOpTest)
   TEST_METHOD_PROPERTY(L"DataSource",
@@ -6510,7 +6510,8 @@ TEST_F(ExecutionTest, IsSpecialFloatHalfOpTest) {
   }
 
   // Read data from the table
-  int tableSize = sizeof(IsSpecialFloatHalfOpParameters) / sizeof(TableParameter);
+  int tableSize =
+      sizeof(IsSpecialFloatHalfOpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(IsSpecialFloatHalfOpParameters, tableSize);
 
   CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
