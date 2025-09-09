@@ -277,15 +277,6 @@ getTernaryMathOpType(const std::wstring &OpTypeString) {
                                       OpTypeString);
 }
 
-template <typename T>
-std::vector<T> getInputValueSetByKey(const std::wstring &Key,
-                                     bool LogKey = true) {
-  if (LogKey)
-    WEX::Logging::Log::Comment(
-        WEX::Common::String().Format(L"Using Value Set Key: %s", Key.c_str()));
-  return std::vector<T>(TestData<T>::Data.at(Key));
-}
-
 class OpTest {
 public:
   BEGIN_TEST_CLASS(OpTest)
