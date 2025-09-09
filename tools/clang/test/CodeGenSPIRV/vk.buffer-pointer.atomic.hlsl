@@ -29,7 +29,7 @@ void main()
   uint u0, u1;
 
 // CHECK: [[X1:%[_0-9]+]] = OpAccessChain %{{[_0-9A-Za-z]*}} [[PC]] [[I0]]
-// CHECK: [[X2:%[_0-9]+]] = OpLoad [[PS]] [[X1]] Aligned 4
+// CHECK: [[X2:%[_0-9]+]] = OpLoad [[PS]] [[X1]]
 // CHECK: [[X3:%[_0-9]+]] = OpAccessChain [[PU]] [[X2]] [[I0]]
 // CHECK: [[X4:%[_0-9]+]] = OpLoad [[UINT]] [[IN]]
 // CHECK: [[X5:%[_0-9]+]] = OpAtomicExchange [[UINT]] [[X3]] [[U1]] [[U0]] [[X4]]

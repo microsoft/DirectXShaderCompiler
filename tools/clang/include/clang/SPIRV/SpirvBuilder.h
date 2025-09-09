@@ -434,6 +434,25 @@ public:
       QualType resultType, NonSemanticDebugPrintfInstructions instId,
       llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation);
 
+  SpirvInstruction *createIsNodePayloadValid(SpirvInstruction *payloadArray,
+                                             SpirvInstruction *nodeIndex,
+                                             SourceLocation);
+
+  SpirvInstruction *createNodePayloadArrayLength(SpirvInstruction *payloadArray,
+                                                 SourceLocation);
+
+  SpirvInstruction *createAllocateNodePayloads(QualType resultType,
+                                               spv::Scope allocationScope,
+                                               SpirvInstruction *shaderIndex,
+                                               SpirvInstruction *recordCount,
+                                               SourceLocation);
+
+  void createEnqueueOutputNodePayloads(SpirvInstruction *payload,
+                                       SourceLocation);
+
+  SpirvInstruction *createFinishWritingNodePayload(SpirvInstruction *payload,
+                                                   SourceLocation);
+
   /// \brief Creates an OpMemoryBarrier or OpControlBarrier instruction with the
   /// given flags. If execution scope (exec) is provided, an OpControlBarrier
   /// is created; otherwise an OpMemoryBarrier is created.
@@ -659,9 +678,20 @@ public:
                bool isPrecise, bool isNointerp, llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
+
+  // Adds a variable to the module.
   SpirvVariable *
   addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
                bool isPrecise, bool isNointerp, llvm::StringRef name = "",
+               llvm::Optional<SpirvInstruction *> init = llvm::None,
+               SourceLocation loc = {});
+
+  // Adds a variable to the module. It will be placed in the variable list
+  // before `pos`.
+  SpirvVariable *
+  addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
+               bool isPrecise, bool isNointerp, SpirvInstruction *before,
+               llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
 
@@ -763,6 +793,7 @@ public:
                        llvm::ArrayRef<SpirvConstant *> constituents,
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
+  SpirvConstant *getConstantString(llvm::StringRef str, bool specConst = false);
   SpirvUndef *getUndef(QualType);
 
   SpirvString *createString(llvm::StringRef str);

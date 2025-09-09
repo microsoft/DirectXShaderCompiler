@@ -8060,6 +8060,8 @@ def err_hlsl_vk_pointer_cast_alignment: Error<
   "Vulkan buffer pointer cannot be cast to greater alignment">;
 def err_hlsl_vk_static_pointer_cast_type: Error<
   "vk::static_pointer_cast() content type must be base class of argument's content type">;
+def warn_spirv_node_shaders_experimental : Warning<
+  "SPIR-V implementation of node shaders is experimental and subject to change">;
 // SPIRV Change Ends
 
 let CategoryName = "OpenMP Issue" in {

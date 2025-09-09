@@ -1,4 +1,4 @@
-; RUN: %dxopt %s -hlsl-passes-resume -hlsl-dxil-scalarize-vector-load-stores -S | FileCheck %s
+; RUN: %dxopt %s -hlsl-passes-resume -hlsl-dxil-scalarize-vector-intrinsics -S | FileCheck %s
 
 ; Verify that scalarize vector load stores pass will convert raw buffer vector operations
 ; into the equivalent collection of scalar load store calls.

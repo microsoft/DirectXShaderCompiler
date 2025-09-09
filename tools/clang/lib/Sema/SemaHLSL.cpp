@@ -1984,7 +1984,9 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
                          LPCSTR tableName, LPCSTR lowering,
                          const HLSL_INTRINSIC *pIntrinsic,
                          std::vector<QualType> *functionArgQualTypesVector) {
-  DeclContext *currentDeclContext = context.getTranslationUnitDecl();
+  DeclContext *currentDeclContext =
+      NS ? static_cast<DeclContext *>(NS) : context.getTranslationUnitDecl();
+
   std::vector<QualType> &functionArgQualTypes = *functionArgQualTypesVector;
   const size_t functionArgTypeCount = functionArgQualTypes.size();
   const bool isVariadic = IsVariadicIntrinsicFunction(pIntrinsic);
@@ -2032,9 +2034,6 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
       InlineSpecifiedFalse, HasWrittenPrototypeTrue);
   currentDeclContext->addDecl(functionDecl);
 
-  functionDecl->setLexicalDeclContext(currentDeclContext);
-  // put under hlsl namespace
-  functionDecl->setDeclContext(NS);
   // Add intrinsic attribute
   AddHLSLIntrinsicAttr(functionDecl, context, tableName, lowering, pIntrinsic);
 
@@ -2057,6 +2056,9 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
 
   functionDecl->setParams(paramDecls);
   functionDecl->setImplicit(true);
+
+  if (!NS)
+    functionDecl->addAttr(HLSLBuiltinCallAttr::CreateImplicit(context));
 
   return functionDecl;
 }
@@ -4152,6 +4154,7 @@ public:
                               SourceLocation(), &context.Idents.get("dx"),
                               /*PrevDecl*/ nullptr);
     m_dxNSDecl->setImplicit();
+    m_dxNSDecl->setHasExternalLexicalStorage(true);
     context.getTranslationUnitDecl()->addDecl(m_dxNSDecl);
 
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -5169,7 +5172,7 @@ public:
 
   bool AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
                                    ArrayRef<Expr *> Args,
-                                   OverloadCandidateSet &CandidateSet,
+                                   OverloadCandidateSet &CandidateSet, Scope *S,
                                    bool PartialOverloading) override {
     DXASSERT_NOMSG(ULE != nullptr);
 
@@ -5194,6 +5197,8 @@ public:
     // Exceptions:
     // - Vulkan-specific intrinsics live in the 'vk::' namespace.
     // - DirectX-specific intrinsics live in the 'dx::' namespace.
+    // - Global namespaces could just mean we have a `using` declaration... so
+    // it can be anywhere!
     if (isQualified && !isGlobalNamespace && !isVkNamespace && !isDxNamespace)
       return false;
 
@@ -5204,81 +5209,106 @@ public:
     }
 
     StringRef nameIdentifier = idInfo->getName();
-    const HLSL_INTRINSIC *table = g_Intrinsics;
-    auto tableCount = _countof(g_Intrinsics);
-    if (isDxNamespace) {
-      table = g_DxIntrinsics;
-      tableCount = _countof(g_DxIntrinsics);
-    }
-#ifdef ENABLE_SPIRV_CODEGEN
-    if (isVkNamespace) {
-      table = g_VkIntrinsics;
-      tableCount = _countof(g_VkIntrinsics);
-    }
-#endif // ENABLE_SPIRV_CODEGEN
+    using IntrinsicArray = llvm::ArrayRef<const HLSL_INTRINSIC>;
+    struct IntrinsicTableEntry {
+      IntrinsicArray Table;
+      NamespaceDecl *NS;
+    };
 
-    IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
-        table, tableCount, StringRef(), nameIdentifier, Args.size());
-    IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
-        table, tableCount, IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
+    llvm::SmallVector<IntrinsicTableEntry, 3> SearchTables;
 
-    for (; cursor != end; ++cursor) {
-      // If this is the intrinsic we're interested in, build up a representation
-      // of the types we need.
-      const HLSL_INTRINSIC *pIntrinsic = *cursor;
-      LPCSTR tableName = cursor.GetTableName();
-      LPCSTR lowering = cursor.GetLoweringStrategy();
-      DXASSERT(pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
-               "otherwise g_MaxIntrinsicParamCount needs to be updated for "
-               "wider signatures");
+    bool SearchDX = isDxNamespace;
+    bool SearchVK = isVkNamespace;
+    if (isGlobalNamespace || !isQualified)
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_Intrinsics), m_hlslNSDecl});
 
-      std::vector<QualType> functionArgTypes;
-      size_t badArgIdx;
-      bool argsMatch =
-          MatchArguments(cursor, QualType(), QualType(), QualType(), Args,
-                         &functionArgTypes, badArgIdx);
-      if (!functionArgTypes.size())
-        return false;
-
-      // Get or create the overload we're interested in.
-      FunctionDecl *intrinsicFuncDecl = nullptr;
-      std::pair<UsedIntrinsicStore::iterator, bool> insertResult =
-          m_usedIntrinsics.insert(UsedIntrinsic(pIntrinsic, functionArgTypes));
-      bool insertedNewValue = insertResult.second;
-      if (insertedNewValue) {
-        NamespaceDecl *nsDecl = m_hlslNSDecl;
-        if (isVkNamespace)
-          nsDecl = m_vkNSDecl;
-        else if (isDxNamespace)
-          nsDecl = m_dxNSDecl;
-        DXASSERT(tableName,
-                 "otherwise IDxcIntrinsicTable::GetTableName() failed");
-        intrinsicFuncDecl =
-            AddHLSLIntrinsicFunction(*m_context, nsDecl, tableName, lowering,
-                                     pIntrinsic, &functionArgTypes);
-        insertResult.first->setFunctionDecl(intrinsicFuncDecl);
-      } else {
-        intrinsicFuncDecl = (*insertResult.first).getFunctionDecl();
+    if (S && !isQualified) {
+      SmallVector<const DeclContext *, 4> NSContexts;
+      m_sema->CollectNamespaceContexts(S, NSContexts);
+      for (const auto &UD : NSContexts) {
+        if (static_cast<DeclContext *>(m_dxNSDecl) == UD)
+          SearchDX = true;
+        else if (static_cast<DeclContext *>(m_vkNSDecl) == UD)
+          SearchVK = true;
       }
+    }
 
-      OverloadCandidate &candidate = CandidateSet.addCandidate(Args.size());
-      candidate.Function = intrinsicFuncDecl;
-      candidate.FoundDecl.setDecl(intrinsicFuncDecl);
-      candidate.Viable = argsMatch;
-      CandidateSet.isNewCandidate(intrinsicFuncDecl); // used to insert into set
-      if (argsMatch)
-        return true;
-      if (badArgIdx) {
-        candidate.FailureKind = ovl_fail_bad_conversion;
-        QualType ParamType =
-            intrinsicFuncDecl->getParamDecl(badArgIdx - 1)->getType();
-        candidate.Conversions[badArgIdx - 1].setBad(
-            BadConversionSequence::no_conversion, Args[badArgIdx - 1],
-            ParamType);
-      } else {
-        // A less informative error. Needed when the failure relates to the
-        // return type
-        candidate.FailureKind = ovl_fail_bad_final_conversion;
+    if (SearchDX)
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_DxIntrinsics), m_dxNSDecl});
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (SearchVK)
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_VkIntrinsics), m_vkNSDecl});
+#endif
+
+    assert(!SearchTables.empty() && "Must have at least one search table!");
+
+    for (const auto &T : SearchTables) {
+
+      IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
+          T.Table.data(), T.Table.size(), StringRef(), nameIdentifier,
+          Args.size());
+      IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
+          T.Table.data(), T.Table.size(),
+          IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
+
+      for (; cursor != end; ++cursor) {
+        // If this is the intrinsic we're interested in, build up a
+        // representation of the types we need.
+        const HLSL_INTRINSIC *pIntrinsic = *cursor;
+        LPCSTR tableName = cursor.GetTableName();
+        LPCSTR lowering = cursor.GetLoweringStrategy();
+        DXASSERT(pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
+                 "otherwise g_MaxIntrinsicParamCount needs to be updated for "
+                 "wider signatures");
+
+        std::vector<QualType> functionArgTypes;
+        size_t badArgIdx;
+        bool argsMatch =
+            MatchArguments(cursor, QualType(), QualType(), QualType(), Args,
+                           &functionArgTypes, badArgIdx);
+        if (!functionArgTypes.size())
+          return false;
+
+        // Get or create the overload we're interested in.
+        FunctionDecl *intrinsicFuncDecl = nullptr;
+        std::pair<UsedIntrinsicStore::iterator, bool> insertResult =
+            m_usedIntrinsics.insert(
+                UsedIntrinsic(pIntrinsic, functionArgTypes));
+        bool insertedNewValue = insertResult.second;
+        if (insertedNewValue) {
+          DXASSERT(tableName,
+                   "otherwise IDxcIntrinsicTable::GetTableName() failed");
+          intrinsicFuncDecl =
+              AddHLSLIntrinsicFunction(*m_context, T.NS, tableName, lowering,
+                                       pIntrinsic, &functionArgTypes);
+          insertResult.first->setFunctionDecl(intrinsicFuncDecl);
+        } else {
+          intrinsicFuncDecl = (*insertResult.first).getFunctionDecl();
+        }
+
+        OverloadCandidate &candidate = CandidateSet.addCandidate(Args.size());
+        candidate.Function = intrinsicFuncDecl;
+        candidate.FoundDecl.setDecl(intrinsicFuncDecl);
+        candidate.Viable = argsMatch;
+        CandidateSet.isNewCandidate(
+            intrinsicFuncDecl); // used to insert into set
+        if (argsMatch)
+          return true;
+        if (badArgIdx) {
+          candidate.FailureKind = ovl_fail_bad_conversion;
+          QualType ParamType =
+              intrinsicFuncDecl->getParamDecl(badArgIdx - 1)->getType();
+          candidate.Conversions[badArgIdx - 1].setBad(
+              BadConversionSequence::no_conversion, Args[badArgIdx - 1],
+              ParamType);
+        } else {
+          // A less informative error. Needed when the failure relates to the
+          // return type
+          candidate.FailureKind = ovl_fail_bad_final_conversion;
+        }
       }
     }
 
@@ -5288,12 +5318,16 @@ public:
   bool Initialize(ASTContext &context) {
     m_context = &context;
 
-    m_hlslNSDecl =
-        NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
-                              /*Inline*/ false, SourceLocation(),
-                              SourceLocation(), &context.Idents.get("hlsl"),
-                              /*PrevDecl*/ nullptr);
-    m_hlslNSDecl->setImplicit();
+    // The HLSL namespace is disabled here pending a decision on
+    // https://github.com/microsoft/hlsl-specs/issues/484.
+    if (false && context.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x) {
+      m_hlslNSDecl =
+          NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
+                                /*Inline*/ false, SourceLocation(),
+                                SourceLocation(), &context.Idents.get("hlsl"),
+                                /*PrevDecl*/ nullptr);
+      m_hlslNSDecl->setImplicit();
+    }
     AddBaseTypes();
     AddHLSLScalarTypes();
     AddHLSLStringType();
@@ -5402,6 +5436,15 @@ public:
         objectKind = ClassifyRecordType(recordType);
         switch (objectKind) {
         case AR_TOBJ_OBJECT:
+#ifdef ENABLE_SPIRV_CODEGEN
+          if (const auto *namespaceDecl = dyn_cast<NamespaceDecl>(
+                  recordType->getDecl()->getDeclContext());
+              namespaceDecl && namespaceDecl->getName().equals("vk") &&
+              (recordType->getDecl()->getName().equals("SpirvType") ||
+               recordType->getDecl()->getName().equals("SpirvOpaqueType"))) {
+            return true;
+          }
+#endif
           m_sema->Diag(argLoc, diag::err_hlsl_unsupported_object_context)
               << type << static_cast<unsigned>(TypeDiagContext::TypeParameter);
           return false;
@@ -10792,18 +10835,24 @@ HLSLExternalSource::ApplyTypeSpecSignToParsedType(clang::QualType &type,
   }
 }
 
-bool DiagnoseIntersectionAttributes(Sema &S, SourceLocation Loc, QualType Ty) {
-  // Must be a UDT
+bool CheckIntersectionAttributeArg(Sema &S, Expr *E) {
+  SourceLocation Loc = E->getExprLoc();
+  QualType Ty = E->getType();
+
+  // Identify problematic fields first (high diagnostic accuracy, may miss some
+  // invalid cases)
+  const TypeDiagContext DiagContext = TypeDiagContext::Attributes;
+  if (DiagnoseTypeElements(S, Loc, Ty, DiagContext, DiagContext))
+    return true;
+
+  // Must be a UDT (low diagnostic accuracy, catches remaining invalid cases)
   if (Ty.isNull() || !hlsl::IsHLSLCopyableAnnotatableRecord(Ty)) {
     S.Diag(Loc, diag::err_payload_attrs_must_be_udt)
         << /*payload|attributes|callable*/ 1 << /*parameter %2|type*/ 1;
-    return false;
+    return true;
   }
 
-  const TypeDiagContext DiagContext = TypeDiagContext::Attributes;
-  if (DiagnoseTypeElements(S, Loc, Ty, DiagContext, DiagContext))
-    return false;
-  return true;
+  return false;
 }
 
 Sema::TemplateDeductionResult
@@ -10914,7 +10963,6 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
     LPCSTR tableName = cursor.GetTableName();
     // Currently only intrinsic we allow for explicit template arguments are
     // for Load/Store for ByteAddressBuffer/RWByteAddressBuffer
-    // and HitObject::GetAttributes with user-defined intersection attributes.
 
     // Check Explicit template arguments
     UINT intrinsicOp = (*cursor)->Op;
@@ -10929,11 +10977,9 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
       IsBABLoad = intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
       IsBABStore = intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
     }
-    bool IsHitObjectGetAttributes =
-        intrinsicOp == (UINT)IntrinsicOp::MOP_DxHitObject_GetAttributes;
     if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() >= 1) {
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
-      if (!IsBABLoad && !IsBABStore && !IsHitObjectGetAttributes) {
+      if (!IsBABLoad && !IsBABStore) {
         getSema()->Diag(Loc, diag::err_hlsl_intrinsic_template_arg_unsupported)
             << intrinsicName;
         return Sema::TemplateDeductionResult::TDK_Invalid;
@@ -10947,11 +10993,13 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
       }
 
       if (IsBABLoad || IsBABStore) {
-        const bool IsLegalTemplate =
-            !functionTemplateTypeArg.isNull() &&
-            hlsl::IsHLSLNumericOrAggregateOfNumericType(
-                functionTemplateTypeArg);
-        if (!IsLegalTemplate) {
+        const bool IsNull = functionTemplateTypeArg.isNull();
+        // Incomplete type is diagnosed elsewhere, so just fail if incomplete.
+        if (!IsNull &&
+            getSema()->RequireCompleteType(Loc, functionTemplateTypeArg, 0))
+          return Sema::TemplateDeductionResult::TDK_Invalid;
+        if (IsNull || !hlsl::IsHLSLNumericOrAggregateOfNumericType(
+                          functionTemplateTypeArg)) {
           getSema()->Diag(Loc, diag::err_hlsl_intrinsic_template_arg_numeric)
               << intrinsicName;
           DiagnoseTypeElements(
@@ -10961,10 +11009,6 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
           return Sema::TemplateDeductionResult::TDK_Invalid;
         }
       }
-      if (IsHitObjectGetAttributes &&
-          !DiagnoseIntersectionAttributes(*getSema(), Loc,
-                                          functionTemplateTypeArg))
-        return Sema::TemplateDeductionResult::TDK_Invalid;
     } else if (IsBABStore) {
       // Prior to HLSL 2018, Store operation only stored scalar uint.
       if (!Is2018) {
@@ -12238,9 +12282,78 @@ static bool CheckVKBufferPointerCast(Sema &S, FunctionDecl *FD, CallExpr *CE,
 }
 #endif
 
+static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
+  if (!E)
+    return false;
+  E = E->IgnoreCasts();
+  if (auto *DRE = dyn_cast<DeclRefExpr>(E))
+    return DRE->getDecl()->hasAttr<HLSLNoInterpolationAttr>();
+
+  if (auto *ME = dyn_cast<MemberExpr>(E))
+    return ME->getMemberDecl()->hasAttr<HLSLNoInterpolationAttr>() ||
+           isRelatedDeclMarkedNointerpolation(ME->getBase());
+
+  if (auto *HVE = dyn_cast<HLSLVectorElementExpr>(E))
+    return isRelatedDeclMarkedNointerpolation(HVE->getBase());
+
+  if (auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
+    return isRelatedDeclMarkedNointerpolation(ASE->getBase());
+
+  return false;
+}
+
+static bool CheckIntrinsicGetAttributeAtVertex(Sema &S, FunctionDecl *FDecl,
+                                               CallExpr *TheCall) {
+  assert(TheCall->getNumArgs() > 0);
+  auto argument = TheCall->getArg(0)->IgnoreCasts();
+
+  if (!isRelatedDeclMarkedNointerpolation(argument)) {
+    S.Diag(argument->getExprLoc(), diag::err_hlsl_parameter_requires_attribute)
+        << 0 << FDecl->getName() << "nointerpolation";
+    return true;
+  }
+
+  return false;
+}
+
+static bool CheckNoInterpolationParams(Sema &S, FunctionDecl *FDecl,
+                                       CallExpr *TheCall) {
+  // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
+  // to limit the scope, and fail gracefully in some cases.
+  if (!S.getLangOpts().SPIRV)
+    return false;
+
+  bool error = false;
+  for (unsigned i = 0; i < FDecl->getNumParams(); i++) {
+    assert(i < TheCall->getNumArgs());
+
+    if (!FDecl->getParamDecl(i)->hasAttr<HLSLNoInterpolationAttr>())
+      continue;
+
+    if (!isRelatedDeclMarkedNointerpolation(TheCall->getArg(i))) {
+      S.Diag(TheCall->getArg(i)->getExprLoc(),
+             diag::err_hlsl_parameter_requires_attribute)
+          << i << FDecl->getName() << "nointerpolation";
+      error = true;
+    }
+  }
+
+  return error;
+}
+
+// Verify that user-defined intrinsic struct args contain no long vectors
+static bool CheckUDTIntrinsicArg(Sema &S, Expr *Arg) {
+  const TypeDiagContext DiagContext =
+      TypeDiagContext::UserDefinedStructParameter;
+  return DiagnoseTypeElements(S, Arg->getExprLoc(), Arg->getType(), DiagContext,
+                              DiagContext);
+}
+
 // Check HLSL call constraints, not fatal to creating the AST.
-void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
-                                 const FunctionProtoType *Proto) {
+void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
+  if (CheckNoInterpolationParams(*this, FDecl, TheCall))
+    return;
+
   HLSLIntrinsicAttr *IntrinsicAttr = FDecl->getAttr<HLSLIntrinsicAttr>();
   if (!IntrinsicAttr)
     return;
@@ -12267,6 +12380,28 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
     break;
   case hlsl::IntrinsicOp::IOP___builtin_OuterProductAccumulate:
     CheckOuterProductAccumulateCall(*this, FDecl, TheCall);
+    break;
+  case hlsl::IntrinsicOp::IOP_GetAttributeAtVertex:
+    // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
+    // to limit the scope, and fail gracefully in some cases.
+    if (!getLangOpts().SPIRV)
+      return;
+    CheckIntrinsicGetAttributeAtVertex(*this, FDecl, TheCall);
+    break;
+  case hlsl::IntrinsicOp::IOP_DispatchMesh:
+    CheckUDTIntrinsicArg(*this, TheCall->getArg(3)->IgnoreCasts());
+    break;
+  case hlsl::IntrinsicOp::IOP_CallShader:
+    CheckUDTIntrinsicArg(*this, TheCall->getArg(1)->IgnoreCasts());
+    break;
+  case hlsl::IntrinsicOp::IOP_TraceRay:
+    CheckUDTIntrinsicArg(*this, TheCall->getArg(7)->IgnoreCasts());
+    break;
+  case hlsl::IntrinsicOp::IOP_ReportHit:
+    CheckIntersectionAttributeArg(*this, TheCall->getArg(2)->IgnoreCasts());
+    break;
+  case hlsl::IntrinsicOp::MOP_DxHitObject_GetAttributes:
+    CheckIntersectionAttributeArg(*this, TheCall->getArg(0)->IgnoreCasts());
     break;
 #ifdef ENABLE_SPIRV_CODEGEN
   case hlsl::IntrinsicOp::IOP_Vkreinterpret_pointer_cast:
@@ -16802,118 +16937,6 @@ QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
   return QualType();
 }
 
-static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
-  if (!E)
-    return false;
-  E = E->IgnoreCasts();
-  if (auto *DRE = dyn_cast<DeclRefExpr>(E))
-    return DRE->getDecl()->hasAttr<HLSLNoInterpolationAttr>();
-
-  if (auto *ME = dyn_cast<MemberExpr>(E))
-    return ME->getMemberDecl()->hasAttr<HLSLNoInterpolationAttr>() ||
-           isRelatedDeclMarkedNointerpolation(ME->getBase());
-
-  if (auto *HVE = dyn_cast<HLSLVectorElementExpr>(E))
-    return isRelatedDeclMarkedNointerpolation(HVE->getBase());
-
-  if (auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
-    return isRelatedDeclMarkedNointerpolation(ASE->getBase());
-
-  return false;
-}
-
-// Verify that user-defined intrinsic struct args contain no long vectors
-static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
-  const TypeDiagContext DiagContext =
-      TypeDiagContext::UserDefinedStructParameter;
-  return DiagnoseTypeElements(*S, Arg->getExprLoc(), Arg->getType(),
-                              DiagContext, DiagContext);
-}
-
-static bool CheckIntrinsicGetAttributeAtVertex(Sema *S, FunctionDecl *FDecl,
-                                               CallExpr *TheCall) {
-  assert(TheCall->getNumArgs() > 0);
-  auto argument = TheCall->getArg(0)->IgnoreCasts();
-
-  if (!isRelatedDeclMarkedNointerpolation(argument)) {
-    S->Diag(argument->getExprLoc(), diag::err_hlsl_parameter_requires_attribute)
-        << 0 << FDecl->getName() << "nointerpolation";
-    return true;
-  }
-
-  return false;
-}
-
-bool Sema::CheckHLSLIntrinsicCall(FunctionDecl *FDecl, CallExpr *TheCall) {
-  auto attr = FDecl->getAttr<HLSLIntrinsicAttr>();
-
-  if (!attr)
-    return false;
-
-  if (!IsBuiltinTable(attr->getGroup()))
-    return false;
-
-  switch (hlsl::IntrinsicOp(attr->getOpcode())) {
-  case hlsl::IntrinsicOp::IOP_GetAttributeAtVertex:
-    // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
-    // to limit the scope, and fail gracefully in some cases.
-    if (!getLangOpts().SPIRV)
-      return false;
-    // This should never happen for SPIR-V. But on the DXIL side, extension can
-    // be added by inserting new intrinsics, meaning opcodes can collide with
-    // existing ones. See the ExtensionTest.EvalAttributeCollision test.
-    assert(FDecl->getName() == "GetAttributeAtVertex");
-    return CheckIntrinsicGetAttributeAtVertex(this, FDecl, TheCall);
-  case hlsl::IntrinsicOp::IOP_DispatchMesh:
-    assert(TheCall->getNumArgs() > 3);
-    assert(FDecl->getName() == "DispatchMesh");
-    return CheckUDTIntrinsicArg(this, TheCall->getArg(3)->IgnoreCasts());
-  case hlsl::IntrinsicOp::IOP_CallShader:
-    assert(TheCall->getNumArgs() > 1);
-    assert(FDecl->getName() == "CallShader");
-    return CheckUDTIntrinsicArg(this, TheCall->getArg(1)->IgnoreCasts());
-  case hlsl::IntrinsicOp::IOP_TraceRay:
-    assert(TheCall->getNumArgs() > 7);
-    assert(FDecl->getName() == "TraceRay");
-    return CheckUDTIntrinsicArg(this, TheCall->getArg(7)->IgnoreCasts());
-  case hlsl::IntrinsicOp::IOP_ReportHit:
-    assert(TheCall->getNumArgs() > 2);
-    assert(FDecl->getName() == "ReportHit");
-    return CheckUDTIntrinsicArg(this, TheCall->getArg(2)->IgnoreCasts());
-  default:
-    break;
-  }
-
-  return false;
-}
-
-bool Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
-  if (hlsl::IsIntrinsicOp(FDecl) && CheckHLSLIntrinsicCall(FDecl, TheCall))
-    return true;
-
-  // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
-  // to limit the scope, and fail gracefully in some cases.
-  if (!getLangOpts().SPIRV)
-    return false;
-
-  bool error = false;
-  for (unsigned i = 0; i < FDecl->getNumParams(); i++) {
-    assert(i < TheCall->getNumArgs());
-
-    if (!FDecl->getParamDecl(i)->hasAttr<HLSLNoInterpolationAttr>())
-      continue;
-
-    if (!isRelatedDeclMarkedNointerpolation(TheCall->getArg(i))) {
-      Diag(TheCall->getArg(i)->getExprLoc(),
-           diag::err_hlsl_parameter_requires_attribute)
-          << i << FDecl->getName() << "nointerpolation";
-      error = true;
-    }
-  }
-
-  return error;
-}
-
 namespace hlsl {
 
 static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
@@ -17137,6 +17160,10 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
   DXIL::ShaderKind shaderKind = ShaderModel::KindFromFullName(StageName);
   if (shaderKind == DXIL::ShaderKind::Node) {
     NodeLoc = pAttr->getLocation();
+    // SPIR-V node shader support is experimental
+    if (S.getLangOpts().SPIRV) {
+      S.Diag(NodeLoc, diag::warn_spirv_node_shaders_experimental);
+    }
   }
   if (NodeLoc.isInvalid()) {
     return;

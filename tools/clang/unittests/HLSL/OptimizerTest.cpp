@@ -117,7 +117,7 @@ public:
                                              const wchar_t *profile,
                                              bool usesViewId,
                                              int streamCount = 1);
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
   HRESULT CreateCompiler(IDxcCompiler **ppResult) {

@@ -313,6 +313,9 @@ bool isSintOrVecOfSintType(QualType type);
 /// integer type.
 bool isUintOrVecOfUintType(QualType type);
 
+/// Returns true if the given type is a half or vector of half type.
+bool isHalfOrVecOfHalfType(QualType type);
+
 /// Returns true if the given type is a float or vector of float type.
 bool isFloatOrVecOfFloatType(QualType type);
 
@@ -336,6 +339,10 @@ bool isFloatOrVecMatOfFloatType(QualType type);
 bool isOrContainsNonFpColMajorMatrix(const ASTContext &,
                                      const SpirvCodeGenOptions &, QualType type,
                                      const Decl *decl);
+
+/// brief Returns true if the type is a boolean type or an aggragate type that
+/// contains a boolean type.
+bool isOrContainsBoolType(QualType type);
 
 /// \brief Returns true if the given type is `vk::ext_result_id<T>`.
 bool isExtResultIdType(QualType type);

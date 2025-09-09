@@ -2340,18 +2340,18 @@ ID  Name                                                  Description
 223 TextureGatherRaw                                      Gather raw elements from 4 texels with no type conversions (SRV type is constrained)
 224 SampleCmpLevel                                        samples a texture and compares a single component against the specified comparison value
 225 TextureStoreSample                                    stores texel data at specified sample index
-226 Reserved0                                             Reserved
-227 Reserved1                                             Reserved
-228 Reserved2                                             Reserved
-229 Reserved3                                             Reserved
-230 Reserved4                                             Reserved
-231 Reserved5                                             Reserved
-232 Reserved6                                             Reserved
-233 Reserved7                                             Reserved
-234 Reserved8                                             Reserved
-235 Reserved9                                             Reserved
-236 Reserved10                                            Reserved
-237 Reserved11                                            Reserved
+226 Reserved0                                             reserved
+227 Reserved1                                             reserved
+228 Reserved2                                             reserved
+229 Reserved3                                             reserved
+230 Reserved4                                             reserved
+231 Reserved5                                             reserved
+232 Reserved6                                             reserved
+233 Reserved7                                             reserved
+234 Reserved8                                             reserved
+235 Reserved9                                             reserved
+236 Reserved10                                            reserved
+237 Reserved11                                            reserved
 238 AllocateNodeOutputRecords                             returns a handle for the output records
 239 GetNodeRecordPtr                                      retrieve node input/output record pointer in address space 6
 240 IncrementOutputCount                                  Select the next logical output count for an EmptyNodeOutput for the whole group or per thread.
@@ -3298,6 +3298,7 @@ SM.INVALIDRESOURCEKIND                                        Invalid resources 
 SM.INVALIDSAMPLERFEEDBACKTYPE                                 Invalid sampler feedback type.
 SM.INVALIDTEXTUREKINDONUAV                                    TextureCube[Array] resources are not supported with UAVs.
 SM.ISOLINEOUTPUTPRIMITIVEMISMATCH                             Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
+SM.ISSPECIALFLOAT                                             16 bit IsSpecialFloat overloads require Shader Model 6.9 or higher.
 SM.MAXMSSMSIZE                                                Total Thread Group Shared Memory storage is %0, exceeded %1.
 SM.MAXTGSMSIZE                                                Total Thread Group Shared Memory storage is %0, exceeded %1.
 SM.MAXTHEADGROUP                                              Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1.

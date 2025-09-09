@@ -42,10 +42,10 @@ static cl::opt<std::string>
 
 class DxvContext {
 private:
-  DxcDllSupport &m_dxcSupport;
+  SpecificDllLoader &m_dxcSupport;
 
 public:
-  DxvContext(DxcDllSupport &dxcSupport) : m_dxcSupport(dxcSupport) {}
+  DxvContext(SpecificDllLoader &dxcSupport) : m_dxcSupport(dxcSupport) {}
 
   void Validate();
 };
@@ -160,8 +160,8 @@ int main(int argc, const char **argv) {
       return 2;
     }
 
-    DxcDllSupport dxcSupport;
-    dxc::EnsureEnabled(dxcSupport);
+    DxCompilerDllLoader dxcSupport;
+    IFT(dxcSupport.Initialize());
 
     DxvContext context(dxcSupport);
     pStage = "Validation";
