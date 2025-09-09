@@ -1,4 +1,6 @@
 #include "dxc/Support/dxcapi.use.h"
+#include "llvm/Support/raw_ostream.h"
+
 #include <cassert>
 #include <string>
 
@@ -22,7 +24,7 @@ public:
   HRESULT CreateInstance2Impl(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
                               IUnknown **pResult) override;
 
-  HRESULT Initialize();
+  HRESULT Initialize(llvm::raw_string_ostream &log);
 
   bool IsEnabled() const override { return DxCompilerSupport.IsEnabled(); }
 };

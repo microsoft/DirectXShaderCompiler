@@ -4247,7 +4247,9 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   SetEnvVarW(L"DXC_DXIL_DLL_PATH", L"");
 
   // empty initialization should succeed
-  VERIFY_SUCCEEDED(ExtSupportEmpty.Initialize());
+  std::string dllErrorString;
+  llvm::raw_string_ostream dllLogStream(dllErrorString);
+  VERIFY_SUCCEEDED(ExtSupportEmpty.Initialize(dllLogStream));
 
   VERIFY_IS_FALSE(ExtSupportEmpty.DxilDllFailedToLoad());
   std::string EmptyPath = ExtSupportBogus.GetDxilDllPath();
@@ -4257,7 +4259,7 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   SetEnvVarW(L"DXC_DXIL_DLL_PATH", L"bogus");
 
   if (!ExtSupportBogus.IsEnabled()) {
-    VERIFY_FAILED(ExtSupportBogus.Initialize());
+    VERIFY_FAILED(ExtSupportBogus.Initialize(dllLogStream));
   }
 
   // validate that m_dllExtSupport2 was able to capture the environment
