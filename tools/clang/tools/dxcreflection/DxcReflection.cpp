@@ -28,10 +28,9 @@ struct DxcRegisterTypeInfo {
   D3D_SHADER_INPUT_FLAGS RegisterFlags;
   D3D_SRV_DIMENSION TextureDimension;
   D3D_RESOURCE_RETURN_TYPE TextureValue;
-  uint32_t SampleCount;
 };
 
-static uint32_t RegisterString(DxcHLSLReflection &Refl,
+static uint32_t RegisterString(DxcHLSLReflectionData &Refl,
     const std::string &Name, bool isNonDebug) {
 
   assert(Name.size() < 32768 && "Strings are limited to 32767");
@@ -66,7 +65,7 @@ static uint32_t RegisterString(DxcHLSLReflection &Refl,
   return stringId;
 }
 
-static uint32_t PushNextNodeId(DxcHLSLReflection &Refl, const SourceManager &SM,
+static uint32_t PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager &SM,
                                const LangOptions &LangOpts,
                                const std::string &UnqualifiedName, Decl *Decl,
                                DxcHLSLNodeType Type, uint32_t ParentNodeId,
@@ -205,7 +204,6 @@ static DxcRegisterTypeInfo GetTextureRegisterInfo(ASTContext &ASTCtx,
     
   DxcRegisterTypeInfo type = {};
   type.RegisterType = IsWrite ? D3D_SIT_UAV_RWTYPED : D3D_SIT_TEXTURE;
-  type.SampleCount = (uint32_t)-1;
 
   //Parse return type and dimensions
 
@@ -216,7 +214,14 @@ static DxcRegisterTypeInfo GetTextureRegisterInfo(ASTContext &ASTCtx,
 
   const ArrayRef<TemplateArgument>& textureParams = textureTemplate->getTemplateArgs().asArray();
 
-  assert(textureParams.size() == 1 &&
+  bool shouldBeTexture2DMS = textureParams.size() == 2;
+
+  if (shouldBeTexture2DMS)
+    assert(textureParams[0].getKind() == TemplateArgument::Type &&
+           textureParams[1].getKind() == TemplateArgument::Integral &&
+           "Expected template args");
+
+  else assert(textureParams.size() == 1 &&
          textureParams[0].getKind() == TemplateArgument::Type &&
          "Expected template args");
 
@@ -290,6 +295,7 @@ static DxcRegisterTypeInfo GetTextureRegisterInfo(ASTContext &ASTCtx,
   //Parse type
 
   if (TypeName == "Buffer") {
+    assert(!shouldBeTexture2DMS && "Buffer<T> expected but got Buffer<T, ...>");
     type.TextureDimension = D3D_SRV_DIMENSION_BUFFER;
     return type;
   }
@@ -321,10 +327,12 @@ static DxcRegisterTypeInfo GetTextureRegisterInfo(ASTContext &ASTCtx,
   else if (TypeName == "Texture1D")
     type.TextureDimension = D3D_SRV_DIMENSION_TEXTURE1D;
 
-  else if (TypeName == "Texture2DMS") {
+  else if (TypeName == "Texture2DMS")
     type.TextureDimension = D3D_SRV_DIMENSION_TEXTURE2DMS;
-    type.SampleCount = 0;
-  }
+
+    assert((shouldBeTexture2DMS ==
+          (type.TextureDimension == D3D_SRV_DIMENSION_TEXTURE2DMS)) &&
+         "Texture2DMS used with Texture2D syntax or reverse");
 
   if (isArray)      //Arrays are always 1 behind the regular type
     type.TextureDimension = (D3D_SRV_DIMENSION)(type.TextureDimension + 1);
@@ -357,16 +365,6 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
   
   DxcRegisterTypeInfo info = {};
 
-  if (const ClassTemplateSpecializationDecl *spec =
-          dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
-
-    const ArrayRef<TemplateArgument> &array =
-        spec->getTemplateArgs().asArray();
-
-    if (array.size() == 1)
-      info.SampleCount = (uint32_t) (ASTCtx.getTypeSize(array[0].getAsType()) / 8);
-  }
-
   if (typeName == "AppendStructuredBuffer") {
     info.RegisterType = D3D_SIT_UAV_APPEND_STRUCTURED;
     return info;
@@ -379,7 +377,6 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
 
   if (typeName == "RaytracingAccelerationStructure") {
     info.RegisterType = D3D_SIT_RTACCELERATIONSTRUCTURE;
-    info.SampleCount = (uint32_t)-1;
     return info;
   }
 
@@ -414,7 +411,7 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
   return GetTextureRegisterInfo(ASTCtx, typeName, isWrite, recordDecl);
 }
 
-static uint32_t PushArray(DxcHLSLReflection &Refl, uint32_t ArraySizeFlat,
+static uint32_t PushArray(DxcHLSLReflectionData &Refl, uint32_t ArraySizeFlat,
                           const std::vector<uint32_t> &ArraySize) {
 
   if (ArraySizeFlat <= 1 || ArraySize.size() <= 1)
@@ -450,7 +447,7 @@ static uint32_t PushArray(DxcHLSLReflection &Refl, uint32_t ArraySizeFlat,
   return arrayId;
 }
 
-uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflection &Refl,
+uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
                           QualType Original, bool DefaultRowMaj) {
 
   // Unwrap array
@@ -803,23 +800,10 @@ static void FillReflectionRegisterAt(
     const DeclContext &Ctx, ASTContext &ASTCtx, const SourceManager &SM,
     DiagnosticsEngine &Diag, QualType Type, uint32_t ArraySizeFlat,
     ValueDecl *ValDesc, const std::vector<uint32_t> &ArraySize,
-    DxcHLSLReflection &Refl, uint32_t AutoBindingSpace, uint32_t ParentNodeId,
+    DxcHLSLReflectionData &Refl, uint32_t AutoBindingSpace, uint32_t ParentNodeId,
     bool DefaultRowMaj) {
 
   ArrayRef<hlsl::UnusualAnnotation *> UA = ValDesc->getUnusualAnnotations();
-
-  hlsl::RegisterAssignment *reg = nullptr;
-
-  for (auto It = UA.begin(), E = UA.end(); It != E; ++It) {
-
-    if ((*It)->getKind() != hlsl::UnusualAnnotation::UA_RegisterAssignment)
-      continue;
-
-    reg = cast<hlsl::RegisterAssignment>(*It);
-  }
-
-  assert(reg && "Found a register missing a RegisterAssignment, even though "
-                "GenerateConsistentBindings should have already generated it");
 
   DxcRegisterTypeInfo inputType = GetRegisterTypeInfo(ASTCtx, Type);
 
@@ -838,16 +822,11 @@ static void FillReflectionRegisterAt(
   }
 
   DxcHLSLRegister regD3D12 = {
-
       inputType.RegisterType,
-      reg->RegisterNumber,
       ArraySizeFlat,
       (uint32_t)inputType.RegisterFlags,
       inputType.TextureValue,
       inputType.TextureDimension,
-      inputType.SampleCount,
-      reg->RegisterSpace.hasValue() ? reg->RegisterSpace.getValue()
-                                    : AutoBindingSpace,
       nodeId,
       arrayId,
       bufferId
@@ -918,7 +897,7 @@ private:
 
 template<typename T>
 void RecurseBuffer(ASTContext &ASTCtx, const SourceManager &SM,
-                   DxcHLSLReflection &Refl, const T &Decls,
+                   DxcHLSLReflectionData &Refl, const T &Decls,
                    bool DefaultRowMaj, uint32_t ParentId) {
 
   for (Decl *decl : Decls) {
@@ -946,7 +925,7 @@ void RecurseBuffer(ASTContext &ASTCtx, const SourceManager &SM,
   }
 }
 
-uint32_t RegisterBuffer(ASTContext &ASTCtx, DxcHLSLReflection &Refl,
+uint32_t RegisterBuffer(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
                         const SourceManager &SM, DeclContext *Buffer,
                         uint32_t NodeId, D3D_CBUFFER_TYPE Type,
                         bool DefaultRowMaj) {
@@ -963,7 +942,7 @@ uint32_t RegisterBuffer(ASTContext &ASTCtx, DxcHLSLReflection &Refl,
 
 /*
 static void AddFunctionParameters(ASTContext &ASTCtx, QualType Type, Decl *Decl,
-                                  DxcHLSLReflection &Refl, const SourceManager &SM,
+                                  DxcHLSLReflectionData &Refl, const SourceManager &SM,
                                   uint32_t ParentNodeId) {
 
   PrintingPolicy printingPolicy(ASTCtx.getLangOpts());
@@ -1013,7 +992,7 @@ static void AddFunctionParameters(ASTContext &ASTCtx, QualType Type, Decl *Decl,
 static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
                                  DiagnosticsEngine &Diags,
                                  const SourceManager &SM,
-                                 DxcHLSLReflection &Refl,
+                                 DxcHLSLReflectionData &Refl,
                                  uint32_t AutoBindingSpace,
                                  uint32_t Depth,
                                  D3D12_HLSL_REFLECTION_FEATURE Features,
@@ -1051,21 +1030,6 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       if (Depth != 0)
         continue;
 
-      hlsl::RegisterAssignment *reg = nullptr;
-      ArrayRef<hlsl::UnusualAnnotation *> UA = CBuffer->getUnusualAnnotations();
-
-      for (auto It = UA.begin(), E = UA.end(); It != E; ++It) {
-
-        if ((*It)->getKind() != hlsl::UnusualAnnotation::UA_RegisterAssignment)
-          continue;
-
-        reg = cast<hlsl::RegisterAssignment>(*It);
-      }
-
-      assert(reg &&
-             "Found a cbuffer missing a RegisterAssignment, even though "
-             "GenerateConsistentBindings should have already generated it");
-
       uint32_t nodeId =
           PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), CBuffer->getName(),
                          CBuffer, DxcHLSLNodeType::Register, ParentNodeId,
@@ -1075,20 +1039,14 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
                                          D3D_CT_CBUFFER, DefaultRowMaj);
 
       DxcHLSLRegister regD3D12 = {
-
           D3D_SIT_CBUFFER,
-          reg->RegisterNumber,
           1,
-          (uint32_t) D3D_SIF_USERPACKED,
-          (D3D_RESOURCE_RETURN_TYPE) 0,
+          (uint32_t)D3D_SIF_USERPACKED,
+          (D3D_RESOURCE_RETURN_TYPE)0,
           D3D_SRV_DIMENSION_UNKNOWN,
           0,
-          reg->RegisterSpace.hasValue() ? reg->RegisterSpace.getValue()
-                                        : AutoBindingSpace,
           nodeId,
-          (uint32_t)-1,
-          bufferId
-      };
+          bufferId};
 
       Refl.Registers.push_back(regD3D12);
     }
@@ -1257,7 +1215,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
   }
 }
 
-DxcHLSLReflection::DxcHLSLReflection(clang::CompilerInstance &Compiler,
+DxcHLSLReflectionData::DxcHLSLReflectionData(clang::CompilerInstance &Compiler,
                                      clang::TranslationUnitDecl &Ctx,
                                      uint32_t AutoBindingSpace,
                                      D3D12_HLSL_REFLECTION_FEATURE Features,
@@ -1284,31 +1242,7 @@ DxcHLSLReflection::DxcHLSLReflection(clang::CompilerInstance &Compiler,
 
 //TODO: Debug print code
 
-static char RegisterGetSpaceChar(const DxcHLSLRegister &reg) {
-
-  switch (reg.Type) {
-
-  case D3D_SIT_UAV_RWTYPED:
-  case D3D_SIT_UAV_RWSTRUCTURED:
-  case D3D_SIT_UAV_RWBYTEADDRESS:
-  case D3D_SIT_UAV_APPEND_STRUCTURED:
-  case D3D_SIT_UAV_CONSUME_STRUCTURED:
-  case D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER:
-  case D3D_SIT_UAV_FEEDBACKTEXTURE:
-    return 'u';
-
-  case D3D_SIT_CBUFFER:
-    return 'b';
-
-  case D3D_SIT_SAMPLER:
-    return 's';
-
-  default:
-    return 't';
-  }
-}
-
-static std::string RegisterGetArraySize(const DxcHLSLReflection &Refl, const DxcHLSLRegister &reg) {
+static std::string RegisterGetArraySize(const DxcHLSLReflectionData &Refl, const DxcHLSLRegister &reg) {
 
   if (reg.ArrayId != (uint32_t)-1) {
 
@@ -1341,7 +1275,7 @@ static std::string NodeTypeToString(DxcHLSLNodeType type) {
   return arr[(int)type];
 }
 
-static std::string GetBuiltinTypeName(const DxcHLSLReflection &Refl,
+static std::string GetBuiltinTypeName(const DxcHLSLReflectionData &Refl,
                                const DxcHLSLType &Type) {
 
   std::string type;
@@ -1438,7 +1372,7 @@ static std::string GetBuiltinTypeName(const DxcHLSLReflection &Refl,
   return type;
 }
 
-static std::string PrintTypeInfo(const DxcHLSLReflection &Refl,
+static std::string PrintTypeInfo(const DxcHLSLReflectionData &Refl,
                           const DxcHLSLType &Type,
                           const std::string &PreviousTypeName) {
 
@@ -1467,7 +1401,7 @@ static std::string PrintTypeInfo(const DxcHLSLReflection &Refl,
   return result;
 }
 
-static void RecursePrintType(const DxcHLSLReflection &Refl, uint32_t TypeId,
+static void RecursePrintType(const DxcHLSLReflectionData &Refl, uint32_t TypeId,
                       uint32_t Depth, const char *Prefix = "") {
 
   const DxcHLSLType &type = Refl.Types[TypeId];
@@ -1496,7 +1430,7 @@ static void RecursePrintType(const DxcHLSLReflection &Refl, uint32_t TypeId,
   }
 }
 
-uint32_t RecursePrint(const DxcHLSLReflection &Refl, uint32_t NodeId,
+uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
                       uint32_t Depth, uint32_t IndexInParent) {
 
   const DxcHLSLNode &node = Refl.Nodes[NodeId];
@@ -1528,11 +1462,15 @@ uint32_t RecursePrint(const DxcHLSLReflection &Refl, uint32_t NodeId,
     switch (node.GetNodeType()) {
         
     case DxcHLSLNodeType::Register: {
+
       const DxcHLSLRegister &reg = Refl.Registers[localId];
-      printf("%s%s : register(%c%u, space%u);\n",
+
+      if (reg.ArrayId == (uint32_t)-1 && reg.BindCount == 1)
+        break;
+
+      printf("%s%s\n",
              std::string(Depth, '\t').c_str(),
-             RegisterGetArraySize(Refl, reg).c_str(), RegisterGetSpaceChar(reg),
-             reg.BindPoint, reg.Space);
+             RegisterGetArraySize(Refl, reg).c_str());
       break;
     }
         
@@ -1765,7 +1703,7 @@ void Consume(const std::vector<std::byte> &Bytes, uint64_t &Offset,
 static constexpr uint32_t DxcReflectionDataMagic = DXC_FOURCC('D', 'H', 'R', 'D');
 static constexpr uint16_t DxcReflectionDataVersion = 0;
 
-void DxcHLSLReflection::StripSymbols() {
+void DxcHLSLReflectionData::StripSymbols() {
   Strings.clear();
   StringsToId.clear();
   Sources.clear();
@@ -1779,7 +1717,7 @@ void DxcHLSLReflection::StripSymbols() {
   Features &= ~D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 }
 
-void RecurseNameGenerationType(DxcHLSLReflection &Refl, uint32_t TypeId,
+void RecurseNameGenerationType(DxcHLSLReflectionData &Refl, uint32_t TypeId,
                                uint32_t LocalId, const std::string &Parent) {
 
   const DxcHLSLType &type = Refl.Types[TypeId];
@@ -1798,7 +1736,7 @@ void RecurseNameGenerationType(DxcHLSLReflection &Refl, uint32_t TypeId,
       }
 }
 
-uint32_t RecurseNameGeneration(DxcHLSLReflection &Refl, uint32_t NodeId,
+uint32_t RecurseNameGeneration(DxcHLSLReflectionData &Refl, uint32_t NodeId,
                                uint32_t LocalId, const std::string &Parent,
                                bool IsDot) {
 
@@ -1840,7 +1778,7 @@ uint32_t RecurseNameGeneration(DxcHLSLReflection &Refl, uint32_t NodeId,
   return node.GetChildCount();
 }
 
-bool DxcHLSLReflection::GenerateNameLookupTable() {
+bool DxcHLSLReflectionData::GenerateNameLookupTable() {
 
   if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO) || Nodes.empty())
       return false;
@@ -1850,12 +1788,13 @@ bool DxcHLSLReflection::GenerateNameLookupTable() {
   return true;
 }
 
-void DxcHLSLReflection::Dump(std::vector<std::byte> &Bytes) const {
+void DxcHLSLReflectionData::Dump(std::vector<std::byte> &Bytes) const {
 
   uint64_t toReserve = sizeof(DxcHLSLHeader);
 
-  Advance(toReserve, Strings, StringsNonDebug, Sources, Nodes, NodeSymbols, Registers, Functions,
-          Enums, EnumValues, Annotations, ArraySizes, MemberTypeIds, MemberNameIds, Types, TypeNameIds, Buffers);
+  Advance(toReserve, Strings, StringsNonDebug, Sources, Nodes, NodeSymbols,
+          Registers, Functions, Enums, EnumValues, Annotations, ArraySizes,
+          Arrays, MemberTypeIds, MemberNameIds, Types, TypeNameIds, Buffers);
 
   Bytes.resize(toReserve);
 
@@ -1875,12 +1814,12 @@ void DxcHLSLReflection::Dump(std::vector<std::byte> &Bytes) const {
   toReserve += sizeof(DxcHLSLHeader);
 
   Append(Bytes, toReserve, Strings, StringsNonDebug, Sources, Nodes,
-         NodeSymbols, Registers,
-         Functions, Enums, EnumValues, Annotations, ArraySizes, MemberTypeIds,
-         MemberNameIds, Types, TypeNameIds, Buffers);
+         NodeSymbols, Registers, Functions, Enums, EnumValues, Annotations,
+         ArraySizes, Arrays, MemberTypeIds, MemberNameIds, Types, TypeNameIds,
+         Buffers);
 }
 
-DxcHLSLReflection::DxcHLSLReflection(const std::vector<std::byte> &Bytes,
+DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes,
                                      bool MakeNameLookupTable) {
 
   uint64_t off = 0;
@@ -1909,9 +1848,9 @@ DxcHLSLReflection::DxcHLSLReflection(const std::vector<std::byte> &Bytes,
           NodeSymbols, nodeSymbolCount, Registers, header.Registers, Functions,
           header.Functions, Enums, header.Enums, EnumValues, header.EnumValues,
           Annotations, header.Annotations, ArraySizes, header.ArraySizes,
-          MemberTypeIds, header.Members, MemberNameIds, memberSymbolCount,
-          Types, header.Types, TypeNameIds, typeSymbolCount, Buffers,
-          header.Buffers);
+          Arrays, header.Arrays, MemberTypeIds, header.Members, MemberNameIds,
+          memberSymbolCount, Types, header.Types, TypeNameIds, typeSymbolCount,
+          Buffers, header.Buffers);
 
   // Validation errors are throws to prevent accessing invalid data
 
@@ -2246,6 +2185,6 @@ DxcHLSLReflection::DxcHLSLReflection(const std::vector<std::byte> &Bytes,
 };
 
 
-void DxcHLSLReflection::Printf() const { RecursePrint(*this, 0, 0, 0); }
+void DxcHLSLReflectionData::Printf() const { RecursePrint(*this, 0, 0, 0); }
 
 }

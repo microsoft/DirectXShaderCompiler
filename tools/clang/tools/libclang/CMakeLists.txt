@@ -30,6 +30,7 @@ set(SOURCES
   IndexingContext.cpp
   dxcisenseimpl.cpp # HLSL Change
   dxcrewriteunused.cpp # HLSL Change
+  dxcreflector.cpp # HLSL Change
 
   ADDITIONAL_HEADERS
   CIndexDiagnostic.h
@@ -70,6 +71,7 @@ set(SOURCES
   IndexingContext.cpp
   dxcisenseimpl.cpp # HLSL Change
   dxcrewriteunused.cpp # HLSL Change
+  dxcreflector.cpp # HLSL Change
 
   ADDITIONAL_HEADERS
   CIndexDiagnostic.h

@@ -1097,7 +1097,7 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
 
     //Reflect
 
-    DxcHLSLReflection refl(astHelper.compiler, *astHelper.tu,
+    DxcHLSLReflectionData refl(astHelper.compiler, *astHelper.tu,
                            opts.AutoBindingSpace, reflectMask,
                            opts.DefaultRowMajor);
 
@@ -1108,7 +1108,7 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
     std::vector<std::byte> bytes;
     refl.Dump(bytes);
 
-    DxcHLSLReflection deserialized(bytes, true);
+    DxcHLSLReflectionData deserialized(bytes, true);
 
     assert(deserialized == refl && "Dump or Deserialize doesn't match");
 
@@ -1121,7 +1121,7 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
 
     refl.Dump(bytes);
 
-    deserialized = DxcHLSLReflection(bytes, false);
+    deserialized = DxcHLSLReflectionData(bytes, false);
 
     assert(deserialized == refl && "Dump or Deserialize doesn't match");
 

@@ -96,7 +96,9 @@ enum D3D12_HLSL_REFLECTION_FEATURE {
   D3D12_HLSL_REFLECTION_FEATURE_VARIABLES = 1 << 5,
 
   // Symbol info (stripping this will remove names and file location info)
-  D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO = 1 << 6
+  D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO = 1 << 6,
+
+  D3D12_HLSL_REFLECTION_FEATURE_ALL = D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO - 1
 };
 
 inline D3D12_HLSL_REFLECTION_FEATURE &operator|=(D3D12_HLSL_REFLECTION_FEATURE &a,
@@ -122,6 +124,7 @@ struct D3D12_HLSL_REFLECTION_DESC {
   UINT FunctionCount;
   UINT EnumCount;
   UINT StructCount;
+  UINT NodeCount;
 };
 
 struct D3D12_HLSL_FUNCTION_DESC {
@@ -156,6 +159,11 @@ struct D3D12_HLSL_ENUM_VALUE {
   INT64 Value;
 };
 
+struct D3D12_HLSL_ANNOTATION {
+  LPCSTR Name;
+  BOOL IsBuiltin;
+};
+
 typedef interface ID3D12ShaderReflectionConstantBuffer
     ID3D12ShaderReflectionConstantBuffer;
 
@@ -163,55 +171,123 @@ typedef struct _D3D12_SHADER_INPUT_BIND_DESC D3D12_SHADER_INPUT_BIND_DESC;
 typedef interface ID3D12ShaderReflectionVariable ID3D12ShaderReflectionVariable;
 typedef interface ID3D12FunctionParameterReflection ID3D12FunctionParameterReflection;
 typedef interface ID3D12ShaderReflectionType ID3D12ShaderReflectionType;
+typedef interface IDxcHLSLReflection IDxcHLSLReflection;
 
-CROSS_PLATFORM_UUIDOF(IDxcHLSLReflection, "7016f834-ae85-4c86-a473-8c2c981dd370")
-struct IDxcHLSLReflection : public IUnknown {
+// {7016F834-AE85-4C86-A473-8C2C981DD370}
+interface DECLSPEC_UUID("7016f834-ae85-4c86-a473-8c2c981dd370")
+    IDxcHLSLReflection;
+DEFINE_GUID(IID_IDxcHLSLReflection, 0x7016f834, 0xae85, 0x4c86, 0xa473, 0x8c,
+            0x2c, 0x98, 0x1d, 0xd3, 0x70);
 
-  STDMETHOD(QueryInterface)(THIS_ _In_ REFIID iid, _Out_ LPVOID *ppv) PURE;
-  STDMETHOD_(ULONG, AddRef)(THIS) PURE;
-  STDMETHOD_(ULONG, Release)(THIS) PURE;
+#undef INTERFACE
+#define INTERFACE IDxcHLSLReflection
+
+DECLARE_INTERFACE(IDxcHLSLReflection) {
 
   STDMETHOD(GetDesc)(THIS_ _Out_ D3D12_HLSL_REFLECTION_DESC *pDesc) PURE;
-    
-  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer*, GetConstantBufferByIndex)(THIS_ _In_ UINT Index) PURE;
-  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer*, GetConstantBufferByName)(THIS_ _In_ LPCSTR Name) PURE;
-    
-  STDMETHOD(GetResourceBindingDesc)(THIS_ _In_ UINT ResourceIndex,
-                                    _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc) PURE;
-  STDMETHOD(GetResourceBindingDescByName)(THIS_ _In_ LPCSTR Name,
-                                          _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc) PURE;
+
+  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByIndex)
+  (THIS_ _In_ UINT Index) PURE;
+
+  // The D3D12_SHADER_INPUT_BIND_DESC permits providing invalid Space and
+  // BindPoint. In the future, implementations could decide to return this
+  // depending on the backend. But since this is a HLSL frontend thing, we don't
+  // know the bindings on the backend.
+
+  STDMETHOD(GetResourceBindingDesc)
+  (THIS_ _In_ UINT ResourceIndex, _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc)
+      PURE;
 
   STDMETHOD(GetFunctionDesc)
-  (THIS_ _In_ UINT FunctionIndex,
-   THIS_ _Out_ D3D12_HLSL_FUNCTION_DESC *pDesc) PURE;
+  (THIS_ _In_ UINT FunctionIndex, THIS_ _Out_ D3D12_HLSL_FUNCTION_DESC *pDesc)
+      PURE;
 
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
   STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
   (THIS_ _In_ UINT FunctionIndex, THIS_ _In_ INT ParameterIndex) PURE;
 
   STDMETHOD(GetStructTypeByIndex)
-  (THIS_ _In_ UINT StructIndex,
-   _Outptr_ ID3D12ShaderReflectionType **ppType) PURE;
-
-  STDMETHOD(GetStructTypeByName)
-  (THIS_ _In_ LPCSTR Name, _Outptr_ ID3D12ShaderReflectionType **ppType) PURE;
+  (THIS_ _In_ UINT StructIndex, _Outptr_ ID3D12ShaderReflectionType **ppType)
+      PURE;
 
   STDMETHOD(GetEnumDesc)
   (THIS_ _In_ UINT EnumIndex, _Out_ D3D12_HLSL_ENUM_DESC *pDesc) PURE;
-
-  STDMETHOD(GetEnumDescByName)
-  (THIS_ _In_ LPCSTR Name, _Out_ D3D12_HLSL_ENUM_DESC *pDesc) PURE;
 
   STDMETHOD(GetEnumValueByIndex)
   (THIS_ _In_ UINT EnumIndex, _In_ UINT ValueIndex,
    _Out_ D3D12_HLSL_ENUM_VALUE *pValueDesc) PURE;
 
   STDMETHOD(GetAnnotationCount)
-  (THIS_ _In_ LPCSTR SymbolName, _Out_ UINT *pCount) PURE;
+  (THIS_ _In_ UINT SymbolId, _Out_ UINT *pCount) PURE;
 
   STDMETHOD(GetAnnotationByIndex)
+  (THIS_ _In_ UINT SymbolId, _In_ UINT Index,
+   _Out_ D3D12_HLSL_ANNOTATION *pAnnotation) PURE;
+
+  // Name helpers; only available if symbols aren't stripped
+
+  STDMETHOD(GetSymbolByName)
+  (THIS_ _In_ LPCSTR Name, _Out_ UINT *pSymbolId) PURE;
+
+  STDMETHOD(GetSymbolName)
+  (THIS_ _In_ UINT SymbolId, _Out_ LPCSTR *pSymbolName) PURE;
+
+  STDMETHOD(GetAnnotationCountByName)
+  (THIS_ _In_ LPCSTR SymbolName, _Out_ UINT *pCount) PURE;
+
+  STDMETHOD(GetAnnotationByIndexAndName)
   (THIS_ _In_ LPCSTR SymbolName, _In_ UINT Index,
-   _Outptr_result_z_ LPCSTR *ppAnnotationText) PURE;
+   _Out_ D3D12_HLSL_ANNOTATION *ppAnnotationText) PURE;
+
+  STDMETHOD(GetEnumDescByName)
+  (THIS_ _In_ LPCSTR Name, _Out_ D3D12_HLSL_ENUM_DESC *pDesc) PURE;
+
+  STDMETHOD(GetEnumValueByNameAndIndex)
+  (THIS_ _In_ LPCSTR Name, _In_ UINT ValueIndex,
+   _Out_ D3D12_HLSL_ENUM_VALUE *pValueDesc) PURE;
+
+  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByName)
+  (THIS_ _In_ LPCSTR Name) PURE;
+
+  STDMETHOD(GetFunctionDescByName)
+  (THIS_ _In_ LPCSTR Name, THIS_ _Out_ D3D12_HLSL_FUNCTION_DESC * pDesc) PURE;
+
+  STDMETHOD(GetResourceBindingDescByName)
+  (THIS_ _In_ LPCSTR Name, _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc) PURE;
+
+  STDMETHOD(GetStructTypeByName)
+  (THIS_ _In_ LPCSTR Name, _Outptr_ ID3D12ShaderReflectionType **ppType) PURE;
+};
+
+#undef INTERFACE
+
+CLSID_SCOPE const CLSID
+    CLSID_DxcReflector = {/* ba5a8d8e-bf71-435a-977f-1677d7bcccc1 */
+                          0xba5a8d8e,
+                          0xbf71,
+                          0x435a,
+                          {0x16, 0x77, 0xd7, 0xbc, 0xcc, 0xc1}};
+
+CROSS_PLATFORM_UUIDOF(IDxcHLSLReflector, "ba5a8d8e-bf71-435a-977f-1677d7bcccc1")
+struct IDxcHLSLReflector : public IUnknown {
+
+  virtual HRESULT STDMETHODCALLTYPE FromSource(
+      IDxcBlobEncoding *pSource,
+      // Optional file name for pSource. Used in errors and include handlers.
+      LPCWSTR pSourceName,
+      // Compiler arguments
+      LPCWSTR *pArguments, UINT32 argCount,
+      // Defines
+      DxcDefine *pDefines, UINT32 defineCount,
+      // user-provided interface to handle #include directives (optional)
+      IDxcIncludeHandler *pIncludeHandler,
+      IDxcOperationResult **ppResult) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE
+  FromBlob(IDxcBlob *data, IDxcHLSLReflection **ppReflection) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE ToBlob(IDxcHLSLReflection *reflection,
+                                           IDxcBlob **ppResult) = 0;
 };
 
 #endif

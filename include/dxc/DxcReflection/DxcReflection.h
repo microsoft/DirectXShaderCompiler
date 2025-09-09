@@ -250,26 +250,13 @@ struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
       uint8_t ReturnType; // D3D_RESOURCE_RETURN_TYPE
       uint8_t uFlags;
 
-      uint32_t BindPoint;
-    };
-    uint64_t TypeDimensionReturnTypeFlagsBindPoint;
-  };
-
-  union {
-    struct {
-      uint32_t Space;
       uint32_t BindCount;
     };
-    uint64_t SpaceBindCount;
+    uint64_t TypeDimensionReturnTypeFlagsBindCount;
   };
 
-  union {
-    struct {
-      uint32_t NumSamples;
-      uint32_t NodeId;
-    };
-    uint64_t NumSamplesNodeId;
-  };
+  uint32_t Pad;
+  uint32_t NodeId;
 
   union {
     struct {
@@ -280,15 +267,12 @@ struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
   };
 
   DxcHLSLRegister() = default;
-  DxcHLSLRegister(D3D_SHADER_INPUT_TYPE Type, uint32_t BindPoint,
-                  uint32_t BindCount, uint32_t uFlags,
-                  D3D_RESOURCE_RETURN_TYPE ReturnType,
-                  D3D_SRV_DIMENSION Dimension, uint32_t NumSamples,
-                  uint32_t Space, uint32_t NodeId, uint32_t ArrayId,
-                  uint32_t BufferId)
-      : Type(Type), BindPoint(BindPoint), BindCount(BindCount), uFlags(uFlags),
-        ReturnType(ReturnType), Dimension(Dimension),
-        NumSamples(NumSamples), Space(Space), NodeId(NodeId),
+  DxcHLSLRegister(D3D_SHADER_INPUT_TYPE Type, uint32_t BindCount,
+                  uint32_t uFlags, D3D_RESOURCE_RETURN_TYPE ReturnType,
+                  D3D_SRV_DIMENSION Dimension, uint32_t NodeId,
+                  uint32_t ArrayId, uint32_t BufferId)
+      : Type(Type), BindCount(BindCount), uFlags(uFlags),
+        ReturnType(ReturnType), Dimension(Dimension), NodeId(NodeId),
         ArrayId(ArrayId), BufferId(BufferId) {
 
     assert(Type >= D3D_SIT_CBUFFER && Type <= D3D_SIT_UAV_FEEDBACKTEXTURE &&
@@ -304,11 +288,9 @@ struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
   }
 
   bool operator==(const DxcHLSLRegister &other) const {
-    return TypeDimensionReturnTypeFlagsBindPoint ==
-               other.TypeDimensionReturnTypeFlagsBindPoint &&
-           SpaceBindCount == other.SpaceBindCount &&
-           NumSamplesNodeId == other.NumSamplesNodeId &&
-           ArrayIdBufferId == other.ArrayIdBufferId;
+    return TypeDimensionReturnTypeFlagsBindCount ==
+               other.TypeDimensionReturnTypeFlagsBindCount &&
+           NodeId == other.NodeId && ArrayIdBufferId == other.ArrayIdBufferId;
   }
 };
 
@@ -429,9 +411,9 @@ struct DxcHLSLAnnotation {
   }
 };
 
-struct DxcHLSLReflection {
+struct DxcHLSLReflectionData {
 
-  D3D12_HLSL_REFLECTION_FEATURE Features;
+  D3D12_HLSL_REFLECTION_FEATURE Features{};
 
   std::vector<std::string> Strings;
   std::unordered_map<std::string, uint32_t> StringsToId;
@@ -478,16 +460,16 @@ struct DxcHLSLReflection {
   void StripSymbols();
   bool GenerateNameLookupTable();
 
-  DxcHLSLReflection() = default;
-  DxcHLSLReflection(const std::vector<std::byte> &Bytes,
+  DxcHLSLReflectionData() = default;
+  DxcHLSLReflectionData(const std::vector<std::byte> &Bytes,
                     bool MakeNameLookupTable);
 
-  DxcHLSLReflection(clang::CompilerInstance &Compiler,
+  DxcHLSLReflectionData(clang::CompilerInstance &Compiler,
                     clang::TranslationUnitDecl &Ctx,
                     uint32_t AutoBindingSpace,
                     D3D12_HLSL_REFLECTION_FEATURE Features, bool DefaultRowMaj);
 
-  bool IsSameNonDebug(const DxcHLSLReflection &other) const {
+  bool IsSameNonDebug(const DxcHLSLReflectionData &other) const {
     return StringsNonDebug == other.StringsNonDebug && Nodes == other.Nodes &&
            Registers == other.Registers && Functions == other.Functions &&
            Enums == other.Enums && EnumValues == other.EnumValues &&
@@ -497,7 +479,7 @@ struct DxcHLSLReflection {
            Buffers == other.Buffers;
   }
 
-  bool operator==(const DxcHLSLReflection &other) const {
+  bool operator==(const DxcHLSLReflectionData &other) const {
     return IsSameNonDebug(other) && Strings == other.Strings &&
            Sources == other.Sources && NodeSymbols == other.NodeSymbols &&
            MemberNameIds == other.MemberNameIds &&
