@@ -164,6 +164,39 @@ struct D3D12_HLSL_ANNOTATION {
   BOOL IsBuiltin;
 };
 
+enum D3D12_HLSL_NODE_TYPE {
+
+  D3D12_HLSL_NODE_TYPE_REGISTER,
+  D3D12_HLSL_NODE_TYPE_FUNCTION,
+  D3D12_HLSL_NODE_TYPE_ENUM,
+  D3D12_HLSL_NODE_TYPE_ENUM_VALUE,
+  D3D12_HLSL_NODE_TYPE_NAMESPACE,
+  D3D12_HLSL_NODE_TYPE_VARIABLE, // LocalId points to the type for a variable
+  //D3D12_HLSL_NODE_TYPE_TYPEDEF,
+  //D3D12_HLSL_NODE_TYPE_USING,
+  // TODO: Parameter,
+
+  D3D12_HLSL_NODE_TYPE_START = D3D12_HLSL_NODE_TYPE_REGISTER,
+  D3D12_HLSL_NODE_TYPE_END = D3D12_HLSL_NODE_TYPE_VARIABLE
+};
+
+struct D3D12_HLSL_NODE {
+  LPCSTR Name;
+  D3D12_HLSL_NODE_TYPE Type;
+  UINT LocalId;
+  UINT ChildCount;
+  UINT Parent;
+  UINT AnnotationCount;
+};
+
+struct D3D12_HLSL_NODE_SYMBOL {
+  LPCSTR FileName;
+  UINT LineId;
+  UINT LineCount;
+  UINT ColumnStart;
+  UINT ColumnEnd;
+};
+
 typedef interface ID3D12ShaderReflectionConstantBuffer
     ID3D12ShaderReflectionConstantBuffer;
 
@@ -191,7 +224,7 @@ DECLARE_INTERFACE(IDxcHLSLReflection) {
 
   // The D3D12_SHADER_INPUT_BIND_DESC permits providing invalid Space and
   // BindPoint. In the future, implementations could decide to return this
-  // depending on the backend. But since this is a HLSL frontend thing, we don't
+  // depending on the backend. But since this is HLSL frontend reflection, we don't
   // know the bindings on the backend.
 
   STDMETHOD(GetResourceBindingDesc)
@@ -217,27 +250,40 @@ DECLARE_INTERFACE(IDxcHLSLReflection) {
   (THIS_ _In_ UINT EnumIndex, _In_ UINT ValueIndex,
    _Out_ D3D12_HLSL_ENUM_VALUE *pValueDesc) PURE;
 
-  STDMETHOD(GetAnnotationCount)
-  (THIS_ _In_ UINT SymbolId, _Out_ UINT *pCount) PURE;
-
   STDMETHOD(GetAnnotationByIndex)
-  (THIS_ _In_ UINT SymbolId, _In_ UINT Index,
+  (THIS_ _In_ UINT NodeId, _In_ UINT Index,
    _Out_ D3D12_HLSL_ANNOTATION *pAnnotation) PURE;
 
-  // Name helpers; only available if symbols aren't stripped
+  STDMETHOD(GetNodeDesc)
+  (THIS_ _In_ UINT NodeId, _Out_ D3D12_HLSL_NODE *pDesc) PURE;
 
-  STDMETHOD(GetSymbolByName)
-  (THIS_ _In_ LPCSTR Name, _Out_ UINT *pSymbolId) PURE;
+  STDMETHOD(GetChildNode)
+  (THIS_ _In_ UINT NodeId, THIS_ _In_ UINT ChildId,
+   _Out_ UINT *pChildNodeId) PURE;
 
-  STDMETHOD(GetSymbolName)
-  (THIS_ _In_ UINT SymbolId, _Out_ LPCSTR *pSymbolName) PURE;
+  STDMETHOD(GetChildDesc)
+  (THIS_ _In_ UINT NodeId, THIS_ _In_ UINT ChildId,
+   _Out_ D3D12_HLSL_NODE *pDesc) PURE;
 
-  STDMETHOD(GetAnnotationCountByName)
-  (THIS_ _In_ LPCSTR SymbolName, _Out_ UINT *pCount) PURE;
+  // Only available if symbols aren't stripped
+
+  STDMETHOD(GetNodeSymbolDesc)
+  (THIS_ _In_ UINT NodeId, _Out_ D3D12_HLSL_NODE_SYMBOL *pSymbol) PURE;
+
+  // Name helpers
+
+  STDMETHOD(GetNodeByName)
+  (THIS_ _In_ LPCSTR Name, _Out_ UINT *pNodeId) PURE;
+
+  STDMETHOD(GetNodeSymbolDescByName)
+  (THIS_ _In_ LPCSTR Name, _Out_ D3D12_HLSL_NODE_SYMBOL *pSymbol) PURE;
+
+  STDMETHOD(GetNodeDescByName)
+  (THIS_ _In_ LPCSTR Name, _Out_ D3D12_HLSL_NODE *pDesc) PURE;
 
   STDMETHOD(GetAnnotationByIndexAndName)
-  (THIS_ _In_ LPCSTR SymbolName, _In_ UINT Index,
-   _Out_ D3D12_HLSL_ANNOTATION *ppAnnotationText) PURE;
+  (THIS_ _In_ LPCSTR Name, _In_ UINT Index,
+   _Out_ D3D12_HLSL_ANNOTATION *pAnnotation) PURE;
 
   STDMETHOD(GetEnumDescByName)
   (THIS_ _In_ LPCSTR Name, _Out_ D3D12_HLSL_ENUM_DESC *pDesc) PURE;

@@ -60,15 +60,39 @@ struct ASTHelper {
 struct DxcHLSLReflection : public IDxcHLSLReflection {
 
   DxcHLSLReflectionData data{};
+  std::vector<uint32_t> childCountsNonRecursive;
+  std::unordered_map<uint32_t, std::vector<uint32_t>> childrenNonRecursive;
 
   DxcHLSLReflection() = default;
-  DxcHLSLReflection(DxcHLSLReflectionData &&moved) : data(moved) {
+
+  void Finalize() {
+
     data.GenerateNameLookupTable();
+
+    childCountsNonRecursive.resize(data.Nodes.size());
+    childrenNonRecursive.clear();
+
+    for (uint32_t i = 0; i < (uint32_t)data.Nodes.size(); ++i) {
+
+      const DxcHLSLNode &node = data.Nodes[i];
+      uint32_t childCount = 0;
+
+      for (uint32_t j = 0; j < node.GetChildCount(); ++j, ++childCount) {
+        childrenNonRecursive[i].push_back(i + 1 + j);
+        j += data.Nodes[i + 1 + j].GetChildCount();
+      }
+
+      childCountsNonRecursive[i] = childCount;
+    }
+  }
+
+  DxcHLSLReflection(DxcHLSLReflectionData &&moved) : data(moved) {
+    Finalize();
   }
 
   DxcHLSLReflection &operator=(DxcHLSLReflection &&moved) {
     data = std::move(moved.data);
-    data.GenerateNameLookupTable();
+    Finalize();
     return *this;
   }
 
@@ -171,28 +195,16 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     return S_OK;
   }
 
-  STDMETHOD(GetAnnotationCount)
-      (THIS_ _In_ UINT SymbolId, _Out_ UINT *pCount) override {
-
-    IFR(ZeroMemoryToOut(pCount));
-
-    if (SymbolId >= data.Nodes.size())
-      return E_INVALIDARG;
-
-    *pCount = data.Nodes[SymbolId].GetAnnotationCount();
-    return S_OK;
-  }
-
   STDMETHOD(GetAnnotationByIndex)
-  (THIS_ _In_ UINT SymbolId, _In_ UINT Index,
+  (THIS_ _In_ UINT NodeId, _In_ UINT Index,
    _Out_ D3D12_HLSL_ANNOTATION *pAnnotation) override {
 
     IFR(ZeroMemoryToOut(pAnnotation));
 
-    if (SymbolId >= data.Nodes.size())
+    if (NodeId >= data.Nodes.size())
       return E_INVALIDARG;
 
-    const DxcHLSLNode &node = data.Nodes[SymbolId];
+    const DxcHLSLNode &node = data.Nodes[NodeId];
 
     if (Index >= node.GetAnnotationCount())
       return E_INVALIDARG;
@@ -229,6 +241,61 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     return S_OK;
   }
 
+  STDMETHOD(GetNodeDesc)
+      (THIS_ _In_ UINT NodeId, _Out_ D3D12_HLSL_NODE *pDesc) override {
+
+    IFR(ZeroMemoryToOut(pDesc));
+
+    if (NodeId >= data.Nodes.size())
+      return E_INVALIDARG;
+
+    LPCSTR name =
+        data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO
+            ? data.Strings[data.NodeSymbols[NodeId].NameId].c_str()
+                      : "";
+
+    const DxcHLSLNode &node = data.Nodes[NodeId];
+
+    *pDesc = D3D12_HLSL_NODE{name,
+                             node.GetNodeType(),
+                             node.GetLocalId(),
+                             childCountsNonRecursive[NodeId],
+                             node.GetParentId(),
+                             node.GetAnnotationCount()};
+
+    return S_OK;
+  }
+
+  STDMETHOD(GetChildNode)
+      (THIS_ _In_ UINT NodeId, THIS_ _In_ UINT ChildId,
+          _Out_ UINT *pChildNodeId) override {
+
+    IFR(ZeroMemoryToOut(pChildNodeId));
+
+    if (NodeId >= data.Nodes.size())
+      return E_INVALIDARG;
+
+    auto it = childrenNonRecursive.find(NodeId);
+
+    if (it == childrenNonRecursive.end() || ChildId >= it->second.size())
+      return E_INVALIDARG;
+
+    *pChildNodeId = it->second[ChildId];
+    return S_OK;
+  }
+
+  STDMETHOD(GetChildDesc)
+      (THIS_ _In_ UINT NodeId, THIS_ _In_ UINT ChildId,
+          _Out_ D3D12_HLSL_NODE *pDesc) override {
+
+    IFR(ZeroMemoryToOut(pDesc));
+
+    uint32_t childNodeId;
+    IFR(GetChildNode(NodeId, ChildId, &childNodeId));
+
+    return GetNodeDesc(childNodeId, pDesc);
+  }
+
   STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByIndex)
   (THIS_ _In_ UINT Index) PURE;
 
@@ -239,45 +306,75 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
   STDMETHOD(GetStructTypeByIndex)
   (THIS_ _In_ UINT StructIndex,
    _Outptr_ ID3D12ShaderReflectionType **ppType) PURE;
+  
+  STDMETHOD(GetNodeSymbolDesc)
+  (THIS_ _In_ UINT NodeId, _Out_ D3D12_HLSL_NODE_SYMBOL *pDesc) override {
+
+    IFR(ZeroMemoryToOut(pDesc));
+
+    if (!(data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO))
+      return E_UNEXPECTED;
+
+    if (NodeId >= data.Nodes.size())
+      return E_INVALIDARG;
+
+    const DxcHLSLNodeSymbol &nodeSymbol = data.NodeSymbols[NodeId];
+
+    *pDesc = D3D12_HLSL_NODE_SYMBOL{
+        data.Strings[data.Sources[nodeSymbol.FileSourceId]].c_str(),
+        nodeSymbol.GetSourceLineStart(), nodeSymbol.SourceLineCount,
+        nodeSymbol.GetSourceColumnStart(), nodeSymbol.GetSourceColumnEnd()};
+
+    return S_OK;
+  }
 
   //Helper for conversion between symbol names
 
-  // TODO: GetSymbolByName
   // TODO: GetConstantBufferByIndex
   // TODO: GetConstantBufferByName
   // TODO: GetFunctionParameter
   // TODO: GetStructByIndex
   // TODO: GetStructTypeByName
   // TODO: GetStructTypeByIndex
-  // TODO: Node api, types, arrays
+  // TODO: types, arrays
 
-  STDMETHOD(GetSymbolByName)
-  (THIS_ _In_ LPCSTR Name, _Out_ UINT *pSymbolId) override; //TODO: 1st bit: isMember, else 
+  STDMETHOD(GetNodeByName)
+      (THIS_ _In_ LPCSTR Name, _Out_ UINT *pNodeId) override {
 
-  STDMETHOD(GetSymbolName)
-      (THIS_ _In_ UINT SymbolId, _Out_ LPCSTR *pSymbolName) override {
+    if (!pNodeId)
+      return E_POINTER;
 
-    IFR(ZeroMemoryToOut(pSymbolName));
+    *pNodeId = (UINT)-1;
 
-    if (!(data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO))
-      return E_UNEXPECTED;
+    auto it = data.FullyResolvedToNodeId.find(Name);
 
-    if (SymbolId >> 31) {
-
-      SymbolId = SymbolId << 1 >> 1;
-
-      if (SymbolId >= data.MemberNameIds.size())
-        return E_INVALIDARG;
-
-      *pSymbolName = data.Strings[data.MemberNameIds[SymbolId]].c_str();
-      return S_OK;
-    }
-
-    if (SymbolId >= data.NodeSymbols.size())
+    if (it == data.FullyResolvedToNodeId.end())
       return E_INVALIDARG;
 
-    *pSymbolName = data.Strings[data.NodeSymbols[SymbolId].NameId].c_str();
+    *pNodeId = it->second;
     return S_OK;
+  }
+
+  STDMETHOD(GetNodeDescByName)
+  (THIS_ _In_ LPCSTR Name, _Out_ D3D12_HLSL_NODE *pDesc) override {
+
+    IFR(ZeroMemoryToOut(pDesc));
+
+    UINT nodeId;
+    IFR(GetNodeByName(Name, &nodeId));
+
+    return GetNodeDesc(nodeId, pDesc);
+  }
+
+  STDMETHOD(GetNodeSymbolDescByName)
+      (THIS_ _In_ LPCSTR Name, _Out_ D3D12_HLSL_NODE_SYMBOL *pDesc) override {
+
+    IFR(ZeroMemoryToOut(pDesc));
+
+    UINT nodeId;
+    IFR(GetNodeByName(Name, &nodeId));
+
+    return GetNodeSymbolDesc(nodeId, pDesc);
   }
 
   STDMETHOD(GetResourceBindingDescByName)
@@ -285,15 +382,12 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
     IFR(ZeroMemoryToOut(pDesc));
 
-    UINT symbolId = UINT(-1);
-    IFR(GetSymbolByName(Name, &symbolId));
+    UINT nodeId;
+    IFR(GetNodeByName(Name, &nodeId));
 
-    if (symbolId >> 31)
-      return E_INVALIDARG;
+    const DxcHLSLNode &node = data.Nodes[nodeId];
 
-    const DxcHLSLNode &node = data.Nodes[symbolId];
-
-    if (node.GetNodeType() != DxcHLSLNodeType::Register)
+    if (node.GetNodeType() != D3D12_HLSL_NODE_TYPE_REGISTER)
       return E_INVALIDARG;
 
     return GetResourceBindingDesc(node.GetLocalId(), pDesc);
@@ -304,15 +398,12 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
     IFR(ZeroMemoryToOut(pDesc));
 
-    UINT symbolId = UINT(-1);
-    IFR(GetSymbolByName(Name, &symbolId));
+    UINT nodeId;
+    IFR(GetNodeByName(Name, &nodeId));
 
-    if (symbolId >> 31)
-      return E_INVALIDARG;
+    const DxcHLSLNode &node = data.Nodes[nodeId];
 
-    const DxcHLSLNode &node = data.Nodes[symbolId];
-
-    if (node.GetNodeType() != DxcHLSLNodeType::Enum)
+    if (node.GetNodeType() != D3D12_HLSL_NODE_TYPE_ENUM)
       return E_INVALIDARG;
 
     return GetEnumDesc(node.GetLocalId(), pDesc);
@@ -324,47 +415,27 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
     IFR(ZeroMemoryToOut(pValueDesc));
 
-    UINT symbolId = UINT(-1);
-    IFR(GetSymbolByName(Name, &symbolId));
+    UINT nodeId;
+    IFR(GetNodeByName(Name, &nodeId));
 
-    if (symbolId >> 31)
-      return E_INVALIDARG;
+    const DxcHLSLNode &node = data.Nodes[nodeId];
 
-    const DxcHLSLNode &node = data.Nodes[symbolId];
-
-    if (node.GetNodeType() != DxcHLSLNodeType::Enum)
+    if (node.GetNodeType() != D3D12_HLSL_NODE_TYPE_ENUM)
       return E_INVALIDARG;
 
     return GetEnumValueByIndex(node.GetLocalId(), ValueIndex, pValueDesc);
   }
 
-  STDMETHOD(GetAnnotationCountByName)
-  (THIS_ _In_ LPCSTR SymbolName, _Out_ UINT *pCount) override {
-
-    IFR(ZeroMemoryToOut(pCount));
-
-    UINT symbolId = UINT(-1);
-    IFR(GetSymbolByName(SymbolName, &symbolId));
-
-    if (symbolId >> 31)
-      return E_INVALIDARG;
-
-    return GetAnnotationCount(symbolId, pCount);
-  }
-
   STDMETHOD(GetAnnotationByIndexAndName)
-      (THIS_ _In_ LPCSTR SymbolName, _In_ UINT Index,
+      (THIS_ _In_ LPCSTR Name, _In_ UINT Index,
           _Out_ D3D12_HLSL_ANNOTATION *pAnnotation) override {
 
     IFR(ZeroMemoryToOut(pAnnotation));
 
-    UINT symbolId = UINT(-1);
-    IFR(GetSymbolByName(SymbolName, &symbolId));
+    UINT nodeId;
+    IFR(GetNodeByName(Name, &nodeId));
 
-    if (symbolId >> 31)
-      return E_INVALIDARG;
-
-    return GetAnnotationByIndex(symbolId, Index, pAnnotation);
+    return GetAnnotationByIndex(nodeId, Index, pAnnotation);
   }
 
   STDMETHOD(GetFunctionDescByName)
@@ -373,15 +444,12 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
     IFR(ZeroMemoryToOut(pDesc));
 
-    UINT symbolId = UINT(-1);
-    IFR(GetSymbolByName(Name, &symbolId));
+    UINT nodeId;
+    IFR(GetNodeByName(Name, &nodeId));
 
-    if (symbolId >> 31)
-      return E_INVALIDARG;
+    const DxcHLSLNode &node = data.Nodes[nodeId];
 
-    const DxcHLSLNode &node = data.Nodes[symbolId];
-
-    if (node.GetNodeType() != DxcHLSLNodeType::Function)
+    if (node.GetNodeType() != D3D12_HLSL_NODE_TYPE_FUNCTION)
       return E_INVALIDARG;
 
     return GetFunctionDesc(node.GetLocalId(), pDesc);

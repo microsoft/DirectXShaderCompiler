@@ -68,7 +68,7 @@ static uint32_t RegisterString(DxcHLSLReflectionData &Refl,
 static uint32_t PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager &SM,
                                const LangOptions &LangOpts,
                                const std::string &UnqualifiedName, Decl *Decl,
-                               DxcHLSLNodeType Type, uint32_t ParentNodeId,
+                               D3D12_HLSL_NODE_TYPE Type, uint32_t ParentNodeId,
                                uint32_t LocalId, const SourceRange *Range = nullptr) {
 
   assert(Refl.Nodes.size() < (uint32_t)(1 << 24) && "Nodes overflow");
@@ -117,7 +117,7 @@ static uint32_t PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager 
     uint32_t sourceColumnStart = 0;
     uint32_t sourceColumnEnd = 0;
 
-    uint16_t fileNameId = (uint16_t)-1;
+    uint16_t sourceId = (uint16_t)-1;
 
     SourceRange range =
         Decl ? Decl->getSourceRange() : (Range ? *Range : SourceRange());
@@ -170,14 +170,14 @@ static uint32_t PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager 
         sourceLineStart = startLine;
         sourceColumnStart = startCol;
         sourceColumnEnd = endCol;
-        fileNameId = (uint16_t)i;
+        sourceId = (uint16_t)i;
       }
     }
 
     uint32_t nameId = RegisterString(Refl, UnqualifiedName, false);
 
     Refl.NodeSymbols.push_back(
-        DxcHLSLNodeSymbol(nameId, fileNameId, sourceLineCount, sourceLineStart,
+        DxcHLSLNodeSymbol(nameId, sourceId, sourceLineCount, sourceLineStart,
                           sourceColumnStart, sourceColumnEnd));
   }
 
@@ -808,8 +808,8 @@ static void FillReflectionRegisterAt(
   DxcRegisterTypeInfo inputType = GetRegisterTypeInfo(ASTCtx, Type);
 
   uint32_t nodeId = PushNextNodeId(
-      Refl, SM, ASTCtx.getLangOpts(), ValDesc->getName(), ValDesc,
-      DxcHLSLNodeType::Register, ParentNodeId, (uint32_t)Refl.Registers.size());
+      Refl, SM, ASTCtx.getLangOpts(), ValDesc->getName(), ValDesc, D3D12_HLSL_NODE_TYPE_REGISTER, ParentNodeId,
+                     (uint32_t)Refl.Registers.size());
 
   uint32_t arrayId = PushArray(Refl, ArraySizeFlat, ArraySize);
 
@@ -875,7 +875,7 @@ static void FillReflectionRegisterAt(
 
     PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(),
                    isListType ? "$Element" : ValDesc->getName(), nullptr,
-                   DxcHLSLNodeType::Variable, nodeId, typeId, &sourceRange);
+                   D3D12_HLSL_NODE_TYPE_VARIABLE, nodeId, typeId, &sourceRange);
 
     break;
   }
@@ -911,7 +911,7 @@ void RecurseBuffer(ASTContext &ASTCtx, const SourceManager &SM,
     uint32_t typeId = GenerateTypeInfo(ASTCtx, Refl, original, DefaultRowMaj);
 
     uint32_t nodeId = PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), name, decl,
-                   DxcHLSLNodeType::Variable, ParentId, typeId);
+                       D3D12_HLSL_NODE_TYPE_VARIABLE, ParentId, typeId);
 
     //Handle struct recursion
 
@@ -961,7 +961,7 @@ static void AddFunctionParameters(ASTContext &ASTCtx, QualType Type, Decl *Decl,
       Refl, SM, ASTCtx.getLangOpts(),
       Decl && dyn_cast<NamedDecl>(Decl) ? dyn_cast<NamedDecl>(Decl)->getName()
                                         : "",
-      Decl, DxcHLSLNodeType::Parameter, ParentNodeId,
+      Decl, D3D12_HLSL_NODE_TYPE_PARAMETER, ParentNodeId,
       (uint32_t)Refl.Parameters.size());
 
   std::string semanticName;
@@ -1032,7 +1032,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
       uint32_t nodeId =
           PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), CBuffer->getName(),
-                         CBuffer, DxcHLSLNodeType::Register, ParentNodeId,
+                         CBuffer, D3D12_HLSL_NODE_TYPE_REGISTER, ParentNodeId,
                          (uint32_t)Refl.Registers.size());
       
       uint32_t bufferId = RegisterBuffer(ASTCtx, Refl, SM, CBuffer, nodeId,
@@ -1060,7 +1060,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
       uint32_t nodeId =
           PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), Func->getName(), Func,
-                         DxcHLSLNodeType::Function, ParentNodeId,
+                         D3D12_HLSL_NODE_TYPE_FUNCTION, ParentNodeId,
                          (uint32_t)Refl.Functions.size());
 
       bool hasDefinition = Func->hasBody(Definition);
@@ -1109,13 +1109,13 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
       uint32_t nodeId = PushNextNodeId(
           Refl, SM, ASTCtx.getLangOpts(), Enum->getName(), Enum,
-          DxcHLSLNodeType::Enum, ParentNodeId, (uint32_t)Refl.Enums.size());
+          D3D12_HLSL_NODE_TYPE_ENUM, ParentNodeId, (uint32_t)Refl.Enums.size());
 
       for (EnumConstantDecl *EnumValue : Enum->enumerators()) {
 
         uint32_t childNodeId =
             PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), EnumValue->getName(),
-                           EnumValue, DxcHLSLNodeType::EnumValue, nodeId,
+                           EnumValue, D3D12_HLSL_NODE_TYPE_ENUM_VALUE, nodeId,
                            (uint32_t)Refl.EnumValues.size());
 
         Refl.EnumValues.push_back(
@@ -1206,7 +1206,7 @@ static void RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
       uint32_t nodeId = PushNextNodeId(
           Refl, SM, ASTCtx.getLangOpts(), Namespace->getName(), Namespace,
-          DxcHLSLNodeType::Namespace, ParentNodeId, 0);
+          D3D12_HLSL_NODE_TYPE_NAMESPACE, ParentNodeId, 0);
 
       RecursiveReflectHLSL(*Namespace, ASTCtx, Diags, SM, Refl,
                            AutoBindingSpace, Depth + 1, Features, nodeId,
@@ -1234,7 +1234,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(clang::CompilerInstance &Compiler,
   }
 
   Nodes.push_back(
-      DxcHLSLNode{DxcHLSLNodeType::Namespace, 0, 0, 0, 0xFFFF, 0});
+      DxcHLSLNode{D3D12_HLSL_NODE_TYPE_NAMESPACE, 0, 0, 0, 0xFFFF, 0});
 
   RecursiveReflectHLSL(Ctx, Compiler.getASTContext(), Diags, SM, *this,
                        AutoBindingSpace, 0, Features, 0, DefaultRowMaj);
@@ -1267,10 +1267,10 @@ static std::string EnumTypeToString(D3D12_HLSL_ENUM_TYPE type) {
   return arr[type];
 }
 
-static std::string NodeTypeToString(DxcHLSLNodeType type) {
+static std::string NodeTypeToString(D3D12_HLSL_NODE_TYPE type) {
 
   static const char *arr[] = {"Register",  "Function", "Enum",  "EnumValue",
-                              "Namespace", "Typedef",  "Using", "Variable"};
+                              "Namespace", "Variable"};
 
   return arr[(int)type];
 }
@@ -1461,7 +1461,7 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
 
     switch (node.GetNodeType()) {
         
-    case DxcHLSLNodeType::Register: {
+    case D3D12_HLSL_NODE_TYPE_REGISTER: {
 
       const DxcHLSLRegister &reg = Refl.Registers[localId];
 
@@ -1474,11 +1474,11 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
       break;
     }
         
-    case DxcHLSLNodeType::Variable:
+    case D3D12_HLSL_NODE_TYPE_VARIABLE:
       typeToPrint = localId;
       break;
 
-    case DxcHLSLNodeType::Function: {
+    case D3D12_HLSL_NODE_TYPE_FUNCTION: {
       const DxcHLSLFunction &func = Refl.Functions[localId];
       printf("%sreturn: %s, hasDefinition: %s, numParams: %u\n",
              std::string(Depth, '\t').c_str(),
@@ -1488,23 +1488,23 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
       break;
     }
 
-    case DxcHLSLNodeType::Enum:
+    case D3D12_HLSL_NODE_TYPE_ENUM:
       printf("%s: %s\n", std::string(Depth, '\t').c_str(),
              EnumTypeToString(Refl.Enums[localId].Type).c_str());
       break;
 
-    case DxcHLSLNodeType::EnumValue: {
+    case D3D12_HLSL_NODE_TYPE_ENUM_VALUE: {
       printf("%s#%u = %" PRIi64 "\n", std::string(Depth, '\t').c_str(),
              IndexInParent, Refl.EnumValues[localId].Value);
         break;
     }
 
     //TODO:
-    case DxcHLSLNodeType::Typedef:
-    case DxcHLSLNodeType::Using:
-        break;
+    //case D3D12_HLSL_NODE_TYPE_TYPEDEF:
+    //case D3D12_HLSL_NODE_TYPE_USING:
+    //    break;
 
-    case DxcHLSLNodeType::Namespace:
+    case D3D12_HLSL_NODE_TYPE_NAMESPACE:
     default:
       break;
     }
@@ -1750,8 +1750,8 @@ uint32_t RecurseNameGeneration(DxcHLSLReflectionData &Refl, uint32_t NodeId,
   Refl.FullyResolvedToNodeId[self] = NodeId;
   Refl.NodeIdToFullyResolved[NodeId] = self;
 
-  bool isDotChild = node.GetNodeType() == DxcHLSLNodeType::Register;
-  bool isVar = node.GetNodeType() == DxcHLSLNodeType::Variable;
+  bool isDotChild = node.GetNodeType() == D3D12_HLSL_NODE_TYPE_REGISTER;
+  bool isVar = node.GetNodeType() == D3D12_HLSL_NODE_TYPE_VARIABLE;
 
   for (uint32_t i = 0, j = 0; i < node.GetChildCount(); ++i, ++j)
       i += RecurseNameGeneration(Refl, NodeId + 1 + i, j, self, isDotChild);
@@ -1866,14 +1866,14 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     const DxcHLSLNode &node = Nodes[i];
 
     if (hasSymbolInfo && (NodeSymbols[i].NameId >= header.Strings ||
-                          (NodeSymbols[i].FileNameId != uint16_t(-1) &&
-                           NodeSymbols[i].FileNameId >= header.Sources)))
+                          (NodeSymbols[i].FileSourceId != uint16_t(-1) &&
+                           NodeSymbols[i].FileSourceId >= header.Sources)))
       throw std::invalid_argument("Node " + std::to_string(i) +
                                   " points to invalid name or file name");
 
     if(
       node.GetAnnotationStart() + node.GetAnnotationCount() > header.Annotations ||
-      node.GetNodeType() > DxcHLSLNodeType::End ||
+        node.GetNodeType() > D3D12_HLSL_NODE_TYPE_END ||
       (i && node.GetParentId() >= i) ||
       i + node.GetChildCount() > header.Nodes
     )
@@ -1882,21 +1882,22 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     uint32_t maxValue = 1;
 
     switch(node.GetNodeType()) {
-      case DxcHLSLNodeType::Register:
+    case D3D12_HLSL_NODE_TYPE_REGISTER:
         maxValue = header.Registers;
         break;
-      case DxcHLSLNodeType::Function:
+      case D3D12_HLSL_NODE_TYPE_FUNCTION:
         maxValue = header.Functions;
         break;
-      case DxcHLSLNodeType::Enum:
+      case D3D12_HLSL_NODE_TYPE_ENUM:
         maxValue = header.Enums;
         break;
-      case DxcHLSLNodeType::EnumValue:
+      case D3D12_HLSL_NODE_TYPE_ENUM_VALUE:
         maxValue = header.EnumValues;
         break;
-      case DxcHLSLNodeType::Typedef:
-      case DxcHLSLNodeType::Using:
-      case DxcHLSLNodeType::Variable:
+      //TODO:
+      //case D3D12_HLSL_NODE_TYPE_TYPEDEF:
+      //case D3D12_HLSL_NODE_TYPE_USING:
+      case D3D12_HLSL_NODE_TYPE_VARIABLE:
         maxValue = header.Types;
         break;
     }
@@ -1911,7 +1912,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
     if(
       reg.NodeId >= header.Nodes || 
-      Nodes[reg.NodeId].GetNodeType() != DxcHLSLNodeType::Register ||
+      Nodes[reg.NodeId].GetNodeType() != D3D12_HLSL_NODE_TYPE_REGISTER ||
       Nodes[reg.NodeId].GetLocalId() != i
     )
       throw std::invalid_argument("Register " + std::to_string(i) + " points to an invalid nodeId");
@@ -1942,7 +1943,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     const DxcHLSLFunction &func = Functions[i];
 
     if (func.NodeId >= header.Nodes ||
-        Nodes[func.NodeId].GetNodeType() != DxcHLSLNodeType::Function ||
+        Nodes[func.NodeId].GetNodeType() != D3D12_HLSL_NODE_TYPE_FUNCTION ||
         Nodes[func.NodeId].GetLocalId() != i)
       throw std::invalid_argument("Function " + std::to_string(i) +
                                   " points to an invalid nodeId");
@@ -1953,7 +1954,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     const DxcHLSLEnumDesc &enm = Enums[i];
 
     if (enm.NodeId >= header.Nodes ||
-        Nodes[enm.NodeId].GetNodeType() != DxcHLSLNodeType::Enum ||
+        Nodes[enm.NodeId].GetNodeType() != D3D12_HLSL_NODE_TYPE_ENUM ||
         Nodes[enm.NodeId].GetLocalId() != i)
       throw std::invalid_argument("Function " + std::to_string(i) +
                                   " points to an invalid nodeId");
@@ -1970,7 +1971,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
         const DxcHLSLNode &child = Nodes[enm.NodeId + 1 + j];
 
         if (child.GetChildCount() != 0 ||
-            child.GetNodeType() != DxcHLSLNodeType::EnumValue)
+            child.GetNodeType() != D3D12_HLSL_NODE_TYPE_ENUM_VALUE)
           throw std::invalid_argument("Enum " + std::to_string(i) +
                                       " has an invalid enum value");
     }
@@ -1981,10 +1982,10 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     const DxcHLSLEnumValue &enumVal = EnumValues[i];
 
     if (enumVal.NodeId >= header.Nodes ||
-        Nodes[enumVal.NodeId].GetNodeType() != DxcHLSLNodeType::EnumValue ||
+        Nodes[enumVal.NodeId].GetNodeType() != D3D12_HLSL_NODE_TYPE_ENUM_VALUE ||
         Nodes[enumVal.NodeId].GetLocalId() != i ||
         Nodes[Nodes[enumVal.NodeId].GetParentId()].GetNodeType() !=
-            DxcHLSLNodeType::Enum)
+            D3D12_HLSL_NODE_TYPE_ENUM)
       throw std::invalid_argument("Enum " + std::to_string(i) +
                                   " points to an invalid nodeId");
   }
@@ -2009,7 +2010,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     const DxcHLSLBuffer &buf = Buffers[i];
 
     if (buf.NodeId >= header.Nodes ||
-        Nodes[buf.NodeId].GetNodeType() != DxcHLSLNodeType::Register ||
+        Nodes[buf.NodeId].GetNodeType() != D3D12_HLSL_NODE_TYPE_REGISTER ||
         Nodes[buf.NodeId].GetLocalId() >= header.Registers ||
         Registers[Nodes[buf.NodeId].GetLocalId()].BufferId != i)
       throw std::invalid_argument("Buffer " + std::to_string(i) +
@@ -2026,7 +2027,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
       const DxcHLSLNode &child = Nodes[buf.NodeId + 1 + j];
 
       if (child.GetChildCount() != 0 ||
-          child.GetNodeType() != DxcHLSLNodeType::Variable)
+          child.GetNodeType() != D3D12_HLSL_NODE_TYPE_VARIABLE)
           throw std::invalid_argument("Buffer " + std::to_string(i) +
                                       " has to have only Variable child nodes");
     }

@@ -25,22 +25,6 @@ class CompilerInstance;
 #pragma warning(disable : 4201)
 
 namespace hlsl {
-	
-enum class DxcHLSLNodeType : uint64_t {
-
-  Register,
-  Function,
-  Enum,
-  EnumValue,
-  Namespace,
-  Typedef,
-  Using,
-  Variable,         //localId points to the type for a variable
-  //Parameter,
-
-  Start = Register,
-  End = Variable
-};
 
 struct DxcHLSLNode {
 
@@ -78,8 +62,8 @@ struct DxcHLSLNode {
   uint32_t GetLocalId() const { return LocalIdParentLo << 8 >> 8; }
   uint32_t GetAnnotationStart() const { return AnnotationStartPad; }
 
-  DxcHLSLNodeType GetNodeType() const {
-    return DxcHLSLNodeType(ParentHiAnnotationsType >> 26);
+  D3D12_HLSL_NODE_TYPE GetNodeType() const {
+    return D3D12_HLSL_NODE_TYPE(ParentHiAnnotationsType >> 26);
   }
 
   // Includes recursive children
@@ -111,7 +95,7 @@ struct DxcHLSLNodeSymbol {
     struct {
       uint32_t NameId; // Local name (not including parent's name)
 
-      uint16_t FileNameId;          //-1 == no file info
+      uint16_t FileSourceId;          //-1 == no file info
       uint16_t SourceLineCount;
     };
     uint64_t NameIdFileNameIdSourceLineCount;
@@ -128,10 +112,10 @@ struct DxcHLSLNodeSymbol {
 
   DxcHLSLNodeSymbol() = default;
 
-  DxcHLSLNodeSymbol(uint32_t NameId, uint16_t FileNameId,
+  DxcHLSLNodeSymbol(uint32_t NameId, uint16_t FileSourceId,
                     uint16_t SourceLineCount, uint32_t SourceLineStart,
                     uint32_t SourceColumnStart, uint32_t SourceColumnEnd)
-      : NameId(NameId), FileNameId(FileNameId),
+      : NameId(NameId), FileSourceId(FileSourceId),
         SourceLineCount(SourceLineCount),
         SourceColumnStartLo(uint16_t(SourceColumnStart)),
         SourceColumnEndLo(uint16_t(SourceColumnEnd)),
