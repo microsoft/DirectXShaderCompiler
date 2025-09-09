@@ -1427,9 +1427,8 @@ template <typename OP_TYPE> void dispatchTest(const TestConfig &Config) {
   else
     InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
 
-  for (size_t VectorSize : InputVectorSizes) {
+  for (size_t VectorSize : InputVectorSizes)
     dispatchTest(Config, OpType, VectorSize);
-  }
 }
 
 // TAEF test entry points
