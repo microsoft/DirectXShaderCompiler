@@ -444,6 +444,7 @@ runTest(const TestConfig &Config, OP_TYPE OpType,
           return;
         }
 
+        // Process the callback for the InputVector[1-3] resources
         for (size_t I = 0; I < 3; ++I) {
           std::string BufferName = "InputVector";
           BufferName += (char)('1' + I);
