@@ -791,8 +791,9 @@ void dispatchTrigonometricTest(const TestConfig &Config,
   LOG_ERROR_FMT_THROW(L"Unexpected TrigonometricOpType: %d.", OpType);
 }
 
-void dispatchTest(const TestConfig &Config, TrigonometricOpType OpType,
-                  size_t VectorSize) {
+void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
+                                       TrigonometricOpType OpType,
+                                       size_t VectorSize) {
 
   // All trigonometric ops are floating point types.
   // These trig functions are defined to have a max absolute error of 0.0008
@@ -837,8 +838,8 @@ void dispatchAsUintSplitDoubleTest(const TestConfig &Config,
                " -DFUNC_ASUINT_SPLITDOUBLE=1", ValidationConfig);
 }
 
-void dispatchTest(const TestConfig &Config, AsTypeOpType OpType,
-                  size_t VectorSize) {
+void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
+                                       AsTypeOpType OpType, size_t VectorSize) {
 
   // Different AsType* operations are supported for different data types, so we
   // dispatch on operation first.
@@ -913,8 +914,8 @@ void dispatchTest(const TestConfig &Config, AsTypeOpType OpType,
 
 template <typename T> T Initialize(T V) { return V; }
 
-void dispatchTest(const TestConfig &Config, UnaryOpType OpType,
-                  size_t VectorSize) {
+void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
+                                       UnaryOpType OpType, size_t VectorSize) {
 #define DISPATCH(TYPE, FUNC, EXTRA_DEFINES)                                    \
   if (Config.DataType == DataTypeName<TYPE>())                                 \
   return dispatchUnaryTest(Config, ValidationConfig{}, OpType, VectorSize,     \
@@ -1038,8 +1039,9 @@ void dispatchFrexpTest(const TestConfig &Config, size_t VectorSize) {
                " -DFUNC_FREXP=1", ValidationConfig{});
 }
 
-void dispatchTest(const TestConfig &Config, UnaryMathOpType OpType,
-                  size_t VectorSize) {
+void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
+                                       UnaryMathOpType OpType,
+                                       size_t VectorSize) {
 #define DISPATCH(TYPE, FUNC)                                                   \
   if (Config.DataType == DataTypeName<TYPE>())                                 \
   return dispatchUnaryMathOpTest(Config, OpType, VectorSize,                   \
@@ -1192,8 +1194,9 @@ template <typename T> struct BinaryMathOps {
   static T Ldexp(T A, T B) { return A * static_cast<T>(std::pow(2.0f, B)); }
 };
 
-void dispatchTest(const TestConfig &Config, BinaryMathOpType OpType,
-                  size_t VectorSize) {
+void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
+                                       BinaryMathOpType OpType,
+                                       size_t VectorSize) {
 
 #define DISPATCH(TYPE, FUNC)                                                   \
   if (Config.DataType == DataTypeName<TYPE>())                                 \
@@ -1353,8 +1356,9 @@ template <typename T> T SmoothStep(T Min, T Max, T X) {
 
 } // namespace TernaryMathOps
 
-void dispatchTest(const TestConfig &Config, TernaryMathOpType OpType,
-                  size_t VectorSize) {
+void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
+                                       TernaryMathOpType OpType,
+                                       size_t VectorSize) {
 
 #define DISPATCH(TYPE, FUNC)                                                   \
   if (Config.DataType == DataTypeName<TYPE>())                                 \
@@ -1432,7 +1436,7 @@ template <typename OP_TYPE> void dispatchTest(const TestConfig &Config) {
     InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
 
   for (size_t VectorSize : InputVectorSizes)
-    dispatchTest(Config, OpType, VectorSize);
+    dispatchTestByOpTypeAndVectorSize(Config, OpType, VectorSize);
 }
 
 // TAEF test entry points
