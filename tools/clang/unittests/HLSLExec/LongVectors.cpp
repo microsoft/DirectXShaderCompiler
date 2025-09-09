@@ -714,10 +714,9 @@ void runAndVerify(const TestConfig &Config, OP_TYPE OpType,
   std::optional<std::vector<OUT_TYPE>> Actual =
       runTest<OUT_TYPE>(Config, OpType, Inputs, Expected.size(), ExtraDefines);
 
-  if (!Actual) {
-    // The test didn't actually run, so there's nothing to verify.
+  // If the test didn't run, don't verify anything.
+  if (!Actual)
     return;
-  }
 
   VERIFY_IS_TRUE(doVectorsMatch(*Actual, Expected, ValidationConfig.Tolerance,
                                 ValidationConfig.Type, Config.VerboseLogging));
@@ -974,7 +973,13 @@ template <typename T> struct UnaryMathOps {
   }
 
   static int32_t Sign(T V) {
-    return V > static_cast<T>(0) ? 1 : (V < static_cast<T>(0) ? -1 : 0);
+    if (V > static_cast<T>(0))
+      return 1;
+
+    if (V < static_cast<T>(0))
+      return -1;
+
+    return 0;
   }
 
   static T Ceil(T V) { return std::ceil(V); }
@@ -1155,9 +1160,8 @@ void dispatchBinaryMathOpTest(const TestConfig &Config, BinaryMathOpType OpType,
 
   ValidationConfig ValidationConfig;
 
-  if (isFloatingPointType<T>()) {
+  if (isFloatingPointType<T>())
     ValidationConfig = ValidationConfig::Ulp(1.0);
-  }
 
   dispatchBinaryTest(Config, ValidationConfig, OpType, VectorSize, Calc);
 }
@@ -1308,9 +1312,8 @@ void dispatchTernaryMathOpTest(const TestConfig &Config,
 
   ValidationConfig ValidationConfig;
 
-  if (isFloatingPointType<T>()) {
+  if (isFloatingPointType<T>())
     ValidationConfig = ValidationConfig::Ulp(1.0);
-  }
 
   InputSets<T, 3> Inputs = buildTestInputs<T, 3>(Config, VectorSize);
 
@@ -1437,8 +1440,7 @@ TEST_F(OpTest, trigonometricOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  auto Config = TestConfig::Create(VerboseLogging);
-  if (Config)
+  if (auto Config = TestConfig::Create(VerboseLogging))
     dispatchTest<TrigonometricOpType>(*Config);
 }
 
