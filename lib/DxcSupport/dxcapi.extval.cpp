@@ -25,12 +25,13 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
   return DxCompilerSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
 }
 
-HRESULT DxcDllExtValidationLoader::Initialize() {
+HRESULT DxcDllExtValidationLoader::Initialize(llvm::raw_string_ostream &log) {
   // Load dxcompiler.dll
   HRESULT Result =
       DxCompilerSupport.InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
   // if dxcompiler.dll fails to load, return the failed HRESULT
   if (DXC_FAILED(Result)) {
+    log << "dxcompiler.dll failed to load";
     return Result;
   }
 
@@ -45,9 +46,11 @@ HRESULT DxcDllExtValidationLoader::Initialize() {
 
   // Check if path is absolute and exists
   if (!DllPath.is_absolute() || !std::filesystem::exists(DllPath)) {
+    log << "dxil.dll path " << DxilDllPath << " could not be found";
     return E_INVALIDARG;
   }
 
+  log << "Loading external dxil.dll from " << DxilDllPath;
   return DxilExtValSupport.InitializeForDll(DxilDllPath.c_str(),
                                             "DxcCreateInstance");
 }

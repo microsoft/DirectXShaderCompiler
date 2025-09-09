@@ -51,6 +51,7 @@
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/dxcapi.extval.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.h"
@@ -125,7 +126,7 @@ class DxcContext {
 
 private:
   DxcOpts &m_Opts;
-  SpecificDllLoader &m_dxcSupport;
+  DxcDllExtValidationLoader &m_dxcSupport;
 
   int ActOnBlob(IDxcBlob *pBlob);
   int ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugBlobName);
@@ -155,7 +156,7 @@ private:
   }
 
 public:
-  DxcContext(DxcOpts &Opts, SpecificDllLoader &dxcSupport)
+  DxcContext(DxcOpts &Opts, DxcDllExtValidationLoader &dxcSupport)
       : m_Opts(Opts), m_dxcSupport(dxcSupport) {}
 
   int Compile();
@@ -1416,7 +1417,7 @@ int dxc::main(int argc, const char **argv_) {
     const OptTable *optionTable = getHlslOptTable();
     MainArgs argStrings(argc, argv_);
     DxcOpts dxcOpts;
-    DXCLibraryDllLoader dxcSupport;
+    DxcDllExtValidationLoader dxcSupport;
 
     // Read options and check errors.
     {
@@ -1449,19 +1450,21 @@ int dxc::main(int argc, const char **argv_) {
 
     // Setup a helper DLL.
     {
-      std::string dllErrorString;
-      llvm::raw_string_ostream dllErrorStream(dllErrorString);
-      int dllResult =
-          SetupSpecificDllLoader(dxcOpts, dxcSupport, dllErrorStream);
-      dllErrorStream.flush();
-      if (dllErrorString.size()) {
-        fprintf(stderr, "%s\n", dllErrorString.data());
-      }
-      if (dllResult)
+      std::string dllLogString;
+      llvm::raw_string_ostream dllErrorStream(dllLogString);
+      HRESULT dllResult = dxcSupport.Initialize(dllErrorStream);
+      if (DXC_FAILED(dllResult)) {
+        dllErrorStream << "Unable to load support for external DLL - error 0x";
+        dllErrorStream.write_hex(dllResult);
+        dllErrorStream.flush();
+        fprintf(stderr, "%s\n", dllLogString.data());
         return dllResult;
+      }
+
+      // if no errors setting up, print the log string as stdout
+      fprintf(stdout, "%s\n", dllLogString.data());
     }
 
-    EnsureEnabled(dxcSupport);
     DxcContext context(dxcOpts, dxcSupport);
     // Handle help request, which overrides any other processing.
     if (dxcOpts.ShowHelp) {
