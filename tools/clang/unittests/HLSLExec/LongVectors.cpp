@@ -492,7 +492,6 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
   auto *ShaderBufferPtr = reinterpret_cast<T *>(ShaderBuffer.data());
   for (size_t I = 0; I < NumElements; I++)
     ShaderBufferPtr[I] = TestData[I];
-  return;
 }
 
 template <typename OUT_TYPE, typename T, size_t ARITY, typename OP_TYPE>
