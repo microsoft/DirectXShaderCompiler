@@ -565,9 +565,6 @@ enum class OpCode : unsigned {
   UMax = 39, // unsigned integer maximum. UMax(a,b) = a > b ? a : b
   UMin = 40, // unsigned integer minimum. UMin(a,b) = a < b ? a : b
 
-  // Binary vector reduce to scalar
-  FDot = 311, // n-dimensional vector dot-product
-
   // Bitcasts with different sizes
   BitcastF16toI16 = 125, // bitcast between different sizes
   BitcastF32toI32 = 127, // bitcast between different sizes
@@ -623,9 +620,10 @@ enum class OpCode : unsigned {
                          // i32, with accumulate to i32
 
   // Dot
-  Dot2 = 54, // Two-dimensional vector dot-product
-  Dot3 = 55, // Three-dimensional vector dot-product
-  Dot4 = 56, // Four-dimensional vector dot-product
+  Dot2 = 54,  // Two-dimensional vector dot-product
+  Dot3 = 55,  // Three-dimensional vector dot-product
+  Dot4 = 56,  // Four-dimensional vector dot-product
+  FDot = 311, // n-dimensional vector dot-product
 
   // Double precision
   LegacyDoubleToFloat = 132,  // legacy fuction to convert double to float
@@ -1117,9 +1115,6 @@ enum class OpCodeClass : unsigned {
   // Binary uint
   Binary,
 
-  // Binary vector reduce to scalar
-  BinaryReduce,
-
   // Bitcasts with different sizes
   BitcastF16toI16,
   BitcastF32toI32,
@@ -1162,6 +1157,7 @@ enum class OpCodeClass : unsigned {
   Dot4AddPacked,
 
   // Dot
+  Dot,
   Dot2,
   Dot3,
   Dot4,

@@ -465,8 +465,6 @@ class db_dxil(object):
             self.name_idx[i].category = "Binary uint with two outputs"
         for i in "UAddc,USubb".split(","):
             self.name_idx[i].category = "Binary uint with carry or borrow"
-        for i in "FDot".split(","):
-            self.name_idx[i].category = "Binary vector reduce to scalar"
         for i in "FMad,Fma".split(","):
             self.name_idx[i].category = "Tertiary float"
         for i in "IMad,Msad,Ibfe".split(","):
@@ -475,7 +473,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Tertiary uint"
         for i in "Bfi".split(","):
             self.name_idx[i].category = "Quaternary"
-        for i in "Dot2,Dot3,Dot4".split(","):
+        for i in "FDot,Dot2,Dot3,Dot4".split(","):
             self.name_idx[i].category = "Dot"
         for (
             i
@@ -6332,7 +6330,7 @@ class db_dxil(object):
         self.add_dxil_op(
             "FDot",
             next_op_idx,
-            "BinaryReduce",
+            "Dot",
             "n-dimensional vector dot-product",
             "<hf",
             "rn",

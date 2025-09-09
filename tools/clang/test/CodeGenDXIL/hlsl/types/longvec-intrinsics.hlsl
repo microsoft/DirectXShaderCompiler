@@ -522,7 +522,7 @@ void main() {
 
   // CHECK-NOT: extractelement
   // CHECK-NOT: insertelement
-  // CHECK: call float @dx.op.binaryReduce.[[FTY]](i32 311, <[[NUM]] x float> [[fvec1]], <[[NUM]] x float> [[fvec2]])  ; FDot(a,b)
+  // CHECK: call float @dx.op.dot.[[FTY]](i32 311, <[[NUM]] x float> [[fvec1]], <[[NUM]] x float> [[fvec2]])  ; FDot(a,b)
   // One pair of extract/insert is expected for the [0]
   // CHECK: extractelement <[[NUM]] x float> {{%.*}}, i32 0
   // CHECK: insertelement <[[NUM]] x float> {{%.*}}, float {{%.*}}, i32 0

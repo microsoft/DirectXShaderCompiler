@@ -2704,11 +2704,11 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      {},
      {}}, // Overloads: v
 
-    // Binary vector reduce to scalar
+    // Dot
     {OC::FDot,
      "FDot",
-     OCC::BinaryReduce,
-     "binaryReduce",
+     OCC::Dot,
+     "dot",
      Attribute::ReadNone,
      1,
      {{0x400}},
@@ -6028,7 +6028,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
 
-    // Binary vector reduce to scalar
+    // Dot
   case OpCode::FDot:
     A(pVecElt);
     A(pI32);

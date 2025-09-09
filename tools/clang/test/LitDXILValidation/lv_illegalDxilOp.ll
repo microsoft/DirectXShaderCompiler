@@ -20,8 +20,8 @@ define void @main() {
 
 
 ; CHECK: Function: main: error: DXIL intrinsic overload must be valid.
-; CHECK: note: at '%7 = call double @dx.op.binaryReduce.v8f64(i32 311, <8 x double> %4, <8 x double> %6)' in block '#0' of function 'main'.
-  %7 = call double @dx.op.binaryReduce.v8f64(i32 311, <8 x double> %4, <8 x double> %6)  ; FDot(a,b)
+; CHECK: note: at '%7 = call double @dx.op.dot.v8f64(i32 311, <8 x double> %4, <8 x double> %6)' in block '#0' of function 'main'.
+  %7 = call double @dx.op.dot.v8f64(i32 311, <8 x double> %4, <8 x double> %6)  ; FDot(a,b)
 
 
   %8 = extractelement <8 x double> %6, i32 0
@@ -35,7 +35,7 @@ define void @main() {
 declare %dx.types.ResRet.v8f64 @dx.op.rawBufferVectorLoad.v8f64(i32, %dx.types.Handle, i32, i32, i32) #0
 
 ; Function Attrs: nounwind readnone
-declare double @dx.op.binaryReduce.v8f64(i32, <8 x double>, <8 x double>) #1
+declare double @dx.op.dot.v8f64(i32, <8 x double>, <8 x double>) #1
 
 ; Function Attrs: nounwind
 declare void @dx.op.rawBufferVectorStore.v8f64(i32, %dx.types.Handle, i32, i32, <8 x double>, i32) #2

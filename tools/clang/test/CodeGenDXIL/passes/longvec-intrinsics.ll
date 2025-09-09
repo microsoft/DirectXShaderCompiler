@@ -265,7 +265,7 @@ bb:
   %inres = add <7 x i32> %tmp100, %inext
 
   ; Dot operation.
-  ; CHECK: [[dotres:%.*]] = call float @dx.op.binaryReduce.v7f32(i32 311, <7 x float> [[fvec1]], <7 x float> [[fvec2]])
+  ; CHECK: [[dotres:%.*]] = call float @dx.op.dot.v7f32(i32 311, <7 x float> [[fvec1]], <7 x float> [[fvec2]])
   ; CHECK: [[dotresvec:%.*]] = insertelement <7 x float> undef, float [[dotres]], i32 0
   ; CHECK: shufflevector <7 x float> [[dotresvec]], <7 x float> undef, <7 x i32> zeroinitializer
   %tmp103 = call float @"dx.hl.op.rn.float (i32, <7 x float>, <7 x float>)"(i32 134, <7 x float> %tmp4, <7 x float> %tmp9) ; line:152 col:11

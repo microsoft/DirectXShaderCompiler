@@ -156,7 +156,7 @@ void main() {
   // CHECK: call <13 x i1> @dx.op.isSpecialFloat.v13f32(i32 8, <13 x float> [[fvec2]])  ; IsNaN(value)
   uRes += isnan(fVec2);
 
-  // CHECK: [[dotres:%.*]] = call float @dx.op.binaryReduce.v13f32(i32 311, <13 x float> [[fvec1]], <13 x float> [[fvec2]])  ; FDot(a,b)
+  // CHECK: [[dotres:%.*]] = call float @dx.op.dot.v13f32(i32 311, <13 x float> [[fvec1]], <13 x float> [[fvec2]])  ; FDot(a,b)
   // Upcast float to <13 x float>
   // CHECK: [[dotresvec:%.*]] = insertelement <13 x float> undef, float [[dotres]], i32 0
   // CHECK: shufflevector <13 x float> [[dotresvec]], <13 x float> undef, <13 x i32> zeroinitializer

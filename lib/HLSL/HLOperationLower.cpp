@@ -2558,7 +2558,7 @@ Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Type *Ty = arg0->getType();
   Type *EltTy = Ty->getScalarType();
 
-  // SM6.9 introduced a binop for vectorized dot product
+  // SM6.9 introduced a DXIL operation for vectorized dot product
   if (hlslOP->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus() &&
       EltTy->isFloatingPointTy()) {
     Value *arg1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
