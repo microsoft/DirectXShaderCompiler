@@ -6500,8 +6500,7 @@ TEST_F(ExecutionTest, IsSpecialFloatHalfOpTest) {
   }
 
   // Read data from the table
-  int tableSize =
-      sizeof(UnaryHalfOpParameters) / sizeof(TableParameter);
+  int tableSize = sizeof(UnaryHalfOpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(UnaryHalfOpParameters, tableSize);
 
   CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
