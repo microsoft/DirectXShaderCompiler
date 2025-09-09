@@ -591,15 +591,12 @@ runTest(const TestConfig &Config, OP_TYPE OpType,
   return OutData;
 }
 
-template <typename DATA_TYPE>
-std::vector<DATA_TYPE> buildTestInput(const wchar_t *InputValueSetName,
-                                      size_t SizeToTest) {
-  // TODO: remove the need to build up a RawValueSet, only to use that to build
-  // ValueSet.
-  std::vector<DATA_TYPE> RawValueSet =
-      getInputValueSetByKey<DATA_TYPE>(InputValueSetName);
+template <typename T>
+std::vector<T> buildTestInput(const wchar_t *InputValueSetName,
+                              size_t SizeToTest) {
+  const std::vector<T> &RawValueSet = TestData<T>::Data.at(InputValueSetName);
 
-  std::vector<DATA_TYPE> ValueSet;
+  std::vector<T> ValueSet;
   ValueSet.reserve(SizeToTest);
   for (size_t I = 0; I < SizeToTest; ++I)
     ValueSet.push_back(RawValueSet[I % RawValueSet.size()]);
