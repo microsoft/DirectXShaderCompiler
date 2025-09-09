@@ -12705,7 +12705,7 @@ static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
 // It's exclusive with the use of the DLL as a TAEF target.
 extern "C" {
 __declspec(dllexport) HRESULT WINAPI
-InitializeOpTests(void *pStrCtx, st::OutputStringFn pOutputStrFn) {
+    InitializeOpTests(void *pStrCtx, st::OutputStringFn pOutputStrFn) {
   HRESULT hr = ExecutionTest::EnableExperimentalShaderModels();
   if (FAILED(hr)) {
     pOutputStrFn(pStrCtx, L"Unable to enable experimental shader models.\r\n.");
@@ -12714,9 +12714,9 @@ InitializeOpTests(void *pStrCtx, st::OutputStringFn pOutputStrFn) {
 }
 
 __declspec(dllexport) HRESULT WINAPI
-RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
-          ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
-          ID3D12Resource *pRenderTarget, char **pReadBackDump) {
+    RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
+              ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
+              ID3D12Resource *pRenderTarget, char **pReadBackDump) {
 
   HRESULT hr;
   if (pReadBackDump)
