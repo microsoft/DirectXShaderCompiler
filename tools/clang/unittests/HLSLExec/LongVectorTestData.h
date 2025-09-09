@@ -2,8 +2,10 @@
 #define LONGVECTORTESTDATA_H
 
 #include <Verify.h>
+
 #include <limits>
 #include <map>
+#include <ostream>
 #include <string>
 #include <vector>
 

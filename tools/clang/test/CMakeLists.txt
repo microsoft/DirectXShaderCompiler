@@ -114,6 +114,95 @@ set_target_properties(clang-test PROPERTIES FOLDER "Clang tests")
 
 # HLSL Change Begin - Generate lit targets for test subdirectories.
 
+# -------------------------------------------------------------------------
+# DXIL Backward Compatibility Section
+# -------------------------------------------------------------------------
+
+# Define DXC releases as (NAME VERSION) pairs
+set(DXC_RELEASES  
+  dxc_2025_02_20 v1.8.2502
+  dxc_2023_08_14 v1.7.2308
+  dxc_2021_12_08 v1.6.2112
+)
+
+# Download a DXC release
+function(add_released_dxc name version)
+  ExternalProject_Add(${name}
+      URL https://github.com/microsoft/DirectXShaderCompiler/releases/download/${version}/${name}.zip
+      DOWNLOAD_DIR ${CMAKE_BINARY_DIR}/tools/clang/test/dxc_releases
+      SOURCE_DIR ${CMAKE_BINARY_DIR}/tools/clang/test/dxc_releases/${version}/${name}
+      CONFIGURE_COMMAND ""
+      BUILD_COMMAND ""
+      INSTALL_COMMAND ""
+  )
+endfunction()
+
+# Iterate over releases
+list(LENGTH DXC_RELEASES DXC_RELEASES_LENGTH)
+math(EXPR num_pairs "${DXC_RELEASES_LENGTH} / 2")
+math(EXPR loop_end "${num_pairs} - 1")
+foreach(i RANGE 0 ${loop_end})
+  math(EXPR idx_name "${i}*2")
+  math(EXPR idx_version "${i}*2 + 1")  
+
+  list(GET DXC_RELEASES ${idx_name} name)
+  list(GET DXC_RELEASES ${idx_version} version)
+
+  add_released_dxc(${name} ${version})
+
+  if(WIN32)
+  # Determine target architecture for DXC binaries
+    if(CMAKE_GENERATOR MATCHES "Visual Studio")
+        # Multi-config generators (VS/Xcode)
+        if(NOT DEFINED CMAKE_GENERATOR_PLATFORM)
+            message(FATAL_ERROR "CMAKE_GENERATOR_PLATFORM not set for multi-config generator")
+        endif()
+        set(TARGET_ARCH ${CMAKE_GENERATOR_PLATFORM})
+    else()
+        # Single-config generators (Ninja, Makefiles)
+        string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" SYSTEM_PROCESSOR_LOWER)
+
+        if(SYSTEM_PROCESSOR_LOWER MATCHES "^(x86|i[3-6]86)$")
+            set(TARGET_ARCH x86)
+        elseif(SYSTEM_PROCESSOR_LOWER MATCHES "^(x64|amd64|x86_64)$")
+            set(TARGET_ARCH x64)
+        elseif(SYSTEM_PROCESSOR_LOWER MATCHES "^(arm64|aarch64)$")
+            set(TARGET_ARCH arm64)
+        elseif(SYSTEM_PROCESSOR_LOWER MATCHES "^arm")
+            set(TARGET_ARCH arm)
+        else()
+            message(FATAL_ERROR "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+        endif()
+    endif()
+
+    # Path to dxil.dll for this release
+    set(DXC_PATH ${CMAKE_BINARY_DIR}/tools/clang/test/dxc_releases/${version}/${name}/bin/${TARGET_ARCH}/dxil.dll)
+
+    # Create a lit target for this release
+    add_lit_target("check-clang-${name}" "Running clang regression tests with ${name}\n"
+      ${CMAKE_CURRENT_SOURCE_DIR}
+      PARAMS ${CLANG_TEST_PARAMS} DXC_DXIL_DLL_PATH=${DXC_PATH}
+        skip_taef_exec=True
+      DEPENDS ${CLANG_TEST_DEPS} ${name}
+      ARGS ${CLANG_TEST_EXTRA_ARGS}
+    )
+
+    # Ensure there is a top-level check-clang target
+    if(NOT TARGET check-clang)
+      add_custom_target(check-clang)
+    endif()
+
+    # Make check-clang depend on this particular release's tests
+    add_dependencies(check-clang "check-clang-${name}")
+
+    # Hook into check-all
+    if (WIN32 AND TARGET check-all)
+      add_dependencies(check-all "check-clang-${name}")
+    endif()  
+  endif()
+endforeach()
+# -------------------------------------------------------------------------
+
 set(CLANG_TEST_PARAMS
   ${CLANG_TEST_PARAMS}
   clang_unit_site_config=${CMAKE_CURRENT_BINARY_DIR}/Unit/lit.site.cfg

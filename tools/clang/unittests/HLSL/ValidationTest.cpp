@@ -34,7 +34,6 @@
 #include "dxc/Support/Global.h"
 
 #include "dxc/DXIL/DxilShaderModel.h"
-#include "dxc/Support/dxcapi.extval.h"
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Test/HlslTestUtils.h"
 
