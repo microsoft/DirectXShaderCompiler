@@ -358,9 +358,8 @@ struct TestConfig {
       return std::nullopt;
     }
 
-    for (size_t I = 0; I < std::size(Values.InputValueSetNames); ++I) {
+    for (size_t I = 0; I < std::size(Values.InputValueSetNames); ++I)
       Values.InputValueSetNames[I] = getInputValueSetName(I);
-    }
 
     Values.ScalarInputFlags = GetScalarInputFlags();
 
