@@ -734,9 +734,8 @@ void dispatchUnaryTest(const TestConfig &Config,
   std::vector<OUT_TYPE> Expected;
   Expected.reserve(Inputs[0].size());
 
-  for (size_t I = 0; I < Inputs[0].size(); ++I) {
+  for (size_t I = 0; I < Inputs[0].size(); ++I)
     Expected.push_back(Calc(Inputs[0][I]));
-  }
 
   runAndVerify(Config, OpType, Inputs, Expected, ExtraDefines,
                ValidationConfig);
