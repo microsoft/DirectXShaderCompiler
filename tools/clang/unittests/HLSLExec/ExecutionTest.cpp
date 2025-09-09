@@ -5758,16 +5758,6 @@ static TableParameter UnaryHalfOpParameters[] = {
     {L"Validation.Tolerance", TableParameter::DOUBLE, true},
     {L"Warp.Version", TableParameter::UINT, false}};
 
-static TableParameter IsSpecialFloatHalfOpParameters[] = {
-    {L"ShaderOp.Target", TableParameter::STRING, true},
-    {L"ShaderOp.Text", TableParameter::STRING, true},
-    {L"ShaderOp.Arguments", TableParameter::STRING, true},
-    {L"Validation.Input1", TableParameter::HALF_TABLE, true},
-    {L"Validation.Expected1", TableParameter::HALF_TABLE, true},
-    {L"Validation.Type", TableParameter::STRING, true},
-    {L"Validation.Tolerance", TableParameter::DOUBLE, true},
-    {L"Warp.Version", TableParameter::UINT, false}};
-
 static TableParameter BinaryHalfOpParameters[] = {
     {L"ShaderOp.Target", TableParameter::STRING, true},
     {L"ShaderOp.Text", TableParameter::STRING, true},
@@ -6511,8 +6501,8 @@ TEST_F(ExecutionTest, IsSpecialFloatHalfOpTest) {
 
   // Read data from the table
   int tableSize =
-      sizeof(IsSpecialFloatHalfOpParameters) / sizeof(TableParameter);
-  TableParameterHandler handler(IsSpecialFloatHalfOpParameters, tableSize);
+      sizeof(UnaryHalfOpParameters) / sizeof(TableParameter);
+  TableParameterHandler handler(UnaryHalfOpParameters, tableSize);
 
   CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
   CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
