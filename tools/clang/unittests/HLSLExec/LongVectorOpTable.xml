@@ -223,6 +223,24 @@
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
           <Parameter Name="DataType">int16</Parameter>
         </Row>
+        <Row Name="ScalarMin_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
+        <Row Name="ScalarMax_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: int32 -->
         <Row Name="ScalarAdd_int32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
@@ -267,6 +285,24 @@
         </Row>
         <Row Name="Modulus_int32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <Row Name="ScalarMin_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <Row Name="ScalarMax_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
           <Parameter Name="DataType">int32</Parameter>
         </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: int64 -->
@@ -320,6 +356,24 @@
           <Parameter Name="DataType">uint16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarMin_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
+        <Row Name="ScalarMax_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: uint16 -->
         <Row Name="Add_uint16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
@@ -359,6 +413,24 @@
         </Row>
         <Row Name="Modulus_uint16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
+        <Row Name="ScalarMin_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
+        <Row Name="ScalarMax_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
         </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: uint32 -->
@@ -407,6 +479,24 @@
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
           <Parameter Name="DataType">uint32</Parameter>
         </Row>
+        <Row Name="ScalarMin_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
+        <Row Name="ScalarMax_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: uint64 -->
         <Row Name="ScalarAdd_uint64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
@@ -451,6 +541,24 @@
         </Row>
         <Row Name="Modulus_uint64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <Row Name="ScalarMin_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <Row Name="ScalarMax_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
           <Parameter Name="DataType">uint64</Parameter>
         </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: float16 -->
@@ -498,6 +606,11 @@
         <Row Name="Modulus_float16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
           <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="ScalarMin_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
         <Row Name="Min_float16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
@@ -567,6 +680,11 @@
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
           <Parameter Name="DataType">float32</Parameter>
         </Row>
+        <Row Name="ScalarMin_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Min_float32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
           <Parameter Name="DataType">float32</Parameter>
@@ -624,6 +742,24 @@
         </Row>
         <Row Name="Divide_float64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+        </Row>
+        <Row Name="ScalarMin_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+        </Row>
+        <Row Name="ScalarMax_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
           <Parameter Name="DataType">float64</Parameter>
         </Row>
     </Table>
