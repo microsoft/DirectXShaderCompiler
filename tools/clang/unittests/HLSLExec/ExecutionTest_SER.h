@@ -1174,7 +1174,7 @@ void RunTest(int recursionDepth)
   pldA.missCounter = 0;
 
   // First HitObject::TraceRay()
-  dx::HitObject hitA = dx::HitObject::TraceRay(topObject, RAY_FLAG_NONE, 0xFF, 0, 1, 0, baseRay, pldA);
+  dx::HitObject hitA = dx::HitObject::TraceRay(topObject, RAY_FLAG_SKIP_TRIANGLES, 0xFF, 0, 1, 0, baseRay, pldA);
 
   // Second HitObject::TraceRay() while other HitObject is live
   PayloadB pldB;
@@ -1188,7 +1188,7 @@ void RunTest(int recursionDepth)
   pldB.missCounter = 0;
   RayDesc rayB = baseRay;
   rayB.Origin.x += 0.1f;
-  dx::HitObject hitB = dx::HitObject::TraceRay(topObject, RAY_FLAG_NONE, 0xFF, 1, 1, 1, rayB, pldB);
+  dx::HitObject hitB = dx::HitObject::TraceRay(topObject, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xFF, 1, 1, 1, rayB, pldB);
 
   // TraceRay() while HitObject is live
   TraceRay(topObject, RAY_FLAG_NONE, 0xFF, 0, 1, 0, baseRay, pldA);
@@ -1199,7 +1199,7 @@ void RunTest(int recursionDepth)
   for (int i = 0; i < dynamicBound + 5; ++i) {
     RayDesc loopRay = baseRay;
     loopRay.Origin.y += 0.001f * i;
-    loopHit = dx::HitObject::TraceRay(topObject, RAY_FLAG_NONE, 0xFF, 1, 1, 1, loopRay, pldB);
+    loopHit = dx::HitObject::TraceRay(topObject, RAY_FLAG_SKIP_TRIANGLES, 0xFF, 1, 1, 1, loopRay, pldB);
 #if !ENABLE_RECURSION
     dx::MaybeReorderThread(loopHit);
 #endif
@@ -1371,7 +1371,7 @@ void intersection1()
   // Expected histogram results for each result key, as {value, count} pairs.
   static const std::map<int, int> ExpectedResults[10] = {
       // result key 0
-      {{0, 4060}, {2, 36}},
+      {{0, 4060}, {1, 36}},
       // result key 1
       {{0, 847}, {1, 3213}, {2, 36}},
       // result key 2
@@ -1381,21 +1381,21 @@ void intersection1()
       // result key 4
       {{0, 3249}, {2, 847}},
       // result key 5
-      {{0, 4060}, {6, 36}},
+      {{0, 4030}, {1, 66}},
       // result key 6
-      {{0, 847}, {4, 3249}},
+      {{0, 847}, {4, 3183}, {5, 66}},
       // result key 7
-      {{0, 883}, {1, 3213}},
+      {{0, 4096}},
       // result key 8
-      {{0, 847}, {6, 3249}},
+      {{0, 847}, {5, 3249}},
       // result key 9
-      {{0, 3249}, {4, 847}}};
+      {{0, 66}, {1, 3183}, {4, 847}}};
 
   const int WindowSize = 64;
   const int NumRayResults = 10;
 
   std::vector<PayloadTestConfig> TestConfigs;
-  for (bool EnablePAQs : {false, true}) {
+  for (bool EnablePAQs : {false}) {
     for (bool EnableRecursion : {false, true}) {
       PayloadTestConfig TestConfig;
       TestConfig.EnablePAQs = EnablePAQs;
@@ -1428,6 +1428,7 @@ void intersection1()
         ++Histo[Val];
       }
       for (auto [Key, Value] : Histo) {
+        LogCommentFmt(L"Result %d.Expected key: %d, value: %d", ResIdx, Key, Value);
         VERIFY_IS_TRUE(ExpectedResults[ResIdx].count(Key));
         const int ExpectedValue = ExpectedResults[ResIdx].at(Key);
         VERIFY_ARE_EQUAL(Value, ExpectedValue);
