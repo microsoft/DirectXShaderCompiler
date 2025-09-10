@@ -2556,10 +2556,23 @@ Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *arg0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Type *Ty = arg0->getType();
+  Type *EltTy = Ty->getScalarType();
+
+  // SM6.9 introduced a DXIL operation for vectorized dot product
+  if (hlslOP->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus() &&
+      EltTy->isFloatingPointTy()) {
+    Value *arg1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+    IRBuilder<> Builder(CI);
+    Constant *opArg = hlslOP->GetU32Const((unsigned)DXIL::OpCode::FDot);
+    Value *args[] = {opArg, arg0, arg1};
+    Function *dxilFunc = hlslOP->GetOpFunc(DXIL::OpCode::FDot, Ty);
+    return TrivialDxilVectorOperation(dxilFunc, DXIL::OpCode::FDot, args, Ty,
+                                      hlslOP, Builder);
+  }
+
   unsigned vecSize = Ty->getVectorNumElements();
   Value *arg1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
-  Type *EltTy = Ty->getScalarType();
   if (EltTy->isFloatingPointTy() && Ty->getVectorNumElements() <= 4)
     return TranslateFDot(arg0, arg1, vecSize, hlslOP, Builder);
 

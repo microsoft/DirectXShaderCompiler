@@ -2423,6 +2423,9 @@ ID  Name                                                  Description
 306 MatVecMulAdd                                          multiplies a MxK dimension matrix and a K sized input vector and adds an M-sized bias vector
 307 OuterProductAccumulate                                Computes the outer product between column vectors and an MxN matrix is accumulated component-wise atomically (with device scope) in memory
 308 VectorAccumulate                                      Accumulates the components of a vector component-wise atomically (with device scope) to the corresponding elements of an array in memory
+309 ReservedD0                                            reserved
+310 ReservedD1                                            reserved
+311 FDot                                                  computes the n-dimensional vector dot-product
 === ===================================================== =======================================================================================================================================================================================================================
 
 

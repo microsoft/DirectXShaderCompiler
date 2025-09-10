@@ -10148,5 +10148,34 @@ struct DxilInst_VectorAccumulate {
   llvm::Value *get_arrayOffset() const { return Instr->getOperand(3); }
   void set_arrayOffset(llvm::Value *val) { Instr->setOperand(3, val); }
 };
+
+/// This instruction computes the n-dimensional vector dot-product
+struct DxilInst_FDot {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_FDot(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::FDot);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_a = 1,
+    arg_b = 2,
+  };
+  // Accessors
+  llvm::Value *get_a() const { return Instr->getOperand(1); }
+  void set_a(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_b() const { return Instr->getOperand(2); }
+  void set_b(llvm::Value *val) { Instr->setOperand(2, val); }
+};
 // INSTR-HELPER:END
 } // namespace hlsl

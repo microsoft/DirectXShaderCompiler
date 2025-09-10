@@ -2686,6 +2686,33 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      1,
      {{0x400}},
      {{0x63}}}, // Overloads: <hfwi
+
+    {OC::ReservedD0,
+     "ReservedD0",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedD1,
+     "ReservedD1",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+
+    // Dot
+    {OC::FDot,
+     "FDot",
+     OCC::Dot,
+     "dot",
+     Attribute::ReadNone,
+     1,
+     {{0x400}},
+     {{0x3}}}, // Overloads: <hf
 };
 // OPCODE-OLOADS:END
 
@@ -3792,10 +3819,12 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *pI16 = Type::getInt16Ty(m_Ctx);
   Type *pI32 = Type::getInt32Ty(m_Ctx);
   Type *pOlTplI32 = Type::getInt32Ty(m_Ctx);
+  Type *pVecElt = nullptr;
   if (pOverloadType->isVectorTy()) {
     pOlTplI32 =
         VectorType::get(pOlTplI32, pOverloadType->getVectorNumElements());
     pOlTplI1 = VectorType::get(pOlTplI1, pOverloadType->getVectorNumElements());
+    pVecElt = pOverloadType->getVectorElementType();
   }
 
   Type *pPI32 = Type::getInt32PtrTy(m_Ctx);
@@ -5988,6 +6017,24 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pRes);
     A(pI32);
     break;
+
+    //
+  case OpCode::ReservedD0:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedD1:
+    A(pV);
+    A(pI32);
+    break;
+
+    // Dot
+  case OpCode::FDot:
+    A(pVecElt);
+    A(pI32);
+    A(pETy);
+    A(pETy);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -6160,6 +6207,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::CreateHandleForLib:
   case OpCode::WaveMatch:
   case OpCode::VectorAccumulate:
+  case OpCode::FDot:
     if (FT->getNumParams() <= 1)
       return nullptr;
     return FT->getParamType(1);
@@ -6276,6 +6324,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedC7:
   case OpCode::ReservedC8:
   case OpCode::ReservedC9:
+  case OpCode::ReservedD0:
+  case OpCode::ReservedD1:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:

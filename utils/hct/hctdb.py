@@ -473,7 +473,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Tertiary uint"
         for i in "Bfi".split(","):
             self.name_idx[i].category = "Quaternary"
-        for i in "Dot2,Dot3,Dot4".split(","):
+        for i in "FDot,Dot2,Dot3,Dot4".split(","):
             self.name_idx[i].category = "Dot"
         for (
             i
@@ -6319,6 +6319,27 @@ class db_dxil(object):
                 db_dxil_param(3, "res", "arrayBuffer", "output array resource"),
                 db_dxil_param(4, "i32", "arrayOffset", "output array offset"),
             ],
+        )
+        next_op_idx += 1
+
+        # TODO: Replace with vector reduction ops.
+        # https://github.com/microsoft/DirectXShaderCompiler/issues/7687
+        next_op_idx = self.reserve_dxil_op_range("ReservedD", next_op_idx, 2)
+
+        # Long Vector Dot
+        self.add_dxil_op(
+            "FDot",
+            next_op_idx,
+            "Dot",
+            "computes the n-dimensional vector dot-product",
+            "<hf",
+            "rn",
+            [
+                db_dxil_param(0, "$elt", "", "operation result"),
+                db_dxil_param(2, "$o", "a", "input value"),
+                db_dxil_param(3, "$o", "b", "input value"),
+            ],
+            counters=("floats",),
         )
         next_op_idx += 1
 
