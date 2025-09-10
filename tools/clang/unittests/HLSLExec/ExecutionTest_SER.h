@@ -1191,7 +1191,7 @@ void RunTest(int recursionDepth)
   dx::HitObject hitB = dx::HitObject::TraceRay(topObject, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xFF, 1, 1, 1, rayB, pldB);
 
   // TraceRay() while HitObject is live
-  TraceRay(topObject, RAY_FLAG_NONE, 0xFF, 0, 1, 0, baseRay, pldA);
+  TraceRay(topObject, RAY_FLAG_SKIP_TRIANGLES, 0xFF, 0, 1, 0, baseRay, pldA);
 
   // Concurrent HitObject with complex control flow
   dx::HitObject loopHit;
@@ -1371,11 +1371,11 @@ void intersection1()
   // Expected histogram results for each result key, as {value, count} pairs.
   static const std::map<int, int> ExpectedResults[10] = {
       // result key 0
-      {{0, 4060}, {1, 36}},
+      {{0, 4096}},
       // result key 1
-      {{0, 847}, {1, 3213}, {2, 36}},
+      {{0, 847}, {1, 3249}},
       // result key 2
-      {{0, 883}, {1, 3213}},
+      {{0, 847}, {1, 3249}},
       // result key 3
       {{0, 847}, {2, 3249}},
       // result key 4
