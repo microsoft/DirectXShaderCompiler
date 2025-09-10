@@ -9686,6 +9686,17 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                                         callExpr->getSourceRange());
     break;
   }
+  case hlsl::IntrinsicOp::IOP_uabs: {
+    if (isUintOrVecMatOfUintType(callExpr->getArg(0)->getType())) {
+      // If unsigned, it's a no-op. Skip generating an `OpExtInst` instruction.
+      // Simply load and store the value.
+      auto *loadInst = doExpr(callExpr->getArg(0));
+      retVal = loadInst;
+      break;
+    }
+    emitError("uabs intrinsic requires unsigned integer input type", srcLoc);
+    return nullptr;
+  }
     INTRINSIC_SPIRV_OP_CASE(countbits, BitCount, false);
     INTRINSIC_SPIRV_OP_CASE(fmod, FRem, true);
     INTRINSIC_SPIRV_OP_CASE(fwidth, Fwidth, true);
@@ -9693,7 +9704,6 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_SPIRV_OP_CASE(and, LogicalAnd, false);
     INTRINSIC_SPIRV_OP_CASE(or, LogicalOr, false);
     INTRINSIC_OP_CASE(round, RoundEven, true);
-    INTRINSIC_OP_CASE(uabs, SAbs, true);
     INTRINSIC_OP_CASE_INT_FLOAT(abs, SAbs, FAbs, true);
     INTRINSIC_OP_CASE(acos, Acos, true);
     INTRINSIC_OP_CASE(asin, Asin, true);
