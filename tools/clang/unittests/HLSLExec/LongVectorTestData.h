@@ -9,6 +9,9 @@
 #include <string>
 #include <vector>
 
+#include <DirectXMath.h>
+#include <DirectXPackedVector.h>
+
 namespace LongVector {
 
 // A helper struct because C++ bools are 1 byte and HLSL bools are 4 bytes.
@@ -19,7 +22,6 @@ struct HLSLBool_t {
   HLSLBool_t() : Val(0) {}
   HLSLBool_t(int32_t Val) : Val(Val) {}
   HLSLBool_t(bool Val) : Val(Val) {}
-  HLSLBool_t(const HLSLBool_t &Other) : Val(Other.Val) {}
 
   bool operator==(const HLSLBool_t &Other) const {
     return static_cast<bool>(Val) == static_cast<bool>(Other.Val);
@@ -76,17 +78,13 @@ struct HLSLBool_t {
 //  it. Simple little wrapping struct to help handle the right behavior.
 struct HLSLHalf_t {
   HLSLHalf_t() : Val(0) {}
-  HLSLHalf_t(DirectX::PackedVector::HALF Val) : Val(Val) {}
-  HLSLHalf_t(const HLSLHalf_t &Other) : Val(Other.Val) {}
   HLSLHalf_t(const float F) {
     Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
   }
   HLSLHalf_t(const double D) {
-    float F = 0.0f;
-    // We wrap '::max' in () to prevent it from being expanded as a
-    // macro by the Windows SDK.
-    if (D >= (std::numeric_limits<double>::max)())
-      F = (std::numeric_limits<float>::max)();
+    float F;
+    if (D >= std::numeric_limits<double>::max())
+      F = std::numeric_limits<float>::max();
     else if (D <= std::numeric_limits<double>::lowest())
       F = std::numeric_limits<float>::lowest();
     else
@@ -94,9 +92,16 @@ struct HLSLHalf_t {
 
     Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
   }
-  HLSLHalf_t(const int I) {
-    const float F = static_cast<float>(I);
-    Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
+
+  // PackedVector::HALF is a uint16. Make sure we don't ever accidentally
+  // convert one of these to a HLSLHalf_t by arithmetically converting it to a
+  // float.
+  HLSLHalf_t(DirectX::PackedVector::HALF) = delete;
+
+  static HLSLHalf_t FromHALF(DirectX::PackedVector::HALF Half) {
+    HLSLHalf_t H;
+    H.Val = Half;
+    return H;
   }
 
   // Implicit conversion to float for use with things like std::acos, std::tan,
@@ -150,32 +155,32 @@ struct HLSLHalf_t {
   HLSLHalf_t operator*(const HLSLHalf_t &Other) const {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A * B));
+    return FromHALF(DirectX::PackedVector::XMConvertFloatToHalf(A * B));
   }
 
   HLSLHalf_t operator+(const HLSLHalf_t &Other) const {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A + B));
+    return FromHALF((DirectX::PackedVector::XMConvertFloatToHalf(A + B)));
   }
 
   HLSLHalf_t operator-(const HLSLHalf_t &Other) const {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A - B));
+    return FromHALF(DirectX::PackedVector::XMConvertFloatToHalf(A - B));
   }
 
   HLSLHalf_t operator/(const HLSLHalf_t &Other) const {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A / B));
+    return FromHALF(DirectX::PackedVector::XMConvertFloatToHalf(A / B));
   }
 
   HLSLHalf_t operator%(const HLSLHalf_t &Other) const {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
     const float C = std::fmod(A, B);
-    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(C));
+    return FromHALF(DirectX::PackedVector::XMConvertFloatToHalf(C));
   }
 
   // So we can construct std::wstrings using std::wostream
