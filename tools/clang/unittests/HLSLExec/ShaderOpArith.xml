@@ -3876,10 +3876,7 @@ void MSMain(uint GID : SV_GroupIndex,
             #endif
           #endif
 
-          // Main test logic
-          #if IS_COMPOUND_ASSSIGNMENT_OP
-            Input1 OPERATOR Input2;
-          #elif IS_UNARY_OP
+          #if IS_UNARY_OP
             vector<OUT_TYPE, NUM> OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP
             vector<OUT_TYPE, NUM> OutputVector = FUNC(Input1 OPERATOR
@@ -3891,11 +3888,7 @@ void MSMain(uint GID : SV_GroupIndex,
             Input3);
           #endif
 
-          #if IS_BOOLEAN_OPERATOR
-            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Input1);
-          #else
-            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, OutputVector);
-          #endif
+          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, OutputVector);
         };
       ]]>
     </Shader>
