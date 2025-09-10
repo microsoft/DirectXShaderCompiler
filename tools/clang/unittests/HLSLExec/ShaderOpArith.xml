@@ -3776,6 +3776,14 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_TERNARY_ASSIGNMENT
+        vector<TYPE, NUM> TestTernaryAssignment(vector<TYPE, NUM> Vector,
+        vector<TYPE, NUM> Vector2))
+        {
+          return (TERNARY_CONDITION ? Vector : Vector2);
+        }
+        #endif
+
         #ifdef FUNC_UNARY_OPERATOR
         vector<OUT_TYPE, NUM> TestUnaryOperator(vector<TYPE, NUM> Vector)
         {
@@ -3854,7 +3862,6 @@ void MSMain(uint GID : SV_GroupIndex,
             vector<OUT_TYPE, NUM> OutputVector = FUNC(Input1, Input2,
             Input3);
           #endif
-
           g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, OutputVector);
         };
       ]]>
