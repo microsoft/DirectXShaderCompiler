@@ -57,6 +57,14 @@ struct HLSLBool_t {
     return HLSLBool_t(Val % Other.Val);
   }
 
+  HLSLBool_t operator&&(const HLSLBool_t &Other) const {
+    return HLSLBool_t(Val && Other.Val);
+  }
+
+  HLSLBool_t operator||(const HLSLBool_t &Other) const {
+    return HLSLBool_t(Val || Other.Val);
+  }
+
   // So we can construct std::wstrings using std::wostream
   friend std::wostream &operator<<(std::wostream &Os, const HLSLBool_t &Obj) {
     Os << static_cast<bool>(Obj.Val);
