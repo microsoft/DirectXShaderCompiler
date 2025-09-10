@@ -1395,7 +1395,7 @@ void intersection1()
   const int NumRayResults = 10;
 
   std::vector<PayloadTestConfig> TestConfigs;
-  for (bool EnablePAQs : {false}) {
+  for (bool EnablePAQs : {false, true}) {
     for (bool EnableRecursion : {false, true}) {
       PayloadTestConfig TestConfig;
       TestConfig.EnablePAQs = EnablePAQs;
@@ -1428,7 +1428,6 @@ void intersection1()
         ++Histo[Val];
       }
       for (auto [Key, Value] : Histo) {
-        LogCommentFmt(L"Result %d.Expected key: %d, value: %d", ResIdx, Key, Value);
         VERIFY_IS_TRUE(ExpectedResults[ResIdx].count(Key));
         const int ExpectedValue = ExpectedResults[ResIdx].at(Key);
         VERIFY_ARE_EQUAL(Value, ExpectedValue);
