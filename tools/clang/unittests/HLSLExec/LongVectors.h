@@ -218,6 +218,11 @@ enum BinaryMathOpType {
   BinaryMathOpType_Subtract,
   BinaryMathOpType_Divide,
   BinaryMathOpType_Modulus,
+  BinaryMathOpType_CompoundMultiply,
+  BinaryMathOpType_CompoundAdd,
+  BinaryMathOpType_CompoundSubtract,
+  BinaryMathOpType_CompoundDivide,
+  BinaryMathOpType_CompoundModulus,
   BinaryMathOpType_Min,
   BinaryMathOpType_Max,
   BinaryMathOpType_Ldexp,
@@ -235,6 +240,16 @@ static const OpTypeMetaData<BinaryMathOpType>
          "/"},
         {L"BinaryMathOpType_Modulus", BinaryMathOpType_Modulus, std::nullopt,
          "%"},
+        {L"BinaryMathOpType_CompoundMultiply",
+         BinaryMathOpType_CompoundMultiply, std::nullopt, "*="},
+        {L"BinaryMathOpType_CompoundAdd", BinaryMathOpType_CompoundAdd,
+         std::nullopt, "+="},
+        {L"BinaryMathOpType_CompoundSubtract",
+         BinaryMathOpType_CompoundSubtract, std::nullopt, "-="},
+        {L"BinaryMathOpType_CompoundDivide", BinaryMathOpType_CompoundDivide,
+         std::nullopt, "/="},
+        {L"BinaryMathOpType_CompoundModulus", BinaryMathOpType_CompoundModulus,
+         std::nullopt, "%="},
         {L"BinaryMathOpType_Min", BinaryMathOpType_Min, "min", ","},
         {L"BinaryMathOpType_Max", BinaryMathOpType_Max, "max", ","},
         {L"BinaryMathOpType_Ldexp", BinaryMathOpType_Ldexp, "ldexp", ","},
@@ -249,6 +264,50 @@ const OpTypeMetaData<BinaryMathOpType> &
 getBinaryMathOpType(const std::wstring &OpTypeString) {
   return getOpType<BinaryMathOpType>(binaryMathOpTypeStringToOpMetaData,
                                      OpTypeString);
+}
+
+enum BitwiseOpType {
+  BitwiseOpType_And,
+  BitwiseOpType_Or,
+  BitwiseOpType_Xor,
+  BitwiseOpType_Not,
+  BitwiseOpType_LeftShift,
+  BitwiseOpType_RightShift,
+  BitwiseOpType_CompoundAnd,
+  BitwiseOpType_CompoundOr,
+  BitwiseOpType_CompoundXor,
+  BitwiseOpType_CompoundLeftShift,
+  BitwiseOpType_CompoundRightShift,
+  BitwiseOpType_EnumValueCount
+};
+
+static const OpTypeMetaData<BitwiseOpType> bitwiseOpTypeStringToOpMetaData[] = {
+    {L"BitwiseOpType_And", BitwiseOpType_And, std::nullopt, "&"},
+    {L"BitwiseOpType_Or", BitwiseOpType_Or, std::nullopt, "|"},
+    {L"BitwiseOpType_Xor", BitwiseOpType_Xor, std::nullopt, "^"},
+    {L"BitwiseOpType_Not", BitwiseOpType_Not, "TestUnaryOperator", "~"},
+    {L"BitwiseOpType_LeftShift", BitwiseOpType_LeftShift, std::nullopt, "<<"},
+    {L"BitwiseOpType_RightShift", BitwiseOpType_RightShift, std::nullopt, ">>"},
+    {L"BitwiseOpType_CompoundAnd", BitwiseOpType_CompoundAnd, std::nullopt,
+     "&="},
+    {L"BitwiseOpType_CompoundOr", BitwiseOpType_CompoundOr, std::nullopt, "|="},
+    {L"BitwiseOpType_CompoundXor", BitwiseOpType_CompoundXor, std::nullopt,
+     "^="},
+    {L"BitwiseOpType_CompoundLeftShift", BitwiseOpType_CompoundLeftShift,
+     std::nullopt, "<<="},
+    {L"BitwiseOpType_CompoundRightShift", BitwiseOpType_CompoundRightShift,
+     std::nullopt, ">>="},
+};
+
+static_assert(_countof(bitwiseOpTypeStringToOpMetaData) ==
+                  BitwiseOpType_EnumValueCount,
+              "bitwiseOpTypeStringToOpMetaData size mismatch. Did you "
+              "add a new enum value?");
+
+const OpTypeMetaData<BitwiseOpType> &
+getBitwiseOpType(const std::wstring &OpTypeString) {
+  return getOpType<BitwiseOpType>(bitwiseOpTypeStringToOpMetaData,
+                                  OpTypeString);
 }
 
 enum TernaryMathOpType {
@@ -301,6 +360,11 @@ public:
   BEGIN_TEST_METHOD(binaryMathOpTest)
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:LongVectorOpTable.xml#BinaryMathOpTable")
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(bitwiseOpTest)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:LongVectorOpTable.xml#bitwiseOpTable")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(ternaryMathOpTest)
