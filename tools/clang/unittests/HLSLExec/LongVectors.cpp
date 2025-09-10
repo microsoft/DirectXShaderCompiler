@@ -151,7 +151,8 @@ OP_TYPE_META_DATA(AsTypeOpType, asTypeOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(TrigonometricOpType, trigonometricOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(UnaryMathOpType, unaryMathOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(BinaryMathOpType, binaryMathOpTypeStringToOpMetaData);
-OP_TYPE_META_DATA(BinaryComparisonOpType, binaryComparisonOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(BinaryComparisonOpType,
+                  binaryComparisonOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(BitwiseOpType, bitwiseOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(TernaryMathOpType, ternaryMathOpTypeStringToOpMetaData);
 
@@ -1531,8 +1532,9 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 // BinaryComparisonOp
 //
 template <typename T, typename OUT_TYPE>
-void dispatchBinaryComparisonOpTest(const TestConfig &Config, BinaryComparisonOpType OpType,
-                           size_t VectorSize, OUT_TYPE (*Calc)(T, T)) {
+void dispatchBinaryComparisonOpTest(const TestConfig &Config,
+                                    BinaryComparisonOpType OpType,
+                                    size_t VectorSize, OUT_TYPE (*Calc)(T, T)) {
   ValidationConfig ValidationConfig{};
   dispatchBinaryTest(Config, ValidationConfig, OpType, VectorSize, Calc);
 }
@@ -1637,9 +1639,9 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 
 #undef DISPATCH
 
-  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for BinaryComparisonOpType '%s'",
-                      (const wchar_t *)Config.DataType,
-                      (const wchar_t *)Config.OpTypeEnum);
+  LOG_ERROR_FMT_THROW(
+      L"DataType '%s' not supported for BinaryComparisonOpType '%s'",
+      (const wchar_t *)Config.DataType, (const wchar_t *)Config.OpTypeEnum);
 }
 
 //
@@ -1897,7 +1899,7 @@ template <> BinaryOpType GetOpType(const wchar_t *OpTypeString) {
 }
 
 template <> BinaryComparisonOpType GetOpType(const wchar_t *OpTypeString) {
-  return getBinaryComparisonOpType (OpTypeString).OpType;
+  return getBinaryComparisonOpType(OpTypeString).OpType;
 }
 
 template <> BinaryMathOpType GetOpType(const wchar_t *OpTypeString) {

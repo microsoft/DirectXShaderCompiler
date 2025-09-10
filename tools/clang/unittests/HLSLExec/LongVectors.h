@@ -255,7 +255,8 @@ static const OpTypeMetaData<BinaryMathOpType>
         {L"BinaryMathOpType_Min", BinaryMathOpType_Min, "min", ","},
         {L"BinaryMathOpType_Max", BinaryMathOpType_Max, "max", ","},
         {L"BinaryMathOpType_Ldexp", BinaryMathOpType_Ldexp, "ldexp", ","},
-        {L"BinaryMathOpType_Logical_And", BinaryMathOpType_LogicalAnd, "and", ","},
+        {L"BinaryMathOpType_Logical_And", BinaryMathOpType_LogicalAnd, "and",
+         ","},
         {L"BinaryMathOpType_Logical_Or", BinaryMathOpType_LogicalOr, "or", ","},
 };
 
@@ -303,8 +304,8 @@ static_assert(_countof(binaryComparisonOpTypeStringToOpMetaData) ==
 
 const OpTypeMetaData<BinaryComparisonOpType> &
 getBinaryComparisonOpType(const std::wstring &OpTypeString) {
-  return getOpType<BinaryComparisonOpType>(binaryComparisonOpTypeStringToOpMetaData,
-                                          OpTypeString);
+  return getOpType<BinaryComparisonOpType>(
+      binaryComparisonOpTypeStringToOpMetaData, OpTypeString);
 }
 
 enum BitwiseOpType {
