@@ -100,8 +100,6 @@ const OpTypeMetaData<OpT> &
 getOpType(const OpTypeMetaData<OpT> (&Values)[Length],
           const std::wstring &OpTypeString) {
   for (size_t I = 0; I < Length; I++) {
-    WEX::Logging::Log::Comment(
-        (L"Comparing OpTypeString: " + Values[I].OpTypeString).c_str());
     if (Values[I].OpTypeString == OpTypeString)
       return Values[I].OpType;
   }
@@ -145,22 +143,20 @@ OpTypeMetaData<OP_TYPE> getOpTypeMetaData(OP_TYPE OpType);
     return getOpType(ARRAY, Name);                                             \
   }
 
-<<<<<<< HEAD
 // Helper to fill the test data from the shader buffer based on type.
 // Convenient to be used when copying HLSL*_t types so we can use the
 // underlying type.
-=======
 OP_TYPE_META_DATA(UnaryOpType, unaryOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(AsTypeOpType, asTypeOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(TrigonometricOpType, trigonometricOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(UnaryMathOpType, unaryMathOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(BinaryMathOpType, binaryMathOpTypeStringToOpMetaData);
-OP_TYPE_META_DATA(TernaryMathOpType, ternaryMathOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(BinaryComparisonOpType, binaryComparisonOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(BitwiseOpType, bitwiseOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(TernaryMathOpType, ternaryMathOpTypeStringToOpMetaData);
 
 // Helper to fill the test data from the shader buffer based on type. Convenient
 // to be used when copying HLSL*_t types so we can use the underlying type.
->>>>>>> f16fad185 (Add bitwise ops and compound binary math ops)
 template <typename T>
 void fillLongVectorDataFromShaderBuffer(const MappedData &ShaderBuffer,
                                         std::vector<T> &TestData,
@@ -1379,7 +1375,7 @@ void dispatchBinaryMathOpTest(const TestConfig &Config, BinaryMathOpType OpType,
   case BinaryMathOpType_CompoundSubtract:
   case BinaryMathOpType_CompoundDivide:
   case BinaryMathOpType_CompoundModulus:
-    ExtraDefines = " -DOP_IS_COMPOUND=1";
+    ExtraDefines = " -DIS_COMPOUND_ASSIGNMENT_OP=1";
     break;
   }
 
@@ -1407,6 +1403,9 @@ template <typename T> struct BinaryMathOps {
   static T Max(T A, T B) { return std::max(A, B); }
 
   static T Ldexp(T A, T B) { return A * static_cast<T>(std::pow(2.0f, B)); }
+
+  static T And(T A, T B) { return A && B; }
+  static T Or(T A, T B) { return A || B; }
 };
 
 void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
@@ -1419,12 +1418,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                   BinaryMathOps<TYPE>::FUNC)
 
   switch (OpType) {
-<<<<<<< HEAD
   case BinaryMathOpType::Multiply:
-=======
-  case BinaryMathOpType_CompoundMultiply:
-  case BinaryMathOpType_Multiply:
->>>>>>> f16fad185 (Add bitwise ops and compound binary math ops)
     DISPATCH(HLSLHalf_t, Multiply);
     DISPATCH(float, Multiply);
     DISPATCH(double, Multiply);
@@ -1436,12 +1430,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Multiply);
     break;
 
-<<<<<<< HEAD
   case BinaryMathOpType::Add:
-=======
-  case BinaryMathOpType_CompoundAdd:
-  case BinaryMathOpType_Add:
->>>>>>> f16fad185 (Add bitwise ops and compound binary math ops)
     DISPATCH(HLSLBool_t, Add);
     DISPATCH(HLSLHalf_t, Add);
     DISPATCH(float, Add);
@@ -1454,12 +1443,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Add);
     break;
 
-<<<<<<< HEAD
   case BinaryMathOpType::Subtract:
-=======
-  case BinaryMathOpType_CompoundSubtract:
-  case BinaryMathOpType_Subtract:
->>>>>>> f16fad185 (Add bitwise ops and compound binary math ops)
     DISPATCH(HLSLBool_t, Subtract);
     DISPATCH(HLSLHalf_t, Subtract);
     DISPATCH(float, Subtract);
@@ -1472,12 +1456,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Subtract);
     break;
 
-<<<<<<< HEAD
   case BinaryMathOpType::Divide:
-=======
-  case BinaryMathOpType_CompoundDivide:
-  case BinaryMathOpType_Divide:
->>>>>>> f16fad185 (Add bitwise ops and compound binary math ops)
     DISPATCH(HLSLHalf_t, Divide);
     DISPATCH(float, Divide);
     DISPATCH(double, Divide);
@@ -1489,12 +1468,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Divide);
     break;
 
-<<<<<<< HEAD
   case BinaryMathOpType::Modulus:
-=======
-  case BinaryMathOpType_CompoundModulus:
-  case BinaryMathOpType_Modulus:
->>>>>>> f16fad185 (Add bitwise ops and compound binary math ops)
     DISPATCH(HLSLHalf_t, OperatorModulus);
     DISPATCH(float, FmodModulus);
     DISPATCH(int16_t, OperatorModulus);
@@ -1534,13 +1508,136 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(float, Ldexp);
     break;
 
-  case BinaryMathOpType::EnumValueCount:
+  case BinaryMathOpType_LogicalAnd:
+    DISPATCH(HLSLBool_t, And);
+    break;
+
+  case BinaryMathOpType_LogicalOr:
+    DISPATCH(HLSLBool_t, Or);
+    break;
+
+  case BinaryMathOpType_EnumValueCount:
     break;
   }
 
 #undef DISPATCH
 
   LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for BinaryMathOpType '%s'",
+                      (const wchar_t *)Config.DataType,
+                      (const wchar_t *)Config.OpTypeEnum);
+}
+
+//
+// BinaryComparisonOp
+//
+template <typename T, typename OUT_TYPE>
+void dispatchBinaryComparisonOpTest(const TestConfig &Config, BinaryComparisonOpType OpType,
+                           size_t VectorSize, OUT_TYPE (*Calc)(T, T)) {
+  ValidationConfig ValidationConfig{};
+  dispatchBinaryTest(Config, ValidationConfig, OpType, VectorSize, Calc);
+}
+
+template <typename T> struct BinaryComparisonOps {
+  static HLSLBool_t Equal(T A, T B) { return A == B; }
+  static HLSLBool_t NotEqual(T A, T B) { return A != B; }
+  static HLSLBool_t LessThan(T A, T B) { return A < B; }
+  static HLSLBool_t LessEqual(T A, T B) { return A <= B; }
+  static HLSLBool_t GreaterThan(T A, T B) { return A > B; }
+  static HLSLBool_t GreaterEqual(T A, T B) { return A >= B; }
+};
+
+void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
+                                       BinaryComparisonOpType OpType,
+                                       size_t VectorSize) {
+
+#define DISPATCH(TYPE, FUNC)                                                   \
+  if (Config.DataType == DataTypeName<TYPE>())                                 \
+  return dispatchBinaryTest(Config, ValidationConfig{}, OpType, VectorSize,    \
+                            BinaryComparisonOps<TYPE>::FUNC, ExtraDefines)
+
+  // TODO: Do we need this:?
+  std::string ExtraDefines;
+
+  switch (OpType) {
+  case BinaryComparisonOpType_LessThan:
+    DISPATCH(int16_t, LessThan);
+    DISPATCH(int32_t, LessThan);
+    DISPATCH(int64_t, LessThan);
+    DISPATCH(uint16_t, LessThan);
+    DISPATCH(uint32_t, LessThan);
+    DISPATCH(uint64_t, LessThan);
+    DISPATCH(HLSLHalf_t, LessThan);
+    DISPATCH(float, LessThan);
+    DISPATCH(double, LessThan);
+    break;
+
+  case BinaryComparisonOpType_LessEqual:
+    DISPATCH(int16_t, LessEqual);
+    DISPATCH(int32_t, LessEqual);
+    DISPATCH(int64_t, LessEqual);
+    DISPATCH(uint16_t, LessEqual);
+    DISPATCH(uint32_t, LessEqual);
+    DISPATCH(uint64_t, LessEqual);
+    DISPATCH(HLSLHalf_t, LessEqual);
+    DISPATCH(float, LessEqual);
+    DISPATCH(double, LessEqual);
+    break;
+
+  case BinaryComparisonOpType_GreaterThan:
+    DISPATCH(int16_t, GreaterThan);
+    DISPATCH(int32_t, GreaterThan);
+    DISPATCH(int64_t, GreaterThan);
+    DISPATCH(uint16_t, GreaterThan);
+    DISPATCH(uint32_t, GreaterThan);
+    DISPATCH(uint64_t, GreaterThan);
+    DISPATCH(HLSLHalf_t, GreaterThan);
+    DISPATCH(float, GreaterThan);
+    DISPATCH(double, GreaterThan);
+    break;
+
+  case BinaryComparisonOpType_GreaterEqual:
+    DISPATCH(int16_t, GreaterEqual);
+    DISPATCH(int32_t, GreaterEqual);
+    DISPATCH(int64_t, GreaterEqual);
+    DISPATCH(uint16_t, GreaterEqual);
+    DISPATCH(uint32_t, GreaterEqual);
+    DISPATCH(uint64_t, GreaterEqual);
+    DISPATCH(HLSLHalf_t, GreaterEqual);
+    DISPATCH(float, GreaterEqual);
+    DISPATCH(double, GreaterEqual);
+    break;
+
+  case BinaryComparisonOpType_Equal:
+    DISPATCH(int16_t, Equal);
+    DISPATCH(int32_t, Equal);
+    DISPATCH(int64_t, Equal);
+    DISPATCH(uint16_t, Equal);
+    DISPATCH(uint32_t, Equal);
+    DISPATCH(uint64_t, Equal);
+    DISPATCH(HLSLHalf_t, Equal);
+    DISPATCH(float, Equal);
+    DISPATCH(double, Equal);
+    break;
+
+  case BinaryComparisonOpType_NotEqual:
+    DISPATCH(int16_t, NotEqual);
+    DISPATCH(int32_t, NotEqual);
+    DISPATCH(int64_t, NotEqual);
+    DISPATCH(uint16_t, NotEqual);
+    DISPATCH(uint32_t, NotEqual);
+    DISPATCH(uint64_t, NotEqual);
+    DISPATCH(HLSLHalf_t, NotEqual);
+    DISPATCH(float, NotEqual);
+    DISPATCH(double, NotEqual);
+    break;
+
+  case BinaryComparisonOpType_EnumValueCount:
+    break;
+  }
+
+#undef DISPATCH
+
+  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for BinaryComparisonOpType '%s'",
                       (const wchar_t *)Config.DataType,
                       (const wchar_t *)Config.OpTypeEnum);
 }
@@ -1586,7 +1683,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
   case BitwiseOpType_CompoundXor:
   case BitwiseOpType_CompoundLeftShift:
   case BitwiseOpType_CompoundRightShift:
-    ExtraDefines = " -DCOMPOUND_ASSIGNMENT=1";
+    ExtraDefines = " -DIS_COMPOUND_ASSIGNMENT_OP=1";
     break;
   case BitwiseOpType_Not:
     ExtraDefines = " -DFUNC_UNARY_OPERATOR=1";
@@ -1777,8 +1874,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 // dispatchTest
 //
 
-<<<<<<< HEAD
-=======
 template <typename OP_TYPE> OP_TYPE GetOpType(const wchar_t *OpTypeString);
 
 template <> TrigonometricOpType GetOpType(const wchar_t *OpTypeString) {
@@ -1797,6 +1892,14 @@ template <> UnaryMathOpType GetOpType(const wchar_t *OpTypeString) {
   return getUnaryMathOpType(OpTypeString).OpType;
 }
 
+template <> BinaryOpType GetOpType(const wchar_t *OpTypeString) {
+  return getBinaryOpType (OpTypeString).OpType;
+}
+
+template <> BinaryComparisonOpType GetOpType(const wchar_t *OpTypeString) {
+  return getBinaryComparisonOpType (OpTypeString).OpType;
+}
+
 template <> BinaryMathOpType GetOpType(const wchar_t *OpTypeString) {
   return getBinaryMathOpType(OpTypeString).OpType;
 }
@@ -1809,7 +1912,6 @@ template <> TernaryMathOpType GetOpType(const wchar_t *OpTypeString) {
   return getTernaryMathOpType(OpTypeString).OpType;
 }
 
->>>>>>> f16fad185 (Add bitwise ops and compound binary math ops)
 template <typename OP_TYPE> void dispatchTest(const TestConfig &Config) {
   OP_TYPE OpType = getOpType<OP_TYPE>(Config.OpTypeEnum);
 
@@ -1863,6 +1965,14 @@ TEST_F(OpTest, binaryMathOpTest) {
 
   if (auto Config = TestConfig::Create(VerboseLogging))
     dispatchTest<BinaryMathOpType>(*Config);
+}
+
+TEST_F(OpTest, binaryComparisonOpTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  if (auto Config = TestConfig::Create(VerboseLogging))
+    dispatchTest<BinaryComparisonOpType>(*Config);
 }
 
 TEST_F(OpTest, bitwiseOpTest) {

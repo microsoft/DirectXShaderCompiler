@@ -226,6 +226,8 @@ enum BinaryMathOpType {
   BinaryMathOpType_Min,
   BinaryMathOpType_Max,
   BinaryMathOpType_Ldexp,
+  BinaryMathOpType_LogicalAnd,
+  BinaryMathOpType_LogicalOr,
   BinaryMathOpType_EnumValueCount
 };
 
@@ -253,6 +255,8 @@ static const OpTypeMetaData<BinaryMathOpType>
         {L"BinaryMathOpType_Min", BinaryMathOpType_Min, "min", ","},
         {L"BinaryMathOpType_Max", BinaryMathOpType_Max, "max", ","},
         {L"BinaryMathOpType_Ldexp", BinaryMathOpType_Ldexp, "ldexp", ","},
+        {L"BinaryMathOpType_Logical_And", BinaryMathOpType_LogicalAnd, "and", ","},
+        {L"BinaryMathOpType_Logical_Or", BinaryMathOpType_LogicalOr, "or", ","},
 };
 
 static_assert(_countof(binaryMathOpTypeStringToOpMetaData) ==
@@ -264,6 +268,43 @@ const OpTypeMetaData<BinaryMathOpType> &
 getBinaryMathOpType(const std::wstring &OpTypeString) {
   return getOpType<BinaryMathOpType>(binaryMathOpTypeStringToOpMetaData,
                                      OpTypeString);
+}
+
+enum BinaryComparisonOpType {
+  BinaryComparisonOpType_LessThan,
+  BinaryComparisonOpType_LessEqual,
+  BinaryComparisonOpType_GreaterThan,
+  BinaryComparisonOpType_GreaterEqual,
+  BinaryComparisonOpType_Equal,
+  BinaryComparisonOpType_NotEqual,
+  BinaryComparisonOpType_EnumValueCount
+};
+
+static const OpTypeMetaData<BinaryComparisonOpType>
+    binaryComparisonOpTypeStringToOpMetaData[] = {
+        {L"BinaryComparisonOpType_LessThan", BinaryComparisonOpType_LessThan,
+         std::nullopt, "<"},
+        {L"BinaryComparisonOpType_LessEqual", BinaryComparisonOpType_LessEqual,
+         std::nullopt, "<="},
+        {L"BinaryComparisonOpType_GreaterThan",
+         BinaryComparisonOpType_GreaterThan, std::nullopt, ">"},
+        {L"BinaryComparisonOpType_GreaterEqual",
+         BinaryComparisonOpType_GreaterEqual, std::nullopt, ">="},
+        {L"BinaryComparisonOpType_Equal", BinaryComparisonOpType_Equal,
+         std::nullopt, "=="},
+        {L"BinaryComparisonOpType_NotEqual", BinaryComparisonOpType_NotEqual,
+         std::nullopt, "!="},
+};
+
+static_assert(_countof(binaryComparisonOpTypeStringToOpMetaData) ==
+                  BinaryComparisonOpType_EnumValueCount,
+              "binaryComparisonOpTypeStringToOpMetaData size mismatch. Did "
+              "you add a new enum value?");
+
+const OpTypeMetaData<BinaryComparisonOpType> &
+getBinaryComparisonOpType(const std::wstring &OpTypeString) {
+  return getOpType<BinaryComparisonOpType>(binaryComparisonOpTypeStringToOpMetaData,
+                                          OpTypeString);
 }
 
 enum BitwiseOpType {
@@ -360,6 +401,11 @@ public:
   BEGIN_TEST_METHOD(binaryMathOpTest)
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:LongVectorOpTable.xml#BinaryMathOpTable")
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(binaryComparisonOpTest)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:LongVectorOpTable.xml#BinaryComparisonOpTable")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(bitwiseOpTest)
