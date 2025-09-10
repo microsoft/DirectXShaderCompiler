@@ -63,6 +63,7 @@ OP_TYPE_META_DATA(UnaryOpType, unaryOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(AsTypeOpType, asTypeOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(TrigonometricOpType, trigonometricOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(UnaryMathOpType, unaryMathOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(BinaryOpType, binaryOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(BinaryMathOpType, binaryMathOpTypeStringToOpMetaData);
 OP_TYPE_META_DATA(BinaryComparisonOpType,
                   binaryComparisonOpTypeStringToOpMetaData);
@@ -748,7 +749,7 @@ template <typename T, typename OUT_TYPE, typename OP_TYPE>
 void dispatchBinaryTest(const TestConfig &Config,
                         const ValidationConfig &ValidationConfig,
                         OP_TYPE OpType, size_t VectorSize,
-                        OUT_TYPE (*Calc)(T, T)) {
+                        OUT_TYPE (*Calc)(T, T), std::string ExtraDefines = "") {
   InputSets<T, 2> Inputs = buildTestInputs<T, 2>(Config, VectorSize);
 
   std::vector<OUT_TYPE> Expected;
@@ -759,7 +760,8 @@ void dispatchBinaryTest(const TestConfig &Config,
     Expected.push_back(Calc(Inputs[0][I], Inputs[1][Index1]));
   }
 
-  runAndVerify(Config, OpType, Inputs, Expected, "", ValidationConfig);
+  runAndVerify(Config, OpType, Inputs, Expected, ExtraDefines,
+               ValidationConfig);
 }
 
 //
@@ -1157,6 +1159,93 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 }
 
 //
+// BinaryOp
+//
+
+template <typename T, typename OUT_TYPE>
+void dispatchBinaryOpTest(const TestConfig &Config, BinaryOpType OpType,
+                          size_t VectorSize, OUT_TYPE (*Calc)(T, T),
+                          std::string ExtraDefines) {
+
+  ValidationConfig ValidationConfig;
+
+  if (isFloatingPointType<T>())
+    ValidationConfig = ValidationConfig::Ulp(1.0);
+
+  dispatchBinaryTest(Config, ValidationConfig, OpType, VectorSize, Calc,
+                     ExtraDefines);
+}
+
+template <typename T> struct BinaryOps {
+  // Logical operations
+  static T And(T A, T B) { return A && B; }
+  static T Or(T A, T B) { return A || B; }
+
+  // The ternary operator only allows scalars for the condition.
+  // So it's easy to just treat it as a binary operation.
+  static T TernaryTrue(T A, T B) { return true ? A : B; }
+  static T TernaryFalse(T A, T B) { return false ? A : B; }
+};
+
+void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
+                                       BinaryOpType OpType, size_t VectorSize) {
+
+#define DISPATCH(TYPE, FUNC)                                                   \
+  if (Config.DataType == DataTypeName<TYPE>())                                 \
+  return dispatchBinaryOpTest(Config, OpType, VectorSize,                      \
+                              BinaryOps<TYPE>::FUNC, ExtraDefines)
+
+  std::string ExtraDefines;
+
+  switch (OpType) {
+  case BinaryOpType_TernaryAssignment_True:
+    ExtraDefines = " -DTERNARY_CONDITION=1 -DFUNC_TERNARY_ASSIGNMENT=1";
+    DISPATCH(HLSLBool_t, TernaryTrue);
+    DISPATCH(HLSLHalf_t, TernaryTrue);
+    DISPATCH(float, TernaryTrue);
+    DISPATCH(double, TernaryTrue);
+    DISPATCH(int16_t, TernaryTrue);
+    DISPATCH(int32_t, TernaryTrue);
+    DISPATCH(int64_t, TernaryTrue);
+    DISPATCH(uint16_t, TernaryTrue);
+    DISPATCH(uint32_t, TernaryTrue);
+    DISPATCH(uint64_t, TernaryTrue);
+    break;
+
+  case BinaryOpType_TernaryAssignment_False:
+    ExtraDefines = " -DTERNARY_CONDITION=0 -DFUNC_TERNARY_ASSIGNMENT=1";
+    DISPATCH(HLSLBool_t, TernaryFalse);
+    DISPATCH(HLSLHalf_t, TernaryFalse);
+    DISPATCH(float, TernaryFalse);
+    DISPATCH(double, TernaryFalse);
+    DISPATCH(int16_t, TernaryFalse);
+    DISPATCH(int32_t, TernaryFalse);
+    DISPATCH(int64_t, TernaryFalse);
+    DISPATCH(uint16_t, TernaryFalse);
+    DISPATCH(uint32_t, TernaryFalse);
+    DISPATCH(uint64_t, TernaryFalse);
+    break;
+
+  case BinaryOpType_LogicalAnd:
+    DISPATCH(HLSLBool_t, And);
+    break;
+
+  case BinaryOpType_LogicalOr:
+    DISPATCH(HLSLBool_t, Or);
+    break;
+
+  case BinaryOpType_EnumValueCount:
+    break;
+  }
+
+#undef DISPATCH
+
+  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for BinaryOpType '%s'",
+                      (const wchar_t *)Config.DataType,
+                      (const wchar_t *)Config.OpTypeEnum);
+}
+
+//
 // BinaryMathOp
 //
 
@@ -1195,9 +1284,6 @@ template <typename T> struct BinaryMathOps {
   static T Max(T A, T B) { return (std::max)(A, B); }
 
   static T Ldexp(T A, T B) { return A * static_cast<T>(std::pow(2.0f, B)); }
-
-  static T And(T A, T B) { return A && B; }
-  static T Or(T A, T B) { return A || B; }
 };
 
 void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
@@ -1303,14 +1389,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
   case BinaryMathOpType_Ldexp:
     DISPATCH(HLSLHalf_t, Ldexp);
     DISPATCH(float, Ldexp);
-    break;
-
-  case BinaryMathOpType_LogicalAnd:
-    DISPATCH(HLSLBool_t, And);
-    break;
-
-  case BinaryMathOpType_LogicalOr:
-    DISPATCH(HLSLBool_t, Or);
     break;
 
   case BinaryMathOpType_EnumValueCount:
@@ -1468,8 +1546,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
   if (Config.DataType == DataTypeName<TYPE>())                                 \
   return dispatchUnaryTest(Config, ValidationConfig{}, OpType, VectorSize,     \
                            BitwiseOps<TYPE>::FUNC, "-DFUNC_UNARY_OPERATOR=1")
-
-  std::string ExtraDefines;
 
   switch (OpType) {
   case BitwiseOpType_CompoundAnd:
@@ -1658,6 +1734,10 @@ template <> UnaryMathOpType GetOpType(const wchar_t *OpTypeString) {
 
 template <> BinaryComparisonOpType GetOpType(const wchar_t *OpTypeString) {
   return getBinaryComparisonOpType(OpTypeString).OpType;
+}
+
+template <> BinaryOpType GetOpType(const wchar_t *OpTypeString) {
+  return getBinaryOpType(OpTypeString).OpType;
 }
 
 template <> BinaryMathOpType GetOpType(const wchar_t *OpTypeString) {

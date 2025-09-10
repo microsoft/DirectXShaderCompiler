@@ -212,6 +212,33 @@ getUnaryMathOpType(const std::wstring &OpTypeString) {
                                     OpTypeString);
 }
 
+enum BinaryOpType {
+  BinaryOpType_LogicalAnd,
+  BinaryOpType_LogicalOr,
+  BinaryOpType_TernaryAssignment_True,
+  BinaryOpType_TernaryAssignment_False,
+  BinaryOpType_EnumValueCount
+};
+
+static const OpTypeMetaData<BinaryOpType> binaryOpTypeStringToOpMetaData[] = {
+    {L"BinaryOpType_Logical_And", BinaryOpType_LogicalAnd, "and", ","},
+    {L"BinaryOpType_Logical_Or", BinaryOpType_LogicalOr, "or", ","},
+    {L"BinaryOpType_TernaryAssignment_True",
+     BinaryOpType_TernaryAssignment_True, "TestTernaryAssignment", ","},
+    {L"BinaryOpType_TernaryAssignment_False",
+     BinaryOpType_TernaryAssignment_False, "TestTernaryAssignment", ","},
+};
+
+static_assert(_countof(binaryOpTypeStringToOpMetaData) ==
+                  BinaryOpType_EnumValueCount,
+              "binaryOpTypeStringToOpMetaData size mismatch. Did you "
+              "add a new enum value?");
+
+const OpTypeMetaData<BinaryOpType> &
+getBinaryOpType(const std::wstring &OpTypeString) {
+  return getOpType<BinaryOpType>(binaryOpTypeStringToOpMetaData, OpTypeString);
+}
+
 enum BinaryMathOpType {
   BinaryMathOpType_Multiply,
   BinaryMathOpType_Add,
@@ -226,8 +253,6 @@ enum BinaryMathOpType {
   BinaryMathOpType_Min,
   BinaryMathOpType_Max,
   BinaryMathOpType_Ldexp,
-  BinaryMathOpType_LogicalAnd,
-  BinaryMathOpType_LogicalOr,
   BinaryMathOpType_EnumValueCount
 };
 
@@ -255,9 +280,6 @@ static const OpTypeMetaData<BinaryMathOpType>
         {L"BinaryMathOpType_Min", BinaryMathOpType_Min, "min", ","},
         {L"BinaryMathOpType_Max", BinaryMathOpType_Max, "max", ","},
         {L"BinaryMathOpType_Ldexp", BinaryMathOpType_Ldexp, "ldexp", ","},
-        {L"BinaryMathOpType_Logical_And", BinaryMathOpType_LogicalAnd, "and",
-         ","},
-        {L"BinaryMathOpType_Logical_Or", BinaryMathOpType_LogicalOr, "or", ","},
 };
 
 static_assert(_countof(binaryMathOpTypeStringToOpMetaData) ==

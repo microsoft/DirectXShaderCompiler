@@ -177,24 +177,6 @@
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
           <Parameter Name="DataType">bool</Parameter>
         </Row>
-        <Row Name="Logical_And_bool">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Logical_And</Parameter>
-          <Parameter Name="DataType">bool</Parameter>
-        </Row>
-        <Row Name="Logical_Or_bool">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Logical_Or</Parameter>
-          <Parameter Name="DataType">bool</Parameter>
-        </Row>
-        <Row Name="ScalarLogical_And_bool">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Logical_And</Parameter>
-          <Parameter Name="DataType">bool</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="ScalarLogical_Or_bool">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Logical_Or</Parameter>
-          <Parameter Name="DataType">bool</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: int16 -->
         <Row Name="ScalarAdd_int16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
@@ -2629,4 +2611,37 @@
        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
      </Row>
   </Table>
+  <Table Id="BinaryOpTable">
+        <ParameterTypes>
+          <!-- InputValueSetName1 is optional. If no value is provided use the
+          default value set for the data type. This string is meant to be a
+          key value for the the array of std::pairs defined in
+          LongVectorTestData.h for the applicable DataType-->
+          <ParameterType Name="InputValueSetName1">String</ParameterType>
+          <!-- InputValueSetName2 is optional. Same as InputValueSetName1 -->
+          <ParameterType Name="InputValueSetName2">String</ParameterType>
+          <ParameterType Name="DataType">String</ParameterType>
+          <ParameterType Name="OpTypeEnum">String</ParameterType>
+          <ParameterType Name="ScalarInputFlags">hex</ParameterType>
+        </ParameterTypes>
+        <!-- LongVectorBinaryOpTypeTable DataType: bool -->
+        <Row Name="Logical_And_bool">
+          <Parameter Name="OpTypeEnum">BinaryOpType_Logical_And</Parameter>
+          <Parameter Name="DataType">bool</Parameter>
+        </Row>
+        <Row Name="Logical_Or_bool">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Logical_Or</Parameter>
+          <Parameter Name="DataType">bool</Parameter>
+        </Row>
+        <Row Name="ScalarLogical_And_bool">
+          <Parameter Name="OpTypeEnum">BinaryOpType_Logical_And</Parameter>
+          <Parameter Name="DataType">bool</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="ScalarLogical_Or_bool">
+          <Parameter Name="OpTypeEnum">BinaryOpType_Logical_Or</Parameter>
+          <Parameter Name="DataType">bool</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+    </Table>
 </Data>
