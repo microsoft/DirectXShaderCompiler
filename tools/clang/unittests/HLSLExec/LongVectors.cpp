@@ -695,7 +695,7 @@ template <typename T, typename OUT_TYPE, typename OP_TYPE>
 void dispatchBinaryTest(const TestConfig &Config,
                         const ValidationConfig &ValidationConfig,
                         OP_TYPE OpType, size_t VectorSize,
-                        OUT_TYPE (*Calc)(T, T), std::string ExtraDefines = "") {
+                        OUT_TYPE (*Calc)(T, T)) {
   InputSets<T, 2> Inputs = buildTestInputs<T, 2>(Config, VectorSize);
 
   std::vector<OUT_TYPE> Expected;
@@ -706,8 +706,7 @@ void dispatchBinaryTest(const TestConfig &Config,
     Expected.push_back(Calc(Inputs[0][I], Inputs[1][Index1]));
   }
 
-  runAndVerify(Config, OpType, Inputs, Expected, ExtraDefines,
-               ValidationConfig);
+  runAndVerify(Config, OpType, Inputs, Expected, "", ValidationConfig);
 }
 
 //
@@ -1369,19 +1368,7 @@ void dispatchBinaryMathOpTest(const TestConfig &Config, BinaryMathOpType OpType,
   if (isFloatingPointType<T>())
     ValidationConfig = ValidationConfig::Ulp(1.0);
 
-  std::string ExtraDefines;
-  switch (OpType) {
-  case BinaryMathOpType_CompoundMultiply:
-  case BinaryMathOpType_CompoundAdd:
-  case BinaryMathOpType_CompoundSubtract:
-  case BinaryMathOpType_CompoundDivide:
-  case BinaryMathOpType_CompoundModulus:
-    ExtraDefines = " -DIS_COMPOUND_ASSIGNMENT_OP=1";
-    break;
-  }
-
-  dispatchBinaryTest(Config, ValidationConfig, OpType, VectorSize, Calc,
-                     ExtraDefines);
+  dispatchBinaryTest(Config, ValidationConfig, OpType, VectorSize, Calc);
 }
 
 template <typename T> struct BinaryMathOps {
@@ -1555,11 +1542,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 #define DISPATCH(TYPE, FUNC)                                                   \
   if (Config.DataType == DataTypeName<TYPE>())                                 \
   return dispatchBinaryTest(Config, ValidationConfig{}, OpType, VectorSize,    \
-                            BinaryComparisonOps<TYPE>::FUNC, ExtraDefines)
-
-  // TODO: Do we need this:?
-  std::string ExtraDefines;
-
+                            BinaryComparisonOps<TYPE>::FUNC)
   switch (OpType) {
   case BinaryComparisonOpType_LessThan:
     DISPATCH(int16_t, LessThan);
@@ -1670,27 +1653,14 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 #define DISPATCH(TYPE, FUNC)                                                   \
   if (Config.DataType == DataTypeName<TYPE>())                                 \
   return dispatchBinaryTest(Config, ValidationConfig{}, OpType, VectorSize,    \
-                            BitwiseOps<TYPE>::FUNC, ExtraDefines)
+                            BitwiseOps<TYPE>::FUNC)
 
 #define DISPATCH_NOT(TYPE, FUNC)                                               \
   if (Config.DataType == DataTypeName<TYPE>())                                 \
   return dispatchUnaryTest(Config, ValidationConfig{}, OpType, VectorSize,     \
-                           BitwiseOps<TYPE>::FUNC, ExtraDefines)
+                           BitwiseOps<TYPE>::FUNC, "-DFUNC_UNARY_OPERATOR=1")
 
   std::string ExtraDefines;
-
-  switch (OpType) {
-  case BitwiseOpType_CompoundAnd:
-  case BitwiseOpType_CompoundOr:
-  case BitwiseOpType_CompoundXor:
-  case BitwiseOpType_CompoundLeftShift:
-  case BitwiseOpType_CompoundRightShift:
-    ExtraDefines = " -DIS_COMPOUND_ASSIGNMENT_OP=1";
-    break;
-  case BitwiseOpType_Not:
-    ExtraDefines = " -DFUNC_UNARY_OPERATOR=1";
-    break;
-  }
 
   switch (OpType) {
   case BitwiseOpType_CompoundAnd:
