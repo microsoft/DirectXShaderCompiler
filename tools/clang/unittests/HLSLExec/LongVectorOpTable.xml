@@ -183,8 +183,17 @@
           <Parameter Name="DataType">int16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundAdd_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Add_int16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
+        <Row Name="CompoundAdd_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
           <Parameter Name="DataType">int16</Parameter>
         </Row>
         <Row Name="ScalarSubtract_int16">
@@ -192,8 +201,17 @@
           <Parameter Name="DataType">int16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundSubtract_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Subtract_int16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
+        <Row Name="CompoundSubtract_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
           <Parameter Name="DataType">int16</Parameter>
         </Row>
         <Row Name="ScalarMultiply_int16">
@@ -201,8 +219,17 @@
           <Parameter Name="DataType">int16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundMultiply_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Multiply_int16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
+        <Row Name="CompoundMultiply_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
           <Parameter Name="DataType">int16</Parameter>
         </Row>
         <Row Name="ScalarDivide_int16">
@@ -210,8 +237,17 @@
           <Parameter Name="DataType">int16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundDivide_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Divide_int16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
+        <Row Name="CompoundDivide_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
           <Parameter Name="DataType">int16</Parameter>
         </Row>
         <Row Name="ScalarModulus_int16">
@@ -219,26 +255,17 @@
           <Parameter Name="DataType">int16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundModulus_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Modulus_int16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
           <Parameter Name="DataType">int16</Parameter>
         </Row>
-        <Row Name="ScalarMin_int16">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
-          <Parameter Name="DataType">int16</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Min_int16">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
-          <Parameter Name="DataType">int16</Parameter>
-        </Row>
-        <Row Name="ScalarMax_int16">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
-          <Parameter Name="DataType">int16</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Max_int16">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+        <Row Name="CompoundModulus_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
           <Parameter Name="DataType">int16</Parameter>
         </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: int32 -->
@@ -247,8 +274,17 @@
           <Parameter Name="DataType">int32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundAdd_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Add_int32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <Row Name="CompoundAdd_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
           <Parameter Name="DataType">int32</Parameter>
         </Row>
         <Row Name="ScalarSubtract_int32">
@@ -256,8 +292,17 @@
           <Parameter Name="DataType">int32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundSubtract_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Subtract_int32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <Row Name="CompoundSubtract_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
           <Parameter Name="DataType">int32</Parameter>
         </Row>
         <Row Name="ScalarMultiply_int32">
@@ -265,8 +310,17 @@
           <Parameter Name="DataType">int32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundMultiply_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Multiply_int32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <Row Name="CompoundMultiply_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
           <Parameter Name="DataType">int32</Parameter>
         </Row>
         <Row Name="ScalarDivide_int32">
@@ -274,8 +328,17 @@
           <Parameter Name="DataType">int32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundDivide_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Divide_int32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <Row Name="CompoundDivide_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
           <Parameter Name="DataType">int32</Parameter>
         </Row>
         <Row Name="ScalarModulus_int32">
@@ -283,26 +346,17 @@
           <Parameter Name="DataType">int32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundModulus_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Modulus_int32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
           <Parameter Name="DataType">int32</Parameter>
         </Row>
-        <Row Name="ScalarMin_int32">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
-          <Parameter Name="DataType">int32</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Min_int32">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
-          <Parameter Name="DataType">int32</Parameter>
-        </Row>
-        <Row Name="ScalarMax_int32">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
-          <Parameter Name="DataType">int32</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Max_int32">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+        <Row Name="CompoundModulus_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
           <Parameter Name="DataType">int32</Parameter>
         </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: int64 -->
@@ -311,8 +365,17 @@
           <Parameter Name="DataType">int64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundAdd_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Add_int64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
+        <Row Name="CompoundAdd_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
           <Parameter Name="DataType">int64</Parameter>
         </Row>
         <Row Name="ScalarSubtract_int64">
@@ -320,8 +383,17 @@
           <Parameter Name="DataType">int64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundSubtract_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Subtract_int64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
+        <Row Name="CompoundSubtract_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
           <Parameter Name="DataType">int64</Parameter>
         </Row>
         <Row Name="ScalarMultiply_int64">
@@ -329,8 +401,17 @@
           <Parameter Name="DataType">int64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundMultiply_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Multiply_int64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
+        <Row Name="CompoundMultiply_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
           <Parameter Name="DataType">int64</Parameter>
         </Row>
         <Row Name="ScalarDivide_int64">
@@ -338,8 +419,17 @@
           <Parameter Name="DataType">int64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundDivide_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Divide_int64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
+        <Row Name="CompoundDivide_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
           <Parameter Name="DataType">int64</Parameter>
         </Row>
         <Row Name="ScalarModulus_int64">
@@ -347,31 +437,27 @@
           <Parameter Name="DataType">int64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundModulus_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Modulus_int64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
           <Parameter Name="DataType">int64</Parameter>
         </Row>
-        <Row Name="ScalarMin_int64">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
-          <Parameter Name="DataType">int64</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Min_int64">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+        <Row Name="CompoundModulus_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
           <Parameter Name="DataType">int64</Parameter>
         </Row>
-        <Row Name="ScalarMax_int64">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
-          <Parameter Name="DataType">int64</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Max_int64">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
-          <Parameter Name="DataType">int64</Parameter>
-        </Row>
-        <!-- LongVectorBinaryMathOpTypeTable DataType: uint16 -->
         <Row Name="ScalarAdd_uint16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <!-- LongVectorBinaryMathOpTypeTable DataType: uint16 -->
+        <Row Name="ScalarCompoundAdd_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
@@ -379,8 +465,17 @@
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
         </Row>
+        <Row Name="CompoundAdd_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
         <Row Name="ScalarSubtract_uint16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="ScalarCompoundSubtract_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
@@ -388,8 +483,17 @@
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
         </Row>
+        <Row Name="CompoundSubtract_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
         <Row Name="ScalarMultiply_uint16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="ScalarCompoundMultiply_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
@@ -397,8 +501,17 @@
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
         </Row>
+        <Row Name="CompoundMultiply_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
         <Row Name="ScalarDivide_uint16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="ScalarCompoundDivide_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
@@ -406,8 +519,17 @@
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
         </Row>
+        <Row Name="CompoundDivide_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
         <Row Name="ScalarModulus_uint16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="ScalarCompoundModulus_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
@@ -415,22 +537,8 @@
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
         </Row>
-        <Row Name="ScalarMin_uint16">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
-          <Parameter Name="DataType">uint16</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Min_uint16">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
-          <Parameter Name="DataType">uint16</Parameter>
-        </Row>
-        <Row Name="ScalarMax_uint16">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
-          <Parameter Name="DataType">uint16</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Max_uint16">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+        <Row Name="CompoundModulus_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
           <Parameter Name="DataType">uint16</Parameter>
         </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: uint32 -->
@@ -439,8 +547,17 @@
           <Parameter Name="DataType">uint32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundAdd_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Add_uint32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
+        <Row Name="CompoundAdd_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
           <Parameter Name="DataType">uint32</Parameter>
         </Row>
         <Row Name="ScalarSubtract_uint32">
@@ -448,8 +565,17 @@
           <Parameter Name="DataType">uint32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundSubtract_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Subtract_uint32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
+        <Row Name="CompoundSubtract_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
           <Parameter Name="DataType">uint32</Parameter>
         </Row>
         <Row Name="ScalarMultiply_uint32">
@@ -457,8 +583,17 @@
           <Parameter Name="DataType">uint32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundMultiply_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Multiply_uint32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
+        <Row Name="CompoundMultiply_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
           <Parameter Name="DataType">uint32</Parameter>
         </Row>
         <Row Name="ScalarDivide_uint32">
@@ -466,8 +601,17 @@
           <Parameter Name="DataType">uint32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundDivide_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Divide_uint32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
+        <Row Name="CompoundDivide_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
           <Parameter Name="DataType">uint32</Parameter>
         </Row>
         <Row Name="ScalarModulus_uint32">
@@ -475,26 +619,17 @@
           <Parameter Name="DataType">uint32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundModulus_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Modulus_uint32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
           <Parameter Name="DataType">uint32</Parameter>
         </Row>
-        <Row Name="ScalarMin_uint32">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
-          <Parameter Name="DataType">uint32</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Min_uint32">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
-          <Parameter Name="DataType">uint32</Parameter>
-        </Row>
-        <Row Name="ScalarMax_uint32">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
-          <Parameter Name="DataType">uint32</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Max_uint32">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+        <Row Name="CompoundModulus_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
           <Parameter Name="DataType">uint32</Parameter>
         </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: uint64 -->
@@ -503,8 +638,17 @@
           <Parameter Name="DataType">uint64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundAdd_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Add_uint64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <Row Name="CompoundAdd_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
           <Parameter Name="DataType">uint64</Parameter>
         </Row>
         <Row Name="ScalarSubtract_uint64">
@@ -512,8 +656,17 @@
           <Parameter Name="DataType">uint64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundSubtract_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Subtract_uint64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <Row Name="CompoundSubtract_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
           <Parameter Name="DataType">uint64</Parameter>
         </Row>
         <Row Name="ScalarMultiply_uint64">
@@ -521,8 +674,17 @@
           <Parameter Name="DataType">uint64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundMultiply_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Multiply_uint64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <Row Name="CompoundMultiply_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
           <Parameter Name="DataType">uint64</Parameter>
         </Row>
         <Row Name="ScalarDivide_uint64">
@@ -530,8 +692,17 @@
           <Parameter Name="DataType">uint64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundDivide_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Divide_uint64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <Row Name="CompoundDivide_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
           <Parameter Name="DataType">uint64</Parameter>
         </Row>
         <Row Name="ScalarModulus_uint64">
@@ -539,26 +710,17 @@
           <Parameter Name="DataType">uint64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundModulus_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Modulus_uint64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
           <Parameter Name="DataType">uint64</Parameter>
         </Row>
-        <Row Name="ScalarMin_uint64">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
-          <Parameter Name="DataType">uint64</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Min_uint64">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
-          <Parameter Name="DataType">uint64</Parameter>
-        </Row>
-        <Row Name="ScalarMax_uint64">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
-          <Parameter Name="DataType">uint64</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Max_uint64">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+        <Row Name="CompoundModulus_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
           <Parameter Name="DataType">uint64</Parameter>
         </Row>
         <!-- LongVectorBinaryMathOpTypeTable DataType: float16 -->
@@ -567,8 +729,17 @@
           <Parameter Name="DataType">float16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundAdd_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Add_float16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="CompoundAdd_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
           <Parameter Name="DataType">float16</Parameter>
         </Row>
         <Row Name="ScalarSubtract_float16">
@@ -576,8 +747,17 @@
           <Parameter Name="DataType">float16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundSubtract_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Subtract_float16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="CompoundSubtract_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
           <Parameter Name="DataType">float16</Parameter>
         </Row>
         <Row Name="ScalarMultiply_float16">
@@ -585,8 +765,17 @@
           <Parameter Name="DataType">float16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundMultiply_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Multiply_float16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="CompoundMultiply_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
           <Parameter Name="DataType">float16</Parameter>
         </Row>
         <Row Name="ScalarDivide_float16">
@@ -594,8 +783,17 @@
           <Parameter Name="DataType">float16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundDivide_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Divide_float16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="CompoundDivide_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
           <Parameter Name="DataType">float16</Parameter>
         </Row>
         <Row Name="ScalarModulus_float16">
@@ -603,14 +801,18 @@
           <Parameter Name="DataType">float16</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundModulus_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Modulus_float16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
           <Parameter Name="DataType">float16</Parameter>
         </Row>
-        <Row Name="ScalarMin_float16">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+        <Row Name="CompoundModulus_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
           <Parameter Name="DataType">float16</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
         <Row Name="Min_float16">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
@@ -640,8 +842,17 @@
           <Parameter Name="DataType">float32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundAdd_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Add_float32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="CompoundAdd_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
           <Parameter Name="DataType">float32</Parameter>
         </Row>
         <Row Name="ScalarSubtract_float32">
@@ -649,8 +860,17 @@
           <Parameter Name="DataType">float32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundSubtract_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Subtract_float32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="CompoundSubtract_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
           <Parameter Name="DataType">float32</Parameter>
         </Row>
         <Row Name="ScalarMultiply_float32">
@@ -658,8 +878,17 @@
           <Parameter Name="DataType">float32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundMultiply_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Multiply_float32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="CompoundMultiply_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
           <Parameter Name="DataType">float32</Parameter>
         </Row>
         <Row Name="ScalarDivide_float32">
@@ -667,8 +896,17 @@
           <Parameter Name="DataType">float32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundDivide_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Divide_float32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="CompoundDivide_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
           <Parameter Name="DataType">float32</Parameter>
         </Row>
         <Row Name="ScalarModulus_float32">
@@ -676,14 +914,18 @@
           <Parameter Name="DataType">float32</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundModulus_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Modulus_float32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
           <Parameter Name="DataType">float32</Parameter>
         </Row>
-        <Row Name="ScalarMin_float32">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+        <Row Name="CompoundModulus_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundModulus</Parameter>
           <Parameter Name="DataType">float32</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
         <Row Name="Min_float32">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
@@ -713,8 +955,17 @@
           <Parameter Name="DataType">float64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundAdd_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Add_float64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+        </Row>
+        <Row Name="CompoundAdd_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundAdd</Parameter>
           <Parameter Name="DataType">float64</Parameter>
         </Row>
         <Row Name="ScalarSubtract_float64">
@@ -722,8 +973,17 @@
           <Parameter Name="DataType">float64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundSubtract_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Subtract_float64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+        </Row>
+        <Row Name="CompoundSubtract_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundSubtract</Parameter>
           <Parameter Name="DataType">float64</Parameter>
         </Row>
         <Row Name="ScalarMultiply_float64">
@@ -731,8 +991,17 @@
           <Parameter Name="DataType">float64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundMultiply_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Multiply_float64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+        </Row>
+        <Row Name="CompoundMultiply_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundMultiply</Parameter>
           <Parameter Name="DataType">float64</Parameter>
         </Row>
         <Row Name="ScalarDivide_float64">
@@ -740,28 +1009,649 @@
           <Parameter Name="DataType">float64</Parameter>
           <Parameter Name="ScalarInputFlags">0x2</Parameter>
         </Row>
+        <Row Name="ScalarCompoundDivide_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
         <Row Name="Divide_float64">
           <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
           <Parameter Name="DataType">float64</Parameter>
         </Row>
-        <Row Name="ScalarMin_float64">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
-          <Parameter Name="DataType">float64</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Min_float64">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+        <Row Name="CompoundDivide_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_CompoundDivide</Parameter>
           <Parameter Name="DataType">float64</Parameter>
         </Row>
-        <Row Name="ScalarMax_float64">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
-          <Parameter Name="DataType">float64</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="Max_float64">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
-          <Parameter Name="DataType">float64</Parameter>
-        </Row>
+    </Table>
+    <Table Id="BitwiseOpTable">
+      <ParameterTypes>
+        <ParameterType Name="InputValueSetName1">String</ParameterType>
+        <ParameterType Name="InputValueSetName2">String</ParameterType>
+        <ParameterType Name="DataType">String</ParameterType>
+        <ParameterType Name="OpTypeEnum">String</ParameterType>
+        <ParameterType Name="ScalarInputFlags">hex</ParameterType>
+      </ParameterTypes>
+      <!-- LongVectorBitwiseOpTypeTable DataType: uint16 -->
+      <Row Name="Bitwise_And_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_And_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Or_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_Or_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Xor_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_Xor_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Not_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="Bitwise_LeftShift_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_LeftShift_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_RightShift_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_RightShift_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundAnd_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundAnd</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundAnd_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundAnd</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundOr_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundOr</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundOr_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundOr</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundXor_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundXor</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundXor_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundXor</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundLeftShift_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundLeftShift</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundLeftShift_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundLeftShift</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundRightShift_uint16">
+        <Parameter
+        Name="OpTypeEnum">BitwiseOpType_CompoundRightShift</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundRightShift_uint16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundRightShift</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <!-- LongVectorBitwiseOpTypeTable DataType: uint32 -->
+      <Row Name="Bitwise_And_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_And_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Or_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_Or_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Xor_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_Xor_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Not_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="Bitwise_LeftShift_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_LeftShift_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_RightShift_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_RightShift_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundAnd_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundAnd</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundAnd_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundAnd</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundOr_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundOr</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundOr_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundOr</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundXor_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundXor</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundXor_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundXor</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundLeftShift_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundLeftShift</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundLeftShift_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundLeftShift</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundRightShift_uint32">
+        <Parameter
+        Name="OpTypeEnum">BitwiseOpType_CompoundRightShift</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundRightShift_uint32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundRightShift</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <!-- LongVectorBitwiseOpTypeTable DataType: uint64 -->
+      <Row Name="Bitwise_And_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_And_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Or_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_Or_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Xor_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_Xor_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Not_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="Bitwise_LeftShift_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_LeftShift_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_RightShift_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_RightShift_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundAnd_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundAnd</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundAnd_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundAnd</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundOr_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundOr</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundOr_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundOr</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundXor_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundXor</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundXor_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundXor</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundLeftShift_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundLeftShift</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundLeftShift_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundLeftShift</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundRightShift_uint64">
+        <Parameter
+        Name="OpTypeEnum">BitwiseOpType_CompoundRightShift</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundRightShift_uint64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundRightShift</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <!-- LongVectorBitwiseOpTypeTable DataType: int16 -->
+      <Row Name="Bitwise_And_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_And_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Or_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_Or_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Xor_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_Xor_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Not_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="Bitwise_LeftShift_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_LeftShift_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_RightShift_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_RightShift_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundAnd_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundAnd</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundAnd_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundAnd</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundOr_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundOr</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundOr_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundOr</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundXor_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundXor</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundXor_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundXor</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundLeftShift_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundLeftShift</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundLeftShift_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundLeftShift</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundRightShift_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundRightShift</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundRightShift_int16">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundRightShift</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <!-- LongVectorBitwiseOpTypeTable DataType: int32 -->
+      <Row Name="Bitwise_And_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_And_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Or_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_Or_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Xor_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_Xor_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Not_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="Bitwise_LeftShift_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_LeftShift_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_RightShift_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_RightShift_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundAnd_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundAnd</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundAnd_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundAnd</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundOr_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundOr</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundOr_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundOr</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundXor_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundXor</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundXor_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundXor</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundLeftShift_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundLeftShift</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundLeftShift_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundLeftShift</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundRightShift_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundRightShift</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundRightShift_int32">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundRightShift</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <!-- LongVectorBitwiseOpTypeTable DataType: int64 -->
+      <Row Name="Bitwise_And_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_And_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Or_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_Or_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Xor_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_Xor_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_Not_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="Bitwise_LeftShift_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_LeftShift_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_RightShift_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_RightShift_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundAnd_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundAnd</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundAnd_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundAnd</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundOr_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundOr</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundOr_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundOr</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundXor_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundXor</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundXor_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundXor</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundLeftShift_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundLeftShift</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundLeftShift_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundLeftShift</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="Bitwise_CompoundRightShift_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundRightShift</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
+      <Row Name="ScalarBitwise_CompoundRightShift_int64">
+        <Parameter Name="OpTypeEnum">BitwiseOpType_CompoundRightShift</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+        <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
+      </Row>
     </Table>
     <Table Id="UnaryOpTable">
       <ParameterTypes>

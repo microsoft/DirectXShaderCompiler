@@ -3776,6 +3776,13 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_UNARY_OPERATOR
+        vector<OUT_TYPE, NUM> TestUnaryOperator(vector<TYPE, NUM> Vector)
+        {
+          return OPERATOR(Vector);
+        }
+        #endif
+
         #ifdef FUNC_ASUINT_SPLITDOUBLE
         vector<OUT_TYPE, NUM> TestAsUintSplitDouble(vector<TYPE, NUM> Vector)
         {
@@ -3836,7 +3843,10 @@ void MSMain(uint GID : SV_GroupIndex,
             #endif
           #endif
 
-          #if IS_UNARY_OP
+          // Main test logic
+          #if IS_COMPOUND_ASSIGNMENT_OP
+            Input1 OPERATOR Input2;
+          #elif IS_UNARY_OP
             vector<OUT_TYPE, NUM> OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP
             vector<OUT_TYPE, NUM> OutputVector = FUNC(Input1 OPERATOR
@@ -3848,7 +3858,11 @@ void MSMain(uint GID : SV_GroupIndex,
             Input3);
           #endif
 
-          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, OutputVector);
+          #if IS_COMPOUND_ASSIGNMENT_OP
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Input1);
+          #else
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, OutputVector);
+          #endif
         };
       ]]>
     </Shader>
