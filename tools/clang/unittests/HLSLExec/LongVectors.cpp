@@ -1342,8 +1342,8 @@ void dispatchBinaryOpTest(const TestConfig &Config, BinaryOpType OpType,
 
 template <typename T> struct BinaryOps {
   // Logical operations
-  static T And(T A, T B) { return A && B; }
-  static T Or(T A, T B) { return A || B; }
+  static T LogicalAnd(T A, T B) { return A && B; }
+  static T LogicalOr(T A, T B) { return A || B; }
 
   // The ternary operator only allows scalars for the condition.
   // So it's easy to just treat it as a binary operation.
