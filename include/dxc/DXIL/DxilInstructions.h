@@ -10149,7 +10149,7 @@ struct DxilInst_VectorAccumulate {
   void set_arrayOffset(llvm::Value *val) { Instr->setOperand(3, val); }
 };
 
-/// This instruction n-dimensional vector dot-product
+/// This instruction computes the n-dimensional vector dot-product
 struct DxilInst_FDot {
   llvm::Instruction *Instr;
   // Construction and identification

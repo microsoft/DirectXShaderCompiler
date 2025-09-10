@@ -2425,7 +2425,7 @@ ID  Name                                                  Description
 308 VectorAccumulate                                      Accumulates the components of a vector component-wise atomically (with device scope) to the corresponding elements of an array in memory
 309 ReservedD0                                            reserved
 310 ReservedD1                                            reserved
-311 FDot                                                  n-dimensional vector dot-product
+311 FDot                                                  computes the n-dimensional vector dot-product
 === ===================================================== =======================================================================================================================================================================================================================
 
 

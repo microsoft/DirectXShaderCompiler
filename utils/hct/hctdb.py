@@ -6331,7 +6331,7 @@ class db_dxil(object):
             "FDot",
             next_op_idx,
             "Dot",
-            "n-dimensional vector dot-product",
+            "computes the n-dimensional vector dot-product",
             "<hf",
             "rn",
             [

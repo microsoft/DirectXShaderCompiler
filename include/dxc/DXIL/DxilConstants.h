@@ -623,7 +623,7 @@ enum class OpCode : unsigned {
   Dot2 = 54,  // Two-dimensional vector dot-product
   Dot3 = 55,  // Three-dimensional vector dot-product
   Dot4 = 56,  // Four-dimensional vector dot-product
-  FDot = 311, // n-dimensional vector dot-product
+  FDot = 311, // computes the n-dimensional vector dot-product
 
   // Double precision
   LegacyDoubleToFloat = 132,  // legacy fuction to convert double to float
