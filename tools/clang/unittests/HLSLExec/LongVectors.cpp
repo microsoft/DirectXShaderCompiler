@@ -1227,11 +1227,11 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     break;
 
   case BinaryOpType_LogicalAnd:
-    DISPATCH(HLSLBool_t, And);
+    DISPATCH(HLSLBool_t, LogicalAnd);
     break;
 
   case BinaryOpType_LogicalOr:
-    DISPATCH(HLSLBool_t, Or);
+    DISPATCH(HLSLBool_t, LogicalOr);
     break;
 
   case BinaryOpType_EnumValueCount:
@@ -1296,7 +1296,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                   BinaryMathOps<TYPE>::FUNC)
 
   switch (OpType) {
-  case BinaryMathOpType_CompoundMultiply:
   case BinaryMathOpType_Multiply:
     DISPATCH(HLSLHalf_t, Multiply);
     DISPATCH(float, Multiply);
@@ -1309,7 +1308,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Multiply);
     break;
 
-  case BinaryMathOpType_CompoundAdd:
   case BinaryMathOpType_Add:
     DISPATCH(HLSLBool_t, Add);
     DISPATCH(HLSLHalf_t, Add);
@@ -1323,7 +1321,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Add);
     break;
 
-  case BinaryMathOpType_CompoundSubtract:
   case BinaryMathOpType_Subtract:
     DISPATCH(HLSLBool_t, Subtract);
     DISPATCH(HLSLHalf_t, Subtract);
@@ -1337,7 +1334,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Subtract);
     break;
 
-  case BinaryMathOpType_CompoundDivide:
   case BinaryMathOpType_Divide:
     DISPATCH(HLSLHalf_t, Divide);
     DISPATCH(float, Divide);
@@ -1350,7 +1346,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint64_t, Divide);
     break;
 
-  case BinaryMathOpType_CompoundModulus:
   case BinaryMathOpType_Modulus:
     DISPATCH(HLSLHalf_t, OperatorModulus);
     DISPATCH(float, FmodModulus);
@@ -1548,7 +1543,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                            BitwiseOps<TYPE>::FUNC, "-DFUNC_UNARY_OPERATOR=1")
 
   switch (OpType) {
-  case BitwiseOpType_CompoundAnd:
   case BitwiseOpType_And:
     DISPATCH(int16_t, And);
     DISPATCH(int32_t, And);
@@ -1559,7 +1553,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     break;
 
   case BitwiseOpType_Or:
-  case BitwiseOpType_CompoundOr:
     DISPATCH(int16_t, Or);
     DISPATCH(int32_t, Or);
     DISPATCH(int64_t, Or);
@@ -1569,7 +1562,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     break;
 
   case BitwiseOpType_Xor:
-  case BitwiseOpType_CompoundXor:
     DISPATCH(int16_t, Xor);
     DISPATCH(int32_t, Xor);
     DISPATCH(int64_t, Xor);
@@ -1588,7 +1580,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     break;
 
   case BitwiseOpType_LeftShift:
-  case BitwiseOpType_CompoundLeftShift:
     DISPATCH(int16_t, LeftShift);
     DISPATCH(int32_t, LeftShift);
     DISPATCH(int64_t, LeftShift);
@@ -1598,7 +1589,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     break;
 
   case BitwiseOpType_RightShift:
-  case BitwiseOpType_CompoundRightShift:
     DISPATCH(int16_t, RightShift);
     DISPATCH(int32_t, RightShift);
     DISPATCH(int64_t, RightShift);
