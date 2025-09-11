@@ -95,9 +95,8 @@ template <typename OP_TYPE, size_t N>
 OP_TYPE getOpType(const OpTypeMetaData<OP_TYPE> (&Values)[N],
                   const wchar_t *OpTypeString) {
   for (size_t I = 0; I < N; ++I) {
-    WEX::Logging::Log::Comment(WEX::Common::String().Format(
-        L"Comparing OpTypeString: %s with %s", OpTypeString,
-        Values[I].OpTypeString.c_str()));
+    WEX::Logging::Log::Comment(
+        WEX::Common::String().Format(Values[I].OpTypeString.c_str()));
     if (Values[I].OpTypeString == OpTypeString)
       return Values[I].OpType;
   }
@@ -1308,7 +1307,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 }
 
 //
-// BinaryOp
+// BinaryOpType
 //
 
 enum class BinaryOpType {
@@ -1605,6 +1604,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 //
 // BinaryComparisonOp
 //
+
 enum class BinaryComparisonOpType {
   LessThan,
   LessEqual,
@@ -1749,8 +1749,9 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 }
 
 //
-// BitwiseOp
+// BitwiseOpType
 //
+
 enum class BitwiseOpType {
   And,
   Or,
@@ -1876,7 +1877,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 }
 
 //
-// TernaryMathOp
+// TernaryMathOpType
 //
 
 enum class TernaryMathOpType { Fma, Mad, SmoothStep, EnumValueCount };
