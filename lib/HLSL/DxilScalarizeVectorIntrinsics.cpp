@@ -240,8 +240,7 @@ static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
 static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
   IRBuilder<> Builder(CI);
 
-  ConstantInt *ReduceOp = dyn_cast<ConstantInt>(CI->getArgOperand(0));
-  assert(ReduceOp && "Arg0 must be a constant int");
+  OP::OpCode ReduceOp = OP::getOpCode(CI);
 
   Value *VecArg = CI->getArgOperand(1);
   Type *VecTy = VecArg->getType();
@@ -250,11 +249,11 @@ static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
   for (unsigned I = 1; I < VecTy->getVectorNumElements(); I++) {
     Value *Elt = Builder.CreateExtractElement(VecArg, I);
 
-    switch (ReduceOp->getLimitedValue()) {
-    case (unsigned)DXIL::OpCode::VectorReduceAnd:
+    switch (ReduceOp) { 
+    case OP::OpCode::VectorReduceAnd:
       Result = Builder.CreateAnd(Result, Elt);
       break;
-    case (unsigned)DXIL::OpCode::VectorReduceOr:
+    case OP::OpCode::VectorReduceOr:
       Result = Builder.CreateOr(Result, Elt);
       break;
     default:
