@@ -249,7 +249,7 @@ static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
   for (unsigned I = 1; I < VecTy->getVectorNumElements(); I++) {
     Value *Elt = Builder.CreateExtractElement(VecArg, I);
 
-    switch (ReduceOp) { 
+    switch (ReduceOp) {
     case OP::OpCode::VectorReduceAnd:
       Result = Builder.CreateAnd(Result, Elt);
       break;
