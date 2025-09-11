@@ -95,8 +95,6 @@ template <typename OP_TYPE, size_t N>
 OP_TYPE getOpType(const OpTypeMetaData<OP_TYPE> (&Values)[N],
                   const wchar_t *OpTypeString) {
   for (size_t I = 0; I < N; ++I) {
-    WEX::Logging::Log::Comment(
-        WEX::Common::String().Format(Values[I].OpTypeString.c_str()));
     if (Values[I].OpTypeString == OpTypeString)
       return Values[I].OpType;
   }
