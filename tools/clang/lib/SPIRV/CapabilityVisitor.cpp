@@ -615,9 +615,13 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   }
   case spv::Op::OpControlBarrier:
   case spv::Op::OpMemoryBarrier: {
-    auto barrier = cast<SpirvBarrier>(instr);
-    if ((bool)(barrier->getMemorySemantics() &
-               spv::MemorySemanticsMask::OutputMemoryKHR)) {
+    auto barrier = dyn_cast<SpirvBarrier>(instr);
+    // barrier will be null if the instruction was generated from inline spir-v.
+    // In that case, it is the user's responsibility to ensure the correct
+    // capabilities are added.
+    if (barrier && (barrier->getMemorySemantics() &
+                    spv::MemorySemanticsMask::OutputMemoryKHR) ==
+                       spv::MemorySemanticsMask::OutputMemoryKHR) {
       featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_3, "NODE_OUTPUT_MEMORY",
                                       loc);
       addCapability(spv::Capability::VulkanMemoryModel, loc);
