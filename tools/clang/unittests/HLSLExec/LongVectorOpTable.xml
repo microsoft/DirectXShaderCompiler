@@ -2073,7 +2073,7 @@
           <Parameter Name="DataType">bool</Parameter>
         </Row>
         <Row Name="Logical_Or_bool">
-          <Parameter Name="OpTypeEnum">BinaryMathOpType_Logical_Or</Parameter>
+          <Parameter Name="OpTypeEnum">BinaryOpType_Logical_Or</Parameter>
           <Parameter Name="DataType">bool</Parameter>
         </Row>
         <Row Name="ScalarLogical_And_bool">
