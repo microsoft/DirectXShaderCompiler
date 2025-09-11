@@ -95,9 +95,9 @@ template <typename OP_TYPE, size_t N>
 OP_TYPE getOpType(const OpTypeMetaData<OP_TYPE> (&Values)[N],
                   const wchar_t *OpTypeString) {
   for (size_t I = 0; I < N; ++I) {
-    WEX::Logging::Log::Comment(
-        WEX::Common::String().Format(L"Comparing OpTypeString: %s with %s",
-                                     OpTypeString, Values[I].OpTypeString.c_str()));
+    WEX::Logging::Log::Comment(WEX::Common::String().Format(
+        L"Comparing OpTypeString: %s with %s", OpTypeString,
+        Values[I].OpTypeString.c_str()));
     if (Values[I].OpTypeString == OpTypeString)
       return Values[I].OpType;
   }
@@ -1364,7 +1364,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                        BinaryOpType OpType, size_t VectorSize) {
 
 #define DISPATCH(TYPE, FUNC)                                                   \
-  if (Config.DataType == getDataTypeName<TYPE>())                                 \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
   return dispatchBinaryOpTest(Config, OpType, VectorSize,                      \
                               BinaryOps<TYPE>::FUNC, ExtraDefines)
 
@@ -1636,7 +1636,8 @@ static_assert(_countof(binaryComparisonOpTypeStringToOpMetaData) ==
               "binaryComparisonOpTypeStringToOpMetaData size mismatch. Did "
               "you add a new enum value?");
 
-OP_TYPE_META_DATA(BinaryComparisonOpType, binaryComparisonOpTypeStringToOpMetaData);
+OP_TYPE_META_DATA(BinaryComparisonOpType,
+                  binaryComparisonOpTypeStringToOpMetaData);
 
 template <typename T, typename OUT_TYPE>
 void dispatchBinaryComparisonOpTest(const TestConfig &Config,
@@ -1660,7 +1661,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                        size_t VectorSize) {
 
 #define DISPATCH(TYPE, FUNC)                                                   \
-  if (Config.DataType == getDataTypeName<TYPE>())                                 \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
   return dispatchBinaryTest(Config, ValidationConfig{}, OpType, VectorSize,    \
                             BinaryComparisonOps<TYPE>::FUNC)
   switch (OpType) {
@@ -1766,7 +1767,8 @@ static const OpTypeMetaData<BitwiseOpType> bitwiseOpTypeStringToOpMetaData[] = {
     {L"BitwiseOpType_Xor", BitwiseOpType::Xor, std::nullopt, "^"},
     {L"BitwiseOpType_Not", BitwiseOpType::Not, "TestUnaryOperator", "~"},
     {L"BitwiseOpType_LeftShift", BitwiseOpType::LeftShift, std::nullopt, "<<"},
-    {L"BitwiseOpType_RightShift", BitwiseOpType::RightShift, std::nullopt, ">>"},
+    {L"BitwiseOpType_RightShift", BitwiseOpType::RightShift, std::nullopt,
+     ">>"},
 };
 
 static_assert(_countof(bitwiseOpTypeStringToOpMetaData) ==
@@ -1797,12 +1799,12 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                        size_t VectorSize) {
 
 #define DISPATCH(TYPE, FUNC)                                                   \
-  if (Config.DataType == getDataTypeName<TYPE>())                                 \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
   return dispatchBinaryTest(Config, ValidationConfig{}, OpType, VectorSize,    \
                             BitwiseOps<TYPE>::FUNC)
 
 #define DISPATCH_NOT(TYPE, FUNC)                                               \
-  if (Config.DataType == getDataTypeName<TYPE>())                                 \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
   return dispatchUnaryTest(Config, ValidationConfig{}, OpType, VectorSize,     \
                            BitwiseOps<TYPE>::FUNC, "-DFUNC_UNARY_OPERATOR=1")
 
