@@ -9,11 +9,14 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -29,6 +32,7 @@ static void scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
 static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
                                  CallInst *CI);
 static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI);
+static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI);
 
 class DxilScalarizeVectorIntrinsics : public ModulePass {
 public:
@@ -53,24 +57,31 @@ public:
     for (auto F = M.functions().begin(); F != M.functions().end();) {
       Function *Func = &*(F++);
       DXIL::OpCodeClass OpClass;
-      if (HlslOP->GetOpCodeClass(Func, OpClass)) {
+      if (!HlslOP->GetOpCodeClass(Func, OpClass))
+        continue;
+
+      bool NeedsRewrite = (Func->getReturnType()->isVectorTy() ||
+                           OpClass == DXIL::OpCodeClass::RawBufferVectorLoad ||
+                           OpClass == DXIL::OpCodeClass::RawBufferVectorStore ||
+                           OpClass == DXIL::OpCodeClass::VectorReduce);
+      if (!NeedsRewrite)
+        continue;
+
+      for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
+        CallInst *CI = cast<CallInst>(*(U++));
+
         if (OpClass == DXIL::OpCodeClass::RawBufferVectorLoad)
-          for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
-            CallInst *CI = cast<CallInst>(*(U++));
-            scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
-            Changed = true;
-          }
+          scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
         else if (OpClass == DXIL::OpCodeClass::RawBufferVectorStore)
-          for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
-            CallInst *CI = cast<CallInst>(*(U++));
-            scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
-            Changed = true;
-          }
+          scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
+        else if (OpClass == DXIL::OpCodeClass::VectorReduce)
+          scalarizeVectorReduce(HlslOP, CI);
         else if (Func->getReturnType()->isVectorTy())
-          for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
-            CallInst *CI = cast<CallInst>(*(U++));
-            scalarizeVectorIntrinsic(HlslOP, CI);
-          }
+          scalarizeVectorIntrinsic(HlslOP, CI);
+        else
+          continue;
+
+        Changed = true;
       }
     }
     return Changed;
@@ -224,6 +235,33 @@ static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
     Builder.CreateCall(F, Args);
   }
   CI->eraseFromParent();
+}
+
+static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
+  IRBuilder<> Builder(CI);
+
+  OP::OpCode ReduceOp = OP::getOpCode(CI);
+
+  Value *VecArg = CI->getArgOperand(1);
+  Type *VecTy = VecArg->getType();
+
+  Value *Result = Builder.CreateExtractElement(VecArg, (uint64_t)0);
+  for (unsigned I = 1; I < VecTy->getVectorNumElements(); I++) {
+    Value *Elt = Builder.CreateExtractElement(VecArg, I);
+
+    switch (ReduceOp) {
+    case OP::OpCode::VectorReduceAnd:
+      Result = Builder.CreateAnd(Result, Elt);
+      break;
+    case OP::OpCode::VectorReduceOr:
+      Result = Builder.CreateOr(Result, Elt);
+      break;
+    default:
+      assert(false && "Unexpected VectorReduce OpCode");
+    }
+  }
+
+  CI->replaceAllUsesWith(Result);
 }
 
 // Scalarize native vector operation represented by `CI`, generating

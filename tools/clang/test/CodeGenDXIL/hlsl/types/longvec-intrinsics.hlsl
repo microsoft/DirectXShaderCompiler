@@ -519,6 +519,19 @@ void main() {
   // CHECK: select <[[NUM]] x i1> [[bvec1]], <[[NUM]] x i16> [[svec2]], <[[NUM]] x i16> [[svec3]]
   sRes += select(sVec1, sVec2, sVec3);
 
+  // CHECK: [[vecreduceand:%.*]] = call i16 @dx.op.vectorReduce.v[[NUM]]i16(i32 309, <[[NUM]] x i16> [[svec1]])  ; VectorReduceAnd(a)
+  // CHECK: [[allres1:%.*]] = icmp ne i16 [[vecreduceand]], 0
+  // Upcast the i1 result to the correct vector size
+  // CHECK: [[allres16:%.*]] = zext i1 [[allres1]] to i16
+  // CHECK: insertelement <[[NUM]] x i16> undef, i16 [[allres16]], i32 0
+  sRes += all(sVec1);
+
+  // CHECK: [[vecreduceor:%.*]] = call i16 @dx.op.vectorReduce.v[[NUM]]i16(i32 310, <[[NUM]] x i16> [[svec1]])  ; VectorReduceOr(a)
+  // CHECK: [[anyres1:%.*]] = icmp ne i16 [[vecreduceor]], 0
+  // Upcast the i1 result to the correct vector size
+  // CHECK: [[anyres16:%.*]] = zext i1 [[anyres1]] to i16
+  // CHECK: insertelement <[[NUM]] x i16> undef, i16 [[anyres16]], i32 0
+  sRes += any(sVec1);
 
   // CHECK-NOT: extractelement
   // CHECK-NOT: insertelement

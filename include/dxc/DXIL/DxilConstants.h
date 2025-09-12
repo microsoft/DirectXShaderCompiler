@@ -524,8 +524,6 @@ enum class OpCode : unsigned {
   ReservedC7 = 300,  // reserved
   ReservedC8 = 301,  // reserved
   ReservedC9 = 302,  // reserved
-  ReservedD0 = 309,  // reserved
-  ReservedD1 = 310,  // reserved
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -1037,6 +1035,11 @@ enum class OpCode : unsigned {
   Unpack4x8 = 219, // unpacks 4 8-bit signed or unsigned values into int32 or
                    // int16 vector
 
+  // Vector reduce to scalar
+  VectorReduceAnd =
+      309, // Bitwise and reduction of the vector returning a scalar
+  VectorReduceOr = 310, // Bitwise or reduction of the vector returning a scalar
+
   // Wave
   WaveActiveAllEqual = 115, // returns 1 if all the lanes have the same value
   WaveActiveBallot = 116, // returns a struct with a bit set for each lane where
@@ -1381,6 +1384,9 @@ enum class OpCodeClass : unsigned {
   // Unpacking intrinsics
   Unpack4x8,
 
+  // Vector reduce to scalar
+  VectorReduce,
+
   // Wave
   WaveActiveAllEqual,
   WaveActiveBallot,
@@ -1417,7 +1423,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
 
-  NumOpClasses = 195 // exclusive last value of enumeration
+  NumOpClasses = 196 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

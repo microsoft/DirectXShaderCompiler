@@ -1751,55 +1751,88 @@ Value *GenerateCmpNEZero(Value *val, IRBuilder<> Builder) {
   return Builder.CreateICmpNE(val, zero);
 }
 
-Value *TranslateAllForValue(Value *val, IRBuilder<> &Builder) {
-  Value *cond = GenerateCmpNEZero(val, Builder);
+Value *TranslateBitwisePredicate(CallInst *CI, IntrinsicOp IOP,
+                                 hlsl::OP *HlslOP) {
+  Value *Arg = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  IRBuilder<> Builder(CI);
 
-  Type *Ty = val->getType();
+  Type *Ty = Arg->getType();
   Type *EltTy = Ty->getScalarType();
 
   if (Ty == EltTy)
-    return cond;
+    return GenerateCmpNEZero(Arg, Builder);
 
-  Value *Result = Builder.CreateExtractElement(cond, (uint64_t)0);
-  for (unsigned i = 1; i < Ty->getVectorNumElements(); i++) {
-    Value *Elt = Builder.CreateExtractElement(cond, i);
-    Result = Builder.CreateAnd(Result, Elt);
+  if (HlslOP->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus()) {
+    DXIL::OpCode ReduceOp = DXIL::OpCode::VectorReduceAnd;
+    switch (IOP) {
+    case IntrinsicOp::IOP_all:
+      ReduceOp = DXIL::OpCode::VectorReduceAnd;
+      break;
+    case IntrinsicOp::IOP_any:
+      ReduceOp = DXIL::OpCode::VectorReduceOr;
+      break;
+    default:
+      assert(false && "Unexpected reduction IOP");
+      break;
+    }
+
+    // Since VectorReduceAnd/Or are only defined for integer types the
+    // vectorization optimization doesn't help on FP types. It could be lowered
+    // as N * FCmpUNE + N * insertelement + VectorReduceAnd but that isn't any
+    // better than the scalarized case.
+    if (EltTy->isIntegerTy()) {
+      Constant *OpArg = HlslOP->GetU32Const((unsigned)ReduceOp);
+      Value *Args[] = {OpArg, Arg};
+      Function *DxilFunc = HlslOP->GetOpFunc(ReduceOp, Ty);
+      Value *ReducedVal = TrivialDxilVectorOperation(DxilFunc, ReduceOp, Args,
+                                                     Ty, HlslOP, Builder);
+      return GenerateCmpNEZero(ReducedVal, Builder);
+    }
   }
 
-  return Result;
-}
-
-Value *TranslateAll(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
-                    HLOperationLowerHelper &helper,
-                    HLObjectOperationLowerHelper *pObjHelper,
-                    bool &Translated) {
-  Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-  IRBuilder<> Builder(CI);
-  return TranslateAllForValue(val, Builder);
-}
-
-Value *TranslateAny(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
-                    HLOperationLowerHelper &helper,
-                    HLObjectOperationLowerHelper *pObjHelper,
-                    bool &Translated) {
-  Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-
-  IRBuilder<> Builder(CI);
-
-  Value *cond = GenerateCmpNEZero(val, Builder);
-
-  Type *Ty = val->getType();
-  Type *EltTy = Ty->getScalarType();
-
-  if (Ty == EltTy)
-    return cond;
-
-  Value *Result = Builder.CreateExtractElement(cond, (uint64_t)0);
-  for (unsigned i = 1; i < Ty->getVectorNumElements(); i++) {
-    Value *Elt = Builder.CreateExtractElement(cond, i);
-    Result = Builder.CreateOr(Result, Elt);
+  SmallVector<Value *, 4> ExtractedElements;
+  // FP types don't support support bitwise and/or
+  bool NeedsConvertToInt = EltTy->isFloatingPointTy();
+  for (unsigned I = 0; I < Ty->getVectorNumElements(); I++) {
+    Value *Elt = Builder.CreateExtractElement(Arg, I);
+    if (NeedsConvertToInt)
+      Elt = GenerateCmpNEZero(Elt, Builder);
+    ExtractedElements.push_back(Elt);
   }
-  return Result;
+
+  // Progressively and/or the components together then emit a single
+  // icmp
+  Value *Reduce = ExtractedElements[0];
+  for (unsigned I = 1; I < ExtractedElements.size(); I++) {
+    Value *Elt = ExtractedElements[I];
+    switch (IOP) {
+    case IntrinsicOp::IOP_all:
+      Reduce = Builder.CreateAnd(Reduce, Elt);
+      break;
+    case IntrinsicOp::IOP_any:
+      Reduce = Builder.CreateOr(Reduce, Elt);
+      break;
+    default:
+      assert(false && "Unexpected reduction IOP");
+      break;
+    }
+  }
+
+  return GenerateCmpNEZero(Reduce, Builder);
+}
+
+Value *TranslateAll(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+                    HLOperationLowerHelper &Helper,
+                    HLObjectOperationLowerHelper *PObjHelper,
+                    bool &Translated) {
+  return TranslateBitwisePredicate(CI, IOP, &Helper.hlslOP);
+}
+
+Value *TranslateAny(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+                    HLOperationLowerHelper &Helper,
+                    HLObjectOperationLowerHelper *PObjHelper,
+                    bool &Translated) {
+  return TranslateBitwisePredicate(CI, IOP, &Helper.hlslOP);
 }
 
 Value *TranslateBitcast(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
