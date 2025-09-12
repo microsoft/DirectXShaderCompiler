@@ -743,13 +743,9 @@ template <typename T> struct TrigonometricOperation {
   static T tanh(T Val) { return std::tanh(Val); }
 };
 
-template <typename T>
-void dispatchTrigonometricTest(const TestConfig &Config,
-                               TrigonometricOpType OpType, size_t VectorSize) {
-#define DISPATCH(OP, NAME)                                                     \
-  case OP:                                                                     \
-    return dispatchUnaryTest<T>(Config, ValidationConfig, OP, VectorSize,      \
-                                TrigonometricOperation<T>::NAME, "")
+void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
+                                       TrigonometricOpType OpType,
+                                       size_t VectorSize) {
 
   // All trigonometric ops are floating point types.
   // These trig functions are defined to have a max absolute error of 0.0008
@@ -758,38 +754,66 @@ void dispatchTrigonometricTest(const TestConfig &Config,
   // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
   const ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.0008f);
 
+#define DISPATCH(TYPE, FUNC)                                                   \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
+    return dispatchUnaryTest(Config, ValidationConfig, OpType, VectorSize,     \
+                             TrigonometricOperation<TYPE>::FUNC, "");
+
   switch (OpType) {
-    DISPATCH(TrigonometricOpType::Acos, acos);
-    DISPATCH(TrigonometricOpType::Asin, asin);
-    DISPATCH(TrigonometricOpType::Atan, atan);
-    DISPATCH(TrigonometricOpType::Cos, cos);
-    DISPATCH(TrigonometricOpType::Cosh, cosh);
-    DISPATCH(TrigonometricOpType::Sin, sin);
-    DISPATCH(TrigonometricOpType::Sinh, sinh);
-    DISPATCH(TrigonometricOpType::Tan, tan);
-    DISPATCH(TrigonometricOpType::Tanh, tanh);
+  case TrigonometricOpType::Acos:
+    DISPATCH(HLSLHalf_t, acos);
+    DISPATCH(float, acos);
+    break;
+
+  case TrigonometricOpType::Asin:
+    DISPATCH(HLSLHalf_t, asin);
+    DISPATCH(float, asin);
+    break;
+
+  case TrigonometricOpType::Atan:
+    DISPATCH(HLSLHalf_t, atan);
+    DISPATCH(float, atan);
+    break;
+
+  case TrigonometricOpType::Cos:
+    DISPATCH(HLSLHalf_t, cos);
+    DISPATCH(float, cos);
+    break;
+
+  case TrigonometricOpType::Cosh:
+    DISPATCH(HLSLHalf_t, cosh);
+    DISPATCH(float, cosh);
+    break;
+
+  case TrigonometricOpType::Sin:
+    DISPATCH(HLSLHalf_t, sin);
+    DISPATCH(float, sin);
+    break;
+
+  case TrigonometricOpType::Sinh:
+    DISPATCH(HLSLHalf_t, sinh);
+    DISPATCH(float, sinh);
+    break;
+
+  case TrigonometricOpType::Tan:
+    DISPATCH(HLSLHalf_t, tan);
+    DISPATCH(float, tan);
+    break;
+
+  case TrigonometricOpType::Tanh:
+    DISPATCH(HLSLHalf_t, tanh);
+    DISPATCH(float, tanh);
+    break;
+
   case TrigonometricOpType::EnumValueCount:
     break;
   }
 
 #undef DISPATCH
 
-  LOG_ERROR_FMT_THROW(L"Unexpected TrigonometricOpType: %d.", OpType);
-}
-
-void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
-                                       TrigonometricOpType OpType,
-                                       size_t VectorSize) {
-
-  if (Config.DataType == getDataTypeName<HLSLHalf_t>())
-    return dispatchTrigonometricTest<HLSLHalf_t>(Config, OpType, VectorSize);
-
-  if (Config.DataType == getDataTypeName<float>())
-    return dispatchTrigonometricTest<float>(Config, OpType, VectorSize);
-
   LOG_ERROR_FMT_THROW(
-      L"DataType '%s' not supported for trigonometric operations.",
-      (const wchar_t *)Config.DataType);
+      L"DataType '%s' not supported for TrigonometricOpType'%s'",
+      (const wchar_t *)Config.DataType, (const wchar_t *)Config.OpTypeEnum);
 }
 
 //
