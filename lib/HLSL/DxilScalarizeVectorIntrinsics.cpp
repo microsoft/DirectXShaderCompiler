@@ -245,7 +245,7 @@ static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
   Value *VecArg = CI->getArgOperand(1);
   Type *VecTy = VecArg->getType();
 
-  Value *Result = Builder.CreateExtractElement(VecArg, 0ul);
+  Value *Result = Builder.CreateExtractElement(VecArg, (uint64_t)0);
   for (unsigned I = 1; I < VecTy->getVectorNumElements(); I++) {
     Value *Elt = Builder.CreateExtractElement(VecArg, I);
 
