@@ -317,19 +317,17 @@ static WEX::Common::String getInputValueSetName(size_t Index) {
   return ValueSetName;
 }
 
-template <typename T, typename OP_TYPE> struct TestConfig {
+template <typename T, typename OP_TYPE, OP_TYPE OP> struct TestConfig {
   using String = WEX::Common::String;
 
   bool VerboseLogging;
-  OP_TYPE OpType;
   uint16_t ScalarInputFlags;
 
   String InputValueSetNames[3];
   size_t LongVectorInputSize = 0;
 
-  TestConfig(bool VerboseLogging, OP_TYPE OpType, uint16_t ScalarInputFlags)
-      : VerboseLogging(VerboseLogging), OpType(OpType),
-        ScalarInputFlags(ScalarInputFlags) {
+  TestConfig(bool VerboseLogging, uint16_t ScalarInputFlags)
+      : VerboseLogging(VerboseLogging), ScalarInputFlags(ScalarInputFlags) {
     using WEX::TestExecution::RuntimeParameters;
     using WEX::TestExecution::TestData;
 
@@ -411,10 +409,12 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
     ShaderBufferPtr[I] = TestData[I];
 }
 
-template <typename OUT_TYPE, typename T, typename OP_TYPE, size_t ARITY>
+template <typename OUT_TYPE, typename T, typename OP_TYPE, OP_TYPE OP,
+          size_t ARITY>
 std::optional<std::vector<OUT_TYPE>>
-runTest(const TestConfig<T, OP_TYPE> &Config, const InputSets<T, ARITY> &Inputs,
-        size_t ExpectedOutputSize, std::string ExtraDefines) {
+runTest(const TestConfig<T, OP_TYPE, OP> &Config,
+        const InputSets<T, ARITY> &Inputs, size_t ExpectedOutputSize,
+        std::string ExtraDefines) {
 
   CComPtr<ID3D12Device> D3DDevice;
   if (!createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false)) {
@@ -440,9 +440,9 @@ runTest(const TestConfig<T, OP_TYPE> &Config, const InputSets<T, ARITY> &Inputs,
   // We have to construct the string outside of the lambda. Otherwise it's
   // cleaned up when the lambda finishes executing but before the shader runs.
   std::string CompilerOptionsString =
-      getCompilerOptionsString<T, OUT_TYPE, ARITY>(
-          Config.OpType, Inputs[0].size(), Config.ScalarInputFlags,
-          std::move(ExtraDefines));
+      getCompilerOptionsString<T, OUT_TYPE, ARITY>(OP, Inputs[0].size(),
+                                                   Config.ScalarInputFlags,
+                                                   std::move(ExtraDefines));
 
   dxc::SpecificDllLoader DxilDllLoader;
 
@@ -519,8 +519,8 @@ std::vector<T> buildTestInput(const wchar_t *InputValueSetName,
   return ValueSet;
 }
 
-template <size_t ARITY, typename T, typename OP_TYPE>
-InputSets<T, ARITY> buildTestInputs(const TestConfig<T, OP_TYPE> &Config,
+template <size_t ARITY, typename T, typename OP_TYPE, OP_TYPE OP>
+InputSets<T, ARITY> buildTestInputs(const TestConfig<T, OP_TYPE, OP> &Config,
                                     size_t SizeToTest) {
   InputSets<T, ARITY> Inputs;
   for (size_t I = 0; I < ARITY; ++I) {
@@ -554,8 +554,9 @@ struct ValidationConfig {
   }
 };
 
-template <typename T, typename OP_TYPE, typename OUT_TYPE, size_t ARITY>
-void runAndVerify(const TestConfig<T, OP_TYPE> &Config,
+template <typename T, typename OP_TYPE, OP_TYPE OP, typename OUT_TYPE,
+          size_t ARITY>
+void runAndVerify(const TestConfig<T, OP_TYPE, OP> &Config,
                   const InputSets<T, ARITY> &Inputs,
                   const std::vector<OUT_TYPE> &Expected,
                   std::string ExtraDefines,
@@ -572,6 +573,7 @@ void runAndVerify(const TestConfig<T, OP_TYPE> &Config,
                                 ValidationConfig.Type, Config.VerboseLogging));
 }
 
+#if 0
 template <typename T, typename OP_TYPE, typename OUT_TYPE>
 void dispatchUnaryTest(const TestConfig<T, OP_TYPE> &Config,
                        const ValidationConfig &ValidationConfig,
@@ -606,11 +608,12 @@ void dispatchBinaryTest(const TestConfig<T, OP_TYPE> &Config,
 
   runAndVerify(Config, Inputs, Expected, ExtraDefines, ValidationConfig);
 }
+#endif
 
 //
 // TrigonometricTest
 //
-
+#if 0
 enum class TrigonometricOpType {
   Acos,
   Asin,
@@ -1528,6 +1531,7 @@ void dispatchTestByVectorSize(const TestConfig<T, BitwiseOpType> &Config,
 
   DXASSERT(false, "Invalid OpType");
 }
+#endif
 
 // TernaryMathOpType
 //
@@ -1549,9 +1553,10 @@ static_assert(_countof(ternaryMathOpTypeStringToOpMetaData) ==
 
 OP_TYPE_META_DATA(TernaryMathOpType, ternaryMathOpTypeStringToOpMetaData);
 
-template <typename T, typename OUT_TYPE>
-void dispatchTernaryMathOpTest(const TestConfig<T, TernaryMathOpType> &Config,
-                               size_t VectorSize, OUT_TYPE (*Calc)(T, T, T)) {
+template <typename T, TernaryMathOpType OP, typename OUT_TYPE>
+void dispatchTernaryMathOpTest(
+    const TestConfig<T, TernaryMathOpType, OP> &Config, size_t VectorSize,
+    OUT_TYPE (*Calc)(T, T, T)) {
 
   ValidationConfig ValidationConfig;
 
@@ -1595,38 +1600,45 @@ template <typename T> T SmoothStep(T Min, T Max, T X) {
 
 } // namespace TernaryMathOps
 
+template <typename T, TernaryMathOpType OP>
+void dispatchTestByVectorSize(
+    const TestConfig<T, TernaryMathOpType, OP> &Config, size_t VectorSize) {
+  (void)Config;
+  (void)VectorSize;
+  static_assert(false, "Unsupported configuration");
+}
+
+template <>
+void dispatchTestByVectorSize(
+    const TestConfig<double, TernaryMathOpType, TernaryMathOpType::Fma> &Config,
+    size_t VectorSize) {
+  dispatchTernaryMathOpTest(Config, VectorSize, TernaryMathOps::Fma<double>);
+}
+
 template <typename T>
-void dispatchTestByVectorSize(const TestConfig<T, TernaryMathOpType> &Config,
-                              size_t VectorSize) {
-#define DISPATCH(FUNC)                                                         \
-  return dispatchTernaryMathOpTest(Config, VectorSize, TernaryMathOps::FUNC<T>)
+typename std::enable_if_t<!std::is_same_v<T, HLSLBool_t>, void>
+dispatchTestByVectorSize(
+    const TestConfig<T, TernaryMathOpType, TernaryMathOpType::Mad> &Config,
+    size_t VectorSize) {
+  dispatchTernaryMathOpTest(Config, VectorSize, TernaryMathOps::Mad<T>);
+}
 
-  switch (Config.OpType) {
-  case TernaryMathOpType::Fma:
-    DISPATCH(Fma);
-    break;
-
-  case TernaryMathOpType::Mad:
-    DISPATCH(Mad);
-    break;
-
-  case TernaryMathOpType::SmoothStep:
-    DISPATCH(SmoothStep);
-    break;
-
-  case TernaryMathOpType::EnumValueCount:
-    break;
-  }
-
-  DXASSERT(false, "Invalid OpType");
+template <typename T>
+typename std::enable_if_t<
+    std::is_same_v<T, float> || std::is_same_v<T, HLSLHalf_t>, void>
+dispatchTestByVectorSize(
+    const TestConfig<T, TernaryMathOpType, TernaryMathOpType::SmoothStep>
+        &Config,
+    size_t VectorSize) {
+  dispatchTernaryMathOpTest(Config, VectorSize, TernaryMathOps::SmoothStep<T>);
 }
 
 //
 // dispatchTest
 //
 
-template <typename T, typename OP_TYPE>
-void dispatchTest(const TestConfig<T, OP_TYPE> &Config) {
+template <typename T, typename OP_TYPE, OP_TYPE OP>
+void dispatchTest(const TestConfig<T, OP_TYPE, OP> &Config) {
   std::vector<size_t> InputVectorSizes;
   if (Config.LongVectorInputSize)
     InputVectorSizes.push_back(Config.LongVectorInputSize);
@@ -1695,13 +1707,12 @@ public:
     return true;
   }
 
-  template <typename T, typename OP_TYPE, OP_TYPE OpType>
+  template <typename T, typename OP_TYPE, OP_TYPE OP>
   void runTest(uint16_t ScalarInputFlags) {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-    dispatchTest<T>(
-        TestConfig<T, OP_TYPE>(VerboseLogging, OpType, ScalarInputFlags));
+    dispatchTest(TestConfig<T, OP_TYPE, OP>(VerboseLogging, ScalarInputFlags));
   }
 
   // #define OP_TESTS(name, type, table)                                            \
