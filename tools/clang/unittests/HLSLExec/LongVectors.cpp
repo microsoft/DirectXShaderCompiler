@@ -11,7 +11,6 @@
 #include "dxc/Support/Global.h"
 
 #include "HlslExecTestUtils.h"
-#include "TableParameterHandler.h"
 
 #include <array>
 #include <iomanip>
@@ -299,23 +298,6 @@ bool doVectorsMatch(const std::vector<T> &ActualValues,
   return false;
 }
 
-static uint16_t GetScalarInputFlags() {
-  using WEX::Common::String;
-  using WEX::TestExecution::TestData;
-
-  String ScalarInputFlagsString;
-  if (FAILED(
-          TestData::TryGetValue(L"ScalarInputFlags", ScalarInputFlagsString)))
-    return 0;
-
-  if (ScalarInputFlagsString.IsEmpty())
-    return 0;
-
-  uint16_t ScalarInputFlags;
-  VERIFY_IS_TRUE(IsHexString(ScalarInputFlagsString, &ScalarInputFlags));
-  return ScalarInputFlags;
-}
-
 static WEX::Common::String getInputValueSetName(size_t Index) {
   using WEX::Common::String;
   using WEX::TestExecution::TestData;
@@ -335,44 +317,26 @@ static WEX::Common::String getInputValueSetName(size_t Index) {
   return ValueSetName;
 }
 
-struct TestConfig {
+template <typename T, typename OP_TYPE> struct TestConfig {
   using String = WEX::Common::String;
 
-  String DataType;
-  String OpTypeEnum;
-  String InputValueSetNames[3];
-  uint16_t ScalarInputFlags = 0;
-  size_t LongVectorInputSize = 0;
-  bool VerboseLogging = false;
+  bool VerboseLogging;
+  OP_TYPE OpType;
+  uint16_t ScalarInputFlags;
 
-  static std::optional<TestConfig> Create(bool VerboseLogging) {
+  String InputValueSetNames[3];
+  size_t LongVectorInputSize = 0;
+
+  TestConfig(bool VerboseLogging, OP_TYPE OpType, uint16_t ScalarInputFlags)
+      : VerboseLogging(VerboseLogging), OpType(OpType),
+        ScalarInputFlags(ScalarInputFlags) {
     using WEX::TestExecution::RuntimeParameters;
     using WEX::TestExecution::TestData;
 
-    TestConfig Values;
+    for (size_t I = 0; I < std::size(InputValueSetNames); ++I)
+      InputValueSetNames[I] = getInputValueSetName(I);
 
-    if (FAILED(TestData::TryGetValue(L"DataType", Values.DataType)) &&
-        FAILED(TestData::TryGetValue(L"DataTypeIn", Values.DataType))) {
-      LOG_ERROR_FMT_THROW(L"TestData missing 'DataType' or 'DataTypeIn'.");
-      return std::nullopt;
-    }
-
-    if (FAILED(TestData::TryGetValue(L"OpTypeEnum", Values.OpTypeEnum))) {
-      LOG_ERROR_FMT_THROW(L"TestData missing 'OpTypeEnum'.");
-      return std::nullopt;
-    }
-
-    for (size_t I = 0; I < std::size(Values.InputValueSetNames); ++I)
-      Values.InputValueSetNames[I] = getInputValueSetName(I);
-
-    Values.ScalarInputFlags = GetScalarInputFlags();
-
-    RuntimeParameters::TryGetValue(L"LongVectorInputSize",
-                                   Values.LongVectorInputSize);
-
-    Values.VerboseLogging = VerboseLogging;
-
-    return Values;
+    RuntimeParameters::TryGetValue(L"LongVectorInputSize", LongVectorInputSize);
   }
 };
 
@@ -447,11 +411,10 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
     ShaderBufferPtr[I] = TestData[I];
 }
 
-template <typename OUT_TYPE, typename T, size_t ARITY, typename OP_TYPE>
+template <typename OUT_TYPE, typename T, typename OP_TYPE, size_t ARITY>
 std::optional<std::vector<OUT_TYPE>>
-runTest(const TestConfig &Config, OP_TYPE OpType,
-        const InputSets<T, ARITY> &Inputs, size_t ExpectedOutputSize,
-        std::string ExtraDefines) {
+runTest(const TestConfig<T, OP_TYPE> &Config, const InputSets<T, ARITY> &Inputs,
+        size_t ExpectedOutputSize, std::string ExtraDefines) {
 
   CComPtr<ID3D12Device> D3DDevice;
   if (!createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false)) {
@@ -477,9 +440,9 @@ runTest(const TestConfig &Config, OP_TYPE OpType,
   // We have to construct the string outside of the lambda. Otherwise it's
   // cleaned up when the lambda finishes executing but before the shader runs.
   std::string CompilerOptionsString =
-      getCompilerOptionsString<T, OUT_TYPE, ARITY>(OpType, Inputs[0].size(),
-                                                   Config.ScalarInputFlags,
-                                                   std::move(ExtraDefines));
+      getCompilerOptionsString<T, OUT_TYPE, ARITY>(
+          Config.OpType, Inputs[0].size(), Config.ScalarInputFlags,
+          std::move(ExtraDefines));
 
   dxc::SpecificDllLoader DxilDllLoader;
 
@@ -556,8 +519,8 @@ std::vector<T> buildTestInput(const wchar_t *InputValueSetName,
   return ValueSet;
 }
 
-template <typename T, size_t ARITY>
-InputSets<T, ARITY> buildTestInputs(const TestConfig &Config,
+template <size_t ARITY, typename T, typename OP_TYPE>
+InputSets<T, ARITY> buildTestInputs(const TestConfig<T, OP_TYPE> &Config,
                                     size_t SizeToTest) {
   InputSets<T, ARITY> Inputs;
   for (size_t I = 0; I < ARITY; ++I) {
@@ -591,15 +554,15 @@ struct ValidationConfig {
   }
 };
 
-template <typename T, typename OUT_TYPE, typename OP_TYPE, size_t ARITY>
-void runAndVerify(const TestConfig &Config, OP_TYPE OpType,
+template <typename T, typename OP_TYPE, typename OUT_TYPE, size_t ARITY>
+void runAndVerify(const TestConfig<T, OP_TYPE> &Config,
                   const InputSets<T, ARITY> &Inputs,
                   const std::vector<OUT_TYPE> &Expected,
                   std::string ExtraDefines,
                   const ValidationConfig &ValidationConfig) {
 
   std::optional<std::vector<OUT_TYPE>> Actual =
-      runTest<OUT_TYPE>(Config, OpType, Inputs, Expected.size(), ExtraDefines);
+      runTest<OUT_TYPE>(Config, Inputs, Expected.size(), ExtraDefines);
 
   // If the test didn't run, don't verify anything.
   if (!Actual)
@@ -609,13 +572,13 @@ void runAndVerify(const TestConfig &Config, OP_TYPE OpType,
                                 ValidationConfig.Type, Config.VerboseLogging));
 }
 
-template <typename T, typename OUT_TYPE, typename OP_TYPE>
-void dispatchUnaryTest(const TestConfig &Config,
-                       const ValidationConfig &ValidationConfig, OP_TYPE OpType,
+template <typename T, typename OP_TYPE, typename OUT_TYPE>
+void dispatchUnaryTest(const TestConfig<T, OP_TYPE> &Config,
+                       const ValidationConfig &ValidationConfig,
                        size_t VectorSize, OUT_TYPE (*Calc)(T),
                        std::string ExtraDefines) {
 
-  InputSets<T, 1> Inputs = buildTestInputs<T, 1>(Config, VectorSize);
+  InputSets<T, 1> Inputs = buildTestInputs<1>(Config, VectorSize);
 
   std::vector<OUT_TYPE> Expected;
   Expected.reserve(Inputs[0].size());
@@ -623,15 +586,14 @@ void dispatchUnaryTest(const TestConfig &Config,
   for (size_t I = 0; I < Inputs[0].size(); ++I)
     Expected.push_back(Calc(Inputs[0][I]));
 
-  runAndVerify(Config, OpType, Inputs, Expected, ExtraDefines,
-               ValidationConfig);
+  runAndVerify(Config, Inputs, Expected, ExtraDefines, ValidationConfig);
 }
 
-template <typename T, typename OUT_TYPE, typename OP_TYPE>
-void dispatchBinaryTest(const TestConfig &Config,
+template <typename T, typename OP_TYPE, typename OUT_TYPE>
+void dispatchBinaryTest(const TestConfig<T, OP_TYPE> &Config,
                         const ValidationConfig &ValidationConfig,
-                        OP_TYPE OpType, size_t VectorSize,
-                        OUT_TYPE (*Calc)(T, T), std::string ExtraDefines = "") {
+                        size_t VectorSize, OUT_TYPE (*Calc)(T, T),
+                        std::string ExtraDefines = "") {
   InputSets<T, 2> Inputs = buildTestInputs<T, 2>(Config, VectorSize);
 
   std::vector<OUT_TYPE> Expected;
@@ -642,8 +604,7 @@ void dispatchBinaryTest(const TestConfig &Config,
     Expected.push_back(Calc(Inputs[0][I], Inputs[1][Index1]));
   }
 
-  runAndVerify(Config, OpType, Inputs, Expected, ExtraDefines,
-               ValidationConfig);
+  runAndVerify(Config, Inputs, Expected, ExtraDefines, ValidationConfig);
 }
 
 //
@@ -697,15 +658,15 @@ template <typename T> struct TrigonometricOperation {
 };
 
 template <typename T>
-void dispatchTrigonometricTest(const TestConfig &Config,
+void dispatchTrigonometricTest(const TestConfig<T, TrigonometricOpType> &Config,
                                ValidationConfig ValidationConfig,
-                               TrigonometricOpType OpType, size_t VectorSize) {
+                               size_t VectorSize) {
 #define DISPATCH(OP, NAME)                                                     \
   case OP:                                                                     \
-    return dispatchUnaryTest<T>(Config, ValidationConfig, OP, VectorSize,      \
+    return dispatchUnaryTest<T>(Config, ValidationConfig, VectorSize,          \
                                 TrigonometricOperation<T>::NAME, "")
 
-  switch (OpType) {
+  switch (Config.OpType) {
     DISPATCH(TrigonometricOpType::Acos, acos);
     DISPATCH(TrigonometricOpType::Asin, asin);
     DISPATCH(TrigonometricOpType::Atan, atan);
@@ -721,30 +682,32 @@ void dispatchTrigonometricTest(const TestConfig &Config,
 
 #undef DISPATCH
 
-  LOG_ERROR_FMT_THROW(L"Unexpected TrigonometricOpType: %d.", OpType);
+  DXASSERT(false, "Invalid OpType");
 }
 
-void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
-                                       TrigonometricOpType OpType,
-                                       size_t VectorSize) {
+// All trigonometric ops are floating point types.
+// These trig functions are defined to have a max absolute error of 0.0008
+// as per the D3D functional specs. An example with this spec for sin and
+// cos is available here:
+// https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
 
-  // All trigonometric ops are floating point types.
-  // These trig functions are defined to have a max absolute error of 0.0008
-  // as per the D3D functional specs. An example with this spec for sin and
-  // cos is available here:
-  // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
+template <typename T>
+void dispatchTestByVectorSize(const TestConfig<T, TrigonometricOpType> &Config,
+                              size_t VectorSize);
 
-  if (Config.DataType == getDataTypeName<HLSLHalf_t>())
-    return dispatchTrigonometricTest<HLSLHalf_t>(
-        Config, ValidationConfig::Epsilon(0.0010f), OpType, VectorSize);
+template <>
+void dispatchTestByVectorSize(
+    const TestConfig<HLSLHalf_t, TrigonometricOpType> &Config,
+    size_t VectorSize) {
+  return dispatchTrigonometricTest<HLSLHalf_t>(
+      Config, ValidationConfig::Epsilon(0.0010f), VectorSize);
+}
 
-  if (Config.DataType == getDataTypeName<float>())
-    return dispatchTrigonometricTest<float>(
-        Config, ValidationConfig::Epsilon(0.0008f), OpType, VectorSize);
-
-  LOG_ERROR_FMT_THROW(
-      L"DataType '%s' not supported for trigonometric operations.",
-      (const wchar_t *)Config.DataType);
+template <>
+void dispatchTestByVectorSize(
+    const TestConfig<float, TrigonometricOpType> &Config, size_t VectorSize) {
+  return dispatchTrigonometricTest<float>(
+      Config, ValidationConfig::Epsilon(0.0008f), VectorSize);
 }
 
 //
@@ -860,10 +823,12 @@ static double asDouble(const uint32_t LowBits, const uint32_t HighBits) {
   return Result;
 }
 
-void dispatchAsUintSplitDoubleTest(const TestConfig &Config,
-                                   size_t VectorSize) {
+void dispatchAsUintSplitDoubleTest(
+    const TestConfig<double, AsTypeOpType> &Config, size_t VectorSize) {
+  DXASSERT(Config.OpType == AsTypeOpType::AsUint_SplitDouble,
+           "Unexpected OpType");
 
-  InputSets<double, 1> Inputs = buildTestInputs<double, 1>(Config, VectorSize);
+  InputSets<double, 1> Inputs = buildTestInputs<1>(Config, VectorSize);
 
   std::vector<uint32_t> Expected;
   Expected.resize(Inputs.size() * 2);
@@ -876,67 +841,48 @@ void dispatchAsUintSplitDoubleTest(const TestConfig &Config,
   }
 
   ValidationConfig ValidationConfig{};
-  runAndVerify(Config, AsTypeOpType::AsUint_SplitDouble, Inputs, Expected,
-               " -DFUNC_ASUINT_SPLITDOUBLE=1", ValidationConfig);
+  runAndVerify(Config, Inputs, Expected, " -DFUNC_ASUINT_SPLITDOUBLE=1",
+               ValidationConfig);
 }
 
-void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
-                                       AsTypeOpType OpType, size_t VectorSize) {
+template <typename T>
+void dispatchTestByVectorSize(const TestConfig<T, AsTypeOpType> &Config,
+                              size_t VectorSize) {
 
   // Different AsType* operations are supported for different data types, so
   // we dispatch on operation first.
 
-#define DISPATCH(TYPE, FN)                                                     \
-  if (Config.DataType == getDataTypeName<TYPE>())                              \
-  return dispatchUnaryTest<TYPE>(Config, ValidationConfig{}, OpType,           \
-                                 VectorSize, FN<TYPE>, "")
+#define DISPATCH(FN)                                                           \
+  return dispatchUnaryTest(Config, ValidationConfig{}, VectorSize, FN<T>, "")
 
-  switch (OpType) {
+  switch (Config.OpType) {
   case AsTypeOpType::AsFloat:
-    DISPATCH(float, asFloat);
-    DISPATCH(int32_t, asFloat);
-    DISPATCH(uint32_t, asFloat);
-    break;
+    DISPATCH(asFloat);
 
   case AsTypeOpType::AsInt:
-    DISPATCH(float, asInt);
-    DISPATCH(int32_t, asInt);
-    DISPATCH(uint32_t, asInt);
-    break;
+    DISPATCH(asInt);
 
   case AsTypeOpType::AsUint:
-    DISPATCH(int32_t, asUint);
-    DISPATCH(uint32_t, asUint);
-    break;
+    DISPATCH(asUint);
 
   case AsTypeOpType::AsFloat16:
-    DISPATCH(HLSLHalf_t, asFloat16);
-    DISPATCH(int16_t, asFloat16);
-    DISPATCH(uint16_t, asFloat16);
-    break;
+    DISPATCH(asFloat16);
 
   case AsTypeOpType::AsInt16:
-    DISPATCH(HLSLHalf_t, asInt16);
-    DISPATCH(int16_t, asInt16);
-    DISPATCH(uint16_t, asInt16);
-    break;
+    DISPATCH(asInt16);
 
   case AsTypeOpType::AsUint16:
-    DISPATCH(HLSLHalf_t, asUint16);
-    DISPATCH(int16_t, asUint16);
-    DISPATCH(uint16_t, asUint16);
-    break;
+    DISPATCH(asUint16);
 
   case AsTypeOpType::AsUint_SplitDouble:
-    if (Config.DataType == getDataTypeName<double>())
+    if constexpr (std::is_same_v<T, double>)
       return dispatchAsUintSplitDoubleTest(Config, VectorSize);
     break;
 
   case AsTypeOpType::AsDouble:
-    if (Config.DataType == getDataTypeName<uint32_t>())
-      return dispatchBinaryTest<uint32_t>(Config, ValidationConfig{},
-                                          AsTypeOpType::AsDouble, VectorSize,
-                                          asDouble);
+    if constexpr (std::is_same_v<T, uint32_t>)
+      return dispatchBinaryTest(Config, ValidationConfig{}, VectorSize,
+                                asDouble);
     break;
 
   case AsTypeOpType::EnumValueCount:
@@ -945,12 +891,9 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 
 #undef DISPATCH
 
-  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for AsTypeOp '%s'",
-                      (const wchar_t *)Config.DataType,
-                      (const wchar_t *)Config.OpTypeEnum);
+  DXASSERT(false, "Invalid OpType");
 }
 
-//
 // UnaryOp
 //
 
@@ -969,39 +912,20 @@ OP_TYPE_META_DATA(UnaryOpType, unaryOpTypeStringToOpMetaData);
 
 template <typename T> T Initialize(T V) { return V; }
 
-void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
-                                       UnaryOpType OpType, size_t VectorSize) {
-#define DISPATCH(TYPE, FUNC, EXTRA_DEFINES)                                    \
-  if (Config.DataType == getDataTypeName<TYPE>())                              \
-  return dispatchUnaryTest(Config, ValidationConfig{}, OpType, VectorSize,     \
-                           FUNC, EXTRA_DEFINES)
+template <typename T>
+void dispatchTestByVectorSize(const TestConfig<T, UnaryOpType> &Config,
+                              size_t VectorSize) {
 
-#define DISPATCH_INITIALIZE(TYPE)                                              \
-  DISPATCH(TYPE, Initialize<TYPE>, " -DFUNC_INITIALIZE=1")
-
-  switch (OpType) {
+  switch (Config.OpType) {
   case UnaryOpType::Initialize:
-    DISPATCH_INITIALIZE(HLSLBool_t);
-    DISPATCH_INITIALIZE(int16_t);
-    DISPATCH_INITIALIZE(int32_t);
-    DISPATCH_INITIALIZE(int64_t);
-    DISPATCH_INITIALIZE(uint16_t);
-    DISPATCH_INITIALIZE(uint32_t);
-    DISPATCH_INITIALIZE(uint64_t);
-    DISPATCH_INITIALIZE(HLSLHalf_t);
-    DISPATCH_INITIALIZE(float);
-    DISPATCH_INITIALIZE(double);
-    break;
+    return dispatchUnaryTest(Config, ValidationConfig{}, VectorSize,
+                             Initialize<T>, " -DFUNC_INITIALIZE=1");
+
   case UnaryOpType::EnumValueCount:
     break;
   }
 
-#undef DISPATCH_INITIALIZE
-#undef DISPATCH
-
-  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for UnaryOpType '%s'",
-                      (const wchar_t *)Config.DataType,
-                      (const wchar_t *)Config.OpTypeEnum);
+  DXASSERT(false, "Invalid OpType");
 }
 
 //
@@ -1056,7 +980,7 @@ static_assert(_countof(unaryMathOpTypeStringToOpMetaData) ==
 OP_TYPE_META_DATA(UnaryMathOpType, unaryMathOpTypeStringToOpMetaData);
 
 template <typename T, typename OUT_TYPE>
-void dispatchUnaryMathOpTest(const TestConfig &Config, UnaryMathOpType OpType,
+void dispatchUnaryMathOpTest(const TestConfig<T, UnaryMathOpType> &Config,
                              size_t VectorSize, OUT_TYPE (*Calc)(T)) {
 
   ValidationConfig ValidationConfig;
@@ -1065,7 +989,7 @@ void dispatchUnaryMathOpTest(const TestConfig &Config, UnaryMathOpType OpType,
     ValidationConfig = ValidationConfig::Ulp(1.0);
   }
 
-  dispatchUnaryTest(Config, ValidationConfig, OpType, VectorSize, Calc, "");
+  dispatchUnaryTest(Config, ValidationConfig, VectorSize, Calc, "");
 }
 
 template <typename T> struct UnaryMathOps {
@@ -1107,11 +1031,14 @@ template <typename T> struct UnaryMathOps {
   static T Rcp(T V) { return static_cast<T>(1.0) / V; }
 };
 
-void dispatchFrexpTest(const TestConfig &Config, size_t VectorSize) {
+void dispatchFrexpTest(const TestConfig<float, UnaryMathOpType> &Config,
+                       size_t VectorSize) {
+  DXASSERT(Config.OpType == UnaryMathOpType::Frexp, "Unexpected OpType");
+
   // Frexp has a return value as well as an output paramater. So we handle it
   // with special logic. Frexp is only supported for fp32 values.
 
-  InputSets<float, 1> Inputs = buildTestInputs<float, 1>(Config, VectorSize);
+  InputSets<float, 1> Inputs = buildTestInputs<1>(Config, VectorSize);
 
   std::vector<float> Expected;
 
@@ -1139,110 +1066,78 @@ void dispatchFrexpTest(const TestConfig &Config, size_t VectorSize) {
     Expected[I + VectorSize] = static_cast<float>(Exp);
   }
 
-  runAndVerify(Config, UnaryMathOpType::Frexp, Inputs, Expected,
-               " -DFUNC_FREXP=1", ValidationConfig{});
+  runAndVerify(Config, Inputs, Expected, " -DFUNC_FREXP=1", ValidationConfig{});
 }
 
-void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
-                                       UnaryMathOpType OpType,
-                                       size_t VectorSize) {
-#define DISPATCH(TYPE, FUNC)                                                   \
-  if (Config.DataType == getDataTypeName<TYPE>())                              \
-  return dispatchUnaryMathOpTest(Config, OpType, VectorSize,                   \
-                                 UnaryMathOps<TYPE>::FUNC)
+template <typename T>
+void dispatchTestByVectorSize(const TestConfig<T, UnaryMathOpType> &Config,
+                              size_t VectorSize) {
+#define DISPATCH(FUNC)                                                         \
+  return dispatchUnaryMathOpTest(Config, VectorSize, UnaryMathOps<T>::FUNC)
 
-  switch (OpType) {
+  switch (Config.OpType) {
   case UnaryMathOpType::Abs:
-    DISPATCH(HLSLHalf_t, Abs);
-    DISPATCH(float, Abs);
-    DISPATCH(double, Abs);
-    DISPATCH(int16_t, Abs);
-    DISPATCH(int32_t, Abs);
-    DISPATCH(int64_t, Abs);
-    DISPATCH(uint16_t, Abs);
-    DISPATCH(uint32_t, Abs);
-    DISPATCH(uint64_t, Abs);
+    DISPATCH(Abs);
     break;
 
   case UnaryMathOpType::Sign:
-    DISPATCH(HLSLHalf_t, Sign);
-    DISPATCH(float, Sign);
-    DISPATCH(double, Sign);
-    DISPATCH(int16_t, Sign);
-    DISPATCH(int32_t, Sign);
-    DISPATCH(int64_t, Sign);
-    DISPATCH(uint16_t, Sign);
-    DISPATCH(uint32_t, Sign);
-    DISPATCH(uint64_t, Sign);
+    DISPATCH(Sign);
     break;
 
   case UnaryMathOpType::Ceil:
-    DISPATCH(HLSLHalf_t, Ceil);
-    DISPATCH(float, Ceil);
+    DISPATCH(Ceil);
     break;
 
   case UnaryMathOpType::Floor:
-    DISPATCH(HLSLHalf_t, Floor);
-    DISPATCH(float, Floor);
+    DISPATCH(Floor);
     break;
 
   case UnaryMathOpType::Trunc:
-    DISPATCH(HLSLHalf_t, Trunc);
-    DISPATCH(float, Trunc);
+    DISPATCH(Trunc);
     break;
 
   case UnaryMathOpType::Round:
-    DISPATCH(HLSLHalf_t, Round);
-    DISPATCH(float, Round);
+    DISPATCH(Round);
     break;
 
   case UnaryMathOpType::Frac:
-    DISPATCH(HLSLHalf_t, Frac);
-    DISPATCH(float, Frac);
+    DISPATCH(Frac);
     break;
 
   case UnaryMathOpType::Sqrt:
-    DISPATCH(HLSLHalf_t, Sqrt);
-    DISPATCH(float, Sqrt);
+    DISPATCH(Sqrt);
     break;
 
   case UnaryMathOpType::Rsqrt:
-    DISPATCH(HLSLHalf_t, Rsqrt);
-    DISPATCH(float, Rsqrt);
+    DISPATCH(Rsqrt);
     break;
 
   case UnaryMathOpType::Exp:
-    DISPATCH(HLSLHalf_t, Exp);
-    DISPATCH(float, Exp);
+    DISPATCH(Exp);
     break;
 
   case UnaryMathOpType::Exp2:
-    DISPATCH(HLSLHalf_t, Exp2);
-    DISPATCH(float, Exp2);
+    DISPATCH(Exp2);
     break;
 
   case UnaryMathOpType::Log:
-    DISPATCH(HLSLHalf_t, Log);
-    DISPATCH(float, Log);
+    DISPATCH(Log);
     break;
 
   case UnaryMathOpType::Log2:
-    DISPATCH(HLSLHalf_t, Log2);
-    DISPATCH(float, Log2);
+    DISPATCH(Log2);
     break;
 
   case UnaryMathOpType::Log10:
-    DISPATCH(HLSLHalf_t, Log10);
-    DISPATCH(float, Log10);
+    DISPATCH(Log10);
     break;
 
   case UnaryMathOpType::Rcp:
-    DISPATCH(HLSLHalf_t, Rcp);
-    DISPATCH(float, Rcp);
+    DISPATCH(Rcp);
     break;
 
   case UnaryMathOpType::Frexp:
-    if (Config.DataType == getDataTypeName<float>())
+    if constexpr (std::is_same_v<T, float>)
       return dispatchFrexpTest(Config, VectorSize);
     break;
 
@@ -1252,9 +1147,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 
 #undef DISPATCH
 
-  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for UnaryOpType '%s'",
-                      (const wchar_t *)Config.DataType,
-                      (const wchar_t *)Config.OpTypeEnum);
+  DXASSERT(false, "Invalid OpType");
 }
 
 //
@@ -1286,7 +1179,7 @@ static_assert(_countof(binaryOpTypeStringToOpMetaData) ==
 OP_TYPE_META_DATA(BinaryOpType, binaryOpTypeStringToOpMetaData);
 
 template <typename T, typename OUT_TYPE>
-void dispatchBinaryOpTest(const TestConfig &Config, BinaryOpType OpType,
+void dispatchBinaryOpTest(const TestConfig<T, BinaryOpType> &Config,
                           size_t VectorSize, OUT_TYPE (*Calc)(T, T),
                           std::string ExtraDefines) {
 
@@ -1295,8 +1188,7 @@ void dispatchBinaryOpTest(const TestConfig &Config, BinaryOpType OpType,
   if (isFloatingPointType<T>())
     ValidationConfig = ValidationConfig::Ulp(1.0);
 
-  dispatchBinaryTest(Config, ValidationConfig, OpType, VectorSize, Calc,
-                     ExtraDefines);
+  dispatchBinaryTest(Config, ValidationConfig, VectorSize, Calc, ExtraDefines);
 }
 
 template <typename T> struct BinaryOps {
@@ -1310,51 +1202,33 @@ template <typename T> struct BinaryOps {
   static T TernaryFalse(T A, T B) { return false ? A : B; }
 };
 
-void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
-                                       BinaryOpType OpType, size_t VectorSize) {
+template <typename T>
+void dispatchTestByVectorSize(const TestConfig<T, BinaryOpType> &Config,
+                              size_t VectorSize) {
 
-#define DISPATCH(TYPE, FUNC)                                                   \
-  if (Config.DataType == getDataTypeName<TYPE>())                              \
-  return dispatchBinaryOpTest(Config, OpType, VectorSize,                      \
-                              BinaryOps<TYPE>::FUNC, ExtraDefines)
+#define DISPATCH(FUNC)                                                         \
+  return dispatchBinaryOpTest(Config, VectorSize, BinaryOps<T>::FUNC,          \
+                              ExtraDefines)
 
   std::string ExtraDefines;
 
-  switch (OpType) {
+  switch (Config.OpType) {
   case BinaryOpType::TernaryAssignment_True:
     ExtraDefines = " -DTERNARY_CONDITION=1 -DFUNC_TERNARY_ASSIGNMENT=1";
-    DISPATCH(HLSLBool_t, TernaryTrue);
-    DISPATCH(HLSLHalf_t, TernaryTrue);
-    DISPATCH(float, TernaryTrue);
-    DISPATCH(double, TernaryTrue);
-    DISPATCH(int16_t, TernaryTrue);
-    DISPATCH(int32_t, TernaryTrue);
-    DISPATCH(int64_t, TernaryTrue);
-    DISPATCH(uint16_t, TernaryTrue);
-    DISPATCH(uint32_t, TernaryTrue);
-    DISPATCH(uint64_t, TernaryTrue);
+    DISPATCH(TernaryTrue);
     break;
 
   case BinaryOpType::TernaryAssignment_False:
     ExtraDefines = " -DTERNARY_CONDITION=0 -DFUNC_TERNARY_ASSIGNMENT=1";
-    DISPATCH(HLSLBool_t, TernaryFalse);
-    DISPATCH(HLSLHalf_t, TernaryFalse);
-    DISPATCH(float, TernaryFalse);
-    DISPATCH(double, TernaryFalse);
-    DISPATCH(int16_t, TernaryFalse);
-    DISPATCH(int32_t, TernaryFalse);
-    DISPATCH(int64_t, TernaryFalse);
-    DISPATCH(uint16_t, TernaryFalse);
-    DISPATCH(uint32_t, TernaryFalse);
-    DISPATCH(uint64_t, TernaryFalse);
+    DISPATCH(TernaryFalse);
     break;
 
   case BinaryOpType::LogicalAnd:
-    DISPATCH(HLSLBool_t, LogicalAnd);
+    DISPATCH(LogicalAnd);
     break;
 
   case BinaryOpType::LogicalOr:
-    DISPATCH(HLSLBool_t, LogicalOr);
+    DISPATCH(LogicalOr);
     break;
 
   case BinaryOpType::EnumValueCount:
@@ -1363,12 +1237,9 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 
 #undef DISPATCH
 
-  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for BinaryOpType '%s'",
-                      (const wchar_t *)Config.DataType,
-                      (const wchar_t *)Config.OpTypeEnum);
+  DXASSERT(false, "Invalid OpType");
 }
 
-//
 // BinaryMathOp
 //
 
@@ -1408,7 +1279,7 @@ static_assert(_countof(binaryMathOpTypeStringToOpMetaData) ==
 OP_TYPE_META_DATA(BinaryMathOpType, binaryMathOpTypeStringToOpMetaData);
 
 template <typename T, typename OUT_TYPE>
-void dispatchBinaryMathOpTest(const TestConfig &Config, BinaryMathOpType OpType,
+void dispatchBinaryMathOpTest(const TestConfig<T, BinaryMathOpType> &Config,
                               size_t VectorSize, OUT_TYPE (*Calc)(T, T)) {
 
   ValidationConfig ValidationConfig;
@@ -1416,7 +1287,7 @@ void dispatchBinaryMathOpTest(const TestConfig &Config, BinaryMathOpType OpType,
   if (isFloatingPointType<T>())
     ValidationConfig = ValidationConfig::Ulp(1.0);
 
-  dispatchBinaryTest(Config, ValidationConfig, OpType, VectorSize, Calc);
+  dispatchBinaryTest(Config, ValidationConfig, VectorSize, Calc);
 }
 
 template <typename T> struct BinaryMathOps {
@@ -1425,14 +1296,13 @@ template <typename T> struct BinaryMathOps {
   static T Subtract(T A, T B) { return A - B; }
   static T Divide(T A, T B) { return A / B; }
 
-  static T FmodModulus(T A, T B) {
-    static_assert(isFloatingPointType<T>());
-    return std::fmod(A, B);
-  }
-
-  static T OperatorModulus(T A, T B) {
-    // note: as well as integral types, HLSLHalf_t go through this code path
-    return A % B;
+  static T Modulus(T A, T B) {
+    // Only float uses fmod.  Everything else - including HLSLHalf_t uses the
+    // operator.
+    if constexpr (std::is_same_v<T, float>)
+      return std::fmod(A, B);
+    else
+      return A % B;
   }
 
   static T Min(T A, T B) { return std::min(A, B); }
@@ -1441,104 +1311,37 @@ template <typename T> struct BinaryMathOps {
   static T Ldexp(T A, T B) { return A * static_cast<T>(std::pow(2.0f, B)); }
 };
 
-void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
-                                       BinaryMathOpType OpType,
-                                       size_t VectorSize) {
+template <typename T>
+void dispatchTestByVectorSize(const TestConfig<T, BinaryMathOpType> &Config,
+                              size_t VectorSize) {
 
-#define DISPATCH(TYPE, FUNC)                                                   \
-  if (Config.DataType == getDataTypeName<TYPE>())                              \
-  return dispatchBinaryMathOpTest(Config, OpType, VectorSize,                  \
-                                  BinaryMathOps<TYPE>::FUNC)
+#define DISPATCH(FUNC)                                                         \
+  return dispatchBinaryMathOpTest(Config, VectorSize, BinaryMathOps<T>::FUNC)
 
-  switch (OpType) {
+  switch (Config.OpType) {
   case BinaryMathOpType::Multiply:
-    DISPATCH(HLSLHalf_t, Multiply);
-    DISPATCH(float, Multiply);
-    DISPATCH(double, Multiply);
-    DISPATCH(int16_t, Multiply);
-    DISPATCH(int32_t, Multiply);
-    DISPATCH(int64_t, Multiply);
-    DISPATCH(uint16_t, Multiply);
-    DISPATCH(uint32_t, Multiply);
-    DISPATCH(uint64_t, Multiply);
-    break;
+    DISPATCH(Multiply);
 
   case BinaryMathOpType::Add:
-    DISPATCH(HLSLBool_t, Add);
-    DISPATCH(HLSLHalf_t, Add);
-    DISPATCH(float, Add);
-    DISPATCH(double, Add);
-    DISPATCH(int16_t, Add);
-    DISPATCH(int32_t, Add);
-    DISPATCH(int64_t, Add);
-    DISPATCH(uint16_t, Add);
-    DISPATCH(uint32_t, Add);
-    DISPATCH(uint64_t, Add);
-    break;
+    DISPATCH(Add);
 
   case BinaryMathOpType::Subtract:
-    DISPATCH(HLSLBool_t, Subtract);
-    DISPATCH(HLSLHalf_t, Subtract);
-    DISPATCH(float, Subtract);
-    DISPATCH(double, Subtract);
-    DISPATCH(int16_t, Subtract);
-    DISPATCH(int32_t, Subtract);
-    DISPATCH(int64_t, Subtract);
-    DISPATCH(uint16_t, Subtract);
-    DISPATCH(uint32_t, Subtract);
-    DISPATCH(uint64_t, Subtract);
-    break;
+    DISPATCH(Subtract);
 
   case BinaryMathOpType::Divide:
-    DISPATCH(HLSLHalf_t, Divide);
-    DISPATCH(float, Divide);
-    DISPATCH(double, Divide);
-    DISPATCH(int16_t, Divide);
-    DISPATCH(int32_t, Divide);
-    DISPATCH(int64_t, Divide);
-    DISPATCH(uint16_t, Divide);
-    DISPATCH(uint32_t, Divide);
-    DISPATCH(uint64_t, Divide);
-    break;
+    DISPATCH(Divide);
 
   case BinaryMathOpType::Modulus:
-    DISPATCH(HLSLHalf_t, OperatorModulus);
-    DISPATCH(float, FmodModulus);
-    DISPATCH(int16_t, OperatorModulus);
-    DISPATCH(int32_t, OperatorModulus);
-    DISPATCH(int64_t, OperatorModulus);
-    DISPATCH(uint16_t, OperatorModulus);
-    DISPATCH(uint32_t, OperatorModulus);
-    DISPATCH(uint64_t, OperatorModulus);
-    break;
+    DISPATCH(Modulus);
 
   case BinaryMathOpType::Min:
-    DISPATCH(HLSLHalf_t, Min);
-    DISPATCH(float, Min);
-    DISPATCH(double, Min);
-    DISPATCH(int16_t, Min);
-    DISPATCH(int32_t, Min);
-    DISPATCH(int64_t, Min);
-    DISPATCH(uint16_t, Min);
-    DISPATCH(uint32_t, Min);
-    DISPATCH(uint64_t, Min);
-    break;
+    DISPATCH(Min);
 
   case BinaryMathOpType::Max:
-    DISPATCH(HLSLHalf_t, Max);
-    DISPATCH(float, Max);
-    DISPATCH(double, Max);
-    DISPATCH(int16_t, Max);
-    DISPATCH(int32_t, Max);
-    DISPATCH(int64_t, Max);
-    DISPATCH(uint16_t, Max);
-    DISPATCH(uint32_t, Max);
-    DISPATCH(uint64_t, Max);
-    break;
+    DISPATCH(Max);
 
   case BinaryMathOpType::Ldexp:
-    DISPATCH(HLSLHalf_t, Ldexp);
-    DISPATCH(float, Ldexp);
+    DISPATCH(Ldexp);
     break;
 
   case BinaryMathOpType::EnumValueCount:
@@ -1547,12 +1350,9 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 
 #undef DISPATCH
 
-  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for BinaryMathOpType '%s'",
-                      (const wchar_t *)Config.DataType,
-                      (const wchar_t *)Config.OpTypeEnum);
+  DXASSERT(false, "Invalid OpType");
 }
 
-//
 // BinaryComparisonOp
 //
 
@@ -1591,11 +1391,11 @@ OP_TYPE_META_DATA(BinaryComparisonOpType,
                   binaryComparisonOpTypeStringToOpMetaData);
 
 template <typename T, typename OUT_TYPE>
-void dispatchBinaryComparisonOpTest(const TestConfig &Config,
-                                    BinaryComparisonOpType OpType,
-                                    size_t VectorSize, OUT_TYPE (*Calc)(T, T)) {
+void dispatchBinaryComparisonOpTest(
+    const TestConfig<T, BinaryComparisonOpType> &Config, size_t VectorSize,
+    OUT_TYPE (*Calc)(T, T)) {
   ValidationConfig ValidationConfig{};
-  dispatchBinaryTest(Config, ValidationConfig, OpType, VectorSize, Calc);
+  dispatchBinaryTest(Config, ValidationConfig, VectorSize, Calc);
 }
 
 template <typename T> struct BinaryComparisonOps {
@@ -1607,86 +1407,31 @@ template <typename T> struct BinaryComparisonOps {
   static HLSLBool_t GreaterEqual(T A, T B) { return A >= B; }
 };
 
-void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
-                                       BinaryComparisonOpType OpType,
-                                       size_t VectorSize) {
+template <typename T>
+void dispatchTestByVectorSize(
+    const TestConfig<T, BinaryComparisonOpType> &Config, size_t VectorSize) {
 
-#define DISPATCH(TYPE, FUNC)                                                   \
-  if (Config.DataType == getDataTypeName<TYPE>())                              \
-  return dispatchBinaryTest(Config, ValidationConfig{}, OpType, VectorSize,    \
-                            BinaryComparisonOps<TYPE>::FUNC)
-  switch (OpType) {
+#define DISPATCH(FUNC)                                                         \
+  return dispatchBinaryTest(Config, VectorSize, BinaryComparisonOps<T>::FUNC)
+
+  switch (Config.OpType) {
   case BinaryComparisonOpType::LessThan:
-    DISPATCH(int16_t, LessThan);
-    DISPATCH(int32_t, LessThan);
-    DISPATCH(int64_t, LessThan);
-    DISPATCH(uint16_t, LessThan);
-    DISPATCH(uint32_t, LessThan);
-    DISPATCH(uint64_t, LessThan);
-    DISPATCH(HLSLHalf_t, LessThan);
-    DISPATCH(float, LessThan);
-    DISPATCH(double, LessThan);
-    break;
+    DISPATCH(LessThan);
 
   case BinaryComparisonOpType::LessEqual:
-    DISPATCH(int16_t, LessEqual);
-    DISPATCH(int32_t, LessEqual);
-    DISPATCH(int64_t, LessEqual);
-    DISPATCH(uint16_t, LessEqual);
-    DISPATCH(uint32_t, LessEqual);
-    DISPATCH(uint64_t, LessEqual);
-    DISPATCH(HLSLHalf_t, LessEqual);
-    DISPATCH(float, LessEqual);
-    DISPATCH(double, LessEqual);
-    break;
+    DISPATCH(LessEqual);
 
   case BinaryComparisonOpType::GreaterThan:
-    DISPATCH(int16_t, GreaterThan);
-    DISPATCH(int32_t, GreaterThan);
-    DISPATCH(int64_t, GreaterThan);
-    DISPATCH(uint16_t, GreaterThan);
-    DISPATCH(uint32_t, GreaterThan);
-    DISPATCH(uint64_t, GreaterThan);
-    DISPATCH(HLSLHalf_t, GreaterThan);
-    DISPATCH(float, GreaterThan);
-    DISPATCH(double, GreaterThan);
-    break;
+    DISPATCH(GreaterThan);
 
   case BinaryComparisonOpType::GreaterEqual:
-    DISPATCH(int16_t, GreaterEqual);
-    DISPATCH(int32_t, GreaterEqual);
-    DISPATCH(int64_t, GreaterEqual);
-    DISPATCH(uint16_t, GreaterEqual);
-    DISPATCH(uint32_t, GreaterEqual);
-    DISPATCH(uint64_t, GreaterEqual);
-    DISPATCH(HLSLHalf_t, GreaterEqual);
-    DISPATCH(float, GreaterEqual);
-    DISPATCH(double, GreaterEqual);
-    break;
+    DISPATCH(GreaterEqual);
 
   case BinaryComparisonOpType::Equal:
-    DISPATCH(int16_t, Equal);
-    DISPATCH(int32_t, Equal);
-    DISPATCH(int64_t, Equal);
-    DISPATCH(uint16_t, Equal);
-    DISPATCH(uint32_t, Equal);
-    DISPATCH(uint64_t, Equal);
-    DISPATCH(HLSLHalf_t, Equal);
-    DISPATCH(float, Equal);
-    DISPATCH(double, Equal);
-    break;
+    DISPATCH(Equal);
 
   case BinaryComparisonOpType::NotEqual:
-    DISPATCH(int16_t, NotEqual);
-    DISPATCH(int32_t, NotEqual);
-    DISPATCH(int64_t, NotEqual);
-    DISPATCH(uint16_t, NotEqual);
-    DISPATCH(uint32_t, NotEqual);
-    DISPATCH(uint64_t, NotEqual);
-    DISPATCH(HLSLHalf_t, NotEqual);
-    DISPATCH(float, NotEqual);
-    DISPATCH(double, NotEqual);
-    break;
+    DISPATCH(NotEqual);
 
   case BinaryComparisonOpType::EnumValueCount:
     break;
@@ -1694,9 +1439,7 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 
 #undef DISPATCH
 
-  LOG_ERROR_FMT_THROW(
-      L"DataType '%s' not supported for BinaryComparisonOpType '%s'",
-      (const wchar_t *)Config.DataType, (const wchar_t *)Config.OpTypeEnum);
+  DXASSERT(false, "Invalid OpType");
 }
 
 //
@@ -1731,10 +1474,10 @@ static_assert(_countof(bitwiseOpTypeStringToOpMetaData) ==
 OP_TYPE_META_DATA(BitwiseOpType, bitwiseOpTypeStringToOpMetaData);
 
 template <typename T, typename OUT_TYPE>
-void dispatchBitwiseOpTest(const TestConfig &Config, BitwiseOpType OpType,
+void dispatchBitwiseOpTest(const TestConfig<T, BitwiseOpType> &Config,
                            size_t VectorSize, OUT_TYPE (*Calc)(T, T)) {
   ValidationConfig ValidationConfig{};
-  dispatchBinaryTest(Config, ValidationConfig, OpType, VectorSize, Calc);
+  dispatchBinaryTest(Config, ValidationConfig, VectorSize, Calc);
 }
 
 template <typename T> struct BitwiseOps {
@@ -1746,74 +1489,35 @@ template <typename T> struct BitwiseOps {
   static T Not(T A) { return ~A; }
 };
 
-void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
-                                       BitwiseOpType OpType,
-                                       size_t VectorSize) {
+template <typename T>
+void dispatchTestByVectorSize(const TestConfig<T, BitwiseOpType> &Config,
+                              size_t VectorSize) {
 
-#define DISPATCH(TYPE, FUNC)                                                   \
-  if (Config.DataType == getDataTypeName<TYPE>())                              \
-  return dispatchBinaryTest(Config, ValidationConfig{}, OpType, VectorSize,    \
-                            BitwiseOps<TYPE>::FUNC)
+#define DISPATCH(FUNC)                                                         \
+  return dispatchBinaryTest(Config, VectorSize, BitwiseOps<T>::FUNC)
 
-#define DISPATCH_NOT(TYPE, FUNC)                                               \
-  if (Config.DataType == getDataTypeName<TYPE>())                              \
-  return dispatchUnaryTest(Config, ValidationConfig{}, OpType, VectorSize,     \
-                           BitwiseOps<TYPE>::FUNC, "-DFUNC_UNARY_OPERATOR=1")
+#define DISPATCH_NOT(FUNC)                                                     \
+  return dispatchUnaryTest(Config, VectorSize, BitwiseOps<T>::FUNC,            \
+                           "-DFUNC_UNARY_OPERATOR=1")
 
-  switch (OpType) {
+  switch (Config.OpType) {
   case BitwiseOpType::And:
-    DISPATCH(int16_t, And);
-    DISPATCH(int32_t, And);
-    DISPATCH(int64_t, And);
-    DISPATCH(uint16_t, And);
-    DISPATCH(uint32_t, And);
-    DISPATCH(uint64_t, And);
-    break;
+    DISPATCH(And);
 
   case BitwiseOpType::Or:
-    DISPATCH(int16_t, Or);
-    DISPATCH(int32_t, Or);
-    DISPATCH(int64_t, Or);
-    DISPATCH(uint16_t, Or);
-    DISPATCH(uint32_t, Or);
-    DISPATCH(uint64_t, Or);
-    break;
+    DISPATCH(Or);
 
   case BitwiseOpType::Xor:
-    DISPATCH(int16_t, Xor);
-    DISPATCH(int32_t, Xor);
-    DISPATCH(int64_t, Xor);
-    DISPATCH(uint16_t, Xor);
-    DISPATCH(uint32_t, Xor);
-    DISPATCH(uint64_t, Xor);
-    break;
+    DISPATCH(Xor);
 
   case BitwiseOpType::Not:
-    DISPATCH_NOT(int16_t, Not);
-    DISPATCH_NOT(int32_t, Not);
-    DISPATCH_NOT(int64_t, Not);
-    DISPATCH_NOT(uint16_t, Not);
-    DISPATCH_NOT(uint32_t, Not);
-    DISPATCH_NOT(uint64_t, Not);
-    break;
+    DISPATCH_NOT(Not);
 
   case BitwiseOpType::LeftShift:
-    DISPATCH(int16_t, LeftShift);
-    DISPATCH(int32_t, LeftShift);
-    DISPATCH(int64_t, LeftShift);
-    DISPATCH(uint16_t, LeftShift);
-    DISPATCH(uint32_t, LeftShift);
-    DISPATCH(uint64_t, LeftShift);
-    break;
+    DISPATCH(LeftShift);
 
   case BitwiseOpType::RightShift:
-    DISPATCH(int16_t, RightShift);
-    DISPATCH(int32_t, RightShift);
-    DISPATCH(int64_t, RightShift);
-    DISPATCH(uint16_t, RightShift);
-    DISPATCH(uint32_t, RightShift);
-    DISPATCH(uint64_t, RightShift);
-    break;
+    DISPATCH(RightShift);
 
   case BitwiseOpType::EnumValueCount:
     break;
@@ -1822,12 +1526,9 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 #undef DISPATCH
 #undef DISPATCH_NOT
 
-  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for BitwiseOpType '%s'",
-                      (const wchar_t *)Config.DataType,
-                      (const wchar_t *)Config.OpTypeEnum);
+  DXASSERT(false, "Invalid OpType");
 }
 
-//
 // TernaryMathOpType
 //
 
@@ -1849,16 +1550,15 @@ static_assert(_countof(ternaryMathOpTypeStringToOpMetaData) ==
 OP_TYPE_META_DATA(TernaryMathOpType, ternaryMathOpTypeStringToOpMetaData);
 
 template <typename T, typename OUT_TYPE>
-void dispatchTernaryMathOpTest(const TestConfig &Config,
-                               TernaryMathOpType OpType, size_t VectorSize,
-                               OUT_TYPE (*Calc)(T, T, T)) {
+void dispatchTernaryMathOpTest(const TestConfig<T, TernaryMathOpType> &Config,
+                               size_t VectorSize, OUT_TYPE (*Calc)(T, T, T)) {
 
   ValidationConfig ValidationConfig;
 
   if (isFloatingPointType<T>())
     ValidationConfig = ValidationConfig::Ulp(1.0);
 
-  InputSets<T, 3> Inputs = buildTestInputs<T, 3>(Config, VectorSize);
+  InputSets<T, 3> Inputs = buildTestInputs<3>(Config, VectorSize);
 
   std::vector<OUT_TYPE> Expected;
   Expected.reserve(Inputs[0].size());
@@ -1870,7 +1570,7 @@ void dispatchTernaryMathOpTest(const TestConfig &Config,
         Calc(Inputs[0][I], Inputs[1][Index1], Inputs[2][Index2]));
   }
 
-  runAndVerify(Config, OpType, Inputs, Expected, "", ValidationConfig);
+  runAndVerify(Config, Inputs, Expected, "", ValidationConfig);
 }
 
 namespace TernaryMathOps {
@@ -1895,53 +1595,38 @@ template <typename T> T SmoothStep(T Min, T Max, T X) {
 
 } // namespace TernaryMathOps
 
-void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
-                                       TernaryMathOpType OpType,
-                                       size_t VectorSize) {
+template <typename T>
+void dispatchTestByVectorSize(const TestConfig<T, TernaryMathOpType> &Config,
+                              size_t VectorSize) {
+#define DISPATCH(FUNC)                                                         \
+  return dispatchTernaryMathOpTest(Config, VectorSize, TernaryMathOps::FUNC<T>)
 
-#define DISPATCH(TYPE, FUNC)                                                   \
-  if (Config.DataType == getDataTypeName<TYPE>())                              \
-  return dispatchTernaryMathOpTest(Config, OpType, VectorSize,                 \
-                                   TernaryMathOps::FUNC<TYPE>)
-
-  switch (OpType) {
+  switch (Config.OpType) {
   case TernaryMathOpType::Fma:
-    DISPATCH(double, Fma);
+    DISPATCH(Fma);
     break;
 
   case TernaryMathOpType::Mad:
-    DISPATCH(HLSLHalf_t, Mad);
-    DISPATCH(float, Mad);
-    DISPATCH(double, Mad);
-    DISPATCH(int16_t, Mad);
-    DISPATCH(int32_t, Mad);
-    DISPATCH(int64_t, Mad);
-    DISPATCH(uint16_t, Mad);
-    DISPATCH(uint32_t, Mad);
-    DISPATCH(uint64_t, Mad);
+    DISPATCH(Mad);
     break;
 
   case TernaryMathOpType::SmoothStep:
-    DISPATCH(HLSLHalf_t, SmoothStep);
-    DISPATCH(float, SmoothStep);
+    DISPATCH(SmoothStep);
     break;
 
   case TernaryMathOpType::EnumValueCount:
     break;
   }
 
-  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for TernaryMathOpType '%s'",
-                      (const wchar_t *)Config.DataType,
-                      (const wchar_t *)Config.OpTypeEnum);
+  DXASSERT(false, "Invalid OpType");
 }
 
 //
 // dispatchTest
 //
 
-template <typename OP_TYPE> void dispatchTest(const TestConfig &Config) {
-  OP_TYPE OpType = getOpType<OP_TYPE>(Config.OpTypeEnum);
-
+template <typename T, typename OP_TYPE>
+void dispatchTest(const TestConfig<T, OP_TYPE> &Config) {
   std::vector<size_t> InputVectorSizes;
   if (Config.LongVectorInputSize)
     InputVectorSizes.push_back(Config.LongVectorInputSize);
@@ -1949,7 +1634,7 @@ template <typename OP_TYPE> void dispatchTest(const TestConfig &Config) {
     InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
 
   for (size_t VectorSize : InputVectorSizes)
-    dispatchTestByOpTypeAndVectorSize(Config, OpType, VectorSize);
+    dispatchTestByVectorSize(Config, VectorSize);
 }
 
 // TAEF test entry points
@@ -2010,12 +1695,13 @@ public:
     return true;
   }
 
-  template <typename OP_TYPE> void runTest() {
+  template <typename T, typename OP_TYPE, OP_TYPE OpType>
+  void runTest(uint16_t ScalarInputFlags) {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-    if (auto Config = TestConfig::Create(VerboseLogging))
-      dispatchTest<OP_TYPE>(*Config);
+    dispatchTest<T>(
+        TestConfig<T, OP_TYPE>(VerboseLogging, OpType, ScalarInputFlags));
   }
 
   // #define OP_TESTS(name, type, table)                                            \
@@ -2059,7 +1745,7 @@ public:
 #define TEST_NAME(Op, DataType, Variant) KITS_TESTNAME #DataType " - " #Variant
 
 #define HLK_TEST_METHOD(MethodName, Description, Specification, TestName,      \
-                        Guid, Op, Variant)                                     \
+                        Guid, OpType, Op, Variant, DataType)                   \
   TEST_METHOD(MethodName) {                                                    \
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
     TEST_METHOD_PROPERTY("Kits.Description", Description)                      \
@@ -2067,14 +1753,14 @@ public:
     TEST_METHOD_PROPERTY("Kits.TestName", TestName)                            \
     TEST_METHOD_PROPERTY("Kits.TestId", Guid)                                  \
     END_TEST_METHOD_PROPERTIES();                                              \
-    /* todo runTest(Op, Variant);*/                                            \
+    runTest<DataType, OpType, OpType ::Op>(Variant);                           \
   }
 
 #define HLK_TEST(OpType, Op, DataType, Variant, GUID)                          \
   HLK_TEST_METHOD(METHOD_NAME(OpType, Op, DataType, Variant),                  \
                   DESCRIPTION(KITS_DESCRIPTION, Op, DataType, Variant),        \
                   KITS_SPECIFICATION, TEST_NAME(Op, DataType, Variant), GUID,  \
-                  OpType ::Op, VARIANT_VALUE_##Variant)
+                  OpType, Op, VARIANT_VALUE_##Variant, DataType)
 
 #define KITS_DESCRIPTION "Verifies the vectorized DXIL instruction"
 #define KITS_SPECIFICATION                                                     \
@@ -2107,29 +1793,29 @@ public:
            "0f1e2d3c-4b5a-6978-8899-aabbccddeeff");
   HLK_TEST(TernaryMathOpType, Mad, int64_t, ScalarOp3,
            "11223344-5566-4788-99aa-bbccddeeff00");
-  HLK_TEST(TernaryMathOpType, Mad, float16, Vector,
+  HLK_TEST(TernaryMathOpType, Mad, HLSLHalf_t, Vector,
            "7c6b5a49-3847-2615-9d8c-7b6a59483726");
-  HLK_TEST(TernaryMathOpType, Mad, float16, ScalarOp2,
+  HLK_TEST(TernaryMathOpType, Mad, HLSLHalf_t, ScalarOp2,
            "d4c3b2a1-0f9e-8d7c-6b5a-493827161504");
-  HLK_TEST(TernaryMathOpType, SmoothStep, float16, Vector,
+  HLK_TEST(TernaryMathOpType, SmoothStep, HLSLHalf_t, Vector,
            "2468ace0-1357-49b1-8d2f-3a5c7e9f1b3d");
-  HLK_TEST(TernaryMathOpType, SmoothStep, float16, ScalarOp2,
+  HLK_TEST(TernaryMathOpType, SmoothStep, HLSLHalf_t, ScalarOp2,
            "13579bdf-2468-4ace-9bdf-246813579bdf");
-  HLK_TEST(TernaryMathOpType, Mad, float32, Vector,
+  HLK_TEST(TernaryMathOpType, Mad, float, Vector,
            "89abcdef-0123-4567-89ab-cdef01234567");
-  HLK_TEST(TernaryMathOpType, Mad, float32, ScalarOp2,
+  HLK_TEST(TernaryMathOpType, Mad, float, ScalarOp2,
            "fedcba98-7654-3210-fedc-ba9876543210");
-  HLK_TEST(TernaryMathOpType, SmoothStep, float32, Vector,
+  HLK_TEST(TernaryMathOpType, SmoothStep, float, Vector,
            "4b3a2918-1706-5f4e-3d2c-1b0a99887766");
-  HLK_TEST(TernaryMathOpType, SmoothStep, float32, ScalarOp3,
+  HLK_TEST(TernaryMathOpType, SmoothStep, float, ScalarOp3,
            "66778899-aabb-4ccd-affe-112233445566");
-  HLK_TEST(TernaryMathOpType, Fma, float64, Vector,
+  HLK_TEST(TernaryMathOpType, Fma, double, Vector,
            "a1b2c3d4-e5f6-47a8-90ab-cdef12345678");
-  HLK_TEST(TernaryMathOpType, Fma, float64, ScalarOp2,
+  HLK_TEST(TernaryMathOpType, Fma, double, ScalarOp2,
            "0a9b8c7d-6e5f-4d3c-2b1a-998877665544");
-  HLK_TEST(TernaryMathOpType, Mad, float64, Vector,
+  HLK_TEST(TernaryMathOpType, Mad, double, Vector,
            "10293847-5647-4839-9abc-def012345678");
-  HLK_TEST(TernaryMathOpType, Mad, float64, ScalarOp2,
+  HLK_TEST(TernaryMathOpType, Mad, double, ScalarOp2,
            "88776655-4433-4211-a0b9-8c7d6e5f4d3c");
 
 private:
