@@ -1,0 +1,12 @@
+// REQUIRES: v1.6.2112
+
+// Verify that the older DLL is being loaded, and that
+// due to it being older, it errors on something that would
+// be accepted in newer validators
+
+// RUN: %dxc -T lib_6_9 %s | FileCheck %s 
+
+// Compiles to DXIL with dx.op.isSpecialFloat.f16
+bool test_isinf(half h) {
+    return isinf(h);
+}
