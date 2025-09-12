@@ -2,7 +2,9 @@
 #define NOMINMAX 1
 #endif
 
-#include "LongVectors.h"
+#define INLINE_TEST_METHOD_MARKUP
+#include <WexTestClass.h>
+
 #include "LongVectorTestData.h"
 
 #include "ShaderOpTest.h"
@@ -13,6 +15,7 @@
 
 #include <array>
 #include <iomanip>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -294,56 +297,6 @@ bool doVectorsMatch(const std::vector<T> &ActualValues,
   }
 
   return false;
-}
-
-bool OpTest::classSetup() {
-  // Run this only once.
-  if (!Initialized) {
-    Initialized = true;
-
-    HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
-    if (Runtime == NULL)
-      return false;
-    // Do not: FreeLibrary(hRuntime);
-    // If we actually free the library, it defeats the purpose of
-    // enableAgilitySDK and enableExperimentalMode.
-
-    HRESULT HR;
-    HR = enableAgilitySDK(Runtime);
-
-    if (FAILED(HR))
-      hlsl_test::LogCommentFmt(L"Unable to enable Agility SDK - 0x%08x.", HR);
-    else if (HR == S_FALSE)
-      hlsl_test::LogCommentFmt(L"Agility SDK not enabled.");
-    else
-      hlsl_test::LogCommentFmt(L"Agility SDK enabled.");
-
-    HR = enableExperimentalMode(Runtime);
-    if (FAILED(HR))
-      hlsl_test::LogCommentFmt(
-          L"Unable to enable shader experimental mode - 0x%08x.", HR);
-    else if (HR == S_FALSE)
-      hlsl_test::LogCommentFmt(L"Experimental mode not enabled.");
-    else
-      hlsl_test::LogCommentFmt(L"Experimental mode enabled.");
-
-    HR = enableDebugLayer();
-    if (FAILED(HR))
-      hlsl_test::LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", HR);
-    else if (HR == S_FALSE)
-      hlsl_test::LogCommentFmt(L"Debug layer not enabled.");
-    else
-      hlsl_test::LogCommentFmt(L"Debug layer enabled.");
-
-    WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
-                                                       VerboseLogging);
-    if (VerboseLogging)
-      WEX::Logging::Log::Comment(L"Verbose logging is enabled for this test.");
-    else
-      WEX::Logging::Log::Comment(L"Verbose logging is disabled for this test.");
-  }
-
-  return true;
 }
 
 static uint16_t GetScalarInputFlags() {
@@ -2023,76 +1976,187 @@ template <typename OP_TYPE> void dispatchTest(const TestConfig &Config) {
 
 // TAEF test entry points
 
-TEST_F(OpTest, trigonometricOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+class OpTest {
+public:
+  TEST_CLASS(OpTest);
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<TrigonometricOpType>(*Config);
-}
+  TEST_CLASS_SETUP(classSetup) {
+    // Run this only once.
+    if (!Initialized) {
+      Initialized = true;
 
-TEST_F(OpTest, unaryOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+      HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
+      if (Runtime == NULL)
+        return false;
+      // Do not: FreeLibrary(hRuntime);
+      // If we actually free the library, it defeats the purpose of
+      // enableAgilitySDK and enableExperimentalMode.
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<UnaryOpType>(*Config);
-}
+      HRESULT HR;
+      HR = enableAgilitySDK(Runtime);
 
-TEST_F(OpTest, asTypeOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+      if (FAILED(HR))
+        hlsl_test::LogCommentFmt(L"Unable to enable Agility SDK - 0x%08x.", HR);
+      else if (HR == S_FALSE)
+        hlsl_test::LogCommentFmt(L"Agility SDK not enabled.");
+      else
+        hlsl_test::LogCommentFmt(L"Agility SDK enabled.");
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<AsTypeOpType>(*Config);
-}
+      HR = enableExperimentalMode(Runtime);
+      if (FAILED(HR))
+        hlsl_test::LogCommentFmt(
+            L"Unable to enable shader experimental mode - 0x%08x.", HR);
+      else if (HR == S_FALSE)
+        hlsl_test::LogCommentFmt(L"Experimental mode not enabled.");
+      else
+        hlsl_test::LogCommentFmt(L"Experimental mode enabled.");
 
-TEST_F(OpTest, unaryMathOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+      HR = enableDebugLayer();
+      if (FAILED(HR))
+        hlsl_test::LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", HR);
+      else if (HR == S_FALSE)
+        hlsl_test::LogCommentFmt(L"Debug layer not enabled.");
+      else
+        hlsl_test::LogCommentFmt(L"Debug layer enabled.");
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<UnaryMathOpType>(*Config);
-}
+      WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
+                                                         VerboseLogging);
+      if (VerboseLogging)
+        WEX::Logging::Log::Comment(
+            L"Verbose logging is enabled for this test.");
+      else
+        WEX::Logging::Log::Comment(
+            L"Verbose logging is disabled for this test.");
+    }
 
-TEST_F(OpTest, binaryOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    return true;
+  }
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<BinaryOpType>(*Config);
-}
+  template <typename OP_TYPE> void runTest() {
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-TEST_F(OpTest, binaryMathOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    if (auto Config = TestConfig::Create(VerboseLogging))
+      dispatchTest<OP_TYPE>(*Config);
+  }
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<BinaryMathOpType>(*Config);
-}
+  // #define OP_TESTS(name, type, table)                                            \
+//   TEST_METHOD(name) {                                                          \
+//     BEGIN_TEST_METHOD_PROPERTIES()                                             \
+//     TEST_METHOD_PROPERTY(L"DataSource", L"Table:LongVectorOpTable.xml#" table) \
+//     END_TEST_METHOD_PROPERTIES();                                              \
+//     runTest<type>();                                                           \
+//   }
 
-TEST_F(OpTest, binaryComparisonOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  // OP_TESTS(unaryMathOpTest, UnaryOpType, L"UnaryMathOpTable");
+  // OP_TESTS(binaryOpTest, BinaryOpType, L"BinaryOpTable");
+  // OP_TESTS(binaryMathOpTest, BinaryMathOpType, L"BinaryMathOpTable");
+  // OP_TESTS(binaryComparisonOpTest, BinaryComparisonOpType,
+  //          L"BinaryComparisonOpTable");
+  // OP_TESTS(bitwiseOpTest, BitwiseOpType, L"bitwiseOpTable");
+  // OP_TESTS(ternaryMathOpTest, TernaryMathOpType, L"TernaryMathOpTable");
+  // OP_TESTS(trigonometricOpTest, TrigonometricOpType,
+  // L"TrigonometricOpTable"); OP_TESTS(unaryOpTest, UnaryOpType,
+  // L"UnaryOpTable"); OP_TESTS(asTypeOpTest, AsTypeOpType, L"AsTypeOpTable");
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<BinaryComparisonOpType>(*Config);
-}
+#define DESCRIPTION(Base, Op, DataType, Variant)                               \
+  Base " " #Op " (" #DataType " " #Variant ")"
 
-TEST_F(OpTest, bitwiseOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+#define VARIANT_NAME_Vector
+#define VARIANT_NAME_ScalarOp2 _ScalarOp2
+#define VARIANT_NAME_ScalarOp3 _ScalarOp3
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<BitwiseOpType>(*Config);
-}
+#define VARIANT_VALUE_Vector 0
+#define VARIANT_VALUE_ScalarOp2 2
+#define VARIANT_VALUE_ScalarOp3 4
 
-TEST_F(OpTest, ternaryMathOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+#define VARIANT_NAME(v) VARIANT_NAME_##v
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<TernaryMathOpType>(*Config);
-}
+#define CONCAT(a, b) CONCAT_I(a, b)
+#define CONCAT_I(a, b) a##b
+
+#define METHOD_NAME(OpType, Op, DataType, Variant)                             \
+  CONCAT(OpType##_##Op##_##DataType, VARIANT_NAME(Variant))
+
+#define TEST_NAME(Op, DataType, Variant) KITS_TESTNAME #DataType " - " #Variant
+
+#define HLK_TEST_METHOD(MethodName, Description, Specification, TestName,      \
+                        Guid, Op, Variant)                                     \
+  TEST_METHOD(MethodName) {                                                    \
+    BEGIN_TEST_METHOD_PROPERTIES()                                             \
+    TEST_METHOD_PROPERTY("Kits.Description", Description)                      \
+    TEST_METHOD_PROPERTY("Kits.Specification", Specification)                  \
+    TEST_METHOD_PROPERTY("Kits.TestName", TestName)                            \
+    TEST_METHOD_PROPERTY("Kits.TestId", Guid)                                  \
+    END_TEST_METHOD_PROPERTIES();                                              \
+    /* todo runTest(Op, Variant);*/                                            \
+  }
+
+#define HLK_TEST(OpType, Op, DataType, Variant, GUID)                          \
+  HLK_TEST_METHOD(METHOD_NAME(OpType, Op, DataType, Variant),                  \
+                  DESCRIPTION(KITS_DESCRIPTION, Op, DataType, Variant),        \
+                  KITS_SPECIFICATION, TEST_NAME(Op, DataType, Variant), GUID,  \
+                  OpType ::Op, VARIANT_VALUE_##Variant)
+
+#define KITS_DESCRIPTION "Verifies the vectorized DXIL instruction"
+#define KITS_SPECIFICATION                                                     \
+  "Device.Graphics.WDDMXXX.AdapterRender.D3D12.DXILCore.ShaderModel69."        \
+  "CoreRequirement"
+
+#define KITS_TESTNAME "D3D12 - Shader Model 6.9 - vectorized DXIL - "
+
+  HLK_TEST(TernaryMathOpType, Mad, uint16_t, Vector,
+           "296dae2f-4823-4c64-874c-d7e8b1e5e53b");
+  HLK_TEST(TernaryMathOpType, Mad, uint16_t, ScalarOp3,
+           "1adf820c-86d7-483e-86b4-d5398a8b8a32");
+  HLK_TEST(TernaryMathOpType, Mad, uint32_t, Vector,
+           "df66f9cd-268e-4509-90c5-a7f39fea2757");
+  HLK_TEST(TernaryMathOpType, Mad, uint32_t, ScalarOp2,
+           "4208fb2e-df8b-4c65-8889-f4acbb04a263");
+  HLK_TEST(TernaryMathOpType, Mad, uint64_t, Vector,
+           "1459088f-e647-4f7c-8cc7-a6673e2277ae");
+  HLK_TEST(TernaryMathOpType, Mad, uint64_t, ScalarOp3,
+           "cc002bb6-9e55-460a-a381-8ff259cd103f");
+  HLK_TEST(TernaryMathOpType, Mad, int16_t, Vector,
+           "5e2f0dd1-4c4e-4b3e-9c5c-4d1b6e9b6f10");
+  HLK_TEST(TernaryMathOpType, Mad, int16_t, ScalarOp2,
+           "e1c8a2f7-9b1c-4c5f-8f0d-2fb0c5d3e6a4");
+  HLK_TEST(TernaryMathOpType, Mad, int32_t, Vector,
+           "3a4d7c2b-2e5a-4f0a-9b1d-6c7e8f9a0b1c");
+  HLK_TEST(TernaryMathOpType, Mad, int32_t, ScalarOp2,
+           "9b8a7c6d-5e4f-4d3c-8b2a-1c0d9e8f7a6b");
+  HLK_TEST(TernaryMathOpType, Mad, int64_t, Vector,
+           "0f1e2d3c-4b5a-6978-8899-aabbccddeeff");
+  HLK_TEST(TernaryMathOpType, Mad, int64_t, ScalarOp3,
+           "11223344-5566-4788-99aa-bbccddeeff00");
+  HLK_TEST(TernaryMathOpType, Mad, float16, Vector,
+           "7c6b5a49-3847-2615-9d8c-7b6a59483726");
+  HLK_TEST(TernaryMathOpType, Mad, float16, ScalarOp2,
+           "d4c3b2a1-0f9e-8d7c-6b5a-493827161504");
+  HLK_TEST(TernaryMathOpType, SmoothStep, float16, Vector,
+           "2468ace0-1357-49b1-8d2f-3a5c7e9f1b3d");
+  HLK_TEST(TernaryMathOpType, SmoothStep, float16, ScalarOp2,
+           "13579bdf-2468-4ace-9bdf-246813579bdf");
+  HLK_TEST(TernaryMathOpType, Mad, float32, Vector,
+           "89abcdef-0123-4567-89ab-cdef01234567");
+  HLK_TEST(TernaryMathOpType, Mad, float32, ScalarOp2,
+           "fedcba98-7654-3210-fedc-ba9876543210");
+  HLK_TEST(TernaryMathOpType, SmoothStep, float32, Vector,
+           "4b3a2918-1706-5f4e-3d2c-1b0a99887766");
+  HLK_TEST(TernaryMathOpType, SmoothStep, float32, ScalarOp3,
+           "66778899-aabb-4ccd-affe-112233445566");
+  HLK_TEST(TernaryMathOpType, Fma, float64, Vector,
+           "a1b2c3d4-e5f6-47a8-90ab-cdef12345678");
+  HLK_TEST(TernaryMathOpType, Fma, float64, ScalarOp2,
+           "0a9b8c7d-6e5f-4d3c-2b1a-998877665544");
+  HLK_TEST(TernaryMathOpType, Mad, float64, Vector,
+           "10293847-5647-4839-9abc-def012345678");
+  HLK_TEST(TernaryMathOpType, Mad, float64, ScalarOp2,
+           "88776655-4433-4211-a0b9-8c7d6e5f4d3c");
+
+private:
+  bool Initialized = false;
+  bool VerboseLogging = false;
+};
 
 } // namespace LongVector
