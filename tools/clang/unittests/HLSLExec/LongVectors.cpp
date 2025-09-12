@@ -2,7 +2,9 @@
 #define NOMINMAX 1
 #endif
 
-#include "LongVectors.h"
+#define INLINE_TEST_METHOD_MARKUP
+#include <WexTestClass.h>
+
 #include "LongVectorTestData.h"
 
 #include "ShaderOpTest.h"
@@ -13,6 +15,7 @@
 
 #include <array>
 #include <iomanip>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -294,56 +297,6 @@ bool doVectorsMatch(const std::vector<T> &ActualValues,
   }
 
   return false;
-}
-
-bool OpTest::classSetup() {
-  // Run this only once.
-  if (!Initialized) {
-    Initialized = true;
-
-    HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
-    if (Runtime == NULL)
-      return false;
-    // Do not: FreeLibrary(hRuntime);
-    // If we actually free the library, it defeats the purpose of
-    // enableAgilitySDK and enableExperimentalMode.
-
-    HRESULT HR;
-    HR = enableAgilitySDK(Runtime);
-
-    if (FAILED(HR))
-      hlsl_test::LogCommentFmt(L"Unable to enable Agility SDK - 0x%08x.", HR);
-    else if (HR == S_FALSE)
-      hlsl_test::LogCommentFmt(L"Agility SDK not enabled.");
-    else
-      hlsl_test::LogCommentFmt(L"Agility SDK enabled.");
-
-    HR = enableExperimentalMode(Runtime);
-    if (FAILED(HR))
-      hlsl_test::LogCommentFmt(
-          L"Unable to enable shader experimental mode - 0x%08x.", HR);
-    else if (HR == S_FALSE)
-      hlsl_test::LogCommentFmt(L"Experimental mode not enabled.");
-    else
-      hlsl_test::LogCommentFmt(L"Experimental mode enabled.");
-
-    HR = enableDebugLayer();
-    if (FAILED(HR))
-      hlsl_test::LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", HR);
-    else if (HR == S_FALSE)
-      hlsl_test::LogCommentFmt(L"Debug layer not enabled.");
-    else
-      hlsl_test::LogCommentFmt(L"Debug layer enabled.");
-
-    WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
-                                                       VerboseLogging);
-    if (VerboseLogging)
-      WEX::Logging::Log::Comment(L"Verbose logging is enabled for this test.");
-    else
-      WEX::Logging::Log::Comment(L"Verbose logging is disabled for this test.");
-  }
-
-  return true;
 }
 
 static uint16_t GetScalarInputFlags() {
@@ -2001,76 +1954,92 @@ template <typename OP_TYPE> void dispatchTest(const TestConfig &Config) {
 
 // TAEF test entry points
 
-TEST_F(OpTest, trigonometricOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+class OpTest {
+public:
+  TEST_CLASS(OpTest);
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<TrigonometricOpType>(*Config);
-}
+  TEST_CLASS_SETUP(classSetup) {
+    // Run this only once.
+    if (!Initialized) {
+      Initialized = true;
 
-TEST_F(OpTest, unaryOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+      HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
+      if (Runtime == NULL)
+        return false;
+      // Do not: FreeLibrary(hRuntime);
+      // If we actually free the library, it defeats the purpose of
+      // enableAgilitySDK and enableExperimentalMode.
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<UnaryOpType>(*Config);
-}
+      HRESULT HR;
+      HR = enableAgilitySDK(Runtime);
 
-TEST_F(OpTest, asTypeOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+      if (FAILED(HR))
+        hlsl_test::LogCommentFmt(L"Unable to enable Agility SDK - 0x%08x.", HR);
+      else if (HR == S_FALSE)
+        hlsl_test::LogCommentFmt(L"Agility SDK not enabled.");
+      else
+        hlsl_test::LogCommentFmt(L"Agility SDK enabled.");
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<AsTypeOpType>(*Config);
-}
+      HR = enableExperimentalMode(Runtime);
+      if (FAILED(HR))
+        hlsl_test::LogCommentFmt(
+            L"Unable to enable shader experimental mode - 0x%08x.", HR);
+      else if (HR == S_FALSE)
+        hlsl_test::LogCommentFmt(L"Experimental mode not enabled.");
+      else
+        hlsl_test::LogCommentFmt(L"Experimental mode enabled.");
 
-TEST_F(OpTest, unaryMathOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+      HR = enableDebugLayer();
+      if (FAILED(HR))
+        hlsl_test::LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", HR);
+      else if (HR == S_FALSE)
+        hlsl_test::LogCommentFmt(L"Debug layer not enabled.");
+      else
+        hlsl_test::LogCommentFmt(L"Debug layer enabled.");
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<UnaryMathOpType>(*Config);
-}
+      WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
+                                                         VerboseLogging);
+      if (VerboseLogging)
+        WEX::Logging::Log::Comment(
+            L"Verbose logging is enabled for this test.");
+      else
+        WEX::Logging::Log::Comment(
+            L"Verbose logging is disabled for this test.");
+    }
 
-TEST_F(OpTest, binaryOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    return true;
+  }
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<BinaryOpType>(*Config);
-}
+  template <typename OP_TYPE> void runTest() {
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-TEST_F(OpTest, binaryMathOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    if (auto Config = TestConfig::Create(VerboseLogging))
+      dispatchTest<OP_TYPE>(*Config);
+  }
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<BinaryMathOpType>(*Config);
-}
+#define OP_TESTS(name, type, table)                                            \
+  TEST_METHOD(name) {                                                          \
+    BEGIN_TEST_METHOD_PROPERTIES()                                             \
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:LongVectorOpTable.xml#" table) \
+    END_TEST_METHOD_PROPERTIES();                                              \
+    runTest<type>();                                                           \
+  }
 
-TEST_F(OpTest, binaryComparisonOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  OP_TESTS(unaryMathOpTest, UnaryOpType, L"UnaryMathOpTable");
+  OP_TESTS(binaryOpTest, BinaryOpType, L"BinaryOpTable");
+  OP_TESTS(binaryMathOpTest, BinaryMathOpType, L"BinaryMathOpTable");
+  OP_TESTS(binaryComparisonOpTest, BinaryComparisonOpType,
+           L"BinaryComparisonOpTable");
+  OP_TESTS(bitwiseOpTest, BitwiseOpType, L"bitwiseOpTable");
+  OP_TESTS(ternaryMathOpTest, TernaryMathOpType, L"TernaryMathOpTable");
+  OP_TESTS(trigonometricOpTest, TrigonometricOpType, L"TrigonometricOpTable");
+  OP_TESTS(unaryOpTest, UnaryOpType, L"UnaryOpTable");
+  OP_TESTS(asTypeOpTest, AsTypeOpType, L"AsTypeOpTable");
 
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<BinaryComparisonOpType>(*Config);
-}
-
-TEST_F(OpTest, bitwiseOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<BitwiseOpType>(*Config);
-}
-
-TEST_F(OpTest, ternaryMathOpTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
-  if (auto Config = TestConfig::Create(VerboseLogging))
-    dispatchTest<TernaryMathOpType>(*Config);
-}
+private:
+  bool Initialized = false;
+  bool VerboseLogging = false;
+};
 
 } // namespace LongVector
