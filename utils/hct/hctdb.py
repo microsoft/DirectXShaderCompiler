@@ -6336,7 +6336,10 @@ class db_dxil(object):
                 db_dxil_param(0, "$elt", "", "operation result"),
                 db_dxil_param(2, "$o", "a", "input value"),
             ],
-            counters=("ints", "uints",),
+            counters=(
+                "ints",
+                "uints",
+            ),
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -6350,7 +6353,10 @@ class db_dxil(object):
                 db_dxil_param(0, "$elt", "", "operation result"),
                 db_dxil_param(2, "$o", "a", "input value"),
             ],
-            counters=("ints", "uints",),
+            counters=(
+                "ints",
+                "uints",
+            ),
         )
         next_op_idx += 1
 
