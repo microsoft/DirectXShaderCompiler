@@ -37,7 +37,6 @@ set TEST_MANUAL_FILE_CHECK=0
 set SINGLE_FILE_CHECK_NAME=0
 set CUSTOM_BIN_SET=
 set USE_AGILITY_SDK=
-set USE_WARP_FROM_NUGET=
 set EXEC_TEST_TARGET="check-clang-taef-exec"
 
 rem Begin SPIRV change
@@ -134,22 +133,6 @@ if "%1"=="-clean" (
   set TEST_ALL=0
   set TEST_EXEC=1
   set TEST_EXEC_REQUIRED=1
-) else if "%1"=="exec-warp" (
-  rem If exec-warp is explicitly supplied, hcttest will fail if machine is not configured
-  rem to run execution tests, otherwise, execution tests would be skipped.
-  set TEST_ALL=0
-  set TEST_EXEC=1
-  set USE_WARP_FROM_NUGET=LATEST_RELEASE
-  set TEST_EXEC_REQUIRED=1
-  set EXEC_TEST_TARGET="check-clang-taef-exec-warp"
-) else if "%1"=="exec-warp-preview" (
-  rem If exec-warp-preview is explicitly supplied, hcttest will fail if machine is not configured
-  rem to run execution tests, otherwise, execution tests would be skipped.
-  set TEST_ALL=0
-  set TEST_EXEC=1
-  set USE_WARP_FROM_NUGET=LATEST_PREVIEW
-  set TEST_EXEC_REQUIRED=1
-  set EXEC_TEST_TARGET="check-clang-taef-exec-warp"
 ) else if "%1"=="exec-filter" (
   set TEST_ALL=0
   set TEST_EXEC=1

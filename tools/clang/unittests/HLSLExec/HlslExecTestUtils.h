@@ -146,6 +146,34 @@ static bool createDevice(ID3D12Device **D3DDevice,
 
   VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&DXGIFactory)));
   if (hlsl_test::GetTestParamUseWARP(useWarpByDefualt())) {
+    // The WARP_DLL runtime parameter can be used to specify a specific DLL to
+    // load.  To force this to be used, we make sure that this DLL is loaded
+    // before attempting to create the device.
+
+    struct WarpDll {
+      HMODULE Module = NULL;
+
+      ~WarpDll() { Close(); }
+
+      void Close() {
+        if (Module) {
+          FreeLibrary(Module);
+          Module = NULL;
+        }
+      }
+    };
+
+    WarpDll ExplicitlyLoadedWarpDll;
+    WEX::Common::String WarpDllPath;
+    if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
+            L"WARP_DLL", WarpDllPath))) {
+      WEX::Logging::Log::Comment(WEX::Common::String().Format(
+          L"WARP_DLL requested: %ls", (const wchar_t *)WarpDllPath));
+      ExplicitlyLoadedWarpDll.Module = LoadLibraryExW(WarpDllPath, NULL, 0);
+      VERIFY_WIN32_BOOL_SUCCEEDED(!!ExplicitlyLoadedWarpDll.Module);
+    }
+
+    // Create the WARP device
     CComPtr<IDXGIAdapter> WarpAdapter;
     VERIFY_SUCCEEDED(DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&WarpAdapter)));
     HRESULT CreateHR = D3D12CreateDevice(WarpAdapter, D3D_FEATURE_LEVEL_11_0,
@@ -160,6 +188,12 @@ static bool createDevice(ID3D12Device **D3DDevice,
       return false;
     }
 
+    // Now that the WARP device is created we can release our reference to the
+    // warp dll.
+    ExplicitlyLoadedWarpDll.Close();
+
+    // Log the actual version of WARP that's loaded so we can be sure that
+    // we're using the version we think.
     if (GetModuleHandleW(L"d3d10warp.dll") != NULL) {
       WCHAR FullModuleFilePath[MAX_PATH] = L"";
       GetModuleFileNameW(GetModuleHandleW(L"d3d10warp.dll"), FullModuleFilePath,
