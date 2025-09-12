@@ -745,12 +745,18 @@ template <typename T> struct TrigonometricOperation {
 
 template <typename T>
 void dispatchTrigonometricTest(const TestConfig &Config,
-                               ValidationConfig ValidationConfig,
                                TrigonometricOpType OpType, size_t VectorSize) {
 #define DISPATCH(OP, NAME)                                                     \
   case OP:                                                                     \
     return dispatchUnaryTest<T>(Config, ValidationConfig, OP, VectorSize,      \
                                 TrigonometricOperation<T>::NAME, "")
+
+  // All trigonometric ops are floating point types.
+  // These trig functions are defined to have a max absolute error of 0.0008
+  // as per the D3D functional specs. An example with this spec for sin and
+  // cos is available here:
+  // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
+  const ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.0008f);
 
   switch (OpType) {
     DISPATCH(TrigonometricOpType::Acos, acos);
@@ -775,19 +781,11 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                        TrigonometricOpType OpType,
                                        size_t VectorSize) {
 
-  // All trigonometric ops are floating point types.
-  // These trig functions are defined to have a max absolute error of 0.0008
-  // as per the D3D functional specs. An example with this spec for sin and
-  // cos is available here:
-  // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
-
   if (Config.DataType == getDataTypeName<HLSLHalf_t>())
-    return dispatchTrigonometricTest<HLSLHalf_t>(
-        Config, ValidationConfig::Epsilon(0.0010f), OpType, VectorSize);
+    return dispatchTrigonometricTest<HLSLHalf_t>(Config, OpType, VectorSize);
 
   if (Config.DataType == getDataTypeName<float>())
-    return dispatchTrigonometricTest<float>(
-        Config, ValidationConfig::Epsilon(0.0008f), OpType, VectorSize);
+    return dispatchTrigonometricTest<float>(Config, OpType, VectorSize);
 
   LOG_ERROR_FMT_THROW(
       L"DataType '%s' not supported for trigonometric operations.",
