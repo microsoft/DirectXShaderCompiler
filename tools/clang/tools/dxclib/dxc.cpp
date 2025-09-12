@@ -872,11 +872,47 @@ int DxcContext::Compile() {
           outputPDBPath += pDebugName.m_pData;
         }
       } else {
-        IFT(pCompiler->Compile(
-            pSource, StringRefWide(m_Opts.InputFile),
-            StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
-            args.data(), args.size(), m_Opts.Defines.data(),
-            m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
+        if (m_dxcSupport.DxilDllFailedToLoad()) {
+          IFT(pCompiler->Compile(
+              pSource, StringRefWide(m_Opts.InputFile),
+              StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
+              args.data(), args.size(), m_Opts.Defines.data(),
+              m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
+        } else {
+          DxcBuffer buf = {};
+          buf.Ptr = pSource->GetBufferPointer();
+          buf.Size = pSource->GetBufferSize();
+          buf.Encoding = CP_UTF8;
+          IFT(m_dxcSupport.GetWrapperObject().Compile(
+              &buf, args.data(), args.size(), nullptr,
+              IID_PPV_ARGS(&pCompileResult)));
+
+          // Then validate
+          CComPtr<IDxcBlob> pProgram;
+          CComPtr<IDxcOperationResult> pValResult;
+
+          IFT(pCompileResult->GetResult(&pProgram));
+          IFT(m_dxcSupport.GetWrapperObject().Validate(
+              pProgram,
+              DxcValidatorFlags_RootSignatureOnly |
+                  DxcValidatorFlags_InPlaceEdit,
+              &pValResult));
+          HRESULT valStatus = S_OK;
+          IFT(pValResult->GetStatus(&valStatus));
+          if (FAILED(valStatus)) {
+            CComPtr<IDxcBlobEncoding> pErrors;
+            IFT(pValResult->GetErrorBuffer(&pErrors));
+
+            if (pErrors && pErrors->GetBufferSize() > 0) {
+              // Convert to UTF8 for proper printing
+              CComPtr<IDxcBlobUtf8> pErrorsUtf8;
+              IFT(hlsl::DxcGetBlobAsUtf8(pErrors, nullptr, &pErrorsUtf8));
+
+              fprintf(stderr, "Validation failed:\n%s\n",
+                      pErrorsUtf8->GetStringPointer());
+            }
+          }
+        }
       }
     }
 
@@ -1417,7 +1453,6 @@ int dxc::main(int argc, const char **argv_) {
     const OptTable *optionTable = getHlslOptTable();
     MainArgs argStrings(argc, argv_);
     DxcOpts dxcOpts;
-    DxcDllExtValidationLoader dxcSupport;
 
     // Read options and check errors.
     {
@@ -1449,6 +1484,7 @@ int dxc::main(int argc, const char **argv_) {
 #endif
 
     // Setup a helper DLL.
+    DxcDllExtValidationLoader dxcSupport;
     {
       std::string dllLogString;
       llvm::raw_string_ostream dllErrorStream(dllLogString);

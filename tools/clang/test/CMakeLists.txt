@@ -181,8 +181,10 @@ foreach(i RANGE 0 ${loop_end})
     # Create a lit target for this release
     add_lit_target("check-clang-${name}" "Running clang regression tests with ${name}\n"
       ${CMAKE_CURRENT_SOURCE_DIR}
-      PARAMS ${CLANG_TEST_PARAMS} DXC_DXIL_DLL_PATH=${DXC_PATH}
-        skip_taef_exec=True
+      PARAMS ${CLANG_TEST_PARAMS}
+      DXC_DXIL_DLL_PATH=${DXC_PATH} 
+      DXC_VERSION=${version}
+      skip_taef_exec=True
       DEPENDS ${CLANG_TEST_DEPS} ${name}
       ARGS ${CLANG_TEST_EXTRA_ARGS}
     )

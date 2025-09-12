@@ -714,8 +714,6 @@ public:
 
       unsigned rootSigMajor = 0;
       unsigned rootSigMinor = 0;
-      // NOTE: this calls the validation component from dxil.dll; the built-in
-      // validator can be used as a fallback.
       bool produceFullContainer = false;
       bool needsValidation = false;
       bool validateRootSigContainer = false;
@@ -830,8 +828,9 @@ public:
           compiler.getLangOpts().HLSLEntryFunction =
               compiler.getCodeGenOpts().HLSLEntryFunction = "";
 
-        // NOTE: this calls the validation component from dxil.dll; the built-in
-        // validator can be used as a fallback.
+        // NOTE: this calls the built-in validator by default. An external
+        // validator can be opted into via the DXC_DXIL_DLL_PATH environment
+        // variable
         produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
                                !opts.OptDump && rootSigMajor == 0 &&
                                !opts.DumpDependencies &&

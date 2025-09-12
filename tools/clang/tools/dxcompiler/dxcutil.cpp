@@ -48,7 +48,6 @@ HRESULT RunInternalValidator(IDxcValidator *pValidator,
 namespace {
 // AssembleToContainer helper functions.
 
-// return true if the internal validator was used, false otherwise
 void CreateValidator(CComPtr<IDxcValidator> &pValidator) {
   IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
 }
@@ -149,6 +148,8 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   std::unique_ptr<llvm::Module> llvmModuleWithDebugInfo;
 
   CComPtr<IDxcValidator> pValidator;
+
+  // this uses the internal validator, which is the default.
   CreateValidator(pValidator);
 
   if (llvm::getDebugMetadataVersionFromModule(*inputs.pM) != 0)
