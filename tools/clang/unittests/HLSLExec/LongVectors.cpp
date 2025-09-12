@@ -62,8 +62,48 @@ template <typename T> constexpr bool is16BitType() {
 }
 
 //
+// Input Sets
+//
+
+enum class InputSet {
+#define INPUT_SET(SYMBOL, NAME) SYMBOL,
+#include "LongVectorOps.def"
+};
+
+const wchar_t *getInputSetName(InputSet InputSet) {
+  switch (InputSet) {
+#define INPUT_SET(SYMBOL, NAME)                                                \
+  case InputSet::SYMBOL:                                                       \
+    return L##NAME;
+#include "LongVectorOps.def"
+  }
+  DXASSERT_NOMSG(false);
+  return L"<Invalid Input Set>";
+}
+
+//
 // Operation Types
 //
+
+enum class OpType {
+#define OP(SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1, INPUT_SET_2,       \
+           INPUT_SET_3)                                                        \
+  SYMBOL,
+#include "LongVectorOps.def"
+};
+
+template <OpType OP> struct OpTraits;
+
+#define OP(SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1, INPUT_SET_2,       \
+           INPUT_SET_3)                                                        \
+  template <> struct OpTraits<OpType::SYMBOL> {                                \
+    static constexpr size_t Arity = ARITY;                                     \
+    static constexpr const char *Intrinsic = INTRINSIC;                        \
+    static constexpr const char *Operator = OPERATOR;                          \
+    static constexpr InputSet InputSets[3] = {                                 \
+        InputSet::INPUT_SET_1, InputSet::INPUT_SET_2, InputSet::INPUT_SET_3};  \
+  };
+#include "LongVectorOps.def"
 
 // Helpful metadata struct so we can define some common properties for a test in
 // a single place. Intrinsic and Operator are passed in with -D defines to
@@ -317,22 +357,17 @@ static WEX::Common::String getInputValueSetName(size_t Index) {
   return ValueSetName;
 }
 
-template <typename T, typename OP_TYPE, OP_TYPE OP> struct TestConfig {
+template <typename T, OpType OP> struct TestConfig {
   using String = WEX::Common::String;
 
   bool VerboseLogging;
   uint16_t ScalarInputFlags;
 
-  String InputValueSetNames[3];
   size_t LongVectorInputSize = 0;
 
   TestConfig(bool VerboseLogging, uint16_t ScalarInputFlags)
       : VerboseLogging(VerboseLogging), ScalarInputFlags(ScalarInputFlags) {
     using WEX::TestExecution::RuntimeParameters;
-    using WEX::TestExecution::TestData;
-
-    for (size_t I = 0; I < std::size(InputValueSetNames); ++I)
-      InputValueSetNames[I] = getInputValueSetName(I);
 
     RuntimeParameters::TryGetValue(L"LongVectorInputSize", LongVectorInputSize);
   }
@@ -341,11 +376,11 @@ template <typename T, typename OP_TYPE, OP_TYPE OP> struct TestConfig {
 template <typename T, size_t ARITY>
 using InputSets = std::array<std::vector<T>, ARITY>;
 
-template <typename T, typename OUT_TYPE, size_t ARITY, typename OP_TYPE>
-std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
+template <OpType OP, typename T, typename OUT_TYPE>
+std::string getCompilerOptionsString(size_t VectorSize,
                                      uint16_t ScalarInputFlags,
                                      std::string ExtraDefines) {
-  OpTypeMetaData<OP_TYPE> OpTypeMetaData = getOpTypeMetaData(OpType);
+  using OpTraits = OpTraits<OP>;
 
   std::stringstream CompilerOptions;
 
@@ -356,18 +391,16 @@ std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
   CompilerOptions << " -DNUM=" << VectorSize;
 
   CompilerOptions << " -DOPERATOR=";
-  if (OpTypeMetaData.Operator)
-    CompilerOptions << *OpTypeMetaData.Operator;
+  CompilerOptions << OpTraits::Operator;
 
   CompilerOptions << " -DFUNC=";
-  if (OpTypeMetaData.Intrinsic)
-    CompilerOptions << *OpTypeMetaData.Intrinsic;
+  CompilerOptions << OpTraits::Intrinsic;
 
   CompilerOptions << " " << ExtraDefines;
 
   CompilerOptions << " -DOUT_TYPE=" << getHLSLTypeString<OUT_TYPE>();
 
-  CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << ARITY;
+  CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << OpTraits::Arity;
 
   CompilerOptions << " -DOPERAND_IS_SCALAR_FLAGS=";
   CompilerOptions << "0x" << std::hex << ScalarInputFlags;
@@ -409,12 +442,10 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
     ShaderBufferPtr[I] = TestData[I];
 }
 
-template <typename OUT_TYPE, typename T, typename OP_TYPE, OP_TYPE OP,
-          size_t ARITY>
+template <typename OUT_TYPE, typename T, OpType OP, size_t ARITY>
 std::optional<std::vector<OUT_TYPE>>
-runTest(const TestConfig<T, OP_TYPE, OP> &Config,
-        const InputSets<T, ARITY> &Inputs, size_t ExpectedOutputSize,
-        std::string ExtraDefines) {
+runTest(const TestConfig<T, OP> &Config, const InputSets<T, ARITY> &Inputs,
+        size_t ExpectedOutputSize, std::string ExtraDefines) {
 
   CComPtr<ID3D12Device> D3DDevice;
   if (!createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false)) {
@@ -439,10 +470,8 @@ runTest(const TestConfig<T, OP_TYPE, OP> &Config,
 
   // We have to construct the string outside of the lambda. Otherwise it's
   // cleaned up when the lambda finishes executing but before the shader runs.
-  std::string CompilerOptionsString =
-      getCompilerOptionsString<T, OUT_TYPE, ARITY>(OP, Inputs[0].size(),
-                                                   Config.ScalarInputFlags,
-                                                   std::move(ExtraDefines));
+  std::string CompilerOptionsString = getCompilerOptionsString<OP, T, OUT_TYPE>(
+      Inputs[0].size(), Config.ScalarInputFlags, std::move(ExtraDefines));
 
   dxc::SpecificDllLoader DxilDllLoader;
 
@@ -507,9 +536,9 @@ runTest(const TestConfig<T, OP_TYPE, OP> &Config,
 }
 
 template <typename T>
-std::vector<T> buildTestInput(const wchar_t *InputValueSetName,
-                              size_t SizeToTest) {
-  const std::vector<T> &RawValueSet = TestData<T>::Data.at(InputValueSetName);
+std::vector<T> buildTestInput(InputSet InputSet, size_t SizeToTest) {
+  const std::vector<T> &RawValueSet =
+      TestData<T>::Data.at(getInputSetName(InputSet));
 
   std::vector<T> ValueSet;
   ValueSet.reserve(SizeToTest);
@@ -519,6 +548,24 @@ std::vector<T> buildTestInput(const wchar_t *InputValueSetName,
   return ValueSet;
 }
 
+template <typename T, OpType OP>
+InputSets<T, OpTraits<OP>::Arity> buildTestInputs(size_t VectorSize,
+                                                  uint16_t ScalarInputFlags) {
+  constexpr size_t Arity = OpTraits<OP>::Arity;
+
+  InputSets<T, Arity> Inputs;
+
+  for (size_t I = 0; I < Arity; ++I) {
+    uint16_t OperandScalarFlag = 1 << I;
+    bool IsOperandScalar = ScalarInputFlags & OperandScalarFlag;
+    Inputs[I] = buildTestInput<T>(OpTraits<OP>::InputSets[I],
+                                  IsOperandScalar ? 1 : VectorSize);
+  }
+
+  return Inputs;
+}
+
+#if 0
 template <size_t ARITY, typename T, typename OP_TYPE, OP_TYPE OP>
 InputSets<T, ARITY> buildTestInputs(const TestConfig<T, OP_TYPE, OP> &Config,
                                     size_t SizeToTest) {
@@ -540,6 +587,7 @@ InputSets<T, ARITY> buildTestInputs(const TestConfig<T, OP_TYPE, OP> &Config,
 
   return Inputs;
 }
+#endif
 
 struct ValidationConfig {
   float Tolerance = 0.0f;
@@ -556,7 +604,7 @@ struct ValidationConfig {
 
 template <typename T, typename OP_TYPE, OP_TYPE OP, typename OUT_TYPE,
           size_t ARITY>
-void runAndVerify(const TestConfig<T, OP_TYPE, OP> &Config,
+void runAndVerify(const TestConfig<T, OP> &Config,
                   const InputSets<T, ARITY> &Inputs,
                   const std::vector<OUT_TYPE> &Expected,
                   std::string ExtraDefines,
@@ -817,6 +865,8 @@ static void splitDouble(const double A, uint32_t &LowBits, uint32_t &HighBits) {
   HighBits = static_cast<uint32_t>(Bits >> 32);
 }
 
+#endif
+
 // asDouble
 
 static double asDouble(const uint32_t LowBits, const uint32_t HighBits) {
@@ -825,6 +875,8 @@ static double asDouble(const uint32_t LowBits, const uint32_t HighBits) {
   std::memcpy(&Result, &Bits, sizeof(Result));
   return Result;
 }
+
+#if 0
 
 void dispatchAsUintSplitDoubleTest(
     const TestConfig<double, AsTypeOpType> &Config, size_t VectorSize) {
@@ -1553,6 +1605,7 @@ static_assert(_countof(ternaryMathOpTypeStringToOpMetaData) ==
 
 OP_TYPE_META_DATA(TernaryMathOpType, ternaryMathOpTypeStringToOpMetaData);
 
+#if 0
 template <typename T, TernaryMathOpType OP, typename OUT_TYPE>
 void dispatchTernaryMathOpTest(
     const TestConfig<T, TernaryMathOpType, OP> &Config, size_t VectorSize,
@@ -1577,6 +1630,7 @@ void dispatchTernaryMathOpTest(
 
   runAndVerify(Config, Inputs, Expected, "", ValidationConfig);
 }
+#endif
 
 namespace TernaryMathOps {
 
@@ -1599,7 +1653,7 @@ template <typename T> T SmoothStep(T Min, T Max, T X) {
 }
 
 } // namespace TernaryMathOps
-
+#if 0
 template <typename T, TernaryMathOpType OP>
 void dispatchTestByVectorSize(
     const TestConfig<T, TernaryMathOpType, OP> &Config, size_t VectorSize) {
@@ -1632,21 +1686,115 @@ dispatchTestByVectorSize(
     size_t VectorSize) {
   dispatchTernaryMathOpTest(Config, VectorSize, TernaryMathOps::SmoothStep<T>);
 }
+#endif
 
 //
 // dispatchTest
 //
 
-template <typename T, typename OP_TYPE, OP_TYPE OP>
-void dispatchTest(const TestConfig<T, OP_TYPE, OP> &Config) {
+template <OpType OP, typename T> struct Op;
+
+template <OpType OP, typename T, typename Enable = void>
+struct OpValidationConfig {
+  static ValidationConfig get() { return ValidationConfig(); }
+};
+
+template <OpType OP, typename Enable = void> struct OpExtraDefines {
+  static const char *get() { return ""; }
+};
+
+template <OpType OP, typename T>
+struct OpValidationConfig<OP, T,
+                          typename std::enable_if_t<isFloatingPointType<T>()>> {
+  static ValidationConfig get() { return ValidationConfig::Ulp(1.0); }
+};
+
+template <> struct Op<OpType::AsDouble, uint32_t> {
+  using OutT = double;
+
+  double operator()(uint32_t Low, uint32_t High) { return asDouble(Low, High); }
+};
+
+template <> struct Op<OpType::Fma, double> {
+  using OutT = double;
+
+  double operator()(double A, double B, double C) { return A * B + C; }
+};
+
+template <typename T> struct Op<OpType::Mad, T> {
+  using OutT = T;
+
+  T operator()(T A, T B, T C) { return A * B + C; }
+};
+
+template <typename T> struct Op<OpType::SmoothStep, T> {
+  using OutT = T;
+
+  T operator()(T Min, T Max, T X) {
+    DXASSERT_NOMSG(Min < Max);
+
+    if (X <= Min)
+      return 0.0;
+    if (X >= Max)
+      return 1.0;
+
+    T NormalizedX = (X - Min) / (Max - Min);
+    NormalizedX = std::clamp(NormalizedX, T(0.0), T(1.0));
+    return NormalizedX * NormalizedX * (T(3.0) - T(2.0) * NormalizedX);
+  }
+};
+
+template <OpType OP, typename T, size_t ARITY>
+std::vector<T> buildExpected(const InputSets<T, ARITY> &Inputs);
+
+template <OpType OP, typename T, typename OUT_TYPE = typename Op<OP, T>::OutT>
+std::vector<OUT_TYPE> buildExpected(Op<OP, T> Op, const InputSets<T, 2> &Inputs,
+                                    size_t ScalarInputFlags) {
+  std::vector<OUT_TYPE> Expected;
+  Expected.reserve(Inputs[0].size());
+
+  for (size_t I = 0; I < Inputs[0].size(); ++I) {
+    size_t Index1 = (ScalarInputFlags & (1 << 1)) ? 0 : I;
+    Expected.push_back(Op(Inputs[0][I], Inputs[1][Index1]));
+  }
+
+  return Expected;
+}
+
+template <OpType OP, typename T, typename OUT_TYPE = typename Op<OP, T>::OutT>
+std::vector<OUT_TYPE> buildExpected(Op<OP, T> Op, const InputSets<T, 3> &Inputs,
+                                    size_t ScalarInputFlags) {
+  std::vector<OUT_TYPE> Expected;
+  Expected.reserve(Inputs[0].size());
+
+  for (size_t I = 0; I < Inputs[0].size(); ++I) {
+    size_t Index1 = (ScalarInputFlags & (1 << 1)) ? 0 : I;
+    size_t Index2 = (ScalarInputFlags & (1 << 2)) ? 0 : I;
+    Expected.push_back(Op(Inputs[0][I], Inputs[1][Index1], Inputs[2][Index2]));
+  }
+
+  return Expected;
+}
+
+template <typename T, OpType OP>
+void dispatchTest(const TestConfig<T, OP> &Config) {
   std::vector<size_t> InputVectorSizes;
   if (Config.LongVectorInputSize)
     InputVectorSizes.push_back(Config.LongVectorInputSize);
   else
     InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
 
-  for (size_t VectorSize : InputVectorSizes)
-    dispatchTestByVectorSize(Config, VectorSize);
+  Op<OP, T> Op;
+
+  for (size_t VectorSize : InputVectorSizes) {
+    InputSets<T, OpTraits<OP>::Arity> Inputs =
+        buildTestInputs<T, OP>(VectorSize, Config.ScalarInputFlags);
+
+    auto Expected = buildExpected(Op, Inputs, Config.ScalarInputFlags);
+
+    runAndVerify(Config, Inputs, Expected, OpExtraDefines<OP>::get(),
+                 OpValidationConfig<OP, T>::get());
+  }
 }
 
 // TAEF test entry points
@@ -1707,12 +1855,11 @@ public:
     return true;
   }
 
-  template <typename T, typename OP_TYPE, OP_TYPE OP>
-  void runTest(uint16_t ScalarInputFlags) {
+  template <typename T, OpType OP> void runTest(uint16_t ScalarInputFlags) {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-    dispatchTest(TestConfig<T, OP_TYPE, OP>(VerboseLogging, ScalarInputFlags));
+    dispatchTest(TestConfig<T, OP>(VerboseLogging, ScalarInputFlags));
   }
 
   // #define OP_TESTS(name, type, table)                                            \
@@ -1750,13 +1897,13 @@ public:
 #define CONCAT(a, b) CONCAT_I(a, b)
 #define CONCAT_I(a, b) a##b
 
-#define METHOD_NAME(OpType, Op, DataType, Variant)                             \
-  CONCAT(OpType##_##Op##_##DataType, VARIANT_NAME(Variant))
+#define METHOD_NAME(Op, DataType, Variant)                                     \
+  CONCAT(Op##_##DataType, VARIANT_NAME(Variant))
 
 #define TEST_NAME(Op, DataType, Variant) KITS_TESTNAME #DataType " - " #Variant
 
 #define HLK_TEST_METHOD(MethodName, Description, Specification, TestName,      \
-                        Guid, OpType, Op, Variant, DataType)                   \
+                        Guid, Op, Variant, DataType)                           \
   TEST_METHOD(MethodName) {                                                    \
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
     TEST_METHOD_PROPERTY("Kits.Description", Description)                      \
@@ -1764,14 +1911,14 @@ public:
     TEST_METHOD_PROPERTY("Kits.TestName", TestName)                            \
     TEST_METHOD_PROPERTY("Kits.TestId", Guid)                                  \
     END_TEST_METHOD_PROPERTIES();                                              \
-    runTest<DataType, OpType, OpType ::Op>(Variant);                           \
+    runTest<DataType, OpType ::Op>(Variant);                                   \
   }
 
-#define HLK_TEST(OpType, Op, DataType, Variant, GUID)                          \
-  HLK_TEST_METHOD(METHOD_NAME(OpType, Op, DataType, Variant),                  \
+#define HLK_TEST(Op, DataType, Variant, GUID)                                  \
+  HLK_TEST_METHOD(METHOD_NAME(Op, DataType, Variant),                          \
                   DESCRIPTION(KITS_DESCRIPTION, Op, DataType, Variant),        \
                   KITS_SPECIFICATION, TEST_NAME(Op, DataType, Variant), GUID,  \
-                  OpType, Op, VARIANT_VALUE_##Variant, DataType)
+                  Op, VARIANT_VALUE_##Variant, DataType)
 
 #define KITS_DESCRIPTION "Verifies the vectorized DXIL instruction"
 #define KITS_SPECIFICATION                                                     \
@@ -1780,54 +1927,36 @@ public:
 
 #define KITS_TESTNAME "D3D12 - Shader Model 6.9 - vectorized DXIL - "
 
-  HLK_TEST(TernaryMathOpType, Mad, uint16_t, Vector,
-           "296dae2f-4823-4c64-874c-d7e8b1e5e53b");
-  HLK_TEST(TernaryMathOpType, Mad, uint16_t, ScalarOp3,
-           "1adf820c-86d7-483e-86b4-d5398a8b8a32");
-  HLK_TEST(TernaryMathOpType, Mad, uint32_t, Vector,
-           "df66f9cd-268e-4509-90c5-a7f39fea2757");
-  HLK_TEST(TernaryMathOpType, Mad, uint32_t, ScalarOp2,
-           "4208fb2e-df8b-4c65-8889-f4acbb04a263");
-  HLK_TEST(TernaryMathOpType, Mad, uint64_t, Vector,
-           "1459088f-e647-4f7c-8cc7-a6673e2277ae");
-  HLK_TEST(TernaryMathOpType, Mad, uint64_t, ScalarOp3,
-           "cc002bb6-9e55-460a-a381-8ff259cd103f");
-  HLK_TEST(TernaryMathOpType, Mad, int16_t, Vector,
-           "5e2f0dd1-4c4e-4b3e-9c5c-4d1b6e9b6f10");
-  HLK_TEST(TernaryMathOpType, Mad, int16_t, ScalarOp2,
-           "e1c8a2f7-9b1c-4c5f-8f0d-2fb0c5d3e6a4");
-  HLK_TEST(TernaryMathOpType, Mad, int32_t, Vector,
-           "3a4d7c2b-2e5a-4f0a-9b1d-6c7e8f9a0b1c");
-  HLK_TEST(TernaryMathOpType, Mad, int32_t, ScalarOp2,
-           "9b8a7c6d-5e4f-4d3c-8b2a-1c0d9e8f7a6b");
-  HLK_TEST(TernaryMathOpType, Mad, int64_t, Vector,
-           "0f1e2d3c-4b5a-6978-8899-aabbccddeeff");
-  HLK_TEST(TernaryMathOpType, Mad, int64_t, ScalarOp3,
-           "11223344-5566-4788-99aa-bbccddeeff00");
-  HLK_TEST(TernaryMathOpType, Mad, HLSLHalf_t, Vector,
-           "7c6b5a49-3847-2615-9d8c-7b6a59483726");
-  HLK_TEST(TernaryMathOpType, Mad, HLSLHalf_t, ScalarOp2,
-           "d4c3b2a1-0f9e-8d7c-6b5a-493827161504");
-  HLK_TEST(TernaryMathOpType, SmoothStep, HLSLHalf_t, Vector,
+  HLK_TEST(AsDouble, uint32_t, Vector, "0d09d921-05e0-41b8-9e48-d5828cd54f1d");
+  HLK_TEST(AsDouble, uint32_t, ScalarOp2,
+           "2a744949-9a64-4d1a-ac46-eb4dec05676c");
+  HLK_TEST(Mad, uint16_t, Vector, "296dae2f-4823-4c64-874c-d7e8b1e5e53b");
+  HLK_TEST(Mad, uint16_t, ScalarOp3, "1adf820c-86d7-483e-86b4-d5398a8b8a32");
+  HLK_TEST(Mad, uint32_t, Vector, "df66f9cd-268e-4509-90c5-a7f39fea2757");
+  HLK_TEST(Mad, uint32_t, ScalarOp2, "4208fb2e-df8b-4c65-8889-f4acbb04a263");
+  HLK_TEST(Mad, uint64_t, Vector, "1459088f-e647-4f7c-8cc7-a6673e2277ae");
+  HLK_TEST(Mad, uint64_t, ScalarOp3, "cc002bb6-9e55-460a-a381-8ff259cd103f");
+  HLK_TEST(Mad, int16_t, Vector, "5e2f0dd1-4c4e-4b3e-9c5c-4d1b6e9b6f10");
+  HLK_TEST(Mad, int16_t, ScalarOp2, "e1c8a2f7-9b1c-4c5f-8f0d-2fb0c5d3e6a4");
+  HLK_TEST(Mad, int32_t, Vector, "3a4d7c2b-2e5a-4f0a-9b1d-6c7e8f9a0b1c");
+  HLK_TEST(Mad, int32_t, ScalarOp2, "9b8a7c6d-5e4f-4d3c-8b2a-1c0d9e8f7a6b");
+  HLK_TEST(Mad, int64_t, Vector, "0f1e2d3c-4b5a-6978-8899-aabbccddeeff");
+  HLK_TEST(Mad, int64_t, ScalarOp3, "11223344-5566-4788-99aa-bbccddeeff00");
+  HLK_TEST(Mad, HLSLHalf_t, Vector, "7c6b5a49-3847-2615-9d8c-7b6a59483726");
+  HLK_TEST(Mad, HLSLHalf_t, ScalarOp2, "d4c3b2a1-0f9e-8d7c-6b5a-493827161504");
+  HLK_TEST(SmoothStep, HLSLHalf_t, Vector,
            "2468ace0-1357-49b1-8d2f-3a5c7e9f1b3d");
-  HLK_TEST(TernaryMathOpType, SmoothStep, HLSLHalf_t, ScalarOp2,
+  HLK_TEST(SmoothStep, HLSLHalf_t, ScalarOp2,
            "13579bdf-2468-4ace-9bdf-246813579bdf");
-  HLK_TEST(TernaryMathOpType, Mad, float, Vector,
-           "89abcdef-0123-4567-89ab-cdef01234567");
-  HLK_TEST(TernaryMathOpType, Mad, float, ScalarOp2,
-           "fedcba98-7654-3210-fedc-ba9876543210");
-  HLK_TEST(TernaryMathOpType, SmoothStep, float, Vector,
-           "4b3a2918-1706-5f4e-3d2c-1b0a99887766");
-  HLK_TEST(TernaryMathOpType, SmoothStep, float, ScalarOp3,
+  HLK_TEST(Mad, float, Vector, "89abcdef-0123-4567-89ab-cdef01234567");
+  HLK_TEST(Mad, float, ScalarOp2, "fedcba98-7654-3210-fedc-ba9876543210");
+  HLK_TEST(SmoothStep, float, Vector, "4b3a2918-1706-5f4e-3d2c-1b0a99887766");
+  HLK_TEST(SmoothStep, float, ScalarOp3,
            "66778899-aabb-4ccd-affe-112233445566");
-  HLK_TEST(TernaryMathOpType, Fma, double, Vector,
-           "a1b2c3d4-e5f6-47a8-90ab-cdef12345678");
-  HLK_TEST(TernaryMathOpType, Fma, double, ScalarOp2,
-           "0a9b8c7d-6e5f-4d3c-2b1a-998877665544");
-  HLK_TEST(TernaryMathOpType, Mad, double, Vector,
-           "10293847-5647-4839-9abc-def012345678");
-  HLK_TEST(TernaryMathOpType, Mad, double, ScalarOp2,
-           "88776655-4433-4211-a0b9-8c7d6e5f4d3c");
+  HLK_TEST(Fma, double, Vector, "a1b2c3d4-e5f6-47a8-90ab-cdef12345678");
+  HLK_TEST(Fma, double, ScalarOp2, "0a9b8c7d-6e5f-4d3c-2b1a-998877665544");
+  HLK_TEST(Mad, double, Vector, "10293847-5647-4839-9abc-def012345678");
+  HLK_TEST(Mad, double, ScalarOp2, "88776655-4433-4211-a0b9-8c7d6e5f4d3c");
 
 private:
   bool Initialized = false;

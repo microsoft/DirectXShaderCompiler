@@ -1,0 +1,25 @@
+//
+//
+//
+
+#ifndef INPUT_SET
+#define INPUT_SET(SYMBOL, NAME)
+#endif
+INPUT_SET(Default1, "DefaultInputValueSet1")
+INPUT_SET(Default2, "DefaultInputValueSet2")
+INPUT_SET(Default3, "DefaultInputValueSet3")
+INPUT_SET(SmoothStepMin, "SmoothStepMin")
+INPUT_SET(SmoothStepMax, "SmoothStepMax")
+INPUT_SET(SmoothStepInput, "SmoothStepInputValueSet")
+#undef INPUT_SET
+
+#ifndef OP
+#define OP(SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1, INPUT_SET_2, INPUT_SET_3)
+#endif
+
+OP(AsDouble, 2, "asdouble", ",", Default1, Default2, Default3)
+OP(Fma, 3, "fma", "", Default1, Default2, Default3)
+OP(Mad, 3, "mad", "", Default1, Default2, Default3)
+OP(SmoothStep, 3, "smoothstep", "", SmoothStepMin, SmoothStepMax, SmoothStepInput)
+
+#undef OP
