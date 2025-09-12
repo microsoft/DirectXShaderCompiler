@@ -1585,109 +1585,6 @@ void dispatchTestByVectorSize(const TestConfig<T, BitwiseOpType> &Config,
 }
 #endif
 
-// TernaryMathOpType
-//
-
-enum class TernaryMathOpType { Fma, Mad, SmoothStep, EnumValueCount };
-
-static const OpTypeMetaData<TernaryMathOpType>
-    ternaryMathOpTypeStringToOpMetaData[] = {
-        {L"TernaryMathOpType_Fma", TernaryMathOpType::Fma, "fma"},
-        {L"TernaryMathOpType_Mad", TernaryMathOpType::Mad, "mad"},
-        {L"TernaryMathOpType_SmoothStep", TernaryMathOpType::SmoothStep,
-         "smoothstep"},
-};
-
-static_assert(_countof(ternaryMathOpTypeStringToOpMetaData) ==
-                  (size_t)TernaryMathOpType::EnumValueCount,
-              "ternaryMathOpTypeStringToOpMetaData size mismatch. Did you add "
-              "a new enum value?");
-
-OP_TYPE_META_DATA(TernaryMathOpType, ternaryMathOpTypeStringToOpMetaData);
-
-#if 0
-template <typename T, TernaryMathOpType OP, typename OUT_TYPE>
-void dispatchTernaryMathOpTest(
-    const TestConfig<T, TernaryMathOpType, OP> &Config, size_t VectorSize,
-    OUT_TYPE (*Calc)(T, T, T)) {
-
-  ValidationConfig ValidationConfig;
-
-  if (isFloatingPointType<T>())
-    ValidationConfig = ValidationConfig::Ulp(1.0);
-
-  InputSets<T, 3> Inputs = buildTestInputs<3>(Config, VectorSize);
-
-  std::vector<OUT_TYPE> Expected;
-  Expected.reserve(Inputs[0].size());
-
-  for (size_t I = 0; I < Inputs[0].size(); ++I) {
-    size_t Index1 = (Config.ScalarInputFlags & (1 << 1)) ? 0 : I;
-    size_t Index2 = (Config.ScalarInputFlags & (1 << 2)) ? 0 : I;
-    Expected.push_back(
-        Calc(Inputs[0][I], Inputs[1][Index1], Inputs[2][Index2]));
-  }
-
-  runAndVerify(Config, Inputs, Expected, "", ValidationConfig);
-}
-#endif
-
-namespace TernaryMathOps {
-
-template <typename T> T Fma(T, T, T);
-template <> double Fma(double A, double B, double C) { return A * B + C; }
-
-template <typename T> T Mad(T A, T B, T C) { return A * B + C; }
-
-template <typename T> T SmoothStep(T Min, T Max, T X) {
-  DXASSERT_NOMSG(Min < Max);
-
-  if (X <= Min)
-    return 0.0;
-  if (X >= Max)
-    return 1.0;
-
-  T NormalizedX = (X - Min) / (Max - Min);
-  NormalizedX = std::clamp(NormalizedX, T(0.0), T(1.0));
-  return NormalizedX * NormalizedX * (T(3.0) - T(2.0) * NormalizedX);
-}
-
-} // namespace TernaryMathOps
-#if 0
-template <typename T, TernaryMathOpType OP>
-void dispatchTestByVectorSize(
-    const TestConfig<T, TernaryMathOpType, OP> &Config, size_t VectorSize) {
-  (void)Config;
-  (void)VectorSize;
-  static_assert(false, "Unsupported configuration");
-}
-
-template <>
-void dispatchTestByVectorSize(
-    const TestConfig<double, TernaryMathOpType, TernaryMathOpType::Fma> &Config,
-    size_t VectorSize) {
-  dispatchTernaryMathOpTest(Config, VectorSize, TernaryMathOps::Fma<double>);
-}
-
-template <typename T>
-typename std::enable_if_t<!std::is_same_v<T, HLSLBool_t>, void>
-dispatchTestByVectorSize(
-    const TestConfig<T, TernaryMathOpType, TernaryMathOpType::Mad> &Config,
-    size_t VectorSize) {
-  dispatchTernaryMathOpTest(Config, VectorSize, TernaryMathOps::Mad<T>);
-}
-
-template <typename T>
-typename std::enable_if_t<
-    std::is_same_v<T, float> || std::is_same_v<T, HLSLHalf_t>, void>
-dispatchTestByVectorSize(
-    const TestConfig<T, TernaryMathOpType, TernaryMathOpType::SmoothStep>
-        &Config,
-    size_t VectorSize) {
-  dispatchTernaryMathOpTest(Config, VectorSize, TernaryMathOps::SmoothStep<T>);
-}
-#endif
-
 //
 // dispatchTest
 //
@@ -1861,25 +1758,6 @@ public:
 
     dispatchTest(TestConfig<T, OP>(VerboseLogging, ScalarInputFlags));
   }
-
-  // #define OP_TESTS(name, type, table)                                            \
-//   TEST_METHOD(name) {                                                          \
-//     BEGIN_TEST_METHOD_PROPERTIES()                                             \
-//     TEST_METHOD_PROPERTY(L"DataSource", L"Table:LongVectorOpTable.xml#" table) \
-//     END_TEST_METHOD_PROPERTIES();                                              \
-//     runTest<type>();                                                           \
-//   }
-
-  // OP_TESTS(unaryMathOpTest, UnaryOpType, L"UnaryMathOpTable");
-  // OP_TESTS(binaryOpTest, BinaryOpType, L"BinaryOpTable");
-  // OP_TESTS(binaryMathOpTest, BinaryMathOpType, L"BinaryMathOpTable");
-  // OP_TESTS(binaryComparisonOpTest, BinaryComparisonOpType,
-  //          L"BinaryComparisonOpTable");
-  // OP_TESTS(bitwiseOpTest, BitwiseOpType, L"bitwiseOpTable");
-  // OP_TESTS(ternaryMathOpTest, TernaryMathOpType, L"TernaryMathOpTable");
-  // OP_TESTS(trigonometricOpTest, TrigonometricOpType,
-  // L"TrigonometricOpTable"); OP_TESTS(unaryOpTest, UnaryOpType,
-  // L"UnaryOpTable"); OP_TESTS(asTypeOpTest, AsTypeOpType, L"AsTypeOpTable");
 
 #define DESCRIPTION(Base, Op, DataType, Variant)                               \
   Base " " #Op " (" #DataType " " #Variant ")"
