@@ -41,7 +41,7 @@ DATA_TYPE_NAME(int16_t, L"int16", "int16_t");
 DATA_TYPE_NAME(int32_t, L"int32", "int");
 DATA_TYPE_NAME(int64_t, L"int64", "int64_t");
 DATA_TYPE_NAME(uint16_t, L"uint16", "uint16_t");
-DATA_TYPE_NAME(uint32_t, L"uint32", "uint32_");
+DATA_TYPE_NAME(uint32_t, L"uint32", "uint32_t");
 DATA_TYPE_NAME(uint64_t, L"uint64", "uint64_t");
 DATA_TYPE_NAME(HLSLHalf_t, L"float16", "half");
 DATA_TYPE_NAME(float, L"float32", "float");
@@ -678,7 +678,7 @@ template <typename T, typename OUT_TYPE, typename OP_TYPE>
 void dispatchBinaryTest(const TestConfig &Config,
                         const ValidationConfig &ValidationConfig,
                         OP_TYPE OpType, size_t VectorSize,
-                        OUT_TYPE (*Calc)(T, T)) {
+                        OUT_TYPE (*Calc)(T, T), std::string ExtraDefines = "") {
   InputSets<T, 2> Inputs = buildTestInputs<T, 2>(Config, VectorSize);
 
   std::vector<OUT_TYPE> Expected;
@@ -689,7 +689,8 @@ void dispatchBinaryTest(const TestConfig &Config,
     Expected.push_back(Calc(Inputs[0][I], Inputs[1][Index1]));
   }
 
-  runAndVerify(Config, OpType, Inputs, Expected, "", ValidationConfig);
+  runAndVerify(Config, OpType, Inputs, Expected, ExtraDefines,
+               ValidationConfig);
 }
 
 //
@@ -1304,6 +1305,117 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 }
 
 //
+// BinaryOpType
+//
+
+enum class BinaryOpType {
+  LogicalAnd,
+  LogicalOr,
+  TernaryAssignment_True,
+  TernaryAssignment_False,
+  EnumValueCount
+};
+
+static const OpTypeMetaData<BinaryOpType> binaryOpTypeStringToOpMetaData[] = {
+    {L"BinaryOpType_Logical_And", BinaryOpType::LogicalAnd, "and", ","},
+    {L"BinaryOpType_Logical_Or", BinaryOpType::LogicalOr, "or", ","},
+    {L"BinaryOpType_TernaryAssignment_True",
+     BinaryOpType::TernaryAssignment_True, "TestTernaryAssignment", ","},
+    {L"BinaryOpType_TernaryAssignment_False",
+     BinaryOpType::TernaryAssignment_False, "TestTernaryAssignment", ","},
+};
+
+static_assert(_countof(binaryOpTypeStringToOpMetaData) ==
+                  (size_t)BinaryOpType::EnumValueCount,
+              "binaryOpTypeStringToOpMetaData size mismatch. Did you "
+              "add a new enum value?");
+
+OP_TYPE_META_DATA(BinaryOpType, binaryOpTypeStringToOpMetaData);
+
+template <typename T, typename OUT_TYPE>
+void dispatchBinaryOpTest(const TestConfig &Config, BinaryOpType OpType,
+                          size_t VectorSize, OUT_TYPE (*Calc)(T, T),
+                          std::string ExtraDefines) {
+
+  ValidationConfig ValidationConfig;
+
+  if (isFloatingPointType<T>())
+    ValidationConfig = ValidationConfig::Ulp(1.0);
+
+  dispatchBinaryTest(Config, ValidationConfig, OpType, VectorSize, Calc,
+                     ExtraDefines);
+}
+
+template <typename T> struct BinaryOps {
+  // Logical operations
+  static T LogicalAnd(T A, T B) { return A && B; }
+  static T LogicalOr(T A, T B) { return A || B; }
+
+  // The ternary operator only allows scalars for the condition.
+  // So it's easy to just treat it as a binary operation.
+  static T TernaryTrue(T A, T B) { return true ? A : B; }
+  static T TernaryFalse(T A, T B) { return false ? A : B; }
+};
+
+void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
+                                       BinaryOpType OpType, size_t VectorSize) {
+
+#define DISPATCH(TYPE, FUNC)                                                   \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
+  return dispatchBinaryOpTest(Config, OpType, VectorSize,                      \
+                              BinaryOps<TYPE>::FUNC, ExtraDefines)
+
+  std::string ExtraDefines;
+
+  switch (OpType) {
+  case BinaryOpType::TernaryAssignment_True:
+    ExtraDefines = " -DTERNARY_CONDITION=1 -DFUNC_TERNARY_ASSIGNMENT=1";
+    DISPATCH(HLSLBool_t, TernaryTrue);
+    DISPATCH(HLSLHalf_t, TernaryTrue);
+    DISPATCH(float, TernaryTrue);
+    DISPATCH(double, TernaryTrue);
+    DISPATCH(int16_t, TernaryTrue);
+    DISPATCH(int32_t, TernaryTrue);
+    DISPATCH(int64_t, TernaryTrue);
+    DISPATCH(uint16_t, TernaryTrue);
+    DISPATCH(uint32_t, TernaryTrue);
+    DISPATCH(uint64_t, TernaryTrue);
+    break;
+
+  case BinaryOpType::TernaryAssignment_False:
+    ExtraDefines = " -DTERNARY_CONDITION=0 -DFUNC_TERNARY_ASSIGNMENT=1";
+    DISPATCH(HLSLBool_t, TernaryFalse);
+    DISPATCH(HLSLHalf_t, TernaryFalse);
+    DISPATCH(float, TernaryFalse);
+    DISPATCH(double, TernaryFalse);
+    DISPATCH(int16_t, TernaryFalse);
+    DISPATCH(int32_t, TernaryFalse);
+    DISPATCH(int64_t, TernaryFalse);
+    DISPATCH(uint16_t, TernaryFalse);
+    DISPATCH(uint32_t, TernaryFalse);
+    DISPATCH(uint64_t, TernaryFalse);
+    break;
+
+  case BinaryOpType::LogicalAnd:
+    DISPATCH(HLSLBool_t, LogicalAnd);
+    break;
+
+  case BinaryOpType::LogicalOr:
+    DISPATCH(HLSLBool_t, LogicalOr);
+    break;
+
+  case BinaryOpType::EnumValueCount:
+    break;
+  }
+
+#undef DISPATCH
+
+  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for BinaryOpType '%s'",
+                      (const wchar_t *)Config.DataType,
+                      (const wchar_t *)Config.OpTypeEnum);
+}
+
+//
 // BinaryMathOp
 //
 
@@ -1488,7 +1600,282 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 }
 
 //
-// TernaryMathOp
+// BinaryComparisonOp
+//
+
+enum class BinaryComparisonOpType {
+  LessThan,
+  LessEqual,
+  GreaterThan,
+  GreaterEqual,
+  Equal,
+  NotEqual,
+  EnumValueCount
+};
+
+static const OpTypeMetaData<BinaryComparisonOpType>
+    binaryComparisonOpTypeStringToOpMetaData[] = {
+        {L"BinaryComparisonOpType_LessThan", BinaryComparisonOpType::LessThan,
+         std::nullopt, "<"},
+        {L"BinaryComparisonOpType_LessEqual", BinaryComparisonOpType::LessEqual,
+         std::nullopt, "<="},
+        {L"BinaryComparisonOpType_GreaterThan",
+         BinaryComparisonOpType::GreaterThan, std::nullopt, ">"},
+        {L"BinaryComparisonOpType_GreaterEqual",
+         BinaryComparisonOpType::GreaterEqual, std::nullopt, ">="},
+        {L"BinaryComparisonOpType_Equal", BinaryComparisonOpType::Equal,
+         std::nullopt, "=="},
+        {L"BinaryComparisonOpType_NotEqual", BinaryComparisonOpType::NotEqual,
+         std::nullopt, "!="},
+};
+
+static_assert(_countof(binaryComparisonOpTypeStringToOpMetaData) ==
+                  (size_t)BinaryComparisonOpType::EnumValueCount,
+              "binaryComparisonOpTypeStringToOpMetaData size mismatch. Did "
+              "you add a new enum value?");
+
+OP_TYPE_META_DATA(BinaryComparisonOpType,
+                  binaryComparisonOpTypeStringToOpMetaData);
+
+template <typename T, typename OUT_TYPE>
+void dispatchBinaryComparisonOpTest(const TestConfig &Config,
+                                    BinaryComparisonOpType OpType,
+                                    size_t VectorSize, OUT_TYPE (*Calc)(T, T)) {
+  ValidationConfig ValidationConfig{};
+  dispatchBinaryTest(Config, ValidationConfig, OpType, VectorSize, Calc);
+}
+
+template <typename T> struct BinaryComparisonOps {
+  static HLSLBool_t Equal(T A, T B) { return A == B; }
+  static HLSLBool_t NotEqual(T A, T B) { return A != B; }
+  static HLSLBool_t LessThan(T A, T B) { return A < B; }
+  static HLSLBool_t LessEqual(T A, T B) { return A <= B; }
+  static HLSLBool_t GreaterThan(T A, T B) { return A > B; }
+  static HLSLBool_t GreaterEqual(T A, T B) { return A >= B; }
+};
+
+void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
+                                       BinaryComparisonOpType OpType,
+                                       size_t VectorSize) {
+
+#define DISPATCH(TYPE, FUNC)                                                   \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
+  return dispatchBinaryTest(Config, ValidationConfig{}, OpType, VectorSize,    \
+                            BinaryComparisonOps<TYPE>::FUNC)
+  switch (OpType) {
+  case BinaryComparisonOpType::LessThan:
+    DISPATCH(int16_t, LessThan);
+    DISPATCH(int32_t, LessThan);
+    DISPATCH(int64_t, LessThan);
+    DISPATCH(uint16_t, LessThan);
+    DISPATCH(uint32_t, LessThan);
+    DISPATCH(uint64_t, LessThan);
+    DISPATCH(HLSLHalf_t, LessThan);
+    DISPATCH(float, LessThan);
+    DISPATCH(double, LessThan);
+    break;
+
+  case BinaryComparisonOpType::LessEqual:
+    DISPATCH(int16_t, LessEqual);
+    DISPATCH(int32_t, LessEqual);
+    DISPATCH(int64_t, LessEqual);
+    DISPATCH(uint16_t, LessEqual);
+    DISPATCH(uint32_t, LessEqual);
+    DISPATCH(uint64_t, LessEqual);
+    DISPATCH(HLSLHalf_t, LessEqual);
+    DISPATCH(float, LessEqual);
+    DISPATCH(double, LessEqual);
+    break;
+
+  case BinaryComparisonOpType::GreaterThan:
+    DISPATCH(int16_t, GreaterThan);
+    DISPATCH(int32_t, GreaterThan);
+    DISPATCH(int64_t, GreaterThan);
+    DISPATCH(uint16_t, GreaterThan);
+    DISPATCH(uint32_t, GreaterThan);
+    DISPATCH(uint64_t, GreaterThan);
+    DISPATCH(HLSLHalf_t, GreaterThan);
+    DISPATCH(float, GreaterThan);
+    DISPATCH(double, GreaterThan);
+    break;
+
+  case BinaryComparisonOpType::GreaterEqual:
+    DISPATCH(int16_t, GreaterEqual);
+    DISPATCH(int32_t, GreaterEqual);
+    DISPATCH(int64_t, GreaterEqual);
+    DISPATCH(uint16_t, GreaterEqual);
+    DISPATCH(uint32_t, GreaterEqual);
+    DISPATCH(uint64_t, GreaterEqual);
+    DISPATCH(HLSLHalf_t, GreaterEqual);
+    DISPATCH(float, GreaterEqual);
+    DISPATCH(double, GreaterEqual);
+    break;
+
+  case BinaryComparisonOpType::Equal:
+    DISPATCH(int16_t, Equal);
+    DISPATCH(int32_t, Equal);
+    DISPATCH(int64_t, Equal);
+    DISPATCH(uint16_t, Equal);
+    DISPATCH(uint32_t, Equal);
+    DISPATCH(uint64_t, Equal);
+    DISPATCH(HLSLHalf_t, Equal);
+    DISPATCH(float, Equal);
+    DISPATCH(double, Equal);
+    break;
+
+  case BinaryComparisonOpType::NotEqual:
+    DISPATCH(int16_t, NotEqual);
+    DISPATCH(int32_t, NotEqual);
+    DISPATCH(int64_t, NotEqual);
+    DISPATCH(uint16_t, NotEqual);
+    DISPATCH(uint32_t, NotEqual);
+    DISPATCH(uint64_t, NotEqual);
+    DISPATCH(HLSLHalf_t, NotEqual);
+    DISPATCH(float, NotEqual);
+    DISPATCH(double, NotEqual);
+    break;
+
+  case BinaryComparisonOpType::EnumValueCount:
+    break;
+  }
+
+#undef DISPATCH
+
+  LOG_ERROR_FMT_THROW(
+      L"DataType '%s' not supported for BinaryComparisonOpType '%s'",
+      (const wchar_t *)Config.DataType, (const wchar_t *)Config.OpTypeEnum);
+}
+
+//
+// BitwiseOpType
+//
+
+enum class BitwiseOpType {
+  And,
+  Or,
+  Xor,
+  Not,
+  LeftShift,
+  RightShift,
+  EnumValueCount
+};
+
+static const OpTypeMetaData<BitwiseOpType> bitwiseOpTypeStringToOpMetaData[] = {
+    {L"BitwiseOpType_And", BitwiseOpType::And, std::nullopt, "&"},
+    {L"BitwiseOpType_Or", BitwiseOpType::Or, std::nullopt, "|"},
+    {L"BitwiseOpType_Xor", BitwiseOpType::Xor, std::nullopt, "^"},
+    {L"BitwiseOpType_Not", BitwiseOpType::Not, "TestUnaryOperator", "~"},
+    {L"BitwiseOpType_LeftShift", BitwiseOpType::LeftShift, std::nullopt, "<<"},
+    {L"BitwiseOpType_RightShift", BitwiseOpType::RightShift, std::nullopt,
+     ">>"},
+};
+
+static_assert(_countof(bitwiseOpTypeStringToOpMetaData) ==
+                  (size_t)BitwiseOpType::EnumValueCount,
+              "bitwiseOpTypeStringToOpMetaData size mismatch. Did you "
+              "add a new enum value?");
+
+OP_TYPE_META_DATA(BitwiseOpType, bitwiseOpTypeStringToOpMetaData);
+
+template <typename T, typename OUT_TYPE>
+void dispatchBitwiseOpTest(const TestConfig &Config, BitwiseOpType OpType,
+                           size_t VectorSize, OUT_TYPE (*Calc)(T, T)) {
+  ValidationConfig ValidationConfig{};
+  dispatchBinaryTest(Config, ValidationConfig, OpType, VectorSize, Calc);
+}
+
+template <typename T> struct BitwiseOps {
+  static T And(T A, T B) { return A & B; }
+  static T Or(T A, T B) { return A | B; }
+  static T Xor(T A, T B) { return A ^ B; }
+  static T LeftShift(T A, T B) { return A << B; }
+  static T RightShift(T A, T B) { return A >> B; }
+  static T Not(T A) { return ~A; }
+};
+
+void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
+                                       BitwiseOpType OpType,
+                                       size_t VectorSize) {
+
+#define DISPATCH(TYPE, FUNC)                                                   \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
+  return dispatchBinaryTest(Config, ValidationConfig{}, OpType, VectorSize,    \
+                            BitwiseOps<TYPE>::FUNC)
+
+#define DISPATCH_NOT(TYPE, FUNC)                                               \
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
+  return dispatchUnaryTest(Config, ValidationConfig{}, OpType, VectorSize,     \
+                           BitwiseOps<TYPE>::FUNC, "-DFUNC_UNARY_OPERATOR=1")
+
+  switch (OpType) {
+  case BitwiseOpType::And:
+    DISPATCH(int16_t, And);
+    DISPATCH(int32_t, And);
+    DISPATCH(int64_t, And);
+    DISPATCH(uint16_t, And);
+    DISPATCH(uint32_t, And);
+    DISPATCH(uint64_t, And);
+    break;
+
+  case BitwiseOpType::Or:
+    DISPATCH(int16_t, Or);
+    DISPATCH(int32_t, Or);
+    DISPATCH(int64_t, Or);
+    DISPATCH(uint16_t, Or);
+    DISPATCH(uint32_t, Or);
+    DISPATCH(uint64_t, Or);
+    break;
+
+  case BitwiseOpType::Xor:
+    DISPATCH(int16_t, Xor);
+    DISPATCH(int32_t, Xor);
+    DISPATCH(int64_t, Xor);
+    DISPATCH(uint16_t, Xor);
+    DISPATCH(uint32_t, Xor);
+    DISPATCH(uint64_t, Xor);
+    break;
+
+  case BitwiseOpType::Not:
+    DISPATCH_NOT(int16_t, Not);
+    DISPATCH_NOT(int32_t, Not);
+    DISPATCH_NOT(int64_t, Not);
+    DISPATCH_NOT(uint16_t, Not);
+    DISPATCH_NOT(uint32_t, Not);
+    DISPATCH_NOT(uint64_t, Not);
+    break;
+
+  case BitwiseOpType::LeftShift:
+    DISPATCH(int16_t, LeftShift);
+    DISPATCH(int32_t, LeftShift);
+    DISPATCH(int64_t, LeftShift);
+    DISPATCH(uint16_t, LeftShift);
+    DISPATCH(uint32_t, LeftShift);
+    DISPATCH(uint64_t, LeftShift);
+    break;
+
+  case BitwiseOpType::RightShift:
+    DISPATCH(int16_t, RightShift);
+    DISPATCH(int32_t, RightShift);
+    DISPATCH(int64_t, RightShift);
+    DISPATCH(uint16_t, RightShift);
+    DISPATCH(uint32_t, RightShift);
+    DISPATCH(uint64_t, RightShift);
+    break;
+
+  case BitwiseOpType::EnumValueCount:
+    break;
+  }
+
+#undef DISPATCH
+#undef DISPATCH_NOT
+
+  LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for BitwiseOpType '%s'",
+                      (const wchar_t *)Config.DataType,
+                      (const wchar_t *)Config.OpTypeEnum);
+}
+
+//
+// TernaryMathOpType
 //
 
 enum class TernaryMathOpType { Fma, Mad, SmoothStep, EnumValueCount };
@@ -1646,12 +2033,36 @@ TEST_F(OpTest, unaryMathOpTest) {
     dispatchTest<UnaryMathOpType>(*Config);
 }
 
+TEST_F(OpTest, binaryOpTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  if (auto Config = TestConfig::Create(VerboseLogging))
+    dispatchTest<BinaryOpType>(*Config);
+}
+
 TEST_F(OpTest, binaryMathOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   if (auto Config = TestConfig::Create(VerboseLogging))
     dispatchTest<BinaryMathOpType>(*Config);
+}
+
+TEST_F(OpTest, binaryComparisonOpTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  if (auto Config = TestConfig::Create(VerboseLogging))
+    dispatchTest<BinaryComparisonOpType>(*Config);
+}
+
+TEST_F(OpTest, bitwiseOpTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  if (auto Config = TestConfig::Create(VerboseLogging))
+    dispatchTest<BitwiseOpType>(*Config);
 }
 
 TEST_F(OpTest, ternaryMathOpTest) {

@@ -25,9 +25,24 @@ public:
                        L"Table:LongVectorOpTable.xml#UnaryMathOpTable")
   END_TEST_METHOD()
 
+  BEGIN_TEST_METHOD(binaryOpTest)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:LongVectorOpTable.xml#BinaryOpTable")
+  END_TEST_METHOD()
+
   BEGIN_TEST_METHOD(binaryMathOpTest)
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:LongVectorOpTable.xml#BinaryMathOpTable")
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(binaryComparisonOpTest)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:LongVectorOpTable.xml#BinaryComparisonOpTable")
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(bitwiseOpTest)
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:LongVectorOpTable.xml#bitwiseOpTable")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(ternaryMathOpTest)
