@@ -39,6 +39,8 @@ struct HLSLBool_t {
 
   bool operator>=(const HLSLBool_t &Other) const { return Val >= Other.Val; }
 
+  HLSLBool_t operator!() const { return HLSLBool_t(!static_cast<bool>(Val)); }
+
   HLSLBool_t operator*(const HLSLBool_t &Other) const {
     return HLSLBool_t(Val * Other.Val);
   }
@@ -66,6 +68,18 @@ struct HLSLBool_t {
   HLSLBool_t operator||(const HLSLBool_t &Other) const {
     return HLSLBool_t(Val || Other.Val);
   }
+
+  bool AsBool() const { return static_cast<bool>(Val); }
+
+  operator bool() const { return AsBool(); }
+  operator int16_t() const { return (int16_t)(AsBool()); }
+  operator int32_t() const { return (int32_t)(AsBool()); }
+  operator int64_t() const { return (int64_t)(AsBool()); }
+  operator uint16_t() const { return (uint16_t)(AsBool()); }
+  operator uint32_t() const { return (uint32_t)(AsBool()); }
+  operator uint64_t() const { return (uint64_t)(AsBool()); }
+  operator float() const { return (float)(AsBool()); }
+  operator double() const { return (double)(AsBool()); }
 
   // So we can construct std::wstrings using std::wostream
   friend std::wostream &operator<<(std::wostream &Os, const HLSLBool_t &Obj) {
@@ -191,6 +205,18 @@ struct HLSLHalf_t {
     return FromHALF(DirectX::PackedVector::XMConvertFloatToHalf(C));
   }
 
+  // Prefix operator
+  HLSLHalf_t operator++() const {
+    const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    return FromHALF(DirectX::PackedVector::XMConvertFloatToHalf(A + 1.0f));
+  }
+
+  // Prefix operator
+  HLSLHalf_t operator--() const {
+    const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
+    return FromHALF(DirectX::PackedVector::XMConvertFloatToHalf(A - 1.0f));
+  }
+
   // So we can construct std::wstrings using std::wostream
   friend std::wostream &operator<<(std::wostream &Os, const HLSLHalf_t &Obj) {
     Os << DirectX::PackedVector::XMConvertHalfToFloat(Obj.Val);
@@ -201,6 +227,10 @@ struct HLSLHalf_t {
   friend std::ostream &operator<<(std::ostream &Os, const HLSLHalf_t &Obj) {
     Os << DirectX::PackedVector::XMConvertHalfToFloat(Obj.Val);
     return Os;
+  }
+
+  float AsFloat() const {
+    return DirectX::PackedVector::XMConvertHalfToFloat(Val);
   }
 
   // HALF is an alias to uint16_t
@@ -296,6 +326,8 @@ template <> struct TestData<HLSLHalf_t> {
        {10.0, -2.6, -2.3, -1.4, -2.2, 2.3, 2.9, 3.3, 3.9, 4.2}},
       {L"SmoothStepInputValueSet",
        {-2.8, -4.9, -2.3, -3.3, -3.6, 0.6, 3.0, 3.3, 1.9, 4.3}},
+      {L"Positive",
+       {1.0, 1.0, 3441.0, 0.01, 5531.0, 0.01, 1.0, 0.01, 331.2330, 3250.01}},
   };
 };
 
@@ -320,6 +352,9 @@ template <> struct TestData<float> {
        {-2.8f, -2.6f, -2.3f, -1.4f, -2.2f, 2.3f, 2.9f, 3.3f, 3.9f, 4.2f}},
       {L"SmoothStepInputValueSet",
        {-2.8f, -4.9f, -2.3f, -3.3f, -3.6f, 0.6f, 3.0f, 3.3f, 1.9f, 4.3f}},
+      {L"Positive",
+       {1.0f, 1.0f, 3424241.0f, 0.01f, 5531.0f, 0.01f, 1.0f, 0.01f, 331.2330f,
+        3250.01f}},
   };
 };
 
@@ -346,6 +381,8 @@ template <> struct TestData<double> {
        {-2.8, -2.6, -2.3, -1.4, -2.0, 2.3, 2.9, 3.3, 3.9, 4.2}},
       {L"SmoothStepInputValueSet",
        {-10.8, -4.9, -2.3, -3.3, -3.0, 0.6, 3.0, 3.3, 1.9, 4.3}},
+      {L"Positive",
+       {1.0, 1.0, 3424241.0, 0.01, 5531.0, 0.01, 1.0, 0.01, 331.2330, 3250.01}},
   };
 };
 

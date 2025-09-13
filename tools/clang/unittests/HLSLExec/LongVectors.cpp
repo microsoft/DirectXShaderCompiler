@@ -32,20 +32,25 @@ template <typename T> const char *getHLSLTypeString() {
   static_assert(false && "Missing HLSL type string");
 }
 
-#define DATA_TYPE_NAME(TYPE, NAME, HLSL_STRING)                                \
-  template <> const wchar_t *getDataTypeName<TYPE>() { return NAME; }          \
-  template <> const char *getHLSLTypeString<TYPE>() { return HLSL_STRING; }
+template <typename T> size_t getHLSLDataTypeSize() {
+  static_assert(false && "Missing HLSL Data Type size");
+}
 
-DATA_TYPE_NAME(HLSLBool_t, L"bool", "bool");
-DATA_TYPE_NAME(int16_t, L"int16", "int16_t");
-DATA_TYPE_NAME(int32_t, L"int32", "int");
-DATA_TYPE_NAME(int64_t, L"int64", "int64_t");
-DATA_TYPE_NAME(uint16_t, L"uint16", "uint16_t");
-DATA_TYPE_NAME(uint32_t, L"uint32", "uint32_t");
-DATA_TYPE_NAME(uint64_t, L"uint64", "uint64_t");
-DATA_TYPE_NAME(HLSLHalf_t, L"float16", "half");
-DATA_TYPE_NAME(float, L"float32", "float");
-DATA_TYPE_NAME(double, L"float64", "double");
+#define DATA_TYPE_NAME(TYPE, NAME, HLSL_STRING, SIZE)                          \
+  template <> const wchar_t *getDataTypeName<TYPE>() { return NAME; }          \
+  template <> const char *getHLSLTypeString<TYPE>() { return HLSL_STRING; }    \
+  template <> size_t getHLSLDataTypeSize<TYPE>() { return (size_t)SIZE; }
+
+DATA_TYPE_NAME(HLSLBool_t, L"bool", "bool", 4);
+DATA_TYPE_NAME(int16_t, L"int16", "int16_t", 2);
+DATA_TYPE_NAME(int32_t, L"int32", "int", 4);
+DATA_TYPE_NAME(int64_t, L"int64", "int64_t", 8);
+DATA_TYPE_NAME(uint16_t, L"uint16", "uint16_t", 2);
+DATA_TYPE_NAME(uint32_t, L"uint32", "uint32_t", 4);
+DATA_TYPE_NAME(uint64_t, L"uint64", "uint64_t", 8);
+DATA_TYPE_NAME(HLSLHalf_t, L"float16", "half", 2);
+DATA_TYPE_NAME(float, L"float32", "float", 4);
+DATA_TYPE_NAME(double, L"float64", "double", 8);
 
 #undef DATA_TYPE_NAME
 
@@ -434,7 +439,7 @@ std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
 
   std::stringstream CompilerOptions;
 
-  if (is16BitType<T>())
+  if (is16BitType<T>() || is16BitType<OUT_TYPE>())
     CompilerOptions << " -enable-16bit-types";
 
   CompilerOptions << " -DTYPE=" << getHLSLTypeString<T>();
@@ -451,6 +456,7 @@ std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
   CompilerOptions << " " << ExtraDefines;
 
   CompilerOptions << " -DOUT_TYPE=" << getHLSLTypeString<OUT_TYPE>();
+  CompilerOptions << " -DOUT_TYPE_SIZE=" << getHLSLDataTypeSize<OUT_TYPE>();
 
   CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << ARITY;
 
@@ -1001,11 +1007,33 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 // UnaryOp
 //
 
-enum class UnaryOpType { Initialize, EnumValueCount };
+enum class UnaryOpType {
+  Initialize,
+  CastToBool,
+  CastToInt16,
+  CastToInt32,
+  CastToInt64,
+  CastToUint16,
+  CastToUint32,
+  CastToUint64,
+  CastToFloat16,
+  CastToFloat32,
+  CastToFloat64,
+  EnumValueCount
+};
 
 static const OpTypeMetaData<UnaryOpType> unaryOpTypeStringToOpMetaData[] = {
     {L"UnaryOpType_Initialize", UnaryOpType::Initialize, "TestInitialize"},
-};
+    {L"UnaryOpType_CastToBool", UnaryOpType::CastToBool, "TestCast"},
+    {L"UnaryOpType_CastToInt16", UnaryOpType::CastToInt16, "TestCast"},
+    {L"UnaryOpType_CastToInt32", UnaryOpType::CastToInt32, "TestCast"},
+    {L"UnaryOpType_CastToInt64", UnaryOpType::CastToInt64, "TestCast"},
+    {L"UnaryOpType_CastToUint16", UnaryOpType::CastToUint16, "TestCast"},
+    {L"UnaryOpType_CastToUint32", UnaryOpType::CastToUint32, "TestCast"},
+    {L"UnaryOpType_CastToUint64", UnaryOpType::CastToUint64, "TestCast"},
+    {L"UnaryOpType_CastToFloat16", UnaryOpType::CastToFloat16, "TestCast"},
+    {L"UnaryOpType_CastToFloat32", UnaryOpType::CastToFloat32, "TestCast"},
+    {L"UnaryOpType_CastToFloat64", UnaryOpType::CastToFloat64, "TestCast"}};
 
 static_assert(_countof(unaryOpTypeStringToOpMetaData) ==
                   (size_t)UnaryOpType::EnumValueCount,
@@ -1014,17 +1042,47 @@ static_assert(_countof(unaryOpTypeStringToOpMetaData) ==
 
 OP_TYPE_META_DATA(UnaryOpType, unaryOpTypeStringToOpMetaData);
 
-template <typename T> T Initialize(T V) { return V; }
+template <typename T> struct UnaryOps {
+  static T Initialize(T V) { return V; }
+  static HLSLBool_t CastToBool(T V) { return HLSLBool_t((bool)V); }
+  static int16_t CastToInt16(T V) { return (int16_t)V; }
+  static int32_t CastToInt32(T V) { return (int32_t)V; }
+  static int64_t CastToInt64(T V) { return (int64_t)V; }
+  static uint16_t CastToUint16(T V) { return (uint16_t)V; }
+  static uint32_t CastToUint32(T V) { return (uint32_t)V; }
+  static uint64_t CastToUint64(T V) { return (uint64_t)V; }
+  static HLSLHalf_t CastToFloat16(T V) { return HLSLHalf_t((float)V); }
+  static float CastToFloat32(T V) { return (float)V; }
+  static double CastToFloat64(T V) { return (double)V; }
+};
+
+template <> struct UnaryOps<HLSLHalf_t> {
+  static HLSLHalf_t Initialize(HLSLHalf_t V) { return V; }
+  static HLSLBool_t CastToBool(HLSLHalf_t V) { return HLSLBool_t((bool)V); }
+  static int16_t CastToInt16(HLSLHalf_t V) { return (int16_t)V.AsFloat(); }
+  static int32_t CastToInt32(HLSLHalf_t V) { return (int32_t)V.AsFloat(); }
+  static int64_t CastToInt64(HLSLHalf_t V) { return (int64_t)V.AsFloat(); }
+  static uint16_t CastToUint16(HLSLHalf_t V) { return (uint16_t)V.AsFloat(); }
+  static uint32_t CastToUint32(HLSLHalf_t V) { return (uint32_t)V.AsFloat(); }
+  static uint64_t CastToUint64(HLSLHalf_t V) { return (uint64_t)V.AsFloat(); }
+  static HLSLHalf_t CastToFloat16(HLSLHalf_t V) {
+    return HLSLHalf_t((float)V.AsFloat());
+  }
+  static float CastToFloat32(HLSLHalf_t V) { return (float)V.AsFloat(); }
+  static double CastToFloat64(HLSLHalf_t V) { return (double)V.AsFloat(); }
+};
 
 void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
                                        UnaryOpType OpType, size_t VectorSize) {
-#define DISPATCH(TYPE, FUNC, EXTRA_DEFINES)                                    \
+#define DISPATCH(TYPE, FUNC)                                                   \
   if (Config.DataType == getDataTypeName<TYPE>())                              \
   return dispatchUnaryTest(Config, ValidationConfig{}, OpType, VectorSize,     \
-                           FUNC, EXTRA_DEFINES)
+                           UnaryOps<TYPE>::FUNC, "-DFUNC_CAST=1")
 
 #define DISPATCH_INITIALIZE(TYPE)                                              \
-  DISPATCH(TYPE, Initialize<TYPE>, " -DFUNC_INITIALIZE=1")
+  if (Config.DataType == getDataTypeName<TYPE>())                              \
+  return dispatchUnaryTest(Config, ValidationConfig{}, OpType, VectorSize,     \
+                           UnaryOps<TYPE>::Initialize, "-DFUNC_INITIALIZE=1")
 
   switch (OpType) {
   case UnaryOpType::Initialize:
@@ -1039,12 +1097,144 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH_INITIALIZE(float);
     DISPATCH_INITIALIZE(double);
     break;
+
+  case UnaryOpType::CastToBool:
+    DISPATCH(HLSLBool_t, CastToBool);
+    DISPATCH(int16_t, CastToBool);
+    DISPATCH(int32_t, CastToBool);
+    DISPATCH(int64_t, CastToBool);
+    DISPATCH(uint16_t, CastToBool);
+    DISPATCH(uint32_t, CastToBool);
+    DISPATCH(uint64_t, CastToBool);
+    DISPATCH(HLSLHalf_t, CastToBool);
+    DISPATCH(float, CastToBool);
+    DISPATCH(double, CastToBool);
+    break;
+
+  case UnaryOpType::CastToInt16:
+    DISPATCH(HLSLBool_t, CastToInt16);
+    DISPATCH(int16_t, CastToInt16);
+    DISPATCH(int32_t, CastToInt16);
+    DISPATCH(int64_t, CastToInt16);
+    DISPATCH(uint16_t, CastToInt16);
+    DISPATCH(uint32_t, CastToInt16);
+    DISPATCH(uint64_t, CastToInt16);
+    DISPATCH(HLSLHalf_t, CastToInt16);
+    DISPATCH(float, CastToInt16);
+    DISPATCH(double, CastToInt16);
+    break;
+
+  case UnaryOpType::CastToInt32:
+    DISPATCH(HLSLBool_t, CastToInt32);
+    DISPATCH(int16_t, CastToInt32);
+    DISPATCH(int32_t, CastToInt32);
+    DISPATCH(int64_t, CastToInt32);
+    DISPATCH(uint16_t, CastToInt32);
+    DISPATCH(uint32_t, CastToInt32);
+    DISPATCH(uint64_t, CastToInt32);
+    DISPATCH(HLSLHalf_t, CastToInt32);
+    DISPATCH(float, CastToInt32);
+    DISPATCH(double, CastToInt32);
+    break;
+
+  case UnaryOpType::CastToInt64:
+    DISPATCH(HLSLBool_t, CastToInt64);
+    DISPATCH(int16_t, CastToInt64);
+    DISPATCH(int32_t, CastToInt64);
+    DISPATCH(int64_t, CastToInt64);
+    DISPATCH(uint16_t, CastToInt64);
+    DISPATCH(uint32_t, CastToInt64);
+    DISPATCH(uint64_t, CastToInt64);
+    DISPATCH(HLSLHalf_t, CastToInt64);
+    DISPATCH(float, CastToInt64);
+    DISPATCH(double, CastToInt64);
+    break;
+
+  case UnaryOpType::CastToUint16:
+    DISPATCH(HLSLBool_t, CastToUint16);
+    DISPATCH(int16_t, CastToUint16);
+    DISPATCH(int32_t, CastToUint16);
+    DISPATCH(int64_t, CastToUint16);
+    DISPATCH(uint16_t, CastToUint16);
+    DISPATCH(uint32_t, CastToUint16);
+    DISPATCH(uint64_t, CastToUint16);
+    DISPATCH(HLSLHalf_t, CastToUint16);
+    DISPATCH(float, CastToUint16);
+    DISPATCH(double, CastToUint16);
+    break;
+
+  case UnaryOpType::CastToUint32:
+    DISPATCH(HLSLBool_t, CastToUint32);
+    DISPATCH(int16_t, CastToUint32);
+    DISPATCH(int32_t, CastToUint32);
+    DISPATCH(int64_t, CastToUint32);
+    DISPATCH(uint16_t, CastToUint32);
+    DISPATCH(uint32_t, CastToUint32);
+    DISPATCH(uint64_t, CastToUint32);
+    DISPATCH(HLSLHalf_t, CastToUint32);
+    DISPATCH(float, CastToUint32);
+    DISPATCH(double, CastToUint32);
+    break;
+
+  case UnaryOpType::CastToUint64:
+    DISPATCH(HLSLBool_t, CastToUint64);
+    DISPATCH(int16_t, CastToUint64);
+    DISPATCH(int32_t, CastToUint64);
+    DISPATCH(int64_t, CastToUint64);
+    DISPATCH(uint16_t, CastToUint64);
+    DISPATCH(uint32_t, CastToUint64);
+    DISPATCH(uint64_t, CastToUint64);
+    DISPATCH(HLSLHalf_t, CastToUint64);
+    DISPATCH(float, CastToUint64);
+    DISPATCH(double, CastToUint64);
+    break;
+
+  case UnaryOpType::CastToFloat16:
+    DISPATCH(HLSLBool_t, CastToFloat16);
+    DISPATCH(int16_t, CastToFloat16);
+    DISPATCH(int32_t, CastToFloat16);
+    DISPATCH(int64_t, CastToFloat16);
+    DISPATCH(uint16_t, CastToFloat16);
+    DISPATCH(uint32_t, CastToFloat16);
+    DISPATCH(uint64_t, CastToFloat16);
+    DISPATCH(HLSLHalf_t, CastToFloat16);
+    DISPATCH(float, CastToFloat16);
+    DISPATCH(double, CastToFloat16);
+    break;
+
+  case UnaryOpType::CastToFloat32:
+    DISPATCH(HLSLBool_t, CastToFloat32);
+    DISPATCH(int16_t, CastToFloat32);
+    DISPATCH(int32_t, CastToFloat32);
+    DISPATCH(int64_t, CastToFloat32);
+    DISPATCH(uint16_t, CastToFloat32);
+    DISPATCH(uint32_t, CastToFloat32);
+    DISPATCH(uint64_t, CastToFloat32);
+    DISPATCH(HLSLHalf_t, CastToFloat32);
+    DISPATCH(float, CastToFloat32);
+    DISPATCH(double, CastToFloat32);
+    break;
+
+  case UnaryOpType::CastToFloat64:
+    DISPATCH(HLSLBool_t, CastToFloat64);
+    DISPATCH(int16_t, CastToFloat64);
+    DISPATCH(int32_t, CastToFloat64);
+    DISPATCH(int64_t, CastToFloat64);
+    DISPATCH(uint16_t, CastToFloat64);
+    DISPATCH(uint32_t, CastToFloat64);
+    DISPATCH(uint64_t, CastToFloat64);
+    DISPATCH(HLSLHalf_t, CastToFloat64);
+    DISPATCH(float, CastToFloat64);
+    DISPATCH(double, CastToFloat64);
+    break;
+
   case UnaryOpType::EnumValueCount:
     break;
   }
 
-#undef DISPATCH_INITIALIZE
 #undef DISPATCH
+#undef DISPATCH_INITIALIZE
+#undef DISPATCH_POSTFIX
 
   LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for UnaryOpType '%s'",
                       (const wchar_t *)Config.DataType,
@@ -1754,7 +1944,6 @@ enum class BitwiseOpType {
   And,
   Or,
   Xor,
-  Not,
   LeftShift,
   RightShift,
   EnumValueCount
@@ -1764,7 +1953,6 @@ static const OpTypeMetaData<BitwiseOpType> bitwiseOpTypeStringToOpMetaData[] = {
     {L"BitwiseOpType_And", BitwiseOpType::And, std::nullopt, "&"},
     {L"BitwiseOpType_Or", BitwiseOpType::Or, std::nullopt, "|"},
     {L"BitwiseOpType_Xor", BitwiseOpType::Xor, std::nullopt, "^"},
-    {L"BitwiseOpType_Not", BitwiseOpType::Not, "TestUnaryOperator", "~"},
     {L"BitwiseOpType_LeftShift", BitwiseOpType::LeftShift, std::nullopt, "<<"},
     {L"BitwiseOpType_RightShift", BitwiseOpType::RightShift, std::nullopt,
      ">>"},
@@ -1790,7 +1978,6 @@ template <typename T> struct BitwiseOps {
   static T Xor(T A, T B) { return A ^ B; }
   static T LeftShift(T A, T B) { return A << B; }
   static T RightShift(T A, T B) { return A >> B; }
-  static T Not(T A) { return ~A; }
 };
 
 void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
@@ -1801,11 +1988,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
   if (Config.DataType == getDataTypeName<TYPE>())                              \
   return dispatchBinaryTest(Config, ValidationConfig{}, OpType, VectorSize,    \
                             BitwiseOps<TYPE>::FUNC)
-
-#define DISPATCH_NOT(TYPE, FUNC)                                               \
-  if (Config.DataType == getDataTypeName<TYPE>())                              \
-  return dispatchUnaryTest(Config, ValidationConfig{}, OpType, VectorSize,     \
-                           BitwiseOps<TYPE>::FUNC, "-DFUNC_UNARY_OPERATOR=1")
 
   switch (OpType) {
   case BitwiseOpType::And:
@@ -1833,15 +2015,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
     DISPATCH(uint16_t, Xor);
     DISPATCH(uint32_t, Xor);
     DISPATCH(uint64_t, Xor);
-    break;
-
-  case BitwiseOpType::Not:
-    DISPATCH_NOT(int16_t, Not);
-    DISPATCH_NOT(int32_t, Not);
-    DISPATCH_NOT(int64_t, Not);
-    DISPATCH_NOT(uint16_t, Not);
-    DISPATCH_NOT(uint32_t, Not);
-    DISPATCH_NOT(uint64_t, Not);
     break;
 
   case BitwiseOpType::LeftShift:

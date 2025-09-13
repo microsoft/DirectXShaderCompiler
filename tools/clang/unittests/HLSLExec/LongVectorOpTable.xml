@@ -799,10 +799,6 @@
         <Parameter Name="DataType">uint16</Parameter>
         <Parameter Name="ScalarInputFlags">0x2</Parameter>
       </Row>
-      <Row Name="Bitwise_Not_uint16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
-        <Parameter Name="DataType">uint16</Parameter>
-      </Row>
       <Row Name="Bitwise_LeftShift_uint16">
         <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
         <Parameter Name="DataType">uint16</Parameter>
@@ -852,10 +848,6 @@
         <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
         <Parameter Name="DataType">uint32</Parameter>
         <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Not_uint32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
       </Row>
       <Row Name="Bitwise_LeftShift_uint32">
         <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
@@ -907,10 +899,6 @@
         <Parameter Name="DataType">uint64</Parameter>
         <Parameter Name="ScalarInputFlags">0x2</Parameter>
       </Row>
-      <Row Name="Bitwise_Not_uint64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
-        <Parameter Name="DataType">uint64</Parameter>
-      </Row>
       <Row Name="Bitwise_LeftShift_uint64">
         <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
         <Parameter Name="DataType">uint64</Parameter>
@@ -960,10 +948,6 @@
         <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
         <Parameter Name="DataType">int16</Parameter>
         <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Not_int16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
-        <Parameter Name="DataType">int16</Parameter>
       </Row>
       <Row Name="Bitwise_LeftShift_int16">
         <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
@@ -1015,10 +999,6 @@
         <Parameter Name="DataType">int32</Parameter>
         <Parameter Name="ScalarInputFlags">0x2</Parameter>
       </Row>
-      <Row Name="Bitwise_Not_int32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-      </Row>
       <Row Name="Bitwise_LeftShift_int32">
         <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
         <Parameter Name="DataType">int32</Parameter>
@@ -1069,10 +1049,6 @@
         <Parameter Name="DataType">int64</Parameter>
         <Parameter Name="ScalarInputFlags">0x2</Parameter>
       </Row>
-      <Row Name="Bitwise_Not_int64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
-        <Parameter Name="DataType">int64</Parameter>
-      </Row>
       <Row Name="Bitwise_LeftShift_int64">
         <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
         <Parameter Name="DataType">int64</Parameter>
@@ -1111,9 +1087,89 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">bool</Parameter>
       </Row>
+      <Row Name="CastToBool_bool">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToBool</Parameter>
+        <Parameter Name="DataType">bool</Parameter>
+      </Row>
+      <Row Name="CastToInt16_bool">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt16</Parameter>
+        <Parameter Name="DataType">bool</Parameter>
+      </Row>
+      <Row Name="CastToInt32_bool">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt32</Parameter>
+        <Parameter Name="DataType">bool</Parameter>
+      </Row>
+      <Row Name="CastToInt64_bool">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt64</Parameter>
+        <Parameter Name="DataType">bool</Parameter>
+      </Row>
+      <Row Name="CastToUint16_bool">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint16</Parameter>
+        <Parameter Name="DataType">bool</Parameter>
+      </Row>
+      <Row Name="CastToUint32_bool">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint32</Parameter>
+        <Parameter Name="DataType">bool</Parameter>
+      </Row>
+      <Row Name="CastToUint64_bool">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint64</Parameter>
+        <Parameter Name="DataType">bool</Parameter>
+      </Row>
+      <Row Name="CastToFloat16_bool">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat16</Parameter>
+        <Parameter Name="DataType">bool</Parameter>
+      </Row>
+      <Row Name="CastToFloat32_bool">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat32</Parameter>
+        <Parameter Name="DataType">bool</Parameter>
+      </Row>
+      <Row Name="CastToFloat64_bool">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat64</Parameter>
+        <Parameter Name="DataType">bool</Parameter>
+      </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: int16 -->
       <Row Name="Initialize_int16">
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="CastToBool_int16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToBool</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="CastToInt16_int16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt16</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="CastToInt32_int16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt32</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="CastToInt64_int16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt64</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="CastToUint16_int16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint16</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="CastToUint32_int16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint32</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="CastToUint64_int16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint64</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="CastToFloat16_int16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat16</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="CastToFloat32_int16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat32</Parameter>
+        <Parameter Name="DataType">int16</Parameter>
+      </Row>
+      <Row Name="CastToFloat64_int16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat64</Parameter>
         <Parameter Name="DataType">int16</Parameter>
       </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: int32 -->
@@ -1121,9 +1177,89 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">int32</Parameter>
       </Row>
+      <Row Name="CastToBool_int32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToBool</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="CastToInt16_int32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt16</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="CastToInt32_int32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt32</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="CastToInt64_int32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt64</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="CastToUint16_int32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint16</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="CastToUint32_int32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint32</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="CastToUint64_int32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint64</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="CastToFloat16_int32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat16</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="CastToFloat32_int32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat32</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
+      <Row Name="CastToFloat64_int32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat64</Parameter>
+        <Parameter Name="DataType">int32</Parameter>
+      </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: int64 -->
       <Row Name="Initialize_int64">
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="CastToBool_int64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToBool</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="CastToInt16_int64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt16</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="CastToInt32_int64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt32</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="CastToInt64_int64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt64</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="CastToUint16_int64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint16</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="CastToUint32_int64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint32</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="CastToUint64_int64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint64</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="CastToFloat16_int64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat16</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="CastToFloat32_int64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat32</Parameter>
+        <Parameter Name="DataType">int64</Parameter>
+      </Row>
+      <Row Name="CastToFloat64_int64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat64</Parameter>
         <Parameter Name="DataType">int64</Parameter>
       </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: uint16 -->
@@ -1131,9 +1267,89 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">uint16</Parameter>
       </Row>
+      <Row Name="CastToBool_uint16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToBool</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="CastToInt16_uint16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt16</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="CastToInt32_uint16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt32</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="CastToInt64_uint16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt64</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="CastToUint16_uint16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint16</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="CastToUint32_uint16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint32</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="CastToUint64_uint16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint64</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="CastToFloat16_uint16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat16</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="CastToFloat32_uint16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat32</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
+      <Row Name="CastToFloat64_uint16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat64</Parameter>
+        <Parameter Name="DataType">uint16</Parameter>
+      </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: uint32 -->
       <Row Name="Initialize_uint32">
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="CastToBool_uint32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToBool</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="CastToInt16_uint32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt16</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="CastToInt32_uint32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt32</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="CastToInt64_uint32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt64</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="CastToUint16_uint32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint16</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="CastToUint32_uint32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint32</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="CastToUint64_uint32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint64</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="CastToFloat16_uint32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat16</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="CastToFloat32_uint32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat32</Parameter>
+        <Parameter Name="DataType">uint32</Parameter>
+      </Row>
+      <Row Name="CastToFloat64_uint32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat64</Parameter>
         <Parameter Name="DataType">uint32</Parameter>
       </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: uint64 -->
@@ -1141,9 +1357,92 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">uint64</Parameter>
       </Row>
+      <Row Name="CastToBool_uint64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToBool</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="CastToInt16_uint64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt16</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="CastToInt32_uint64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt32</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="CastToInt64_uint64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt64</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="CastToUint16_uint64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint16</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="CastToUint32_uint64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint32</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="CastToUint64_uint64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint64</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="CastToFloat16_uint64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat16</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="CastToFloat32_uint64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat32</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
+      <Row Name="CastToFloat64_uint64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat64</Parameter>
+        <Parameter Name="DataType">uint64</Parameter>
+      </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: float16 -->
       <Row Name="Initialize_float16">
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="CastToBool_float16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToBool</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="CastToInt16_float16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt16</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="CastToInt32_float16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt32</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="CastToInt64_float16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt64</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="CastToUint16_float16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint16</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+        <Parameter Name="InputValueSetName1">Positive</Parameter>
+      </Row>
+      <Row Name="CastToUint32_float16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint32</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+        <Parameter Name="InputValueSetName1">Positive</Parameter>
+      </Row>
+      <Row Name="CastToUint64_float16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint64</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+        <Parameter Name="InputValueSetName1">Positive</Parameter>
+      </Row>
+      <Row Name="CastToFloat16_float16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat16</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="CastToFloat32_float16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat32</Parameter>
+        <Parameter Name="DataType">float16</Parameter>
+      </Row>
+      <Row Name="CastToFloat64_float16">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat64</Parameter>
         <Parameter Name="DataType">float16</Parameter>
       </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: float32 -->
@@ -1151,9 +1450,99 @@
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
         <Parameter Name="DataType">float32</Parameter>
       </Row>
+      <Row Name="CastToBool_float32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToBool</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="CastToInt16_float32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt16</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="CastToInt32_float32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt32</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="CastToInt64_float32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt64</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="CastToUint16_float32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint16</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+        <Parameter Name="InputValueSetName1">Positive</Parameter>
+      </Row>
+      <Row Name="CastToUint32_float32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint32</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+        <Parameter Name="InputValueSetName1">Positive</Parameter>
+      </Row>
+      <Row Name="CastToUint64_float32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint64</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+        <Parameter Name="InputValueSetName1">Positive</Parameter>
+      </Row>
+      <Row Name="CastToFloat16_float32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat16</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="CastToFloat32_float32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat32</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="CastToFloat64_float32">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat64</Parameter>
+        <Parameter Name="DataType">float32</Parameter>
+      </Row>
+      <Row Name="CastToFloat64_float64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat64</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
       <!-- LongVectorUnaryOpTypeTable DataType: float64 -->
       <Row Name="Initialize_float64">
         <Parameter Name="OpTypeEnum">UnaryOpType_Initialize</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="CastToBool_float64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToBool</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="CastToInt16_float64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt16</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="CastToInt32_float64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt32</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="CastToInt64_float64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToInt64</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="CastToUint16_float64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint16</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+        <Parameter Name="InputValueSetName1">Positive</Parameter>
+      </Row>
+      <Row Name="CastToUint32_float64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint32</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+        <Parameter Name="InputValueSetName1">Positive</Parameter>
+      </Row>
+      <Row Name="CastToUint64_float64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToUint64</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+        <Parameter Name="InputValueSetName1">Positive</Parameter>
+      </Row>
+      <Row Name="CastToFloat16_float64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat16</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="CastToFloat32_float64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat32</Parameter>
+        <Parameter Name="DataType">float64</Parameter>
+      </Row>
+      <Row Name="CastToFloat64_float64">
+        <Parameter Name="OpTypeEnum">UnaryOpType_CastToFloat64</Parameter>
         <Parameter Name="DataType">float64</Parameter>
       </Row>
     </Table>
