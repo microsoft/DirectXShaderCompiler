@@ -14,26 +14,57 @@ INPUT_SET(SmoothStepInput, "SmoothStepInputValueSet")
 #undef INPUT_SET
 
 #ifndef OP
-#define OP(SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1, INPUT_SET_2,       \
-           INPUT_SET_3)
+#define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1,             \
+           INPUT_SET_2, INPUT_SET_3)
 #endif
 
-OP(AsDouble, 2, "asdouble", ",", Default1, Default2, Default3)
+#define OP_DEFAULT(GROUP, SYMBOL, ARITY, INTRINSICS, OPERATOR)                 \
+  OP(GROUP, SYMBOL, ARITY, INTRINSICS, OPERATOR, Default1, Default2, Default3)
 
-// Ternary
-OP(Fma, 3, "fma", "", Default1, Default2, Default3)
-OP(Mad, 3, "mad", "", Default1, Default2, Default3)
-OP(SmoothStep, 3, "smoothstep", "", SmoothStepMin, SmoothStepMax,
-   SmoothStepInput)
-
-// Binary Math
-OP(Add, 2, "", "+", Default1, Default2, Default3)
-OP(Multiply, 2, "", "*", Default1, Default2, Default3)
-OP(Subtract, 2, "", "-", Default1, Default2, Default3)
-OP(Divide, 2, "", "/", Default1, Default2, Default3)
-OP(Modulus, 2, "", "%", Default1, Default2, Default3)
-OP(Min, 2, "min", ",", Default1, Default2, Default3)
-OP(Max, 2, "max", ",", Default1, Default2, Default3)
-OP(Ldexp, 2, "ldexp", ",", Default1, Default2, Default3)
+OP_DEFAULT(TernaryMath, Mad, 3, "INTRINSIC", "OPERATOR")
+OP(TernaryMath, SmoothStep, 3, "INTRINSIC", "OPERATOR", SmoothStepMin, SmoothStepMin, SmoothStepMin)
+OP_DEFAULT(TernaryMath, Fma, 3, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(BinaryMath, Add, 2, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(BinaryMath, Subtract, 2, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(BinaryMath, Multiply, 2, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(BinaryMath, Divide, 2, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(BinaryMath, Modulus, 2, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(BinaryMath, Min, 2, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(BinaryMath, Max, 2, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(BinaryMath, Ldexp, 2, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(Unary, Initialize, 1, "INTRINSIC", "OPERATOR")
+OP(Trigonometric, Acos, 1, "INTRINSIC", "OPERATOR", TrigonometricInputValueSet_RangeOne, TrigonometricInputValueSet_RangeOne, TrigonometricInputValueSet_RangeOne)
+OP(Trigonometric, Asin, 1, "INTRINSIC", "OPERATOR", TrigonometricInputValueSet_RangeHalfPi, TrigonometricInputValueSet_RangeHalfPi, TrigonometricInputValueSet_RangeHalfPi)
+OP(Trigonometric, Atan, 1, "INTRINSIC", "OPERATOR", TrigonometricInputValueSet_RangeHalfPi, TrigonometricInputValueSet_RangeHalfPi, TrigonometricInputValueSet_RangeHalfPi)
+OP_DEFAULT(Trigonometric, Cos, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(Trigonometric, Cosh, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(Trigonometric, Sin, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(Trigonometric, Sinh, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(Trigonometric, Tan, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(Trigonometric, Tanh, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(AsType, AsFloat16, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(AsType, AsInt16, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(AsType, AsUint16, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(AsType, AsFloat, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(AsType, AsInt, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(AsType, AsUint, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(AsType, AsDouble, 1, "INTRINSIC", "OPERATOR")
+OP(AsType, AsUint_SplitDouble, 1, "INTRINSIC", "OPERATOR", SplitDoubleInputValueSet, SplitDoubleInputValueSet, SplitDoubleInputValueSet)
+OP_DEFAULT(UnaryMath, Abs, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Sign, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Ceil, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Exp, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Floor, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Frac, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Log, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Rcp, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Round, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Rsqrt, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Sqrt, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Trunc, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Exp2, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Log10, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Log2, 1, "INTRINSIC", "OPERATOR")
+OP_DEFAULT(UnaryMath, Frexp, 1, "INTRINSIC", "OPERATOR")
 
 #undef OP
