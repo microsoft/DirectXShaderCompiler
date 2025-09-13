@@ -187,6 +187,8 @@ public:
   bool HLSLOnlyWarnOnUnrollFail = false;
   /// Whether use legacy resource reservation.
   bool HLSLLegacyResourceReservation = false;
+  /// Whether to keep bindings consistent even if optimized out.
+  bool HLSLConsistentBindings = false;
   /// Set [branch] on every if.
   bool HLSLPreferControlFlow = false;
   /// Set [flatten] on every if.
