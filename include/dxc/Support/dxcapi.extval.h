@@ -78,7 +78,6 @@ class DxcDllExtValidationLoader : public DllLoader {
 
 public:
   std::string GetDxilDllPath() { return DxilDllPath; }
-  ExternalValidationHelper GetWrapperObject() { return ValWrapperObj; }
   bool DxilDllFailedToLoad() {
     return !DxilDllPath.empty() && !DxilExtValSupport.IsEnabled();
   }
