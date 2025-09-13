@@ -645,6 +645,12 @@ void runAndVerify(const TestConfig &Config, OP_TYPE OpType,
                   std::string ExtraDefines,
                   const ValidationConfig &ValidationConfig) {
 
+  // The Expected vector is the same size as the input vector in most cases.
+  // A few special ops, such as splitDouble, produce twice the number
+  // of outputs. This is a safeguard for a mistake in computing expected values.
+  VERIFY_IS_TRUE(Expected.size() == Inputs[0].size() ||
+                 Expected.size() == 2 * Inputs[0].size());
+
   std::optional<std::vector<OUT_TYPE>> Actual =
       runTest<OUT_TYPE>(Config, OpType, Inputs, Expected.size(), ExtraDefines);
 
@@ -913,13 +919,13 @@ void dispatchAsUintSplitDoubleTest(const TestConfig &Config,
   InputSets<double, 1> Inputs = buildTestInputs<double, 1>(Config, VectorSize);
 
   std::vector<uint32_t> Expected;
-  Expected.resize(Inputs.size() * 2);
+  Expected.resize(VectorSize * 2);
 
-  for (size_t I = 0; I < Inputs.size(); ++I) {
+  for (size_t I = 0; I < VectorSize; ++I) {
     uint32_t Low, High;
-    splitDouble(Expected[I], Low, High);
+    splitDouble(Inputs[0][I], Low, High);
     Expected[I] = Low;
-    Expected[I + Inputs.size()] = High;
+    Expected[I + VectorSize] = High;
   }
 
   ValidationConfig ValidationConfig{};
