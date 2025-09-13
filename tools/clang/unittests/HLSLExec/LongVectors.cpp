@@ -935,13 +935,13 @@ void dispatchAsUintSplitDoubleTest(const TestConfig &Config,
   InputSets<double, 1> Inputs = buildTestInputs<double, 1>(Config, VectorSize);
 
   std::vector<uint32_t> Expected;
-  Expected.resize(Inputs.size() * 2);
+  Expected.resize(VectorSize * 2);
 
-  for (size_t I = 0; I < Inputs.size(); ++I) {
+  for (size_t I = 0; I < VectorSize; ++I) {
     uint32_t Low, High;
-    splitDouble(Expected[I], Low, High);
+    splitDouble(Inputs[0][I], Low, High);
     Expected[I] = Low;
-    Expected[I + Inputs.size()] = High;
+    Expected[I + VectorSize] = High;
   }
 
   ValidationConfig ValidationConfig{};
