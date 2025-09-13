@@ -1639,8 +1639,7 @@ template <> struct Op<OpType::AsDouble, uint32_t> : StrictValidation {
 // outputs two values. To handle this special case we override various bits of
 // the testing machinary.
 
-template <> struct Op<OpType::AsUint_SplitDouble, double> : StrictValidation {
-};
+template <> struct Op<OpType::AsUint_SplitDouble, double> : StrictValidation {};
 
 // Specialized version of ExpectedBuilder for the splitdouble case. The expected
 // output for this has all the Low values followed by all the High values.
@@ -1670,6 +1669,87 @@ template <> struct ExpectedBuilder<OpType::AsUint_SplitDouble, double> {
     std::memcpy(&Bits, &A, sizeof(Bits));
     LowBits = static_cast<uint32_t>(Bits & 0xFFFFFFFF);
     HighBits = static_cast<uint32_t>(Bits >> 32);
+  }
+};
+
+//
+// Unary Math
+//
+
+template <typename T> T UnaryMathAbs(T A) {
+  if constexpr (std::is_unsigned_v<T>)
+    return A;
+  else
+    return static_cast<T>(std::abs(A));
+}
+
+DEFAULT_OP_1(OpType::Abs, (UnaryMathAbs(A)));
+
+// Sign is special because the return type doesn't match the input type.
+template <typename T> struct Op<OpType::Sign, T> : DefaultValidation<T> {
+  int32_t operator()(T A) {
+    const T Zero = T();
+
+    if (A > Zero)
+      return 1;
+    if (A < Zero)
+      return -1;
+    return 0;
+  }
+};
+
+DEFAULT_OP_1(OpType::Ceil, (std::ceil(A)));
+DEFAULT_OP_1(OpType::Exp, (std::exp(A)));
+DEFAULT_OP_1(OpType::Floor, (std::floor(A)));
+DEFAULT_OP_1(OpType::Frac, (A - static_cast<T>(std::floor(A))));
+DEFAULT_OP_1(OpType::Log, (std::log(A)));
+DEFAULT_OP_1(OpType::Rcp, (static_cast<T>(1.0) / A));
+DEFAULT_OP_1(OpType::Round, (std::round(A)));
+DEFAULT_OP_1(OpType::Rsqrt,
+             (static_cast<T>(1.0) / static_cast<T>(std::sqrt(A))));
+DEFAULT_OP_1(OpType::Sqrt, (std::sqrt(A)));
+DEFAULT_OP_1(OpType::Trunc, (std::trunc(A)));
+DEFAULT_OP_1(OpType::Exp2, (std::exp2(A)));
+DEFAULT_OP_1(OpType::Log10, (std::log10(A)));
+DEFAULT_OP_1(OpType::Log2, (std::log2(A)));
+
+// Frexp has a return value as well as an output paramater. So we handle it
+// with special logic. Frexp is only supported for fp32 values.
+template <> struct Op<OpType::Frexp, float> : DefaultValidation<float> {};
+
+template <> struct ExpectedBuilder<OpType::Frexp, float> {
+  static std::vector<float> buildExpected(Op<OpType::Frexp, float>,
+                                          const InputSets<float, 1> &Inputs,
+                                          uint32_t) {
+
+    // Expected values size is doubled. In the first half we store the Mantissas
+    // and in the second half we store the Exponents. This way we can leverage
+    // the existing logic which verify expected values in a single vector. We
+    // just need to make sure that we organize the output in the same way in the
+    // shader and when we read it back.
+
+    size_t VectorSize = Inputs[0].size();
+
+    std::vector<float> Expected;
+    Expected.resize(VectorSize * 2);
+
+    for (size_t I = 0; I < VectorSize; ++I) {
+      int Exp = 0;
+      float Man = std::frexp(Inputs[0][I], &Exp);
+
+      // std::frexp returns a signed mantissa. But the HLSL implmentation
+      // returns an unsigned mantissa.
+      Man = std::abs(Man);
+
+      Expected[I] = Man;
+
+      // std::frexp returns the exponent as an int, but HLSL stores it as a
+      // float. However, the HLSL exponents fractional component is always 0. So
+      // it can conversion between float and int is safe.
+      Expected[I + VectorSize] = static_cast<float>(Exp);
+    }
+
+    return Expected;
   }
 };
 
@@ -2191,8 +2271,9 @@ public:
   HLK_TEST(AsUint_SplitDouble, double, Vector,
            "ada8958b-9d52-4fe2-9380-441ed7328caf");
 
-#if 0
-HLK_TEST(Abs, int16_t, Vector, "29762a0b-d0c3-4546-b63a-fd7a268be8f1");
+  // Unary Math
+
+  HLK_TEST(Abs, int16_t, Vector, "29762a0b-d0c3-4546-b63a-fd7a268be8f1");
   HLK_TEST(Sign, int16_t, Vector, "85c16ce7-47e8-45f8-9023-7f8a10ef91c5");
   HLK_TEST(Abs, int32_t, Vector, "ce9753d7-aa4c-4319-81ae-2479e8afe76f");
   HLK_TEST(Sign, int32_t, Vector, "13ee4ec3-15cf-4ecb-9e2a-492ae52a7622");
@@ -2237,6 +2318,9 @@ HLK_TEST(Abs, int16_t, Vector, "29762a0b-d0c3-4546-b63a-fd7a268be8f1");
   HLK_TEST(Frexp, float, Vector, "99a1307d-7e5d-4656-913f-7391a7f2081c");
   HLK_TEST(Abs, double, Vector, "ff0fadf6-87f1-4bf1-9164-5d90cb2a49b6");
   HLK_TEST(Sign, double, Vector, "89362c0b-9678-4d7f-8461-faff042de684");
+
+#if 0
+
   HLK_TEST(LessThan, int16_t, ScalarOp2,
            "b7cdb4c6-efe8-45f1-9935-d5ba6864f48d");
   HLK_TEST(LessThan, int16_t, Vector, "8ab5a887-80f3-448c-aedf-81e48cb33b33");
