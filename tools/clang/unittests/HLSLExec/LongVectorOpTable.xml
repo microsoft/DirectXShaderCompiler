@@ -1,337 +1,767 @@
 <?xml version="1.0" ?>
 <Data>
-    <Table Id="BitwiseOpTable">
-      <ParameterTypes>
-        <ParameterType Name="InputValueSetName1">String</ParameterType>
-        <ParameterType Name="InputValueSetName2">String</ParameterType>
-        <ParameterType Name="DataType">String</ParameterType>
-        <ParameterType Name="OpTypeEnum">String</ParameterType>
-        <ParameterType Name="ScalarInputFlags">hex</ParameterType>
-      </ParameterTypes>
-      <!-- LongVectorBitwiseOpTypeTable DataType: uint16 -->
-      <Row Name="Bitwise_And_uint16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
-        <Parameter Name="DataType">uint16</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_And_uint16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Or_uint16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
-        <Parameter Name="DataType">uint16</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_Or_uint16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Xor_uint16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
-        <Parameter Name="DataType">uint16</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_Xor_uint16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Not_uint16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
-        <Parameter Name="DataType">uint16</Parameter>
-      </Row>
-      <Row Name="Bitwise_LeftShift_uint16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_LeftShift_uint16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="Bitwise_RightShift_uint16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_RightShift_uint16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <!-- LongVectorBitwiseOpTypeTable DataType: uint32 -->
-      <Row Name="Bitwise_And_uint32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_And_uint32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Or_uint32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_Or_uint32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Xor_uint32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_Xor_uint32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Not_uint32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-      </Row>
-      <Row Name="Bitwise_LeftShift_uint32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_LeftShift_uint32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="Bitwise_RightShift_uint32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_RightShift_uint32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <!-- LongVectorBitwiseOpTypeTable DataType: uint64 -->
-      <Row Name="Bitwise_And_uint64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
-        <Parameter Name="DataType">uint64</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_And_uint64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Or_uint64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
-        <Parameter Name="DataType">uint64</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_Or_uint64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Xor_uint64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
-        <Parameter Name="DataType">uint64</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_Xor_uint64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Not_uint64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
-        <Parameter Name="DataType">uint64</Parameter>
-      </Row>
-      <Row Name="Bitwise_LeftShift_uint64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_LeftShift_uint64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="Bitwise_RightShift_uint64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_RightShift_uint64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <!-- LongVectorBitwiseOpTypeTable DataType: int16 -->
-      <Row Name="Bitwise_And_int16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
-        <Parameter Name="DataType">int16</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_And_int16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Or_int16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
-        <Parameter Name="DataType">int16</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_Or_int16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Xor_int16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
-        <Parameter Name="DataType">int16</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_Xor_int16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Not_int16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
-        <Parameter Name="DataType">int16</Parameter>
-      </Row>
-      <Row Name="Bitwise_LeftShift_int16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_LeftShift_int16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="Bitwise_RightShift_int16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_RightShift_int16">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <!-- LongVectorBitwiseOpTypeTable DataType: int32 -->
-      <Row Name="Bitwise_And_int32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_And_int32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Or_int32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_Or_int32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Xor_int32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_Xor_int32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Not_int32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-      </Row>
-      <Row Name="Bitwise_LeftShift_int32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_LeftShift_int32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="Bitwise_RightShift_int32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_RightShift_int32">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <!-- LongVectorBitwiseOpTypeTable DataType: int64 -->
-      <Row Name="Bitwise_And_int64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
-        <Parameter Name="DataType">int64</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_And_int64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_And</Parameter>
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Or_int64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
-        <Parameter Name="DataType">int64</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_Or_int64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Or</Parameter>
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Xor_int64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
-        <Parameter Name="DataType">int64</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_Xor_int64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Xor</Parameter>
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_Not_int64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_Not</Parameter>
-        <Parameter Name="DataType">int64</Parameter>
-      </Row>
-      <Row Name="Bitwise_LeftShift_int64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_LeftShift_int64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_LeftShift</Parameter>
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Bitwise_RightShift_int64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
-      <Row Name="ScalarBitwise_RightShift_int64">
-        <Parameter Name="OpTypeEnum">BitwiseOpType_RightShift</Parameter>
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        <Parameter Name="InputValueSetName2">BitShift_RHS</Parameter>
-      </Row>
+    <Table Id="TernaryMathOpTable">
+        <ParameterTypes>
+          <!-- InputValueSetName1 is optional. If no value is provided use the
+          default value set for the data type. This string is meant to be a
+          key value for the the array of std::pairs defined in
+          LongVectorTestData.h for the applicable DataType-->
+          <ParameterType Name="InputValueSetName1">String</ParameterType>
+          <!-- InputValueSetName2 is optional. Same as InputValueSetName1 -->
+          <ParameterType Name="InputValueSetName2">String</ParameterType>
+          <!-- InputValueSetName3 is optional. Same as InputValueSetName1 -->
+          <ParameterType Name="InputValueSetName3">String</ParameterType>
+          <ParameterType Name="DataType">String</ParameterType>
+          <ParameterType Name="OpTypeEnum">String</ParameterType>
+          <ParameterType Name="ScalarInputFlags">String</ParameterType>
+        </ParameterTypes>
+        <!-- LongVectorTernaryMathOpTypeTable DataType: uint16 -->
+        <Row Name="Mad_uint16">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
+        <Row Name="ScalarMad_uint16">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x4</Parameter>
+        </Row>
+        <!-- LongVectorTernaryMathOpTypeTable DataType: uint32 -->
+        <Row Name="Mad_uint32">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
+        <Row Name="ScalarMad_uint32">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <!-- LongVectorTernaryMathOpTypeTable DataType: uint64 -->
+        <Row Name="Mad_uint64">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <Row Name="ScalarMad_uint64">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x4</Parameter>
+        </Row>
+        <!-- LongVectorTernaryMathOpTypeTable DataType: int16 -->
+        <Row Name="Mad_int16">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
+        <Row Name="ScalarMad_int16">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <!-- LongVectorTernaryMathOpTypeTable DataType: int32 -->
+        <Row Name="Mad_int32">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <Row Name="ScalarMad_int32">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <!-- LongVectorTernaryMathOpTypeTable DataType: int64 -->
+        <Row Name="Mad_int64">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
+        <Row Name="ScalarMad_int64">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x4</Parameter>
+        </Row>
+        <!-- LongVectorTernaryMathOpTypeTable DataType: float16 -->
+        <Row Name="Mad_float16">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="ScalarMad_float16">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="SmoothStep_float16">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_SmoothStep</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="InputValueSetName1">SmoothStepMin</Parameter>
+          <Parameter Name="InputValueSetName2">SmoothStepMax</Parameter>
+          <Parameter Name="InputValueSetName3">SmoothStepInputValueSet</Parameter>
+        </Row>
+        <Row Name="ScalarSmoothStep_float16">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_SmoothStep</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="InputValueSetName1">SmoothStepMin</Parameter>
+          <Parameter Name="InputValueSetName2">SmoothStepMax</Parameter>
+          <Parameter Name="InputValueSetName3">SmoothStepInputValueSet</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <!-- LongVectorTernaryMathOpTypeTable DataType: float32 -->
+        <Row Name="Mad_float32">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="ScalarMad_float32">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="SmoothStep_float32">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_SmoothStep</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="InputValueSetName1">SmoothStepMin</Parameter>
+          <Parameter Name="InputValueSetName2">SmoothStepMax</Parameter>
+          <Parameter Name="InputValueSetName3">SmoothStepInputValueSet</Parameter>
+        </Row>
+        <Row Name="ScalarSmoothStep_float32">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_SmoothStep</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="InputValueSetName1">SmoothStepMin</Parameter>
+          <Parameter Name="InputValueSetName2">SmoothStepMax</Parameter>
+          <Parameter Name="InputValueSetName3">SmoothStepInputValueSet</Parameter>
+          <Parameter Name="ScalarInputFlags">0x4</Parameter>
+        </Row>
+        <!-- LongVectorTernaryMathOpTypeTable DataType: float64 -->
+        <Row Name="fma_float64">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Fma</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+        </Row>
+        <Row Name="ScalarFma_float64">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Fma</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Mad_float64">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+        </Row>
+        <Row Name="ScalarMad_float64">
+          <Parameter Name="OpTypeEnum">TernaryMathOpType_Mad</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+    </Table>
+    <Table Id="BinaryMathOpTable">
+        <ParameterTypes>
+          <!-- InputValueSetName1 is optional. If no value is provided use the
+          default value set for the data type. This string is meant to be a
+          key value for the the array of std::pairs defined in
+          LongVectorTestData.h for the applicable DataType-->
+          <ParameterType Name="InputValueSetName1">String</ParameterType>
+          <!-- InputValueSetName2 is optional. Same as InputValueSetName1 -->
+          <ParameterType Name="InputValueSetName2">String</ParameterType>
+          <ParameterType Name="DataType">String</ParameterType>
+          <ParameterType Name="OpTypeEnum">String</ParameterType>
+          <ParameterType Name="ScalarInputFlags">hex</ParameterType>
+        </ParameterTypes>
+        <!-- LongVectorBinaryMathOpTypeTable DataType: bool -->
+        <Row Name="ScalarAdd_bool">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">bool</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Add_bool">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">bool</Parameter>
+        </Row>
+        <Row Name="ScalarSubtract_bool">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">bool</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Subtract_bool">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">bool</Parameter>
+        </Row>
+        <!-- LongVectorBinaryMathOpTypeTable DataType: int16 -->
+        <Row Name="ScalarAdd_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Add_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
+        <Row Name="ScalarSubtract_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Subtract_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
+        <Row Name="ScalarMultiply_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Multiply_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
+        <Row Name="ScalarDivide_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Divide_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
+        <Row Name="ScalarModulus_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Modulus_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
+        <Row Name="ScalarMin_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
+        <Row Name="ScalarMax_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_int16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">int16</Parameter>
+        </Row>
+        <!-- LongVectorBinaryMathOpTypeTable DataType: int32 -->
+        <Row Name="ScalarAdd_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Add_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <Row Name="ScalarSubtract_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Subtract_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <Row Name="ScalarMultiply_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Multiply_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <Row Name="ScalarDivide_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Divide_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <Row Name="ScalarModulus_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Modulus_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <Row Name="ScalarMin_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <Row Name="ScalarMax_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_int32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">int32</Parameter>
+        </Row>
+        <!-- LongVectorBinaryMathOpTypeTable DataType: int64 -->
+        <Row Name="ScalarAdd_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Add_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
+        <Row Name="ScalarSubtract_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Subtract_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
+        <Row Name="ScalarMultiply_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Multiply_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
+        <Row Name="ScalarDivide_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Divide_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
+        <Row Name="ScalarModulus_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Modulus_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
+        <Row Name="ScalarMin_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
+        <Row Name="ScalarMax_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_int64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">int64</Parameter>
+        </Row>
+        <!-- LongVectorBinaryMathOpTypeTable DataType: uint16 -->
+        <Row Name="ScalarAdd_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Add_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
+        <Row Name="ScalarSubtract_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Subtract_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
+        <Row Name="ScalarMultiply_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Multiply_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
+        <Row Name="ScalarDivide_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Divide_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
+        <Row Name="ScalarModulus_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Modulus_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
+        <Row Name="ScalarMin_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
+        <Row Name="ScalarMax_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_uint16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">uint16</Parameter>
+        </Row>
+        <!-- LongVectorBinaryMathOpTypeTable DataType: uint32 -->
+        <Row Name="ScalarAdd_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Add_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
+        <Row Name="ScalarSubtract_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Subtract_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
+        <Row Name="ScalarMultiply_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Multiply_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
+        <Row Name="ScalarDivide_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Divide_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
+        <Row Name="ScalarModulus_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Modulus_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
+        <Row Name="ScalarMin_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
+        <Row Name="ScalarMax_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_uint32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">uint32</Parameter>
+        </Row>
+        <!-- LongVectorBinaryMathOpTypeTable DataType: uint64 -->
+        <Row Name="ScalarAdd_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Add_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <Row Name="ScalarSubtract_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Subtract_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <Row Name="ScalarMultiply_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Multiply_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <Row Name="ScalarDivide_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Divide_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <Row Name="ScalarModulus_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Modulus_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <Row Name="ScalarMin_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <Row Name="ScalarMax_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_uint64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">uint64</Parameter>
+        </Row>
+        <!-- LongVectorBinaryMathOpTypeTable DataType: float16 -->
+        <Row Name="ScalarAdd_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Add_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="ScalarSubtract_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Subtract_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="ScalarMultiply_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Multiply_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="ScalarDivide_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Divide_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="ScalarModulus_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Modulus_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="ScalarMin_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="ScalarMax_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="Ldexp_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Ldexp</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+        </Row>
+        <Row Name="ScalarLdexp_float16">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Ldexp</Parameter>
+          <Parameter Name="DataType">float16</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <!-- LongVectorBinaryMathOpTypeTable DataType: float32 -->
+        <Row Name="ScalarAdd_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Add_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="ScalarSubtract_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Subtract_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="ScalarMultiply_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Multiply_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="ScalarDivide_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Divide_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="ScalarModulus_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Modulus_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Modulus</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="ScalarMin_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="ScalarMax_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="Ldexp_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Ldexp</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+        </Row>
+        <Row Name="ScalarLdexp_float32">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Ldexp</Parameter>
+          <Parameter Name="DataType">float32</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <!-- LongVectorBinaryMathOpTypeTable DataType: float64 -->
+        <Row Name="ScalarAdd_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Add_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Add</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+        </Row>
+        <Row Name="ScalarSubtract_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Subtract_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Subtract</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+        </Row>
+        <Row Name="ScalarMultiply_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Multiply_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Multiply</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+        </Row>
+        <Row Name="ScalarDivide_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Divide_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Divide</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+        </Row>
+        <Row Name="ScalarMin_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Min_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Min</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+        </Row>
+        <Row Name="ScalarMax_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+          <Parameter Name="ScalarInputFlags">0x2</Parameter>
+        </Row>
+        <Row Name="Max_float64">
+          <Parameter Name="OpTypeEnum">BinaryMathOpType_Max</Parameter>
+          <Parameter Name="DataType">float64</Parameter>
+        </Row>
     </Table>
     <Table Id="UnaryOpTable">
       <ParameterTypes>
@@ -782,546 +1212,5 @@
         <Parameter Name="OpTypeEnum">UnaryMathOpType_Sign</Parameter>
         <Parameter Name="DataType">float64</Parameter>
       </Row>
-    </Table>
-    <Table Id="BinaryComparisonOpTable">
-      <ParameterTypes>
-        <!-- InputValueSetName1 is optional. If no value is provided use the
-        default value set for the data type. This string is meant to be a key
-        value for the the array of std::pairs defined in LongVectorTestData.h
-        for the applicable DataTypeIn-->
-        <ParameterType Name="InputValueSetName1">String</ParameterType>
-        <ParameterType Name="InputValueSetName2">String</ParameterType>
-        <ParameterType Name="DataType">String</ParameterType>
-        <ParameterType Name="OpTypeEnum">String</ParameterType>
-        <ParameterType Name="ScalarInputFlags">String</ParameterType>
-      </ParameterTypes>
-      <!-- LongVectorBinaryComparisonOpTypeTable DataType: int16 -->
-      <Row Name="ScalarLessThan_int16">
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessThan_int16">
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-      </Row>
-      <Row Name="ScalarLessEqual_int16">
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessEqual_int16">
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterThan_int16">
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterThan_int16">
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterEqual_int16">
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterEqual_int16">
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-      </Row>
-      <Row Name="ScalarEqual_int16">
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Equal_int16">
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-      </Row>
-      <Row Name="ScalarNotEqual_int16">
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="NotEqual_int16">
-        <Parameter Name="DataType">int16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-      </Row>
-      <!-- LongVectorBinaryComparisonOpTypeTable DataType: int32 -->
-      <Row Name="ScalarLessThan_int32">
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessThan_int32">
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-      </Row>
-      <Row Name="ScalarLessEqual_int32">
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessEqual_int32">
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterThan_int32">
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterThan_int32">
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterEqual_int32">
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterEqual_int32">
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-      </Row>
-      <Row Name="ScalarEqual_int32">
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Equal_int32">
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-      </Row>
-      <Row Name="ScalarNotEqual_int32">
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="NotEqual_int32">
-        <Parameter Name="DataType">int32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-      </Row>
-      <!-- LongVectorBinaryComparisonOpTypeTable DataType: int64 -->
-      <Row Name="ScalarLessThan_int64">
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessThan_int64">
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-      </Row>
-      <Row Name="ScalarLessEqual_int64">
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessEqual_int64">
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterThan_int64">
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterThan_int64">
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterEqual_int64">
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterEqual_int64">
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-      </Row>
-      <Row Name="ScalarEqual_int64">
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Equal_int64">
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-      </Row>
-      <Row Name="ScalarNotEqual_int64">
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="NotEqual_int64">
-        <Parameter Name="DataType">int64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-      </Row>
-      <!-- LongVectorBinaryComparisonOpTypeTable DataType: uint16 -->
-      <Row Name="ScalarLessThan_uint16">
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessThan_uint16">
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-      </Row>
-      <Row Name="ScalarLessEqual_uint16">
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessEqual_uint16">
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterThan_uint16">
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterThan_uint16">
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterEqual_uint16">
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterEqual_uint16">
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-      </Row>
-      <Row Name="ScalarEqual_uint16">
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Equal_uint16">
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-      </Row>
-      <Row Name="ScalarNotEqual_uint16">
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="NotEqual_uint16">
-        <Parameter Name="DataType">uint16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-      </Row>
-      <!-- LongVectorBinaryComparisonOpTypeTable DataType: uint32 -->
-      <Row Name="ScalarLessThan_uint32">
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessThan_uint32">
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-      </Row>
-      <Row Name="ScalarLessEqual_uint32">
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessEqual_uint32">
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterThan_uint32">
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterThan_uint32">
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterEqual_uint32">
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterEqual_uint32">
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-      </Row>
-      <Row Name="ScalarEqual_uint32">
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Equal_uint32">
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-      </Row>
-      <Row Name="ScalarNotEqual_uint32">
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="NotEqual_uint32">
-        <Parameter Name="DataType">uint32</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-      </Row>
-      <!-- LongVectorBinaryComparisonOpTypeTable DataType: uint64 -->
-      <Row Name="ScalarLessThan_uint64">
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessThan_uint64">
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-      </Row>
-      <Row Name="ScalarLessEqual_uint64">
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessEqual_uint64">
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterThan_uint64">
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterThan_uint64">
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterEqual_uint64">
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterEqual_uint64">
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-      </Row>
-      <Row Name="ScalarEqual_uint64">
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Equal_uint64">
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-      </Row>
-      <Row Name="ScalarNotEqual_uint64">
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="NotEqual_uint64">
-        <Parameter Name="DataType">uint64</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-      </Row>
-      <!-- LongVectorBinaryComparisonOpTypeTable DataType: float16 -->
-      <Row Name="ScalarLessThan_float16">
-        <Parameter Name="DataType">float16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessThan_float16">
-        <Parameter Name="DataType">float16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-      </Row>
-      <Row Name="ScalarLessEqual_float16">
-        <Parameter Name="DataType">float16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="LessEqual_float16">
-        <Parameter Name="DataType">float16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterThan_float16">
-        <Parameter Name="DataType">float16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterThan_float16">
-        <Parameter Name="DataType">float16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-      </Row>
-      <Row Name="ScalarGreaterEqual_float16">
-        <Parameter Name="DataType">float16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="GreaterEqual_float16">
-        <Parameter Name="DataType">float16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-      </Row>
-      <Row Name="ScalarEqual_float16">
-        <Parameter Name="DataType">float16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="Equal_float16">
-        <Parameter Name="DataType">float16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-      </Row>
-      <Row Name="ScalarNotEqual_float16">
-        <Parameter Name="DataType">float16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-        <Parameter Name="ScalarInputFlags">0x2</Parameter>
-      </Row>
-      <Row Name="NotEqual_float16">
-        <Parameter Name="DataType">float16</Parameter>
-        <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-      </Row>
-     <!-- LongVectorBinaryComparisonOpTypeTable DataType: float -->
-     <Row Name="ScalarLessThan_float">
-       <Parameter Name="DataType">float32</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-       <Parameter Name="ScalarInputFlags">0x2</Parameter>
-     </Row>
-     <Row Name="LessThan_float">
-       <Parameter Name="DataType">float32</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-     </Row>
-     <Row Name="ScalarLessEqual_float">
-       <Parameter Name="DataType">float32</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-       <Parameter Name="ScalarInputFlags">0x2</Parameter>
-     </Row>
-     <Row Name="LessEqual_float">
-       <Parameter Name="DataType">float32</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-     </Row>
-     <Row Name="ScalarGreaterThan_float">
-       <Parameter Name="DataType">float32</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-       <Parameter Name="ScalarInputFlags">0x2</Parameter>
-     </Row>
-     <Row Name="GreaterThan_float">
-       <Parameter Name="DataType">float32</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-     </Row>
-     <Row Name="ScalarGreaterEqual_float">
-       <Parameter Name="DataType">float32</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-       <Parameter Name="ScalarInputFlags">0x2</Parameter>
-     </Row>
-     <Row Name="GreaterEqual_float">
-       <Parameter Name="DataType">float32</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-     </Row>
-     <Row Name="ScalarEqual_float">
-       <Parameter Name="DataType">float32</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-       <Parameter Name="ScalarInputFlags">0x2</Parameter>
-     </Row>
-     <Row Name="Equal_float">
-       <Parameter Name="DataType">float32</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-     </Row>
-     <Row Name="ScalarNotEqual_float">
-       <Parameter Name="DataType">float32</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-       <Parameter Name="ScalarInputFlags">0x2</Parameter>
-     </Row>
-     <Row Name="NotEqual_float">
-       <Parameter Name="DataType">float32</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-     </Row>
-     <!-- LongVectorBinaryComparisonOpTypeTable DataType: double -->
-     <Row Name="ScalarLessThan_double">
-       <Parameter Name="DataType">float64</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-       <Parameter Name="ScalarInputFlags">0x2</Parameter>
-     </Row>
-     <Row Name="LessThan_double">
-       <Parameter Name="DataType">float64</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessThan</Parameter>
-     </Row>
-     <Row Name="ScalarLessEqual_double">
-       <Parameter Name="DataType">float64</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-       <Parameter Name="ScalarInputFlags">0x2</Parameter>
-     </Row>
-     <Row Name="LessEqual_double">
-       <Parameter Name="DataType">float64</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_LessEqual</Parameter>
-     </Row>
-     <Row Name="ScalarGreaterThan_double">
-       <Parameter Name="DataType">float64</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-       <Parameter Name="ScalarInputFlags">0x2</Parameter>
-     </Row>
-     <Row Name="GreaterThan_double">
-       <Parameter Name="DataType">float64</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterThan</Parameter>
-     </Row>
-     <Row Name="ScalarGreaterEqual_double">
-       <Parameter Name="DataType">float64</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-       <Parameter Name="ScalarInputFlags">0x2</Parameter>
-     </Row>
-     <Row Name="GreaterEqual_double">
-       <Parameter Name="DataType">float64</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_GreaterEqual</Parameter>
-     </Row>
-     <Row Name="ScalarEqual_double">
-       <Parameter Name="DataType">float64</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-       <Parameter Name="ScalarInputFlags">0x2</Parameter>
-     </Row>
-     <Row Name="Equal_double">
-       <Parameter Name="DataType">float64</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_Equal</Parameter>
-     </Row>
-     <Row Name="ScalarNotEqual_double">
-       <Parameter Name="DataType">float64</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-       <Parameter Name="ScalarInputFlags">0x2</Parameter>
-     </Row>
-     <Row Name="NotEqual_double">
-       <Parameter Name="DataType">float64</Parameter>
-       <Parameter Name="OpTypeEnum">BinaryComparisonOpType_NotEqual</Parameter>
-     </Row>
-  </Table>
-  <Table Id="BinaryOpTable">
-        <ParameterTypes>
-          <!-- InputValueSetName1 is optional. If no value is provided use the
-          default value set for the data type. This string is meant to be a
-          key value for the the array of std::pairs defined in
-          LongVectorTestData.h for the applicable DataType-->
-          <ParameterType Name="InputValueSetName1">String</ParameterType>
-          <!-- InputValueSetName2 is optional. Same as InputValueSetName1 -->
-          <ParameterType Name="InputValueSetName2">String</ParameterType>
-          <ParameterType Name="DataType">String</ParameterType>
-          <ParameterType Name="OpTypeEnum">String</ParameterType>
-          <ParameterType Name="ScalarInputFlags">hex</ParameterType>
-        </ParameterTypes>
-        <!-- LongVectorBinaryOpTypeTable DataType: bool -->
-        <Row Name="Logical_And_bool">
-          <Parameter Name="OpTypeEnum">BinaryOpType_Logical_And</Parameter>
-          <Parameter Name="DataType">bool</Parameter>
-        </Row>
-        <Row Name="Logical_Or_bool">
-          <Parameter Name="OpTypeEnum">BinaryOpType_Logical_Or</Parameter>
-          <Parameter Name="DataType">bool</Parameter>
-        </Row>
-        <Row Name="ScalarLogical_And_bool">
-          <Parameter Name="OpTypeEnum">BinaryOpType_Logical_And</Parameter>
-          <Parameter Name="DataType">bool</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
-        <Row Name="ScalarLogical_Or_bool">
-          <Parameter Name="OpTypeEnum">BinaryOpType_Logical_Or</Parameter>
-          <Parameter Name="DataType">bool</Parameter>
-          <Parameter Name="ScalarInputFlags">0x2</Parameter>
-        </Row>
     </Table>
 </Data>
