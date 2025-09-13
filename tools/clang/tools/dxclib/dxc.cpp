@@ -51,6 +51,7 @@
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/dxcapi.extval.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.h"
@@ -125,7 +126,7 @@ class DxcContext {
 
 private:
   DxcOpts &m_Opts;
-  SpecificDllLoader &m_dxcSupport;
+  DxcDllExtValidationLoader &m_dxcSupport;
 
   int ActOnBlob(IDxcBlob *pBlob);
   int ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugBlobName);
@@ -155,7 +156,7 @@ private:
   }
 
 public:
-  DxcContext(DxcOpts &Opts, SpecificDllLoader &dxcSupport)
+  DxcContext(DxcOpts &Opts, DxcDllExtValidationLoader &dxcSupport)
       : m_Opts(Opts), m_dxcSupport(dxcSupport) {}
 
   int Compile();
@@ -871,11 +872,50 @@ int DxcContext::Compile() {
           outputPDBPath += pDebugName.m_pData;
         }
       } else {
-        IFT(pCompiler->Compile(
-            pSource, StringRefWide(m_Opts.InputFile),
-            StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
-            args.data(), args.size(), m_Opts.Defines.data(),
-            m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
+        if (m_dxcSupport.DxilDllFailedToLoad()) {
+          IFT(pCompiler->Compile(
+              pSource, StringRefWide(m_Opts.InputFile),
+              StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
+              args.data(), args.size(), m_Opts.Defines.data(),
+              m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
+        } else {
+          DxcBuffer buf = {};
+          buf.Ptr = pSource->GetBufferPointer();
+          buf.Size = pSource->GetBufferSize();
+          buf.Encoding = CP_UTF8;
+
+          CComPtr<IDxcCompiler3> pCompilerv3;
+          CComPtr<IDxcValidator> pValidator;
+          IFT(CreateInstance(CLSID_DxcCompiler, &pCompilerv3));
+          IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
+
+          IFT(pCompilerv3->Compile(
+              &buf, args.data(), args.size(), nullptr,
+              IID_PPV_ARGS(&pCompileResult)));
+
+          // Then validate
+          CComPtr<IDxcBlob> pProgram;
+          CComPtr<IDxcOperationResult> pValResult;
+
+          IFT(pCompileResult->GetResult(&pProgram));
+          IFT(pValidator->Validate(
+              pProgram,
+              DxcValidatorFlags_RootSignatureOnly |
+                  DxcValidatorFlags_InPlaceEdit,
+              &pValResult));
+          HRESULT valStatus = S_OK;
+          IFT(pValResult->GetStatus(&valStatus));
+          if (FAILED(valStatus)) {
+            CComPtr<IDxcBlobEncoding> pErrors;
+            IFT(pValResult->GetErrorBuffer(&pErrors));
+
+            if (pErrors && pErrors->GetBufferSize() > 0) {
+              // Convert to UTF8 for proper printing
+              CComPtr<IDxcBlobUtf8> pErrorsUtf8;
+              IFT(hlsl::DxcGetBlobAsUtf8(pErrors, nullptr, &pErrorsUtf8));
+            }
+          }
+        }
       }
     }
 
@@ -1416,7 +1456,6 @@ int dxc::main(int argc, const char **argv_) {
     const OptTable *optionTable = getHlslOptTable();
     MainArgs argStrings(argc, argv_);
     DxcOpts dxcOpts;
-    DXCLibraryDllLoader dxcSupport;
 
     // Read options and check errors.
     {
@@ -1448,20 +1487,23 @@ int dxc::main(int argc, const char **argv_) {
 #endif
 
     // Setup a helper DLL.
+    DxcDllExtValidationLoader dxcSupport;
     {
-      std::string dllErrorString;
-      llvm::raw_string_ostream dllErrorStream(dllErrorString);
-      int dllResult =
-          SetupSpecificDllLoader(dxcOpts, dxcSupport, dllErrorStream);
-      dllErrorStream.flush();
-      if (dllErrorString.size()) {
-        fprintf(stderr, "%s\n", dllErrorString.data());
-      }
-      if (dllResult)
+      std::string dllLogString;
+      llvm::raw_string_ostream dllErrorStream(dllLogString);
+      HRESULT dllResult = dxcSupport.Initialize(dllErrorStream);
+      if (DXC_FAILED(dllResult)) {
+        dllErrorStream << "Unable to load support for external DLL - error 0x";
+        dllErrorStream.write_hex(dllResult);
+        dllErrorStream.flush();
+        fprintf(stderr, "%s\n", dllLogString.data());
         return dllResult;
+      }
+
+      // if no errors setting up, print the log string as stdout
+      fprintf(stdout, "%s\n", dllLogString.data());
     }
 
-    EnsureEnabled(dxcSupport);
     DxcContext context(dxcOpts, dxcSupport);
     // Handle help request, which overrides any other processing.
     if (dxcOpts.ShowHelp) {
