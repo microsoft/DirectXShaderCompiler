@@ -727,27 +727,6 @@ OP_TYPE_META_DATA(AsTypeOpType, asTypeOpTypeStringToOpMetaData);
 
 #if 0
 
-void dispatchAsUintSplitDoubleTest(
-    const TestConfig<double, AsTypeOpType> &Config, size_t VectorSize) {
-  DXASSERT(Config.OpType == AsTypeOpType::AsUint_SplitDouble,
-           "Unexpected OpType");
-
-  InputSets<double, 1> Inputs = buildTestInputs<1>(Config, VectorSize);
-
-  std::vector<uint32_t> Expected;
-  Expected.resize(Inputs.size() * 2);
-
-  for (size_t I = 0; I < Inputs.size(); ++I) {
-    uint32_t Low, High;
-    splitDouble(Expected[I], Low, High);
-    Expected[I] = Low;
-    Expected[I + Inputs.size()] = High;
-  }
-
-  ValidationConfig ValidationConfig{};
-  runAndVerify(Config, Inputs, Expected, " -DFUNC_ASUINT_SPLITDOUBLE=1",
-               ValidationConfig);
-}
 
 template <typename T>
 void dispatchTestByVectorSize(const TestConfig<T, AsTypeOpType> &Config,
@@ -1436,6 +1415,7 @@ void dispatchTestByVectorSize(const TestConfig<T, BitwiseOpType> &Config,
 
 template <OpType OP, typename T> struct Op;
 
+template <OpType OP, typename T> struct ExpectedBuilder;
 template <typename T> struct DefaultValidation {
   ValidationConfig ValidationConfig;
 
@@ -1577,15 +1557,6 @@ bit_cast(const FromT &Src) {
   return Dst;
 }
 
-// splitDouble
-
-static void splitDouble(const double A, uint32_t &LowBits, uint32_t &HighBits) {
-  uint64_t Bits = 0;
-  std::memcpy(&Bits, &A, sizeof(Bits));
-  LowBits = static_cast<uint32_t>(Bits & 0xFFFFFFFF);
-  HighBits = static_cast<uint32_t>(Bits >> 32);
-}
-
 #define AS_TYPE_OP(OP, TYPE, IMPL)                                             \
   template <typename T> struct Op<OP, T> : StrictValidation {                  \
     TYPE operator()(T A) { return IMPL; }                                      \
@@ -1662,95 +1633,93 @@ template <> struct Op<OpType::AsDouble, uint32_t> : StrictValidation {
   }
 };
 
-// TODO: splitdouble
-
+// splitDouble
 //
-// Find out the return value (the "out type") for an op.
-//
+// splitdouble is special because it's a function that takes a double and
+// outputs two values. To handle this special case we override various bits of
+// the testing machinary.
 
-template <OpType OP, typename T, size_t ARITY> struct OpOutType;
-
-template <OpType OP, typename T> struct OpOutType<OP, T, 1> {
-  static auto Probe() {
-    Op<OP, T> O;
-    T A;
-    return O(A);
-  }
-
-  using Type = decltype(Probe());
+template <> struct Op<OpType::AsUint_SplitDouble, double> : StrictValidation {
 };
 
-template <OpType OP, typename T> struct OpOutType<OP, T, 2> {
-  static auto Probe() {
-    Op<OP, T> O;
-    return O(T(), T());
+// Specialized version of ExpectedBuilder for the splitdouble case. The expected
+// output for this has all the Low values followed by all the High values.
+template <> struct ExpectedBuilder<OpType::AsUint_SplitDouble, double> {
+  static std::vector<uint32_t>
+  buildExpected(Op<OpType::AsUint_SplitDouble, double>,
+                const InputSets<double, 1> &Inputs, uint32_t ScalarInputFlags) {
+    DXASSERT_NOMSG(ScalarInputFlags == 0);
+    UNREFERENCED_PARAMETER(ScalarInputFlags);
+
+    std::vector<uint32_t> Expected;
+    Expected.resize(Inputs[0].size() * 2);
+
+    for (size_t I = 0; I < Inputs[0].size(); ++I) {
+      uint32_t Low, High;
+      splitDouble(Inputs[0][I], Low, High);
+      Expected[I] = Low;
+      Expected[I + Inputs[0].size()] = High;
+    }
+
+    return Expected;
   }
 
-  using Type = decltype(Probe());
-};
-
-template <OpType OP, typename T> struct OpOutType<OP, T, 3> {
-  static auto Probe() {
-    Op<OP, T> O;
-    return O(T(), T(), T());
+  static void splitDouble(const double A, uint32_t &LowBits,
+                          uint32_t &HighBits) {
+    uint64_t Bits = 0;
+    std::memcpy(&Bits, &A, sizeof(Bits));
+    LowBits = static_cast<uint32_t>(Bits & 0xFFFFFFFF);
+    HighBits = static_cast<uint32_t>(Bits >> 32);
   }
-
-  using Type = decltype(Probe());
 };
 
 //
 // dispatchTest
 //
 
-template <OpType OP, typename T, size_t ARITY>
-std::vector<T> buildExpected(const InputSets<T, ARITY> &Inputs);
+template <OpType OP, typename T> struct ExpectedBuilder {
+  static auto buildExpected(Op<OP, T> Op, const InputSets<T, 1> &Inputs,
+                            size_t ScalarInputFlags) {
+    UNREFERENCED_PARAMETER(ScalarInputFlags);
 
-template <OpType OP, typename T,
-          typename OUT_TYPE = typename OpOutType<OP, T, 1>::Type>
-std::vector<OUT_TYPE> buildExpected(Op<OP, T> Op, const InputSets<T, 1> &Inputs,
-                                    size_t ScalarInputFlags) {
-  UNREFERENCED_PARAMETER(ScalarInputFlags);
+    std::vector<decltype(Op(T()))> Expected;
+    Expected.reserve(Inputs[0].size());
 
-  std::vector<OUT_TYPE> Expected;
-  Expected.reserve(Inputs[0].size());
+    for (size_t I = 0; I < Inputs[0].size(); ++I) {
+      Expected.push_back(Op(Inputs[0][I]));
+    }
 
-  for (size_t I = 0; I < Inputs[0].size(); ++I) {
-    Expected.push_back(Op(Inputs[0][I]));
+    return Expected;
   }
 
-  return Expected;
-}
+  static auto buildExpected(Op<OP, T> Op, const InputSets<T, 2> &Inputs,
+                            size_t ScalarInputFlags) {
+    std::vector<decltype(Op(T(), T()))> Expected;
+    Expected.reserve(Inputs[0].size());
 
-template <OpType OP, typename T,
-          typename OUT_TYPE = typename OpOutType<OP, T, 2>::Type>
-std::vector<OUT_TYPE> buildExpected(Op<OP, T> Op, const InputSets<T, 2> &Inputs,
-                                    size_t ScalarInputFlags) {
-  std::vector<OUT_TYPE> Expected;
-  Expected.reserve(Inputs[0].size());
+    for (size_t I = 0; I < Inputs[0].size(); ++I) {
+      size_t Index1 = (ScalarInputFlags & (1 << 1)) ? 0 : I;
+      Expected.push_back(Op(Inputs[0][I], Inputs[1][Index1]));
+    }
 
-  for (size_t I = 0; I < Inputs[0].size(); ++I) {
-    size_t Index1 = (ScalarInputFlags & (1 << 1)) ? 0 : I;
-    Expected.push_back(Op(Inputs[0][I], Inputs[1][Index1]));
+    return Expected;
   }
 
-  return Expected;
-}
+  static auto buildExpected(Op<OP, T> Op, const InputSets<T, 3> &Inputs,
+                            size_t ScalarInputFlags) {
+    std::vector<decltype(Op(T(), T(), T()))> Expected;
+    Expected.reserve(Inputs[0].size());
 
-template <OpType OP, typename T,
-          typename OUT_TYPE = typename OpOutType<OP, T, 3>::Type>
-std::vector<OUT_TYPE> buildExpected(Op<OP, T> Op, const InputSets<T, 3> &Inputs,
-                                    size_t ScalarInputFlags) {
-  std::vector<OUT_TYPE> Expected;
-  Expected.reserve(Inputs[0].size());
+    for (size_t I = 0; I < Inputs[0].size(); ++I) {
+      size_t Index1 = (ScalarInputFlags & (1 << 1)) ? 0 : I;
+      size_t Index2 = (ScalarInputFlags & (1 << 2)) ? 0 : I;
+      Expected.push_back(
+          Op(Inputs[0][I], Inputs[1][Index1], Inputs[2][Index2]));
+    }
 
-  for (size_t I = 0; I < Inputs[0].size(); ++I) {
-    size_t Index1 = (ScalarInputFlags & (1 << 1)) ? 0 : I;
-    size_t Index2 = (ScalarInputFlags & (1 << 2)) ? 0 : I;
-    Expected.push_back(Op(Inputs[0][I], Inputs[1][Index1], Inputs[2][Index2]));
+    return Expected;
   }
-
-  return Expected;
-}
+};
 
 template <typename T, OpType OP>
 void dispatchTest(const TestConfig<T, OP> &Config) {
@@ -1766,7 +1735,8 @@ void dispatchTest(const TestConfig<T, OP> &Config) {
     InputSets<T, OpTraits<OP>::Arity> Inputs =
         buildTestInputs<T, OP>(VectorSize, Config.ScalarInputFlags);
 
-    auto Expected = buildExpected(Op, Inputs, Config.ScalarInputFlags);
+    auto Expected = ExpectedBuilder<OP, T>::buildExpected(
+        Op, Inputs, Config.ScalarInputFlags);
 
     runAndVerify(Config, Inputs, Expected, OpTraits<OP>::ExtraDefines,
                  Op.ValidationConfig);
@@ -2218,11 +2188,8 @@ public:
   HLK_TEST(AsInt16, HLSLHalf_t, Vector, "dd67f22d-a259-4801-88a1-7de42398e727");
   HLK_TEST(AsUint16, HLSLHalf_t, Vector,
            "3af078f6-514c-4b19-aecb-daa2480d6f41");
-
-  // TODO: splitdouble
-
-  // HLK_TEST(AsUint_SplitDouble, double, Vector,
-  //          "ada8958b-9d52-4fe2-9380-441ed7328caf");
+  HLK_TEST(AsUint_SplitDouble, double, Vector,
+           "ada8958b-9d52-4fe2-9380-441ed7328caf");
 
 #if 0
 HLK_TEST(Abs, int16_t, Vector, "29762a0b-d0c3-4546-b63a-fd7a268be8f1");

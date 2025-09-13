@@ -68,7 +68,7 @@ OP_DEFAULT(Trigonometric, Tanh, 1, "tanh", "")
 
 OP_DEFAULT(AsType, AsFloat16, 1, "asfloat16", "")
 OP_DEFAULT(AsType, AsInt16, 1, "asint16", "")
-OP_DEFAULT(AsType, AsUint16, 1, "asuin16", "")
+OP_DEFAULT(AsType, AsUint16, 1, "asuint16", "")
 OP_DEFAULT(AsType, AsFloat, 1, "asfloat", "")
 OP_DEFAULT(AsType, AsInt, 1, "asint", "")
 OP_DEFAULT(AsType, AsUint, 1, "asuint", "")
