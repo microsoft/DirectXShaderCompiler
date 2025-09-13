@@ -32,7 +32,7 @@ INPUT_SET(SplitDouble, "SplitDoubleInputValueSet")
 
 OP_DEFAULT(TernaryMath, Mad, 3, "mad", "")
 OP(TernaryMath, SmoothStep, 3, "smoothstep", "", "", SmoothStepMin,
-   SmoothStepMin, SmoothStepMin)
+   SmoothStepMax, SmoothStepInput)
 OP_DEFAULT(TernaryMath, Fma, 3, "fma", "")
 
 OP_DEFAULT(BinaryMath, Add, 2, "", "+")
