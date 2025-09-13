@@ -86,16 +86,16 @@ const wchar_t *getInputSetName(InputSet InputSet) {
 //
 
 enum class OpType {
-#define OP(SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1, INPUT_SET_2,       \
-           INPUT_SET_3)                                                        \
+#define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1,             \
+           INPUT_SET_2, INPUT_SET_3)                                           \
   SYMBOL,
 #include "LongVectorOps.def"
 };
 
 template <OpType OP> struct OpTraits;
 
-#define OP(SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1, INPUT_SET_2,       \
-           INPUT_SET_3)                                                        \
+#define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1,             \
+           INPUT_SET_2, INPUT_SET_3)                                           \
   template <> struct OpTraits<OpType::SYMBOL> {                                \
     static constexpr size_t Arity = ARITY;                                     \
     static constexpr const char *Intrinsic = INTRINSIC;                        \
@@ -1902,25 +1902,32 @@ public:
   HLK_TEST(Mad, int64_t, ScalarOp3, "2af43011-b71b-4f80-9a4e-52835391aa26");
   HLK_TEST(Mad, HLSLHalf_t, Vector, "61fd5c80-ff89-40c8-9e7d-d8f8498c6d34");
   HLK_TEST(Mad, HLSLHalf_t, ScalarOp2, "1e29537e-3dcd-4e88-9772-ca01afb80788");
-  HLK_TEST(SmoothStep, HLSLHalf_t, Vector,           "9afc0bf6-4da8-4cd8-9a9c-e400e0718498");
-  HLK_TEST(SmoothStep, HLSLHalf_t, ScalarOp2,           "ccb6720c-2f00-4a78-897d-48532ee5ed16");
+  HLK_TEST(SmoothStep, HLSLHalf_t, Vector,
+           "9afc0bf6-4da8-4cd8-9a9c-e400e0718498");
+  HLK_TEST(SmoothStep, HLSLHalf_t, ScalarOp2,
+           "ccb6720c-2f00-4a78-897d-48532ee5ed16");
   HLK_TEST(Mad, float, Vector, "2f30def6-0539-4636-8788-7648e0000049");
   HLK_TEST(Mad, float, ScalarOp2, "b61b898e-aadd-4d34-b43b-157a8ce9be28");
   HLK_TEST(SmoothStep, float, Vector, "0128e0a2-6464-4238-83ef-0760d680d210");
-  HLK_TEST(SmoothStep, float, ScalarOp3,           "ae3ce5f0-f331-464d-836c-bf0a74903b01");
+  HLK_TEST(SmoothStep, float, ScalarOp3,
+           "ae3ce5f0-f331-464d-836c-bf0a74903b01");
   HLK_TEST(Fma, double, Vector, "70c54dcf-c62c-459a-95d5-4e8850baddb9");
   HLK_TEST(Fma, double, ScalarOp2, "6d5c74fc-ee50-445f-bc28-0c6666cbd754");
   HLK_TEST(Mad, double, Vector, "1813aa84-26d8-401a-9204-86323042a43d");
   HLK_TEST(Mad, double, ScalarOp2, "c5954f98-7f26-47ef-ae09-80d0526b3a9f");
   HLK_TEST(Add, HLSLBool_t, ScalarOp2, "0b763d04-9f24-404f-9307-09e2ba2b43d1");
   HLK_TEST(Add, HLSLBool_t, Vector, "31142b2a-f263-4ea2-81ab-6bec7d95f7c6");
-  HLK_TEST(Subtract, HLSLBool_t, ScalarOp2,           "e11509fc-b420-45ee-8d5f-880ac318ebbf");
-  HLK_TEST(Subtract, HLSLBool_t, Vector,           "32a7c9ea-906a-4677-be27-f82a6a97e724");
+  HLK_TEST(Subtract, HLSLBool_t, ScalarOp2,
+           "e11509fc-b420-45ee-8d5f-880ac318ebbf");
+  HLK_TEST(Subtract, HLSLBool_t, Vector,
+           "32a7c9ea-906a-4677-be27-f82a6a97e724");
   HLK_TEST(Add, int16_t, ScalarOp2, "99063d10-04ea-4f3e-acd9-b1db8298db60");
   HLK_TEST(Add, int16_t, Vector, "ec82f079-b138-4dc2-a7e4-ad0b9623d5f2");
-  HLK_TEST(Subtract, int16_t, ScalarOp2,           "5deadf0c-fc3a-419e-997f-4f48903d9273");
+  HLK_TEST(Subtract, int16_t, ScalarOp2,
+           "5deadf0c-fc3a-419e-997f-4f48903d9273");
   HLK_TEST(Subtract, int16_t, Vector, "0c67cb7c-c7ae-4ef5-851f-654181b464da");
-  HLK_TEST(Multiply, int16_t, ScalarOp2,           "617bf684-9196-4d14-aa86-936da7e83bf9");
+  HLK_TEST(Multiply, int16_t, ScalarOp2,
+           "617bf684-9196-4d14-aa86-936da7e83bf9");
   HLK_TEST(Multiply, int16_t, Vector, "7abcba64-f915-4d93-b266-709d2e461f12");
   HLK_TEST(Divide, int16_t, ScalarOp2, "d16a0b8c-d7ac-481d-ba72-a5c2493a076e");
   HLK_TEST(Divide, int16_t, Vector, "966ab38d-d1e3-42b6-9ada-e8dbc8a28c27");
@@ -1932,9 +1939,11 @@ public:
   HLK_TEST(Max, int16_t, Vector, "efdb5064-9ef6-41d0-89a4-743ee2f39516");
   HLK_TEST(Add, int32_t, ScalarOp2, "05d70ab1-29b5-423f-8d00-5ecbe5e34d1d");
   HLK_TEST(Add, int32_t, Vector, "a75d168f-546e-4b49-88c9-a5249c1054cf");
-  HLK_TEST(Subtract, int32_t, ScalarOp2,           "b12ad9d4-05cb-432f-aa8f-e34aaa963f2e");
+  HLK_TEST(Subtract, int32_t, ScalarOp2,
+           "b12ad9d4-05cb-432f-aa8f-e34aaa963f2e");
   HLK_TEST(Subtract, int32_t, Vector, "4cc5196f-f3f2-411b-96ba-4ce4be8fc084");
-  HLK_TEST(Multiply, int32_t, ScalarOp2,           "fe238e74-4738-484d-8784-c1d2fbd1ca1d");
+  HLK_TEST(Multiply, int32_t, ScalarOp2,
+           "fe238e74-4738-484d-8784-c1d2fbd1ca1d");
   HLK_TEST(Multiply, int32_t, Vector, "a00939f6-9b5e-482f-ba5d-450b5a69a4f3");
   HLK_TEST(Divide, int32_t, ScalarOp2, "d88b41de-384b-4960-b58c-2106b8eb10bf");
   HLK_TEST(Divide, int32_t, Vector, "97e9fa69-c5b9-4c8e-8a23-c4805c16c5a1");
@@ -1946,9 +1955,11 @@ public:
   HLK_TEST(Max, int32_t, Vector, "79726dc0-bb2a-48b6-bf13-edc60a3564a6");
   HLK_TEST(Add, int64_t, ScalarOp2, "9f0832fc-03b4-44f9-a2ef-326d270b6c9a");
   HLK_TEST(Add, int64_t, Vector, "813688e4-d33c-4266-ac90-820e3276d615");
-  HLK_TEST(Subtract, int64_t, ScalarOp2,           "4c47ffcf-7415-479f-913f-94a07c4ede67");
+  HLK_TEST(Subtract, int64_t, ScalarOp2,
+           "4c47ffcf-7415-479f-913f-94a07c4ede67");
   HLK_TEST(Subtract, int64_t, Vector, "1fc82ce6-863b-4e2a-9053-74f16023efeb");
-  HLK_TEST(Multiply, int64_t, ScalarOp2,           "e952aec9-9320-4ae4-a983-50a811fb0027");
+  HLK_TEST(Multiply, int64_t, ScalarOp2,
+           "e952aec9-9320-4ae4-a983-50a811fb0027");
   HLK_TEST(Multiply, int64_t, Vector, "fea9911a-b77e-471a-a136-9c4a752d6fe2");
   HLK_TEST(Divide, int64_t, ScalarOp2, "5f2f239d-8a26-446a-8944-c56a0fbde25f");
   HLK_TEST(Divide, int64_t, Vector, "884bc286-bd88-4ced-ad66-0ee0bde1a569");
@@ -1960,13 +1971,16 @@ public:
   HLK_TEST(Max, int64_t, Vector, "7bfe1ed5-79eb-4a9a-b139-ed1129b3cf36");
   HLK_TEST(Add, uint16_t, ScalarOp2, "cfe84eac-399b-4fdf-8e65-7cbea73ffd83");
   HLK_TEST(Add, uint16_t, Vector, "653d1af6-c153-4a0a-ba00-d611531254d8");
-  HLK_TEST(Subtract, uint16_t, ScalarOp2,           "5cfcb35b-6e86-4dd2-94e0-bee23fea3852");
+  HLK_TEST(Subtract, uint16_t, ScalarOp2,
+           "5cfcb35b-6e86-4dd2-94e0-bee23fea3852");
   HLK_TEST(Subtract, uint16_t, Vector, "df22e337-d4fe-439e-bd20-c9cfed7fa3cb");
-  HLK_TEST(Multiply, uint16_t, ScalarOp2,           "7a813e95-a7cb-4f9e-9321-f7d441c3d92c");
+  HLK_TEST(Multiply, uint16_t, ScalarOp2,
+           "7a813e95-a7cb-4f9e-9321-f7d441c3d92c");
   HLK_TEST(Multiply, uint16_t, Vector, "63cf685d-2c5f-4d02-8344-f887b4a7608b");
   HLK_TEST(Divide, uint16_t, ScalarOp2, "6cd31845-635d-464e-ace6-0a83bc4abe75");
   HLK_TEST(Divide, uint16_t, Vector, "4f91958c-992d-453c-b4de-63ccccac5cd3");
-  HLK_TEST(Modulus, uint16_t, ScalarOp2,           "62125ad3-dabc-4d98-8fe0-6de0b24b9138");
+  HLK_TEST(Modulus, uint16_t, ScalarOp2,
+           "62125ad3-dabc-4d98-8fe0-6de0b24b9138");
   HLK_TEST(Modulus, uint16_t, Vector, "a8c3096b-85d3-4de5-880e-6437368176af");
   HLK_TEST(Min, uint16_t, ScalarOp2, "e6ef7645-6118-4f3f-9f95-ab985409e698");
   HLK_TEST(Min, uint16_t, Vector, "8d569585-c838-4885-88b1-4e5acdf40ef9");
@@ -1974,13 +1988,16 @@ public:
   HLK_TEST(Max, uint16_t, Vector, "f6a4b8bb-0eba-4b45-b51a-7ea5476a01f7");
   HLK_TEST(Add, uint32_t, ScalarOp2, "a68a0dba-75cc-452d-bc54-a1cfcb99d4d4");
   HLK_TEST(Add, uint32_t, Vector, "bc8be68c-6498-4654-946a-199e20c1de07");
-  HLK_TEST(Subtract, uint32_t, ScalarOp2,           "adfd829d-21ec-4829-8064-1cb44573bda2");
+  HLK_TEST(Subtract, uint32_t, ScalarOp2,
+           "adfd829d-21ec-4829-8064-1cb44573bda2");
   HLK_TEST(Subtract, uint32_t, Vector, "3f0f609f-dac6-426a-8374-4cb415eb6e76");
-  HLK_TEST(Multiply, uint32_t, ScalarOp2,           "3a6d6f8c-6851-4626-b485-e9435a35d492");
+  HLK_TEST(Multiply, uint32_t, ScalarOp2,
+           "3a6d6f8c-6851-4626-b485-e9435a35d492");
   HLK_TEST(Multiply, uint32_t, Vector, "d7f88184-8048-4be5-bc6c-5ca2c8dd3c3f");
   HLK_TEST(Divide, uint32_t, ScalarOp2, "838b577a-ffb9-46c2-8ce6-4f2aa86f2761");
   HLK_TEST(Divide, uint32_t, Vector, "e0e2db7c-b26e-4ee4-9906-66ea40536ee6");
-  HLK_TEST(Modulus, uint32_t, ScalarOp2,           "41bd2196-72c3-4556-9d34-67bc34140ab7");
+  HLK_TEST(Modulus, uint32_t, ScalarOp2,
+           "41bd2196-72c3-4556-9d34-67bc34140ab7");
   HLK_TEST(Modulus, uint32_t, Vector, "b3dc846a-1c69-4e33-ba9a-d998f29df457");
   HLK_TEST(Min, uint32_t, ScalarOp2, "a4709b03-642b-41cd-8c45-3e940a188f9b");
   HLK_TEST(Min, uint32_t, Vector, "41791e84-4116-44e2-bb22-1aa1821c7f26");
@@ -1988,13 +2005,16 @@ public:
   HLK_TEST(Max, uint32_t, Vector, "a2d7ba56-3ea1-4560-943b-79ef092d34f3");
   HLK_TEST(Add, uint64_t, ScalarOp2, "418502a9-6af4-4901-8f31-8a4ca3245ee6");
   HLK_TEST(Add, uint64_t, Vector, "4355af2f-4f32-4759-98b6-b9d6b0e3bf15");
-  HLK_TEST(Subtract, uint64_t, ScalarOp2,           "83720855-632e-43f1-99db-decca8298f53");
+  HLK_TEST(Subtract, uint64_t, ScalarOp2,
+           "83720855-632e-43f1-99db-decca8298f53");
   HLK_TEST(Subtract, uint64_t, Vector, "f1ad509b-d0ca-4cc8-b33f-9a8895443ab7");
-  HLK_TEST(Multiply, uint64_t, ScalarOp2,           "0879b20b-b214-4c7b-9c59-cba9e629ec11");
+  HLK_TEST(Multiply, uint64_t, ScalarOp2,
+           "0879b20b-b214-4c7b-9c59-cba9e629ec11");
   HLK_TEST(Multiply, uint64_t, Vector, "d55972f8-155f-491d-9bfd-030e61b0ac20");
   HLK_TEST(Divide, uint64_t, ScalarOp2, "7cc3d7a1-d631-4e0f-aebb-a9ca31001982");
   HLK_TEST(Divide, uint64_t, Vector, "b7fb6133-e7e6-4a89-b45e-ec3a342d7b95");
-  HLK_TEST(Modulus, uint64_t, ScalarOp2,           "9a09760d-9db4-4a37-911e-ed58b2962890");
+  HLK_TEST(Modulus, uint64_t, ScalarOp2,
+           "9a09760d-9db4-4a37-911e-ed58b2962890");
   HLK_TEST(Modulus, uint64_t, Vector, "8d0b56d5-452a-499d-aefa-62d1642e0c14");
   HLK_TEST(Min, uint64_t, ScalarOp2, "b2bb7787-91e3-4378-ae61-740d152f577c");
   HLK_TEST(Min, uint64_t, Vector, "30bf28f9-b2ff-4592-9ea8-7673a333a5b0");
@@ -2002,20 +2022,27 @@ public:
   HLK_TEST(Max, uint64_t, Vector, "8da765fb-9cb4-4762-b4fa-dded08a7bdef");
   HLK_TEST(Add, HLSLHalf_t, ScalarOp2, "e4cf06a6-0831-480f-8f9f-4a61996ceb7a");
   HLK_TEST(Add, HLSLHalf_t, Vector, "d47576fa-74b1-4da8-b67b-889bd9cee31f");
-  HLK_TEST(Subtract, HLSLHalf_t, ScalarOp2,           "7e339e4d-9cc2-499d-b36d-68adc5408cc0");
-  HLK_TEST(Subtract, HLSLHalf_t, Vector,           "b532c269-3c21-4fd4-aabe-e60eec6a6df2");
-  HLK_TEST(Multiply, HLSLHalf_t, ScalarOp2,           "89924df1-cd13-4e2f-bd0f-d3e54927bfdc");
-  HLK_TEST(Multiply, HLSLHalf_t, Vector,           "e30a29d3-8eaa-4c3e-af88-f6abc6686393");
-  HLK_TEST(Divide, HLSLHalf_t, ScalarOp2,           "eadc0bf5-0f67-4cab-a28a-816033ab9895");
+  HLK_TEST(Subtract, HLSLHalf_t, ScalarOp2,
+           "7e339e4d-9cc2-499d-b36d-68adc5408cc0");
+  HLK_TEST(Subtract, HLSLHalf_t, Vector,
+           "b532c269-3c21-4fd4-aabe-e60eec6a6df2");
+  HLK_TEST(Multiply, HLSLHalf_t, ScalarOp2,
+           "89924df1-cd13-4e2f-bd0f-d3e54927bfdc");
+  HLK_TEST(Multiply, HLSLHalf_t, Vector,
+           "e30a29d3-8eaa-4c3e-af88-f6abc6686393");
+  HLK_TEST(Divide, HLSLHalf_t, ScalarOp2,
+           "eadc0bf5-0f67-4cab-a28a-816033ab9895");
   HLK_TEST(Divide, HLSLHalf_t, Vector, "52048471-82cd-4fe3-89a4-4332a1cf77f2");
-  HLK_TEST(Modulus, HLSLHalf_t, ScalarOp2,           "c2ed6573-2a9a-4b25-8936-335b1ba48789");
+  HLK_TEST(Modulus, HLSLHalf_t, ScalarOp2,
+           "c2ed6573-2a9a-4b25-8936-335b1ba48789");
   HLK_TEST(Modulus, HLSLHalf_t, Vector, "300b66ca-0572-4070-846e-f13751c838c7");
   HLK_TEST(Min, HLSLHalf_t, ScalarOp2, "b95a613b-7a3c-466c-b949-452b528fc2f1");
   HLK_TEST(Min, HLSLHalf_t, Vector, "2fac70ee-4165-4a5f-80ad-100d6f95cf41");
   HLK_TEST(Max, HLSLHalf_t, ScalarOp2, "4997d108-835d-4660-9129-f1d98fdb6079");
   HLK_TEST(Max, HLSLHalf_t, Vector, "5ba2589b-d78e-486a-a6a8-e6112a87c4c3");
   HLK_TEST(Ldexp, HLSLHalf_t, Vector, "ffe7eb1d-a2cb-4f31-b1e9-997f3de153d3");
-  HLK_TEST(Ldexp, HLSLHalf_t, ScalarOp2,           "b1ad3c06-6f72-4707-ab50-c403779b3cd3");
+  HLK_TEST(Ldexp, HLSLHalf_t, ScalarOp2,
+           "b1ad3c06-6f72-4707-ab50-c403779b3cd3");
   HLK_TEST(Add, float, ScalarOp2, "a4f20e92-2a87-47c1-9dce-2aabae278c13");
   HLK_TEST(Add, float, Vector, "dcc106ce-12e0-4c3b-9320-7745027b0dc4");
   HLK_TEST(Subtract, float, ScalarOp2, "d83a2cd3-24be-48d5-994c-6a7bea990d1e");
@@ -2044,14 +2071,19 @@ public:
   HLK_TEST(Min, double, Vector, "ff4a187a-e410-4ce4-b50f-c488a7158a06");
   HLK_TEST(Max, double, ScalarOp2, "38a46477-9d51-4874-920c-6b7c08463d52");
   HLK_TEST(Max, double, Vector, "a395f842-2e32-4bec-8635-b458e7faee46");
-  HLK_TEST(Initialize, HLSLBool_t, Vector,           "3203d5bd-2b83-4328-a04e-4befd87119b3");
+  HLK_TEST(Initialize, HLSLBool_t, Vector,
+           "3203d5bd-2b83-4328-a04e-4befd87119b3");
   HLK_TEST(Initialize, int16_t, Vector, "c89bb550-6d1f-47e9-827a-b49817348110");
   HLK_TEST(Initialize, int32_t, Vector, "c82729f5-d0a9-49aa-a15a-8aa06e8f04f6");
   HLK_TEST(Initialize, int64_t, Vector, "20cb73c1-7a62-49e7-b07e-96c2bc5ac873");
-  HLK_TEST(Initialize, uint16_t, Vector,           "ae9aab35-f962-41db-8bab-d81f422f40d9");
-  HLK_TEST(Initialize, uint32_t, Vector,           "33ac44bf-2f80-48a4-9574-83ef9e549bca");
-  HLK_TEST(Initialize, uint64_t, Vector,           "c180c191-0c56-479b-96d1-fb656ad9447a");
-  HLK_TEST(Initialize, HLSLHalf_t, Vector,           "6291fe76-2b95-45c5-8ea2-4cb4a47e0a52");
+  HLK_TEST(Initialize, uint16_t, Vector,
+           "ae9aab35-f962-41db-8bab-d81f422f40d9");
+  HLK_TEST(Initialize, uint32_t, Vector,
+           "33ac44bf-2f80-48a4-9574-83ef9e549bca");
+  HLK_TEST(Initialize, uint64_t, Vector,
+           "c180c191-0c56-479b-96d1-fb656ad9447a");
+  HLK_TEST(Initialize, HLSLHalf_t, Vector,
+           "6291fe76-2b95-45c5-8ea2-4cb4a47e0a52");
   HLK_TEST(Initialize, float, Vector, "fe56569a-ba15-4ba5-b671-575f05538c73");
   HLK_TEST(Initialize, double, Vector, "c091a797-1252-40aa-a53d-661c5875c8a5");
   HLK_TEST(Acos, HLSLHalf_t, Vector, "5735cddd-66ed-403d-a6e1-8a9ebef9a6e2");
@@ -2085,11 +2117,15 @@ public:
   HLK_TEST(AsInt, uint32_t, Vector, "d5364ed0-f52d-4579-8405-da1dcec0eba9");
   HLK_TEST(AsUint, uint32_t, Vector, "a08b9506-e7e0-4cca-86c6-42cf12a3ab23");
   HLK_TEST(AsDouble, uint32_t, Vector, "8c040027-e4b9-4283-b55d-98f1dd4631ab");
-  HLK_TEST(AsDouble, uint32_t, ScalarOp2,           "afadfbd0-1f28-438f-8a75-a83d5556f415");
-  HLK_TEST(AsFloat16, HLSLHalf_t, Vector,           "392e3f98-1f46-430a-bbcf-6b8ae68652c5");
+  HLK_TEST(AsDouble, uint32_t, ScalarOp2,
+           "afadfbd0-1f28-438f-8a75-a83d5556f415");
+  HLK_TEST(AsFloat16, HLSLHalf_t, Vector,
+           "392e3f98-1f46-430a-bbcf-6b8ae68652c5");
   HLK_TEST(AsInt16, HLSLHalf_t, Vector, "dd67f22d-a259-4801-88a1-7de42398e727");
-  HLK_TEST(AsUint16, HLSLHalf_t, Vector,           "3af078f6-514c-4b19-aecb-daa2480d6f41");
-  HLK_TEST(AsUint_SplitDouble, double, Vector,           "ada8958b-9d52-4fe2-9380-441ed7328caf");
+  HLK_TEST(AsUint16, HLSLHalf_t, Vector,
+           "3af078f6-514c-4b19-aecb-daa2480d6f41");
+  HLK_TEST(AsUint_SplitDouble, double, Vector,
+           "ada8958b-9d52-4fe2-9380-441ed7328caf");
   HLK_TEST(Abs, int16_t, Vector, "29762a0b-d0c3-4546-b63a-fd7a268be8f1");
   HLK_TEST(Sign, int16_t, Vector, "85c16ce7-47e8-45f8-9023-7f8a10ef91c5");
   HLK_TEST(Abs, int32_t, Vector, "ce9753d7-aa4c-4319-81ae-2479e8afe76f");
