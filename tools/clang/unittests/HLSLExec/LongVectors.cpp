@@ -723,85 +723,7 @@ static_assert(_countof(asTypeOpTypeStringToOpMetaData) ==
 
 OP_TYPE_META_DATA(AsTypeOpType, asTypeOpTypeStringToOpMetaData);
 
-// We don't have std::bit_cast in C++17, so we define our own version.
-template <typename ToT, typename FromT>
-typename std::enable_if<sizeof(ToT) == sizeof(FromT) &&
-                            std::is_trivially_copyable<FromT>::value &&
-                            std::is_trivially_copyable<ToT>::value,
-                        ToT>::type
-bit_cast(const FromT &Src) {
-  ToT Dst;
-  std::memcpy(&Dst, &Src, sizeof(ToT));
-  return Dst;
-}
-
-// asFloat
-
-template <typename T> float asFloat(T);
-template <> float asFloat(float A) { return float(A); }
-template <> float asFloat(int32_t A) { return bit_cast<float>(A); }
-template <> float asFloat(uint32_t A) { return bit_cast<float>(A); }
-
-// asFloat16
-
-template <typename T> HLSLHalf_t asFloat16(T);
-template <> HLSLHalf_t asFloat16(HLSLHalf_t A) { return A; }
-template <> HLSLHalf_t asFloat16(int16_t A) {
-  return HLSLHalf_t::FromHALF(bit_cast<DirectX::PackedVector::HALF>(A));
-}
-template <> HLSLHalf_t asFloat16(uint16_t A) {
-  return HLSLHalf_t::FromHALF(bit_cast<DirectX::PackedVector::HALF>(A));
-}
-
-// asInt
-
-template <typename T> int32_t asInt(T);
-template <> int32_t asInt(float A) { return bit_cast<int32_t>(A); }
-template <> int32_t asInt(int32_t A) { return A; }
-template <> int32_t asInt(uint32_t A) { return bit_cast<int32_t>(A); }
-
-// asInt16
-
-template <typename T> int16_t asInt16(T);
-template <> int16_t asInt16(HLSLHalf_t A) { return bit_cast<int16_t>(A.Val); }
-template <> int16_t asInt16(int16_t A) { return A; }
-template <> int16_t asInt16(uint16_t A) { return bit_cast<int16_t>(A); }
-
-// asUint16
-
-template <typename T> uint16_t asUint16(T);
-template <> uint16_t asUint16(HLSLHalf_t A) {
-  return bit_cast<uint16_t>(A.Val);
-}
-template <> uint16_t asUint16(uint16_t A) { return A; }
-template <> uint16_t asUint16(int16_t A) { return bit_cast<uint16_t>(A); }
-
-// asUint
-
-template <typename T> unsigned int asUint(T);
-template <> unsigned int asUint(unsigned int A) { return A; }
-template <> unsigned int asUint(float A) { return bit_cast<unsigned int>(A); }
-template <> unsigned int asUint(int A) { return bit_cast<unsigned int>(A); }
-
-// splitDouble
-
-static void splitDouble(const double A, uint32_t &LowBits, uint32_t &HighBits) {
-  uint64_t Bits = 0;
-  std::memcpy(&Bits, &A, sizeof(Bits));
-  LowBits = static_cast<uint32_t>(Bits & 0xFFFFFFFF);
-  HighBits = static_cast<uint32_t>(Bits >> 32);
-}
-
 #endif
-
-// asDouble
-
-static double asDouble(const uint32_t LowBits, const uint32_t HighBits) {
-  uint64_t Bits = (static_cast<uint64_t>(HighBits) << 32) | LowBits;
-  double Result;
-  std::memcpy(&Result, &Bits, sizeof(Result));
-  return Result;
-}
 
 #if 0
 
@@ -1523,13 +1445,30 @@ template <typename T> struct DefaultValidation {
   }
 };
 
+#define OP_1(OP, VALIDATION, IMPL)                                             \
+  template <typename T> struct Op<OP, T> : VALIDATION {                        \
+    T operator()(T A) { return IMPL; }                                         \
+  }
+
+#define OP_2(OP, VALIDATION, IMPL)                                             \
+  template <typename T> struct Op<OP, T> : VALIDATION {                        \
+    T operator()(T A, T B) { return IMPL; }                                    \
+  }
+
+#define OP_3(OP, VALIDATION, IMPL)                                             \
+  template <typename T> struct Op<OP, T> : VALIDATION {                        \
+    T operator()(T A, T B, T C) { return IMPL; }                               \
+  }
+
+#define DEFAULT_OP_1(OP, IMPL) OP_1(OP, DefaultValidation<T>, IMPL)
+#define DEFAULT_OP_2(OP, IMPL) OP_2(OP, DefaultValidation<T>, IMPL)
+#define DEFAULT_OP_3(OP, IMPL) OP_3(OP, DefaultValidation<T>, IMPL)
+
 //
 // TernaryMath
 //
 
-template <typename T> struct Op<OpType::Mad, T> : DefaultValidation<T> {
-  T operator()(T A, T B, T C) { return A * B + C; }
-};
+DEFAULT_OP_3(OpType::Mad, (A * B + C));
 
 template <typename T> struct Op<OpType::SmoothStep, T> : DefaultValidation<T> {
   T operator()(T Min, T Max, T X) {
@@ -1546,29 +1485,20 @@ template <typename T> struct Op<OpType::SmoothStep, T> : DefaultValidation<T> {
   }
 };
 
-template <> struct Op<OpType::Fma, double> : DefaultValidation<double> {
-  double operator()(double A, double B, double C) { return A * B + C; }
+struct StrictValidation {
+  ValidationConfig ValidationConfig;
 };
+
+DEFAULT_OP_3(OpType::Fma, (A * B + C));
 
 //
 // BinaryMath
 //
 
-template <typename T> struct Op<OpType::Add, T> : DefaultValidation<T> {
-  T operator()(T A, T B) { return A + B; }
-};
-
-template <typename T> struct Op<OpType::Subtract, T> : DefaultValidation<T> {
-  T operator()(T A, T B) { return A - B; }
-};
-
-template <typename T> struct Op<OpType::Multiply, T> : DefaultValidation<T> {
-  T operator()(T A, T B) { return A * B; }
-};
-
-template <typename T> struct Op<OpType::Divide, T> : DefaultValidation<T> {
-  T operator()(T A, T B) { return A / B; }
-};
+DEFAULT_OP_2(OpType::Add, (A + B));
+DEFAULT_OP_2(OpType::Subtract, (A - B));
+DEFAULT_OP_2(OpType::Multiply, (A * B));
+DEFAULT_OP_2(OpType::Divide, (A / B));
 
 template <typename T> struct Op<OpType::Modulus, T> : DefaultValidation<T> {
   T operator()(T A, T B) {
@@ -1579,53 +1509,26 @@ template <typename T> struct Op<OpType::Modulus, T> : DefaultValidation<T> {
   }
 };
 
-template <typename T> struct Op<OpType::Min, T> : DefaultValidation<T> {
-  T operator()(T A, T B) { return std::min(A, B); }
-};
-
-template <typename T> struct Op<OpType::Max, T> : DefaultValidation<T> {
-  T operator()(T A, T B) { return std::max(A, B); }
-};
-
-template <typename T> struct Op<OpType::Ldexp, T> : DefaultValidation<T> {
-  T operator()(T A, T B) { return A * static_cast<T>(std::pow(2.0f, B)); }
-};
+DEFAULT_OP_2(OpType::Min, (std::min(A, B)));
+DEFAULT_OP_2(OpType::Max, (std::max(A, B)));
+DEFAULT_OP_2(OpType::Ldexp, (A * static_cast<T>(std::pow(2.0f, B))));
 
 //
 // Bitwise
 //
 
-template <typename T> struct Op<OpType::And, T> : DefaultValidation<T> {
-  T operator()(T A, T B) { return A & B; }
-};
-
-template <typename T> struct Op<OpType::Or, T> : DefaultValidation<T> {
-  T operator()(T A, T B) { return A | B; }
-};
-
-template <typename T> struct Op<OpType::Xor, T> : DefaultValidation<T> {
-  T operator()(T A, T B) { return A ^ B; }
-};
-
-template <typename T> struct Op<OpType::Not, T> : DefaultValidation<T> {
-  T operator()(T A) { return ~A; }
-};
-
-template <typename T> struct Op<OpType::LeftShift, T> : DefaultValidation<T> {
-  T operator()(T A, T B) { return A << B; }
-};
-
-template <typename T> struct Op<OpType::RightShift, T> : DefaultValidation<T> {
-  T operator()(T A, T B) { return A >> B; }
-};
+DEFAULT_OP_2(OpType::And, (A & B));
+DEFAULT_OP_2(OpType::Or, (A | B));
+DEFAULT_OP_2(OpType::Xor, (A ^ B));
+DEFAULT_OP_1(OpType::Not, (~A));
+DEFAULT_OP_2(OpType::LeftShift, (A << B));
+DEFAULT_OP_2(OpType::RightShift, (A >> B));
 
 //
 // Unary
 //
 
-template <typename T> struct Op<OpType::Initialize, T> : DefaultValidation<T> {
-  T operator()(T A) { return A; }
-};
+DEFAULT_OP_1(OpType::Initialize, (A));
 
 //
 // Trigonometric
@@ -1641,29 +1544,125 @@ struct TrigonometricValidation {
   ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.0008f);
 };
 
-#define TRIG_OP(N, F)                                                          \
-  template <typename T> struct Op<N, T> : TrigonometricValidation {            \
-    T operator()(T A) { return F(A); }                                         \
+#define TRIG_OP(OP, IMPL)                                                      \
+  template <typename T> struct Op<OP, T> : TrigonometricValidation {           \
+    T operator()(T A) { return IMPL; }                                         \
   }
 
-TRIG_OP(OpType::Acos, std::acos);
-TRIG_OP(OpType::Asin, std::asin);
-TRIG_OP(OpType::Atan, std::atan);
-TRIG_OP(OpType::Cos, std::cos);
-TRIG_OP(OpType::Cosh, std::cosh);
-TRIG_OP(OpType::Sin, std::sin);
-TRIG_OP(OpType::Sinh, std::sinh);
-TRIG_OP(OpType::Tan, std::tan);
-TRIG_OP(OpType::Tanh, std::tanh);
+TRIG_OP(OpType::Acos, (std::acos(A)));
+TRIG_OP(OpType::Asin, (std::asin(A)));
+TRIG_OP(OpType::Atan, (std::atan(A)));
+TRIG_OP(OpType::Cos, (std::cos(A)));
+TRIG_OP(OpType::Cosh, (std::cosh(A)));
+TRIG_OP(OpType::Sin, (std::sin(A)));
+TRIG_OP(OpType::Sinh, (std::sinh(A)));
+TRIG_OP(OpType::Tan, (std::tan(A)));
+TRIG_OP(OpType::Tanh, (std::tanh(A)));
 
 #undef TRIG_OP
 
 //
 // AsType
 //
-template <> struct Op<OpType::AsDouble, uint32_t> : DefaultValidation<uint32_t> {
-  double operator()(uint32_t Low, uint32_t High) { return asDouble(Low, High); }
+
+// We don't have std::bit_cast in C++17, so we define our own version.
+template <typename ToT, typename FromT>
+typename std::enable_if<sizeof(ToT) == sizeof(FromT) &&
+                            std::is_trivially_copyable<FromT>::value &&
+                            std::is_trivially_copyable<ToT>::value,
+                        ToT>::type
+bit_cast(const FromT &Src) {
+  ToT Dst;
+  std::memcpy(&Dst, &Src, sizeof(ToT));
+  return Dst;
+}
+
+// splitDouble
+
+static void splitDouble(const double A, uint32_t &LowBits, uint32_t &HighBits) {
+  uint64_t Bits = 0;
+  std::memcpy(&Bits, &A, sizeof(Bits));
+  LowBits = static_cast<uint32_t>(Bits & 0xFFFFFFFF);
+  HighBits = static_cast<uint32_t>(Bits >> 32);
+}
+
+#define AS_TYPE_OP(OP, TYPE, IMPL)                                             \
+  template <typename T> struct Op<OP, T> : StrictValidation {                  \
+    TYPE operator()(T A) { return IMPL; }                                      \
+  };
+
+// asFloat16
+
+template <typename T> HLSLHalf_t asFloat16(T);
+template <> HLSLHalf_t asFloat16(HLSLHalf_t A) { return A; }
+template <> HLSLHalf_t asFloat16(int16_t A) {
+  return HLSLHalf_t::FromHALF(bit_cast<DirectX::PackedVector::HALF>(A));
+}
+template <> HLSLHalf_t asFloat16(uint16_t A) {
+  return HLSLHalf_t::FromHALF(bit_cast<DirectX::PackedVector::HALF>(A));
+}
+
+AS_TYPE_OP(OpType::AsFloat16, HLSLHalf_t, (asFloat16(A)));
+
+// asInt16
+
+template <typename T> int16_t asInt16(T);
+template <> int16_t asInt16(HLSLHalf_t A) { return bit_cast<int16_t>(A.Val); }
+template <> int16_t asInt16(int16_t A) { return A; }
+template <> int16_t asInt16(uint16_t A) { return bit_cast<int16_t>(A); }
+
+AS_TYPE_OP(OpType::AsInt16, int16_t, (asInt16(A)));
+
+// asUint16
+
+template <typename T> uint16_t asUint16(T);
+template <> uint16_t asUint16<HLSLHalf_t>(HLSLHalf_t A) {
+  return bit_cast<uint16_t>(A.Val);
+}
+template <> uint16_t asUint16(uint16_t A) { return A; }
+template <> uint16_t asUint16(int16_t A) { return bit_cast<uint16_t>(A); }
+
+AS_TYPE_OP(OpType::AsUint16, uint16_t, (asUint16(A)));
+
+// asFloat
+
+template <typename T> float asFloat(T);
+template <> float asFloat(float A) { return float(A); }
+template <> float asFloat(int32_t A) { return bit_cast<float>(A); }
+template <> float asFloat(uint32_t A) { return bit_cast<float>(A); }
+
+AS_TYPE_OP(OpType::AsFloat, float, (asFloat(A)));
+
+// asInt
+
+template <typename T> int32_t asInt(T);
+template <> int32_t asInt(float A) { return bit_cast<int32_t>(A); }
+template <> int32_t asInt(int32_t A) { return A; }
+template <> int32_t asInt(uint32_t A) { return bit_cast<int32_t>(A); }
+
+AS_TYPE_OP(OpType::AsInt, int32_t, (asInt(A)));
+
+// asUint
+
+template <typename T> unsigned int asUint(T);
+template <> unsigned int asUint(unsigned int A) { return A; }
+template <> unsigned int asUint(float A) { return bit_cast<unsigned int>(A); }
+template <> unsigned int asUint(int A) { return bit_cast<unsigned int>(A); }
+
+AS_TYPE_OP(OpType::AsUint, uint32_t, (asUint(A)));
+
+// asDouble
+
+template <> struct Op<OpType::AsDouble, uint32_t> : StrictValidation {
+  double operator()(uint32_t LowBits, uint32_t HighBits) {
+    uint64_t Bits = (static_cast<uint64_t>(HighBits) << 32) | LowBits;
+    double Result;
+    std::memcpy(&Result, &Bits, sizeof(Result));
+    return Result;
+  }
 };
+
+// TODO: splitdouble
 
 //
 // Find out the return value (the "out type") for an op.
@@ -1674,7 +1673,8 @@ template <OpType OP, typename T, size_t ARITY> struct OpOutType;
 template <OpType OP, typename T> struct OpOutType<OP, T, 1> {
   static auto Probe() {
     Op<OP, T> O;
-    return O(T());
+    T A;
+    return O(A);
   }
 
   using Type = decltype(Probe());
@@ -2196,7 +2196,8 @@ public:
   HLK_TEST(Tan, float, Vector, "12d097d6-94e9-4bed-bd3c-6634f088a65e");
   HLK_TEST(Tanh, float, Vector, "05e9f20e-83a7-4d65-9160-8aab4792edf0");
 
-#if 0
+  // AsType
+
   HLK_TEST(AsFloat16, int16_t, Vector, "4dd29b6a-39cc-4d5d-86ea-cd0aa027686e");
   HLK_TEST(AsInt16, int16_t, Vector, "2874f989-3f2d-4afb-ab01-96223ac36574");
   HLK_TEST(AsUint16, int16_t, Vector, "6a169c65-d90b-4cb6-8f86-83310afb1a4d");
@@ -2217,9 +2218,14 @@ public:
   HLK_TEST(AsInt16, HLSLHalf_t, Vector, "dd67f22d-a259-4801-88a1-7de42398e727");
   HLK_TEST(AsUint16, HLSLHalf_t, Vector,
            "3af078f6-514c-4b19-aecb-daa2480d6f41");
-  HLK_TEST(AsUint_SplitDouble, double, Vector,
-           "ada8958b-9d52-4fe2-9380-441ed7328caf");
-  HLK_TEST(Abs, int16_t, Vector, "29762a0b-d0c3-4546-b63a-fd7a268be8f1");
+
+  // TODO: splitdouble
+
+  // HLK_TEST(AsUint_SplitDouble, double, Vector,
+  //          "ada8958b-9d52-4fe2-9380-441ed7328caf");
+
+#if 0
+HLK_TEST(Abs, int16_t, Vector, "29762a0b-d0c3-4546-b63a-fd7a268be8f1");
   HLK_TEST(Sign, int16_t, Vector, "85c16ce7-47e8-45f8-9023-7f8a10ef91c5");
   HLK_TEST(Abs, int32_t, Vector, "ce9753d7-aa4c-4319-81ae-2479e8afe76f");
   HLK_TEST(Sign, int32_t, Vector, "13ee4ec3-15cf-4ecb-9e2a-492ae52a7622");
