@@ -23,31 +23,26 @@
 namespace LongVector {
 
 //
-// Data Types
+// getHLSLTypeString
 //
-
-template <typename T> const wchar_t *getDataTypeName() {
-  static_assert(false && "Missing data type name");
-}
 
 template <typename T> const char *getHLSLTypeString() {
   static_assert(false && "Missing HLSL type string");
 }
 
-#define DATA_TYPE_NAME(TYPE, NAME, HLSL_STRING)                                \
-  template <> const wchar_t *getDataTypeName<TYPE>() { return NAME; }          \
+#define DATA_TYPE_NAME(TYPE, HLSL_STRING)                                      \
   template <> const char *getHLSLTypeString<TYPE>() { return HLSL_STRING; }
 
-DATA_TYPE_NAME(HLSLBool_t, L"bool", "bool");
-DATA_TYPE_NAME(int16_t, L"int16", "int16_t");
-DATA_TYPE_NAME(int32_t, L"int32", "int");
-DATA_TYPE_NAME(int64_t, L"int64", "int64_t");
-DATA_TYPE_NAME(uint16_t, L"uint16", "uint16_t");
-DATA_TYPE_NAME(uint32_t, L"uint32", "uint32_t");
-DATA_TYPE_NAME(uint64_t, L"uint64", "uint64_t");
-DATA_TYPE_NAME(HLSLHalf_t, L"float16", "half");
-DATA_TYPE_NAME(float, L"float32", "float");
-DATA_TYPE_NAME(double, L"float64", "double");
+DATA_TYPE_NAME(HLSLBool_t, "bool");
+DATA_TYPE_NAME(int16_t, "int16_t");
+DATA_TYPE_NAME(int32_t, "int");
+DATA_TYPE_NAME(int64_t, "int64_t");
+DATA_TYPE_NAME(uint16_t, "uint16_t");
+DATA_TYPE_NAME(uint32_t, "uint32_t");
+DATA_TYPE_NAME(uint64_t, "uint64_t");
+DATA_TYPE_NAME(HLSLHalf_t, "half");
+DATA_TYPE_NAME(float, "float");
+DATA_TYPE_NAME(double, "double");
 
 #undef DATA_TYPE_NAME
 
@@ -263,6 +258,11 @@ static WEX::Common::String getInputValueSetName(size_t Index) {
   return ValueSetName;
 }
 
+//
+// TestConfig - this captures both compile time information (the data type and
+// the operation to test) as well as some runtime information. TestConfig is
+// used to drive type inference.
+//
 template <typename T, OpType OP> struct TestConfig {
   using String = WEX::Common::String;
 
@@ -278,9 +278,6 @@ template <typename T, OpType OP> struct TestConfig {
     RuntimeParameters::TryGetValue(L"LongVectorInputSize", LongVectorInputSize);
   }
 };
-
-template <typename T, size_t ARITY>
-using InputSets = std::array<std::vector<T>, ARITY>;
 
 template <OpType OP, typename T, typename OUT_TYPE>
 std::string getCompilerOptionsString(size_t VectorSize,
@@ -348,6 +345,17 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
     ShaderBufferPtr[I] = TestData[I];
 }
 
+//
+// InputSets captures the data that's used as input to the test - one vector of
+// values for each operand.
+//
+template <typename T, size_t ARITY>
+using InputSets = std::array<std::vector<T>, ARITY>;
+
+//
+// Run the test.  Return std::nullopt if the test was skipped, otherwise returns
+// the output buffer that was populated by the shader.
+//
 template <typename OUT_TYPE, typename T, OpType OP, size_t ARITY>
 std::optional<std::vector<OUT_TYPE>>
 runTest(const TestConfig<T, OP> &Config, const InputSets<T, ARITY> &Inputs,
@@ -502,9 +510,27 @@ void runAndVerify(const TestConfig<T, OP> &Config,
                                 ValidationConfig.Type, Config.VerboseLogging));
 }
 
+//
+// Op definitions.  The main goal of this is to specify the validation
+// configuration and how to build the Expected results for a given Op.
+//
+// Most Ops have a 1:1 mapping of input to output, and so can use the generic
+// ExpectedBuilder.
+//
+// Ops that differ from this pattern can specialized ExpectedBuilder as
+// necessary.
+//
+
+// Op - specializations are expected to have a ValidationConfig member and an
+// appropriate overloaded function call operator.
 template <OpType OP, typename T> struct Op;
 
+// ExpectedBuilder - specializations are expected to have buildExpectedData
+// member functions.
 template <OpType OP, typename T> struct ExpectedBuilder;
+
+// Default Validation configuration - for non-floating point types uses ULP.
+// For other types requires exact matches.
 template <typename T> struct DefaultValidation {
   ValidationConfig ValidationConfig;
 
@@ -513,6 +539,15 @@ template <typename T> struct DefaultValidation {
       ValidationConfig = ValidationConfig::Ulp(1.0f);
   }
 };
+
+// Strict Validation - for all types require exact matches.
+struct StrictValidation {
+  ValidationConfig ValidationConfig;
+};
+
+
+
+// Macros to build up common patterns of Op definitions
 
 #define OP_1(OP, VALIDATION, IMPL)                                             \
   template <typename T> struct Op<OP, T> : VALIDATION {                        \
@@ -552,10 +587,6 @@ template <typename T> struct Op<OpType::SmoothStep, T> : DefaultValidation<T> {
     NormalizedX = std::clamp(NormalizedX, T(0.0), T(1.0));
     return NormalizedX * NormalizedX * (T(3.0) - T(2.0) * NormalizedX);
   }
-};
-
-struct StrictValidation {
-  ValidationConfig ValidationConfig;
 };
 
 DEFAULT_OP_3(OpType::Fma, (A * B + C));
@@ -603,10 +634,9 @@ DEFAULT_OP_1(OpType::Initialize, (A));
 // Trigonometric
 //
 
-// All trigonometric ops are floating point types.
-// These trig functions are defined to have a max absolute error of 0.0008
-// as per the D3D functional specs. An example with this spec for sin and
-// cos is available here:
+// All trigonometric ops are floating point types. These trig functions are
+// defined to have a max absolute error of 0.0008 as per the D3D functional
+// specs. An example with this spec for sin and cos is available here:
 // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
 
 struct TrigonometricValidation {
@@ -735,7 +765,7 @@ template <> struct Op<OpType::AsUint_SplitDouble, double> : StrictValidation {};
 template <> struct ExpectedBuilder<OpType::AsUint_SplitDouble, double> {
   static std::vector<uint32_t>
   buildExpected(Op<OpType::AsUint_SplitDouble, double>,
-                const InputSets<double, 1> &Inputs, uint32_t ScalarInputFlags) {
+                const InputSets<double, 1> &Inputs, uint16_t ScalarInputFlags) {
     DXASSERT_NOMSG(ScalarInputFlags == 0);
     UNREFERENCED_PARAMETER(ScalarInputFlags);
 
@@ -873,7 +903,7 @@ DEFAULT_OP_2(OpType::TernaryAssignment_False, (false ? A : B));
 
 template <OpType OP, typename T> struct ExpectedBuilder {
   static auto buildExpected(Op<OP, T> Op, const InputSets<T, 1> &Inputs,
-                            size_t ScalarInputFlags) {
+                            uint16_t ScalarInputFlags) {
     UNREFERENCED_PARAMETER(ScalarInputFlags);
 
     std::vector<decltype(Op(T()))> Expected;
@@ -887,7 +917,7 @@ template <OpType OP, typename T> struct ExpectedBuilder {
   }
 
   static auto buildExpected(Op<OP, T> Op, const InputSets<T, 2> &Inputs,
-                            size_t ScalarInputFlags) {
+                            uint16_t ScalarInputFlags) {
     std::vector<decltype(Op(T(), T()))> Expected;
     Expected.reserve(Inputs[0].size());
 
@@ -900,7 +930,7 @@ template <OpType OP, typename T> struct ExpectedBuilder {
   }
 
   static auto buildExpected(Op<OP, T> Op, const InputSets<T, 3> &Inputs,
-                            size_t ScalarInputFlags) {
+                            uint16_t ScalarInputFlags) {
     std::vector<decltype(Op(T(), T(), T()))> Expected;
     Expected.reserve(Inputs[0].size());
 
