@@ -1770,6 +1770,16 @@ BINARY_COMPARISON_OP(OpType::Equal, (A == B));
 BINARY_COMPARISON_OP(OpType::NotEqual, (A != B));
 
 //
+// Binary
+//
+
+DEFAULT_OP_2(OpType::Logical_And, (A && B));
+DEFAULT_OP_2(OpType::Logical_Or, (A || B));
+DEFAULT_OP_2(OpType::TernaryAssignment_True, (true ? A : B));
+DEFAULT_OP_2(OpType::TernaryAssignment_False, (false ? A : B));
+
+
+//
 // dispatchTest
 //
 
@@ -2505,7 +2515,8 @@ public:
   HLK_TEST(NotEqual, double, ScalarOp2, "89a02a1a-1460-4699-9914-8eb882deb5bd");
   HLK_TEST(NotEqual, double, Vector, "3af77475-8865-42cb-b4e7-16d6503d3ffd");
 
-#if 0
+  // Binary
+
   HLK_TEST(Logical_And, HLSLBool_t, Vector,
            "52102773-1811-43bd-85a5-5b4b3b7b06ee");
   HLK_TEST(Logical_Or, HLSLBool_t, Vector,
@@ -2514,8 +2525,10 @@ public:
            "7846c923-fa5a-4a9f-9aae-d563b5156fc1");
   HLK_TEST(Logical_Or, HLSLBool_t, ScalarOp2,
            "db50aa82-4ec6-4b02-b61f-c295f0c17e4f");
-#endif
-private:
+
+  // TODO: TernaryAssignment_True and TernaryAssignment_False
+
+  private:
   bool Initialized = false;
   bool VerboseLogging = false;
 };
