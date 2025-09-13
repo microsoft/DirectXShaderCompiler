@@ -3,19 +3,19 @@
 //
 
 #ifndef INPUT_SET
-#define INPUT_SET(SYMBOL, NAME)
+#define INPUT_SET(SYMBOL)
 #endif
 
-INPUT_SET(Default1, "DefaultInputValueSet1")
-INPUT_SET(Default2, "DefaultInputValueSet2")
-INPUT_SET(Default3, "DefaultInputValueSet3")
-INPUT_SET(SmoothStepMin, "SmoothStepMin")
-INPUT_SET(SmoothStepMax, "SmoothStepMax")
-INPUT_SET(SmoothStepInput, "SmoothStepInputValueSet")
-INPUT_SET(RangeOne, "TrigonometricInputValueSet_RangeOne")
-INPUT_SET(RangeHalfPi, "TrigonometricInputValueSet_RangeHalfPi")
-INPUT_SET(SplitDouble, "SplitDoubleInputValueSet")
-INPUT_SET(BitShiftRhs, "BitShift_RHS")
+INPUT_SET(Default1)
+INPUT_SET(Default2)
+INPUT_SET(Default3)
+INPUT_SET(SmoothStepMin)
+INPUT_SET(SmoothStepMax)
+INPUT_SET(SmoothStepInput)
+INPUT_SET(RangeOne)
+INPUT_SET(RangeHalfPi)
+INPUT_SET(SplitDouble)
+INPUT_SET(BitShiftRhs)
 
 #undef INPUT_SET
 

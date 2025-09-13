@@ -63,26 +63,6 @@ template <typename T> constexpr bool is16BitType() {
 }
 
 //
-// Input Sets
-//
-
-enum class InputSet {
-#define INPUT_SET(SYMBOL, NAME) SYMBOL,
-#include "LongVectorOps.def"
-};
-
-const wchar_t *getInputSetName(InputSet InputSet) {
-  switch (InputSet) {
-#define INPUT_SET(SYMBOL, NAME)                                                \
-  case InputSet::SYMBOL:                                                       \
-    return L##NAME;
-#include "LongVectorOps.def"
-  }
-  DXASSERT_NOMSG(false);
-  return L"<Invalid Input Set>";
-}
-
-//
 // Operation Types
 //
 
@@ -464,8 +444,7 @@ runTest(const TestConfig<T, OP> &Config, const InputSets<T, ARITY> &Inputs,
 
 template <typename T>
 std::vector<T> buildTestInput(InputSet InputSet, size_t SizeToTest) {
-  const std::vector<T> &RawValueSet =
-      TestData<T>::Data.at(getInputSetName(InputSet));
+  const std::vector<T> &RawValueSet = getInputSet<T>(InputSet);
 
   std::vector<T> ValueSet;
   ValueSet.reserve(SizeToTest);
@@ -1778,7 +1757,6 @@ DEFAULT_OP_2(OpType::Logical_Or, (A || B));
 DEFAULT_OP_2(OpType::TernaryAssignment_True, (true ? A : B));
 DEFAULT_OP_2(OpType::TernaryAssignment_False, (false ? A : B));
 
-
 //
 // dispatchTest
 //
@@ -2528,7 +2506,7 @@ public:
 
   // TODO: TernaryAssignment_True and TernaryAssignment_False
 
-  private:
+private:
   bool Initialized = false;
   bool VerboseLogging = false;
 };
