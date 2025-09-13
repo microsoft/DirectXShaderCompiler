@@ -14,12 +14,26 @@ INPUT_SET(SmoothStepInput, "SmoothStepInputValueSet")
 #undef INPUT_SET
 
 #ifndef OP
-#define OP(SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1, INPUT_SET_2, INPUT_SET_3)
+#define OP(SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1, INPUT_SET_2,       \
+           INPUT_SET_3)
 #endif
 
 OP(AsDouble, 2, "asdouble", ",", Default1, Default2, Default3)
+
+// Ternary
 OP(Fma, 3, "fma", "", Default1, Default2, Default3)
 OP(Mad, 3, "mad", "", Default1, Default2, Default3)
-OP(SmoothStep, 3, "smoothstep", "", SmoothStepMin, SmoothStepMax, SmoothStepInput)
+OP(SmoothStep, 3, "smoothstep", "", SmoothStepMin, SmoothStepMax,
+   SmoothStepInput)
+
+// Binary Math
+OP(Add, 2, "", "+", Default1, Default2, Default3)
+OP(Multiply, 2, "", "*", Default1, Default2, Default3)
+OP(Subtract, 2, "", "-", Default1, Default2, Default3)
+OP(Divide, 2, "", "/", Default1, Default2, Default3)
+OP(Modulus, 2, "", "%", Default1, Default2, Default3)
+OP(Min, 2, "min", ",", Default1, Default2, Default3)
+OP(Max, 2, "max", ",", Default1, Default2, Default3)
+OP(Ldexp, 2, "ldexp", ",", Default1, Default2, Default3)
 
 #undef OP
