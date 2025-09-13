@@ -37,9 +37,44 @@ HRESULT STDMETHODCALLTYPE ExternalValidationHelper::Compile(
 HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
                                                       REFIID riid,
                                                       IUnknown **pResult) {
-  if (DxilExtValSupport.IsEnabled() && clsid == CLSID_DxcValidator)
-    return DxilExtValSupport.CreateInstance(clsid, riid, pResult);
+  if (pResult == nullptr)
+    return E_POINTER;
 
+  *pResult = nullptr;
+
+  // If there is intent to use an external dxil.dll
+  if (!DxilDllPath.empty() && !DxilDllFailedToLoad()) {
+    if (clsid == CLSID_DxcCompiler) {    
+      // Create compiler
+      CComPtr<IDxcCompiler3> m_pCompiler;
+      HRESULT hr = DxCompilerSupport.CreateInstance<IDxcCompiler3>(
+          CLSID_DxcCompiler, &m_pCompiler);
+      if (FAILED(hr))
+        return hr;
+
+      // Create validator
+      CComPtr<IDxcValidator> m_pValidator;
+      hr = DxilExtValSupport.CreateInstance<IDxcValidator>(CLSID_DxcValidator,
+                                                           &m_pValidator);
+      if (FAILED(hr))
+        return hr;
+
+      // Wrap compiler + validator
+      ExternalValidationHelper *evh = new (std::nothrow)
+          ExternalValidationHelper(m_pCompiler, m_pValidator);
+      if (!evh)
+        return E_OUTOFMEMORY;
+
+      hr = evh->QueryInterface(riid, reinterpret_cast<void **>(pResult));
+      evh->Release();
+      return hr;
+    } else if (clsid == CLSID_DxcValidator) {
+      return DxilExtValSupport.CreateInstance<IDxcValidator>(
+          clsid, reinterpret_cast<IDxcValidator **>(pResult));
+    }
+  }
+
+  // Fallback: let DxCompiler handle it
   return DxCompilerSupport.CreateInstance(clsid, riid, pResult);
 }
 
@@ -47,9 +82,45 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
                                                        REFCLSID clsid,
                                                        REFIID riid,
                                                        IUnknown **pResult) {
-  if (DxilExtValSupport.IsEnabled() && clsid == CLSID_DxcValidator)
-    return DxilExtValSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
+  if (pResult == nullptr)
+    return E_POINTER;
 
+  *pResult = nullptr;
+  // If there is intent to use an external dxil.dll
+  if (!DxilDllPath.empty() && !DxilDllFailedToLoad()) {
+    if (clsid == CLSID_DxcCompiler) {
+    
+      // Create compiler
+      CComPtr<IDxcCompiler3> m_pCompiler;
+      HRESULT hr = DxCompilerSupport.CreateInstance2<IDxcCompiler3>(
+          pMalloc, CLSID_DxcCompiler, &m_pCompiler);
+      if (FAILED(hr))
+        return hr;
+
+      // Create validator
+      CComPtr<IDxcValidator> m_pValidator;
+      hr = DxilExtValSupport.CreateInstance2<IDxcValidator>(
+          pMalloc, CLSID_DxcValidator, &m_pValidator);
+      if (FAILED(hr))
+        return hr;
+
+      // Wrap compiler + validator
+      ExternalValidationHelper *evh = new (std::nothrow)
+          ExternalValidationHelper(m_pCompiler, m_pValidator);
+      if (!evh)
+        return E_OUTOFMEMORY;
+
+      hr = evh->QueryInterface(riid, reinterpret_cast<void **>(pResult));
+      evh->Release();
+      return hr;
+    }  
+    else if (clsid == CLSID_DxcValidator) {
+      return DxilExtValSupport.CreateInstance2<IDxcValidator>(
+          pMalloc, clsid, reinterpret_cast<IDxcValidator **>(pResult));
+    }
+  } 
+
+  // Fallback: let DxCompiler handle it
   return DxCompilerSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
 }
 
@@ -86,11 +157,7 @@ HRESULT DxcDllExtValidationLoader::Initialize(llvm::raw_string_ostream &log) {
     log << "dxil.dll failed to load";
     return Result;
   }
-  CComPtr<IDxcCompiler3> m_pCompiler;
-  CComPtr<IDxcValidator> m_pValidator;
-  DxCompilerSupport.CreateInstance(CLSID_DxcCompiler, &m_pCompiler);
-  DxilExtValSupport.CreateInstance(CLSID_DxcValidator, &m_pValidator);
-  ValWrapperObj = ExternalValidationHelper(m_pCompiler, m_pValidator);
+  
   return Result;
 }
 

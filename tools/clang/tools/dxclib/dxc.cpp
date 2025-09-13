@@ -883,7 +883,13 @@ int DxcContext::Compile() {
           buf.Ptr = pSource->GetBufferPointer();
           buf.Size = pSource->GetBufferSize();
           buf.Encoding = CP_UTF8;
-          IFT(m_dxcSupport.GetWrapperObject().Compile(
+
+          CComPtr<IDxcCompiler3> pCompilerv3;
+          CComPtr<IDxcValidator> pValidator;
+          IFT(CreateInstance(CLSID_DxcCompiler, &pCompilerv3));
+          IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
+
+          IFT(pCompilerv3->Compile(
               &buf, args.data(), args.size(), nullptr,
               IID_PPV_ARGS(&pCompileResult)));
 
@@ -892,7 +898,7 @@ int DxcContext::Compile() {
           CComPtr<IDxcOperationResult> pValResult;
 
           IFT(pCompileResult->GetResult(&pProgram));
-          IFT(m_dxcSupport.GetWrapperObject().Validate(
+          IFT(pValidator->Validate(
               pProgram,
               DxcValidatorFlags_RootSignatureOnly |
                   DxcValidatorFlags_InPlaceEdit,
@@ -907,9 +913,6 @@ int DxcContext::Compile() {
               // Convert to UTF8 for proper printing
               CComPtr<IDxcBlobUtf8> pErrorsUtf8;
               IFT(hlsl::DxcGetBlobAsUtf8(pErrors, nullptr, &pErrorsUtf8));
-
-              fprintf(stderr, "Validation failed:\n%s\n",
-                      pErrorsUtf8->GetStringPointer());
             }
           }
         }
