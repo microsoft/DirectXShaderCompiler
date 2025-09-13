@@ -1754,6 +1754,22 @@ template <> struct ExpectedBuilder<OpType::Frexp, float> {
 };
 
 //
+// Binary Comparison
+//
+
+#define BINARY_COMPARISON_OP(OP, IMPL)                                         \
+  template <typename T> struct Op<OP, T> : StrictValidation {                  \
+    HLSLBool_t operator()(T A, T B) { return IMPL; }                           \
+  };
+
+BINARY_COMPARISON_OP(OpType::LessThan, (A < B));
+BINARY_COMPARISON_OP(OpType::LessEqual, (A <= B));
+BINARY_COMPARISON_OP(OpType::GreaterThan, (A > B));
+BINARY_COMPARISON_OP(OpType::GreaterEqual, (A >= B));
+BINARY_COMPARISON_OP(OpType::Equal, (A == B));
+BINARY_COMPARISON_OP(OpType::NotEqual, (A != B));
+
+//
 // dispatchTest
 //
 
@@ -2319,7 +2335,7 @@ public:
   HLK_TEST(Abs, double, Vector, "ff0fadf6-87f1-4bf1-9164-5d90cb2a49b6");
   HLK_TEST(Sign, double, Vector, "89362c0b-9678-4d7f-8461-faff042de684");
 
-#if 0
+  // Binary Comparison
 
   HLK_TEST(LessThan, int16_t, ScalarOp2,
            "b7cdb4c6-efe8-45f1-9935-d5ba6864f48d");
@@ -2488,6 +2504,8 @@ public:
   HLK_TEST(Equal, double, Vector, "8658b630-3ef3-4c30-8adc-225aaf31db68");
   HLK_TEST(NotEqual, double, ScalarOp2, "89a02a1a-1460-4699-9914-8eb882deb5bd");
   HLK_TEST(NotEqual, double, Vector, "3af77475-8865-42cb-b4e7-16d6503d3ffd");
+
+#if 0
   HLK_TEST(Logical_And, HLSLBool_t, Vector,
            "52102773-1811-43bd-85a5-5b4b3b7b06ee");
   HLK_TEST(Logical_Or, HLSLBool_t, Vector,
