@@ -86,7 +86,7 @@ const wchar_t *getInputSetName(InputSet InputSet) {
 //
 
 enum class OpType {
-#define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1,             \
+#define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, DEFINES, INPUT_SET_1,    \
            INPUT_SET_2, INPUT_SET_3)                                           \
   SYMBOL,
 #include "LongVectorOps.def"
@@ -94,91 +94,17 @@ enum class OpType {
 
 template <OpType OP> struct OpTraits;
 
-#define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1,             \
+#define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, DEFINES, INPUT_SET_1,    \
            INPUT_SET_2, INPUT_SET_3)                                           \
   template <> struct OpTraits<OpType::SYMBOL> {                                \
     static constexpr size_t Arity = ARITY;                                     \
     static constexpr const char *Intrinsic = INTRINSIC;                        \
     static constexpr const char *Operator = OPERATOR;                          \
+    static constexpr const char *ExtraDefines = DEFINES;                       \
     static constexpr InputSet InputSets[3] = {                                 \
         InputSet::INPUT_SET_1, InputSet::INPUT_SET_2, InputSet::INPUT_SET_3};  \
   };
 #include "LongVectorOps.def"
-
-// Helpful metadata struct so we can define some common properties for a test in
-// a single place. Intrinsic and Operator are passed in with -D defines to
-// the compiler and expanded as macros in the HLSL code. For a better
-// understanding of expansion you can reference the shader source used in
-// ShaderOpArith.xml under the 'LongVectorOp' entry.
-//
-// OpTypeString : This is populated by the TableParamaterHandler parsing the
-// LongVectorOpTable.xml file. It's used to find the enum value in one of the
-// arrays below. Such as binaryMathOpTypeStringToOpMetaData.
-//
-// OpType : Populated via the lookup with OpTypeString.
-//
-// Intrinsic : May be empty. Used to expand the intrinsic name in the
-// compiled HLSL code via macro expansion. See getCompilerOptionsString() in
-// LongVector.cpp in addition to the shader source.
-//
-// Operator : Used to expand the operator in the compiled HLSL code via macro
-// expansion. May be empty. See getCompilerOptionsString() in LongVector.cpp and
-// 'LongVectorOp' entry ShaderOpArith.xml. Expands to things like '+', '-',
-// '*', etc.
-template <typename T> struct OpTypeMetaData {
-  std::wstring OpTypeString;
-  T OpType;
-  std::optional<std::string> Intrinsic = std::nullopt;
-  std::optional<std::string> Operator = std::nullopt;
-  uint16_t ScalarInputFlags = 0;
-};
-
-template <typename OP_TYPE, size_t N>
-OP_TYPE getOpType(const OpTypeMetaData<OP_TYPE> (&Values)[N],
-                  const wchar_t *OpTypeString) {
-  for (size_t I = 0; I < N; ++I) {
-    if (Values[I].OpTypeString == OpTypeString)
-      return Values[I].OpType;
-  }
-
-  LOG_ERROR_FMT_THROW(L"Invalid OpType string: %ls", OpTypeString);
-
-  // We need to return something to satisfy the compiler. We can't annotate
-  // LOG_ERROR_FMT_THROW with [[noreturn]] because the TAEF VERIFY_* macros
-  // that it uses are re-mapped on Unix to not throw exceptions, so they
-  // naturally return. If we hit this point it is a programmer error when
-  // implementing a test. Specifically, an entry for this OpTypeString is
-  // missing in the static OpTypeStringToOpMetaData array. Or something has
-  // been corrupted. Test execution is invalid at this point. Usin
-  // std::abort() keeps the compiler happy about no return path. And
-  // LOG_ERROR_FMT_THROW will still provide a useful error message via gtest
-  // logging on Unix systems.
-  std::abort();
-}
-
-template <typename OP_TYPE, size_t N>
-const OpTypeMetaData<OP_TYPE> &
-getOpTypeMetaData(const OpTypeMetaData<OP_TYPE> (&Values)[N], OP_TYPE OpType) {
-  for (size_t I = 0; I < N; ++I) {
-    if (Values[I].OpType == OpType)
-      return Values[I];
-  }
-  LOG_ERROR_FMT_THROW(L"Invalid OpType: %d", OpType);
-  std::abort();
-}
-
-template <typename OP_TYPE> OP_TYPE getOpType(const wchar_t *Name);
-
-template <typename OP_TYPE>
-OpTypeMetaData<OP_TYPE> getOpTypeMetaData(OP_TYPE OpType);
-
-#define OP_TYPE_META_DATA(TYPE, ARRAY)                                         \
-  template <> OpTypeMetaData<TYPE> getOpTypeMetaData(TYPE OpType) {            \
-    return getOpTypeMetaData(ARRAY, OpType);                                   \
-  }                                                                            \
-  template <> TYPE getOpType(const wchar_t *Name) {                            \
-    return getOpType(ARRAY, Name);                                             \
-  }
 
 // Helper to fill the test data from the shader buffer based on type.
 // Convenient to be used when copying HLSL*_t types so we can use the
@@ -2171,6 +2097,181 @@ public:
   HLK_TEST(Frexp, float, Vector, "99a1307d-7e5d-4656-913f-7391a7f2081c");
   HLK_TEST(Abs, double, Vector, "ff0fadf6-87f1-4bf1-9164-5d90cb2a49b6");
   HLK_TEST(Sign, double, Vector, "89362c0b-9678-4d7f-8461-faff042de684");
+  HLK_TEST(LessThan, int16_t, ScalarOp2,
+           "b7cdb4c6-efe8-45f1-9935-d5ba6864f48d");
+  HLK_TEST(LessThan, int16_t, Vector, "8ab5a887-80f3-448c-aedf-81e48cb33b33");
+  HLK_TEST(LessEqual, int16_t, ScalarOp2,
+           "80e09f09-3aca-4bee-8a0f-f6e635626d07");
+  HLK_TEST(LessEqual, int16_t, Vector, "ce4979c2-c1ab-47ee-828b-e9b12ee62ef9");
+  HLK_TEST(GreaterThan, int16_t, ScalarOp2,
+           "e22a813c-b9fd-41e3-a4ac-e5b9b3385d2b");
+  HLK_TEST(GreaterThan, int16_t, Vector,
+           "f742dae1-96da-4e88-9686-9eee204f4214");
+  HLK_TEST(GreaterEqual, int16_t, ScalarOp2,
+           "1379efc9-c936-4b84-a191-4525826a9934");
+  HLK_TEST(GreaterEqual, int16_t, Vector,
+           "a063cbe6-9006-4c02-9f54-d8953efe9cbc");
+  HLK_TEST(Equal, int16_t, ScalarOp2, "3f8817d3-40cd-4d59-aefa-acb3e5f7cf83");
+  HLK_TEST(Equal, int16_t, Vector, "e4006a59-06d0-4ef2-858e-44c4477b8239");
+  HLK_TEST(NotEqual, int16_t, ScalarOp2,
+           "8cf890e6-f15f-4e31-8824-f2a89fb49cde");
+  HLK_TEST(NotEqual, int16_t, Vector, "5919c496-7db3-4698-acff-a116d7d12f6d");
+  HLK_TEST(LessThan, int32_t, ScalarOp2,
+           "df04a250-b813-4ca4-974f-a7819f796f97");
+  HLK_TEST(LessThan, int32_t, Vector, "4c16be96-c699-4ad8-884f-e843f17a98d8");
+  HLK_TEST(LessEqual, int32_t, ScalarOp2,
+           "770101a2-c1d1-4328-a2b6-9e9604c08ae0");
+  HLK_TEST(LessEqual, int32_t, Vector, "2fa4106f-2184-4b43-b5d9-b4c7574ff56c");
+  HLK_TEST(GreaterThan, int32_t, ScalarOp2,
+           "aa2ae9b9-5296-4723-a3f7-43087985b9df");
+  HLK_TEST(GreaterThan, int32_t, Vector,
+           "aa6c905c-494f-420d-92b1-538ba1eb3ceb");
+  HLK_TEST(GreaterEqual, int32_t, ScalarOp2,
+           "8b92b40e-f37f-41ca-ad93-ab6fe9e22355");
+  HLK_TEST(GreaterEqual, int32_t, Vector,
+           "402326a3-c5c0-4605-94c4-b2bee7e325f2");
+  HLK_TEST(Equal, int32_t, ScalarOp2, "ad89316e-3618-461e-879e-9ee1ab3fed93");
+  HLK_TEST(Equal, int32_t, Vector, "eb75b938-6737-4f3f-8e3c-a8d487bf9684");
+  HLK_TEST(NotEqual, int32_t, ScalarOp2,
+           "69efc1fe-e915-424f-b13c-67325892ee66");
+  HLK_TEST(NotEqual, int32_t, Vector, "c580e55f-f061-4fb4-8c5d-d0f0a467d5c3");
+  HLK_TEST(LessThan, int64_t, ScalarOp2,
+           "0d8e6624-1614-4b0f-b949-202178f7506e");
+  HLK_TEST(LessThan, int64_t, Vector, "d378c3b7-f763-4d82-8a45-bea0147daecb");
+  HLK_TEST(LessEqual, int64_t, ScalarOp2,
+           "b34cde7a-51b4-459c-8b81-287aa8b40ba4");
+  HLK_TEST(LessEqual, int64_t, Vector, "e72dcebb-100a-4f63-b74b-3e9c61f40e45");
+  HLK_TEST(GreaterThan, int64_t, ScalarOp2,
+           "728c382f-6b2e-47ae-b71e-a0602bd4ac90");
+  HLK_TEST(GreaterThan, int64_t, Vector,
+           "402becdc-95f8-4486-8259-5e85532f3b64");
+  HLK_TEST(GreaterEqual, int64_t, ScalarOp2,
+           "905b675c-06fb-4923-befb-a130516405fd");
+  HLK_TEST(GreaterEqual, int64_t, Vector,
+           "14ff7011-b3a4-4700-ad90-c30acaa5ea60");
+  HLK_TEST(Equal, int64_t, ScalarOp2, "cdc3d89c-b372-401e-9c75-023a037bb30e");
+  HLK_TEST(Equal, int64_t, Vector, "5225ea2e-18bd-4013-931d-560e62aa7b09");
+  HLK_TEST(NotEqual, int64_t, ScalarOp2,
+           "9ff157d7-4979-49b3-bc89-e4693528f572");
+  HLK_TEST(NotEqual, int64_t, Vector, "84cabb06-64db-42b8-ae43-cacd2d6c1cfd");
+  HLK_TEST(LessThan, uint16_t, ScalarOp2,
+           "30d4658b-b268-4def-94e1-46de70797475");
+  HLK_TEST(LessThan, uint16_t, Vector, "e389ee86-1352-4475-888a-9334237a9319");
+  HLK_TEST(LessEqual, uint16_t, ScalarOp2,
+           "b2908479-1394-4f4c-9272-b23288f96887");
+  HLK_TEST(LessEqual, uint16_t, Vector, "90b4f2af-07bd-4bf9-a5e0-9fdb73c994dd");
+  HLK_TEST(GreaterThan, uint16_t, ScalarOp2,
+           "86fc7a28-e93e-47b6-b350-1cf8b95b156d");
+  HLK_TEST(GreaterThan, uint16_t, Vector,
+           "dc3d024e-e5ad-4b6a-935a-0a86b03e7a09");
+  HLK_TEST(GreaterEqual, uint16_t, ScalarOp2,
+           "54519e38-aea8-4d66-b272-b64b6cb053e7");
+  HLK_TEST(GreaterEqual, uint16_t, Vector,
+           "8d2eed83-8f0e-4d74-9e5c-40d032576a0b");
+  HLK_TEST(Equal, uint16_t, ScalarOp2, "22a77887-33b8-45e0-8f40-a8d1b7ca0471");
+  HLK_TEST(Equal, uint16_t, Vector, "42296d91-b2cd-4bda-a489-2489fd94bfb5");
+  HLK_TEST(NotEqual, uint16_t, ScalarOp2,
+           "899b01a3-95cf-4766-86e2-fe5ba5f426ce");
+  HLK_TEST(NotEqual, uint16_t, Vector, "17101d89-60f1-4f8e-be1c-03fbdcb73274");
+  HLK_TEST(LessThan, uint32_t, ScalarOp2,
+           "d870ada6-996c-43ce-9974-c55b4d6bfcfe");
+  HLK_TEST(LessThan, uint32_t, Vector, "3fc4854d-3bb6-486c-97de-2c697d90de2b");
+  HLK_TEST(LessEqual, uint32_t, ScalarOp2,
+           "d352c78f-7da4-4065-8d50-f6327bc1f3c5");
+  HLK_TEST(LessEqual, uint32_t, Vector, "16846b0b-726f-4d58-af57-f1be8de74399");
+  HLK_TEST(GreaterThan, uint32_t, ScalarOp2,
+           "272ed8b8-c5d4-481a-93d0-422684c57a5f");
+  HLK_TEST(GreaterThan, uint32_t, Vector,
+           "560f393a-ec6e-4c64-bcff-b9894b8ddab6");
+  HLK_TEST(GreaterEqual, uint32_t, ScalarOp2,
+           "98514ab4-8dd0-40f9-8c65-1376d0a5e5cb");
+  HLK_TEST(GreaterEqual, uint32_t, Vector,
+           "a0d29c19-be8b-4cfe-acb7-3d234946dace");
+  HLK_TEST(Equal, uint32_t, ScalarOp2, "9bc5761d-1210-4559-9abe-289eb8d1475b");
+  HLK_TEST(Equal, uint32_t, Vector, "de2cacd4-c2bc-4fef-b333-9e15ea90ed99");
+  HLK_TEST(NotEqual, uint32_t, ScalarOp2,
+           "18daacf2-830a-4b56-929b-659164651050");
+  HLK_TEST(NotEqual, uint32_t, Vector, "1121bbda-bf33-45c6-9ad7-347fe0a73130");
+  HLK_TEST(LessThan, uint64_t, ScalarOp2,
+           "05f74b9b-cbe1-4270-8582-1a8c146fa6bb");
+  HLK_TEST(LessThan, uint64_t, Vector, "aec092d7-4d38-490d-a562-d502bb4b6ce6");
+  HLK_TEST(LessEqual, uint64_t, ScalarOp2,
+           "c83b8968-8ac8-4df2-b9b9-7300e0cb31f3");
+  HLK_TEST(LessEqual, uint64_t, Vector, "b6fd3da8-0a4a-4a92-8674-bce1752100d1");
+  HLK_TEST(GreaterThan, uint64_t, ScalarOp2,
+           "5992a9d2-bc26-4eb6-bdf6-93a132113a7e");
+  HLK_TEST(GreaterThan, uint64_t, Vector,
+           "536f20ef-11d7-4624-bf99-fcebe9ea13dc");
+  HLK_TEST(GreaterEqual, uint64_t, ScalarOp2,
+           "d5270996-d0a0-4538-ad47-5dc7d8deb818");
+  HLK_TEST(GreaterEqual, uint64_t, Vector,
+           "cef81329-2fbf-4ce1-b45b-be85065882f6");
+  HLK_TEST(Equal, uint64_t, ScalarOp2, "a4c0642c-c5ef-4967-9b67-2420185a2a78");
+  HLK_TEST(Equal, uint64_t, Vector, "c2bcec90-ea53-4883-a604-f0ee43ce1bdc");
+  HLK_TEST(NotEqual, uint64_t, ScalarOp2,
+           "51ecbedf-7e21-4436-bb00-6fd0b1ec1436");
+  HLK_TEST(NotEqual, uint64_t, Vector, "c4ea6c8a-47ed-4b89-bed5-3c47d4b6f8b3");
+  HLK_TEST(LessThan, HLSLHalf_t, ScalarOp2,
+           "fea6f3ba-2c34-4c38-9cb6-29c1e8e90fbc");
+  HLK_TEST(LessThan, HLSLHalf_t, Vector,
+           "2586ef13-fa99-431d-85b0-a4841954d9e0");
+  HLK_TEST(LessEqual, HLSLHalf_t, ScalarOp2,
+           "bf01c89a-830f-47d2-8768-2d8053423359");
+  HLK_TEST(LessEqual, HLSLHalf_t, Vector,
+           "a91a7896-e6dd-4812-8a24-03ced1efea22");
+  HLK_TEST(GreaterThan, HLSLHalf_t, ScalarOp2,
+           "8f4d55d3-ded5-4db3-80c4-9f44839a27d1");
+  HLK_TEST(GreaterThan, HLSLHalf_t, Vector,
+           "f3212cf7-a99f-48a3-828a-88875b840359");
+  HLK_TEST(GreaterEqual, HLSLHalf_t, ScalarOp2,
+           "f9374c6e-debd-4dbd-86b5-2473c2ee8405");
+  HLK_TEST(GreaterEqual, HLSLHalf_t, Vector,
+           "b4b61639-e0e4-49bd-b92e-b9f3f8fa88e6");
+  HLK_TEST(Equal, HLSLHalf_t, ScalarOp2,
+           "b29187c5-c1ea-459e-8a08-f51d8fdd726a");
+  HLK_TEST(Equal, HLSLHalf_t, Vector, "6d596ae9-fbbb-479c-b194-1aa6a9a6bf68");
+  HLK_TEST(NotEqual, HLSLHalf_t, ScalarOp2,
+           "90fa4f78-a417-48ba-a1d7-0eb7b98e5db3");
+  HLK_TEST(NotEqual, HLSLHalf_t, Vector,
+           "8c32fd06-51d4-41ae-acd7-261aae981fc6");
+  HLK_TEST(LessThan, float, ScalarOp2, "9c941e75-d3d6-4c05-8592-883da956f65b");
+  HLK_TEST(LessThan, float, Vector, "7b0a6b03-a238-4051-a834-df031232f2bd");
+  HLK_TEST(LessEqual, float, ScalarOp2, "4f55fb55-efdc-4325-bf01-baeff4e41697");
+  HLK_TEST(LessEqual, float, Vector, "f398944d-5c43-4c93-bd95-de19622be1b2");
+  HLK_TEST(GreaterThan, float, ScalarOp2,
+           "3cc8612d-b8e6-4d95-9615-0587383b8d5d");
+  HLK_TEST(GreaterThan, float, Vector, "2213d1b7-0284-4643-ba15-65b2f9b3b7a3");
+  HLK_TEST(GreaterEqual, float, ScalarOp2,
+           "25416689-c6a2-4ac1-b0ee-e70f0e6858a7");
+  HLK_TEST(GreaterEqual, float, Vector, "c190ed5b-16d2-4df4-a66b-2037d8e80402");
+  HLK_TEST(Equal, float, ScalarOp2, "a13cd662-0f98-424d-aff3-dcd74c1b8358");
+  HLK_TEST(Equal, float, Vector, "de158379-b01b-4ca2-9577-ac16d0634725");
+  HLK_TEST(NotEqual, float, ScalarOp2, "602a063d-4773-468c-8360-6f6d8c25560d");
+  HLK_TEST(NotEqual, float, Vector, "e042faf8-c00f-4355-8a0d-b4aacc1159c4");
+  HLK_TEST(LessThan, double, ScalarOp2, "b9add2f8-ce1e-46f6-93d6-b225213759ff");
+  HLK_TEST(LessThan, double, Vector, "b7cb3bb0-4820-4542-a170-9eeca61e04dc");
+  HLK_TEST(LessEqual, double, ScalarOp2,
+           "8a06043c-3b5b-4798-9588-7a95c94e4514");
+  HLK_TEST(LessEqual, double, Vector, "3ea60230-f429-4ecc-b854-90876bfae6a4");
+  HLK_TEST(GreaterThan, double, ScalarOp2,
+           "5db45e10-5983-422b-93f7-f2172fe004bc");
+  HLK_TEST(GreaterThan, double, Vector, "dc7a14ac-f8ff-4b0b-a5ba-4900d59beeb4");
+  HLK_TEST(GreaterEqual, double, ScalarOp2,
+           "8b626e70-28ba-4a27-a858-2d7ffbb3120f");
+  HLK_TEST(GreaterEqual, double, Vector,
+           "f786c38f-2bce-472f-a92e-4553a0c9d918");
+  HLK_TEST(Equal, double, ScalarOp2, "ff9da032-aae0-4048-8fe4-aa623eb7da4a");
+  HLK_TEST(Equal, double, Vector, "8658b630-3ef3-4c30-8adc-225aaf31db68");
+  HLK_TEST(NotEqual, double, ScalarOp2, "89a02a1a-1460-4699-9914-8eb882deb5bd");
+  HLK_TEST(NotEqual, double, Vector, "3af77475-8865-42cb-b4e7-16d6503d3ffd");
+  HLK_TEST(Logical_And, HLSLBool_t, Vector,
+           "52102773-1811-43bd-85a5-5b4b3b7b06ee");
+  HLK_TEST(Logical_Or, HLSLBool_t, Vector,
+           "40e6c395-97a6-42a3-923e-a362a838720e");
+  HLK_TEST(Logical_And, HLSLBool_t, ScalarOp2,
+           "7846c923-fa5a-4a9f-9aae-d563b5156fc1");
+  HLK_TEST(Logical_Or, HLSLBool_t, ScalarOp2,
+           "db50aa82-4ec6-4b02-b61f-c295f0c17e4f");
 
 private:
   bool Initialized = false;

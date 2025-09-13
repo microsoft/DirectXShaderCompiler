@@ -19,16 +19,20 @@ INPUT_SET(SplitDouble, "SplitDoubleInputValueSet")
 #undef INPUT_SET
 
 #ifndef OP
-#define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, INPUT_SET_1,             \
+#define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, DEFINES, INPUT_SET_1,    \
            INPUT_SET_2, INPUT_SET_3)
 #endif
 
+#define OP_DEFAULT_DEFINES(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, DEFINES) \
+  OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, DEFINES, Default1, Default2,   \
+     Default3)
+
 #define OP_DEFAULT(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR)                  \
-  OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, Default1, Default2, Default3)
+  OP_DEFAULT_DEFINES(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, "")
 
 OP_DEFAULT(TernaryMath, Mad, 3, "mad", "")
-OP(TernaryMath, SmoothStep, 3, "smoothstep", "", SmoothStepMin, SmoothStepMin,
-   SmoothStepMin)
+OP(TernaryMath, SmoothStep, 3, "smoothstep", "", "", SmoothStepMin,
+   SmoothStepMin, SmoothStepMin)
 OP_DEFAULT(TernaryMath, Fma, 3, "fma", "")
 
 OP_DEFAULT(BinaryMath, Add, 2, "", "+")
@@ -40,11 +44,22 @@ OP_DEFAULT(BinaryMath, Min, 2, "min", ",")
 OP_DEFAULT(BinaryMath, Max, 2, "max", ",")
 OP_DEFAULT(BinaryMath, Ldexp, 2, "ldexp", ",")
 
-OP_DEFAULT(Unary, Initialize, 1, "TestInitialize", "")
+OP_DEFAULT(Bitwise, And, 2, "", "&")
+OP_DEFAULT(Bitwise, Or, 2, "", "|")
+OP_DEFAULT(Bitwise, Xor, 2, "", "^")
+OP_DEFAULT_DEFINES(Bitwise, Not, 2, "TestUnaryOperator", "~",
+                   " -DFUNC_UNARY_OPERATOR=1")
+OP_DEFAULT(Bitwise, LeftShift, 2, "", "<<")
+OP_DEFAULT(Bitwise, RightShift, 2, "", ">>")
 
-OP(Trigonometric, Acos, 1, "acos", "", RangeOne, RangeOne, RangeOne)
-OP(Trigonometric, Asin, 1, "asin", "", RangeHalfPi, RangeHalfPi, RangeHalfPi)
-OP(Trigonometric, Atan, 1, "atan", "", RangeHalfPi, RangeHalfPi, RangeHalfPi)
+OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
+                   " -DFUNC_INITIALIZE=1")
+
+OP(Trigonometric, Acos, 1, "acos", "", "", RangeOne, RangeOne, RangeOne)
+OP(Trigonometric, Asin, 1, "asin", "", "", RangeHalfPi, RangeHalfPi,
+   RangeHalfPi)
+OP(Trigonometric, Atan, 1, "atan", "", "", RangeHalfPi, RangeHalfPi,
+   RangeHalfPi)
 OP_DEFAULT(Trigonometric, Cos, 1, "cos", "")
 OP_DEFAULT(Trigonometric, Cosh, 1, "cosh", "")
 OP_DEFAULT(Trigonometric, Sin, 1, "sin", "")
@@ -59,8 +74,8 @@ OP_DEFAULT(AsType, AsFloat, 1, "asfloat", "")
 OP_DEFAULT(AsType, AsInt, 1, "asint", "")
 OP_DEFAULT(AsType, AsUint, 1, "asuint", "")
 OP_DEFAULT(AsType, AsDouble, 2, "asdouble", ",")
-OP(AsType, AsUint_SplitDouble, 1, "TestAsUintSplitDouble", "", SplitDouble,
-   SplitDouble, SplitDouble)
+OP(AsType, AsUint_SplitDouble, 1, "TestAsUintSplitDouble", "",
+   " -DFUNC_ASUINT_SPLITDOUBLE=1", SplitDouble, SplitDouble, SplitDouble)
 
 OP_DEFAULT(UnaryMath, Abs, 1, "abs", "")
 OP_DEFAULT(UnaryMath, Sign, 1, "sign", "")
@@ -77,6 +92,19 @@ OP_DEFAULT(UnaryMath, Trunc, 1, "trunc", "")
 OP_DEFAULT(UnaryMath, Exp2, 1, "exp2", "")
 OP_DEFAULT(UnaryMath, Log10, 1, "log10", "")
 OP_DEFAULT(UnaryMath, Log2, 1, "log2", "")
-OP_DEFAULT(UnaryMath, Frexp, 1, "TestFrexp", "")
+OP_DEFAULT_DEFINES(UnaryMath, Frexp, 1, "TestFrexp", "", " -DFUNC_FREXP=1")
 
+OP_DEFAULT(BinaryComparison, LessThan, 2, "", "<")
+OP_DEFAULT(BinaryComparison, LessEqual, 2, "", "<=")
+OP_DEFAULT(BinaryComparison, GreaterThan, 2, "", ">")
+OP_DEFAULT(BinaryComparison, GreaterEqual, 2, "", ">=")
+OP_DEFAULT(BinaryComparison, Equal, 2, "", "==")
+OP_DEFAULT(BinaryComparison, NotEqual, 2, "", "!=")
+
+OP_DEFAULT(Binary, Logical_And, 2, "and", ",")
+OP_DEFAULT(Binary, Logical_Or, 2, "or", ",")
+OP_DEFAULT_DEFINES(Binary, TernaryAssignment_True, 2, "TestTernaryAssignment",
+                   ",", " -DTERNARY_CONDITION=1 -DFUNC_TERNARY_ASSIGNMENT=1")
+OP_DEFAULT_DEFINES(Binary, TernaryAssignment_False, 2, "TestTernaryAssignment",
+                   ",", " -DTERNARY_CONDITION=0 -DFUNC_TERNARY_ASSIGNMENT=1")
 #undef OP
