@@ -15,6 +15,7 @@ INPUT_SET(SmoothStepInput, "SmoothStepInputValueSet")
 INPUT_SET(RangeOne, "TrigonometricInputValueSet_RangeOne")
 INPUT_SET(RangeHalfPi, "TrigonometricInputValueSet_RangeHalfPi")
 INPUT_SET(SplitDouble, "SplitDoubleInputValueSet")
+INPUT_SET(BitShiftRhs, "BitShift_RHS")
 
 #undef INPUT_SET
 
@@ -47,19 +48,17 @@ OP_DEFAULT(BinaryMath, Ldexp, 2, "ldexp", ",")
 OP_DEFAULT(Bitwise, And, 2, "", "&")
 OP_DEFAULT(Bitwise, Or, 2, "", "|")
 OP_DEFAULT(Bitwise, Xor, 2, "", "^")
-OP_DEFAULT_DEFINES(Bitwise, Not, 2, "TestUnaryOperator", "~",
+OP_DEFAULT_DEFINES(Bitwise, Not, 1, "TestUnaryOperator", "~",
                    " -DFUNC_UNARY_OPERATOR=1")
-OP_DEFAULT(Bitwise, LeftShift, 2, "", "<<")
-OP_DEFAULT(Bitwise, RightShift, 2, "", ">>")
+OP(Bitwise, LeftShift, 2, "", "<<", "", Default1, BitShiftRhs, Default3)
+OP(Bitwise, RightShift, 2, "", ">>", "", Default1, BitShiftRhs, Default3)
 
 OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
                    " -DFUNC_INITIALIZE=1")
 
-OP(Trigonometric, Acos, 1, "acos", "", "", RangeOne, RangeOne, RangeOne)
-OP(Trigonometric, Asin, 1, "asin", "", "", RangeHalfPi, RangeHalfPi,
-   RangeHalfPi)
-OP(Trigonometric, Atan, 1, "atan", "", "", RangeHalfPi, RangeHalfPi,
-   RangeHalfPi)
+OP(Trigonometric, Acos, 1, "acos", "", "", RangeOne, Default2, Default3)
+OP(Trigonometric, Asin, 1, "asin", "", "", RangeHalfPi, Default2, Default3)
+OP(Trigonometric, Atan, 1, "atan", "", "", RangeHalfPi, Default2, Default3)
 OP_DEFAULT(Trigonometric, Cos, 1, "cos", "")
 OP_DEFAULT(Trigonometric, Cosh, 1, "cosh", "")
 OP_DEFAULT(Trigonometric, Sin, 1, "sin", "")

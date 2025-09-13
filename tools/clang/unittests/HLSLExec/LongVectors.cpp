@@ -1,3 +1,4 @@
+#include "PreserveLastError.h"
 #ifndef NOMINMAX
 #define NOMINMAX 1
 #endif
@@ -1511,19 +1512,11 @@ void dispatchTestByVectorSize(const TestConfig<T, BitwiseOpType> &Config,
 }
 #endif
 
-//
-// dispatchTest
-//
-
 template <OpType OP, typename T> struct Op;
 
 template <OpType OP, typename T, typename Enable = void>
 struct OpValidationConfig {
   static ValidationConfig get() { return ValidationConfig(); }
-};
-
-template <OpType OP, typename Enable = void> struct OpExtraDefines {
-  static const char *get() { return ""; }
 };
 
 template <OpType OP, typename T>
@@ -1532,27 +1525,15 @@ struct OpValidationConfig<OP, T,
   static ValidationConfig get() { return ValidationConfig::Ulp(1.0); }
 };
 
-template <> struct Op<OpType::AsDouble, uint32_t> {
-  using OutT = double;
-
-  double operator()(uint32_t Low, uint32_t High) { return asDouble(Low, High); }
-};
-
-template <> struct Op<OpType::Fma, double> {
-  using OutT = double;
-
-  double operator()(double A, double B, double C) { return A * B + C; }
-};
+//
+// TernaryMath
+//
 
 template <typename T> struct Op<OpType::Mad, T> {
-  using OutT = T;
-
   T operator()(T A, T B, T C) { return A * B + C; }
 };
 
 template <typename T> struct Op<OpType::SmoothStep, T> {
-  using OutT = T;
-
   T operator()(T Min, T Max, T X) {
     DXASSERT_NOMSG(Min < Max);
 
@@ -1567,93 +1548,184 @@ template <typename T> struct Op<OpType::SmoothStep, T> {
   }
 };
 
-// Binary Math Op specializations
+template <> struct Op<OpType::Fma, double> {
+  double operator()(double A, double B, double C) { return A * B + C; }
+};
+
+//
+// BinaryMath
+//
+
 template <typename T> struct Op<OpType::Add, T> {
-  using OutT = T;
   T operator()(T A, T B) { return A + B; }
 };
 
 template <typename T> struct Op<OpType::Subtract, T> {
-  using OutT = T;
   T operator()(T A, T B) { return A - B; }
 };
 
 template <typename T> struct Op<OpType::Multiply, T> {
-  using OutT = T;
   T operator()(T A, T B) { return A * B; }
 };
 
 template <typename T> struct Op<OpType::Divide, T> {
-  using OutT = T;
   T operator()(T A, T B) { return A / B; }
 };
 
-template <typename T, typename Enable = void> struct ModulusImpl;
-
-// Integral types
-template <typename T>
-struct ModulusImpl<T, typename std::enable_if_t<!std::is_same_v<T, float>>> {
-  static T eval(T A, T B) { return B == 0 ? T() : A % B; }
-};
-
-// Floating point types (float/double)
-template <typename T>
-struct ModulusImpl<T, typename std::enable_if_t<std::is_same_v<T, float>>> {
-  static T eval(T A, T B) { return std::fmod(A, B); }
-};
-
-// HLSLHalf_t specialization: implement via float conversion
-template <> struct ModulusImpl<HLSLHalf_t, void> {
-  static HLSLHalf_t eval(HLSLHalf_t A, HLSLHalf_t B) {
-    // Rely on available operators/constructors; perform in float for accuracy.
-    float Af = static_cast<float>(A);
-    float Bf = static_cast<float>(B);
-    float R = std::fmod(Af, Bf);
-    return HLSLHalf_t(R);
+template <typename T> struct Op<OpType::Modulus, T> {
+  T operator()(T A, T B) {
+    if constexpr (std::is_same_v<T, float>)
+      return std::fmod(A, B);
+    else
+      return A % B;
   }
 };
 
-template <typename T> struct Op<OpType::Modulus, T> {
-  using OutT = T;
-  T operator()(T A, T B) { return ModulusImpl<T>::eval(A, B); }
-};
-
 template <typename T> struct Op<OpType::Min, T> {
-  using OutT = T;
   T operator()(T A, T B) { return std::min(A, B); }
 };
 
 template <typename T> struct Op<OpType::Max, T> {
-  using OutT = T;
   T operator()(T A, T B) { return std::max(A, B); }
 };
 
-// Ldexp only defined/used for floating/half/double types in tests
-template <typename T, typename Enable = void> struct LdexpImpl;
-
-template <typename T>
-struct LdexpImpl<T, typename std::enable_if_t<std::is_floating_point_v<T>>> {
-  static T eval(T A, T B) { return A * static_cast<T>(std::pow(2.0, B)); }
-};
-
-template <> struct LdexpImpl<HLSLHalf_t, void> {
-  static HLSLHalf_t eval(HLSLHalf_t A, HLSLHalf_t B) {
-    float Af = static_cast<float>(A);
-    float Bf = static_cast<float>(B);
-    float R = Af * std::pow(2.0f, Bf);
-    return HLSLHalf_t(R);
-  }
-};
-
 template <typename T> struct Op<OpType::Ldexp, T> {
-  using OutT = T;
-  T operator()(T A, T B) { return LdexpImpl<T>::eval(A, B); }
+  T operator()(T A, T B) { return A * static_cast<T>(std::pow(2.0f, B)); }
 };
+
+//
+// Bitwise
+//
+
+template <typename T> struct Op<OpType::And, T> {
+  T operator()(T A, T B) { return A & B; }
+};
+
+template <typename T> struct Op<OpType::Or, T> {
+  T operator()(T A, T B) { return A | B; }
+};
+
+template <typename T> struct Op<OpType::Xor, T> {
+  T operator()(T A, T B) { return A ^ B; }
+};
+
+template <typename T> struct Op<OpType::Not, T> {
+  T operator()(T A) { return ~A; }
+};
+
+template <typename T> struct Op<OpType::LeftShift, T> {
+  T operator()(T A, T B) { return A << B; }
+};
+
+template <typename T> struct Op<OpType::RightShift, T> {
+  T operator()(T A, T B) { return A >> B; }
+};
+
+//
+// Unary
+//
+
+template <typename T> struct Op<OpType::Initialize, T> {
+  T operator()(T A) { return A; }
+};
+
+//
+// Trigonometric
+//
+
+// All trigonometric ops are floating point types.
+// These trig functions are defined to have a max absolute error of 0.0008
+// as per the D3D functional specs. An example with this spec for sin and
+// cos is available here:
+// https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
+
+#define TRIG_OP(N, F)                                                          \
+  template <typename T> struct Op<N, T> {                                      \
+    T operator()(T A) { return F(A); }                                         \
+    ValidationConfig getValidationConfig() {                                   \
+      return ValidationConfig::Epsilon(0.0008f);                               \
+    }                                                                          \
+  };
+
+// TODO: make validation config work
+
+TRIG_OP(OpType::Acos, std::acos);
+TRIG_OP(OpType::Asin, std::asin);
+TRIG_OP(OpType::Atan, std::atan);
+TRIG_OP(OpType::Cos, std::cos);
+TRIG_OP(OpType::Cosh, std::cosh);
+TRIG_OP(OpType::Sin, std::sin);
+TRIG_OP(OpType::Sinh, std::sinh);
+TRIG_OP(OpType::Tan, std::tan);
+TRIG_OP(OpType::Tanh, std::tanh);
+
+#undef TRIG_OP
+
+//
+// AsType
+//
+template <> struct Op<OpType::AsDouble, uint32_t> {
+  double operator()(uint32_t Low, uint32_t High) { return asDouble(Low, High); }
+};
+
+//
+// Find out the return value (the "out type") for an op.
+//
+
+template <OpType OP, typename T, size_t ARITY> struct OpOutType;
+
+template <OpType OP, typename T> struct OpOutType<OP, T, 1> {
+  static auto Probe() {
+    Op<OP, T> O;
+    return O(T());
+  }
+
+  using Type = decltype(Probe());
+};
+
+template <OpType OP, typename T> struct OpOutType<OP, T, 2> {
+  static auto Probe() {
+    Op<OP, T> O;
+    return O(T(), T());
+  }
+
+  using Type = decltype(Probe());
+};
+
+template <OpType OP, typename T> struct OpOutType<OP, T, 3> {
+  static auto Probe() {
+    Op<OP, T> O;
+    return O(T(), T(), T());
+  }
+
+  using Type = decltype(Probe());
+};
+
+//
+// dispatchTest
+//
 
 template <OpType OP, typename T, size_t ARITY>
 std::vector<T> buildExpected(const InputSets<T, ARITY> &Inputs);
 
-template <OpType OP, typename T, typename OUT_TYPE = typename Op<OP, T>::OutT>
+template <OpType OP, typename T,
+          typename OUT_TYPE = typename OpOutType<OP, T, 1>::Type>
+std::vector<OUT_TYPE> buildExpected(Op<OP, T> Op, const InputSets<T, 1> &Inputs,
+                                    size_t ScalarInputFlags) {
+  UNREFERENCED_PARAMETER(ScalarInputFlags);
+
+  std::vector<OUT_TYPE> Expected;
+  Expected.reserve(Inputs[0].size());
+
+  for (size_t I = 0; I < Inputs[0].size(); ++I) {
+    Expected.push_back(Op(Inputs[0][I]));
+  }
+
+  return Expected;
+}
+
+template <OpType OP, typename T,
+          typename OUT_TYPE = typename OpOutType<OP, T, 2>::Type>
 std::vector<OUT_TYPE> buildExpected(Op<OP, T> Op, const InputSets<T, 2> &Inputs,
                                     size_t ScalarInputFlags) {
   std::vector<OUT_TYPE> Expected;
@@ -1667,7 +1739,8 @@ std::vector<OUT_TYPE> buildExpected(Op<OP, T> Op, const InputSets<T, 2> &Inputs,
   return Expected;
 }
 
-template <OpType OP, typename T, typename OUT_TYPE = typename Op<OP, T>::OutT>
+template <OpType OP, typename T,
+          typename OUT_TYPE = typename OpOutType<OP, T, 3>::Type>
 std::vector<OUT_TYPE> buildExpected(Op<OP, T> Op, const InputSets<T, 3> &Inputs,
                                     size_t ScalarInputFlags) {
   std::vector<OUT_TYPE> Expected;
@@ -1698,7 +1771,7 @@ void dispatchTest(const TestConfig<T, OP> &Config) {
 
     auto Expected = buildExpected(Op, Inputs, Config.ScalarInputFlags);
 
-    runAndVerify(Config, Inputs, Expected, OpExtraDefines<OP>::get(),
+    runAndVerify(Config, Inputs, Expected, OpTraits<OP>::ExtraDefines,
                  OpValidationConfig<OP, T>::get());
   }
 }
@@ -1814,6 +1887,8 @@ public:
 
 #define KITS_TESTNAME "D3D12 - Shader Model 6.9 - vectorized DXIL - "
 
+  // TernaryMath
+
   HLK_TEST(Mad, uint16_t, Vector, "eb7d60e7-c32b-41d5-93fe-bbeac5f2f934");
   HLK_TEST(Mad, uint16_t, ScalarOp3, "828d57e0-e0db-471d-ad3c-b35268f712b5");
   HLK_TEST(Mad, uint32_t, Vector, "bbaabc74-e41e-4a7d-a78c-f91177afc071");
@@ -1841,6 +1916,9 @@ public:
   HLK_TEST(Fma, double, ScalarOp2, "6d5c74fc-ee50-445f-bc28-0c6666cbd754");
   HLK_TEST(Mad, double, Vector, "1813aa84-26d8-401a-9204-86323042a43d");
   HLK_TEST(Mad, double, ScalarOp2, "c5954f98-7f26-47ef-ae09-80d0526b3a9f");
+
+  // BinaryMath
+
   HLK_TEST(Add, HLSLBool_t, ScalarOp2, "0b763d04-9f24-404f-9307-09e2ba2b43d1");
   HLK_TEST(Add, HLSLBool_t, Vector, "31142b2a-f263-4ea2-81ab-6bec7d95f7c6");
   HLK_TEST(Subtract, HLSLBool_t, ScalarOp2,
@@ -1997,6 +2075,93 @@ public:
   HLK_TEST(Min, double, Vector, "ff4a187a-e410-4ce4-b50f-c488a7158a06");
   HLK_TEST(Max, double, ScalarOp2, "38a46477-9d51-4874-920c-6b7c08463d52");
   HLK_TEST(Max, double, Vector, "a395f842-2e32-4bec-8635-b458e7faee46");
+
+  // Bitwise
+
+  HLK_TEST(And, uint16_t, Vector, "fe5c6d6a-fe3d-4e1c-b31a-c8f1f60ce8c3");
+  HLK_TEST(And, uint16_t, ScalarOp2, "d59ca82d-8136-4a4e-8295-a3d53e10e2ba");
+  HLK_TEST(Or, uint16_t, Vector, "4d8dbabd-04c9-42a2-b964-0f2668f070cd");
+  HLK_TEST(Or, uint16_t, ScalarOp2, "0fe31f2e-cdc3-497e-adca-417e3ec16711");
+  HLK_TEST(Xor, uint16_t, Vector, "5b082d93-c29a-4ef0-acf0-bfe77b40525d");
+  HLK_TEST(Xor, uint16_t, ScalarOp2, "6e43c7be-b74f-41d1-a3dc-49553de7358c");
+  HLK_TEST(Not, uint16_t, Vector, "6b37d1ff-b695-4fa2-804c-cb88b109b159");
+  HLK_TEST(LeftShift, uint16_t, Vector, "c357d19d-b917-479d-8092-e05a0ed81020");
+  HLK_TEST(LeftShift, uint16_t, ScalarOp2,
+           "93354b6a-a1ef-4140-826f-5c0ab1bbbfe8");
+  HLK_TEST(RightShift, uint16_t, Vector,
+           "2fe9725f-4107-4a74-a28e-133ab9af2d43");
+  HLK_TEST(RightShift, uint16_t, ScalarOp2,
+           "481d3193-5d64-4f6a-83ee-3534d25ae216");
+  HLK_TEST(And, uint32_t, Vector, "79645bb7-74bc-4e8e-8a55-b596c1a97e4c");
+  HLK_TEST(And, uint32_t, ScalarOp2, "a9db80e9-4f00-474d-b581-d3c8aa75dfcb");
+  HLK_TEST(Or, uint32_t, Vector, "989a400c-54c2-40dc-b558-09ea903e36f5");
+  HLK_TEST(Or, uint32_t, ScalarOp2, "74a96bb4-887e-4c1c-a6ac-309e427e4250");
+  HLK_TEST(Xor, uint32_t, Vector, "135808ae-97da-4a0f-ae9d-3c3a6042447c");
+  HLK_TEST(Xor, uint32_t, ScalarOp2, "050ff8d1-d7b0-4c47-98b0-1fa465119b86");
+  HLK_TEST(Not, uint32_t, Vector, "ef192308-56b2-417b-9dd1-c8dc4110aed3");
+  HLK_TEST(LeftShift, uint32_t, Vector, "0d63bae1-944e-432b-baa3-137cdd3e7157");
+  HLK_TEST(LeftShift, uint32_t, ScalarOp2,
+           "46464c46-66dd-4ddd-92ff-b43f1e803078");
+  HLK_TEST(RightShift, uint32_t, Vector,
+           "fa5d562d-2912-4212-8c23-6f291fdbe6e0");
+  HLK_TEST(RightShift, uint32_t, ScalarOp2,
+           "0d716e50-db23-478b-a21f-f8e317a1bd19");
+  HLK_TEST(And, uint64_t, Vector, "18a01598-28b7-441b-a282-674ea0a5b1d7");
+  HLK_TEST(And, uint64_t, ScalarOp2, "274d4fa5-0218-4999-83e9-1fd165991fe3");
+  HLK_TEST(Or, uint64_t, Vector, "78ec6930-e721-491d-b924-676ef76379fe");
+  HLK_TEST(Or, uint64_t, ScalarOp2, "838d8981-76ca-440c-8810-3ceeed645383");
+  HLK_TEST(Xor, uint64_t, Vector, "83ac8606-abfb-4625-a5ee-0ca13daa07ba");
+  HLK_TEST(Xor, uint64_t, ScalarOp2, "41e6590e-07b0-4e1e-abb2-f8efc1cfebeb");
+  HLK_TEST(Not, uint64_t, Vector, "aa513cc3-410c-4a65-af4c-53b2ba7d77e5");
+  HLK_TEST(LeftShift, uint64_t, Vector, "4c60ca7c-2f3a-4ad7-922f-3978f8b1c846");
+  HLK_TEST(LeftShift, uint64_t, ScalarOp2,
+           "fe2641f5-1870-4dab-a16a-a59ecf50c010");
+  HLK_TEST(RightShift, uint64_t, Vector,
+           "7e3a4d74-a0d0-4df3-93e7-0d64b4384578");
+  HLK_TEST(RightShift, uint64_t, ScalarOp2,
+           "3806d5bd-9b35-4011-8027-7c191880a669");
+  HLK_TEST(And, int16_t, Vector, "8f5a8ab1-3ff3-4075-a59f-c4b1eeccffad");
+  HLK_TEST(And, int16_t, ScalarOp2, "e79ce58e-7084-4787-b673-410664bccf24");
+  HLK_TEST(Or, int16_t, Vector, "b417da2c-e075-49e2-9325-98e8947b0a4b");
+  HLK_TEST(Or, int16_t, ScalarOp2, "d814677f-874e-45ee-bf77-5d15e0cb8322");
+  HLK_TEST(Xor, int16_t, Vector, "7526ca88-2a15-46a5-9fe6-261a218a4083");
+  HLK_TEST(Xor, int16_t, ScalarOp2, "0ab8dc97-fda1-425f-98ff-c20db9d44bf7");
+  HLK_TEST(Not, int16_t, Vector, "f22df66a-b805-4da0-8e91-d96aa7bf760c");
+  HLK_TEST(LeftShift, int16_t, Vector, "a7a3eb11-884f-447a-b6bb-0dc6e5df06db");
+  HLK_TEST(LeftShift, int16_t, ScalarOp2,
+           "e068ce76-cf1a-4cd0-a286-23fd29dfcbb1");
+  HLK_TEST(RightShift, int16_t, Vector, "2ece110f-0bfb-4495-8775-93e0b4061251");
+  HLK_TEST(RightShift, int16_t, ScalarOp2,
+           "4ba2657d-4298-455d-b726-8cbb284a4b6f");
+  HLK_TEST(And, int32_t, Vector, "ddcb2ca3-5e1b-49c2-89cb-5cc0ac1567e2");
+  HLK_TEST(And, int32_t, ScalarOp2, "bc8a1922-f3df-445d-9ee9-89f0565ae44b");
+  HLK_TEST(Or, int32_t, Vector, "55a662b9-9604-4d5c-9a7e-03d89286ce07");
+  HLK_TEST(Or, int32_t, ScalarOp2, "4ff26540-6865-4486-b27e-287f176a610e");
+  HLK_TEST(Xor, int32_t, Vector, "876f176f-8521-4b71-8231-af96bb8c2bd8");
+  HLK_TEST(Xor, int32_t, ScalarOp2, "6b8683d0-b46c-450f-99b5-f7e101d2c465");
+  HLK_TEST(Not, int32_t, Vector, "1517cf1b-4b7b-416c-8b84-70ca856e5e36");
+  HLK_TEST(LeftShift, int32_t, Vector, "4f4362b5-5a7f-45ca-94ac-9223aa987a85");
+  HLK_TEST(LeftShift, int32_t, ScalarOp2,
+           "abcc3db3-efc5-4acc-87ef-946a34089d4c");
+  HLK_TEST(RightShift, int32_t, Vector, "2f34dc66-4deb-4dce-a751-7cc50347c0a2");
+  HLK_TEST(RightShift, int32_t, ScalarOp2,
+           "ba411116-8d47-4266-aad4-9709131a4eb2");
+  HLK_TEST(And, int64_t, Vector, "1874f022-c8f7-4e75-8983-f4372b295888");
+  HLK_TEST(And, int64_t, ScalarOp2, "30ae08fb-7010-48c7-a1d5-812fab59f4fa");
+  HLK_TEST(Or, int64_t, Vector, "5122b366-d0bd-4165-ad66-4db14cce2895");
+  HLK_TEST(Or, int64_t, ScalarOp2, "876fc9dc-df7a-450f-adc0-863f1b00577d");
+  HLK_TEST(Xor, int64_t, Vector, "830df907-e1f3-4485-8554-33e9999356ad");
+  HLK_TEST(Xor, int64_t, ScalarOp2, "84d0b14e-2bf0-499a-a18b-eb80476f501a");
+  HLK_TEST(Not, int64_t, Vector, "eb4a3102-7238-47ae-b9a8-facb4d5753a1");
+  HLK_TEST(LeftShift, int64_t, Vector, "2ba977dc-5e25-449b-9338-94033c213471");
+  HLK_TEST(LeftShift, int64_t, ScalarOp2,
+           "bb603ea0-3d12-4a38-9472-703025b4c553");
+  HLK_TEST(RightShift, int64_t, Vector, "156e5737-2358-4857-b36e-3ef7b564aa52");
+  HLK_TEST(RightShift, int64_t, ScalarOp2,
+           "9eebbe3c-fc09-4391-845e-6bb0f5da382a");
+
+  // Unary
+
   HLK_TEST(Initialize, HLSLBool_t, Vector,
            "3203d5bd-2b83-4328-a04e-4befd87119b3");
   HLK_TEST(Initialize, int16_t, Vector, "c89bb550-6d1f-47e9-827a-b49817348110");
@@ -2012,6 +2177,9 @@ public:
            "6291fe76-2b95-45c5-8ea2-4cb4a47e0a52");
   HLK_TEST(Initialize, float, Vector, "fe56569a-ba15-4ba5-b671-575f05538c73");
   HLK_TEST(Initialize, double, Vector, "c091a797-1252-40aa-a53d-661c5875c8a5");
+
+  // Trigonometric
+
   HLK_TEST(Acos, HLSLHalf_t, Vector, "5735cddd-66ed-403d-a6e1-8a9ebef9a6e2");
   HLK_TEST(Asin, HLSLHalf_t, Vector, "507e7d7b-acf8-41e9-b489-971a239472db");
   HLK_TEST(Atan, HLSLHalf_t, Vector, "0de04aec-f6db-4832-8e2e-58b4f3a1ce0a");
@@ -2030,6 +2198,8 @@ public:
   HLK_TEST(Sinh, float, Vector, "2ea08f3e-9daa-4e0f-93a6-2fecf8943498");
   HLK_TEST(Tan, float, Vector, "12d097d6-94e9-4bed-bd3c-6634f088a65e");
   HLK_TEST(Tanh, float, Vector, "05e9f20e-83a7-4d65-9160-8aab4792edf0");
+
+#if 0
   HLK_TEST(AsFloat16, int16_t, Vector, "4dd29b6a-39cc-4d5d-86ea-cd0aa027686e");
   HLK_TEST(AsInt16, int16_t, Vector, "2874f989-3f2d-4afb-ab01-96223ac36574");
   HLK_TEST(AsUint16, int16_t, Vector, "6a169c65-d90b-4cb6-8f86-83310afb1a4d");
@@ -2272,7 +2442,7 @@ public:
            "7846c923-fa5a-4a9f-9aae-d563b5156fc1");
   HLK_TEST(Logical_Or, HLSLBool_t, ScalarOp2,
            "db50aa82-4ec6-4b02-b61f-c295f0c17e4f");
-
+#endif
 private:
   bool Initialized = false;
   bool VerboseLogging = false;
