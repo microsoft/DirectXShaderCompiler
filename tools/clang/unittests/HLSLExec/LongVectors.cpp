@@ -1514,26 +1514,24 @@ void dispatchTestByVectorSize(const TestConfig<T, BitwiseOpType> &Config,
 
 template <OpType OP, typename T> struct Op;
 
-template <OpType OP, typename T, typename Enable = void>
-struct OpValidationConfig {
-  static ValidationConfig get() { return ValidationConfig(); }
-};
+template <typename T> struct DefaultValidation {
+  ValidationConfig ValidationConfig;
 
-template <OpType OP, typename T>
-struct OpValidationConfig<OP, T,
-                          typename std::enable_if_t<isFloatingPointType<T>()>> {
-  static ValidationConfig get() { return ValidationConfig::Ulp(1.0); }
+  DefaultValidation() {
+    if constexpr (isFloatingPointType<T>())
+      ValidationConfig = ValidationConfig::Ulp(1.0f);
+  }
 };
 
 //
 // TernaryMath
 //
 
-template <typename T> struct Op<OpType::Mad, T> {
+template <typename T> struct Op<OpType::Mad, T> : DefaultValidation<T> {
   T operator()(T A, T B, T C) { return A * B + C; }
 };
 
-template <typename T> struct Op<OpType::SmoothStep, T> {
+template <typename T> struct Op<OpType::SmoothStep, T> : DefaultValidation<T> {
   T operator()(T Min, T Max, T X) {
     DXASSERT_NOMSG(Min < Max);
 
@@ -1548,7 +1546,7 @@ template <typename T> struct Op<OpType::SmoothStep, T> {
   }
 };
 
-template <> struct Op<OpType::Fma, double> {
+template <> struct Op<OpType::Fma, double> : DefaultValidation<double> {
   double operator()(double A, double B, double C) { return A * B + C; }
 };
 
@@ -1556,23 +1554,23 @@ template <> struct Op<OpType::Fma, double> {
 // BinaryMath
 //
 
-template <typename T> struct Op<OpType::Add, T> {
+template <typename T> struct Op<OpType::Add, T> : DefaultValidation<T> {
   T operator()(T A, T B) { return A + B; }
 };
 
-template <typename T> struct Op<OpType::Subtract, T> {
+template <typename T> struct Op<OpType::Subtract, T> : DefaultValidation<T> {
   T operator()(T A, T B) { return A - B; }
 };
 
-template <typename T> struct Op<OpType::Multiply, T> {
+template <typename T> struct Op<OpType::Multiply, T> : DefaultValidation<T> {
   T operator()(T A, T B) { return A * B; }
 };
 
-template <typename T> struct Op<OpType::Divide, T> {
+template <typename T> struct Op<OpType::Divide, T> : DefaultValidation<T> {
   T operator()(T A, T B) { return A / B; }
 };
 
-template <typename T> struct Op<OpType::Modulus, T> {
+template <typename T> struct Op<OpType::Modulus, T> : DefaultValidation<T> {
   T operator()(T A, T B) {
     if constexpr (std::is_same_v<T, float>)
       return std::fmod(A, B);
@@ -1581,15 +1579,15 @@ template <typename T> struct Op<OpType::Modulus, T> {
   }
 };
 
-template <typename T> struct Op<OpType::Min, T> {
+template <typename T> struct Op<OpType::Min, T> : DefaultValidation<T> {
   T operator()(T A, T B) { return std::min(A, B); }
 };
 
-template <typename T> struct Op<OpType::Max, T> {
+template <typename T> struct Op<OpType::Max, T> : DefaultValidation<T> {
   T operator()(T A, T B) { return std::max(A, B); }
 };
 
-template <typename T> struct Op<OpType::Ldexp, T> {
+template <typename T> struct Op<OpType::Ldexp, T> : DefaultValidation<T> {
   T operator()(T A, T B) { return A * static_cast<T>(std::pow(2.0f, B)); }
 };
 
@@ -1597,27 +1595,27 @@ template <typename T> struct Op<OpType::Ldexp, T> {
 // Bitwise
 //
 
-template <typename T> struct Op<OpType::And, T> {
+template <typename T> struct Op<OpType::And, T> : DefaultValidation<T> {
   T operator()(T A, T B) { return A & B; }
 };
 
-template <typename T> struct Op<OpType::Or, T> {
+template <typename T> struct Op<OpType::Or, T> : DefaultValidation<T> {
   T operator()(T A, T B) { return A | B; }
 };
 
-template <typename T> struct Op<OpType::Xor, T> {
+template <typename T> struct Op<OpType::Xor, T> : DefaultValidation<T> {
   T operator()(T A, T B) { return A ^ B; }
 };
 
-template <typename T> struct Op<OpType::Not, T> {
+template <typename T> struct Op<OpType::Not, T> : DefaultValidation<T> {
   T operator()(T A) { return ~A; }
 };
 
-template <typename T> struct Op<OpType::LeftShift, T> {
+template <typename T> struct Op<OpType::LeftShift, T> : DefaultValidation<T> {
   T operator()(T A, T B) { return A << B; }
 };
 
-template <typename T> struct Op<OpType::RightShift, T> {
+template <typename T> struct Op<OpType::RightShift, T> : DefaultValidation<T> {
   T operator()(T A, T B) { return A >> B; }
 };
 
@@ -1625,7 +1623,7 @@ template <typename T> struct Op<OpType::RightShift, T> {
 // Unary
 //
 
-template <typename T> struct Op<OpType::Initialize, T> {
+template <typename T> struct Op<OpType::Initialize, T> : DefaultValidation<T> {
   T operator()(T A) { return A; }
 };
 
@@ -1639,15 +1637,14 @@ template <typename T> struct Op<OpType::Initialize, T> {
 // cos is available here:
 // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
 
-#define TRIG_OP(N, F)                                                          \
-  template <typename T> struct Op<N, T> {                                      \
-    T operator()(T A) { return F(A); }                                         \
-    ValidationConfig getValidationConfig() {                                   \
-      return ValidationConfig::Epsilon(0.0008f);                               \
-    }                                                                          \
-  };
+struct TrigonometricValidation {
+  ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.0008f);
+};
 
-// TODO: make validation config work
+#define TRIG_OP(N, F)                                                          \
+  template <typename T> struct Op<N, T> : TrigonometricValidation {            \
+    T operator()(T A) { return F(A); }                                         \
+  }
 
 TRIG_OP(OpType::Acos, std::acos);
 TRIG_OP(OpType::Asin, std::asin);
@@ -1664,7 +1661,7 @@ TRIG_OP(OpType::Tanh, std::tanh);
 //
 // AsType
 //
-template <> struct Op<OpType::AsDouble, uint32_t> {
+template <> struct Op<OpType::AsDouble, uint32_t> : DefaultValidation<uint32_t> {
   double operator()(uint32_t Low, uint32_t High) { return asDouble(Low, High); }
 };
 
@@ -1772,7 +1769,7 @@ void dispatchTest(const TestConfig<T, OP> &Config) {
     auto Expected = buildExpected(Op, Inputs, Config.ScalarInputFlags);
 
     runAndVerify(Config, Inputs, Expected, OpTraits<OP>::ExtraDefines,
-                 OpValidationConfig<OP, T>::get());
+                 Op.ValidationConfig);
   }
 }
 
