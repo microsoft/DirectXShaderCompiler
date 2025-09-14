@@ -519,6 +519,16 @@ void main() {
   // CHECK: select <[[NUM]] x i1> [[bvec1]], <[[NUM]] x i16> [[svec2]], <[[NUM]] x i16> [[svec3]]
   sRes += select(sVec1, sVec2, sVec3);
 
+
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: call float @dx.op.dot.[[FTY]](i32 311, <[[NUM]] x float> [[fvec1]], <[[NUM]] x float> [[fvec2]])  ; FDot(a,b)
+  // One pair of extract/insert is expected for the [0]
+  // CHECK: extractelement <[[NUM]] x float> {{%.*}}, i32 0
+  // CHECK: insertelement <[[NUM]] x float> {{%.*}}, float {{%.*}}, i32 0
+  float fResScalar = dot(fVec1, fVec2);
+  fRes[0] += fResScalar;
+
   // CHECK-NOT: extractelement
   // CHECK-NOT: insertelement
   buf.Store<vector<float16_t, NUM> >(0, hRes);

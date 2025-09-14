@@ -227,7 +227,7 @@ void LLVMContext::diagnose(const DiagnosticInfo &DI) {
   // If there is a report handler, use it.
   if (pImpl->DiagnosticHandler) {
     if (!pImpl->RespectDiagnosticFilters || isDiagnosticEnabled(DI))
-      pImpl->DiagnosticHandler(DI, pImpl->DiagnosticContext);
+      pImpl->DiagnosticHandler(&DI, pImpl->DiagnosticContext);
     return;
   }
 

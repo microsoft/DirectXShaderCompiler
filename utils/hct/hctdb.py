@@ -473,7 +473,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Tertiary uint"
         for i in "Bfi".split(","):
             self.name_idx[i].category = "Quaternary"
-        for i in "Dot2,Dot3,Dot4".split(","):
+        for i in "FDot,Dot2,Dot3,Dot4".split(","):
             self.name_idx[i].category = "Dot"
         for (
             i
@@ -5191,126 +5191,7 @@ class db_dxil(object):
         )
 
         # Reserved ops
-        self.add_dxil_op(
-            "Reserved0",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved1",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved2",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved3",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved4",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved5",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved6",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved7",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved8",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved9",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved10",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved11",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
+        next_op_idx = self.reserve_dxil_op_range("Reserved", next_op_idx, 12)
 
         # Work Graph
         self.add_dxil_op(
@@ -6438,6 +6319,27 @@ class db_dxil(object):
                 db_dxil_param(3, "res", "arrayBuffer", "output array resource"),
                 db_dxil_param(4, "i32", "arrayOffset", "output array offset"),
             ],
+        )
+        next_op_idx += 1
+
+        # TODO: Replace with vector reduction ops.
+        # https://github.com/microsoft/DirectXShaderCompiler/issues/7687
+        next_op_idx = self.reserve_dxil_op_range("ReservedD", next_op_idx, 2)
+
+        # Long Vector Dot
+        self.add_dxil_op(
+            "FDot",
+            next_op_idx,
+            "Dot",
+            "computes the n-dimensional vector dot-product",
+            "<hf",
+            "rn",
+            [
+                db_dxil_param(0, "$elt", "", "operation result"),
+                db_dxil_param(2, "$o", "a", "input value"),
+                db_dxil_param(3, "$o", "b", "input value"),
+            ],
+            counters=("floats",),
         )
         next_op_idx += 1
 
@@ -8854,6 +8756,10 @@ class db_dxil(object):
         self.add_valrule(
             "Sm.AmplificationShaderPayloadSizeDeclared",
             "For amplification shader with entry '%0', payload size %1 is greater than declared size of %2 bytes.",
+        )
+        self.add_valrule(
+            "Sm.IsSpecialFloat",
+            "16 bit IsSpecialFloat overloads require Shader Model 6.9 or higher.",
         )
 
         # fxc relaxed check of gradient check.

@@ -80,9 +80,9 @@ class TestIncludeHandler : public IDxcIncludeHandler {
   DXC_MICROCOM_REF_FIELD(m_dwRef)
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-  dxc::DxcDllSupport &m_dllSupport;
+  dxc::DxCompilerDllLoader &m_dllSupport;
   HRESULT m_defaultErrorCode = E_FAIL;
-  TestIncludeHandler(dxc::DxcDllSupport &dllSupport)
+  TestIncludeHandler(dxc::DxCompilerDllLoader &dllSupport)
       : m_dwRef(0), m_dllSupport(dllSupport), callIndex(0) {}
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {
@@ -285,7 +285,7 @@ public:
   TEST_METHOD_PROPERTY(L"Ignore", L"true")
   END_TEST_METHOD()
 
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
   void CreateBlobPinned(LPCVOID data, SIZE_T size, UINT32 codePage,
@@ -1264,7 +1264,7 @@ TEST_F(CompilerTest, CompileThenTestReflectionThreadSizeMS) {
 }
 
 static void VerifyPdbUtil(
-    dxc::DxcDllSupport &dllSupport, IDxcBlob *pBlob, IDxcPdbUtils *pPdbUtils,
+    dxc::DllLoader &dllSupport, IDxcBlob *pBlob, IDxcPdbUtils *pPdbUtils,
     const WCHAR *pMainFileName,
     llvm::ArrayRef<std::pair<const WCHAR *, const WCHAR *>> ExpectedArgs,
     llvm::ArrayRef<std::pair<const WCHAR *, const WCHAR *>> ExpectedFlags,
@@ -2902,9 +2902,9 @@ class SimpleIncludeHanlder : public IDxcIncludeHandler {
   DXC_MICROCOM_REF_FIELD(m_dwRef)
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-  dxc::DxcDllSupport &m_dllSupport;
+  dxc::DxCompilerDllLoader &m_dllSupport;
   HRESULT m_defaultErrorCode = E_FAIL;
-  SimpleIncludeHanlder(dxc::DxcDllSupport &dllSupport)
+  SimpleIncludeHanlder(dxc::DxCompilerDllLoader &dllSupport)
       : m_dwRef(0), m_dllSupport(dllSupport) {}
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {

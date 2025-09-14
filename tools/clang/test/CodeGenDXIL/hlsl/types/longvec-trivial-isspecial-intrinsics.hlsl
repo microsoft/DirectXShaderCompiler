@@ -1,6 +1,7 @@
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=isnan    -DOP=8  -DNUM=39 %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=isinf    -DOP=9  -DNUM=38 %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=isfinite -DOP=10 -DNUM=37 %s | FileCheck %s
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=isnormal -DOP=11 -DNUM=40 %s | FileCheck %s
 
 // Test vector-enabled isspecial unary intrinsics that take float-like parameters and
 // and are "trivial" in that they can be implemented with a single call.
@@ -34,9 +35,7 @@ void main() {
 
   // CHECK-NOT: extractelement
   // CHECK-NOT: insertelement
-  // NOTE: This behavior will change with #7588
-  // CHECK: [[tmp:%.*]] = fpext <[[NUM]] x half> [[hvec]] to <[[NUM]] x float>
-  // CHECK: call <[[NUM]] x i1> @dx.op.isSpecialFloat.[[FTY]](i32 [[OP]], <[[NUM]] x float> [[tmp]])
+  // CHECK: call <[[NUM]] x i1> @dx.op.isSpecialFloat.[[HTY]](i32 [[OP]], <[[NUM]] x half> [[hvec]])
   vector<bool, NUM> hRes = FUNC(hVec);
 
   // CHECK-NOT: extractelement

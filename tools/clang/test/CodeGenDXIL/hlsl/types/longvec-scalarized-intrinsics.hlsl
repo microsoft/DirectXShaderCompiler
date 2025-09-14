@@ -65,20 +65,6 @@ export void test_modf(inout vector<float, 8> vec1, vector<float, 8> vec2) {
   vec1 = modf(vec1, vec2);
 }
 
-// CHECK-LABEL: test_dot
-// CHECK: [[el:%.*]] = extractelement <8 x float>
-// CHECK: [[mul:%.*]] = fmul fast float [[el]]
-// CHECK: [[ping:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mul]]) ; FMad(a,b,c)
-// CHECK: [[pong:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[ping]]) ; FMad(a,b,c)
-// CHECK: [[ping:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[pong]]) ; FMad(a,b,c)
-// CHECK: [[pong:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[ping]]) ; FMad(a,b,c)
-// CHECK: [[ping:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[pong]]) ; FMad(a,b,c)
-// CHECK: [[pong:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[ping]]) ; FMad(a,b,c)
-// CHECK: [[ping:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[pong]]) ; FMad(a,b,c)
-export void test_dot(inout vector<float, 8> vec1, vector<float, 8> vec2) {
-  vec1 = dot(vec1, vec2);
-}
-
 // CHECK-LABEL: test_any
 // CHECK: or i1
 // CHECK: or i1

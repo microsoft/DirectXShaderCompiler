@@ -436,7 +436,6 @@ Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode,
                             ArrayRef<Value *> refArgs, Type *Ty, Type *RetTy,
                             OP *hlslOP, IRBuilder<> &Builder) {
   unsigned argNum = refArgs.size();
-
   std::vector<Value *> args = refArgs;
 
   if (Ty->isVectorTy()) {
@@ -456,16 +455,13 @@ Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode,
       retVal = Builder.CreateInsertElement(retVal, EltOP, i);
     }
     return retVal;
-  } else {
-    if (!RetTy->isVoidTy()) {
-      Value *retVal =
-          Builder.CreateCall(dxilFunc, args, hlslOP->GetOpCodeName(opcode));
-      return retVal;
-    } else {
-      // Cannot add name to void.
-      return Builder.CreateCall(dxilFunc, args);
-    }
   }
+
+  // Cannot add name to void.
+  if (RetTy->isVoidTy())
+    return Builder.CreateCall(dxilFunc, args);
+
+  return Builder.CreateCall(dxilFunc, args, hlslOP->GetOpCodeName(opcode));
 }
 
 // Creates a native vector call to for a "trivial" operation where only a single
@@ -741,17 +737,16 @@ Value *TranslateD3DColorToUByte4(CallInst *CI, IntrinsicOp IOP,
 
   if (Ty->isVectorTy()) {
     static constexpr int supportedVecElemCount = 4;
-    if (Ty->getVectorNumElements() == supportedVecElemCount) {
-      toByteConst =
-          ConstantVector::getSplat(supportedVecElemCount, toByteConst);
-      // Swizzle the input val -> val.zyxw
-      std::vector<int> mask{2, 1, 0, 3};
-      val = Builder.CreateShuffleVector(val, val, mask);
-    } else {
+    if (Ty->getVectorNumElements() != supportedVecElemCount) {
       llvm_unreachable(
           "Unsupported input type for intrinsic D3DColorToUByte4.");
       return UndefValue::get(CI->getType());
     }
+
+    toByteConst = ConstantVector::getSplat(supportedVecElemCount, toByteConst);
+    // Swizzle the input val -> val.zyxw
+    SmallVector<int, 4> mask{2, 1, 0, 3};
+    val = Builder.CreateShuffleVector(val, val, mask);
   }
 
   Value *byte4 = Builder.CreateFMul(toByteConst, val);
@@ -876,12 +871,11 @@ Value *TranslatePowImpl(hlsl::OP *hlslOP, IRBuilder<> &Builder, Value *x,
   // As applicable implement pow using only mul ops as done by Fxc.
   int32_t p = 0;
   if (CanUseFxcMulOnlyPatternForPow(Builder, x, y, p)) {
-    if (isFXCCompatMode) {
+    if (isFXCCompatMode)
       return TranslatePowUsingFxcMulOnlyPattern(Builder, x, p);
-    } else if (p == 2) {
-      // Only take care 2 for it will not affect register pressure.
+    // Only take care 2 for it will not affect register pressure.
+    if (p == 2)
       return Builder.CreateFMul(x, x);
-    }
   }
 
   // Default to log-mul-exp pattern if previous scenarios don't apply.
@@ -1722,13 +1716,13 @@ Value *TranslateAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     Value *refArgs[] = {nullptr, CI->getOperand(1)};
     return TrivialDxilOperation(DXIL::OpCode::FAbs, refArgs, CI->getType(), CI,
                                 hlslOP);
-  } else {
-    Value *src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-    IRBuilder<> Builder(CI);
-    Value *neg = Builder.CreateNeg(src);
-    return TrivialDxilBinaryOperation(DXIL::OpCode::IMax, src, neg, hlslOP,
-                                      Builder);
   }
+
+  Value *src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  IRBuilder<> Builder(CI);
+  Value *neg = Builder.CreateNeg(src);
+  return TrivialDxilBinaryOperation(DXIL::OpCode::IMax, src, neg, hlslOP,
+                                    Builder);
 }
 
 Value *TranslateUAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -1748,14 +1742,13 @@ Value *GenerateCmpNEZero(Value *val, IRBuilder<> Builder) {
   else
     zero = ConstantInt::get(EltTy, 0);
 
-  if (Ty != EltTy) {
+  if (Ty != EltTy)
     zero = ConstantVector::getSplat(Ty->getVectorNumElements(), zero);
-  }
 
   if (EltTy->isFloatingPointTy())
     return Builder.CreateFCmpUNE(val, zero);
-  else
-    return Builder.CreateICmpNE(val, zero);
+
+  return Builder.CreateICmpNE(val, zero);
 }
 
 Value *TranslateAllForValue(Value *val, IRBuilder<> &Builder) {
@@ -1764,15 +1757,16 @@ Value *TranslateAllForValue(Value *val, IRBuilder<> &Builder) {
   Type *Ty = val->getType();
   Type *EltTy = Ty->getScalarType();
 
-  if (Ty != EltTy) {
-    Value *Result = Builder.CreateExtractElement(cond, (uint64_t)0);
-    for (unsigned i = 1; i < Ty->getVectorNumElements(); i++) {
-      Value *Elt = Builder.CreateExtractElement(cond, i);
-      Result = Builder.CreateAnd(Result, Elt);
-    }
-    return Result;
-  } else
+  if (Ty == EltTy)
     return cond;
+
+  Value *Result = Builder.CreateExtractElement(cond, (uint64_t)0);
+  for (unsigned i = 1; i < Ty->getVectorNumElements(); i++) {
+    Value *Elt = Builder.CreateExtractElement(cond, i);
+    Result = Builder.CreateAnd(Result, Elt);
+  }
+
+  return Result;
 }
 
 Value *TranslateAll(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -1797,15 +1791,15 @@ Value *TranslateAny(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Type *Ty = val->getType();
   Type *EltTy = Ty->getScalarType();
 
-  if (Ty != EltTy) {
-    Value *Result = Builder.CreateExtractElement(cond, (uint64_t)0);
-    for (unsigned i = 1; i < Ty->getVectorNumElements(); i++) {
-      Value *Elt = Builder.CreateExtractElement(cond, i);
-      Result = Builder.CreateOr(Result, Elt);
-    }
-    return Result;
-  } else
+  if (Ty == EltTy)
     return cond;
+
+  Value *Result = Builder.CreateExtractElement(cond, (uint64_t)0);
+  for (unsigned i = 1; i < Ty->getVectorNumElements(); i++) {
+    Value *Elt = Builder.CreateExtractElement(cond, i);
+    Result = Builder.CreateOr(Result, Elt);
+  }
+  return Result;
 }
 
 Value *TranslateBitcast(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -1859,18 +1853,17 @@ Value *TranslateAsUint(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                        HLOperationLowerHelper &helper,
                        HLObjectOperationLowerHelper *pObjHelper,
                        bool &Translated) {
-  if (CI->getNumArgOperands() == 2) {
+  if (CI->getNumArgOperands() == 2)
     return TranslateBitcast(CI, IOP, opcode, helper, pObjHelper, Translated);
-  } else {
-    DXASSERT_NOMSG(CI->getNumArgOperands() == 4);
-    hlsl::OP *hlslOP = &helper.hlslOP;
-    Value *x = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
-    DXASSERT_NOMSG(x->getType()->getScalarType()->isDoubleTy());
-    Value *lo = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
-    Value *hi = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
-    IRBuilder<> Builder(CI);
-    return TranslateDoubleAsUint(x, lo, hi, Builder, hlslOP);
-  }
+
+  DXASSERT_NOMSG(CI->getNumArgOperands() == 4);
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *x = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
+  DXASSERT_NOMSG(x->getType()->getScalarType()->isDoubleTy());
+  Value *lo = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
+  Value *hi = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
+  IRBuilder<> Builder(CI);
+  return TranslateDoubleAsUint(x, lo, hi, Builder, hlslOP);
 }
 
 Value *TranslateAsDouble(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -2563,10 +2556,23 @@ Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *arg0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Type *Ty = arg0->getType();
+  Type *EltTy = Ty->getScalarType();
+
+  // SM6.9 introduced a DXIL operation for vectorized dot product
+  if (hlslOP->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus() &&
+      EltTy->isFloatingPointTy()) {
+    Value *arg1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+    IRBuilder<> Builder(CI);
+    Constant *opArg = hlslOP->GetU32Const((unsigned)DXIL::OpCode::FDot);
+    Value *args[] = {opArg, arg0, arg1};
+    Function *dxilFunc = hlslOP->GetOpFunc(DXIL::OpCode::FDot, Ty);
+    return TrivialDxilVectorOperation(dxilFunc, DXIL::OpCode::FDot, args, Ty,
+                                      hlslOP, Builder);
+  }
+
   unsigned vecSize = Ty->getVectorNumElements();
   Value *arg1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
-  Type *EltTy = Ty->getScalarType();
   if (EltTy->isFloatingPointTy() && Ty->getVectorNumElements() <= 4)
     return TranslateFDot(arg0, arg1, vecSize, hlslOP, Builder);
 
@@ -3121,12 +3127,12 @@ Value *TranslateMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
       unsigned vecSize = arg0Ty->getVectorNumElements();
       if (arg0Ty->getScalarType()->isFloatingPointTy()) {
         return TranslateFDot(arg0, arg1, vecSize, hlslOP, Builder);
-      } else {
-        DXIL::OpCode MadOpCode = DXIL::OpCode::IMad;
-        if (IOP == IntrinsicOp::IOP_umul)
-          MadOpCode = DXIL::OpCode::UMad;
-        return ExpandDot(arg0, arg1, vecSize, hlslOP, Builder, MadOpCode);
       }
+
+      DXIL::OpCode MadOpCode = DXIL::OpCode::IMad;
+      if (IOP == IntrinsicOp::IOP_umul)
+        MadOpCode = DXIL::OpCode::UMad;
+      return ExpandDot(arg0, arg1, vecSize, hlslOP, Builder, MadOpCode);
     } else {
       // mul(vector, scalar) == vector * scalar-splat
       arg1 = SplatToVector(arg1, arg0Ty, Builder);
@@ -3142,9 +3148,8 @@ Value *TranslateMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   // create fmul/mul for the pair of vectors or scalars
   if (arg0Ty->getScalarType()->isFloatingPointTy()) {
     return Builder.CreateFMul(arg0, arg1);
-  } else {
-    return Builder.CreateMul(arg0, arg1);
   }
+  return Builder.CreateMul(arg0, arg1);
 }
 
 // Sample intrinsics.
@@ -5030,7 +5035,7 @@ void TranslateSharedMemOrNodeAtomicBinOp(CallInst *CI, IntrinsicOp IOP,
 static Value *SkipAddrSpaceCast(Value *Ptr) {
   if (AddrSpaceCastInst *CastInst = dyn_cast<AddrSpaceCastInst>(Ptr))
     return CastInst->getOperand(0);
-  else if (ConstantExpr *ConstExpr = dyn_cast<ConstantExpr>(Ptr)) {
+  if (ConstantExpr *ConstExpr = dyn_cast<ConstantExpr>(Ptr)) {
     if (ConstExpr->getOpcode() == Instruction::AddrSpaceCast) {
       return ConstExpr->getOperand(0);
     }
@@ -5401,14 +5406,14 @@ Value *ApplyTriTessFactorOp(Value *input, DXIL::OpCode opcode, hlsl::OP *hlslOP,
     Value *combined =
         TrivialDxilBinaryOperation(opcode, temp, input2, hlslOP, Builder);
     return combined;
-  } else {
-    // Avg.
-    Value *temp = Builder.CreateFAdd(input0, input1);
-    Value *combined = Builder.CreateFAdd(temp, input2);
-    Value *rcp = ConstantFP::get(input0->getType(), 1.0 / 3.0);
-    combined = Builder.CreateFMul(combined, rcp);
-    return combined;
   }
+
+  // Avg.
+  Value *temp = Builder.CreateFAdd(input0, input1);
+  Value *combined = Builder.CreateFAdd(temp, input2);
+  Value *rcp = ConstantFP::get(input0->getType(), 1.0 / 3.0);
+  combined = Builder.CreateFMul(combined, rcp);
+  return combined;
 }
 
 // 4 inputs, 1 result
@@ -5427,15 +5432,15 @@ Value *ApplyQuadTessFactorOp(Value *input, DXIL::OpCode opcode,
     Value *combined =
         TrivialDxilBinaryOperation(opcode, temp0, temp1, hlslOP, Builder);
     return combined;
-  } else {
-    // Avg.
-    Value *temp0 = Builder.CreateFAdd(input0, input1);
-    Value *temp1 = Builder.CreateFAdd(input2, input3);
-    Value *combined = Builder.CreateFAdd(temp0, temp1);
-    Value *rcp = ConstantFP::get(input0->getType(), 0.25);
-    combined = Builder.CreateFMul(combined, rcp);
-    return combined;
   }
+
+  // Avg.
+  Value *temp0 = Builder.CreateFAdd(input0, input1);
+  Value *temp1 = Builder.CreateFAdd(input2, input3);
+  Value *combined = Builder.CreateFAdd(temp0, temp1);
+  Value *rcp = ConstantFP::get(input0->getType(), 0.25);
+  combined = Builder.CreateFMul(combined, rcp);
+  return combined;
 }
 
 // 4 inputs, 2 result
@@ -5455,18 +5460,18 @@ Value *Apply2DQuadTessFactorOp(Value *input, DXIL::OpCode opcode,
     combined = Builder.CreateInsertElement(combined, temp0, (uint64_t)0);
     combined = Builder.CreateInsertElement(combined, temp1, 1);
     return combined;
-  } else {
-    // Avg.
-    Value *temp0 = Builder.CreateFAdd(input0, input1);
-    Value *temp1 = Builder.CreateFAdd(input2, input3);
-    Value *combined = UndefValue::get(VectorType::get(input0->getType(), 2));
-    combined = Builder.CreateInsertElement(combined, temp0, (uint64_t)0);
-    combined = Builder.CreateInsertElement(combined, temp1, 1);
-    Constant *rcp = ConstantFP::get(input0->getType(), 0.5);
-    rcp = ConstantVector::getSplat(2, rcp);
-    combined = Builder.CreateFMul(combined, rcp);
-    return combined;
   }
+
+  // Avg.
+  Value *temp0 = Builder.CreateFAdd(input0, input1);
+  Value *temp1 = Builder.CreateFAdd(input2, input3);
+  Value *combined = UndefValue::get(VectorType::get(input0->getType(), 2));
+  combined = Builder.CreateInsertElement(combined, temp0, (uint64_t)0);
+  combined = Builder.CreateInsertElement(combined, temp1, 1);
+  Constant *rcp = ConstantFP::get(input0->getType(), 0.5);
+  rcp = ConstantVector::getSplat(2, rcp);
+  combined = Builder.CreateFMul(combined, rcp);
+  return combined;
 }
 
 Value *ResolveSmallValue(Value **pClampedResult, Value *rounded,
@@ -7458,6 +7463,7 @@ IntrinsicLower gLowerTable[] = {
      TranslateOuterProductAccumulate, DXIL::OpCode::OuterProductAccumulate},
     {IntrinsicOp::IOP___builtin_VectorAccumulate, TranslateVectorAccumulate,
      DXIL::OpCode::VectorAccumulate},
+    {IntrinsicOp::IOP_isnormal, TrivialIsSpecialFloat, DXIL::OpCode::IsNormal},
 };
 } // namespace
 static_assert(
@@ -7510,8 +7516,9 @@ unsigned GetEltTypeByteSizeForConstBuf(Type *EltType, const DataLayout &DL) {
   if (DL.getTypeSizeInBits(EltType) <= 32) {
     // Constant buffer is 4 bytes align.
     return 4;
-  } else
-    return 8;
+  }
+
+  return 8;
 }
 
 Value *GenerateCBLoad(Value *handle, Value *offset, Type *EltTy, OP *hlslOP,
@@ -7565,31 +7572,31 @@ Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
   Value *idx = (GEP->idx_begin() + 1)->get();
   if (dyn_cast<ConstantInt>(idx)) {
     return Builder.CreateExtractElement(ldData, idx);
-  } else {
-    // Dynamic indexing.
-    // Copy vec to array.
-    Type *Ty = ldData->getType();
-    Type *EltTy = Ty->getVectorElementType();
-    unsigned vecSize = Ty->getVectorNumElements();
-    ArrayType *AT = ArrayType::get(EltTy, vecSize);
-    IRBuilder<> AllocaBuilder(
-        GEP->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
-    Value *tempArray = AllocaBuilder.CreateAlloca(AT);
-    Value *zero = Builder.getInt32(0);
-    for (unsigned int i = 0; i < vecSize; i++) {
-      Value *Elt = Builder.CreateExtractElement(ldData, Builder.getInt32(i));
-      Value *Ptr =
-          Builder.CreateInBoundsGEP(tempArray, {zero, Builder.getInt32(i)});
-      Builder.CreateStore(Elt, Ptr);
-    }
-    // Load from temp array.
-    if (bInsertLdNextToGEP) {
-      // Insert the new GEP just before the old and to-be-deleted GEP
-      Builder.SetInsertPoint(GEP);
-    }
-    Value *EltGEP = Builder.CreateInBoundsGEP(tempArray, {zero, idx});
-    return Builder.CreateLoad(EltGEP);
   }
+
+  // Dynamic indexing.
+  // Copy vec to array.
+  Type *Ty = ldData->getType();
+  Type *EltTy = Ty->getVectorElementType();
+  unsigned vecSize = Ty->getVectorNumElements();
+  ArrayType *AT = ArrayType::get(EltTy, vecSize);
+  IRBuilder<> AllocaBuilder(
+      GEP->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
+  Value *tempArray = AllocaBuilder.CreateAlloca(AT);
+  Value *zero = Builder.getInt32(0);
+  for (unsigned int i = 0; i < vecSize; i++) {
+    Value *Elt = Builder.CreateExtractElement(ldData, Builder.getInt32(i));
+    Value *Ptr =
+        Builder.CreateInBoundsGEP(tempArray, {zero, Builder.getInt32(i)});
+    Builder.CreateStore(Elt, Ptr);
+  }
+  // Load from temp array.
+  if (bInsertLdNextToGEP) {
+    // Insert the new GEP just before the old and to-be-deleted GEP
+    Builder.SetInsertPoint(GEP);
+  }
+  Value *EltGEP = Builder.CreateInBoundsGEP(tempArray, {zero, idx});
+  return Builder.CreateLoad(EltGEP);
 }
 
 void TranslateResourceInCB(LoadInst *LI,
@@ -7905,11 +7912,11 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
     unsigned eltIdx = channelOffset >> 1;
     Value *Result = Builder.CreateExtractValue(loadLegacy, eltIdx);
     return Result;
-  } else {
-    Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
-    Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
-    return Builder.CreateExtractValue(loadLegacy, channelOffset);
   }
+
+  Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
+  Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
+  return Builder.CreateExtractValue(loadLegacy, channelOffset);
 }
 
 Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
@@ -7942,7 +7949,9 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
       Result = Builder.CreateInsertElement(Result, NewElt, i);
     }
     return Result;
-  } else if (is64) {
+  }
+
+  if (is64) {
     Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
     Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
     Value *Result = UndefValue::get(VectorType::get(EltTy, vecSize));
@@ -7964,16 +7973,16 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
       }
     }
     return Result;
-  } else {
-    Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
-    Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
-    Value *Result = UndefValue::get(VectorType::get(EltTy, vecSize));
-    for (unsigned i = 0; i < vecSize; ++i) {
-      Value *NewElt = Builder.CreateExtractValue(loadLegacy, channelOffset + i);
-      Result = Builder.CreateInsertElement(Result, NewElt, i);
-    }
-    return Result;
   }
+
+  Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
+  Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
+  Value *Result = UndefValue::get(VectorType::get(EltTy, vecSize));
+  for (unsigned i = 0; i < vecSize; ++i) {
+    Value *NewElt = Builder.CreateExtractValue(loadLegacy, channelOffset + i);
+    Result = Builder.CreateInsertElement(Result, NewElt, i);
+  }
+  return Result;
 }
 
 Value *TranslateConstBufMatLdLegacy(HLMatrixType MatTy, Value *handle,
@@ -8622,22 +8631,22 @@ static Value *LowerGEPOnMatIndexListToIndex(llvm::GetElementPtrInst *GEP,
 
   if (ConstantInt *immIdx = dyn_cast<ConstantInt>(Idx)) {
     return IdxList[immIdx->getSExtValue()];
-  } else {
-    IRBuilder<> AllocaBuilder(
-        GEP->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
-    unsigned size = IdxList.size();
-    // Store idxList to temp array.
-    ArrayType *AT = ArrayType::get(IdxList[0]->getType(), size);
-    Value *tempArray = AllocaBuilder.CreateAlloca(AT);
-
-    for (unsigned i = 0; i < size; i++) {
-      Value *EltPtr = Builder.CreateGEP(tempArray, {zero, Builder.getInt32(i)});
-      Builder.CreateStore(IdxList[i], EltPtr);
-    }
-    // Load the idx.
-    Value *GEPOffset = Builder.CreateGEP(tempArray, {zero, Idx});
-    return Builder.CreateLoad(GEPOffset);
   }
+
+  IRBuilder<> AllocaBuilder(
+      GEP->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
+  unsigned size = IdxList.size();
+  // Store idxList to temp array.
+  ArrayType *AT = ArrayType::get(IdxList[0]->getType(), size);
+  Value *tempArray = AllocaBuilder.CreateAlloca(AT);
+
+  for (unsigned i = 0; i < size; i++) {
+    Value *EltPtr = Builder.CreateGEP(tempArray, {zero, Builder.getInt32(i)});
+    Builder.CreateStore(IdxList[i], EltPtr);
+  }
+  // Load the idx.
+  Value *GEPOffset = Builder.CreateGEP(tempArray, {zero, Idx});
+  return Builder.CreateLoad(GEPOffset);
 }
 
 // subscript operator for matrix of struct element.
@@ -9237,7 +9246,9 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
                                 helper.dataLayout, pObjHelper);
     Translated = true;
     return;
-  } else if (opcode == HLSubscriptOpcode::DoubleSubscript) {
+  }
+
+  if (opcode == HLSubscriptOpcode::DoubleSubscript) {
     // Resource ptr.
     Value *handle = ptr;
     DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
@@ -9265,36 +9276,37 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     }
     Translated = true;
     return;
-  } else {
-    Type *HandleTy = hlslOP->GetHandleType();
-    if (ptr->getType() == hlslOP->GetNodeRecordHandleType()) {
-      DXASSERT(false, "Shouldn't get here, NodeRecord subscripts should have "
-                      "been lowered in LowerRecordAccessToGetNodeRecordPtr");
+  }
+
+  Type *HandleTy = hlslOP->GetHandleType();
+  if (ptr->getType() == hlslOP->GetNodeRecordHandleType()) {
+    DXASSERT(false, "Shouldn't get here, NodeRecord subscripts should have "
+                    "been lowered in LowerRecordAccessToGetNodeRecordPtr");
+    return;
+  }
+
+  if (ptr->getType() == HandleTy) {
+    // Resource ptr.
+    Value *handle = ptr;
+    DXIL::ResourceKind RK = DxilResource::Kind::Invalid;
+    Type *ObjTy = nullptr;
+    Type *RetTy = nullptr;
+    RK = pObjHelper->GetRK(handle);
+    if (RK == DxilResource::Kind::Invalid) {
+      Translated = false;
       return;
     }
-    if (ptr->getType() == HandleTy) {
-      // Resource ptr.
-      Value *handle = ptr;
-      DXIL::ResourceKind RK = DxilResource::Kind::Invalid;
-      Type *ObjTy = nullptr;
-      Type *RetTy = nullptr;
-      RK = pObjHelper->GetRK(handle);
-      if (RK == DxilResource::Kind::Invalid) {
-        Translated = false;
-        return;
-      }
-      ObjTy = pObjHelper->GetResourceType(handle);
-      RetTy = ObjTy->getStructElementType(0);
-      Translated = true;
+    ObjTy = pObjHelper->GetResourceType(handle);
+    RetTy = ObjTy->getStructElementType(0);
+    Translated = true;
 
-      if (DXIL::IsStructuredBuffer(RK))
-        TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP, RK,
-                                    helper.dataLayout);
-      else
-        TranslateTypedBufferSubscript(CI, helper, pObjHelper, Translated);
+    if (DXIL::IsStructuredBuffer(RK))
+      TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP, RK,
+                                  helper.dataLayout);
+    else
+      TranslateTypedBufferSubscript(CI, helper, pObjHelper, Translated);
 
-      return;
-    }
+    return;
   }
 
   Value *basePtr = CI->getArgOperand(HLOperandIndex::kMatSubscriptMatOpIdx);
@@ -9305,10 +9317,10 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     Translated = true;
     return;
   }
+
   // Other case should be take care in TranslateStructBufSubscript or
   // TranslateCBOperations.
   Translated = false;
-  return;
 }
 
 void TranslateSubscriptOperation(Function *F, HLOperationLowerHelper &helper,
@@ -9343,17 +9355,17 @@ static Instruction *BitCastValueOrPtr(Value *V, Instruction *Insert, Type *Ty,
   if (Ty->isPointerTy()) {
     // If pointer, we can bitcast directly
     return cast<Instruction>(Builder.CreateBitCast(V, Ty, Name));
-  } else {
-    // If value, we have to alloca, store to bitcast ptr, and load
-    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Insert));
-    Type *allocaTy = bOrigAllocaTy ? V->getType() : Ty;
-    Type *otherTy = bOrigAllocaTy ? Ty : V->getType();
-    Instruction *allocaInst = AllocaBuilder.CreateAlloca(allocaTy);
-    Instruction *bitCast = cast<Instruction>(
-        Builder.CreateBitCast(allocaInst, otherTy->getPointerTo()));
-    Builder.CreateStore(V, bOrigAllocaTy ? allocaInst : bitCast);
-    return Builder.CreateLoad(bOrigAllocaTy ? bitCast : allocaInst, Name);
   }
+
+  // If value, we have to alloca, store to bitcast ptr, and load
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Insert));
+  Type *allocaTy = bOrigAllocaTy ? V->getType() : Ty;
+  Type *otherTy = bOrigAllocaTy ? Ty : V->getType();
+  Instruction *allocaInst = AllocaBuilder.CreateAlloca(allocaTy);
+  Instruction *bitCast = cast<Instruction>(
+      Builder.CreateBitCast(allocaInst, otherTy->getPointerTo()));
+  Builder.CreateStore(V, bOrigAllocaTy ? allocaInst : bitCast);
+  return Builder.CreateLoad(bOrigAllocaTy ? bitCast : allocaInst, Name);
 }
 
 static Instruction *CreateTransposeShuffle(IRBuilder<> &Builder, Value *vecVal,

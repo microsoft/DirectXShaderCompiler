@@ -862,6 +862,19 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
                                 SourceLocation());
   }
 
+  // For Vulkan 1.2 and later, add SignedZeroInfNanPreserve when -Gis is
+  // provided to preserve NaN/Inf and signed zeros.
+  if (spirvOptions.IEEEStrict) {
+    if (featureManager.getSpirvVersion(featureManager.getTargetEnv()) <
+        VersionTuple(1, 2))
+      spvBuilder.requireExtension("SPV_KHR_float_controls", SourceLocation());
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::SignedZeroInfNanPreserve,
+                                {32}, SourceLocation());
+    spvBuilder.requireCapability(spv::Capability::SignedZeroInfNanPreserve,
+                                 SourceLocation());
+  }
+
   llvm::StringRef denormMode = spirvOptions.floatDenormalMode;
   if (!denormMode.empty()) {
     if (denormMode.equals_lower("preserve")) {
@@ -1929,7 +1942,7 @@ void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
         bufferDecl,
         DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferKHR);
   } else {
-    (void)declIdMapper.createCTBuffer(bufferDecl);
+    declIdMapper.createCTBuffer(bufferDecl);
   }
 }
 
@@ -9645,6 +9658,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_isfinite:
     retVal = processIntrinsicIsFinite(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_isnormal:
+    retVal = processIntrinsicIsNormal(callExpr);
+    break;
   case hlsl::IntrinsicOp::IOP_EvaluateAttributeCentroid:
   case hlsl::IntrinsicOp::IOP_EvaluateAttributeAtSample:
   case hlsl::IntrinsicOp::IOP_EvaluateAttributeSnapped: {
@@ -9670,6 +9686,17 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                                         callExpr->getSourceRange());
     break;
   }
+  case hlsl::IntrinsicOp::IOP_uabs: {
+    if (isUintOrVecMatOfUintType(callExpr->getArg(0)->getType())) {
+      // If unsigned, it's a no-op. Skip generating an `OpExtInst` instruction.
+      // Simply load and store the value.
+      auto *loadInst = doExpr(callExpr->getArg(0));
+      retVal = loadInst;
+      break;
+    }
+    emitError("uabs intrinsic requires unsigned integer input type", srcLoc);
+    return nullptr;
+  }
     INTRINSIC_SPIRV_OP_CASE(countbits, BitCount, false);
     INTRINSIC_SPIRV_OP_CASE(fmod, FRem, true);
     INTRINSIC_SPIRV_OP_CASE(fwidth, Fwidth, true);
@@ -9677,7 +9704,6 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_SPIRV_OP_CASE(and, LogicalAnd, false);
     INTRINSIC_SPIRV_OP_CASE(or, LogicalOr, false);
     INTRINSIC_OP_CASE(round, RoundEven, true);
-    INTRINSIC_OP_CASE(uabs, SAbs, true);
     INTRINSIC_OP_CASE_INT_FLOAT(abs, SAbs, FAbs, true);
     INTRINSIC_OP_CASE(acos, Acos, true);
     INTRINSIC_OP_CASE(asin, Asin, true);
@@ -12309,6 +12335,73 @@ SpirvEmitter::processIntrinsicIsFinite(const CallExpr *callExpr) {
                                                  isNanOrInf, loc, range);
     output->setLayoutRule(SpirvLayoutRule::Void);
     return output;
+  };
+
+  // If the instruction does not operate on matrices, we can perform the
+  // instruction on each vector of the matrix.
+  if (isMxNMatrix(arg->getType())) {
+    assert(isMxNMatrix(returnType));
+    return processEachVectorInMatrix(arg, returnType, argId, actOnEachVec, loc,
+                                     range);
+  }
+  return actOnEachVec(/* index= */ 0, arg->getType(), returnType, argId);
+}
+
+SpirvInstruction *
+SpirvEmitter::processIntrinsicIsNormal(const CallExpr *callExpr) {
+  // Since OpIsNormal needs the Kernel capability, translation is instead done
+  // IsNormal = !(zero || NaN || Inf || Subnormal)
+  // Check that the exponent is neither all 0s nor all 1s
+  const auto loc = callExpr->getExprLoc();
+  const auto range = callExpr->getSourceRange();
+  const QualType returnType = callExpr->getType();
+  const Expr *arg = callExpr->getArg(0);
+  auto *argId = doExpr(arg);
+
+  const auto actOnEachVec = [this, loc, range](
+                                uint32_t /*index*/, QualType inType,
+                                QualType outType, SpirvInstruction *curRow) {
+    QualType intTy;
+    SpirvConstant *expMask;
+    SpirvConstant *zero;
+    if (isHalfOrVecOfHalfType(inType)) {
+      intTy = astContext.UnsignedShortTy;
+      expMask = spvBuilder.getConstantInt(intTy, llvm::APInt(16, 0x7c00));
+      zero = spvBuilder.getConstantInt(intTy, llvm::APInt(16, 0));
+    } else {
+      assert(isFloatOrVecOfFloatType(inType));
+      intTy = astContext.UnsignedIntTy;
+      expMask = spvBuilder.getConstantInt(intTy, llvm::APInt(32, 0x7F800000));
+      zero = spvBuilder.getConstantInt(intTy, llvm::APInt(32, 0));
+    }
+
+    QualType boolTy = astContext.BoolTy;
+    uint32_t vecSize;
+    if (isVectorType(inType, nullptr, &vecSize)) {
+      intTy = astContext.getExtVectorType(intTy, vecSize);
+      boolTy = astContext.getExtVectorType(boolTy, vecSize);
+      expMask = spvBuilder.getConstantComposite(
+          intTy, llvm::SmallVector<SpirvConstant *, 4>(vecSize, expMask));
+      zero = spvBuilder.getConstantComposite(
+          intTy, llvm::SmallVector<SpirvConstant *, 4>(vecSize, zero));
+    }
+
+    auto *bitCast =
+        spvBuilder.createUnaryOp(spv::Op::OpBitcast, intTy, curRow, loc);
+    bitCast->setLayoutRule(SpirvLayoutRule::Void);
+    auto *masked = spvBuilder.createBinaryOp(spv::Op::OpBitwiseAnd, intTy,
+                                             bitCast, expMask, loc, range);
+    masked->setLayoutRule(SpirvLayoutRule::Void);
+    auto *notZero = spvBuilder.createBinaryOp(spv::Op::OpINotEqual, boolTy,
+                                              masked, zero, loc, range);
+    notZero->setLayoutRule(SpirvLayoutRule::Void);
+    auto *notOnes = spvBuilder.createBinaryOp(spv::Op::OpINotEqual, boolTy,
+                                              masked, expMask, loc, range);
+    notOnes->setLayoutRule(SpirvLayoutRule::Void);
+    auto *isNormal = spvBuilder.createBinaryOp(spv::Op::OpLogicalAnd, boolTy,
+                                               notZero, notOnes, loc, range);
+    isNormal->setLayoutRule(SpirvLayoutRule::Void);
+    return isNormal;
   };
 
   // If the instruction does not operate on matrices, we can perform the
