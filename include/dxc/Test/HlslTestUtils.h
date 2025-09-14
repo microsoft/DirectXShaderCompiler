@@ -36,7 +36,6 @@
 #include <dxgiformat.h>
 #else
 #include "WEXAdapter.h"
-#include "dxc/Support/Global.h" // DXASSERT_LOCALVAR
 #endif
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
 

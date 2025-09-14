@@ -15,9 +15,6 @@
 #ifndef __SHADEROPTEST_H__
 #define __SHADEROPTEST_H__
 
-#include <atlbase.h>
-#include <d3d12.h>
-#include <dxgi1_4.h>
 #include <functional>
 #include <map>
 #include <memory>
