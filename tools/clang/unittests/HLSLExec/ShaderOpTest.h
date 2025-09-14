@@ -15,16 +15,15 @@
 #ifndef __SHADEROPTEST_H__
 #define __SHADEROPTEST_H__
 
+#include <atlbase.h>
+#include <d3d12.h>
+#include <dxgi1_4.h>
 #include <functional>
 #include <map>
 #include <memory>
 #include <set>
 #include <unordered_set>
 #include <vector>
-
-#include <atlbase.h>
-#include <d3d12.h>
-#include <dxgi1_4.h>
 
 // We need to keep & fix these warnings to integrate smoothly with HLK
 #pragma warning(error : 4100 4242 4244 4267 4701 4389)
@@ -150,8 +149,8 @@ public:
   D3D12_RESOURCE_DESC Desc;             // Resource description.
   D3D12_RESOURCE_STATES InitialResourceState; // Initial state.
   D3D12_RESOURCE_STATES
-  TransitionTo;  // State to transition before running shader.
-  BOOL ReadBack; // TRUE to read back to CPU after operations are done.
+      TransitionTo; // State to transition before running shader.
+  BOOL ReadBack;    // TRUE to read back to CPU after operations are done.
   std::vector<BYTE> InitBytes;              // Byte payload for initialization.
   D3D_PRIMITIVE_TOPOLOGY PrimitiveTopology; // Primitive topology.
 };
@@ -183,7 +182,7 @@ class ShaderOpRenderTarget {
 public:
   LPCSTR Name; // Render target name
   D3D12_VIEWPORT
-  Viewport; // Viewport to use; if Width == 0 use the full render target
+      Viewport; // Viewport to use; if Width == 0 use the full render target
 };
 
 // Use this class to hold all information needed for a Draw/Dispatch call.
@@ -225,11 +224,10 @@ public:
     return result;
   }
   LPCSTR GetShaderArguments(ShaderOpShader *pShader) {
-    if (!pShader || !pShader->Arguments)
-      return nullptr;
+    if (!pShader || !pShader->Arguments) return nullptr;
     LPCSTR result = pShader->Arguments;
     if (result[0] == '@') {
-      for (auto &&S : Shaders) {
+      for (auto && S : Shaders) {
         if (S.Name && 0 == strcmp(S.Name, result + 1))
           return S.Arguments;
       }
