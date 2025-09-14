@@ -6,8 +6,8 @@
 #include "DxilConfTestUtils.h"
 #else
 #include "HlslTestUtils.h"
+#include "dxc/Support/Global.h"
 #endif
-
 
 // Parameter representation for taef data-driven tests
 struct TableParameter {
