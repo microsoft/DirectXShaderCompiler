@@ -373,6 +373,7 @@ $match<1, 0> bool<> [[rn]] and(in bool<> x, in $type1 y);
 $match<1, 0> bool<> [[rn]] or(in bool<> x, in $type1 y);
 $type2 [[rn]] select(in bool<> cond, in $match<1, 2> any<> t, in $type2 f);
 $type2 [[rn]] select(in bool cond, in any_sampler t, in $type2 f);
+DxHitObject [[rn,min_sm=6.9]] select(in bool cond, in DxHitObject t, in DxHitObject f);
 
 // Work Graph intrinsics
 void [[]] Barrier(in uint MemoryTypeFlags, in uint SemanticFlags);

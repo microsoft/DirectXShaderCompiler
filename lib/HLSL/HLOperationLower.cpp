@@ -6537,6 +6537,22 @@ Value *TranslateSelect(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                        HLOperationLowerHelper &helper,
                        HLObjectOperationLowerHelper *pObjHelper,
                        bool &Translated) {
+  if (isa<PointerType>(CI->getArgOperand(1)->getType())) {
+    // Special handling of 'select' dx::HitObject overload.
+    Value *DestPtr = CI->getArgOperand(1);
+    DXASSERT(
+        dxilutil::IsHLSLHitObjectType(
+            cast<PointerType>(DestPtr->getType())->getPointerElementType()),
+        "Expected HitObject type for dest pointer");
+    Value *Cond = CI->getArgOperand(1 + HLOperandIndex::kTrinaryOpSrc0Idx);
+    Value *TruePtr = CI->getArgOperand(1 + HLOperandIndex::kTrinaryOpSrc1Idx);
+    Value *FalsePtr = CI->getArgOperand(1 + HLOperandIndex::kTrinaryOpSrc2Idx);
+    IRBuilder<> Builder(CI);
+    Value *ResVal = Builder.CreateSelect(Cond, Builder.CreateLoad(TruePtr),
+                                         Builder.CreateLoad(FalsePtr));
+    Builder.CreateStore(ResVal, DestPtr);
+    return nullptr;
+  }
   Value *cond = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
   Value *t = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
   Value *f = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
