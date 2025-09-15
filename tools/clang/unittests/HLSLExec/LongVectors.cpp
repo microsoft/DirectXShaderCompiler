@@ -984,14 +984,13 @@ using namespace LongVector;
 #define METHOD_NAME(Op, DataType, Variant)                                     \
   CONCAT(Op##_##DataType, VARIANT_NAME(Variant))
 
-#define CONCAT(a,b) CONCAT_I(a,b)
-#define CONCAT_I(a,b) a##b
+#define CONCAT(a, b) CONCAT_I(a, b)
+#define CONCAT_I(a, b) a##b
 
 #define HLK_TEST(Op, DataType, Variant)                                        \
   TEST_METHOD(METHOD_NAME(Op, DataType, Variant)) {                            \
     runTest<DataType, OpType ::Op>(VARIANT_VALUE_##Variant);                   \
   }
-
 
 class DxilConf_SM69_Vectorized {
 public:
