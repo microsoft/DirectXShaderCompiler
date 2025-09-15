@@ -15,6 +15,7 @@
 
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/dxcapi.extval.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/dxcapi.h"
 #include "dxc/dxcapi.internal.h"
@@ -42,10 +43,11 @@ static cl::opt<std::string>
 
 class DxvContext {
 private:
-  SpecificDllLoader &m_dxcSupport;
+  DxcDllExtValidationLoader &m_dxcSupport;
 
 public:
-  DxvContext(SpecificDllLoader &dxcSupport) : m_dxcSupport(dxcSupport) {}
+  DxvContext(DxcDllExtValidationLoader &dxcSupport)
+      : m_dxcSupport(dxcSupport) {}
 
   void Validate();
 };
@@ -160,8 +162,10 @@ int main(int argc, const char **argv) {
       return 2;
     }
 
-    DxCompilerDllLoader dxcSupport;
-    IFT(dxcSupport.Initialize());
+    DxcDllExtValidationLoader dxcSupport;
+    std::string dllLogString;
+    llvm::raw_string_ostream dllErrorStream(dllLogString);
+    IFT(dxcSupport.Initialize(dllErrorStream));
 
     DxvContext context(dxcSupport);
     pStage = "Validation";
