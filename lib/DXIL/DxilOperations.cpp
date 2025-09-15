@@ -477,16 +477,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0xc0}},
-     {{0x0}}}, // Overloads: il
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
     {OC::Ibfe,
      "Ibfe",
      OCC::Tertiary,
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0xc0}},
-     {{0x0}}}, // Overloads: il
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
 
     // Tertiary uint
     {OC::Ubfe,
@@ -495,8 +495,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0xc0}},
-     {{0x0}}}, // Overloads: il
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
 
     // Quaternary
     {OC::Bfi,

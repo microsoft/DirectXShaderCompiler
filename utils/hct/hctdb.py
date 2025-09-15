@@ -1756,7 +1756,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Tertiary",
                 "performs an integral " + i,
-                "il",
+                "i",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "the operation result"),
