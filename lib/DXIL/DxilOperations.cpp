@@ -1099,16 +1099,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "quadReadLaneAt",
      Attribute::None,
      1,
-     {{0xff}},
-     {{0x0}}}, // Overloads: hfd18wil
+     {{0x4ff}},
+     {{0xff}}}, // Overloads: hfd18wil<hfd18wil
     {OC::QuadOp,
      "QuadOp",
      OCC::QuadOp,
      "quadOp",
      Attribute::None,
      1,
-     {{0xf7}},
-     {{0x0}}}, // Overloads: hfd8wil
+     {{0x4f7}},
+     {{0xf7}}}, // Overloads: hfd8wil<hfd8wil
 
     // Bitcasts with different sizes
     {OC::BitcastI16toF16,

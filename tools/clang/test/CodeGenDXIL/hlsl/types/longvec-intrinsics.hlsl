@@ -541,6 +541,8 @@ void main() {
   float fResScalar = dot(fVec1, fVec2);
   fRes[0] += fResScalar;
 
+  // Insert QuadOp tests here.
+
   // CHECK-NOT: extractelement
   // CHECK-NOT: insertelement
   buf.Store<vector<float16_t, NUM> >(0, hRes);
