@@ -6169,7 +6169,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     uint32_t ArgIdx = i + ArgsToSkip;
     const Expr *Arg = E->getArg(ArgIdx);
     QualType ParamTy = Param->getType().getNonReferenceType();
-    bool isObject = !IsByValueObject(ParamTy) && dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
+    bool isObject = !IsByValueObject(ParamTy) &&
+                    dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
     bool bAnnotResource = false;
     if (isObject) {
       auto [glcMismatch, rdcMismatch] =
@@ -6194,7 +6195,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     bool isAggregateType =
         !isObject &&
         (isArray || (ParamTy->isRecordType() && !(isMatrix || isVector)));
-    // Treat by-value objects as aggregate for copy-in to implement by-value semantics
+    // Treat by-value objects as aggregate for copy-in to implement by-value
+    // semantics
     if (IsByValueObject(ParamElTy))
       isAggregateType = true;
 
