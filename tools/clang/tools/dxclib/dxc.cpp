@@ -924,9 +924,8 @@ int DxcContext::Compile() {
           CComPtr<IDxcCompiler3> pCompilerv3;
           IFT(CreateInstance(CLSID_DxcCompiler, &pCompilerv3));
 
-          IFT(pCompilerv3->Compile(
-              &buf, args.data(), args.size(), nullptr,
-              IID_PPV_ARGS(&pCompileResult)));
+          IFT(pCompilerv3->Compile(&buf, args.data(), args.size(), nullptr,
+                                   IID_PPV_ARGS(&pCompileResult)));
 
           // Then validate
           if (!m_Opts.DisableValidation)

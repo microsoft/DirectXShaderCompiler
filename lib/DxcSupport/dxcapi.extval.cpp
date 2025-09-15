@@ -44,7 +44,7 @@ HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
 
   // If there is intent to use an external dxil.dll
   if (!DxilDllPath.empty() && !DxilDllFailedToLoad()) {
-    if (clsid == CLSID_DxcCompiler) {    
+    if (clsid == CLSID_DxcCompiler) {
       // Create compiler
       CComPtr<IDxcCompiler3> m_pCompiler;
       HRESULT hr = DxCompilerSupport.CreateInstance<IDxcCompiler3>(
@@ -89,7 +89,7 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
   // If there is intent to use an external dxil.dll
   if (!DxilDllPath.empty() && !DxilDllFailedToLoad()) {
     if (clsid == CLSID_DxcCompiler) {
-    
+
       // Create compiler
       CComPtr<IDxcCompiler3> m_pCompiler;
       HRESULT hr = DxCompilerSupport.CreateInstance2<IDxcCompiler3>(
@@ -113,12 +113,11 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
       hr = evh->QueryInterface(riid, reinterpret_cast<void **>(pResult));
       evh->Release();
       return hr;
-    }  
-    else if (clsid == CLSID_DxcValidator) {
+    } else if (clsid == CLSID_DxcValidator) {
       return DxilExtValSupport.CreateInstance2<IDxcValidator>(
           pMalloc, clsid, reinterpret_cast<IDxcValidator **>(pResult));
     }
-  } 
+  }
 
   // Fallback: let DxCompiler handle it
   return DxCompilerSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
@@ -157,7 +156,7 @@ HRESULT DxcDllExtValidationLoader::Initialize(llvm::raw_string_ostream &log) {
     log << "dxil.dll failed to load";
     return Result;
   }
-  
+
   return Result;
 }
 
