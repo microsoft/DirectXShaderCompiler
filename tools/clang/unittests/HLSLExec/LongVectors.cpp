@@ -965,11 +965,46 @@ void dispatchTest(const TestConfig<T, OP> &Config) {
   }
 }
 
+} // namespace LongVector
+
+using namespace LongVector;
+
 // TAEF test entry points
 
-class OpTest {
+#define VARIANT_NAME_Vector
+#define VARIANT_NAME_ScalarOp2 _Scalar
+#define VARIANT_NAME_ScalarOp3 _Scalar
+
+#define VARIANT_VALUE_Vector 0
+#define VARIANT_VALUE_ScalarOp2 2
+#define VARIANT_VALUE_ScalarOp3 4
+
+#define VARIANT_NAME(v) VARIANT_NAME_##v
+
+#define METHOD_NAME(Op, DataType, Variant)                                     \
+  CONCAT(Op##_##DataType, VARIANT_NAME(Variant))
+
+#define CONCAT(a,b) CONCAT_I(a,b)
+#define CONCAT_I(a,b) a##b
+
+#define HLK_TEST(Op, DataType, Variant)                                        \
+  TEST_METHOD(METHOD_NAME(Op, DataType, Variant)) {                            \
+    runTest<DataType, OpType ::Op>(VARIANT_VALUE_##Variant);                   \
+  }
+
+
+class DxilConf_SM69_Vectorized {
 public:
-  TEST_CLASS(OpTest);
+  BEGIN_TEST_CLASS(DxilConf_SM69_Vectorized)
+  TEST_CLASS_PROPERTY("Kits.TestName",
+                      "D3D12 - Shader Model 6.9 - Vectorized DXIL - Core Tests")
+  TEST_CLASS_PROPERTY("Kits.TestId", "81db1ff8-5bc5-48a1-8d7b-600fc600a677")
+  TEST_CLASS_PROPERTY("Kits.Description",
+                      "Validates required SM 6.9 vectorized DXIL operations")
+  TEST_CLASS_PROPERTY(
+      "Kits.Specification",
+      "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")
+  END_TEST_CLASS()
 
   TEST_CLASS_SETUP(classSetup) {
     // Run this only once.
@@ -1030,924 +1065,457 @@ public:
     dispatchTest(TestConfig<T, OP>(VerboseLogging, ScalarInputFlags));
   }
 
-#define DESCRIPTION(Base, Op, DataType, Variant)                               \
-  Base " " #Op " (" #DataType " " #Variant ")"
-
-#define VARIANT_NAME_Vector
-#define VARIANT_NAME_ScalarOp2 _ScalarOp2
-#define VARIANT_NAME_ScalarOp3 _ScalarOp3
-
-#define VARIANT_VALUE_Vector 0
-#define VARIANT_VALUE_ScalarOp2 2
-#define VARIANT_VALUE_ScalarOp3 4
-
-#define VARIANT_NAME(v) VARIANT_NAME_##v
-
-#define CONCAT(a, b) CONCAT_I(a, b)
-#define CONCAT_I(a, b) a##b
-
-#define TEST_NAME(Op, DataType, Variant) KITS_TESTNAME #DataType " - " #Variant
-
-#define HLK_TEST_METHOD(MethodName, Description, Specification, TestName,      \
-                        Guid, Op, Variant, DataType)                           \
-  TEST_METHOD(MethodName) {                                                    \
-    BEGIN_TEST_METHOD_PROPERTIES()                                             \
-    TEST_METHOD_PROPERTY("Kits.Description", Description)                      \
-    TEST_METHOD_PROPERTY("Kits.Specification", Specification)                  \
-    TEST_METHOD_PROPERTY("Kits.TestName", TestName)                            \
-    TEST_METHOD_PROPERTY("Kits.TestId", Guid)                                  \
-    END_TEST_METHOD_PROPERTIES();                                              \
-    runTest<DataType, OpType ::Op>(Variant);                                   \
-  }
-
-#define HLK_TEST(MethodName, Op, DataType, Variant, GUID)                      \
-  HLK_TEST_METHOD(MethodName,                                                  \
-                  DESCRIPTION(KITS_DESCRIPTION, Op, DataType, Variant),        \
-                  KITS_SPECIFICATION, TEST_NAME(Op, DataType, Variant), GUID,  \
-                  Op, VARIANT_VALUE_##Variant, DataType)
-
-#define KITS_DESCRIPTION "Verifies the vectorized DXIL instruction"
-#define KITS_SPECIFICATION                                                     \
-  "Device.Graphics.WDDMXXX.AdapterRender.D3D12.DXILCore.ShaderModel69."        \
-  "CoreRequirement"
-
-#define KITS_TESTNAME "D3D12 - Shader Model 6.9 - vectorized DXIL - "
-
   // TernaryMath
 
-  HLK_TEST(Mad_uint16_t, Mad, uint16_t, Vector,
-           "eb7d60e7-c32b-41d5-93fe-bbeac5f2f934");
-  HLK_TEST(Mad_uint16_t_Scalar, Mad, uint16_t, ScalarOp3,
-           "828d57e0-e0db-471d-ad3c-b35268f712b5");
-  HLK_TEST(Mad_uint32_t, Mad, uint32_t, Vector,
-           "bbaabc74-e41e-4a7d-a78c-f91177afc071");
-  HLK_TEST(Mad_uint32_t_Scalar, Mad, uint32_t, ScalarOp2,
-           "7c8ef25b-d5a2-4a3e-a6c6-ec83e26a4b81");
-  HLK_TEST(Mad_uint64_t, Mad, uint64_t, Vector,
-           "7020262a-f74c-4dd2-9952-45275c08de50");
-  HLK_TEST(Mad_uint64_t_Scalar, Mad, uint64_t, ScalarOp3,
-           "392dd509-f531-450a-bc0d-c8f08dcf399f");
-  HLK_TEST(Mad_int16_t, Mad, int16_t, Vector,
-           "b62bd6a3-e564-42ce-93b1-21295647b9d9");
-  HLK_TEST(Mad_int16_t_Scalar, Mad, int16_t, ScalarOp2,
-           "dae04e2d-c929-4b7d-8a23-bdca862cdc02");
-  HLK_TEST(Mad_int, Mad, int32_t, Vector,
-           "c692e0d6-1973-4a18-b013-ab769ee177a3");
-  HLK_TEST(Mad_int_Scalar, Mad, int32_t, ScalarOp2,
-           "18005439-0a84-4972-9b5d-8d214a6bdae8");
-  HLK_TEST(Mad_int64_t, Mad, int64_t, Vector,
-           "440995bd-47be-410c-a3cd-25dac2b66218");
-  HLK_TEST(Mad_int64_t_Scalar, Mad, int64_t, ScalarOp3,
-           "2af43011-b71b-4f80-9a4e-52835391aa26");
-  HLK_TEST(Mad_half, Mad, HLSLHalf_t, Vector,
-           "61fd5c80-ff89-40c8-9e7d-d8f8498c6d34");
-  HLK_TEST(Mad_half_Scalar, Mad, HLSLHalf_t, ScalarOp2,
-           "1e29537e-3dcd-4e88-9772-ca01afb80788");
-  HLK_TEST(SmoothStep_half, SmoothStep, HLSLHalf_t, Vector,
-           "9afc0bf6-4da8-4cd8-9a9c-e400e0718498");
-  HLK_TEST(SmoothStep_half_Scalar, SmoothStep, HLSLHalf_t, ScalarOp2,
-           "ccb6720c-2f00-4a78-897d-48532ee5ed16");
-  HLK_TEST(Mad_float, Mad, float, Vector,
-           "2f30def6-0539-4636-8788-7648e0000049");
-  HLK_TEST(Mad_float_Scalar, Mad, float, ScalarOp2,
-           "b61b898e-aadd-4d34-b43b-157a8ce9be28");
-  HLK_TEST(SmoothStep_float, SmoothStep, float, Vector,
-           "0128e0a2-6464-4238-83ef-0760d680d210");
-  HLK_TEST(SmoothStep_float_Scalar, SmoothStep, float, ScalarOp3,
-           "ae3ce5f0-f331-464d-836c-bf0a74903b01");
-  HLK_TEST(Fma_double, Fma, double, Vector,
-           "70c54dcf-c62c-459a-95d5-4e8850baddb9");
-  HLK_TEST(Fma_double_Scalar, Fma, double, ScalarOp2,
-           "6d5c74fc-ee50-445f-bc28-0c6666cbd754");
-  HLK_TEST(Mad_double, Mad, double, Vector,
-           "1813aa84-26d8-401a-9204-86323042a43d");
-  HLK_TEST(Mad_double_Scalar, Mad, double, ScalarOp2,
-           "c5954f98-7f26-47ef-ae09-80d0526b3a9f");
+  HLK_TEST(Mad, uint16_t, Vector);
+  HLK_TEST(Mad, uint16_t, ScalarOp3);
+  HLK_TEST(Mad, uint32_t, Vector);
+  HLK_TEST(Mad, uint32_t, ScalarOp2);
+  HLK_TEST(Mad, uint64_t, Vector);
+  HLK_TEST(Mad, uint64_t, ScalarOp3);
+  HLK_TEST(Mad, int16_t, Vector);
+  HLK_TEST(Mad, int16_t, ScalarOp2);
+  HLK_TEST(Mad, int32_t, Vector);
+  HLK_TEST(Mad, int32_t, ScalarOp2);
+  HLK_TEST(Mad, int64_t, Vector);
+  HLK_TEST(Mad, int64_t, ScalarOp3);
+  HLK_TEST(Mad, HLSLHalf_t, Vector);
+  HLK_TEST(Mad, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(SmoothStep, HLSLHalf_t, Vector);
+  HLK_TEST(SmoothStep, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(Mad, float, Vector);
+  HLK_TEST(Mad, float, ScalarOp2);
+  HLK_TEST(SmoothStep, float, Vector);
+  HLK_TEST(SmoothStep, float, ScalarOp3);
+  HLK_TEST(Fma, double, Vector);
+  HLK_TEST(Fma, double, ScalarOp2);
+  HLK_TEST(Mad, double, Vector);
+  HLK_TEST(Mad, double, ScalarOp2);
 
   // BinaryMath
 
-  HLK_TEST(Add_bool_Scalar, Add, HLSLBool_t, ScalarOp2,
-           "0b763d04-9f24-404f-9307-09e2ba2b43d1");
-  HLK_TEST(Add_bool, Add, HLSLBool_t, Vector,
-           "31142b2a-f263-4ea2-81ab-6bec7d95f7c6");
-  HLK_TEST(Subtract_bool_Scalar, Subtract, HLSLBool_t, ScalarOp2,
-           "e11509fc-b420-45ee-8d5f-880ac318ebbf");
-  HLK_TEST(Subtract_bool, Subtract, HLSLBool_t, Vector,
-           "32a7c9ea-906a-4677-be27-f82a6a97e724");
-  HLK_TEST(Add_int16_t_Scalar, Add, int16_t, ScalarOp2,
-           "99063d10-04ea-4f3e-acd9-b1db8298db60");
-  HLK_TEST(Add_int16_t, Add, int16_t, Vector,
-           "ec82f079-b138-4dc2-a7e4-ad0b9623d5f2");
-  HLK_TEST(Subtract_int16_t_Scalar, Subtract, int16_t, ScalarOp2,
-           "5deadf0c-fc3a-419e-997f-4f48903d9273");
-  HLK_TEST(Subtract_int16_t, Subtract, int16_t, Vector,
-           "0c67cb7c-c7ae-4ef5-851f-654181b464da");
-  HLK_TEST(Multiply_int16_t_Scalar, Multiply, int16_t, ScalarOp2,
-           "617bf684-9196-4d14-aa86-936da7e83bf9");
-  HLK_TEST(Multiply_int16_t, Multiply, int16_t, Vector,
-           "7abcba64-f915-4d93-b266-709d2e461f12");
-  HLK_TEST(Divide_int16_t_Scalar, Divide, int16_t, ScalarOp2,
-           "d16a0b8c-d7ac-481d-ba72-a5c2493a076e");
-  HLK_TEST(Divide_int16_t, Divide, int16_t, Vector,
-           "966ab38d-d1e3-42b6-9ada-e8dbc8a28c27");
-  HLK_TEST(Modulus_int16_t_Scalar, Modulus, int16_t, ScalarOp2,
-           "e6564f25-a23a-4336-be12-92c682c0c49a");
-  HLK_TEST(Modulus_int16_t, Modulus, int16_t, Vector,
-           "95559fa0-bbd7-4912-8ea5-a04555f57f84");
-  HLK_TEST(Min_int16_t_Scalar, Min, int16_t, ScalarOp2,
-           "0f6f20e8-1ed1-4fb0-8a8b-2765ec5c015a");
-  HLK_TEST(Min_int16_t, Min, int16_t, Vector,
-           "5dc11432-821c-4869-aa73-054494a965d5");
-  HLK_TEST(Max_int16_t_Scalar, Max, int16_t, ScalarOp2,
-           "5268e59f-e6bc-417d-9570-79b8bfe09c74");
-  HLK_TEST(Max_int16_t, Max, int16_t, Vector,
-           "efdb5064-9ef6-41d0-89a4-743ee2f39516");
-  HLK_TEST(Add_int_Scalar, Add, int32_t, ScalarOp2,
-           "05d70ab1-29b5-423f-8d00-5ecbe5e34d1d");
-  HLK_TEST(Add_int, Add, int32_t, Vector,
-           "a75d168f-546e-4b49-88c9-a5249c1054cf");
-  HLK_TEST(Subtract_int_Scalar, Subtract, int32_t, ScalarOp2,
-           "b12ad9d4-05cb-432f-aa8f-e34aaa963f2e");
-  HLK_TEST(Subtract_int, Subtract, int32_t, Vector,
-           "4cc5196f-f3f2-411b-96ba-4ce4be8fc084");
-  HLK_TEST(Multiply_int_Scalar, Multiply, int32_t, ScalarOp2,
-           "fe238e74-4738-484d-8784-c1d2fbd1ca1d");
-  HLK_TEST(Multiply_int, Multiply, int32_t, Vector,
-           "a00939f6-9b5e-482f-ba5d-450b5a69a4f3");
-  HLK_TEST(Divide_int_Scalar, Divide, int32_t, ScalarOp2,
-           "d88b41de-384b-4960-b58c-2106b8eb10bf");
-  HLK_TEST(Divide_int, Divide, int32_t, Vector,
-           "97e9fa69-c5b9-4c8e-8a23-c4805c16c5a1");
-  HLK_TEST(Modulus_int_Scalar, Modulus, int32_t, ScalarOp2,
-           "e3dd6e62-d333-44f7-949b-235337161276");
-  HLK_TEST(Modulus_int, Modulus, int32_t, Vector,
-           "ed748432-b245-4f26-b06b-537e6284e889");
-  HLK_TEST(Min_int_Scalar, Min, int32_t, ScalarOp2,
-           "54ef9574-5e2c-4cbd-8b26-2f8c0ffebd6b");
-  HLK_TEST(Min_int, Min, int32_t, Vector,
-           "ba0286fc-e653-45c4-be44-d4e649b2cca7");
-  HLK_TEST(Max_int_Scalar, Max, int32_t, ScalarOp2,
-           "1ca94bc4-1852-489c-a165-a0d1298ccfa7");
-  HLK_TEST(Max_int, Max, int32_t, Vector,
-           "79726dc0-bb2a-48b6-bf13-edc60a3564a6");
-  HLK_TEST(Add_int64_t_Scalar, Add, int64_t, ScalarOp2,
-           "9f0832fc-03b4-44f9-a2ef-326d270b6c9a");
-  HLK_TEST(Add_int64_t, Add, int64_t, Vector,
-           "813688e4-d33c-4266-ac90-820e3276d615");
-  HLK_TEST(Subtract_int64_t_Scalar, Subtract, int64_t, ScalarOp2,
-           "4c47ffcf-7415-479f-913f-94a07c4ede67");
-  HLK_TEST(Subtract_int64_t, Subtract, int64_t, Vector,
-           "1fc82ce6-863b-4e2a-9053-74f16023efeb");
-  HLK_TEST(Multiply_int64_t_Scalar, Multiply, int64_t, ScalarOp2,
-           "e952aec9-9320-4ae4-a983-50a811fb0027");
-  HLK_TEST(Multiply_int64_t, Multiply, int64_t, Vector,
-           "fea9911a-b77e-471a-a136-9c4a752d6fe2");
-  HLK_TEST(Divide_int64_t_Scalar, Divide, int64_t, ScalarOp2,
-           "5f2f239d-8a26-446a-8944-c56a0fbde25f");
-  HLK_TEST(Divide_int64_t, Divide, int64_t, Vector,
-           "884bc286-bd88-4ced-ad66-0ee0bde1a569");
-  HLK_TEST(Modulus_int64_t_Scalar, Modulus, int64_t, ScalarOp2,
-           "ded33606-5d00-4c44-86dc-4ae82cc10509");
-  HLK_TEST(Modulus_int64_t, Modulus, int64_t, Vector,
-           "4485fb0f-61cf-4e8e-b599-a76614d0fc26");
-  HLK_TEST(Min_int64_t_Scalar, Min, int64_t, ScalarOp2,
-           "e8a496f7-e0c0-47c9-9acb-0c2c306fa0ce");
-  HLK_TEST(Min_int64_t, Min, int64_t, Vector,
-           "51496fd5-34af-4513-953e-3040bd729180");
-  HLK_TEST(Max_int64_t_Scalar, Max, int64_t, ScalarOp2,
-           "1caa5864-c6c0-4ac2-869e-7f53290302ed");
-  HLK_TEST(Max_int64_t, Max, int64_t, Vector,
-           "7bfe1ed5-79eb-4a9a-b139-ed1129b3cf36");
-  HLK_TEST(Add_uint16_t_Scalar, Add, uint16_t, ScalarOp2,
-           "cfe84eac-399b-4fdf-8e65-7cbea73ffd83");
-  HLK_TEST(Add_uint16_t, Add, uint16_t, Vector,
-           "653d1af6-c153-4a0a-ba00-d611531254d8");
-  HLK_TEST(Subtract_uint16_t_Scalar, Subtract, uint16_t, ScalarOp2,
-           "5cfcb35b-6e86-4dd2-94e0-bee23fea3852");
-  HLK_TEST(Subtract_uint16_t, Subtract, uint16_t, Vector,
-           "df22e337-d4fe-439e-bd20-c9cfed7fa3cb");
-  HLK_TEST(Multiply_uint16_t_Scalar, Multiply, uint16_t, ScalarOp2,
-           "7a813e95-a7cb-4f9e-9321-f7d441c3d92c");
-  HLK_TEST(Multiply_uint16_t, Multiply, uint16_t, Vector,
-           "63cf685d-2c5f-4d02-8344-f887b4a7608b");
-  HLK_TEST(Divide_uint16_t_Scalar, Divide, uint16_t, ScalarOp2,
-           "6cd31845-635d-464e-ace6-0a83bc4abe75");
-  HLK_TEST(Divide_uint16_t, Divide, uint16_t, Vector,
-           "4f91958c-992d-453c-b4de-63ccccac5cd3");
-  HLK_TEST(Modulus_uint16_t_Scalar, Modulus, uint16_t, ScalarOp2,
-           "62125ad3-dabc-4d98-8fe0-6de0b24b9138");
-  HLK_TEST(Modulus_uint16_t, Modulus, uint16_t, Vector,
-           "a8c3096b-85d3-4de5-880e-6437368176af");
-  HLK_TEST(Min_uint16_t_Scalar, Min, uint16_t, ScalarOp2,
-           "e6ef7645-6118-4f3f-9f95-ab985409e698");
-  HLK_TEST(Min_uint16_t, Min, uint16_t, Vector,
-           "8d569585-c838-4885-88b1-4e5acdf40ef9");
-  HLK_TEST(Max_uint16_t_Scalar, Max, uint16_t, ScalarOp2,
-           "8f38bd33-a378-4e32-bece-792827c3a73a");
-  HLK_TEST(Max_uint16_t, Max, uint16_t, Vector,
-           "f6a4b8bb-0eba-4b45-b51a-7ea5476a01f7");
-  HLK_TEST(Add_uint32_t_Scalar, Add, uint32_t, ScalarOp2,
-           "a68a0dba-75cc-452d-bc54-a1cfcb99d4d4");
-  HLK_TEST(Add_uint32_t, Add, uint32_t, Vector,
-           "bc8be68c-6498-4654-946a-199e20c1de07");
-  HLK_TEST(Subtract_uint32_t_Scalar, Subtract, uint32_t, ScalarOp2,
-           "adfd829d-21ec-4829-8064-1cb44573bda2");
-  HLK_TEST(Subtract_uint32_t, Subtract, uint32_t, Vector,
-           "3f0f609f-dac6-426a-8374-4cb415eb6e76");
-  HLK_TEST(Multiply_uint32_t_Scalar, Multiply, uint32_t, ScalarOp2,
-           "3a6d6f8c-6851-4626-b485-e9435a35d492");
-  HLK_TEST(Multiply_uint32_t, Multiply, uint32_t, Vector,
-           "d7f88184-8048-4be5-bc6c-5ca2c8dd3c3f");
-  HLK_TEST(Divide_uint32_t_Scalar, Divide, uint32_t, ScalarOp2,
-           "838b577a-ffb9-46c2-8ce6-4f2aa86f2761");
-  HLK_TEST(Divide_uint32_t, Divide, uint32_t, Vector,
-           "e0e2db7c-b26e-4ee4-9906-66ea40536ee6");
-  HLK_TEST(Modulus_uint32_t_Scalar, Modulus, uint32_t, ScalarOp2,
-           "41bd2196-72c3-4556-9d34-67bc34140ab7");
-  HLK_TEST(Modulus_uint32_t, Modulus, uint32_t, Vector,
-           "b3dc846a-1c69-4e33-ba9a-d998f29df457");
-  HLK_TEST(Min_uint32_t_Scalar, Min, uint32_t, ScalarOp2,
-           "a4709b03-642b-41cd-8c45-3e940a188f9b");
-  HLK_TEST(Min_uint32_t, Min, uint32_t, Vector,
-           "41791e84-4116-44e2-bb22-1aa1821c7f26");
-  HLK_TEST(Max_uint32_t_Scalar, Max, uint32_t, ScalarOp2,
-           "0ebdffe0-5b6f-4118-a6ec-9914ba056a9c");
-  HLK_TEST(Max_uint32_t, Max, uint32_t, Vector,
-           "a2d7ba56-3ea1-4560-943b-79ef092d34f3");
-  HLK_TEST(Add_uint64_t_Scalar, Add, uint64_t, ScalarOp2,
-           "418502a9-6af4-4901-8f31-8a4ca3245ee6");
-  HLK_TEST(Add_uint64_t, Add, uint64_t, Vector,
-           "4355af2f-4f32-4759-98b6-b9d6b0e3bf15");
-  HLK_TEST(Subtract_uint64_t_Scalar, Subtract, uint64_t, ScalarOp2,
-           "83720855-632e-43f1-99db-decca8298f53");
-  HLK_TEST(Subtract_uint64_t, Subtract, uint64_t, Vector,
-           "f1ad509b-d0ca-4cc8-b33f-9a8895443ab7");
-  HLK_TEST(Multiply_uint64_t_Scalar, Multiply, uint64_t, ScalarOp2,
-           "0879b20b-b214-4c7b-9c59-cba9e629ec11");
-  HLK_TEST(Multiply_uint64_t, Multiply, uint64_t, Vector,
-           "d55972f8-155f-491d-9bfd-030e61b0ac20");
-  HLK_TEST(Divide_uint64_t_Scalar, Divide, uint64_t, ScalarOp2,
-           "7cc3d7a1-d631-4e0f-aebb-a9ca31001982");
-  HLK_TEST(Divide_uint64_t, Divide, uint64_t, Vector,
-           "b7fb6133-e7e6-4a89-b45e-ec3a342d7b95");
-  HLK_TEST(Modulus_uint64_t_Scalar, Modulus, uint64_t, ScalarOp2,
-           "9a09760d-9db4-4a37-911e-ed58b2962890");
-  HLK_TEST(Modulus_uint64_t, Modulus, uint64_t, Vector,
-           "8d0b56d5-452a-499d-aefa-62d1642e0c14");
-  HLK_TEST(Min_uint64_t_Scalar, Min, uint64_t, ScalarOp2,
-           "b2bb7787-91e3-4378-ae61-740d152f577c");
-  HLK_TEST(Min_uint64_t, Min, uint64_t, Vector,
-           "30bf28f9-b2ff-4592-9ea8-7673a333a5b0");
-  HLK_TEST(Max_uint64_t_Scalar, Max, uint64_t, ScalarOp2,
-           "134b161e-c188-45a7-9433-03cb1e5e516c");
-  HLK_TEST(Max_uint64_t, Max, uint64_t, Vector,
-           "8da765fb-9cb4-4762-b4fa-dded08a7bdef");
-  HLK_TEST(Add_half_Scalar, Add, HLSLHalf_t, ScalarOp2,
-           "e4cf06a6-0831-480f-8f9f-4a61996ceb7a");
-  HLK_TEST(Add_half, Add, HLSLHalf_t, Vector,
-           "d47576fa-74b1-4da8-b67b-889bd9cee31f");
-  HLK_TEST(Subtract_half_Scalar, Subtract, HLSLHalf_t, ScalarOp2,
-           "7e339e4d-9cc2-499d-b36d-68adc5408cc0");
-  HLK_TEST(Subtract_half, Subtract, HLSLHalf_t, Vector,
-           "b532c269-3c21-4fd4-aabe-e60eec6a6df2");
-  HLK_TEST(Multiply_half_Scalar, Multiply, HLSLHalf_t, ScalarOp2,
-           "89924df1-cd13-4e2f-bd0f-d3e54927bfdc");
-  HLK_TEST(Multiply_half, Multiply, HLSLHalf_t, Vector,
-           "e30a29d3-8eaa-4c3e-af88-f6abc6686393");
-  HLK_TEST(Divide_half_Scalar, Divide, HLSLHalf_t, ScalarOp2,
-           "eadc0bf5-0f67-4cab-a28a-816033ab9895");
-  HLK_TEST(Divide_half, Divide, HLSLHalf_t, Vector,
-           "52048471-82cd-4fe3-89a4-4332a1cf77f2");
-  HLK_TEST(Modulus_half_Scalar, Modulus, HLSLHalf_t, ScalarOp2,
-           "c2ed6573-2a9a-4b25-8936-335b1ba48789");
-  HLK_TEST(Modulus_half, Modulus, HLSLHalf_t, Vector,
-           "300b66ca-0572-4070-846e-f13751c838c7");
-  HLK_TEST(Min_half_Scalar, Min, HLSLHalf_t, ScalarOp2,
-           "b95a613b-7a3c-466c-b949-452b528fc2f1");
-  HLK_TEST(Min_half, Min, HLSLHalf_t, Vector,
-           "2fac70ee-4165-4a5f-80ad-100d6f95cf41");
-  HLK_TEST(Max_half_Scalar, Max, HLSLHalf_t, ScalarOp2,
-           "4997d108-835d-4660-9129-f1d98fdb6079");
-  HLK_TEST(Max_half, Max, HLSLHalf_t, Vector,
-           "5ba2589b-d78e-486a-a6a8-e6112a87c4c3");
-  HLK_TEST(Ldexp_half, Ldexp, HLSLHalf_t, Vector,
-           "ffe7eb1d-a2cb-4f31-b1e9-997f3de153d3");
-  HLK_TEST(Ldexp_half_Scalar, Ldexp, HLSLHalf_t, ScalarOp2,
-           "b1ad3c06-6f72-4707-ab50-c403779b3cd3");
-  HLK_TEST(Add_float_Scalar, Add, float, ScalarOp2,
-           "a4f20e92-2a87-47c1-9dce-2aabae278c13");
-  HLK_TEST(Add_float, Add, float, Vector,
-           "dcc106ce-12e0-4c3b-9320-7745027b0dc4");
-  HLK_TEST(Subtract_float_Scalar, Subtract, float, ScalarOp2,
-           "d83a2cd3-24be-48d5-994c-6a7bea990d1e");
-  HLK_TEST(Subtract_float, Subtract, float, Vector,
-           "9399b231-c5c2-492b-b115-af35c954cbe7");
-  HLK_TEST(Multiply_float_Scalar, Multiply, float, ScalarOp2,
-           "6695d246-0de6-4d4f-bea5-d6d62fe842a2");
-  HLK_TEST(Multiply_float, Multiply, float, Vector,
-           "ddcf60a9-7909-4a74-b17f-96240b40de2a");
-  HLK_TEST(Divide_float_Scalar, Divide, float, ScalarOp2,
-           "e4ad6720-63ca-46a1-abcd-1d7f269bc26a");
-  HLK_TEST(Divide_float, Divide, float, Vector,
-           "62fdda0c-c1e2-4e23-a861-f8c1e7f6ab03");
-  HLK_TEST(Modulus_float_Scalar, Modulus, float, ScalarOp2,
-           "85544288-d72e-4a0e-859a-2be2b36ef795");
-  HLK_TEST(Modulus_float, Modulus, float, Vector,
-           "be28c633-e034-4fd4-b417-9fe18001c370");
-  HLK_TEST(Min_float_Scalar, Min, float, ScalarOp2,
-           "afa3e8b5-9a6f-49bd-8c27-c898eb4c3550");
-  HLK_TEST(Min_float, Min, float, Vector,
-           "a5319faa-6dba-4c5d-84c8-4da1b4b2ee77");
-  HLK_TEST(Max_float_Scalar, Max, float, ScalarOp2,
-           "8bceb8a7-d774-4992-97b7-f8c988cb5912");
-  HLK_TEST(Max_float, Max, float, Vector,
-           "7e50d1d7-7ae4-455b-9023-29d21daf4af9");
-  HLK_TEST(Ldexp_float, Ldexp, float, Vector,
-           "46a14777-956c-40ff-9718-874a73db058b");
-  HLK_TEST(Ldexp_float_Scalar, Ldexp, float, ScalarOp2,
-           "338aacfe-922e-45e6-9f5a-d458caebe353");
-  HLK_TEST(Add_double_Scalar, Add, double, ScalarOp2,
-           "141f30a3-b45d-4a52-acdb-b48b2bc2fbfb");
-  HLK_TEST(Add_double, Add, double, Vector,
-           "93bce5cf-604f-46a0-8124-c38a47c824a1");
-  HLK_TEST(Subtract_double_Scalar, Subtract, double, ScalarOp2,
-           "059fbc6e-83aa-463d-8a72-d75ea4fdb19c");
-  HLK_TEST(Subtract_double, Subtract, double, Vector,
-           "50680265-7c22-49ca-adcd-b6e1df0e913d");
-  HLK_TEST(Multiply_double_Scalar, Multiply, double, ScalarOp2,
-           "0b70e2ce-ac1d-45c4-a982-cec80044704f");
-  HLK_TEST(Multiply_double, Multiply, double, Vector,
-           "e62b8de1-6b48-415f-88e5-5ea116f09b40");
-  HLK_TEST(Divide_double_Scalar, Divide, double, ScalarOp2,
-           "638bed29-8600-48bf-9c00-fee381326f7b");
-  HLK_TEST(Divide_double, Divide, double, Vector,
-           "ff73f97e-a835-448a-aa3d-9c41ffe56fcc");
-  HLK_TEST(Min_double_Scalar, Min, double, ScalarOp2,
-           "ec42a826-7637-447c-a14d-1661a9223ee3");
-  HLK_TEST(Min_double, Min, double, Vector,
-           "ff4a187a-e410-4ce4-b50f-c488a7158a06");
-  HLK_TEST(Max_double_Scalar, Max, double, ScalarOp2,
-           "38a46477-9d51-4874-920c-6b7c08463d52");
-  HLK_TEST(Max_double, Max, double, Vector,
-           "a395f842-2e32-4bec-8635-b458e7faee46");
+  HLK_TEST(Add, HLSLBool_t, ScalarOp2);
+  HLK_TEST(Add, HLSLBool_t, Vector);
+  HLK_TEST(Subtract, HLSLBool_t, ScalarOp2);
+  HLK_TEST(Subtract, HLSLBool_t, Vector);
+  HLK_TEST(Add, int16_t, ScalarOp2);
+  HLK_TEST(Add, int16_t, Vector);
+  HLK_TEST(Subtract, int16_t, ScalarOp2);
+  HLK_TEST(Subtract, int16_t, Vector);
+  HLK_TEST(Multiply, int16_t, ScalarOp2);
+  HLK_TEST(Multiply, int16_t, Vector);
+  HLK_TEST(Divide, int16_t, ScalarOp2);
+  HLK_TEST(Divide, int16_t, Vector);
+  HLK_TEST(Modulus, int16_t, ScalarOp2);
+  HLK_TEST(Modulus, int16_t, Vector);
+  HLK_TEST(Min, int16_t, ScalarOp2);
+  HLK_TEST(Min, int16_t, Vector);
+  HLK_TEST(Max, int16_t, ScalarOp2);
+  HLK_TEST(Max, int16_t, Vector);
+  HLK_TEST(Add, int32_t, ScalarOp2);
+  HLK_TEST(Add, int32_t, Vector);
+  HLK_TEST(Subtract, int32_t, ScalarOp2);
+  HLK_TEST(Subtract, int32_t, Vector);
+  HLK_TEST(Multiply, int32_t, ScalarOp2);
+  HLK_TEST(Multiply, int32_t, Vector);
+  HLK_TEST(Divide, int32_t, ScalarOp2);
+  HLK_TEST(Divide, int32_t, Vector);
+  HLK_TEST(Modulus, int32_t, ScalarOp2);
+  HLK_TEST(Modulus, int32_t, Vector);
+  HLK_TEST(Min, int32_t, ScalarOp2);
+  HLK_TEST(Min, int32_t, Vector);
+  HLK_TEST(Max, int32_t, ScalarOp2);
+  HLK_TEST(Max, int32_t, Vector);
+  HLK_TEST(Add, int64_t, ScalarOp2);
+  HLK_TEST(Add, int64_t, Vector);
+  HLK_TEST(Subtract, int64_t, ScalarOp2);
+  HLK_TEST(Subtract, int64_t, Vector);
+  HLK_TEST(Multiply, int64_t, ScalarOp2);
+  HLK_TEST(Multiply, int64_t, Vector);
+  HLK_TEST(Divide, int64_t, ScalarOp2);
+  HLK_TEST(Divide, int64_t, Vector);
+  HLK_TEST(Modulus, int64_t, ScalarOp2);
+  HLK_TEST(Modulus, int64_t, Vector);
+  HLK_TEST(Min, int64_t, ScalarOp2);
+  HLK_TEST(Min, int64_t, Vector);
+  HLK_TEST(Max, int64_t, ScalarOp2);
+  HLK_TEST(Max, int64_t, Vector);
+  HLK_TEST(Add, uint16_t, ScalarOp2);
+  HLK_TEST(Add, uint16_t, Vector);
+  HLK_TEST(Subtract, uint16_t, ScalarOp2);
+  HLK_TEST(Subtract, uint16_t, Vector);
+  HLK_TEST(Multiply, uint16_t, ScalarOp2);
+  HLK_TEST(Multiply, uint16_t, Vector);
+  HLK_TEST(Divide, uint16_t, ScalarOp2);
+  HLK_TEST(Divide, uint16_t, Vector);
+  HLK_TEST(Modulus, uint16_t, ScalarOp2);
+  HLK_TEST(Modulus, uint16_t, Vector);
+  HLK_TEST(Min, uint16_t, ScalarOp2);
+  HLK_TEST(Min, uint16_t, Vector);
+  HLK_TEST(Max, uint16_t, ScalarOp2);
+  HLK_TEST(Max, uint16_t, Vector);
+  HLK_TEST(Add, uint32_t, ScalarOp2);
+  HLK_TEST(Add, uint32_t, Vector);
+  HLK_TEST(Subtract, uint32_t, ScalarOp2);
+  HLK_TEST(Subtract, uint32_t, Vector);
+  HLK_TEST(Multiply, uint32_t, ScalarOp2);
+  HLK_TEST(Multiply, uint32_t, Vector);
+  HLK_TEST(Divide, uint32_t, ScalarOp2);
+  HLK_TEST(Divide, uint32_t, Vector);
+  HLK_TEST(Modulus, uint32_t, ScalarOp2);
+  HLK_TEST(Modulus, uint32_t, Vector);
+  HLK_TEST(Min, uint32_t, ScalarOp2);
+  HLK_TEST(Min, uint32_t, Vector);
+  HLK_TEST(Max, uint32_t, ScalarOp2);
+  HLK_TEST(Max, uint32_t, Vector);
+  HLK_TEST(Add, uint64_t, ScalarOp2);
+  HLK_TEST(Add, uint64_t, Vector);
+  HLK_TEST(Subtract, uint64_t, ScalarOp2);
+  HLK_TEST(Subtract, uint64_t, Vector);
+  HLK_TEST(Multiply, uint64_t, ScalarOp2);
+  HLK_TEST(Multiply, uint64_t, Vector);
+  HLK_TEST(Divide, uint64_t, ScalarOp2);
+  HLK_TEST(Divide, uint64_t, Vector);
+  HLK_TEST(Modulus, uint64_t, ScalarOp2);
+  HLK_TEST(Modulus, uint64_t, Vector);
+  HLK_TEST(Min, uint64_t, ScalarOp2);
+  HLK_TEST(Min, uint64_t, Vector);
+  HLK_TEST(Max, uint64_t, ScalarOp2);
+  HLK_TEST(Max, uint64_t, Vector);
+  HLK_TEST(Add, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(Add, HLSLHalf_t, Vector);
+  HLK_TEST(Subtract, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(Subtract, HLSLHalf_t, Vector);
+  HLK_TEST(Multiply, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(Multiply, HLSLHalf_t, Vector);
+  HLK_TEST(Divide, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(Divide, HLSLHalf_t, Vector);
+  HLK_TEST(Modulus, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(Modulus, HLSLHalf_t, Vector);
+  HLK_TEST(Min, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(Min, HLSLHalf_t, Vector);
+  HLK_TEST(Max, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(Max, HLSLHalf_t, Vector);
+  HLK_TEST(Ldexp, HLSLHalf_t, Vector);
+  HLK_TEST(Ldexp, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(Add, float, ScalarOp2);
+  HLK_TEST(Add, float, Vector);
+  HLK_TEST(Subtract, float, ScalarOp2);
+  HLK_TEST(Subtract, float, Vector);
+  HLK_TEST(Multiply, float, ScalarOp2);
+  HLK_TEST(Multiply, float, Vector);
+  HLK_TEST(Divide, float, ScalarOp2);
+  HLK_TEST(Divide, float, Vector);
+  HLK_TEST(Modulus, float, ScalarOp2);
+  HLK_TEST(Modulus, float, Vector);
+  HLK_TEST(Min, float, ScalarOp2);
+  HLK_TEST(Min, float, Vector);
+  HLK_TEST(Max, float, ScalarOp2);
+  HLK_TEST(Max, float, Vector);
+  HLK_TEST(Ldexp, float, Vector);
+  HLK_TEST(Ldexp, float, ScalarOp2);
+  HLK_TEST(Add, double, ScalarOp2);
+  HLK_TEST(Add, double, Vector);
+  HLK_TEST(Subtract, double, ScalarOp2);
+  HLK_TEST(Subtract, double, Vector);
+  HLK_TEST(Multiply, double, ScalarOp2);
+  HLK_TEST(Multiply, double, Vector);
+  HLK_TEST(Divide, double, ScalarOp2);
+  HLK_TEST(Divide, double, Vector);
+  HLK_TEST(Min, double, ScalarOp2);
+  HLK_TEST(Min, double, Vector);
+  HLK_TEST(Max, double, ScalarOp2);
+  HLK_TEST(Max, double, Vector);
 
   // Bitwise
 
-  HLK_TEST(And_uint16_t, And, uint16_t, Vector,
-           "fe5c6d6a-fe3d-4e1c-b31a-c8f1f60ce8c3");
-  HLK_TEST(And_uint16_t_Scalar, And, uint16_t, ScalarOp2,
-           "d59ca82d-8136-4a4e-8295-a3d53e10e2ba");
-  HLK_TEST(Or_uint16_t, Or, uint16_t, Vector,
-           "4d8dbabd-04c9-42a2-b964-0f2668f070cd");
-  HLK_TEST(Or_uint16_t_Scalar, Or, uint16_t, ScalarOp2,
-           "0fe31f2e-cdc3-497e-adca-417e3ec16711");
-  HLK_TEST(Xor_uint16_t, Xor, uint16_t, Vector,
-           "5b082d93-c29a-4ef0-acf0-bfe77b40525d");
-  HLK_TEST(Xor_uint16_t_Scalar, Xor, uint16_t, ScalarOp2,
-           "6e43c7be-b74f-41d1-a3dc-49553de7358c");
-  HLK_TEST(Not_uint16_t, Not, uint16_t, Vector,
-           "6b37d1ff-b695-4fa2-804c-cb88b109b159");
-  HLK_TEST(LeftShift_uint16_t, LeftShift, uint16_t, Vector,
-           "c357d19d-b917-479d-8092-e05a0ed81020");
-  HLK_TEST(LeftShift_uint16_t_Scalar, LeftShift, uint16_t, ScalarOp2,
-           "93354b6a-a1ef-4140-826f-5c0ab1bbbfe8");
-  HLK_TEST(RightShift_uint16_t, RightShift, uint16_t, Vector,
-           "2fe9725f-4107-4a74-a28e-133ab9af2d43");
-  HLK_TEST(RightShift_uint16_t_Scalar, RightShift, uint16_t, ScalarOp2,
-           "481d3193-5d64-4f6a-83ee-3534d25ae216");
-  HLK_TEST(And_uint32_t, And, uint32_t, Vector,
-           "79645bb7-74bc-4e8e-8a55-b596c1a97e4c");
-  HLK_TEST(And_uint32_t_Scalar, And, uint32_t, ScalarOp2,
-           "a9db80e9-4f00-474d-b581-d3c8aa75dfcb");
-  HLK_TEST(Or_uint32_t, Or, uint32_t, Vector,
-           "989a400c-54c2-40dc-b558-09ea903e36f5");
-  HLK_TEST(Or_uint32_t_Scalar, Or, uint32_t, ScalarOp2,
-           "74a96bb4-887e-4c1c-a6ac-309e427e4250");
-  HLK_TEST(Xor_uint32_t, Xor, uint32_t, Vector,
-           "135808ae-97da-4a0f-ae9d-3c3a6042447c");
-  HLK_TEST(Xor_uint32_t_Scalar, Xor, uint32_t, ScalarOp2,
-           "050ff8d1-d7b0-4c47-98b0-1fa465119b86");
-  HLK_TEST(Not_uint32_t, Not, uint32_t, Vector,
-           "ef192308-56b2-417b-9dd1-c8dc4110aed3");
-  HLK_TEST(LeftShift_uint32_t, LeftShift, uint32_t, Vector,
-           "0d63bae1-944e-432b-baa3-137cdd3e7157");
-  HLK_TEST(LeftShift_uint32_t_Scalar, LeftShift, uint32_t, ScalarOp2,
-           "46464c46-66dd-4ddd-92ff-b43f1e803078");
-  HLK_TEST(RightShift_uint32_t, RightShift, uint32_t, Vector,
-           "fa5d562d-2912-4212-8c23-6f291fdbe6e0");
-  HLK_TEST(RightShift_uint32_t_Scalar, RightShift, uint32_t, ScalarOp2,
-           "0d716e50-db23-478b-a21f-f8e317a1bd19");
-  HLK_TEST(And_uint64_t, And, uint64_t, Vector,
-           "18a01598-28b7-441b-a282-674ea0a5b1d7");
-  HLK_TEST(And_uint64_t_Scalar, And, uint64_t, ScalarOp2,
-           "274d4fa5-0218-4999-83e9-1fd165991fe3");
-  HLK_TEST(Or_uint64_t, Or, uint64_t, Vector,
-           "78ec6930-e721-491d-b924-676ef76379fe");
-  HLK_TEST(Or_uint64_t_Scalar, Or, uint64_t, ScalarOp2,
-           "838d8981-76ca-440c-8810-3ceeed645383");
-  HLK_TEST(Xor_uint64_t, Xor, uint64_t, Vector,
-           "83ac8606-abfb-4625-a5ee-0ca13daa07ba");
-  HLK_TEST(Xor_uint64_t_Scalar, Xor, uint64_t, ScalarOp2,
-           "41e6590e-07b0-4e1e-abb2-f8efc1cfebeb");
-  HLK_TEST(Not_uint64_t, Not, uint64_t, Vector,
-           "aa513cc3-410c-4a65-af4c-53b2ba7d77e5");
-  HLK_TEST(LeftShift_uint64_t, LeftShift, uint64_t, Vector,
-           "4c60ca7c-2f3a-4ad7-922f-3978f8b1c846");
-  HLK_TEST(LeftShift_uint64_t_Scalar, LeftShift, uint64_t, ScalarOp2,
-           "fe2641f5-1870-4dab-a16a-a59ecf50c010");
-  HLK_TEST(RightShift_uint64_t, RightShift, uint64_t, Vector,
-           "7e3a4d74-a0d0-4df3-93e7-0d64b4384578");
-  HLK_TEST(RightShift_uint64_t_Scalar, RightShift, uint64_t, ScalarOp2,
-           "3806d5bd-9b35-4011-8027-7c191880a669");
-  HLK_TEST(And_int16_t, And, int16_t, Vector,
-           "8f5a8ab1-3ff3-4075-a59f-c4b1eeccffad");
-  HLK_TEST(And_int16_t_Scalar, And, int16_t, ScalarOp2,
-           "e79ce58e-7084-4787-b673-410664bccf24");
-  HLK_TEST(Or_int16_t, Or, int16_t, Vector,
-           "b417da2c-e075-49e2-9325-98e8947b0a4b");
-  HLK_TEST(Or_int16_t_Scalar, Or, int16_t, ScalarOp2,
-           "d814677f-874e-45ee-bf77-5d15e0cb8322");
-  HLK_TEST(Xor_int16_t, Xor, int16_t, Vector,
-           "7526ca88-2a15-46a5-9fe6-261a218a4083");
-  HLK_TEST(Xor_int16_t_Scalar, Xor, int16_t, ScalarOp2,
-           "0ab8dc97-fda1-425f-98ff-c20db9d44bf7");
-  HLK_TEST(Not_int16_t, Not, int16_t, Vector,
-           "f22df66a-b805-4da0-8e91-d96aa7bf760c");
-  HLK_TEST(LeftShift_int16_t, LeftShift, int16_t, Vector,
-           "a7a3eb11-884f-447a-b6bb-0dc6e5df06db");
-  HLK_TEST(LeftShift_int16_t_Scalar, LeftShift, int16_t, ScalarOp2,
-           "e068ce76-cf1a-4cd0-a286-23fd29dfcbb1");
-  HLK_TEST(RightShift_int16_t, RightShift, int16_t, Vector,
-           "2ece110f-0bfb-4495-8775-93e0b4061251");
-  HLK_TEST(RightShift_int16_t_Scalar, RightShift, int16_t, ScalarOp2,
-           "4ba2657d-4298-455d-b726-8cbb284a4b6f");
-  HLK_TEST(And_int, And, int32_t, Vector,
-           "ddcb2ca3-5e1b-49c2-89cb-5cc0ac1567e2");
-  HLK_TEST(And_int_Scalar, And, int32_t, ScalarOp2,
-           "bc8a1922-f3df-445d-9ee9-89f0565ae44b");
-  HLK_TEST(Or_int, Or, int32_t, Vector, "55a662b9-9604-4d5c-9a7e-03d89286ce07");
-  HLK_TEST(Or_int_Scalar, Or, int32_t, ScalarOp2,
-           "4ff26540-6865-4486-b27e-287f176a610e");
-  HLK_TEST(Xor_int, Xor, int32_t, Vector,
-           "876f176f-8521-4b71-8231-af96bb8c2bd8");
-  HLK_TEST(Xor_int_Scalar, Xor, int32_t, ScalarOp2,
-           "6b8683d0-b46c-450f-99b5-f7e101d2c465");
-  HLK_TEST(Not_int, Not, int32_t, Vector,
-           "1517cf1b-4b7b-416c-8b84-70ca856e5e36");
-  HLK_TEST(LeftShift_int, LeftShift, int32_t, Vector,
-           "4f4362b5-5a7f-45ca-94ac-9223aa987a85");
-  HLK_TEST(LeftShift_int_Scalar, LeftShift, int32_t, ScalarOp2,
-           "abcc3db3-efc5-4acc-87ef-946a34089d4c");
-  HLK_TEST(RightShift_int, RightShift, int32_t, Vector,
-           "2f34dc66-4deb-4dce-a751-7cc50347c0a2");
-  HLK_TEST(RightShift_int_Scalar, RightShift, int32_t, ScalarOp2,
-           "ba411116-8d47-4266-aad4-9709131a4eb2");
-  HLK_TEST(And_int64_t, And, int64_t, Vector,
-           "1874f022-c8f7-4e75-8983-f4372b295888");
-  HLK_TEST(And_int64_t_Scalar, And, int64_t, ScalarOp2,
-           "30ae08fb-7010-48c7-a1d5-812fab59f4fa");
-  HLK_TEST(Or_int64_t, Or, int64_t, Vector,
-           "5122b366-d0bd-4165-ad66-4db14cce2895");
-  HLK_TEST(Or_int64_t_Scalar, Or, int64_t, ScalarOp2,
-           "876fc9dc-df7a-450f-adc0-863f1b00577d");
-  HLK_TEST(Xor_int64_t, Xor, int64_t, Vector,
-           "830df907-e1f3-4485-8554-33e9999356ad");
-  HLK_TEST(Xor_int64_t_Scalar, Xor, int64_t, ScalarOp2,
-           "84d0b14e-2bf0-499a-a18b-eb80476f501a");
-  HLK_TEST(Not_int64_t, Not, int64_t, Vector,
-           "eb4a3102-7238-47ae-b9a8-facb4d5753a1");
-  HLK_TEST(LeftShift_int64_t, LeftShift, int64_t, Vector,
-           "2ba977dc-5e25-449b-9338-94033c213471");
-  HLK_TEST(LeftShift_int64_t_Scalar, LeftShift, int64_t, ScalarOp2,
-           "bb603ea0-3d12-4a38-9472-703025b4c553");
-  HLK_TEST(RightShift_int64_t, RightShift, int64_t, Vector,
-           "156e5737-2358-4857-b36e-3ef7b564aa52");
-  HLK_TEST(RightShift_int64_t_Scalar, RightShift, int64_t, ScalarOp2,
-           "9eebbe3c-fc09-4391-845e-6bb0f5da382a");
+  HLK_TEST(And, uint16_t, Vector);
+  HLK_TEST(And, uint16_t, ScalarOp2);
+  HLK_TEST(Or, uint16_t, Vector);
+  HLK_TEST(Or, uint16_t, ScalarOp2);
+  HLK_TEST(Xor, uint16_t, Vector);
+  HLK_TEST(Xor, uint16_t, ScalarOp2);
+  HLK_TEST(Not, uint16_t, Vector);
+  HLK_TEST(LeftShift, uint16_t, Vector);
+  HLK_TEST(LeftShift, uint16_t, ScalarOp2);
+  HLK_TEST(RightShift, uint16_t, Vector);
+  HLK_TEST(RightShift, uint16_t, ScalarOp2);
+  HLK_TEST(And, uint32_t, Vector);
+  HLK_TEST(And, uint32_t, ScalarOp2);
+  HLK_TEST(Or, uint32_t, Vector);
+  HLK_TEST(Or, uint32_t, ScalarOp2);
+  HLK_TEST(Xor, uint32_t, Vector);
+  HLK_TEST(Xor, uint32_t, ScalarOp2);
+  HLK_TEST(Not, uint32_t, Vector);
+  HLK_TEST(LeftShift, uint32_t, Vector);
+  HLK_TEST(LeftShift, uint32_t, ScalarOp2);
+  HLK_TEST(RightShift, uint32_t, Vector);
+  HLK_TEST(RightShift, uint32_t, ScalarOp2);
+  HLK_TEST(And, uint64_t, Vector);
+  HLK_TEST(And, uint64_t, ScalarOp2);
+  HLK_TEST(Or, uint64_t, Vector);
+  HLK_TEST(Or, uint64_t, ScalarOp2);
+  HLK_TEST(Xor, uint64_t, Vector);
+  HLK_TEST(Xor, uint64_t, ScalarOp2);
+  HLK_TEST(Not, uint64_t, Vector);
+  HLK_TEST(LeftShift, uint64_t, Vector);
+  HLK_TEST(LeftShift, uint64_t, ScalarOp2);
+  HLK_TEST(RightShift, uint64_t, Vector);
+  HLK_TEST(RightShift, uint64_t, ScalarOp2);
+  HLK_TEST(And, int16_t, Vector);
+  HLK_TEST(And, int16_t, ScalarOp2);
+  HLK_TEST(Or, int16_t, Vector);
+  HLK_TEST(Or, int16_t, ScalarOp2);
+  HLK_TEST(Xor, int16_t, Vector);
+  HLK_TEST(Xor, int16_t, ScalarOp2);
+  HLK_TEST(Not, int16_t, Vector);
+  HLK_TEST(LeftShift, int16_t, Vector);
+  HLK_TEST(LeftShift, int16_t, ScalarOp2);
+  HLK_TEST(RightShift, int16_t, Vector);
+  HLK_TEST(RightShift, int16_t, ScalarOp2);
+  HLK_TEST(And, int32_t, Vector);
+  HLK_TEST(And, int32_t, ScalarOp2);
+  HLK_TEST(Or, int32_t, Vector);
+  HLK_TEST(Or, int32_t, ScalarOp2);
+  HLK_TEST(Xor, int32_t, Vector);
+  HLK_TEST(Xor, int32_t, ScalarOp2);
+  HLK_TEST(Not, int32_t, Vector);
+  HLK_TEST(LeftShift, int32_t, Vector);
+  HLK_TEST(LeftShift, int32_t, ScalarOp2);
+  HLK_TEST(RightShift, int32_t, Vector);
+  HLK_TEST(RightShift, int32_t, ScalarOp2);
+  HLK_TEST(And, int64_t, Vector);
+  HLK_TEST(And, int64_t, ScalarOp2);
+  HLK_TEST(Or, int64_t, Vector);
+  HLK_TEST(Or, int64_t, ScalarOp2);
+  HLK_TEST(Xor, int64_t, Vector);
+  HLK_TEST(Xor, int64_t, ScalarOp2);
+  HLK_TEST(Not, int64_t, Vector);
+  HLK_TEST(LeftShift, int64_t, Vector);
+  HLK_TEST(LeftShift, int64_t, ScalarOp2);
+  HLK_TEST(RightShift, int64_t, Vector);
+  HLK_TEST(RightShift, int64_t, ScalarOp2);
 
   // Unary
 
-  HLK_TEST(Initialize_bool, Initialize, HLSLBool_t, Vector,
-           "3203d5bd-2b83-4328-a04e-4befd87119b3");
-  HLK_TEST(Initialize_int16_t, Initialize, int16_t, Vector,
-           "c89bb550-6d1f-47e9-827a-b49817348110");
-  HLK_TEST(Initialize_int, Initialize, int32_t, Vector,
-           "c82729f5-d0a9-49aa-a15a-8aa06e8f04f6");
-  HLK_TEST(Initialize_int64_t, Initialize, int64_t, Vector,
-           "20cb73c1-7a62-49e7-b07e-96c2bc5ac873");
-  HLK_TEST(Initialize_uint16_t, Initialize, uint16_t, Vector,
-           "ae9aab35-f962-41db-8bab-d81f422f40d9");
-  HLK_TEST(Initialize_uint32_t, Initialize, uint32_t, Vector,
-           "33ac44bf-2f80-48a4-9574-83ef9e549bca");
-  HLK_TEST(Initialize_uint64_t, Initialize, uint64_t, Vector,
-           "c180c191-0c56-479b-96d1-fb656ad9447a");
-  HLK_TEST(Initialize_half, Initialize, HLSLHalf_t, Vector,
-           "6291fe76-2b95-45c5-8ea2-4cb4a47e0a52");
-  HLK_TEST(Initialize_float, Initialize, float, Vector,
-           "fe56569a-ba15-4ba5-b671-575f05538c73");
-  HLK_TEST(Initialize_double, Initialize, double, Vector,
-           "c091a797-1252-40aa-a53d-661c5875c8a5");
+  HLK_TEST(Initialize, HLSLBool_t, Vector);
+  HLK_TEST(Initialize, int16_t, Vector);
+  HLK_TEST(Initialize, int32_t, Vector);
+  HLK_TEST(Initialize, int64_t, Vector);
+  HLK_TEST(Initialize, uint16_t, Vector);
+  HLK_TEST(Initialize, uint32_t, Vector);
+  HLK_TEST(Initialize, uint64_t, Vector);
+  HLK_TEST(Initialize, HLSLHalf_t, Vector);
+  HLK_TEST(Initialize, float, Vector);
+  HLK_TEST(Initialize, double, Vector);
 
   // Trigonometric
 
-  HLK_TEST(Acos_half, Acos, HLSLHalf_t, Vector,
-           "5735cddd-66ed-403d-a6e1-8a9ebef9a6e2");
-  HLK_TEST(Asin_half, Asin, HLSLHalf_t, Vector,
-           "507e7d7b-acf8-41e9-b489-971a239472db");
-  HLK_TEST(Atan_half, Atan, HLSLHalf_t, Vector,
-           "0de04aec-f6db-4832-8e2e-58b4f3a1ce0a");
-  HLK_TEST(Cos_half, Cos, HLSLHalf_t, Vector,
-           "47aa9184-b577-4be9-bdff-03434a5bd43f");
-  HLK_TEST(Cosh_half, Cosh, HLSLHalf_t, Vector,
-           "6573b255-11b4-4aab-82ae-c224166c068b");
-  HLK_TEST(Sin_half, Sin, HLSLHalf_t, Vector,
-           "512bd9ca-bfca-4e41-afe6-714fb5d87f58");
-  HLK_TEST(Sinh_half, Sinh, HLSLHalf_t, Vector,
-           "58fa1a29-4d99-4e16-81a2-f6cfa6b90775");
-  HLK_TEST(Tan_half, Tan, HLSLHalf_t, Vector,
-           "03cd7071-4864-499e-9d1a-ccb82af456d8");
-  HLK_TEST(Tanh_half, Tanh, HLSLHalf_t, Vector,
-           "153c7ccd-03f6-42d0-b6b5-9bb347eaabce");
-  HLK_TEST(Acos_float, Acos, float, Vector,
-           "5cb07a7e-d1f4-44af-b638-edd6f9ba2177");
-  HLK_TEST(Asin_float, Asin, float, Vector,
-           "0d301505-a35a-40de-8698-07f5eaf4f16e");
-  HLK_TEST(Atan_float, Atan, float, Vector,
-           "1d6274be-a88e-418d-8f9c-d7af3d45a620");
-  HLK_TEST(Cos_float, Cos, float, Vector,
-           "e44cec7a-bfa7-4afe-821a-423fe0451b81");
-  HLK_TEST(Cosh_float, Cosh, float, Vector,
-           "1dcbb60b-143b-4e26-bef5-5708be9a817c");
-  HLK_TEST(Sin_float, Sin, float, Vector,
-           "1a3d20bc-b835-47cb-a647-ae894f31c325");
-  HLK_TEST(Sinh_float, Sinh, float, Vector,
-           "2ea08f3e-9daa-4e0f-93a6-2fecf8943498");
-  HLK_TEST(Tan_float, Tan, float, Vector,
-           "12d097d6-94e9-4bed-bd3c-6634f088a65e");
-  HLK_TEST(Tanh_float, Tanh, float, Vector,
-           "05e9f20e-83a7-4d65-9160-8aab4792edf0");
+  HLK_TEST(Acos, HLSLHalf_t, Vector);
+  HLK_TEST(Asin, HLSLHalf_t, Vector);
+  HLK_TEST(Atan, HLSLHalf_t, Vector);
+  HLK_TEST(Cos, HLSLHalf_t, Vector);
+  HLK_TEST(Cosh, HLSLHalf_t, Vector);
+  HLK_TEST(Sin, HLSLHalf_t, Vector);
+  HLK_TEST(Sinh, HLSLHalf_t, Vector);
+  HLK_TEST(Tan, HLSLHalf_t, Vector);
+  HLK_TEST(Tanh, HLSLHalf_t, Vector);
+  HLK_TEST(Acos, float, Vector);
+  HLK_TEST(Asin, float, Vector);
+  HLK_TEST(Atan, float, Vector);
+  HLK_TEST(Cos, float, Vector);
+  HLK_TEST(Cosh, float, Vector);
+  HLK_TEST(Sin, float, Vector);
+  HLK_TEST(Sinh, float, Vector);
+  HLK_TEST(Tan, float, Vector);
+  HLK_TEST(Tanh, float, Vector);
 
   // AsType
 
-  HLK_TEST(AsFloat16_int16_t, AsFloat16, int16_t, Vector,
-           "4dd29b6a-39cc-4d5d-86ea-cd0aa027686e");
-  HLK_TEST(AsInt16_int16_t, AsInt16, int16_t, Vector,
-           "2874f989-3f2d-4afb-ab01-96223ac36574");
-  HLK_TEST(AsUint16_int16_t, AsUint16, int16_t, Vector,
-           "6a169c65-d90b-4cb6-8f86-83310afb1a4d");
-  HLK_TEST(AsFloat_int, AsFloat, int32_t, Vector,
-           "e5e0a25b-90d1-4e93-9cd9-2a5f3a95fd71");
-  HLK_TEST(AsInt_int, AsInt, int32_t, Vector,
-           "89bcde1c-f22d-44e4-95a9-08e205a6d902");
-  HLK_TEST(AsUint_int, AsUint, int32_t, Vector,
-           "6a2f32fc-b91a-49b6-98b0-5b8544e05070");
-  HLK_TEST(AsFloat16_uint16_t, AsFloat16, uint16_t, Vector,
-           "dac6896d-8d8c-4f50-a098-7432c501d765");
-  HLK_TEST(AsInt16_uint16_t, AsInt16, uint16_t, Vector,
-           "af88a2d8-eff2-43f2-959d-02950ef5755f");
-  HLK_TEST(AsUint16_uint16_t, AsUint16, uint16_t, Vector,
-           "c55206de-2277-4253-b32e-c857f5af929e");
-  HLK_TEST(AsFloat_uint32_t, AsFloat, uint32_t, Vector,
-           "e424dfcb-ff4b-41bc-a991-2c31d3ca242b");
-  HLK_TEST(AsInt_uint32_t, AsInt, uint32_t, Vector,
-           "d5364ed0-f52d-4579-8405-da1dcec0eba9");
-  HLK_TEST(AsUint_uint32_t, AsUint, uint32_t, Vector,
-           "a08b9506-e7e0-4cca-86c6-42cf12a3ab23");
-  HLK_TEST(AsDouble_uint32_t, AsDouble, uint32_t, Vector,
-           "8c040027-e4b9-4283-b55d-98f1dd4631ab");
-  HLK_TEST(AsDouble_uint32_t_Scalar, AsDouble, uint32_t, ScalarOp2,
-           "afadfbd0-1f28-438f-8a75-a83d5556f415");
-  HLK_TEST(AsFloat16_half, AsFloat16, HLSLHalf_t, Vector,
-           "392e3f98-1f46-430a-bbcf-6b8ae68652c5");
-  HLK_TEST(AsInt16_half, AsInt16, HLSLHalf_t, Vector,
-           "dd67f22d-a259-4801-88a1-7de42398e727");
-  HLK_TEST(AsUint16_half, AsUint16, HLSLHalf_t, Vector,
-           "3af078f6-514c-4b19-aecb-daa2480d6f41");
-  HLK_TEST(AsUint_SplitDouble_double, AsUint_SplitDouble, double, Vector,
-           "ada8958b-9d52-4fe2-9380-441ed7328caf");
+  HLK_TEST(AsFloat16, int16_t, Vector);
+  HLK_TEST(AsInt16, int16_t, Vector);
+  HLK_TEST(AsUint16, int16_t, Vector);
+  HLK_TEST(AsFloat, int32_t, Vector);
+  HLK_TEST(AsInt, int32_t, Vector);
+  HLK_TEST(AsUint, int32_t, Vector);
+  HLK_TEST(AsFloat16, uint16_t, Vector);
+  HLK_TEST(AsInt16, uint16_t, Vector);
+  HLK_TEST(AsUint16, uint16_t, Vector);
+  HLK_TEST(AsFloat, uint32_t, Vector);
+  HLK_TEST(AsInt, uint32_t, Vector);
+  HLK_TEST(AsUint, uint32_t, Vector);
+  HLK_TEST(AsDouble, uint32_t, Vector);
+  HLK_TEST(AsDouble, uint32_t, ScalarOp2);
+  HLK_TEST(AsFloat16, HLSLHalf_t, Vector);
+  HLK_TEST(AsInt16, HLSLHalf_t, Vector);
+  HLK_TEST(AsUint16, HLSLHalf_t, Vector);
+  HLK_TEST(AsUint_SplitDouble, double, Vector);
 
   // Unary Math
 
-  HLK_TEST(Abs_int16_t, Abs, int16_t, Vector,
-           "29762a0b-d0c3-4546-b63a-fd7a268be8f1");
-  HLK_TEST(Sign_int16_t, Sign, int16_t, Vector,
-           "85c16ce7-47e8-45f8-9023-7f8a10ef91c5");
-  HLK_TEST(Abs_int, Abs, int32_t, Vector,
-           "ce9753d7-aa4c-4319-81ae-2479e8afe76f");
-  HLK_TEST(Sign_int, Sign, int32_t, Vector,
-           "13ee4ec3-15cf-4ecb-9e2a-492ae52a7622");
-  HLK_TEST(Abs_int64_t, Abs, int64_t, Vector,
-           "85dfc7bc-defb-429a-a25e-c687bc406040");
-  HLK_TEST(Sign_int64_t, Sign, int64_t, Vector,
-           "d55a11cf-852a-4091-adc3-bd711c1c305c");
-  HLK_TEST(Abs_uint16_t, Abs, uint16_t, Vector,
-           "34b87e2b-5a71-483c-83a0-23d27026e939");
-  HLK_TEST(Sign_uint16_t, Sign, uint16_t, Vector,
-           "1b630589-e6cf-4b24-a894-a160c5af4336");
-  HLK_TEST(Abs_uint32_t, Abs, uint32_t, Vector,
-           "0fee2346-9e37-4ab6-ab4f-24eeb58633e2");
-  HLK_TEST(Sign_uint32_t, Sign, uint32_t, Vector,
-           "eea76fb5-6722-45a7-854c-83730bb66bcc");
-  HLK_TEST(Abs_uint64_t, Abs, uint64_t, Vector,
-           "6d76bb96-1ca3-4cd4-8a80-93eea0f3f217");
-  HLK_TEST(Sign_uint64_t, Sign, uint64_t, Vector,
-           "6d814a95-a04d-46f7-a064-bbfc1699554d");
-  HLK_TEST(Abs_half, Abs, HLSLHalf_t, Vector,
-           "64573bef-ec71-4e20-8525-328951367f29");
-  HLK_TEST(Ceil_half, Ceil, HLSLHalf_t, Vector,
-           "b35292e5-c2ca-4fd3-bc2b-2f1da57a4b5a");
-  HLK_TEST(Exp_half, Exp, HLSLHalf_t, Vector,
-           "3ff8a9ee-0987-4757-bcb4-b1fa9d0738dc");
-  HLK_TEST(Floor_half, Floor, HLSLHalf_t, Vector,
-           "57940ab6-8b3a-4025-87be-ad8d6a06d275");
-  HLK_TEST(Frac_half, Frac, HLSLHalf_t, Vector,
-           "36f4f782-e571-47d0-b4aa-3441216e5d2c");
-  HLK_TEST(Log_half, Log, HLSLHalf_t, Vector,
-           "794dde41-e89a-4c3c-9b6f-23dd658cd427");
-  HLK_TEST(Rcp_half, Rcp, HLSLHalf_t, Vector,
-           "7a24c5c9-da3b-4375-b71a-a46f99efc867");
-  HLK_TEST(Round_half, Round, HLSLHalf_t, Vector,
-           "8989cffb-cf70-442b-a4de-5e3341d42b54");
-  HLK_TEST(Rsqrt_half, Rsqrt, HLSLHalf_t, Vector,
-           "328e8854-bd09-4ab0-9535-64bdc34bf5a4");
-  HLK_TEST(Sign_half, Sign, HLSLHalf_t, Vector,
-           "c2a690ad-8411-4203-aeca-588ba52127d8");
-  HLK_TEST(Sqrt_half, Sqrt, HLSLHalf_t, Vector,
-           "6a7ef04a-25d1-4d39-bba0-39cab4d2a044");
-  HLK_TEST(Trunc_half, Trunc, HLSLHalf_t, Vector,
-           "0a0bf60c-aa27-400b-add3-0455a48be88b");
-  HLK_TEST(Exp2_half, Exp2, HLSLHalf_t, Vector,
-           "069343bb-af6e-4731-81a3-2577c76bb43c");
-  HLK_TEST(Log10_half, Log10, HLSLHalf_t, Vector,
-           "56101521-4a66-4862-b7c1-2d90c027a2b8");
-  HLK_TEST(Log2_half, Log2, HLSLHalf_t, Vector,
-           "6c120353-b79b-4f69-8c88-dd2c33915d6a");
-  HLK_TEST(Abs_float, Abs, float, Vector,
-           "ab34eb79-431d-4bdd-b26d-3f6eedf3e6f0");
-  HLK_TEST(Ceil_float, Ceil, float, Vector,
-           "693e9ec3-c91a-47c1-b771-6da761ca4368");
-  HLK_TEST(Exp_float, Exp, float, Vector,
-           "a13b8bb9-d104-45d9-ab6c-e58b23c8b69e");
-  HLK_TEST(Floor_float, Floor, float, Vector,
-           "58b6b608-9610-4902-a031-e89421ba50d5");
-  HLK_TEST(Frac_float, Frac, float, Vector,
-           "96ebbcaa-9443-4c0a-98a2-fa5ac4d55ff9");
-  HLK_TEST(Log_float, Log, float, Vector,
-           "6c9dc8d6-2dba-4b93-a59d-2c9bc092ee79");
-  HLK_TEST(Rcp_float, Rcp, float, Vector,
-           "ebaefda1-f2bf-4414-857b-306de0717360");
-  HLK_TEST(Round_float, Round, float, Vector,
-           "e0191850-3bea-4012-9ff9-52583051b91c");
-  HLK_TEST(Rsqrt_float, Rsqrt, float, Vector,
-           "5ad0993b-4ff2-494c-af61-e304b4e89e7c");
-  HLK_TEST(Sign_float, Sign, float, Vector,
-           "96046f66-3313-48b2-9d76-d9bb0c77022f");
-  HLK_TEST(Sqrt_float, Sqrt, float, Vector,
-           "eabda77b-30a6-49df-94d7-755132e91528");
-  HLK_TEST(Trunc_float, Trunc, float, Vector,
-           "c68582da-6a52-46aa-8cb4-fcfdc04d6fd3");
-  HLK_TEST(Exp2_float, Exp2, float, Vector,
-           "919d82c4-dc69-430b-9817-8bd6a6238fe5");
-  HLK_TEST(Log10_float, Log10, float, Vector,
-           "03162d2e-1e4b-462f-91bb-aa4e866a346f");
-  HLK_TEST(Log2_float, Log2, float, Vector,
-           "19978052-b38c-45b7-b544-fbe15505aa47");
-  HLK_TEST(Frexp_float, Frexp, float, Vector,
-           "99a1307d-7e5d-4656-913f-7391a7f2081c");
-  HLK_TEST(Abs_double, Abs, double, Vector,
-           "ff0fadf6-87f1-4bf1-9164-5d90cb2a49b6");
-  HLK_TEST(Sign_double, Sign, double, Vector,
-           "89362c0b-9678-4d7f-8461-faff042de684");
+  HLK_TEST(Abs, int16_t, Vector);
+  HLK_TEST(Sign, int16_t, Vector);
+  HLK_TEST(Abs, int32_t, Vector);
+  HLK_TEST(Sign, int32_t, Vector);
+  HLK_TEST(Abs, int64_t, Vector);
+  HLK_TEST(Sign, int64_t, Vector);
+  HLK_TEST(Abs, uint16_t, Vector);
+  HLK_TEST(Sign, uint16_t, Vector);
+  HLK_TEST(Abs, uint32_t, Vector);
+  HLK_TEST(Sign, uint32_t, Vector);
+  HLK_TEST(Abs, uint64_t, Vector);
+  HLK_TEST(Sign, uint64_t, Vector);
+  HLK_TEST(Abs, HLSLHalf_t, Vector);
+  HLK_TEST(Ceil, HLSLHalf_t, Vector);
+  HLK_TEST(Exp, HLSLHalf_t, Vector);
+  HLK_TEST(Floor, HLSLHalf_t, Vector);
+  HLK_TEST(Frac, HLSLHalf_t, Vector);
+  HLK_TEST(Log, HLSLHalf_t, Vector);
+  HLK_TEST(Rcp, HLSLHalf_t, Vector);
+  HLK_TEST(Round, HLSLHalf_t, Vector);
+  HLK_TEST(Rsqrt, HLSLHalf_t, Vector);
+  HLK_TEST(Sign, HLSLHalf_t, Vector);
+  HLK_TEST(Sqrt, HLSLHalf_t, Vector);
+  HLK_TEST(Trunc, HLSLHalf_t, Vector);
+  HLK_TEST(Exp2, HLSLHalf_t, Vector);
+  HLK_TEST(Log10, HLSLHalf_t, Vector);
+  HLK_TEST(Log2, HLSLHalf_t, Vector);
+  HLK_TEST(Abs, float, Vector);
+  HLK_TEST(Ceil, float, Vector);
+  HLK_TEST(Exp, float, Vector);
+  HLK_TEST(Floor, float, Vector);
+  HLK_TEST(Frac, float, Vector);
+  HLK_TEST(Log, float, Vector);
+  HLK_TEST(Rcp, float, Vector);
+  HLK_TEST(Round, float, Vector);
+  HLK_TEST(Rsqrt, float, Vector);
+  HLK_TEST(Sign, float, Vector);
+  HLK_TEST(Sqrt, float, Vector);
+  HLK_TEST(Trunc, float, Vector);
+  HLK_TEST(Exp2, float, Vector);
+  HLK_TEST(Log10, float, Vector);
+  HLK_TEST(Log2, float, Vector);
+  HLK_TEST(Frexp, float, Vector);
+  HLK_TEST(Abs, double, Vector);
+  HLK_TEST(Sign, double, Vector);
 
   // Binary Comparison
 
-  HLK_TEST(LessThan_int16_t_Scalar, LessThan, int16_t, ScalarOp2,
-           "b7cdb4c6-efe8-45f1-9935-d5ba6864f48d");
-  HLK_TEST(LessThan_int16_t, LessThan, int16_t, Vector,
-           "8ab5a887-80f3-448c-aedf-81e48cb33b33");
-  HLK_TEST(LessEqual_int16_t_Scalar, LessEqual, int16_t, ScalarOp2,
-           "80e09f09-3aca-4bee-8a0f-f6e635626d07");
-  HLK_TEST(LessEqual_int16_t, LessEqual, int16_t, Vector,
-           "ce4979c2-c1ab-47ee-828b-e9b12ee62ef9");
-  HLK_TEST(GreaterThan_int16_t_Scalar, GreaterThan, int16_t, ScalarOp2,
-           "e22a813c-b9fd-41e3-a4ac-e5b9b3385d2b");
-  HLK_TEST(GreaterThan_int16_t, GreaterThan, int16_t, Vector,
-           "f742dae1-96da-4e88-9686-9eee204f4214");
-  HLK_TEST(GreaterEqual_int16_t_Scalar, GreaterEqual, int16_t, ScalarOp2,
-           "1379efc9-c936-4b84-a191-4525826a9934");
-  HLK_TEST(GreaterEqual_int16_t, GreaterEqual, int16_t, Vector,
-           "a063cbe6-9006-4c02-9f54-d8953efe9cbc");
-  HLK_TEST(Equal_int16_t_Scalar, Equal, int16_t, ScalarOp2,
-           "3f8817d3-40cd-4d59-aefa-acb3e5f7cf83");
-  HLK_TEST(Equal_int16_t, Equal, int16_t, Vector,
-           "e4006a59-06d0-4ef2-858e-44c4477b8239");
-  HLK_TEST(NotEqual_int16_t_Scalar, NotEqual, int16_t, ScalarOp2,
-           "8cf890e6-f15f-4e31-8824-f2a89fb49cde");
-  HLK_TEST(NotEqual_int16_t, NotEqual, int16_t, Vector,
-           "5919c496-7db3-4698-acff-a116d7d12f6d");
-  HLK_TEST(LessThan_int_Scalar, LessThan, int32_t, ScalarOp2,
-           "df04a250-b813-4ca4-974f-a7819f796f97");
-  HLK_TEST(LessThan_int, LessThan, int32_t, Vector,
-           "4c16be96-c699-4ad8-884f-e843f17a98d8");
-  HLK_TEST(LessEqual_int_Scalar, LessEqual, int32_t, ScalarOp2,
-           "770101a2-c1d1-4328-a2b6-9e9604c08ae0");
-  HLK_TEST(LessEqual_int, LessEqual, int32_t, Vector,
-           "2fa4106f-2184-4b43-b5d9-b4c7574ff56c");
-  HLK_TEST(GreaterThan_int_Scalar, GreaterThan, int32_t, ScalarOp2,
-           "aa2ae9b9-5296-4723-a3f7-43087985b9df");
-  HLK_TEST(GreaterThan_int, GreaterThan, int32_t, Vector,
-           "aa6c905c-494f-420d-92b1-538ba1eb3ceb");
-  HLK_TEST(GreaterEqual_int_Scalar, GreaterEqual, int32_t, ScalarOp2,
-           "8b92b40e-f37f-41ca-ad93-ab6fe9e22355");
-  HLK_TEST(GreaterEqual_int, GreaterEqual, int32_t, Vector,
-           "402326a3-c5c0-4605-94c4-b2bee7e325f2");
-  HLK_TEST(Equal_int_Scalar, Equal, int32_t, ScalarOp2,
-           "ad89316e-3618-461e-879e-9ee1ab3fed93");
-  HLK_TEST(Equal_int, Equal, int32_t, Vector,
-           "eb75b938-6737-4f3f-8e3c-a8d487bf9684");
-  HLK_TEST(NotEqual_int_Scalar, NotEqual, int32_t, ScalarOp2,
-           "69efc1fe-e915-424f-b13c-67325892ee66");
-  HLK_TEST(NotEqual_int, NotEqual, int32_t, Vector,
-           "c580e55f-f061-4fb4-8c5d-d0f0a467d5c3");
-  HLK_TEST(LessThan_int64_t_Scalar, LessThan, int64_t, ScalarOp2,
-           "0d8e6624-1614-4b0f-b949-202178f7506e");
-  HLK_TEST(LessThan_int64_t, LessThan, int64_t, Vector,
-           "d378c3b7-f763-4d82-8a45-bea0147daecb");
-  HLK_TEST(LessEqual_int64_t_Scalar, LessEqual, int64_t, ScalarOp2,
-           "b34cde7a-51b4-459c-8b81-287aa8b40ba4");
-  HLK_TEST(LessEqual_int64_t, LessEqual, int64_t, Vector,
-           "e72dcebb-100a-4f63-b74b-3e9c61f40e45");
-  HLK_TEST(GreaterThan_int64_t_Scalar, GreaterThan, int64_t, ScalarOp2,
-           "728c382f-6b2e-47ae-b71e-a0602bd4ac90");
-  HLK_TEST(GreaterThan_int64_t, GreaterThan, int64_t, Vector,
-           "402becdc-95f8-4486-8259-5e85532f3b64");
-  HLK_TEST(GreaterEqual_int64_t_Scalar, GreaterEqual, int64_t, ScalarOp2,
-           "905b675c-06fb-4923-befb-a130516405fd");
-  HLK_TEST(GreaterEqual_int64_t, GreaterEqual, int64_t, Vector,
-           "14ff7011-b3a4-4700-ad90-c30acaa5ea60");
-  HLK_TEST(Equal_int64_t_Scalar, Equal, int64_t, ScalarOp2,
-           "cdc3d89c-b372-401e-9c75-023a037bb30e");
-  HLK_TEST(Equal_int64_t, Equal, int64_t, Vector,
-           "5225ea2e-18bd-4013-931d-560e62aa7b09");
-  HLK_TEST(NotEqual_int64_t_Scalar, NotEqual, int64_t, ScalarOp2,
-           "9ff157d7-4979-49b3-bc89-e4693528f572");
-  HLK_TEST(NotEqual_int64_t, NotEqual, int64_t, Vector,
-           "84cabb06-64db-42b8-ae43-cacd2d6c1cfd");
-  HLK_TEST(LessThan_uint16_t_Scalar, LessThan, uint16_t, ScalarOp2,
-           "30d4658b-b268-4def-94e1-46de70797475");
-  HLK_TEST(LessThan_uint16_t, LessThan, uint16_t, Vector,
-           "e389ee86-1352-4475-888a-9334237a9319");
-  HLK_TEST(LessEqual_uint16_t_Scalar, LessEqual, uint16_t, ScalarOp2,
-           "b2908479-1394-4f4c-9272-b23288f96887");
-  HLK_TEST(LessEqual_uint16_t, LessEqual, uint16_t, Vector,
-           "90b4f2af-07bd-4bf9-a5e0-9fdb73c994dd");
-  HLK_TEST(GreaterThan_uint16_t_Scalar, GreaterThan, uint16_t, ScalarOp2,
-           "86fc7a28-e93e-47b6-b350-1cf8b95b156d");
-  HLK_TEST(GreaterThan_uint16_t, GreaterThan, uint16_t, Vector,
-           "dc3d024e-e5ad-4b6a-935a-0a86b03e7a09");
-  HLK_TEST(GreaterEqual_uint16_t_Scalar, GreaterEqual, uint16_t, ScalarOp2,
-           "54519e38-aea8-4d66-b272-b64b6cb053e7");
-  HLK_TEST(GreaterEqual_uint16_t, GreaterEqual, uint16_t, Vector,
-           "8d2eed83-8f0e-4d74-9e5c-40d032576a0b");
-  HLK_TEST(Equal_uint16_t_Scalar, Equal, uint16_t, ScalarOp2,
-           "22a77887-33b8-45e0-8f40-a8d1b7ca0471");
-  HLK_TEST(Equal_uint16_t, Equal, uint16_t, Vector,
-           "42296d91-b2cd-4bda-a489-2489fd94bfb5");
-  HLK_TEST(NotEqual_uint16_t_Scalar, NotEqual, uint16_t, ScalarOp2,
-           "899b01a3-95cf-4766-86e2-fe5ba5f426ce");
-  HLK_TEST(NotEqual_uint16_t, NotEqual, uint16_t, Vector,
-           "17101d89-60f1-4f8e-be1c-03fbdcb73274");
-  HLK_TEST(LessThan_uint32_t_Scalar, LessThan, uint32_t, ScalarOp2,
-           "d870ada6-996c-43ce-9974-c55b4d6bfcfe");
-  HLK_TEST(LessThan_uint32_t, LessThan, uint32_t, Vector,
-           "3fc4854d-3bb6-486c-97de-2c697d90de2b");
-  HLK_TEST(LessEqual_uint32_t_Scalar, LessEqual, uint32_t, ScalarOp2,
-           "d352c78f-7da4-4065-8d50-f6327bc1f3c5");
-  HLK_TEST(LessEqual_uint32_t, LessEqual, uint32_t, Vector,
-           "16846b0b-726f-4d58-af57-f1be8de74399");
-  HLK_TEST(GreaterThan_uint32_t_Scalar, GreaterThan, uint32_t, ScalarOp2,
-           "272ed8b8-c5d4-481a-93d0-422684c57a5f");
-  HLK_TEST(GreaterThan_uint32_t, GreaterThan, uint32_t, Vector,
-           "560f393a-ec6e-4c64-bcff-b9894b8ddab6");
-  HLK_TEST(GreaterEqual_uint32_t_Scalar, GreaterEqual, uint32_t, ScalarOp2,
-           "98514ab4-8dd0-40f9-8c65-1376d0a5e5cb");
-  HLK_TEST(GreaterEqual_uint32_t, GreaterEqual, uint32_t, Vector,
-           "a0d29c19-be8b-4cfe-acb7-3d234946dace");
-  HLK_TEST(Equal_uint32_t_Scalar, Equal, uint32_t, ScalarOp2,
-           "9bc5761d-1210-4559-9abe-289eb8d1475b");
-  HLK_TEST(Equal_uint32_t, Equal, uint32_t, Vector,
-           "de2cacd4-c2bc-4fef-b333-9e15ea90ed99");
-  HLK_TEST(NotEqual_uint32_t_Scalar, NotEqual, uint32_t, ScalarOp2,
-           "18daacf2-830a-4b56-929b-659164651050");
-  HLK_TEST(NotEqual_uint32_t, NotEqual, uint32_t, Vector,
-           "1121bbda-bf33-45c6-9ad7-347fe0a73130");
-  HLK_TEST(LessThan_uint64_t_Scalar, LessThan, uint64_t, ScalarOp2,
-           "05f74b9b-cbe1-4270-8582-1a8c146fa6bb");
-  HLK_TEST(LessThan_uint64_t, LessThan, uint64_t, Vector,
-           "aec092d7-4d38-490d-a562-d502bb4b6ce6");
-  HLK_TEST(LessEqual_uint64_t_Scalar, LessEqual, uint64_t, ScalarOp2,
-           "c83b8968-8ac8-4df2-b9b9-7300e0cb31f3");
-  HLK_TEST(LessEqual_uint64_t, LessEqual, uint64_t, Vector,
-           "b6fd3da8-0a4a-4a92-8674-bce1752100d1");
-  HLK_TEST(GreaterThan_uint64_t_Scalar, GreaterThan, uint64_t, ScalarOp2,
-           "5992a9d2-bc26-4eb6-bdf6-93a132113a7e");
-  HLK_TEST(GreaterThan_uint64_t, GreaterThan, uint64_t, Vector,
-           "536f20ef-11d7-4624-bf99-fcebe9ea13dc");
-  HLK_TEST(GreaterEqual_uint64_t_Scalar, GreaterEqual, uint64_t, ScalarOp2,
-           "d5270996-d0a0-4538-ad47-5dc7d8deb818");
-  HLK_TEST(GreaterEqual_uint64_t, GreaterEqual, uint64_t, Vector,
-           "cef81329-2fbf-4ce1-b45b-be85065882f6");
-  HLK_TEST(Equal_uint64_t_Scalar, Equal, uint64_t, ScalarOp2,
-           "a4c0642c-c5ef-4967-9b67-2420185a2a78");
-  HLK_TEST(Equal_uint64_t, Equal, uint64_t, Vector,
-           "c2bcec90-ea53-4883-a604-f0ee43ce1bdc");
-  HLK_TEST(NotEqual_uint64_t_Scalar, NotEqual, uint64_t, ScalarOp2,
-           "51ecbedf-7e21-4436-bb00-6fd0b1ec1436");
-  HLK_TEST(NotEqual_uint64_t, NotEqual, uint64_t, Vector,
-           "c4ea6c8a-47ed-4b89-bed5-3c47d4b6f8b3");
-  HLK_TEST(LessThan_half_Scalar, LessThan, HLSLHalf_t, ScalarOp2,
-           "fea6f3ba-2c34-4c38-9cb6-29c1e8e90fbc");
-  HLK_TEST(LessThan_half, LessThan, HLSLHalf_t, Vector,
-           "2586ef13-fa99-431d-85b0-a4841954d9e0");
-  HLK_TEST(LessEqual_half_Scalar, LessEqual, HLSLHalf_t, ScalarOp2,
-           "bf01c89a-830f-47d2-8768-2d8053423359");
-  HLK_TEST(LessEqual_half, LessEqual, HLSLHalf_t, Vector,
-           "a91a7896-e6dd-4812-8a24-03ced1efea22");
-  HLK_TEST(GreaterThan_half_Scalar, GreaterThan, HLSLHalf_t, ScalarOp2,
-           "8f4d55d3-ded5-4db3-80c4-9f44839a27d1");
-  HLK_TEST(GreaterThan_half, GreaterThan, HLSLHalf_t, Vector,
-           "f3212cf7-a99f-48a3-828a-88875b840359");
-  HLK_TEST(GreaterEqual_half_Scalar, GreaterEqual, HLSLHalf_t, ScalarOp2,
-           "f9374c6e-debd-4dbd-86b5-2473c2ee8405");
-  HLK_TEST(GreaterEqual_half, GreaterEqual, HLSLHalf_t, Vector,
-           "b4b61639-e0e4-49bd-b92e-b9f3f8fa88e6");
-  HLK_TEST(Equal_half_Scalar, Equal, HLSLHalf_t, ScalarOp2,
-           "b29187c5-c1ea-459e-8a08-f51d8fdd726a");
-  HLK_TEST(Equal_half, Equal, HLSLHalf_t, Vector,
-           "6d596ae9-fbbb-479c-b194-1aa6a9a6bf68");
-  HLK_TEST(NotEqual_half_Scalar, NotEqual, HLSLHalf_t, ScalarOp2,
-           "90fa4f78-a417-48ba-a1d7-0eb7b98e5db3");
-  HLK_TEST(NotEqual_half, NotEqual, HLSLHalf_t, Vector,
-           "8c32fd06-51d4-41ae-acd7-261aae981fc6");
-  HLK_TEST(LessThan_float_Scalar, LessThan, float, ScalarOp2,
-           "9c941e75-d3d6-4c05-8592-883da956f65b");
-  HLK_TEST(LessThan_float, LessThan, float, Vector,
-           "7b0a6b03-a238-4051-a834-df031232f2bd");
-  HLK_TEST(LessEqual_float_Scalar, LessEqual, float, ScalarOp2,
-           "4f55fb55-efdc-4325-bf01-baeff4e41697");
-  HLK_TEST(LessEqual_float, LessEqual, float, Vector,
-           "f398944d-5c43-4c93-bd95-de19622be1b2");
-  HLK_TEST(GreaterThan_float_Scalar, GreaterThan, float, ScalarOp2,
-           "3cc8612d-b8e6-4d95-9615-0587383b8d5d");
-  HLK_TEST(GreaterThan_float, GreaterThan, float, Vector,
-           "2213d1b7-0284-4643-ba15-65b2f9b3b7a3");
-  HLK_TEST(GreaterEqual_float_Scalar, GreaterEqual, float, ScalarOp2,
-           "25416689-c6a2-4ac1-b0ee-e70f0e6858a7");
-  HLK_TEST(GreaterEqual_float, GreaterEqual, float, Vector,
-           "c190ed5b-16d2-4df4-a66b-2037d8e80402");
-  HLK_TEST(Equal_float_Scalar, Equal, float, ScalarOp2,
-           "a13cd662-0f98-424d-aff3-dcd74c1b8358");
-  HLK_TEST(Equal_float, Equal, float, Vector,
-           "de158379-b01b-4ca2-9577-ac16d0634725");
-  HLK_TEST(NotEqual_float_Scalar, NotEqual, float, ScalarOp2,
-           "602a063d-4773-468c-8360-6f6d8c25560d");
-  HLK_TEST(NotEqual_float, NotEqual, float, Vector,
-           "e042faf8-c00f-4355-8a0d-b4aacc1159c4");
-  HLK_TEST(LessThan_double_Scalar, LessThan, double, ScalarOp2,
-           "b9add2f8-ce1e-46f6-93d6-b225213759ff");
-  HLK_TEST(LessThan_double, LessThan, double, Vector,
-           "b7cb3bb0-4820-4542-a170-9eeca61e04dc");
-  HLK_TEST(LessEqual_double_Scalar, LessEqual, double, ScalarOp2,
-           "8a06043c-3b5b-4798-9588-7a95c94e4514");
-  HLK_TEST(LessEqual_double, LessEqual, double, Vector,
-           "3ea60230-f429-4ecc-b854-90876bfae6a4");
-  HLK_TEST(GreaterThan_double_Scalar, GreaterThan, double, ScalarOp2,
-           "5db45e10-5983-422b-93f7-f2172fe004bc");
-  HLK_TEST(GreaterThan_double, GreaterThan, double, Vector,
-           "dc7a14ac-f8ff-4b0b-a5ba-4900d59beeb4");
-  HLK_TEST(GreaterEqual_double_Scalar, GreaterEqual, double, ScalarOp2,
-           "8b626e70-28ba-4a27-a858-2d7ffbb3120f");
-  HLK_TEST(GreaterEqual_double, GreaterEqual, double, Vector,
-           "f786c38f-2bce-472f-a92e-4553a0c9d918");
-  HLK_TEST(Equal_double_Scalar, Equal, double, ScalarOp2,
-           "ff9da032-aae0-4048-8fe4-aa623eb7da4a");
-  HLK_TEST(Equal_double, Equal, double, Vector,
-           "8658b630-3ef3-4c30-8adc-225aaf31db68");
-  HLK_TEST(NotEqual_double_Scalar, NotEqual, double, ScalarOp2,
-           "89a02a1a-1460-4699-9914-8eb882deb5bd");
-  HLK_TEST(NotEqual_double, NotEqual, double, Vector,
-           "3af77475-8865-42cb-b4e7-16d6503d3ffd");
+  HLK_TEST(LessThan, int16_t, ScalarOp2);
+  HLK_TEST(LessThan, int16_t, Vector);
+  HLK_TEST(LessEqual, int16_t, ScalarOp2);
+  HLK_TEST(LessEqual, int16_t, Vector);
+  HLK_TEST(GreaterThan, int16_t, ScalarOp2);
+  HLK_TEST(GreaterThan, int16_t, Vector);
+  HLK_TEST(GreaterEqual, int16_t, ScalarOp2);
+  HLK_TEST(GreaterEqual, int16_t, Vector);
+  HLK_TEST(Equal, int16_t, ScalarOp2);
+  HLK_TEST(Equal, int16_t, Vector);
+  HLK_TEST(NotEqual, int16_t, ScalarOp2);
+  HLK_TEST(NotEqual, int16_t, Vector);
+  HLK_TEST(LessThan, int32_t, ScalarOp2);
+  HLK_TEST(LessThan, int32_t, Vector);
+  HLK_TEST(LessEqual, int32_t, ScalarOp2);
+  HLK_TEST(LessEqual, int32_t, Vector);
+  HLK_TEST(GreaterThan, int32_t, ScalarOp2);
+  HLK_TEST(GreaterThan, int32_t, Vector);
+  HLK_TEST(GreaterEqual, int32_t, ScalarOp2);
+  HLK_TEST(GreaterEqual, int32_t, Vector);
+  HLK_TEST(Equal, int32_t, ScalarOp2);
+  HLK_TEST(Equal, int32_t, Vector);
+  HLK_TEST(NotEqual, int32_t, ScalarOp2);
+  HLK_TEST(NotEqual, int32_t, Vector);
+  HLK_TEST(LessThan, int64_t, ScalarOp2);
+  HLK_TEST(LessThan, int64_t, Vector);
+  HLK_TEST(LessEqual, int64_t, ScalarOp2);
+  HLK_TEST(LessEqual, int64_t, Vector);
+  HLK_TEST(GreaterThan, int64_t, ScalarOp2);
+  HLK_TEST(GreaterThan, int64_t, Vector);
+  HLK_TEST(GreaterEqual, int64_t, ScalarOp2);
+  HLK_TEST(GreaterEqual, int64_t, Vector);
+  HLK_TEST(Equal, int64_t, ScalarOp2);
+  HLK_TEST(Equal, int64_t, Vector);
+  HLK_TEST(NotEqual, int64_t, ScalarOp2);
+  HLK_TEST(NotEqual, int64_t, Vector);
+  HLK_TEST(LessThan, uint16_t, ScalarOp2);
+  HLK_TEST(LessThan, uint16_t, Vector);
+  HLK_TEST(LessEqual, uint16_t, ScalarOp2);
+  HLK_TEST(LessEqual, uint16_t, Vector);
+  HLK_TEST(GreaterThan, uint16_t, ScalarOp2);
+  HLK_TEST(GreaterThan, uint16_t, Vector);
+  HLK_TEST(GreaterEqual, uint16_t, ScalarOp2);
+  HLK_TEST(GreaterEqual, uint16_t, Vector);
+  HLK_TEST(Equal, uint16_t, ScalarOp2);
+  HLK_TEST(Equal, uint16_t, Vector);
+  HLK_TEST(NotEqual, uint16_t, ScalarOp2);
+  HLK_TEST(NotEqual, uint16_t, Vector);
+  HLK_TEST(LessThan, uint32_t, ScalarOp2);
+  HLK_TEST(LessThan, uint32_t, Vector);
+  HLK_TEST(LessEqual, uint32_t, ScalarOp2);
+  HLK_TEST(LessEqual, uint32_t, Vector);
+  HLK_TEST(GreaterThan, uint32_t, ScalarOp2);
+  HLK_TEST(GreaterThan, uint32_t, Vector);
+  HLK_TEST(GreaterEqual, uint32_t, ScalarOp2);
+  HLK_TEST(GreaterEqual, uint32_t, Vector);
+  HLK_TEST(Equal, uint32_t, ScalarOp2);
+  HLK_TEST(Equal, uint32_t, Vector);
+  HLK_TEST(NotEqual, uint32_t, ScalarOp2);
+  HLK_TEST(NotEqual, uint32_t, Vector);
+  HLK_TEST(LessThan, uint64_t, ScalarOp2);
+  HLK_TEST(LessThan, uint64_t, Vector);
+  HLK_TEST(LessEqual, uint64_t, ScalarOp2);
+  HLK_TEST(LessEqual, uint64_t, Vector);
+  HLK_TEST(GreaterThan, uint64_t, ScalarOp2);
+  HLK_TEST(GreaterThan, uint64_t, Vector);
+  HLK_TEST(GreaterEqual, uint64_t, ScalarOp2);
+  HLK_TEST(GreaterEqual, uint64_t, Vector);
+  HLK_TEST(Equal, uint64_t, ScalarOp2);
+  HLK_TEST(Equal, uint64_t, Vector);
+  HLK_TEST(NotEqual, uint64_t, ScalarOp2);
+  HLK_TEST(NotEqual, uint64_t, Vector);
+  HLK_TEST(LessThan, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(LessThan, HLSLHalf_t, Vector);
+  HLK_TEST(LessEqual, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(LessEqual, HLSLHalf_t, Vector);
+  HLK_TEST(GreaterThan, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(GreaterThan, HLSLHalf_t, Vector);
+  HLK_TEST(GreaterEqual, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(GreaterEqual, HLSLHalf_t, Vector);
+  HLK_TEST(Equal, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(Equal, HLSLHalf_t, Vector);
+  HLK_TEST(NotEqual, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(NotEqual, HLSLHalf_t, Vector);
+  HLK_TEST(LessThan, float, ScalarOp2);
+  HLK_TEST(LessThan, float, Vector);
+  HLK_TEST(LessEqual, float, ScalarOp2);
+  HLK_TEST(LessEqual, float, Vector);
+  HLK_TEST(GreaterThan, float, ScalarOp2);
+  HLK_TEST(GreaterThan, float, Vector);
+  HLK_TEST(GreaterEqual, float, ScalarOp2);
+  HLK_TEST(GreaterEqual, float, Vector);
+  HLK_TEST(Equal, float, ScalarOp2);
+  HLK_TEST(Equal, float, Vector);
+  HLK_TEST(NotEqual, float, ScalarOp2);
+  HLK_TEST(NotEqual, float, Vector);
+  HLK_TEST(LessThan, double, ScalarOp2);
+  HLK_TEST(LessThan, double, Vector);
+  HLK_TEST(LessEqual, double, ScalarOp2);
+  HLK_TEST(LessEqual, double, Vector);
+  HLK_TEST(GreaterThan, double, ScalarOp2);
+  HLK_TEST(GreaterThan, double, Vector);
+  HLK_TEST(GreaterEqual, double, ScalarOp2);
+  HLK_TEST(GreaterEqual, double, Vector);
+  HLK_TEST(Equal, double, ScalarOp2);
+  HLK_TEST(Equal, double, Vector);
+  HLK_TEST(NotEqual, double, ScalarOp2);
+  HLK_TEST(NotEqual, double, Vector);
 
   // Binary
 
-  HLK_TEST(Logical_And_bool, Logical_And, HLSLBool_t, Vector,
-           "52102773-1811-43bd-85a5-5b4b3b7b06ee");
-  HLK_TEST(Logical_Or_bool, Logical_Or, HLSLBool_t, Vector,
-           "40e6c395-97a6-42a3-923e-a362a838720e");
-  HLK_TEST(Logical_And_bool_Scalar, Logical_And, HLSLBool_t, ScalarOp2,
-           "7846c923-fa5a-4a9f-9aae-d563b5156fc1");
-  HLK_TEST(Logical_Or_bool_Scalar, Logical_Or, HLSLBool_t, ScalarOp2,
-           "db50aa82-4ec6-4b02-b61f-c295f0c17e4f");
+  HLK_TEST(Logical_And, HLSLBool_t, Vector);
+  HLK_TEST(Logical_Or, HLSLBool_t, Vector);
+  HLK_TEST(Logical_And, HLSLBool_t, ScalarOp2);
+  HLK_TEST(Logical_Or, HLSLBool_t, ScalarOp2);
 
   // NOTE: TernaryAssignment_True and TernaryAssignment_False don't have tests.
   // Do we want them?
@@ -1956,5 +1524,3 @@ private:
   bool Initialized = false;
   bool VerboseLogging = false;
 };
-
-} // namespace LongVector
