@@ -6148,6 +6148,13 @@ void CGMSHLSLRuntime::EmitHLSLRootSignature(HLSLRootSignatureAttr *RSA,
   }
 }
 
+// Helper to determine HLSL object types that should be treated as pass-by-value
+// at HLSL source level by creating a local copy and passing its address.
+static bool IsByValueObject(QualType Ty) {
+  // Currently only HitObject is passed by value.
+  return hlsl::IsHLSLHitObjectType(Ty);
+}
+
 void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     CodeGenFunction &CGF, const FunctionDecl *FD, const CallExpr *E,
     llvm::SmallVector<LValue, 8> &castArgList,
@@ -6162,7 +6169,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     uint32_t ArgIdx = i + ArgsToSkip;
     const Expr *Arg = E->getArg(ArgIdx);
     QualType ParamTy = Param->getType().getNonReferenceType();
-    bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
+    bool isObject = !IsByValueObject(ParamTy) && dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
     bool bAnnotResource = false;
     if (isObject) {
       auto [glcMismatch, rdcMismatch] =
@@ -6187,6 +6194,9 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     bool isAggregateType =
         !isObject &&
         (isArray || (ParamTy->isRecordType() && !(isMatrix || isVector)));
+    // Treat by-value objects as aggregate for copy-in to implement by-value semantics
+    if (IsByValueObject(ParamElTy))
+      isAggregateType = true;
 
     bool EmitRValueAgg = false;
     bool RValOnRef = false;
@@ -6227,7 +6237,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         // Must be object
         DXASSERT(isObject,
                  "otherwise, flow condition changed, breaking assumption");
-        // in-only objects should be skipped to preserve previous behavior.
+        // in-only objects should be skipped to preserve previous behavior,
+        // except for by-value objects which we force to copy-in.
         if (!bAnnotResource)
           continue;
       }
@@ -6269,6 +6280,9 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         argAddr = argLV.getAddress();
 
       bool mustCopy = bAnnotResource;
+      // Force copy for by-value objects to ensure we pass a local copy
+      if (IsByValueObject(ParamElTy))
+        mustCopy = true;
 
       // If matrix orientation changes, we must copy here
       // TODO: A high level intrinsic for matrix array copy with orientation
@@ -6387,8 +6401,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
 
     // cast before the call
     if (Param->isModifierIn() &&
-        // Don't copy object
-        !isObject) {
+        // Copy-in for non-objects, and also for by-value objects
+        (!isObject || IsByValueObject(ParamTy))) {
       QualType ArgTy = Arg->getType();
       Value *outVal = nullptr;
       if (!isAggregateType) {
