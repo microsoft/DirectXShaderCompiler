@@ -1,17 +1,13 @@
 #ifndef TABLE_PARAMETER_HANDLER_H
 #define TABLE_PARAMETER_HANDLER_H
 
-#include <Verify.h>
-#include <WexString.h>
-#include <WexTestClass.h>
-#include <memory>
-#include <string>
-#include <vector>
-#include <wchar.h>
-#include <windows.h> // For LPCWSTR
-
-#include "dxc/Support/Global.h" // For DXASSERT_ARGS
-#include "dxc/Test/HlslTestUtils.h"
+#include <windows.h>
+#ifdef _HLK_CONF
+#include "DxilConfTestUtils.h"
+#else
+#include "HlslTestUtils.h"
+#include "dxc/Support/Global.h"
+#endif
 
 // Parameter representation for taef data-driven tests
 struct TableParameter {
