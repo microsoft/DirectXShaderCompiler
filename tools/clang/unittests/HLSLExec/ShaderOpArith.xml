@@ -3799,7 +3799,9 @@ void MSMain(uint GID : SV_GroupIndex,
           asuint(Vector, LowBits, HighBits);
 
           // Store the high bits in the second half of the output vector.
-          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(OUT_TYPE_SIZE * NUM, HighBits);
+          // Because we know the outputs of asuint are always 32 bits, we can
+          // use 4 bytes per element for our offset.
+          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(4 * NUM, HighBits);
 
           // Generic store logic in main handles storing LowBits in
           // g_OutputVector.

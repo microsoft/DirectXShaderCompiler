@@ -32,25 +32,20 @@ template <typename T> const char *getHLSLTypeString() {
   static_assert(false && "Missing HLSL type string");
 }
 
-template <typename T> size_t getHLSLDataTypeSize() {
-  static_assert(false && "Missing HLSL Data Type size");
-}
-
-#define DATA_TYPE_NAME(TYPE, NAME, HLSL_STRING, SIZE)                          \
+#define DATA_TYPE_NAME(TYPE, NAME, HLSL_STRING)                                \
   template <> const wchar_t *getDataTypeName<TYPE>() { return NAME; }          \
-  template <> const char *getHLSLTypeString<TYPE>() { return HLSL_STRING; }    \
-  template <> size_t getHLSLDataTypeSize<TYPE>() { return (size_t)SIZE; }
+  template <> const char *getHLSLTypeString<TYPE>() { return HLSL_STRING; }
 
-DATA_TYPE_NAME(HLSLBool_t, L"bool", "bool", 4);
-DATA_TYPE_NAME(int16_t, L"int16", "int16_t", 2);
-DATA_TYPE_NAME(int32_t, L"int32", "int", 4);
-DATA_TYPE_NAME(int64_t, L"int64", "int64_t", 8);
-DATA_TYPE_NAME(uint16_t, L"uint16", "uint16_t", 2);
-DATA_TYPE_NAME(uint32_t, L"uint32", "uint32_t", 4);
-DATA_TYPE_NAME(uint64_t, L"uint64", "uint64_t", 8);
-DATA_TYPE_NAME(HLSLHalf_t, L"float16", "half", 2);
-DATA_TYPE_NAME(float, L"float32", "float", 4);
-DATA_TYPE_NAME(double, L"float64", "double", 8);
+DATA_TYPE_NAME(HLSLBool_t, L"bool", "bool");
+DATA_TYPE_NAME(int16_t, L"int16", "int16_t");
+DATA_TYPE_NAME(int32_t, L"int32", "int");
+DATA_TYPE_NAME(int64_t, L"int64", "int64_t");
+DATA_TYPE_NAME(uint16_t, L"uint16", "uint16_t");
+DATA_TYPE_NAME(uint32_t, L"uint32", "uint32_t");
+DATA_TYPE_NAME(uint64_t, L"uint64", "uint64_t");
+DATA_TYPE_NAME(HLSLHalf_t, L"float16", "half");
+DATA_TYPE_NAME(float, L"float32", "float");
+DATA_TYPE_NAME(double, L"float64", "double");
 
 #undef DATA_TYPE_NAME
 
@@ -456,7 +451,6 @@ std::string getCompilerOptionsString(OP_TYPE OpType, size_t VectorSize,
   CompilerOptions << " " << ExtraDefines;
 
   CompilerOptions << " -DOUT_TYPE=" << getHLSLTypeString<OUT_TYPE>();
-  CompilerOptions << " -DOUT_TYPE_SIZE=" << getHLSLDataTypeSize<OUT_TYPE>();
 
   CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << ARITY;
 
@@ -1056,6 +1050,9 @@ template <typename T> struct UnaryOps {
   static double CastToFloat64(T V) { return (double)V; }
 };
 
+// Specialization for handling HLSLHalf_t. Chosen instead of overloading in the
+// struct as that leads to ambiguous implicit conversions when using std math
+// and trig function with an HLSLHalf_t argument.
 template <> struct UnaryOps<HLSLHalf_t> {
   static HLSLHalf_t Initialize(HLSLHalf_t V) { return V; }
   static HLSLBool_t CastToBool(HLSLHalf_t V) { return HLSLBool_t((bool)V); }
