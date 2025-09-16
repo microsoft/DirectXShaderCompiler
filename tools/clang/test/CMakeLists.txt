@@ -196,7 +196,7 @@ foreach(i RANGE 0 ${loop_end})
 
     # Hook into check-all
     if (WIN32 AND TARGET check-all)
-      add_dependencies(check-all "check-clang-${name}")
+      add_dependencies(check-all "check-${name}")
     endif()  
   endif()
 endforeach()

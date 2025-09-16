@@ -880,17 +880,14 @@ int DxcContext::Compile() {
               args.data(), args.size(), m_Opts.Defines.data(),
               m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
         } else {
-          DxcBuffer buf = {};
-          buf.Ptr = pSource->GetBufferPointer();
-          buf.Size = pSource->GetBufferSize();
-          buf.Encoding = CP_UTF8;
-
-          CComPtr<IDxcCompiler3> pCompilerv3;
-          IFT(CreateInstance(CLSID_DxcCompiler, &pCompilerv3));
-
-          IFT(pCompilerv3->Compile(&buf, args.data(), args.size(),
-                                   pIncludeHandler,
-                                   IID_PPV_ARGS(&pCompileResult)));
+          // This compilation invocation will sub in "-Vd" to disable internal
+          // validation so that validation is handled directly immediately
+          // afterwards.
+          IFT(pCompiler->Compile(
+              pSource, StringRefWide(m_Opts.InputFile),
+              StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
+              args.data(), args.size(), m_Opts.Defines.data(),
+              m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
 
           // dont validate when validation was disabled, or
           // there are compilation errors
