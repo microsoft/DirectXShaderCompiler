@@ -1732,6 +1732,18 @@ Value *TranslateUAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return CI->getOperand(HLOperandIndex::kUnaryOpSrc0Idx); // No-op
 }
 
+Value *GenerateVectorCmpNEZero(Value *Val, IRBuilder<> Builder) {
+  Type *Ty = Val->getType();
+  Type *EltTy = Ty->getScalarType();
+
+  Value *ZeroInit = ConstantAggregateZero::get(Ty);
+
+  if (EltTy->isFloatingPointTy())
+    return Builder.CreateFCmpUNE(Val, ZeroInit);
+
+  return Builder.CreateICmpNE(Val, ZeroInit);
+}
+
 Value *GenerateCmpNEZero(Value *val, IRBuilder<> Builder) {
   Type *Ty = val->getType();
   Type *EltTy = Ty->getScalarType();
@@ -1776,35 +1788,29 @@ Value *TranslateBitwisePredicate(CallInst *CI, IntrinsicOp IOP,
       break;
     }
 
-    // Since VectorReduceAnd/Or are only defined for integer types the
-    // vectorization optimization doesn't help on FP types. It could be lowered
-    // as N * FCmpUNE + N * insertelement + VectorReduceAnd but that isn't any
-    // better than the scalarized case.
-    if (EltTy->isIntegerTy()) {
-      Constant *OpArg = HlslOP->GetU32Const((unsigned)ReduceOp);
-      Value *Args[] = {OpArg, Arg};
-      Function *DxilFunc = HlslOP->GetOpFunc(ReduceOp, Ty);
-      Value *ReducedVal = TrivialDxilVectorOperation(DxilFunc, ReduceOp, Args,
-                                                     Ty, HlslOP, Builder);
-      return GenerateCmpNEZero(ReducedVal, Builder);
-    }
+    // Compare each element to zero
+    Value *VecCmpZero = GenerateVectorCmpNEZero(Arg, Builder);
+    Type  *VecCmpTy = VecCmpZero->getType();
+
+    // Reduce the vector with the appropiate op
+    Constant *OpArg = HlslOP->GetU32Const((unsigned)ReduceOp);
+    Value *Args[] = {OpArg, VecCmpZero};
+    Function *DxilFunc = HlslOP->GetOpFunc(ReduceOp, VecCmpTy);
+    return TrivialDxilVectorOperation(DxilFunc, ReduceOp, Args,
+                                                     VecCmpTy, HlslOP, Builder);
   }
 
-  SmallVector<Value *, 4> ExtractedElements;
-  // FP types don't support support bitwise and/or
-  bool NeedsConvertToInt = EltTy->isFloatingPointTy();
+  SmallVector<Value *, 4> EltIsNEZero;
   for (unsigned I = 0; I < Ty->getVectorNumElements(); I++) {
     Value *Elt = Builder.CreateExtractElement(Arg, I);
-    if (NeedsConvertToInt)
-      Elt = GenerateCmpNEZero(Elt, Builder);
-    ExtractedElements.push_back(Elt);
+    Elt = GenerateCmpNEZero(Elt, Builder);
+    EltIsNEZero.push_back(Elt);
   }
 
-  // Progressively and/or the components together then emit a single
-  // icmp
-  Value *Reduce = ExtractedElements[0];
-  for (unsigned I = 1; I < ExtractedElements.size(); I++) {
-    Value *Elt = ExtractedElements[I];
+  // and/or the components together
+  Value *Reduce = EltIsNEZero[0];
+  for (unsigned I = 1; I < EltIsNEZero.size(); I++) {
+    Value *Elt = EltIsNEZero[I];
     switch (IOP) {
     case IntrinsicOp::IOP_all:
       Reduce = Builder.CreateAnd(Reduce, Elt);
@@ -1818,7 +1824,7 @@ Value *TranslateBitwisePredicate(CallInst *CI, IntrinsicOp IOP,
     }
   }
 
-  return GenerateCmpNEZero(Reduce, Builder);
+  return Reduce;
 }
 
 Value *TranslateAll(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,

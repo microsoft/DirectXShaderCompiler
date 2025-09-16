@@ -150,12 +150,12 @@ void main() {
   // CHECK: and <13 x i1> [[bvec3]], [[bvec2]]
   uRes += and(bVec2, bVec3);
 
-  // CHECK: [[reduceand:%.*]] = call i64 @dx.op.vectorReduce.v13i64(i32 309, <13 x i64> [[lvec1]])  ; VectorReduceAnd(a)
-  // CHECK: icmp ne i64 [[reduceand]], 0
+  // CHECK: [[lvec1_cmp_ne_z:%.*]] = icmp ne <13 x i64> [[lvec1]], zeroinitializer
+  // CHECK: call i1 @dx.op.vectorReduce.v13i1(i32 309, <13 x i1> [[lvec1_cmp_ne_z]])  ; VectorReduceAnd(a)
   uRes += all(lVec1);
 
-  // CHECK: [[reduceor:%.*]] = call i64 @dx.op.vectorReduce.v13i64(i32 310, <13 x i64> [[lvec1]])  ; VectorReduceOr(a)
-  // CHECK: icmp ne i64 [[reduceor]], 0
+  // vector icmp is reused from above
+  // CHECK: call i1 @dx.op.vectorReduce.v13i1(i32 310, <13 x i1> [[lvec1_cmp_ne_z]])  ; VectorReduceOr(a)
   uRes += any(lVec1);
 
   // CHECK: select <13 x i1> [[bvec3]], <13 x i64> [[lvec1]], <13 x i64> [[lvec2]]
