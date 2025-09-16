@@ -1065,9 +1065,7 @@ template <> struct UnaryOps<HLSLHalf_t> {
   static uint16_t CastToUint16(HLSLHalf_t V) { return (uint16_t)V.AsFloat(); }
   static uint32_t CastToUint32(HLSLHalf_t V) { return (uint32_t)V.AsFloat(); }
   static uint64_t CastToUint64(HLSLHalf_t V) { return (uint64_t)V.AsFloat(); }
-  static HLSLHalf_t CastToFloat16(HLSLHalf_t V) {
-    return HLSLHalf_t((float)V.AsFloat());
-  }
+  static HLSLHalf_t CastToFloat16(HLSLHalf_t V) { return V; }
   static float CastToFloat32(HLSLHalf_t V) { return (float)V.AsFloat(); }
   static double CastToFloat64(HLSLHalf_t V) { return (double)V.AsFloat(); }
 };
@@ -1234,7 +1232,6 @@ void dispatchTestByOpTypeAndVectorSize(const TestConfig &Config,
 
 #undef DISPATCH
 #undef DISPATCH_INITIALIZE
-#undef DISPATCH_POSTFIX
 
   LOG_ERROR_FMT_THROW(L"DataType '%s' not supported for UnaryOpType '%s'",
                       (const wchar_t *)Config.DataType,
