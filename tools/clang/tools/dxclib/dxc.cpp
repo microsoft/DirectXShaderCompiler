@@ -891,8 +891,13 @@ int DxcContext::Compile() {
                                    pIncludeHandler,
                                    IID_PPV_ARGS(&pCompileResult)));
 
+          // dont validate when validation was disabled, or
+          // there are compilation errors
+          HRESULT CompHR;
+          pCompileResult->GetStatus(&CompHR);
+
           // Then validate
-          if (!m_Opts.DisableValidation) {
+          if (!m_Opts.DisableValidation && !DXC_FAILED(CompHR)) {
 
             CComPtr<IDxcValidator> pValidator;
             IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
@@ -901,9 +906,7 @@ int DxcContext::Compile() {
             CComPtr<IDxcOperationResult> pValResult;
 
             IFT(pCompileResult->GetResult(&pProgram));
-            /*if (llvm::getDebugMetadataVersionFromModule(pProgram) != 0) {
-              llvmModuleWithDebugInfo.reset(llvm::CloneModule(inputs.pM.get()));
-            }*/
+
             IFT(pValidator->Validate(pProgram,
                                      DxcValidatorFlags_RootSignatureOnly |
                                          DxcValidatorFlags_InPlaceEdit,

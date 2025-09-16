@@ -335,13 +335,13 @@ if "%TEST_USE_LIT%"=="1" (
       set RES_CLANG=!ERRORLEVEL!
     )
     if "!TEST_COMPAT_SUITE!"=="2021" (       
-        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-dxc_2021_12_08        
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxc_2021_12_08        
     )
     if "!TEST_COMPAT_SUITE!"=="2023" (       
-        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-dxc_2023_08_14
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxc_2023_08_14
     )
     if "!TEST_COMPAT_SUITE!"=="2025" (       
-        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-dxc_2025_02_20
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxc_2025_02_20
     )
     if "!TEST_EXEC!"=="1" (
       if defined EXEC_ADAPTER (

@@ -179,7 +179,7 @@ foreach(i RANGE 0 ${loop_end})
     set(DXC_PATH ${CMAKE_BINARY_DIR}/tools/clang/test/dxc_releases/${version}/${name}/bin/${TARGET_ARCH}/dxil.dll)
 
     # Create a lit target for this release
-    add_lit_target("check-clang-${name}" "Running clang regression tests with ${name}\n"
+    add_lit_target("check-${name}" "Running clang regression tests with ${name}\n"
       ${CMAKE_CURRENT_SOURCE_DIR}
       PARAMS ${CLANG_TEST_PARAMS}
       DXC_DXIL_DLL_PATH=${DXC_PATH} 
@@ -193,9 +193,6 @@ foreach(i RANGE 0 ${loop_end})
     if(NOT TARGET check-clang)
       add_custom_target(check-clang)
     endif()
-
-    # Make check-clang depend on this particular release's tests
-    add_dependencies(check-clang "check-clang-${name}")
 
     # Hook into check-all
     if (WIN32 AND TARGET check-all)
