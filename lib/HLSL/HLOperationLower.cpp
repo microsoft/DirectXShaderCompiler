@@ -1790,14 +1790,14 @@ Value *TranslateBitwisePredicate(CallInst *CI, IntrinsicOp IOP,
 
     // Compare each element to zero
     Value *VecCmpZero = GenerateVectorCmpNEZero(Arg, Builder);
-    Type  *VecCmpTy = VecCmpZero->getType();
+    Type *VecCmpTy = VecCmpZero->getType();
 
     // Reduce the vector with the appropiate op
     Constant *OpArg = HlslOP->GetU32Const((unsigned)ReduceOp);
     Value *Args[] = {OpArg, VecCmpZero};
     Function *DxilFunc = HlslOP->GetOpFunc(ReduceOp, VecCmpTy);
-    return TrivialDxilVectorOperation(DxilFunc, ReduceOp, Args,
-                                                     VecCmpTy, HlslOP, Builder);
+    return TrivialDxilVectorOperation(DxilFunc, ReduceOp, Args, VecCmpTy,
+                                      HlslOP, Builder);
   }
 
   SmallVector<Value *, 4> EltIsNEZero;
