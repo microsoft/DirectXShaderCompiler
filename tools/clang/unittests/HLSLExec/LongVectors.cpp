@@ -269,13 +269,13 @@ template <typename T, OpType OP> struct TestConfig {
   bool VerboseLogging;
   uint16_t ScalarInputFlags;
 
-  size_t LongVectorInputSize = 0;
+  size_t OverrideLongVectorInputSize = 0;
 
   TestConfig(bool VerboseLogging, uint16_t ScalarInputFlags)
       : VerboseLogging(VerboseLogging), ScalarInputFlags(ScalarInputFlags) {
     using WEX::TestExecution::RuntimeParameters;
 
-    RuntimeParameters::TryGetValue(L"LongVectorInputSize", LongVectorInputSize);
+    RuntimeParameters::TryGetValue(L"LongVectorInputSize", OverrideLongVectorInputSize);
   }
 };
 
@@ -517,7 +517,7 @@ void runAndVerify(const TestConfig<T, OP> &Config,
 // Most Ops have a 1:1 mapping of input to output, and so can use the generic
 // ExpectedBuilder.
 //
-// Ops that differ from this pattern can specialized ExpectedBuilder as
+// Ops that differ from this pattern can specialize ExpectedBuilder as
 // necessary.
 //
 
@@ -529,8 +529,8 @@ template <OpType OP, typename T> struct Op;
 // member functions.
 template <OpType OP, typename T> struct ExpectedBuilder;
 
-// Default Validation configuration - for non-floating point types uses ULP.
-// For other types requires exact matches.
+// Default Validation configuration - ULP for floating point types, exact
+// matches for everything else.
 template <typename T> struct DefaultValidation {
   ValidationConfig ValidationConfig;
 
@@ -540,7 +540,7 @@ template <typename T> struct DefaultValidation {
   }
 };
 
-// Strict Validation - for all types require exact matches.
+// Strict Validation - require exact matches for all types
 struct StrictValidation {
   ValidationConfig ValidationConfig;
 };
@@ -946,8 +946,8 @@ template <OpType OP, typename T> struct ExpectedBuilder {
 template <typename T, OpType OP>
 void dispatchTest(const TestConfig<T, OP> &Config) {
   std::vector<size_t> InputVectorSizes;
-  if (Config.LongVectorInputSize)
-    InputVectorSizes.push_back(Config.LongVectorInputSize);
+  if (Config.OverrideLongVectorInputSize)
+    InputVectorSizes.push_back(Config.OverrideLongVectorInputSize);
   else
     InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
 
