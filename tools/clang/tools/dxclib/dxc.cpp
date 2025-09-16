@@ -57,13 +57,11 @@
 #include "dxc/dxcapi.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxc/dxctools.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
-
 #ifdef _WIN32
 #include <comdef.h>
 #include <dia2.h>
@@ -162,8 +160,6 @@ public:
       : m_Opts(Opts), m_dxcSupport(dxcSupport) {}
 
   int Compile();
-  void RunExternalValidatorAndMaybePrintValidationErrors(
-      CComPtr<IDxcOperationResult> pCompilerResult);
   void Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
                  IDxcCompiler *pCompiler, std::vector<LPCWSTR> &args,
                  std::wstring &outputPDBPath, CComPtr<IDxcBlob> &pDebugBlob,
@@ -813,39 +809,6 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
   *ppCompileResult = pResult.Detach();
 }
 
-void DxcContext::RunExternalValidatorAndMaybePrintValidationErrors(
-    CComPtr<IDxcOperationResult> pCompileResult) {
-
-  if (!pCompileResult) {
-    return;
-  }
-
-  CComPtr<IDxcValidator> pValidator;
-  IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
-
-  CComPtr<IDxcValidator2> pValidator2;
-  pValidator.QueryInterface(&pValidator2);
-
-  CComPtr<IDxcBlob> pProgram;
-  CComPtr<IDxcOperationResult> pValResult;
-
-  IFT(pCompileResult->GetResult(&pProgram));
-  /*if (llvm::getDebugMetadataVersionFromModule(pProgram) != 0) {
-    llvmModuleWithDebugInfo.reset(llvm::CloneModule(inputs.pM.get()));
-  }*/
-  IFT(pValidator->Validate(pProgram,
-                           DxcValidatorFlags_RootSignatureOnly |
-                               DxcValidatorFlags_InPlaceEdit,
-                           &pValResult));
-  CComPtr<IDxcResult> pResult;
-  HRESULT ValHR;
-  pValResult->GetStatus(&ValHR);
-  if (DXC_FAILED(ValHR))
-    if (SUCCEEDED(pCompileResult->QueryInterface(&pResult))) {
-      WriteDxcOutputToFile(DXC_OUT_ERRORS, pResult, m_Opts.DefaultTextCodePage);
-    }
-}
-
 int DxcContext::Compile() {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pCompileResult;
@@ -928,8 +891,31 @@ int DxcContext::Compile() {
                                    IID_PPV_ARGS(&pCompileResult)));
 
           // Then validate
-          if (!m_Opts.DisableValidation)
-            RunExternalValidator(pCompileResult);
+          if (!m_Opts.DisableValidation) {
+
+            CComPtr<IDxcValidator> pValidator;
+            IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
+
+            CComPtr<IDxcBlob> pProgram;
+            CComPtr<IDxcOperationResult> pValResult;
+
+            IFT(pCompileResult->GetResult(&pProgram));
+            /*if (llvm::getDebugMetadataVersionFromModule(pProgram) != 0) {
+              llvmModuleWithDebugInfo.reset(llvm::CloneModule(inputs.pM.get()));
+            }*/
+            IFT(pValidator->Validate(pProgram,
+                                     DxcValidatorFlags_RootSignatureOnly |
+                                         DxcValidatorFlags_InPlaceEdit,
+                                     &pValResult));
+            CComPtr<IDxcResult> pResult;
+            HRESULT ValHR;
+            pValResult->GetStatus(&ValHR);
+            if (DXC_FAILED(ValHR)) {
+              if (SUCCEEDED(pCompileResult->QueryInterface(&pResult)))
+                WriteDxcOutputToFile(DXC_OUT_ERRORS, pResult,
+                                     m_Opts.DefaultTextCodePage);
+            }
+          }
         }
       }
     }

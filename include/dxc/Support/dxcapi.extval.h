@@ -74,7 +74,6 @@ class DxcDllExtValidationLoader : public DllLoader {
   dxc::SpecificDllLoader DxCompilerSupport;
   dxc::SpecificDllLoader DxilExtValSupport;
   std::string DxilDllPath;
-  ExternalValidationHelper ValWrapperObj;
 
 public:
   std::string GetDxilDllPath() { return DxilDllPath; }

@@ -745,7 +745,7 @@ public:
 
         // Parse and apply
         if (opts.BindingTableDefine.size()) {
-          // Just pas the define for now because preprocessor is not available
+          // Just pass the define for now because preprocessor is not available
           // yet.
           struct BindingTableParserImpl
               : public CodeGenOptions::BindingTableParserType {
@@ -828,9 +828,6 @@ public:
           compiler.getLangOpts().HLSLEntryFunction =
               compiler.getCodeGenOpts().HLSLEntryFunction = "";
 
-        // NOTE: this calls the built-in validator by default. An external
-        // validator can be opted into via the DXC_DXIL_DLL_PATH environment
-        // variable
         produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
                                !opts.OptDump && rootSigMajor == 0 &&
                                !opts.DumpDependencies &&
@@ -929,6 +926,9 @@ public:
           if (validateRootSigContainer && !opts.DisableValidation) {
             CComPtr<IDxcBlobEncoding> pValErrors;
             // Validation failure communicated through diagnostic error
+            // NOTE: this calls the built-in validator by default. An external
+            // validator can be opted into via the DXC_DXIL_DLL_PATH environment
+            // variable
             dxcutil::ValidateRootSignatureInContainer(
                 pOutputBlob, &compiler.getDiagnostics());
           }
