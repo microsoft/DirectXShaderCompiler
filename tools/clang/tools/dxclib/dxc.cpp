@@ -887,7 +887,8 @@ int DxcContext::Compile() {
           CComPtr<IDxcCompiler3> pCompilerv3;
           IFT(CreateInstance(CLSID_DxcCompiler, &pCompilerv3));
 
-          IFT(pCompilerv3->Compile(&buf, args.data(), args.size(), nullptr,
+          IFT(pCompilerv3->Compile(&buf, args.data(), args.size(),
+                                   pIncludeHandler,
                                    IID_PPV_ARGS(&pCompileResult)));
 
           // Then validate
