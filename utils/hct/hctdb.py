@@ -6329,7 +6329,7 @@ class db_dxil(object):
             "VectorReduceAnd",
             next_op_idx,
             "VectorReduce",
-            "Bitwise and reduction of the vector returning a scalar",
+            "Bitwise AND reduction of the vector returning a scalar",
             "<18wil",
             "rn",
             [
@@ -6346,7 +6346,7 @@ class db_dxil(object):
             "VectorReduceOr",
             next_op_idx,
             "VectorReduce",
-            "Bitwise or reduction of the vector returning a scalar",
+            "Bitwise OR reduction of the vector returning a scalar",
             "<18wil",
             "rn",
             [
