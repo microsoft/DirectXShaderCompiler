@@ -98,6 +98,10 @@ if "%1"=="-clean" (
   echo Fallback to taef when use taef only options.
   set TEST_CLANG_FILTER=%2
   shift /1
+) else if "%1"=="compat-suite" (
+  set TEST_ALL=0
+  set TEST_COMPAT_SUITE=%2
+  shift /1
 ) else if "%1"=="file-check" (
   set TEST_ALL=0
   set TEST_MANUAL_FILE_CHECK=1
@@ -330,6 +334,15 @@ if "%TEST_USE_LIT%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang
       set RES_CLANG=!ERRORLEVEL!
     )
+    if "!TEST_COMPAT_SUITE!"=="2021" (       
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-dxc_2021_12_08        
+    )
+    if "!TEST_COMPAT_SUITE!"=="2023" (       
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-dxc_2023_08_14
+    )
+    if "!TEST_COMPAT_SUITE!"=="2025" (       
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-dxc_2025_02_20
+    )
     if "!TEST_EXEC!"=="1" (
       if defined EXEC_ADAPTER (
         py %HLSL_SRC_DIR%/utils/lit/lit.py -v --no-progress-bar --param build_mode=%BUILD_CONFIG% --param clang_site_config=%HLSL_BLD_DIR%/tools/clang/test/lit.site.cfg --param clang_taef_exec_site_config=%HLSL_BLD_DIR%/tools/clang/test/taef_exec/lit.site.cfg %EXEC_ADAPTER% %HLSL_SRC_DIR%/tools/clang/test/taef_exec
@@ -338,6 +351,8 @@ if "%TEST_USE_LIT%"=="1" (
 	  )
       set RES_EXEC=!ERRORLEVEL!
     )
+    
+    
   )
 
   rem No other tests to run - skip copying and move on to report the results
@@ -422,7 +437,6 @@ if "%TEST_CLANG%"=="1" (
   call :runte ClangHLSLTests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" !SELECT_FILTER! %ADDITIONAL_OPTS%
   set RES_CLANG=!ERRORLEVEL!
 )
-
 
 if "%TEST_EXEC%"=="1" (
   call :copyagility
@@ -546,7 +560,7 @@ echo  clang         - run clang tests.
 echo  file-check    - run file-check test on single file.
 echo                - hcttest file-check "..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_arg_flatten.hlsl"
 echo  compat-suite  - run compat-suite test.
-echo                - hcttest compat-suite "..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten"
+echo                - hcttest compat-suite ^(2021 ^| 2023 ^| 2025^)
 echo  cmd           - run command line tool tests.
 echo  dxilconv      - run dxilconv tests
 echo  v             - run the subset of clang tests that are verified-based.
