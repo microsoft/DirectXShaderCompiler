@@ -768,14 +768,16 @@ template <> struct ExpectedBuilder<OpType::AsUint_SplitDouble, double> {
     DXASSERT_NOMSG(ScalarInputFlags == 0);
     UNREFERENCED_PARAMETER(ScalarInputFlags);
 
-    std::vector<uint32_t> Expected;
-    Expected.resize(Inputs[0].size() * 2);
+    size_t VectorSize = Inputs[0].size();
 
-    for (size_t I = 0; I < Inputs[0].size(); ++I) {
+    std::vector<uint32_t> Expected;
+    Expected.resize(VectorSize * 2);
+
+    for (size_t I = 0; I < VectorSize; ++I) {
       uint32_t Low, High;
       splitDouble(Inputs[0][I], Low, High);
       Expected[I] = Low;
-      Expected[I + Inputs[0].size()] = High;
+      Expected[I + VectorSize] = High;
     }
 
     return Expected;
