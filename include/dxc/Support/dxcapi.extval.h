@@ -1,5 +1,5 @@
-#include "dxc/WinAdapter.h"
 #include "dxc/Support/dxcapi.use.h"
+#include "dxc/WinAdapter.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cassert>
@@ -41,8 +41,7 @@ public:
   }
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid,
-                                           void **ppvObject)
-      override {
+                                           void **ppvObject) override {
     return m_pCompiler->QueryInterface(riid, ppvObject);
   }
 
