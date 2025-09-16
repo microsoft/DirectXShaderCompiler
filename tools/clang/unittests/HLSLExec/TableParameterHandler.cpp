@@ -1,5 +1,4 @@
 #include "TableParameterHandler.h"
-#include "dxc/Test/HlslTestUtils.h"
 
 TableParameterHandler::TableParameterHandler(TableParameter *pTable,
                                              size_t size)
