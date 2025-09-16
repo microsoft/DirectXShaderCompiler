@@ -1,3 +1,4 @@
+#include "dxc/WinAdapter.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -39,9 +40,8 @@ public:
     return m_pCompiler->Disassemble(pObject, riid, ppResult);
   }
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(
-      /* [in] */ REFIID riid,
-      /* [iid_is][out] */ _COM_Outptr_ void __RPC_FAR *__RPC_FAR *ppvObject)
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid,
+                                           void **ppvObject)
       override {
     return m_pCompiler->QueryInterface(riid, ppvObject);
   }
