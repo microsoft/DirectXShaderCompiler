@@ -1037,8 +1037,8 @@ enum class OpCode : unsigned {
 
   // Vector reduce to scalar
   VectorReduceAnd =
-      309, // Bitwise and reduction of the vector returning a scalar
-  VectorReduceOr = 310, // Bitwise or reduction of the vector returning a scalar
+      309, // Bitwise AND reduction of the vector returning a scalar
+  VectorReduceOr = 310, // Bitwise OR reduction of the vector returning a scalar
 
   // Wave
   WaveActiveAllEqual = 115, // returns 1 if all the lanes have the same value

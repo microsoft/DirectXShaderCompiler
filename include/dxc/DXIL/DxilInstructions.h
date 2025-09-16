@@ -10149,7 +10149,7 @@ struct DxilInst_VectorAccumulate {
   void set_arrayOffset(llvm::Value *val) { Instr->setOperand(3, val); }
 };
 
-/// This instruction Bitwise and reduction of the vector returning a scalar
+/// This instruction Bitwise AND reduction of the vector returning a scalar
 struct DxilInst_VectorReduceAnd {
   llvm::Instruction *Instr;
   // Construction and identification
@@ -10176,7 +10176,7 @@ struct DxilInst_VectorReduceAnd {
   void set_a(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 
-/// This instruction Bitwise or reduction of the vector returning a scalar
+/// This instruction Bitwise OR reduction of the vector returning a scalar
 struct DxilInst_VectorReduceOr {
   llvm::Instruction *Instr;
   // Construction and identification
