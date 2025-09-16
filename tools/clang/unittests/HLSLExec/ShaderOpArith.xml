@@ -3776,18 +3776,18 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_CAST
+        vector<OUT_TYPE, NUM> TestCast(vector<TYPE, NUM> Vector)
+        {
+          return (vector<OUT_TYPE, NUM>)Vector;
+        }
+        #endif
+
         #ifdef FUNC_TERNARY_ASSIGNMENT
         vector<TYPE, NUM> TestTernaryAssignment(vector<TYPE, NUM> Vector,
         vector<TYPE, NUM> Vector2))
         {
           return (TERNARY_CONDITION ? Vector : Vector2);
-        }
-        #endif
-
-        #ifdef FUNC_UNARY_OPERATOR
-        vector<OUT_TYPE, NUM> TestUnaryOperator(vector<TYPE, NUM> Vector)
-        {
-          return OPERATOR(Vector);
         }
         #endif
 
