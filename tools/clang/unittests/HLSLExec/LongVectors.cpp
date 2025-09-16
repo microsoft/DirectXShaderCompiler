@@ -275,7 +275,8 @@ template <typename T, OpType OP> struct TestConfig {
       : VerboseLogging(VerboseLogging), ScalarInputFlags(ScalarInputFlags) {
     using WEX::TestExecution::RuntimeParameters;
 
-    RuntimeParameters::TryGetValue(L"LongVectorInputSize", OverrideLongVectorInputSize);
+    RuntimeParameters::TryGetValue(L"LongVectorInputSize",
+                                   OverrideLongVectorInputSize);
   }
 };
 
