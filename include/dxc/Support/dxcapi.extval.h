@@ -34,8 +34,8 @@ public:
       _In_ const DxcBuffer
           *pObject,     ///< Program to disassemble: dxil container or bitcode.
       _In_ REFIID riid, ///< Interface ID for the result.
-      _Out_ LPVOID
-          *ppResult) ///< IDxcResult: status, disassembly text, and errors.
+      _Out_ LPVOID *ppResult)
+      override ///< IDxcResult: status, disassembly text, and errors.
   {
     return m_pCompiler->Disassemble(pObject, riid, ppResult);
   }
