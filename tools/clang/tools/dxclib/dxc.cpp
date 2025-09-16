@@ -872,7 +872,8 @@ int DxcContext::Compile() {
           outputPDBPath += pDebugName.m_pData;
         }
       } else {
-        if (m_dxcSupport.DxilDllFailedToLoad()) {
+        // if there is no intent to validate externally
+        if (m_dxcSupport.GetDxilDllPath().empty()) {
           IFT(pCompiler->Compile(
               pSource, StringRefWide(m_Opts.InputFile),
               StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),

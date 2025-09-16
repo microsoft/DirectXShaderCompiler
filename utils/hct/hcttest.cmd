@@ -351,8 +351,6 @@ if "%TEST_USE_LIT%"=="1" (
 	  )
       set RES_EXEC=!ERRORLEVEL!
     )
-    
-    
   )
 
   rem No other tests to run - skip copying and move on to report the results

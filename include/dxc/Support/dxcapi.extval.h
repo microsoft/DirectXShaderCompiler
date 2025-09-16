@@ -7,14 +7,14 @@
 
 namespace dxc {
 
-class ExternalValidationHelper : public IDxcCompiler3 {
+class ExternalValidationHelper3 : public IDxcCompiler3 {
 
 public:
-  CComPtr<IDxcCompiler3> m_pCompiler;
+  CComPtr<IDxcCompiler3> m_pCompiler3;
   CComPtr<IDxcValidator> m_pValidator;
 
-  ExternalValidationHelper() {
-    m_pCompiler = nullptr;
+  ExternalValidationHelper3() {
+    m_pCompiler3 = nullptr;
     m_pValidator = nullptr;
   }
 
@@ -37,7 +37,95 @@ public:
       _Out_ LPVOID *ppResult)
       override ///< IDxcResult: status, disassembly text, and errors.
   {
-    return m_pCompiler->Disassemble(pObject, riid, ppResult);
+    return m_pCompiler3->Disassemble(pObject, riid, ppResult);
+  }
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid,
+                                           void **ppvObject) override {
+    return m_pCompiler3->QueryInterface(riid, ppvObject);
+  }
+
+  ULONG STDMETHODCALLTYPE AddRef() override { return m_pCompiler3.p->AddRef(); }
+
+  ULONG STDMETHODCALLTYPE Release() override {
+    return m_pCompiler3.p->Release();
+  }
+
+  HRESULT STDMETHODCALLTYPE Validate(
+      IDxcBlob *pShader, // Shader to validate.
+      UINT32 Flags,      // Validation flags.
+      IDxcOperationResult *
+          *ppResult // Validation output status, buffer, and errors
+  ) {
+    return m_pValidator->Validate(pShader, Flags, ppResult);
+  }
+
+  ExternalValidationHelper3(CComPtr<IDxcCompiler3> pCompiler,
+                            CComPtr<IDxcValidator> pValidator) {
+    m_pCompiler3 = pCompiler;
+    m_pValidator = pValidator;
+  }
+};
+
+class ExternalValidationHelper : public IDxcCompiler {
+public:
+  CComPtr<IDxcCompiler> m_pCompiler;
+  CComPtr<IDxcValidator> m_pValidator;
+
+  ExternalValidationHelper() {
+    m_pCompiler = nullptr;
+    m_pValidator = nullptr;
+  }
+  HRESULT STDMETHODCALLTYPE Compile(
+      _In_ IDxcBlob *pSource,         // Source text to compile.
+      _In_opt_z_ LPCWSTR pSourceName, // Optional file name for pSource. Used in
+                                      // errors and include handlers.
+      _In_opt_z_ LPCWSTR pEntryPoint, // Entry point name.
+      _In_z_ LPCWSTR pTargetProfile,  // Shader profile to compile.
+      _In_opt_count_(argCount)
+          LPCWSTR *pArguments, // Array of pointers to arguments.
+      _In_ UINT32 argCount,    // Number of arguments.
+      _In_count_(defineCount) const DxcDefine *pDefines, // Array of defines.
+      _In_ UINT32 defineCount,                           // Number of defines.
+      _In_opt_ IDxcIncludeHandler
+          *pIncludeHandler, // User-provided interface to handle #include
+                            // directives (optional).
+      _COM_Outptr_ IDxcOperationResult *
+          *ppResult // Compiler output status, buffer, and errors.
+      ) override;
+
+  /// \brief Preprocess source text.
+  ///
+  /// \deprecated Please use IDxcCompiler3::Compile() with the "-P" argument
+  /// instead.
+  HRESULT STDMETHODCALLTYPE Preprocess(
+      _In_ IDxcBlob *pSource,         // Source text to preprocess.
+      _In_opt_z_ LPCWSTR pSourceName, // Optional file name for pSource. Used in
+                                      // errors and include handlers.
+      _In_opt_count_(argCount)
+          LPCWSTR *pArguments, // Array of pointers to arguments.
+      _In_ UINT32 argCount,    // Number of arguments.
+      _In_count_(defineCount) const DxcDefine *pDefines, // Array of defines.
+      _In_ UINT32 defineCount,                           // Number of defines.
+      _In_opt_ IDxcIncludeHandler
+          *pIncludeHandler, // user-provided interface to handle #include
+                            // directives (optional).
+      _COM_Outptr_ IDxcOperationResult *
+          *ppResult // Preprocessor output status, buffer, and errors.
+      ) override {
+    return m_pCompiler->Preprocess(pSource, pSourceName, pArguments, argCount,
+                                   pDefines, defineCount, pIncludeHandler,
+                                   ppResult);
+  }
+
+  /// \brief Disassemble a program.
+  ///
+  /// \deprecated Please use IDxcCompiler3::Disassemble() instead.
+  HRESULT STDMETHODCALLTYPE Disassemble(
+      _In_ IDxcBlob *pSource,                       // Program to disassemble.
+      _COM_Outptr_ IDxcBlobEncoding **ppDisassembly // Disassembly text.
+      ) override {
+    return m_pCompiler->Disassemble(pSource, ppDisassembly);
   }
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid,
@@ -50,6 +138,7 @@ public:
   ULONG STDMETHODCALLTYPE Release() override {
     return m_pCompiler.p->Release();
   }
+
   HRESULT STDMETHODCALLTYPE Validate(
       IDxcBlob *pShader, // Shader to validate.
       UINT32 Flags,      // Validation flags.
@@ -59,7 +148,7 @@ public:
     return m_pValidator->Validate(pShader, Flags, ppResult);
   }
 
-  ExternalValidationHelper(CComPtr<IDxcCompiler3> pCompiler,
+  ExternalValidationHelper(CComPtr<IDxcCompiler> pCompiler,
                            CComPtr<IDxcValidator> pValidator) {
     m_pCompiler = pCompiler;
     m_pValidator = pValidator;

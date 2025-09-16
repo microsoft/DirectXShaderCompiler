@@ -7,6 +7,42 @@
 namespace dxc {
 
 HRESULT STDMETHODCALLTYPE ExternalValidationHelper::Compile(
+    _In_ IDxcBlob *pSource,         // Source text to compile.
+    _In_opt_z_ LPCWSTR pSourceName, // Optional file name for pSource. Used
+    // in errors and include handlers.
+    _In_opt_z_ LPCWSTR pEntryPoint, // Entry point name.
+    _In_z_ LPCWSTR pTargetProfile,  // Shader profile to compile.
+    _In_opt_count_(argCount)
+        LPCWSTR *pArguments, // Array of pointers to arguments.
+    _In_ UINT32 argCount,    // Number of arguments.
+    _In_count_(defineCount) const DxcDefine *pDefines, // Array of defines.
+    _In_ UINT32 defineCount,                           // Number of defines.
+    _In_opt_ IDxcIncludeHandler
+        *pIncludeHandler, // User-provided interface to handle #include
+    // directives (optional).
+    _COM_Outptr_ IDxcOperationResult *
+        *ppResult // Compiler output status, buffer, and errors.
+) {
+  // First, add -Vd to the compilation args
+  UINT32 newArgCount = argCount + 1;
+  std::vector<LPCWSTR> newArgs;
+  newArgs.reserve(newArgCount);
+
+  // Copy existing args
+  for (unsigned int i = 0; i < argCount; ++i) {
+    newArgs.push_back(pArguments[i]);
+  }
+
+  // Add an extra argument
+  newArgs.push_back(L"-Vd");
+
+  return m_pCompiler->Compile(pSource, pSourceName, pEntryPoint, pTargetProfile,
+                              newArgs.data(), newArgCount, pDefines,
+                              defineCount, pIncludeHandler, ppResult);
+}
+
+// Implement the IDxcCompiler3 interface Compile command
+HRESULT STDMETHODCALLTYPE ExternalValidationHelper3::Compile(
     _In_ const DxcBuffer *pSource, ///< Source text to compile.
     _In_opt_count_(argCount)
         LPCWSTR *pArguments, ///< Array of pointers to arguments.
@@ -30,8 +66,8 @@ HRESULT STDMETHODCALLTYPE ExternalValidationHelper::Compile(
   // Add an extra argument
   newArgs.push_back(L"-Vd");
 
-  return m_pCompiler->Compile(pSource, newArgs.data(), newArgCount,
-                              pIncludeHandler, riid, ppResult);
+  return m_pCompiler3->Compile(pSource, newArgs.data(), newArgCount,
+                               pIncludeHandler, riid, ppResult);
 }
 
 HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
@@ -45,29 +81,48 @@ HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
   // If there is intent to use an external dxil.dll
   if (!DxilDllPath.empty() && !DxilDllFailedToLoad()) {
     if (clsid == CLSID_DxcCompiler) {
-      // Create compiler
-      CComPtr<IDxcCompiler3> m_pCompiler;
-      HRESULT hr = DxCompilerSupport.CreateInstance<IDxcCompiler3>(
-          CLSID_DxcCompiler, &m_pCompiler);
-      if (FAILED(hr))
-        return hr;
 
       // Create validator
       CComPtr<IDxcValidator> m_pValidator;
-      hr = DxilExtValSupport.CreateInstance<IDxcValidator>(CLSID_DxcValidator,
-                                                           &m_pValidator);
-      if (FAILED(hr))
-        return hr;
+      HRESULT ValHR = DxilExtValSupport.CreateInstance<IDxcValidator>(
+          CLSID_DxcValidator, &m_pValidator);
+      if (FAILED(ValHR))
+        return ValHR;
 
       // Wrap compiler + validator
-      ExternalValidationHelper *evh = new (std::nothrow)
-          ExternalValidationHelper(m_pCompiler, m_pValidator);
-      if (!evh)
-        return E_OUTOFMEMORY;
+      // The wrapper should be selected based on the target interface
+      if (riid == __uuidof(IDxcCompiler3)) {
+        // Create compiler
+        CComPtr<IDxcCompiler3> m_pCompiler3;
+        HRESULT hr = DxCompilerSupport.CreateInstance<IDxcCompiler3>(
+            CLSID_DxcCompiler, &m_pCompiler3);
+        if (FAILED(hr))
+          return hr;
+        ExternalValidationHelper3 *evh = new (std::nothrow)
+            ExternalValidationHelper3(m_pCompiler3, m_pValidator);
+        if (!evh)
+          return E_OUTOFMEMORY;
 
-      hr = evh->QueryInterface(riid, reinterpret_cast<void **>(pResult));
-      evh->Release();
-      return hr;
+        hr = evh->QueryInterface(riid, reinterpret_cast<void **>(pResult));
+        evh->Release();
+        return hr;
+      } else if (riid == __uuidof(IDxcCompiler)) {
+        // Create compiler
+        CComPtr<IDxcCompiler> m_pCompiler;
+        HRESULT hr = DxCompilerSupport.CreateInstance<IDxcCompiler>(
+            CLSID_DxcCompiler, &m_pCompiler);
+        if (FAILED(hr))
+          return hr;
+        ExternalValidationHelper *evh = new (std::nothrow)
+            ExternalValidationHelper(m_pCompiler, m_pValidator);
+        if (!evh)
+          return E_OUTOFMEMORY;
+
+        hr = evh->QueryInterface(riid, reinterpret_cast<void **>(pResult));
+        evh->Release();
+        return hr;
+      }
+
     } else if (clsid == CLSID_DxcValidator) {
       return DxilExtValSupport.CreateInstance<IDxcValidator>(
           clsid, reinterpret_cast<IDxcValidator **>(pResult));
@@ -105,8 +160,8 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
         return hr;
 
       // Wrap compiler + validator
-      ExternalValidationHelper *evh = new (std::nothrow)
-          ExternalValidationHelper(m_pCompiler, m_pValidator);
+      ExternalValidationHelper3 *evh = new (std::nothrow)
+          ExternalValidationHelper3(m_pCompiler, m_pValidator);
       if (!evh)
         return E_OUTOFMEMORY;
 
