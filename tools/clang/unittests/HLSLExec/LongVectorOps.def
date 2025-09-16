@@ -16,6 +16,7 @@ INPUT_SET(RangeOne)
 INPUT_SET(RangeHalfPi)
 INPUT_SET(SplitDouble)
 INPUT_SET(BitShiftRhs)
+INPUT_SET(Positive)
 
 #undef INPUT_SET
 
@@ -48,13 +49,13 @@ OP_DEFAULT(BinaryMath, Ldexp, 2, "ldexp", ",")
 OP_DEFAULT(Bitwise, And, 2, "", "&")
 OP_DEFAULT(Bitwise, Or, 2, "", "|")
 OP_DEFAULT(Bitwise, Xor, 2, "", "^")
-OP_DEFAULT_DEFINES(Bitwise, Not, 1, "TestUnaryOperator", "~",
-                   " -DFUNC_UNARY_OPERATOR=1")
 OP(Bitwise, LeftShift, 2, "", "<<", "", Default1, BitShiftRhs, Default3)
 OP(Bitwise, RightShift, 2, "", ">>", "", Default1, BitShiftRhs, Default3)
 
 OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
                    " -DFUNC_INITIALIZE=1")
+OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
+" -DFUNC_TEST_CAST=1")
 
 OP(Trigonometric, Acos, 1, "acos", "", "", RangeOne, Default2, Default3)
 OP(Trigonometric, Asin, 1, "asin", "", "", RangeHalfPi, Default2, Default3)

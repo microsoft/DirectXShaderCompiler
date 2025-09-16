@@ -619,7 +619,6 @@ DEFAULT_OP_2(OpType::Ldexp, (A * static_cast<T>(std::pow(2.0f, B))));
 DEFAULT_OP_2(OpType::And, (A & B));
 DEFAULT_OP_2(OpType::Or, (A | B));
 DEFAULT_OP_2(OpType::Xor, (A ^ B));
-DEFAULT_OP_1(OpType::Not, (~A));
 DEFAULT_OP_2(OpType::LeftShift, (A << B));
 DEFAULT_OP_2(OpType::RightShift, (A >> B));
 
@@ -1237,7 +1236,6 @@ public:
   HLK_TEST(Or, uint16_t, ScalarOp2);
   HLK_TEST(Xor, uint16_t, Vector);
   HLK_TEST(Xor, uint16_t, ScalarOp2);
-  HLK_TEST(Not, uint16_t, Vector);
   HLK_TEST(LeftShift, uint16_t, Vector);
   HLK_TEST(LeftShift, uint16_t, ScalarOp2);
   HLK_TEST(RightShift, uint16_t, Vector);
@@ -1248,7 +1246,6 @@ public:
   HLK_TEST(Or, uint32_t, ScalarOp2);
   HLK_TEST(Xor, uint32_t, Vector);
   HLK_TEST(Xor, uint32_t, ScalarOp2);
-  HLK_TEST(Not, uint32_t, Vector);
   HLK_TEST(LeftShift, uint32_t, Vector);
   HLK_TEST(LeftShift, uint32_t, ScalarOp2);
   HLK_TEST(RightShift, uint32_t, Vector);
@@ -1259,7 +1256,6 @@ public:
   HLK_TEST(Or, uint64_t, ScalarOp2);
   HLK_TEST(Xor, uint64_t, Vector);
   HLK_TEST(Xor, uint64_t, ScalarOp2);
-  HLK_TEST(Not, uint64_t, Vector);
   HLK_TEST(LeftShift, uint64_t, Vector);
   HLK_TEST(LeftShift, uint64_t, ScalarOp2);
   HLK_TEST(RightShift, uint64_t, Vector);
@@ -1270,7 +1266,6 @@ public:
   HLK_TEST(Or, int16_t, ScalarOp2);
   HLK_TEST(Xor, int16_t, Vector);
   HLK_TEST(Xor, int16_t, ScalarOp2);
-  HLK_TEST(Not, int16_t, Vector);
   HLK_TEST(LeftShift, int16_t, Vector);
   HLK_TEST(LeftShift, int16_t, ScalarOp2);
   HLK_TEST(RightShift, int16_t, Vector);
@@ -1281,7 +1276,6 @@ public:
   HLK_TEST(Or, int32_t, ScalarOp2);
   HLK_TEST(Xor, int32_t, Vector);
   HLK_TEST(Xor, int32_t, ScalarOp2);
-  HLK_TEST(Not, int32_t, Vector);
   HLK_TEST(LeftShift, int32_t, Vector);
   HLK_TEST(LeftShift, int32_t, ScalarOp2);
   HLK_TEST(RightShift, int32_t, Vector);
@@ -1292,7 +1286,6 @@ public:
   HLK_TEST(Or, int64_t, ScalarOp2);
   HLK_TEST(Xor, int64_t, Vector);
   HLK_TEST(Xor, int64_t, ScalarOp2);
-  HLK_TEST(Not, int64_t, Vector);
   HLK_TEST(LeftShift, int64_t, Vector);
   HLK_TEST(LeftShift, int64_t, ScalarOp2);
   HLK_TEST(RightShift, int64_t, Vector);
