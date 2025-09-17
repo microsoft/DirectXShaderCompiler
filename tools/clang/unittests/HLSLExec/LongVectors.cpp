@@ -995,11 +995,12 @@ using namespace LongVector;
     runTest<DataType, OpType ::Op>(VARIANT_VALUE_##Variant);                   \
   }
 
-class DxilConf_SM69_Vectorized {
+class DxilConf_SM69_NativeVectors {
 public:
-  BEGIN_TEST_CLASS(DxilConf_SM69_Vectorized)
-  TEST_CLASS_PROPERTY("Kits.TestName",
-                      "D3D12 - Shader Model 6.9 - Vectorized DXIL - Core Tests")
+  BEGIN_TEST_CLASS(DxilConf_SM69_NativeVectors)
+  TEST_CLASS_PROPERTY(
+      "Kits.TestName",
+      "D3D12 - Shader Model 6.9 - DXIL with Native Vectors - Core Tests")
   TEST_CLASS_PROPERTY("Kits.TestId", "81db1ff8-5bc5-48a1-8d7b-600fc600a677")
   TEST_CLASS_PROPERTY("Kits.Description",
                       "Validates required SM 6.9 vectorized DXIL operations")
