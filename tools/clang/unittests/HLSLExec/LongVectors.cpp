@@ -1361,7 +1361,6 @@ public:
 
   // Explicit Cast
 
-  HLK_TEST(CastToBool, HLSLBool_t, Vector);
   HLK_TEST(CastToInt16, HLSLBool_t, Vector);
   HLK_TEST(CastToInt32, HLSLBool_t, Vector);
   HLK_TEST(CastToInt64, HLSLBool_t, Vector);
@@ -1372,16 +1371,15 @@ public:
   HLK_TEST(CastToFloat32, HLSLBool_t, Vector);
   HLK_TEST(CastToFloat64, HLSLBool_t, Vector);
 
-  HLK_TEST(CastToBool, double, Vector);
-  HLK_TEST(CastToInt16, double, Vector);
-  HLK_TEST(CastToInt32, double, Vector);
-  HLK_TEST(CastToInt64, double, Vector);
-  HLK_TEST(CastToUint16_FromFP, double, Vector);
-  HLK_TEST(CastToUint32_FromFP, double, Vector);
-  HLK_TEST(CastToUint64_FromFP, double, Vector);
-  HLK_TEST(CastToFloat16, double, Vector);
-  HLK_TEST(CastToFloat32, double, Vector);
-  HLK_TEST(CastToFloat64, double, Vector);
+  HLK_TEST(CastToBool, HLSLHalf_t, Vector);
+  HLK_TEST(CastToInt16, HLSLHalf_t, Vector);
+  HLK_TEST(CastToInt32, HLSLHalf_t, Vector);
+  HLK_TEST(CastToInt64, HLSLHalf_t, Vector);
+  HLK_TEST(CastToUint16_FromFP, HLSLHalf_t, Vector);
+  HLK_TEST(CastToUint32_FromFP, HLSLHalf_t, Vector);
+  HLK_TEST(CastToUint64_FromFP, HLSLHalf_t, Vector);
+  HLK_TEST(CastToFloat32, HLSLHalf_t, Vector);
+  HLK_TEST(CastToFloat64, HLSLHalf_t, Vector);
 
   HLK_TEST(CastToBool, float, Vector);
   HLK_TEST(CastToInt16, float, Vector);
@@ -1391,25 +1389,22 @@ public:
   HLK_TEST(CastToUint32_FromFP, float, Vector);
   HLK_TEST(CastToUint64_FromFP, float, Vector);
   HLK_TEST(CastToFloat16, float, Vector);
-  HLK_TEST(CastToFloat32, float, Vector);
   HLK_TEST(CastToFloat64, float, Vector);
 
-  HLK_TEST(CastToBool, HLSLHalf_t, Vector);
-  HLK_TEST(CastToInt16, HLSLHalf_t, Vector);
-  HLK_TEST(CastToInt32, HLSLHalf_t, Vector);
-  HLK_TEST(CastToInt64, HLSLHalf_t, Vector);
-  HLK_TEST(CastToUint16_FromFP, HLSLHalf_t, Vector);
-  HLK_TEST(CastToUint32_FromFP, HLSLHalf_t, Vector);
-  HLK_TEST(CastToUint64_FromFP, HLSLHalf_t, Vector);
-  HLK_TEST(CastToFloat16, HLSLHalf_t, Vector);
-  HLK_TEST(CastToFloat32, HLSLHalf_t, Vector);
-  HLK_TEST(CastToFloat64, HLSLHalf_t, Vector);
+  HLK_TEST(CastToBool, double, Vector);
+  HLK_TEST(CastToInt16, double, Vector);
+  HLK_TEST(CastToInt32, double, Vector);
+  HLK_TEST(CastToInt64, double, Vector);
+  HLK_TEST(CastToUint16_FromFP, double, Vector);
+  HLK_TEST(CastToUint32_FromFP, double, Vector);
+  HLK_TEST(CastToUint64_FromFP, double, Vector);
+  HLK_TEST(CastToFloat16, double, Vector);
+  HLK_TEST(CastToFloat32, double, Vector);
 
   HLK_TEST(CastToBool, uint16_t, Vector);
   HLK_TEST(CastToInt16, uint16_t, Vector);
   HLK_TEST(CastToInt32, uint16_t, Vector);
   HLK_TEST(CastToInt64, uint16_t, Vector);
-  HLK_TEST(CastToUint16, uint16_t, Vector);
   HLK_TEST(CastToUint32, uint16_t, Vector);
   HLK_TEST(CastToUint64, uint16_t, Vector);
   HLK_TEST(CastToFloat16, uint16_t, Vector);
@@ -1421,7 +1416,6 @@ public:
   HLK_TEST(CastToInt32, uint32_t, Vector);
   HLK_TEST(CastToInt64, uint32_t, Vector);
   HLK_TEST(CastToUint16, uint32_t, Vector);
-  HLK_TEST(CastToUint32, uint32_t, Vector);
   HLK_TEST(CastToUint64, uint32_t, Vector);
   HLK_TEST(CastToFloat16, uint32_t, Vector);
   HLK_TEST(CastToFloat32, uint32_t, Vector);
@@ -1433,13 +1427,11 @@ public:
   HLK_TEST(CastToInt64, uint64_t, Vector);
   HLK_TEST(CastToUint16, uint64_t, Vector);
   HLK_TEST(CastToUint32, uint64_t, Vector);
-  HLK_TEST(CastToUint64, uint64_t, Vector);
   HLK_TEST(CastToFloat16, uint64_t, Vector);
   HLK_TEST(CastToFloat32, uint64_t, Vector);
   HLK_TEST(CastToFloat64, uint64_t, Vector);
 
   HLK_TEST(CastToBool, int16_t, Vector);
-  HLK_TEST(CastToInt16, int16_t, Vector);
   HLK_TEST(CastToInt32, int16_t, Vector);
   HLK_TEST(CastToInt64, int16_t, Vector);
   HLK_TEST(CastToUint16, int16_t, Vector);
@@ -1451,7 +1443,6 @@ public:
 
   HLK_TEST(CastToBool, int32_t, Vector);
   HLK_TEST(CastToInt16, int32_t, Vector);
-  HLK_TEST(CastToInt32, int32_t, Vector);
   HLK_TEST(CastToInt64, int32_t, Vector);
   HLK_TEST(CastToUint16, int32_t, Vector);
   HLK_TEST(CastToUint32, int32_t, Vector);
@@ -1463,7 +1454,6 @@ public:
   HLK_TEST(CastToBool, int64_t, Vector);
   HLK_TEST(CastToInt16, int64_t, Vector);
   HLK_TEST(CastToInt32, int64_t, Vector);
-  HLK_TEST(CastToInt64, int64_t, Vector);
   HLK_TEST(CastToUint16, int64_t, Vector);
   HLK_TEST(CastToUint32, int64_t, Vector);
   HLK_TEST(CastToUint64, int64_t, Vector);
