@@ -280,36 +280,45 @@ template <typename T, OpType OP> struct TestConfig {
   }
 };
 
-template <OpType OP, typename T, typename OUT_TYPE>
-std::string getCompilerOptionsString(size_t VectorSize,
-                                     uint16_t ScalarInputFlags,
-                                     std::string ExtraDefines) {
-  using OpTraits = OpTraits<OP>;
-
+std::string
+getCompilerOptionsString(bool Is16BitType, const char *HLSLTypeString,
+                         const char *HLSLOutTypeString, const char *Operator,
+                         const char *Intrinsic, size_t Arity, size_t VectorSize,
+                         uint16_t ScalarInputFlags, std::string ExtraDefines) {
   std::stringstream CompilerOptions;
 
-  if (is16BitType<T>())
+  if (Is16BitType)
     CompilerOptions << " -enable-16bit-types";
 
-  CompilerOptions << " -DTYPE=" << getHLSLTypeString<T>();
+  CompilerOptions << " -DTYPE=" << HLSLTypeString;
   CompilerOptions << " -DNUM=" << VectorSize;
 
   CompilerOptions << " -DOPERATOR=";
-  CompilerOptions << OpTraits::Operator;
+  CompilerOptions << Operator;
 
   CompilerOptions << " -DFUNC=";
-  CompilerOptions << OpTraits::Intrinsic;
+  CompilerOptions << Intrinsic;
 
   CompilerOptions << " " << ExtraDefines;
 
-  CompilerOptions << " -DOUT_TYPE=" << getHLSLTypeString<OUT_TYPE>();
+  CompilerOptions << " -DOUT_TYPE=" << HLSLOutTypeString;
 
-  CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << OpTraits::Arity;
+  CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << Arity;
 
   CompilerOptions << " -DOPERAND_IS_SCALAR_FLAGS=";
   CompilerOptions << "0x" << std::hex << ScalarInputFlags;
 
   return CompilerOptions.str();
+}
+
+template <OpType OP, typename T, typename OUT_TYPE>
+std::string getCompilerOptionsString(size_t VectorSize,
+                                     uint16_t ScalarInputFlags,
+                                     std::string ExtraDefines) {
+  return getCompilerOptionsString(
+      is16BitType<T>(), getHLSLTypeString<T>(), getHLSLTypeString<OUT_TYPE>(),
+      OpTraits<OP>::Operator, OpTraits<OP>::Intrinsic, OpTraits<OP>::Arity,
+      VectorSize, ScalarInputFlags, ExtraDefines);
 }
 
 // Helper to fill the shader buffer based on type. Convenient to be used when
