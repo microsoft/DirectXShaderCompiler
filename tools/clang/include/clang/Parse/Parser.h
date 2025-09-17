@@ -2098,6 +2098,9 @@ private:
 
   // HLSL Change Starts: Parse HLSL Attributes and append them to Declarator Object
   bool MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &target);
+  bool ConsumeRegisterAssignment(
+      hlsl::RegisterAssignment
+          &asg); // Make sure it starts with register( first
   inline bool MaybeParseHLSLAttributes(Declarator &D) {
     return MaybeParseHLSLAttributes(D.UnusualAnnotations);
   }
