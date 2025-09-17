@@ -471,21 +471,27 @@ std::vector<T> buildTestInput(InputSet InputSet, size_t SizeToTest) {
   return ValueSet;
 }
 
-template <typename T, OpType OP>
-InputSets<T, OpTraits<OP>::Arity> buildTestInputs(size_t VectorSize,
-                                                  uint16_t ScalarInputFlags) {
-  constexpr size_t Arity = OpTraits<OP>::Arity;
-
+template <typename T, size_t Arity>
+InputSets<T, Arity> buildTestInputs(size_t VectorSize,
+                                    uint16_t ScalarInputFlags,
+                                    const InputSet OpInputSets[3]) {
   InputSets<T, Arity> Inputs;
 
   for (size_t I = 0; I < Arity; ++I) {
     uint16_t OperandScalarFlag = 1 << I;
     bool IsOperandScalar = ScalarInputFlags & OperandScalarFlag;
-    Inputs[I] = buildTestInput<T>(OpTraits<OP>::InputSets[I],
-                                  IsOperandScalar ? 1 : VectorSize);
+    Inputs[I] =
+        buildTestInput<T>(OpInputSets[I], IsOperandScalar ? 1 : VectorSize);
   }
 
   return Inputs;
+}
+
+template <typename T, OpType OP>
+InputSets<T, OpTraits<OP>::Arity> buildTestInputs(size_t VectorSize,
+                                                  uint16_t ScalarInputFlags) {
+  return buildTestInputs<T, OpTraits<OP>::Arity>(VectorSize, ScalarInputFlags,
+                                                 OpTraits<OP>::InputSets);
 }
 
 struct ValidationConfig {
