@@ -56,8 +56,8 @@ OP(Bitwise, RightShift, 2, "", ">>", "", Default1, BitShiftRhs, Default3)
 OP_DEFAULT(Bitwise, Saturate, 1, "saturate", "")
 OP_DEFAULT(Bitwise, ReverseBits, 1, "reversebits", "")
 OP(Bitwise, CountBits, 1, "countbits", "", "", Bitwise, Default1, Default2)
-OP(Bitwise, FirstBitHigh, 1, "firstbithigh", "", "", 
-   Bitwise, Default1, Default2)
+OP(Bitwise, FirstBitHigh, 1, "firstbithigh", "", "", Bitwise, Default1,
+   Default2)
 OP(Bitwise, FirstBitLow, 1, "firstbitlow", "", "", Bitwise, Default1, Default2)
 
 OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",

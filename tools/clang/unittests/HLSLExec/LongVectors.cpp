@@ -654,29 +654,32 @@ template <typename T> uint32_t CountBits(T A) {
   return Count;
 }
 
-template <typename T> uint32_t FirstBitHigh(T A) {
-  constexpr uint32_t NumBits = sizeof(T) * 8;
-
+// General purpose bit scan from the MSB. Based on the value of LookingForZero
+// returns the index of the first high/low bit found.
+template <typename T> uint32_t ScanFromMSB(T A, bool LookingForZero) {
   if (A == 0)
-    return static_cast<uint32_t>(-1);
+    return ~0;
 
-  if constexpr (std::is_signed<T>::value) {
-    // For negative values we return the bit number of the MSB 0-bit.
-    if (A < 0) {
-      for (int32_t I = NumBits - 1; I >= 0; --I) {
-        if (!(A & (static_cast<T>(1) << I)))
-          return static_cast<uint32_t>(I);
-      }
-      return static_cast<uint32_t>(-1);
-    }
-  }
-
+  constexpr uint32_t NumBits = sizeof(T) * 8;
   for (int32_t I = NumBits - 1; I >= 0; --I) {
-    if (A & (static_cast<T>(1) << I))
+    bool BitSet = (A & (static_cast<T>(1) << I)) != 0;
+    if (BitSet != LookingForZero)
       return static_cast<uint32_t>(I);
   }
+  return ~0;
+}
 
-  return static_cast<uint32_t>(-1);
+template <typename T>
+typename std::enable_if<std::is_signed<T>::value, uint32_t>::type
+FirstBitHigh(T A) {
+  const bool IsNegative = A < 0;
+  return ScanFromMSB(A, IsNegative);
+}
+
+template <typename T>
+typename std::enable_if<!std::is_signed<T>::value, uint32_t>::type
+FirstBitHigh(T A) {
+  return ScanFromMSB(A, false);
 }
 
 template <typename T> uint32_t FirstBitLow(T A) {
