@@ -9697,10 +9697,13 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     emitError("uabs intrinsic requires unsigned integer input type", srcLoc);
     return nullptr;
   }
+  case hlsl::IntrinsicOp::IOP_reversebits: {
+    retVal = processReverseBitsIntrinsic(callExpr, srcLoc);
+    break;
+  }
     INTRINSIC_SPIRV_OP_CASE(countbits, BitCount, false);
     INTRINSIC_SPIRV_OP_CASE(fmod, FRem, true);
     INTRINSIC_SPIRV_OP_CASE(fwidth, Fwidth, true);
-    INTRINSIC_SPIRV_OP_CASE(reversebits, BitReverse, false);
     INTRINSIC_SPIRV_OP_CASE(and, LogicalAnd, false);
     INTRINSIC_SPIRV_OP_CASE(or, LogicalOr, false);
     INTRINSIC_OP_CASE(round, RoundEven, true);
@@ -9857,6 +9860,141 @@ SpirvInstruction *SpirvEmitter::processDerivativeIntrinsic(
   return result;
 }
 
+SpirvInstruction *
+SpirvEmitter::processReverseBitsIntrinsic(const CallExpr *callExpr,
+                                          clang::SourceLocation srcLoc) {
+  const QualType argType = callExpr->getArg(0)->getType();
+  const uint32_t bitwidth = getElementSpirvBitwidth(
+      astContext, argType, spirvOptions.enable16BitTypes);
+
+  // SPIRV only supports 32 bit integers for `OpBitReverse`. We need to
+  // unfold and add extra instructions to support reversing non-32bit integers.
+  if (bitwidth == 32) {
+    return processIntrinsicUsingSpirvInst(callExpr, spv::Op::OpBitReverse,
+                                          /* actPerRowForMatrices= */ false);
+  } else if (bitwidth == 16) {
+    // Load the 16-bit value
+    auto *loadInst = doExpr(callExpr->getArg(0));
+    bool isVector = isVectorType(argType);
+    uint32_t count = isVector ? hlsl::GetHLSLVecSize(argType) : 1;
+    QualType uintType =
+        isVector ? astContext.getExtVectorType(astContext.UnsignedIntTy, count)
+                 : astContext.UnsignedIntTy;
+    QualType resultType =
+        isVector
+            ? astContext.getExtVectorType(astContext.UnsignedShortTy, count)
+            : astContext.UnsignedShortTy;
+
+    // Extend to 32-bit.
+    auto *extended = spvBuilder.createUnaryOp(spv::Op::OpUConvert, uintType,
+                                              loadInst, srcLoc);
+    // Reverse the bits.
+    auto *reversed = spvBuilder.createUnaryOp(spv::Op::OpBitReverse, uintType,
+                                              extended, srcLoc);
+
+    // Shift right by 16 bits.
+    SpirvInstruction *shifted = nullptr;
+    if (count == 1) {
+      auto *constUint16 = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                    llvm::APInt(32, 16));
+      shifted =
+          spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical, uintType,
+                                    reversed, constUint16, srcLoc);
+    } else {
+      auto *constUint16 = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                    llvm::APInt(32, 16));
+      std::vector<clang::spirv::SpirvConstant *> arr(count, constUint16);
+      auto *constUintVec = spvBuilder.getConstantComposite(uintType, arr);
+      shifted =
+          spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical, uintType,
+                                    reversed, constUintVec, srcLoc);
+    }
+
+    // Truncate to short.
+    return spvBuilder.createUnaryOp(spv::Op::OpUConvert, resultType, shifted,
+                                    srcLoc);
+  } else if (bitwidth == 64) {
+    // Load the 64-bit value.
+    auto *loadInst = doExpr(callExpr->getArg(0));
+    auto count = isVectorType(argType) ? hlsl::GetHLSLVecSize(argType) : 1;
+
+    // Get the lower half bits by casting.
+    clang::spirv::SpirvUnaryOp *lowerUint = spvBuilder.createUnaryOp(
+        spv::Op::OpUConvert,
+        astContext.getExtVectorType(astContext.UnsignedIntTy, count), loadInst,
+        srcLoc);
+
+    // Higher bits need to be right shifted.
+    clang::spirv::SpirvUnaryOp *higherUint;
+    auto *constUlong32 = spvBuilder.getConstantInt(
+        astContext.UnsignedLongLongTy, llvm::APInt(64, 32));
+    clang::spirv::SpirvConstant *constUlongVec = nullptr;
+    if (isVectorType(argType)) {
+      std::vector<clang::spirv::SpirvConstant *> arr(count, constUlong32);
+      constUlongVec = spvBuilder.getConstantComposite(
+          astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
+          arr);
+      auto *rightShifted = spvBuilder.createBinaryOp(
+          spv::Op::OpShiftRightLogical,
+          astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
+          loadInst, constUlongVec, srcLoc);
+      higherUint = spvBuilder.createUnaryOp(
+          spv::Op::OpUConvert,
+          astContext.getExtVectorType(astContext.UnsignedIntTy, count),
+          rightShifted, srcLoc);
+    } else {
+      auto *rightShifted = spvBuilder.createBinaryOp(
+          spv::Op::OpShiftRightLogical, astContext.UnsignedLongLongTy, loadInst,
+          constUlong32, srcLoc);
+      higherUint = spvBuilder.createUnaryOp(
+          spv::Op::OpUConvert,
+          astContext.getExtVectorType(astContext.UnsignedIntTy, count),
+          rightShifted, srcLoc);
+    }
+
+    // Reverse the bits of each value.
+    auto *lowerReversed = spvBuilder.createUnaryOp(
+        spv::Op::OpBitReverse,
+        astContext.getExtVectorType(astContext.UnsignedIntTy, count), lowerUint,
+        srcLoc);
+    auto *higherReversed = spvBuilder.createUnaryOp(
+        spv::Op::OpBitReverse,
+        astContext.getExtVectorType(astContext.UnsignedIntTy, count),
+        higherUint, srcLoc);
+
+    // Cast back to long values.
+    auto *lowerUlong = spvBuilder.createUnaryOp(
+        spv::Op::OpUConvert,
+        astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
+        lowerReversed, srcLoc);
+    auto *higherUlong = spvBuilder.createUnaryOp(
+        spv::Op::OpUConvert,
+        astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
+        higherReversed, srcLoc);
+
+    // Lower bits need to be left shifted.
+    clang::spirv::SpirvBinaryOp *lowerLeftShifted;
+    if (isVectorType(argType)) {
+      lowerLeftShifted = spvBuilder.createBinaryOp(
+          spv::Op::OpShiftLeftLogical,
+          astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
+          lowerUlong, constUlongVec, srcLoc);
+    } else {
+      lowerLeftShifted = spvBuilder.createBinaryOp(
+          spv::Op::OpShiftLeftLogical, astContext.UnsignedLongLongTy,
+          lowerUlong, constUlong32, srcLoc);
+    }
+
+    // Combine the 2 values.
+    return spvBuilder.createBinaryOp(spv::Op::OpBitwiseOr, argType,
+                                     lowerLeftShifted, higherUlong, srcLoc);
+  }
+  emitError("reversebits currently only supports 16, 32, and 64-bit "
+            "width components when targeting SPIR-V",
+            srcLoc);
+  return nullptr;
+}
+
 // Returns true is the given expression can be used as an output parameter.
 //
 // Warning: this function could return false negatives.
@@ -9913,12 +10051,12 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
   // 'value'. Meaning, T is forced to be 'unsigned int'. If the provided
   // parameter is not an unsigned integer, the frontend inserts an
   // 'ImplicitCastExpr' to convert it to unsigned integer. OpAtomicIAdd (and
-  // other SPIR-V OpAtomic* instructions) require that the pointee in 'dest' to
-  // be of the same type as T. This will result in an invalid SPIR-V if 'dest'
-  // is a signed integer typed resource such as RWTexture1D<int>. For example,
-  // the following OpAtomicIAdd is invalid because the pointee type defined in
-  // %1 is a signed integer, while the value passed to atomic add (%3) is an
-  // unsigned integer.
+  // other SPIR-V OpAtomic* instructions) require that the pointee in 'dest'
+  // to be of the same type as T. This will result in an invalid SPIR-V if
+  // 'dest' is a signed integer typed resource such as RWTexture1D<int>. For
+  // example, the following OpAtomicIAdd is invalid because the pointee type
+  // defined in %1 is a signed integer, while the value passed to atomic add
+  // (%3) is an unsigned integer.
   //
   //  %_ptr_Image_int = OpTypePointer Image %int
   //  %1 = OpImageTexelPointer %_ptr_Image_int %RWTexture1D_int %index %uint_0
@@ -9964,9 +10102,9 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
                                        uint32_t outputArgIndex) {
     const auto outputArg = callExpr->getArg(outputArgIndex);
     if (!isValidOutputArgument(outputArg)) {
-      emitError(
-          "InterlockedCompareExchange requires a reference as output parameter",
-          outputArg->getExprLoc());
+      emitError("InterlockedCompareExchange requires a reference as output "
+                "parameter",
+                outputArg->getExprLoc());
       return;
     }
 
@@ -10082,8 +10220,8 @@ SpirvEmitter::processIntrinsicNonUniformResourceIndex(const CallExpr *expr) {
   // status to the usages of this expression. This is done by the
   // NonUniformVisitor class.
   //
-  // The decoration shouldn't be applied to the operand, rather to a copy of the
-  // result. Even though applying the decoration to the operand may not be
+  // The decoration shouldn't be applied to the operand, rather to a copy of
+  // the result. Even though applying the decoration to the operand may not be
   // functionally incorrect (since adding NonUniform is more conservative), it
   // could affect performance and isn't the intent of the shader.
   auto *copyInstr =
@@ -10247,8 +10385,8 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
           loc);
 
       // As pointed out by the DXIL reference above, it is *not* required to
-      // saturate the output to UINT_MAX in case of overflow. Wrapping around is
-      // also allowed. For simplicity, we will wrap around at this point.
+      // saturate the output to UINT_MAX in case of overflow. Wrapping around
+      // is also allowed. For simplicity, we will wrap around at this point.
       accums[msadNum] = spvBuilder.createBinaryOp(spv::Op::OpIAdd, uintType,
                                                   accums[msadNum], diff, loc);
     }
