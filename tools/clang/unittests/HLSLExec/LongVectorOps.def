@@ -62,19 +62,19 @@ OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
   OP(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1", INPUT_SET_1,      \
      Default2, Default3)
 
-OP_CAST_DEFAULT_DEFINES(Unary, CastToBool)
-OP_CAST_DEFAULT_DEFINES(Unary, CastToInt16)
-OP_CAST_DEFAULT_DEFINES(Unary, CastToInt32)
-OP_CAST_DEFAULT_DEFINES(Unary, CastToInt64)
-OP_CAST_DEFAULT_DEFINES(Unary, CastToUint16)
-OP_CAST_DEFAULT_DEFINES(Unary, CastToUint32)
-OP_CAST_DEFAULT_DEFINES(Unary, CastToUint64)
-OP_CAST(Unary, CastToUint16_FromFP, Positive)
-OP_CAST(Unary, CastToUint32_FromFP, Positive)
-OP_CAST(Unary, CastToUint64_FromFP, Positive)
-OP_CAST_DEFAULT_DEFINES(Unary, CastToFloat16)
-OP_CAST_DEFAULT_DEFINES(Unary, CastToFloat32)
-OP_CAST_DEFAULT_DEFINES(Unary, CastToFloat64)
+OP_CAST_DEFAULT_DEFINES(Cast, CastToBool)
+OP_CAST_DEFAULT_DEFINES(Cast, CastToInt16)
+OP_CAST_DEFAULT_DEFINES(Cast, CastToInt32)
+OP_CAST_DEFAULT_DEFINES(Cast, CastToInt64)
+OP_CAST_DEFAULT_DEFINES(Cast, CastToUint16)
+OP_CAST_DEFAULT_DEFINES(Cast, CastToUint32)
+OP_CAST_DEFAULT_DEFINES(Cast, CastToUint64)
+OP_CAST(Cast, CastToUint16_FromFP, Positive)
+OP_CAST(Cast, CastToUint32_FromFP, Positive)
+OP_CAST(Cast, CastToUint64_FromFP, Positive)
+OP_CAST_DEFAULT_DEFINES(Cast, CastToFloat16)
+OP_CAST_DEFAULT_DEFINES(Cast, CastToFloat32)
+OP_CAST_DEFAULT_DEFINES(Cast, CastToFloat64)
 
 #undef OP_CAST_DEFAULT_DEFINES
 #undef OP_CAST

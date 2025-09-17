@@ -629,7 +629,7 @@ DEFAULT_OP_2(OpType::RightShift, (A >> B));
 DEFAULT_OP_1(OpType::Initialize, (A));
 
 //
-// Explicit Cast
+// Cast
 //
 
 #define CAST_OP(OP, TYPE, IMPL)                                                \
