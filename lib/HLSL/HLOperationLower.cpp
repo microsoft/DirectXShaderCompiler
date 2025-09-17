@@ -1732,6 +1732,18 @@ Value *TranslateUAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return CI->getOperand(HLOperandIndex::kUnaryOpSrc0Idx); // No-op
 }
 
+Value *GenerateVectorCmpNEZero(Value *Val, IRBuilder<> Builder) {
+  Type *Ty = Val->getType();
+  Type *EltTy = Ty->getScalarType();
+
+  Value *ZeroInit = ConstantAggregateZero::get(Ty);
+
+  if (EltTy->isFloatingPointTy())
+    return Builder.CreateFCmpUNE(Val, ZeroInit);
+
+  return Builder.CreateICmpNE(Val, ZeroInit);
+}
+
 Value *GenerateCmpNEZero(Value *val, IRBuilder<> Builder) {
   Type *Ty = val->getType();
   Type *EltTy = Ty->getScalarType();
@@ -1751,55 +1763,82 @@ Value *GenerateCmpNEZero(Value *val, IRBuilder<> Builder) {
   return Builder.CreateICmpNE(val, zero);
 }
 
-Value *TranslateAllForValue(Value *val, IRBuilder<> &Builder) {
-  Value *cond = GenerateCmpNEZero(val, Builder);
+Value *TranslateBitwisePredicate(CallInst *CI, IntrinsicOp IOP,
+                                 hlsl::OP *HlslOP) {
+  Value *Arg = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  IRBuilder<> Builder(CI);
 
-  Type *Ty = val->getType();
+  Type *Ty = Arg->getType();
   Type *EltTy = Ty->getScalarType();
 
   if (Ty == EltTy)
-    return cond;
+    return GenerateCmpNEZero(Arg, Builder);
 
-  Value *Result = Builder.CreateExtractElement(cond, (uint64_t)0);
-  for (unsigned i = 1; i < Ty->getVectorNumElements(); i++) {
-    Value *Elt = Builder.CreateExtractElement(cond, i);
-    Result = Builder.CreateAnd(Result, Elt);
+  if (HlslOP->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus()) {
+    DXIL::OpCode ReduceOp = DXIL::OpCode::VectorReduceAnd;
+    switch (IOP) {
+    case IntrinsicOp::IOP_all:
+      ReduceOp = DXIL::OpCode::VectorReduceAnd;
+      break;
+    case IntrinsicOp::IOP_any:
+      ReduceOp = DXIL::OpCode::VectorReduceOr;
+      break;
+    default:
+      assert(false && "Unexpected reduction IOP");
+      break;
+    }
+
+    // Compare each element to zero
+    Value *VecCmpZero = GenerateVectorCmpNEZero(Arg, Builder);
+    Type *VecCmpTy = VecCmpZero->getType();
+
+    // Reduce the vector with the appropiate op
+    Constant *OpArg = HlslOP->GetU32Const((unsigned)ReduceOp);
+    Value *Args[] = {OpArg, VecCmpZero};
+    Function *DxilFunc = HlslOP->GetOpFunc(ReduceOp, VecCmpTy);
+    return TrivialDxilVectorOperation(DxilFunc, ReduceOp, Args, VecCmpTy,
+                                      HlslOP, Builder);
   }
 
-  return Result;
-}
-
-Value *TranslateAll(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
-                    HLOperationLowerHelper &helper,
-                    HLObjectOperationLowerHelper *pObjHelper,
-                    bool &Translated) {
-  Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-  IRBuilder<> Builder(CI);
-  return TranslateAllForValue(val, Builder);
-}
-
-Value *TranslateAny(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
-                    HLOperationLowerHelper &helper,
-                    HLObjectOperationLowerHelper *pObjHelper,
-                    bool &Translated) {
-  Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-
-  IRBuilder<> Builder(CI);
-
-  Value *cond = GenerateCmpNEZero(val, Builder);
-
-  Type *Ty = val->getType();
-  Type *EltTy = Ty->getScalarType();
-
-  if (Ty == EltTy)
-    return cond;
-
-  Value *Result = Builder.CreateExtractElement(cond, (uint64_t)0);
-  for (unsigned i = 1; i < Ty->getVectorNumElements(); i++) {
-    Value *Elt = Builder.CreateExtractElement(cond, i);
-    Result = Builder.CreateOr(Result, Elt);
+  SmallVector<Value *, 4> EltIsNEZero;
+  for (unsigned I = 0; I < Ty->getVectorNumElements(); I++) {
+    Value *Elt = Builder.CreateExtractElement(Arg, I);
+    Elt = GenerateCmpNEZero(Elt, Builder);
+    EltIsNEZero.push_back(Elt);
   }
-  return Result;
+
+  // and/or the components together
+  Value *Reduce = EltIsNEZero[0];
+  for (unsigned I = 1; I < EltIsNEZero.size(); I++) {
+    Value *Elt = EltIsNEZero[I];
+    switch (IOP) {
+    case IntrinsicOp::IOP_all:
+      Reduce = Builder.CreateAnd(Reduce, Elt);
+      break;
+    case IntrinsicOp::IOP_any:
+      Reduce = Builder.CreateOr(Reduce, Elt);
+      break;
+    default:
+      assert(false && "Unexpected reduction IOP");
+      break;
+    }
+  }
+
+  return Reduce;
+}
+
+Value *TranslateAll(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+                    HLOperationLowerHelper &Helper,
+                    HLObjectOperationLowerHelper *PObjHelper,
+                    bool &Translated) {
+  return TranslateBitwisePredicate(CI, IOP, &Helper.hlslOP);
+}
+
+Value *TranslateAny(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+                    HLOperationLowerHelper &Helper,
+                    HLObjectOperationLowerHelper *PObjHelper,
+                    bool &Translated) {
+  return TranslateBitwisePredicate(CI, IOP, &Helper.hlslOP);
 }
 
 Value *TranslateBitcast(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
