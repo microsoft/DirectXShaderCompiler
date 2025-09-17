@@ -246,32 +246,45 @@ INPUT_SET(InputSet::Default3, true, false, false, false, false, true, true,
           true, false, false);
 END_INPUT_SETS()
 
+#define I16(x) static_cast<int16_t>(x)
 BEGIN_INPUT_SETS(int16_t)
 INPUT_SET(InputSet::Default1, -6, 1, 7, 3, 8, 4, -3, 8, 8, -2);
 INPUT_SET(InputSet::Default2, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
 INPUT_SET(InputSet::Default3, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 13, 14, 15);
+INPUT_SET(InputSet::Bitwise, -32768, -1, 0, 1, 3, 6, 9, I16(0x5555), 
+          I16(0xAAAA), 32767);
 END_INPUT_SETS()
+#undef I16
 
+#define I32(x) static_cast<int32_t>(x)
 BEGIN_INPUT_SETS(int32_t)
 INPUT_SET(InputSet::Default1, -6, 1, 7, 3, 8, 4, -3, 8, 8, -2);
 INPUT_SET(InputSet::Default2, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
 INPUT_SET(InputSet::Default3, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 30, 31, 32);
+INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 12, 13, 14, 15, 
+          I32(18446744073709551615));
 END_INPUT_SETS()
+#undef I32
 
+#define I64(x) static_cast<int64_t>(x)
 BEGIN_INPUT_SETS(int64_t)
 INPUT_SET(InputSet::Default1, -6, 11, 7, 3, 8, 4, -3, 8, 8, -2);
 INPUT_SET(InputSet::Default2, 5, -1337, -3, -2, 9, 3, 1, -3, 501, 2);
 INPUT_SET(InputSet::Default3, 5, -1337, -3, -2, 9, 3, 1, -3, 501, 2);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 62, 63, 64);
+INPUT_SET(InputSet::Bitwise, -9223372036854775807 - 1, -1, 0, 1, 3, 6, 9, 
+          I64(0x5555555555555555), I64(0xAAAAAAAAAAAAAAAA), 9223372036854775807);
 END_INPUT_SETS()
+#undef I64
 
 BEGIN_INPUT_SETS(uint16_t)
 INPUT_SET(InputSet::Default1, 1, 699, 3, 1023, 5, 6, 0, 8, 9, 10);
 INPUT_SET(InputSet::Default2, 2, 111, 3, 4, 5, 9, 21, 8, 9, 10);
 INPUT_SET(InputSet::Default3, 2, 111, 3, 4, 5, 9, 21, 8, 9, 10);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 13, 14, 15);
+INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x5555, 0xAAAA, 0x8000, 127, 65535);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint32_t)
@@ -279,6 +292,8 @@ INPUT_SET(InputSet::Default1, 1, 2, 3, 4, 5, 0, 7, 8, 9, 10);
 INPUT_SET(InputSet::Default2, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 INPUT_SET(InputSet::Default3, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 30, 31, 32);
+INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x55555555, 0xAAAAAAAA, 0x80000000,
+          127, 4294967295);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint64_t)
@@ -286,6 +301,8 @@ INPUT_SET(InputSet::Default1, 1, 2, 3, 4, 5, 0, 7, 1000, 9, 10);
 INPUT_SET(InputSet::Default2, 1, 2, 1337, 4, 5, 6, 7, 8, 9, 10);
 INPUT_SET(InputSet::Default3, 1, 2, 1337, 4, 5, 6, 7, 8, 9, 10);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 62, 63, 64);
+INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x5555555555555555,
+          0xAAAAAAAAAAAAAAAA, 0x8000000000000000, 127, 18446744073709551615);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(HLSLHalf_t)
@@ -310,6 +327,7 @@ END_INPUT_SETS()
 BEGIN_INPUT_SETS(float)
 INPUT_SET(InputSet::Default1, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
           -1.0);
+
 INPUT_SET(InputSet::Default2, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
           -1.0);
 INPUT_SET(InputSet::Default3, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
