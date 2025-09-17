@@ -26,25 +26,46 @@ class CompilerInstance;
 
 namespace hlsl {
 
-struct DxcHLSLNode {
+class DxcHLSLNode {
 
   uint32_t LocalIdParentLo;             //24 : 8
-  uint32_t ParentHiAnnotationsType;     //16 : 10 : 6
-  uint32_t ChildCountPad;               //24 : 8
-  uint32_t AnnotationStartPad;          //20 : 12
+
+  union {
+    uint32_t ParentHiAnnotationsType32;
+    struct {
+      uint16_t ParentHi;
+      uint8_t Annotations;
+      uint8_t Type;
+    };
+  };
+
+  uint32_t ChildCountFwdBckLo;          //24 : 8
+
+  union {
+    uint32_t AnnotationStartFwdBckHi;
+    struct {
+      uint16_t AnnotationStart;
+      uint16_t FwdBckHi;
+    };
+  };
+
+  void SetFwdBck(uint32_t v) {
+    FwdBckHi = v >> 8;
+    ChildCountFwdBckLo &= 0xFFFFFF;
+    ChildCountFwdBckLo |= v << 24;
+  }
+
+public:
 
   DxcHLSLNode() = default;
 
-  DxcHLSLNode(D3D12_HLSL_NODE_TYPE NodeType, uint32_t LocalId,
-              uint32_t AnnotationStart, uint32_t ChildCount, uint32_t ParentId,
-              uint16_t AnnotationCount)
-      : LocalIdParentLo(LocalId | (ParentId << 24)),
-        ChildCountPad(ChildCount),
-        AnnotationStartPad(AnnotationStart),
-        ParentHiAnnotationsType(
-            (uint32_t(NodeType) << 26) |
-            (uint32_t(AnnotationCount) << 16) |
-            (ParentId >> 8)) {
+  DxcHLSLNode(D3D12_HLSL_NODE_TYPE NodeType, bool IsFwdDeclare,
+              uint32_t LocalId, uint16_t AnnotationStart, uint32_t ChildCount,
+              uint32_t ParentId, uint8_t AnnotationCount)
+      : LocalIdParentLo(LocalId | (ParentId << 24)), ParentHi(ParentId >> 8),
+        Annotations(AnnotationCount), Type(NodeType),
+        ChildCountFwdBckLo(ChildCount | (0xFFu << 24)), FwdBckHi(0xFFFF),
+        AnnotationStart(AnnotationStart) {
 
     assert(NodeType >= D3D12_HLSL_NODE_TYPE_START &&
            NodeType <= D3D12_HLSL_NODE_TYPE_END && "Invalid enum value");
@@ -52,41 +73,90 @@ struct DxcHLSLNode {
     assert(LocalId < ((1 << 24) - 1) && "LocalId out of bounds");
     assert(ParentId < ((1 << 24) - 1) && "ParentId out of bounds");
     assert(ChildCount < ((1 << 24) - 1) && "ChildCount out of bounds");
-    assert(AnnotationCount < (1 << 10) && "AnnotationCount out of bounds");
 
-    assert(AnnotationStart < ((1 << 20) - 1) &&
-           "AnnotationStart out of bounds");
+    if (IsFwdDeclare) {
+
+      assert(!AnnotationCount &&
+             "Fwd declares aren't allowed to have annotations");
+
+      assert(!ChildCount &&
+             "Fwd declares aren't allowed to have children");
+
+      Type |= 0x80;
+    }
+  }
+
+  bool IsFwdDeclare() const { return Type >> 7; }
+
+  // FwdBck is the only one that is allowed to break the DAG.
+  // Example:
+  // Node 0 (struct T;) <- IsFwdDeclare() and points to definition
+  // Node 1 uses struct T;
+  // Node 2 (struct T { float T; };) <- no fwd declare and points to fwd
+  // declare.
+  //
+  // So the following are defined:
+  // IsFwdDeclare() && IsFwdDefined(): GetFwdBck() should point to a valid node
+  // that points back to the fwd declare.
+  // !IsFwdDeclare() && IsFwdDefined(): GetFwdBck() should point to a valid fwd
+  // declare that points back to it.
+  // Backwards declare should point to a NodeId < self and Forwards to > self.
+  // Forward declares aren't allowed to have any children.
+  // If there's a name, they should match.
+  // Must be same node type too.
+  // Only allowed on functions, struct/union and enums.
+
+  uint32_t GetFwdBck() const {
+    return uint32_t(ChildCountFwdBckLo >> 24) | (uint32_t(FwdBckHi) << 8);
+  }
+
+  bool IsFwdBckDefined() const { return GetFwdBck() != ((1 << 24) - 1); }
+
+  void ResolveFwdDeclare(uint32_t SelfId, DxcHLSLNode &Definition,
+      uint32_t DefinitionId) {
+
+    assert(SelfId < ((1 << 24) - 1) && "SelfId out of bounds");
+    assert(DefinitionId < ((1 << 24) - 1) && "DefinitionId out of bounds");
+    assert(DefinitionId != SelfId && "NodeId can't be definition id!");
+    assert(IsFwdDeclare() &&
+           "Can't run ResolveFwdDeclare on a node that's one");
+
+    assert(!Definition.IsFwdBckDefined() && !IsFwdBckDefined() &&
+           "Fwd & backward declare must not be defined yet");
+
+    SetFwdBck(DefinitionId);
+    Definition.SetFwdBck(SelfId);
   }
 
   // For example if Enum, maps into Enums[LocalId]
   uint32_t GetLocalId() const { return LocalIdParentLo << 8 >> 8; }
-  uint32_t GetAnnotationStart() const { return AnnotationStartPad; }
+  uint32_t GetAnnotationStart() const { return AnnotationStart; }
 
   D3D12_HLSL_NODE_TYPE GetNodeType() const {
-    return D3D12_HLSL_NODE_TYPE(ParentHiAnnotationsType >> 26);
+    return D3D12_HLSL_NODE_TYPE(Type & 0x7F);
   }
 
   // Includes recursive children
-  uint32_t GetChildCount() const { return ChildCountPad; }
+  uint32_t GetChildCount() const { return ChildCountFwdBckLo << 8 >> 8; }
 
-  uint32_t GetAnnotationCount() const {
-    return uint32_t(ParentHiAnnotationsType << 6 >> (32 - 10));
-  }
+  uint32_t GetAnnotationCount() const { return Annotations; }
 
   uint32_t GetParentId() const {
-    return uint32_t(LocalIdParentLo >> 24) | uint32_t(ParentHiAnnotationsType << 16 >> 8);
+    return uint32_t(LocalIdParentLo >> 24) | (uint32_t(ParentHi) << 8);
   }
 
   void IncreaseChildCount() {
-    assert(ChildCountPad < ((1 << 24) - 1) && "Child count out of bounds");
-    ++ChildCountPad;
+    assert(GetChildCount() < ((1 << 24) - 1) && "Child count out of bounds");
+    ++ChildCountFwdBckLo;
   }
 
   bool operator==(const DxcHLSLNode &other) const {
     return LocalIdParentLo == other.LocalIdParentLo &&
-           ParentHiAnnotationsType == other.ParentHiAnnotationsType &&
-           ChildCountPad == other.ChildCountPad;
+           ParentHiAnnotationsType32 == other.ParentHiAnnotationsType32 &&
+           ChildCountFwdBckLo == other.ChildCountFwdBckLo &&
+           AnnotationStartFwdBckHi == other.AnnotationStartFwdBckHi;
   }
+
 };
 
 struct DxcHLSLNodeSymbol {
@@ -105,7 +175,7 @@ struct DxcHLSLNodeSymbol {
     struct {
       uint16_t SourceColumnStartLo;
       uint16_t SourceColumnEndLo;
-      uint32_t ColumnHiSourceLinePad; // 2 : 20 : 10
+      uint32_t ColumnHiSourceLinePad; // 6 : 6 : 20
     };
     uint64_t SourceColumnStartEndLo;
   };
@@ -120,26 +190,26 @@ struct DxcHLSLNodeSymbol {
         SourceColumnStartLo(uint16_t(SourceColumnStart)),
         SourceColumnEndLo(uint16_t(SourceColumnEnd)),
         ColumnHiSourceLinePad((SourceColumnStart >> 16) |
-                              (SourceColumnEnd >> 16 << 1) |
-                              (SourceLineStart << 2)) {
+                              (SourceColumnEnd >> 16 << 6) |
+                              (SourceLineStart << 12)) {
 
-    assert(SourceColumnStart < (1 << 17) && "SourceColumnStart out of bounds");
-    assert(SourceColumnEnd < (1 << 17) && "SourceColumnEnd out of bounds");
+    assert(SourceColumnStart < (1 << 22) && "SourceColumnStart out of bounds");
+    assert(SourceColumnEnd < (1 << 22) && "SourceColumnEnd out of bounds");
 
     assert(SourceLineStart < ((1 << 20) - 1) &&
            "SourceLineStart out of bounds");
   }
 
   uint32_t GetSourceLineStart() const {
-    return uint32_t(ColumnHiSourceLinePad >> 2);
+    return uint32_t(ColumnHiSourceLinePad >> 12);
   }
 
   uint32_t GetSourceColumnStart() const {
-    return SourceColumnStartLo | ((ColumnHiSourceLinePad & 1) << 16);
+    return SourceColumnStartLo | ((ColumnHiSourceLinePad & 0x3F) << 16);
   }
 
   uint32_t GetSourceColumnEnd() const {
-    return SourceColumnEndLo | ((ColumnHiSourceLinePad & 2) << 15);
+    return SourceColumnEndLo | ((ColumnHiSourceLinePad & (0x3F << 6)) << 10);
   }
 
   bool operator==(const DxcHLSLNodeSymbol &other) const {
@@ -453,21 +523,21 @@ struct DxcHLSLReflectionData {
                     uint32_t AutoBindingSpace,
                     D3D12_HLSL_REFLECTION_FEATURE Features, bool DefaultRowMaj);
 
-  bool IsSameNonDebug(const DxcHLSLReflectionData &other) const {
-    return StringsNonDebug == other.StringsNonDebug && Nodes == other.Nodes &&
-           Registers == other.Registers && Functions == other.Functions &&
-           Enums == other.Enums && EnumValues == other.EnumValues &&
-           Annotations == other.Annotations && Arrays == other.Arrays &&
-           ArraySizes == other.ArraySizes &&
-           MemberTypeIds == other.MemberTypeIds && Types == other.Types &&
-           Buffers == other.Buffers;
+  bool IsSameNonDebug(const DxcHLSLReflectionData &Other) const {
+    return StringsNonDebug == Other.StringsNonDebug && Nodes == Other.Nodes &&
+           Registers == Other.Registers && Functions == Other.Functions &&
+           Enums == Other.Enums && EnumValues == Other.EnumValues &&
+           Annotations == Other.Annotations && Arrays == Other.Arrays &&
+           ArraySizes == Other.ArraySizes &&
+           MemberTypeIds == Other.MemberTypeIds && Types == Other.Types &&
+           Buffers == Other.Buffers;
   }
 
-  bool operator==(const DxcHLSLReflectionData &other) const {
-    return IsSameNonDebug(other) && Strings == other.Strings &&
-           Sources == other.Sources && NodeSymbols == other.NodeSymbols &&
-           MemberNameIds == other.MemberNameIds &&
-           TypeNameIds == other.TypeNameIds;
+  bool operator==(const DxcHLSLReflectionData &Other) const {
+    return IsSameNonDebug(Other) && Strings == Other.Strings &&
+           Sources == Other.Sources && NodeSymbols == Other.NodeSymbols &&
+           MemberNameIds == Other.MemberNameIds &&
+           TypeNameIds == Other.TypeNameIds;
   }
 };
 

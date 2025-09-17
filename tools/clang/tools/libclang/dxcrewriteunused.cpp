@@ -1084,11 +1084,12 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
   if(opts.RWOpt.ReflectHLSLUserTypes)
     reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES;
 
-  if(opts.RWOpt.ReflectHLSLScopes)
-    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SCOPES;
-
-  if(opts.RWOpt.ReflectHLSLVariables)
-    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_VARIABLES;
+  //TODO:
+  //if(opts.RWOpt.ReflectHLSLScopes)
+  //  reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SCOPES;
+  //
+  //if(opts.RWOpt.ReflectHLSLVariables)
+  //  reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_VARIABLES;
 
   if(!opts.RWOpt.ReflectHLSLDisableSymbols)
     reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;

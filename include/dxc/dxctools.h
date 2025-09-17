@@ -71,7 +71,7 @@ struct IDxcRewriter2 : public IDxcRewriter {
 };
 
 //Expose HLSL reflection before DXIL/SPIRV generation.
-//(Ideally ran after the preprocessed HLSL is obtained).
+//(Ran after the preprocessed HLSL is obtained).
 //This is useful to avoid custom parsers from reinventing the wheel.
 //You could use it to find all entrypoints even if [shader("")] isn't used,
 //Find struct/enum information, find out about optimized out registers, etc.
@@ -90,31 +90,31 @@ enum D3D12_HLSL_REFLECTION_FEATURE {
   D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES = 1 << 3,
 
   // Variables, structs, functions defined in functions, scopes & structs
-  D3D12_HLSL_REFLECTION_FEATURE_SCOPES = 1 << 4,
+  //TODO: D3D12_HLSL_REFLECTION_FEATURE_SCOPES = 1 << 4,
 
   // Variables not included in $Global or cbuffers
-  D3D12_HLSL_REFLECTION_FEATURE_VARIABLES = 1 << 5,
+  //TODO: D3D12_HLSL_REFLECTION_FEATURE_VARIABLES = 1 << 5,
 
   // Symbol info (stripping this will remove names and file location info)
-  D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO = 1 << 6,
+  D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO = 1 << 16,
 
   D3D12_HLSL_REFLECTION_FEATURE_ALL = D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO - 1
 };
 
 inline D3D12_HLSL_REFLECTION_FEATURE &operator|=(D3D12_HLSL_REFLECTION_FEATURE &a,
                                           D3D12_HLSL_REFLECTION_FEATURE b) {
-  return a = (D3D12_HLSL_REFLECTION_FEATURE)((uint32_t)a | (uint32_t)b);
+  return a = (D3D12_HLSL_REFLECTION_FEATURE)(uint32_t(a) | uint32_t(b));
 }
 
 inline D3D12_HLSL_REFLECTION_FEATURE &
 operator&=(D3D12_HLSL_REFLECTION_FEATURE &a,
                                           D3D12_HLSL_REFLECTION_FEATURE b) {
-  return a = (D3D12_HLSL_REFLECTION_FEATURE)((uint32_t)a & (uint32_t)b);
+  return a = (D3D12_HLSL_REFLECTION_FEATURE)(uint32_t(a) & uint32_t(b));
 }
 
 inline D3D12_HLSL_REFLECTION_FEATURE
 operator~(D3D12_HLSL_REFLECTION_FEATURE a) {
-  return (D3D12_HLSL_REFLECTION_FEATURE) ~(uint32_t)a;
+  return (D3D12_HLSL_REFLECTION_FEATURE) ~uint32_t(a);
 }
 
 struct D3D12_HLSL_REFLECTION_DESC {
@@ -123,8 +123,10 @@ struct D3D12_HLSL_REFLECTION_DESC {
   UINT ResourceCount;
   UINT FunctionCount;
   UINT EnumCount;
-  UINT StructCount;
   UINT NodeCount;
+  UINT TypeCount;
+  UINT StructCount;
+  UINT UnionCount;
 };
 
 struct D3D12_HLSL_FUNCTION_DESC {
@@ -171,13 +173,17 @@ enum D3D12_HLSL_NODE_TYPE {
   D3D12_HLSL_NODE_TYPE_ENUM,
   D3D12_HLSL_NODE_TYPE_ENUM_VALUE,
   D3D12_HLSL_NODE_TYPE_NAMESPACE,
-  D3D12_HLSL_NODE_TYPE_VARIABLE, // LocalId points to the type for a variable
-  //D3D12_HLSL_NODE_TYPE_TYPEDEF,
-  //D3D12_HLSL_NODE_TYPE_USING,
-  // TODO: Parameter,
+  D3D12_HLSL_NODE_TYPE_VARIABLE,    // localId points to the type
+  D3D12_HLSL_NODE_TYPE_TYPEDEF,     // ^
+  D3D12_HLSL_NODE_TYPE_STRUCT,      // has Variables as member like buffers do, localId is unused
+  D3D12_HLSL_NODE_TYPE_UNION,       // ^
+  // TODO: D3D12_HLSL_NODE_TYPE_USING,
+  // TODO: D3D12_HLSL_NODE_TYPE_PARAMETER,
+
+  D3D12_HLSL_NODE_TYPE_RESERVED = 1 << 7,       //Highest bit; reserved as an indicator for fwd declarations
 
   D3D12_HLSL_NODE_TYPE_START = D3D12_HLSL_NODE_TYPE_REGISTER,
-  D3D12_HLSL_NODE_TYPE_END = D3D12_HLSL_NODE_TYPE_VARIABLE
+  D3D12_HLSL_NODE_TYPE_END = D3D12_HLSL_NODE_TYPE_UNION
 };
 
 struct D3D12_HLSL_NODE {
@@ -187,6 +193,8 @@ struct D3D12_HLSL_NODE {
   UINT ChildCount;
   UINT Parent;
   UINT AnnotationCount;
+  UINT FwdBckDeclareNode;           //If UINT_MAX has no forward / backward declare
+  BOOL IsFwdDeclare;
 };
 
 struct D3D12_HLSL_NODE_SYMBOL {
@@ -201,7 +209,6 @@ typedef interface ID3D12ShaderReflectionConstantBuffer
     ID3D12ShaderReflectionConstantBuffer;
 
 typedef struct _D3D12_SHADER_INPUT_BIND_DESC D3D12_SHADER_INPUT_BIND_DESC;
-typedef interface ID3D12ShaderReflectionVariable ID3D12ShaderReflectionVariable;
 typedef interface ID3D12FunctionParameterReflection ID3D12FunctionParameterReflection;
 typedef interface ID3D12ShaderReflectionType ID3D12ShaderReflectionType;
 typedef interface IDxcHLSLReflection IDxcHLSLReflection;
@@ -235,12 +242,21 @@ DECLARE_INTERFACE(IDxcHLSLReflection) {
   (THIS_ _In_ UINT FunctionIndex, THIS_ _Out_ D3D12_HLSL_FUNCTION_DESC *pDesc)
       PURE;
 
+  /*TODO:
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
   STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
-  (THIS_ _In_ UINT FunctionIndex, THIS_ _In_ INT ParameterIndex) PURE;
+  (THIS_ _In_ UINT FunctionIndex, THIS_ _In_ INT ParameterIndex) PURE;*/
 
   STDMETHOD(GetStructTypeByIndex)
-  (THIS_ _In_ UINT StructIndex, _Outptr_ ID3D12ShaderReflectionType **ppType)
+  (THIS_ _In_ UINT Index, _Outptr_ ID3D12ShaderReflectionType **ppType)
+      PURE;
+
+  STDMETHOD(GetUnionTypeByIndex)
+  (THIS_ _In_ UINT Index, _Outptr_ ID3D12ShaderReflectionType **ppType)
+      PURE;
+
+  STDMETHOD(GetTypeByIndex)
+  (THIS_ _In_ UINT Index, _Outptr_ ID3D12ShaderReflectionType **ppType)
       PURE;
 
   STDMETHOD(GetEnumDesc)
@@ -296,12 +312,18 @@ DECLARE_INTERFACE(IDxcHLSLReflection) {
   (THIS_ _In_ LPCSTR Name) PURE;
 
   STDMETHOD(GetFunctionDescByName)
-  (THIS_ _In_ LPCSTR Name, THIS_ _Out_ D3D12_HLSL_FUNCTION_DESC * pDesc) PURE;
+  (THIS_ _In_ LPCSTR Name, THIS_ _Out_ D3D12_HLSL_FUNCTION_DESC *pDesc) PURE;
 
   STDMETHOD(GetResourceBindingDescByName)
   (THIS_ _In_ LPCSTR Name, _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc) PURE;
 
   STDMETHOD(GetStructTypeByName)
+  (THIS_ _In_ LPCSTR Name, _Outptr_ ID3D12ShaderReflectionType **ppType) PURE;
+
+  STDMETHOD(GetUnionTypeByName)
+  (THIS_ _In_ LPCSTR Name, _Outptr_ ID3D12ShaderReflectionType **ppType) PURE;
+
+  STDMETHOD(GetTypeByName)
   (THIS_ _In_ LPCSTR Name, _Outptr_ ID3D12ShaderReflectionType **ppType) PURE;
 };
 
