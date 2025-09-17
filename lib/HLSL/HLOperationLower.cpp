@@ -2606,8 +2606,10 @@ Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Type *EltTy = Ty->getScalarType();
 
   // SM6.9 introduced a DXIL operation for vectorized dot product
+  // The operation is only advantagous for vect size>1, vec1s will be
+  // lowered to a single Mul.
   if (hlslOP->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus() &&
-      EltTy->isFloatingPointTy()) {
+      EltTy->isFloatingPointTy() && Ty->getVectorNumElements() > 1) {
     Value *arg1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
     IRBuilder<> Builder(CI);
     Constant *opArg = hlslOP->GetU32Const((unsigned)DXIL::OpCode::FDot);
