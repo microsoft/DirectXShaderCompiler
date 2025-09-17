@@ -13,6 +13,7 @@
 #include "HlslExecTestUtils.h"
 
 #include <array>
+#include <bitset>
 #include <iomanip>
 #include <optional>
 #include <sstream>
@@ -617,18 +618,10 @@ DEFAULT_OP_2(OpType::Ldexp, (A * static_cast<T>(std::pow(2.0f, B))));
 //
 
 template <typename T> T Saturate(T A) {
-  if (A < static_cast<T>(0.0))
-    return static_cast<T>(0.0);
-  if (A > static_cast<T>(1.0))
-    return static_cast<T>(1.0);
-  return A;
-}
-
-template <> HLSLHalf_t Saturate<HLSLHalf_t>(HLSLHalf_t A) {
-  if (A < HLSLHalf_t(0.0f))
-    return HLSLHalf_t(0.0f);
-  if (A > HLSLHalf_t(1.0f))
-    return HLSLHalf_t(1.0f);
+  if (A < static_cast<T>(0.0f))
+    return static_cast<T>(0.0f);
+  if (A > static_cast<T>(1.0f))
+    return static_cast<T>(1.0f);
   return A;
 }
 
@@ -644,14 +637,7 @@ template <typename T> T ReverseBits(T A) {
 }
 
 template <typename T> uint32_t CountBits(T A) {
-  uint32_t Count = 0;
-  const size_t NumBits = sizeof(T) * 8;
-  for (size_t I = 0; I < NumBits; I++) {
-    if (A & 1)
-      Count++;
-    A >>= 1;
-  }
-  return Count;
+  return static_cast<uint32_t>(std::bitset<sizeof(T) * 8>(A).count());
 }
 
 // General purpose bit scan from the MSB. Based on the value of LookingForZero
