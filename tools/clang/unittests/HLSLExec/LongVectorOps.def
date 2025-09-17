@@ -54,8 +54,30 @@ OP(Bitwise, RightShift, 2, "", ">>", "", Default1, BitShiftRhs, Default3)
 
 OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
                    " -DFUNC_INITIALIZE=1")
-OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
-" -DFUNC_TEST_CAST=1")
+
+#define OP_CAST_DEFAULT_DEFINES(GROUP, SYMBOL) \
+  OP_DEFAULT_DEFINES(GROUP, SYMBOL, 1, "TestCast", "",                         \
+                     "-DFUNC_TEST_CAST=1")
+#define OP_CAST(GROUP, SYMBOL, INPUT_SET_1)                                    \
+  OP(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1", INPUT_SET_1,      \
+     Default2, Default3)
+
+OP_CAST_DEFAULT_DEFINES(Unary, CastToBool)
+OP_CAST_DEFAULT_DEFINES(Unary, CastToInt16)
+OP_CAST_DEFAULT_DEFINES(Unary, CastToInt32)
+OP_CAST_DEFAULT_DEFINES(Unary, CastToInt64)
+OP_CAST_DEFAULT_DEFINES(Unary, CastToUint16)
+OP_CAST_DEFAULT_DEFINES(Unary, CastToUint32)
+OP_CAST_DEFAULT_DEFINES(Unary, CastToUint64)
+OP_CAST(Unary, CastToUint16_FromFP, Positive)
+OP_CAST(Unary, CastToUint32_FromFP, Positive)
+OP_CAST(Unary, CastToUint64_FromFP, Positive)
+OP_CAST_DEFAULT_DEFINES(Unary, CastToFloat16)
+OP_CAST_DEFAULT_DEFINES(Unary, CastToFloat32)
+OP_CAST_DEFAULT_DEFINES(Unary, CastToFloat64)
+
+#undef OP_CAST_DEFAULT_DEFINES
+#undef OP_CAST
 
 OP(Trigonometric, Acos, 1, "acos", "", "", RangeOne, Default2, Default3)
 OP(Trigonometric, Asin, 1, "asin", "", "", RangeHalfPi, Default2, Default3)

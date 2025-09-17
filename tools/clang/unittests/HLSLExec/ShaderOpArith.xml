@@ -3776,7 +3776,7 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-        #ifdef FUNC_CAST
+        #ifdef FUNC_TEST_CAST
         vector<OUT_TYPE, NUM> TestCast(vector<TYPE, NUM> Vector)
         {
           return (vector<OUT_TYPE, NUM>)Vector;
