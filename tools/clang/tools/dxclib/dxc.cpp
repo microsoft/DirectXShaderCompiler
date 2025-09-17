@@ -905,9 +905,7 @@ int DxcContext::Compile() {
 
             IFT(pCompileResult->GetResult(&pProgram));
 
-            IFT(pValidator->Validate(pProgram,
-                                     DxcValidatorFlags_RootSignatureOnly |
-                                         DxcValidatorFlags_InPlaceEdit,
+            IFT(pValidator->Validate(pProgram, DxcValidatorFlags_InPlaceEdit,
                                      &pValResult));
             CComPtr<IDxcResult> pResult;
             HRESULT ValHR;

@@ -4,71 +4,132 @@
 // WinIncludes must come before dxcapi.extval.h
 #include "dxc/Support/dxcapi.extval.h"
 
+std::vector<LPCWSTR> AddVDCompilationArg(UINT32 ArgCount, LPCWSTR *pArguments) {
+  UINT32 newArgCount = ArgCount + 1;
+  std::vector<LPCWSTR> newArgs;
+  newArgs.reserve(newArgCount);
+
+  // Copy existing args
+  for (unsigned int i = 0; i < ArgCount; ++i) {
+    newArgs.push_back(pArguments[i]);
+  }
+
+  // Add an extra argument
+  newArgs.push_back(L"-Vd");
+  return newArgs;
+}
+
 namespace dxc {
 
-HRESULT STDMETHODCALLTYPE ExternalValidationHelper::Compile(
-    _In_ IDxcBlob *pSource,         // Source text to compile.
-    _In_opt_z_ LPCWSTR pSourceName, // Optional file name for pSource. Used
-    // in errors and include handlers.
-    _In_opt_z_ LPCWSTR pEntryPoint, // Entry point name.
-    _In_z_ LPCWSTR pTargetProfile,  // Shader profile to compile.
-    _In_opt_count_(argCount)
-        LPCWSTR *pArguments, // Array of pointers to arguments.
-    _In_ UINT32 argCount,    // Number of arguments.
-    _In_count_(defineCount) const DxcDefine *pDefines, // Array of defines.
-    _In_ UINT32 defineCount,                           // Number of defines.
-    _In_opt_ IDxcIncludeHandler
-        *pIncludeHandler, // User-provided interface to handle #include
-    // directives (optional).
-    _COM_Outptr_ IDxcOperationResult *
-        *ppResult // Compiler output status, buffer, and errors.
-) {
-  // First, add -Vd to the compilation args
-  UINT32 newArgCount = argCount + 1;
-  std::vector<LPCWSTR> newArgs;
-  newArgs.reserve(newArgCount);
+// The purpose of the ExternalValidationHelper* wrappers is
+// to wrap the Compile call so that -Vd can be passed, disabling
+// internal validation. Then, we can allow the caller to handle
+// external validation. This wrapper is used when in an external
+// validation scenario, so there is no point in also running
+// the internal validator
+class ExternalValidationHelper3 : public IDxcCompiler3 {
+private:
+  CComPtr<IDxcCompiler3> m_pCompiler3;
+  CComPtr<IDxcValidator> m_pValidator;
 
-  // Copy existing args
-  for (unsigned int i = 0; i < argCount; ++i) {
-    newArgs.push_back(pArguments[i]);
+public:
+  HRESULT STDMETHODCALLTYPE Compile(const DxcBuffer *pSource,
+                                    LPCWSTR *pArguments, UINT32 argCount,
+                                    IDxcIncludeHandler *pIncludeHandler,
+                                    REFIID riid, LPVOID *ppResult) override {
+    // First, add -Vd to the compilation args, to disable the
+    // internal validator
+    std::vector<LPCWSTR> newArgs = AddVDCompilationArg(argCount, pArguments);
+    return m_pCompiler3->Compile(pSource, newArgs.data(), newArgs.size(),
+                                 pIncludeHandler, riid, ppResult);
   }
 
-  // Add an extra argument
-  newArgs.push_back(L"-Vd");
-
-  return m_pCompiler->Compile(pSource, pSourceName, pEntryPoint, pTargetProfile,
-                              newArgs.data(), newArgCount, pDefines,
-                              defineCount, pIncludeHandler, ppResult);
-}
-
-// Implement the IDxcCompiler3 interface Compile command
-HRESULT STDMETHODCALLTYPE ExternalValidationHelper3::Compile(
-    _In_ const DxcBuffer *pSource, ///< Source text to compile.
-    _In_opt_count_(argCount)
-        LPCWSTR *pArguments, ///< Array of pointers to arguments.
-    _In_ UINT32 argCount,    ///< Number of arguments.
-    _In_opt_ IDxcIncludeHandler
-        *pIncludeHandler, ///< user-provided interface to handle include
-    ///< directives (optional).
-    _In_ REFIID riid,      ///< Interface ID for the result.
-    _Out_ LPVOID *ppResult ///< IDxcResult: status, buffer, and errors.
-) {
-  // First, add -Vd to the compilation args
-  UINT32 newArgCount = argCount + 1;
-  std::vector<LPCWSTR> newArgs;
-  newArgs.reserve(newArgCount);
-
-  // Copy existing args
-  for (unsigned int i = 0; i < argCount; ++i) {
-    newArgs.push_back(pArguments[i]);
+  HRESULT STDMETHODCALLTYPE Disassemble(const DxcBuffer *pObject, REFIID riid,
+                                        LPVOID *ppResult) override {
+    return m_pCompiler3->Disassemble(pObject, riid, ppResult);
   }
 
-  // Add an extra argument
-  newArgs.push_back(L"-Vd");
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid,
+                                           void **ppvObject) override {
+    return m_pCompiler3->QueryInterface(riid, ppvObject);
+  }
 
-  return m_pCompiler3->Compile(pSource, newArgs.data(), newArgCount,
-                               pIncludeHandler, riid, ppResult);
-}
+  ULONG STDMETHODCALLTYPE AddRef() override { return m_pCompiler3.p->AddRef(); }
+
+  ULONG STDMETHODCALLTYPE Release() override {
+    return m_pCompiler3.p->Release();
+  }
+
+  HRESULT STDMETHODCALLTYPE Validate(IDxcBlob *pShader, UINT32 Flags,
+                                     IDxcOperationResult **ppResult) {
+    return m_pValidator->Validate(pShader, Flags, ppResult);
+  }
+
+  ExternalValidationHelper3(CComPtr<IDxcCompiler3> pCompiler,
+                            CComPtr<IDxcValidator> pValidator) {
+    m_pCompiler3 = pCompiler;
+    m_pValidator = pValidator;
+  }
+};
+
+class ExternalValidationHelper : public IDxcCompiler {
+private:
+  CComPtr<IDxcCompiler> m_pCompiler;
+  CComPtr<IDxcValidator> m_pValidator;
+
+public:
+  HRESULT STDMETHODCALLTYPE Compile(IDxcBlob *pSource, LPCWSTR pSourceName,
+                                    LPCWSTR pEntryPoint, LPCWSTR pTargetProfile,
+                                    LPCWSTR *pArguments, UINT32 argCount,
+                                    const DxcDefine *pDefines,
+                                    UINT32 defineCount,
+                                    IDxcIncludeHandler *pIncludeHandler,
+                                    IDxcOperationResult **ppResult) override {
+    // First, add -Vd to the compilation args, to disable the
+    // internal validator
+    std::vector<LPCWSTR> newArgs = AddVDCompilationArg(argCount, pArguments);
+    return m_pCompiler->Compile(
+        pSource, pSourceName, pEntryPoint, pTargetProfile, newArgs.data(),
+        newArgs.size(), pDefines, defineCount, pIncludeHandler, ppResult);
+  }
+
+  HRESULT STDMETHODCALLTYPE
+  Preprocess(IDxcBlob *pSource, LPCWSTR pSourceName, LPCWSTR *pArguments,
+             UINT32 argCount, const DxcDefine *pDefines, UINT32 defineCount,
+             IDxcIncludeHandler *pIncludeHandler,
+             IDxcOperationResult **ppResult) override {
+    return m_pCompiler->Preprocess(pSource, pSourceName, pArguments, argCount,
+                                   pDefines, defineCount, pIncludeHandler,
+                                   ppResult);
+  }
+
+  HRESULT STDMETHODCALLTYPE
+  Disassemble(IDxcBlob *pSource, IDxcBlobEncoding **ppDisassembly) override {
+    return m_pCompiler->Disassemble(pSource, ppDisassembly);
+  }
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid,
+                                           void **ppvObject) override {
+    return m_pCompiler->QueryInterface(riid, ppvObject);
+  }
+
+  ULONG STDMETHODCALLTYPE AddRef() override { return m_pCompiler.p->AddRef(); }
+
+  ULONG STDMETHODCALLTYPE Release() override {
+    return m_pCompiler.p->Release();
+  }
+
+  HRESULT STDMETHODCALLTYPE Validate(IDxcBlob *pShader, UINT32 Flags,
+                                     IDxcOperationResult **ppResult) {
+    return m_pValidator->Validate(pShader, Flags, ppResult);
+  }
+
+  ExternalValidationHelper(CComPtr<IDxcCompiler> pCompiler,
+                           CComPtr<IDxcValidator> pValidator) {
+    m_pCompiler = pCompiler;
+    m_pValidator = pValidator;
+  }
+};
 
 HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
                                                       REFIID riid,
