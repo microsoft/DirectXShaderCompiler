@@ -624,8 +624,7 @@ template <typename T> T Saturate(T A) {
   return A;
 }
 
-template <>
-HLSLHalf_t Saturate<HLSLHalf_t>(HLSLHalf_t A) {
+template <> HLSLHalf_t Saturate<HLSLHalf_t>(HLSLHalf_t A) {
   if (A < HLSLHalf_t(0.0f))
     return HLSLHalf_t(0.0f);
   if (A > HLSLHalf_t(1.0f))
@@ -644,8 +643,7 @@ template <typename T> T ReverseBits(T A) {
   return Result;
 }
 
-template <typename T> 
-uint32_t CountBits(T A) {
+template <typename T> uint32_t CountBits(T A) {
   uint32_t Count = 0;
   const size_t NumBits = sizeof(T) * 8;
   for (size_t I = 0; I < NumBits; I++) {
@@ -656,8 +654,7 @@ uint32_t CountBits(T A) {
   return Count;
 }
 
-template <typename T>
-uint32_t FirstBitHigh(T A) {
+template <typename T> uint32_t FirstBitHigh(T A) {
   constexpr uint32_t NumBits = sizeof(T) * 8;
 
   if (A == 0)
@@ -682,8 +679,7 @@ uint32_t FirstBitHigh(T A) {
   return static_cast<uint32_t>(-1);
 }
 
-template <typename T>
-uint32_t FirstBitLow(T A) {
+template <typename T> uint32_t FirstBitLow(T A) {
   const uint32_t NumBits = sizeof(T) * 8;
 
   if (A == 0)
