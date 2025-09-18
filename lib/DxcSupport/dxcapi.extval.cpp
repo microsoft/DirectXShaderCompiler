@@ -35,8 +35,8 @@ private:
   CComPtr<IDxcCompiler3> m_pCompiler3;
 
 public:
-  DXC_MICROCOM_REF_FIELD(RefCount);
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(RefCount);
+  DXC_MICROCOM_REF_FIELD(RefCount)
+  DXC_MICROCOM_ADDREF_RELEASE_IMPL(RefCount)
   HRESULT STDMETHODCALLTYPE Compile(IDxcBlob *pSource, LPCWSTR pSourceName,
                                     LPCWSTR pEntryPoint, LPCWSTR pTargetProfile,
                                     LPCWSTR *pArguments, UINT32 argCount,
@@ -180,8 +180,13 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
         return hr;
 
       // Wrap compiler + validator
-      ExternalValidationHelper *evh = new (std::nothrow)
-          ExternalValidationHelper(m_pCompiler, m_pCompiler3);
+      // Allocate raw memory
+      void *raw = pMalloc->Alloc(sizeof(ExternalValidationHelper));
+      if (!raw) {
+        return E_OUTOFMEMORY;
+      }
+      ExternalValidationHelper *evh =
+          new (raw) ExternalValidationHelper(m_pCompiler, m_pCompiler3);
       if (!evh)
         return E_OUTOFMEMORY;
 
