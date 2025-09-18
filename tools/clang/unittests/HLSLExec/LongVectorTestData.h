@@ -172,6 +172,10 @@ struct HLSLHalf_t {
     return FromHALF((DirectX::PackedVector::XMConvertFloatToHalf(A + B)));
   }
 
+  HLSLHalf_t &operator+=(const HLSLHalf_t &Other) {
+    return *this = *this + Other;
+  }
+
   HLSLHalf_t operator-(const HLSLHalf_t &Other) const {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
@@ -251,6 +255,8 @@ INPUT_SET(InputSet::Default1, -6, 1, 7, 3, 8, 4, -3, 8, 8, -2);
 INPUT_SET(InputSet::Default2, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
 INPUT_SET(InputSet::Default3, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 13, 14, 15);
+INPUT_SET(InputSet::Zero, 0);
+INPUT_SET(InputSet::NonZero, 1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(int32_t)
@@ -258,6 +264,8 @@ INPUT_SET(InputSet::Default1, -6, 1, 7, 3, 8, 4, -3, 8, 8, -2);
 INPUT_SET(InputSet::Default2, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
 INPUT_SET(InputSet::Default3, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 30, 31, 32);
+INPUT_SET(InputSet::Zero, 0);
+INPUT_SET(InputSet::NonZero, 1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(int64_t)
@@ -265,6 +273,8 @@ INPUT_SET(InputSet::Default1, -6, 11, 7, 3, 8, 4, -3, 8, 8, -2);
 INPUT_SET(InputSet::Default2, 5, -1337, -3, -2, 9, 3, 1, -3, 501, 2);
 INPUT_SET(InputSet::Default3, 5, -1337, -3, -2, 9, 3, 1, -3, 501, 2);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 62, 63, 64);
+INPUT_SET(InputSet::Zero, 0);
+INPUT_SET(InputSet::NonZero, 1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint16_t)
@@ -272,6 +282,8 @@ INPUT_SET(InputSet::Default1, 1, 699, 3, 1023, 5, 6, 0, 8, 9, 10);
 INPUT_SET(InputSet::Default2, 2, 111, 3, 4, 5, 9, 21, 8, 9, 10);
 INPUT_SET(InputSet::Default3, 2, 111, 3, 4, 5, 9, 21, 8, 9, 10);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 13, 14, 15);
+INPUT_SET(InputSet::Zero, 0);
+INPUT_SET(InputSet::NonZero, 1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint32_t)
@@ -279,6 +291,8 @@ INPUT_SET(InputSet::Default1, 1, 2, 3, 4, 5, 0, 7, 8, 9, 10);
 INPUT_SET(InputSet::Default2, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 INPUT_SET(InputSet::Default3, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 30, 31, 32);
+INPUT_SET(InputSet::Zero, 0);
+INPUT_SET(InputSet::NonZero, 1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint64_t)
@@ -286,6 +300,8 @@ INPUT_SET(InputSet::Default1, 1, 2, 3, 4, 5, 0, 7, 1000, 9, 10);
 INPUT_SET(InputSet::Default2, 1, 2, 1337, 4, 5, 6, 7, 8, 9, 10);
 INPUT_SET(InputSet::Default3, 1, 2, 1337, 4, 5, 6, 7, 8, 9, 10);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 62, 63, 64);
+INPUT_SET(InputSet::Zero, 0);
+INPUT_SET(InputSet::NonZero, 1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(HLSLHalf_t)
@@ -305,6 +321,8 @@ INPUT_SET(InputSet::SmoothStepMax, 10.0, -2.6, -2.3, -1.4, -2.2, 2.3, 2.9, 3.3,
           3.9, 4.2);
 INPUT_SET(InputSet::SmoothStepInput, -2.8, -4.9, -2.3, -3.3, -3.6, 0.6, 3.0,
           3.3, 1.9, 4.3);
+INPUT_SET(InputSet::Zero, 0.0);
+INPUT_SET(InputSet::NonZero, 1.0);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(float)
@@ -324,6 +342,8 @@ INPUT_SET(InputSet::SmoothStepMax, -2.8f, -2.6f, -2.3f, -1.4f, -2.2f, 2.3f,
           2.9f, 3.3f, 3.9f, 4.2f);
 INPUT_SET(InputSet::SmoothStepInput, -2.8f, -4.9f, -2.3f, -3.3f, -3.6f, 0.6f,
           3.0f, 3.3f, 1.9f, 4.3f);
+INPUT_SET(InputSet::Zero, 0.0f);
+INPUT_SET(InputSet::NonZero, 1.0f);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(double)
@@ -345,6 +365,8 @@ INPUT_SET(InputSet::SmoothStepMax, -2.8, -2.6, -2.3, -1.4, -2.0, 2.3, 2.9, 3.3,
           3.9, 4.2);
 INPUT_SET(InputSet::SmoothStepInput, -10.8, -4.9, -2.3, -3.3, -3.0, 0.6, 3.0,
           3.3, 1.9, 4.3);
+INPUT_SET(InputSet::Zero, 0.0);
+INPUT_SET(InputSet::NonZero, 1.0);
 END_INPUT_SETS()
 
 #undef BEGIN_INPUT_SETS

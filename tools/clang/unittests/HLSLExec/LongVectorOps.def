@@ -16,6 +16,8 @@ INPUT_SET(RangeOne)
 INPUT_SET(RangeHalfPi)
 INPUT_SET(SplitDouble)
 INPUT_SET(BitShiftRhs)
+INPUT_SET(Zero)
+INPUT_SET(NonZero)
 
 #undef INPUT_SET
 
@@ -106,4 +108,9 @@ OP_DEFAULT_DEFINES(Binary, TernaryAssignment_True, 2, "TestTernaryAssignment",
                    ",", " -DTERNARY_CONDITION=1 -DFUNC_TERNARY_ASSIGNMENT=1")
 OP_DEFAULT_DEFINES(Binary, TernaryAssignment_False, 2, "TestTernaryAssignment",
                    ",", " -DTERNARY_CONDITION=0 -DFUNC_TERNARY_ASSIGNMENT=1")
+
+OP_DEFAULT_DEFINES(Reduction, All, 1, "all", "", " -DIS_REDUCTION_OP=1")
+OP_DEFAULT_DEFINES(Reduction, Any, 1, "any", "", " -DIS_REDUCTION_OP=1")
+OP_DEFAULT(Reduction, Dot, 2, "dot", ",")
+
 #undef OP

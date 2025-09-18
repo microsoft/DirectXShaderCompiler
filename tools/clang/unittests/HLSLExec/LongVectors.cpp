@@ -12,6 +12,7 @@
 
 #include "HlslExecTestUtils.h"
 
+#include <algorithm>
 #include <array>
 #include <iomanip>
 #include <optional>
@@ -899,6 +900,53 @@ DEFAULT_OP_2(OpType::TernaryAssignment_True, (true ? A : B));
 DEFAULT_OP_2(OpType::TernaryAssignment_False, (false ? A : B));
 
 //
+// Reduction
+//
+
+template <typename T> struct Op<OpType::All, T> : StrictValidation {};
+template <typename T> struct ExpectedBuilder<OpType::All, T> {
+  static std::vector<HLSLBool_t>
+  buildExpected(Op<OpType::All, T>, const InputSets<T, 1> &Inputs, uint16_t) {
+
+    const bool All = std::all_of(Inputs[0].begin(), Inputs[0].end(),
+                                 [](T A) { return A != static_cast<T>(0); });
+
+    return std::vector<HLSLBool_t>{All};
+  }
+};
+
+template <typename T> struct Op<OpType::Any, T> : StrictValidation {};
+template <typename T> struct ExpectedBuilder<OpType::Any, T> {
+  static std::vector<HLSLBool_t>
+  buildExpected(Op<OpType::Any, T>, const InputSets<T, 1> &Inputs, uint16_t) {
+
+    const bool Any = std::any_of(Inputs[0].begin(), Inputs[0].end(),
+                                 [](T A) { return A != static_cast<T>(0); });
+
+    return std::vector<HLSLBool_t>{Any};
+  }
+};
+
+// TODO: For dot product with float values we'll want no strict validation.
+template <typename T> struct Op<OpType::Dot, T> : StrictValidation {};
+template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
+  static std::vector<T> buildExpected(Op<OpType::Dot, T>,
+                                      const InputSets<T, 2> &Inputs,
+                                      uint16_t ScalarInputFlags) {
+    T DotProduct = T();
+
+    for (size_t I = 0; I < Inputs[0].size(); ++I) {
+      size_t Index1 = (ScalarInputFlags & (1 << 1)) ? 0 : I;
+      DotProduct += Inputs[0][I] * Inputs[1][Index1];
+    }
+
+    std::vector<T> Expected;
+    Expected.push_back(DotProduct);
+    return Expected;
+  }
+};
+
+//
 // dispatchTest
 //
 
@@ -1518,6 +1566,47 @@ public:
   HLK_TEST(Logical_Or, HLSLBool_t, Vector);
   HLK_TEST(Logical_And, HLSLBool_t, ScalarOp2);
   HLK_TEST(Logical_Or, HLSLBool_t, ScalarOp2);
+
+  // Reduction
+  HLK_TEST(All, HLSLBool_t, Vector);
+  HLK_TEST(Any, HLSLBool_t, Vector);
+
+  HLK_TEST(All, int16_t, Vector);
+  HLK_TEST(Any, int16_t, Vector);
+  HLK_TEST(Dot, int16_t, Vector);
+  HLK_TEST(Dot, int16_t, ScalarOp2);
+
+  HLK_TEST(All, int32_t, Vector);
+  HLK_TEST(Any, int32_t, Vector);
+  HLK_TEST(Dot, int32_t, Vector);
+  HLK_TEST(Dot, int32_t, ScalarOp2);
+
+  HLK_TEST(All, int64_t, Vector);
+  HLK_TEST(Any, int64_t, Vector);
+  HLK_TEST(Dot, int64_t, Vector);
+  HLK_TEST(Dot, int64_t, ScalarOp2);
+
+  HLK_TEST(All, uint16_t, Vector);
+  HLK_TEST(Any, uint16_t, Vector);
+  HLK_TEST(Dot, uint16_t, Vector);
+  HLK_TEST(Dot, uint16_t, ScalarOp2);
+
+  HLK_TEST(All, uint32_t, Vector);
+  HLK_TEST(Any, uint32_t, Vector);
+  HLK_TEST(Dot, uint32_t, Vector);
+  HLK_TEST(Dot, uint32_t, ScalarOp2);
+
+  HLK_TEST(All, uint64_t, Vector);
+  HLK_TEST(Any, uint64_t, Vector);
+  HLK_TEST(Dot, uint64_t, Vector);
+  HLK_TEST(Dot, uint64_t, ScalarOp2);
+
+  HLK_TEST(Dot, float, Vector);
+  HLK_TEST(Dot, float, ScalarOp2);
+  HLK_TEST(Dot, HLSLHalf_t, Vector);
+  HLK_TEST(Dot, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(Dot, double, Vector);
+  HLK_TEST(Dot, double, ScalarOp2);
 
   // NOTE: TernaryAssignment_True and TernaryAssignment_False don't have tests.
   // Do we want them?
