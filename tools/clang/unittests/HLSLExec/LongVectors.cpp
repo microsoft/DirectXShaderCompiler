@@ -284,7 +284,7 @@ std::string
 getCompilerOptionsString(bool Is16BitType, const char *HLSLTypeString,
                          const char *HLSLOutTypeString, const char *Operator,
                          const char *Intrinsic, size_t Arity, size_t VectorSize,
-                         uint16_t ScalarInputFlags, std::string ExtraDefines) {
+                         uint16_t ScalarInputFlags, const char *ExtraDefines) {
   std::stringstream CompilerOptions;
 
   if (Is16BitType)
@@ -309,16 +309,6 @@ getCompilerOptionsString(bool Is16BitType, const char *HLSLTypeString,
   CompilerOptions << "0x" << std::hex << ScalarInputFlags;
 
   return CompilerOptions.str();
-}
-
-template <OpType OP, typename T, typename OUT_TYPE>
-std::string getCompilerOptionsString(size_t VectorSize,
-                                     uint16_t ScalarInputFlags,
-                                     std::string ExtraDefines) {
-  return getCompilerOptionsString(
-      is16BitType<T>(), getHLSLTypeString<T>(), getHLSLTypeString<OUT_TYPE>(),
-      OpTraits<OP>::Operator, OpTraits<OP>::Intrinsic, OpTraits<OP>::Arity,
-      VectorSize, ScalarInputFlags, ExtraDefines);
 }
 
 // Helper to fill the shader buffer based on type. Convenient to be used when
@@ -366,10 +356,24 @@ using InputSets = std::array<std::vector<T>, ARITY>;
 // Run the test.  Return std::nullopt if the test was skipped, otherwise returns
 // the output buffer that was populated by the shader.
 //
-template <typename OUT_TYPE, typename T, OpType OP, size_t ARITY>
-std::optional<std::vector<OUT_TYPE>>
-runTest(const TestConfig<T, OP> &Config, const InputSets<T, ARITY> &Inputs,
-        size_t ExpectedOutputSize, std::string ExtraDefines) {
+
+template <typename T> struct RunTestConfig {
+  bool VerboseLogging;
+  const std::vector<T> *InputsArray;
+  size_t Arity;
+  bool Is16BitType;
+  const char *HLSLTypeString;
+  const char *HLSLOutTypeString;
+  const char *Operator;
+  const char *Intrinsic;
+  size_t VectorSize;
+  uint16_t ScalarInputFlags;
+  const char *ExtraDefines;
+  size_t ExpectedOutputSize;
+};
+
+template <typename OUT_TYPE, typename T>
+std::optional<std::vector<OUT_TYPE>> runTest(const RunTestConfig<T> &Config) {
 
   CComPtr<ID3D12Device> D3DDevice;
   if (!createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false)) {
@@ -385,17 +389,19 @@ runTest(const TestConfig<T, OP> &Config, const InputSets<T, ARITY> &Inputs,
   }
 
   if (Config.VerboseLogging) {
-    for (size_t I = 0; I < ARITY; ++I) {
+    for (size_t I = 0; I < Config.Arity; ++I) {
       std::wstring Name = L"InputVector";
       Name += (wchar_t)(L'1' + I);
-      logLongVector(Inputs[I], Name);
+      logLongVector(Config.InputsArray[I], Name);
     }
   }
 
   // We have to construct the string outside of the lambda. Otherwise it's
   // cleaned up when the lambda finishes executing but before the shader runs.
-  std::string CompilerOptionsString = getCompilerOptionsString<OP, T, OUT_TYPE>(
-      Inputs[0].size(), Config.ScalarInputFlags, std::move(ExtraDefines));
+  std::string CompilerOptionsString = getCompilerOptionsString(
+      Config.Is16BitType, Config.HLSLTypeString, Config.HLSLOutTypeString,
+      Config.Operator, Config.Intrinsic, Config.Arity, Config.VectorSize,
+      Config.ScalarInputFlags, Config.ExtraDefines);
 
   dxc::SpecificDllLoader DxilDllLoader;
 
@@ -438,8 +444,9 @@ runTest(const TestConfig<T, OP> &Config, const InputSets<T, ARITY> &Inputs,
           std::string BufferName = "InputVector";
           BufferName += (char)('1' + I);
           if (_stricmp(Name, BufferName.c_str()) == 0) {
-            if (I < ARITY)
-              fillShaderBufferFromLongVectorData(ShaderData, Inputs[I]);
+            if (I < Config.Arity)
+              fillShaderBufferFromLongVectorData(ShaderData,
+                                                 Config.InputsArray[I]);
             return;
           }
         }
@@ -454,9 +461,30 @@ runTest(const TestConfig<T, OP> &Config, const InputSets<T, ARITY> &Inputs,
 
   std::vector<OUT_TYPE> OutData;
   fillLongVectorDataFromShaderBuffer(ShaderOutData, OutData,
-                                     ExpectedOutputSize);
+                                     Config.ExpectedOutputSize);
 
   return OutData;
+}
+
+template <typename OUT_TYPE, typename T, OpType OP, size_t ARITY>
+std::optional<std::vector<OUT_TYPE>>
+runTest(const TestConfig<T, OP> &Config, const InputSets<T, ARITY> &Inputs,
+        size_t ExpectedOutputSize, std::string ExtraDefines) {
+  RunTestConfig<T> RunTestConfig;
+  RunTestConfig.VerboseLogging = Config.VerboseLogging;
+  RunTestConfig.InputsArray = Inputs.data();
+  RunTestConfig.Arity = ARITY;
+  RunTestConfig.Is16BitType = is16BitType<T>();
+  RunTestConfig.HLSLTypeString = getHLSLTypeString<T>();
+  RunTestConfig.HLSLOutTypeString = getHLSLTypeString<OUT_TYPE>();
+  RunTestConfig.Operator = OpTraits<OP>::Operator;
+  RunTestConfig.Intrinsic = OpTraits<OP>::Intrinsic;
+  RunTestConfig.VectorSize = Inputs[0].size();
+  RunTestConfig.ScalarInputFlags = Config.ScalarInputFlags;
+  RunTestConfig.ExtraDefines = ExtraDefines.c_str(),
+  RunTestConfig.ExpectedOutputSize = ExpectedOutputSize;
+
+  return runTest<OUT_TYPE>(RunTestConfig);
 }
 
 template <typename T>
