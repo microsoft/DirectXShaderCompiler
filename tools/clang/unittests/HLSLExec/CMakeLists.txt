@@ -3,7 +3,7 @@
 find_package(TAEF REQUIRED)
 find_package(D3D12 REQUIRED) # Used for ExecutionTest.cpp.
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
 
 add_clang_library(ExecHLSLTests SHARED
   ExecutionTest.cpp
