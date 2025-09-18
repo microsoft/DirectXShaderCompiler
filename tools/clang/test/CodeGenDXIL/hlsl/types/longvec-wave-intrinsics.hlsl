@@ -9,7 +9,6 @@ float4 main(uint4 id: IN0) : SV_Target
   // CHECK: call <256 x float> @dx.op.quadReadLaneAt.v256f32(i32 122, <256 x float> %{{.*}}, i32 %{{.*}})  ; QuadReadLaneAt(value,quadLane)
   fVec = QuadReadLaneAt(fVec, id.x);
 
-
   // CHECK: call <256 x float> @dx.op.quadOp.v256f32(i32 123, <256 x float> %{{.*}}, i8 0)  ; QuadOp(value,op)
   fVec = QuadReadAcrossX(fVec);
 
