@@ -974,8 +974,6 @@ BINARY_COMPARISON_OP(OpType::NotEqual, (A != B));
 
 DEFAULT_OP_2(OpType::Logical_And, (A && B));
 DEFAULT_OP_2(OpType::Logical_Or, (A || B));
-DEFAULT_OP_2(OpType::TernaryAssignment_True, (true ? A : B));
-DEFAULT_OP_2(OpType::TernaryAssignment_False, (false ? A : B));
 
 //
 // dispatchTest
@@ -1624,9 +1622,6 @@ public:
   HLK_TEST(Logical_Or, HLSLBool_t, Vector);
   HLK_TEST(Logical_And, HLSLBool_t, ScalarOp2);
   HLK_TEST(Logical_Or, HLSLBool_t, ScalarOp2);
-
-  // NOTE: TernaryAssignment_True and TernaryAssignment_False don't have tests.
-  // Do we want them?
 
 private:
   bool Initialized = false;

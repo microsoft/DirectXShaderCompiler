@@ -109,8 +109,4 @@ OP_DEFAULT(BinaryComparison, NotEqual, 2, "", "!=")
 
 OP_DEFAULT(Binary, Logical_And, 2, "and", ",")
 OP_DEFAULT(Binary, Logical_Or, 2, "or", ",")
-OP_DEFAULT_DEFINES(Binary, TernaryAssignment_True, 2, "TestTernaryAssignment",
-                   ",", " -DTERNARY_CONDITION=1 -DFUNC_TERNARY_ASSIGNMENT=1")
-OP_DEFAULT_DEFINES(Binary, TernaryAssignment_False, 2, "TestTernaryAssignment",
-                   ",", " -DTERNARY_CONDITION=0 -DFUNC_TERNARY_ASSIGNMENT=1")
 #undef OP
