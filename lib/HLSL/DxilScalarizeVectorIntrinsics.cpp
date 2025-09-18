@@ -296,6 +296,7 @@ static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI) {
     RetVal = Builder.CreateInsertElement(RetVal, ElCI, ElIx);
   }
   CI->replaceAllUsesWith(RetVal);
+  CI->eraseFromParent();
 }
 
 char DxilScalarizeVectorIntrinsics::ID = 0;
