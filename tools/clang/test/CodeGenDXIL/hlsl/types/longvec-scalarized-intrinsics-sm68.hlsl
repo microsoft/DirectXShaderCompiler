@@ -1,6 +1,6 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
 // RUN: %dxc -T lib_6_9 %s -Fo %t.1
-// RUN: %dxl -T ps_6_8 %t.1 | FileCheck %s --check-prefixes=CHECK,UNARY
+// RUN: %dxl -T ps_6_8 %t.1 | FileCheck %s
 
 // Tests non-native-vector behavior for vec ops that scalarize to something
 //  more complex than a simple repetition of the same dx.op calls.
@@ -161,14 +161,32 @@ float4 main(uint i : SV_PrimitiveID, uint4 m : M) : SV_Target {
   // CHECK: fsub fast float
   res *= modf(vec2, vec3);
 
-  // CHECK: = or i1
-  // CHECK: = or i1
-  // CHECK: = or i1
+  // CHECK: icmp ne i32 %{{.*}}, 0
+  // CHECK: icmp ne i32 %{{.*}}, 0
+  // CHECK: icmp ne i32 %{{.*}}, 0
+  // CHECK: icmp ne i32 %{{.*}}, 0
+  // CHECK: and i1 %{{.*}}, %{{.*}}
+  // CHECK: and i1 %{{.*}}, %{{.*}}
+  // CHECK: and i1 %{{.*}}, %{{.*}}
+  bvec ^= all(ivec1);
+
+  // CHECK: or i1 %{{.*}}, %{{.*}}
+  // CHECK: or i1 %{{.*}}, %{{.*}}
+  // CHECK: or i1 %{{.*}}, %{{.*}}
+  bvec ^= any(ivec1);
+
+  // CHECK: fcmp fast une float %{{.*}}, 0.000000e+00
+  // CHECK: fcmp fast une float %{{.*}}, 0.000000e+00
+  // CHECK: fcmp fast une float %{{.*}}, 0.000000e+00
+  // CHECK: fcmp fast une float %{{.*}}, 0.000000e+00
+  // CHECK: or i1 %{{.*}}, %{{.*}}
+  // CHECK: or i1 %{{.*}}, %{{.*}}
+  // CHECK: or i1 %{{.*}}, %{{.*}}
   bvec ^= any(vec1);
 
-  // CHECK: = and i1
-  // CHECK: = and i1
-  // CHECK: = and i1
+  // CHECK: and i1 %{{.*}}, %{{.*}}
+  // CHECK: and i1 %{{.*}}, %{{.*}}
+  // CHECK: and i1 %{{.*}}, %{{.*}}
   bvec ^= all(vec1);
 
   // CHECK: call {{.*}} @dx.op.wave

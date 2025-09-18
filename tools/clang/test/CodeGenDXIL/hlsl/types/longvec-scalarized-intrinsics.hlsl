@@ -65,30 +65,6 @@ export void test_modf(inout vector<float, 8> vec1, vector<float, 8> vec2) {
   vec1 = modf(vec1, vec2);
 }
 
-// CHECK-LABEL: test_any
-// CHECK: or i1
-// CHECK: or i1
-// CHECK: or i1
-// CHECK: or i1
-// CHECK: or i1
-// CHECK: or i1
-// CHECK: or i1
-export void test_any(vector<float, 8> vec1, inout vector<bool, 8> bvec) {
-  bvec &= any(vec1);
-}
-
-// CHECK-LABEL: test_all
-// CHECK: and i1
-// CHECK: and i1
-// CHECK: and i1
-// CHECK: and i1
-// CHECK: and i1
-// CHECK: and i1
-// CHECK: and i1
-export void test_all(vector<float, 8> vec1, inout vector<bool, 8> bvec) {
-  bvec &= all(vec1);
-}
-
 // CHECK-LABEL: test_WaveMatch
 // CHECK: call {{.*}} @dx.op.waveMatch
 // CHECK: call {{.*}} @dx.op.waveMatch

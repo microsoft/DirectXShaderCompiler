@@ -17,6 +17,7 @@ INPUT_SET(RangeHalfPi)
 INPUT_SET(SplitDouble)
 INPUT_SET(BitShiftRhs)
 INPUT_SET(Positive)
+INPUT_SET(Bitwise)
 
 #undef INPUT_SET
 
@@ -51,6 +52,12 @@ OP_DEFAULT(Bitwise, Or, 2, "", "|")
 OP_DEFAULT(Bitwise, Xor, 2, "", "^")
 OP(Bitwise, LeftShift, 2, "", "<<", "", Default1, BitShiftRhs, Default3)
 OP(Bitwise, RightShift, 2, "", ">>", "", Default1, BitShiftRhs, Default3)
+OP_DEFAULT(Bitwise, Saturate, 1, "saturate", "")
+OP_DEFAULT(Bitwise, ReverseBits, 1, "reversebits", "")
+OP(Bitwise, CountBits, 1, "countbits", "", "", Bitwise, Default2, Default3)
+OP(Bitwise, FirstBitHigh, 1, "firstbithigh", "", "", Bitwise, Default2,
+   Default3)
+OP(Bitwise, FirstBitLow, 1, "firstbitlow", "", "", Bitwise, Default2, Default3)
 
 OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
                    " -DFUNC_INITIALIZE=1")

@@ -10149,6 +10149,60 @@ struct DxilInst_VectorAccumulate {
   void set_arrayOffset(llvm::Value *val) { Instr->setOperand(3, val); }
 };
 
+/// This instruction Bitwise AND reduction of the vector returning a scalar
+struct DxilInst_VectorReduceAnd {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_VectorReduceAnd(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::VectorReduceAnd);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_a = 1,
+  };
+  // Accessors
+  llvm::Value *get_a() const { return Instr->getOperand(1); }
+  void set_a(llvm::Value *val) { Instr->setOperand(1, val); }
+};
+
+/// This instruction Bitwise OR reduction of the vector returning a scalar
+struct DxilInst_VectorReduceOr {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_VectorReduceOr(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::VectorReduceOr);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_a = 1,
+  };
+  // Accessors
+  llvm::Value *get_a() const { return Instr->getOperand(1); }
+  void set_a(llvm::Value *val) { Instr->setOperand(1, val); }
+};
+
 /// This instruction computes the n-dimensional vector dot-product
 struct DxilInst_FDot {
   llvm::Instruction *Instr;
