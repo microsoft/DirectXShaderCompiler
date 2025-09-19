@@ -26,13 +26,7 @@ std::vector<std::wstring> AddExtValCompilationArgs(UINT32 ArgCount,
     expecially with older validators.
   */
 
-  std::vector<std::wstring> newArgs;
-  newArgs.reserve(ArgCount + 3);
-
-  // Copy existing args into owned strings
-  for (unsigned int i = 0; i < ArgCount; ++i) {
-    newArgs.push_back(pArguments[i]);
-  }
+  std::vector<std::wstring> newArgs = {pArguments, pArguments + ArgCount};
 
   // Add the extra arguments
   newArgs.push_back(L"-Vd");
@@ -201,13 +195,17 @@ public:
 HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
                                                       REFIID riid,
                                                       IUnknown **pResult) {
-  if (pResult == nullptr)
+  if (!pResult)
     return E_POINTER;
 
   *pResult = nullptr;
 
   // If there is intent to use an external dxil.dll
   if (!DxilDllPath.empty() && !DxilDllFailedToLoad()) {
+    if (clsid == CLSID_DxcValidator) {
+      return DxilExtValSupport.CreateInstance<IDxcValidator>(
+          clsid, reinterpret_cast<IDxcValidator **>(pResult));
+    }
     if (clsid == CLSID_DxcCompiler) {
 
       CComPtr<IDxcCompiler> DxcCompiler;
@@ -243,11 +241,7 @@ HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
 
       hr = evh->QueryInterface(riid, reinterpret_cast<void **>(pResult));
       return hr;
-
-    } else if (clsid == CLSID_DxcValidator) {
-      return DxilExtValSupport.CreateInstance<IDxcValidator>(
-          clsid, reinterpret_cast<IDxcValidator **>(pResult));
-    }
+    } 
   }
 
   // Fallback: let DxCompiler handle it
@@ -258,12 +252,16 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
                                                        REFCLSID clsid,
                                                        REFIID riid,
                                                        IUnknown **pResult) {
-  if (pResult == nullptr)
+  if (!pResult)
     return E_POINTER;
 
   *pResult = nullptr;
   // If there is intent to use an external dxil.dll
   if (!DxilDllPath.empty() && !DxilDllFailedToLoad()) {
+    if (clsid == CLSID_DxcValidator) {
+      return DxilExtValSupport.CreateInstance2<IDxcValidator>(
+          pMalloc, clsid, reinterpret_cast<IDxcValidator **>(pResult));
+    }
     if (clsid == CLSID_DxcCompiler) {
       CComPtr<IDxcCompiler> DxcCompiler;
       CComPtr<IDxcCompiler3> DxcCompiler3;
@@ -302,9 +300,6 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
 
       hr = evh->QueryInterface(riid, reinterpret_cast<void **>(pResult));
       return hr;
-    } else if (clsid == CLSID_DxcValidator) {
-      return DxilExtValSupport.CreateInstance2<IDxcValidator>(
-          pMalloc, clsid, reinterpret_cast<IDxcValidator **>(pResult));
     }
   }
 

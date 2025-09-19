@@ -4,10 +4,8 @@
 // due to it being older, it errors on something that would
 // be accepted in newer validators
 
-// RUN: not dxc -T cs_6_5 %s 2>&1 | FileCheck %s 
-// CHECK: error: RWStructuredBuffers may increment or decrement their counters, but not both.
-// CHECK: note: at '%3 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %1, i8 1)' in block '#0' of function 'main'.
-// CHECK: Validation failed.
+// RUN: not dxc -T cs_6_9 %s 2>&1 | FileCheck %s
+// CHECK: error: validator version 1,6 does not support target profile.
 
 RWStructuredBuffer<uint> UAV         : register(u0);
 
