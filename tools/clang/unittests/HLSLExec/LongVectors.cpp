@@ -13,6 +13,7 @@
 #include "HlslExecTestUtils.h"
 
 #include <array>
+#include <bitset>
 #include <iomanip>
 #include <optional>
 #include <sstream>
@@ -600,12 +601,90 @@ DEFAULT_OP_2(OpType::Ldexp, (A * static_cast<T>(std::pow(2.0f, B))));
 // Bitwise
 //
 
+template <typename T> T Saturate(T A) {
+  if (A < static_cast<T>(0.0f))
+    return static_cast<T>(0.0f);
+  if (A > static_cast<T>(1.0f))
+    return static_cast<T>(1.0f);
+  return A;
+}
+
+template <typename T> T ReverseBits(T A) {
+  T Result = 0;
+  const size_t NumBits = sizeof(T) * 8;
+  for (size_t I = 0; I < NumBits; I++) {
+    Result <<= 1;
+    Result |= (A & 1);
+    A >>= 1;
+  }
+  return Result;
+}
+
+template <typename T> uint32_t CountBits(T A) {
+  return static_cast<uint32_t>(std::bitset<sizeof(T) * 8>(A).count());
+}
+
+// General purpose bit scan from the MSB. Based on the value of LookingForZero
+// returns the index of the first high/low bit found.
+template <typename T> uint32_t ScanFromMSB(T A, bool LookingForZero) {
+  if (A == 0)
+    return ~0;
+
+  constexpr uint32_t NumBits = sizeof(T) * 8;
+  for (int32_t I = NumBits - 1; I >= 0; --I) {
+    bool BitSet = (A & (static_cast<T>(1) << I)) != 0;
+    if (BitSet != LookingForZero)
+      return static_cast<uint32_t>(I);
+  }
+  return ~0;
+}
+
+template <typename T>
+typename std::enable_if<std::is_signed<T>::value, uint32_t>::type
+FirstBitHigh(T A) {
+  const bool IsNegative = A < 0;
+  return ScanFromMSB(A, IsNegative);
+}
+
+template <typename T>
+typename std::enable_if<!std::is_signed<T>::value, uint32_t>::type
+FirstBitHigh(T A) {
+  return ScanFromMSB(A, false);
+}
+
+template <typename T> uint32_t FirstBitLow(T A) {
+  const uint32_t NumBits = sizeof(T) * 8;
+
+  if (A == 0)
+    return ~0;
+
+  for (uint32_t I = 0; I < NumBits; ++I) {
+    if (A & (static_cast<T>(1) << I))
+      return static_cast<T>(I);
+  }
+
+  return ~0;
+}
+
 DEFAULT_OP_2(OpType::And, (A & B));
 DEFAULT_OP_2(OpType::Or, (A | B));
 DEFAULT_OP_2(OpType::Xor, (A ^ B));
 DEFAULT_OP_1(OpType::Not, (~A));
 DEFAULT_OP_2(OpType::LeftShift, (A << B));
 DEFAULT_OP_2(OpType::RightShift, (A >> B));
+DEFAULT_OP_1(OpType::Saturate, (Saturate(A)));
+DEFAULT_OP_1(OpType::ReverseBits, (ReverseBits(A)));
+
+#define BITWISE_OP(OP, IMPL)                                                   \
+  template <typename T> struct Op<OP, T> : StrictValidation {                  \
+    uint32_t operator()(T A) { return IMPL; }                                  \
+  }
+
+BITWISE_OP(OpType::CountBits, (CountBits(A)));
+BITWISE_OP(OpType::FirstBitHigh, (FirstBitHigh(A)));
+BITWISE_OP(OpType::FirstBitLow, (FirstBitLow(A)));
+
+#undef BITWISE_OP
 
 //
 // Unary
@@ -1216,6 +1295,10 @@ public:
   HLK_TEST(Xor, uint16_t, Vector);
   HLK_TEST(Xor, uint16_t, ScalarOp2);
   HLK_TEST(Not, uint16_t, Vector);
+  HLK_TEST(ReverseBits, uint16_t, Vector);
+  HLK_TEST(CountBits, uint16_t, Vector);
+  HLK_TEST(FirstBitHigh, uint16_t, Vector);
+  HLK_TEST(FirstBitLow, uint16_t, Vector);
   HLK_TEST(LeftShift, uint16_t, Vector);
   HLK_TEST(LeftShift, uint16_t, ScalarOp2);
   HLK_TEST(RightShift, uint16_t, Vector);
@@ -1231,6 +1314,10 @@ public:
   HLK_TEST(LeftShift, uint32_t, ScalarOp2);
   HLK_TEST(RightShift, uint32_t, Vector);
   HLK_TEST(RightShift, uint32_t, ScalarOp2);
+  HLK_TEST(ReverseBits, uint32_t, Vector);
+  HLK_TEST(CountBits, uint32_t, Vector);
+  HLK_TEST(FirstBitHigh, uint32_t, Vector);
+  HLK_TEST(FirstBitLow, uint32_t, Vector);
   HLK_TEST(And, uint64_t, Vector);
   HLK_TEST(And, uint64_t, ScalarOp2);
   HLK_TEST(Or, uint64_t, Vector);
@@ -1242,6 +1329,10 @@ public:
   HLK_TEST(LeftShift, uint64_t, ScalarOp2);
   HLK_TEST(RightShift, uint64_t, Vector);
   HLK_TEST(RightShift, uint64_t, ScalarOp2);
+  HLK_TEST(ReverseBits, uint64_t, Vector);
+  HLK_TEST(CountBits, uint64_t, Vector);
+  HLK_TEST(FirstBitHigh, uint64_t, Vector);
+  HLK_TEST(FirstBitLow, uint64_t, Vector);
   HLK_TEST(And, int16_t, Vector);
   HLK_TEST(And, int16_t, ScalarOp2);
   HLK_TEST(Or, int16_t, Vector);
@@ -1253,6 +1344,10 @@ public:
   HLK_TEST(LeftShift, int16_t, ScalarOp2);
   HLK_TEST(RightShift, int16_t, Vector);
   HLK_TEST(RightShift, int16_t, ScalarOp2);
+  HLK_TEST(ReverseBits, int16_t, Vector);
+  HLK_TEST(CountBits, int16_t, Vector);
+  HLK_TEST(FirstBitHigh, int16_t, Vector);
+  HLK_TEST(FirstBitLow, int16_t, Vector);
   HLK_TEST(And, int32_t, Vector);
   HLK_TEST(And, int32_t, ScalarOp2);
   HLK_TEST(Or, int32_t, Vector);
@@ -1264,6 +1359,10 @@ public:
   HLK_TEST(LeftShift, int32_t, ScalarOp2);
   HLK_TEST(RightShift, int32_t, Vector);
   HLK_TEST(RightShift, int32_t, ScalarOp2);
+  HLK_TEST(ReverseBits, int32_t, Vector);
+  HLK_TEST(CountBits, int32_t, Vector);
+  HLK_TEST(FirstBitHigh, int32_t, Vector);
+  HLK_TEST(FirstBitLow, int32_t, Vector);
   HLK_TEST(And, int64_t, Vector);
   HLK_TEST(And, int64_t, ScalarOp2);
   HLK_TEST(Or, int64_t, Vector);
@@ -1275,6 +1374,13 @@ public:
   HLK_TEST(LeftShift, int64_t, ScalarOp2);
   HLK_TEST(RightShift, int64_t, Vector);
   HLK_TEST(RightShift, int64_t, ScalarOp2);
+  HLK_TEST(ReverseBits, int64_t, Vector);
+  HLK_TEST(CountBits, int64_t, Vector);
+  HLK_TEST(FirstBitHigh, int64_t, Vector);
+  HLK_TEST(FirstBitLow, int64_t, Vector);
+  HLK_TEST(Saturate, HLSLHalf_t, Vector);
+  HLK_TEST(Saturate, float, Vector);
+  HLK_TEST(Saturate, double, Vector);
 
   // Unary
 
