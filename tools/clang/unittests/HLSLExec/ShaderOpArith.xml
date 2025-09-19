@@ -3776,6 +3776,7 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+
         #ifdef FUNC_TEST_CAST
         vector<OUT_TYPE, NUM> TestCast(vector<TYPE, NUM> Vector)
         {
@@ -3786,6 +3787,8 @@ void MSMain(uint GID : SV_GroupIndex,
         #ifdef FUNC_TERNARY_ASSIGNMENT
         vector<TYPE, NUM> TestTernaryAssignment(vector<TYPE, NUM> Vector,
         vector<TYPE, NUM> Vector2))
+        #ifdef FUNC_UNARY_OPERATOR
+        vector<OUT_TYPE, NUM> TestUnaryOperator(vector<TYPE, NUM> Vector)
         {
           return (TERNARY_CONDITION ? Vector : Vector2);
         }
