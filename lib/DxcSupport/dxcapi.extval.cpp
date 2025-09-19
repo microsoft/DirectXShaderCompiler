@@ -241,7 +241,7 @@ HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
 
       hr = evh->QueryInterface(riid, reinterpret_cast<void **>(pResult));
       return hr;
-    } 
+    }
   }
 
   // Fallback: let DxCompiler handle it
