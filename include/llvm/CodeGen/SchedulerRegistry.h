@@ -42,7 +42,7 @@ public:
   static MachinePassRegistry<FunctionPassCtor> Registry;
 
   RegisterScheduler(const char *N, const char *D, FunctionPassCtor C)
-      : MachinePassRegistryNode(N, D, reinterpret_cast<MachinePassCtor>(reinterpret_cast<void *>(C)))
+      : MachinePassRegistryNode(N, D, C)
   { Registry.Add(this); }
   ~RegisterScheduler() { Registry.Remove(this); }
 
