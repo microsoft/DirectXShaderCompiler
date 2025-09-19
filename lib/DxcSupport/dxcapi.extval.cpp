@@ -8,7 +8,7 @@
 #include <iostream>
 
 #ifndef _WIN32
-#include "WinAdapter.h"
+#include "dxc/WinAdapter.h"
 #endif
 
 std::vector<std::wstring> AddExtValCompilationArgs(UINT32 ArgCount,
