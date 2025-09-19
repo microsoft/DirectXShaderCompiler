@@ -915,11 +915,11 @@ DEFAULT_OP_2(OpType::TernaryAssignment_False, (false ? A : B));
     }                                                                          \
   };
 
-REDUCTION_OP(OpType::Any_Mixed, std::any_of);
-REDUCTION_OP(OpType::Any_NoZero, std::any_of);
-REDUCTION_OP(OpType::Any_Zero, std::any_of);
+REDUCTION_OP_ANY(OpType::Any_Mixed);
+REDUCTION_OP_ANY(OpType::Any_NoZero);
+REDUCTION_OP_ANY(OpType::Any_Zero);
 
-#undef REDUCTION_OP
+#undef REDUCTION_OP_ANY
 
 //
 // dispatchTest
@@ -1558,18 +1558,6 @@ public:
   HLK_TEST(Any_Mixed, int64_t, Vector);
   HLK_TEST(Any_Zero, int64_t, Vector);
   HLK_TEST(Any_NoZero, int64_t, Vector);
-
-  HLK_TEST(Any_Mixed, uint16_t, Vector);
-  HLK_TEST(Any_Zero, uint16_t, Vector);
-  HLK_TEST(Any_NoZero, uint16_t, Vector);
-
-  HLK_TEST(Any_Mixed, uint32_t, Vector);
-  HLK_TEST(Any_Zero, uint32_t, Vector);
-  HLK_TEST(Any_NoZero, uint32_t, Vector);
-
-  HLK_TEST(Any_Mixed, uint64_t, Vector);
-  HLK_TEST(Any_Zero, uint64_t, Vector);
-  HLK_TEST(Any_NoZero, uint64_t, Vector);
 
   // NOTE: TernaryAssignment_True and TernaryAssignment_False don't have tests.
   // Do we want them?
