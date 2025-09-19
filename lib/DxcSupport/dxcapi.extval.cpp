@@ -102,8 +102,7 @@ public:
     return m_pCompiler->Disassemble(pSource, ppDisassembly);
   }
 
-  HRESULT STDMETHODCALLTYPE
-  ExternalValidationHelper::QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
 
     if (!ppvObject)
       return E_POINTER;
