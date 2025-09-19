@@ -911,9 +911,16 @@ int DxcContext::Compile() {
             HRESULT ValHR;
             pValResult->GetStatus(&ValHR);
             if (DXC_FAILED(ValHR)) {
-              if (SUCCEEDED(pCompileResult->QueryInterface(&pResult)))
-                WriteDxcOutputToFile(DXC_OUT_ERRORS, pResult,
-                                     m_Opts.DefaultTextCodePage);
+              if (SUCCEEDED(pValResult->QueryInterface(&pResult))) {
+                CComPtr<IDxcBlobEncoding> pErrorBlob;
+                CComPtr<IDxcBlobWide> pErrorOutput;
+
+                IFT(pResult->GetOutput(
+                    DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrorBlob), &pErrorOutput));
+
+                WriteBlobToConsole(pErrorBlob);
+                return ValHR;
+              }
             }
           }
         }
@@ -1502,7 +1509,8 @@ int dxc::main(int argc, const char **argv_) {
       }
 
       // if no errors setting up, print the log string as stdout
-      fprintf(stdout, "%s\n", dllLogString.data());
+      if (dxcOpts.Verbose)
+        fprintf(stdout, "%s\n", dllLogString.data());
     }
 
     DxcContext context(dxcOpts, dxcSupport);

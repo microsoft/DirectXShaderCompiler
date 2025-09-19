@@ -197,6 +197,18 @@ def verify : Joined<["-"], "verify">,
   Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Verify diagnostic output using comment directives">;
 
+def verbose : Flag<["-"], "verbose">,
+              Group<hlslcomp_Group>,
+              Flags<[DriverOption]>,
+              HelpText<"Allow emission of verbose compiler information">;
+
+// Short alias '-v' for the verbose option
+def v : Flag<["-"], "v">,
+        Alias<verbose>,
+        Group<hlslcomp_Group>,
+        Flags<[DriverOption]>,
+        HelpText<"Alias for -verbose">;
+
 /*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,
  Flags<[CoreOption]>;
