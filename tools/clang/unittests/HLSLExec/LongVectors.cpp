@@ -921,6 +921,24 @@ REDUCTION_OP_ANY(OpType::Any_Zero);
 
 #undef REDUCTION_OP_ANY
 
+template <typename T> struct Op<OpType::Dot, T> : DefaultValidation<T> {};
+template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
+  static std::vector<T> buildExpected(Op<OpType::Dot, T>,
+                                      const InputSets<T, 2> &Inputs,
+                                      uint16_t ScalarInputFlags) {
+    T DotProduct = T();
+
+    for (size_t I = 0; I < Inputs[0].size(); ++I) {
+      size_t Index1 = (ScalarInputFlags & (1 << 1)) ? 0 : I;
+      DotProduct += Inputs[0][I] * Inputs[1][Index1];
+    }
+
+    std::vector<T> Expected;
+    Expected.push_back(DotProduct);
+    return Expected;
+  }
+};
+
 //
 // dispatchTest
 //
@@ -1550,14 +1568,38 @@ public:
   HLK_TEST(Any_Mixed, int16_t, Vector);
   HLK_TEST(Any_Zero, int16_t, Vector);
   HLK_TEST(Any_NoZero, int16_t, Vector);
+  HLK_TEST(Dot, int16_t, Vector);
+  HLK_TEST(Dot, int16_t, ScalarOp2);
 
   HLK_TEST(Any_Mixed, int32_t, Vector);
   HLK_TEST(Any_Zero, int32_t, Vector);
   HLK_TEST(Any_NoZero, int32_t, Vector);
+  HLK_TEST(Dot, int32_t, Vector);
+  HLK_TEST(Dot, int32_t, ScalarOp2);
 
   HLK_TEST(Any_Mixed, int64_t, Vector);
   HLK_TEST(Any_Zero, int64_t, Vector);
   HLK_TEST(Any_NoZero, int64_t, Vector);
+  HLK_TEST(Dot, int64_t, Vector);
+  HLK_TEST(Dot, int64_t, ScalarOp2);
+
+  HLK_TEST(Dot, uint16_t, Vector);
+  HLK_TEST(Dot, uint16_t, ScalarOp2);
+
+  HLK_TEST(Dot, uint32_t, Vector);
+  HLK_TEST(Dot, uint32_t, ScalarOp2);
+
+  HLK_TEST(Dot, uint64_t, Vector);
+  HLK_TEST(Dot, uint64_t, ScalarOp2);
+
+  HLK_TEST(Dot, HLSLHalf_t, Vector);
+  HLK_TEST(Dot, HLSLHalf_t, ScalarOp2);
+
+  HLK_TEST(Dot, float, Vector);
+  HLK_TEST(Dot, float, ScalarOp2);
+
+  HLK_TEST(Dot, double, Vector);
+  HLK_TEST(Dot, double, ScalarOp2);
 
   // NOTE: TernaryAssignment_True and TernaryAssignment_False don't have tests.
   // Do we want them?
