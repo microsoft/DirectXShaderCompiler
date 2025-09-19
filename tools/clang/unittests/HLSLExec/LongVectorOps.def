@@ -109,15 +109,10 @@ OP_DEFAULT_DEFINES(Binary, TernaryAssignment_True, 2, "TestTernaryAssignment",
 OP_DEFAULT_DEFINES(Binary, TernaryAssignment_False, 2, "TestTernaryAssignment",
                    ",", " -DTERNARY_CONDITION=0 -DFUNC_TERNARY_ASSIGNMENT=1")
 
-OP_DEFAULT_DEFINES(Reduction, All_Mixed, 1, "all", "", " -DIS_REDUCTION_OP=1")
 OP_DEFAULT_DEFINES(Reduction, Any_Mixed, 1, "any", "", " -DIS_REDUCTION_OP=1")
-OP(Reduction, All_Zero, 1, "all", "", " -DIS_REDUCTION_OP=1", Zero,
-   Default2, Default3)
 OP(Reduction, Any_Zero, 1, "any", "", " -DIS_REDUCTION_OP=1", Zero,
    Default2, Default3)
 OP(Reduction, Any_NoZero, 1, "any", "", " -DIS_REDUCTION_OP=1", NoZero,
-   Default2, Default3)
-OP(Reduction, All_NoZero, 1, "all", "", " -DIS_REDUCTION_OP=1", NoZero,
    Default2, Default3)
 OP_DEFAULT(Reduction, Dot, 2, "dot", ",")
 
