@@ -31,7 +31,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Forward declarations.
 namespace dxc {
-class DxcDllSupport;
+class SpecificDllLoader;
 }
 struct IStream;
 struct IXmlReader;
@@ -67,6 +67,7 @@ public:
   }
   ~MappedData() { reset(); }
   void *data() { return m_pData; }
+  const void *data() const { return m_pData; }
   UINT32 size() const { return m_size; }
   void dump() const;
   void reset();
@@ -283,7 +284,7 @@ public:
   void RunShaderOp(ShaderOp *pShaderOp);
   void RunShaderOp(std::shared_ptr<ShaderOp> pShaderOp);
   void SetDevice(ID3D12Device *pDevice);
-  void SetDxcSupport(dxc::DxcDllSupport *pDxcSupport);
+  void SetSpecificDllLoader(dxc::SpecificDllLoader *pDxcSupport);
   void SetInitCallback(TInitCallbackFn InitCallbackFn);
   void SetShaderCallback(TShaderCallbackFn ShaderCallbackFn);
   void SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
@@ -313,7 +314,7 @@ private:
   CComPtr<ID3D12RootSignature> m_pRootSignature;
   CComPtr<ID3D12QueryHeap> m_pQueryHeap;
   CComPtr<ID3D12Resource> m_pQueryBuffer;
-  dxc::DxcDllSupport *m_pDxcSupport = nullptr;
+  dxc::SpecificDllLoader *m_pDxcSupport = nullptr;
   CommandListRefs m_CommandList;
   HANDLE m_hFence;
   ShaderOp *m_pShaderOp;
@@ -353,20 +354,20 @@ struct ShaderOpTestResult {
 };
 
 std::shared_ptr<ShaderOpTestResult>
-RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
-                          LPCSTR pName,
+RunShaderOpTestAfterParse(ID3D12Device *pDevice,
+                          dxc::SpecificDllLoader &support, LPCSTR pName,
                           st::ShaderOpTest::TInitCallbackFn pInitCallback,
                           st::ShaderOpTest::TShaderCallbackFn pShaderCallback,
                           std::shared_ptr<st::ShaderOpSet> ShaderOpSet);
 
 std::shared_ptr<ShaderOpTestResult>
-RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
-                          LPCSTR pName,
+RunShaderOpTestAfterParse(ID3D12Device *pDevice,
+                          dxc::SpecificDllLoader &support, LPCSTR pName,
                           st::ShaderOpTest::TInitCallbackFn pInitCallback,
                           std::shared_ptr<st::ShaderOpSet> ShaderOpSet);
 
 std::shared_ptr<ShaderOpTestResult>
-RunShaderOpTest(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
+RunShaderOpTest(ID3D12Device *pDevice, dxc::SpecificDllLoader &support,
                 IStream *pStream, LPCSTR pName,
                 st::ShaderOpTest::TInitCallbackFn pInitCallback);
 

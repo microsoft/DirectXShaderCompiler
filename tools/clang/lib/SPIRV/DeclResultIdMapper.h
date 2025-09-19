@@ -326,7 +326,7 @@ public:
   /// for the whole buffer. When we refer to the field VarDecl later, we need
   /// to do an extra OpAccessChain to get its pointer from the SPIR-V variable
   /// standing for the whole buffer.
-  SpirvVariable *createCTBuffer(const HLSLBufferDecl *decl);
+  void createCTBuffer(const HLSLBufferDecl *decl);
 
   /// \brief Creates a PushConstant block from the given decl.
   SpirvVariable *createPushConstant(const VarDecl *decl);

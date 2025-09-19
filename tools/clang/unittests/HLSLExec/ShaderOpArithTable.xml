@@ -320,6 +320,47 @@
                 <Value>0</Value>
             </Parameter>
         </Row>
+	<Row Name="IsNormal">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
+                float input;
+                float output;
+            };
+            RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryFPOp l = g_buf[GI];
+                if (isnormal(l.input))
+                    l.output = 1;
+                else
+                    l.output = 0;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>NaN</Value>
+                <Value>-Inf</Value>
+                <Value>-denorm</Value>
+                <Value>-0</Value>
+                <Value>0</Value>
+                <Value>denorm</Value>
+                <Value>Inf</Value>
+                <Value>1.0</Value>
+                <Value>-1.0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>1</Value>
+            </Parameter>
+        </Row>
         <Row Name="Exp">
             <Parameter Name="Validation.Type">Relative</Parameter>
             <Parameter Name="Validation.Tolerance">21</Parameter>
@@ -1267,6 +1308,187 @@
             </Parameter>
         </Row>
     </Table>
+    <Table Id="IsSpecialFloatHalfOpTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.Arguments">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Type">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">double</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
+            <ParameterType Name="Warp.Version">unsigned int</ParameterType>
+        </ParameterTypes>
+    <Row Name="IsInfHalf">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
+                float16_t input;
+                float16_t output;
+            };
+            RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryFPOp l = g_buf[GI];
+                if (isinf(l.input))
+                    l.output = 1;
+                else
+                    l.output = 0;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_9</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>NaN</Value>
+                <Value>-Inf</Value>
+                <Value>-denorm</Value>
+                <Value>-0</Value>
+                <Value>0</Value>
+                <Value>denorm</Value>
+                <Value>Inf</Value>
+                <Value>1.0</Value>
+                <Value>-1.0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+	<Row Name="IsNormalHalf">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
+                float16_t input;
+                float16_t output;
+            };
+            RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryFPOp l = g_buf[GI];
+                if (isnormal(l.input))
+                    l.output = 1;
+                else
+                    l.output = 0;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_9</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>NaN</Value>
+                <Value>-Inf</Value>
+                <Value>-denorm</Value>
+                <Value>-0</Value>
+                <Value>0</Value>
+                <Value>denorm</Value>
+                <Value>Inf</Value>
+                <Value>1.0</Value>
+                <Value>-1.0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>1</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="IsFiniteHalf">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
+                float16_t input;
+                float16_t output;
+            };
+            RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryFPOp l = g_buf[GI];
+                if (isfinite(l.input))
+                    l.output = 1;
+                else
+                    l.output = 0;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_9</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>NaN</Value>
+                <Value>-Inf</Value>
+                <Value>-denorm</Value>
+                <Value>-0</Value>
+                <Value>0</Value>
+                <Value>denorm</Value>
+                <Value>Inf</Value>
+                <Value>1.0</Value>
+                <Value>-1.0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>1</Value>
+                <Value>1</Value>
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>1</Value>
+            </Parameter>
+            <Parameter Name="Warp.Version">16202</Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="IsNaNHalf">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
+                float16_t input;
+                float16_t output;
+            };
+            RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryFPOp l = g_buf[GI];
+                if (isnan(l.input))
+                    l.output = 1;
+                else
+                    l.output = 0;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_9</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>NaN</Value>
+                <Value>-Inf</Value>
+                <Value>-denorm</Value>
+                <Value>-0</Value>
+                <Value>0</Value>
+                <Value>denorm</Value>
+                <Value>Inf</Value>
+                <Value>1.0</Value>
+                <Value>-1.0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+    </Table>
     <Table Id="UnaryHalfOpTable">
         <ParameterTypes>
             <ParameterType Name="ShaderOp.Target">String</ParameterType>
@@ -1328,48 +1550,6 @@
                 <Value>-10.0</Value>
                 <Value>-10.0</Value>
                 <Value>-11.0</Value>
-            </Parameter>
-            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
-        </Row>
-        <Row Name="IsInfHalf">
-            <Parameter Name="Validation.Type">Epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                float16_t input;
-                float16_t output;
-            };
-            RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                if (isinf(l.input))
-                    l.output = 1;
-                else
-                    l.output = 0;
-                g_buf[GI] = l;
-            };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
-            <Parameter Name="Validation.Input1">
-                <Value>NaN</Value>
-                <Value>-Inf</Value>
-                <Value>-denorm</Value>
-                <Value>-0</Value>
-                <Value>0</Value>
-                <Value>denorm</Value>
-                <Value>Inf</Value>
-                <Value>1.0</Value>
-                <Value>-1.0</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected1">
-                <Value>0</Value>
-                <Value>1</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>1</Value>
-                <Value>0</Value>
-                <Value>0</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
@@ -1517,49 +1697,6 @@
             <Parameter Name="Warp.Version">16202</Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="IsFiniteHalf">
-            <Parameter Name="Validation.Type">Epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                float16_t input;
-                float16_t output;
-            };
-            RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                if (isfinite(l.input))
-                    l.output = 1;
-                else
-                    l.output = 0;
-                g_buf[GI] = l;
-            };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
-            <Parameter Name="Validation.Input1">
-                <Value>NaN</Value>
-                <Value>-Inf</Value>
-                <Value>-denorm</Value>
-                <Value>-0</Value>
-                <Value>0</Value>
-                <Value>denorm</Value>
-                <Value>Inf</Value>
-                <Value>1.0</Value>
-                <Value>-1.0</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected1">
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>1</Value>
-                <Value>1</Value>
-                <Value>1</Value>
-                <Value>1</Value>
-                <Value>0</Value>
-                <Value>1</Value>
-                <Value>1</Value>
-            </Parameter>
-            <Parameter Name="Warp.Version">16202</Parameter>
-            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
-        </Row>
         <Row Name="AcosHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0010</Parameter>
@@ -1600,48 +1737,6 @@
                 <Value>3.1415926</Value>
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-            </Parameter>
-            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
-        </Row>
-        <Row Name="IsNaNHalf">
-            <Parameter Name="Validation.Type">Epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                float16_t input;
-                float16_t output;
-            };
-            RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                if (isnan(l.input))
-                    l.output = 1;
-                else
-                    l.output = 0;
-                g_buf[GI] = l;
-            };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
-            <Parameter Name="Validation.Input1">
-                <Value>NaN</Value>
-                <Value>-Inf</Value>
-                <Value>-denorm</Value>
-                <Value>-0</Value>
-                <Value>0</Value>
-                <Value>denorm</Value>
-                <Value>Inf</Value>
-                <Value>1.0</Value>
-                <Value>-1.0</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected1">
-                <Value>1</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>0</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>

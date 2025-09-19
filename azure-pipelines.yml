@@ -13,7 +13,7 @@ stages:
 - stage: Build
   jobs:
   - job: Windows
-    timeoutInMinutes: 120
+    timeoutInMinutes: 165
 
     pool:
       vmImage: windows-2022
@@ -44,11 +44,11 @@ stages:
       displayName: 'DXIL Tests'
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hcttest.cmd -$(configuration) exec-warp
-      displayName: 'DXIL Execution Tests (Nuget WARP)'
+        call utils\hct\hcttest.cmd -$(configuration) exec
+      displayName: 'DXIL Execution Tests'
 
   - job: Nix
-    timeoutInMinutes: 120
+    timeoutInMinutes: 165
 
     variables:
       macOS: macOS-latest

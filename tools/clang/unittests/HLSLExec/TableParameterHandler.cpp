@@ -1,5 +1,4 @@
 #include "TableParameterHandler.h"
-#include "dxc/Test/HlslTestUtils.h"
 
 TableParameterHandler::TableParameterHandler(TableParameter *pTable,
                                              size_t size)
@@ -129,7 +128,7 @@ HRESULT TableParameterHandler::ParseTableRow() {
       if (FAILED(WEX::TestExecution::TestData::TryGetValue(table[i].m_name,
                                                            table[i].m_int32)) &&
           table[i].m_required) {
-        // TryGetValue does not suppport reading from int16
+        // TryGetValue does not suppport reading from int8
         hlsl_test::LogErrorFmt(L"Failed to get %s", table[i].m_name);
         return E_FAIL;
       }
@@ -179,8 +178,8 @@ HRESULT TableParameterHandler::ParseTableRow() {
       break;
     case TableParameter::BOOL:
       if (FAILED(WEX::TestExecution::TestData::TryGetValue(table[i].m_name,
-                                                           table[i].m_str)) &&
-          table[i].m_bool) {
+                                                           table[i].m_bool)) &&
+          table[i].m_required) {
         hlsl_test::LogErrorFmt(L"Failed to get %s", table[i].m_name);
         return E_FAIL;
       }

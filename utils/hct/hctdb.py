@@ -465,6 +465,8 @@ class db_dxil(object):
             self.name_idx[i].category = "Binary uint with two outputs"
         for i in "UAddc,USubb".split(","):
             self.name_idx[i].category = "Binary uint with carry or borrow"
+        for i in "VectorReduceAnd,VectorReduceOr".split(","):
+            self.name_idx[i].category = "Vector reduce to scalar"
         for i in "FMad,Fma".split(","):
             self.name_idx[i].category = "Tertiary float"
         for i in "IMad,Msad,Ibfe".split(","):
@@ -473,7 +475,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Tertiary uint"
         for i in "Bfi".split(","):
             self.name_idx[i].category = "Quaternary"
-        for i in "Dot2,Dot3,Dot4".split(","):
+        for i in "FDot,Dot2,Dot3,Dot4".split(","):
             self.name_idx[i].category = "Dot"
         for (
             i
@@ -1406,6 +1408,7 @@ class db_dxil(object):
         # $o in a parameter type means the overload type
         # $r in a parameter type means the resource type
         # $cb in a parameter type means cbuffer legacy load return type
+        # $o_{component} in a return type means the overload template shape with the specified component type
         # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong
         self.opcode_param = db_dxil_param(1, "i32", "opcode", "DXIL opcode")
         retvoid_param = db_dxil_param(0, "v", "", "no return value")
@@ -1537,10 +1540,10 @@ class db_dxil(object):
                 next_op_idx,
                 "IsSpecialFloat",
                 "returns the " + i,
-                "hf",
+                "hf<",
                 "rn",
                 [
-                    db_dxil_param(0, "i1", "", "operation result"),
+                    db_dxil_param(0, "$o_i1", "", "operation result"),
                     db_dxil_param(2, "$o", "value", "input value"),
                 ],
                 counters=("floats",),
@@ -1588,10 +1591,10 @@ class db_dxil(object):
                 next_op_idx,
                 "UnaryBits",
                 "returns the " + i,
-                "wil",
+                "wil<",
                 "rn",
                 [
-                    db_dxil_param(0, "i32", "", "operation result"),
+                    db_dxil_param(0, "$o_i32", "", "operation result"),
                     db_dxil_param(2, "$o", "value", "input value"),
                 ],
                 counters=("uints",),
@@ -1603,10 +1606,10 @@ class db_dxil(object):
                 next_op_idx,
                 "UnaryBits",
                 "returns src != 0? (BitWidth-1 - " + i + ") : -1",
-                "wil",
+                "wil<",
                 "rn",
                 [
-                    db_dxil_param(0, "i32", "", "operation result"),
+                    db_dxil_param(0, "$o_i32", "", "operation result"),
                     db_dxil_param(2, "$o", "value", "input value"),
                 ],
                 counters=("uints",),
@@ -1755,7 +1758,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Tertiary",
                 "performs an integral " + i,
-                "il",
+                "i",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "the operation result"),
@@ -2627,7 +2630,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per stamp",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2645,7 +2648,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per stamp",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2663,7 +2666,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per pixel",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -2681,7 +2684,7 @@ class db_dxil(object):
             next_op_idx,
             "Unary",
             "computes the rate of change of components per pixel",
-            "hf",
+            "hf<",
             "rn",
             [
                 db_dxil_param(
@@ -3094,7 +3097,7 @@ class db_dxil(object):
             "hfd18wil",
             "",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o_i1", "", "operation result"),
                 db_dxil_param(2, "$o", "value", "value to compare"),
             ],
         )
@@ -5052,7 +5055,7 @@ class db_dxil(object):
             "1",
             "",
             [
-                db_dxil_param(0, "i1", "", "result - uniform across quad"),
+                db_dxil_param(0, "$o_i1", "", "result - uniform across quad"),
                 db_dxil_param(2, "i1", "cond", "condition"),
                 db_dxil_param(
                     3,
@@ -5190,126 +5193,7 @@ class db_dxil(object):
         )
 
         # Reserved ops
-        self.add_dxil_op(
-            "Reserved0",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved1",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved2",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved3",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved4",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved5",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved6",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved7",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved8",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved9",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved10",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
-        self.add_dxil_op(
-            "Reserved11",
-            next_op_idx,
-            "Reserved",
-            "Reserved",
-            "v",
-            "",
-            [retvoid_param],
-        )
-        next_op_idx += 1
+        next_op_idx = self.reserve_dxil_op_range("Reserved", next_op_idx, 12)
 
         # Work Graph
         self.add_dxil_op(
@@ -6440,6 +6324,59 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
+        # Long Vector Reduction
+        self.add_dxil_op(
+            "VectorReduceAnd",
+            next_op_idx,
+            "VectorReduce",
+            "Bitwise AND reduction of the vector returning a scalar",
+            "<18wil",
+            "rn",
+            [
+                db_dxil_param(0, "$elt", "", "operation result"),
+                db_dxil_param(2, "$o", "a", "input value"),
+            ],
+            counters=(
+                "ints",
+                "uints",
+            ),
+        )
+        next_op_idx += 1
+        self.add_dxil_op(
+            "VectorReduceOr",
+            next_op_idx,
+            "VectorReduce",
+            "Bitwise OR reduction of the vector returning a scalar",
+            "<18wil",
+            "rn",
+            [
+                db_dxil_param(0, "$elt", "", "operation result"),
+                db_dxil_param(2, "$o", "a", "input value"),
+            ],
+            counters=(
+                "ints",
+                "uints",
+            ),
+        )
+        next_op_idx += 1
+
+        # Long Vector Dot
+        self.add_dxil_op(
+            "FDot",
+            next_op_idx,
+            "Dot",
+            "computes the n-dimensional vector dot-product",
+            "<hf",
+            "rn",
+            [
+                db_dxil_param(0, "$elt", "", "operation result"),
+                db_dxil_param(2, "$o", "a", "input value"),
+                db_dxil_param(3, "$o", "b", "input value"),
+            ],
+            counters=("floats",),
+        )
+        next_op_idx += 1
+
         # End of DXIL 1.9 opcodes.
         # NOTE!! Update and uncomment when DXIL 1.9 opcodes are finalized:
         # self.set_op_count_for_version(1, 9, next_op_idx)
@@ -7062,9 +6999,9 @@ class db_dxil(object):
             [],
         )
         add_pass(
-            "hlsl-dxil-scalarize-vector-load-stores",
-            "DxilScalarizeVectorLoadStores",
-            "DXIL scalarize vector load/stores",
+            "hlsl-dxil-scalarize-vector-intrinsics",
+            "DxilScalarizeVectorIntrinsics",
+            "Scalarize native vector DXIL loads, stores, and other intrinsics",
             [],
         )
         add_pass(
@@ -8853,6 +8790,10 @@ class db_dxil(object):
         self.add_valrule(
             "Sm.AmplificationShaderPayloadSizeDeclared",
             "For amplification shader with entry '%0', payload size %1 is greater than declared size of %2 bytes.",
+        )
+        self.add_valrule(
+            "Sm.IsSpecialFloat",
+            "16 bit IsSpecialFloat overloads require Shader Model 6.9 or higher.",
         )
 
         # fxc relaxed check of gradient check.

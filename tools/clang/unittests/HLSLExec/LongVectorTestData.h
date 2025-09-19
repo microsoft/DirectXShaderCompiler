@@ -2,10 +2,17 @@
 #define LONGVECTORTESTDATA_H
 
 #include <Verify.h>
+
 #include <limits>
 #include <map>
+#include <ostream>
 #include <string>
 #include <vector>
+
+#include <DirectXMath.h>
+#include <DirectXPackedVector.h>
+
+namespace LongVector {
 
 // A helper struct because C++ bools are 1 byte and HLSL bools are 4 bytes.
 // Take int32_t as a constuctor argument and convert it to bool when needed.
@@ -15,7 +22,6 @@ struct HLSLBool_t {
   HLSLBool_t() : Val(0) {}
   HLSLBool_t(int32_t Val) : Val(Val) {}
   HLSLBool_t(bool Val) : Val(Val) {}
-  HLSLBool_t(const HLSLBool_t &Other) : Val(Other.Val) {}
 
   bool operator==(const HLSLBool_t &Other) const {
     return static_cast<bool>(Val) == static_cast<bool>(Other.Val);
@@ -53,6 +59,14 @@ struct HLSLBool_t {
     return HLSLBool_t(Val % Other.Val);
   }
 
+  HLSLBool_t operator&&(const HLSLBool_t &Other) const {
+    return HLSLBool_t(Val && Other.Val);
+  }
+
+  HLSLBool_t operator||(const HLSLBool_t &Other) const {
+    return HLSLBool_t(Val || Other.Val);
+  }
+
   // So we can construct std::wstrings using std::wostream
   friend std::wostream &operator<<(std::wostream &Os, const HLSLBool_t &Obj) {
     Os << static_cast<bool>(Obj.Val);
@@ -72,17 +86,13 @@ struct HLSLBool_t {
 //  it. Simple little wrapping struct to help handle the right behavior.
 struct HLSLHalf_t {
   HLSLHalf_t() : Val(0) {}
-  HLSLHalf_t(DirectX::PackedVector::HALF Val) : Val(Val) {}
-  HLSLHalf_t(const HLSLHalf_t &Other) : Val(Other.Val) {}
   HLSLHalf_t(const float F) {
     Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
   }
   HLSLHalf_t(const double D) {
-    float F = 0.0f;
-    // We wrap '::max' in () to prevent it from being expanded as a
-    // macro by the Windows SDK.
-    if (D >= (std::numeric_limits<double>::max)())
-      F = (std::numeric_limits<float>::max)();
+    float F;
+    if (D >= std::numeric_limits<double>::max())
+      F = std::numeric_limits<float>::max();
     else if (D <= std::numeric_limits<double>::lowest())
       F = std::numeric_limits<float>::lowest();
     else
@@ -90,11 +100,16 @@ struct HLSLHalf_t {
 
     Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
   }
-  HLSLHalf_t(const int I) {
-    VERIFY_IS_TRUE(I == 0, L"HLSLHalf_t constructor with int override only "
-                           L"meant for cases when initializing to 0.");
-    const float F = static_cast<float>(I);
-    Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
+
+  // PackedVector::HALF is a uint16. Make sure we don't ever accidentally
+  // convert one of these to a HLSLHalf_t by arithmetically converting it to a
+  // float.
+  HLSLHalf_t(DirectX::PackedVector::HALF) = delete;
+
+  static HLSLHalf_t FromHALF(DirectX::PackedVector::HALF Half) {
+    HLSLHalf_t H;
+    H.Val = Half;
+    return H;
   }
 
   // Implicit conversion to float for use with things like std::acos, std::tan,
@@ -148,32 +163,32 @@ struct HLSLHalf_t {
   HLSLHalf_t operator*(const HLSLHalf_t &Other) const {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A * B));
+    return FromHALF(DirectX::PackedVector::XMConvertFloatToHalf(A * B));
   }
 
   HLSLHalf_t operator+(const HLSLHalf_t &Other) const {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A + B));
+    return FromHALF((DirectX::PackedVector::XMConvertFloatToHalf(A + B)));
   }
 
   HLSLHalf_t operator-(const HLSLHalf_t &Other) const {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A - B));
+    return FromHALF(DirectX::PackedVector::XMConvertFloatToHalf(A - B));
   }
 
   HLSLHalf_t operator/(const HLSLHalf_t &Other) const {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
-    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(A / B));
+    return FromHALF(DirectX::PackedVector::XMConvertFloatToHalf(A / B));
   }
 
   HLSLHalf_t operator%(const HLSLHalf_t &Other) const {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
     const float C = std::fmod(A, B);
-    return HLSLHalf_t(DirectX::PackedVector::XMConvertFloatToHalf(C));
+    return FromHALF(DirectX::PackedVector::XMConvertFloatToHalf(C));
   }
 
   // So we can construct std::wstrings using std::wostream
@@ -192,110 +207,166 @@ struct HLSLHalf_t {
   DirectX::PackedVector::HALF Val = 0;
 };
 
-template <typename T> struct LongVectorTestData {
-  static const std::map<std::wstring, std::vector<T>> Data;
+enum class InputSet {
+#define INPUT_SET(SYMBOL) SYMBOL,
+#include "LongVectorOps.def"
 };
 
-template <> struct LongVectorTestData<HLSLBool_t> {
-  inline static const std::map<std::wstring, std::vector<HLSLBool_t>> Data = {
-      {L"DefaultInputValueSet1",
-       {false, true, false, false, false, false, true, true, true, true}},
-      {L"DefaultInputValueSet2",
-       {true, false, false, false, false, true, true, true, false, false}},
-  };
-};
+template <typename T> const std::vector<T> &getInputSet(InputSet InputSet) {
+  static_assert(false, "No InputSet for this type");
+}
 
-template <> struct LongVectorTestData<int16_t> {
-  inline static const std::map<std::wstring, std::vector<int16_t>> Data = {
-      {L"DefaultInputValueSet1", {-6, 1, 7, 3, 8, 4, -3, 8, 8, -2}},
-      {L"DefaultInputValueSet2", {5, -6, -3, -2, 9, 3, 1, -3, -7, 2}},
-  };
-};
+#define BEGIN_INPUT_SETS(TYPE)                                                 \
+  template <> const std::vector<TYPE> &getInputSet<TYPE>(InputSet InputSet) {  \
+    using T = TYPE;                                                            \
+    switch (InputSet) {
 
-template <> struct LongVectorTestData<int32_t> {
-  inline static const std::map<std::wstring, std::vector<int32_t>> Data = {
-      {L"DefaultInputValueSet1", {-6, 1, 7, 3, 8, 4, -3, 8, 8, -2}},
-      {L"DefaultInputValueSet2", {5, -6, -3, -2, 9, 3, 1, -3, -7, 2}},
-  };
-};
+#define INPUT_SET(SET, ...)                                                    \
+  case SET: {                                                                  \
+    static std::vector<T> Data = {__VA_ARGS__};                                \
+    return Data;                                                               \
+  }
 
-template <> struct LongVectorTestData<int64_t> {
-  inline static const std::map<std::wstring, std::vector<int64_t>> Data = {
-      {L"DefaultInputValueSet1", {-6, 11, 7, 3, 8, 4, -3, 8, 8, -2}},
-      {L"DefaultInputValueSet2", {5, -1337, -3, -2, 9, 3, 1, -3, 501, 2}},
-  };
-};
+#define END_INPUT_SETS()                                                       \
+  default:                                                                     \
+    break;                                                                     \
+    }                                                                          \
+    VERIFY_FAIL("Missing input set");                                          \
+    std::abort();                                                              \
+    }
 
-template <> struct LongVectorTestData<uint16_t> {
-  inline static const std::map<std::wstring, std::vector<uint16_t>> Data = {
-      {L"DefaultInputValueSet1", {1, 699, 3, 1023, 5, 6, 0, 8, 9, 10}},
-      {L"DefaultInputValueSet2", {2, 111, 3, 4, 5, 9, 21, 8, 9, 10}},
-  };
-};
+BEGIN_INPUT_SETS(HLSLBool_t)
+INPUT_SET(InputSet::Default1, false, true, false, false, false, false, true,
+          true, true, true);
 
-template <> struct LongVectorTestData<uint32_t> {
-  inline static const std::map<std::wstring, std::vector<uint32_t>> Data = {
-      {L"DefaultInputValueSet1", {1, 2, 3, 4, 5, 0, 7, 8, 9, 10}},
-      {L"DefaultInputValueSet2", {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}},
-  };
-};
+INPUT_SET(InputSet::Default2, true, false, false, false, false, true, true,
+          true, false, false);
 
-template <> struct LongVectorTestData<uint64_t> {
-  inline static const std::map<std::wstring, std::vector<uint64_t>> Data = {
-      {L"DefaultInputValueSet1", {1, 2, 3, 4, 5, 0, 7, 1000, 9, 10}},
-      {L"DefaultInputValueSet2", {1, 2, 1337, 4, 5, 6, 7, 8, 9, 10}},
-  };
-};
+INPUT_SET(InputSet::Default3, true, false, false, false, false, true, true,
+          true, false, false);
+END_INPUT_SETS()
 
-template <> struct LongVectorTestData<HLSLHalf_t> {
-  inline static const std::map<std::wstring, std::vector<HLSLHalf_t>> Data = {
-      {L"DefaultInputValueSet1",
-       {-1.0, -1.0, 1.0, -0.01, 1.0, -0.01, 1.0, -0.01, 1.0, -0.01}},
-      {L"DefaultInputValueSet2",
-       {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0}},
-      {L"DefaultClampArgs", {-1.0, 1.0}}, // Min, Max values for clamp
-      // Range [ -pi/2, pi/2]
-      {L"TrigonometricInputValueSet_RangeHalfPi",
-       {-1.073, 0.044, -1.047, 0.313, 1.447, -0.865, 1.364, -0.715, -0.800,
-        0.541}},
-      {L"TrigonometricInputValueSet_RangeOne",
-       {0.331, 0.727, -0.957, 0.677, -0.025, 0.495, 0.855, -0.673, -0.678,
-        -0.905}},
-  };
-};
+BEGIN_INPUT_SETS(int16_t)
+INPUT_SET(InputSet::Default1, -6, 1, 7, 3, 8, 4, -3, 8, 8, -2);
+INPUT_SET(InputSet::Default2, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
+INPUT_SET(InputSet::Default3, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
+INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 13, 14, 15);
+INPUT_SET(InputSet::Bitwise, std::numeric_limits<int16_t>::min(), -1, 0, 1, 3,
+          6, 9, 0x5555, static_cast<int16_t>(0xAAAA),
+          std::numeric_limits<int16_t>::max());
+END_INPUT_SETS()
 
-template <> struct LongVectorTestData<float> {
-  inline static const std::map<std::wstring, std::vector<float>> Data = {
-      {L"DefaultInputValueSet1",
-       {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0}},
-      {L"DefaultInputValueSet2",
-       {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0}},
-      // Range [ -pi/2, pi/2]
-      {L"TrigonometricInputValueSet_RangeHalfPi",
-       {0.315f, -0.316f, 1.409f, -0.09f, -1.569f, 1.302f, -0.326f, 0.781f,
-        -1.235f, 0.623f}},
-      {L"TrigonometricInputValueSet_RangeOne",
-       {0.727f, 0.331f, -0.957f, 0.677f, -0.025f, 0.495f, 0.855f, -0.673f,
-        -0.678f, -0.905f}},
-  };
-};
+BEGIN_INPUT_SETS(int32_t)
+INPUT_SET(InputSet::Default1, -6, 1, 7, 3, 8, 4, -3, 8, 8, -2);
+INPUT_SET(InputSet::Default2, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
+INPUT_SET(InputSet::Default3, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
+INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 30, 31, 32);
+INPUT_SET(InputSet::Bitwise, std::numeric_limits<int32_t>::min(), -1, 0, 1, 3,
+          6, 9, 0x55555555, static_cast<int32_t>(0xAAAAAAAA),
+          std::numeric_limits<int32_t>::max());
+END_INPUT_SETS()
 
-template <> struct LongVectorTestData<double> {
-  inline static const std::map<std::wstring, std::vector<double>> Data = {
-      {L"DefaultInputValueSet1",
-       {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0}},
-      {L"DefaultInputValueSet2",
-       {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0}},
-      // Range [ -pi/2, pi/2]
-      {L"TrigonometricInputValueSet_RangeHalfPi",
-       {0.807, 0.605, 1.317, 0.188, 1.566, -1.507, 0.67, -1.553, 0.194,
-        -0.883}},
-      {L"TrigonometricInputValueSet_RangeOne",
-       {0.331, 0.277, -0.957, 0.677, -0.025, 0.495, 0.855, -0.673, -0.678,
-        -0.905}},
-      {L"SplitDoubleInputValueSet",
-       {0.0, -1.0, 1.0, -1.0, 12345678.87654321, -1.0, 1.0, -1.0, 1.0, -1.0}},
-  };
-};
+BEGIN_INPUT_SETS(int64_t)
+INPUT_SET(InputSet::Default1, -6, 11, 7, 3, 8, 4, -3, 8, 8, -2);
+INPUT_SET(InputSet::Default2, 5, -1337, -3, -2, 9, 3, 1, -3, 501, 2);
+INPUT_SET(InputSet::Default3, 5, -1337, -3, -2, 9, 3, 1, -3, 501, 2);
+INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 62, 63, 64);
+INPUT_SET(InputSet::Bitwise, std::numeric_limits<int64_t>::min(), -1, 0, 1, 3,
+          6, 9, 0x5555555555555555LL, 0xAAAAAAAAAAAAAAAALL,
+          std::numeric_limits<int64_t>::max());
+END_INPUT_SETS()
+
+BEGIN_INPUT_SETS(uint16_t)
+INPUT_SET(InputSet::Default1, 1, 699, 3, 1023, 5, 6, 0, 8, 9, 10);
+INPUT_SET(InputSet::Default2, 2, 111, 3, 4, 5, 9, 21, 8, 9, 10);
+INPUT_SET(InputSet::Default3, 2, 111, 3, 4, 5, 9, 21, 8, 9, 10);
+INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 13, 14, 15);
+INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x5555, 0xAAAA, 0x8000, 127,
+          std::numeric_limits<uint16_t>::max());
+END_INPUT_SETS()
+
+BEGIN_INPUT_SETS(uint32_t)
+INPUT_SET(InputSet::Default1, 1, 2, 3, 4, 5, 0, 7, 8, 9, 10);
+INPUT_SET(InputSet::Default2, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+INPUT_SET(InputSet::Default3, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 30, 31, 32);
+INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x55555555, 0xAAAAAAAA, 0x80000000,
+          127, std::numeric_limits<uint32_t>::max());
+END_INPUT_SETS()
+
+BEGIN_INPUT_SETS(uint64_t)
+INPUT_SET(InputSet::Default1, 1, 2, 3, 4, 5, 0, 7, 1000, 9, 10);
+INPUT_SET(InputSet::Default2, 1, 2, 1337, 4, 5, 6, 7, 8, 9, 10);
+INPUT_SET(InputSet::Default3, 1, 2, 1337, 4, 5, 6, 7, 8, 9, 10);
+INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 62, 63, 64);
+INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x5555555555555555,
+          0xAAAAAAAAAAAAAAAA, 0x8000000000000000, 127,
+          std::numeric_limits<uint64_t>::max());
+END_INPUT_SETS()
+
+BEGIN_INPUT_SETS(HLSLHalf_t)
+INPUT_SET(InputSet::Default1, -1.0, -1.0, 1.0, -0.01, 1.0, -0.01, 1.0, -0.01,
+          1.0, -0.01);
+INPUT_SET(InputSet::Default2, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
+          -1.0);
+INPUT_SET(InputSet::Default3, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
+          -1.0);
+INPUT_SET(InputSet::RangeHalfPi, -1.073, 0.044, -1.047, 0.313, 1.447, -0.865,
+          1.364, -0.715, -0.800, 0.541);
+INPUT_SET(InputSet::RangeOne, 0.331, 0.727, -0.957, 0.677, -0.025, 0.495, 0.855,
+          -0.673, -0.678, -0.905);
+INPUT_SET(InputSet::SmoothStepMin, -4.3, -4.9, -4.2, -3.3, -3.7, 0.6, 1.2, 1.5,
+          2.1, 2.3);
+INPUT_SET(InputSet::SmoothStepMax, 10.0, -2.6, -2.3, -1.4, -2.2, 2.3, 2.9, 3.3,
+          3.9, 4.2);
+INPUT_SET(InputSet::SmoothStepInput, -2.8, -4.9, -2.3, -3.3, -3.6, 0.6, 3.0,
+          3.3, 1.9, 4.3);
+END_INPUT_SETS()
+
+BEGIN_INPUT_SETS(float)
+INPUT_SET(InputSet::Default1, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
+          -1.0);
+INPUT_SET(InputSet::Default2, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
+          -1.0);
+INPUT_SET(InputSet::Default3, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
+          -1.0);
+INPUT_SET(InputSet::RangeHalfPi, 0.315f, -0.316f, 1.409f, -0.09f, -1.569f,
+          1.302f, -0.326f, 0.781f, -1.235f, 0.623f);
+INPUT_SET(InputSet::RangeOne, 0.727f, 0.331f, -0.957f, 0.677f, -0.025f, 0.495f,
+          0.855f, -0.673f, -0.678f, -0.905f);
+INPUT_SET(InputSet::SmoothStepMin, -4.3f, -4.9f, -4.2f, -3.3f, -3.7f, 0.6f,
+          1.2f, 1.5f, 2.1f, 2.3f);
+INPUT_SET(InputSet::SmoothStepMax, -2.8f, -2.6f, -2.3f, -1.4f, -2.2f, 2.3f,
+          2.9f, 3.3f, 3.9f, 4.2f);
+INPUT_SET(InputSet::SmoothStepInput, -2.8f, -4.9f, -2.3f, -3.3f, -3.6f, 0.6f,
+          3.0f, 3.3f, 1.9f, 4.3f);
+END_INPUT_SETS()
+
+BEGIN_INPUT_SETS(double)
+INPUT_SET(InputSet::Default1, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
+          -1.0);
+INPUT_SET(InputSet::Default2, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
+          -1.0);
+INPUT_SET(InputSet::Default3, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
+          -1.0);
+INPUT_SET(InputSet::RangeHalfPi, 0.807, 0.605, 1.317, 0.188, 1.566, -1.507,
+          0.67, -1.553, 0.194, -0.883);
+INPUT_SET(InputSet::RangeOne, 0.331, 0.277, -0.957, 0.677, -0.025, 0.495, 0.855,
+          -0.673, -0.678, -0.905);
+INPUT_SET(InputSet::SplitDouble, 0.0, -1.0, 1.0, -1.0, 12345678.87654321, -1.0,
+          1.0, -1.0, 1.0, -1.0);
+INPUT_SET(InputSet::SmoothStepMin, -4.3, -4.9, -4.2, -3.3, -3.0, 0.6, 1.2, 1.5,
+          2.1, 2.3);
+INPUT_SET(InputSet::SmoothStepMax, -2.8, -2.6, -2.3, -1.4, -2.0, 2.3, 2.9, 3.3,
+          3.9, 4.2);
+INPUT_SET(InputSet::SmoothStepInput, -10.8, -4.9, -2.3, -3.3, -3.0, 0.6, 3.0,
+          3.3, 1.9, 4.3);
+END_INPUT_SETS()
+
+#undef BEGIN_INPUT_SETS
+#undef INPUT_SET
+#undef END_INPUT_SETS
+
+}; // namespace LongVector
 
 #endif // LONGVECTORTESTDATA_H

@@ -32,12 +32,14 @@ class ScheduleDAGSDNodes;
 class SelectionDAG;
 class MachineBasicBlock;
 
-class RegisterScheduler : public MachinePassRegistryNode {
+class RegisterScheduler
+    : public MachinePassRegistryNode<
+          ScheduleDAGSDNodes *(*)(SelectionDAGISel *, CodeGenOpt::Level)> {
 public:
   typedef ScheduleDAGSDNodes *(*FunctionPassCtor)(SelectionDAGISel*,
                                                   CodeGenOpt::Level);
 
-  static MachinePassRegistry Registry;
+  static MachinePassRegistry<FunctionPassCtor> Registry;
 
   RegisterScheduler(const char *N, const char *D, FunctionPassCtor C)
       : MachinePassRegistryNode(N, D, reinterpret_cast<MachinePassCtor>(reinterpret_cast<void *>(C)))
@@ -53,13 +55,8 @@ public:
   static RegisterScheduler *getList() {
     return (RegisterScheduler *)Registry.getList();
   }
-  static FunctionPassCtor getDefault() {
-    return reinterpret_cast<FunctionPassCtor>(reinterpret_cast<void *>(Registry.getDefault()));
-  }
-  static void setDefault(FunctionPassCtor C) {
-    Registry.setDefault(reinterpret_cast<MachinePassCtor>(reinterpret_cast<void *>(C)));
-  }
-  static void setListener(MachinePassRegistryListener *L) {
+
+  static void setListener(MachinePassRegistryListener<FunctionPassCtor> *L) {
     Registry.setListener(L);
   }
 };

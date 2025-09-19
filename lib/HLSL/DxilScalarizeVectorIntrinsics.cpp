@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilScalarizeVectorLoadStores.cpp                                         //
+// DxilScalarizeVectorIntrinsics.cpp                                         //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -9,11 +9,14 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -28,11 +31,13 @@ static void scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
                                 CallInst *CI);
 static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
                                  CallInst *CI);
+static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI);
+static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI);
 
-class DxilScalarizeVectorLoadStores : public ModulePass {
+class DxilScalarizeVectorIntrinsics : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilScalarizeVectorLoadStores() : ModulePass(ID) {}
+  explicit DxilScalarizeVectorIntrinsics() : ModulePass(ID) {}
 
   StringRef getPassName() const override {
     return "DXIL scalarize vector load/stores";
@@ -47,23 +52,35 @@ public:
     bool Changed = false;
 
     hlsl::OP *HlslOP = DM.GetOP();
-    for (auto FIt : HlslOP->GetOpFuncList(DXIL::OpCode::RawBufferVectorLoad)) {
-      Function *Func = FIt.second;
-      if (!Func)
+
+    // Iterate and scalarize native vector loads, stores, and other intrinsics.
+    for (auto F = M.functions().begin(); F != M.functions().end();) {
+      Function *Func = &*(F++);
+      DXIL::OpCodeClass OpClass;
+      if (!HlslOP->GetOpCodeClass(Func, OpClass))
         continue;
+
+      bool NeedsRewrite = (Func->getReturnType()->isVectorTy() ||
+                           OpClass == DXIL::OpCodeClass::RawBufferVectorLoad ||
+                           OpClass == DXIL::OpCodeClass::RawBufferVectorStore ||
+                           OpClass == DXIL::OpCodeClass::VectorReduce);
+      if (!NeedsRewrite)
+        continue;
+
       for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
         CallInst *CI = cast<CallInst>(*(U++));
-        scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
-        Changed = true;
-      }
-    }
-    for (auto FIt : HlslOP->GetOpFuncList(DXIL::OpCode::RawBufferVectorStore)) {
-      Function *Func = FIt.second;
-      if (!Func)
-        continue;
-      for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
-        CallInst *CI = cast<CallInst>(*(U++));
-        scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
+
+        if (OpClass == DXIL::OpCodeClass::RawBufferVectorLoad)
+          scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
+        else if (OpClass == DXIL::OpCodeClass::RawBufferVectorStore)
+          scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
+        else if (OpClass == DXIL::OpCodeClass::VectorReduce)
+          scalarizeVectorReduce(HlslOP, CI);
+        else if (Func->getReturnType()->isVectorTy())
+          scalarizeVectorIntrinsic(HlslOP, CI);
+        else
+          continue;
+
         Changed = true;
       }
     }
@@ -220,12 +237,74 @@ static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
   CI->eraseFromParent();
 }
 
-char DxilScalarizeVectorLoadStores::ID = 0;
+static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
+  IRBuilder<> Builder(CI);
 
-ModulePass *llvm::createDxilScalarizeVectorLoadStoresPass() {
-  return new DxilScalarizeVectorLoadStores();
+  OP::OpCode ReduceOp = OP::getOpCode(CI);
+
+  Value *VecArg = CI->getArgOperand(1);
+  Type *VecTy = VecArg->getType();
+
+  Value *Result = Builder.CreateExtractElement(VecArg, (uint64_t)0);
+  for (unsigned I = 1; I < VecTy->getVectorNumElements(); I++) {
+    Value *Elt = Builder.CreateExtractElement(VecArg, I);
+
+    switch (ReduceOp) {
+    case OP::OpCode::VectorReduceAnd:
+      Result = Builder.CreateAnd(Result, Elt);
+      break;
+    case OP::OpCode::VectorReduceOr:
+      Result = Builder.CreateOr(Result, Elt);
+      break;
+    default:
+      assert(false && "Unexpected VectorReduce OpCode");
+    }
+  }
+
+  CI->replaceAllUsesWith(Result);
 }
 
-INITIALIZE_PASS(DxilScalarizeVectorLoadStores,
-                "hlsl-dxil-scalarize-vector-load-stores",
-                "DXIL scalarize vector load/stores", false, false)
+// Scalarize native vector operation represented by `CI`, generating
+// scalar calls for each element of the its vector parameters.
+// Use `HlslOP` to retrieve the associated scalar op function.
+static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI) {
+
+  IRBuilder<> Builder(CI);
+  VectorType *VT = cast<VectorType>(CI->getType());
+  unsigned VecSize = VT->getNumElements();
+  unsigned ArgNum = CI->getNumArgOperands();
+  OP::OpCode Opcode = OP::getOpCode(CI);
+  Type *Ty = OP::GetOverloadType(Opcode, CI->getCalledFunction());
+  Function *Func = HlslOP->GetOpFunc(Opcode, Ty->getScalarType());
+  SmallVector<Value *, 4> Args(ArgNum);
+  Args[0] = CI->getArgOperand(0); // Copy opcode over.
+
+  // For each element in the vector, generate a new call instruction.
+  // Insert results into a result vector.
+  Value *RetVal = UndefValue::get(CI->getType());
+  for (unsigned ElIx = 0; ElIx < VecSize; ElIx++) {
+    // Replace each vector argument with the result of an extraction.
+    // Skip known opcode arg as it can't be a vector.
+    for (unsigned ArgIx = 1; ArgIx < ArgNum; ArgIx++) {
+      Value *Arg = CI->getArgOperand(ArgIx);
+      if (Arg->getType()->isVectorTy())
+        Args[ArgIx] = Builder.CreateExtractElement(Arg, ElIx);
+      else
+        Args[ArgIx] = Arg;
+    }
+    Value *ElCI = Builder.CreateCall(Func, Args, CI->getName());
+    RetVal = Builder.CreateInsertElement(RetVal, ElCI, ElIx);
+  }
+  CI->replaceAllUsesWith(RetVal);
+}
+
+char DxilScalarizeVectorIntrinsics::ID = 0;
+
+ModulePass *llvm::createDxilScalarizeVectorIntrinsicsPass() {
+  return new DxilScalarizeVectorIntrinsics();
+}
+
+INITIALIZE_PASS(
+    DxilScalarizeVectorIntrinsics, "hlsl-dxil-scalarize-vector-intrinsics",
+    "Scalarize native vector DXIL loads, stores, and other intrinsics", false,
+    false)

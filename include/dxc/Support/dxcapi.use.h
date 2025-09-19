@@ -19,9 +19,47 @@ namespace dxc {
 extern const char *kDxCompilerLib;
 extern const char *kDxilLib;
 
-// Helper class to dynamically load the dxcompiler or a compatible libraries.
-class DxcDllSupport {
+// Interface for common dll operations
+class DllLoader {
+
 protected:
+  virtual HRESULT CreateInstanceImpl(REFCLSID clsid, REFIID riid,
+                                     IUnknown **pResult) = 0;
+  virtual HRESULT CreateInstance2Impl(IMalloc *pMalloc, REFCLSID clsid,
+                                      REFIID riid, IUnknown **pResult) = 0;
+  virtual ~DllLoader() {}
+
+public:
+  DllLoader() = default;
+  DllLoader(const DllLoader &) = delete;
+  DllLoader(DllLoader &&) = delete;
+
+  template <typename TInterface>
+  HRESULT CreateInstance(REFCLSID clsid, TInterface **pResult) {
+    return CreateInstanceImpl(clsid, __uuidof(TInterface),
+                              (IUnknown **)pResult);
+  }
+  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, IUnknown **pResult) {
+    return CreateInstanceImpl(clsid, riid, (IUnknown **)pResult);
+  }
+
+  template <typename TInterface>
+  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid,
+                          TInterface **pResult) {
+    return CreateInstance2Impl(pMalloc, clsid, __uuidof(TInterface),
+                               (IUnknown **)pResult);
+  }
+  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
+                          IUnknown **pResult) {
+    return CreateInstance2Impl(pMalloc, clsid, riid, (IUnknown **)pResult);
+  }
+
+  virtual bool IsEnabled() const = 0;
+};
+
+// Helper class to dynamically load the dxcompiler or a compatible libraries.
+class SpecificDllLoader : public DllLoader {
+
   HMODULE m_dll;
   DxcCreateInstanceProc m_createFn;
   DxcCreateInstance2Proc m_createFn2;
@@ -74,33 +112,19 @@ protected:
   }
 
 public:
-  DxcDllSupport() : m_dll(nullptr), m_createFn(nullptr), m_createFn2(nullptr) {}
+  SpecificDllLoader()
+      : m_dll(nullptr), m_createFn(nullptr), m_createFn2(nullptr) {}
 
-  DxcDllSupport(DxcDllSupport &&other) {
-    m_dll = other.m_dll;
-    other.m_dll = nullptr;
-    m_createFn = other.m_createFn;
-    other.m_createFn = nullptr;
-    m_createFn2 = other.m_createFn2;
-    other.m_createFn2 = nullptr;
-  }
-
-  ~DxcDllSupport() { Cleanup(); }
-
-  HRESULT Initialize() {
-    return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
-  }
+  ~SpecificDllLoader() override { Cleanup(); }
 
   HRESULT InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {
     return InitializeInternal(dll, entryPoint);
   }
 
-  template <typename TInterface>
-  HRESULT CreateInstance(REFCLSID clsid, TInterface **pResult) {
-    return CreateInstance(clsid, __uuidof(TInterface), (IUnknown **)pResult);
-  }
-
-  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, IUnknown **pResult) {
+  // Also bring visibility into the interface definition of this function
+  // which takes 2 args
+  HRESULT CreateInstanceImpl(REFCLSID clsid, REFIID riid,
+                             IUnknown **pResult) override {
     if (pResult == nullptr)
       return E_POINTER;
     if (m_dll == nullptr)
@@ -109,15 +133,10 @@ public:
     return hr;
   }
 
-  template <typename TInterface>
-  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid,
-                          TInterface **pResult) {
-    return CreateInstance2(pMalloc, clsid, __uuidof(TInterface),
-                           (IUnknown **)pResult);
-  }
-
-  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
-                          IUnknown **pResult) {
+  // Also bring visibility into the interface definition of this function
+  // which takes 3 args
+  HRESULT CreateInstance2Impl(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
+                              IUnknown **pResult) override {
     if (pResult == nullptr)
       return E_POINTER;
     if (m_dll == nullptr)
@@ -130,7 +149,16 @@ public:
 
   bool HasCreateWithMalloc() const { return m_createFn2 != nullptr; }
 
-  bool IsEnabled() const { return m_dll != nullptr; }
+  bool IsEnabled() const override { return m_dll != nullptr; }
+
+  bool GetCreateInstanceProcs(DxcCreateInstanceProc *pCreateFn,
+                              DxcCreateInstance2Proc *pCreateFn2) const {
+    if (pCreateFn == nullptr || pCreateFn2 == nullptr || m_createFn == nullptr)
+      return false;
+    *pCreateFn = m_createFn;
+    *pCreateFn2 = m_createFn2;
+    return true;
+  }
 
   void Cleanup() {
     if (m_dll != nullptr) {
@@ -152,6 +180,26 @@ public:
   }
 };
 
+// This class is for instances where we *only* expect
+// to load dxcompiler.dll, and nothing else
+class DxCompilerDllLoader : public SpecificDllLoader {
+public:
+  HRESULT Initialize() {
+    return InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
+  }
+};
+
+// This class is for instances where we want to load a
+// subset of any dlls that would give DxcLibrary functionality.
+// e.g, load a IDxcLibrary object.
+// Includes but isn't limited to dxcompiler.dll and dxil.dll
+class DXCLibraryDllLoader : public SpecificDllLoader {
+public:
+  HRESULT Initialize() {
+    return InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
+  }
+};
+
 inline DxcDefine GetDefine(LPCWSTR name, LPCWSTR value) {
   DxcDefine result;
   result.Name = name;
@@ -162,8 +210,8 @@ inline DxcDefine GetDefine(LPCWSTR name, LPCWSTR value) {
 // Checks an HRESULT and formats an error message with the appended data.
 void IFT_Data(HRESULT hr, LPCWSTR data);
 
-void EnsureEnabled(DxcDllSupport &dxcSupport);
-void ReadFileIntoBlob(DxcDllSupport &dxcSupport, LPCWSTR pFileName,
+void EnsureEnabled(DXCLibraryDllLoader &dxcSupport);
+void ReadFileIntoBlob(DllLoader &dxcSupport, LPCWSTR pFileName,
                       IDxcBlobEncoding **ppBlobEncoding);
 void WriteBlobToConsole(IDxcBlob *pBlob, DWORD streamType = STD_OUTPUT_HANDLE);
 void WriteBlobToFile(IDxcBlob *pBlob, LPCWSTR pFileName, UINT32 textCodePage);

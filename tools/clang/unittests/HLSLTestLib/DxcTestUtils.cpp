@@ -13,6 +13,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
+#include "dxc/Support/dxcapi.use.h"
 #include "dxc/Test/CompilationResult.h"
 #include "dxc/Test/HlslTestUtils.h"
 #include "llvm/ADT/APInt.h"
@@ -23,6 +24,13 @@
 
 using namespace std;
 using namespace hlsl_test;
+
+namespace dxc {
+
+extern const char *kDxCompilerLib;
+extern const char *kDxilLib;
+
+} // namespace dxc
 
 MODULE_SETUP(TestModuleSetup)
 MODULE_CLEANUP(TestModuleCleanup)
@@ -173,13 +181,14 @@ bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
       maySucceedAnyway, bRegex);
 }
 
-std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport,
+std::string DisassembleProgram(dxc::DxCompilerDllLoader &dllSupport,
                                IDxcBlob *pProgram) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pDisassembly;
 
   if (!dllSupport.IsEnabled()) {
-    VERIFY_SUCCEEDED(dllSupport.Initialize());
+    VERIFY_SUCCEEDED(
+        dllSupport.InitializeForDll(dxc::kDxCompilerLib, "DxcCreateInstance"));
   }
 
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
@@ -187,7 +196,7 @@ std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport,
   return BlobToUtf8(pDisassembly);
 }
 
-void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule,
+void AssembleToContainer(dxc::DllLoader &dllSupport, IDxcBlob *pModule,
                          IDxcBlob **pContainer) {
   CComPtr<IDxcAssembler> pAssembler;
   CComPtr<IDxcOperationResult> pResult;
@@ -302,7 +311,7 @@ std::wstring BlobToWide(IDxcBlob *pBlob) {
   }
 }
 
-void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal,
+void Utf8ToBlob(dxc::DllLoader &dllSupport, const char *pVal,
                 IDxcBlobEncoding **ppBlob) {
   CComPtr<IDxcLibrary> library;
   IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
@@ -310,32 +319,30 @@ void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal,
                                                 ppBlob));
 }
 
-void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport,
-                           const std::string &val, UINT32 codePage,
-                           IDxcBlobEncoding **ppBlob) {
+void MultiByteStringToBlob(dxc::DllLoader &dllSupport, const std::string &val,
+                           UINT32 codePage, IDxcBlobEncoding **ppBlob) {
   CComPtr<IDxcLibrary> library;
   IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
   IFT(library->CreateBlobWithEncodingOnHeapCopy(val.data(), val.size(),
                                                 codePage, ppBlob));
 }
 
-void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport,
-                           const std::string &val, UINT32 codePage,
-                           IDxcBlob **ppBlob) {
+void MultiByteStringToBlob(dxc::DllLoader &dllSupport, const std::string &val,
+                           UINT32 codePage, IDxcBlob **ppBlob) {
   MultiByteStringToBlob(dllSupport, val, codePage, (IDxcBlobEncoding **)ppBlob);
 }
 
-void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val,
+void Utf8ToBlob(dxc::DllLoader &dllSupport, const std::string &val,
                 IDxcBlobEncoding **ppBlob) {
   MultiByteStringToBlob(dllSupport, val, CP_UTF8, ppBlob);
 }
 
-void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val,
+void Utf8ToBlob(dxc::DllLoader &dllSupport, const std::string &val,
                 IDxcBlob **ppBlob) {
   Utf8ToBlob(dllSupport, val, (IDxcBlobEncoding **)ppBlob);
 }
 
-void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
+void WideToBlob(dxc::DllLoader &dllSupport, const std::wstring &val,
                 IDxcBlobEncoding **ppBlob) {
   CComPtr<IDxcLibrary> library;
   IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
@@ -343,12 +350,12 @@ void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
       val.data(), val.size() * sizeof(wchar_t), DXC_CP_WIDE, ppBlob));
 }
 
-void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
+void WideToBlob(dxc::DllLoader &dllSupport, const std::wstring &val,
                 IDxcBlob **ppBlob) {
   WideToBlob(dllSupport, val, (IDxcBlobEncoding **)ppBlob);
 }
 
-void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+void VerifyCompileOK(dxc::DllLoader &dllSupport, LPCSTR pText,
                      LPCWSTR pTargetProfile, LPCWSTR pArgs,
                      IDxcBlob **ppResult) {
   std::vector<std::wstring> argsW;
@@ -363,7 +370,7 @@ void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
   VerifyCompileOK(dllSupport, pText, pTargetProfile, args, ppResult);
 }
 
-void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+void VerifyCompileOK(dxc::DllLoader &dllSupport, LPCSTR pText,
                      LPCWSTR pTargetProfile, std::vector<LPCWSTR> &args,
                      IDxcBlob **ppResult) {
   CComPtr<IDxcCompiler> pCompiler;
@@ -381,8 +388,8 @@ void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
   VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
 }
 
-HRESULT GetVersion(dxc::DxcDllSupport &DllSupport, REFCLSID clsid,
-                   unsigned &Major, unsigned &Minor) {
+HRESULT GetVersion(dxc::DllLoader &DllSupport, REFCLSID clsid, unsigned &Major,
+                   unsigned &Minor) {
   CComPtr<IUnknown> pUnk;
   if (SUCCEEDED(DllSupport.CreateInstance(clsid, &pUnk))) {
     CComPtr<IDxcVersionInfo> pVersionInfo;
@@ -418,7 +425,7 @@ VersionSupportInfo::VersionSupportInfo()
     : m_CompilerIsDebugBuild(false), m_InternalValidator(false), m_DxilMajor(0),
       m_DxilMinor(0), m_ValMajor(0), m_ValMinor(0) {}
 
-void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
+void VersionSupportInfo::Initialize(dxc::DllLoader &dllSupport) {
   VERIFY_IS_TRUE(dllSupport.IsEnabled());
 
   // Default to Dxil 1.0 and internal Val 1.0
