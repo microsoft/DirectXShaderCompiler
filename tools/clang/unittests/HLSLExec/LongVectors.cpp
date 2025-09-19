@@ -903,32 +903,27 @@ DEFAULT_OP_2(OpType::TernaryAssignment_False, (false ? A : B));
 // Reduction
 //
 
-template <typename T> struct Op<OpType::All, T> : StrictValidation {};
-template <typename T> struct ExpectedBuilder<OpType::All, T> {
-  static std::vector<HLSLBool_t>
-  buildExpected(Op<OpType::All, T>, const InputSets<T, 1> &Inputs, uint16_t) {
+#define REDUCTION_OP(OP, STDFUNC)                                              \
+  template <typename T> struct Op<OP, T> : StrictValidation {};                \
+  template <typename T> struct ExpectedBuilder<OP, T> {                        \
+    static std::vector<HLSLBool_t>                                             \
+    buildExpected(Op<OP, T>, const InputSets<T, 1> &Inputs, uint16_t) {        \
+      const bool Res = STDFUNC(Inputs[0].begin(), Inputs[0].end(),             \
+                               [](T A) { return A != static_cast<T>(0); });    \
+      return std::vector<HLSLBool_t>{Res};                                     \
+    }                                                                          \
+  };
 
-    const bool All = std::all_of(Inputs[0].begin(), Inputs[0].end(),
-                                 [](T A) { return A != static_cast<T>(0); });
+REDUCTION_OP(OpType::All_Mixed, std::all_of);
+REDUCTION_OP(OpType::All_Zero, std::all_of);
+REDUCTION_OP(OpType::All_NoZero, std::all_of);
+REDUCTION_OP(OpType::Any_Mixed, std::any_of);
+REDUCTION_OP(OpType::Any_NoZero, std::any_of);
+REDUCTION_OP(OpType::Any_Zero, std::any_of);
 
-    return std::vector<HLSLBool_t>{All};
-  }
-};
+#undef REDUCTION_OP
 
-template <typename T> struct Op<OpType::Any, T> : StrictValidation {};
-template <typename T> struct ExpectedBuilder<OpType::Any, T> {
-  static std::vector<HLSLBool_t>
-  buildExpected(Op<OpType::Any, T>, const InputSets<T, 1> &Inputs, uint16_t) {
-
-    const bool Any = std::any_of(Inputs[0].begin(), Inputs[0].end(),
-                                 [](T A) { return A != static_cast<T>(0); });
-
-    return std::vector<HLSLBool_t>{Any};
-  }
-};
-
-// TODO: For dot product with float values we'll want no strict validation.
-template <typename T> struct Op<OpType::Dot, T> : StrictValidation {};
+template <typename T> struct Op<OpType::Dot, T> : DefaultValidation<T> {};
 template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
   static std::vector<T> buildExpected(Op<OpType::Dot, T>,
                                       const InputSets<T, 2> &Inputs,
@@ -1568,36 +1563,64 @@ public:
   HLK_TEST(Logical_Or, HLSLBool_t, ScalarOp2);
 
   // Reduction
-  HLK_TEST(All, HLSLBool_t, Vector);
-  HLK_TEST(Any, HLSLBool_t, Vector);
+  HLK_TEST(All_Mixed, HLSLBool_t, Vector);
+  HLK_TEST(Any_Mixed, HLSLBool_t, Vector);
+  HLK_TEST(All_Zero, HLSLBool_t, Vector);
+  HLK_TEST(Any_Zero, HLSLBool_t, Vector);
+  HLK_TEST(All_NoZero, HLSLBool_t, Vector);
+  HLK_TEST(Any_NoZero, HLSLBool_t, Vector);
 
-  HLK_TEST(All, int16_t, Vector);
-  HLK_TEST(Any, int16_t, Vector);
+  HLK_TEST(All_Mixed, int16_t, Vector);
+  HLK_TEST(Any_Mixed, int16_t, Vector);
+  HLK_TEST(All_Zero, int16_t, Vector);
+  HLK_TEST(Any_Zero, int16_t, Vector);
+  HLK_TEST(All_NoZero, int16_t, Vector);
+  HLK_TEST(Any_NoZero, int16_t, Vector);
   HLK_TEST(Dot, int16_t, Vector);
   HLK_TEST(Dot, int16_t, ScalarOp2);
 
-  HLK_TEST(All, int32_t, Vector);
-  HLK_TEST(Any, int32_t, Vector);
+  HLK_TEST(All_Mixed, int32_t, Vector);
+  HLK_TEST(Any_Mixed, int32_t, Vector);
+  HLK_TEST(All_Zero, int32_t, Vector);
+  HLK_TEST(Any_Zero, int32_t, Vector);
+  HLK_TEST(All_NoZero, int32_t, Vector);
+  HLK_TEST(Any_NoZero, int32_t, Vector);
   HLK_TEST(Dot, int32_t, Vector);
   HLK_TEST(Dot, int32_t, ScalarOp2);
 
-  HLK_TEST(All, int64_t, Vector);
-  HLK_TEST(Any, int64_t, Vector);
+  HLK_TEST(All_Mixed, int64_t, Vector);
+  HLK_TEST(Any_Mixed, int64_t, Vector);
+  HLK_TEST(All_Zero, int64_t, Vector);
+  HLK_TEST(Any_Zero, int64_t, Vector);
+  HLK_TEST(All_NoZero, int64_t, Vector);
+  HLK_TEST(Any_NoZero, int64_t, Vector);
   HLK_TEST(Dot, int64_t, Vector);
   HLK_TEST(Dot, int64_t, ScalarOp2);
 
-  HLK_TEST(All, uint16_t, Vector);
-  HLK_TEST(Any, uint16_t, Vector);
+  HLK_TEST(All_Mixed, uint16_t, Vector);
+  HLK_TEST(Any_Mixed, uint16_t, Vector);
+  HLK_TEST(All_Zero, uint16_t, Vector);
+  HLK_TEST(Any_Zero, uint16_t, Vector);
+  HLK_TEST(All_NoZero, uint16_t, Vector);
+  HLK_TEST(Any_NoZero, uint16_t, Vector);
   HLK_TEST(Dot, uint16_t, Vector);
   HLK_TEST(Dot, uint16_t, ScalarOp2);
 
-  HLK_TEST(All, uint32_t, Vector);
-  HLK_TEST(Any, uint32_t, Vector);
+  HLK_TEST(All_Mixed, uint32_t, Vector);
+  HLK_TEST(Any_Mixed, uint32_t, Vector);
+  HLK_TEST(All_Zero, uint32_t, Vector);
+  HLK_TEST(Any_Zero, uint32_t, Vector);
+  HLK_TEST(All_NoZero, uint32_t, Vector);
+  HLK_TEST(Any_NoZero, uint32_t, Vector);
   HLK_TEST(Dot, uint32_t, Vector);
   HLK_TEST(Dot, uint32_t, ScalarOp2);
 
-  HLK_TEST(All, uint64_t, Vector);
-  HLK_TEST(Any, uint64_t, Vector);
+  HLK_TEST(All_Mixed, uint64_t, Vector);
+  HLK_TEST(Any_Mixed, uint64_t, Vector);
+  HLK_TEST(All_Zero, uint64_t, Vector);
+  HLK_TEST(Any_Zero, uint64_t, Vector);
+  HLK_TEST(All_NoZero, uint64_t, Vector);
+  HLK_TEST(Any_NoZero, uint64_t, Vector);
   HLK_TEST(Dot, uint64_t, Vector);
   HLK_TEST(Dot, uint64_t, ScalarOp2);
 
