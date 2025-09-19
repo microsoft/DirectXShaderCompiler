@@ -1,3 +1,4 @@
+
 #ifndef _WIN32
 #include "dxc/WinAdapter.h"
 #endif
@@ -102,30 +103,61 @@ public:
     return m_pCompiler->Disassemble(pSource, ppDisassembly);
   }
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     if (!ppvObject)
       return E_POINTER;
 
     *ppvObject = nullptr;
 
-    if (IsEqualIID(iid, _uuidof(IUnknown))) {
-      AddRef();
-      *ppvObject = static_cast<IDxcCompiler *>(this);
-      return S_OK;
-    }
-
-    if (IsEqualIID(iid, _uuidof(IDxcCompiler)) && m_pCompiler) {
-      AddRef();
-      *ppvObject = static_cast<IDxcCompiler *>(this);
-      return S_OK;
-    }
-
-    if (IsEqualIID(iid, _uuidof(IDxcCompiler3)) && m_pCompiler3) {
+#ifdef _WIN32
+    // Windows: use built-in __uuidof
+    if (IsEqualIID(iid, __uuidof(IUnknown))) {
       AddRef();
       *ppvObject = static_cast<IDxcCompiler3 *>(this);
       return S_OK;
     }
+
+    if (m_pCompiler && IsEqualIID(iid, __uuidof(IDxcCompiler))) {
+      AddRef();
+      *ppvObject = static_cast<IDxcCompiler *>(this);
+      return S_OK;
+    }
+
+    if (m_pCompiler3 && IsEqualIID(iid, __uuidof(IDxcCompiler3))) {
+      AddRef();
+      *ppvObject = static_cast<IDxcCompiler3 *>(this);
+      return S_OK;
+    }
+
+#else
+    // Linux/macOS: use emulated __uuidof for DXC interfaces
+    // IUnknown GUID must be defined manually
+    const GUID IID_IUnknown_cp = {
+        0x00000000,
+        0x0000,
+        0x0000,
+        {0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+
+    if (IsEqualIID(iid, IID_IUnknown_cp)) {
+      AddRef();
+      *ppvObject = static_cast<IDxcCompiler3 *>(this);
+      return S_OK;
+    }
+
+    if (m_pCompiler && IsEqualIID(iid, __emulated_uuidof<IDxcCompiler>())) {
+      AddRef();
+      *ppvObject = static_cast<IDxcCompiler *>(this);
+      return S_OK;
+    }
+
+    if (m_pCompiler3 && IsEqualIID(iid, __emulated_uuidof<IDxcCompiler3>())) {
+      AddRef();
+      *ppvObject = static_cast<IDxcCompiler3 *>(this);
+      return S_OK;
+    }
+
+#endif
 
     return E_NOINTERFACE;
   }
