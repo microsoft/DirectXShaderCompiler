@@ -7,6 +7,10 @@
 #include "dxc/Support/microcom.h"
 #include <iostream>
 
+#ifndef _WIN32
+#include "WinAdapter.h"
+#endif
+
 std::vector<std::wstring> AddExtValCompilationArgs(UINT32 ArgCount,
                                                    LPCWSTR *pArguments,
                                                    UINT32 Major, UINT32 Minor) {

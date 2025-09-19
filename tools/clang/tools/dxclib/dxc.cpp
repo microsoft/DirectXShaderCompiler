@@ -895,7 +895,15 @@ int DxcContext::Compile() {
           pCompileResult->GetStatus(&CompHR);
 
           // Then validate
-          if (!m_Opts.DisableValidation && !DXC_FAILED(CompHR)) {
+          // TODO: These conditions are the onest checked to disable internal
+          // validation, but its missing rootSigMajor == 0, that doesn't seem
+          // straight forward to repro in this context.
+          bool produceFullContainer =
+              !m_Opts.CodeGenHighLevel && !m_Opts.AstDump && !m_Opts.OptDump &&
+              !m_Opts.DumpDependencies && !m_Opts.VerifyDiagnostics;
+          bool needsValidation =
+              produceFullContainer && !m_Opts.DisableValidation;
+          if (needsValidation && !DXC_FAILED(CompHR)) {
 
             CComPtr<IDxcValidator> pValidator;
             IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
