@@ -67,6 +67,18 @@ struct HLSLBool_t {
     return HLSLBool_t(Val || Other.Val);
   }
 
+  bool AsBool() const { return static_cast<bool>(Val); }
+
+  operator bool() const { return AsBool(); }
+  operator int16_t() const { return (int16_t)(AsBool()); }
+  operator int32_t() const { return (int32_t)(AsBool()); }
+  operator int64_t() const { return (int64_t)(AsBool()); }
+  operator uint16_t() const { return (uint16_t)(AsBool()); }
+  operator uint32_t() const { return (uint32_t)(AsBool()); }
+  operator uint64_t() const { return (uint64_t)(AsBool()); }
+  operator float() const { return (float)(AsBool()); }
+  operator double() const { return (double)(AsBool()); }
+
   // So we can construct std::wstrings using std::wostream
   friend std::wostream &operator<<(std::wostream &Os, const HLSLBool_t &Obj) {
     Os << static_cast<bool>(Obj.Val);
@@ -321,6 +333,8 @@ INPUT_SET(InputSet::SmoothStepMax, 10.0, -2.6, -2.3, -1.4, -2.2, 2.3, 2.9, 3.3,
           3.9, 4.2);
 INPUT_SET(InputSet::SmoothStepInput, -2.8, -4.9, -2.3, -3.3, -3.6, 0.6, 3.0,
           3.3, 1.9, 4.3);
+INPUT_SET(InputSet::Positive, 1.0, 1.0, 342.0, 0.01, 5531.0, 0.01, 1.0, 0.01,
+          331.2330, 3250.01);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(float)
@@ -340,6 +354,8 @@ INPUT_SET(InputSet::SmoothStepMax, -2.8f, -2.6f, -2.3f, -1.4f, -2.2f, 2.3f,
           2.9f, 3.3f, 3.9f, 4.2f);
 INPUT_SET(InputSet::SmoothStepInput, -2.8f, -4.9f, -2.3f, -3.3f, -3.6f, 0.6f,
           3.0f, 3.3f, 1.9f, 4.3f);
+INPUT_SET(InputSet::Positive, 1.0f, 1.0f, 3424241.0f, 0.01f, 5531.0f, 0.01f,
+          1.0f, 0.01f, 331.2330f, 3250.01f);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(double)
@@ -361,6 +377,8 @@ INPUT_SET(InputSet::SmoothStepMax, -2.8, -2.6, -2.3, -1.4, -2.0, 2.3, 2.9, 3.3,
           3.9, 4.2);
 INPUT_SET(InputSet::SmoothStepInput, -10.8, -4.9, -2.3, -3.3, -3.0, 0.6, 3.0,
           3.3, 1.9, 4.3);
+INPUT_SET(InputSet::Positive, 1.0, 1.0, 3424241.0, 0.01, 5531.0, 0.01, 1.0,
+          0.01, 331.2330, 3250.01);
 END_INPUT_SETS()
 
 #undef BEGIN_INPUT_SETS
