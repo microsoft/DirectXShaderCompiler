@@ -299,12 +299,6 @@ INPUT_SET(InputSet::RangeHalfPi, -1.073, 0.044, -1.047, 0.313, 1.447, -0.865,
           1.364, -0.715, -0.800, 0.541);
 INPUT_SET(InputSet::RangeOne, 0.331, 0.727, -0.957, 0.677, -0.025, 0.495, 0.855,
           -0.673, -0.678, -0.905);
-INPUT_SET(InputSet::SmoothStepMin, -4.3, -4.9, -4.2, -3.3, -3.7, 0.6, 1.2, 1.5,
-          2.1, 2.3);
-INPUT_SET(InputSet::SmoothStepMax, 10.0, -2.6, -2.3, -1.4, -2.2, 2.3, 2.9, 3.3,
-          3.9, 4.2);
-INPUT_SET(InputSet::SmoothStepInput, -2.8, -4.9, -2.3, -3.3, -3.6, 0.6, 3.0,
-          3.3, 1.9, 4.3);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(float)
@@ -318,12 +312,6 @@ INPUT_SET(InputSet::RangeHalfPi, 0.315f, -0.316f, 1.409f, -0.09f, -1.569f,
           1.302f, -0.326f, 0.781f, -1.235f, 0.623f);
 INPUT_SET(InputSet::RangeOne, 0.727f, 0.331f, -0.957f, 0.677f, -0.025f, 0.495f,
           0.855f, -0.673f, -0.678f, -0.905f);
-INPUT_SET(InputSet::SmoothStepMin, -4.3f, -4.9f, -4.2f, -3.3f, -3.7f, 0.6f,
-          1.2f, 1.5f, 2.1f, 2.3f);
-INPUT_SET(InputSet::SmoothStepMax, -2.8f, -2.6f, -2.3f, -1.4f, -2.2f, 2.3f,
-          2.9f, 3.3f, 3.9f, 4.2f);
-INPUT_SET(InputSet::SmoothStepInput, -2.8f, -4.9f, -2.3f, -3.3f, -3.6f, 0.6f,
-          3.0f, 3.3f, 1.9f, 4.3f);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(double)
@@ -339,12 +327,6 @@ INPUT_SET(InputSet::RangeOne, 0.331, 0.277, -0.957, 0.677, -0.025, 0.495, 0.855,
           -0.673, -0.678, -0.905);
 INPUT_SET(InputSet::SplitDouble, 0.0, -1.0, 1.0, -1.0, 12345678.87654321, -1.0,
           1.0, -1.0, 1.0, -1.0);
-INPUT_SET(InputSet::SmoothStepMin, -4.3, -4.9, -4.2, -3.3, -3.0, 0.6, 1.2, 1.5,
-          2.1, 2.3);
-INPUT_SET(InputSet::SmoothStepMax, -2.8, -2.6, -2.3, -1.4, -2.0, 2.3, 2.9, 3.3,
-          3.9, 4.2);
-INPUT_SET(InputSet::SmoothStepInput, -10.8, -4.9, -2.3, -3.3, -3.0, 0.6, 3.0,
-          3.3, 1.9, 4.3);
 END_INPUT_SETS()
 
 #undef BEGIN_INPUT_SETS

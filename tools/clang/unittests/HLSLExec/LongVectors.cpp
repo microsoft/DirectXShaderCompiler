@@ -572,22 +572,6 @@ struct StrictValidation {
 //
 
 DEFAULT_OP_3(OpType::Mad, (A * B + C));
-
-template <typename T> struct Op<OpType::SmoothStep, T> : DefaultValidation<T> {
-  T operator()(T Min, T Max, T X) {
-    DXASSERT_NOMSG(Min < Max);
-
-    if (X <= Min)
-      return 0.0;
-    if (X >= Max)
-      return 1.0;
-
-    T NormalizedX = (X - Min) / (Max - Min);
-    NormalizedX = std::clamp(NormalizedX, T(0.0), T(1.0));
-    return NormalizedX * NormalizedX * (T(3.0) - T(2.0) * NormalizedX);
-  }
-};
-
 DEFAULT_OP_3(OpType::Fma, (A * B + C));
 
 //
@@ -895,8 +879,6 @@ BINARY_COMPARISON_OP(OpType::NotEqual, (A != B));
 
 DEFAULT_OP_2(OpType::Logical_And, (A && B));
 DEFAULT_OP_2(OpType::Logical_Or, (A || B));
-DEFAULT_OP_2(OpType::TernaryAssignment_True, (true ? A : B));
-DEFAULT_OP_2(OpType::TernaryAssignment_False, (false ? A : B));
 
 //
 // dispatchTest
@@ -1083,12 +1065,8 @@ public:
   HLK_TEST(Mad, int64_t, ScalarOp3);
   HLK_TEST(Mad, HLSLHalf_t, Vector);
   HLK_TEST(Mad, HLSLHalf_t, ScalarOp2);
-  HLK_TEST(SmoothStep, HLSLHalf_t, Vector);
-  HLK_TEST(SmoothStep, HLSLHalf_t, ScalarOp2);
   HLK_TEST(Mad, float, Vector);
   HLK_TEST(Mad, float, ScalarOp2);
-  HLK_TEST(SmoothStep, float, Vector);
-  HLK_TEST(SmoothStep, float, ScalarOp3);
   HLK_TEST(Fma, double, Vector);
   HLK_TEST(Fma, double, ScalarOp2);
   HLK_TEST(Mad, double, Vector);
@@ -1518,9 +1496,6 @@ public:
   HLK_TEST(Logical_Or, HLSLBool_t, Vector);
   HLK_TEST(Logical_And, HLSLBool_t, ScalarOp2);
   HLK_TEST(Logical_Or, HLSLBool_t, ScalarOp2);
-
-  // NOTE: TernaryAssignment_True and TernaryAssignment_False don't have tests.
-  // Do we want them?
 
 private:
   bool Initialized = false;
