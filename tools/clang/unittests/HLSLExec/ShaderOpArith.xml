@@ -3786,9 +3786,7 @@ void MSMain(uint GID : SV_GroupIndex,
 
         #ifdef FUNC_TERNARY_ASSIGNMENT
         vector<TYPE, NUM> TestTernaryAssignment(vector<TYPE, NUM> Vector,
-        vector<TYPE, NUM> Vector2))
-        #ifdef FUNC_UNARY_OPERATOR
-        vector<OUT_TYPE, NUM> TestUnaryOperator(vector<TYPE, NUM> Vector)
+                                                vector<TYPE, NUM> Vector2))
         {
           return (TERNARY_CONDITION ? Vector : Vector2);
         }
