@@ -487,10 +487,18 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
   std::vector<CHLSLReflectionType> Types;
 
-  std::vector<uint32_t> StructIds;
-  std::vector<uint32_t> UnionIds;
-  std::unordered_map<std::string, uint32_t> NameToStructId;
-  std::unordered_map<std::string, uint32_t> NameToUnionId;
+  enum class FwdDeclType {
+      STRUCT,
+      UNION,
+      ENUM,
+      FUNCTION,
+      COUNT
+  };
+
+  std::vector<uint32_t> NonFwdIds[int(FwdDeclType::COUNT)];
+
+  std::unordered_map<std::string, uint32_t>
+      NameToNonFwdIds[int(FwdDeclType::COUNT)];
 
   DxcHLSLReflection() = default;
 
@@ -501,17 +509,66 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     ChildCountsNonRecursive.resize(Data.Nodes.size());
     ChildrenNonRecursive.clear();
 
+    bool hasSymbols = Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
+
     for (uint32_t i = 0; i < uint32_t(Data.Nodes.size()); ++i) {
 
       const DxcHLSLNode &node = Data.Nodes[i];
-      uint32_t childCount = 0;
 
-      for (uint32_t j = 0; j < node.GetChildCount(); ++j, ++childCount) {
-        ChildrenNonRecursive[i].push_back(i + 1 + j);
-        j += Data.Nodes[i + 1 + j].GetChildCount();
+      //Filter out fwd declarations for structs, unions, functions, enums
+
+      if (!node.IsFwdDeclare()) {
+
+        FwdDeclType type = FwdDeclType::COUNT;
+
+        switch (node.GetNodeType()) {
+
+        case D3D12_HLSL_NODE_TYPE_STRUCT:
+          type = FwdDeclType::STRUCT;
+          break;
+
+        case D3D12_HLSL_NODE_TYPE_UNION:
+          type = FwdDeclType::UNION;
+          break;
+
+        case D3D12_HLSL_NODE_TYPE_FUNCTION:
+          type = FwdDeclType::FUNCTION;
+          break;
+
+        case D3D12_HLSL_NODE_TYPE_ENUM:
+          type = FwdDeclType::ENUM;
+          break;
+        }
+
+        if (type != FwdDeclType::COUNT) {
+
+          uint32_t typeId = node.GetLocalId();
+
+          NonFwdIds[int(type)].push_back(typeId);
+
+          if (hasSymbols)
+            NameToNonFwdIds[int(type)]
+                           [Data.Strings[Data.NodeSymbols[i].NameId]] = typeId;
+
+          break;
+        }
       }
 
-      ChildCountsNonRecursive[i] = childCount;
+      for (uint32_t j = 0; j < node.GetChildCount(); ++j) {
+
+        const DxcHLSLNode &nodej = Data.Nodes[i + 1 + j];
+
+        //Filter out definitions that were previously fwd declared
+        //And resolve fwd declarations
+
+        if (nodej.IsFwdDeclare() || !nodej.IsFwdBckDefined())
+          ChildrenNonRecursive[i].push_back(
+              nodej.IsFwdDeclare() ? nodej.GetFwdBck() : i + 1 + j);
+
+        j += nodej.GetChildCount();
+      }
+
+      ChildCountsNonRecursive[i] = uint32_t(ChildrenNonRecursive[i].size());
     }
 
     NameToConstantBuffers.clear();
@@ -527,11 +584,9 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
                                     ChildrenNonRecursive, &ConstantBuffers[i],
                                     Types);
 
-      if (Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO)
+      if (hasSymbols)
         NameToConstantBuffers[ConstantBuffers[i].GetName()] = i;
     }
-
-    //TODO: Lookup table to struct id and union id
   }
 
   DxcHLSLReflection(DxcHLSLReflectionData &&moved) : Data(moved) {
@@ -539,16 +594,19 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
   }
 
   DxcHLSLReflection &operator=(DxcHLSLReflection &&moved) {
+
     Data = std::move(moved.Data);
     ChildCountsNonRecursive = std::move(moved.ChildCountsNonRecursive);
     ChildrenNonRecursive = std::move(moved.ChildrenNonRecursive);
     ConstantBuffers = std::move(moved.ConstantBuffers);
     NameToConstantBuffers = std::move(moved.NameToConstantBuffers);
     Types = std::move(moved.Types);
-    StructIds = std::move(moved.StructIds);
-    UnionIds = std::move(moved.UnionIds);
-    NameToStructId = std::move(moved.NameToStructId);
-    NameToUnionId = std::move(moved.NameToUnionId);
+
+    for (int i = 0; i < int(FwdDeclType::COUNT); ++i) {
+      NonFwdIds[i] = std::move(moved.NonFwdIds[i]);
+      NameToNonFwdIds[i] = std::move(moved.NameToNonFwdIds[i]);
+    }
+
     return *this;
   }
 
@@ -561,12 +619,12 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     *pDesc = {Data.Features,
               uint32_t(Data.Buffers.size()),
               uint32_t(Data.Registers.size()),
-              uint32_t(Data.Functions.size()),
-              uint32_t(Data.Enums.size()),
+              uint32_t(NonFwdIds[int(FwdDeclType::FUNCTION)].size()),
+              uint32_t(NonFwdIds[int(FwdDeclType::ENUM)].size()),
               uint32_t(Data.Nodes.size()),
               uint32_t(Data.Types.size()),
-              uint32_t(StructIds.size()),
-              uint32_t(UnionIds.size())};
+              uint32_t(NonFwdIds[int(FwdDeclType::STRUCT)].size()),
+              uint32_t(NonFwdIds[int(FwdDeclType::UNION)].size())};
 
     return S_OK;
   }
@@ -605,14 +663,15 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
   }
   
   STDMETHOD(GetEnumDesc)
-      (THIS_ _In_ UINT EnumIndex, _Out_ D3D12_HLSL_ENUM_DESC* pDesc) override {
+      (THIS_ _In_ UINT EnumIndex, _Out_ D3D12_HLSL_ENUM_DESC *pDesc) override {
 
     IFR(ZeroMemoryToOut(pDesc));
 
-    if (EnumIndex >= Data.Enums.size())
+    if (EnumIndex >= NonFwdIds[int(FwdDeclType::ENUM)].size())
       return E_INVALIDARG;
 
-    const DxcHLSLEnumDesc &enm = Data.Enums[EnumIndex];
+    const DxcHLSLEnumDesc &enm =
+        Data.Enums[NonFwdIds[int(FwdDeclType::ENUM)][EnumIndex]];
 
     LPCSTR name =
         Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO
@@ -631,10 +690,10 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
     IFR(ZeroMemoryToOut(pValueDesc));
 
-    if (EnumIndex >= Data.Enums.size())
+    if (EnumIndex >= NonFwdIds[int(FwdDeclType::ENUM)].size())
       return E_INVALIDARG;
 
-    const DxcHLSLEnumDesc &enm = Data.Enums[EnumIndex];
+    const DxcHLSLEnumDesc &enm = Data.Enums[NonFwdIds[int(FwdDeclType::ENUM)][EnumIndex]];
     const DxcHLSLNode &parent = Data.Nodes[enm.NodeId];
 
     if (ValueIndex >= parent.GetChildCount())
@@ -683,10 +742,11 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
     IFR(ZeroMemoryToOut(pDesc));
 
-    if (FunctionIndex >= Data.Functions.size())
+    if (FunctionIndex >= NonFwdIds[int(FwdDeclType::FUNCTION)].size())
       return E_INVALIDARG;
 
-    const DxcHLSLFunction &func = Data.Functions[FunctionIndex];
+    const DxcHLSLFunction &func =
+        Data.Functions[NonFwdIds[int(FwdDeclType::FUNCTION)][FunctionIndex]];
 
     LPCSTR name =
         Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO
@@ -713,11 +773,24 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
     const DxcHLSLNode &node = Data.Nodes[NodeId];
 
+    uint32_t localId = node.GetLocalId();
+    uint32_t parentId = node.GetParentId();
+
+    //Real local id is at definition
+
+    if (node.IsFwdDeclare())
+      localId = Data.Nodes[node.GetFwdBck()].GetLocalId();
+
+    //Real parent is at declaration
+
+    else if(node.IsFwdBckDefined())
+      parentId = Data.Nodes[node.GetFwdBck()].GetParentId();
+
     *pDesc = D3D12_HLSL_NODE{name,
                              node.GetNodeType(),
-                             node.GetLocalId(),
+                             localId,
                              ChildCountsNonRecursive[NodeId],
-                             node.GetParentId(),
+                             parentId,
                              node.GetAnnotationCount(),
                              node.IsFwdBckDefined() ? node.GetFwdBck()
                                                     : uint32_t(-1),
@@ -776,10 +849,10 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
     IFR(ZeroMemoryToOut(ppType));
 
-    if (Index >= StructIds.size())
+    if (Index >= NonFwdIds[int(FwdDeclType::STRUCT)].size())
       return E_INVALIDARG;
 
-    *ppType = &Types[StructIds[Index]];
+    *ppType = &Types[NonFwdIds[int(FwdDeclType::STRUCT)][Index]];
     return S_OK;
   }
 
@@ -789,10 +862,10 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
     IFR(ZeroMemoryToOut(ppType));
 
-    if (Index >= UnionIds.size())
+    if (Index >= NonFwdIds[int(FwdDeclType::UNION)].size())
       return E_INVALIDARG;
 
-    *ppType = &Types[UnionIds[Index]];
+    *ppType = &Types[NonFwdIds[int(FwdDeclType::UNION)][Index]];
     return S_OK;
   }
   
@@ -887,6 +960,9 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
     const DxcHLSLNode &node = Data.Nodes[nodeId];
 
+    if (node.IsFwdDeclare())
+      return E_UNEXPECTED;
+
     if (node.GetNodeType() != D3D12_HLSL_NODE_TYPE_ENUM)
       return E_INVALIDARG;
 
@@ -903,6 +979,9 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     IFR(GetNodeByName(Name, &nodeId));
 
     const DxcHLSLNode &node = Data.Nodes[nodeId];
+
+    if (node.IsFwdDeclare())
+      return E_UNEXPECTED;
 
     if (node.GetNodeType() != D3D12_HLSL_NODE_TYPE_ENUM)
       return E_INVALIDARG;
@@ -932,6 +1011,9 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     IFR(GetNodeByName(Name, &nodeId));
 
     const DxcHLSLNode &node = Data.Nodes[nodeId];
+
+    if (node.IsFwdDeclare())
+      return E_UNEXPECTED;
 
     if (node.GetNodeType() != D3D12_HLSL_NODE_TYPE_FUNCTION)
       return E_INVALIDARG;
@@ -965,9 +1047,9 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     if (!(Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO))
       return E_INVALIDARG;
 
-    auto it = NameToStructId.find(Name);
+    auto it = NameToNonFwdIds[int(FwdDeclType::STRUCT)].find(Name);
 
-    if (it == NameToStructId.end())
+    if (it == NameToNonFwdIds[int(FwdDeclType::STRUCT)].end())
       return E_INVALIDARG;
 
     *ppType = &Types[it->second];
@@ -986,9 +1068,9 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     if (!(Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO))
       return E_INVALIDARG;
 
-    auto it = NameToUnionId.find(Name);
+    auto it = NameToNonFwdIds[int(FwdDeclType::UNION)].find(Name);
 
-    if (it == NameToUnionId.end())
+    if (it == NameToNonFwdIds[int(FwdDeclType::UNION)].end())
       return E_INVALIDARG;
 
     *ppType = &Types[it->second];

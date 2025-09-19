@@ -173,14 +173,19 @@ enum D3D12_HLSL_NODE_TYPE {
   D3D12_HLSL_NODE_TYPE_ENUM,
   D3D12_HLSL_NODE_TYPE_ENUM_VALUE,
   D3D12_HLSL_NODE_TYPE_NAMESPACE,
-  D3D12_HLSL_NODE_TYPE_VARIABLE,    // localId points to the type
-  D3D12_HLSL_NODE_TYPE_TYPEDEF,     // ^
-  D3D12_HLSL_NODE_TYPE_STRUCT,      // has Variables as member like buffers do, localId is unused
-  D3D12_HLSL_NODE_TYPE_UNION,       // ^
+
+  D3D12_HLSL_NODE_TYPE_VARIABLE, // localId points to the type
+  D3D12_HLSL_NODE_TYPE_TYPEDEF,  // ^
+
+  D3D12_HLSL_NODE_TYPE_STRUCT,   // has Variables as member like buffers do,
+                                 // localId is the typeId (if not fwd decl)
+  D3D12_HLSL_NODE_TYPE_UNION,    // ^
+
   // TODO: D3D12_HLSL_NODE_TYPE_USING,
   // TODO: D3D12_HLSL_NODE_TYPE_PARAMETER,
 
-  D3D12_HLSL_NODE_TYPE_RESERVED = 1 << 7,       //Highest bit; reserved as an indicator for fwd declarations
+  D3D12_HLSL_NODE_TYPE_RESERVED =
+      1 << 7, // Highest bit; reserved as an indicator for fwd declarations
 
   D3D12_HLSL_NODE_TYPE_START = D3D12_HLSL_NODE_TYPE_REGISTER,
   D3D12_HLSL_NODE_TYPE_END = D3D12_HLSL_NODE_TYPE_UNION

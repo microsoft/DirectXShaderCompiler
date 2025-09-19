@@ -465,6 +465,10 @@ struct DxcHLSLAnnotation {
   }
 };
 
+//Note: Regarding nodes, node 0 is the root node (global scope)
+//      If a node is a fwd declare you should inspect the fwd node id.
+//      If a node isn't a fwd declare but has a backward id, it should be ignored during traversal.
+//      This node can be defined in a different namespace or type while it's declared elsewhere.
 struct DxcHLSLReflectionData {
 
   D3D12_HLSL_REFLECTION_FEATURE Features{};

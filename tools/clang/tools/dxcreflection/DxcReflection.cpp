@@ -1282,10 +1282,17 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
       if (pushObj) {
 
+        uint32_t typeId = 0;
+
+        if (isCompleteDefinition)
+          typeId = GenerateTypeInfo(
+              ASTCtx, Refl, RecDecl->getASTContext().getRecordType(RecDecl),
+              DefaultRowMaj);
+
         uint32_t self = PushNextNodeId(
             Refl, SM, ASTCtx.getLangOpts(), RecDecl->getName(), RecDecl,
             isStruct ? D3D12_HLSL_NODE_TYPE_STRUCT : D3D12_HLSL_NODE_TYPE_UNION,
-            ParentNodeId, 0, nullptr, &FwdDecls);
+            ParentNodeId, typeId, nullptr, &FwdDecls);
 
         if (self == uint32_t(-1)) // Duplicate fwd definition
           continue;
@@ -1531,7 +1538,7 @@ static void RecursePrintType(const DxcHLSLReflectionData &Refl, uint32_t TypeId,
 }
 
 uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
-                      uint32_t Depth, uint32_t IndexInParent) {
+                      uint32_t Depth, uint32_t IndexInParent, bool isThroughFwdDecl = false) {
 
   const DxcHLSLNode &node = Refl.Nodes[NodeId];
 
@@ -1541,11 +1548,18 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
 
     bool hasSymbols = Refl.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
-    printf("%s%s %s%s\n", std::string(Depth - 1, '\t').c_str(),
-           NodeTypeToString(node.GetNodeType()).c_str(),
-           hasSymbols ? Refl.Strings[Refl.NodeSymbols[NodeId].NameId].c_str()
-                      : "(unknown)",
-           node.IsFwdDeclare() ? " (fwd declare)" : "");
+    if (!isThroughFwdDecl)
+      printf("%s%s %s%s\n", std::string(Depth - 1, '\t').c_str(),
+             NodeTypeToString(node.GetNodeType()).c_str(),
+             hasSymbols ? Refl.Strings[Refl.NodeSymbols[NodeId].NameId].c_str()
+                        : "(unknown)",
+             node.IsFwdDeclare() ? " (declaration)"
+                                 : (!isThroughFwdDecl && node.IsFwdBckDefined()
+                                        ? " (definition)"
+                                        : ""));
+
+    if (node.IsFwdBckDefined() && !node.IsFwdDeclare() && !isThroughFwdDecl)
+      return node.GetChildCount();
 
     for (uint32_t i = 0; i < node.GetAnnotationCount(); ++i) {
 
@@ -1554,63 +1568,63 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
 
       printf(annotation.GetIsBuiltin() ? "%s[%s]\n" : "%s[[%s]]\n",
              std::string(Depth, '\t').c_str(),
-             Refl.StringsNonDebug[annotation.GetStringNonDebug()]
-              .c_str());
+             Refl.StringsNonDebug[annotation.GetStringNonDebug()].c_str());
     }
 
     uint32_t localId = node.GetLocalId();
 
-    switch (node.GetNodeType()) {
-        
-    case D3D12_HLSL_NODE_TYPE_REGISTER: {
+    if (!node.IsFwdDeclare())
+      switch (node.GetNodeType()) {
 
-      const DxcHLSLRegister &reg = Refl.Registers[localId];
+      case D3D12_HLSL_NODE_TYPE_REGISTER: {
 
-      if (reg.ArrayId == (uint32_t)-1 && reg.BindCount == 1)
+        const DxcHLSLRegister &reg = Refl.Registers[localId];
+
+        if (reg.ArrayId == (uint32_t)-1 && reg.BindCount == 1)
+          break;
+
+        printf("%s%s\n", std::string(Depth, '\t').c_str(),
+               RegisterGetArraySize(Refl, reg).c_str());
+        break;
+      }
+
+      case D3D12_HLSL_NODE_TYPE_UNION:
+      case D3D12_HLSL_NODE_TYPE_STRUCT: // Children are Variables
         break;
 
-      printf("%s%s\n",
-             std::string(Depth, '\t').c_str(),
-             RegisterGetArraySize(Refl, reg).c_str());
-      break;
-    }
-        
-    case D3D12_HLSL_NODE_TYPE_UNION:
-    case D3D12_HLSL_NODE_TYPE_STRUCT:   //Children are Variables
-      break;
+        // TODO: case D3D12_HLSL_NODE_TYPE_USING:
 
-    // TODO: case D3D12_HLSL_NODE_TYPE_USING:
-
-    case D3D12_HLSL_NODE_TYPE_TYPEDEF:
-    case D3D12_HLSL_NODE_TYPE_VARIABLE:
-      typeToPrint = localId;
-      break;
-
-    case D3D12_HLSL_NODE_TYPE_FUNCTION: {
-      const DxcHLSLFunction &func = Refl.Functions[localId];
-      printf("%sreturn: %s, hasDefinition: %s, numParams: %u\n",
-             std::string(Depth, '\t').c_str(),
-             func.HasReturn() ? "true" : "false",
-             func.HasDefinition() ? "true" : "false", func.GetNumParameters());
-
-      break;
-    }
-
-    case D3D12_HLSL_NODE_TYPE_ENUM:
-      printf("%s: %s\n", std::string(Depth, '\t').c_str(),
-             EnumTypeToString(Refl.Enums[localId].Type).c_str());
-      break;
-
-    case D3D12_HLSL_NODE_TYPE_ENUM_VALUE: {
-      printf("%s#%u = %" PRIi64 "\n", std::string(Depth, '\t').c_str(),
-             IndexInParent, Refl.EnumValues[localId].Value);
+      case D3D12_HLSL_NODE_TYPE_TYPEDEF:
+      case D3D12_HLSL_NODE_TYPE_VARIABLE:
+        typeToPrint = localId;
         break;
-    }
 
-    case D3D12_HLSL_NODE_TYPE_NAMESPACE:
-    default:
-      break;
-    }
+      case D3D12_HLSL_NODE_TYPE_FUNCTION: {
+        const DxcHLSLFunction &func = Refl.Functions[localId];
+        printf("%sreturn: %s, hasDefinition: %s, numParams: %u\n",
+               std::string(Depth, '\t').c_str(),
+               func.HasReturn() ? "true" : "false",
+               func.HasDefinition() ? "true" : "false",
+               func.GetNumParameters());
+
+        break;
+      }
+
+      case D3D12_HLSL_NODE_TYPE_ENUM:
+        printf("%s: %s\n", std::string(Depth, '\t').c_str(),
+               EnumTypeToString(Refl.Enums[localId].Type).c_str());
+        break;
+
+      case D3D12_HLSL_NODE_TYPE_ENUM_VALUE: {
+        printf("%s#%u = %" PRIi64 "\n", std::string(Depth, '\t').c_str(),
+               IndexInParent, Refl.EnumValues[localId].Value);
+        break;
+      }
+
+      case D3D12_HLSL_NODE_TYPE_NAMESPACE:
+      default:
+        break;
+      }
   }
 
   if (typeToPrint != (uint32_t)-1)
@@ -1618,6 +1632,9 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
 
   for (uint32_t i = 0, j = 0; i < node.GetChildCount(); ++i, ++j)
     i += RecursePrint(Refl, NodeId + 1 + i, Depth + 1, j);
+
+  if (node.IsFwdDeclare())
+    RecursePrint(Refl, node.GetFwdBck(), Depth, IndexInParent, true);
 
   return node.GetChildCount();
 }
@@ -1843,7 +1860,13 @@ uint32_t RecurseNameGeneration(DxcHLSLReflectionData &Refl, uint32_t NodeId,
                                uint32_t LocalId, const std::string &Parent,
                                bool IsDot) {
 
-  const DxcHLSLNode &node = Refl.Nodes[NodeId];
+  DxcHLSLNode node = Refl.Nodes[NodeId];
+
+  if (node.IsFwdDeclare()) {
+      NodeId = node.GetFwdBck();
+      node = Refl.Nodes[NodeId];
+  }
+
   std::string self = Refl.Strings[Refl.NodeSymbols[NodeId].NameId];
 
   if (self.empty() && NodeId)
@@ -2009,6 +2032,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     case D3D12_HLSL_NODE_TYPE_STRUCT:
     case D3D12_HLSL_NODE_TYPE_UNION:
       allowFwdDeclare = true;
+      maxValue = node.IsFwdDeclare() ? 1 : header.Types;
       break;
     }
 
