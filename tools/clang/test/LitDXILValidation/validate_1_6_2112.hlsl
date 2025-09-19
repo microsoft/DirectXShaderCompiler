@@ -3,8 +3,8 @@
 // Verify that the older DLL is being loaded, and that
 // due to it being older, it errors on something that would
 // be accepted in newer validators.
-// Specifically, newer validators would support the 6.9 target
-// profile, and wouldn't emit the below error.
+// Specifically, the v1.6.2112 validator would emit the 
+// below validation error, while newer validators wouldn't.
 
 // RUN: not dxc -T cs_6_9 %s 2>&1 | FileCheck %s
 // CHECK: error: validator version 1,6 does not support target profile.
