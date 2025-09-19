@@ -1,3 +1,7 @@
+#ifndef _WIN32
+#include "dxc/WinAdapter.h"
+#endif
+
 #include "dxc/Support/WinIncludes.h"
 #include <dxc/Support/Global.h> // for hresult handling with DXC_FAILED
 #include <filesystem>           // C++17 and later
@@ -6,10 +10,6 @@
 #include "dxc/Support/dxcapi.extval.h"
 #include "dxc/Support/microcom.h"
 #include <iostream>
-
-#ifndef _WIN32
-#include "dxc/WinAdapter.h"
-#endif
 
 std::vector<std::wstring> AddExtValCompilationArgs(UINT32 ArgCount,
                                                    LPCWSTR *pArguments,
@@ -102,22 +102,32 @@ public:
     return m_pCompiler->Disassemble(pSource, ppDisassembly);
   }
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID IID, void **Object) override {
-    if (IsEqualIID(IID, _uuidof(IUnknown))) {
+  HRESULT STDMETHODCALLTYPE
+  ExternalValidationHelper::QueryInterface(REFIID iid, void **ppvObject) {
+
+    if (!ppvObject)
+      return E_POINTER;
+
+    *ppvObject = nullptr;
+
+    if (IsEqualIID(iid, _uuidof(IUnknown))) {
       AddRef();
-      *Object = static_cast<IDxcCompiler *>(this);
+      *ppvObject = static_cast<IDxcCompiler *>(this);
       return S_OK;
     }
-    if (IsEqualIID(IID, _uuidof(IDxcCompiler)) && m_pCompiler) {
+
+    if (IsEqualIID(iid, _uuidof(IDxcCompiler)) && m_pCompiler) {
       AddRef();
-      *Object = static_cast<IDxcCompiler *>(this);
+      *ppvObject = static_cast<IDxcCompiler *>(this);
       return S_OK;
     }
-    if (IsEqualIID(IID, _uuidof(IDxcCompiler3)) && m_pCompiler3) {
+
+    if (IsEqualIID(iid, _uuidof(IDxcCompiler3)) && m_pCompiler3) {
       AddRef();
-      *Object = static_cast<IDxcCompiler3 *>(this);
+      *ppvObject = static_cast<IDxcCompiler3 *>(this);
       return S_OK;
     }
+
     return E_NOINTERFACE;
   }
 
