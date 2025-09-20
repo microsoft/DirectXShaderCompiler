@@ -599,9 +599,11 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
         // Filter out definitions that were previously fwd declared
         // And resolve fwd declarations
 
-        if (nodej.IsFwdDeclare() || !nodej.IsFwdBckDefined())
-          ChildrenNonRecursive[i].push_back(
-              nodej.IsFwdDeclare() ? nodej.GetFwdBck() : i + 1 + j);
+        if (nodej.IsFwdDeclare() && nodej.IsFwdBckDefined())
+          ChildrenNonRecursive[i].push_back(nodej.GetFwdBck());
+
+        if (!nodej.IsFwdBckDefined())
+          ChildrenNonRecursive[i].push_back(i + 1 + j);
 
         j += nodej.GetChildCount();
       }
@@ -820,8 +822,10 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
     //Real local id is at definition
 
-    if (node.IsFwdDeclare())
-      localId = Data.Nodes[node.GetFwdBck()].GetLocalId();
+    if (node.IsFwdDeclare()) {
+      if (node.IsFwdBckDefined())
+        localId = Data.Nodes[node.GetFwdBck()].GetLocalId();
+    }
 
     //Real parent is at declaration
 
@@ -1053,9 +1057,6 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     IFR(GetNodeByName(Name, &nodeId));
 
     const DxcHLSLNode &node = Data.Nodes[nodeId];
-
-    if (node.IsFwdDeclare())
-      return E_UNEXPECTED;
 
     if (node.GetNodeType() != D3D12_HLSL_NODE_TYPE_FUNCTION)
       return E_INVALIDARG;
