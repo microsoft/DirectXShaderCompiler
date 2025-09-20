@@ -227,6 +227,7 @@ public:
   std::string TimeTrace = "";           // OPT_ftime_trace[EQ]
   unsigned TimeTraceGranularity = 500;  // OPT_ftime_trace_granularity_EQ
   bool VerifyDiagnostics = false;       // OPT_verify
+  bool Verbose = false;                 // OPT_verbose
 
   // Optimization pass enables, disables and selects
   OptimizationToggles

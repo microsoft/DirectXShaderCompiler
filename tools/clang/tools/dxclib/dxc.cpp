@@ -51,6 +51,7 @@
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/dxcapi.extval.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.h"
@@ -125,7 +126,7 @@ class DxcContext {
 
 private:
   DxcOpts &m_Opts;
-  SpecificDllLoader &m_dxcSupport;
+  DxcDllExtValidationLoader &m_dxcSupport;
 
   int ActOnBlob(IDxcBlob *pBlob);
   int ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugBlobName);
@@ -155,7 +156,7 @@ private:
   }
 
 public:
-  DxcContext(DxcOpts &Opts, SpecificDllLoader &dxcSupport)
+  DxcContext(DxcOpts &Opts, DxcDllExtValidationLoader &dxcSupport)
       : m_Opts(Opts), m_dxcSupport(dxcSupport) {}
 
   int Compile();
@@ -167,6 +168,8 @@ public:
   int Link();
   void Preprocess();
   void GetCompilerVersionInfo(llvm::raw_string_ostream &OS);
+  int MaybeRunExternalValidatorAndPrintValidationOutput(
+      const DxcOpts &opts, CComPtr<IDxcOperationResult> pCompileResult);
 };
 
 static void WriteBlobToFile(IDxcBlob *pBlob, llvm::StringRef FName,
@@ -808,6 +811,51 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
   *ppCompileResult = pResult.Detach();
 }
 
+int DxcContext::MaybeRunExternalValidatorAndPrintValidationOutput(
+    const DxcOpts &opts, CComPtr<IDxcOperationResult> pCompileResult) {
+
+  // TODO: These conditions are the ones checked to disable internal
+  // validation, but it's missing rootSigMajor == 0, that doesn't seem
+  // straight forward to repro in this context.
+
+  bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
+                              !opts.OptDump && !opts.DumpDependencies &&
+                              !opts.VerifyDiagnostics;
+  bool NeedsValidation = produceFullContainer && !opts.DisableValidation;
+  if (!NeedsValidation)
+    return S_OK;
+
+  CComPtr<IDxcValidator> pValidator;
+  IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
+
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcOperationResult> pValResult;
+
+  IFT(pCompileResult->GetResult(&pProgram));
+
+  IFT(pValidator->Validate(pProgram, DxcValidatorFlags_InPlaceEdit,
+                           &pValResult));
+  CComPtr<IDxcResult> pResult;
+  HRESULT ValHR;
+  pValResult->GetStatus(&ValHR);
+
+  if (SUCCEEDED(ValHR))
+    return ValHR;
+
+  HRESULT hr;
+  if (FAILED(hr = pValResult->QueryInterface(&pResult)))
+    return hr;
+
+  CComPtr<IDxcBlobEncoding> pErrorBlob;
+  CComPtr<IDxcBlobWide> pErrorOutput;
+
+  IFT(pResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrorBlob),
+                         &pErrorOutput));
+
+  WriteBlobToConsole(pErrorBlob);
+  return ValHR;
+}
+
 int DxcContext::Compile() {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pCompileResult;
@@ -871,11 +919,34 @@ int DxcContext::Compile() {
           outputPDBPath += pDebugName.m_pData;
         }
       } else {
-        IFT(pCompiler->Compile(
-            pSource, StringRefWide(m_Opts.InputFile),
-            StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
-            args.data(), args.size(), m_Opts.Defines.data(),
-            m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
+        // if there is no intent to validate externally
+        if (m_dxcSupport.GetDxilDllPath().empty()) {
+          IFT(pCompiler->Compile(
+              pSource, StringRefWide(m_Opts.InputFile),
+              StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
+              args.data(), args.size(), m_Opts.Defines.data(),
+              m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
+        } else {
+          // This compilation invocation will sub in "-Vd" to disable internal
+          // validation so that validation is handled directly immediately
+          // afterwards.
+          IFT(pCompiler->Compile(
+              pSource, StringRefWide(m_Opts.InputFile),
+              StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
+              args.data(), args.size(), m_Opts.Defines.data(),
+              m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
+
+          // Then validate, only if compilation succeeded
+          HRESULT CompHR;
+          pCompileResult->GetStatus(&CompHR);
+
+          if (!DXC_FAILED(CompHR)) {
+            HRESULT ValHR = MaybeRunExternalValidatorAndPrintValidationOutput(
+                m_Opts, pCompileResult);
+            if (DXC_FAILED(ValHR))
+              return ValHR;
+          }
+        }
       }
     }
 
@@ -1416,7 +1487,6 @@ int dxc::main(int argc, const char **argv_) {
     const OptTable *optionTable = getHlslOptTable();
     MainArgs argStrings(argc, argv_);
     DxcOpts dxcOpts;
-    DXCLibraryDllLoader dxcSupport;
 
     // Read options and check errors.
     {
@@ -1448,20 +1518,24 @@ int dxc::main(int argc, const char **argv_) {
 #endif
 
     // Setup a helper DLL.
+    DxcDllExtValidationLoader dxcSupport;
     {
-      std::string dllErrorString;
-      llvm::raw_string_ostream dllErrorStream(dllErrorString);
-      int dllResult =
-          SetupSpecificDllLoader(dxcOpts, dxcSupport, dllErrorStream);
-      dllErrorStream.flush();
-      if (dllErrorString.size()) {
-        fprintf(stderr, "%s\n", dllErrorString.data());
-      }
-      if (dllResult)
+      std::string dllLogString;
+      llvm::raw_string_ostream dllErrorStream(dllLogString);
+      HRESULT dllResult = dxcSupport.Initialize(dllErrorStream);
+      if (DXC_FAILED(dllResult)) {
+        dllErrorStream << "Unable to load support for external DLL - error 0x";
+        dllErrorStream.write_hex(dllResult);
+        dllErrorStream.flush();
+        fprintf(stderr, "%s\n", dllLogString.data());
         return dllResult;
+      }
+
+      // if no errors setting up, print the log string as stdout
+      if (dxcOpts.Verbose)
+        fprintf(stdout, "%s\n", dllLogString.data());
     }
 
-    EnsureEnabled(dxcSupport);
     DxcContext context(dxcOpts, dxcSupport);
     // Handle help request, which overrides any other processing.
     if (dxcOpts.ShowHelp) {

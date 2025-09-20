@@ -1,3 +1,4 @@
+; REQUIRES: dxil-1-8
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
 ; The purpose of this test is to verify an error is emitted when pre-sm6.9

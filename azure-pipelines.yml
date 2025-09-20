@@ -45,7 +45,20 @@ stages:
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
         call utils\hct\hcttest.cmd -$(configuration) exec
-      displayName: 'DXIL Execution Tests'
+      displayName: 'DXIL Execution Tests'        
+    - script: |
+        call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite 2021
+      displayName: 'DXIL Compat Suite Tests (2021 release)'
+    - script: |
+        call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite 2023
+      displayName: 'DXIL Compat Suite Tests (2023 release)'
+    - script: |
+        call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite 2025
+      displayName: 'DXIL Compat Suite Tests (2025 release)'
+    
 
   - job: Nix
     timeoutInMinutes: 165
