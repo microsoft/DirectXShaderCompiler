@@ -895,22 +895,14 @@ static void FillReflectionRegisterAt(
   case D3D_SIT_UAV_CONSUME_STRUCTURED:
   case D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER: {
 
-    const RecordType *recordType = Type->getAs<RecordType>();
+    const TemplateSpecializationType *templateDesc =
+        Type->getAs<TemplateSpecializationType>();
 
-    assert(recordType && "Invalid type (not RecordType)");
+    assert(templateDesc->getNumArgs() == 1 &&
+           templateDesc->getArg(0).getKind() == TemplateArgument::Type &&
+           "Expected Type<T>");
 
-    const ClassTemplateSpecializationDecl *templateDesc =
-        dyn_cast<ClassTemplateSpecializationDecl>(recordType->getDecl());
-
-    assert(templateDesc && "Invalid template type");
-
-    const ArrayRef<TemplateArgument> &params =
-        templateDesc->getTemplateArgs().asArray();
-
-    assert(params.size() == 1 &&
-           params[0].getKind() == TemplateArgument::Type && "Expected Type<T>");
-
-    QualType innerType = params[0].getAsType();
+    QualType innerType = templateDesc->getArg(0).getAsType();
 
     // The name of the inner struct is $Element if 'array', otherwise equal to
     // register name
