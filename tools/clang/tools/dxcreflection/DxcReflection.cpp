@@ -1237,8 +1237,26 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
         type = arr->getElementType();
       }
 
-      if (!IsHLSLResourceType(type))
+      if (!IsHLSLResourceType(type)) {
+
+        VarDecl *varDecl = dyn_cast<VarDecl>(it);
+
+        // Handle $Globals
+
+        if (varDecl && Depth == 0 &&
+            varDecl->getStorageClass() != StorageClass::SC_Static) {
+
+          const std::string &name = ValDecl->getName();
+
+          uint32_t typeId =
+              GenerateTypeInfo(ASTCtx, Refl, ValDecl->getType(), DefaultRowMaj);
+
+          PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), name, it,
+                         D3D12_HLSL_NODE_TYPE_VARIABLE, ParentNodeId, typeId);
+        }
+
         continue;
+      }
 
       // TODO: Add Depth > 0 for reflection if
       // D3D12_HLSL_REFLECTION_FEATURE_SCOPES

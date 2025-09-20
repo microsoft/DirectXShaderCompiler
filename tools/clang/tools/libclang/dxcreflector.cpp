@@ -347,8 +347,7 @@ class CHLSLReflectionConstantBuffer final
 protected:
   const DxcHLSLReflectionData *m_Data;
   uint32_t m_ChildCount;
-  uint32_t m_BufferId;
-  uint32_t m_NodeId;
+  D3D_CBUFFER_TYPE m_BufferType;
   std::vector<CHLSLReflectionVariable> m_Variables;
   std::unordered_map<std::string, std::uint32_t> m_VariablesByName;
 
@@ -359,8 +358,7 @@ protected:
 public:
   CHLSLReflectionConstantBuffer() = default;
   CHLSLReflectionConstantBuffer(CHLSLReflectionConstantBuffer &&other) {
-    m_BufferId = other.m_BufferId;
-    m_NodeId = other.m_NodeId;
+    m_BufferType = other.m_BufferType;
     m_Data = other.m_Data;
     m_ChildCount = other.m_ChildCount;
     std::swap(m_ReflectionName, other.m_ReflectionName);
@@ -407,9 +405,8 @@ public:
       m_ReflectionName.clear();
 
     m_Data = &Data;
-    m_NodeId = NodeId;
     m_ChildCount = uint32_t(children.size());
-    m_BufferId = reg.BufferId;
+    m_BufferType = m_Data->Buffers[reg.BufferId].Type;
 
     m_VariablesByName.clear();
     m_Variables.resize(children.size());
@@ -433,6 +430,42 @@ public:
     }
   }
 
+  //$Globals (only if the global scope contains any VARIABLE node)
+  void InitializeGlobals(const DxcHLSLReflectionData &Data,
+                  const std::vector<uint32_t> &Globals,
+                  CHLSLReflectionConstantBuffer *ConstantBuffer,
+                  std::vector<CHLSLReflectionType> &Types) {
+
+    m_ReflectionName = "$Globals";
+
+    m_Data = &Data;
+    m_ChildCount = uint32_t(Globals.size());
+    m_BufferType = D3D_CT_CBUFFER;
+
+    m_VariablesByName.clear();
+    m_Variables.resize(Globals.size());
+
+    for (uint32_t i = 0, j = 0; i < m_ChildCount; ++i) {
+
+      uint32_t childId = Globals[i];
+
+      const DxcHLSLNode &node = Data.Nodes[childId];
+
+      std::string name;
+
+      if (Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO)
+        name = Data.Strings[Data.NodeSymbols[childId].NameId];
+
+      uint32_t typeId = Data.Nodes[childId].GetLocalId();
+
+      m_Variables[i].Initialize(ConstantBuffer, &Types[typeId],
+                                std::move(name));
+
+      if (Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO)
+        m_VariablesByName[m_Variables[i].GetName()] = i;
+    }
+  }
+
   LPCSTR GetName() const { return m_ReflectionName.c_str(); }
 
   STDMETHOD(GetDesc)(D3D12_SHADER_BUFFER_DESC *pDesc) override {
@@ -440,7 +473,7 @@ public:
     IFR(ZeroMemoryToOut(pDesc));
 
     *pDesc = D3D12_SHADER_BUFFER_DESC{
-        GetName(), m_Data->Buffers[m_BufferId].Type, m_ChildCount,
+        GetName(), m_BufferType, m_ChildCount,
         0 // TODO: Size when we have it
     };
 
@@ -510,12 +543,17 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     ChildrenNonRecursive.clear();
 
     bool hasSymbols = Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
+    std::vector<uint32_t> globalVars;
 
     for (uint32_t i = 0; i < uint32_t(Data.Nodes.size()); ++i) {
 
       const DxcHLSLNode &node = Data.Nodes[i];
 
-      //Filter out fwd declarations for structs, unions, functions, enums
+      if (node.GetNodeType() == D3D12_HLSL_NODE_TYPE_VARIABLE &&
+          !node.GetParentId())
+        globalVars.push_back(i);
+
+      // Filter out fwd declarations for structs, unions, functions, enums
 
       if (!node.IsFwdDeclare()) {
 
@@ -558,8 +596,8 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
         const DxcHLSLNode &nodej = Data.Nodes[i + 1 + j];
 
-        //Filter out definitions that were previously fwd declared
-        //And resolve fwd declarations
+        // Filter out definitions that were previously fwd declared
+        // And resolve fwd declarations
 
         if (nodej.IsFwdDeclare() || !nodej.IsFwdBckDefined())
           ChildrenNonRecursive[i].push_back(
@@ -572,7 +610,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     }
 
     NameToConstantBuffers.clear();
-    ConstantBuffers.resize(Data.Buffers.size());
+    ConstantBuffers.resize(Data.Buffers.size() + !globalVars.empty());
     Types.resize(Data.Types.size());
 
     for (uint32_t i = 0; i < (uint32_t)Data.Types.size(); ++i)
@@ -587,6 +625,10 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
       if (hasSymbols)
         NameToConstantBuffers[ConstantBuffers[i].GetName()] = i;
     }
+
+    if (globalVars.size())
+      ConstantBuffers[Data.Buffers.size()].InitializeGlobals(
+          Data, globalVars, &ConstantBuffers[Data.Buffers.size()], Types);
   }
 
   DxcHLSLReflection(DxcHLSLReflectionData &&moved) : Data(moved) {
