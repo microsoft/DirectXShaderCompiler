@@ -471,8 +471,8 @@ static uint32_t PushArray(DxcHLSLReflectionData &Refl, uint32_t ArraySizeFlat,
   uint32_t arrayId = uint32_t(Refl.Arrays.size());
 
   uint32_t arrayCountStart = uint32_t(Refl.ArraySizes.size());
-  uint32_t numArrayElements = std::min(size_t(8), ArraySize.size());
-  assert(Refl.ArraySizes.size() + numArrayElements < ((1 << 28) - 1) &&
+  uint32_t numArrayElements = std::min(size_t(32), ArraySize.size());
+  assert(Refl.ArraySizes.size() + numArrayElements < ((1 << 26) - 1) &&
          "Array elements would overflow");
 
   for (uint32_t i = 0; i < ArraySize.size() && i < 8; ++i) {
@@ -480,7 +480,7 @@ static uint32_t PushArray(DxcHLSLReflectionData &Refl, uint32_t ArraySizeFlat,
     uint32_t arraySize = ArraySize[i];
 
     // Flatten rest of array to at least keep consistent array elements
-    if (i == 7)
+    if (i == 31)
       for (uint32_t j = i + 1; j < ArraySize.size(); ++j)
         arraySize *= ArraySize[j];
 
@@ -2147,7 +2147,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
     const DxcHLSLArray &arr = Arrays[i];
 
-    if (arr.ArrayElem() <= 1 || arr.ArrayElem() > 8 ||
+    if (arr.ArrayElem() <= 1 || arr.ArrayElem() > 32 ||
         arr.ArrayStart() + arr.ArrayElem() > header.ArraySizes)
       throw std::invalid_argument("Array " + std::to_string(i) +
                                   " points to an invalid array element");

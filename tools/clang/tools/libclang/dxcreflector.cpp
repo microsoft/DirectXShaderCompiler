@@ -147,7 +147,7 @@ ID3D12ShaderReflectionConstantBuffer *CHLSLInvalidSRVariable::GetBuffer() {
 
 class CHLSLReflectionConstantBuffer;
 
-class CHLSLReflectionType final : public ID3D12ShaderReflectionType {
+class CHLSLReflectionType final : public ID3D12ShaderReflectionType1 {
   friend class CHLSLReflectionConstantBuffer;
 
 protected:
@@ -161,6 +161,7 @@ protected:
   const DxcHLSLReflectionData *m_Data;
   uint32_t m_TypeId;
   uint32_t m_Elements;
+  D3D12_ARRAY_DESC m_ArrayDesc;
 
 public:
 
@@ -174,6 +175,15 @@ public:
     return S_FALSE;
   }
 
+  STDMETHOD(GetArrayDesc)(THIS_ _Out_ D3D12_ARRAY_DESC *pArrayDesc) override {
+
+    if (!pArrayDesc)
+      return E_POINTER;
+
+    *pArrayDesc = m_ArrayDesc;
+    return S_OK;
+  }
+
   HRESULT Initialize(
       const DxcHLSLReflectionData &Data, uint32_t TypeId,
       std::vector<CHLSLReflectionType> &Types /* Only access < TypeId*/) {
@@ -181,6 +191,8 @@ public:
     m_TypeId = TypeId;
     m_Elements = 0;
     m_Data = &Data;
+
+    ZeroMemoryToOut(&m_ArrayDesc);
 
     const DxcHLSLType &type = Data.Types[TypeId];
 
@@ -193,8 +205,18 @@ public:
         const DxcHLSLArray &arr =
             Data.Arrays[type.GetMultiDimensionalArrayId()];
 
-        for (uint32_t i = 0; i < arr.ArrayElem(); ++i)
-          m_Elements *= Data.ArraySizes[arr.ArrayStart() + i];
+        m_ArrayDesc.ArrayDims = arr.ArrayElem();
+
+        for (uint32_t i = 0; i < arr.ArrayElem(); ++i) {
+          uint32_t len = Data.ArraySizes[arr.ArrayStart() + i];
+          m_Elements *= len;
+          m_ArrayDesc.ArrayLengths[i] = len;
+        }
+      }
+
+      else {
+        m_ArrayDesc.ArrayDims = 1;
+        m_ArrayDesc.ArrayLengths[0] = type.Get1DElements();
       }
     }
 
@@ -674,8 +696,8 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
   }
 
   STDMETHOD(GetResourceBindingDesc)
-      (THIS_ _In_ UINT ResourceIndex,
-          _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc) override {
+  (THIS_ _In_ UINT ResourceIndex,
+   _Out_ D3D12_SHADER_INPUT_BIND_DESC1 *pDesc) override {
 
     IFR(ZeroMemoryToOut(pDesc));
 
@@ -689,19 +711,36 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
             ? Data.Strings[Data.NodeSymbols[reg.NodeId].NameId].c_str()
             : "";
 
-    *pDesc = D3D12_SHADER_INPUT_BIND_DESC{
-        name,
-        D3D_SHADER_INPUT_TYPE(reg.Type),
-        uint32_t(-1),       //Invalid bindPoint, depending on backend we might want to change it
+    if (reg.BindCount > 1) {
+
+      if (reg.ArrayId != uint32_t(-1)) {
+
+        const DxcHLSLArray &arr = Data.Arrays[reg.ArrayId];
+
+        pDesc->ArrayInfo.ArrayDims = arr.ArrayElem();
+
+        for (uint32_t i = 0; i < pDesc->ArrayInfo.ArrayDims; ++i)
+          pDesc->ArrayInfo.ArrayLengths[i] =
+              Data.ArraySizes[arr.ArrayStart() + i];
+      }
+
+      else {
+        pDesc->ArrayInfo.ArrayDims = 1;
+        pDesc->ArrayInfo.ArrayLengths[0] = reg.BindCount;
+      }
+    }
+
+    pDesc->Desc = D3D12_SHADER_INPUT_BIND_DESC{
+        name, D3D_SHADER_INPUT_TYPE(reg.Type),
+        uint32_t(-1), // Invalid bindPoint, depending on backend we might
+                      // want to change it
         reg.BindCount,
 
-        reg.uFlags,
-        D3D_RESOURCE_RETURN_TYPE(reg.ReturnType),
+        reg.uFlags, D3D_RESOURCE_RETURN_TYPE(reg.ReturnType),
         D3D_SRV_DIMENSION(reg.Dimension),
-        uint32_t(-1),       // Also no valid data depending on backend
-        uint32_t(-1),       //Invalid space (see bindPoint ^)
-        reg.NodeId
-    };
+        uint32_t(-1), // Also no valid data depending on backend
+        uint32_t(-1), // Invalid space (see bindPoint ^)
+        reg.NodeId};
 
     return S_OK;
   }
@@ -884,6 +923,19 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     return &ConstantBuffers[Index];
   }
 
+  STDMETHOD(GetTypeByIndex)
+  (THIS_ _In_ UINT Index,
+   _Outptr_ ID3D12ShaderReflectionType **ppType) override {
+
+    IFR(ZeroMemoryToOut(ppType));
+
+    if (Index >= Types.size())
+      return E_INVALIDARG;
+
+    *ppType = &Types[Index];
+    return S_OK;
+  }
+
   //TODO:
   //// Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
   //STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
@@ -981,7 +1033,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
   }
 
   STDMETHOD(GetResourceBindingDescByName)
-  (THIS_ _In_ LPCSTR Name, _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc) override {
+  (THIS_ _In_ LPCSTR Name, _Out_ D3D12_SHADER_INPUT_BIND_DESC1 *pDesc) override {
 
     IFR(ZeroMemoryToOut(pDesc));
 

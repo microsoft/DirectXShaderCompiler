@@ -354,18 +354,18 @@ struct DxcHLSLArray {
 
   DxcHLSLArray() = default;
   DxcHLSLArray(uint32_t ArrayElem, uint32_t ArrayStart)
-      : ArrayElemStart((ArrayElem << 28) | ArrayStart) {
+      : ArrayElemStart((ArrayElem << 26) | ArrayStart) {
 
-    assert(ArrayElem <= 8 && ArrayElem > 1 && "ArrayElem out of bounds");
-    assert(ArrayStart < (1 << 28) && "ArrayStart out of bounds");
+    assert(ArrayElem <= 32 && ArrayElem > 1 && "ArrayElem out of bounds");
+    assert(ArrayStart < (1 << 26) && "ArrayStart out of bounds");
   }
 
   bool operator==(const DxcHLSLArray &Other) const {
     return Other.ArrayElemStart == ArrayElemStart;
   }
 
-  uint32_t ArrayElem() const { return ArrayElemStart >> 28; }
-  uint32_t ArrayStart() const { return ArrayElemStart << 4 >> 4; }
+  uint32_t ArrayElem() const { return ArrayElemStart >> 26; }
+  uint32_t ArrayStart() const { return ArrayElemStart << 6 >> 6; }
 };
 
 using DxcHLSLMember = uint32_t;     //typeId

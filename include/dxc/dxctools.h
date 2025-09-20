@@ -13,6 +13,7 @@
 #define __DXC_TOOLS__
 
 #include <dxc/dxcapi.h>
+#include "d3d12shader.h"
 
 enum RewriterOptionMask {
   Default = 0,
@@ -210,12 +211,22 @@ struct D3D12_HLSL_NODE_SYMBOL {
   UINT ColumnEnd;
 };
 
-typedef interface ID3D12ShaderReflectionConstantBuffer
-    ID3D12ShaderReflectionConstantBuffer;
+// TODO: Move to d3d12shader.h
 
-typedef struct _D3D12_SHADER_INPUT_BIND_DESC D3D12_SHADER_INPUT_BIND_DESC;
-typedef interface ID3D12FunctionParameterReflection ID3D12FunctionParameterReflection;
-typedef interface ID3D12ShaderReflectionType ID3D12ShaderReflectionType;
+struct D3D12_ARRAY_DESC {
+  uint32_t ArrayDims;
+  uint32_t ArrayLengths[32]; // SPV_REFLECT_MAX_ARRAY_DIMS
+};
+
+struct D3D12_SHADER_INPUT_BIND_DESC1 {
+  D3D12_SHADER_INPUT_BIND_DESC Desc;
+  D3D12_ARRAY_DESC ArrayInfo;
+};
+
+DECLARE_INTERFACE_(ID3D12ShaderReflectionType1, ID3D12ShaderReflectionType) {
+  STDMETHOD(GetArrayDesc)(THIS_ _Out_ D3D12_ARRAY_DESC * pArrayDesc) PURE;
+};
+
 typedef interface IDxcHLSLReflection IDxcHLSLReflection;
 
 // {7016F834-AE85-4C86-A473-8C2C981DD370}
@@ -240,7 +251,7 @@ DECLARE_INTERFACE(IDxcHLSLReflection) {
   // know the bindings on the backend.
 
   STDMETHOD(GetResourceBindingDesc)
-  (THIS_ _In_ UINT ResourceIndex, _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc)
+  (THIS_ _In_ UINT ResourceIndex, _Out_ D3D12_SHADER_INPUT_BIND_DESC1 *pDesc)
       PURE;
 
   STDMETHOD(GetFunctionDesc)
@@ -320,15 +331,12 @@ DECLARE_INTERFACE(IDxcHLSLReflection) {
   (THIS_ _In_ LPCSTR Name, THIS_ _Out_ D3D12_HLSL_FUNCTION_DESC *pDesc) PURE;
 
   STDMETHOD(GetResourceBindingDescByName)
-  (THIS_ _In_ LPCSTR Name, _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc) PURE;
+  (THIS_ _In_ LPCSTR Name, _Out_ D3D12_SHADER_INPUT_BIND_DESC1 * pDesc) PURE;
 
   STDMETHOD(GetStructTypeByName)
   (THIS_ _In_ LPCSTR Name, _Outptr_ ID3D12ShaderReflectionType **ppType) PURE;
 
   STDMETHOD(GetUnionTypeByName)
-  (THIS_ _In_ LPCSTR Name, _Outptr_ ID3D12ShaderReflectionType **ppType) PURE;
-
-  STDMETHOD(GetTypeByName)
   (THIS_ _In_ LPCSTR Name, _Outptr_ ID3D12ShaderReflectionType **ppType) PURE;
 };
 
