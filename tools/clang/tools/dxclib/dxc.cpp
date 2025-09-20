@@ -168,6 +168,8 @@ public:
   int Link();
   void Preprocess();
   void GetCompilerVersionInfo(llvm::raw_string_ostream &OS);
+  int MaybeRunExternalValidatorAndPrintValidationOutput(
+      const DxcOpts &opts, CComPtr<IDxcOperationResult> pCompileResult);
 };
 
 static void WriteBlobToFile(IDxcBlob *pBlob, llvm::StringRef FName,
@@ -809,6 +811,52 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
   *ppCompileResult = pResult.Detach();
 }
 
+int DxcContext::MaybeRunExternalValidatorAndPrintValidationOutput(
+    const DxcOpts &opts, CComPtr<IDxcOperationResult> pCompileResult) {
+
+  HRESULT CompHR;
+  pCompileResult->GetStatus(&CompHR);
+
+  if (DXC_FAILED(CompHR))
+    return CompHR;
+
+  // TODO: These conditions are the ones checked to disable internal
+  // validation, but it's missing rootSigMajor == 0, that doesn't seem
+  // straight forward to repro in this context.
+
+  bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
+                              !opts.OptDump && !opts.DumpDependencies &&
+                              !opts.VerifyDiagnostics;
+  bool needsValidation = produceFullContainer && !opts.DisableValidation;
+  if (needsValidation && !DXC_FAILED(CompHR)) {
+
+    CComPtr<IDxcValidator> pValidator;
+    IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
+
+    CComPtr<IDxcBlob> pProgram;
+    CComPtr<IDxcOperationResult> pValResult;
+
+    IFT(pCompileResult->GetResult(&pProgram));
+
+    IFT(pValidator->Validate(pProgram, DxcValidatorFlags_InPlaceEdit,
+                             &pValResult));
+    CComPtr<IDxcResult> pResult;
+    HRESULT ValHR;
+    pValResult->GetStatus(&ValHR);
+    if (DXC_FAILED(ValHR) && SUCCEEDED(pValResult->QueryInterface(&pResult))) {
+      CComPtr<IDxcBlobEncoding> pErrorBlob;
+      CComPtr<IDxcBlobWide> pErrorOutput;
+
+      IFT(pResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrorBlob),
+                             &pErrorOutput));
+
+      WriteBlobToConsole(pErrorBlob);
+      return ValHR;
+    }
+  }
+  return S_OK;
+}
+
 int DxcContext::Compile() {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pCompileResult;
@@ -889,48 +937,12 @@ int DxcContext::Compile() {
               args.data(), args.size(), m_Opts.Defines.data(),
               m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
 
-          // dont validate when validation was disabled, or
-          // there are compilation errors
-          HRESULT CompHR;
-          pCompileResult->GetStatus(&CompHR);
-
           // Then validate
-          // TODO: These conditions are the onest checked to disable internal
-          // validation, but its missing rootSigMajor == 0, that doesn't seem
-          // straight forward to repro in this context.
-          bool produceFullContainer =
-              !m_Opts.CodeGenHighLevel && !m_Opts.AstDump && !m_Opts.OptDump &&
-              !m_Opts.DumpDependencies && !m_Opts.VerifyDiagnostics;
-          bool needsValidation =
-              produceFullContainer && !m_Opts.DisableValidation;
-          if (needsValidation && !DXC_FAILED(CompHR)) {
 
-            CComPtr<IDxcValidator> pValidator;
-            IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
-
-            CComPtr<IDxcBlob> pProgram;
-            CComPtr<IDxcOperationResult> pValResult;
-
-            IFT(pCompileResult->GetResult(&pProgram));
-
-            IFT(pValidator->Validate(pProgram, DxcValidatorFlags_InPlaceEdit,
-                                     &pValResult));
-            CComPtr<IDxcResult> pResult;
-            HRESULT ValHR;
-            pValResult->GetStatus(&ValHR);
-            if (DXC_FAILED(ValHR)) {
-              if (SUCCEEDED(pValResult->QueryInterface(&pResult))) {
-                CComPtr<IDxcBlobEncoding> pErrorBlob;
-                CComPtr<IDxcBlobWide> pErrorOutput;
-
-                IFT(pResult->GetOutput(
-                    DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrorBlob), &pErrorOutput));
-
-                WriteBlobToConsole(pErrorBlob);
-                return ValHR;
-              }
-            }
-          }
+          HRESULT ValHR = MaybeRunExternalValidatorAndPrintValidationOutput(
+              m_Opts, pCompileResult);
+          if (DXC_FAILED(ValHR))
+            return ValHR;
         }
       }
     }
