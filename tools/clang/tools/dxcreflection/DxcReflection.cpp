@@ -1244,7 +1244,8 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
         // Handle $Globals
 
         if (varDecl && Depth == 0 &&
-            varDecl->getStorageClass() != StorageClass::SC_Static) {
+            varDecl->getStorageClass() != StorageClass::SC_Static &&
+            !varDecl->hasAttr<HLSLGroupSharedAttr>()) {
 
           const std::string &name = ValDecl->getName();
 
