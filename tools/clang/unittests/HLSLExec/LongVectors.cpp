@@ -26,6 +26,11 @@ namespace LongVector {
 // Data Types
 //
 
+template <typename T> constexpr bool is16BitType() {
+  return std::is_same_v<T, int16_t> || std::is_same_v<T, uint16_t> ||
+         std::is_same_v<T, HLSLHalf_t>;
+}
+
 struct DataType {
   const char *HLSLTypeString;
   bool Is16Bit;
@@ -35,22 +40,22 @@ template <typename T> const DataType &getDataType() {
   static_assert(false && "Unknown data type");
 }
 
-#define DATA_TYPE(TYPE, HLSL_STRING, IS_16_BIT)                                \
+#define DATA_TYPE(TYPE, HLSL_STRING)                                           \
   template <> const DataType &getDataType<TYPE>() {                            \
-    static DataType DataType{HLSL_STRING, IS_16_BIT};                          \
+    static DataType DataType{HLSL_STRING, is16BitType<TYPE>()};                \
     return DataType;                                                           \
   }
 
-DATA_TYPE(HLSLBool_t, "bool", false)
-DATA_TYPE(int16_t, "int16_t", true)
-DATA_TYPE(int32_t, "int", false)
-DATA_TYPE(int64_t, "int64_t", false)
-DATA_TYPE(uint16_t, "uint16_t", true)
-DATA_TYPE(uint32_t, "uint32_t", false)
-DATA_TYPE(uint64_t, "uint64_t", false)
-DATA_TYPE(HLSLHalf_t, "half", true)
-DATA_TYPE(float, "float", false)
-DATA_TYPE(double, "double", false)
+DATA_TYPE(HLSLBool_t, "bool")
+DATA_TYPE(int16_t, "int16_t")
+DATA_TYPE(int32_t, "int")
+DATA_TYPE(int64_t, "int64_t")
+DATA_TYPE(uint16_t, "uint16_t")
+DATA_TYPE(uint32_t, "uint32_t")
+DATA_TYPE(uint64_t, "uint64_t")
+DATA_TYPE(HLSLHalf_t, "half")
+DATA_TYPE(float, "float")
+DATA_TYPE(double, "double")
 
 #undef DATA_TYPE
 
