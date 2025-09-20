@@ -219,7 +219,8 @@ HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
       CComPtr<IDxcCompiler> DxcCompiler;
       CComPtr<IDxcCompiler3> DxcCompiler3;
       CComPtr<IDxcValidator> DxcValidator;
-      UINT32 validatorMajor, validatorMinor = 0;
+      UINT32 validatorMajor = 0;
+      UINT32 validatorMinor = 0;
 
       // first, get the validator version so that the wrapper knows
       // which -validator-version parameter to pass to the compiler's
@@ -250,14 +251,17 @@ HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
       if (FAILED(hr))
         return hr;
 
-      CComPtr<IMalloc> pDefaultMalloc = nullptr;
+      CComPtr<IMalloc> pDefaultMalloc;
       hr = DxcCoGetMalloc(1 /*MEMCTX_TASK*/, &pDefaultMalloc);
       if (FAILED(hr))
         return hr;
+
+      DxcThreadMalloc TM(pDefaultMalloc);
+
       ExternalValidationHelper *evh =
           Alloc(pDefaultMalloc, DxcCompiler, DxcCompiler3, validatorMajor,
                 validatorMinor);
-      pDefaultMalloc.p->Release(); // Alloc holds a copy in m_pMalloc
+
       if (!evh)
         return E_OUTOFMEMORY;
 
@@ -287,7 +291,8 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
       CComPtr<IDxcCompiler> DxcCompiler;
       CComPtr<IDxcCompiler3> DxcCompiler3;
       CComPtr<IDxcValidator> DxcValidator;
-      UINT32 validatorMajor, validatorMinor = 0;
+      UINT32 validatorMajor = 0;
+      UINT32 validatorMinor = 0;
 
       // first, get the validator version so that the wrapper knows
       // which -validator-version parameter to pass to the compiler's
