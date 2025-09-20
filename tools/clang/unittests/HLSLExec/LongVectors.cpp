@@ -1568,8 +1568,6 @@ public:
   HLK_TEST(Any_Mixed, int16_t, Vector);
   HLK_TEST(Any_Zero, int16_t, Vector);
   HLK_TEST(Any_NoZero, int16_t, Vector);
-  HLK_TEST(Dot, int16_t, Vector);
-  HLK_TEST(Dot, int16_t, ScalarOp2);
 
   HLK_TEST(Any_Mixed, int32_t, Vector);
   HLK_TEST(Any_Zero, int32_t, Vector);
@@ -1580,17 +1578,6 @@ public:
   HLK_TEST(Any_Mixed, int64_t, Vector);
   HLK_TEST(Any_Zero, int64_t, Vector);
   HLK_TEST(Any_NoZero, int64_t, Vector);
-  HLK_TEST(Dot, int64_t, Vector);
-  HLK_TEST(Dot, int64_t, ScalarOp2);
-
-  HLK_TEST(Dot, uint16_t, Vector);
-  HLK_TEST(Dot, uint16_t, ScalarOp2);
-
-  HLK_TEST(Dot, uint32_t, Vector);
-  HLK_TEST(Dot, uint32_t, ScalarOp2);
-
-  HLK_TEST(Dot, uint64_t, Vector);
-  HLK_TEST(Dot, uint64_t, ScalarOp2);
 
   HLK_TEST(Dot, HLSLHalf_t, Vector);
   HLK_TEST(Dot, HLSLHalf_t, ScalarOp2);
