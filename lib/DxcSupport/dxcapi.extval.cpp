@@ -191,13 +191,13 @@ static ExternalValidationHelper *Alloc(IMalloc *pMalloc,
   void *P = pMalloc->Alloc(sizeof(ExternalValidationHelper));
   try {
     if (P)
-      new (P)
+      return new (P)
           ExternalValidationHelper(compiler, compiler3, major, minor, pMalloc);
   } catch (...) {
     pMalloc->Free(P);
     throw;
   }
-  return (ExternalValidationHelper *)P;
+  return nullptr;
 }
 
 HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
@@ -244,25 +244,24 @@ HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
       else {
         // TODO: IDxcCompiler2 not implemented yet, but should
         // error for now
-        hr = E_FAIL;
+        hr = E_UNEXPECTED;
       }
 
       if (FAILED(hr))
         return hr;
 
-      IMalloc *pDefaultMalloc = nullptr;
-      HRESULT hrAlloc = DxcCoGetMalloc(1 /*MEMCTX_TASK*/, &pDefaultMalloc);
-      if (SUCCEEDED(hrAlloc)) {
-        ExternalValidationHelper *evh =
-            Alloc(pDefaultMalloc, DxcCompiler, DxcCompiler3, validatorMajor,
-                  validatorMinor);
-        pDefaultMalloc->Release(); // Alloc holds a copy in m_pMalloc
-        if (!evh)
-          return E_OUTOFMEMORY;
-        hr = evh->QueryInterface(riid, reinterpret_cast<void **>(pResult));
+      CComPtr<IMalloc> pDefaultMalloc = nullptr;
+      hr = DxcCoGetMalloc(1 /*MEMCTX_TASK*/, &pDefaultMalloc);
+      if (FAILED(hr))
         return hr;
-      }
-      return hrAlloc;
+      ExternalValidationHelper *evh =
+          Alloc(pDefaultMalloc, DxcCompiler, DxcCompiler3, validatorMajor,
+                validatorMinor);
+      pDefaultMalloc.p->Release(); // Alloc holds a copy in m_pMalloc
+      if (!evh)
+        return E_OUTOFMEMORY;
+
+      return evh->QueryInterface(riid, reinterpret_cast<void **>(pResult));
     }
   }
 

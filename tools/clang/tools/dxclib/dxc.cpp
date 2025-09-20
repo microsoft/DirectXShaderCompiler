@@ -822,33 +822,38 @@ int DxcContext::MaybeRunExternalValidatorAndPrintValidationOutput(
                               !opts.OptDump && !opts.DumpDependencies &&
                               !opts.VerifyDiagnostics;
   bool needsValidation = produceFullContainer && !opts.DisableValidation;
-  if (needsValidation) {
-
-    CComPtr<IDxcValidator> pValidator;
-    IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
-
-    CComPtr<IDxcBlob> pProgram;
-    CComPtr<IDxcOperationResult> pValResult;
-
-    IFT(pCompileResult->GetResult(&pProgram));
-
-    IFT(pValidator->Validate(pProgram, DxcValidatorFlags_InPlaceEdit,
-                             &pValResult));
-    CComPtr<IDxcResult> pResult;
-    HRESULT ValHR;
-    pValResult->GetStatus(&ValHR);
-    if (DXC_FAILED(ValHR) && SUCCEEDED(pValResult->QueryInterface(&pResult))) {
-      CComPtr<IDxcBlobEncoding> pErrorBlob;
-      CComPtr<IDxcBlobWide> pErrorOutput;
-
-      IFT(pResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrorBlob),
-                             &pErrorOutput));
-
-      WriteBlobToConsole(pErrorBlob);
-      return ValHR;
-    }
+  if (!needsValidation) {
+    return S_OK;
   }
-  return S_OK;
+
+  CComPtr<IDxcValidator> pValidator;
+  IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
+
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcOperationResult> pValResult;
+
+  IFT(pCompileResult->GetResult(&pProgram));
+
+  IFT(pValidator->Validate(pProgram, DxcValidatorFlags_InPlaceEdit,
+                           &pValResult));
+  CComPtr<IDxcResult> pResult;
+  HRESULT ValHR;
+  pValResult->GetStatus(&ValHR);
+
+  if (!DXC_FAILED(ValHR))
+    return ValHR;
+
+  if (FAILED(pValResult->QueryInterface(&pResult)))
+    return pValResult->QueryInterface(&pResult);
+
+  CComPtr<IDxcBlobEncoding> pErrorBlob;
+  CComPtr<IDxcBlobWide> pErrorOutput;
+
+  IFT(pResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrorBlob),
+                         &pErrorOutput));
+
+  WriteBlobToConsole(pErrorBlob);
+  return ValHR;
 }
 
 int DxcContext::Compile() {
