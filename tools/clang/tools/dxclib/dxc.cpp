@@ -814,12 +814,6 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
 int DxcContext::MaybeRunExternalValidatorAndPrintValidationOutput(
     const DxcOpts &opts, CComPtr<IDxcOperationResult> pCompileResult) {
 
-  HRESULT CompHR;
-  pCompileResult->GetStatus(&CompHR);
-
-  if (DXC_FAILED(CompHR))
-    return CompHR;
-
   // TODO: These conditions are the ones checked to disable internal
   // validation, but it's missing rootSigMajor == 0, that doesn't seem
   // straight forward to repro in this context.
@@ -828,7 +822,7 @@ int DxcContext::MaybeRunExternalValidatorAndPrintValidationOutput(
                               !opts.OptDump && !opts.DumpDependencies &&
                               !opts.VerifyDiagnostics;
   bool needsValidation = produceFullContainer && !opts.DisableValidation;
-  if (needsValidation && !DXC_FAILED(CompHR)) {
+  if (needsValidation) {
 
     CComPtr<IDxcValidator> pValidator;
     IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
@@ -937,12 +931,16 @@ int DxcContext::Compile() {
               args.data(), args.size(), m_Opts.Defines.data(),
               m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
 
-          // Then validate
+          // Then validate, only if compilation succeeded
+          HRESULT CompHR;
+          pCompileResult->GetStatus(&CompHR);
 
-          HRESULT ValHR = MaybeRunExternalValidatorAndPrintValidationOutput(
-              m_Opts, pCompileResult);
-          if (DXC_FAILED(ValHR))
-            return ValHR;
+          if (!DXC_FAILED(CompHR)) {
+            HRESULT ValHR = MaybeRunExternalValidatorAndPrintValidationOutput(
+                m_Opts, pCompileResult);
+            if (DXC_FAILED(ValHR))
+              return ValHR;
+          }
         }
       }
     }
