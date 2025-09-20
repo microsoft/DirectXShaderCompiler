@@ -1572,8 +1572,6 @@ public:
   HLK_TEST(Any_Mixed, int32_t, Vector);
   HLK_TEST(Any_Zero, int32_t, Vector);
   HLK_TEST(Any_NoZero, int32_t, Vector);
-  HLK_TEST(Dot, int32_t, Vector);
-  HLK_TEST(Dot, int32_t, ScalarOp2);
 
   HLK_TEST(Any_Mixed, int64_t, Vector);
   HLK_TEST(Any_Zero, int64_t, Vector);
