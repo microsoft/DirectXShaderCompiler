@@ -1069,66 +1069,6 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
 
   TranslationUnitDecl *tu = astHelper.tu;
 
-  D3D12_HLSL_REFLECTION_FEATURE reflectMask =
-      D3D12_HLSL_REFLECTION_FEATURE_NONE;
-
-  if(opts.RWOpt.ReflectHLSLBasics)
-    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_BASICS;
-
-  if(opts.RWOpt.ReflectHLSLFunctions)
-    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_FUNCTIONS;
-
-  if(opts.RWOpt.ReflectHLSLNamespaces)
-    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_NAMESPACES;
-
-  if(opts.RWOpt.ReflectHLSLUserTypes)
-    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES;
-
-  //TODO:
-  //if(opts.RWOpt.ReflectHLSLScopes)
-  //  reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SCOPES;
-  //
-  //if(opts.RWOpt.ReflectHLSLVariables)
-  //  reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_VARIABLES;
-
-  if(!opts.RWOpt.ReflectHLSLDisableSymbols)
-    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
-
-  if (reflectMask) {
-
-    //Reflect
-
-    DxcHLSLReflectionData refl(astHelper.compiler, *astHelper.tu,
-                           opts.AutoBindingSpace, reflectMask,
-                           opts.DefaultRowMajor);
-
-    refl.Printf();
-
-    //Test serialization
-
-    std::vector<std::byte> bytes;
-    refl.Dump(bytes);
-
-    DxcHLSLReflectionData deserialized(bytes, true);
-
-    assert(deserialized == refl && "Dump or Deserialize doesn't match");
-
-    printf("Reflection size: %" PRIu64 "\n", bytes.size());
-
-    //Test stripping symbols
-
-    refl.StripSymbols();
-    refl.Printf();
-
-    refl.Dump(bytes);
-
-    deserialized = DxcHLSLReflectionData(bytes, false);
-
-    assert(deserialized == refl && "Dump or Deserialize doesn't match");
-
-    printf("Stripped reflection size: %" PRIu64 "\n", bytes.size());
-  }
-
   if (opts.RWOpt.SkipStatic && opts.RWOpt.SkipFunctionBody) {
     // Remove static functions and globals.
     RemoveStaticDecls(*tu);
@@ -1147,7 +1087,7 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
                                  opts.RWOpt.RemoveUnusedFunctions, w);
     if (FAILED(hr))
       return hr;
-  } else if (reflectMask & D3D12_HLSL_REFLECTION_FEATURE_BASICS) {
+  } else {
     o << "// Rewrite unchanged result:\n";
   }
 

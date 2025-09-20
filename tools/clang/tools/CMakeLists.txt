@@ -33,6 +33,7 @@ add_subdirectory(dxa)
 add_subdirectory(dxopt)
 add_subdirectory(dxl)
 add_subdirectory(dxr)
+add_subdirectory(dxreflector)
 add_subdirectory(dxv)
 
 # These targets can currently only be built on Windows.

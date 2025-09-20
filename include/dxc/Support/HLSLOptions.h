@@ -79,6 +79,9 @@ static const unsigned DxcFlags =
 /// Flags for dxr.exe command-line tool.
 static const unsigned DxrFlags =
     HlslFlags::RewriteOption | HlslFlags::DriverOption;
+/// Flags for dxreflector.exe command-line tool.
+static const unsigned DxreflectorFlags =
+    HlslFlags::RewriteOption | HlslFlags::DriverOption;
 /// Flags for IDxcIntelliSense APIs.
 static const unsigned ISenseFlags =
     HlslFlags::CoreOption | HlslFlags::ISenseOption;
