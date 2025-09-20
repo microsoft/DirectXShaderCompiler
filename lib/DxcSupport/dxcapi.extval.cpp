@@ -256,11 +256,11 @@ HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
       if (FAILED(hr))
         return hr;
 
-      DxcThreadMalloc TM(pDefaultMalloc);
+      DxcThreadMalloc TM(nullptr);
 
       ExternalValidationHelper *evh =
-          Alloc(pDefaultMalloc, DxcCompiler, DxcCompiler3, validatorMajor,
-                validatorMinor);
+          Alloc(DxcGetThreadMallocNoRef(), DxcCompiler, DxcCompiler3,
+                validatorMajor, validatorMinor);
 
       if (!evh)
         return E_OUTOFMEMORY;
@@ -308,11 +308,21 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
       }
 
       // Create compiler
-      HRESULT hr = (riid == __uuidof(IDxcCompiler))
-                       ? DxCompilerSupport.CreateInstance2<IDxcCompiler>(
-                             pMalloc, CLSID_DxcCompiler, &DxcCompiler)
-                       : DxCompilerSupport.CreateInstance2<IDxcCompiler3>(
-                             pMalloc, CLSID_DxcCompiler, &DxcCompiler3);
+      HRESULT hr = S_OK;
+      if (riid == __uuidof(IDxcCompiler))
+        hr = DxCompilerSupport.CreateInstance2<IDxcCompiler>(
+            pMalloc, CLSID_DxcCompiler, &DxcCompiler);
+      else if (riid == __uuidof(IDxcCompiler3))
+        hr = DxCompilerSupport.CreateInstance2<IDxcCompiler3>(
+            pMalloc, CLSID_DxcCompiler, &DxcCompiler3);
+      else {
+        // TODO: IDxcCompiler2 not implemented yet, but should
+        // error for now
+        hr = E_UNEXPECTED;
+      }
+
+      if (FAILED(hr))
+        return hr;
 
       // Allocate properly with TM allocator
       ExternalValidationHelper *evh = Alloc(pMalloc, DxcCompiler, DxcCompiler3,

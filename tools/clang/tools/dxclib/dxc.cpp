@@ -821,10 +821,9 @@ int DxcContext::MaybeRunExternalValidatorAndPrintValidationOutput(
   bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
                               !opts.OptDump && !opts.DumpDependencies &&
                               !opts.VerifyDiagnostics;
-  bool needsValidation = produceFullContainer && !opts.DisableValidation;
-  if (!needsValidation) {
+  bool NeedsValidation = produceFullContainer && !opts.DisableValidation;
+  if (!NeedsValidation)
     return S_OK;
-  }
 
   CComPtr<IDxcValidator> pValidator;
   IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
@@ -840,11 +839,12 @@ int DxcContext::MaybeRunExternalValidatorAndPrintValidationOutput(
   HRESULT ValHR;
   pValResult->GetStatus(&ValHR);
 
-  if (!DXC_FAILED(ValHR))
+  if (SUCCEEDED(ValHR))
     return ValHR;
 
-  if (FAILED(pValResult->QueryInterface(&pResult)))
-    return pValResult->QueryInterface(&pResult);
+  HRESULT hr;
+  if (FAILED(hr = pValResult->QueryInterface(&pResult)))
+    return hr;
 
   CComPtr<IDxcBlobEncoding> pErrorBlob;
   CComPtr<IDxcBlobWide> pErrorOutput;
