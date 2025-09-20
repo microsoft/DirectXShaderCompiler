@@ -248,6 +248,8 @@ public:
 
     if (type.BaseClass != uint32_t(-1))
       m_pBaseClass = &Types[type.BaseClass];
+
+    return S_OK;
   }
 
   STDMETHOD(GetDesc)(D3D12_SHADER_TYPE_DESC *pDesc) override {
@@ -1545,16 +1547,22 @@ public:
     CATCH_CPP_RETURN_HRESULT();
   }
 
-  //TODO:
-
   HRESULT STDMETHODCALLTYPE FromBlob(IDxcBlob *data, IDxcHLSLReflection **ppReflection) override {
       
     if (!data || !data->GetBufferSize() || !ppReflection)
       return E_POINTER;
 
-    /* TODO: */
+    std::vector<std::byte> bytes((const std::byte *)data->GetBufferPointer(),
+                                 (const std::byte *)data->GetBufferPointer() +
+                                     data->GetBufferSize());
 
-    return E_FAIL;
+    try {
+      DxcHLSLReflectionData deserial(bytes, true);
+      *ppReflection = new DxcHLSLReflection(std::move(deserial));
+      return S_OK;
+    } catch (...) {
+      return E_FAIL;
+    }
   }
 
   HRESULT STDMETHODCALLTYPE ToBlob(IDxcHLSLReflection *reflection,
@@ -1563,20 +1571,15 @@ public:
     if (!reflection || !ppResult)
       return E_POINTER;
 
-    /*TODO:
-    DxcHLSLReflection *refl = ...;
+    DxcHLSLReflection *refl = dynamic_cast<DxcHLSLReflection *>(reflection);
+
+    if (!refl)
+      return E_UNEXPECTED;
 
     std::vector<std::byte> bytes;
-    refl->data.Dump(bytes);
+    refl->Data.Dump(bytes);
 
-    library->CreateBlobWithEncodingOnHeapCopy(
-        vec.data(),                      // pointer to your data
-        static_cast<UINT32>(vec.size()), // size in bytes
-        CP_UTF8,                         // or 0 for "unknown"
-        &blob);
-        */
-
-    return E_FAIL;
+    return DxcCreateBlobOnHeapCopy(bytes.data(), bytes.size(), ppResult);
   }
 };
 
