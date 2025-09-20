@@ -251,7 +251,7 @@ HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
         return hr;
 
       IMalloc *pDefaultMalloc = nullptr;
-      HRESULT hrAlloc = CoGetMalloc(1 /*MEMCTX_TASK*/, &pDefaultMalloc);
+      HRESULT hrAlloc = DxcCoGetMalloc(1 /*MEMCTX_TASK*/, &pDefaultMalloc);
       if (SUCCEEDED(hrAlloc)) {
         ExternalValidationHelper *evh =
             Alloc(pDefaultMalloc, DxcCompiler, DxcCompiler3, validatorMajor,
