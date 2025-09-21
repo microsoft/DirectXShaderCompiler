@@ -1226,12 +1226,9 @@ void SetupCompilerCommon(CompilerInstance &compiler,
 
   if (opts.WarningAsError)
     compiler.getDiagnostics().setWarningsAsErrors(true);
-  compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
   compiler.getLangOpts().HLSLVersion = opts.HLSLVersion;
   compiler.getLangOpts().PreserveUnknownAnnotations = true;
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
-  compiler.getLangOpts().EnableDX9CompatMode = opts.EnableDX9CompatMode;
-  compiler.getLangOpts().EnableFXCCompatMode = opts.EnableFXCCompatMode;
   compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
   compiler.getCodeGenOpts().MainFileName = pMainFile;
 
@@ -1244,8 +1241,6 @@ void SetupCompilerCommon(CompilerInstance &compiler,
 
     PPOpts.RemappedFilesKeepOriginalName = true;
   }
-
-  PPOpts.ExpandTokPastingArg = opts.LegacyMacroExpansion;
 
   // Pick additional arguments.
   clang::HeaderSearchOptions &HSOpts = compiler.getHeaderSearchOpts();
@@ -1284,6 +1279,15 @@ void SetupCompiler(CompilerInstance &compiler,
     std::string newDefines = compiler.getPreprocessor().getPredefines();
     newDefines += pDefines;
     compiler.getPreprocessor().setPredefines(newDefines);
+  }
+
+  if (opts.Defines.size()) {
+
+    std::string defines =
+        DefinesToString(opts.Defines.DefineVector.data(), opts.Defines.size());
+
+    compiler.getPreprocessor().setPredefines(
+        compiler.getPreprocessor().getPredefines() + defines);
   }
 
   compiler.createASTContext();
