@@ -1093,6 +1093,9 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_FUNCTIONS))
         continue;
 
+      if (Func->isImplicit())
+        continue;
+
       const FunctionDecl *Definition = nullptr;
 
       uint32_t nodeId =
