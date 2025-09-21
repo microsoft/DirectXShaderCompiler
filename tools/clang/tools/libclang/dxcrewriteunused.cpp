@@ -543,7 +543,6 @@ void SetupCompilerCommon(CompilerInstance &compiler,
     compiler.getDiagnostics().setWarningsAsErrors(true);
   compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
   compiler.getLangOpts().HLSLVersion = opts.HLSLVersion;
-  compiler.getLangOpts().PreserveUnknownAnnotations = opts.RWOpt.ReflectHLSLBasics;
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
   compiler.getLangOpts().EnableDX9CompatMode = opts.EnableDX9CompatMode;
   compiler.getLangOpts().EnableFXCCompatMode = opts.EnableFXCCompatMode;

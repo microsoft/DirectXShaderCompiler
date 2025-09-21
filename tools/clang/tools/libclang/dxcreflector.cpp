@@ -1228,8 +1228,7 @@ void SetupCompilerCommon(CompilerInstance &compiler,
     compiler.getDiagnostics().setWarningsAsErrors(true);
   compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
   compiler.getLangOpts().HLSLVersion = opts.HLSLVersion;
-  compiler.getLangOpts().PreserveUnknownAnnotations =
-      opts.RWOpt.ReflectHLSLBasics;
+  compiler.getLangOpts().PreserveUnknownAnnotations = true;
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
   compiler.getLangOpts().EnableDX9CompatMode = opts.EnableDX9CompatMode;
   compiler.getLangOpts().EnableFXCCompatMode = opts.EnableFXCCompatMode;
@@ -1364,29 +1363,29 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
   D3D12_HLSL_REFLECTION_FEATURE reflectMask =
       D3D12_HLSL_REFLECTION_FEATURE_NONE;
 
-  if (opts.RWOpt.ReflectHLSLBasics)
+  if (opts.ReflOpt.Basics)
     reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_BASICS;
 
-  if (opts.RWOpt.ReflectHLSLFunctions)
+  if (opts.ReflOpt.Functions)
     reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_FUNCTIONS;
 
-  if (opts.RWOpt.ReflectHLSLNamespaces)
+  if (opts.ReflOpt.Namespaces)
     reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_NAMESPACES;
 
-  if (opts.RWOpt.ReflectHLSLUserTypes)
+  if (opts.ReflOpt.UserTypes)
     reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES;
 
-  //TODO: if (opts.RWOpt.ReflectHLSLScopes)
+  //TODO: if (opts.ReflOpt.Scopes)
   //  reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SCOPES;
   //
-  //TODO: if (opts.RWOpt.ReflectHLSLVariables)
+  //TODO: if (opts.ReflOpt.Variables)
   //  reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_VARIABLES;
 
-  if (!opts.RWOpt.ReflectHLSLDisableSymbols)
-    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
-
   if (!reflectMask)
-    reflectMask = D3D12_HLSL_REFLECTION_FEATURE_ALL; 
+    reflectMask = D3D12_HLSL_REFLECTION_FEATURE_ALL;
+
+  if (!opts.ReflOpt.DisableSymbols)
+    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
   DxcHLSLReflectionData refl(astHelper.compiler, *astHelper.tu,
                               opts.AutoBindingSpace, reflectMask,
@@ -1439,7 +1438,7 @@ HRESULT ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
   raw_stream_ostream outStream(pOutputStream);
 
   if (0 != hlsl::options::ReadDxcOpts(table,
-                                      hlsl::options::HlslFlags::RewriteOption,  //TODO: Change to other option
+                                      hlsl::options::HlslFlags::ReflectOption,
                                       mainArgs, opts, outStream)) {
     CComPtr<IDxcBlob> pErrorBlob;
     IFT(pOutputStream->QueryInterface(&pErrorBlob));

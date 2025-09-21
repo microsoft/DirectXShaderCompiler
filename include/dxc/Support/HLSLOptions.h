@@ -52,6 +52,7 @@ enum HlslFlags {
   CoreOption = (1 << 15),
   ISenseOption = (1 << 16),
   RewriteOption = (1 << 17),
+  ReflectOption = (1 << 18)
 };
 
 enum ID {
@@ -81,7 +82,7 @@ static const unsigned DxrFlags =
     HlslFlags::RewriteOption | HlslFlags::DriverOption;
 /// Flags for dxreflector.exe command-line tool.
 static const unsigned DxreflectorFlags =
-    HlslFlags::RewriteOption | HlslFlags::DriverOption;
+    HlslFlags::ReflectOption | HlslFlags::DriverOption;
 /// Flags for IDxcIntelliSense APIs.
 static const unsigned ISenseFlags =
     HlslFlags::CoreOption | HlslFlags::ISenseOption;
@@ -106,13 +107,6 @@ public:
 
 struct RewriterOpts {
   bool Unchanged = false;                     // OPT_rw_unchanged
-  bool ReflectHLSLBasics = false;             // OPT_rw_reflect_hlsl_basics
-  bool ReflectHLSLFunctions = false;          // OPT_rw_reflect_hlsl_functions
-  bool ReflectHLSLNamespaces = false;         // OPT_rw_reflect_hlsl_namespaces
-  bool ReflectHLSLUserTypes = false;          // OPT_rw_reflect_hlsl_user_types
-  bool ReflectHLSLScopes = false;             // OPT_rw_reflect_hlsl_scopes
-  bool ReflectHLSLVariables = false;          // OPT_rw_reflect_hlsl_variables
-  bool ReflectHLSLDisableSymbols = false;     // OPT_rw_reflect_hlsl_disable_symbols
   bool SkipFunctionBody = false;              // OPT_rw_skip_function_body
   bool SkipStatic = false;                    // OPT_rw_skip_static
   bool GlobalExternByDefault = false;         // OPT_rw_global_extern_by_default
@@ -122,6 +116,16 @@ struct RewriterOpts {
   bool RemoveUnusedFunctions = false;         // OPT_rw_remove_unused_functions
   bool WithLineDirective = false;             // OPT_rw_line_directive
   bool DeclGlobalCB = false;                  // OPT_rw_decl_global_cb
+};
+
+struct ReflectOpts {
+  bool Basics = false;         // OPT_reflect_basics
+  bool Functions = false;      // OPT_reflect_functions
+  bool Namespaces = false;     // OPT_reflect_namespaces
+  bool UserTypes = false;      // OPT_reflect_user_types
+  bool Scopes = false;         // OPT_reflect_scopes
+  bool Variables = false;      // OPT_reflect_variables
+  bool DisableSymbols = false; // OPT_reflect_disable_symbols
 };
 
 /// Use this class to capture all options.
@@ -255,6 +259,9 @@ public:
 
   // Rewriter Options
   RewriterOpts RWOpt;
+
+  // Reflector Options
+  ReflectOpts ReflOpt;
 
   std::vector<std::string> Warnings;
 

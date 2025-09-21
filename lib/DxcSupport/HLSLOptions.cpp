@@ -1000,7 +1000,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // XXX TODO: Sort this out, since it's required for new API, but a separate
   // argument for old APIs.
   if ((flagsToInclude & hlsl::options::DriverOption) &&
-      !(flagsToInclude & hlsl::options::RewriteOption) &&
+      !(flagsToInclude & (hlsl::options::RewriteOption | hlsl::options::ReflectOption)) &&
       opts.TargetProfile.empty() && !opts.DumpBin && opts.Preprocess.empty() &&
       !opts.RecompileFromBinary) {
     // Target profile is required in arguments only for drivers when compiling;
@@ -1353,20 +1353,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // Rewriter Options
   if (flagsToInclude & hlsl::options::RewriteOption) {
     opts.RWOpt.Unchanged = Args.hasFlag(OPT_rw_unchanged, OPT_INVALID, false);
-    opts.RWOpt.ReflectHLSLBasics =
-        Args.hasFlag(OPT_rw_reflect_hlsl_basics, OPT_INVALID, false);
-    opts.RWOpt.ReflectHLSLFunctions =
-        Args.hasFlag(OPT_rw_reflect_hlsl_functions, OPT_INVALID, false);
-    opts.RWOpt.ReflectHLSLNamespaces =
-        Args.hasFlag(OPT_rw_reflect_hlsl_namespaces, OPT_INVALID, false);
-    opts.RWOpt.ReflectHLSLUserTypes =
-        Args.hasFlag(OPT_rw_reflect_hlsl_user_types, OPT_INVALID, false);
-    opts.RWOpt.ReflectHLSLScopes =
-        Args.hasFlag(OPT_rw_reflect_hlsl_scopes, OPT_INVALID, false);
-    opts.RWOpt.ReflectHLSLVariables =
-        Args.hasFlag(OPT_rw_reflect_hlsl_variables, OPT_INVALID, false);
-    opts.RWOpt.ReflectHLSLDisableSymbols =
-        Args.hasFlag(OPT_rw_reflect_hlsl_disable_symbols, OPT_INVALID, false);
     opts.RWOpt.SkipFunctionBody =
         Args.hasFlag(OPT_rw_skip_function_body, OPT_INVALID, false);
     opts.RWOpt.SkipStatic =
@@ -1393,6 +1379,21 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
                 "specified.";
       return 1;
     }
+  }
+
+  if (flagsToInclude & hlsl::options::ReflectOption) {
+    opts.ReflOpt.Basics = Args.hasFlag(OPT_reflect_basics, OPT_INVALID, false);
+    opts.ReflOpt.Functions =
+        Args.hasFlag(OPT_reflect_functions, OPT_INVALID, false);
+    opts.ReflOpt.Namespaces =
+        Args.hasFlag(OPT_reflect_namespaces, OPT_INVALID, false);
+    opts.ReflOpt.UserTypes =
+        Args.hasFlag(OPT_reflect_user_types, OPT_INVALID, false);
+    opts.ReflOpt.Scopes = Args.hasFlag(OPT_reflect_scopes, OPT_INVALID, false);
+    opts.ReflOpt.Variables =
+        Args.hasFlag(OPT_reflect_variables, OPT_INVALID, false);
+    opts.ReflOpt.DisableSymbols =
+        Args.hasFlag(OPT_reflect_disable_symbols, OPT_INVALID, false);
   }
 
   opts.Args = std::move(Args);

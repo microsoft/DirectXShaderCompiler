@@ -101,7 +101,7 @@ int main(int argc, const char **argv) {
           dxcSupport);
       versionStream.flush();
       optionTable->PrintHelp(helpStream, "dxreflector.exe", "DX Reflector",
-                             version.c_str(), hlsl::options::RewriteOption,
+                             version.c_str(), hlsl::options::ReflectOption,
                              (dxreflectorOpts.ShowHelpHidden ? 0 : HelpHidden));
       helpStream.flush();
       WriteUtf8ToConsoleSizeT(helpString.data(), helpString.size());
