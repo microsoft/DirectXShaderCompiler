@@ -681,6 +681,8 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
 
       // Inner types
 
+      // Reserve member names and types
+
       for (Decl *decl : recordDecl->decls()) {
 
         FieldDecl *fieldDecl = dyn_cast<FieldDecl>(decl);
@@ -688,23 +690,39 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
         if (!fieldDecl)
           continue;
 
-        QualType original = fieldDecl->getType();
+        if (!membersCount)
+          membersOffset = (uint32_t)Refl.MemberTypeIds.size();
+
         std::string name = fieldDecl->getName();
 
-        uint32_t nameId = hasSymbols ? RegisterString(Refl, name, false) : uint32_t(-1);
-        uint32_t typeId =
-            GenerateTypeInfo(ASTCtx, Refl, original, DefaultRowMaj);
+        uint32_t nameId =
+            hasSymbols ? RegisterString(Refl, name, false) : uint32_t(-1);
 
-        if (!membersCount)
-          membersOffset = (uint32_t) Refl.MemberTypeIds.size();
+        if (hasSymbols)
+          Refl.MemberNameIds.push_back(nameId);
+
+        ++membersCount;
+      }
+
+      if (membersCount)
+        Refl.MemberTypeIds.resize(Refl.MemberTypeIds.size() + membersCount);
+
+      // Initialize member types (because it causes recursion)
+
+      membersCount = 0;
+
+      for (Decl *decl : recordDecl->decls()) {
+
+        FieldDecl *fieldDecl = dyn_cast<FieldDecl>(decl);
+
+        if (!fieldDecl)
+          continue;
 
         assert(Refl.MemberTypeIds.size() <= (uint32_t)-1 &&
                "Members out of bounds");
 
-        Refl.MemberTypeIds.push_back(typeId);
-
-        if (hasSymbols)
-          Refl.MemberNameIds.push_back(nameId);
+        Refl.MemberTypeIds[membersOffset + membersCount] =
+            GenerateTypeInfo(ASTCtx, Refl, fieldDecl->getType(), DefaultRowMaj);
 
         ++membersCount;
       }
