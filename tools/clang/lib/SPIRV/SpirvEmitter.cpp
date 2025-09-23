@@ -9873,121 +9873,9 @@ SpirvEmitter::processReverseBitsIntrinsic(const CallExpr *callExpr,
     return processIntrinsicUsingSpirvInst(callExpr, spv::Op::OpBitReverse,
                                           /* actPerRowForMatrices= */ false);
   } else if (bitwidth == 16) {
-    // Load the 16-bit value
-    auto *loadInst = doExpr(callExpr->getArg(0));
-    bool isVector = isVectorType(argType);
-    uint32_t count = isVector ? hlsl::GetHLSLVecSize(argType) : 1;
-    QualType uintType =
-        isVector ? astContext.getExtVectorType(astContext.UnsignedIntTy, count)
-                 : astContext.UnsignedIntTy;
-    QualType resultType =
-        isVector
-            ? astContext.getExtVectorType(astContext.UnsignedShortTy, count)
-            : astContext.UnsignedShortTy;
-
-    // Extend to 32-bit.
-    auto *extended = spvBuilder.createUnaryOp(spv::Op::OpUConvert, uintType,
-                                              loadInst, srcLoc);
-    // Reverse the bits.
-    auto *reversed = spvBuilder.createUnaryOp(spv::Op::OpBitReverse, uintType,
-                                              extended, srcLoc);
-
-    // Shift right by 16 bits.
-    SpirvInstruction *shifted = nullptr;
-    if (count == 1) {
-      auto *constUint16 = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                    llvm::APInt(32, 16));
-      shifted =
-          spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical, uintType,
-                                    reversed, constUint16, srcLoc);
-    } else {
-      auto *constUint16 = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                    llvm::APInt(32, 16));
-      std::vector<clang::spirv::SpirvConstant *> arr(count, constUint16);
-      auto *constUintVec = spvBuilder.getConstantComposite(uintType, arr);
-      shifted =
-          spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical, uintType,
-                                    reversed, constUintVec, srcLoc);
-    }
-
-    // Truncate to short.
-    return spvBuilder.createUnaryOp(spv::Op::OpUConvert, resultType, shifted,
-                                    srcLoc);
+    return generate16BitReverse(callExpr, srcLoc);
   } else if (bitwidth == 64) {
-    // Load the 64-bit value.
-    auto *loadInst = doExpr(callExpr->getArg(0));
-    auto count = isVectorType(argType) ? hlsl::GetHLSLVecSize(argType) : 1;
-
-    // Get the lower half bits by casting.
-    clang::spirv::SpirvUnaryOp *lowerUint = spvBuilder.createUnaryOp(
-        spv::Op::OpUConvert,
-        astContext.getExtVectorType(astContext.UnsignedIntTy, count), loadInst,
-        srcLoc);
-
-    // Higher bits need to be right shifted.
-    clang::spirv::SpirvUnaryOp *higherUint;
-    auto *constUlong32 = spvBuilder.getConstantInt(
-        astContext.UnsignedLongLongTy, llvm::APInt(64, 32));
-    clang::spirv::SpirvConstant *constUlongVec = nullptr;
-    if (isVectorType(argType)) {
-      std::vector<clang::spirv::SpirvConstant *> arr(count, constUlong32);
-      constUlongVec = spvBuilder.getConstantComposite(
-          astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
-          arr);
-      auto *rightShifted = spvBuilder.createBinaryOp(
-          spv::Op::OpShiftRightLogical,
-          astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
-          loadInst, constUlongVec, srcLoc);
-      higherUint = spvBuilder.createUnaryOp(
-          spv::Op::OpUConvert,
-          astContext.getExtVectorType(astContext.UnsignedIntTy, count),
-          rightShifted, srcLoc);
-    } else {
-      auto *rightShifted = spvBuilder.createBinaryOp(
-          spv::Op::OpShiftRightLogical, astContext.UnsignedLongLongTy, loadInst,
-          constUlong32, srcLoc);
-      higherUint = spvBuilder.createUnaryOp(
-          spv::Op::OpUConvert,
-          astContext.getExtVectorType(astContext.UnsignedIntTy, count),
-          rightShifted, srcLoc);
-    }
-
-    // Reverse the bits of each value.
-    auto *lowerReversed = spvBuilder.createUnaryOp(
-        spv::Op::OpBitReverse,
-        astContext.getExtVectorType(astContext.UnsignedIntTy, count), lowerUint,
-        srcLoc);
-    auto *higherReversed = spvBuilder.createUnaryOp(
-        spv::Op::OpBitReverse,
-        astContext.getExtVectorType(astContext.UnsignedIntTy, count),
-        higherUint, srcLoc);
-
-    // Cast back to long values.
-    auto *lowerUlong = spvBuilder.createUnaryOp(
-        spv::Op::OpUConvert,
-        astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
-        lowerReversed, srcLoc);
-    auto *higherUlong = spvBuilder.createUnaryOp(
-        spv::Op::OpUConvert,
-        astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
-        higherReversed, srcLoc);
-
-    // Lower bits need to be left shifted.
-    clang::spirv::SpirvBinaryOp *lowerLeftShifted;
-    if (isVectorType(argType)) {
-      lowerLeftShifted = spvBuilder.createBinaryOp(
-          spv::Op::OpShiftLeftLogical,
-          astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
-          lowerUlong, constUlongVec, srcLoc);
-    } else {
-      lowerLeftShifted = spvBuilder.createBinaryOp(
-          spv::Op::OpShiftLeftLogical, astContext.UnsignedLongLongTy,
-          lowerUlong, constUlong32, srcLoc);
-    }
-
-    // Combine the 2 values.
-    return spvBuilder.createBinaryOp(spv::Op::OpBitwiseOr, argType,
-                                     lowerLeftShifted, higherUlong, srcLoc);
+    return generate64BitReverse(callExpr, srcLoc);
   }
   emitError("reversebits currently only supports 16, 32, and 64-bit "
             "width components when targeting SPIR-V",
@@ -9995,6 +9883,121 @@ SpirvEmitter::processReverseBitsIntrinsic(const CallExpr *callExpr,
   return nullptr;
 }
 
+SpirvInstruction *
+SpirvEmitter::generate16BitReverse(const CallExpr *callExpr,
+                                   clang::SourceLocation srcLoc) {
+  const QualType argType = callExpr->getArg(0)->getType();
+  // Load the 16-bit value
+  auto *loadInst = doExpr(callExpr->getArg(0));
+  bool isVector = isVectorType(argType);
+  uint32_t count = isVector ? hlsl::GetHLSLVecSize(argType) : 1;
+  QualType uintType =
+      isVector ? astContext.getExtVectorType(astContext.UnsignedIntTy, count)
+               : astContext.UnsignedIntTy;
+  QualType resultType =
+      isVector ? astContext.getExtVectorType(astContext.UnsignedShortTy, count)
+               : astContext.UnsignedShortTy;
+
+  // Extend to 32-bit.
+  auto *extended =
+      spvBuilder.createUnaryOp(spv::Op::OpUConvert, uintType, loadInst, srcLoc);
+  // Reverse the bits.
+  auto *reversed = spvBuilder.createUnaryOp(spv::Op::OpBitReverse, uintType,
+                                            extended, srcLoc);
+
+  // Shift right by 16 bits.
+  auto *shiftAmount =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 16));
+  if (count > 1) {
+    std::vector<clang::spirv::SpirvConstant *> arr(count, shiftAmount);
+    shiftAmount = spvBuilder.getConstantComposite(uintType, arr);
+  }
+  SpirvInstruction *shifted = spvBuilder.createBinaryOp(
+      spv::Op::OpShiftRightLogical, uintType, reversed, shiftAmount, srcLoc);
+
+  // Truncate to short.
+  return spvBuilder.createUnaryOp(spv::Op::OpUConvert, resultType, shifted,
+                                  srcLoc);
+}
+
+SpirvInstruction *
+SpirvEmitter::generate64BitReverse(const CallExpr *callExpr,
+                                   clang::SourceLocation srcLoc) {
+  const QualType argType = callExpr->getArg(0)->getType();
+  // Load the 64-bit value.
+  auto *loadInst = doExpr(callExpr->getArg(0));
+  auto count = isVectorType(argType) ? hlsl::GetHLSLVecSize(argType) : 1;
+
+  // Get the lower half bits by casting.
+  clang::spirv::SpirvUnaryOp *lowerUint = spvBuilder.createUnaryOp(
+      spv::Op::OpUConvert,
+      astContext.getExtVectorType(astContext.UnsignedIntTy, count), loadInst,
+      srcLoc);
+
+  // Higher bits need to be right shifted.
+  clang::spirv::SpirvUnaryOp *higherUint;
+  auto *constUlong32 = spvBuilder.getConstantInt(astContext.UnsignedLongLongTy,
+                                                 llvm::APInt(64, 32));
+  clang::spirv::SpirvConstant *constUlongVec = nullptr;
+  if (isVectorType(argType)) {
+    std::vector<clang::spirv::SpirvConstant *> arr(count, constUlong32);
+    constUlongVec = spvBuilder.getConstantComposite(
+        astContext.getExtVectorType(astContext.UnsignedLongLongTy, count), arr);
+    auto *rightShifted = spvBuilder.createBinaryOp(
+        spv::Op::OpShiftRightLogical,
+        astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
+        loadInst, constUlongVec, srcLoc);
+    higherUint = spvBuilder.createUnaryOp(
+        spv::Op::OpUConvert,
+        astContext.getExtVectorType(astContext.UnsignedIntTy, count),
+        rightShifted, srcLoc);
+  } else {
+    auto *rightShifted = spvBuilder.createBinaryOp(
+        spv::Op::OpShiftRightLogical, astContext.UnsignedLongLongTy, loadInst,
+        constUlong32, srcLoc);
+    higherUint = spvBuilder.createUnaryOp(
+        spv::Op::OpUConvert,
+        astContext.getExtVectorType(astContext.UnsignedIntTy, count),
+        rightShifted, srcLoc);
+  }
+
+  // Reverse the bits of each value.
+  auto *lowerReversed = spvBuilder.createUnaryOp(
+      spv::Op::OpBitReverse,
+      astContext.getExtVectorType(astContext.UnsignedIntTy, count), lowerUint,
+      srcLoc);
+  auto *higherReversed = spvBuilder.createUnaryOp(
+      spv::Op::OpBitReverse,
+      astContext.getExtVectorType(astContext.UnsignedIntTy, count), higherUint,
+      srcLoc);
+
+  // Cast back to long values.
+  auto *lowerUlong = spvBuilder.createUnaryOp(
+      spv::Op::OpUConvert,
+      astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
+      lowerReversed, srcLoc);
+  auto *higherUlong = spvBuilder.createUnaryOp(
+      spv::Op::OpUConvert,
+      astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
+      higherReversed, srcLoc);
+
+  // Lower bits need to be left shifted.
+  clang::spirv::SpirvBinaryOp *lowerLeftShifted;
+  if (isVectorType(argType)) {
+    lowerLeftShifted = spvBuilder.createBinaryOp(
+        spv::Op::OpShiftLeftLogical,
+        astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
+        lowerUlong, constUlongVec, srcLoc);
+  } else {
+    lowerLeftShifted = spvBuilder.createBinaryOp(
+        spv::Op::OpShiftLeftLogical, astContext.UnsignedLongLongTy, lowerUlong,
+        constUlong32, srcLoc);
+  }
+
+  // Combine the 2 values.
+  return spvBuilder.createBinaryOp(spv::Op::OpBitwiseOr, argType,
+                                   lowerLeftShifted, higherUlong, srcLoc);
+}
 // Returns true is the given expression can be used as an output parameter.
 //
 // Warning: this function could return false negatives.
