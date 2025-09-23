@@ -334,13 +334,13 @@ if "%TEST_USE_LIT%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang
       set RES_CLANG=!ERRORLEVEL!
     )
-    if "!TEST_COMPAT_SUITE!"=="2021" (       
-        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxc_2021_12_08        
+    if "!TEST_COMPAT_SUITE!"=="1.6" (       
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxc_2021_12_08
     )
-    if "!TEST_COMPAT_SUITE!"=="2023" (       
+    if "!TEST_COMPAT_SUITE!"=="1.7" (       
         cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxc_2023_08_14
     )
-    if "!TEST_COMPAT_SUITE!"=="2025" (       
+    if "!TEST_COMPAT_SUITE!"=="1.8" (       
         cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxc_2025_02_20
     )
     if "!TEST_EXEC!"=="1" (
@@ -558,7 +558,7 @@ echo  clang         - run clang tests.
 echo  file-check    - run file-check test on single file.
 echo                - hcttest file-check "..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_arg_flatten.hlsl"
 echo  compat-suite  - run compat-suite test.
-echo                - hcttest compat-suite ^(2021 ^| 2023 ^| 2025^)
+echo                - hcttest compat-suite ^(1.6 ^| 1.7 ^| 1.8^)
 echo  cmd           - run command line tool tests.
 echo  dxilconv      - run dxilconv tests
 echo  v             - run the subset of clang tests that are verified-based.

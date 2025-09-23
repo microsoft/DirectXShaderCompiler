@@ -8,37 +8,68 @@
 #include <filesystem>           // C++17 and later
 #include <sstream>
 // WinIncludes must come before dxcapi.extval.h
+#include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.extval.h"
 #include "dxc/Support/microcom.h"
+#include "llvm/ADT/StringRef.h"
 #include <iostream>
+
+static bool CheckNeedsValidationFromCompileArgs(LPCWSTR *pArgs,
+                                                UINT32 argCount) {
+  std::vector<std::wstring> Args(pArgs, pArgs + argCount);
+
+  // validation will normally take place upon a compilation unless
+  // any of these compilation flags were passed:
+  for (size_t i = 0; i < argCount; i++) {
+    if (Args[i] == L"-fcgl" || Args[i] == L"/fcgl" || Args[i] == L"-ast-dump" ||
+        Args[i] == L"/ast-dump" || Args[i] == L"-Odump" ||
+        Args[i] == L"/Odump" || Args[i] == L"-dump_dependencies" ||
+        Args[i] == L"/dump_dependencies" || Args[i] == L"-verify" ||
+        Args[i] == L"/verify" || Args[i] == L"-Vd" || Args[i] == L"/Vd" ||
+        Args[i] == L"-P" || Args[i] == L"/P" ||
+        Args[i].rfind(L"rootsig_1") != std::wstring::npos ||
+        Args[i].rfind(L"-Trootsig_1") != std::wstring::npos ||
+        Args[i].rfind(L"/Trootsig_1") != std::wstring::npos)
+      return false;
+
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (Args[i] == L"-spirv" || Args[i] == L"/spirv")
+      return false;
+
+#endif
+  }
+
+  return true;
+}
 
 static std::vector<std::wstring> AddExtValCompilationArgs(UINT32 ArgCount,
                                                           LPCWSTR *pArguments,
                                                           UINT32 Major,
                                                           UINT32 Minor) {
-  /* We need to add 3 args to the compiler automatically in the external
-     validation case:
+  /* We need to add 2 args to the compiler automatically in the external
+    validation case:
     1. -Vd, to disable internal validation. No need to run the internal
     validator when the external validator was requested to validate.
     2. -validator-version to write the validator version to the resulting
     module. Without this, the modern compiler will write its own version, which
     will be to0 new for older validators, and the validator will fail. However,
     if explicitly specified on the command line, we shouldn't overwrite it.
-    3. -Od to remove optimization and have a reliable validation step,
-    expecially with older validators.
   */
+
   std::vector<std::wstring> newArgs = {pArguments, pArguments + ArgCount};
 
   // Track whether the user already passed -validator-version
   bool hasValidatorVersion = false;
   for (size_t i = 0; i < newArgs.size(); ++i) {
-    if (newArgs[i] == L"-validator-version") {
+    if (newArgs[i] == L"-validator-version" ||
+        newArgs[i] == L"/validator-version") {
       // Either the value is in the same arg ("-validator-version=1.6")
       // or the next arg is the version ("-validator-version", "1.6").
       hasValidatorVersion = true;
       break;
     }
-    if (newArgs[i].rfind(L"-validator-version", 0) == 0) {
+    if (newArgs[i].rfind(L"-validator-version", 0) != std::wstring::npos ||
+        newArgs[i].rfind(L"/validator-version", 0) != std::wstring::npos) {
       // Handles "-validator-version=1.6"
       hasValidatorVersion = true;
       break;
@@ -54,8 +85,6 @@ static std::vector<std::wstring> AddExtValCompilationArgs(UINT32 ArgCount,
     ss << L"-validator-version " << Major << L"." << Minor;
     newArgs.push_back(ss.str());
   }
-
-  newArgs.push_back(L"-Od");
 
   return newArgs;
 }
@@ -73,14 +102,16 @@ class ExternalValidationHelper : public IDxcCompiler, public IDxcCompiler3 {
 private:
   CComPtr<IDxcCompiler> m_pCompiler;
   CComPtr<IDxcCompiler3> m_pCompiler3;
+  CComPtr<IDxcValidator> m_pValidator;
   UINT32 ValidatorVersionMajor;
   UINT32 ValidatorVersionMinor;
 
 public:
   ExternalValidationHelper(CComPtr<IDxcCompiler> compiler,
-                           CComPtr<IDxcCompiler3> compiler3, UINT32 major,
+                           CComPtr<IDxcCompiler3> compiler3,
+                           CComPtr<IDxcValidator> validator, UINT32 major,
                            UINT32 minor, IMalloc *pMalloc = nullptr)
-      : m_pCompiler(compiler), m_pCompiler3(compiler3),
+      : m_pCompiler(compiler), m_pCompiler3(compiler3), m_pValidator(validator),
         ValidatorVersionMajor(major), ValidatorVersionMinor(minor),
         m_pMalloc(pMalloc) {}
 
@@ -125,7 +156,15 @@ public:
                                     UINT32 defineCount,
                                     IDxcIncludeHandler *pIncludeHandler,
                                     IDxcOperationResult **ppResult) override {
-    // First, add the external validation compilation args
+
+    // if validation will not be needed, compile as normal
+    if (!CheckNeedsValidationFromCompileArgs(pArguments, argCount)) {
+      return m_pCompiler->Compile(
+          pSource, pSourceName, pEntryPoint, pTargetProfile, pArguments,
+          argCount, pDefines, defineCount, pIncludeHandler, ppResult);
+    }
+
+    // Otherwise, first, add the external validation compilation args
     std::vector<std::wstring> newArgs = AddExtValCompilationArgs(
         argCount, pArguments, ValidatorVersionMajor, ValidatorVersionMinor);
 
@@ -136,9 +175,50 @@ public:
       rawArgs.push_back(a.c_str());
     }
 
-    return m_pCompiler->Compile(
+    HRESULT CompHR = m_pCompiler->Compile(
         pSource, pSourceName, pEntryPoint, pTargetProfile, rawArgs.data(),
         rawArgs.size(), pDefines, defineCount, pIncludeHandler, ppResult);
+    if (DXC_FAILED(CompHR))
+      return CompHR;
+
+    HRESULT status;
+    (*ppResult)->GetStatus(&status);
+
+    // Then validate, only if compilation succeeded.
+    // The caller is responsible for handling compilation errors,
+    // but this function should return whether there was a critical
+    // failure in compilation or not at this point
+    if (DXC_FAILED(status))
+      return CompHR;
+
+    CComPtr<IDxcBlob> pProgram;
+    CComPtr<IDxcOperationResult> pValResult;
+
+    IFT((*ppResult)->GetResult(&pProgram));
+
+    // This checks the validator ran without any critical failures,
+    // not that the program was valid.
+    IFT(m_pValidator->Validate(pProgram, DxcValidatorFlags_InPlaceEdit,
+                               &pValResult));
+    CComPtr<IDxcResult> pResult;
+    HRESULT ValHR;
+    IFT(pValResult->GetStatus(&ValHR));
+    if (FAILED(ValHR)) {
+      // emulate having a diagnostic context, but leave
+      // the rest of the error print out to the caller
+      fwprintf(stderr, L"error: validation errors\r\n");
+    }
+
+    // regardless if there were errors or not, we want to replace
+    // the output blob with the result of the validator
+    if (*ppResult) {
+      (*ppResult)->Release();
+      *ppResult = nullptr;
+    }
+
+    *ppResult = pValResult.Detach(); // Transfers ownership to caller
+
+    return S_OK;
   }
 
   HRESULT STDMETHODCALLTYPE
@@ -187,12 +267,13 @@ public:
 static ExternalValidationHelper *Alloc(IMalloc *pMalloc,
                                        CComPtr<IDxcCompiler> compiler,
                                        CComPtr<IDxcCompiler3> compiler3,
+                                       CComPtr<IDxcValidator> validator,
                                        UINT32 major, UINT32 minor) {
   void *P = pMalloc->Alloc(sizeof(ExternalValidationHelper));
   try {
     if (P)
-      return new (P)
-          ExternalValidationHelper(compiler, compiler3, major, minor, pMalloc);
+      return new (P) ExternalValidationHelper(compiler, compiler3, validator,
+                                              major, minor, pMalloc);
   } catch (...) {
     pMalloc->Free(P);
     throw;
@@ -260,7 +341,7 @@ HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
 
       ExternalValidationHelper *evh =
           Alloc(DxcGetThreadMallocNoRef(), DxcCompiler, DxcCompiler3,
-                validatorMajor, validatorMinor);
+                DxcValidator, validatorMajor, validatorMinor);
 
       if (!evh)
         return E_OUTOFMEMORY;
@@ -325,8 +406,9 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
         return hr;
 
       // Allocate properly with TM allocator
-      ExternalValidationHelper *evh = Alloc(pMalloc, DxcCompiler, DxcCompiler3,
-                                            validatorMajor, validatorMinor);
+      ExternalValidationHelper *evh =
+          Alloc(pMalloc, DxcCompiler, DxcCompiler3, DxcValidator,
+                validatorMajor, validatorMinor);
       if (!evh)
         return E_OUTOFMEMORY;
 

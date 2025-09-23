@@ -811,51 +811,6 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
   *ppCompileResult = pResult.Detach();
 }
 
-int DxcContext::MaybeRunExternalValidatorAndPrintValidationOutput(
-    const DxcOpts &opts, CComPtr<IDxcOperationResult> pCompileResult) {
-
-  // TODO: These conditions are the ones checked to disable internal
-  // validation, but it's missing rootSigMajor == 0, that doesn't seem
-  // straight forward to repro in this context.
-
-  bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
-                              !opts.OptDump && !opts.DumpDependencies &&
-                              !opts.VerifyDiagnostics;
-  bool NeedsValidation = produceFullContainer && !opts.DisableValidation;
-  if (!NeedsValidation)
-    return S_OK;
-
-  CComPtr<IDxcValidator> pValidator;
-  IFT(CreateInstance(CLSID_DxcValidator, &pValidator));
-
-  CComPtr<IDxcBlob> pProgram;
-  CComPtr<IDxcOperationResult> pValResult;
-
-  IFT(pCompileResult->GetResult(&pProgram));
-
-  IFT(pValidator->Validate(pProgram, DxcValidatorFlags_InPlaceEdit,
-                           &pValResult));
-  CComPtr<IDxcResult> pResult;
-  HRESULT ValHR;
-  pValResult->GetStatus(&ValHR);
-
-  if (SUCCEEDED(ValHR))
-    return ValHR;
-
-  HRESULT hr;
-  if (FAILED(hr = pValResult->QueryInterface(&pResult)))
-    return hr;
-
-  CComPtr<IDxcBlobEncoding> pErrorBlob;
-  CComPtr<IDxcBlobWide> pErrorOutput;
-
-  IFT(pResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrorBlob),
-                         &pErrorOutput));
-
-  WriteBlobToConsole(pErrorBlob);
-  return ValHR;
-}
-
 int DxcContext::Compile() {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pCompileResult;
@@ -919,34 +874,13 @@ int DxcContext::Compile() {
           outputPDBPath += pDebugName.m_pData;
         }
       } else {
-        // if there is no intent to validate externally
-        if (m_dxcSupport.GetDxilDllPath().empty()) {
-          IFT(pCompiler->Compile(
-              pSource, StringRefWide(m_Opts.InputFile),
-              StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
-              args.data(), args.size(), m_Opts.Defines.data(),
-              m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
-        } else {
-          // This compilation invocation will sub in "-Vd" to disable internal
-          // validation so that validation is handled directly immediately
-          // afterwards.
-          IFT(pCompiler->Compile(
-              pSource, StringRefWide(m_Opts.InputFile),
-              StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
-              args.data(), args.size(), m_Opts.Defines.data(),
-              m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
-
-          // Then validate, only if compilation succeeded
-          HRESULT CompHR;
-          pCompileResult->GetStatus(&CompHR);
-
-          if (!DXC_FAILED(CompHR)) {
-            HRESULT ValHR = MaybeRunExternalValidatorAndPrintValidationOutput(
-                m_Opts, pCompileResult);
-            if (DXC_FAILED(ValHR))
-              return ValHR;
-          }
-        }
+        // This may or may not use the external validator after compilation,
+        // depending on the environment.
+        IFT(pCompiler->Compile(
+            pSource, StringRefWide(m_Opts.InputFile),
+            StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
+            args.data(), args.size(), m_Opts.Defines.data(),
+            m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
       }
     }
 

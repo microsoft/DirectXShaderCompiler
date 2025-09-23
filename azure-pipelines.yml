@@ -48,16 +48,19 @@ stages:
       displayName: 'DXIL Execution Tests'        
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hcttest.cmd -$(configuration) compat-suite 2021
-      displayName: 'DXIL Compat Suite Tests (2021 release)'
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite 1.6
+      displayName: 'DXIL Compat Suite Tests (1.6 release)'
+      condition: succeededOrFailed()
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hcttest.cmd -$(configuration) compat-suite 2023
-      displayName: 'DXIL Compat Suite Tests (2023 release)'
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite 1.7
+      displayName: 'DXIL Compat Suite Tests (1.7 release)'
+      condition: succeededOrFailed()
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hcttest.cmd -$(configuration) compat-suite 2025
-      displayName: 'DXIL Compat Suite Tests (2025 release)'
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite 1.8
+      displayName: 'DXIL Compat Suite Tests (1.8 release)'
+      condition: succeededOrFailed()
     
 
   - job: Nix
