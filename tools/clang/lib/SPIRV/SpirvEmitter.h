@@ -849,6 +849,18 @@ private:
                                                SourceLocation loc,
                                                SourceRange range);
 
+  // Processes the `reversebits` intrinsic
+  SpirvInstruction *processReverseBitsIntrinsic(const CallExpr *expr,
+                                                clang::SourceLocation srcLoc);
+
+  // Processes the `reversebits` intrinsic for 16-bit integer types
+  SpirvInstruction *generate16BitReverse(const CallExpr *expr,
+                                         clang::SourceLocation srcLoc);
+
+  // Processes the `reversebits` intrinsic for 64-bit integer types
+  SpirvInstruction *generate64BitReverse(const CallExpr *expr,
+                                         clang::SourceLocation srcLoc);
+
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
   SpirvConstant *getValueZero(QualType type);
