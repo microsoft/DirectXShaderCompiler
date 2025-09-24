@@ -208,6 +208,28 @@ private:
   IID CompilerIID;
   CComPtr<IUnknown> Compiler;
 
+  // Cast current compiler interface pointer. Used from methods of the
+  // associated interface, assuming that the current compiler interface is
+  // correct for the method call.
+  // This will either be casting to the original interface retrieved by
+  // QueryInterface, or to one from which that interface derives.
+  template <typename T> T *castCompilerSafe() const {
+    // Compare stored IID with the IID of T
+    if (CompilerIID == __uuidof(T)) {
+      // Safe to cast because the underlying compiler object in
+      // Compiler originally implemented the interface T
+      return static_cast<T *>(Compiler.p);
+    }
+
+    return nullptr;
+  }
+
+  template <typename T> T *castCompilerUnsafe() {
+    if (T *Safe = castCompilerSafe<T>())
+      return Safe;
+    return static_cast<T *>(Compiler.p);
+  }
+
 public:
   ExternalValidationCompiler(IMalloc *Malloc, IDxcValidator *OtherValidator,
                              REFIID OtherCompilerIID, IUnknown *OtherCompiler)
@@ -249,26 +271,6 @@ public:
     } catch (...) {
       return E_FAIL;
     }
-  }
-
-  // Cast current compiler interface pointer. Used from methods of the
-  // associated interface, assuming that the current compiler interface is
-  // correct for the method call.
-  // This will either be casting to the original interface retrieved by
-  // QueryInterface, or to one from which that interface derives.
-  template <typename T> T *castCompilerUnsafe() {
-    return static_cast<T *>(Compiler.p);
-  }
-
-  template <typename T> T *castCompilerSafe() const {
-    // Compare stored IID with the IID of T
-    if (CompilerIID == __uuidof(T)) {
-      // Safe to cast because the underlying compiler object in
-      // Compiler originally implemented the interface T
-      return static_cast<T *>(Compiler.p);
-    }
-
-    return nullptr;
   }
 
   // IDxcCompiler implementation
