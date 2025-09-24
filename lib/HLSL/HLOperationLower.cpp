@@ -1436,14 +1436,15 @@ Value *TranslateWaveAllEqual(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                               hlslOP, Builder);
 }
 
-static Value* TranslateWaveMatchFixReturn(IRBuilder<>& Builder, Type* TargetTy, Value* RetVal) {
-    Value *ResVec = UndefValue::get(TargetTy);
-    for (unsigned i = 0; i != 4; ++i) {
-      Value *Elt = Builder.CreateExtractValue(RetVal, i);
-      ResVec = Builder.CreateInsertElement(ResVec, Elt, i);
-    }
+static Value *TranslateWaveMatchFixReturn(IRBuilder<> &Builder, Type *TargetTy,
+                                          Value *RetVal) {
+  Value *ResVec = UndefValue::get(TargetTy);
+  for (unsigned i = 0; i != 4; ++i) {
+    Value *Elt = Builder.CreateExtractValue(RetVal, i);
+    ResVec = Builder.CreateInsertElement(ResVec, Elt, i);
+  }
 
-    return ResVec;
+  return ResVec;
 }
 
 // WaveMatch(val<n>)->uint4
@@ -1460,11 +1461,13 @@ Value *TranslateWaveMatch(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opc,
   Constant *OpcArg = Op->GetU32Const((unsigned)DXIL::OpCode::WaveMatch);
 
   // If we don't need to scalarize, just emit the call and exit
-  bool Scalarize = ValTy->isVectorTy() && !Op->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus();
+  bool Scalarize =
+      ValTy->isVectorTy() &&
+      !Op->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus();
   if (!Scalarize) {
     Value *Fn = Op->GetOpFunc(OP::OpCode::WaveMatch, ValTy);
     Value *Args[] = {OpcArg, Val};
-    Value* Ret = Builder.CreateCall(Fn, Args);
+    Value *Ret = Builder.CreateCall(Fn, Args);
     return TranslateWaveMatchFixReturn(Builder, CI->getType(), Ret);
   }
 
