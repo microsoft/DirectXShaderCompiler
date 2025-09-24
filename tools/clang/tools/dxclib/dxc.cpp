@@ -875,7 +875,11 @@ int DxcContext::Compile() {
         }
       } else {
         // This may or may not use the external validator after compilation,
-        // depending on the environment.
+        // depending on the environment. Compilation via the Compile(...)
+        // function is deferred to whatever object was chosen to be pCompiler,
+        // which must implement the IDxcCompiler interface. External validation
+        // will only take place if the DXC_DXIL_DLL_PATH env var is set
+        // correctly.
         IFT(pCompiler->Compile(
             pSource, StringRefWide(m_Opts.InputFile),
             StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),

@@ -14,8 +14,7 @@
 #include "llvm/ADT/StringRef.h"
 #include <iostream>
 
-static bool CheckNeedsValidationFromCompileArgs(LPCWSTR *pArgs,
-                                                UINT32 argCount) {
+static bool NeedsValidationFromCompileArgs(LPCWSTR *pArgs, UINT32 argCount) {
   std::vector<std::wstring> Args(pArgs, pArgs + argCount);
 
   // validation will normally take place upon a compilation unless
@@ -126,7 +125,6 @@ public:
 
     *ppvObject = nullptr;
 
-    // Windows: use built-in __uuidof
     if (IsEqualIID(iid, __uuidof(IUnknown))) {
       AddRef();
       *ppvObject = static_cast<IDxcCompiler3 *>(this);
@@ -158,11 +156,10 @@ public:
                                     IDxcOperationResult **ppResult) override {
 
     // if validation will not be needed, compile as normal
-    if (!CheckNeedsValidationFromCompileArgs(pArguments, argCount)) {
+    if (!NeedsValidationFromCompileArgs(pArguments, argCount))
       return m_pCompiler->Compile(
           pSource, pSourceName, pEntryPoint, pTargetProfile, pArguments,
           argCount, pDefines, defineCount, pIncludeHandler, ppResult);
-    }
 
     // Otherwise, first, add the external validation compilation args
     std::vector<std::wstring> newArgs = AddExtValCompilationArgs(
@@ -181,14 +178,14 @@ public:
     if (DXC_FAILED(CompHR))
       return CompHR;
 
-    HRESULT status;
-    (*ppResult)->GetStatus(&status);
+    HRESULT Status;
+    (*ppResult)->GetStatus(&Status);
 
     // Then validate, only if compilation succeeded.
     // The caller is responsible for handling compilation errors,
     // but this function should return whether there was a critical
     // failure in compilation or not at this point
-    if (DXC_FAILED(status))
+    if (DXC_FAILED(Status))
       return CompHR;
 
     CComPtr<IDxcBlob> pProgram;
@@ -241,21 +238,67 @@ public:
                                     LPCWSTR *pArguments, UINT32 argCount,
                                     IDxcIncludeHandler *pIncludeHandler,
                                     REFIID riid, LPVOID *ppResult) override {
-    // First, add -Vd to the compilation args, to disable the
-    // internal validator
+    // if validation will not be needed, compile as normal
+    if (!NeedsValidationFromCompileArgs(pArguments, argCount))
+      return m_pCompiler3->Compile(pSource, pArguments, argCount,
+                                   pIncludeHandler, riid, ppResult);
+
+    // Otherwise, first, add the external validation compilation args
     std::vector<std::wstring> newArgs = AddExtValCompilationArgs(
         argCount, pArguments, ValidatorVersionMajor, ValidatorVersionMinor);
 
-    // Build raw LPCWSTR* array from owned wstrings
-    std::vector<LPCWSTR> argPtrs;
-    argPtrs.reserve(newArgs.size());
-    for (auto &s : newArgs) {
-      argPtrs.push_back(s.c_str());
+    // Now build an array of LPCWSTRs for the API call:
+    std::vector<LPCWSTR> rawArgs;
+    rawArgs.reserve(newArgs.size());
+    for (auto &a : newArgs) {
+      rawArgs.push_back(a.c_str());
+    }
+    HRESULT CompHR = m_pCompiler3->Compile(pSource, pArguments, argCount,
+                                           pIncludeHandler, riid, ppResult);
+    if (DXC_FAILED(CompHR))
+      return CompHR;
+
+    HRESULT Status;
+    CComPtr<IDxcOperationResult> pDxcOperationResult;
+    IFT(((IUnknown *)*ppResult)
+            ->QueryInterface(IID_PPV_ARGS(&pDxcOperationResult)));
+    pDxcOperationResult->GetStatus(&Status);
+
+    // Then validate, only if compilation succeeded.
+    // The caller is responsible for handling compilation errors,
+    // but this function should return whether there was a critical
+    // failure in compilation or not at this point
+    if (DXC_FAILED(Status))
+      return CompHR;
+
+    CComPtr<IDxcBlob> pProgram;
+    CComPtr<IDxcOperationResult> pValResult;
+
+    IFT(pDxcOperationResult->GetResult(&pProgram));
+
+    // This checks the validator ran without any critical failures,
+    // not that the program was valid.
+    IFT(m_pValidator->Validate(pProgram, DxcValidatorFlags_InPlaceEdit,
+                               &pValResult));
+    CComPtr<IDxcResult> pResult;
+    HRESULT ValHR;
+    IFT(pValResult->GetStatus(&ValHR));
+    if (FAILED(ValHR)) {
+      // emulate having a diagnostic context, but leave
+      // the rest of the error print out to the caller
+      fwprintf(stderr, L"error: validation errors\r\n");
     }
 
-    return m_pCompiler3->Compile(pSource, argPtrs.data(),
-                                 static_cast<UINT32>(argPtrs.size()),
-                                 pIncludeHandler, riid, ppResult);
+    // regardless if there were errors or not, we want to replace
+    // the output blob with the result of the validator
+    if (pDxcOperationResult) {
+      pDxcOperationResult.Release();
+      pDxcOperationResult = nullptr;
+    }
+
+    *ppResult = pValResult.Detach(); // Transfers ownership to caller
+
+    return S_OK;
   }
 
   HRESULT STDMETHODCALLTYPE Disassemble(const DxcBuffer *pObject, REFIID riid,
