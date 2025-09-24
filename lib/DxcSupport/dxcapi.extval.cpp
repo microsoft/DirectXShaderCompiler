@@ -1,123 +1,230 @@
-
 #ifndef _WIN32
 #include "dxc/WinAdapter.h"
 #endif
 
+#include "dxc/Support/Global.h" // for hresult handling with DXC_FAILED
+#include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/WinIncludes.h"
-#include <dxc/Support/Global.h> // for hresult handling with DXC_FAILED
-#include <filesystem>           // C++17 and later
+#include <filesystem> // C++17 and later
 #include <sstream>
 // WinIncludes must come before dxcapi.extval.h
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.extval.h"
+#include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/microcom.h"
-#include "llvm/ADT/StringRef.h"
+#include "dxc/dxcapi.internal.h"
 #include <iostream>
 
-static bool NeedsValidationFromCompileArgs(LPCWSTR *pArgs, UINT32 argCount) {
-  std::vector<std::wstring> Args(pArgs, pArgs + argCount);
+#include "llvm/ADT/SmallVector.h"
 
-  // validation will normally take place upon a compilation unless
-  // any of these compilation flags were passed:
-  for (size_t i = 0; i < argCount; i++) {
-    if (Args[i] == L"-fcgl" || Args[i] == L"/fcgl" || Args[i] == L"-ast-dump" ||
-        Args[i] == L"/ast-dump" || Args[i] == L"-Odump" ||
-        Args[i] == L"/Odump" || Args[i] == L"-dump_dependencies" ||
-        Args[i] == L"/dump_dependencies" || Args[i] == L"-verify" ||
-        Args[i] == L"/verify" || Args[i] == L"-Vd" || Args[i] == L"/Vd" ||
-        Args[i] == L"-P" || Args[i] == L"/P" ||
-        Args[i].rfind(L"rootsig_1") != std::wstring::npos ||
-        Args[i].rfind(L"-Trootsig_1") != std::wstring::npos ||
-        Args[i].rfind(L"/Trootsig_1") != std::wstring::npos)
-      return false;
+namespace {
 
+// The ExtValidationArgHelper class helps manage arguments for external
+// validation, as well as perform the validation step if needed.
+class ExtValidationArgHelper {
+public:
+  std::vector<std::wstring> ArgStorage;
+  llvm::SmallVector<LPCWSTR, 16> NewArgs;
+  hlsl::options::DxcOpts Opts;
+  CComPtr<IDxcValidator> Validator;
+  UINT32 ValidatorVersionMajor = 0;
+  UINT32 ValidatorVersionMinor = 0;
+  bool NeedsValidation = false;
+  bool RootSignatureOnly = false;
+
+  ExtValidationArgHelper() = default;
+  ExtValidationArgHelper(const ExtValidationArgHelper &) = delete;
+  ExtValidationArgHelper(IDxcValidator *NewValidator)
+      : ExtValidationArgHelper() {
+    SetValidator(NewValidator);
+  }
+  ExtValidationArgHelper(IDxcValidator *NewValidator, LPCWSTR **Arguments,
+                         UINT32 *ArgCount, LPCWSTR TargetProfile = nullptr)
+      : ExtValidationArgHelper() {
+    SetValidator(NewValidator);
+    ProcessArgs(Arguments, ArgCount, TargetProfile);
+  }
+
+  /// Add argument to ArgStorage to be referenced by NewArgs.
+  void AddArgument(const std::wstring &Arg) { ArgStorage.push_back(Arg); }
+
+  /// Retrieve validator version.
+  void SetValidator(IDxcValidator *NewValidator) {
+    Validator = NewValidator;
+    IFTARG(Validator);
+
+    // 1.0 had no version interface.
+    ValidatorVersionMajor = 1;
+    ValidatorVersionMinor = 0;
+    CComPtr<IDxcVersionInfo> pValidatorVersionInfo;
+    if (SUCCEEDED(
+            Validator->QueryInterface(IID_PPV_ARGS(&pValidatorVersionInfo)))) {
+      IFT(pValidatorVersionInfo->GetVersion(&ValidatorVersionMajor,
+                                            &ValidatorVersionMinor));
+    }
+  }
+
+  /// Process arguments, adding validator version and disable validation if
+  /// needed. If TargetProfile provided, use this instead of -T argument.
+  void ProcessArgs(LPCWSTR **Arguments, UINT32 *ArgCount,
+                   LPCWSTR TargetProfile = nullptr) {
+    IFTARG((Arguments && ArgCount) && (*Arguments || *ArgCount == 0) &&
+           *ArgCount < INT_MAX - 3);
+    NeedsValidation = false;
+
+    // Must not call twice.
+    IFTBOOL(NewArgs.empty(), E_FAIL);
+
+    // Parse compiler arguments to Opts.
+    std::string Errors;
+    llvm::raw_string_ostream OS(Errors);
+    hlsl::options::MainArgs MainArgs(static_cast<int>(*ArgCount), *Arguments,
+                                     0);
+    if (hlsl::options::ReadDxcOpts(hlsl::options::getHlslOptTable(),
+                                   hlsl::options::CompilerFlags, MainArgs, Opts,
+                                   OS))
+      return; // error - allow compiler to emit error.
+
+    // Determine important conditions from arguments.
+    bool ValidatorVersionNeeded = Opts.ValVerMajor == UINT_MAX;
+    bool ProduceDxModule = !Opts.AstDump && !Opts.OptDump &&
 #ifdef ENABLE_SPIRV_CODEGEN
-    if (Args[i] == L"-spirv" || Args[i] == L"/spirv")
-      return false;
-
+                           !Opts.GenSPIRV &&
 #endif
-  }
+                           !Opts.DumpDependencies && !Opts.VerifyDiagnostics &&
+                           Opts.Preprocess.empty();
+    bool ProduceFullContainer = ProduceDxModule && !Opts.CodeGenHighLevel;
+    NeedsValidation = ProduceFullContainer && !Opts.DisableValidation;
 
-  return true;
-}
-
-static std::vector<std::wstring> AddExtValCompilationArgs(UINT32 ArgCount,
-                                                          LPCWSTR *pArguments,
-                                                          UINT32 Major,
-                                                          UINT32 Minor) {
-  /* We need to add 2 args to the compiler automatically in the external
-    validation case:
-    1. -Vd, to disable internal validation. No need to run the internal
-    validator when the external validator was requested to validate.
-    2. -validator-version to write the validator version to the resulting
-    module. Without this, the modern compiler will write its own version, which
-    will be to0 new for older validators, and the validator will fail. However,
-    if explicitly specified on the command line, we shouldn't overwrite it.
-  */
-
-  std::vector<std::wstring> newArgs = {pArguments, pArguments + ArgCount};
-
-  // Track whether the user already passed -validator-version
-  bool hasValidatorVersion = false;
-  for (size_t i = 0; i < newArgs.size(); ++i) {
-    if (newArgs[i] == L"-validator-version" ||
-        newArgs[i] == L"/validator-version") {
-      // Either the value is in the same arg ("-validator-version=1.6")
-      // or the next arg is the version ("-validator-version", "1.6").
-      hasValidatorVersion = true;
-      break;
+    // Check target profile.
+    if ((TargetProfile &&
+         std::wstring(TargetProfile).compare(0, 8, L"rootsig_") == 0) ||
+        Opts.TargetProfile.startswith("rootsig_")) {
+      RootSignatureOnly = true;
+      if (ValidatorVersionMajor == 1 && ValidatorVersionMinor < 5)
+        NeedsValidation = false; // No rootsig validation before 1.5
     }
-    if (newArgs[i].rfind(L"-validator-version", 0) != std::wstring::npos ||
-        newArgs[i].rfind(L"/validator-version", 0) != std::wstring::npos) {
-      // Handles "-validator-version=1.6"
-      hasValidatorVersion = true;
-      break;
+
+    // Add extra arguments as needed
+    if (ProduceDxModule) {
+      if (ValidatorVersionNeeded) {
+        // If not supplied, add validator version arguments.
+        AddArgument(L"-validator-version");
+        std::wstring verStr = std::to_wstring(ValidatorVersionMajor) + L"." +
+                              std::to_wstring(ValidatorVersionMinor);
+        AddArgument(verStr);
+      }
+
+      // Add argument to disable validation, so we can call it ourselves
+      // later.
+      if (NeedsValidation)
+        AddArgument(L"-Vd");
     }
+
+    if (!ArgStorage.size())
+      return;
+
+    // Reference added arguments from storage.
+    NewArgs.reserve(*ArgCount + ArgStorage.size());
+
+    // Copied arguments refer to original strings.
+    for (UINT32 i = 0; i < *ArgCount; ++i)
+      NewArgs.push_back((*Arguments)[i]);
+
+    for (const auto &Arg : ArgStorage)
+      NewArgs.push_back(Arg.c_str());
+
+    *Arguments = NewArgs.data();
+    *ArgCount = (UINT32)NewArgs.size();
+
+    return;
   }
 
-  // Add the extra arguments
-  newArgs.push_back(L"-Vd");
+  HRESULT DoValidation(IDxcOperationResult *CompileResult, REFIID riid,
+                       void **ppResult) {
+    // this lambda takes an arbitrary object that implements the
+    // IDxcOperationResult interface, asks whether that object
+    // also implements the interface specified by riid, and if
+    // so, sets ppResult to point to that object
+    auto UseResult = [&](IDxcOperationResult *Result) -> HRESULT {
+      if (Result)
+        return Result->QueryInterface(riid, ppResult);
+      else
+        return E_FAIL;
+    };
 
-  // Add -validator-version only if not provided already
-  if (!hasValidatorVersion) {
-    std::wstringstream ss;
-    ss << L"-validator-version " << Major << L"." << Minor;
-    newArgs.push_back(ss.str());
+    // No validation needed; just set the result and return.
+    if (!NeedsValidation)
+      return UseResult(CompileResult);
+
+    // Get the compiled shader.
+    CComPtr<IDxcBlob> pCompiledBlob;
+    IFR(CompileResult->GetResult(&pCompiledBlob));
+
+    // If no compiled blob; just return the compile result.
+    if (!pCompiledBlob)
+      return UseResult(CompileResult);
+
+    // Validate the compiled shader.
+    CComPtr<IDxcOperationResult> ValidationResult;
+    UINT32 DxcValidatorFlags =
+        DxcValidatorFlags_InPlaceEdit |
+        (RootSignatureOnly ? DxcValidatorFlags_RootSignatureOnly : 0);
+    IFR(Validator->Validate(pCompiledBlob, DxcValidatorFlags,
+                            &ValidationResult));
+
+    // Return the validation result if it failed.
+    HRESULT HR;
+    IFR(ValidationResult->GetStatus(&HR));
+    if (FAILED(HR))
+      return UseResult(ValidationResult);
+
+    // Validation succeeded. Return the original compile result.
+    return UseResult(CompileResult);
   }
+};
 
-  return newArgs;
-}
-
-namespace dxc {
-
-// The purpose of the ExternalValidationHelper wrapper is
-// to wrap the Compile call so that -Vd can be passed, disabling
-// internal validation. Then, we can allow the caller to handle
-// external validation. This wrapper is used when in an external
-// validation scenario, so there is no point in also running
-// the internal validator. This wrapper wraps both the
-// IDxcCompiler and IDxcCompiler3 interfaces.
-class ExternalValidationHelper : public IDxcCompiler, public IDxcCompiler3 {
+// ExternalValidationCompiler provides a DxCompiler that performs validation
+// using an external validator instead of an internal one.
+// It uses a wrapping approach, where it wraps the provided compiler object,
+// adds '-Vd' and '-validator-version' when appropriate to skip internal
+// validation and set the default validator version, then uses the provided
+// IDxcValidator interface to validate a successful compilation result, when
+// validation would normally be performed.
+class ExternalValidationCompiler : public IDxcCompiler2,
+                                   public IDxcCompiler3,
+                                   public IDxcLangExtensions3,
+                                   public IDxcContainerEvent,
+                                   public IDxcVersionInfo3,
+                                   public IDxcVersionInfo2 {
 private:
-  CComPtr<IDxcCompiler> m_pCompiler;
-  CComPtr<IDxcCompiler3> m_pCompiler3;
   CComPtr<IDxcValidator> m_pValidator;
-  UINT32 ValidatorVersionMajor;
-  UINT32 ValidatorVersionMinor;
+
+  // This wrapper wraps one particular compiler interface.
+  // When QueryInterface is called, we create a new wrapper
+  // for the requested interface, which wraps the result of QueryInterface
+  // on the compiler object. Compiler pointer is held as IUnknown and must
+  // be upcast to the appropriate interface on use.
+  IID m_CompilerIID;
+  CComPtr<IUnknown> m_pCompiler;
 
 public:
-  ExternalValidationHelper(CComPtr<IDxcCompiler> compiler,
-                           CComPtr<IDxcCompiler3> compiler3,
-                           CComPtr<IDxcValidator> validator, UINT32 major,
-                           UINT32 minor, IMalloc *pMalloc = nullptr)
-      : m_pCompiler(compiler), m_pCompiler3(compiler3), m_pValidator(validator),
-        ValidatorVersionMajor(major), ValidatorVersionMinor(minor),
-        m_pMalloc(pMalloc) {}
+  ExternalValidationCompiler(IMalloc *pMalloc, IDxcValidator *pValidator,
+                             REFIID CompilerIID, IUnknown *pCompiler)
+      : m_pMalloc(pMalloc), m_pValidator(pValidator),
+        m_CompilerIID(CompilerIID), m_pCompiler(pCompiler) {}
 
   // IUnknown implementation
   DXC_MICROCOM_TM_REF_FIELDS()
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_ALLOC(ExternalValidationCompiler)
 
+  // QueryInterface creates a new wrapper for the correct compiler interface
+  // retrieved by calling QueryInterface on the compiler. The new wrapper
+  // keeps the IID and returned compiler interface pointer for use in
+  // associated interface methods. Those methods can then use
+  // castCompilerUnsafe to upcast the pointer to the appropriate interface
+  // for the method.
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {
     if (!ppvObject)
@@ -125,25 +232,32 @@ public:
 
     *ppvObject = nullptr;
 
-    if (IsEqualIID(iid, __uuidof(IUnknown))) {
-      AddRef();
-      *ppvObject = static_cast<IDxcCompiler3 *>(this);
-      return S_OK;
-    }
+    // Get pointer for an interface the compiler object supports.
+    CComPtr<IUnknown> Compiler;
+    IFR(m_pCompiler->QueryInterface(iid, (void **)&Compiler));
 
-    if (m_pCompiler && IsEqualIID(iid, __uuidof(IDxcCompiler))) {
-      AddRef();
-      *ppvObject = static_cast<IDxcCompiler *>(this);
-      return S_OK;
+    try {
+      // This can throw; do not leak C++ exceptions through COM method
+      // calls.
+      CComPtr<ExternalValidationCompiler> NewWrapper(
+          Alloc(m_pMalloc, m_pValidator, iid, Compiler));
+      return DoBasicQueryInterface<
+          IDxcCompiler, IDxcCompiler2, IDxcCompiler3, IDxcLangExtensions,
+          IDxcLangExtensions2, IDxcLangExtensions3, IDxcContainerEvent,
+          IDxcVersionInfo, IDxcVersionInfo2, IDxcVersionInfo3>(NewWrapper.p,
+                                                               iid, ppvObject);
+    } catch (...) {
+      return E_FAIL;
     }
+  }
 
-    if (m_pCompiler3 && IsEqualIID(iid, __uuidof(IDxcCompiler3))) {
-      AddRef();
-      *ppvObject = static_cast<IDxcCompiler3 *>(this);
-      return S_OK;
-    }
-
-    return E_NOINTERFACE;
+  // Cast current compiler interface pointer. Used from methods of the
+  // associated interface, assuming that the current compiler interface is
+  // correct for the method call.
+  // This will either be casting to the original interface retrieved by
+  // QueryInterface, or to one from which that interface derives.
+  template <typename T> T *castCompilerUnsafe() {
+    return static_cast<T *>(m_pCompiler.p);
   }
 
   // IDxcCompiler implementation
@@ -154,68 +268,33 @@ public:
                                     UINT32 defineCount,
                                     IDxcIncludeHandler *pIncludeHandler,
                                     IDxcOperationResult **ppResult) override {
+    if (ppResult == nullptr)
+      return E_INVALIDARG;
 
-    // if validation will not be needed, compile as normal
-    if (!NeedsValidationFromCompileArgs(pArguments, argCount))
-      return m_pCompiler->Compile(
+    DxcThreadMalloc TM(m_pMalloc);
+    try {
+      // ProcessArgs will update pArguments and argCount if needed.
+      ExtValidationArgHelper Helper(m_pValidator, &pArguments, &argCount,
+                                    pTargetProfile);
+
+      CComPtr<IDxcOperationResult> CompileResult;
+      IFR(castCompilerUnsafe<IDxcCompiler>()->Compile(
           pSource, pSourceName, pEntryPoint, pTargetProfile, pArguments,
-          argCount, pDefines, defineCount, pIncludeHandler, ppResult);
+          argCount, pDefines, defineCount, pIncludeHandler, &CompileResult));
 
-    // Otherwise, first, add the external validation compilation args
-    std::vector<std::wstring> newArgs = AddExtValCompilationArgs(
-        argCount, pArguments, ValidatorVersionMajor, ValidatorVersionMinor);
+      return Helper.DoValidation(CompileResult, IID_PPV_ARGS(ppResult));
 
-    // Now build an array of LPCWSTRs for the API call:
-    std::vector<LPCWSTR> rawArgs;
-    rawArgs.reserve(newArgs.size());
-    for (auto &a : newArgs) {
-      rawArgs.push_back(a.c_str());
+    } catch (std::bad_alloc &) {
+      return E_OUTOFMEMORY;
+    } catch (hlsl::Exception &e) {
+      assert(DXC_FAILED(e.hr));
+      return DxcResult::Create(
+          e.hr, DXC_OUT_NONE,
+          {DxcOutputObject::ErrorOutput(CP_UTF8, e.msg.c_str(), e.msg.size())},
+          ppResult);
+    } catch (...) {
+      return E_FAIL;
     }
-
-    HRESULT CompHR = m_pCompiler->Compile(
-        pSource, pSourceName, pEntryPoint, pTargetProfile, rawArgs.data(),
-        rawArgs.size(), pDefines, defineCount, pIncludeHandler, ppResult);
-    if (DXC_FAILED(CompHR))
-      return CompHR;
-
-    HRESULT Status;
-    (*ppResult)->GetStatus(&Status);
-
-    // Then validate, only if compilation succeeded.
-    // The caller is responsible for handling compilation errors,
-    // but this function should return whether there was a critical
-    // failure in compilation or not at this point
-    if (DXC_FAILED(Status))
-      return CompHR;
-
-    CComPtr<IDxcBlob> pProgram;
-    CComPtr<IDxcOperationResult> pValResult;
-
-    IFT((*ppResult)->GetResult(&pProgram));
-
-    // This checks the validator ran without any critical failures,
-    // not that the program was valid.
-    IFT(m_pValidator->Validate(pProgram, DxcValidatorFlags_InPlaceEdit,
-                               &pValResult));
-    CComPtr<IDxcResult> pResult;
-    HRESULT ValHR;
-    IFT(pValResult->GetStatus(&ValHR));
-    if (FAILED(ValHR)) {
-      // emulate having a diagnostic context, but leave
-      // the rest of the error print out to the caller
-      fwprintf(stderr, L"error: validation errors\r\n");
-    }
-
-    // regardless if there were errors or not, we want to replace
-    // the output blob with the result of the validator
-    if (*ppResult) {
-      (*ppResult)->Release();
-      *ppResult = nullptr;
-    }
-
-    *ppResult = pValResult.Detach(); // Transfers ownership to caller
-
-    return S_OK;
   }
 
   HRESULT STDMETHODCALLTYPE
@@ -223,14 +302,52 @@ public:
              UINT32 argCount, const DxcDefine *pDefines, UINT32 defineCount,
              IDxcIncludeHandler *pIncludeHandler,
              IDxcOperationResult **ppResult) override {
-    return m_pCompiler->Preprocess(pSource, pSourceName, pArguments, argCount,
-                                   pDefines, defineCount, pIncludeHandler,
-                                   ppResult);
+    return castCompilerUnsafe<IDxcCompiler>()->Preprocess(
+        pSource, pSourceName, pArguments, argCount, pDefines, defineCount,
+        pIncludeHandler, ppResult);
   }
 
   HRESULT STDMETHODCALLTYPE
   Disassemble(IDxcBlob *pSource, IDxcBlobEncoding **ppDisassembly) override {
-    return m_pCompiler->Disassemble(pSource, ppDisassembly);
+    return castCompilerUnsafe<IDxcCompiler>()->Disassemble(pSource,
+                                                           ppDisassembly);
+  }
+
+  // IDxcCompiler2 implementation
+  HRESULT STDMETHODCALLTYPE CompileWithDebug(
+      IDxcBlob *pSource, LPCWSTR pSourceName, LPCWSTR pEntryPoint,
+      LPCWSTR pTargetProfile, LPCWSTR *pArguments, UINT32 argCount,
+      const DxcDefine *pDefines, UINT32 defineCount,
+      IDxcIncludeHandler *pIncludeHandler, IDxcOperationResult **ppResult,
+      LPWSTR *ppDebugBlobName, IDxcBlob **ppDebugBlob) override {
+    if (ppResult == nullptr)
+      return E_INVALIDARG;
+
+    DxcThreadMalloc TM(m_pMalloc);
+    try {
+      // ProcessArgs will update pArguments and argCount if needed.
+      ExtValidationArgHelper Helper(m_pValidator, &pArguments, &argCount,
+                                    pTargetProfile);
+
+      CComPtr<IDxcOperationResult> CompileResult;
+      IFR(castCompilerUnsafe<IDxcCompiler2>()->CompileWithDebug(
+          pSource, pSourceName, pEntryPoint, pTargetProfile, pArguments,
+          argCount, pDefines, defineCount, pIncludeHandler, &CompileResult,
+          ppDebugBlobName, ppDebugBlob));
+
+      return Helper.DoValidation(CompileResult, IID_PPV_ARGS(ppResult));
+
+    } catch (std::bad_alloc &) {
+      return E_OUTOFMEMORY;
+    } catch (hlsl::Exception &e) {
+      assert(DXC_FAILED(e.hr));
+      return DxcResult::Create(
+          e.hr, DXC_OUT_NONE,
+          {DxcOutputObject::ErrorOutput(CP_UTF8, e.msg.c_str(), e.msg.size())},
+          ppResult);
+    } catch (...) {
+      return E_FAIL;
+    }
   }
 
   // IDxcCompiler3 implementation
@@ -238,90 +355,148 @@ public:
                                     LPCWSTR *pArguments, UINT32 argCount,
                                     IDxcIncludeHandler *pIncludeHandler,
                                     REFIID riid, LPVOID *ppResult) override {
-    // if validation will not be needed, compile as normal
-    if (!NeedsValidationFromCompileArgs(pArguments, argCount))
-      return m_pCompiler3->Compile(pSource, pArguments, argCount,
-                                   pIncludeHandler, riid, ppResult);
+    if (ppResult == nullptr)
+      return E_INVALIDARG;
 
-    // Otherwise, first, add the external validation compilation args
-    std::vector<std::wstring> newArgs = AddExtValCompilationArgs(
-        argCount, pArguments, ValidatorVersionMajor, ValidatorVersionMinor);
+    DxcThreadMalloc TM(m_pMalloc);
+    try {
+      // ProcessArgs will update pArguments and argCount if needed.
+      ExtValidationArgHelper Helper(m_pValidator, &pArguments, &argCount);
 
-    // Now build an array of LPCWSTRs for the API call:
-    std::vector<LPCWSTR> rawArgs;
-    rawArgs.reserve(newArgs.size());
-    for (auto &a : newArgs) {
-      rawArgs.push_back(a.c_str());
+      CComPtr<IDxcResult> CompileResult;
+      IFR(castCompilerUnsafe<IDxcCompiler3>()->Compile(
+          pSource, pArguments, argCount, pIncludeHandler,
+          IID_PPV_ARGS(&CompileResult)));
+
+      return Helper.DoValidation(CompileResult, riid, ppResult);
+
+    } catch (std::bad_alloc &) {
+      return E_OUTOFMEMORY;
+    } catch (hlsl::Exception &e) {
+      assert(DXC_FAILED(e.hr));
+      CComPtr<IDxcResult> errorResult;
+      return DxcResult::Create(
+          e.hr, DXC_OUT_NONE,
+          {DxcOutputObject::ErrorOutput(CP_UTF8, e.msg.c_str(), e.msg.size())},
+          &errorResult);
+      return errorResult->QueryInterface(riid, ppResult);
+    } catch (...) {
+      return E_FAIL;
     }
-    HRESULT CompHR = m_pCompiler3->Compile(pSource, pArguments, argCount,
-                                           pIncludeHandler, riid, ppResult);
-    if (DXC_FAILED(CompHR))
-      return CompHR;
-
-    HRESULT Status;
-    CComPtr<IDxcOperationResult> pDxcOperationResult;
-    IFT(((IUnknown *)*ppResult)
-            ->QueryInterface(IID_PPV_ARGS(&pDxcOperationResult)));
-    pDxcOperationResult->GetStatus(&Status);
-
-    // Then validate, only if compilation succeeded.
-    // The caller is responsible for handling compilation errors,
-    // but this function should return whether there was a critical
-    // failure in compilation or not at this point
-    if (DXC_FAILED(Status))
-      return CompHR;
-
-    CComPtr<IDxcBlob> pProgram;
-    CComPtr<IDxcOperationResult> pValResult;
-
-    IFT(pDxcOperationResult->GetResult(&pProgram));
-
-    // This checks the validator ran without any critical failures,
-    // not that the program was valid.
-    IFT(m_pValidator->Validate(pProgram, DxcValidatorFlags_InPlaceEdit,
-                               &pValResult));
-    CComPtr<IDxcResult> pResult;
-    HRESULT ValHR;
-    IFT(pValResult->GetStatus(&ValHR));
-    if (FAILED(ValHR)) {
-      // emulate having a diagnostic context, but leave
-      // the rest of the error print out to the caller
-      fwprintf(stderr, L"error: validation errors\r\n");
-    }
-
-    // regardless if there were errors or not, we want to replace
-    // the output blob with the result of the validator
-    if (pDxcOperationResult) {
-      pDxcOperationResult.Release();
-      pDxcOperationResult = nullptr;
-    }
-
-    *ppResult = pValResult.Detach(); // Transfers ownership to caller
-
-    return S_OK;
   }
 
   HRESULT STDMETHODCALLTYPE Disassemble(const DxcBuffer *pObject, REFIID riid,
                                         LPVOID *ppResult) override {
-    return m_pCompiler3->Disassemble(pObject, riid, ppResult);
+    return castCompilerUnsafe<IDxcCompiler3>()->Disassemble(pObject, riid,
+                                                            ppResult);
+  }
+
+  // IDxcLangExtensions pass-through implementations
+  HRESULT STDMETHODCALLTYPE RegisterSemanticDefine(LPCWSTR name) override {
+    return castCompilerUnsafe<IDxcLangExtensions>()->RegisterSemanticDefine(
+        name);
+  }
+  HRESULT STDMETHODCALLTYPE
+  RegisterSemanticDefineExclusion(LPCWSTR name) override {
+    return castCompilerUnsafe<IDxcLangExtensions>()
+        ->RegisterSemanticDefineExclusion(name);
+  }
+  HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name) override {
+    return castCompilerUnsafe<IDxcLangExtensions>()->RegisterDefine(name);
+  }
+  HRESULT STDMETHODCALLTYPE
+  RegisterIntrinsicTable(IDxcIntrinsicTable *pTable) override {
+    return castCompilerUnsafe<IDxcLangExtensions>()->RegisterIntrinsicTable(
+        pTable);
+  }
+  HRESULT STDMETHODCALLTYPE
+  SetSemanticDefineValidator(IDxcSemanticDefineValidator *pValidator) override {
+    return castCompilerUnsafe<IDxcLangExtensions>()->SetSemanticDefineValidator(
+        pValidator);
+  }
+  HRESULT STDMETHODCALLTYPE
+  SetSemanticDefineMetaDataName(LPCSTR name) override {
+    return castCompilerUnsafe<IDxcLangExtensions>()
+        ->SetSemanticDefineMetaDataName(name);
+  }
+  // IDxcLangExtensions2 pass-through implementations
+  HRESULT STDMETHODCALLTYPE SetTargetTriple(LPCSTR name) override {
+    return castCompilerUnsafe<IDxcLangExtensions2>()->SetTargetTriple(name);
+  }
+  // IDxcLangExtensions3 pass-through implementations
+  HRESULT STDMETHODCALLTYPE
+  RegisterNonOptSemanticDefine(LPCWSTR name) override {
+    return castCompilerUnsafe<IDxcLangExtensions3>()
+        ->RegisterNonOptSemanticDefine(name);
+  }
+
+  // IDxcContainerEvent pass-through implementations
+  HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(
+      IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) override {
+    return castCompilerUnsafe<IDxcContainerEvent>()
+        ->RegisterDxilContainerEventHandler(pHandler, pCookie);
+  }
+  HRESULT STDMETHODCALLTYPE
+  UnRegisterDxilContainerEventHandler(UINT64 cookie) override {
+    return castCompilerUnsafe<IDxcContainerEvent>()
+        ->UnRegisterDxilContainerEventHandler(cookie);
+  }
+
+  // IDxcVersionInfo3 pass-through implementations
+  HRESULT STDMETHODCALLTYPE
+  GetCustomVersionString(char **pVersionString) override {
+    return castCompilerUnsafe<IDxcVersionInfo3>()->GetCustomVersionString(
+        pVersionString);
+  }
+
+  // IDxcVersionInfo2 pass-through implementations
+  HRESULT STDMETHODCALLTYPE GetCommitInfo(UINT32 *pCommitCount,
+                                          char **pCommitHash) override {
+    return castCompilerUnsafe<IDxcVersionInfo2>()->GetCommitInfo(pCommitCount,
+                                                                 pCommitHash);
+  }
+
+  // IDxcVersionInfo pass-through implementations
+  HRESULT STDMETHODCALLTYPE GetVersion(UINT32 *pMajor,
+                                       UINT32 *pMinor) override {
+    return castCompilerUnsafe<IDxcVersionInfo>()->GetVersion(pMajor, pMinor);
+  }
+  HRESULT STDMETHODCALLTYPE GetFlags(UINT32 *pFlags) override {
+    return castCompilerUnsafe<IDxcVersionInfo>()->GetFlags(pFlags);
   }
 };
+} // namespace
 
-static ExternalValidationHelper *Alloc(IMalloc *pMalloc,
-                                       CComPtr<IDxcCompiler> compiler,
-                                       CComPtr<IDxcCompiler3> compiler3,
-                                       CComPtr<IDxcValidator> validator,
-                                       UINT32 major, UINT32 minor) {
-  void *P = pMalloc->Alloc(sizeof(ExternalValidationHelper));
-  try {
-    if (P)
-      return new (P) ExternalValidationHelper(compiler, compiler3, validator,
-                                              major, minor, pMalloc);
-  } catch (...) {
-    pMalloc->Free(P);
-    throw;
+namespace dxc {
+
+static HRESULT CreateCompilerWrapper(IMalloc *pMalloc,
+                                     SpecificDllLoader &DxCompilerSupport,
+                                     SpecificDllLoader &DxilExtValSupport,
+                                     REFIID riid, IUnknown **ppResult) {
+  IFTARG(ppResult);
+  *ppResult = nullptr;
+
+  CComPtr<IUnknown> Compiler;
+  CComPtr<IDxcValidator> Validator;
+
+  // Create compiler and validator
+  if (pMalloc) {
+    IFR(DxCompilerSupport.CreateInstance2(pMalloc, CLSID_DxcCompiler, riid,
+                                          &Compiler));
+    IFR(DxilExtValSupport.CreateInstance2<IDxcValidator>(
+        pMalloc, CLSID_DxcValidator, &Validator));
+  } else {
+    IFR(DxCompilerSupport.CreateInstance(CLSID_DxcCompiler, riid, &Compiler));
+    IFR(DxilExtValSupport.CreateInstance<IDxcValidator>(CLSID_DxcValidator,
+                                                        &Validator));
   }
-  return nullptr;
+
+  // Wrap compiler
+  CComPtr<ExternalValidationCompiler> CompilerWrapper =
+      ExternalValidationCompiler::Alloc(pMalloc ? pMalloc
+                                                : DxcGetThreadMallocNoRef(),
+                                        Validator, riid, Compiler);
+  return CompilerWrapper->QueryInterface(riid, (void **)ppResult);
 }
 
 HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
@@ -335,61 +510,11 @@ HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID clsid,
   // If there is intent to use an external dxil.dll
   if (!DxilDllPath.empty() && !DxilDllFailedToLoad()) {
     if (clsid == CLSID_DxcValidator) {
-      return DxilExtValSupport.CreateInstance<IDxcValidator>(
-          clsid, reinterpret_cast<IDxcValidator **>(pResult));
+      return DxilExtValSupport.CreateInstance(clsid, riid, pResult);
     }
     if (clsid == CLSID_DxcCompiler) {
-
-      CComPtr<IDxcCompiler> DxcCompiler;
-      CComPtr<IDxcCompiler3> DxcCompiler3;
-      CComPtr<IDxcValidator> DxcValidator;
-      UINT32 validatorMajor = 0;
-      UINT32 validatorMinor = 0;
-
-      // first, get the validator version so that the wrapper knows
-      // which -validator-version parameter to pass to the compiler's
-      // compile function
-      if (SUCCEEDED(DxilExtValSupport.CreateInstance<IDxcValidator>(
-              CLSID_DxcValidator, &DxcValidator))) {
-
-        CComPtr<IDxcVersionInfo> verInfo;
-        if (SUCCEEDED(DxcValidator->QueryInterface(IID_PPV_ARGS(&verInfo)))) {
-          verInfo->GetVersion(&validatorMajor, &validatorMinor);
-        }
-      }
-
-      // Create compiler
-      HRESULT hr = S_OK;
-      if (riid == __uuidof(IDxcCompiler))
-        hr = DxCompilerSupport.CreateInstance<IDxcCompiler>(CLSID_DxcCompiler,
-                                                            &DxcCompiler);
-      else if (riid == __uuidof(IDxcCompiler3))
-        hr = DxCompilerSupport.CreateInstance<IDxcCompiler3>(CLSID_DxcCompiler,
-                                                             &DxcCompiler3);
-      else {
-        // TODO: IDxcCompiler2 not implemented yet, but should
-        // error for now
-        hr = E_UNEXPECTED;
-      }
-
-      if (FAILED(hr))
-        return hr;
-
-      CComPtr<IMalloc> pDefaultMalloc;
-      hr = DxcCoGetMalloc(1 /*MEMCTX_TASK*/, &pDefaultMalloc);
-      if (FAILED(hr))
-        return hr;
-
-      DxcThreadMalloc TM(nullptr);
-
-      ExternalValidationHelper *evh =
-          Alloc(DxcGetThreadMallocNoRef(), DxcCompiler, DxcCompiler3,
-                DxcValidator, validatorMajor, validatorMinor);
-
-      if (!evh)
-        return E_OUTOFMEMORY;
-
-      return evh->QueryInterface(riid, reinterpret_cast<void **>(pResult));
+      return CreateCompilerWrapper(nullptr, DxCompilerSupport,
+                                   DxilExtValSupport, riid, pResult);
     }
   }
 
@@ -408,56 +533,11 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
   // If there is intent to use an external dxil.dll
   if (!DxilDllPath.empty() && !DxilDllFailedToLoad()) {
     if (clsid == CLSID_DxcValidator) {
-      return DxilExtValSupport.CreateInstance2<IDxcValidator>(
-          pMalloc, clsid, reinterpret_cast<IDxcValidator **>(pResult));
+      return DxilExtValSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
     }
     if (clsid == CLSID_DxcCompiler) {
-      CComPtr<IDxcCompiler> DxcCompiler;
-      CComPtr<IDxcCompiler3> DxcCompiler3;
-      CComPtr<IDxcValidator> DxcValidator;
-      UINT32 validatorMajor = 0;
-      UINT32 validatorMinor = 0;
-
-      // first, get the validator version so that the wrapper knows
-      // which -validator-version parameter to pass to the compiler's
-      // compile function
-
-      if (SUCCEEDED(DxilExtValSupport.CreateInstance<IDxcValidator>(
-              CLSID_DxcValidator, &DxcValidator))) {
-
-        CComPtr<IDxcVersionInfo> verInfo;
-        if (SUCCEEDED(DxcValidator->QueryInterface(IID_PPV_ARGS(&verInfo)))) {
-          verInfo->GetVersion(&validatorMajor, &validatorMinor);
-        }
-      }
-
-      // Create compiler
-      HRESULT hr = S_OK;
-      if (riid == __uuidof(IDxcCompiler))
-        hr = DxCompilerSupport.CreateInstance2<IDxcCompiler>(
-            pMalloc, CLSID_DxcCompiler, &DxcCompiler);
-      else if (riid == __uuidof(IDxcCompiler3))
-        hr = DxCompilerSupport.CreateInstance2<IDxcCompiler3>(
-            pMalloc, CLSID_DxcCompiler, &DxcCompiler3);
-      else {
-        // TODO: IDxcCompiler2 not implemented yet, but should
-        // error for now
-        hr = E_UNEXPECTED;
-      }
-
-      if (FAILED(hr))
-        return hr;
-
-      // Allocate properly with TM allocator
-      ExternalValidationHelper *evh =
-          Alloc(pMalloc, DxcCompiler, DxcCompiler3, DxcValidator,
-                validatorMajor, validatorMinor);
-      if (!evh)
-        return E_OUTOFMEMORY;
-
-      // QueryInterface to the requested riid
-      hr = evh->QueryInterface(riid, reinterpret_cast<void **>(pResult));
-      return hr;
+      return CreateCompilerWrapper(pMalloc, DxCompilerSupport,
+                                   DxilExtValSupport, riid, pResult);
     }
   }
 
@@ -465,7 +545,8 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(IMalloc *pMalloc,
   return DxCompilerSupport.CreateInstance2(pMalloc, clsid, riid, pResult);
 }
 
-HRESULT DxcDllExtValidationLoader::Initialize(llvm::raw_string_ostream &log) {
+HRESULT
+DxcDllExtValidationLoader::Initialize(llvm::raw_string_ostream &log) {
   // Load dxcompiler.dll
   HRESULT Result =
       DxCompilerSupport.InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
