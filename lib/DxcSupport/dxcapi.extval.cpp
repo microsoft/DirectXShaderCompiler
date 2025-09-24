@@ -211,8 +211,8 @@ private:
 public:
   ExternalValidationCompiler(IMalloc *pMalloc, IDxcValidator *pValidator,
                              REFIID CompilerIID, IUnknown *pCompiler)
-      : m_pMalloc(pMalloc), m_pValidator(pValidator),
-        m_CompilerIID(CompilerIID), m_pCompiler(pCompiler) {}
+      : m_pValidator(pValidator), m_CompilerIID(CompilerIID),
+        m_pCompiler(pCompiler), m_pMalloc(pMalloc) {}
 
   // IUnknown implementation
   DXC_MICROCOM_TM_REF_FIELDS()
@@ -258,6 +258,17 @@ public:
   // QueryInterface, or to one from which that interface derives.
   template <typename T> T *castCompilerUnsafe() {
     return static_cast<T *>(m_pCompiler.p);
+  }
+
+  template <typename T> T *castCompilerSafe() const {
+    // Compare stored IID with the IID of T
+    if (m_CompilerIID == __uuidof(T)) {
+      // Safe to cast because the underlying compiler object in
+      // m_pCompiler originally implemented the interface T
+      return static_cast<T *>(m_pCompiler.p);
+    }
+
+    return nullptr;
   }
 
   // IDxcCompiler implementation
