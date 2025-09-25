@@ -1460,7 +1460,7 @@ int dxc::main(int argc, const char **argv_) {
     {
       std::string dllLogString;
       llvm::raw_string_ostream dllErrorStream(dllLogString);
-      HRESULT dllResult = dxcSupport.Initialize(dllErrorStream);
+      HRESULT dllResult = dxcSupport.initialize(dllErrorStream);
       if (DXC_FAILED(dllResult)) {
         dllErrorStream << "Unable to load support for external DLL - error 0x";
         dllErrorStream.write_hex(dllResult);
