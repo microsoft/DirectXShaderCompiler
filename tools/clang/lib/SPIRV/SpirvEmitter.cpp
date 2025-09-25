@@ -2148,9 +2148,12 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     // We already know the variable is not externally visible here. If it does
     // not have local storage, it should be file scope variable.
     const bool isFileScopeVar = !decl->hasLocalStorage();
-    if (isFileScopeVar)
+    if (isFileScopeVar) {
+      if (decl->getType().isConstQualified() &&
+          declIdMapper.tryToCreateConstantVar(decl))
+        return;
       var = declIdMapper.createFileVar(decl, llvm::None);
-    else
+    } else
       var = declIdMapper.createFnVar(decl, llvm::None);
 
     // Emit OpStore to initialize the variable
