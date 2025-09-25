@@ -186,6 +186,12 @@ void CheckLLVMErrorCode(const std::error_code &ec);
       throw ::hlsl::Exception(E_INVALIDARG);                                   \
     }                                                                          \
   }
+#define IFTARGMSG(x, msg)                                                      \
+  {                                                                            \
+    if (!(x)) {                                                                \
+      throw ::hlsl::Exception(E_INVALIDARG, msg);                              \
+    }                                                                          \
+  }
 #define IFTLLVM(x)                                                             \
   { CheckLLVMErrorCode(x); }
 #define IFTMSG(x, msg)                                                         \
