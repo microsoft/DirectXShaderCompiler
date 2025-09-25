@@ -34,10 +34,11 @@ class ExtValidationArgHelper {
 public:
   ExtValidationArgHelper() = default;
   ExtValidationArgHelper(const ExtValidationArgHelper &) = delete;
-  void Initialize(IDxcValidator *NewValidator, LPCWSTR **Arguments,
-                  UINT32 *ArgCount, LPCWSTR TargetProfile = nullptr) {
-    setValidator(NewValidator);
-    processArgs(Arguments, ArgCount, TargetProfile);
+  HRESULT initialize(IDxcValidator *NewValidator, LPCWSTR **Arguments,
+                     UINT32 *ArgCount, LPCWSTR TargetProfile = nullptr) {
+    IFR(setValidator(NewValidator));
+    IFR(processArgs(Arguments, ArgCount, TargetProfile));
+    return S_OK;
   }
 
   HRESULT doValidation(IDxcOperationResult *CompileResult, REFIID Riid,
@@ -85,11 +86,11 @@ public:
 
 private:
   /// Add argument to ArgStorage to be referenced by NewArgs.
-  void AddArgument(const std::wstring &Arg) { ArgStorage.push_back(Arg); }
+  void addArgument(const std::wstring &Arg) { ArgStorage.push_back(Arg); }
 
-  void setValidator(IDxcValidator *NewValidator) {
+  HRESULT setValidator(IDxcValidator *NewValidator) {
     Validator = NewValidator;
-    IFTARGMSG(Validator, "Invalid Validator argument");
+    DXASSERT(Validator, "Invalid Validator argument");
 
     // 1.0 had no version interface.
     ValidatorVersionMajor = 1;
@@ -97,23 +98,26 @@ private:
     CComPtr<IDxcVersionInfo> ValidatorVersionInfo;
     if (SUCCEEDED(
             Validator->QueryInterface(IID_PPV_ARGS(&ValidatorVersionInfo)))) {
-      IFTMSG(ValidatorVersionInfo->GetVersion(&ValidatorVersionMajor,
-                                              &ValidatorVersionMinor),
-             "Failed to get validator version");
+      if (ValidatorVersionInfo->GetVersion(&ValidatorVersionMajor,
+                                           &ValidatorVersionMinor)) {
+        DXASSERT(false, "Failed to get validator version");
+        return E_FAIL;
+      }
     }
+    return S_OK;
   }
 
   /// Process arguments, adding validator version and disable validation if
   /// needed. If TargetProfile provided, use this instead of -T argument.
-  void processArgs(LPCWSTR **Arguments, UINT32 *ArgCount,
-                   LPCWSTR TargetProfile = nullptr) {
-    IFTARGMSG((Arguments && ArgCount) && (*Arguments || *ArgCount == 0) &&
-                  *ArgCount < INT_MAX - 3,
-              "Invalid Arguments and ArgCount arguments");
+  HRESULT processArgs(LPCWSTR **Arguments, UINT32 *ArgCount,
+                      LPCWSTR TargetProfile = nullptr) {
+    DXASSERT((Arguments && ArgCount) && (*Arguments || *ArgCount == 0) &&
+                 *ArgCount < INT_MAX - 3,
+             "Invalid Arguments and ArgCount arguments");
     NeedsValidation = false;
 
     // Must not call twice.
-    IFTBOOLMSG(NewArgs.empty(), E_FAIL, "processArgs called more than once");
+    IFRBOOL(NewArgs.empty(), E_FAIL);
 
     // Parse compiler arguments to Opts.
     std::string Errors;
@@ -123,7 +127,7 @@ private:
     if (hlsl::options::ReadDxcOpts(hlsl::options::getHlslOptTable(),
                                    hlsl::options::CompilerFlags, MainArgs, Opts,
                                    OS))
-      return; // error - allow compiler to emit error.
+      return E_FAIL;
 
     // Determine important conditions from arguments.
     bool ValidatorVersionNeeded = Opts.ValVerMajor == UINT_MAX;
@@ -149,20 +153,20 @@ private:
     if (ProduceDxModule) {
       if (ValidatorVersionNeeded) {
         // If not supplied, add validator version arguments.
-        AddArgument(L"-validator-version");
+        addArgument(L"-validator-version");
         std::wstring VerStr = std::to_wstring(ValidatorVersionMajor) + L"." +
                               std::to_wstring(ValidatorVersionMinor);
-        AddArgument(VerStr);
+        addArgument(VerStr);
       }
 
       // Add argument to disable validation, so we can call it ourselves
       // later.
       if (NeedsValidation)
-        AddArgument(L"-Vd");
+        addArgument(L"-Vd");
     }
 
     if (!ArgStorage.size())
-      return;
+      return S_OK;
 
     // Reference added arguments from storage.
     NewArgs.reserve(*ArgCount + ArgStorage.size());
@@ -176,6 +180,7 @@ private:
 
     *Arguments = NewArgs.data();
     *ArgCount = (UINT32)NewArgs.size();
+    return S_OK;
   }
 };
 
@@ -271,29 +276,16 @@ public:
       return E_INVALIDARG;
 
     DxcThreadMalloc TM(m_pMalloc);
-    try {
-      // ProcessArgs will update pArguments and argCount if needed.
-      ExtValidationArgHelper Helper;
-      Helper.Initialize(Validator, &Arguments, &ArgCount, TargetProfile);
+    // ProcessArgs will update pArguments and argCount if needed.
+    ExtValidationArgHelper Helper;
+    Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile);
 
-      CComPtr<IDxcOperationResult> CompileResult;
-      IFR(castCompilerUnsafe<IDxcCompiler>()->Compile(
-          Source, SourceName, EntryPoint, TargetProfile, Arguments, ArgCount,
-          Defines, DefineCount, IncludeHandler, &CompileResult));
+    CComPtr<IDxcOperationResult> CompileResult;
+    IFR(castCompilerUnsafe<IDxcCompiler>()->Compile(
+        Source, SourceName, EntryPoint, TargetProfile, Arguments, ArgCount,
+        Defines, DefineCount, IncludeHandler, &CompileResult));
 
-      return Helper.doValidation(CompileResult, IID_PPV_ARGS(ResultObject));
-
-    } catch (std::bad_alloc &) {
-      return E_OUTOFMEMORY;
-    } catch (hlsl::Exception &e) {
-      assert(DXC_FAILED(e.hr));
-      return DxcResult::Create(
-          e.hr, DXC_OUT_NONE,
-          {DxcOutputObject::ErrorOutput(CP_UTF8, e.msg.c_str(), e.msg.size())},
-          ResultObject);
-    } catch (...) {
-      return E_FAIL;
-    }
+    return Helper.doValidation(CompileResult, IID_PPV_ARGS(ResultObject));
   }
 
   HRESULT STDMETHODCALLTYPE
@@ -326,7 +318,7 @@ public:
       // ProcessArgs will update Arguments and ArgCount if needed.
       ExtValidationArgHelper Helper;
 
-      Helper.Initialize(Validator, &Arguments, &ArgCount, TargetProfile);
+      Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile);
 
       CComPtr<IDxcOperationResult> CompileResult;
       IFR(castCompilerUnsafe<IDxcCompiler2>()->CompileWithDebug(
@@ -363,7 +355,7 @@ public:
       // ProcessArgs will update Arguments and ArgCount if needed.
       ExtValidationArgHelper Helper;
 
-      Helper.Initialize(Validator, &Arguments, &ArgCount);
+      Helper.initialize(Validator, &Arguments, &ArgCount);
 
       CComPtr<IDxcResult> CompileResult;
       IFR(castCompilerUnsafe<IDxcCompiler3>()->Compile(
@@ -401,7 +393,7 @@ static HRESULT createCompilerWrapper(IMalloc *Malloc,
                                      SpecificDllLoader &DxCompilerSupport,
                                      SpecificDllLoader &DxilExtValSupport,
                                      REFIID Riid, IUnknown **ResultObject) {
-  IFTARGMSG(ResultObject, "Invalid ResultObject");
+  DXASSERT(ResultObject, "Invalid ResultObject");
   *ResultObject = nullptr;
 
   CComPtr<IUnknown> Compiler;
@@ -436,7 +428,7 @@ HRESULT DxcDllExtValidationLoader::CreateInstanceImpl(REFCLSID Clsid,
   *ResultObject = nullptr;
 
   // If there is intent to use an external dxil.dll
-  if (!DxilDllPath.empty() && !DxilDllFailedToLoad()) {
+  if (!DxilDllPath.empty() && !dxilDllFailedToLoad()) {
     if (Clsid == CLSID_DxcValidator) {
       return DxilExtValSupport.CreateInstance(Clsid, Riid, ResultObject);
     }
@@ -457,7 +449,7 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(
 
   *ResultObject = nullptr;
   // If there is intent to use an external dxil.dll
-  if (!DxilDllPath.empty() && !DxilDllFailedToLoad()) {
+  if (!DxilDllPath.empty() && !dxilDllFailedToLoad()) {
     if (Clsid == CLSID_DxcValidator) {
       return DxilExtValSupport.CreateInstance2(Malloc, Clsid, Riid,
                                                ResultObject);
@@ -473,7 +465,7 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(
 }
 
 HRESULT
-DxcDllExtValidationLoader::Initialize(llvm::raw_string_ostream &log) {
+DxcDllExtValidationLoader::initialize(llvm::raw_string_ostream &log) {
   // Load dxcompiler.dll
   HRESULT Result =
       DxCompilerSupport.InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
