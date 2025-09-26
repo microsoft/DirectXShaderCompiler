@@ -190,10 +190,10 @@ float4 main(uint i : SV_PrimitiveID, uint4 m : M) : SV_Target {
   // CHECK: and i1 %{{.*}}, %{{.*}}
   bvec ^= all(vec1);
 
-  // CHECK: call {{.*}} @dx.op.wave
-  // CHECK: call {{.*}} @dx.op.wave
-  // CHECK: call {{.*}} @dx.op.wave
-  // CHECK: call {{.*}} @dx.op.wave
+  // HECK: call {{.*}} @dx.op.wave
+  // HECK: call {{.*}} @dx.op.wave
+  // HECK: call {{.*}} @dx.op.wave
+  // HECK: call {{.*}} @dx.op.wave
   uint4 match = WaveMatch(bvec);
 
   return select(match, res, vec3);

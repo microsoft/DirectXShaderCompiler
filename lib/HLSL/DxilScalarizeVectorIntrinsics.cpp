@@ -23,6 +23,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
+#include <cstdint>
 
 using namespace llvm;
 using namespace hlsl;
@@ -33,6 +34,7 @@ static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
                                  CallInst *CI);
 static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI);
 static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI);
+static void scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI);
 
 class DxilScalarizeVectorIntrinsics : public ModulePass {
 public:
@@ -63,25 +65,37 @@ public:
       bool NeedsRewrite = (Func->getReturnType()->isVectorTy() ||
                            OpClass == DXIL::OpCodeClass::RawBufferVectorLoad ||
                            OpClass == DXIL::OpCodeClass::RawBufferVectorStore ||
-                           OpClass == DXIL::OpCodeClass::VectorReduce);
+                           OpClass == DXIL::OpCodeClass::VectorReduce ||
+                           OpClass == DXIL::OpCodeClass::WaveMatch);
       if (!NeedsRewrite)
         continue;
+
+      Changed = true;
 
       for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
         CallInst *CI = cast<CallInst>(*(U++));
 
-        if (OpClass == DXIL::OpCodeClass::RawBufferVectorLoad)
-          scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
-        else if (OpClass == DXIL::OpCodeClass::RawBufferVectorStore)
-          scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
-        else if (OpClass == DXIL::OpCodeClass::VectorReduce)
-          scalarizeVectorReduce(HlslOP, CI);
-        else if (Func->getReturnType()->isVectorTy())
-          scalarizeVectorIntrinsic(HlslOP, CI);
-        else
-          continue;
+        // Specially handle DXIL Ops with more complicated signatures
+        switch (OpClass) {
+          case DXIL::OpCodeClass::RawBufferVectorLoad:
+            scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
+            continue;
+          case DXIL::OpCodeClass::RawBufferVectorStore:
+            scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
+            continue;
+          case DXIL::OpCodeClass::VectorReduce:
+            scalarizeVectorReduce(HlslOP, CI);
+            continue;
+          case DXIL::OpCodeClass::WaveMatch:
+            scalarizeVectorWaveMatch(HlslOP, CI);
+            continue;
+          default:
+            break;
+        }
 
-        Changed = true;
+        // Handle DXIL Ops with vector return matching the vector params
+        if (Func->getReturnType()->isVectorTy())
+          scalarizeVectorIntrinsic(HlslOP, CI);
       }
     }
     return Changed;
@@ -262,6 +276,74 @@ static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
   }
 
   CI->replaceAllUsesWith(Result);
+}
+
+// call %dx.types.fouri32 @dx.op.waveMatch.v8f32(i32 165, <8 x float> %{{.*}}) ; WaveMatch(value)
+static void scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI) {
+  IRBuilder<> Builder(CI);
+  OP::OpCode Opcode = OP::getOpCode(CI);
+
+  Value *VecArg = CI->getArgOperand(1);
+  Type *VecTy = VecArg->getType();
+  uint64_t VecSize = VecTy->getVectorNumElements();
+  Type *ScalarTy = VecTy->getScalarType();
+  Function *Func = HlslOP->GetOpFunc(Opcode, ScalarTy);
+  SmallVector<Value *, 2> Args(CI->getNumArgOperands());
+  Args[0] = CI->getArgOperand(0); // Copy opcode over.
+
+  // N*u4 = loop N times
+  //          extract V[i]
+  //          u4 = call V[i]
+  //          push u4
+  // u4   = loop N-1 times
+  //          extract each elt
+  //          V[i] and V[i-1] each elt
+  //
+  SmallVector<Value *, 4> Scalars;
+  for (uint64_t I = 0; I != VecSize; ++I) {
+    Value *Elt = Builder.CreateExtractElement(VecArg, I);
+    Scalars.push_back(Elt);
+  }
+
+  for (uint64_t I = 0; I != VecSize; ++I) {
+    Args[1] = Scalars[I];
+    Scalars[I] = Builder.CreateCall(Func, Args);
+  }
+
+  Value *Ret = Scalars[0];
+  for (uint64_t I = 1; I != VecSize; ++I) {
+    Value *Next = Scalars[I];
+
+    // Generate bitwise AND of the components
+    Value* LHS0 = Builder.CreateExtractValue(Ret, 0);
+    Value* LHS1 = Builder.CreateExtractValue(Ret, 1);
+    Value* LHS2 = Builder.CreateExtractValue(Ret, 2);
+    Value* LHS3 = Builder.CreateExtractValue(Ret, 3);
+    Value* RHS0 = Builder.CreateExtractValue(Next, 0);
+    Value* RHS1 = Builder.CreateExtractValue(Next, 1);
+    Value* RHS2 = Builder.CreateExtractValue(Next, 2);
+    Value* RHS3 = Builder.CreateExtractValue(Next, 3);
+    Value* And0 = Builder.CreateAnd(LHS0, RHS0);
+    Value* And1 = Builder.CreateAnd(LHS1, RHS1);
+    Value* And2 = Builder.CreateAnd(LHS2, RHS2);
+    Value* And3 = Builder.CreateAnd(LHS3, RHS3);
+    Ret = Builder.CreateInsertValue(Ret, And0, 0);
+    Ret = Builder.CreateInsertValue(Ret, And1, 1);
+    Ret = Builder.CreateInsertValue(Ret, And2, 2);
+    Ret = Builder.CreateInsertValue(Ret, And3, 3);
+  }
+
+  /*
+  Value* Ret2 = UndefValue::get(CI->getType());
+  Ret2 = Builder.CreateInsertValue(Ret2, Ret, 0);
+  Ret = Builder.CreateInsertValue(Ret, And1, 1);
+  Ret = Builder.CreateInsertValue(Ret, And2, 2);
+  Ret = Builder.CreateInsertValue(Ret, And3, 3);
+  */
+
+  CI->replaceAllUsesWith(Ret);
+  // (3) Convert the final aggregate into a vector to make the types match
+  //return TranslateWaveMatchFixReturn(Builder, CI->getType(), Ret); //          insert each elt
 }
 
 // Scalarize native vector operation represented by `CI`, generating
