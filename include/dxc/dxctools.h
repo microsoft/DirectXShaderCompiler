@@ -93,9 +93,6 @@ enum D3D12_HLSL_REFLECTION_FEATURE {
   // Variables, structs, functions defined in functions, scopes & structs
   //TODO: D3D12_HLSL_REFLECTION_FEATURE_SCOPES = 1 << 4,
 
-  // Variables not included in $Global or cbuffers
-  //TODO: D3D12_HLSL_REFLECTION_FEATURE_VARIABLES = 1 << 5,
-
   // Symbol info (stripping this will remove names and file location info)
   D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO = 1 << 16,
 
@@ -182,6 +179,8 @@ enum D3D12_HLSL_NODE_TYPE {
                                  // localId is the typeId (if not fwd decl)
   D3D12_HLSL_NODE_TYPE_UNION,    // ^
 
+  D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE,
+
   // TODO: D3D12_HLSL_NODE_TYPE_USING,
   // TODO: D3D12_HLSL_NODE_TYPE_PARAMETER,
 
@@ -189,7 +188,7 @@ enum D3D12_HLSL_NODE_TYPE {
       1 << 7, // Highest bit; reserved as an indicator for fwd declarations
 
   D3D12_HLSL_NODE_TYPE_START = D3D12_HLSL_NODE_TYPE_REGISTER,
-  D3D12_HLSL_NODE_TYPE_END = D3D12_HLSL_NODE_TYPE_UNION
+  D3D12_HLSL_NODE_TYPE_END = D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE
 };
 
 struct D3D12_HLSL_NODE {

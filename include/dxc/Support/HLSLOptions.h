@@ -124,7 +124,6 @@ struct ReflectOpts {
   bool Namespaces = false;     // OPT_reflect_namespaces
   bool UserTypes = false;      // OPT_reflect_user_types
   bool Scopes = false;         // OPT_reflect_scopes
-  bool Variables = false;      // OPT_reflect_variables
   bool DisableSymbols = false; // OPT_reflect_disable_symbols
 };
 

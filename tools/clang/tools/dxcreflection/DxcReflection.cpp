@@ -1242,16 +1242,30 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_BASICS))
         continue;
 
-      //TODO: Handle values if D3D12_HLSL_REFLECTION_FEATURE_VARIABLES
+      VarDecl *varDecl = dyn_cast<VarDecl>(it);
 
-      //ValDecl->print(pfStream);
+      if (varDecl && varDecl->getStorageClass() == StorageClass::SC_Static &&
+          !varDecl->hasAttr<HLSLGroupSharedAttr>()) {
+
+        if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
+          continue;
+
+        const std::string &name = ValDecl->getName();
+
+        uint32_t typeId =
+            GenerateTypeInfo(ASTCtx, Refl, ValDecl->getType(), DefaultRowMaj);
+
+        PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), name, it,
+                       D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE, ParentNodeId, typeId);
+
+        continue;
+      }
 
       uint32_t arraySize = 1;
       QualType type = ValDecl->getType();
       std::vector<uint32_t> arrayElem;
 
-      while (const ConstantArrayType *arr =
-              dyn_cast<ConstantArrayType>(type)) {
+      while (const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(type)) {
         uint32_t current = arr->getSize().getZExtValue();
         arrayElem.push_back(current);
         arraySize *= arr->getSize().getZExtValue();
@@ -1260,13 +1274,9 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
       if (!IsHLSLResourceType(type)) {
 
-        VarDecl *varDecl = dyn_cast<VarDecl>(it);
-
         // Handle $Globals
 
-        if (varDecl && Depth == 0 &&
-            varDecl->getStorageClass() != StorageClass::SC_Static &&
-            !varDecl->hasAttr<HLSLGroupSharedAttr>()) {
+        if (varDecl && Depth == 0 && !varDecl->hasAttr<HLSLGroupSharedAttr>()) {
 
           const std::string &name = ValDecl->getName();
 
@@ -1279,9 +1289,6 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
         continue;
       }
-
-      // TODO: Add Depth > 0 for reflection if
-      // D3D12_HLSL_REFLECTION_FEATURE_SCOPES
 
       if (Depth != 0)
         continue;
@@ -1407,9 +1414,9 @@ static std::string EnumTypeToString(D3D12_HLSL_ENUM_TYPE type) {
 
 static std::string NodeTypeToString(D3D12_HLSL_NODE_TYPE type) {
 
-  static const char *arr[] = {"Register",  "Function",  "Enum",
-                              "EnumValue", "Namespace", "Variable",
-                              "Typedef",   "Struct",    "Union"};
+  static const char *arr[] = {
+      "Register", "Function", "Enum",   "EnumValue", "Namespace",
+      "Variable", "Typedef",  "Struct", "Union",     "StaticVariable"};
 
   return arr[uint32_t(type)];
 }
@@ -1628,6 +1635,7 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
 
       case D3D12_HLSL_NODE_TYPE_TYPEDEF:
       case D3D12_HLSL_NODE_TYPE_VARIABLE:
+      case D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE:
         typeToPrint = localId;
         break;
 
@@ -1909,7 +1917,9 @@ uint32_t RecurseNameGeneration(DxcHLSLReflectionData &Refl, uint32_t NodeId,
   Refl.NodeIdToFullyResolved[NodeId] = self;
 
   bool isDotChild = node.GetNodeType() == D3D12_HLSL_NODE_TYPE_REGISTER;
-  bool isVar = node.GetNodeType() == D3D12_HLSL_NODE_TYPE_VARIABLE;
+
+  bool isVar = node.GetNodeType() == D3D12_HLSL_NODE_TYPE_VARIABLE ||
+               node.GetNodeType() == D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE;
 
   for (uint32_t i = 0, j = 0; i < node.GetChildCount(); ++i, ++j)
       i += RecurseNameGeneration(Refl, NodeId + 1 + i, j, self, isDotChild);
@@ -2058,6 +2068,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     // TODO: case D3D12_HLSL_NODE_TYPE_USING:
     case D3D12_HLSL_NODE_TYPE_TYPEDEF:
     case D3D12_HLSL_NODE_TYPE_VARIABLE:
+    case D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE:
       maxValue = header.Types;
       break;
 

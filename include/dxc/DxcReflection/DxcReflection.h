@@ -119,7 +119,7 @@ public:
     assert(DefinitionId < ((1 << 24) - 1) && "DefinitionId out of bounds");
     assert(DefinitionId != SelfId && "NodeId can't be definition id!");
     assert(IsFwdDeclare() &&
-           "Can't run ResolveFwdDeclare on a node that's one");
+           "Can't run ResolveFwdDeclare on a node that's no fwd decl");
 
     assert(!Definition.IsFwdBckDefined() && !IsFwdBckDefined() &&
            "Fwd & backward declare must not be defined yet");

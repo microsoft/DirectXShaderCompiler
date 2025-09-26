@@ -1383,9 +1383,6 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
 
   //TODO: if (opts.ReflOpt.Scopes)
   //  reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SCOPES;
-  //
-  //TODO: if (opts.ReflOpt.Variables)
-  //  reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_VARIABLES;
 
   if (!reflectMask)
     reflectMask = D3D12_HLSL_REFLECTION_FEATURE_ALL;

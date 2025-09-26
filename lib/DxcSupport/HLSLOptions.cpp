@@ -1390,8 +1390,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.ReflOpt.UserTypes =
         Args.hasFlag(OPT_reflect_user_types, OPT_INVALID, false);
     opts.ReflOpt.Scopes = Args.hasFlag(OPT_reflect_scopes, OPT_INVALID, false);
-    opts.ReflOpt.Variables =
-        Args.hasFlag(OPT_reflect_variables, OPT_INVALID, false);
     opts.ReflOpt.DisableSymbols =
         Args.hasFlag(OPT_reflect_disable_symbols, OPT_INVALID, false);
   }
