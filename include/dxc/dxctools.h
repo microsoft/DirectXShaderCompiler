@@ -193,6 +193,7 @@ enum D3D12_HLSL_NODE_TYPE {
 
 struct D3D12_HLSL_NODE {
   LPCSTR Name;
+  LPCSTR Semantic;
   D3D12_HLSL_NODE_TYPE Type;
   UINT LocalId;
   UINT ChildCount;

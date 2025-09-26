@@ -80,6 +80,8 @@ PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager &SM,
   uint16_t annotationStart = uint16_t(Refl.Annotations.size());
   uint8_t annotationCount = 0;
 
+  uint16_t semanticId = uint16_t(-1);
+
   if (DeclSelf) {
     for (const Attr *attr : DeclSelf->attrs()) {
       if (const AnnotateAttr *annotate = dyn_cast<AnnotateAttr>(attr)) {
@@ -107,7 +109,20 @@ PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager &SM,
         assert(annotationCount != uint8_t(-1) &&
                "Annotation count out of bounds");
         ++annotationCount;
+
       }
+    }
+
+    if (ValueDecl *valDecl = dyn_cast<ValueDecl>(DeclSelf)) {
+
+      const ArrayRef<hlsl::UnusualAnnotation *> &UA =
+          valDecl->getUnusualAnnotations();
+
+      for (auto It = UA.begin(), E = UA.end(); It != E; ++It)
+        if ((*It)->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
+          semanticId = RegisterString(
+              Refl, cast<hlsl::SemanticDecl>(*It)->SemanticName.str(), true);
+        }
     }
   }
 
@@ -155,7 +170,8 @@ PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager &SM,
   }
 
   Refl.Nodes.push_back(DxcHLSLNode{Type, isFwdDeclare, LocalId, annotationStart,
-                                   0, ParentNodeId, annotationCount});
+                                   0, ParentNodeId, annotationCount,
+                                   semanticId});
 
   if (Refl.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO) {
 
@@ -1377,8 +1393,8 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(clang::CompilerInstance &Compiler,
     NodeSymbols.push_back(DxcHLSLNodeSymbol(0, 0, 0, 0, 0, 0));
   }
 
-  Nodes.push_back(
-      DxcHLSLNode{D3D12_HLSL_NODE_TYPE_NAMESPACE, false, 0, 0, 0, 0xFFFF, 0});
+  Nodes.push_back(DxcHLSLNode{D3D12_HLSL_NODE_TYPE_NAMESPACE, false, 0, 0, 0,
+                              0xFFFF, 0, uint16_t(-1)});
 
   std::unordered_map<Decl *, uint32_t> fwdDecls;
   RecursiveReflectHLSL(Ctx, Compiler.getASTContext(), Diags, SM, *this,
@@ -1609,6 +1625,10 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
              std::string(Depth, '\t').c_str(),
              Refl.StringsNonDebug[annotation.GetStringNonDebug()].c_str());
     }
+
+    if (node.GetSemanticId() != uint32_t(-1))
+      printf("%s: %s\n", std::string(Depth, '\t').c_str(),
+             Refl.StringsNonDebug[node.GetSemanticId()].c_str());
 
     uint32_t localId = node.GetLocalId();
 
@@ -2045,6 +2065,10 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
         (i && node.GetParentId() >= i) ||
         i + node.GetChildCount() > header.Nodes)
       throw std::invalid_argument("Node " + std::to_string(i) + " is invalid");
+
+    if (node.GetSemanticId() != uint32_t(-1) &&
+        node.GetSemanticId() >= header.StringsNonDebug)
+      throw std::invalid_argument("Node " + std::to_string(i) + " points to invalid semantic id");
 
     uint32_t maxValue = 1;
     bool allowFwdDeclare = false;

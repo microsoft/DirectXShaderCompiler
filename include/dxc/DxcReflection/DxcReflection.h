@@ -49,6 +49,9 @@ class DxcHLSLNode {
     };
   };
 
+  uint16_t SemanticId;
+  uint16_t Padding;
+
   void SetFwdBck(uint32_t v) {
     FwdBckHi = v >> 8;
     ChildCountFwdBckLo &= 0xFFFFFF;
@@ -61,11 +64,11 @@ public:
 
   DxcHLSLNode(D3D12_HLSL_NODE_TYPE NodeType, bool IsFwdDeclare,
               uint32_t LocalId, uint16_t AnnotationStart, uint32_t ChildCount,
-              uint32_t ParentId, uint8_t AnnotationCount)
+              uint32_t ParentId, uint8_t AnnotationCount, uint16_t SemanticId)
       : LocalIdParentLo(LocalId | (ParentId << 24)), ParentHi(ParentId >> 8),
         Annotations(AnnotationCount), Type(NodeType),
         ChildCountFwdBckLo(ChildCount | (0xFFu << 24)), FwdBckHi(0xFFFF),
-        AnnotationStart(AnnotationStart) {
+        AnnotationStart(AnnotationStart), SemanticId(SemanticId), Padding(0) {
 
     assert(NodeType >= D3D12_HLSL_NODE_TYPE_START &&
            NodeType <= D3D12_HLSL_NODE_TYPE_END && "Invalid enum value");
@@ -132,6 +135,10 @@ public:
   uint32_t GetLocalId() const { return LocalIdParentLo << 8 >> 8; }
   uint32_t GetAnnotationStart() const { return AnnotationStart; }
 
+  uint32_t GetSemanticId() const {
+    return SemanticId == uint16_t(-1) ? uint32_t(-1) : SemanticId;
+  }
+
   D3D12_HLSL_NODE_TYPE GetNodeType() const {
     return D3D12_HLSL_NODE_TYPE(Type & 0x7F);
   }
@@ -154,7 +161,8 @@ public:
     return LocalIdParentLo == other.LocalIdParentLo &&
            ParentHiAnnotationsType32 == other.ParentHiAnnotationsType32 &&
            ChildCountFwdBckLo == other.ChildCountFwdBckLo &&
-           AnnotationStartFwdBckHi == other.AnnotationStartFwdBckHi;
+           AnnotationStartFwdBckHi == other.AnnotationStartFwdBckHi &&
+           SemanticId == other.SemanticId;
   }
 
 };

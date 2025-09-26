@@ -873,7 +873,13 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     else if(node.IsFwdBckDefined())
       parentId = Data.Nodes[node.GetFwdBck()].GetParentId();
 
+    LPCSTR semantic = "";
+
+    if (node.GetSemanticId() != uint32_t(-1))
+      semantic = Data.StringsNonDebug[node.GetSemanticId()].c_str();
+
     *pDesc = D3D12_HLSL_NODE{name,
+                             semantic,
                              node.GetNodeType(),
                              localId,
                              ChildCountsNonRecursive[NodeId],
