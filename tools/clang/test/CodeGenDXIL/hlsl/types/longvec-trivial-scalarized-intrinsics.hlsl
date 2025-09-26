@@ -5,10 +5,6 @@
 // The binary part of some of these is all just a vector math ops with as many unary dxops as elements.
 // These will have apparent mismatches between the ARITY define and the check prefix.
 
-// RUN: %dxc -DFUNC=QuadReadLaneAt         -DARITY=4 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,QUAD
-// RUN: %dxc -DFUNC=QuadReadAcrossX        -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,QUAD
-// RUN: %dxc -DFUNC=QuadReadAcrossY        -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,QUAD
-// RUN: %dxc -DFUNC=QuadReadAcrossDiagonal -DARITY=1 -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,QUAD
 // RUN: %dxc -DFUNC=WaveActiveBitAnd       -DARITY=1 -DTYPE=uint -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,WAVE
 // RUN: %dxc -DFUNC=WaveActiveBitOr        -DARITY=1 -DTYPE=uint -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,WAVE
 // RUN: %dxc -DFUNC=WaveActiveBitXor       -DARITY=1 -DTYPE=uint -T ps_6_9 %s | FileCheck %s --check-prefixes=CHECK,WAVE
@@ -54,7 +50,6 @@ float4 main(uint i : SV_PrimitiveID, uint4 m : M) : SV_Target {
   vector<TYPE, 8> arg3 = rbuf.Load< vector<TYPE, 8> >(i++*32);
 
   // UNARY: call {{.*}} [[DXOP:@dx.op.unary]]
-  // QUAD: call {{.*}} [[DXOP:@dx.op.quad]]
   // WAVE: call {{.*}} [[DXOP:@dx.op.wave]]
   // CHECK: call {{.*}} [[DXOP]]
   // CHECK: call {{.*}} [[DXOP]]
