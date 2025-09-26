@@ -77,20 +77,20 @@ public:
 
         // Specially handle DXIL Ops with more complicated signatures
         switch (OpClass) {
-          case DXIL::OpCodeClass::RawBufferVectorLoad:
-            scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
-            continue;
-          case DXIL::OpCodeClass::RawBufferVectorStore:
-            scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
-            continue;
-          case DXIL::OpCodeClass::VectorReduce:
-            scalarizeVectorReduce(HlslOP, CI);
-            continue;
-          case DXIL::OpCodeClass::WaveMatch:
-            scalarizeVectorWaveMatch(HlslOP, CI);
-            continue;
-          default:
-            break;
+        case DXIL::OpCodeClass::RawBufferVectorLoad:
+          scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
+          continue;
+        case DXIL::OpCodeClass::RawBufferVectorStore:
+          scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
+          continue;
+        case DXIL::OpCodeClass::VectorReduce:
+          scalarizeVectorReduce(HlslOP, CI);
+          continue;
+        case DXIL::OpCodeClass::WaveMatch:
+          scalarizeVectorWaveMatch(HlslOP, CI);
+          continue;
+        default:
+          break;
         }
 
         // Handle DXIL Ops with vector return matching the vector params
@@ -278,7 +278,8 @@ static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
   CI->replaceAllUsesWith(Result);
 }
 
-// call %dx.types.fouri32 @dx.op.waveMatch.v8f32(i32 165, <8 x float> %{{.*}}) ; WaveMatch(value)
+// call %dx.types.fouri32 @dx.op.waveMatch.v8f32(i32 165, <8 x float> %{{.*}}) ;
+// WaveMatch(value)
 static void scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI) {
   IRBuilder<> Builder(CI);
   OP::OpCode Opcode = OP::getOpCode(CI);
@@ -315,18 +316,18 @@ static void scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI) {
     Value *Next = Scalars[I];
 
     // Generate bitwise AND of the components
-    Value* LHS0 = Builder.CreateExtractValue(Ret, 0);
-    Value* LHS1 = Builder.CreateExtractValue(Ret, 1);
-    Value* LHS2 = Builder.CreateExtractValue(Ret, 2);
-    Value* LHS3 = Builder.CreateExtractValue(Ret, 3);
-    Value* RHS0 = Builder.CreateExtractValue(Next, 0);
-    Value* RHS1 = Builder.CreateExtractValue(Next, 1);
-    Value* RHS2 = Builder.CreateExtractValue(Next, 2);
-    Value* RHS3 = Builder.CreateExtractValue(Next, 3);
-    Value* And0 = Builder.CreateAnd(LHS0, RHS0);
-    Value* And1 = Builder.CreateAnd(LHS1, RHS1);
-    Value* And2 = Builder.CreateAnd(LHS2, RHS2);
-    Value* And3 = Builder.CreateAnd(LHS3, RHS3);
+    Value *LHS0 = Builder.CreateExtractValue(Ret, 0);
+    Value *LHS1 = Builder.CreateExtractValue(Ret, 1);
+    Value *LHS2 = Builder.CreateExtractValue(Ret, 2);
+    Value *LHS3 = Builder.CreateExtractValue(Ret, 3);
+    Value *RHS0 = Builder.CreateExtractValue(Next, 0);
+    Value *RHS1 = Builder.CreateExtractValue(Next, 1);
+    Value *RHS2 = Builder.CreateExtractValue(Next, 2);
+    Value *RHS3 = Builder.CreateExtractValue(Next, 3);
+    Value *And0 = Builder.CreateAnd(LHS0, RHS0);
+    Value *And1 = Builder.CreateAnd(LHS1, RHS1);
+    Value *And2 = Builder.CreateAnd(LHS2, RHS2);
+    Value *And3 = Builder.CreateAnd(LHS3, RHS3);
     Ret = Builder.CreateInsertValue(Ret, And0, 0);
     Ret = Builder.CreateInsertValue(Ret, And1, 1);
     Ret = Builder.CreateInsertValue(Ret, And2, 2);
@@ -343,7 +344,8 @@ static void scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI) {
 
   CI->replaceAllUsesWith(Ret);
   // (3) Convert the final aggregate into a vector to make the types match
-  //return TranslateWaveMatchFixReturn(Builder, CI->getType(), Ret); //          insert each elt
+  // return TranslateWaveMatchFixReturn(Builder, CI->getType(), Ret); // insert
+  // each elt
 }
 
 // Scalarize native vector operation represented by `CI`, generating
