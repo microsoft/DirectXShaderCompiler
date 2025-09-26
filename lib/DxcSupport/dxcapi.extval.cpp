@@ -276,9 +276,9 @@ public:
       return E_INVALIDARG;
 
     DxcThreadMalloc TM(m_pMalloc);
-    // ProcessArgs will update pArguments and argCount if needed.
+    // initialize will update pArguments and argCount if needed.
     ExtValidationArgHelper Helper;
-    Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile);
+    IFR(Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile));
 
     CComPtr<IDxcOperationResult> CompileResult;
     IFR(castCompilerUnsafe<IDxcCompiler>()->Compile(
@@ -314,31 +314,18 @@ public:
       return E_INVALIDARG;
 
     DxcThreadMalloc TM(m_pMalloc);
-    try {
-      // ProcessArgs will update Arguments and ArgCount if needed.
-      ExtValidationArgHelper Helper;
+    // ProcessArgs will update Arguments and ArgCount if needed.
+    ExtValidationArgHelper Helper;
 
-      Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile);
+    IFR(Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile));
 
-      CComPtr<IDxcOperationResult> CompileResult;
-      IFR(castCompilerUnsafe<IDxcCompiler2>()->CompileWithDebug(
-          Source, SourceName, EntryPoint, TargetProfile, Arguments, ArgCount,
-          pDefines, DefineCount, IncludeHandler, &CompileResult, DebugBlobName,
-          DebugBlob));
+    CComPtr<IDxcOperationResult> CompileResult;
+    IFR(castCompilerUnsafe<IDxcCompiler2>()->CompileWithDebug(
+        Source, SourceName, EntryPoint, TargetProfile, Arguments, ArgCount,
+        pDefines, DefineCount, IncludeHandler, &CompileResult, DebugBlobName,
+        DebugBlob));
 
-      return Helper.doValidation(CompileResult, IID_PPV_ARGS(ResultObject));
-
-    } catch (std::bad_alloc &) {
-      return E_OUTOFMEMORY;
-    } catch (hlsl::Exception &e) {
-      assert(DXC_FAILED(e.hr));
-      return DxcResult::Create(
-          e.hr, DXC_OUT_NONE,
-          {DxcOutputObject::ErrorOutput(CP_UTF8, e.msg.c_str(), e.msg.size())},
-          ResultObject);
-    } catch (...) {
-      return E_FAIL;
-    }
+    return Helper.doValidation(CompileResult, IID_PPV_ARGS(ResultObject));
   }
 
   // IDxcCompiler3 implementation
@@ -351,32 +338,17 @@ public:
       return E_INVALIDARG;
 
     DxcThreadMalloc TM(m_pMalloc);
-    try {
-      // ProcessArgs will update Arguments and ArgCount if needed.
-      ExtValidationArgHelper Helper;
+    // ProcessArgs will update Arguments and ArgCount if needed.
+    ExtValidationArgHelper Helper;
 
-      Helper.initialize(Validator, &Arguments, &ArgCount);
+    Helper.initialize(Validator, &Arguments, &ArgCount);
 
-      CComPtr<IDxcResult> CompileResult;
-      IFR(castCompilerUnsafe<IDxcCompiler3>()->Compile(
-          Source, Arguments, ArgCount, IncludeHandler,
-          IID_PPV_ARGS(&CompileResult)));
+    CComPtr<IDxcResult> CompileResult;
+    IFR(castCompilerUnsafe<IDxcCompiler3>()->Compile(
+        Source, Arguments, ArgCount, IncludeHandler,
+        IID_PPV_ARGS(&CompileResult)));
 
-      return Helper.doValidation(CompileResult, Riid, ResultObject);
-
-    } catch (std::bad_alloc &) {
-      return E_OUTOFMEMORY;
-    } catch (hlsl::Exception &e) {
-      assert(DXC_FAILED(e.hr));
-      CComPtr<IDxcResult> errorResult;
-      DxcResult::Create(
-          e.hr, DXC_OUT_NONE,
-          {DxcOutputObject::ErrorOutput(CP_UTF8, e.msg.c_str(), e.msg.size())},
-          &errorResult);
-      return errorResult->QueryInterface(Riid, ResultObject);
-    } catch (...) {
-      return E_FAIL;
-    }
+    return Helper.doValidation(CompileResult, Riid, ResultObject);
   }
 
   HRESULT STDMETHODCALLTYPE Disassemble(const DxcBuffer *Object, REFIID Riid,
