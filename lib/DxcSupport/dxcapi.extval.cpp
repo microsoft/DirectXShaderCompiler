@@ -276,7 +276,7 @@ public:
       return E_INVALIDARG;
 
     DxcThreadMalloc TM(m_pMalloc);
-    // initialize will update pArguments and argCount if needed.
+    // initialize will update Arguments and ArgCount if needed.
     ExtValidationArgHelper Helper;
     IFR(Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile));
 
