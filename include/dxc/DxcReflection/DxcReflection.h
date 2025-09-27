@@ -376,38 +376,42 @@ struct DxcHLSLArray {
   uint32_t ArrayStart() const { return ArrayElemStart << 6 >> 6; }
 };
 
-using DxcHLSLMember = uint32_t;     //typeId
-
 struct DxcHLSLType { // Almost maps to CShaderReflectionType and
                      // D3D12_SHADER_TYPE_DESC, but tightly packed and
                      // easily serializable
+
+  uint32_t MemberData; // 24 : 8 (start, count)
+
   union {
     struct {
-      uint32_t MemberData; //24 : 8 (start, count)
-      uint8_t Class;   // D3D_SHADER_VARIABLE_CLASS
-      uint8_t Type;    // D3D_SHADER_VARIABLE_TYPE
+      uint8_t Class; // D3D_SHADER_VARIABLE_CLASS
+      uint8_t Type;  // D3D_SHADER_VARIABLE_TYPE
       uint8_t Rows;
       uint8_t Columns;
     };
-    uint64_t MemberDataClassTypeRowsColums;
+    uint32_t ClassTypeRowsColums;
   };
 
-  union {
-    struct {
-      uint32_t ElementsOrArrayId;
-      uint32_t BaseClass; // -1 if none, otherwise a type index
-    };
-    uint64_t ElementsOrArrayIdBaseClass;
-  };
+  uint32_t ElementsOrArrayId;
+  uint32_t BaseClass; // -1 if none, otherwise a type index
+
+  uint32_t InterfaceOffsetAndCount; // 24 : 8 (start, count)
 
   bool operator==(const DxcHLSLType &Other) const {
-    return Other.MemberDataClassTypeRowsColums ==
-               MemberDataClassTypeRowsColums &&
-           ElementsOrArrayIdBaseClass == Other.ElementsOrArrayIdBaseClass;
+    return Other.MemberData == MemberData &&
+           Other.ElementsOrArrayId == ElementsOrArrayId &&
+           ClassTypeRowsColums == Other.ClassTypeRowsColums &&
+           BaseClass == Other.BaseClass &&
+           InterfaceOffsetAndCount == Other.InterfaceOffsetAndCount;
   }
 
   uint32_t GetMemberCount() const { return MemberData >> 24; }
   uint32_t GetMemberStart() const { return MemberData << 8 >> 8; }
+
+  uint32_t GetInterfaceCount() const { return InterfaceOffsetAndCount >> 24; }
+  uint32_t GetInterfaceStart() const {
+    return InterfaceOffsetAndCount << 8 >> 8;
+  }
 
   bool IsMultiDimensionalArray() const { return ElementsOrArrayId >> 31; }
   bool IsArray() const { return ElementsOrArrayId; }
@@ -426,16 +430,20 @@ struct DxcHLSLType { // Almost maps to CShaderReflectionType and
   DxcHLSLType(uint32_t BaseClass, uint32_t ElementsOrArrayId,
               D3D_SHADER_VARIABLE_CLASS Class, D3D_SHADER_VARIABLE_TYPE Type,
               uint8_t Rows, uint8_t Columns, uint32_t MembersCount,
-              uint32_t MembersStart)
-      : MemberData(MembersStart | (MembersCount << 24)),
-        Class(Class), Type(Type), Rows(Rows), Columns(Columns),
-        ElementsOrArrayId(ElementsOrArrayId), BaseClass(BaseClass) {
+              uint32_t MembersStart, uint32_t InterfaceOffset,
+              uint32_t InterfaceCount)
+      : MemberData(MembersStart | (MembersCount << 24)), Class(Class),
+        Type(Type), Rows(Rows), Columns(Columns),
+        ElementsOrArrayId(ElementsOrArrayId), BaseClass(BaseClass),
+        InterfaceOffsetAndCount(InterfaceOffset | (InterfaceCount << 24)) {
 
     assert(Class >= D3D_SVC_SCALAR && Class <= D3D_SVC_INTERFACE_POINTER &&
            "Invalid class");
     assert(Type >= D3D_SVT_VOID && Type <= D3D_SVT_UINT64 && "Invalid type");
     assert(MembersStart < (1 << 24) && "Member start out of bounds");
+    assert(InterfaceOffset < (1 << 24) && "Interface start out of bounds");
     assert(MembersCount < (1 << 8) && "Member count out of bounds");
+    assert(InterfaceCount < (1 << 8) && "Interface count out of bounds");
   }
 };
 
@@ -504,7 +512,8 @@ struct DxcHLSLReflectionData {
   std::vector<DxcHLSLArray> Arrays;
   std::vector<uint32_t> ArraySizes;
 
-  std::vector<DxcHLSLMember> MemberTypeIds;
+  std::vector<uint32_t> MemberTypeIds;
+  std::vector<uint32_t> TypeList;
   std::vector<DxcHLSLType> Types;
   std::vector<DxcHLSLBuffer> Buffers;
 
@@ -541,8 +550,8 @@ struct DxcHLSLReflectionData {
            Enums == Other.Enums && EnumValues == Other.EnumValues &&
            Annotations == Other.Annotations && Arrays == Other.Arrays &&
            ArraySizes == Other.ArraySizes &&
-           MemberTypeIds == Other.MemberTypeIds && Types == Other.Types &&
-           Buffers == Other.Buffers;
+           MemberTypeIds == Other.MemberTypeIds && TypeList == Other.TypeList &&
+           Types == Other.Types && Buffers == Other.Buffers;
   }
 
   bool operator==(const DxcHLSLReflectionData &Other) const {

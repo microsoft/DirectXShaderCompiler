@@ -125,6 +125,7 @@ struct D3D12_HLSL_REFLECTION_DESC {
   UINT TypeCount;
   UINT StructCount;
   UINT UnionCount;
+  UINT InterfaceCount;
 };
 
 struct D3D12_HLSL_FUNCTION_DESC {
@@ -181,6 +182,8 @@ enum D3D12_HLSL_NODE_TYPE {
 
   D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE,
 
+  D3D12_HLSL_NODE_TYPE_INTERFACE,
+
   // TODO: D3D12_HLSL_NODE_TYPE_USING,
   // TODO: D3D12_HLSL_NODE_TYPE_PARAMETER,
 
@@ -188,7 +191,7 @@ enum D3D12_HLSL_NODE_TYPE {
       1 << 7, // Highest bit; reserved as an indicator for fwd declarations
 
   D3D12_HLSL_NODE_TYPE_START = D3D12_HLSL_NODE_TYPE_REGISTER,
-  D3D12_HLSL_NODE_TYPE_END = D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE
+  D3D12_HLSL_NODE_TYPE_END = D3D12_HLSL_NODE_TYPE_INTERFACE
 };
 
 struct D3D12_HLSL_NODE {
@@ -271,6 +274,10 @@ DECLARE_INTERFACE(IDxcHLSLReflection) {
   (THIS_ _In_ UINT Index, _Outptr_ ID3D12ShaderReflectionType **ppType)
       PURE;
 
+  STDMETHOD(GetInterfaceTypeByIndex)
+  (THIS_ _In_ UINT Index, _Outptr_ ID3D12ShaderReflectionType **ppType)
+      PURE;
+
   STDMETHOD(GetTypeByIndex)
   (THIS_ _In_ UINT Index, _Outptr_ ID3D12ShaderReflectionType **ppType)
       PURE;
@@ -337,6 +344,9 @@ DECLARE_INTERFACE(IDxcHLSLReflection) {
   (THIS_ _In_ LPCSTR Name, _Outptr_ ID3D12ShaderReflectionType **ppType) PURE;
 
   STDMETHOD(GetUnionTypeByName)
+  (THIS_ _In_ LPCSTR Name, _Outptr_ ID3D12ShaderReflectionType **ppType) PURE;
+
+  STDMETHOD(GetInterfaceTypeByName)
   (THIS_ _In_ LPCSTR Name, _Outptr_ ID3D12ShaderReflectionType **ppType) PURE;
 };
 

@@ -157,6 +157,7 @@ protected:
   std::unordered_map<std::string, uint32_t> m_NameToMemberId;
   std::vector<CHLSLReflectionType *> m_MemberTypes;
   CHLSLReflectionType *m_pBaseClass;
+  std::vector<CHLSLReflectionType *> m_Interfaces;
 
   const DxcHLSLReflectionData *m_Data;
   uint32_t m_TypeId;
@@ -232,13 +233,13 @@ public:
     m_NameToMemberId.clear();
 
     for (uint32_t i = 0; i < memberCount; ++i) {
-    
+
       uint32_t memberId = type.GetMemberStart() + i;
 
       m_MemberTypes[i] = &Types[Data.MemberTypeIds[memberId]];
 
       if (hasNames) {
-      
+
         const std::string &name = Data.Strings[Data.MemberNameIds[memberId]];
 
         m_MemberNames[i] = name;
@@ -248,6 +249,13 @@ public:
 
     if (type.BaseClass != uint32_t(-1))
       m_pBaseClass = &Types[type.BaseClass];
+
+    uint32_t interfaceCount = type.GetInterfaceCount();
+
+    m_Interfaces.resize(interfaceCount);
+
+    for (uint32_t i = 0; i < interfaceCount; ++i)
+      m_Interfaces[i] = &Types[Data.TypeList[type.GetInterfaceStart() + i]];
 
     return S_OK;
   }
@@ -312,19 +320,25 @@ public:
   }
 
   STDMETHOD_(UINT, GetNumInterfaces)() override {
-    // HLSL interfaces have been deprecated
-    return 0;
+    return uint32_t(m_Interfaces.size());
   }
 
   STDMETHOD(ImplementsInterface)(ID3D12ShaderReflectionType *pBase) override {
-    // HLSL interfaces have been deprecated
+
+    for (CHLSLReflectionType *interf : m_Interfaces)
+      if (pBase == interf)
+        return S_OK;
+
     return S_FALSE;
   }
 
   STDMETHOD_(ID3D12ShaderReflectionType *, GetInterfaceByIndex)
   (UINT uIndex) override {
-    // HLSL interfaces have been deprecated
-    return nullptr;
+
+    if (uIndex >= m_Interfaces.size())
+      return nullptr;
+
+    return m_Interfaces[uIndex];
   }
 };
 
@@ -549,6 +563,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
       UNION,
       ENUM,
       FUNCTION,
+      INTERFACE,
       COUNT
   };
 
@@ -577,7 +592,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
           !node.GetParentId())
         globalVars.push_back(i);
 
-      // Filter out fwd declarations for structs, unions, functions, enums
+      // Filter out fwd declarations for structs, unions, interfaces, functions, enums
 
       if (!node.IsFwdDeclare()) {
 
@@ -591,6 +606,10 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
         case D3D12_HLSL_NODE_TYPE_UNION:
           type = FwdDeclType::UNION;
+          break;
+
+        case D3D12_HLSL_NODE_TYPE_INTERFACE:
+          type = FwdDeclType::INTERFACE;
           break;
 
         case D3D12_HLSL_NODE_TYPE_FUNCTION:
@@ -692,7 +711,8 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
               uint32_t(Data.Nodes.size()),
               uint32_t(Data.Types.size()),
               uint32_t(NonFwdIds[int(FwdDeclType::STRUCT)].size()),
-              uint32_t(NonFwdIds[int(FwdDeclType::UNION)].size())};
+              uint32_t(NonFwdIds[int(FwdDeclType::UNION)].size()),
+              uint32_t(NonFwdIds[int(FwdDeclType::INTERFACE)].size())};
 
     return S_OK;
   }
@@ -974,6 +994,19 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     *ppType = &Types[NonFwdIds[int(FwdDeclType::UNION)][Index]];
     return S_OK;
   }
+
+  STDMETHOD(GetInterfaceTypeByIndex)
+  (THIS_ _In_ UINT Index,
+   _Outptr_ ID3D12ShaderReflectionType **ppType) override {
+
+    IFR(ZeroMemoryToOut(ppType));
+
+    if (Index >= NonFwdIds[int(FwdDeclType::INTERFACE)].size())
+      return E_INVALIDARG;
+
+    *ppType = &Types[NonFwdIds[int(FwdDeclType::INTERFACE)][Index]];
+    return S_OK;
+  }
   
   STDMETHOD(GetNodeSymbolDesc)
   (THIS_ _In_ UINT NodeId, _Out_ D3D12_HLSL_NODE_SYMBOL *pDesc) override {
@@ -1174,6 +1207,27 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     auto it = NameToNonFwdIds[int(FwdDeclType::UNION)].find(Name);
 
     if (it == NameToNonFwdIds[int(FwdDeclType::UNION)].end())
+      return E_INVALIDARG;
+
+    *ppType = &Types[it->second];
+    return S_OK;
+  }
+
+  STDMETHOD(GetInterfaceTypeByName)
+  (THIS_ _In_ LPCSTR Name,
+   _Outptr_ ID3D12ShaderReflectionType **ppType) override {
+
+    IFR(ZeroMemoryToOut(ppType));
+
+    if (!Name)
+      return E_POINTER;
+
+    if (!(Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO))
+      return E_INVALIDARG;
+
+    auto it = NameToNonFwdIds[int(FwdDeclType::INTERFACE)].find(Name);
+
+    if (it == NameToNonFwdIds[int(FwdDeclType::INTERFACE)].end())
       return E_INVALIDARG;
 
     *ppType = &Types[it->second];

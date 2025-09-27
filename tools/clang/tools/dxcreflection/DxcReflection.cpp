@@ -146,7 +146,7 @@ PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager &SM,
   
     else if (RecordDecl *rec = dyn_cast<RecordDecl>(DeclSelf)) {
 
-      isFwdDeclare = !rec->isCompleteDefinition();
+      isFwdDeclare = !rec->isThisDeclarationADefinition();
       fwdDeclare = rec->getCanonicalDecl();
       canHaveFwdDeclare = true;
 
@@ -513,6 +513,60 @@ static uint32_t PushArray(DxcHLSLReflectionData &Refl, uint32_t ArraySizeFlat,
   return arrayId;
 }
 
+void RegisterTypeList(DxcHLSLReflectionData &Refl,
+                      const std::vector<uint32_t> &TypeIds, uint32_t &Offset,
+                      uint8_t &Len) {
+
+  if (TypeIds.empty())
+    return;
+
+  assert(TypeIds.size() < uint8_t(-1) &&
+         "Only allowing 256 types in a type list");
+
+  uint32_t i = 0;
+  uint32_t j = uint32_t(Refl.TypeList.size());
+  uint32_t k = 0;
+
+  Offset = 0;
+
+  for (; i < j; ++i) {
+
+    if (k == TypeIds.size())
+      break;
+
+    if (TypeIds[k] != Refl.TypeList[i]) {
+
+      if (k)
+        i = Offset;
+
+      k = 0;
+      break;
+    }
+
+    if (!k)
+      Offset = i;
+
+    ++k;
+  }
+
+  if (k != TypeIds.size()) {
+
+    uint32_t oldSiz = uint32_t(Refl.TypeList.size());
+
+    assert(oldSiz + TypeIds.size() < (1u << 24) &&
+           "Only allowing 16Mi total interfaces");
+
+    Refl.TypeList.resize(oldSiz + TypeIds.size());
+
+    std::memcpy(Refl.TypeList.data() + oldSiz, TypeIds.data(),
+                TypeIds.size() * sizeof(uint32_t));
+
+    Offset = oldSiz;
+  }
+
+  Len = uint8_t(TypeIds.size());
+}
+
 uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
                           QualType Original, bool DefaultRowMaj) {
 
@@ -559,12 +613,22 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
   //And base type
 
   D3D_SHADER_VARIABLE_CLASS cls = D3D_SVC_STRUCT;
+
+  if (const RecordType *RT = underlying->getAs<RecordType>()) {
+
+    const RecordDecl *RD = RT->getDecl();
+
+    if (RD->getTagKind() == TTK_Interface)
+      cls = D3D_SVC_INTERFACE_CLASS;
+  }
+
   uint8_t rows = 0, columns = 0;
 
   uint32_t membersCount = 0;
   uint32_t membersOffset = 0;
 
   uint32_t baseType = uint32_t(-1);
+  std::vector<uint32_t> interfaces;
 
   if (const RecordType *record = underlying->getAs<RecordType>()) {
 
@@ -684,9 +748,11 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
             CXXRecordDecl *BaseDecl =
                 cast<CXXRecordDecl>(qualType->castAs<RecordType>()->getDecl());
 
-            // TODO: Interfaces?
-            if (BaseDecl->isInterface())
+            if (BaseDecl->isInterface()) {
+              interfaces.push_back(
+                  GenerateTypeInfo(ASTCtx, Refl, qualType, DefaultRowMaj));
               continue;
+            }
 
             assert(baseType == uint32_t(-1) &&
                    "Multiple base types isn't supported in HLSL");
@@ -707,7 +773,7 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
           continue;
 
         if (!membersCount)
-          membersOffset = (uint32_t)Refl.MemberTypeIds.size();
+          membersOffset = uint32_t(Refl.MemberTypeIds.size());
 
         std::string name = fieldDecl->getName();
 
@@ -834,10 +900,17 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
 
   assert(Refl.Types.size() < uint32_t(-1) && "Type id out of bounds");
 
-  DxcHLSLType hlslType(baseType, elementsOrArrayId, cls, type, rows,
-                   columns, membersCount, membersOffset);
+  assert(interfaces.size() < uint8_t(-1) && "Only allowing 256 interfaces");
 
-  uint32_t i = 0, j = uint32_t(Refl.Types.size());
+  uint32_t interfaceOffset = 0;
+  uint8_t interfaceCount = 0;
+  RegisterTypeList(Refl, interfaces, interfaceOffset, interfaceCount);
+
+  DxcHLSLType hlslType(baseType, elementsOrArrayId, cls, type, rows, columns,
+                       membersCount, membersOffset, interfaceOffset, interfaceCount);
+
+  uint32_t i = 0;
+  uint32_t j = uint32_t(Refl.Types.size());
 
   for (; i < j; ++i)
     if (Refl.Types[i] == hlslType && (!hasSymbols || Refl.TypeNameIds[i] == nameId))
@@ -1319,40 +1392,42 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
       if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
         continue;
 
-      bool isCompleteDefinition = RecDecl->isCompleteDefinition();
+      bool isDefinition = RecDecl->isThisDeclarationADefinition();
 
-      bool pushObj = false;
-      bool isStruct = RecDecl->getTagKind() == TTK_Struct;
+      D3D12_HLSL_NODE_TYPE type = D3D12_HLSL_NODE_TYPE_RESERVED;
 
       switch (RecDecl->getTagKind()) {
 
       case TTK_Struct:
-      case TTK_Union:
-        pushObj = true;
+        type = D3D12_HLSL_NODE_TYPE_STRUCT;
         break;
 
-        // TODO: case TTK_Interface: Is this HLSL's interface or something else?
-        // break;
+      case TTK_Union:
+        type = D3D12_HLSL_NODE_TYPE_UNION;
+        break;
+
+      case TTK_Interface:
+        type = D3D12_HLSL_NODE_TYPE_INTERFACE;
+        break;
       }
 
-      if (pushObj) {
+      if (type != D3D12_HLSL_NODE_TYPE_RESERVED) {
 
         uint32_t typeId = 0;
 
-        if (isCompleteDefinition)
+        if (isDefinition)
           typeId = GenerateTypeInfo(
               ASTCtx, Refl, RecDecl->getASTContext().getRecordType(RecDecl),
               DefaultRowMaj);
 
         uint32_t self = PushNextNodeId(
-            Refl, SM, ASTCtx.getLangOpts(), RecDecl->getName(), RecDecl,
-            isStruct ? D3D12_HLSL_NODE_TYPE_STRUCT : D3D12_HLSL_NODE_TYPE_UNION,
+            Refl, SM, ASTCtx.getLangOpts(), RecDecl->getName(), RecDecl, type,
             ParentNodeId, typeId, nullptr, &FwdDecls);
 
         if (self == uint32_t(-1)) // Duplicate fwd definition
           continue;
 
-        if (isCompleteDefinition)
+        if (isDefinition)
           RecursiveReflectHLSL(*RecDecl, ASTCtx, Diags, SM, Refl,
                                AutoBindingSpace, Depth + 1, Features, self,
                                DefaultRowMaj, FwdDecls);
@@ -1430,9 +1505,10 @@ static std::string EnumTypeToString(D3D12_HLSL_ENUM_TYPE type) {
 
 static std::string NodeTypeToString(D3D12_HLSL_NODE_TYPE type) {
 
-  static const char *arr[] = {
-      "Register", "Function", "Enum",   "EnumValue", "Namespace",
-      "Variable", "Typedef",  "Struct", "Union",     "StaticVariable"};
+  static const char *arr[] = {"Register",       "Function",  "Enum",
+                              "EnumValue",      "Namespace", "Variable",
+                              "Typedef",        "Struct",    "Union",
+                              "StaticVariable", "Interface"};
 
   return arr[uint32_t(type)];
 }
@@ -1442,7 +1518,7 @@ static std::string GetBuiltinTypeName(const DxcHLSLReflectionData &Refl,
 
   std::string type;
 
-  if (Type.Class != D3D_SVC_STRUCT) {
+  if (Type.Class != D3D_SVC_STRUCT && Type.Class != D3D_SVC_INTERFACE_CLASS) {
 
     static const char *arr[] = {"void",
                                 "bool",
@@ -1580,7 +1656,15 @@ static void RecursePrintType(const DxcHLSLReflectionData &Refl, uint32_t TypeId,
          PrintTypeInfo(Refl, type, name).c_str());
 
   if (type.BaseClass != uint32_t(-1))
-    RecursePrintType(Refl, type.BaseClass, Depth + 1, Prefix);
+    RecursePrintType(Refl, type.BaseClass, Depth + 1,
+                     (std::string("BaseClass ") + Prefix).c_str());
+
+  for (uint32_t i = 0; i < type.GetInterfaceCount(); ++i) {
+
+    uint32_t interfaceId = type.GetInterfaceStart() + i;
+
+    RecursePrintType(Refl, Refl.TypeList[interfaceId], Depth + 1, "Interface ");
+  }
 
   for (uint32_t i = 0; i < type.GetMemberCount(); ++i) {
 
@@ -1648,7 +1732,25 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
       }
 
       case D3D12_HLSL_NODE_TYPE_UNION:
-      case D3D12_HLSL_NODE_TYPE_STRUCT: // Children are Variables
+      case D3D12_HLSL_NODE_TYPE_STRUCT: { // Children are Variables
+
+        const DxcHLSLType &type = Refl.Types[localId];
+
+        if (type.BaseClass != uint32_t(-1))
+          RecursePrintType(Refl, type.BaseClass, Depth, "BaseClass ");
+
+        for (uint32_t i = 0; i < type.GetInterfaceCount(); ++i) {
+
+          uint32_t interfaceId = type.GetInterfaceStart() + i;
+
+          RecursePrintType(Refl, Refl.TypeList[interfaceId], Depth,
+                           "Interface ");
+        }
+
+        break;
+      }
+
+      case D3D12_HLSL_NODE_TYPE_INTERFACE:
         break;
 
         // TODO: case D3D12_HLSL_NODE_TYPE_USING:
@@ -1693,7 +1795,7 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
   for (uint32_t i = 0, j = 0; i < node.GetChildCount(); ++i, ++j)
     i += RecursePrint(Refl, NodeId + 1 + i, Depth + 1, j);
 
-  if (node.IsFwdDeclare())
+  if (node.IsFwdDeclare() && node.IsFwdBckDefined())
     RecursePrint(Refl, node.GetFwdBck(), Depth, IndexInParent, true);
 
   return node.GetChildCount();
@@ -1725,6 +1827,9 @@ struct DxcHLSLHeader {
 
   uint32_t Types;
   uint32_t Buffers;
+
+  uint32_t TypeListCount;
+  uint32_t Padding;
 };
 
 template <typename T>
@@ -1922,7 +2027,7 @@ uint32_t RecurseNameGeneration(DxcHLSLReflectionData &Refl, uint32_t NodeId,
 
   DxcHLSLNode node = Refl.Nodes[NodeId];
 
-  if (node.IsFwdDeclare()) {
+  if (node.IsFwdDeclare() && node.IsFwdBckDefined()) {
       NodeId = node.GetFwdBck();
       node = Refl.Nodes[NodeId];
   }
@@ -1982,7 +2087,7 @@ void DxcHLSLReflectionData::Dump(std::vector<std::byte> &Bytes) const {
 
   Advance(toReserve, Strings, StringsNonDebug, Sources, Nodes, NodeSymbols,
           Registers, Functions, Enums, EnumValues, Annotations, ArraySizes,
-          Arrays, MemberTypeIds, MemberNameIds, Types, TypeNameIds, Buffers);
+          Arrays, MemberTypeIds, TypeList, MemberNameIds, Types, TypeNameIds, Buffers);
 
   Bytes.resize(toReserve);
 
@@ -1997,14 +2102,14 @@ void DxcHLSLReflectionData::Dump(std::vector<std::byte> &Bytes) const {
       uint32_t(EnumValues.size()),      uint32_t(Annotations.size()),
       uint32_t(Arrays.size()),          uint32_t(ArraySizes.size()),
       uint32_t(MemberTypeIds.size()),   uint32_t(Types.size()),
-      uint32_t(Buffers.size())};
+      uint32_t(Buffers.size()),         uint32_t(TypeList.size())};
 
   toReserve += sizeof(DxcHLSLHeader);
 
   Append(Bytes, toReserve, Strings, StringsNonDebug, Sources, Nodes,
          NodeSymbols, Registers, Functions, Enums, EnumValues, Annotations,
-         ArraySizes, Arrays, MemberTypeIds, MemberNameIds, Types, TypeNameIds,
-         Buffers);
+         ArraySizes, Arrays, MemberTypeIds, TypeList, MemberNameIds, Types,
+         TypeNameIds, Buffers);
 }
 
 DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes,
@@ -2036,9 +2141,9 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
           NodeSymbols, nodeSymbolCount, Registers, header.Registers, Functions,
           header.Functions, Enums, header.Enums, EnumValues, header.EnumValues,
           Annotations, header.Annotations, ArraySizes, header.ArraySizes,
-          Arrays, header.Arrays, MemberTypeIds, header.Members, MemberNameIds,
-          memberSymbolCount, Types, header.Types, TypeNameIds, typeSymbolCount,
-          Buffers, header.Buffers);
+          Arrays, header.Arrays, MemberTypeIds, header.Members, TypeList,
+          header.TypeListCount, MemberNameIds, memberSymbolCount, Types,
+          header.Types, TypeNameIds, typeSymbolCount, Buffers, header.Buffers);
 
   // Validation errors are throws to prevent accessing invalid data
 
@@ -2098,10 +2203,19 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
     case D3D12_HLSL_NODE_TYPE_STRUCT:
     case D3D12_HLSL_NODE_TYPE_UNION:
+    case D3D12_HLSL_NODE_TYPE_INTERFACE:
       allowFwdDeclare = true;
       maxValue = node.IsFwdDeclare() ? 1 : header.Types;
       break;
     }
+
+    if ((node.GetNodeType() == D3D12_HLSL_NODE_TYPE_REGISTER ||
+         node.GetNodeType() == D3D12_HLSL_NODE_TYPE_VARIABLE) &&
+        Nodes[node.GetParentId()].GetNodeType() ==
+            D3D12_HLSL_NODE_TYPE_INTERFACE)
+      throw std::invalid_argument(
+          "Node " + std::to_string(i) +
+          " is interface but has registers or variables");
 
     if (node.IsFwdDeclare() && !allowFwdDeclare)
       throw std::invalid_argument("Node " + std::to_string(i) +
@@ -2253,6 +2367,11 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
       throw std::invalid_argument("Member " + std::to_string(i) +
                                   " points to an invalid string");
   }
+
+  for (uint32_t i = 0; i < header.TypeListCount; ++i)
+    if (TypeList[i] >= header.Types)
+      throw std::invalid_argument("Type list index " + std::to_string(i) +
+                                  " points to an invalid type");
   
   for (uint32_t i = 0; i < header.Types; ++i) {
 
@@ -2264,6 +2383,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
     if ((type.BaseClass != uint32_t(-1) && type.BaseClass >= header.Types) ||
         type.GetMemberStart() + type.GetMemberCount() > header.Members ||
+        type.GetInterfaceStart() + type.GetInterfaceCount() > header.TypeListCount ||
         (type.ElementsOrArrayId >> 31 &&
          (type.ElementsOrArrayId << 1 >> 1) >= header.Arrays))
       throw std::invalid_argument(
@@ -2329,6 +2449,11 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
         if (!type.GetMemberCount())
           throw std::invalid_argument("Type (struct) " + std::to_string(i) +
                                       " is missing children");
+
+        [[fallthrough]];
+
+    case D3D_SVC_INTERFACE_CLASS:
+
         if (type.Type)
           throw std::invalid_argument("Type (struct) " +
                                       std::to_string(i) +
