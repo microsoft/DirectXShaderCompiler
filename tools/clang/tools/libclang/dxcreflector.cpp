@@ -167,12 +167,17 @@ protected:
 public:
 
   STDMETHOD(IsEqual)(ID3D12ShaderReflectionType *pType) override {
-    // TODO: implement this check, if users actually depend on it
-    return S_FALSE;
+    return (this == pType) ? S_OK : S_FALSE;
   }
 
   STDMETHOD(IsOfType)(ID3D12ShaderReflectionType *pType) override {
-    // TODO: implement `class`-related features, if requested
+
+    if (this == pType)
+      return S_OK;
+
+    if (m_pBaseClass)
+      return m_pBaseClass->IsOfType(pType);
+
     return S_FALSE;
   }
 
