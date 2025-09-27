@@ -630,33 +630,59 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
   uint32_t baseType = uint32_t(-1);
   std::vector<uint32_t> interfaces;
 
+  D3D_SHADER_VARIABLE_TYPE type = D3D_SVT_VOID;
+
   if (const RecordType *record = underlying->getAs<RecordType>()) {
 
      bool standardType = false;
 
     RecordDecl *recordDecl = record->getDecl();
 
+     static const std::unordered_map<std::string, D3D_SHADER_VARIABLE_TYPE>
+        lookup = std::unordered_map<std::string, D3D_SHADER_VARIABLE_TYPE>{{
+            {"vector", D3D_SHADER_VARIABLE_TYPE(-1)},
+            {"matrix", D3D_SHADER_VARIABLE_TYPE(-2)},
+            {"Texture1D", D3D_SVT_TEXTURE1D},
+            {"Texture2D", D3D_SVT_TEXTURE2D},
+            {"RWTexture1D", D3D_SVT_RWTEXTURE1D},
+            {"RWTexture2D", D3D_SVT_RWTEXTURE2D},
+            {"Texture2DMS", D3D_SVT_TEXTURE2DMS},
+            {"Texture3D", D3D_SVT_TEXTURE3D},
+            {"RWTexture3D", D3D_SVT_RWTEXTURE3D},
+            {"TextureCube", D3D_SVT_TEXTURECUBE},
+            {"Texture1DArray", D3D_SVT_TEXTURE1DARRAY},
+            {"Texture2DArray", D3D_SVT_TEXTURE2DARRAY},
+            {"RWTexture1DArray", D3D_SVT_RWTEXTURE1DARRAY},
+            {"RWTexture2DArray", D3D_SVT_RWTEXTURE2DARRAY},
+            {"Texture2DMSArray", D3D_SVT_TEXTURE2DMSARRAY},
+            {"TextureCubeArray", D3D_SVT_TEXTURECUBEARRAY},
+            {"SamplerState", D3D_SVT_SAMPLER},
+            {"ByteAddressBuffer", D3D_SVT_BYTEADDRESS_BUFFER},
+            {"RWByteAddressBuffer", D3D_SVT_RWBYTEADDRESS_BUFFER},
+            {"StructuredBuffer", D3D_SVT_STRUCTURED_BUFFER},
+            {"RWStructuredBuffer", D3D_SVT_RWSTRUCTURED_BUFFER},
+            {"AppendStructuredBuffer", D3D_SVT_APPEND_STRUCTURED_BUFFER},
+            {"ConsumeStructuredBuffer", D3D_SVT_CONSUME_STRUCTURED_BUFFER},
+            {"RWBuffer", D3D_SVT_RWBUFFER},
+            {"Buffer", D3D_SVT_BUFFER},
+            {"ConstantBuffer", D3D_SVT_CBUFFER}
+        }};
+
     if (const ClassTemplateSpecializationDecl *templateClass =
             dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
 
-      const std::string &name = templateClass->getIdentifier()->getName();
+      std::string name = templateClass->getIdentifier()->getName();
 
       const ArrayRef<TemplateArgument> &params =
           templateClass->getTemplateArgs().asArray();
 
-      uint32_t magic = 0;
-      std::memcpy(&magic, name.c_str(), std::min(sizeof(magic), name.size()));
+      auto it = lookup.find(name);
 
-      std::string_view subs =
-          name.size() < sizeof(magic)
-              ? std::string_view()
-              : std::string_view(name).substr(sizeof(magic));
+      if (it != lookup.end()) {
+      
+        D3D_SHADER_VARIABLE_TYPE svt = it->second;
 
-      switch (magic) {
-
-      case DXC_FOURCC('v', 'e', 'c', 't'):
-
-        if (subs == "or") {
+        if (svt == -1) {        //Reserved as 'vector'
 
           rows = 1;
 
@@ -671,11 +697,7 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
           standardType = true;
         }
 
-        break;
-
-      case DXC_FOURCC('m', 'a', 't', 'r'):
-
-        if (subs == "ix") {
+        else if (svt == -2) {   //Reserved as 'matrix'
 
           assert(params.size() == 3 &&
                  params[0].getKind() == TemplateArgument::Type &&
@@ -698,45 +720,28 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
           standardType = true;
         }
 
-        break;
+        else {
+          type = svt;
+          cls = D3D_SVC_OBJECT;
+        }
       }
+    }
 
-      // TODO:
-      //           D3D_SVT_TEXTURE	= 5,
-      //  D3D_SVT_TEXTURE1D	= 6,
-      //  D3D_SVT_TEXTURE2D	= 7,
-      //  D3D_SVT_TEXTURE3D	= 8,
-      //  D3D_SVT_TEXTURECUBE	= 9,
-      //  D3D_SVT_SAMPLER	= 10,
-      //  D3D_SVT_SAMPLER1D	= 11,
-      //  D3D_SVT_SAMPLER2D	= 12,
-      //  D3D_SVT_SAMPLER3D	= 13,
-      //  D3D_SVT_SAMPLERCUBE	= 14,
-      //  D3D_SVT_BUFFER	= 25,
-      //  D3D_SVT_CBUFFER	= 26,
-      //  D3D_SVT_TBUFFER	= 27,
-      //  D3D_SVT_TEXTURE1DARRAY	= 28,
-      //  D3D_SVT_TEXTURE2DARRAY	= 29,
-      //  D3D_SVT_TEXTURE2DMS	= 32,
-      //  D3D_SVT_TEXTURE2DMSARRAY	= 33,
-      //  D3D_SVT_TEXTURECUBEARRAY	= 34,
-      //  D3D_SVT_RWTEXTURE1D	= 40,
-      //  D3D_SVT_RWTEXTURE1DARRAY	= 41,
-      //  D3D_SVT_RWTEXTURE2D	= 42,
-      //  D3D_SVT_RWTEXTURE2DARRAY	= 43,
-      //  D3D_SVT_RWTEXTURE3D	= 44,
-      //  D3D_SVT_RWBUFFER	= 45,
-      //  D3D_SVT_BYTEADDRESS_BUFFER	= 46,
-      //  D3D_SVT_RWBYTEADDRESS_BUFFER	= 47,
-      //  D3D_SVT_STRUCTURED_BUFFER	= 48,
-      //  D3D_SVT_RWSTRUCTURED_BUFFER	= 49,
-      //  D3D_SVT_APPEND_STRUCTURED_BUFFER	= 50,
-      //  D3D_SVT_CONSUME_STRUCTURED_BUFFER	= 51,
+    else {
+
+      std::string name = recordDecl->getName();
+
+      auto it = lookup.find(name);
+
+      if (it != lookup.end()) {
+        type = it->second;
+        cls = D3D_SVC_OBJECT;
+      }
     }
 
     // Fill members
 
-    if (!standardType && recordDecl->isCompleteDefinition()) {
+    if (!standardType && recordDecl->isCompleteDefinition() && cls != D3D_SVC_OBJECT) {
 
       // Base types
 
@@ -812,8 +817,6 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
   }
 
   //Type name
-
-  D3D_SHADER_VARIABLE_TYPE type = D3D_SVT_VOID;
 
   if (const BuiltinType *bt = dyn_cast<BuiltinType>(underlying)) {
 
