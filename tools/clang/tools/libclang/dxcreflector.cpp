@@ -1037,7 +1037,6 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
   //Helper for conversion between symbol names
 
   // TODO: GetFunctionParameter
-  // TODO: types, arrays
 
   STDMETHOD(GetNodeByName)
       (THIS_ _In_ LPCSTR Name, _Out_ UINT *pNodeId) override {
@@ -1455,9 +1454,11 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
   if (!opts.ReflOpt.DisableSymbols)
     reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
-  DxcHLSLReflectionData refl(astHelper.compiler, *astHelper.tu,
-                              opts.AutoBindingSpace, reflectMask,
-                              opts.DefaultRowMajor);
+  DxcHLSLReflectionData refl;
+  
+  if (!refl.Initialize(astHelper.compiler, *astHelper.tu, opts.AutoBindingSpace,
+                       reflectMask, opts.DefaultRowMajor, refl))
+    throw std::exception("refl.Initialize failed");
 
   //TODO: Debug
 
@@ -1470,7 +1471,8 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
 
   DxcHLSLReflectionData deserialized(bytes, true);
 
-  assert(deserialized == refl && "Dump or Deserialize doesn't match");
+  if (!(deserialized == refl))
+    throw std::exception("Dump or Deserialize doesn't match");
 
   printf("Reflection size: %" PRIu64 "\n", bytes.size());
 
@@ -1483,7 +1485,8 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
 
   DxcHLSLReflectionData deserialized2 = DxcHLSLReflectionData(bytes, false);
 
-  assert(deserialized2 == refl && "Dump or Deserialize doesn't match");
+  if (!(deserialized2 == refl))
+    throw std::exception("Dump or Deserialize doesn't match");
 
   printf("Stripped reflection size: %" PRIu64 "\n", bytes.size());
 

@@ -33,11 +33,13 @@ struct DxcRegisterTypeInfo {
 static uint32_t RegisterString(DxcHLSLReflectionData &Refl,
     const std::string &Name, bool isNonDebug) {
 
-  assert(Name.size() < 32768 && "Strings are limited to 32767");
+  if (Name.size() >= 32768)
+    throw std::invalid_argument("Strings are limited to 32767");
 
   if (isNonDebug) {
 
-    assert(Refl.StringsNonDebug.size() < uint32_t(-1) && "Strings overflow");
+    if (Refl.StringsNonDebug.size() >= uint32_t(-1))
+      throw std::invalid_argument("Strings overflow");
 
     auto it = Refl.StringsToIdNonDebug.find(Name);
 
@@ -51,7 +53,8 @@ static uint32_t RegisterString(DxcHLSLReflectionData &Refl,
     return stringId;
   }
 
-  assert(Refl.Strings.size() < uint32_t(-1) && "Strings overflow");
+  if (Refl.Strings.size() >= uint32_t(-1))
+    throw std::invalid_argument("Strings overflow");
 
   auto it = Refl.StringsToId.find(Name);
 
@@ -72,8 +75,11 @@ PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager &SM,
                uint32_t LocalId, const SourceRange *Range = nullptr,
                std::unordered_map<Decl *, uint32_t> *FwdDecls = nullptr) {
   
-  assert(Refl.Nodes.size() < (1 << 24) && "Nodes overflow");
-  assert(LocalId < (1 << 24) && "LocalId overflow");
+  if (Refl.Nodes.size() >= (1u << 24))
+    throw std::invalid_argument("Nodes overflow");
+
+  if (LocalId >= (1u << 24))
+    throw std::invalid_argument("LocalId overflow");
 
   uint32_t nodeId = Refl.Nodes.size();
 
@@ -86,28 +92,32 @@ PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager &SM,
     for (const Attr *attr : DeclSelf->attrs()) {
       if (const AnnotateAttr *annotate = dyn_cast<AnnotateAttr>(attr)) {
 
-        assert(Refl.Annotations.size() < (1 << 16) && "Out of annotations");
+        if (Refl.Annotations.size() >= (1u << 16))
+          throw std::invalid_argument("Out of annotations");
 
         Refl.Annotations.push_back(DxcHLSLAnnotation(
             RegisterString(Refl, annotate->getAnnotation().str(), true),
             false));
 
-        assert(annotationCount != uint8_t(-1) &&
-               "Annotation count out of bounds");
+        if (annotationCount >= uint8_t(-1))
+          throw std::invalid_argument("Annotation count out of bounds");
+
         ++annotationCount;
 
       } else if (const HLSLShaderAttr *shaderAttr =
                      dyn_cast<HLSLShaderAttr>(attr)) {
 
-        assert(Refl.Annotations.size() < (1 << 16) && "Out of annotations");
+        if (Refl.Annotations.size() >= (1u << 16))
+          throw std::invalid_argument("Out of annotations");
 
         Refl.Annotations.push_back(DxcHLSLAnnotation(
             RegisterString(
                 Refl, "shader(\"" + shaderAttr->getStage().str() + "\")", true),
             true));
 
-        assert(annotationCount != uint8_t(-1) &&
-               "Annotation count out of bounds");
+        if (annotationCount >= uint8_t(-1))
+          throw std::invalid_argument("Annotation count out of bounds");
+
         ++annotationCount;
 
       }
@@ -206,8 +216,8 @@ PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager &SM,
 
         std::string fileName = presumed.getFilename();
 
-        assert(fileName == presumedEnd.getFilename() &&
-               "End and start are not in the same file");
+        if (fileName != presumedEnd.getFilename())
+          throw std::invalid_argument("End and start are not in the same file");
 
         auto it = Refl.StringToSourceId.find(fileName);
         uint32_t i;
@@ -222,12 +232,20 @@ PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager &SM,
           i = it->second;
         }
 
-        assert(i < 65535 && "Source file count is limited to 16-bit");
-        assert((endLine - startLine) < 65535 &&
-               "Source line count is limited to 16-bit");
-        assert(startLine < 1048576 && "Source line start is limited to 20-bit");
-        assert(startCol < (1 << 22) && "Column start is limited to 22-bit");
-        assert(endCol < (1 << 22) && "Column end is limited to 22-bit");
+        if (i >= 65535)
+          throw std::invalid_argument("Source file count is limited to 16-bit");
+
+        if ((endLine - startLine) >= 65535)
+          throw std::invalid_argument("Source line count is limited to 16-bit");
+
+        if (startLine >= 1048576)
+          throw std::invalid_argument("Source line start is limited to 20-bit");
+
+        if (startCol >= (1u << 22))
+          throw std::invalid_argument("Column start is limited to 22-bit");
+
+        if (endCol >= (1u << 22))
+          throw std::invalid_argument("Column end is limited to 22-bit");
 
         sourceLineCount = uint16_t(endLine - startLine + 1);
         sourceLineStart = startLine;
@@ -483,13 +501,16 @@ static uint32_t PushArray(DxcHLSLReflectionData &Refl, uint32_t ArraySizeFlat,
   if (ArraySizeFlat <= 1 || ArraySize.size() <= 1)
     return uint32_t(-1);
 
-  assert(Refl.Arrays.size() < uint32_t((1u << 31) - 1) && "Arrays would overflow");
+  if (Refl.Arrays.size() >= uint32_t((1u << 31) - 1))
+    throw std::invalid_argument("Arrays would overflow");
+
   uint32_t arrayId = uint32_t(Refl.Arrays.size());
 
   uint32_t arrayCountStart = uint32_t(Refl.ArraySizes.size());
   uint32_t numArrayElements = std::min(size_t(32), ArraySize.size());
-  assert(Refl.ArraySizes.size() + numArrayElements < ((1 << 26) - 1) &&
-         "Array elements would overflow");
+
+  if (Refl.ArraySizes.size() + numArrayElements >= ((1u << 26) - 1))
+    throw std::invalid_argument("Array elements would overflow");
 
   for (uint32_t i = 0; i < ArraySize.size() && i < 8; ++i) {
 
@@ -513,15 +534,15 @@ static uint32_t PushArray(DxcHLSLReflectionData &Refl, uint32_t ArraySizeFlat,
   return arrayId;
 }
 
-void RegisterTypeList(DxcHLSLReflectionData &Refl,
+static void RegisterTypeList(DxcHLSLReflectionData &Refl,
                       const std::vector<uint32_t> &TypeIds, uint32_t &Offset,
                       uint8_t &Len) {
 
   if (TypeIds.empty())
     return;
 
-  assert(TypeIds.size() < uint8_t(-1) &&
-         "Only allowing 256 types in a type list");
+  if (TypeIds.size() >= uint8_t(-1))
+    throw std::invalid_argument("Only allowing 256 types in a type list");
 
   uint32_t i = 0;
   uint32_t j = uint32_t(Refl.TypeList.size());
@@ -553,8 +574,8 @@ void RegisterTypeList(DxcHLSLReflectionData &Refl,
 
     uint32_t oldSiz = uint32_t(Refl.TypeList.size());
 
-    assert(oldSiz + TypeIds.size() < (1u << 24) &&
-           "Only allowing 16Mi total interfaces");
+    if (oldSiz + TypeIds.size() >= (1u << 24))
+      throw std::invalid_argument("Only allowing 16Mi total interfaces");
 
     Refl.TypeList.resize(oldSiz + TypeIds.size());
 
@@ -791,8 +812,13 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
         ++membersCount;
       }
 
-      if (membersCount)
+      if (membersCount) {
+
         Refl.MemberTypeIds.resize(Refl.MemberTypeIds.size() + membersCount);
+
+        if (Refl.MemberTypeIds.size() >= uint32_t(1u << 24))
+          throw std::invalid_argument("Members out of bounds");
+      }
 
       // Initialize member types (because it causes recursion)
 
@@ -804,9 +830,6 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
 
         if (!fieldDecl)
           continue;
-
-        assert(Refl.MemberTypeIds.size() <= (uint32_t)-1 &&
-               "Members out of bounds");
 
         Refl.MemberTypeIds[membersOffset + membersCount] =
             GenerateTypeInfo(ASTCtx, Refl, fieldDecl->getType(), DefaultRowMaj);
@@ -894,16 +917,17 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
       break;
 
     default:
-      assert(false && "Invalid builtin type");
-      break;
+      throw std::invalid_argument("Invalid builtin type");
     }
   }
 
   //Insert
 
-  assert(Refl.Types.size() < uint32_t(-1) && "Type id out of bounds");
+  if (Refl.Types.size() >= uint32_t(-1))
+    throw std::invalid_argument("Type id out of bounds");
 
-  assert(interfaces.size() < uint8_t(-1) && "Only allowing 256 interfaces");
+  if (interfaces.size() >= uint8_t(-1))
+    throw std::invalid_argument("Only allowing 256 interfaces");
 
   uint32_t interfaceOffset = 0;
   uint8_t interfaceCount = 0;
@@ -963,8 +987,9 @@ static void FillReflectionRegisterAt(
 
   DxcRegisterTypeInfo inputType = GetRegisterTypeInfo(ASTCtx, Type);
 
-  uint32_t nodeId = PushNextNodeId(
-      Refl, SM, ASTCtx.getLangOpts(), ValDesc->getName(), ValDesc, D3D12_HLSL_NODE_TYPE_REGISTER, ParentNodeId,
+  uint32_t nodeId =
+      PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), ValDesc->getName(),
+                     ValDesc, D3D12_HLSL_NODE_TYPE_REGISTER, ParentNodeId,
                      uint32_t(Refl.Registers.size()));
 
   uint32_t arrayId = PushArray(Refl, ArraySizeFlat, ArraySize);
@@ -1078,7 +1103,9 @@ uint32_t RegisterBuffer(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
                         uint32_t NodeId, D3D_CBUFFER_TYPE Type,
                         bool DefaultRowMaj) {
 
-  assert(Refl.Buffers.size() < uint32_t(-1) && "Buffer id out of bounds");
+  if (Refl.Buffers.size() >= uint32_t(-1))
+    throw std::invalid_argument("Buffer id out of bounds");
+
   uint32_t bufferId = uint32_t(Refl.Buffers.size());
 
   RecurseBuffer(ASTCtx, SM, Refl, Buffer->decls(), DefaultRowMaj, NodeId);
@@ -1286,8 +1313,8 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
             {EnumValue->getInitVal().getSExtValue(), childNodeId});
       }
 
-      assert(Refl.EnumValues.size() < (uint32_t)(1 << 30) &&
-             "Enum values overflow");
+      if (Refl.EnumValues.size() >= uint32_t(1 << 30))
+        throw std::invalid_argument("Enum values overflow");
 
       QualType enumType = Enum->getIntegerType();
       QualType desugared = enumType.getDesugaredType(ASTCtx);
@@ -1453,30 +1480,40 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
   }
 }
 
-DxcHLSLReflectionData::DxcHLSLReflectionData(clang::CompilerInstance &Compiler,
-                                     clang::TranslationUnitDecl &Ctx,
-                                     uint32_t AutoBindingSpace,
-                                     D3D12_HLSL_REFLECTION_FEATURE Features,
-                                     bool DefaultRowMaj) {
+bool DxcHLSLReflectionData::Initialize(clang::CompilerInstance &Compiler,
+                                       clang::TranslationUnitDecl &Ctx,
+                                       uint32_t AutoBindingSpace,
+                                       D3D12_HLSL_REFLECTION_FEATURE Features,
+                                       bool DefaultRowMaj,
+                                       DxcHLSLReflectionData &Result) {
 
   DiagnosticsEngine &Diags = Ctx.getParentASTContext().getDiagnostics();
   const SourceManager &SM = Compiler.getSourceManager();
 
-  *this = {};
-  this->Features = Features;
+  Result = {};
+  Result.Features = Features;
 
   if (Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO) {
-    Strings.push_back("");
-    StringsToId[""] = 0;
-    NodeSymbols.push_back(DxcHLSLNodeSymbol(0, 0, 0, 0, 0, 0));
+    Result.Strings.push_back("");
+    Result.StringsToId[""] = 0;
+    Result.NodeSymbols.push_back(DxcHLSLNodeSymbol(0, 0, 0, 0, 0, 0));
   }
 
-  Nodes.push_back(DxcHLSLNode{D3D12_HLSL_NODE_TYPE_NAMESPACE, false, 0, 0, 0,
-                              0xFFFF, 0, uint16_t(-1)});
+  Result.Nodes.push_back(DxcHLSLNode{D3D12_HLSL_NODE_TYPE_NAMESPACE, false, 0,
+                                     0, 0, 0xFFFF, 0, uint16_t(-1)});
 
-  std::unordered_map<Decl *, uint32_t> fwdDecls;
-  RecursiveReflectHLSL(Ctx, Compiler.getASTContext(), Diags, SM, *this,
-                       AutoBindingSpace, 0, Features, 0, DefaultRowMaj, fwdDecls);
+  try {
+
+    std::unordered_map<Decl *, uint32_t> fwdDecls;
+    RecursiveReflectHLSL(Ctx, Compiler.getASTContext(), Diags, SM, Result,
+                         AutoBindingSpace, 0, Features, 0, DefaultRowMaj,
+                         fwdDecls);
+    return true;
+
+  } catch (const std::invalid_argument &arg) {
+    llvm::errs() << "DxcHLSLReflectionData::Initialize: Failed " << arg.what();
+    return false;
+  }
 }
 
 //TODO: Debug print code

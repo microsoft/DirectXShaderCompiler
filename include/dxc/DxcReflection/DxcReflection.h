@@ -70,20 +70,26 @@ public:
         ChildCountFwdBckLo(ChildCount | (0xFFu << 24)), FwdBckHi(0xFFFF),
         AnnotationStart(AnnotationStart), SemanticId(SemanticId), Padding(0) {
 
-    assert(NodeType >= D3D12_HLSL_NODE_TYPE_START &&
-           NodeType <= D3D12_HLSL_NODE_TYPE_END && "Invalid enum value");
+    if (NodeType < D3D12_HLSL_NODE_TYPE_START ||
+        NodeType > D3D12_HLSL_NODE_TYPE_END)
+      throw std::invalid_argument("Invalid NodeType");
 
-    assert(LocalId < ((1 << 24) - 1) && "LocalId out of bounds");
-    assert(ParentId < ((1 << 24) - 1) && "ParentId out of bounds");
-    assert(ChildCount < ((1 << 24) - 1) && "ChildCount out of bounds");
+    if (LocalId >= ((1u << 24) - 1))
+      throw std::invalid_argument("LocalId out of bounds");
+
+    if (ParentId >= ((1u << 24) - 1))
+      throw std::invalid_argument("ParentId out of bounds");
+
+    if (ChildCount >= ((1u << 24) - 1))
+      throw std::invalid_argument("ChildCount out of bounds");
 
     if (IsFwdDeclare) {
 
-      assert(!AnnotationCount &&
-             "Fwd declares aren't allowed to have annotations");
+      if (AnnotationCount)
+        throw std::invalid_argument("Fwd declares aren't allowed to have annotations");
 
-      assert(!ChildCount &&
-             "Fwd declares aren't allowed to have children");
+      if (ChildCount)
+        throw std::invalid_argument("Fwd declares aren't allowed to have children");
 
       Type |= 0x80;
     }
@@ -118,8 +124,12 @@ public:
   void ResolveFwdDeclare(uint32_t SelfId, DxcHLSLNode &Definition,
       uint32_t DefinitionId) {
 
-    assert(SelfId < ((1 << 24) - 1) && "SelfId out of bounds");
-    assert(DefinitionId < ((1 << 24) - 1) && "DefinitionId out of bounds");
+    if (SelfId >= ((1u << 24) - 1))
+      throw std::invalid_argument("SelfId out of bounds");
+
+    if (DefinitionId >= ((1u << 24) - 1))
+      throw std::invalid_argument("DefinitionId out of bounds");
+
     assert(DefinitionId != SelfId && "NodeId can't be definition id!");
     assert(IsFwdDeclare() &&
            "Can't run ResolveFwdDeclare on a node that's no fwd decl");
@@ -153,7 +163,10 @@ public:
   }
 
   void IncreaseChildCount() {
-    assert(GetChildCount() < ((1 << 24) - 1) && "Child count out of bounds");
+
+    if (GetChildCount() >= ((1u << 24) - 1))
+      throw std::invalid_argument("Child count out of bounds");
+
     ++ChildCountFwdBckLo;
   }
 
@@ -201,11 +214,14 @@ struct DxcHLSLNodeSymbol {
                               (SourceColumnEnd >> 16 << 6) |
                               (SourceLineStart << 12)) {
 
-    assert(SourceColumnStart < (1 << 22) && "SourceColumnStart out of bounds");
-    assert(SourceColumnEnd < (1 << 22) && "SourceColumnEnd out of bounds");
+    if (SourceColumnStart >= (1u << 22))
+      throw std::invalid_argument("SourceColumnStart out of bounds");
 
-    assert(SourceLineStart < ((1 << 20) - 1) &&
-           "SourceLineStart out of bounds");
+    if (SourceColumnEnd >= (1u << 22))
+      throw std::invalid_argument("SourceColumnEnd out of bounds");
+
+    if (SourceLineStart >= ((1u << 20) - 1))
+      throw std::invalid_argument("SourceLineStart out of bounds");
   }
 
   uint32_t GetSourceLineStart() const {
@@ -279,7 +295,8 @@ struct DxcHLSLFunction {
                                             (HasReturn ? (1 << 30) : 0) |
                                             (HasDefinition ? (1 << 31) : 0)) {
 
-    assert(NumParameters < (1 << 30) && "NumParameters out of bounds");
+    if (NumParameters >= (1u << 30))
+      throw std::invalid_argument("NumParameters out of bounds");
   }
 
   uint32_t GetNumParameters() const {
@@ -337,16 +354,19 @@ struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
         ReturnType(ReturnType), Dimension(Dimension), NodeId(NodeId),
         ArrayId(ArrayId), BufferId(BufferId) {
 
-    assert(Type >= D3D_SIT_CBUFFER && Type <= D3D_SIT_UAV_FEEDBACKTEXTURE &&
-           "Invalid type");
+    if (Type < D3D_SIT_CBUFFER || Type > D3D_SIT_UAV_FEEDBACKTEXTURE)
+      throw std::invalid_argument("Invalid type");
 
-    assert(ReturnType >= 0 && ReturnType <= D3D_RETURN_TYPE_CONTINUED &&
-           "Invalid return type");
+    if (ReturnType < 0 ||
+        ReturnType > D3D_RETURN_TYPE_CONTINUED)
+      throw std::invalid_argument("Invalid return type");
 
-    assert(Dimension >= D3D_SRV_DIMENSION_UNKNOWN &&
-           Dimension <= D3D_SRV_DIMENSION_BUFFEREX && "Invalid srv dimension");
+    if (Dimension < D3D_SRV_DIMENSION_UNKNOWN ||
+        Dimension > D3D_SRV_DIMENSION_BUFFEREX)
+      throw std::invalid_argument("Invalid srv dimension");
 
-    assert(!(uFlags >> 8) && "Invalid user flags");
+    if (uFlags >> 8)
+      throw std::invalid_argument("Invalid user flags");
   }
 
   bool operator==(const DxcHLSLRegister &other) const {
@@ -364,8 +384,11 @@ struct DxcHLSLArray {
   DxcHLSLArray(uint32_t ArrayElem, uint32_t ArrayStart)
       : ArrayElemStart((ArrayElem << 26) | ArrayStart) {
 
-    assert(ArrayElem <= 32 && ArrayElem > 1 && "ArrayElem out of bounds");
-    assert(ArrayStart < (1 << 26) && "ArrayStart out of bounds");
+    if (ArrayElem <= 1 || ArrayElem > 32)
+      throw std::invalid_argument("ArrayElem out of bounds");
+
+    if (ArrayStart >= (1u << 26))
+      throw std::invalid_argument("ArrayStart out of bounds");
   }
 
   bool operator==(const DxcHLSLArray &Other) const {
@@ -437,13 +460,23 @@ struct DxcHLSLType { // Almost maps to CShaderReflectionType and
         ElementsOrArrayId(ElementsOrArrayId), BaseClass(BaseClass),
         InterfaceOffsetAndCount(InterfaceOffset | (InterfaceCount << 24)) {
 
-    assert(Class >= D3D_SVC_SCALAR && Class <= D3D_SVC_INTERFACE_POINTER &&
-           "Invalid class");
-    assert(Type >= D3D_SVT_VOID && Type <= D3D_SVT_UINT64 && "Invalid type");
-    assert(MembersStart < (1 << 24) && "Member start out of bounds");
-    assert(InterfaceOffset < (1 << 24) && "Interface start out of bounds");
-    assert(MembersCount < (1 << 8) && "Member count out of bounds");
-    assert(InterfaceCount < (1 << 8) && "Interface count out of bounds");
+    if (Class < D3D_SVC_SCALAR || Class > D3D_SVC_INTERFACE_POINTER)
+      throw std::invalid_argument("Invalid class");
+
+    if (Type < D3D_SVT_VOID || Type > D3D_SVT_UINT64)
+      throw std::invalid_argument("Invalid type");
+
+    if (MembersStart >= (1u << 24))
+      throw std::invalid_argument("Member start out of bounds");
+
+    if (InterfaceOffset >= (1u << 24))
+      throw std::invalid_argument("Interface start out of bounds");
+
+    if (MembersCount >= (1u << 8))
+      throw std::invalid_argument("Member count out of bounds");
+
+    if (InterfaceCount >= (1u << 8))
+      throw std::invalid_argument("Interface count out of bounds");
   }
 };
 
@@ -467,7 +500,9 @@ struct DxcHLSLAnnotation {
   DxcHLSLAnnotation(uint32_t StringNonDebug, bool IsBuiltin)
       : StringNonDebugAndIsBuiltin(StringNonDebug |
                                    (IsBuiltin ? (1u << 31) : 0)) {
-    assert(StringNonDebug < (1u << 31) && "String non debug out of bounds");
+
+    if (StringNonDebug >= (1u << 31))
+      throw std::invalid_argument("String non debug out of bounds");
   }
 
   bool operator==(const DxcHLSLAnnotation &other) const {
@@ -539,10 +574,11 @@ struct DxcHLSLReflectionData {
   DxcHLSLReflectionData(const std::vector<std::byte> &Bytes,
                     bool MakeNameLookupTable);
 
-  DxcHLSLReflectionData(clang::CompilerInstance &Compiler,
-                    clang::TranslationUnitDecl &Ctx,
-                    uint32_t AutoBindingSpace,
-                    D3D12_HLSL_REFLECTION_FEATURE Features, bool DefaultRowMaj);
+  static bool Initialize(clang::CompilerInstance &Compiler,
+                         clang::TranslationUnitDecl &Ctx,
+                         uint32_t AutoBindingSpace,
+                         D3D12_HLSL_REFLECTION_FEATURE Features,
+                         bool DefaultRowMaj, DxcHLSLReflectionData &Result);
 
   bool IsSameNonDebug(const DxcHLSLReflectionData &Other) const {
     return StringsNonDebug == Other.StringsNonDebug && Nodes == Other.Nodes &&
