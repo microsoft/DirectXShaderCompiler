@@ -613,13 +613,61 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
   PrintingPolicy policy(ASTCtx.getLangOpts());
   policy.SuppressScope = false;
   policy.AnonymousTagLocations = false;
-  policy.SuppressTagKeyword = true; 
+  policy.SuppressTagKeyword = true;
 
-  std::string name = forName.getUnqualifiedType().getAsString(policy);
+  std::string typeName = forName.getUnqualifiedType().getAsString(policy);
+
+  //Prune template instantiation from type name for builtin types (ex. vector & matrix)
+  //But only if it's not a sugared type:
+  // typedef ConstantBuffer<Test> MyTest;
+  //In this case, MyTest will still be seen as a ConstantBuffer<Test> but the typeName is MyTest.
+
+  forName = forName.getUnqualifiedType();
+
+  static const std::unordered_map<std::string, D3D_SHADER_VARIABLE_TYPE>
+      lookup = std::unordered_map<std::string, D3D_SHADER_VARIABLE_TYPE>{
+          {{"vector", D3D_SHADER_VARIABLE_TYPE(-1)},
+           {"matrix", D3D_SHADER_VARIABLE_TYPE(-2)},
+           {"Texture1D", D3D_SVT_TEXTURE1D},
+           {"Texture2D", D3D_SVT_TEXTURE2D},
+           {"RWTexture1D", D3D_SVT_RWTEXTURE1D},
+           {"RWTexture2D", D3D_SVT_RWTEXTURE2D},
+           {"Texture2DMS", D3D_SVT_TEXTURE2DMS},
+           {"Texture3D", D3D_SVT_TEXTURE3D},
+           {"RWTexture3D", D3D_SVT_RWTEXTURE3D},
+           {"TextureCube", D3D_SVT_TEXTURECUBE},
+           {"Texture1DArray", D3D_SVT_TEXTURE1DARRAY},
+           {"Texture2DArray", D3D_SVT_TEXTURE2DARRAY},
+           {"RWTexture1DArray", D3D_SVT_RWTEXTURE1DARRAY},
+           {"RWTexture2DArray", D3D_SVT_RWTEXTURE2DARRAY},
+           {"Texture2DMSArray", D3D_SVT_TEXTURE2DMSARRAY},
+           {"TextureCubeArray", D3D_SVT_TEXTURECUBEARRAY},
+           {"SamplerState", D3D_SVT_SAMPLER},
+           {"ByteAddressBuffer", D3D_SVT_BYTEADDRESS_BUFFER},
+           {"RWByteAddressBuffer", D3D_SVT_RWBYTEADDRESS_BUFFER},
+           {"StructuredBuffer", D3D_SVT_STRUCTURED_BUFFER},
+           {"RWStructuredBuffer", D3D_SVT_RWSTRUCTURED_BUFFER},
+           {"AppendStructuredBuffer", D3D_SVT_APPEND_STRUCTURED_BUFFER},
+           {"ConsumeStructuredBuffer", D3D_SVT_CONSUME_STRUCTURED_BUFFER},
+           {"RWBuffer", D3D_SVT_RWBUFFER},
+           {"Buffer", D3D_SVT_BUFFER},
+           {"ConstantBuffer", D3D_SVT_CBUFFER}}};
+
+  if (const TemplateSpecializationType *spec =
+          dyn_cast<TemplateSpecializationType>(forName.getTypePtr())) {
+
+    const TemplateDecl *td = spec->getTemplateName().getAsTemplateDecl();
+
+    if (td) {
+
+      auto it = lookup.find(td->getName());
+
+      if (it != lookup.end() && it->second >= 0)
+        typeName = it->first;
+    }
+  }
 
   bool hasSymbols = Refl.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
-  uint32_t nameId =
-      hasSymbols ? RegisterString(Refl, name, false) : uint32_t(-1);
 
   uint32_t arrayId = PushArray(Refl, arraySize, arrayElem);
   uint32_t elementsOrArrayId = 0;
@@ -658,36 +706,6 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
      bool standardType = false;
 
     RecordDecl *recordDecl = record->getDecl();
-
-     static const std::unordered_map<std::string, D3D_SHADER_VARIABLE_TYPE>
-        lookup = std::unordered_map<std::string, D3D_SHADER_VARIABLE_TYPE>{{
-            {"vector", D3D_SHADER_VARIABLE_TYPE(-1)},
-            {"matrix", D3D_SHADER_VARIABLE_TYPE(-2)},
-            {"Texture1D", D3D_SVT_TEXTURE1D},
-            {"Texture2D", D3D_SVT_TEXTURE2D},
-            {"RWTexture1D", D3D_SVT_RWTEXTURE1D},
-            {"RWTexture2D", D3D_SVT_RWTEXTURE2D},
-            {"Texture2DMS", D3D_SVT_TEXTURE2DMS},
-            {"Texture3D", D3D_SVT_TEXTURE3D},
-            {"RWTexture3D", D3D_SVT_RWTEXTURE3D},
-            {"TextureCube", D3D_SVT_TEXTURECUBE},
-            {"Texture1DArray", D3D_SVT_TEXTURE1DARRAY},
-            {"Texture2DArray", D3D_SVT_TEXTURE2DARRAY},
-            {"RWTexture1DArray", D3D_SVT_RWTEXTURE1DARRAY},
-            {"RWTexture2DArray", D3D_SVT_RWTEXTURE2DARRAY},
-            {"Texture2DMSArray", D3D_SVT_TEXTURE2DMSARRAY},
-            {"TextureCubeArray", D3D_SVT_TEXTURECUBEARRAY},
-            {"SamplerState", D3D_SVT_SAMPLER},
-            {"ByteAddressBuffer", D3D_SVT_BYTEADDRESS_BUFFER},
-            {"RWByteAddressBuffer", D3D_SVT_RWBYTEADDRESS_BUFFER},
-            {"StructuredBuffer", D3D_SVT_STRUCTURED_BUFFER},
-            {"RWStructuredBuffer", D3D_SVT_RWSTRUCTURED_BUFFER},
-            {"AppendStructuredBuffer", D3D_SVT_APPEND_STRUCTURED_BUFFER},
-            {"ConsumeStructuredBuffer", D3D_SVT_CONSUME_STRUCTURED_BUFFER},
-            {"RWBuffer", D3D_SVT_RWBUFFER},
-            {"Buffer", D3D_SVT_BUFFER},
-            {"ConstantBuffer", D3D_SVT_CBUFFER}
-        }};
 
     if (const ClassTemplateSpecializationDecl *templateClass =
             dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
@@ -935,6 +953,9 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
 
   DxcHLSLType hlslType(baseType, elementsOrArrayId, cls, type, rows, columns,
                        membersCount, membersOffset, interfaceOffset, interfaceCount);
+
+  uint32_t nameId =
+      hasSymbols ? RegisterString(Refl, typeName, false) : uint32_t(-1);
 
   uint32_t i = 0;
   uint32_t j = uint32_t(Refl.Types.size());
