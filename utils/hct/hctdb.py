@@ -3253,7 +3253,7 @@ class db_dxil(object):
             next_op_idx,
             "QuadReadLaneAt",
             "reads from a lane in the quad",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3290,7 +3290,7 @@ class db_dxil(object):
             next_op_idx,
             "QuadOp",
             "returns the result of a quad-level operation",
-            "hfd8wil",
+            "hfd8wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),

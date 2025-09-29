@@ -67,6 +67,18 @@ struct HLSLBool_t {
     return HLSLBool_t(Val || Other.Val);
   }
 
+  bool AsBool() const { return static_cast<bool>(Val); }
+
+  operator bool() const { return AsBool(); }
+  operator int16_t() const { return (int16_t)(AsBool()); }
+  operator int32_t() const { return (int32_t)(AsBool()); }
+  operator int64_t() const { return (int64_t)(AsBool()); }
+  operator uint16_t() const { return (uint16_t)(AsBool()); }
+  operator uint32_t() const { return (uint32_t)(AsBool()); }
+  operator uint64_t() const { return (uint64_t)(AsBool()); }
+  operator float() const { return (float)(AsBool()); }
+  operator double() const { return (double)(AsBool()); }
+
   // So we can construct std::wstrings using std::wostream
   friend std::wostream &operator<<(std::wostream &Os, const HLSLBool_t &Obj) {
     Os << static_cast<bool>(Obj.Val);
@@ -315,6 +327,8 @@ INPUT_SET(InputSet::RangeHalfPi, -1.073, 0.044, -1.047, 0.313, 1.447, -0.865,
           1.364, -0.715, -0.800, 0.541);
 INPUT_SET(InputSet::RangeOne, 0.331, 0.727, -0.957, 0.677, -0.025, 0.495, 0.855,
           -0.673, -0.678, -0.905);
+INPUT_SET(InputSet::Positive, 1.0, 1.0, 342.0, 0.01, 5531.0, 0.01, 1.0, 0.01,
+          331.2330, 3250.01);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(float)
@@ -328,6 +342,8 @@ INPUT_SET(InputSet::RangeHalfPi, 0.315f, -0.316f, 1.409f, -0.09f, -1.569f,
           1.302f, -0.326f, 0.781f, -1.235f, 0.623f);
 INPUT_SET(InputSet::RangeOne, 0.727f, 0.331f, -0.957f, 0.677f, -0.025f, 0.495f,
           0.855f, -0.673f, -0.678f, -0.905f);
+INPUT_SET(InputSet::Positive, 1.0f, 1.0f, 3424241.0f, 0.01f, 5531.0f, 0.01f,
+          1.0f, 0.01f, 331.2330f, 3250.01f);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(double)
@@ -343,6 +359,8 @@ INPUT_SET(InputSet::RangeOne, 0.331, 0.277, -0.957, 0.677, -0.025, 0.495, 0.855,
           -0.673, -0.678, -0.905);
 INPUT_SET(InputSet::SplitDouble, 0.0, -1.0, 1.0, -1.0, 12345678.87654321, -1.0,
           1.0, -1.0, 1.0, -1.0);
+INPUT_SET(InputSet::Positive, 1.0, 1.0, 3424241.0, 0.01, 5531.0, 0.01, 1.0,
+          0.01, 331.2330, 3250.01);
 END_INPUT_SETS()
 
 #undef BEGIN_INPUT_SETS
