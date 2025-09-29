@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bitset>
 #include <iomanip>
 #include <optional>
 #include <sstream>
@@ -289,7 +290,7 @@ std::string getCompilerOptionsString(size_t VectorSize,
 
   std::stringstream CompilerOptions;
 
-  if (is16BitType<T>())
+  if (is16BitType<T>() || is16BitType<OUT_TYPE>())
     CompilerOptions << " -enable-16bit-types";
 
   CompilerOptions << " -DTYPE=" << getHLSLTypeString<T>();
@@ -573,22 +574,6 @@ struct StrictValidation {
 //
 
 DEFAULT_OP_3(OpType::Mad, (A * B + C));
-
-template <typename T> struct Op<OpType::SmoothStep, T> : DefaultValidation<T> {
-  T operator()(T Min, T Max, T X) {
-    DXASSERT_NOMSG(Min < Max);
-
-    if (X <= Min)
-      return 0.0;
-    if (X >= Max)
-      return 1.0;
-
-    T NormalizedX = (X - Min) / (Max - Min);
-    NormalizedX = std::clamp(NormalizedX, T(0.0), T(1.0));
-    return NormalizedX * NormalizedX * (T(3.0) - T(2.0) * NormalizedX);
-  }
-};
-
 DEFAULT_OP_3(OpType::Fma, (A * B + C));
 
 //
@@ -617,18 +602,150 @@ DEFAULT_OP_2(OpType::Ldexp, (A * static_cast<T>(std::pow(2.0f, B))));
 // Bitwise
 //
 
+template <typename T> T Saturate(T A) {
+  if (A < static_cast<T>(0.0f))
+    return static_cast<T>(0.0f);
+  if (A > static_cast<T>(1.0f))
+    return static_cast<T>(1.0f);
+  return A;
+}
+
+template <typename T> T ReverseBits(T A) {
+  T Result = 0;
+  const size_t NumBits = sizeof(T) * 8;
+  for (size_t I = 0; I < NumBits; I++) {
+    Result <<= 1;
+    Result |= (A & 1);
+    A >>= 1;
+  }
+  return Result;
+}
+
+template <typename T> uint32_t CountBits(T A) {
+  return static_cast<uint32_t>(std::bitset<sizeof(T) * 8>(A).count());
+}
+
+// General purpose bit scan from the MSB. Based on the value of LookingForZero
+// returns the index of the first high/low bit found.
+template <typename T> uint32_t ScanFromMSB(T A, bool LookingForZero) {
+  if (A == 0)
+    return ~0;
+
+  constexpr uint32_t NumBits = sizeof(T) * 8;
+  for (int32_t I = NumBits - 1; I >= 0; --I) {
+    bool BitSet = (A & (static_cast<T>(1) << I)) != 0;
+    if (BitSet != LookingForZero)
+      return static_cast<uint32_t>(I);
+  }
+  return ~0;
+}
+
+template <typename T>
+typename std::enable_if<std::is_signed<T>::value, uint32_t>::type
+FirstBitHigh(T A) {
+  const bool IsNegative = A < 0;
+  return ScanFromMSB(A, IsNegative);
+}
+
+template <typename T>
+typename std::enable_if<!std::is_signed<T>::value, uint32_t>::type
+FirstBitHigh(T A) {
+  return ScanFromMSB(A, false);
+}
+
+template <typename T> uint32_t FirstBitLow(T A) {
+  const uint32_t NumBits = sizeof(T) * 8;
+
+  if (A == 0)
+    return ~0;
+
+  for (uint32_t I = 0; I < NumBits; ++I) {
+    if (A & (static_cast<T>(1) << I))
+      return static_cast<T>(I);
+  }
+
+  return ~0;
+}
+
 DEFAULT_OP_2(OpType::And, (A & B));
 DEFAULT_OP_2(OpType::Or, (A | B));
 DEFAULT_OP_2(OpType::Xor, (A ^ B));
-DEFAULT_OP_1(OpType::Not, (~A));
 DEFAULT_OP_2(OpType::LeftShift, (A << B));
 DEFAULT_OP_2(OpType::RightShift, (A >> B));
+DEFAULT_OP_1(OpType::Saturate, (Saturate(A)));
+DEFAULT_OP_1(OpType::ReverseBits, (ReverseBits(A)));
+
+#define BITWISE_OP(OP, IMPL)                                                   \
+  template <typename T> struct Op<OP, T> : StrictValidation {                  \
+    uint32_t operator()(T A) { return IMPL; }                                  \
+  }
+
+BITWISE_OP(OpType::CountBits, (CountBits(A)));
+BITWISE_OP(OpType::FirstBitHigh, (FirstBitHigh(A)));
+BITWISE_OP(OpType::FirstBitLow, (FirstBitLow(A)));
+
+#undef BITWISE_OP
 
 //
 // Unary
 //
 
 DEFAULT_OP_1(OpType::Initialize, (A));
+
+//
+// Cast
+//
+
+#define CAST_OP(OP, TYPE, IMPL)                                                \
+  template <typename T> struct Op<OP, T> : StrictValidation {                  \
+    TYPE operator()(T A) { return IMPL; }                                      \
+  };
+
+template <typename T> HLSLBool_t CastToBool(T A) { return (bool)A; }
+template <> HLSLBool_t CastToBool(HLSLHalf_t A) { return (bool)((float)A); }
+
+template <typename T> HLSLHalf_t CastToFloat16(T A) {
+  return HLSLHalf_t(float(A));
+}
+
+template <typename T> float CastToFloat32(T A) { return (float)A; }
+
+template <typename T> double CastToFloat64(T A) { return (double)A; }
+template <> double CastToFloat64(HLSLHalf_t A) { return (double)((float)A); }
+
+template <typename T> int16_t CastToInt16(T A) { return (int16_t)A; }
+template <> int16_t CastToInt16(HLSLHalf_t A) { return (int16_t)((float)A); }
+
+template <typename T> int32_t CastToInt32(T A) { return (int32_t)A; }
+template <> int32_t CastToInt32(HLSLHalf_t A) { return (int32_t)((float)A); }
+
+template <typename T> int64_t CastToInt64(T A) { return (int64_t)A; }
+template <> int64_t CastToInt64(HLSLHalf_t A) { return (int64_t)((float)A); }
+
+template <typename T> uint16_t CastToUint16(T A) { return (uint16_t)A; }
+template <> uint16_t CastToUint16(HLSLHalf_t A) { return (uint16_t)((float)A); }
+
+template <typename T> uint32_t CastToUint32(T A) { return (uint32_t)A; }
+template <> uint32_t CastToUint32(HLSLHalf_t A) { return (uint32_t)((float)A); }
+
+template <typename T> uint64_t CastToUint64(T A) { return (uint64_t)A; }
+template <> uint64_t CastToUint64(HLSLHalf_t A) { return (uint64_t)((float)A); }
+
+CAST_OP(OpType::CastToBool, HLSLBool_t, (CastToBool(A)));
+CAST_OP(OpType::CastToInt16, int16_t, (CastToInt16(A)));
+CAST_OP(OpType::CastToInt32, int32_t, (CastToInt32(A)));
+CAST_OP(OpType::CastToInt64, int64_t, (CastToInt64(A)));
+CAST_OP(OpType::CastToUint16, uint16_t, (CastToUint16(A)));
+CAST_OP(OpType::CastToUint32, uint32_t, (CastToUint32(A)));
+CAST_OP(OpType::CastToUint64, uint64_t, (CastToUint64(A)));
+CAST_OP(OpType::CastToUint16_FromFP, uint16_t, (CastToUint16(A)));
+CAST_OP(OpType::CastToUint32_FromFP, uint32_t, (CastToUint32(A)));
+CAST_OP(OpType::CastToUint64_FromFP, uint64_t, (CastToUint64(A)));
+CAST_OP(OpType::CastToFloat16, HLSLHalf_t, (CastToFloat16(A)));
+CAST_OP(OpType::CastToFloat32, float, (CastToFloat32(A)));
+CAST_OP(OpType::CastToFloat64, double, (CastToFloat64(A)));
+
+#undef CAST_OP
 
 //
 // Trigonometric
@@ -896,8 +1013,6 @@ BINARY_COMPARISON_OP(OpType::NotEqual, (A != B));
 
 DEFAULT_OP_2(OpType::Logical_And, (A && B));
 DEFAULT_OP_2(OpType::Logical_Or, (A || B));
-DEFAULT_OP_2(OpType::TernaryAssignment_True, (true ? A : B));
-DEFAULT_OP_2(OpType::TernaryAssignment_False, (false ? A : B));
 
 //
 // Reduction
@@ -1127,12 +1242,8 @@ public:
   HLK_TEST(Mad, int64_t, ScalarOp3);
   HLK_TEST(Mad, HLSLHalf_t, Vector);
   HLK_TEST(Mad, HLSLHalf_t, ScalarOp2);
-  HLK_TEST(SmoothStep, HLSLHalf_t, Vector);
-  HLK_TEST(SmoothStep, HLSLHalf_t, ScalarOp2);
   HLK_TEST(Mad, float, Vector);
   HLK_TEST(Mad, float, ScalarOp2);
-  HLK_TEST(SmoothStep, float, Vector);
-  HLK_TEST(SmoothStep, float, ScalarOp3);
   HLK_TEST(Fma, double, Vector);
   HLK_TEST(Fma, double, ScalarOp2);
   HLK_TEST(Mad, double, Vector);
@@ -1281,7 +1392,10 @@ public:
   HLK_TEST(Or, uint16_t, ScalarOp2);
   HLK_TEST(Xor, uint16_t, Vector);
   HLK_TEST(Xor, uint16_t, ScalarOp2);
-  HLK_TEST(Not, uint16_t, Vector);
+  HLK_TEST(ReverseBits, uint16_t, Vector);
+  HLK_TEST(CountBits, uint16_t, Vector);
+  HLK_TEST(FirstBitHigh, uint16_t, Vector);
+  HLK_TEST(FirstBitLow, uint16_t, Vector);
   HLK_TEST(LeftShift, uint16_t, Vector);
   HLK_TEST(LeftShift, uint16_t, ScalarOp2);
   HLK_TEST(RightShift, uint16_t, Vector);
@@ -1292,55 +1406,73 @@ public:
   HLK_TEST(Or, uint32_t, ScalarOp2);
   HLK_TEST(Xor, uint32_t, Vector);
   HLK_TEST(Xor, uint32_t, ScalarOp2);
-  HLK_TEST(Not, uint32_t, Vector);
   HLK_TEST(LeftShift, uint32_t, Vector);
   HLK_TEST(LeftShift, uint32_t, ScalarOp2);
   HLK_TEST(RightShift, uint32_t, Vector);
   HLK_TEST(RightShift, uint32_t, ScalarOp2);
+  HLK_TEST(ReverseBits, uint32_t, Vector);
+  HLK_TEST(CountBits, uint32_t, Vector);
+  HLK_TEST(FirstBitHigh, uint32_t, Vector);
+  HLK_TEST(FirstBitLow, uint32_t, Vector);
   HLK_TEST(And, uint64_t, Vector);
   HLK_TEST(And, uint64_t, ScalarOp2);
   HLK_TEST(Or, uint64_t, Vector);
   HLK_TEST(Or, uint64_t, ScalarOp2);
   HLK_TEST(Xor, uint64_t, Vector);
   HLK_TEST(Xor, uint64_t, ScalarOp2);
-  HLK_TEST(Not, uint64_t, Vector);
   HLK_TEST(LeftShift, uint64_t, Vector);
   HLK_TEST(LeftShift, uint64_t, ScalarOp2);
   HLK_TEST(RightShift, uint64_t, Vector);
   HLK_TEST(RightShift, uint64_t, ScalarOp2);
+  HLK_TEST(ReverseBits, uint64_t, Vector);
+  HLK_TEST(CountBits, uint64_t, Vector);
+  HLK_TEST(FirstBitHigh, uint64_t, Vector);
+  HLK_TEST(FirstBitLow, uint64_t, Vector);
   HLK_TEST(And, int16_t, Vector);
   HLK_TEST(And, int16_t, ScalarOp2);
   HLK_TEST(Or, int16_t, Vector);
   HLK_TEST(Or, int16_t, ScalarOp2);
   HLK_TEST(Xor, int16_t, Vector);
   HLK_TEST(Xor, int16_t, ScalarOp2);
-  HLK_TEST(Not, int16_t, Vector);
   HLK_TEST(LeftShift, int16_t, Vector);
   HLK_TEST(LeftShift, int16_t, ScalarOp2);
   HLK_TEST(RightShift, int16_t, Vector);
   HLK_TEST(RightShift, int16_t, ScalarOp2);
+  HLK_TEST(ReverseBits, int16_t, Vector);
+  HLK_TEST(CountBits, int16_t, Vector);
+  HLK_TEST(FirstBitHigh, int16_t, Vector);
+  HLK_TEST(FirstBitLow, int16_t, Vector);
   HLK_TEST(And, int32_t, Vector);
   HLK_TEST(And, int32_t, ScalarOp2);
   HLK_TEST(Or, int32_t, Vector);
   HLK_TEST(Or, int32_t, ScalarOp2);
   HLK_TEST(Xor, int32_t, Vector);
   HLK_TEST(Xor, int32_t, ScalarOp2);
-  HLK_TEST(Not, int32_t, Vector);
   HLK_TEST(LeftShift, int32_t, Vector);
   HLK_TEST(LeftShift, int32_t, ScalarOp2);
   HLK_TEST(RightShift, int32_t, Vector);
   HLK_TEST(RightShift, int32_t, ScalarOp2);
+  HLK_TEST(ReverseBits, int32_t, Vector);
+  HLK_TEST(CountBits, int32_t, Vector);
+  HLK_TEST(FirstBitHigh, int32_t, Vector);
+  HLK_TEST(FirstBitLow, int32_t, Vector);
   HLK_TEST(And, int64_t, Vector);
   HLK_TEST(And, int64_t, ScalarOp2);
   HLK_TEST(Or, int64_t, Vector);
   HLK_TEST(Or, int64_t, ScalarOp2);
   HLK_TEST(Xor, int64_t, Vector);
   HLK_TEST(Xor, int64_t, ScalarOp2);
-  HLK_TEST(Not, int64_t, Vector);
   HLK_TEST(LeftShift, int64_t, Vector);
   HLK_TEST(LeftShift, int64_t, ScalarOp2);
   HLK_TEST(RightShift, int64_t, Vector);
   HLK_TEST(RightShift, int64_t, ScalarOp2);
+  HLK_TEST(ReverseBits, int64_t, Vector);
+  HLK_TEST(CountBits, int64_t, Vector);
+  HLK_TEST(FirstBitHigh, int64_t, Vector);
+  HLK_TEST(FirstBitLow, int64_t, Vector);
+  HLK_TEST(Saturate, HLSLHalf_t, Vector);
+  HLK_TEST(Saturate, float, Vector);
+  HLK_TEST(Saturate, double, Vector);
 
   // Unary
 
@@ -1354,6 +1486,108 @@ public:
   HLK_TEST(Initialize, HLSLHalf_t, Vector);
   HLK_TEST(Initialize, float, Vector);
   HLK_TEST(Initialize, double, Vector);
+
+  // Explicit Cast
+
+  HLK_TEST(CastToInt16, HLSLBool_t, Vector);
+  HLK_TEST(CastToInt32, HLSLBool_t, Vector);
+  HLK_TEST(CastToInt64, HLSLBool_t, Vector);
+  HLK_TEST(CastToUint16, HLSLBool_t, Vector);
+  HLK_TEST(CastToUint32, HLSLBool_t, Vector);
+  HLK_TEST(CastToUint64, HLSLBool_t, Vector);
+  HLK_TEST(CastToFloat16, HLSLBool_t, Vector);
+  HLK_TEST(CastToFloat32, HLSLBool_t, Vector);
+  HLK_TEST(CastToFloat64, HLSLBool_t, Vector);
+
+  HLK_TEST(CastToBool, HLSLHalf_t, Vector);
+  HLK_TEST(CastToInt16, HLSLHalf_t, Vector);
+  HLK_TEST(CastToInt32, HLSLHalf_t, Vector);
+  HLK_TEST(CastToInt64, HLSLHalf_t, Vector);
+  HLK_TEST(CastToUint16_FromFP, HLSLHalf_t, Vector);
+  HLK_TEST(CastToUint32_FromFP, HLSLHalf_t, Vector);
+  HLK_TEST(CastToUint64_FromFP, HLSLHalf_t, Vector);
+  HLK_TEST(CastToFloat32, HLSLHalf_t, Vector);
+  HLK_TEST(CastToFloat64, HLSLHalf_t, Vector);
+
+  HLK_TEST(CastToBool, float, Vector);
+  HLK_TEST(CastToInt16, float, Vector);
+  HLK_TEST(CastToInt32, float, Vector);
+  HLK_TEST(CastToInt64, float, Vector);
+  HLK_TEST(CastToUint16_FromFP, float, Vector);
+  HLK_TEST(CastToUint32_FromFP, float, Vector);
+  HLK_TEST(CastToUint64_FromFP, float, Vector);
+  HLK_TEST(CastToFloat16, float, Vector);
+  HLK_TEST(CastToFloat64, float, Vector);
+
+  HLK_TEST(CastToBool, double, Vector);
+  HLK_TEST(CastToInt16, double, Vector);
+  HLK_TEST(CastToInt32, double, Vector);
+  HLK_TEST(CastToInt64, double, Vector);
+  HLK_TEST(CastToUint16_FromFP, double, Vector);
+  HLK_TEST(CastToUint32_FromFP, double, Vector);
+  HLK_TEST(CastToUint64_FromFP, double, Vector);
+  HLK_TEST(CastToFloat16, double, Vector);
+  HLK_TEST(CastToFloat32, double, Vector);
+
+  HLK_TEST(CastToBool, uint16_t, Vector);
+  HLK_TEST(CastToInt16, uint16_t, Vector);
+  HLK_TEST(CastToInt32, uint16_t, Vector);
+  HLK_TEST(CastToInt64, uint16_t, Vector);
+  HLK_TEST(CastToUint32, uint16_t, Vector);
+  HLK_TEST(CastToUint64, uint16_t, Vector);
+  HLK_TEST(CastToFloat16, uint16_t, Vector);
+  HLK_TEST(CastToFloat32, uint16_t, Vector);
+  HLK_TEST(CastToFloat64, uint16_t, Vector);
+
+  HLK_TEST(CastToBool, uint32_t, Vector);
+  HLK_TEST(CastToInt16, uint32_t, Vector);
+  HLK_TEST(CastToInt32, uint32_t, Vector);
+  HLK_TEST(CastToInt64, uint32_t, Vector);
+  HLK_TEST(CastToUint16, uint32_t, Vector);
+  HLK_TEST(CastToUint64, uint32_t, Vector);
+  HLK_TEST(CastToFloat16, uint32_t, Vector);
+  HLK_TEST(CastToFloat32, uint32_t, Vector);
+  HLK_TEST(CastToFloat64, uint32_t, Vector);
+
+  HLK_TEST(CastToBool, uint64_t, Vector);
+  HLK_TEST(CastToInt16, uint64_t, Vector);
+  HLK_TEST(CastToInt32, uint64_t, Vector);
+  HLK_TEST(CastToInt64, uint64_t, Vector);
+  HLK_TEST(CastToUint16, uint64_t, Vector);
+  HLK_TEST(CastToUint32, uint64_t, Vector);
+  HLK_TEST(CastToFloat16, uint64_t, Vector);
+  HLK_TEST(CastToFloat32, uint64_t, Vector);
+  HLK_TEST(CastToFloat64, uint64_t, Vector);
+
+  HLK_TEST(CastToBool, int16_t, Vector);
+  HLK_TEST(CastToInt32, int16_t, Vector);
+  HLK_TEST(CastToInt64, int16_t, Vector);
+  HLK_TEST(CastToUint16, int16_t, Vector);
+  HLK_TEST(CastToUint32, int16_t, Vector);
+  HLK_TEST(CastToUint64, int16_t, Vector);
+  HLK_TEST(CastToFloat16, int16_t, Vector);
+  HLK_TEST(CastToFloat32, int16_t, Vector);
+  HLK_TEST(CastToFloat64, int16_t, Vector);
+
+  HLK_TEST(CastToBool, int32_t, Vector);
+  HLK_TEST(CastToInt16, int32_t, Vector);
+  HLK_TEST(CastToInt64, int32_t, Vector);
+  HLK_TEST(CastToUint16, int32_t, Vector);
+  HLK_TEST(CastToUint32, int32_t, Vector);
+  HLK_TEST(CastToUint64, int32_t, Vector);
+  HLK_TEST(CastToFloat16, int32_t, Vector);
+  HLK_TEST(CastToFloat32, int32_t, Vector);
+  HLK_TEST(CastToFloat64, int32_t, Vector);
+
+  HLK_TEST(CastToBool, int64_t, Vector);
+  HLK_TEST(CastToInt16, int64_t, Vector);
+  HLK_TEST(CastToInt32, int64_t, Vector);
+  HLK_TEST(CastToUint16, int64_t, Vector);
+  HLK_TEST(CastToUint32, int64_t, Vector);
+  HLK_TEST(CastToUint64, int64_t, Vector);
+  HLK_TEST(CastToFloat16, int64_t, Vector);
+  HLK_TEST(CastToFloat32, int64_t, Vector);
+  HLK_TEST(CastToFloat64, int64_t, Vector);
 
   // Trigonometric
 
@@ -1600,9 +1834,6 @@ public:
 
   HLK_TEST(Dot, double, Vector);
   HLK_TEST(Dot, double, ScalarOp2);
-
-  // NOTE: TernaryAssignment_True and TernaryAssignment_False don't have tests.
-  // Do we want them?
 
 private:
   bool Initialized = false;

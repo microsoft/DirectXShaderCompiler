@@ -9,15 +9,14 @@
 INPUT_SET(Default1)
 INPUT_SET(Default2)
 INPUT_SET(Default3)
-INPUT_SET(SmoothStepMin)
-INPUT_SET(SmoothStepMax)
-INPUT_SET(SmoothStepInput)
 INPUT_SET(RangeOne)
 INPUT_SET(RangeHalfPi)
 INPUT_SET(SplitDouble)
 INPUT_SET(BitShiftRhs)
 INPUT_SET(Zero)
 INPUT_SET(NoZero)
+INPUT_SET(Positive)
+INPUT_SET(Bitwise)
 
 #undef INPUT_SET
 
@@ -34,8 +33,6 @@ INPUT_SET(NoZero)
   OP_DEFAULT_DEFINES(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, "")
 
 OP_DEFAULT(TernaryMath, Mad, 3, "mad", "")
-OP(TernaryMath, SmoothStep, 3, "smoothstep", "", "", SmoothStepMin,
-   SmoothStepMax, SmoothStepInput)
 OP_DEFAULT(TernaryMath, Fma, 3, "fma", "")
 
 OP_DEFAULT(BinaryMath, Add, 2, "", "+")
@@ -50,13 +47,40 @@ OP_DEFAULT(BinaryMath, Ldexp, 2, "ldexp", ",")
 OP_DEFAULT(Bitwise, And, 2, "", "&")
 OP_DEFAULT(Bitwise, Or, 2, "", "|")
 OP_DEFAULT(Bitwise, Xor, 2, "", "^")
-OP_DEFAULT_DEFINES(Bitwise, Not, 1, "TestUnaryOperator", "~",
-                   " -DFUNC_UNARY_OPERATOR=1")
 OP(Bitwise, LeftShift, 2, "", "<<", "", Default1, BitShiftRhs, Default3)
 OP(Bitwise, RightShift, 2, "", ">>", "", Default1, BitShiftRhs, Default3)
+OP_DEFAULT(Bitwise, Saturate, 1, "saturate", "")
+OP_DEFAULT(Bitwise, ReverseBits, 1, "reversebits", "")
+OP(Bitwise, CountBits, 1, "countbits", "", "", Bitwise, Default2, Default3)
+OP(Bitwise, FirstBitHigh, 1, "firstbithigh", "", "", Bitwise, Default2,
+   Default3)
+OP(Bitwise, FirstBitLow, 1, "firstbitlow", "", "", Bitwise, Default2, Default3)
 
 OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
                    " -DFUNC_INITIALIZE=1")
+
+#define OP_CAST_DEFAULT(GROUP, SYMBOL)                                         \
+  OP_DEFAULT_DEFINES(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1")
+#define OP_CAST(GROUP, SYMBOL, INPUT_SET_1)                                    \
+  OP(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1", INPUT_SET_1,      \
+     Default2, Default3)
+
+OP_CAST_DEFAULT(Cast, CastToBool)
+OP_CAST_DEFAULT(Cast, CastToInt16)
+OP_CAST_DEFAULT(Cast, CastToInt32)
+OP_CAST_DEFAULT(Cast, CastToInt64)
+OP_CAST_DEFAULT(Cast, CastToUint16)
+OP_CAST_DEFAULT(Cast, CastToUint32)
+OP_CAST_DEFAULT(Cast, CastToUint64)
+OP_CAST(Cast, CastToUint16_FromFP, Positive)
+OP_CAST(Cast, CastToUint32_FromFP, Positive)
+OP_CAST(Cast, CastToUint64_FromFP, Positive)
+OP_CAST_DEFAULT(Cast, CastToFloat16)
+OP_CAST_DEFAULT(Cast, CastToFloat32)
+OP_CAST_DEFAULT(Cast, CastToFloat64)
+
+#undef OP_CAST_DEFAULT
+#undef OP_CAST
 
 OP(Trigonometric, Acos, 1, "acos", "", "", RangeOne, Default2, Default3)
 OP(Trigonometric, Asin, 1, "asin", "", "", RangeHalfPi, Default2, Default3)
@@ -104,11 +128,6 @@ OP_DEFAULT(BinaryComparison, NotEqual, 2, "", "!=")
 
 OP_DEFAULT(Binary, Logical_And, 2, "and", ",")
 OP_DEFAULT(Binary, Logical_Or, 2, "or", ",")
-OP_DEFAULT_DEFINES(Binary, TernaryAssignment_True, 2, "TestTernaryAssignment",
-                   ",", " -DTERNARY_CONDITION=1 -DFUNC_TERNARY_ASSIGNMENT=1")
-OP_DEFAULT_DEFINES(Binary, TernaryAssignment_False, 2, "TestTernaryAssignment",
-                   ",", " -DTERNARY_CONDITION=0 -DFUNC_TERNARY_ASSIGNMENT=1")
-
 
 // For the 'any' and 'all' reduction operation, we test with three different
 // input data sets to cover the different cases of the operation. 'Any' returns

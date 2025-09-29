@@ -465,6 +465,8 @@ class db_dxil(object):
             self.name_idx[i].category = "Binary uint with two outputs"
         for i in "UAddc,USubb".split(","):
             self.name_idx[i].category = "Binary uint with carry or borrow"
+        for i in "VectorReduceAnd,VectorReduceOr".split(","):
+            self.name_idx[i].category = "Vector reduce to scalar"
         for i in "FMad,Fma".split(","):
             self.name_idx[i].category = "Tertiary float"
         for i in "IMad,Msad,Ibfe".split(","):
@@ -1756,7 +1758,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Tertiary",
                 "performs an integral " + i,
-                "il",
+                "i",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "the operation result"),
@@ -3251,7 +3253,7 @@ class db_dxil(object):
             next_op_idx,
             "QuadReadLaneAt",
             "reads from a lane in the quad",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3288,7 +3290,7 @@ class db_dxil(object):
             next_op_idx,
             "QuadOp",
             "returns the result of a quad-level operation",
-            "hfd8wil",
+            "hfd8wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -6322,9 +6324,41 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
-        # TODO: Replace with vector reduction ops.
-        # https://github.com/microsoft/DirectXShaderCompiler/issues/7687
-        next_op_idx = self.reserve_dxil_op_range("ReservedD", next_op_idx, 2)
+        # Long Vector Reduction
+        self.add_dxil_op(
+            "VectorReduceAnd",
+            next_op_idx,
+            "VectorReduce",
+            "Bitwise AND reduction of the vector returning a scalar",
+            "<18wil",
+            "rn",
+            [
+                db_dxil_param(0, "$elt", "", "operation result"),
+                db_dxil_param(2, "$o", "a", "input value"),
+            ],
+            counters=(
+                "ints",
+                "uints",
+            ),
+        )
+        next_op_idx += 1
+        self.add_dxil_op(
+            "VectorReduceOr",
+            next_op_idx,
+            "VectorReduce",
+            "Bitwise OR reduction of the vector returning a scalar",
+            "<18wil",
+            "rn",
+            [
+                db_dxil_param(0, "$elt", "", "operation result"),
+                db_dxil_param(2, "$o", "a", "input value"),
+            ],
+            counters=(
+                "ints",
+                "uints",
+            ),
+        )
+        next_op_idx += 1
 
         # Long Vector Dot
         self.add_dxil_op(
