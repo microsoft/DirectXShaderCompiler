@@ -17,14 +17,12 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include <cstdint>
 
 using namespace llvm;
 using namespace hlsl;
@@ -283,8 +281,6 @@ static bool scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
   return true;
 }
 
-// call %dx.types.fouri32 @dx.op.waveMatch.v8f32(i32 165, <8 x float> %{{.*}}) ;
-// WaveMatch(value)
 static bool scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI) {
   IRBuilder<> Builder(CI);
   OP::OpCode Opcode = OP::getOpCode(CI);

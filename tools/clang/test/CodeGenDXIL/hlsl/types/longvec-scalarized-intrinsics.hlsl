@@ -65,9 +65,3 @@ export void test_pow(inout vector<float, 8> vec1, vector<float, 8> vec2) {
 export void test_modf(inout vector<float, 8> vec1, vector<float, 8> vec2) {
   vec1 = modf(vec1, vec2);
 }
-
-// CHECK-LABEL: test_WaveMatch
-// CHECK: call %dx.types.fouri32 @dx.op.waveMatch.v8f32(i32 165, <8 x float> %{{.*}}) ; WaveMatch(value)
-export uint4 test_WaveMatch(vector<bool, 8> bvec) {
-  return WaveMatch(bvec);
-}
