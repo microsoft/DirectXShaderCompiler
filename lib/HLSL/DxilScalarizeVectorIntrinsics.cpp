@@ -17,6 +17,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -28,13 +29,13 @@
 using namespace llvm;
 using namespace hlsl;
 
-static void scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
+static bool scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
                                 CallInst *CI);
-static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
+static bool scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
                                  CallInst *CI);
-static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI);
-static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI);
-static void scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI);
+static bool scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI);
+static bool scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI);
+static bool scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI);
 
 class DxilScalarizeVectorIntrinsics : public ModulePass {
 public:
@@ -62,15 +63,13 @@ public:
       if (!HlslOP->GetOpCodeClass(Func, OpClass))
         continue;
 
-      bool NeedsRewrite = (Func->getReturnType()->isVectorTy() ||
+      bool CouldRewrite = (Func->getReturnType()->isVectorTy() ||
                            OpClass == DXIL::OpCodeClass::RawBufferVectorLoad ||
                            OpClass == DXIL::OpCodeClass::RawBufferVectorStore ||
                            OpClass == DXIL::OpCodeClass::VectorReduce ||
                            OpClass == DXIL::OpCodeClass::WaveMatch);
-      if (!NeedsRewrite)
+      if (!CouldRewrite)
         continue;
-
-      Changed = true;
 
       for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
         CallInst *CI = cast<CallInst>(*(U++));
@@ -78,16 +77,16 @@ public:
         // Specially handle DXIL Ops with more complicated signatures
         switch (OpClass) {
         case DXIL::OpCodeClass::RawBufferVectorLoad:
-          scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
+          Changed |= scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
           continue;
         case DXIL::OpCodeClass::RawBufferVectorStore:
-          scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
+          Changed |= scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
           continue;
         case DXIL::OpCodeClass::VectorReduce:
-          scalarizeVectorReduce(HlslOP, CI);
+          Changed |= scalarizeVectorReduce(HlslOP, CI);
           continue;
         case DXIL::OpCodeClass::WaveMatch:
-          scalarizeVectorWaveMatch(HlslOP, CI);
+          Changed |= scalarizeVectorWaveMatch(HlslOP, CI);
           continue;
         default:
           break;
@@ -95,7 +94,7 @@ public:
 
         // Handle DXIL Ops with vector return matching the vector params
         if (Func->getReturnType()->isVectorTy())
-          scalarizeVectorIntrinsic(HlslOP, CI);
+          Changed |= scalarizeVectorIntrinsic(HlslOP, CI);
       }
     }
     return Changed;
@@ -119,7 +118,7 @@ static unsigned GetRawBufferMask(unsigned NumComponents) {
   return DXIL::kCompMask_All;
 }
 
-static void scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
+static bool scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
                                 CallInst *CI) {
   IRBuilder<> Builder(CI);
   // Collect the information required to break this into scalar ops from args.
@@ -186,10 +185,12 @@ static void scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
     }
     EV->eraseFromParent();
   }
+
   CI->eraseFromParent();
+  return true;
 }
 
-static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
+static bool scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
                                  CallInst *CI) {
   IRBuilder<> Builder(CI);
   // Collect the information required to break this into scalar ops from args.
@@ -248,10 +249,12 @@ static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
         HlslOP->GetU8Const(Mask);
     Builder.CreateCall(F, Args);
   }
+
   CI->eraseFromParent();
+  return true;
 }
 
-static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
+static bool scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
   IRBuilder<> Builder(CI);
 
   OP::OpCode ReduceOp = OP::getOpCode(CI);
@@ -276,30 +279,28 @@ static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
   }
 
   CI->replaceAllUsesWith(Result);
+  CI->eraseFromParent();
+  return true;
 }
 
 // call %dx.types.fouri32 @dx.op.waveMatch.v8f32(i32 165, <8 x float> %{{.*}}) ;
 // WaveMatch(value)
-static void scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI) {
+static bool scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI) {
   IRBuilder<> Builder(CI);
   OP::OpCode Opcode = OP::getOpCode(CI);
-
   Value *VecArg = CI->getArgOperand(1);
   Type *VecTy = VecArg->getType();
+
+  // Non-vector parameters don't need scalarized
+  if (!VecTy->isVectorTy())
+    return false;
+
   uint64_t VecSize = VecTy->getVectorNumElements();
   Type *ScalarTy = VecTy->getScalarType();
   Function *Func = HlslOP->GetOpFunc(Opcode, ScalarTy);
   SmallVector<Value *, 2> Args(CI->getNumArgOperands());
   Args[0] = CI->getArgOperand(0); // Copy opcode over.
 
-  // N*u4 = loop N times
-  //          extract V[i]
-  //          u4 = call V[i]
-  //          push u4
-  // u4   = loop N-1 times
-  //          extract each elt
-  //          V[i] and V[i-1] each elt
-  //
   SmallVector<Value *, 4> Scalars;
   for (uint64_t I = 0; I != VecSize; ++I) {
     Value *Elt = Builder.CreateExtractElement(VecArg, I);
@@ -334,24 +335,15 @@ static void scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI) {
     Ret = Builder.CreateInsertValue(Ret, And3, 3);
   }
 
-  /*
-  Value* Ret2 = UndefValue::get(CI->getType());
-  Ret2 = Builder.CreateInsertValue(Ret2, Ret, 0);
-  Ret = Builder.CreateInsertValue(Ret, And1, 1);
-  Ret = Builder.CreateInsertValue(Ret, And2, 2);
-  Ret = Builder.CreateInsertValue(Ret, And3, 3);
-  */
-
   CI->replaceAllUsesWith(Ret);
-  // (3) Convert the final aggregate into a vector to make the types match
-  // return TranslateWaveMatchFixReturn(Builder, CI->getType(), Ret); // insert
-  // each elt
+  CI->eraseFromParent();
+  return true;
 }
 
 // Scalarize native vector operation represented by `CI`, generating
 // scalar calls for each element of the its vector parameters.
 // Use `HlslOP` to retrieve the associated scalar op function.
-static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI) {
+static bool scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI) {
 
   IRBuilder<> Builder(CI);
   VectorType *VT = cast<VectorType>(CI->getType());
@@ -379,8 +371,10 @@ static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI) {
     Value *ElCI = Builder.CreateCall(Func, Args, CI->getName());
     RetVal = Builder.CreateInsertElement(RetVal, ElCI, ElIx);
   }
+
   CI->replaceAllUsesWith(RetVal);
   CI->eraseFromParent();
+  return true;
 }
 
 char DxilScalarizeVectorIntrinsics::ID = 0;

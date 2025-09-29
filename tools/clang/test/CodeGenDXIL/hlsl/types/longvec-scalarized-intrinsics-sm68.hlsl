@@ -190,10 +190,10 @@ float4 main(uint i : SV_PrimitiveID, uint4 m : M) : SV_Target {
   // CHECK: and i1 %{{.*}}, %{{.*}}
   bvec ^= all(vec1);
 
-  // HECK: call {{.*}} @dx.op.wave
-  // HECK: call {{.*}} @dx.op.wave
-  // HECK: call {{.*}} @dx.op.wave
-  // HECK: call {{.*}} @dx.op.wave
+  // CHECK: call %dx.types.fouri32 @dx.op.waveMatch.f32(i32 165, float %{{.*}})  ; WaveMatch(value)
+  // CHECK: call %dx.types.fouri32 @dx.op.waveMatch.f32(i32 165, float %{{.*}})  ; WaveMatch(value)
+  // CHECK: call %dx.types.fouri32 @dx.op.waveMatch.f32(i32 165, float %{{.*}})  ; WaveMatch(value)
+  // CHECK: call %dx.types.fouri32 @dx.op.waveMatch.f32(i32 165, float %{{.*}})  ; WaveMatch(value)
   uint4 match = WaveMatch(bvec);
 
   return select(match, res, vec3);
