@@ -573,22 +573,6 @@ struct StrictValidation {
 //
 
 DEFAULT_OP_3(OpType::Mad, (A * B + C));
-
-template <typename T> struct Op<OpType::SmoothStep, T> : DefaultValidation<T> {
-  T operator()(T Min, T Max, T X) {
-    DXASSERT_NOMSG(Min < Max);
-
-    if (X <= Min)
-      return 0.0;
-    if (X >= Max)
-      return 1.0;
-
-    T NormalizedX = (X - Min) / (Max - Min);
-    NormalizedX = std::clamp(NormalizedX, T(0.0), T(1.0));
-    return NormalizedX * NormalizedX * (T(3.0) - T(2.0) * NormalizedX);
-  }
-};
-
 DEFAULT_OP_3(OpType::Fma, (A * B + C));
 
 //
@@ -1214,12 +1198,8 @@ public:
   HLK_TEST(Mad, int64_t, ScalarOp3);
   HLK_TEST(Mad, HLSLHalf_t, Vector);
   HLK_TEST(Mad, HLSLHalf_t, ScalarOp2);
-  HLK_TEST(SmoothStep, HLSLHalf_t, Vector);
-  HLK_TEST(SmoothStep, HLSLHalf_t, ScalarOp2);
   HLK_TEST(Mad, float, Vector);
   HLK_TEST(Mad, float, ScalarOp2);
-  HLK_TEST(SmoothStep, float, Vector);
-  HLK_TEST(SmoothStep, float, ScalarOp3);
   HLK_TEST(Fma, double, Vector);
   HLK_TEST(Fma, double, ScalarOp2);
   HLK_TEST(Mad, double, Vector);
