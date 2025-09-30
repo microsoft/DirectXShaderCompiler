@@ -297,20 +297,20 @@ static bool scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI) {
   SmallVector<Value *, 2> Args(CI->getNumArgOperands());
   Args[0] = CI->getArgOperand(0); // Copy opcode over.
 
-  SmallVector<Value *, 4> Scalars;
+  SmallVector<Value *, 4> ResultVecs;
   for (uint64_t I = 0; I != VecSize; ++I) {
     Value *Elt = Builder.CreateExtractElement(VecArg, I);
-    Scalars.push_back(Elt);
+    ResultVecs.push_back(Elt);
   }
 
   for (uint64_t I = 0; I != VecSize; ++I) {
-    Args[1] = Scalars[I];
-    Scalars[I] = Builder.CreateCall(Func, Args);
+    Args[1] = ResultVecs[I];
+    ResultVecs[I] = Builder.CreateCall(Func, Args);
   }
 
-  Value *Ret = Scalars[0];
+  Value *Ret = ResultVecs[0];
   for (uint64_t I = 1; I != VecSize; ++I) {
-    Value *Next = Scalars[I];
+    Value *Next = ResultVecs[I];
 
     // Generate bitwise AND of the components
     Value *LHS0 = Builder.CreateExtractValue(Ret, 0);
