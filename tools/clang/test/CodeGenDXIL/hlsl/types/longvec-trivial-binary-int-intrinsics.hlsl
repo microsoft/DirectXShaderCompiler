@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=max   -DOP=37 -DUOP=39 -DNUM=7    %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=max   -DOP=37 -DUOP=39 -DNUM=1022 %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=min   -DOP=38 -DUOP=40 -DNUM=7    %s | FileCheck %s

@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=isnan    -DOP=8  -DNUM=39 %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=isinf    -DOP=9  -DNUM=38 %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=isfinite -DOP=10 -DNUM=37 %s | FileCheck %s

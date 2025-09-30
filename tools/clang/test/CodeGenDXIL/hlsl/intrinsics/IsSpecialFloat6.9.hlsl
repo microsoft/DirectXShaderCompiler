@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T lib_6_9 -enable-16bit-types %s | FileCheck %s
 
 // CHECK-LABEL: test_isnan_half

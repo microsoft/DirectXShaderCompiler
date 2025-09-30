@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -Zi -Qembed_debug -T lib_6_9 %s -DNUM=8 | FileCheck %s  --check-prefix=CHECK-LONG
 // RUN: %dxc -Zi -Qembed_debug -T lib_6_9 %s -DNUM=4 | FileCheck %s  --check-prefix=CHECK-SHORT
 

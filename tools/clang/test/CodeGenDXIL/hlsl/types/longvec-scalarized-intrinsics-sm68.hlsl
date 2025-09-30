@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
 // RUN: %dxc -T lib_6_9 %s -Fo %t.1
 // RUN: %dxl -T ps_6_8 %t.1 | FileCheck %s
