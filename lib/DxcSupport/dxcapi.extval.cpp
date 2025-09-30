@@ -79,7 +79,7 @@ public:
     IFR(TempValidationResult->GetStatus(&HR));
     if (FAILED(HR)) {
       // prefix the stderr output
-      fprintf(stderr , "error: validation errors\r\n");
+      fprintf(stderr, "error: validation errors\r\n");
       return UseResult(TempValidationResult);
     }
 
@@ -290,7 +290,7 @@ public:
     HRESULT CompileHR;
     CompileResult->GetStatus(&CompileHR);
     if (SUCCEEDED(CompileHR))
-        return Helper.doValidation(CompileResult, IID_PPV_ARGS(ResultObject));
+      return Helper.doValidation(CompileResult, IID_PPV_ARGS(ResultObject));
     CompileResult->QueryInterface(ResultObject);
     return S_OK;
   }
