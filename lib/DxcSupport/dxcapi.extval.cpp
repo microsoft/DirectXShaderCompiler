@@ -77,8 +77,11 @@ public:
     // Return the validation result if it failed.
     HRESULT HR;
     IFR(TempValidationResult->GetStatus(&HR));
-    if (FAILED(HR))
+    if (FAILED(HR)) {
+      // prefix the stderr output
+      fprintf(stderr , "error: validation errors\r\n");
       return UseResult(TempValidationResult);
+    }
 
     // Validation succeeded. Return the original compile result.
     return UseResult(CompileResult);
@@ -284,8 +287,12 @@ public:
     IFR(castCompilerUnsafe<IDxcCompiler>()->Compile(
         Source, SourceName, EntryPoint, TargetProfile, Arguments, ArgCount,
         Defines, DefineCount, IncludeHandler, &CompileResult));
-
-    return Helper.doValidation(CompileResult, IID_PPV_ARGS(ResultObject));
+    HRESULT CompileHR;
+    CompileResult->GetStatus(&CompileHR);
+    if (SUCCEEDED(CompileHR))
+        return Helper.doValidation(CompileResult, IID_PPV_ARGS(ResultObject));
+    CompileResult->QueryInterface(ResultObject);
+    return S_OK;
   }
 
   HRESULT STDMETHODCALLTYPE
