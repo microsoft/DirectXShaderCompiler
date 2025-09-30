@@ -264,22 +264,22 @@ struct DxcHLSLEnumValue {
   }
 };
 
-/*
-struct DxcHLSLParameter { // Mirrors D3D12_PARAMETER_DESC (ex.
-                          // First(In/Out)(Register/Component)), but with
-                          // std::string and NodeId
 
-  std::string SemanticName;
-  D3D_SHADER_VARIABLE_TYPE Type;            // Element type.
-  D3D_SHADER_VARIABLE_CLASS Class;          // Scalar/Vector/Matrix.
-  uint32_t Rows;                            // Rows are for matrix parameters.
-  uint32_t Columns;                         // Components or Columns in matrix.
-  D3D_INTERPOLATION_MODE InterpolationMode; // Interpolation mode.
-  D3D_PARAMETER_FLAGS Flags;                // Parameter modifiers.
+struct DxcHLSLParameter { // Mirrors D3D12_PARAMETER_DESC without duplicating
+                          // data (typeId holds some)
+
+  uint32_t TypeId;
   uint32_t NodeId;
 
-  // TODO: Array info
-};*/
+  uint8_t InterpolationMode; // D3D_INTERPOLATION_MODE
+  uint8_t Flags;             // D3D_PARAMETER_FLAGS
+  uint16_t Padding;
+
+  bool operator==(const DxcHLSLParameter &other) const {
+    return TypeId == other.TypeId && NodeId == other.NodeId &&
+           InterpolationMode == other.InterpolationMode && Flags == other.Flags;
+  }
+};
 
 struct DxcHLSLFunction {
 
@@ -541,7 +541,7 @@ struct DxcHLSLReflectionData {
   std::vector<DxcHLSLEnumDesc> Enums;
   std::vector<DxcHLSLEnumValue> EnumValues;
 
-  // std::vector<DxcHLSLParameter> Parameters;
+  std::vector<DxcHLSLParameter> Parameters;
   std::vector<DxcHLSLAnnotation> Annotations;
 
   std::vector<DxcHLSLArray> Arrays;
@@ -587,7 +587,8 @@ struct DxcHLSLReflectionData {
            Annotations == Other.Annotations && Arrays == Other.Arrays &&
            ArraySizes == Other.ArraySizes &&
            MemberTypeIds == Other.MemberTypeIds && TypeList == Other.TypeList &&
-           Types == Other.Types && Buffers == Other.Buffers;
+           Types == Other.Types && Buffers == Other.Buffers &&
+           Parameters == Other.Parameters;
   }
 
   bool operator==(const DxcHLSLReflectionData &Other) const {

@@ -594,7 +594,7 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
   // Unwrap array
 
   uint32_t arraySize = 1;
-  QualType underlying = Original, forName = Original;
+  QualType underlying = Original, forName = Original.getNonReferenceType();
   std::vector<uint32_t> arrayElem;
 
   while (const ConstantArrayType *arr =
@@ -602,11 +602,11 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
     uint32_t current = arr->getSize().getZExtValue();
     arrayElem.push_back(current);
     arraySize *= arr->getSize().getZExtValue();
-    forName = arr->getElementType();
+    forName = arr->getElementType().getNonReferenceType();
     underlying = forName.getCanonicalType();
   }
 
-  underlying = underlying.getCanonicalType();
+  underlying = underlying.getNonReferenceType().getCanonicalType();
 
   // Name; Omit struct, class and const keywords
 
@@ -615,7 +615,8 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
   policy.AnonymousTagLocations = false;
   policy.SuppressTagKeyword = true;
 
-  std::string typeName = forName.getUnqualifiedType().getAsString(policy);
+  std::string typeName =
+      forName.getUnqualifiedType().getAsString(policy);
 
   //Prune template instantiation from type name for builtin types (ex. vector & matrix)
   //But only if it's not a sugared type:
@@ -705,7 +706,10 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
 
      bool standardType = false;
 
-    RecordDecl *recordDecl = record->getDecl();
+     RecordDecl *recordDecl = record->getDecl();
+
+     QualType innerType;
+     std::string innerTypeName;     //$Element or T depending on type
 
     if (const ClassTemplateSpecializationDecl *templateClass =
             dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
@@ -760,8 +764,20 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
         }
 
         else {
+
           type = svt;
           cls = D3D_SVC_OBJECT;
+
+          innerTypeName = "$Element";
+
+          const TemplateSpecializationType *templateDesc =
+              forName->getAs<TemplateSpecializationType>();
+
+          assert(templateDesc && "Expected a valid TemplateSpecializationType");
+          innerType = templateDesc->getArg(0).getAsType();
+
+          if (svt == D3D_SVT_RWBUFFER || svt == D3D_SVT_BUFFER || svt == D3D_SVT_CBUFFER)
+            innerTypeName = innerType.getUnqualifiedType().getAsString(policy);
         }
       }
     }
@@ -776,6 +792,25 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
         type = it->second;
         cls = D3D_SVC_OBJECT;
       }
+    }
+
+    // Buffer types have a member to allow inspection of the types
+
+    if (innerTypeName.size()) {
+
+      uint32_t nameId = hasSymbols ? RegisterString(Refl, innerTypeName, false)
+                                   : uint32_t(-1);
+
+      uint32_t typeId =
+          GenerateTypeInfo(ASTCtx, Refl, innerType, DefaultRowMaj);
+
+      membersOffset = uint32_t(Refl.MemberTypeIds.size());
+      membersCount = 1;
+
+      Refl.MemberTypeIds.push_back(typeId);
+
+      if (hasSymbols)
+        Refl.MemberNameIds.push_back(nameId);
     }
 
     // Fill members
@@ -1136,54 +1171,84 @@ uint32_t RegisterBuffer(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
   return bufferId;
 }
 
-/* TODO:
-static void AddFunctionParameters(ASTContext &ASTCtx, QualType Type, Decl *Decl,
-                                  DxcHLSLReflectionData &Refl, const SourceManager &SM,
-                                  uint32_t ParentNodeId) {
+//DxilInterpolationMode.cpp but a little bit cleaned up
+static D3D_INTERPOLATION_MODE GetInterpolationMode(Decl *decl) {
+
+  if (!decl)        //Return type
+    return D3D_INTERPOLATION_UNDEFINED;
+
+  bool bNoInterpolation = decl->hasAttr<HLSLNoInterpolationAttr>();
+  bool bLinear = decl->hasAttr<HLSLLinearAttr>();
+  bool bNoperspective = decl->hasAttr<HLSLNoPerspectiveAttr>();
+  bool bCentroid = decl->hasAttr<HLSLCentroidAttr>();
+  bool bSample = decl->hasAttr<HLSLSampleAttr>();
+
+  uint8_t mask = uint8_t(bNoInterpolation) << 4;
+  mask |= uint8_t(bLinear) << 3;
+  mask |= uint8_t(bNoperspective) << 2;
+  mask |= uint8_t(bCentroid) << 1;
+  mask |= uint8_t(bSample);
+
+  if (mask > 16)
+    return D3D_INTERPOLATION_UNDEFINED;
+  
+  static constexpr const D3D_INTERPOLATION_MODE modes[] = {
+      D3D_INTERPOLATION_UNDEFINED,
+      D3D_INTERPOLATION_LINEAR_SAMPLE,
+      D3D_INTERPOLATION_LINEAR_CENTROID,
+      D3D_INTERPOLATION_LINEAR_SAMPLE,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_CENTROID,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
+      D3D_INTERPOLATION_LINEAR,
+      D3D_INTERPOLATION_LINEAR_SAMPLE,
+      D3D_INTERPOLATION_LINEAR_CENTROID,
+      D3D_INTERPOLATION_LINEAR_SAMPLE,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_CENTROID,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
+      D3D_INTERPOLATION_CONSTANT
+  };
+
+  return modes[mask];
+}
+
+static void AddFunctionParameter(ASTContext &ASTCtx, QualType Type, Decl *Decl,
+                                 DxcHLSLReflectionData &Refl,
+                                 const SourceManager &SM, uint32_t ParentNodeId,
+                                 bool DefaultRowMaj) {
 
   PrintingPolicy printingPolicy(ASTCtx.getLangOpts());
 
-  QualType desugared = Type.getDesugaredType(ASTCtx);
-
-  PrintfStream str;
-  desugared.print(str, printingPolicy);
-
-  if (Decl)
-    Decl->print(str);
-
-  //Generate parameter
+  uint32_t typeId = GenerateTypeInfo(ASTCtx, Refl, Type, DefaultRowMaj);
 
   uint32_t nodeId = PushNextNodeId(
       Refl, SM, ASTCtx.getLangOpts(),
       Decl && dyn_cast<NamedDecl>(Decl) ? dyn_cast<NamedDecl>(Decl)->getName()
                                         : "",
       Decl, D3D12_HLSL_NODE_TYPE_PARAMETER, ParentNodeId,
-      (uint32_t)Refl.Parameters.size());
+      uint32_t(Refl.Parameters.size()));
 
-  std::string semanticName;
+  D3D_INTERPOLATION_MODE interpolationMode = GetInterpolationMode(Decl);
+  D3D_PARAMETER_FLAGS flags = D3D_PF_NONE;
 
-  if (NamedDecl *ValDesc = dyn_cast<NamedDecl>(Decl)) {
+  if (Decl) {
 
-    ArrayRef<hlsl::UnusualAnnotation *> UA = ValDesc->getUnusualAnnotations();
+    if (Decl->hasAttr<HLSLInAttr>())
+      flags = D3D_PARAMETER_FLAGS(flags | D3D_PF_IN);
 
-    for (auto It = UA.begin(), E = UA.end(); It != E; ++It) {
+    if (Decl->hasAttr<HLSLOutAttr>())
+      flags = D3D_PARAMETER_FLAGS(flags | D3D_PF_OUT);
 
-      if ((*It)->getKind() != hlsl::UnusualAnnotation::UA_SemanticDecl)
-        continue;
-
-      semanticName = cast<hlsl::SemanticDecl>(*It)->SemanticName;
-    }
+    if (Decl->hasAttr<HLSLInOutAttr>())
+      flags = D3D_PARAMETER_FLAGS(flags | D3D_PF_IN | D3D_PF_OUT);
   }
 
-  DxcHLSLParameter parameter{std::move(semanticName)};
-
-  type, clss, rows, columns, interpolationMode, flags;
-  parameter.NodeId = nodeId;
-
-  Refl.Parameters.push_back(parameter);
-
-  //It's a struct, add parameters recursively
-}*/
+  Refl.Parameters.push_back(
+      DxcHLSLParameter{typeId, nodeId, uint8_t(interpolationMode), uint8_t(flags)});
+}
 
 static void
 RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
@@ -1269,19 +1334,18 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
                               !Func->getReturnType().getTypePtr()->isVoidType(),
                               hasDefinition};
 
-      // TODO:
-      /*
-      for (uint32_t i = 0; i < func.NumParameters; ++i)
-        AddFunctionParameters(ASTCtx, Func->getParamDecl(i)->getType(),
-                              Func->getParamDecl(i), Refl, SM, nodeId);
+      for (uint32_t i = 0; i < func.GetNumParameters(); ++i)
+        AddFunctionParameter(ASTCtx, Func->getParamDecl(i)->getType(),
+                              Func->getParamDecl(i), Refl, SM, nodeId,
+                              DefaultRowMaj);
 
-      if (func.HasReturn)
-        AddFunctionParameters(ASTCtx, Func->getReturnType(), nullptr, Refl, SM,
-                              nodeId);*/
+      if (func.HasReturn())
+        AddFunctionParameter(ASTCtx, Func->getReturnType(), nullptr, Refl, SM,
+                              nodeId, DefaultRowMaj);
 
       Refl.Functions.push_back(std::move(func));
 
-      //TODO:
+      //TODO: Scopes
       /*if (hasDefinition && (Features & D3D12_HLSL_REFLECTION_FEATURE_SCOPES)) {
         RecursiveReflectHLSL(*Definition, ASTCtx, Diags, SM, Refl,
                              AutoBindingSpace, Depth + 1, Features,
@@ -1569,7 +1633,7 @@ static std::string NodeTypeToString(D3D12_HLSL_NODE_TYPE type) {
   static const char *arr[] = {"Register",       "Function",  "Enum",
                               "EnumValue",      "Namespace", "Variable",
                               "Typedef",        "Struct",    "Union",
-                              "StaticVariable", "Interface"};
+                              "StaticVariable", "Interface", "Parameter"};
 
   return arr[uint32_t(type)];
 }
@@ -1816,6 +1880,36 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
 
         // TODO: case D3D12_HLSL_NODE_TYPE_USING:
 
+      case D3D12_HLSL_NODE_TYPE_PARAMETER: {
+
+        const DxcHLSLParameter &param = Refl.Parameters[localId];
+
+        if (param.InterpolationMode || param.Flags) {
+
+          static const char *inouts[] = {NULL, "in", "out", "inout"};
+          const char *inout = inouts[param.Flags];
+
+          static const char *interpolationModes[] = {
+              "",
+              "Constant",
+              "Linear",
+              "LinearCentroid",
+              "LinearNoPerspective",
+              "LinearNoPerspectiveCentroid",
+              "LinearSample",
+              "LinearNoPerspectiveSample"};
+
+          const char *interpolationMode =
+              interpolationModes[param.InterpolationMode];
+
+          printf("%s%s%s\n", std::string(Depth, '\t').c_str(), inout ? inout : "",
+                 ((inout ? " " : "") + std::string(interpolationMode)).c_str());
+        }
+
+        typeToPrint = param.TypeId;
+        break;
+      }
+
       case D3D12_HLSL_NODE_TYPE_TYPEDEF:
       case D3D12_HLSL_NODE_TYPE_VARIABLE:
       case D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE:
@@ -1890,7 +1984,7 @@ struct DxcHLSLHeader {
   uint32_t Buffers;
 
   uint32_t TypeListCount;
-  uint32_t Padding;
+  uint32_t Parameters;
 };
 
 template <typename T>
@@ -2148,7 +2242,7 @@ void DxcHLSLReflectionData::Dump(std::vector<std::byte> &Bytes) const {
 
   Advance(toReserve, Strings, StringsNonDebug, Sources, Nodes, NodeSymbols,
           Registers, Functions, Enums, EnumValues, Annotations, ArraySizes,
-          Arrays, MemberTypeIds, TypeList, MemberNameIds, Types, TypeNameIds, Buffers);
+          Arrays, MemberTypeIds, TypeList, MemberNameIds, Types, TypeNameIds, Buffers, Parameters);
 
   Bytes.resize(toReserve);
 
@@ -2163,14 +2257,15 @@ void DxcHLSLReflectionData::Dump(std::vector<std::byte> &Bytes) const {
       uint32_t(EnumValues.size()),      uint32_t(Annotations.size()),
       uint32_t(Arrays.size()),          uint32_t(ArraySizes.size()),
       uint32_t(MemberTypeIds.size()),   uint32_t(Types.size()),
-      uint32_t(Buffers.size()),         uint32_t(TypeList.size())};
+      uint32_t(Buffers.size()),         uint32_t(TypeList.size()),
+      uint32_t(Parameters.size())};
 
   toReserve += sizeof(DxcHLSLHeader);
 
   Append(Bytes, toReserve, Strings, StringsNonDebug, Sources, Nodes,
          NodeSymbols, Registers, Functions, Enums, EnumValues, Annotations,
          ArraySizes, Arrays, MemberTypeIds, TypeList, MemberNameIds, Types,
-         TypeNameIds, Buffers);
+         TypeNameIds, Buffers, Parameters);
 }
 
 DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes,
@@ -2204,7 +2299,8 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
           Annotations, header.Annotations, ArraySizes, header.ArraySizes,
           Arrays, header.Arrays, MemberTypeIds, header.Members, TypeList,
           header.TypeListCount, MemberNameIds, memberSymbolCount, Types,
-          header.Types, TypeNameIds, typeSymbolCount, Buffers, header.Buffers);
+          header.Types, TypeNameIds, typeSymbolCount, Buffers, header.Buffers,
+          Parameters, header.Parameters);
 
   // Validation errors are throws to prevent accessing invalid data
 
@@ -2243,16 +2339,30 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     case D3D12_HLSL_NODE_TYPE_REGISTER:
       maxValue = header.Registers;
       break;
+
     case D3D12_HLSL_NODE_TYPE_FUNCTION:
       maxValue = header.Functions;
       allowFwdDeclare = true;
       break;
+
     case D3D12_HLSL_NODE_TYPE_ENUM:
       maxValue = header.Enums;
       allowFwdDeclare = true;
       break;
     case D3D12_HLSL_NODE_TYPE_ENUM_VALUE:
       maxValue = header.EnumValues;
+      break;
+
+    case D3D12_HLSL_NODE_TYPE_PARAMETER:
+
+      maxValue = header.Parameters;
+
+      if (Nodes[node.GetParentId()].GetNodeType() !=
+          D3D12_HLSL_NODE_TYPE_FUNCTION)
+          throw std::invalid_argument(
+              "Node " + std::to_string(i) +
+              " is a parameter but parent isn't a function");
+      
       break;
 
     // TODO: case D3D12_HLSL_NODE_TYPE_USING:
@@ -2268,6 +2378,18 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
       allowFwdDeclare = true;
       maxValue = node.IsFwdDeclare() ? 1 : header.Types;
       break;
+    }
+
+    switch (node.GetNodeType()) {
+
+    case D3D12_HLSL_NODE_TYPE_TYPEDEF:
+    case D3D12_HLSL_NODE_TYPE_VARIABLE:
+    case D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE:
+    case D3D12_HLSL_NODE_TYPE_PARAMETER:
+      if (node.GetChildCount())
+          throw std::invalid_argument("Node " + std::to_string(i) +
+                                      " is a parameter, typedef, variable or "
+                                      "static variable but also has children");
     }
 
     if ((node.GetNodeType() == D3D12_HLSL_NODE_TYPE_REGISTER ||
@@ -2319,8 +2441,8 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     }
   }
 
-  for(uint32_t i = 0; i < header.Functions; ++i) {
-    
+  for (uint32_t i = 0; i < header.Functions; ++i) {
+
     const DxcHLSLFunction &func = Functions[i];
 
     if (func.NodeId >= header.Nodes ||
@@ -2328,6 +2450,20 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
         Nodes[func.NodeId].GetLocalId() != i)
       throw std::invalid_argument("Function " + std::to_string(i) +
                                   " points to an invalid nodeId");
+
+    uint32_t paramCount = func.GetNumParameters() + func.HasReturn();
+
+    if (Nodes[func.NodeId].GetChildCount() < paramCount)
+      throw std::invalid_argument("Function " + std::to_string(i) +
+                                  " is missing parameters and/or return");
+
+    for (uint32_t j = 0; j < paramCount; ++j)
+      if (Nodes[func.NodeId + 1 + j].GetParentId() != func.NodeId ||
+          Nodes[func.NodeId + 1 + j].GetNodeType() !=
+              D3D12_HLSL_NODE_TYPE_PARAMETER)
+          throw std::invalid_argument(
+              "Function " + std::to_string(i) +
+              " is missing valid parameters and/or return");
   }
 
   for(uint32_t i = 0; i < header.Enums; ++i) {
@@ -2433,6 +2569,22 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     if (TypeList[i] >= header.Types)
       throw std::invalid_argument("Type list index " + std::to_string(i) +
                                   " points to an invalid type");
+
+  for (uint32_t i = 0; i < header.Parameters; ++i) {
+
+    const DxcHLSLParameter &param = Parameters[i];
+
+    if (param.NodeId >= header.Nodes ||
+        Nodes[param.NodeId].GetNodeType() != D3D12_HLSL_NODE_TYPE_PARAMETER ||
+        Nodes[param.NodeId].GetLocalId() != i || param.TypeId >= header.Types)
+      throw std::invalid_argument("Parameter " + std::to_string(i) +
+                                  " points to an invalid nodeId");
+
+    if (param.Flags > 3 ||
+        param.InterpolationMode > D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE)
+      throw std::invalid_argument("Parameter " + std::to_string(i) +
+                                  " has invalid data");
+  }
   
   for (uint32_t i = 0; i < header.Types; ++i) {
 
