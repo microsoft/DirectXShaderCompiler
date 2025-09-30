@@ -8,6 +8,7 @@
 
 namespace hlsl {
 
+// clang-format off
 template <int Off, int OSz, typename T, int ISz>
 typename hlsl::enable_if<Off + OSz <= ISz, vector<T, OSz> >::type
 slice(vector<T, ISz> In) {
@@ -15,6 +16,7 @@ slice(vector<T, ISz> In) {
   [unroll] for (int I = 0; I < OSz; ++I) Result[I] = In[I + Off];
   return Result;
 }
+// clang-format on
 
 template <int OSz, typename T, int ISz>
 vector<T, OSz> slice(vector<T, ISz> In) {
