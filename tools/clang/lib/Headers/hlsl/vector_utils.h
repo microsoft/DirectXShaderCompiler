@@ -13,7 +13,11 @@ template <int Off, int OSz, typename T, int ISz>
 typename hlsl::enable_if<Off + OSz <= ISz, vector<T, OSz> >::type
 slice(vector<T, ISz> In) {
   vector<T, OSz> Result = (vector<T, OSz>)0;
-  [unroll] for (int I = 0; I < OSz; ++I) Result[I] = In[I + Off];
+
+  [unroll]
+  for (int I = 0; I < OSz; ++I)
+    Result[I] = In[I + Off];
+
   return Result;
 }
 // clang-format on
