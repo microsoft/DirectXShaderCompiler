@@ -1044,11 +1044,11 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
   static std::vector<T> buildExpected(Op<OpType::Dot, T>,
                                       const InputSets<T, 2> &Inputs,
                                       uint16_t ScalarInputFlags) {
+    UNREFERENCED_PARAMETER(ScalarInputFlags);
     T DotProduct = T();
 
     for (size_t I = 0; I < Inputs[0].size(); ++I) {
-      size_t Index1 = (ScalarInputFlags & (1 << 1)) ? 0 : I;
-      DotProduct += Inputs[0][I] * Inputs[1][Index1];
+      DotProduct += Inputs[0][I] * Inputs[1][I];
     }
 
     std::vector<T> Expected;
