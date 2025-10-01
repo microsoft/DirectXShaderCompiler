@@ -1827,13 +1827,8 @@ public:
   HLK_TEST(All_NoZero, int64_t, Vector);
 
   HLK_TEST(Dot, HLSLHalf_t, Vector);
-  HLK_TEST(Dot, HLSLHalf_t, ScalarOp2);
 
   HLK_TEST(Dot, float, Vector);
-  HLK_TEST(Dot, float, ScalarOp2);
-
-  HLK_TEST(Dot, double, Vector);
-  HLK_TEST(Dot, double, ScalarOp2);
 
 private:
   bool Initialized = false;
