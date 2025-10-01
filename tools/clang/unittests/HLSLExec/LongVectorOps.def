@@ -131,7 +131,7 @@ OP_DEFAULT(Binary, Logical_Or, 2, "or", ",")
 
 // For the 'any' and 'all' reduction operation, we test with three different
 // input data sets to cover the different cases of the operation. 'Any' returns
-// true if any of the inputs are non-zero;  otherwise, false. This is in
+// true if any of the inputs are non-zero, false otherwise. This is in
 // contrast to other ops where we can get coverage simply with different values
 // across the input set.
 OP(Reduction, Any_Mixed, 1, "any", "", " -DIS_REDUCTION_OP=1", Default1, 
