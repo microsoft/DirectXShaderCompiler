@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -I %hlsl_headers -T cs_6_9 %s -enable-16bit-types -DML=MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL -DSTRIDE=0 2>&1 | FileCheck %s
 
 //Source file for the IR in \tools\clang\test\LitDXILValidation\outer-product-accumulate-matrix-layout-failing.ll

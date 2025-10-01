@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // This is a temporary measure to verify that intrinsics are not lowered
 //  to native vectors in SM6.9 unintentionally.
 // Ultimately, this file will be deleted when all are correctly lowered.

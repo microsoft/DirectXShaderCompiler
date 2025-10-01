@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // Tests non-native-vector behavior for intrinsics that scalarize 
 //  into a simple repetition of the same dx.op calls.
 

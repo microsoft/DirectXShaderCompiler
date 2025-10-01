@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -fcgl -HV 2018 -T lib_6_9 -DTYPE=float1 %s | FileCheck %s --check-prefixes=CHECK,NODBL
 // RUN: %dxc -fcgl -HV 2018 -T lib_6_9 -DTYPE=int1      %s | FileCheck %s --check-prefixes=CHECK,NODBL
 // RUN: %dxc -fcgl -HV 2018 -T lib_6_9 -DTYPE=double1   -DDBL %s | FileCheck %s --check-prefixes=CHECK
