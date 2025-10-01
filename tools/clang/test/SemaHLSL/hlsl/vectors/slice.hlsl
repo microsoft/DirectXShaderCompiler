@@ -6,7 +6,7 @@ RWByteAddressBuffer buf;
 
 float4 main(uint4 id: IN0) : SV_Target
 {
-  vector<float, 256> fVec = buf.Load<vector<float, 256> >(256 * 0);
+  vector<float, 256> fVec = buf.Load<vector<float, 256> >(0);
 
   // Ensure calls are lowered to a single shufflevector
 
