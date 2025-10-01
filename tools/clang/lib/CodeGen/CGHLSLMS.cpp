@@ -6150,6 +6150,9 @@ void CGMSHLSLRuntime::EmitHLSLRootSignature(HLSLRootSignatureAttr *RSA,
 
 // Helper to determine HLSL object types that should be treated as pass-by-value
 // at HLSL source level by creating a local copy and passing its address.
+// FIXME: All objects should be passed by value. This helper only enables this
+// for the recent dx::HitObject type to not affect existing code that passes
+// objects.
 static bool IsByValueObject(QualType Ty) {
   // Currently only HitObject is passed by value.
   return hlsl::IsHLSLHitObjectType(Ty);
@@ -6403,8 +6406,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
 
     // cast before the call
     if (Param->isModifierIn() &&
-        // Copy-in for non-objects, and also for by-value objects
-        (!isObject || IsByValueObject(ParamTy))) {
+        // Don't copy object
+        !isObject) {
       QualType ArgTy = Arg->getType();
       Value *outVal = nullptr;
       if (!isAggregateType) {
