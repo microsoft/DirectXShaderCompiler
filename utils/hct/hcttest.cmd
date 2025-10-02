@@ -336,12 +336,15 @@ if "%TEST_USE_LIT%"=="1" (
     )
     if "!TEST_COMPAT_SUITE!"=="1.6" (       
         cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxc_2021_12_08
+        set RES_COMPAT_1_6=!ERRORLEVEL!
     )
     if "!TEST_COMPAT_SUITE!"=="1.7" (       
         cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxc_2023_08_14
+        set RES_COMPAT_1_7=!ERRORLEVEL!
     )
     if "!TEST_COMPAT_SUITE!"=="1.8" (       
         cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxc_2025_02_20
+        set RES_COMPAT_1_8=!ERRORLEVEL!
     )
     if "!TEST_EXEC!"=="1" (
       if defined EXEC_ADAPTER (
@@ -509,6 +512,9 @@ if "%TEST_EXEC%"=="1" (
 call :check_result "hcttest-extras tests" %RES_EXTRAS%
 call :check_result "hcttest-after script" %RES_HCTTEST_AFTER%
 call :check_result "dxilconv tests" %RES_DXILCONV%
+call :check_result "compat-suite 1.6 tests" %RES_COMPAT_1_6%
+call :check_result "compat-suite 1.7 tests" %RES_COMPAT_1_7%
+call :check_result "compat-suite 1.8 tests" %RES_COMPAT_1_8%
 
 set EXIT_CODE=%TESTS_FAILED%
 if not "%TESTS_PASSED%"=="0" (
