@@ -6750,6 +6750,22 @@ bool HLSLExternalSource::MatchArguments(
       return false;
     }
 
+    ASTContext &actx = m_sema->getASTContext();
+    // Usage
+
+    // Argument must be non-constant and non-bitfield for out, inout, and ref
+    // parameters because they may be treated as pass-by-reference.
+    // This is hacky. We should actually be handling this by failing reference
+    // binding in sema init with SK_BindReference*. That code path is currently
+    // hacked off for HLSL and less trivial to fix.
+    if (pIntrinsicArg->qwUsage & AR_QUAL_OUT ||
+        pIntrinsicArg->qwUsage & AR_QUAL_REF) {
+      if (pType.isConstant(actx) || pCallArg->getObjectKind() == OK_BitField) {
+        // Can't use a const type in an out or inout parameter.
+        badArgIdx = std::min(badArgIdx, iArg);
+      }
+    }
+
     if (pIntrinsicArg->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
       DXASSERT_NOMSG(objectElement.isNull());
       QualType Ty = pCallArg->getType();
@@ -6900,22 +6916,6 @@ bool HLSLExternalSource::MatchArguments(
         if (TypeInfoCols < pIntrinsicArg->uCols) {
           badArgIdx = std::min(badArgIdx, iArg);
         }
-      }
-    }
-
-    ASTContext &actx = m_sema->getASTContext();
-    // Usage
-
-    // Argument must be non-constant and non-bitfield for out, inout, and ref
-    // parameters because they may be treated as pass-by-reference.
-    // This is hacky. We should actually be handling this by failing reference
-    // binding in sema init with SK_BindReference*. That code path is currently
-    // hacked off for HLSL and less trivial to fix.
-    if (pIntrinsicArg->qwUsage & AR_QUAL_OUT ||
-        pIntrinsicArg->qwUsage & AR_QUAL_REF) {
-      if (pType.isConstant(actx) || pCallArg->getObjectKind() == OK_BitField) {
-        // Can't use a const type in an out or inout parameter.
-        badArgIdx = std::min(badArgIdx, iArg);
       }
     }
     iArg++;
