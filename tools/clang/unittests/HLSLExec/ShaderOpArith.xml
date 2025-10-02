@@ -3827,6 +3827,16 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_TEST_SELECT
+        vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,
+                                         vector<TYPE, NUM> Vector2,
+                                         vector<TYPE, NUM> Vector3)
+        {
+          vector<bool, NUM> VectorCond = (Vector1 != 0);
+          return select(VectorCond, Vector2, Vector3);
+        }
+        #endif
+
         [numthreads(1,1,1)]
         void main(uint GI : SV_GroupIndex) {
 

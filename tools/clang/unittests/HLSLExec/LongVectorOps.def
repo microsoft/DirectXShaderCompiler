@@ -15,6 +15,7 @@ INPUT_SET(SplitDouble)
 INPUT_SET(BitShiftRhs)
 INPUT_SET(Positive)
 INPUT_SET(Bitwise)
+INPUT_SET(SelectCond)
 
 #undef INPUT_SET
 
@@ -126,5 +127,6 @@ OP_DEFAULT(BinaryComparison, NotEqual, 2, "", "!=")
 
 OP_DEFAULT(Binary, Logical_And, 2, "and", ",")
 OP_DEFAULT(Binary, Logical_Or, 2, "or", ",")
+OP(Ternary, Select, 3, "TestSelect", "", " -DFUNC_TEST_SELECT=1", SelectCond, Default2, Default3)
 
 #undef OP
