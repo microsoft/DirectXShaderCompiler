@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T lib_6_9 %s | FileCheck %s
 
 // Long vector tests for vec ops that scalarize to something more complex

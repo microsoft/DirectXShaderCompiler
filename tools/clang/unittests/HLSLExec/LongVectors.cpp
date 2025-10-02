@@ -12,7 +12,6 @@
 
 #include "HlslExecTestUtils.h"
 
-#include <algorithm>
 #include <array>
 #include <bitset>
 #include <iomanip>
@@ -25,36 +24,44 @@
 namespace LongVector {
 
 //
-// getHLSLTypeString
+// Data Types
 //
-
-template <typename T> const char *getHLSLTypeString() {
-  static_assert(false && "Missing HLSL type string");
-}
-
-#define DATA_TYPE_NAME(TYPE, HLSL_STRING)                                      \
-  template <> const char *getHLSLTypeString<TYPE>() { return HLSL_STRING; }
-
-DATA_TYPE_NAME(HLSLBool_t, "bool");
-DATA_TYPE_NAME(int16_t, "int16_t");
-DATA_TYPE_NAME(int32_t, "int");
-DATA_TYPE_NAME(int64_t, "int64_t");
-DATA_TYPE_NAME(uint16_t, "uint16_t");
-DATA_TYPE_NAME(uint32_t, "uint32_t");
-DATA_TYPE_NAME(uint64_t, "uint64_t");
-DATA_TYPE_NAME(HLSLHalf_t, "half");
-DATA_TYPE_NAME(float, "float");
-DATA_TYPE_NAME(double, "double");
-
-#undef DATA_TYPE_NAME
-
-template <typename T> constexpr bool isFloatingPointType() {
-  return std::is_same_v<T, float> || std::is_same_v<T, double> ||
-         std::is_same_v<T, HLSLHalf_t>;
-}
 
 template <typename T> constexpr bool is16BitType() {
   return std::is_same_v<T, int16_t> || std::is_same_v<T, uint16_t> ||
+         std::is_same_v<T, HLSLHalf_t>;
+}
+
+struct DataType {
+  const char *HLSLTypeString;
+  bool Is16Bit;
+};
+
+template <typename T> const DataType &getDataType() {
+  static_assert(false && "Unknown data type");
+}
+
+#define DATA_TYPE(TYPE, HLSL_STRING)                                           \
+  template <> const DataType &getDataType<TYPE>() {                            \
+    static DataType DataType{HLSL_STRING, is16BitType<TYPE>()};                \
+    return DataType;                                                           \
+  }
+
+DATA_TYPE(HLSLBool_t, "bool")
+DATA_TYPE(int16_t, "int16_t")
+DATA_TYPE(int32_t, "int")
+DATA_TYPE(int64_t, "int64_t")
+DATA_TYPE(uint16_t, "uint16_t")
+DATA_TYPE(uint32_t, "uint32_t")
+DATA_TYPE(uint64_t, "uint64_t")
+DATA_TYPE(HLSLHalf_t, "half")
+DATA_TYPE(float, "float")
+DATA_TYPE(double, "double")
+
+#undef DATA_TYPE
+
+template <typename T> constexpr bool isFloatingPointType() {
+  return std::is_same_v<T, float> || std::is_same_v<T, double> ||
          std::is_same_v<T, HLSLHalf_t>;
 }
 
@@ -62,26 +69,39 @@ template <typename T> constexpr bool is16BitType() {
 // Operation Types
 //
 
-enum class OpType {
+enum class OpType : unsigned {
 #define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, DEFINES, INPUT_SET_1,    \
            INPUT_SET_2, INPUT_SET_3)                                           \
   SYMBOL,
 #include "LongVectorOps.def"
+  NumOpTypes
 };
 
-template <OpType OP> struct OpTraits;
+struct Operation {
+  size_t Arity;
+  const char *Intrinsic;
+  const char *Operator;
+  const char *ExtraDefines;
+  InputSet InputSets[3];
+};
+
+static constexpr Operation Operations[] = {
 
 #define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, DEFINES, INPUT_SET_1,    \
            INPUT_SET_2, INPUT_SET_3)                                           \
-  template <> struct OpTraits<OpType::SYMBOL> {                                \
-    static constexpr size_t Arity = ARITY;                                     \
-    static constexpr const char *Intrinsic = INTRINSIC;                        \
-    static constexpr const char *Operator = OPERATOR;                          \
-    static constexpr const char *ExtraDefines = DEFINES;                       \
-    static constexpr InputSet InputSets[3] = {                                 \
-        InputSet::INPUT_SET_1, InputSet::INPUT_SET_2, InputSet::INPUT_SET_3};  \
-  };
+  {ARITY,                                                                      \
+   INTRINSIC,                                                                  \
+   OPERATOR,                                                                   \
+   DEFINES,                                                                    \
+   {InputSet::INPUT_SET_1, InputSet::INPUT_SET_2, InputSet::INPUT_SET_3}},
 #include "LongVectorOps.def"
+};
+
+constexpr const Operation &getOperation(OpType Op) {
+  if (Op < OpType::NumOpTypes)
+    return Operations[unsigned(Op)];
+  std::abort();
+}
 
 // Helper to fill the test data from the shader buffer based on type.
 // Convenient to be used when copying HLSL*_t types so we can use the
@@ -260,53 +280,30 @@ static WEX::Common::String getInputValueSetName(size_t Index) {
   return ValueSetName;
 }
 
-//
-// TestConfig - this captures both compile time information (the data type and
-// the operation to test) as well as some runtime information. TestConfig is
-// used to drive type inference.
-//
-template <typename T, OpType OP> struct TestConfig {
-  using String = WEX::Common::String;
-
-  bool VerboseLogging;
-  uint16_t ScalarInputFlags;
-
-  size_t OverrideLongVectorInputSize = 0;
-
-  TestConfig(bool VerboseLogging, uint16_t ScalarInputFlags)
-      : VerboseLogging(VerboseLogging), ScalarInputFlags(ScalarInputFlags) {
-    using WEX::TestExecution::RuntimeParameters;
-
-    RuntimeParameters::TryGetValue(L"LongVectorInputSize",
-                                   OverrideLongVectorInputSize);
-  }
-};
-
-template <OpType OP, typename T, typename OUT_TYPE>
-std::string getCompilerOptionsString(size_t VectorSize,
-                                     uint16_t ScalarInputFlags,
-                                     std::string ExtraDefines) {
-  using OpTraits = OpTraits<OP>;
-
+std::string getCompilerOptionsString(const Operation &Operation,
+                                     const DataType &OpDataType,
+                                     const DataType &OutDataType,
+                                     size_t VectorSize,
+                                     uint16_t ScalarInputFlags) {
   std::stringstream CompilerOptions;
 
-  if (is16BitType<T>() || is16BitType<OUT_TYPE>())
+  if (OpDataType.Is16Bit || OutDataType.Is16Bit)
     CompilerOptions << " -enable-16bit-types";
 
-  CompilerOptions << " -DTYPE=" << getHLSLTypeString<T>();
+  CompilerOptions << " -DTYPE=" << OpDataType.HLSLTypeString;
   CompilerOptions << " -DNUM=" << VectorSize;
 
   CompilerOptions << " -DOPERATOR=";
-  CompilerOptions << OpTraits::Operator;
+  CompilerOptions << Operation.Operator;
 
   CompilerOptions << " -DFUNC=";
-  CompilerOptions << OpTraits::Intrinsic;
+  CompilerOptions << Operation.Intrinsic;
 
-  CompilerOptions << " " << ExtraDefines;
+  CompilerOptions << " " << Operation.ExtraDefines;
 
-  CompilerOptions << " -DOUT_TYPE=" << getHLSLTypeString<OUT_TYPE>();
+  CompilerOptions << " -DOUT_TYPE=" << OutDataType.HLSLTypeString;
 
-  CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << OpTraits::Arity;
+  CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << Operation.Arity;
 
   CompilerOptions << " -DOPERAND_IS_SCALAR_FLAGS=";
   CompilerOptions << "0x" << std::hex << ScalarInputFlags;
@@ -349,20 +346,17 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
 }
 
 //
-// InputSets captures the data that's used as input to the test - one vector of
-// values for each operand.
-//
-template <typename T, size_t ARITY>
-using InputSets = std::array<std::vector<T>, ARITY>;
-
-//
 // Run the test.  Return std::nullopt if the test was skipped, otherwise returns
 // the output buffer that was populated by the shader.
 //
-template <typename OUT_TYPE, typename T, OpType OP, size_t ARITY>
+template <typename T> using InputSets = std::vector<std::vector<T>>;
+
+template <typename OUT_TYPE, typename T>
 std::optional<std::vector<OUT_TYPE>>
-runTest(const TestConfig<T, OP> &Config, const InputSets<T, ARITY> &Inputs,
-        size_t ExpectedOutputSize, std::string ExtraDefines) {
+runTest(bool VerboseLogging, const Operation &Operation,
+        const InputSets<T> &Inputs, uint16_t ScalarInputFlags,
+        size_t ExpectedOutputSize) {
+  DXASSERT_NOMSG(Inputs.size() == Operation.Arity);
 
   CComPtr<ID3D12Device> D3DDevice;
   if (!createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false)) {
@@ -377,18 +371,21 @@ runTest(const TestConfig<T, OP> &Config, const InputSets<T, ARITY> &Inputs,
 #endif
   }
 
-  if (Config.VerboseLogging) {
-    for (size_t I = 0; I < ARITY; ++I) {
+  if (VerboseLogging) {
+    for (size_t I = 0; I < Operation.Arity; ++I) {
       std::wstring Name = L"InputVector";
       Name += (wchar_t)(L'1' + I);
       logLongVector(Inputs[I], Name);
     }
   }
 
+  const DataType &OpDataType = getDataType<T>();
+  const DataType &OutDataType = getDataType<OUT_TYPE>();
+
   // We have to construct the string outside of the lambda. Otherwise it's
   // cleaned up when the lambda finishes executing but before the shader runs.
-  std::string CompilerOptionsString = getCompilerOptionsString<OP, T, OUT_TYPE>(
-      Inputs[0].size(), Config.ScalarInputFlags, std::move(ExtraDefines));
+  std::string CompilerOptionsString = getCompilerOptionsString(
+      Operation, OpDataType, OutDataType, Inputs[0].size(), ScalarInputFlags);
 
   dxc::SpecificDllLoader DxilDllLoader;
 
@@ -408,7 +405,7 @@ runTest(const TestConfig<T, OP> &Config, const InputSets<T, ARITY> &Inputs,
   std::shared_ptr<st::ShaderOpTestResult> TestResult = st::RunShaderOpTest(
       D3DDevice, DxilDllLoader, TestXML, ShaderName,
       [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
-        if (Config.VerboseLogging)
+        if (VerboseLogging)
           hlsl_test::LogCommentFmt(
               L"RunShaderOpTest CallBack. Resource Name: %S", Name);
 
@@ -431,7 +428,7 @@ runTest(const TestConfig<T, OP> &Config, const InputSets<T, ARITY> &Inputs,
           std::string BufferName = "InputVector";
           BufferName += (char)('1' + I);
           if (_stricmp(Name, BufferName.c_str()) == 0) {
-            if (I < ARITY)
+            if (I < Operation.Arity)
               fillShaderBufferFromLongVectorData(ShaderData, Inputs[I]);
             return;
           }
@@ -464,18 +461,16 @@ std::vector<T> buildTestInput(InputSet InputSet, size_t SizeToTest) {
   return ValueSet;
 }
 
-template <typename T, OpType OP>
-InputSets<T, OpTraits<OP>::Arity> buildTestInputs(size_t VectorSize,
-                                                  uint16_t ScalarInputFlags) {
-  constexpr size_t Arity = OpTraits<OP>::Arity;
-
-  InputSets<T, Arity> Inputs;
+template <typename T>
+InputSets<T> buildTestInputs(size_t VectorSize, uint16_t ScalarInputFlags,
+                             const InputSet OpInputSets[3], size_t Arity) {
+  InputSets<T> Inputs;
 
   for (size_t I = 0; I < Arity; ++I) {
     uint16_t OperandScalarFlag = 1 << I;
     bool IsOperandScalar = ScalarInputFlags & OperandScalarFlag;
-    Inputs[I] = buildTestInput<T>(OpTraits<OP>::InputSets[I],
-                                  IsOperandScalar ? 1 : VectorSize);
+    Inputs.push_back(
+        buildTestInput<T>(OpInputSets[I], IsOperandScalar ? 1 : VectorSize));
   }
 
   return Inputs;
@@ -494,23 +489,22 @@ struct ValidationConfig {
   }
 };
 
-template <typename T, typename OP_TYPE, OP_TYPE OP, typename OUT_TYPE,
-          size_t ARITY>
-void runAndVerify(const TestConfig<T, OP> &Config,
-                  const InputSets<T, ARITY> &Inputs,
+template <typename T, typename OUT_TYPE>
+void runAndVerify(bool VerboseLogging, const Operation &Operation,
+                  const InputSets<T> &Inputs,
                   const std::vector<OUT_TYPE> &Expected,
-                  std::string ExtraDefines,
+                  uint16_t ScalarInputFlags,
                   const ValidationConfig &ValidationConfig) {
 
-  std::optional<std::vector<OUT_TYPE>> Actual =
-      runTest<OUT_TYPE>(Config, Inputs, Expected.size(), ExtraDefines);
+  std::optional<std::vector<OUT_TYPE>> Actual = runTest<OUT_TYPE>(
+      VerboseLogging, Operation, Inputs, ScalarInputFlags, Expected.size());
 
   // If the test didn't run, don't verify anything.
   if (!Actual)
     return;
 
   VERIFY_IS_TRUE(doVectorsMatch(*Actual, Expected, ValidationConfig.Tolerance,
-                                ValidationConfig.Type, Config.VerboseLogging));
+                                ValidationConfig.Type, VerboseLogging));
 }
 
 //
@@ -526,7 +520,7 @@ void runAndVerify(const TestConfig<T, OP> &Config,
 
 // Op - specializations are expected to have a ValidationConfig member and an
 // appropriate overloaded function call operator.
-template <OpType OP, typename T> struct Op;
+template <OpType OP, typename T, size_t Arity> struct Op;
 
 // ExpectedBuilder - specializations are expected to have buildExpectedData
 // member functions.
@@ -551,17 +545,17 @@ struct StrictValidation {
 // Macros to build up common patterns of Op definitions
 
 #define OP_1(OP, VALIDATION, IMPL)                                             \
-  template <typename T> struct Op<OP, T> : VALIDATION {                        \
+  template <typename T> struct Op<OP, T, 1> : VALIDATION {                     \
     T operator()(T A) { return IMPL; }                                         \
   }
 
 #define OP_2(OP, VALIDATION, IMPL)                                             \
-  template <typename T> struct Op<OP, T> : VALIDATION {                        \
+  template <typename T> struct Op<OP, T, 2> : VALIDATION {                     \
     T operator()(T A, T B) { return IMPL; }                                    \
   }
 
 #define OP_3(OP, VALIDATION, IMPL)                                             \
-  template <typename T> struct Op<OP, T> : VALIDATION {                        \
+  template <typename T> struct Op<OP, T, 3> : VALIDATION {                     \
     T operator()(T A, T B, T C) { return IMPL; }                               \
   }
 
@@ -585,7 +579,7 @@ DEFAULT_OP_2(OpType::Subtract, (A - B));
 DEFAULT_OP_2(OpType::Multiply, (A * B));
 DEFAULT_OP_2(OpType::Divide, (A / B));
 
-template <typename T> struct Op<OpType::Modulus, T> : DefaultValidation<T> {
+template <typename T> struct Op<OpType::Modulus, T, 2> : DefaultValidation<T> {
   T operator()(T A, T B) {
     if constexpr (std::is_same_v<T, float>)
       return std::fmod(A, B);
@@ -676,7 +670,7 @@ DEFAULT_OP_1(OpType::Saturate, (Saturate(A)));
 DEFAULT_OP_1(OpType::ReverseBits, (ReverseBits(A)));
 
 #define BITWISE_OP(OP, IMPL)                                                   \
-  template <typename T> struct Op<OP, T> : StrictValidation {                  \
+  template <typename T> struct Op<OP, T, 1> : StrictValidation {               \
     uint32_t operator()(T A) { return IMPL; }                                  \
   }
 
@@ -697,7 +691,7 @@ DEFAULT_OP_1(OpType::Initialize, (A));
 //
 
 #define CAST_OP(OP, TYPE, IMPL)                                                \
-  template <typename T> struct Op<OP, T> : StrictValidation {                  \
+  template <typename T> struct Op<OP, T, 1> : StrictValidation {               \
     TYPE operator()(T A) { return IMPL; }                                      \
   };
 
@@ -761,7 +755,7 @@ struct TrigonometricValidation {
 };
 
 #define TRIG_OP(OP, IMPL)                                                      \
-  template <typename T> struct Op<OP, T> : TrigonometricValidation {           \
+  template <typename T> struct Op<OP, T, 1> : TrigonometricValidation {        \
     T operator()(T A) { return IMPL; }                                         \
   }
 
@@ -794,7 +788,7 @@ bit_cast(const FromT &Src) {
 }
 
 #define AS_TYPE_OP(OP, TYPE, IMPL)                                             \
-  template <typename T> struct Op<OP, T> : StrictValidation {                  \
+  template <typename T> struct Op<OP, T, 1> : StrictValidation {               \
     TYPE operator()(T A) { return IMPL; }                                      \
   };
 
@@ -860,7 +854,7 @@ AS_TYPE_OP(OpType::AsUint, uint32_t, (asUint(A)));
 
 // asDouble
 
-template <> struct Op<OpType::AsDouble, uint32_t> : StrictValidation {
+template <> struct Op<OpType::AsDouble, uint32_t, 2> : StrictValidation {
   double operator()(uint32_t LowBits, uint32_t HighBits) {
     uint64_t Bits = (static_cast<uint64_t>(HighBits) << 32) | LowBits;
     double Result;
@@ -875,15 +869,18 @@ template <> struct Op<OpType::AsDouble, uint32_t> : StrictValidation {
 // outputs two values. To handle this special case we override various bits of
 // the testing machinary.
 
-template <> struct Op<OpType::AsUint_SplitDouble, double> : StrictValidation {};
+template <>
+struct Op<OpType::AsUint_SplitDouble, double, 1> : StrictValidation {};
 
-// Specialized version of ExpectedBuilder for the splitdouble case. The expected
-// output for this has all the Low values followed by all the High values.
+// Specialized version of ExpectedBuilder for the splitdouble case. The
+// expected output for this has all the Low values followed by all the High
+// values.
 template <> struct ExpectedBuilder<OpType::AsUint_SplitDouble, double> {
   static std::vector<uint32_t>
-  buildExpected(Op<OpType::AsUint_SplitDouble, double>,
-                const InputSets<double, 1> &Inputs, uint16_t ScalarInputFlags) {
+  buildExpected(Op<OpType::AsUint_SplitDouble, double, 1>,
+                const InputSets<double> &Inputs, uint16_t ScalarInputFlags) {
     DXASSERT_NOMSG(ScalarInputFlags == 0);
+    DXASSERT_NOMSG(Inputs.size() == 1);
     UNREFERENCED_PARAMETER(ScalarInputFlags);
 
     size_t VectorSize = Inputs[0].size();
@@ -924,7 +921,7 @@ template <typename T> T UnaryMathAbs(T A) {
 DEFAULT_OP_1(OpType::Abs, (UnaryMathAbs(A)));
 
 // Sign is special because the return type doesn't match the input type.
-template <typename T> struct Op<OpType::Sign, T> : DefaultValidation<T> {
+template <typename T> struct Op<OpType::Sign, T, 1> : DefaultValidation<T> {
   int32_t operator()(T A) {
     const T Zero = T();
 
@@ -953,18 +950,19 @@ DEFAULT_OP_1(OpType::Log2, (std::log2(A)));
 
 // Frexp has a return value as well as an output paramater. So we handle it
 // with special logic. Frexp is only supported for fp32 values.
-template <> struct Op<OpType::Frexp, float> : DefaultValidation<float> {};
+template <> struct Op<OpType::Frexp, float, 1> : DefaultValidation<float> {};
 
 template <> struct ExpectedBuilder<OpType::Frexp, float> {
-  static std::vector<float> buildExpected(Op<OpType::Frexp, float>,
-                                          const InputSets<float, 1> &Inputs,
+  static std::vector<float> buildExpected(Op<OpType::Frexp, float, 1>,
+                                          const InputSets<float> &Inputs,
                                           uint32_t) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
 
-    // Expected values size is doubled. In the first half we store the Mantissas
-    // and in the second half we store the Exponents. This way we can leverage
-    // the existing logic which verify expected values in a single vector. We
-    // just need to make sure that we organize the output in the same way in the
-    // shader and when we read it back.
+    // Expected values size is doubled. In the first half we store the
+    // Mantissas and in the second half we store the Exponents. This way we
+    // can leverage the existing logic which verify expected values in a
+    // single vector. We just need to make sure that we organize the output in
+    // the same way in the shader and when we read it back.
 
     size_t VectorSize = Inputs[0].size();
 
@@ -982,8 +980,8 @@ template <> struct ExpectedBuilder<OpType::Frexp, float> {
       Expected[I] = Man;
 
       // std::frexp returns the exponent as an int, but HLSL stores it as a
-      // float. However, the HLSL exponents fractional component is always 0. So
-      // it can conversion between float and int is safe.
+      // float. However, the HLSL exponents fractional component is always 0.
+      // So it can conversion between float and int is safe.
       Expected[I + VectorSize] = static_cast<float>(Exp);
     }
 
@@ -996,7 +994,7 @@ template <> struct ExpectedBuilder<OpType::Frexp, float> {
 //
 
 #define BINARY_COMPARISON_OP(OP, IMPL)                                         \
-  template <typename T> struct Op<OP, T> : StrictValidation {                  \
+  template <typename T> struct Op<OP, T, 2> : StrictValidation {               \
     HLSLBool_t operator()(T A, T B) { return IMPL; }                           \
   };
 
@@ -1062,9 +1060,11 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
 //
 
 template <OpType OP, typename T> struct ExpectedBuilder {
-  static auto buildExpected(Op<OP, T> Op, const InputSets<T, 1> &Inputs,
+
+  static auto buildExpected(Op<OP, T, 1> Op, const InputSets<T> &Inputs,
                             uint16_t ScalarInputFlags) {
     UNREFERENCED_PARAMETER(ScalarInputFlags);
+    DXASSERT_NOMSG(Inputs.size() == 1);
 
     std::vector<decltype(Op(T()))> Expected;
     Expected.reserve(Inputs[0].size());
@@ -1076,8 +1076,10 @@ template <OpType OP, typename T> struct ExpectedBuilder {
     return Expected;
   }
 
-  static auto buildExpected(Op<OP, T> Op, const InputSets<T, 2> &Inputs,
+  static auto buildExpected(Op<OP, T, 2> Op, const InputSets<T> &Inputs,
                             uint16_t ScalarInputFlags) {
+    DXASSERT_NOMSG(Inputs.size() == 2);
+
     std::vector<decltype(Op(T(), T()))> Expected;
     Expected.reserve(Inputs[0].size());
 
@@ -1089,8 +1091,10 @@ template <OpType OP, typename T> struct ExpectedBuilder {
     return Expected;
   }
 
-  static auto buildExpected(Op<OP, T> Op, const InputSets<T, 3> &Inputs,
+  static auto buildExpected(Op<OP, T, 3> Op, const InputSets<T> &Inputs,
                             uint16_t ScalarInputFlags) {
+    DXASSERT_NOMSG(Inputs.size() == 3);
+
     std::vector<decltype(Op(T(), T(), T()))> Expected;
     Expected.reserve(Inputs[0].size());
 
@@ -1106,23 +1110,26 @@ template <OpType OP, typename T> struct ExpectedBuilder {
 };
 
 template <typename T, OpType OP>
-void dispatchTest(const TestConfig<T, OP> &Config) {
+void dispatchTest(bool VerboseLogging, size_t OverrideLongVectorInputSize,
+                  uint16_t ScalarInputFlags) {
   std::vector<size_t> InputVectorSizes;
-  if (Config.OverrideLongVectorInputSize)
-    InputVectorSizes.push_back(Config.OverrideLongVectorInputSize);
+  if (OverrideLongVectorInputSize)
+    InputVectorSizes.push_back(OverrideLongVectorInputSize);
   else
     InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
 
-  Op<OP, T> Op;
+  constexpr const Operation &Operation = getOperation(OP);
+
+  Op<OP, T, Operation.Arity> Op;
 
   for (size_t VectorSize : InputVectorSizes) {
-    InputSets<T, OpTraits<OP>::Arity> Inputs =
-        buildTestInputs<T, OP>(VectorSize, Config.ScalarInputFlags);
+    std::vector<std::vector<T>> Inputs = buildTestInputs<T>(
+        VectorSize, ScalarInputFlags, Operation.InputSets, Operation.Arity);
 
-    auto Expected = ExpectedBuilder<OP, T>::buildExpected(
-        Op, Inputs, Config.ScalarInputFlags);
+    auto Expected =
+        ExpectedBuilder<OP, T>::buildExpected(Op, Inputs, ScalarInputFlags);
 
-    runAndVerify(Config, Inputs, Expected, OpTraits<OP>::ExtraDefines,
+    runAndVerify(VerboseLogging, Operation, Inputs, Expected, ScalarInputFlags,
                  Op.ValidationConfig);
   }
 }
@@ -1214,6 +1221,9 @@ public:
       else
         WEX::Logging::Log::Comment(
             L"Verbose logging is disabled for this test.");
+
+      WEX::TestExecution::RuntimeParameters::TryGetValue(
+          L"LongVectorInputSize", OverrideLongVectorInputSize);
     }
 
     return true;
@@ -1223,7 +1233,8 @@ public:
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-    dispatchTest(TestConfig<T, OP>(VerboseLogging, ScalarInputFlags));
+    dispatchTest<T, OP>(VerboseLogging, OverrideLongVectorInputSize,
+                        ScalarInputFlags);
   }
 
   // TernaryMath
@@ -1833,4 +1844,5 @@ public:
 private:
   bool Initialized = false;
   bool VerboseLogging = false;
+  size_t OverrideLongVectorInputSize = 0;
 };

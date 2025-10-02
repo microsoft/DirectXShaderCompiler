@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=2   %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=7   %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=125 %s | FileCheck %s

@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-8
 // RUN: %dxc -T lib_6_8 -enable-16bit-types %s | FileCheck %s
 
 // 31744 = 0x7c00, which corresponds to positive infinity

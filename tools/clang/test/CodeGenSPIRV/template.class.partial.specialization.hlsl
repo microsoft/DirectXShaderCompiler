@@ -18,16 +18,6 @@ uint32_t elementCount()
 
 RWBuffer<int> o;
 
-// Initialize the static members at the start of wrapper
-// CHECK: %main = OpFunction %void None 
-// CHECK: OpStore %RowCount %uint_4
-// CHECK: OpStore %ColumnCount %uint_4
-// CHECK: OpStore %RowCount_0 %uint_3
-// CHECK: OpStore %ColumnCount_0 %uint_2
-// CHECK: OpFunctionEnd
-
-
-
 // CHECK: %src_main = OpFunction %void None
 [numthreads(64,1,1)]
 void main()
@@ -40,16 +30,12 @@ void main()
 
 // CHECK: %elementCount = OpFunction %uint None
 // CHECK-NEXT: OpLabel
-// CHECK-NEXT: [[rc:%[0-9]+]] = OpLoad %uint %RowCount
-// CHECK-NEXT: [[cc:%[0-9]+]] = OpLoad %uint %ColumnCount
-// CHECK-NEXT: [[mul:%[0-9]+]] = OpIMul %uint [[rc]] [[cc]]
+// CHECK-NEXT: [[mul:%[0-9]+]] = OpIMul %uint %uint_4 %uint_4
 // CHECK-NEXT: OpReturnValue [[mul]]
 // CHECK-NEXT: OpFunctionEnd
 
 // CHECK: %elementCount_0 = OpFunction %uint None
 // CHECK-NEXT: %bb_entry_1 = OpLabel
-// CHECK-NEXT: [[rc:%[0-9]+]] = OpLoad %uint %RowCount_0
-// CHECK-NEXT: [[cc:%[0-9]+]] = OpLoad %uint %ColumnCount_0
-// CHECK-NEXT: [[mul:%[0-9]+]] = OpIMul %uint [[rc]] [[cc]]
+// CHECK-NEXT: [[mul:%[0-9]+]] = OpIMul %uint %uint_3 %uint_2
 // CHECK-NEXT: OpReturnValue [[mul]]
 // CHECK-NEXT: OpFunctionEnd

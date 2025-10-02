@@ -351,13 +351,14 @@ public:
   /// \brief Sets the entry function.
   void setEntryFunction(SpirvFunction *fn) { entryFunction = fn; }
 
-  /// \brief If the given decl is an implicit VarDecl that evaluates to a
-  /// constant, it evaluates the constant and registers the resulting SPIR-V
-  /// instruction in the astDecls map. Otherwise returns without doing anything.
+  /// \brief If the given decl is a VarDecl that evaluates to a constant, it
+  /// evaluates the constant and registers the resulting SPIR-V instruction in
+  /// the astDecls map. Otherwise returns without doing anything. The typical
+  /// cases are implicit VarDecls and global static constant variables.
   ///
   /// Note: There are many cases where the front-end might create such implicit
   /// VarDecls (such as some ray tracing enums).
-  void tryToCreateImplicitConstVar(const ValueDecl *);
+  bool tryToCreateConstantVar(const ValueDecl *);
 
   /// \brief Creates instructions to copy output stage variables defined by
   /// outputPatchDecl to hullMainOutputPatch that is a variable for the

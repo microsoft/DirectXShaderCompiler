@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T ps_6_1 -DFUNC=ddx %s        | FileCheck %s --check-prefixes CHECK,PRE69
 // RUN: %dxc -T ps_6_1 -DFUNC=ddx_coarse %s | FileCheck %s --check-prefixes CHECK,PRE69
 // RUN: %dxc -T ps_6_1 -DFUNC=ddx_fine %s   | FileCheck %s --check-prefixes CHECK,PRE69
