@@ -184,6 +184,10 @@ struct HLSLHalf_t {
     return FromHALF((DirectX::PackedVector::XMConvertFloatToHalf(A + B)));
   }
 
+  HLSLHalf_t &operator+=(const HLSLHalf_t &Other) {
+    return *this = *this + Other;
+  }
+
   HLSLHalf_t operator-(const HLSLHalf_t &Other) const {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
@@ -253,9 +257,10 @@ INPUT_SET(InputSet::Default1, false, true, false, false, false, false, true,
 
 INPUT_SET(InputSet::Default2, true, false, false, false, false, true, true,
           true, false, false);
-
 INPUT_SET(InputSet::Default3, true, false, true, false, true, true, true, true,
           false, true);
+INPUT_SET(InputSet::Zero, false);
+INPUT_SET(InputSet::NoZero, true);
 INPUT_SET(InputSet::SelectCond, false, true);
 END_INPUT_SETS()
 
@@ -264,6 +269,8 @@ INPUT_SET(InputSet::Default1, -6, 1, 7, 3, 8, 4, -3, 8, 8, -2);
 INPUT_SET(InputSet::Default2, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
 INPUT_SET(InputSet::Default3, -5, 6, 3, 2, -9, -3, -1, 3, 7, -2);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 13, 14, 15);
+INPUT_SET(InputSet::Zero, 0);
+INPUT_SET(InputSet::NoZero, 1);
 INPUT_SET(InputSet::Bitwise, std::numeric_limits<int16_t>::min(), -1, 0, 1, 3,
           6, 9, 0x5555, static_cast<int16_t>(0xAAAA),
           std::numeric_limits<int16_t>::max());
@@ -275,6 +282,8 @@ INPUT_SET(InputSet::Default1, -6, 1, 7, 3, 8, 4, -3, 8, 8, -2);
 INPUT_SET(InputSet::Default2, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
 INPUT_SET(InputSet::Default3, -5, 6, 3, 2, -9, -3, -1, 3, 7, -2);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 30, 31, 32);
+INPUT_SET(InputSet::Zero, 0);
+INPUT_SET(InputSet::NoZero, 1);
 INPUT_SET(InputSet::Bitwise, std::numeric_limits<int32_t>::min(), -1, 0, 1, 3,
           6, 9, 0x55555555, static_cast<int32_t>(0xAAAAAAAA),
           std::numeric_limits<int32_t>::max());
@@ -286,6 +295,8 @@ INPUT_SET(InputSet::Default1, -6, 11, 7, 3, 8, 4, -3, 8, 8, -2);
 INPUT_SET(InputSet::Default2, 5, -1337, -3, -2, 9, 3, 1, -3, 501, 2);
 INPUT_SET(InputSet::Default3, -5, 1337, 3, 2, -9, -3, -1, 3, -501, -2);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 62, 63, 64);
+INPUT_SET(InputSet::Zero, 0);
+INPUT_SET(InputSet::NoZero, 1);
 INPUT_SET(InputSet::Bitwise, std::numeric_limits<int64_t>::min(), -1, 0, 1, 3,
           6, 9, 0x5555555555555555LL, 0xAAAAAAAAAAAAAAAALL,
           std::numeric_limits<int64_t>::max());
