@@ -1041,8 +1041,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "waveActiveAllEqual",
      Attribute::None,
      1,
-     {{0xff}},
-     {{0x0}}}, // Overloads: hfd18wil
+     {{0x4ff}},
+     {{0xff}}}, // Overloads: hfd18wil<hfd18wil
     {OC::WaveActiveBallot,
      "WaveActiveBallot",
      OCC::WaveActiveBallot,
@@ -1057,40 +1057,40 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "waveReadLaneAt",
      Attribute::None,
      1,
-     {{0xff}},
-     {{0x0}}}, // Overloads: hfd18wil
+     {{0x4ff}},
+     {{0xff}}}, // Overloads: hfd18wil<hfd18wil
     {OC::WaveReadLaneFirst,
      "WaveReadLaneFirst",
      OCC::WaveReadLaneFirst,
      "waveReadLaneFirst",
      Attribute::None,
      1,
-     {{0xff}},
-     {{0x0}}}, // Overloads: hfd18wil
+     {{0x4ff}},
+     {{0xff}}}, // Overloads: hfd18wil<hfd18wil
     {OC::WaveActiveOp,
      "WaveActiveOp",
      OCC::WaveActiveOp,
      "waveActiveOp",
      Attribute::None,
      1,
-     {{0xff}},
-     {{0x0}}}, // Overloads: hfd18wil
+     {{0x4ff}},
+     {{0xff}}}, // Overloads: hfd18wil<hfd18wil
     {OC::WaveActiveBit,
      "WaveActiveBit",
      OCC::WaveActiveBit,
      "waveActiveBit",
      Attribute::None,
      1,
-     {{0xf0}},
-     {{0x0}}}, // Overloads: 8wil
+     {{0x4f0}},
+     {{0xf0}}}, // Overloads: 8wil<8wil
     {OC::WavePrefixOp,
      "WavePrefixOp",
      OCC::WavePrefixOp,
      "wavePrefixOp",
      Attribute::None,
      1,
-     {{0xf7}},
-     {{0x0}}}, // Overloads: hfd8wil
+     {{0x4f7}},
+     {{0xf7}}}, // Overloads: hfd8wil<hfd8wil
 
     // Quad Wave Ops
     {OC::QuadReadLaneAt,
@@ -1485,16 +1485,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "waveMatch",
      Attribute::None,
      1,
-     {{0xf7}},
-     {{0x0}}}, // Overloads: hfd8wil
+     {{0x4f7}},
+     {{0xf7}}}, // Overloads: hfd8wil<hfd8wil
     {OC::WaveMultiPrefixOp,
      "WaveMultiPrefixOp",
      OCC::WaveMultiPrefixOp,
      "waveMultiPrefixOp",
      Attribute::None,
      1,
-     {{0xf7}},
-     {{0x0}}}, // Overloads: hfd8wil
+     {{0x4f7}},
+     {{0xf7}}}, // Overloads: hfd8wil<hfd8wil
     {OC::WaveMultiPrefixBitCount,
      "WaveMultiPrefixBitCount",
      OCC::WaveMultiPrefixBitCount,

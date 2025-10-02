@@ -3094,7 +3094,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveActiveAllEqual",
             "returns 1 if all the lanes have the same value",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o_i1", "", "operation result"),
@@ -3120,7 +3120,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveReadLaneAt",
             "returns the value from the specified lane",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3134,7 +3134,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveReadLaneFirst",
             "returns the value from the first lane",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3147,7 +3147,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveActiveOp",
             "returns the result the operation across waves",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3194,7 +3194,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveActiveBit",
             "returns the result of the operation across all lanes",
-            "8wil",
+            "8wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3224,7 +3224,7 @@ class db_dxil(object):
             next_op_idx,
             "WavePrefixOp",
             "returns the result of the operation on prior lanes",
-            "hfd8wil",
+            "hfd8wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -4021,7 +4021,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveMatch",
             "returns the bitmask of active lanes that have the same value",
-            "hfd8wil",
+            "hfd8wil<",
             "",
             [
                 db_dxil_param(0, "fouri32", "", "operation result"),
@@ -4035,7 +4035,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveMultiPrefixOp",
             "returns the result of the operation on groups of lanes identified by a bitmask",
-            "hfd8wil",
+            "hfd8wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
