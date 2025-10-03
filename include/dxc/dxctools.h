@@ -261,10 +261,9 @@ DECLARE_INTERFACE(IDxcHLSLReflection) {
   (THIS_ _In_ UINT FunctionIndex, THIS_ _Out_ D3D12_HLSL_FUNCTION_DESC *pDesc)
       PURE;
 
-  /*TODO:
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
   STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
-  (THIS_ _In_ UINT FunctionIndex, THIS_ _In_ INT ParameterIndex) PURE;*/
+  (THIS_ _In_ UINT FunctionIndex, THIS_ _In_ INT ParameterIndex) PURE;
 
   STDMETHOD(GetStructTypeByIndex)
   (THIS_ _In_ UINT Index, _Outptr_ ID3D12ShaderReflectionType **ppType)

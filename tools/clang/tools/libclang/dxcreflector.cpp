@@ -347,6 +347,53 @@ public:
   }
 };
 
+class CHLSLFunctionParameter final : public ID3D12FunctionParameterReflection {
+
+protected:
+  const DxcHLSLReflectionData *m_Data = nullptr;
+  uint32_t m_NodeId = 0;
+
+public:
+  CHLSLFunctionParameter() = default;
+
+  void Initialize(const DxcHLSLReflectionData &Data, uint32_t NodeId) {
+    m_Data = &Data;
+    m_NodeId = NodeId;
+  }
+
+  STDMETHOD(GetDesc)(THIS_ _Out_ D3D12_PARAMETER_DESC *pDesc) override {
+
+    IFR(ZeroMemoryToOut(pDesc));
+
+    const DxcHLSLNode &node = m_Data->Nodes[m_NodeId];
+
+    LPCSTR semanticName =
+        node.GetSemanticId() == uint32_t(-1)
+            ? ""
+            : m_Data->StringsNonDebug[node.GetSemanticId()].c_str();
+
+    LPCSTR name =
+        m_Data->Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO
+            ? m_Data->Strings[m_Data->NodeSymbols[m_NodeId].NameId].c_str()
+            : "";
+
+    const DxcHLSLParameter &param = m_Data->Parameters[node.GetLocalId()];
+    const DxcHLSLType &type = m_Data->Types[param.TypeId];
+
+    *pDesc =
+        D3D12_PARAMETER_DESC{name,
+                             semanticName,
+                             D3D_SHADER_VARIABLE_TYPE(type.Type),
+                             D3D_SHADER_VARIABLE_CLASS(type.Class),
+                             type.Rows,
+                             type.Columns,
+                             D3D_INTERPOLATION_MODE(param.InterpolationMode),
+                             D3D_PARAMETER_FLAGS(param.Flags)};
+
+    return S_OK;
+  }
+};
+
 class CHLSLReflectionVariable final : public ID3D12ShaderReflectionVariable {
 protected:
   CHLSLReflectionType *m_pType;
@@ -577,6 +624,9 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
   std::unordered_map<std::string, uint32_t>
       NameToNonFwdIds[int(FwdDeclType::COUNT)];
 
+  std::vector<uint32_t> NodeToParameterId;
+  std::vector<CHLSLFunctionParameter> FunctionParameters;
+
   DxcHLSLReflection() = default;
 
   void Finalize() {
@@ -589,6 +639,11 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     bool hasSymbols = Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
     std::vector<uint32_t> globalVars;
 
+    NodeToParameterId.resize(Data.Nodes.size());
+
+    std::vector<uint32_t> functionParameters;
+    functionParameters.reserve(Data.Nodes.size() / 4);
+
     for (uint32_t i = 0; i < uint32_t(Data.Nodes.size()); ++i) {
 
       const DxcHLSLNode &node = Data.Nodes[i];
@@ -596,6 +651,11 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
       if (node.GetNodeType() == D3D12_HLSL_NODE_TYPE_VARIABLE &&
           !node.GetParentId())
         globalVars.push_back(i);
+
+      if (node.GetNodeType() == D3D12_HLSL_NODE_TYPE_PARAMETER) {
+        NodeToParameterId[i] = uint32_t(functionParameters.size());
+        functionParameters.push_back(i);
+      }
 
       // Filter out fwd declarations for structs, unions, interfaces, functions, enums
 
@@ -666,6 +726,11 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     for (uint32_t i = 0; i < (uint32_t)Data.Types.size(); ++i)
       Types[i].Initialize(Data, i, Types);
 
+    FunctionParameters.resize(functionParameters.size());
+
+    for (uint32_t i = 0; i < uint32_t(functionParameters.size()); ++i)
+      FunctionParameters[i].Initialize(Data, functionParameters[i]);
+
     for (uint32_t i = 0; i < (uint32_t)Data.Buffers.size(); ++i) {
 
       ConstantBuffers[i].Initialize(Data, Data.Buffers[i].NodeId,
@@ -698,6 +763,9 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
       NonFwdIds[i] = std::move(moved.NonFwdIds[i]);
       NameToNonFwdIds[i] = std::move(moved.NameToNonFwdIds[i]);
     }
+
+    NodeToParameterId = std::move(moved.NodeToParameterId);
+    FunctionParameters = std::move(moved.FunctionParameters);
 
     return *this;
   }
@@ -969,10 +1037,32 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     return S_OK;
   }
 
-  //TODO:
-  //// Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
-  //STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
-  //(THIS_ _In_ UINT FunctionIndex, THIS_ _In_ INT ParameterIndex) PURE;
+  // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
+  STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
+  (THIS_ _In_ UINT FunctionIndex, THIS_ _In_ INT ParameterIndex) override {
+
+    if (FunctionIndex >= Data.Functions.size())
+      return nullptr;
+
+    const DxcHLSLFunction &func = Data.Functions[FunctionIndex];
+
+    if (ParameterIndex == D3D_RETURN_PARAMETER_INDEX) {
+
+      if (!func.HasReturn())
+        return nullptr;
+
+      uint32_t parameterId =
+          NodeToParameterId[func.NodeId + 1 + func.GetNumParameters()];
+
+      return &FunctionParameters[parameterId];
+    }
+
+    if (uint32_t(ParameterIndex) >= func.GetNumParameters())
+      return nullptr;
+
+    uint32_t parameterId = NodeToParameterId[func.NodeId + 1 + ParameterIndex];
+    return &FunctionParameters[parameterId];
+  }
 
   STDMETHOD(GetStructTypeByIndex)
   (THIS_ _In_ UINT Index,
@@ -1035,8 +1125,6 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
   }
 
   //Helper for conversion between symbol names
-
-  // TODO: GetFunctionParameter
 
   STDMETHOD(GetNodeByName)
       (THIS_ _In_ LPCSTR Name, _Out_ UINT *pNodeId) override {
