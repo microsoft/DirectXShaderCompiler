@@ -22,15 +22,6 @@ namespace {
 // The ExtValidationArgHelper class helps manage arguments for external
 // validation, as well as perform the validation step if needed.
 class ExtValidationArgHelper {
-  std::vector<std::wstring> ArgStorage;
-  llvm::SmallVector<LPCWSTR, 16> NewArgs;
-  hlsl::options::DxcOpts Opts;
-  CComPtr<IDxcValidator> Validator;
-  UINT32 ValidatorVersionMajor = 0;
-  UINT32 ValidatorVersionMinor = 0;
-  bool NeedsValidation = false;
-  bool RootSignatureOnly = false;
-
 public:
   ExtValidationArgHelper() = default;
   ExtValidationArgHelper(const ExtValidationArgHelper &) = delete;
@@ -43,20 +34,13 @@ public:
 
   HRESULT doValidation(IDxcOperationResult *CompileResult, REFIID Riid,
                        void **ValResult) {
-    // this lambda takes an arbitrary object that implements the
-    // IDxcOperationResult interface, asks whether that object
-    // also implements the interface specified by Riid, and if
-    // so, sets ValResult to point to that object
-    auto UseResult = [&](IDxcOperationResult *Result) -> HRESULT {
-      if (Result)
-        return Result->QueryInterface(Riid, ValResult);
-      else
-        return E_FAIL;
-    };
+
+    if (!CompileResult)
+      return E_INVALIDARG;
 
     // No validation needed; just set the result and return.
     if (!NeedsValidation)
-      return UseResult(CompileResult);
+      return CompileResult->QueryInterface(Riid, ValResult);
 
     // Get the compiled shader.
     CComPtr<IDxcBlob> CompiledBlob;
@@ -64,7 +48,7 @@ public:
 
     // If no compiled blob; just return the compile result.
     if (!CompiledBlob)
-      return UseResult(CompileResult);
+      return CompileResult->QueryInterface(Riid, ValResult);
 
     // Validate the compiled shader.
     CComPtr<IDxcOperationResult> TempValidationResult;
@@ -80,20 +64,29 @@ public:
     if (FAILED(HR)) {
       // prefix the stderr output
       fprintf(stderr, "error: validation errors\r\n");
-      return UseResult(TempValidationResult);
+      return TempValidationResult->QueryInterface(Riid, ValResult);
     }
 
     // Validation succeeded. Return the original compile result.
-    return UseResult(CompileResult);
+    return CompileResult->QueryInterface(Riid, ValResult);
   }
 
 private:
+  std::vector<std::wstring> ArgStorage;
+  llvm::SmallVector<LPCWSTR, 16> NewArgs;
+  hlsl::options::DxcOpts Opts;
+  CComPtr<IDxcValidator> Validator;
+  UINT32 ValidatorVersionMajor = 0;
+  UINT32 ValidatorVersionMinor = 0;
+  bool NeedsValidation = false;
+  bool RootSignatureOnly = false;
+
   /// Add argument to ArgStorage to be referenced by NewArgs.
   void addArgument(const std::wstring &Arg) { ArgStorage.push_back(Arg); }
 
   HRESULT setValidator(IDxcValidator *NewValidator) {
+    DXASSERT(NewValidator, "Invalid Validator argument");
     Validator = NewValidator;
-    DXASSERT(Validator, "Invalid Validator argument");
 
     // 1.0 had no version interface.
     ValidatorVersionMajor = 1;
@@ -101,10 +94,10 @@ private:
     CComPtr<IDxcVersionInfo> ValidatorVersionInfo;
     if (SUCCEEDED(
             Validator->QueryInterface(IID_PPV_ARGS(&ValidatorVersionInfo)))) {
-      if (ValidatorVersionInfo->GetVersion(&ValidatorVersionMajor,
-                                           &ValidatorVersionMinor)) {
+      if (FAILED(ValidatorVersionInfo->GetVersion(&ValidatorVersionMajor,
+                                                  &ValidatorVersionMinor))) {
         DXASSERT(false, "Failed to get validator version");
-        return E_FAIL;
+        return ERROR_VERSION_PARSE_ERROR;
       }
     }
     return S_OK;
@@ -120,7 +113,7 @@ private:
     NeedsValidation = false;
 
     // Must not call twice.
-    IFRBOOL(NewArgs.empty(), E_FAIL);
+    DXASSERT(NewArgs.empty(), "Must not call twice");
 
     // Parse compiler arguments to Opts.
     std::string Errors;
@@ -133,14 +126,14 @@ private:
       return E_FAIL;
 
     // Determine important conditions from arguments.
-    bool ValidatorVersionNeeded = Opts.ValVerMajor == UINT_MAX;
-    bool ProduceDxModule = !Opts.AstDump && !Opts.OptDump &&
+    const bool ProduceDxModule = !Opts.AstDump && !Opts.OptDump &&
 #ifdef ENABLE_SPIRV_CODEGEN
-                           !Opts.GenSPIRV &&
+                                 !Opts.GenSPIRV &&
 #endif
-                           !Opts.DumpDependencies && !Opts.VerifyDiagnostics &&
-                           Opts.Preprocess.empty();
-    bool ProduceFullContainer = ProduceDxModule && !Opts.CodeGenHighLevel;
+                                 !Opts.DumpDependencies &&
+                                 !Opts.VerifyDiagnostics &&
+                                 Opts.Preprocess.empty();
+    const bool ProduceFullContainer = ProduceDxModule && !Opts.CodeGenHighLevel;
     NeedsValidation = ProduceFullContainer && !Opts.DisableValidation;
 
     // Check target profile.
@@ -154,7 +147,7 @@ private:
 
     // Add extra arguments as needed
     if (ProduceDxModule) {
-      if (ValidatorVersionNeeded) {
+      if (Opts.ValVerMajor == UINT_MAX) {
         // If not supplied, add validator version arguments.
         addArgument(L"-validator-version");
         std::wstring VerStr = std::to_wstring(ValidatorVersionMajor) + L"." +
@@ -168,15 +161,15 @@ private:
         addArgument(L"-Vd");
     }
 
-    if (!ArgStorage.size())
+    if (ArgStorage.empty())
       return S_OK;
 
     // Reference added arguments from storage.
     NewArgs.reserve(*ArgCount + ArgStorage.size());
 
     // Copied arguments refer to original strings.
-    for (UINT32 i = 0; i < *ArgCount; ++i)
-      NewArgs.push_back((*Arguments)[i]);
+    for (UINT32 I = 0; I < *ArgCount; ++I)
+      NewArgs.push_back((*Arguments)[I]);
 
     for (const auto &Arg : ArgStorage)
       NewArgs.push_back(Arg.c_str());
@@ -187,47 +180,12 @@ private:
   }
 };
 
-// ExternalValidationCompiler provides a DxCompiler that performs validation
-// using an external validator instead of an internal one.
-// It uses a wrapping approach, where it wraps the provided compiler object,
-// adds '-Vd' and '-validator-version' when appropriate to skip internal
-// validation and set the default validator version, then uses the provided
-// IDxcValidator interface to validate a successful compilation result, when
-// validation would normally be performed.
+// ExternalValidationCompiler wraps a DxCompiler to use an external validator
+// instead of the internal one. It disables internal validation by adding
+// '-Vd' and sets the default validator version with '-validator-version'.
+// After a successful compilation, it uses the provided IDxcValidator to
+// perform validation when it would normally be performed.
 class ExternalValidationCompiler : public IDxcCompiler2, public IDxcCompiler3 {
-private:
-  CComPtr<IDxcValidator> Validator;
-
-  // This wrapper wraps one particular compiler interface.
-  // When QueryInterface is called, we create a new wrapper
-  // for the requested interface, which wraps the result of QueryInterface
-  // on the compiler object. Compiler pointer is held as IUnknown and must
-  // be upcast to the appropriate interface on use.
-  IID CompilerIID;
-  CComPtr<IUnknown> Compiler;
-
-  // Cast current compiler interface pointer. Used from methods of the
-  // associated interface, assuming that the current compiler interface is
-  // correct for the method call.
-  // This will either be casting to the original interface retrieved by
-  // QueryInterface, or to one from which that interface derives.
-  template <typename T> T *castCompilerSafe() const {
-    // Compare stored IID with the IID of T
-    if (CompilerIID == __uuidof(T)) {
-      // Safe to cast because the underlying compiler object in
-      // Compiler originally implemented the interface T
-      return static_cast<T *>(Compiler.p);
-    }
-
-    return nullptr;
-  }
-
-  template <typename T> T *castCompilerUnsafe() {
-    if (T *Safe = castCompilerSafe<T>())
-      return Safe;
-    return static_cast<T *>(Compiler.p);
-  }
-
 public:
   ExternalValidationCompiler(IMalloc *Malloc, IDxcValidator *OtherValidator,
                              REFIID OtherCompilerIID, IUnknown *OtherCompiler)
@@ -264,7 +222,7 @@ public:
       return DoBasicQueryInterface<IDxcCompiler, IDxcCompiler2, IDxcCompiler3>(
           NewWrapper.p, Iid, ResultObject);
     } catch (...) {
-      return E_FAIL;
+      return ERROR_OUTOFMEMORY;
     }
   }
 
@@ -284,7 +242,7 @@ public:
     IFR(Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile));
 
     CComPtr<IDxcOperationResult> CompileResult;
-    IFR(castCompilerUnsafe<IDxcCompiler>()->Compile(
+    IFR(castUnsafe<IDxcCompiler>()->Compile(
         Source, SourceName, EntryPoint, TargetProfile, Arguments, ArgCount,
         Defines, DefineCount, IncludeHandler, &CompileResult));
     HRESULT CompileHR;
@@ -300,14 +258,14 @@ public:
              UINT32 ArgCount, const DxcDefine *Defines, UINT32 DefineCount,
              IDxcIncludeHandler *IncludeHandler,
              IDxcOperationResult **ResultObject) override {
-    return castCompilerUnsafe<IDxcCompiler>()->Preprocess(
+    return castUnsafe<IDxcCompiler>()->Preprocess(
         Source, SourceName, Arguments, ArgCount, Defines, DefineCount,
         IncludeHandler, ResultObject);
   }
 
   HRESULT STDMETHODCALLTYPE
   Disassemble(IDxcBlob *Source, IDxcBlobEncoding **Disassembly) override {
-    return castCompilerUnsafe<IDxcCompiler>()->Disassemble(Source, Disassembly);
+    return castUnsafe<IDxcCompiler>()->Disassemble(Source, Disassembly);
   }
 
   // IDxcCompiler2 implementation
@@ -327,7 +285,7 @@ public:
     IFR(Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile));
 
     CComPtr<IDxcOperationResult> CompileResult;
-    IFR(castCompilerUnsafe<IDxcCompiler2>()->CompileWithDebug(
+    IFR(castUnsafe<IDxcCompiler2>()->CompileWithDebug(
         Source, SourceName, EntryPoint, TargetProfile, Arguments, ArgCount,
         pDefines, DefineCount, IncludeHandler, &CompileResult, DebugBlobName,
         DebugBlob));
@@ -351,17 +309,49 @@ public:
     Helper.initialize(Validator, &Arguments, &ArgCount);
 
     CComPtr<IDxcResult> CompileResult;
-    IFR(castCompilerUnsafe<IDxcCompiler3>()->Compile(
-        Source, Arguments, ArgCount, IncludeHandler,
-        IID_PPV_ARGS(&CompileResult)));
+    IFR(castUnsafe<IDxcCompiler3>()->Compile(Source, Arguments, ArgCount,
+                                             IncludeHandler,
+                                             IID_PPV_ARGS(&CompileResult)));
 
     return Helper.doValidation(CompileResult, Riid, ResultObject);
   }
 
   HRESULT STDMETHODCALLTYPE Disassemble(const DxcBuffer *Object, REFIID Riid,
                                         LPVOID *ResultObject) override {
-    return castCompilerUnsafe<IDxcCompiler3>()->Disassemble(Object, Riid,
-                                                            ResultObject);
+    return castUnsafe<IDxcCompiler3>()->Disassemble(Object, Riid, ResultObject);
+  }
+
+private:
+  CComPtr<IDxcValidator> Validator;
+
+  // This wrapper wraps one particular compiler interface.
+  // When QueryInterface is called, we create a new wrapper
+  // for the requested interface, which wraps the result of QueryInterface
+  // on the compiler object. Compiler pointer is held as IUnknown and must
+  // be upcast to the appropriate interface on use.
+  IID CompilerIID;
+  CComPtr<IUnknown> Compiler;
+
+  // Cast current compiler interface pointer. Used from methods of the
+  // associated interface, assuming that the current compiler interface is
+  // correct for the method call.
+  // This will either be casting to the original interface retrieved by
+  // QueryInterface, or to one from which that interface derives.
+  template <typename T> T *castSafe() const {
+    // Compare stored IID with the IID of T
+    if (CompilerIID == __uuidof(T)) {
+      // Safe to cast because the underlying compiler object in
+      // Compiler originally implemented the interface T
+      return static_cast<T *>(Compiler.p);
+    }
+
+    return nullptr;
+  }
+
+  template <typename T> T *castUnsafe() {
+    if (T *Safe = castSafe<T>())
+      return Safe;
+    return static_cast<T *>(Compiler.p);
   }
 };
 } // namespace
