@@ -4247,24 +4247,26 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   SetEnvVarW(L"DXC_DXIL_DLL_PATH", L"");
 
   // empty initialization should succeed
-  VERIFY_SUCCEEDED(ExtSupportEmpty.Initialize());
+  std::string dllErrorString;
+  llvm::raw_string_ostream dllLogStream(dllErrorString);
+  VERIFY_SUCCEEDED(ExtSupportEmpty.initialize(dllLogStream));
 
-  VERIFY_IS_FALSE(ExtSupportEmpty.DxilDllFailedToLoad());
-  std::string EmptyPath = ExtSupportBogus.GetDxilDllPath();
+  VERIFY_IS_FALSE(ExtSupportEmpty.dxilDllFailedToLoad());
+  std::string EmptyPath = ExtSupportBogus.getDxilDllPath();
   VERIFY_ARE_EQUAL_STR(EmptyPath.c_str(), "");
 
   // 2. Test with a bogus path in the environment variable
   SetEnvVarW(L"DXC_DXIL_DLL_PATH", L"bogus");
 
   if (!ExtSupportBogus.IsEnabled()) {
-    VERIFY_FAILED(ExtSupportBogus.Initialize());
+    VERIFY_FAILED(ExtSupportBogus.initialize(dllLogStream));
   }
 
   // validate that m_dllExtSupport2 was able to capture the environment
   // variable's value, and that loading the bogus path was unsuccessful
-  std::string BogusPath = ExtSupportBogus.GetDxilDllPath();
+  std::string BogusPath = ExtSupportBogus.getDxilDllPath();
   VERIFY_ARE_EQUAL_STR(BogusPath.c_str(), "bogus");
-  VERIFY_IS_TRUE(ExtSupportBogus.DxilDllFailedToLoad());
+  VERIFY_IS_TRUE(ExtSupportBogus.dxilDllFailedToLoad());
 
   // 3. Test production of class IDs CLSID_DxcCompiler, CLSID_DxcLinker,
   // and CLSID_DxcValidator through DxcDllExtValidationSupport.
