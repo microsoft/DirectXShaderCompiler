@@ -12,6 +12,7 @@
 
 #include "HlslExecTestUtils.h"
 
+#include <array>
 #include <bitset>
 #include <iomanip>
 #include <optional>
@@ -1005,11 +1006,59 @@ BINARY_COMPARISON_OP(OpType::Equal, (A == B));
 BINARY_COMPARISON_OP(OpType::NotEqual, (A != B));
 
 //
-// Binary
+// Binary Logical
 //
 
 DEFAULT_OP_2(OpType::Logical_And, (A && B));
 DEFAULT_OP_2(OpType::Logical_Or, (A || B));
+
+// Ternary Logical
+//
+
+OP_3(OpType::Select, StrictValidation, (static_cast<bool>(A) ? B : C));
+
+//
+// Reduction
+//
+
+#define REDUCTION_OP(OP, STDFUNC)                                              \
+  template <typename T> struct Op<OP, T, 1> : StrictValidation {};             \
+  template <typename T> struct ExpectedBuilder<OP, T> {                        \
+    static std::vector<HLSLBool_t>                                             \
+    buildExpected(Op<OP, T, 1>, const InputSets<T> &Inputs, uint16_t) {        \
+      const bool Res = STDFUNC(Inputs[0].begin(), Inputs[0].end(),             \
+                               [](T A) { return A != static_cast<T>(0); });    \
+      return std::vector<HLSLBool_t>{Res};                                     \
+    }                                                                          \
+  };
+
+REDUCTION_OP(OpType::Any_Mixed, (std::any_of));
+REDUCTION_OP(OpType::Any_NoZero, (std::any_of));
+REDUCTION_OP(OpType::Any_Zero, (std::any_of));
+
+REDUCTION_OP(OpType::All_Mixed, (std::all_of));
+REDUCTION_OP(OpType::All_NoZero, (std::all_of));
+REDUCTION_OP(OpType::All_Zero, (std::all_of));
+
+#undef REDUCTION_OP
+
+template <typename T> struct Op<OpType::Dot, T, 2> : DefaultValidation<T> {};
+template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
+  static std::vector<T> buildExpected(Op<OpType::Dot, T, 2>,
+                                      const InputSets<T> &Inputs,
+                                      uint16_t ScalarInputFlags) {
+    UNREFERENCED_PARAMETER(ScalarInputFlags);
+    T DotProduct = T();
+
+    for (size_t I = 0; I < Inputs[0].size(); ++I) {
+      DotProduct += Inputs[0][I] * Inputs[1][I];
+    }
+
+    std::vector<T> Expected;
+    Expected.push_back(DotProduct);
+    return Expected;
+  }
+};
 
 //
 // dispatchTest
@@ -1757,12 +1806,57 @@ public:
   HLK_TEST(NotEqual, double, ScalarOp2);
   HLK_TEST(NotEqual, double, Vector);
 
-  // Binary
+  // Binary Logical
 
   HLK_TEST(Logical_And, HLSLBool_t, Vector);
   HLK_TEST(Logical_Or, HLSLBool_t, Vector);
   HLK_TEST(Logical_And, HLSLBool_t, ScalarOp2);
   HLK_TEST(Logical_Or, HLSLBool_t, ScalarOp2);
+
+  // Ternary Logical
+  HLK_TEST(Select, HLSLBool_t, Vector);
+  HLK_TEST(Select, int16_t, Vector);
+  HLK_TEST(Select, int32_t, Vector);
+  HLK_TEST(Select, int64_t, Vector);
+  HLK_TEST(Select, uint16_t, Vector);
+  HLK_TEST(Select, uint32_t, Vector);
+  HLK_TEST(Select, uint64_t, Vector);
+  HLK_TEST(Select, HLSLHalf_t, Vector);
+  HLK_TEST(Select, float, Vector);
+  HLK_TEST(Select, double, Vector);
+
+  // Reduction
+  HLK_TEST(Any_Mixed, HLSLBool_t, Vector);
+  HLK_TEST(Any_Zero, HLSLBool_t, Vector);
+  HLK_TEST(Any_NoZero, HLSLBool_t, Vector);
+  HLK_TEST(All_Mixed, HLSLBool_t, Vector);
+  HLK_TEST(All_Zero, HLSLBool_t, Vector);
+  HLK_TEST(All_NoZero, HLSLBool_t, Vector);
+
+  HLK_TEST(Any_Mixed, int16_t, Vector);
+  HLK_TEST(Any_Zero, int16_t, Vector);
+  HLK_TEST(Any_NoZero, int16_t, Vector);
+  HLK_TEST(All_Mixed, int16_t, Vector);
+  HLK_TEST(All_Zero, int16_t, Vector);
+  HLK_TEST(All_NoZero, int16_t, Vector);
+
+  HLK_TEST(Any_Mixed, int32_t, Vector);
+  HLK_TEST(Any_Zero, int32_t, Vector);
+  HLK_TEST(Any_NoZero, int32_t, Vector);
+  HLK_TEST(All_Mixed, int32_t, Vector);
+  HLK_TEST(All_Zero, int32_t, Vector);
+  HLK_TEST(All_NoZero, int32_t, Vector);
+
+  HLK_TEST(Any_Mixed, int64_t, Vector);
+  HLK_TEST(Any_Zero, int64_t, Vector);
+  HLK_TEST(Any_NoZero, int64_t, Vector);
+  HLK_TEST(All_Mixed, int64_t, Vector);
+  HLK_TEST(All_Zero, int64_t, Vector);
+  HLK_TEST(All_NoZero, int64_t, Vector);
+
+  HLK_TEST(Dot, HLSLHalf_t, Vector);
+
+  HLK_TEST(Dot, float, Vector);
 
 private:
   bool Initialized = false;

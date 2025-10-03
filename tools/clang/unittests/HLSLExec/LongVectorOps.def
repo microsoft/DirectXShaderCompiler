@@ -13,8 +13,11 @@ INPUT_SET(RangeOne)
 INPUT_SET(RangeHalfPi)
 INPUT_SET(SplitDouble)
 INPUT_SET(BitShiftRhs)
+INPUT_SET(Zero)
+INPUT_SET(NoZero)
 INPUT_SET(Positive)
 INPUT_SET(Bitwise)
+INPUT_SET(SelectCond)
 
 #undef INPUT_SET
 
@@ -126,5 +129,26 @@ OP_DEFAULT(BinaryComparison, NotEqual, 2, "", "!=")
 
 OP_DEFAULT(Binary, Logical_And, 2, "and", ",")
 OP_DEFAULT(Binary, Logical_Or, 2, "or", ",")
+OP(Ternary, Select, 3, "TestSelect", "", " -DFUNC_TEST_SELECT=1", SelectCond, Default2, Default3)
+
+// For the 'any' and 'all' reduction operation, we test with three different
+// input data sets to cover the different cases of the operation. 'Any' returns
+// true if any of the inputs are non-zero, false otherwise. This is in
+// contrast to other ops where we can get coverage simply with different values
+// across the input set.
+OP(Reduction, Any_Mixed, 1, "any", "", " -DIS_REDUCTION_OP=1", Default1, 
+   Default2, Default3)
+OP(Reduction, Any_Zero, 1, "any", "", " -DIS_REDUCTION_OP=1", Zero,
+   Default2, Default3)
+OP(Reduction, Any_NoZero, 1, "any", "", " -DIS_REDUCTION_OP=1", NoZero,
+   Default2, Default3)
+OP(Reduction, All_Mixed, 1, "all", "", " -DIS_REDUCTION_OP=1", Default1, 
+   Default2, Default3)
+OP(Reduction, All_Zero, 1, "all", "", " -DIS_REDUCTION_OP=1", Zero,
+   Default2, Default3)
+OP(Reduction, All_NoZero, 1, "all", "", " -DIS_REDUCTION_OP=1", NoZero,
+   Default2, Default3)
+
+OP_DEFAULT(Reduction, Dot, 2, "dot", ",")
 
 #undef OP
