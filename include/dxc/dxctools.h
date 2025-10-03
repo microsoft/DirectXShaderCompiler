@@ -90,8 +90,8 @@ enum D3D12_HLSL_REFLECTION_FEATURE {
   // Include user types (struct, enum, typedef, etc.)
   D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES = 1 << 3,
 
-  // Variables, structs, functions defined in functions, scopes & structs
-  //TODO: D3D12_HLSL_REFLECTION_FEATURE_SCOPES = 1 << 4,
+  // Variables, structs, functions defined in functions
+  D3D12_HLSL_REFLECTION_FEATURE_SCOPES = 1 << 4,
 
   // Symbol info (stripping this will remove names and file location info)
   D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO = 1 << 16,

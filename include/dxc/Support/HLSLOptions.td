@@ -577,7 +577,7 @@ def reflect_namespaces : Flag<["-", "/"], "reflect-namespaces">, Group<hlslrefle
 def reflect_user_types : Flag<["-", "/"], "reflect-user-types">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
   HelpText<"Reflect HLSL user types (typedef, using, struct, enum).">;
 def reflect_scopes : Flag<["-", "/"], "reflect-scopes">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
-  HelpText<"Reflect HLSL scopes (variables and structs defined in functions, structs and scopes).">;
+  HelpText<"Reflect HLSL scopes (variables and structs defined in functions).">;
 def reflect_disable_symbols : Flag<["-", "/"], "reflect-disable-symbols">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
   HelpText<"Reflect HLSL disable symbols.">;
 

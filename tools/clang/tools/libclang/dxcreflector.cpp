@@ -1533,8 +1533,8 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
   if (opts.ReflOpt.UserTypes)
     reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES;
 
-  //TODO: if (opts.ReflOpt.Scopes)
-  //  reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SCOPES;
+  if (opts.ReflOpt.Scopes)
+    reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SCOPES;
 
   if (!reflectMask)
     reflectMask = D3D12_HLSL_REFLECTION_FEATURE_ALL;

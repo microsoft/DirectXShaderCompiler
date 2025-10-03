@@ -1280,6 +1280,9 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
     if (Loc.isInvalid() || SM.isInSystemHeader(Loc))    //TODO: We might want to include these for a more complete picture.
       continue;
 
+    if (isa<ParmVarDecl>(it))    //Skip parameters, already handled explicitly
+      continue;
+
     if (HLSLBufferDecl *CBuffer = dyn_cast<HLSLBufferDecl>(it)) {
 
       if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_BASICS))
@@ -1345,12 +1348,11 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
       Refl.Functions.push_back(std::move(func));
 
-      //TODO: Scopes
-      /*if (hasDefinition && (Features & D3D12_HLSL_REFLECTION_FEATURE_SCOPES)) {
+      if (hasDefinition && (Features & D3D12_HLSL_REFLECTION_FEATURE_SCOPES)) {
         RecursiveReflectHLSL(*Definition, ASTCtx, Diags, SM, Refl,
                              AutoBindingSpace, Depth + 1, Features,
-                             nodeId, DefaultRowMaj);
-      }*/
+                             nodeId, DefaultRowMaj, FwdDecls);
+      }
     }
 
     else if (TypedefDecl *Typedef = dyn_cast<TypedefDecl>(it)) {
@@ -1480,7 +1482,9 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
         // Handle $Globals
 
-        if (varDecl && Depth == 0 && !varDecl->hasAttr<HLSLGroupSharedAttr>()) {
+        if (varDecl &&
+            (Depth == 0 || Features & D3D12_HLSL_REFLECTION_FEATURE_SCOPES) &&
+            !varDecl->hasAttr<HLSLGroupSharedAttr>()) {
 
           const std::string &name = ValDecl->getName();
 
