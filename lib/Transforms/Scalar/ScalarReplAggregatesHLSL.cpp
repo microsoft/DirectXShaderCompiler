@@ -6530,28 +6530,9 @@ struct GVDebugInfoPatchCache {
       }
     }
 
-    for (BasicBlock &BB : *F) {
-      for (Instruction &I : BB) {
+    for (BasicBlock &BB : *F)
+      for (Instruction &I : BB)
         CollectSubprograms(I.getDebugLoc(), Ret);
-#if 0
-        DebugLoc DL, FnDL;
-        DISubprogram *SubP = nullptr;
-        DL = I.getDebugLoc();
-        auto Scope = dyn_cast<DIScope>(DL.getScope());
-
-        FnDL = DL ? DL.getFnDebugLoc() : DebugLoc();
-        SubP = FnDL ? dyn_cast<DISubprogram>(FnDL.getScope()) : nullptr;
-        if (SubP)
-          Ret.insert(SubP);
-        //if ((DL = I.getDebugLoc()) &&
-        //  (FnDL = DL.getFnDebugLoc()) &&
-        //  (SubP = dyn_cast<DISubprogram>(FnDL.getScope())))
-        //{
-        //  Ret.insert(SubP);
-        //}
-#endif
-      }
-    }
     return Ret;
   }
 };
