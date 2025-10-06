@@ -6502,10 +6502,16 @@ namespace {
 struct GVDebugInfoPatchCache {
   std::unordered_map<Function *, SetVector<DISubprogram *>>
       SubprogramsForFunction;
+  std::unordered_set<DILocation *> Seen;
   DITypeIdentifierMap EmptyMap;
 
   void CollectSubprograms(DILocation *Loc, SetVector<DISubprogram *> &Set) {
     while (Loc) {
+      // This is potentially very expensive. Avoid repeatedly looking for
+      // DISubprogram's
+      if (Seen.count(Loc))
+        return;
+      Seen.insert(Loc);
       auto *Scope = dyn_cast<DIScope>(Loc->getScope());
       while (Scope) {
         if (auto SubP = dyn_cast<DISubprogram>(Scope)) {
