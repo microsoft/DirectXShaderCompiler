@@ -563,6 +563,17 @@ public:
   // Do not remove the following line - it is used by TranslateExecutionTest.py
   // MARKER: ExecutionTest/DxilConf Shared Implementation Start
 
+  BEGIN_TEST_METHOD(ShaderModel69RequiredFeatures)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies that the required features for Shader Model 6.9 are supported")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"cfdb377e-7e3e-4c1c-8660-808528b5cf8e")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.9 - Required Features")
+  // TODO: set Kits.Specification property - see #7608.
+  END_TEST_METHOD()
+
   // We define D3D_SHADER_MODEL enum values as we don't generally have access to
   // the latest D3D headers when adding tests for a new SM being added.
   using D3D_SHADER_MODEL = ExecTestUtils::D3D_SHADER_MODEL;
@@ -12626,6 +12637,31 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
   return ShaderInitFn;
 }
 
+TEST_F(ExecutionTest, ShaderModel69RequiredFeatures) {
+  // See
+  // https://github.com/microsoft/hlsl-specs/blob/main/proposals/0044-sm69-required-features.md
+
+  // For devices that support SM 6.9, they must also report true for:
+  //
+  // - D3D12_FEATURE_DATA_D3D12_OPTIONS4.Native16BitShaderOpsSupported
+  // - D3D12_FEATURE_DATA_D3D12_OPTIONS1.WaveOps
+  // - D3D12_FEATURE_DATA_D3D12_OPTIONS1.Int64ShaderOps
+  //
+
+  CComPtr<ID3D12Device> Device;
+  bool ShaderModel69Supported =
+      createDevice(&Device, D3D_SHADER_MODEL_6_9, false);
+  if (!ShaderModel69Supported) {
+    WEX::Logging::Log::Comment(
+        "Device does not support SM 6.9. Can't run these tests.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  }
+
+  VERIFY_IS_TRUE(DoesDeviceSupportNative16bitOps(Device));
+  VERIFY_IS_TRUE(DoesDeviceSupportWaveOps(Device));
+  VERIFY_IS_TRUE(DoesDeviceSupportInt64(Device));
+}
+
 struct FloatInputUintOutput {
   float input;
   unsigned int output;
@@ -12698,7 +12734,7 @@ static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
 // It's exclusive with the use of the DLL as a TAEF target.
 extern "C" {
 __declspec(dllexport) HRESULT WINAPI
-    InitializeOpTests(void *pStrCtx, st::OutputStringFn pOutputStrFn) {
+InitializeOpTests(void *pStrCtx, st::OutputStringFn pOutputStrFn) {
   HRESULT hr = ExecutionTest::EnableExperimentalShaderModels();
   if (FAILED(hr)) {
     pOutputStrFn(pStrCtx, L"Unable to enable experimental shader models.\r\n.");
@@ -12707,9 +12743,9 @@ __declspec(dllexport) HRESULT WINAPI
 }
 
 __declspec(dllexport) HRESULT WINAPI
-    RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
-              ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
-              ID3D12Resource *pRenderTarget, char **pReadBackDump) {
+RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
+          ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
+          ID3D12Resource *pRenderTarget, char **pReadBackDump) {
 
   HRESULT hr;
   if (pReadBackDump)
