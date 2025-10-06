@@ -186,39 +186,6 @@ private:
 // After a successful compilation, it uses the provided IDxcValidator to
 // perform validation when it would normally be performed.
 class ExternalValidationCompiler : public IDxcCompiler2, public IDxcCompiler3 {
-private:
-  CComPtr<IDxcValidator> Validator;
-
-  // This wrapper wraps one particular compiler interface.
-  // When QueryInterface is called, we create a new wrapper
-  // for the requested interface, which wraps the result of QueryInterface
-  // on the compiler object. Compiler pointer is held as IUnknown and must
-  // be upcast to the appropriate interface on use.
-  IID CompilerIID;
-  CComPtr<IUnknown> Compiler;
-
-  // Cast current compiler interface pointer. Used from methods of the
-  // associated interface, assuming that the current compiler interface is
-  // correct for the method call.
-  // This will either be casting to the original interface retrieved by
-  // QueryInterface, or to one from which that interface derives.
-  template <typename T> T *castSafe() const {
-    // Compare stored IID with the IID of T
-    if (CompilerIID == __uuidof(T)) {
-      // Safe to cast because the underlying compiler object in
-      // Compiler originally implemented the interface T
-      return static_cast<T *>(Compiler.p);
-    }
-
-    return nullptr;
-  }
-
-  template <typename T> T *castUnsafe() {
-    if (T *Safe = castSafe<T>())
-      return Safe;
-    return static_cast<T *>(Compiler.p);
-  }
-
 public:
   ExternalValidationCompiler(IMalloc *Malloc, IDxcValidator *OtherValidator,
                              REFIID OtherCompilerIID, IUnknown *OtherCompiler)
@@ -226,7 +193,6 @@ public:
         Compiler(OtherCompiler), m_pMalloc(Malloc) {}
 
   // IUnknown implementation
-  DXC_MICROCOM_TM_REF_FIELDS()
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(ExternalValidationCompiler)
 
@@ -353,6 +319,41 @@ public:
                                         LPVOID *ResultObject) override {
     return castUnsafe<IDxcCompiler3>()->Disassemble(Object, Riid, ResultObject);
   }
+
+  private:
+    CComPtr<IDxcValidator> Validator;
+
+    // This wrapper wraps one particular compiler interface.
+    // When QueryInterface is called, we create a new wrapper
+    // for the requested interface, which wraps the result of QueryInterface
+    // on the compiler object. Compiler pointer is held as IUnknown and must
+    // be upcast to the appropriate interface on use.
+    IID CompilerIID;
+    CComPtr<IUnknown> Compiler;
+    DXC_MICROCOM_TM_REF_FIELDS()
+
+    // Cast current compiler interface pointer. Used from methods of the
+    // associated interface, assuming that the current compiler interface is
+    // correct for the method call.
+    // This will either be casting to the original interface retrieved by
+    // QueryInterface, or to one from which that interface derives.
+    template <typename T> T *castSafe() const {
+      // Compare stored IID with the IID of T
+      if (CompilerIID == __uuidof(T)) {
+        // Safe to cast because the underlying compiler object in
+        // Compiler originally implemented the interface T
+        return static_cast<T *>(Compiler.p);
+      }
+
+      return nullptr;
+    }
+
+    template <typename T> T *castUnsafe() {
+      if (T *Safe = castSafe<T>())
+        return Safe;
+      return static_cast<T *>(Compiler.p);
+    }
+
 };
 } // namespace
 
