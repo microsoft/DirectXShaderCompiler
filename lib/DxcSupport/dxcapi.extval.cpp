@@ -2,7 +2,7 @@
 #include "dxc/WinAdapter.h"
 #endif
 
-#include "dxc/Support/Global.h" // for hresult handling with DXC_FAILED
+#include "dxc/Support/Global.h" // for hresult handling
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/WinIncludes.h"
 #include <filesystem> // C++17 and later
@@ -46,7 +46,8 @@ public:
     CComPtr<IDxcBlob> CompiledBlob;
     IFR(CompileResult->GetResult(&CompiledBlob));
 
-    // If no compiled blob; just return the compile result.
+    // If no compiled blob; just place the compile result
+    // into ValResult and return.
     if (!CompiledBlob)
       return CompileResult->QueryInterface(Riid, ValResult);
 
@@ -439,7 +440,7 @@ DxcDllExtValidationLoader::initialize(llvm::raw_string_ostream &log) {
   HRESULT Result =
       DxCompilerSupport.InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
   // if dxcompiler.dll fails to load, return the failed HRESULT
-  if (DXC_FAILED(Result)) {
+  if (FAILED(Result)) {
     log << "dxcompiler.dll failed to load";
     return Result;
   }
@@ -463,7 +464,7 @@ DxcDllExtValidationLoader::initialize(llvm::raw_string_ostream &log) {
   log << "Loading external dxil.dll from " << DxilDllPath;
   Result = DxilExtValSupport.InitializeForDll(DxilDllPath.c_str(),
                                               "DxcCreateInstance");
-  if (DXC_FAILED(Result)) {
+  if (FAILED(Result)) {
     log << "dxil.dll failed to load";
     return Result;
   }
