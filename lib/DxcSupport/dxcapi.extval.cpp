@@ -320,40 +320,39 @@ public:
     return castUnsafe<IDxcCompiler3>()->Disassemble(Object, Riid, ResultObject);
   }
 
-  private:
-    CComPtr<IDxcValidator> Validator;
+private:
+  CComPtr<IDxcValidator> Validator;
 
-    // This wrapper wraps one particular compiler interface.
-    // When QueryInterface is called, we create a new wrapper
-    // for the requested interface, which wraps the result of QueryInterface
-    // on the compiler object. Compiler pointer is held as IUnknown and must
-    // be upcast to the appropriate interface on use.
-    IID CompilerIID;
-    CComPtr<IUnknown> Compiler;
-    DXC_MICROCOM_TM_REF_FIELDS()
+  // This wrapper wraps one particular compiler interface.
+  // When QueryInterface is called, we create a new wrapper
+  // for the requested interface, which wraps the result of QueryInterface
+  // on the compiler object. Compiler pointer is held as IUnknown and must
+  // be upcast to the appropriate interface on use.
+  IID CompilerIID;
+  CComPtr<IUnknown> Compiler;
+  DXC_MICROCOM_TM_REF_FIELDS()
 
-    // Cast current compiler interface pointer. Used from methods of the
-    // associated interface, assuming that the current compiler interface is
-    // correct for the method call.
-    // This will either be casting to the original interface retrieved by
-    // QueryInterface, or to one from which that interface derives.
-    template <typename T> T *castSafe() const {
-      // Compare stored IID with the IID of T
-      if (CompilerIID == __uuidof(T)) {
-        // Safe to cast because the underlying compiler object in
-        // Compiler originally implemented the interface T
-        return static_cast<T *>(Compiler.p);
-      }
-
-      return nullptr;
-    }
-
-    template <typename T> T *castUnsafe() {
-      if (T *Safe = castSafe<T>())
-        return Safe;
+  // Cast current compiler interface pointer. Used from methods of the
+  // associated interface, assuming that the current compiler interface is
+  // correct for the method call.
+  // This will either be casting to the original interface retrieved by
+  // QueryInterface, or to one from which that interface derives.
+  template <typename T> T *castSafe() const {
+    // Compare stored IID with the IID of T
+    if (CompilerIID == __uuidof(T)) {
+      // Safe to cast because the underlying compiler object in
+      // Compiler originally implemented the interface T
       return static_cast<T *>(Compiler.p);
     }
 
+    return nullptr;
+  }
+
+  template <typename T> T *castUnsafe() {
+    if (T *Safe = castSafe<T>())
+      return Safe;
+    return static_cast<T *>(Compiler.p);
+  }
 };
 } // namespace
 
