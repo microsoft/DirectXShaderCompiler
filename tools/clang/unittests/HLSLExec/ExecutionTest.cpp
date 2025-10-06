@@ -571,7 +571,9 @@ public:
   TEST_METHOD_PROPERTY(
       L"Kits.TestName",
       L"D3D12 - DXIL Core Test - Shader Model 6.9 - Required Features")
-  // TODO: set Kits.Specification property - see #7608.
+  TEST_CLASS_PROPERTY(
+      "Kits.Specification",
+      "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")
   END_TEST_METHOD()
 
   // We define D3D_SHADER_MODEL enum values as we don't generally have access to
