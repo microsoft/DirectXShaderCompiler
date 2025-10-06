@@ -6500,7 +6500,8 @@ ModulePass *llvm::createSROA_Parameter_HLSL() {
 namespace {
 
 struct GVDebugInfoPatchCache {
-  std::unordered_map<Function *, SetVector<DISubprogram *> > SubprogramsForFunction;
+  std::unordered_map<Function *, SetVector<DISubprogram *>>
+      SubprogramsForFunction;
   DITypeIdentifierMap EmptyMap;
 
   void CollectSubprograms(DILocation *Loc, SetVector<DISubprogram *> &Set) {
@@ -6517,7 +6518,8 @@ struct GVDebugInfoPatchCache {
     }
   }
 
-  SetVector<DISubprogram *> &GetSubprogramsForFunction(Function *F, DebugInfoFinder &DbgFinder) {
+  SetVector<DISubprogram *> &
+  GetSubprogramsForFunction(Function *F, DebugInfoFinder &DbgFinder) {
     auto It = SubprogramsForFunction.find(F);
     if (It != SubprogramsForFunction.end())
       return It->second;
@@ -6727,7 +6729,8 @@ FindGlobalVariableFragment(const DebugInfoFinder &DbgFinder,
 // Create a fake local variable for the GlobalVariable GV that has just been
 // lowered to local Alloca.
 //
-static void PatchDebugInfo(GVDebugInfoPatchCache &Cache, DebugInfoFinder &DbgFinder, Function *F,
+static void PatchDebugInfo(GVDebugInfoPatchCache &Cache,
+                           DebugInfoFinder &DbgFinder, Function *F,
                            GlobalVariable *GV, AllocaInst *AI) {
   DIGlobalVariable *DGV = dxilutil::FindGlobalVariableDebugInfo(GV, DbgFinder);
   if (!DGV)
@@ -6740,7 +6743,7 @@ static void PatchDebugInfo(GVDebugInfoPatchCache &Cache, DebugInfoFinder &DbgFin
   bool IsFragment = false;
   unsigned OffsetInBits = 0, SizeInBits = 0;
   if (DIGlobalVariable *UnsplitDGV = FindGlobalVariableFragment(
-    DbgFinder, DGV, &OffsetInBits, &SizeInBits)) {
+          DbgFinder, DGV, &OffsetInBits, &SizeInBits)) {
     DGV = UnsplitDGV;
     IsFragment = true;
   }
@@ -6754,18 +6757,18 @@ static void PatchDebugInfo(GVDebugInfoPatchCache &Cache, DebugInfoFinder &DbgFin
   DITypeIdentifierMap EmptyMap;
   DIType *Ty = DGV->getType().resolve(EmptyMap);
   DXASSERT(Ty->getTag() != dwarf::DW_TAG_member,
-    "Member type is not allowed for variables.");
-
+           "Member type is not allowed for variables.");
 
   DIBuilder DIB(*GV->getParent());
 
-  SetVector<DISubprogram *> &Subprograms = Cache.GetSubprogramsForFunction(F, DbgFinder);
+  SetVector<DISubprogram *> &Subprograms =
+      Cache.GetSubprogramsForFunction(F, DbgFinder);
   for (DISubprogram *Subprogram : Subprograms) {
     DIScope *Scope = Subprogram;
     DebugLoc Loc = DebugLoc::get(DGV->getLine(), 0, Scope);
 
     DILocalVariable *ConvertedLocalVar = DIB.createLocalVariable(
-      Tag, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
+        Tag, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
 
     DIExpression *Expr = nullptr;
     if (IsFragment) {
