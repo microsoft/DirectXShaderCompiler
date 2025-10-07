@@ -3717,15 +3717,224 @@ void MSMain(uint GID : SV_GroupIndex,
     </Shader>
   </ShaderOp>
 
+  <ShaderOp Name="LongVector_RootDescriptor_UAV_Op" CS="CS">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
+     UAV(u0), UAV(u1)</RootSignature>
+    <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
+    <Resource Name="InputVector1" Dimension="BUFFER" Width="0" Init="ByName"
+    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
+    TransitionTo="UNORDERED_ACCESS">
+    </Resource>
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
+    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
+    TransitionTo="UNORDERED_ACCESS">
+    </Resource>
+
+    <RootValues>
+      <RootValue Index="0" ResName="InputVector1" />
+      <RootValue Index="1" ResName="OutputVector" />
+    </RootValues>
+
+    <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
+      <![CDATA[
+        RWByteAddressBuffer InputVector : register(u0);
+        RWByteAddressBuffer OutputVector : register(u1);
+
+        [numthreads(1,1,1)]
+        void main(uint GI : SV_GroupIndex) {
+          vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+          OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="LongVector_RootDescriptor_SRV_Op" CS="CS">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
+     SRV(t0), UAV(u1)</RootSignature>
+    <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
+    <Resource Name="InputVector1" Dimension="BUFFER" Width="0" Init="ByName"/>
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
+    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
+    TransitionTo="UNORDERED_ACCESS">
+    </Resource>
+
+    <RootValues>
+      <RootValue Index="0" ResName="InputVector1" />
+      <RootValue Index="1" ResName="OutputVector" />
+    </RootValues>
+
+    <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
+      <![CDATA[
+        ByteAddressBuffer InputVector : register(t0);
+        RWByteAddressBuffer OutputVector : register(u1);
+
+        [numthreads(1,1,1)]
+        void main(uint GI : SV_GroupIndex) {
+          vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+          OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="LongVector_DescriptorTable_UAV_Op" CS="CS">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
+     DescriptorTable(UAV(u0, numDescriptors=2))</RootSignature>
+    <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
+    <Resource Name="InputVector1" Dimension="BUFFER" Width="0" Init="ByName"
+    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
+    TransitionTo="UNORDERED_ACCESS">
+    </Resource>
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
+    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
+    TransitionTo="UNORDERED_ACCESS">
+    </Resource>
+
+    <!-- Note: NumElements is set dynamically (via c++ test code) based on the
+    input vector size and element type -->
+    <RootValues>
+      <RootValue HeapName="DescriptorTable" Index="0" />
+    </RootValues>
+    <DescriptorHeap Name="DescriptorTable" Type="CBV_SRV_UAV">
+      <Descriptor Name="InputVector1" Kind="UAV" ResName="InputVector1" NumElements="0" Format="R32_Typeless" Flags="RAW"/>
+      <Descriptor Name="OutputVector" Kind="UAV" ResName="OutputVector"
+      NumElements="0" Format="R32_Typeless" Flags="RAW"/>
+    </DescriptorHeap>
+
+    <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
+      <![CDATA[
+        RWByteAddressBuffer InputVector : register(u0);
+        RWByteAddressBuffer OutputVector : register(u1);
+
+        [numthreads(1,1,1)]
+        void main(uint GI : SV_GroupIndex) {
+          vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+          OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="LongVector_DescriptorTable_SRV_Op" CS="CS">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
+     DescriptorTable(SRV(t0, numDescriptors=1), UAV(u0, numDescriptors=1))</RootSignature>
+    <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
+    <Resource Name="InputVector1" Dimension="BUFFER" Width="0" Init="ByName"/>
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
+    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
+    TransitionTo="UNORDERED_ACCESS">
+    </Resource>
+
+    <!-- Note: NumElements is set dynamically (via c++ test code) based on the
+    input vector size and element type -->
+    <RootValues>
+      <RootValue HeapName="DescriptorTable" Index="0" />
+    </RootValues>
+    <DescriptorHeap Name="DescriptorTable" Type="CBV_SRV_UAV">
+      <Descriptor Name="InputVector1" Kind="SRV" ResName="InputVector1" NumElements="0" Format="R32_Typeless" Flags="RAW"/>
+      <Descriptor Name="OutputVector" Kind="UAV" ResName="OutputVector"
+      NumElements="0" Format="R32_Typeless" Flags="RAW"/>
+    </DescriptorHeap>
+
+    <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
+      <![CDATA[
+        ByteAddressBuffer InputVector : register(t0);
+        RWByteAddressBuffer OutputVector : register(u0);
+
+        [numthreads(1,1,1)]
+        void main(uint GI : SV_GroupIndex) {
+          vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+          OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="LongVector_ResourceDescriptorHeap_SRV_Op" CS="CS">
+    <RootSignature>RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED)</RootSignature>
+
+    <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
+    <Resource Name="InputVector1" Dimension="BUFFER" Width="0"
+    InitialResourceState="COPY_DEST" Init="ByName">
+    </Resource>
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="0"
+    InitialResourceState="COPY_DEST" Init="ByName" ReadBack="true"
+    Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS">
+    </Resource>
+
+    <!-- Note: NumElements is set dynamically (via c++ test code) based on the
+    input vector size and element type -->
+    <DescriptorHeap Name="ResourceDescriptorHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name="InputVector1" Kind="SRV" Flags='RAW' NumElements="0"
+      Format="R32_Typeless"/>
+      <Descriptor Name="OutputVector" Kind="UAV" Flags='RAW' NumElements="0"
+      Format="R32_Typeless"/>
+    </DescriptorHeap>
+
+    <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
+      <![CDATA[
+        [numthreads(1,1,1)]
+        void main(uint GI : SV_GroupIndex) {
+          ByteAddressBuffer InputVector = ResourceDescriptorHeap[0];
+          RWByteAddressBuffer OutputVector = ResourceDescriptorHeap[1];
+
+          vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+
+          OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="LongVector_ResourceDescriptorHeap_UAV_Op" CS="CS">
+    <RootSignature>RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED)</RootSignature>
+
+    <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
+    <Resource Name="InputVector1" Dimension="BUFFER" Width="0"
+    InitialResourceState="COPY_DEST" Init="ByName" ReadBack="true"
+    Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS">
+    </Resource>
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="0"
+    InitialResourceState="COPY_DEST" Init="ByName" ReadBack="true"
+    Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS">
+    </Resource>
+
+    <!-- Note: NumElements is set dynamically (via c++ test code) based on the
+    input vector size and element type -->
+    <DescriptorHeap Name="ResourceDescriptorHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name="InputVector1" Kind="UAV" Flags='RAW' NumElements="0"
+      Format="R32_Typeless"/>
+      <Descriptor Name="OutputVector" Kind="UAV" Flags='RAW' NumElements="0"
+      Format="R32_Typeless"/>
+    </DescriptorHeap>
+
+    <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
+      <![CDATA[
+        [numthreads(1,1,1)]
+        void main(uint GI : SV_GroupIndex) {
+          RWByteAddressBuffer InputVector = ResourceDescriptorHeap[0];
+          RWByteAddressBuffer OutputVector = ResourceDescriptorHeap[1];
+
+          vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+
+          OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
   <ShaderOp Name="LongVectorOp" CS="CS">
-    <RootSignature>RootFlags(0), UAV(u0), UAV(u1), UAV(u2),
-    UAV(u3)</RootSignature>
+    <RootSignature>RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED), UAV(u0),
+    UAV(u1), UAV(u2), UAV(u3)</RootSignature>
     <!-- Width="8192" BYTES to account for largest type (64 bits) and vector
     size of 1024 elements (the max long vector size)-->
     <Resource Name="InputVector1" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <Resource Name="InputVector2" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <Resource Name="InputVector3" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
-    <Resource Name="OutputVector" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="8192"
+    Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+    TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <RootValues>
       <RootValue Index="0" ResName="InputVector1" />
       <RootValue Index="1" ResName="InputVector2" />

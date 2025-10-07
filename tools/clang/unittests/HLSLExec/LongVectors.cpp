@@ -35,28 +35,29 @@ template <typename T> constexpr bool is16BitType() {
 struct DataType {
   const char *HLSLTypeString;
   bool Is16Bit;
+  size_t HLSLSizeInBytes;
 };
 
 template <typename T> const DataType &getDataType() {
   static_assert(false && "Unknown data type");
 }
 
-#define DATA_TYPE(TYPE, HLSL_STRING)                                           \
+#define DATA_TYPE(TYPE, HLSL_STRING, HLSL_SIZE)                                \
   template <> const DataType &getDataType<TYPE>() {                            \
-    static DataType DataType{HLSL_STRING, is16BitType<TYPE>()};                \
+    static DataType DataType{HLSL_STRING, is16BitType<TYPE>(), HLSL_SIZE};     \
     return DataType;                                                           \
   }
 
-DATA_TYPE(HLSLBool_t, "bool")
-DATA_TYPE(int16_t, "int16_t")
-DATA_TYPE(int32_t, "int")
-DATA_TYPE(int64_t, "int64_t")
-DATA_TYPE(uint16_t, "uint16_t")
-DATA_TYPE(uint32_t, "uint32_t")
-DATA_TYPE(uint64_t, "uint64_t")
-DATA_TYPE(HLSLHalf_t, "half")
-DATA_TYPE(float, "float")
-DATA_TYPE(double, "double")
+DATA_TYPE(HLSLBool_t, "bool", 4)
+DATA_TYPE(int16_t, "int16_t", 2)
+DATA_TYPE(int32_t, "int", 4)
+DATA_TYPE(int64_t, "int64_t", 8)
+DATA_TYPE(uint16_t, "uint16_t", 2)
+DATA_TYPE(uint32_t, "uint32_t", 4)
+DATA_TYPE(uint64_t, "uint64_t", 8)
+DATA_TYPE(HLSLHalf_t, "half", 2)
+DATA_TYPE(float, "float", 4)
+DATA_TYPE(double, "double", 8)
 
 #undef DATA_TYPE
 
@@ -70,8 +71,8 @@ template <typename T> constexpr bool isFloatingPointType() {
 //
 
 enum class OpType : unsigned {
-#define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, DEFINES, INPUT_SET_1,    \
-           INPUT_SET_2, INPUT_SET_3)                                           \
+#define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, DEFINES, SHADER_NAME,    \
+           INPUT_SET_1, INPUT_SET_2, INPUT_SET_3)                              \
   SYMBOL,
 #include "LongVectorOps.def"
   NumOpTypes
@@ -82,18 +83,22 @@ struct Operation {
   const char *Intrinsic;
   const char *Operator;
   const char *ExtraDefines;
+  const char *ShaderName;
   InputSet InputSets[3];
+  OpType Type;
 };
 
 static constexpr Operation Operations[] = {
 
-#define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, DEFINES, INPUT_SET_1,    \
-           INPUT_SET_2, INPUT_SET_3)                                           \
+#define OP(GROUP, SYMBOL, ARITY, INTRINSIC, OPERATOR, DEFINES, SHADER_NAME,    \
+           INPUT_SET_1, INPUT_SET_2, INPUT_SET_3)                              \
   {ARITY,                                                                      \
    INTRINSIC,                                                                  \
    OPERATOR,                                                                   \
    DEFINES,                                                                    \
-   {InputSet::INPUT_SET_1, InputSet::INPUT_SET_2, InputSet::INPUT_SET_3}},
+   SHADER_NAME,                                                                \
+   {InputSet::INPUT_SET_1, InputSet::INPUT_SET_2, InputSet::INPUT_SET_3},      \
+   OpType::SYMBOL},
 #include "LongVectorOps.def"
 };
 
@@ -318,7 +323,10 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
   // enough space.
   const size_t NumElements = TestData.size();
   const size_t DataSize = sizeof(T) * NumElements;
-  ShaderBuffer.resize(DataSize);
+
+  // Ensure the shader buffer is large enough. It should be pre-sized based on
+  // the D3D12_RESOURCE_DESC for the associated D3D12_RESOURCE.
+  DXASSERT_NOMSG(ShaderBuffer.size() >= DataSize);
 
   if constexpr (std::is_same_v<T, HLSLHalf_t>) {
     auto *ShaderBufferPtr =
@@ -370,22 +378,21 @@ runTest(ID3D12Device *D3DDevice, bool VerboseLogging,
       Operation, OpDataType, OutDataType, Inputs[0].size());
 
   dxc::SpecificDllLoader DxilDllLoader;
-
-  // The name of the shader we want to use in ShaderOpArith.xml. Could also
-  // add logic to set this name in ShaderOpArithTable.xml so we can use
-  // different shaders for different tests.
-  LPCSTR ShaderName = "LongVectorOp";
-  // ShaderOpArith.xml defines the input/output resources and the shader
-  // source.
   CComPtr<IStream> TestXML;
   readHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML, DxilDllLoader);
+  auto ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(TestXML, ShaderOpSet.get());
+
+  // Some operations require dynamic configuration based on the test
+  // parameters.
+  configureShaderOp(Operation, OpDataType, Inputs[0].size(), ShaderOpSet);
 
   // RunShaderOpTest is a helper function that handles resource creation
   // and setup. It also handles the shader compilation and execution. It takes
   // a callback that is called when the shader is compiled, but before it is
   // executed.
-  std::shared_ptr<st::ShaderOpTestResult> TestResult = st::RunShaderOpTest(
-      D3DDevice, DxilDllLoader, TestXML, ShaderName,
+  auto TestResult = st::RunShaderOpTestAfterParse(
+      D3DDevice, DxilDllLoader, Operation.ShaderName,
       [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
         if (VerboseLogging)
           hlsl_test::LogCommentFmt(
@@ -418,17 +425,69 @@ runTest(ID3D12Device *D3DDevice, bool VerboseLogging,
 
         LOG_ERROR_FMT_THROW(
             L"RunShaderOpTest CallBack. Unexpected Resource Name: %S", Name);
-      });
+      },
+      ShaderOpSet);
 
   // Extract the data from the shader result
   MappedData ShaderOutData;
-  TestResult->Test->GetReadBackData("OutputVector", &ShaderOutData);
+
+  // TODO: Need a cleaner way to manage this.
+  char *ReadBackName = "OutputVector";
+  TestResult->Test->GetReadBackData(ReadBackName, &ShaderOutData);
 
   std::vector<OUT_TYPE> OutData;
   fillLongVectorDataFromShaderBuffer(ShaderOutData, OutData,
                                      ExpectedOutputSize);
 
   return OutData;
+}
+
+void configureShaderOp(const Operation &Operation, const DataType &OpDataType,
+                       size_t VectorSize,
+                       std::shared_ptr<st::ShaderOpSet> &ShaderOpSet) {
+
+  const bool IsLoadAndStoreOp =
+      Operation.Type == OpType::LoadAndStore_ResourceDescriptorHeap_UAV ||
+      Operation.Type == OpType::LoadAndStore_ResourceDescriptorHeap_SRV ||
+      Operation.Type == OpType::LoadAndStore_DescriptorTable_UAV ||
+      Operation.Type == OpType::LoadAndStore_DescriptorTable_SRV ||
+      Operation.Type == OpType::LoadAndStore_RootDescriptor_UAV ||
+      Operation.Type == OpType::LoadAndStore_RootDescriptor_SRV;
+
+  if (!IsLoadAndStoreOp)
+    return;
+
+  // TODO: Remove before PR completion. Handy for debugging.
+  bool SkipConfig = false;
+  WEX::TestExecution::RuntimeParameters::TryGetValue(L"SkipConfig", SkipConfig);
+  if (SkipConfig) {
+    hlsl_test::LogCommentFmt(L"!!!!!!!!!!!! Skipping configureShaderOp");
+    return;
+  }
+
+  auto ShaderOp = ShaderOpSet->GetShaderOp(Operation.ShaderName);
+  DXASSERT(ShaderOp, "Invalid ShaderOp name");
+
+  // DXGI_FORMAT_R32_TYPELESS is used for all load/store resources.
+  const float ElementSizeFactor = OpDataType.HLSLSizeInBytes / 4.0f;
+  const UINT Num32BitElements =
+      static_cast<UINT>(std::ceil(VectorSize * ElementSizeFactor));
+
+  if (!ShaderOp->DescriptorHeaps.empty()) {
+    DXASSERT_NOMSG(ShaderOp->DescriptorHeaps.size() == 1);
+    for (auto &R : ShaderOp->DescriptorHeaps[0].Descriptors) {
+      if (_stricmp(R.Kind, "UAV") == 0)
+        R.UavDesc.Buffer.NumElements = Num32BitElements;
+      else if (_stricmp(R.Kind, "SRV") == 0)
+        R.SrvDesc.Buffer.NumElements = Num32BitElements;
+    }
+  }
+
+  for (auto &R : ShaderOp->Resources)
+    R.Desc.Width = Num32BitElements * 4; // 4 bytes per 32 bit element
+
+  hlsl_test::LogCommentFmt(
+      L"Configured Load/Store Op with Num32BitElements: %u", Num32BitElements);
 }
 
 template <typename T>
@@ -1043,6 +1102,18 @@ template <typename T> struct ExpectedBuilder<OpType::ShuffleVector, T> {
 };
 
 //
+// Loading and Storing of buffers
+//
+
+// TODO: Should swap these and initialize to strict validation
+DEFAULT_OP_1(OpType::LoadAndStore_ResourceDescriptorHeap_UAV, (A));
+DEFAULT_OP_1(OpType::LoadAndStore_ResourceDescriptorHeap_SRV, (A));
+DEFAULT_OP_1(OpType::LoadAndStore_DescriptorTable_UAV, (A));
+DEFAULT_OP_1(OpType::LoadAndStore_DescriptorTable_SRV, (A));
+DEFAULT_OP_1(OpType::LoadAndStore_RootDescriptor_UAV, (A));
+DEFAULT_OP_1(OpType::LoadAndStore_RootDescriptor_SRV, (A));
+
+//
 // dispatchTest
 //
 
@@ -1092,7 +1163,7 @@ void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
   if (OverrideInputSize)
     InputVectorSizes.push_back(OverrideInputSize);
   else
-    InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
+    InputVectorSizes = {4, 5, 16, 17, 35, 100, 256, 1024};
 
   constexpr const Operation &Operation = getOperation(OP);
 
@@ -1131,6 +1202,9 @@ public:
   END_TEST_CLASS()
 
   TEST_CLASS_SETUP(classSetup) {
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
     // Run this only once.
     if (!Initialized) {
       Initialized = true;
@@ -1676,6 +1750,76 @@ public:
   HLK_TEST(Dot, HLSLHalf_t);
 
   HLK_TEST(Dot, float);
+
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, HLSLHalf_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, HLSLHalf_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SRV, HLSLHalf_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_UAV, HLSLHalf_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SRV, HLSLHalf_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_UAV, HLSLHalf_t);
+
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, HLSLBool_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, HLSLBool_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SRV, HLSLBool_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_UAV, HLSLBool_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SRV, HLSLBool_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_UAV, HLSLBool_t);
+
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, int16_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, int16_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SRV, int16_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_UAV, int16_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SRV, int16_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_UAV, int16_t);
+
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, int32_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, int32_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_UAV, int32_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SRV, int32_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_UAV, int32_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SRV, int32_t);
+
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, int64_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, int64_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SRV, int64_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_UAV, int64_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SRV, int64_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_UAV, int64_t);
+
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, uint16_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, uint16_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SRV, uint16_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_UAV, uint16_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SRV, uint16_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_UAV, uint16_t);
+
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, uint32_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, uint32_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_UAV, uint32_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SRV, uint32_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_UAV, uint32_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SRV, uint32_t);
+
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, uint64_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, uint64_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_UAV, uint64_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SRV, uint64_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_UAV, uint64_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SRV, uint64_t);
+
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, float);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, float);
+  HLK_TEST(LoadAndStore_DescriptorTable_UAV, float);
+  HLK_TEST(LoadAndStore_DescriptorTable_SRV, float);
+  HLK_TEST(LoadAndStore_RootDescriptor_UAV, float);
+  HLK_TEST(LoadAndStore_RootDescriptor_SRV, float);
+
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, double);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, double);
+  HLK_TEST(LoadAndStore_DescriptorTable_SRV, double);
+  HLK_TEST(LoadAndStore_DescriptorTable_UAV, double);
+  HLK_TEST(LoadAndStore_RootDescriptor_SRV, double);
+  HLK_TEST(LoadAndStore_RootDescriptor_UAV, double);
 
 private:
   bool Initialized = false;

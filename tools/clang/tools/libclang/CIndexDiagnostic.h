@@ -29,11 +29,8 @@ class CXDiagnosticSetImpl {
   std::vector<std::unique_ptr<CXDiagnosticImpl>> Diagnostics;
   const bool IsExternallyManaged;
 public:
-  // HLSL Change start: definition moved out-of-line because CXDiagnosticImpl
-  // must be a complete type when ~unique_ptr<CXDiagnosticImpl> is instantiated
-  // in C++23 (Diagnostics member).
-  inline CXDiagnosticSetImpl(bool isManaged = false);
-  // HLSL Change end
+  CXDiagnosticSetImpl(bool isManaged = false)
+      : IsExternallyManaged(isManaged) {}
 
   virtual ~CXDiagnosticSetImpl();
 
@@ -110,13 +107,6 @@ protected:
 private:
   Kind K;
 };
-
-// HLSL Change start: definition moved out-of-line because CXDiagnosticImpl must
-// be a complete type when ~unique_ptr<CXDiagnosticImpl> is instantiated in
-// C++23 (Diagnostics member).
-CXDiagnosticSetImpl::CXDiagnosticSetImpl(bool isManaged)
-    : IsExternallyManaged(isManaged) {}
-// HLSL Change end
 
 /// \brief The storage behind a CXDiagnostic
 struct CXStoredDiagnostic : public CXDiagnosticImpl {
