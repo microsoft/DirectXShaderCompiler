@@ -6547,7 +6547,7 @@ struct GVDebugInfoPatchCache {
 
 class LowerStaticGlobalIntoAlloca : public ModulePass {
   DebugInfoFinder m_DbgFinder;
-  GVDebugInfoPatchCache m_Cache;
+  GVDebugInfoPatchCache m_GVDebugInfoCache;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -6862,7 +6862,7 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(
     if (AI->user_empty())
       AI->eraseFromParent();
     else
-      PatchDebugInfo(m_Cache, m_DbgFinder, F, GV, AI);
+      PatchDebugInfo(m_GVDebugInfoCache, m_DbgFinder, F, GV, AI);
   }
 
   GV->removeDeadConstantUsers();
