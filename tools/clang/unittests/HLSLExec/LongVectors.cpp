@@ -1100,11 +1100,17 @@ REDUCTION_OP(OpType::All_Zero, (std::all_of));
 template <typename T> struct Op<OpType::Dot, T, 2> : DefaultValidation<T> {};
 template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
   static std::vector<T> buildExpected(Op<OpType::Dot, T, 2>,
-                                      const InputSets<T> &Inputs) {
-    T DotProduct = T();
+                                      const InputSets<T> &Inputs,
+                                      uint16_t ScalarInputFlags) {
+    UNREFERENCED_PARAMETER(ScalarInputFlags);
+
+    // Accumulate in fp32 to improve precision.
+    float DotProduct = 0.0f;
 
     for (size_t I = 0; I < Inputs[0].size(); ++I) {
-      DotProduct += Inputs[0][I] * Inputs[1][I];
+      const float A = Inputs[0][I];
+      const float B = Inputs[1][I];
+      DotProduct += A * B;
     }
 
     std::vector<T> Expected;
