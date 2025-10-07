@@ -61,11 +61,12 @@ public:
       if (!HlslOP->GetOpCodeClass(Func, OpClass))
         continue;
 
-      const bool CouldRewrite = (Func->getReturnType()->isVectorTy() ||
-                           OpClass == DXIL::OpCodeClass::RawBufferVectorLoad ||
-                           OpClass == DXIL::OpCodeClass::RawBufferVectorStore ||
-                           OpClass == DXIL::OpCodeClass::VectorReduce ||
-                           OpClass == DXIL::OpCodeClass::WaveMatch);
+      const bool CouldRewrite =
+          (Func->getReturnType()->isVectorTy() ||
+           OpClass == DXIL::OpCodeClass::RawBufferVectorLoad ||
+           OpClass == DXIL::OpCodeClass::RawBufferVectorStore ||
+           OpClass == DXIL::OpCodeClass::VectorReduce ||
+           OpClass == DXIL::OpCodeClass::WaveMatch);
       if (!CouldRewrite)
         continue;
 
