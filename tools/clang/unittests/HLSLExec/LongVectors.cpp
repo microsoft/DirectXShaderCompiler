@@ -1048,10 +1048,14 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
                                       const InputSets<T> &Inputs,
                                       uint16_t ScalarInputFlags) {
     UNREFERENCED_PARAMETER(ScalarInputFlags);
-    T DotProduct = T();
+
+    // Accumulate in fp32 to improve precision.
+    float DotProduct = 0.0f;
 
     for (size_t I = 0; I < Inputs[0].size(); ++I) {
-      DotProduct += Inputs[0][I] * Inputs[1][I];
+      const float A = Inputs[0][I];
+      const float B = Inputs[1][I];
+      DotProduct += A * B;
     }
 
     std::vector<T> Expected;

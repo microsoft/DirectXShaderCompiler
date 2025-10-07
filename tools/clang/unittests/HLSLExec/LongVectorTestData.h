@@ -184,10 +184,6 @@ struct HLSLHalf_t {
     return FromHALF((DirectX::PackedVector::XMConvertFloatToHalf(A + B)));
   }
 
-  HLSLHalf_t &operator+=(const HLSLHalf_t &Other) {
-    return *this = *this + Other;
-  }
-
   HLSLHalf_t operator-(const HLSLHalf_t &Other) const {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
