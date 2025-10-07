@@ -1648,7 +1648,7 @@ def get_interpretation_table():
 # since there can be pre-release versions that are higher
 # than the last released version
 highest_major = 6
-highest_minor = 9
+highest_minor = 10
 highest_shader_models = {4: 1, 5: 1, 6: highest_minor}
 
 # fetch the last released version from latest-released.json
@@ -1761,6 +1761,9 @@ def getShaderProfiles():
     )
     return profiles
 
+def version_key(s: str):
+    major_str, minor_str = s.split('_')
+    return (int(major_str), int(minor_str))
 
 def get_shader_models():
     result = ""
@@ -1786,7 +1789,7 @@ def get_shader_models():
 
             for i in range(0, minor + 1):
                 sm = "%d_%d" % (major, i)
-                if min_sm > sm:
+                if version_key(min_sm) > version_key(sm):
                     continue
 
                 input_size = profile.input_size
@@ -1837,7 +1840,7 @@ def get_num_shader_models():
         for major, minor in highest_shader_models.items():
             for i in range(0, minor + 1):
                 sm = "%d_%d" % (major, i)
-                if min_sm > sm:
+                if version_key(min_sm) > version_key(sm):
                     continue
                 count += 1
 
@@ -1861,7 +1864,7 @@ def build_shader_model_hash_idx_map():
         for major, minor in highest_shader_models.items():
             for i in range(0, minor + 1):
                 sm = "%d_%d" % (major, i)
-                if min_sm > sm:
+                if version_key(min_sm) > version_key(sm):
                     continue
                 sm_name = "%s_%s" % (kind_name, sm)
                 hash_v = kind << 16 | major << 8 | i
@@ -1922,7 +1925,7 @@ def get_target_profiles():
         for shader_model in shader_models:
             if base_sm > shader_model:
                 continue
-            if min_sm > shader_model:
+            if version_key(min_sm) > version_key(shader_model):
                 continue
             result += "%s_%s, " % (profile, shader_model)
         result += "\\n\\t\\t "
@@ -1962,20 +1965,6 @@ def get_shader_model_get():
     result += "  return GetInvalid();\n"
     result += "return &ms_ShaderModels[it->second];"
     return result
-
-
-def get_shader_model_by_name():
-    result = ""
-    for i in range(2, highest_minor + 1):
-        result += "case '%d':\n" % i
-        result += "  if (Major == %d) {\n" % highest_major
-        result += "    Minor = %d;\n" % i
-        result += "    break;\n"
-        result += "  }\n"
-        result += "else return GetInvalid();\n"
-
-    return result
-
 
 def get_is_valid_for_dxil():
     result = ""

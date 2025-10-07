@@ -19,6 +19,7 @@
 #include "dxc/Support/Unicode.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
@@ -213,30 +214,57 @@ StringRefWide::StringRefWide(llvm::StringRef value) {
     m_value = Unicode::UTF8ToWideStringOrThrow(value.data());
 }
 
-static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *major,
-                                       unsigned *minor) {
-  *major = *minor = -1;
-  unsigned len = ref.size();
-  if (len < 6 || len > 11) // length: ps_6_0 to rootsig_1_0
-    return false;
-  if (ref[len - 4] != '_' || ref[len - 2] != '_')
-    return false;
-
-  char cMajor = ref[len - 3];
-  char cMinor = ref[len - 1];
-
-  if (cMajor >= '0' && cMajor <= '9')
-    *major = cMajor - '0';
-  else
+// Return true iff Name matches: <2-3 chars> '_' <1 digit> '_' <1-2 digits>
+// On success, *OutMajor = second chunk (single digit), *OutMinor = third chunk
+// (1-2 digits). OutMajor/OutMinor may be null if caller only wants the boolean
+// result.
+static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *OutMajor,
+                                       unsigned *OutMinor) {
+  // Find underscores
+  size_t pos1 = ref.find('_');
+  if (pos1 == llvm::StringRef::npos)
     return false;
 
-  if (cMinor == 'x')
-    *minor = 0xF;
-  else if (cMinor >= '0' && cMinor <= '9')
-    *minor = cMinor - '0';
-  else
+  size_t pos2 = ref.find('_', pos1 + 1);
+  if (pos2 == llvm::StringRef::npos)
     return false;
 
+  // Ensure there are exactly two separators (no extra '_')
+  if (ref.find('_', pos2 + 1) != llvm::StringRef::npos)
+    return false;
+
+  // Construct parts (no allocations)
+  llvm::StringRef Prefix(ref.data(), pos1);
+  llvm::StringRef MajorStr(ref.data() + pos1 + 1, pos2 - (pos1 + 1));
+  llvm::StringRef MinorStr(ref.data() + pos2 + 1, ref.size() - (pos2 + 1));
+
+  // Validate sizes
+  if (Prefix.size() < 2 || Prefix.size() > 3)
+    return false; // first chunk 2..3 chars
+  if (MajorStr.size() != 1)
+    return false; // second chunk exactly 1 char
+  if (MinorStr.empty() || MinorStr.size() > 2)
+    return false; // third chunk 1..2 chars
+
+  // Validate digits (avoid locale issues with isdigit)
+  char m = MajorStr[0];
+  if (m < '0' || m > '9')
+    return false;
+  for (char c : MinorStr)
+    if (c < '0' || c > '9')
+      return false;
+
+  // Parse numeric parts (getAsInteger returns true on failure)
+  unsigned Major = 0, Minor = 0;
+  if (MajorStr.getAsInteger(10, Major))
+    return false;
+  if (MinorStr.getAsInteger(10, Minor))
+    return false;
+
+  if (OutMajor)
+    *OutMajor = Major;
+  if (OutMinor)
+    *OutMinor = Minor;
   return true;
 }
 
