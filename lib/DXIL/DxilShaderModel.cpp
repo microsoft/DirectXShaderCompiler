@@ -418,7 +418,7 @@ void ShaderModel::GetDxilVersion(unsigned &DxilMajor,
     DxilMinor = 10;
     break;
   case kOfflineMinor: // Always update this to highest dxil version
-    DxilMinor = 10;
+    DxilMinor = DXIL::kDxilMinor;
     break;
   // VALRULE-TEXT:END
   default:

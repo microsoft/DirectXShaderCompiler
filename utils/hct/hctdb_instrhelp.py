@@ -1761,9 +1761,11 @@ def getShaderProfiles():
     )
     return profiles
 
+
 def version_key(s: str):
     major_str, minor_str = s.split("_")
     return (int(major_str), int(minor_str))
+
 
 def get_shader_models():
     result = ""
@@ -1950,7 +1952,7 @@ def get_dxil_version():
         result += "  DxilMinor = %d;\n" % i
         result += "  break;\n"
     result += "case kOfflineMinor: // Always update this to highest dxil version\n"
-    result += "  DxilMinor = %d;\n" % highest_minor
+    result += "  DxilMinor = DXIL::kDxilMinor;\n"
     result += "  break;\n"
     return result
 
