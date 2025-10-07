@@ -214,9 +214,9 @@ StringRefWide::StringRefWide(llvm::StringRef value) {
     m_value = Unicode::UTF8ToWideStringOrThrow(value.data());
 }
 
-// Return true iff Name matches: <2-3 chars> '_' <1 digit> '_' <1-2 digits>
-// On success, *OutMajor = second chunk (single digit), *OutMinor = third chunk
-// (1-2 digits). OutMajor/OutMinor may be null if false is returned
+// Return true iff Name matches: <2,3, or 7 chars> '_' <1 digit> '_' <1-2
+// digits> On success, *OutMajor = second chunk (single digit), *OutMinor =
+// third chunk (1-2 digits). OutMajor/OutMinor may be null if false is returned
 static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *OutMajor,
                                        unsigned *OutMinor) {
   // Find underscores
@@ -238,8 +238,8 @@ static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *OutMajor,
   llvm::StringRef MinorStr(ref.data() + pos2 + 1, ref.size() - (pos2 + 1));
 
   // Validate sizes
-  if (Prefix.size() < 2 || Prefix.size() > 3)
-    return false; // first chunk 2..3 chars
+  if (Prefix.size() != 2 || Prefix.size() != 3 || Prefix.size() != 7)
+    return false; // first chunk 2, 3, or 7 chars
   if (MajorStr.size() != 1)
     return false; // second chunk exactly 1 char
   if (MinorStr.empty() || MinorStr.size() > 2)
