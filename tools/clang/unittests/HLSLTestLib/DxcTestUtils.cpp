@@ -427,6 +427,9 @@ bool ParseTargetProfile(llvm::StringRef Input, llvm::StringRef &OutStage,
   // Validate sizes
   if (Prefix.size() != 2 && Prefix.size() != 3 && Prefix.size() != 7)
     return false; // first chunk 2, 3, or 7 chars
+
+  OutStage = Prefix;
+
   if (MajorStr.size() != 1)
     return false; // second chunk exactly 1 char
   if (MinorStr.empty() || MinorStr.size() > 2)
@@ -440,10 +443,8 @@ bool ParseTargetProfile(llvm::StringRef Input, llvm::StringRef &OutStage,
 
   // allow lib_6_x
   if (Prefix == "lib" && MajorStr[0] == '6' && MinorStr[0] == 'x') {
-    if (OutMinor)
-      OutMinor = 0xF;
-    if (OutMajor)
-      OutMajor = 6;
+    OutMinor = 0xF;
+    OutMajor = 6;
     return true;
   }
 
@@ -457,7 +458,6 @@ bool ParseTargetProfile(llvm::StringRef Input, llvm::StringRef &OutStage,
   if (Minor > hlsl::ShaderModel::kHighestMinor)
     return false;
 
-  OutStage = Prefix;
   if (OutMajor)
     OutMajor = Major;
   if (OutMinor)
