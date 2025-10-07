@@ -12657,6 +12657,7 @@ TEST_F(ExecutionTest, ShaderModel69RequiredFeatures) {
     WEX::Logging::Log::Comment(
         "Device does not support SM 6.9. Can't run these tests.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
   }
 
   VERIFY_IS_TRUE(DoesDeviceSupportNative16bitOps(Device));
