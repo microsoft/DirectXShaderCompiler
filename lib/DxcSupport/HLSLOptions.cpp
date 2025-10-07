@@ -216,8 +216,7 @@ StringRefWide::StringRefWide(llvm::StringRef value) {
 
 // Return true iff Name matches: <2-3 chars> '_' <1 digit> '_' <1-2 digits>
 // On success, *OutMajor = second chunk (single digit), *OutMinor = third chunk
-// (1-2 digits). OutMajor/OutMinor may be null if caller only wants the boolean
-// result.
+// (1-2 digits). OutMajor/OutMinor may be null if false is returned
 static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *OutMajor,
                                        unsigned *OutMinor) {
   // Find underscores
@@ -233,7 +232,7 @@ static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *OutMajor,
   if (ref.find('_', pos2 + 1) != llvm::StringRef::npos)
     return false;
 
-  // Construct parts (no allocations)
+  // Construct parts
   llvm::StringRef Prefix(ref.data(), pos1);
   llvm::StringRef MajorStr(ref.data() + pos1 + 1, pos2 - (pos1 + 1));
   llvm::StringRef MinorStr(ref.data() + pos2 + 1, ref.size() - (pos2 + 1));
@@ -246,7 +245,7 @@ static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *OutMajor,
   if (MinorStr.empty() || MinorStr.size() > 2)
     return false; // third chunk 1..2 chars
 
-  // Validate digits (avoid locale issues with isdigit)
+  // Validate digits
   char m = MajorStr[0];
   if (m < '0' || m > '9')
     return false;
@@ -259,6 +258,10 @@ static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *OutMajor,
   if (MajorStr.getAsInteger(10, Major))
     return false;
   if (MinorStr.getAsInteger(10, Minor))
+    return false;
+
+  // Minor may be no larger than the max allowed
+  if (Minor > ShaderModel::kHighestMinor)
     return false;
 
   if (OutMajor)
