@@ -1461,7 +1461,7 @@ Value *TranslateWaveMatch(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opc,
   Constant *OpcArg = Op->GetU32Const((unsigned)DXIL::OpCode::WaveMatch);
 
   // If we don't need to scalarize, just emit the call and exit
-  bool Scalarize =
+  const bool Scalarize =
       ValTy->isVectorTy() &&
       !Op->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus();
   if (!Scalarize) {
@@ -1477,8 +1477,8 @@ Value *TranslateWaveMatch(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opc,
   // (1) Collect the list of all scalar inputs (e.g. decompose vectors)
   SmallVector<Value *, 4> ScalarInputs;
 
-  for (uint64_t i = 0, e = ValTy->getVectorNumElements(); i != e; ++i) {
-    Value *Elt = Builder.CreateExtractElement(Val, i);
+  for (uint64_t I = 0, E = ValTy->getVectorNumElements(); I != E; ++I) {
+    Value *Elt = Builder.CreateExtractElement(Val, I);
     ScalarInputs.push_back(Elt);
   }
 
@@ -1488,16 +1488,16 @@ Value *TranslateWaveMatch(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opc,
   Value *Args[] = {OpcArg, ScalarInputs[0]};
   Value *Res = Builder.CreateCall(Fn, Args);
 
-  for (unsigned i = 1, e = ScalarInputs.size(); i != e; ++i) {
-    Value *Args[] = {OpcArg, ScalarInputs[i]};
+  for (unsigned I = 1, E = ScalarInputs.size(); I != E; ++I) {
+    Value *Args[] = {OpcArg, ScalarInputs[I]};
     Value *Call = Builder.CreateCall(Fn, Args);
 
     // Generate bitwise AND of the components
-    for (unsigned j = 0; j != 4; ++j) {
-      Value *ResVal = Builder.CreateExtractValue(Res, j);
-      Value *CallVal = Builder.CreateExtractValue(Call, j);
+    for (unsigned J = 0; J != 4; ++J) {
+      Value *ResVal = Builder.CreateExtractValue(Res, J);
+      Value *CallVal = Builder.CreateExtractValue(Call, J);
       Value *And = Builder.CreateAnd(ResVal, CallVal);
-      Res = Builder.CreateInsertValue(Res, And, j);
+      Res = Builder.CreateInsertValue(Res, And, J);
     }
   }
 

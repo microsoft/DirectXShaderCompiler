@@ -61,7 +61,7 @@ public:
       if (!HlslOP->GetOpCodeClass(Func, OpClass))
         continue;
 
-      bool CouldRewrite = (Func->getReturnType()->isVectorTy() ||
+      const bool CouldRewrite = (Func->getReturnType()->isVectorTy() ||
                            OpClass == DXIL::OpCodeClass::RawBufferVectorLoad ||
                            OpClass == DXIL::OpCodeClass::RawBufferVectorStore ||
                            OpClass == DXIL::OpCodeClass::VectorReduce ||
@@ -72,7 +72,7 @@ public:
       for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
         CallInst *CI = cast<CallInst>(*(U++));
 
-        // Specially handle DXIL Ops with more complicated signatures
+        // Handle DXIL operations with complex signatures separately
         switch (OpClass) {
         case DXIL::OpCodeClass::RawBufferVectorLoad:
           Changed |= scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
@@ -287,11 +287,11 @@ static bool scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI) {
   Value *VecArg = CI->getArgOperand(1);
   Type *VecTy = VecArg->getType();
 
-  // Non-vector parameters don't need scalarized
+  // Non-vector parameters don't need to be scalarized
   if (!VecTy->isVectorTy())
     return false;
 
-  uint64_t VecSize = VecTy->getVectorNumElements();
+  const uint64_t VecSize = VecTy->getVectorNumElements();
   Type *ScalarTy = VecTy->getScalarType();
   Function *Func = HlslOP->GetOpFunc(Opcode, ScalarTy);
   SmallVector<Value *, 2> Args(CI->getNumArgOperands());
