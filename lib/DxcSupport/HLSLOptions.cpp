@@ -238,25 +238,31 @@ static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *OutMajor,
   llvm::StringRef MinorStr(ref.data() + pos2 + 1, ref.size() - (pos2 + 1));
 
   // Validate sizes
-  if (Prefix.size() != 2 || Prefix.size() != 3 || Prefix.size() != 7)
+  if (Prefix.size() != 2 && Prefix.size() != 3 && Prefix.size() != 7)
     return false; // first chunk 2, 3, or 7 chars
   if (MajorStr.size() != 1)
     return false; // second chunk exactly 1 char
   if (MinorStr.empty() || MinorStr.size() > 2)
     return false; // third chunk 1..2 chars
+  if (MinorStr.size() == 2 && MinorStr[0] == '0')
+    return false; // disallow 2 digit minors with leading 0's
 
-  // Validate digits
-  char m = MajorStr[0];
-  if (m < '0' || m > '9')
-    return false;
-  for (char c : MinorStr)
-    if (c < '0' || c > '9')
-      return false;
-
-  // Parse numeric parts (getAsInteger returns true on failure)
-  unsigned Major = 0, Minor = 0;
+  unsigned Major = 0;
   if (MajorStr.getAsInteger(10, Major))
     return false;
+
+  // allow lib_6_x
+  if (Prefix == "lib" && MajorStr[0] == '6' && MinorStr[0] == 'x') {
+    if (OutMinor)
+      *OutMinor = 0xF;
+    if (OutMajor)
+      *OutMajor = 6;
+    return true;
+  }
+
+  // Parse numeric parts (getAsInteger returns true on failure)
+  unsigned Minor = 0;
+
   if (MinorStr.getAsInteger(10, Minor))
     return false;
 

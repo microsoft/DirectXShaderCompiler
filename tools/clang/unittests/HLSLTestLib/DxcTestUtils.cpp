@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Test/DxcTestUtils.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
@@ -399,24 +400,68 @@ HRESULT GetVersion(dxc::DllLoader &DllSupport, REFCLSID clsid, unsigned &Major,
   return S_OK;
 }
 
-bool ParseTargetProfile(llvm::StringRef targetProfile,
-                        llvm::StringRef &outStage, unsigned &outMajor,
-                        unsigned &outMinor) {
-  auto stage_model = targetProfile.split("_");
-  auto major_minor = stage_model.second.split("_");
-  llvm::APInt major;
-  if (major_minor.first.getAsInteger(16, major))
+// Return true iff Name matches: <2,3, or 7 chars> '_' <1 digit> '_' <1-2
+// digits> On success, *OutMajor = second chunk (single digit), *OutMinor =
+// third chunk (1-2 digits). OutStage/OutMajor/OutMinor may be left unassigned
+// if false is returned
+bool ParseTargetProfile(llvm::StringRef Input, llvm::StringRef &OutStage,
+                        unsigned &OutMajor, unsigned &OutMinor) {
+  // Find underscores
+  size_t pos1 = Input.find('_');
+  if (pos1 == llvm::StringRef::npos)
     return false;
-  if (major_minor.second.compare("x") == 0) {
-    outMinor = 0xF; // indicates offline target
-  } else {
-    llvm::APInt minor;
-    if (major_minor.second.getAsInteger(16, minor))
-      return false;
-    outMinor = (unsigned)minor.getLimitedValue();
+
+  size_t pos2 = Input.find('_', pos1 + 1);
+  if (pos2 == llvm::StringRef::npos)
+    return false;
+
+  // Ensure there are exactly two separators (no extra '_')
+  if (Input.find('_', pos2 + 1) != llvm::StringRef::npos)
+    return false;
+
+  // Construct parts
+  llvm::StringRef Prefix(Input.data(), pos1);
+  llvm::StringRef MajorStr(Input.data() + pos1 + 1, pos2 - (pos1 + 1));
+  llvm::StringRef MinorStr(Input.data() + pos2 + 1, Input.size() - (pos2 + 1));
+
+  // Validate sizes
+  if (Prefix.size() != 2 && Prefix.size() != 3 && Prefix.size() != 7)
+    return false; // first chunk 2, 3, or 7 chars
+  if (MajorStr.size() != 1)
+    return false; // second chunk exactly 1 char
+  if (MinorStr.empty() || MinorStr.size() > 2)
+    return false; // third chunk 1..2 chars
+  if (MinorStr.size() == 2 && MinorStr[0] == '0')
+    return false; // disallow 2 digit minors with leading 0's
+
+  unsigned Major = 0;
+  if (MajorStr.getAsInteger(10, Major))
+    return false;
+
+  // allow lib_6_x
+  if (Prefix == "lib" && MajorStr[0] == '6' && MinorStr[0] == 'x') {
+    if (OutMinor)
+      OutMinor = 0xF;
+    if (OutMajor)
+      OutMajor = 6;
+    return true;
   }
-  outStage = stage_model.first;
-  outMajor = (unsigned)major.getLimitedValue();
+
+  // Parse numeric parts (getAsInteger returns true on failure)
+  unsigned Minor = 0;
+
+  if (MinorStr.getAsInteger(10, Minor))
+    return false;
+
+  // Minor may be no larger than the max allowed
+  if (Minor > hlsl::ShaderModel::kHighestMinor)
+    return false;
+
+  OutStage = Prefix;
+  if (OutMajor)
+    OutMajor = Major;
+  if (OutMinor)
+    OutMinor = Minor;
   return true;
 }
 
