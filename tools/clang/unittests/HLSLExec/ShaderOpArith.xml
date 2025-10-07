@@ -3751,8 +3751,6 @@ void MSMain(uint GID : SV_GroupIndex,
                 ','/
                 OR for unary intrinsics it is expanded to ' ' (empty).
                 OR for ternary intrinsics it is always expanded to ','.
-     OPERAND_IS_SCALAR_FLAGS : Bitmask indicating which operands are to be
-     interpretted as scalar.
      -->
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
       <![CDATA[
@@ -3765,9 +3763,6 @@ void MSMain(uint GID : SV_GroupIndex,
         #define IS_BINARY_OP (BASIC_OP_TYPE == 0x2)
         #define IS_TERNARY_OP (BASIC_OP_TYPE == 0x3)
 
-        #define OPERAND_2_IS_SCALAR (OPERAND_IS_SCALAR_FLAGS & 0x2)
-        #define OPERAND_3_IS_SCALAR (OPERAND_IS_SCALAR_FLAGS & 0x4)
-
         #ifdef FUNC_INITIALIZE
         vector<TYPE, NUM> TestInitialize(vector<TYPE, NUM> Vector)
         {
@@ -3775,7 +3770,6 @@ void MSMain(uint GID : SV_GroupIndex,
           return VectorCopy;
         }
         #endif
-
 
         #ifdef FUNC_TEST_CAST
         vector<OUT_TYPE, NUM> TestCast(vector<TYPE, NUM> Vector)
@@ -3845,21 +3839,13 @@ void MSMain(uint GID : SV_GroupIndex,
           NUM> >(0);
 
           #if (IS_BINARY_OP || IS_TERNARY_OP)
-              #if OPERAND_2_IS_SCALAR
-              TYPE Input2 = g_InputVector2.Load<TYPE>(0);
-              #else
-              vector<TYPE, NUM> Input2 = g_InputVector2.Load< vector<TYPE,
-              NUM> >(0);
-              #endif
+            vector<TYPE, NUM> Input2 = g_InputVector2.Load< vector<TYPE,
+            NUM> >(0);
           #endif
 
           #if IS_TERNARY_OP
-            #if OPERAND_3_IS_SCALAR
-              TYPE Input3 = g_InputVector3.Load<TYPE>(0);
-              #else
-              vector<TYPE, NUM> Input3 = g_InputVector3.Load< vector<TYPE,
-              NUM> >(0);
-            #endif
+            vector<TYPE, NUM> Input3 = g_InputVector3.Load< vector<TYPE,
+            NUM> >(0);
           #endif
 
           #ifdef IS_REDUCTION_OP
