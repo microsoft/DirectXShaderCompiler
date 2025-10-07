@@ -1762,7 +1762,7 @@ def getShaderProfiles():
     return profiles
 
 def version_key(s: str):
-    major_str, minor_str = s.split('_')
+    major_str, minor_str = s.split("_")
     return (int(major_str), int(minor_str))
 
 def get_shader_models():
