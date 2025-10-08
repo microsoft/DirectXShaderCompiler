@@ -474,9 +474,8 @@ void runAndVerify(ID3D12Device *D3DDevice, bool VerboseLogging,
                   const std::vector<OUT_TYPE> &Expected,
                   const ValidationConfig &ValidationConfig) {
 
-  std::optional<std::vector<OUT_TYPE>> Actual =
-      runTest<OUT_TYPE>(D3DDevice, VerboseLogging, Operation, Inputs,
-                        Expected.size());
+  std::optional<std::vector<OUT_TYPE>> Actual = runTest<OUT_TYPE>(
+      D3DDevice, VerboseLogging, Operation, Inputs, Expected.size());
 
   // If the test didn't run, don't verify anything.
   if (!Actual)
