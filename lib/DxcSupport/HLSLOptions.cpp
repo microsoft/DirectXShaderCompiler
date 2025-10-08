@@ -24,6 +24,7 @@
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/Regex.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <optional>
@@ -215,65 +216,31 @@ StringRefWide::StringRefWide(llvm::StringRef value) {
 }
 
 // Return true iff Name matches: <2,3, or 7 chars> '_' <1 digit> '_' <1-2
-// digits> On success, *OutMajor = second chunk (single digit), *OutMinor =
+// digits> On success, OutMajor = second chunk (single digit), OutMinor =
 // third chunk (1-2 digits). OutMajor/OutMinor may be null if false is returned
-static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *OutMajor,
-                                       unsigned *OutMinor) {
-  // Find underscores
-  size_t pos1 = ref.find('_');
-  if (pos1 == llvm::StringRef::npos)
+static bool GetTargetVersionFromString(llvm::StringRef Ref, unsigned &OutMajor,
+                                       unsigned &OutMinor) {
+  // Capture: stage, major, minor
+  // but ignore stage
+  static llvm::Regex pattern(
+      "^((ps|vs|gs|hs|ds|cs|ms|as|lib|rootsig))_([0-9])_([0-9]{1,2}|x)$");
+
+  llvm::SmallVector<llvm::StringRef, 5> matches;
+  if (!pattern.match(Ref, &matches))
     return false;
 
-  size_t pos2 = ref.find('_', pos1 + 1);
-  if (pos2 == llvm::StringRef::npos)
+  if (matches.size() < 5) // full match + 4 groups
     return false;
 
-  // Ensure there are exactly two separators (no extra '_')
-  if (ref.find('_', pos2 + 1) != llvm::StringRef::npos)
+  if (matches[3].getAsInteger(10, OutMajor)) // major
     return false;
 
-  // Construct parts
-  llvm::StringRef Prefix(ref.data(), pos1);
-  llvm::StringRef MajorStr(ref.data() + pos1 + 1, pos2 - (pos1 + 1));
-  llvm::StringRef MinorStr(ref.data() + pos2 + 1, ref.size() - (pos2 + 1));
-
-  // Validate sizes
-  if (Prefix.size() != 2 && Prefix.size() != 3 && Prefix.size() != 7)
-    return false; // first chunk 2, 3, or 7 chars
-  if (MajorStr.size() != 1)
-    return false; // second chunk exactly 1 char
-  if (MinorStr.empty() || MinorStr.size() > 2)
-    return false; // third chunk 1..2 chars
-  if (MinorStr.size() == 2 && MinorStr[0] == '0')
-    return false; // disallow 2 digit minors with leading 0's
-
-  unsigned Major = 0;
-  if (MajorStr.getAsInteger(10, Major))
+  llvm::StringRef minorStr = matches[4]; // minor
+  if (minorStr == "x")
+    OutMinor = ShaderModel::kOfflineMinor;
+  else if (minorStr.getAsInteger(10, OutMinor))
     return false;
 
-  // allow lib_6_x
-  if (Prefix == "lib" && MajorStr[0] == '6' && MinorStr[0] == 'x') {
-    if (OutMinor)
-      *OutMinor = 0xF;
-    if (OutMajor)
-      *OutMajor = 6;
-    return true;
-  }
-
-  // Parse numeric parts (getAsInteger returns true on failure)
-  unsigned Minor = 0;
-
-  if (MinorStr.getAsInteger(10, Minor))
-    return false;
-
-  // Minor may be no larger than the max allowed
-  if (Minor > ShaderModel::kHighestMinor)
-    return false;
-
-  if (OutMajor)
-    *OutMajor = Major;
-  if (OutMinor)
-    *OutMinor = Minor;
   return true;
 }
 
@@ -790,7 +757,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   unsigned Major = 0;
   unsigned Minor = 0;
   if (!opts.TargetProfile.empty()) {
-    if (!GetTargetVersionFromString(opts.TargetProfile, &Major, &Minor)) {
+    if (!GetTargetVersionFromString(opts.TargetProfile, Major, Minor)) {
       errors << "unable to parse shader model.";
       return 1;
     }

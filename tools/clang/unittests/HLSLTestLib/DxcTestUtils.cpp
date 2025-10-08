@@ -400,68 +400,33 @@ HRESULT GetVersion(dxc::DllLoader &DllSupport, REFCLSID clsid, unsigned &Major,
   return S_OK;
 }
 
-// Return true iff Name matches: <2,3, or 7 chars> '_' <1 digit> '_' <1-2
-// digits> On success, *OutMajor = second chunk (single digit), *OutMinor =
-// third chunk (1-2 digits). OutStage/OutMajor/OutMinor may be left unassigned
-// if false is returned
-bool ParseTargetProfile(llvm::StringRef Input, llvm::StringRef &OutStage,
+// Return true iff Ref matches regex. On success, OutStage = first chunk,
+// OutMajor = second chunk (single digit), *OutMinor = third chunk (1-2 digits).
+// OutStage/OutMajor/OutMinor may be left unassigned if false is returned
+bool ParseTargetProfile(llvm::StringRef Ref, llvm::StringRef &OutStage,
                         unsigned &OutMajor, unsigned &OutMinor) {
-  // Find underscores
-  size_t pos1 = Input.find('_');
-  if (pos1 == llvm::StringRef::npos)
+  // Capture: stage, major, minor
+  static llvm::Regex pattern(
+      "^((ps|vs|gs|hs|ds|cs|ms|as|lib|rootsig))_([0-9])_([0-9]{1,2}|x)$");
+
+  llvm::SmallVector<llvm::StringRef, 5> matches;
+  if (!pattern.match(Ref, &matches))
     return false;
 
-  size_t pos2 = Input.find('_', pos1 + 1);
-  if (pos2 == llvm::StringRef::npos)
+  if (matches.size() < 5) // full match + 4 groups
     return false;
 
-  // Ensure there are exactly two separators (no extra '_')
-  if (Input.find('_', pos2 + 1) != llvm::StringRef::npos)
+  OutStage = matches[1]; // stage (outer group)
+
+  if (matches[3].getAsInteger(10, OutMajor)) // major
     return false;
 
-  // Construct parts
-  llvm::StringRef Prefix(Input.data(), pos1);
-  llvm::StringRef MajorStr(Input.data() + pos1 + 1, pos2 - (pos1 + 1));
-  llvm::StringRef MinorStr(Input.data() + pos2 + 1, Input.size() - (pos2 + 1));
-
-  // Validate sizes
-  if (Prefix.size() != 2 && Prefix.size() != 3 && Prefix.size() != 7)
-    return false; // first chunk 2, 3, or 7 chars
-
-  OutStage = Prefix;
-
-  if (MajorStr.size() != 1)
-    return false; // second chunk exactly 1 char
-  if (MinorStr.empty() || MinorStr.size() > 2)
-    return false; // third chunk 1..2 chars
-  if (MinorStr.size() == 2 && MinorStr[0] == '0')
-    return false; // disallow 2 digit minors with leading 0's
-
-  unsigned Major = 0;
-  if (MajorStr.getAsInteger(10, Major))
+  llvm::StringRef minorStr = matches[4]; // minor
+  if (minorStr == "x")
+    OutMinor = hlsl::ShaderModel::kOfflineMinor;
+  else if (minorStr.getAsInteger(10, OutMinor))
     return false;
 
-  // allow lib_6_x
-  if (Prefix == "lib" && MajorStr[0] == '6' && MinorStr[0] == 'x') {
-    OutMinor = 0xF;
-    OutMajor = 6;
-    return true;
-  }
-
-  // Parse numeric parts (getAsInteger returns true on failure)
-  unsigned Minor = 0;
-
-  if (MinorStr.getAsInteger(10, Minor))
-    return false;
-
-  // Minor may be no larger than the max allowed
-  if (Minor > hlsl::ShaderModel::kHighestMinor)
-    return false;
-
-  if (OutMajor)
-    OutMajor = Major;
-  if (OutMinor)
-    OutMinor = Minor;
   return true;
 }
 
