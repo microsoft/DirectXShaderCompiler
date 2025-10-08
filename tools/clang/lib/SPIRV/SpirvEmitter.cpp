@@ -862,6 +862,27 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
                                 SourceLocation());
   }
 
+  for (uint32_t i = 0; i < workQueue.size(); ++i) {
+    const FunctionInfo *entryInfo = workQueue[i];
+    if (entryInfo->isEntryFunction) {
+      const auto *funcDecl = entryInfo->funcDecl;
+      if (funcDecl->hasAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
+        spvBuilder.requireExtension("SPV_KHR_maximal_reconvergence",
+                                    funcDecl->getLocation());
+        spvBuilder.requireExtension("SPV_KHR_quad_control",
+                                    funcDecl->getLocation());
+        spvBuilder.requireCapability(spv::Capability::QuadControlKHR,
+                                     funcDecl->getLocation());
+        spvBuilder.addExecutionMode(entryInfo->entryFunction,
+                                    spv::ExecutionMode::MaximallyReconvergesKHR,
+                                    {}, funcDecl->getLocation());
+        spvBuilder.addExecutionMode(entryInfo->entryFunction,
+                                    spv::ExecutionMode::RequireFullQuadsKHR, {},
+                                    funcDecl->getLocation());
+      }
+    }
+  }
+
   // For Vulkan 1.2 and later, add SignedZeroInfNanPreserve when -Gis is
   // provided to preserve NaN/Inf and signed zeros.
   if (spirvOptions.IEEEStrict) {
