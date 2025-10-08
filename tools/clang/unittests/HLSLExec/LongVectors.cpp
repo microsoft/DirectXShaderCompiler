@@ -283,7 +283,8 @@ static WEX::Common::String getInputValueSetName(size_t Index) {
 std::string getCompilerOptionsString(const Operation &Operation,
                                      const DataType &OpDataType,
                                      const DataType &OutDataType,
-                                     size_t VectorSize) {
+                                     size_t VectorSize,
+                                     uint16_t ScalarInputFlags) {
   std::stringstream CompilerOptions;
 
   if (OpDataType.Is16Bit || OutDataType.Is16Bit)
@@ -303,6 +304,9 @@ std::string getCompilerOptionsString(const Operation &Operation,
   CompilerOptions << " -DOUT_TYPE=" << OutDataType.HLSLTypeString;
 
   CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << Operation.Arity;
+
+  CompilerOptions << " -DOPERAND_IS_SCALAR_FLAGS=";
+  CompilerOptions << "0x" << std::hex << ScalarInputFlags;
 
   return CompilerOptions.str();
 }
@@ -351,7 +355,7 @@ template <typename OUT_TYPE, typename T>
 std::optional<std::vector<OUT_TYPE>>
 runTest(CComPtr<ID3D12Device> D3DDevice, bool VerboseLogging,
         const Operation &Operation, const InputSets<T> &Inputs,
-        size_t ExpectedOutputSize) {
+        uint16_t ScalarInputFlags, size_t ExpectedOutputSize) {
   DXASSERT_NOMSG(Inputs.size() == Operation.Arity);
 
   if (VerboseLogging) {
@@ -368,7 +372,7 @@ runTest(CComPtr<ID3D12Device> D3DDevice, bool VerboseLogging,
   // We have to construct the string outside of the lambda. Otherwise it's
   // cleaned up when the lambda finishes executing but before the shader runs.
   std::string CompilerOptionsString = getCompilerOptionsString(
-      Operation, OpDataType, OutDataType, Inputs[0].size());
+      Operation, OpDataType, OutDataType, Inputs[0].size(), ScalarInputFlags);
 
   dxc::SpecificDllLoader DxilDllLoader;
 
@@ -445,12 +449,15 @@ std::vector<T> buildTestInput(InputSet InputSet, size_t SizeToTest) {
 }
 
 template <typename T>
-InputSets<T> buildTestInputs(size_t VectorSize, const InputSet OpInputSets[3],
-                             size_t Arity) {
+InputSets<T> buildTestInputs(size_t VectorSize, uint16_t ScalarInputFlags,
+                             const InputSet OpInputSets[3], size_t Arity) {
   InputSets<T> Inputs;
 
   for (size_t I = 0; I < Arity; ++I) {
-    Inputs.push_back(buildTestInput<T>(OpInputSets[I], VectorSize));
+    uint16_t OperandScalarFlag = 1 << I;
+    bool IsOperandScalar = ScalarInputFlags & OperandScalarFlag;
+    Inputs.push_back(
+        buildTestInput<T>(OpInputSets[I], IsOperandScalar ? 1 : VectorSize));
   }
 
   return Inputs;
@@ -473,10 +480,12 @@ template <typename T, typename OUT_TYPE>
 void runAndVerify(CComPtr<ID3D12Device> D3DDevice, bool VerboseLogging,
                   const Operation &Operation, const InputSets<T> &Inputs,
                   const std::vector<OUT_TYPE> &Expected,
+                  uint16_t ScalarInputFlags,
                   const ValidationConfig &ValidationConfig) {
 
-  std::optional<std::vector<OUT_TYPE>> Actual = runTest<OUT_TYPE>(
-      D3DDevice, VerboseLogging, Operation, Inputs, Expected.size());
+  std::optional<std::vector<OUT_TYPE>> Actual =
+      runTest<OUT_TYPE>(D3DDevice, VerboseLogging, Operation, Inputs,
+                        ScalarInputFlags, Expected.size());
 
   // If the test didn't run, don't verify anything.
   if (!Actual)
@@ -857,8 +866,10 @@ struct Op<OpType::AsUint_SplitDouble, double, 1> : StrictValidation {};
 template <> struct ExpectedBuilder<OpType::AsUint_SplitDouble, double> {
   static std::vector<uint32_t>
   buildExpected(Op<OpType::AsUint_SplitDouble, double, 1>,
-                const InputSets<double> &Inputs) {
+                const InputSets<double> &Inputs, uint16_t ScalarInputFlags) {
+    DXASSERT_NOMSG(ScalarInputFlags == 0);
     DXASSERT_NOMSG(Inputs.size() == 1);
+    UNREFERENCED_PARAMETER(ScalarInputFlags);
 
     size_t VectorSize = Inputs[0].size();
 
@@ -931,7 +942,8 @@ template <> struct Op<OpType::Frexp, float, 1> : DefaultValidation<float> {};
 
 template <> struct ExpectedBuilder<OpType::Frexp, float> {
   static std::vector<float> buildExpected(Op<OpType::Frexp, float, 1>,
-                                          const InputSets<float> &Inputs) {
+                                          const InputSets<float> &Inputs,
+                                          uint32_t) {
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     // Expected values size is doubled. In the first half we store the
@@ -1000,8 +1012,8 @@ OP_3(OpType::Select, StrictValidation, (static_cast<bool>(A) ? B : C));
 #define REDUCTION_OP(OP, STDFUNC)                                              \
   template <typename T> struct Op<OP, T, 1> : StrictValidation {};             \
   template <typename T> struct ExpectedBuilder<OP, T> {                        \
-    static std::vector<HLSLBool_t> buildExpected(Op<OP, T, 1>,                 \
-                                                 const InputSets<T> &Inputs) { \
+    static std::vector<HLSLBool_t>                                             \
+    buildExpected(Op<OP, T, 1>, const InputSets<T> &Inputs, uint16_t) {        \
       const bool Res = STDFUNC(Inputs[0].begin(), Inputs[0].end(),             \
                                [](T A) { return A != static_cast<T>(0); });    \
       return std::vector<HLSLBool_t>{Res};                                     \
@@ -1021,7 +1033,9 @@ REDUCTION_OP(OpType::All_Zero, (std::all_of));
 template <typename T> struct Op<OpType::Dot, T, 2> : DefaultValidation<T> {};
 template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
   static std::vector<T> buildExpected(Op<OpType::Dot, T, 2>,
-                                      const InputSets<T> &Inputs) {
+                                      const InputSets<T> &Inputs,
+                                      uint16_t ScalarInputFlags) {
+    UNREFERENCED_PARAMETER(ScalarInputFlags);
     T DotProduct = T();
 
     for (size_t I = 0; I < Inputs[0].size(); ++I) {
@@ -1040,7 +1054,9 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
 
 template <OpType OP, typename T> struct ExpectedBuilder {
 
-  static auto buildExpected(Op<OP, T, 1> Op, const InputSets<T> &Inputs) {
+  static auto buildExpected(Op<OP, T, 1> Op, const InputSets<T> &Inputs,
+                            uint16_t ScalarInputFlags) {
+    UNREFERENCED_PARAMETER(ScalarInputFlags);
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     std::vector<decltype(Op(T()))> Expected;
@@ -1053,27 +1069,33 @@ template <OpType OP, typename T> struct ExpectedBuilder {
     return Expected;
   }
 
-  static auto buildExpected(Op<OP, T, 2> Op, const InputSets<T> &Inputs) {
+  static auto buildExpected(Op<OP, T, 2> Op, const InputSets<T> &Inputs,
+                            uint16_t ScalarInputFlags) {
     DXASSERT_NOMSG(Inputs.size() == 2);
 
     std::vector<decltype(Op(T(), T()))> Expected;
     Expected.reserve(Inputs[0].size());
 
     for (size_t I = 0; I < Inputs[0].size(); ++I) {
-      Expected.push_back(Op(Inputs[0][I], Inputs[1][I]));
+      size_t Index1 = (ScalarInputFlags & (1 << 1)) ? 0 : I;
+      Expected.push_back(Op(Inputs[0][I], Inputs[1][Index1]));
     }
 
     return Expected;
   }
 
-  static auto buildExpected(Op<OP, T, 3> Op, const InputSets<T> &Inputs) {
+  static auto buildExpected(Op<OP, T, 3> Op, const InputSets<T> &Inputs,
+                            uint16_t ScalarInputFlags) {
     DXASSERT_NOMSG(Inputs.size() == 3);
 
     std::vector<decltype(Op(T(), T(), T()))> Expected;
     Expected.reserve(Inputs[0].size());
 
     for (size_t I = 0; I < Inputs[0].size(); ++I) {
-      Expected.push_back(Op(Inputs[0][I], Inputs[1][I], Inputs[2][I]));
+      size_t Index1 = (ScalarInputFlags & (1 << 1)) ? 0 : I;
+      size_t Index2 = (ScalarInputFlags & (1 << 2)) ? 0 : I;
+      Expected.push_back(
+          Op(Inputs[0][I], Inputs[1][Index1], Inputs[2][Index2]));
     }
 
     return Expected;
@@ -1082,7 +1104,8 @@ template <OpType OP, typename T> struct ExpectedBuilder {
 
 template <typename T, OpType OP>
 void dispatchTest(CComPtr<ID3D12Device> D3DDevice, bool VerboseLogging,
-                  size_t OverrideLongVectorInputSize, bool IsRITP) {
+                  size_t OverrideLongVectorInputSize, bool IsRITP,
+                  uint16_t ScalarInputFlags) {
   std::vector<size_t> InputVectorSizes;
   if (OverrideLongVectorInputSize)
     InputVectorSizes.push_back(OverrideLongVectorInputSize);
@@ -1097,13 +1120,14 @@ void dispatchTest(CComPtr<ID3D12Device> D3DDevice, bool VerboseLogging,
   Op<OP, T, Operation.Arity> Op;
 
   for (size_t VectorSize : InputVectorSizes) {
-    std::vector<std::vector<T>> Inputs =
-        buildTestInputs<T>(VectorSize, Operation.InputSets, Operation.Arity);
+    std::vector<std::vector<T>> Inputs = buildTestInputs<T>(
+        VectorSize, ScalarInputFlags, Operation.InputSets, Operation.Arity);
 
-    auto Expected = ExpectedBuilder<OP, T>::buildExpected(Op, Inputs);
+    auto Expected =
+        ExpectedBuilder<OP, T>::buildExpected(Op, Inputs, ScalarInputFlags);
 
     runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
-                 Op.ValidationConfig);
+                 ScalarInputFlags, Op.ValidationConfig);
   }
 }
 
@@ -1114,8 +1138,12 @@ using namespace LongVector;
 // TAEF test entry points
 
 #define VARIANT_NAME_Vector
+#define VARIANT_NAME_ScalarOp2 _Scalar
+#define VARIANT_NAME_ScalarOp3 _Scalar
 
 #define VARIANT_VALUE_Vector 0
+#define VARIANT_VALUE_ScalarOp2 2
+#define VARIANT_VALUE_ScalarOp3 4
 
 #define VARIANT_NAME(v) VARIANT_NAME_##v
 
@@ -1127,7 +1155,7 @@ using namespace LongVector;
 
 #define HLK_TEST(Op, DataType, Variant)                                        \
   TEST_METHOD(METHOD_NAME(Op, DataType, Variant)) {                            \
-    runTest<DataType, OpType ::Op>();                                          \
+    runTest<DataType, OpType ::Op>(VARIANT_VALUE_##Variant);                   \
   }
 
 class DxilConf_SM69_Vectorized {
@@ -1196,13 +1224,16 @@ public:
 
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"RITP", IsRITP);
 
-      createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, true);
+      // Only skip unsupported tests for RITP runs.
+      const bool SkipUnsupported = IsRITP;
+      createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9,
+                   SkipUnsupported);
     }
 
     return true;
   }
 
-  template <typename T, OpType OP> void runTest() {
+  template <typename T, OpType OP> void runTest(uint16_t ScalarInputFlags) {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -1213,143 +1244,249 @@ public:
           createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false));
 
     dispatchTest<T, OP>(D3DDevice, VerboseLogging, OverrideLongVectorInputSize,
-                        IsRITP);
+                        IsRITP, ScalarInputFlags);
   }
 
   // TernaryMath
 
   HLK_TEST(Mad, uint16_t, Vector);
+  HLK_TEST(Mad, uint16_t, ScalarOp3);
   HLK_TEST(Mad, uint32_t, Vector);
+  HLK_TEST(Mad, uint32_t, ScalarOp2);
   HLK_TEST(Mad, uint64_t, Vector);
+  HLK_TEST(Mad, uint64_t, ScalarOp3);
   HLK_TEST(Mad, int16_t, Vector);
+  HLK_TEST(Mad, int16_t, ScalarOp2);
   HLK_TEST(Mad, int32_t, Vector);
+  HLK_TEST(Mad, int32_t, ScalarOp2);
   HLK_TEST(Mad, int64_t, Vector);
+  HLK_TEST(Mad, int64_t, ScalarOp3);
   HLK_TEST(Mad, HLSLHalf_t, Vector);
+  HLK_TEST(Mad, HLSLHalf_t, ScalarOp2);
   HLK_TEST(Mad, float, Vector);
+  HLK_TEST(Mad, float, ScalarOp2);
   HLK_TEST(Fma, double, Vector);
+  HLK_TEST(Fma, double, ScalarOp2);
   HLK_TEST(Mad, double, Vector);
+  HLK_TEST(Mad, double, ScalarOp2);
 
   // BinaryMath
 
+  HLK_TEST(Add, HLSLBool_t, ScalarOp2);
   HLK_TEST(Add, HLSLBool_t, Vector);
+  HLK_TEST(Subtract, HLSLBool_t, ScalarOp2);
   HLK_TEST(Subtract, HLSLBool_t, Vector);
+  HLK_TEST(Add, int16_t, ScalarOp2);
   HLK_TEST(Add, int16_t, Vector);
+  HLK_TEST(Subtract, int16_t, ScalarOp2);
   HLK_TEST(Subtract, int16_t, Vector);
+  HLK_TEST(Multiply, int16_t, ScalarOp2);
   HLK_TEST(Multiply, int16_t, Vector);
+  HLK_TEST(Divide, int16_t, ScalarOp2);
   HLK_TEST(Divide, int16_t, Vector);
+  HLK_TEST(Modulus, int16_t, ScalarOp2);
   HLK_TEST(Modulus, int16_t, Vector);
+  HLK_TEST(Min, int16_t, ScalarOp2);
   HLK_TEST(Min, int16_t, Vector);
+  HLK_TEST(Max, int16_t, ScalarOp2);
   HLK_TEST(Max, int16_t, Vector);
+  HLK_TEST(Add, int32_t, ScalarOp2);
   HLK_TEST(Add, int32_t, Vector);
+  HLK_TEST(Subtract, int32_t, ScalarOp2);
   HLK_TEST(Subtract, int32_t, Vector);
+  HLK_TEST(Multiply, int32_t, ScalarOp2);
   HLK_TEST(Multiply, int32_t, Vector);
+  HLK_TEST(Divide, int32_t, ScalarOp2);
   HLK_TEST(Divide, int32_t, Vector);
+  HLK_TEST(Modulus, int32_t, ScalarOp2);
   HLK_TEST(Modulus, int32_t, Vector);
+  HLK_TEST(Min, int32_t, ScalarOp2);
   HLK_TEST(Min, int32_t, Vector);
+  HLK_TEST(Max, int32_t, ScalarOp2);
   HLK_TEST(Max, int32_t, Vector);
+  HLK_TEST(Add, int64_t, ScalarOp2);
   HLK_TEST(Add, int64_t, Vector);
+  HLK_TEST(Subtract, int64_t, ScalarOp2);
   HLK_TEST(Subtract, int64_t, Vector);
+  HLK_TEST(Multiply, int64_t, ScalarOp2);
   HLK_TEST(Multiply, int64_t, Vector);
+  HLK_TEST(Divide, int64_t, ScalarOp2);
   HLK_TEST(Divide, int64_t, Vector);
+  HLK_TEST(Modulus, int64_t, ScalarOp2);
   HLK_TEST(Modulus, int64_t, Vector);
+  HLK_TEST(Min, int64_t, ScalarOp2);
   HLK_TEST(Min, int64_t, Vector);
+  HLK_TEST(Max, int64_t, ScalarOp2);
   HLK_TEST(Max, int64_t, Vector);
+  HLK_TEST(Add, uint16_t, ScalarOp2);
   HLK_TEST(Add, uint16_t, Vector);
+  HLK_TEST(Subtract, uint16_t, ScalarOp2);
   HLK_TEST(Subtract, uint16_t, Vector);
+  HLK_TEST(Multiply, uint16_t, ScalarOp2);
   HLK_TEST(Multiply, uint16_t, Vector);
+  HLK_TEST(Divide, uint16_t, ScalarOp2);
   HLK_TEST(Divide, uint16_t, Vector);
+  HLK_TEST(Modulus, uint16_t, ScalarOp2);
   HLK_TEST(Modulus, uint16_t, Vector);
+  HLK_TEST(Min, uint16_t, ScalarOp2);
   HLK_TEST(Min, uint16_t, Vector);
+  HLK_TEST(Max, uint16_t, ScalarOp2);
   HLK_TEST(Max, uint16_t, Vector);
+  HLK_TEST(Add, uint32_t, ScalarOp2);
   HLK_TEST(Add, uint32_t, Vector);
+  HLK_TEST(Subtract, uint32_t, ScalarOp2);
   HLK_TEST(Subtract, uint32_t, Vector);
+  HLK_TEST(Multiply, uint32_t, ScalarOp2);
   HLK_TEST(Multiply, uint32_t, Vector);
+  HLK_TEST(Divide, uint32_t, ScalarOp2);
   HLK_TEST(Divide, uint32_t, Vector);
+  HLK_TEST(Modulus, uint32_t, ScalarOp2);
   HLK_TEST(Modulus, uint32_t, Vector);
+  HLK_TEST(Min, uint32_t, ScalarOp2);
   HLK_TEST(Min, uint32_t, Vector);
+  HLK_TEST(Max, uint32_t, ScalarOp2);
   HLK_TEST(Max, uint32_t, Vector);
+  HLK_TEST(Add, uint64_t, ScalarOp2);
   HLK_TEST(Add, uint64_t, Vector);
+  HLK_TEST(Subtract, uint64_t, ScalarOp2);
   HLK_TEST(Subtract, uint64_t, Vector);
+  HLK_TEST(Multiply, uint64_t, ScalarOp2);
   HLK_TEST(Multiply, uint64_t, Vector);
+  HLK_TEST(Divide, uint64_t, ScalarOp2);
   HLK_TEST(Divide, uint64_t, Vector);
+  HLK_TEST(Modulus, uint64_t, ScalarOp2);
   HLK_TEST(Modulus, uint64_t, Vector);
+  HLK_TEST(Min, uint64_t, ScalarOp2);
   HLK_TEST(Min, uint64_t, Vector);
+  HLK_TEST(Max, uint64_t, ScalarOp2);
   HLK_TEST(Max, uint64_t, Vector);
+  HLK_TEST(Add, HLSLHalf_t, ScalarOp2);
   HLK_TEST(Add, HLSLHalf_t, Vector);
+  HLK_TEST(Subtract, HLSLHalf_t, ScalarOp2);
   HLK_TEST(Subtract, HLSLHalf_t, Vector);
+  HLK_TEST(Multiply, HLSLHalf_t, ScalarOp2);
   HLK_TEST(Multiply, HLSLHalf_t, Vector);
+  HLK_TEST(Divide, HLSLHalf_t, ScalarOp2);
   HLK_TEST(Divide, HLSLHalf_t, Vector);
+  HLK_TEST(Modulus, HLSLHalf_t, ScalarOp2);
   HLK_TEST(Modulus, HLSLHalf_t, Vector);
+  HLK_TEST(Min, HLSLHalf_t, ScalarOp2);
   HLK_TEST(Min, HLSLHalf_t, Vector);
+  HLK_TEST(Max, HLSLHalf_t, ScalarOp2);
   HLK_TEST(Max, HLSLHalf_t, Vector);
   HLK_TEST(Ldexp, HLSLHalf_t, Vector);
+  HLK_TEST(Ldexp, HLSLHalf_t, ScalarOp2);
+  HLK_TEST(Add, float, ScalarOp2);
   HLK_TEST(Add, float, Vector);
+  HLK_TEST(Subtract, float, ScalarOp2);
   HLK_TEST(Subtract, float, Vector);
+  HLK_TEST(Multiply, float, ScalarOp2);
   HLK_TEST(Multiply, float, Vector);
+  HLK_TEST(Divide, float, ScalarOp2);
   HLK_TEST(Divide, float, Vector);
+  HLK_TEST(Modulus, float, ScalarOp2);
   HLK_TEST(Modulus, float, Vector);
+  HLK_TEST(Min, float, ScalarOp2);
   HLK_TEST(Min, float, Vector);
+  HLK_TEST(Max, float, ScalarOp2);
   HLK_TEST(Max, float, Vector);
   HLK_TEST(Ldexp, float, Vector);
+  HLK_TEST(Ldexp, float, ScalarOp2);
+  HLK_TEST(Add, double, ScalarOp2);
   HLK_TEST(Add, double, Vector);
+  HLK_TEST(Subtract, double, ScalarOp2);
   HLK_TEST(Subtract, double, Vector);
+  HLK_TEST(Multiply, double, ScalarOp2);
   HLK_TEST(Multiply, double, Vector);
+  HLK_TEST(Divide, double, ScalarOp2);
   HLK_TEST(Divide, double, Vector);
+  HLK_TEST(Min, double, ScalarOp2);
   HLK_TEST(Min, double, Vector);
+  HLK_TEST(Max, double, ScalarOp2);
   HLK_TEST(Max, double, Vector);
 
   // Bitwise
 
   HLK_TEST(And, uint16_t, Vector);
+  HLK_TEST(And, uint16_t, ScalarOp2);
   HLK_TEST(Or, uint16_t, Vector);
+  HLK_TEST(Or, uint16_t, ScalarOp2);
   HLK_TEST(Xor, uint16_t, Vector);
+  HLK_TEST(Xor, uint16_t, ScalarOp2);
   HLK_TEST(ReverseBits, uint16_t, Vector);
   HLK_TEST(CountBits, uint16_t, Vector);
   HLK_TEST(FirstBitHigh, uint16_t, Vector);
   HLK_TEST(FirstBitLow, uint16_t, Vector);
   HLK_TEST(LeftShift, uint16_t, Vector);
+  HLK_TEST(LeftShift, uint16_t, ScalarOp2);
   HLK_TEST(RightShift, uint16_t, Vector);
+  HLK_TEST(RightShift, uint16_t, ScalarOp2);
   HLK_TEST(And, uint32_t, Vector);
+  HLK_TEST(And, uint32_t, ScalarOp2);
   HLK_TEST(Or, uint32_t, Vector);
+  HLK_TEST(Or, uint32_t, ScalarOp2);
   HLK_TEST(Xor, uint32_t, Vector);
+  HLK_TEST(Xor, uint32_t, ScalarOp2);
   HLK_TEST(LeftShift, uint32_t, Vector);
+  HLK_TEST(LeftShift, uint32_t, ScalarOp2);
   HLK_TEST(RightShift, uint32_t, Vector);
+  HLK_TEST(RightShift, uint32_t, ScalarOp2);
   HLK_TEST(ReverseBits, uint32_t, Vector);
   HLK_TEST(CountBits, uint32_t, Vector);
   HLK_TEST(FirstBitHigh, uint32_t, Vector);
   HLK_TEST(FirstBitLow, uint32_t, Vector);
   HLK_TEST(And, uint64_t, Vector);
+  HLK_TEST(And, uint64_t, ScalarOp2);
   HLK_TEST(Or, uint64_t, Vector);
+  HLK_TEST(Or, uint64_t, ScalarOp2);
   HLK_TEST(Xor, uint64_t, Vector);
+  HLK_TEST(Xor, uint64_t, ScalarOp2);
   HLK_TEST(LeftShift, uint64_t, Vector);
+  HLK_TEST(LeftShift, uint64_t, ScalarOp2);
   HLK_TEST(RightShift, uint64_t, Vector);
+  HLK_TEST(RightShift, uint64_t, ScalarOp2);
   HLK_TEST(ReverseBits, uint64_t, Vector);
   HLK_TEST(CountBits, uint64_t, Vector);
   HLK_TEST(FirstBitHigh, uint64_t, Vector);
   HLK_TEST(FirstBitLow, uint64_t, Vector);
   HLK_TEST(And, int16_t, Vector);
+  HLK_TEST(And, int16_t, ScalarOp2);
   HLK_TEST(Or, int16_t, Vector);
+  HLK_TEST(Or, int16_t, ScalarOp2);
   HLK_TEST(Xor, int16_t, Vector);
+  HLK_TEST(Xor, int16_t, ScalarOp2);
   HLK_TEST(LeftShift, int16_t, Vector);
+  HLK_TEST(LeftShift, int16_t, ScalarOp2);
   HLK_TEST(RightShift, int16_t, Vector);
+  HLK_TEST(RightShift, int16_t, ScalarOp2);
   HLK_TEST(ReverseBits, int16_t, Vector);
   HLK_TEST(CountBits, int16_t, Vector);
   HLK_TEST(FirstBitHigh, int16_t, Vector);
   HLK_TEST(FirstBitLow, int16_t, Vector);
   HLK_TEST(And, int32_t, Vector);
+  HLK_TEST(And, int32_t, ScalarOp2);
   HLK_TEST(Or, int32_t, Vector);
+  HLK_TEST(Or, int32_t, ScalarOp2);
   HLK_TEST(Xor, int32_t, Vector);
+  HLK_TEST(Xor, int32_t, ScalarOp2);
   HLK_TEST(LeftShift, int32_t, Vector);
+  HLK_TEST(LeftShift, int32_t, ScalarOp2);
   HLK_TEST(RightShift, int32_t, Vector);
+  HLK_TEST(RightShift, int32_t, ScalarOp2);
   HLK_TEST(ReverseBits, int32_t, Vector);
   HLK_TEST(CountBits, int32_t, Vector);
   HLK_TEST(FirstBitHigh, int32_t, Vector);
   HLK_TEST(FirstBitLow, int32_t, Vector);
   HLK_TEST(And, int64_t, Vector);
+  HLK_TEST(And, int64_t, ScalarOp2);
   HLK_TEST(Or, int64_t, Vector);
+  HLK_TEST(Or, int64_t, ScalarOp2);
   HLK_TEST(Xor, int64_t, Vector);
+  HLK_TEST(Xor, int64_t, ScalarOp2);
   HLK_TEST(LeftShift, int64_t, Vector);
+  HLK_TEST(LeftShift, int64_t, ScalarOp2);
   HLK_TEST(RightShift, int64_t, Vector);
+  HLK_TEST(RightShift, int64_t, ScalarOp2);
   HLK_TEST(ReverseBits, int64_t, Vector);
   HLK_TEST(CountBits, int64_t, Vector);
   HLK_TEST(FirstBitHigh, int64_t, Vector);
@@ -1509,6 +1646,7 @@ public:
   HLK_TEST(AsInt, uint32_t, Vector);
   HLK_TEST(AsUint, uint32_t, Vector);
   HLK_TEST(AsDouble, uint32_t, Vector);
+  HLK_TEST(AsDouble, uint32_t, ScalarOp2);
   HLK_TEST(AsFloat16, HLSLHalf_t, Vector);
   HLK_TEST(AsInt16, HLSLHalf_t, Vector);
   HLK_TEST(AsUint16, HLSLHalf_t, Vector);
@@ -1564,65 +1702,121 @@ public:
 
   // Binary Comparison
 
+  HLK_TEST(LessThan, int16_t, ScalarOp2);
   HLK_TEST(LessThan, int16_t, Vector);
+  HLK_TEST(LessEqual, int16_t, ScalarOp2);
   HLK_TEST(LessEqual, int16_t, Vector);
+  HLK_TEST(GreaterThan, int16_t, ScalarOp2);
   HLK_TEST(GreaterThan, int16_t, Vector);
+  HLK_TEST(GreaterEqual, int16_t, ScalarOp2);
   HLK_TEST(GreaterEqual, int16_t, Vector);
+  HLK_TEST(Equal, int16_t, ScalarOp2);
   HLK_TEST(Equal, int16_t, Vector);
+  HLK_TEST(NotEqual, int16_t, ScalarOp2);
   HLK_TEST(NotEqual, int16_t, Vector);
+  HLK_TEST(LessThan, int32_t, ScalarOp2);
   HLK_TEST(LessThan, int32_t, Vector);
+  HLK_TEST(LessEqual, int32_t, ScalarOp2);
   HLK_TEST(LessEqual, int32_t, Vector);
+  HLK_TEST(GreaterThan, int32_t, ScalarOp2);
   HLK_TEST(GreaterThan, int32_t, Vector);
+  HLK_TEST(GreaterEqual, int32_t, ScalarOp2);
   HLK_TEST(GreaterEqual, int32_t, Vector);
+  HLK_TEST(Equal, int32_t, ScalarOp2);
   HLK_TEST(Equal, int32_t, Vector);
+  HLK_TEST(NotEqual, int32_t, ScalarOp2);
   HLK_TEST(NotEqual, int32_t, Vector);
+  HLK_TEST(LessThan, int64_t, ScalarOp2);
   HLK_TEST(LessThan, int64_t, Vector);
+  HLK_TEST(LessEqual, int64_t, ScalarOp2);
   HLK_TEST(LessEqual, int64_t, Vector);
+  HLK_TEST(GreaterThan, int64_t, ScalarOp2);
   HLK_TEST(GreaterThan, int64_t, Vector);
+  HLK_TEST(GreaterEqual, int64_t, ScalarOp2);
   HLK_TEST(GreaterEqual, int64_t, Vector);
+  HLK_TEST(Equal, int64_t, ScalarOp2);
   HLK_TEST(Equal, int64_t, Vector);
+  HLK_TEST(NotEqual, int64_t, ScalarOp2);
   HLK_TEST(NotEqual, int64_t, Vector);
+  HLK_TEST(LessThan, uint16_t, ScalarOp2);
   HLK_TEST(LessThan, uint16_t, Vector);
+  HLK_TEST(LessEqual, uint16_t, ScalarOp2);
   HLK_TEST(LessEqual, uint16_t, Vector);
+  HLK_TEST(GreaterThan, uint16_t, ScalarOp2);
   HLK_TEST(GreaterThan, uint16_t, Vector);
+  HLK_TEST(GreaterEqual, uint16_t, ScalarOp2);
   HLK_TEST(GreaterEqual, uint16_t, Vector);
+  HLK_TEST(Equal, uint16_t, ScalarOp2);
   HLK_TEST(Equal, uint16_t, Vector);
+  HLK_TEST(NotEqual, uint16_t, ScalarOp2);
   HLK_TEST(NotEqual, uint16_t, Vector);
+  HLK_TEST(LessThan, uint32_t, ScalarOp2);
   HLK_TEST(LessThan, uint32_t, Vector);
+  HLK_TEST(LessEqual, uint32_t, ScalarOp2);
   HLK_TEST(LessEqual, uint32_t, Vector);
+  HLK_TEST(GreaterThan, uint32_t, ScalarOp2);
   HLK_TEST(GreaterThan, uint32_t, Vector);
+  HLK_TEST(GreaterEqual, uint32_t, ScalarOp2);
   HLK_TEST(GreaterEqual, uint32_t, Vector);
+  HLK_TEST(Equal, uint32_t, ScalarOp2);
   HLK_TEST(Equal, uint32_t, Vector);
+  HLK_TEST(NotEqual, uint32_t, ScalarOp2);
   HLK_TEST(NotEqual, uint32_t, Vector);
+  HLK_TEST(LessThan, uint64_t, ScalarOp2);
   HLK_TEST(LessThan, uint64_t, Vector);
+  HLK_TEST(LessEqual, uint64_t, ScalarOp2);
   HLK_TEST(LessEqual, uint64_t, Vector);
+  HLK_TEST(GreaterThan, uint64_t, ScalarOp2);
   HLK_TEST(GreaterThan, uint64_t, Vector);
+  HLK_TEST(GreaterEqual, uint64_t, ScalarOp2);
   HLK_TEST(GreaterEqual, uint64_t, Vector);
+  HLK_TEST(Equal, uint64_t, ScalarOp2);
   HLK_TEST(Equal, uint64_t, Vector);
+  HLK_TEST(NotEqual, uint64_t, ScalarOp2);
   HLK_TEST(NotEqual, uint64_t, Vector);
+  HLK_TEST(LessThan, HLSLHalf_t, ScalarOp2);
   HLK_TEST(LessThan, HLSLHalf_t, Vector);
+  HLK_TEST(LessEqual, HLSLHalf_t, ScalarOp2);
   HLK_TEST(LessEqual, HLSLHalf_t, Vector);
+  HLK_TEST(GreaterThan, HLSLHalf_t, ScalarOp2);
   HLK_TEST(GreaterThan, HLSLHalf_t, Vector);
+  HLK_TEST(GreaterEqual, HLSLHalf_t, ScalarOp2);
   HLK_TEST(GreaterEqual, HLSLHalf_t, Vector);
+  HLK_TEST(Equal, HLSLHalf_t, ScalarOp2);
   HLK_TEST(Equal, HLSLHalf_t, Vector);
+  HLK_TEST(NotEqual, HLSLHalf_t, ScalarOp2);
   HLK_TEST(NotEqual, HLSLHalf_t, Vector);
+  HLK_TEST(LessThan, float, ScalarOp2);
   HLK_TEST(LessThan, float, Vector);
+  HLK_TEST(LessEqual, float, ScalarOp2);
   HLK_TEST(LessEqual, float, Vector);
+  HLK_TEST(GreaterThan, float, ScalarOp2);
   HLK_TEST(GreaterThan, float, Vector);
+  HLK_TEST(GreaterEqual, float, ScalarOp2);
   HLK_TEST(GreaterEqual, float, Vector);
+  HLK_TEST(Equal, float, ScalarOp2);
   HLK_TEST(Equal, float, Vector);
+  HLK_TEST(NotEqual, float, ScalarOp2);
   HLK_TEST(NotEqual, float, Vector);
+  HLK_TEST(LessThan, double, ScalarOp2);
   HLK_TEST(LessThan, double, Vector);
+  HLK_TEST(LessEqual, double, ScalarOp2);
   HLK_TEST(LessEqual, double, Vector);
+  HLK_TEST(GreaterThan, double, ScalarOp2);
   HLK_TEST(GreaterThan, double, Vector);
+  HLK_TEST(GreaterEqual, double, ScalarOp2);
   HLK_TEST(GreaterEqual, double, Vector);
+  HLK_TEST(Equal, double, ScalarOp2);
   HLK_TEST(Equal, double, Vector);
+  HLK_TEST(NotEqual, double, ScalarOp2);
   HLK_TEST(NotEqual, double, Vector);
 
   // Binary Logical
 
   HLK_TEST(Logical_And, HLSLBool_t, Vector);
   HLK_TEST(Logical_Or, HLSLBool_t, Vector);
+  HLK_TEST(Logical_And, HLSLBool_t, ScalarOp2);
+  HLK_TEST(Logical_Or, HLSLBool_t, ScalarOp2);
 
   // Ternary Logical
   HLK_TEST(Select, HLSLBool_t, Vector);
