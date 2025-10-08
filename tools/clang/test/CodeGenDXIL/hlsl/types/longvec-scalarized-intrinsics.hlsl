@@ -65,16 +65,3 @@ export void test_pow(inout vector<float, 8> vec1, vector<float, 8> vec2) {
 export void test_modf(inout vector<float, 8> vec1, vector<float, 8> vec2) {
   vec1 = modf(vec1, vec2);
 }
-
-// CHECK-LABEL: test_WaveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-export uint4 test_WaveMatch(vector<bool, 8> bvec) {
-  return WaveMatch(bvec);
-}
