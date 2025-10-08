@@ -6776,11 +6776,10 @@ static void PatchDebugInfo(GVDebugInfoPatchCache &Cache,
         Tag, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
 
     DIExpression *Expr = nullptr;
-    if (IsFragment) {
+    if (IsFragment)
       Expr = DIB.createBitPieceExpression(OffsetInBits, SizeInBits);
-    } else {
+    else
       Expr = DIB.createExpression(ArrayRef<int64_t>());
-    }
 
     DIB.insertDeclare(AI, ConvertedLocalVar, Expr, Loc, AI->getNextNode());
   }
