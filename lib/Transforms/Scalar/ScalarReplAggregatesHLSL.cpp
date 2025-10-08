@@ -6500,9 +6500,8 @@ ModulePass *llvm::createSROA_Parameter_HLSL() {
 namespace {
 
 struct GVDebugInfoPatchCache {
-  std::unordered_map<Function *, SetVector<DISubprogram *>>
-      SubprogramsForFunction;
-  std::unordered_set<DILocation *> Seen;
+  DenseMap<Function *, SetVector<DISubprogram *>> SubprogramsForFunction;
+  DenseSet<DILocation *> Seen;
   DITypeIdentifierMap EmptyMap;
 
   void CollectSubprograms(DILocation *Loc, SetVector<DISubprogram *> &Set) {
