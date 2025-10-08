@@ -348,23 +348,10 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
 template <typename T> using InputSets = std::vector<std::vector<T>>;
 
 template <typename OUT_TYPE, typename T>
-std::optional<std::vector<OUT_TYPE>>
-runTest(bool VerboseLogging, const Operation &Operation,
-        const InputSets<T> &Inputs, size_t ExpectedOutputSize) {
+runTest(ID3D12Device *D3DDevice, bool VerboseLogging,
+        const Operation &Operation, const InputSets<T> &Inputs,
+        size_t ExpectedOutputSize) {
   DXASSERT_NOMSG(Inputs.size() == Operation.Arity);
-
-  CComPtr<ID3D12Device> D3DDevice;
-  if (!createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false)) {
-#ifdef _HLK_CONF
-    LOG_ERROR_FMT_THROW(
-        L"Device does not support SM 6.9. Can't run these tests.");
-#else
-    WEX::Logging::Log::Comment(
-        "Device does not support SM 6.9. Can't run these tests.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    return std::nullopt;
-#endif
-  }
 
   if (VerboseLogging) {
     for (size_t I = 0; I < Operation.Arity; ++I) {
@@ -482,13 +469,14 @@ struct ValidationConfig {
 };
 
 template <typename T, typename OUT_TYPE>
-void runAndVerify(bool VerboseLogging, const Operation &Operation,
-                  const InputSets<T> &Inputs,
+void runAndVerify(ID3D12Device *D3DDevice, bool VerboseLogging,
+                  const Operation &Operation, const InputSets<T> &Inputs,
                   const std::vector<OUT_TYPE> &Expected,
                   const ValidationConfig &ValidationConfig) {
 
   std::optional<std::vector<OUT_TYPE>> Actual =
-      runTest<OUT_TYPE>(VerboseLogging, Operation, Inputs, Expected.size());
+      runTest<OUT_TYPE>(D3DDevice, VerboseLogging, Operation, Inputs,
+                        Expected.size());
 
   // If the test didn't run, don't verify anything.
   if (!Actual)
@@ -1103,7 +1091,8 @@ template <OpType OP, typename T> struct ExpectedBuilder {
 };
 
 template <typename T, OpType OP>
-void dispatchTest(bool VerboseLogging, size_t OverrideLongVectorInputSize) {
+void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
+                  size_t OverrideLongVectorInputSize) {
   std::vector<size_t> InputVectorSizes;
   if (OverrideLongVectorInputSize)
     InputVectorSizes.push_back(OverrideLongVectorInputSize);
@@ -1120,7 +1109,7 @@ void dispatchTest(bool VerboseLogging, size_t OverrideLongVectorInputSize) {
 
     auto Expected = ExpectedBuilder<OP, T>::buildExpected(Op, Inputs);
 
-    runAndVerify(VerboseLogging, Operation, Inputs, Expected,
+    runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
                  Op.ValidationConfig);
   }
 }
@@ -1196,6 +1185,25 @@ public:
 
       WEX::TestExecution::RuntimeParameters::TryGetValue(
           L"LongVectorInputSize", OverrideLongVectorInputSize);
+
+      bool IsRITP = false;
+      WEX::TestExecution::RuntimeParameters::TryGetValue(L"RITP", IsRITP);
+
+      if (IsRITP) {
+        if (!OverrideLongVectorInputSize)
+          // Help keep test runtime down for RITP runs
+          OverrideLongVectorInputSize = 10;
+        else
+          WEX::Logging::Log::Warning(WEX::Common::String().Format(
+              L"RITP is enabled but LongVectorInputSize is also set. Will use "
+              L"the LongVectorInputSize value: %d.",
+              OverrideLongVectorInputSize));
+      }
+
+      // Only skip unsupported tests for RITP runs.
+      const bool SkipUnsupported = IsRITP;
+      createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9,
+                   SkipUnsupported);
     }
 
     return true;
@@ -1205,7 +1213,13 @@ public:
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-    dispatchTest<T, OP>(VerboseLogging, OverrideLongVectorInputSize);
+    // It's possible a previous test case caused a device removal. If it did we
+    // need to try and create a new device.
+    if (!D3DDevice || D3DDevice->GetDeviceRemovedReason() != S_OK)
+      VERIFY_IS_TRUE(
+          createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false));
+
+    dispatchTest<T, OP>(D3DDevice, VerboseLogging, OverrideLongVectorInputSize);
   }
 
   // TernaryMath
@@ -1676,4 +1690,5 @@ private:
   bool Initialized = false;
   bool VerboseLogging = false;
   size_t OverrideLongVectorInputSize = 0;
+  CComPtr<ID3D12Device> D3DDevice;
 };
