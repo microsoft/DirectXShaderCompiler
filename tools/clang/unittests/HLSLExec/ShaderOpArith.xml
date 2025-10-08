@@ -3831,12 +3831,25 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_SHUFFLE_VECTOR
+        vector<OUT_TYPE, NUM> TestShuffleVector(TYPE Scalar)
+        {
+          vector<OUT_TYPE, NUM> Vector = Scalar;
+          return Vector;
+        }
+        #endif
+
         [numthreads(1,1,1)]
         void main(uint GI : SV_GroupIndex) {
 
-          // First input is always a vector, regardless of the basic op type.
-          vector<TYPE, NUM> Input1 = g_InputVector1.Load< vector<TYPE,
-          NUM> >(0);
+          #ifdef FUNC_SHUFFLE_VECTOR
+            // For shuffle vector, the input is a scalar, not a vector.
+            TYPE Input1 = g_InputVector1.Load<TYPE>(0);
+          #else
+            // For all other basic op types the first input is always a vector.
+            vector<TYPE, NUM> Input1 = g_InputVector1.Load< vector<TYPE,
+            NUM> >(0);
+          #endif
 
           #if (IS_BINARY_OP || IS_TERNARY_OP)
             vector<TYPE, NUM> Input2 = g_InputVector2.Load< vector<TYPE,

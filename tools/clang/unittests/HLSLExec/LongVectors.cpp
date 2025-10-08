@@ -349,9 +349,8 @@ template <typename T> using InputSets = std::vector<std::vector<T>>;
 
 template <typename OUT_TYPE, typename T>
 std::optional<std::vector<OUT_TYPE>>
-runTest(bool VerboseLogging,
-        const Operation &Operation, const InputSets<T> &Inputs,
-        size_t ExpectedOutputSize) {
+runTest(bool VerboseLogging, const Operation &Operation,
+        const InputSets<T> &Inputs, size_t ExpectedOutputSize) {
   DXASSERT_NOMSG(Inputs.size() == Operation.Arity);
 
   CComPtr<ID3D12Device> D3DDevice;
@@ -488,8 +487,8 @@ void runAndVerify(bool VerboseLogging, const Operation &Operation,
                   const std::vector<OUT_TYPE> &Expected,
                   const ValidationConfig &ValidationConfig) {
 
-  std::optional<std::vector<OUT_TYPE>> Actual = runTest<OUT_TYPE>(
-      VerboseLogging, Operation, Inputs, Expected.size());
+  std::optional<std::vector<OUT_TYPE>> Actual =
+      runTest<OUT_TYPE>(VerboseLogging, Operation, Inputs, Expected.size());
 
   // If the test didn't run, don't verify anything.
   if (!Actual)
@@ -1047,6 +1046,16 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
   }
 };
 
+template <typename T>
+struct Op<OpType::ShuffleVector, T, 1> : DefaultValidation<T> {};
+template <typename T> struct ExpectedBuilder<OpType::ShuffleVector, T> {
+  static std::vector<T> buildExpected(Op<OpType::ShuffleVector, T, 1>,
+                                      const InputSets<T> &Inputs) {
+    std::vector<T> Expected(Inputs[0].size(), Inputs[0][0]);
+    return Expected;
+  }
+};
+
 //
 // dispatchTest
 //
@@ -1353,6 +1362,17 @@ public:
   HLK_TEST(Initialize, HLSLHalf_t);
   HLK_TEST(Initialize, float);
   HLK_TEST(Initialize, double);
+
+  HLK_TEST(ShuffleVector, HLSLBool_t);
+  HLK_TEST(ShuffleVector, int16_t);
+  HLK_TEST(ShuffleVector, int32_t);
+  HLK_TEST(ShuffleVector, int64_t);
+  HLK_TEST(ShuffleVector, uint16_t);
+  HLK_TEST(ShuffleVector, uint32_t);
+  HLK_TEST(ShuffleVector, uint64_t);
+  HLK_TEST(ShuffleVector, HLSLHalf_t);
+  HLK_TEST(ShuffleVector, float);
+  HLK_TEST(ShuffleVector, double);
 
   // Explicit Cast
 
