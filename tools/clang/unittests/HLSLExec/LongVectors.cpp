@@ -353,7 +353,7 @@ template <typename T> using InputSets = std::vector<std::vector<T>>;
 
 template <typename OUT_TYPE, typename T>
 std::optional<std::vector<OUT_TYPE>>
-runTest(ID3D12Device* D3DDevice, bool VerboseLogging,
+runTest(ID3D12Device *D3DDevice, bool VerboseLogging,
         const Operation &Operation, const InputSets<T> &Inputs,
         uint16_t ScalarInputFlags, size_t ExpectedOutputSize) {
   DXASSERT_NOMSG(Inputs.size() == Operation.Arity);
@@ -477,7 +477,7 @@ struct ValidationConfig {
 };
 
 template <typename T, typename OUT_TYPE>
-void runAndVerify(ID3D12Device* D3DDevice, bool VerboseLogging,
+void runAndVerify(ID3D12Device *D3DDevice, bool VerboseLogging,
                   const Operation &Operation, const InputSets<T> &Inputs,
                   const std::vector<OUT_TYPE> &Expected,
                   uint16_t ScalarInputFlags,
@@ -1103,7 +1103,7 @@ template <OpType OP, typename T> struct ExpectedBuilder {
 };
 
 template <typename T, OpType OP>
-void dispatchTest(ID3D12Device* D3DDevice, bool VerboseLogging,
+void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
                   size_t OverrideLongVectorInputSize,
                   uint16_t ScalarInputFlags) {
   std::vector<size_t> InputVectorSizes;
