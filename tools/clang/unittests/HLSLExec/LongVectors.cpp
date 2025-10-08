@@ -1094,8 +1094,7 @@ template <OpType OP, typename T> struct ExpectedBuilder {
 };
 
 template <typename T, OpType OP>
-void dispatchTest(bool VerboseLogging,
-                  size_t OverrideLongVectorInputSize, bool IsRITP) {
+void dispatchTest(bool VerboseLogging, size_t OverrideLongVectorInputSize) {
   std::vector<size_t> InputVectorSizes;
   if (OverrideLongVectorInputSize)
     InputVectorSizes.push_back(OverrideLongVectorInputSize);
@@ -1197,8 +1196,7 @@ public:
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-    dispatchTest<T, OP>(VerboseLogging, OverrideLongVectorInputSize,
-                        ScalarInputFlags);
+    dispatchTest<T, OP>(VerboseLogging, OverrideLongVectorInputSize);
   }
 
   // TernaryMath
