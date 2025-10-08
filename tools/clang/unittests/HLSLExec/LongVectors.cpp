@@ -353,7 +353,7 @@ template <typename T> using InputSets = std::vector<std::vector<T>>;
 
 template <typename OUT_TYPE, typename T>
 std::optional<std::vector<OUT_TYPE>>
-runTest(CComPtr<ID3D12Device> D3DDevice, bool VerboseLogging,
+runTest(CComPtr<ID3D12Device> &D3DDevice, bool VerboseLogging,
         const Operation &Operation, const InputSets<T> &Inputs,
         uint16_t ScalarInputFlags, size_t ExpectedOutputSize) {
   DXASSERT_NOMSG(Inputs.size() == Operation.Arity);
@@ -477,7 +477,7 @@ struct ValidationConfig {
 };
 
 template <typename T, typename OUT_TYPE>
-void runAndVerify(CComPtr<ID3D12Device> D3DDevice, bool VerboseLogging,
+void runAndVerify(CComPtr<ID3D12Device> &D3DDevice, bool VerboseLogging,
                   const Operation &Operation, const InputSets<T> &Inputs,
                   const std::vector<OUT_TYPE> &Expected,
                   uint16_t ScalarInputFlags,
@@ -1103,15 +1103,12 @@ template <OpType OP, typename T> struct ExpectedBuilder {
 };
 
 template <typename T, OpType OP>
-void dispatchTest(CComPtr<ID3D12Device> D3DDevice, bool VerboseLogging,
-                  size_t OverrideLongVectorInputSize, bool IsRITP,
+void dispatchTest(CComPtr<ID3D12Device> &D3DDevice, bool VerboseLogging,
+                  size_t OverrideLongVectorInputSize,
                   uint16_t ScalarInputFlags) {
   std::vector<size_t> InputVectorSizes;
   if (OverrideLongVectorInputSize)
     InputVectorSizes.push_back(OverrideLongVectorInputSize);
-  else if (IsRITP)
-    // Help keep test runtime down for RITP runs
-    InputVectorSizes = {10};
   else
     InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
 
@@ -1222,7 +1219,19 @@ public:
       WEX::TestExecution::RuntimeParameters::TryGetValue(
           L"LongVectorInputSize", OverrideLongVectorInputSize);
 
+      bool IsRITP = false;
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"RITP", IsRITP);
+
+      if (IsRITP) {
+        if (!OverrideLongVectorInputSize)
+          // Help keep test runtime down for RITP runs
+          OverrideLongVectorInputSize = 10;
+        else
+          WEX::Logging::Log::Warning(WEX::Common::String().Format(
+              L"RITP is enabled but LongVectorInputSize is also set. Will use "
+              L"the LongVectorInputSize value: %d.",
+              OverrideLongVectorInputSize));
+      }
 
       // Only skip unsupported tests for RITP runs.
       const bool SkipUnsupported = IsRITP;
@@ -1244,7 +1253,7 @@ public:
           createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false));
 
     dispatchTest<T, OP>(D3DDevice, VerboseLogging, OverrideLongVectorInputSize,
-                        IsRITP, ScalarInputFlags);
+                        ScalarInputFlags);
   }
 
   // TernaryMath
@@ -1866,7 +1875,6 @@ public:
 private:
   bool Initialized = false;
   bool VerboseLogging = false;
-  bool IsRITP = false;
   size_t OverrideLongVectorInputSize = 0;
   CComPtr<ID3D12Device> D3DDevice;
 };
