@@ -47,8 +47,7 @@ unsigned GetRawBufferMask(unsigned NumComponents) {
   return DXIL::kCompMask_All;
 }
 
-bool scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
-                                CallInst *CI) {
+bool scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL, CallInst *CI) {
   IRBuilder<> Builder(CI);
   // Collect the information required to break this into scalar ops from args.
   DxilInst_RawBufferVectorLoad VecLd(CI);
@@ -120,7 +119,7 @@ bool scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
 }
 
 bool scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
-                                 CallInst *CI) {
+                          CallInst *CI) {
   IRBuilder<> Builder(CI);
   // Collect the information required to break this into scalar ops from args.
   DxilInst_RawBufferVectorStore VecSt(CI);
