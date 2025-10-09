@@ -348,6 +348,7 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
 template <typename T> using InputSets = std::vector<std::vector<T>>;
 
 template <typename OUT_TYPE, typename T>
+std::optional<std::vector<OUT_TYPE>>
 runTest(ID3D12Device *D3DDevice, bool VerboseLogging,
         const Operation &Operation, const InputSets<T> &Inputs,
         size_t ExpectedOutputSize) {
