@@ -351,7 +351,7 @@ static bool scalarizeVectorDot(hlsl::OP *HlslOP, CallInst *CI) {
   Value *BVecArg = CI->getArgOperand(2);
   VectorType *VecTy = cast<VectorType>(AVecArg->getType());
   Type *ScalarTy = VecTy->getScalarType();
-  unsigned VecSize = VecTy->getNumElements();
+  const unsigned VecSize = VecTy->getNumElements();
 
   // The only valid opcode is FDot which only has floating point overload.
   // If we hit this assert then this functions lowering needs to be updated
