@@ -223,19 +223,16 @@ static bool GetTargetVersionFromString(llvm::StringRef Ref, unsigned &OutMajor,
   // Capture: stage, major, minor
   // but ignore stage
   static llvm::Regex pattern(
-      "^((ps|vs|gs|hs|ds|cs|ms|as|lib|rootsig))_([0-9])_([0-9]{1,2}|x)$");
+      "^(ps|vs|gs|hs|ds|cs|ms|as|lib|rootsig)_([0-9])_([0-9]{1,2}|x)$");
 
   llvm::SmallVector<llvm::StringRef, 5> matches;
   if (!pattern.match(Ref, &matches))
     return false;
 
-  if (matches.size() < 5) // full match + 4 groups
+  if (matches[2].getAsInteger(10, OutMajor)) // major
     return false;
 
-  if (matches[3].getAsInteger(10, OutMajor)) // major
-    return false;
-
-  llvm::StringRef minorStr = matches[4]; // minor
+  llvm::StringRef minorStr = matches[3]; // minor
   if (minorStr == "x")
     OutMinor = ShaderModel::kOfflineMinor;
   else if (minorStr.getAsInteger(10, OutMinor))

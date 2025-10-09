@@ -413,9 +413,6 @@ bool ParseTargetProfile(llvm::StringRef Ref, llvm::StringRef &OutStage,
   if (!pattern.match(Ref, &matches))
     return false;
 
-  if (matches.size() < 5) // full match + 4 groups
-    return false;
-
   OutStage = matches[1]; // stage (outer group)
 
   if (matches[3].getAsInteger(10, OutMajor)) // major
