@@ -151,4 +151,6 @@ OP(Reduction, All_NoZero, 1, "all", "", " -DIS_REDUCTION_OP=1", NoZero,
 
 OP_DEFAULT(Reduction, Dot, 2, "dot", ",")
 
+OP_DEFAULT_DEFINES(Unary, ShuffleVector, 1, "TestShuffleVector", "", " -DFUNC_SHUFFLE_VECTOR=1")
+
 #undef OP
