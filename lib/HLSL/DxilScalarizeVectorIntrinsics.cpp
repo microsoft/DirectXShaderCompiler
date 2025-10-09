@@ -369,7 +369,8 @@ static bool scalarizeVectorDot(hlsl::OP *HlslOP, CallInst *CI) {
   switch (VecSize) {
   // Calling dot on a vec1 is not typical but also not impossible
   // DXIL doesn't have a native Dot1 opcode but thats the same as a
-  // single FMul so we just translate directly.
+  // single FMul. HLOperation lower is expected to do the conversion
+  // so we assert here in case that ever changes.
   case 1:
     assert(false && "vector dot shouldn't appear for vec1");
     break;
