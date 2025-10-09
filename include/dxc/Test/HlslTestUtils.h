@@ -260,6 +260,14 @@ inline void LogErrorFmt(const wchar_t *fmt, ...) {
   WEX::Logging::Log::Error(buf.data());
 }
 
+inline void LogWarningFmt(const wchar_t *fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  std::wstring buf(vFormatToWString(fmt, args));
+  va_end(args);
+  WEX::Logging::Log::Warning(buf.data());
+}
+
 inline void LogErrorFmtThrow(const char *fileName, int line, const wchar_t *fmt,
                              ...) {
   va_list args;
