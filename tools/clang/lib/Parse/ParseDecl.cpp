@@ -341,6 +341,143 @@ static void ParseSpaceForHLSL(const StringRef name,
   }
 }
 
+bool Parser::ConsumeRegisterAssignment(hlsl::RegisterAssignment &r) {
+
+  ASTContext &context = getActions().getASTContext();
+
+  if (!Tok.is(tok::identifier)) {
+    Diag(Tok.getLocation(), diag::err_expected) << tok::identifier;
+    SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+    return true;
+  }
+
+  StringRef identifierText = Tok.getIdentifierInfo()->getName();
+  if (IsShaderProfileLike(identifierText) ||
+      IsShaderProfileShort(identifierText)) {
+    r.ShaderProfile = Tok.getIdentifierInfo()->getName();
+    ConsumeToken(); // consume shader model
+    if (ExpectAndConsume(tok::comma, diag::err_expected)) {
+      SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+      return true;
+    }
+  }
+
+  if (!Tok.is(tok::identifier)) {
+    Diag(Tok.getLocation(), diag::err_expected) << tok::identifier;
+    SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+    return true;
+  }
+
+  DXASSERT(Tok.is(tok::identifier),
+           "otherwise previous code should have failed");
+  unsigned diagId;
+
+  bool hasOnlySpace = false;
+  identifierText = Tok.getIdentifierInfo()->getName();
+  if (identifierText.substr(0, sizeof("space") - 1).equals("space")) {
+    hasOnlySpace = true;
+  } else {
+    ParseRegisterNumberForHLSL(Tok.getIdentifierInfo()->getName(),
+                               &r.RegisterType, &r.RegisterNumber, &diagId);
+    if (diagId == 0) {
+      r.setIsValid(true);
+    } else {
+      r.setIsValid(false);
+      Diag(Tok.getLocation(), diagId);
+    }
+
+    ConsumeToken(); // consume register (type'#')
+
+    ExprResult subcomponentResult;
+    if (Tok.is(tok::l_square)) {
+      BalancedDelimiterTracker brackets(*this, tok::l_square);
+      brackets.consumeOpen();
+
+      ExprResult result;
+      if (Tok.isNot(tok::r_square)) {
+        subcomponentResult = ParseConstantExpression();
+        r.IsValid = r.IsValid && !subcomponentResult.isInvalid();
+        Expr::EvalResult evalResult;
+        if (!subcomponentResult.get()->EvaluateAsRValue(evalResult, context) ||
+            evalResult.hasSideEffects() ||
+            (!evalResult.Val.isInt() && !evalResult.Val.isFloat())) {
+          Diag(Tok.getLocation(),
+               diag::err_hlsl_unsupported_register_noninteger);
+          r.setIsValid(false);
+        } else {
+          llvm::APSInt intResult;
+          if (evalResult.Val.isFloat()) {
+            bool isExact;
+            // TODO: consider what to do when convertToInteger fails
+            evalResult.Val.getFloat().convertToInteger(
+                intResult, llvm::APFloat::roundingMode::rmTowardZero, &isExact);
+          } else {
+            DXASSERT(
+                evalResult.Val.isInt(),
+                "otherwise prior test in this function should have failed");
+            intResult = evalResult.Val.getInt();
+          }
+
+          if (intResult.isNegative()) {
+            Diag(Tok.getLocation(),
+                 diag::err_hlsl_unsupported_register_noninteger);
+            r.setIsValid(false);
+          } else {
+            r.RegisterOffset = intResult.getLimitedValue();
+          }
+        }
+      } else {
+        Diag(Tok.getLocation(), diag::err_expected_expression);
+        r.setIsValid(false);
+      }
+
+      if (brackets.consumeClose()) {
+        SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+        return true;
+      }
+    }
+  }
+  if (hasOnlySpace) {
+    uint32_t RegisterSpaceValue = 0;
+    ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName(), &RegisterSpaceValue,
+                      &diagId);
+    if (diagId != 0) {
+      Diag(Tok.getLocation(), diagId);
+      r.setIsValid(false);
+    } else {
+      r.RegisterSpace = RegisterSpaceValue;
+      r.setIsValid(true);
+    }
+    ConsumeToken(); // consume identifier
+  } else {
+    if (Tok.is(tok::comma)) {
+      ConsumeToken(); // consume comma
+      if (!Tok.is(tok::identifier)) {
+        Diag(Tok.getLocation(), diag::err_expected) << tok::identifier;
+        SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+        return true;
+      }
+      unsigned RegisterSpaceVal = 0;
+      ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName(), &RegisterSpaceVal,
+                        &diagId);
+      if (diagId != 0) {
+        Diag(Tok.getLocation(), diagId);
+        r.setIsValid(false);
+      } else {
+        r.RegisterSpace = RegisterSpaceVal;
+      }
+      ConsumeToken(); // consume identifier
+    }
+  }
+
+  if (ExpectAndConsume(tok::r_paren, diag::err_expected)) {
+    SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+    return true;
+  }
+
+  return false;
+}
+
 bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &target)
 {
   if (!getLangOpts().HLSL) {
@@ -428,127 +565,9 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       if (ExpectAndConsume(tok::l_paren, diag::err_expected_lparen_after, "register")) {
         return true;
       }
-      if (!Tok.is(tok::identifier)) {
-        Diag(Tok.getLocation(), diag::err_expected) << tok::identifier;
-        SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+
+      if (ConsumeRegisterAssignment(r))
         return true;
-      }
-
-      StringRef identifierText = Tok.getIdentifierInfo()->getName();
-      if (IsShaderProfileLike(identifierText) || IsShaderProfileShort(identifierText)) {
-        r.ShaderProfile = Tok.getIdentifierInfo()->getName();
-        ConsumeToken(); // consume shader model
-        if (ExpectAndConsume(tok::comma, diag::err_expected)) {
-          SkipUntil(tok::r_paren, StopAtSemi); // skip through )
-          return true;
-        }
-      }
-
-      if (!Tok.is(tok::identifier)) {
-        Diag(Tok.getLocation(), diag::err_expected) << tok::identifier;
-        SkipUntil(tok::r_paren, StopAtSemi); // skip through )
-        return true;
-      }
-
-      DXASSERT(Tok.is(tok::identifier), "otherwise previous code should have failed");
-      unsigned diagId;
-
-      bool hasOnlySpace = false;
-      identifierText = Tok.getIdentifierInfo()->getName();
-      if (identifierText.substr(0, sizeof("space")-1).equals("space")) {
-        hasOnlySpace = true;
-      } else {
-        ParseRegisterNumberForHLSL(
-          Tok.getIdentifierInfo()->getName(), &r.RegisterType, &r.RegisterNumber, &diagId);
-        if (diagId == 0) {
-          r.setIsValid(true);
-        } else {
-          r.setIsValid(false);
-          Diag(Tok.getLocation(), diagId);
-        }
-
-        ConsumeToken(); // consume register (type'#')
-
-        ExprResult subcomponentResult;
-        if (Tok.is(tok::l_square)) {
-          BalancedDelimiterTracker brackets(*this, tok::l_square);
-          brackets.consumeOpen();
-
-          ExprResult result;
-          if (Tok.isNot(tok::r_square)) {
-            subcomponentResult = ParseConstantExpression();
-            r.IsValid = r.IsValid && !subcomponentResult.isInvalid();
-            Expr::EvalResult evalResult;
-            if (!subcomponentResult.get()->EvaluateAsRValue(evalResult, context) ||
-                evalResult.hasSideEffects() ||
-                (!evalResult.Val.isInt() && !evalResult.Val.isFloat())) {
-              Diag(Tok.getLocation(), diag::err_hlsl_unsupported_register_noninteger);
-              r.setIsValid(false);
-            } else {
-              llvm::APSInt intResult;
-              if (evalResult.Val.isFloat()) {
-                bool isExact;
-                // TODO: consider what to do when convertToInteger fails
-                evalResult.Val.getFloat().convertToInteger(intResult, llvm::APFloat::roundingMode::rmTowardZero, &isExact);
-              } else {
-                DXASSERT(evalResult.Val.isInt(), "otherwise prior test in this function should have failed");
-                intResult = evalResult.Val.getInt();
-              }
-
-              if (intResult.isNegative()) {
-                Diag(Tok.getLocation(), diag::err_hlsl_unsupported_register_noninteger);
-                r.setIsValid(false);
-              } else {
-                r.RegisterOffset = intResult.getLimitedValue();
-              }
-            }
-          } else {
-            Diag(Tok.getLocation(), diag::err_expected_expression);
-            r.setIsValid(false);
-          }
-
-          if (brackets.consumeClose()) {
-            SkipUntil(tok::r_paren, StopAtSemi); // skip through )
-            return true;
-          }
-        }
-      }
-      if (hasOnlySpace) {
-        uint32_t RegisterSpaceValue = 0;
-        ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName(), &RegisterSpaceValue, &diagId);
-        if (diagId != 0) {
-          Diag(Tok.getLocation(), diagId);
-          r.setIsValid(false);
-        } else {
-          r.RegisterSpace = RegisterSpaceValue;
-          r.setIsValid(true);
-        }
-        ConsumeToken(); // consume identifier
-      } else {
-        if (Tok.is(tok::comma)) {
-          ConsumeToken(); // consume comma
-          if (!Tok.is(tok::identifier)) {
-            Diag(Tok.getLocation(), diag::err_expected) << tok::identifier;
-            SkipUntil(tok::r_paren, StopAtSemi); // skip through )
-            return true;
-          }
-          unsigned RegisterSpaceVal = 0;
-          ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName(), &RegisterSpaceVal, &diagId);
-          if (diagId != 0) {
-            Diag(Tok.getLocation(), diagId);
-            r.setIsValid(false);
-          }
-          else {
-            r.RegisterSpace = RegisterSpaceVal;
-          }
-          ConsumeToken(); // consume identifier
-        }
-      }
-
-      if (ExpectAndConsume(tok::r_paren, diag::err_expected)) {
-        SkipUntil(tok::r_paren, StopAtSemi); // skip through )
-        return true;
-      }
 
       target.push_back(new (context) hlsl::RegisterAssignment(r));
     }
@@ -632,6 +651,20 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       pUA->Loc = Tok.getLocation();
       Actions.DiagnoseSemanticDecl(pUA);
       ConsumeToken(); // consume semantic
+
+      // Likely a misspell of register() or a mismatching macro:
+      // registers() would cause a crash without this fix.
+
+      if (Tok.is(tok::l_paren)) {
+
+        Diag(Tok.getLocation(), diag::err_hlsl_register_is_misspelled)
+            << semanticName;
+
+        ConsumeParen();
+        hlsl::RegisterAssignment dummy;
+        if (ConsumeRegisterAssignment(dummy)) // Skip invalid syntax
+          return true;
+      }
 
       target.push_back(pUA);
     }
