@@ -10,7 +10,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Test/DxcTestUtils.h"
-#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
