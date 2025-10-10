@@ -59,8 +59,8 @@ struct HLOperationLowerHelper {
 HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
     : M(HLM), HlslOp(*HLM.GetOP()), DxilTypeSys(HLM.GetTypeSystem()),
       DL(DataLayout(HLM.GetHLOptions().bUseMinPrecision
-                                ? hlsl::DXIL::kLegacyLayoutString
-                                : hlsl::DXIL::kNewLayoutString)) {
+                        ? hlsl::DXIL::kLegacyLayoutString
+                        : hlsl::DXIL::kNewLayoutString)) {
   llvm::LLVMContext &Ctx = HLM.GetCtx();
   VoidTy = Type::getVoidTy(Ctx);
   F32Ty = Type::getFloatTy(Ctx);
@@ -2272,8 +2272,8 @@ Value *translateLength(CallInst *CI, Value *Val, hlsl::OP *HlslOp) {
       Value *OpArg = HlslOp->GetI32Const((unsigned)Sqrt);
       return Builder.CreateCall(DxilSqrt, {OpArg, Sum},
                                 HlslOp->GetOpCodeName(Sqrt));
-    }       Val = Elt;
-   
+    }
+    Val = Elt;
   }
   DXIL::OpCode Fabs = DXIL::OpCode::FAbs;
   Function *DxilFAbs = HlslOp->GetOpFunc(Fabs, Val->getType());
@@ -3179,9 +3179,9 @@ Value *translateMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
       if (IOP == IntrinsicOp::IOP_umul)
         MadOpCode = DXIL::OpCode::UMad;
       return expandDot(Arg0, Arg1, VecSize, HlslOp, Builder, MadOpCode);
-    }       // mul(vector, scalar) == vector * scalar-splat
-      Arg1 = splatToVector(Arg1, Arg0Ty, Builder);
-   
+    } // mul(vector, scalar) == vector * scalar-splat
+    Arg1 = splatToVector(Arg1, Arg0Ty, Builder);
+
   } else {
     if (Arg1Ty->isVectorTy()) {
       // mul(scalar, vector) == scalar-splat * vector
@@ -4788,8 +4788,7 @@ AtomicHelper::AtomicHelper(CallInst *CI, OP::OpCode Op, Value *H, Type *OpType)
   if (Op == OP::OpCode::AtomicCompareExchange) {
     CompareValue = CI->getArgOperand(
         HLOperandIndex::kObjectInterlockedCmpCompareValueOpIndex);
-    Val =
-        CI->getArgOperand(HLOperandIndex::kObjectInterlockedCmpValueOpIndex);
+    Val = CI->getArgOperand(HLOperandIndex::kObjectInterlockedCmpValueOpIndex);
     if (CI->getNumArgOperands() ==
         (HLOperandIndex::kObjectInterlockedCmpOriginalValueOpIndex + 1))
       OriginalValue = CI->getArgOperand(
@@ -9273,9 +9272,9 @@ void translateTypedBufferSubscript(CallInst *CI, HLOperationLowerHelper &Helper,
 } // namespace
 
 static void translateHlSubscript(CallInst *CI, HLSubscriptOpcode Opcode,
-                          HLOperationLowerHelper &Helper,
-                          HLObjectOperationLowerHelper *PObjHelper,
-                          bool &Translated) {
+                                 HLOperationLowerHelper &Helper,
+                                 HLObjectOperationLowerHelper *PObjHelper,
+                                 bool &Translated) {
   if (CI->user_empty()) {
     Translated = true;
     return;
@@ -9368,8 +9367,9 @@ static void translateHlSubscript(CallInst *CI, HLSubscriptOpcode Opcode,
   Translated = false;
 }
 
-static void translateSubscriptOperation(Function *F, HLOperationLowerHelper &Helper,
-                                 HLObjectOperationLowerHelper *PObjHelper) {
+static void
+translateSubscriptOperation(Function *F, HLOperationLowerHelper &Helper,
+                            HLObjectOperationLowerHelper *PObjHelper) {
   for (auto U = F->user_begin(); U != F->user_end();) {
     Value *User = *(U++);
     if (!isa<Instruction>(User))
@@ -9424,9 +9424,10 @@ static Instruction *createTransposeShuffle(IRBuilder<> &Builder, Value *VecVal,
       Builder.CreateShuffleVector(VecVal, VecVal, CastMask));
 }
 
-static void translateHlBuiltinOperation(Function *F, HLOperationLowerHelper &Helper,
-                                 hlsl::HLOpcodeGroup Group,
-                                 HLObjectOperationLowerHelper *PObjHelper) {
+static void
+translateHlBuiltinOperation(Function *F, HLOperationLowerHelper &Helper,
+                            hlsl::HLOpcodeGroup Group,
+                            HLObjectOperationLowerHelper *PObjHelper) {
   if (Group == HLOpcodeGroup::HLIntrinsic) {
     // map to dxil operations
     for (auto U = F->user_begin(); U != F->user_end();) {
@@ -9634,7 +9635,8 @@ void TranslateBuiltinOperations(
 }
 
 static void emitGetNodeRecordPtrAndUpdateUsers(HLOperationLowerHelper &Helper,
-                                        CallInst *CI, Value *ArrayIndex) {
+                                               CallInst *CI,
+                                               Value *ArrayIndex) {
   IRBuilder<> Builder(CI);
   Value *OpArg = nullptr;
   Value *Handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
