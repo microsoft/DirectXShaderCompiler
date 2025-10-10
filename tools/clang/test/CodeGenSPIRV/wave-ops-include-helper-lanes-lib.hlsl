@@ -1,5 +1,9 @@
 // RUN: %dxc -T lib_6_7 -spirv %s | FileCheck %s
 
+// CHECK: OpCapability QuadControlKHR
+// CHECK-DAG: OpExtension "SPV_KHR_maximal_reconvergence"
+// CHECK-DAG: OpExtension "SPV_KHR_quad_control"
+
 // CHECK: OpEntryPoint Fragment %ps_main1 "ps_main1"
 // CHECK: OpEntryPoint Fragment %ps_main2 "ps_main2"
 // CHECK: OpEntryPoint Fragment %ps_main3 "ps_main3"
