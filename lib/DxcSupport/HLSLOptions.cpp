@@ -24,7 +24,6 @@
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/Regex.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <optional>

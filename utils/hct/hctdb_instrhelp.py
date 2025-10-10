@@ -1734,15 +1734,15 @@ class shader_profile(object):
 
 # kind is from DXIL::ShaderKind.
 shader_profiles = [
-    shader_profile(0, "ps", "Kind::Pixel", (4,0), 32, 8),
-    shader_profile(1, "vs", "Kind::Vertex", (4,0), 32, 32),
-    shader_profile(2, "gs", "Kind::Geometry", (4,0), 32, 32),
-    shader_profile(3, "hs", "Kind::Hull", (5,0), 32, 32),
-    shader_profile(4, "ds", "Kind::Domain", (5,0), 32, 32),
-    shader_profile(5, "cs", "Kind::Compute", (4,0), 0, 0),
-    shader_profile(6, "lib", "Kind::Library", (6,1), 0, 0),
-    shader_profile(13, "ms", "Kind::Mesh", (6,5), 0, 0),
-    shader_profile(14, "as", "Kind::Amplification", (6,5), 0, 0),
+    shader_profile(0, "ps", "Kind::Pixel", (4, 0), 32, 8),
+    shader_profile(1, "vs", "Kind::Vertex", (4, 0), 32, 32),
+    shader_profile(2, "gs", "Kind::Geometry", (4, 0), 32, 32),
+    shader_profile(3, "hs", "Kind::Hull", (5, 0), 32, 32),
+    shader_profile(4, "ds", "Kind::Domain", (5, 0), 32, 32),
+    shader_profile(5, "cs", "Kind::Compute", (4, 0), 0, 0),
+    shader_profile(6, "lib", "Kind::Library", (6, 1), 0, 0),
+    shader_profile(13, "ms", "Kind::Mesh", (6, 5), 0, 0),
+    shader_profile(14, "as", "Kind::Amplification", (6, 5), 0, 0),
 ]
 
 
@@ -1836,7 +1836,7 @@ def build_shader_model_hash_idx_map():
         kind_name = profile.kind_name
 
         for major, minor in highest_shader_models.items():
-            for i in range(min_sm[1], minor + 1):                
+            for i in range(min_sm[1], minor + 1):
                 sm_name = "%s_%d_%d" % (kind_name, major, i)
                 hash_v = kind << 16 | major << 8 | i
                 result += "{%d,%d}, //%s\n" % (hash_v, count, sm_name)
@@ -1893,7 +1893,7 @@ def get_target_profiles():
     base_sm = (highest_major, 0)
     for shader_profile in shader_profiles:
         profile = shader_profile.kind_name
-        min_sm = shader_profile.start_sm 
+        min_sm = shader_profile.start_sm
         for sm in shader_models:
             if base_sm > sm:
                 continue
