@@ -33,7 +33,7 @@ static bool scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
 static bool scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
                                  CallInst *CI);
 static bool scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI);
-static bool scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI);
+static bool scalarizeVectorReduce(CallInst *CI);
 static bool scalarizeVectorDot(hlsl::OP *HlslOP, CallInst *CI);
 static bool scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI);
 
@@ -85,7 +85,7 @@ public:
           Changed |= scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
           continue;
         case DXIL::OpCodeClass::VectorReduce:
-          Changed |= scalarizeVectorReduce(HlslOP, CI);
+          Changed |= scalarizeVectorReduce(CI);
           continue;
         case DXIL::OpCodeClass::Dot:
           Changed |= scalarizeVectorDot(HlslOP, CI);
@@ -106,7 +106,7 @@ public:
   }
 };
 
-static unsigned GetRawBufferMask(unsigned NumComponents) {
+static unsigned getRawBufferMask(unsigned NumComponents) {
   switch (NumComponents) {
   case 0:
     return 0;
@@ -159,7 +159,7 @@ static bool scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
     // Load 4 elements or however many less than 4 are left to load.
     unsigned ChunkSize = std::min(NumComponents - EIx, MaxElemCount);
     Args[DXIL::OperandIndex::kRawBufferLoadMaskOpIdx] =
-        HlslOP->GetI8Const(GetRawBufferMask(ChunkSize));
+        HlslOP->GetI8Const(getRawBufferMask(ChunkSize));
     // If we've loaded a chunk already, update offset to next chunk.
     if (EIx > 0)
       Args[OffsetIdx] =
@@ -177,7 +177,7 @@ static bool scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
   // Replace users of the vector extracted from the vector load resret.
   Value *Status = nullptr;
   for (auto CU = CI->user_begin(), CE = CI->user_end(); CU != CE;) {
-    auto EV = cast<ExtractValueInst>(*(CU++));
+    auto *EV = cast<ExtractValueInst>(*(CU++));
     unsigned Ix = EV->getIndices()[0];
     if (Ix == 0) {
       // Handle value uses.
@@ -259,7 +259,7 @@ static bool scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
   return true;
 }
 
-static bool scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
+static bool scalarizeVectorReduce(CallInst *CI) {
   IRBuilder<> Builder(CI);
 
   OP::OpCode ReduceOp = OP::getOpCode(CI);
