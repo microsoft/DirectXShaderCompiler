@@ -29,6 +29,7 @@
 #include "dxc/Test/HLSLTestData.h"
 #include "dxc/Test/HlslTestUtils.h"
 
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/D3DReflection.h"
 #include "dxc/Support/Global.h"
@@ -512,8 +513,9 @@ FileRunCommandPart::RunDxc(dxc::DllLoader &DllSupport,
   {
     unsigned RequiredDxilMajor = 1, RequiredDxilMinor = 0;
     llvm::StringRef stage;
-    IFTBOOL(ParseTargetProfile(opts.TargetProfile, stage, RequiredDxilMajor,
-                               RequiredDxilMinor),
+    IFTBOOL(hlsl::ShaderModel::ParseTargetProfile(opts.TargetProfile, stage,
+                                                  RequiredDxilMajor,
+                                                  RequiredDxilMinor),
             E_INVALIDARG);
     if (RequiredDxilMinor != 0xF && stage.compare("rootsig") != 0) {
       // Convert stage to minimum dxil/validator version:
@@ -939,8 +941,9 @@ FileRunCommandPart::RunLink(dxc::DllLoader &DllSupport,
   {
     unsigned RequiredDxilMajor = 1, RequiredDxilMinor = 0;
     llvm::StringRef stage;
-    IFTBOOL(ParseTargetProfile(opts.TargetProfile, stage, RequiredDxilMajor,
-                               RequiredDxilMinor),
+    IFTBOOL(hlsl::ShaderModel::ParseTargetProfile(opts.TargetProfile, stage,
+                                                  RequiredDxilMajor,
+                                                  RequiredDxilMinor),
             E_INVALIDARG);
     if (RequiredDxilMinor != 0xF && stage.compare("rootsig") != 0) {
       // Convert stage to minimum dxil/validator version:

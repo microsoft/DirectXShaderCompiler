@@ -215,32 +215,6 @@ StringRefWide::StringRefWide(llvm::StringRef value) {
     m_value = Unicode::UTF8ToWideStringOrThrow(value.data());
 }
 
-// Return true iff Name matches: <2,3, or 7 chars> '_' <1 digit> '_' <1-2
-// digits> On success, OutMajor = second chunk (single digit), OutMinor =
-// third chunk (1-2 digits). OutMajor/OutMinor may be null if false is returned
-static bool GetTargetVersionFromString(llvm::StringRef Ref, unsigned &OutMajor,
-                                       unsigned &OutMinor) {
-  // Capture: stage, major, minor
-  // but ignore stage
-  static llvm::Regex pattern(
-      "^(ps|vs|gs|hs|ds|cs|ms|as|lib|rootsig)_([0-9])_([0-9]{1,2}|x)$");
-
-  llvm::SmallVector<llvm::StringRef, 5> matches;
-  if (!pattern.match(Ref, &matches))
-    return false;
-
-  if (matches[2].getAsInteger(10, OutMajor)) // major
-    return false;
-
-  llvm::StringRef minorStr = matches[3]; // minor
-  if (minorStr == "x")
-    OutMinor = ShaderModel::kOfflineMinor;
-  else if (minorStr.getAsInteger(10, OutMinor))
-    return false;
-
-  return true;
-}
-
 // Copied from CompilerInvocation since we parse our own diagnostic arguments
 static void addDiagnosticArgs(ArgList &Args, OptSpecifier Group,
                               OptSpecifier GroupWithValue,
@@ -753,8 +727,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // Check options only allowed in shader model >= 6.2FPDenormalMode
   unsigned Major = 0;
   unsigned Minor = 0;
+  llvm::StringRef Stage;
   if (!opts.TargetProfile.empty()) {
-    if (!GetTargetVersionFromString(opts.TargetProfile, Major, Minor)) {
+    if (!hlsl::ShaderModel::ParseTargetProfile(opts.TargetProfile, Stage, Major,
+                                               Minor)) {
       errors << "unable to parse shader model.";
       return 1;
     }

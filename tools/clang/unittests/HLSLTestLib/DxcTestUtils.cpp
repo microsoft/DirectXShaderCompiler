@@ -400,33 +400,6 @@ HRESULT GetVersion(dxc::DllLoader &DllSupport, REFCLSID clsid, unsigned &Major,
   return S_OK;
 }
 
-// Return true iff Ref matches regex. On success, OutStage = first chunk,
-// OutMajor = second chunk (single digit), *OutMinor = third chunk (1-2 digits).
-// OutStage/OutMajor/OutMinor may be left unassigned if false is returned
-bool ParseTargetProfile(llvm::StringRef Ref, llvm::StringRef &OutStage,
-                        unsigned &OutMajor, unsigned &OutMinor) {
-  // Capture: stage, major, minor
-  static llvm::Regex pattern(
-      "^((ps|vs|gs|hs|ds|cs|ms|as|lib|rootsig))_([0-9])_([0-9]{1,2}|x)$");
-
-  llvm::SmallVector<llvm::StringRef, 5> matches;
-  if (!pattern.match(Ref, &matches))
-    return false;
-
-  OutStage = matches[1]; // stage (outer group)
-
-  if (matches[3].getAsInteger(10, OutMajor)) // major
-    return false;
-
-  llvm::StringRef minorStr = matches[4]; // minor
-  if (minorStr == "x")
-    OutMinor = hlsl::ShaderModel::kOfflineMinor;
-  else if (minorStr.getAsInteger(10, OutMinor))
-    return false;
-
-  return true;
-}
-
 // VersionSupportInfo Implementation
 VersionSupportInfo::VersionSupportInfo()
     : m_CompilerIsDebugBuild(false), m_InternalValidator(false), m_DxilMajor(0),
