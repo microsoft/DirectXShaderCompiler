@@ -1746,22 +1746,6 @@ shader_profiles = [
 ]
 
 
-def getShaderProfiles():
-    # order match DXIL::ShaderKind.
-    profiles = (
-        ("ps", "4_0"),
-        ("vs", "4_0"),
-        ("gs", "4_0"),
-        ("hs", "5_0"),
-        ("ds", "5_0"),
-        ("cs", "4_0"),
-        ("lib", "6_1"),
-        ("ms", "6_5"),
-        ("as", "6_5"),
-    )
-    return profiles
-
-
 def get_shader_models():
     result = ""
     for profile in shader_profiles:
@@ -1904,19 +1888,18 @@ def get_target_profiles():
     result = 'HelpText<"Set target profile. \\n'
     result += "\\t<profile>: "
 
-    profiles = getShaderProfiles()
     shader_models = getShaderModels()
 
     base_sm = (highest_major, 0)
     for shader_profile in shader_profiles:
         profile = shader_profile.kind_name
         min_sm = shader_profile.start_sm 
-        for shader_model in shader_models:
-            if base_sm > shader_model:
+        for sm in shader_models:
+            if base_sm > sm:
                 continue
-            if min_sm > shader_model:
+            if min_sm > sm:
                 continue
-            result += "%s_%s, " % (profile, shader_model)
+            result += "%s_%d_%d, " % (profile, sm[0], sm[1])
         result += "\\n\\t\\t "
 
     result += '">;'

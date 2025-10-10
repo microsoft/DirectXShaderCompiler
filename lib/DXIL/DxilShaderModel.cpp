@@ -221,43 +221,17 @@ bool ShaderModel::IsPreReleaseShaderModel(int major, int minor) {
 }
 
 ShaderModel::Kind ShaderModel::GetKindFromName(llvm::StringRef Name) {
-  Kind kind;
-  if (Name.empty()) {
-    return Kind::Invalid;
-  }
-
-  switch (Name[0]) {
-  case 'p':
-    kind = Kind::Pixel;
-    break;
-  case 'v':
-    kind = Kind::Vertex;
-    break;
-  case 'g':
-    kind = Kind::Geometry;
-    break;
-  case 'h':
-    kind = Kind::Hull;
-    break;
-  case 'd':
-    kind = Kind::Domain;
-    break;
-  case 'c':
-    kind = Kind::Compute;
-    break;
-  case 'l':
-    kind = Kind::Library;
-    break;
-  case 'm':
-    kind = Kind::Mesh;
-    break;
-  case 'a':
-    kind = Kind::Amplification;
-    break;
-  default:
-    return Kind::Invalid;
-  }
-  return kind;
+  return llvm::StringSwitch<Kind>(Name)
+      .Case("ps", Kind::Pixel)
+      .Case("vs", Kind::Vertex)
+      .Case("gs", Kind::Geometry)
+      .Case("hs", Kind::Hull)
+      .Case("ds", Kind::Domain)
+      .Case("cs", Kind::Compute)
+      .Case("lib", Kind::Library)
+      .Case("ms", Kind::Mesh)
+      .Case("as", Kind::Amplification)
+      .Default(Kind::Invalid);
 }
 
 // Parse a target profile string of the form "<stage>_<major>_<minor>".
