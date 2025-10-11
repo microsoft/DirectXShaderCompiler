@@ -389,25 +389,25 @@ private:
 // Helper for lowering resource extension methods.
 struct HLObjectExtensionLowerHelper : public hlsl::HLResourceLookup {
   explicit HLObjectExtensionLowerHelper(HLObjectOperationLowerHelper &ObjHelper)
-      : MObjHelper(ObjHelper) {}
+      : ObjHelper(ObjHelper) {}
 
-  virtual bool GetResourceKindName(Value *HLHandle, const char **PpName) {
-    DXIL::ResourceKind K = MObjHelper.getRk(HLHandle);
+  virtual bool GetResourceKindName(Value *HLHandle, const char **Name) {
+    DXIL::ResourceKind K = ObjHelper.getRk(HLHandle);
     bool Success = K != DXIL::ResourceKind::Invalid;
     if (Success) {
-      *PpName = hlsl::GetResourceKindName(K);
+      *Name = hlsl::GetResourceKindName(K);
     }
     return Success;
   }
 
 private:
-  HLObjectOperationLowerHelper &MObjHelper;
+  HLObjectOperationLowerHelper &ObjHelper;
 };
 
 using IntrinsicLowerFuncTy = Value *(CallInst *CI, IntrinsicOp IOP,
                                      DXIL::OpCode Opcode,
                                      HLOperationLowerHelper &Helper,
-                                     HLObjectOperationLowerHelper *PObjHelper,
+                                     HLObjectOperationLowerHelper *ObjHelper,
                                      bool &Translated);
 
 struct IntrinsicLower {
@@ -570,7 +570,7 @@ Value *trivialDxilTrinaryOperation(OP::OpCode Opcode, Value *Src0, Value *Src1,
 // vector dxil operation creation depending on version and vector size.
 Value *trivialUnaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                              HLOperationLowerHelper &Helper,
-                             HLObjectOperationLowerHelper *PObjHelper,
+                             HLObjectOperationLowerHelper *ObjHelper,
                              bool &Translated) {
   Value *Src0 = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   IRBuilder<> Builder(CI);
@@ -584,7 +584,7 @@ Value *trivialUnaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 // vector dxil operation creation depending on version and vector size.
 Value *trivialBinaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                               HLOperationLowerHelper &Helper,
-                              HLObjectOperationLowerHelper *PObjHelper,
+                              HLObjectOperationLowerHelper *ObjHelper,
                               bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Src0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -602,7 +602,7 @@ Value *trivialBinaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 // and vector size.
 Value *trivialTrinaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                                HLOperationLowerHelper &Helper,
-                               HLObjectOperationLowerHelper *PObjHelper,
+                               HLObjectOperationLowerHelper *ObjHelper,
                                bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Src0 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
@@ -617,7 +617,7 @@ Value *trivialTrinaryOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *trivialIsSpecialFloat(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                              HLOperationLowerHelper &Helper,
-                             HLObjectOperationLowerHelper *PObjHelper,
+                             HLObjectOperationLowerHelper *ObjHelper,
                              bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
@@ -643,7 +643,7 @@ bool isResourceGep(GetElementPtrInst *I) {
 
 Value *translateNonUniformResourceIndex(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   Value *V = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   Type *HdlTy = Helper.HlslOp.GetHandleType();
@@ -674,7 +674,7 @@ Value *translateNonUniformResourceIndex(
 
 Value *trivialBarrier(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                       HLOperationLowerHelper &Helper,
-                      HLObjectOperationLowerHelper *PObjHelper,
+                      HLObjectOperationLowerHelper *ObjHelper,
                       bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
   Function *DxilFunc = OP->GetOpFunc(OP::OpCode::Barrier, CI->getType());
@@ -722,7 +722,7 @@ Value *trivialBarrier(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 Value *translateD3DColorToUByte4(CallInst *CI, IntrinsicOp IOP,
                                  OP::OpCode Opcode,
                                  HLOperationLowerHelper &Helper,
-                                 HLObjectOperationLowerHelper *PObjHelper,
+                                 HLObjectOperationLowerHelper *ObjHelper,
                                  bool &Translated) {
   IRBuilder<> Builder(CI);
   Value *Val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
@@ -888,7 +888,7 @@ Value *translatePowImpl(hlsl::OP *HlslOp, IRBuilder<> &Builder, Value *X,
 
 Value *translateAddUint64(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                           HLOperationLowerHelper &Helper,
-                          HLObjectOperationLowerHelper *PObjHelper,
+                          HLObjectOperationLowerHelper *ObjHelper,
                           bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   IRBuilder<> Builder(CI);
@@ -1042,7 +1042,7 @@ Value *translateEvalHelper(
 
 Value *translateEvalSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                            HLOperationLowerHelper &Helper,
-                           HLObjectOperationLowerHelper *PObjHelper,
+                           HLObjectOperationLowerHelper *ObjHelper,
                            bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Val = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -1063,7 +1063,7 @@ Value *translateEvalSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
 
 Value *translateEvalSnapped(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                             HLOperationLowerHelper &Helper,
-                            HLObjectOperationLowerHelper *PObjHelper,
+                            HLObjectOperationLowerHelper *ObjHelper,
                             bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Val = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -1086,7 +1086,7 @@ Value *translateEvalSnapped(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
 
 Value *translateEvalCentroid(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                              HLOperationLowerHelper &Helper,
-                             HLObjectOperationLowerHelper *PObjHelper,
+                             HLObjectOperationLowerHelper *ObjHelper,
                              bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Val = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
@@ -1111,7 +1111,7 @@ DXIL: i1 @dx.op.finishedCrossGroupSharing(i32 %Opcode,
 */
 Value *translateNodeFinishedCrossGroupSharing(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
 
@@ -1134,7 +1134,7 @@ DXIL:
 */
 Value *translateNodeOutputIsValid(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                                   HLOperationLowerHelper &Helper,
-                                  HLObjectOperationLowerHelper *PObjHelper,
+                                  HLObjectOperationLowerHelper *ObjHelper,
                                   bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
   Value *Handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
@@ -1148,7 +1148,7 @@ Value *translateNodeOutputIsValid(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
 Value *translateGetAttributeAtVertex(CallInst *CI, IntrinsicOp IOP,
                                      OP::OpCode Op,
                                      HLOperationLowerHelper &Helper,
-                                     HLObjectOperationLowerHelper *PObjHelper,
+                                     HLObjectOperationLowerHelper *ObjHelper,
                                      bool &Translated) {
   DXASSERT(Op == OP::OpCode::AttributeAtVertex, "Wrong opcode to translate");
   hlsl::OP *HlslOp = &Helper.HlslOp;
@@ -1188,7 +1188,7 @@ void @dx.op.barrierByMemoryHandle(i32 %Opcode,
 
 Value *translateBarrier(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                         HLOperationLowerHelper &Helper,
-                        HLObjectOperationLowerHelper *PObjHelper,
+                        HLObjectOperationLowerHelper *ObjHelper,
                         bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
   Value *HandleOrMemoryFlags =
@@ -1218,7 +1218,7 @@ Value *translateBarrier(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
 
 Value *translateGetGroupOrThreadNodeOutputRecords(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool IsPerThreadRecord, bool &Translated) {
   IRBuilder<> Builder(CI);
   hlsl::OP *OP = &Helper.HlslOp;
@@ -1244,10 +1244,10 @@ NodeOutput<recordType>::GetGroupNodeOutputRecords(uint numRecords); DXIL:
 Value *
 translateGetGroupNodeOutputRecords(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                                    HLOperationLowerHelper &Helper,
-                                   HLObjectOperationLowerHelper *PObjHelper,
+                                   HLObjectOperationLowerHelper *ObjHelper,
                                    bool &Translated) {
   return translateGetGroupOrThreadNodeOutputRecords(
-      CI, IOP, Op, Helper, PObjHelper, /* isPerThreadRecord */ false,
+      CI, IOP, Op, Helper, ObjHelper, /* isPerThreadRecord */ false,
       Translated);
 }
 
@@ -1260,10 +1260,10 @@ NodeOutput<recordType>::GetThreadNodeOutputRecords(uint numRecords) DXIL:
 */
 Value *translateGetThreadNodeOutputRecords(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   return translateGetGroupOrThreadNodeOutputRecords(
-      CI, IOP, Op, Helper, PObjHelper, /* isPerThreadRecord */ true,
+      CI, IOP, Op, Helper, ObjHelper, /* isPerThreadRecord */ true,
       Translated);
 }
 
@@ -1280,7 +1280,7 @@ i32 @dx.op.getInputRecordCount(i32 %Opcode, %dx.types.NodeRecordHandle
 Value *
 translateNodeGetInputRecordCount(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                                  HLOperationLowerHelper &Helper,
-                                 HLObjectOperationLowerHelper *PObjHelper,
+                                 HLObjectOperationLowerHelper *ObjHelper,
                                  bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
 
@@ -1296,7 +1296,7 @@ translateNodeGetInputRecordCount(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
 
 Value *trivialNoArgOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                              HLOperationLowerHelper &Helper,
-                             HLObjectOperationLowerHelper *PObjHelper,
+                             HLObjectOperationLowerHelper *ObjHelper,
                              bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Type *Ty = Type::getVoidTy(CI->getContext());
@@ -1312,7 +1312,7 @@ Value *trivialNoArgOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 Value *trivialNoArgWithRetOperation(CallInst *CI, IntrinsicOp IOP,
                                     OP::OpCode Opcode,
                                     HLOperationLowerHelper &Helper,
-                                    HLObjectOperationLowerHelper *PObjHelper,
+                                    HLObjectOperationLowerHelper *ObjHelper,
                                     bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Type *Ty = CI->getType();
@@ -1327,7 +1327,7 @@ Value *trivialNoArgWithRetOperation(CallInst *CI, IntrinsicOp IOP,
 
 Value *translateGetRtSamplePos(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                                HLOperationLowerHelper &Helper,
-                               HLObjectOperationLowerHelper *PObjHelper,
+                               HLObjectOperationLowerHelper *ObjHelper,
                                bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   OP::OpCode Opcode = OP::OpCode::RenderTargetGetSamplePosition;
@@ -1353,7 +1353,7 @@ Value *translateGetRtSamplePos(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
 // val QuadReadLaneAt(val, uint);
 Value *translateQuadReadLaneAt(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                                HLOperationLowerHelper &Helper,
-                               HLObjectOperationLowerHelper *PObjHelper,
+                               HLObjectOperationLowerHelper *ObjHelper,
                                bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *RefArgs[] = {nullptr, CI->getOperand(1), CI->getOperand(2)};
@@ -1364,7 +1364,7 @@ Value *translateQuadReadLaneAt(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 // Quad intrinsics of the form fn(val,QuadOpKind)->val
 Value *translateQuadAnyAll(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                            HLOperationLowerHelper &Helper,
-                           HLObjectOperationLowerHelper *PObjHelper,
+                           HLObjectOperationLowerHelper *ObjHelper,
                            bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   DXIL::QuadVoteOpKind OpKind;
@@ -1388,7 +1388,7 @@ Value *translateQuadAnyAll(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 // Wave intrinsics of the form fn(val,QuadOpKind)->val
 Value *translateQuadReadAcross(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                                HLOperationLowerHelper &Helper,
-                               HLObjectOperationLowerHelper *PObjHelper,
+                               HLObjectOperationLowerHelper *ObjHelper,
                                bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   DXIL::QuadOpKind OpKind;
@@ -1415,7 +1415,7 @@ Value *translateQuadReadAcross(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 // WaveAllEqual(val<n>)->bool<n>
 Value *translateWaveAllEqual(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                              HLOperationLowerHelper &Helper,
-                             HLObjectOperationLowerHelper *PObjHelper,
+                             HLObjectOperationLowerHelper *ObjHelper,
                              bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Src = CI->getArgOperand(HLOperandIndex::kWaveAllEqualValueOpIdx);
@@ -1506,7 +1506,7 @@ Value *translateWaveMatch(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opc,
 // Wave intrinsics of the form fn(valA)->valB, where no overloading takes place
 Value *translateWaveA2B(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                         HLOperationLowerHelper &Helper,
-                        HLObjectOperationLowerHelper *PObjHelper,
+                        HLObjectOperationLowerHelper *ObjHelper,
                         bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *RefArgs[] = {nullptr, CI->getOperand(1)};
@@ -1515,7 +1515,7 @@ Value *translateWaveA2B(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 // Wave ballot intrinsic.
 Value *translateWaveBallot(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                            HLOperationLowerHelper &Helper,
-                           HLObjectOperationLowerHelper *PObjHelper,
+                           HLObjectOperationLowerHelper *ObjHelper,
                            bool &Translated) {
   // The high-level operation is uint4 ballot(i1).
   // The DXIL operation is struct.u4 ballot(i1).
@@ -1619,7 +1619,7 @@ static unsigned waveIntrinsicToOpKind(IntrinsicOp IOP) {
 // Wave intrinsics of the form fn(valA)->valA
 Value *translateWaveA2A(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                         HLOperationLowerHelper &Helper,
-                        HLObjectOperationLowerHelper *PObjHelper,
+                        HLObjectOperationLowerHelper *ObjHelper,
                         bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
 
@@ -1682,7 +1682,7 @@ Value *translateWaveMultiPrefixBitCount(CallInst *CI, IntrinsicOp IOP,
 // Wave intrinsics of the form fn()->val
 Value *translateWaveToVal(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                           HLOperationLowerHelper &Helper,
-                          HLObjectOperationLowerHelper *PObjHelper,
+                          HLObjectOperationLowerHelper *ObjHelper,
                           bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *RefArgs[] = {nullptr};
@@ -1692,7 +1692,7 @@ Value *translateWaveToVal(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 // Wave intrinsics of the form fn(val,lane)->val
 Value *translateWaveReadLaneAt(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                                HLOperationLowerHelper &Helper,
-                               HLObjectOperationLowerHelper *PObjHelper,
+                               HLObjectOperationLowerHelper *ObjHelper,
                                bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *RefArgs[] = {nullptr, CI->getOperand(1), CI->getOperand(2)};
@@ -1704,7 +1704,7 @@ Value *translateWaveReadLaneAt(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 Value *translateWaveReadLaneFirst(CallInst *CI, IntrinsicOp IOP,
                                   OP::OpCode Opcode,
                                   HLOperationLowerHelper &Helper,
-                                  HLObjectOperationLowerHelper *PObjHelper,
+                                  HLObjectOperationLowerHelper *ObjHelper,
                                   bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *RefArgs[] = {nullptr, CI->getOperand(1)};
@@ -1714,7 +1714,7 @@ Value *translateWaveReadLaneFirst(CallInst *CI, IntrinsicOp IOP,
 
 Value *translateAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *PObjHelper,
+                    HLObjectOperationLowerHelper *ObjHelper,
                     bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Type *POverloadTy = CI->getType()->getScalarType();
@@ -1733,7 +1733,7 @@ Value *translateAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateUAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                      HLOperationLowerHelper &Helper,
-                     HLObjectOperationLowerHelper *PObjHelper,
+                     HLObjectOperationLowerHelper *ObjHelper,
                      bool &Translated) {
   return CI->getOperand(HLOperandIndex::kUnaryOpSrc0Idx); // No-op
 }
@@ -1835,21 +1835,21 @@ Value *translateBitwisePredicate(CallInst *CI, IntrinsicOp IOP,
 
 Value *translateAll(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *PObjHelper,
+                    HLObjectOperationLowerHelper *ObjHelper,
                     bool &Translated) {
   return translateBitwisePredicate(CI, IOP, &Helper.HlslOp);
 }
 
 Value *translateAny(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *PObjHelper,
+                    HLObjectOperationLowerHelper *ObjHelper,
                     bool &Translated) {
   return translateBitwisePredicate(CI, IOP, &Helper.HlslOp);
 }
 
 Value *translateBitcast(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                         HLOperationLowerHelper &Helper,
-                        HLObjectOperationLowerHelper *PObjHelper,
+                        HLObjectOperationLowerHelper *ObjHelper,
                         bool &Translated) {
   Type *Ty = CI->getType();
   Value *Op = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
@@ -1896,10 +1896,10 @@ Value *translateDoubleAsUint(Value *X, Value *Lo, Value *Hi,
 
 Value *translateAsUint(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                        HLOperationLowerHelper &Helper,
-                       HLObjectOperationLowerHelper *PObjHelper,
+                       HLObjectOperationLowerHelper *ObjHelper,
                        bool &Translated) {
   if (CI->getNumArgOperands() == 2)
-    return translateBitcast(CI, IOP, Opcode, Helper, PObjHelper, Translated);
+    return translateBitcast(CI, IOP, Opcode, Helper, ObjHelper, Translated);
 
   DXASSERT_NOMSG(CI->getNumArgOperands() == 4);
   hlsl::OP *HlslOp = &Helper.HlslOp;
@@ -1913,7 +1913,7 @@ Value *translateAsUint(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateAsDouble(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                          HLOperationLowerHelper &Helper,
-                         HLObjectOperationLowerHelper *PObjHelper,
+                         HLObjectOperationLowerHelper *ObjHelper,
                          bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *X = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -1927,7 +1927,7 @@ Value *translateAsDouble(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateAtan2(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                       HLOperationLowerHelper &Helper,
-                      HLObjectOperationLowerHelper *PObjHelper,
+                      HLObjectOperationLowerHelper *ObjHelper,
                       bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Y = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -1981,7 +1981,7 @@ Value *translateAtan2(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateClamp(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                       HLOperationLowerHelper &Helper,
-                      HLObjectOperationLowerHelper *PObjHelper,
+                      HLObjectOperationLowerHelper *ObjHelper,
                       bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Type *Ty = CI->getType();
@@ -2009,7 +2009,7 @@ Value *translateClamp(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateClip(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                      HLOperationLowerHelper &Helper,
-                     HLObjectOperationLowerHelper *PObjHelper,
+                     HLObjectOperationLowerHelper *ObjHelper,
                      bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Function *Discard =
@@ -2041,7 +2041,7 @@ Value *translateClip(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateCross(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                       HLOperationLowerHelper &Helper,
-                      HLObjectOperationLowerHelper *PObjHelper,
+                      HLObjectOperationLowerHelper *ObjHelper,
                       bool &Translated) {
   VectorType *VT = cast<VectorType>(CI->getType());
   DXASSERT_NOMSG(VT->getNumElements() == 3);
@@ -2077,7 +2077,7 @@ Value *translateCross(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateDegrees(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                         HLOperationLowerHelper &Helper,
-                        HLObjectOperationLowerHelper *PObjHelper,
+                        HLObjectOperationLowerHelper *ObjHelper,
                         bool &Translated) {
   IRBuilder<> Builder(CI);
   Type *Ty = CI->getType();
@@ -2093,7 +2093,7 @@ Value *translateDegrees(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateDst(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *PObjHelper,
+                    HLObjectOperationLowerHelper *ObjHelper,
                     bool &Translated) {
   Value *Src0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *Src1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
@@ -2119,7 +2119,7 @@ Value *translateDst(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateFirstbitHi(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                            HLOperationLowerHelper &Helper,
-                           HLObjectOperationLowerHelper *PObjHelper,
+                           HLObjectOperationLowerHelper *ObjHelper,
                            bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
   IRBuilder<> Builder(CI);
@@ -2155,7 +2155,7 @@ Value *translateFirstbitHi(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateFirstbitLo(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                            HLOperationLowerHelper &Helper,
-                           HLObjectOperationLowerHelper *PObjHelper,
+                           HLObjectOperationLowerHelper *ObjHelper,
                            bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
   IRBuilder<> Builder(CI);
@@ -2177,7 +2177,7 @@ Value *translateFirstbitLo(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateLit(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *PObjHelper,
+                    HLObjectOperationLowerHelper *ObjHelper,
                     bool &Translated) {
   Value *NDotL = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
   Value *NDotH = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
@@ -2211,7 +2211,7 @@ Value *translateLit(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateRadians(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                         HLOperationLowerHelper &Helper,
-                        HLObjectOperationLowerHelper *PObjHelper,
+                        HLObjectOperationLowerHelper *ObjHelper,
                         bool &Translated) {
   IRBuilder<> Builder(CI);
   Type *Ty = CI->getType();
@@ -2227,7 +2227,7 @@ Value *translateRadians(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateF16ToF32(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                          HLOperationLowerHelper &Helper,
-                         HLObjectOperationLowerHelper *PObjHelper,
+                         HLObjectOperationLowerHelper *ObjHelper,
                          bool &Translated) {
   IRBuilder<> Builder(CI);
 
@@ -2242,7 +2242,7 @@ Value *translateF16ToF32(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateF32ToF16(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                          HLOperationLowerHelper &Helper,
-                         HLObjectOperationLowerHelper *PObjHelper,
+                         HLObjectOperationLowerHelper *ObjHelper,
                          bool &Translated) {
   IRBuilder<> Builder(CI);
 
@@ -2284,7 +2284,7 @@ Value *translateLength(CallInst *CI, Value *Val, hlsl::OP *HlslOp) {
 
 Value *translateLength(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                        HLOperationLowerHelper &Helper,
-                       HLObjectOperationLowerHelper *PObjHelper,
+                       HLObjectOperationLowerHelper *ObjHelper,
                        bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
@@ -2293,7 +2293,7 @@ Value *translateLength(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateModF(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                      HLOperationLowerHelper &Helper,
-                     HLObjectOperationLowerHelper *PObjHelper,
+                     HLObjectOperationLowerHelper *ObjHelper,
                      bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Val = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -2308,7 +2308,7 @@ Value *translateModF(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateDistance(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                          HLOperationLowerHelper &Helper,
-                         HLObjectOperationLowerHelper *PObjHelper,
+                         HLObjectOperationLowerHelper *ObjHelper,
                          bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Src0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -2320,7 +2320,7 @@ Value *translateDistance(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateExp(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *PObjHelper,
+                    HLObjectOperationLowerHelper *ObjHelper,
                     bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   IRBuilder<> Builder(CI);
@@ -2338,7 +2338,7 @@ Value *translateExp(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateLog(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *PObjHelper,
+                    HLObjectOperationLowerHelper *ObjHelper,
                     bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   IRBuilder<> Builder(CI);
@@ -2355,7 +2355,7 @@ Value *translateLog(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateLog10(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                       HLOperationLowerHelper &Helper,
-                      HLObjectOperationLowerHelper *PObjHelper,
+                      HLObjectOperationLowerHelper *ObjHelper,
                       bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   IRBuilder<> Builder(CI);
@@ -2373,7 +2373,7 @@ Value *translateLog10(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateFMod(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                      HLOperationLowerHelper &Helper,
-                     HLObjectOperationLowerHelper *PObjHelper,
+                     HLObjectOperationLowerHelper *ObjHelper,
                      bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Src0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -2393,7 +2393,7 @@ Value *translateFMod(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateFuiBinary(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                           HLOperationLowerHelper &Helper,
-                          HLObjectOperationLowerHelper *PObjHelper,
+                          HLObjectOperationLowerHelper *ObjHelper,
                           bool &Translated) {
   bool IsFloat = CI->getType()->getScalarType()->isFloatingPointTy();
   if (IsFloat) {
@@ -2408,13 +2408,13 @@ Value *translateFuiBinary(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
       break;
     }
   }
-  return trivialBinaryOperation(CI, IOP, Opcode, Helper, PObjHelper,
+  return trivialBinaryOperation(CI, IOP, Opcode, Helper, ObjHelper,
                                 Translated);
 }
 
 Value *translateFuiTrinary(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                            HLOperationLowerHelper &Helper,
-                           HLObjectOperationLowerHelper *PObjHelper,
+                           HLObjectOperationLowerHelper *ObjHelper,
                            bool &Translated) {
   bool IsFloat = CI->getType()->getScalarType()->isFloatingPointTy();
   if (IsFloat) {
@@ -2426,13 +2426,13 @@ Value *translateFuiTrinary(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
       break;
     }
   }
-  return trivialTrinaryOperation(CI, IOP, Opcode, Helper, PObjHelper,
+  return trivialTrinaryOperation(CI, IOP, Opcode, Helper, ObjHelper,
                                  Translated);
 }
 
 Value *translateFrexp(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                       HLOperationLowerHelper &Helper,
-                      HLObjectOperationLowerHelper *PObjHelper,
+                      HLObjectOperationLowerHelper *ObjHelper,
                       bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Val = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -2486,7 +2486,7 @@ Value *translateFrexp(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateLdExp(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                       HLOperationLowerHelper &Helper,
-                      HLObjectOperationLowerHelper *PObjHelper,
+                      HLObjectOperationLowerHelper *ObjHelper,
                       bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Src0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -2499,7 +2499,7 @@ Value *translateLdExp(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateFWidth(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                        HLOperationLowerHelper &Helper,
-                       HLObjectOperationLowerHelper *PObjHelper,
+                       HLObjectOperationLowerHelper *ObjHelper,
                        bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
@@ -2517,7 +2517,7 @@ Value *translateFWidth(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateLerp(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                      HLOperationLowerHelper &Helper,
-                     HLObjectOperationLowerHelper *PObjHelper,
+                     HLObjectOperationLowerHelper *ObjHelper,
                      bool &Translated) {
   // x + s(y-x)
   Value *X = CI->getArgOperand(HLOperandIndex::kLerpOpXIdx);
@@ -2595,7 +2595,7 @@ Value *translateFDot(Value *Arg0, Value *Arg1, unsigned VecSize,
 
 Value *translateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *PObjHelper,
+                    HLObjectOperationLowerHelper *ObjHelper,
                     bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Arg0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -2632,7 +2632,7 @@ Value *translateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateNormalize(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                           HLOperationLowerHelper &Helper,
-                          HLObjectOperationLowerHelper *PObjHelper,
+                          HLObjectOperationLowerHelper *ObjHelper,
                           bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Type *Ty = CI->getType();
@@ -2656,7 +2656,7 @@ Value *translateNormalize(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateReflect(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                         HLOperationLowerHelper &Helper,
-                        HLObjectOperationLowerHelper *PObjHelper,
+                        HLObjectOperationLowerHelper *ObjHelper,
                         bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   //  v = i - 2 * n * dot(i, n).
@@ -2678,7 +2678,7 @@ Value *translateReflect(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
 
 Value *translateRefract(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                         HLOperationLowerHelper &Helper,
-                        HLObjectOperationLowerHelper *PObjHelper,
+                        HLObjectOperationLowerHelper *ObjHelper,
                         bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   //  d = dot(i, n);
@@ -2731,7 +2731,7 @@ Value *translateRefract(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
 
 Value *translateSmoothStep(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                            HLOperationLowerHelper &Helper,
-                           HLObjectOperationLowerHelper *PObjHelper,
+                           HLObjectOperationLowerHelper *ObjHelper,
                            bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   // s = saturate((x-min)/(max-min)).
@@ -2758,7 +2758,7 @@ Value *translateSmoothStep(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateMSad4(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                       HLOperationLowerHelper &Helper,
-                      HLObjectOperationLowerHelper *PObjHelper,
+                      HLObjectOperationLowerHelper *ObjHelper,
                       bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Ref = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
@@ -2815,7 +2815,7 @@ Value *translateMSad4(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateRcp(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *PObjHelper,
+                    HLObjectOperationLowerHelper *ObjHelper,
                     bool &Translated) {
   Type *Ty = CI->getType();
   Value *Op = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
@@ -2829,7 +2829,7 @@ Value *translateRcp(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateSign(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                      HLOperationLowerHelper &Helper,
-                     HLObjectOperationLowerHelper *PObjHelper,
+                     HLObjectOperationLowerHelper *ObjHelper,
                      bool &Translated) {
   Value *Val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   Type *Ty = Val->getType();
@@ -2848,7 +2848,7 @@ Value *translateSign(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateUSign(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                       HLOperationLowerHelper &Helper,
-                      HLObjectOperationLowerHelper *PObjHelper,
+                      HLObjectOperationLowerHelper *ObjHelper,
                       bool &Translated) {
   Value *Val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   Type *Ty = Val->getType();
@@ -2861,7 +2861,7 @@ Value *translateUSign(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateStep(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                      HLOperationLowerHelper &Helper,
-                     HLObjectOperationLowerHelper *PObjHelper,
+                     HLObjectOperationLowerHelper *ObjHelper,
                      bool &Translated) {
   Value *Edge = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *X = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
@@ -2882,7 +2882,7 @@ Value *translateStep(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translatePow(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *PObjHelper,
+                    HLObjectOperationLowerHelper *ObjHelper,
                     bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *X = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -2895,7 +2895,7 @@ Value *translatePow(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translatePrintf(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode Opcode,
                        HLOperationLowerHelper &Helper,
-                       HLObjectOperationLowerHelper *PObjHelper,
+                       HLObjectOperationLowerHelper *ObjHelper,
                        bool &Translated) {
   Translated = false;
   dxilutil::EmitErrorOnInstruction(CI,
@@ -2905,7 +2905,7 @@ Value *translatePrintf(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode Opcode,
 
 Value *translateFaceforward(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                             HLOperationLowerHelper &Helper,
-                            HLObjectOperationLowerHelper *PObjHelper,
+                            HLObjectOperationLowerHelper *ObjHelper,
                             bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Type *Ty = CI->getType();
@@ -2929,7 +2929,7 @@ Value *translateFaceforward(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
 
 Value *trivialSetMeshOutputCounts(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                                   HLOperationLowerHelper &Helper,
-                                  HLObjectOperationLowerHelper *PObjHelper,
+                                  HLObjectOperationLowerHelper *ObjHelper,
                                   bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Src0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -2945,7 +2945,7 @@ Value *trivialSetMeshOutputCounts(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
 
 Value *trivialDispatchMesh(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                            HLOperationLowerHelper &Helper,
-                           HLObjectOperationLowerHelper *PObjHelper,
+                           HLObjectOperationLowerHelper *ObjHelper,
                            bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Src0 = CI->getArgOperand(HLOperandIndex::kDispatchMeshOpThreadX);
@@ -2967,7 +2967,7 @@ namespace {
 
 Value *translateGetSamplePosition(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                                   HLOperationLowerHelper &Helper,
-                                  HLObjectOperationLowerHelper *PObjHelper,
+                                  HLObjectOperationLowerHelper *ObjHelper,
                                   bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
@@ -2994,12 +2994,12 @@ Value *translateGetSamplePosition(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
 
 Value *translateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                               HLOperationLowerHelper &Helper,
-                              HLObjectOperationLowerHelper *PObjHelper,
+                              HLObjectOperationLowerHelper *ObjHelper,
                               bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
 
   Value *Handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
-  DxilResource::Kind RK = PObjHelper->getRk(Handle);
+  DxilResource::Kind RK = ObjHelper->getRk(Handle);
 
   IRBuilder<> Builder(CI);
   OP::OpCode Opcode = OP::OpCode::GetDimensions;
@@ -3051,7 +3051,7 @@ Value *translateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
     Value *StridePtr = CI->getArgOperand(WidthOpIdx + 1);
     const DataLayout &DL = Helper.DL;
     Value *Handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
-    Type *BufTy = PObjHelper->getResourceType(Handle);
+    Type *BufTy = ObjHelper->getResourceType(Handle);
     Type *BufRetTy = BufTy->getStructElementType(0);
     unsigned Stride = DL.getTypeAllocSize(BufRetTy);
     Builder.CreateStore(HlslOp->GetU32Const(Stride), StridePtr);
@@ -3094,12 +3094,12 @@ Value *translateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
 
 Value *generateUpdateCounter(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                              HLOperationLowerHelper &Helper,
-                             HLObjectOperationLowerHelper *PObjHelper,
+                             HLObjectOperationLowerHelper *ObjHelper,
                              bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
 
-  PObjHelper->markHasCounter(Handle, Helper.I8Ty);
+  ObjHelper->markHasCounter(Handle, Helper.I8Ty);
 
   bool BInc = IOP == IntrinsicOp::MOP_IncrementCounter;
   IRBuilder<> Builder(CI);
@@ -3157,7 +3157,7 @@ Value *splatToVector(Value *Elt, Type *DstTy, IRBuilder<> &Builder) {
 
 Value *translateMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *PObjHelper,
+                    HLObjectOperationLowerHelper *ObjHelper,
                     bool &Translated) {
 
   hlsl::OP *HlslOp = &Helper.HlslOp;
@@ -3200,7 +3200,7 @@ Value *translateMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 // Sample intrinsics.
 struct SampleHelper {
   SampleHelper(CallInst *CI, OP::OpCode Op,
-               HLObjectOperationLowerHelper *PObjHelper);
+               HLObjectOperationLowerHelper *ObjHelper);
 
   OP::OpCode Opcode = OP::OpCode::NumOpCodes;
   DXIL::ResourceKind ResourceKind = DXIL::ResourceKind::Invalid;
@@ -3313,11 +3313,11 @@ struct SampleHelper {
 };
 
 SampleHelper::SampleHelper(CallInst *CI, OP::OpCode Op,
-                           HLObjectOperationLowerHelper *PObjHelper)
+                           HLObjectOperationLowerHelper *ObjHelper)
     : Opcode(Op) {
 
   TexHandle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
-  ResourceKind = PObjHelper->getRk(TexHandle);
+  ResourceKind = ObjHelper->getRk(TexHandle);
   if (ResourceKind == DXIL::ResourceKind::Invalid) {
     Opcode = DXIL::OpCode::NumOpCodes;
     return;
@@ -3443,10 +3443,10 @@ SampleHelper::SampleHelper(CallInst *CI, OP::OpCode Op,
 
 Value *translateCalculateLod(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                              HLOperationLowerHelper &Helper,
-                             HLObjectOperationLowerHelper *PObjHelper,
+                             HLObjectOperationLowerHelper *ObjHelper,
                              bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
-  SampleHelper SampleHelper(CI, OP::OpCode::CalculateLOD, PObjHelper);
+  SampleHelper SampleHelper(CI, OP::OpCode::CalculateLOD, ObjHelper);
   if (SampleHelper.Opcode == DXIL::OpCode::NumOpCodes) {
     Translated = false;
     return nullptr;
@@ -3473,7 +3473,7 @@ Value *translateCalculateLod(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateCheckAccess(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                             HLOperationLowerHelper &Helper,
-                            HLObjectOperationLowerHelper *PObjHelper,
+                            HLObjectOperationLowerHelper *ObjHelper,
                             bool &Translated) {
   // Translate CheckAccess into uint->bool, later optimization should remove it.
   // Real checkaccess is generated in UpdateStatus.
@@ -3504,10 +3504,10 @@ void generateDxilSample(CallInst *CI, Function *F, ArrayRef<Value *> SampleArgs,
 
 Value *translateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                        HLOperationLowerHelper &Helper,
-                       HLObjectOperationLowerHelper *PObjHelper,
+                       HLObjectOperationLowerHelper *ObjHelper,
                        bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
-  SampleHelper SampleHelper(CI, Opcode, PObjHelper);
+  SampleHelper SampleHelper(CI, Opcode, ObjHelper);
 
   if (SampleHelper.Opcode == DXIL::OpCode::NumOpCodes) {
     Translated = false;
@@ -3666,7 +3666,7 @@ struct GatherHelper {
   };
 
   GatherHelper(CallInst *CI, OP::OpCode Op,
-               HLObjectOperationLowerHelper *PObjHelper,
+               HLObjectOperationLowerHelper *ObjHelper,
                GatherHelper::GatherChannel Ch);
 
   OP::OpCode Opcode;
@@ -3758,7 +3758,7 @@ struct GatherHelper {
 };
 
 GatherHelper::GatherHelper(CallInst *CI, OP::OpCode Op,
-                           HLObjectOperationLowerHelper *PObjHelper,
+                           HLObjectOperationLowerHelper *ObjHelper,
                            GatherHelper::GatherChannel Ch)
     : Opcode(Op), Special(nullptr), HasSampleOffsets(false) {
 
@@ -3784,7 +3784,7 @@ GatherHelper::GatherHelper(CallInst *CI, OP::OpCode Op,
   TexHandle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   SamplerHandle = CI->getArgOperand(HLOperandIndex::kSampleSamplerArgIndex);
 
-  DXIL::ResourceKind RK = PObjHelper->getRk(TexHandle);
+  DXIL::ResourceKind RK = ObjHelper->getRk(TexHandle);
   if (RK == DXIL::ResourceKind::Invalid) {
     Opcode = DXIL::OpCode::NumOpCodes;
     return;
@@ -3900,7 +3900,7 @@ void generateDxilGather(CallInst *CI, Function *F,
 
 Value *translateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                        HLOperationLowerHelper &Helper,
-                       HLObjectOperationLowerHelper *PObjHelper,
+                       HLObjectOperationLowerHelper *ObjHelper,
                        bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   GatherHelper::GatherChannel Ch = GatherHelper::GatherChannel::GatherAll;
@@ -3931,7 +3931,7 @@ Value *translateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
     break;
   }
 
-  GatherHelper GatherHelper(CI, Opcode, PObjHelper, Ch);
+  GatherHelper GatherHelper(CI, Opcode, ObjHelper, Ch);
 
   if (GatherHelper.Opcode == DXIL::OpCode::NumOpCodes) {
     Translated = false;
@@ -3993,10 +3993,10 @@ Value *translateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 static Value *
 translateWriteSamplerFeedback(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                               HLOperationLowerHelper &Helper,
-                              HLObjectOperationLowerHelper *PObjHelper,
+                              HLObjectOperationLowerHelper *ObjHelper,
                               bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
-  SampleHelper SampleHelper(CI, Opcode, PObjHelper);
+  SampleHelper SampleHelper(CI, Opcode, ObjHelper);
 
   if (SampleHelper.Opcode == DXIL::OpCode::NumOpCodes) {
     Translated = false;
@@ -4444,7 +4444,7 @@ Value *translateBufLoad(ResLoadHelper &Helper, HLResource::Kind RK,
 
 Value *translateResourceLoad(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                              HLOperationLowerHelper &Helper,
-                             HLObjectOperationLowerHelper *PObjHelper,
+                             HLObjectOperationLowerHelper *ObjHelper,
                              bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   DataLayout &DL = Helper.DL;
@@ -4452,8 +4452,8 @@ Value *translateResourceLoad(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
   IRBuilder<> Builder(CI);
 
-  DXIL::ResourceClass RC = PObjHelper->getRc(Handle);
-  DXIL::ResourceKind RK = PObjHelper->getRk(Handle);
+  DXIL::ResourceClass RC = ObjHelper->getRc(Handle);
+  DXIL::ResourceKind RK = ObjHelper->getRk(Handle);
 
   ResLoadHelper LdHelper(CI, RK, RC, Handle, IOP);
   Type *Ty = CI->getType();
@@ -4746,13 +4746,13 @@ void translateStore(DxilResource::Kind RK, Value *Handle, Value *Val,
 
 Value *translateResourceStore(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                               HLOperationLowerHelper &Helper,
-                              HLObjectOperationLowerHelper *PObjHelper,
+                              HLObjectOperationLowerHelper *ObjHelper,
                               bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
 
   IRBuilder<> Builder(CI);
-  DXIL::ResourceKind RK = PObjHelper->getRk(Handle);
+  DXIL::ResourceKind RK = ObjHelper->getRk(Handle);
 
   Value *Val = CI->getArgOperand(HLOperandIndex::kStoreValOpIdx);
   Value *Offset = CI->getArgOperand(HLOperandIndex::kStoreOffsetOpIdx);
@@ -4876,7 +4876,7 @@ void translateAtomicBinaryOperation(AtomicHelper &Helper,
 
 Value *translateMopAtomicBinaryOperation(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
 
@@ -5001,7 +5001,7 @@ void translateAtomicCmpXChg(AtomicHelper &Helper, IRBuilder<> &Builder,
 Value *translateMopAtomicCmpXChg(CallInst *CI, IntrinsicOp IOP,
                                  OP::OpCode Opcode,
                                  HLOperationLowerHelper &Helper,
-                                 HLObjectOperationLowerHelper *PObjHelper,
+                                 HLObjectOperationLowerHelper *ObjHelper,
                                  bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
 
@@ -5090,7 +5090,7 @@ static Value *skipAddrSpaceCast(Value *Ptr) {
 Value *
 translateNodeIncrementOutputCount(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                                   HLOperationLowerHelper &Helper,
-                                  HLObjectOperationLowerHelper *PObjHelper,
+                                  HLObjectOperationLowerHelper *ObjHelper,
                                   bool IsPerThread, bool &Translated) {
 
   hlsl::OP *OP = &Helper.HlslOp;
@@ -5117,9 +5117,9 @@ void @dx.op.groupIncrementOutputCount(i32 %Opcode, %dx.types.NodeHandle
 */
 Value *translateNodeGroupIncrementOutputCount(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
-  return translateNodeIncrementOutputCount(CI, IOP, Op, Helper, PObjHelper,
+  return translateNodeIncrementOutputCount(CI, IOP, Op, Helper, ObjHelper,
                                            /*isPerThread*/ false, Translated);
 }
 
@@ -5132,15 +5132,15 @@ void @dx.op.threadIncrementOutputCount(i32 %Opcode, %dx.types.NodeHandle
 */
 Value *translateNodeThreadIncrementOutputCount(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
-  return translateNodeIncrementOutputCount(CI, IOP, Op, Helper, PObjHelper,
+  return translateNodeIncrementOutputCount(CI, IOP, Op, Helper, ObjHelper,
                                            /*isPerThread*/ true, Translated);
 }
 
 // For known non-groupshared, verify that the destination param is valid
 void validateAtomicDestination(CallInst *CI,
-                               HLObjectOperationLowerHelper *PObjHelper) {
+                               HLObjectOperationLowerHelper *ObjHelper) {
   Value *Dest = CI->getArgOperand(HLOperandIndex::kInterlockedDestOpIndex);
   // If we encounter a gep, we may provide a more specific error message
   bool HasGep = isa<GetElementPtrInst>(Dest);
@@ -5164,8 +5164,8 @@ void validateAtomicDestination(CallInst *CI,
     break;
   }
 
-  if (PObjHelper->getRc(Dest) == DXIL::ResourceClass::UAV) {
-    DXIL::ResourceKind RK = PObjHelper->getRk(Dest);
+  if (ObjHelper->getRc(Dest) == DXIL::ResourceClass::UAV) {
+    DXIL::ResourceKind RK = ObjHelper->getRk(Dest);
     if (DXIL::IsStructuredBuffer(RK))
       return; // no errors
     if (DXIL::IsTyped(RK)) {
@@ -5183,7 +5183,7 @@ void validateAtomicDestination(CallInst *CI,
 
 Value *translateIopAtomicBinaryOperation(
     CallInst *CI, IntrinsicOp IOP, DXIL::OpCode Opcode,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   Value *Addr = CI->getArgOperand(HLOperandIndex::kInterlockedDestOpIndex);
   Addr = skipAddrSpaceCast(Addr);
@@ -5197,7 +5197,7 @@ Value *translateIopAtomicBinaryOperation(
     // translate the atomic op in the process of translating users of the
     // subscript operator Mark not translated and validate dest param
     Translated = false;
-    validateAtomicDestination(CI, PObjHelper);
+    validateAtomicDestination(CI, ObjHelper);
   }
 
   return nullptr;
@@ -5240,7 +5240,7 @@ void translateSharedMemOrNodeAtomicCmpXChg(CallInst *CI, Value *Addr) {
 Value *translateIopAtomicCmpXChg(CallInst *CI, IntrinsicOp IOP,
                                  DXIL::OpCode Opcode,
                                  HLOperationLowerHelper &Helper,
-                                 HLObjectOperationLowerHelper *PObjHelper,
+                                 HLObjectOperationLowerHelper *ObjHelper,
                                  bool &Translated) {
   Value *Addr = CI->getArgOperand(HLOperandIndex::kInterlockedDestOpIndex);
   Addr = skipAddrSpaceCast(Addr);
@@ -5254,7 +5254,7 @@ Value *translateIopAtomicCmpXChg(CallInst *CI, IntrinsicOp IOP,
     // the atomic op in the process of translating users of the subscript
     // operator Mark not translated and validate dest param
     Translated = false;
-    validateAtomicDestination(CI, PObjHelper);
+    validateAtomicDestination(CI, ObjHelper);
   }
 
   return nullptr;
@@ -5394,7 +5394,7 @@ Value *roundUpTessFactor(Value *Input,
 
 Value *translateProcessIsolineTessFactors(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   // Get partition mode
@@ -5599,7 +5599,7 @@ void resolveQuadAxes(Value **PFinalResult, Value **PClampedResult,
 Value *translateProcessTessFactors(CallInst *CI, IntrinsicOp IOP,
                                    OP::OpCode Opcode,
                                    HLOperationLowerHelper &Helper,
-                                   HLObjectOperationLowerHelper *PObjHelper,
+                                   HLObjectOperationLowerHelper *ObjHelper,
                                    bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   // Get partition mode
@@ -5755,7 +5755,7 @@ namespace {
 Value *translateReportIntersection(CallInst *CI, IntrinsicOp IOP,
                                    OP::OpCode Opcode,
                                    HLOperationLowerHelper &Helper,
-                                   HLObjectOperationLowerHelper *PObjHelper,
+                                   HLObjectOperationLowerHelper *ObjHelper,
                                    bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *THit = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
@@ -5772,7 +5772,7 @@ Value *translateReportIntersection(CallInst *CI, IntrinsicOp IOP,
 
 Value *translateCallShader(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                            HLOperationLowerHelper &Helper,
-                           HLObjectOperationLowerHelper *PObjHelper,
+                           HLObjectOperationLowerHelper *ObjHelper,
                            bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *ShaderIndex = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -5808,7 +5808,7 @@ static void transferRayDescArgs(Value **Args, hlsl::OP *OP,
 
 Value *translateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
                          HLOperationLowerHelper &Helper,
-                         HLObjectOperationLowerHelper *PObjHelper,
+                         HLObjectOperationLowerHelper *ObjHelper,
                          bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
 
@@ -5840,7 +5840,7 @@ Value *translateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
 Value *translateAllocateRayQuery(CallInst *CI, IntrinsicOp IOP,
                                  OP::OpCode Opcode,
                                  HLOperationLowerHelper &Helper,
-                                 HLObjectOperationLowerHelper *PObjHelper,
+                                 HLObjectOperationLowerHelper *ObjHelper,
                                  bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   // upgrade to allocateRayQuery2 if there is a non-zero 2nd template arg
@@ -5866,7 +5866,7 @@ Value *translateAllocateRayQuery(CallInst *CI, IntrinsicOp IOP,
 
 Value *translateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                                HLOperationLowerHelper &Helper,
-                               HLObjectOperationLowerHelper *PObjHelper,
+                               HLObjectOperationLowerHelper *ObjHelper,
                                bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *OpArg = HlslOp->GetU32Const(static_cast<unsigned>(Opcode));
@@ -5891,7 +5891,7 @@ Value *translateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateCommitProceduralPrimitiveHit(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *THit = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
@@ -5909,7 +5909,7 @@ Value *translateCommitProceduralPrimitiveHit(
 Value *translateGenericRayQueryMethod(CallInst *CI, IntrinsicOp IOP,
                                       OP::OpCode Opcode,
                                       HLOperationLowerHelper &Helper,
-                                      HLObjectOperationLowerHelper *PObjHelper,
+                                      HLObjectOperationLowerHelper *ObjHelper,
                                       bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
 
@@ -5924,7 +5924,7 @@ Value *translateGenericRayQueryMethod(CallInst *CI, IntrinsicOp IOP,
 
 Value *translateRayQueryMatrix3x4Operation(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   VectorType *Ty = cast<VectorType>(CI->getType());
@@ -5940,7 +5940,7 @@ Value *translateRayQueryMatrix3x4Operation(
 
 Value *translateRayQueryTransposedMatrix3x4Operation(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   VectorType *Ty = cast<VectorType>(CI->getType());
@@ -5957,7 +5957,7 @@ Value *translateRayQueryTransposedMatrix3x4Operation(
 Value *translateRayQueryFloat2Getter(CallInst *CI, IntrinsicOp IOP,
                                      OP::OpCode Opcode,
                                      HLOperationLowerHelper &Helper,
-                                     HLObjectOperationLowerHelper *PObjHelper,
+                                     HLObjectOperationLowerHelper *ObjHelper,
                                      bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   VectorType *Ty = cast<VectorType>(CI->getType());
@@ -5972,7 +5972,7 @@ Value *translateRayQueryFloat2Getter(CallInst *CI, IntrinsicOp IOP,
 Value *translateRayQueryFloat3Getter(CallInst *CI, IntrinsicOp IOP,
                                      OP::OpCode Opcode,
                                      HLOperationLowerHelper &Helper,
-                                     HLObjectOperationLowerHelper *PObjHelper,
+                                     HLObjectOperationLowerHelper *ObjHelper,
                                      bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   VectorType *Ty = cast<VectorType>(CI->getType());
@@ -5987,7 +5987,7 @@ Value *translateRayQueryFloat3Getter(CallInst *CI, IntrinsicOp IOP,
 Value *translateNoArgVectorOperation(CallInst *CI, IntrinsicOp IOP,
                                      OP::OpCode Opcode,
                                      HLOperationLowerHelper &Helper,
-                                     HLObjectOperationLowerHelper *PObjHelper,
+                                     HLObjectOperationLowerHelper *ObjHelper,
                                      bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   VectorType *Ty = cast<VectorType>(CI->getType());
@@ -6015,7 +6015,7 @@ static void getMatrixIndices(Constant *&Rows, Constant *&Cols, bool Is3x4,
 
 Value *translateNoArgMatrix3x4Operation(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   VectorType *Ty = cast<VectorType>(CI->getType());
@@ -6026,7 +6026,7 @@ Value *translateNoArgMatrix3x4Operation(
 
 Value *translateNoArgTransposedMatrix3x4Operation(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   VectorType *Ty = cast<VectorType>(CI->getType());
@@ -6045,7 +6045,7 @@ void @dx.op.outputComplete(i32 %Opcode, %dx.types.NodeRecordHandle
 */
 Value *translateNodeOutputComplete(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
                                    HLOperationLowerHelper &Helper,
-                                   HLObjectOperationLowerHelper *PObjHelper,
+                                   HLObjectOperationLowerHelper *ObjHelper,
                                    bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
 
@@ -6060,10 +6060,10 @@ Value *translateNodeOutputComplete(CallInst *CI, IntrinsicOp IOP, OP::OpCode Op,
 
 Value *translateNoArgNoReturnPreserveOutput(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   Instruction *PResult = cast<Instruction>(
-      trivialNoArgOperation(CI, IOP, Opcode, Helper, PObjHelper, Translated));
+      trivialNoArgOperation(CI, IOP, Opcode, Helper, ObjHelper, Translated));
   // HL intrinsic must have had a return injected just after the call.
   // SROA_Parameter_HLSL will copy from alloca to output just before each
   // return. Now move call after the copy and just before the return.
@@ -6078,7 +6078,7 @@ Value *translateNoArgNoReturnPreserveOutput(
 // Special half dot2 with accumulate to float
 Value *translateDot2Add(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                         HLOperationLowerHelper &Helper,
-                        HLObjectOperationLowerHelper *PObjHelper,
+                        HLObjectOperationLowerHelper *ObjHelper,
                         bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Src0 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
@@ -6112,7 +6112,7 @@ Value *translateDot2Add(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateDot4AddPacked(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                               HLOperationLowerHelper &Helper,
-                              HLObjectOperationLowerHelper *PObjHelper,
+                              HLObjectOperationLowerHelper *ObjHelper,
                               bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
   Value *Src0 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
@@ -6136,7 +6136,7 @@ Value *translateDot4AddPacked(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translatePack(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                      HLOperationLowerHelper &Helper,
-                     HLObjectOperationLowerHelper *PObjHelper,
+                     HLObjectOperationLowerHelper *ObjHelper,
                      bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
 
@@ -6182,7 +6182,7 @@ Value *translatePack(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 
 Value *translateUnpack(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                        HLOperationLowerHelper &Helper,
-                       HLObjectOperationLowerHelper *PObjHelper,
+                       HLObjectOperationLowerHelper *ObjHelper,
                        bool &Translated) {
   hlsl::OP *HlslOp = &Helper.HlslOp;
 
@@ -6286,7 +6286,7 @@ Value *translateHitObjectMakeMiss(CallInst *CI, IntrinsicOp IOP,
 Value *translateMaybeReorderThread(CallInst *CI, IntrinsicOp IOP,
                                    OP::OpCode OpCode,
                                    HLOperationLowerHelper &Helper,
-                                   HLObjectOperationLowerHelper *PObjHelper,
+                                   HLObjectOperationLowerHelper *ObjHelper,
                                    bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
 
@@ -6343,7 +6343,7 @@ Value *translateMaybeReorderThread(CallInst *CI, IntrinsicOp IOP,
 Value *translateHitObjectFromRayQuery(CallInst *CI, IntrinsicOp IOP,
                                       OP::OpCode OpCode,
                                       HLOperationLowerHelper &Helper,
-                                      HLObjectOperationLowerHelper *PObjHelper,
+                                      HLObjectOperationLowerHelper *ObjHelper,
                                       bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
   IRBuilder<> Builder(CI);
@@ -6376,7 +6376,7 @@ Value *translateHitObjectFromRayQuery(CallInst *CI, IntrinsicOp IOP,
 Value *translateHitObjectTraceRay(CallInst *CI, IntrinsicOp IOP,
                                   OP::OpCode OpCode,
                                   HLOperationLowerHelper &Helper,
-                                  HLObjectOperationLowerHelper *PObjHelper,
+                                  HLObjectOperationLowerHelper *ObjHelper,
                                   bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
   IRBuilder<> Builder(CI);
@@ -6419,7 +6419,7 @@ Value *translateHitObjectTraceRay(CallInst *CI, IntrinsicOp IOP,
 Value *translateHitObjectInvoke(CallInst *CI, IntrinsicOp IOP,
                                 OP::OpCode OpCode,
                                 HLOperationLowerHelper &Helper,
-                                HLObjectOperationLowerHelper *PObjHelper,
+                                HLObjectOperationLowerHelper *ObjHelper,
                                 bool &Translated) {
   unsigned SrcIdx = 1;
   Value *HitObjectPtr = CI->getArgOperand(SrcIdx++);
@@ -6436,7 +6436,7 @@ Value *translateHitObjectInvoke(CallInst *CI, IntrinsicOp IOP,
 Value *translateHitObjectGetAttributes(CallInst *CI, IntrinsicOp IOP,
                                        OP::OpCode OpCode,
                                        HLOperationLowerHelper &Helper,
-                                       HLObjectOperationLowerHelper *PObjHelper,
+                                       HLObjectOperationLowerHelper *ObjHelper,
                                        bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
   IRBuilder<> Builder(CI);
@@ -6453,7 +6453,7 @@ Value *translateHitObjectGetAttributes(CallInst *CI, IntrinsicOp IOP,
 Value *translateHitObjectScalarGetter(CallInst *CI, IntrinsicOp IOP,
                                       OP::OpCode OpCode,
                                       HLOperationLowerHelper &Helper,
-                                      HLObjectOperationLowerHelper *PObjHelper,
+                                      HLObjectOperationLowerHelper *ObjHelper,
                                       bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
   Value *HitObjectPtr = CI->getArgOperand(1);
@@ -6466,7 +6466,7 @@ Value *translateHitObjectScalarGetter(CallInst *CI, IntrinsicOp IOP,
 Value *translateHitObjectVectorGetter(CallInst *CI, IntrinsicOp IOP,
                                       OP::OpCode OpCode,
                                       HLOperationLowerHelper &Helper,
-                                      HLObjectOperationLowerHelper *PObjHelper,
+                                      HLObjectOperationLowerHelper *ObjHelper,
                                       bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
   Value *HitObjectPtr = CI->getArgOperand(1);
@@ -6491,7 +6491,7 @@ static bool isHitObject3x4Getter(IntrinsicOp IOP) {
 Value *translateHitObjectMatrixGetter(CallInst *CI, IntrinsicOp IOP,
                                       OP::OpCode OpCode,
                                       HLOperationLowerHelper &Helper,
-                                      HLObjectOperationLowerHelper *PObjHelper,
+                                      HLObjectOperationLowerHelper *ObjHelper,
                                       bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
   Value *HitObjectPtr = CI->getArgOperand(1);
@@ -6510,7 +6510,7 @@ Value *translateHitObjectMatrixGetter(CallInst *CI, IntrinsicOp IOP,
 
 Value *translateHitObjectLoadLocalRootTableConstant(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
   IRBuilder<> Builder(CI);
@@ -6525,7 +6525,7 @@ Value *translateHitObjectLoadLocalRootTableConstant(
 
 Value *translateHitObjectSetShaderTableIndex(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *PObjHelper,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
   hlsl::OP *OP = &Helper.HlslOp;
   IRBuilder<> Builder(CI);
@@ -6547,7 +6547,7 @@ namespace {
 Value *translateGetHandleFromHeap(CallInst *CI, IntrinsicOp IOP,
                                   DXIL::OpCode Opcode,
                                   HLOperationLowerHelper &Helper,
-                                  HLObjectOperationLowerHelper *PObjHelper,
+                                  HLObjectOperationLowerHelper *ObjHelper,
                                   bool &Translated) {
   hlsl::OP &HlslOp = Helper.HlslOp;
   Function *DxilFunc = HlslOp.GetOpFunc(Opcode, Helper.VoidTy);
@@ -6565,7 +6565,7 @@ Value *translateGetHandleFromHeap(CallInst *CI, IntrinsicOp IOP,
 namespace {
 Value *translateAnd(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                     HLOperationLowerHelper &Helper,
-                    HLObjectOperationLowerHelper *PObjHelper,
+                    HLObjectOperationLowerHelper *ObjHelper,
                     bool &Translated) {
   Value *X = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *Y = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
@@ -6575,7 +6575,7 @@ Value *translateAnd(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 }
 Value *translateOr(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                    HLOperationLowerHelper &Helper,
-                   HLObjectOperationLowerHelper *PObjHelper, bool &Translated) {
+                   HLObjectOperationLowerHelper *ObjHelper, bool &Translated) {
   Value *X = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *Y = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
@@ -6584,7 +6584,7 @@ Value *translateOr(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
 }
 Value *translateSelect(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opcode,
                        HLOperationLowerHelper &Helper,
-                       HLObjectOperationLowerHelper *PObjHelper,
+                       HLObjectOperationLowerHelper *ObjHelper,
                        bool &Translated) {
   Value *Cond = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
   Value *T = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
@@ -6794,7 +6794,7 @@ namespace {
 
 Value *emptyLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode Opcode,
                   HLOperationLowerHelper &Helper,
-                  HLObjectOperationLowerHelper *PObjHelper, bool &Translated) {
+                  HLObjectOperationLowerHelper *ObjHelper, bool &Translated) {
   Translated = false;
   dxilutil::EmitErrorOnInstruction(CI, "Unsupported intrinsic.");
   return nullptr;
@@ -6804,7 +6804,7 @@ Value *emptyLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode Opcode,
 Value *unsupportedVulkanIntrinsic(CallInst *CI, IntrinsicOp IOP,
                                   DXIL::OpCode Opcode,
                                   HLOperationLowerHelper &Helper,
-                                  HLObjectOperationLowerHelper *PObjHelper,
+                                  HLObjectOperationLowerHelper *ObjHelper,
                                   bool &Translated) {
   Translated = false;
   dxilutil::EmitErrorOnInstruction(CI, "Unsupported Vulkan intrinsic.");
@@ -6814,7 +6814,7 @@ Value *unsupportedVulkanIntrinsic(CallInst *CI, IntrinsicOp IOP,
 
 Value *streamOutputLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode Opcode,
                          HLOperationLowerHelper &Helper,
-                         HLObjectOperationLowerHelper *PObjHelper,
+                         HLObjectOperationLowerHelper *ObjHelper,
                          bool &Translated) {
   // Translated in DxilGenerationPass::GenerateStreamOutputOperation.
   // Do nothing here.
@@ -7517,12 +7517,12 @@ static_assert(
 
 static void translateBuiltinIntrinsic(CallInst *CI,
                                       HLOperationLowerHelper &Helper,
-                                      HLObjectOperationLowerHelper *PObjHelper,
+                                      HLObjectOperationLowerHelper *ObjHelper,
                                       bool &Translated) {
   unsigned Opcode = hlsl::GetHLOpcode(CI);
   const IntrinsicLower &Lower = GLowerTable[Opcode];
   Value *Result = Lower.LowerFunc(CI, Lower.IntriOpcode, Lower.DxilOpcode,
-                                  Helper, PObjHelper, Translated);
+                                  Helper, ObjHelper, Translated);
   if (Result)
     CI->replaceAllUsesWith(Result);
 }
@@ -7604,7 +7604,7 @@ void translateCbGep(GetElementPtrInst *GEP, Value *Handle, Value *BaseOffset,
                     hlsl::OP *HlslOp, IRBuilder<> &Builder,
                     DxilFieldAnnotation *PrevFieldAnnotation,
                     const DataLayout &DL, DxilTypeSystem &DxilTypeSys,
-                    HLObjectOperationLowerHelper *PObjHelper);
+                    HLObjectOperationLowerHelper *ObjHelper);
 
 Value *generateVecEltFromGep(Value *LdData, GetElementPtrInst *GEP,
                              IRBuilder<> &Builder, bool BInsertLdNextToGep) {
@@ -7644,7 +7644,7 @@ Value *generateVecEltFromGep(Value *LdData, GetElementPtrInst *GEP,
 }
 
 void translateResourceInCb(LoadInst *LI,
-                           HLObjectOperationLowerHelper *PObjHelper,
+                           HLObjectOperationLowerHelper *ObjHelper,
                            GlobalVariable *CbGV) {
   if (LI->user_empty()) {
     LI->eraseFromParent();
@@ -7654,11 +7654,11 @@ void translateResourceInCb(LoadInst *LI,
   GetElementPtrInst *Ptr = cast<GetElementPtrInst>(LI->getPointerOperand());
   CallInst *CI = cast<CallInst>(LI->user_back());
   CallInst *Anno = cast<CallInst>(CI->user_back());
-  DxilResourceProperties RP = PObjHelper->getResPropsFromAnnotateHandle(Anno);
-  Value *ResPtr = PObjHelper->getOrCreateResourceForCbPtr(Ptr, CbGV, RP);
+  DxilResourceProperties RP = ObjHelper->getResPropsFromAnnotateHandle(Anno);
+  Value *ResPtr = ObjHelper->getOrCreateResourceForCbPtr(Ptr, CbGV, RP);
 
   // Lower Ptr to GV base Ptr.
-  Value *GvPtr = PObjHelper->lowerCbResourcePtr(Ptr, ResPtr);
+  Value *GvPtr = ObjHelper->lowerCbResourcePtr(Ptr, ResPtr);
   IRBuilder<> Builder(LI);
   Value *GvLd = Builder.CreateLoad(GvPtr);
   LI->replaceAllUsesWith(GvLd);
@@ -7669,7 +7669,7 @@ void translateCbAddressUser(Instruction *User, Value *Handle, Value *BaseOffset,
                             hlsl::OP *HlslOp,
                             DxilFieldAnnotation *PrevFieldAnnotation,
                             DxilTypeSystem &DxilTypeSys, const DataLayout &DL,
-                            HLObjectOperationLowerHelper *PObjHelper) {
+                            HLObjectOperationLowerHelper *ObjHelper) {
   IRBuilder<> Builder(User);
   if (CallInst *CI = dyn_cast<CallInst>(User)) {
     HLOpcodeGroup Group = GetHLOpcodeGroupByName(CI->getCalledFunction());
@@ -7782,7 +7782,7 @@ void translateCbAddressUser(Instruction *User, Value *Handle, Value *BaseOffset,
         CI = cast<CallInst>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
       GlobalVariable *CbGV = cast<GlobalVariable>(
           CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
-      translateResourceInCb(LdInst, PObjHelper, CbGV);
+      translateResourceInCb(LdInst, ObjHelper, CbGV);
       return;
     }
     DXASSERT(!Ty->isAggregateType(), "should be flat in previous pass");
@@ -7811,7 +7811,7 @@ void translateCbAddressUser(Instruction *User, Value *Handle, Value *BaseOffset,
     // Must be GEP here
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(User);
     translateCbGep(GEP, Handle, BaseOffset, HlslOp, Builder,
-                   PrevFieldAnnotation, DL, DxilTypeSys, PObjHelper);
+                   PrevFieldAnnotation, DL, DxilTypeSys, ObjHelper);
     GEP->eraseFromParent();
   }
 }
@@ -7820,7 +7820,7 @@ void translateCbGep(GetElementPtrInst *GEP, Value *Handle, Value *BaseOffset,
                     hlsl::OP *HlslOp, IRBuilder<> &Builder,
                     DxilFieldAnnotation *PrevFieldAnnotation,
                     const DataLayout &DL, DxilTypeSystem &DxilTypeSys,
-                    HLObjectOperationLowerHelper *PObjHelper) {
+                    HLObjectOperationLowerHelper *ObjHelper) {
   SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
 
   Value *Offset = BaseOffset;
@@ -7926,7 +7926,7 @@ void translateCbGep(GetElementPtrInst *GEP, Value *Handle, Value *BaseOffset,
     Instruction *User = cast<Instruction>(*(U++));
 
     translateCbAddressUser(User, Handle, Offset, HlslOp, FieldAnnotation,
-                           DxilTypeSys, DL, PObjHelper);
+                           DxilTypeSys, DL, ObjHelper);
   }
 }
 
@@ -8079,7 +8079,7 @@ void translateCbGepLegacy(GetElementPtrInst *GEP, Value *Handle,
                           hlsl::OP *HlslOp, IRBuilder<> &Builder,
                           DxilFieldAnnotation *PrevFieldAnnotation,
                           const DataLayout &DL, DxilTypeSystem &DxilTypeSys,
-                          HLObjectOperationLowerHelper *PObjHelper);
+                          HLObjectOperationLowerHelper *ObjHelper);
 
 void translateCbAddressUserLegacy(Instruction *User, Value *Handle,
                                   Value *LegacyIdx, unsigned ChannelOffset,
@@ -8087,7 +8087,7 @@ void translateCbAddressUserLegacy(Instruction *User, Value *Handle,
                                   DxilFieldAnnotation *PrevFieldAnnotation,
                                   DxilTypeSystem &DxilTypeSys,
                                   const DataLayout &DL,
-                                  HLObjectOperationLowerHelper *PObjHelper) {
+                                  HLObjectOperationLowerHelper *ObjHelper) {
   IRBuilder<> Builder(User);
   if (CallInst *CI = dyn_cast<CallInst>(User)) {
     HLOpcodeGroup Group = GetHLOpcodeGroupByName(CI->getCalledFunction());
@@ -8281,7 +8281,7 @@ void translateCbAddressUserLegacy(Instruction *User, Value *Handle,
 
       GlobalVariable *CbGV = cast<GlobalVariable>(
           CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
-      translateResourceInCb(LdInst, PObjHelper, CbGV);
+      translateResourceInCb(LdInst, ObjHelper, CbGV);
       return;
     }
     DXASSERT(!Ty->isAggregateType(), "should be flat in previous pass");
@@ -8303,14 +8303,14 @@ void translateCbAddressUserLegacy(Instruction *User, Value *Handle,
       Instruction *I = cast<Instruction>(*It++);
       translateCbAddressUserLegacy(I, Handle, LegacyIdx, ChannelOffset, HlslOp,
                                    PrevFieldAnnotation, DxilTypeSys, DL,
-                                   PObjHelper);
+                                   ObjHelper);
     }
     BCI->eraseFromParent();
   } else {
     // Must be GEP here
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(User);
     translateCbGepLegacy(GEP, Handle, LegacyIdx, ChannelOffset, HlslOp, Builder,
-                         PrevFieldAnnotation, DL, DxilTypeSys, PObjHelper);
+                         PrevFieldAnnotation, DL, DxilTypeSys, ObjHelper);
     GEP->eraseFromParent();
   }
 }
@@ -8320,7 +8320,7 @@ void translateCbGepLegacy(GetElementPtrInst *GEP, Value *Handle,
                           hlsl::OP *HlslOp, IRBuilder<> &Builder,
                           DxilFieldAnnotation *PrevFieldAnnotation,
                           const DataLayout &DL, DxilTypeSystem &DxilTypeSys,
-                          HLObjectOperationLowerHelper *PObjHelper) {
+                          HLObjectOperationLowerHelper *ObjHelper) {
   SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
 
   // update offset
@@ -8460,7 +8460,7 @@ void translateCbGepLegacy(GetElementPtrInst *GEP, Value *Handle,
         } else {
           StringRef ResName = "(unknown)";
           if (DxilResourceBase *Res =
-                  PObjHelper->findCBufferResourceFromHandle(Handle)) {
+                  ObjHelper->findCBufferResourceFromHandle(Handle)) {
             ResName = Res->GetGlobalName();
           }
           LegacyIndex = hlsl::CreatePoisonValue(
@@ -8514,14 +8514,14 @@ void translateCbGepLegacy(GetElementPtrInst *GEP, Value *Handle,
     Instruction *User = cast<Instruction>(*(U++));
 
     translateCbAddressUserLegacy(User, Handle, LegacyIndex, Channel, HlslOp,
-                                 FieldAnnotation, DxilTypeSys, DL, PObjHelper);
+                                 FieldAnnotation, DxilTypeSys, DL, ObjHelper);
   }
 }
 
 void translateCbOperationsLegacy(Value *Handle, Value *Ptr, OP *HlslOp,
                                  DxilTypeSystem &DxilTypeSys,
                                  const DataLayout &DL,
-                                 HLObjectOperationLowerHelper *PObjHelper) {
+                                 HLObjectOperationLowerHelper *ObjHelper) {
   auto User = Ptr->user_begin();
   auto UserE = Ptr->user_end();
   Value *ZeroIdx = HlslOp->GetU32Const(0);
@@ -8530,7 +8530,7 @@ void translateCbOperationsLegacy(Value *Handle, Value *Ptr, OP *HlslOp,
     Instruction *I = cast<Instruction>(*(User++));
     translateCbAddressUserLegacy(
         I, Handle, ZeroIdx, /*channelOffset*/ 0, HlslOp,
-        /*prevFieldAnnotation*/ nullptr, DxilTypeSys, DL, PObjHelper);
+        /*prevFieldAnnotation*/ nullptr, DxilTypeSys, DL, ObjHelper);
   }
 }
 
@@ -9067,15 +9067,15 @@ Value *updateVectorElt(Value *VecVal, Value *EltVal, Value *EltIdx,
 }
 
 void translateTypedBufferSubscript(CallInst *CI, HLOperationLowerHelper &Helper,
-                                   HLObjectOperationLowerHelper *PObjHelper,
+                                   HLObjectOperationLowerHelper *ObjHelper,
                                    bool &Translated) {
   Value *Ptr = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
 
   hlsl::OP *HlslOp = &Helper.HlslOp;
   // Resource ptr.
   Value *Handle = Ptr;
-  DXIL::ResourceClass RC = PObjHelper->getRc(Handle);
-  DXIL::ResourceKind RK = PObjHelper->getRk(Handle);
+  DXIL::ResourceClass RC = ObjHelper->getRc(Handle);
+  DXIL::ResourceKind RK = ObjHelper->getRk(Handle);
 
   Type *Ty = CI->getType()->getPointerElementType();
 
@@ -9273,7 +9273,7 @@ void translateTypedBufferSubscript(CallInst *CI, HLOperationLowerHelper &Helper,
 
 static void translateHlSubscript(CallInst *CI, HLSubscriptOpcode Opcode,
                                  HLOperationLowerHelper &Helper,
-                                 HLObjectOperationLowerHelper *PObjHelper,
+                                 HLObjectOperationLowerHelper *ObjHelper,
                                  bool &Translated) {
   if (CI->user_empty()) {
     Translated = true;
@@ -9287,7 +9287,7 @@ static void translateHlSubscript(CallInst *CI, HLSubscriptOpcode Opcode,
     // Resource ptr.
     Value *Handle = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
     translateCbOperationsLegacy(Handle, CI, HlslOp, Helper.DxilTypeSys,
-                                Helper.DL, PObjHelper);
+                                Helper.DL, ObjHelper);
     Translated = true;
     return;
   }
@@ -9295,7 +9295,7 @@ static void translateHlSubscript(CallInst *CI, HLSubscriptOpcode Opcode,
   if (Opcode == HLSubscriptOpcode::DoubleSubscript) {
     // Resource ptr.
     Value *Handle = Ptr;
-    DXIL::ResourceKind RK = PObjHelper->getRk(Handle);
+    DXIL::ResourceKind RK = ObjHelper->getRk(Handle);
     Value *Coord = CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx);
     Value *MipLevel =
         CI->getArgOperand(HLOperandIndex::kDoubleSubscriptMipLevelOpIdx);
@@ -9335,12 +9335,12 @@ static void translateHlSubscript(CallInst *CI, HLSubscriptOpcode Opcode,
     DXIL::ResourceKind RK = DxilResource::Kind::Invalid;
     Type *ObjTy = nullptr;
     Type *RetTy = nullptr;
-    RK = PObjHelper->getRk(Handle);
+    RK = ObjHelper->getRk(Handle);
     if (RK == DxilResource::Kind::Invalid) {
       Translated = false;
       return;
     }
-    ObjTy = PObjHelper->getResourceType(Handle);
+    ObjTy = ObjHelper->getResourceType(Handle);
     RetTy = ObjTy->getStructElementType(0);
     Translated = true;
 
@@ -9348,7 +9348,7 @@ static void translateHlSubscript(CallInst *CI, HLSubscriptOpcode Opcode,
       translateStructBufSubscript(CI, Handle, /*status*/ nullptr, HlslOp, RK,
                                   Helper.DL);
     else
-      translateTypedBufferSubscript(CI, Helper, PObjHelper, Translated);
+      translateTypedBufferSubscript(CI, Helper, ObjHelper, Translated);
 
     return;
   }
@@ -9369,7 +9369,7 @@ static void translateHlSubscript(CallInst *CI, HLSubscriptOpcode Opcode,
 
 static void
 translateSubscriptOperation(Function *F, HLOperationLowerHelper &Helper,
-                            HLObjectOperationLowerHelper *PObjHelper) {
+                            HLObjectOperationLowerHelper *ObjHelper) {
   for (auto U = F->user_begin(); U != F->user_end();) {
     Value *User = *(U++);
     if (!isa<Instruction>(User))
@@ -9379,7 +9379,7 @@ translateSubscriptOperation(Function *F, HLOperationLowerHelper &Helper,
     unsigned Opcode = GetHLOpcode(CI);
     bool Translated = true;
     translateHlSubscript(CI, static_cast<HLSubscriptOpcode>(Opcode), Helper,
-                         PObjHelper, Translated);
+                         ObjHelper, Translated);
     if (Translated) {
       // delete the call
       DXASSERT(CI->use_empty(),
@@ -9427,7 +9427,7 @@ static Instruction *createTransposeShuffle(IRBuilder<> &Builder, Value *VecVal,
 static void
 translateHlBuiltinOperation(Function *F, HLOperationLowerHelper &Helper,
                             hlsl::HLOpcodeGroup Group,
-                            HLObjectOperationLowerHelper *PObjHelper) {
+                            HLObjectOperationLowerHelper *ObjHelper) {
   if (Group == HLOpcodeGroup::HLIntrinsic) {
     // map to dxil operations
     for (auto U = F->user_begin(); U != F->user_end();) {
@@ -9440,7 +9440,7 @@ translateHlBuiltinOperation(Function *F, HLOperationLowerHelper &Helper,
       // Keep the instruction to lower by other function.
       bool Translated = true;
 
-      translateBuiltinIntrinsic(CI, Helper, PObjHelper, Translated);
+      translateBuiltinIntrinsic(CI, Helper, ObjHelper, Translated);
 
       if (Translated) {
         // delete the call
@@ -9548,7 +9548,7 @@ translateHlBuiltinOperation(Function *F, HLOperationLowerHelper &Helper,
         }
       }
     } else if (Group == HLOpcodeGroup::HLSubscript) {
-      translateSubscriptOperation(F, Helper, PObjHelper);
+      translateSubscriptOperation(F, Helper, ObjHelper);
     }
     // map to math function or llvm ir
   }
