@@ -281,6 +281,39 @@ struct DxcHLSLParameter { // Mirrors D3D12_PARAMETER_DESC without duplicating
   }
 };
 
+struct DxcHLSLIf {
+
+  uint32_t NodeId;
+  uint32_t HasConditionVar_HasElse_IfNodes;
+
+  DxcHLSLIf() = default;
+
+  DxcHLSLIf(uint32_t NodeId, uint32_t IfNodes, bool HasConditionVar,
+            bool HasElse)
+      : NodeId(NodeId),
+        HasConditionVar_HasElse_IfNodes(IfNodes |
+                                        (HasConditionVar ? (1u << 30) : 0) |
+                                        (HasElse ? (1u << 31) : 0)) {
+    if (IfNodes >= (1u << 30))
+      throw std::invalid_argument("IfNodes out of bounds");
+  }
+
+  uint32_t GetIfNodes() const {
+    return HasConditionVar_HasElse_IfNodes << 2 >> 2;
+  }
+
+  bool HasConditionVar() const {
+    return (HasConditionVar_HasElse_IfNodes >> 30) & 1;
+  }
+
+  bool HasElse() const { return (HasConditionVar_HasElse_IfNodes >> 31) & 1; }
+
+  bool operator==(const DxcHLSLIf &other) const {
+    return NodeId == other.NodeId && HasConditionVar_HasElse_IfNodes ==
+                                         other.HasConditionVar_HasElse_IfNodes;
+  }
+};
+
 struct DxcHLSLFunction {
 
   uint32_t NodeId;
@@ -292,8 +325,8 @@ struct DxcHLSLFunction {
                   bool HasDefinition)
       : NodeId(NodeId),
         NumParametersHasReturnAndDefinition(NumParameters |
-                                            (HasReturn ? (1 << 30) : 0) |
-                                            (HasDefinition ? (1 << 31) : 0)) {
+                                            (HasReturn ? (1u << 30) : 0) |
+                                            (HasDefinition ? (1u << 31) : 0)) {
 
     if (NumParameters >= (1u << 30))
       throw std::invalid_argument("NumParameters out of bounds");
@@ -552,6 +585,8 @@ struct DxcHLSLReflectionData {
   std::vector<DxcHLSLType> Types;
   std::vector<DxcHLSLBuffer> Buffers;
 
+  std::vector<DxcHLSLIf> Ifs;
+
   // Can be stripped if !(D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO)
 
   std::vector<DxcHLSLNodeSymbol> NodeSymbols;
@@ -588,7 +623,7 @@ struct DxcHLSLReflectionData {
            ArraySizes == Other.ArraySizes &&
            MemberTypeIds == Other.MemberTypeIds && TypeList == Other.TypeList &&
            Types == Other.Types && Buffers == Other.Buffers &&
-           Parameters == Other.Parameters;
+           Parameters == Other.Parameters && Ifs == Other.Ifs;
   }
 
   bool operator==(const DxcHLSLReflectionData &Other) const {

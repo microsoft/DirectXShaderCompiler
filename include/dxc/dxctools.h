@@ -176,14 +176,22 @@ enum D3D12_HLSL_NODE_TYPE {
   D3D12_HLSL_NODE_TYPE_VARIABLE, // localId points to the type
   D3D12_HLSL_NODE_TYPE_TYPEDEF,  // ^
 
-  D3D12_HLSL_NODE_TYPE_STRUCT,   // has Variables as member like buffers do,
-                                 // localId is the typeId (if not fwd decl)
-  D3D12_HLSL_NODE_TYPE_UNION,    // ^
+  D3D12_HLSL_NODE_TYPE_STRUCT, // has Variables as member like buffers do,
+                               // localId is the typeId (if not fwd decl)
+  D3D12_HLSL_NODE_TYPE_UNION,  // ^
 
   D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE,
 
   D3D12_HLSL_NODE_TYPE_INTERFACE,
   D3D12_HLSL_NODE_TYPE_PARAMETER,
+
+  // Control flow, for full inspection of what variables exist where and scopes
+
+  D3D12_HLSL_NODE_TYPE_IF,
+  // D3D12_HLSL_NODE_TYPE_FOR,
+  // D3D12_HLSL_NODE_TYPE_SWITCH,
+  // D3D12_HLSL_NODE_TYPE_DO,
+  // D3D12_HLSL_NODE_TYPE_SCOPE,
 
   // TODO: D3D12_HLSL_NODE_TYPE_USING,
 
@@ -191,7 +199,9 @@ enum D3D12_HLSL_NODE_TYPE {
       1 << 7, // Highest bit; reserved as an indicator for fwd declarations
 
   D3D12_HLSL_NODE_TYPE_START = D3D12_HLSL_NODE_TYPE_REGISTER,
-  D3D12_HLSL_NODE_TYPE_END = D3D12_HLSL_NODE_TYPE_PARAMETER
+
+  // Don't forget to properly update NodeTypeToString
+  D3D12_HLSL_NODE_TYPE_END = D3D12_HLSL_NODE_TYPE_IF
 };
 
 struct D3D12_HLSL_NODE {
