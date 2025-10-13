@@ -3502,9 +3502,8 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: AllocateRayQuery2=258, RawBufferVectorLoad=303,
-  // RawBufferVectorStore=304, MatVecMul=305, MatVecMulAdd=306,
-  // OuterProductAccumulate=307, VectorAccumulate=308
-  if (op == 258 || (303 <= op && op <= 308)) {
+  // RawBufferVectorStore=304
+  if (op == 258 || (303 <= op && op <= 304)) {
     major = 6;
     minor = 9;
     return;
@@ -3534,6 +3533,13 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     minor = 9;
     mask =
         SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(ClosestHit) | SFLAG(Miss);
+    return;
+  }
+  // Instructions: MatVecMul=305, MatVecMulAdd=306, OuterProductAccumulate=307,
+  // VectorAccumulate=308
+  if ((305 <= op && op <= 308)) {
+    major = 6;
+    minor = 10;
     return;
   }
   // OPCODE-SMMASK:END

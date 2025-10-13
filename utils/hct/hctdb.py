@@ -877,7 +877,7 @@ class db_dxil(object):
             "MatVecMul,MatVecMulAdd,OuterProductAccumulate,VectorAccumulate"
         ).split(","):
             self.name_idx[i].category = "Linear Algebra Operations"
-            self.name_idx[i].shader_model = 6, 9
+            self.name_idx[i].shader_model = 6, 10
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -6378,12 +6378,11 @@ class db_dxil(object):
         next_op_idx += 1
 
         # End of DXIL 1.9 opcodes.
-        # NOTE!! Update and uncomment when DXIL 1.9 opcodes are finalized:
-        # self.set_op_count_for_version(1, 9, next_op_idx)
-        # assert next_op_idx == NNN, (
-        #    "NNN is expected next operation index but encountered %d and thus opcodes are broken"
-        #    % next_op_idx
-        # )
+        self.set_op_count_for_version(1, 9, next_op_idx)
+        assert next_op_idx == 312, (
+           "312 is expected next operation index but encountered %d and thus opcodes are broken"
+           % next_op_idx
+        )
 
         # Set interesting properties.
         self.build_indices()
