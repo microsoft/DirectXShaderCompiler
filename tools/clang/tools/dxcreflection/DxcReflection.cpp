@@ -1256,7 +1256,8 @@ static void RecursiveReflectBody(
     uint32_t AutoBindingSpace, uint32_t Depth,
     D3D12_HLSL_REFLECTION_FEATURE Features, uint32_t ParentNodeId,
     bool DefaultRowMaj, std::unordered_map<Decl *, uint32_t> &FwdDecls,
-    const LangOptions &LangOpts) {
+    const LangOptions &LangOpts,
+    bool SkipNextCompound = false) {
 
   if (!Statement)
     return;
@@ -1288,13 +1289,15 @@ static void RecursiveReflectBody(
 
     RecursiveReflectBody(If->getThen(), ASTCtx, Diags, SM, Refl,
                          AutoBindingSpace, Depth + 1, Features, ifNode,
-                         DefaultRowMaj, FwdDecls, LangOpts);
+                         DefaultRowMaj, FwdDecls, LangOpts,
+                         If->getThen() && dyn_cast<CompoundStmt>(If->getThen()));
 
     uint32_t thenCount = uint32_t(Refl.Nodes.size()) - start;
 
     RecursiveReflectBody(If->getElse(), ASTCtx, Diags, SM, Refl,
                          AutoBindingSpace, Depth + 1, Features, ifNode,
-                         DefaultRowMaj, FwdDecls, LangOpts);
+                         DefaultRowMaj, FwdDecls, LangOpts,
+                         If->getElse() && dyn_cast<CompoundStmt>(If->getElse()));
 
     Refl.Ifs[ifLoc] =
         DxcHLSLIf(ifNode, thenCount, If->getConditionVariable(), If->getElse());
@@ -1318,7 +1321,7 @@ static void RecursiveReflectBody(
 
     const SourceRange &sourceRange = scope->getSourceRange();
 
-    uint32_t scopeNode = PushNextNodeId(
+    uint32_t scopeNode = SkipNextCompound ? ParentNodeId : PushNextNodeId(
         Refl, SM, LangOpts, "", nullptr, D3D12_HLSL_NODE_TYPE_SCOPE,
         ParentNodeId, 0, &sourceRange, &FwdDecls);
 
