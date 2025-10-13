@@ -222,11 +222,28 @@ function(set_output_directory target bindir libdir)
     set(moddir ${libdir})
   endif()
   if(NOT "${CMAKE_CFG_INTDIR}" STREQUAL ".")
+    # HLSL change begin: work around broken MSVC_BUILD_AS_X
+    get_target_property(target_type ${target} TYPE)
+    if(target_type STREQUAL "SHARED_LIBRARY" AND MSVC_BUILD_AS_X EQUAL 1)
+      set(workaround 1)
+      message(NOTICE "Working around ARM64X / MSVC_BUILD_AS_X bug for ${target}")
+    else()
+      set(workaround 0)
+    endif()
+    ## HLSL change end
+
     foreach(build_mode ${CMAKE_CONFIGURATION_TYPES})
       string(TOUPPER "${build_mode}" CONFIG_SUFFIX)
       string(REPLACE ${CMAKE_CFG_INTDIR} ${build_mode} bi ${bindir})
       string(REPLACE ${CMAKE_CFG_INTDIR} ${build_mode} li ${libdir})
       string(REPLACE ${CMAKE_CFG_INTDIR} ${build_mode} mi ${moddir})
+
+      # HLSL change begin: work around broken MSVC_BUILD_AS_X
+      if(workaround EQUAL 1)
+        string(APPEND li "/$(PLATFORM)")
+      endif()
+      ## HLSL change end
+
       set_target_properties(${target} PROPERTIES "RUNTIME_OUTPUT_DIRECTORY_${CONFIG_SUFFIX}" ${bi})
       set_target_properties(${target} PROPERTIES "ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_SUFFIX}" ${li})
       set_target_properties(${target} PROPERTIES "LIBRARY_OUTPUT_DIRECTORY_${CONFIG_SUFFIX}" ${mi})
