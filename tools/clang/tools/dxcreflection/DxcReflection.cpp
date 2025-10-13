@@ -1287,17 +1287,17 @@ static void RecursiveReflectBody(
 
     uint32_t start = uint32_t(Refl.Nodes.size());
 
-    RecursiveReflectBody(If->getThen(), ASTCtx, Diags, SM, Refl,
-                         AutoBindingSpace, Depth + 1, Features, ifNode,
-                         DefaultRowMaj, FwdDecls, LangOpts,
-                         If->getThen() && dyn_cast<CompoundStmt>(If->getThen()));
+    RecursiveReflectBody(
+        If->getThen(), ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1,
+        Features, ifNode, DefaultRowMaj, FwdDecls, LangOpts,
+        If->getThen() && dyn_cast<CompoundStmt>(If->getThen()));
 
     uint32_t thenCount = uint32_t(Refl.Nodes.size()) - start;
 
-    RecursiveReflectBody(If->getElse(), ASTCtx, Diags, SM, Refl,
-                         AutoBindingSpace, Depth + 1, Features, ifNode,
-                         DefaultRowMaj, FwdDecls, LangOpts,
-                         If->getElse() && dyn_cast<CompoundStmt>(If->getElse()));
+    RecursiveReflectBody(
+        If->getElse(), ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1,
+        Features, ifNode, DefaultRowMaj, FwdDecls, LangOpts,
+        If->getElse() && dyn_cast<CompoundStmt>(If->getElse()));
 
     Refl.Ifs[ifLoc] =
         DxcHLSLIf(ifNode, thenCount, If->getConditionVariable(), If->getElse());
@@ -1314,7 +1314,16 @@ static void RecursiveReflectBody(
   }
 
   else if (const DoStmt *Do = dyn_cast<DoStmt>(Statement)) {
-    // Do->getBody();
+
+    const SourceRange &sourceRange = Do->getSourceRange();
+
+    uint32_t scopeNode =
+        PushNextNodeId(Refl, SM, LangOpts, "", nullptr, D3D12_HLSL_NODE_TYPE_DO,
+                       ParentNodeId, 0, &sourceRange, &FwdDecls);
+
+    RecursiveReflectBody(Do->getBody(), ASTCtx, Diags, SM, Refl,
+                         AutoBindingSpace, Depth + 1, Features, scopeNode,
+                         DefaultRowMaj, FwdDecls, LangOpts, true);
   }
 
   else if (const CompoundStmt *scope = dyn_cast<CompoundStmt>(Statement)) {
@@ -1744,7 +1753,7 @@ static std::string NodeTypeToString(D3D12_HLSL_NODE_TYPE type) {
   static const char *arr[] = {
       "Register",  "Function",  "Enum",   "EnumValue", "Namespace",
       "Variable",  "Typedef",   "Struct", "Union",     "StaticVariable",
-      "Interface", "Parameter", "If",     "Scope"};
+      "Interface", "Parameter", "If",     "Scope",     "Do"};
 
   return arr[uint32_t(type)];
 }
@@ -2069,6 +2078,7 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
 
       case D3D12_HLSL_NODE_TYPE_NAMESPACE:
       case D3D12_HLSL_NODE_TYPE_SCOPE:
+      case D3D12_HLSL_NODE_TYPE_DO:
       default:
         break;
       }
@@ -2507,7 +2517,8 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
       if (Nodes[node.GetParentId()].GetNodeType() !=
               D3D12_HLSL_NODE_TYPE_FUNCTION &&
           Nodes[node.GetParentId()].GetNodeType() != D3D12_HLSL_NODE_TYPE_IF &&
-          Nodes[node.GetParentId()].GetNodeType() != D3D12_HLSL_NODE_TYPE_SCOPE)
+          Nodes[node.GetParentId()].GetNodeType() != D3D12_HLSL_NODE_TYPE_SCOPE &&
+          Nodes[node.GetParentId()].GetNodeType() != D3D12_HLSL_NODE_TYPE_DO)
         throw std::invalid_argument(
             "Node " + std::to_string(i) +
             " is an if but parent isn't a function or if");
@@ -2529,6 +2540,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
       break;
 
     case D3D12_HLSL_NODE_TYPE_SCOPE:
+    case D3D12_HLSL_NODE_TYPE_DO:
       break;
     }
 
@@ -2545,6 +2557,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
     case D3D12_HLSL_NODE_TYPE_IF:
     case D3D12_HLSL_NODE_TYPE_SCOPE:
+    case D3D12_HLSL_NODE_TYPE_DO:
       if (node.GetChildCount())
         validateChildren.push_back(i);
     }
@@ -2763,6 +2776,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
       case D3D12_HLSL_NODE_TYPE_TYPEDEF:
       case D3D12_HLSL_NODE_TYPE_ENUM:
       case D3D12_HLSL_NODE_TYPE_SCOPE:
+      case D3D12_HLSL_NODE_TYPE_DO:
         break;
       default:
         throw std::invalid_argument(
