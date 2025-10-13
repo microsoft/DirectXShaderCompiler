@@ -71,9 +71,11 @@ static uint32_t RegisterString(DxcHLSLReflectionData &Refl,
 static uint32_t
 PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager &SM,
                const LangOptions &LangOpts, const std::string &UnqualifiedName,
-               Decl *DeclSelf, D3D12_HLSL_NODE_TYPE Type, uint32_t ParentNodeId,
-               uint32_t LocalId, const SourceRange *Range = nullptr,
-               std::unordered_map<Decl *, uint32_t> *FwdDecls = nullptr) {
+               const Decl *DeclSelf, D3D12_HLSL_NODE_TYPE Type,
+               uint32_t ParentNodeId, uint32_t LocalId,
+               const SourceRange *Range = nullptr,
+               std::unordered_map<const Decl *, uint32_t> *FwdDecls = nullptr)
+{
   
   if (Refl.Nodes.size() >= (1u << 24))
     throw std::invalid_argument("Nodes overflow");
@@ -123,7 +125,7 @@ PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager &SM,
       }
     }
 
-    if (ValueDecl *valDecl = dyn_cast<ValueDecl>(DeclSelf)) {
+    if (const ValueDecl *valDecl = dyn_cast<ValueDecl>(DeclSelf)) {
 
       const ArrayRef<hlsl::UnusualAnnotation *> &UA =
           valDecl->getUnusualAnnotations();
@@ -138,23 +140,23 @@ PushNextNodeId(DxcHLSLReflectionData &Refl, const SourceManager &SM,
 
   bool isFwdDeclare = false;
   bool canHaveFwdDeclare = false;
-  Decl *fwdDeclare = nullptr;
+  const Decl *fwdDeclare = nullptr;
 
   if (DeclSelf) {
   
-    if (FunctionDecl *func = dyn_cast<FunctionDecl>(DeclSelf)) {
+    if (const FunctionDecl *func = dyn_cast<FunctionDecl>(DeclSelf)) {
       isFwdDeclare = !func->doesThisDeclarationHaveABody();
       fwdDeclare = func->getCanonicalDecl();
       canHaveFwdDeclare = true;
     }
   
-    else if (EnumDecl *enm = dyn_cast<EnumDecl>(DeclSelf)) {
+    else if (const EnumDecl *enm = dyn_cast<EnumDecl>(DeclSelf)) {
       isFwdDeclare = !enm->isCompleteDefinition();
       fwdDeclare = enm->getCanonicalDecl();
       canHaveFwdDeclare = true;
     }
   
-    else if (RecordDecl *rec = dyn_cast<RecordDecl>(DeclSelf)) {
+    else if (const RecordDecl *rec = dyn_cast<RecordDecl>(DeclSelf)) {
 
       isFwdDeclare = !rec->isThisDeclarationADefinition();
       fwdDeclare = rec->getCanonicalDecl();
@@ -1255,9 +1257,52 @@ static void RecursiveReflectBody(
     const SourceManager &SM, DxcHLSLReflectionData &Refl,
     uint32_t AutoBindingSpace, uint32_t Depth,
     D3D12_HLSL_REFLECTION_FEATURE Features, uint32_t ParentNodeId,
-    bool DefaultRowMaj, std::unordered_map<Decl *, uint32_t> &FwdDecls,
+    bool DefaultRowMaj, std::unordered_map<const Decl *, uint32_t> &FwdDecls,
+    const LangOptions &LangOpts, bool SkipNextCompound = false);
+
+static void GenerateForWhileSwitch(
+    ASTContext &ASTCtx, DiagnosticsEngine &Diags, const SourceManager &SM,
+    DxcHLSLReflectionData &Refl, uint32_t AutoBindingSpace, uint32_t Depth,
+    D3D12_HLSL_REFLECTION_FEATURE Features, uint32_t ParentNodeId,
+    bool DefaultRowMaj, std::unordered_map<const Decl *, uint32_t> &FwdDecls,
+    const LangOptions &LangOpts, DxcHLSLForWhileSwitch::Type Type,
+    const VarDecl *VarDecl, const Stmt *Body, const Stmt *Self) {
+
+  uint32_t loc = uint32_t(Refl.ForWhileSwitches.size());
+
+  const SourceRange &sourceRange = Self->getSourceRange();
+
+  uint32_t nodeId = PushNextNodeId(Refl, SM, LangOpts, "", nullptr,
+                                   D3D12_HLSL_NODE_TYPE_FORWHILESWITCH,
+                                   ParentNodeId, loc, &sourceRange, &FwdDecls);
+
+  Refl.ForWhileSwitches.push_back(DxcHLSLForWhileSwitch(nodeId, Type, VarDecl));
+
+  if (VarDecl) {
+
+    uint32_t typeId =
+        GenerateTypeInfo(ASTCtx, Refl, VarDecl->getType(), DefaultRowMaj);
+
+    const SourceRange &sourceRange = VarDecl->getSourceRange();
+
+    PushNextNodeId(Refl, SM, LangOpts, VarDecl->getName(), VarDecl,
+                   D3D12_HLSL_NODE_TYPE_VARIABLE, nodeId, typeId, &sourceRange,
+                   &FwdDecls);
+  }
+
+  RecursiveReflectBody(Body, ASTCtx, Diags, SM, Refl, AutoBindingSpace,
+                       Depth + 1, Features, nodeId, DefaultRowMaj, FwdDecls,
+                       LangOpts, true);
+}
+
+static void RecursiveReflectBody(
+    const Stmt *Statement, ASTContext &ASTCtx, DiagnosticsEngine &Diags,
+    const SourceManager &SM, DxcHLSLReflectionData &Refl,
+    uint32_t AutoBindingSpace, uint32_t Depth,
+    D3D12_HLSL_REFLECTION_FEATURE Features, uint32_t ParentNodeId,
+    bool DefaultRowMaj, std::unordered_map<const Decl *, uint32_t> &FwdDecls,
     const LangOptions &LangOpts,
-    bool SkipNextCompound = false) {
+    bool SkipNextCompound) {
 
   if (!Statement)
     return;
@@ -1287,31 +1332,39 @@ static void RecursiveReflectBody(
 
     uint32_t start = uint32_t(Refl.Nodes.size());
 
-    RecursiveReflectBody(
-        If->getThen(), ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1,
-        Features, ifNode, DefaultRowMaj, FwdDecls, LangOpts,
-        If->getThen() && dyn_cast<CompoundStmt>(If->getThen()));
+    RecursiveReflectBody(If->getThen(), ASTCtx, Diags, SM, Refl,
+                         AutoBindingSpace, Depth + 1, Features, ifNode,
+                         DefaultRowMaj, FwdDecls, LangOpts, true);
 
     uint32_t thenCount = uint32_t(Refl.Nodes.size()) - start;
 
-    RecursiveReflectBody(
-        If->getElse(), ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1,
-        Features, ifNode, DefaultRowMaj, FwdDecls, LangOpts,
-        If->getElse() && dyn_cast<CompoundStmt>(If->getElse()));
+    RecursiveReflectBody(If->getElse(), ASTCtx, Diags, SM, Refl,
+                         AutoBindingSpace, Depth + 1, Features, ifNode,
+                         DefaultRowMaj, FwdDecls, LangOpts, true);
 
     Refl.Ifs[ifLoc] =
         DxcHLSLIf(ifNode, thenCount, If->getConditionVariable(), If->getElse());
   }
 
-  else if (const ForStmt *For = dyn_cast<ForStmt>(Statement)) {
-    // For->getInit();
-    // For->getBody();
-  }
+  else if (const ForStmt *For = dyn_cast<ForStmt>(Statement))
+    GenerateForWhileSwitch(ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1,
+                           Features, ParentNodeId, DefaultRowMaj, FwdDecls,
+                           LangOpts, DxcHLSLForWhileSwitch::For,
+                           For->getConditionVariable(), For->getBody(), For);
 
-  else if (const WhileStmt *While = dyn_cast<WhileStmt>(Statement)) {
-    // While->getBody();
-    // While->getCond();
-  }
+  else if (const WhileStmt *While = dyn_cast<WhileStmt>(Statement))
+    GenerateForWhileSwitch(ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1,
+                           Features, ParentNodeId, DefaultRowMaj, FwdDecls,
+                           LangOpts, DxcHLSLForWhileSwitch::While,
+                           While->getConditionVariable(), While->getBody(),
+                           While);
+
+  else if (const SwitchStmt *Switch = dyn_cast<SwitchStmt>(Statement))
+    GenerateForWhileSwitch(ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1,
+                           Features, ParentNodeId, DefaultRowMaj, FwdDecls,
+                           LangOpts, DxcHLSLForWhileSwitch::Switch,
+                           Switch->getConditionVariable(), Switch->getBody(),
+                           Switch);
 
   else if (const DoStmt *Do = dyn_cast<DoStmt>(Statement)) {
 
@@ -1363,7 +1416,7 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
                      DxcHLSLReflectionData &Refl, uint32_t AutoBindingSpace,
                      uint32_t Depth, D3D12_HLSL_REFLECTION_FEATURE Features,
                      uint32_t ParentNodeId, bool DefaultRowMaj,
-                     std::unordered_map<Decl *, uint32_t> &FwdDecls) {
+                     std::unordered_map<const Decl *, uint32_t> &FwdDecls) {
 
   PrintfStream pfStream;
 
@@ -1709,7 +1762,7 @@ bool DxcHLSLReflectionData::Initialize(clang::CompilerInstance &Compiler,
 
   try {
 
-    std::unordered_map<Decl *, uint32_t> fwdDecls;
+    std::unordered_map<const Decl *, uint32_t> fwdDecls;
     RecursiveReflectHLSL(Ctx, Compiler.getASTContext(), Diags, SM, Result,
                          AutoBindingSpace, 0, Features, 0, DefaultRowMaj,
                          fwdDecls);
@@ -1751,9 +1804,10 @@ static std::string EnumTypeToString(D3D12_HLSL_ENUM_TYPE type) {
 static std::string NodeTypeToString(D3D12_HLSL_NODE_TYPE type) {
 
   static const char *arr[] = {
-      "Register",  "Function",  "Enum",   "EnumValue", "Namespace",
-      "Variable",  "Typedef",   "Struct", "Union",     "StaticVariable",
-      "Interface", "Parameter", "If",     "Scope",     "Do"};
+      "Register",  "Function",       "Enum",      "EnumValue",
+      "Namespace", "Variable",       "Typedef",   "Struct",
+      "Union",     "StaticVariable", "Interface", "Parameter",
+      "If",        "Scope",          "Do",        "ForWhileSwitch"};
 
   return arr[uint32_t(type)];
 }
@@ -2048,6 +2102,19 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
         break;
       }
 
+      case D3D12_HLSL_NODE_TYPE_FORWHILESWITCH: {
+
+        const DxcHLSLForWhileSwitch &ForWhileSwitch =
+            Refl.ForWhileSwitches[localId];
+
+        static const char *types[] = {"For", "While", "Switch"};
+
+        printf("%s%s\n", std::string(Depth, '\t').c_str(),
+               types[ForWhileSwitch.GetType()]);
+
+        break;
+      }
+
       case D3D12_HLSL_NODE_TYPE_TYPEDEF:
       case D3D12_HLSL_NODE_TYPE_VARIABLE:
       case D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE:
@@ -2127,7 +2194,7 @@ struct DxcHLSLHeader {
   uint32_t Parameters;
 
   uint32_t Ifs;
-  uint32_t Pad;
+  uint32_t ForWhileSwitches;
 };
 
 template <typename T>
@@ -2385,7 +2452,8 @@ void DxcHLSLReflectionData::Dump(std::vector<std::byte> &Bytes) const {
 
   Advance(toReserve, Strings, StringsNonDebug, Sources, Nodes, NodeSymbols,
           Registers, Functions, Enums, EnumValues, Annotations, ArraySizes,
-          Arrays, MemberTypeIds, TypeList, MemberNameIds, Types, TypeNameIds, Buffers, Parameters, Ifs);
+          Arrays, MemberTypeIds, TypeList, MemberNameIds, Types, TypeNameIds,
+          Buffers, Parameters, Ifs, ForWhileSwitches);
 
   Bytes.resize(toReserve);
 
@@ -2401,14 +2469,15 @@ void DxcHLSLReflectionData::Dump(std::vector<std::byte> &Bytes) const {
       uint32_t(Arrays.size()),          uint32_t(ArraySizes.size()),
       uint32_t(MemberTypeIds.size()),   uint32_t(Types.size()),
       uint32_t(Buffers.size()),         uint32_t(TypeList.size()),
-      uint32_t(Parameters.size()),      uint32_t(Ifs.size())};
+      uint32_t(Parameters.size()),      uint32_t(Ifs.size()),
+      uint32_t(ForWhileSwitches.size())};
 
   toReserve += sizeof(DxcHLSLHeader);
 
   Append(Bytes, toReserve, Strings, StringsNonDebug, Sources, Nodes,
          NodeSymbols, Registers, Functions, Enums, EnumValues, Annotations,
          ArraySizes, Arrays, MemberTypeIds, TypeList, MemberNameIds, Types,
-         TypeNameIds, Buffers, Parameters, Ifs);
+         TypeNameIds, Buffers, Parameters, Ifs, ForWhileSwitches);
 }
 
 DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes,
@@ -2443,7 +2512,8 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
           Arrays, header.Arrays, MemberTypeIds, header.Members, TypeList,
           header.TypeListCount, MemberNameIds, memberSymbolCount, Types,
           header.Types, TypeNameIds, typeSymbolCount, Buffers, header.Buffers,
-          Parameters, header.Parameters, Ifs, header.Ifs);
+          Parameters, header.Parameters, Ifs, header.Ifs, ForWhileSwitches,
+          header.ForWhileSwitches);
 
   // Validation errors are throws to prevent accessing invalid data
 
@@ -2511,17 +2581,29 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
       break;
 
     case D3D12_HLSL_NODE_TYPE_IF:
+    case D3D12_HLSL_NODE_TYPE_SCOPE:
+    case D3D12_HLSL_NODE_TYPE_DO:
+    case D3D12_HLSL_NODE_TYPE_FORWHILESWITCH:
 
-      maxValue = header.Ifs;
+      maxValue =
+          node.GetNodeType() == D3D12_HLSL_NODE_TYPE_IF
+              ? header.Ifs
+              : (node.GetNodeType() == D3D12_HLSL_NODE_TYPE_FORWHILESWITCH
+                     ? header.ForWhileSwitches
+                     : 1);
 
       if (Nodes[node.GetParentId()].GetNodeType() !=
               D3D12_HLSL_NODE_TYPE_FUNCTION &&
           Nodes[node.GetParentId()].GetNodeType() != D3D12_HLSL_NODE_TYPE_IF &&
-          Nodes[node.GetParentId()].GetNodeType() != D3D12_HLSL_NODE_TYPE_SCOPE &&
-          Nodes[node.GetParentId()].GetNodeType() != D3D12_HLSL_NODE_TYPE_DO)
+          Nodes[node.GetParentId()].GetNodeType() !=
+              D3D12_HLSL_NODE_TYPE_SCOPE &&
+          Nodes[node.GetParentId()].GetNodeType() != D3D12_HLSL_NODE_TYPE_DO &&
+          Nodes[node.GetParentId()].GetNodeType() !=
+              D3D12_HLSL_NODE_TYPE_FORWHILESWITCH)
         throw std::invalid_argument(
             "Node " + std::to_string(i) +
-            " is an if but parent isn't a function or if");
+            " is an if/scope/do/for/while/switch but parent isn't of a similar "
+            "type or function");
 
       break;
 
@@ -2537,10 +2619,6 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     case D3D12_HLSL_NODE_TYPE_INTERFACE:
       allowFwdDeclare = true;
       maxValue = node.IsFwdDeclare() ? 1 : header.Types;
-      break;
-
-    case D3D12_HLSL_NODE_TYPE_SCOPE:
-    case D3D12_HLSL_NODE_TYPE_DO:
       break;
     }
 
@@ -2558,6 +2636,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     case D3D12_HLSL_NODE_TYPE_IF:
     case D3D12_HLSL_NODE_TYPE_SCOPE:
     case D3D12_HLSL_NODE_TYPE_DO:
+    case D3D12_HLSL_NODE_TYPE_FORWHILESWITCH:
       if (node.GetChildCount())
         validateChildren.push_back(i);
     }
@@ -2777,6 +2856,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
       case D3D12_HLSL_NODE_TYPE_ENUM:
       case D3D12_HLSL_NODE_TYPE_SCOPE:
       case D3D12_HLSL_NODE_TYPE_DO:
+      case D3D12_HLSL_NODE_TYPE_FORWHILESWITCH:
         break;
       default:
         throw std::invalid_argument(
@@ -2810,6 +2890,32 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
         Nodes[If.NodeId + 1].GetNodeType() != D3D12_HLSL_NODE_TYPE_VARIABLE)
       throw std::invalid_argument(
           "If " + std::to_string(i) +
+          " has condition variable but first child is not a variable");
+  }
+
+  for (uint32_t i = 0; i < header.ForWhileSwitches; ++i) {
+
+    const DxcHLSLForWhileSwitch &ForWhileSwitch = ForWhileSwitches[i];
+
+    if (ForWhileSwitch.NodeId >= header.Nodes ||
+        Nodes[ForWhileSwitch.NodeId].GetNodeType() !=
+            D3D12_HLSL_NODE_TYPE_FORWHILESWITCH ||
+        Nodes[ForWhileSwitch.NodeId].GetLocalId() != i)
+      throw std::invalid_argument("ForWhileSwitch " + std::to_string(i) +
+                                  " points to an invalid nodeId");
+
+    bool ifCondVar = ForWhileSwitch.HasConditionVar();
+    uint32_t minParamCount = ifCondVar;
+    const DxcHLSLNode &node = Nodes[ForWhileSwitch.NodeId];
+
+    if (node.GetChildCount() < minParamCount)
+      throw std::invalid_argument("ForWhileSwitch " + std::to_string(i) +
+                                  " didn't have required child nodes");
+
+    if (ifCondVar && Nodes[ForWhileSwitch.NodeId + 1].GetNodeType() !=
+                         D3D12_HLSL_NODE_TYPE_VARIABLE)
+      throw std::invalid_argument(
+          "ForWhileSwitch " + std::to_string(i) +
           " has condition variable but first child is not a variable");
   }
   

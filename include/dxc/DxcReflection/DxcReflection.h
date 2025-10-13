@@ -308,9 +308,34 @@ struct DxcHLSLIf {
 
   bool HasElse() const { return (HasConditionVar_HasElse_IfNodes >> 31) & 1; }
 
-  bool operator==(const DxcHLSLIf &other) const {
-    return NodeId == other.NodeId && HasConditionVar_HasElse_IfNodes ==
-                                         other.HasConditionVar_HasElse_IfNodes;
+  bool operator==(const DxcHLSLIf &Other) const {
+    return NodeId == Other.NodeId && HasConditionVar_HasElse_IfNodes ==
+                                         Other.HasConditionVar_HasElse_IfNodes;
+  }
+};
+
+struct DxcHLSLForWhileSwitch {
+
+  enum Type { For, While, Switch, Count, Start = For };
+
+  uint32_t NodeId;
+  uint32_t Type_HasConditionVar;
+
+  DxcHLSLForWhileSwitch() = default;
+
+  DxcHLSLForWhileSwitch(uint32_t NodeId, Type T, bool HasConditionVar)
+      : NodeId(NodeId),
+        Type_HasConditionVar(uint32_t(T) | (HasConditionVar ? (1u << 31) : 0)) {
+    if (T >= Type::Count || T < Type::Start)
+      throw std::invalid_argument("Type out of bounds");
+  }
+
+  Type GetType() const { return Type(Type_HasConditionVar << 1 >> 1); }
+  bool HasConditionVar() const { return (Type_HasConditionVar >> 31) & 1; }
+
+  bool operator==(const DxcHLSLForWhileSwitch &Other) const {
+    return NodeId == Other.NodeId &&
+           Type_HasConditionVar == Other.Type_HasConditionVar;
   }
 };
 
@@ -586,6 +611,7 @@ struct DxcHLSLReflectionData {
   std::vector<DxcHLSLBuffer> Buffers;
 
   std::vector<DxcHLSLIf> Ifs;
+  std::vector<DxcHLSLForWhileSwitch> ForWhileSwitches;
 
   // Can be stripped if !(D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO)
 
@@ -623,7 +649,8 @@ struct DxcHLSLReflectionData {
            ArraySizes == Other.ArraySizes &&
            MemberTypeIds == Other.MemberTypeIds && TypeList == Other.TypeList &&
            Types == Other.Types && Buffers == Other.Buffers &&
-           Parameters == Other.Parameters && Ifs == Other.Ifs;
+           Parameters == Other.Parameters && Ifs == Other.Ifs &&
+           ForWhileSwitches == Other.ForWhileSwitches;
   }
 
   bool operator==(const DxcHLSLReflectionData &Other) const {
