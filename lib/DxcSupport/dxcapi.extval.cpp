@@ -227,7 +227,7 @@ public:
     IFR(Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile));
 
     CComPtr<IDxcOperationResult> CompileResult;
-    IFR(cast<IDxcCompiler>()->Compile(
+    IFR(castUnsafe<IDxcCompiler>()->Compile(
         Source, SourceName, EntryPoint, TargetProfile, Arguments, ArgCount,
         Defines, DefineCount, IncludeHandler, &CompileResult));
     HRESULT CompileHR;
@@ -243,14 +243,14 @@ public:
              UINT32 ArgCount, const DxcDefine *Defines, UINT32 DefineCount,
              IDxcIncludeHandler *IncludeHandler,
              IDxcOperationResult **ResultObject) override {
-    return cast<IDxcCompiler>()->Preprocess(Source, SourceName, Arguments,
-                                            ArgCount, Defines, DefineCount,
-                                            IncludeHandler, ResultObject);
+    return castUnsafe<IDxcCompiler>()->Preprocess(
+        Source, SourceName, Arguments, ArgCount, Defines, DefineCount,
+        IncludeHandler, ResultObject);
   }
 
   HRESULT STDMETHODCALLTYPE
   Disassemble(IDxcBlob *Source, IDxcBlobEncoding **Disassembly) override {
-    return cast<IDxcCompiler>()->Disassemble(Source, Disassembly);
+    return castUnsafe<IDxcCompiler>()->Disassemble(Source, Disassembly);
   }
 
   // IDxcCompiler2 implementation
@@ -270,7 +270,7 @@ public:
     IFR(Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile));
 
     CComPtr<IDxcOperationResult> CompileResult;
-    IFR(cast<IDxcCompiler2>()->CompileWithDebug(
+    IFR(castUnsafe<IDxcCompiler2>()->CompileWithDebug(
         Source, SourceName, EntryPoint, TargetProfile, Arguments, ArgCount,
         pDefines, DefineCount, IncludeHandler, &CompileResult, DebugBlobName,
         DebugBlob));
@@ -294,16 +294,16 @@ public:
     Helper.initialize(Validator, &Arguments, &ArgCount);
 
     CComPtr<IDxcResult> CompileResult;
-    IFR(cast<IDxcCompiler3>()->Compile(Source, Arguments, ArgCount,
-                                       IncludeHandler,
-                                       IID_PPV_ARGS(&CompileResult)));
+    IFR(castUnsafe<IDxcCompiler3>()->Compile(Source, Arguments, ArgCount,
+                                             IncludeHandler,
+                                             IID_PPV_ARGS(&CompileResult)));
 
     return Helper.doValidation(CompileResult, Riid, ResultObject);
   }
 
   HRESULT STDMETHODCALLTYPE Disassemble(const DxcBuffer *Object, REFIID Riid,
                                         LPVOID *ResultObject) override {
-    return cast<IDxcCompiler3>()->Disassemble(Object, Riid, ResultObject);
+    return castUnsafe<IDxcCompiler3>()->Disassemble(Object, Riid, ResultObject);
   }
 
 private:
@@ -334,13 +334,10 @@ private:
     return nullptr;
   }
 
-  // A recursive cast using specializations to handle derived interfaces.
-  template <typename T> T *cast() const { return castSafe<T>(); }
-  // Specialize cast to recurse into derived interfaces.
-  template <> IDxcCompiler *cast<IDxcCompiler>() const {
-    if (IDxcCompiler2 *Result = cast<IDxcCompiler2>())
-      return Result;
-    return castSafe<IDxcCompiler>();
+  template <typename T> T *castUnsafe() {
+    if (T *Safe = castSafe<T>())
+      return Safe;
+    return static_cast<T *>(Compiler.p);
   }
 };
 } // namespace
