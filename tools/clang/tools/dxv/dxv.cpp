@@ -164,8 +164,7 @@ int main(int argc, const char **argv) {
 
     DxcDllExtValidationLoader dxcSupport;
     std::string dllLogString;
-    llvm::raw_string_ostream dllErrorStream(dllLogString);
-    IFT(dxcSupport.initialize(dllErrorStream));
+    IFT(dxcSupport.initialize());
 
     DxvContext context(dxcSupport);
     pStage = "Validation";

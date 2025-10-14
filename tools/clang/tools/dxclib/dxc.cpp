@@ -168,8 +168,6 @@ public:
   int Link();
   void Preprocess();
   void GetCompilerVersionInfo(llvm::raw_string_ostream &OS);
-  int MaybeRunExternalValidatorAndPrintValidationOutput(
-      const DxcOpts &opts, CComPtr<IDxcOperationResult> pCompileResult);
 };
 
 static void WriteBlobToFile(IDxcBlob *pBlob, llvm::StringRef FName,
@@ -1458,20 +1456,34 @@ int dxc::main(int argc, const char **argv_) {
     // Setup a helper DLL.
     DxcDllExtValidationLoader dxcSupport;
     {
-      std::string dllLogString;
-      llvm::raw_string_ostream dllErrorStream(dllLogString);
-      HRESULT dllResult = dxcSupport.initialize(dllErrorStream);
+      HRESULT dllResult = dxcSupport.initialize();
       if (DXC_FAILED(dllResult)) {
-        dllErrorStream << "Unable to load support for external DLL - error 0x";
-        dllErrorStream.write_hex(dllResult);
-        dllErrorStream.flush();
-        fprintf(stderr, "%s\n", dllLogString.data());
+        switch (dxcSupport.getFailureReason()) {
+        case 1: {
+          fprintf(stderr, "dxcompiler.dll failed to load\n");
+          break;
+        }
+        case 2: {
+          fprintf(stderr, "dxil.dll path %s could not be found",
+                  dxcSupport.getDxilDllPath().c_str());
+          break;
+        }
+        case 3: {
+          fprintf(stderr, "%s failed to load",
+                  dxcSupport.getDxilDllPath().c_str());
+          break;
+        }
+        default: {
+          llvm_unreachable("unexpected failure reason");
+        }
+        }
         return dllResult;
       }
 
       // if no errors setting up, print the log string as stdout
       if (dxcOpts.Verbose)
-        fprintf(stdout, "%s\n", dllLogString.data());
+        fprintf(stdout, "Loading external dxil.dll from %s",
+                dxcSupport.getDxilDllPath().c_str());
     }
 
     DxcContext context(dxcOpts, dxcSupport);

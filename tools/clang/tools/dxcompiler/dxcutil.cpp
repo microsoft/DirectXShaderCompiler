@@ -45,15 +45,6 @@ HRESULT RunInternalValidator(IDxcValidator *pValidator,
                              llvm::Module *pDebugModule, IDxcBlob *pShader,
                              UINT32 Flags, IDxcOperationResult **ppResult);
 
-namespace {
-// AssembleToContainer helper functions.
-
-void CreateValidator(CComPtr<IDxcValidator> &pValidator) {
-  IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
-}
-
-} // namespace
-
 namespace dxcutil {
 
 AssembleInputs::AssembleInputs(
@@ -76,7 +67,7 @@ void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
     return;
 
   CComPtr<IDxcValidator> pValidator;
-  CreateValidator(pValidator);
+  IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
 
   CComPtr<IDxcVersionInfo> pVersionInfo;
   if (SUCCEEDED(pValidator.QueryInterface(&pVersionInfo))) {
@@ -148,9 +139,7 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   std::unique_ptr<llvm::Module> llvmModuleWithDebugInfo;
 
   CComPtr<IDxcValidator> pValidator;
-
-  // this uses the internal validator, which is the default.
-  CreateValidator(pValidator);
+  IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
 
   if (llvm::getDebugMetadataVersionFromModule(*inputs.pM) != 0)
     llvmModuleWithDebugInfo.reset(llvm::CloneModule(inputs.pM.get()));
@@ -192,7 +181,7 @@ HRESULT ValidateRootSignatureInContainer(IDxcBlob *pRootSigContainer,
   HRESULT valHR = S_OK;
   CComPtr<IDxcValidator> pValidator;
   CComPtr<IDxcOperationResult> pValResult;
-  CreateValidator(pValidator);
+  IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
   IFT(pValidator->Validate(pRootSigContainer,
                            DxcValidatorFlags_RootSignatureOnly |
                                DxcValidatorFlags_InPlaceEdit,

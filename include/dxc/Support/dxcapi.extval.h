@@ -14,9 +14,11 @@ class DxcDllExtValidationLoader : public DllLoader {
   dxc::SpecificDllLoader DxCompilerSupport;
   dxc::SpecificDllLoader DxilExtValSupport;
   std::string DxilDllPath;
+  int FailureReason = 0;
 
 public:
   std::string getDxilDllPath() { return DxilDllPath; }
+  int getFailureReason() { return FailureReason; }
   bool dxilDllFailedToLoad() {
     return !DxilDllPath.empty() && !DxilExtValSupport.IsEnabled();
   }
@@ -26,7 +28,7 @@ public:
   HRESULT CreateInstance2Impl(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
                               IUnknown **pResult) override;
 
-  HRESULT initialize(llvm::raw_string_ostream &log);
+  HRESULT initialize();
 
   bool IsEnabled() const override { return DxCompilerSupport.IsEnabled(); }
 };

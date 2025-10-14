@@ -335,15 +335,15 @@ if "%TEST_USE_LIT%"=="1" (
       set RES_CLANG=!ERRORLEVEL!
     )
     if "!TEST_COMPAT_SUITE!"=="1.6" (       
-        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxc_2021_12_08
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilcompat-dxc_2021_12_08
         set RES_COMPAT_1_6=!ERRORLEVEL!
     )
     if "!TEST_COMPAT_SUITE!"=="1.7" (       
-        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxc_2023_08_14
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilcompat-dxc_2023_08_14
         set RES_COMPAT_1_7=!ERRORLEVEL!
     )
     if "!TEST_COMPAT_SUITE!"=="1.8" (       
-        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxc_2025_02_20
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilcompat-dxc_2025_02_20
         set RES_COMPAT_1_8=!ERRORLEVEL!
     )
     if "!TEST_EXEC!"=="1" (

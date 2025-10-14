@@ -828,11 +828,8 @@ public:
           compiler.getLangOpts().HLSLEntryFunction =
               compiler.getCodeGenOpts().HLSLEntryFunction = "";
 
-        produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
-                               !opts.OptDump && rootSigMajor == 0 &&
-                               !opts.DumpDependencies &&
-                               !opts.VerifyDiagnostics;
-        needsValidation = produceFullContainer && !opts.DisableValidation;
+        produceFullContainer = opts.ProduceFullContainer();
+        needsValidation = opts.NeedsValidation();
 
         if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_x") {
           // Currently do not support stripping reflection from offline linking
@@ -926,9 +923,6 @@ public:
           if (validateRootSigContainer && !opts.DisableValidation) {
             CComPtr<IDxcBlobEncoding> pValErrors;
             // Validation failure communicated through diagnostic error
-            // NOTE: this calls the built-in validator by default. An external
-            // validator can be opted into via the DXC_DXIL_DLL_PATH environment
-            // variable
             dxcutil::ValidateRootSignatureInContainer(
                 pOutputBlob, &compiler.getDiagnostics());
           }

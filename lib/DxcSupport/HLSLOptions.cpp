@@ -165,6 +165,24 @@ llvm::StringRef DxcOpts::GetPDBName() const {
   return llvm::StringRef();
 }
 
+bool DxcOpts::ProduceDxModule() const {
+
+  return !AstDump && !OptDump &&
+#ifdef ENABLE_SPIRV_CODEGEN
+         !GenSPIRV &&
+#endif
+         !DumpDependencies && !VerifyDiagnostics && !IsRootSignatureProfile() &&
+         Preprocess.empty();
+}
+
+bool DxcOpts::ProduceFullContainer() const {
+  return DxcOpts::ProduceDxModule() && !CodeGenHighLevel;
+}
+
+bool DxcOpts::NeedsValidation() const {
+  return ProduceFullContainer() && !DisableValidation;
+}
+
 MainArgs::MainArgs(int argc, const wchar_t **argv, int skipArgCount) {
   if (argc > skipArgCount) {
     Utf8StringVector.reserve(argc - skipArgCount);

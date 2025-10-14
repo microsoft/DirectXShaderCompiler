@@ -258,6 +258,11 @@ public:
   bool EmbedPDBName() const;          // Zi or Fd
   bool DebugFileIsDirectory() const;  // Fd ends in '\\'
   llvm::StringRef GetPDBName() const; // Fd name
+  bool ProduceDxModule()
+      const; // !AstDump && !OptDump && !GenSPIRV && !DumpDependencies &&
+             // !VerifyDiagnostics && Preprocess.empty();
+  bool ProduceFullContainer() const; // ProduceDxModule() && CodeGenHighLevel
+  bool NeedsValidation() const; // ProduceFullContainer() && !DisableValidation
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN

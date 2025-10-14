@@ -127,24 +127,9 @@ private:
       return E_FAIL;
 
     // Determine important conditions from arguments.
-    const bool ProduceDxModule = !Opts.AstDump && !Opts.OptDump &&
-#ifdef ENABLE_SPIRV_CODEGEN
-                                 !Opts.GenSPIRV &&
-#endif
-                                 !Opts.DumpDependencies &&
-                                 !Opts.VerifyDiagnostics &&
-                                 Opts.Preprocess.empty();
-    const bool ProduceFullContainer = ProduceDxModule && !Opts.CodeGenHighLevel;
-    NeedsValidation = ProduceFullContainer && !Opts.DisableValidation;
-
-    // Check target profile.
-    if ((TargetProfile &&
-         std::wstring(TargetProfile).compare(0, 8, L"rootsig_") == 0) ||
-        Opts.TargetProfile.startswith("rootsig_")) {
-      RootSignatureOnly = true;
-      if (ValidatorVersionMajor == 1 && ValidatorVersionMinor < 5)
-        NeedsValidation = false; // No rootsig validation before 1.5
-    }
+    const bool ProduceDxModule = Opts.ProduceDxModule();
+    NeedsValidation = Opts.NeedsValidation();
+    RootSignatureOnly = Opts.IsRootSignatureProfile();
 
     // Add extra arguments as needed
     if (ProduceDxModule) {
@@ -242,7 +227,7 @@ public:
     IFR(Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile));
 
     CComPtr<IDxcOperationResult> CompileResult;
-    IFR(castUnsafe<IDxcCompiler>()->Compile(
+    IFR(cast<IDxcCompiler>()->Compile(
         Source, SourceName, EntryPoint, TargetProfile, Arguments, ArgCount,
         Defines, DefineCount, IncludeHandler, &CompileResult));
     HRESULT CompileHR;
@@ -258,14 +243,14 @@ public:
              UINT32 ArgCount, const DxcDefine *Defines, UINT32 DefineCount,
              IDxcIncludeHandler *IncludeHandler,
              IDxcOperationResult **ResultObject) override {
-    return castUnsafe<IDxcCompiler>()->Preprocess(
-        Source, SourceName, Arguments, ArgCount, Defines, DefineCount,
-        IncludeHandler, ResultObject);
+    return cast<IDxcCompiler>()->Preprocess(Source, SourceName, Arguments,
+                                            ArgCount, Defines, DefineCount,
+                                            IncludeHandler, ResultObject);
   }
 
   HRESULT STDMETHODCALLTYPE
   Disassemble(IDxcBlob *Source, IDxcBlobEncoding **Disassembly) override {
-    return castUnsafe<IDxcCompiler>()->Disassemble(Source, Disassembly);
+    return cast<IDxcCompiler>()->Disassemble(Source, Disassembly);
   }
 
   // IDxcCompiler2 implementation
@@ -285,7 +270,7 @@ public:
     IFR(Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile));
 
     CComPtr<IDxcOperationResult> CompileResult;
-    IFR(castUnsafe<IDxcCompiler2>()->CompileWithDebug(
+    IFR(cast<IDxcCompiler2>()->CompileWithDebug(
         Source, SourceName, EntryPoint, TargetProfile, Arguments, ArgCount,
         pDefines, DefineCount, IncludeHandler, &CompileResult, DebugBlobName,
         DebugBlob));
@@ -309,16 +294,16 @@ public:
     Helper.initialize(Validator, &Arguments, &ArgCount);
 
     CComPtr<IDxcResult> CompileResult;
-    IFR(castUnsafe<IDxcCompiler3>()->Compile(Source, Arguments, ArgCount,
-                                             IncludeHandler,
-                                             IID_PPV_ARGS(&CompileResult)));
+    IFR(cast<IDxcCompiler3>()->Compile(Source, Arguments, ArgCount,
+                                       IncludeHandler,
+                                       IID_PPV_ARGS(&CompileResult)));
 
     return Helper.doValidation(CompileResult, Riid, ResultObject);
   }
 
   HRESULT STDMETHODCALLTYPE Disassemble(const DxcBuffer *Object, REFIID Riid,
                                         LPVOID *ResultObject) override {
-    return castUnsafe<IDxcCompiler3>()->Disassemble(Object, Riid, ResultObject);
+    return cast<IDxcCompiler3>()->Disassemble(Object, Riid, ResultObject);
   }
 
 private:
@@ -349,10 +334,13 @@ private:
     return nullptr;
   }
 
-  template <typename T> T *castUnsafe() {
-    if (T *Safe = castSafe<T>())
-      return Safe;
-    return static_cast<T *>(Compiler.p);
+  // A recursive cast using specializations to handle derived interfaces.
+  template <typename T> T *cast() const { return castSafe<T>(); }
+  // Specialize cast to recurse into derived interfaces.
+  template <> IDxcCompiler *cast<IDxcCompiler>() const {
+    if (IDxcCompiler2 *Result = cast<IDxcCompiler2>())
+      return Result;
+    return castSafe<IDxcCompiler>();
   }
 };
 } // namespace
@@ -435,13 +423,13 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(
 }
 
 HRESULT
-DxcDllExtValidationLoader::initialize(llvm::raw_string_ostream &log) {
+DxcDllExtValidationLoader::initialize() {
   // Load dxcompiler.dll
   HRESULT Result =
       DxCompilerSupport.InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
   // if dxcompiler.dll fails to load, return the failed HRESULT
   if (FAILED(Result)) {
-    log << "dxcompiler.dll failed to load";
+    FailureReason = 1;
     return Result;
   }
 
@@ -457,15 +445,14 @@ DxcDllExtValidationLoader::initialize(llvm::raw_string_ostream &log) {
 
   // Check if path is absolute and exists
   if (!DllPath.is_absolute() || !std::filesystem::exists(DllPath)) {
-    log << "dxil.dll path " << DxilDllPath << " could not be found";
+    FailureReason = 2;
     return E_INVALIDARG;
   }
 
-  log << "Loading external dxil.dll from " << DxilDllPath;
   Result = DxilExtValSupport.InitializeForDll(DxilDllPath.c_str(),
                                               "DxcCreateInstance");
   if (FAILED(Result)) {
-    log << "dxil.dll failed to load";
+    FailureReason = 3;
     return Result;
   }
 
