@@ -1,4 +1,4 @@
-; REQUIRES: dxil-1-9
+; REQUIRES: dxil-1-10
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
 ; Original Source: \tools\clang\test\CodeGenHLSL\linalg\outer-product-accumulate-matrix-layout.hlsl

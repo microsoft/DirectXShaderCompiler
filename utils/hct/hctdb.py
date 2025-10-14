@@ -6380,8 +6380,8 @@ class db_dxil(object):
         # End of DXIL 1.9 opcodes.
         self.set_op_count_for_version(1, 9, next_op_idx)
         assert next_op_idx == 312, (
-           "312 is expected next operation index but encountered %d and thus opcodes are broken"
-           % next_op_idx
+            "312 is expected next operation index but encountered %d and thus opcodes are broken"
+            % next_op_idx
         )
 
         # Set interesting properties.
