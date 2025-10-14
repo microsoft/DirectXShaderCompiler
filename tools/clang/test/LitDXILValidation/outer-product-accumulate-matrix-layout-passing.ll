@@ -52,7 +52,7 @@ attributes #2 = { nounwind readnone }
 !dx.resources = !{!2}
 !dx.entryPoints = !{!8}
 
-!0 = !{i32 1, i32 9}
+!0 = !{i32 1, i32 10}
 !1 = !{!"cs", i32 6, i32 10}
 !2 = !{!3, !6, null, null}
 !3 = !{!4, !5}
