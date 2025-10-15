@@ -14,7 +14,12 @@ class DxcDllExtValidationLoader : public DllLoader {
   dxc::SpecificDllLoader DxCompilerSupport;
   dxc::SpecificDllLoader DxilExtValSupport;
   std::string DxilDllPath;
-  int FailureReason = 0;
+  enum {
+    FailedNone = 0,
+    FailedCompilerLoad,
+    FailedDxilPath,
+    FailedDxilLoad,
+  } FailureReason = FailedNone;
 
 public:
   std::string getDxilDllPath() { return DxilDllPath; }

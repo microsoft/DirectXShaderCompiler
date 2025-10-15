@@ -227,7 +227,7 @@ public:
     IFR(Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile));
 
     CComPtr<IDxcOperationResult> CompileResult;
-    IFR(castUnsafe<IDxcCompiler>()->Compile(
+    IFR(cast<IDxcCompiler>()->Compile(
         Source, SourceName, EntryPoint, TargetProfile, Arguments, ArgCount,
         Defines, DefineCount, IncludeHandler, &CompileResult));
     HRESULT CompileHR;
@@ -243,14 +243,14 @@ public:
              UINT32 ArgCount, const DxcDefine *Defines, UINT32 DefineCount,
              IDxcIncludeHandler *IncludeHandler,
              IDxcOperationResult **ResultObject) override {
-    return castUnsafe<IDxcCompiler>()->Preprocess(
-        Source, SourceName, Arguments, ArgCount, Defines, DefineCount,
-        IncludeHandler, ResultObject);
+    return cast<IDxcCompiler>()->Preprocess(Source, SourceName, Arguments,
+                                            ArgCount, Defines, DefineCount,
+                                            IncludeHandler, ResultObject);
   }
 
   HRESULT STDMETHODCALLTYPE
   Disassemble(IDxcBlob *Source, IDxcBlobEncoding **Disassembly) override {
-    return castUnsafe<IDxcCompiler>()->Disassemble(Source, Disassembly);
+    return cast<IDxcCompiler>()->Disassemble(Source, Disassembly);
   }
 
   // IDxcCompiler2 implementation
@@ -270,7 +270,7 @@ public:
     IFR(Helper.initialize(Validator, &Arguments, &ArgCount, TargetProfile));
 
     CComPtr<IDxcOperationResult> CompileResult;
-    IFR(castUnsafe<IDxcCompiler2>()->CompileWithDebug(
+    IFR(cast<IDxcCompiler2>()->CompileWithDebug(
         Source, SourceName, EntryPoint, TargetProfile, Arguments, ArgCount,
         pDefines, DefineCount, IncludeHandler, &CompileResult, DebugBlobName,
         DebugBlob));
@@ -294,16 +294,16 @@ public:
     Helper.initialize(Validator, &Arguments, &ArgCount);
 
     CComPtr<IDxcResult> CompileResult;
-    IFR(castUnsafe<IDxcCompiler3>()->Compile(Source, Arguments, ArgCount,
-                                             IncludeHandler,
-                                             IID_PPV_ARGS(&CompileResult)));
+    IFR(cast<IDxcCompiler3>()->Compile(Source, Arguments, ArgCount,
+                                       IncludeHandler,
+                                       IID_PPV_ARGS(&CompileResult)));
 
     return Helper.doValidation(CompileResult, Riid, ResultObject);
   }
 
   HRESULT STDMETHODCALLTYPE Disassemble(const DxcBuffer *Object, REFIID Riid,
                                         LPVOID *ResultObject) override {
-    return castUnsafe<IDxcCompiler3>()->Disassemble(Object, Riid, ResultObject);
+    return cast<IDxcCompiler3>()->Disassemble(Object, Riid, ResultObject);
   }
 
 private:
@@ -318,26 +318,12 @@ private:
   CComPtr<IUnknown> Compiler;
   DXC_MICROCOM_TM_REF_FIELDS()
 
-  // Cast current compiler interface pointer. Used from methods of the
-  // associated interface, assuming that the current compiler interface is
-  // correct for the method call.
-  // This will either be casting to the original interface retrieved by
-  // QueryInterface, or to one from which that interface derives.
-  template <typename T> T *castSafe() const {
-    // Compare stored IID with the IID of T
-    if (CompilerIID == __uuidof(T)) {
-      // Safe to cast because the underlying compiler object in
-      // Compiler originally implemented the interface T
-      return static_cast<T *>(Compiler.p);
-    }
-
-    return nullptr;
-  }
-
-  template <typename T> T *castUnsafe() {
-    if (T *Safe = castSafe<T>())
-      return Safe;
-    return static_cast<T *>(Compiler.p);
+  template <typename T> CComPtr<T> cast() const {
+    CComPtr<T> Result;
+    if (Compiler)
+      Compiler->QueryInterface(__uuidof(T), reinterpret_cast<void **>(&Result));
+    assert(Result);
+    return Result;
   }
 };
 } // namespace
@@ -426,7 +412,7 @@ DxcDllExtValidationLoader::initialize() {
       DxCompilerSupport.InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
   // if dxcompiler.dll fails to load, return the failed HRESULT
   if (FAILED(Result)) {
-    FailureReason = 1;
+    FailureReason = FailedCompilerLoad;
     return Result;
   }
 
@@ -442,14 +428,14 @@ DxcDllExtValidationLoader::initialize() {
 
   // Check if path is absolute and exists
   if (!DllPath.is_absolute() || !std::filesystem::exists(DllPath)) {
-    FailureReason = 2;
+    FailureReason = FailedDxilPath;
     return E_INVALIDARG;
   }
 
   Result = DxilExtValSupport.InitializeForDll(DxilDllPath.c_str(),
                                               "DxcCreateInstance");
   if (FAILED(Result)) {
-    FailureReason = 3;
+    FailureReason = FailedDxilLoad;
     return Result;
   }
 
