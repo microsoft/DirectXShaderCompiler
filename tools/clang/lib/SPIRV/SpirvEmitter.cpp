@@ -866,23 +866,26 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     if (!entryInfo->isEntryFunction)
       continue;
 
+    if (entryInfo->shaderModelKind != hlsl::ShaderModel::Kind::Pixel) {
+      continue;
+    }
+
     const auto *funcDecl = entryInfo->funcDecl;
     if (!funcDecl->hasAttr<HLSLWaveOpsIncludeHelperLanesAttr>())
       continue;
-        spvBuilder.requireExtension("SPV_KHR_maximal_reconvergence",
-                                    funcDecl->getLocation());
-        spvBuilder.requireExtension("SPV_KHR_quad_control",
-                                    funcDecl->getLocation());
-        spvBuilder.requireCapability(spv::Capability::QuadControlKHR,
-                                     funcDecl->getLocation());
-        spvBuilder.addExecutionMode(entryInfo->entryFunction,
-                                    spv::ExecutionMode::MaximallyReconvergesKHR,
-                                    {}, funcDecl->getLocation());
-        spvBuilder.addExecutionMode(entryInfo->entryFunction,
-                                    spv::ExecutionMode::RequireFullQuadsKHR, {},
-                                    funcDecl->getLocation());
-      }
-    }
+
+    spvBuilder.requireExtension("SPV_KHR_maximal_reconvergence",
+                                funcDecl->getLocation());
+    spvBuilder.requireExtension("SPV_KHR_quad_control",
+                                funcDecl->getLocation());
+    spvBuilder.requireCapability(spv::Capability::QuadControlKHR,
+                                 funcDecl->getLocation());
+    spvBuilder.addExecutionMode(entryInfo->entryFunction,
+                                spv::ExecutionMode::MaximallyReconvergesKHR, {},
+                                funcDecl->getLocation());
+    spvBuilder.addExecutionMode(entryInfo->entryFunction,
+                                spv::ExecutionMode::RequireFullQuadsKHR, {},
+                                funcDecl->getLocation());
   }
 
   // For Vulkan 1.2 and later, add SignedZeroInfNanPreserve when -Gis is
