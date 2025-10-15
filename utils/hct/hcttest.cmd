@@ -551,7 +551,7 @@ echo  cmd           - run command line tool tests.
 echo  dxilconv      - run dxilconv tests
 echo  v             - run the subset of clang tests that are verified-based.
 echo  exec          - run execution tests.
-echo estture   - run execution tests for future releases.
+echo  exec-future run execution tests for future releases.
 echo  extras        - run hcttest-extras tests.
 echo  noexec        - all except exec and extras tests.
 echo.
