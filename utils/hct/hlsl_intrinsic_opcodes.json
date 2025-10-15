@@ -401,7 +401,7 @@
     "IOP_ClusterID": 397,
     "MOP_CandidateClusterID": 398,
     "MOP_CommittedClusterID": 399,
-    "MOP_DxHitObject_ClusterID": 400,
+    "MOP_DxHitObject_GetClusterID": 400,
     "IOP_TriangleObjectPosition": 401,
     "MOP_CandidateTriangleObjectPosition": 402,
     "MOP_CommittedTriangleObjectPosition": 403,
