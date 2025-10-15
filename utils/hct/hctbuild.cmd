@@ -47,7 +47,7 @@ set INSTALL_DIR=
 set DEFAULT_EXEC_ADAPTER=-DTAEF_EXEC_ADAPTER=
 set LIT_ARGS=
 set FRESH=
-set NUGET_CONFIG_FILE=
+set NUGET_WARP_EXTRA_ARGS=
 
 :parse_args
 if "%1"=="" (
@@ -215,24 +215,16 @@ if "%1"=="-fresh" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-nuget-config" (
-    if defined NUGET_WARP_EXTRA_ARGS (
-        set "NUGET_WARP_EXTRA_ARGS=%NUGET_WARP_EXTRA_ARGS% -Config %~2"
-    ) else (
-        set "NUGET_WARP_EXTRA_ARGS=-Config %~2"
-    )
-    shift /1
-    shift /1
-    goto :parse_args
+  set "NUGET_WARP_EXTRA_ARGS=-Config %~2 %NUGET_WARP_EXTRA_ARGS%"
+  shift /1
+  shift /1
+  goto :parse_args
 )
 if "%1"=="-warp-nuget-version" (
-    if defined NUGET_WARP_EXTRA_ARGS (
-        set "NUGET_WARP_EXTRA_ARGS=%NUGET_WARP_EXTRA_ARGS% -Version %~2"
-    ) else (
-        set "NUGET_WARP_EXTRA_ARGS=-Version %~2"
-    )
-    shift /1
-    shift /1    
-    goto :parse_args
+  set "NUGET_WARP_EXTRA_ARGS=-Version %~2 %NUGET_WARP_EXTRA_ARGS%"
+  shift /1
+  shift /1    
+  goto :parse_args
 )
 
 rem Begin SPIRV change
