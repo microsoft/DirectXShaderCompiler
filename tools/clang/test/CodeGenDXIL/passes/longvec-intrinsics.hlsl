@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=13   %s | FileCheck %s
 
 // Source for dxilgen test CodeGenDXIL/passes/longvec-intrinsics.ll.

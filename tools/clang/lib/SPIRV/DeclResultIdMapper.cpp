@@ -1006,7 +1006,7 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
   // implicit VarDecl. All implicit VarDecls are lazily created in order to
   // avoid creating large number of unused variables/constants/enums.
   if (!info) {
-    tryToCreateImplicitConstVar(decl);
+    tryToCreateConstantVar(decl);
     info = getDeclSpirvInfo(decl);
   }
 
@@ -4850,19 +4850,57 @@ SpirvVariable *DeclResultIdMapper::createRayTracingNVStageVar(
   return retVal;
 }
 
-void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
+bool DeclResultIdMapper::tryToCreateConstantVar(const ValueDecl *decl) {
+  // TODO: support spirv basic type with constant intrinsic. (e.g. int8)
   const VarDecl *varDecl = dyn_cast<VarDecl>(decl);
-  if (!varDecl || !varDecl->isImplicit())
-    return;
+  if (!varDecl)
+    return false;
+
+  const BuiltinType *type = decl->getType()->getAs<BuiltinType>();
+  if (!type)
+    return false;
 
   APValue *val = varDecl->evaluateValue();
   if (!val)
-    return;
+    return false;
 
-  SpirvInstruction *constVal =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
+  SpirvInstruction *constVal = nullptr;
+  switch (type->getKind()) {
+  case BuiltinType::Bool: // bool
+    constVal = spvBuilder.getConstantBool(val->getInt().getExtValue());
+    break;
+  case BuiltinType::UShort: // uint16_t
+    constVal =
+        spvBuilder.getConstantInt(astContext.UnsignedShortTy, val->getInt());
+    break;
+  case BuiltinType::UInt: // uint32_t
+    constVal =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
+    break;
+  case BuiltinType::Short: // int16_t
+    constVal = spvBuilder.getConstantInt(astContext.ShortTy, val->getInt());
+    break;
+  case BuiltinType::Int: // int32_t
+    constVal = spvBuilder.getConstantInt(astContext.IntTy, val->getInt());
+    break;
+  case BuiltinType::Half: // float16_t
+    constVal = spvBuilder.getConstantFloat(astContext.HalfTy, val->getFloat());
+    break;
+  case BuiltinType::Float:     // float32_t
+  case BuiltinType::HalfFloat: // float16_t without -enable-16bit-types
+    constVal = spvBuilder.getConstantFloat(astContext.FloatTy, val->getFloat());
+    break;
+  case BuiltinType::Double: // float64_t
+    constVal =
+        spvBuilder.getConstantFloat(astContext.DoubleTy, val->getFloat());
+    break;
+  default:
+    assert(false && "Unsupported builtin type evaluation at compile-time");
+    return false;
+  }
   constVal->setRValue(true);
   registerVariableForDecl(varDecl, constVal);
+  return true;
 }
 
 void DeclResultIdMapper::decorateWithIntrinsicAttrs(

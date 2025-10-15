@@ -33,7 +33,7 @@ public:
   // clang-format on
   // VALRULE-TEXT:BEGIN
   static const unsigned kHighestMajor = 6;
-  static const unsigned kHighestMinor = 9;
+  static const unsigned kHighestMinor = 10;
   // VALRULE-TEXT:END
 
   // Major/Minor version of highest released shader model
@@ -84,6 +84,7 @@ public:
   bool IsSM67Plus() const { return IsSMAtLeast(6, 7); }
   bool IsSM68Plus() const { return IsSMAtLeast(6, 8); }
   bool IsSM69Plus() const { return IsSMAtLeast(6, 9); }
+  bool IsSM610Plus() const { return IsSMAtLeast(6, 10); }
   // VALRULE-TEXT:END
   const char *GetName() const { return m_pszName; }
   const char *GetKindName() const;
@@ -97,6 +98,8 @@ public:
   static const char *GetKindName(Kind kind);
   static bool IsPreReleaseShaderModel(int Major, int Minor);
   static Kind GetKindFromName(llvm::StringRef Name);
+  static bool ParseTargetProfile(llvm::StringRef Ref, llvm::StringRef &OutStage,
+                                 unsigned &OutMajor, unsigned &OutMinor);
   static DXIL::ShaderKind KindFromFullName(llvm::StringRef Name);
   static const llvm::StringRef FullNameFromKind(DXIL::ShaderKind sk);
   static const char *GetNodeLaunchTypeName(DXIL::NodeLaunchType launchTy);
@@ -133,7 +136,7 @@ private:
               bool m_bTypedUavs, unsigned m_UAVRegsLim);
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_num_shader_models()</py>*/
   // VALRULE-TEXT:BEGIN
-  static const unsigned kNumShaderModels = 101;
+  static const unsigned kNumShaderModels = 116;
   // VALRULE-TEXT:END
   static const ShaderModel ms_ShaderModels[kNumShaderModels];
 

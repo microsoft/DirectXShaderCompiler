@@ -397,8 +397,8 @@ public:
 
     llvm::StringRef stage;
     unsigned RequiredDxilMajor = 1, RequiredDxilMinor = 0;
-    if (ParseTargetProfile(pShaderModel, stage, RequiredDxilMajor,
-                           RequiredDxilMinor)) {
+    if (hlsl::ShaderModel::ParseTargetProfile(
+            pShaderModel, stage, RequiredDxilMajor, RequiredDxilMinor)) {
       if (stage.compare("lib") == 0)
         pEntryName = L"";
       if (stage.compare("rootsig") != 0) {

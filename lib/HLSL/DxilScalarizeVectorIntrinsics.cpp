@@ -14,6 +14,7 @@
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -27,12 +28,14 @@
 using namespace llvm;
 using namespace hlsl;
 
-static void scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
+static bool scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
                                 CallInst *CI);
-static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
+static bool scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
                                  CallInst *CI);
-static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI);
-static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI);
+static bool scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI);
+static bool scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI);
+static bool scalarizeVectorDot(hlsl::OP *HlslOP, CallInst *CI);
+static bool scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI);
 
 class DxilScalarizeVectorIntrinsics : public ModulePass {
 public:
@@ -60,28 +63,43 @@ public:
       if (!HlslOP->GetOpCodeClass(Func, OpClass))
         continue;
 
-      bool NeedsRewrite = (Func->getReturnType()->isVectorTy() ||
-                           OpClass == DXIL::OpCodeClass::RawBufferVectorLoad ||
-                           OpClass == DXIL::OpCodeClass::RawBufferVectorStore ||
-                           OpClass == DXIL::OpCodeClass::VectorReduce);
-      if (!NeedsRewrite)
+      const bool CouldRewrite =
+          (Func->getReturnType()->isVectorTy() ||
+           OpClass == DXIL::OpCodeClass::RawBufferVectorLoad ||
+           OpClass == DXIL::OpCodeClass::RawBufferVectorStore ||
+           OpClass == DXIL::OpCodeClass::VectorReduce ||
+           OpClass == DXIL::OpCodeClass::Dot ||
+           OpClass == DXIL::OpCodeClass::WaveMatch);
+      if (!CouldRewrite)
         continue;
 
       for (auto U = Func->user_begin(), UE = Func->user_end(); U != UE;) {
         CallInst *CI = cast<CallInst>(*(U++));
 
-        if (OpClass == DXIL::OpCodeClass::RawBufferVectorLoad)
-          scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
-        else if (OpClass == DXIL::OpCodeClass::RawBufferVectorStore)
-          scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
-        else if (OpClass == DXIL::OpCodeClass::VectorReduce)
-          scalarizeVectorReduce(HlslOP, CI);
-        else if (Func->getReturnType()->isVectorTy())
-          scalarizeVectorIntrinsic(HlslOP, CI);
-        else
+        // Handle DXIL operations with complex signatures separately
+        switch (OpClass) {
+        case DXIL::OpCodeClass::RawBufferVectorLoad:
+          Changed |= scalarizeVectorLoad(HlslOP, M.getDataLayout(), CI);
           continue;
+        case DXIL::OpCodeClass::RawBufferVectorStore:
+          Changed |= scalarizeVectorStore(HlslOP, M.getDataLayout(), CI);
+          continue;
+        case DXIL::OpCodeClass::VectorReduce:
+          Changed |= scalarizeVectorReduce(HlslOP, CI);
+          continue;
+        case DXIL::OpCodeClass::Dot:
+          Changed |= scalarizeVectorDot(HlslOP, CI);
+          continue;
+        case DXIL::OpCodeClass::WaveMatch:
+          Changed |= scalarizeVectorWaveMatch(HlslOP, CI);
+          continue;
+        default:
+          break;
+        }
 
-        Changed = true;
+        // Handle DXIL Ops with vector return matching the vector params
+        if (Func->getReturnType()->isVectorTy())
+          Changed |= scalarizeVectorIntrinsic(HlslOP, CI);
       }
     }
     return Changed;
@@ -105,7 +123,7 @@ static unsigned GetRawBufferMask(unsigned NumComponents) {
   return DXIL::kCompMask_All;
 }
 
-static void scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
+static bool scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
                                 CallInst *CI) {
   IRBuilder<> Builder(CI);
   // Collect the information required to break this into scalar ops from args.
@@ -172,10 +190,12 @@ static void scalarizeVectorLoad(hlsl::OP *HlslOP, const DataLayout &DL,
     }
     EV->eraseFromParent();
   }
+
   CI->eraseFromParent();
+  return true;
 }
 
-static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
+static bool scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
                                  CallInst *CI) {
   IRBuilder<> Builder(CI);
   // Collect the information required to break this into scalar ops from args.
@@ -234,10 +254,12 @@ static void scalarizeVectorStore(hlsl::OP *HlslOP, const DataLayout &DL,
         HlslOP->GetU8Const(Mask);
     Builder.CreateCall(F, Args);
   }
+
   CI->eraseFromParent();
+  return true;
 }
 
-static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
+static bool scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
   IRBuilder<> Builder(CI);
 
   OP::OpCode ReduceOp = OP::getOpCode(CI);
@@ -262,12 +284,129 @@ static void scalarizeVectorReduce(hlsl::OP *HlslOP, CallInst *CI) {
   }
 
   CI->replaceAllUsesWith(Result);
+  CI->eraseFromParent();
+  return true;
+}
+
+static bool scalarizeVectorWaveMatch(hlsl::OP *HlslOP, CallInst *CI) {
+  IRBuilder<> Builder(CI);
+  OP::OpCode Opcode = OP::getOpCode(CI);
+  Value *VecArg = CI->getArgOperand(1);
+  Type *VecTy = VecArg->getType();
+
+  // Non-vector parameters don't need to be scalarized
+  if (!VecTy->isVectorTy())
+    return false;
+
+  const uint64_t VecSize = VecTy->getVectorNumElements();
+  Type *ScalarTy = VecTy->getScalarType();
+  Function *Func = HlslOP->GetOpFunc(Opcode, ScalarTy);
+  SmallVector<Value *, 2> Args(CI->getNumArgOperands());
+  Args[0] = CI->getArgOperand(0); // Copy opcode over.
+
+  SmallVector<Value *, 4> Scalars;
+  for (uint64_t I = 0; I != VecSize; ++I) {
+    Scalars.push_back(Builder.CreateExtractElement(VecArg, I));
+  }
+
+  SmallVector<Value *, 4> ResultVecs;
+  for (uint64_t I = 0; I != VecSize; ++I) {
+    Args[1] = Scalars[I];
+    ResultVecs.push_back(Builder.CreateCall(Func, Args));
+  }
+
+  Value *Ret = ResultVecs[0];
+  for (uint64_t I = 1; I != VecSize; ++I) {
+    Value *Next = ResultVecs[I];
+
+    // Generate bitwise AND of the components
+    Value *LHS0 = Builder.CreateExtractValue(Ret, 0);
+    Value *LHS1 = Builder.CreateExtractValue(Ret, 1);
+    Value *LHS2 = Builder.CreateExtractValue(Ret, 2);
+    Value *LHS3 = Builder.CreateExtractValue(Ret, 3);
+    Value *RHS0 = Builder.CreateExtractValue(Next, 0);
+    Value *RHS1 = Builder.CreateExtractValue(Next, 1);
+    Value *RHS2 = Builder.CreateExtractValue(Next, 2);
+    Value *RHS3 = Builder.CreateExtractValue(Next, 3);
+    Value *And0 = Builder.CreateAnd(LHS0, RHS0);
+    Value *And1 = Builder.CreateAnd(LHS1, RHS1);
+    Value *And2 = Builder.CreateAnd(LHS2, RHS2);
+    Value *And3 = Builder.CreateAnd(LHS3, RHS3);
+    Ret = Builder.CreateInsertValue(Ret, And0, 0);
+    Ret = Builder.CreateInsertValue(Ret, And1, 1);
+    Ret = Builder.CreateInsertValue(Ret, And2, 2);
+    Ret = Builder.CreateInsertValue(Ret, And3, 3);
+  }
+
+  CI->replaceAllUsesWith(Ret);
+  CI->eraseFromParent();
+  return true;
+}
+
+// Scalarize vectorized dot product
+static bool scalarizeVectorDot(hlsl::OP *HlslOP, CallInst *CI) {
+  IRBuilder<> Builder(CI);
+
+  Value *AVecArg = CI->getArgOperand(1);
+  Value *BVecArg = CI->getArgOperand(2);
+  VectorType *VecTy = cast<VectorType>(AVecArg->getType());
+  Type *ScalarTy = VecTy->getScalarType();
+  const unsigned VecSize = VecTy->getNumElements();
+
+  // The only valid opcode is FDot which only has floating point overload.
+  // If we hit this assert then this functions lowering needs to be updated
+  assert(ScalarTy->isFloatingPointTy() && "Unexpected scalar type");
+
+  SmallVector<Value *, 4> AElts(VecSize);
+  SmallVector<Value *, 4> BElts(VecSize);
+
+  for (unsigned EltIdx = 0; EltIdx < VecSize; EltIdx++) {
+    AElts[EltIdx] = Builder.CreateExtractElement(AVecArg, EltIdx);
+    BElts[EltIdx] = Builder.CreateExtractElement(BVecArg, EltIdx);
+  }
+
+  DXIL::OpCode DotOp = DXIL::OpCode::Dot4;
+  switch (VecSize) {
+  // Calling dot on a vec1 is not typical but also not impossible
+  // DXIL doesn't have a native Dot1 opcode but thats the same as a
+  // single FMul. HLOperation lower is expected to do the conversion
+  // so we assert here in case that ever changes.
+  case 1:
+    assert(false && "vector dot shouldn't appear for vec1");
+    break;
+  case 2:
+    DotOp = DXIL::OpCode::Dot2;
+    break;
+  case 3:
+    DotOp = DXIL::OpCode::Dot3;
+    break;
+  case 4:
+    DotOp = DXIL::OpCode::Dot4;
+    break;
+  default:
+    assert(false &&
+           "Vectors larger than 4 components are not supported in SM6.8");
+    break;
+  }
+
+  SmallVector<Value *, 9> Args(VecSize * 2 + 1);
+  Args[0] = Builder.getInt32((unsigned)DotOp);
+
+  for (unsigned EltIdx = 0; EltIdx < VecSize; EltIdx++) {
+    Args[EltIdx + 1] = AElts[EltIdx];
+    Args[EltIdx + 1 + VecSize] = BElts[EltIdx];
+  }
+
+  Function *Func = HlslOP->GetOpFunc(DotOp, ScalarTy);
+  Value *Dot = Builder.CreateCall(Func, Args, CI->getName());
+  CI->replaceAllUsesWith(Dot);
+  return true;
 }
 
 // Scalarize native vector operation represented by `CI`, generating
 // scalar calls for each element of the its vector parameters.
 // Use `HlslOP` to retrieve the associated scalar op function.
-static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI) {
+static bool scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI) {
 
   IRBuilder<> Builder(CI);
   VectorType *VT = cast<VectorType>(CI->getType());
@@ -295,7 +434,10 @@ static void scalarizeVectorIntrinsic(hlsl::OP *HlslOP, CallInst *CI) {
     Value *ElCI = Builder.CreateCall(Func, Args, CI->getName());
     RetVal = Builder.CreateInsertElement(RetVal, ElCI, ElIx);
   }
+
   CI->replaceAllUsesWith(RetVal);
+  CI->eraseFromParent();
+  return true;
 }
 
 char DxilScalarizeVectorIntrinsics::ID = 0;

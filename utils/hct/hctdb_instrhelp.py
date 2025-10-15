@@ -1648,7 +1648,7 @@ def get_interpretation_table():
 # since there can be pre-release versions that are higher
 # than the last released version
 highest_major = 6
-highest_minor = 9
+highest_minor = 10
 highest_shader_models = {4: 1, 5: 1, 6: highest_minor}
 
 # fetch the last released version from latest-released.json
@@ -1663,7 +1663,7 @@ def getShaderModels():
     shader_models = []
     for major, minor in highest_shader_models.items():
         for i in range(0, minor + 1):
-            shader_models.append(str(major) + "_" + str(i))
+            shader_models.append((major, i))
 
     return shader_models
 
@@ -1734,32 +1734,16 @@ class shader_profile(object):
 
 # kind is from DXIL::ShaderKind.
 shader_profiles = [
-    shader_profile(0, "ps", "Kind::Pixel", "4_0", 32, 8),
-    shader_profile(1, "vs", "Kind::Vertex", "4_0", 32, 32),
-    shader_profile(2, "gs", "Kind::Geometry", "4_0", 32, 32),
-    shader_profile(3, "hs", "Kind::Hull", "5_0", 32, 32),
-    shader_profile(4, "ds", "Kind::Domain", "5_0", 32, 32),
-    shader_profile(5, "cs", "Kind::Compute", "4_0", 0, 0),
-    shader_profile(6, "lib", "Kind::Library", "6_1", 32, 32),
-    shader_profile(13, "ms", "Kind::Mesh", "6_5", 0, 0),
-    shader_profile(14, "as", "Kind::Amplification", "6_5", 0, 0),
+    shader_profile(0, "ps", "Kind::Pixel", (4, 0), 32, 8),
+    shader_profile(1, "vs", "Kind::Vertex", (4, 0), 32, 32),
+    shader_profile(2, "gs", "Kind::Geometry", (4, 0), 32, 32),
+    shader_profile(3, "hs", "Kind::Hull", (5, 0), 32, 32),
+    shader_profile(4, "ds", "Kind::Domain", (5, 0), 32, 32),
+    shader_profile(5, "cs", "Kind::Compute", (4, 0), 0, 0),
+    shader_profile(6, "lib", "Kind::Library", (6, 1), 0, 0),
+    shader_profile(13, "ms", "Kind::Mesh", (6, 5), 0, 0),
+    shader_profile(14, "as", "Kind::Amplification", (6, 5), 0, 0),
 ]
-
-
-def getShaderProfiles():
-    # order match DXIL::ShaderKind.
-    profiles = (
-        ("ps", "4_0"),
-        ("vs", "4_0"),
-        ("gs", "4_0"),
-        ("hs", "5_0"),
-        ("ds", "5_0"),
-        ("cs", "4_0"),
-        ("lib", "6_1"),
-        ("ms", "6_5"),
-        ("as", "6_5"),
-    )
-    return profiles
 
 
 def get_shader_models():
@@ -1784,11 +1768,7 @@ def get_shader_models():
             elif major == 5:
                 UAV_info = "true, true, 64"
 
-            for i in range(0, minor + 1):
-                sm = "%d_%d" % (major, i)
-                if min_sm > sm:
-                    continue
-
+            for i in range(min_sm[1], minor + 1):
                 input_size = profile.input_size
                 output_size = profile.output_size
 
@@ -1800,7 +1780,7 @@ def get_shader_models():
                             input_size = 16
                             output_size = 16
 
-                sm_name = "%s_%s" % (kind_name, sm)
+                sm_name = "%s_%d_%d" % (kind_name, major, i)
                 result += 'SM(%s, %d, %d, "%s", %d, %d, %s),\n' % (
                     enum_name,
                     major,
@@ -1835,10 +1815,7 @@ def get_num_shader_models():
         enum_name = profile.enum_name
 
         for major, minor in highest_shader_models.items():
-            for i in range(0, minor + 1):
-                sm = "%d_%d" % (major, i)
-                if min_sm > sm:
-                    continue
+            for i in range(min_sm[1], minor + 1):
                 count += 1
 
         if kind_name == "lib":
@@ -1859,11 +1836,8 @@ def build_shader_model_hash_idx_map():
         kind_name = profile.kind_name
 
         for major, minor in highest_shader_models.items():
-            for i in range(0, minor + 1):
-                sm = "%d_%d" % (major, i)
-                if min_sm > sm:
-                    continue
-                sm_name = "%s_%s" % (kind_name, sm)
+            for i in range(min_sm[1], minor + 1):
+                sm_name = "%s_%d_%d" % (kind_name, major, i)
                 hash_v = kind << 16 | major << 8 | i
                 result += "{%d,%d}, //%s\n" % (hash_v, count, sm_name)
                 count += 1
@@ -1914,17 +1888,18 @@ def get_target_profiles():
     result = 'HelpText<"Set target profile. \\n'
     result += "\\t<profile>: "
 
-    profiles = getShaderProfiles()
     shader_models = getShaderModels()
 
-    base_sm = "%d_0" % highest_major
-    for profile, min_sm in profiles:
-        for shader_model in shader_models:
-            if base_sm > shader_model:
+    base_sm = (highest_major, 0)
+    for shader_profile in shader_profiles:
+        profile = shader_profile.kind_name
+        min_sm = shader_profile.start_sm
+        for sm in shader_models:
+            if base_sm > sm:
                 continue
-            if min_sm > shader_model:
+            if min_sm > sm:
                 continue
-            result += "%s_%s, " % (profile, shader_model)
+            result += "%s_%d_%d, " % (profile, sm[0], sm[1])
         result += "\\n\\t\\t "
 
     result += '">;'
@@ -1947,7 +1922,7 @@ def get_dxil_version():
         result += "  DxilMinor = %d;\n" % i
         result += "  break;\n"
     result += "case kOfflineMinor: // Always update this to highest dxil version\n"
-    result += "  DxilMinor = %d;\n" % highest_minor
+    result += "  DxilMinor = DXIL::kDxilMinor;\n"
     result += "  break;\n"
     return result
 
@@ -1962,20 +1937,6 @@ def get_shader_model_get():
     result += "  return GetInvalid();\n"
     result += "return &ms_ShaderModels[it->second];"
     return result
-
-
-def get_shader_model_by_name():
-    result = ""
-    for i in range(2, highest_minor + 1):
-        result += "case '%d':\n" % i
-        result += "  if (Major == %d) {\n" % highest_major
-        result += "    Minor = %d;\n" % i
-        result += "    break;\n"
-        result += "  }\n"
-        result += "else return GetInvalid();\n"
-
-    return result
-
 
 def get_is_valid_for_dxil():
     result = ""
