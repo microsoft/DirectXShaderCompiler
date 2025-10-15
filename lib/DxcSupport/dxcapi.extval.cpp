@@ -174,9 +174,8 @@ private:
 class ExternalValidationCompiler : public IDxcCompiler2, public IDxcCompiler3 {
 public:
   ExternalValidationCompiler(IMalloc *Malloc, IDxcValidator *OtherValidator,
-                             REFIID OtherCompilerIID, IUnknown *OtherCompiler)
-      : Validator(OtherValidator), CompilerIID(OtherCompilerIID),
-        Compiler(OtherCompiler), m_pMalloc(Malloc) {}
+                             IUnknown *OtherCompiler)
+      : Validator(OtherValidator), Compiler(OtherCompiler), m_pMalloc(Malloc) {}
 
   // IUnknown implementation
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
@@ -203,7 +202,7 @@ public:
       // This can throw; do not leak C++ exceptions through COM method
       // calls.
       CComPtr<ExternalValidationCompiler> NewWrapper(
-          Alloc(m_pMalloc, Validator, Iid, TempCompiler));
+          Alloc(m_pMalloc, Validator, TempCompiler));
       return DoBasicQueryInterface<IDxcCompiler, IDxcCompiler2, IDxcCompiler3>(
           NewWrapper.p, Iid, ResultObject);
     } catch (...) {
@@ -314,7 +313,6 @@ private:
   // for the requested interface, which wraps the result of QueryInterface
   // on the compiler object. Compiler pointer is held as IUnknown and must
   // be upcast to the appropriate interface on use.
-  IID CompilerIID;
   CComPtr<IUnknown> Compiler;
   DXC_MICROCOM_TM_REF_FIELDS()
 
@@ -354,9 +352,8 @@ static HRESULT createCompilerWrapper(IMalloc *Malloc,
 
   // Wrap compiler
   CComPtr<ExternalValidationCompiler> CompilerWrapper =
-      ExternalValidationCompiler::Alloc(Malloc ? Malloc
-                                               : DxcGetThreadMallocNoRef(),
-                                        Validator, Riid, Compiler);
+      ExternalValidationCompiler::Alloc(
+          Malloc ? Malloc : DxcGetThreadMallocNoRef(), Validator, Compiler);
   return CompilerWrapper->QueryInterface(Riid, (void **)ResultObject);
 }
 
