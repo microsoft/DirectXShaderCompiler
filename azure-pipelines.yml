@@ -36,7 +36,7 @@ stages:
       submodules: true
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hctbuild.cmd -$(platform) -$(configuration) -show-cmake-log -spirvtest -nuget-config "-Version 1.0.15"
+        call utils\hct\hctbuild.cmd -$(platform) -$(configuration) -show-cmake-log -spirvtest -warp-nuget-version 1.0.15
       displayName: 'Building'
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%

@@ -49,6 +49,7 @@ endif()
 # Install the WARP nuget package.
 separate_arguments(NUGET_WARP_EXTRA_ARGS)
 message("Running ${NUGET_EXE} install -ForceEnglishOutput Microsoft.Direct3D.WARP -OutputDirectory ${CMAKE_BINARY_DIR}/nuget ${NUGET_WARP_EXTRA_ARGS}")
+
 execute_process(
     COMMAND ${NUGET_EXE} install -ForceEnglishOutput Microsoft.Direct3D.WARP -OutputDirectory ${CMAKE_BINARY_DIR}/nuget ${NUGET_WARP_EXTRA_ARGS}
     RESULT_VARIABLE result
