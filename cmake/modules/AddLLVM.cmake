@@ -230,7 +230,7 @@ function(set_output_directory target bindir libdir)
     else()
       set(workaround 0)
     endif()
-    ## HLSL change end
+    # HLSL change end
 
     foreach(build_mode ${CMAKE_CONFIGURATION_TYPES})
       string(TOUPPER "${build_mode}" CONFIG_SUFFIX)
@@ -240,13 +240,27 @@ function(set_output_directory target bindir libdir)
 
       # HLSL change begin: work around broken MSVC_BUILD_AS_X
       if(workaround EQUAL 1)
+        set(original_li ${li})
         string(APPEND li "/$(PLATFORM)")
       endif()
-      ## HLSL change end
+      # HLSL change end
 
       set_target_properties(${target} PROPERTIES "RUNTIME_OUTPUT_DIRECTORY_${CONFIG_SUFFIX}" ${bi})
       set_target_properties(${target} PROPERTIES "ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_SUFFIX}" ${li})
       set_target_properties(${target} PROPERTIES "LIBRARY_OUTPUT_DIRECTORY_${CONFIG_SUFFIX}" ${mi})
+
+      # HLSL change begin: work around broken MSVC_BUILD_AS_X
+      if(workaround EQUAL 1)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${li}/${target}.lib"
+                "${original_li}/${target}.lib"
+            COMMENT "Copying the ARM64X binary {li}/${target}.lib to ${original_li}/${target}.lib"
+            VERBATIM
+        )
+      endif()
+      # HLSL change end
+
     endforeach()
   else()
     set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${bindir})
