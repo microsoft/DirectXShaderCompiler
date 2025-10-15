@@ -215,7 +215,7 @@ if "%1"=="-fresh" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-nuget-config" (
-  set NUGET_WARP_EXTRA_ARGS="-Config %~2"
+  set NUGET_WARP_EXTRA_ARGS="%~2"
   shift /1
   shift /1 & goto :parse_args
 )
