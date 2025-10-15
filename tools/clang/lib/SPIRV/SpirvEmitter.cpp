@@ -862,11 +862,13 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
                                 SourceLocation());
   }
 
-  for (uint32_t i = 0; i < workQueue.size(); ++i) {
-    const FunctionInfo *entryInfo = workQueue[i];
-    if (entryInfo->isEntryFunction) {
-      const auto *funcDecl = entryInfo->funcDecl;
-      if (funcDecl->hasAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
+  for (const FunctionInfo *entryInfo : workQueue) {
+    if (!entryInfo->isEntryFunction)
+      continue;
+
+    const auto *funcDecl = entryInfo->funcDecl;
+    if (!funcDecl->hasAttr<HLSLWaveOpsIncludeHelperLanesAttr>())
+      continue;
         spvBuilder.requireExtension("SPV_KHR_maximal_reconvergence",
                                     funcDecl->getLocation());
         spvBuilder.requireExtension("SPV_KHR_quad_control",
