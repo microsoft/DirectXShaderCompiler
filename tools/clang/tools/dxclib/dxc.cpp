@@ -1456,7 +1456,14 @@ int dxc::main(int argc, const char **argv_) {
     // Setup a helper DLL.
     DxcDllExtValidationLoader dxcSupport;
     {
-      HRESULT dllResult = dxcSupport.initialize();
+      HRESULT dllResult;
+      if (!dxcOpts.ExternalLib.empty() || !dxcOpts.ExternalFn.empty())
+        dllResult =
+            dxcSupport.InitializeForDll(dxcOpts.ExternalLib.str().c_str(),
+                                        dxcOpts.ExternalFn.str().c_str());
+      else
+        dllResult = dxcSupport.initialize();
+
       if (DXC_FAILED(dllResult)) {
         switch (dxcSupport.getFailureReason()) {
         case dxcSupport.FailedCompilerLoad: {

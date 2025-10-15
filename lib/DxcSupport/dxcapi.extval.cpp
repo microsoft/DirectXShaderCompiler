@@ -405,8 +405,7 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(
 HRESULT
 DxcDllExtValidationLoader::InitializeForDll(LPCSTR dllName, LPCSTR fnName) {
   // Load dxcompiler.dll
-  HRESULT Result =
-      DxCompilerSupport.InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
+  HRESULT Result = DxCompilerSupport.InitializeForDll(dllName, fnName);
   // if dxcompiler.dll fails to load, return the failed HRESULT
   if (FAILED(Result)) {
     FailureReason = FailedCompilerLoad;
