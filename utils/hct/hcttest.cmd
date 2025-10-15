@@ -551,7 +551,7 @@ echo  cmd           - run command line tool tests.
 echo  dxilconv      - run dxilconv tests
 echo  v             - run the subset of clang tests that are verified-based.
 echo  exec          - run execution tests.
-echo  exec-future   - run execution tests for future releases.
+echo estture   - run execution tests for future releases.
 echo  extras        - run hcttest-extras tests.
 echo  noexec        - all except exec and extras tests.
 echo.
@@ -582,8 +582,8 @@ if not defined HLSL_TAEF_DIR (
 ) else (
   set TE="%HLSL_TAEF_DIR%\%BUILD_ARCH_DIR%\te"
 )
-echo %TE% /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
-call %TE% /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+echo %TE% /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+call %TE% /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
 
 if errorlevel 1 (
   call :showtesample %*
