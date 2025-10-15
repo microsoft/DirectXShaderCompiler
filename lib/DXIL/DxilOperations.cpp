@@ -4081,6 +4081,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 #define RRT(_y) A(GetResRetType(_y))
 #define CBRT(_y) A(GetCBufferRetType(_y))
 #define VEC4(_y) A(GetStructVectorType(4, _y))
+#define VEC9(_y) A(VectorType::get(_y, 9))
 
 // Extended Overload types are wrapped in an anonymous struct
 #define EXT(_y) A(cast<StructType>(pOverloadType)->getElementType(_y))
@@ -6310,25 +6311,25 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Raytracing System Values
   case OpCode::TriangleObjectPosition:
-    A(pETy);
+    VEC9(pETy);
     A(pI32);
     break;
 
     // Inline Ray Query
   case OpCode::RayQuery_CandidateTriangleObjectPosition:
-    A(pETy);
+    VEC9(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedTriangleObjectPosition:
-    A(pETy);
+    VEC9(pETy);
     A(pI32);
     A(pI32);
     break;
 
     // Shader Execution Reordering
   case OpCode::HitObject_TriangleObjectPosition:
-    A(pETy);
+    VEC9(pETy);
     A(pI32);
     A(pHit);
     break;
@@ -6653,6 +6654,12 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
   }
+  case OpCode::TriangleObjectPosition:
+  case OpCode::RayQuery_CandidateTriangleObjectPosition:
+  case OpCode::RayQuery_CommittedTriangleObjectPosition:
+  case OpCode::HitObject_TriangleObjectPosition:
+    // These return <9 x float> vectors directly
+    return cast<VectorType>(Ty)->getElementType();
   case OpCode::MatVecMul:
   case OpCode::MatVecMulAdd:
     if (FT->getNumParams() < 2)
