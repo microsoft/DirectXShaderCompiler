@@ -676,6 +676,7 @@ enum class OpCode : unsigned {
   AllocateRayQuery = 178,  // allocates space for RayQuery and return handle
   AllocateRayQuery2 = 258, // allocates space for RayQuery and return handle
   RayQuery_Abort = 181,    // aborts a ray query
+  RayQuery_CandidateClusterID = 313,     // returns candidate hit cluster ID
   RayQuery_CandidateGeometryIndex = 203, // returns candidate hit geometry index
   RayQuery_CandidateInstanceContributionToHitGroupIndex =
       214, // returns candidate hit InstanceContributionToHitGroupIndex
@@ -696,6 +697,8 @@ enum class OpCode : unsigned {
       193, // returns candidate triangle hit barycentrics
   RayQuery_CandidateTriangleFrontFace =
       191, // returns if current candidate triangle is front facing
+  RayQuery_CandidateTriangleObjectPosition =
+      317, // Returns candidate triangle vertices in object space as <9 x float>
   RayQuery_CandidateTriangleRayT =
       199, // returns float representing the parametric point on the ray for the
            // current candidate triangle hit.
@@ -709,6 +712,7 @@ enum class OpCode : unsigned {
       182, // commits a non opaque triangle hit
   RayQuery_CommitProceduralPrimitiveHit =
       183,                               // commits a procedural primitive hit
+  RayQuery_CommittedClusterID = 314,     // returns committed hit cluster ID
   RayQuery_CommittedGeometryIndex = 209, // returns committed hit geometry index
   RayQuery_CommittedInstanceContributionToHitGroupIndex =
       215, // returns committed hit InstanceContributionToHitGroupIndex
@@ -732,6 +736,8 @@ enum class OpCode : unsigned {
       194, // returns committed triangle hit barycentrics
   RayQuery_CommittedTriangleFrontFace =
       192, // returns if current committed triangle is front facing
+  RayQuery_CommittedTriangleObjectPosition =
+      318, // Returns committed triangle vertices in object space as <9 x float>
   RayQuery_CommittedWorldToObject3x4 =
       189, // returns matrix for transforming from world-space to object-space
            // for a Committed hit.
@@ -832,6 +838,10 @@ enum class OpCode : unsigned {
   RayTMin =
       153, // float representing the parametric starting point for the ray.
 
+  // Raytracing System Values
+  TriangleObjectPosition =
+      316, // Returns triangle vertices in object space as <9 x float>
+
   // Raytracing hit uint System Values
   HitKind = 143, // Returns the value passed as HitKind in ReportIntersection().
                  // If intersection was reported by fixed-function triangle
@@ -851,7 +861,8 @@ enum class OpCode : unsigned {
   PrimitiveIndex = 161, // PrimitiveIndex for raytracing shaders
 
   // Raytracing uint System Values
-  RayFlags = 144, // uint containing the current ray flags.
+  ClusterID = 312, // Returns the user-defined ClusterID of the intersected CLAS
+  RayFlags = 144,  // uint containing the current ray flags.
 
   // Resources - gather
   TextureGather = 73,     // gathers the four texels that would be used in a
@@ -914,6 +925,7 @@ enum class OpCode : unsigned {
 
   // Shader Execution Reordering
   HitObject_Attributes = 289,   // Returns the attributes set for this HitObject
+  HitObject_ClusterID = 315,    // Returns the cluster ID of this committed hit
   HitObject_FromRayQuery = 263, // Creates a new HitObject representing a
                                 // committed hit from a RayQuery
   HitObject_FromRayQueryWithAttrs =
@@ -949,6 +961,8 @@ enum class OpCode : unsigned {
       286, // Returns the shader table index set for this HitObject
   HitObject_TraceRay = 262, // Analogous to TraceRay but without invoking CH/MS
                             // and returns the intermediate state as a HitObject
+  HitObject_TriangleObjectPosition =
+      319, // Returns triangle vertices in object space as <9 x float>
   HitObject_WorldRayDirection = 276, // Returns the ray direction in world space
   HitObject_WorldRayOrigin = 275,    // Returns the ray origin in world space
   HitObject_WorldToObject3x4 = 280,  // Returns the world to object space
@@ -1089,7 +1103,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_8 = 258,
   NumOpCodes_Dxil_1_9 = 312,
 
-  NumOpCodes = 312 // exclusive last value of enumeration
+  NumOpCodes = 320 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1213,8 +1227,10 @@ enum class OpCodeClass : unsigned {
   AllocateRayQuery,
   AllocateRayQuery2,
   RayQuery_Abort,
+  RayQuery_CandidateTriangleObjectPosition,
   RayQuery_CommitNonOpaqueTriangleHit,
   RayQuery_CommitProceduralPrimitiveHit,
+  RayQuery_CommittedTriangleObjectPosition,
   RayQuery_Proceed,
   RayQuery_StateMatrix,
   RayQuery_StateScalar,
@@ -1288,6 +1304,9 @@ enum class OpCodeClass : unsigned {
   RayTCurrent,
   RayTMin,
 
+  // Raytracing System Values
+  TriangleObjectPosition,
+
   // Raytracing hit uint System Values
   HitKind,
 
@@ -1300,6 +1319,7 @@ enum class OpCodeClass : unsigned {
   PrimitiveIndex,
 
   // Raytracing uint System Values
+  ClusterID,
   RayFlags,
 
   // Resources - gather
@@ -1355,6 +1375,7 @@ enum class OpCodeClass : unsigned {
   HitObject_StateScalar,
   HitObject_StateVector,
   HitObject_TraceRay,
+  HitObject_TriangleObjectPosition,
   MaybeReorderThread,
 
   // Synchronization
@@ -1425,7 +1446,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_8 = 174,
   NumOpClasses_Dxil_1_9 = 196,
 
-  NumOpClasses = 196 // exclusive last value of enumeration
+  NumOpClasses = 201 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
