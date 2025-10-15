@@ -14,16 +14,16 @@ class DxcDllExtValidationLoader : public DllLoader {
   dxc::SpecificDllLoader DxCompilerSupport;
   dxc::SpecificDllLoader DxilExtValSupport;
   std::string DxilDllPath;
-  enum {
+
+public:
+  std::string getDxilDllPath() { return DxilDllPath; }
+  enum InitializationFailures {
     FailedNone = 0,
     FailedCompilerLoad,
     FailedDxilPath,
     FailedDxilLoad,
   } FailureReason = FailedNone;
-
-public:
-  std::string getDxilDllPath() { return DxilDllPath; }
-  int getFailureReason() { return FailureReason; }
+  InitializationFailures getFailureReason() { return FailureReason; }
   bool dxilDllFailedToLoad() {
     return !DxilDllPath.empty() && !DxilExtValSupport.IsEnabled();
   }
@@ -34,6 +34,7 @@ public:
                               IUnknown **pResult) override;
 
   HRESULT initialize();
+  HRESULT InitializeForDll(LPCSTR dllName, LPCSTR fnName);
 
   bool IsEnabled() const override { return DxCompilerSupport.IsEnabled(); }
 };

@@ -1459,16 +1459,16 @@ int dxc::main(int argc, const char **argv_) {
       HRESULT dllResult = dxcSupport.initialize();
       if (DXC_FAILED(dllResult)) {
         switch (dxcSupport.getFailureReason()) {
-        case 1: {
+        case dxcSupport.FailedCompilerLoad: {
           fprintf(stderr, "dxcompiler.dll failed to load\n");
           break;
         }
-        case 2: {
+        case dxcSupport.FailedDxilPath: {
           fprintf(stderr, "dxil.dll path %s could not be found",
                   dxcSupport.getDxilDllPath().c_str());
           break;
         }
-        case 3: {
+        case dxcSupport.FailedDxilLoad: {
           fprintf(stderr, "%s failed to load",
                   dxcSupport.getDxilDllPath().c_str());
           break;

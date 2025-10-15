@@ -12,6 +12,7 @@
 
 #include "dxc/Support/WinIncludes.h"
 #include <algorithm>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -4221,12 +4222,16 @@ void SetEnvVarW(const std::wstring &VarName, const std::wstring &VarValue) {
   _wputenv_s(VarName.c_str(), VarValue.c_str());
 }
 
-// For now, 3 things are tested:
+// For now, 4 things are tested:
 // 1. The environment variable is not set. GetDxilDllPath() is empty and
 // DxilDllFailedToLoad() returns false
 // 2. Given a bogus path in the environment variable, and an initialized
 // DxcDllExtValidationSupport object, GetDxilDllPath()
 // retrieves the bogus path despite DxcDllExtValidationSupport failing to load
+// it as a dll, and DxilDllFailedToLoad() returns true.
+// 3. Given a valid path in the environment variable to a non-dll file,
+// and an initialized DxcDllExtValidationSupport object, GetDxilDllPath()
+// retrieves the valid path despite DxcDllExtValidationSupport failing to load
 // it as a dll, and DxilDllFailedToLoad() returns true.
 // 3. CLSID_DxcCompiler, CLSID_DxcLinker, CLSID_DxcValidator
 // may be created through DxcDllExtValidationSupport.
@@ -4236,6 +4241,7 @@ void SetEnvVarW(const std::wstring &VarName, const std::wstring &VarValue) {
 TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   dxc::DxcDllExtValidationLoader ExtSupportEmpty;
   dxc::DxcDllExtValidationLoader ExtSupportBogus;
+  dxc::DxcDllExtValidationLoader ExtSupportValidNonDLLPath;
 
   // capture any existing value in the environment variable,
   // so that it can be restored after the test
@@ -4250,7 +4256,7 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   VERIFY_SUCCEEDED(ExtSupportEmpty.initialize());
 
   VERIFY_IS_FALSE(ExtSupportEmpty.dxilDllFailedToLoad());
-  std::string EmptyPath = ExtSupportBogus.getDxilDllPath();
+  std::string EmptyPath = ExtSupportEmpty.getDxilDllPath();
   VERIFY_ARE_EQUAL_STR(EmptyPath.c_str(), "");
 
   // 2. Test with a bogus path in the environment variable
@@ -4258,15 +4264,33 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
 
   if (!ExtSupportBogus.IsEnabled()) {
     VERIFY_FAILED(ExtSupportBogus.initialize());
+    VERIFY_ARE_EQUAL(ExtSupportBogus.getFailureReason(),
+                     ExtSupportBogus.FailedDxilPath);
   }
 
-  // validate that m_dllExtSupport2 was able to capture the environment
+  // validate that ExtSupportBogus was able to capture the environment
   // variable's value, and that loading the bogus path was unsuccessful
   std::string BogusPath = ExtSupportBogus.getDxilDllPath();
   VERIFY_ARE_EQUAL_STR(BogusPath.c_str(), "bogus");
   VERIFY_IS_TRUE(ExtSupportBogus.dxilDllFailedToLoad());
 
-  // 3. Test production of class IDs CLSID_DxcCompiler, CLSID_DxcLinker,
+  // 3. Test with a valid path to this file in the environment variable
+  std::filesystem::path p = std::filesystem::absolute(__FILE__);
+  SetEnvVarW(L"DXC_DXIL_DLL_PATH", p.wstring());
+
+  if (!ExtSupportValidNonDLLPath.IsEnabled()) {
+    VERIFY_FAILED(ExtSupportValidNonDLLPath.initialize());
+    VERIFY_ARE_EQUAL(ExtSupportValidNonDLLPath.getFailureReason(),
+                     ExtSupportValidNonDLLPath.FailedDxilLoad);
+  }
+
+  // validate that ExtSupportValidNonDLLPath was able to capture the environment
+  // variable's value, and that loading the valid non-dll path was unsuccessful
+  std::string ValidNonDLLPath = ExtSupportValidNonDLLPath.getDxilDllPath();
+  VERIFY_ARE_EQUAL_STR(ValidNonDLLPath.c_str(), __FILE__);
+  VERIFY_IS_TRUE(ExtSupportValidNonDLLPath.dxilDllFailedToLoad());
+
+  // 4. Test production of class IDs CLSID_DxcCompiler, CLSID_DxcLinker,
   // and CLSID_DxcValidator through DxcDllExtValidationSupport.
   CComPtr<IDxcCompiler> Compiler;
   CComPtr<IDxcLinker> Linker;

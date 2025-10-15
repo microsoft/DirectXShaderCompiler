@@ -406,7 +406,7 @@ HRESULT DxcDllExtValidationLoader::CreateInstance2Impl(
 }
 
 HRESULT
-DxcDllExtValidationLoader::initialize() {
+DxcDllExtValidationLoader::InitializeForDll(LPCSTR dllName, LPCSTR fnName) {
   // Load dxcompiler.dll
   HRESULT Result =
       DxCompilerSupport.InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
@@ -440,6 +440,10 @@ DxcDllExtValidationLoader::initialize() {
   }
 
   return Result;
+}
+
+HRESULT DxcDllExtValidationLoader::initialize() {
+  return InitializeForDll(kDxCompilerLib, "DxcCreateInstance");
 }
 
 } // namespace dxc

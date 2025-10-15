@@ -163,8 +163,29 @@ int main(int argc, const char **argv) {
     }
 
     DxcDllExtValidationLoader dxcSupport;
-    std::string dllLogString;
-    IFT(dxcSupport.initialize());
+    HRESULT dllResult = dxcSupport.initialize();
+    if (DXC_FAILED(dllResult)) {
+      switch (dxcSupport.getFailureReason()) {
+      case dxcSupport.InitializationFailures::FailedCompilerLoad: {
+        fprintf(stderr, "dxcompiler.dll failed to load\n");
+        break;
+      }
+      case dxcSupport.InitializationFailures::FailedDxilPath: {
+        fprintf(stderr, "dxil.dll path %s could not be found",
+                dxcSupport.getDxilDllPath().c_str());
+        break;
+      }
+      case dxcSupport.InitializationFailures::FailedDxilLoad: {
+        fprintf(stderr, "%s failed to load",
+                dxcSupport.getDxilDllPath().c_str());
+        break;
+      }
+      default: {
+        llvm_unreachable("unexpected failure reason");
+      }
+      }
+      return dllResult;
+    }
 
     DxvContext context(dxcSupport);
     pStage = "Validation";
