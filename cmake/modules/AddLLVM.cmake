@@ -239,6 +239,13 @@ function(set_output_directory target bindir libdir)
       string(REPLACE ${CMAKE_CFG_INTDIR} ${build_mode} mi ${moddir})
 
       # HLSL change begin: work around broken MSVC_BUILD_AS_X
+      #
+      # MSVC_BUILD_AS_X generates a vcxproj that builds for both ARM64 and
+      # ARM64EC, but these two platforms are only visible in msbuild. It also
+      # currently configures the import libraries to all be output to the same
+      # location, which means it's a race for if we get the ARM64 or ARM64X
+      # version there.  The appended $(PLATFORM) is evaluated by msbuild at
+      # build time to separate the ARM64EC from ARM64 builds.
       if(workaround EQUAL 1)
         set(original_li ${li})
         string(APPEND li "/$(PLATFORM)")
