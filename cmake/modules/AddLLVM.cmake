@@ -225,10 +225,10 @@ function(set_output_directory target bindir libdir)
     # HLSL change begin: work around broken MSVC_BUILD_AS_X
     get_target_property(target_type ${target} TYPE)
     if(target_type STREQUAL "SHARED_LIBRARY" AND MSVC_BUILD_AS_X EQUAL 1)
-      set(workaround 1)
+      set(arm64x_workaround 1)
       message(NOTICE "Working around ARM64X / MSVC_BUILD_AS_X bug for ${target}")
     else()
-      set(workaround 0)
+      set(arm64x_workaround 0)
     endif()
     # HLSL change end
 
@@ -246,8 +246,7 @@ function(set_output_directory target bindir libdir)
       # location, which means it's a race for if we get the ARM64 or ARM64X
       # version there.  The appended $(PLATFORM) is evaluated by msbuild at
       # build time to separate the ARM64EC from ARM64 builds.
-      if(workaround EQUAL 1)
-        set(original_li ${li})
+      if(arm64x_workaround EQUAL 1)
         string(APPEND li "/$(PLATFORM)")
       endif()
       # HLSL change end
