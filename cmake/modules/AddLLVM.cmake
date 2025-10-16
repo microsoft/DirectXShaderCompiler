@@ -249,34 +249,6 @@ function(set_output_directory target bindir libdir)
       set_target_properties(${target} PROPERTIES "ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_SUFFIX}" ${li})
       set_target_properties(${target} PROPERTIES "LIBRARY_OUTPUT_DIRECTORY_${CONFIG_SUFFIX}" ${mi})
     endforeach()
-
-    # HLSL change begin: work around broken MSVC_BUILD_AS_X
-    if(workaround EQUAL 1)        
-      set(_src "$<TARGET_LINKER_FILE:${target}>")
-      set(_dst "${libdir}/ARM64EC/${target}.lib")
-      message(NOTICE "${_src} --> ${_dst}")
-      
-      add_custom_command(
-          OUTPUT ${_dst}
-          DEPENDS ${target}
-          COMMAND ${CMAKE_COMMAND} -E copy_if_different
-              ${_src} ${_dst}
-          COMMENT "Copying the ARM64X binary ${_src} to ${_dst}"
-          VERBATIM
-      )
-
-      if(NOT TARGET ${target}_arm64x)
-      add_custom_target(${target}_arm64x DEPENDS ${_dst})
-      add_dependencies(${target}_arm64x ${target})
-
-      add_custom_command(
-        TARGET ${target} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E echo "Linker file: $<TARGET_LINKER_FILE:${target}>"
-        VERBATIM)
-        endif()
-    endif()
-    # HLSL change end
-
   else()
     set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${bindir})
     set_target_properties(${target} PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${libdir})
