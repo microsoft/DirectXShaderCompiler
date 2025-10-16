@@ -135,8 +135,7 @@ void fillLongVectorDataFromShaderBuffer(const MappedData &ShaderBuffer,
 
 template <typename T>
 void logLongVector(const std::vector<T> &Values, const std::wstring &Name) {
-  WEX::Logging::Log::Comment(
-      WEX::Common::String().Format(L"LongVector Name: %s", Name.c_str()));
+  hlsl_test::LogCommentFmt(L"LongVector Name: %s", Name.c_str());
 
   const size_t LoggingWidth = 40;
 
@@ -153,7 +152,7 @@ void logLongVector(const std::vector<T> &Values, const std::wstring &Name) {
   }
   Wss << L" ]";
 
-  WEX::Logging::Log::Comment(Wss.str().c_str());
+  hlsl_test::LogCommentFmt(Wss.str().c_str());
 }
 
 enum class ValidationType {
@@ -182,7 +181,7 @@ bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
   case ValidationType::Ulp:
     return CompareHalfULP(A.Val, B.Val, Tolerance);
   default:
-    WEX::Logging::Log::Error(
+    hlsl_test::LogErrorFmt(
         L"Invalid ValidationType. Expecting Epsilon or ULP.");
     return false;
   }
@@ -199,7 +198,7 @@ bool doValuesMatch(float A, float B, float Tolerance,
     return CompareFloatULP(A, B, IntTolerance);
   };
   default:
-    WEX::Logging::Log::Error(
+    hlsl_test::LogErrorFmt(
         L"Invalid ValidationType. Expecting Epsilon or ULP.");
     return false;
   }
@@ -216,7 +215,7 @@ bool doValuesMatch(double A, double B, float Tolerance,
     return CompareDoubleULP(A, B, IntTolerance);
   };
   default:
-    WEX::Logging::Log::Error(
+    hlsl_test::LogErrorFmt(
         L"Invalid ValidationType. Expecting Epsilon or ULP.");
     return false;
   }
@@ -254,7 +253,7 @@ bool doVectorsMatch(const std::vector<T> &ActualValues,
       Wss << L"Mismatch at Index: " << Index;
       Wss << L" Actual Value:" << ActualValues[Index] << ",";
       Wss << L" Expected Value:" << ExpectedValues[Index];
-      WEX::Logging::Log::Error(Wss.str().c_str());
+      hlsl_test::LogErrorFmt(Wss.str().c_str());
     }
   }
 
@@ -449,9 +448,8 @@ InputSets<T> buildTestInputs(size_t VectorSize, const InputSet OpInputSets[3],
                              size_t Arity) {
   InputSets<T> Inputs;
 
-  for (size_t I = 0; I < Arity; ++I) {
+  for (size_t I = 0; I < Arity; ++I)
     Inputs.push_back(buildTestInput<T>(OpInputSets[I], VectorSize));
-  }
 
   return Inputs;
 }
@@ -1056,9 +1054,8 @@ template <OpType OP, typename T> struct ExpectedBuilder {
     std::vector<decltype(Op(T()))> Expected;
     Expected.reserve(Inputs[0].size());
 
-    for (size_t I = 0; I < Inputs[0].size(); ++I) {
+    for (size_t I = 0; I < Inputs[0].size(); ++I)
       Expected.push_back(Op(Inputs[0][I]));
-    }
 
     return Expected;
   }
@@ -1069,9 +1066,8 @@ template <OpType OP, typename T> struct ExpectedBuilder {
     std::vector<decltype(Op(T(), T()))> Expected;
     Expected.reserve(Inputs[0].size());
 
-    for (size_t I = 0; I < Inputs[0].size(); ++I) {
+    for (size_t I = 0; I < Inputs[0].size(); ++I)
       Expected.push_back(Op(Inputs[0][I], Inputs[1][I]));
-    }
 
     return Expected;
   }
@@ -1082,9 +1078,8 @@ template <OpType OP, typename T> struct ExpectedBuilder {
     std::vector<decltype(Op(T(), T(), T()))> Expected;
     Expected.reserve(Inputs[0].size());
 
-    for (size_t I = 0; I < Inputs[0].size(); ++I) {
+    for (size_t I = 0; I < Inputs[0].size(); ++I)
       Expected.push_back(Op(Inputs[0][I], Inputs[1][I], Inputs[2][I]));
-    }
 
     return Expected;
   }
@@ -1092,10 +1087,10 @@ template <OpType OP, typename T> struct ExpectedBuilder {
 
 template <typename T, OpType OP>
 void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
-                  size_t OverrideLongVectorInputSize) {
+                  size_t OverrideInputSize) {
   std::vector<size_t> InputVectorSizes;
-  if (OverrideLongVectorInputSize)
-    InputVectorSizes.push_back(OverrideLongVectorInputSize);
+  if (OverrideInputSize)
+    InputVectorSizes.push_back(OverrideInputSize);
   else
     InputVectorSizes = {3, 4, 5, 16, 17, 35, 100, 256, 1024};
 
@@ -1163,8 +1158,6 @@ public:
             L"Unable to enable shader experimental mode - 0x%08x.", HR);
       else if (HR == S_FALSE)
         hlsl_test::LogCommentFmt(L"Experimental mode not enabled.");
-      else
-        hlsl_test::LogCommentFmt(L"Experimental mode enabled.");
 
       HR = enableDebugLayer();
       if (FAILED(HR))
@@ -1177,27 +1170,25 @@ public:
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
                                                          VerboseLogging);
       if (VerboseLogging)
-        WEX::Logging::Log::Comment(
-            L"Verbose logging is enabled for this test.");
+        hlsl_test::LogCommentFmt(L"Verbose logging is enabled for this test.");
       else
-        WEX::Logging::Log::Comment(
-            L"Verbose logging is disabled for this test.");
+        hlsl_test::LogCommentFmt(L"Verbose logging is disabled for this test.");
 
-      WEX::TestExecution::RuntimeParameters::TryGetValue(
-          L"LongVectorInputSize", OverrideLongVectorInputSize);
+      WEX::TestExecution::RuntimeParameters::TryGetValue(L"InputSize",
+                                                         OverrideInputSize);
 
       bool IsRITP = false;
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"RITP", IsRITP);
 
       if (IsRITP) {
-        if (!OverrideLongVectorInputSize)
+        if (!OverrideInputSize)
           // Help keep test runtime down for RITP runs
-          OverrideLongVectorInputSize = 10;
+          OverrideInputSize = 10;
         else
-          WEX::Logging::Log::Warning(WEX::Common::String().Format(
-              L"RITP is enabled but LongVectorInputSize is also set. Will use "
-              L"the LongVectorInputSize value: %d.",
-              OverrideLongVectorInputSize));
+          hlsl_test::LogWarningFmt(
+              L"RITP is enabled but InputSize is also set. Will use the"
+              L"InputSize value: %d.",
+              OverrideInputSize);
       }
 
       // Only skip unsupported tests for RITP runs.
@@ -1219,7 +1210,7 @@ public:
       VERIFY_IS_TRUE(
           createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false));
 
-    dispatchTest<T, OP>(D3DDevice, VerboseLogging, OverrideLongVectorInputSize);
+    dispatchTest<T, OP>(D3DDevice, VerboseLogging, OverrideInputSize);
   }
 
   // TernaryMath
@@ -1689,6 +1680,6 @@ public:
 private:
   bool Initialized = false;
   bool VerboseLogging = false;
-  size_t OverrideLongVectorInputSize = 0;
+  size_t OverrideInputSize = 0;
   CComPtr<ID3D12Device> D3DDevice;
 };
