@@ -452,7 +452,13 @@ void configureShaderOp(const Operation &Operation, const DataType &OpDataType,
       Operation.Type == OpType::LoadAndStore_DescriptorTable_UAV ||
       Operation.Type == OpType::LoadAndStore_DescriptorTable_SRV ||
       Operation.Type == OpType::LoadAndStore_RootDescriptor_UAV ||
-      Operation.Type == OpType::LoadAndStore_RootDescriptor_SRV;
+      Operation.Type == OpType::LoadAndStore_RootDescriptor_SRV ||
+      Operation.Type == OpType::LoadAndStore_ResourceDescriptorHeap_SB_UAV ||
+      Operation.Type == OpType::LoadAndStore_ResourceDescriptorHeap_SB_SRV ||
+      Operation.Type == OpType::LoadAndStore_DescriptorTable_SB_UAV ||
+      Operation.Type == OpType::LoadAndStore_DescriptorTable_SB_SRV ||
+      Operation.Type == OpType::LoadAndStore_RootDescriptor_SB_UAV ||
+      Operation.Type == OpType::LoadAndStore_RootDescriptor_SB_SRV;
 
   if (!IsLoadAndStoreOp)
     return;
@@ -1112,6 +1118,12 @@ DEFAULT_OP_1(OpType::LoadAndStore_DescriptorTable_UAV, (A));
 DEFAULT_OP_1(OpType::LoadAndStore_DescriptorTable_SRV, (A));
 DEFAULT_OP_1(OpType::LoadAndStore_RootDescriptor_UAV, (A));
 DEFAULT_OP_1(OpType::LoadAndStore_RootDescriptor_SRV, (A));
+DEFAULT_OP_1(OpType::LoadAndStore_ResourceDescriptorHeap_SB_UAV, (A));
+DEFAULT_OP_1(OpType::LoadAndStore_ResourceDescriptorHeap_SB_SRV, (A));
+DEFAULT_OP_1(OpType::LoadAndStore_DescriptorTable_SB_UAV, (A));
+DEFAULT_OP_1(OpType::LoadAndStore_DescriptorTable_SB_SRV, (A));
+DEFAULT_OP_1(OpType::LoadAndStore_RootDescriptor_SB_UAV, (A));
+DEFAULT_OP_1(OpType::LoadAndStore_RootDescriptor_SB_SRV, (A));
 
 //
 // dispatchTest
@@ -1757,6 +1769,12 @@ public:
   HLK_TEST(LoadAndStore_DescriptorTable_UAV, HLSLHalf_t);
   HLK_TEST(LoadAndStore_RootDescriptor_SRV, HLSLHalf_t);
   HLK_TEST(LoadAndStore_RootDescriptor_UAV, HLSLHalf_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_SRV, HLSLHalf_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_UAV, HLSLHalf_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_SRV, HLSLHalf_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_UAV, HLSLHalf_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_SRV, HLSLHalf_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_UAV, HLSLHalf_t);
 
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, HLSLBool_t);
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, HLSLBool_t);
@@ -1764,6 +1782,12 @@ public:
   HLK_TEST(LoadAndStore_DescriptorTable_UAV, HLSLBool_t);
   HLK_TEST(LoadAndStore_RootDescriptor_SRV, HLSLBool_t);
   HLK_TEST(LoadAndStore_RootDescriptor_UAV, HLSLBool_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_SRV, HLSLBool_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_UAV, HLSLBool_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_SRV, HLSLBool_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_UAV, HLSLBool_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_SRV, HLSLBool_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_UAV, HLSLBool_t);
 
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, int16_t);
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, int16_t);
@@ -1771,6 +1795,12 @@ public:
   HLK_TEST(LoadAndStore_DescriptorTable_UAV, int16_t);
   HLK_TEST(LoadAndStore_RootDescriptor_SRV, int16_t);
   HLK_TEST(LoadAndStore_RootDescriptor_UAV, int16_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_SRV, int16_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_UAV, int16_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_SRV, int16_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_UAV, int16_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_SRV, int16_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_UAV, int16_t);
 
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, int32_t);
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, int32_t);
@@ -1778,6 +1808,12 @@ public:
   HLK_TEST(LoadAndStore_DescriptorTable_SRV, int32_t);
   HLK_TEST(LoadAndStore_RootDescriptor_UAV, int32_t);
   HLK_TEST(LoadAndStore_RootDescriptor_SRV, int32_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_UAV, int32_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_SRV, int32_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_UAV, int32_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_SRV, int32_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_UAV, int32_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_SRV, int32_t);
 
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, int64_t);
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, int64_t);
@@ -1785,6 +1821,12 @@ public:
   HLK_TEST(LoadAndStore_DescriptorTable_UAV, int64_t);
   HLK_TEST(LoadAndStore_RootDescriptor_SRV, int64_t);
   HLK_TEST(LoadAndStore_RootDescriptor_UAV, int64_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_SRV, int64_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_UAV, int64_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_SRV, int64_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_UAV, int64_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_SRV, int64_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_UAV, int64_t);
 
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, uint16_t);
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, uint16_t);
@@ -1792,6 +1834,12 @@ public:
   HLK_TEST(LoadAndStore_DescriptorTable_UAV, uint16_t);
   HLK_TEST(LoadAndStore_RootDescriptor_SRV, uint16_t);
   HLK_TEST(LoadAndStore_RootDescriptor_UAV, uint16_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_SRV, uint16_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_UAV, uint16_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_SRV, uint16_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_UAV, uint16_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_SRV, uint16_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_UAV, uint16_t);
 
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, uint32_t);
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, uint32_t);
@@ -1799,6 +1847,12 @@ public:
   HLK_TEST(LoadAndStore_DescriptorTable_SRV, uint32_t);
   HLK_TEST(LoadAndStore_RootDescriptor_UAV, uint32_t);
   HLK_TEST(LoadAndStore_RootDescriptor_SRV, uint32_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_UAV, uint32_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_SRV, uint32_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_UAV, uint32_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_SRV, uint32_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_UAV, uint32_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_SRV, uint32_t);
 
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, uint64_t);
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, uint64_t);
@@ -1806,6 +1860,12 @@ public:
   HLK_TEST(LoadAndStore_DescriptorTable_SRV, uint64_t);
   HLK_TEST(LoadAndStore_RootDescriptor_UAV, uint64_t);
   HLK_TEST(LoadAndStore_RootDescriptor_SRV, uint64_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_UAV, uint64_t);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_SRV, uint64_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_UAV, uint64_t);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_SRV, uint64_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_UAV, uint64_t);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_SRV, uint64_t);
 
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, float);
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, float);
@@ -1813,6 +1873,12 @@ public:
   HLK_TEST(LoadAndStore_DescriptorTable_SRV, float);
   HLK_TEST(LoadAndStore_RootDescriptor_UAV, float);
   HLK_TEST(LoadAndStore_RootDescriptor_SRV, float);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_UAV, float);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_SRV, float);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_UAV, float);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_SRV, float);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_UAV, float);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_SRV, float);
 
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SRV, double);
   HLK_TEST(LoadAndStore_ResourceDescriptorHeap_UAV, double);
@@ -1820,6 +1886,12 @@ public:
   HLK_TEST(LoadAndStore_DescriptorTable_UAV, double);
   HLK_TEST(LoadAndStore_RootDescriptor_SRV, double);
   HLK_TEST(LoadAndStore_RootDescriptor_UAV, double);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_SRV, double);
+  HLK_TEST(LoadAndStore_ResourceDescriptorHeap_SB_UAV, double);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_SRV, double);
+  HLK_TEST(LoadAndStore_DescriptorTable_SB_UAV, double);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_SRV, double);
+  HLK_TEST(LoadAndStore_RootDescriptor_SB_UAV, double);
 
 private:
   bool Initialized = false;
