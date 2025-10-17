@@ -294,25 +294,17 @@ public:
   
   // HLSL Change Starts
   bool isHLSLReserved() const {
-    return
-      is(tok::kw___is_signed) ||
-      is(tok::kw___declspec) ||
-      is(tok::kw___forceinline) ||
-      is(tok::kw_auto) ||
-      is(tok::kw_catch) || is(tok::kw_const_cast) ||
-      is(tok::kw_delete) || is(tok::kw_dynamic_cast) ||
-      is(tok::kw_enum) || is(tok::kw_explicit) ||
-      is(tok::kw_friend) ||
-      is(tok::kw_goto) ||
-      is(tok::kw_mutable) ||
-      is(tok::kw_new) ||
-      is(tok::kw_operator) ||
-      is(tok::kw_protected) || is(tok::kw_private) || is(tok::kw_public) ||
-      is(tok::kw_reinterpret_cast) ||
-      is(tok::kw_signed) || is(tok::kw_sizeof) || is(tok::kw_static_cast) ||
-      is(tok::kw_template) || is(tok::kw_throw) || is(tok::kw_try) || is(tok::kw_typename) ||
-      is(tok::kw_union) || is(tok::kw_using) ||
-      is(tok::kw_virtual);
+    return is(tok::kw___is_signed) || is(tok::kw___declspec) ||
+           is(tok::kw___forceinline) || is(tok::kw_auto) || is(tok::kw_catch) ||
+           is(tok::kw_const_cast) || is(tok::kw_delete) ||
+           is(tok::kw_dynamic_cast) || is(tok::kw_enum) ||
+           is(tok::kw_explicit) || is(tok::kw_friend) || is(tok::kw_goto) ||
+           is(tok::kw_mutable) || is(tok::kw_new) || is(tok::kw_operator) ||
+           is(tok::kw_protected) || is(tok::kw_private) || is(tok::kw_public) ||
+           is(tok::kw_reinterpret_cast) || is(tok::kw_signed) ||
+           is(tok::kw_sizeof) || is(tok::kw_static_cast) ||
+           is(tok::kw_template) || is(tok::kw_throw) || is(tok::kw_try) ||
+           is(tok::kw_typename) || is(tok::kw_using) || is(tok::kw_virtual);
   }
   // HLSL Change Starts  
 

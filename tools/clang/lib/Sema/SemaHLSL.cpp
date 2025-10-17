@@ -15513,7 +15513,8 @@ static bool IsUsageAttributeCompatible(AttributeList::Kind kind, bool &usageIn,
 
 // Diagnose valid/invalid modifiers for HLSL.
 bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
-                            TypeSourceInfo *TInfo, bool isParameter) {
+                            TypeSourceInfo *TInfo, bool isParameter,
+                            RecordDecl *Record) {
   assert(getLangOpts().HLSL &&
          "otherwise this is called without checking language first");
 
@@ -15758,6 +15759,10 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         Diag(pAttr->getLoc(), diag::err_hlsl_varmodifiersna)
             << "'extern'" << pAttr->getName() << declarationType
             << pAttr->getRange();
+        result = false;
+      }
+      if (TInfo->getType().getTypePtr()->isUnionType()) {
+        Diag(pAttr->getLoc(), diag::err_union_groupshared);
         result = false;
       }
       break;
@@ -16094,6 +16099,16 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   auto &&unusualIter = D.UnusualAnnotations.begin();
   auto &&unusualEnd = D.UnusualAnnotations.end();
   for (; unusualIter != unusualEnd; ++unusualIter) {
+    if ((*unusualIter)->getKind()) {
+      if (Record && Record->isUnion() && isField) {
+        Diag(D.getLocStart(), diag::err_union_member_annotations);
+        break;
+      }
+      if (isParameter && pType->isUnionType()) {
+        Diag(D.getLocStart(), diag::err_union_object_annotations);
+        break;
+      }
+    }
     switch ((*unusualIter)->getKind()) {
     case hlsl::UnusualAnnotation::UA_ConstantPacking: {
       hlsl::ConstantPacking *constantPacking =
