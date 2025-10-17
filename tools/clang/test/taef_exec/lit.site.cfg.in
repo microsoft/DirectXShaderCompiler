@@ -20,6 +20,6 @@ except KeyError:
     key, = e.args
     lit_config.fatal("unable to find %r parameter, use '--param=%s=VALUE'" % (key,key))
 
-if not config.do_not_load_lit_cfg:
+if not getattr(config, 'do_not_load_lit_cfg', False):
     # Let the main config do the real work.
     lit_config.load_config(config, "@CLANG_SOURCE_DIR@/test/taef_exec/lit.cfg")
