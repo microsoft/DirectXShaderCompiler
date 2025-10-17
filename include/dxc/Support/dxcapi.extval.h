@@ -1,8 +1,12 @@
 #include "dxc/Support/dxcapi.use.h"
+#include "dxc/WinAdapter.h"
+#include "llvm/Support/raw_ostream.h"
+
 #include <cassert>
 #include <string>
 
 namespace dxc {
+
 class DxcDllExtValidationLoader : public DllLoader {
   // DxCompilerSupport manages the
   // lifetime of dxcompiler.dll, while DxilExtValSupport
@@ -12,8 +16,15 @@ class DxcDllExtValidationLoader : public DllLoader {
   std::string DxilDllPath;
 
 public:
-  std::string GetDxilDllPath() { return DxilDllPath; }
-  bool DxilDllFailedToLoad() {
+  std::string getDxilDllPath() { return DxilDllPath; }
+  enum InitializationFailures {
+    FailedNone = 0,
+    FailedCompilerLoad,
+    FailedDxilPath,
+    FailedDxilLoad,
+  } FailureReason = FailedNone;
+  InitializationFailures getFailureReason() { return FailureReason; }
+  bool dxilDllFailedToLoad() {
     return !DxilDllPath.empty() && !DxilExtValSupport.IsEnabled();
   }
 
@@ -22,7 +33,8 @@ public:
   HRESULT CreateInstance2Impl(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
                               IUnknown **pResult) override;
 
-  HRESULT Initialize();
+  HRESULT initialize();
+  HRESULT InitializeForDll(LPCSTR dllName, LPCSTR fnName);
 
   bool IsEnabled() const override { return DxCompilerSupport.IsEnabled(); }
 };

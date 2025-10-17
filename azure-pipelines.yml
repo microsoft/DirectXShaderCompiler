@@ -45,7 +45,23 @@ stages:
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
         call utils\hct\hcttest.cmd -$(configuration) exec
-      displayName: 'DXIL Execution Tests'
+      displayName: 'DXIL Execution Tests'        
+    - script: |
+        call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite 1.6
+      displayName: 'DXIL Compat Suite Tests (1.6 release)'
+      condition: succeededOrFailed()
+    - script: |
+        call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite 1.7
+      displayName: 'DXIL Compat Suite Tests (1.7 release)'
+      condition: succeededOrFailed()
+    - script: |
+        call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite 1.8
+      displayName: 'DXIL Compat Suite Tests (1.8 release)'
+      condition: succeededOrFailed()
+    
 
   - job: Nix
     timeoutInMinutes: 165
