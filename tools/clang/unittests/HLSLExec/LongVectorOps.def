@@ -159,55 +159,33 @@ OP_DEFAULT(Reduction, Dot, 2, "dot", ",")
 OP_DEFAULT_DEFINES(Unary, ShuffleVector, 1, "TestShuffleVector", "", " -DFUNC_SHUFFLE_VECTOR=1")
 
 
-#define OP_LOAD_AND_STORE_DEFAULT(SYMBOL, SHADER_NAME)                         \
+#define OP_LOAD_AND_STORE(SYMBOL, SHADER_NAME)                                 \
    OP(UNARY, SYMBOL, 1, "", "", "", "LongVectorOp_" SHADER_NAME,               \
        Default1, Default2, Default3)
-#define OP_LOAD_AND_STORE_DEFAULT_DEFINES(SYMBOL, DEFINES, SHADER_NAME)        \
-   OP(UNARY, SYMBOL, 1, "", "", DEFINES, "LongVectorOp_" SHADER_NAME,          \
-       Default1, Default2, Default3)
+#define OP_LOAD_AND_STORE_SB(SYMBOL, DEFINES, SHADER_NAME)        \
+   OP(UNARY, SYMBOL, 1, "", "", " -DUSE_STRUCTURED_BUFFER=1", "LongVectorOp_", \
+      SHADER_NAME, Default1, Default2, Default3)
 
-OP_LOAD_AND_STORE_DEFAULT(LoadAndStore_ResourceDescriptorHeap_UAV,
-                         "ResourceDescriptorHeap_UAV")
+// BAB == Byte Address Buffer
+// RDH == Resource Descriptor Heap
+// RD == Root Descriptor
+// DT == Descriptor Table
+// SB == Structured Buffer
+OP_LOAD_AND_STORE(LoadAndStore_RDH_BAB_UAV,"ResourceDescriptorHeap_UAV")
+OP_LOAD_AND_STORE(LoadAndStore_RDH_BAB_SRV,"ResourceDescriptorHeap_SRV")
+OP_LOAD_AND_STORE(LoadAndStore_DT_BAB_UAV,"DescriptorTable_UAV")
+OP_LOAD_AND_STORE(LoadAndStore_DT_BAB_SRV, "DescriptorTable_SRV")
+OP_LOAD_AND_STORE(LoadAndStore_RD_BAB_UAV, "RootDescriptor_UAV")
+OP_LOAD_AND_STORE(LoadAndStore_RD_BAB_SRV, "RootDescriptor_SRV")
 
-OP_LOAD_AND_STORE_DEFAULT(LoadAndStore_ResourceDescriptorHeap_SRV,
-                          "ResourceDescriptorHeap_SRV")
+OP_LOAD_AND_STORE_SB(LoadAndStore_RDH_SB_UAV, "ResourceDescriptorHeap_UAV")
+OP_LOAD_AND_STORE_SB(LoadAndStore_RDH_SB_SRV, "ResourceDescriptorHeap_SRV")
+OP_LOAD_AND_STORE_SB(LoadAndStore_DT_SB_UAV, "DescriptorTable_UAV")
+OP_LOAD_AND_STORE_SB(LoadAndStore_DT_SB_SRV, "DescriptorTable_SRV")
+OP_LOAD_AND_STORE_SB(LoadAndStore_RD_SB_UAV, "RootDescriptor_UAV")
+OP_LOAD_AND_STORE_SB(LoadAndStore_RD_SB_SRV, "RootDescriptor_SRV")
 
-OP_LOAD_AND_STORE_DEFAULT(LoadAndStore_DescriptorTable_UAV,
-                          "DescriptorTable_UAV")
-
-OP_LOAD_AND_STORE_DEFAULT(LoadAndStore_DescriptorTable_SRV,
-                          "DescriptorTable_SRV")
-
-OP_LOAD_AND_STORE_DEFAULT(LoadAndStore_RootDescriptor_UAV,
-                          "RootDescriptor_UAV")
-
-OP_LOAD_AND_STORE_DEFAULT(LoadAndStore_RootDescriptor_SRV,
-                          "RootDescriptor_SRV")
-
-OP_LOAD_AND_STORE_DEFAULT_DEFINES(LoadAndStore_ResourceDescriptorHeap_SB_UAV,
-                                 " -DUSE_STRUCTURED_BUFFER=1",
-                                 "ResourceDescriptorHeap_UAV")
-
-OP_LOAD_AND_STORE_DEFAULT_DEFINES(LoadAndStore_ResourceDescriptorHeap_SB_SRV,
-                                 " -DUSE_STRUCTURED_BUFFER=1",
-                                 "ResourceDescriptorHeap_SRV")
-
-OP_LOAD_AND_STORE_DEFAULT_DEFINES(LoadAndStore_DescriptorTable_SB_UAV,
-                                  " -DUSE_STRUCTURED_BUFFER=1",
-                                  "DescriptorTable_UAV")
-
-OP_LOAD_AND_STORE_DEFAULT_DEFINES(LoadAndStore_DescriptorTable_SB_SRV,
-                                  " -DUSE_STRUCTURED_BUFFER=1",
-                                  "DescriptorTable_SRV")
-
-OP_LOAD_AND_STORE_DEFAULT_DEFINES(LoadAndStore_RootDescriptor_SB_UAV,
-                                 " -DUSE_STRUCTURED_BUFFER=1",
-                                 "RootDescriptor_UAV")
-
-OP_LOAD_AND_STORE_DEFAULT_DEFINES(LoadAndStore_RootDescriptor_SB_SRV,
-                                 " -DUSE_STRUCTURED_BUFFER=1",
-                                 "RootDescriptor_SRV")
-
-#undef OP_LOAD_AND_STORE_DEFAULT
+#undef OP_LOAD_AND_STORE
+#undef OP_LOAD_AND_STORE_DEFINES
 
 #undef OP
