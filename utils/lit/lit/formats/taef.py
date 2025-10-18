@@ -127,7 +127,7 @@ class TaefTest(TestFormat):
 
         cmd = [self.te, test_dll, '/inproc',
                 '/select:', select_filter,
-                '/miniDumpOnCrash', '/unicodeOutput:false',
+                '/unicodeOutput:false',
                 str.format('/outputFolder:{}', self.test_path)]
         cmd.extend(self.extra_params)
 
