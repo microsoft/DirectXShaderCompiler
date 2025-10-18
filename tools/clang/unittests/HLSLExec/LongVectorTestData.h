@@ -361,8 +361,8 @@ INPUT_SET(InputSet::RangeHalfPi, 0.315f, -0.316f, 1.409f, -0.09f, -1.569f,
           1.302f, -0.326f, 0.781f, -1.235f, 0.623f);
 INPUT_SET(InputSet::RangeOne, 0.727f, 0.331f, -0.957f, 0.677f, -0.025f, 0.495f,
           0.855f, -0.673f, -0.678f, -0.905f);
-INPUT_SET(InputSet::Positive, 1.0f, 1.0f, 3424241.0f, 0.01f, 5531.0f, 0.01f,
-          1.0f, 0.01f, 331.2330f, 3250.01f);
+INPUT_SET(InputSet::Positive, 1.0f, 1.0f, 65535.0f, 0.01f, 5531.0f, 0.01f, 1.0f,
+          0.01f, 331.2330f, 3250.01f);
 INPUT_SET(InputSet::SelectCond, 0.0f, 1.0f);
 END_INPUT_SETS()
 
@@ -379,8 +379,8 @@ INPUT_SET(InputSet::RangeOne, 0.331, 0.277, -0.957, 0.677, -0.025, 0.495, 0.855,
           -0.673, -0.678, -0.905);
 INPUT_SET(InputSet::SplitDouble, 0.0, -1.0, 1.0, -1.0, 12345678.87654321, -1.0,
           1.0, -1.0, 1.0, -1.0);
-INPUT_SET(InputSet::Positive, 1.0, 1.0, 3424241.0, 0.01, 5531.0, 0.01, 1.0,
-          0.01, 331.2330, 3250.01);
+INPUT_SET(InputSet::Positive, 1.0, 1.0, 65535.0, 0.01, 5531.0, 0.01, 1.0, 0.01,
+          331.2330, 3250.01);
 INPUT_SET(InputSet::SelectCond, 0.0, 1.0);
 END_INPUT_SETS()
 
