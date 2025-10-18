@@ -1188,7 +1188,7 @@ void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
   if (OverrideInputSize)
     InputVectorSizes.push_back(OverrideInputSize);
   else
-    InputVectorSizes = {4, 5, 16, 17, 35, 100, 256, 1024};
+    InputVectorSizes = {3, 5, 16, 17, 35, 100, 256, 1024};
 
   constexpr const Operation &Operation = getOperation(OP);
 

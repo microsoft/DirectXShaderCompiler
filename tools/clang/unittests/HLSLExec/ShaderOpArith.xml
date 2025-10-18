@@ -4002,7 +4002,7 @@ void MSMain(uint GID : SV_GroupIndex,
   </ShaderOp>
 
   <ShaderOp Name="LongVectorOp" CS="CS">
-    <RootSignature>RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED), UAV(u0),
+    <RootSignature>RootFlags(0), UAV(u0),
     UAV(u1), UAV(u2), UAV(u3)</RootSignature>
     <!-- Width="8192" BYTES to account for largest type (64 bits) and vector
     size of 1024 elements (the max long vector size)-->
