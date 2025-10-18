@@ -463,8 +463,8 @@ void configureLoadAndStoreShaderOp(
 
   // When using DXGI_FORMAT_R32_TYPELESS, we need to compute the number of
   // 32-bit elements required to hold the vector.
-  const UINT Num32BitElements =
-      static_cast<UINT>(std::ceil(VectorSize * (OpDataType.HLSLSizeInBytes / 4.0f)));
+  const UINT Num32BitElements = static_cast<UINT>(
+      std::ceil(VectorSize * (OpDataType.HLSLSizeInBytes / 4.0f)));
 
   auto ComputeNumElements = [&](DXGI_FORMAT Format) -> UINT {
     switch (Format) {
@@ -1120,9 +1120,9 @@ template <typename T> struct ExpectedBuilder<OpType::ShuffleVector, T> {
 //
 // Loading and Storing of buffers
 //
-//#define CAST_OP(OP, TYPE, IMPL)                                                
-//  template <typename T> struct Op<OP, T, 1> : StrictValidation {               
-//    TYPE operator()(T A) { return IMPL; }                                      
+// #define CAST_OP(OP, TYPE, IMPL)
+//  template <typename T> struct Op<OP, T, 1> : StrictValidation {
+//    TYPE operator()(T A) { return IMPL; }
 //  };
 // TODO: Should swap these and initialize to strict validation
 DEFAULT_OP_1(OpType::LoadAndStore_RDH_BAB_UAV, (A));
