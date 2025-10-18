@@ -162,9 +162,9 @@ OP_DEFAULT_DEFINES(Unary, ShuffleVector, 1, "TestShuffleVector", "", " -DFUNC_SH
 #define OP_LOAD_AND_STORE(SYMBOL, SHADER_NAME)                                 \
    OP(UNARY, SYMBOL, 1, "", "", "", "LongVectorOp_" SHADER_NAME,               \
        Default1, Default2, Default3)
-#define OP_LOAD_AND_STORE_SB(SYMBOL, DEFINES, SHADER_NAME)        \
-   OP(UNARY, SYMBOL, 1, "", "", " -DUSE_STRUCTURED_BUFFER=1", "LongVectorOp_", \
-      SHADER_NAME, Default1, Default2, Default3)
+#define OP_LOAD_AND_STORE_SB(SYMBOL, SHADER_NAME)                              \
+   OP(UNARY, SYMBOL, 1, "", "", " -DUSE_STRUCTURED_BUFFER=1",                  \
+      "LongVectorOp_" SHADER_NAME, Default1, Default2, Default3)
 
 // BAB == Byte Address Buffer
 // RDH == Resource Descriptor Heap

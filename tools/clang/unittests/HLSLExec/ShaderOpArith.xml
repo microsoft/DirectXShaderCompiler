@@ -3721,7 +3721,7 @@ void MSMain(uint GID : SV_GroupIndex,
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
      UAV(u0), UAV(u1)</RootSignature>
     <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
-    <Resource Name="InputVector1" Dimension="BUFFER" Width="0" Init="ByName"
+    <Resource Name="InputVector1" Dimension="BUFFER" Init="ByName"
     ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
     TransitionTo="UNORDERED_ACCESS">
     </Resource>
@@ -3738,11 +3738,11 @@ void MSMain(uint GID : SV_GroupIndex,
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
-          struct StructuredBufferType {
+          struct SLongVec {
             vector<TYPE, NUM> data;
           };
-          RWStructuredBuffer<StructuredBufferType> InputVector : register(u0);
-          RWStructuredBuffer<StructuredBufferType> OutputVector: register(u1);
+          RWStructuredBuffer<SLongVec> InputVector : register(u0);
+          RWStructuredBuffer<SLongVec> OutputVector: register(u1);
         #else
           RWByteAddressBuffer InputVector : register(u0);
           RWByteAddressBuffer OutputVector : register(u1);
@@ -3765,7 +3765,7 @@ void MSMain(uint GID : SV_GroupIndex,
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
      SRV(t0), UAV(u1)</RootSignature>
     <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
-    <Resource Name="InputVector1" Dimension="BUFFER" Width="0" Init="ByName"/>
+    <Resource Name="InputVector1" Dimension="BUFFER" Init="ByName"/>
     <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
     ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
     TransitionTo="UNORDERED_ACCESS">
@@ -3779,8 +3779,11 @@ void MSMain(uint GID : SV_GroupIndex,
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
-          StructuredBuffer<StructuredBufferType> InputVector : register(t0);
-          RWStructuredBuffer<StructuredBufferType> OutputVector : register(u1);
+          struct SLongVec {
+            vector<TYPE, NUM> data;
+          };
+          StructuredBuffer<SLongVec> InputVector : register(t0);
+          RWStructuredBuffer<SLongVec> OutputVector : register(u1);
         #else
           ByteAddressBuffer InputVector : register(t0);
           RWByteAddressBuffer OutputVector : register(u1);
@@ -3827,11 +3830,11 @@ void MSMain(uint GID : SV_GroupIndex,
       <![CDATA[
 
         #if USE_STRUCTURED_BUFFER
-          struct StructuredBufferType {
+          struct SLongVec {
             vector<TYPE, NUM> data;
           };
-          RWStructuredBuffer<StructuredBufferType> InputVector : register(u0);
-          RWStructuredBuffer<StructuredBufferType> OutputVector: register(u1);
+          RWStructuredBuffer<SLongVec> InputVector : register(u0);
+          RWStructuredBuffer<SLongVec> OutputVector: register(u1);
         #else
           RWByteAddressBuffer InputVector : register(u0);
           RWByteAddressBuffer OutputVector : register(u1);
@@ -3877,11 +3880,11 @@ void MSMain(uint GID : SV_GroupIndex,
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
-          struct StructuredBufferType {
+          struct SLongVec {
             vector<TYPE, NUM> data;
           };
-          StructuredBuffer<StructuredBufferType> InputVector : register(t0);
-          RWStructuredBuffer<StructuredBufferType> OutputVector: register(u0);
+          StructuredBuffer<SLongVec> InputVector : register(t0);
+          RWStructuredBuffer<SLongVec> OutputVector: register(u0);
         #else
           ByteAddressBuffer InputVector : register(t0);
           RWByteAddressBuffer OutputVector : register(u0);
@@ -3924,7 +3927,7 @@ void MSMain(uint GID : SV_GroupIndex,
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
-          struct StructuredBufferType {
+          struct SLongVec {
             vector<TYPE, NUM> data;
           };
         #endif
@@ -3933,8 +3936,8 @@ void MSMain(uint GID : SV_GroupIndex,
         void main(uint GI : SV_GroupIndex) {
 
           #if USE_STRUCTURED_BUFFER
-            StructuredBuffer<StructuredBufferType> InputVector = ResourceDescriptorHeap[0];
-            RWStructuredBuffer<StructuredBufferType> OutputVector = ResourceDescriptorHeap[1];
+            StructuredBuffer<SLongVec> InputVector = ResourceDescriptorHeap[0];
+            RWStructuredBuffer<SLongVec> OutputVector = ResourceDescriptorHeap[1];
             OutputVector[0].data = InputVector[0].data;
           #else
             ByteAddressBuffer InputVector = ResourceDescriptorHeap[0];
@@ -3974,7 +3977,7 @@ void MSMain(uint GID : SV_GroupIndex,
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
-          struct StructuredBufferType {
+          struct SLongVec {
             vector<TYPE, NUM> data;
           };
         #endif
@@ -3982,8 +3985,8 @@ void MSMain(uint GID : SV_GroupIndex,
         [numthreads(1,1,1)]
         void main(uint GI : SV_GroupIndex) {
           #if USE_STRUCTURED_BUFFER
-            RWStructuredBuffer<StructuredBufferType> InputVector = ResourceDescriptorHeap[0];
-            RWStructuredBuffer<StructuredBufferType> OutputVector = ResourceDescriptorHeap[1];
+            RWStructuredBuffer<SLongVec> InputVector = ResourceDescriptorHeap[0];
+            RWStructuredBuffer<SLongVec> OutputVector = ResourceDescriptorHeap[1];
             OutputVector[0].data = InputVector[0].data;
           #else
             RWByteAddressBuffer InputVector = ResourceDescriptorHeap[0];
