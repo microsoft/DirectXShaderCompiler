@@ -611,6 +611,8 @@ struct StrictValidation {
     T operator()(T A, T B, T C) { return IMPL; }                               \
   }
 
+#define STRICT_OP_1(OP, IMPL) OP_1(OP, StrictValidation, IMPL)
+
 #define DEFAULT_OP_1(OP, IMPL) OP_1(OP, DefaultValidation<T>, IMPL)
 #define DEFAULT_OP_2(OP, IMPL) OP_2(OP, DefaultValidation<T>, IMPL)
 #define DEFAULT_OP_3(OP, IMPL) OP_3(OP, DefaultValidation<T>, IMPL)
@@ -1118,25 +1120,21 @@ template <typename T> struct ExpectedBuilder<OpType::ShuffleVector, T> {
 };
 
 //
-// Loading and Storing of buffers
+// Loading and Storing of Buffers
 //
-// #define CAST_OP(OP, TYPE, IMPL)
-//  template <typename T> struct Op<OP, T, 1> : StrictValidation {
-//    TYPE operator()(T A) { return IMPL; }
-//  };
-// TODO: Should swap these and initialize to strict validation
-DEFAULT_OP_1(OpType::LoadAndStore_RDH_BAB_UAV, (A));
-DEFAULT_OP_1(OpType::LoadAndStore_RDH_BAB_SRV, (A));
-DEFAULT_OP_1(OpType::LoadAndStore_DT_BAB_UAV, (A));
-DEFAULT_OP_1(OpType::LoadAndStore_DT_BAB_SRV, (A));
-DEFAULT_OP_1(OpType::LoadAndStore_RD_BAB_UAV, (A));
-DEFAULT_OP_1(OpType::LoadAndStore_RD_BAB_SRV, (A));
-DEFAULT_OP_1(OpType::LoadAndStore_RDH_SB_UAV, (A));
-DEFAULT_OP_1(OpType::LoadAndStore_RDH_SB_SRV, (A));
-DEFAULT_OP_1(OpType::LoadAndStore_DT_SB_UAV, (A));
-DEFAULT_OP_1(OpType::LoadAndStore_DT_SB_SRV, (A));
-DEFAULT_OP_1(OpType::LoadAndStore_RD_SB_UAV, (A));
-DEFAULT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
+
+STRICT_OP_1(OpType::LoadAndStore_RDH_BAB_UAV, (A));
+STRICT_OP_1(OpType::LoadAndStore_RDH_BAB_SRV, (A));
+STRICT_OP_1(OpType::LoadAndStore_DT_BAB_UAV, (A));
+STRICT_OP_1(OpType::LoadAndStore_DT_BAB_SRV, (A));
+STRICT_OP_1(OpType::LoadAndStore_RD_BAB_UAV, (A));
+STRICT_OP_1(OpType::LoadAndStore_RD_BAB_SRV, (A));
+STRICT_OP_1(OpType::LoadAndStore_RDH_SB_UAV, (A));
+STRICT_OP_1(OpType::LoadAndStore_RDH_SB_SRV, (A));
+STRICT_OP_1(OpType::LoadAndStore_DT_SB_UAV, (A));
+STRICT_OP_1(OpType::LoadAndStore_DT_SB_SRV, (A));
+STRICT_OP_1(OpType::LoadAndStore_RD_SB_UAV, (A));
+STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
 
 //
 // dispatchTest
