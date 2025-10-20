@@ -463,8 +463,8 @@ void configureLoadAndStoreShaderOp(
 
   // When using DXGI_FORMAT_R32_TYPELESS, we need to compute the number of
   // 32-bit elements required to hold the vector.
-  const UINT Num32BitElements = static_cast<UINT>(
-      std::ceil(VectorSize * (OpDataType.HLSLSizeInBytes / 4.0f)));
+  const UINT Num32BitElements =
+      static_cast<UINT>((VectorSize * OpDataType.HLSLSizeInBytes + 3) / 4);
 
   auto ComputeNumElements = [&](DXGI_FORMAT Format) -> UINT {
     switch (Format) {
