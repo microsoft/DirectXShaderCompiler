@@ -394,48 +394,51 @@ runTest(ID3D12Device *D3DDevice, bool VerboseLogging,
 
   if (LoadAndStoreOpTypes.count(Operation.Type) > 0)
     configureLoadAndStoreShaderOp(Operation, OpDataType, Inputs[0].size(),
-                                  sizeof(T), ShaderOpSet);
+                                  sizeof(T), ShaderOpSet.get());
 
   // RunShaderOpTest is a helper function that handles resource creation
   // and setup. It also handles the shader compilation and execution. It takes
   // a callback that is called when the shader is compiled, but before it is
   // executed.
-  auto TestResult = st::RunShaderOpTestAfterParse(
-      D3DDevice, DxilDllLoader, Operation.ShaderName,
-      [&](LPCSTR Name, std::vector<BYTE> &ShaderData, st::ShaderOp *ShaderOp) {
-        if (VerboseLogging)
-          hlsl_test::LogCommentFmt(
-              L"RunShaderOpTest CallBack. Resource Name: %S", Name);
+  std::shared_ptr<st::ShaderOpTestResult> TestResult =
+      st::RunShaderOpTestAfterParse(
+          D3DDevice, DxilDllLoader, Operation.ShaderName,
+          [&](LPCSTR Name, std::vector<BYTE> &ShaderData,
+              st::ShaderOp *ShaderOp) {
+            if (VerboseLogging)
+              hlsl_test::LogCommentFmt(
+                  L"RunShaderOpTest CallBack. Resource Name: %S", Name);
 
-        // This callback is called once for each resource defined for
-        // "LongVectorOp" in ShaderOpArith.xml. All callbacks are fired for
-        // each resource. We determine whether they are applicable to the test
-        // case when they run.
+            // This callback is called once for each resource defined for
+            // "LongVectorOp" in ShaderOpArith.xml. All callbacks are fired for
+            // each resource. We determine whether they are applicable to the
+            // test case when they run.
 
-        // Process the callback for the OutputVector resource.
-        if (_stricmp(Name, "OutputVector") == 0) {
-          // We only need to set the compiler options string once. So this is
-          // a convenient place to do it.
-          ShaderOp->Shaders.at(0).Arguments = CompilerOptionsString.c_str();
+            // Process the callback for the OutputVector resource.
+            if (_stricmp(Name, "OutputVector") == 0) {
+              // We only need to set the compiler options string once. So this
+              // is a convenient place to do it.
+              ShaderOp->Shaders.at(0).Arguments = CompilerOptionsString.c_str();
 
-          return;
-        }
+              return;
+            }
 
-        // Process the callback for the InputVector[1-3] resources
-        for (size_t I = 0; I < 3; ++I) {
-          std::string BufferName = "InputVector";
-          BufferName += (char)('1' + I);
-          if (_stricmp(Name, BufferName.c_str()) == 0) {
-            if (I < Operation.Arity)
-              fillShaderBufferFromLongVectorData(ShaderData, Inputs[I]);
-            return;
-          }
-        }
+            // Process the callback for the InputVector[1-3] resources
+            for (size_t I = 0; I < 3; ++I) {
+              std::string BufferName = "InputVector";
+              BufferName += (char)('1' + I);
+              if (_stricmp(Name, BufferName.c_str()) == 0) {
+                if (I < Operation.Arity)
+                  fillShaderBufferFromLongVectorData(ShaderData, Inputs[I]);
+                return;
+              }
+            }
 
-        LOG_ERROR_FMT_THROW(
-            L"RunShaderOpTest CallBack. Unexpected Resource Name: %S", Name);
-      },
-      ShaderOpSet);
+            LOG_ERROR_FMT_THROW(
+                L"RunShaderOpTest CallBack. Unexpected Resource Name: %S",
+                Name);
+          },
+          std::move(ShaderOpSet));
 
   // Extract the data from the shader result
   MappedData ShaderOutData;
@@ -452,13 +455,14 @@ runTest(ID3D12Device *D3DDevice, bool VerboseLogging,
 
 // LoadAndStore operations dynamically configure sizes on the underlying
 // resources based on the vector size and data type size.
-void configureLoadAndStoreShaderOp(
-    const Operation &Operation, const DataType &OpDataType, size_t VectorSize,
-    size_t ElementSize, std::shared_ptr<st::ShaderOpSet> &ShaderOpSet) {
+void configureLoadAndStoreShaderOp(const Operation &Operation,
+                                   const DataType &OpDataType,
+                                   size_t VectorSize, size_t ElementSize,
+                                   st::ShaderOpSet *ShaderOpSet) {
 
   DXASSERT_NOMSG(LoadAndStoreOpTypes.count(Operation.Type) > 0);
 
-  auto ShaderOp = ShaderOpSet->GetShaderOp(Operation.ShaderName);
+  st::ShaderOp *ShaderOp = ShaderOpSet->GetShaderOp(Operation.ShaderName);
   DXASSERT(ShaderOp, "Invalid ShaderOp name");
 
   // When using DXGI_FORMAT_R32_TYPELESS, we need to compute the number of
