@@ -3718,8 +3718,7 @@ void MSMain(uint GID : SV_GroupIndex,
   </ShaderOp>
 
   <ShaderOp Name="LongVectorOp_RootDescriptor_UAV" CS="CS">
-    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
-     UAV(u0), UAV(u1)</RootSignature>
+    <RootSignature>UAV(u0), UAV(u1)</RootSignature>
     <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
     <Resource Name="InputVector1" Dimension="BUFFER" Init="ByName"
     ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
@@ -3762,8 +3761,7 @@ void MSMain(uint GID : SV_GroupIndex,
   </ShaderOp>
 
   <ShaderOp Name="LongVectorOp_RootDescriptor_SRV" CS="CS">
-    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
-     SRV(t0), UAV(u1)</RootSignature>
+    <RootSignature>SRV(t0), UAV(u1)</RootSignature>
     <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
     <Resource Name="InputVector1" Dimension="BUFFER" Init="ByName"/>
     <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
@@ -3803,8 +3801,7 @@ void MSMain(uint GID : SV_GroupIndex,
   </ShaderOp>
 
   <ShaderOp Name="LongVectorOp_DescriptorTable_UAV" CS="CS">
-    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
-     DescriptorTable(UAV(u0, numDescriptors=2))</RootSignature>
+    <RootSignature>DescriptorTable(UAV(u0, numDescriptors=2))</RootSignature>
     <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
     <Resource Name="InputVector1" Dimension="BUFFER" Width="0" Init="ByName"
     ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
@@ -3857,8 +3854,7 @@ void MSMain(uint GID : SV_GroupIndex,
   </ShaderOp>
 
   <ShaderOp Name="LongVectorOp_DescriptorTable_SRV" CS="CS">
-    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
-     DescriptorTable(SRV(t0, numDescriptors=1), UAV(u0, numDescriptors=1))</RootSignature>
+    <RootSignature>DescriptorTable(SRV(t0, numDescriptors=1), UAV(u0, numDescriptors=1))</RootSignature>
     <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
     <Resource Name="InputVector1" Dimension="BUFFER" Width="0" Init="ByName"/>
     <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
@@ -4002,8 +3998,7 @@ void MSMain(uint GID : SV_GroupIndex,
   </ShaderOp>
 
   <ShaderOp Name="LongVectorOp" CS="CS">
-    <RootSignature>RootFlags(0), UAV(u0),
-    UAV(u1), UAV(u2), UAV(u3)</RootSignature>
+    <RootSignature>UAV(u0), UAV(u1), UAV(u2), UAV(u3)</RootSignature>
     <!-- Width="8192" BYTES to account for largest type (64 bits) and vector
     size of 1024 elements (the max long vector size)-->
     <Resource Name="InputVector1" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
