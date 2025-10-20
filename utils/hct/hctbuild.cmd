@@ -215,11 +215,17 @@ if "%1"=="-fresh" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-nuget-config" (
-  set NUGET_WARP_EXTRA_ARGS="-Config %~2"
+  set "NUGET_WARP_EXTRA_ARGS=-Config %~2 %NUGET_WARP_EXTRA_ARGS%"
   shift /1
-  shift /1 & goto :parse_args
+  shift /1
+  goto :parse_args
 )
-
+if "%1"=="-warp-nuget-version" (
+  set "NUGET_WARP_EXTRA_ARGS=-Version %~2 %NUGET_WARP_EXTRA_ARGS%"
+  shift /1
+  shift /1    
+  goto :parse_args
+)
 
 rem Begin SPIRV change
 if "%1"=="-spirv" (
@@ -359,8 +365,8 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_BUILD_EXAMPLES:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=%DXC_CMAKE_SYSTEM_VERSION%
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR%
+set "CMAKE_OPTS=%CMAKE_OPTS% -DNUGET_WARP_EXTRA_ARGS="%NUGET_WARP_EXTRA_ARGS%""
 
-set CMAKE_OPTS=%CMAKE_OPTS% -DNUGET_WARP_EXTRA_ARGS=%NUGET_WARP_EXTRA_ARGS%
 
 if "%LIT_ARGS%" NEQ "" (
   set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_LIT_ARGS="%LIT_ARGS%"
