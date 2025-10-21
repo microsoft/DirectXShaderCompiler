@@ -593,7 +593,8 @@ template <typename T> struct DefaultValidation {
   }
 };
 
-// Strict Validation - require exact matches for all types
+// Strict Validation - Defaults to exact matches.
+// Tolerance cant be set to a non-zero value to allow for a wider range.
 struct StrictValidation {
   ValidationConfig ValidationConfig;
 };
@@ -1097,21 +1098,29 @@ REDUCTION_OP(OpType::All_Zero, (std::all_of));
 
 #undef REDUCTION_OP
 
-template <typename T> struct Op<OpType::Dot, T, 2> : DefaultValidation<T> {};
+template <typename T> struct Op<OpType::Dot, T, 2> : StrictValidation {};
 template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
-  static std::vector<T> buildExpected(Op<OpType::Dot, T, 2>,
+  static std::vector<T> buildExpected(Op<OpType::Dot, T, 2> Op,
                                       const InputSets<T> &Inputs,
                                       uint16_t ScalarInputFlags) {
     UNREFERENCED_PARAMETER(ScalarInputFlags);
 
     // Accumulate in fp32 to improve precision.
     float DotProduct = 0.0f;
+    float DotProductAbs = 0.0f;
 
-    for (size_t I = 0; I < Inputs[0].size(); ++I) {
+    const size_t VectorSize = Inputs[0].size();
+
+    for (size_t I = 0; I < VectorSize; ++I) {
       const float A = Inputs[0][I];
       const float B = Inputs[1][I];
       DotProduct += A * B;
+
+      DotProductAbs += std::fabs(A) * std::fabs(B);
     }
+
+    Op.ValidationConfig.Tolerance =
+        (VectorSize + 1) * std::numeric_limits<T>::epsilon() * DotProductAbs;
 
     std::vector<T> Expected;
     Expected.push_back(DotProduct);
