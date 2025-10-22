@@ -641,6 +641,29 @@ inline bool CompareFloatRelativeEpsilon(
   return CompareFloatULP(fsrc, fref, 23 - nRelativeExp, mode);
 }
 
+//inline HALF GetULPForHalf(HALF &Value) {
+//  HALF NextValue = Value;
+//
+//  //const uint16_t Exp = (NextValue >> 10) & 0x1F;
+//  //if(Exp == 0x1F)
+//  //  return std::numeric_limits<HALF>::infinity();
+//
+//  if(Value & FLOAT16_BIT_SIGN)
+//  {
+//    if(Value == FLOAT16_NEG_ZERO)
+//      NextValue = 0x0000;
+//    else
+//      --NextValue;
+//  }
+//  else {
+//    ++NextValue;
+//  }
+//
+//  float A = DirectX::PackedVector::XMConvertHalfToFloat(Value);
+//  float B = DirectX::PackedVector::XMConvertHalfToFloat(NextValue);
+//  return B - A;
+//}
+
 inline bool CompareHalfULP(const uint16_t &fsrc, const uint16_t &fref,
                            float ULPTolerance) {
   // Treat +0 and -0 as equal

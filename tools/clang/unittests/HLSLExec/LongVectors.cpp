@@ -251,7 +251,7 @@ bool doVectorsMatch(const std::vector<T> &ActualValues,
     logLongVector(ExpectedValues, L"ExpectedValues");
 
     hlsl_test::LogCommentFmt(
-        L"ValidationType: %s, Tolerance: %f",
+        L"ValidationType: %s, Tolerance: %17g",
         ValidationType == ValidationType::Epsilon ? L"Epsilon" : L"ULP",
         Tolerance);
   }
@@ -1114,32 +1114,43 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
                                       uint16_t ScalarInputFlags) {
     UNREFERENCED_PARAMETER(ScalarInputFlags);
 
-    // Accumulate in fp32 to improve precision.
-    float DotProduct = 0.0f;
+    // Accumulate in fp64 to improve precision.
+    double DotProduct = 0.0f;
 
-    std::vector<float> PositiveProducts;
-    std::vector<float> NegativeProducts;
+    std::vector<double> PositiveProducts;
+    std::vector<double> NegativeProducts;
 
     const size_t VectorSize = Inputs[0].size();
 
+    double AbsoluteEpsilon = 0.0f;
+    const float ULPTolerance = 0.5f;
+
     for (size_t I = 0; I < VectorSize; ++I) {
-      const float A = Inputs[0][I];
-      const float B = Inputs[1][I];
-      const float Product = A * B;
+      const double Product = Inputs[0][I] * Inputs[1][I];
+      AbsoluteEpsilon += computeAbsoluteEpsilon<T>(Product, ULPTolerance);
+
       DotProduct += Product;
 
-      if (Product >= 0.0f)
+      if (Product >= 0.0)
         PositiveProducts.push_back(Product);
       else
         NegativeProducts.push_back(Product);
     }
 
-    const DataType &OpDataType = getDataType<T>();
-    computeDotTolerance(PositiveProducts, NegativeProducts, Op.ValidationConfig,
-                        OpDataType.Is16Bit);
+    PositiveProducts.insert(PositiveProducts.end(), NegativeProducts.begin(), NegativeProducts.end());
+
+    double A = PositiveProducts.empty() ? 0.0 : PositiveProducts.front();
+    for(size_t I = 1; I < PositiveProducts.size(); ++I) {
+      A += PositiveProducts[I];
+      AbsoluteEpsilon += computeAbsoluteEpsilon<T>(AbsoluteEpsilon, ULPTolerance);
+    }
+
+    AbsoluteEpsilon += computeAbsoluteEpsilon<T>(AbsoluteEpsilon, ULPTolerance);
+    AbsoluteEpsilon = AbsoluteEpsilon * VectorSize;
+    Op.ValidationConfig.Tolerance = static_cast<float>(AbsoluteEpsilon);
 
     std::vector<T> Expected;
-    Expected.push_back(DotProduct);
+    Expected.push_back(static_cast<T>(DotProduct));
     return Expected;
   }
 };
@@ -1171,48 +1182,44 @@ STRICT_OP_1(OpType::LoadAndStore_DT_SB_SRV, (A));
 STRICT_OP_1(OpType::LoadAndStore_RD_SB_UAV, (A));
 STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
 
-static void computeDotTolerance(std::vector<float> &PositiveProducts,
-                                std::vector<float> &NegativeProducts,
-                                ValidationConfig &ValidationConfig,
-                                bool Is16Bit) {
+static double computeAbsoluteEpsilon(double A, float ULPTolerance)
+{
+  // TODO: We will need to handle denormals, infinities, and NaNs here.
+  // But none of the test cases should be generating those right now.
 
-  std::sort(PositiveProducts.begin(), PositiveProducts.end(),
-            std::greater_equal<float>());
-  std::sort(NegativeProducts.begin(), NegativeProducts.end(),
-            std::less_equal<float>());
+  if (A < 0.0)
+    A = -A;
 
-  // Stash the ULPs for the result of each subsequent addition.
-  float A = PositiveProducts.empty() ? 0.0f : PositiveProducts.front();
-  std::vector<float> ULP;
-  for (size_t I = 1; I < PositiveProducts.size(); ++I) {
-    A += PositiveProducts[I];
-    ULP.push_back(std::nexttowardf(A, std::numeric_limits<float>::infinity()) -
-                  A);
+  double ULP = 0.0;
+
+  if constexpr (std::is_same_v<T, HLSLHalf_t>) {
+    // TODO: I dont think the 0 case is handled properly here.
+    // But none of the inputs should be 0 right now.
+    HLSLHalf_t Next = A;
+    HLSLHalf_t Current = A;
+    if(Next.Val && 0x8000) {
+      // Negative
+      if(Next.Val == 0x8000)
+        Next.Val = 0x0000;
+      else
+        --Next.Val;
+    }
+    else {
+      ++Next.Val;
+    }
+
+    float NextF = Next;
+    float CurrentF = Current;
+    ULP = std::abs(NextF - CurrentF);
+  }
+  else {
+    ULP =
+     (std::nextafter(static_cast<T>(A), std::numeric_limits<T>::infinity()) - static_cast<T>(A));
   }
 
-  // Stash the ULPs of each subsequent addition.
-  A = NegativeProducts.empty() ? 0.0f : NegativeProducts.front();
-  for (size_t I = 1; I < NegativeProducts.size(); ++I) {
-    A += NegativeProducts[I];
-    ULP.push_back(A -
-                  std::nexttowardf(A, -std::numeric_limits<float>::infinity()));
-  }
-
-  std::sort(ULP.begin(), ULP.end(), std::greater_equal<float>());
-
-  // Sum up all of the ULPs.
-  float EpsilonA = std::accumulate(ULP.begin(), ULP.end(), 0.0f);
-
-  // And add half an ULP of the final result to get our tolerance.
-  const float ULPTolerance = Is16Bit ? 0.5f : 1.0f;
-
-  const float EpsULP = ((std::nexttowardf(
-      EpsilonA, std::numeric_limits<float>::infinity() - EpsilonA)));
-
-  EpsilonA += (EpsULP * ULPTolerance);
-
-  ValidationConfig.Tolerance = EpsilonA;
+  return ULP * ULPTolerance;
 }
+
 
 //
 // dispatchTest
