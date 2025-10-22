@@ -12,16 +12,16 @@
 
 #include "HlslExecTestUtils.h"
 
+#include <algorithm> // For sort
 #include <array>
 #include <bitset>
 #include <iomanip>
+#include <numeric> // For accumulate
 #include <optional>
 #include <sstream>
 #include <string>
 #include <type_traits>
 #include <vector>
-#include <algorithm> // For sort
-#include <numeric>   // For accumulate
 
 namespace LongVector {
 
@@ -943,7 +943,7 @@ struct Op<OpType::AsUint_SplitDouble, double, 1> : StrictValidation {};
 // values.
 template <> struct ExpectedBuilder<OpType::AsUint_SplitDouble, double> {
   static std::vector<uint32_t>
-  buildExpected(Op<OpType::AsUint_SplitDouble, double, 1>&,
+  buildExpected(Op<OpType::AsUint_SplitDouble, double, 1> &,
                 const InputSets<double> &Inputs, uint16_t ScalarInputFlags) {
     DXASSERT_NOMSG(ScalarInputFlags == 0);
     DXASSERT_NOMSG(Inputs.size() == 1);
@@ -1018,7 +1018,7 @@ DEFAULT_OP_1(OpType::Log2, (std::log2(A)));
 template <> struct Op<OpType::Frexp, float, 1> : DefaultValidation<float> {};
 
 template <> struct ExpectedBuilder<OpType::Frexp, float> {
-  static std::vector<float> buildExpected(Op<OpType::Frexp, float, 1>&,
+  static std::vector<float> buildExpected(Op<OpType::Frexp, float, 1> &,
                                           const InputSets<float> &Inputs,
                                           uint32_t) {
     DXASSERT_NOMSG(Inputs.size() == 1);
@@ -1090,7 +1090,7 @@ OP_3(OpType::Select, StrictValidation, (static_cast<bool>(A) ? B : C));
   template <typename T> struct Op<OP, T, 1> : StrictValidation {};             \
   template <typename T> struct ExpectedBuilder<OP, T> {                        \
     static std::vector<HLSLBool_t>                                             \
-    buildExpected(Op<OP, T, 1>&, const InputSets<T> &Inputs, uint16_t) {       \
+    buildExpected(Op<OP, T, 1> &, const InputSets<T> &Inputs, uint16_t) {      \
       const bool Res = STDFUNC(Inputs[0].begin(), Inputs[0].end(),             \
                                [](T A) { return A != static_cast<T>(0); });    \
       return std::vector<HLSLBool_t>{Res};                                     \
@@ -1128,14 +1128,15 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
       const float Product = A * B;
       DotProduct += Product;
 
-      if(Product >= 0.0f)
+      if (Product >= 0.0f)
         PositiveProducts.push_back(Product);
       else
         NegativeProducts.push_back(Product);
     }
 
     const DataType &OpDataType = getDataType<T>();
-    computeDotTolerance(PositiveProducts, NegativeProducts, Op.ValidationConfig, OpDataType.Is16Bit);
+    computeDotTolerance(PositiveProducts, NegativeProducts, Op.ValidationConfig,
+                        OpDataType.Is16Bit);
 
     std::vector<T> Expected;
     Expected.push_back(DotProduct);
@@ -1169,39 +1170,48 @@ STRICT_OP_1(OpType::LoadAndStore_DT_SB_UAV, (A));
 STRICT_OP_1(OpType::LoadAndStore_DT_SB_SRV, (A));
 STRICT_OP_1(OpType::LoadAndStore_RD_SB_UAV, (A));
 STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
-static void computeDotTolerance(std::vector<float> &PositiveProducts, std::vector<float> &NegativeProducts, ValidationConfig &ValidationConfig, bool Is16Bit) {
 
-    std::sort(PositiveProducts.begin(), PositiveProducts.end(), std::greater_equal<float>());
-    std::sort(NegativeProducts.begin(), NegativeProducts.end(), std::less_equal<float>());
+static void computeDotTolerance(std::vector<float> &PositiveProducts,
+                                std::vector<float> &NegativeProducts,
+                                ValidationConfig &ValidationConfig,
+                                bool Is16Bit) {
 
-    // Stash the ULPs for the result of each subsequent addition.
-    float A = PositiveProducts.empty() ? 0.0f : PositiveProducts.front();
-    std::vector<float> ULP;
-    for(size_t I = 1; I < PositiveProducts.size(); ++I) {
-      A += PositiveProducts[I];
-      ULP.push_back(std::nexttowardf(A, std::numeric_limits<float>::infinity()) - A);
-    }
+  std::sort(PositiveProducts.begin(), PositiveProducts.end(),
+            std::greater_equal<float>());
+  std::sort(NegativeProducts.begin(), NegativeProducts.end(),
+            std::less_equal<float>());
 
-    // Stash the ULPs of each subsequent addition.
-    A = NegativeProducts.empty() ? 0.0f : NegativeProducts.front();
-    for(size_t I = 1; I < NegativeProducts.size(); ++I) {
-      A += NegativeProducts[I];
-      ULP.push_back(A - std::nexttowardf(A, -std::numeric_limits<float>::infinity()));
-    }
+  // Stash the ULPs for the result of each subsequent addition.
+  float A = PositiveProducts.empty() ? 0.0f : PositiveProducts.front();
+  std::vector<float> ULP;
+  for (size_t I = 1; I < PositiveProducts.size(); ++I) {
+    A += PositiveProducts[I];
+    ULP.push_back(std::nexttowardf(A, std::numeric_limits<float>::infinity()) -
+                  A);
+  }
 
-    std::sort(ULP.begin(), ULP.end(), std::greater_equal<float>());
+  // Stash the ULPs of each subsequent addition.
+  A = NegativeProducts.empty() ? 0.0f : NegativeProducts.front();
+  for (size_t I = 1; I < NegativeProducts.size(); ++I) {
+    A += NegativeProducts[I];
+    ULP.push_back(A -
+                  std::nexttowardf(A, -std::numeric_limits<float>::infinity()));
+  }
 
-    // Sum up all of the ULPs.
-    float EpsilonA = std::accumulate(ULP.begin(), ULP.end(), 0.0f);
+  std::sort(ULP.begin(), ULP.end(), std::greater_equal<float>());
 
-    // And add half an ULP of the final result to get our tolerance.
-    const float ULPTolerance = Is16Bit ? 0.5f : 1.0f;
+  // Sum up all of the ULPs.
+  float EpsilonA = std::accumulate(ULP.begin(), ULP.end(), 0.0f);
 
-    const float EpsULP = ((std::nexttowardf(EpsilonA, std::numeric_limits<float>::infinity() - EpsilonA)));
+  // And add half an ULP of the final result to get our tolerance.
+  const float ULPTolerance = Is16Bit ? 0.5f : 1.0f;
 
-    EpsilonA += (EpsULP * ULPTolerance);
+  const float EpsULP = ((std::nexttowardf(
+      EpsilonA, std::numeric_limits<float>::infinity() - EpsilonA)));
 
-    ValidationConfig.Tolerance = EpsilonA;
+  EpsilonA += (EpsULP * ULPTolerance);
+
+  ValidationConfig.Tolerance = EpsilonA;
 }
 
 //
