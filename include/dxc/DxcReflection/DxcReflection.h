@@ -441,6 +441,34 @@ struct DxcHLSLArray {
   uint32_t ArrayStart() const { return ArrayElemStart << 6 >> 6; }
 };
 
+struct DxcHLSLArrayOrElements {
+
+  uint32_t ElementsOrArrayId;
+
+  DxcHLSLArrayOrElements() = default;
+  DxcHLSLArrayOrElements(uint32_t arrayId, uint32_t arraySize)
+      : ElementsOrArrayId(arrayId != (uint32_t)-1
+                              ? ((1u << 31) | arrayId)
+                              : (arraySize > 1 ? arraySize : 0)) {}
+
+  bool IsMultiDimensionalArray() const { return ElementsOrArrayId >> 31; }
+  bool IsArray() const { return ElementsOrArrayId; }
+  bool Is1DArray() const { return IsArray() && !IsMultiDimensionalArray(); }
+
+  uint32_t Get1DElements() const {
+    return IsMultiDimensionalArray() ? 0 : ElementsOrArrayId;
+  }
+
+  uint32_t GetMultiDimensionalArrayId() const {
+    return IsMultiDimensionalArray() ? (ElementsOrArrayId << 1 >> 1)
+                                     : (uint32_t)-1;
+  }
+
+  bool operator==(const DxcHLSLArrayOrElements &Other) const {
+    return Other.ElementsOrArrayId == ElementsOrArrayId;
+  }
+};
+
 struct DxcHLSLType { // Almost maps to CShaderReflectionType and
                      // D3D12_SHADER_TYPE_DESC, but tightly packed and
                      // easily serializable
@@ -457,14 +485,14 @@ struct DxcHLSLType { // Almost maps to CShaderReflectionType and
     uint32_t ClassTypeRowsColums;
   };
 
-  uint32_t ElementsOrArrayId;
-  uint32_t BaseClass; // -1 if none, otherwise a type index
-
+  uint32_t BaseClass;               // -1 if none, otherwise a type index
   uint32_t InterfaceOffsetAndCount; // 24 : 8 (start, count)
+
+  DxcHLSLArrayOrElements UnderlyingArray;   //No sugar (e.g. F32x4a4 in using F32x4a4 = F32x4[4] becomes float4[4])
 
   bool operator==(const DxcHLSLType &Other) const {
     return Other.MemberData == MemberData &&
-           Other.ElementsOrArrayId == ElementsOrArrayId &&
+           Other.UnderlyingArray == UnderlyingArray &&
            ClassTypeRowsColums == Other.ClassTypeRowsColums &&
            BaseClass == Other.BaseClass &&
            InterfaceOffsetAndCount == Other.InterfaceOffsetAndCount;
@@ -478,28 +506,16 @@ struct DxcHLSLType { // Almost maps to CShaderReflectionType and
     return InterfaceOffsetAndCount << 8 >> 8;
   }
 
-  bool IsMultiDimensionalArray() const { return ElementsOrArrayId >> 31; }
-  bool IsArray() const { return ElementsOrArrayId; }
-  bool Is1DArray() const { return IsArray() && !IsMultiDimensionalArray(); }
-
-  uint32_t Get1DElements() const {
-    return IsMultiDimensionalArray() ? 0 : ElementsOrArrayId;
-  }
-
-  uint32_t GetMultiDimensionalArrayId() const {
-    return IsMultiDimensionalArray() ? (ElementsOrArrayId << 1 >> 1)
-                                     : (uint32_t)-1;
-  }
-
   DxcHLSLType() = default;
-  DxcHLSLType(uint32_t BaseClass, uint32_t ElementsOrArrayId,
+  DxcHLSLType(uint32_t BaseClass,
+              DxcHLSLArrayOrElements ElementsOrArrayIdUnderlying,
               D3D_SHADER_VARIABLE_CLASS Class, D3D_SHADER_VARIABLE_TYPE Type,
               uint8_t Rows, uint8_t Columns, uint32_t MembersCount,
               uint32_t MembersStart, uint32_t InterfaceOffset,
               uint32_t InterfaceCount)
       : MemberData(MembersStart | (MembersCount << 24)), Class(Class),
         Type(Type), Rows(Rows), Columns(Columns),
-        ElementsOrArrayId(ElementsOrArrayId), BaseClass(BaseClass),
+        UnderlyingArray(ElementsOrArrayIdUnderlying), BaseClass(BaseClass),
         InterfaceOffsetAndCount(InterfaceOffset | (InterfaceCount << 24)) {
 
     if (Class < D3D_SVC_SCALAR || Class > D3D_SVC_INTERFACE_POINTER)
@@ -520,6 +536,31 @@ struct DxcHLSLType { // Almost maps to CShaderReflectionType and
     if (InterfaceCount >= (1u << 8))
       throw std::invalid_argument("Interface count out of bounds");
   }
+};
+
+struct DxcHLSLTypeSymbol {
+
+  // Keep sugar (F32x4a4 = F32x4[4] stays F32x4a4, doesn't become float4[4] like
+  // in underlying name + array)
+  DxcHLSLArrayOrElements DisplayArray;
+
+  // For example F32x4[4] stays F32x4 (array in DisplayArray)
+  uint32_t DisplayNameId;
+
+  // F32x4[4] would turn into float4 (array in UnderlyingArray)
+  uint32_t UnderlyingNameId;
+
+  bool operator==(const DxcHLSLTypeSymbol &Other) const {
+    return Other.DisplayArray == DisplayArray &&
+           DisplayNameId == Other.DisplayNameId &&
+           UnderlyingNameId == Other.UnderlyingNameId;
+  }
+
+  DxcHLSLTypeSymbol() = default;
+  DxcHLSLTypeSymbol(DxcHLSLArrayOrElements ElementsOrArrayIdDisplay,
+                    uint32_t DisplayNameId, uint32_t UnderlyingNameId)
+      : DisplayArray(ElementsOrArrayIdDisplay), DisplayNameId(DisplayNameId),
+        UnderlyingNameId(UnderlyingNameId) {}
 };
 
 struct DxcHLSLBuffer { // Almost maps to CShaderReflectionConstantBuffer and
@@ -600,7 +641,7 @@ struct DxcHLSLReflectionData {
 
   std::vector<DxcHLSLNodeSymbol> NodeSymbols;
   std::vector<uint32_t> MemberNameIds;
-  std::vector<uint32_t> TypeNameIds;
+  std::vector<DxcHLSLTypeSymbol> TypeSymbols;
 
   // Only generated if deserialized with MakeNameLookupTable or
   // GenerateNameLookupTable is called (and if symbols aren't stripped)
@@ -639,7 +680,7 @@ struct DxcHLSLReflectionData {
     return IsSameNonDebug(Other) && Strings == Other.Strings &&
            Sources == Other.Sources && NodeSymbols == Other.NodeSymbols &&
            MemberNameIds == Other.MemberNameIds &&
-           TypeNameIds == Other.TypeNameIds;
+           TypeSymbols == Other.TypeSymbols;
   }
 };
 

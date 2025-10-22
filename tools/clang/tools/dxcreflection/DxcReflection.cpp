@@ -594,21 +594,33 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
                           QualType Original, bool DefaultRowMaj) {
 
   // Unwrap array
+  // There's the following issue:
+  // Let's say the underlying type is F32x4[4] but the sugared name is F32x4x4,
+  //  then we want to maintain sugared name + array info (of sugar) for reflection 
+  //  but for low level type info, we would want to know float4[4]
 
-  uint32_t arraySize = 1;
-  QualType underlying = Original, forName = Original.getNonReferenceType();
-  std::vector<uint32_t> arrayElem;
+  uint32_t arraySizeUnderlying = 1;
+  QualType underlying = Original.getNonReferenceType().getCanonicalType();
+  std::vector<uint32_t> arrayElemUnderlying;
 
   while (const ConstantArrayType *arr =
              dyn_cast<ConstantArrayType>(underlying)) {
     uint32_t current = arr->getSize().getZExtValue();
-    arrayElem.push_back(current);
-    arraySize *= arr->getSize().getZExtValue();
-    forName = arr->getElementType().getNonReferenceType();
-    underlying = forName.getCanonicalType();
+    arrayElemUnderlying.push_back(current);
+    arraySizeUnderlying *= arr->getSize().getZExtValue();
+    underlying = arr->getElementType().getNonReferenceType().getCanonicalType();
   }
 
-  underlying = underlying.getNonReferenceType().getCanonicalType();
+  uint32_t arraySizeDisplay = 1;
+  std::vector<uint32_t> arrayElemDisplay;
+  QualType display = Original.getNonReferenceType();
+
+  while (const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(display)) {
+    uint32_t current = arr->getSize().getZExtValue();
+    arrayElemDisplay.push_back(current);
+    arraySizeDisplay *= arr->getSize().getZExtValue();
+    display = arr->getElementType().getNonReferenceType();
+  }
 
   // Name; Omit struct, class and const keywords
 
@@ -617,15 +629,16 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
   policy.AnonymousTagLocations = false;
   policy.SuppressTagKeyword = true;
 
-  std::string typeName =
-      forName.getUnqualifiedType().getAsString(policy);
+  display = display.getUnqualifiedType();
+  std::string displayName = display.getAsString(policy);
+
+  std::string underlyingName =
+      underlying.getUnqualifiedType().getAsString(policy);
 
   //Prune template instantiation from type name for builtin types (ex. vector & matrix)
   //But only if it's not a sugared type:
   // typedef ConstantBuffer<Test> MyTest;
   //In this case, MyTest will still be seen as a ConstantBuffer<Test> but the typeName is MyTest.
-
-  forName = forName.getUnqualifiedType();
 
   static const std::unordered_map<std::string, D3D_SHADER_VARIABLE_TYPE>
       lookup = std::unordered_map<std::string, D3D_SHADER_VARIABLE_TYPE>{
@@ -657,7 +670,7 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
            {"ConstantBuffer", D3D_SVT_CBUFFER}}};
 
   if (const TemplateSpecializationType *spec =
-          dyn_cast<TemplateSpecializationType>(forName.getTypePtr())) {
+          dyn_cast<TemplateSpecializationType>(display.getTypePtr())) {
 
     const TemplateDecl *td = spec->getTemplateName().getAsTemplateDecl();
 
@@ -665,21 +678,23 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
 
       auto it = lookup.find(td->getName());
 
-      if (it != lookup.end() && it->second >= 0)
-        typeName = it->first;
+      if (it != lookup.end()) {
+
+        if(it->second >= 0)
+          displayName = underlyingName = it->first;
+      }
     }
   }
 
   bool hasSymbols = Refl.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
-  uint32_t arrayId = PushArray(Refl, arraySize, arrayElem);
-  uint32_t elementsOrArrayId = 0;
+  //Two arrays; for display and for underlying
 
-  if (arrayId != (uint32_t)-1)
-    elementsOrArrayId = (1u << 31) | arrayId;
+  uint32_t arrayIdUnderlying = PushArray(Refl, arraySizeUnderlying, arrayElemUnderlying);
+  DxcHLSLArrayOrElements elementsOrArrayIdUnderlying(arrayIdUnderlying, arraySizeUnderlying);
 
-  else
-    elementsOrArrayId = arraySize > 1 ? arraySize : 0;
+  uint32_t arrayIdDisplay = PushArray(Refl, arraySizeDisplay, arrayElemDisplay);
+  DxcHLSLArrayOrElements elementsOrArrayIdDisplay(arrayIdDisplay, arraySizeDisplay);
 
   //Unwrap vector and matrix
   //And base type
@@ -773,7 +788,7 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
           innerTypeName = "$Element";
 
           const TemplateSpecializationType *templateDesc =
-              forName->getAs<TemplateSpecializationType>();
+              display->getAs<TemplateSpecializationType>();
 
           assert(templateDesc && "Expected a valid TemplateSpecializationType");
           innerType = templateDesc->getArg(0).getAsType();
@@ -912,68 +927,102 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
 
     case BuiltinType::Min10Float:
       type = D3D_SVT_MIN10FLOAT;
+      underlyingName = "min10float";
       break;
 
     case BuiltinType::Min16Float:
       type = D3D_SVT_MIN16FLOAT;
+      underlyingName = "min16float";
       break;
 
     case BuiltinType::HalfFloat:
     case BuiltinType::Half:
       type = D3D_SVT_FLOAT16;
+      underlyingName = "float16_t";      //TODO: half or float16_t?
       break;
 
     case BuiltinType::Short:
       type = D3D_SVT_INT16;
+      underlyingName = "int16_t";
       break;
 
     case BuiltinType::Min12Int:
       type = D3D_SVT_MIN12INT;
+      underlyingName = "min12int";
       break;
 
     case BuiltinType::Min16Int:
       type = D3D_SVT_MIN16INT;
+      underlyingName = "min16int";
       break;
 
     case BuiltinType::Min16UInt:
       type = D3D_SVT_MIN16UINT;
+      underlyingName = "min16uint";
       break;
 
     case BuiltinType::UShort:
       type = D3D_SVT_UINT16;
+      underlyingName = "uint16_t";
       break;
 
     case BuiltinType::Float:
       type = D3D_SVT_FLOAT;
+      underlyingName = "float";
       break;
 
     case BuiltinType::Int:
       type = D3D_SVT_INT;
+      underlyingName = "int";
       break;
 
     case BuiltinType::UInt:
       type = D3D_SVT_UINT;
+      underlyingName = "uint";
       break;
 
     case BuiltinType::Bool:
       type = D3D_SVT_BOOL;
+      underlyingName = "bool";
       break;
 
     case BuiltinType::Double:
       type = D3D_SVT_DOUBLE;
+      underlyingName = "double";
       break;
 
     case BuiltinType::ULongLong:
       type = D3D_SVT_UINT64;
+      underlyingName = "uint64_t";
       break;
 
     case BuiltinType::LongLong:
       type = D3D_SVT_INT64;
+      underlyingName = "int64_t";
       break;
 
     default:
       throw std::invalid_argument("Invalid builtin type");
     }
+  }
+
+  //Turn into proper fully qualified name (e.g. turn vector<float, 4> into float4)
+
+  switch (cls) {
+
+  case D3D_SVC_MATRIX_ROWS:
+  case D3D_SVC_VECTOR:
+
+    underlyingName += std::to_string(columns);
+
+    if (cls == D3D_SVC_MATRIX_ROWS)
+      underlyingName += "x" + std::to_string(rows);
+
+    break;
+
+  case D3D_SVC_MATRIX_COLUMNS:
+    underlyingName += std::to_string(rows) + "x" + std::to_string(columns);
+    break;
   }
 
   //Insert
@@ -988,23 +1037,31 @@ uint32_t GenerateTypeInfo(ASTContext &ASTCtx, DxcHLSLReflectionData &Refl,
   uint8_t interfaceCount = 0;
   RegisterTypeList(Refl, interfaces, interfaceOffset, interfaceCount);
 
-  DxcHLSLType hlslType(baseType, elementsOrArrayId, cls, type, rows, columns,
-                       membersCount, membersOffset, interfaceOffset, interfaceCount);
+  DxcHLSLType hlslType(baseType, elementsOrArrayIdUnderlying, cls, type, rows, columns,
+                       membersCount, membersOffset, interfaceOffset,
+                       interfaceCount);
 
-  uint32_t nameId =
-      hasSymbols ? RegisterString(Refl, typeName, false) : uint32_t(-1);
+  uint32_t displayNameId =
+      hasSymbols ? RegisterString(Refl, displayName, false) : uint32_t(-1);
+
+  uint32_t underlyingNameId =
+      hasSymbols ? RegisterString(Refl, underlyingName, false) : uint32_t(-1);
+
+  DxcHLSLTypeSymbol typeSymbol(elementsOrArrayIdDisplay, displayNameId,
+                               underlyingNameId);
 
   uint32_t i = 0;
   uint32_t j = uint32_t(Refl.Types.size());
 
   for (; i < j; ++i)
-    if (Refl.Types[i] == hlslType && (!hasSymbols || Refl.TypeNameIds[i] == nameId))
+    if (Refl.Types[i] == hlslType &&
+        (!hasSymbols || Refl.TypeSymbols[i] == typeSymbol))
       break;
 
   if (i == j) {
 
     if (hasSymbols)
-      Refl.TypeNameIds.push_back(nameId);
+      Refl.TypeSymbols.push_back(typeSymbol);
 
     Refl.Types.push_back(hlslType);
   }
@@ -1596,8 +1653,24 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 
       VarDecl *varDecl = dyn_cast<VarDecl>(it);
 
-      if (varDecl && varDecl->getStorageClass() == StorageClass::SC_Static &&
-          !varDecl->hasAttr<HLSLGroupSharedAttr>()) {
+      if (varDecl && varDecl->hasAttr<HLSLGroupSharedAttr>()) {
+
+        if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
+          continue;
+      
+        const std::string &name = ValDecl->getName();
+
+        uint32_t typeId =
+            GenerateTypeInfo(ASTCtx, Refl, ValDecl->getType(), DefaultRowMaj);
+
+        PushNextNodeId(Refl, SM, ASTCtx.getLangOpts(), name, it,
+                       D3D12_HLSL_NODE_TYPE_GROUPSHARED_VARIABLE, ParentNodeId,
+                       typeId);
+
+        continue;
+      }
+
+      if (varDecl && varDecl->getStorageClass() == StorageClass::SC_Static) {
 
         if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
           continue;
@@ -1629,8 +1702,7 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
         // Handle $Globals
 
         if (varDecl &&
-            (Depth == 0 || Features & D3D12_HLSL_REFLECTION_FEATURE_SCOPES) &&
-            !varDecl->hasAttr<HLSLGroupSharedAttr>()) {
+            (Depth == 0 || Features & D3D12_HLSL_REFLECTION_FEATURE_SCOPES)) {
 
           const std::string &name = ValDecl->getName();
 
@@ -1780,13 +1852,48 @@ static std::string EnumTypeToString(D3D12_HLSL_ENUM_TYPE type) {
 
 static std::string NodeTypeToString(D3D12_HLSL_NODE_TYPE type) {
 
-  static const char *arr[] = {
-      "Register",  "Function",  "Enum",   "EnumValue", "Namespace",
-      "Variable",  "Typedef",   "Struct", "Union",     "StaticVariable",
-      "Interface", "Parameter", "If",     "Scope",     "Do",
-      "Switch",    "While",     "For"};
+  static const char *arr[] = {"Register",
+                              "Function",
+                              "Enum",
+                              "EnumValue",
+                              "Namespace",
+                              "Variable",
+                              "Typedef",
+                              "Struct",
+                              "Union",
+                              "StaticVariable",
+                              "Interface",
+                              "Parameter",
+                              "If",
+                              "Scope",
+                              "Do",
+                              "Switch",
+                              "While",
+                              "For",
+                              "GroupsharedVariable"};
 
   return arr[uint32_t(type)];
+}
+
+static std::string
+PrintArray(const DxcHLSLReflectionData &Refl, const DxcHLSLArrayOrElements &Arr) {
+    
+  std::string result;
+
+  if (Arr.IsMultiDimensionalArray()) {
+
+    const DxcHLSLArray &arr = Refl.Arrays[Arr.GetMultiDimensionalArrayId()];
+
+    for (uint32_t i = 0; i < arr.ArrayElem(); ++i)
+      result +=
+          "[" + std::to_string(Refl.ArraySizes[arr.ArrayStart() + i]) + "]";
+
+  }
+
+  else if (Arr.IsArray())
+    result += "[" + std::to_string(Arr.Get1DElements()) + "]";
+
+  return result;
 }
 
 static std::string GetBuiltinTypeName(const DxcHLSLReflectionData &Refl,
@@ -1887,30 +1994,18 @@ static std::string GetBuiltinTypeName(const DxcHLSLReflectionData &Refl,
 }
 
 static std::string PrintTypeInfo(const DxcHLSLReflectionData &Refl,
-                          const DxcHLSLType &Type,
-                          const std::string &PreviousTypeName) {
+                                 const DxcHLSLType &Type,
+                                 const DxcHLSLTypeSymbol &Symbol,
+                                 const std::string &PreviousTypeName) {
 
-  std::string result;
-
-  if (Type.IsMultiDimensionalArray()) {
-
-    const DxcHLSLArray &arr = Refl.Arrays[Type.GetMultiDimensionalArrayId()];
-
-    for (uint32_t i = 0; i < arr.ArrayElem(); ++i)
-      result +=
-          "[" + std::to_string(Refl.ArraySizes[arr.ArrayStart() + i]) + "]";
-
-  }
-
-  else if (Type.IsArray())
-    result += "[" + std::to_string(Type.Get1DElements()) + "]";
+  std::string result = PrintArray(Refl, Type.UnderlyingArray);
 
   // Obtain type name (returns empty if it's not a builtin type)
 
-  std::string underlyingTypeName = GetBuiltinTypeName(Refl, Type);
-
-  if (PreviousTypeName != underlyingTypeName && underlyingTypeName.size())
-    result += " (" + underlyingTypeName + ")";
+  if (Symbol.DisplayNameId != Symbol.UnderlyingNameId &&
+      Symbol.UnderlyingNameId)
+    result += " (" + Refl.Strings[Symbol.DisplayNameId] +
+              PrintArray(Refl, Symbol.DisplayArray) + ")";
 
   return result;
 }
@@ -1922,14 +2017,17 @@ static void RecursePrintType(const DxcHLSLReflectionData &Refl, uint32_t TypeId,
 
   bool hasSymbols = Refl.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
-  std::string name = hasSymbols ? Refl.Strings[Refl.TypeNameIds[TypeId]]
+  DxcHLSLTypeSymbol symbol =
+      hasSymbols ? Refl.TypeSymbols[TypeId] : DxcHLSLTypeSymbol();
+
+  std::string name = hasSymbols ? Refl.Strings[symbol.UnderlyingNameId]
                                 : GetBuiltinTypeName(Refl, type);
 
   if (name.empty() && !hasSymbols)
     name = "(unknown)";
 
   printf("%s%s%s%s\n", std::string(Depth, '\t').c_str(), Prefix, name.c_str(),
-         PrintTypeInfo(Refl, type, name).c_str());
+         PrintTypeInfo(Refl, type, symbol, name).c_str());
 
   if (type.BaseClass != uint32_t(-1))
     RecursePrintType(Refl, type.BaseClass, Depth + 1,
@@ -2096,6 +2194,7 @@ uint32_t RecursePrint(const DxcHLSLReflectionData &Refl, uint32_t NodeId,
       case D3D12_HLSL_NODE_TYPE_TYPEDEF:
       case D3D12_HLSL_NODE_TYPE_VARIABLE:
       case D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE:
+      case D3D12_HLSL_NODE_TYPE_GROUPSHARED_VARIABLE:
         typeToPrint = localId;
         break;
 
@@ -2340,7 +2439,7 @@ void DxcHLSLReflectionData::StripSymbols() {
   NodeIdToFullyResolved.clear();
   FullyResolvedToMemberId.clear();
   NodeSymbols.clear();
-  TypeNameIds.clear();
+  TypeSymbols.clear();
   MemberNameIds.clear();
   Features &= ~D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 }
@@ -2387,7 +2486,8 @@ uint32_t RecurseNameGeneration(DxcHLSLReflectionData &Refl, uint32_t NodeId,
   bool isDotChild = node.GetNodeType() == D3D12_HLSL_NODE_TYPE_REGISTER;
 
   bool isVar = node.GetNodeType() == D3D12_HLSL_NODE_TYPE_VARIABLE ||
-               node.GetNodeType() == D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE;
+               node.GetNodeType() == D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE ||
+               node.GetNodeType() == D3D12_HLSL_NODE_TYPE_GROUPSHARED_VARIABLE;
 
   for (uint32_t i = 0, j = 0; i < node.GetChildCount(); ++i, ++j)
       i += RecurseNameGeneration(Refl, NodeId + 1 + i, j, self, isDotChild);
@@ -2430,7 +2530,7 @@ void DxcHLSLReflectionData::Dump(std::vector<std::byte> &Bytes) const {
 
   Advance(toReserve, Strings, StringsNonDebug, Sources, Nodes, NodeSymbols,
           Registers, Functions, Enums, EnumValues, Annotations, ArraySizes,
-          Arrays, MemberTypeIds, TypeList, MemberNameIds, Types, TypeNameIds,
+          Arrays, MemberTypeIds, TypeList, MemberNameIds, Types, TypeSymbols,
           Buffers, Parameters, Statements);
 
   Bytes.resize(toReserve);
@@ -2454,7 +2554,7 @@ void DxcHLSLReflectionData::Dump(std::vector<std::byte> &Bytes) const {
   Append(Bytes, toReserve, Strings, StringsNonDebug, Sources, Nodes,
          NodeSymbols, Registers, Functions, Enums, EnumValues, Annotations,
          ArraySizes, Arrays, MemberTypeIds, TypeList, MemberNameIds, Types,
-         TypeNameIds, Buffers, Parameters, Statements);
+         TypeSymbols, Buffers, Parameters, Statements);
 }
 
 DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes,
@@ -2488,7 +2588,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
           Annotations, header.Annotations, ArraySizes, header.ArraySizes,
           Arrays, header.Arrays, MemberTypeIds, header.Members, TypeList,
           header.TypeListCount, MemberNameIds, memberSymbolCount, Types,
-          header.Types, TypeNameIds, typeSymbolCount, Buffers, header.Buffers,
+          header.Types, TypeSymbols, typeSymbolCount, Buffers, header.Buffers,
           Parameters, header.Parameters, Statements, header.Statements);
 
   // Validation errors are throws to prevent accessing invalid data
@@ -2591,6 +2691,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     case D3D12_HLSL_NODE_TYPE_TYPEDEF:
     case D3D12_HLSL_NODE_TYPE_VARIABLE:
     case D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE:
+    case D3D12_HLSL_NODE_TYPE_GROUPSHARED_VARIABLE:
       maxValue = header.Types;
       break;
 
@@ -2607,6 +2708,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     case D3D12_HLSL_NODE_TYPE_TYPEDEF:
     case D3D12_HLSL_NODE_TYPE_VARIABLE:
     case D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE:
+    case D3D12_HLSL_NODE_TYPE_GROUPSHARED_VARIABLE:
     case D3D12_HLSL_NODE_TYPE_PARAMETER:
       if (node.GetChildCount())
         throw std::invalid_argument("Node " + std::to_string(i) +
@@ -2890,18 +2992,26 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
     const DxcHLSLType &type = Types[i];
 
-    if (hasSymbolInfo && TypeNameIds[i] >= header.Strings)
+    if (hasSymbolInfo && (TypeSymbols[i].DisplayNameId >= header.Strings ||
+                          TypeSymbols[i].UnderlyingNameId >= header.Strings))
+      throw std::invalid_argument("Type " + std::to_string(i) +
+                                  " points to an invalid string");
+
+    if (hasSymbolInfo && (TypeSymbols[i].DisplayArray.ElementsOrArrayId >> 31 &&
+                          (TypeSymbols[i].DisplayArray.ElementsOrArrayId << 1 >>
+                           1) >= header.Arrays))
       throw std::invalid_argument("Type " + std::to_string(i) +
                                   " points to an invalid string");
 
     if ((type.BaseClass != uint32_t(-1) && type.BaseClass >= header.Types) ||
         type.GetMemberStart() + type.GetMemberCount() > header.Members ||
-        type.GetInterfaceStart() + type.GetInterfaceCount() > header.TypeListCount ||
-        (type.ElementsOrArrayId >> 31 &&
-         (type.ElementsOrArrayId << 1 >> 1) >= header.Arrays))
+        type.GetInterfaceStart() + type.GetInterfaceCount() >
+            header.TypeListCount ||
+        (type.UnderlyingArray.ElementsOrArrayId >> 31 &&
+         (type.UnderlyingArray.ElementsOrArrayId << 1 >> 1) >= header.Arrays))
       throw std::invalid_argument(
           "Type " + std::to_string(i) +
-          " points to an invalid string, base class or member");
+          " points to an invalid string, array, base class or member");
 
     switch (type.Class) {
 

@@ -152,7 +152,8 @@ class CHLSLReflectionType final : public ID3D12ShaderReflectionType1 {
 
 protected:
 
-  std::string m_Name;
+  std::string m_NameUnderlying;
+  std::string m_NameDisplay;
   std::vector<std::string> m_MemberNames;
   std::unordered_map<std::string, uint32_t> m_NameToMemberId;
   std::vector<CHLSLReflectionType *> m_MemberTypes;
@@ -161,8 +162,39 @@ protected:
 
   const DxcHLSLReflectionData *m_Data;
   uint32_t m_TypeId;
-  uint32_t m_Elements;
-  D3D12_ARRAY_DESC m_ArrayDesc;
+  uint32_t m_ElementsUnderlying;
+  uint32_t m_ElementsDisplay;
+  D3D12_ARRAY_DESC m_ArrayDescUnderlying;
+  D3D12_ARRAY_DESC m_ArrayDescDisplay;
+
+  void InitializeArray(const DxcHLSLReflectionData &Data,
+                       D3D12_ARRAY_DESC &desc, uint32_t &elements,
+                       const DxcHLSLArrayOrElements &arrElem) {
+
+    if (arrElem.IsArray()) {
+
+      elements = arrElem.Is1DArray() ? arrElem.Get1DElements() : 1;
+
+      if (arrElem.IsMultiDimensionalArray()) {
+
+        const DxcHLSLArray &arr =
+            Data.Arrays[arrElem.GetMultiDimensionalArrayId()];
+
+        desc.ArrayDims = arr.ArrayElem();
+
+        for (uint32_t i = 0; i < arr.ArrayElem(); ++i) {
+          uint32_t len = Data.ArraySizes[arr.ArrayStart() + i];
+          elements *= len;
+          desc.ArrayLengths[i] = len;
+        }
+      }
+
+      else {
+        desc.ArrayDims = 1;
+        desc.ArrayLengths[0] = arrElem.Get1DElements();
+      }
+    }
+  }
 
 public:
 
@@ -186,7 +218,16 @@ public:
     if (!pArrayDesc)
       return E_POINTER;
 
-    *pArrayDesc = m_ArrayDesc;
+    *pArrayDesc = m_ArrayDescUnderlying;
+    return S_OK;
+  }
+
+  STDMETHOD(GetDisplayArrayDesc)(THIS_ _Out_ D3D12_ARRAY_DESC *pArrayDesc) override {
+
+    if (!pArrayDesc)
+      return E_POINTER;
+
+    *pArrayDesc = m_ArrayDescDisplay;
     return S_OK;
   }
 
@@ -195,41 +236,26 @@ public:
       std::vector<CHLSLReflectionType> &Types /* Only access < TypeId*/) {
 
     m_TypeId = TypeId;
-    m_Elements = 0;
+    m_ElementsUnderlying = 0;
+    m_ElementsDisplay = 0;
     m_Data = &Data;
-
-    ZeroMemoryToOut(&m_ArrayDesc);
 
     const DxcHLSLType &type = Data.Types[TypeId];
 
-    if (type.IsArray()) {
+    ZeroMemoryToOut(&m_ArrayDescUnderlying);
+    ZeroMemoryToOut(&m_ArrayDescDisplay);
 
-      m_Elements = type.Is1DArray() ? type.Get1DElements() : 1;
-
-      if (type.IsMultiDimensionalArray()) {
-
-        const DxcHLSLArray &arr =
-            Data.Arrays[type.GetMultiDimensionalArrayId()];
-
-        m_ArrayDesc.ArrayDims = arr.ArrayElem();
-
-        for (uint32_t i = 0; i < arr.ArrayElem(); ++i) {
-          uint32_t len = Data.ArraySizes[arr.ArrayStart() + i];
-          m_Elements *= len;
-          m_ArrayDesc.ArrayLengths[i] = len;
-        }
-      }
-
-      else {
-        m_ArrayDesc.ArrayDims = 1;
-        m_ArrayDesc.ArrayLengths[0] = type.Get1DElements();
-      }
-    }
+    InitializeArray(Data, m_ArrayDescUnderlying, m_ElementsUnderlying,
+                    type.UnderlyingArray);
 
     bool hasNames = Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
-    if (hasNames)
-      m_Name = Data.TypeNameIds[TypeId];
+    if (hasNames) {
+      DxcHLSLTypeSymbol sym = Data.TypeSymbols[TypeId];
+      m_NameUnderlying = Data.Strings[sym.UnderlyingNameId];
+      m_NameDisplay = Data.Strings[sym.DisplayNameId];
+      InitializeArray(Data, m_ArrayDescDisplay, m_ElementsDisplay, sym.DisplayArray);
+    }
 
     uint32_t memberCount = type.GetMemberCount();
 
@@ -278,11 +304,24 @@ public:
       type.Rows,
       type.Columns,
 
-      m_Elements,
+      m_ElementsUnderlying,
       uint32_t(m_MemberTypes.size()),
       0,                //TODO: Offset if we have one
-      m_Name.c_str()
+      m_NameUnderlying.c_str()
     };
+
+    return S_OK;
+  }
+
+  STDMETHOD(GetDesc)(D3D12_SHADER_TYPE_DESC1 *pDesc) override {
+
+    IFR(ZeroMemoryToOut(pDesc));
+
+    const DxcHLSLType &type = m_Data->Types[m_TypeId];
+
+    GetDesc(&pDesc->Desc);
+    pDesc->DisplayName = m_NameDisplay.c_str();
+    pDesc->DisplayElements = m_ElementsDisplay;
 
     return S_OK;
   }
