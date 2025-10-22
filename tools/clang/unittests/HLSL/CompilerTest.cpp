@@ -207,6 +207,13 @@ public:
   void TestEncodingImpl(const void *sourceData, size_t sourceSize,
                         UINT32 codePage, const void *includedData,
                         size_t includedSize, const WCHAR *encoding = nullptr);
+  template <typename T1, typename T2>
+  void TestEncodingImpl(std::basic_string<T1> source, UINT32 codePage,
+                        std::basic_string<T2> included,
+                        const WCHAR *encoding = nullptr) {
+    TestEncodingImpl(source.data(), source.size() * sizeof(T1), codePage,
+                     included.data(), included.size() * sizeof(T2), encoding);
+  }
   TEST_METHOD(CompileWithEncodeFlagTestSource)
 
 #if _ITERATOR_DEBUG_LEVEL == 0
@@ -3636,54 +3643,47 @@ void CompilerTest::TestEncodingImpl(const void *sourceData, size_t sourceSize,
 
 TEST_F(CompilerTest, CompileWithEncodeFlagTestSource) {
 
-  std::string sourceUtf8 = "#include \"include.hlsl\"\r\n"
-                           "float4 main() : SV_Target { return 0; }";
-  std::string includeUtf8 = "// Comment\n";
+  std::string SourceUtf8 = "#include \"include.hlsl\"\n"
+                           "float4 main() : SV_Target { return Buf[0]; }";
+  std::string IncludeUtf8 = "Buffer<float4> Buf;\n";
   std::string utf8BOM = "\xEF"
                         "\xBB"
                         "\xBF"; // UTF-8 BOM
-  std::string includeUtf8BOM = utf8BOM + includeUtf8;
+  std::string IncludeUtf8BOM = utf8BOM + IncludeUtf8;
 
-  std::wstring sourceWide = L"#include \"include.hlsl\"\r\n"
-                            L"float4 main() : SV_Target { return 0; }";
-  std::wstring includeWide = L"// Comments\n";
-  std::wstring utf16BOM = L"\xFEFF"; // UTF-16 LE BOM
-  std::wstring includeUtf16BOM = utf16BOM + includeWide;
+  std::wstring SourceWide = L"#include \"include.hlsl\"\n"
+                            L"float4 main() : SV_Target { return Buf[0]; }";
+  std::wstring IncludeWide = L"Buffer<float4> Buf;\n";
+
+  // Windows: UTF-16 BOM is '\xFEFF'
+  // *nix: UTF-32 BOM is L'\x0000FEFF'
+  // Thus, BOM wide character value is identical for UTF-16 and UTF-32.
+  // Endianess will be native, since we are using wide strings directly.
+  std::wstring WideBOM = L"\xFEFF";
+
+  std::wstring IncludeWideBOM = WideBOM + IncludeWide;
 
   // Included files interpreted with encoding option if no BOM
-  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
-                   includeUtf8.data(), includeUtf8.size(), L"utf8");
-
-  TestEncodingImpl(sourceWide.data(), sourceWide.size() * sizeof(L'A'),
-                   DXC_CP_WIDE, includeWide.data(),
-                   includeWide.size() * sizeof(L'A'), L"wide");
+  TestEncodingImpl(SourceUtf8, DXC_CP_UTF8, IncludeUtf8, L"utf8");
+  TestEncodingImpl(SourceWide, DXC_CP_WIDE, IncludeWide, L"wide");
 
   // Encoding option ignored if BOM present
-  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
-                   includeUtf8BOM.data(), includeUtf8BOM.size(), L"wide");
+  TestEncodingImpl(SourceUtf8, DXC_CP_UTF8, IncludeUtf8BOM, L"wide");
+  TestEncodingImpl(SourceWide, DXC_CP_WIDE, IncludeWideBOM, L"utf8");
 
-  TestEncodingImpl(sourceWide.data(), sourceWide.size() * sizeof(L'A'),
-                   DXC_CP_WIDE, includeUtf16BOM.data(),
-                   includeUtf16BOM.size() * sizeof(L'A'), L"utf8");
+  // Encoding option ignored if BOM present - different encoding for source
+  TestEncodingImpl(SourceWide, DXC_CP_WIDE, IncludeUtf8BOM, L"wide");
+  TestEncodingImpl(SourceUtf8, DXC_CP_UTF8, IncludeWideBOM, L"utf8");
 
   // Source file interpreted according to DxcBuffer encoding if not CP_ACP
   // Included files interpreted with encoding option if no BOM
-  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
-                   includeWide.data(), includeWide.size() * sizeof(L'A'),
-                   L"wide");
-
-  TestEncodingImpl(sourceWide.data(), sourceWide.size() * sizeof(L'A'),
-                   DXC_CP_WIDE, includeUtf8.data(), includeUtf8.size(),
-                   L"utf8");
+  TestEncodingImpl(SourceUtf8, DXC_CP_UTF8, IncludeWide, L"wide");
+  TestEncodingImpl(SourceWide, DXC_CP_WIDE, IncludeUtf8, L"utf8");
 
   // Source file interpreted by encoding option if source DxcBuffer encoding =
   // CP_ACP (default)
-  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_ACP,
-                   includeUtf8.data(), includeUtf8.size(), L"utf8");
-
-  TestEncodingImpl(sourceWide.data(), sourceWide.size() * sizeof(L'A'),
-                   DXC_CP_ACP, includeWide.data(),
-                   includeWide.size() * sizeof(L'A'), L"wide");
+  TestEncodingImpl(SourceUtf8, DXC_CP_ACP, IncludeUtf8, L"utf8");
+  TestEncodingImpl(SourceWide, DXC_CP_ACP, IncludeWide, L"wide");
 }
 
 TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
