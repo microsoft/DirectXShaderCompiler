@@ -16072,6 +16072,33 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       result = false;
     }
   }
+  if (getLangOpts().SPIRV) {
+    // See https://github.com/microsoft/DirectXShaderCompiler/issues/7790.
+    // Booleans are an abstract type in SPIR-V and cannot be used as a
+    // bitfield container. In variables that are externally visible, the
+    // boolean is turned into an integer, so this is not a problem.
+    if (isLocalVar || isParameter || (isGlobal && isStatic)) {
+      QualType T = qt;
+      if (!T->isDependentType()) {
+        if (const auto *AT = T->getAsArrayTypeUnsafe())
+          T = AT->getElementType();
+
+        if (const RecordType *RT = T->getAs<RecordType>()) {
+          const RecordDecl *RD = RT->getDecl();
+          for (const FieldDecl *FD : RD->fields()) {
+            if (FD->isBitField() && FD->getType()->isBooleanType()) {
+              Diag(D.getIdentifierLoc(),
+                   diag::err_spirv_boolean_bitfield_in_type)
+                  << T;
+              D.setInvalidType();
+              return false;
+            }
+          }
+        }
+      }
+    }
+  }
+
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
