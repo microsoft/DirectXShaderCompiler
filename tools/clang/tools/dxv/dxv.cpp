@@ -15,6 +15,7 @@
 
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/dxcapi.extval.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/dxcapi.h"
 #include "dxc/dxcapi.internal.h"
@@ -42,10 +43,11 @@ static cl::opt<std::string>
 
 class DxvContext {
 private:
-  SpecificDllLoader &m_dxcSupport;
+  DxcDllExtValidationLoader &m_dxcSupport;
 
 public:
-  DxvContext(SpecificDllLoader &dxcSupport) : m_dxcSupport(dxcSupport) {}
+  DxvContext(DxcDllExtValidationLoader &dxcSupport)
+      : m_dxcSupport(dxcSupport) {}
 
   void Validate();
 };
@@ -160,8 +162,30 @@ int main(int argc, const char **argv) {
       return 2;
     }
 
-    DxCompilerDllLoader dxcSupport;
-    IFT(dxcSupport.Initialize());
+    DxcDllExtValidationLoader dxcSupport;
+    HRESULT dllResult = dxcSupport.initialize();
+    if (DXC_FAILED(dllResult)) {
+      switch (dxcSupport.getFailureReason()) {
+      case dxcSupport.InitializationFailures::FailedCompilerLoad: {
+        fprintf(stderr, "dxcompiler.dll failed to load\n");
+        break;
+      }
+      case dxcSupport.InitializationFailures::FailedDxilPath: {
+        fprintf(stderr, "dxil.dll path %s could not be found",
+                dxcSupport.getDxilDllPath().c_str());
+        break;
+      }
+      case dxcSupport.InitializationFailures::FailedDxilLoad: {
+        fprintf(stderr, "%s failed to load",
+                dxcSupport.getDxilDllPath().c_str());
+        break;
+      }
+      default: {
+        llvm_unreachable("unexpected failure reason");
+      }
+      }
+      return dllResult;
+    }
 
     DxvContext context(dxcSupport);
     pStage = "Validation";
