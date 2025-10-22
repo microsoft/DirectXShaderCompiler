@@ -20,6 +20,8 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+#include <algorithm> // For sort
+#include <numeric>   // For accumulate
 
 namespace LongVector {
 
@@ -247,6 +249,11 @@ bool doVectorsMatch(const std::vector<T> &ActualValues,
   if (VerboseLogging) {
     logLongVector(ActualValues, L"ActualValues");
     logLongVector(ExpectedValues, L"ExpectedValues");
+
+    hlsl_test::LogCommentFmt(
+        L"ValidationType: %s, Tolerance: %f",
+        ValidationType == ValidationType::Epsilon ? L"Epsilon" : L"ULP",
+        Tolerance);
   }
 
   // Stash mismatched indexes for easy failure logging later
@@ -936,8 +943,9 @@ struct Op<OpType::AsUint_SplitDouble, double, 1> : StrictValidation {};
 // values.
 template <> struct ExpectedBuilder<OpType::AsUint_SplitDouble, double> {
   static std::vector<uint32_t>
-  buildExpected(Op<OpType::AsUint_SplitDouble, double, 1>,
-                const InputSets<double> &Inputs) {
+  buildExpected(Op<OpType::AsUint_SplitDouble, double, 1>&,
+                const InputSets<double> &Inputs, uint16_t ScalarInputFlags) {
+    DXASSERT_NOMSG(ScalarInputFlags == 0);
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     size_t VectorSize = Inputs[0].size();
@@ -1010,8 +1018,9 @@ DEFAULT_OP_1(OpType::Log2, (std::log2(A)));
 template <> struct Op<OpType::Frexp, float, 1> : DefaultValidation<float> {};
 
 template <> struct ExpectedBuilder<OpType::Frexp, float> {
-  static std::vector<float> buildExpected(Op<OpType::Frexp, float, 1>,
-                                          const InputSets<float> &Inputs) {
+  static std::vector<float> buildExpected(Op<OpType::Frexp, float, 1>&,
+                                          const InputSets<float> &Inputs,
+                                          uint32_t) {
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     // Expected values size is doubled. In the first half we store the
@@ -1080,8 +1089,8 @@ OP_3(OpType::Select, StrictValidation, (static_cast<bool>(A) ? B : C));
 #define REDUCTION_OP(OP, STDFUNC)                                              \
   template <typename T> struct Op<OP, T, 1> : StrictValidation {};             \
   template <typename T> struct ExpectedBuilder<OP, T> {                        \
-    static std::vector<HLSLBool_t> buildExpected(Op<OP, T, 1>,                 \
-                                                 const InputSets<T> &Inputs) { \
+    static std::vector<HLSLBool_t>                                             \
+    buildExpected(Op<OP, T, 1>&, const InputSets<T> &Inputs, uint16_t) {       \
       const bool Res = STDFUNC(Inputs[0].begin(), Inputs[0].end(),             \
                                [](T A) { return A != static_cast<T>(0); });    \
       return std::vector<HLSLBool_t>{Res};                                     \
@@ -1100,27 +1109,33 @@ REDUCTION_OP(OpType::All_Zero, (std::all_of));
 
 template <typename T> struct Op<OpType::Dot, T, 2> : StrictValidation {};
 template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
-  static std::vector<T> buildExpected(Op<OpType::Dot, T, 2> Op,
+  static std::vector<T> buildExpected(Op<OpType::Dot, T, 2> &Op,
                                       const InputSets<T> &Inputs,
                                       uint16_t ScalarInputFlags) {
     UNREFERENCED_PARAMETER(ScalarInputFlags);
 
     // Accumulate in fp32 to improve precision.
     float DotProduct = 0.0f;
-    float DotProductAbs = 0.0f;
+
+    std::vector<float> PositiveProducts;
+    std::vector<float> NegativeProducts;
 
     const size_t VectorSize = Inputs[0].size();
 
     for (size_t I = 0; I < VectorSize; ++I) {
       const float A = Inputs[0][I];
       const float B = Inputs[1][I];
-      DotProduct += A * B;
+      const float Product = A * B;
+      DotProduct += Product;
 
-      DotProductAbs += std::fabs(A) * std::fabs(B);
+      if(Product >= 0.0f)
+        PositiveProducts.push_back(Product);
+      else
+        NegativeProducts.push_back(Product);
     }
 
-    Op.ValidationConfig.Tolerance =
-        (VectorSize + 1) * std::numeric_limits<T>::epsilon() * DotProductAbs;
+    const DataType &OpDataType = getDataType<T>();
+    computeDotTolerance(PositiveProducts, NegativeProducts, Op.ValidationConfig, OpDataType.Is16Bit);
 
     std::vector<T> Expected;
     Expected.push_back(DotProduct);
@@ -1154,6 +1169,40 @@ STRICT_OP_1(OpType::LoadAndStore_DT_SB_UAV, (A));
 STRICT_OP_1(OpType::LoadAndStore_DT_SB_SRV, (A));
 STRICT_OP_1(OpType::LoadAndStore_RD_SB_UAV, (A));
 STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
+static void computeDotTolerance(std::vector<float> &PositiveProducts, std::vector<float> &NegativeProducts, ValidationConfig &ValidationConfig, bool Is16Bit) {
+
+    std::sort(PositiveProducts.begin(), PositiveProducts.end(), std::greater_equal<float>());
+    std::sort(NegativeProducts.begin(), NegativeProducts.end(), std::less_equal<float>());
+
+    // Stash the ULPs for the result of each subsequent addition.
+    float A = PositiveProducts.empty() ? 0.0f : PositiveProducts.front();
+    std::vector<float> ULP;
+    for(size_t I = 1; I < PositiveProducts.size(); ++I) {
+      A += PositiveProducts[I];
+      ULP.push_back(std::nexttowardf(A, std::numeric_limits<float>::infinity()) - A);
+    }
+
+    // Stash the ULPs of each subsequent addition.
+    A = NegativeProducts.empty() ? 0.0f : NegativeProducts.front();
+    for(size_t I = 1; I < NegativeProducts.size(); ++I) {
+      A += NegativeProducts[I];
+      ULP.push_back(A - std::nexttowardf(A, -std::numeric_limits<float>::infinity()));
+    }
+
+    std::sort(ULP.begin(), ULP.end(), std::greater_equal<float>());
+
+    // Sum up all of the ULPs.
+    float EpsilonA = std::accumulate(ULP.begin(), ULP.end(), 0.0f);
+
+    // And add half an ULP of the final result to get our tolerance.
+    const float ULPTolerance = Is16Bit ? 0.5f : 1.0f;
+
+    const float EpsULP = ((std::nexttowardf(EpsilonA, std::numeric_limits<float>::infinity() - EpsilonA)));
+
+    EpsilonA += (EpsULP * ULPTolerance);
+
+    ValidationConfig.Tolerance = EpsilonA;
+}
 
 //
 // dispatchTest
@@ -1161,7 +1210,9 @@ STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
 
 template <OpType OP, typename T> struct ExpectedBuilder {
 
-  static auto buildExpected(Op<OP, T, 1> Op, const InputSets<T> &Inputs) {
+  static auto buildExpected(Op<OP, T, 1> &Op, const InputSets<T> &Inputs,
+                            uint16_t ScalarInputFlags) {
+    UNREFERENCED_PARAMETER(ScalarInputFlags);
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     std::vector<decltype(Op(T()))> Expected;
@@ -1173,7 +1224,8 @@ template <OpType OP, typename T> struct ExpectedBuilder {
     return Expected;
   }
 
-  static auto buildExpected(Op<OP, T, 2> Op, const InputSets<T> &Inputs) {
+  static auto buildExpected(Op<OP, T, 2> &Op, const InputSets<T> &Inputs,
+                            uint16_t ScalarInputFlags) {
     DXASSERT_NOMSG(Inputs.size() == 2);
 
     std::vector<decltype(Op(T(), T()))> Expected;
@@ -1185,7 +1237,8 @@ template <OpType OP, typename T> struct ExpectedBuilder {
     return Expected;
   }
 
-  static auto buildExpected(Op<OP, T, 3> Op, const InputSets<T> &Inputs) {
+  static auto buildExpected(Op<OP, T, 3> &Op, const InputSets<T> &Inputs,
+                            uint16_t ScalarInputFlags) {
     DXASSERT_NOMSG(Inputs.size() == 3);
 
     std::vector<decltype(Op(T(), T(), T()))> Expected;
