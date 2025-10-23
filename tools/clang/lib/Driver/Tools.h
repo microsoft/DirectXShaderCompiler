@@ -94,10 +94,12 @@ SmallString<128> getCompilerRT(const ToolChain &TC, StringRef Component,
     mutable std::unique_ptr<visualstudio::Compiler> CLFallback;
 
   public:
-    // CAUTION! The first constructor argument ("clang") is not arbitrary,
-    // as it is for other tools. Some operations on a Tool actually test
-    // whether that tool is Clang based on the Tool's Name as a string.
-    Clang(const ToolChain &TC) : Tool("clang", "clang frontend", TC, RF_Full) {}
+    // HLSL Change start: definition moved out-of-line since
+    // visualstudio::Compiler must be a complete type when
+    // ~unique_ptr<visualstudio::Compiler> is instantiated in C++23 (see
+    // CLFallback member).
+    inline Clang(const ToolChain &TC);
+    // HLSL Change end
 
     bool hasGoodDiagnostics() const override { return true; }
     bool hasIntegratedAssembler() const override { return true; }
@@ -674,6 +676,16 @@ public:
                                         const char *LinkingOutput) const;
   };
 } // end namespace visualstudio
+
+// HLSL Change start: definition moved out-of-line since visualstudio::Compiler
+// must be a complete type when ~unique_ptr<visualstudio::Compiler> is
+// instantiated in C++23 (see CLFallback member).
+// CAUTION! The first constructor argument ("clang") is not arbitrary,
+// as it is for other tools. Some operations on a Tool actually test
+// whether that tool is Clang based on the Tool's Name as a string.
+Clang::Clang(const ToolChain &TC)
+    : Tool("clang", "clang frontend", TC, RF_Full) {}
+// HLSL Change end
 
 /// MinGW -- Directly call GNU Binutils assembler and linker
 namespace MinGW {

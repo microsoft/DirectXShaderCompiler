@@ -381,13 +381,13 @@ void [[]] Barrier(in NodeRecordOrUAV o, in uint SemanticFlags);
 
 uint [[]] GetRemainingRecursionLevels();
 
-void [[min_sm=6.9]] __builtin_MatVecMul(out LinAlg<c> OutputVector, in bool OutputIsUnsigned, in LinAlg<c2> InputVector, in bool InputIsUnsigned, in uint InputInterpretation, in ByteAddressBuffer MatrixBuffer, in uint MatrixOffset, in uint MatrixInterpretation, in uint M, in uint K, in uint MatrixLayout, in bool MatrixIsTransposed, in uint MatrixStride);
+void [[min_sm=6.10]] __builtin_MatVecMul(out LinAlg<c> OutputVector, in bool OutputIsUnsigned, in LinAlg<c2> InputVector, in bool InputIsUnsigned, in uint InputInterpretation, in ByteAddressBuffer MatrixBuffer, in uint MatrixOffset, in uint MatrixInterpretation, in uint M, in uint K, in uint MatrixLayout, in bool MatrixIsTransposed, in uint MatrixStride);
 
-void [[min_sm=6.9]] __builtin_MatVecMulAdd(out LinAlg<c> OutputVector, in bool OutputIsUnsigned, in LinAlg<c2> InputVector, in bool InputIsUnsigned, in uint InputInterpretation, in ByteAddressBuffer MatrixBuffer, in uint MatrixOffset, in uint MatrixInterpretation, in uint M, in uint K, in uint MatrixLayout, in bool MatrixIsTransposed, in uint MatrixStride, in ByteAddressBuffer BiasVector, in uint BiasOffset, in uint BiasInterpretation);
+void [[min_sm=6.10]] __builtin_MatVecMulAdd(out LinAlg<c> OutputVector, in bool OutputIsUnsigned, in LinAlg<c2> InputVector, in bool InputIsUnsigned, in uint InputInterpretation, in ByteAddressBuffer MatrixBuffer, in uint MatrixOffset, in uint MatrixInterpretation, in uint M, in uint K, in uint MatrixLayout, in bool MatrixIsTransposed, in uint MatrixStride, in ByteAddressBuffer BiasVector, in uint BiasOffset, in uint BiasInterpretation);
 
-void [[min_sm=6.9]] __builtin_OuterProductAccumulate(in LinAlg<c> InputVector1, in LinAlg<c2> InputVector2, in RWByteAddressBuffer MatrixBuffer, in uint MatrixOffset, in uint MatrixInterpretation, in uint MatrixLayout, in uint MatrixStride);
+void [[min_sm=6.10]] __builtin_OuterProductAccumulate(in LinAlg<c> InputVector1, in LinAlg<c2> InputVector2, in RWByteAddressBuffer MatrixBuffer, in uint MatrixOffset, in uint MatrixInterpretation, in uint MatrixLayout, in uint MatrixStride);
 
-void [[min_sm=6.9]] __builtin_VectorAccumulate(in LinAlg<c> InputVector, in RWByteAddressBuffer MatrixBuffer, in uint MatrixOffset);
+void [[min_sm=6.10]] __builtin_VectorAccumulate(in LinAlg<c> InputVector, in RWByteAddressBuffer MatrixBuffer, in uint MatrixOffset);
 
 } namespace
 

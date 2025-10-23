@@ -46,17 +46,12 @@ if(NOT NUGET_EXE)
     endif()
 endif()
 
-# Install the WARP nuget package.  
-
-# NUGET_WARP_EXTRA_ARGS gets passed as a single command-line argument. In cmake,
-# lists are items separated by semicolons, so these will become separate
-# arguments.
-if(NUGET_WARP_EXTRA_ARGS)
-    string(REPLACE " " ";" NUGET_WARP_EXTRA_ARGS_LIST ${NUGET_WARP_EXTRA_ARGS})
-endif()
+# Install the WARP nuget package.
+separate_arguments(NUGET_WARP_EXTRA_ARGS)
+message("Running ${NUGET_EXE} install -ForceEnglishOutput Microsoft.Direct3D.WARP -OutputDirectory ${CMAKE_BINARY_DIR}/nuget ${NUGET_WARP_EXTRA_ARGS}")
 
 execute_process(
-    COMMAND ${NUGET_EXE} install -ForceEnglishOutput Microsoft.Direct3D.WARP -OutputDirectory ${CMAKE_BINARY_DIR}/nuget ${NUGET_WARP_EXTRA_ARGS_LIST}
+    COMMAND ${NUGET_EXE} install -ForceEnglishOutput Microsoft.Direct3D.WARP -OutputDirectory ${CMAKE_BINARY_DIR}/nuget ${NUGET_WARP_EXTRA_ARGS}
     RESULT_VARIABLE result
     OUTPUT_VARIABLE nuget_output
     ERROR_VARIABLE nuget_output)

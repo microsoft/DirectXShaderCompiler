@@ -57,8 +57,12 @@ private:
 public:
   RecTyKind getRecTyKind() const { return Kind; }
 
-  RecTy(RecTyKind K) : Kind(K) {}
-  virtual ~RecTy() {}
+  // HLSL Change start: definitions moved out-of-line because ListRecTy must be
+  // be a complete type when ~unique_ptr<ListRecTy> is instantiated in C++23
+  // (see ListTy member).
+  inline RecTy(RecTyKind K);
+  inline virtual ~RecTy();
+  // HLSL Change end
 
   virtual std::string getAsString() const = 0;
   void print(raw_ostream &OS) const { OS << getAsString(); }
@@ -169,6 +173,14 @@ public:
 
   bool typeIsConvertibleTo(const RecTy *RHS) const override;
 };
+
+// HLSL Change start: definitions moved out-of-line because ListRecTy must be
+// be a complete type when ~unique_ptr<ListRecTy> is instantiated in C++23 (see
+// ListTy member).
+RecTy::RecTy(RecTyKind K) : Kind(K) {}
+
+RecTy::~RecTy() {}
+// HLSL Change end
 
 /// DagRecTy - 'dag' - Represent a dag fragment
 ///

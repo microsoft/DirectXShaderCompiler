@@ -6750,6 +6750,22 @@ bool HLSLExternalSource::MatchArguments(
       return false;
     }
 
+    ASTContext &actx = m_sema->getASTContext();
+    // Usage
+
+    // Argument must be non-constant and non-bitfield for out, inout, and ref
+    // parameters because they may be treated as pass-by-reference.
+    // This is hacky. We should actually be handling this by failing reference
+    // binding in sema init with SK_BindReference*. That code path is currently
+    // hacked off for HLSL and less trivial to fix.
+    if (pIntrinsicArg->qwUsage & AR_QUAL_OUT ||
+        pIntrinsicArg->qwUsage & AR_QUAL_REF) {
+      if (pType.isConstant(actx) || pCallArg->getObjectKind() == OK_BitField) {
+        // Can't use a const type in an out or inout parameter.
+        badArgIdx = std::min(badArgIdx, iArg);
+      }
+    }
+
     if (pIntrinsicArg->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
       DXASSERT_NOMSG(objectElement.isNull());
       QualType Ty = pCallArg->getType();
@@ -6900,22 +6916,6 @@ bool HLSLExternalSource::MatchArguments(
         if (TypeInfoCols < pIntrinsicArg->uCols) {
           badArgIdx = std::min(badArgIdx, iArg);
         }
-      }
-    }
-
-    ASTContext &actx = m_sema->getASTContext();
-    // Usage
-
-    // Argument must be non-constant and non-bitfield for out, inout, and ref
-    // parameters because they may be treated as pass-by-reference.
-    // This is hacky. We should actually be handling this by failing reference
-    // binding in sema init with SK_BindReference*. That code path is currently
-    // hacked off for HLSL and less trivial to fix.
-    if (pIntrinsicArg->qwUsage & AR_QUAL_OUT ||
-        pIntrinsicArg->qwUsage & AR_QUAL_REF) {
-      if (pType.isConstant(actx) || pCallArg->getObjectKind() == OK_BitField) {
-        // Can't use a const type in an out or inout parameter.
-        badArgIdx = std::min(badArgIdx, iArg);
       }
     }
     iArg++;
@@ -16072,6 +16072,33 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       result = false;
     }
   }
+  if (getLangOpts().SPIRV) {
+    // See https://github.com/microsoft/DirectXShaderCompiler/issues/7790.
+    // Booleans are an abstract type in SPIR-V and cannot be used as a
+    // bitfield container. In variables that are externally visible, the
+    // boolean is turned into an integer, so this is not a problem.
+    if (isLocalVar || isParameter || (isGlobal && isStatic)) {
+      QualType T = qt;
+      if (!T->isDependentType()) {
+        if (const auto *AT = T->getAsArrayTypeUnsafe())
+          T = AT->getElementType();
+
+        if (const RecordType *RT = T->getAs<RecordType>()) {
+          const RecordDecl *RD = RT->getDecl();
+          for (const FieldDecl *FD : RD->fields()) {
+            if (FD->isBitField() && FD->getType()->isBooleanType()) {
+              Diag(D.getIdentifierLoc(),
+                   diag::err_spirv_boolean_bitfield_in_type)
+                  << T;
+              D.setInvalidType();
+              return false;
+            }
+          }
+        }
+      }
+    }
+  }
+
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 

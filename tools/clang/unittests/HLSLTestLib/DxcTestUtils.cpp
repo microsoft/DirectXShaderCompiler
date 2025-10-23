@@ -399,27 +399,6 @@ HRESULT GetVersion(dxc::DllLoader &DllSupport, REFCLSID clsid, unsigned &Major,
   return S_OK;
 }
 
-bool ParseTargetProfile(llvm::StringRef targetProfile,
-                        llvm::StringRef &outStage, unsigned &outMajor,
-                        unsigned &outMinor) {
-  auto stage_model = targetProfile.split("_");
-  auto major_minor = stage_model.second.split("_");
-  llvm::APInt major;
-  if (major_minor.first.getAsInteger(16, major))
-    return false;
-  if (major_minor.second.compare("x") == 0) {
-    outMinor = 0xF; // indicates offline target
-  } else {
-    llvm::APInt minor;
-    if (major_minor.second.getAsInteger(16, minor))
-      return false;
-    outMinor = (unsigned)minor.getLimitedValue();
-  }
-  outStage = stage_model.first;
-  outMajor = (unsigned)major.getLimitedValue();
-  return true;
-}
-
 // VersionSupportInfo Implementation
 VersionSupportInfo::VersionSupportInfo()
     : m_CompilerIsDebugBuild(false), m_InternalValidator(false), m_DxilMajor(0),

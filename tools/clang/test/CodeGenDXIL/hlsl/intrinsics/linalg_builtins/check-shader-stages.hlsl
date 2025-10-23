@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_9 %s | FileCheck %s
+// RUN: %dxc -T lib_6_10 %s | FileCheck %s
  
 ByteAddressBuffer matrix_buffer;
 ByteAddressBuffer bias_buffer;

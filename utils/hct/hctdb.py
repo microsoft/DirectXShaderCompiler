@@ -877,7 +877,7 @@ class db_dxil(object):
             "MatVecMul,MatVecMulAdd,OuterProductAccumulate,VectorAccumulate"
         ).split(","):
             self.name_idx[i].category = "Linear Algebra Operations"
-            self.name_idx[i].shader_model = 6, 9
+            self.name_idx[i].shader_model = 6, 10
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -3094,7 +3094,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveActiveAllEqual",
             "returns 1 if all the lanes have the same value",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o_i1", "", "operation result"),
@@ -3120,7 +3120,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveReadLaneAt",
             "returns the value from the specified lane",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3134,7 +3134,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveReadLaneFirst",
             "returns the value from the first lane",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3147,7 +3147,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveActiveOp",
             "returns the result the operation across waves",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3194,7 +3194,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveActiveBit",
             "returns the result of the operation across all lanes",
-            "8wil",
+            "8wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3224,7 +3224,7 @@ class db_dxil(object):
             next_op_idx,
             "WavePrefixOp",
             "returns the result of the operation on prior lanes",
-            "hfd8wil",
+            "hfd8wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -4021,7 +4021,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveMatch",
             "returns the bitmask of active lanes that have the same value",
-            "hfd8wil",
+            "hfd8wil<",
             "",
             [
                 db_dxil_param(0, "fouri32", "", "operation result"),
@@ -4035,7 +4035,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveMultiPrefixOp",
             "returns the result of the operation on groups of lanes identified by a bitmask",
-            "hfd8wil",
+            "hfd8wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -6378,12 +6378,11 @@ class db_dxil(object):
         next_op_idx += 1
 
         # End of DXIL 1.9 opcodes.
-        # NOTE!! Update and uncomment when DXIL 1.9 opcodes are finalized:
-        # self.set_op_count_for_version(1, 9, next_op_idx)
-        # assert next_op_idx == NNN, (
-        #    "NNN is expected next operation index but encountered %d and thus opcodes are broken"
-        #    % next_op_idx
-        # )
+        self.set_op_count_for_version(1, 9, next_op_idx)
+        assert next_op_idx == 312, (
+            "312 is expected next operation index but encountered %d and thus opcodes are broken"
+            % next_op_idx
+        )
 
         # Set interesting properties.
         self.build_indices()

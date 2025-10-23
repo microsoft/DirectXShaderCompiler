@@ -19,6 +19,7 @@
 #include "dxc/Support/Unicode.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
@@ -211,33 +212,6 @@ MainArgs &MainArgs::operator=(const MainArgs &other) {
 StringRefWide::StringRefWide(llvm::StringRef value) {
   if (!value.empty())
     m_value = Unicode::UTF8ToWideStringOrThrow(value.data());
-}
-
-static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *major,
-                                       unsigned *minor) {
-  *major = *minor = -1;
-  unsigned len = ref.size();
-  if (len < 6 || len > 11) // length: ps_6_0 to rootsig_1_0
-    return false;
-  if (ref[len - 4] != '_' || ref[len - 2] != '_')
-    return false;
-
-  char cMajor = ref[len - 3];
-  char cMinor = ref[len - 1];
-
-  if (cMajor >= '0' && cMajor <= '9')
-    *major = cMajor - '0';
-  else
-    return false;
-
-  if (cMinor == 'x')
-    *minor = 0xF;
-  else if (cMinor >= '0' && cMinor <= '9')
-    *minor = cMinor - '0';
-  else
-    return false;
-
-  return true;
 }
 
 // Copied from CompilerInvocation since we parse our own diagnostic arguments
@@ -752,8 +726,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // Check options only allowed in shader model >= 6.2FPDenormalMode
   unsigned Major = 0;
   unsigned Minor = 0;
+  llvm::StringRef Stage;
   if (!opts.TargetProfile.empty()) {
-    if (!GetTargetVersionFromString(opts.TargetProfile, &Major, &Minor)) {
+    if (!hlsl::ShaderModel::ParseTargetProfile(opts.TargetProfile, Stage, Major,
+                                               Minor)) {
       errors << "unable to parse shader model.";
       return 1;
     }

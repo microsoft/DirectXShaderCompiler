@@ -1,4 +1,4 @@
-; REQUIRES: dxil-1-9
+; REQUIRES: dxil-1-10
 ; RUN: %dxv %s 2>&1 | FileCheck %s
 
 ;Original Source: \tools\clang\test\CodeGenHLSL\linalg\outer-product-accumulate-matrix-layout.hlsl
@@ -52,8 +52,8 @@ attributes #2 = { nounwind readnone }
 !dx.resources = !{!2}
 !dx.entryPoints = !{!8}
 
-!0 = !{i32 1, i32 9}
-!1 = !{!"cs", i32 6, i32 9}
+!0 = !{i32 1, i32 10}
+!1 = !{!"cs", i32 6, i32 10}
 !2 = !{!3, !6, null, null}
 !3 = !{!4, !5}
 !4 = !{i32 0, %struct.ByteAddressBuffer* undef, !"", i32 0, i32 0, i32 1, i32 11, i32 0, null}
