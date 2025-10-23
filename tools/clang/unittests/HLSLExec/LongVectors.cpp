@@ -1152,12 +1152,13 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
 
     // Put them together for final accumulation.
     Products.reserve(Products.size() + NegativeProducts.size());
-    Products.insert(Products.end(), NegativeProducts.begin(), NegativeProducts.end());
+    Products.insert(Products.end(), NegativeProducts.begin(),
+                    NegativeProducts.end());
 
     // Accumulate products in the worst case order while computing the absolute
     // epsilon error for each intermediate step. And accumulate that error.
     double Sum = Products.empty() ? 0.0 : Products.front();
-    for(size_t I = 1; I < Products.size(); ++I) {
+    for (size_t I = 1; I < Products.size(); ++I) {
       Sum += Products[I];
       AbsoluteEpsilon += computeAbsoluteEpsilon<T>(Sum, ULPTolerance);
     }
@@ -1203,6 +1204,8 @@ STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
 static double computeAbsoluteEpsilon(double A, float ULPTolerance)
 {
   if(isinf(A) || isnan(A))
+static double computeAbsoluteEpsilon(double A, float ULPTolerance) {
+  if (isinf(A) || isnan(A))
     // None of the existing input values should produce inf or nan results.
     DXASSERT_NOMSG(false);
 
@@ -1215,11 +1218,12 @@ static double computeAbsoluteEpsilon(double A, float ULPTolerance)
   if constexpr (std::is_same_v<T, HLSLHalf_t>)
     ULP = HLSLHalf_t::GetULP(A);
   else
-    ULP = std::nextafter(static_cast<T>(A), std::numeric_limits<T>::infinity()) - static_cast<T>(A);
+    ULP =
+        std::nextafter(static_cast<T>(A), std::numeric_limits<T>::infinity()) -
+        static_cast<T>(A);
 
   return ULP * ULPTolerance;
 }
-
 
 //
 // dispatchTest
