@@ -118,6 +118,15 @@ struct HLSLHalf_t {
   // float.
   HLSLHalf_t(DirectX::PackedVector::HALF) = delete;
 
+  static double GetULP(HLSLHalf_t A) {
+    HLSLHalf_t Next = A;
+    ++Next.Val;
+
+    double NextD = Next;
+    double AD = A;
+    return NextD - AD;
+  }
+
   static HLSLHalf_t FromHALF(DirectX::PackedVector::HALF Half) {
     HLSLHalf_t H;
     H.Val = Half;

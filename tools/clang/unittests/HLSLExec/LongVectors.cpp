@@ -1125,6 +1125,8 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
 
     const size_t VectorSize = Inputs[0].size();
 
+    // Floating point ops have a tolerance of 0.5 ULPs per operation as per the
+    // DX spec.
     const float ULPTolerance = 0.5f;
 
     // Accumulate in fp64 to improve precision.
@@ -1143,7 +1145,8 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
         NegativeProducts.push_back(Product);
     }
 
-    // Sort each by magnitude so that we can accumulate in worst case order.
+    // Sort each by magnitude so that we can accumulate them in worst case
+    // order.
     std::sort(Products.begin(), Products.end(), std::greater<double>());
     std::sort(NegativeProducts.begin(), NegativeProducts.end());
 
@@ -1153,13 +1156,15 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
 
     // Accumulate products in the worst case order while computing the absolute
     // epsilon error for each intermediate step. And accumulate that error.
-    double Sum = PositiveProducts.empty() ? 0.0 : PositiveProducts.front();
-    for(size_t I = 1; I < PositiveProducts.size(); ++I) {
-      Sum += PositiveProducts[I];
+    double Sum = Products.empty() ? 0.0 : Products.front();
+    for(size_t I = 1; I < Products.size(); ++I) {
+      Sum += Products[I];
       AbsoluteEpsilon += computeAbsoluteEpsilon<T>(Sum, ULPTolerance);
     }
 
+    // Finally, compute and add in the ULP on our final sum of epsilons.
     AbsoluteEpsilon += computeAbsoluteEpsilon<T>(AbsoluteEpsilon, ULPTolerance);
+
     Op.ValidationConfig.Tolerance = static_cast<float>(AbsoluteEpsilon);
 
     std::vector<T> Expected;
@@ -1197,22 +1202,20 @@ STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
 
 static double computeAbsoluteEpsilon(double A, float ULPTolerance)
 {
+  if(isinf(A) || isnan(A))
+    // None of the existing input values should produce inf or nan results.
+    DXASSERT_NOMSG(false);
+
+  // ULP is a positive value by definition. So, working with abs(A) simplifies
+  // our logic for computing ULP in the first place.
   A = std::abs(A);
 
   double ULP = 0.0;
 
-  if constexpr (std::is_same_v<T, HLSLHalf_t>) {
-    HLSLHalf_t Next = A;
-    ++Next.Val;
-
-    // float is good enough to represent the ULP of a half.
-    // And we don't have an overridden cast for half to double because
-    // it creates ambiguity in many places and isn't necessary.
-    float NextF = Next;
-    ULP = NextF - static_cast<float>(A);
-  }
+  if constexpr (std::is_same_v<T, HLSLHalf_t>)
+    ULP = HLSLHalf_t::GetULP(A);
   else
-    ULP = (std::nextafter(static_cast<T>(A), std::numeric_limits<T>::infinity()) - static_cast<T>(A));
+    ULP = std::nextafter(static_cast<T>(A), std::numeric_limits<T>::infinity()) - static_cast<T>(A);
 
   return ULP * ULPTolerance;
 }
