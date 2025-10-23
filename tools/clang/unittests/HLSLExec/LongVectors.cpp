@@ -1109,44 +1109,57 @@ REDUCTION_OP(OpType::All_Zero, (std::all_of));
 
 template <typename T> struct Op<OpType::Dot, T, 2> : StrictValidation {};
 template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
+  // For Dot, buildExpected is a special case: it also computes an absolute
+  // epsilon for validation because Dot is a compound operation. Expected value
+  // is computed by multiplying and accumulating in fp64 for higher precision.
+  // Absolute epsilon is computed by reordering the accumulation into a
+  // worst-case sequence, then summing the per-step epsilons to produce a
+  // conservative error tolerance for the entire Dot operation.
   static std::vector<T> buildExpected(Op<OpType::Dot, T, 2> &Op,
                                       const InputSets<T> &Inputs,
                                       uint16_t ScalarInputFlags) {
     UNREFERENCED_PARAMETER(ScalarInputFlags);
 
-    // Accumulate in fp64 to improve precision.
-    double DotProduct = 0.0f;
-
-    std::vector<double> PositiveProducts;
+    std::vector<double> Products;
     std::vector<double> NegativeProducts;
 
     const size_t VectorSize = Inputs[0].size();
 
-    double AbsoluteEpsilon = 0.0f;
     const float ULPTolerance = 0.5f;
 
-    for (size_t I = 0; I < VectorSize; ++I) {
-      const double Product = Inputs[0][I] * Inputs[1][I];
+    // Accumulate in fp64 to improve precision.
+    double Product = Inputs[0][0] * Inputs[1][0];
+    double DotProduct = Product;
+    double AbsoluteEpsilon = computeAbsoluteEpsilon<T>(Product, ULPTolerance);
+    for (size_t I = 1; I < VectorSize; ++I) {
+      Product = Inputs[0][I] * Inputs[1][I];
       AbsoluteEpsilon += computeAbsoluteEpsilon<T>(Product, ULPTolerance);
 
       DotProduct += Product;
 
       if (Product >= 0.0)
-        PositiveProducts.push_back(Product);
+        Products.push_back(Product);
       else
         NegativeProducts.push_back(Product);
     }
 
-    PositiveProducts.insert(PositiveProducts.end(), NegativeProducts.begin(), NegativeProducts.end());
+    // Sort each by magnitude so that we can accumulate in worst case order.
+    std::sort(Products.begin(), Products.end(), std::greater<double>());
+    std::sort(NegativeProducts.begin(), NegativeProducts.end());
 
-    double A = PositiveProducts.empty() ? 0.0 : PositiveProducts.front();
+    // Put them together for final accumulation.
+    Products.reserve(Products.size() + NegativeProducts.size());
+    Products.insert(Products.end(), NegativeProducts.begin(), NegativeProducts.end());
+
+    // Accumulate products in the worst case order while computing the absolute
+    // epsilon error for each intermediate step. And accumulate that error.
+    double Sum = PositiveProducts.empty() ? 0.0 : PositiveProducts.front();
     for(size_t I = 1; I < PositiveProducts.size(); ++I) {
-      A += PositiveProducts[I];
-      AbsoluteEpsilon += computeAbsoluteEpsilon<T>(AbsoluteEpsilon, ULPTolerance);
+      Sum += PositiveProducts[I];
+      AbsoluteEpsilon += computeAbsoluteEpsilon<T>(Sum, ULPTolerance);
     }
 
     AbsoluteEpsilon += computeAbsoluteEpsilon<T>(AbsoluteEpsilon, ULPTolerance);
-    AbsoluteEpsilon = AbsoluteEpsilon * VectorSize;
     Op.ValidationConfig.Tolerance = static_cast<float>(AbsoluteEpsilon);
 
     std::vector<T> Expected;
@@ -1184,38 +1197,22 @@ STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
 
 static double computeAbsoluteEpsilon(double A, float ULPTolerance)
 {
-  // TODO: We will need to handle denormals, infinities, and NaNs here.
-  // But none of the test cases should be generating those right now.
-
-  if (A < 0.0)
-    A = -A;
+  A = std::abs(A);
 
   double ULP = 0.0;
 
   if constexpr (std::is_same_v<T, HLSLHalf_t>) {
-    // TODO: I dont think the 0 case is handled properly here.
-    // But none of the inputs should be 0 right now.
     HLSLHalf_t Next = A;
-    HLSLHalf_t Current = A;
-    if(Next.Val && 0x8000) {
-      // Negative
-      if(Next.Val == 0x8000)
-        Next.Val = 0x0000;
-      else
-        --Next.Val;
-    }
-    else {
-      ++Next.Val;
-    }
+    ++Next.Val;
 
+    // float is good enough to represent the ULP of a half.
+    // And we don't have an overridden cast for half to double because
+    // it creates ambiguity in many places and isn't necessary.
     float NextF = Next;
-    float CurrentF = Current;
-    ULP = std::abs(NextF - CurrentF);
+    ULP = NextF - static_cast<float>(A);
   }
-  else {
-    ULP =
-     (std::nextafter(static_cast<T>(A), std::numeric_limits<T>::infinity()) - static_cast<T>(A));
-  }
+  else
+    ULP = (std::nextafter(static_cast<T>(A), std::numeric_limits<T>::infinity()) - static_cast<T>(A));
 
   return ULP * ULPTolerance;
 }
