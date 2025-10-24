@@ -1,5 +1,6 @@
 // RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
+// CHECK:          %simple = OpFunction
 void simple() {
   uint a = 0;
 
@@ -9,7 +10,7 @@ void simple() {
 
 // CHECK:         %if_true = OpLabel
 // CHECK:                    OpStore %d1 %uint_0
-// CHECK:                    OpBranch %if_merge_0
+// CHECK:                    OpReturn
 // CHECK:        %if_false = OpLabel
 // CHECK:    [[a:%[0-9]+]] = OpLoad %uint %a
 // CHECK: [[cond:%[0-9]+]] = OpIEqual %bool [[a]] %uint_1
@@ -19,7 +20,7 @@ void simple() {
 // CHECK:                    OpStore %d1_0 %uint_1
 // CHECK:                    OpBranch %if_merge
 // CHECK:      %if_false_0 = OpLabel
-// CHECK:                    OpBranch %if_merge
+// CHECK:                    OpReturn
 
 // CHECK:        %if_merge = OpLabel
 // CHECK:                    OpBranch %if_merge_0
@@ -59,7 +60,7 @@ void simple() {
 // CHECK:                      OpStore %v2 %uint_1
 // CHECK:                      OpBranch %if_merge_1
 // CHECK:        %if_false_2 = OpLabel
-// CHECK:                      OpBranch %if_merge_1
+// CHECK:                      OpReturn
 
 // CHECK:        %if_merge_1 = OpLabel
 // CHECK:                      OpBranch %if_merge_2
