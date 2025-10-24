@@ -586,6 +586,16 @@ bool DxilModule::GetLegacyResourceReservation() const {
   return (m_IntermediateFlags & LegacyResourceReservation) != 0;
 }
 
+void DxilModule::SetKeepAllResources(bool keepAllResources) {
+  m_IntermediateFlags &= ~KeepAllResources;
+  if (keepAllResources)
+    m_IntermediateFlags |= KeepAllResources;
+}
+
+bool DxilModule::GetKeepAllResources() const {
+  return (m_IntermediateFlags & KeepAllResources) != 0;
+}
+
 void DxilModule::ClearIntermediateOptions() { m_IntermediateFlags = 0; }
 
 unsigned DxilModule::GetInputControlPointCount() const {
