@@ -1141,6 +1141,17 @@ STRICT_OP_1(OpType::LoadAndStore_RD_SB_UAV, (A));
 STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
 
 //
+// Float Ops
+//
+
+#define BOOLEAN_FLOAT_OP(OP, IMPL)                                             \
+  template <typename T> struct Op<OP, T, 1> : StrictValidation {               \
+    HLSLBool_t operator()(T A) { return IMPL; }                                \
+  };
+
+BOOLEAN_FLOAT_OP(OpType::IsFinite, (std::isfinite(A)));
+
+//
 // dispatchTest
 //
 
@@ -1914,6 +1925,9 @@ public:
   HLK_TEST(LoadAndStore_DT_SB_UAV, double);
   HLK_TEST(LoadAndStore_RD_SB_SRV, double);
   HLK_TEST(LoadAndStore_RD_SB_UAV, double);
+
+  // Boolean Float
+  HLK_TEST(IsFinite, float)
 
 private:
   bool Initialized = false;
