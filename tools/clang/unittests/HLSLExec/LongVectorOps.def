@@ -18,7 +18,6 @@ INPUT_SET(NoZero)
 INPUT_SET(Positive)
 INPUT_SET(Bitwise)
 INPUT_SET(SelectCond)
-INPUT_SET(IsFinite)
 
 #undef INPUT_SET
 
