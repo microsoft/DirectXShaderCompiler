@@ -1373,6 +1373,9 @@ static void RecursiveReflectBody(
   if (!Statement)
     return;
 
+  while (const AttributedStmt *AS = dyn_cast<AttributedStmt>(Statement))
+    Statement = AS->getSubStmt();
+
   if (const IfStmt *If = dyn_cast<IfStmt>(Statement))
     GenerateStatement(ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1,
                       Features, ParentNodeId, DefaultRowMaj, FwdDecls, LangOpts,
