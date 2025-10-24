@@ -12,11 +12,11 @@
 
 #include "HlslExecTestUtils.h"
 
-#include <algorithm> // For sort
+#include <algorithm>
 #include <array>
 #include <bitset>
 #include <iomanip>
-#include <numeric> // For accumulate
+#include <numeric>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -601,7 +601,7 @@ template <typename T> struct DefaultValidation {
 };
 
 // Strict Validation - Defaults to exact matches.
-// Tolerance cant be set to a non-zero value to allow for a wider range.
+// Tolerance can be set to a non-zero value to allow for a wider range.
 struct StrictValidation {
   ValidationConfig ValidationConfig;
 };
@@ -1191,6 +1191,8 @@ static double computeAbsoluteEpsilon(double A, float ULPTolerance) {
 
   return ULP * ULPTolerance;
 }
+
+template <typename T>
 struct Op<OpType::ShuffleVector, T, 1> : DefaultValidation<T> {};
 template <typename T> struct ExpectedBuilder<OpType::ShuffleVector, T> {
   static std::vector<T> buildExpected(Op<OpType::ShuffleVector, T, 1>,
@@ -1223,7 +1225,7 @@ STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
 
 template <OpType OP, typename T> struct ExpectedBuilder {
 
-  static auto buildExpected(Op<OP, T, 1> &Op, const InputSets<T> &Inputs) {
+  static auto buildExpected(Op<OP, T, 1> Op, const InputSets<T> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     std::vector<decltype(Op(T()))> Expected;
@@ -1235,7 +1237,7 @@ template <OpType OP, typename T> struct ExpectedBuilder {
     return Expected;
   }
 
-  static auto buildExpected(Op<OP, T, 2> &Op, const InputSets<T> &Inputs) {
+  static auto buildExpected(Op<OP, T, 2> Op, const InputSets<T> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 2);
 
     std::vector<decltype(Op(T(), T()))> Expected;
@@ -1247,7 +1249,7 @@ template <OpType OP, typename T> struct ExpectedBuilder {
     return Expected;
   }
 
-  static auto buildExpected(Op<OP, T, 3> &Op, const InputSets<T> &Inputs) {
+  static auto buildExpected(Op<OP, T, 3> Op, const InputSets<T> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 3);
 
     std::vector<decltype(Op(T(), T(), T()))> Expected;
