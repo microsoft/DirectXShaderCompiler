@@ -12,11 +12,11 @@
 
 #include "HlslExecTestUtils.h"
 
-#include <algorithm> // For sort
+#include <algorithm>
 #include <array>
 #include <bitset>
 #include <iomanip>
-#include <numeric> // For accumulate
+#include <numeric>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -601,7 +601,7 @@ template <typename T> struct DefaultValidation {
 };
 
 // Strict Validation - Defaults to exact matches.
-// Tolerance cant be set to a non-zero value to allow for a wider range.
+// Tolerance can be set to a non-zero value to allow for a wider range.
 struct StrictValidation {
   ValidationConfig ValidationConfig;
 };
@@ -1175,6 +1175,28 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
 };
 
 template <typename T>
+static double computeAbsoluteEpsilon(double A, float ULPTolerance) {
+  if (isinf(A) || isnan(A))
+    // None of the existing input values should produce inf or nan results.
+    DXASSERT_NOMSG(false);
+
+  // ULP is a positive value by definition. So, working with abs(A) simplifies
+  // our logic for computing ULP in the first place.
+  A = std::abs(A);
+
+  double ULP = 0.0;
+
+  if constexpr (std::is_same_v<T, HLSLHalf_t>)
+    ULP = HLSLHalf_t::GetULP(A);
+  else
+    ULP =
+        std::nextafter(static_cast<T>(A), std::numeric_limits<T>::infinity()) -
+        static_cast<T>(A);
+
+  return ULP * ULPTolerance;
+}
+
+template <typename T>
 struct Op<OpType::ShuffleVector, T, 1> : DefaultValidation<T> {};
 template <typename T> struct ExpectedBuilder<OpType::ShuffleVector, T> {
   static std::vector<T> buildExpected(Op<OpType::ShuffleVector, T, 1>,
@@ -1231,9 +1253,7 @@ static double computeAbsoluteEpsilon(double A, float ULPTolerance) {
 
 template <OpType OP, typename T> struct ExpectedBuilder {
 
-  static auto buildExpected(Op<OP, T, 1> &Op, const InputSets<T> &Inputs,
-                            uint16_t ScalarInputFlags) {
-    UNREFERENCED_PARAMETER(ScalarInputFlags);
+  static auto buildExpected(Op<OP, T, 1> Op, const InputSets<T> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     std::vector<decltype(Op(T()))> Expected;
@@ -1245,8 +1265,7 @@ template <OpType OP, typename T> struct ExpectedBuilder {
     return Expected;
   }
 
-  static auto buildExpected(Op<OP, T, 2> &Op, const InputSets<T> &Inputs,
-                            uint16_t ScalarInputFlags) {
+  static auto buildExpected(Op<OP, T, 2> Op, const InputSets<T> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 2);
 
     std::vector<decltype(Op(T(), T()))> Expected;
@@ -1258,8 +1277,7 @@ template <OpType OP, typename T> struct ExpectedBuilder {
     return Expected;
   }
 
-  static auto buildExpected(Op<OP, T, 3> &Op, const InputSets<T> &Inputs,
-                            uint16_t ScalarInputFlags) {
+  static auto buildExpected(Op<OP, T, 3> Op, const InputSets<T> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 3);
 
     std::vector<decltype(Op(T(), T(), T()))> Expected;
