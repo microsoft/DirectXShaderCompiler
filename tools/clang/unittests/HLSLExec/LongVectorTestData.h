@@ -118,6 +118,15 @@ struct HLSLHalf_t {
   // float.
   HLSLHalf_t(DirectX::PackedVector::HALF) = delete;
 
+  static double GetULP(HLSLHalf_t A) {
+    HLSLHalf_t Next = A;
+    ++Next.Val;
+
+    double NextD = Next;
+    double AD = A;
+    return NextD - AD;
+  }
+
   static HLSLHalf_t FromHALF(DirectX::PackedVector::HALF Half) {
     HLSLHalf_t H;
     H.Val = Half;
@@ -182,10 +191,6 @@ struct HLSLHalf_t {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
     return FromHALF((DirectX::PackedVector::XMConvertFloatToHalf(A + B)));
-  }
-
-  HLSLHalf_t &operator+=(const HLSLHalf_t &Other) {
-    return *this = *this + Other;
   }
 
   HLSLHalf_t operator-(const HLSLHalf_t &Other) const {
