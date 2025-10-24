@@ -351,7 +351,8 @@ INPUT_SET(InputSet::SelectCond, 0.0, 1.0);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(float)
-INPUT_SET(InputSet::Default1, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
+INPUT_SET(InputSet::Default1, 1.0, -1.0, 1.0,
+          std::numeric_limits<float>::infinity(), 1.0, -1.0, 1.0, -1.0, 1.0,
           -1.0);
 INPUT_SET(InputSet::Default2, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
           -1.0);

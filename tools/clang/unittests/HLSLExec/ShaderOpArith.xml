@@ -4112,6 +4112,14 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_TEST_ISFINITE
+        vector<OUT_TYPE, NUM> TestIsFinite(vector<TYPE, NUM> Vector)
+        {
+          vector<bool, NUM> IsFinite = isfinite(Vector);
+          return IsFinite;
+        }
+        #endif
+
         #ifdef FUNC_SHUFFLE_VECTOR
         vector<OUT_TYPE, NUM> TestShuffleVector(TYPE Scalar)
         {
