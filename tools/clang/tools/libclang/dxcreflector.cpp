@@ -49,6 +49,16 @@ using namespace llvm;
 using namespace clang;
 using namespace hlsl;
 
+namespace hlsl {
+
+bool DxcHLSLReflectionDataFromAST(DxcHLSLReflectionData &Result,
+                                  clang::CompilerInstance &Compiler,
+                                  clang::TranslationUnitDecl &Ctx,
+                                  uint32_t AutoBindingSpace,
+                                  D3D12_HLSL_REFLECTION_FEATURE Features,
+                                  bool DefaultRowMaj);
+}
+
 struct ASTHelper {
   CompilerInstance compiler;
   TranslationUnitDecl *tu;
@@ -1583,8 +1593,9 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
 
   DxcHLSLReflectionData refl;
   
-  if (!refl.Initialize(astHelper.compiler, *astHelper.tu, opts.AutoBindingSpace,
-                       reflectMask, opts.DefaultRowMajor, refl))
+  if (!DxcHLSLReflectionDataFromAST(refl, astHelper.compiler, *astHelper.tu,
+                                    opts.AutoBindingSpace, reflectMask,
+                                    opts.DefaultRowMajor))
     throw std::exception("refl.Initialize failed");
 
   //TODO: Debug

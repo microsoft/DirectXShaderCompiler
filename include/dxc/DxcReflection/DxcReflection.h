@@ -13,14 +13,10 @@
 #include <vector>
 #include <string>
 #include <assert.h>
+#include <stdexcept>
 
 #include "d3d12shader.h"
 #include "dxc/dxctools.h"
-
-namespace clang {
-class TranslationUnitDecl;
-class CompilerInstance;
-}
 
 #pragma warning(disable : 4201)
 
@@ -650,6 +646,15 @@ struct DxcHLSLReflectionData {
   std::vector<std::string> NodeIdToFullyResolved;
   std::unordered_map<std::string, uint32_t> FullyResolvedToMemberId;
 
+  uint32_t RegisterString(const std::string &Name, bool IsNonDebug);
+  uint32_t PushArray(uint32_t ArraySizeFlat,
+                     const std::vector<uint32_t> &ArraySize);
+
+  void RegisterTypeList(const std::vector<uint32_t> &TypeIds, uint32_t &Offset,
+                        uint8_t &Len);
+
+  static D3D_CBUFFER_TYPE GetBufferType(uint8_t Type);
+
   void Dump(std::vector<std::byte> &Bytes) const;
   void Printf() const;
   void StripSymbols();
@@ -658,12 +663,6 @@ struct DxcHLSLReflectionData {
   DxcHLSLReflectionData() = default;
   DxcHLSLReflectionData(const std::vector<std::byte> &Bytes,
                     bool MakeNameLookupTable);
-
-  static bool Initialize(clang::CompilerInstance &Compiler,
-                         clang::TranslationUnitDecl &Ctx,
-                         uint32_t AutoBindingSpace,
-                         D3D12_HLSL_REFLECTION_FEATURE Features,
-                         bool DefaultRowMaj, DxcHLSLReflectionData &Result);
 
   bool IsSameNonDebug(const DxcHLSLReflectionData &Other) const {
     return StringsNonDebug == Other.StringsNonDebug && Nodes == Other.Nodes &&
