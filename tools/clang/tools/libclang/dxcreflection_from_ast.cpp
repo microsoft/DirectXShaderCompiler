@@ -14,6 +14,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/HlslTypes.h"
 #include "clang/AST/DeclVisitor.h"
+#include "clang/AST/StmtVisitor.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
@@ -1142,7 +1143,7 @@ static void AddFunctionParameter(ASTContext &ASTCtx, QualType Type, Decl *Decl,
 }
 
 static void RecursiveReflectBody(
-    const Stmt *Statement, ASTContext &ASTCtx, DiagnosticsEngine &Diags,
+    Stmt *Statement, ASTContext &ASTCtx, DiagnosticsEngine &Diags,
     const SourceManager &SM, DxcHLSLReflectionData &Refl,
     uint32_t AutoBindingSpace, uint32_t Depth,
     D3D12_HLSL_REFLECTION_FEATURE Features, uint32_t ParentNodeId,
@@ -1155,8 +1156,8 @@ static void GenerateStatement(
     D3D12_HLSL_REFLECTION_FEATURE Features, uint32_t ParentNodeId,
     bool DefaultRowMaj, std::unordered_map<const Decl *, uint32_t> &FwdDecls,
     const LangOptions &LangOpts, D3D12_HLSL_NODE_TYPE Type,
-    const VarDecl *VarDecl, const Stmt *Body, const Stmt *Init,
-    const Stmt *Self, bool IfAndHasElse = false) {
+    const VarDecl *VarDecl, Stmt *Body, Stmt *Init,
+    Stmt *Self, bool IfAndHasElse = false) {
 
   uint32_t loc = uint32_t(Refl.Statements.size());
 
@@ -1193,50 +1194,68 @@ static void GenerateStatement(
                        LangOpts, true);
 }
 
-static void RecursiveReflectBody(
-    const Stmt *Statement, ASTContext &ASTCtx, DiagnosticsEngine &Diags,
-    const SourceManager &SM, DxcHLSLReflectionData &Refl,
-    uint32_t AutoBindingSpace, uint32_t Depth,
-    D3D12_HLSL_REFLECTION_FEATURE Features, uint32_t ParentNodeId,
-    bool DefaultRowMaj, std::unordered_map<const Decl *, uint32_t> &FwdDecls,
-    const LangOptions &LangOpts,
-    bool SkipNextCompound) {
+struct RecursiveStmtReflector : public StmtVisitor<RecursiveStmtReflector> {
 
-  if (!Statement)
-    return;
+  ASTContext &ASTCtx;
+  DiagnosticsEngine &Diags;
+  const SourceManager &SM;
+  DxcHLSLReflectionData &Refl;
+  uint32_t AutoBindingSpace;
+  uint32_t Depth;
+  D3D12_HLSL_REFLECTION_FEATURE Features;
+  uint32_t ParentNodeId;
+  bool DefaultRowMaj;
+  std::unordered_map<const Decl *, uint32_t> &FwdDecls;
+  const LangOptions &LangOpts;
+  bool SkipNextCompound;
 
-  while (const AttributedStmt *AS = dyn_cast<AttributedStmt>(Statement))
-    Statement = AS->getSubStmt();
+  RecursiveStmtReflector(ASTContext &ASTCtx, DiagnosticsEngine &Diags,
+                         const SourceManager &SM, DxcHLSLReflectionData &Refl,
+                         uint32_t AutoBindingSpace, uint32_t Depth,
+                         D3D12_HLSL_REFLECTION_FEATURE Features,
+                         uint32_t ParentNodeId, bool DefaultRowMaj,
+                         std::unordered_map<const Decl *, uint32_t> &FwdDecls,
+                         const LangOptions &LangOpts, bool SkipNextCompound)
+      : ASTCtx(ASTCtx), Diags(Diags), SM(SM), Refl(Refl),
+        AutoBindingSpace(AutoBindingSpace), Depth(Depth), Features(Features),
+        ParentNodeId(ParentNodeId), DefaultRowMaj(DefaultRowMaj),
+        FwdDecls(FwdDecls), LangOpts(LangOpts), SkipNextCompound(SkipNextCompound) {}
 
-  if (const IfStmt *If = dyn_cast<IfStmt>(Statement))
+  void TraverseStmt(Stmt *S) {
+
+    if (!S)
+      return;
+
+    while (AttributedStmt *AS = dyn_cast<AttributedStmt>(S))
+      S = AS->getSubStmt();
+
+    Visit(S);
+  }
+
+  void VisitStmt(const Stmt *S) {}
+
+  void VisitIfStmt(IfStmt *If) {
     GenerateStatement(ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1,
                       Features, ParentNodeId, DefaultRowMaj, FwdDecls, LangOpts,
                       D3D12_HLSL_NODE_TYPE_IF, If->getConditionVariable(),
                       If->getElse(), If->getThen(), If, If->getElse());
+  }
 
-  else if (const ForStmt *For = dyn_cast<ForStmt>(Statement))
+  void VisitForStmt(ForStmt *For) {
     GenerateStatement(ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1,
-                           Features, ParentNodeId, DefaultRowMaj, FwdDecls,
-                           LangOpts, D3D12_HLSL_NODE_TYPE_FOR,
-                           For->getConditionVariable(), For->getBody(),
-                           For->getInit(), For);
+                      Features, ParentNodeId, DefaultRowMaj, FwdDecls, LangOpts,
+                      D3D12_HLSL_NODE_TYPE_FOR, For->getConditionVariable(),
+                      For->getBody(), For->getInit(), For);
+  }
 
-  else if (const WhileStmt *While = dyn_cast<WhileStmt>(Statement))
+  void VisitWhileStmt(WhileStmt *While) {
     GenerateStatement(ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1,
-                           Features, ParentNodeId, DefaultRowMaj, FwdDecls,
-                           LangOpts, D3D12_HLSL_NODE_TYPE_WHILE,
-                           While->getConditionVariable(), While->getBody(),
-                           nullptr, While);
+                      Features, ParentNodeId, DefaultRowMaj, FwdDecls, LangOpts,
+                      D3D12_HLSL_NODE_TYPE_WHILE, While->getConditionVariable(),
+                      While->getBody(), nullptr, While);
+  }
 
-  else if (const SwitchStmt *Switch = dyn_cast<SwitchStmt>(Statement))
-    GenerateStatement(ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1,
-                           Features, ParentNodeId, DefaultRowMaj, FwdDecls,
-                           LangOpts, D3D12_HLSL_NODE_TYPE_SWITCH,
-                           Switch->getConditionVariable(), Switch->getBody(), nullptr,
-                           Switch);
-
-  else if (const DoStmt *Do = dyn_cast<DoStmt>(Statement)) {
-
+  void VisitDoStmt(DoStmt *Do) {
     const SourceRange &sourceRange = Do->getSourceRange();
 
     uint32_t scopeNode =
@@ -1248,21 +1267,32 @@ static void RecursiveReflectBody(
                          DefaultRowMaj, FwdDecls, LangOpts, true);
   }
 
-  else if (const CompoundStmt *scope = dyn_cast<CompoundStmt>(Statement)) {
+  void VisitSwitchStmt(SwitchStmt *Switch) {
+    GenerateStatement(ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1,
+                      Features, ParentNodeId, DefaultRowMaj, FwdDecls, LangOpts,
+                      D3D12_HLSL_NODE_TYPE_SWITCH,
+                      Switch->getConditionVariable(), Switch->getBody(),
+                      nullptr, Switch);
+  }
 
-    const SourceRange &sourceRange = scope->getSourceRange();
+  void VisitCompoundStmt(CompoundStmt *C) {
 
-    uint32_t scopeNode = SkipNextCompound ? ParentNodeId : PushNextNodeId(
-        Refl, SM, LangOpts, "", nullptr, D3D12_HLSL_NODE_TYPE_SCOPE,
-        ParentNodeId, 0, &sourceRange, &FwdDecls);
+    const SourceRange &sourceRange = C->getSourceRange();
 
-    for (const Stmt *child : scope->body())
+    uint32_t scopeNode =
+        SkipNextCompound
+            ? ParentNodeId
+            : PushNextNodeId(Refl, SM, LangOpts, "", nullptr,
+                             D3D12_HLSL_NODE_TYPE_SCOPE, ParentNodeId, 0,
+                             &sourceRange, &FwdDecls);
+
+    for (Stmt *child : C->body())
       RecursiveReflectBody(child, ASTCtx, Diags, SM, Refl, AutoBindingSpace,
                            Depth + 1, Features, scopeNode, DefaultRowMaj,
                            FwdDecls, LangOpts);
   }
 
-  else if (const DeclStmt *DS = dyn_cast<DeclStmt>(Statement)) {
+  void VisitDeclStmt(DeclStmt *DS) {
     for (Decl *D : DS->decls()) {
       if (VarDecl *varDecl = dyn_cast<VarDecl>(D)) {
 
@@ -1277,6 +1307,20 @@ static void RecursiveReflectBody(
       }
     }
   }
+};
+
+static void
+RecursiveReflectBody(Stmt *Statement, ASTContext &ASTCtx,
+                     DiagnosticsEngine &Diags, const SourceManager &SM,
+                     DxcHLSLReflectionData &Refl, uint32_t AutoBindingSpace,
+                     uint32_t Depth, D3D12_HLSL_REFLECTION_FEATURE Features,
+                     uint32_t ParentNodeId, bool DefaultRowMaj,
+                     std::unordered_map<const Decl *, uint32_t> &FwdDecls,
+                     const LangOptions &LangOpts, bool SkipNextCompound) {
+  RecursiveStmtReflector Reflector(ASTCtx, Diags, SM, Refl, AutoBindingSpace,
+                                   Depth, Features, ParentNodeId, DefaultRowMaj,
+                                   FwdDecls, LangOpts, SkipNextCompound);
+  Reflector.TraverseStmt(Statement);
 }
 
 static void
@@ -1403,7 +1447,7 @@ public:
 
       Stmt *stmt = FD->getBody();
 
-      for (const Stmt *subStmt : stmt->children()) {
+      for (Stmt *subStmt : stmt->children()) {
 
         if (!subStmt)
           continue;
