@@ -1147,12 +1147,13 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
 
     // Sort each by magnitude so that we can accumulate them in worst case
     // order.
-    std::sort(PositiveProducts.begin(), PositiveProducts.end(), std::greater<double>());
+    std::sort(PositiveProducts.begin(), PositiveProducts.end(),
+              std::greater<double>());
     std::sort(NegativeProducts.begin(), NegativeProducts.end());
 
     // Helper to sum the products and compute/add to the running absolute
     // epsilon total.
-    auto SumProducts = [&](const std::vector<double> &Values){
+    auto SumProducts = [&](const std::vector<double> &Values) {
       double Sum = 0;
       for (size_t I = 1; I < Values.size(); ++I) {
         Sum += Values[I];
@@ -1166,8 +1167,9 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
     const double SumPos = SumProducts(PositiveProducts);
     const double SumNeg = SumProducts(NegativeProducts);
 
-    if(!PositiveProducts.empty() && !NegativeProducts.empty())
-      AbsoluteEpsilon += computeAbsoluteEpsilon<T>((SumPos + SumNeg), ULPTolerance);
+    if (!PositiveProducts.empty() && !NegativeProducts.empty())
+      AbsoluteEpsilon +=
+          computeAbsoluteEpsilon<T>((SumPos + SumNeg), ULPTolerance);
 
     Op.ValidationConfig.Tolerance = static_cast<float>(AbsoluteEpsilon);
 
@@ -1179,7 +1181,8 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
 
 template <typename T>
 static double computeAbsoluteEpsilon(double A, float ULPTolerance) {
-  DXASSERT((!isinf(A) && !isnan(A)), "Input values should not produce inf or nan results");
+  DXASSERT((!isinf(A) && !isnan(A)),
+           "Input values should not produce inf or nan results");
 
   // ULP is a positive value by definition. So, working with abs(A) simplifies
   // our logic for computing ULP in the first place.
