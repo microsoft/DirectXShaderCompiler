@@ -1491,6 +1491,15 @@ public:
   HLK_TEST(ShuffleVector, float);
   HLK_TEST(ShuffleVector, double);
 
+  HLK_TEST(IsFinite, int16_t);
+  HLK_TEST(IsFinite, int32_t);
+  HLK_TEST(IsFinite, int64_t);
+  HLK_TEST(IsFinite, uint16_t);
+  HLK_TEST(IsFinite, uint32_t);
+  HLK_TEST(IsFinite, uint64_t);
+  HLK_TEST(IsFinite, HLSLHalf_t);
+  HLK_TEST(IsFinite, float);
+  HLK_TEST(IsFinite, double);
   // Explicit Cast
 
   HLK_TEST(CastToInt16, HLSLBool_t);
@@ -1925,9 +1934,6 @@ public:
   HLK_TEST(LoadAndStore_DT_SB_UAV, double);
   HLK_TEST(LoadAndStore_RD_SB_SRV, double);
   HLK_TEST(LoadAndStore_RD_SB_UAV, double);
-
-  // Boolean Float
-  HLK_TEST(IsFinite, float)
 
 private:
   bool Initialized = false;

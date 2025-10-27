@@ -139,7 +139,7 @@ OP(Ternary, Select, 3, "TestSelect", "", " -DFUNC_TEST_SELECT=1",
    "LongVectorOp", SelectCond, Default2, Default3)
 
 OP(Unary, IsFinite, 1, "TestIsFinite", "", " -DFUNC_TEST_ISFINITE=1",
-   "LongVectorOp", Default1, Default2, Infinite)
+   "LongVectorOp", Infinite, Default2, Default3)
 
 
 // For the 'any' and 'all' reduction operation, we test with three different
