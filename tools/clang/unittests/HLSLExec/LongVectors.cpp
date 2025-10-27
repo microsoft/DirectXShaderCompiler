@@ -1929,7 +1929,6 @@ public:
   HLK_TEST(LoadAndStore_RD_SB_SRV, double);
   HLK_TEST(LoadAndStore_RD_SB_UAV, double);
 
-
 private:
   bool Initialized = false;
   bool VerboseLogging = false;
