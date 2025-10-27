@@ -9352,6 +9352,15 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_printf:
     retVal = processIntrinsicPrintf(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_usign: {
+    // Do SAbs followed by SSign
+    auto *absVal = processIntrinsicUsingGLSLInst(
+        callExpr, GLSLstd450::GLSLstd450SAbs,
+        /*actPerRowForMatrices*/ true, srcLoc, srcRange);
+    retVal = spvBuilder.createGLSLExtInst(callExpr->getType(),
+                                          GLSLstd450::GLSLstd450SSign, {absVal},
+                                          srcLoc, srcRange);
+  } break;
   case hlsl::IntrinsicOp::IOP_sign: {
     if (isFloatOrVecMatOfFloatType(callExpr->getArg(0)->getType()))
       retVal = processIntrinsicFloatSign(callExpr);
