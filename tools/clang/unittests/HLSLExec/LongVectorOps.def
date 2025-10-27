@@ -18,6 +18,7 @@ INPUT_SET(NoZero)
 INPUT_SET(Positive)
 INPUT_SET(Bitwise)
 INPUT_SET(SelectCond)
+INPUT_SET(Infinite)
 
 #undef INPUT_SET
 
@@ -137,8 +138,8 @@ OP_DEFAULT(Binary, Logical_Or, 2, "or", ",")
 OP(Ternary, Select, 3, "TestSelect", "", " -DFUNC_TEST_SELECT=1",
    "LongVectorOp", SelectCond, Default2, Default3)
 
-OP(Ternary, IsFinite, 1, "TestIsFinite", "", " -DFUNC_TEST_ISFINITE=1",
-   "LongVectorOp", Default1, Default2, Default3)
+OP(Unary, IsFinite, 1, "TestIsFinite", "", " -DFUNC_TEST_ISFINITE=1",
+   "LongVectorOp", Default1, Default2, Infinite)
 
 
 // For the 'any' and 'all' reduction operation, we test with three different

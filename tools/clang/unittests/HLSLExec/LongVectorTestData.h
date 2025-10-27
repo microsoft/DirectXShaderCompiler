@@ -351,8 +351,7 @@ INPUT_SET(InputSet::SelectCond, 0.0, 1.0);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(float)
-INPUT_SET(InputSet::Default1, 1.0, -1.0, 1.0,
-          std::numeric_limits<float>::infinity(), 1.0, -1.0, 1.0, -1.0, 1.0,
+INPUT_SET(InputSet::Default1, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
           -1.0);
 INPUT_SET(InputSet::Default2, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
           -1.0);
@@ -365,6 +364,8 @@ INPUT_SET(InputSet::RangeOne, 0.727f, 0.331f, -0.957f, 0.677f, -0.025f, 0.495f,
 INPUT_SET(InputSet::Positive, 1.0f, 1.0f, 65535.0f, 0.01f, 5531.0f, 0.01f, 1.0f,
           0.01f, 331.2330f, 3250.01f);
 INPUT_SET(InputSet::SelectCond, 0.0f, 1.0f);
+INPUT_SET(InputSet::Infinite, 
+          std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 32);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(double)
