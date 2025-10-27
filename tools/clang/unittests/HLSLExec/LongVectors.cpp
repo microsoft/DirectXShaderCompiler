@@ -1130,11 +1130,10 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
     const float ULPTolerance = 0.5f;
 
     // Accumulate in fp64 to improve precision.
-    double Product = Inputs[0][0] * Inputs[1][0];
-    double DotProduct = Product;
-    double AbsoluteEpsilon = computeAbsoluteEpsilon<T>(Product, ULPTolerance);
-    for (size_t I = 1; I < VectorSize; ++I) {
-      Product = Inputs[0][I] * Inputs[1][I];
+    double DotProduct = 0.0;      // computed reference result
+    double AbsoluteEpsilon = 0.0; // computed tolerance
+    for (size_t I = 0; I < VectorSize; ++I) {
+      double Product = Inputs[0][I] * Inputs[1][I];
       AbsoluteEpsilon += computeAbsoluteEpsilon<T>(Product, ULPTolerance);
 
       DotProduct += Product;
