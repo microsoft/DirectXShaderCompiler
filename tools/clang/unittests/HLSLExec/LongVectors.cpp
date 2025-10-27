@@ -1120,7 +1120,7 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
                                       uint16_t ScalarInputFlags) {
     UNREFERENCED_PARAMETER(ScalarInputFlags);
 
-    std::vector<double> Products;
+    std::vector<double> PositiveProducts;
     std::vector<double> NegativeProducts;
 
     const size_t VectorSize = Inputs[0].size();
@@ -1140,31 +1140,34 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
       DotProduct += Product;
 
       if (Product >= 0.0)
-        Products.push_back(Product);
+        PositiveProducts.push_back(Product);
       else
         NegativeProducts.push_back(Product);
     }
 
     // Sort each by magnitude so that we can accumulate them in worst case
     // order.
-    std::sort(Products.begin(), Products.end(), std::greater<double>());
+    std::sort(PositiveProducts.begin(), PositiveProducts.end(), std::greater<double>());
     std::sort(NegativeProducts.begin(), NegativeProducts.end());
 
-    // Put them together for final accumulation.
-    Products.reserve(Products.size() + NegativeProducts.size());
-    Products.insert(Products.end(), NegativeProducts.begin(),
-                    NegativeProducts.end());
+    // Helper to sum the products and compute/add to the running absolute
+    // epsilon total.
+    auto SumProducts = [&](const std::vector<double> &Values){
+      double Sum = 0;
+      for (size_t I = 1; I < Values.size(); ++I) {
+        Sum += Values[I];
+        AbsoluteEpsilon += computeAbsoluteEpsilon<T>(Sum, ULPTolerance);
+      }
+      return Sum;
+    };
 
     // Accumulate products in the worst case order while computing the absolute
     // epsilon error for each intermediate step. And accumulate that error.
-    double Sum = Products.empty() ? 0.0 : Products.front();
-    for (size_t I = 1; I < Products.size(); ++I) {
-      Sum += Products[I];
-      AbsoluteEpsilon += computeAbsoluteEpsilon<T>(Sum, ULPTolerance);
-    }
+    const double SumPos = SumProducts(PositiveProducts);
+    const double SumNeg = SumProducts(NegativeProducts);
 
-    // Finally, compute and add in the ULP on our final sum of epsilons.
-    AbsoluteEpsilon += computeAbsoluteEpsilon<T>(AbsoluteEpsilon, ULPTolerance);
+    if(!PositiveProducts.empty() && !NegativeProducts.empty())
+      AbsoluteEpsilon += computeAbsoluteEpsilon<T>((SumPos + SumNeg), ULPTolerance);
 
     Op.ValidationConfig.Tolerance = static_cast<float>(AbsoluteEpsilon);
 
@@ -1176,9 +1179,7 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
 
 template <typename T>
 static double computeAbsoluteEpsilon(double A, float ULPTolerance) {
-  if (isinf(A) || isnan(A))
-    // None of the existing input values should produce inf or nan results.
-    DXASSERT_NOMSG(false);
+  DXASSERT((!isinf(A) && !isnan(A)), "Input values should not produce inf or nan results");
 
   // ULP is a positive value by definition. So, working with abs(A) simplifies
   // our logic for computing ULP in the first place.
