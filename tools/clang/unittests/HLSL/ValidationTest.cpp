@@ -4289,8 +4289,7 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   std::string ValidNonDLLPath = ExtSupportValidNonDLLPath.getDxilDllPath();
   std::string FilePath;
   Unicode::WideToUTF8String(
-      hlsl_test::GetPathToHlslDataFile(L"lit.local.cfg").c_str(),
-                   &FilePath); 
+      hlsl_test::GetPathToHlslDataFile(L"lit.local.cfg").c_str(), &FilePath);
   VERIFY_ARE_EQUAL_STR(ValidNonDLLPath.c_str(), FilePath.c_str());
   VERIFY_IS_TRUE(ExtSupportValidNonDLLPath.dxilDllFailedToLoad());
 
