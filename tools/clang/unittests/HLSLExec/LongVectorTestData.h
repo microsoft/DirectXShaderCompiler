@@ -262,7 +262,6 @@ INPUT_SET(InputSet::Default3, true, false, true, false, true, true, true, true,
 INPUT_SET(InputSet::Zero, false);
 INPUT_SET(InputSet::NoZero, true);
 INPUT_SET(InputSet::SelectCond, false, true);
-INPUT_SET(InputSet::Infinite, std::numeric_limits<HLSLBool_t>::infinity());
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(int16_t)
