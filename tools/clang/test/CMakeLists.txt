@@ -26,6 +26,12 @@ configure_lit_site_cfg(
   ${CMAKE_CURRENT_BINARY_DIR}/taef/lit.site.cfg
   )
 
+# HLSL Change begin 
+# This must be done before configuring taef_exec's lit.site.cfg.
+include(taef_exec/DownloadWarp.cmake)
+# HLSL Change end
+
+
 configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec/lit.site.cfg.in
   ${CMAKE_CURRENT_BINARY_DIR}/taef_exec/lit.site.cfg
@@ -122,54 +128,40 @@ add_lit_testsuites(CLANG ${CMAKE_CURRENT_SOURCE_DIR}
   FOLDER "Clang tests/Suites"
 )
 
-# Manually generate targets that we need to expose in visual studio builds.
 
-# The code below here _ONLY_ executes when building with Visual Studio or Xcode.
-if (NOT CMAKE_CONFIGURATION_TYPES)
-  return()
+# add_lit_testsuites doesn't generate targets for Visual Studio or Xcode builds
+# (since these IDEs cannot handle the huge number of targets it generates).
+#
+# We must manually generate targets that we want to expose when using these
+# generators.
+if(CMAKE_CONFIGURATION_TYPES)
+
+  # Add the unit test suite
+  add_lit_target("check-clang-unit" "Running lit suite clang-unit"
+            ${CMAKE_CURRENT_SOURCE_DIR}/Unit
+            PARAMS ${CLANG_TEST_PARAMS}
+            DEPENDS ClangUnitTests
+            ARGS ${CLANG_TEST_EXTRA_ARGS}
+          )
+
+  # Add TAEF targets
+  if(WIN32)
+    add_lit_target("check-clang-taef" "Running lit suite hlsl"
+              ${CMAKE_CURRENT_SOURCE_DIR}/taef
+              PARAMS ${CLANG_TEST_PARAMS}
+              DEPENDS ClangHLSLTests
+              ARGS ${CLANG_TEST_EXTRA_ARGS}
+            )
+    set(TAEF_EXEC_ADAPTER "" CACHE STRING "adapter for taef exec test")
+
+    add_lit_target("check-clang-taef-exec" "Running lit suite hlsl execution test"
+              ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec
+              PARAMS ${CLANG_TEST_PARAMS}
+              adapter=${TAEF_EXEC_ADAPTER}
+              DEPENDS ExecHLSLTests dxexp
+              ARGS ${CLANG_TEST_EXTRA_ARGS}
+            )
+  endif()
 endif()
 
-# Add the unit test suite
-add_lit_target("check-clang-unit" "Running lit suite clang-unit"
-          ${CMAKE_CURRENT_SOURCE_DIR}/Unit
-          PARAMS ${CLANG_TEST_PARAMS}
-          DEPENDS ClangUnitTests
-          ARGS ${CLANG_TEST_EXTRA_ARGS}
-        )
-
-# Add TAEF targets
-if (WIN32)
-  add_lit_target("check-clang-taef" "Running lit suite hlsl"
-            ${CMAKE_CURRENT_SOURCE_DIR}/taef
-            PARAMS ${CLANG_TEST_PARAMS}
-            DEPENDS ClangHLSLTests
-            ARGS ${CLANG_TEST_EXTRA_ARGS}
-          )
-  set(TAEF_EXEC_ADAPTER "" CACHE STRING "adapter for taef exec test")
-
-  # Use a custom target so we can depend on it and re-run the cmake logic which downloads warp
-  # from nuget if requested.
-  add_custom_target(WarpFromNuget
-            COMMAND "${CMAKE_COMMAND}"
-            -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR} 
-            -DBUILD_TYPE=${CMAKE_BUILD_TYPE}
-            -DBINARY_DIR=${CMAKE_BINARY_DIR}
-            -P "${CMAKE_SOURCE_DIR}/cmake/modules/nuget.cmake")
-
-  add_lit_target("check-clang-taef-exec" "Running lit suite hlsl execution test"
-            ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec
-            PARAMS ${CLANG_TEST_PARAMS}
-                adapter=${TAEF_EXEC_ADAPTER}
-            DEPENDS ExecHLSLTests dxexp
-            ARGS ${CLANG_TEST_EXTRA_ARGS}
-          )
-
-  add_lit_target("check-clang-taef-exec-warp" "Running lit suite hlsl execution test with D3D WARP from nuget"
-            ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec
-            PARAMS ${CLANG_TEST_PARAMS}
-                adapter=${TAEF_EXEC_ADAPTER}
-            DEPENDS ExecHLSLTests dxexp WarpFromNuget
-            ARGS ${CLANG_TEST_EXTRA_ARGS}
-          )
-endif()
 # HLSL Change End
