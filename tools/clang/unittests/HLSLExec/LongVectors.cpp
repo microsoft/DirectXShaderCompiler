@@ -462,6 +462,13 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
 
   DXASSERT_NOMSG(LoadAndStoreOpTypes.count(Operation.Type) > 0);
 
+  const bool IsSB = Operation.Type == OpType::LoadAndStore_RDH_SB_UAV ||
+                    Operation.Type == OpType::LoadAndStore_RDH_SB_SRV ||
+                    Operation.Type == OpType::LoadAndStore_DT_SB_UAV ||
+                    Operation.Type == OpType::LoadAndStore_DT_SB_SRV ||
+                    Operation.Type == OpType::LoadAndStore_RD_SB_UAV ||
+                    Operation.Type == OpType::LoadAndStore_RD_SB_SRV;
+
   st::ShaderOp *ShaderOp = ShaderOpSet->GetShaderOp(Operation.ShaderName);
   DXASSERT(ShaderOp, "Invalid ShaderOp name");
 
@@ -499,10 +506,23 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
   if (!ShaderOp->DescriptorHeaps.empty()) {
     DXASSERT_NOMSG(ShaderOp->DescriptorHeaps.size() == 1);
     for (auto &D : ShaderOp->DescriptorHeaps[0].Descriptors) {
-      if (_stricmp(D.Kind, "UAV") == 0)
+      if (_stricmp(D.Kind, "UAV") == 0){
+        D.UavDesc.Format = IsSB ? DXGI_FORMAT_UNKNOWN : DXGI_FORMAT_R32_TYPELESS;
         D.UavDesc.Buffer.NumElements = ComputeNumElements(D.UavDesc.Format);
-      else if (_stricmp(D.Kind, "SRV") == 0)
+        if(IsSB){
+          D.UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+          D.UavDesc.Buffer.StructureByteStride = static_cast<UINT>(ElementSize);
+        }
+      }
+      else if (_stricmp(D.Kind, "SRV") == 0) {
+        D.SrvDesc.Format = IsSB ? DXGI_FORMAT_UNKNOWN : DXGI_FORMAT_R32_TYPELESS;
         D.SrvDesc.Buffer.NumElements = ComputeNumElements(D.SrvDesc.Format);
+        if(IsSB)
+        {
+          D.SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+          D.SrvDesc.Buffer.StructureByteStride = static_cast<UINT>(ElementSize);
+        }
+      }
     }
   }
 
