@@ -12,6 +12,8 @@
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
 
+#include "dxc/Support/Global.h"
+
 namespace LongVector {
 
 // A helper struct because C++ bools are 1 byte and HLSL bools are 4 bytes.
@@ -119,8 +121,8 @@ struct HLSLHalf_t {
   HLSLHalf_t(DirectX::PackedVector::HALF) = delete;
 
   static double GetULP(HLSLHalf_t A) {
-    DXASSERT(!IsInfFloat16(A.Val), "ULP of infinity is undefined");
-    DXASSERT(!IsNanFloat16(A.Val), "ULP of NaN is undefined");
+    DXASSERT(!std::isnan(A) && !std::isinf(A),
+             "ULP of NaN or infinity is undefined");
 
     HLSLHalf_t Next = A;
     ++Next.Val;
