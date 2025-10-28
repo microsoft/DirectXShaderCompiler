@@ -125,7 +125,7 @@ class TaefTest(TestFormat):
         if self.select_filter != "":
             select_filter = str.format("{} AND {}", select_filter, self.select_filter)
 
-        cmd = [self.te, test_dll, '/inproc',
+        cmd = [self.te, test_dll, 
                 '/select:', select_filter,
                 '/unicodeOutput:false',
                 str.format('/outputFolder:{}', self.test_path)]
