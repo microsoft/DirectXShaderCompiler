@@ -119,6 +119,9 @@ struct HLSLHalf_t {
   HLSLHalf_t(DirectX::PackedVector::HALF) = delete;
 
   static double GetULP(HLSLHalf_t A) {
+    DXASSERT(!IsInfFloat16(A.Val), "ULP of infinity is undefined");
+    DXASSERT(!IsNanFloat16(A.Val), "ULP of NaN is undefined");
+
     HLSLHalf_t Next = A;
     ++Next.Val;
 

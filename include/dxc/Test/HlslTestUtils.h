@@ -527,6 +527,10 @@ static const uint16_t Float16NegDenorm = 0x8008;
 static const uint16_t Float16PosZero = 0x0000;
 static const uint16_t Float16NegZero = 0x8000;
 
+inline bool IsInfFloat16(uint16_t val) {
+  return (val == Float16PosInf) || (val == Float16NegInf);
+}
+
 inline bool GetSign(float x) { return std::signbit(x); }
 
 inline int GetMantissa(float x) {
