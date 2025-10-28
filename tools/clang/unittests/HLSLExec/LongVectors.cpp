@@ -1154,8 +1154,8 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
     // epsilon total.
     auto SumProducts =
         [&AbsoluteEpsilon, ULPTolerance](const std::vector<double> &Values) {
-      double Sum = 0;
-      for (size_t I = 0; I < Values.size(); ++I) {
+      double Sum = Values.empty() ? 0.0 : Values[0];
+      for (size_t I = 1; I < Values.size(); ++I) {
         Sum += Values[I];
         AbsoluteEpsilon += computeAbsoluteEpsilon<T>(Sum, ULPTolerance);
       }
