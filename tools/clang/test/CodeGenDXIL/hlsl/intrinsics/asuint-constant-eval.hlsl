@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc /T ps_6_9 -fcgl %s | FileCheck %s
 
 // Compiling this HLSL would fail this assertion in IntExprEvaluator::Success:
