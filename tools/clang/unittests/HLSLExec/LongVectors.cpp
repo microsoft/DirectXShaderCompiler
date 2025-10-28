@@ -16,7 +16,6 @@
 #include <array>
 #include <bitset>
 #include <iomanip>
-#include <numeric>
 #include <optional>
 #include <sstream>
 #include <string>
