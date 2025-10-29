@@ -1086,8 +1086,8 @@ OP_3(OpType::Select, StrictValidation, (static_cast<bool>(A) ? B : C));
 #define REDUCTION_OP(OP, STDFUNC)                                              \
   template <typename T> struct Op<OP, T, 1> : StrictValidation {};             \
   template <typename T> struct ExpectedBuilder<OP, T> {                        \
-    static std::vector<HLSLBool_t>                                             \
-    buildExpected(Op<OP, T, 1> &, const InputSets<T> &Inputs) {                \
+    static std::vector<HLSLBool_t> buildExpected(Op<OP, T, 1> &,               \
+                                                 const InputSets<T> &Inputs) { \
       const bool Res = STDFUNC(Inputs[0].begin(), Inputs[0].end(),             \
                                [](T A) { return A != static_cast<T>(0); });    \
       return std::vector<HLSLBool_t>{Res};                                     \
