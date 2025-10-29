@@ -483,7 +483,7 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
   DXASSERT(ShaderOp, "Invalid ShaderOp name");
 
   // When using DXGI_FORMAT_R32_TYPELESS (raw buffer cases) we need to compute
-  // the number of // 32-bit elements required to hold the vector.
+  // the number of 32-bit elements required to hold the vector.
   const UINT Num32BitElements =
       static_cast<UINT>((VectorSize * OpDataType.HLSLSizeInBytes + 3) / 4);
 
