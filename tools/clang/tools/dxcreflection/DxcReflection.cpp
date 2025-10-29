@@ -700,21 +700,24 @@ void Append(std::vector<std::byte> &Bytes, uint64_t &Offset,
 }
 
 template <typename T, typename = std::enable_if_t<std::is_pod_v<T>>>
-void Consume(const std::vector<std::byte> &Bytes, uint64_t &Offset, T &t) {
+[[nodiscard]] DxcReflectionError Consume(const std::vector<std::byte> &Bytes, uint64_t &Offset, T &t) {
 
   static_assert(std::is_pod_v<T>, "Consume only works on POD types");
 
   SkipPadding<T>(Offset);
 
   if (Offset + sizeof(T) > Bytes.size())
-    throw std::out_of_range("Couldn't consume; out of bounds!");
+    return DXC_REFLECT_ERR("Couldn't consume; out of bounds!");
 
   std::memcpy(&t, &UnsafeCast<uint8_t>(Bytes, Offset), sizeof(T));
   Offset += sizeof(T);
+
+  return DxcReflectionSuccess;
 }
 
 template <typename T>
-void Consume(const std::vector<std::byte> &Bytes, uint64_t &Offset, T *target,
+[[nodiscard]] DxcReflectionError Consume(const std::vector<std::byte> &Bytes,
+                                         uint64_t &Offset, T *target,
              uint64_t Len) {
 
   static_assert(std::is_pod_v<T>, "Consume only works on POD types");
@@ -722,55 +725,68 @@ void Consume(const std::vector<std::byte> &Bytes, uint64_t &Offset, T *target,
   SkipPadding<T>(Offset);
 
   if (Offset + sizeof(T) * Len > Bytes.size())
-    throw std::out_of_range("Couldn't consume; out of bounds!");
+    return DXC_REFLECT_ERR("Couldn't consume; out of bounds!");
 
   std::memcpy(target, &UnsafeCast<uint8_t>(Bytes, Offset), sizeof(T) * Len);
   Offset += sizeof(T) * Len;
+
+  return DxcReflectionSuccess;
 }
 
 template <typename T>
-void Consume(const std::vector<std::byte> &Bytes, uint64_t &Offset,
-            std::vector<T> &Vec, uint64_t Len) {
+[[nodiscard]] DxcReflectionError Consume(const std::vector<std::byte> &Bytes,
+                                         uint64_t &Offset, std::vector<T> &Vec,
+                                         uint64_t Len) {
   Vec.resize(Len);
-  Consume(Bytes, Offset, Vec.data(), Len);
+  return Consume(Bytes, Offset, Vec.data(), Len);
 }
 
 template <>
-void Consume<std::string>(const std::vector<std::byte> &Bytes, uint64_t &Offset,
+[[nodiscard]] DxcReflectionError
+Consume<std::string>(const std::vector<std::byte> &Bytes, uint64_t &Offset,
                           std::vector<std::string> &Vec, uint64_t Len) {
   Vec.resize(Len);
 
   for (uint64_t i = 0; i < Len; ++i) {
 
       if (Offset >= Bytes.size())
-        throw std::out_of_range("Couldn't consume string len; out of bounds!");
+      return DXC_REFLECT_ERR("Couldn't consume string len; out of bounds!");
   
       uint16_t ourLen = uint8_t(Bytes.at(Offset++));
 
       if (ourLen >> 7) {
 
         if (Offset >= Bytes.size())
-          throw std::out_of_range("Couldn't consume string len; out of bounds!");
+        return DXC_REFLECT_ERR("Couldn't consume string len; out of bounds!");
 
         ourLen &= ~(1 << 7);
         ourLen |= uint16_t(Bytes.at(Offset++)) << 7;
       }
 
       if (Offset + ourLen > Bytes.size())
-        throw std::out_of_range("Couldn't consume string len; out of bounds!");
+        return DXC_REFLECT_ERR("Couldn't consume string len; out of bounds!");
 
       Vec[i].resize(ourLen);
       std::memcpy(Vec[i].data(), Bytes.data() + Offset, ourLen);
       Offset += ourLen;
   }
+
+  return DxcReflectionSuccess;
 }
 
 template <typename T, typename T2, typename ...args>
-void Consume(const std::vector<std::byte> &Bytes, uint64_t &Offset,
+[[nodiscard]] DxcReflectionError Consume(const std::vector<std::byte> &Bytes,
+                                         uint64_t &Offset,
              std::vector<T> &Vec, uint64_t Len, std::vector<T2> &Vec2,
              uint64_t Len2, args&... arg) {
-  Consume(Bytes, Offset, Vec, Len);
-  Consume(Bytes, Offset, Vec2, Len2, arg...);
+
+  if (DxcReflectionError err = Consume(Bytes, Offset, Vec, Len))
+      return err;
+
+  if (DxcReflectionError err = Consume(Bytes, Offset, Vec2, Len2, arg...))
+      return err;
+
+  return DxcReflectionSuccess;
 }
 
 static constexpr uint32_t DxcReflectionDataMagic = DXC_FOURCC('D', 'H', 'R', 'D');
@@ -925,31 +941,37 @@ D3D_CBUFFER_TYPE DxcHLSLReflectionData::GetBufferType(uint8_t Type) {
   }
 }
 
-DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes,
-                                     bool MakeNameLookupTable) {
+[[nodiscard]] DxcReflectionError DxcHLSLReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
+            bool MakeNameLookupTable)
+{
+
+  *this = {};
 
   uint64_t off = 0;
   DxcHLSLHeader header;
-  Consume<DxcHLSLHeader>(Bytes, off, header);
+  if (DxcReflectionError err = Consume<DxcHLSLHeader>(Bytes, off, header))
+      return err;
 
   if (header.MagicNumber != DxcReflectionDataMagic)
-    throw std::invalid_argument("Invalid magic number");
+    return DXC_REFLECT_ERR("Invalid magic number");
 
   if (header.Version != DxcReflectionDataVersion)
-    throw std::invalid_argument("Unrecognized version number");
+    return DXC_REFLECT_ERR("Unrecognized version number");
 
   Features = header.Features;
 
-  bool hasSymbolInfo = Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
+  bool hasSymbolInfo =
+      Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
   if (!hasSymbolInfo && (header.Sources || header.Strings))
-    throw std::invalid_argument("Sources are invalid without symbols");
+    return DXC_REFLECT_ERR("Sources are invalid without symbols");
 
   uint32_t nodeSymbolCount = hasSymbolInfo ? header.Nodes : 0;
   uint32_t memberSymbolCount = hasSymbolInfo ? header.Members : 0;
   uint32_t typeSymbolCount = hasSymbolInfo ? header.Types : 0;
 
-  Consume(Bytes, off, Strings, header.Strings, StringsNonDebug,
+  if (DxcReflectionError err = Consume(
+          Bytes, off, Strings, header.Strings, StringsNonDebug,
           header.StringsNonDebug, Sources, header.Sources, Nodes, header.Nodes,
           NodeSymbols, nodeSymbolCount, Registers, header.Registers, Functions,
           header.Functions, Enums, header.Enums, EnumValues, header.EnumValues,
@@ -957,16 +979,17 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
           Arrays, header.Arrays, MemberTypeIds, header.Members, TypeList,
           header.TypeListCount, MemberNameIds, memberSymbolCount, Types,
           header.Types, TypeSymbols, typeSymbolCount, Buffers, header.Buffers,
-          Parameters, header.Parameters, Statements, header.Statements);
+          Parameters, header.Parameters, Statements, header.Statements))
+    return err;
 
-  // Validation errors are throws to prevent accessing invalid data
+  // Validation errors to prevent accessing invalid data
 
   if (off != Bytes.size())
-    throw std::invalid_argument("Reflection info had unrecognized data on the back");
+    return DXC_REFLECT_ERR("Reflection info had unrecognized data on the back");
 
   for(uint32_t i = 0; i < header.Sources; ++i)
-    if(Sources[i] >= header.Strings)
-      throw std::invalid_argument("Source path out of bounds");
+    if (Sources[i] >= header.Strings)
+      return DXC_REFLECT_ERR("Source path out of bounds", i);
 
   std::vector<uint32_t> validateChildren;
 
@@ -975,21 +998,20 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     const DxcHLSLNode &node = Nodes[i];
 
     if (hasSymbolInfo && (NodeSymbols[i].GetNameId() >= header.Strings ||
-                          (NodeSymbols[i].GetFileSourceId() != uint16_t(-1) &&
-                           NodeSymbols[i].GetFileSourceId() >= header.Sources)))
-      throw std::invalid_argument("Node " + std::to_string(i) +
-                                  " points to invalid name or file name");
+         (NodeSymbols[i].GetFileSourceId() != uint16_t(-1) &&
+          NodeSymbols[i].GetFileSourceId() >= header.Sources)))
+      return DXC_REFLECT_ERR("Node points to invalid name or file name", i);
 
     if (node.GetAnnotationStart() + node.GetAnnotationCount() >
             header.Annotations ||
         node.GetNodeType() > D3D12_HLSL_NODE_TYPE_END ||
         (i && node.GetParentId() >= i) ||
         i + node.GetChildCount() > header.Nodes)
-      throw std::invalid_argument("Node " + std::to_string(i) + " is invalid");
+      return DXC_REFLECT_ERR("Node is invalid", i);
 
     if (node.GetSemanticId() != uint32_t(-1) &&
         node.GetSemanticId() >= header.StringsNonDebug)
-      throw std::invalid_argument("Node " + std::to_string(i) + " points to invalid semantic id");
+      return DXC_REFLECT_ERR("Node points to invalid semantic id", i);
 
     uint32_t maxValue = 1;
     bool allowFwdDeclare = false;
@@ -1018,9 +1040,8 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
       if (Nodes[node.GetParentId()].GetNodeType() !=
           D3D12_HLSL_NODE_TYPE_FUNCTION)
-        throw std::invalid_argument(
-            "Node " + std::to_string(i) +
-            " is a parameter but parent isn't a function");
+        return DXC_REFLECT_ERR(
+            "Node is a parameter but parent isn't a function", i);
 
       break;
 
@@ -1047,10 +1068,9 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
         break;
 
       default:
-        throw std::invalid_argument(
-            "Node " + std::to_string(i) +
-            " is an if/scope/do/for/while/switch but parent isn't of a similar "
-            "type or function");
+        return DXC_REFLECT_ERR(
+            "Node is an if/scope/do/for/while/switch but parent isn't of a similar "
+            "type or function", i);
       }
 
       break;
@@ -1079,9 +1099,8 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     case D3D12_HLSL_NODE_TYPE_GROUPSHARED_VARIABLE:
     case D3D12_HLSL_NODE_TYPE_PARAMETER:
       if (node.GetChildCount())
-        throw std::invalid_argument("Node " + std::to_string(i) +
-                                    " is a parameter, typedef, variable or "
-                                    "static variable but also has children");
+        return DXC_REFLECT_ERR("Node is a parameter, typedef, variable or "
+                                    "static variable but also has children", i);
 
     case D3D12_HLSL_NODE_TYPE_IF:
     case D3D12_HLSL_NODE_TYPE_SCOPE:
@@ -1097,17 +1116,14 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
          node.GetNodeType() == D3D12_HLSL_NODE_TYPE_VARIABLE) &&
         Nodes[node.GetParentId()].GetNodeType() ==
             D3D12_HLSL_NODE_TYPE_INTERFACE)
-      throw std::invalid_argument(
-          "Node " + std::to_string(i) +
-          " is interface but has registers or variables");
+      return DXC_REFLECT_ERR(
+          "Node is interface but has registers or variables", i);
 
     if (node.IsFwdDeclare() && !allowFwdDeclare)
-      throw std::invalid_argument("Node " + std::to_string(i) +
-                                  " is fwd declare but that's not permitted");
+      return DXC_REFLECT_ERR("Node is fwd declare but that's not permitted", i);
 
     if (node.GetLocalId() >= maxValue)
-      throw std::invalid_argument("Node " + std::to_string(i) +
-                                  " has invalid localId");
+      return DXC_REFLECT_ERR("Node has invalid localId", i);
   }
 
   for(uint32_t i = 0; i < header.Registers; ++i) {
@@ -1115,29 +1131,29 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     const DxcHLSLRegister &reg = Registers[i];
 
     if(reg.GetNodeId() >= header.Nodes || 
-      Nodes[reg.GetNodeId()].GetNodeType() != D3D12_HLSL_NODE_TYPE_REGISTER ||
+      Nodes[reg.GetNodeId()].GetNodeType() !=
+            D3D12_HLSL_NODE_TYPE_REGISTER ||
         Nodes[reg.GetNodeId()].GetLocalId() != i
     )
-      throw std::invalid_argument("Register " + std::to_string(i) + " points to an invalid nodeId");
+      return DXC_REFLECT_ERR("Register points to an invalid nodeId", i);
 
     if (reg.GetType() > D3D_SIT_UAV_FEEDBACKTEXTURE ||
         reg.GetReturnType() > D3D_RETURN_TYPE_CONTINUED ||
         reg.GetDimension() > D3D_SRV_DIMENSION_BUFFEREX || !reg.GetBindCount() ||
         (reg.GetArrayId() != uint32_t(-1) && reg.GetArrayId() >= header.Arrays) ||
         (reg.GetArrayId() != uint32_t(-1) && reg.GetBindCount() <= 1))
-      throw std::invalid_argument(
-          "Register " + std::to_string(i) +
-          " invalid type, returnType, bindCount, array or dimension");
+      return DXC_REFLECT_ERR(
+          "Register invalid type, returnType, bindCount, array or dimension", i);
     
-    D3D_CBUFFER_TYPE bufferType = GetBufferType(reg.GetType());
+    D3D_CBUFFER_TYPE bufferType =
+        DxcHLSLReflectionData::GetBufferType(reg.GetType());
 
     if(bufferType != D3D_CT_INTERFACE_POINTERS) {
 
       if (reg.GetBufferId() >= header.Buffers ||
           Buffers[reg.GetBufferId()].NodeId != reg.GetNodeId() ||
           Buffers[reg.GetBufferId()].Type != bufferType)
-          throw std::invalid_argument("Register " + std::to_string(i) +
-                                      " invalid buffer referenced by register");
+          return DXC_REFLECT_ERR("Register invalid buffer referenced by register", i);
     }
   }
 
@@ -1149,22 +1165,19 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
         Nodes[func.GetNodeId()].GetNodeType() !=
             D3D12_HLSL_NODE_TYPE_FUNCTION ||
         Nodes[func.GetNodeId()].GetLocalId() != i)
-      throw std::invalid_argument("Function " + std::to_string(i) +
-                                  " points to an invalid nodeId");
+      return DXC_REFLECT_ERR("Function points to an invalid nodeId", i);
 
     uint32_t paramCount = func.GetNumParameters() + func.HasReturn();
 
     if (Nodes[func.GetNodeId()].GetChildCount() < paramCount)
-      throw std::invalid_argument("Function " + std::to_string(i) +
-                                  " is missing parameters and/or return");
+      return DXC_REFLECT_ERR("Function is missing parameters and/or return", i);
 
     for (uint32_t j = 0; j < paramCount; ++j)
       if (Nodes[func.GetNodeId() + 1 + j].GetParentId() != func.GetNodeId() ||
           Nodes[func.GetNodeId() + 1 + j].GetNodeType() !=
               D3D12_HLSL_NODE_TYPE_PARAMETER)
-          throw std::invalid_argument(
-              "Function " + std::to_string(i) +
-              " is missing valid parameters and/or return");
+          return DXC_REFLECT_ERR(
+              "Function is missing valid parameters and/or return", i);
   }
 
   for(uint32_t i = 0; i < header.Enums; ++i) {
@@ -1174,19 +1187,16 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     if (enm.NodeId >= header.Nodes ||
         Nodes[enm.NodeId].GetNodeType() != D3D12_HLSL_NODE_TYPE_ENUM ||
         Nodes[enm.NodeId].GetLocalId() != i)
-      throw std::invalid_argument("Function " + std::to_string(i) +
-                                  " points to an invalid nodeId");
+      return DXC_REFLECT_ERR("Function points to an invalid nodeId", i);
 
     if (enm.Type < D3D12_HLSL_ENUM_TYPE_START ||
         enm.Type > D3D12_HLSL_ENUM_TYPE_END)
-      throw std::invalid_argument("Enum " + std::to_string(i) +
-                                  " has an invalid type");
+      return DXC_REFLECT_ERR("Enum has an invalid type", i);
 
     const DxcHLSLNode &node = Nodes[enm.NodeId];
 
     if (!node.IsFwdDeclare() && !node.GetChildCount())
-      throw std::invalid_argument("Enum " + std::to_string(i) +
-                                  " has no values!");
+      return DXC_REFLECT_ERR("Enum has no values!", i);
 
     for (uint32_t j = 0; j < node.GetChildCount(); ++j) {
     
@@ -1194,8 +1204,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
         if (child.GetChildCount() != 0 ||
             child.GetNodeType() != D3D12_HLSL_NODE_TYPE_ENUM_VALUE)
-          throw std::invalid_argument("Enum " + std::to_string(i) +
-                                      " has an invalid enum value");
+          return DXC_REFLECT_ERR("Enum has an invalid enum value", i);
     }
   }
 
@@ -1208,8 +1217,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
         Nodes[enumVal.NodeId].GetLocalId() != i ||
         Nodes[Nodes[enumVal.NodeId].GetParentId()].GetNodeType() !=
             D3D12_HLSL_NODE_TYPE_ENUM)
-      throw std::invalid_argument("Enum " + std::to_string(i) +
-                                  " points to an invalid nodeId");
+      return DXC_REFLECT_ERR("Enum points to an invalid nodeId", i);
   }
 
   for (uint32_t i = 0; i < header.Arrays; ++i) {
@@ -1218,14 +1226,12 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
     if (arr.ArrayElem() <= 1 || arr.ArrayElem() > 32 ||
         arr.ArrayStart() + arr.ArrayElem() > header.ArraySizes)
-      throw std::invalid_argument("Array " + std::to_string(i) +
-                                  " points to an invalid array element");
+      return DXC_REFLECT_ERR("Array points to an invalid array element", i);
   }
 
   for (uint32_t i = 0; i < header.Annotations; ++i)
     if (Annotations[i].GetStringNonDebug() >= header.StringsNonDebug)
-      throw std::invalid_argument("Annotation " + std::to_string(i) +
-                                  " points to an invalid string");
+      return DXC_REFLECT_ERR("Annotation points to an invalid string", i);
 
   for (uint32_t i = 0; i < header.Buffers; ++i) {
 
@@ -1235,14 +1241,12 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
         Nodes[buf.NodeId].GetNodeType() != D3D12_HLSL_NODE_TYPE_REGISTER ||
         Nodes[buf.NodeId].GetLocalId() >= header.Registers ||
         Registers[Nodes[buf.NodeId].GetLocalId()].GetBufferId() != i)
-      throw std::invalid_argument("Buffer " + std::to_string(i) +
-                                  " points to an invalid nodeId");
+      return DXC_REFLECT_ERR("Buffer points to an invalid nodeId", i);
 
     const DxcHLSLNode &node = Nodes[buf.NodeId];
 
     if (!node.GetChildCount())
-      throw std::invalid_argument("Buffer " + std::to_string(i) +
-                                  " requires at least one Variable child");
+      return DXC_REFLECT_ERR("Buffer requires at least one Variable child", i);
 
     for (uint32_t j = 0; j < node.GetChildCount(); ++j) {
 
@@ -1250,26 +1254,22 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
       if (child.GetChildCount() != 0 ||
           child.GetNodeType() != D3D12_HLSL_NODE_TYPE_VARIABLE)
-          throw std::invalid_argument("Buffer " + std::to_string(i) +
-                                      " has to have only Variable child nodes");
+          return DXC_REFLECT_ERR("Buffer has to have only Variable child nodes", i);
     }
   }
 
   for (uint32_t i = 0; i < header.Members; ++i) {
 
     if (MemberTypeIds[i] >= header.Types)
-      throw std::invalid_argument("Member " + std::to_string(i) +
-                                  " points to an invalid type");
+      return DXC_REFLECT_ERR("Member points to an invalid type", i);
 
     if (hasSymbolInfo && MemberNameIds[i] >= header.Strings)
-      throw std::invalid_argument("Member " + std::to_string(i) +
-                                  " points to an invalid string");
+      return DXC_REFLECT_ERR("Member points to an invalid string", i);
   }
 
   for (uint32_t i = 0; i < header.TypeListCount; ++i)
     if (TypeList[i] >= header.Types)
-      throw std::invalid_argument("Type list index " + std::to_string(i) +
-                                  " points to an invalid type");
+      return DXC_REFLECT_ERR("Type list index points to an invalid type", i);
 
   for (uint32_t i = 0; i < header.Parameters; ++i) {
 
@@ -1278,13 +1278,11 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     if (param.NodeId >= header.Nodes ||
         Nodes[param.NodeId].GetNodeType() != D3D12_HLSL_NODE_TYPE_PARAMETER ||
         Nodes[param.NodeId].GetLocalId() != i || param.TypeId >= header.Types)
-      throw std::invalid_argument("Parameter " + std::to_string(i) +
-                                  " points to an invalid nodeId");
+      return DXC_REFLECT_ERR("Parameter points to an invalid nodeId", i);
 
     if (param.Flags > 3 ||
         param.InterpolationMode > D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE)
-      throw std::invalid_argument("Parameter " + std::to_string(i) +
-                                  " has invalid data");
+      return DXC_REFLECT_ERR("Parameter has invalid data", i);
   }
 
   for (uint32_t nodeId : validateChildren) {
@@ -1313,9 +1311,8 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
       case D3D12_HLSL_NODE_TYPE_SWITCH:
         break;
       default:
-        throw std::invalid_argument(
-            "Node " + std::to_string(nodeId) +
-            " has if/then/scope with children of invalid type");
+        return DXC_REFLECT_ERR(
+            "Node has if/then/scope with children of invalid type", nodeId);
       }
 
       j += childNode.GetChildCount();
@@ -1328,22 +1325,19 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
     if (Stmt.GetNodeId() >= header.Nodes ||
         Nodes[Stmt.GetNodeId()].GetLocalId() != i)
-      throw std::invalid_argument("Statement " + std::to_string(i) +
-                                  " points to an invalid nodeId");
+      return DXC_REFLECT_ERR("Statement points to an invalid nodeId", i);
 
     bool condVar = Stmt.HasConditionVar();
     uint32_t minParamCount = Stmt.GetNodeCount() + condVar;
     const DxcHLSLNode &node = Nodes[Stmt.GetNodeId()];
 
     if (node.GetChildCount() < minParamCount)
-      throw std::invalid_argument("Statement " + std::to_string(i) +
-                                  " didn't have required child nodes");
+      return DXC_REFLECT_ERR("Statement didn't have required child nodes", i);
 
     if (condVar && Nodes[Stmt.GetNodeId() + 1].GetNodeType() !=
                        D3D12_HLSL_NODE_TYPE_VARIABLE)
-      throw std::invalid_argument(
-          "Statement " + std::to_string(i) +
-          " has condition variable but first child is not a variable");
+      return DXC_REFLECT_ERR(
+          "Statement has condition variable but first child is not a variable", i);
 
     switch (Nodes[Stmt.GetNodeId()].GetNodeType()) {
     case D3D12_HLSL_NODE_TYPE_IF:
@@ -1352,8 +1346,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     case D3D12_HLSL_NODE_TYPE_SWITCH:
       break;
     default:
-      throw std::invalid_argument("Statement " + std::to_string(i) +
-                                  " has invalid node type");
+      return DXC_REFLECT_ERR("Statement has invalid node type", i);
     }
   }
   
@@ -1363,14 +1356,13 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
     if (hasSymbolInfo && (TypeSymbols[i].DisplayNameId >= header.Strings ||
                           TypeSymbols[i].UnderlyingNameId >= header.Strings))
-      throw std::invalid_argument("Type " + std::to_string(i) +
-                                  " points to an invalid string");
+      return DXC_REFLECT_ERR("Type points to an invalid string", i);
 
-    if (hasSymbolInfo && (TypeSymbols[i].DisplayArray.ElementsOrArrayId >> 31 &&
-                          (TypeSymbols[i].DisplayArray.ElementsOrArrayId << 1 >>
+    if (hasSymbolInfo &&
+        (TypeSymbols[i].DisplayArray.ElementsOrArrayId >> 31 &&
+         (TypeSymbols[i].DisplayArray.ElementsOrArrayId << 1 >>
                            1) >= header.Arrays))
-      throw std::invalid_argument("Type " + std::to_string(i) +
-                                  " points to an invalid string");
+      return DXC_REFLECT_ERR("Type points to an invalid string", i);
 
     if ((type.GetBaseClass() != uint32_t(-1) &&
          type.GetBaseClass() >= header.Types) ||
@@ -1380,26 +1372,22 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
         (type.GetUnderlyingArray().ElementsOrArrayId >> 31 &&
          (type.GetUnderlyingArray().ElementsOrArrayId << 1 >> 1) >=
              header.Arrays))
-      throw std::invalid_argument(
-          "Type " + std::to_string(i) +
-          " points to an invalid string, array, base class or member");
+      return DXC_REFLECT_ERR(
+          "Type points to an invalid string, array, base class or member", i);
 
     switch (type.GetClass()) {
 
     case D3D_SVC_SCALAR:
 
       if (type.GetColumns() != 1)
-          throw std::invalid_argument("Type (scalar) " + std::to_string(i) +
-                                      " should have columns == 1");
+          return DXC_REFLECT_ERR("Type (scalar) should have columns == 1", i);
 
       [[fallthrough]];
 
     case D3D_SVC_VECTOR:
 
       if (type.GetRows() != 1)
-          throw std::invalid_argument("Type (scalar/vector) " +
-                                      std::to_string(i) +
-                                      " should have rows == 1");
+          return DXC_REFLECT_ERR("Type (scalar/vector) should have rows == 1", i);
 
       [[fallthrough]];
 
@@ -1408,9 +1396,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
         if (!type.GetRows() || !type.GetColumns() || type.GetRows() > 128 ||
           type.GetColumns() > 128)
-          throw std::invalid_argument("Type (scalar/vector/matrix) " +
-                                      std::to_string(i) +
-                                      " has invalid rows or columns");
+          return DXC_REFLECT_ERR("Type (scalar/vector/matrix) has invalid rows or columns", i);
         
         switch (type.GetType()) {
         case D3D_SVT_BOOL:
@@ -1432,9 +1418,7 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
           break;
 
         default:
-          throw std::invalid_argument("Type (scalar/matrix/vector) " +
-                                      std::to_string(i) +
-                                      " is of invalid type");
+          return DXC_REFLECT_ERR("Type (scalar/matrix/vector) is of invalid type", i);
         }
 
         break;
@@ -1442,22 +1426,17 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
     case D3D_SVC_STRUCT:
 
         if (!type.GetMemberCount())
-          throw std::invalid_argument("Type (struct) " + std::to_string(i) +
-                                      " is missing children");
+          return DXC_REFLECT_ERR("Type (struct) is missing children", i);
 
         [[fallthrough]];
 
     case D3D_SVC_INTERFACE_CLASS:
 
         if (type.GetType())
-          throw std::invalid_argument("Type (struct) " +
-                                      std::to_string(i) +
-                                      " shouldn't have rows or columns");
+          return DXC_REFLECT_ERR("Type (struct) shouldn't have rows or columns", i);
 
         if (type.GetRows() || type.GetColumns())
-          throw std::invalid_argument("Type (struct) " +
-                                      std::to_string(i) +
-                                      " shouldn't have rows or columns");
+          return DXC_REFLECT_ERR("Type (struct) shouldn't have rows or columns", i);
 
         break;
 
@@ -1494,20 +1473,16 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
           break;
 
         default:
-          throw std::invalid_argument("Type (object) " + std::to_string(i) +
-                                      " is of invalid type");
+          return DXC_REFLECT_ERR("Type (object) is of invalid type", i);
         }
 
         if (type.GetRows() || type.GetColumns())
-          throw std::invalid_argument("Type (object) " +
-                                      std::to_string(i) +
-                                      " shouldn't have rows or columns");
+          return DXC_REFLECT_ERR("Type (object) shouldn't have rows or columns", i);
 
       break;
 
     default:
-      throw std::invalid_argument("Type " + std::to_string(i) +
-                                  " has an invalid class");
+      return DXC_REFLECT_ERR("Type has an invalid class", i);
     }
   }
 
@@ -1522,45 +1497,39 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
       uint32_t fwdBack = node.GetFwdBck();
 
       if (Nodes[fwdBack].GetNodeType() != node.GetNodeType())
-          throw std::invalid_argument(
-              "Node " + std::to_string(i) +
-              " (fwd/bck declare) points to element that of incompatible type");
+          return DXC_REFLECT_ERR(
+              "Node (fwd/bck declare) points to element that of incompatible type", i);
 
-      if (hasSymbolInfo && NodeSymbols[fwdBack].GetNameId() != NodeSymbols[i].GetNameId())
-          throw std::invalid_argument(
-              "Node " + std::to_string(i) +
-              " (fwd/bck declare) have mismatching name");
+      if (hasSymbolInfo && NodeSymbols[fwdBack].GetNameId() !=
+                               NodeSymbols[i].GetNameId())
+          return DXC_REFLECT_ERR(
+              "Node (fwd/bck declare) have mismatching name", i);
 
       if (node.IsFwdDeclare()) {
 
         if (fwdBack <= i || fwdBack >= header.Nodes)
-          throw std::invalid_argument(
-              "Node " + std::to_string(i) +
-              " (fwd declare) points to invalid element");
+          return DXC_REFLECT_ERR(
+              "Node (fwd declare) points to invalid element", i);
 
         if (Nodes[fwdBack].IsFwdDeclare())
-          throw std::invalid_argument(
-              "Node " + std::to_string(i) +
-              " (fwd declare) points to element that is also a fwd declare");
+          return DXC_REFLECT_ERR(
+              "Node (fwd declare) points to element that is also a fwd declare", i);
 
         if (node.GetChildCount() || node.GetAnnotationCount())
-          throw std::invalid_argument(
-              "Node " + std::to_string(i) +
-              " (fwd declare) points to element with invalid child count, "
-              "or annotationCount");
+          return DXC_REFLECT_ERR(
+              "Node (fwd declare) points to element with invalid child count, "
+              "or annotationCount", i);
       }
 
       else {
 
         if (fwdBack >= i)
-          throw std::invalid_argument(
-              "Node " + std::to_string(i) +
-              " (bck declare) points to invalid element");
+          return DXC_REFLECT_ERR(
+              "Node (bck declare) points to invalid element", i);
 
         if (!Nodes[fwdBack].IsFwdDeclare())
-          throw std::invalid_argument(
-              "Node " + std::to_string(i) +
-              " (bck declare) points to element that is not a fwd declare");
+          return DXC_REFLECT_ERR(
+              "Node (bck declare) points to element that is not a fwd declare", i);
       }
     }
   }
@@ -1569,6 +1538,8 @@ DxcHLSLReflectionData::DxcHLSLReflectionData(const std::vector<std::byte> &Bytes
 
   if (MakeNameLookupTable)
     GenerateNameLookupTable();
+
+  return DxcReflectionSuccess;
 }
 
 void DxcHLSLReflectionData::Printf() const { RecursePrint(*this, 0, 0, 0); }

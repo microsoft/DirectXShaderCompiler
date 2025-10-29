@@ -1600,7 +1600,7 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
   if (DxcReflectionError err = DxcHLSLReflectionDataFromAST(
           refl, astHelper.compiler, *astHelper.tu, opts.AutoBindingSpace,
           reflectMask, opts.DefaultRowMajor)) {
-    printf("refl.Initialize failed %s\n", err);     //TODO:
+    printf("DxcHLSLReflectionDataFromAST failed %s\n", err.err);     //TODO:
     return E_FAIL;
   }
 
@@ -1613,7 +1613,12 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
   std::vector<std::byte> bytes;
   refl.Dump(bytes);
 
-  DxcHLSLReflectionData deserialized(bytes, true);
+  DxcHLSLReflectionData deserialized;
+  
+  if (DxcReflectionError err = deserialized.Deserialize(bytes, true)) {
+    printf("Deserialize failed %s\n", err.err); // TODO:
+    return E_FAIL;
+  }
 
   if (!(deserialized == refl)) {
     printf("Dump or Deserialize doesn't match\n");  //TODO:
@@ -1629,7 +1634,12 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
 
   refl.Dump(bytes);
 
-  DxcHLSLReflectionData deserialized2 = DxcHLSLReflectionData(bytes, false);
+  DxcHLSLReflectionData deserialized2;
+
+  if (DxcReflectionError err = deserialized2.Deserialize(bytes, true)) {
+    printf("Deserialize failed %s\n", err.err); // TODO:
+    return E_FAIL;
+  }
 
   if (!(deserialized2 == refl)) {
     printf("Dump or Deserialize doesn't match\n");      //TODO:
@@ -1775,7 +1785,11 @@ public:
                                      data->GetBufferSize());
 
     try {
-      DxcHLSLReflectionData deserial(bytes, true);
+      DxcHLSLReflectionData deserial;
+
+      if (DxcReflectionError err = deserial.Deserialize(bytes, true))
+        return E_FAIL;
+
       *ppReflection = new DxcHLSLReflection(std::move(deserial));
       return S_OK;
     } catch (...) {

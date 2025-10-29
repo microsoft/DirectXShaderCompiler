@@ -22,7 +22,26 @@
 
 namespace hlsl {
 
-typedef const char *DxcReflectionError;
+struct DxcReflectionError {
+
+  const char *err;
+
+  uint32_t index;       //For example which elementId made this error
+  bool hasIndex;
+  uint8_t pad[3];
+
+  constexpr DxcReflectionError()
+      : err(nullptr), index(0), hasIndex(false), pad{0, 0, 0} {}
+
+  constexpr DxcReflectionError(const char *err)
+      : err(err), index(0), hasIndex(false), pad{0, 0, 0} {}
+
+  constexpr DxcReflectionError(const char *err, uint32_t index)
+      : err(err), index(index), hasIndex(true), pad{0, 0, 0} {}
+
+  operator const char *() const { return err; }
+};
+
 static constexpr const DxcReflectionError DxcReflectionSuccess = nullptr;
 
 #ifndef NDEBUG
@@ -35,9 +54,9 @@ static constexpr const DxcReflectionError DxcReflectionSuccess = nullptr;
   #endif
   #define DXC_REFLECT_STRING(x) #x
   #define DXC_REFLECT_STRING2(x) DXC_REFLECT_STRING(x)
-  #define DXC_REFLECT_ERR(x) (x " at " __FILE__ ":" DXC_REFLECT_STRING2(__LINE__) " (" DXC_FUNC_NAME ")")
+  #define DXC_REFLECT_ERR(x, ...) DxcReflectionError(x " at " __FILE__ ":" DXC_REFLECT_STRING2(__LINE__) " (" DXC_FUNC_NAME ")", __VA_ARGS__)
 #else
-  #define DXC_REFLECT_ERR(x) x
+#define DXC_REFLECT_ERR(x, ...) DxcReflectionError(x, __VA_ARGS__)
 #endif
 
 class DxcHLSLNode {
@@ -812,8 +831,8 @@ struct DxcHLSLReflectionData {
   bool GenerateNameLookupTable();
 
   DxcHLSLReflectionData() = default;
-  DxcHLSLReflectionData(const std::vector<std::byte> &Bytes,
-                    bool MakeNameLookupTable);
+  [[nodiscard]] DxcReflectionError Deserialize(const std::vector<std::byte> &Bytes,
+                                 bool MakeNameLookupTable);
 
   bool IsSameNonDebug(const DxcHLSLReflectionData &Other) const {
     return StringsNonDebug == Other.StringsNonDebug && Nodes == Other.Nodes &&
