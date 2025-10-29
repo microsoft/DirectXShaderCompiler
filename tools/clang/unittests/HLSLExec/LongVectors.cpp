@@ -118,16 +118,16 @@ static const std::unordered_set<OpType> LoadAndStoreOpTypes = {
 };
 
 static bool IsStructuredBufferLoadAndStoreOp(OpType Op) {
-  switch(Op) {
-    case OpType::LoadAndStore_RDH_SB_UAV:
-    case OpType::LoadAndStore_RDH_SB_SRV:
-    case OpType::LoadAndStore_DT_SB_UAV:
-    case OpType::LoadAndStore_DT_SB_SRV:
-    case OpType::LoadAndStore_RD_SB_UAV:
-    case OpType::LoadAndStore_RD_SB_SRV:
-      return true;
-    default:
-      return false;
+  switch (Op) {
+  case OpType::LoadAndStore_RDH_SB_UAV:
+  case OpType::LoadAndStore_RDH_SB_SRV:
+  case OpType::LoadAndStore_DT_SB_UAV:
+  case OpType::LoadAndStore_DT_SB_SRV:
+  case OpType::LoadAndStore_RD_SB_UAV:
+  case OpType::LoadAndStore_RD_SB_SRV:
+    return true;
+  default:
+    return false;
   }
 }
 
@@ -491,29 +491,28 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
   StructureByteStride = (StructureByteStride + 3) & ~3; // Must align to 4 bytes
 
   if (!ShaderOp->DescriptorHeaps.empty()) {
-    DXASSERT(ShaderOp->DescriptorHeaps.size() == 1, ""
-             "Programmer error: Expecting a single descriptor heap for LoadAndStore tests");
+    DXASSERT(ShaderOp->DescriptorHeaps.size() == 1,
+             ""
+             "Programmer error: Expecting a single descriptor heap for "
+             "LoadAndStore tests");
 
     for (auto &D : ShaderOp->DescriptorHeaps[0].Descriptors) {
-      if (_stricmp(D.Kind, "UAV") == 0){
-        if(IsSB) {
+      if (_stricmp(D.Kind, "UAV") == 0) {
+        if (IsSB) {
           D.UavDesc.Format = DXGI_FORMAT_UNKNOWN;
           D.UavDesc.Buffer.NumElements = 1; // One StructuredBuffer
           D.UavDesc.Buffer.StructureByteStride = StructureByteStride;
-        }
-        else {
+        } else {
           D.UavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
           D.UavDesc.Buffer.NumElements = Num32BitElements;
           D.UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
         }
-      }
-      else if (_stricmp(D.Kind, "SRV") == 0) {
-        if(IsSB) {
+      } else if (_stricmp(D.Kind, "SRV") == 0) {
+        if (IsSB) {
           D.SrvDesc.Format = DXGI_FORMAT_UNKNOWN;
           D.SrvDesc.Buffer.NumElements = 1; // One StructuredBuffer
           D.SrvDesc.Buffer.StructureByteStride = StructureByteStride;
-        }
-        else {
+        } else {
           D.SrvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
           D.SrvDesc.Buffer.NumElements = Num32BitElements;
           D.SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
@@ -1206,15 +1205,14 @@ void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
   std::vector<size_t> InputVectorSizes;
   if (OverrideInputSize)
     InputVectorSizes.push_back(OverrideInputSize);
-  else
-  {
+  else {
     InputVectorSizes = {3, 5, 16, 17, 35, 100, 256};
     size_t MaxInputSize = 1024;
-    if(IsStructuredBufferLoadAndStoreOp(OP))
+    if (IsStructuredBufferLoadAndStoreOp(OP))
       // StructuredBuffers are capped at 2048 bytes.
       MaxInputSize = 2048 / sizeof(T);
 
-    if(InputVectorSizes.back() < MaxInputSize)
+    if (InputVectorSizes.back() < MaxInputSize)
       InputVectorSizes.push_back(MaxInputSize);
   }
 
