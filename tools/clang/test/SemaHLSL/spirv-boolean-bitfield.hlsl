@@ -1,3 +1,4 @@
+// REQUIRES: spirv
 // RUN: %dxc -T cs_6_0 -E main -spirv -verify %s
 
 struct Test {
