@@ -16,42 +16,50 @@
 
 namespace hlsl {
   
-uint32_t DxcHLSLReflectionData::RegisterString(const std::string &Name,
+[[nodiscard]] DxcReflectionError DxcHLSLReflectionData::RegisterString(
+    uint32_t &StringId,
+    const std::string &Name,
                                                bool IsNonDebug) {
 
   if (Name.size() >= 32768)
-    throw std::invalid_argument("Strings are limited to 32767");
+    return DXC_REFLECT_ERR("Strings are limited to 32767");
 
   if (IsNonDebug) {
 
     if (StringsNonDebug.size() >= uint32_t(-1))
-      throw std::invalid_argument("Strings overflow");
+      return DXC_REFLECT_ERR("Strings overflow");
 
     auto it = StringsToIdNonDebug.find(Name);
 
-    if (it != StringsToIdNonDebug.end())
-      return it->second;
+    if (it != StringsToIdNonDebug.end()) {
+      StringId = it->second;
+      return DxcReflectionSuccess;
+    }
 
     uint32_t stringId = uint32_t(StringsNonDebug.size());
 
     StringsNonDebug.push_back(Name);
     StringsToIdNonDebug[Name] = stringId;
-    return stringId;
+    StringId = stringId;
+    return DxcReflectionSuccess;
   }
 
   if (Strings.size() >= uint32_t(-1))
-    throw std::invalid_argument("Strings overflow");
+    return DXC_REFLECT_ERR("Strings overflow");
 
   auto it = StringsToId.find(Name);
 
-  if (it != StringsToId.end())
-    return it->second;
+  if (it != StringsToId.end()) {
+    StringId = it->second;
+    return DxcReflectionSuccess;
+  }
 
   uint32_t stringId = uint32_t(Strings.size());
 
   Strings.push_back(Name);
   StringsToId[Name] = stringId;
-  return stringId;
+  StringId = stringId;
+  return DxcReflectionSuccess;
 }
 
 [[nodiscard]] DxcReflectionError
@@ -103,14 +111,15 @@ DxcHLSLReflectionData::PushArray(uint32_t &ArrayId, uint32_t ArraySizeFlat,
   return DxcReflectionSuccess;
 }
 
-void DxcHLSLReflectionData::RegisterTypeList(
+[[nodiscard]] DxcReflectionError
+DxcHLSLReflectionData::RegisterTypeList(
     const std::vector<uint32_t> &TypeIds, uint32_t &Offset, uint8_t &Len) {
 
   if (TypeIds.empty())
-    return;
+    return DxcReflectionSuccess;
 
   if (TypeIds.size() >= uint8_t(-1))
-    throw std::invalid_argument("Only allowing 256 types in a type list");
+    return DXC_REFLECT_ERR("Only allowing 256 types in a type list");
 
   uint32_t i = 0;
   uint32_t j = uint32_t(TypeList.size());
@@ -143,7 +152,7 @@ void DxcHLSLReflectionData::RegisterTypeList(
     uint32_t oldSiz = uint32_t(TypeList.size());
 
     if (oldSiz + TypeIds.size() >= (1u << 24))
-      throw std::invalid_argument("Only allowing 16Mi total interfaces");
+      return DXC_REFLECT_ERR("Only allowing 16Mi total interfaces");
 
     TypeList.resize(oldSiz + TypeIds.size());
 
@@ -154,6 +163,7 @@ void DxcHLSLReflectionData::RegisterTypeList(
   }
 
   Len = uint8_t(TypeIds.size());
+  return DxcReflectionSuccess;
 }
 
 //TODO: Debug print code

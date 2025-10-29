@@ -1597,10 +1597,12 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
 
   DxcHLSLReflectionData refl;
   
-  if (DxcReflectionError err = DxcHLSLReflectionDataFromAST(refl, astHelper.compiler, *astHelper.tu,
-                                    opts.AutoBindingSpace, reflectMask,
-                                    opts.DefaultRowMajor))
-    throw std::exception(("refl.Initialize failed " + std::string(err)).c_str());
+  if (DxcReflectionError err = DxcHLSLReflectionDataFromAST(
+          refl, astHelper.compiler, *astHelper.tu, opts.AutoBindingSpace,
+          reflectMask, opts.DefaultRowMajor)) {
+    printf("refl.Initialize failed %s\n", err);     //TODO:
+    return E_FAIL;
+  }
 
   //TODO: Debug
 
@@ -1613,8 +1615,10 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
 
   DxcHLSLReflectionData deserialized(bytes, true);
 
-  if (!(deserialized == refl))
-    throw std::exception("Dump or Deserialize doesn't match");
+  if (!(deserialized == refl)) {
+    printf("Dump or Deserialize doesn't match\n");  //TODO:
+    return E_FAIL;
+  }
 
   printf("Reflection size: %" PRIu64 "\n", bytes.size());
 
@@ -1627,8 +1631,10 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
 
   DxcHLSLReflectionData deserialized2 = DxcHLSLReflectionData(bytes, false);
 
-  if (!(deserialized2 == refl))
-    throw std::exception("Dump or Deserialize doesn't match");
+  if (!(deserialized2 == refl)) {
+    printf("Dump or Deserialize doesn't match\n");      //TODO:
+    return E_FAIL;
+  }
 
   printf("Stripped reflection size: %" PRIu64 "\n", bytes.size());
 

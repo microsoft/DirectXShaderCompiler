@@ -55,9 +55,15 @@ PushNextNodeId(uint32_t &NodeId, DxcHLSLReflectionData &Refl, const SourceManage
 
         Refl.Annotations.push_back({});
 
+        uint32_t stringId;
+
+        if (DxcReflectionError err =
+                Refl.RegisterString(stringId, annotate->getAnnotation().str(), true))
+          return err;
+
         if (DxcReflectionError err = DxcHLSLAnnotation::Initialize(
                 Refl.Annotations.back(),
-                Refl.RegisterString(annotate->getAnnotation().str(), true),
+                stringId,
                 false))
           return err;
 
@@ -74,10 +80,15 @@ PushNextNodeId(uint32_t &NodeId, DxcHLSLReflectionData &Refl, const SourceManage
 
         Refl.Annotations.push_back({});
 
+        uint32_t stringId;
+
+        if (DxcReflectionError err = Refl.RegisterString(
+                stringId, "shader(\"" + shaderAttr->getStage().str() + "\")", true))
+          return err;
+
         if (DxcReflectionError err = DxcHLSLAnnotation::Initialize(
                 Refl.Annotations.back(),
-                Refl.RegisterString(
-                    "shader(\"" + shaderAttr->getStage().str() + "\")", true),
+            stringId,
                 true))
           return err;
 
@@ -95,8 +106,16 @@ PushNextNodeId(uint32_t &NodeId, DxcHLSLReflectionData &Refl, const SourceManage
 
       for (auto It = UA.begin(), E = UA.end(); It != E; ++It)
         if ((*It)->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
-          semanticId = Refl.RegisterString(
-              cast<hlsl::SemanticDecl>(*It)->SemanticName.str(), true);
+
+          uint32_t semanticId32;
+
+          if (DxcReflectionError err = Refl.RegisterString(
+                  semanticId32,
+                  cast<hlsl::SemanticDecl>(*It)->SemanticName.str(),
+                  true))
+            return err;
+
+          semanticId = uint16_t(semanticId32);
         }
     }
   }
@@ -194,8 +213,15 @@ PushNextNodeId(uint32_t &NodeId, DxcHLSLReflectionData &Refl, const SourceManage
         uint32_t i;
 
         if (it == Refl.StringToSourceId.end()) {
-          i = (uint32_t)Refl.Sources.size();
-          Refl.Sources.push_back(Refl.RegisterString(fileName, false));
+
+          i = uint32_t(Refl.Sources.size());
+          uint32_t stringId;
+
+          if (DxcReflectionError err =
+                  Refl.RegisterString(stringId, fileName, false))
+            return err;
+
+          Refl.Sources.push_back(stringId);
           Refl.StringToSourceId[fileName] = i;
         }
 
@@ -226,7 +252,11 @@ PushNextNodeId(uint32_t &NodeId, DxcHLSLReflectionData &Refl, const SourceManage
       }
     }
 
-    uint32_t nameId = Refl.RegisterString(UnqualifiedName, false);
+    uint32_t nameId;
+
+    if (DxcReflectionError err =
+            Refl.RegisterString(nameId, UnqualifiedName, false))
+      return err;
 
     Refl.NodeSymbols.push_back({});
 
@@ -718,8 +748,12 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
 
     if (innerTypeName.size()) {
 
-      uint32_t nameId = hasSymbols ? Refl.RegisterString(innerTypeName, false)
-                                   : uint32_t(-1);
+      uint32_t nameId = uint32_t(-1);
+
+      if (hasSymbols)
+        if (DxcReflectionError err =
+                Refl.RegisterString(nameId, innerTypeName, false))
+          return err;
 
       uint32_t typeId;
 
@@ -787,11 +821,15 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
 
         std::string name = fieldDecl->getName();
 
-        uint32_t nameId =
-            hasSymbols ? Refl.RegisterString(name, false) : uint32_t(-1);
+        uint32_t nameId = uint32_t(-1);
 
-        if (hasSymbols)
+        if (hasSymbols) {
+
+          if (DxcReflectionError err = Refl.RegisterString(nameId, name, false))
+            return err;
+
           Refl.MemberNameIds.push_back(nameId);
+        }
 
         ++membersCount;
       }
@@ -954,7 +992,9 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
 
   uint32_t interfaceOffset = 0;
   uint8_t interfaceCount = 0;
-  Refl.RegisterTypeList(interfaces, interfaceOffset, interfaceCount);
+  if (DxcReflectionError err =
+          Refl.RegisterTypeList(interfaces, interfaceOffset, interfaceCount))
+    return err;
 
   DxcHLSLType hlslType;
   if (DxcReflectionError err = DxcHLSLType::Initialize(
@@ -963,11 +1003,19 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
           interfaceCount))
     return err;
 
-  uint32_t displayNameId =
-      hasSymbols ? Refl.RegisterString(displayName, false) : uint32_t(-1);
+  uint32_t displayNameId = uint32_t(-1);
+  uint32_t underlyingNameId = uint32_t(-1);
 
-  uint32_t underlyingNameId =
-      hasSymbols ? Refl.RegisterString(underlyingName, false) : uint32_t(-1);
+  if (hasSymbols) {
+
+    if (DxcReflectionError err =
+            Refl.RegisterString(displayNameId, displayName, false))
+      return err;
+
+    if (DxcReflectionError err =
+            Refl.RegisterString(underlyingNameId, underlyingName, false))
+      return err;
+  }
 
   DxcHLSLTypeSymbol typeSymbol(elementsOrArrayIdDisplay, displayNameId,
                                underlyingNameId);
@@ -1706,8 +1754,10 @@ public:
           {enumValue->getInitVal().getSExtValue(), childNodeId});
     }
 
-    if (Refl.EnumValues.size() >= uint32_t(1 << 30))
-      throw std::invalid_argument("Enum values overflow");
+    if (Refl.EnumValues.size() >= uint32_t(1 << 30)) {
+      LastError = DXC_REFLECT_ERR("Enum values overflow");
+      return;
+    }
 
     QualType enumType = ED->getIntegerType();
     QualType desugared = enumType.getDesugaredType(ASTCtx);

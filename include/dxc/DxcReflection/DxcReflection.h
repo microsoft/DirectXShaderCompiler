@@ -794,11 +794,14 @@ struct DxcHLSLReflectionData {
   std::vector<std::string> NodeIdToFullyResolved;
   std::unordered_map<std::string, uint32_t> FullyResolvedToMemberId;
 
-  uint32_t RegisterString(const std::string &Name, bool IsNonDebug);
+  [[nodiscard]] DxcReflectionError
+  RegisterString(uint32_t &StringId, const std::string &Name, bool IsNonDebug);
+
   [[nodiscard]] DxcReflectionError PushArray(uint32_t &ArrayId, uint32_t ArraySizeFlat,
                      const std::vector<uint32_t> &ArraySize);
 
-  void RegisterTypeList(const std::vector<uint32_t> &TypeIds, uint32_t &Offset,
+  [[nodiscard]] DxcReflectionError
+  RegisterTypeList(const std::vector<uint32_t> &TypeIds, uint32_t &Offset,
                         uint8_t &Len);
 
   static D3D_CBUFFER_TYPE GetBufferType(uint8_t Type);
