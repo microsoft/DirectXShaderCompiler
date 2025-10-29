@@ -176,25 +176,25 @@ enum class ValidationType {
 };
 
 template <typename T>
-bool doValuesMatch(T A, T B, float Tolerance, ValidationType) {
-  if (Tolerance == 0.0f)
+bool doValuesMatch(T A, T B, double Tolerance, ValidationType) {
+  if (Tolerance == 0.0)
     return A == B;
 
   T Diff = A > B ? A - B : B - A;
   return Diff <= Tolerance;
 }
 
-bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, float, ValidationType) {
+bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, double, ValidationType) {
   return A == B;
 }
 
-bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
+bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, double Tolerance,
                    ValidationType ValidationType) {
   switch (ValidationType) {
   case ValidationType::Epsilon:
-    return CompareHalfEpsilon(A.Val, B.Val, Tolerance);
+    return CompareHalfEpsilon(A.Val, B.Val, static_cast<float>(Tolerance));
   case ValidationType::Ulp:
-    return CompareHalfULP(A.Val, B.Val, Tolerance);
+    return CompareHalfULP(A.Val, B.Val, static_cast<float>(Tolerance));
   default:
     hlsl_test::LogErrorFmt(
         L"Invalid ValidationType. Expecting Epsilon or ULP.");
@@ -202,11 +202,11 @@ bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
   }
 }
 
-bool doValuesMatch(float A, float B, float Tolerance,
+bool doValuesMatch(float A, float B, double Tolerance,
                    ValidationType ValidationType) {
   switch (ValidationType) {
   case ValidationType::Epsilon:
-    return CompareFloatEpsilon(A, B, Tolerance);
+    return CompareFloatEpsilon(A, B, static_cast<float>(Tolerance));
   case ValidationType::Ulp: {
     // Tolerance is in ULPs. Convert to int for the comparison.
     const int IntTolerance = static_cast<int>(Tolerance);
@@ -219,7 +219,7 @@ bool doValuesMatch(float A, float B, float Tolerance,
   }
 }
 
-bool doValuesMatch(double A, double B, float Tolerance,
+bool doValuesMatch(double A, double B, double Tolerance,
                    ValidationType ValidationType) {
   switch (ValidationType) {
   case ValidationType::Epsilon:
@@ -238,7 +238,7 @@ bool doValuesMatch(double A, double B, float Tolerance,
 
 template <typename T>
 bool doVectorsMatch(const std::vector<T> &ActualValues,
-                    const std::vector<T> &ExpectedValues, float Tolerance,
+                    const std::vector<T> &ExpectedValues, double Tolerance,
                     ValidationType ValidationType, bool VerboseLogging) {
 
   DXASSERT(
@@ -540,14 +540,14 @@ InputSets<T> buildTestInputs(size_t VectorSize, const InputSet OpInputSets[3],
 }
 
 struct ValidationConfig {
-  float Tolerance = 0.0f;
+  double Tolerance = 0.0;
   ValidationType Type = ValidationType::Epsilon;
 
-  static ValidationConfig Epsilon(float Tolerance) {
+  static ValidationConfig Epsilon(double Tolerance) {
     return ValidationConfig{Tolerance, ValidationType::Epsilon};
   }
 
-  static ValidationConfig Ulp(float Tolerance) {
+  static ValidationConfig Ulp(double Tolerance) {
     return ValidationConfig{Tolerance, ValidationType::Ulp};
   }
 };
@@ -943,8 +943,7 @@ struct Op<OpType::AsUint_SplitDouble, double, 1> : StrictValidation {};
 template <> struct ExpectedBuilder<OpType::AsUint_SplitDouble, double> {
   static std::vector<uint32_t>
   buildExpected(Op<OpType::AsUint_SplitDouble, double, 1> &,
-                const InputSets<double> &Inputs, uint16_t ScalarInputFlags) {
-    DXASSERT_NOMSG(ScalarInputFlags == 0);
+                const InputSets<double> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     size_t VectorSize = Inputs[0].size();
@@ -1018,8 +1017,7 @@ template <> struct Op<OpType::Frexp, float, 1> : DefaultValidation<float> {};
 
 template <> struct ExpectedBuilder<OpType::Frexp, float> {
   static std::vector<float> buildExpected(Op<OpType::Frexp, float, 1> &,
-                                          const InputSets<float> &Inputs,
-                                          uint32_t) {
+                                          const InputSets<float> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     // Expected values size is doubled. In the first half we store the
@@ -1089,7 +1087,7 @@ OP_3(OpType::Select, StrictValidation, (static_cast<bool>(A) ? B : C));
   template <typename T> struct Op<OP, T, 1> : StrictValidation {};             \
   template <typename T> struct ExpectedBuilder<OP, T> {                        \
     static std::vector<HLSLBool_t>                                             \
-    buildExpected(Op<OP, T, 1> &, const InputSets<T> &Inputs, uint16_t) {      \
+    buildExpected(Op<OP, T, 1> &, const InputSets<T> &Inputs) {                \
       const bool Res = STDFUNC(Inputs[0].begin(), Inputs[0].end(),             \
                                [](T A) { return A != static_cast<T>(0); });    \
       return std::vector<HLSLBool_t>{Res};                                     \
@@ -1115,9 +1113,7 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
   // worst-case sequence, then summing the per-step epsilons to produce a
   // conservative error tolerance for the entire Dot operation.
   static std::vector<T> buildExpected(Op<OpType::Dot, T, 2> &Op,
-                                      const InputSets<T> &Inputs,
-                                      uint16_t ScalarInputFlags) {
-    UNREFERENCED_PARAMETER(ScalarInputFlags);
+                                      const InputSets<T> &Inputs) {
 
     std::vector<double> PositiveProducts;
     std::vector<double> NegativeProducts;
@@ -1126,7 +1122,7 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
 
     // Floating point ops have a tolerance of 0.5 ULPs per operation as per the
     // DX spec.
-    const float ULPTolerance = 0.5f;
+    const double ULPTolerance = 0.5;
 
     // Accumulate in fp64 to improve precision.
     double DotProduct = 0.0;      // computed reference result
@@ -1179,7 +1175,7 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
 };
 
 template <typename T>
-static double computeAbsoluteEpsilon(double A, float ULPTolerance) {
+static double computeAbsoluteEpsilon(double A, double ULPTolerance) {
   DXASSERT((!isinf(A) && !isnan(A)),
            "Input values should not produce inf or nan results");
 
@@ -1225,30 +1221,6 @@ STRICT_OP_1(OpType::LoadAndStore_DT_SB_UAV, (A));
 STRICT_OP_1(OpType::LoadAndStore_DT_SB_SRV, (A));
 STRICT_OP_1(OpType::LoadAndStore_RD_SB_UAV, (A));
 STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
-
-static double computeAbsoluteEpsilon(double A, float ULPTolerance)
-{
-  if(isinf(A) || isnan(A))
-static double computeAbsoluteEpsilon(double A, float ULPTolerance) {
-  if (isinf(A) || isnan(A))
-    // None of the existing input values should produce inf or nan results.
-    DXASSERT_NOMSG(false);
-
-  // ULP is a positive value by definition. So, working with abs(A) simplifies
-  // our logic for computing ULP in the first place.
-  A = std::abs(A);
-
-  double ULP = 0.0;
-
-  if constexpr (std::is_same_v<T, HLSLHalf_t>)
-    ULP = HLSLHalf_t::GetULP(A);
-  else
-    ULP =
-        std::nextafter(static_cast<T>(A), std::numeric_limits<T>::infinity()) -
-        static_cast<T>(A);
-
-  return ULP * ULPTolerance;
-}
 
 //
 // dispatchTest
