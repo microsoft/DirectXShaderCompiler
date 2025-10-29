@@ -348,7 +348,8 @@ INPUT_SET(InputSet::RangeOne, 0.331, 0.727, -0.957, 0.677, -0.025, 0.495, 0.855,
 INPUT_SET(InputSet::Positive, 1.0, 1.0, 342.0, 0.01, 5531.0, 0.01, 1.0, 0.01,
           331.2330, 3250.01);
 INPUT_SET(InputSet::SelectCond, 0.0, 1.0);
-// HLSLHalf_t cast this to float when assigning it.
+// HLSLHalf_t has a constructor which accepts a float and converts it to half precision by
+// clamping to the representable range via DirectX::PackedVector::XMConvertFloatToHalf.
 INPUT_SET(InputSet::FloatSpecial, std::numeric_limits<float>::infinity(),
           -std::numeric_limits<float>::infinity(),
           std::numeric_limits<float>::signaling_NaN(),

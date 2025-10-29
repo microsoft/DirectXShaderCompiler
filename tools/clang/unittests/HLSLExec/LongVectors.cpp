@@ -1153,6 +1153,7 @@ FLOAT_SPECIAL_OP(OpType::IsFinite, (std::isfinite(A)));
 FLOAT_SPECIAL_OP(OpType::IsInf, (std::isinf(A)));
 FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
 #undef FLOAT_SPECIAL_OP
+
 //
 // dispatchTest
 //
@@ -1684,13 +1685,13 @@ public:
   HLK_TEST(Abs, double);
   HLK_TEST(Sign, double);
 
+  // Float Special
   HLK_TEST(IsFinite, HLSLHalf_t);
-  HLK_TEST(IsFinite, float);
-
   HLK_TEST(IsInf, HLSLHalf_t);
-  HLK_TEST(IsInf, float);
-
   HLK_TEST(IsNan, HLSLHalf_t);
+  
+  HLK_TEST(IsFinite, float);
+  HLK_TEST(IsInf, float);
   HLK_TEST(IsNan, float);
 
   // Binary Comparison
