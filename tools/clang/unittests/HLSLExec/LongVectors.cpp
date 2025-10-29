@@ -1686,11 +1686,11 @@ public:
   HLK_TEST(Sign, double);
 
   // Float Special
-  
+
   HLK_TEST(IsFinite, HLSLHalf_t);
   HLK_TEST(IsInf, HLSLHalf_t);
   HLK_TEST(IsNan, HLSLHalf_t);
-  
+
   HLK_TEST(IsFinite, float);
   HLK_TEST(IsInf, float);
   HLK_TEST(IsNan, float);
