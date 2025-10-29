@@ -477,8 +477,6 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
 
   DXASSERT_NOMSG(LoadAndStoreOpTypes.count(Operation.Type) > 0);
 
-  const bool IsSB = IsStructuredBufferLoadAndStoreOp(Operation.Type);
-
   st::ShaderOp *ShaderOp = ShaderOpSet->GetShaderOp(Operation.ShaderName);
   DXASSERT(ShaderOp, "Invalid ShaderOp name");
 
@@ -490,28 +488,32 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
   UINT StructureByteStride = static_cast<UINT>(ElementSize * VectorSize);
   StructureByteStride = (StructureByteStride + 3) & ~3; // Must align to 4 bytes
 
+  const bool IsSB = IsStructuredBufferLoadAndStoreOp(Operation.Type);
   if (!ShaderOp->DescriptorHeaps.empty()) {
     DXASSERT(ShaderOp->DescriptorHeaps.size() == 1,
-             ""
              "Programmer error: Expecting a single descriptor heap for "
              "LoadAndStore tests");
 
     for (auto &D : ShaderOp->DescriptorHeaps[0].Descriptors) {
-      if (_stricmp(D.Kind, "UAV") == 0) {
-        if (IsSB) {
+      const bool IsUAV = (_stricmp(D.Kind, "UAV") == 0);
+      DXASSERT(IsUAV || (_stricmp(D.Kind, "SRV") == 0),
+               "Programmer error: Expecting UAV or SRV descriptors only");
+
+      if (IsSB) {
+        if (IsUAV) {
           D.UavDesc.Format = DXGI_FORMAT_UNKNOWN;
           D.UavDesc.Buffer.NumElements = 1; // One StructuredBuffer
           D.UavDesc.Buffer.StructureByteStride = StructureByteStride;
         } else {
-          D.UavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
-          D.UavDesc.Buffer.NumElements = Num32BitElements;
-          D.UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
-        }
-      } else if (_stricmp(D.Kind, "SRV") == 0) {
-        if (IsSB) {
           D.SrvDesc.Format = DXGI_FORMAT_UNKNOWN;
           D.SrvDesc.Buffer.NumElements = 1; // One StructuredBuffer
           D.SrvDesc.Buffer.StructureByteStride = StructureByteStride;
+        }
+      } else { // Raw buffer
+        if (IsUAV) {
+          D.UavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+          D.UavDesc.Buffer.NumElements = Num32BitElements;
+          D.UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
         } else {
           D.SrvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
           D.SrvDesc.Buffer.NumElements = Num32BitElements;
