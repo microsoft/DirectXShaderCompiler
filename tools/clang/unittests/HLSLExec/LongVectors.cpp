@@ -482,13 +482,13 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
   st::ShaderOp *ShaderOp = ShaderOpSet->GetShaderOp(Operation.ShaderName);
   DXASSERT(ShaderOp, "Invalid ShaderOp name");
 
-  // When using DXGI_FORMAT_R32_TYPELESS, we need to compute the number of
-  // 32-bit elements required to hold the vector.
+  // When using DXGI_FORMAT_R32_TYPELESS (raw buffer cases) we need to compute
+  // the number of // 32-bit elements required to hold the vector.
   const UINT Num32BitElements =
       static_cast<UINT>((VectorSize * OpDataType.HLSLSizeInBytes + 3) / 4);
 
   UINT StructureByteStride = static_cast<UINT>(ElementSize * VectorSize);
-  StructureByteStride = (StructureByteStride + 3) & ~3; // Align to 4 bytes
+  StructureByteStride = (StructureByteStride + 3) & ~3; // Must align to 4 bytes
 
   if (!ShaderOp->DescriptorHeaps.empty()) {
     DXASSERT(ShaderOp->DescriptorHeaps.size() == 1, ""
@@ -498,7 +498,7 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
       if (_stricmp(D.Kind, "UAV") == 0){
         if(IsSB) {
           D.UavDesc.Format = DXGI_FORMAT_UNKNOWN;
-          D.UavDesc.Buffer.NumElements = 1;
+          D.UavDesc.Buffer.NumElements = 1; // One StructuredBuffer
           D.UavDesc.Buffer.StructureByteStride = StructureByteStride;
         }
         else {
@@ -510,7 +510,7 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
       else if (_stricmp(D.Kind, "SRV") == 0) {
         if(IsSB) {
           D.SrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-          D.SrvDesc.Buffer.NumElements = 1;
+          D.SrvDesc.Buffer.NumElements = 1; // One StructuredBuffer
           D.SrvDesc.Buffer.StructureByteStride = StructureByteStride;
         }
         else {
