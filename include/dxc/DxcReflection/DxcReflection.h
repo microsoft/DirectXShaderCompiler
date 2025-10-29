@@ -22,6 +22,24 @@
 
 namespace hlsl {
 
+typedef const char *DxcReflectionError;
+static constexpr const DxcReflectionError DxcReflectionSuccess = nullptr;
+
+#ifndef NDEBUG
+  #if defined(_MSC_VER)
+    #define DXC_FUNC_NAME __FUNCTION__
+  #elif defined(__clang__) || defined(__GNUC__)
+    #define DXC_FUNC_NAME __PRETTY_FUNCTION__
+  #else
+    #define DXC_FUNC_NAME __func__
+  #endif
+  #define DXC_REFLECT_STRING(x) #x
+  #define DXC_REFLECT_STRING2(x) DXC_REFLECT_STRING(x)
+  #define DXC_REFLECT_ERR(x) (x " at " __FILE__ ":" DXC_REFLECT_STRING2(__LINE__) " (" DXC_FUNC_NAME ")")
+#else
+  #define DXC_REFLECT_ERR(x) x
+#endif
+
 class DxcHLSLNode {
 
   uint32_t LocalIdParentLo;             //24 : 8
@@ -53,42 +71,55 @@ class DxcHLSLNode {
     ChildCountFwdBckLo &= 0xFFFFFF;
     ChildCountFwdBckLo |= v << 24;
   }
+  
+  DxcHLSLNode(D3D12_HLSL_NODE_TYPE NodeType,
+      bool IsFwdDeclare,
+      uint32_t LocalId, uint16_t AnnotationStart, uint32_t ChildCount,
+      uint32_t ParentId, uint8_t AnnotationCount, uint16_t SemanticId)
+      : LocalIdParentLo(LocalId | (ParentId << 24)), ParentHi(ParentId >> 8),
+      Annotations(AnnotationCount), Type(NodeType),
+      ChildCountFwdBckLo(ChildCount | (0xFFu << 24)), FwdBckHi(0xFFFF),
+      AnnotationStart(AnnotationStart), SemanticId(SemanticId), Padding(0) {
+
+    if (IsFwdDeclare)
+      Type |= 0x80;
+  }
 
 public:
 
   DxcHLSLNode() = default;
 
-  DxcHLSLNode(D3D12_HLSL_NODE_TYPE NodeType, bool IsFwdDeclare,
+  [[nodiscard]] static DxcReflectionError
+  Initialize(DxcHLSLNode &OutNode, D3D12_HLSL_NODE_TYPE NodeType,
+                                bool IsFwdDeclare,
               uint32_t LocalId, uint16_t AnnotationStart, uint32_t ChildCount,
-              uint32_t ParentId, uint8_t AnnotationCount, uint16_t SemanticId)
-      : LocalIdParentLo(LocalId | (ParentId << 24)), ParentHi(ParentId >> 8),
-        Annotations(AnnotationCount), Type(NodeType),
-        ChildCountFwdBckLo(ChildCount | (0xFFu << 24)), FwdBckHi(0xFFFF),
-        AnnotationStart(AnnotationStart), SemanticId(SemanticId), Padding(0) {
+              uint32_t ParentId, uint8_t AnnotationCount, uint16_t SemanticId) {
 
     if (NodeType < D3D12_HLSL_NODE_TYPE_START ||
         NodeType > D3D12_HLSL_NODE_TYPE_END)
-      throw std::invalid_argument("Invalid NodeType");
+      return DXC_REFLECT_ERR("Invalid NodeType");
 
     if (LocalId >= ((1u << 24) - 1))
-      throw std::invalid_argument("LocalId out of bounds");
+      return DXC_REFLECT_ERR("LocalId out of bounds");
 
     if (ParentId >= ((1u << 24) - 1))
-      throw std::invalid_argument("ParentId out of bounds");
+      return DXC_REFLECT_ERR("ParentId out of bounds");
 
     if (ChildCount >= ((1u << 24) - 1))
-      throw std::invalid_argument("ChildCount out of bounds");
+      return DXC_REFLECT_ERR("ChildCount out of bounds");
 
     if (IsFwdDeclare) {
 
       if (AnnotationCount)
-        throw std::invalid_argument("Fwd declares aren't allowed to have annotations");
+        return DXC_REFLECT_ERR("Fwd declares aren't allowed to have annotations");
 
       if (ChildCount)
-        throw std::invalid_argument("Fwd declares aren't allowed to have children");
-
-      Type |= 0x80;
+        return DXC_REFLECT_ERR("Fwd declares aren't allowed to have children");
     }
+
+    OutNode = DxcHLSLNode(NodeType, IsFwdDeclare, LocalId, AnnotationStart,
+                       ChildCount, ParentId, AnnotationCount, SemanticId);
+    return DxcReflectionSuccess;
   }
 
   bool IsFwdDeclare() const { return Type >> 7; }
@@ -117,14 +148,15 @@ public:
 
   bool IsFwdBckDefined() const { return GetFwdBck() != ((1 << 24) - 1); }
 
-  void ResolveFwdDeclare(uint32_t SelfId, DxcHLSLNode &Definition,
-      uint32_t DefinitionId) {
+  [[nodiscard]] DxcReflectionError ResolveFwdDeclare(uint32_t SelfId,
+                                                     DxcHLSLNode &Definition,
+                                                     uint32_t DefinitionId) {
 
     if (SelfId >= ((1u << 24) - 1))
-      throw std::invalid_argument("SelfId out of bounds");
+      return DXC_REFLECT_ERR("SelfId out of bounds");
 
     if (DefinitionId >= ((1u << 24) - 1))
-      throw std::invalid_argument("DefinitionId out of bounds");
+      return DXC_REFLECT_ERR("DefinitionId out of bounds");
 
     assert(DefinitionId != SelfId && "NodeId can't be definition id!");
     assert(IsFwdDeclare() &&
@@ -135,6 +167,8 @@ public:
 
     SetFwdBck(DefinitionId);
     Definition.SetFwdBck(SelfId);
+
+    return DxcReflectionSuccess;
   }
 
   // For example if Enum, maps into Enums[LocalId]
@@ -158,12 +192,13 @@ public:
     return uint32_t(LocalIdParentLo >> 24) | (uint32_t(ParentHi) << 8);
   }
 
-  void IncreaseChildCount() {
+  [[nodiscard]] DxcReflectionError IncreaseChildCount() {
 
     if (GetChildCount() >= ((1u << 24) - 1))
-      throw std::invalid_argument("Child count out of bounds");
+      return DXC_REFLECT_ERR("Child count out of bounds");
 
     ++ChildCountFwdBckLo;
+    return DxcReflectionSuccess;
   }
 
   bool operator==(const DxcHLSLNode &other) const {
@@ -173,10 +208,9 @@ public:
            AnnotationStartFwdBckHi == other.AnnotationStartFwdBckHi &&
            SemanticId == other.SemanticId;
   }
-
 };
 
-struct DxcHLSLNodeSymbol {
+class DxcHLSLNodeSymbol {
 
   union {
     struct {
@@ -196,9 +230,7 @@ struct DxcHLSLNodeSymbol {
     };
     uint64_t SourceColumnStartEndLo;
   };
-
-  DxcHLSLNodeSymbol() = default;
-
+  
   DxcHLSLNodeSymbol(uint32_t NameId, uint16_t FileSourceId,
                     uint16_t SourceLineCount, uint32_t SourceLineStart,
                     uint32_t SourceColumnStart, uint32_t SourceColumnEnd)
@@ -208,17 +240,37 @@ struct DxcHLSLNodeSymbol {
         SourceColumnEndLo(uint16_t(SourceColumnEnd)),
         ColumnHiSourceLinePad((SourceColumnStart >> 16) |
                               (SourceColumnEnd >> 16 << 6) |
-                              (SourceLineStart << 12)) {
+                              (SourceLineStart << 12)) {}
+
+public:
+
+  DxcHLSLNodeSymbol() = default;
+
+  [[nodiscard]] static DxcReflectionError
+  Initialize(DxcHLSLNodeSymbol &Symbol, uint32_t NameId, uint16_t FileSourceId,
+                    uint16_t SourceLineCount, uint32_t SourceLineStart,
+                    uint32_t SourceColumnStart, uint32_t SourceColumnEnd) {
 
     if (SourceColumnStart >= (1u << 22))
-      throw std::invalid_argument("SourceColumnStart out of bounds");
+      return DXC_REFLECT_ERR("SourceColumnStart out of bounds");
 
     if (SourceColumnEnd >= (1u << 22))
-      throw std::invalid_argument("SourceColumnEnd out of bounds");
+      return DXC_REFLECT_ERR("SourceColumnEnd out of bounds");
 
     if (SourceLineStart >= ((1u << 20) - 1))
-      throw std::invalid_argument("SourceLineStart out of bounds");
+      return DXC_REFLECT_ERR("SourceLineStart out of bounds");
+
+    Symbol =
+        DxcHLSLNodeSymbol(NameId, FileSourceId, SourceLineCount,
+                          SourceLineStart, SourceColumnStart, SourceColumnEnd);
+    return DxcReflectionSuccess;
   }
+
+  
+  uint32_t GetNameId() const { return NameId; }
+
+  uint16_t GetFileSourceId() const { return FileSourceId; }
+  uint16_t GetSourceLineCount() const { return SourceLineCount; }
 
   uint32_t GetSourceLineStart() const {
     return uint32_t(ColumnHiSourceLinePad >> 12);
@@ -282,22 +334,35 @@ struct DxcHLSLParameter { // Mirrors D3D12_PARAMETER_DESC without duplicating
 // - if HasConditionVar(): a variable in the condition
 // - NodeCount children (If: children ex. else body, For: init children)
 // - Rest of the body (If: else body, otherwise: normal body)
-struct DxcHLSLStatement {
+class DxcHLSLStatement {
 
   uint32_t NodeId;
   uint32_t NodeCount_HasConditionVar_HasElse;
-
-  DxcHLSLStatement() = default;
 
   DxcHLSLStatement(uint32_t NodeId, uint32_t NodeCount, bool HasConditionVar,
                    bool IfAndHasElse)
       : NodeId(NodeId),
         NodeCount_HasConditionVar_HasElse(NodeCount |
                                           (HasConditionVar ? (1u << 30) : 0) |
-                                          (IfAndHasElse ? (1u << 31) : 0)) {
+                                          (IfAndHasElse ? (1u << 31) : 0)) {}
+
+public:
+
+  DxcHLSLStatement() = default;
+
+  [[nodiscard]] static DxcReflectionError
+  Initialize(DxcHLSLStatement &Statement, uint32_t NodeId, uint32_t NodeCount,
+             bool HasConditionVar, bool IfAndHasElse) {
+
     if (NodeCount >= (1u << 30))
-      throw std::invalid_argument("NodeCount out of bounds");
+      return DXC_REFLECT_ERR("NodeCount out of bounds");
+
+    Statement =
+        DxcHLSLStatement(NodeId, NodeCount, HasConditionVar, IfAndHasElse);
+    return DxcReflectionSuccess;
   }
+
+  uint32_t GetNodeId() const { return NodeId; }
 
   // Node count represents one of two things:
   // - If: The amount of nodes in the 'if' part of the branch (to be able to
@@ -319,23 +384,34 @@ struct DxcHLSLStatement {
   }
 };
 
-struct DxcHLSLFunction {
+class DxcHLSLFunction {
 
   uint32_t NodeId;
   uint32_t NumParametersHasReturnAndDefinition;
-
-  DxcHLSLFunction() = default;
 
   DxcHLSLFunction(uint32_t NodeId, uint32_t NumParameters, bool HasReturn,
                   bool HasDefinition)
       : NodeId(NodeId),
         NumParametersHasReturnAndDefinition(NumParameters |
                                             (HasReturn ? (1u << 30) : 0) |
-                                            (HasDefinition ? (1u << 31) : 0)) {
+                                            (HasDefinition ? (1u << 31) : 0)) { }
+
+public:
+
+  DxcHLSLFunction() = default;
+
+  [[nodiscard]] static DxcReflectionError Initialize(DxcHLSLFunction &Function, uint32_t NodeId,
+                                uint32_t NumParameters, bool HasReturn,
+                                bool HasDefinition) {
 
     if (NumParameters >= (1u << 30))
-      throw std::invalid_argument("NumParameters out of bounds");
+      return DXC_REFLECT_ERR("NumParameters out of bounds");
+
+    Function = DxcHLSLFunction(NodeId, NumParameters, HasReturn, HasDefinition);
+    return DxcReflectionSuccess;
   }
+
+  uint32_t GetNodeId() const { return NodeId; }
 
   uint32_t GetNumParameters() const {
     return NumParametersHasReturnAndDefinition << 2 >> 2;
@@ -356,9 +432,9 @@ struct DxcHLSLFunction {
   }
 };
 
-struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
-                         // the Name (and uID replaced with NodeID) and added
-                         // arrayIndex and better packing
+class DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
+                        // the Name (and uID replaced with NodeID) and added
+                        // arrayIndex and better packing
 
   union {
     struct {
@@ -383,29 +459,55 @@ struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
     uint64_t ArrayIdBufferId;
   };
 
-  DxcHLSLRegister() = default;
   DxcHLSLRegister(D3D_SHADER_INPUT_TYPE Type, uint32_t BindCount,
                   uint32_t uFlags, D3D_RESOURCE_RETURN_TYPE ReturnType,
                   D3D_SRV_DIMENSION Dimension, uint32_t NodeId,
                   uint32_t ArrayId, uint32_t BufferId)
       : Type(Type), BindCount(BindCount), uFlags(uFlags),
         ReturnType(ReturnType), Dimension(Dimension), NodeId(NodeId),
-        ArrayId(ArrayId), BufferId(BufferId) {
+        ArrayId(ArrayId), BufferId(BufferId) {}
+
+public:
+  DxcHLSLRegister() = default;
+
+  [[nodiscard]] static DxcReflectionError
+  Initialize(DxcHLSLRegister &Register, D3D_SHADER_INPUT_TYPE Type,
+             uint32_t BindCount, uint32_t uFlags,
+             D3D_RESOURCE_RETURN_TYPE ReturnType, D3D_SRV_DIMENSION Dimension,
+             uint32_t NodeId, uint32_t ArrayId, uint32_t BufferId) {
 
     if (Type < D3D_SIT_CBUFFER || Type > D3D_SIT_UAV_FEEDBACKTEXTURE)
-      throw std::invalid_argument("Invalid type");
+      return DXC_REFLECT_ERR("Invalid type");
 
-    if (ReturnType < 0 ||
-        ReturnType > D3D_RETURN_TYPE_CONTINUED)
-      throw std::invalid_argument("Invalid return type");
+    if (ReturnType < 0 || ReturnType > D3D_RETURN_TYPE_CONTINUED)
+      return DXC_REFLECT_ERR("Invalid return type");
 
     if (Dimension < D3D_SRV_DIMENSION_UNKNOWN ||
         Dimension > D3D_SRV_DIMENSION_BUFFEREX)
-      throw std::invalid_argument("Invalid srv dimension");
+      return DXC_REFLECT_ERR("Invalid srv dimension");
 
     if (uFlags >> 8)
-      throw std::invalid_argument("Invalid user flags");
+      return DXC_REFLECT_ERR("Invalid user flags");
+
+    Register = DxcHLSLRegister(Type, BindCount, uFlags, ReturnType, Dimension,
+                               NodeId, ArrayId, BufferId);
+    return DxcReflectionSuccess;
   }
+
+  D3D_RESOURCE_RETURN_TYPE GetReturnType() const {
+    return D3D_RESOURCE_RETURN_TYPE(ReturnType);
+  }
+
+  D3D_SRV_DIMENSION GetDimension() const {
+    return D3D_SRV_DIMENSION(Dimension);
+  }
+
+  uint32_t GetFlags() const { return uFlags; }
+  D3D_SHADER_INPUT_TYPE GetType() const { return D3D_SHADER_INPUT_TYPE(Type); }
+  uint32_t GetBindCount() const { return BindCount; }
+  uint32_t GetNodeId() const { return NodeId; }
+  uint32_t GetArrayId() const { return ArrayId; }
+  uint32_t GetBufferId() const { return BufferId; }
 
   bool operator==(const DxcHLSLRegister &other) const {
     return TypeDimensionReturnTypeFlagsBindCount ==
@@ -414,19 +516,27 @@ struct DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
   }
 };
 
-struct DxcHLSLArray {
+class DxcHLSLArray {
 
   uint32_t ArrayElemStart;
 
-  DxcHLSLArray() = default;
   DxcHLSLArray(uint32_t ArrayElem, uint32_t ArrayStart)
-      : ArrayElemStart((ArrayElem << 26) | ArrayStart) {
+      : ArrayElemStart((ArrayElem << 26) | ArrayStart) {}
+
+public:
+
+  DxcHLSLArray() = default;
+
+  [[nodiscard]] static DxcReflectionError Initialize(DxcHLSLArray &Arr, uint32_t ArrayElem, uint32_t ArrayStart) {
 
     if (ArrayElem <= 1 || ArrayElem > 32)
-      throw std::invalid_argument("ArrayElem out of bounds");
+      return DXC_REFLECT_ERR("ArrayElem out of bounds");
 
     if (ArrayStart >= (1u << 26))
-      throw std::invalid_argument("ArrayStart out of bounds");
+      return DXC_REFLECT_ERR("ArrayStart out of bounds");
+
+    Arr = DxcHLSLArray(ArrayElem, ArrayStart);
+    return DxcReflectionSuccess;
   }
 
   bool operator==(const DxcHLSLArray &Other) const {
@@ -465,7 +575,7 @@ struct DxcHLSLArrayOrElements {
   }
 };
 
-struct DxcHLSLType { // Almost maps to CShaderReflectionType and
+class DxcHLSLType { // Almost maps to CShaderReflectionType and
                      // D3D12_SHADER_TYPE_DESC, but tightly packed and
                      // easily serializable
 
@@ -486,23 +596,6 @@ struct DxcHLSLType { // Almost maps to CShaderReflectionType and
 
   DxcHLSLArrayOrElements UnderlyingArray;   //No sugar (e.g. F32x4a4 in using F32x4a4 = F32x4[4] becomes float4[4])
 
-  bool operator==(const DxcHLSLType &Other) const {
-    return Other.MemberData == MemberData &&
-           Other.UnderlyingArray == UnderlyingArray &&
-           ClassTypeRowsColums == Other.ClassTypeRowsColums &&
-           BaseClass == Other.BaseClass &&
-           InterfaceOffsetAndCount == Other.InterfaceOffsetAndCount;
-  }
-
-  uint32_t GetMemberCount() const { return MemberData >> 24; }
-  uint32_t GetMemberStart() const { return MemberData << 8 >> 8; }
-
-  uint32_t GetInterfaceCount() const { return InterfaceOffsetAndCount >> 24; }
-  uint32_t GetInterfaceStart() const {
-    return InterfaceOffsetAndCount << 8 >> 8;
-  }
-
-  DxcHLSLType() = default;
   DxcHLSLType(uint32_t BaseClass,
               DxcHLSLArrayOrElements ElementsOrArrayIdUnderlying,
               D3D_SHADER_VARIABLE_CLASS Class, D3D_SHADER_VARIABLE_TYPE Type,
@@ -512,25 +605,73 @@ struct DxcHLSLType { // Almost maps to CShaderReflectionType and
       : MemberData(MembersStart | (MembersCount << 24)), Class(Class),
         Type(Type), Rows(Rows), Columns(Columns),
         UnderlyingArray(ElementsOrArrayIdUnderlying), BaseClass(BaseClass),
-        InterfaceOffsetAndCount(InterfaceOffset | (InterfaceCount << 24)) {
+        InterfaceOffsetAndCount(InterfaceOffset | (InterfaceCount << 24)) {}
+
+public:
+
+  bool operator==(const DxcHLSLType &Other) const {
+    return Other.MemberData == MemberData &&
+           Other.UnderlyingArray == UnderlyingArray &&
+           ClassTypeRowsColums == Other.ClassTypeRowsColums &&
+           BaseClass == Other.BaseClass &&
+           InterfaceOffsetAndCount == Other.InterfaceOffsetAndCount;
+  }
+
+  D3D_SHADER_VARIABLE_CLASS GetClass() const {
+    return D3D_SHADER_VARIABLE_CLASS(Class);
+  }
+
+  D3D_SHADER_VARIABLE_TYPE GetType() const {
+    return D3D_SHADER_VARIABLE_TYPE(Type);
+  }
+
+  uint8_t GetRows() const { return Rows; }
+  uint8_t GetColumns() const { return Columns; }
+
+  uint32_t GetBaseClass() const { return BaseClass; }
+
+  uint32_t GetMemberCount() const { return MemberData >> 24; }
+  uint32_t GetMemberStart() const { return MemberData << 8 >> 8; }
+  
+  DxcHLSLArrayOrElements GetUnderlyingArray() const { return UnderlyingArray; }
+
+  uint32_t GetInterfaceCount() const { return InterfaceOffsetAndCount >> 24; }
+  uint32_t GetInterfaceStart() const {
+    return InterfaceOffsetAndCount << 8 >> 8;
+  }
+
+  DxcHLSLType() = default;
+
+  [[nodiscard]] static DxcReflectionError
+  Initialize(DxcHLSLType &Type, uint32_t BaseClass,
+             DxcHLSLArrayOrElements ElementsOrArrayIdUnderlying,
+             D3D_SHADER_VARIABLE_CLASS Class, D3D_SHADER_VARIABLE_TYPE VariableType,
+             uint8_t Rows, uint8_t Columns, uint32_t MembersCount,
+             uint32_t MembersStart, uint32_t InterfaceOffset,
+             uint32_t InterfaceCount) {
 
     if (Class < D3D_SVC_SCALAR || Class > D3D_SVC_INTERFACE_POINTER)
-      throw std::invalid_argument("Invalid class");
+      return DXC_REFLECT_ERR("Invalid class");
 
-    if (Type < D3D_SVT_VOID || Type > D3D_SVT_UINT64)
-      throw std::invalid_argument("Invalid type");
+    if (VariableType < D3D_SVT_VOID || VariableType > D3D_SVT_UINT64)
+      return DXC_REFLECT_ERR("Invalid type");
 
     if (MembersStart >= (1u << 24))
-      throw std::invalid_argument("Member start out of bounds");
+      return DXC_REFLECT_ERR("Member start out of bounds");
 
     if (InterfaceOffset >= (1u << 24))
-      throw std::invalid_argument("Interface start out of bounds");
+      return DXC_REFLECT_ERR("Interface start out of bounds");
 
     if (MembersCount >= (1u << 8))
-      throw std::invalid_argument("Member count out of bounds");
+      return DXC_REFLECT_ERR("Member count out of bounds");
 
     if (InterfaceCount >= (1u << 8))
-      throw std::invalid_argument("Interface count out of bounds");
+      return DXC_REFLECT_ERR("Interface count out of bounds");
+
+    Type = DxcHLSLType(BaseClass, ElementsOrArrayIdUnderlying, Class,
+                       VariableType, Rows, Columns, MembersCount, MembersStart,
+                       InterfaceOffset, InterfaceCount);
+    return DxcReflectionSuccess;
   }
 };
 
@@ -570,18 +711,25 @@ struct DxcHLSLBuffer { // Almost maps to CShaderReflectionConstantBuffer and
   }
 };
 
-struct DxcHLSLAnnotation {
+class DxcHLSLAnnotation {
 
   uint32_t StringNonDebugAndIsBuiltin;
 
-  DxcHLSLAnnotation() = default;
-
   DxcHLSLAnnotation(uint32_t StringNonDebug, bool IsBuiltin)
       : StringNonDebugAndIsBuiltin(StringNonDebug |
-                                   (IsBuiltin ? (1u << 31) : 0)) {
+                                   (IsBuiltin ? (1u << 31) : 0)) {}
+public:
+
+  DxcHLSLAnnotation() = default;
+
+  [[nodiscard]] static DxcReflectionError
+  Initialize(DxcHLSLAnnotation &Annotation, uint32_t StringNonDebug, bool IsBuiltin) {
 
     if (StringNonDebug >= (1u << 31))
-      throw std::invalid_argument("String non debug out of bounds");
+      return DXC_REFLECT_ERR("String non debug out of bounds");
+
+    Annotation = DxcHLSLAnnotation(StringNonDebug, IsBuiltin);
+    return DxcReflectionSuccess;
   }
 
   bool operator==(const DxcHLSLAnnotation &other) const {
@@ -647,7 +795,7 @@ struct DxcHLSLReflectionData {
   std::unordered_map<std::string, uint32_t> FullyResolvedToMemberId;
 
   uint32_t RegisterString(const std::string &Name, bool IsNonDebug);
-  uint32_t PushArray(uint32_t ArraySizeFlat,
+  [[nodiscard]] DxcReflectionError PushArray(uint32_t &ArrayId, uint32_t ArraySizeFlat,
                      const std::vector<uint32_t> &ArraySize);
 
   void RegisterTypeList(const std::vector<uint32_t> &TypeIds, uint32_t &Offset,
