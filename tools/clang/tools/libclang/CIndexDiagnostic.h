@@ -30,7 +30,7 @@ class CXDiagnosticSetImpl {
   const bool IsExternallyManaged;
 public:
   CXDiagnosticSetImpl(bool isManaged = false)
-    : IsExternallyManaged(isManaged) {}
+      : IsExternallyManaged(isManaged) {}
 
   virtual ~CXDiagnosticSetImpl();
 
@@ -107,7 +107,7 @@ protected:
 private:
   Kind K;
 };
-  
+
 /// \brief The storage behind a CXDiagnostic
 struct CXStoredDiagnostic : public CXDiagnosticImpl {
   const StoredDiagnostic &Diag;
