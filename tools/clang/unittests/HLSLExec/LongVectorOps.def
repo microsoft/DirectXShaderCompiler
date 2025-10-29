@@ -132,6 +132,9 @@ OP(UnaryMath, IsInf, 1, "TestIsInf", "", " -DFUNC_TEST_ISINF=1",
    "LongVectorOp", FloatSpecial, Default2, Default3)
 OP(UnaryMath, IsNan, 1, "TestIsNan", "", " -DFUNC_TEST_ISNAN=1",
    "LongVectorOp", FloatSpecial, Default2, Default3)
+OP(UnaryMath, ModF, 1, "TestModF", "", " -DFUNC_TEST_MODF=1",
+   "LongVectorOp", Default1, Default2, Default3)
+
 
 OP_DEFAULT(BinaryComparison, LessThan, 2, "", "<")
 OP_DEFAULT(BinaryComparison, LessEqual, 2, "", "<=")

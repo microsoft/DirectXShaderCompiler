@@ -1,3 +1,5 @@
+#include <DirectXPackedVector.h>
+#include <cmath>
 #ifndef NOMINMAX
 #define NOMINMAX 1
 #endif
@@ -1153,6 +1155,47 @@ FLOAT_SPECIAL_OP(OpType::IsFinite, (std::isfinite(A)));
 FLOAT_SPECIAL_OP(OpType::IsInf, (std::isinf(A)));
 FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
 #undef FLOAT_SPECIAL_OP
+
+template <typename T> struct Op<OpType::ModF, T, 1> : DefaultValidation<T> {};
+
+template <> struct ExpectedBuilder<OpType::ModF, float> {
+  static std::vector<float> buildExpected(Op<OpType::ModF, float, 1>,
+                                      const InputSets<float> &Inputs) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+    size_t VectorSize = Inputs[0].size();
+    std::vector<float> Expected;
+    Expected.resize(VectorSize * 2);
+    for (size_t I = 0; I < VectorSize; ++I) {
+      float Exp = 0;
+      float Man = std::modf(Inputs[0][I], &Exp);
+      Expected[I] = Man;
+      Expected[I + VectorSize] = static_cast<float>(Exp);
+    }
+
+    return Expected;
+  }
+};
+
+template <> struct ExpectedBuilder<OpType::ModF, HLSLHalf_t> {
+  static std::vector<HLSLHalf_t> buildExpected(Op<OpType::ModF, HLSLHalf_t, 1>,
+                                      const InputSets<HLSLHalf_t> &Inputs) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+    size_t VectorSize = Inputs[0].size();
+    std::vector<HLSLHalf_t> Expected;
+    Expected.resize(VectorSize * 2);
+    for (size_t I = 0; I < VectorSize; ++I) {
+      float Exp = 0.0f;
+      float Inp = float(Inputs[0][I]);
+      float Man = std::modf(Inp, &Exp);
+      Expected[I] = HLSLHalf_t(Man);
+      Expected[I + VectorSize] = HLSLHalf_t(Exp);
+    }
+
+    return Expected;
+  }
+};
+
+
 //
 // dispatchTest
 //
@@ -1692,6 +1735,10 @@ public:
 
   HLK_TEST(IsNan, HLSLHalf_t);
   HLK_TEST(IsNan, float);
+
+
+  HLK_TEST(ModF, HLSLHalf_t);
+  HLK_TEST(ModF, float);
 
   // Binary Comparison
 
