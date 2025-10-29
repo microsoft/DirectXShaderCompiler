@@ -18,7 +18,7 @@ INPUT_SET(NoZero)
 INPUT_SET(Positive)
 INPUT_SET(Bitwise)
 INPUT_SET(SelectCond)
-INPUT_SET(Float)
+INPUT_SET(FloatSpecial)
 
 #undef INPUT_SET
 
@@ -127,11 +127,11 @@ OP_DEFAULT(UnaryMath, Log2, 1, "log2", "")
 OP_DEFAULT_DEFINES(UnaryMath, Frexp, 1, "TestFrexp", "", " -DFUNC_FREXP=1")
 
 OP(UnaryMath, IsFinite, 1, "TestIsFinite", "", " -DFUNC_TEST_ISFINITE=1",
-   "LongVectorOp", Float, Default2, Default3)
+   "LongVectorOp", FloatSpecial, Default2, Default3)
 OP(UnaryMath, IsInf, 1, "TestIsInf", "", " -DFUNC_TEST_ISINF=1",
-   "LongVectorOp", Float, Default2, Default3)
+   "LongVectorOp", FloatSpecial, Default2, Default3)
 OP(UnaryMath, IsNan, 1, "TestIsNan", "", " -DFUNC_TEST_ISNAN=1",
-   "LongVectorOp", Float, Default2, Default3)
+   "LongVectorOp", FloatSpecial, Default2, Default3)
 
 OP_DEFAULT(BinaryComparison, LessThan, 2, "", "<")
 OP_DEFAULT(BinaryComparison, LessEqual, 2, "", "<=")

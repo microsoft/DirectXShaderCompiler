@@ -1144,15 +1144,15 @@ STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
 // Float Ops
 //
 
-#define BOOLEAN_FLOAT_OP(OP, IMPL)                                             \
+#define FLOAT_SPECIAL_OP(OP, IMPL)                                             \
   template <typename T> struct Op<OP, T, 1> : StrictValidation {               \
     HLSLBool_t operator()(T A) { return IMPL; }                                \
   };
 
-BOOLEAN_FLOAT_OP(OpType::IsFinite, (std::isfinite(A)));
-BOOLEAN_FLOAT_OP(OpType::IsInf, (std::isinf(A)));
-BOOLEAN_FLOAT_OP(OpType::IsNan, (std::isnan(A)));
-#undef BOOLEAN_FLOAT_OP
+FLOAT_SPECIAL_OP(OpType::IsFinite, (std::isfinite(A)));
+FLOAT_SPECIAL_OP(OpType::IsInf, (std::isinf(A)));
+FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
+#undef FLOAT_SPECIAL_OP
 //
 // dispatchTest
 //

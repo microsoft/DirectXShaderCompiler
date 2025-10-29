@@ -349,7 +349,7 @@ INPUT_SET(InputSet::Positive, 1.0, 1.0, 342.0, 0.01, 5531.0, 0.01, 1.0, 0.01,
           331.2330, 3250.01);
 INPUT_SET(InputSet::SelectCond, 0.0, 1.0);
 // HLSLHalf_t cast this to float when assigning it.
-INPUT_SET(InputSet::Float, std::numeric_limits<float>::infinity(),
+INPUT_SET(InputSet::FloatSpecial, std::numeric_limits<float>::infinity(),
           -std::numeric_limits<float>::infinity(),
           std::numeric_limits<float>::signaling_NaN(),
           -std::numeric_limits<float>::signaling_NaN(),
@@ -376,7 +376,7 @@ INPUT_SET(InputSet::RangeOne, 0.727f, 0.331f, -0.957f, 0.677f, -0.025f, 0.495f,
 INPUT_SET(InputSet::Positive, 1.0f, 1.0f, 65535.0f, 0.01f, 5531.0f, 0.01f, 1.0f,
           0.01f, 331.2330f, 3250.01f);
 INPUT_SET(InputSet::SelectCond, 0.0f, 1.0f);
-INPUT_SET(InputSet::Float, std::numeric_limits<float>::infinity(),
+INPUT_SET(InputSet::FloatSpecial, std::numeric_limits<float>::infinity(),
           -std::numeric_limits<float>::infinity(),
           std::numeric_limits<float>::signaling_NaN(),
           -std::numeric_limits<float>::signaling_NaN(),
