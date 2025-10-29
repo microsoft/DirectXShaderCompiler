@@ -1491,9 +1491,6 @@ public:
   HLK_TEST(ShuffleVector, float);
   HLK_TEST(ShuffleVector, double);
 
-  HLK_TEST(IsFinite, HLSLHalf_t);
-  HLK_TEST(IsFinite, float);
-  HLK_TEST(IsFinite, double);
   // Explicit Cast
 
   HLK_TEST(CastToInt16, HLSLBool_t);
@@ -1684,6 +1681,9 @@ public:
   HLK_TEST(Frexp, float);
   HLK_TEST(Abs, double);
   HLK_TEST(Sign, double);
+
+  HLK_TEST(IsFinite, HLSLHalf_t);
+  HLK_TEST(IsFinite, float);
 
   // Binary Comparison
 
