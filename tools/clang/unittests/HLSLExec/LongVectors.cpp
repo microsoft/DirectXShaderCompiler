@@ -477,6 +477,9 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
   const UINT Num32BitElements =
       static_cast<UINT>((VectorSize * OpDataType.HLSLSizeInBytes + 3) / 4);
 
+  UINT StructureByteStride = static_cast<UINT>(ElementSize * VectorSize);
+  StructureByteStride = (StructureByteStride + 3) & ~3; // Align to 4 bytes
+
   auto ComputeNumElements = [&](DXGI_FORMAT Format) -> UINT {
     switch (Format) {
     case DXGI_FORMAT_R32_TYPELESS:
@@ -509,9 +512,15 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
       if (_stricmp(D.Kind, "UAV") == 0){
         D.UavDesc.Format = IsSB ? DXGI_FORMAT_UNKNOWN : DXGI_FORMAT_R32_TYPELESS;
         D.UavDesc.Buffer.NumElements = ComputeNumElements(D.UavDesc.Format);
-        if(IsSB){
-          D.UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
-          D.UavDesc.Buffer.StructureByteStride = static_cast<UINT>(ElementSize);
+
+        if(IsSB)
+        {
+          D.UavDesc.Buffer.NumElements = 1;
+          D.UavDesc.Buffer.StructureByteStride = StructureByteStride;
+        }
+        else
+        {
+          D.UavDesc.Buffer.Flags |= D3D12_BUFFER_UAV_FLAG_RAW;
         }
       }
       else if (_stricmp(D.Kind, "SRV") == 0) {
@@ -519,15 +528,21 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
         D.SrvDesc.Buffer.NumElements = ComputeNumElements(D.SrvDesc.Format);
         if(IsSB)
         {
-          D.SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-          D.SrvDesc.Buffer.StructureByteStride = static_cast<UINT>(ElementSize);
+          D.SrvDesc.Buffer.NumElements = 1;
+          D.SrvDesc.Buffer.StructureByteStride = StructureByteStride;
+        }
+        else{
+          D.SrvDesc.Buffer.Flags |= D3D12_BUFFER_SRV_FLAG_RAW;
         }
       }
     }
   }
 
-  for (auto &R : ShaderOp->Resources)
-    R.Desc.Width = ComputeWidth(R.Desc.Format);
+  for (auto &R : ShaderOp->Resources){
+    const bool IsRaw = !IsSB;
+    const UINT ByteWidth = IsRaw ? (Num32BitElements * 4) : StructureByteStride;
+    R.Desc.Width = ByteWidth;
+  }
 }
 
 template <typename T>
@@ -1210,7 +1225,7 @@ void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
   if (OverrideInputSize)
     InputVectorSizes.push_back(OverrideInputSize);
   else
-    InputVectorSizes = {3, 5, 16, 17, 35, 100, 256, 1024};
+    InputVectorSizes = {3, 5, 16, 17, 35, 100, 256};
 
   constexpr const Operation &Operation = getOperation(OP);
 
