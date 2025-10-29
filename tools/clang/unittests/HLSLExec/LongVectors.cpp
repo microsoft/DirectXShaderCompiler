@@ -1166,7 +1166,7 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
       AbsoluteEpsilon +=
           computeAbsoluteEpsilon<T>((SumPos + SumNeg), ULPTolerance);
 
-    Op.ValidationConfig.Tolerance = static_cast<float>(AbsoluteEpsilon);
+    Op.ValidationConfig = ValidationConfig::Epsilon(AbsoluteEpsilon);
 
     std::vector<T> Expected;
     Expected.push_back(static_cast<T>(DotProduct));
