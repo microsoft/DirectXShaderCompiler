@@ -1150,7 +1150,9 @@ STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
   };
 
 BOOLEAN_FLOAT_OP(OpType::IsFinite, (std::isfinite(A)));
-
+BOOLEAN_FLOAT_OP(OpType::IsInf, (std::isinf(A)));
+BOOLEAN_FLOAT_OP(OpType::IsNan, (std::isnan(A)));
+#undef BOOLEAN_FLOAT_OP
 //
 // dispatchTest
 //
@@ -1684,6 +1686,12 @@ public:
 
   HLK_TEST(IsFinite, HLSLHalf_t);
   HLK_TEST(IsFinite, float);
+
+  HLK_TEST(IsInf, HLSLHalf_t);
+  HLK_TEST(IsInf, float);
+
+  HLK_TEST(IsNan, HLSLHalf_t);
+  HLK_TEST(IsNan, float);
 
   // Binary Comparison
 

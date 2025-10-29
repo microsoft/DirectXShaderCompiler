@@ -128,6 +128,10 @@ OP_DEFAULT_DEFINES(UnaryMath, Frexp, 1, "TestFrexp", "", " -DFUNC_FREXP=1")
 
 OP(UnaryMath, IsFinite, 1, "TestIsFinite", "", " -DFUNC_TEST_ISFINITE=1",
    "LongVectorOp", Float, Default2, Default3)
+OP(UnaryMath, IsInf, 1, "TestIsInf", "", " -DFUNC_TEST_ISINF=1",
+   "LongVectorOp", Float, Default2, Default3)
+OP(UnaryMath, IsNan, 1, "TestIsNan", "", " -DFUNC_TEST_ISNAN=1",
+   "LongVectorOp", Float, Default2, Default3)
 
 OP_DEFAULT(BinaryComparison, LessThan, 2, "", "<")
 OP_DEFAULT(BinaryComparison, LessEqual, 2, "", "<=")
@@ -140,7 +144,6 @@ OP_DEFAULT(Binary, Logical_And, 2, "and", ",")
 OP_DEFAULT(Binary, Logical_Or, 2, "or", ",")
 OP(Ternary, Select, 3, "TestSelect", "", " -DFUNC_TEST_SELECT=1",
    "LongVectorOp", SelectCond, Default2, Default3)
-
 
 // For the 'any' and 'all' reduction operation, we test with three different
 // input data sets to cover the different cases of the operation. 'Any' returns
