@@ -4137,26 +4137,14 @@ void MSMain(uint GID : SV_GroupIndex,
         #endif
 
         #ifdef FUNC_TEST_MODF
-        vector<OUT_TYPE, NUM> TestModF(vector<half, NUM> Vector)
+        vector<OUT_TYPE, NUM> TestModF(vector<TYPE, NUM> Vector)
         {
           vector<OUT_TYPE, NUM> Mantissa;
           vector<OUT_TYPE, NUM> Exponent;
 
           Mantissa = modf(Vector, Exponent);
 
-          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(2 * NUM, Exponent);
-
-          return Mantissa;
-        }
-
-        vector<OUT_TYPE, NUM> TestModF(vector<float, NUM> Vector)
-        {
-          vector<OUT_TYPE, NUM> Mantissa;
-          vector<OUT_TYPE, NUM> Exponent;
-
-          Mantissa = modf(Vector, Exponent);
-
-          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(4 * NUM, Exponent);
+          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(sizeof(OUT_TYPE) * NUM, Exponent);
 
           return Mantissa;
         }
