@@ -9352,6 +9352,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_printf:
     retVal = processIntrinsicPrintf(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_usign:
+    retVal = processIntrinsicSignUnsignedInt(callExpr);
+    break;
   case hlsl::IntrinsicOp::IOP_sign: {
     if (isFloatOrVecMatOfFloatType(callExpr->getArg(0)->getType()))
       retVal = processIntrinsicFloatSign(callExpr);
@@ -12654,6 +12657,80 @@ SpirvEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
   emitError("invalid argument type passed to saturate intrinsic function",
             callExpr->getExprLoc());
   return nullptr;
+}
+
+SpirvInstruction *
+SpirvEmitter::processIntrinsicSignUnsignedInt(const CallExpr *callExpr) {
+  const auto srcLoc = callExpr->getExprLoc();
+  const auto srcRange = callExpr->getSourceRange();
+
+  const Expr *firstArg = callExpr->getArg(0);
+  const QualType firstArgType = firstArg->getType();
+  auto elemType = QualType{};
+  uint32_t numRows;
+  uint32_t numCols;
+  uint32_t count;
+  bool isScalar =
+      isScalarType(firstArgType, &elemType) ||
+      (isVectorType(firstArgType, &elemType, &count) && count == 1) ||
+      (isMxNMatrix(firstArgType, &elemType, &numRows, &numCols) &&
+       (numRows == 1 && numCols == 1));
+
+  auto *zero = getValueZero(astContext.IntTy);
+  auto *one = getValueOne(astContext.IntTy);
+  if (isScalar) {
+    auto *argVal = doExpr(callExpr->getArg(0));
+    auto *zeroUint = getValueZero(callExpr->getArg(0)->getType());
+    auto *cmp =
+        spvBuilder.createBinaryOp(spv::Op::OpUGreaterThan, astContext.BoolTy,
+                                  argVal, zeroUint, srcLoc, srcRange);
+    return spvBuilder.createSelect(astContext.IntTy, cmp, one, zero, srcLoc,
+                                   srcRange);
+  }
+
+  uint32_t size;
+  if (isVectorType(firstArgType)) {
+    size = count;
+  } else if (is1xNMatrix(firstArgType)) {
+    size = numCols;
+  } else if (isMx1Matrix(firstArgType)) {
+    size = numRows;
+  } else {
+    size = numRows;
+  }
+
+  const auto actOnEachVec = [this, srcLoc, srcRange, zero, one, elemType,
+                             size](uint32_t index, QualType inType,
+                                   QualType outType, SpirvInstruction *curRow) {
+    auto zeroUint = getValueZero(elemType);
+    // Create `size` vector of uint zeros.
+    auto *zerosUint = spvBuilder.getConstantComposite(
+        astContext.getExtVectorType(elemType, size),
+        std::vector<clang::spirv::SpirvConstant *>(size, zeroUint));
+    // Compare if they are greater than zero.
+    auto *cmp = spvBuilder.createBinaryOp(
+        spv::Op::OpUGreaterThan,
+        astContext.getExtVectorType(astContext.BoolTy, size), curRow, zerosUint,
+        srcLoc, srcRange);
+
+    // Create a vector of int ones and zeros.
+    auto *zeros = spvBuilder.getConstantComposite(
+        astContext.getExtVectorType(astContext.IntTy, size),
+        std::vector<clang::spirv::SpirvConstant *>(size, zero));
+    auto *ones = spvBuilder.getConstantComposite(
+        astContext.getExtVectorType(astContext.IntTy, size),
+        std::vector<clang::spirv::SpirvConstant *>(size, one));
+    // Select between ones and zeros based on the comparison.
+    return spvBuilder.createSelect(
+        astContext.getExtVectorType(astContext.IntTy, size), cmp, ones, zeros,
+        srcLoc, srcRange);
+  };
+
+  if (isVectorType(firstArgType)) {
+    return actOnEachVec(0, firstArgType, callExpr->getType(), doExpr(firstArg));
+  }
+  return processEachVectorInMatrix(firstArg, doExpr(firstArg), actOnEachVec,
+                                   srcLoc, srcRange);
 }
 
 SpirvInstruction *
