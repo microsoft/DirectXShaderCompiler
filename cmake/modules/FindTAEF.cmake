@@ -71,6 +71,10 @@ find_program(TAEF_EXECUTABLE te.exe PATHS
   ${WINDOWS_KIT_81_PATH}
   )
 
+message("TAEF_BIN_ARCH: ${TAEF_BIN_ARCH}")
+message("TAEF_ARCH: ${TAEF_ARCH}")
+message("TAEF_EXECUTABLE: ${TAEF_EXECUTABLE}")
+
 if (TAEF_EXECUTABLE)
   get_filename_component(TAEF_BIN_DIR ${TAEF_EXECUTABLE} DIRECTORY)
 else()
