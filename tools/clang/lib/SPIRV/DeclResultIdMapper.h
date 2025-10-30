@@ -16,6 +16,7 @@
 #include "dxc/Support/SPIRVOptions.h"
 #include "spirv/unified1/spirv.hpp11"
 #include "clang/AST/Attr.h"
+#include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -33,7 +34,7 @@ class SpirvEmitter;
 
 class ResourceVar {
 public:
-  ResourceVar(SpirvVariable *var, const Decl *decl, SourceLocation loc,
+  ResourceVar(SpirvVariable *var, const NamedDecl *decl, SourceLocation loc,
               const hlsl::RegisterAssignment *r, const VKBindingAttr *b,
               const VKCounterBindingAttr *cb, bool counter = false,
               bool globalsBuffer = false)
@@ -52,9 +53,17 @@ public:
     return counterBinding;
   }
 
+  bool isResourceDescriptorHeap() const {
+    return spirv::isResourceDescriptorHeap(declaration);
+  }
+
+  bool isSamplerDescriptorHeap() const {
+    return spirv::isSamplerDescriptorHeap(declaration);
+  }
+
 private:
   SpirvVariable *variable;                    ///< The variable
-  const Decl *declaration;                    ///< The declaration
+  const NamedDecl *declaration;               ///< The declaration
   SourceLocation srcLoc;                      ///< Source location
   const hlsl::RegisterAssignment *reg;        ///< HLSL register assignment
   const VKBindingAttr *binding;               ///< Vulkan binding assignment
