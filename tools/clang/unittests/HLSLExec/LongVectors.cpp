@@ -1223,6 +1223,20 @@ STRICT_OP_1(OpType::LoadAndStore_RD_SB_UAV, (A));
 STRICT_OP_1(OpType::LoadAndStore_RD_SB_SRV, (A));
 
 //
+// Float Ops
+//
+
+#define FLOAT_SPECIAL_OP(OP, IMPL)                                             \
+  template <typename T> struct Op<OP, T, 1> : StrictValidation {               \
+    HLSLBool_t operator()(T A) { return IMPL; }                                \
+  };
+
+FLOAT_SPECIAL_OP(OpType::IsFinite, (std::isfinite(A)));
+FLOAT_SPECIAL_OP(OpType::IsInf, (std::isinf(A)));
+FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
+#undef FLOAT_SPECIAL_OP
+
+//
 // dispatchTest
 //
 
@@ -1752,6 +1766,16 @@ public:
   HLK_TEST(Frexp, float);
   HLK_TEST(Abs, double);
   HLK_TEST(Sign, double);
+
+  // Float Special
+
+  HLK_TEST(IsFinite, HLSLHalf_t);
+  HLK_TEST(IsInf, HLSLHalf_t);
+  HLK_TEST(IsNan, HLSLHalf_t);
+
+  HLK_TEST(IsFinite, float);
+  HLK_TEST(IsInf, float);
+  HLK_TEST(IsNan, float);
 
   // Binary Comparison
 
