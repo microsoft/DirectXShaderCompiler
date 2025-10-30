@@ -1,5 +1,3 @@
-#include <DirectXPackedVector.h>
-#include <cmath>
 #ifndef NOMINMAX
 #define NOMINMAX 1
 #endif
@@ -104,6 +102,21 @@ static constexpr Operation Operations[] = {
    OpType::SYMBOL},
 #include "LongVectorOps.def"
 };
+
+#define OP_WITH_OUT_PARAM(OPERATION, TYPE, IMPL)                               \
+  template <> struct ExpectedBuilder<OpType::OPERATION, TYPE> {                \
+    static std::vector<TYPE> buildExpected(Op<OpType::OPERATION, TYPE, 1>,     \
+                                           const InputSets<TYPE> &Inputs) {    \
+      DXASSERT_NOMSG(Inputs.size() == 1);                                      \
+      size_t VectorSize = Inputs[0].size();                                    \
+      std::vector<TYPE> Expected;                                              \
+      Expected.resize(VectorSize * 2);                                         \
+      for (size_t I = 0; I < VectorSize; ++I) {                                \
+        IMPL                                                                   \
+      }                                                                        \
+      return Expected;                                                         \
+    }                                                                          \
+  };
 
 constexpr const Operation &getOperation(OpType Op) {
   if (Op < OpType::NumOpTypes)
@@ -1017,41 +1030,21 @@ DEFAULT_OP_1(OpType::Log2, (std::log2(A)));
 // with special logic. Frexp is only supported for fp32 values.
 template <> struct Op<OpType::Frexp, float, 1> : DefaultValidation<float> {};
 
-template <> struct ExpectedBuilder<OpType::Frexp, float> {
-  static std::vector<float> buildExpected(Op<OpType::Frexp, float, 1> &,
-                                          const InputSets<float> &Inputs) {
-    DXASSERT_NOMSG(Inputs.size() == 1);
+OP_WITH_OUT_PARAM(Frexp, float, {
+  int Exp = 0;
+  float Man = std::frexp(Inputs[0][I], &Exp);
 
-    // Expected values size is doubled. In the first half we store the
-    // Mantissas and in the second half we store the Exponents. This way we
-    // can leverage the existing logic which verify expected values in a
-    // single vector. We just need to make sure that we organize the output in
-    // the same way in the shader and when we read it back.
+  // std::frexp returns a signed mantissa. But the HLSL implmentation
+  // returns an unsigned mantissa.
+  Man = std::abs(Man);
 
-    size_t VectorSize = Inputs[0].size();
+  Expected[I] = Man;
 
-    std::vector<float> Expected;
-    Expected.resize(VectorSize * 2);
-
-    for (size_t I = 0; I < VectorSize; ++I) {
-      int Exp = 0;
-      float Man = std::frexp(Inputs[0][I], &Exp);
-
-      // std::frexp returns a signed mantissa. But the HLSL implmentation
-      // returns an unsigned mantissa.
-      Man = std::abs(Man);
-
-      Expected[I] = Man;
-
-      // std::frexp returns the exponent as an int, but HLSL stores it as a
-      // float. However, the HLSL exponents fractional component is always 0.
-      // So it can conversion between float and int is safe.
-      Expected[I + VectorSize] = static_cast<float>(Exp);
-    }
-
-    return Expected;
-  }
-};
+  // std::frexp returns the exponent as an int, but HLSL stores it as a
+  // float. However, the HLSL exponents fractional component is always 0.
+  // So it can conversion between float and int is safe.
+  Expected[I + VectorSize] = static_cast<float>(Exp);
+});
 
 //
 // Binary Comparison
@@ -1240,43 +1233,20 @@ FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
 
 template <typename T> struct Op<OpType::ModF, T, 1> : DefaultValidation<T> {};
 
-template <> struct ExpectedBuilder<OpType::ModF, float> {
-  static std::vector<float> buildExpected(Op<OpType::ModF, float, 1>,
-                                      const InputSets<float> &Inputs) {
-    DXASSERT_NOMSG(Inputs.size() == 1);
-    size_t VectorSize = Inputs[0].size();
-    std::vector<float> Expected;
-    Expected.resize(VectorSize * 2);
-    for (size_t I = 0; I < VectorSize; ++I) {
-      float Exp = 0;
-      float Man = std::modf(Inputs[0][I], &Exp);
-      Expected[I] = Man;
-      Expected[I + VectorSize] = static_cast<float>(Exp);
-    }
+OP_WITH_OUT_PARAM(ModF, float, {
+  float Exp = 0.0f;
+  float Man = std::modf(Inputs[0][I], &Exp);
+  Expected[I] = Man;
+  Expected[I + VectorSize] = Exp;
+});
 
-    return Expected;
-  }
-};
-
-template <> struct ExpectedBuilder<OpType::ModF, HLSLHalf_t> {
-  static std::vector<HLSLHalf_t> buildExpected(Op<OpType::ModF, HLSLHalf_t, 1>,
-                                      const InputSets<HLSLHalf_t> &Inputs) {
-    DXASSERT_NOMSG(Inputs.size() == 1);
-    size_t VectorSize = Inputs[0].size();
-    std::vector<HLSLHalf_t> Expected;
-    Expected.resize(VectorSize * 2);
-    for (size_t I = 0; I < VectorSize; ++I) {
-      float Exp = 0.0f;
-      float Inp = float(Inputs[0][I]);
-      float Man = std::modf(Inp, &Exp);
-      Expected[I] = HLSLHalf_t(Man);
-      Expected[I + VectorSize] = HLSLHalf_t(Exp);
-    }
-
-    return Expected;
-  }
-};
-
+OP_WITH_OUT_PARAM(ModF, HLSLHalf_t, {
+  float Exp = 0.0f;
+  float Inp = float(Inputs[0][I]);
+  float Man = std::modf(Inp, &Exp);
+  Expected[I] = HLSLHalf_t(Man);
+  Expected[I + VectorSize] = HLSLHalf_t(Exp);
+});
 
 //
 // dispatchTest
