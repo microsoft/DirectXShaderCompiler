@@ -1850,8 +1850,7 @@ void DeclResultIdMapper::createCounterVar(
       assert(declType->isIncompleteArrayType());
       counterType = spvContext.getRuntimeArrayType(counterType, noArrayStride);
     }
-  } else if (isResourceDescriptorHeap(decl->getType()) ||
-             isSamplerDescriptorHeap(decl->getType())) {
+  } else if (isResourceDescriptorHeap(decl) || isSamplerDescriptorHeap(decl)) {
     counterType = spvContext.getRuntimeArrayType(counterType, noArrayStride);
   }
 
@@ -2517,6 +2516,20 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
         spvBuilder.decorateDSetBinding(var.getSpirvInstr(), globalsSetNo,
                                        globalsBindNo);
+      } else if (var.isResourceDescriptorHeap()) {
+        if (!spirvOptions.resourceHeapBinding) {
+          emitError("-fvk-bind-resource-heap is required when using "
+                    "-fvk-bind-register",
+                    var.getSourceLocation());
+          return false;
+        }
+      } else if (var.isSamplerDescriptorHeap()) {
+        if (!spirvOptions.samplerHeapBinding) {
+          emitError("-fvk-bind-sampler-heap is required when using "
+                    "-fvk-bind-register",
+                    var.getSourceLocation());
+          return false;
+        }
       } else {
         emitError(
             "-fvk-bind-register requires register annotations on all resources",
@@ -2524,11 +2537,12 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         return false;
       }
 
+    BindingSet bindingSet;
+    decorateResourceHeapsBindings(bindingSet);
     return true;
   }
 
   BindingSet bindingSet;
-
   // If some bindings are reserved for heaps, mark those are used.
   if (spirvOptions.resourceHeapBinding)
     bindingSet.useBinding(spirvOptions.resourceHeapBinding->binding,
@@ -2669,8 +2683,8 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
     if (var.getDeclaration()) {
       const VarDecl *decl = dyn_cast<VarDecl>(var.getDeclaration());
-      if (decl && (isResourceDescriptorHeap(decl->getType()) ||
-                   isSamplerDescriptorHeap(decl->getType())))
+      if (decl &&
+          (isResourceDescriptorHeap(decl) || isSamplerDescriptorHeap(decl)))
         continue;
     }
 
@@ -2755,8 +2769,8 @@ void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
     if (!decl)
       continue;
 
-    const bool isResourceHeap = isResourceDescriptorHeap(decl->getType());
-    const bool isSamplerHeap = isSamplerDescriptorHeap(decl->getType());
+    const bool isResourceHeap = isResourceDescriptorHeap(decl);
+    const bool isSamplerHeap = isSamplerDescriptorHeap(decl);
 
     assert(!(var.isCounter() && isSamplerHeap));
 
@@ -2791,8 +2805,8 @@ void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
     if (!decl)
       continue;
 
-    const bool isResourceHeap = isResourceDescriptorHeap(decl->getType());
-    const bool isSamplerHeap = isSamplerDescriptorHeap(decl->getType());
+    const bool isResourceHeap = isResourceDescriptorHeap(decl);
+    const bool isSamplerHeap = isSamplerDescriptorHeap(decl);
     if (!isSamplerHeap && !isResourceHeap)
       continue;
     const SpirvCodeGenOptions::BindingInfo &info =
