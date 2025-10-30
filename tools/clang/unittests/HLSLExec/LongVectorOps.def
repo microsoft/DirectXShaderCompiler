@@ -126,15 +126,11 @@ OP_DEFAULT(UnaryMath, Log10, 1, "log10", "")
 OP_DEFAULT(UnaryMath, Log2, 1, "log2", "")
 OP_DEFAULT_DEFINES(UnaryMath, Frexp, 1, "TestFrexp", "", " -DFUNC_FREXP=1")
 
-OP(UnaryMath, IsFinite, 1, "TestIsFinite", "", " -DFUNC_TEST_ISFINITE=1",
-   "LongVectorOp", FloatSpecial, Default2, Default3)
-OP(UnaryMath, IsInf, 1, "TestIsInf", "", " -DFUNC_TEST_ISINF=1",
-   "LongVectorOp", FloatSpecial, Default2, Default3)
-OP(UnaryMath, IsNan, 1, "TestIsNan", "", " -DFUNC_TEST_ISNAN=1",
-   "LongVectorOp", FloatSpecial, Default2, Default3)
-OP(UnaryMath, ModF, 1, "TestModF", "", " -DFUNC_TEST_MODF=1",
+OP_DEFAULT(FloatSpecial, IsFinite, 1, "isfinite", "")
+OP_DEFAULT(FloatSpecial, IsInf, 1, "isinf", "")
+OP_DEFAULT(FloatSpecial, IsNan, 1, "isnan", "")
+OP(FloatSpecial, ModF, 1, "TestModF", "", " -DFUNC_TEST_MODF=1",
    "LongVectorOp", Default1, Default2, Default3)
-
 
 OP_DEFAULT(BinaryComparison, LessThan, 2, "", "<")
 OP_DEFAULT(BinaryComparison, LessEqual, 2, "", "<=")

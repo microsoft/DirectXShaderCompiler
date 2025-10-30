@@ -4274,8 +4274,8 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   VERIFY_ARE_EQUAL_STR(BogusPath.c_str(), "bogus");
   VERIFY_IS_TRUE(ExtSupportBogus.dxilDllFailedToLoad());
 
-  // 3. Test with a valid path to this file in the environment variable
-  std::filesystem::path p = std::filesystem::absolute(__FILE__);
+  // 3. Test with a valid path to a file in the environment variable
+  std::filesystem::path p = hlsl_test::GetPathToHlslDataFile(L"lit.local.cfg");
   SetEnvVarW(L"DXC_DXIL_DLL_PATH", p.wstring());
 
   if (!ExtSupportValidNonDLLPath.IsEnabled()) {
@@ -4287,7 +4287,10 @@ TEST_F(ValidationTest, UnitTestExtValidationSupport) {
   // validate that ExtSupportValidNonDLLPath was able to capture the environment
   // variable's value, and that loading the valid non-dll path was unsuccessful
   std::string ValidNonDLLPath = ExtSupportValidNonDLLPath.getDxilDllPath();
-  VERIFY_ARE_EQUAL_STR(ValidNonDLLPath.c_str(), __FILE__);
+  std::string FilePath;
+  Unicode::WideToUTF8String(
+      hlsl_test::GetPathToHlslDataFile(L"lit.local.cfg").c_str(), &FilePath);
+  VERIFY_ARE_EQUAL_STR(ValidNonDLLPath.c_str(), FilePath.c_str());
   VERIFY_IS_TRUE(ExtSupportValidNonDLLPath.dxilDllFailedToLoad());
 
   // 4. Test production of class IDs CLSID_DxcCompiler, CLSID_DxcLinker,

@@ -319,7 +319,7 @@ private:
   template <typename T> CComPtr<T> cast() const {
     CComPtr<T> Result;
     if (Compiler)
-      Compiler->QueryInterface(__uuidof(T), reinterpret_cast<void **>(&Result));
+      Compiler.QueryInterface(&Result);
     assert(Result);
     return Result;
   }

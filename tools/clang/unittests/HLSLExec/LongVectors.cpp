@@ -14,6 +14,7 @@
 
 #include "HlslExecTestUtils.h"
 
+#include <algorithm>
 #include <array>
 #include <bitset>
 #include <iomanip>
@@ -177,25 +178,25 @@ enum class ValidationType {
 };
 
 template <typename T>
-bool doValuesMatch(T A, T B, float Tolerance, ValidationType) {
-  if (Tolerance == 0.0f)
+bool doValuesMatch(T A, T B, double Tolerance, ValidationType) {
+  if (Tolerance == 0.0)
     return A == B;
 
   T Diff = A > B ? A - B : B - A;
   return Diff <= Tolerance;
 }
 
-bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, float, ValidationType) {
+bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, double, ValidationType) {
   return A == B;
 }
 
-bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
+bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, double Tolerance,
                    ValidationType ValidationType) {
   switch (ValidationType) {
   case ValidationType::Epsilon:
-    return CompareHalfEpsilon(A.Val, B.Val, Tolerance);
+    return CompareHalfEpsilon(A.Val, B.Val, static_cast<float>(Tolerance));
   case ValidationType::Ulp:
-    return CompareHalfULP(A.Val, B.Val, Tolerance);
+    return CompareHalfULP(A.Val, B.Val, static_cast<float>(Tolerance));
   default:
     hlsl_test::LogErrorFmt(
         L"Invalid ValidationType. Expecting Epsilon or ULP.");
@@ -203,11 +204,11 @@ bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, float Tolerance,
   }
 }
 
-bool doValuesMatch(float A, float B, float Tolerance,
+bool doValuesMatch(float A, float B, double Tolerance,
                    ValidationType ValidationType) {
   switch (ValidationType) {
   case ValidationType::Epsilon:
-    return CompareFloatEpsilon(A, B, Tolerance);
+    return CompareFloatEpsilon(A, B, static_cast<float>(Tolerance));
   case ValidationType::Ulp: {
     // Tolerance is in ULPs. Convert to int for the comparison.
     const int IntTolerance = static_cast<int>(Tolerance);
@@ -220,7 +221,7 @@ bool doValuesMatch(float A, float B, float Tolerance,
   }
 }
 
-bool doValuesMatch(double A, double B, float Tolerance,
+bool doValuesMatch(double A, double B, double Tolerance,
                    ValidationType ValidationType) {
   switch (ValidationType) {
   case ValidationType::Epsilon:
@@ -239,7 +240,7 @@ bool doValuesMatch(double A, double B, float Tolerance,
 
 template <typename T>
 bool doVectorsMatch(const std::vector<T> &ActualValues,
-                    const std::vector<T> &ExpectedValues, float Tolerance,
+                    const std::vector<T> &ExpectedValues, double Tolerance,
                     ValidationType ValidationType, bool VerboseLogging) {
 
   DXASSERT(
@@ -249,6 +250,11 @@ bool doVectorsMatch(const std::vector<T> &ActualValues,
   if (VerboseLogging) {
     logLongVector(ActualValues, L"ActualValues");
     logLongVector(ExpectedValues, L"ExpectedValues");
+
+    hlsl_test::LogCommentFmt(
+        L"ValidationType: %s, Tolerance: %17g",
+        ValidationType == ValidationType::Epsilon ? L"Epsilon" : L"ULP",
+        Tolerance);
   }
 
   // Stash mismatched indexes for easy failure logging later
@@ -536,14 +542,14 @@ InputSets<T> buildTestInputs(size_t VectorSize, const InputSet OpInputSets[3],
 }
 
 struct ValidationConfig {
-  float Tolerance = 0.0f;
+  double Tolerance = 0.0;
   ValidationType Type = ValidationType::Epsilon;
 
-  static ValidationConfig Epsilon(float Tolerance) {
+  static ValidationConfig Epsilon(double Tolerance) {
     return ValidationConfig{Tolerance, ValidationType::Epsilon};
   }
 
-  static ValidationConfig Ulp(float Tolerance) {
+  static ValidationConfig Ulp(double Tolerance) {
     return ValidationConfig{Tolerance, ValidationType::Ulp};
   }
 };
@@ -595,7 +601,8 @@ template <typename T> struct DefaultValidation {
   }
 };
 
-// Strict Validation - require exact matches for all types
+// Strict Validation - Defaults to exact matches.
+// Tolerance can be set to a non-zero value to allow for a wider range.
 struct StrictValidation {
   ValidationConfig ValidationConfig;
 };
@@ -937,7 +944,7 @@ struct Op<OpType::AsUint_SplitDouble, double, 1> : StrictValidation {};
 // values.
 template <> struct ExpectedBuilder<OpType::AsUint_SplitDouble, double> {
   static std::vector<uint32_t>
-  buildExpected(Op<OpType::AsUint_SplitDouble, double, 1>,
+  buildExpected(Op<OpType::AsUint_SplitDouble, double, 1> &,
                 const InputSets<double> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 1);
 
@@ -1011,7 +1018,7 @@ DEFAULT_OP_1(OpType::Log2, (std::log2(A)));
 template <> struct Op<OpType::Frexp, float, 1> : DefaultValidation<float> {};
 
 template <> struct ExpectedBuilder<OpType::Frexp, float> {
-  static std::vector<float> buildExpected(Op<OpType::Frexp, float, 1>,
+  static std::vector<float> buildExpected(Op<OpType::Frexp, float, 1> &,
                                           const InputSets<float> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 1);
 
@@ -1081,7 +1088,7 @@ OP_3(OpType::Select, StrictValidation, (static_cast<bool>(A) ? B : C));
 #define REDUCTION_OP(OP, STDFUNC)                                              \
   template <typename T> struct Op<OP, T, 1> : StrictValidation {};             \
   template <typename T> struct ExpectedBuilder<OP, T> {                        \
-    static std::vector<HLSLBool_t> buildExpected(Op<OP, T, 1>,                 \
+    static std::vector<HLSLBool_t> buildExpected(Op<OP, T, 1> &,               \
                                                  const InputSets<T> &Inputs) { \
       const bool Res = STDFUNC(Inputs[0].begin(), Inputs[0].end(),             \
                                [](T A) { return A != static_cast<T>(0); });    \
@@ -1099,21 +1106,96 @@ REDUCTION_OP(OpType::All_Zero, (std::all_of));
 
 #undef REDUCTION_OP
 
-template <typename T> struct Op<OpType::Dot, T, 2> : DefaultValidation<T> {};
+template <typename T> struct Op<OpType::Dot, T, 2> : StrictValidation {};
 template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
-  static std::vector<T> buildExpected(Op<OpType::Dot, T, 2>,
+  // For Dot, buildExpected is a special case: it also computes an absolute
+  // epsilon for validation because Dot is a compound operation. Expected value
+  // is computed by multiplying and accumulating in fp64 for higher precision.
+  // Absolute epsilon is computed by reordering the accumulation into a
+  // worst-case sequence, then summing the per-step epsilons to produce a
+  // conservative error tolerance for the entire Dot operation.
+  static std::vector<T> buildExpected(Op<OpType::Dot, T, 2> &Op,
                                       const InputSets<T> &Inputs) {
-    T DotProduct = T();
 
-    for (size_t I = 0; I < Inputs[0].size(); ++I) {
-      DotProduct += Inputs[0][I] * Inputs[1][I];
+    std::vector<double> PositiveProducts;
+    std::vector<double> NegativeProducts;
+
+    const size_t VectorSize = Inputs[0].size();
+
+    // Floating point ops have a tolerance of 0.5 ULPs per operation as per the
+    // DX spec.
+    const double ULPTolerance = 0.5;
+
+    // Accumulate in fp64 to improve precision.
+    double DotProduct = 0.0;      // computed reference result
+    double AbsoluteEpsilon = 0.0; // computed tolerance
+    for (size_t I = 0; I < VectorSize; ++I) {
+      double Product = Inputs[0][I] * Inputs[1][I];
+      AbsoluteEpsilon += computeAbsoluteEpsilon<T>(Product, ULPTolerance);
+
+      DotProduct += Product;
+
+      if (Product >= 0.0)
+        PositiveProducts.push_back(Product);
+      else
+        NegativeProducts.push_back(Product);
     }
 
+    // Sort each by magnitude so that we can accumulate them in worst case
+    // order.
+    std::sort(PositiveProducts.begin(), PositiveProducts.end(),
+              std::greater<double>());
+    std::sort(NegativeProducts.begin(), NegativeProducts.end());
+
+    // Helper to sum the products and compute/add to the running absolute
+    // epsilon total.
+    auto SumProducts = [&AbsoluteEpsilon,
+                        ULPTolerance](const std::vector<double> &Values) {
+      double Sum = Values.empty() ? 0.0 : Values[0];
+      for (size_t I = 1; I < Values.size(); ++I) {
+        Sum += Values[I];
+        AbsoluteEpsilon += computeAbsoluteEpsilon<T>(Sum, ULPTolerance);
+      }
+      return Sum;
+    };
+
+    // Accumulate products in the worst case order while computing the absolute
+    // epsilon error for each intermediate step. And accumulate that error.
+    const double SumPos = SumProducts(PositiveProducts);
+    const double SumNeg = SumProducts(NegativeProducts);
+
+    if (!PositiveProducts.empty() && !NegativeProducts.empty())
+      AbsoluteEpsilon +=
+          computeAbsoluteEpsilon<T>((SumPos + SumNeg), ULPTolerance);
+
+    Op.ValidationConfig = ValidationConfig::Epsilon(AbsoluteEpsilon);
+
     std::vector<T> Expected;
-    Expected.push_back(DotProduct);
+    Expected.push_back(static_cast<T>(DotProduct));
     return Expected;
   }
 };
+
+template <typename T>
+static double computeAbsoluteEpsilon(double A, double ULPTolerance) {
+  DXASSERT((!isinf(A) && !isnan(A)),
+           "Input values should not produce inf or nan results");
+
+  // ULP is a positive value by definition. So, working with abs(A) simplifies
+  // our logic for computing ULP in the first place.
+  A = std::abs(A);
+
+  double ULP = 0.0;
+
+  if constexpr (std::is_same_v<T, HLSLHalf_t>)
+    ULP = HLSLHalf_t::GetULP(A);
+  else
+    ULP =
+        std::nextafter(static_cast<T>(A), std::numeric_limits<T>::infinity()) -
+        static_cast<T>(A);
+
+  return ULP * ULPTolerance;
+}
 
 template <typename T>
 struct Op<OpType::ShuffleVector, T, 1> : DefaultValidation<T> {};
@@ -1727,17 +1809,16 @@ public:
   HLK_TEST(Abs, double);
   HLK_TEST(Sign, double);
 
+  // Float Special
+
   HLK_TEST(IsFinite, HLSLHalf_t);
-  HLK_TEST(IsFinite, float);
-
   HLK_TEST(IsInf, HLSLHalf_t);
-  HLK_TEST(IsInf, float);
-
   HLK_TEST(IsNan, HLSLHalf_t);
-  HLK_TEST(IsNan, float);
-
-
   HLK_TEST(ModF, HLSLHalf_t);
+
+  HLK_TEST(IsFinite, float);
+  HLK_TEST(IsInf, float);
+  HLK_TEST(IsNan, float);
   HLK_TEST(ModF, float);
 
   // Binary Comparison

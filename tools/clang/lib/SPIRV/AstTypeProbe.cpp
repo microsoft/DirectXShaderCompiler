@@ -995,18 +995,24 @@ bool isRWAppendConsumeSBuffer(QualType type) {
          isAppendStructuredBuffer(type);
 }
 
-bool isResourceDescriptorHeap(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    return rt->getDecl()->getName() == ".Resource";
-  }
-  return false;
+bool isResourceDescriptorHeap(const Decl *D) {
+  const VarDecl *VD = dyn_cast<VarDecl>(D);
+  return VD && isResourceDescriptorHeap(VD->getType());
 }
 
-bool isSamplerDescriptorHeap(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    return rt->getDecl()->getName() == ".Sampler";
-  }
-  return false;
+bool isResourceDescriptorHeap(QualType T) {
+  const RecordType *RT = T->getAs<RecordType>();
+  return RT && RT->getDecl()->getName() == ".Resource";
+}
+
+bool isSamplerDescriptorHeap(const Decl *D) {
+  const VarDecl *VD = dyn_cast<VarDecl>(D);
+  return VD && isSamplerDescriptorHeap(VD->getType());
+}
+
+bool isSamplerDescriptorHeap(QualType T) {
+  const RecordType *RT = T->getAs<RecordType>();
+  return RT && RT->getDecl()->getName() == ".Sampler";
 }
 
 bool isAKindOfStructuredOrByteBuffer(QualType type) {

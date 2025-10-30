@@ -12,6 +12,8 @@
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
 
+#include "dxc/Support/Global.h"
+
 namespace LongVector {
 
 // A helper struct because C++ bools are 1 byte and HLSL bools are 4 bytes.
@@ -118,6 +120,18 @@ struct HLSLHalf_t {
   // float.
   HLSLHalf_t(DirectX::PackedVector::HALF) = delete;
 
+  static double GetULP(HLSLHalf_t A) {
+    DXASSERT(!std::isnan(A) && !std::isinf(A),
+             "ULP of NaN or infinity is undefined");
+
+    HLSLHalf_t Next = A;
+    ++Next.Val;
+
+    double NextD = Next;
+    double AD = A;
+    return NextD - AD;
+  }
+
   static HLSLHalf_t FromHALF(DirectX::PackedVector::HALF Half) {
     HLSLHalf_t H;
     H.Val = Half;
@@ -182,10 +196,6 @@ struct HLSLHalf_t {
     const float A = DirectX::PackedVector::XMConvertHalfToFloat(Val);
     const float B = DirectX::PackedVector::XMConvertHalfToFloat(Other.Val);
     return FromHALF((DirectX::PackedVector::XMConvertFloatToHalf(A + B)));
-  }
-
-  HLSLHalf_t &operator+=(const HLSLHalf_t &Other) {
-    return *this = *this + Other;
   }
 
   HLSLHalf_t operator-(const HLSLHalf_t &Other) const {
@@ -348,7 +358,9 @@ INPUT_SET(InputSet::RangeOne, 0.331, 0.727, -0.957, 0.677, -0.025, 0.495, 0.855,
 INPUT_SET(InputSet::Positive, 1.0, 1.0, 342.0, 0.01, 5531.0, 0.01, 1.0, 0.01,
           331.2330, 3250.01);
 INPUT_SET(InputSet::SelectCond, 0.0, 1.0);
-// HLSLHalf_t cast this to float when assigning it.
+// HLSLHalf_t has a constructor which accepts a float and converts it to half
+// precision by clamping to the representable range via
+// DirectX::PackedVector::XMConvertFloatToHalf.
 INPUT_SET(InputSet::FloatSpecial, std::numeric_limits<float>::infinity(),
           -std::numeric_limits<float>::infinity(),
           std::numeric_limits<float>::signaling_NaN(),

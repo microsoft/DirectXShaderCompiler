@@ -580,7 +580,7 @@ inline bool CompareDoubleULP(
 }
 
 inline bool CompareDoubleEpsilon(const double &Src, const double &Ref,
-                                 float Epsilon) {
+                                 double Epsilon) {
   if (Src == Ref) {
     return true;
   }
