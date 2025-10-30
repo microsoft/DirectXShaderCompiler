@@ -4112,30 +4112,6 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-        #ifdef FUNC_TEST_ISFINITE
-        vector<OUT_TYPE, NUM> TestIsFinite(vector<TYPE, NUM> Vector)
-        {
-          vector<bool, NUM> IsFinite = isfinite(Vector);
-          return IsFinite;
-        }
-        #endif
-
-        #ifdef FUNC_TEST_ISINF
-        vector<OUT_TYPE, NUM> TestIsInf(vector<TYPE, NUM> Vector)
-        {
-          vector<bool, NUM> IsInf = isinf(Vector);
-          return IsInf;
-        }
-        #endif
-
-        #ifdef FUNC_TEST_ISNAN
-        vector<OUT_TYPE, NUM> TestIsNan(vector<TYPE, NUM> Vector)
-        {
-          vector<bool, NUM> IsNan = isnan(Vector);
-          return IsNan;
-        }
-        #endif
-
         #ifdef FUNC_TEST_MODF
         vector<OUT_TYPE, NUM> TestModF(vector<TYPE, NUM> Vector)
         {
