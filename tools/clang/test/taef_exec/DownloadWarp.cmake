@@ -84,6 +84,11 @@ else()
     set(WARP_ARCH "x64")
 endif()
 
+message("CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}")
+message("CMAKE_C_COMPILER_ARCHITECTURE_ID=${CMAKE_C_COMPILER_ARCHITECTURE_ID}")
+message("WARP_ARCH=${WARP_ARCH}")
+
+
 
 # WARP_DLL is picked up by lit.site.cfg.in so it can be passed as a TAEF runtime
 # parameter by lit.cfg
