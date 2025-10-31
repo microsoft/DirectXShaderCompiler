@@ -144,15 +144,15 @@ class TaefTest(TestFormat):
         out, err, exitCode = executeCommandForTaef(
             cmd, env = test.config.environment)
 
-        if exitCode:
-            skipped = 'Failed=0, Blocked=0, Not Run=0, Skipped=1'
-            if skipped in out:
-                return lit.Test.UNSUPPORTED, ''
+        skipped = 'Failed=0, Blocked=0, Not Run=0, Skipped=1'
+        if skipped in out:
+            return lit.Test.UNSUPPORTED, out + err
 
-            unselected = 'The selection criteria did not match any tests.'
-            if unselected in out:
-                return lit.Test.UNSUPPORTED, ''
+        unselected = 'The selection criteria did not match any tests.'
+        if unselected in out:
+            return lit.Test.UNSUPPORTED, out + err
 
+        if exitCode:   
             return lit.Test.FAIL, out + err
 
         summary = 'Summary: Total='
