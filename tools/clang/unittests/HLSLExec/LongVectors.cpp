@@ -485,8 +485,7 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
   const UINT Num32BitElements =
       static_cast<UINT>((VectorSize * OpDataType.HLSLSizeInBytes + 3) / 4);
 
-  UINT StructureByteStride = static_cast<UINT>(ElementSize * VectorSize);
-  StructureByteStride = (StructureByteStride + 3) & ~3; // Must align to 4 bytes
+  const UINT StructureByteStride = static_cast<UINT>(ElementSize * VectorSize);
 
   const bool IsSB = IsStructuredBufferLoadAndStoreOp(Operation.Type);
   if (!ShaderOp->DescriptorHeaps.empty()) {
