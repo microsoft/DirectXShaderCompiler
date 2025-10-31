@@ -1,4 +1,3 @@
-#include <cmath>
 #ifndef NOMINMAX
 #define NOMINMAX 1
 #endif
