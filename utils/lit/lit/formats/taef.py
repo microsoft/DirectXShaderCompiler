@@ -166,5 +166,5 @@ class TaefTest(TestFormat):
                    (no_fail, out, err))
             return lit.Test.UNRESOLVED, msg
 
-        return lit.Test.PASS,''
+        return lit.Test.PASS, out + err
 
