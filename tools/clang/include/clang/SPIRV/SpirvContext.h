@@ -456,6 +456,15 @@ public:
            instructionsWithLoweredType.end();
   }
 
+  SpirvInstruction *getSpecConstant(const VarDecl *decl) {
+    return specConstants[decl];
+  }
+
+  void registerSpecConstant(const VarDecl *decl,
+                            SpirvInstruction *specConstant) {
+    specConstants[decl] = specConstant;
+  }
+
   void registerDispatchGridIndex(const RecordDecl *decl, unsigned index) {
     auto iter = dispatchGridIndices.find(decl);
     if (iter == dispatchGridIndices.end()) {
@@ -536,6 +545,7 @@ private:
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
   llvm::DenseMap<unsigned, SpirvIntrinsicType *> spirvIntrinsicTypesById;
   llvm::SmallVector<const SpirvIntrinsicType *, 8> spirvIntrinsicTypes;
+  llvm::MapVector<const VarDecl *, SpirvInstruction *> specConstants;
   const AccelerationStructureTypeNV *accelerationStructureTypeNV;
   const RayQueryTypeKHR *rayQueryTypeKHR;
 

@@ -1821,6 +1821,7 @@ DeclResultIdMapper::getCounterVarFields(const DeclaratorDecl *decl) {
 void DeclResultIdMapper::registerSpecConstant(const VarDecl *decl,
                                               SpirvInstruction *specConstant) {
   specConstant->setRValue();
+  spvContext.registerSpecConstant(decl, specConstant);
   registerVariableForDecl(decl, createDeclSpirvInfo(specConstant));
 }
 
