@@ -1025,6 +1025,7 @@ DEFAULT_OP_1(OpType::Trunc, (std::trunc(A)));
 DEFAULT_OP_1(OpType::Exp2, (std::exp2(A)));
 DEFAULT_OP_1(OpType::Log10, (std::log10(A)));
 DEFAULT_OP_1(OpType::Log2, (std::log2(A)));
+DEFAULT_OP_2(OpType::FMod, (std::fmod(A, B)));
 
 // Frexp has a return value as well as an output paramater. So we handle it
 // with special logic. Frexp is only supported for fp32 values.
@@ -1785,11 +1786,13 @@ public:
   HLK_TEST(IsInf, HLSLHalf_t);
   HLK_TEST(IsNan, HLSLHalf_t);
   HLK_TEST(ModF, HLSLHalf_t);
+  HLK_TEST(FMod, HLSLHalf_t);
 
   HLK_TEST(IsFinite, float);
   HLK_TEST(IsInf, float);
   HLK_TEST(IsNan, float);
   HLK_TEST(ModF, float);
+  HLK_TEST(FMod, float);
 
   // Binary Comparison
 
