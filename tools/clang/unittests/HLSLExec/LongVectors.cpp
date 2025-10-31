@@ -1204,16 +1204,22 @@ template <typename T, OpType OP>
 void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
                   size_t OverrideInputSize) {
   std::vector<size_t> InputVectorSizes;
+  const std::array<size_t, 8> DefaultInputSizes = {3,  5,   16,  17,
+                                                   35, 100, 256, 1024};
+
   if (OverrideInputSize)
     InputVectorSizes.push_back(OverrideInputSize);
   else {
-    InputVectorSizes = {3, 5, 16, 17, 35, 100, 256};
-    size_t MaxInputSize = 1024;
-    if (IsStructuredBufferLoadAndStoreOp(OP))
-      // StructuredBuffers are capped at 2048 bytes.
-      MaxInputSize = 2048 / sizeof(T);
+    // StructuredBuffers have a max size of 2048 bytes.
+    const size_t MaxInputSize =
+        IsStructuredBufferLoadAndStoreOp(OP) ? 2048 / sizeof(T) : 1024;
 
-    if (InputVectorSizes.back() < MaxInputSize)
+    for (size_t Size : DefaultInputSizes) {
+      if (Size <= MaxInputSize)
+        InputVectorSizes.push_back(Size);
+    }
+
+    if (InputVectorSizes.empty() || MaxInputSize != InputVectorSizes.back())
       InputVectorSizes.push_back(MaxInputSize);
   }
 
