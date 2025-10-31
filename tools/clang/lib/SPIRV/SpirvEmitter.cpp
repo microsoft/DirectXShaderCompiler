@@ -13165,17 +13165,24 @@ SpirvInstruction *SpirvEmitter::processIntrinsicDP2a(const CallExpr *callExpr) {
   SpirvInstruction *arg1Instr = doExpr(arg1);
   SpirvInstruction *arg2Instr = doExpr(arg2);
 
-  // Create the dot product of the half2 vectors.
-  SpirvInstruction *dotInstr = spvBuilder.createBinaryOp(
-      spv::Op::OpDot, componentType, arg0Instr, arg1Instr, loc, range);
+  // Convert the half vectors into float vectors to preserve precision
+  // as specified in the HLSL documentation.
+  arg0Instr = spvBuilder.createUnaryOp(
+      spv::Op::OpFConvert,
+      astContext.getExtVectorType(astContext.FloatTy, vecSize), arg0Instr, loc,
+      range);
+  arg1Instr = spvBuilder.createUnaryOp(
+      spv::Op::OpFConvert,
+      astContext.getExtVectorType(astContext.FloatTy, vecSize), arg1Instr, loc,
+      range);
 
-  // Convert dot product (half type) to result type (float).
+  // Create the dot product of the half2 vectors.
   QualType resultType = callExpr->getType();
-  SpirvInstruction *floatDotInstr = spvBuilder.createUnaryOp(
-      spv::Op::OpFConvert, resultType, dotInstr, loc, range);
+  SpirvInstruction *dotInstr = spvBuilder.createBinaryOp(
+      spv::Op::OpDot, resultType, arg0Instr, arg1Instr, loc, range);
 
   // Sum the dot product result and accumulator and return.
-  return spvBuilder.createBinaryOp(spv::Op::OpFAdd, resultType, floatDotInstr,
+  return spvBuilder.createBinaryOp(spv::Op::OpFAdd, resultType, dotInstr,
                                    arg2Instr, loc, range);
 }
 

@@ -12,8 +12,9 @@ float main() : SV_Target {
 // CHECK: [[input1A:%[0-9]+]] = OpLoad %v2half %input1A
 // CHECK: [[input1B:%[0-9]+]] = OpLoad %v2half %input1B
 // CHECK: [[acc1:%[0-9]+]] = OpLoad %float %acc1
-// CHECK: [[dot1_0:%[0-9]+]] = OpDot %half [[input1A]] [[input1B]]
-// CHECK: [[dot1:%[0-9]+]] = OpFConvert %float [[dot1_0]]
+// CHECK: [[input1A_0:%[0-9]+]] = OpFConvert %v2float [[input1A]]
+// CHECK: [[input1B_0:%[0-9]+]] = OpFConvert %v2float [[input1B]]
+// CHECK: [[dot1:%[0-9]+]] = OpDot %float [[input1A_0]] [[input1B_0]]
 // CHECK: [[res1:%[0-9]+]] = OpFAdd %float [[dot1]] [[acc1]]
   res += dot2add(input1A, input1B, acc1);
 
@@ -25,8 +26,9 @@ float main() : SV_Target {
 // CHECK: [[input2B:%[0-9]+]] = OpVectorShuffle %v2half [[input2_1]] [[input2_1]] 2 3
 // CHECK: [[acc2_0:%[0-9]+]] = OpLoad %int %acc2
 // CHECK: [[acc2:%[0-9]+]] = OpConvertSToF %float [[acc2_0]]
-// CHECK: [[dot2_0:%[0-9]+]] = OpDot %half [[input2A]] [[input2B]]
-// CHECK: [[dot2:%[0-9]+]] = OpFConvert %float [[dot2_0]]
+// CHECK: [[input2A_0:%[0-9]+]] = OpFConvert %v2float [[input2A]]
+// CHECK: [[input2B_0:%[0-9]+]] = OpFConvert %v2float [[input2B]]
+// CHECK: [[dot2:%[0-9]+]] = OpDot %float [[input2A_0]] [[input2B_0]]
 // CHECK: [[res2:%[0-9]+]] = OpFAdd %float [[dot2]] [[acc2]]
   res += dot2add(input2.xy, input2.zw, acc2);
 
@@ -44,8 +46,9 @@ float main() : SV_Target {
 // CHECK: [[input3B:%[0-9]+]] = OpConvertSToF %v2half [[input3B_5]]
 // CHECK: [[acc3_1:%[0-9]+]] = OpLoad %half %acc3
 // CHECK: [[acc3:%[0-9]+]] = OpFConvert %float [[acc3_1]]
-// CHECK: [[dot3_1:%[0-9]+]] = OpDot %half [[input3A]] [[input3B]]
-// CHECK: [[dot3:%[0-9]+]] = OpFConvert %float [[dot3_1]]
+// CHECK: [[input3A_0:%[0-9]+]] = OpFConvert %v2float [[input3A]]
+// CHECK: [[input3B_0:%[0-9]+]] = OpFConvert %v2float [[input3B]]
+// CHECK: [[dot3:%[0-9]+]] = OpDot %float [[input3A_0]] [[input3B_0]]
 // CHECK: [[res3:%[0-9]+]] = OpFAdd %float [[dot3]] [[acc3]]
   res += dot2add(input3A, input3B, acc3);
 
