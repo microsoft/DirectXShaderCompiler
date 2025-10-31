@@ -180,7 +180,7 @@ static bool createDevice(ID3D12Device **D3DDevice,
                                          IID_PPV_ARGS(&D3DDeviceCom));
     if (FAILED(CreateHR)) {
       hlsl_test::LogCommentFmt(
-          L"The available version of WARP does not support d3d12.");
+          L"Failed to create WARP device: 0x%08x", CreateHR);
 
       if (SkipUnsupported)
         WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
