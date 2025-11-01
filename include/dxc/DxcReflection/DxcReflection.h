@@ -156,7 +156,8 @@ public:
   // !IsFwdDeclare() && IsFwdDefined(): GetFwdBck() should point to a valid fwd
   // declare that points back to it.
   // Backwards declare should point to a NodeId < self and Forwards to > self.
-  // Forward declares aren't allowed to have any children.
+  // Forward declares aren't allowed to have any children except functions, 
+  // which can have parameters only (inc. return).
   // If there's a name, they should match.
   // Must be same node type too.
   // Only allowed on functions, struct/union and enums.
@@ -289,6 +290,7 @@ public:
   uint32_t GetNameId() const { return NameId; }
 
   uint16_t GetFileSourceId() const { return FileSourceId; }
+  bool HasFileSource() const { return FileSourceId != uint16_t(-1); }
   uint16_t GetSourceLineCount() const { return SourceLineCount; }
 
   uint32_t GetSourceLineStart() const {
@@ -826,7 +828,6 @@ struct DxcHLSLReflectionData {
   static D3D_CBUFFER_TYPE GetBufferType(uint8_t Type);
 
   void Dump(std::vector<std::byte> &Bytes) const;
-  void Printf() const;
   void StripSymbols();
   bool GenerateNameLookupTable();
 

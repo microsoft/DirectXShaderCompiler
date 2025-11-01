@@ -45,6 +45,8 @@
 
 #include "dxc/DxcReflection/DxcReflection.h"
 
+#include <sstream>
+
 using namespace llvm;
 using namespace clang;
 using namespace hlsl;
@@ -1547,6 +1549,436 @@ HRESULT GenerateAST(DxcLangExtensionsHelper *pExtHelper, LPCSTR pFileName,
   return S_OK;
 }
 
+//TODO: Print escape character
+
+struct JsonWriter {
+
+  std::stringstream ss;
+  uint16_t indent = 0;
+  uint16_t countCommaStack = 0;
+  uint32_t needCommaStack = 0;
+
+  void Indent() { ss << std::string(indent, '\t'); }
+  void NewLine() { ss << "\n"; }
+
+  void StartCommaStack() {
+    ++countCommaStack;
+    assert(countCommaStack < 32 && "countCommaStack out of bounds");
+    needCommaStack &= ~(1u << countCommaStack);
+  }
+
+  void SetComma() { needCommaStack |= 1u << countCommaStack; }
+
+  void EndCommaStack() {
+    --countCommaStack;
+    SetComma();
+  }
+
+  bool NeedsComma() { return (needCommaStack >> countCommaStack) & 1; }
+
+  void BeginObj() {
+
+    if (NeedsComma()) {
+      ss << ",\n";
+      Indent();
+    }
+
+    ss << "{\n";
+    ++indent;
+    StartCommaStack();
+    Indent();
+  }
+
+  void EndObj() {
+    ss << "\n";
+    --indent;
+    Indent();
+    ss << "}";
+    EndCommaStack();
+  }
+
+  void BeginArray(const char *Name) {
+
+    if (NeedsComma()) {
+      ss << ",\n";
+      Indent();
+    }
+
+    if (Name) {
+      StartCommaStack();
+      Key(Name);
+      --countCommaStack;
+    }
+
+    ss << "[\n";
+    ++indent;
+    StartCommaStack();
+    Indent();
+  }
+
+  void EndArray() {
+    ss << "\n";
+    --indent;
+    Indent();
+    ss << "]";
+    EndCommaStack();
+  }
+
+  void Key(const char *Key) {
+    if (NeedsComma()) {
+      ss << ",\n";
+      Indent();
+    }
+    ss << "\"" << Key << "\": ";
+  }
+
+  void Value(std::string S) {
+    if (NeedsComma()) {
+      ss << ",\n";
+      Indent();
+    }
+    ss << "\"" << Escape(S) << "\"";
+    SetComma();
+  }
+
+  void Value(const char *S) {
+    if (NeedsComma()) {
+      ss << ",\n";
+      Indent();
+    }
+    ss << "\"" << S << "\"";
+    SetComma();
+  }
+
+  void ValueNull() {
+    if (NeedsComma()) {
+      ss << ",\n";
+      Indent();
+    }
+    ss << "null";
+    SetComma();
+  }
+
+  void Value(uint64_t V) {
+    if (NeedsComma()) {
+      ss << ",\n";
+      Indent();
+    }
+    ss << V;
+    SetComma();
+  }
+
+  void Value(int64_t V) {
+    if (NeedsComma()) {
+      ss << ",\n";
+      Indent();
+    }
+    ss << V;
+    SetComma();
+  }
+
+  void Value(bool V) {
+    if (NeedsComma()) {
+      ss << ",\n";
+      Indent();
+    }
+    ss << (V ? "true" : "false");
+    SetComma();
+  }
+
+  static std::string Escape(const std::string &In) {
+    std::string out;
+    out.reserve(In.size());
+    for (char c : In) {
+      switch (c) {
+      case '\\':
+        out += "\\\\";
+        break;
+      case '"':
+        out += "\\\"";
+        break;
+      case '\n':
+        out += "\\n";
+        break;
+      case '\r':
+        out += "\\r";
+        break;
+      case '\t':
+        out += "\\t";
+        break;
+      default:
+        out += c;
+        break;
+      }
+    }
+    return out;
+  }
+
+  std::string str() const { return ss.str(); }
+
+  struct ObjectScope {
+
+    JsonWriter &W;
+    bool NeedsEndCommaStack;
+
+    ObjectScope(JsonWriter &W, const char *Name = nullptr)
+        : W(W), NeedsEndCommaStack(Name) {
+
+      if (Name) {
+        W.Key(Name);
+        W.StartCommaStack();
+      }
+
+      W.BeginObj();
+    }
+
+    ~ObjectScope() {
+      W.EndObj();
+
+      if (NeedsEndCommaStack)
+        W.EndCommaStack();
+    }
+  };
+
+  struct ArrayScope {
+    JsonWriter &W;
+    ArrayScope(JsonWriter &W, const char *Name = nullptr) : W(W) {
+      W.BeginArray(Name);
+    }
+    ~ArrayScope() { W.EndArray(); }
+  };
+  
+  void Object(const char *Name, const std::function<void()> &Body) {
+    ObjectScope _(*this, Name);
+    Body();
+  }
+
+  void Array(const char *Name, const std::function<void()> &Body) {
+    ArrayScope _( *this, Name ); Body();
+  }
+
+  void StringField(const char *K, const std::string &V) {
+    Key(K);
+    StartCommaStack();
+    Value(V);
+    EndCommaStack();
+  }
+
+  void UIntField(const char *K, uint64_t V) {
+    Key(K);
+    StartCommaStack();
+    Value(V);
+    EndCommaStack();
+  }
+
+  void IntField(const char *K, int64_t V) {
+    Key(K);
+    StartCommaStack();
+    Value(V);
+    EndCommaStack();
+  }
+
+  void BoolField(const char *K, bool V) {
+    Key(K);
+    StartCommaStack();
+    Value(V);
+    EndCommaStack();
+  }
+
+  void NullField(const char *K) {
+    Key(K);
+    StartCommaStack();
+    ValueNull();
+    EndCommaStack();
+  }
+
+};
+
+void PrintFeatures(D3D12_HLSL_REFLECTION_FEATURE Features, JsonWriter &Json) {
+  Json.Array("Features", [Features, &Json] {
+    if (Features & D3D12_HLSL_REFLECTION_FEATURE_BASICS)
+      Json.Value("Basics");
+    if (Features & D3D12_HLSL_REFLECTION_FEATURE_FUNCTIONS)
+      Json.Value("Functions");
+    if (Features & D3D12_HLSL_REFLECTION_FEATURE_NAMESPACES)
+      Json.Value("Namespaces");
+    if (Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES)
+      Json.Value("UserTypes");
+    if (Features & D3D12_HLSL_REFLECTION_FEATURE_SCOPES)
+      Json.Value("Scopes");
+    if (Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO)
+      Json.Value("Symbols");
+  });
+}
+
+static const char *NodeTypeToString(D3D12_HLSL_NODE_TYPE type) {
+
+  static const char *arr[] = {"Register",
+                              "Function",
+                              "Enum",
+                              "EnumValue",
+                              "Namespace",
+                              "Variable",
+                              "Typedef",
+                              "Struct",
+                              "Union",
+                              "StaticVariable",
+                              "Interface",
+                              "Parameter",
+                              "If",
+                              "Scope",
+                              "Do",
+                              "Switch",
+                              "While",
+                              "For",
+                              "GroupsharedVariable"};
+
+  return arr[uint32_t(type)];
+}
+
+static void PrintNode(JsonWriter &Json, DxcHLSLReflectionData &Reflection,
+                 uint32_t NodeId, bool IsVerbose) {
+
+  DxcHLSLNode &node = Reflection.Nodes[NodeId];
+
+  JsonWriter::ObjectScope nodeRoot(Json);
+  Json.UIntField("NodeId", NodeId);
+  Json.StringField("NodeType", NodeTypeToString(node.GetNodeType()));
+
+  if (IsVerbose)
+    Json.UIntField("NodeTypeId", node.GetNodeType());
+
+  Json.UIntField("LocalId", node.GetLocalId());
+  Json.UIntField("ParentId", node.GetParentId());
+
+  if (IsVerbose || node.GetChildCount()) {
+    Json.UIntField("ChildCount", node.GetChildCount());
+    Json.UIntField("ChildStart", NodeId + 1);
+  }
+
+  if (node.GetSemanticId() != uint32_t(-1) || IsVerbose)
+    Json.StringField("Semantic",
+                     node.GetSemanticId() != uint32_t(-1)
+                         ? Reflection.StringsNonDebug[node.GetSemanticId()]
+                         : "");
+
+  if (IsVerbose) {
+    Json.UIntField("SemanticId", node.GetSemanticId());
+    Json.UIntField("AnnotationStart", node.GetAnnotationStart());
+    Json.UIntField("AnnotationCount", node.GetAnnotationCount());
+  }
+
+  if (node.GetAnnotationCount() || IsVerbose)
+    Json.Array("Annotations", [&Reflection, &Json, node] {
+      for (uint32_t i = 0; i < node.GetAnnotationCount(); ++i)
+        Json.Value(Reflection.StringsNonDebug[i]);
+    });
+
+  if ((node.IsFwdBckDefined() || node.IsFwdDeclare()) || IsVerbose) {
+    Json.BoolField("IsFwdDeclare", node.IsFwdDeclare());
+    Json.BoolField("IsFwdBackDefined", node.IsFwdBckDefined());
+
+    if (node.IsFwdBckDefined() || IsVerbose)
+      Json.UIntField("FwdBack", node.GetFwdBck());
+  }
+
+  if (Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO) {
+  
+    Json.Object("Symbol", [&Reflection, &Json, NodeId, IsVerbose] {
+      DxcHLSLNodeSymbol &sym = Reflection.NodeSymbols[NodeId];
+      Json.StringField("Name", Reflection.Strings[sym.GetNameId()]);
+
+      if (IsVerbose)
+        Json.UIntField("NameId", sym.GetNameId());
+
+      if (sym.HasFileSource()) {
+
+        Json.StringField(
+            "Source",
+            Reflection.Strings[Reflection.Sources[sym.GetFileSourceId()]]);
+
+        if (IsVerbose)
+          Json.UIntField("SourceId", sym.GetFileSourceId());
+
+        Json.UIntField("LineId", sym.GetSourceLineStart());
+        Json.UIntField("LineCount", sym.GetSourceLineCount());
+
+        Json.UIntField("ColumnStart", sym.GetSourceColumnStart());
+        Json.UIntField("ColumnEnd", sym.GetSourceColumnEnd());
+
+      } else if (IsVerbose) {
+
+        Json.StringField("Source", "");
+        Json.IntField("SourceId", -1);
+
+        Json.IntField("LineId", -1);
+        Json.UIntField("LineCount", 0);
+
+        Json.IntField("ColumnStart", -1);
+        Json.UIntField("ColumnEnd", 0);
+      }
+    });
+
+  } else if (IsVerbose)
+    Json.NullField("Symbol");
+}
+
+//IsHumanFriendly = false: Raw view of the real file data
+//IsHumanFriendly = true:  Clean view that's relatively close to the real tree
+static std::string ToJson(DxcHLSLReflectionData &Reflection,
+                          bool IsHumanFriendly, bool IsVerbose) {
+
+  JsonWriter json;
+
+  {
+    JsonWriter::ObjectScope root(json);
+
+    // Features
+
+    PrintFeatures(Reflection.Features, json);
+
+    bool hasSymbols =
+        Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
+
+    // Print raw contents
+
+    if (!IsHumanFriendly) {
+
+      json.Array("Strings", [&Reflection, &json] {
+        for (const std::string &s : Reflection.Strings)
+          json.Value(s);
+      });
+
+      json.Array("StringsNonDebug", [&Reflection, &json] {
+        for (const std::string &s : Reflection.StringsNonDebug)
+          json.Value(s);
+      });
+
+      json.Array("Sources", [&Reflection, &json] {
+        for (uint32_t id : Reflection.Sources)
+          json.Value(Reflection.Strings[id]);
+      });
+
+      if (IsVerbose)
+        json.Array("SourcesAsId", [&Reflection, &json] {
+          for (uint32_t id : Reflection.Sources)
+            json.Value(uint64_t(id));
+        });
+
+      json.Array("Nodes", [&Reflection, &json, IsVerbose] {
+        for (uint32_t i = 0; i < uint32_t(Reflection.Nodes.size()); ++i)
+          PrintNode(json, Reflection, i, IsVerbose);
+      });
+    }
+
+    else {
+      // TODO: Print pretty tree for user
+    }
+  }
+
+  return json.str();
+}
+
 HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
                              ASTUnit::RemappedFile *pRemap,
                              hlsl::options::DxcOpts &opts, DxcDefine *pDefines,
@@ -1604,9 +2036,7 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
     return E_FAIL;
   }
 
-  //TODO: Debug
-
-  refl.Printf();
+  printf("%s\n", ToJson(refl, false, false).c_str());
 
   // Test serialization
 
@@ -1630,7 +2060,8 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
   // Test stripping symbols
 
   refl.StripSymbols();
-  refl.Printf();
+
+  printf("%s\n", ToJson(refl, false, false).c_str());
 
   refl.Dump(bytes);
 
