@@ -1811,7 +1811,7 @@ void PrintFeatures(D3D12_HLSL_REFLECTION_FEATURE Features, JsonWriter &Json) {
   });
 }
 
-static const char *NodeTypeToString(D3D12_HLSL_NODE_TYPE type) {
+static const char *NodeTypeToString(D3D12_HLSL_NODE_TYPE Type) {
 
   static const char *arr[] = {"Register",
                               "Function",
@@ -1833,7 +1833,45 @@ static const char *NodeTypeToString(D3D12_HLSL_NODE_TYPE type) {
                               "For",
                               "GroupsharedVariable"};
 
-  return arr[uint32_t(type)];
+  return arr[uint32_t(Type)];
+}
+
+static const char *RegisterTypeToString(D3D_SHADER_INPUT_TYPE Type) {
+
+  static const char *arr[] = {"cbuffer",
+                              "tbuffer",
+                              "Texture",
+                              "SamplerState",
+                              "RWTexture",
+                              "StructuredBuffer",
+                              "RWStructuredBuffer",
+                              "ByteAddressBuffer",
+                              "RWByteAddressBuffer",
+                              "AppendStructuredBuffer",
+                              "ConsumeStructuredBuffer",
+                              "(Append/Consume)StructuredBuffer",
+                              "RaytracingAccelerationStructure",
+                              "FeedbackTexture"};
+
+  return arr[uint32_t(Type)];
+}
+
+static const char *DimensionTypeToString(D3D_SRV_DIMENSION Type) {
+
+  static const char *arr[] = {
+      "Unknown",   "Buffer",         "Texture1D",        "Texture1DArray",
+      "Texture2D", "Texture2DArray", "Texture2DMS",      "Texture2DMSArray",
+      "Texture3D", "TextureCube",    "TextureCubeArray", "BufferEx"};
+
+  return arr[uint32_t(Type)];
+}
+
+static const char *ReturnTypeToString(D3D_RESOURCE_RETURN_TYPE Type) {
+
+  static const char *arr[] = {"unknown", "unorm", "snorm",  "sint",     "uint",
+                              "float",   "mixed", "double", "continued"};
+
+  return arr[uint32_t(Type)];
 }
 
 static void PrintNode(JsonWriter &Json, DxcHLSLReflectionData &Reflection,
@@ -1923,6 +1961,77 @@ static void PrintNode(JsonWriter &Json, DxcHLSLReflectionData &Reflection,
     Json.NullField("Symbol");
 }
 
+static void PrintRegister(JsonWriter &Json, DxcHLSLReflectionData &Reflection,
+                      uint32_t RegisterId, bool IsVerbose) {
+
+  DxcHLSLRegister &reg = Reflection.Registers[RegisterId];
+
+  JsonWriter::ObjectScope nodeRoot(Json);
+  Json.UIntField("RegisterId", RegisterId);
+  Json.UIntField("NodeId", reg.GetNodeId());
+  Json.StringField("RegisterType", RegisterTypeToString(reg.GetType()));
+
+  if (reg.GetDimension() != D3D_SRV_DIMENSION_UNKNOWN || IsVerbose)
+    Json.StringField("Dimension", DimensionTypeToString(reg.GetDimension()));
+
+  if (reg.GetReturnType() || IsVerbose)
+    Json.StringField("ReturnType", ReturnTypeToString(reg.GetReturnType()));
+
+  if (reg.GetBindCount() > 1 || IsVerbose)
+    Json.UIntField("BindCount", reg.GetBindCount());
+
+  if (reg.GetArrayId() != uint32_t(-1) || IsVerbose) {
+
+    if (IsVerbose)
+      Json.UIntField("ArrayId", reg.GetArrayId());
+
+    Json.Array("ArraySize", [&Reflection, &reg, &Json]() {
+      const DxcHLSLArray &arr = Reflection.Arrays[reg.GetArrayId()];
+
+      for (uint32_t i = 0; i < uint32_t(arr.ArrayElem()); ++i)
+        Json.Value(uint64_t(Reflection.ArraySizes[arr.ArrayStart() + i]));
+    });
+  }
+
+  bool isBuffer = true;
+
+  switch (reg.GetType()) {
+  case D3D_SIT_TEXTURE:
+  case D3D_SIT_SAMPLER:
+  case D3D_SIT_UAV_RWTYPED:
+  case D3D_SIT_RTACCELERATIONSTRUCTURE:
+  case D3D_SIT_UAV_FEEDBACKTEXTURE:
+    isBuffer = false;
+    break;
+  }
+
+  if (isBuffer || IsVerbose)
+    Json.UIntField("BufferId", reg.GetBufferId());
+
+  if (reg.GetFlags() || IsVerbose) {
+
+    Json.Array("Flags", [&reg, &Json]() {
+
+      uint32_t flag = reg.GetFlags();
+
+      if (flag & D3D_SIF_USERPACKED)
+        Json.Value("UserPacked");
+
+      if (flag & D3D_SIF_COMPARISON_SAMPLER)
+        Json.Value("ComparisonSampler");
+
+      if (flag & D3D_SIF_TEXTURE_COMPONENT_0)
+        Json.Value("TextureComponent0");
+
+      if (flag & D3D_SIF_TEXTURE_COMPONENT_1)
+        Json.Value("TextureComponent1");
+
+      if (flag & D3D_SIF_UNUSED)
+        Json.Value("Unused");
+    });
+  }
+}
+
 //IsHumanFriendly = false: Raw view of the real file data
 //IsHumanFriendly = true:  Clean view that's relatively close to the real tree
 static std::string ToJson(DxcHLSLReflectionData &Reflection,
@@ -1968,6 +2077,11 @@ static std::string ToJson(DxcHLSLReflectionData &Reflection,
       json.Array("Nodes", [&Reflection, &json, IsVerbose] {
         for (uint32_t i = 0; i < uint32_t(Reflection.Nodes.size()); ++i)
           PrintNode(json, Reflection, i, IsVerbose);
+      });
+
+      json.Array("Registers", [&Reflection, &json, IsVerbose] {
+        for (uint32_t i = 0; i < uint32_t(Reflection.Registers.size()); ++i)
+          PrintRegister(json, Reflection, i, IsVerbose);
       });
     }
 
