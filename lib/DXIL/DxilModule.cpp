@@ -1795,6 +1795,44 @@ bool DxilModule::StripReflection() {
     }
   }
 
+  if (!bIsLib) {
+    // Strip struct names
+    vector<StructType *> structTypes = m_pModule->getIdentifiedStructTypes();
+    unsigned NextStructId = 0;
+    for (StructType *ST : structTypes) {
+      if (!ST->hasName())
+        continue;
+
+      StringRef Name = ST->getName();
+      if (Name.startswith("dx."))
+        continue;
+
+      ST->setName((Twine("dx.strip.struct.") + Twine(NextStructId++)).str());
+      bChanged = true;
+    }
+
+    // Strip entry function name
+    if (m_pEntryFunc) {
+      SetEntryFunctionName("dx.strip.entry.");
+      m_pEntryFunc->setName("dx.strip.entry.");
+      bChanged = true;
+    }
+
+    // Strip groupshared variable names
+    unsigned NextGroupSharedId = 0;
+    for (GlobalVariable &GV : m_pModule->globals()) {
+      if (GV.getType()->getPointerAddressSpace() == DXIL::kTGSMAddrSpace &&
+          GV.hasName()) {
+        StringRef Name = GV.getName();
+        if (Name.startswith("dx.") || Name.startswith("llvm."))
+          continue;
+        GV.setName(
+            (Twine("dx.strip.tgsm.") + Twine(NextGroupSharedId++)).str());
+        bChanged = true;
+      }
+    }
+  }
+
   // Resource
   if (!bIsLib) {
     bChanged |= StripResourcesReflection(m_CBuffers);
