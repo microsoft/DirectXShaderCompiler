@@ -1629,7 +1629,7 @@ struct JsonWriter {
       ss << ",\n";
       Indent();
     }
-    ss << "\"" << Key << "\": ";
+    ss << "\"" << Escape(Key) << "\": ";
   }
 
   void Value(std::string S) {
@@ -1969,6 +1969,16 @@ static void PrintRegister(JsonWriter &Json, DxcHLSLReflectionData &Reflection,
   JsonWriter::ObjectScope nodeRoot(Json);
   Json.UIntField("RegisterId", RegisterId);
   Json.UIntField("NodeId", reg.GetNodeId());
+
+  if (Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO)
+    Json.StringField(
+        "Name",
+        Reflection
+            .Strings[Reflection.NodeSymbols[reg.GetNodeId()].GetNameId()]);
+
+  else if (IsVerbose)
+    Json.StringField("Name", "");
+
   Json.StringField("RegisterType", RegisterTypeToString(reg.GetType()));
 
   if (reg.GetDimension() != D3D_SRV_DIMENSION_UNKNOWN || IsVerbose)
@@ -2032,6 +2042,273 @@ static void PrintRegister(JsonWriter &Json, DxcHLSLReflectionData &Reflection,
   }
 }
 
+static std::string GetBuiltinTypeName(const DxcHLSLReflectionData &Refl,
+                               const DxcHLSLType &Type) {
+
+  std::string type = "<unknown>";
+
+  if (Type.GetClass() != D3D_SVC_STRUCT && Type.GetClass() != D3D_SVC_INTERFACE_CLASS) {
+
+    static const char *arr[] = {"void",
+                                "bool",
+                                "int",
+                                "float",
+                                "string",
+                                NULL,
+                                "Texture1D",
+                                "Texture2D",
+                                "Texture3D",
+                                "TextureCube",
+                                "SamplerState",
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                "uint",
+                                "uint8_t",
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                "Buffer",
+                                "ConstantBuffer",
+                                NULL,
+                                "Texture1DArray",
+                                "Texture2DArray",
+                                NULL,
+                                NULL,
+                                "Texture2DMS",
+                                "Texture2DMSArray",
+                                "TextureCubeArray",
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                "double",
+                                "RWTexture1D",
+                                "RWTexture1DArray",
+                                "RWTexture2D",
+                                "RWTexture2DArray",
+                                "RWTexture3D",
+                                "RWBuffer",
+                                "ByteAddressBuffer",
+                                "RWByteAddressBuffer",
+                                "StructuredBuffer",
+                                "RWStructuredBuffer",
+                                "AppendStructuredBuffer",
+                                "ConsumeStructuredBuffer",
+                                "min8float",
+                                "min10float",
+                                "min16float",
+                                "min12int",
+                                "min16int",
+                                "min16uint",
+                                "int16_t",
+                                "uint16_t",
+                                "float16_t",
+                                "int64_t",
+                                "uint64_t"};
+
+    const char *ptr = arr[Type.GetType()];
+
+    if (ptr)
+      type = ptr;
+  }
+
+  switch (Type.GetClass()) {
+
+  case D3D_SVC_MATRIX_ROWS:
+  case D3D_SVC_VECTOR:
+
+    type += std::to_string(Type.GetColumns());
+
+    if (Type.GetClass() == D3D_SVC_MATRIX_ROWS)
+      type += "x" + std::to_string(Type.GetRows());
+
+    break;
+
+  case D3D_SVC_MATRIX_COLUMNS:
+    type += std::to_string(Type.GetRows()) + "x" +
+            std::to_string(Type.GetColumns());
+    break;
+  }
+
+  return type;
+}
+
+static void FillArraySizes(DxcHLSLReflectionData &Reflection,
+                           DxcHLSLArrayOrElements Elements,
+                           std::vector<uint32_t> &Array) {
+
+  if (!Elements.IsArray())
+    return;
+
+  if (Elements.Is1DArray()) {
+    Array.push_back(Elements.Get1DElements());
+    return;
+  }
+
+  const DxcHLSLArray &arr =
+      Reflection.Arrays[Elements.GetMultiDimensionalArrayId()];
+
+  for (uint32_t i = 0; i < arr.ArrayElem(); ++i)
+    Array.push_back(Reflection.ArraySizes[arr.ArrayStart() + i]);
+}
+
+static void PrintTypeName(DxcHLSLReflectionData &Reflection, uint32_t TypeId,
+                          bool HasSymbols, bool IsVerbose, JsonWriter &Json) {
+
+  Json.UIntField("TypeId", TypeId);
+
+  std::string name;
+  std::vector<uint32_t> arraySizes;
+
+  std::string underlyingName;
+  std::vector<uint32_t> underlyingArraySizes;
+
+  const DxcHLSLType &type = Reflection.Types[TypeId];
+
+  if (!HasSymbols) {
+    name = GetBuiltinTypeName(Reflection, type);
+    FillArraySizes(Reflection, type.GetUnderlyingArray(), arraySizes);
+  }
+
+  else {
+    const DxcHLSLTypeSymbol &symbol = Reflection.TypeSymbols[TypeId];
+    name = Reflection.Strings[symbol.DisplayNameId];
+    FillArraySizes(Reflection, symbol.DisplayArray, arraySizes);
+    underlyingName = Reflection.Strings[symbol.UnderlyingNameId];
+    FillArraySizes(Reflection, type.GetUnderlyingArray(), underlyingArraySizes);
+  }
+
+  if (name.size() || IsVerbose)
+    Json.StringField("Name", name);
+
+  if (arraySizes.size() || IsVerbose)
+    Json.Array("ArraySize", [&arraySizes, &Json]() {
+      for (uint32_t i : arraySizes)
+        Json.Value(uint64_t(i));
+    });
+
+  if (underlyingName.size() || IsVerbose)
+    Json.StringField("UnderlyingName", underlyingName);
+
+  if (underlyingArraySizes.size() || IsVerbose)
+    Json.Array("UnderlyingArraySize", [&underlyingArraySizes, &Json]() {
+      for (uint32_t i : underlyingArraySizes)
+        Json.Value(uint64_t(i));
+    });
+}
+
+static void PrintParameter(DxcHLSLReflectionData &Reflection, uint32_t TypeId,
+                           bool HasSymbols, bool IsVerbose, JsonWriter &Json,
+                           uint32_t SemanticId, uint8_t InterpolationMode,
+                           uint8_t Flags) {
+
+  PrintTypeName(Reflection, TypeId, HasSymbols, IsVerbose, Json);
+
+  if (SemanticId != uint32_t(-1) || IsVerbose)
+    Json.StringField("Semantic", Reflection.StringsNonDebug[SemanticId]);
+
+  if (IsVerbose)
+    Json.UIntField("SemanticId", SemanticId);
+
+  if ((Flags & (D3D_PF_IN | D3D_PF_OUT)) == (D3D_PF_IN | D3D_PF_OUT))
+    Json.StringField("Access", "inout");
+
+  else if (Flags & D3D_PF_IN)
+    Json.StringField("Access", "in");
+
+  else if (Flags & D3D_PF_OUT)
+    Json.StringField("Access", "out");
+
+  else if (IsVerbose)
+    Json.StringField("Access", "in");
+
+  static const char *interpolationModes[] = {"Undefined",
+                                             "Constant",
+                                             "Linear",
+                                             "LinearCentroid",
+                                             "LinearNoperspective",
+                                             "LinearNoperspectiveCentroid",
+                                             "LinearSample",
+                                             "LinearNoperspectiveSample"};
+
+  if (InterpolationMode || IsVerbose)
+    Json.StringField("Interpolation", interpolationModes[InterpolationMode]);
+}
+
+static void PrintFunction(JsonWriter &Json, DxcHLSLReflectionData &Reflection,
+                          uint32_t FunctionId, bool IsVerbose) {
+
+  DxcHLSLFunction &func = Reflection.Functions[FunctionId];
+
+  JsonWriter::ObjectScope nodeRoot(Json);
+
+  Json.UIntField("FunctionId", FunctionId);
+  Json.UIntField("NodeId", func.GetNodeId());
+
+  bool hasSymbols =
+      Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
+
+  if (hasSymbols)
+    Json.StringField(
+        "Name",
+        Reflection
+            .Strings[Reflection.NodeSymbols[func.GetNodeId()].GetNameId()]);
+
+  else if (IsVerbose)
+    Json.StringField("Name", "");
+
+  Json.BoolField("HasDefinition", func.HasDefinition());
+
+  if (IsVerbose) {
+    Json.UIntField("NumParameters", func.GetNumParameters());
+    Json.BoolField("HasReturn", func.HasReturn());
+  }
+
+  Json.Object("Params", [&Reflection, &func, &Json, hasSymbols, IsVerbose]() {
+    for (uint32_t i = 0; i < uint32_t(func.GetNumParameters()); ++i) {
+
+      uint32_t nodeId = func.GetNodeId() + 1 + i;
+      const DxcHLSLNode &node = Reflection.Nodes[nodeId];
+      uint32_t localId = node.GetLocalId();
+
+      const DxcHLSLParameter &param = Reflection.Parameters[localId];
+      std::string paramName =
+          hasSymbols
+              ? Reflection.Strings[Reflection.NodeSymbols[nodeId].GetNameId()]
+              : std::to_string(i);
+
+      Json.Object(paramName.c_str(), [&Reflection, &func, &Json, hasSymbols,
+                                      IsVerbose, &param, &node]() {
+        PrintParameter(Reflection, param.TypeId, hasSymbols, IsVerbose, Json,
+                      node.GetSemanticId(), param.InterpolationMode, param.Flags);
+      });
+    }
+  });
+
+  if (!func.HasReturn())
+    Json.StringField("ReturnType", "void");
+
+  else {
+
+    const DxcHLSLNode &node =
+        Reflection.Nodes[func.GetNodeId() + 1 + func.GetNumParameters()];
+    const DxcHLSLParameter &param = Reflection.Parameters[node.GetLocalId()];
+
+    Json.Object("ReturnType", [&Reflection, &func, &Json, hasSymbols, IsVerbose,
+                               &param, &node]() {
+      PrintParameter(Reflection, param.TypeId, hasSymbols, IsVerbose, Json,
+                    node.GetSemanticId(), param.InterpolationMode, param.Flags);
+    });
+  }
+}
+
 //IsHumanFriendly = false: Raw view of the real file data
 //IsHumanFriendly = true:  Clean view that's relatively close to the real tree
 static std::string ToJson(DxcHLSLReflectionData &Reflection,
@@ -2082,6 +2359,11 @@ static std::string ToJson(DxcHLSLReflectionData &Reflection,
       json.Array("Registers", [&Reflection, &json, IsVerbose] {
         for (uint32_t i = 0; i < uint32_t(Reflection.Registers.size()); ++i)
           PrintRegister(json, Reflection, i, IsVerbose);
+      });
+
+      json.Array("Functions", [&Reflection, &json, IsVerbose] {
+        for (uint32_t i = 0; i < uint32_t(Reflection.Functions.size()); ++i)
+          PrintFunction(json, Reflection, i, IsVerbose);
       });
     }
 
