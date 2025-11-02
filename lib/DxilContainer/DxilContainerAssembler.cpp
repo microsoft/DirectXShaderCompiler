@@ -691,7 +691,6 @@ private:
   std::vector<PSVSignatureElement0> m_SigOutputElements;
   std::vector<PSVSignatureElement0> m_SigPatchConstOrPrimElements;
   unsigned EntryFunctionName = 0;
-  bool m_bStripReflection = false;
 
   void SetPSVSigElement(PSVSignatureElement0 &E,
                         const DxilSignatureElement &SE) {
@@ -737,10 +736,8 @@ private:
   }
 
 public:
-  DxilPSVWriter(const DxilModule &mod, uint32_t PSVVersion = UINT_MAX,
-                bool bStripReflection = false)
-      : m_Module(mod), m_PSVInitInfo(PSVVersion),
-        m_bStripReflection(bStripReflection) {
+  DxilPSVWriter(const DxilModule &mod, uint32_t PSVVersion = UINT_MAX)
+      : m_Module(mod), m_PSVInitInfo(PSVVersion) {
     m_Module.GetValidatorVersion(m_ValMajor, m_ValMinor);
     hlsl::SetupPSVInitInfo(m_PSVInitInfo, m_Module);
 
@@ -769,13 +766,6 @@ public:
       if (m_PSVInitInfo.PSVVersion > 2) {
         EntryFunctionName = (uint32_t)m_StringBuffer.size();
         StringRef Name(m_Module.GetEntryFunctionName());
-
-        // Strip entry function name
-        std::string StrippedName;
-        if (m_bStripReflection) {
-          StrippedName = "dx.strip.entry.";
-          Name = StrippedName;
-        }
         m_StringBuffer.append(Name.size() + 1, '\0');
         memcpy(m_StringBuffer.data() + EntryFunctionName, Name.data(),
                Name.size());
@@ -2017,10 +2007,7 @@ void hlsl::SerializeDxilContainerForModule(
     pModule->ResetSubobjects(nullptr);
   } else {
     // Write the DxilPipelineStateValidation (PSV0) part.
-    bool bStripReflection =
-        (Flags & SerializeDxilFlags::StripReflectionFromDxilPart) != 0;
-    pPSVWriter =
-        llvm::make_unique<DxilPSVWriter>(*pModule, UINT_MAX, bStripReflection);
+    pPSVWriter = llvm::make_unique<DxilPSVWriter>(*pModule);
     writer.AddPart(
         DFCC_PipelineStateValidation, pPSVWriter->size(),
         [&](AbstractMemoryStream *pStream) { pPSVWriter->write(pStream); });

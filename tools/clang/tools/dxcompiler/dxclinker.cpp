@@ -415,6 +415,11 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
             SerializeFlags, pOutputStream, 0, opts.DebugFile, &Diag,
             &ShaderHashContent, pReflectionStream, pRootSigStream, nullptr,
             nullptr);
+
+        if (opts.StripDebug) {
+          inputs.pM->GetOrCreateDxilModule().StripNamesSensitiveToDebug();
+        }
+
         if (needsValidation) {
           valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
         } else {

@@ -1795,6 +1795,41 @@ bool DxilModule::StripReflection() {
     }
   }
 
+  // Resource
+  if (!bIsLib) {
+    bChanged |= StripResourcesReflection(m_CBuffers);
+    bChanged |= StripResourcesReflection(m_UAVs);
+    bChanged |= StripResourcesReflection(m_SRVs);
+    bChanged |= StripResourcesReflection(m_Samplers);
+  }
+
+  // Unused global.
+  SmallVector<GlobalVariable *, 2> UnusedGlobals;
+  for (GlobalVariable &GV : m_pModule->globals()) {
+    if (GV.use_empty()) {
+      // Need to preserve this global, otherwise we drop constructors
+      // for static globals.
+      if (!bIsLib || GV.getName().compare("llvm.global_ctors") != 0)
+        UnusedGlobals.emplace_back(&GV);
+    }
+  }
+  bChanged |= !UnusedGlobals.empty();
+
+  for (GlobalVariable *GV : UnusedGlobals) {
+    GV->eraseFromParent();
+  }
+
+  // ReEmit meta.
+  if (bChanged)
+    ReEmitDxilResources();
+
+  return bChanged;
+}
+
+bool DxilModule::StripNamesSensitiveToDebug() {
+  bool bChanged = false;
+  bool bIsLib = GetShaderModel()->IsLib();
+
   if (!bIsLib) {
     // Strip struct names
     vector<StructType *> structTypes = m_pModule->getIdentifiedStructTypes();
@@ -1831,35 +1866,11 @@ bool DxilModule::StripReflection() {
         bChanged = true;
       }
     }
-  }
 
-  // Resource
-  if (!bIsLib) {
-    bChanged |= StripResourcesReflection(m_CBuffers);
-    bChanged |= StripResourcesReflection(m_UAVs);
-    bChanged |= StripResourcesReflection(m_SRVs);
-    bChanged |= StripResourcesReflection(m_Samplers);
+    // ReEmit meta.
+    if (bChanged)
+      ReEmitDxilResources();
   }
-
-  // Unused global.
-  SmallVector<GlobalVariable *, 2> UnusedGlobals;
-  for (GlobalVariable &GV : m_pModule->globals()) {
-    if (GV.use_empty()) {
-      // Need to preserve this global, otherwise we drop constructors
-      // for static globals.
-      if (!bIsLib || GV.getName().compare("llvm.global_ctors") != 0)
-        UnusedGlobals.emplace_back(&GV);
-    }
-  }
-  bChanged |= !UnusedGlobals.empty();
-
-  for (GlobalVariable *GV : UnusedGlobals) {
-    GV->eraseFromParent();
-  }
-
-  // ReEmit meta.
-  if (bChanged)
-    ReEmitDxilResources();
 
   return bChanged;
 }

@@ -118,8 +118,11 @@ public:
   TEST_METHOD(DxilContainerUnitTest)
   TEST_METHOD(DxilContainerCompilerVersionTest)
   TEST_METHOD(ContainerBuilder_AddPrivateForceLast)
-
   TEST_METHOD(ReflectionMatchesDXBC_CheckIn)
+  TEST_METHOD(StripReflectionRemovesStructNames)
+  TEST_METHOD(StripReflectionRemovesEntryFunctionName)
+  TEST_METHOD(StripReflectionRemovesGroupsharedNames)
+  TEST_METHOD(StripReflectionLibraryDoesNotStripNames)
   BEGIN_TEST_METHOD(ReflectionMatchesDXBC_Full)
   TEST_METHOD_PROPERTY(L"Priority", L"1")
   END_TEST_METHOD()
@@ -607,12 +610,14 @@ public:
   }
 
   std::string DisassembleProgram(LPCSTR program, LPCWSTR entryPoint,
-                                 LPCWSTR target) {
+                                 LPCWSTR target, LPCWSTR *pArguments = nullptr,
+                                 UINT32 argCount = 0) {
     CComPtr<IDxcCompiler> pCompiler;
     CComPtr<IDxcBlob> pProgram;
     CComPtr<IDxcBlobEncoding> pDisassembly;
 
-    CompileToProgram(program, entryPoint, target, nullptr, 0, &pProgram);
+    CompileToProgram(program, entryPoint, target, pArguments, argCount,
+                     &pProgram);
     VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
     VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
     return BlobToUtf8(pDisassembly);
@@ -3080,4 +3085,91 @@ TEST_F(DxilContainerTest, DxilContainerUnitTest) {
   VERIFY_IS_NULL(
       hlsl::GetDxilProgramHeader(&header, hlsl::DxilFourCC::DFCC_DXIL));
   VERIFY_IS_NULL(hlsl::GetDxilPartByType(&header, hlsl::DxilFourCC::DFCC_DXIL));
+}
+
+TEST_F(DxilContainerTest, StripReflectionRemovesStructNames) {
+  const char *Code = R"(
+    struct MyCustomStruct {
+      float4 position;
+      float4 color;
+    };
+
+    cbuffer MyCBuffer : register(b0) {
+      float4 data;
+    };
+
+    float4 main() : SV_Target {
+      MyCustomStruct s;
+      s.position = float4(0, 0, 0, 1);
+      s.color = float4(1, 1, 1, 1);
+      return s.color;
+    }
+  )";
+
+  LPCWSTR StripDebug = L"-Qstrip_debug";
+
+  std::string disassembly =
+      DisassembleProgram(Code, L"main", L"ps_6_0", &StripDebug, 1);
+
+  VERIFY_IS_TRUE(disassembly.find("MyCustomStruct") == std::string::npos);
+}
+
+TEST_F(DxilContainerTest, StripReflectionRemovesEntryFunctionName) {
+  const char *Code = R"(
+    float4 MyCustomEntryPoint() : SV_Target {
+      return float4(1, 0, 0, 1);
+    }
+  )";
+
+  LPCWSTR StripDebug = L"-Qstrip_debug";
+
+  std::string disassembly = DisassembleProgram(Code, L"MyCustomEntryPoint",
+                                               L"ps_6_0", &StripDebug, 1);
+
+  VERIFY_IS_TRUE(disassembly.find("MyCustomEntryPoint") == std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("dx.strip.entry.") != std::string::npos);
+}
+
+TEST_F(DxilContainerTest, StripReflectionRemovesGroupsharedNames) {
+  const char *Code = R"(
+    groupshared float mySharedData[256];
+    groupshared int mySharedCounter;
+
+    [numthreads(8, 8, 1)]
+    void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID) {
+      mySharedData[dispatchThreadID.x] = 1.0f;
+      mySharedCounter = 42;
+    }
+  )";
+
+  LPCWSTR StripDebug = L"-Qstrip_debug";
+
+  std::string disassembly =
+      DisassembleProgram(Code, L"CSMain", L"cs_6_0", &StripDebug, 1);
+
+  VERIFY_IS_TRUE(disassembly.find("mySharedData") == std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("mySharedCounter") == std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("dx.strip.tgsm.") != std::string::npos);
+}
+
+TEST_F(DxilContainerTest, StripReflectionLibraryDoesNotStripNames) {
+  const char *Code = R"(
+    struct MyLibStruct {
+      float val;
+    };
+
+    [shader("raygeneration")]
+    void MyRayGenEntry() {
+      MyLibStruct s;
+      s.val = 1.0f;
+    }
+  )";
+
+  LPCWSTR StripDebug = L"-Qstrip_debug";
+
+  std::string disassembly =
+      DisassembleProgram(Code, L"", L"lib_6_3", &StripDebug, 1);
+
+  VERIFY_IS_TRUE(disassembly.find("MyLibStruct") != std::string::npos ||
+                 disassembly.find("dx.strip.struct.") == std::string::npos);
 }
