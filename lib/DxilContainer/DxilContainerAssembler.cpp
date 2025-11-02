@@ -2017,8 +2017,10 @@ void hlsl::SerializeDxilContainerForModule(
     pModule->ResetSubobjects(nullptr);
   } else {
     // Write the DxilPipelineStateValidation (PSV0) part.
-    bool bStripReflection = (Flags & SerializeDxilFlags::StripReflectionFromDxilPart) != 0;
-    pPSVWriter = llvm::make_unique<DxilPSVWriter>(*pModule, UINT_MAX, bStripReflection);
+    bool bStripReflection =
+        (Flags & SerializeDxilFlags::StripReflectionFromDxilPart) != 0;
+    pPSVWriter =
+        llvm::make_unique<DxilPSVWriter>(*pModule, UINT_MAX, bStripReflection);
     writer.AddPart(
         DFCC_PipelineStateValidation, pPSVWriter->size(),
         [&](AbstractMemoryStream *pStream) { pPSVWriter->write(pStream); });
