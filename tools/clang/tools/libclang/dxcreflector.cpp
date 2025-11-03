@@ -1791,7 +1791,6 @@ struct JsonWriter {
     ValueNull();
     EndCommaStack();
   }
-
 };
 
 void PrintFeatures(D3D12_HLSL_REFLECTION_FEATURE Features, JsonWriter &Json) {
@@ -2246,7 +2245,7 @@ static void PrintTypeName(DxcHLSLReflectionData &Reflection, uint32_t TypeId,
         Json.Value(uint64_t(i));
     });
 
-  if (underlyingName.size() || IsVerbose)
+  if ((underlyingName.size() && underlyingName != name) || IsVerbose)
     Json.StringField("UnderlyingName", underlyingName);
 
   if ((underlyingArraySizes.size() && underlyingArraySizes != arraySizes) || IsVerbose)
@@ -2254,6 +2253,64 @@ static void PrintTypeName(DxcHLSLReflectionData &Reflection, uint32_t TypeId,
       for (uint32_t i : underlyingArraySizes)
         Json.Value(uint64_t(i));
     });
+}
+
+static void PrintType(DxcHLSLReflectionData &Reflection, uint32_t TypeId,
+                      bool HasSymbols, bool IsVerbose, bool AllRelevantMembers,
+                      JsonWriter &Json) {
+
+  const DxcHLSLType &type = Reflection.Types[TypeId];
+
+  JsonWriter::ObjectScope nodeRoot(Json);
+  PrintTypeName(Reflection, TypeId, HasSymbols, IsVerbose, AllRelevantMembers,
+                Json);
+
+  if (type.GetBaseClass() != uint32_t(-1))
+    Json.Object("BaseClass", [&Reflection, &Json, &type, HasSymbols, IsVerbose,
+                              AllRelevantMembers]() {
+      PrintTypeName(Reflection, type.GetBaseClass(), HasSymbols, IsVerbose,
+                    AllRelevantMembers, Json);
+    });
+
+  else if (IsVerbose)
+    Json.NullField("BaseClass");
+
+  if (type.GetInterfaceCount())
+    Json.Array("Interfaces", [&Reflection, &Json, &type, HasSymbols, IsVerbose,
+                              AllRelevantMembers]() {
+      for (uint32_t i = 0; i < uint32_t(type.GetInterfaceCount()); ++i) {
+        uint32_t interfaceId = type.GetInterfaceStart() + i;
+        JsonWriter::ObjectScope nodeRoot(Json);
+        PrintTypeName(Reflection, Reflection.TypeList[interfaceId], HasSymbols,
+                      IsVerbose, AllRelevantMembers, Json);
+      }
+    });
+
+  else if (IsVerbose)
+    Json.NullField("Interfaces");
+
+  if (type.GetMemberCount())
+    Json.Array("Members", [&Reflection, &Json, &type, HasSymbols, IsVerbose,
+                           AllRelevantMembers]() {
+      for (uint32_t i = 0; i < uint32_t(type.GetMemberCount()); ++i) {
+
+        uint32_t memberId = type.GetMemberStart() + i;
+        JsonWriter::ObjectScope nodeRoot(Json);
+
+        if (HasSymbols) {
+          Json.StringField(
+              "Name", Reflection.Strings[Reflection.MemberNameIds[memberId]]);
+          Json.UIntField("NameId", Reflection.MemberNameIds[memberId]);
+        }
+
+        PrintTypeName(Reflection, Reflection.MemberTypeIds[memberId],
+                      HasSymbols, IsVerbose, AllRelevantMembers, Json,
+                      "TypeName");
+      }
+    });
+
+  else if (IsVerbose)
+    Json.NullField("Members");
 }
 
 static void PrintParameter(DxcHLSLReflectionData &Reflection, uint32_t TypeId,
@@ -2585,16 +2642,20 @@ static std::string ToJson(DxcHLSLReflectionData &Reflection,
         }
       });*/
 
-      //TODO: buffers
+      json.Array("Members", [&Reflection, &json, hasSymbols, IsVerbose] {
+        for (uint32_t i = 0; i < uint32_t(Reflection.MemberTypeIds.size());
+             ++i) {
 
-      //TODO: Type to combine type and type symbol
-
-      //TODO: members to combine memberTypeIds and memberNameIds
-
-      json.Array("MemberTypeIds", [&Reflection, &json, hasSymbols, IsVerbose] {
-        for (uint32_t id : Reflection.MemberTypeIds) {
           JsonWriter::ObjectScope valueRoot(json);
-          PrintTypeName(Reflection, id, hasSymbols, IsVerbose, true, json);
+
+          if (hasSymbols) {
+            json.StringField("Name",
+                             Reflection.Strings[Reflection.MemberNameIds[i]]);
+            json.UIntField("NameId", Reflection.MemberNameIds[i]);
+          }
+
+          PrintTypeName(Reflection, Reflection.MemberTypeIds[i], hasSymbols,
+                        IsVerbose, true, json, "TypeName");
         }
       });
 
@@ -2604,6 +2665,13 @@ static std::string ToJson(DxcHLSLReflectionData &Reflection,
           PrintTypeName(Reflection, id, hasSymbols, IsVerbose, true, json);
         }
       });
+
+      json.Array("Types", [&Reflection, &json, hasSymbols, IsVerbose] {
+        for (uint32_t i = 0; i < uint32_t(Reflection.Types.size()); ++i)
+          PrintType(Reflection, i, hasSymbols, IsVerbose, true, json);
+      });
+
+      // TODO: buffers
     }
 
     else {
