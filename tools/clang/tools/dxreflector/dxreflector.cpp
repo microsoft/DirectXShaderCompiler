@@ -22,7 +22,7 @@
 #include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/dxcapi.h"
-#include "dxc/dxctools.h"
+#include "dxc/dxcreflect.h"
 #include "llvm/Support/raw_ostream.h"
 
 inline bool wcsieq(LPCWSTR a, LPCWSTR b) { return _wcsicmp(a, b) == 0; }

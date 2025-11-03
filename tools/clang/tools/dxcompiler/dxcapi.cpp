@@ -21,6 +21,7 @@
 #include "dxc/config.h"
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
+#include "dxc/dxcreflect.h"
 #ifdef _WIN32
 #include "dxcetw.h"
 #endif

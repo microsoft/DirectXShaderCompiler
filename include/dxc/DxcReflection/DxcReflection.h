@@ -16,7 +16,7 @@
 #include <stdexcept>
 
 #include "d3d12shader.h"
-#include "dxc/dxctools.h"
+#include "dxc/dxcreflect.h"
 
 #pragma warning(disable : 4201)
 

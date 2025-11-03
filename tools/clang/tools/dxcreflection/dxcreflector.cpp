@@ -41,7 +41,7 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/dxcfilesystem.h"
 #include "dxc/dxcapi.internal.h"
-#include "dxc/dxctools.h"
+#include "dxc/dxcreflect.h"
 
 #include "dxc/DxcReflection/DxcReflection.h"
 
