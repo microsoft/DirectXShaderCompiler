@@ -1832,7 +1832,7 @@ bool DxilModule::StripNamesSensitiveToDebug() {
 
   if (!bIsLib) {
     // Strip struct names
-    vector<StructType *> structTypes = m_pModule->getIdentifiedStructTypes();
+    SmallVector<StructType *,8> structTypes = m_pModule->getIdentifiedStructTypes();
     unsigned NextStructId = 0;
     for (StructType *ST : structTypes) {
       if (!ST->hasName())
