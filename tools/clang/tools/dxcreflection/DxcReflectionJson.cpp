@@ -466,6 +466,49 @@ static void FillArraySizes(const DxcHLSLReflectionData &Reflection,
     Array.push_back(Reflection.ArraySizes[arr.ArrayStart() + i]);
 }
 
+static void PrintSymbol(JsonWriter &Json,
+                        const DxcHLSLReflectionData &Reflection,
+                        const DxcHLSLNodeSymbol &Sym, bool IsVerbose,
+                        bool AllRelevantMembers, bool MuteName = false) {
+
+  if ((Sym.GetNameId() || IsVerbose) && !MuteName) {
+
+    Json.StringField("Name", Reflection.Strings[Sym.GetNameId()]);
+
+    if (IsVerbose || AllRelevantMembers)
+      Json.UIntField("NameId", Sym.GetNameId());
+  }
+
+  if (Sym.HasFileSource()) {
+
+    Json.StringField(
+        "Source",
+        Reflection.Strings[Reflection.Sources[Sym.GetFileSourceId()]]);
+
+    if (IsVerbose || AllRelevantMembers)
+      Json.UIntField("SourceId", Sym.GetFileSourceId());
+
+    Json.UIntField("LineId", Sym.GetSourceLineStart());
+
+    if (Sym.GetSourceLineCount() > 1 || IsVerbose)
+      Json.UIntField("LineCount", Sym.GetSourceLineCount());
+
+    Json.UIntField("ColumnStart", Sym.GetSourceColumnStart());
+    Json.UIntField("ColumnEnd", Sym.GetSourceColumnEnd());
+
+  } else if (IsVerbose) {
+
+    Json.StringField("Source", "");
+    Json.IntField("SourceId", -1);
+
+    Json.IntField("LineId", -1);
+    Json.UIntField("LineCount", 0);
+
+    Json.IntField("ColumnStart", -1);
+    Json.UIntField("ColumnEnd", 0);
+  }
+}
+
 //Verbose and all members are slightly different;
 //Verbose will still print fields even if they aren't relevant,
 // while all members will not silence important info but that might not matter for human readability
@@ -542,45 +585,8 @@ static void PrintNode(JsonWriter &Json, const DxcHLSLReflectionData &Reflection,
   
     Json.Object("Symbol", [&Reflection, &Json, NodeId, IsVerbose,
                            AllRelevantMembers] {
-
       const DxcHLSLNodeSymbol &sym = Reflection.NodeSymbols[NodeId];
-
-      if (sym.GetNameId() || IsVerbose) {
-
-        Json.StringField("Name", Reflection.Strings[sym.GetNameId()]);
-
-        if (IsVerbose || AllRelevantMembers)
-          Json.UIntField("NameId", sym.GetNameId());
-      }
-
-      if (sym.HasFileSource()) {
-
-        Json.StringField(
-            "Source",
-            Reflection.Strings[Reflection.Sources[sym.GetFileSourceId()]]);
-
-        if (IsVerbose || AllRelevantMembers)
-          Json.UIntField("SourceId", sym.GetFileSourceId());
-
-        Json.UIntField("LineId", sym.GetSourceLineStart());
-
-        if (sym.GetSourceLineCount() > 1 || IsVerbose)
-          Json.UIntField("LineCount", sym.GetSourceLineCount());
-
-        Json.UIntField("ColumnStart", sym.GetSourceColumnStart());
-        Json.UIntField("ColumnEnd", sym.GetSourceColumnEnd());
-
-      } else if (IsVerbose) {
-
-        Json.StringField("Source", "");
-        Json.IntField("SourceId", -1);
-
-        Json.IntField("LineId", -1);
-        Json.UIntField("LineCount", 0);
-
-        Json.IntField("ColumnStart", -1);
-        Json.UIntField("ColumnEnd", 0);
-      }
+      PrintSymbol(Json, Reflection, sym, IsVerbose, AllRelevantMembers);
     });
 
   } else if (IsVerbose)
@@ -885,7 +891,22 @@ static void PrintFunction(JsonWriter &Json, const DxcHLSLReflectionData &Reflect
 
       Json.Object(paramName.c_str(), [&Reflection, &func, &Json, hasSymbols,
                                       IsVerbose, &param, &node,
-                                      AllRelevantMembers]() {
+                                      AllRelevantMembers, nodeId]() {
+
+        if (hasSymbols) {
+
+          const DxcHLSLNodeSymbol &sym = Reflection.NodeSymbols[nodeId];
+
+          Json.Object("Symbol", [&Json, &Reflection, &sym, IsVerbose,
+                                 AllRelevantMembers]() {
+            PrintSymbol(Json, Reflection, sym, IsVerbose, AllRelevantMembers,
+                        true);
+          });
+        }
+
+        else if (IsVerbose)
+          Json.NullField("Symbol");
+
         PrintParameter(Reflection, param.TypeId, hasSymbols, IsVerbose, Json,
                        node.GetSemanticId(), param.InterpolationMode,
                        param.Flags, AllRelevantMembers);
@@ -922,10 +943,10 @@ static void PrintFunction(JsonWriter &Json, const DxcHLSLReflectionData &Reflect
 }
 
 static void PrintEnumValue(JsonWriter &Json, const DxcHLSLReflectionData &Reflection,
-                           uint32_t ChildId, bool IsVerbose,
+                           uint32_t NodeId, bool IsVerbose,
                            bool AllRelevantMembers) {
 
-  const DxcHLSLNode &child = Reflection.Nodes[ChildId];
+  const DxcHLSLNode &child = Reflection.Nodes[NodeId];
 
   const DxcHLSLEnumValue &val = Reflection.EnumValues[child.GetLocalId()];
 
@@ -946,12 +967,18 @@ static void PrintEnumValue(JsonWriter &Json, const DxcHLSLReflectionData &Reflec
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
-  if (hasSymbols || IsVerbose)
-    Json.StringField(
-        "Name",
-        !hasSymbols
-            ? ""
-            : Reflection.Strings[Reflection.NodeSymbols[ChildId].GetNameId()]);
+  if (hasSymbols) {
+
+    const DxcHLSLNodeSymbol &sym = Reflection.NodeSymbols[NodeId];
+
+    Json.Object(
+        "Symbol", [&Json, &Reflection, &sym, IsVerbose, AllRelevantMembers]() {
+          PrintSymbol(Json, Reflection, sym, IsVerbose, AllRelevantMembers);
+        });
+  }
+
+  else if (IsVerbose)
+    Json.NullField("Symbol");
 }
 
 static void PrintEnum(JsonWriter &Json, const DxcHLSLReflectionData &Reflection,
