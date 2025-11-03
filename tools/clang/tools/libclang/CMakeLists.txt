@@ -30,8 +30,6 @@ set(SOURCES
   IndexingContext.cpp
   dxcisenseimpl.cpp # HLSL Change
   dxcrewriteunused.cpp # HLSL Change
-  dxcreflector.cpp # HLSL Change
-  dxcreflection_from_ast.cpp # HLSL Change
 
   ADDITIONAL_HEADERS
   CIndexDiagnostic.h
@@ -72,8 +70,6 @@ set(SOURCES
   IndexingContext.cpp
   dxcisenseimpl.cpp # HLSL Change
   dxcrewriteunused.cpp # HLSL Change
-  dxcreflector.cpp # HLSL Change
-  dxcreflection_from_ast.cpp # HLSL Change
 
   ADDITIONAL_HEADERS
   CIndexDiagnostic.h
@@ -183,7 +179,7 @@ endif()
 endif() # HLSL Change
 
 add_dependencies(libclang TablegenHLSLOptions)  # HLSL Change
-target_link_libraries(libclang PRIVATE dxcreflectioncontainer)  # HLSL Change
+target_link_libraries(libclang PRIVATE dxcreflection)  # HLSL Change
 
 # HLSL Change Starts
 # add_clang_library(${LIBCLANG_STATIC_TARGET_NAME} STATIC ${SOURCES})
