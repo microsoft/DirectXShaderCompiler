@@ -1843,8 +1843,7 @@ bool DxilModule::StripNamesSensitiveToDebug() {
       if (Name.startswith("dx."))
         continue;
 
-      STy->setName(
-          (Twine("dx.strip.struct.") + Twine(nextStructId++)).str());
+      STy->setName((Twine("dx.strip.struct.") + Twine(nextStructId++)).str());
       changed = true;
     }
 

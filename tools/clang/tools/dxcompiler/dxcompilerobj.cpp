@@ -24,8 +24,8 @@
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/SemaHLSL.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -33,9 +33,9 @@
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DxcBindingTable/DxcBindingTable.h"
-#include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
+#include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/Support/Path.h"
 #include "dxc/Support/WinIncludes.h"
@@ -1296,7 +1296,7 @@ public:
           IFT(pReserializeResult->GetResult(&pNewOutput));
           pOutputBlob = pNewOutput;
         } // PDB in private
-      }   // Write PDB
+      } // Write PDB
 
       IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));
       IFT(pResult->SetOutput(primaryOutput));
