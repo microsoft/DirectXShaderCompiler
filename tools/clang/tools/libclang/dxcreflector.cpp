@@ -1604,7 +1604,7 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
     return E_FAIL;
   }
 
-  printf("%s\n", refl.ToJson(false, false).c_str());
+  printf("%s\n", refl.ToJson().c_str());
 
   // Test serialization
 
@@ -1629,7 +1629,7 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
 
   refl.StripSymbols();
 
-  printf("%s\n", refl.ToJson(false, false).c_str());
+  printf("%s\n", refl.ToJson().c_str());
 
   refl.Dump(bytes);
 
