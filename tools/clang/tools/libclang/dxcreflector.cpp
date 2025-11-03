@@ -1873,13 +1873,18 @@ static const char *ReturnTypeToString(D3D_RESOURCE_RETURN_TYPE Type) {
   return arr[uint32_t(Type)];
 }
 
-static std::string EnumTypeToString(D3D12_HLSL_ENUM_TYPE type) {
+static std::string EnumTypeToString(D3D12_HLSL_ENUM_TYPE Type) {
 
   static const char *arr[] = {
       "uint", "int", "uint64_t", "int64_t", "uint16_t", "int16_t",
   };
 
-  return arr[type];
+  return arr[Type];
+}
+
+static std::string BufferTypeToString(D3D_CBUFFER_TYPE Type) {
+  static const char *arr[] = {"cbuffer", "tbuffer", "undefined", "structured"};
+  return arr[Type];
 }
 
 static std::string GetBuiltinTypeName(const DxcHLSLReflectionData &Refl,
@@ -2510,6 +2515,114 @@ static void PrintAnnotation(JsonWriter &Json, DxcHLSLReflectionData &Reflection,
   Json.StringField("Type", Annot.GetIsBuiltin() ? "Builtin" : "User");
 }
 
+static void PrintBufferMemberMember(DxcHLSLReflectionData &Reflection,
+                                    bool HasSymbols, bool IsVerbose,
+                                    bool AllRelevantMembers, JsonWriter &Json,
+                                    uint32_t ChildId, uint32_t MemberId) {
+
+  uint32_t TypeId = Reflection.MemberTypeIds[MemberId];
+
+  JsonWriter::ObjectScope nodeRoot(Json);
+
+  if (IsVerbose || AllRelevantMembers || !HasSymbols)
+    Json.UIntField("ChildId", ChildId);
+
+  if (HasSymbols)
+    Json.StringField("Name",
+                     Reflection.Strings[Reflection.MemberNameIds[MemberId]]);
+
+  else if (IsVerbose)
+    Json.StringField("Name", "");
+
+  const DxcHLSLType &type = Reflection.Types[TypeId];
+
+  PrintTypeName(Reflection, TypeId, HasSymbols, IsVerbose, AllRelevantMembers,
+                Json, "TypeName");
+
+  if (type.GetMemberCount())
+    Json.Array("Children", [&type, &Reflection, &Json, HasSymbols, IsVerbose,
+                            AllRelevantMembers]() {
+      for (uint32_t i = 0; i < type.GetMemberCount(); ++i) {
+
+        uint32_t memberId = type.GetMemberStart() + i;
+
+        PrintBufferMemberMember(Reflection, HasSymbols, IsVerbose,
+                                AllRelevantMembers, Json, i, memberId);
+      }
+    });
+}
+
+static uint32_t PrintBufferMember(DxcHLSLReflectionData &Reflection,
+                                  uint32_t NodeId, bool HasSymbols,
+                                  bool IsVerbose, bool AllRelevantMembers,
+                                  JsonWriter &Json) {
+
+  const DxcHLSLNode &node = Reflection.Nodes[NodeId];
+
+  JsonWriter::ObjectScope root(Json);
+
+  if (IsVerbose || AllRelevantMembers || !HasSymbols)
+    Json.UIntField("NodeId", NodeId);
+
+  if (HasSymbols)
+    Json.StringField(
+        "Name", Reflection.Strings[Reflection.NodeSymbols[NodeId].GetNameId()]);
+
+  else if (IsVerbose)
+    Json.StringField("Name", "");
+
+  PrintTypeName(Reflection, node.GetLocalId(), HasSymbols, IsVerbose,
+                AllRelevantMembers, Json, "TypeName");
+
+  const DxcHLSLType &type = Reflection.Types[node.GetLocalId()];
+
+  if (type.GetMemberCount() || IsVerbose)
+    Json.Array("Children", [&type, &Reflection, &Json, HasSymbols, IsVerbose,
+                            AllRelevantMembers]() {
+      for (uint32_t i = 0; i < type.GetMemberCount(); ++i)
+        PrintBufferMemberMember(Reflection, HasSymbols, IsVerbose,
+                                AllRelevantMembers, Json, i,
+                                type.GetMemberStart() + i);
+    });
+
+  return node.GetChildCount();
+}
+
+static void PrintBuffer(DxcHLSLReflectionData &Reflection, uint32_t BufferId,
+                      bool HasSymbols, bool IsVerbose, bool AllRelevantMembers,
+                      JsonWriter &Json) {
+    
+  JsonWriter::ObjectScope nodeRoot(Json);
+  const DxcHLSLBuffer &buf = Reflection.Buffers[BufferId];
+  const DxcHLSLNode &node = Reflection.Nodes[buf.NodeId];
+
+  bool hasSymbols =
+      Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
+
+  if (AllRelevantMembers || IsVerbose || !hasSymbols) {
+    Json.UIntField("BufferId", BufferId);
+    Json.UIntField("NodeId", buf.NodeId);
+  }
+
+  if (hasSymbols)
+    Json.StringField(
+        "Name",
+        Reflection.Strings[Reflection.NodeSymbols[buf.NodeId].GetNameId()]);
+
+  else if (IsVerbose)
+    Json.StringField("Name", "");
+
+  Json.StringField("Type", BufferTypeToString(buf.Type));
+
+  if (node.GetChildCount() || IsVerbose)
+    Json.Array("Children", [&node, &Reflection, &buf, &Json, HasSymbols,
+                            IsVerbose, AllRelevantMembers]() {
+      for (uint32_t i = 0; i < node.GetChildCount(); ++i)
+        i += PrintBufferMember(Reflection, buf.NodeId + 1 + i, HasSymbols,
+                               IsVerbose, AllRelevantMembers, Json);
+    });
+}
+
 //IsHumanFriendly = false: Raw view of the real file data
 //IsHumanFriendly = true:  Clean view that's relatively close to the real tree
 static std::string ToJson(DxcHLSLReflectionData &Reflection,
@@ -2630,18 +2743,6 @@ static std::string ToJson(DxcHLSLReflectionData &Reflection,
           json.Value(uint64_t(id));
       });
 
-      /*json.Array("Statements", [&Reflection, &json] {
-        for (uint32_t i = 0; i < uint32_t(Reflection.Statements.size()); ++i) {
-
-          const DxcHLSLStatement &stat = Reflection.Statements[i];
-          JsonWriter::ObjectScope valueRoot(json);
-          json.UIntField("Type", annot.GetStringNonDebug());
-          json.UIntField("NodeId", annot.GetStringNonDebug());
-
-          PrintStatement(json, Reflection, stat);
-        }
-      });*/
-
       json.Array("Members", [&Reflection, &json, hasSymbols, IsVerbose] {
         for (uint32_t i = 0; i < uint32_t(Reflection.MemberTypeIds.size());
              ++i) {
@@ -2671,7 +2772,22 @@ static std::string ToJson(DxcHLSLReflectionData &Reflection,
           PrintType(Reflection, i, hasSymbols, IsVerbose, true, json);
       });
 
-      // TODO: buffers
+      json.Array("Buffers", [&Reflection, &json, hasSymbols, IsVerbose] {
+        for (uint32_t i = 0; i < uint32_t(Reflection.Buffers.size()); ++i)
+          PrintBuffer(Reflection, i, hasSymbols, IsVerbose, true, json);
+      });
+
+      /*json.Array("Statements", [&Reflection, &json] {
+        for (uint32_t i = 0; i < uint32_t(Reflection.Statements.size()); ++i) {
+
+          const DxcHLSLStatement &stat = Reflection.Statements[i];
+          JsonWriter::ObjectScope valueRoot(json);
+          json.UIntField("Type", annot.GetStringNonDebug());
+          json.UIntField("NodeId", annot.GetStringNonDebug());
+
+          PrintStatement(json, Reflection, stat);
+        }
+      });*/
     }
 
     else {
