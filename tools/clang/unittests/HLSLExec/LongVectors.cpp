@@ -628,9 +628,9 @@ struct StrictValidation {
 #define DEFAULT_OP_2(OP, IMPL) OP_2(OP, DefaultValidation<T>, IMPL)
 #define DEFAULT_OP_3(OP, IMPL) OP_3(OP, DefaultValidation<T>, IMPL)
 
-#define OP_WITH_OUT_PARAM_1(OPERATION, TYPE, IMPL)                             \
-  template <> struct ExpectedBuilder<OpType::OPERATION, TYPE> {                \
-    static std::vector<TYPE> buildExpected(Op<OpType::OPERATION, TYPE, 1>,     \
+#define OP_WITH_OUT_PARAM_1(OP, TYPE, IMPL)                                    \
+  template <> struct ExpectedBuilder<OP, TYPE> {                               \
+    static std::vector<TYPE> buildExpected(Op<OP, TYPE, 1>,                    \
                                            const InputSets<TYPE> &Inputs) {    \
       DXASSERT_NOMSG(Inputs.size() == 1);                                      \
       const size_t VectorSize = Inputs[0].size();                              \
@@ -1030,7 +1030,7 @@ DEFAULT_OP_1(OpType::Log2, (std::log2(A)));
 // with special logic. Frexp is only supported for fp32 values.
 template <> struct Op<OpType::Frexp, float, 1> : DefaultValidation<float> {};
 
-OP_WITH_OUT_PARAM_1(Frexp, float, {
+OP_WITH_OUT_PARAM_1(OpType::Frexp, float, {
   int Exp = 0;
   float Man = std::frexp(Inputs[0][I], &Exp);
 
@@ -1233,14 +1233,14 @@ FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
 
 template <typename T> struct Op<OpType::ModF, T, 1> : DefaultValidation<T> {};
 
-OP_WITH_OUT_PARAM_1(ModF, float, {
+OP_WITH_OUT_PARAM_1(OpType::ModF, float, {
   float Exp = 0.0f;
   float Man = std::modf(Inputs[0][I], &Exp);
   Expected[I] = Man;
   Expected[I + VectorSize] = Exp;
 });
 
-OP_WITH_OUT_PARAM_1(ModF, HLSLHalf_t, {
+OP_WITH_OUT_PARAM_1(OpType::ModF, HLSLHalf_t, {
   float Exp = 0.0f;
   float Inp = float(Inputs[0][I]);
   float Man = std::modf(Inp, &Exp);
