@@ -4,7 +4,7 @@ add_subdirectory(driver)
 # add_subdirectory(clang-fuzzer)    # HLSL Change
 
 # add_subdirectory(c-index-test)    # HLSL Change
-add_subdirectory(dxcreflection)		# HLSL Change
+add_subdirectory(dxcreflectioncontainer)		# HLSL Change
 add_subdirectory(libclang)
 
 if(0 AND CLANG_ENABLE_ARCMT)        # HLSL Change
