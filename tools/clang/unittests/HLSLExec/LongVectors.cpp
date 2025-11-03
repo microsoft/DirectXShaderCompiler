@@ -103,21 +103,6 @@ static constexpr Operation Operations[] = {
 #include "LongVectorOps.def"
 };
 
-#define OP_WITH_OUT_PARAM(OPERATION, TYPE, IMPL)                               \
-  template <> struct ExpectedBuilder<OpType::OPERATION, TYPE> {                \
-    static std::vector<TYPE> buildExpected(Op<OpType::OPERATION, TYPE, 1>,     \
-                                           const InputSets<TYPE> &Inputs) {    \
-      DXASSERT_NOMSG(Inputs.size() == 1);                                      \
-      size_t VectorSize = Inputs[0].size();                                    \
-      std::vector<TYPE> Expected;                                              \
-      Expected.resize(VectorSize * 2);                                         \
-      for (size_t I = 0; I < VectorSize; ++I) {                                \
-        IMPL                                                                   \
-      }                                                                        \
-      return Expected;                                                         \
-    }                                                                          \
-  };
-
 constexpr const Operation &getOperation(OpType Op) {
   if (Op < OpType::NumOpTypes)
     return Operations[unsigned(Op)];
@@ -643,6 +628,21 @@ struct StrictValidation {
 #define DEFAULT_OP_2(OP, IMPL) OP_2(OP, DefaultValidation<T>, IMPL)
 #define DEFAULT_OP_3(OP, IMPL) OP_3(OP, DefaultValidation<T>, IMPL)
 
+#define OP_WITH_OUT_PARAM_1(OPERATION, TYPE, IMPL)                             \
+  template <> struct ExpectedBuilder<OpType::OPERATION, TYPE> {                \
+    static std::vector<TYPE> buildExpected(Op<OpType::OPERATION, TYPE, 1>,     \
+                                           const InputSets<TYPE> &Inputs) {    \
+      DXASSERT_NOMSG(Inputs.size() == 1);                                      \
+      const size_t VectorSize = Inputs[0].size();                              \
+      std::vector<TYPE> Expected;                                              \
+      Expected.resize(VectorSize * 2);                                         \
+      for (size_t I = 0; I < VectorSize; ++I) {                                \
+        IMPL                                                                   \
+      }                                                                        \
+      return Expected;                                                         \
+    }                                                                          \
+  };
+
 //
 // TernaryMath
 //
@@ -1030,7 +1030,7 @@ DEFAULT_OP_1(OpType::Log2, (std::log2(A)));
 // with special logic. Frexp is only supported for fp32 values.
 template <> struct Op<OpType::Frexp, float, 1> : DefaultValidation<float> {};
 
-OP_WITH_OUT_PARAM(Frexp, float, {
+OP_WITH_OUT_PARAM_1(Frexp, float, {
   int Exp = 0;
   float Man = std::frexp(Inputs[0][I], &Exp);
 
@@ -1233,14 +1233,14 @@ FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
 
 template <typename T> struct Op<OpType::ModF, T, 1> : DefaultValidation<T> {};
 
-OP_WITH_OUT_PARAM(ModF, float, {
+OP_WITH_OUT_PARAM_1(ModF, float, {
   float Exp = 0.0f;
   float Man = std::modf(Inputs[0][I], &Exp);
   Expected[I] = Man;
   Expected[I + VectorSize] = Exp;
 });
 
-OP_WITH_OUT_PARAM(ModF, HLSLHalf_t, {
+OP_WITH_OUT_PARAM_1(ModF, HLSLHalf_t, {
   float Exp = 0.0f;
   float Inp = float(Inputs[0][I]);
   float Man = std::modf(Inp, &Exp);

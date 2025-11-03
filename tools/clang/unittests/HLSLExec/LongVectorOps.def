@@ -129,8 +129,7 @@ OP_DEFAULT_DEFINES(UnaryMath, Frexp, 1, "TestFrexp", "", " -DFUNC_FREXP=1")
 OP_DEFAULT(FloatSpecial, IsFinite, 1, "isfinite", "")
 OP_DEFAULT(FloatSpecial, IsInf, 1, "isinf", "")
 OP_DEFAULT(FloatSpecial, IsNan, 1, "isnan", "")
-OP(FloatSpecial, ModF, 1, "TestModF", "", " -DFUNC_TEST_MODF=1",
-   "LongVectorOp", Default1, Default2, Default3)
+OP_DEFAULT_DEFINES(FloatSpecial, ModF, 1, "TestModF", "", " -DFUNC_TEST_MODF=1")
 
 OP_DEFAULT(BinaryComparison, LessThan, 2, "", "<")
 OP_DEFAULT(BinaryComparison, LessEqual, 2, "", "<=")
