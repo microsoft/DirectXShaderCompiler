@@ -31,6 +31,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/TypeFinder.h"
 #include "llvm/Support/raw_ostream.h"
 #include <unordered_set>
 
@@ -1831,18 +1832,18 @@ bool DxilModule::StripNamesSensitiveToDebug() {
 
   if (!GetShaderModel()->IsLib()) {
     // Strip struct names
-    std::vector<StructType *> structTypes =
-        m_pModule->getIdentifiedStructTypes();
     unsigned nextStructId = 0;
-    for (StructType *structType : structTypes) {
-      if (!structType->hasName())
+    TypeFinder StructTypes;
+    StructTypes.run(*m_pModule, true);
+    for (StructType *STy : StructTypes) {
+      if (!STy->hasName())
         continue;
 
-      StringRef Name = structType->getName();
+      StringRef Name = STy->getName();
       if (Name.startswith("dx."))
         continue;
 
-      structType->setName(
+      STy->setName(
           (Twine("dx.strip.struct.") + Twine(nextStructId++)).str());
       changed = true;
     }
