@@ -1436,6 +1436,7 @@ void SetupCompilerCommon(CompilerInstance &compiler,
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
   compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
   compiler.getCodeGenOpts().MainFileName = pMainFile;
+
   compiler.getLangOpts().HLSLProfile = compiler.getCodeGenOpts().HLSLProfile =
       opts.TargetProfile;
 
@@ -1737,6 +1738,7 @@ public:
       hlsl::options::MainArgs mainArgs(argCount, pArguments, 0);
 
       hlsl::options::DxcOpts opts;
+
       IFR(ReadOptsAndValidate(mainArgs, opts, ppResult));
       HRESULT hr;
       if (*ppResult && SUCCEEDED((*ppResult)->GetStatus(&hr)) && FAILED(hr)) {

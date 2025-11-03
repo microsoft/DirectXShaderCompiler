@@ -25,6 +25,8 @@
 #include "dxc/dxcreflect.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "dxc/DXIL/DxilShaderModel.h"
+
 inline bool wcsieq(LPCWSTR a, LPCWSTR b) { return _wcsicmp(a, b) == 0; }
 
 using namespace dxc;
@@ -56,6 +58,39 @@ int main(int argc, const char **argv) {
     {
       std::string errorString;
       llvm::raw_string_ostream errorStream(errorString);
+
+      // Target profile is used to detect for example if 16-bit types are allowed.
+      // This is the only way to correct the missing target.
+
+      {
+        unsigned missingArgIndex = 0, missingArgCount = 0;
+        InputArgList Args =
+            optionTable->ParseArgs(argStrings.getArrayRef(), missingArgIndex,
+                                   missingArgCount, DxreflectorFlags);
+
+        if (!Args.hasArg(OPT_target_profile)) {
+
+          const hlsl::ShaderModel *SM = hlsl::ShaderModel::Get(
+              hlsl::DXIL::ShaderKind::Library, hlsl::ShaderModel::kHighestMajor,
+              hlsl::ShaderModel::kHighestMinor);
+
+          if (SM && SM->IsValid()) {
+
+            dxreflectorOpts.TargetProfile = SM->GetName();
+
+            argStrings.Utf8StringVector.push_back("-T");
+            argStrings.Utf8StringVector.push_back(SM->GetName());
+
+            argStrings.Utf8CharPtrVector.resize(
+                argStrings.Utf8CharPtrVector.size() + 2);
+
+            for (int i = 0; i < argStrings.Utf8StringVector.size(); ++i)
+              argStrings.Utf8CharPtrVector[i] =
+                  argStrings.Utf8StringVector[i].c_str();
+          }
+        }
+      }
+
       int optResult =
           ReadDxcOpts(optionTable, DxreflectorFlags, argStrings, dxreflectorOpts, errorStream);
       errorStream.flush();
@@ -137,7 +172,9 @@ int main(int argc, const char **argv) {
     IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
     IFT(dxcSupport.CreateInstance(CLSID_DxcReflector, &pReflector));
 
-    IFT(pReflector->FromSource(pSource, wName.c_str(), argv_, argc,
+    IFT(pReflector->FromSource(pSource, wName.c_str(),
+                               (LPCWSTR*)argStrings.Utf8CharPtrVector.data(),
+                               uint32_t(argStrings.Utf8CharPtrVector.size()),
                                       nullptr, 0, pIncludeHandler,
                                       &pRewriteResult));
 
