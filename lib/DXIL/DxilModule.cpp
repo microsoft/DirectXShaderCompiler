@@ -1831,17 +1831,19 @@ bool DxilModule::StripNamesSensitiveToDebug() {
 
   if (!GetShaderModel()->IsLib()) {
     // Strip struct names
-    SmallVector<StructType *,8> structTypes = m_pModule->getIdentifiedStructTypes();
-    unsigned NextStructId = 0;
-    for (StructType *ST : structTypes) {
-      if (!ST->hasName())
+    std::vector<StructType *> structTypes =
+        m_pModule->getIdentifiedStructTypes();
+    unsigned nextStructId = 0;
+    for (StructType *structType : structTypes) {
+      if (!structType->hasName())
         continue;
 
       StringRef Name = structType->getName();
       if (Name.startswith("dx."))
         continue;
 
-      structType->setName((Twine("dx.strip.struct.") + Twine(nextStructId++)).str());
+      structType->setName(
+          (Twine("dx.strip.struct.") + Twine(nextStructId++)).str());
       changed = true;
     }
 
@@ -1855,7 +1857,8 @@ bool DxilModule::StripNamesSensitiveToDebug() {
     // Strip groupshared variable names
     unsigned nextGroupSharedId = 0;
     for (GlobalVariable &globalVar : m_pModule->globals()) {
-      if (globalVar.getType()->getPointerAddressSpace() == DXIL::kTGSMAddrSpace &&
+      if (globalVar.getType()->getPointerAddressSpace() ==
+              DXIL::kTGSMAddrSpace &&
           globalVar.hasName()) {
         StringRef Name = globalVar.getName();
         if (Name.startswith("dx.") || Name.startswith("llvm."))
