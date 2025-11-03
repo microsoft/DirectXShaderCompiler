@@ -1831,10 +1831,10 @@ bool DxilModule::StripNamesSensitiveToDebug() {
 
   if (!GetShaderModel()->IsLib()) {
     // Strip struct names
-    vector<StructType *> structTypes = m_pModule->getIdentifiedStructTypes();
-    unsigned nextStructId = 0;
-    for (StructType *structType : structTypes) {
-      if (!structType->hasName())
+    SmallVector<StructType *,8> structTypes = m_pModule->getIdentifiedStructTypes();
+    unsigned NextStructId = 0;
+    for (StructType *ST : structTypes) {
+      if (!ST->hasName())
         continue;
 
       StringRef Name = structType->getName();
