@@ -1048,9 +1048,8 @@ public:
 
           inputs.pVersionInfo = static_cast<IDxcVersionInfo *>(this);
 
-          if (opts.StripDebug) {
+          if (opts.StripDebug)
             inputs.pM->GetOrCreateDxilModule().StripNamesSensitiveToDebug();
-          }
 
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
