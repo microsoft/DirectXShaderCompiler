@@ -1827,52 +1827,51 @@ bool DxilModule::StripReflection() {
 }
 
 bool DxilModule::StripNamesSensitiveToDebug() {
-  bool bChanged = false;
-  bool bIsLib = GetShaderModel()->IsLib();
+  bool changed = false;
 
-  if (!bIsLib) {
+  if (!GetShaderModel()->IsLib()) {
     // Strip struct names
     vector<StructType *> structTypes = m_pModule->getIdentifiedStructTypes();
-    unsigned NextStructId = 0;
-    for (StructType *ST : structTypes) {
-      if (!ST->hasName())
+    unsigned nextStructId = 0;
+    for (StructType *structType : structTypes) {
+      if (!structType->hasName())
         continue;
 
-      StringRef Name = ST->getName();
+      StringRef Name = structType->getName();
       if (Name.startswith("dx."))
         continue;
 
-      ST->setName((Twine("dx.strip.struct.") + Twine(NextStructId++)).str());
-      bChanged = true;
+      structType->setName((Twine("dx.strip.struct.") + Twine(nextStructId++)).str());
+      changed = true;
     }
 
     // Strip entry function name
     if (m_pEntryFunc) {
       SetEntryFunctionName("dx.strip.entry.");
       m_pEntryFunc->setName("dx.strip.entry.");
-      bChanged = true;
+      changed = true;
     }
 
     // Strip groupshared variable names
-    unsigned NextGroupSharedId = 0;
-    for (GlobalVariable &GV : m_pModule->globals()) {
-      if (GV.getType()->getPointerAddressSpace() == DXIL::kTGSMAddrSpace &&
-          GV.hasName()) {
-        StringRef Name = GV.getName();
+    unsigned nextGroupSharedId = 0;
+    for (GlobalVariable &globalVar : m_pModule->globals()) {
+      if (globalVar.getType()->getPointerAddressSpace() == DXIL::kTGSMAddrSpace &&
+          globalVar.hasName()) {
+        StringRef Name = globalVar.getName();
         if (Name.startswith("dx.") || Name.startswith("llvm."))
           continue;
-        GV.setName(
-            (Twine("dx.strip.tgsm.") + Twine(NextGroupSharedId++)).str());
-        bChanged = true;
+        globalVar.setName(
+            (Twine("dx.strip.tgsm.") + Twine(nextGroupSharedId++)).str());
+        changed = true;
       }
     }
 
     // ReEmit meta.
-    if (bChanged)
+    if (changed)
       ReEmitDxilResources();
   }
 
-  return bChanged;
+  return changed;
 }
 
 static void RemoveTypesFromSet(Type *Ty,
