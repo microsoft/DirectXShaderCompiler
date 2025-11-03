@@ -730,18 +730,24 @@ static void PrintTypeName(const DxcHLSLReflectionData &Reflection, uint32_t Type
 
 static void PrintType(const DxcHLSLReflectionData &Reflection, uint32_t TypeId,
                       bool HasSymbols, bool IsVerbose, bool AllRelevantMembers,
-                      JsonWriter &Json) {
+                      JsonWriter &Json, bool Recursive,
+                      const char *NameForTypeName = "Name") {
 
   const DxcHLSLType &type = Reflection.Types[TypeId];
 
   PrintTypeName(Reflection, TypeId, HasSymbols, IsVerbose, AllRelevantMembers,
-                Json);
+                Json, NameForTypeName);
 
   if (type.GetBaseClass() != uint32_t(-1))
     Json.Object("BaseClass", [&Reflection, &Json, &type, HasSymbols, IsVerbose,
-                              AllRelevantMembers]() {
-      PrintTypeName(Reflection, type.GetBaseClass(), HasSymbols, IsVerbose,
-                    AllRelevantMembers, Json);
+                              AllRelevantMembers, Recursive]() {
+      if (Recursive)
+        PrintType(Reflection, type.GetBaseClass(), HasSymbols, IsVerbose,
+                  AllRelevantMembers, Json, true, "TypeName");
+
+      else
+        PrintTypeName(Reflection, type.GetBaseClass(), HasSymbols, IsVerbose,
+                      AllRelevantMembers, Json, "TypeName");
     });
 
   else if (IsVerbose)
@@ -763,7 +769,7 @@ static void PrintType(const DxcHLSLReflectionData &Reflection, uint32_t TypeId,
 
   if (type.GetMemberCount())
     Json.Array("Members", [&Reflection, &Json, &type, HasSymbols, IsVerbose,
-                           AllRelevantMembers]() {
+                           AllRelevantMembers, Recursive]() {
       for (uint32_t i = 0; i < uint32_t(type.GetMemberCount()); ++i) {
 
         uint32_t memberId = type.GetMemberStart() + i;
@@ -775,9 +781,14 @@ static void PrintType(const DxcHLSLReflectionData &Reflection, uint32_t TypeId,
           Json.UIntField("NameId", Reflection.MemberNameIds[memberId]);
         }
 
-        PrintTypeName(Reflection, Reflection.MemberTypeIds[memberId],
-                      HasSymbols, IsVerbose, AllRelevantMembers, Json,
-                      "TypeName");
+        if (Recursive)
+          PrintType(Reflection, Reflection.MemberTypeIds[memberId], HasSymbols,
+                    IsVerbose, AllRelevantMembers, Json, true, "TypeName");
+
+        else
+          PrintTypeName(Reflection, Reflection.MemberTypeIds[memberId],
+                        HasSymbols, IsVerbose, AllRelevantMembers, Json,
+                        "TypeName");
       }
     });
 
@@ -883,7 +894,17 @@ static void PrintFunction(JsonWriter &Json, const DxcHLSLReflectionData &Reflect
   });
 
   if (!func.HasReturn())
-    Json.StringField("ReturnType", "void");
+    Json.Object("ReturnType", [&Json, IsVerbose]() {
+
+      Json.StringField("TypeName", "void");
+
+      if (IsVerbose) {
+        Json.IntField("TypeId", -1);
+        Json.Array("ArraySize", []() {});
+        Json.StringField("UnderlyingName", "void");
+        Json.Array("UnderlyingArraySize", []() {});
+      }
+    });
 
   else {
 
@@ -981,43 +1002,6 @@ static void PrintAnnotation(JsonWriter &Json, const DxcHLSLReflectionData &Refle
   Json.StringField("Type", Annot.GetIsBuiltin() ? "Builtin" : "User");
 }
 
-static void PrintBufferMemberMember(const DxcHLSLReflectionData &Reflection,
-                                    bool HasSymbols, bool IsVerbose,
-                                    bool AllRelevantMembers, JsonWriter &Json,
-                                    uint32_t ChildId, uint32_t MemberId) {
-
-  uint32_t TypeId = Reflection.MemberTypeIds[MemberId];
-
-  JsonWriter::ObjectScope nodeRoot(Json);
-
-  if (IsVerbose || AllRelevantMembers || !HasSymbols)
-    Json.UIntField("ChildId", ChildId);
-
-  if (HasSymbols)
-    Json.StringField("Name",
-                     Reflection.Strings[Reflection.MemberNameIds[MemberId]]);
-
-  else if (IsVerbose)
-    Json.StringField("Name", "");
-
-  const DxcHLSLType &type = Reflection.Types[TypeId];
-
-  PrintTypeName(Reflection, TypeId, HasSymbols, IsVerbose, AllRelevantMembers,
-                Json, "TypeName");
-
-  if (type.GetMemberCount())
-    Json.Array("Children", [&type, &Reflection, &Json, HasSymbols, IsVerbose,
-                            AllRelevantMembers]() {
-      for (uint32_t i = 0; i < type.GetMemberCount(); ++i) {
-
-        uint32_t memberId = type.GetMemberStart() + i;
-
-        PrintBufferMemberMember(Reflection, HasSymbols, IsVerbose,
-                                AllRelevantMembers, Json, i, memberId);
-      }
-    });
-}
-
 static uint32_t PrintBufferMember(const DxcHLSLReflectionData &Reflection,
                                   uint32_t NodeId, uint32_t ChildId, bool HasSymbols,
                                   bool IsVerbose, bool AllRelevantMembers,
@@ -1040,19 +1024,8 @@ static uint32_t PrintBufferMember(const DxcHLSLReflectionData &Reflection,
   else if (IsVerbose)
     Json.StringField("Name", "");
 
-  PrintTypeName(Reflection, node.GetLocalId(), HasSymbols, IsVerbose,
-                AllRelevantMembers, Json, "TypeName");
-
-  const DxcHLSLType &type = Reflection.Types[node.GetLocalId()];
-
-  if (type.GetMemberCount() || IsVerbose)
-    Json.Array("Children", [&type, &Reflection, &Json, HasSymbols, IsVerbose,
-                            AllRelevantMembers]() {
-      for (uint32_t i = 0; i < type.GetMemberCount(); ++i)
-        PrintBufferMemberMember(Reflection, HasSymbols, IsVerbose,
-                                AllRelevantMembers, Json, i,
-                                type.GetMemberStart() + i);
-    });
+  PrintType(Reflection, node.GetLocalId(), HasSymbols, IsVerbose,
+            AllRelevantMembers, Json, true, "TypeName");
 
   return node.GetChildCount();
 }
@@ -1119,12 +1092,20 @@ uint32_t PrintNodeRecursive(const DxcHLSLReflectionData &Reflection,
                             uint32_t NodeId, JsonWriter &Json, bool IsVerbose,
                             bool IsHumanFriendly) {
 
+
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
   
   //Self
 
   DxcHLSLNode node = Reflection.Nodes[NodeId];
+
+  // If this happens, we found the one defining a fwd declare.
+  // But this can happen in a different scope than the symbol ends up in.
+  // Mute this node.
+  if (node.IsFwdBckDefined() && !node.IsFwdDeclare())
+    return node.GetChildCount();
+
   D3D12_HLSL_NODE_TYPE nodeType = node.GetNodeType();
 
   if (node.IsFwdDeclare()) {
@@ -1178,21 +1159,26 @@ uint32_t PrintNodeRecursive(const DxcHLSLReflectionData &Reflection,
   //Type
 
   bool isType = false;
+  bool recurseType = false;
 
   switch (nodeType) {
-  case D3D12_HLSL_NODE_TYPE_TYPEDEF:
   case D3D12_HLSL_NODE_TYPE_VARIABLE:
   case D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE:
   case D3D12_HLSL_NODE_TYPE_GROUPSHARED_VARIABLE:
+    recurseType = true;
+    isType = true;
+    break;
+
+  case D3D12_HLSL_NODE_TYPE_TYPEDEF:
     isType = true;
     break;
   }
 
   if (isType)
     Json.Object("Type", [&node, &Reflection, &Json, IsVerbose, IsHumanFriendly,
-                         hasSymbols]() {
+                         hasSymbols, recurseType]() {
       PrintType(Reflection, node.GetLocalId(), hasSymbols, IsVerbose,
-                !IsHumanFriendly, Json);
+                !IsHumanFriendly, Json, recurseType);
     });
 
   else if (IsVerbose)
@@ -1475,7 +1461,7 @@ std::string DxcHLSLReflectionData::ToJson(
       json.Array("Types", [this, &json, hasSymbols, IsVerbose] {
         for (uint32_t i = 0; i < uint32_t(Types.size()); ++i) {
           JsonWriter::ObjectScope nodeRoot(json);
-          PrintType(*this, i, hasSymbols, IsVerbose, true, json);
+          PrintType(*this, i, hasSymbols, IsVerbose, true, json, false);
         }
       });
 
