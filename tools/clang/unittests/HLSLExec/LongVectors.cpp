@@ -118,6 +118,20 @@ static const std::unordered_set<OpType> LoadAndStoreOpTypes = {
     OpType::LoadAndStore_RD_SB_UAV,   OpType::LoadAndStore_RD_SB_SRV,
 };
 
+static bool IsStructuredBufferLoadAndStoreOp(OpType Op) {
+  switch (Op) {
+  case OpType::LoadAndStore_RDH_SB_UAV:
+  case OpType::LoadAndStore_RDH_SB_SRV:
+  case OpType::LoadAndStore_DT_SB_UAV:
+  case OpType::LoadAndStore_DT_SB_SRV:
+  case OpType::LoadAndStore_RD_SB_UAV:
+  case OpType::LoadAndStore_RD_SB_SRV:
+    return true;
+  default:
+    return false;
+  }
+}
+
 // Helper to fill the test data from the shader buffer based on type.
 // Convenient to be used when copying HLSL*_t types so we can use the
 // underlying type.
@@ -459,8 +473,9 @@ runTest(ID3D12Device *D3DDevice, bool VerboseLogging,
   return OutData;
 }
 
-// LoadAndStore operations dynamically configure sizes on the underlying
-// resources based on the vector size and data type size.
+// LoadAndStore operations dynamically configure the UAV/SRV formats and sizes
+// based on the vector size and data type. We also adjust the format and flags
+// based on whether we're using raw buffers or structured buffers.
 void configureLoadAndStoreShaderOp(const Operation &Operation,
                                    const DataType &OpDataType,
                                    size_t VectorSize, size_t ElementSize,
@@ -471,49 +486,51 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
   st::ShaderOp *ShaderOp = ShaderOpSet->GetShaderOp(Operation.ShaderName);
   DXASSERT(ShaderOp, "Invalid ShaderOp name");
 
-  // When using DXGI_FORMAT_R32_TYPELESS, we need to compute the number of
-  // 32-bit elements required to hold the vector.
+  // When using DXGI_FORMAT_R32_TYPELESS (raw buffer cases) we need to compute
+  // the number of 32-bit elements required to hold the vector.
   const UINT Num32BitElements =
       static_cast<UINT>((VectorSize * OpDataType.HLSLSizeInBytes + 3) / 4);
 
-  auto ComputeNumElements = [&](DXGI_FORMAT Format) -> UINT {
-    switch (Format) {
-    case DXGI_FORMAT_R32_TYPELESS:
-      return Num32BitElements;
-    case DXGI_FORMAT_UNKNOWN:
-      return static_cast<UINT>(VectorSize);
-    default:
-      // Unexpected. LoadAndStore ops should only be using these two formats.
-      DXASSERT_NOMSG(false);
-      return 0;
-    }
-  };
+  const UINT StructureByteStride = static_cast<UINT>(ElementSize * VectorSize);
 
-  auto ComputeWidth = [&](DXGI_FORMAT Format) -> UINT {
-    switch (Format) {
-    case DXGI_FORMAT_R32_TYPELESS:
-      return Num32BitElements * 4;
-    case DXGI_FORMAT_UNKNOWN:
-      return static_cast<UINT>(VectorSize * ElementSize);
-    default:
-      // Unexpected. LoadAndStore ops should only be using these two formats.
-      DXASSERT_NOMSG(false);
-      return 0;
-    }
-  };
-
+  const bool IsSB = IsStructuredBufferLoadAndStoreOp(Operation.Type);
   if (!ShaderOp->DescriptorHeaps.empty()) {
-    DXASSERT_NOMSG(ShaderOp->DescriptorHeaps.size() == 1);
+    DXASSERT(ShaderOp->DescriptorHeaps.size() == 1,
+             "Programmer error: Expecting a single descriptor heap for "
+             "LoadAndStore tests");
+
     for (auto &D : ShaderOp->DescriptorHeaps[0].Descriptors) {
-      if (_stricmp(D.Kind, "UAV") == 0)
-        D.UavDesc.Buffer.NumElements = ComputeNumElements(D.UavDesc.Format);
-      else if (_stricmp(D.Kind, "SRV") == 0)
-        D.SrvDesc.Buffer.NumElements = ComputeNumElements(D.SrvDesc.Format);
+      const bool IsUAV = (_stricmp(D.Kind, "UAV") == 0);
+      DXASSERT(IsUAV || (_stricmp(D.Kind, "SRV") == 0),
+               "Programmer error: Expecting UAV or SRV descriptors only");
+
+      if (IsSB) {
+        if (IsUAV) {
+          D.UavDesc.Format = DXGI_FORMAT_UNKNOWN;
+          D.UavDesc.Buffer.NumElements = 1; // One StructuredBuffer
+          D.UavDesc.Buffer.StructureByteStride = StructureByteStride;
+        } else {
+          D.SrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+          D.SrvDesc.Buffer.NumElements = 1; // One StructuredBuffer
+          D.SrvDesc.Buffer.StructureByteStride = StructureByteStride;
+        }
+      } else { // Raw buffer
+        if (IsUAV) {
+          D.UavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+          D.UavDesc.Buffer.NumElements = Num32BitElements;
+          D.UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+        } else {
+          D.SrvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+          D.SrvDesc.Buffer.NumElements = Num32BitElements;
+          D.SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+        }
+      }
     }
   }
 
+  const UINT BufferWidth = IsSB ? StructureByteStride : (Num32BitElements * 4);
   for (auto &R : ShaderOp->Resources)
-    R.Desc.Width = ComputeWidth(R.Desc.Format);
+    R.Desc.Width = BufferWidth;
 }
 
 template <typename T>
@@ -1283,10 +1300,24 @@ template <typename T, OpType OP>
 void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
                   size_t OverrideInputSize) {
   std::vector<size_t> InputVectorSizes;
+  const std::array<size_t, 8> DefaultInputSizes = {3,  5,   16,  17,
+                                                   35, 100, 256, 1024};
+
   if (OverrideInputSize)
     InputVectorSizes.push_back(OverrideInputSize);
-  else
-    InputVectorSizes = {3, 5, 16, 17, 35, 100, 256, 1024};
+  else {
+    // StructuredBuffers have a max size of 2048 bytes.
+    const size_t MaxInputSize =
+        IsStructuredBufferLoadAndStoreOp(OP) ? 2048 / sizeof(T) : 1024;
+
+    for (size_t Size : DefaultInputSizes) {
+      if (Size <= MaxInputSize)
+        InputVectorSizes.push_back(Size);
+    }
+
+    if (InputVectorSizes.empty() || MaxInputSize != InputVectorSizes.back())
+      InputVectorSizes.push_back(MaxInputSize);
+  }
 
   constexpr const Operation &Operation = getOperation(OP);
 
