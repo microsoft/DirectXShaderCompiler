@@ -24,6 +24,7 @@
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/SemaHLSL.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/Timer.h"
@@ -32,6 +33,7 @@
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DxcBindingTable/DxcBindingTable.h"
+#include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
@@ -1048,8 +1050,11 @@ public:
 
           inputs.pVersionInfo = static_cast<IDxcVersionInfo *>(this);
 
-          if (opts.StripDebug)
-            inputs.pM->GetOrCreateDxilModule().StripNamesSensitiveToDebug();
+          if (opts.StripDebug) {
+            legacy::PassManager PM;
+            PM.add(createDxilStripDebugSensitiveInfoPass());
+            PM.run(*inputs.pM);
+          }
 
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(inputs);

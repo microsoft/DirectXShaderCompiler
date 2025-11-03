@@ -349,9 +349,9 @@ namespace {
 // Create module from link defines.
 struct DxilLinkJob {
   DxilLinkJob(LLVMContext &Ctx, dxilutil::ExportMap &exportMap,
-              unsigned valMajor, unsigned valMinor)
+              unsigned valMajor, unsigned valMinor, bool StripDebug)
       : m_ctx(Ctx), m_exportMap(exportMap), m_valMajor(valMajor),
-        m_valMinor(valMinor) {}
+        m_valMinor(valMinor), m_StripDebug(StripDebug) {}
   std::unique_ptr<llvm::Module>
   Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
        const ShaderModel *pSM);
@@ -394,6 +394,7 @@ private:
   LLVMContext &m_ctx;
   dxilutil::ExportMap &m_exportMap;
   unsigned m_valMajor, m_valMinor;
+  bool m_StripDebug;
 };
 } // namespace
 
@@ -1296,6 +1297,9 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createDxilEmitMetadataPass());
   PM.add(createDxilFinalizePreservesPass());
 
+  if (m_StripDebug)
+    PM.add(createDxilStripDebugSensitiveInfoPass());
+
   PM.run(M);
 }
 
@@ -1488,7 +1492,7 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile,
     return nullptr;
   }
 
-  DxilLinkJob linkJob(m_ctx, exportMap, m_valMajor, m_valMinor);
+  DxilLinkJob linkJob(m_ctx, exportMap, m_valMajor, m_valMinor, m_StripDebug);
 
   SetVector<DxilLib *> libSet;
   SetVector<StringRef> addedFunctionSet;
