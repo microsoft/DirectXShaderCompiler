@@ -1,4 +1,4 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 
-add_clang_library(dxcreflection STATIC DxcReflection.cpp)
+add_clang_library(dxcreflection STATIC DxcReflection.cpp DxcReflectionJson.cpp)
