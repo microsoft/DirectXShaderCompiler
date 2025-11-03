@@ -2623,6 +2623,29 @@ static void PrintBuffer(DxcHLSLReflectionData &Reflection, uint32_t BufferId,
     });
 }
 
+static void PrintStatement(DxcHLSLReflectionData &Reflection,
+                           const DxcHLSLStatement &Stmt, JsonWriter &Json,
+                           bool IsVerbose) {
+
+  const DxcHLSLNode &node = Reflection.Nodes[Stmt.GetNodeId()];
+
+  uint32_t nodesA = Stmt.GetNodeCount();
+  uint32_t nodesB = node.GetChildCount() - nodesA - Stmt.HasConditionVar();
+
+  Json.BoolField("HasConditionVar", Stmt.HasConditionVar());
+
+  bool isIf = node.GetNodeType() == D3D12_HLSL_NODE_TYPE_IF;
+
+  if (isIf || IsVerbose)
+    Json.BoolField("HasElse", Stmt.HasElse());
+
+  if (nodesA || IsVerbose)
+    Json.UIntField("NodesA", nodesA);
+
+  if (nodesB || IsVerbose)
+    Json.UIntField("NodesB", nodesB);
+}
+
 //IsHumanFriendly = false: Raw view of the real file data
 //IsHumanFriendly = true:  Clean view that's relatively close to the real tree
 static std::string ToJson(DxcHLSLReflectionData &Reflection,
@@ -2777,17 +2800,19 @@ static std::string ToJson(DxcHLSLReflectionData &Reflection,
           PrintBuffer(Reflection, i, hasSymbols, IsVerbose, true, json);
       });
 
-      /*json.Array("Statements", [&Reflection, &json] {
+      json.Array("Statements", [&Reflection, &json, IsVerbose] {
         for (uint32_t i = 0; i < uint32_t(Reflection.Statements.size()); ++i) {
 
           const DxcHLSLStatement &stat = Reflection.Statements[i];
           JsonWriter::ObjectScope valueRoot(json);
-          json.UIntField("Type", annot.GetStringNonDebug());
-          json.UIntField("NodeId", annot.GetStringNonDebug());
+          json.StringField(
+              "Type", NodeTypeToString(
+                          Reflection.Nodes[stat.GetNodeId()].GetNodeType()));
+          json.UIntField("NodeId", stat.GetNodeId());
 
-          PrintStatement(json, Reflection, stat);
+          PrintStatement(Reflection, stat, json, IsVerbose);
         }
-      });*/
+      });
     }
 
     else {
