@@ -184,7 +184,7 @@ def getTestResult(out, exitCode):
     not_run = int(match.group(4))
     skipped = int(match.group(5))
 
-    # TAEF docs claim that exitCode should be non-zero if a tests is skipped,
+    # TAEF docs claim that exitCode should be non-zero if a test is skipped,
     # but that doesn't seem to be the case with at least v10.88k. So we
     # explicitly look for skipped in the summary - and any other non-zero exit
     # codes after this are some kind of failure.
