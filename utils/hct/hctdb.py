@@ -465,6 +465,8 @@ class db_dxil(object):
             self.name_idx[i].category = "Binary uint with two outputs"
         for i in "UAddc,USubb".split(","):
             self.name_idx[i].category = "Binary uint with carry or borrow"
+        for i in "VectorReduceAnd,VectorReduceOr".split(","):
+            self.name_idx[i].category = "Vector reduce to scalar"
         for i in "FMad,Fma".split(","):
             self.name_idx[i].category = "Tertiary float"
         for i in "IMad,Msad,Ibfe".split(","):
@@ -473,7 +475,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Tertiary uint"
         for i in "Bfi".split(","):
             self.name_idx[i].category = "Quaternary"
-        for i in "Dot2,Dot3,Dot4".split(","):
+        for i in "FDot,Dot2,Dot3,Dot4".split(","):
             self.name_idx[i].category = "Dot"
         for (
             i
@@ -875,7 +877,7 @@ class db_dxil(object):
             "MatVecMul,MatVecMulAdd,OuterProductAccumulate,VectorAccumulate"
         ).split(","):
             self.name_idx[i].category = "Linear Algebra Operations"
-            self.name_idx[i].shader_model = 6, 9
+            self.name_idx[i].shader_model = 6, 10
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1756,7 +1758,7 @@ class db_dxil(object):
                 next_op_idx,
                 "Tertiary",
                 "performs an integral " + i,
-                "il",
+                "i",
                 "rn",
                 [
                     db_dxil_param(0, "$o", "", "the operation result"),
@@ -3092,7 +3094,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveActiveAllEqual",
             "returns 1 if all the lanes have the same value",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o_i1", "", "operation result"),
@@ -3118,7 +3120,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveReadLaneAt",
             "returns the value from the specified lane",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3132,7 +3134,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveReadLaneFirst",
             "returns the value from the first lane",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3145,7 +3147,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveActiveOp",
             "returns the result the operation across waves",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3192,7 +3194,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveActiveBit",
             "returns the result of the operation across all lanes",
-            "8wil",
+            "8wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3222,7 +3224,7 @@ class db_dxil(object):
             next_op_idx,
             "WavePrefixOp",
             "returns the result of the operation on prior lanes",
-            "hfd8wil",
+            "hfd8wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3251,7 +3253,7 @@ class db_dxil(object):
             next_op_idx,
             "QuadReadLaneAt",
             "reads from a lane in the quad",
-            "hfd18wil",
+            "hfd18wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -3288,7 +3290,7 @@ class db_dxil(object):
             next_op_idx,
             "QuadOp",
             "returns the result of a quad-level operation",
-            "hfd8wil",
+            "hfd8wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -4019,7 +4021,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveMatch",
             "returns the bitmask of active lanes that have the same value",
-            "hfd8wil",
+            "hfd8wil<",
             "",
             [
                 db_dxil_param(0, "fouri32", "", "operation result"),
@@ -4033,7 +4035,7 @@ class db_dxil(object):
             next_op_idx,
             "WaveMultiPrefixOp",
             "returns the result of the operation on groups of lanes identified by a bitmask",
-            "hfd8wil",
+            "hfd8wil<",
             "",
             [
                 db_dxil_param(0, "$o", "", "operation result"),
@@ -6322,13 +6324,65 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
+        # Long Vector Reduction
+        self.add_dxil_op(
+            "VectorReduceAnd",
+            next_op_idx,
+            "VectorReduce",
+            "Bitwise AND reduction of the vector returning a scalar",
+            "<18wil",
+            "rn",
+            [
+                db_dxil_param(0, "$elt", "", "operation result"),
+                db_dxil_param(2, "$o", "a", "input value"),
+            ],
+            counters=(
+                "ints",
+                "uints",
+            ),
+        )
+        next_op_idx += 1
+        self.add_dxil_op(
+            "VectorReduceOr",
+            next_op_idx,
+            "VectorReduce",
+            "Bitwise OR reduction of the vector returning a scalar",
+            "<18wil",
+            "rn",
+            [
+                db_dxil_param(0, "$elt", "", "operation result"),
+                db_dxil_param(2, "$o", "a", "input value"),
+            ],
+            counters=(
+                "ints",
+                "uints",
+            ),
+        )
+        next_op_idx += 1
+
+        # Long Vector Dot
+        self.add_dxil_op(
+            "FDot",
+            next_op_idx,
+            "Dot",
+            "computes the n-dimensional vector dot-product",
+            "<hf",
+            "rn",
+            [
+                db_dxil_param(0, "$elt", "", "operation result"),
+                db_dxil_param(2, "$o", "a", "input value"),
+                db_dxil_param(3, "$o", "b", "input value"),
+            ],
+            counters=("floats",),
+        )
+        next_op_idx += 1
+
         # End of DXIL 1.9 opcodes.
-        # NOTE!! Update and uncomment when DXIL 1.9 opcodes are finalized:
-        # self.set_op_count_for_version(1, 9, next_op_idx)
-        # assert next_op_idx == NNN, (
-        #    "NNN is expected next operation index but encountered %d and thus opcodes are broken"
-        #    % next_op_idx
-        # )
+        self.set_op_count_for_version(1, 9, next_op_idx)
+        assert next_op_idx == 312, (
+            "312 is expected next operation index but encountered %d and thus opcodes are broken"
+            % next_op_idx
+        )
 
         # Set interesting properties.
         self.build_indices()
@@ -8735,6 +8789,10 @@ class db_dxil(object):
         self.add_valrule(
             "Sm.AmplificationShaderPayloadSizeDeclared",
             "For amplification shader with entry '%0', payload size %1 is greater than declared size of %2 bytes.",
+        )
+        self.add_valrule(
+            "Sm.IsSpecialFloat",
+            "16 bit IsSpecialFloat overloads require Shader Model 6.9 or higher.",
         )
 
         # fxc relaxed check of gradient check.

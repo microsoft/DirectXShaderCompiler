@@ -1006,7 +1006,7 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
   // implicit VarDecl. All implicit VarDecls are lazily created in order to
   // avoid creating large number of unused variables/constants/enums.
   if (!info) {
-    tryToCreateImplicitConstVar(decl);
+    tryToCreateConstantVar(decl);
     info = getDeclSpirvInfo(decl);
   }
 
@@ -1850,8 +1850,7 @@ void DeclResultIdMapper::createCounterVar(
       assert(declType->isIncompleteArrayType());
       counterType = spvContext.getRuntimeArrayType(counterType, noArrayStride);
     }
-  } else if (isResourceDescriptorHeap(decl->getType()) ||
-             isSamplerDescriptorHeap(decl->getType())) {
+  } else if (isResourceDescriptorHeap(decl) || isSamplerDescriptorHeap(decl)) {
     counterType = spvContext.getRuntimeArrayType(counterType, noArrayStride);
   }
 
@@ -2517,6 +2516,20 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
         spvBuilder.decorateDSetBinding(var.getSpirvInstr(), globalsSetNo,
                                        globalsBindNo);
+      } else if (var.isResourceDescriptorHeap()) {
+        if (!spirvOptions.resourceHeapBinding) {
+          emitError("-fvk-bind-resource-heap is required when using "
+                    "-fvk-bind-register",
+                    var.getSourceLocation());
+          return false;
+        }
+      } else if (var.isSamplerDescriptorHeap()) {
+        if (!spirvOptions.samplerHeapBinding) {
+          emitError("-fvk-bind-sampler-heap is required when using "
+                    "-fvk-bind-register",
+                    var.getSourceLocation());
+          return false;
+        }
       } else {
         emitError(
             "-fvk-bind-register requires register annotations on all resources",
@@ -2524,11 +2537,12 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         return false;
       }
 
+    BindingSet bindingSet;
+    decorateResourceHeapsBindings(bindingSet);
     return true;
   }
 
   BindingSet bindingSet;
-
   // If some bindings are reserved for heaps, mark those are used.
   if (spirvOptions.resourceHeapBinding)
     bindingSet.useBinding(spirvOptions.resourceHeapBinding->binding,
@@ -2669,8 +2683,8 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
     if (var.getDeclaration()) {
       const VarDecl *decl = dyn_cast<VarDecl>(var.getDeclaration());
-      if (decl && (isResourceDescriptorHeap(decl->getType()) ||
-                   isSamplerDescriptorHeap(decl->getType())))
+      if (decl &&
+          (isResourceDescriptorHeap(decl) || isSamplerDescriptorHeap(decl)))
         continue;
     }
 
@@ -2755,8 +2769,8 @@ void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
     if (!decl)
       continue;
 
-    const bool isResourceHeap = isResourceDescriptorHeap(decl->getType());
-    const bool isSamplerHeap = isSamplerDescriptorHeap(decl->getType());
+    const bool isResourceHeap = isResourceDescriptorHeap(decl);
+    const bool isSamplerHeap = isSamplerDescriptorHeap(decl);
 
     assert(!(var.isCounter() && isSamplerHeap));
 
@@ -2791,8 +2805,8 @@ void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
     if (!decl)
       continue;
 
-    const bool isResourceHeap = isResourceDescriptorHeap(decl->getType());
-    const bool isSamplerHeap = isSamplerDescriptorHeap(decl->getType());
+    const bool isResourceHeap = isResourceDescriptorHeap(decl);
+    const bool isSamplerHeap = isSamplerDescriptorHeap(decl);
     if (!isSamplerHeap && !isResourceHeap)
       continue;
     const SpirvCodeGenOptions::BindingInfo &info =
@@ -4850,19 +4864,57 @@ SpirvVariable *DeclResultIdMapper::createRayTracingNVStageVar(
   return retVal;
 }
 
-void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
+bool DeclResultIdMapper::tryToCreateConstantVar(const ValueDecl *decl) {
+  // TODO: support spirv basic type with constant intrinsic. (e.g. int8)
   const VarDecl *varDecl = dyn_cast<VarDecl>(decl);
-  if (!varDecl || !varDecl->isImplicit())
-    return;
+  if (!varDecl)
+    return false;
+
+  const BuiltinType *type = decl->getType()->getAs<BuiltinType>();
+  if (!type)
+    return false;
 
   APValue *val = varDecl->evaluateValue();
   if (!val)
-    return;
+    return false;
 
-  SpirvInstruction *constVal =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
+  SpirvInstruction *constVal = nullptr;
+  switch (type->getKind()) {
+  case BuiltinType::Bool: // bool
+    constVal = spvBuilder.getConstantBool(val->getInt().getExtValue());
+    break;
+  case BuiltinType::UShort: // uint16_t
+    constVal =
+        spvBuilder.getConstantInt(astContext.UnsignedShortTy, val->getInt());
+    break;
+  case BuiltinType::UInt: // uint32_t
+    constVal =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
+    break;
+  case BuiltinType::Short: // int16_t
+    constVal = spvBuilder.getConstantInt(astContext.ShortTy, val->getInt());
+    break;
+  case BuiltinType::Int: // int32_t
+    constVal = spvBuilder.getConstantInt(astContext.IntTy, val->getInt());
+    break;
+  case BuiltinType::Half: // float16_t
+    constVal = spvBuilder.getConstantFloat(astContext.HalfTy, val->getFloat());
+    break;
+  case BuiltinType::Float:     // float32_t
+  case BuiltinType::HalfFloat: // float16_t without -enable-16bit-types
+    constVal = spvBuilder.getConstantFloat(astContext.FloatTy, val->getFloat());
+    break;
+  case BuiltinType::Double: // float64_t
+    constVal =
+        spvBuilder.getConstantFloat(astContext.DoubleTy, val->getFloat());
+    break;
+  default:
+    assert(false && "Unsupported builtin type evaluation at compile-time");
+    return false;
+  }
   constVal->setRValue(true);
   registerVariableForDecl(varDecl, constVal);
+  return true;
 }
 
 void DeclResultIdMapper::decorateWithIntrinsicAttrs(

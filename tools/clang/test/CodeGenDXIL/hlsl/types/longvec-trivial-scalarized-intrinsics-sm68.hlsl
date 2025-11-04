@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // Tests non-native-vector behavior for intrinsics that scalarize 
 //  into a simple repetition of the same dx.op calls.
 
@@ -24,6 +25,7 @@
 // RUN: %dxc -DFUNC=isfinite    -DARITY=1 -T ps_6_8 %s | FileCheck %s --check-prefixes=CHECK,SPECFLT
 // RUN: %dxc -DFUNC=isinf       -DARITY=1 -T ps_6_8 %s | FileCheck %s --check-prefixes=CHECK,SPECFLT
 // RUN: %dxc -DFUNC=isnan       -DARITY=1 -T ps_6_8 %s | FileCheck %s --check-prefixes=CHECK,SPECFLT
+// RUN: %dxc -DFUNC=isnormal    -DARITY=1 -T ps_6_8 %s | FileCheck %s --check-prefixes=CHECK,SPECFLT
 
 // RUN: %dxc -DFUNC=QuadReadLaneAt         -DARITY=4 -T ps_6_8 %s | FileCheck %s --check-prefixes=CHECK,QUAD
 // RUN: %dxc -DFUNC=QuadReadAcrossX        -DARITY=1 -T ps_6_8 %s | FileCheck %s --check-prefixes=CHECK,QUAD

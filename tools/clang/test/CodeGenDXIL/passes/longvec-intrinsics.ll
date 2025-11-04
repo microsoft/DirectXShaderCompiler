@@ -265,27 +265,9 @@ bb:
   %inres = add <7 x i32> %tmp100, %inext
 
   ; Dot operation.
-  ; CHECK: [[el1:%.*]] = extractelement <7 x float> [[fvec1]], i64 0
-  ; CHECK: [[el2:%.*]] = extractelement <7 x float> [[fvec2]], i64 0
-  ; CHECK: [[mul:%.*]] = fmul fast float [[el1]], [[el2]]
-  ; CHECK: [[el1:%.*]] = extractelement <7 x float> [[fvec1]], i64 1
-  ; CHECK: [[el2:%.*]] = extractelement <7 x float> [[fvec2]], i64 1
-  ; CHECK: [[mad1:%.*]] = call float @dx.op.tertiary.f32(i32 46, float [[el1]], float [[el2]], float [[mul]])
-  ; CHECK: [[el1:%.*]] = extractelement <7 x float> [[fvec1]], i64 2
-  ; CHECK: [[el2:%.*]] = extractelement <7 x float> [[fvec2]], i64 2
-  ; CHECK: [[mad2:%.*]] = call float @dx.op.tertiary.f32(i32 46, float [[el1]], float [[el2]], float [[mad1]])
-  ; CHECK: [[el1:%.*]] = extractelement <7 x float> [[fvec1]], i64 3
-  ; CHECK: [[el2:%.*]] = extractelement <7 x float> [[fvec2]], i64 3
-  ; CHECK: [[mad3:%.*]] = call float @dx.op.tertiary.f32(i32 46, float [[el1]], float [[el2]], float [[mad2]])
-  ; CHECK: [[el1:%.*]] = extractelement <7 x float> [[fvec1]], i64 4
-  ; CHECK: [[el2:%.*]] = extractelement <7 x float> [[fvec2]], i64 4
-  ; CHECK: [[mad4:%.*]] = call float @dx.op.tertiary.f32(i32 46, float [[el1]], float [[el2]], float [[mad3]])
-  ; CHECK: [[el1:%.*]] = extractelement <7 x float> [[fvec1]], i64 5
-  ; CHECK: [[el2:%.*]] = extractelement <7 x float> [[fvec2]], i64 5
-  ; CHECK: [[mad5:%.*]] = call float @dx.op.tertiary.f32(i32 46, float [[el1]], float [[el2]], float [[mad4]])
-  ; CHECK: [[el1:%.*]] = extractelement <7 x float> [[fvec1]], i64 6
-  ; CHECK: [[el2:%.*]] = extractelement <7 x float> [[fvec2]], i64 6
-  ; CHECK: call float @dx.op.tertiary.f32(i32 46, float [[el1]], float [[el2]], float [[mad5]])
+  ; CHECK: [[dotres:%.*]] = call float @dx.op.dot.v7f32(i32 311, <7 x float> [[fvec1]], <7 x float> [[fvec2]])
+  ; CHECK: [[dotresvec:%.*]] = insertelement <7 x float> undef, float [[dotres]], i32 0
+  ; CHECK: shufflevector <7 x float> [[dotresvec]], <7 x float> undef, <7 x i32> zeroinitializer
   %tmp103 = call float @"dx.hl.op.rn.float (i32, <7 x float>, <7 x float>)"(i32 134, <7 x float> %tmp4, <7 x float> %tmp9) ; line:152 col:11
   %tmp104 = insertelement <7 x float> undef, float %tmp103, i32 0 ; line:152 col:11
   %tmp105 = shufflevector <7 x float> %tmp104, <7 x float> undef, <7 x i32> zeroinitializer ; line:152 col:11

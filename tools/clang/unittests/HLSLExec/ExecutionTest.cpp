@@ -337,6 +337,10 @@ public:
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:ShaderOpArithTable.xml#UnaryHalfOpTable")
   END_TEST_METHOD()
+  BEGIN_TEST_METHOD(IsSpecialFloatHalfOpTest)
+  TEST_METHOD_PROPERTY(
+      L"DataSource", L"Table:ShaderOpArithTable.xml#IsSpecialFloatHalfOpTable")
+  END_TEST_METHOD()
   BEGIN_TEST_METHOD(BinaryHalfOpTest)
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:ShaderOpArithTable.xml#BinaryHalfOpTable")
@@ -452,7 +456,6 @@ public:
 
   TEST_METHOD(GraphicsRawBufferLdStI16);
   TEST_METHOD(GraphicsRawBufferLdStHalf);
-  TEST_METHOD(IsNormalTest);
 
   BEGIN_TEST_METHOD(PackUnpackTest)
   TEST_METHOD_PROPERTY(L"DataSource",
@@ -6411,6 +6414,81 @@ TEST_F(ExecutionTest, UnaryHalfOpTest) {
 
   CComPtr<ID3D12Device> pDevice;
   if (!createDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
+    return;
+  }
+
+  if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+    WEX::Logging::Log::Comment(
+        L"Device does not support native 16-bit operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  // Read data from the table
+  int tableSize = sizeof(UnaryHalfOpParameters) / sizeof(TableParameter);
+  TableParameterHandler handler(UnaryHalfOpParameters, tableSize);
+
+  CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
+  CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
+  CW2A Arguments(handler.GetTableParamByName(L"ShaderOp.Arguments")->m_str);
+
+  std::vector<uint16_t> *Validation_Input =
+      &(handler.GetTableParamByName(L"Validation.Input1")->m_halfTable);
+  std::vector<uint16_t> *Validation_Expected =
+      &(handler.GetTableParamByName(L"Validation.Expected1")->m_halfTable);
+
+  LPCWSTR Validation_Type =
+      handler.GetTableParamByName(L"Validation.Type")->m_str;
+  double Validation_Tolerance =
+      handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
+
+  size_t count = Validation_Input->size();
+
+  std::shared_ptr<st::ShaderOpTestResult> test = st::RunShaderOpTest(
+      pDevice, m_support, pStream, "UnaryFPOp",
+      // this callback is called when the test
+      // is creating the resource to run the test
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "SUnaryFPOp"));
+        size_t size = sizeof(SUnaryHalfOp) * count;
+        Data.resize(size);
+        SUnaryHalfOp *pPrimitives = (SUnaryHalfOp *)Data.data();
+        for (size_t i = 0; i < count; ++i) {
+          SUnaryHalfOp *p = &pPrimitives[i];
+          p->input = (*Validation_Input)[i % Validation_Input->size()];
+        }
+        // use shader from data table
+        pShaderOp->Shaders.at(0).Target = Target.m_psz;
+        pShaderOp->Shaders.at(0).Text = Text.m_psz;
+        pShaderOp->Shaders.at(0).Arguments = Arguments.m_psz;
+      });
+
+  MappedData data;
+  test->Test->GetReadBackData("SUnaryFPOp", &data);
+
+  SUnaryHalfOp *pPrimitives = (SUnaryHalfOp *)data.data();
+  WEX::TestExecution::DisableVerifyExceptions dve;
+  for (unsigned i = 0; i < count; ++i) {
+    SUnaryHalfOp *p = &pPrimitives[i];
+    uint16_t expected = (*Validation_Expected)[i % Validation_Input->size()];
+    LogCommentFmt(L"element #%u, input = %6.8f(0x%04x), output = "
+                  L"%6.8f(0x%04x), expected = %6.8f(0x%04x)",
+                  i, ConvertFloat16ToFloat32(p->input), p->input,
+                  ConvertFloat16ToFloat32(p->output), p->output,
+                  ConvertFloat16ToFloat32(expected), expected);
+    VerifyOutputWithExpectedValueHalf(p->output, expected, Validation_Type,
+                                      Validation_Tolerance);
+  }
+}
+
+TEST_F(ExecutionTest, IsSpecialFloatHalfOpTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream, m_support);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!createDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_9)) {
     return;
   }
 
@@ -12552,91 +12630,6 @@ struct FloatInputUintOutput {
   float input;
   unsigned int output;
 };
-
-TEST_F(ExecutionTest, IsNormalTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
-  CComPtr<ID3D12Device> pDevice;
-  VERIFY_IS_TRUE(createDevice(&pDevice, D3D_SHADER_MODEL_6_0,
-                              false /* skipUnsupported */));
-
-  // The input is -Zero, Zero, -Denormal, Denormal, -Infinity, Infinity, -NaN,
-  // Nan, and then 4 normal float numbers. Only the last 4 floats are normal, so
-  // we expect the first 8 results to be 0, and the last 4 to be 1, as defined
-  // by IsNormal.
-  std::vector<float> Validation_Input_Vec = {
-      -0.0,   0.0, -(FLT_MIN / 2), FLT_MIN / 2, -(INFINITY), INFINITY,
-      -(NAN), NAN, 530.99f,        -530.99f,    -122.900f,   .122900f};
-  std::vector<float> *Validation_Input = &Validation_Input_Vec;
-
-  std::vector<unsigned int> Validation_Expected_Vec = {0u, 0u, 0u, 0u, 0u, 0u,
-                                                       0u, 0u, 1u, 1u, 1u, 1u};
-  std::vector<unsigned int> *Validation_Expected = &Validation_Expected_Vec;
-
-  CComPtr<IStream> pStream;
-  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream, m_support);
-
-  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
-      std::make_shared<st::ShaderOpSet>();
-  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
-  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("IsNormal");
-
-  D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_0;
-  LogCommentFmt(L"\r\nVerifying isNormal in shader "
-                L"model 6.%1u",
-                ((UINT)sm & 0x0f));
-
-  size_t count = Validation_Input->size();
-
-  auto ShaderInitFn = MakeShaderReplacementCallback(
-      {L"isSpecialFloat.hlsl", L"-Emain", L"-Tcs_6_0"},
-      // Replace the above with what's below when IsSpecialFloat supports
-      // doubles
-      //{ "@dx.op.isSpecialFloat.f32(i32 8,",  "@dx.op.isSpecialFloat.f64(i32
-      // 8," }, { "@dx.op.isSpecialFloat.f32(i32 11,",
-      //"@dx.op.isSpecialFloat.f64(i32 11," },
-      {"@dx.op.isSpecialFloat.f32(i32 8,"},
-      {"@dx.op.isSpecialFloat.f32(i32 11,"}, m_support);
-
-  auto ResourceInitFn = [&](LPCSTR Name, std::vector<BYTE> &Data,
-                            st::ShaderOp *pShaderOp) {
-    UNREFERENCED_PARAMETER(pShaderOp);
-    VERIFY_IS_TRUE(0 == _stricmp(Name, "g_TestData"));
-    size_t size = sizeof(FloatInputUintOutput) * count;
-    Data.resize(size);
-    FloatInputUintOutput *pPrimitives = (FloatInputUintOutput *)Data.data();
-    for (size_t i = 0; i < count; ++i) {
-      FloatInputUintOutput *p = &pPrimitives[i];
-      float inputFloat = (*Validation_Input)[i % Validation_Input->size()];
-      p->input = inputFloat;
-    }
-  };
-
-  // Test Compute shader
-  {
-    pShaderOp->CS = pShaderOp->GetString("CS60");
-    std::shared_ptr<st::ShaderOpTestResult> test =
-        st::RunShaderOpTestAfterParse(pDevice, m_support, "IsNormal",
-                                      ResourceInitFn, ShaderInitFn,
-                                      ShaderOpSet);
-
-    MappedData data;
-    test->Test->GetReadBackData("g_TestData", &data);
-
-    FloatInputUintOutput *pPrimitives = (FloatInputUintOutput *)data.data();
-    WEX::TestExecution::DisableVerifyExceptions dve;
-    for (unsigned i = 0; i < count; ++i) {
-      FloatInputUintOutput *p = &pPrimitives[i];
-      unsigned int val =
-          (*Validation_Expected)[i % Validation_Expected->size()];
-      LogCommentFmt(
-          L"element #%u, input = %6.8f, output = %6.8f, expected = %d", i,
-          p->input, p->output, val);
-      VERIFY_ARE_EQUAL(p->output, val);
-    }
-  }
-}
 
 #ifndef _HLK_CONF
 static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,

@@ -13,6 +13,7 @@
 
 #include "dxc/Support/WinIncludes.h"
 
+#include "dxc/Support/dxcapi.extval.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/dxcapi.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -175,7 +176,7 @@ public:
                       PluginToolsPaths *pPluginToolsPaths = nullptr,
                       LPCWSTR dumpName = nullptr);
   static FileRunTestResult
-  RunFromFileCommands(LPCWSTR fileName, dxc::DxCompilerDllLoader &dllSupport,
+  RunFromFileCommands(LPCWSTR fileName, dxc::SpecificDllLoader &dllSupport,
                       PluginToolsPaths *pPluginToolsPaths = nullptr,
                       LPCWSTR dumpName = nullptr);
 };
@@ -223,9 +224,6 @@ void VerifyCompileOK(dxc::DllLoader &dllSupport, LPCSTR pText,
 
 HRESULT GetVersion(dxc::DllLoader &DllSupport, REFCLSID clsid, unsigned &Major,
                    unsigned &Minor);
-bool ParseTargetProfile(llvm::StringRef targetProfile,
-                        llvm::StringRef &outStage, unsigned &outMajor,
-                        unsigned &outMinor);
 
 class VersionSupportInfo {
 private:

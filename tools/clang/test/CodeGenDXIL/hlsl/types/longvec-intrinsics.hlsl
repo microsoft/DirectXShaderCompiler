@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=2   %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=7   %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=125 %s | FileCheck %s
@@ -518,6 +519,28 @@ void main() {
   // CHECK-NOT: insertelement
   // CHECK: select <[[NUM]] x i1> [[bvec1]], <[[NUM]] x i16> [[svec2]], <[[NUM]] x i16> [[svec3]]
   sRes += select(sVec1, sVec2, sVec3);
+
+  // CHECK: [[vecreduceand:%.*]] = call i1 @dx.op.vectorReduce.v[[NUM]]i1(i32 309, <[[NUM]] x i1> [[bvec1]])  ; VectorReduceAnd(a)
+  // Upcast the i1 result to the correct vector size
+  // CHECK: [[vecreduceand16:%.*]] = zext i1 [[vecreduceand]] to i16
+  // CHECK: insertelement <[[NUM]] x i16> undef, i16 [[vecreduceand16]], i32 0
+  sRes += all(sVec1);
+
+  // The icmp is reused from above
+  // CHECK: [[vecreduceor:%.*]] = call i1 @dx.op.vectorReduce.v[[NUM]]i1(i32 310, <[[NUM]] x i1> [[bvec1]])  ; VectorReduceOr(a)
+  // Upcast the i1 result to the correct vector size
+  // CHECK: [[vecreduceor16:%.*]] = zext i1 [[vecreduceor]] to i16
+  // CHECK: insertelement <[[NUM]] x i16> undef, i16 [[vecreduceor16]], i32 0
+  sRes += any(sVec1);
+
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: call float @dx.op.dot.[[FTY]](i32 311, <[[NUM]] x float> [[fvec1]], <[[NUM]] x float> [[fvec2]])  ; FDot(a,b)
+  // One pair of extract/insert is expected for the [0]
+  // CHECK: extractelement <[[NUM]] x float> {{%.*}}, i32 0
+  // CHECK: insertelement <[[NUM]] x float> {{%.*}}, float {{%.*}}, i32 0
+  float fResScalar = dot(fVec1, fVec2);
+  fRes[0] += fResScalar;
 
   // CHECK-NOT: extractelement
   // CHECK-NOT: insertelement

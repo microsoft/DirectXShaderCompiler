@@ -228,6 +228,7 @@ public:
   unsigned TimeTraceGranularity = 500;  // OPT_ftime_trace_granularity_EQ
   bool VerifyDiagnostics = false;       // OPT_verify
   bool KeepAllResources = false;        // OPT_keep_all_resources
+  bool Verbose = false;                 // OPT_verbose
 
   // Optimization pass enables, disables and selects
   OptimizationToggles
@@ -258,6 +259,11 @@ public:
   bool EmbedPDBName() const;          // Zi or Fd
   bool DebugFileIsDirectory() const;  // Fd ends in '\\'
   llvm::StringRef GetPDBName() const; // Fd name
+  bool ProduceDxModule()
+      const; // !AstDump && !OptDump && !GenSPIRV && !DumpDependencies &&
+             // !VerifyDiagnostics && Preprocess.empty();
+  bool ProduceFullContainer() const; // ProduceDxModule() && CodeGenHighLevel
+  bool NeedsValidation() const; // ProduceFullContainer() && !DisableValidation
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN

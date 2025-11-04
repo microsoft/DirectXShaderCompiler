@@ -1,6 +1,8 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=isnan    -DOP=8  -DNUM=39 %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=isinf    -DOP=9  -DNUM=38 %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=isfinite -DOP=10 -DNUM=37 %s | FileCheck %s
+// RUN: %dxc -T cs_6_9 -enable-16bit-types -DFUNC=isnormal -DOP=11 -DNUM=40 %s | FileCheck %s
 
 // Test vector-enabled isspecial unary intrinsics that take float-like parameters and
 // and are "trivial" in that they can be implemented with a single call.

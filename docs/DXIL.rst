@@ -2423,6 +2423,9 @@ ID  Name                                                  Description
 306 MatVecMulAdd                                          multiplies a MxK dimension matrix and a K sized input vector and adds an M-sized bias vector
 307 OuterProductAccumulate                                Computes the outer product between column vectors and an MxN matrix is accumulated component-wise atomically (with device scope) in memory
 308 VectorAccumulate                                      Accumulates the components of a vector component-wise atomically (with device scope) to the corresponding elements of an array in memory
+309 VectorReduceAnd                                       Bitwise AND reduction of the vector returning a scalar
+310 VectorReduceOr                                        Bitwise OR reduction of the vector returning a scalar
+311 FDot                                                  computes the n-dimensional vector dot-product
 === ===================================================== =======================================================================================================================================================================================================================
 
 
@@ -3298,6 +3301,7 @@ SM.INVALIDRESOURCEKIND                                        Invalid resources 
 SM.INVALIDSAMPLERFEEDBACKTYPE                                 Invalid sampler feedback type.
 SM.INVALIDTEXTUREKINDONUAV                                    TextureCube[Array] resources are not supported with UAVs.
 SM.ISOLINEOUTPUTPRIMITIVEMISMATCH                             Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
+SM.ISSPECIALFLOAT                                             16 bit IsSpecialFloat overloads require Shader Model 6.9 or higher.
 SM.MAXMSSMSIZE                                                Total Thread Group Shared Memory storage is %0, exceeded %1.
 SM.MAXTGSMSIZE                                                Total Thread Group Shared Memory storage is %0, exceeded %1.
 SM.MAXTHEADGROUP                                              Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1.

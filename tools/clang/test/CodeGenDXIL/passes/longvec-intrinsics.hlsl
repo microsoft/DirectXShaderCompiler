@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=13   %s | FileCheck %s
 
 // Source for dxilgen test CodeGenDXIL/passes/longvec-intrinsics.ll.
@@ -23,7 +24,7 @@ void main() {
   vector<float, NUM> fVec1 = fBuf[11];
   vector<float, NUM> fVec2 = fBuf[12];
   vector<float, NUM> fVec3 = fBuf[13];
-  
+
   // CHECK: [[tmp:%.*]] = call <13 x float> @dx.op.binary.v13f32(i32 35, <13 x float> [[fvec1]], <13 x float> [[fvec2]])  ; FMax(a,b)
   // CHECK: call <13 x float> @dx.op.binary.v13f32(i32 36, <13 x float> [[tmp]], <13 x float> [[fvec3]])  ; FMin(a,b)
   vector<float, NUM> fRes = clamp(fVec1, fVec2, fVec3);
@@ -150,27 +151,24 @@ void main() {
   // CHECK: and <13 x i1> [[bvec3]], [[bvec2]]
   uRes += and(bVec2, bVec3);
 
+  // CHECK: [[lvec1_cmp_ne_z:%.*]] = icmp ne <13 x i64> [[lvec1]], zeroinitializer
+  // CHECK: call i1 @dx.op.vectorReduce.v13i1(i32 309, <13 x i1> [[lvec1_cmp_ne_z]])  ; VectorReduceAnd(a)
+  uRes += all(lVec1);
+
+  // vector icmp is reused from above
+  // CHECK: call i1 @dx.op.vectorReduce.v13i1(i32 310, <13 x i1> [[lvec1_cmp_ne_z]])  ; VectorReduceOr(a)
+  uRes += any(lVec1);
+
   // CHECK: select <13 x i1> [[bvec3]], <13 x i64> [[lvec1]], <13 x i64> [[lvec2]]
   vector<int64_t, NUM> lRes = select(bVec3, lVec1, lVec2);
 
   // CHECK: call <13 x i1> @dx.op.isSpecialFloat.v13f32(i32 8, <13 x float> [[fvec2]])  ; IsNaN(value)
   uRes += isnan(fVec2);
 
-  // CHECK: [[el1:%.*]] = extractelement <13 x float> [[fvec1]]
-  // CHECK: [[el2:%.*]] = extractelement <13 x float> [[fvec2]]
-  // CHECK: [[mul:%.*]] = fmul fast float [[el2]], [[el1]]
-  // CHECK: [[mad1:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mul]]) ; FMad(a,b,c)
-  // CHECK: [[mad2:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mad1]]) ; FMad(a,b,c)
-  // CHECK: [[mad3:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mad2]]) ; FMad(a,b,c)
-  // CHECK: [[mad4:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mad3]]) ; FMad(a,b,c)
-  // CHECK: [[mad5:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mad4]]) ; FMad(a,b,c)
-  // CHECK: [[mad6:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mad5]]) ; FMad(a,b,c)
-  // CHECK: [[mad7:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mad6]]) ; FMad(a,b,c)
-  // CHECK: [[mad8:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mad7]]) ; FMad(a,b,c)
-  // CHECK: [[mad9:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mad8]]) ; FMad(a,b,c)
-  // CHECK: [[mad10:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mad9]]) ; FMad(a,b,c)
-  // CHECK: [[mad11:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mad10]]) ; FMad(a,b,c)
-  // CHECK: [[mad12:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mad11]]) ; FMad(a,b,c)
+  // CHECK: [[dotres:%.*]] = call float @dx.op.dot.v13f32(i32 311, <13 x float> [[fvec1]], <13 x float> [[fvec2]])  ; FDot(a,b)
+  // Upcast float to <13 x float>
+  // CHECK: [[dotresvec:%.*]] = insertelement <13 x float> undef, float [[dotres]], i32 0
+  // CHECK: shufflevector <13 x float> [[dotresvec]], <13 x float> undef, <13 x i32> zeroinitializer
   fRes += dot(fVec1, fVec2);
 
   // CHECK: call <13 x float> @dx.op.unary.v13f32(i32 17, <13 x float> [[fvec1]])  ; Atan(value)
