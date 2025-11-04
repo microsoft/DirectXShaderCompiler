@@ -4141,7 +4141,6 @@ void MSMain(uint GID : SV_GroupIndex,
           #else
             const uint32_t OutNum = NUM;
           #endif
-
           #if IS_UNARY_OP
             vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP

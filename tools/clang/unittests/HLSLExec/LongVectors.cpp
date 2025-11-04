@@ -1379,6 +1379,47 @@ void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
   }
 }
 
+static bool isWarpDevice(ID3D12Device *D3DDevice) {
+  DXASSERT_NOMSG(D3DDevice != nullptr);
+
+  // Get the adapter LUID from the device
+  LUID AdapterLuid = D3DDevice->GetAdapterLuid();
+
+  // Create a DXGI factory to enumerate adapters
+  CComPtr<IDXGIFactory4> DXGIFactory;
+  HRESULT HR = CreateDXGIFactory1(IID_PPV_ARGS(&DXGIFactory));
+  if (FAILED(HR)) {
+    hlsl_test::LogCommentFmt(
+        L"isWarpDevice: Failed to create DXGI factory, HR=0x%08x", HR);
+    return false;
+  }
+
+  // Get the adapter by LUID
+  CComPtr<IDXGIAdapter1> DXGIAdapter;
+  HR = DXGIFactory->EnumAdapterByLuid(AdapterLuid, IID_PPV_ARGS(&DXGIAdapter));
+  if (FAILED(HR) || !DXGIAdapter) {
+    hlsl_test::LogCommentFmt(
+        L"isWarpDevice: Failed to enumerate adapter by LUID, HR=0x%08x", HR);
+    return false;
+  }
+
+  DXGI_ADAPTER_DESC1 Desc{};
+  HR = DXGIAdapter->GetDesc1(&Desc);
+  if (FAILED(HR)) {
+    hlsl_test::LogCommentFmt(
+        L"isWarpDevice: Failed to get adapter description, HR=0x%08x", HR);
+    return false;
+  }
+
+  // Check for WARP adapter (VendorId 0x1414, DeviceId 0x8c)
+  const bool IsWarp = (Desc.VendorId == 0x1414 && Desc.DeviceId == 0x8c);
+  hlsl_test::LogCommentFmt(
+      L"isWarpDevice: VendorId=0x%04x, DeviceId=0x%04x, IsWarp=%d",
+      Desc.VendorId, Desc.DeviceId, IsWarp);
+
+  return IsWarp;
+}
+
 template <typename T, OpType OP>
 void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
                         size_t OverrideInputSize, UINT WaveSize) {
