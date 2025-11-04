@@ -12,19 +12,23 @@ uint Dummy() {
   return 0;
 }
 
+// Buffer is maintained only as a resource, but not per entrypoint
+
+// CHECK:    <1:RuntimeDataResourceInfo> = {
+// CHECK:      Class: UAV
+// CHECK:      Kind: StructuredBuffer
+// CHECK:      ID: 0
+// CHECK:      Space: 0
+// CHECK:      LowerBound: 0
+// CHECK:      UpperBound: 1
+// CHECK:      Name: "g_buffer"
+// CHECK:      Flags: 0 (None)
+// CHECK:    }
+    
 // CHECK: ID3D12LibraryReflection:
 // CHECK:   D3D12_LIBRARY_DESC:
 // CHECK:     FunctionCount: 1
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?Dummy{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       Shader Version: Library 6.3
-// CHECK:       BoundResources: 1
-// CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: g_buffer
-// CHECK:         Type: D3D_SIT_UAV_RWSTRUCTURED
-// CHECK:         uID: 0
-// CHECK:         BindCount: 2
-// CHECK:         BindPoint: 0
-// CHECK:         ReturnType: D3D_RETURN_TYPE_MIXED
-// CHECK:         Dimension: D3D_SRV_DIMENSION_BUFFER
-// CHECK:         NumSamples (or stride): 20
+// CHECK:       BoundResources: 0
