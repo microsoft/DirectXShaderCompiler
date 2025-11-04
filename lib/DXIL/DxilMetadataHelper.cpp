@@ -1624,6 +1624,10 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
       }
       MDVals.emplace_back(MDNode::get(m_Ctx, WaveSizeVal));
     }
+
+    MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilMaxGroupSharedMemTag));
+    MDVals.emplace_back(
+        Uint32ToConstMD(props.groupSharedLimitBytes));
   } break;
     // Geometry shader.
   case DXIL::ShaderKind::Geometry: {
@@ -1771,6 +1775,11 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
       props.numThreads[0] = ConstMDToUint32(pNode->getOperand(0));
       props.numThreads[1] = ConstMDToUint32(pNode->getOperand(1));
       props.numThreads[2] = ConstMDToUint32(pNode->getOperand(2));
+    } break;
+
+    case DxilMDHelper::kDxilMaxGroupSharedMemTag: {
+      DXASSERT(props.IsCS(), "else invalid shader kind");
+      props.groupSharedLimitBytes = ConstMDToUint32(MDO);
     } break;
 
     case DxilMDHelper::kDxilGSStateTag: {

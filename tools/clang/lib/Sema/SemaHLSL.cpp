@@ -14656,6 +14656,11 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
           S.Context.getAddrSpaceQualType(VD->getType(), DXIL::kTGSMAddrSpace));
     }
     break;
+  case AttributeList::AT_HLSLGroupSharedLimit:
+    declAttr = ::new (S.Context) HLSLGroupSharedLimitAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_HLSLUniform:
     declAttr = ::new (S.Context) HLSLUniformAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());

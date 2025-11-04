@@ -1646,6 +1646,21 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
   }
 
+  if (const HLSLGroupSharedLimitAttr *Attr = FD->getAttr<HLSLGroupSharedLimitAttr>()) {
+    funcProps->groupSharedLimitBytes = Attr->getLimit();
+
+    if (isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) {
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "attribute GroupSharedLimit only valid for CS/MS/AS.");
+      Diags.Report(Attr->getLocation(), DiagID);
+      return;
+    }
+
+  } else {
+    funcProps->groupSharedLimitBytes = DXIL::kMaxTGSMSize;
+  }
+
   // Hull shader.
   if (const HLSLPatchConstantFuncAttr *Attr =
           FD->getAttr<HLSLPatchConstantFuncAttr>()) {
