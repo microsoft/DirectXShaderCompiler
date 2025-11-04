@@ -4102,7 +4102,7 @@ void MSMain(uint GID : SV_GroupIndex,
         #endif
 
         [numthreads(1,1,1)]
-        void main(uint GI : SV_GroupIndex) {
+        void main(uint GI : SV_GroupIndex, uint3 dispatchThreadID : SV_DispatchThreadID) {
 
           #ifdef FUNC_SHUFFLE_VECTOR
             // For shuffle vector, the input is a scalar, not a vector.
@@ -4129,7 +4129,16 @@ void MSMain(uint GID : SV_GroupIndex,
             const uint32_t OutNum = NUM;
           #endif
 
-          #if IS_UNARY_OP
+          #if FUNC_ARRAY_OPERATOR
+            vector<TYPE, OutNum> OutputVector;
+            vector<TYPE, OutNum> ReadVector;
+            for(uint i = 0; i < NUM; i++)
+            {
+              OutputVector[i] = Input1[i];
+              ReadVector[i] = OutputVector[i];
+            }
+            g_OutputVector.Store< vector<TYPE, OutNum> >(sizeof(TYPE) * OutNum, ReadVector);
+          #elif IS_UNARY_OP
             vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP
             vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1 OPERATOR

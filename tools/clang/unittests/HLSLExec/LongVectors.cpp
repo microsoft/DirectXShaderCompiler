@@ -768,6 +768,29 @@ BITWISE_OP(OpType::FirstBitLow, (FirstBitLow(A)));
 
 DEFAULT_OP_1(OpType::Initialize, (A));
 
+template <typename T>
+struct Op<OpType::ArrayOperator, T, 1> : DefaultValidation<T> {};
+
+template <typename T> struct ExpectedBuilder<OpType::ArrayOperator, T> {
+  static std::vector<T> buildExpected(Op<OpType::ArrayOperator, T, 1>,
+                                      const InputSets<T> &Inputs) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+    const size_t VectorSize = Inputs[0].size();
+    std::vector<T> Expected;
+    Expected.resize(VectorSize * 2);
+    for (size_t I = 0; I < VectorSize; ++I) {
+      // Writing the index and value into expected data.
+      // Expected[I] = I;
+      Expected[I] = Inputs[0][I];
+
+      // Reading the index and value from the previously written data,
+      // Expected[2 * VectorSize + I] = Expected[I];
+      Expected[VectorSize + I] = Expected[I];
+    }
+    return Expected;
+  }
+};
+
 //
 // Cast
 //
@@ -1586,15 +1609,25 @@ public:
   // Unary
 
   HLK_TEST(Initialize, HLSLBool_t);
+  // HLK_TEST(ArrayOperator, HLSLBool_t);
   HLK_TEST(Initialize, int16_t);
+  // HLK_TEST(ArrayOperator, int16_t);
   HLK_TEST(Initialize, int32_t);
+  HLK_TEST(ArrayOperator, int32_t);
   HLK_TEST(Initialize, int64_t);
+  // HLK_TEST(ArrayOperator, int64_t);
   HLK_TEST(Initialize, uint16_t);
+  // HLK_TEST(ArrayOperator, uint16_t);
   HLK_TEST(Initialize, uint32_t);
+  // HLK_TEST(ArrayOperator, uint32_t);
   HLK_TEST(Initialize, uint64_t);
+  // HLK_TEST(ArrayOperator, uint64_t);
   HLK_TEST(Initialize, HLSLHalf_t);
+  // HLK_TEST(ArrayOperator, HLSLHalf_t);
   HLK_TEST(Initialize, float);
+  HLK_TEST(ArrayOperator, float);
   HLK_TEST(Initialize, double);
+  // HLK_TEST(ArrayOperator, double);
 
   HLK_TEST(ShuffleVector, HLSLBool_t);
   HLK_TEST(ShuffleVector, int16_t);

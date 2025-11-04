@@ -61,6 +61,9 @@ OP(Bitwise, FirstBitLow, 1, "firstbitlow", "", "", "LongVectorOp", Bitwise, Defa
 
 OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
                    " -DFUNC_INITIALIZE=1")
+OP_DEFAULT_DEFINES(Unary, ArrayOperator, 1, "TestArrayOperator", "",
+                   " -DFUNC_ARRAY_OPERATOR=1")
+
 
 #define OP_CAST_DEFAULT(GROUP, SYMBOL)                                         \
   OP_DEFAULT_DEFINES(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1")
@@ -125,6 +128,7 @@ OP_DEFAULT(UnaryMath, Exp2, 1, "exp2", "")
 OP_DEFAULT(UnaryMath, Log10, 1, "log10", "")
 OP_DEFAULT(UnaryMath, Log2, 1, "log2", "")
 OP_DEFAULT_DEFINES(UnaryMath, Frexp, 1, "TestFrexp", "", " -DFUNC_FREXP=1")
+
 
 OP_DEFAULT(FloatSpecial, IsFinite, 1, "isfinite", "")
 OP_DEFAULT(FloatSpecial, IsInf, 1, "isinf", "")
