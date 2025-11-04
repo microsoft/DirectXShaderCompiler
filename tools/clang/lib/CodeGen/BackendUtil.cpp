@@ -361,6 +361,7 @@ void EmitAssemblyHelper::CreatePasses() {
       OptToggles.IsEnabled(hlsl::options::TOGGLE_PARTIAL_LIFETIME_MARKERS);
   PMBuilder.HLSLEnableAggressiveReassociation = OptToggles.IsEnabled(
       hlsl::options::TOGGLE_ENABLE_AGGRESSIVE_REASSOCIATION);
+  PMBuilder.StripDebug = CodeGenOpts.StripDebug;
   // HLSL Change - end
 
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;

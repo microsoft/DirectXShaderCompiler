@@ -3092,15 +3092,11 @@ TEST_F(DxilContainerTest, StripReflectionRemovesStructNames) {
       float4 color;
     };
 
-    cbuffer MyCBuffer : register(b0) {
-      float4 data;
-    };
-
-    float4 main() : SV_Target {
+    MyCustomStruct main() : SV_Target {
       MyCustomStruct s;
       s.position = float4(0, 0, 0, 1);
       s.color = float4(1, 1, 1, 1);
-      return s.color;
+      return s;
     }
   )";
 

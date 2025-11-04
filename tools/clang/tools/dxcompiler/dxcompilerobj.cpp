@@ -25,7 +25,6 @@
 #include "clang/Sema/SemaHLSL.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -35,7 +34,6 @@
 #include "dxc/DxcBindingTable/DxcBindingTable.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
-#include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/Support/Path.h"
 #include "dxc/Support/WinIncludes.h"
@@ -1050,12 +1048,6 @@ public:
 
           inputs.pVersionInfo = static_cast<IDxcVersionInfo *>(this);
 
-          if (opts.StripDebug) {
-            legacy::PassManager PM;
-            PM.add(createDxilStripDebugSensitiveInfoPass());
-            PM.run(*inputs.pM);
-          }
-
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
           } else {
@@ -1616,6 +1608,7 @@ public:
         Opts.EnableLifetimeMarkers;
     compiler.getCodeGenOpts().HLSLEnablePayloadAccessQualifiers =
         Opts.EnablePayloadQualifiers;
+    compiler.getCodeGenOpts().StripDebug = Opts.StripDebug;
 
     // Translate signature packing options
     if (Opts.PackPrefixStable)
