@@ -254,6 +254,8 @@ public:
   void SetNumThreads(unsigned x, unsigned y, unsigned z);
   unsigned GetNumThreads(unsigned idx) const;
 
+  unsigned GetGroupSharedLimit() const;
+
   // Compute shader
   DxilWaveSize &GetWaveSize();
   const DxilWaveSize &GetWaveSize() const;
