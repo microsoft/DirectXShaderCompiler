@@ -14,17 +14,20 @@ from .base import TestFormat
 
 
 def executeCommandForTaef(command, cwd=None, env=None):
-    p = subprocess.Popen(command, cwd=cwd,
-                         shell=True,
-                         stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE,
-                         # TAEF doesn't seem to really use stderr, so we just
-                         # deal with stdout
-                         stderr=subprocess.STDOUT,
-                         env=env,
-                         # Close extra file handles on UNIX (on Windows this cannot be done while
-                         # also redirecting input). Taef only run on windows.
-                         close_fds=False)
+    p = subprocess.Popen(
+        command,
+        cwd=cwd,
+        shell=True,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        # TAEF doesn't seem to really use stderr, so we just
+        # deal with stdout
+        stderr=subprocess.STDOUT,
+        env=env,
+        # Close extra file handles on UNIX (on Windows this cannot be done while
+        # also redirecting input). Taef only run on windows.
+        close_fds=False,
+    )
     out, _ = p.communicate()
     exitCode = p.wait()
 
@@ -76,13 +79,17 @@ class TaefTest(TestFormat):
             lines = lines.split('\n')
 
         except:
-            litConfig.error("unable to discover taef tests in %r, using %s. exception encountered." % (
-                dll_path, self.te))
+            litConfig.error(
+                "unable to discover taef tests in %r, using %s. exception encountered."
+                % (dll_path, self.te)
+            )
             raise StopIteration
 
         if exitCode:
-            litConfig.error("unable to discover taef tests in %r, using %s. error: %s." % (
-                dll_path, self.te, lines))
+            litConfig.error(
+                "unable to discover taef tests in %r, using %s. error: %s."
+                % (dll_path, self.te, lines)
+            )
             raise StopIteration
 
         for ln in lines:
@@ -128,8 +135,7 @@ class TaefTest(TestFormat):
         select_filter = str.format("@Name='{}'", testName)
 
         if self.select_filter != "":
-            select_filter = str.format(
-                "{} AND {}", select_filter, self.select_filter)
+            select_filter = str.format("{} AND {}", select_filter, self.select_filter)
 
         cmd = [
             self.te,
@@ -147,14 +153,13 @@ class TaefTest(TestFormat):
         if litConfig.noExecute:
             return lit.Test.PASS, ''
 
-        out, exitCode = executeCommandForTaef(
-            cmd, env=test.config.environment)
+        out, exitCode = executeCommandForTaef(cmd, env=test.config.environment)
 
         return getTestResult(out, exitCode), out
 
 
 def getTestResult(out, exitCode):
-    unselected = 'The selection criteria did not match any tests.'
+    unselected = "The selection criteria did not match any tests."
     if unselected in out:
         return lit.Test.UNSUPPORTED
 
