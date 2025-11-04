@@ -62,6 +62,12 @@ private:
     return astContext.getDiagnostics().Report(srcLoc, diagId);
   }
 
+  // This method sorts a field list in the following order:
+  //  - fields with register annotation first, sorted by register index.
+  //  - then fields without annotation, in order of declaration.
+  std::vector<const HybridStructType::FieldInfo *>
+  sortFields(llvm::ArrayRef<HybridStructType::FieldInfo> fields);
+
   /// Lowers the given Hybrid type into a SPIR-V type.
   ///
   /// Uses the above lowerType method to lower the QualType components of hybrid

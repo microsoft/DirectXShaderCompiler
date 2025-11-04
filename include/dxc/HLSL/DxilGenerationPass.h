@@ -81,7 +81,7 @@ ModulePass *createResumePassesPass();
 FunctionPass *createMatrixBitcastLowerPass();
 ModulePass *createDxilCleanupAddrSpaceCastPass();
 ModulePass *createDxilRenameResourcesPass();
-ModulePass *createDxilScalarizeVectorLoadStoresPass();
+ModulePass *createDxilScalarizeVectorIntrinsicsPass();
 
 void initializeDxilLowerCreateHandleForLibPass(llvm::PassRegistry &);
 void initializeDxilAllocateResourcesForLibPass(llvm::PassRegistry &);
@@ -116,7 +116,7 @@ void initializeResumePassesPass(llvm::PassRegistry &);
 void initializeMatrixBitcastLowerPassPass(llvm::PassRegistry &);
 void initializeDxilCleanupAddrSpaceCastPass(llvm::PassRegistry &);
 void initializeDxilRenameResourcesPass(llvm::PassRegistry &);
-void initializeDxilScalarizeVectorLoadStoresPass(llvm::PassRegistry &);
+void initializeDxilScalarizeVectorIntrinsicsPass(llvm::PassRegistry &);
 
 ModulePass *createDxilValidateWaveSensitivityPass();
 void initializeDxilValidateWaveSensitivityPass(llvm::PassRegistry &);

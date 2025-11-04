@@ -36,7 +36,7 @@ class raw_ostream;
 } // namespace llvm
 
 namespace dxc {
-class DxcDllSupport;
+class SpecificDllLoader;
 }
 
 namespace hlsl {
@@ -227,6 +227,7 @@ public:
   std::string TimeTrace = "";           // OPT_ftime_trace[EQ]
   unsigned TimeTraceGranularity = 500;  // OPT_ftime_trace_granularity_EQ
   bool VerifyDiagnostics = false;       // OPT_verify
+  bool Verbose = false;                 // OPT_verbose
 
   // Optimization pass enables, disables and selects
   OptimizationToggles
@@ -257,6 +258,11 @@ public:
   bool EmbedPDBName() const;          // Zi or Fd
   bool DebugFileIsDirectory() const;  // Fd ends in '\\'
   llvm::StringRef GetPDBName() const; // Fd name
+  bool ProduceDxModule()
+      const; // !AstDump && !OptDump && !GenSPIRV && !DumpDependencies &&
+             // !VerifyDiagnostics && Preprocess.empty();
+  bool ProduceFullContainer() const; // ProduceDxModule() && CodeGenHighLevel
+  bool NeedsValidation() const; // ProduceFullContainer() && !DisableValidation
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -304,9 +310,10 @@ int ReadDxcOpts(const llvm::opt::OptTable *optionTable, unsigned flagsToInclude,
                 const MainArgs &argStrings, DxcOpts &opts,
                 llvm::raw_ostream &errors);
 
-/// Sets up the specified DxcDllSupport instance as per the given options.
-int SetupDxcDllSupport(const DxcOpts &opts, dxc::DxcDllSupport &dxcSupport,
-                       llvm::raw_ostream &errors);
+/// Sets up a SpecificDllLoader instance as per the given options.
+int SetupSpecificDllLoader(const DxcOpts &opts,
+                           dxc::SpecificDllLoader &dxcSupport,
+                           llvm::raw_ostream &errors);
 
 void CopyArgsToWStrings(const llvm::opt::InputArgList &inArgs,
                         unsigned flagsToInclude,

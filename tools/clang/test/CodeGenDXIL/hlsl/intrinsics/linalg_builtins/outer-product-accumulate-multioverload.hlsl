@@ -1,9 +1,9 @@
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DITY=float16_t -DMI=F16 -DML=OuterProductOptimal | FileCheck %s --check-prefixes COMMON,DXIL-0
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DITY=float16_t -DMI=F8_E4M3 -DML=OuterProductOptimal | FileCheck %s --check-prefixes COMMON,DXIL-1
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DITY=uint -DMI=U8 -DML=OuterProductOptimal | FileCheck %s --check-prefixes COMMON,DXIL-2
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DITY=float16_t -DMI=F16 -DML=OuterProductOptimal -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-0
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DITY=float16_t -DMI=F8_E4M3 -DML=OuterProductOptimal -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-1
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DITY=uint -DMI=U8 -DML=OuterProductOptimal -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-2
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DITY=float16_t -DMI=F16 -DML=OuterProductOptimal | FileCheck %s --check-prefixes COMMON,DXIL-0
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DITY=float16_t -DMI=F8_E4M3 -DML=OuterProductOptimal | FileCheck %s --check-prefixes COMMON,DXIL-1
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DITY=uint -DMI=U8 -DML=OuterProductOptimal | FileCheck %s --check-prefixes COMMON,DXIL-2
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DITY=float16_t -DMI=F16 -DML=OuterProductOptimal -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-0
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DITY=float16_t -DMI=F8_E4M3 -DML=OuterProductOptimal -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-1
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DITY=uint -DMI=U8 -DML=OuterProductOptimal -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-2
 
 ByteAddressBuffer input_vector_buffer;
 ByteAddressBuffer input_vector_buffer2;

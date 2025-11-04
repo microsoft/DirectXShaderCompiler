@@ -205,10 +205,17 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
   instruction->setRValue(true);
 
   if (pointer->getStorageClass() == spv::StorageClass::PhysicalStorageBuffer) {
-    AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
-    uint32_t align, size, stride;
-    std::tie(align, size) = alignmentCalc.getAlignmentAndSize(
-        resultType, pointer->getLayoutRule(), llvm::None, &stride);
+    QualType pointerType = pointer->getAstResultType();
+    uint32_t align = 0;
+    if (!pointerType.isNull() && hlsl::IsVKBufferPointerType(pointerType)) {
+      align = hlsl::GetVKBufferPointerAlignment(pointerType);
+    }
+    if (!align) {
+      AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
+      uint32_t stride;
+      std::tie(align, std::ignore) = alignmentCalc.getAlignmentAndSize(
+          resultType, pointer->getLayoutRule(), llvm::None, &stride);
+    }
     instruction->setAlignment(align);
   }
 
@@ -1207,6 +1214,7 @@ SpirvBuilder::createDebugCompilationUnit(SpirvDebugSource *source) {
   auto *inst = new (context) SpirvDebugCompilationUnit(
       /*version*/ 1, /*DWARF version*/ 4, source);
   mod->addDebugInfo(inst);
+  mod->setDebugCompilationUnit(inst);
   return inst;
 }
 
@@ -1665,6 +1673,21 @@ SpirvVariable *SpirvBuilder::addModuleVar(
   var->setResultType(type);
   var->setDebugName(name);
   mod->addVariable(var);
+  return var;
+}
+
+SpirvVariable *SpirvBuilder::addModuleVar(
+    const SpirvType *type, spv::StorageClass storageClass, bool isPrecise,
+    bool isNointerp, SpirvInstruction *pos, llvm::StringRef name,
+    llvm::Optional<SpirvInstruction *> init, SourceLocation loc) {
+  assert(storageClass != spv::StorageClass::Function);
+  // Note: We store the underlying type in the variable, *not* the pointer type.
+  auto *var = new (context)
+      SpirvVariable(type, loc, storageClass, isPrecise, isNointerp,
+                    init.hasValue() ? init.getValue() : nullptr);
+  var->setResultType(type);
+  var->setDebugName(name);
+  mod->addVariable(var, pos);
   return var;
 }
 

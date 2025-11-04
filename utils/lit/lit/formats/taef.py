@@ -125,10 +125,14 @@ class TaefTest(TestFormat):
         if self.select_filter != "":
             select_filter = str.format("{} AND {}", select_filter, self.select_filter)
 
-        cmd = [self.te, test_dll, '/inproc',
-                '/select:', select_filter,
-                '/miniDumpOnCrash', '/unicodeOutput:false',
-                str.format('/outputFolder:{}', self.test_path)]
+        cmd = [
+            self.te,
+            test_dll,
+            "/select:",
+            select_filter,
+            "/unicodeOutput:false",
+            str.format("/outputFolder:{}", self.test_path),
+        ]
         cmd.extend(self.extra_params)
 
         if litConfig.useValgrind:
