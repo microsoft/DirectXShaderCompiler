@@ -1422,7 +1422,7 @@ public:
 
       bool FailIfRequirementsNotMet = false;
 #ifdef _HLK_CONF
-      FailIsRequirementsNotMet = true;
+      FailIfRequirementsNotMet = true;
 #endif
       WEX::TestExecution::RuntimeParameters::TryGetValue(
           L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
