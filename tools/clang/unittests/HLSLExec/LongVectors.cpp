@@ -1522,6 +1522,7 @@ public:
 
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"WaveLaneCount",
                                                          OverrideWaveLaneCount);
+
       bool IsRITP = false;
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"RITP", IsRITP);
 
@@ -1573,7 +1574,6 @@ public:
       // runtimes for large long vectors. 8 is WARPs default wave size.
       MaxWaveSize = 8;
     else {
-      // Get supported wave sizes
       D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveOpts;
       VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
           (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &waveOpts,
@@ -1583,6 +1583,7 @@ public:
     }
 
     DXASSERT_NOMSG(MaxWaveSize > 0);
+    DXASSERT((MaxWaveSize & (MaxWaveSize - 1)) == 0, "must be a power of 2");
 
     dispatchWaveOpTest<T, OP>(D3DDevice, VerboseLogging, OverrideInputSize,
                               MaxWaveSize);
