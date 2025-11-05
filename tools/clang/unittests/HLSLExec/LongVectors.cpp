@@ -1265,7 +1265,7 @@ FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
 //
 
 #define WAVE_ACTIVE_OP(OP, IMPL)                                               \
-  template <typename T> struct Op<OP, T, 1> : StrictValidation {               \
+  template <typename T> struct Op<OP, T, 1> : DefaultValidation<T> {           \
     T operator()(T A, T WaveSize) { return IMPL; }                             \
   };
 
