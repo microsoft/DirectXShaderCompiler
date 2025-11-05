@@ -351,7 +351,7 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
   // underlying type in some cases. Thats fine. Resize just makes sure we have
   // enough space.
   const size_t NumElements = TestData.size();
-  const size_t DataSize = sizeof(T) * NumElements;
+  [[maybe_unused]] const size_t DataSize = sizeof(T) * NumElements;
 
   // Ensure the shader buffer is large enough. It should be pre-sized based on
   // the D3D12_RESOURCE_DESC for the associated D3D12_RESOURCE.
