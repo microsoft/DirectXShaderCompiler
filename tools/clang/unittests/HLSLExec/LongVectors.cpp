@@ -1353,6 +1353,7 @@ public:
   TEST_CLASS_PROPERTY(
       "Kits.Specification",
       "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
   TEST_CLASS_SETUP(classSetup) {
@@ -1419,8 +1420,14 @@ public:
               OverrideInputSize);
       }
 
-      // Only skip unsupported tests for RITP runs.
-      const bool SkipUnsupported = IsRITP;
+      bool FailIfRequirementsNotMet = false;
+#ifdef _HLK_CONF
+      FailIsRequirementsNotMet = true;
+#endif
+      WEX::TestExecution::RuntimeParameters::TryGetValue(
+          L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
+
+      const bool SkipUnsupported = !FailIfRequirementsNotMet;
       createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9,
                    SkipUnsupported);
     }
