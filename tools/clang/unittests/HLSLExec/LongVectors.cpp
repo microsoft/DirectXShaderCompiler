@@ -9,6 +9,7 @@
 
 #include "ShaderOpTest.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Test/HlslTestUtils.h"
 
 #include "HlslExecTestUtils.h"
 
