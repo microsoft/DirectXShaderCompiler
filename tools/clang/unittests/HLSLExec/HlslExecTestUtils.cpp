@@ -298,7 +298,7 @@ enableExperimentalShaderModels(HMODULE hRuntime,
 
   std::vector<UUID> Features;
 
-  Features.push_back(D3D12ExperimentalShaderModels);
+  Features.push_back(D3D12ExperimentalShaderModelsID);
 
   if (AdditionalFeatures != nullptr && NumAdditionalFeatures > 0)
     Features.insert(Features.end(), AdditionalFeatures,
