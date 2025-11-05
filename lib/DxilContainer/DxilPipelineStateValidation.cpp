@@ -313,7 +313,7 @@ void hlsl::SetShaderProps(PSVRuntimeInfo4 *pInfo4, const DxilModule &DM) {
     case ShaderModel::Kind::Compute:
     case ShaderModel::Kind::Mesh:
     case ShaderModel::Kind::Amplification:
-      pInfo4->GroupSharedMemoryLimit = DM.GetGroupSharedLimit();
+      pInfo4->GroupSharedLimit = DM.GetGroupSharedLimit();
         break;
     default:
         break;
@@ -825,8 +825,8 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
          << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
     }
     if (pInfo4) {
-      OS << Comment << " GroupSharedMemoryLimit="
-         << pInfo4->GroupSharedMemoryLimit << "\n";
+      OS << Comment << " GroupSharedLimit="
+         << pInfo4->GroupSharedLimit << "\n";
     }
     break;
   case PSVShaderKind::Amplification:
@@ -836,8 +836,8 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
          << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
     }
     if (pInfo4) {
-      OS << Comment << " GroupSharedMemoryLimit="
-         << pInfo4->GroupSharedMemoryLimit << "\n";
+      OS << Comment << " GroupSharedLimit="
+         << pInfo4->GroupSharedLimit << "\n";
     }
     break;
   case PSVShaderKind::Mesh:
@@ -866,8 +866,8 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
          << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
     }
     if (pInfo4) {
-      OS << Comment << " GroupSharedMemoryLimit="
-         << pInfo4->GroupSharedMemoryLimit << "\n";
+      OS << Comment << " GroupSharedLimit="
+         << pInfo4->GroupSharedLimit << "\n";
     }
     break;
   case PSVShaderKind::Library:

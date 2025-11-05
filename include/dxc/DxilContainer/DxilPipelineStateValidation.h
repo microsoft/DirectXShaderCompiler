@@ -176,7 +176,7 @@ struct PSVRuntimeInfo3 : public PSVRuntimeInfo2 {
 };
 
 struct PSVRuntimeInfo4 : public PSVRuntimeInfo3 {
-  uint32_t GroupSharedMemoryLimit;
+  uint32_t GroupSharedLimit;
 };
 
 enum class PSVResourceType {
