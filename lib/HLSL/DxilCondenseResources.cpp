@@ -574,7 +574,7 @@ public:
 
     if (DM.GetConsistentBindings())
       bChanged |= DM.RemoveResourcesWithUnusedSymbols();
-	  
+
     // Fill in top-level CBuffer variable usage bit
     UpdateCBufferUsage();
 
