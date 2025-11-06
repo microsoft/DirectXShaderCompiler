@@ -1379,47 +1379,6 @@ void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
   }
 }
 
-static bool isWarpDevice(ID3D12Device *D3DDevice) {
-  DXASSERT_NOMSG(D3DDevice != nullptr);
-
-  // Get the adapter LUID from the device
-  LUID AdapterLuid = D3DDevice->GetAdapterLuid();
-
-  // Create a DXGI factory to enumerate adapters
-  CComPtr<IDXGIFactory4> DXGIFactory;
-  HRESULT HR = CreateDXGIFactory1(IID_PPV_ARGS(&DXGIFactory));
-  if (FAILED(HR)) {
-    hlsl_test::LogCommentFmt(
-        L"isWarpDevice: Failed to create DXGI factory, HR=0x%08x", HR);
-    return false;
-  }
-
-  // Get the adapter by LUID
-  CComPtr<IDXGIAdapter1> DXGIAdapter;
-  HR = DXGIFactory->EnumAdapterByLuid(AdapterLuid, IID_PPV_ARGS(&DXGIAdapter));
-  if (FAILED(HR) || !DXGIAdapter) {
-    hlsl_test::LogCommentFmt(
-        L"isWarpDevice: Failed to enumerate adapter by LUID, HR=0x%08x", HR);
-    return false;
-  }
-
-  DXGI_ADAPTER_DESC1 Desc{};
-  HR = DXGIAdapter->GetDesc1(&Desc);
-  if (FAILED(HR)) {
-    hlsl_test::LogCommentFmt(
-        L"isWarpDevice: Failed to get adapter description, HR=0x%08x", HR);
-    return false;
-  }
-
-  // Check for WARP adapter (VendorId 0x1414, DeviceId 0x8c)
-  const bool IsWarp = (Desc.VendorId == 0x1414 && Desc.DeviceId == 0x8c);
-  hlsl_test::LogCommentFmt(
-      L"isWarpDevice: VendorId=0x%04x, DeviceId=0x%04x, IsWarp=%d",
-      Desc.VendorId, Desc.DeviceId, IsWarp);
-
-  return IsWarp;
-}
-
 template <typename T, OpType OP>
 void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
                         size_t OverrideInputSize, UINT WaveSize) {
@@ -1546,7 +1505,7 @@ public:
     return true;
   }
 
-  void CheckDevice() {
+  TEST_METHOD_SETUP(methodSetup) {
     // It's possible a previous test case caused a device removal. If it did we
     // need to try and create a new device.
     if (!D3DDevice || D3DDevice->GetDeviceRemovedReason() != S_OK) {
@@ -1555,46 +1514,39 @@ public:
       VERIFY_IS_TRUE(
           createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false));
     }
+
+    return true;
   }
 
   template <typename T, OpType OP> void runWaveOpTest() {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-    CheckDevice();
-
-    UINT MaxWaveSize = 0;
+    UINT WaveSize = 0;
 
     if (OverrideWaveLaneCount > 0) {
-      MaxWaveSize = OverrideWaveLaneCount;
+      WaveSize = OverrideWaveLaneCount;
       hlsl_test::LogCommentFmt(
-          L"Using overridden WaveLaneCount of %d for this test.", MaxWaveSize);
-    } else if (isWarpDevice(D3DDevice))
-      // Executing with a large wave lane count on WARP leads to very long test
-      // runtimes for large long vectors. 8 is WARPs default wave size.
-      MaxWaveSize = 8;
-    else {
+          L"Using overridden WaveLaneCount of %d for this test.", WaveSize);
+    } else {
       D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveOpts;
       VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
           (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &waveOpts,
           sizeof(waveOpts)));
 
-      MaxWaveSize = waveOpts.WaveLaneCountMax;
+      WaveSize = waveOpts.WaveLaneCountMin;
     }
 
-    DXASSERT_NOMSG(MaxWaveSize > 0);
-    DXASSERT((MaxWaveSize & (MaxWaveSize - 1)) == 0, "must be a power of 2");
+    DXASSERT_NOMSG(WaveSize > 0);
+    DXASSERT((WaveSize & (WaveSize - 1)) == 0, "must be a power of 2");
 
     dispatchWaveOpTest<T, OP>(D3DDevice, VerboseLogging, OverrideInputSize,
-                              MaxWaveSize);
+                              WaveSize);
   }
 
   template <typename T, OpType OP> void runTest() {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
-    CheckDevice();
-
     dispatchTest<T, OP>(D3DDevice, VerboseLogging, OverrideInputSize);
   }
 
