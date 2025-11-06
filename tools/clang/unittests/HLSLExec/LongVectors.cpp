@@ -1389,7 +1389,7 @@ void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
   constexpr const Operation &Operation = getOperation(OP);
   Op<OP, T, Operation.Arity> Op;
 
-  std::optional<std::string> AdditionalCompilerOptions =
+  const std::string AdditionalCompilerOptions =
       "-DWAVE_SIZE=" + std::to_string(WaveSize) +
       " -DNUMTHREADS_X=" + std::to_string(WaveSize);
 
@@ -1536,10 +1536,9 @@ public:
     } else {
       D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOpts;
       VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
-          D3D12_FEATURE_D3D12_OPTIONS1, &waveOpts,
-          sizeof(waveOpts)));
+          D3D12_FEATURE_D3D12_OPTIONS1, &WaveOpts, sizeof(WaveOpts)));
 
-      WaveSize = waveOpts.WaveLaneCountMin;
+      WaveSize = WaveOpts.WaveLaneCountMin;
     }
 
     DXASSERT_NOMSG(WaveSize > 0);
