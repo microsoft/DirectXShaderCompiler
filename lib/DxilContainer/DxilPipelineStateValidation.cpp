@@ -306,18 +306,17 @@ void hlsl::SetShaderProps(PSVRuntimeInfo2 *pInfo2, const DxilModule &DM) {
 }
 
 void hlsl::SetShaderProps(PSVRuntimeInfo4 *pInfo4, const DxilModule &DM) {
-    assert(pInfo4);
-    const ShaderModel* SM = DM.GetShaderModel();
-    switch (SM->GetKind())
-    {
-    case ShaderModel::Kind::Compute:
-    case ShaderModel::Kind::Mesh:
-    case ShaderModel::Kind::Amplification:
-      pInfo4->GroupSharedLimit = DM.GetGroupSharedLimit();
-        break;
-    default:
-        break;
-    }
+  assert(pInfo4);
+  const ShaderModel *SM = DM.GetShaderModel();
+  switch (SM->GetKind()) {
+  case ShaderModel::Kind::Compute:
+  case ShaderModel::Kind::Mesh:
+  case ShaderModel::Kind::Amplification:
+    pInfo4->GroupSharedLimit = DM.GetGroupSharedLimit();
+    break;
+  default:
+    break;
+  }
 }
 
 void PSVResourceBindInfo0::Print(raw_ostream &OS) const {
@@ -825,8 +824,7 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
          << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
     }
     if (pInfo4) {
-      OS << Comment << " GroupSharedLimit="
-         << pInfo4->GroupSharedLimit << "\n";
+      OS << Comment << " GroupSharedLimit=" << pInfo4->GroupSharedLimit << "\n";
     }
     break;
   case PSVShaderKind::Amplification:
@@ -836,8 +834,7 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
          << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
     }
     if (pInfo4) {
-      OS << Comment << " GroupSharedLimit="
-         << pInfo4->GroupSharedLimit << "\n";
+      OS << Comment << " GroupSharedLimit=" << pInfo4->GroupSharedLimit << "\n";
     }
     break;
   case PSVShaderKind::Mesh:
@@ -866,8 +863,7 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
          << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
     }
     if (pInfo4) {
-      OS << Comment << " GroupSharedLimit="
-         << pInfo4->GroupSharedLimit << "\n";
+      OS << Comment << " GroupSharedLimit=" << pInfo4->GroupSharedLimit << "\n";
     }
     break;
   case PSVShaderKind::Library:

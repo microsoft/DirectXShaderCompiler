@@ -1646,7 +1646,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
   }
 
-  if (const HLSLGroupSharedLimitAttr *Attr = FD->getAttr<HLSLGroupSharedLimitAttr>()) {
+  if (const HLSLGroupSharedLimitAttr *Attr =
+          FD->getAttr<HLSLGroupSharedLimitAttr>()) {
     if (isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) {
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Error,
@@ -1658,8 +1659,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     // Only valid for SM6.10+
     if (!SM->IsSM610Plus()) {
       unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "attribute GroupSharedLimit only valid for Shader Model 6.10 and above.");
+          DiagnosticsEngine::Error, "attribute GroupSharedLimit only valid for "
+                                    "Shader Model 6.10 and above.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
@@ -1667,12 +1668,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->groupSharedLimitBytes = Attr->getLimit();
   } else {
     if (SM->IsMS()) { // Fallback to default limits
-        funcProps->groupSharedLimitBytes = DXIL::kMaxMSSMSize; // 28k For MS
-      } else if (SM->IsAS() || SM->IsCS()) {
-        funcProps->groupSharedLimitBytes = DXIL::kMaxTGSMSize; // 32k For AS/CS
-      } else {
-        funcProps->groupSharedLimitBytes = 0;
-      }
+      funcProps->groupSharedLimitBytes = DXIL::kMaxMSSMSize; // 28k For MS
+    } else if (SM->IsAS() || SM->IsCS()) {
+      funcProps->groupSharedLimitBytes = DXIL::kMaxTGSMSize; // 32k For AS/CS
+    } else {
+      funcProps->groupSharedLimitBytes = 0;
+    }
   }
 
   // Hull shader.

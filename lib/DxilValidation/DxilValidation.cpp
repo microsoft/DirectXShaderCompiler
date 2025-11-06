@@ -3928,7 +3928,7 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
     if (EntryProps.props.IsCS()) {
       unsigned SpecifiedTGSMSize = EntryProps.props.groupSharedLimitBytes;
       if (SpecifiedTGSMSize > 0) {
-      MaxSize = SpecifiedTGSMSize;
+        MaxSize = SpecifiedTGSMSize;
       }
     }
   }
