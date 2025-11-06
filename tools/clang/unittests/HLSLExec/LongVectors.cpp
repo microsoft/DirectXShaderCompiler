@@ -1534,7 +1534,7 @@ public:
       hlsl_test::LogCommentFmt(
           L"Using overridden WaveLaneCount of %d for this test.", WaveSize);
     } else {
-      D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveOpts;
+      D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOpts;
       VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
           (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &waveOpts,
           sizeof(waveOpts)));
