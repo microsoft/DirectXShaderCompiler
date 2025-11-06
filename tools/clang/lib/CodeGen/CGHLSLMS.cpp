@@ -1646,8 +1646,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
   }
 
-  if (const HLSLGroupSharedLimitAttr *Attr =
-          FD->getAttr<HLSLGroupSharedLimitAttr>()) {
+  if (const HLSLGroupSharedLimitAttr *Attr = FD->getAttr<HLSLGroupSharedLimitAttr>()) {
     if (isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) {
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Error,
@@ -1659,8 +1658,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     // Only valid for SM6.10+
     if (!SM->IsSM610Plus()) {
       unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "attribute GroupSharedLimit only valid for "
-                                    "Shader Model 6.10 and above.");
+          DiagnosticsEngine::Error,
+          "attribute GroupSharedLimit only valid for Shader Model 6.10 and above.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
@@ -1668,12 +1667,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->groupSharedLimitBytes = Attr->getLimit();
   } else {
     if (SM->IsMS()) { // Fallback to default limits
-      funcProps->groupSharedLimitBytes = DXIL::kMaxMSSMSize; // 28k For MS
-    } else if (SM->IsAS() || SM->IsCS()) {
-      funcProps->groupSharedLimitBytes = DXIL::kMaxTGSMSize; // 32k For AS/CS
-    } else {
-      funcProps->groupSharedLimitBytes = 0;
-    }
+        funcProps->groupSharedLimitBytes = DXIL::kMaxMSSMSize; // 28k For MS
+      } else if (SM->IsAS() || SM->IsCS()) {
+        funcProps->groupSharedLimitBytes = DXIL::kMaxTGSMSize; // 32k For AS/CS
+      } else {
+        funcProps->groupSharedLimitBytes = 0;
+      }
   }
 
   // Hull shader.
@@ -2206,11 +2205,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
         funcProps->ShaderProps.HS.inputControlPoints =
             GetHLSLInputPatchCount(parmDecl->getType());
       } else if (isGS) {
-        inputPrimitive =
-            (DXIL::InputPrimitive)((unsigned)DXIL::InputPrimitive::
-                                       ControlPointPatch1 +
-                                   GetHLSLInputPatchCount(parmDecl->getType()) -
-                                   1);
+        inputPrimitive = (DXIL::InputPrimitive)(
+            (unsigned)DXIL::InputPrimitive::ControlPointPatch1 +
+            GetHLSLInputPatchCount(parmDecl->getType()) - 1);
       }
     } else if (IsHLSLStreamOutputType(parmDecl->getType())) {
       // TODO: validation this at ASTContext::getFunctionType in
@@ -4010,24 +4007,12 @@ static HLOpcodeGroup GetHLOpcodeGroup(const clang::Stmt::StmtClass stmtClass) {
 static const HLBinaryOpcode BinaryOperatorKindMap[] = {
     HLBinaryOpcode::Invalid, // PtrMemD
     HLBinaryOpcode::Invalid, // PtrMemI
-    HLBinaryOpcode::Mul,
-    HLBinaryOpcode::Div,
-    HLBinaryOpcode::Rem,
-    HLBinaryOpcode::Add,
-    HLBinaryOpcode::Sub,
-    HLBinaryOpcode::Shl,
-    HLBinaryOpcode::Shr,
-    HLBinaryOpcode::LT,
-    HLBinaryOpcode::GT,
-    HLBinaryOpcode::LE,
-    HLBinaryOpcode::GE,
-    HLBinaryOpcode::EQ,
-    HLBinaryOpcode::NE,
-    HLBinaryOpcode::And,
-    HLBinaryOpcode::Xor,
-    HLBinaryOpcode::Or,
-    HLBinaryOpcode::LAnd,
-    HLBinaryOpcode::LOr,
+    HLBinaryOpcode::Mul, HLBinaryOpcode::Div, HLBinaryOpcode::Rem,
+    HLBinaryOpcode::Add, HLBinaryOpcode::Sub, HLBinaryOpcode::Shl,
+    HLBinaryOpcode::Shr, HLBinaryOpcode::LT, HLBinaryOpcode::GT,
+    HLBinaryOpcode::LE, HLBinaryOpcode::GE, HLBinaryOpcode::EQ,
+    HLBinaryOpcode::NE, HLBinaryOpcode::And, HLBinaryOpcode::Xor,
+    HLBinaryOpcode::Or, HLBinaryOpcode::LAnd, HLBinaryOpcode::LOr,
     HLBinaryOpcode::Invalid, // Assign,
     // The assign part is done by matrix store
     HLBinaryOpcode::Mul,     // MulAssign
