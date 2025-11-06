@@ -413,14 +413,13 @@ unsigned DxilModule::GetNumThreads(unsigned idx) const {
 }
 
 unsigned DxilModule::GetGroupSharedLimit() const {
-    DXASSERT(m_DxilEntryPropsMap.size() == 1 &&
-                 (m_pSM->IsCS() || m_pSM->IsMS() || m_pSM->IsAS()),
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 &&
+               (m_pSM->IsCS() || m_pSM->IsMS() || m_pSM->IsAS()),
            "only works for CS/MS/AS profiles");
   const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
   DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
   return props.groupSharedLimitBytes;
- }
-
+}
 
 DxilWaveSize &DxilModule::GetWaveSize() {
   return const_cast<DxilWaveSize &>(
