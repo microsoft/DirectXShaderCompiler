@@ -771,9 +771,11 @@ DEFAULT_OP_1(OpType::Initialize, (A));
 template <typename T>
 struct Op<OpType::ArrayOperator_SingleAccess, T, 1> : DefaultValidation<T> {};
 
-template <typename T> struct ExpectedBuilder<OpType::ArrayOperator_SingleAccess, T> {
-  static std::vector<T> buildExpected(Op<OpType::ArrayOperator_SingleAccess, T, 1>,
-                                      const InputSets<T> &Inputs) {
+template <typename T>
+struct ExpectedBuilder<OpType::ArrayOperator_SingleAccess, T> {
+  static std::vector<T>
+  buildExpected(Op<OpType::ArrayOperator_SingleAccess, T, 1>,
+                const InputSets<T> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 1);
     const size_t VectorSize = Inputs[0].size();
     std::vector<T> Expected = Inputs[0];
