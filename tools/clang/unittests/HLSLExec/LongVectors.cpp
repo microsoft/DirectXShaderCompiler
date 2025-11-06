@@ -569,6 +569,23 @@ void runAndVerify(ID3D12Device *D3DDevice, bool VerboseLogging,
                                 ValidationConfig.Type, VerboseLogging));
 }
 
+template <typename IN_TYPE, typename OUT_TYPE>
+static std::vector<OUT_TYPE> TransformVector_1(
+    const InputSets<IN_TYPE> &Inputs,
+    function<OUT_TYPE(const IN_TYPE &, OUT_TYPE &)> TransformFunc) {
+  DXASSERT_NOMSG(Inputs.size() == 1);
+  const size_t VectorSize = Inputs[0].size();
+  std::vector<OUT_TYPE> Expected;
+  Expected.resize(VectorSize * 2);
+  for (size_t I = 0; I < VectorSize; ++I) {
+    OUT_TYPE Param;
+    OUT_TYPE Result = TransformFunc(Inputs[0][I], Param);
+    Expected[I] = Result;
+    Expected[I + VectorSize] = Param;
+  }
+  return Expected;
+}
+
 //
 // Op definitions.  The main goal of this is to specify the validation
 // configuration and how to build the Expected results for a given Op.
@@ -628,18 +645,11 @@ struct StrictValidation {
 #define DEFAULT_OP_2(OP, IMPL) OP_2(OP, DefaultValidation<T>, IMPL)
 #define DEFAULT_OP_3(OP, IMPL) OP_3(OP, DefaultValidation<T>, IMPL)
 
-#define OP_WITH_OUT_PARAM_1(OP, TYPE, IMPL)                                    \
+#define OP_WITH_OUT_PARAM_1(OP, TYPE, FUNC)                                    \
   template <> struct ExpectedBuilder<OP, TYPE> {                               \
     static std::vector<TYPE> buildExpected(Op<OP, TYPE, 1>,                    \
                                            const InputSets<TYPE> &Inputs) {    \
-      DXASSERT_NOMSG(Inputs.size() == 1);                                      \
-      const size_t VectorSize = Inputs[0].size();                              \
-      std::vector<TYPE> Expected;                                              \
-      Expected.resize(VectorSize * 2);                                         \
-      for (size_t I = 0; I < VectorSize; ++I) {                                \
-        IMPL                                                                   \
-      }                                                                        \
-      return Expected;                                                         \
+      return TransformVector_1<TYPE, TYPE>(Inputs, FUNC);                      \
     }                                                                          \
   };
 
@@ -1030,21 +1040,15 @@ DEFAULT_OP_1(OpType::Log2, (std::log2(A)));
 // with special logic. Frexp is only supported for fp32 values.
 template <> struct Op<OpType::Frexp, float, 1> : DefaultValidation<float> {};
 
-OP_WITH_OUT_PARAM_1(OpType::Frexp, float, {
+float TransformFRexp(const float &Input, float &OutParam) {
   int Exp = 0;
-  float Man = std::frexp(Inputs[0][I], &Exp);
-
-  // std::frexp returns a signed mantissa. But the HLSL implmentation
-  // returns an unsigned mantissa.
+  float Man = std::frexp(Input, &Exp);
   Man = std::abs(Man);
+  OutParam = static_cast<float>(Exp);
+  return Man;
+}
 
-  Expected[I] = Man;
-
-  // std::frexp returns the exponent as an int, but HLSL stores it as a
-  // float. However, the HLSL exponents fractional component is always 0.
-  // So it can conversion between float and int is safe.
-  Expected[I + VectorSize] = static_cast<float>(Exp);
-});
+OP_WITH_OUT_PARAM_1(OpType::Frexp, float, TransformFRexp);
 
 //
 // Binary Comparison
@@ -1233,20 +1237,22 @@ FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
 
 template <typename T> struct Op<OpType::ModF, T, 1> : DefaultValidation<T> {};
 
-OP_WITH_OUT_PARAM_1(OpType::ModF, float, {
-  float Exp = 0.0f;
-  float Man = std::modf(Inputs[0][I], &Exp);
-  Expected[I] = Man;
-  Expected[I + VectorSize] = Exp;
-});
+template <typename T> T TransformModF(const T &Input, T &OutParam);
 
-OP_WITH_OUT_PARAM_1(OpType::ModF, HLSLHalf_t, {
+template <> float TransformModF(const float &Input, float &OutParam) {
+  return std::modf(Input, &OutParam);
+}
+
+template <>
+HLSLHalf_t TransformModF(const HLSLHalf_t &Input, HLSLHalf_t &OutParam) {
   float Exp = 0.0f;
-  float Inp = float(Inputs[0][I]);
-  float Man = std::modf(Inp, &Exp);
-  Expected[I] = HLSLHalf_t(Man);
-  Expected[I + VectorSize] = HLSLHalf_t(Exp);
-});
+  float Man = std::modf(float(Input), &Exp);
+  OutParam = HLSLHalf_t(Exp);
+  return Man;
+}
+
+OP_WITH_OUT_PARAM_1(OpType::ModF, float, TransformModF<float>);
+OP_WITH_OUT_PARAM_1(OpType::ModF, HLSLHalf_t, TransformModF<HLSLHalf_t>);
 
 //
 // dispatchTest
