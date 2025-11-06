@@ -4111,18 +4111,6 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-        #ifdef FUNC_WAVE_ACTIVE_BIT_AND
-        vector<OUT_TYPE, NUM> TestWaveActiveBitAnd(vector<TYPE, NUM> Vector)
-        {
-          uint LaneIndex = WaveGetLaneIndex();
-          if(LaneIndex == (WaveGetLaneCount() - 1))
-          {
-            Vector = LaneIndex;
-          }
-          return WaveActiveBitAnd(Vector);
-        }
-        #endif
-
         #ifdef FUNC_TEST_SELECT
         vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,
                                          vector<TYPE, NUM> Vector2,
