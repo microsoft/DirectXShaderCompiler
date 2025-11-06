@@ -61,8 +61,8 @@ OP(Bitwise, FirstBitLow, 1, "firstbitlow", "", "", "LongVectorOp", Bitwise, Defa
 
 OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
                    " -DFUNC_INITIALIZE=1")
-OP_DEFAULT_DEFINES(Unary, ArrayOperator, 1, "TestArrayOperator", "",
-                   " -DFUNC_ARRAY_OPERATOR=1")
+OP_DEFAULT_DEFINES(Unary, ArrayOperator_SingleAccess, 1, "TestArrayOperatorSingleAccess", "",
+                   " -DFUNC_ARRAY_OPERATOR_SINGLE_ACCESS=1")
 
 
 #define OP_CAST_DEFAULT(GROUP, SYMBOL)                                         \

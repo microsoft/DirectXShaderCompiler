@@ -3985,7 +3985,7 @@ void MSMain(uint GID : SV_GroupIndex,
     <Resource Name="InputVector1" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <Resource Name="InputVector2" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <Resource Name="InputVector3" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
-    <Resource Name="OutputVector" Dimension="BUFFER" Width="8192"
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="16384"
     Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
     TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <RootValues>
@@ -4129,15 +4129,11 @@ void MSMain(uint GID : SV_GroupIndex,
             const uint32_t OutNum = NUM;
           #endif
 
-          #if FUNC_ARRAY_OPERATOR
-            vector<TYPE, OutNum> OutputVector;
-            vector<TYPE, OutNum> ReadVector;
-            for(uint i = 0; i < NUM; i++)
-            {
-              OutputVector[i] = Input1[i];
-              ReadVector[i] = OutputVector[i];
-            }
-            g_OutputVector.Store< vector<TYPE, OutNum> >(sizeof(TYPE) * OutNum, ReadVector);
+          #if FUNC_ARRAY_OPERATOR_SINGLE_ACCESS
+            vector<OUT_TYPE, OutNum> OutputVector = g_InputVector1.Load< vector<TYPE,
+            NUM> >(0);
+            OutputVector[0] = Input1[OutNum - 1];
+            OutputVector[OutNum - 1] = OutputVector[0];
           #elif IS_UNARY_OP
             vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP
