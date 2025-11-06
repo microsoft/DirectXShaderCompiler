@@ -1414,7 +1414,12 @@ using namespace LongVector;
   TEST_METHOD(Op##_##DataType) { runTest<DataType, OpType::Op>(); }
 
 #define HLK_WAVEOP_TEST(Op, DataType)                                          \
-  TEST_METHOD(Op##_##DataType) { runWaveOpTest<DataType, OpType::Op>(); }
+  TEST_METHOD(Op##_##DataType) {                                               \
+    BEGIN_TEST_METHOD_PROPERTIES()                                             \
+    TEST_METHOD_PROPERTY(L"Priority", L"2")                                    \
+    END_TEST_METHOD_PROPERTIES()                                               \
+    runWaveOpTest<DataType, OpType::Op>();                                     \
+  }
 
 class DxilConf_SM69_Vectorized {
 public:
