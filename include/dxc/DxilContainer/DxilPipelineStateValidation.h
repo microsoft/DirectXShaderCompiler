@@ -1148,7 +1148,7 @@ void SetupPSVInitInfo(PSVInitInfo &InitInfo, const DxilModule &DM);
 void SetShaderProps(PSVRuntimeInfo0 *pInfo, const DxilModule &DM);
 void SetShaderProps(PSVRuntimeInfo1 *pInfo1, const DxilModule &DM);
 void SetShaderProps(PSVRuntimeInfo2 *pInfo2, const DxilModule &DM);
-void SetShaderProps(PSVRuntimeInfo4 *Info4, const DxilModule &DM);
+void SetShaderProps(PSVRuntimeInfo4 *pInfo4, const DxilModule &DM);
 
 void PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
                          PSVRuntimeInfo1 *pInfo1, PSVRuntimeInfo2 *pInfo2,
