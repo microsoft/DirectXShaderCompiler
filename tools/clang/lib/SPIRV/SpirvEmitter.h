@@ -639,11 +639,17 @@ private:
   /// Processes the 'isFinite' intrinsic function.
   SpirvInstruction *processIntrinsicIsFinite(const CallExpr *);
 
+  /// Processes the 'isNormal' intrinsic function.
+  SpirvInstruction *processIntrinsicIsNormal(const CallExpr *);
+
   /// Processes the 'rcp' intrinsic function.
   SpirvInstruction *processIntrinsicRcp(const CallExpr *);
 
   /// Processes the 'ReadClock' intrinsic function.
   SpirvInstruction *processIntrinsicReadClock(const CallExpr *);
+
+  /// Processes the 'sign' intrinsic function for unsigned integer types.
+  SpirvInstruction *processIntrinsicSignUnsignedInt(const CallExpr *callExpr);
 
   /// Processes the 'sign' intrinsic function for float types.
   /// The FSign instruction in the GLSL instruction set returns a floating point
@@ -845,6 +851,18 @@ private:
                                                SpirvInstruction *arg,
                                                SourceLocation loc,
                                                SourceRange range);
+
+  // Processes the `reversebits` intrinsic
+  SpirvInstruction *processReverseBitsIntrinsic(const CallExpr *expr,
+                                                clang::SourceLocation srcLoc);
+
+  // Processes the `reversebits` intrinsic for 16-bit integer types
+  SpirvInstruction *generate16BitReverse(const CallExpr *expr,
+                                         clang::SourceLocation srcLoc);
+
+  // Processes the `reversebits` intrinsic for 64-bit integer types
+  SpirvInstruction *generate64BitReverse(const CallExpr *expr,
+                                         clang::SourceLocation srcLoc);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.

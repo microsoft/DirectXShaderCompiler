@@ -29,6 +29,7 @@
 #include "dxc/Test/HLSLTestData.h"
 #include "dxc/Test/HlslTestUtils.h"
 
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/D3DReflection.h"
 #include "dxc/Support/Global.h"
@@ -59,7 +60,7 @@ FileRunCommandPart::FileRunCommandPart(const std::string &command,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunHashTests(dxc::DxcDllSupport &DllSupport) {
+FileRunCommandPart::RunHashTests(dxc::DllLoader &DllSupport) {
   if (0 == _stricmp(Command.c_str(), "%dxc")) {
     return RunDxcHashTest(DllSupport);
   } else {
@@ -68,7 +69,7 @@ FileRunCommandPart::RunHashTests(dxc::DxcDllSupport &DllSupport) {
 }
 
 FileRunCommandResult
-FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport,
+FileRunCommandPart::Run(dxc::DllLoader &DllSupport,
                         const FileRunCommandResult *Prior,
                         PluginToolsPaths *pPluginToolsPaths /*=nullptr*/,
                         LPCWSTR dumpName /*=nullptr*/) {
@@ -302,7 +303,7 @@ static void AddOutputsToFileMap(IUnknown *pUnkResult, FileMap *pVFS) {
 
 static HRESULT CompileForHash(hlsl::options::DxcOpts &opts,
                               LPCWSTR CommandFileName,
-                              dxc::DxcDllSupport &DllSupport,
+                              dxc::DllLoader &DllSupport,
                               std::vector<LPCWSTR> &flags,
                               IDxcBlob **ppHashBlob, std::string &output) {
   CComPtr<IDxcLibrary> pLibrary;
@@ -375,7 +376,7 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllSupport) {
+FileRunCommandPart::RunDxcHashTest(dxc::DllLoader &DllSupport) {
   hlsl::options::MainArgs args;
   hlsl::options::DxcOpts opts;
   ReadOptsForDxc(args, opts);
@@ -453,7 +454,7 @@ FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllSupport) {
   return FileRunCommandResult::Success();
 }
 
-static FileRunCommandResult CheckDxilVer(dxc::DxcDllSupport &DllSupport,
+static FileRunCommandResult CheckDxilVer(dxc::DllLoader &DllSupport,
                                          unsigned RequiredDxilMajor,
                                          unsigned RequiredDxilMinor,
                                          bool bCheckValidator = true) {
@@ -487,7 +488,7 @@ static FileRunCommandResult CheckDxilVer(dxc::DxcDllSupport &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport,
+FileRunCommandPart::RunDxc(dxc::DllLoader &DllSupport,
                            const FileRunCommandResult *Prior) {
   // Support piping stdin from prior if needed.
   UNREFERENCED_PARAMETER(Prior);
@@ -512,8 +513,9 @@ FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport,
   {
     unsigned RequiredDxilMajor = 1, RequiredDxilMinor = 0;
     llvm::StringRef stage;
-    IFTBOOL(ParseTargetProfile(opts.TargetProfile, stage, RequiredDxilMajor,
-                               RequiredDxilMinor),
+    IFTBOOL(hlsl::ShaderModel::ParseTargetProfile(opts.TargetProfile, stage,
+                                                  RequiredDxilMajor,
+                                                  RequiredDxilMinor),
             E_INVALIDARG);
     if (RequiredDxilMinor != 0xF && stage.compare("rootsig") != 0) {
       // Convert stage to minimum dxil/validator version:
@@ -597,7 +599,7 @@ FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunDxv(dxc::DxcDllSupport &DllSupport,
+FileRunCommandPart::RunDxv(dxc::DllLoader &DllSupport,
                            const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
   const char *inputPos = strstr(args.c_str(), "%s");
@@ -650,7 +652,7 @@ FileRunCommandPart::RunDxv(dxc::DxcDllSupport &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunOpt(dxc::DxcDllSupport &DllSupport,
+FileRunCommandPart::RunOpt(dxc::DllLoader &DllSupport,
                            const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
   const char *inputPos = strstr(args.c_str(), "%s");
@@ -701,7 +703,7 @@ FileRunCommandPart::RunOpt(dxc::DxcDllSupport &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunListParts(dxc::DxcDllSupport &DllSupport,
+FileRunCommandPart::RunListParts(dxc::DllLoader &DllSupport,
                                  const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
   const char *inputPos = strstr(args.c_str(), "%s");
@@ -769,7 +771,7 @@ FileRunCommandPart::RunListParts(dxc::DxcDllSupport &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSupport,
+FileRunCommandPart::RunD3DReflect(dxc::DllLoader &DllSupport,
                                   const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
   if (args != "%s")
@@ -865,7 +867,7 @@ FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunDxr(dxc::DxcDllSupport &DllSupport,
+FileRunCommandPart::RunDxr(dxc::DllLoader &DllSupport,
                            const FileRunCommandResult *Prior) {
   // Support piping stdin from prior if needed.
   UNREFERENCED_PARAMETER(Prior);
@@ -918,7 +920,7 @@ FileRunCommandPart::RunDxr(dxc::DxcDllSupport &DllSupport,
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunLink(dxc::DxcDllSupport &DllSupport,
+FileRunCommandPart::RunLink(dxc::DllLoader &DllSupport,
                             const FileRunCommandResult *Prior) {
   hlsl::options::MainArgs args;
   hlsl::options::DxcOpts opts;
@@ -939,8 +941,9 @@ FileRunCommandPart::RunLink(dxc::DxcDllSupport &DllSupport,
   {
     unsigned RequiredDxilMajor = 1, RequiredDxilMinor = 0;
     llvm::StringRef stage;
-    IFTBOOL(ParseTargetProfile(opts.TargetProfile, stage, RequiredDxilMajor,
-                               RequiredDxilMinor),
+    IFTBOOL(hlsl::ShaderModel::ParseTargetProfile(opts.TargetProfile, stage,
+                                                  RequiredDxilMajor,
+                                                  RequiredDxilMinor),
             E_INVALIDARG);
     if (RequiredDxilMinor != 0xF && stage.compare("rootsig") != 0) {
       // Convert stage to minimum dxil/validator version:
@@ -1153,7 +1156,7 @@ FileRunCommandPart::RunXFail(const FileRunCommandResult *Prior) {
 }
 
 FileRunCommandResult
-FileRunCommandPart::RunDxilVer(dxc::DxcDllSupport &DllSupport,
+FileRunCommandPart::RunDxilVer(dxc::DllLoader &DllSupport,
                                const FileRunCommandResult *Prior) {
   Arguments = strtrim(Arguments);
   if (Arguments.size() != 3 || !std::isdigit(Arguments[0]) ||
@@ -1258,7 +1261,8 @@ FileRunCommandPart::RunFromPath(const std::string &toolPath,
 #endif //_WIN32
 
 class FileRunTestResultImpl : public FileRunTestResult {
-  dxc::DxcDllSupport &m_support;
+  dxc::SpecificDllLoader &m_support;
+  dxc::DxcDllExtValidationLoader m_extval_support;
   PluginToolsPaths *m_pPluginToolsPaths;
   LPCWSTR m_dumpName = nullptr;
   // keep track of virtual files for duration of this test (for all RUN lines)
@@ -1332,7 +1336,7 @@ class FileRunTestResultImpl : public FileRunTestResult {
   }
 
 public:
-  FileRunTestResultImpl(dxc::DxcDllSupport &support,
+  FileRunTestResultImpl(dxc::SpecificDllLoader &support,
                         PluginToolsPaths *pPluginToolsPaths = nullptr,
                         LPCWSTR dumpName = nullptr)
       : m_support(support), m_pPluginToolsPaths(pPluginToolsPaths),
@@ -1371,7 +1375,7 @@ public:
 
 FileRunTestResult
 FileRunTestResult::RunHashTestFromFileCommands(LPCWSTR fileName) {
-  dxc::DxcDllSupport dllSupport;
+  dxc::DxCompilerDllLoader dllSupport;
   IFT(dllSupport.Initialize());
   FileRunTestResultImpl result(dllSupport);
   result.RunHashTestFromFileCommands(fileName);
@@ -1381,7 +1385,7 @@ FileRunTestResult::RunHashTestFromFileCommands(LPCWSTR fileName) {
 FileRunTestResult FileRunTestResult::RunFromFileCommands(
     LPCWSTR fileName, PluginToolsPaths *pPluginToolsPaths /*=nullptr*/,
     LPCWSTR dumpName /*=nullptr*/) {
-  dxc::DxcDllSupport dllSupport;
+  dxc::DxCompilerDllLoader dllSupport;
   IFT(dllSupport.Initialize());
   FileRunTestResultImpl result(dllSupport, pPluginToolsPaths, dumpName);
   result.RunFileCheckFromFileCommands(fileName);
@@ -1389,7 +1393,7 @@ FileRunTestResult FileRunTestResult::RunFromFileCommands(
 }
 
 FileRunTestResult FileRunTestResult::RunFromFileCommands(
-    LPCWSTR fileName, dxc::DxcDllSupport &dllSupport,
+    LPCWSTR fileName, dxc::SpecificDllLoader &dllSupport,
     PluginToolsPaths *pPluginToolsPaths /*=nullptr*/,
     LPCWSTR dumpName /*=nullptr*/) {
   FileRunTestResultImpl result(dllSupport, pPluginToolsPaths, dumpName);

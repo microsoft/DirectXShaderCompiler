@@ -164,6 +164,7 @@ enum class IntrinsicOp {
   IOP_isfinite = 152,
   IOP_isinf = 153,
   IOP_isnan = 154,
+  IOP_isnormal = 394,
   IOP_ldexp = 155,
   IOP_length = 156,
   IOP_lerp = 157,
@@ -400,7 +401,7 @@ enum class IntrinsicOp {
   IOP_usign = 355,
   MOP_InterlockedUMax = 356,
   MOP_InterlockedUMin = 357,
-  Num_Intrinsics = 394,
+  Num_Intrinsics = 395,
 };
 inline bool HasUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
   switch (opcode) {

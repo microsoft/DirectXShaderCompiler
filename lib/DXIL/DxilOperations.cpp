@@ -113,32 +113,32 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "isSpecialFloat",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::IsInf,
      "IsInf",
      OCC::IsSpecialFloat,
      "isSpecialFloat",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::IsFinite,
      "IsFinite",
      OCC::IsSpecialFloat,
      "isSpecialFloat",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::IsNormal,
      "IsNormal",
      OCC::IsSpecialFloat,
      "isSpecialFloat",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Cos,
      "Cos",
      OCC::Unary,
@@ -301,16 +301,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unaryBits",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
     {OC::FirstbitLo,
      "FirstbitLo",
      OCC::UnaryBits,
      "unaryBits",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
 
     // Unary uint
     {OC::FirstbitHi,
@@ -319,8 +319,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unaryBits",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
 
     // Unary int
     {OC::FirstbitSHi,
@@ -329,8 +329,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unaryBits",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
 
     // Binary float
     {OC::FMax,
@@ -477,16 +477,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0xc0}},
-     {{0x0}}}, // Overloads: il
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
     {OC::Ibfe,
      "Ibfe",
      OCC::Tertiary,
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0xc0}},
-     {{0x0}}}, // Overloads: il
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
 
     // Tertiary uint
     {OC::Ubfe,
@@ -495,8 +495,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0xc0}},
-     {{0x0}}}, // Overloads: il
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
 
     // Quaternary
     {OC::Bfi,
@@ -765,32 +765,32 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::DerivCoarseY,
      "DerivCoarseY",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::DerivFineX,
      "DerivFineX",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::DerivFineY,
      "DerivFineY",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
 
     // Pixel shader
     {OC::EvalSnapped,
@@ -1041,8 +1041,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "waveActiveAllEqual",
      Attribute::None,
      1,
-     {{0xff}},
-     {{0x0}}}, // Overloads: hfd18wil
+     {{0x4ff}},
+     {{0xff}}}, // Overloads: hfd18wil<hfd18wil
     {OC::WaveActiveBallot,
      "WaveActiveBallot",
      OCC::WaveActiveBallot,
@@ -1057,40 +1057,40 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "waveReadLaneAt",
      Attribute::None,
      1,
-     {{0xff}},
-     {{0x0}}}, // Overloads: hfd18wil
+     {{0x4ff}},
+     {{0xff}}}, // Overloads: hfd18wil<hfd18wil
     {OC::WaveReadLaneFirst,
      "WaveReadLaneFirst",
      OCC::WaveReadLaneFirst,
      "waveReadLaneFirst",
      Attribute::None,
      1,
-     {{0xff}},
-     {{0x0}}}, // Overloads: hfd18wil
+     {{0x4ff}},
+     {{0xff}}}, // Overloads: hfd18wil<hfd18wil
     {OC::WaveActiveOp,
      "WaveActiveOp",
      OCC::WaveActiveOp,
      "waveActiveOp",
      Attribute::None,
      1,
-     {{0xff}},
-     {{0x0}}}, // Overloads: hfd18wil
+     {{0x4ff}},
+     {{0xff}}}, // Overloads: hfd18wil<hfd18wil
     {OC::WaveActiveBit,
      "WaveActiveBit",
      OCC::WaveActiveBit,
      "waveActiveBit",
      Attribute::None,
      1,
-     {{0xf0}},
-     {{0x0}}}, // Overloads: 8wil
+     {{0x4f0}},
+     {{0xf0}}}, // Overloads: 8wil<8wil
     {OC::WavePrefixOp,
      "WavePrefixOp",
      OCC::WavePrefixOp,
      "wavePrefixOp",
      Attribute::None,
      1,
-     {{0xf7}},
-     {{0x0}}}, // Overloads: hfd8wil
+     {{0x4f7}},
+     {{0xf7}}}, // Overloads: hfd8wil<hfd8wil
 
     // Quad Wave Ops
     {OC::QuadReadLaneAt,
@@ -1099,16 +1099,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "quadReadLaneAt",
      Attribute::None,
      1,
-     {{0xff}},
-     {{0x0}}}, // Overloads: hfd18wil
+     {{0x4ff}},
+     {{0xff}}}, // Overloads: hfd18wil<hfd18wil
     {OC::QuadOp,
      "QuadOp",
      OCC::QuadOp,
      "quadOp",
      Attribute::None,
      1,
-     {{0xf7}},
-     {{0x0}}}, // Overloads: hfd8wil
+     {{0x4f7}},
+     {{0xf7}}}, // Overloads: hfd8wil<hfd8wil
 
     // Bitcasts with different sizes
     {OC::BitcastI16toF16,
@@ -1485,16 +1485,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "waveMatch",
      Attribute::None,
      1,
-     {{0xf7}},
-     {{0x0}}}, // Overloads: hfd8wil
+     {{0x4f7}},
+     {{0xf7}}}, // Overloads: hfd8wil<hfd8wil
     {OC::WaveMultiPrefixOp,
      "WaveMultiPrefixOp",
      OCC::WaveMultiPrefixOp,
      "waveMultiPrefixOp",
      Attribute::None,
      1,
-     {{0xf7}},
-     {{0x0}}}, // Overloads: hfd8wil
+     {{0x4f7}},
+     {{0xf7}}}, // Overloads: hfd8wil<hfd8wil
     {OC::WaveMultiPrefixBitCount,
      "WaveMultiPrefixBitCount",
      OCC::WaveMultiPrefixBitCount,
@@ -2686,6 +2686,34 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      1,
      {{0x400}},
      {{0x63}}}, // Overloads: <hfwi
+
+    // Vector reduce to scalar
+    {OC::VectorReduceAnd,
+     "VectorReduceAnd",
+     OCC::VectorReduce,
+     "vectorReduce",
+     Attribute::ReadNone,
+     1,
+     {{0x400}},
+     {{0xf8}}}, // Overloads: <18wil
+    {OC::VectorReduceOr,
+     "VectorReduceOr",
+     OCC::VectorReduce,
+     "vectorReduce",
+     Attribute::ReadNone,
+     1,
+     {{0x400}},
+     {{0xf8}}}, // Overloads: <18wil
+
+    // Dot
+    {OC::FDot,
+     "FDot",
+     OCC::Dot,
+     "dot",
+     Attribute::ReadNone,
+     1,
+     {{0x400}},
+     {{0x3}}}, // Overloads: <hf
 };
 // OPCODE-OLOADS:END
 
@@ -3474,9 +3502,8 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: AllocateRayQuery2=258, RawBufferVectorLoad=303,
-  // RawBufferVectorStore=304, MatVecMul=305, MatVecMulAdd=306,
-  // OuterProductAccumulate=307, VectorAccumulate=308
-  if (op == 258 || (303 <= op && op <= 308)) {
+  // RawBufferVectorStore=304
+  if (op == 258 || (303 <= op && op <= 304)) {
     major = 6;
     minor = 9;
     return;
@@ -3506,6 +3533,13 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     minor = 9;
     mask =
         SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(ClosestHit) | SFLAG(Miss);
+    return;
+  }
+  // Instructions: MatVecMul=305, MatVecMulAdd=306, OuterProductAccumulate=307,
+  // VectorAccumulate=308
+  if ((305 <= op && op <= 308)) {
+    major = 6;
+    minor = 10;
     return;
   }
   // OPCODE-SMMASK:END
@@ -3787,9 +3821,19 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *pPos = GetSamplePosType();
   Type *pV = Type::getVoidTy(m_Ctx);
   Type *pI1 = Type::getInt1Ty(m_Ctx);
+  Type *pOlTplI1 = Type::getInt1Ty(m_Ctx);
   Type *pI8 = Type::getInt8Ty(m_Ctx);
   Type *pI16 = Type::getInt16Ty(m_Ctx);
   Type *pI32 = Type::getInt32Ty(m_Ctx);
+  Type *pOlTplI32 = Type::getInt32Ty(m_Ctx);
+  Type *pVecElt = nullptr;
+  if (pOverloadType->isVectorTy()) {
+    pOlTplI32 =
+        VectorType::get(pOlTplI32, pOverloadType->getVectorNumElements());
+    pOlTplI1 = VectorType::get(pOlTplI1, pOverloadType->getVectorNumElements());
+    pVecElt = pOverloadType->getVectorElementType();
+  }
+
   Type *pPI32 = Type::getInt32PtrTy(m_Ctx);
   (void)(pPI32); // Currently unused.
   Type *pI64 = Type::getInt64Ty(m_Ctx);
@@ -3878,22 +3922,22 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     break;
   case OpCode::IsNaN:
-    A(pI1);
+    A(pOlTplI1);
     A(pI32);
     A(pETy);
     break;
   case OpCode::IsInf:
-    A(pI1);
+    A(pOlTplI1);
     A(pI32);
     A(pETy);
     break;
   case OpCode::IsFinite:
-    A(pI1);
+    A(pOlTplI1);
     A(pI32);
     A(pETy);
     break;
   case OpCode::IsNormal:
-    A(pI1);
+    A(pOlTplI1);
     A(pI32);
     A(pETy);
     break;
@@ -3997,26 +4041,26 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     break;
   case OpCode::Countbits:
-    A(pI32);
+    A(pOlTplI32);
     A(pI32);
     A(pETy);
     break;
   case OpCode::FirstbitLo:
-    A(pI32);
+    A(pOlTplI32);
     A(pI32);
     A(pETy);
     break;
 
     // Unary uint
   case OpCode::FirstbitHi:
-    A(pI32);
+    A(pOlTplI32);
     A(pI32);
     A(pETy);
     break;
 
     // Unary int
   case OpCode::FirstbitSHi:
-    A(pI32);
+    A(pOlTplI32);
     A(pI32);
     A(pETy);
     break;
@@ -4661,7 +4705,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI1);
     break;
   case OpCode::WaveActiveAllEqual:
-    A(pI1);
+    A(pOlTplI1);
     A(pI32);
     A(pETy);
     break;
@@ -5397,7 +5441,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Quad Wave Ops
   case OpCode::QuadVote:
-    A(pI1);
+    A(pOlTplI1);
     A(pI32);
     A(pI1);
     A(pI8);
@@ -5980,6 +6024,26 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pRes);
     A(pI32);
     break;
+
+    // Vector reduce to scalar
+  case OpCode::VectorReduceAnd:
+    A(pVecElt);
+    A(pI32);
+    A(pETy);
+    break;
+  case OpCode::VectorReduceOr:
+    A(pVecElt);
+    A(pI32);
+    A(pETy);
+    break;
+
+    // Dot
+  case OpCode::FDot:
+    A(pVecElt);
+    A(pI32);
+    A(pETy);
+    A(pETy);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -6152,6 +6216,9 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::CreateHandleForLib:
   case OpCode::WaveMatch:
   case OpCode::VectorAccumulate:
+  case OpCode::VectorReduceAnd:
+  case OpCode::VectorReduceOr:
+  case OpCode::FDot:
     if (FT->getNumParams() <= 1)
       return nullptr;
     return FT->getParamType(1);

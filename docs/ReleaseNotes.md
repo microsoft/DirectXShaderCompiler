@@ -19,9 +19,10 @@ The included licenses apply to the following files:
 
 ### Upcoming Release
 
-- Fix regression: [#7510](https://github.com/microsoft/DirectXShaderCompiler/issues/7510) crash when calling `sizeof` on templated type.
-- Fix regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
+- Fixed regression: [#7510](https://github.com/microsoft/DirectXShaderCompiler/issues/7510) crash when calling `sizeof` on templated type.
+- Fixed regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
 - Header file `dxcpix.h` was added to the release package.
+- Moved Linear Algebra (Cooperative Vector) DXIL Opcodes to experimental Shader Model 6.10
 
 ### Version 1.8.2505
 

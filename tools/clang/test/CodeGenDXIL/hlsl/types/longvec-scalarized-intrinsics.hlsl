@@ -1,7 +1,11 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T lib_6_9 %s | FileCheck %s
 
 // Long vector tests for vec ops that scalarize to something more complex
 //  than a simple repetition of the same dx.op calls.
+// This is a temporary measure to verify that intrinsics are not lowered
+//  to native vectors in SM6.9 unintentionally.
+// Ultimately, this file will be deleted when all are correctly lowered.
 
 // CHECK-LABEL: test_atan2
 // CHECK: fdiv fast <8 x float>
@@ -60,56 +64,4 @@ export void test_pow(inout vector<float, 8> vec1, vector<float, 8> vec2) {
 // CHECK: fsub fast <8 x float>
 export void test_modf(inout vector<float, 8> vec1, vector<float, 8> vec2) {
   vec1 = modf(vec1, vec2);
-}
-
-// CHECK-LABEL: test_dot
-// CHECK: [[el:%.*]] = extractelement <8 x float>
-// CHECK: [[mul:%.*]] = fmul fast float [[el]]
-// CHECK: [[ping:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[mul]]) ; FMad(a,b,c)
-// CHECK: [[pong:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[ping]]) ; FMad(a,b,c)
-// CHECK: [[ping:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[pong]]) ; FMad(a,b,c)
-// CHECK: [[pong:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[ping]]) ; FMad(a,b,c)
-// CHECK: [[ping:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[pong]]) ; FMad(a,b,c)
-// CHECK: [[pong:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[ping]]) ; FMad(a,b,c)
-// CHECK: [[ping:%.*]] = call float @dx.op.tertiary.f32(i32 46, float %{{.*}}, float %{{.*}}, float [[pong]]) ; FMad(a,b,c)
-export void test_dot(inout vector<float, 8> vec1, vector<float, 8> vec2) {
-  vec1 = dot(vec1, vec2);
-}
-
-// CHECK-LABEL: test_any
-// CHECK: or i1
-// CHECK: or i1
-// CHECK: or i1
-// CHECK: or i1
-// CHECK: or i1
-// CHECK: or i1
-// CHECK: or i1
-export void test_any(vector<float, 8> vec1, inout vector<bool, 8> bvec) {
-  bvec &= any(vec1);
-}
-
-// CHECK-LABEL: test_all
-// CHECK: and i1
-// CHECK: and i1
-// CHECK: and i1
-// CHECK: and i1
-// CHECK: and i1
-// CHECK: and i1
-// CHECK: and i1
-export void test_all(vector<float, 8> vec1, inout vector<bool, 8> bvec) {
-  bvec &= all(vec1);
-}
-
-// CHECK-LABEL: test_WaveMatch
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-// call {{.*}} @dx.op.wave
-export uint4 test_WaveMatch(vector<bool, 8> bvec) {
-  return WaveMatch(bvec);
 }

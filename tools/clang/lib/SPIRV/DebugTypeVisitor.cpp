@@ -62,7 +62,7 @@ SpirvDebugTypeComposite *DebugTypeVisitor::createDebugTypeComposite(
     } else {
       auto *dbgSrc = spvBuilder.createDebugSource(file);
       setDefaultDebugInfo(dbgSrc);
-      auto dbgCompUnit = spvBuilder.createDebugCompilationUnit(dbgSrc);
+      auto dbgCompUnit = spvBuilder.getModule()->getDebugCompilationUnit();
       setDefaultDebugInfo(dbgCompUnit);
       debugInfo =
           &debugInfoMap.insert({file, RichDebugInfo(dbgSrc, dbgCompUnit)})
@@ -323,6 +323,7 @@ SpirvDebugType *DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
   }
   case SpirvType::TK_Image:
   case SpirvType::TK_Sampler:
+  case SpirvType::TK_RayQueryKHR:
   case SpirvType::TK_Struct: {
     debugType = lowerToDebugTypeComposite(spirvType);
     break;

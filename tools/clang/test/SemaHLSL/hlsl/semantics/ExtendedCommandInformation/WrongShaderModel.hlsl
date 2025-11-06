@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-7
 // TODO: use -verify instead of FileCheck after fix https://github.com/microsoft/DirectXShaderCompiler/issues/5768
 // RUN: not %dxc -E main -T vs_6_7 %s 2>&1 | FileCheck %s --check-prefix=SM67
 
