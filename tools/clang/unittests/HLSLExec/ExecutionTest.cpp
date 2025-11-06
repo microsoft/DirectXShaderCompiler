@@ -464,6 +464,7 @@ public:
 
   dxc::DxCompilerDllLoader m_support;
 
+  std::optional<D3D12SDK> D3D12SDK;
   bool m_D3DInitCompleted = false;
   bool m_ExperimentalModeEnabled = false;
   bool m_AgilitySDKEnabled = false;
@@ -475,44 +476,19 @@ public:
     if (!m_D3DInitCompleted) {
       m_D3DInitCompleted = true;
 
-      HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
-      if (hRuntime == NULL)
+      D3D12SDK = D3D12SDK::create();
+      if (!D3D12SDK)
         return false;
-      // Do not: FreeLibrary(hRuntime);
-      // If we actually free the library, it defeats the purpose of
-      // enableAgilitySDK and enableExperimentalMode.
-
-      HRESULT hr;
-      hr = enableAgilitySDK(hRuntime);
-      if (FAILED(hr)) {
-        LogCommentFmt(L"Unable to enable Agility SDK - 0x%08x.", hr);
-      } else if (hr == S_FALSE) {
-        LogCommentFmt(L"Agility SDK not enabled.");
-      } else {
-        LogCommentFmt(L"Agility SDK enabled.");
-      }
-
-      hr = enableExperimentalMode(hRuntime);
-      if (FAILED(hr)) {
-        LogCommentFmt(L"Unable to enable shader experimental mode - 0x%08x.",
-                      hr);
-      } else if (hr == S_FALSE) {
-        LogCommentFmt(L"Experimental mode not enabled.");
-      } else {
-        LogCommentFmt(L"Experimental mode enabled.");
-      }
-
-      hr = enableDebugLayer();
-      if (FAILED(hr)) {
-        LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", hr);
-      } else if (hr == S_FALSE) {
-        LogCommentFmt(L"Debug layer not enabled.");
-      } else {
-        LogCommentFmt(L"Debug layer enabled.");
-      }
     }
 
     return true;
+  }
+
+  bool createDevice(ID3D12Device **D3DDevice,
+                    ExecTestUtils::D3D_SHADER_MODEL TestModel =
+                        ExecTestUtils::D3D_SHADER_MODEL_6_0,
+                    bool SkipUnsupported = true) {
+    return D3D12SDK->createDevice(D3DDevice, TestModel, SkipUnsupported);
   }
 
   std::wstring DxcBlobToWide(IDxcBlob *pBlob) {
@@ -12527,7 +12503,9 @@ static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
 // It's exclusive with the use of the DLL as a TAEF target.
 extern "C" {
 __declspec(dllexport) HRESULT WINAPI
-    InitializeOpTests(void *pStrCtx, st::OutputStringFn pOutputStrFn) {
+InitializeOpTests([[maybe_unused]] void *pStrCtx,
+                  [[maybe_unused]] st::OutputStringFn pOutputStrFn) {
+#ifdef _FORCE_EXPERIMENTAL_SHADERS
   HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
 
   if (Runtime == NULL)
@@ -12538,13 +12516,14 @@ __declspec(dllexport) HRESULT WINAPI
   if (FAILED(hr)) {
     pOutputStrFn(pStrCtx, L"Unable to enable experimental shader models.\r\n.");
   }
+#endif
   return S_OK;
 }
 
 __declspec(dllexport) HRESULT WINAPI
-    RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
-              ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
-              ID3D12Resource *pRenderTarget, char **pReadBackDump) {
+RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
+          ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
+          ID3D12Resource *pRenderTarget, char **pReadBackDump) {
 
   HRESULT hr;
   if (pReadBackDump)

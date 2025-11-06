@@ -1512,37 +1512,9 @@ public:
     if (!Initialized) {
       Initialized = true;
 
-      HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
-      if (Runtime == NULL)
+      D3D12SDK = D3D12SDK::create();
+      if (!D3D12SDK)
         return false;
-      // Do not: FreeLibrary(hRuntime);
-      // If we actually free the library, it defeats the purpose of
-      // enableAgilitySDK and enableExperimentalMode.
-
-      HRESULT HR;
-      HR = enableAgilitySDK(Runtime);
-
-      if (FAILED(HR))
-        hlsl_test::LogCommentFmt(L"Unable to enable Agility SDK - 0x%08x.", HR);
-      else if (HR == S_FALSE)
-        hlsl_test::LogCommentFmt(L"Agility SDK not enabled.");
-      else
-        hlsl_test::LogCommentFmt(L"Agility SDK enabled.");
-
-      HR = enableExperimentalMode(Runtime);
-      if (FAILED(HR))
-        hlsl_test::LogCommentFmt(
-            L"Unable to enable shader experimental mode - 0x%08x.", HR);
-      else if (HR == S_FALSE)
-        hlsl_test::LogCommentFmt(L"Experimental mode not enabled.");
-
-      HR = enableDebugLayer();
-      if (FAILED(HR))
-        hlsl_test::LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", HR);
-      else if (HR == S_FALSE)
-        hlsl_test::LogCommentFmt(L"Debug layer not enabled.");
-      else
-        hlsl_test::LogCommentFmt(L"Debug layer enabled.");
 
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
                                                          VerboseLogging);
@@ -1579,8 +1551,8 @@ public:
           L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
 
       const bool SkipUnsupported = !FailIfRequirementsNotMet;
-      createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9,
-                   SkipUnsupported);
+      D3D12SDK->createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9,
+                             SkipUnsupported);
     }
 
     return true;
@@ -2284,6 +2256,7 @@ public:
 
 private:
   bool Initialized = false;
+  std::optional<D3D12SDK> D3D12SDK;
   bool VerboseLogging = false;
   size_t OverrideInputSize = 0;
   UINT OverrideWaveLaneCount = 0;

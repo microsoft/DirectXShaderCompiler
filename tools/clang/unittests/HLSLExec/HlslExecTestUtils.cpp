@@ -8,6 +8,7 @@
 #include <atlcomcli.h>
 #include <d3d12.h>
 #include <dxgi1_4.h>
+#include <optional>
 
 static bool useDebugIfaces() { return true; }
 
@@ -319,6 +320,7 @@ enableExperimentalShaderModels(UUID AdditionalFeatures[] = nullptr,
 }
 
 HRESULT enableAgilitySDK(HMODULE Runtime) {
+
   // D3D12SDKVersion > 1 will use provided version, otherwise, auto-detect.
   // D3D12SDKVersion == 1 means fail if we can't auto-detect.
   UINT SDKVersion = 0;
@@ -390,17 +392,173 @@ HRESULT enableExperimentalMode(HMODULE Runtime) {
   return HR;
 }
 
-HRESULT enableDebugLayer() {
-  // The debug layer does net yet validate DXIL programs that require
-  // rewriting, but basic logging should work properly.
-  HRESULT HR = S_FALSE;
-  if (useDebugIfaces()) {
-    CComPtr<ID3D12Debug> DebugController;
-    HR = D3D12GetDebugInterface(IID_PPV_ARGS(&DebugController));
-    if (SUCCEEDED(HR)) {
-      DebugController->EnableDebugLayer();
-      HR = S_OK;
+static bool enableDebugLayer() {
+  using namespace hlsl_test;
+
+  CComPtr<ID3D12Debug> DebugController;
+  HRESULT HR;
+  if (FAILED(HR = D3D12GetDebugInterface(IID_PPV_ARGS(&DebugController)))) {
+    LogErrorFmt(L"Failed to get ID3D12Debug: 0x%08x", HR);
+    return false;
+  }
+
+  DebugController->EnableDebugLayer();
+  return true;
+}
+
+struct AgilitySDKConfiguration {
+  WEX::Common::String SDKPath;
+  UINT SDKVersion = 0;
+  bool MustFind = false;
+};
+
+static std::optional<AgilitySDKConfiguration> getAgilitySDKConfiguration() {
+  using hlsl_test::LogErrorFmt;
+  using WEX::TestExecution::RuntimeParameters;
+
+  AgilitySDKConfiguration C;
+
+  // For global configuration, D3D12SDKPath must be relative path from .exe,
+  // which means relative to TE.exe location, and must start with ".\\", such as
+  // with the default: ".\\D3D12\\".
+  //
+  // For ID3D12DeviceFactory-style configuration, D3D12SDKPath can be an
+  // absolute path.
+  if (SUCCEEDED(RuntimeParameters::TryGetValue(L"D3D12SDKPath", C.SDKPath))) {
+    // Make sure path ends in backslash
+    if (!C.SDKPath.IsEmpty() && C.SDKPath.Right(1) != "\\")
+      C.SDKPath.Append("\\");
+  }
+
+  if (C.SDKPath.IsEmpty())
+    C.SDKPath = L".\\D3D12\\";
+
+  // D3D12SDKVersion > 1 will use provided version, otherwise, auto-detect.
+  // D3D12SDKVersion == 1 means fail if we can't auto-detect.
+  RuntimeParameters::TryGetValue(L"D3D12SDKVersion", C.SDKVersion);
+
+  C.MustFind = C.SDKVersion >= 1;
+
+  if (C.SDKVersion <= 1) {
+    // Use the version supported by the SDK in the path.
+    C.SDKVersion = getD3D12SDKVersion(std::wstring(C.SDKPath));
+    if (C.SDKVersion == 0) {
+      if (C.MustFind) {
+        LogErrorFmt(L"Agility SDK not found in relative path: %s",
+                    static_cast<const wchar_t *>(C.SDKPath));
+        return std::nullopt;
+      }
+
+      // No AgilitySDK found, caller indicated that they just want to use the
+      // inbox D3D12 in this case.
+      return AgilitySDKConfiguration{};
     }
   }
-  return HR;
+
+  return C;
+}
+
+static bool enableGlobalAgilitySDK() {
+  using namespace hlsl_test;
+
+  std::optional<AgilitySDKConfiguration> C = getAgilitySDKConfiguration();
+  if (!C)
+    return false;
+
+  if (C->SDKVersion == 0)
+    return true;
+
+  CComPtr<ID3D12SDKConfiguration> SDKConfig;
+  HRESULT HR;
+  if (FAILED(HR = D3D12GetInterface(CLSID_D3D12SDKConfiguration,
+                                    IID_PPV_ARGS(&SDKConfig)))) {
+    LogErrorFmt(L"Failed to get ID3D12SDKConfiguration instance: 0x%08x", HR);
+    return !C->MustFind;
+  }
+
+  if (FAILED(HR = SDKConfig->SetSDKVersion(C->SDKVersion, CW2A(C->SDKPath)))) {
+    LogErrorFmt(L"SetSDKVersion(%d, %s) failed: 0x%08x", C->SDKVersion,
+                static_cast<const wchar_t *>(C->SDKPath), HR);
+    return !C->MustFind;
+  }
+
+  // Currently, it appears that the SetSDKVersion will succeed even when
+  // D3D12Core is not found, or its version doesn't match.  When that's the
+  // case, will cause a failure in the very next thing that actually requires
+  // D3D12Core.dll to be loaded instead.  So, we attempt to clear experimental
+  // features next, which is a valid use case and a no-op at this point.  This
+  // requires D3D12Core to be loaded.  If this fails, we know the AgilitySDK
+  // setting actually failed.
+  if (FAILED(
+          HR = D3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr))) {
+    LogErrorFmt(L"D3D12EnableExperimentalFeatures(0...) failed: 0x%08x", HR);
+    return !C->MustFind;
+  }
+
+  return true;
+}
+
+static bool enableGlobalExperimentalMode() {
+  using namespace hlsl_test;
+
+  const bool ExperimentalShaders = GetTestParamBool(L"ExperimentalShaders");
+
+  if (!ExperimentalShaders)
+    return false;
+
+  HRESULT HR;
+  if (FAILED(HR = D3D12EnableExperimentalFeatures(
+                 1, &D3D12ExperimentalShaderModels, nullptr, nullptr))) {
+    LogErrorFmt(L"D3D12EnableExperimentalFeatures("
+                L"D3D12ExperimentalShaderModels) failed: 0x%08x",
+                HR);
+    return false;
+  }
+
+  return true;
+}
+
+static void setGlobalConfiguration() {
+  using namespace hlsl_test;
+
+  if (enableGlobalAgilitySDK())
+    LogCommentFmt(L"Agility SDK enabled.");
+  else
+    LogCommentFmt(L"Agility SDK not enabled.");
+
+  if (enableGlobalExperimentalMode())
+    LogCommentFmt(L"Experimental mode enabled.");
+  else
+    LogCommentFmt(L"Experimental mode not enabled.");
+}
+
+std::optional<D3D12SDK> D3D12SDK::create() {
+  using namespace hlsl_test;
+
+  if (enableDebugLayer())
+    LogCommentFmt(L"Debug layer enabled");
+  else
+    LogCommentFmt(L"Debug layer not enabled");
+
+  //   CComPtr<ID3D12SDKConfiguration1> Config1;
+  //   if (FAILED(D3D12GetInterface(CLSID_D3D12SDKConfiguration,
+  //                                IID_PPV_ARGS(&Config1))))
+  { return D3D12SDK(nullptr); }
+
+  CComPtr<ID3D12DeviceFactory> DeviceFactory;
+
+  // ...
+
+  return D3D12SDK(DeviceFactory);
+}
+
+D3D12SDK::D3D12SDK(CComPtr<ID3D12DeviceFactory> DeviceFactory)
+    : DeviceFactory(std::move(DeviceFactory)) {}
+
+D3D12SDK::~D3D12SDK() = default;
+
+bool D3D12SDK::createDevice(ID3D12Device **D3DDevice,
+                            ExecTestUtils::D3D_SHADER_MODEL TestModel,
+                            bool SkipUnsupported) {
+  return ::createDevice(D3DDevice, TestModel, SkipUnsupported);
 }
