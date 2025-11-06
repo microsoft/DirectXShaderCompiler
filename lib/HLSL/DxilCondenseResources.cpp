@@ -551,11 +551,11 @@ public:
 
     // Remove unused resources.
     if (!DM.GetConsistentBindings())
-      DM.RemoveResourcesWithUnusedSymbols();
+      bChanged |= DM.RemoveResourcesWithUnusedSymbols();
 
     unsigned newResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
-    bChanged = bChanged || (numResources != newResources);
+    bChanged |= numResources != newResources;
 
     if (0 == newResources)
       return bChanged;
@@ -563,9 +563,9 @@ public:
     {
       DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
       bool bLocalChanged = LegalizeResources(M, DVC);
-      if (bLocalChanged) {
+      if (bLocalChanged && !DM.GetConsistentBindings()) {
         // Remove unused resources.
-        DM.RemoveResourcesWithUnusedSymbols();
+        bChanged |= DM.RemoveResourcesWithUnusedSymbols();
       }
       bChanged |= bLocalChanged;
     }
@@ -573,8 +573,8 @@ public:
     bChanged |= ResourceRegisterAllocator.AllocateRegisters(DM);
 
     if (DM.GetConsistentBindings())
-      DM.RemoveResourcesWithUnusedSymbols();
-
+      bChanged |= DM.RemoveResourcesWithUnusedSymbols();
+	  
     // Fill in top-level CBuffer variable usage bit
     UpdateCBufferUsage();
 

@@ -1031,7 +1031,7 @@ void DxilModule::RemoveUnusedResources() {
 
 namespace {
 template <typename TResource>
-static void RemoveResourcesWithUnusedSymbolsHelper(
+static bool RemoveResourcesWithUnusedSymbolsHelper(
     std::vector<std::unique_ptr<TResource>> &vec) {
   unsigned resID = 0;
   std::unordered_set<GlobalVariable *>
@@ -1054,14 +1054,17 @@ static void RemoveResourcesWithUnusedSymbolsHelper(
   for (auto gv : eraseList) {
     gv->eraseFromParent();
   }
+  return !eraseList.empty();
 }
 } // namespace
 
-void DxilModule::RemoveResourcesWithUnusedSymbols() {
-  RemoveResourcesWithUnusedSymbolsHelper(m_SRVs);
-  RemoveResourcesWithUnusedSymbolsHelper(m_UAVs);
-  RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers);
-  RemoveResourcesWithUnusedSymbolsHelper(m_Samplers);
+bool DxilModule::RemoveResourcesWithUnusedSymbols() {
+  bool modif = false;
+  modif |= RemoveResourcesWithUnusedSymbolsHelper(m_SRVs);
+  modif |= RemoveResourcesWithUnusedSymbolsHelper(m_UAVs);
+  modif |= RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers);
+  modif |= RemoveResourcesWithUnusedSymbolsHelper(m_Samplers);
+  return modif;
 }
 
 namespace {
