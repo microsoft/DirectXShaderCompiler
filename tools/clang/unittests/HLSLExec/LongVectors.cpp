@@ -1524,7 +1524,7 @@ public:
   }
 
   template <typename T, OpType OP> void runWaveOpTest() {
-    WEX::TestExecution::SetVerifyOutput verifySettings(
+    WEX::TestExecution::SetVerifyOutput VerifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
     UINT WaveSize = 0;
