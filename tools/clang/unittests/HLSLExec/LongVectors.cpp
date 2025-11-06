@@ -1305,6 +1305,14 @@ template <typename T> T WaveActiveProductFn(T A, UINT WaveSize) {
 
 WAVE_ACTIVE_OP(OpType::WaveActiveProduct, (WaveActiveProductFn(A, WaveSize)));
 
+template <typename T> T WaveActiveBitAndFn(T A, UINT WaveSize) {
+  std::vector<T> Values;
+  for (UINT I = 0; I < WaveSize; ++I)
+    Values.push_back(A & static_cast<T>(~0 << I));
+}
+
+WAVE_ACTIVE_OP(OpType::WaveActiveBitAnd, (WaveActiveBitAndFn(A, WaveSize)));
+
 #undef WAVE_ACTIVE_OP
 
 //
@@ -2201,28 +2209,34 @@ public:
   HLK_WAVEOP_TEST(WaveActiveSum, int16_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int16_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int16_t);
+  HLK_WAVEOP_TEST(WaveActiveBitAnd, int16_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, int16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int32_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, int32_t);
+  HLK_WAVEOP_TEST(WaveActiveBitAnd, int32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int64_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, int64_t);
+  HLK_WAVEOP_TEST(WaveActiveBitAnd, int64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, uint16_t);
+  HLK_WAVEOP_TEST(WaveActiveBitAnd, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, uint32_t);
+  HLK_WAVEOP_TEST(WaveActiveBitAnd, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, uint64_t);
+  HLK_WAVEOP_TEST(WaveActiveBitAnd, uint64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveMin, HLSLHalf_t);
