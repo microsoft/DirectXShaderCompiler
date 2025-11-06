@@ -19,6 +19,7 @@ INPUT_SET(Positive)
 INPUT_SET(Bitwise)
 INPUT_SET(SelectCond)
 INPUT_SET(FloatSpecial)
+INPUT_SET(AllOnes)
 
 #undef INPUT_SET
 
@@ -194,5 +195,9 @@ OP_LOAD_AND_STORE_SB(LoadAndStore_RD_SB_SRV, "RootDescriptor_SRV")
 #undef OP_LOAD_AND_STORE_DEFINES
 
 OP_DEFAULT(Wave, WaveActiveSum, 1, "WaveActiveSum", "")
+OP_DEFAULT_DEFINES(Wave, WaveActiveMin, 1, "TestWaveActiveMin", "", " -DFUNC_WAVE_ACTIVE_MIN=1")
+OP_DEFAULT_DEFINES(Wave, WaveActiveMax, 1, "TestWaveActiveMax", "", " -DFUNC_WAVE_ACTIVE_MAX=1")
+OP(Wave, WaveActiveProduct, 1, "TestWaveActiveProduct", "", " -DFUNC_WAVE_ACTIVE_PRODUCT=1", "LongVectorOp",
+   AllOnes, Default2, Default3)
 
 #undef OP

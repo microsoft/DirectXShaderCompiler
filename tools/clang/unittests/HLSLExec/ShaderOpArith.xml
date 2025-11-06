@@ -4083,6 +4083,34 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_WAVE_ACTIVE_MIN
+        vector<OUT_TYPE, NUM> TestWaveActiveMin(vector<TYPE, NUM> Vector)
+        {
+          Vector += WaveGetLaneIndex();
+          return WaveActiveMin(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_MAX
+        vector<OUT_TYPE, NUM> TestWaveActiveMax(vector<TYPE, NUM> Vector)
+        {
+          Vector += WaveGetLaneIndex();
+          return WaveActiveMax(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_PRODUCT
+        vector<OUT_TYPE, NUM> TestWaveActiveProduct(vector<TYPE, NUM> Vector)
+        {
+          uint LaneIndex = WaveGetLaneIndex();
+          if(LaneIndex == (WaveGetLaneCount() - 1))
+          {
+            Vector = LaneIndex;
+          }
+          return WaveActiveProduct(Vector);
+        }
+        #endif
+
         #ifdef FUNC_TEST_SELECT
         vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,
                                          vector<TYPE, NUM> Vector2,
@@ -4142,7 +4170,15 @@ void MSMain(uint GID : SV_GroupIndex,
             const uint32_t OutNum = NUM;
           #endif
 
+          // Modify input for wave ops
+          // Below is only use for Max/Min
+          Input1 += WaveGetLaneIndex();
+
+          uint LaneIndex = WaveGetLaneIndex();
+          uint WaveSize = WaveGetLaneCount();
+
           #if IS_UNARY_OP
+            // TODO: Factor this out. Just being quick for implementation.
             vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP
             vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1 OPERATOR

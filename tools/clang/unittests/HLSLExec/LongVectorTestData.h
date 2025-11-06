@@ -289,6 +289,7 @@ INPUT_SET(InputSet::Bitwise, std::numeric_limits<int16_t>::min(), -1, 0, 1, 3,
           6, 9, 0x5555, static_cast<int16_t>(0xAAAA),
           std::numeric_limits<int16_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
+INPUT_SET(InputSet::AllOnes, 1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(int32_t)
@@ -302,6 +303,7 @@ INPUT_SET(InputSet::Bitwise, std::numeric_limits<int32_t>::min(), -1, 0, 1, 3,
           6, 9, 0x55555555, static_cast<int32_t>(0xAAAAAAAA),
           std::numeric_limits<int32_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
+INPUT_SET(InputSet::AllOnes, 1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(int64_t)
@@ -315,6 +317,7 @@ INPUT_SET(InputSet::Bitwise, std::numeric_limits<int64_t>::min(), -1, 0, 1, 3,
           6, 9, 0x5555555555555555LL, 0xAAAAAAAAAAAAAAAALL,
           std::numeric_limits<int64_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
+INPUT_SET(InputSet::AllOnes, 1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint16_t)
@@ -325,6 +328,7 @@ INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 13, 14, 15);
 INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x5555, 0xAAAA, 0x8000, 127,
           std::numeric_limits<uint16_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
+INPUT_SET(InputSet::AllOnes, 1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint32_t)
@@ -335,6 +339,7 @@ INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 30, 31, 32);
 INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x55555555, 0xAAAAAAAA, 0x80000000,
           127, std::numeric_limits<uint32_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
+INPUT_SET(InputSet::AllOnes, 1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint64_t)
@@ -346,6 +351,7 @@ INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x5555555555555555,
           0xAAAAAAAAAAAAAAAA, 0x8000000000000000, 127,
           std::numeric_limits<uint64_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
+INPUT_SET(InputSet::AllOnes, 1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(HLSLHalf_t)
@@ -376,6 +382,7 @@ INPUT_SET(InputSet::FloatSpecial, std::numeric_limits<float>::infinity(),
           -std::numeric_limits<float>::max(),
           std::numeric_limits<float>::denorm_min(),
           std::numeric_limits<float>::denorm_min() * 10.0, 1.0 / 3.0);
+INPUT_SET(InputSet::AllOnes, 1.0);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(float)
@@ -403,6 +410,7 @@ INPUT_SET(InputSet::FloatSpecial, std::numeric_limits<float>::infinity(),
           -std::numeric_limits<float>::max(),
           std::numeric_limits<float>::denorm_min(),
           std::numeric_limits<float>::denorm_min() * 10.0f, 1.0f / 3.0f);
+INPUT_SET(InputSet::AllOnes, 1.0f);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(double)
@@ -421,6 +429,7 @@ INPUT_SET(InputSet::SplitDouble, 0.0, -1.0, 1.0, -1.0, 12345678.87654321, -1.0,
 INPUT_SET(InputSet::Positive, 1.0, 1.0, 65535.0, 0.01, 5531.0, 0.01, 1.0, 0.01,
           331.2330, 3250.01);
 INPUT_SET(InputSet::SelectCond, 0.0, 1.0);
+INPUT_SET(InputSet::AllOnes, 1.0);
 END_INPUT_SETS()
 
 #undef BEGIN_INPUT_SETS
