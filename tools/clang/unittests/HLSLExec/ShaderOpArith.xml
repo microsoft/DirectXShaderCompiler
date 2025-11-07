@@ -4101,7 +4101,20 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-        [numthreads(1,1,1)]
+        #ifdef NUMTHREADS_X
+          #define NUMTHREADS_ATTR [numthreads(NUMTHREADS_X, 1, 1)]
+        #else
+          #define NUMTHREADS_ATTR [numthreads(1, 1, 1)]
+        #endif
+
+        #ifdef WAVE_SIZE
+          #define WAVE_SIZE_ATTR [WaveSize(WAVE_SIZE)]
+        #else
+          #define WAVE_SIZE_ATTR
+        #endif
+
+        WAVE_SIZE_ATTR
+        NUMTHREADS_ATTR
         void main(uint GI : SV_GroupIndex) {
 
           #ifdef FUNC_SHUFFLE_VECTOR

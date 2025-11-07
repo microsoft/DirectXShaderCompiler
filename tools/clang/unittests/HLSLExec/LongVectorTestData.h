@@ -114,6 +114,10 @@ struct HLSLHalf_t {
 
     Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
   }
+  HLSLHalf_t(const uint32_t U) {
+    float F = static_cast<float>(U);
+    Val = DirectX::PackedVector::XMConvertFloatToHalf(F);
+  }
 
   // PackedVector::HALF is a uint16. Make sure we don't ever accidentally
   // convert one of these to a HLSLHalf_t by arithmetically converting it to a

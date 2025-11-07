@@ -193,4 +193,6 @@ OP_LOAD_AND_STORE_SB(LoadAndStore_RD_SB_SRV, "RootDescriptor_SRV")
 #undef OP_LOAD_AND_STORE
 #undef OP_LOAD_AND_STORE_DEFINES
 
+OP_DEFAULT(Wave, WaveActiveSum, 1, "WaveActiveSum", "")
+
 #undef OP
