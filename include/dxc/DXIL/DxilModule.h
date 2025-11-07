@@ -113,6 +113,7 @@ public:
 
   void RemoveUnusedResources();
   void RemoveResourcesWithUnusedSymbols();
+  bool RemoveEmptyBuffers();
   void RemoveFunction(llvm::Function *F);
 
   bool RenameResourcesWithPrefix(const std::string &prefix);
@@ -347,9 +348,7 @@ private:
   unsigned m_ActiveStreamMask = 0;
 
   enum IntermediateFlags : uint32_t {
-    LegacyResourceReservation = 1 << 0,
-    KeepAllResources =
-        1 << 2 // To be compatible with ConsistentBindings in different PR
+    LegacyResourceReservation = 1 << 0
   };
 
   llvm::LLVMContext &m_Ctx;
@@ -387,6 +386,7 @@ private:
   bool m_bUseMinPrecision = true; // use min precision by default;
   bool m_bAllResourcesBound = false;
   bool m_bResMayAlias = false;
+  bool m_bKeepAllResources = false;
 
   // properties from HLModule that should not make it to the final DXIL
   uint32_t m_IntermediateFlags = 0;

@@ -174,6 +174,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   M.EmitLLVMUsed();
 
   M.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
+  M.SetKeepAllResources(H.GetHLOptions().bKeepAllResources);
   M.SetResMayAlias(H.GetHLOptions().bResMayAlias);
 
   M.SetAutoBindingSpace(H.GetAutoBindingSpace());

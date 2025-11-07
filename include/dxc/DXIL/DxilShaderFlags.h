@@ -78,6 +78,9 @@ public:
   void SetAllResourcesBound(bool flag) { m_bAllResourcesBound = flag; }
   bool GetAllResourcesBound() const { return m_bAllResourcesBound; }
 
+  void SetKeepAllResources(bool flag) { m_bKeepAllResources = flag; }
+  bool GetKeepAllResources() const { return m_bKeepAllResources; }
+
   void SetCSRawAndStructuredViaShader4X(bool flag) {
     m_bCSRawAndStructuredViaShader4X = flag;
   }
@@ -359,7 +362,9 @@ private:
   unsigned m_bRequiresGroup : 1; // SHADER_FEATURE_OPT_REQUIRES_GROUP
                                  // (OptFeatureInfo_RequiresGroup)
 
-  uint32_t m_align1 : 23; // align to 64 bit.
+  unsigned m_bKeepAllResources : 1;
+
+  uint32_t m_align1 : 22; // align to 64 bit.
 };
 
 } // namespace hlsl

@@ -572,6 +572,9 @@ public:
       bChanged |= bLocalChanged;
     }
 
+    if (DM.GetKeepAllResources())
+      bChanged |= DM.RemoveEmptyBuffers();
+
     bChanged |= ResourceRegisterAllocator.AllocateRegisters(DM);
 
     // Fill in top-level CBuffer variable usage bit

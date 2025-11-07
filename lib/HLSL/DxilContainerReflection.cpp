@@ -2790,6 +2790,7 @@ protected:
   std::string m_Name;
   typedef SmallSetVector<UINT32, 8> ResourceUseSet;
   ResourceUseSet m_UsedResources;
+  ResourceUseSet m_UnusedResources;
   ResourceUseSet m_UsedCBs;
   UINT64 m_FeatureFlags;
 
@@ -2809,8 +2810,14 @@ public:
     }
   }
   void AddResourceReference(UINT resIndex) { m_UsedResources.insert(resIndex); }
+  void AddUnusedResourceReference(UINT resIndex) { m_UnusedResources.insert(resIndex); }
   void AddCBReference(UINT cbIndex) { m_UsedCBs.insert(cbIndex); }
   void SetFeatureFlags(UINT64 flags) { m_FeatureFlags = flags; }
+
+  bool HasBoundResource(UINT resIndex) const {
+    return std::find(m_UsedResources.begin(), m_UsedResources.end(),
+                     resIndex) != m_UsedResources.end();
+  }
 
   // ID3D12FunctionReflection
   STDMETHOD(GetDesc)(D3D12_FUNCTION_DESC *pDesc);
@@ -2850,7 +2857,7 @@ HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
   // Unset: UINT   Flags;    // Shader compilation/parse flags
 
   pDesc->ConstantBuffers = (UINT)m_UsedCBs.size();
-  pDesc->BoundResources = (UINT)m_UsedResources.size();
+  pDesc->BoundResources = (UINT)(m_UsedResources.size() + m_UnusedResources.size());
 
   // Unset: UINT InstructionCount;  // Number of emitted instructions
   // Unset: UINT TempRegisterCount; // Number of temporary registers used
@@ -2928,10 +2935,24 @@ CFunctionReflection::GetConstantBufferByName(LPCSTR Name) {
 HRESULT CFunctionReflection::GetResourceBindingDesc(
     UINT ResourceIndex, D3D12_SHADER_INPUT_BIND_DESC *pDesc) {
   DXASSERT_NOMSG(m_pLibraryReflection);
-  if (ResourceIndex >= m_UsedResources.size())
+
+  if (ResourceIndex >= (m_UsedResources.size() + m_UnusedResources.size()))
     return E_INVALIDARG;
-  return m_pLibraryReflection->_GetResourceBindingDesc(
-      m_UsedResources[ResourceIndex], pDesc);
+
+  bool isUnused = ResourceIndex >= m_UsedResources.size();
+
+  HRESULT hr = m_pLibraryReflection->_GetResourceBindingDesc(
+      isUnused ? m_UnusedResources[ResourceIndex - m_UsedResources.size()]
+               : m_UsedResources[ResourceIndex],
+      pDesc);
+
+  if (FAILED(hr))
+    return hr;
+
+  if (isUnused)
+    pDesc->uFlags |= D3D_SIF_UNUSED;
+
+  return S_OK;
 }
 
 ID3D12ShaderReflectionVariable *
@@ -2980,6 +3001,8 @@ void DxilLibraryReflection::AddResourceDependencies() {
   IFTBOOL(resourceTable.Count() == m_Resources.size(),
           DXC_E_INCORRECT_DXIL_METADATA);
 
+  bool keepAllResources = m_pModule->GetDxilModule().GetKeepAllResources();
+
   for (unsigned iFunc = 0; iFunc < functionTable.Count(); ++iFunc) {
     auto FR = functionTable[iFunc];
     auto &func = m_FunctionMap[FR.getName()];
@@ -3027,10 +3050,61 @@ void DxilLibraryReflection::AddResourceDependencies() {
         DXASSERT(false, "Unrecognized ResourceClass in RDAT");
       }
     }
-  }
 
-  for (auto &it : orderedMap) {
-    m_FunctionVector.push_back(it.second);
+    for (auto &it : orderedMap) {
+
+      if (keepAllResources) {
+
+        for (uint64_t i = 0; i < resourceTable.size(); ++i) {
+
+          const auto &res = resourceTable[i];
+          std::string resName = res.getName();
+
+          uint32_t offset = 0;
+
+          bool isCBuffer = false;
+
+          switch (res.getClass()) {
+          case DXIL::ResourceClass::CBuffer:
+            isCBuffer = true;
+            offset = 0;
+            break;
+          case DXIL::ResourceClass::Sampler:
+            offset = SamplersStart;
+            break;
+          case DXIL::ResourceClass::SRV:
+            offset = SRVsStart;
+            break;
+          case DXIL::ResourceClass::UAV:
+            offset = UAVsStart;
+            break;
+          }
+
+          uint32_t id = offset + res.getID();
+
+          if (func.get()->HasBoundResource(id))
+            continue;
+
+          func.get()->AddUnusedResourceReference(id);
+
+          bool isTBuffer = res.getKind() == DXIL::ResourceKind::TBuffer;
+
+          if (isCBuffer || isTBuffer) {
+            auto it = m_CBsByName.find(resName);
+            if (it != m_CBsByName.end())
+              func->AddCBReference(it->second);
+          }
+
+          else if (DXIL::IsStructuredBuffer(res.getKind())) {
+            auto it = m_StructuredBufferCBsByName.find(resName + "[0]");
+            if (it != m_StructuredBufferCBsByName.end())
+              func->AddCBReference(it->second);
+          }
+        }
+      }
+
+      m_FunctionVector.push_back(it.second);
+    }
   }
 }
 

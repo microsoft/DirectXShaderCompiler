@@ -412,6 +412,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetUseNativeLowPrecision(!M->GetUseMinPrecision());
   flag.SetDisableOptimizations(M->GetDisableOptimization());
   flag.SetAllResourcesBound(M->GetAllResourcesBound());
+  flag.SetKeepAllResources(M->GetKeepAllResources());
 
   bool hasDouble = false;
   // ddiv dfma drcp d2i d2u i2d u2d.
