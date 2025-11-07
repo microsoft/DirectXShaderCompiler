@@ -69,7 +69,6 @@ OP_DEFAULT_DEFINES(ArrayOperator, ArrayOperator_Loop, 2, "TestArrayOperatorLoop"
 OP_DEFAULT_DEFINES(ArrayOperator, ArrayOperator_Unroll, 2, "TestArrayOperatorUnroll", "",
                    " -DFUNC_ARRAY_OPERATOR=1 -DLOOP_ATTRB=unroll")
 
-
 #define OP_CAST_DEFAULT(GROUP, SYMBOL)                                         \
   OP_DEFAULT_DEFINES(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1")
 #define OP_CAST(GROUP, SYMBOL, INPUT_SET_1)                                    \
