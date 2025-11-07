@@ -348,9 +348,7 @@ private:
       DXIL::PrimitiveTopology::Undefined;
   unsigned m_ActiveStreamMask = 0;
 
-  enum IntermediateFlags : uint32_t {
-    LegacyResourceReservation = 1 << 0
-  };
+  enum IntermediateFlags : uint32_t { LegacyResourceReservation = 1 << 0 };
 
   llvm::LLVMContext &m_Ctx;
   llvm::Module *m_pModule = nullptr;

@@ -1083,7 +1083,7 @@ bool DxilModule::RemoveEmptyBuffers() {
 
     if ((*c)->GetID() != resID)
       (*c)->SetID(resID);
-    
+
     resID++;
   }
 
@@ -1095,8 +1095,7 @@ bool DxilModule::RemoveEmptyBuffers() {
 
 namespace {
 template <typename TResource>
-static bool MarkResourcesUnused(
-    std::vector<std::unique_ptr<TResource>> &vec) {
+static bool MarkResourcesUnused(std::vector<std::unique_ptr<TResource>> &vec) {
 
   bool modif = false;
 

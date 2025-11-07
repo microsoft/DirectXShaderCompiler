@@ -1781,7 +1781,7 @@ static D3D_SRV_DIMENSION ResourceToDimension(DxilResourceBase *RB) {
 static UINT ResourceToFlags(DxilResourceBase *RB) {
 
   UINT isUnused = 0;
-  
+
   if (RB->IsUnused())
     isUnused |= D3D_SIF_UNUSED;
 
@@ -2817,7 +2817,9 @@ public:
     }
   }
   void AddResourceReference(UINT resIndex) { m_UsedResources.insert(resIndex); }
-  void AddUnusedResourceReference(UINT resIndex) { m_UnusedResources.insert(resIndex); }
+  void AddUnusedResourceReference(UINT resIndex) {
+    m_UnusedResources.insert(resIndex);
+  }
   void AddCBReference(UINT cbIndex) { m_UsedCBs.insert(cbIndex); }
   void SetFeatureFlags(UINT64 flags) { m_FeatureFlags = flags; }
 
@@ -2864,7 +2866,8 @@ HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
   // Unset: UINT   Flags;    // Shader compilation/parse flags
 
   pDesc->ConstantBuffers = (UINT)m_UsedCBs.size();
-  pDesc->BoundResources = (UINT)(m_UsedResources.size() + m_UnusedResources.size());
+  pDesc->BoundResources =
+      (UINT)(m_UsedResources.size() + m_UnusedResources.size());
 
   // Unset: UINT InstructionCount;  // Number of emitted instructions
   // Unset: UINT TempRegisterCount; // Number of temporary registers used
