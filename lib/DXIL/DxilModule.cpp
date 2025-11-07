@@ -1033,6 +1033,7 @@ namespace {
 template <typename TResource>
 static bool RemoveResourcesWithUnusedSymbolsHelper(
     std::vector<std::unique_ptr<TResource>> &vec) {
+  bool modif = false;
   unsigned resID = 0;
   std::unordered_set<GlobalVariable *>
       eraseList; // Need in case of duplicate defs of lib resources
@@ -1044,6 +1045,7 @@ static bool RemoveResourcesWithUnusedSymbolsHelper(
       p = vec.erase(c);
       if (GlobalVariable *GV = dyn_cast<GlobalVariable>(symbol))
         eraseList.insert(GV);
+      modif = true;
       continue;
     }
     if ((*c)->GetID() != resID) {
@@ -1054,7 +1056,7 @@ static bool RemoveResourcesWithUnusedSymbolsHelper(
   for (auto gv : eraseList) {
     gv->eraseFromParent();
   }
-  return !eraseList.empty();
+  return modif;
 }
 } // namespace
 
