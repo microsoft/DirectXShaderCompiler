@@ -786,7 +786,7 @@ struct ExpectedBuilder<OpType::ArrayOperator_SingleAccess, T> {
 };
 
 template <typename T>
-static std::vector<T> BuildLoop2(const InputSets<T> &Inputs) {
+static std::vector<T> buildExpectedArrayAccessOutput(const InputSets<T> &Inputs) {
   DXASSERT_NOMSG(Inputs.size() == 2);
   const size_t VectorSize = Inputs[0].size();
   std::vector<T> Expected;
@@ -807,7 +807,7 @@ struct Op<OpType::ArrayOperator_Loop, T, 2> : DefaultValidation<T> {};
 template <typename T> struct ExpectedBuilder<OpType::ArrayOperator_Loop, T> {
   static std::vector<T> buildExpected(Op<OpType::ArrayOperator_Loop, T, 2>,
                                       const InputSets<T> &Inputs) {
-    return BuildLoop2(Inputs);
+    return buildExpectedArrayAccessOutput(Inputs);
   }
 };
 
@@ -817,7 +817,7 @@ struct Op<OpType::ArrayOperator_Unroll, T, 2> : DefaultValidation<T> {};
 template <typename T> struct ExpectedBuilder<OpType::ArrayOperator_Unroll, T> {
   static std::vector<T> buildExpected(Op<OpType::ArrayOperator_Unroll, T, 2>,
                                       const InputSets<T> &Inputs) {
-    return BuildLoop2(Inputs);
+    return buildExpectedArrayAccessOutput(Inputs);
   }
 };
 

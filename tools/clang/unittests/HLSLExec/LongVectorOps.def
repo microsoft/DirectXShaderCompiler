@@ -134,7 +134,6 @@ OP_DEFAULT(UnaryMath, Log10, 1, "log10", "")
 OP_DEFAULT(UnaryMath, Log2, 1, "log2", "")
 OP_DEFAULT_DEFINES(UnaryMath, Frexp, 1, "TestFrexp", "", " -DFUNC_FREXP=1")
 
-
 OP_DEFAULT(FloatSpecial, IsFinite, 1, "isfinite", "")
 OP_DEFAULT(FloatSpecial, IsInf, 1, "isinf", "")
 OP_DEFAULT(FloatSpecial, IsNan, 1, "isnan", "")

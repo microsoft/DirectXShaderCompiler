@@ -4102,7 +4102,7 @@ void MSMain(uint GID : SV_GroupIndex,
         #endif
 
         [numthreads(1,1,1)]
-        void main(uint GI : SV_GroupIndex, uint3 dispatchThreadID : SV_DispatchThreadID) {
+        void main(uint GI : SV_GroupIndex) {
 
           #ifdef FUNC_SHUFFLE_VECTOR
             // For shuffle vector, the input is a scalar, not a vector.
