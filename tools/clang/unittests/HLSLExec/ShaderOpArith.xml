@@ -4134,6 +4134,14 @@ void MSMain(uint GID : SV_GroupIndex,
             NUM> >(0);
             OutputVector[0] = Input1[OutNum - 1];
             OutputVector[OutNum - 1] = OutputVector[0];
+          #elif FUNC_ARRAY_OPERATOR
+            vector<OUT_TYPE, OutNum> OutputVector;
+            
+            [LOOP_ATTRB] for(uint i = 0; i < OutNum; i++)
+              OutputVector[i] = Input1[i] + Input2[i];
+            
+            [LOOP_ATTRB] for(uint i = 0; i < OutNum; i++) 
+              g_OutputVector.Store<OUT_TYPE>(sizeof(OUT_TYPE) * (OutNum + i), OutputVector[i]);
           #elif IS_UNARY_OP
             vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP

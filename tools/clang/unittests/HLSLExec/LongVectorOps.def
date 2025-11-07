@@ -61,8 +61,13 @@ OP(Bitwise, FirstBitLow, 1, "firstbitlow", "", "", "LongVectorOp", Bitwise, Defa
 
 OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
                    " -DFUNC_INITIALIZE=1")
-OP_DEFAULT_DEFINES(Unary, ArrayOperator_SingleAccess, 1, "TestArrayOperatorSingleAccess", "",
+
+OP_DEFAULT_DEFINES(ArrayOperator, ArrayOperator_SingleAccess, 1, "TestArrayOperatorSingleAccess", "",
                    " -DFUNC_ARRAY_OPERATOR_SINGLE_ACCESS=1")
+OP_DEFAULT_DEFINES(ArrayOperator, ArrayOperator_Loop, 2, "TestArrayOperatorLoop", "",
+                   " -DFUNC_ARRAY_OPERATOR=1 -DLOOP_ATTRB=loop")
+OP_DEFAULT_DEFINES(ArrayOperator, ArrayOperator_Unroll, 2, "TestArrayOperatorUnroll", "",
+                   " -DFUNC_ARRAY_OPERATOR=1 -DLOOP_ATTRB=unroll")
 
 
 #define OP_CAST_DEFAULT(GROUP, SYMBOL)                                         \

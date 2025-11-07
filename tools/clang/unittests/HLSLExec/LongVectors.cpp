@@ -785,6 +785,42 @@ struct ExpectedBuilder<OpType::ArrayOperator_SingleAccess, T> {
   }
 };
 
+template <typename T>
+static std::vector<T> BuildLoop2(const InputSets<T> &Inputs) {
+  DXASSERT_NOMSG(Inputs.size() == 2);
+  const size_t VectorSize = Inputs[0].size();
+  std::vector<T> Expected;
+  Expected.resize(VectorSize * 2);
+
+  for (size_t i = 0; i < VectorSize; i++)
+    Expected[i] = Inputs[0][i] + Inputs[1][i];
+
+  for (size_t i = 0; i < VectorSize; i++)
+    Expected[i + VectorSize] = Expected[i];
+
+  return Expected;
+}
+
+template <typename T>
+struct Op<OpType::ArrayOperator_Loop, T, 2> : DefaultValidation<T> {};
+
+template <typename T> struct ExpectedBuilder<OpType::ArrayOperator_Loop, T> {
+  static std::vector<T> buildExpected(Op<OpType::ArrayOperator_Loop, T, 2>,
+                                      const InputSets<T> &Inputs) {
+    return BuildLoop2(Inputs);
+  }
+};
+
+template <typename T>
+struct Op<OpType::ArrayOperator_Unroll, T, 2> : DefaultValidation<T> {};
+
+template <typename T> struct ExpectedBuilder<OpType::ArrayOperator_Unroll, T> {
+  static std::vector<T> buildExpected(Op<OpType::ArrayOperator_Unroll, T, 2>,
+                                      const InputSets<T> &Inputs) {
+    return BuildLoop2(Inputs);
+  }
+};
+
 //
 // Cast
 //
@@ -1604,24 +1640,44 @@ public:
 
   HLK_TEST(Initialize, HLSLBool_t);
   HLK_TEST(ArrayOperator_SingleAccess, HLSLBool_t);
+  HLK_TEST(ArrayOperator_Unroll, HLSLBool_t);
+  HLK_TEST(ArrayOperator_Loop, HLSLBool_t);
   HLK_TEST(Initialize, int16_t);
   HLK_TEST(ArrayOperator_SingleAccess, int16_t);
+  HLK_TEST(ArrayOperator_Unroll, int16_t);
+  HLK_TEST(ArrayOperator_Loop, int16_t);
   HLK_TEST(Initialize, int32_t);
   HLK_TEST(ArrayOperator_SingleAccess, int32_t);
+  HLK_TEST(ArrayOperator_Unroll, int32_t);
+  HLK_TEST(ArrayOperator_Loop, int32_t);
   HLK_TEST(Initialize, int64_t);
   HLK_TEST(ArrayOperator_SingleAccess, int64_t);
+  HLK_TEST(ArrayOperator_Unroll, int64_t);
+  HLK_TEST(ArrayOperator_Loop, int64_t);
   HLK_TEST(Initialize, uint16_t);
   HLK_TEST(ArrayOperator_SingleAccess, uint16_t);
+  HLK_TEST(ArrayOperator_Unroll, uint16_t);
+  HLK_TEST(ArrayOperator_Loop, uint16_t);
   HLK_TEST(Initialize, uint32_t);
   HLK_TEST(ArrayOperator_SingleAccess, uint32_t);
+  HLK_TEST(ArrayOperator_Unroll, uint32_t);
+  HLK_TEST(ArrayOperator_Loop, uint32_t);
   HLK_TEST(Initialize, uint64_t);
   HLK_TEST(ArrayOperator_SingleAccess, uint64_t);
+  HLK_TEST(ArrayOperator_Unroll, uint64_t);
+  HLK_TEST(ArrayOperator_Loop, uint64_t);
   HLK_TEST(Initialize, HLSLHalf_t);
   HLK_TEST(ArrayOperator_SingleAccess, HLSLHalf_t);
+  HLK_TEST(ArrayOperator_Unroll, HLSLHalf_t);
+  HLK_TEST(ArrayOperator_Loop, HLSLHalf_t);
   HLK_TEST(Initialize, float);
   HLK_TEST(ArrayOperator_SingleAccess, float);
+  HLK_TEST(ArrayOperator_Unroll, float);
+  HLK_TEST(ArrayOperator_Loop, float);
   HLK_TEST(Initialize, double);
   HLK_TEST(ArrayOperator_SingleAccess, double);
+  HLK_TEST(ArrayOperator_Unroll, double);
+  HLK_TEST(ArrayOperator_Loop, double);
 
   HLK_TEST(ShuffleVector, HLSLBool_t);
   HLK_TEST(ShuffleVector, int16_t);
