@@ -559,8 +559,8 @@ static bool enableExperimentalMode(ID3D12DeviceFactory *DeviceFactory) {
   if (FAILED(HR = DeviceFactory->EnableExperimentalFeatures(
                  1, &D3D12ExperimentalShaderModels, nullptr, nullptr))) {
     LogWarningFmt(L"EnableExperimentalFeature(D3D12ExperimentalShaderModels) "
-                L"failed: 0x%08x",
-                HR);
+                  L"failed: 0x%08x",
+                  HR);
     return false;
   }
 
