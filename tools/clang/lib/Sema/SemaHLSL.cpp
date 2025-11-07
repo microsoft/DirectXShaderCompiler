@@ -1255,7 +1255,7 @@ static const ArBasicKind g_DxHitObjectCT[] = {AR_OBJECT_HIT_OBJECT,
 
 // Linear Algebra
 static const ArBasicKind g_MatrixRefCT[] = {AR_OBJECT_MATRIX_REF,
-                                              AR_BASIC_UNKNOWN};
+                                            AR_BASIC_UNKNOWN};
 
 #ifdef ENABLE_SPIRV_CODEGEN
 static const ArBasicKind g_VKBufferPointerCT[] = {AR_OBJECT_VK_BUFFER_POINTER,
@@ -1318,7 +1318,7 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
     g_DxHitObjectCT,             // LICOMPTYPE_HIT_OBJECT
     g_RayQueryCT,                // LICOMPTYPE_RAY_QUERY
-    g_MatrixRefCT,             // LICOMPTYPE_MATRIX_REF
+    g_MatrixRefCT,               // LICOMPTYPE_MATRIX_REF
     g_LinAlgCT,                  // LICOMPTYPE_LINALG
 #ifdef ENABLE_SPIRV_CODEGEN
     g_VKBufferPointerCT, // LICOMPTYPE_VK_BUFFER_POINTER
@@ -3628,7 +3628,7 @@ private:
       case LICOMPTYPE_HIT_OBJECT:
         paramTypes.push_back(GetBasicKindType(AR_OBJECT_HIT_OBJECT));
         break;
-        case LICOMPTYPE_MATRIX_REF:
+      case LICOMPTYPE_MATRIX_REF:
         paramTypes.push_back(GetBasicKindType(AR_OBJECT_MATRIX_REF));
         break;
 #ifdef ENABLE_SPIRV_CODEGEN

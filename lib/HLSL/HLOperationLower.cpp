@@ -6795,11 +6795,10 @@ Value *TranslateVectorAccumulate(CallInst *CI, IntrinsicOp IOP,
                             {OpArg, InputVector, MatrixBuffer, MatrixOffset});
 }
 
-Value *TranslateLACreateMatrix(CallInst *CI, IntrinsicOp IOP,
-                              OP::OpCode OpCode,
-                              HLOperationLowerHelper &Helper,
-                              HLObjectOperationLowerHelper *ObjHelper,
-                              bool &Translated) {
+Value *TranslateLACreateMatrix(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+                               HLOperationLowerHelper &Helper,
+                               HLObjectOperationLowerHelper *ObjHelper,
+                               bool &Translated) {
 
   hlsl::OP *HlslOP = &Helper.hlslOP;
   IRBuilder<> Builder(CI);

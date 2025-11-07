@@ -1308,7 +1308,8 @@ CXXRecordDecl *hlsl::DeclareHitObjectType(NamespaceDecl &NSDecl) {
 
 CXXRecordDecl *hlsl::DeclareMatrixRefType(ASTContext &Context) {
   // MatrixRef { ... }
-  BuiltinTypeDeclBuilder TypeDeclBuilder(Context.getTranslationUnitDecl(), "__builtin_la_MatrixRef");
+  BuiltinTypeDeclBuilder TypeDeclBuilder(Context.getTranslationUnitDecl(),
+                                         "__builtin_la_MatrixRef");
   TypeDeclBuilder.startDefinition();
 
   // Add handle to mark as HLSL object.
