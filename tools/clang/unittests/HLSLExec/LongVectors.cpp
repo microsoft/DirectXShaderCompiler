@@ -1269,14 +1269,14 @@ FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
     T operator()(T A, UINT WaveSize) { return IMPL; }                          \
   };
 
-template <typename T> T WaveActiveSumFn(T A, UINT WaveSize) {
+template <typename T> T waveActiveSum(T A, UINT WaveSize) {
   T WaveSizeT = static_cast<T>(WaveSize);
   return A * WaveSizeT;
 }
 
-WAVE_ACTIVE_OP(OpType::WaveActiveSum, (WaveActiveSumFn(A, WaveSize)));
+WAVE_ACTIVE_OP(OpType::WaveActiveSum, (waveActiveSum(A, WaveSize)));
 
-template <typename T> T WaveActiveMinFn(T A, UINT WaveSize) {
+template <typename T> T waveActiveMin(T A, UINT WaveSize) {
   std::vector<T> Values;
   // Add the 'WaveLaneID' to A.
   for (UINT I = 0; I < WaveSize; ++I)
@@ -1284,9 +1284,9 @@ template <typename T> T WaveActiveMinFn(T A, UINT WaveSize) {
   return *std::min_element(Values.begin(), Values.end());
 }
 
-WAVE_ACTIVE_OP(OpType::WaveActiveMin, (WaveActiveMinFn(A, WaveSize)));
+WAVE_ACTIVE_OP(OpType::WaveActiveMin, (waveActiveMin(A, WaveSize)));
 
-template <typename T> T WaveActiveMaxFn(T A, UINT WaveSize) {
+template <typename T> T waveActiveMax(T A, UINT WaveSize) {
   std::vector<T> Values;
   // Add the 'WaveLaneID' to A.
   for (UINT I = 0; I < WaveSize; ++I)
@@ -1294,16 +1294,16 @@ template <typename T> T WaveActiveMaxFn(T A, UINT WaveSize) {
   return *std::max_element(Values.begin(), Values.end());
 }
 
-WAVE_ACTIVE_OP(OpType::WaveActiveMax, (WaveActiveMaxFn(A, WaveSize)));
+WAVE_ACTIVE_OP(OpType::WaveActiveMax, (waveActiveMax(A, WaveSize)));
 
-template <typename T> T WaveActiveProductFn(T A, UINT WaveSize) {
+template <typename T> T waveActiveProduct(T A, UINT WaveSize) {
   // We want to avoid overflow of a large product. So, the WaveActiveProdFn has
   // an input set of all 1's and we modify the value of the largest lane to be
   // equal to the lane index in the shader.
   return A * static_cast<T>(WaveSize - 1);
 }
 
-WAVE_ACTIVE_OP(OpType::WaveActiveProduct, (WaveActiveProductFn(A, WaveSize)));
+WAVE_ACTIVE_OP(OpType::WaveActiveProduct, (waveActiveProduct(A, WaveSize)));
 
 #undef WAVE_ACTIVE_OP
 
