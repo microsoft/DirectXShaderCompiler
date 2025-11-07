@@ -3061,61 +3061,63 @@ void DxilLibraryReflection::AddResourceDependencies() {
         DXASSERT(false, "Unrecognized ResourceClass in RDAT");
       }
     }
+  }
 
-    for (auto &it : orderedMap) {
+  for (auto &it : orderedMap) {
 
-      if (keepAllResources) {
+    CFunctionReflection *func = it.second;
 
-        for (uint64_t i = 0; i < resourceTable.size(); ++i) {
+    if (keepAllResources) {
 
-          const auto &res = resourceTable[i];
-          std::string resName = res.getName();
+      for (uint64_t i = 0; i < resourceTable.size(); ++i) {
 
-          uint32_t offset = 0;
+        const auto &res = resourceTable[i];
+        std::string resName = res.getName();
 
-          bool isCBuffer = false;
+        uint32_t offset = 0;
 
-          switch (res.getClass()) {
-          case DXIL::ResourceClass::CBuffer:
-            isCBuffer = true;
-            offset = 0;
-            break;
-          case DXIL::ResourceClass::Sampler:
-            offset = SamplersStart;
-            break;
-          case DXIL::ResourceClass::SRV:
-            offset = SRVsStart;
-            break;
-          case DXIL::ResourceClass::UAV:
-            offset = UAVsStart;
-            break;
-          }
+        bool isCBuffer = false;
 
-          uint32_t id = offset + res.getID();
+        switch (res.getClass()) {
+        case DXIL::ResourceClass::CBuffer:
+          isCBuffer = true;
+          offset = 0;
+          break;
+        case DXIL::ResourceClass::Sampler:
+          offset = SamplersStart;
+          break;
+        case DXIL::ResourceClass::SRV:
+          offset = SRVsStart;
+          break;
+        case DXIL::ResourceClass::UAV:
+          offset = UAVsStart;
+          break;
+        }
 
-          if (func.get()->HasBoundResource(id))
-            continue;
+        uint32_t id = offset + res.getID();
 
-          func.get()->AddUnusedResourceReference(id);
+        if (func->HasBoundResource(id))
+          continue;
 
-          bool isTBuffer = res.getKind() == DXIL::ResourceKind::TBuffer;
+        func->AddUnusedResourceReference(id);
 
-          if (isCBuffer || isTBuffer) {
-            auto it = m_CBsByName.find(resName);
-            if (it != m_CBsByName.end())
-              func->AddCBReference(it->second);
-          }
+        bool isTBuffer = res.getKind() == DXIL::ResourceKind::TBuffer;
 
-          else if (DXIL::IsStructuredBuffer(res.getKind())) {
-            auto it = m_StructuredBufferCBsByName.find(resName + "[0]");
-            if (it != m_StructuredBufferCBsByName.end())
-              func->AddCBReference(it->second);
-          }
+        if (isCBuffer || isTBuffer) {
+          auto it = m_CBsByName.find(resName);
+          if (it != m_CBsByName.end())
+            func->AddCBReference(it->second);
+        }
+
+        else if (DXIL::IsStructuredBuffer(res.getKind())) {
+          auto it = m_StructuredBufferCBsByName.find(resName + "[0]");
+          if (it != m_StructuredBufferCBsByName.end())
+            func->AddCBReference(it->second);
         }
       }
-
-      m_FunctionVector.push_back(it.second);
     }
+
+    m_FunctionVector.push_back(func);
   }
 }
 
