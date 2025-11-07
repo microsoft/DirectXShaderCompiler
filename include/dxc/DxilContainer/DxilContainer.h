@@ -36,6 +36,9 @@ struct DxilContainerHash {
   uint8_t Digest[DxilContainerHashSize];
 };
 
+static const DxilContainerHash PreviewByPassHash = {2, 2, 2, 2, 2, 2, 2, 2,
+                                                    2, 2, 2, 2, 2, 2, 2, 2};
+
 enum class DxilShaderHashFlags : uint32_t {
   None = 0,           // No flags defined.
   IncludesSource = 1, // This flag indicates that the shader hash was computed
@@ -166,6 +169,9 @@ enum class DxilProgramSigSemantic : uint32_t {
   InnerCoverage = 70,
 };
 
+DxilProgramSigSemantic SemanticKindToSystemValue(DXIL::SemanticKind,
+                                                 DXIL::TessellatorDomain);
+
 enum class DxilProgramSigCompType : uint32_t {
   Unknown = 0,
   UInt32 = 1,
@@ -178,6 +184,9 @@ enum class DxilProgramSigCompType : uint32_t {
   SInt64 = 8,
   Float64 = 9,
 };
+
+DxilProgramSigCompType CompTypeToSigCompType(DXIL::ComponentType,
+                                             bool i1ToUnknownCompat);
 
 struct DxilProgramSignatureElement {
   uint32_t Stream; // Stream index (parameters must appear in non-decreasing

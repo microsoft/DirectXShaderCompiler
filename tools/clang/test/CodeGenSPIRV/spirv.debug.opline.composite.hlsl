@@ -53,63 +53,67 @@ void main() {
 // CHECK-NEXT: OpCompositeExtract %float {{%[0-9]+}} 1
 // CHECK-NEXT: OpConvertFToS %int
 // CHECK-NEXT: OpConvertFToS %int
+// CHECK-NEXT: OpCompositeExtract %float {{%[0-9]+}} 0
+// CHECK-NEXT: OpCompositeExtract %float {{%[0-9]+}} 1
+// CHECK-NEXT: OpConvertFToS %int
+// CHECK-NEXT: OpConvertFToS %int
 // CHECK-NEXT: OpCompositeConstruct %v4int
   };
 
 // CHECK:                        OpFDiv %float {{%[0-9]+}} %float_2
-// CHECK-NEXT:                   OpLine [[file]] 64 24
+// CHECK-NEXT:                   OpLine [[file]] 68 24
 // CHECK-NEXT:  [[first:%[0-9]+]] = OpCompositeConstruct %v2float {{%[0-9]+}} {{%[0-9]+}}
 // CHECK-NEXT: [[second:%[0-9]+]] = OpCompositeConstruct %v2float {{%[0-9]+}} {{%[0-9]+}}
 // CHECK-NEXT:        {{%[0-9]+}} = OpCompositeConstruct %mat2v2float [[first]] [[second]]
   float2x2 b = float2x2(a.x, b._m00, 2 + a.y, b._m11 / 2);
 
-// CHECK:                   OpLine [[file]] 69 12
+// CHECK:                   OpLine [[file]] 73 12
 // CHECK-NEXT: [[y:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int4_bool_float3 %CONSTANTS %int_0
 // CHECK-NEXT:   {{%[0-9]+}} = OpAccessChain %_ptr_Uniform_v4int [[y]] %int_0
   int4 c = y.a;
 
-// CHECK:                   OpLine [[file]] 76 3
+// CHECK:                   OpLine [[file]] 80 3
 // CHECK-NEXT: [[z:%[0-9]+]] = OpLoad %type_2d_image %z
 // CHECK-NEXT: [[z_0:%[0-9]+]] = OpImageRead %v4int [[z]] {{%[0-9]+}} None
 // CHECK-NEXT: [[z_1:%[0-9]+]] = OpVectorShuffle %v3int [[z_0]] [[z_0]] 0 1 2
 // CHECK-NEXT:   {{%[0-9]+}} = OpCompositeInsert %v3int %int_16 [[z_1]] 0
   z[uint2(2, 3)].x = 16;
 
-// CHECK:      OpLine [[file]] 82 3
+// CHECK:      OpLine [[file]] 86 3
 // CHECK-NEXT: OpLoad %mat2v2float %b
-// CHECK:      OpLine [[file]] 82 4
+// CHECK:      OpLine [[file]] 86 4
 // CHECK-NEXT: OpFSub %v2float
   b--;
 
   int2x2 d;
-// CHECK:      OpLine [[file]] 91 8
+// CHECK:      OpLine [[file]] 95 8
 // CHECK-NEXT: OpLoad %mat2v2float %b
-// CHECK-NEXT: OpLine [[file]] 91 3
+// CHECK-NEXT: OpLine [[file]] 95 3
 // CHECK-NEXT: OpCompositeExtract %v2float
-// CHECK:      OpLine [[file]] 91 11
+// CHECK:      OpLine [[file]] 95 11
 // CHECK:      OpStore %d
   modf(b, d);
 
-// CHECK:      OpLine [[file]] 95 7
+// CHECK:      OpLine [[file]] 99 7
 // CHECK-NEXT: OpFunctionCall %void %S_inc %foo
   foo.inc();
 
-// CHECK:      OpLine [[file]] 99 10
+// CHECK:      OpLine [[file]] 103 10
 // CHECK-NEXT: OpFunctionCall %void %S_inc %temp_var_S
   getS().inc();
 
-// CHECK:      OpLine [[file]] 105 19
+// CHECK:      OpLine [[file]] 109 19
 // CHECK-NEXT: OpLoad %init %bar
-// CHECK:      OpLine [[file]] 105 12
+// CHECK:      OpLine [[file]] 109 12
 // CHECK-NEXT: OpConvertFToS %int
   int4 e = {1, 2, bar};
 
-// CHECK:      OpLine [[file]] 111 15
+// CHECK:      OpLine [[file]] 115 15
 // CHECK-NEXT: OpCompositeConstruct %v2float %float_1 %float_2
-// CHECK-NEXT: OpLine [[file]] 111 22
+// CHECK-NEXT: OpLine [[file]] 115 22
 // CHECK-NEXT: OpCompositeExtract %int
   b = float2x2(1, 2, bar);
-// CHECK:      OpLine [[file]] 111 3
+// CHECK:      OpLine [[file]] 115 3
 // CHECK-NEXT: OpStore %b
 
 // TODO(jaebaek): Update InitListHandler to properly emit debug info.

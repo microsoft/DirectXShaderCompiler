@@ -66,26 +66,22 @@ void FindRayQueryHandlesForFunction(llvm::Function *F,
   }
 }
 
-static unsigned int
-GetNextRegisterIdForClass(hlsl::DxilModule &DM,
-                          DXIL::ResourceClass resourceClass) {
-  switch (resourceClass) {
-  case DXIL::ResourceClass::CBuffer:
-    return static_cast<unsigned int>(DM.GetCBuffers().size());
-  case DXIL::ResourceClass::UAV:
-    return static_cast<unsigned int>(DM.GetUAVs().size());
-  default:
-    DXASSERT(false, "Unexpected resource class");
-    return 0;
-  }
-}
-
 static bool IsDynamicResourceShaderModel(DxilModule &DM) {
   return DM.GetShaderModel()->IsSMAtLeast(6, 6);
 }
 
 static bool ShaderModelRequiresAnnotateHandle(DxilModule &DM) {
   return DM.GetShaderModel()->IsSMAtLeast(6, 6);
+}
+
+static char const *RawUAVType() { return "struct.RWByteAddressBuffer"; }
+static char const *ShaderModelHandleTypeName(DxilModule &DM) {
+  // Prior to sm6.6, lib handles were typed after the resource they denote.
+  // In 6.6 and after, and in all non-lib shader models,
+  // all handles are dx.types.Handle.
+  if (!DM.GetShaderModel()->IsLib() || DM.GetShaderModel()->IsSM66Plus())
+    return "dx.types.Handle";
+  return RawUAVType();
 }
 
 llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
@@ -98,16 +94,16 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
 
   DXIL::ResourceClass resourceClass = resource->GetClass();
 
-  unsigned int resourceMetaDataId =
-      GetNextRegisterIdForClass(DM, resourceClass);
-
   auto const *shaderModel = DM.GetShaderModel();
+  Type *resourceHandleType =
+      DM.GetModule()->getTypeByName(ShaderModelHandleTypeName(DM));
   if (shaderModel->IsLib()) {
     llvm::Constant *object = resource->GetGlobalSymbol();
-    auto *load = Builder.CreateLoad(object);
+    Value *load = Builder.CreateLoad(object, resourceHandleType);
+    llvm::cast<LoadInst>(load)->setAlignment(4);
+    llvm::cast<LoadInst>(load)->setVolatile(false);
     Function *CreateHandleForLibOpFunc =
-        HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleForLib,
-                          resource->GetHLSLType()->getVectorElementType());
+        HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleForLib, load->getType());
     Constant *CreateHandleForLibOpcodeArg =
         HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandleForLib);
     auto *handle = Builder.CreateCall(CreateHandleForLibOpFunc,
@@ -170,10 +166,8 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
     Constant *ClassArg = HlslOP->GetI8Const(
         static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
             resourceClass));
-    Constant *MetaDataArg = HlslOP->GetU32Const(
-        resourceMetaDataId); // position of the metadata record in the
-                             // corresponding metadata list
-    Constant *IndexArg = HlslOP->GetU32Const(0); //
+    Constant *MetaDataArg = HlslOP->GetU32Const(resource->GetID());
+    Constant *IndexArg = HlslOP->GetU32Const(0);
     Constant *FalseArg =
         HlslOP->GetI1Const(0); // non-uniform resource index: false
     return Builder.CreateCall(
@@ -205,6 +199,18 @@ constexpr uint32_t toolsUAVRegister = 0;
 template <typename RootSigDesc, typename RootParameterDesc>
 void ExtendRootSig(RootSigDesc &rootSigDesc) {
   auto *existingParams = rootSigDesc.pParameters;
+  for (uint32_t i = 0; i < rootSigDesc.NumParameters; ++i) {
+    if (rootSigDesc.pParameters[i].ParameterType ==
+        DxilRootParameterType::UAV) {
+      if (rootSigDesc.pParameters[i].Descriptor.RegisterSpace ==
+              toolsRegisterSpace &&
+          rootSigDesc.pParameters[i].Descriptor.ShaderRegister ==
+              toolsUAVRegister) {
+        // Already added
+        return;
+      }
+    }
+  }
   auto *newParams = new RootParameterDesc[rootSigDesc.NumParameters + 1];
   if (existingParams != nullptr) {
     memcpy(newParams, existingParams,
@@ -275,29 +281,34 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM) {
 }
 
 // Set up a UAV with structure of a single int
-llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
-                          unsigned int registerId, const char *name) {
+hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
+                                            unsigned int hlslBindIndex,
+                                            const char *name) {
   LLVMContext &Ctx = DM.GetModule()->getContext();
 
-  const char *PIXStructTypeName = "struct.RWByteAddressBuffer";
+  const char *PIXStructTypeName = ShaderModelHandleTypeName(DM);
   llvm::StructType *UAVStructTy =
       DM.GetModule()->getTypeByName(PIXStructTypeName);
+
   if (UAVStructTy == nullptr) {
     SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(Ctx)};
     UAVStructTy = llvm::StructType::create(Elements, PIXStructTypeName);
-
-    // Since we only have to do this once per module, we can do it now when
-    // we're adding the singular UAV structure type to the module:
-    AddUAVToDxilDefinedGlobalRootSignatures(DM);
-    AddUAVToShaderAttributeRootSignature(DM);
   }
 
+  // Since this function should only be called once per module,
+  // we can modify the root sig at the same time:
+  AddUAVToDxilDefinedGlobalRootSignatures(DM);
+  AddUAVToShaderAttributeRootSignature(DM);
+
+  unsigned int Id = static_cast<unsigned int>(DM.GetUAVs().size());
   std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
+  pUAV->SetID(Id);
 
   auto const *shaderModel = DM.GetShaderModel();
+  std::string PixUavName = "PIXUAV" + std::to_string(hlslBindIndex);
   if (shaderModel->IsLib()) {
-    auto *Global = DM.GetModule()->getOrInsertGlobal(
-        ("PIXUAV" + std::to_string(registerId)).c_str(), UAVStructTy);
+    auto *Global =
+        DM.GetModule()->getOrInsertGlobal(PixUavName.c_str(), UAVStructTy);
     GlobalVariable *NewGV = cast<GlobalVariable>(Global);
     NewGV->setConstant(true);
     NewGV->setLinkage(GlobalValue::ExternalLinkage);
@@ -308,17 +319,25 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
     pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
   }
   pUAV->SetGlobalName(name);
-  pUAV->SetID(GetNextRegisterIdForClass(DM, DXIL::ResourceClass::UAV));
   pUAV->SetRW(true); // sets UAV class
   pUAV->SetSpaceID(
-      (unsigned int)-2); // This is the reserved-for-tools register space
-  pUAV->SetSampleCount(1);
+      (unsigned int)-2);   // This is the reserved-for-tools register space
+  pUAV->SetSampleCount(0); // This is what compiler generates for a raw UAV
   pUAV->SetGloballyCoherent(false);
+  pUAV->SetReorderCoherent(false);
   pUAV->SetHasCounter(false);
-  pUAV->SetCompType(CompType::getI32());
-  pUAV->SetLowerBound(registerId);
+  pUAV->SetCompType(
+      CompType::getInvalid()); // This is what compiler generates for a raw UAV
+  pUAV->SetLowerBound(hlslBindIndex);
   pUAV->SetRangeSize(1);
+  pUAV->SetElementStride(1);
   pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
+  auto HLSLType = DM.GetModule()->getTypeByName(RawUAVType());
+  if (HLSLType == nullptr) {
+    SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(Ctx)};
+    HLSLType = llvm::StructType::create(Elements, RawUAVType());
+  }
+  pUAV->SetHLSLType(HLSLType->getPointerTo());
 
   auto pAnnotation = DM.GetTypeSystem().GetStructAnnotation(UAVStructTy);
   if (pAnnotation == nullptr) {
@@ -330,9 +349,18 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
     pAnnotation->GetFieldAnnotation(0).SetFieldName("count");
   }
 
-  auto *handle = CreateHandleForResource(DM, Builder, pUAV.get(), name);
-
+  auto *ret = pUAV.get();
   DM.AddUAV(std::move(pUAV));
+  return ret;
+}
+
+// Set up a UAV with structure of a single int
+llvm::CallInst *CreateUAVOnceForModule(hlsl::DxilModule &DM,
+                                       llvm::IRBuilder<> &Builder,
+                                       unsigned int hlslBindIndex,
+                                       const char *name) {
+  auto uav = CreateGlobalUAVResource(DM, hlslBindIndex, name);
+  auto *handle = CreateHandleForResource(DM, Builder, uav, name);
 
   return handle;
 }
@@ -482,6 +510,90 @@ unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM,
     return InputElements[index]->GetID();
   } else {
     return Existing_SV_Position->get()->GetID();
+  }
+}
+
+void ForEachDynamicallyIndexedResource(
+    hlsl::DxilModule &DM,
+    const std::function<bool(bool, Instruction *, Value *)> &Visitor) {
+  OP *HlslOP = DM.GetOP();
+  LLVMContext &Ctx = DM.GetModule()->getContext();
+
+  for (llvm::Function &F : DM.GetModule()->functions()) {
+    if (F.isDeclaration() && !F.use_empty() && OP::IsDxilOpFunc(&F)) {
+      if (F.hasName()) {
+        if (F.getName().find("createHandleForLib") != StringRef::npos) {
+          auto FunctionUses = F.uses();
+          for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();) {
+            auto &FunctionUse = *FI++;
+            auto FunctionUser = FunctionUse.getUser();
+            auto instruction = cast<Instruction>(FunctionUser);
+            Value *resourceLoad = instruction->getOperand(
+                DXIL::OperandIndex::kCreateHandleForLibResOpIdx);
+            if (auto *load = cast<LoadInst>(resourceLoad)) {
+              auto *resOrGep = load->getOperand(0);
+              if (auto *gep = dyn_cast<GetElementPtrInst>(resOrGep)) {
+                if (!Visitor(DxilMDHelper::IsMarkedNonUniform(gep), load,
+                             gep->getOperand(2))) {
+                  return;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  auto CreateHandleFn =
+      HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
+  for (auto FI = CreateHandleFn->user_begin();
+       FI != CreateHandleFn->user_end();) {
+    auto *FunctionUser = *FI++;
+    auto instruction = cast<Instruction>(FunctionUser);
+    Value *index =
+        instruction->getOperand(DXIL::OperandIndex::kCreateHandleResIndexOpIdx);
+    if (!isa<Constant>(index)) {
+      const DxilInst_CreateHandle createHandle(instruction);
+      if (!Visitor(createHandle.get_nonUniformIndex_val(), instruction,
+                   index)) {
+        return;
+      }
+    }
+  }
+
+  auto CreateHandleFromBindingFn = HlslOP->GetOpFunc(
+      DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
+  for (auto FI = CreateHandleFromBindingFn->user_begin();
+       FI != CreateHandleFromBindingFn->user_end();) {
+    auto *FunctionUser = *FI++;
+    auto instruction = cast<Instruction>(FunctionUser);
+    Value *index = instruction->getOperand(
+        DXIL::OperandIndex::kCreateHandleFromBindingResIndexOpIdx);
+    if (!isa<Constant>(index)) {
+      const DxilInst_CreateHandleFromBinding createHandle(instruction);
+      if (!Visitor(createHandle.get_nonUniformIndex_val(), instruction,
+                   index)) {
+        return;
+      }
+    }
+  }
+
+  auto CreateHandleFromHeapFn = HlslOP->GetOpFunc(
+      DXIL::OpCode::CreateHandleFromHeap, Type::getVoidTy(Ctx));
+  for (auto FI = CreateHandleFromHeapFn->user_begin();
+       FI != CreateHandleFromHeapFn->user_end();) {
+    auto *FunctionUser = *FI++;
+    auto instruction = cast<Instruction>(FunctionUser);
+    Value *index = instruction->getOperand(
+        DXIL::OperandIndex::kCreateHandleFromHeapHeapIndexOpIdx);
+    if (!isa<Constant>(index)) {
+      const DxilInst_CreateHandleFromHeap createHandle(instruction);
+      if (!Visitor(createHandle.get_nonUniformIndex_val(), instruction,
+                   index)) {
+        return;
+      }
+    }
   }
 }
 

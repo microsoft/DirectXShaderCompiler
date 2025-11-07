@@ -226,18 +226,20 @@ void main(uint3 tid : SV_DispatchThreadId) {
 // The second member of S starts at byte offset 24 (6 words)
 //
 // CHECK:        [[c_addr:%[0-9]+]] = OpIAdd %uint [[base_addr]] %uint_24
-//
+
 // CHECK:             [[c:%[0-9]+]] = OpCompositeExtract %double [[s0]] 1
+// CHECK:         [[merge:%[0-9]+]] = OpBitcast %v2uint [[c]]
+// CHECK:       [[c_word0:%[0-9]+]] = OpCompositeExtract %uint [[merge]] 0
+// CHECK:       [[c_word1:%[0-9]+]] = OpCompositeExtract %uint [[merge]] 1
+
 // CHECK:       [[c_index:%[0-9]+]] = OpShiftRightLogical %uint [[c_addr]] %uint_2
-// CHECK:           [[ptr_4:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[c_index]]
-// CHECK:         [[c_u64:%[0-9]+]] = OpBitcast %ulong [[c]]
-// CHECK:       [[c_word0:%[0-9]+]] = OpUConvert %uint [[c_u64]]
-// CHECK: [[c_u64_shifted:%[0-9]+]] = OpShiftRightLogical %ulong [[c_u64]] %uint_32
-// CHECK:       [[c_word1:%[0-9]+]] = OpUConvert %uint [[c_u64_shifted]]
-// CHECK:                          OpStore [[ptr_4]] [[c_word0]]
+// CHECK:         [[ptr_4:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[c_index]]
+// CHECK:                             OpStore [[ptr_4]] [[c_word0]]
 // CHECK:   [[c_msb_index:%[0-9]+]] = OpIAdd %uint [[c_index]] %uint_1
-// CHECK:           [[ptr_5:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[c_msb_index]]
-// CHECK:                          OpStore [[ptr_5]] [[c_word1]]
+
+// CHECK:         [[ptr_5:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[c_msb_index]]
+// CHECK:                             OpStore [[ptr_5]] [[c_word1]]
+// CHECK:    [[next_index:%[0-9]+]] = OpIAdd %uint [[c_msb_index]] %uint_1
 
 //
 // The third member of S starts at byte offset 32 (8 words)
@@ -305,16 +307,17 @@ void main(uint3 tid : SV_DispatchThreadId) {
 // CHECK:        [[b_addr:%[0-9]+]] = OpIAdd %uint [[base_addr]] %uint_48
 //
 // CHECK:             [[b:%[0-9]+]] = OpCompositeExtract %double [[s0]] 3
+// CHECK:         [[merge:%[0-9]+]] = OpBitcast %v2uint [[b]]
+// CHECK:       [[b_word0:%[0-9]+]] = OpCompositeExtract %uint [[merge]] 0
+// CHECK:       [[b_word1:%[0-9]+]] = OpCompositeExtract %uint [[merge]] 1
+
 // CHECK:       [[b_index:%[0-9]+]] = OpShiftRightLogical %uint [[b_addr]] %uint_2
-// CHECK:           [[ptr_9:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[b_index]]
-// CHECK:         [[b_u64:%[0-9]+]] = OpBitcast %ulong [[b]]
-// CHECK:       [[b_word0:%[0-9]+]] = OpUConvert %uint [[b_u64]]
-// CHECK: [[b_u64_shifted:%[0-9]+]] = OpShiftRightLogical %ulong [[b_u64]] %uint_32
-// CHECK:       [[b_word1:%[0-9]+]] = OpUConvert %uint [[b_u64_shifted]]
-// CHECK:                          OpStore [[ptr_9]] [[b_word0]]
+// CHECK:         [[ptr_9:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[b_index]]
+// CHECK:                             OpStore [[ptr_9]] [[b_word0]]
 // CHECK:   [[b_msb_index:%[0-9]+]] = OpIAdd %uint [[b_index]] %uint_1
-// CHECK:           [[ptr_10:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[b_msb_index]]
-// CHECK:                          OpStore [[ptr_10]] [[b_word1]]
+// CHECK:        [[ptr_10:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[b_msb_index]]
+// CHECK:                             OpStore [[ptr_10]] [[b_word1]]
+// CHECK:    [[next_index:%[0-9]+]] = OpIAdd %uint [[b_msb_index]] %uint_1
 
 //
 // The fifth member of S starts at byte offset 56 (14 words)
@@ -651,19 +654,20 @@ void main(uint3 tid : SV_DispatchThreadId) {
 //
 // The second member of S starts at byte offset 24 (6 words)
 //
-// CHECK:        [[c_addr_0:%[0-9]+]] = OpIAdd %uint [[s1_addr]] %uint_24
+// CHECK:      [[c_addr_0:%[0-9]+]] = OpIAdd %uint [[s1_addr]] %uint_24
 //
-// CHECK:             [[c_0:%[0-9]+]] = OpCompositeExtract %double [[s1]] 1
-// CHECK:       [[c_index_0:%[0-9]+]] = OpShiftRightLogical %uint [[c_addr_0]] %uint_2
-// CHECK:           [[ptr_28:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[c_index_0]]
-// CHECK:         [[c_u64_0:%[0-9]+]] = OpBitcast %ulong [[c_0]]
-// CHECK:       [[c_word0_0:%[0-9]+]] = OpUConvert %uint [[c_u64_0]]
-// CHECK: [[c_u64_shifted_0:%[0-9]+]] = OpShiftRightLogical %ulong [[c_u64_0]] %uint_32
-// CHECK:       [[c_word1_0:%[0-9]+]] = OpUConvert %uint [[c_u64_shifted_0]]
-// CHECK:                          OpStore [[ptr_28]] [[c_word0_0]]
-// CHECK:   [[c_msb_index_0:%[0-9]+]] = OpIAdd %uint [[c_index_0]] %uint_1
-// CHECK:           [[ptr_29:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[c_msb_index_0]]
-// CHECK:                          OpStore [[ptr_29]] [[c_word1_0]]
+// CHECK:           [[c_0:%[0-9]+]] = OpCompositeExtract %double [[s1]] 1
+// CHECK:         [[merge:%[0-9]+]] = OpBitcast %v2uint [[c_0]]
+// CHECK:     [[c_word0_0:%[0-9]+]] = OpCompositeExtract %uint [[merge]] 0
+// CHECK:     [[c_word1_0:%[0-9]+]] = OpCompositeExtract %uint [[merge]] 1
+
+// CHECK:     [[c_index_0:%[0-9]+]] = OpShiftRightLogical %uint [[c_addr_0]] %uint_2
+// CHECK:        [[ptr_28:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[c_index_0]]
+// CHECK:                             OpStore [[ptr_28]] [[c_word0_0]]
+// CHECK: [[c_msb_index_0:%[0-9]+]] = OpIAdd %uint [[c_index_0]] %uint_1
+// CHECK:        [[ptr_29:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[c_msb_index_0]]
+// CHECK:                             OpStore [[ptr_29]] [[c_word1_0]]
+// CHECK:    [[index_next:%[0-9]+]] = OpIAdd %uint [[c_msb_index_0]] %uint_1
 
 //
 // The third member of S starts at byte offset 32 (8 words)
@@ -728,19 +732,19 @@ void main(uint3 tid : SV_DispatchThreadId) {
 //
 // The fourth member of S starts at byte offset 48 (12 words)
 //
-// CHECK:        [[b_addr_0:%[0-9]+]] = OpIAdd %uint [[s1_addr]] %uint_48
+// CHECK:      [[b_addr_0:%[0-9]+]] = OpIAdd %uint [[s1_addr]] %uint_48
 //
-// CHECK:             [[b_0:%[0-9]+]] = OpCompositeExtract %double [[s1]] 3
-// CHECK:       [[b_index_0:%[0-9]+]] = OpShiftRightLogical %uint [[b_addr_0]] %uint_2
-// CHECK:           [[ptr_33:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[b_index_0]]
-// CHECK:         [[b_u64_0:%[0-9]+]] = OpBitcast %ulong [[b_0]]
-// CHECK:       [[b_word0_0:%[0-9]+]] = OpUConvert %uint [[b_u64_0]]
-// CHECK: [[b_u64_shifted_0:%[0-9]+]] = OpShiftRightLogical %ulong [[b_u64_0]] %uint_32
-// CHECK:       [[b_word1_0:%[0-9]+]] = OpUConvert %uint [[b_u64_shifted_0]]
-// CHECK:                          OpStore [[ptr_33]] [[b_word0_0]]
-// CHECK:   [[b_msb_index_0:%[0-9]+]] = OpIAdd %uint [[b_index_0]] %uint_1
-// CHECK:           [[ptr_34:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[b_msb_index_0]]
-// CHECK:                          OpStore [[ptr_34]] [[b_word1_0]]
+// CHECK:           [[b_0:%[0-9]+]] = OpCompositeExtract %double [[s1]] 3
+// CHECK:         [[merge:%[0-9]+]] = OpBitcast %v2uint [[b_0]]
+// CHECK:     [[b_word0_0:%[0-9]+]] = OpCompositeExtract %uint [[merge]] 0
+// CHECK:     [[b_word1_0:%[0-9]+]] = OpCompositeExtract %uint [[merge]] 1
+// CHECK:     [[b_index_0:%[0-9]+]] = OpShiftRightLogical %uint [[b_addr_0]] %uint_2
+// CHECK:        [[ptr_33:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[b_index_0]]
+// CHECK:                             OpStore [[ptr_33]] [[b_word0_0]]
+// CHECK: [[b_msb_index_0:%[0-9]+]] = OpIAdd %uint [[b_index_0]] %uint_1
+// CHECK:        [[ptr_34:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[b_msb_index_0]]
+// CHECK:                             OpStore [[ptr_34]] [[b_word1_0]]
+// CHECK:    [[next_index:%[0-9]+]] = OpIAdd %uint [[b_msb_index_0]] %uint_1
 
 //
 // The fifth member of S starts at byte offset 56 (14 words)

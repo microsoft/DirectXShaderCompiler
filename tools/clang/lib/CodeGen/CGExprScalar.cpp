@@ -2559,7 +2559,8 @@ void ScalarExprEmitter::EmitUndefinedBehaviorIntegerDivAndRemCheck(
 
     llvm::Value *IntMin =
       Builder.getInt(llvm::APInt::getSignedMinValue(Ty->getBitWidth()));
-    llvm::Value *NegOne = llvm::ConstantInt::get(Ty, -1ULL);
+    llvm::Value *NegOne =
+        llvm::ConstantInt::get(Ty, std::numeric_limits<uint64_t>::max());
 
     llvm::Value *LHSCmp = Builder.CreateICmpNE(Ops.LHS, IntMin);
     llvm::Value *RHSCmp = Builder.CreateICmpNE(Ops.RHS, NegOne);
@@ -3713,20 +3714,7 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
       llvm::Value *CondV = CGF.EmitScalarExpr(condExpr);
       llvm::Value *LHS = Visit(lhsExpr);
       llvm::Value *RHS = Visit(rhsExpr);
-      if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(CondV->getType())) {
-        llvm::VectorType *ResultVT = cast<llvm::VectorType>(LHS->getType());
-        llvm::Value *result = llvm::UndefValue::get(ResultVT);
-        for (unsigned i = 0; i < VT->getNumElements(); i++) {
-          llvm::Value *EltCond = Builder.CreateExtractElement(CondV, i);
-          llvm::Value *EltL = Builder.CreateExtractElement(LHS, i);
-          llvm::Value *EltR = Builder.CreateExtractElement(RHS, i);
-          llvm::Value *EltSelect = Builder.CreateSelect(EltCond, EltL, EltR);
-          result = Builder.CreateInsertElement(result, EltSelect, i);
-        }
-        return result;
-      } else {
-        return Builder.CreateSelect(CondV, LHS, RHS);
-      }
+      return Builder.CreateSelect(CondV, LHS, RHS);
     }
     if (hlsl::IsHLSLMatType(E->getType())) {
       llvm::Value *Cond = CGF.EmitScalarExpr(condExpr);

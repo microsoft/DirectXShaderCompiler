@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_6 -E main -fvk-allow-rwstructuredbuffer-arrays -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_6 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct PSInput
 {
@@ -7,11 +7,15 @@ struct PSInput
 
 // CHECK: OpDecorate %g_rwbuffer DescriptorSet 2
 // CHECK: OpDecorate %g_rwbuffer Binding 0
+// CHECK-NOT: OpDecorate %_arr_type_ACSBuffer_counter_uint_5 ArrayStride
 // CHECK: OpDecorate %counter_var_g_rwbuffer DescriptorSet 2
 // CHECK: OpDecorate %counter_var_g_rwbuffer Binding 1
+// CHECK-NOT: OpDecorate %_arr_type_ACSBuffer_counter_uint_5 ArrayStride
+// CHECK:   OpDecorate %type_ACSBuffer_counter BufferBlock
+// CHECK-NOT: OpDecorate %_runtimearr_type_ACSBuffer_counter ArrayStride
 
-// CHECK: %g_rwbuffer = OpVariable %_ptr_Uniform__arr_type_RWStructuredBuffer_uint_uint_5 Uniform
 // CHECK: %counter_var_g_rwbuffer = OpVariable %_ptr_Uniform__arr_type_ACSBuffer_counter_uint_5 Uniform
+// CHECK: %g_rwbuffer = OpVariable %_ptr_Uniform__arr_type_RWStructuredBuffer_uint_uint_5 Uniform
 RWStructuredBuffer<uint> g_rwbuffer[5] : register(u0, space2);
 
 float4 main(PSInput input) : SV_TARGET

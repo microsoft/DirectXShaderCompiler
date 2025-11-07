@@ -46,7 +46,7 @@ public:
 
   TEST_CLASS_SETUP(InitSupport);
 
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
   // Basic loading tests.
@@ -96,7 +96,7 @@ bool DxilModuleTest::InitSupport() {
 namespace {
 class Compiler {
 public:
-  Compiler(dxc::DxcDllSupport &dll)
+  Compiler(dxc::DxCompilerDllLoader &dll)
       : m_dllSupport(dll), m_msf(CreateMSFileSystem()), m_pts(m_msf.get()) {
     m_ver.Initialize(m_dllSupport);
     VERIFY_SUCCEEDED(
@@ -179,7 +179,7 @@ public:
     return msfPtr;
   }
 
-  dxc::DxcDllSupport &m_dllSupport;
+  dxc::DxCompilerDllLoader &m_dllSupport;
   VersionSupportInfo m_ver;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pCodeBlob;
@@ -571,9 +571,11 @@ TEST_F(DxilModuleTest, PayloadQualifier) {
                   "{\n"
                   "  double a : read(caller, closesthit, anyhit) : "
                   "write(caller, miss, closesthit);\n"
+                  "  int b : read(caller) : write(miss);\n"
                   "};\n\n"
                   "[shader(\"miss\")]\n"
-                  "void Miss( inout Payload payload ) { payload.a = 4.2; }\n";
+                  "void Miss( inout Payload payload ) { payload.a = 4.2; "
+                  "payload.b = 1; }\n";
 
   c.Compile(shader, L"lib_6_6", arguments, {});
 
@@ -582,9 +584,9 @@ TEST_F(DxilModuleTest, PayloadQualifier) {
 
   for (auto &p : DTS.GetPayloadAnnotationMap()) {
     const DxilPayloadAnnotation &plAnnotation = *p.second;
-    for (unsigned i = 0; i < plAnnotation.GetNumFields(); ++i) {
+    {
       const DxilPayloadFieldAnnotation &fieldAnnotation =
-          plAnnotation.GetFieldAnnotation(i);
+          plAnnotation.GetFieldAnnotation(0);
       VERIFY_IS_TRUE(fieldAnnotation.HasAnnotations());
       VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::ReadWrite,
                        fieldAnnotation.GetPayloadFieldQualifier(
@@ -596,6 +598,23 @@ TEST_F(DxilModuleTest, PayloadQualifier) {
                        fieldAnnotation.GetPayloadFieldQualifier(
                            DXIL::PayloadAccessShaderStage::Miss));
       VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::Read,
+                       fieldAnnotation.GetPayloadFieldQualifier(
+                           DXIL::PayloadAccessShaderStage::Anyhit));
+    }
+    {
+      const DxilPayloadFieldAnnotation &fieldAnnotation =
+          plAnnotation.GetFieldAnnotation(1);
+      VERIFY_IS_TRUE(fieldAnnotation.HasAnnotations());
+      VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::Read,
+                       fieldAnnotation.GetPayloadFieldQualifier(
+                           DXIL::PayloadAccessShaderStage::Caller));
+      VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::NoAccess,
+                       fieldAnnotation.GetPayloadFieldQualifier(
+                           DXIL::PayloadAccessShaderStage::Closesthit));
+      VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::Write,
+                       fieldAnnotation.GetPayloadFieldQualifier(
+                           DXIL::PayloadAccessShaderStage::Miss));
+      VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::NoAccess,
                        fieldAnnotation.GetPayloadFieldQualifier(
                            DXIL::PayloadAccessShaderStage::Anyhit));
     }

@@ -31,6 +31,7 @@
 namespace clang {
 class ASTContext;
 class AttributeList;
+class CXXConstructorDecl;
 class CXXMethodDecl;
 class CXXRecordDecl;
 class ClassTemplateDecl;
@@ -348,9 +349,10 @@ void AddHLSLNodeOutputRecordTemplate(
     _Outptr_ clang::ClassTemplateDecl **outputRecordTemplateDecl,
     bool isCompleteType = true);
 
-clang::CXXRecordDecl *DeclareRecordTypeWithHandle(clang::ASTContext &context,
-                                                  llvm::StringRef name,
-                                                  bool isCompleteType = true);
+clang::CXXRecordDecl *
+DeclareRecordTypeWithHandle(clang::ASTContext &context, llvm::StringRef name,
+                            bool isCompleteType = true,
+                            clang::InheritableAttr *Attr = nullptr);
 
 void AddRaytracingConstants(clang::ASTContext &context);
 void AddSamplerFeedbackConstants(clang::ASTContext &context);
@@ -370,24 +372,27 @@ void AddStdIsEqualImplementation(clang::ASTContext &context, clang::Sema &sema);
 clang::CXXRecordDecl *DeclareTemplateTypeWithHandle(
     clang::ASTContext &context, llvm::StringRef name,
     uint8_t templateArgCount = 1,
-    clang::TypeSourceInfo *defaultTypeArgValue = nullptr);
+    clang::TypeSourceInfo *defaultTypeArgValue = nullptr,
+    clang::InheritableAttr *Attr = nullptr);
 
 clang::CXXRecordDecl *DeclareTemplateTypeWithHandleInDeclContext(
     clang::ASTContext &context, clang::DeclContext *declContext,
     llvm::StringRef name, uint8_t templateArgCount,
-    clang::TypeSourceInfo *defaultTypeArgValue);
+    clang::TypeSourceInfo *defaultTypeArgValue,
+    clang::InheritableAttr *Attr = nullptr);
 
 clang::CXXRecordDecl *DeclareUIntTemplatedTypeWithHandle(
     clang::ASTContext &context, llvm::StringRef typeName,
-    llvm::StringRef templateParamName,
-    clang::TagTypeKind tagKind = clang::TagTypeKind::TTK_Class);
+    llvm::StringRef templateParamName, clang::InheritableAttr *Attr = nullptr);
 clang::CXXRecordDecl *DeclareUIntTemplatedTypeWithHandleInDeclContext(
     clang::ASTContext &context, clang::DeclContext *declContext,
     llvm::StringRef typeName, llvm::StringRef templateParamName,
-    clang::TagTypeKind tagKind = clang::TagTypeKind::TTK_Class);
-clang::CXXRecordDecl *DeclareConstantBufferViewType(clang::ASTContext &context,
-                                                    bool bTBuf);
+    clang::InheritableAttr *Attr = nullptr);
+clang::CXXRecordDecl *
+DeclareConstantBufferViewType(clang::ASTContext &context,
+                              clang::InheritableAttr *Attr);
 clang::CXXRecordDecl *DeclareRayQueryType(clang::ASTContext &context);
+clang::CXXRecordDecl *DeclareHitObjectType(clang::NamespaceDecl &NSDecl);
 clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context,
                                           bool bSampler);
 
@@ -398,6 +403,10 @@ DeclareNodeOrRecordType(clang::ASTContext &Ctx, DXIL::NodeIOKind Type,
                         bool IsCompleteType = false);
 
 #ifdef ENABLE_SPIRV_CODEGEN
+clang::CXXRecordDecl *
+DeclareVkBufferPointerType(clang::ASTContext &context,
+                           clang::DeclContext *declContext);
+
 clang::CXXRecordDecl *DeclareInlineSpirvType(clang::ASTContext &context,
                                              clang::DeclContext *declContext,
                                              llvm::StringRef typeName,
@@ -423,7 +432,7 @@ clang::VarDecl *DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,
 /// method.</summary> <param name="context">AST context in which to
 /// work.</param> <param name="recordDecl">Class in which the function template
 /// is declared.</param> <param name="functionDecl">Function for which a
-/// template is created.</params> <param
+/// template is created.</param> <param
 /// name="templateParamNamedDecls">Declarations for templates to the
 /// function.</param> <param name="templateParamNamedDeclsCount">Count of
 /// template declarations.</param> <returns>A new function template declaration
@@ -458,6 +467,7 @@ bool IsHLSLUnsigned(clang::QualType type);
 bool IsHLSLMinPrecision(clang::QualType type);
 bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm = nullptr);
 bool HasHLSLGloballyCoherent(clang::QualType type);
+bool HasHLSLReorderCoherent(clang::QualType type);
 bool IsHLSLInputPatchType(clang::QualType type);
 bool IsHLSLOutputPatchType(clang::QualType type);
 bool IsHLSLPointStreamType(clang::QualType type);
@@ -469,22 +479,27 @@ bool IsHLSLNodeInputType(clang::QualType type);
 bool IsHLSLDynamicResourceType(clang::QualType type);
 bool IsHLSLDynamicSamplerType(clang::QualType type);
 bool IsHLSLNodeType(clang::QualType type);
+bool IsHLSLHitObjectType(clang::QualType type);
 
 bool IsHLSLObjectWithImplicitMemberAccess(clang::QualType type);
 bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type);
 bool IsHLSLRWNodeInputRecordType(clang::QualType type);
 bool IsHLSLRONodeInputRecordType(clang::QualType type);
+bool IsHLSLDispatchNodeInputRecordType(clang::QualType type);
+bool IsHLSLNodeRecordArrayType(clang::QualType type);
 bool IsHLSLNodeOutputType(clang::QualType type);
+bool IsHLSLEmptyNodeRecordType(clang::QualType type);
 
 DXIL::NodeIOKind GetNodeIOType(clang::QualType type);
 
 bool IsHLSLStructuredBufferType(clang::QualType type);
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type);
-bool IsHLSLNumericUserDefinedType(clang::QualType type);
 bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT);
 bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT);
 bool IsHLSLAggregateType(clang::QualType type);
 clang::QualType GetHLSLResourceResultType(clang::QualType type);
+clang::QualType GetHLSLNodeIOResultType(clang::ASTContext &astContext,
+                                        clang::QualType type);
 unsigned GetHLSLResourceTemplateUInt(clang::QualType type);
 bool IsIncompleteHLSLResourceArrayType(clang::ASTContext &context,
                                        clang::QualType type);
@@ -528,6 +543,29 @@ bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
                                       clang::QualType paramType);
 bool IsPatchConstantFunctionDecl(const clang::FunctionDecl *FD);
 
+#ifdef ENABLE_SPIRV_CODEGEN
+bool IsVKBufferPointerType(clang::QualType type);
+clang::QualType GetVKBufferPointerBufferType(clang::QualType type);
+unsigned GetVKBufferPointerAlignment(clang::QualType type);
+#endif
+
+/// <summary>Adds a constructor declaration to the specified class
+/// record.</summary> <param name="context">ASTContext that owns
+/// declarations.</param> <param name="recordDecl">Record declaration in which
+/// to add constructor.</param> <param name="resultType">Result type for
+/// constructor.</param> <param name="paramTypes">Types for constructor
+/// parameters.</param> <param name="paramNames">Names for constructor
+/// parameters.</param> <param name="declarationName">Name for
+/// constructor.</param> <param name="isConst">Whether the constructor is a
+/// const function.</param> <returns>The method declaration for the
+/// constructor.</returns>
+clang::CXXConstructorDecl *CreateConstructorDeclarationWithParams(
+    clang::ASTContext &context, clang::CXXRecordDecl *recordDecl,
+    clang::QualType resultType, llvm::ArrayRef<clang::QualType> paramTypes,
+    llvm::ArrayRef<clang::StringRef> paramNames,
+    clang::DeclarationName declarationName, bool isConst,
+    bool isTemplateFunction = false);
+
 /// <summary>Adds a function declaration to the specified class
 /// record.</summary> <param name="context">ASTContext that owns
 /// declarations.</param> <param name="recordDecl">Record declaration in which
@@ -542,6 +580,7 @@ clang::CXXMethodDecl *CreateObjectFunctionDeclarationWithParams(
     clang::QualType resultType, llvm::ArrayRef<clang::QualType> paramTypes,
     llvm::ArrayRef<clang::StringRef> paramNames,
     clang::DeclarationName declarationName, bool isConst,
+    clang::StorageClass SC = clang::StorageClass::SC_None,
     bool isTemplateFunction = false);
 
 DXIL::ResourceClass GetResourceClassForType(const clang::ASTContext &context,

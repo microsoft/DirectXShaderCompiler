@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_6 -E main -fcgl %s -spirv  2>&1 | FileCheck %s
+// RUN: %dxc -T ps_6_6 -E main -fcgl %s -spirv | FileCheck %s
 
 // CHECK-DAG: OpDecorate %Texture DescriptorSet 0
 // CHECK-DAG: OpDecorate %Texture Binding 0

@@ -20,6 +20,7 @@
 #include "dxc/dxcapi.h"
 #include "dxcvalidator.h"
 
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
@@ -32,7 +33,13 @@
 using namespace llvm;
 using namespace hlsl;
 
-static void HashAndUpdate(DxilContainerHeader *Container) {
+static void HashAndUpdate(DxilContainerHeader *Container, bool isPreRelease) {
+  if (isPreRelease) {
+    // If preview bypass is enabled, use the preview hash.
+    memcpy(Container->Hash.Digest, PreviewByPassHash.Digest,
+           sizeof(PreviewByPassHash.Digest));
+    return;
+  }
   // Compute hash and update stored hash.
   // Hash the container from this offset to the end.
   static const uint32_t DXBCHashStartOffset =
@@ -45,8 +52,26 @@ static void HashAndUpdate(DxilContainerHeader *Container) {
 
 static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
                                 IDxcBlob **Hashed) {
+  bool isPreRelease = false;
+  const DxilContainerHeader *DxilContainer =
+      IsDxilContainerLike(Shader->GetBufferPointer(), Shader->GetBufferSize());
+  if (!DxilContainer)
+    return;
+
+  const DxilProgramHeader *ProgramHeader =
+      GetDxilProgramHeader(DxilContainer, DFCC_DXIL);
+
+  // ProgramHeader may be null here, when hashing a root signature container
+  if (ProgramHeader) {
+    int PV = ProgramHeader->ProgramVersion;
+    int major = (PV >> 4) & 0xF; // Extract the major version (next 4 bits)
+    int minor = PV & 0xF;        // Extract the minor version (lowest 4 bits)
+    isPreRelease = ShaderModel::IsPreReleaseShaderModel(major, minor);
+  }
+
   if (Flags & DxcValidatorFlags_InPlaceEdit) {
-    HashAndUpdate((DxilContainerHeader *)Shader->GetBufferPointer());
+    HashAndUpdate((DxilContainerHeader *)Shader->GetBufferPointer(),
+                  isPreRelease);
     *Hashed = Shader;
     Shader->AddRef();
   } else {
@@ -55,7 +80,8 @@ static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
     ULONG CB;
     IFT(HashedBlobStream->Write(Shader->GetBufferPointer(),
                                 Shader->GetBufferSize(), &CB));
-    HashAndUpdate((DxilContainerHeader *)HashedBlobStream->GetPtr());
+    HashAndUpdate((DxilContainerHeader *)HashedBlobStream->GetPtr(),
+                  isPreRelease);
     IFT(HashedBlobStream.QueryInterface(Hashed));
   }
 }

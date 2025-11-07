@@ -51,6 +51,7 @@
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/dxcapi.extval.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.h"
@@ -125,7 +126,7 @@ class DxcContext {
 
 private:
   DxcOpts &m_Opts;
-  DxcDllSupport &m_dxcSupport;
+  DxcDllExtValidationLoader &m_dxcSupport;
 
   int ActOnBlob(IDxcBlob *pBlob);
   int ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugBlobName);
@@ -155,7 +156,7 @@ private:
   }
 
 public:
-  DxcContext(DxcOpts &Opts, DxcDllSupport &dxcSupport)
+  DxcContext(DxcOpts &Opts, DxcDllExtValidationLoader &dxcSupport)
       : m_Opts(Opts), m_dxcSupport(dxcSupport) {}
 
   int Compile();
@@ -644,7 +645,7 @@ int DxcContext::VerifyRootSignature() {
   IFT(pContainerBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature,
                                  pRootSignature));
   CComPtr<IDxcOperationResult> pOperationResult;
-  pContainerBuilder->SerializeContainer(&pOperationResult);
+  IFT(pContainerBuilder->SerializeContainer(&pOperationResult));
   HRESULT status = E_FAIL;
   CComPtr<IDxcBlob> pResult;
   IFT(pOperationResult->GetStatus(&status));
@@ -871,6 +872,12 @@ int DxcContext::Compile() {
           outputPDBPath += pDebugName.m_pData;
         }
       } else {
+        // This may or may not use the external validator after compilation,
+        // depending on the environment. Compilation via the Compile(...)
+        // function is deferred to whatever object was chosen to be pCompiler,
+        // which must implement the IDxcCompiler interface. External validation
+        // will only take place if the DXC_DXIL_DLL_PATH env var is set
+        // correctly.
         IFT(pCompiler->Compile(
             pSource, StringRefWide(m_Opts.InputFile),
             StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
@@ -1234,8 +1241,7 @@ namespace dxc {
 
 // Writes compiler version info to stream
 void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS, const char *ExternalLib,
-                                const char *ExternalFn,
-                                DxcDllSupport &DxcSupport) {
+                                const char *ExternalFn, DllLoader &DxcSupport) {
   if (DxcSupport.IsEnabled()) {
     UINT32 compilerMajor = 1;
     UINT32 compilerMinor = 0;
@@ -1294,7 +1300,7 @@ void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS, const char *ExternalLib,
 }
 
 // Writes compiler version info to stream
-void WriteDXILVersionInfo(llvm::raw_ostream &OS, DxcDllSupport &DxilSupport) {
+void WriteDXILVersionInfo(llvm::raw_ostream &OS, DllLoader &DxilSupport) {
   if (DxilSupport.IsEnabled()) {
     CComPtr<IDxcVersionInfo> VerInfo;
     if (SUCCEEDED(DxilSupport.CreateInstance(CLSID_DxcValidator, &VerInfo))) {
@@ -1325,7 +1331,7 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
       m_dxcSupport);
 
   // Print validator if exists
-  DxcDllSupport DxilSupport;
+  SpecificDllLoader DxilSupport;
   DxilSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
   WriteDXILVersionInfo(OS, DxilSupport);
 }
@@ -1417,7 +1423,6 @@ int dxc::main(int argc, const char **argv_) {
     const OptTable *optionTable = getHlslOptTable();
     MainArgs argStrings(argc, argv_);
     DxcOpts dxcOpts;
-    DxcDllSupport dxcSupport;
 
     // Read options and check errors.
     {
@@ -1449,19 +1454,45 @@ int dxc::main(int argc, const char **argv_) {
 #endif
 
     // Setup a helper DLL.
+    DxcDllExtValidationLoader dxcSupport;
     {
-      std::string dllErrorString;
-      llvm::raw_string_ostream dllErrorStream(dllErrorString);
-      int dllResult = SetupDxcDllSupport(dxcOpts, dxcSupport, dllErrorStream);
-      dllErrorStream.flush();
-      if (dllErrorString.size()) {
-        fprintf(stderr, "%s\n", dllErrorString.data());
-      }
-      if (dllResult)
+      HRESULT dllResult;
+      if (!dxcOpts.ExternalLib.empty() || !dxcOpts.ExternalFn.empty())
+        dllResult =
+            dxcSupport.InitializeForDll(dxcOpts.ExternalLib.str().c_str(),
+                                        dxcOpts.ExternalFn.str().c_str());
+      else
+        dllResult = dxcSupport.initialize();
+
+      if (DXC_FAILED(dllResult)) {
+        switch (dxcSupport.getFailureReason()) {
+        case dxcSupport.FailedCompilerLoad: {
+          fprintf(stderr, "dxcompiler.dll failed to load\n");
+          break;
+        }
+        case dxcSupport.FailedDxilPath: {
+          fprintf(stderr, "dxil.dll path %s could not be found",
+                  dxcSupport.getDxilDllPath().c_str());
+          break;
+        }
+        case dxcSupport.FailedDxilLoad: {
+          fprintf(stderr, "%s failed to load",
+                  dxcSupport.getDxilDllPath().c_str());
+          break;
+        }
+        default: {
+          llvm_unreachable("unexpected failure reason");
+        }
+        }
         return dllResult;
+      }
+
+      // if no errors setting up, print the log string as stdout
+      if (dxcOpts.Verbose)
+        fprintf(stdout, "Loading external dxil.dll from %s",
+                dxcSupport.getDxilDllPath().c_str());
     }
 
-    EnsureEnabled(dxcSupport);
     DxcContext context(dxcOpts, dxcSupport);
     // Handle help request, which overrides any other processing.
     if (dxcOpts.ShowHelp) {

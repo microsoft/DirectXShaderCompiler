@@ -20,6 +20,7 @@
 #include "dxc/Support/SPIRVOptions.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceLocation.h"
+#include "clang/Basic/VersionTuple.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/StringRef.h"
@@ -56,12 +57,15 @@ enum class Extension {
   KHR_ray_query,
   EXT_shader_image_int64,
   KHR_physical_storage_buffer,
+  AMD_shader_enqueue,
   KHR_vulkan_memory_model,
   NV_compute_shader_derivatives,
+  KHR_compute_shader_derivatives,
   KHR_fragment_shader_barycentric,
   KHR_maximal_reconvergence,
   KHR_float_controls,
   NV_shader_subgroup_partitioned,
+  KHR_quad_control,
   Unknown,
 };
 
@@ -131,12 +135,18 @@ public:
   /// Returns false otherwise.
   bool isTargetEnvVulkan1p3OrAbove();
 
+  /// Return true if the target environment is a Vulkan environment.
+  bool isTargetEnvVulkan();
+
   /// Returns the spv_target_env matching the input string if possible.
   /// This functions matches the spv_target_env with the command-line version
   /// of the name ('vulkan1.1', not 'Vulkan 1.1').
   /// Returns an empty Optional if no matching env is found.
   static llvm::Optional<spv_target_env>
   stringToSpvEnvironment(const std::string &target_env);
+
+  // Returns the SPIR-V version used for the target environment.
+  static clang::VersionTuple getSpirvVersion(spv_target_env env);
 
   /// Returns the equivalent to spv_target_env in pretty, human readable form.
   /// (SPV_ENV_VULKAN_1_0 -> "Vulkan 1.0").

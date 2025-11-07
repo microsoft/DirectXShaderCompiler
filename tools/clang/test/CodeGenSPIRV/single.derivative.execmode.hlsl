@@ -3,10 +3,10 @@
 // This test checks that the execution mode is not added multiple times. Other
 // tests will verify that the code generation is correct.
 
-// CHECK: OpCapability ComputeDerivativeGroupQuadsNV
+// CHECK: OpCapability ComputeDerivativeGroupQuadsKHR
 // CHECK: OpExtension "SPV_NV_compute_shader_derivatives"
-// CHECK: OpExecutionMode %main DerivativeGroupQuadsNV
-// CHECK-NOT: OpExecutionMode %main DerivativeGroupQuadsNV
+// CHECK: OpExecutionMode %main DerivativeGroupQuadsKHR
+// CHECK-NOT: OpExecutionMode %main DerivativeGroupQuadsKHR
 
 SamplerState ss : register(s2);
 SamplerComparisonState scs;

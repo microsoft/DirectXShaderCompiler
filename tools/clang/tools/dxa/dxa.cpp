@@ -14,6 +14,7 @@
 #include "dxc/Support/WinIncludes.h"
 
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/dxcapi.use.h"
@@ -71,17 +72,21 @@ static cl::opt<bool> DumpReflection("dumpreflection",
 static cl::opt<bool> DumpHash("dumphash", cl::desc("Dump validation hash"),
                               cl::init(false));
 
+static cl::opt<bool> DumpPSV("dumppsv",
+                             cl::desc("Dump pipeline state validation"),
+                             cl::init(false));
+
 class DxaContext {
 
 private:
-  DxcDllSupport &m_dxcSupport;
+  SpecificDllLoader &m_dxcSupport;
   HRESULT FindModule(hlsl::DxilFourCC fourCC, IDxcBlob *pSource,
                      IDxcLibrary *pLibrary, IDxcBlob **ppTarget);
   bool ExtractPart(uint32_t Part, IDxcBlob **ppTargetBlob);
   bool ExtractPart(IDxcBlob *pSource, uint32_t Part, IDxcBlob **ppTargetBlob);
 
 public:
-  DxaContext(DxcDllSupport &dxcSupport) : m_dxcSupport(dxcSupport) {}
+  DxaContext(SpecificDllLoader &dxcSupport) : m_dxcSupport(dxcSupport) {}
 
   void Assemble();
   bool ExtractFile(const char *pName);
@@ -92,6 +97,7 @@ public:
   void DumpRDAT();
   void DumpReflection();
   void DumpValidationHash();
+  void DumpPSV();
 };
 
 void DxaContext::Assemble() {
@@ -487,6 +493,26 @@ void DxaContext::DumpValidationHash() {
   }
 }
 
+void DxaContext::DumpPSV() {
+  CComPtr<IDxcBlob> pContent;
+  if (!ExtractPart(hlsl::DFCC_PipelineStateValidation, &pContent)) {
+    printf("cannot find PSV part");
+    return;
+  }
+  DxilPipelineStateValidation PSV;
+  if (!PSV.InitFromPSV0(pContent->GetBufferPointer(),
+                        pContent->GetBufferSize())) {
+    printf("fail to read PSV part");
+    return;
+  }
+  std::string Str;
+  llvm::raw_string_ostream OS(Str);
+  PSV.Print(OS, static_cast<uint8_t>(PSVShaderKind::Library));
+  for (char &c : Str) {
+    printf("%c", c);
+  }
+}
+
 using namespace hlsl::options;
 
 #ifdef _WIN32
@@ -520,8 +546,8 @@ int main(int argc, const char **argv) {
       return 2;
     }
 
-    DxcDllSupport dxcSupport;
-    dxc::EnsureEnabled(dxcSupport);
+    DxCompilerDllLoader dxcSupport;
+    IFT(dxcSupport.Initialize());
     DxaContext context(dxcSupport);
     if (ListParts) {
       pStage = "Listing parts";
@@ -551,6 +577,9 @@ int main(int argc, const char **argv) {
     } else if (DumpHash) {
       pStage = "Dump Validation Hash";
       context.DumpValidationHash();
+    } else if (DumpPSV) {
+      pStage = "Dump Pipeline State Validation";
+      context.DumpPSV();
     } else {
       pStage = "Assembling";
       context.Assemble();

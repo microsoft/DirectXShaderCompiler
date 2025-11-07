@@ -177,17 +177,28 @@ void DxilMDHelper::EmitDxilVersion(unsigned Major, unsigned Minor) {
   pDxilVersionMD->addOperand(MDNode::get(m_Ctx, MDVals));
 }
 
-void DxilMDHelper::LoadDxilVersion(unsigned &Major, unsigned &Minor) {
-  NamedMDNode *pDxilVersionMD = m_pModule->getNamedMetadata(kDxilVersionMDName);
-  IFTBOOL(pDxilVersionMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-  IFTBOOL(pDxilVersionMD->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+// Load dxil version from metadata contained in pModule.
+// Returns true and passes result through
+// the dxil major/minor version params if valid.
+// Returns false if metadata is missing or invalid.
+bool DxilMDHelper::LoadDxilVersion(const Module *pModule, unsigned &Major,
+                                   unsigned &Minor) {
+  NamedMDNode *pDxilVersionMD = pModule->getNamedMetadata(kDxilVersionMDName);
+  IFRBOOL(pDxilVersionMD != nullptr, false);
+  IFRBOOL(pDxilVersionMD->getNumOperands() == 1, false);
 
   MDNode *pVersionMD = pDxilVersionMD->getOperand(0);
-  IFTBOOL(pVersionMD->getNumOperands() == kDxilVersionNumFields,
-          DXC_E_INCORRECT_DXIL_METADATA);
+  IFRBOOL(pVersionMD->getNumOperands() == kDxilVersionNumFields, false);
 
   Major = ConstMDToUint32(pVersionMD->getOperand(kDxilVersionMajorIdx));
   Minor = ConstMDToUint32(pVersionMD->getOperand(kDxilVersionMinorIdx));
+
+  return true;
+}
+
+void DxilMDHelper::LoadDxilVersion(unsigned &Major, unsigned &Minor) {
+  IFTBOOL(LoadDxilVersion(m_pModule, Major, Minor),
+          DXC_E_INCORRECT_DXIL_METADATA);
 }
 
 //
@@ -3099,6 +3110,13 @@ void DxilExtraPropertyHelper::EmitUAVProperties(
         DxilMDHelper::kDxilAtomic64UseTag, m_Ctx));
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD((unsigned)true, m_Ctx));
   }
+  // Whether resource is reordercoherent.
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 9) >= 0 &&
+      UAV.IsReorderCoherent()) {
+    MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(
+        DxilMDHelper::kDxilReorderCoherentTag, m_Ctx));
+    MDVals.emplace_back(DxilMDHelper::BoolToConstMD(true, m_Ctx));
+  }
 }
 
 void DxilExtraPropertyHelper::LoadUAVProperties(const MDOperand &MDO,
@@ -3135,6 +3153,9 @@ void DxilExtraPropertyHelper::LoadUAVProperties(const MDOperand &MDO,
       break;
     case DxilMDHelper::kDxilAtomic64UseTag:
       UAV.SetHasAtomic64Use(DxilMDHelper::ConstMDToBool(MDO));
+      break;
+    case DxilMDHelper::kDxilReorderCoherentTag:
+      UAV.SetReorderCoherent(DxilMDHelper::ConstMDToBool(MDO));
       break;
     default:
       DXASSERT(false, "Unknown resource record tag");
