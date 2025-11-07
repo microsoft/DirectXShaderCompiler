@@ -70,6 +70,7 @@ void InitResourceBase(const DxilResourceBase *pSource,
   DXASSERT_NOMSG(pSource->GetClass() == pDest->GetClass());
   pDest->SetKind(pSource->GetKind());
   pDest->SetID(pSource->GetID());
+  pDest->SetIsUnused(pSource->IsUnused());
   pDest->SetSpaceID(pSource->GetSpaceID());
   pDest->SetLowerBound(pSource->GetLowerBound());
   pDest->SetRangeSize(pSource->GetRangeSize());

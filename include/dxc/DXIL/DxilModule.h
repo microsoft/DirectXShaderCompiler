@@ -115,6 +115,7 @@ public:
   void RemoveResourcesWithUnusedSymbols();
   bool RemoveEmptyBuffers();
   void RemoveFunction(llvm::Function *F);
+  bool MarkUnusedResources();
 
   bool RenameResourcesWithPrefix(const std::string &prefix);
   bool RenameResourceGlobalsWithBinding(bool bKeepName = true);

@@ -1053,6 +1053,12 @@ static void RemoveResourcesWithUnusedSymbolsHelper(
 }
 } // namespace
 
+void DxilModule::RemoveResourcesWithUnusedSymbols() {
+  RemoveResourcesWithUnusedSymbolsHelper(m_SRVs);
+  RemoveResourcesWithUnusedSymbolsHelper(m_UAVs);
+  RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers);
+  RemoveResourcesWithUnusedSymbolsHelper(m_Samplers);
+}
 
 bool DxilModule::RemoveEmptyBuffers() {
 
@@ -1087,11 +1093,35 @@ bool DxilModule::RemoveEmptyBuffers() {
   return mod;
 }
 
-void DxilModule::RemoveResourcesWithUnusedSymbols() {
-  RemoveResourcesWithUnusedSymbolsHelper(m_SRVs);
-  RemoveResourcesWithUnusedSymbolsHelper(m_UAVs);
-  RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers);
-  RemoveResourcesWithUnusedSymbolsHelper(m_Samplers);
+namespace {
+template <typename TResource>
+static bool MarkResourcesUnused(
+    std::vector<std::unique_ptr<TResource>> &vec) {
+
+  bool modif = false;
+
+  for (auto p = vec.begin(); p != vec.end();) {
+    auto c = p++;
+    Constant *symbol = (*c)->GetGlobalSymbol();
+    symbol->removeDeadConstantUsers();
+    if (symbol->user_empty()) {
+      (*c)->SetIsUnused(true);
+      modif = true;
+      continue;
+    }
+  }
+
+  return modif;
+}
+} // namespace
+
+bool DxilModule::MarkUnusedResources() {
+  bool modif = true;
+  modif |= MarkResourcesUnused(m_SRVs);
+  modif |= MarkResourcesUnused(m_UAVs);
+  modif |= MarkResourcesUnused(m_CBuffers);
+  modif |= MarkResourcesUnused(m_Samplers);
+  return modif;
 }
 
 namespace {

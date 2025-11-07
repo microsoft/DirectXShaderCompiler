@@ -572,8 +572,10 @@ public:
       bChanged |= bLocalChanged;
     }
 
-    if (DM.GetKeepAllResources())
+    if (DM.GetKeepAllResources()) {
       bChanged |= DM.RemoveEmptyBuffers();
+      bChanged |= DM.MarkUnusedResources();
+    }
 
     bChanged |= ResourceRegisterAllocator.AllocateRegisters(DM);
 
@@ -2338,6 +2340,7 @@ void InitTBuffer(const DxilCBuffer *pSource, DxilResource *pDest) {
   pDest->SetRW(false);
   pDest->SetROV(false);
   pDest->SetID(pSource->GetID());
+  pDest->SetIsUnused(pSource->IsUnused());
   pDest->SetSpaceID(pSource->GetSpaceID());
   pDest->SetLowerBound(pSource->GetLowerBound());
   pDest->SetRangeSize(pSource->GetRangeSize());
@@ -2550,6 +2553,7 @@ bool DxilLowerCreateHandleForLib::PatchTBuffers(DxilModule &DM) {
       auto srv = make_unique<DxilResource>();
       InitTBuffer(CB, srv.get());
       srv->SetID(offset++);
+      srv->SetIsUnused(CB->IsUnused());
       DM.AddSRV(std::move(srv));
       GlobalVariable *GV = dyn_cast<GlobalVariable>(CB->GetGlobalSymbol());
       if (GV == nullptr)

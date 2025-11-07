@@ -1779,10 +1779,17 @@ static D3D_SRV_DIMENSION ResourceToDimension(DxilResourceBase *RB) {
 }
 
 static UINT ResourceToFlags(DxilResourceBase *RB) {
+
+  UINT isUnused = 0;
+  
+  if (RB->IsUnused())
+    isUnused |= D3D_SIF_UNUSED;
+
   if (RB->GetClass() == DXIL::ResourceClass::CBuffer)
-    return D3D_SIF_USERPACKED;
-  UINT result = 0;
+    return D3D_SIF_USERPACKED | isUnused;
+
   DxilResource *R = DxilResourceFromBase(RB);
+  UINT result = 0;
   if (R != nullptr &&
       (R->IsAnyTexture() || R->GetKind() == DXIL::ResourceKind::TypedBuffer)) {
     llvm::Type *RetTy = R->GetRetType();
@@ -1801,13 +1808,13 @@ static UINT ResourceToFlags(DxilResourceBase *RB) {
       }
     }
   } else if (R && R->IsTBuffer()) {
-    return D3D_SIF_USERPACKED;
+    return D3D_SIF_USERPACKED | isUnused;
   } else if (RB->GetClass() == DXIL::ResourceClass::Sampler) {
     DxilSampler *S = static_cast<DxilSampler *>(RB);
     if (S->GetSamplerKind() == DXIL::SamplerKind::Comparison)
       result |= D3D_SIF_COMPARISON_SAMPLER;
   }
-  return result;
+  return result | isUnused;
 }
 
 void DxilModuleReflection::CreateReflectionObjectForResource(
@@ -2948,6 +2955,10 @@ HRESULT CFunctionReflection::GetResourceBindingDesc(
 
   if (FAILED(hr))
     return hr;
+
+  // Handling this here allows us to determine flags per function.
+  // Even though shader reflection may also set this if it determines a register
+  // is fully optimized out.
 
   if (isUnused)
     pDesc->uFlags |= D3D_SIF_UNUSED;
