@@ -786,7 +786,8 @@ struct ExpectedBuilder<OpType::ArrayOperator_SingleAccess, T> {
 };
 
 template <typename T>
-static std::vector<T> buildExpectedArrayAccessOutput(const InputSets<T> &Inputs) {
+static std::vector<T>
+buildExpectedArrayAccessOutput(const InputSets<T> &Inputs) {
   DXASSERT_NOMSG(Inputs.size() == 2);
   const size_t VectorSize = Inputs[0].size();
   std::vector<T> Expected;
