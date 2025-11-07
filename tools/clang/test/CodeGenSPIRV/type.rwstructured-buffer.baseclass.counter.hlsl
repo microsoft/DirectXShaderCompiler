@@ -5,13 +5,7 @@ RWStructuredBuffer<uint> Buf2;
 
 struct A
 {
-	RWStructuredBuffer<uint> Buffer;
-
-	void setBuffer(RWStructuredBuffer<uint> value)
-	{
-		Buffer = value;
-	}
-
+  RWStructuredBuffer<uint> Buffer;
   void Increment() { Buffer.IncrementCounter(); }
 };
 
@@ -21,17 +15,17 @@ struct C : B {};
 [numthreads(64, 1, 1)]
 void main()
 {
-	B b;
-	b.Buffer = Buf1;
+  B b;
+  b.Buffer = Buf1;
 
-	C c;
-	c.Buffer = Buf2;
+  C c;
+  c.Buffer = Buf2;
 
-// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int %counter_var_Buf1 %uint_0
-// CHECK: OpAtomicIAdd %int [[ac]] %uint_1 %uint_0 %int_1
-    b.Increment();
+  // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int %counter_var_Buf1 %uint_0
+  // CHECK: OpAtomicIAdd %int [[ac]] %uint_1 %uint_0 %int_1
+  b.Increment();
 
-// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int %counter_var_Buf2 %uint_0
-// CHECK: %18 = OpAtomicIAdd %int [[ac]] %uint_1 %uint_0 %int_1 
-	c.Increment();
+  // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int %counter_var_Buf2 %uint_0
+  // CHECK: %18 = OpAtomicIAdd %int [[ac]] %uint_1 %uint_0 %int_1 
+  c.Increment();
 }
