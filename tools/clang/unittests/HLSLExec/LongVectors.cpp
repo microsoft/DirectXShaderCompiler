@@ -1536,11 +1536,7 @@ public:
     } else {
       D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOpts;
       VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
-<<<<<<< HEAD
-          D3D12_FEATURE_D3D12_OPTIONS1, &WaveOpts, sizeof(WaveOpts)));
-=======
           D3D12_FEATURE_D3D12_OPTIONS1, &waveOpts, sizeof(waveOpts)));
->>>>>>> 4e69eb92635197b2c08e8b506e3504075aa25a0a
 
       WaveSize = WaveOpts.WaveLaneCountMin;
     }
