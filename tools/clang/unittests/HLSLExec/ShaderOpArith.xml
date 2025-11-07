@@ -4171,7 +4171,6 @@ void MSMain(uint GID : SV_GroupIndex,
           #endif
 
           #if IS_UNARY_OP
-            // TODO: Factor this out. Just being quick for implementation.
             vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP
             vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1 OPERATOR
