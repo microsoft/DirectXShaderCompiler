@@ -6598,7 +6598,10 @@ Value *TranslateSelect(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   return Builder.CreateSelect(cond, t, f);
 }
+} // namespace
 
+// Translate linear algebra intrinsics
+namespace {
 Value *TranslateMatVecMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
                           HLOperationLowerHelper &Helper,
                           HLObjectOperationLowerHelper *ObjHelper,
@@ -6792,6 +6795,23 @@ Value *TranslateVectorAccumulate(CallInst *CI, IntrinsicOp IOP,
                             {OpArg, InputVector, MatrixBuffer, MatrixOffset});
 }
 
+Value *TranslateLACreateMatrix(CallInst *CI, IntrinsicOp IOP,
+                              OP::OpCode OpCode,
+                              HLOperationLowerHelper &Helper,
+                              HLObjectOperationLowerHelper *ObjHelper,
+                              bool &Translated) {
+
+  hlsl::OP *HlslOP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+  Value *MatrixRefPtr = CI->getArgOperand(1);
+  Value *MatrixRef = TrivialDxilOperation(
+      OpCode, {nullptr}, Type::getVoidTy(CI->getContext()), CI, HlslOP);
+  Builder.CreateStore(MatrixRef, MatrixRefPtr);
+  DXASSERT(
+      CI->use_empty(),
+      "Default ctor return type is a Clang artifact. Value must not be used");
+  return nullptr;
+}
 } // namespace
 
 // Lower table.
@@ -7513,6 +7533,9 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP___builtin_VectorAccumulate, TranslateVectorAccumulate,
      DXIL::OpCode::VectorAccumulate},
     {IntrinsicOp::IOP_isnormal, TrivialIsSpecialFloat, DXIL::OpCode::IsNormal},
+
+    {IntrinsicOp::IOP___builtin_la_CreateMatrix, TranslateLACreateMatrix,
+     DXIL::OpCode::CreateMatrix},
 };
 } // namespace
 static_assert(

@@ -874,7 +874,7 @@ class db_dxil(object):
                 "raygeneration",
             )
         for i in (
-            "MatVecMul,MatVecMulAdd,OuterProductAccumulate,VectorAccumulate"
+            "MatVecMul,MatVecMulAdd,OuterProductAccumulate,VectorAccumulate,CreateMatrix"
         ).split(","):
             self.name_idx[i].category = "Linear Algebra Operations"
             self.name_idx[i].shader_model = 6, 10
@@ -6384,6 +6384,19 @@ class db_dxil(object):
             % next_op_idx
         )
 
+        self.add_dxil_op(
+            "CreateMatrix",
+            next_op_idx,
+            "CreateMatrix",
+            "creates the handle to a matrix",
+            "v",
+            "",
+            [
+                db_dxil_param(0, "matrixref", "", "the handle to the matrix"),
+            ],
+        )
+        next_op_idx += 1
+
         # Set interesting properties.
         self.build_indices()
         for (
@@ -9293,6 +9306,7 @@ class db_hlsl(object):
             "GroupNodeOutputRecords": "LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS",
             "ThreadNodeOutputRecords": "LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS",
             "DxHitObject": "LICOMPTYPE_HIT_OBJECT",
+            "MatrixRef": "LICOMPTYPE_MATRIX_REF",
             "VkBufferPointer": "LICOMPTYPE_VK_BUFFER_POINTER",
             "RayQuery": "LICOMPTYPE_RAY_QUERY",
             "LinAlg": "LICOMPTYPE_LINALG",
@@ -9355,7 +9369,7 @@ class db_hlsl(object):
             r"""(
             sampler\w* | string |
             (?:RW)?(?:Texture\w*|ByteAddressBuffer) |
-            acceleration_struct | ray_desc | RayQuery | DxHitObject |
+            acceleration_struct | ray_desc | RayQuery | DxHitObject | MatrixRef |
             Node\w* | RWNode\w* | EmptyNode\w* |
             AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w* |
             VkBufferPointer

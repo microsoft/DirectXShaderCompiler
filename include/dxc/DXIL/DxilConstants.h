@@ -754,6 +754,7 @@ enum class OpCode : unsigned {
       160, // create resource handle from resource struct for library
 
   // Linear Algebra Operations
+  CreateMatrix = 312, // creates the handle to a matrix
   MatVecMul =
       305, // Multiplies a MxK dimension matrix and a K sized input vector
   MatVecMulAdd = 306, // multiplies a MxK dimension matrix and a K sized input
@@ -1089,7 +1090,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_8 = 258,
   NumOpCodes_Dxil_1_9 = 312,
 
-  NumOpCodes = 312 // exclusive last value of enumeration
+  NumOpCodes = 313 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1232,6 +1233,7 @@ enum class OpCodeClass : unsigned {
   CreateHandleForLib,
 
   // Linear Algebra Operations
+  CreateMatrix,
   MatVecMul,
   MatVecMulAdd,
   OuterProductAccumulate,
@@ -1425,7 +1427,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_8 = 174,
   NumOpClasses_Dxil_1_9 = 196,
 
-  NumOpClasses = 196 // exclusive last value of enumeration
+  NumOpClasses = 197 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

@@ -2426,6 +2426,7 @@ ID  Name                                                  Description
 309 VectorReduceAnd                                       Bitwise AND reduction of the vector returning a scalar
 310 VectorReduceOr                                        Bitwise OR reduction of the vector returning a scalar
 311 FDot                                                  computes the n-dimensional vector dot-product
+312 CreateMatrix                                          creates the handle to a matrix
 === ===================================================== =======================================================================================================================================================================================================================
 
 
