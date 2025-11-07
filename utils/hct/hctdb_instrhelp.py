@@ -423,8 +423,6 @@ class db_enumhelp_gen:
 
     def __init__(self, db):
         self.db = db
-        # Some enums should get a last enum marker.
-        self.lastEnumNames = {"OpCode": "NumOpCodes", "OpCodeClass": "NumOpClasses"}
 
     def print_enum(self, e, **kwargs):
         print("// %s" % e.doc)
@@ -451,12 +449,11 @@ class db_enumhelp_gen:
             if v.doc:
                 line_format += " // {doc}"
             print(line_format.format(name=v.name, value=v.value, doc=v.doc))
-        if e.name in self.lastEnumNames:
-            lastName = self.lastEnumNames[e.name]
+        if e.last_value_name:
+            lastName = e.last_value_name
             versioned = [
-                "%s_Dxil_%d_%d = %d," % (lastName, major, minor, info[lastName])
-                for (major, minor), info in sorted(self.db.dxil_version_info.items())
-                if lastName in info
+                "%s_Dxil_%d_%d = %d," % (lastName, major, minor, count)
+                for (major, minor), count in sorted(e.dxil_version_info.items())
             ]
             if versioned:
                 print("")
@@ -468,8 +465,11 @@ class db_enumhelp_gen:
                 + lastName
                 + " = "
                 + str(len(sorted_values))
-                + " // exclusive last value of enumeration"
+                + ", // exclusive last value of enumeration"
             )
+        if e.postfix_lines:
+            for line in e.postfix_lines:
+                print("  " + line)
         print("};")
 
     def print_rdat_enum(self, e, **kwargs):
@@ -484,6 +484,13 @@ class db_enumhelp_gen:
                 line_format += " // {doc}"
             print(line_format.format(name=v.name, value=v.value, doc=v.doc))
 
+    def print_extended_table_opcode_enums(self):
+        for table in self.db.dxil_op_tables[1:]:  # Skip Core table
+            print(f"namespace {table.name} {{")
+            print(f"static const OpCodeTableID TableID = OpCodeTableID::{table.name};")
+            self.print_enum(table.op_enum)
+            print(f"}} // namespace {table.name}")
+
     def print_content(self):
         for e in sorted(self.db.enums, key=lambda e: e.name):
             self.print_enum(e)
@@ -494,13 +501,14 @@ class db_oload_gen:
 
     def __init__(self, db):
         self.db = db
-        instrs = [i for i in self.db.instr if i.is_dxil_op]
-        self.instrs = sorted(instrs, key=lambda i: i.dxil_opid)
-
-        # Allow these to be overridden by external scripts.
-        self.OP = "OP"
-        self.OC = "OC"
-        self.OCC = "OCC"
+        self.instrs = []
+        for table in self.db.dxil_op_tables:
+            self.instrs.extend(
+                sorted(
+                    [i for i in table.instr if i.is_dxil_op],
+                    key=lambda i: i.dxil_opid
+                )
+            )
 
     def print_content(self):
         self.print_opfunc_props()
@@ -508,10 +516,31 @@ class db_oload_gen:
         self.print_opfunc_table()
 
     def print_opfunc_props(self):
+        # Print all the tables for OP::m_OpCodeProps
+        for table in self.db.dxil_op_tables:
+            self.print_opfunc_props_for_table(table)
+        print()
+        # Print the overall table of tables
+        print("// Table of DXIL OpCode Property tables")
         print(
-            "const {OP}::OpCodeProperty {OP}::m_OpCodeProps[(unsigned){OP}::OpCode::NumOpCodes] = {{".format(
-                OP=self.OP
+            f"OP::OpCodeTable OP::g_OpCodeTables[(unsigned)"
+            + f"OP::OpCodeTableID::NumOpCodeTables] = {{"
+        )
+        for table in self.db.dxil_op_tables:
+            print(
+                f"  {{ OP::OpCodeTableID::{table.name}, "
+                + f"{table.name}_OpCodeProps, "
+                + f"(unsigned)DXIL::{table.name}::OpCode::NumOpCodes }},"
             )
+        print("};")
+
+    def print_opfunc_props_for_table(self, table):
+        print(
+            f"static const OP::OpCodeProperty {table.name}_OpCodeProps[] = {{"
+        )
+        instrs = sorted(
+            [i for i in table.instr if i.is_dxil_op],
+            key=lambda i: i.dxil_opid
         )
 
         last_category = None
@@ -539,7 +568,7 @@ class db_oload_gen:
         oloads_fn = lambda oloads: (
             "{" + ",".join(["{0x%x}" % m for m in oloads]) + "}"
         )
-        for i in self.instrs:
+        for i in instrs:
             if last_category != i.category:
                 if last_category != None:
                     print("")
@@ -559,7 +588,7 @@ class db_oload_gen:
                         vector_masks.append(0)
             print(
                 (
-                    "  {{  {OC}::{name:24} {quotName:27} {OCC}::{className:25} "
+                    "  {{  OC::{name:24} {quotName:27} OCC::{className:25} "
                     + "{classNameQuot:28} {attr:20}, {num_oloads}, "
                     + "{scalar_masks:16}, {vector_masks:16} }}, "
                     + "// Overloads: {oloads}"
@@ -573,11 +602,14 @@ class db_oload_gen:
                     scalar_masks=oloads_fn(scalar_masks),
                     vector_masks=oloads_fn(vector_masks),
                     oloads=i.oload_types,
-                    OC=self.OC,
-                    OCC=self.OCC,
                 )
             )
         print("};")
+        print(
+            f"static_assert(_countof({table.name}_OpCodeProps) == "
+            + f"(size_t)DXIL::{table.name}::OpCode::NumOpCodes, "
+            + f'"mismatch in opcode count for {table.name} OpCodeProps");'
+        )
 
     def print_opfunc_table(self):
         # Print the table for OP::GetOpFunc
@@ -1643,6 +1675,13 @@ def get_interpretation_table():
     gen = db_sigpoint_gen(db)
     return run_with_stdout(lambda: gen.print_interpretation_table())
 
+
+def get_extended_table_opcode_enum_decls():
+    db = get_db_dxil()
+    gen = db_enumhelp_gen(db)
+    return run_with_stdout(
+        lambda: gen.print_extended_table_opcode_enums()
+    )
 
 # highest minor is different than highest released minor,
 # since there can be pre-release versions that are higher

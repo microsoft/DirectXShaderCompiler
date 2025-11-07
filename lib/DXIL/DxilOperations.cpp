@@ -39,7 +39,7 @@ import hctdb_instrhelp
 </py> */
 /* <py::lines('OPCODE-OLOADS')>hctdb_instrhelp.get_oloads_props()</py>*/
 // OPCODE-OLOADS:BEGIN
-const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
+static const OP::OpCodeProperty Core_OpCodeProps[] = {
     // Temporary, indexable, input, output registers
     {OC::TempRegLoad,
      "TempRegLoad",
@@ -2715,6 +2715,32 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      {{0x400}},
      {{0x3}}}, // Overloads: <hf
 };
+static_assert(_countof(Core_OpCodeProps) ==
+                  (size_t)DXIL::Core::OpCode::NumOpCodes,
+              "mismatch in opcode count for Core OpCodeProps");
+static const OP::OpCodeProperty ExperimentalCommon_OpCodeProps[] = {
+    // No-op
+    {OC::ExperimentalNop,
+     "ExperimentalNop",
+     OCC::Nop,
+     "nop",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
+};
+static_assert(_countof(ExperimentalCommon_OpCodeProps) ==
+                  (size_t)DXIL::ExperimentalCommon::OpCode::NumOpCodes,
+              "mismatch in opcode count for ExperimentalCommon OpCodeProps");
+
+// Table of DXIL OpCode Property tables
+OP::OpCodeTable
+    OP::g_OpCodeTables[(unsigned)OP::OpCodeTableID::NumOpCodeTables] = {
+        {OP::OpCodeTableID::Core, Core_OpCodeProps,
+         (unsigned)DXIL::Core::OpCode::NumOpCodes},
+        {OP::OpCodeTableID::ExperimentalCommon, ExperimentalCommon_OpCodeProps,
+         (unsigned)DXIL::ExperimentalCommon::OpCode::NumOpCodes},
+};
 // OPCODE-OLOADS:END
 
 const char *OP::m_OverloadTypeName[TS_BasicCount] = {
@@ -2730,6 +2756,47 @@ static const char *AtomicBinOpCodeName[] = {
     "AtomicIMax",   "AtomicUMin", "AtomicUMax", "AtomicExchange",
     "AtomicInvalid" // Must be last.
 };
+
+// Safe opcode decoder
+bool OP::DecodeOpCode(unsigned EncodedOpCode, OP::OpCodeTableID &TableID,
+                      unsigned &LocalOpCode) {
+  if (EncodedOpCode == (unsigned)OP::OpCode::Invalid)
+    return false;
+  unsigned TID = (EncodedOpCode >> 16);
+  if (TID >= (unsigned)OP::OpCodeTableID::NumOpCodeTables)
+    return false;
+  unsigned Op = (EncodedOpCode & 0xFFFF);
+  if (Op >= OP::g_OpCodeTables[TID].Count)
+    return false;
+  TableID = (OP::OpCodeTableID)TID;
+  LocalOpCode = Op;
+  return true;
+}
+bool OP::DecodeOpCode(OpCode EncodedOpCode, OP::OpCodeTableID &TableID,
+                      unsigned &LocalOpCode) {
+  return DecodeOpCode((unsigned)EncodedOpCode, TableID, LocalOpCode);
+}
+bool OP::IsValidOpCode(unsigned EncodedOpCode) {
+  if (EncodedOpCode == (unsigned)OP::OpCode::Invalid)
+    return false;
+  OP::OpCodeTableID TID;
+  unsigned LocalOpCode;
+  return DecodeOpCode(EncodedOpCode, TID, LocalOpCode);
+}
+bool OP::IsValidOpCode(OP::OpCode EncodedOpCode) {
+  return IsValidOpCode((unsigned)EncodedOpCode);
+}
+const OP::OpCodeProperty &OP::GetOpCodeProps(unsigned OriginalOpCode) {
+  OP::OpCodeTableID TID = OP::OpCodeTableID::Core;
+  unsigned Op = 0;
+  bool Success = DecodeOpCode(OriginalOpCode, TID, Op);
+  DXASSERT(Success, "otherwise invalid OpCode");
+  const OP::OpCodeTable &Table = OP::g_OpCodeTables[(unsigned)TID];
+  return Table.Table[Op];
+}
+const OP::OpCodeProperty &OP::GetOpCodeProps(OP::OpCode OriginalOpCode) {
+  return GetOpCodeProps((unsigned)OriginalOpCode);
+}
 
 unsigned OP::GetTypeSlot(Type *pType) {
   Type::TypeID T = pType->getTypeID();
@@ -2842,7 +2909,7 @@ StringRef OP::ConstructOverloadName(Type *Ty, DXIL::OpCode opCode,
 }
 
 const char *OP::GetOpCodeName(OpCode opCode) {
-  return m_OpCodeProps[(unsigned)opCode].pOpCodeName;
+  return GetOpCodeProps(opCode).pOpCodeName;
 }
 
 const char *OP::GetAtomicOpName(DXIL::AtomicBinOpCode OpCode) {
@@ -2854,24 +2921,23 @@ const char *OP::GetAtomicOpName(DXIL::AtomicBinOpCode OpCode) {
 }
 
 OP::OpCodeClass OP::GetOpCodeClass(OpCode opCode) {
-  return m_OpCodeProps[(unsigned)opCode].opCodeClass;
+  return GetOpCodeProps(opCode).opCodeClass;
 }
 
 const char *OP::GetOpCodeClassName(OpCode opCode) {
-  return m_OpCodeProps[(unsigned)opCode].pOpCodeClassName;
+  return GetOpCodeProps(opCode).pOpCodeClassName;
 }
 
 llvm::Attribute::AttrKind OP::GetMemAccessAttr(OpCode opCode) {
-  return m_OpCodeProps[(unsigned)opCode].FuncAttr;
+  return GetOpCodeProps(opCode).FuncAttr;
 }
 
 bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
-  if (static_cast<unsigned>(opCode) >=
-      static_cast<unsigned>(OpCode::NumOpCodes))
-    return false;
   if (!pType)
     return false;
-  auto &OpProps = m_OpCodeProps[static_cast<unsigned>(opCode)];
+  if (!IsValidOpCode(opCode))
+    return false;
+  auto &OpProps = GetOpCodeProps(opCode);
 
   if (OpProps.NumOverloadDims == 0)
     return pType->isVoidTy();
@@ -2904,9 +2970,18 @@ bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
 }
 
 bool OP::CheckOpCodeTable() {
-  for (unsigned i = 0; i < (unsigned)OpCode::NumOpCodes; i++) {
-    if ((unsigned)m_OpCodeProps[i].opCode != i)
-      return false;
+  for (unsigned t = 0; t < (unsigned)OP::OpCodeTableID::NumOpCodeTables; t++) {
+    const OP::OpCodeTable &Table = OP::g_OpCodeTables[t];
+    for (unsigned Op = 0; Op < Table.Count; Op++) {
+      const OP::OpCodeProperty &Prop = Table.Table[Op];
+      OP::OpCodeTableID DecodedTID;
+      unsigned DecodedLocalOp;
+      bool Success = OP::DecodeOpCode(Prop.opCode, DecodedTID, DecodedLocalOp);
+      if (!Success)
+        return false;
+      if (DecodedTID != Table.ID || DecodedLocalOp != Op)
+        return false;
+    }
   }
 
   return true;
@@ -2937,14 +3012,19 @@ bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode) {
   return (unsigned)getOpCode(I) == (unsigned)opcode;
 }
 
+OP::OpCode OP::getOpCode(unsigned OpCode) {
+  if (!IsValidOpCode(OpCode))
+    return OP::OpCode::Invalid;
+  return static_cast<OP::OpCode>(OpCode);
+}
 OP::OpCode OP::getOpCode(const llvm::Instruction *I) {
   auto *OpConst = llvm::dyn_cast<llvm::ConstantInt>(I->getOperand(0));
   if (!OpConst)
-    return OpCode::NumOpCodes;
+    return OpCode::Invalid;
   uint64_t OpCodeVal = OpConst->getZExtValue();
-  if (OpCodeVal >= static_cast<uint64_t>(OP::OpCode::NumOpCodes))
-    return OP::OpCode::NumOpCodes;
-  return static_cast<OP::OpCode>(OpCodeVal);
+  if (OpCodeVal >= static_cast<uint64_t>(OP::OpCode::Invalid))
+    return OP::OpCode::Invalid;
+  return getOpCode(static_cast<unsigned>(OpCodeVal));
 }
 
 OP::OpCode OP::GetDxilOpFuncCallInst(const llvm::Instruction *I) {
@@ -3014,9 +3094,9 @@ bool OP::IsDxilOpBarrier(OpCode C) {
 }
 
 bool OP::IsDxilOpExtendedOverload(OpCode C) {
-  if (C >= OpCode::NumOpCodes)
+  if (!IsValidOpCode(C))
     return false;
-  return m_OpCodeProps[static_cast<unsigned>(C)].NumOverloadDims > 1;
+  return GetOpCodeProps(C).NumOverloadDims > 1;
 }
 
 static unsigned MaskMemoryTypeFlagsIfAllowed(unsigned memoryTypeFlags,
@@ -3645,8 +3725,6 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
   memset(m_pResRetType, 0, sizeof(m_pResRetType));
   memset(m_pCBufferRetType, 0, sizeof(m_pCBufferRetType));
   memset(m_OpCodeClassCache, 0, sizeof(m_OpCodeClassCache));
-  static_assert(_countof(OP::m_OpCodeProps) == (size_t)OP::OpCode::NumOpCodes,
-                "forgot to update OP::m_OpCodeProps");
 
   m_pHandleType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
                                         "dx.types.Handle", pModule);
@@ -3750,10 +3828,10 @@ void OP::UpdateCache(OpCodeClass opClass, Type *Ty, llvm::Function *F) {
 }
 
 bool OP::MayHaveNonCanonicalOverload(OpCode OC) {
-  if (OC >= OpCode::NumOpCodes)
+  if (!IsValidOpCode(OC))
     return false;
   const unsigned CheckMask = (1 << TS_UDT) | (1 << TS_Object);
-  auto &OpProps = m_OpCodeProps[static_cast<unsigned>(OC)];
+  auto &OpProps = GetOpCodeProps(OC);
   for (unsigned I = 0; I < OpProps.NumOverloadDims; ++I)
     if ((CheckMask & OpProps.AllowedOverloads[I].SlotMask) != 0)
       return true;
@@ -3761,10 +3839,9 @@ bool OP::MayHaveNonCanonicalOverload(OpCode OC) {
 }
 
 Function *OP::GetOpFunc(OpCode OC, ArrayRef<Type *> OverloadTypes) {
-  if (OC >= OpCode::NumOpCodes)
+  if (!IsValidOpCode(OC))
     return nullptr;
-  if (OverloadTypes.size() !=
-      m_OpCodeProps[static_cast<unsigned>(OC)].NumOverloadDims) {
+  if (OverloadTypes.size() != GetOpCodeProps(OC).NumOverloadDims) {
     llvm_unreachable("incorrect overload dimensions");
     return nullptr;
   }
@@ -3777,12 +3854,12 @@ Function *OP::GetOpFunc(OpCode OC, ArrayRef<Type *> OverloadTypes) {
 }
 
 Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
-  if (opCode >= OpCode::NumOpCodes)
+  if (!IsValidOpCode(opCode))
     return nullptr;
   if (!pOverloadType)
     return nullptr;
 
-  auto &OpProps = m_OpCodeProps[static_cast<unsigned>(opCode)];
+  auto &OpProps = GetOpCodeProps(opCode);
   if (IsDxilOpExtendedOverload(opCode)) {
     // Make sure pOverloadType is well formed for an extended overload.
     StructType *ST = dyn_cast<StructType>(pOverloadType);
@@ -6044,6 +6121,12 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     A(pETy);
     break;
+
+    // No-op
+  case OpCode::ExperimentalNop:
+    A(pV);
+    A(pI32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -6086,8 +6169,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
 const SmallMapVector<llvm::Type *, llvm::Function *, 8> &
 OP::GetOpFuncList(OpCode opCode) const {
-  return m_OpCodeClassCache[(unsigned)m_OpCodeProps[(unsigned)opCode]
-                                .opCodeClass]
+  return m_OpCodeClassCache[(unsigned)GetOpCodeProps(opCode).opCodeClass]
       .pOverloads;
 }
 
@@ -6335,6 +6417,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedC7:
   case OpCode::ReservedC8:
   case OpCode::ReservedC9:
+  case OpCode::ExperimentalNop:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:

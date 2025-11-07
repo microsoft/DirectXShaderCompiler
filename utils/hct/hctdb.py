@@ -82,6 +82,9 @@ class db_dxil_enum(object):
             db_dxil_enum_value(n, v, d) for v, n, d in valNameDocTuples
         ]  # Note transmutation
         self.is_internal = False  # whether this is never serialized
+        self.last_value_name = None  # optional last value name for dense enums
+        self.dxil_version_info = {}  # version info for this enum
+        self.postfix_lines = []  # optional postfix to include inside enum declaration
 
     def value_names(self):
         return [i.name for i in self.values]
@@ -94,6 +97,7 @@ class db_dxil_inst(object):
         self.name = name  # short, unique name
         self.llvm_id = 0  # ID of LLVM instruction
         self.llvm_name = ""  # name of LLVM instruction type
+        self.dxil_table = "Core"  # name of the DXIL operation table
 
         self.is_dxil_op = False  # whether this is a call into a built-in DXIL function
         self.dxil_op = ""  # name of DXIL operation
@@ -117,13 +121,15 @@ class db_dxil_inst(object):
         self.shader_model = 6, 0  # minimum shader model required
         self.inst_helper_prefix = None
         self.fully_qualified_name_prefix = "hlsl::OP::OpCode"
-        for k, v in list(kwargs.items()):
-            setattr(self, k, v)
-        self.is_dxil_op = self.dxil_op != ""  # whether this is a DXIL operation
-        self.is_reserved = self.dxil_class == "Reserved"
         self.shader_model_translated = ()  # minimum shader model required with translation by linker
         self.props = {}  # extra properties
         self.num_oloads = 0  # number of overloads for this instruction
+
+        for k, v in list(kwargs.items()):
+            setattr(self, k, v)
+
+        self.is_dxil_op = self.dxil_op != ""  # whether this is a DXIL operation
+        self.is_reserved = self.dxil_class == "Reserved"
         if self.is_dxil_op:
             self.process_oload_types()
 
@@ -333,26 +339,62 @@ class db_dxil_valrule(object):
         return self.name
 
 
+# DXIL operations are grouped into tables to support experimental and extended
+# features.
+class db_dxil_op_table(object):
+    "Table definition for a set of DXIL operations"
+
+    def __init__(self, id, name, doc):
+        self.id = id
+        self.name = name
+        self.doc = doc
+        self.instr = []  # DXIL instructions
+        self.op_count = 0
+        self.op_enum = db_dxil_enum(
+                "OpCode",
+                f"Enumeration for {self.name} DXIL operations"
+            )
+        self.op_enum.last_value_name = "NumOpCodes"
+
+    def next_id(self):
+        new_id = self.op_count
+        self.op_count += 1
+        return new_id
+
+    def get_count(self):
+        return self.op_count
+
+    def set_op_count_for_version(self, major, minor):
+        op_count = self.get_count()
+        self.op_enum.dxil_version_info[(major, minor)] = op_count
+        return op_count
+
 class db_dxil(object):
     "A database of DXIL instruction data"
 
     def __init__(self):
-        self.instr = []  # DXIL instructions
         self.enums = []  # enumeration types
         self.val_rules = []  # validation rules
         self.metadata = []  # named metadata (db_dxil_metadata)
         self.passes = []  # inventory of available passes (db_dxil_pass)
         self.name_idx = {}  # DXIL instructions by name
         self.enum_idx = {}  # enumerations by name
-        self.dxil_version_info = {}
         # list of counters for instructions and dxil ops,
         # starting with extra ones specified here
         self.counters = extra_counters
-        self.next_dxil_op_id = 0  # next available DXIL op ID
+        self.dxil_op_tables = [
+            db_dxil_op_table(0, "Core", "Core DXIL operations"),
+            db_dxil_op_table(1, "ExperimentalCommon", "Common Experimental DXIL operations"),
+        ]
+        self.dxil_op_tables_by_name = dict([(t.name, t) for t in self.dxil_op_tables])
+        # Setting the current table sets self.instr.
+        self.set_dxil_op_table()
 
         self.populate_llvm_instructions()
         self.call_instr = self.get_instr_by_llvm_name("CallInst")
         self.populate_dxil_operations()
+        self.populate_experimental_ops()
+        self.finalize_dxil_operations()
         self.build_indices()
         self.populate_extended_docs()
         self.populate_categories_and_models()
@@ -365,14 +407,17 @@ class db_dxil(object):
         self.build_indices()
         self.populate_counters()
 
+    def set_dxil_op_table(self, table_name = "Core"):
+        "Set the current DXIL operation table, defaulting to Core."
+        self.cur_table = self.dxil_op_tables_by_name[table_name]
+        self.instr = self.cur_table.instr
+
+    def get_dxil_op_table(self, table_name = "Core"):
+        "Get the specified DXIL operation table."
+        return self.dxil_op_tables_by_name[table_name]
+
     def __str__(self):
         return "\n".join(str(i) for i in self.instr)
-
-    def next_id(self):
-        "Returns the next available DXIL op ID and increments the counter"
-        val = self.next_dxil_op_id
-        self.next_dxil_op_id += 1
-        return val
 
     def add_enum_type(self, name, doc, valNameDocTuples):
         "Adds a new enumeration type with name/value/doc tuples"
@@ -381,17 +426,16 @@ class db_dxil(object):
     def build_indices(self):
         "Build a name_idx dictionary with instructions and an enum_idx dictionary with enumeration types"
         self.name_idx = {}
-        for i in self.instr:
-            self.name_idx[i.name] = i
+        for table in self.dxil_op_tables:
+            for i in table.instr:
+                self.name_idx[i.name] = i
         self.enum_idx = {}
         for i in self.enums:
             self.enum_idx[i.name] = i
 
     def build_opcode_enum(self):
         # Build enumeration from instructions
-        OpCodeEnum = db_dxil_enum(
-            "OpCode", "Enumeration for operations specified by DXIL"
-        )
+        OpCodeEnum = self.get_dxil_op_table().op_enum
         class_dict = {}
         class_dict["LlvmInst"] = "LLVM Instructions"
         for i in self.instr:
@@ -400,17 +444,48 @@ class db_dxil(object):
                 v.category = i.category
                 class_dict[i.dxil_class] = i.category
                 OpCodeEnum.values.append(v)
+        postfix = OpCodeEnum.postfix_lines or []
+        # Add OpCode::Invalid
+        postfix.append("Invalid = 0xFFFFFFFF, // stable invalid OpCode value")
+        # Generate extended opcode enums into OpCodeEnum.postfix_lines:
+        OpCodeTableID = db_dxil_enum(
+            "OpCodeTableID", "Enumeration for DXIL opcode tables",
+            [(0, "Core", "Core DXIL operations")]
+        )
+        OpCodeTableID.last_value_name = "NumOpCodeTables"
+        postfix.append("")
+        postfix.append("// OpCodes for extended tables follow.\n")
+        for table in self.dxil_op_tables[1:]: # Skip Core table
+            OpCodeTableID.values.append(
+                db_dxil_enum_value(table.name, table.id, table.doc)
+            )
+            if not table.get_count():
+                continue
+            postfix.append(f"// OpCodeTableID = {table.id}")
+            postfix.append(f"// {table.name}")
+            for i in table.instr:
+                class_dict[i.dxil_class] = i.category
+                postfix.append(
+                    f"EXP_OPCODE({table.name}, {i.dxil_op}), // {i.doc}"
+                )
+                table.op_enum.values.append(
+                    db_dxil_enum_value(i.dxil_op, i.dxil_opid, i.doc)
+                )
+            postfix.append("")
+        OpCodeEnum.postfix_lines = postfix
         self.enums.append(OpCodeEnum)
         OpCodeClass = db_dxil_enum(
             "OpCodeClass",
             "Groups for DXIL operations with equivalent function templates",
         )
         OpCodeClass.is_internal = True
+        OpCodeClass.last_value_name = "NumOpClasses"
         for k, v in iter(class_dict.items()):
             ev = db_dxil_enum_value(k, 0, None)
             ev.category = v
             OpCodeClass.values.append(ev)
         self.enums.append(OpCodeClass)
+        self.enums.append(OpCodeTableID)
 
     def mark_disallowed_operations(self):
         # Disallow indirect branching, unreachable instructions and support for exception unwinding.
@@ -436,10 +511,7 @@ class db_dxil(object):
             val = i_val
 
     def set_op_count_for_version(self, major, minor):
-        info = self.dxil_version_info.setdefault((major, minor), dict())
-        info["NumOpCodes"] = self.next_dxil_op_id
-        info["NumOpClasses"] = len(set([op.dxil_class for op in self.instr]))
-        return self.next_dxil_op_id
+        return self.cur_table.set_op_count_for_version(major, minor)
 
     def populate_categories_and_models(self):
         "Populate the category and shader_stages member of instructions."
@@ -885,6 +957,13 @@ class db_dxil(object):
             "MatVecMul,MatVecMulAdd,OuterProductAccumulate,VectorAccumulate"
         ).split(","):
             self.name_idx[i].category = "Linear Algebra Operations"
+            self.name_idx[i].shader_model = 6, 10
+        # End of core DXIL ops
+        self.populate_categories_and_models_ExperimentalCommon()
+
+    def populate_categories_and_models_ExperimentalCommon(self):
+        for i in "ExperimentalNop".split(","):
+            self.name_idx[i].category = "No-op"
             self.name_idx[i].shader_model = 6, 10
 
     def populate_llvm_instructions(self):
@@ -5889,6 +5968,27 @@ class db_dxil(object):
             % op_count
         )
 
+    def populate_experimental_ops(self):
+        "Populate experimental DXIL operations."
+        self.set_dxil_op_table("ExperimentalCommon")
+        self.populate_ExperimentalCommon_ops()
+        self.set_dxil_op_table()
+
+    def populate_ExperimentalCommon_ops(self):
+        "Populate experimental DXIL operations for ExperimentalCommon."
+        # Add Nop to test experimental table infrastructure.
+        self.add_dxil_op(
+            "ExperimentalNop",
+            "Nop",
+            "nop does nothing",
+            "v",
+            "rn",
+            [
+                db_dxil_param(0, "v", "", "no result"),
+            ],
+        )
+
+    def finalize_dxil_operations(self):
         # Set interesting properties.
         self.build_indices()
         for (
@@ -8520,6 +8620,7 @@ class db_dxil(object):
     def add_llvm_instr(
         self, kind, llvm_id, name, llvm_name, doc, oload_types, op_params, **props
     ):
+        assert self.cur_table.name == "Core", "LLVM instructions can only be added to the Core table"
         i = db_dxil_inst(
             name,
             llvm_id=llvm_id,
@@ -8541,7 +8642,8 @@ class db_dxil(object):
             llvm_id=self.call_instr.llvm_id,
             llvm_name=self.call_instr.llvm_name,
             dxil_op=name,
-            dxil_opid=self.next_id(),
+            dxil_opid=self.cur_table.next_id(),
+            dxil_table=self.cur_table.name,
             doc=doc,
             ops=op_params,
             dxil_class=code_class,
@@ -8559,7 +8661,8 @@ class db_dxil(object):
             llvm_id=self.call_instr.llvm_id,
             llvm_name=self.call_instr.llvm_name,
             dxil_op=name,
-            dxil_opid=self.next_id(),
+            dxil_opid=self.cur_table.next_id(),
+            dxil_table=self.cur_table.name,
             doc="reserved",
             ops=op_params,
             dxil_class="Reserved",
