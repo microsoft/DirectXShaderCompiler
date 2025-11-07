@@ -47,7 +47,7 @@ ShaderFlags::ShaderFlags()
       m_bAdvancedTextureOps(false), m_bWriteableMSAATextures(false),
       m_bReserved(false), m_bSampleCmpGradientOrBias(false),
       m_bExtendedCommandInfo(false), m_bUsesDerivatives(false),
-      m_bRequiresGroup(false), m_align1(0) {
+      m_bRequiresGroup(false), m_bKeepAllResources(false), m_align1(0) {
   // Silence unused field warnings
   (void)m_align1;
 }
