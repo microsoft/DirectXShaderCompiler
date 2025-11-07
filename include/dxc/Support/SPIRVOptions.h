@@ -20,6 +20,8 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 
+#include <optional>
+
 namespace clang {
 namespace spirv {
 
@@ -65,10 +67,11 @@ struct SpirvCodeGenOptions {
   bool reduceLoadSize;
   bool autoShiftBindings;
   bool supportNonzeroBaseInstance;
+  bool supportNonzeroBaseVertex;
   bool fixFuncCallArguments;
-  bool allowRWStructuredBufferArrays;
   bool enableMaximalReconvergence;
   bool useVulkanMemoryModel;
+  bool useUnknownImageFormat;
   bool IEEEStrict;
   /// Maximum length in words for the OpString literal containing the shader
   /// source for DebugSource and DebugSourceContinued. If the source code length
@@ -96,6 +99,15 @@ struct SpirvCodeGenOptions {
   std::vector<std::string> bindGlobals;
   std::string entrypointName;
   std::string floatDenormalMode; // OPT_denorm
+
+  // User-defined bindings/set numbers for resource/sampler/counter heaps.
+  struct BindingInfo {
+    size_t binding;
+    size_t set;
+  };
+  std::optional<BindingInfo> resourceHeapBinding;
+  std::optional<BindingInfo> samplerHeapBinding;
+  std::optional<BindingInfo> counterHeapBinding;
 
   bool signaturePacking; ///< Whether signature packing is enabled or not
 

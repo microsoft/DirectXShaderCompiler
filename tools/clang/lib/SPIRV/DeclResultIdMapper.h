@@ -16,6 +16,7 @@
 #include "dxc/Support/SPIRVOptions.h"
 #include "spirv/unified1/spirv.hpp11"
 #include "clang/AST/Attr.h"
+#include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -33,7 +34,7 @@ class SpirvEmitter;
 
 class ResourceVar {
 public:
-  ResourceVar(SpirvVariable *var, const Decl *decl, SourceLocation loc,
+  ResourceVar(SpirvVariable *var, const NamedDecl *decl, SourceLocation loc,
               const hlsl::RegisterAssignment *r, const VKBindingAttr *b,
               const VKCounterBindingAttr *cb, bool counter = false,
               bool globalsBuffer = false)
@@ -52,9 +53,17 @@ public:
     return counterBinding;
   }
 
+  bool isResourceDescriptorHeap() const {
+    return spirv::isResourceDescriptorHeap(declaration);
+  }
+
+  bool isSamplerDescriptorHeap() const {
+    return spirv::isSamplerDescriptorHeap(declaration);
+  }
+
 private:
   SpirvVariable *variable;                    ///< The variable
-  const Decl *declaration;                    ///< The declaration
+  const NamedDecl *declaration;               ///< The declaration
   SourceLocation srcLoc;                      ///< Source location
   const hlsl::RegisterAssignment *reg;        ///< HLSL register assignment
   const VKBindingAttr *binding;               ///< Vulkan binding assignment
@@ -326,7 +335,7 @@ public:
   /// for the whole buffer. When we refer to the field VarDecl later, we need
   /// to do an extra OpAccessChain to get its pointer from the SPIR-V variable
   /// standing for the whole buffer.
-  SpirvVariable *createCTBuffer(const HLSLBufferDecl *decl);
+  void createCTBuffer(const HLSLBufferDecl *decl);
 
   /// \brief Creates a PushConstant block from the given decl.
   SpirvVariable *createPushConstant(const VarDecl *decl);
@@ -351,13 +360,14 @@ public:
   /// \brief Sets the entry function.
   void setEntryFunction(SpirvFunction *fn) { entryFunction = fn; }
 
-  /// \brief If the given decl is an implicit VarDecl that evaluates to a
-  /// constant, it evaluates the constant and registers the resulting SPIR-V
-  /// instruction in the astDecls map. Otherwise returns without doing anything.
+  /// \brief If the given decl is a VarDecl that evaluates to a constant, it
+  /// evaluates the constant and registers the resulting SPIR-V instruction in
+  /// the astDecls map. Otherwise returns without doing anything. The typical
+  /// cases are implicit VarDecls and global static constant variables.
   ///
   /// Note: There are many cases where the front-end might create such implicit
   /// VarDecls (such as some ray tracing enums).
-  void tryToCreateImplicitConstVar(const ValueDecl *);
+  bool tryToCreateConstantVar(const ValueDecl *);
 
   /// \brief Creates instructions to copy output stage variables defined by
   /// outputPatchDecl to hullMainOutputPatch that is a variable for the
@@ -559,6 +569,11 @@ public:
     return value;
   }
 
+  SpirvVariable *getMSOutIndicesBuiltin() {
+    assert(msOutIndicesBuiltin && "Variable usage before decl parsing.");
+    return msOutIndicesBuiltin;
+  }
+
   /// Decorate with spirv intrinsic attributes with lamda function variable
   /// check
   void decorateWithIntrinsicAttrs(
@@ -643,7 +658,13 @@ private:
       llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
           *stageVariableLocationInfo);
 
-  /// \bried Decorates used Resource/Sampler descriptor heaps with the correct
+  /// \brief Get a valid BindingInfo. If no user provided binding info is given,
+  /// allocates a new binding and returns it.
+  static SpirvCodeGenOptions::BindingInfo getBindingInfo(
+      BindingSet &bindingSet,
+      const std::optional<SpirvCodeGenOptions::BindingInfo> &userProvidedInfo);
+
+  /// \brief Decorates used Resource/Sampler descriptor heaps with the correct
   /// binding/set decorations.
   void decorateResourceHeapsBindings(BindingSet &bindingSet);
 
@@ -791,24 +812,40 @@ private:
   SpirvVariable *getInstanceIdFromIndexAndBase(SpirvVariable *instanceIndexVar,
                                                SpirvVariable *baseInstanceVar);
 
+  // Creates a function scope variable to represent the "SV_VertexID"
+  // semantic, which is not immediately available in SPIR-V. Its value will be
+  // set by subtracting the values of the given InstanceIndex and base instance
+  // variables.
+  //
+  // vertexIndexVar: The SPIR-V input variable decorated with
+  // vertexIndex.
+  //
+  // baseVertexVar: The SPIR-V input variable decorated with
+  // BaseVertex.
+  SpirvVariable *getVertexIdFromIndexAndBase(SpirvVariable *vertexIndexVar,
+                                             SpirvVariable *baseVertexVar);
+
   // Creates and returns a variable that is the BaseInstance builtin input. The
   // variable is also added to the list of stage variable `this->stageVars`. Its
   // type will be a 32-bit integer.
-  //
-  // The semantic is a lie. We currently give it the semantic for the
-  // InstanceID. I'm not sure what would happen if we did not use a semantic, or
-  // tried to generate the correct one. I'm guessing there would be some issue
-  // with reflection.
-  //
-  // semantic: the semantic to attach to this variable
   //
   // sigPoint: the signature point identifying which shader stage the variable
   // will be used in.
   //
   // type: The type to use for the new variable. Must be int or unsigned int.
-  SpirvVariable *getBaseInstanceVariable(SemanticInfo *semantic,
-                                         const hlsl::SigPoint *sigPoint,
+  SpirvVariable *getBaseInstanceVariable(const hlsl::SigPoint *sigPoint,
                                          QualType type);
+
+  // Creates and returns a variable that is the BaseVertex builtin input. The
+  // variable is also added to the list of stage variable `this->stageVars`. Its
+  // type will be a 32-bit integer.
+  //
+  // sigPoint: the signature point identifying which shader stage the variable
+  // will be used in.
+  //
+  // type: The type to use for the new variable. Must be int or unsigned int.
+  SpirvVariable *getBaseVertexVariable(const hlsl::SigPoint *sigPoint,
+                                       QualType type);
 
   // Creates and return a new interface variable from the information provided.
   // The new variable with be add to `this->StageVars`.
@@ -959,6 +996,16 @@ private:
   /// views.
   void setInterlockExecutionMode(spv::ExecutionMode mode);
 
+  /// \brief Add |varInstr| to |astDecls| for every Decl for the variable |var|.
+  /// It is possible for a variable to have multiple declarations, and all of
+  /// them should be associated with the same variable.
+  void registerVariableForDecl(const VarDecl *var, SpirvInstruction *varInstr);
+
+  /// \brief Add |spirvInfo| to |astDecls| for every Decl for the variable
+  /// |var|. It is possible for a variable to have multiple declarations, and
+  /// all of them should be associated with the same variable.
+  void registerVariableForDecl(const VarDecl *var, DeclSpirvInfo spirvInfo);
+
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
@@ -982,6 +1029,25 @@ private:
   /// creating that stage variable, so that we don't need to query them again
   /// for reading and writing.
   llvm::DenseMap<const ValueDecl *, SpirvVariable *> stageVarInstructions;
+
+  /// Special case for the Indices builtin:
+  /// - this builtin has a different layout in HLSL & SPIR-V, meaning it
+  /// requires
+  ///   the same kind of handling as classic stageVarInstructions:
+  ///   -> load into a HLSL compatible tmp
+  ///   -> write back into the SPIR-V compatible layout.
+  /// - but the builtin is shared across invocations (not only lanes).
+  ///   -> we must only write/read from the indices requested by the user.
+  /// - the variable can be passed to other functions as a out param
+  ///   -> we cannot copy-in/copy-out because shared across invocations.
+  ///   -> we cannot pass a simple pointer: layout differences between
+  ///   HLSL/SPIR-V.
+  ///
+  /// All this means we must keep track of the builtin, and each assignment to
+  /// this will have to handle the layout differences. The easiest solution is
+  /// to keep this builtin global to the module if present.
+  SpirvVariable *msOutIndicesBuiltin = nullptr;
+
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
   /// Mapping from {RW|Append|Consume}StructuredBuffers to their
@@ -1124,8 +1190,7 @@ bool DeclResultIdMapper::decorateStageIOLocations() {
 }
 
 bool DeclResultIdMapper::isInputStorageClass(const StageVar &v) {
-  return getStorageClassForSigPoint(v.getSigPoint()) ==
-         spv::StorageClass::Input;
+  return v.getStorageClass() == spv::StorageClass::Input;
 }
 
 void DeclResultIdMapper::createFnParamCounterVar(const VarDecl *param) {

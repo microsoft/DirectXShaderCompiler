@@ -18,6 +18,8 @@ At the moment, the DirectX HLSL Compiler provides the following components:
 
 - dxilconv.dll, a DLL providing a converter from DXBC (older shader bytecode format)
 
+- dxv.exe, a command-line tool that validates DXIL IR (compiled HLSL programs). 
+
 - various other tools based on the above components
 
 The Microsoft Windows SDK releases include a supported version of the compiler and validator.
@@ -31,6 +33,16 @@ Development kits containing only the dxc.exe driver app, the dxcompiler.dll, and
 ### SPIR-V CodeGen
 
 As an example of community contribution, this project can also target the [SPIR-V](https://www.khronos.org/registry/spir-v/) intermediate representation. Please see the [doc](docs/SPIR-V.rst) for how HLSL features are mapped to SPIR-V, and the [wiki](https://github.com/microsoft/DirectXShaderCompiler/wiki/SPIR%E2%80%90V-CodeGen) page for how to build, use, and contribute to the SPIR-V CodeGen.
+
+### Metal CodeGen
+
+When built from source DXC can utilize the [Metal Shader
+Converter](https://developer.apple.com/metal/shader-converter/) if it is
+available during build and configuration time. This allows DXC to generate Metal
+shader libraries directly using the `-metal` flag.
+
+Note: DXC cannot currently disassemble Metal shaders so the `-Fc` flag cannot be
+used in conjunction with the `-Fo` flag.
 
 ## Building Sources
 
@@ -61,7 +73,7 @@ release mode for DXIL 1.1 and Shader Model 6.1 (View Instancing support only).
 
 Drivers can be downloaded from the following link [Intel Graphics Drivers](https://downloadcenter.intel.com/product/80939/Graphics-Drivers)
 
-Direct access to 15.60 driver (latest as of of this update) is provided below:
+Direct access to 15.60 driver (latest as of this update) is provided below:
 
 [Installer](https://downloadmirror.intel.com/27412/a08/win64_15.60.2.4901.exe)
 

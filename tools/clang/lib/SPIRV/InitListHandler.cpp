@@ -77,11 +77,6 @@ void InitListHandler::flatten(const InitListExpr *expr) {
     const Expr *init = expr->getInit(i);
     if (const auto *subInitList = dyn_cast<InitListExpr>(init)) {
       flatten(subInitList);
-    } else if (const auto *subInitList = dyn_cast<InitListExpr>(
-                   // Ignore constructor casts which are no-ops
-                   // For cases like: <type>(<initializer-list>)
-                   init->IgnoreParenNoopCasts(theEmitter.getASTContext()))) {
-      flatten(subInitList);
     } else {
       auto *initializer = theEmitter.loadIfGLValue(init);
       if (!initializer) {

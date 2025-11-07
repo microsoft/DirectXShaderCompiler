@@ -35,6 +35,7 @@ typedef struct ID3D10Blob ID3D10Blob;
 static const BYTE INTRIN_TEMPLATE_FROM_TYPE = 0xff;
 static const BYTE INTRIN_TEMPLATE_VARARGS = 0xfe;
 static const BYTE INTRIN_TEMPLATE_FROM_FUNCTION = 0xfd;
+static const BYTE INTRIN_TEMPLATE_FROM_FUNCTION_2 = 0xfc;
 
 // Use this enumeration to describe allowed templates (layouts) in intrinsics.
 enum LEGAL_INTRINSIC_TEMPLATES {
@@ -126,7 +127,19 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS = 49,
   LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS = 50,
 
-  LICOMPTYPE_COUNT = 51
+  LICOMPTYPE_HIT_OBJECT = 51,
+  LICOMPTYPE_RAY_QUERY = 52,
+
+  LICOMPTYPE_LINALG = 53, // f32, partial-precision-f32, f16,
+                          // i32, i16, u32, u16,
+                          // int8_4packed, uint8_4packed
+
+#ifdef ENABLE_SPIRV_CODEGEN
+  LICOMPTYPE_VK_BUFFER_POINTER = 54,
+  LICOMPTYPE_COUNT = 55
+#else
+  LICOMPTYPE_COUNT = 54
+#endif
 };
 
 static const BYTE IA_SPECIAL_BASE = 0xf0;
@@ -160,11 +173,17 @@ struct HLSL_INTRINSIC_ARGUMENT {
               // matching input constraints.
 };
 
+// HLSL_INTRINSIC flags
+static const UINT INTRIN_FLAG_READ_ONLY = 1U << 0;
+static const UINT INTRIN_FLAG_READ_NONE = 1U << 1;
+static const UINT INTRIN_FLAG_IS_WAVE = 1U << 2;
+static const UINT INTRIN_FLAG_STATIC_MEMBER = 1U << 3;
+
 struct HLSL_INTRINSIC {
   UINT Op;                 // Intrinsic Op ID
-  BOOL bReadOnly;          // Only read memory
-  BOOL bReadNone;          // Not read memory
-  BOOL bIsWave;            // Is a wave-sensitive op
+  UINT Flags;              // INTRIN_FLAG_* flags
+  UINT MinShaderModel;     // Encoded minimum shader model, 0 = no minimum
+                           // (Major << 4) + (Minor & 0xf)
   INT iOverloadParamIndex; // Parameter decide the overload type, -1 means ret
                            // type
   UINT uNumArgs;           // Count of arguments in pArgs.

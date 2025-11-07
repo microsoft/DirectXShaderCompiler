@@ -301,7 +301,6 @@ if( MSVC )
 
   set(msvc_warning_flags
     # Disabled warnings.
-    -wd4146 # Suppress 'unary minus operator applied to unsigned type, result still unsigned'
     -wd4180 # Suppress 'qualifier applied to function type has no meaning; ignored'
     -wd4244 # Suppress ''argument' : conversion from 'type1' to 'type2', possible loss of data'
     -wd4258 # Suppress ''var' : definition from the for loop is ignored; the definition from the enclosing scope is used'
@@ -357,9 +356,11 @@ if( MSVC )
 
   # Change release to always build debug information out-of-line, but
   # also enable Reference optimization, ie dead function elimination.
-  append("/Zi" CMAKE_CXX_FLAGS_RELEASE)
-  append("/DEBUG /OPT:REF" CMAKE_SHARED_LINKER_FLAGS_RELEASE)
-  append("/DEBUG /OPT:REF" CMAKE_EXE_LINKER_FLAGS_RELEASE)
+  if (NOT CMAKE_MSVC_DEBUG_INFORMATION_FORMAT)
+    append("/Zi" CMAKE_CXX_FLAGS_RELEASE)
+    append("/DEBUG /OPT:REF" CMAKE_SHARED_LINKER_FLAGS_RELEASE)
+    append("/DEBUG /OPT:REF" CMAKE_EXE_LINKER_FLAGS_RELEASE)
+  endif()
 
   # HLSL Changes End
 

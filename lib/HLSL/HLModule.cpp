@@ -604,6 +604,9 @@ MDTuple *HLModule::EmitHLResources() {
 
 void HLModule::LoadHLResources(const llvm::MDOperand &MDO) {
   const llvm::MDTuple *pSRVs, *pUAVs, *pCBuffers, *pSamplers;
+  // No resources. Nothing to do.
+  if (MDO.get() == nullptr)
+    return;
   m_pMDHelper->GetDxilResources(MDO, pSRVs, pUAVs, pCBuffers, pSamplers);
 
   // Load SRV records.
@@ -697,6 +700,7 @@ HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
     Res->SetRW(true);
     Res->SetROV(RP.Basic.IsROV);
     Res->SetGloballyCoherent(RP.Basic.IsGloballyCoherent);
+    Res->SetReorderCoherent(RP.Basic.IsReorderCoherent);
     Res->SetHasCounter(RP.Basic.SamplerCmpOrHasCounter);
     Res->SetKind(RK);
     Res->SetGlobalSymbol(GV);
@@ -885,7 +889,7 @@ void HLModule::GetParameterRowsAndCols(
     DxilParameterAnnotation &paramAnnotation) {
   if (Ty->isPointerTy())
     Ty = Ty->getPointerElementType();
-  // For array input of HS, DS, GS,
+  // For array input of HS, DS, GS and array output of MS,
   // we need to skip the first level which size is based on primitive type.
   DxilParamInputQual inputQual = paramAnnotation.GetParamInputQual();
   bool skipOneLevelArray = inputQual == DxilParamInputQual::InputPatch;

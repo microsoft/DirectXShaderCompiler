@@ -2,7 +2,8 @@
 
 // Check that the MS thread IDs are added properly
 
-// CHECK: %PIX_DebugUAV_Handle = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 0, i32 0, i1 false)
+// Check we added the UAV:                                                                      v----metadata position: not important for this check
+// CHECK: %PIX_DebugUAV_Handle = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 [[S:[0-9]+]], i32 0, i1 false)
 // CHECK: %ThreadIdX = call i32 @dx.op.threadId.i32(i32 93, i32 0)
 // CHECK: %ThreadIdY = call i32 @dx.op.threadId.i32(i32 93, i32 1)
 // CHECK: %ThreadIdZ = call i32 @dx.op.threadId.i32(i32 93, i32 2)

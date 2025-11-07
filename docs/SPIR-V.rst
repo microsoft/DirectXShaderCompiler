@@ -282,8 +282,23 @@ Right now the following ``<builtin>`` are supported:
   Need ``SPV_KHR_device_group`` extension.
 * ``ViewportMaskNV``: The GLSL equivalent is ``gl_ViewportMask``.
 
-Please see Vulkan spec. `14.6. Built-In Variables <https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-builtin-variables>`_
+Please see Vulkan spec. `15.9. Built-In Variables <https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#interfaces-builtin-variables>`_
 for detailed explanation of these builtins.
+
+Helper Lane Support
+~~~~~~~~~~~~~~~~~~~
+
+Shader Model 6.7 introduces the `[WaveOpsIncludeHelperLanes]` attribute. When this
+attribute is applied to a shader entry point, the SPIR-V backend will:
+
+1. Add the ``SPV_KHR_maximal_reconvergence`` and ``SPV_KHR_quad_control``
+   extensions to the module.
+2. Add the ``QuadControlKHR`` capability.
+3. Add the ``MaximallyReconvergesKHR`` and ``RequireFullQuadsKHR`` execution modes
+   to the entry point.
+
+This ensures that helper lanes are included in wave operations, which is the
+behavior required by the HLSL specification.
 
 Supported extensions
 ~~~~~~~~~~~~~~~~~~~~
@@ -293,16 +308,34 @@ Supported extensions
 * SPV_KHR_fragment_shading_rate
 * SPV_KHR_multivew
 * SPV_KHR_post_depth_coverage
+* SPV_KHR_non_semantic_info
 * SPV_KHR_shader_draw_parameters
+* SPV_KHR_ray_tracing
+* SPV_KHR_shader_clock
+* SPV_EXT_demote_to_helper_invocation
 * SPV_EXT_descriptor_indexing
 * SPV_EXT_fragment_fully_covered
+* SPV_EXT_fragment_invocation_density
+* SPV_EXT_fragment_shader_interlock
 * SPV_EXT_mesh_shader
 * SPV_EXT_shader_stencil_support
+* SPV_EXT_shader_viewport_index_layer
 * SPV_AMD_shader_early_and_late_fragment_tests
 * SPV_GOOGLE_hlsl_functionality1
 * SPV_GOOGLE_user_type
+* SPV_NV_ray_tracing
 * SPV_NV_mesh_shader
-* SPV_KHR_fragment_shading_barycentric
+* SPV_KHR_ray_query
+* SPV_EXT_shader_image_int64
+* SPV_KHR_fragment_shader_barycentric
+* SPV_KHR_physical_storage_buffer
+* SPV_KHR_vulkan_memory_model
+* SPV_KHR_compute_shader_derivatives
+* SPV_NV_compute_shader_derivatives
+* SPV_KHR_maximal_reconvergence
+* SPV_KHR_float_controls
+* SPV_NV_shader_subgroup_partitioned
+* SPV_KHR_quad_control
 
 Vulkan specific attributes
 --------------------------
@@ -397,8 +430,8 @@ interface variables:
   main([[vk::location(N)]] float4 input: A) : B
   { ... }
 
-Macro for SPIR-V
-----------------
+Macros for SPIR-V
+-----------------
 
 If SPIR-V CodeGen is enabled and ``-spirv`` flag is used as one of the command
 line options (meaning that "generates SPIR-V code"), it defines an implicit
@@ -412,6 +445,12 @@ specific part of the HLSL code:
   #endif
   RWStructuredBuffer<S> mySBuffer;
 
+When the ``-spirv`` flag is used, the ``-fspv-target-env`` option will
+implicitly define the macros ``__SPIRV_MAJOR_VERSION__`` and
+``__SPIRV_MINOR_VERSION__``, which will be integers representing the major and
+minor version of the SPIR-V being generated. This can be used to enable code that uses a feature
+only for environments where that feature is available.
+
 SPIR-V version and extension
 ----------------------------
 
@@ -424,7 +463,7 @@ environment (hence SPIR-V version) and SPIR-V extension control:
 ``-fspv-target-env=`` accepts a Vulkan target environment (see ``-help`` for
 supported values). If such an option is not given, the CodeGen defaults to
 ``vulkan1.0``. When targeting ``vulkan1.0``, trying to use features that are only
-available in Vulkan 1.1 (SPIR-V 1.3), like `Shader Model 6.0 wave intrinsics`_,
+available in Vulkan 1.1 (SPIR-V 1.3), like `Shader Model 6.0 wave intrinsic <https://github.com/microsoft/directxshadercompiler/wiki/wave-intrinsics>`_,
 will trigger a compiler error.
 
 If ``-fspv-extension=`` is not specified, the CodeGen will select suitable
@@ -472,7 +511,7 @@ Specifically, we need to legalize the following HLSL source code patterns:
 Legalization transformations will not run unless the above patterns are
 encountered in the source code.
 
-For more details, please see the `SPIR-V cookbook <https://github.com/Microsoft/DirectXShaderCompiler/tree/master/docs/SPIRV-Cookbook.rst>`_,
+For more details, please see the `SPIR-V cookbook <https://github.com/Microsoft/DirectXShaderCompiler/tree/main/docs/SPIRV-Cookbook.rst>`_,
 which contains examples of what HLSL code patterns will be accepted and
 generate valid SPIR-V for Vulkan.
 
@@ -539,7 +578,7 @@ So if you want to run loop unrolling additionally after the default optimization
 recipe, you can specify ``-Oconfig=-O,--loop-unroll``.
 
 For the whole list of accepted passes and details about each one, please see
-``spirv-opt``'s help manual (``spirv-opt --help``), or the SPIRV-Tools `optimizer header file <https://github.com/KhronosGroup/SPIRV-Tools/blob/master/include/spirv-tools/optimizer.hpp>`_.
+``spirv-opt``'s help manual (``spirv-opt --help``), or the SPIRV-Tools `optimizer header file <https://github.com/KhronosGroup/SPIRV-Tools/blob/main/include/spirv-tools/optimizer.hpp>`_.
 
 Validation
 ~~~~~~~~~~
@@ -618,7 +657,7 @@ HLSL Semantic
 
 HLSL semantic strings are by default not emitted into the SPIR-V binary module.
 If you need them, by specifying ``-fspv-reflect``, the compiler will use
-the ``Op*DecorateStringGOOGLE`` instruction in `SPV_GOOGLE_hlsl_funtionality1 <https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/GOOGLE/SPV_GOOGLE_hlsl_functionality1.asciidoc>`_
+the ``Op*DecorateStringGOOGLE`` instruction in `SPV_GOOGLE_hlsl_funtionality1 <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/GOOGLE/SPV_GOOGLE_hlsl_functionality1.asciidoc>`_
 extension to emit them.
 
 HLSL User Types
@@ -639,7 +678,7 @@ Counter buffers for RW/Append/Consume StructuredBuffer
 The association between a counter buffer and its main RW/Append/Consume
 StructuredBuffer is conveyed by ``OpDecorateId <structured-buffer-id>
 HLSLCounterBufferGOOGLE <counter-buffer-id>`` instruction from the
-`SPV_GOOGLE_hlsl_funtionality1 <https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/GOOGLE/SPV_GOOGLE_hlsl_functionality1.asciidoc>`_
+`SPV_GOOGLE_hlsl_funtionality1 <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/GOOGLE/SPV_GOOGLE_hlsl_functionality1.asciidoc>`_
 extension. This information is by default missing; you need to specify
 ``-fspv-reflect`` to direct the compiler to emit them.
 
@@ -872,6 +911,13 @@ are translated into SPIR-V ``OpTypeImage``, with parameters:
 The meanings of the headers in the above table is explained in ``OpTypeImage``
 of the SPIR-V spec.
 
+For storage images (e.g. ``RWTexture2D<T>``) and texel buffers (e.g. ``RWBuffer<T>``),
+the image format is typically inferred from the data type ``T``. However, the
+``-fspv-use-unknown-image-format`` command-line option can be used to change
+this behavior. When this option is active, the default format for these
+resources becomes ``Unknown`` if not otherwise specified by the
+``[[vk::image_format]]`` attribute.
+
 Vulkan specific Image Formats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -889,7 +935,7 @@ For example,
 
   RWTexture2D<float2> Tex2; // Works like before
 
-``rgba8`` means ``Rgba8`` `SPIR-V Image Format <https://www.khronos.org/registry/spir-v/specs/unified1/SPIRV.html#_a_id_image_format_a_image_format>`_.
+``rgba8`` means ``Rgba8`` `SPIR-V Image Format <https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Image_Format>`_.
 The following table lists the mapping between ``FORMAT`` of
 ``[[vk::image_format("FORMAT")]]`` and its corresponding SPIR-V Image Format.
 
@@ -972,7 +1018,7 @@ Please see the following sections for the details of each type. As a summary:
 =========================== ================== ================================ ==================== =================
 
 To know more about the Vulkan buffer types, please refer to the Vulkan spec
-`13.1 Descriptor Types <https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-types>`_.
+`14.1 Descriptor Types <https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#descriptorsets-types>`_.
 
 Memory layout rules
 ~~~~~~~~~~~~~~~~~~~
@@ -982,33 +1028,34 @@ right now:
 
 1. Vector-relaxed OpenGL ``std140`` for uniform buffers and vector-relaxed
    OpenGL ``std430`` for storage buffers: these rules satisfy Vulkan `"Standard
-   Uniform Buffer Layout" and "Standard Storage Buffer Layout" <https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-resources-layout>`_,
+   Uniform Buffer Layout" and "Standard Storage Buffer Layout" <https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#interfaces-resources-layout>`_,
    respectively.
    They are the default.
 2. DirectX memory layout rules for uniform buffers and storage buffers:
    they allow packing data on the application side that can be shared with
    DirectX. They can be enabled by ``-fvk-use-dx-layout``.
+   
+   NOTE: This requires ``VK_EXT_scalar_block_layout`` to be enabled on the
+   application side.
 3. Strict OpenGL ``std140`` for uniform buffers and strict OpenGL ``std430``
    for storage buffers: they allow packing data on the application side that
    can be shared with OpenGL. They can be enabled by ``-fvk-use-gl-layout``.
 4. Scalar layout rules introduced via `VK_EXT_scalar_block_layout`, which
    basically aligns all aggregrate types according to their elements'
    natural alignment. They can be enabled by ``-fvk-use-scalar-layout``.
-
-To use scalar layout, the application side need to request
-``VK_EXT_scalar_block_layout``. This is also true for using DirectX memory
-layout since there is no dedicated DirectX layout extension for Vulkan
-(at least for now). So we must request something more permissive.
+   
+   NOTE: This requires ``VK_EXT_scalar_block_layout`` to be enabled on the
+   application side.
 
 In the above, "vector-relaxed OpenGL ``std140``/``std430``" rules mean OpenGL
 ``std140``/``std430`` rules with the following modification for vector type
 alignment:
 
 1. The alignment of a vector type is set to be the alignment of its element type
-2. If the above causes an `improper straddle <https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-resources-layout>`_,
+2. If the above causes an `improper straddle <https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#interfaces-resources-layout>`_,
    the alignment will be set to 16 bytes.
 
-As an exmaple, for the following HLSL definition:
+As an example, for the following HLSL definition:
 
 .. code:: hlsl
 
@@ -1449,7 +1496,7 @@ Without hints from the developer, the compiler will try its best to map
 semantics to ``Location`` numbers. However, there is no single rule for this
 mapping; semantic strings should be handled case by case.
 
-Firstly, under certain `SigPoints <https://github.com/Microsoft/DirectXShaderCompiler/blob/master/docs/DXIL.rst#hlsl-signatures-and-semantics>`_,
+Firstly, under certain `SigPoints <https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/DXIL.rst#hlsl-signatures-and-semantics>`_,
 some system-value (SV) semantic strings will be translated into SPIR-V
 ``BuiltIn`` decorations:
 
@@ -1633,7 +1680,7 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | MSOut       | ``PrimitiveShadingRateKHR``            | N/A                   | ``FragmentShadingRate``     |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
-| SV_CullPrimitive          | MSOut       | ``CullPrimitiveEXT``                   | N/A                   | ``MeshShadingEXT ``         |
+| SV_CullPrimitive          | MSOut       | ``CullPrimitiveEXT``                   | N/A                   | ``MeshShadingEXT``          |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 
 
@@ -2445,6 +2492,8 @@ extended instruction mapping, so they are handled with additional steps:
 - ``isfinite`` : Determines if the specified value is finite. Since ``OpIsFinite``
   requires the ``Kernel`` capability, translation is done using ``OpIsNan`` and
   ``OpIsInf``.  A given value is finite iff it is not NaN and not infinite.
+- ``isnormal`` : Determines if the specified value is normal (not zero, INF, NAN or subnormal).
+  Since ``OpIsNormal`` requires the ``Kernel`` capability, the operation is emulated.
 - ``clip``: Discards the current pixel if the specified value is less than zero.
   Uses conditional control flow as well as SPIR-V ``OpKill``.
 - ``rcp``: Calculates a fast, approximate, per-component reciprocal.
@@ -2884,6 +2933,30 @@ If an output unsigned integer ``status`` argument is present,
 ``OpImageSparseSampleDrefExplicitLod`` is used instead. The resulting SPIR-V
 ``Residency Code`` will be written to ``status``.
 
+``.SampleCmpBias(sampler, location, bias, comparator[, offset][, clamp][, Status])``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Not available to ``Texture3D``, ``Texture2DMS``, and ``Texture2DMSArray``.
+
+The translation is similar to ``.SampleBias()``, but the
+``OpImageSampleDrefImplicitLod`` instruction is used.
+
+If an output unsigned integer ``status`` argument is present,
+``OpImageSparseSampleDrefImplicitLod`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
+
+``.SampleCmpGrad(sampler, location, ddx, ddy, comparator[, offset][, clamp][, Status])``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Not available to ``Texture3D``, ``Texture2DMS``, and ``Texture2DMSArray``.
+
+The translation is similar to ``.SampleGrad()``, but the
+``OpImageSampleDrefExplicitLod`` instruction are used.
+
+If an output unsigned integer ``status`` argument is present,
+``OpImageSparseSampleDrefExplicitLod`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
+
 ``.Gather()``
 +++++++++++++
 
@@ -2977,10 +3050,11 @@ Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
 
 Since texture types are represented as ``OpTypeImage``, the ``OpImageQueryLod``
 instruction is used for translation. An ``OpSampledImage`` is created based on
-the ``SamplerState`` passed to the function. The resulting sampled image and
-the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
-The result of ``OpImageQueryLod`` is a ``float2``. The first element contains
-the mipmap array layer. The second element contains the unclamped level of detail.
+the ``SamplerState`` or ``SamplerComparisonState`` passed to the function. The
+resulting sampled image and the coordinate passed to the function are used to
+invoke ``OpImageQueryLod``. The result of ``OpImageQueryLod`` is a ``float2``.
+The first element contains the mipmap array layer. The second element contains
+the unclamped level of detail.
 
 ``Texture1D``
 ~~~~~~~~~~~~~
@@ -3549,8 +3623,8 @@ Mesh and Amplification Shaders
 | Amplification shaders corresponds to Task Shaders in Vulkan.
 |
 | Refer to following HLSL and SPIR-V specs for details:
-| https://docs.microsoft.com/<TBD>
-| https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/NV/SPV_NV_mesh_shader.asciidoc
+| https://microsoft.github.io/DirectX-Specs/d3d/MeshShader.html
+| https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/NV/SPV_NV_mesh_shader.asciidoc
 |
 | This section describes how Mesh and Amplification shaders are translated to SPIR-V for Vulkan.
 
@@ -3657,8 +3731,8 @@ Raytracing in Vulkan and SPIRV
 | SPIR-V codegen is currently supported for NVIDIA platforms via SPV_NV_ray_tracing extension or
 | on other platforms via provisional cross vendor SPV_KHR_ray_tracing extension.
 | SPIR-V specification for reference:
-| https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/NV/SPV_NV_ray_tracing.asciidoc
-| https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/KHR/SPV_KHR_ray_tracing.asciidoc
+| https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/NV/SPV_NV_ray_tracing.asciidoc
+| https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/KHR/SPV_KHR_ray_tracing.asciidoc
 
 | Vulkan ray tracing samples:
 | https://developer.nvidia.com/rtx/raytracing/vkray
@@ -3821,7 +3895,7 @@ Ray Query in SPIRV
 ~~~~~~~~~~~~~~~~~~
 RayQuery SPIR-V codegen is currently supported via SPV_KHR_ray_query extension
 SPIR-V specification for reference:
-https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/KHR/SPV_KHR_ray_query.asciidoc
+https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/KHR/SPV_KHR_ray_query.asciidoc
 
 Object Type
 ~~~~~~~~~~~
@@ -3918,7 +3992,7 @@ RayQuery Mapping to SPIR-V
 +---------------------------------------------------+-------------------------------------------------------------------------+
 |``.WorldRayDirection``                             | ``OpRayQueryGetWorldRayDirectionKHR``                                   |
 +---------------------------------------------------+-------------------------------------------------------------------------+
-|``.WorldRayOrigin`                                 | ``OpRayQueryGetWorldRayOriginKHR``                                      |
+|``.WorldRayOrigin``                                | ``OpRayQueryGetWorldRayOriginKHR``                                      |
 +---------------------------------------------------+-------------------------------------------------------------------------+
 
 Shader Model 6.0+ Wave Intrinsics
@@ -3960,6 +4034,8 @@ Quad          ``QuadReadAcrossX()``        ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadAcrossY()``        ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadAcrossDiagonal()`` ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadLaneAt()``         ``OpGroupNonUniformQuadBroadcast``
+Quad          ``QuadAny()``                ``OpGroupNonUniformQuadAnyKHR``
+Quad          ``QuadAll()``                ``OpGroupNonUniformQuadAllKHR``
 N/A           ``WaveMatch()``              ``OpGroupNonUniformPartitionNV``
 Multiprefix   ``WaveMultiPrefixSum()``     ``OpGroupNonUniform*Add``           ``PartitionedExclusiveScanNV``
 Multiprefix   ``WaveMultiPrefixProduct()`` ``OpGroupNonUniform*Mul``           ``PartitionedExclusiveScanNV``
@@ -3967,6 +4043,11 @@ Multiprefix   ``WaveMultiPrefixBitAnd()``  ``OpGroupNonUniformLogicalAnd``     `
 Multiprefix   ``WaveMultiPrefixBitOr()``   ``OpGroupNonUniformLogicalOr``      ``PartitionedExclusiveScanNV``
 Multiprefix   ``WaveMultiPrefixBitXor()``  ``OpGroupNonUniformLogicalXor``     ``PartitionedExclusiveScanNV``
 ============= ============================ =================================== ==============================
+
+``QuadAny`` and ``QuadAll`` will use the ``OpGroupNonUniformQuadAnyKHR`` and
+``OpGroupNonUniformQuadAllKHR`` instructions if the ``SPV_KHR_quad_control``
+extension is enabled. If it is not, they will fall back to constructing the
+value using multiple calls to ``OpGroupNonUniformQuadBroadcast``.
 
 The Implicit ``vk`` Namespace
 =============================
@@ -4034,7 +4115,7 @@ This intrinsic funcion has the following signature:
 
   uint64_t ReadClock(in uint scope);
 
-It translates to performing ``OpReadClockKHR`` defined in `VK_KHR_shader_clock <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_shader_clock.html>`_.
+It translates to performing ``OpReadClockKHR`` defined in `VK_KHR_shader_clock <https://registry.khronos.org/vulkan/specs/latest/man/html/VK_KHR_shader_clock.html>`_.
 One can use the predefined scopes in the ``vk`` namepsace to specify the scope argument.
 For example:
 
@@ -4044,11 +4125,11 @@ For example:
 
 RawBufferLoad and RawBufferStore
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The Vulkan extension `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
+The Vulkan extension `VK_KHR_buffer_device_address <https://registry.khronos.org/vulkan/specs/latest/man/html/VK_KHR_buffer_device_address.html>`_
 supports getting the 64-bit address of a buffer and passing it to SPIR-V as a
 Uniform buffer. SPIR-V can use the address to load and store data without a descriptor.
 We add the following intrinsic functions to expose a subset of the
-`VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
+`VK_KHR_buffer_device_address <https://registry.khronos.org/vulkan/specs/latest/man/html/VK_KHR_buffer_device_address.html>`_
 and `SPV_KHR_physical_storage_buffer <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/KHR/SPV_KHR_physical_storage_buffer.asciidoc>`_
 functionality to HLSL:
 
@@ -4098,7 +4179,7 @@ GL_EXT_spirv_intrinsics is an extension of GLSL that allows users to embed
 arbitrary SPIR-V instructions in the GLSL code similar to the concept of
 inline assembly in the C code. We support the HLSL version of
 GL_EXT_spirv_intrinsics. See
-`wiki <https://github.com/microsoft/DirectXShaderCompiler/wiki/GL_EXT_spirv_intrinsics-for-SPIR-V-code-gen>`_
+`wiki <https://github.com/microsoft/DirectXShaderCompiler/wiki/Inline-SPIR%E2%80%90V>`_
 for the details.
 
 Supported Command-line Options
@@ -4171,7 +4252,7 @@ codegen for Vulkan:
 - ``-fvk-use-dx-layout``: Uses DirectX layout rules for resources.
 - ``-fvk-invert-y``: Negates (additively inverts) SV_Position.y before writing
   to stage output. Used to accommodate the difference between Vulkan's
-  coordinate system and DirectX's. Only allowed in VS/DS/GS.
+  coordinate system and DirectX's. Only allowed in VS/DS/GS/MS/Lib.
 - ``-fvk-use-dx-position-w``: Reciprocates (multiplicatively inverts)
   SV_Position.w after reading from stage input. Used to accommodate the
   difference between Vulkan DirectX: the w component of SV_Position in PS is

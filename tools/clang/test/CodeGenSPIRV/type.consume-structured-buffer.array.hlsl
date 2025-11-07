@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fvk-allow-rwstructuredbuffer-arrays -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct T {
   float  a;
@@ -10,8 +10,8 @@ struct T {
 // CHECK: OpDecorate %counter_var_myConsumeStructuredBuffer DescriptorSet 0
 // CHECK: OpDecorate %counter_var_myConsumeStructuredBuffer Binding 1
 
-// CHECK: %myConsumeStructuredBuffer = OpVariable %_ptr_Uniform__arr_type_ConsumeStructuredBuffer_T_uint_2 Uniform
 // CHECK: %counter_var_myConsumeStructuredBuffer = OpVariable %_ptr_Uniform__arr_type_ACSBuffer_counter_uint_2 Uniform
+// CHECK: %myConsumeStructuredBuffer = OpVariable %_ptr_Uniform__arr_type_ConsumeStructuredBuffer_T_uint_2 Uniform
 ConsumeStructuredBuffer<T> myConsumeStructuredBuffer[2];
 
 void main() {}

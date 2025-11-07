@@ -81,16 +81,18 @@ public:
   static bool DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
                                   Type *&BrokenUpTy, uint64_t &NumInstances,
                                   IRBuilder<> &Builder, bool bFlatVector,
-                                  bool hasPrecise, DxilTypeSystem &typeSys,
-                                  const DataLayout &DL,
+                                  bool SupportsVectors, bool hasPrecise,
+                                  DxilTypeSystem &typeSys, const DataLayout &DL,
                                   SmallVector<Value *, 32> &DeadInsts,
                                   DominatorTree *DT);
 
-  static bool
-  DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &Elts,
-                      IRBuilder<> &Builder, bool bFlatVector, bool hasPrecise,
-                      DxilTypeSystem &typeSys, const DataLayout &DL,
-                      SmallVector<Value *, 32> &DeadInsts, DominatorTree *DT);
+  static bool DoScalarReplacement(GlobalVariable *GV,
+                                  std::vector<Value *> &Elts,
+                                  IRBuilder<> &Builder, bool bFlatVector,
+                                  bool SupportsVectors, bool hasPrecise,
+                                  DxilTypeSystem &typeSys, const DataLayout &DL,
+                                  SmallVector<Value *, 32> &DeadInsts,
+                                  DominatorTree *DT);
   static unsigned GetEltAlign(unsigned ValueAlign, const DataLayout &DL,
                               Type *EltTy, unsigned Offset);
   // Lower memcpy related to V.
@@ -127,7 +129,6 @@ private:
   void RewriteMemIntrin(MemIntrinsic *MI, Value *OldV);
   void RewriteCall(CallInst *CI);
   void RewriteBitCast(BitCastInst *BCI);
-  void RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn, bool bOut);
 };
 
 } // namespace
@@ -1476,6 +1477,57 @@ void isSafePHISelectUseForScalarRepl(Instruction *I, uint64_t Offset,
   }
 }
 
+// Returns whether the `OpIdx` argument of HL intrinsic call `CI` is expected to
+// be a user-defined-type.
+static bool isUDTIntrinsicArg(CallInst *CI, unsigned OpIdx) {
+  if (HLOpcodeGroup::HLIntrinsic != GetHLOpcodeGroup(CI->getCalledFunction()))
+    return false;
+  const unsigned NumOps = CI->getNumArgOperands();
+  switch (static_cast<IntrinsicOp>(GetHLOpcode(CI))) {
+  case IntrinsicOp::IOP_TraceRay:
+    if (NumOps == HLOperandIndex::kTraceRay_PreNumOp &&
+        OpIdx == HLOperandIndex::kTraceRayPayloadPreOpIdx)
+      return true;
+    else if (NumOps == HLOperandIndex::kTraceRay_NumOp &&
+             OpIdx == HLOperandIndex::kTraceRayPayloadOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::IOP_ReportHit:
+    if (OpIdx == HLOperandIndex::kReportIntersectionAttributeOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::IOP_CallShader:
+    if (OpIdx == HLOperandIndex::kCallShaderPayloadOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::MOP_DxHitObject_FromRayQuery:
+    if (NumOps == HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_NumOp &&
+        OpIdx ==
+            HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::MOP_DxHitObject_TraceRay:
+    if (NumOps == HLOperandIndex::kHitObjectTraceRay_PreNumOp &&
+        OpIdx == HLOperandIndex::kHitObjectTraceRay_PayloadPreOpIdx)
+      return true;
+    else if (NumOps == HLOperandIndex::kHitObjectTraceRay_NumOp &&
+             OpIdx == HLOperandIndex::kHitObjectTraceRay_PayloadOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::MOP_DxHitObject_Invoke:
+    if (OpIdx == HLOperandIndex::kHitObjectInvoke_PayloadOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::MOP_DxHitObject_GetAttributes:
+    if (OpIdx == HLOperandIndex::kHitObjectGetAttributes_AttributeOpIdx)
+      return true;
+    break;
+  default:
+    break;
+  }
+  return false;
+}
+
 /// isSafeForScalarRepl - Check if instruction I is a safe use with regard to
 /// performing scalar replacement of alloca AI.  The results are flagged in
 /// the Info parameter.  Offset indicates the position within AI that is
@@ -1533,16 +1585,9 @@ void isSafeForScalarRepl(Instruction *I, uint64_t Offset, AllocaInfo &Info) {
       // Most HL functions are safe for scalar repl.
       if (HLOpcodeGroup::NotHL == group)
         return MarkUnsafe(Info, User);
-      else if (HLOpcodeGroup::HLIntrinsic == group) {
-        // TODO: should we check HL parameter type for UDT overload instead of
-        // basing on IOP?
-        IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(CI));
-        if (IntrinsicOp::IOP_TraceRay == opcode ||
-            IntrinsicOp::IOP_ReportHit == opcode ||
-            IntrinsicOp::IOP_CallShader == opcode) {
-          return MarkUnsafe(Info, User);
-        }
-      }
+      else if (HLOpcodeGroup::HLIntrinsic == group &&
+               isUDTIntrinsicArg(CI, U.getOperandNo()))
+        return MarkUnsafe(Info, User);
     } else {
       return MarkUnsafe(Info, User);
     }
@@ -1714,6 +1759,7 @@ bool isGroupShareOrConstStaticArray(GlobalVariable *GV) {
 
 bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
   Module &M = *HLM.GetModule();
+  bool SupportsVectors = HLM.GetShaderModel()->IsSM69Plus();
   DxilTypeSystem &typeSys = HLM.GetTypeSystem();
 
   const DataLayout &DL = M.getDataLayout();
@@ -1878,7 +1924,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         uint64_t NumInstances = 1;
         bool SROAed = SROA_Helper::DoScalarReplacement(
             AI, Elts, BrokenUpTy, NumInstances, Builder,
-            /*bFlatVector*/ true, hasPrecise, typeSys, DL, DeadInsts, &DT);
+            /*bFlatVector*/ true, SupportsVectors, hasPrecise, typeSys, DL,
+            DeadInsts, &DT);
 
         if (SROAed) {
           Type *Ty = AI->getAllocatedType();
@@ -1945,7 +1992,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         continue;
       }
 
-      // Flat Global vector if no dynamic vector indexing.
+      // Flatten global vector if it has no dynamic vector indexing.
       bool bFlatVector = !hasDynamicVectorIndexing(GV);
 
       if (bFlatVector) {
@@ -1981,7 +2028,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         // SROA_Parameter_HLSL has no access to a domtree, if one is needed,
         // it'll be generated
         SROAed = SROA_Helper::DoScalarReplacement(
-            GV, Elts, Builder, bFlatVector,
+            GV, Elts, Builder, bFlatVector, SupportsVectors,
             // TODO: set precise.
             /*hasPrecise*/ false, typeSys, DL, DeadInsts, /*DT*/ nullptr);
       }
@@ -2656,12 +2703,11 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
   RewriteForGEP(cast<GEPOperator>(GEP), GEPBuilder);
 }
 
-/// RewriteCallArg - For Functions which don't flat,
-///                  replace OldVal with alloca and
-///                  copy in copy out data between alloca and flattened NewElts
-///                  in CallInst.
-void SROA_Helper::RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn,
-                                 bool bOut) {
+/// memcpyAggCallArg - For an aggregate call argument, this replaces the
+/// argument with an alloca and inserts a memcpy for input (if CopyIn) and
+/// output (if CopyOut).
+static void memcpyAggCallArg(CallInst *CI, unsigned ArgIdx, bool CopyIn,
+                             bool CopyOut) {
   Function *F = CI->getParent()->getParent();
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
   const DataLayout &DL = F->getParent()->getDataLayout();
@@ -2671,17 +2717,79 @@ void SROA_Helper::RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn,
   Type *userTyElt = userTy->getElementType();
   Value *Alloca = AllocaBuilder.CreateAlloca(userTyElt);
   IRBuilder<> Builder(CI);
-  if (bIn) {
-    MemCpyInst *cpy = cast<MemCpyInst>(Builder.CreateMemCpy(
-        Alloca, userTyV, DL.getTypeAllocSize(userTyElt), false));
-    RewriteMemIntrin(cpy, cpy->getRawSource());
-  }
+  if (CopyIn)
+    Builder.CreateMemCpy(Alloca, userTyV, DL.getTypeAllocSize(userTyElt),
+                         false);
   CI->setArgOperand(ArgIdx, Alloca);
-  if (bOut) {
+  if (CopyOut) {
     Builder.SetInsertPoint(CI->getNextNode());
-    MemCpyInst *cpy = cast<MemCpyInst>(Builder.CreateMemCpy(
-        userTyV, Alloca, DL.getTypeAllocSize(userTyElt), false));
-    RewriteMemIntrin(cpy, cpy->getRawSource());
+    Builder.CreateMemCpy(userTyV, Alloca, DL.getTypeAllocSize(userTyElt),
+                         false);
+  }
+}
+
+static void copyIntrinsicAggArgs(HLModule &HLM) {
+  // Iterate HLIntrinsic function users
+  // For specific intrinsics, use memcpyAggCallArg on aggregate args
+  // This ensures that the call does not directly use the pointer supplied,
+  // allowing certain arguments to be flattened, and UDT args to be correctly
+  // lowered.
+  for (Function &F : HLM.GetModule()->functions()) {
+    if (F.isIntrinsic() || !F.isDeclaration())
+      continue;
+    if (GetHLOpcodeGroup(&F) != HLOpcodeGroup::HLIntrinsic)
+      continue;
+    // Iterate users
+    for (User *U : F.users()) {
+      if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        switch (static_cast<IntrinsicOp>(GetHLOpcode(CI))) {
+        case IntrinsicOp::IOP_TraceRay:
+          memcpyAggCallArg(CI, HLOperandIndex::kTraceRayRayDescOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
+          memcpyAggCallArg(CI, HLOperandIndex::kTraceRayPayloadPreOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ true);
+          break;
+        case IntrinsicOp::IOP_ReportHit:
+          memcpyAggCallArg(CI,
+                           HLOperandIndex::kReportIntersectionAttributeOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
+          break;
+        case IntrinsicOp::IOP_CallShader:
+          memcpyAggCallArg(CI, HLOperandIndex::kCallShaderPayloadOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ true);
+          break;
+        case IntrinsicOp::MOP_TraceRayInline:
+          memcpyAggCallArg(CI, HLOperandIndex::kTraceRayInlineRayDescOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
+          break;
+        case IntrinsicOp::MOP_DxHitObject_FromRayQuery:
+          if (CI->getNumArgOperands() ==
+              HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_NumOp)
+            memcpyAggCallArg(
+                CI,
+                HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx,
+                /*CopyIn*/ true, /*CopyOut*/ false);
+          break;
+        case IntrinsicOp::MOP_DxHitObject_MakeMiss:
+          memcpyAggCallArg(CI, HLOperandIndex::kHitObjectMakeMiss_RayDescOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
+          break;
+        case IntrinsicOp::MOP_DxHitObject_TraceRay:
+          memcpyAggCallArg(CI, HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
+          memcpyAggCallArg(CI,
+                           HLOperandIndex::kHitObjectTraceRay_PayloadPreOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ true);
+          break;
+        case IntrinsicOp::MOP_DxHitObject_Invoke:
+          memcpyAggCallArg(CI, HLOperandIndex::kHitObjectInvoke_PayloadOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ true);
+          break;
+        default:
+          break;
+        }
+      }
+    }
   }
 }
 
@@ -2735,13 +2843,26 @@ static CallInst *RewriteWithFlattenedHLIntrinsicCall(CallInst *CI,
 
 /// RewriteCall - Replace OldVal with flattened NewElts in CallInst.
 void SROA_Helper::RewriteCall(CallInst *CI) {
-  HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-  if (group != HLOpcodeGroup::NotHL) {
+  HLOpcodeGroup Group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+  if (Group != HLOpcodeGroup::NotHL) {
     unsigned opcode = GetHLOpcode(CI);
-    if (group == HLOpcodeGroup::HLIntrinsic) {
+    if (Group == HLOpcodeGroup::HLIntrinsic) {
+      // RayQuery this pointer replacement.
+      if (OldVal->getType()->isPointerTy() &&
+          dxilutil::IsHLSLRayQueryType(
+              OldVal->getType()->getPointerElementType())) {
+        // For RayQuery methods, we want to replace the RayQuery this pointer
+        // with a load and use of the underlying handle value.
+        // This will allow elimination of RayQuery types earlier.
+        RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                            /*loadElts*/ true);
+        DeadInsts.push_back(CI);
+        return;
+      }
+
       IntrinsicOp IOP = static_cast<IntrinsicOp>(opcode);
       switch (IOP) {
-      case IntrinsicOp::MOP_Append: {
+      case IntrinsicOp::MOP_Append:
         // Buffer Append already expand in code gen.
         // Must be OutputStream Append here.
         // Every Elt has a pointer type.
@@ -2749,55 +2870,47 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
                                             /*loadElts*/ false);
         DeadInsts.push_back(CI);
-      } break;
-      case IntrinsicOp::IOP_TraceRay: {
+        return;
+      case IntrinsicOp::IOP_TraceRay:
         if (OldVal ==
             CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx)) {
-          RewriteCallArg(CI, HLOperandIndex::kTraceRayRayDescOpIdx,
-                         /*bIn*/ true, /*bOut*/ false);
-        } else {
-          DXASSERT(OldVal ==
-                       CI->getArgOperand(HLOperandIndex::kTraceRayPayLoadOpIdx),
-                   "else invalid TraceRay");
-          RewriteCallArg(CI, HLOperandIndex::kTraceRayPayLoadOpIdx,
-                         /*bIn*/ true, /*bOut*/ true);
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                              /*loadElts*/ true);
+          DeadInsts.push_back(CI);
+          return;
         }
-      } break;
-      case IntrinsicOp::IOP_ReportHit: {
-        RewriteCallArg(CI, HLOperandIndex::kReportIntersectionAttributeOpIdx,
-                       /*bIn*/ true, /*bOut*/ false);
-      } break;
-      case IntrinsicOp::IOP_CallShader: {
-        RewriteCallArg(CI, HLOperandIndex::kCallShaderPayloadOpIdx,
-                       /*bIn*/ true, /*bOut*/ true);
-      } break;
-      case IntrinsicOp::MOP_TraceRayInline: {
+        break;
+      case IntrinsicOp::MOP_DxHitObject_TraceRay:
+        if (OldVal == CI->getArgOperand(
+                          HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx)) {
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                              /*loadElts*/ true);
+          DeadInsts.push_back(CI);
+          return;
+        }
+        break;
+      case IntrinsicOp::MOP_DxHitObject_MakeMiss:
+        if (OldVal == CI->getArgOperand(
+                          HLOperandIndex::kHitObjectMakeMiss_RayDescOpIdx)) {
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                              /*loadElts*/ true);
+          DeadInsts.push_back(CI);
+          return;
+        }
+        break;
+      case IntrinsicOp::MOP_TraceRayInline:
         if (OldVal ==
             CI->getArgOperand(HLOperandIndex::kTraceRayInlineRayDescOpIdx)) {
           RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
                                               /*loadElts*/ true);
           DeadInsts.push_back(CI);
-          break;
+          return;
         }
-      }
-        LLVM_FALLTHROUGH;
+        break;
       default:
-        // RayQuery this pointer replacement.
-        if (OldVal->getType()->isPointerTy() &&
-            CI->getNumArgOperands() >= HLOperandIndex::kHandleOpIdx &&
-            OldVal == CI->getArgOperand(HLOperandIndex::kHandleOpIdx) &&
-            dxilutil::IsHLSLRayQueryType(
-                OldVal->getType()->getPointerElementType())) {
-          // For RayQuery methods, we want to replace the RayQuery this pointer
-          // with a load and use of the underlying handle value.
-          // This will allow elimination of RayQuery types earlier.
-          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
-                                              /*loadElts*/ true);
-          DeadInsts.push_back(CI);
-          break;
-        }
-        DXASSERT(0, "cannot flatten hlsl intrinsic.");
+        break;
       }
+      DXASSERT(0, "cannot flatten hlsl intrinsic.");
     }
     // TODO: check other high level dx operations if need to.
   } else {
@@ -2920,7 +3033,8 @@ static ArrayType *CreateNestArrayTy(Type *FinalEltTy,
 bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
                                       Type *&BrokenUpTy, uint64_t &NumInstances,
                                       IRBuilder<> &Builder, bool bFlatVector,
-                                      bool hasPrecise, DxilTypeSystem &typeSys,
+                                      bool SupportsVectors, bool hasPrecise,
+                                      DxilTypeSystem &typeSys,
                                       const DataLayout &DL,
                                       SmallVector<Value *, 32> &DeadInsts,
                                       DominatorTree *DT) {
@@ -3033,6 +3147,10 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
       if (!bFlatVector)
         return false;
 
+      // Skip vector where supported if it has more than 1 element.
+      if (SupportsVectors && ElTy->getVectorNumElements() > 1)
+        return false;
+
       // for array of vector
       // split into arrays of scalar
       VectorType *ElVT = cast<VectorType>(ElTy);
@@ -3114,13 +3232,11 @@ unsigned SROA_Helper::GetEltAlign(unsigned ValueAlign, const DataLayout &DL,
 
 /// DoScalarReplacement - Split V into AllocaInsts with Builder and save the new
 /// AllocaInsts into Elts. Then do SROA on V.
-bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
-                                      std::vector<Value *> &Elts,
-                                      IRBuilder<> &Builder, bool bFlatVector,
-                                      bool hasPrecise, DxilTypeSystem &typeSys,
-                                      const DataLayout &DL,
-                                      SmallVector<Value *, 32> &DeadInsts,
-                                      DominatorTree *DT) {
+bool SROA_Helper::DoScalarReplacement(
+    GlobalVariable *GV, std::vector<Value *> &Elts, IRBuilder<> &Builder,
+    bool bFlatVector, bool SupportsVectors, bool hasPrecise,
+    DxilTypeSystem &typeSys, const DataLayout &DL,
+    SmallVector<Value *, 32> &DeadInsts, DominatorTree *DT) {
   DEBUG(dbgs() << "Found inst to SROA: " << *GV << '\n');
   Type *Ty = GV->getType();
   // Skip none pointer types.
@@ -3133,6 +3249,9 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
     return false;
   // Skip basic types.
   if (Ty->isSingleValueType() && !Ty->isVectorTy())
+    return false;
+  // Skip vector where supported if it has more than 1 element.
+  if (Ty->isVectorTy() && SupportsVectors && Ty->getVectorNumElements() > 1)
     return false;
   // Skip matrix types.
   if (HLMatrixType::isa(Ty))
@@ -3238,6 +3357,10 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
     } else if (ElTy->isVectorTy()) {
       // Skip vector if required.
       if (!bFlatVector)
+        return false;
+
+      // Skip vector where supported if it has more than 1 element.
+      if (SupportsVectors && ElTy->getVectorNumElements() > 1)
         return false;
 
       // for array of vector
@@ -4368,6 +4491,9 @@ public:
       F->eraseFromParent();
     }
 
+    // Expand flattened copy-in/copy-out for intrinsic UDT args:
+    copyIntrinsicAggArgs(*m_pHLModule);
+
     // SROA globals and allocas.
     SROAGlobalAndAllocas(*m_pHLModule, m_HasDbgInfo);
 
@@ -5277,6 +5403,8 @@ void SROA_Parameter_HLSL::flattenArgument(
     std::vector<DxilParameterAnnotation> &FlatAnnotationList,
     BasicBlock *EntryBlock, ArrayRef<DbgDeclareInst *> DDIs) {
   std::deque<AnnotatedValue> WorkList;
+  bool SupportsVectors = m_pHLModule->GetShaderModel()->IsSM69Plus();
+
   WorkList.push_back({Arg, paramAnnotation});
 
   unsigned startArgIndex = FlatAnnotationList.size();
@@ -5300,7 +5428,9 @@ void SROA_Parameter_HLSL::flattenArgument(
     // Unwrap top-level array if primitive
     if (inputQual == DxilParamInputQual::InputPatch ||
         inputQual == DxilParamInputQual::OutputPatch ||
-        inputQual == DxilParamInputQual::InputPrimitive) {
+        inputQual == DxilParamInputQual::InputPrimitive ||
+        inputQual == DxilParamInputQual::OutPrimitives ||
+        inputQual == DxilParamInputQual::OutVertices) {
       Type *Ty = Arg->getType();
       if (Ty->isPointerTy())
         Ty = Ty->getPointerElementType();
@@ -5349,8 +5479,8 @@ void SROA_Parameter_HLSL::flattenArgument(
       // DomTree isn't used by arguments
       SROAed = SROA_Helper::DoScalarReplacement(
           V, Elts, BrokenUpTy, NumInstances, Builder,
-          /*bFlatVector*/ false, annotation.IsPrecise(), dxilTypeSys, DL,
-          DeadInsts, /*DT*/ nullptr);
+          /*bFlatVector*/ false, SupportsVectors, annotation.IsPrecise(),
+          dxilTypeSys, DL, DeadInsts, /*DT*/ nullptr);
     }
 
     if (SROAed) {

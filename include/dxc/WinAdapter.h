@@ -50,7 +50,8 @@
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(array[0]))
 
 // If it is GCC, there is no UUID support and we must emulate it.
-#ifndef __clang__
+// Clang support depends on the -fms-extensions compiler flag.
+#if !defined(__clang__) || !defined(_MSC_EXTENSIONS)
 #define __EMULATE_UUID 1
 #endif // __clang__
 

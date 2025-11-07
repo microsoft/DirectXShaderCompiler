@@ -104,7 +104,11 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::RemovePart(UINT32 fourCC) {
 
 HRESULT STDMETHODCALLTYPE
 DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
+  if (ppResult == nullptr)
+    return E_INVALIDARG;
+
   DxcThreadMalloc TM(m_pMalloc);
+
   try {
     // Allocate memory for new dxil container.
     uint32_t ContainerSize = ComputeContainerSize();
@@ -142,24 +146,25 @@ DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
     // Combine existing warnings and errors from validation
     CComPtr<IDxcBlobEncoding> pErrorBlob;
     CDxcMallocHeapPtr<char> errorHeap(m_pMalloc);
-    SIZE_T warningLength = m_warning ? strlen(m_warning) : 0;
-    SIZE_T valErrorLength =
+    SIZE_T totalErrorLength =
         pValErrorUtf8 ? pValErrorUtf8->GetStringLength() : 0;
-    SIZE_T totalErrorLength = warningLength + valErrorLength;
     if (totalErrorLength) {
       SIZE_T errorSizeInBytes = totalErrorLength + 1;
       errorHeap.AllocateBytes(errorSizeInBytes);
-      if (warningLength)
-        memcpy(errorHeap.m_pData, m_warning, warningLength);
-      if (valErrorLength)
-        memcpy(errorHeap.m_pData + warningLength,
-               pValErrorUtf8->GetStringPointer(), valErrorLength);
+
+      memcpy(errorHeap.m_pData, pValErrorUtf8->GetStringPointer(),
+             totalErrorLength);
       errorHeap.m_pData[totalErrorLength] = L'\0';
       IFT(hlsl::DxcCreateBlobWithEncodingOnMalloc(errorHeap.m_pData, m_pMalloc,
                                                   errorSizeInBytes, DXC_CP_UTF8,
                                                   &pErrorBlob));
       errorHeap.Detach();
     }
+
+    // Add Hash.
+    if (SUCCEEDED(valHR))
+      HashAndUpdate(IsDxilContainerLike(pResult->GetBufferPointer(),
+                                        pResult->GetBufferSize()));
 
     IFT(DxcResult::Create(
         valHR, DXC_OUT_OBJECT,
@@ -169,21 +174,6 @@ DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
   }
   CATCH_CPP_RETURN_HRESULT();
 
-  if (ppResult == nullptr || *ppResult == nullptr)
-    return S_OK;
-
-  HRESULT HR;
-  (*ppResult)->GetStatus(&HR);
-  if (FAILED(HR))
-    return HR;
-
-  CComPtr<IDxcBlob> pObject;
-  IFR((*ppResult)->GetResult(&pObject));
-
-  // Add Hash.
-  LPVOID PTR = pObject->GetBufferPointer();
-  if (IsDxilContainerLike(PTR, pObject->GetBufferSize()))
-    HashAndUpdate((DxilContainerHeader *)PTR);
   return S_OK;
 }
 

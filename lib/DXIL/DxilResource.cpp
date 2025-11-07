@@ -25,23 +25,12 @@ namespace hlsl {
 DxilResource::DxilResource()
     : DxilResourceBase(DxilResourceBase::Class::Invalid), m_SampleCount(0),
       m_ElementStride(0), m_SamplerFeedbackType((DXIL::SamplerFeedbackType)0),
-      m_bGloballyCoherent(false), m_bHasCounter(false), m_bROV(false),
-      m_bHasAtomic64Use(false) {}
+      m_bGloballyCoherent(false), m_bReorderCoherent(false),
+      m_bHasCounter(false), m_bROV(false), m_bHasAtomic64Use(false) {}
 
 CompType DxilResource::GetCompType() const { return m_CompType; }
 
-void DxilResource::SetCompType(const CompType CT) {
-  // Translate packed types to u32
-  switch (CT.GetKind()) {
-  case CompType::Kind::PackedS8x32:
-  case CompType::Kind::PackedU8x32:
-    m_CompType = CompType::getU32();
-    break;
-  default:
-    m_CompType = CT;
-    break;
-  }
-}
+void DxilResource::SetCompType(const CompType CT) { m_CompType = CT; }
 
 Type *DxilResource::GetRetType() const {
   Type *Ty = GetHLSLType()->getPointerElementType();
@@ -84,6 +73,10 @@ void DxilResource::SetSamplerFeedbackType(DXIL::SamplerFeedbackType Value) {
 bool DxilResource::IsGloballyCoherent() const { return m_bGloballyCoherent; }
 
 void DxilResource::SetGloballyCoherent(bool b) { m_bGloballyCoherent = b; }
+
+bool DxilResource::IsReorderCoherent() const { return m_bReorderCoherent; }
+
+void DxilResource::SetReorderCoherent(bool b) { m_bReorderCoherent = b; }
 
 bool DxilResource::HasCounter() const { return m_bHasCounter; }
 

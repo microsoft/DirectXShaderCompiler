@@ -851,6 +851,12 @@ def HLSLGloballyCoherent : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLReorderCoherent : InheritableAttr {
+  let Spellings = [CXX11<"", "reordercoherent", 2015>];
+  let Subjects = SubjectList<[Var, Function]>;
+  let Documentation = [Undocumented];
+}
+
 def HLSLShader : InheritableAttr {
   let Spellings = [CXX11<"", "shader", 2017>];
   let Args = [StringArgument<"stage">]; // one of compute, pixel, vertex, hull, domain, geometry, node
@@ -937,6 +943,64 @@ def HLSLCXXOverload : InheritableAttr {
   let Spellings = [];
   let Subjects = SubjectList<[CXXMethod]>;
   let Documentation = [Undocumented];
+}
+
+// This attribute means something subtly different from the HLSLIntrinsic
+// attribute. Prior to this being introduced a subset of the HLSL intrinsics
+// were placed in the `hlsl` namespace, but not in a way that actually qualified
+// their name lookup. The presence of the namespace as the declcontext was then
+// sused in CGExpr to determine how to emit the call. This attribute replaces
+// the namespace in that context.
+def HLSLBuiltinCall : InheritableAttr {
+  let Spellings = [];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLVector : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLMatrix : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLTessPatch : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [BoolArgument<"IsInput">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLStreamOutput : InheritableAttr {
+  let Spellings = []; // No spellings!
+  // PrimVertices are the number of vertices that make up the streamed
+  // primitive. Points have 1. Lines have 2. Triangles have 3.
+  let Args = [UnsignedArgument<"PrimVertices">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLResource : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [UnsignedArgument<"ResKindUint">,
+              UnsignedArgument<"ResClassUint">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+
+  // Add enum typed getters for safety and brevity.
+  let AdditionalMembers = [{
+  hlsl::DXIL::ResourceKind getResKind() const {
+    return (hlsl::DXIL::ResourceKind)getResKindUint();
+  }
+  hlsl::DXIL::ResourceClass getResClass() const {
+    return (hlsl::DXIL::ResourceClass)getResClassUint();
+  }
+  }];
 }
 
 def HLSLNodeLaunch : InheritableAttr {
@@ -1103,6 +1167,28 @@ def HLSLNodeObject : InheritableAttr {
     }];
 }
 
+// HLSL Ray Query Attribute
+
+def HLSLRayQueryObject : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLSubObject : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+  let Args = [UnsignedArgument<"SubObjKindUint">, UnsignedArgument<"HitGroupType">];
+}
+
+// HLSL HitObject Attribute
+
+def HLSLHitObject : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
 
 // HLSL Parameter Attributes
 
@@ -1341,7 +1427,8 @@ def VKDecorateExt : InheritableAttr {
 
 def VKDecorateIdExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_decorate_id">];
-  let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName], ErrorDiag>;
+  let Subjects =
+      SubjectList<[Function, Var, ParmVar, Field, TypedefName], ErrorDiag>;
   let Args = [UnsignedArgument<"decorate">, VariadicExprArgument<"arguments">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
@@ -1349,7 +1436,8 @@ def VKDecorateIdExt : InheritableAttr {
 
 def VKDecorateStringExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_decorate_string">];
-  let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName], ErrorDiag>;
+  let Subjects =
+      SubjectList<[Function, Var, ParmVar, Field, TypedefName], ErrorDiag>;
   let Args = [UnsignedArgument<"decorate">, VariadicStringArgument<"arguments">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
@@ -1375,6 +1463,20 @@ def VKStorageClassExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_storage_class">];
   let Subjects = SubjectList<[Var, ParmVar], ErrorDiag>;
   let Args = [UnsignedArgument<"stclass">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKBufferPointer : InheritableAttr {
+  let Spellings = [CXX11<"", "hlsl_vk_buffer_pointer", 2021>];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKAliasedPointer : InheritableAttr {
+  let Spellings = [CXX11<"vk", "aliased_pointer">];
+  let Subjects = SubjectList<[Var, ParmVar], ErrorDiag>;
+  let Args = [];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }

@@ -37,33 +37,6 @@ inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
 
 } // end anonymous namespace
 
-// This method sorts a field list in the following order:
-//  - fields with register annotation first, sorted by register index.
-//  - then fields without annotation, in order of declaration.
-static std::vector<const HybridStructType::FieldInfo *>
-sortFields(llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
-  std::vector<const HybridStructType::FieldInfo *> output;
-  output.resize(fields.size());
-
-  auto back_inserter = output.rbegin();
-  std::map<uint32_t, const HybridStructType::FieldInfo *> fixed_fields;
-  for (auto it = fields.rbegin(); it < fields.rend(); it++) {
-    if (it->registerC) {
-      fixed_fields.insert({it->registerC->RegisterNumber, &*it});
-    } else {
-      *back_inserter = &*it;
-      back_inserter++;
-    }
-  }
-
-  auto front_inserter = output.begin();
-  for (const auto &item : fixed_fields) {
-    *front_inserter = item.second;
-    front_inserter++;
-  }
-  return output;
-}
-
 static void setDefaultFieldSize(const AlignmentSizeCalculator &alignmentCalc,
                                 const SpirvLayoutRule rule,
                                 const HybridStructType::FieldInfo *currentField,
@@ -198,18 +171,31 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
       }
 
       auto vkImgFeatures = spvContext.getVkImageFeaturesForSpirvVariable(var);
-      if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
+      if (vkImgFeatures.format) {
         if (const auto *imageType = dyn_cast<ImageType>(resultType)) {
-          resultType = spvContext.getImageType(imageType, vkImgFeatures.format);
+          resultType =
+              spvContext.getImageType(imageType, *vkImgFeatures.format);
           instr->setResultType(resultType);
         } else if (const auto *arrayType = dyn_cast<ArrayType>(resultType)) {
           if (const auto *imageType =
                   dyn_cast<ImageType>(arrayType->getElementType())) {
-            auto newImgType =
-                spvContext.getImageType(imageType, vkImgFeatures.format);
+            auto newImgType = spvContext.getImageType(
+                imageType,
+                vkImgFeatures.format.value_or(spv::ImageFormat::Unknown));
             resultType = spvContext.getArrayType(newImgType,
                                                  arrayType->getElementCount(),
                                                  arrayType->getStride());
+            instr->setResultType(resultType);
+          }
+        } else if (const auto *runtimeArrayType =
+                       dyn_cast<RuntimeArrayType>(resultType)) {
+          if (const auto *imageType =
+                  dyn_cast<ImageType>(runtimeArrayType->getElementType())) {
+            auto newImgType = spvContext.getImageType(
+                imageType,
+                vkImgFeatures.format.value_or(spv::ImageFormat::Unknown));
+            resultType = spvContext.getRuntimeArrayType(
+                newImgType, runtimeArrayType->getStride());
             instr->setResultType(resultType);
           }
         }
@@ -223,10 +209,11 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   // Access chains must have a pointer type. The storage class for the pointer
   // is the same as the storage class of the access base.
   case spv::Op::OpAccessChain: {
-    const auto *pointerType = spvContext.getPointerType(
-        resultType,
-        cast<SpirvAccessChain>(instr)->getBase()->getStorageClass());
-    instr->setResultType(pointerType);
+    if (auto *acInst = dyn_cast<SpirvAccessChain>(instr)) {
+      const auto *pointerType = spvContext.getPointerType(
+          resultType, acInst->getBase()->getStorageClass());
+      instr->setResultType(pointerType);
+    }
     break;
   }
   // OpImageTexelPointer's result type must be a pointer with image storage
@@ -276,6 +263,37 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
 
   // The instruction does not have a result-type, so nothing to do.
   return true;
+}
+
+std::vector<const HybridStructType::FieldInfo *> LowerTypeVisitor::sortFields(
+    llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
+  std::vector<const HybridStructType::FieldInfo *> output;
+  output.resize(fields.size());
+
+  auto back_inserter = output.rbegin();
+  std::map<uint32_t, const HybridStructType::FieldInfo *> fixed_fields;
+  for (auto it = fields.rbegin(); it < fields.rend(); it++) {
+    if (it->registerC) {
+      auto insertionResult =
+          fixed_fields.insert({it->registerC->RegisterNumber, &*it});
+      if (!insertionResult.second) {
+        emitError(
+            "field \"%0\" at register(c%1) overlaps with previous members",
+            it->registerC->Loc)
+            << it->name << it->registerC->RegisterNumber;
+      }
+    } else {
+      *back_inserter = &*it;
+      back_inserter++;
+    }
+  }
+
+  auto front_inserter = output.begin();
+  for (const auto &item : fixed_fields) {
+    *front_inserter = item.second;
+    front_inserter++;
+  }
+  return output;
 }
 
 const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
@@ -347,6 +365,16 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
     if (raType->getElementType() == loweredElemType)
       return raType;
     return spvContext.getRuntimeArrayType(loweredElemType, raType->getStride());
+  }
+  // Node payload arrays could contain a hybrid type
+  else if (const auto *npaType = dyn_cast<NodePayloadArrayType>(type)) {
+    const auto *loweredElemType =
+        lowerType(npaType->getElementType(), rule, loc);
+    // If runtime array didn't contain any hybrid types, return itself.
+    if (npaType->getElementType() == loweredElemType)
+      return npaType;
+    return spvContext.getNodePayloadArrayType(loweredElemType,
+                                              npaType->getNodeDecl());
   }
   // Pointer types could point to a hybrid type.
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
@@ -535,7 +563,9 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     // checking the general struct type.
     if (const auto *spvType =
             lowerResourceType(type, rule, isRowMajor, srcLoc)) {
-      spvContext.registerStructDeclForSpirvType(spvType, decl);
+      if (!isa<SpirvPointerType>(spvType)) {
+        spvContext.registerStructDeclForSpirvType(spvType, decl);
+      }
       return spvType;
     }
 
@@ -732,6 +762,15 @@ const SpirvType *LowerTypeVisitor::lowerInlineSpirvType(
 
   auto args = specDecl->getTemplateArgs()[operandsIndex].getPackAsArray();
 
+  if (operandsIndex == 1 && args.size() == 2 &&
+      static_cast<spv::Op>(opcode) == spv::Op::OpTypePointer) {
+    const SpirvType *result =
+        getSpirvPointerFromInlineSpirvType(args, rule, isRowMajor, srcLoc);
+    if (result) {
+      return result;
+    }
+  }
+
   for (TemplateArgument arg : args) {
     switch (arg.getKind()) {
     case TemplateArgument::ArgKind::Type: {
@@ -786,6 +825,32 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     QualType realType = hlsl::GetHLSLResourceTemplateParamType(type);
     return lowerType(realType, rule, llvm::None, srcLoc);
   }
+  if (name == "BufferPointer") {
+    const size_t visitedTypeStackSize = visitedTypeStack.size();
+    (void)visitedTypeStackSize; // suppress unused warning (used only in assert)
+
+    for (QualType t : visitedTypeStack) {
+      if (t == type) {
+        return spvContext.getForwardPointerType(type);
+      }
+    }
+
+    QualType realType = hlsl::GetHLSLResourceTemplateParamType(type);
+    if (rule == SpirvLayoutRule::Void) {
+      rule = spvOptions.sBufferLayoutRule;
+    }
+    visitedTypeStack.push_back(type);
+
+    const SpirvType *spirvType = lowerType(realType, rule, llvm::None, srcLoc);
+    const auto *pointerType = spvContext.getPointerType(
+        spirvType, spv::StorageClass::PhysicalStorageBuffer);
+    spvContext.registerForwardReference(type, pointerType);
+
+    assert(visitedTypeStack.back() == type);
+    visitedTypeStack.pop_back();
+    assert(visitedTypeStack.size() == visitedTypeStackSize);
+    return pointerType;
+  }
   emitError("unknown type %0 in vk namespace", srcLoc) << type;
   return nullptr;
 }
@@ -810,26 +875,6 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
   }
 
   // TODO: avoid string comparison once hlsl::IsHLSLResouceType() does that.
-
-  // Vulkan does not yet support true 16-bit float texture objexts.
-  if (name == "Buffer" || name == "RWBuffer" || name == "Texture1D" ||
-      name == "Texture2D" || name == "Texture3D" || name == "TextureCube" ||
-      name == "Texture1DArray" || name == "Texture2DArray" ||
-      name == "Texture2DMS" || name == "Texture2DMSArray" ||
-      name == "TextureCubeArray" || name == "RWTexture1D" ||
-      name == "RWTexture2D" || name == "RWTexture3D" ||
-      name == "RWTexture1DArray" || name == "RWTexture2DArray") {
-    const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-    const auto loweredType =
-        lowerType(getElementType(astContext, sampledType), rule,
-                  /*isRowMajor*/ llvm::None, srcLoc);
-    if (const auto *floatType = dyn_cast<FloatType>(loweredType)) {
-      if (floatType->getBitwidth() == 16) {
-        emitError("16-bit texture types not yet supported with -spirv", srcLoc);
-        return nullptr;
-      }
-    }
-  }
 
   { // Texture types
     spv::Dim dim = {};
@@ -1009,17 +1054,6 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
   if (name == "Buffer" || name == "RWBuffer" ||
       name == "RasterizerOrderedBuffer") {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-    if (sampledType->isStructureType() &&
-        (name.startswith("RW") || name.startswith("RasterizerOrdered"))) {
-      // Note: actually fxc supports RWBuffer over struct types. However, the
-      // struct member must fit into a 4-component vector and writing to a
-      // RWBuffer element must write all components. This is a feature that
-      // are rarely used by developers. We just emit an error saying not
-      // supported for now.
-      emitError("cannot instantiate %0 with struct type %1", srcLoc)
-          << name << sampledType;
-      return 0;
-    }
     const auto format = translateSampledTypeToImageFormat(sampledType, srcLoc);
     return spvContext.getImageType(
         lowerType(getElementType(astContext, sampledType), rule,
@@ -1093,8 +1127,10 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
           field->getBitWidthValue(field->getASTContext());
     }
 
+    llvm::Optional<AttrVec> attributes;
     if (field->hasAttrs()) {
-      for (auto &attr : field->getAttrs()) {
+      attributes.emplace();
+      for (auto attr : field->getAttrs()) {
         if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
           spvBuilder.requireCapability(
               static_cast<spv::Capability>(capAttr->getCapability()),
@@ -1102,6 +1138,8 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
         } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
           spvBuilder.requireExtension(extAttr->getName(),
                                       extAttr->getLocation());
+        } else {
+          attributes->push_back(attr);
         }
       }
     }
@@ -1112,7 +1150,8 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
         /*packoffset*/ getPackOffset(field),
         /*RegisterAssignment*/ nullptr,
         /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>(),
-        /*bitfield*/ bitfieldInfo));
+        /*bitfield*/ bitfieldInfo,
+        /* attributes */ attributes));
   }
 
   return populateLayoutInformation(fields, rule);
@@ -1121,6 +1160,10 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
 spv::ImageFormat
 LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
                                                     SourceLocation srcLoc) {
+
+  if (spvOptions.useUnknownImageFormat)
+    return spv::ImageFormat::Unknown;
+
   uint32_t elemCount = 1;
   QualType ty = {};
   if (!isScalarType(sampledType, &ty) &&
@@ -1198,6 +1241,7 @@ LowerTypeVisitor::lowerField(const HybridStructType::FieldInfo *field,
     loweredField.isPrecise = true;
   }
   loweredField.bitfield = field->bitfield;
+  loweredField.attributes = field->attributes;
 
   // We only need layout information for structures with non-void layout rule.
   if (rule == SpirvLayoutRule::Void) {
@@ -1338,11 +1382,18 @@ LowerTypeVisitor::populateLayoutInformation(
   llvm::SmallVector<StructType::FieldInfo, 4> loweredFields;
   llvm::DenseMap<const HybridStructType::FieldInfo *, uint32_t> fieldToIndexMap;
 
+  llvm::SmallVector<StructType::FieldInfo, 4> result;
+
   // This stores the index of the field in the actual SPIR-V construct.
   // When bitfields are merged, this index will be the same for merged fields.
   uint32_t fieldIndexInConstruct = 0;
   for (size_t i = 0, iPrevious = -1; i < sortedFields.size(); iPrevious = i++) {
     const size_t fieldIndexForMap = loweredFields.size();
+
+    // Can happen if sortFields runs over fields with the same register(c#)
+    if (!sortedFields[i]) {
+      return result;
+    }
 
     loweredFields.emplace_back(fieldVisitor(
         (iPrevious < loweredFields.size() ? &loweredFields[iPrevious]
@@ -1357,10 +1408,45 @@ LowerTypeVisitor::populateLayoutInformation(
   }
 
   // Re-order the sorted fields back to their original order.
-  llvm::SmallVector<StructType::FieldInfo, 4> result;
   for (const auto &field : fields)
     result.push_back(loweredFields[fieldToIndexMap[&field]]);
   return result;
+}
+
+const SpirvType *LowerTypeVisitor::getSpirvPointerFromInlineSpirvType(
+    ArrayRef<TemplateArgument> args, SpirvLayoutRule rule,
+    Optional<bool> isRowMajor, SourceLocation location) {
+
+  assert(args.size() == 2 && "OpTypePointer requires exactly 2 arguments.");
+  QualType scLiteralType = args[0].getAsType();
+  SpirvConstant *constant = nullptr;
+  if (!getVkIntegralConstantValue(scLiteralType, constant, location) ||
+      !constant) {
+    return nullptr;
+  }
+  if (!constant->isLiteral())
+    return nullptr;
+
+  auto *intConstant = dyn_cast<SpirvConstantInteger>(constant);
+  if (!intConstant) {
+    return nullptr;
+  }
+
+  visitInstruction(constant);
+  spv::StorageClass storageClass =
+      static_cast<spv::StorageClass>(intConstant->getValue().getLimitedValue());
+
+  QualType pointeeType;
+  if (args[1].getKind() == TemplateArgument::ArgKind::Type) {
+    pointeeType = args[1].getAsType();
+  } else {
+    TemplateName templateName = args[1].getAsTemplate();
+    pointeeType = createASTTypeFromTemplateName(templateName);
+  }
+
+  const SpirvType *pointeeSpirvType =
+      lowerType(pointeeType, rule, isRowMajor, location);
+  return spvContext.getPointerType(pointeeSpirvType, storageClass);
 }
 
 } // namespace spirv
