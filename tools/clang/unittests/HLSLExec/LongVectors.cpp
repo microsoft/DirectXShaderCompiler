@@ -1305,6 +1305,30 @@ template <typename T> T waveActiveProduct(T A, UINT WaveSize) {
 
 WAVE_ACTIVE_OP(OpType::WaveActiveProduct, (waveActiveProduct(A, WaveSize)));
 
+template <typename T> T waveActiveBitAnd(T A, UINT WaveSize) {
+  UNREFERENCED_PARAMETER(WaveSize);
+  // We set the LSB to 0 in one of the lanes.
+  return static_cast<T>(A & ~static_cast<T>(1));
+}
+
+WAVE_ACTIVE_OP(OpType::WaveActiveBitAnd, (waveActiveBitAnd(A, WaveSize)));
+
+template <typename T> T waveActiveBitOr(T A, UINT WaveSize) {
+  UNREFERENCED_PARAMETER(WaveSize);
+  // We set the LSB to 0 in one of the lanes.
+  return static_cast<T>(A | static_cast<T>(1));
+}
+
+WAVE_ACTIVE_OP(OpType::WaveActiveBitOr, (waveActiveBitOr(A, WaveSize)));
+
+template <typename T> T waveActiveBitXor(T A, UINT WaveSize) {
+  UNREFERENCED_PARAMETER(WaveSize);
+  // We clear the LSB in every lane except the last lane which sets it to 1.
+  return static_cast<T>(A | static_cast<T>(1));
+}
+
+WAVE_ACTIVE_OP(OpType::WaveActiveBitXor, (waveActiveBitXor(A, WaveSize)));
+
 #undef WAVE_ACTIVE_OP
 
 //
@@ -2219,10 +2243,17 @@ public:
   HLK_WAVEOP_TEST(WaveActiveMin, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, uint32_t);
+  // Note: WaveActiveBit* ops don't support uint16_t in HLSL
+  HLK_WAVEOP_TEST(WaveActiveBitAnd, uint32_t);
+  HLK_WAVEOP_TEST(WaveActiveBitOr, uint32_t);
+  HLK_WAVEOP_TEST(WaveActiveBitXor, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, uint64_t);
+  HLK_WAVEOP_TEST(WaveActiveBitAnd, uint64_t);
+  HLK_WAVEOP_TEST(WaveActiveBitOr, uint64_t);
+  HLK_WAVEOP_TEST(WaveActiveBitXor, uint64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveMin, HLSLHalf_t);

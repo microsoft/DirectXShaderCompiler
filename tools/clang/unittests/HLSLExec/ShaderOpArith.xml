@@ -4111,6 +4111,41 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_WAVE_ACTIVE_BIT_AND
+        vector<OUT_TYPE, NUM> TestWaveActiveBitAnd(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == (WaveGetLaneCount() - 1))
+          {
+            // Clear the LSB on the last lane only.
+            Vector = Vector & ~((OUT_TYPE)1);
+          }
+          return WaveActiveBitAnd(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_BIT_OR
+        vector<OUT_TYPE, NUM> TestWaveActiveBitOr(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == (WaveGetLaneCount() - 1))
+          {
+            // Set the LSB on the last lane only.
+            Vector = Vector | ((OUT_TYPE)1);
+          }
+          return WaveActiveBitOr(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_BIT_XOR
+        vector<OUT_TYPE, NUM> TestWaveActiveBitXor(vector<TYPE, NUM> Vector)
+        {
+          const uint isChosen = (WaveGetLaneIndex() == 0) ? 1 : 0;
+          // Clear the LSB for all lanes except lane 0, which sets it to 1.
+          Vector = (Vector & ~((OUT_TYPE)1)) | (OUT_TYPE)isChosen;
+
+          return WaveActiveBitOr(Vector);
+        }
+        #endif
+
         #ifdef FUNC_TEST_SELECT
         vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,
                                          vector<TYPE, NUM> Vector2,
