@@ -43,7 +43,7 @@
 #include "dxc/dxcapi.internal.h"
 #include "dxc/dxcreflect.h"
 
-#include "dxc/DxcReflection/DxcReflection.h"
+#include "dxc/DxcReflection/DxcReflectionContainer.h"
 
 using namespace llvm;
 using namespace clang;

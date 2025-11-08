@@ -7,7 +7,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/DxcReflection/DxcReflection.h"
+#include "dxc/DxcReflection/DxcReflectionContainer.h"
 #include <sstream>
 #include <functional>
 

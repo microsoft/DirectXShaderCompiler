@@ -18,7 +18,7 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
-#include "dxc/DxcReflection/DxcReflection.h"
+#include "dxc/DxcReflection/DxcReflectionContainer.h"
 
 using namespace clang;
 
