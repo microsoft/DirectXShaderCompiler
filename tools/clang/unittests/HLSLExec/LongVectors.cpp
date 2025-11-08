@@ -1305,24 +1305,21 @@ template <typename T> T waveActiveProduct(T A, UINT WaveSize) {
 
 WAVE_ACTIVE_OP(OpType::WaveActiveProduct, (waveActiveProduct(A, WaveSize)));
 
-template <typename T> T waveActiveBitAnd(T A, UINT WaveSize) {
-  UNREFERENCED_PARAMETER(WaveSize);
+template <typename T> T waveActiveBitAnd(T A, UINT) {
   // We set the LSB to 0 in one of the lanes.
   return static_cast<T>(A & ~static_cast<T>(1));
 }
 
 WAVE_ACTIVE_OP(OpType::WaveActiveBitAnd, (waveActiveBitAnd(A, WaveSize)));
 
-template <typename T> T waveActiveBitOr(T A, UINT WaveSize) {
-  UNREFERENCED_PARAMETER(WaveSize);
+template <typename T> T waveActiveBitOr(T A, UINT) {
   // We set the LSB to 0 in one of the lanes.
   return static_cast<T>(A | static_cast<T>(1));
 }
 
 WAVE_ACTIVE_OP(OpType::WaveActiveBitOr, (waveActiveBitOr(A, WaveSize)));
 
-template <typename T> T waveActiveBitXor(T A, UINT WaveSize) {
-  UNREFERENCED_PARAMETER(WaveSize);
+template <typename T> T waveActiveBitXor(T A, UINT) {
   // We clear the LSB in every lane except the last lane which sets it to 1.
   return static_cast<T>(A | static_cast<T>(1));
 }
