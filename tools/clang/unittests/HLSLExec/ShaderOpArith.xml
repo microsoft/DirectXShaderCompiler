@@ -4146,6 +4146,18 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_WAVE_ACTIVE_ALL_EQUAL
+        vector<OUT_TYPE, NUM> TestWaveActiveAllEqual(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == (WaveGetLaneCount() - 1))
+          {
+            Vector[NUM - 1] = (TYPE)1337;
+          }
+
+          return WaveActiveAllEqual(Vector);
+        }
+        #endif
+
         #ifdef FUNC_TEST_SELECT
         vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,
                                          vector<TYPE, NUM> Vector2,

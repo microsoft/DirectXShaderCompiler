@@ -201,5 +201,6 @@ OP(Wave, WaveActiveProduct, 1, "TestWaveActiveProduct", "", " -DFUNC_WAVE_ACTIVE
 OP_DEFAULT_DEFINES(Wave, WaveActiveBitAnd, 1, "TestWaveActiveBitAnd", "", " -DFUNC_WAVE_ACTIVE_BIT_AND=1")
 OP_DEFAULT_DEFINES(Wave, WaveActiveBitOr, 1, "TestWaveActiveBitOr", "", " -DFUNC_WAVE_ACTIVE_BIT_OR=1")
 OP_DEFAULT_DEFINES(Wave, WaveActiveBitXor, 1, "TestWaveActiveBitXor", "", " -DFUNC_WAVE_ACTIVE_BIT_XOR=1")
+OP_DEFAULT_DEFINES(Wave, WaveActiveAllEqual, 1, "TestWaveActiveAllEqual", "", " -DFUNC_WAVE_ACTIVE_ALL_EQUAL=1")
 
 #undef OP
