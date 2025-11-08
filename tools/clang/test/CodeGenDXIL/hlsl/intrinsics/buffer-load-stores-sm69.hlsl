@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -DTYPE=float    -DNUM=4 -T vs_6_9 %s | FileCheck %s
 // RUN: %dxc -DTYPE=bool     -DNUM=4 -T vs_6_9 %s | FileCheck %s --check-prefixes=CHECK,I1
 // RUN: %dxc -DTYPE=uint64_t -DNUM=2 -T vs_6_9 %s | FileCheck %s

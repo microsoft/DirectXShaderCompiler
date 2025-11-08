@@ -19,6 +19,7 @@
 #include "dxc/Support/Unicode.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
@@ -165,6 +166,24 @@ llvm::StringRef DxcOpts::GetPDBName() const {
   return llvm::StringRef();
 }
 
+bool DxcOpts::ProduceDxModule() const {
+
+  return !AstDump && !OptDump &&
+#ifdef ENABLE_SPIRV_CODEGEN
+         !GenSPIRV &&
+#endif
+         !DumpDependencies && !VerifyDiagnostics && !IsRootSignatureProfile() &&
+         Preprocess.empty();
+}
+
+bool DxcOpts::ProduceFullContainer() const {
+  return DxcOpts::ProduceDxModule() && !CodeGenHighLevel;
+}
+
+bool DxcOpts::NeedsValidation() const {
+  return ProduceFullContainer() && !DisableValidation;
+}
+
 MainArgs::MainArgs(int argc, const wchar_t **argv, int skipArgCount) {
   if (argc > skipArgCount) {
     Utf8StringVector.reserve(argc - skipArgCount);
@@ -211,33 +230,6 @@ MainArgs &MainArgs::operator=(const MainArgs &other) {
 StringRefWide::StringRefWide(llvm::StringRef value) {
   if (!value.empty())
     m_value = Unicode::UTF8ToWideStringOrThrow(value.data());
-}
-
-static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *major,
-                                       unsigned *minor) {
-  *major = *minor = -1;
-  unsigned len = ref.size();
-  if (len < 6 || len > 11) // length: ps_6_0 to rootsig_1_0
-    return false;
-  if (ref[len - 4] != '_' || ref[len - 2] != '_')
-    return false;
-
-  char cMajor = ref[len - 3];
-  char cMinor = ref[len - 1];
-
-  if (cMajor >= '0' && cMajor <= '9')
-    *major = cMajor - '0';
-  else
-    return false;
-
-  if (cMinor == 'x')
-    *minor = 0xF;
-  else if (cMinor >= '0' && cMinor <= '9')
-    *minor = cMinor - '0';
-  else
-    return false;
-
-  return true;
 }
 
 // Copied from CompilerInvocation since we parse our own diagnostic arguments
@@ -752,8 +744,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // Check options only allowed in shader model >= 6.2FPDenormalMode
   unsigned Major = 0;
   unsigned Minor = 0;
+  llvm::StringRef Stage;
   if (!opts.TargetProfile.empty()) {
-    if (!GetTargetVersionFromString(opts.TargetProfile, &Major, &Minor)) {
+    if (!hlsl::ShaderModel::ParseTargetProfile(opts.TargetProfile, Stage, Major,
+                                               Minor)) {
       errors << "unable to parse shader model.";
       return 1;
     }
@@ -875,6 +869,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.ConsistentBindings =
       Args.hasFlag(OPT_consistent_bindings, OPT_INVALID, false);
 
+  opts.Verbose = Args.hasFlag(OPT_verbose, OPT_INVALID, false);
   if (Args.hasArg(OPT_ftime_trace_EQ))
     opts.TimeTrace = Args.getLastArgValue(OPT_ftime_trace_EQ);
   if (Arg *A = Args.getLastArg(OPT_ftime_trace_granularity_EQ)) {
@@ -1124,6 +1119,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fspv_enable_maximal_reconvergence, OPT_INVALID, false);
   opts.SpirvOptions.useVulkanMemoryModel =
       Args.hasFlag(OPT_fspv_use_vulkan_memory_model, OPT_INVALID, false);
+  opts.SpirvOptions.useUnknownImageFormat =
+      Args.hasFlag(OPT_fspv_use_unknown_image_format, OPT_INVALID, false);
 
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift,
                          errors) ||
@@ -1398,9 +1395,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   return 0;
 }
 
-/// Sets up the specified DxcDllSupport instance as per the given options.
-int SetupDxcDllSupport(const DxcOpts &opts, dxc::DxcDllSupport &dxcSupport,
-                       llvm::raw_ostream &errors) {
+/// Sets up a SpecificDllLoader instance as per the given options.
+int SetupSpecificDllLoader(const DxcOpts &opts,
+                           dxc::SpecificDllLoader &dxcSupport,
+                           llvm::raw_ostream &errors) {
   if (!opts.ExternalLib.empty()) {
     DXASSERT(!opts.ExternalFn.empty(), "else ReadDxcOpts should have failed");
     HRESULT hrLoad = dxcSupport.InitializeForDll(opts.ExternalLib.data(),

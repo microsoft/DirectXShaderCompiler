@@ -1518,6 +1518,10 @@ static bool isUDTIntrinsicArg(CallInst *CI, unsigned OpIdx) {
     if (OpIdx == HLOperandIndex::kHitObjectInvoke_PayloadOpIdx)
       return true;
     break;
+  case IntrinsicOp::MOP_DxHitObject_GetAttributes:
+    if (OpIdx == HLOperandIndex::kHitObjectGetAttributes_AttributeOpIdx)
+      return true;
+    break;
   default:
     break;
   }

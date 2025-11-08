@@ -1,3 +1,5 @@
+// REQUIRES: dxil-1-9
+
 // RUN: %dxc -DTYPE=float    -T vs_6_6 %s | FileCheck %s
 // RUN: %dxc -DTYPE=bool     -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,I1
 // RUN: %dxc -DTYPE=uint64_t -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,I64
@@ -15,7 +17,7 @@
 // RUN: %dxc -DTYPE=double   -T vs_6_9 %s | FileCheck %s --check-prefixes=CHECK,F64
 
 // RUN: %dxc -DTYPE=float1    -T vs_6_9 %s | FileCheck %s
-// RUiN: %dxc -DTYPE=bool1     -T vs_6_9 %s | FileCheck %s --check-prefixes=CHECK,I1
+// RUN: %dxc -DTYPE=bool1     -T vs_6_9 %s | FileCheck %s --check-prefixes=CHECK,I1
 // RUN: %dxc -DTYPE=uint64_t1 -T vs_6_9 %s | FileCheck %s --check-prefixes=CHECK,I64
 // RUN: %dxc -DTYPE=double1   -T vs_6_9 %s | FileCheck %s --check-prefixes=CHECK,F64
 

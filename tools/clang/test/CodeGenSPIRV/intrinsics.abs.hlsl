@@ -64,6 +64,18 @@ void main() {
   int3 i;
   iresult3 = abs(i);
 
+// abs on unsigned int is a no-op.
+// CHECK-NEXT: [[j:%[0-9]+]] = OpLoad %uint %j
+// CHECK-NEXT: OpStore %j [[j]]
+  uint j;
+  j = abs(j);
+
+// abs on unsigned int vector is a no-op.
+// CHECK-NEXT: [[k:%[0-9]+]] = OpLoad %v3uint %k
+// CHECK-NEXT: OpStore %k [[k]]
+  uint3 k;
+  k = abs(k);
+
 // TODO: Integer matrices are not supported yet. Therefore we cannot run the following test yet.
 // XXXXX-NEXT: [[h:%[0-9]+]] = OpLoad %mat3v4float %h
 // XXXXX-NEXT: [[h_row0:%[0-9]+]] = OpCompositeExtract %v4float [[h]] 0

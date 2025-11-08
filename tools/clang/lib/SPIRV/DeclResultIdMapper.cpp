@@ -1006,7 +1006,7 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
   // implicit VarDecl. All implicit VarDecls are lazily created in order to
   // avoid creating large number of unused variables/constants/enums.
   if (!info) {
-    tryToCreateImplicitConstVar(decl);
+    tryToCreateConstantVar(decl);
     info = getDeclSpirvInfo(decl);
   }
 
@@ -1381,7 +1381,6 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
       }
 
       if (isResourceType(varType)) {
-        createExternVar(fieldVar);
         continue;
       }
     }
@@ -1473,7 +1472,28 @@ void DeclResultIdMapper::createEnumConstant(const EnumConstantDecl *decl) {
   astDecls[valueDecl] = createDeclSpirvInfo(varInstr);
 }
 
-SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
+void DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
+
+  SmallVector<const VarDecl *, 4> variablesToDeclare;
+  for (const auto *subDecl : decl->decls()) {
+    if (shouldSkipInStructLayout(subDecl))
+      continue;
+
+    // If the subDecl is a resource, it is lowered as a standalone variable.
+    const auto *varDecl = cast<VarDecl>(subDecl);
+    if (isResourceType(varDecl->getType())) {
+      createExternVar(varDecl);
+      continue;
+    }
+
+    variablesToDeclare.push_back(varDecl);
+  }
+
+  // If the cbuffer is empty or only contains resources, skip the variable
+  // creation.
+  if (variablesToDeclare.size() == 0)
+    return;
+
   // This function handles creation of cbuffer or tbuffer.
   const auto usageKind =
       decl->isCBuffer() ? ContextUsageKind::CBuffer : ContextUsageKind::TBuffer;
@@ -1486,30 +1506,16 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   // mapped to the <result-id> of the buffer object, which means when querying
   // querying the <result-id> for a certain VarDecl, we need to do an extra
   // OpAccessChain.
-  int index = 0;
-  for (const auto *subDecl : decl->decls()) {
-    if (shouldSkipInStructLayout(subDecl))
-      continue;
+  for (unsigned I = 0; I < variablesToDeclare.size(); ++I)
+    registerVariableForDecl(variablesToDeclare[I],
+                            createDeclSpirvInfo(bufferVar, I));
 
-    // If subDecl is a variable with resource type, we already added a separate
-    // OpVariable for it in createStructOrStructArrayVarOfExplicitLayout().
-    const auto *varDecl = cast<VarDecl>(subDecl);
-    if (isResourceType(varDecl->getType()))
-      continue;
+  resourceVars.emplace_back(
+      bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
+      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
-    registerVariableForDecl(varDecl, createDeclSpirvInfo(bufferVar, index++));
-  }
-  // If it does not contains a member with non-resource type, we do not want to
-  // set a dedicated binding number.
-  if (index != 0) {
-    resourceVars.emplace_back(
-        bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
-        decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
-  }
-
-  if (!spirvOptions.debugInfoRich) {
-    return bufferVar;
-  }
+  if (!spirvOptions.debugInfoRich)
+    return;
 
   auto *dbgGlobalVar = createDebugGlobalVariable(
       bufferVar, QualType(), decl->getLocation(), decl->getName());
@@ -1529,7 +1535,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   // mapping.
   spvContext.registerStructDeclForSpirvType(resultType, decl);
 
-  return bufferVar;
+  return;
 }
 
 SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
@@ -1844,8 +1850,7 @@ void DeclResultIdMapper::createCounterVar(
       assert(declType->isIncompleteArrayType());
       counterType = spvContext.getRuntimeArrayType(counterType, noArrayStride);
     }
-  } else if (isResourceDescriptorHeap(decl->getType()) ||
-             isSamplerDescriptorHeap(decl->getType())) {
+  } else if (isResourceDescriptorHeap(decl) || isSamplerDescriptorHeap(decl)) {
     counterType = spvContext.getRuntimeArrayType(counterType, noArrayStride);
   }
 
@@ -1861,7 +1866,7 @@ void DeclResultIdMapper::createCounterVar(
   }
 
   SpirvVariable *counterInstr = spvBuilder.addModuleVar(
-      counterType, sc, /*isPrecise*/ false, false, counterName);
+      counterType, sc, /*isPrecise*/ false, false, declInstr, counterName);
 
   if (!isAlias) {
     // Non-alias counter variables should be put in to resourceVars so that
@@ -2511,6 +2516,20 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
         spvBuilder.decorateDSetBinding(var.getSpirvInstr(), globalsSetNo,
                                        globalsBindNo);
+      } else if (var.isResourceDescriptorHeap()) {
+        if (!spirvOptions.resourceHeapBinding) {
+          emitError("-fvk-bind-resource-heap is required when using "
+                    "-fvk-bind-register",
+                    var.getSourceLocation());
+          return false;
+        }
+      } else if (var.isSamplerDescriptorHeap()) {
+        if (!spirvOptions.samplerHeapBinding) {
+          emitError("-fvk-bind-sampler-heap is required when using "
+                    "-fvk-bind-register",
+                    var.getSourceLocation());
+          return false;
+        }
       } else {
         emitError(
             "-fvk-bind-register requires register annotations on all resources",
@@ -2518,11 +2537,12 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         return false;
       }
 
+    BindingSet bindingSet;
+    decorateResourceHeapsBindings(bindingSet);
     return true;
   }
 
   BindingSet bindingSet;
-
   // If some bindings are reserved for heaps, mark those are used.
   if (spirvOptions.resourceHeapBinding)
     bindingSet.useBinding(spirvOptions.resourceHeapBinding->binding,
@@ -2663,8 +2683,8 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
     if (var.getDeclaration()) {
       const VarDecl *decl = dyn_cast<VarDecl>(var.getDeclaration());
-      if (decl && (isResourceDescriptorHeap(decl->getType()) ||
-                   isSamplerDescriptorHeap(decl->getType())))
+      if (decl &&
+          (isResourceDescriptorHeap(decl) || isSamplerDescriptorHeap(decl)))
         continue;
     }
 
@@ -2749,8 +2769,8 @@ void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
     if (!decl)
       continue;
 
-    const bool isResourceHeap = isResourceDescriptorHeap(decl->getType());
-    const bool isSamplerHeap = isSamplerDescriptorHeap(decl->getType());
+    const bool isResourceHeap = isResourceDescriptorHeap(decl);
+    const bool isSamplerHeap = isSamplerDescriptorHeap(decl);
 
     assert(!(var.isCounter() && isSamplerHeap));
 
@@ -2785,8 +2805,8 @@ void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
     if (!decl)
       continue;
 
-    const bool isResourceHeap = isResourceDescriptorHeap(decl->getType());
-    const bool isSamplerHeap = isSamplerDescriptorHeap(decl->getType());
+    const bool isResourceHeap = isResourceDescriptorHeap(decl);
+    const bool isSamplerHeap = isSamplerDescriptorHeap(decl);
     if (!isSamplerHeap && !isResourceHeap)
       continue;
     const SpirvCodeGenOptions::BindingInfo &info =
@@ -4844,19 +4864,57 @@ SpirvVariable *DeclResultIdMapper::createRayTracingNVStageVar(
   return retVal;
 }
 
-void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
+bool DeclResultIdMapper::tryToCreateConstantVar(const ValueDecl *decl) {
+  // TODO: support spirv basic type with constant intrinsic. (e.g. int8)
   const VarDecl *varDecl = dyn_cast<VarDecl>(decl);
-  if (!varDecl || !varDecl->isImplicit())
-    return;
+  if (!varDecl)
+    return false;
+
+  const BuiltinType *type = decl->getType()->getAs<BuiltinType>();
+  if (!type)
+    return false;
 
   APValue *val = varDecl->evaluateValue();
   if (!val)
-    return;
+    return false;
 
-  SpirvInstruction *constVal =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
+  SpirvInstruction *constVal = nullptr;
+  switch (type->getKind()) {
+  case BuiltinType::Bool: // bool
+    constVal = spvBuilder.getConstantBool(val->getInt().getExtValue());
+    break;
+  case BuiltinType::UShort: // uint16_t
+    constVal =
+        spvBuilder.getConstantInt(astContext.UnsignedShortTy, val->getInt());
+    break;
+  case BuiltinType::UInt: // uint32_t
+    constVal =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
+    break;
+  case BuiltinType::Short: // int16_t
+    constVal = spvBuilder.getConstantInt(astContext.ShortTy, val->getInt());
+    break;
+  case BuiltinType::Int: // int32_t
+    constVal = spvBuilder.getConstantInt(astContext.IntTy, val->getInt());
+    break;
+  case BuiltinType::Half: // float16_t
+    constVal = spvBuilder.getConstantFloat(astContext.HalfTy, val->getFloat());
+    break;
+  case BuiltinType::Float:     // float32_t
+  case BuiltinType::HalfFloat: // float16_t without -enable-16bit-types
+    constVal = spvBuilder.getConstantFloat(astContext.FloatTy, val->getFloat());
+    break;
+  case BuiltinType::Double: // float64_t
+    constVal =
+        spvBuilder.getConstantFloat(astContext.DoubleTy, val->getFloat());
+    break;
+  default:
+    assert(false && "Unsupported builtin type evaluation at compile-time");
+    return false;
+  }
   constVal->setRValue(true);
   registerVariableForDecl(varDecl, constVal);
+  return true;
 }
 
 void DeclResultIdMapper::decorateWithIntrinsicAttrs(

@@ -1303,6 +1303,10 @@ def err_not_integral_type_bitfield : Error<
   "bit-field %0 has non-integral type %1">;
 def err_not_integral_type_anon_bitfield : Error<
   "anonymous bit-field has non-integral type %0">;
+def err_spirv_boolean_bitfield_in_type
+    : Error<"type %0 contains a boolean bitfield which is not supported for "
+            "variables that are not externally visible when "
+            "targeting SPIR-V">;
 def err_member_function_initialization : Error<
   "initializer on function does not look like a pure-specifier">;
 def err_non_virtual_pure : Error<

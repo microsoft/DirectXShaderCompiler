@@ -1,4 +1,5 @@
-// RUN: %dxc -I %hlsl_headers -T lib_6_9 %s
+// REQUIRES: dxil-1-10
+// RUN: %dxc -I %hlsl_headers -T lib_6_10 %s
 
 #include <dx/linalg.h>
 

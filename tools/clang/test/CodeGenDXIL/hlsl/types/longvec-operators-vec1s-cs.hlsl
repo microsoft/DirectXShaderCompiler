@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -HV 2018 -T cs_6_9 -DTYPE=float          %s | FileCheck %s --check-prefixes=CHECK,NODBL
 // RUN: %dxc -HV 2018 -T cs_6_9 -DTYPE=int      -DINT %s | FileCheck %s --check-prefixes=CHECK,NODBL,INT,SIG
 // RUN: %dxc -HV 2018 -T cs_6_9 -DTYPE=double   -DDBL %s | FileCheck %s

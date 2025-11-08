@@ -136,8 +136,10 @@ uint32_t getHeaderVersion(spv_target_env env) {
 std::string
 ReadSourceCode(llvm::StringRef filePath,
                const clang::spirv::SpirvCodeGenOptions &spvOptions) {
+
+  std::string localFilePath(filePath.begin(), filePath.end());
   try {
-    dxc::DxcDllSupport dllSupport;
+    dxc::DxCompilerDllLoader dllSupport;
     IFT(dllSupport.Initialize());
 
     CComPtr<IDxcLibrary> pLibrary;
@@ -154,7 +156,10 @@ ReadSourceCode(llvm::StringRef filePath,
   } catch (...) {
     // An exception has occurred while reading the file
     // return the original source (which may have been supplied directly)
-    if (!spvOptions.origSource.empty()) {
+    // only for the main input file
+    if ((!strcmp(localFilePath.c_str(), "hlsl.hlsl") &&
+         spvOptions.inputFile.empty()) ||
+        !strcmp(localFilePath.c_str(), spvOptions.inputFile.c_str())) {
       return spvOptions.origSource.c_str();
     }
     return "";
@@ -2639,80 +2644,15 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
   // NodePayloadArray types
   else if (const auto *npaType = dyn_cast<NodePayloadArrayType>(type)) {
     const uint32_t elemTypeId = emitType(npaType->getElementType());
+
+    // Output the decorations for the type first. This will create other values
+    // that are on the decorations, and they must appear before the type.
+    emitDecorationsForNodePayloadArrayTypes(npaType, id);
+
     initTypeInstruction(spv::Op::OpTypeNodePayloadArrayAMDX);
     curTypeInst.push_back(id);
     curTypeInst.push_back(elemTypeId);
     finalizeTypeInstruction();
-
-    // Emit decorations
-    const ParmVarDecl *nodeDecl = npaType->getNodeDecl();
-    if (hlsl::IsHLSLNodeOutputType(nodeDecl->getType())) {
-      StringRef name = nodeDecl->getName();
-      unsigned index = 0;
-      if (auto nodeID = nodeDecl->getAttr<HLSLNodeIdAttr>()) {
-        name = nodeID->getName();
-        index = nodeID->getArrayIndex();
-      }
-
-      auto *str = new (context) SpirvConstantString(name);
-      uint32_t nodeName = getOrCreateConstantString(str);
-      emitDecoration(id, spv::Decoration::PayloadNodeNameAMDX, {nodeName},
-                     llvm::None, true);
-      if (index) {
-        uint32_t baseIndex = getOrCreateConstantInt(
-            llvm::APInt(32, index), context.getUIntType(32), false);
-        emitDecoration(id, spv::Decoration::PayloadNodeBaseIndexAMDX,
-                       {baseIndex}, llvm::None, true);
-      }
-    }
-
-    uint32_t maxRecords;
-    if (const auto *attr = nodeDecl->getAttr<HLSLMaxRecordsAttr>()) {
-      maxRecords = getOrCreateConstantInt(llvm::APInt(32, attr->getMaxCount()),
-                                          context.getUIntType(32), false);
-    } else {
-      maxRecords = getOrCreateConstantInt(llvm::APInt(32, 1),
-                                          context.getUIntType(32), false);
-    }
-    emitDecoration(id, spv::Decoration::NodeMaxPayloadsAMDX, {maxRecords},
-                   llvm::None, true);
-
-    if (const auto *attr = nodeDecl->getAttr<HLSLMaxRecordsSharedWithAttr>()) {
-      const DeclContext *dc = nodeDecl->getParentFunctionOrMethod();
-      if (const auto *funDecl = dyn_cast_or_null<FunctionDecl>(dc)) {
-        IdentifierInfo *ii = attr->getName();
-        bool alreadyExists = false;
-        for (auto *paramDecl : funDecl->params()) {
-          if (paramDecl->getIdentifier() == ii) {
-            assert(paramDecl != nodeDecl);
-            auto otherType = context.getNodeDeclPayloadType(paramDecl);
-            const uint32_t otherId =
-                getResultIdForType(otherType, &alreadyExists);
-            assert(alreadyExists && "forward references not allowed in "
-                                    "MaxRecordsSharedWith attribute");
-            emitDecoration(id, spv::Decoration::NodeSharesPayloadLimitsWithAMDX,
-                           {otherId}, llvm::None, true);
-            break;
-          }
-        }
-        assert(alreadyExists &&
-               "invalid reference in MaxRecordsSharedWith attribute");
-      }
-    }
-    if (const auto *attr = nodeDecl->getAttr<HLSLAllowSparseNodesAttr>()) {
-      emitDecoration(id, spv::Decoration::PayloadNodeSparseArrayAMDX, {},
-                     llvm::None);
-    }
-    if (const auto *attr = nodeDecl->getAttr<HLSLUnboundedSparseNodesAttr>()) {
-      emitDecoration(id, spv::Decoration::PayloadNodeSparseArrayAMDX, {},
-                     llvm::None);
-    }
-    if (const auto *attr = nodeDecl->getAttr<HLSLNodeArraySizeAttr>()) {
-      uint32_t arraySize = getOrCreateConstantInt(
-          llvm::APInt(32, attr->getCount()), context.getUIntType(32), false);
-      emitDecoration(id, spv::Decoration::PayloadNodeArraySizeAMDX, {arraySize},
-                     llvm::None, true);
-    }
   }
   // Structure types
   else if (const auto *structType = dyn_cast<StructType>(type)) {
@@ -2991,6 +2931,79 @@ void EmitTypeHandler::emitNameForType(llvm::StringRef name,
   nameInstr[0] |= static_cast<uint32_t>(nameInstr.size()) << 16;
   debugVariableBinary->insert(debugVariableBinary->end(), nameInstr.begin(),
                               nameInstr.end());
+}
+
+void EmitTypeHandler::emitDecorationsForNodePayloadArrayTypes(
+    const NodePayloadArrayType *npaType, uint32_t id) {
+  // Emit decorations
+  const ParmVarDecl *nodeDecl = npaType->getNodeDecl();
+  if (hlsl::IsHLSLNodeOutputType(nodeDecl->getType())) {
+    StringRef name = nodeDecl->getName();
+    unsigned index = 0;
+    if (auto nodeID = nodeDecl->getAttr<HLSLNodeIdAttr>()) {
+      name = nodeID->getName();
+      index = nodeID->getArrayIndex();
+    }
+
+    auto *str = new (context) SpirvConstantString(name);
+    uint32_t nodeName = getOrCreateConstantString(str);
+    emitDecoration(id, spv::Decoration::PayloadNodeNameAMDX, {nodeName},
+                   llvm::None, true);
+    if (index) {
+      uint32_t baseIndex = getOrCreateConstantInt(
+          llvm::APInt(32, index), context.getUIntType(32), false);
+      emitDecoration(id, spv::Decoration::PayloadNodeBaseIndexAMDX, {baseIndex},
+                     llvm::None, true);
+    }
+  }
+
+  uint32_t maxRecords;
+  if (const auto *attr = nodeDecl->getAttr<HLSLMaxRecordsAttr>()) {
+    maxRecords = getOrCreateConstantInt(llvm::APInt(32, attr->getMaxCount()),
+                                        context.getUIntType(32), false);
+  } else {
+    maxRecords = getOrCreateConstantInt(llvm::APInt(32, 1),
+                                        context.getUIntType(32), false);
+  }
+  emitDecoration(id, spv::Decoration::NodeMaxPayloadsAMDX, {maxRecords},
+                 llvm::None, true);
+
+  if (const auto *attr = nodeDecl->getAttr<HLSLMaxRecordsSharedWithAttr>()) {
+    const DeclContext *dc = nodeDecl->getParentFunctionOrMethod();
+    if (const auto *funDecl = dyn_cast_or_null<FunctionDecl>(dc)) {
+      IdentifierInfo *ii = attr->getName();
+      bool alreadyExists = false;
+      for (auto *paramDecl : funDecl->params()) {
+        if (paramDecl->getIdentifier() == ii) {
+          assert(paramDecl != nodeDecl);
+          auto otherType = context.getNodeDeclPayloadType(paramDecl);
+          const uint32_t otherId =
+              getResultIdForType(otherType, &alreadyExists);
+          assert(alreadyExists && "forward references not allowed in "
+                                  "MaxRecordsSharedWith attribute");
+          emitDecoration(id, spv::Decoration::NodeSharesPayloadLimitsWithAMDX,
+                         {otherId}, llvm::None, true);
+          break;
+        }
+      }
+      assert(alreadyExists &&
+             "invalid reference in MaxRecordsSharedWith attribute");
+    }
+  }
+  if (const auto *attr = nodeDecl->getAttr<HLSLAllowSparseNodesAttr>()) {
+    emitDecoration(id, spv::Decoration::PayloadNodeSparseArrayAMDX, {},
+                   llvm::None);
+  }
+  if (const auto *attr = nodeDecl->getAttr<HLSLUnboundedSparseNodesAttr>()) {
+    emitDecoration(id, spv::Decoration::PayloadNodeSparseArrayAMDX, {},
+                   llvm::None);
+  }
+  if (const auto *attr = nodeDecl->getAttr<HLSLNodeArraySizeAttr>()) {
+    uint32_t arraySize = getOrCreateConstantInt(
+        llvm::APInt(32, attr->getCount()), context.getUIntType(32), false);
+    emitDecoration(id, spv::Decoration::PayloadNodeArraySizeAMDX, {arraySize},
+                   llvm::None, true);
+  }
 }
 
 } // end namespace spirv
