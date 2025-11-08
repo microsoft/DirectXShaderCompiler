@@ -580,9 +580,6 @@ def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, Flags<[DriverOption
 def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,
   HelpText<"Suppress copyright message">;
 
-def consistent_bindings : Flag<["-", "/"], "consistent-bindings">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
-  HelpText<"Generate bindings for registers with no pre-declared binding (consistently regardless of optimization).">;
-
 //////////////////////////////////////////////////////////////////////////////
 // Reflector Options
 

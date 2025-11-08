@@ -586,16 +586,6 @@ bool DxilModule::GetLegacyResourceReservation() const {
   return (m_IntermediateFlags & LegacyResourceReservation) != 0;
 }
 
-void DxilModule::SetConsistentBindings(bool consistentBindings) {
-  m_IntermediateFlags &= ~ConsistentBindings;
-  if (consistentBindings)
-    m_IntermediateFlags |= ConsistentBindings;
-}
-
-bool DxilModule::GetConsistentBindings() const {
-  return (m_IntermediateFlags & ConsistentBindings) != 0;
-}
-
 void DxilModule::ClearIntermediateOptions() { m_IntermediateFlags = 0; }
 
 unsigned DxilModule::GetInputControlPointCount() const {

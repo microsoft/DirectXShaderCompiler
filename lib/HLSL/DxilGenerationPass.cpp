@@ -155,7 +155,6 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   // bool m_bDisableOptimizations;
   M.SetDisableOptimization(H.GetHLOptions().bDisableOptimizations);
   M.SetLegacyResourceReservation(H.GetHLOptions().bLegacyResourceReservation);
-  M.SetConsistentBindings(H.GetHLOptions().bConsistentBindings);
   // bool m_bDisableMathRefactoring;
   // bool m_bEnableDoublePrecision;
   // bool m_bEnableDoubleExtensions;

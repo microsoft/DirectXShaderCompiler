@@ -126,19 +126,16 @@ public:
                                                   ppBlob));
   }
 
-  VerifyResult CheckVerifies(LPCWSTR path, LPCWSTR goldPath,
-                             const llvm::SmallVector<LPCWSTR, 4> &args = {
-                                 L"-HV", L"2016"}) {
+  VerifyResult CheckVerifies(LPCWSTR path, LPCWSTR goldPath) {
     CComPtr<IDxcRewriter> pRewriter;
     VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
-    return CheckVerifies(pRewriter, path, goldPath, args);
+    return CheckVerifies(pRewriter, path, goldPath);
   }
 
-  VerifyResult
-  CheckVerifies(IDxcRewriter *pRewriter, LPCWSTR path, LPCWSTR goldPath,
-                const llvm::SmallVector<LPCWSTR, 4> &args = {L"-HV", L"2016"}) {
+  VerifyResult CheckVerifies(IDxcRewriter *pRewriter, LPCWSTR path,
+                             LPCWSTR goldPath) {
     CComPtr<IDxcOperationResult> pRewriteResult;
-    RewriteCompareGold(path, goldPath, &pRewriteResult, pRewriter, args);
+    RewriteCompareGold(path, goldPath, &pRewriteResult, pRewriter);
 
     VerifyResult toReturn;
 
@@ -168,11 +165,9 @@ public:
     return S_OK;
   }
 
-  VerifyResult CheckVerifiesHLSL(LPCWSTR name, LPCWSTR goldName,
-                                 const llvm::SmallVector<LPCWSTR, 4> &args = {
-                                     L"-HV", L"2016"}) {
+  VerifyResult CheckVerifiesHLSL(LPCWSTR name, LPCWSTR goldName) {
     return CheckVerifies(GetPathToHlslDataFile(name).c_str(),
-                         GetPathToHlslDataFile(goldName).c_str(), args);
+                         GetPathToHlslDataFile(goldName).c_str());
   }
 
   struct FileWithBlob {
@@ -215,8 +210,7 @@ public:
 
   void RewriteCompareGold(LPCWSTR path, LPCWSTR goldPath,
                           IDxcOperationResult **ppResult,
-                          IDxcRewriter *rewriter,
-                          const llvm::SmallVector<LPCWSTR, 4> &args = {}) {
+                          IDxcRewriter *rewriter) {
     // Get the source text from a file
     FileWithBlob source(m_dllSupport, path);
 
@@ -224,12 +218,14 @@ public:
     DxcDefine myDefines[myDefinesCount] = {
         {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
 
+    LPCWSTR args[] = {L"-HV", L"2016"};
+
     CComPtr<IDxcRewriter2> rewriter2;
     VERIFY_SUCCEEDED(rewriter->QueryInterface(&rewriter2));
     // Run rewrite unchanged on the source code
     VERIFY_SUCCEEDED(rewriter2->RewriteWithOptions(
-        source.BlobEncoding, path, (LPCWSTR *)args.data(),
-        (uint32_t)args.size(), myDefines, myDefinesCount, nullptr, ppResult));
+        source.BlobEncoding, path, args, _countof(args), myDefines,
+        myDefinesCount, nullptr, ppResult));
 
     // check for compilation errors
     HRESULT hrStatus;

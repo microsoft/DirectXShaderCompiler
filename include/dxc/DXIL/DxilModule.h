@@ -287,8 +287,6 @@ public:
   // Intermediate options that do not make it to DXIL
   void SetLegacyResourceReservation(bool legacyResourceReservation);
   bool GetLegacyResourceReservation() const;
-  void SetConsistentBindings(bool consistentBindings);
-  bool GetConsistentBindings() const;
   void ClearIntermediateOptions();
 
   // Hull and Domain shaders.
@@ -348,7 +346,6 @@ private:
 
   enum IntermediateFlags : uint32_t {
     LegacyResourceReservation = 1 << 0,
-    ConsistentBindings = 1 << 1
   };
 
   llvm::LLVMContext &m_Ctx;

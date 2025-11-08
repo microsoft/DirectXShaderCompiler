@@ -13,7 +13,6 @@
 #define __DXC_TOOLS__
 
 #include <dxc/dxcapi.h>
-#include "d3d12shader.h"
 
 enum RewriterOptionMask {
   Default = 0,

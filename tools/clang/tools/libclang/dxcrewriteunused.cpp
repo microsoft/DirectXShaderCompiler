@@ -11,7 +11,6 @@
 
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/HlslTypes.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
@@ -44,8 +43,6 @@
 #include "dxc/Support/dxcfilesystem.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxc/dxctools.h"
-
-#include "dxc/DxcReflection/DxcReflection.h"
 
 // From dxcutil.h
 namespace dxcutil {
