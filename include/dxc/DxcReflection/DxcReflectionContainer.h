@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxcReflection.h                                                         //
+// DxcReflectionContainer.h                                                  //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -22,7 +22,7 @@
 
 namespace hlsl {
 
-struct DxcReflectionError {
+struct ReflectionError {
 
   const char *err;
 
@@ -30,36 +30,36 @@ struct DxcReflectionError {
   bool hasIndex;
   uint8_t pad[3];
 
-  constexpr DxcReflectionError()
+  constexpr ReflectionError()
       : err(nullptr), index(0), hasIndex(false), pad{0, 0, 0} {}
 
-  constexpr DxcReflectionError(const char *err)
+  constexpr ReflectionError(const char *err)
       : err(err), index(0), hasIndex(false), pad{0, 0, 0} {}
 
-  constexpr DxcReflectionError(const char *err, uint32_t index)
+  constexpr ReflectionError(const char *err, uint32_t index)
       : err(err), index(index), hasIndex(true), pad{0, 0, 0} {}
 
   operator const char *() const { return err; }
 };
 
-static constexpr const DxcReflectionError DxcReflectionSuccess = nullptr;
+static constexpr const ReflectionError ReflectionErrorSuccess = nullptr;
 
 #ifndef NDEBUG
   #if defined(_MSC_VER)
-    #define DXC_FUNC_NAME __FUNCTION__
+    #define HLSL_REFL_ERR_FUNC_NAME __FUNCTION__
   #elif defined(__clang__) || defined(__GNUC__)
-    #define DXC_FUNC_NAME __PRETTY_FUNCTION__
+    #define HLSL_REFL_ERR_FUNC_NAME __PRETTY_FUNCTION__
   #else
-    #define DXC_FUNC_NAME __func__
+    #define HLSL_REFL_ERR_FUNC_NAME __func__
   #endif
-  #define DXC_REFLECT_STRING(x) #x
-  #define DXC_REFLECT_STRING2(x) DXC_REFLECT_STRING(x)
-  #define DXC_REFLECT_ERR(x, ...) DxcReflectionError(x " at " __FILE__ ":" DXC_REFLECT_STRING2(__LINE__) " (" DXC_FUNC_NAME ")", __VA_ARGS__)
+  #define HLSL_REFL_ERR_STRING(x) #x
+  #define HLSL_REFL_ERR_STRING2(x) HLSL_REFL_ERR_STRING(x)
+  #define HLSL_REFL_ERR(x, ...) ReflectionError(x " at " __FILE__ ":" HLSL_REFL_ERR_STRING2(__LINE__) " (" HLSL_REFL_ERR_FUNC_NAME ")", __VA_ARGS__)
 #else
-#define DXC_REFLECT_ERR(x, ...) DxcReflectionError(x, __VA_ARGS__)
+  #define HLSL_REFL_ERR(x, ...) ReflectionError(x, __VA_ARGS__)
 #endif
 
-class DxcHLSLNode {
+class ReflectionNode {
 
   uint32_t LocalIdParentLo;             //24 : 8
 
@@ -91,7 +91,7 @@ class DxcHLSLNode {
     ChildCountFwdBckLo |= v << 24;
   }
   
-  DxcHLSLNode(D3D12_HLSL_NODE_TYPE NodeType,
+  ReflectionNode(D3D12_HLSL_NODE_TYPE NodeType,
       bool IsFwdDeclare,
       uint32_t LocalId, uint16_t AnnotationStart, uint32_t ChildCount,
       uint32_t ParentId, uint8_t AnnotationCount, uint16_t SemanticId)
@@ -106,39 +106,33 @@ class DxcHLSLNode {
 
 public:
 
-  DxcHLSLNode() = default;
+  ReflectionNode() = default;
 
-  [[nodiscard]] static DxcReflectionError
-  Initialize(DxcHLSLNode &OutNode, D3D12_HLSL_NODE_TYPE NodeType,
+  [[nodiscard]] static ReflectionError
+  Initialize(ReflectionNode &OutNode, D3D12_HLSL_NODE_TYPE NodeType,
                                 bool IsFwdDeclare,
               uint32_t LocalId, uint16_t AnnotationStart, uint32_t ChildCount,
               uint32_t ParentId, uint8_t AnnotationCount, uint16_t SemanticId) {
 
     if (NodeType < D3D12_HLSL_NODE_TYPE_START ||
         NodeType > D3D12_HLSL_NODE_TYPE_END)
-      return DXC_REFLECT_ERR("Invalid NodeType");
+      return HLSL_REFL_ERR("Invalid NodeType");
 
     if (LocalId >= ((1u << 24) - 1))
-      return DXC_REFLECT_ERR("LocalId out of bounds");
+      return HLSL_REFL_ERR("LocalId out of bounds");
 
     if (ParentId >= ((1u << 24) - 1))
-      return DXC_REFLECT_ERR("ParentId out of bounds");
+      return HLSL_REFL_ERR("ParentId out of bounds");
 
     if (ChildCount >= ((1u << 24) - 1))
-      return DXC_REFLECT_ERR("ChildCount out of bounds");
+      return HLSL_REFL_ERR("ChildCount out of bounds");
 
-    if (IsFwdDeclare) {
+    if (IsFwdDeclare && AnnotationCount)
+        return HLSL_REFL_ERR("Fwd declares aren't allowed to have annotations");
 
-      if (AnnotationCount)
-        return DXC_REFLECT_ERR("Fwd declares aren't allowed to have annotations");
-
-      if (ChildCount)
-        return DXC_REFLECT_ERR("Fwd declares aren't allowed to have children");
-    }
-
-    OutNode = DxcHLSLNode(NodeType, IsFwdDeclare, LocalId, AnnotationStart,
+    OutNode = ReflectionNode(NodeType, IsFwdDeclare, LocalId, AnnotationStart,
                        ChildCount, ParentId, AnnotationCount, SemanticId);
-    return DxcReflectionSuccess;
+    return ReflectionErrorSuccess;
   }
 
   bool IsFwdDeclare() const { return Type >> 7; }
@@ -168,15 +162,15 @@ public:
 
   bool IsFwdBckDefined() const { return GetFwdBck() != ((1 << 24) - 1); }
 
-  [[nodiscard]] DxcReflectionError ResolveFwdDeclare(uint32_t SelfId,
-                                                     DxcHLSLNode &Definition,
+  [[nodiscard]] ReflectionError ResolveFwdDeclare(uint32_t SelfId,
+                                                     ReflectionNode &Definition,
                                                      uint32_t DefinitionId) {
 
     if (SelfId >= ((1u << 24) - 1))
-      return DXC_REFLECT_ERR("SelfId out of bounds");
+      return HLSL_REFL_ERR("SelfId out of bounds");
 
     if (DefinitionId >= ((1u << 24) - 1))
-      return DXC_REFLECT_ERR("DefinitionId out of bounds");
+      return HLSL_REFL_ERR("DefinitionId out of bounds");
 
     assert(DefinitionId != SelfId && "NodeId can't be definition id!");
     assert(IsFwdDeclare() &&
@@ -188,7 +182,7 @@ public:
     SetFwdBck(DefinitionId);
     Definition.SetFwdBck(SelfId);
 
-    return DxcReflectionSuccess;
+    return ReflectionErrorSuccess;
   }
 
   // For example if Enum, maps into Enums[LocalId]
@@ -212,16 +206,16 @@ public:
     return uint32_t(LocalIdParentLo >> 24) | (uint32_t(ParentHi) << 8);
   }
 
-  [[nodiscard]] DxcReflectionError IncreaseChildCount() {
+  [[nodiscard]] ReflectionError IncreaseChildCount() {
 
     if (GetChildCount() >= ((1u << 24) - 1))
-      return DXC_REFLECT_ERR("Child count out of bounds");
+      return HLSL_REFL_ERR("Child count out of bounds");
 
     ++ChildCountFwdBckLo;
-    return DxcReflectionSuccess;
+    return ReflectionErrorSuccess;
   }
 
-  bool operator==(const DxcHLSLNode &other) const {
+  bool operator==(const ReflectionNode &other) const {
     return LocalIdParentLo == other.LocalIdParentLo &&
            ParentHiAnnotationsType32 == other.ParentHiAnnotationsType32 &&
            ChildCountFwdBckLo == other.ChildCountFwdBckLo &&
@@ -230,7 +224,7 @@ public:
   }
 };
 
-class DxcHLSLNodeSymbol {
+class ReflectionNodeSymbol {
 
   union {
     struct {
@@ -251,7 +245,7 @@ class DxcHLSLNodeSymbol {
     uint64_t SourceColumnStartEndLo;
   };
   
-  DxcHLSLNodeSymbol(uint32_t NameId, uint16_t FileSourceId,
+  ReflectionNodeSymbol(uint32_t NameId, uint16_t FileSourceId,
                     uint16_t SourceLineCount, uint32_t SourceLineStart,
                     uint32_t SourceColumnStart, uint32_t SourceColumnEnd)
       : NameId(NameId), FileSourceId(FileSourceId),
@@ -264,26 +258,26 @@ class DxcHLSLNodeSymbol {
 
 public:
 
-  DxcHLSLNodeSymbol() = default;
+  ReflectionNodeSymbol() = default;
 
-  [[nodiscard]] static DxcReflectionError
-  Initialize(DxcHLSLNodeSymbol &Symbol, uint32_t NameId, uint16_t FileSourceId,
+  [[nodiscard]] static ReflectionError
+  Initialize(ReflectionNodeSymbol &Symbol, uint32_t NameId, uint16_t FileSourceId,
                     uint16_t SourceLineCount, uint32_t SourceLineStart,
                     uint32_t SourceColumnStart, uint32_t SourceColumnEnd) {
 
     if (SourceColumnStart >= (1u << 22))
-      return DXC_REFLECT_ERR("SourceColumnStart out of bounds");
+      return HLSL_REFL_ERR("SourceColumnStart out of bounds");
 
     if (SourceColumnEnd >= (1u << 22))
-      return DXC_REFLECT_ERR("SourceColumnEnd out of bounds");
+      return HLSL_REFL_ERR("SourceColumnEnd out of bounds");
 
     if (SourceLineStart >= ((1u << 20) - 1))
-      return DXC_REFLECT_ERR("SourceLineStart out of bounds");
+      return HLSL_REFL_ERR("SourceLineStart out of bounds");
 
     Symbol =
-        DxcHLSLNodeSymbol(NameId, FileSourceId, SourceLineCount,
+        ReflectionNodeSymbol(NameId, FileSourceId, SourceLineCount,
                           SourceLineStart, SourceColumnStart, SourceColumnEnd);
-    return DxcReflectionSuccess;
+    return ReflectionErrorSuccess;
   }
 
   
@@ -305,37 +299,36 @@ public:
     return SourceColumnEndLo | ((ColumnHiSourceLinePad & (0x3F << 6)) << 10);
   }
 
-  bool operator==(const DxcHLSLNodeSymbol &other) const {
+  bool operator==(const ReflectionNodeSymbol &other) const {
     return NameIdFileNameIdSourceLineCount ==
                other.NameIdFileNameIdSourceLineCount &&
            SourceColumnStartEndLo == other.SourceColumnStartEndLo;
   }
 };
 
-struct DxcHLSLEnumDesc {
+struct ReflectionEnumeration {
 
   uint32_t NodeId;
   D3D12_HLSL_ENUM_TYPE Type;
 
-  bool operator==(const DxcHLSLEnumDesc &other) const {
+  bool operator==(const ReflectionEnumeration &other) const {
     return NodeId == other.NodeId && Type == other.Type;
   }
 };
 
-struct DxcHLSLEnumValue {
+struct ReflectionEnumValue {
 
   int64_t Value;
   uint32_t NodeId;
 
-  bool operator==(const DxcHLSLEnumValue &other) const {
+  bool operator==(const ReflectionEnumValue &other) const {
     return Value == other.Value &&
            NodeId == other.NodeId;
   }
 };
 
-
-struct DxcHLSLParameter { // Mirrors D3D12_PARAMETER_DESC without duplicating
-                          // data (typeId holds some)
+struct ReflectionFunctionParameter { // Mirrors D3D12_PARAMETER_DESC without
+                                     // duplicating data (typeId holds some)
 
   uint32_t TypeId;
   uint32_t NodeId;
@@ -344,7 +337,7 @@ struct DxcHLSLParameter { // Mirrors D3D12_PARAMETER_DESC without duplicating
   uint8_t Flags;             // D3D_PARAMETER_FLAGS
   uint16_t Padding;
 
-  bool operator==(const DxcHLSLParameter &other) const {
+  bool operator==(const ReflectionFunctionParameter &other) const {
     return TypeId == other.TypeId && NodeId == other.NodeId &&
            InterpolationMode == other.InterpolationMode && Flags == other.Flags;
   }
@@ -355,32 +348,31 @@ struct DxcHLSLParameter { // Mirrors D3D12_PARAMETER_DESC without duplicating
 // - if HasConditionVar(): a variable in the condition
 // - NodeCount children (If: children ex. else body, For: init children)
 // - Rest of the body (If: else body, otherwise: normal body)
-class DxcHLSLStatement {
+class ReflectionScopeStmt {
 
   uint32_t NodeId;
   uint32_t NodeCount_HasConditionVar_HasElse;
 
-  DxcHLSLStatement(uint32_t NodeId, uint32_t NodeCount, bool HasConditionVar,
-                   bool IfAndHasElse)
+  ReflectionScopeStmt(uint32_t NodeId, uint32_t NodeCount, bool HasConditionVar,
+                      bool IfAndHasElse)
       : NodeId(NodeId),
         NodeCount_HasConditionVar_HasElse(NodeCount |
                                           (HasConditionVar ? (1u << 30) : 0) |
                                           (IfAndHasElse ? (1u << 31) : 0)) {}
 
 public:
+  ReflectionScopeStmt() = default;
 
-  DxcHLSLStatement() = default;
-
-  [[nodiscard]] static DxcReflectionError
-  Initialize(DxcHLSLStatement &Statement, uint32_t NodeId, uint32_t NodeCount,
-             bool HasConditionVar, bool IfAndHasElse) {
+  [[nodiscard]] static ReflectionError
+  Initialize(ReflectionScopeStmt &Statement, uint32_t NodeId,
+             uint32_t NodeCount, bool HasConditionVar, bool IfAndHasElse) {
 
     if (NodeCount >= (1u << 30))
-      return DXC_REFLECT_ERR("NodeCount out of bounds");
+      return HLSL_REFL_ERR("NodeCount out of bounds");
 
     Statement =
-        DxcHLSLStatement(NodeId, NodeCount, HasConditionVar, IfAndHasElse);
-    return DxcReflectionSuccess;
+        ReflectionScopeStmt(NodeId, NodeCount, HasConditionVar, IfAndHasElse);
+    return ReflectionErrorSuccess;
   }
 
   uint32_t GetNodeId() const { return NodeId; }
@@ -398,38 +390,38 @@ public:
   }
   bool HasElse() const { return (NodeCount_HasConditionVar_HasElse >> 31) & 1; }
 
-  bool operator==(const DxcHLSLStatement &Other) const {
+  bool operator==(const ReflectionScopeStmt &Other) const {
     return NodeId == Other.NodeId &&
            NodeCount_HasConditionVar_HasElse ==
                Other.NodeCount_HasConditionVar_HasElse;
   }
 };
 
-class DxcHLSLFunction {
+class ReflectionFunction {
 
   uint32_t NodeId;
   uint32_t NumParametersHasReturnAndDefinition;
 
-  DxcHLSLFunction(uint32_t NodeId, uint32_t NumParameters, bool HasReturn,
-                  bool HasDefinition)
+  ReflectionFunction(uint32_t NodeId, uint32_t NumParameters, bool HasReturn,
+                     bool HasDefinition)
       : NodeId(NodeId),
         NumParametersHasReturnAndDefinition(NumParameters |
                                             (HasReturn ? (1u << 30) : 0) |
-                                            (HasDefinition ? (1u << 31) : 0)) { }
+                                            (HasDefinition ? (1u << 31) : 0)) {}
 
 public:
+  ReflectionFunction() = default;
 
-  DxcHLSLFunction() = default;
-
-  [[nodiscard]] static DxcReflectionError Initialize(DxcHLSLFunction &Function, uint32_t NodeId,
-                                uint32_t NumParameters, bool HasReturn,
-                                bool HasDefinition) {
+  [[nodiscard]] static ReflectionError
+  Initialize(ReflectionFunction &Function, uint32_t NodeId,
+             uint32_t NumParameters, bool HasReturn, bool HasDefinition) {
 
     if (NumParameters >= (1u << 30))
-      return DXC_REFLECT_ERR("NumParameters out of bounds");
+      return HLSL_REFL_ERR("NumParameters out of bounds");
 
-    Function = DxcHLSLFunction(NodeId, NumParameters, HasReturn, HasDefinition);
-    return DxcReflectionSuccess;
+    Function =
+        ReflectionFunction(NodeId, NumParameters, HasReturn, HasDefinition);
+    return ReflectionErrorSuccess;
   }
 
   uint32_t GetNodeId() const { return NodeId; }
@@ -446,16 +438,17 @@ public:
     return (NumParametersHasReturnAndDefinition >> 31) & 1;
   }
 
-  bool operator==(const DxcHLSLFunction &other) const {
+  bool operator==(const ReflectionFunction &other) const {
     return NodeId == other.NodeId &&
            NumParametersHasReturnAndDefinition ==
                other.NumParametersHasReturnAndDefinition;
   }
 };
 
-class DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
-                        // the Name (and uID replaced with NodeID) and added
-                        // arrayIndex and better packing
+class ReflectionShaderResource { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC,
+                                 // minus
+  // the Name (and uID replaced with NodeID) and added
+  // arrayIndex and better packing
 
   union {
     struct {
@@ -480,39 +473,39 @@ class DxcHLSLRegister { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC, minus
     uint64_t ArrayIdBufferId;
   };
 
-  DxcHLSLRegister(D3D_SHADER_INPUT_TYPE Type, uint32_t BindCount,
-                  uint32_t uFlags, D3D_RESOURCE_RETURN_TYPE ReturnType,
-                  D3D_SRV_DIMENSION Dimension, uint32_t NodeId,
-                  uint32_t ArrayId, uint32_t BufferId)
+  ReflectionShaderResource(D3D_SHADER_INPUT_TYPE Type, uint32_t BindCount,
+                           uint32_t uFlags, D3D_RESOURCE_RETURN_TYPE ReturnType,
+                           D3D_SRV_DIMENSION Dimension, uint32_t NodeId,
+                           uint32_t ArrayId, uint32_t BufferId)
       : Type(Type), BindCount(BindCount), uFlags(uFlags),
         ReturnType(ReturnType), Dimension(Dimension), NodeId(NodeId),
         ArrayId(ArrayId), BufferId(BufferId) {}
 
 public:
-  DxcHLSLRegister() = default;
+  ReflectionShaderResource() = default;
 
-  [[nodiscard]] static DxcReflectionError
-  Initialize(DxcHLSLRegister &Register, D3D_SHADER_INPUT_TYPE Type,
+  [[nodiscard]] static ReflectionError
+  Initialize(ReflectionShaderResource &Register, D3D_SHADER_INPUT_TYPE Type,
              uint32_t BindCount, uint32_t uFlags,
              D3D_RESOURCE_RETURN_TYPE ReturnType, D3D_SRV_DIMENSION Dimension,
              uint32_t NodeId, uint32_t ArrayId, uint32_t BufferId) {
 
     if (Type < D3D_SIT_CBUFFER || Type > D3D_SIT_UAV_FEEDBACKTEXTURE)
-      return DXC_REFLECT_ERR("Invalid type");
+      return HLSL_REFL_ERR("Invalid type");
 
     if (ReturnType < 0 || ReturnType > D3D_RETURN_TYPE_CONTINUED)
-      return DXC_REFLECT_ERR("Invalid return type");
+      return HLSL_REFL_ERR("Invalid return type");
 
     if (Dimension < D3D_SRV_DIMENSION_UNKNOWN ||
         Dimension > D3D_SRV_DIMENSION_BUFFEREX)
-      return DXC_REFLECT_ERR("Invalid srv dimension");
+      return HLSL_REFL_ERR("Invalid srv dimension");
 
     if (uFlags >> 8)
-      return DXC_REFLECT_ERR("Invalid user flags");
+      return HLSL_REFL_ERR("Invalid user flags");
 
-    Register = DxcHLSLRegister(Type, BindCount, uFlags, ReturnType, Dimension,
-                               NodeId, ArrayId, BufferId);
-    return DxcReflectionSuccess;
+    Register = ReflectionShaderResource(Type, BindCount, uFlags, ReturnType,
+                                        Dimension, NodeId, ArrayId, BufferId);
+    return ReflectionErrorSuccess;
   }
 
   D3D_RESOURCE_RETURN_TYPE GetReturnType() const {
@@ -530,37 +523,37 @@ public:
   uint32_t GetArrayId() const { return ArrayId; }
   uint32_t GetBufferId() const { return BufferId; }
 
-  bool operator==(const DxcHLSLRegister &other) const {
+  bool operator==(const ReflectionShaderResource &other) const {
     return TypeDimensionReturnTypeFlagsBindCount ==
                other.TypeDimensionReturnTypeFlagsBindCount &&
            NodeId == other.NodeId && ArrayIdBufferId == other.ArrayIdBufferId;
   }
 };
 
-class DxcHLSLArray {
+class ReflectionArray {
 
   uint32_t ArrayElemStart;
 
-  DxcHLSLArray(uint32_t ArrayElem, uint32_t ArrayStart)
+  ReflectionArray(uint32_t ArrayElem, uint32_t ArrayStart)
       : ArrayElemStart((ArrayElem << 26) | ArrayStart) {}
 
 public:
 
-  DxcHLSLArray() = default;
+  ReflectionArray() = default;
 
-  [[nodiscard]] static DxcReflectionError Initialize(DxcHLSLArray &Arr, uint32_t ArrayElem, uint32_t ArrayStart) {
+  [[nodiscard]] static ReflectionError Initialize(ReflectionArray &Arr, uint32_t ArrayElem, uint32_t ArrayStart) {
 
     if (ArrayElem <= 1 || ArrayElem > 32)
-      return DXC_REFLECT_ERR("ArrayElem out of bounds");
+      return HLSL_REFL_ERR("ArrayElem out of bounds");
 
     if (ArrayStart >= (1u << 26))
-      return DXC_REFLECT_ERR("ArrayStart out of bounds");
+      return HLSL_REFL_ERR("ArrayStart out of bounds");
 
-    Arr = DxcHLSLArray(ArrayElem, ArrayStart);
-    return DxcReflectionSuccess;
+    Arr = ReflectionArray(ArrayElem, ArrayStart);
+    return ReflectionErrorSuccess;
   }
 
-  bool operator==(const DxcHLSLArray &Other) const {
+  bool operator==(const ReflectionArray &Other) const {
     return Other.ArrayElemStart == ArrayElemStart;
   }
 
@@ -568,12 +561,12 @@ public:
   uint32_t ArrayStart() const { return ArrayElemStart << 6 >> 6; }
 };
 
-struct DxcHLSLArrayOrElements {
+struct ReflectionArrayOrElements {
 
   uint32_t ElementsOrArrayId;
 
-  DxcHLSLArrayOrElements() = default;
-  DxcHLSLArrayOrElements(uint32_t arrayId, uint32_t arraySize)
+  ReflectionArrayOrElements() = default;
+  ReflectionArrayOrElements(uint32_t arrayId, uint32_t arraySize)
       : ElementsOrArrayId(arrayId != (uint32_t)-1
                               ? ((1u << 31) | arrayId)
                               : (arraySize > 1 ? arraySize : 0)) {}
@@ -591,14 +584,14 @@ struct DxcHLSLArrayOrElements {
                                      : (uint32_t)-1;
   }
 
-  bool operator==(const DxcHLSLArrayOrElements &Other) const {
+  bool operator==(const ReflectionArrayOrElements &Other) const {
     return Other.ElementsOrArrayId == ElementsOrArrayId;
   }
 };
 
-class DxcHLSLType { // Almost maps to CShaderReflectionType and
-                     // D3D12_SHADER_TYPE_DESC, but tightly packed and
-                     // easily serializable
+class ReflectionVariableType { // Almost maps to CShaderReflectionType and
+                               // D3D12_SHADER_TYPE_DESC, but tightly packed and
+                               // easily serializable
 
   uint32_t MemberData; // 24 : 8 (start, count)
 
@@ -615,22 +608,24 @@ class DxcHLSLType { // Almost maps to CShaderReflectionType and
   uint32_t BaseClass;               // -1 if none, otherwise a type index
   uint32_t InterfaceOffsetAndCount; // 24 : 8 (start, count)
 
-  DxcHLSLArrayOrElements UnderlyingArray;   //No sugar (e.g. F32x4a4 in using F32x4a4 = F32x4[4] becomes float4[4])
+  ReflectionArrayOrElements
+      UnderlyingArray; // No sugar (e.g. F32x4a4 in using F32x4a4 = F32x4[4]
+                       // becomes float4[4])
 
-  DxcHLSLType(uint32_t BaseClass,
-              DxcHLSLArrayOrElements ElementsOrArrayIdUnderlying,
-              D3D_SHADER_VARIABLE_CLASS Class, D3D_SHADER_VARIABLE_TYPE Type,
-              uint8_t Rows, uint8_t Columns, uint32_t MembersCount,
-              uint32_t MembersStart, uint32_t InterfaceOffset,
-              uint32_t InterfaceCount)
+  ReflectionVariableType(uint32_t BaseClass,
+                         ReflectionArrayOrElements ElementsOrArrayIdUnderlying,
+                         D3D_SHADER_VARIABLE_CLASS Class,
+                         D3D_SHADER_VARIABLE_TYPE Type, uint8_t Rows,
+                         uint8_t Columns, uint32_t MembersCount,
+                         uint32_t MembersStart, uint32_t InterfaceOffset,
+                         uint32_t InterfaceCount)
       : MemberData(MembersStart | (MembersCount << 24)), Class(Class),
         Type(Type), Rows(Rows), Columns(Columns),
         UnderlyingArray(ElementsOrArrayIdUnderlying), BaseClass(BaseClass),
         InterfaceOffsetAndCount(InterfaceOffset | (InterfaceCount << 24)) {}
 
 public:
-
-  bool operator==(const DxcHLSLType &Other) const {
+  bool operator==(const ReflectionVariableType &Other) const {
     return Other.MemberData == MemberData &&
            Other.UnderlyingArray == UnderlyingArray &&
            ClassTypeRowsColums == Other.ClassTypeRowsColums &&
@@ -653,54 +648,56 @@ public:
 
   uint32_t GetMemberCount() const { return MemberData >> 24; }
   uint32_t GetMemberStart() const { return MemberData << 8 >> 8; }
-  
-  DxcHLSLArrayOrElements GetUnderlyingArray() const { return UnderlyingArray; }
+
+  ReflectionArrayOrElements GetUnderlyingArray() const {
+    return UnderlyingArray;
+  }
 
   uint32_t GetInterfaceCount() const { return InterfaceOffsetAndCount >> 24; }
   uint32_t GetInterfaceStart() const {
     return InterfaceOffsetAndCount << 8 >> 8;
   }
 
-  DxcHLSLType() = default;
+  ReflectionVariableType() = default;
 
-  [[nodiscard]] static DxcReflectionError
-  Initialize(DxcHLSLType &Type, uint32_t BaseClass,
-             DxcHLSLArrayOrElements ElementsOrArrayIdUnderlying,
-             D3D_SHADER_VARIABLE_CLASS Class, D3D_SHADER_VARIABLE_TYPE VariableType,
-             uint8_t Rows, uint8_t Columns, uint32_t MembersCount,
-             uint32_t MembersStart, uint32_t InterfaceOffset,
-             uint32_t InterfaceCount) {
+  [[nodiscard]] static ReflectionError
+  Initialize(ReflectionVariableType &Type, uint32_t BaseClass,
+             ReflectionArrayOrElements ElementsOrArrayIdUnderlying,
+             D3D_SHADER_VARIABLE_CLASS Class,
+             D3D_SHADER_VARIABLE_TYPE VariableType, uint8_t Rows,
+             uint8_t Columns, uint32_t MembersCount, uint32_t MembersStart,
+             uint32_t InterfaceOffset, uint32_t InterfaceCount) {
 
     if (Class < D3D_SVC_SCALAR || Class > D3D_SVC_INTERFACE_POINTER)
-      return DXC_REFLECT_ERR("Invalid class");
+      return HLSL_REFL_ERR("Invalid class");
 
     if (VariableType < D3D_SVT_VOID || VariableType > D3D_SVT_UINT64)
-      return DXC_REFLECT_ERR("Invalid type");
+      return HLSL_REFL_ERR("Invalid type");
 
     if (MembersStart >= (1u << 24))
-      return DXC_REFLECT_ERR("Member start out of bounds");
+      return HLSL_REFL_ERR("Member start out of bounds");
 
     if (InterfaceOffset >= (1u << 24))
-      return DXC_REFLECT_ERR("Interface start out of bounds");
+      return HLSL_REFL_ERR("Interface start out of bounds");
 
     if (MembersCount >= (1u << 8))
-      return DXC_REFLECT_ERR("Member count out of bounds");
+      return HLSL_REFL_ERR("Member count out of bounds");
 
     if (InterfaceCount >= (1u << 8))
-      return DXC_REFLECT_ERR("Interface count out of bounds");
+      return HLSL_REFL_ERR("Interface count out of bounds");
 
-    Type = DxcHLSLType(BaseClass, ElementsOrArrayIdUnderlying, Class,
-                       VariableType, Rows, Columns, MembersCount, MembersStart,
-                       InterfaceOffset, InterfaceCount);
-    return DxcReflectionSuccess;
+    Type = ReflectionVariableType(
+        BaseClass, ElementsOrArrayIdUnderlying, Class, VariableType, Rows,
+        Columns, MembersCount, MembersStart, InterfaceOffset, InterfaceCount);
+    return ReflectionErrorSuccess;
   }
 };
 
-struct DxcHLSLTypeSymbol {
+struct ReflectionVariableTypeSymbol {
 
   // Keep sugar (F32x4a4 = F32x4[4] stays F32x4a4, doesn't become float4[4] like
   // in underlying name + array)
-  DxcHLSLArrayOrElements DisplayArray;
+  ReflectionArrayOrElements DisplayArray;
 
   // For example F32x4[4] stays F32x4 (array in DisplayArray)
   uint32_t DisplayNameId;
@@ -708,52 +705,54 @@ struct DxcHLSLTypeSymbol {
   // F32x4[4] would turn into float4 (array in UnderlyingArray)
   uint32_t UnderlyingNameId;
 
-  bool operator==(const DxcHLSLTypeSymbol &Other) const {
+  bool operator==(const ReflectionVariableTypeSymbol &Other) const {
     return Other.DisplayArray == DisplayArray &&
            DisplayNameId == Other.DisplayNameId &&
            UnderlyingNameId == Other.UnderlyingNameId;
   }
 
-  DxcHLSLTypeSymbol() = default;
-  DxcHLSLTypeSymbol(DxcHLSLArrayOrElements ElementsOrArrayIdDisplay,
+  ReflectionVariableTypeSymbol() = default;
+  ReflectionVariableTypeSymbol(ReflectionArrayOrElements ElementsOrArrayIdDisplay,
                     uint32_t DisplayNameId, uint32_t UnderlyingNameId)
       : DisplayArray(ElementsOrArrayIdDisplay), DisplayNameId(DisplayNameId),
         UnderlyingNameId(UnderlyingNameId) {}
 };
 
-struct DxcHLSLBuffer { // Almost maps to CShaderReflectionConstantBuffer and
-                       // D3D12_SHADER_BUFFER_DESC
+struct ReflectionShaderBuffer { // Almost maps to
+                                // CShaderReflectionConstantBuffer and
+                                // D3D12_SHADER_BUFFER_DESC
 
   D3D_CBUFFER_TYPE Type;
   uint32_t NodeId;
 
-  bool operator==(const DxcHLSLBuffer &other) const {
+  bool operator==(const ReflectionShaderBuffer &other) const {
     return Type == other.Type && NodeId == other.NodeId;
   }
 };
 
-class DxcHLSLAnnotation {
+class ReflectionAnnotation {
 
   uint32_t StringNonDebugAndIsBuiltin;
 
-  DxcHLSLAnnotation(uint32_t StringNonDebug, bool IsBuiltin)
+  ReflectionAnnotation(uint32_t StringNonDebug, bool IsBuiltin)
       : StringNonDebugAndIsBuiltin(StringNonDebug |
                                    (IsBuiltin ? (1u << 31) : 0)) {}
+
 public:
+  ReflectionAnnotation() = default;
 
-  DxcHLSLAnnotation() = default;
-
-  [[nodiscard]] static DxcReflectionError
-  Initialize(DxcHLSLAnnotation &Annotation, uint32_t StringNonDebug, bool IsBuiltin) {
+  [[nodiscard]] static ReflectionError
+  Initialize(ReflectionAnnotation &Annotation, uint32_t StringNonDebug,
+             bool IsBuiltin) {
 
     if (StringNonDebug >= (1u << 31))
-      return DXC_REFLECT_ERR("String non debug out of bounds");
+      return HLSL_REFL_ERR("String non debug out of bounds");
 
-    Annotation = DxcHLSLAnnotation(StringNonDebug, IsBuiltin);
-    return DxcReflectionSuccess;
+    Annotation = ReflectionAnnotation(StringNonDebug, IsBuiltin);
+    return ReflectionErrorSuccess;
   }
 
-  bool operator==(const DxcHLSLAnnotation &other) const {
+  bool operator==(const ReflectionAnnotation &other) const {
     return StringNonDebugAndIsBuiltin == other.StringNonDebugAndIsBuiltin;
   }
 
@@ -766,9 +765,9 @@ public:
 
 //Note: Regarding nodes, node 0 is the root node (global scope)
 //      If a node is a fwd declare you should inspect the fwd node id.
-//      If a node isn't a fwd declare but has a backward id, it should be ignored during traversal.
-//      This node can be defined in a different namespace or type while it's declared elsewhere.
-struct DxcHLSLReflectionData {
+//      If a node isn't a fwd declare but has a backward id, the node should be ignored during traversal.
+//      (That node can be defined in a different namespace or type while it's declared elsewhere).
+struct ReflectionData {
 
   D3D12_HLSL_REFLECTION_FEATURE Features{};
 
@@ -781,32 +780,32 @@ struct DxcHLSLReflectionData {
   std::vector<uint32_t> Sources;
   std::unordered_map<std::string, uint16_t> StringToSourceId;
 
-  std::vector<DxcHLSLNode> Nodes; // 0 = Root node (global scope)
+  std::vector<ReflectionNode> Nodes; // 0 = Root node (global scope)
 
-  std::vector<DxcHLSLRegister> Registers;
-  std::vector<DxcHLSLFunction> Functions;
+  std::vector<ReflectionShaderResource> Registers;
+  std::vector<ReflectionFunction> Functions;
 
-  std::vector<DxcHLSLEnumDesc> Enums;
-  std::vector<DxcHLSLEnumValue> EnumValues;
+  std::vector<ReflectionEnumeration> Enums;
+  std::vector<ReflectionEnumValue> EnumValues;
 
-  std::vector<DxcHLSLParameter> Parameters;
-  std::vector<DxcHLSLAnnotation> Annotations;
+  std::vector<ReflectionFunctionParameter> Parameters;
+  std::vector<ReflectionAnnotation> Annotations;
 
-  std::vector<DxcHLSLArray> Arrays;
+  std::vector<ReflectionArray> Arrays;
   std::vector<uint32_t> ArraySizes;
 
   std::vector<uint32_t> MemberTypeIds;
   std::vector<uint32_t> TypeList;
-  std::vector<DxcHLSLType> Types;
-  std::vector<DxcHLSLBuffer> Buffers;
+  std::vector<ReflectionVariableType> Types;
+  std::vector<ReflectionShaderBuffer> Buffers;
 
-  std::vector<DxcHLSLStatement> Statements;
+  std::vector<ReflectionScopeStmt> Statements;
 
   // Can be stripped if !(D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO)
 
-  std::vector<DxcHLSLNodeSymbol> NodeSymbols;
+  std::vector<ReflectionNodeSymbol> NodeSymbols;
   std::vector<uint32_t> MemberNameIds;
-  std::vector<DxcHLSLTypeSymbol> TypeSymbols;
+  std::vector<ReflectionVariableTypeSymbol> TypeSymbols;
 
   // Only generated if deserialized with MakeNameLookupTable or
   // GenerateNameLookupTable is called (and if symbols aren't stripped)
@@ -815,13 +814,13 @@ struct DxcHLSLReflectionData {
   std::vector<std::string> NodeIdToFullyResolved;
   std::unordered_map<std::string, uint32_t> FullyResolvedToMemberId;
 
-  [[nodiscard]] DxcReflectionError
+  [[nodiscard]] ReflectionError
   RegisterString(uint32_t &StringId, const std::string &Name, bool IsNonDebug);
 
-  [[nodiscard]] DxcReflectionError PushArray(uint32_t &ArrayId, uint32_t ArraySizeFlat,
+  [[nodiscard]] ReflectionError PushArray(uint32_t &ArrayId, uint32_t ArraySizeFlat,
                      const std::vector<uint32_t> &ArraySize);
 
-  [[nodiscard]] DxcReflectionError
+  [[nodiscard]] ReflectionError
   RegisterTypeList(const std::vector<uint32_t> &TypeIds, uint32_t &Offset,
                         uint8_t &Len);
 
@@ -832,11 +831,11 @@ struct DxcHLSLReflectionData {
   void StripSymbols();
   bool GenerateNameLookupTable();
 
-  DxcHLSLReflectionData() = default;
-  [[nodiscard]] DxcReflectionError Deserialize(const std::vector<std::byte> &Bytes,
+  ReflectionData() = default;
+  [[nodiscard]] ReflectionError Deserialize(const std::vector<std::byte> &Bytes,
                                  bool MakeNameLookupTable);
 
-  bool IsSameNonDebug(const DxcHLSLReflectionData &Other) const {
+  bool IsSameNonDebug(const ReflectionData &Other) const {
     return StringsNonDebug == Other.StringsNonDebug && Nodes == Other.Nodes &&
            Registers == Other.Registers && Functions == Other.Functions &&
            Enums == Other.Enums && EnumValues == Other.EnumValues &&
@@ -847,7 +846,7 @@ struct DxcHLSLReflectionData {
            Parameters == Other.Parameters && Statements == Other.Statements;
   }
 
-  bool operator==(const DxcHLSLReflectionData &Other) const {
+  bool operator==(const ReflectionData &Other) const {
     return IsSameNonDebug(Other) && Strings == Other.Strings &&
            Sources == Other.Sources && NodeSymbols == Other.NodeSymbols &&
            MemberNameIds == Other.MemberNameIds &&

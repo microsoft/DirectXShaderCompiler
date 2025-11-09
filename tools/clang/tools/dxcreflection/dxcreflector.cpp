@@ -51,7 +51,7 @@ using namespace hlsl;
 
 namespace hlsl {
 
-[[nodiscard]] DxcReflectionError DxcHLSLReflectionDataFromAST(DxcHLSLReflectionData &Result,
+[[nodiscard]] ReflectionError DxcHLSLReflectionDataFromAST(ReflectionData &Result,
                                   clang::CompilerInstance &Compiler,
                                   clang::TranslationUnitDecl &Ctx,
                                   uint32_t AutoBindingSpace,
@@ -170,16 +170,16 @@ protected:
   CHLSLReflectionType *m_pBaseClass;
   std::vector<CHLSLReflectionType *> m_Interfaces;
 
-  const DxcHLSLReflectionData *m_Data;
+  const ReflectionData *m_Data;
   uint32_t m_TypeId;
   uint32_t m_ElementsUnderlying;
   uint32_t m_ElementsDisplay;
   D3D12_ARRAY_DESC m_ArrayDescUnderlying;
   D3D12_ARRAY_DESC m_ArrayDescDisplay;
 
-  void InitializeArray(const DxcHLSLReflectionData &Data,
+  void InitializeArray(const ReflectionData &Data,
                        D3D12_ARRAY_DESC &desc, uint32_t &elements,
-                       const DxcHLSLArrayOrElements &arrElem) {
+                       const ReflectionArrayOrElements &arrElem) {
 
     if (arrElem.IsArray()) {
 
@@ -187,7 +187,7 @@ protected:
 
       if (arrElem.IsMultiDimensionalArray()) {
 
-        const DxcHLSLArray &arr =
+        const ReflectionArray &arr =
             Data.Arrays[arrElem.GetMultiDimensionalArrayId()];
 
         desc.ArrayDims = arr.ArrayElem();
@@ -242,7 +242,7 @@ public:
   }
 
   HRESULT Initialize(
-      const DxcHLSLReflectionData &Data, uint32_t TypeId,
+      const ReflectionData &Data, uint32_t TypeId,
       std::vector<CHLSLReflectionType> &Types /* Only access < TypeId*/) {
 
     m_TypeId = TypeId;
@@ -250,7 +250,7 @@ public:
     m_ElementsDisplay = 0;
     m_Data = &Data;
 
-    const DxcHLSLType &type = Data.Types[TypeId];
+    const ReflectionVariableType &type = Data.Types[TypeId];
 
     ZeroMemoryToOut(&m_ArrayDescUnderlying);
     ZeroMemoryToOut(&m_ArrayDescDisplay);
@@ -261,7 +261,7 @@ public:
     bool hasNames = Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
     if (hasNames) {
-      DxcHLSLTypeSymbol sym = Data.TypeSymbols[TypeId];
+      ReflectionVariableTypeSymbol sym = Data.TypeSymbols[TypeId];
       m_NameUnderlying = Data.Strings[sym.UnderlyingNameId];
       m_NameDisplay = Data.Strings[sym.DisplayNameId];
       InitializeArray(Data, m_ArrayDescDisplay, m_ElementsDisplay, sym.DisplayArray);
@@ -305,7 +305,7 @@ public:
 
     IFR(ZeroMemoryToOut(pDesc));
 
-    const DxcHLSLType &type = m_Data->Types[m_TypeId];
+    const ReflectionVariableType &type = m_Data->Types[m_TypeId];
 
     *pDesc = D3D12_SHADER_TYPE_DESC {
 
@@ -327,7 +327,7 @@ public:
 
     IFR(ZeroMemoryToOut(pDesc));
 
-    const DxcHLSLType &type = m_Data->Types[m_TypeId];
+    const ReflectionVariableType &type = m_Data->Types[m_TypeId];
 
     GetDesc(&pDesc->Desc);
     pDesc->DisplayName = m_NameDisplay.c_str();
@@ -399,13 +399,13 @@ public:
 class CHLSLFunctionParameter final : public ID3D12FunctionParameterReflection {
 
 protected:
-  const DxcHLSLReflectionData *m_Data = nullptr;
+  const ReflectionData *m_Data = nullptr;
   uint32_t m_NodeId = 0;
 
 public:
   CHLSLFunctionParameter() = default;
 
-  void Initialize(const DxcHLSLReflectionData &Data, uint32_t NodeId) {
+  void Initialize(const ReflectionData &Data, uint32_t NodeId) {
     m_Data = &Data;
     m_NodeId = NodeId;
   }
@@ -414,7 +414,7 @@ public:
 
     IFR(ZeroMemoryToOut(pDesc));
 
-    const DxcHLSLNode &node = m_Data->Nodes[m_NodeId];
+    const ReflectionNode &node = m_Data->Nodes[m_NodeId];
 
     LPCSTR semanticName =
         node.GetSemanticId() == uint32_t(-1)
@@ -426,8 +426,8 @@ public:
             ? m_Data->Strings[m_Data->NodeSymbols[m_NodeId].GetNameId()].c_str()
             : "";
 
-    const DxcHLSLParameter &param = m_Data->Parameters[node.GetLocalId()];
-    const DxcHLSLType &type = m_Data->Types[param.TypeId];
+    const ReflectionFunctionParameter &param = m_Data->Parameters[node.GetLocalId()];
+    const ReflectionVariableType &type = m_Data->Types[param.TypeId];
 
     *pDesc =
         D3D12_PARAMETER_DESC{name,
@@ -484,7 +484,7 @@ public:
 class CHLSLReflectionConstantBuffer final
     : public ID3D12ShaderReflectionConstantBuffer {
 protected:
-  const DxcHLSLReflectionData *m_Data;
+  const ReflectionData *m_Data;
   uint32_t m_ChildCount;
   D3D_CBUFFER_TYPE m_BufferType;
   std::vector<CHLSLReflectionVariable> m_Variables;
@@ -505,7 +505,7 @@ public:
     std::swap(m_VariablesByName, other.m_VariablesByName);
   }
 
-  void Initialize(const DxcHLSLReflectionData &Data, uint32_t NodeId,
+  void Initialize(const ReflectionData &Data, uint32_t NodeId,
                   const std::unordered_map<uint32_t, std::vector<uint32_t>>
                       &ChildrenNonRecursive,
                   CHLSLReflectionConstantBuffer *ConstantBuffer,
@@ -514,14 +514,14 @@ public:
     if (NodeId >= Data.Nodes.size())
       return;
 
-    const DxcHLSLNode &node = Data.Nodes[NodeId];
+    const ReflectionNode &node = Data.Nodes[NodeId];
 
     if (node.GetNodeType() != D3D12_HLSL_NODE_TYPE_REGISTER)
       return;
 
     const std::vector<uint32_t> &children = ChildrenNonRecursive.at(NodeId);
 
-    const DxcHLSLRegister &reg = Data.Registers[node.GetLocalId()];
+    const ReflectionShaderResource &reg = Data.Registers[node.GetLocalId()];
 
     if (Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO) {
 
@@ -570,7 +570,7 @@ public:
   }
 
   //$Globals (only if the global scope contains any VARIABLE node)
-  void InitializeGlobals(const DxcHLSLReflectionData &Data,
+  void InitializeGlobals(const ReflectionData &Data,
                   const std::vector<uint32_t> &Globals,
                   CHLSLReflectionConstantBuffer *ConstantBuffer,
                   std::vector<CHLSLReflectionType> &Types) {
@@ -588,7 +588,7 @@ public:
 
       uint32_t childId = Globals[i];
 
-      const DxcHLSLNode &node = Data.Nodes[childId];
+      const ReflectionNode &node = Data.Nodes[childId];
 
       std::string name;
 
@@ -649,7 +649,7 @@ ID3D12ShaderReflectionConstantBuffer *CHLSLReflectionVariable::GetBuffer() {
 
 struct DxcHLSLReflection : public IDxcHLSLReflection {
 
-  DxcHLSLReflectionData Data{};
+  ReflectionData Data{};
 
   std::vector<uint32_t> ChildCountsNonRecursive;
   std::unordered_map<uint32_t, std::vector<uint32_t>> ChildrenNonRecursive;
@@ -695,7 +695,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
     for (uint32_t i = 0; i < uint32_t(Data.Nodes.size()); ++i) {
 
-      const DxcHLSLNode &node = Data.Nodes[i];
+      const ReflectionNode &node = Data.Nodes[i];
 
       if (node.GetNodeType() == D3D12_HLSL_NODE_TYPE_VARIABLE &&
           !node.GetParentId())
@@ -752,7 +752,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
       for (uint32_t j = 0; j < node.GetChildCount(); ++j) {
 
-        const DxcHLSLNode &nodej = Data.Nodes[i + 1 + j];
+        const ReflectionNode &nodej = Data.Nodes[i + 1 + j];
 
         // Filter out definitions that were previously fwd declared
         // And resolve fwd declarations
@@ -796,7 +796,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
           Data, globalVars, &ConstantBuffers[Data.Buffers.size()], Types);
   }
 
-  DxcHLSLReflection(DxcHLSLReflectionData &&moved) : Data(moved) {
+  DxcHLSLReflection(ReflectionData &&moved) : Data(moved) {
     Finalize();
   }
 
@@ -849,7 +849,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     if (ResourceIndex >= Data.Registers.size())
       return E_INVALIDARG;
 
-    const DxcHLSLRegister &reg = Data.Registers[ResourceIndex];
+    const ReflectionShaderResource &reg = Data.Registers[ResourceIndex];
 
     LPCSTR name =
         Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO
@@ -861,7 +861,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
 
       if (reg.GetArrayId() != uint32_t(-1)) {
 
-        const DxcHLSLArray &arr = Data.Arrays[reg.GetArrayId()];
+        const ReflectionArray &arr = Data.Arrays[reg.GetArrayId()];
 
         pDesc->ArrayInfo.ArrayDims = arr.ArrayElem();
 
@@ -899,7 +899,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     if (EnumIndex >= NonFwdIds[int(FwdDeclType::ENUM)].size())
       return E_INVALIDARG;
 
-    const DxcHLSLEnumDesc &enm =
+    const ReflectionEnumeration &enm =
         Data.Enums[NonFwdIds[int(FwdDeclType::ENUM)][EnumIndex]];
 
     LPCSTR name =
@@ -922,8 +922,8 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     if (EnumIndex >= NonFwdIds[int(FwdDeclType::ENUM)].size())
       return E_INVALIDARG;
 
-    const DxcHLSLEnumDesc &enm = Data.Enums[NonFwdIds[int(FwdDeclType::ENUM)][EnumIndex]];
-    const DxcHLSLNode &parent = Data.Nodes[enm.NodeId];
+    const ReflectionEnumeration &enm = Data.Enums[NonFwdIds[int(FwdDeclType::ENUM)][EnumIndex]];
+    const ReflectionNode &parent = Data.Nodes[enm.NodeId];
 
     if (ValueIndex >= parent.GetChildCount())
       return E_INVALIDARG;
@@ -933,7 +933,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
             ? Data.Strings[Data.NodeSymbols[enm.NodeId].GetNameId()].c_str()
             : "";
 
-    const DxcHLSLNode &node = Data.Nodes[enm.NodeId + 1 + ValueIndex];
+    const ReflectionNode &node = Data.Nodes[enm.NodeId + 1 + ValueIndex];
 
     *pValueDesc =
         D3D12_HLSL_ENUM_VALUE{name, Data.EnumValues[node.GetLocalId()].Value};
@@ -950,12 +950,12 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     if (NodeId >= Data.Nodes.size())
       return E_INVALIDARG;
 
-    const DxcHLSLNode &node = Data.Nodes[NodeId];
+    const ReflectionNode &node = Data.Nodes[NodeId];
 
     if (Index >= node.GetAnnotationCount())
       return E_INVALIDARG;
 
-    const DxcHLSLAnnotation &annotation =
+    const ReflectionAnnotation &annotation =
         Data.Annotations[node.GetAnnotationStart() + Index];
 
     *pAnnotation = D3D12_HLSL_ANNOTATION{
@@ -974,7 +974,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     if (FunctionIndex >= NonFwdIds[int(FwdDeclType::FUNCTION)].size())
       return E_INVALIDARG;
 
-    const DxcHLSLFunction &func =
+    const ReflectionFunction &func =
         Data.Functions[NonFwdIds[int(FwdDeclType::FUNCTION)][FunctionIndex]];
 
     LPCSTR name =
@@ -1001,7 +1001,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
             ? Data.Strings[Data.NodeSymbols[NodeId].GetNameId()].c_str()
                       : "";
 
-    const DxcHLSLNode &node = Data.Nodes[NodeId];
+    const ReflectionNode &node = Data.Nodes[NodeId];
 
     uint32_t localId = node.GetLocalId();
     uint32_t parentId = node.GetParentId();
@@ -1096,7 +1096,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     if (FunctionIndex >= Data.Functions.size())
       return nullptr;
 
-    const DxcHLSLFunction &func = Data.Functions[FunctionIndex];
+    const ReflectionFunction &func = Data.Functions[FunctionIndex];
 
     if (ParameterIndex == D3D_RETURN_PARAMETER_INDEX) {
 
@@ -1167,7 +1167,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     if (NodeId >= Data.Nodes.size())
       return E_INVALIDARG;
 
-    const DxcHLSLNodeSymbol &nodeSymbol = Data.NodeSymbols[NodeId];
+    const ReflectionNodeSymbol &nodeSymbol = Data.NodeSymbols[NodeId];
 
     *pDesc = D3D12_HLSL_NODE_SYMBOL{
         Data.Strings[Data.Sources[nodeSymbol.GetFileSourceId()]].c_str(),
@@ -1226,7 +1226,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     UINT nodeId;
     IFR(GetNodeByName(Name, &nodeId));
 
-    const DxcHLSLNode &node = Data.Nodes[nodeId];
+    const ReflectionNode &node = Data.Nodes[nodeId];
 
     if (node.GetNodeType() != D3D12_HLSL_NODE_TYPE_REGISTER)
       return E_INVALIDARG;
@@ -1242,7 +1242,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     UINT nodeId;
     IFR(GetNodeByName(Name, &nodeId));
 
-    const DxcHLSLNode &node = Data.Nodes[nodeId];
+    const ReflectionNode &node = Data.Nodes[nodeId];
 
     if (node.IsFwdDeclare())
       return E_UNEXPECTED;
@@ -1262,7 +1262,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     UINT nodeId;
     IFR(GetNodeByName(Name, &nodeId));
 
-    const DxcHLSLNode &node = Data.Nodes[nodeId];
+    const ReflectionNode &node = Data.Nodes[nodeId];
 
     if (node.IsFwdDeclare())
       return E_UNEXPECTED;
@@ -1294,7 +1294,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
     UINT nodeId;
     IFR(GetNodeByName(Name, &nodeId));
 
-    const DxcHLSLNode &node = Data.Nodes[nodeId];
+    const ReflectionNode &node = Data.Nodes[nodeId];
 
     if (node.GetNodeType() != D3D12_HLSL_NODE_TYPE_FUNCTION)
       return E_INVALIDARG;
@@ -1554,7 +1554,7 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
                              UINT32 defineCount, std::string &warnings,
                              std::string &result,
                              dxcutil::DxcArgsFileSystem *msfPtr,
-                             DxcHLSLReflectionData &reflection) {
+                             ReflectionData &reflection) {
 
   raw_string_ostream o(result);
   raw_string_ostream w(warnings);
@@ -1596,9 +1596,9 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
   if (!opts.ReflOpt.DisableSymbols)
     reflectMask |= D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
-  DxcHLSLReflectionData refl;
+  ReflectionData refl;
   
-  if (DxcReflectionError err = DxcHLSLReflectionDataFromAST(
+  if (ReflectionError err = DxcHLSLReflectionDataFromAST(
           refl, astHelper.compiler, *astHelper.tu, opts.AutoBindingSpace,
           reflectMask, opts.DefaultRowMajor)) {
     printf("DxcHLSLReflectionDataFromAST failed %s\n", err.err);     //TODO:
@@ -1612,9 +1612,9 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
   std::vector<std::byte> bytes;
   refl.Dump(bytes);
 
-  DxcHLSLReflectionData deserialized;
+  ReflectionData deserialized;
   
-  if (DxcReflectionError err = deserialized.Deserialize(bytes, true)) {
+  if (ReflectionError err = deserialized.Deserialize(bytes, true)) {
     printf("Deserialize failed %s\n", err.err); // TODO:
     return E_FAIL;
   }
@@ -1634,9 +1634,9 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
 
   refl.Dump(bytes);
 
-  DxcHLSLReflectionData deserialized2;
+  ReflectionData deserialized2;
 
-  if (DxcReflectionError err = deserialized2.Deserialize(bytes, true)) {
+  if (ReflectionError err = deserialized2.Deserialize(bytes, true)) {
     printf("Deserialize failed %s\n", err.err); // TODO:
     return E_FAIL;
   }
@@ -1753,7 +1753,7 @@ public:
       std::unique_ptr<ASTUnit::RemappedFile> pRemap(
           new ASTUnit::RemappedFile(fName, pBuffer.release()));
 
-      DxcHLSLReflectionData reflection;
+      ReflectionData reflection;
 
       std::string errors;
       std::string rewrite;
@@ -1786,9 +1786,9 @@ public:
                                      data->GetBufferSize());
 
     try {
-      DxcHLSLReflectionData deserial;
+      ReflectionData deserial;
 
-      if (DxcReflectionError err = deserial.Deserialize(bytes, true))
+      if (ReflectionError err = deserial.Deserialize(bytes, true))
         return E_FAIL;
 
       *ppReflection = new DxcHLSLReflection(std::move(deserial));

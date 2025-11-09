@@ -349,8 +349,8 @@ static std::string BufferTypeToString(D3D_CBUFFER_TYPE Type) {
   return arr[Type];
 }
 
-static std::string GetBuiltinTypeName(const DxcHLSLReflectionData &Refl,
-                               const DxcHLSLType &Type) {
+static std::string GetBuiltinTypeName(const ReflectionData &Refl,
+                               const ReflectionVariableType &Type) {
 
   std::string type = "<unknown>";
 
@@ -447,8 +447,8 @@ static std::string GetBuiltinTypeName(const DxcHLSLReflectionData &Refl,
   return type;
 }
 
-static void FillArraySizes(const DxcHLSLReflectionData &Reflection,
-                           DxcHLSLArrayOrElements Elements,
+static void FillArraySizes(const ReflectionData &Reflection,
+                           ReflectionArrayOrElements Elements,
                            std::vector<uint32_t> &Array) {
 
   if (!Elements.IsArray())
@@ -459,7 +459,7 @@ static void FillArraySizes(const DxcHLSLReflectionData &Reflection,
     return;
   }
 
-  const DxcHLSLArray &arr =
+  const ReflectionArray &arr =
       Reflection.Arrays[Elements.GetMultiDimensionalArrayId()];
 
   for (uint32_t i = 0; i < arr.ArrayElem(); ++i)
@@ -467,8 +467,8 @@ static void FillArraySizes(const DxcHLSLReflectionData &Reflection,
 }
 
 static void PrintSymbol(JsonWriter &Json,
-                        const DxcHLSLReflectionData &Reflection,
-                        const DxcHLSLNodeSymbol &Sym, bool IsVerbose,
+                        const ReflectionData &Reflection,
+                        const ReflectionNodeSymbol &Sym, bool IsVerbose,
                         bool AllRelevantMembers, bool MuteName = false) {
 
   if ((Sym.GetNameId() || IsVerbose) && !MuteName) {
@@ -512,10 +512,10 @@ static void PrintSymbol(JsonWriter &Json,
 //Verbose and all members are slightly different;
 //Verbose will still print fields even if they aren't relevant,
 // while all members will not silence important info but that might not matter for human readability
-static void PrintNode(JsonWriter &Json, const DxcHLSLReflectionData &Reflection,
+static void PrintNode(JsonWriter &Json, const ReflectionData &Reflection,
                  uint32_t NodeId, bool IsVerbose, bool AllRelevantMembers) {
 
-  const DxcHLSLNode &node = Reflection.Nodes[NodeId];
+  const ReflectionNode &node = Reflection.Nodes[NodeId];
 
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
@@ -556,7 +556,7 @@ static void PrintNode(JsonWriter &Json, const DxcHLSLReflectionData &Reflection,
     Json.Array("Annotations", [&Reflection, &Json, node] {
       for (uint32_t i = 0; i < node.GetAnnotationCount(); ++i) {
 
-        const DxcHLSLAnnotation &annot =
+        const ReflectionAnnotation &annot =
             Reflection.Annotations[node.GetAnnotationStart() + i];
 
         std::string name =
@@ -585,7 +585,7 @@ static void PrintNode(JsonWriter &Json, const DxcHLSLReflectionData &Reflection,
   
     Json.Object("Symbol", [&Reflection, &Json, NodeId, IsVerbose,
                            AllRelevantMembers] {
-      const DxcHLSLNodeSymbol &sym = Reflection.NodeSymbols[NodeId];
+      const ReflectionNodeSymbol &sym = Reflection.NodeSymbols[NodeId];
       PrintSymbol(Json, Reflection, sym, IsVerbose, AllRelevantMembers);
     });
 
@@ -593,11 +593,11 @@ static void PrintNode(JsonWriter &Json, const DxcHLSLReflectionData &Reflection,
     Json.NullField("Symbol");
 }
 
-static void PrintRegister(JsonWriter &Json, const DxcHLSLReflectionData &Reflection,
+static void PrintRegister(JsonWriter &Json, const ReflectionData &Reflection,
                           uint32_t RegisterId, bool IsVerbose,
                           bool AllRelevantMembers) {
 
-  const DxcHLSLRegister &reg = Reflection.Registers[RegisterId];
+  const ReflectionShaderResource &reg = Reflection.Registers[RegisterId];
 
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
@@ -640,7 +640,7 @@ static void PrintRegister(JsonWriter &Json, const DxcHLSLReflectionData &Reflect
       if (reg.GetArrayId() == uint32_t(-1))
         return;
 
-      const DxcHLSLArray &arr = Reflection.Arrays[reg.GetArrayId()];
+      const ReflectionArray &arr = Reflection.Arrays[reg.GetArrayId()];
 
       for (uint32_t i = 0; i < uint32_t(arr.ArrayElem()); ++i)
         Json.Value(uint64_t(Reflection.ArraySizes[arr.ArrayStart() + i]));
@@ -686,7 +686,7 @@ static void PrintRegister(JsonWriter &Json, const DxcHLSLReflectionData &Reflect
   }
 }
 
-static void PrintTypeName(const DxcHLSLReflectionData &Reflection, uint32_t TypeId,
+static void PrintTypeName(const ReflectionData &Reflection, uint32_t TypeId,
                           bool HasSymbols, bool IsVerbose,
                           bool AllRelevantMembers, JsonWriter &Json,
                           const char *NameForTypeName = "Name") {
@@ -700,7 +700,7 @@ static void PrintTypeName(const DxcHLSLReflectionData &Reflection, uint32_t Type
   std::string underlyingName;
   std::vector<uint32_t> underlyingArraySizes;
 
-  const DxcHLSLType &type = Reflection.Types[TypeId];
+  const ReflectionVariableType &type = Reflection.Types[TypeId];
 
   if (!HasSymbols) {
     name = GetBuiltinTypeName(Reflection, type);
@@ -708,7 +708,7 @@ static void PrintTypeName(const DxcHLSLReflectionData &Reflection, uint32_t Type
   }
 
   else {
-    const DxcHLSLTypeSymbol &symbol = Reflection.TypeSymbols[TypeId];
+    const ReflectionVariableTypeSymbol &symbol = Reflection.TypeSymbols[TypeId];
     name = Reflection.Strings[symbol.DisplayNameId];
     FillArraySizes(Reflection, symbol.DisplayArray, arraySizes);
     underlyingName = Reflection.Strings[symbol.UnderlyingNameId];
@@ -734,12 +734,12 @@ static void PrintTypeName(const DxcHLSLReflectionData &Reflection, uint32_t Type
     });
 }
 
-static void PrintType(const DxcHLSLReflectionData &Reflection, uint32_t TypeId,
+static void PrintType(const ReflectionData &Reflection, uint32_t TypeId,
                       bool HasSymbols, bool IsVerbose, bool AllRelevantMembers,
                       JsonWriter &Json, bool Recursive,
                       const char *NameForTypeName = "Name") {
 
-  const DxcHLSLType &type = Reflection.Types[TypeId];
+  const ReflectionVariableType &type = Reflection.Types[TypeId];
 
   PrintTypeName(Reflection, TypeId, HasSymbols, IsVerbose, AllRelevantMembers,
                 Json, NameForTypeName);
@@ -802,7 +802,7 @@ static void PrintType(const DxcHLSLReflectionData &Reflection, uint32_t TypeId,
     Json.NullField("Members");
 }
 
-static void PrintParameter(const DxcHLSLReflectionData &Reflection, uint32_t TypeId,
+static void PrintParameter(const ReflectionData &Reflection, uint32_t TypeId,
                            bool HasSymbols, bool IsVerbose, JsonWriter &Json,
                            uint32_t SemanticId, uint8_t InterpolationMode,
                            uint8_t Flags, bool AllRelevantMembers) {
@@ -843,11 +843,11 @@ static void PrintParameter(const DxcHLSLReflectionData &Reflection, uint32_t Typ
     Json.StringField("Interpolation", interpolationModes[InterpolationMode]);
 }
 
-static void PrintFunction(JsonWriter &Json, const DxcHLSLReflectionData &Reflection,
+static void PrintFunction(JsonWriter &Json, const ReflectionData &Reflection,
                           uint32_t FunctionId, bool IsVerbose,
                           bool AllRelevantMembers) {
 
-  const DxcHLSLFunction &func = Reflection.Functions[FunctionId];
+  const ReflectionFunction &func = Reflection.Functions[FunctionId];
 
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
@@ -880,10 +880,10 @@ static void PrintFunction(JsonWriter &Json, const DxcHLSLReflectionData &Reflect
     for (uint32_t i = 0; i < uint32_t(func.GetNumParameters()); ++i) {
 
       uint32_t nodeId = func.GetNodeId() + 1 + i;
-      const DxcHLSLNode &node = Reflection.Nodes[nodeId];
+      const ReflectionNode &node = Reflection.Nodes[nodeId];
       uint32_t localId = node.GetLocalId();
 
-      const DxcHLSLParameter &param = Reflection.Parameters[localId];
+      const ReflectionFunctionParameter &param = Reflection.Parameters[localId];
       std::string paramName =
           hasSymbols
               ? Reflection.Strings[Reflection.NodeSymbols[nodeId].GetNameId()]
@@ -895,7 +895,7 @@ static void PrintFunction(JsonWriter &Json, const DxcHLSLReflectionData &Reflect
 
         if (hasSymbols) {
 
-          const DxcHLSLNodeSymbol &sym = Reflection.NodeSymbols[nodeId];
+          const ReflectionNodeSymbol &sym = Reflection.NodeSymbols[nodeId];
 
           Json.Object("Symbol", [&Json, &Reflection, &sym, IsVerbose,
                                  AllRelevantMembers]() {
@@ -929,9 +929,9 @@ static void PrintFunction(JsonWriter &Json, const DxcHLSLReflectionData &Reflect
 
   else {
 
-    const DxcHLSLNode &node =
+    const ReflectionNode &node =
         Reflection.Nodes[func.GetNodeId() + 1 + func.GetNumParameters()];
-    const DxcHLSLParameter &param = Reflection.Parameters[node.GetLocalId()];
+    const ReflectionFunctionParameter &param = Reflection.Parameters[node.GetLocalId()];
 
     Json.Object("ReturnType", [&Reflection, &func, &Json, hasSymbols, IsVerbose,
                                &param, &node, AllRelevantMembers]() {
@@ -942,16 +942,16 @@ static void PrintFunction(JsonWriter &Json, const DxcHLSLReflectionData &Reflect
   }
 }
 
-static void PrintEnumValue(JsonWriter &Json, const DxcHLSLReflectionData &Reflection,
+static void PrintEnumValue(JsonWriter &Json, const ReflectionData &Reflection,
                            uint32_t NodeId, bool IsVerbose,
                            bool AllRelevantMembers) {
 
-  const DxcHLSLNode &child = Reflection.Nodes[NodeId];
+  const ReflectionNode &child = Reflection.Nodes[NodeId];
 
-  const DxcHLSLEnumValue &val = Reflection.EnumValues[child.GetLocalId()];
+  const ReflectionEnumValue &val = Reflection.EnumValues[child.GetLocalId()];
 
-  const DxcHLSLNode &parent = Reflection.Nodes[child.GetParentId()];
-  const DxcHLSLEnumDesc &enm = Reflection.Enums[parent.GetLocalId()];
+  const ReflectionNode &parent = Reflection.Nodes[child.GetParentId()];
+  const ReflectionEnumeration &enm = Reflection.Enums[parent.GetLocalId()];
 
   switch (enm.Type) {
   case D3D12_HLSL_ENUM_TYPE_INT:
@@ -969,7 +969,7 @@ static void PrintEnumValue(JsonWriter &Json, const DxcHLSLReflectionData &Reflec
 
   if (hasSymbols) {
 
-    const DxcHLSLNodeSymbol &sym = Reflection.NodeSymbols[NodeId];
+    const ReflectionNodeSymbol &sym = Reflection.NodeSymbols[NodeId];
 
     Json.Object(
         "Symbol", [&Json, &Reflection, &sym, IsVerbose, AllRelevantMembers]() {
@@ -981,12 +981,12 @@ static void PrintEnumValue(JsonWriter &Json, const DxcHLSLReflectionData &Reflec
     Json.NullField("Symbol");
 }
 
-static void PrintEnum(JsonWriter &Json, const DxcHLSLReflectionData &Reflection,
+static void PrintEnum(JsonWriter &Json, const ReflectionData &Reflection,
                       uint32_t EnumId, bool IsVerbose,
                       bool AllRelevantMembers) {
 
-  const DxcHLSLEnumDesc &enm = Reflection.Enums[EnumId];
-  const DxcHLSLNode &node = Reflection.Nodes[enm.NodeId];
+  const ReflectionEnumeration &enm = Reflection.Enums[EnumId];
+  const ReflectionNode &node = Reflection.Nodes[enm.NodeId];
 
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
@@ -1022,19 +1022,19 @@ static void PrintEnum(JsonWriter &Json, const DxcHLSLReflectionData &Reflection,
   });
 }
 
-static void PrintAnnotation(JsonWriter &Json, const DxcHLSLReflectionData &Reflection,
-                            const DxcHLSLAnnotation &Annot) {
+static void PrintAnnotation(JsonWriter &Json, const ReflectionData &Reflection,
+                            const ReflectionAnnotation &Annot) {
   Json.StringField("Contents",
                    Reflection.StringsNonDebug[Annot.GetStringNonDebug()]);
   Json.StringField("Type", Annot.GetIsBuiltin() ? "Builtin" : "User");
 }
 
-static uint32_t PrintBufferMember(const DxcHLSLReflectionData &Reflection,
+static uint32_t PrintBufferMember(const ReflectionData &Reflection,
                                   uint32_t NodeId, uint32_t ChildId, bool HasSymbols,
                                   bool IsVerbose, bool AllRelevantMembers,
                                   JsonWriter &Json) {
 
-  const DxcHLSLNode &node = Reflection.Nodes[NodeId];
+  const ReflectionNode &node = Reflection.Nodes[NodeId];
 
   JsonWriter::ObjectScope root(Json);
 
@@ -1057,13 +1057,13 @@ static uint32_t PrintBufferMember(const DxcHLSLReflectionData &Reflection,
   return node.GetChildCount();
 }
 
-static void PrintBuffer(const DxcHLSLReflectionData &Reflection, uint32_t BufferId,
+static void PrintBuffer(const ReflectionData &Reflection, uint32_t BufferId,
                       bool HasSymbols, bool IsVerbose, bool AllRelevantMembers,
                       JsonWriter &Json) {
     
   JsonWriter::ObjectScope nodeRoot(Json);
-  const DxcHLSLBuffer &buf = Reflection.Buffers[BufferId];
-  const DxcHLSLNode &node = Reflection.Nodes[buf.NodeId];
+  const ReflectionShaderBuffer &buf = Reflection.Buffers[BufferId];
+  const ReflectionNode &node = Reflection.Nodes[buf.NodeId];
 
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
@@ -1092,11 +1092,11 @@ static void PrintBuffer(const DxcHLSLReflectionData &Reflection, uint32_t Buffer
     });
 }
 
-static void PrintStatement(const DxcHLSLReflectionData &Reflection,
-                           const DxcHLSLStatement &Stmt, JsonWriter &Json,
+static void PrintStatement(const ReflectionData &Reflection,
+                           const ReflectionScopeStmt &Stmt, JsonWriter &Json,
                            bool IsVerbose) {
 
-  const DxcHLSLNode &node = Reflection.Nodes[Stmt.GetNodeId()];
+  const ReflectionNode &node = Reflection.Nodes[Stmt.GetNodeId()];
 
   uint32_t nodesA = Stmt.GetNodeCount();
   uint32_t nodesB = node.GetChildCount() - nodesA - Stmt.HasConditionVar();
@@ -1115,7 +1115,7 @@ static void PrintStatement(const DxcHLSLReflectionData &Reflection,
     Json.UIntField("NodesB", nodesB);
 }
 
-uint32_t PrintNodeRecursive(const DxcHLSLReflectionData &Reflection,
+uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
                             uint32_t NodeId, JsonWriter &Json, bool IsVerbose,
                             bool IsHumanFriendly) {
 
@@ -1125,7 +1125,7 @@ uint32_t PrintNodeRecursive(const DxcHLSLReflectionData &Reflection,
   
   //Self
 
-  DxcHLSLNode node = Reflection.Nodes[NodeId];
+  ReflectionNode node = Reflection.Nodes[NodeId];
 
   // If this happens, we found the one defining a fwd declare.
   // But this can happen in a different scope than the symbol ends up in.
@@ -1149,7 +1149,7 @@ uint32_t PrintNodeRecursive(const DxcHLSLReflectionData &Reflection,
   if (nodeType == D3D12_HLSL_NODE_TYPE_FUNCTION)
     Json.Object("Function", [&node, &Reflection, &Json, IsVerbose,
                              IsHumanFriendly, &childrenToSkip]() {
-      DxcHLSLFunction func = Reflection.Functions[node.GetLocalId()];
+      ReflectionFunction func = Reflection.Functions[node.GetLocalId()];
       PrintFunction(Json, Reflection, node.GetLocalId(), IsVerbose,
                     !IsHumanFriendly);
       childrenToSkip = func.GetNumParameters() + func.HasReturn();
@@ -1256,7 +1256,7 @@ uint32_t PrintNodeRecursive(const DxcHLSLReflectionData &Reflection,
 
     Json.Object(stmtType, [&node, &Reflection, &Json, IsVerbose,
                                    IsHumanFriendly, NodeId, &childrenToSkip, nodeType]() {
-      const DxcHLSLStatement &stmt = Reflection.Statements[node.GetLocalId()];
+      const ReflectionScopeStmt &stmt = Reflection.Statements[node.GetLocalId()];
 
       uint32_t start = NodeId + 1;
 
@@ -1339,7 +1339,7 @@ uint32_t PrintNodeRecursive(const DxcHLSLReflectionData &Reflection,
 
 //IsHumanFriendly = false: Raw view of the real file data
 //IsHumanFriendly = true:  Clean view that's relatively close to the real tree
-std::string DxcHLSLReflectionData::ToJson(
+std::string ReflectionData::ToJson(
                           bool IsHumanFriendly, bool IsVerbose) const {
 
   JsonWriter json;
@@ -1407,7 +1407,7 @@ std::string DxcHLSLReflectionData::ToJson(
         for (uint32_t i = 0; i < uint32_t(Parameters.size()); ++i) {
           JsonWriter::ObjectScope nodeRoot(json);
 
-          const DxcHLSLParameter &param = Parameters[i];
+          const ReflectionFunctionParameter &param = Parameters[i];
           std::string paramName =
               hasSymbols ? Strings[NodeSymbols[param.NodeId].GetNameId()]
                          : std::to_string(i);
@@ -1437,7 +1437,7 @@ std::string DxcHLSLReflectionData::ToJson(
 
       json.Array("Annotations", [this, &json, hasSymbols] {
         for (uint32_t i = 0; i < uint32_t(Annotations.size()); ++i) {
-          const DxcHLSLAnnotation &annot = Annotations[i];
+          const ReflectionAnnotation &annot = Annotations[i];
           JsonWriter::ObjectScope valueRoot(json);
           json.UIntField("StringId", annot.GetStringNonDebug());
           PrintAnnotation(json, *this, annot);
@@ -1446,7 +1446,7 @@ std::string DxcHLSLReflectionData::ToJson(
 
       json.Array("Arrays", [this, &json] {
         for (uint32_t i = 0; i < uint32_t(Arrays.size()); ++i) {
-          const DxcHLSLArray &arr = Arrays[i];
+          const ReflectionArray &arr = Arrays[i];
           JsonWriter::ObjectScope valueRoot(json);
           json.UIntField("ArrayElem", arr.ArrayElem());
           json.UIntField("ArrayStart", arr.ArrayStart());
@@ -1500,7 +1500,7 @@ std::string DxcHLSLReflectionData::ToJson(
       json.Array("Statements", [this, &json, IsVerbose] {
         for (uint32_t i = 0; i < uint32_t(Statements.size()); ++i) {
 
-          const DxcHLSLStatement &stat = Statements[i];
+          const ReflectionScopeStmt &stat = Statements[i];
           JsonWriter::ObjectScope valueRoot(json);
           json.StringField(
               "Type", NodeTypeToString(

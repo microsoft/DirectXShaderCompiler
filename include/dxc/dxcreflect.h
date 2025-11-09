@@ -21,11 +21,13 @@
 #define CLSID_SCOPE
 #endif
 
-//Expose HLSL reflection before DXIL/SPIRV generation.
-//(Ran after the preprocessed HLSL is obtained).
-//This is useful to avoid custom parsers from reinventing the wheel.
-//You could use it to find all entrypoints even if [shader("")] isn't used,
-//Find struct/enum information, find out about optimized out registers, etc.
+// Expose HLSL reflection before DXIL/SPIRV generation.
+// (Ran after the preprocessed HLSL is obtained).
+// This is useful to avoid custom parsers from reinventing the wheel.
+// You could use it to find all entrypoints even if [shader("")] isn't used,
+// Find struct/enum information, find out about optimized out registers, etc.
+// This is a limited AST that doesn't include anything beyond symbols 
+// (so no details about instructions).
 
 enum D3D12_HLSL_REFLECTION_FEATURE {
 
@@ -67,7 +69,7 @@ operator~(D3D12_HLSL_REFLECTION_FEATURE a) {
 
 struct D3D12_HLSL_REFLECTION_DESC {
   D3D12_HLSL_REFLECTION_FEATURE Features;
-  UINT ConstantBufferCount;
+  UINT BufferCount;
   UINT ResourceCount;
   UINT FunctionCount;
   UINT EnumCount;
@@ -177,8 +179,6 @@ struct D3D12_HLSL_NODE_SYMBOL {
   UINT ColumnStart;
   UINT ColumnEnd;
 };
-
-// TODO: Move to d3d12shader.h
 
 struct D3D12_ARRAY_DESC {
   UINT ArrayDims;
