@@ -16,10 +16,9 @@
 
 namespace hlsl {
   
-[[nodiscard]] ReflectionError ReflectionData::RegisterString(
-    uint32_t &StringId,
-    const std::string &Name,
-                                               bool IsNonDebug) {
+[[nodiscard]] ReflectionError
+ReflectionData::RegisterString(uint32_t &StringId, const std::string &Name,
+                               bool IsNonDebug) {
 
   if (Name.size() >= 32768)
     return HLSL_REFL_ERR("Strings are limited to 32767");
@@ -369,8 +368,8 @@ template <typename T, typename T2, typename ...args>
   return ReflectionErrorSuccess;
 }
 
-static constexpr uint32_t DxcReflectionDataMagic = DXC_FOURCC('D', 'H', 'R', 'D');
-static constexpr uint16_t DxcReflectionDataVersion = 0;
+static constexpr uint32_t ReflectionDataMagic = DXC_FOURCC('H', 'L', 'R', 'D');
+static constexpr uint16_t ReflectionDataVersion = 0;
 
 void ReflectionData::StripSymbols() {
   Strings.clear();
@@ -480,7 +479,7 @@ void ReflectionData::Dump(std::vector<std::byte> &Bytes) const {
   toReserve = 0;
 
   UnsafeCast<DxcHLSLHeader>(Bytes, toReserve) = {
-      DxcReflectionDataMagic,           DxcReflectionDataVersion,
+      ReflectionDataMagic,           ReflectionDataVersion,
       uint16_t(Sources.size()),         Features,
       uint32_t(StringsNonDebug.size()), uint32_t(Strings.size()),
       uint32_t(Nodes.size()),           uint32_t(Registers.size()),
@@ -532,10 +531,10 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
   if (ReflectionError err = Consume<DxcHLSLHeader>(Bytes, off, header))
       return err;
 
-  if (header.MagicNumber != DxcReflectionDataMagic)
+  if (header.MagicNumber != ReflectionDataMagic)
     return HLSL_REFL_ERR("Invalid magic number");
 
-  if (header.Version != DxcReflectionDataVersion)
+  if (header.Version != ReflectionDataVersion)
     return HLSL_REFL_ERR("Unrecognized version number");
 
   Features = header.Features;

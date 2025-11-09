@@ -1601,54 +1601,58 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
   if (ReflectionError err = DxcHLSLReflectionDataFromAST(
           refl, astHelper.compiler, *astHelper.tu, opts.AutoBindingSpace,
           reflectMask, opts.DefaultRowMajor)) {
-    printf("DxcHLSLReflectionDataFromAST failed %s\n", err.err);     //TODO:
+    fprintf(stderr, "DxcHLSLReflectionDataFromAST failed %s\n", err.err);
     return E_FAIL;
   }
 
   printf("%s\n", refl.ToJson().c_str());
 
-  // Test serialization
+  // Debug: Verify deserialization, otherwise print error.
 
-  std::vector<std::byte> bytes;
-  refl.Dump(bytes);
+  #ifndef NDEBUG
 
-  ReflectionData deserialized;
-  
-  if (ReflectionError err = deserialized.Deserialize(bytes, true)) {
-    printf("Deserialize failed %s\n", err.err); // TODO:
-    return E_FAIL;
-  }
+    std::vector<std::byte> bytes;
+    refl.Dump(bytes);
 
-  if (!(deserialized == refl)) {
-    printf("Dump or Deserialize doesn't match\n");  //TODO:
-    return E_FAIL;
-  }
+    ReflectionData deserialized;
 
-  printf("Reflection size: %" PRIu64 "\n", bytes.size());
+    if (ReflectionError err = deserialized.Deserialize(bytes, true)) {
+      fprintf(stderr, "Deserialize failed %s\n", err.err);
+      return E_FAIL;
+    }
 
-  // Test stripping symbols
+    if (!(deserialized == refl)) {
+      fprintf(stderr, "Dump or Deserialize doesn't match\n");
+      return E_FAIL;
+    }
 
-  refl.StripSymbols();
+    printf("Reflection binary size: %" PRIu64 "\n", bytes.size());
 
-  printf("%s\n", refl.ToJson().c_str());
+    // Test stripping symbols
 
-  refl.Dump(bytes);
+    if (!opts.ReflOpt.DisableSymbols) {
 
-  ReflectionData deserialized2;
+      deserialized.StripSymbols();
+      deserialized.Dump(bytes);
 
-  if (ReflectionError err = deserialized2.Deserialize(bytes, true)) {
-    printf("Deserialize failed %s\n", err.err); // TODO:
-    return E_FAIL;
-  }
+      ReflectionData deserialized2;
 
-  if (!(deserialized2 == refl)) {
-    printf("Dump or Deserialize doesn't match\n");      //TODO:
-    return E_FAIL;
-  }
+      if (ReflectionError err = deserialized2.Deserialize(bytes, true)) {
+        fprintf(stderr, "Deserialize failed %s\n", err.err);
+        return E_FAIL;
+      }
 
-  printf("Stripped reflection size: %" PRIu64 "\n", bytes.size());
+      if (!(deserialized2 == deserialized)) {
+        fprintf(stderr, "Dump or Deserialize doesn't match\n");
+        return E_FAIL;
+      }
 
-  reflection = std::move(deserialized);
+      printf("Stripped reflection size: %" PRIu64 "\n", bytes.size());
+    }
+
+  #endif
+
+  reflection = std::move(refl);
 
   // Flush and return results.
   o.flush();
