@@ -741,11 +741,43 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
           const TemplateSpecializationType *templateDesc =
               display->getAs<TemplateSpecializationType>();
 
-          assert(templateDesc && "Expected a valid TemplateSpecializationType");
-          innerType = templateDesc->getArg(0).getAsType();
+          // Case 1: T = StructuredBuffer<T> then underlying has a type, but sugared doesn't.
+          // Loses syntax sugar, but will still be correct.
 
-          if (svt == D3D_SVT_RWBUFFER || svt == D3D_SVT_BUFFER || svt == D3D_SVT_CBUFFER)
-            innerTypeName = innerType.getUnqualifiedType().getAsString(policy);
+          bool useUnderlying = !templateDesc;
+
+          // Case 2: TextureCube = TextureCube<T = float4> 
+          
+          if (templateDesc && displayName == underlyingName &&
+              !templateDesc->getNumArgs())
+            useUnderlying = true;
+
+          if (useUnderlying) {
+
+            assert(params.size() &&
+                   "Expected a TemplateSpecializationType with > 0 args");
+
+            innerType = params[0].getAsType();
+
+            if (svt == D3D_SVT_RWBUFFER || svt == D3D_SVT_BUFFER ||
+                svt == D3D_SVT_CBUFFER)
+              innerTypeName =
+                  innerType.getUnqualifiedType().getAsString(policy);
+
+          } else {
+
+            assert(templateDesc &&
+                   "Expected a valid TemplateSpecializationType");
+            assert(templateDesc->getNumArgs() &&
+                   "Expected a TemplateSpecializationType with > 0 args");
+
+            innerType = templateDesc->getArg(0).getAsType();
+
+            if (svt == D3D_SVT_RWBUFFER || svt == D3D_SVT_BUFFER ||
+                svt == D3D_SVT_CBUFFER)
+              innerTypeName =
+                  innerType.getUnqualifiedType().getAsString(policy);
+          }
         }
       }
     }
