@@ -173,11 +173,20 @@ int main(int argc, const char **argv) {
     IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
     IFT(dxcSupport.CreateInstance(CLSID_DxcReflector, &pReflector));
 
-    IFT(pReflector->FromSource(pSource, wName.c_str(),
-                               (LPCWSTR*)argStrings.Utf8CharPtrVector.data(),
-                               uint32_t(argStrings.Utf8CharPtrVector.size()),
-                                      nullptr, 0, pIncludeHandler,
-                                      &pRewriteResult));
+    std::vector<std::wstring> wargs;
+    std::vector<LPCWSTR> wargsC;
+
+    wargs.reserve(argStrings.Utf8CharPtrVector.size());
+    wargsC.reserve(argStrings.Utf8CharPtrVector.size());
+
+    for (const std::string &arg : argStrings.Utf8CharPtrVector) {
+      wargs.push_back(std::wstring(CA2W(arg.c_str())));
+      wargsC.push_back(wargs.back().c_str());
+    }
+
+    IFT(pReflector->FromSource(pSource, wName.c_str(), wargsC.data(),
+                               uint32_t(wargsC.size()), nullptr, 0,
+                               pIncludeHandler, &pRewriteResult));
 
     if (dxreflectorOpts.OutputObject.empty()) {
       // No -Fo, print to console
