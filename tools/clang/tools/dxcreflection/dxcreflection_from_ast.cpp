@@ -97,6 +97,8 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
 
         ++annotationCount;
       }
+
+      // TODO: Other types of attrs
     }
 
     if (const ValueDecl *valDecl = dyn_cast<ValueDecl>(DeclSelf)) {
@@ -116,6 +118,7 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
             return err;
 
           semanticId = uint16_t(semanticId32);
+          break;
         }
     }
   }
@@ -190,14 +193,14 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
 
     if (start.isValid() && end.isValid()) {
 
-      PresumedLoc presumed = SM.getPresumedLoc(start);
+        PresumedLoc presumed = SM.getPresumedLoc(start);
 
-      SourceLocation realEnd = SM.getFileLoc(end);
-      SourceLocation endOfToken =
-          Lexer::getLocForEndOfToken(realEnd, 0, SM, LangOpts);
-      PresumedLoc presumedEnd = SM.getPresumedLoc(endOfToken);
+        SourceLocation realEnd = SM.getFileLoc(end);
+        SourceLocation endOfToken =
+            Lexer::getLocForEndOfToken(realEnd, 0, SM, LangOpts);
+        PresumedLoc presumedEnd = SM.getPresumedLoc(endOfToken);
 
-      if (presumed.isValid() && presumedEnd.isValid()) {
+        if (presumed.isValid() && presumedEnd.isValid()) {
 
         uint32_t startLine = presumed.getLine();
         uint32_t startCol = presumed.getColumn();
@@ -249,20 +252,21 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
         sourceColumnStart = startCol;
         sourceColumnEnd = endCol;
         sourceId = uint16_t(i);
-      }
+        }
     }
 
     uint32_t nameId;
 
     if (ReflectionError err =
             Refl.RegisterString(nameId, UnqualifiedName, false))
-      return err;
+        return err;
 
     Refl.NodeSymbols.push_back({});
 
-    if(ReflectionError err = ReflectionNodeSymbol::Initialize(Refl.NodeSymbols.back(), nameId, sourceId, sourceLineCount, sourceLineStart,
-                          sourceColumnStart, sourceColumnEnd))
-                          return err;
+    if (ReflectionError err = ReflectionNodeSymbol::Initialize(
+            Refl.NodeSymbols.back(), nameId, sourceId, sourceLineCount,
+            sourceLineStart, sourceColumnStart, sourceColumnEnd))
+        return err;
   }
 
   // Link
@@ -1046,8 +1050,6 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
     ValueDecl *ValDesc, const std::vector<uint32_t> &ArraySize,
     ReflectionData &Refl, uint32_t AutoBindingSpace,
     uint32_t ParentNodeId, bool DefaultRowMaj) {
-
-  ArrayRef<hlsl::UnusualAnnotation *> UA = ValDesc->getUnusualAnnotations();
 
   DxcRegisterTypeInfo inputType = GetRegisterTypeInfo(ASTCtx, Type);
 

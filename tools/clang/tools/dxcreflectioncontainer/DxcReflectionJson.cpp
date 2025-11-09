@@ -509,9 +509,9 @@ static void PrintSymbol(JsonWriter &Json,
   }
 }
 
-//Verbose and all members are slightly different;
-//Verbose will still print fields even if they aren't relevant,
-// while all members will not silence important info but that might not matter for human readability
+// Verbose and all members are slightly different;
+// Verbose will still print fields even if they aren't relevant,
+//  while all members will not silence important info but that might not matter for human readability
 static void PrintNode(JsonWriter &Json, const ReflectionData &Reflection,
                  uint32_t NodeId, bool IsVerbose, bool AllRelevantMembers) {
 
@@ -1123,7 +1123,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
   
-  //Self
+  // Self
 
   ReflectionNode node = Reflection.Nodes[NodeId];
 
@@ -1144,7 +1144,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
 
   uint32_t childrenToSkip = 0;
 
-  //Function
+  // Function
 
   if (nodeType == D3D12_HLSL_NODE_TYPE_FUNCTION)
     Json.Object("Function", [&node, &Reflection, &Json, IsVerbose,
@@ -1158,7 +1158,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
   else if (IsVerbose)
     Json.NullField("Function");
 
-  //Register
+  // Register
 
   if (nodeType == D3D12_HLSL_NODE_TYPE_REGISTER)
     Json.Object("Register",
@@ -1170,7 +1170,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
   else if (IsVerbose)
     Json.NullField("Register");
 
-  //Enum
+  // Enum
 
   if (nodeType == D3D12_HLSL_NODE_TYPE_ENUM)
     Json.Object("Enum", [&node, &Reflection, &Json, IsVerbose, IsHumanFriendly,
@@ -1183,7 +1183,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
   else if (IsVerbose)
     Json.NullField("Enum");
 
-  //Type
+  // Type
 
   bool isType = false;
   bool recurseType = false;
@@ -1211,10 +1211,10 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
   else if (IsVerbose)
     Json.NullField("Type");
 
-  //If; turns into ("Condition"), ("Body"), ("Else")
-  //While; turns into ("Condition"), ("Body")
-  //For; turns into ("Condition"), ("Init"), ("Body")
-  //Switch; turns into ("Condition"), ("Body")
+  // If; turns into ("Condition"), ("Body"), ("Else")
+  // While; turns into ("Condition"), ("Body")
+  // For; turns into ("Condition"), ("Init"), ("Body")
+  // Switch; turns into ("Condition"), ("Body")
 
   const char *stmtType = nullptr;
 
@@ -1320,7 +1320,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
     Json.NullField("For");
   }
 
-  //Children
+  // Children
   
   uint32_t start = NodeId + 1 + childrenToSkip;
   uint32_t end = NodeId + 1 + node.GetChildCount();
@@ -1337,8 +1337,8 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
   return node.GetChildCount();
 }
 
-//IsHumanFriendly = false: Raw view of the real file data
-//IsHumanFriendly = true:  Clean view that's relatively close to the real tree
+// IsHumanFriendly = false: Raw view of the real file data
+// IsHumanFriendly = true:  Clean view that's relatively close to the real tree
 std::string ReflectionData::ToJson(
                           bool IsHumanFriendly, bool IsVerbose) const {
 
