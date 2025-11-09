@@ -550,6 +550,20 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
     display = arr->getElementType().getNonReferenceType();
   }
 
+  // Unwrap enum in underlying to still treat it as a uint/int/etc.
+
+  if (const EnumType *enumTy = dyn_cast<EnumType>(underlying)) {
+
+    const EnumDecl *decl = enumTy->getDecl();
+
+    if (decl && !decl->getIntegerType().isNull())
+      underlying =
+          decl->getIntegerType().getNonReferenceType().getCanonicalType();
+
+    else
+      underlying = ASTCtx.IntTy;
+  }
+
   // Name; Omit struct, class and const keywords
 
   PrintingPolicy policy(ASTCtx.getLangOpts());
