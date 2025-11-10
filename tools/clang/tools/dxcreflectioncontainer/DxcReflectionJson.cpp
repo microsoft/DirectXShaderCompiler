@@ -647,7 +647,7 @@ static void PrintRegister(JsonWriter &Json, const ReflectionData &Reflection,
     });
   }
 
-  bool isBuffer = true;
+  bool printBufferId = true;
 
   switch (reg.GetType()) {
   case D3D_SIT_TEXTURE:
@@ -655,11 +655,13 @@ static void PrintRegister(JsonWriter &Json, const ReflectionData &Reflection,
   case D3D_SIT_UAV_RWTYPED:
   case D3D_SIT_RTACCELERATIONSTRUCTURE:
   case D3D_SIT_UAV_FEEDBACKTEXTURE:
-    isBuffer = false;
+  case D3D_SIT_UAV_RWBYTEADDRESS:
+  case D3D_SIT_BYTEADDRESS:
+    printBufferId = false;
     break;
   }
 
-  if (isBuffer || IsVerbose)
+  if (printBufferId || IsVerbose)
     Json.UIntField("BufferId", reg.GetBufferId());
 
   if (reg.GetFlags() || IsVerbose) {
