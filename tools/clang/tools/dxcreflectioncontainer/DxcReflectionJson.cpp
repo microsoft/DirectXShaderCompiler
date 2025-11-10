@@ -571,7 +571,8 @@ static void PrintNode(JsonWriter &Json, const ReflectionData &Reflection,
       }
     });
 
-  if ((node.IsFwdBckDefined() || node.IsFwdDeclare()) || IsVerbose) {
+  if (((node.IsFwdBckDefined() || node.IsFwdDeclare()) && AllRelevantMembers) ||
+      IsVerbose) {
 
     Json.BoolField("IsFwdDeclare", node.IsFwdDeclare());
     Json.BoolField("IsFwdBackDefined", node.IsFwdBckDefined());
@@ -1129,9 +1130,14 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
 
   ReflectionNode node = Reflection.Nodes[NodeId];
 
+  // In case we're a fwd declare, don't change how we walk the tree
+
+  uint32_t nodeChildCountForRet = node.GetChildCount();
+
   // If this happens, we found the one defining a fwd declare.
   // But this can happen in a different scope than the symbol ends up in.
   // Mute this node.
+  // (This should be checked by the caller to avoid empty objects laying around)
   if (node.IsFwdBckDefined() && !node.IsFwdDeclare())
     return node.GetChildCount();
 
@@ -1282,6 +1288,14 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
         Json.Array(bodyName, [&Reflection, &Json, IsVerbose, start, end,
                                IsHumanFriendly, NodeId]() {
           for (uint32_t i = start; i < end; ++i) {
+
+            const ReflectionNode &node = Reflection.Nodes[i];
+            
+            if (node.IsFwdBckDefined() && !node.IsFwdDeclare()) {
+              i += node.GetChildCount();
+              continue;
+            }
+
             JsonWriter::ObjectScope valueRoot(Json);
             i += PrintNodeRecursive(Reflection, i, Json, IsVerbose,
                                     IsHumanFriendly);
@@ -1301,6 +1315,14 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
         Json.Array(elseName, [&Reflection, &Json, IsVerbose, start, end,
                              IsHumanFriendly, NodeId]() {
           for (uint32_t i = start; i < end; ++i) {
+
+            const ReflectionNode &node = Reflection.Nodes[i];
+
+            if (node.IsFwdBckDefined() && !node.IsFwdDeclare()) {
+              i += node.GetChildCount();
+              continue;
+            }
+
             JsonWriter::ObjectScope valueRoot(Json);
             i += PrintNodeRecursive(Reflection, i, Json, IsVerbose,
                                     IsHumanFriendly);
@@ -1331,12 +1353,20 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
     Json.Array("Children", [&Reflection, &Json, IsVerbose, start, end,
                             IsHumanFriendly]() {
       for (uint32_t i = start; i < end; ++i) {
+
+        const ReflectionNode &node = Reflection.Nodes[i];
+        
+        if (node.IsFwdBckDefined() && !node.IsFwdDeclare()) {
+          i += node.GetChildCount();
+          continue;
+        }
+
         JsonWriter::ObjectScope valueRoot(Json);
         i += PrintNodeRecursive(Reflection, i, Json, IsVerbose, IsHumanFriendly);
       }
     });
 
-  return node.GetChildCount();
+  return nodeChildCountForRet;
 }
 
 // IsHumanFriendly = false: Raw view of the real file data
@@ -1517,6 +1547,14 @@ std::string ReflectionData::ToJson(
     else
       json.Array("Children", [this, &json, IsVerbose]() {
         for (uint32_t i = 1; i < Nodes.size(); ++i) {
+
+          const ReflectionNode &node = Nodes[i];
+
+          if (node.IsFwdBckDefined() && !node.IsFwdDeclare()) {
+            i += node.GetChildCount();
+            continue;
+          }
+
           JsonWriter::ObjectScope valueRoot(json);
           i += PrintNodeRecursive(*this, i, json, IsVerbose, true);
         }
