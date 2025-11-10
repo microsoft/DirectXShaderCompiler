@@ -2028,12 +2028,9 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
 }
 
 [[nodiscard]] ReflectionError DxcHLSLReflectionDataFromAST(
-    ReflectionData &Result,
-                                  CompilerInstance &Compiler,
-                                  TranslationUnitDecl &Ctx,
-                                  uint32_t AutoBindingSpace,
-                                  D3D12_HLSL_REFLECTION_FEATURE Features,
-                                  bool DefaultRowMaj) {
+    ReflectionData &Result, CompilerInstance &Compiler,
+    TranslationUnitDecl &Ctx, uint32_t AutoBindingSpace,
+    D3D12_HLSL_REFLECTION_FEATURE Features, bool DefaultRowMaj) {
 
   DiagnosticsEngine &Diags = Ctx.getParentASTContext().getDiagnostics();
   const SourceManager &SM = Compiler.getSourceManager();
@@ -2047,7 +2044,7 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
     Result.NodeSymbols.push_back({});
 
     if (ReflectionError err = ReflectionNodeSymbol::Initialize(
-            Result.NodeSymbols[0], 0, 0, 0, 0, 0, 0)) {
+            Result.NodeSymbols[0], 0, uint16_t(-1), 0, 0, 0, 0)) {
       llvm::errs()
           << "DxcHLSLReflectionDataFromAST: Failed to add root symbol: " << err;
       Result = {};
