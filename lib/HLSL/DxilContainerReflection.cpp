@@ -269,7 +269,7 @@ public:
 };
 
 class DxilShaderReflection : public DxilModuleReflection,
-                             public ID3D12ShaderReflection {
+                             public ID3D12ShaderReflection1 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   std::vector<D3D12_SIGNATURE_PARAMETER_DESC> m_InputSignature;
@@ -291,7 +291,8 @@ public:
   void SetPublicAPI(PublicAPI value) { m_PublicAPI = value; }
   static PublicAPI IIDToAPI(REFIID iid) {
     PublicAPI api = PublicAPI::Invalid;
-    if (IsEqualIID(__uuidof(ID3D12ShaderReflection), iid))
+    if (IsEqualIID(__uuidof(ID3D12ShaderReflection), iid) ||
+        IsEqualIID(__uuidof(ID3D12ShaderReflection1), iid))
       api = PublicAPI::D3D12;
     else if (IsEqualIID(IID_ID3D11ShaderReflection_43, iid))
       api = PublicAPI::D3D11_43;
@@ -306,22 +307,31 @@ public:
     HRESULT hr = E_NOINTERFACE;
 
     // There is non-standard handling of QueryInterface:
-    // - although everything uses the same vtable as ID3D12ShaderReflection,
+    // - although d3d11 and older d3d12 use the same vtable as
+    // ID3D12ShaderReflection,
     //   there are differences in behavior depending on the API version, and
     //   there are 3 of these - it's not just d3d11 vs d3d12.
+    // - This changed in latest d3d12 when ID3D12ShaderReflection1 was
+    // introduced to be non-breaking.
     // - when the object is created the API version is fixed
     // - from that point on, this object can only be QI'd for the matching API
     //   version.
     PublicAPI api = IIDToAPI(iid);
-    if (api == m_PublicAPI) {
+
+    if (IsEqualIID(__uuidof(ID3D12ShaderReflection1), iid)) {
+      *ppvObject = static_cast<ID3D12ShaderReflection1 *>(this);
+      hr = S_OK;
+    } else if (api == m_PublicAPI) {
       *ppvObject = static_cast<ID3D12ShaderReflection *>(this);
-      this->AddRef();
       hr = S_OK;
     } else if (IsEqualIID(__uuidof(IUnknown), iid)) {
       *ppvObject = static_cast<IUnknown *>(this);
-      this->AddRef();
       hr = S_OK;
     }
+
+    if (hr == S_OK)
+      this->AddRef();
+
     return hr;
   }
 
@@ -372,12 +382,16 @@ public:
   GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY,
                      UINT *pSizeZ) noexcept override;
 
+  STDMETHODIMP_(BOOL)
+  GetWaveSize(UINT *pWavePreferred, UINT *pWaveMin,
+              UINT *pWaveMax) noexcept override;
+
   STDMETHODIMP_(UINT64) GetRequiresFlags(THIS) noexcept override;
 };
 
 class CFunctionReflection;
 class DxilLibraryReflection : public DxilModuleReflection,
-                              public ID3D12LibraryReflection {
+                              public ID3D12LibraryReflection1 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
 
@@ -397,7 +411,8 @@ public:
   DXC_MICROCOM_TM_CTOR(DxilLibraryReflection)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) noexcept override {
-    return DoBasicQueryInterface<ID3D12LibraryReflection>(this, iid, ppvObject);
+    return DoBasicQueryInterface<ID3D12LibraryReflection1,
+                                 ID3D12LibraryReflection>(this, iid, ppvObject);
   }
 
   HRESULT Load(const DxilProgramHeader *pProgramHeader,
@@ -407,6 +422,9 @@ public:
   STDMETHOD(GetDesc)(D3D12_LIBRARY_DESC *pDesc) override;
 
   STDMETHOD_(ID3D12FunctionReflection *, GetFunctionByIndex)
+  (INT FunctionIndex) override;
+
+  STDMETHOD_(ID3D12FunctionReflection1 *, GetFunctionByIndex1)
   (INT FunctionIndex) override;
 };
 
@@ -440,6 +458,7 @@ HRESULT CreateDxilLibraryReflection(const DxilProgramHeader *pProgramHeader,
   if (!ppvObject)
     return E_INVALIDARG;
   if (!IsEqualIID(__uuidof(ID3D12LibraryReflection), iid) &&
+      !IsEqualIID(__uuidof(ID3D12LibraryReflection1), iid) &&
       !IsEqualIID(__uuidof(IUnknown), iid))
     return E_NOINTERFACE;
   CComPtr<DxilLibraryReflection> pReflection =
@@ -722,8 +741,12 @@ class CInvalidFunctionParameter final
 };
 CInvalidFunctionParameter g_InvalidFunctionParameter;
 
-class CInvalidFunction final : public ID3D12FunctionReflection {
+class CInvalidFunction final : public ID3D12FunctionReflection1 {
   STDMETHOD(GetDesc)(D3D12_FUNCTION_DESC *pDesc) { return E_FAIL; }
+  STDMETHOD(GetDesc1)(D3D12_FUNCTION_DESC1 *pDesc) { return E_FAIL; }
+
+  STDMETHOD(GetInputNode)(UINT i, D3D12_NODE_DESC *pDesc) { return E_FAIL; }
+  STDMETHOD(GetOutputNode)(UINT i, D3D12_NODE_DESC *pDesc) { return E_FAIL; }
 
   STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByIndex)
   (UINT BufferIndex) { return &g_InvalidSRConstantBuffer; }
@@ -743,6 +766,8 @@ class CInvalidFunction final : public ID3D12FunctionReflection {
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
   STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
   (INT ParameterIndex) { return &g_InvalidFunctionParameter; }
+
+  STDMETHOD_(UINT64, GetRequiresFlags)() { return 0; }
 };
 CInvalidFunction g_InvalidFunction;
 
@@ -2767,6 +2792,21 @@ UINT DxilShaderReflection::GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY,
   return x * y * z;
 }
 
+BOOL DxilShaderReflection::GetWaveSize(UINT *pWavePreferred, UINT *pWaveMin,
+                                       UINT *pWaveMax) noexcept {
+  if (!m_pDxilModule->GetShaderModel()->IsCS()) {
+    AssignToOutOpt(0u, pWavePreferred);
+    AssignToOutOpt(0u, pWaveMin);
+    AssignToOutOpt(0u, pWaveMax);
+    return false;
+  }
+  DxilWaveSize waveSize = m_pDxilModule->GetWaveSize();
+  AssignToOutOpt(waveSize.Preferred, pWavePreferred);
+  AssignToOutOpt(waveSize.Min, pWaveMin);
+  AssignToOutOpt(waveSize.Max, pWaveMax);
+  return true;
+}
+
 UINT64 DxilShaderReflection::GetRequiresFlags() noexcept {
   UINT64 result = m_pDxilModule->m_ShaderFlags.GetFeatureInfo();
   // FeatureInfo flags are identical, with the exception of a collision between:
@@ -2781,7 +2821,7 @@ UINT64 DxilShaderReflection::GetRequiresFlags() noexcept {
 
 // ID3D12FunctionReflection
 
-class CFunctionReflection final : public ID3D12FunctionReflection {
+class CFunctionReflection final : public ID3D12FunctionReflection1 {
 protected:
   DxilLibraryReflection *m_pLibraryReflection = nullptr;
   const Function *m_pFunction;
@@ -2814,6 +2854,10 @@ public:
 
   // ID3D12FunctionReflection
   STDMETHOD(GetDesc)(D3D12_FUNCTION_DESC *pDesc);
+  STDMETHOD(GetDesc1)(D3D12_FUNCTION_DESC1 *pDesc);
+
+  STDMETHOD(GetInputNode)(UINT i, D3D12_NODE_DESC *pDesc);
+  STDMETHOD(GetOutputNode)(UINT i, D3D12_NODE_DESC *pDesc);
 
   // BufferIndex relative to used constant buffers here
   STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByIndex)
@@ -2832,6 +2876,8 @@ public:
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
   STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
   (INT ParameterIndex) { return &g_InvalidFunctionParameter; }
+
+  STDMETHOD_(UINT64, GetRequiresFlags)() { return m_FeatureFlags; }
 };
 
 HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
@@ -2906,6 +2952,241 @@ HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
   //                           a subroutine
   // Unset: BOOL Has10Level9VertexShader; // TRUE, if there is a 10L9 VS blob
   // Unset: BOOL Has10Level9PixelShader; // TRUE, if there is a 10L9 PS blob
+  return S_OK;
+}
+
+HRESULT CFunctionReflection::GetDesc1(D3D12_FUNCTION_DESC1 *pDesc) {
+  DXASSERT_NOMSG(m_pLibraryReflection);
+  IFR(ZeroMemoryToOut(pDesc));
+
+  DXIL::ShaderKind kind = DXIL::ShaderKind::Library;
+  if (m_pProps) {
+    kind = m_pProps->shaderKind;
+  }
+
+  else {
+    return S_OK;
+  }
+
+  D3D12_COMPUTE_SHADER_DESC computeDesc = {m_pProps->WaveSize.Min,
+                                           m_pProps->WaveSize.Max,
+                                           m_pProps->WaveSize.Preferred,
+                                           {m_pProps->numThreads[0],
+                                            m_pProps->numThreads[1],
+                                            m_pProps->numThreads[2]}};
+
+  pDesc->RootSignatureSize = (UINT)m_pProps->serializedRootSignature.size();
+  pDesc->RootSignaturePtr = m_pProps->serializedRootSignature.data();
+
+  switch (kind) {
+
+  case ShaderKind::Pixel:
+    pDesc->ShaderType = D3D12_SHVER_PIXEL_SHADER;
+    pDesc->PixelShader.EarlyDepthStencil =
+        m_pProps->ShaderProps.PS.EarlyDepthStencil;
+    break;
+
+  case ShaderKind::Vertex:
+    pDesc->ShaderType = D3D12_SHVER_VERTEX_SHADER;
+    break;
+
+  case ShaderKind::Geometry:
+    pDesc->ShaderType = D3D12_SHVER_GEOMETRY_SHADER;
+    pDesc->GeometryShader = D3D12_GEOMETRY_SHADER_DESC{
+        (D3D12_PRIMITIVE)m_pProps->ShaderProps.GS.inputPrimitive,
+        m_pProps->ShaderProps.GS.maxVertexCount,
+        m_pProps->ShaderProps.GS.instanceCount,
+        {(D3D12_PRIMITIVE_TOPOLOGY)
+             m_pProps->ShaderProps.GS.streamPrimitiveTopologies[0],
+         (D3D12_PRIMITIVE_TOPOLOGY)
+             m_pProps->ShaderProps.GS.streamPrimitiveTopologies[1],
+         (D3D12_PRIMITIVE_TOPOLOGY)
+             m_pProps->ShaderProps.GS.streamPrimitiveTopologies[2],
+         (D3D12_PRIMITIVE_TOPOLOGY)
+             m_pProps->ShaderProps.GS.streamPrimitiveTopologies[3]}};
+    break;
+
+  case ShaderKind::Hull:
+    pDesc->ShaderType = D3D12_SHVER_HULL_SHADER;
+    pDesc->HullShader = D3D12_HULL_SHADER_DESC{
+        (D3D12_TESSELLATOR_DOMAIN)m_pProps->ShaderProps.HS.domain,
+        (D3D12_TESSELLATOR_PARTITIONING)m_pProps->ShaderProps.HS.partition,
+        (D3D12_TESSELLATOR_OUTPUT_PRIMITIVE)
+            m_pProps->ShaderProps.HS.outputPrimitive,
+        m_pProps->ShaderProps.HS.inputControlPoints,
+        m_pProps->ShaderProps.HS.outputControlPoints,
+        m_pProps->ShaderProps.HS.maxTessFactor};
+    break;
+
+  case ShaderKind::Domain:
+    pDesc->ShaderType = D3D12_SHVER_DOMAIN_SHADER;
+    pDesc->DomainShader = D3D12_DOMAIN_SHADER_DESC{
+        (D3D12_TESSELLATOR_DOMAIN)m_pProps->ShaderProps.DS.domain,
+        m_pProps->ShaderProps.DS.inputControlPoints};
+    break;
+
+  case ShaderKind::Compute:
+    pDesc->ShaderType = D3D12_SHVER_COMPUTE_SHADER;
+    pDesc->ComputeShader = computeDesc;
+    break;
+
+  case ShaderKind::RayGeneration:
+    pDesc->ShaderType = D3D12_SHVER_RAY_GENERATION_SHADER;
+    break;
+
+  case ShaderKind::Intersection:
+    pDesc->ShaderType = D3D12_SHVER_INTERSECTION_SHADER;
+    pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
+        m_pProps->ShaderProps.Ray.paramSizeInBytes,
+        m_pProps->ShaderProps.Ray.attributeSizeInBytes};
+    break;
+
+  case ShaderKind::AnyHit:
+    pDesc->ShaderType = D3D12_SHVER_ANY_HIT_SHADER;
+    pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
+        m_pProps->ShaderProps.Ray.paramSizeInBytes,
+        m_pProps->ShaderProps.Ray.attributeSizeInBytes};
+    break;
+
+  case ShaderKind::ClosestHit:
+    pDesc->ShaderType = D3D12_SHVER_CLOSEST_HIT_SHADER;
+    pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
+        m_pProps->ShaderProps.Ray.paramSizeInBytes,
+        m_pProps->ShaderProps.Ray.attributeSizeInBytes};
+    break;
+
+  case ShaderKind::Miss:
+    pDesc->ShaderType = D3D12_SHVER_MISS_SHADER;
+    pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
+        m_pProps->ShaderProps.Ray.paramSizeInBytes,
+        m_pProps->ShaderProps.Ray.attributeSizeInBytes};
+    break;
+
+  case ShaderKind::Callable:
+    pDesc->ShaderType = D3D12_SHVER_CALLABLE_SHADER;
+    pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
+        m_pProps->ShaderProps.Ray.paramSizeInBytes,
+        m_pProps->ShaderProps.Ray.attributeSizeInBytes};
+    break;
+
+  case ShaderKind::Mesh:
+    pDesc->ShaderType = D3D12_SHVER_MESH_SHADER;
+    pDesc->MeshShader = D3D12_MESH_SHADER_DESC{
+        m_pProps->ShaderProps.MS.payloadSizeInBytes,
+        m_pProps->ShaderProps.MS.maxVertexCount,
+        m_pProps->ShaderProps.MS.maxPrimitiveCount,
+        (D3D12_MESH_OUTPUT_TOPOLOGY)m_pProps->ShaderProps.MS.outputTopology,
+        {m_pProps->numThreads[0], m_pProps->numThreads[1],
+         m_pProps->numThreads[2]}};
+    break;
+
+  case ShaderKind::Amplification:
+    pDesc->ShaderType = D3D12_SHVER_AMPLIFICATION_SHADER;
+    pDesc->AmplificationShader = D3D12_AMPLIFICATION_SHADER_DESC{
+        m_pProps->ShaderProps.AS.payloadSizeInBytes,
+        {m_pProps->numThreads[0], m_pProps->numThreads[1],
+         m_pProps->numThreads[2]}};
+    break;
+
+  case ShaderKind::Node:
+    pDesc->ShaderType = D3D12_SHVER_NODE_SHADER;
+    pDesc->NodeShader = D3D12_NODE_SHADER_DESC{
+        computeDesc,
+        (D3D12_NODE_LAUNCH_TYPE)m_pProps->Node.LaunchType,
+        m_pProps->Node.IsProgramEntry,
+        m_pProps->Node.LocalRootArgumentsTableIndex,
+        {
+            m_pProps->Node.DispatchGrid[0],
+            m_pProps->Node.DispatchGrid[1],
+            m_pProps->Node.DispatchGrid[2],
+        },
+        {
+            m_pProps->Node.MaxDispatchGrid[0],
+            m_pProps->Node.MaxDispatchGrid[1],
+            m_pProps->Node.MaxDispatchGrid[2],
+        },
+        m_pProps->Node.MaxRecursionDepth,
+        D3D12_NODE_ID_DESC{m_pProps->NodeShaderID.Name.c_str(),
+                           m_pProps->NodeShaderID.Index},
+        D3D12_NODE_ID_DESC{m_pProps->NodeShaderSharedInput.Name.c_str(),
+                           m_pProps->NodeShaderSharedInput.Index},
+        (UINT)m_pProps->InputNodes.size(),
+        (UINT)m_pProps->OutputNodes.size()};
+    break;
+  }
+
+  return S_OK;
+}
+
+HRESULT CFunctionReflection::GetInputNode(UINT i, D3D12_NODE_DESC *pDesc) {
+  DXASSERT_NOMSG(m_pLibraryReflection);
+  IFR(ZeroMemoryToOut(pDesc));
+
+  DXIL::ShaderKind kind = DXIL::ShaderKind::Library;
+  if (m_pProps) {
+    kind = m_pProps->shaderKind;
+  }
+
+  if (kind != ShaderKind::Node)
+    return E_INVALIDARG;
+
+  if (i >= m_pProps->InputNodes.size())
+    return E_BOUNDS;
+
+  const NodeIOProperties &prop = m_pProps->InputNodes[i];
+
+  *pDesc = D3D12_NODE_DESC{
+      (D3D12_NODE_IO_FLAGS)(uint32_t)prop.Flags,
+      D3D12_NODE_RECORD_TYPE_DESC{
+          prop.RecordType.size, prop.RecordType.alignment,
+          D3D12_DISPATCH_GRID_DESC{
+              prop.RecordType.SV_DispatchGrid.ByteOffset,
+              (D3D12_DISPATCH_COMPONENT_TYPE)
+                  prop.RecordType.SV_DispatchGrid.ComponentType,
+              prop.RecordType.SV_DispatchGrid.NumComponents,
+          }},
+      D3D12_NODE_ID_DESC{prop.OutputID.Name.c_str(), prop.OutputID.Index},
+      prop.MaxRecords,
+      prop.MaxRecordsSharedWith,
+      prop.OutputArraySize,
+      prop.AllowSparseNodes};
+
+  return S_OK;
+}
+
+HRESULT CFunctionReflection::GetOutputNode(UINT i, D3D12_NODE_DESC *pDesc) {
+  DXASSERT_NOMSG(m_pLibraryReflection);
+  IFR(ZeroMemoryToOut(pDesc));
+
+  DXIL::ShaderKind kind = DXIL::ShaderKind::Library;
+  if (m_pProps) {
+    kind = m_pProps->shaderKind;
+  }
+
+  if (kind != ShaderKind::Node)
+    return E_INVALIDARG;
+
+  if (i >= m_pProps->OutputNodes.size())
+    return E_BOUNDS;
+
+  const NodeIOProperties &prop = m_pProps->OutputNodes[i];
+
+  *pDesc = D3D12_NODE_DESC{
+      (D3D12_NODE_IO_FLAGS)(uint32_t)prop.Flags,
+      D3D12_NODE_RECORD_TYPE_DESC{
+          prop.RecordType.size, prop.RecordType.alignment,
+          D3D12_DISPATCH_GRID_DESC{
+              prop.RecordType.SV_DispatchGrid.ByteOffset,
+              (D3D12_DISPATCH_COMPONENT_TYPE)
+                  prop.RecordType.SV_DispatchGrid.ComponentType,
+              prop.RecordType.SV_DispatchGrid.NumComponents,
+          }},
+      D3D12_NODE_ID_DESC{prop.OutputID.Name.c_str(), prop.OutputID.Index},
+      prop.MaxRecords,
+      prop.MaxRecordsSharedWith,
+      prop.OutputArraySize,
+      prop.AllowSparseNodes};
+
   return S_OK;
 }
 
@@ -3087,6 +3368,13 @@ HRESULT DxilLibraryReflection::GetDesc(D3D12_LIBRARY_DESC *pDesc) {
 
 ID3D12FunctionReflection *
 DxilLibraryReflection::GetFunctionByIndex(INT FunctionIndex) {
+  if ((UINT)FunctionIndex >= m_FunctionVector.size())
+    return &g_InvalidFunction;
+  return m_FunctionVector[FunctionIndex];
+}
+
+ID3D12FunctionReflection1 *
+DxilLibraryReflection::GetFunctionByIndex1(INT FunctionIndex) {
   if ((UINT)FunctionIndex >= m_FunctionVector.size())
     return &g_InvalidFunction;
   return m_FunctionVector[FunctionIndex];

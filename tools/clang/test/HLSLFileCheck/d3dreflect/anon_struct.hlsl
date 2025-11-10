@@ -9,7 +9,7 @@ float main(int N : A, int C : B) : SV_TARGET {
     return CB.X;
 }
 
-// CHECK: ID3D12ShaderReflection:
+// CHECK: ID3D12ShaderReflection1:
 // CHECK:   D3D12_SHADER_DESC:
 // CHECK:     Shader Version: Pixel
 // CHECK:     ConstantBuffers: 1

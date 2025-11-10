@@ -24,7 +24,7 @@ float4 emit(inout float2 f2, RayDesc Ray:R, inout Payload p )  {
 
 
 
-// CHECK: ID3D12LibraryReflection:
+// CHECK: ID3D12LibraryReflection1:
 // CHECK:   D3D12_LIBRARY_DESC:
 // CHECK:     Flags: 0
 // CHECK:     FunctionCount: 1

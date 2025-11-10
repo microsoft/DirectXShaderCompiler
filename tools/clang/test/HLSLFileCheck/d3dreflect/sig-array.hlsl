@@ -1,6 +1,6 @@
 // RUN: %dxc -E VSMain -T vs_6_0 %s | %D3DReflect %s | FileCheck %s
 
-// CHECK: ID3D12ShaderReflection:
+// CHECK: ID3D12ShaderReflection1:
 // CHECK:   D3D12_SHADER_DESC:
 // CHECK:     Shader Version: Vertex 6.0
 // CHECK:     ConstantBuffers: 0

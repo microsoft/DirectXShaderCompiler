@@ -28,7 +28,7 @@ float4 main() : SV_Target {
 }
 
 // {{$}} is used to prevent match to 0x<anything>
-// CHECK: ID3D12ShaderReflection:
+// CHECK: ID3D12ShaderReflection1:
 // CHECK:     Flags: 0{{$}}
 // CHECK:     ConstantBuffers: 2
 // CHECK:     BoundResources: 2

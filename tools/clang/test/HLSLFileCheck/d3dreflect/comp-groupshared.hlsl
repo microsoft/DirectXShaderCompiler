@@ -75,7 +75,7 @@
 // CHECK:      GroupSharedBytesUsed: 16
 // CHECK:    }
 // CHECK:  }
-// CHECK:ID3D12LibraryReflection:
+// CHECK:ID3D12LibraryReflection1:
 // CHECK:  D3D12_LIBRARY_DESC:
 // CHECK:    Creator: <nullptr>
 // CHECK:    Flags: 0
@@ -110,6 +110,11 @@
 // CHECK:        Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK:        NumSamples (or stride): 4294967295
 // CHECK:        uFlags: 0
+// CHECK:ID3D12FunctionReflection1:
+// CHECK:  D3D12_FUNCTION_DESC1:
+// CHECK:    RootSignatureSize: 0
+// CHECK:    D3D12_COMPUTE_SHADER_DESC:
+// CHECK:      NumThreads: 64, 2, 2
 
 struct Foo {
     int a[2];
