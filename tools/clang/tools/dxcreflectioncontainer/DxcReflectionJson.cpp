@@ -18,25 +18,29 @@ struct JsonWriter {
   std::stringstream ss;
   uint16_t indent = 0;
   uint16_t countCommaStack = 0;
-  uint32_t needCommaStack = 0;
+  uint32_t needCommaStack[3] = {0, 0, 0};
 
   void Indent() { ss << std::string(indent, '\t'); }
   void NewLine() { ss << "\n"; }
 
   void StartCommaStack() {
     ++countCommaStack;
-    assert(countCommaStack < 32 && "countCommaStack out of bounds");
-    needCommaStack &= ~(1u << countCommaStack);
+    assert(countCommaStack < 96 && "countCommaStack out of bounds");
+    needCommaStack[countCommaStack / 32] &= ~(1u << (countCommaStack & 31));
   }
 
-  void SetComma() { needCommaStack |= 1u << countCommaStack; }
+  void SetComma() {
+    needCommaStack[countCommaStack / 32] |= 1u << (countCommaStack & 31);
+  }
 
   void EndCommaStack() {
     --countCommaStack;
     SetComma();
   }
 
-  bool NeedsComma() { return (needCommaStack >> countCommaStack) & 1; }
+  bool NeedsComma() {
+    return (needCommaStack[countCommaStack / 32] >> (countCommaStack & 31)) & 1;
+  }
 
   void BeginObj() {
 
