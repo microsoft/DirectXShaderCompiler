@@ -125,6 +125,7 @@ struct ReflectOpts {
   bool UserTypes = false;      // OPT_reflect_user_types
   bool Scopes = false;         // OPT_reflect_scopes
   bool DisableSymbols = false; // OPT_reflect_disable_symbols
+  bool ShowFileInfo = false;   // OPT_reflect_show_file_info
 };
 
 /// Use this class to capture all options.

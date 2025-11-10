@@ -473,7 +473,8 @@ static void FillArraySizes(const ReflectionData &Reflection,
 static void PrintSymbol(JsonWriter &Json,
                         const ReflectionData &Reflection,
                         const ReflectionNodeSymbol &Sym, bool IsVerbose,
-                        bool AllRelevantMembers, bool MuteName = false) {
+                        bool AllRelevantMembers, bool HideFileInfo,
+                        bool MuteName) {
 
   if ((Sym.GetNameId() || IsVerbose) && !MuteName) {
 
@@ -482,6 +483,9 @@ static void PrintSymbol(JsonWriter &Json,
     if (IsVerbose || AllRelevantMembers)
       Json.UIntField("NameId", Sym.GetNameId());
   }
+
+  if (HideFileInfo)
+    return;
 
   if (Sym.HasFileSource()) {
 
@@ -517,7 +521,8 @@ static void PrintSymbol(JsonWriter &Json,
 // Verbose will still print fields even if they aren't relevant,
 //  while all members will not silence important info but that might not matter for human readability
 static void PrintNode(JsonWriter &Json, const ReflectionData &Reflection,
-                 uint32_t NodeId, bool IsVerbose, bool AllRelevantMembers) {
+                      uint32_t NodeId, bool IsVerbose, bool AllRelevantMembers,
+                      bool HideFileInfo) {
 
   const ReflectionNode &node = Reflection.Nodes[NodeId];
 
@@ -589,9 +594,10 @@ static void PrintNode(JsonWriter &Json, const ReflectionData &Reflection,
   if (hasSymbols) {
   
     Json.Object("Symbol", [&Reflection, &Json, NodeId, IsVerbose,
-                           AllRelevantMembers] {
+                           AllRelevantMembers, HideFileInfo] {
       const ReflectionNodeSymbol &sym = Reflection.NodeSymbols[NodeId];
-      PrintSymbol(Json, Reflection, sym, IsVerbose, AllRelevantMembers);
+      PrintSymbol(Json, Reflection, sym, IsVerbose, AllRelevantMembers,
+                  HideFileInfo, false);
     });
 
   } else if (IsVerbose)
@@ -854,7 +860,7 @@ static void PrintParameter(const ReflectionData &Reflection, uint32_t TypeId,
 
 static void PrintFunction(JsonWriter &Json, const ReflectionData &Reflection,
                           uint32_t FunctionId, bool IsVerbose,
-                          bool AllRelevantMembers) {
+                          bool AllRelevantMembers, bool HideFileInfo) {
 
   const ReflectionFunction &func = Reflection.Functions[FunctionId];
 
@@ -877,7 +883,8 @@ static void PrintFunction(JsonWriter &Json, const ReflectionData &Reflection,
       Json.StringField("Name", "");
   }
 
-  Json.BoolField("HasDefinition", func.HasDefinition());
+  if (!func.HasDefinition() || AllRelevantMembers)
+    Json.BoolField("HasDefinition", func.HasDefinition());
 
   if (IsVerbose) {
     Json.UIntField("NumParameters", func.GetNumParameters());
@@ -885,7 +892,7 @@ static void PrintFunction(JsonWriter &Json, const ReflectionData &Reflection,
   }
 
   Json.Object("Params", [&Reflection, &func, &Json, hasSymbols, IsVerbose,
-                         AllRelevantMembers]() {
+                         AllRelevantMembers, HideFileInfo]() {
     for (uint32_t i = 0; i < uint32_t(func.GetNumParameters()); ++i) {
 
       uint32_t nodeId = func.GetNodeId() + 1 + i;
@@ -900,16 +907,17 @@ static void PrintFunction(JsonWriter &Json, const ReflectionData &Reflection,
 
       Json.Object(paramName.c_str(), [&Reflection, &func, &Json, hasSymbols,
                                       IsVerbose, &param, &node,
-                                      AllRelevantMembers, nodeId]() {
+                                      AllRelevantMembers, nodeId,
+                                      HideFileInfo]() {
 
-        if (hasSymbols) {
+        if (hasSymbols && !HideFileInfo) {
 
           const ReflectionNodeSymbol &sym = Reflection.NodeSymbols[nodeId];
 
           Json.Object("Symbol", [&Json, &Reflection, &sym, IsVerbose,
-                                 AllRelevantMembers]() {
+                                 AllRelevantMembers, HideFileInfo]() {
             PrintSymbol(Json, Reflection, sym, IsVerbose, AllRelevantMembers,
-                        true);
+                        HideFileInfo, true);
           });
         }
 
@@ -953,7 +961,7 @@ static void PrintFunction(JsonWriter &Json, const ReflectionData &Reflection,
 
 static void PrintEnumValue(JsonWriter &Json, const ReflectionData &Reflection,
                            uint32_t NodeId, bool IsVerbose,
-                           bool AllRelevantMembers) {
+                           bool AllRelevantMembers, bool HideFileInfo) {
 
   const ReflectionNode &child = Reflection.Nodes[NodeId];
 
@@ -980,9 +988,9 @@ static void PrintEnumValue(JsonWriter &Json, const ReflectionData &Reflection,
 
     const ReflectionNodeSymbol &sym = Reflection.NodeSymbols[NodeId];
 
-    Json.Object(
-        "Symbol", [&Json, &Reflection, &sym, IsVerbose, AllRelevantMembers]() {
-          PrintSymbol(Json, Reflection, sym, IsVerbose, AllRelevantMembers);
+    Json.Object("Symbol", [&Json, &Reflection, &sym, IsVerbose,
+                           AllRelevantMembers, HideFileInfo]() {
+          PrintSymbol(Json, Reflection, sym, IsVerbose, AllRelevantMembers, HideFileInfo, false);
         });
   }
 
@@ -991,8 +999,8 @@ static void PrintEnumValue(JsonWriter &Json, const ReflectionData &Reflection,
 }
 
 static void PrintEnum(JsonWriter &Json, const ReflectionData &Reflection,
-                      uint32_t EnumId, bool IsVerbose,
-                      bool AllRelevantMembers) {
+                      uint32_t EnumId, bool IsVerbose, bool AllRelevantMembers,
+                      bool HideFileInfo) {
 
   const ReflectionEnumeration &enm = Reflection.Enums[EnumId];
   const ReflectionNode &node = Reflection.Nodes[enm.NodeId];
@@ -1016,7 +1024,7 @@ static void PrintEnum(JsonWriter &Json, const ReflectionData &Reflection,
   Json.StringField("EnumType", EnumTypeToString(enm.Type));
 
   Json.Array("Values", [&Json, &node, &enm, hasSymbols, &Reflection, IsVerbose,
-                        AllRelevantMembers]() {
+                        AllRelevantMembers, HideFileInfo]() {
     for (uint32_t i = 0; i < node.GetChildCount(); ++i) {
 
       uint32_t childId = enm.NodeId + 1 + i;
@@ -1026,7 +1034,7 @@ static void PrintEnum(JsonWriter &Json, const ReflectionData &Reflection,
       if (!hasSymbols || AllRelevantMembers || IsVerbose)
         Json.UIntField("ValueId", i);
 
-      PrintEnumValue(Json, Reflection, childId, IsVerbose, AllRelevantMembers);
+      PrintEnumValue(Json, Reflection, childId, IsVerbose, AllRelevantMembers, HideFileInfo);
     }
   });
 }
@@ -1126,7 +1134,7 @@ static void PrintStatement(const ReflectionData &Reflection,
 
 uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
                             uint32_t NodeId, JsonWriter &Json, bool IsVerbose,
-                            bool IsHumanFriendly) {
+                            bool IsHumanFriendly, bool HideFileInfo) {
 
 
   bool hasSymbols =
@@ -1154,7 +1162,8 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
     node = Reflection.Nodes[NodeId];
   }
 
-  PrintNode(Json, Reflection, NodeId, IsVerbose, !IsHumanFriendly);
+  PrintNode(Json, Reflection, NodeId, IsVerbose, !IsHumanFriendly,
+            HideFileInfo);
 
   uint32_t childrenToSkip = 0;
 
@@ -1162,10 +1171,10 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
 
   if (nodeType == D3D12_HLSL_NODE_TYPE_FUNCTION)
     Json.Object("Function", [&node, &Reflection, &Json, IsVerbose,
-                             IsHumanFriendly, &childrenToSkip]() {
+                             IsHumanFriendly, &childrenToSkip, HideFileInfo]() {
       ReflectionFunction func = Reflection.Functions[node.GetLocalId()];
       PrintFunction(Json, Reflection, node.GetLocalId(), IsVerbose,
-                    !IsHumanFriendly);
+                    !IsHumanFriendly, HideFileInfo);
       childrenToSkip = func.GetNumParameters() + func.HasReturn();
     });
 
@@ -1188,9 +1197,9 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
 
   if (nodeType == D3D12_HLSL_NODE_TYPE_ENUM)
     Json.Object("Enum", [&node, &Reflection, &Json, IsVerbose, IsHumanFriendly,
-                         &childrenToSkip]() {
+                         &childrenToSkip, HideFileInfo]() {
       PrintEnum(Json, Reflection, node.GetLocalId(), IsVerbose,
-                !IsHumanFriendly);
+                !IsHumanFriendly, HideFileInfo);
       childrenToSkip = node.GetChildCount();
     });
 
@@ -1269,16 +1278,17 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
     }
 
     Json.Object(stmtType, [&node, &Reflection, &Json, IsVerbose,
-                                   IsHumanFriendly, NodeId, &childrenToSkip, nodeType]() {
+                           IsHumanFriendly, NodeId, &childrenToSkip, nodeType,
+                           HideFileInfo]() {
       const ReflectionScopeStmt &stmt = Reflection.Statements[node.GetLocalId()];
 
       uint32_t start = NodeId + 1;
 
       if (stmt.HasConditionVar())
         Json.Object("Condition", [NodeId, &Reflection, &Json, IsVerbose,
-                                  IsHumanFriendly, &start]() {
+                                  IsHumanFriendly, &start, HideFileInfo]() {
           start += PrintNodeRecursive(Reflection, start, Json, IsVerbose,
-                                      IsHumanFriendly);
+                                      IsHumanFriendly, HideFileInfo);
           ++start;
         });
 
@@ -1292,7 +1302,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
 
       if (stmt.GetNodeCount())
         Json.Array(bodyName, [&Reflection, &Json, IsVerbose, start, end,
-                               IsHumanFriendly, NodeId]() {
+                              IsHumanFriendly, NodeId, HideFileInfo]() {
           for (uint32_t i = start; i < end; ++i) {
 
             const ReflectionNode &node = Reflection.Nodes[i];
@@ -1304,7 +1314,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
 
             JsonWriter::ObjectScope valueRoot(Json);
             i += PrintNodeRecursive(Reflection, i, Json, IsVerbose,
-                                    IsHumanFriendly);
+                                    IsHumanFriendly, HideFileInfo);
           }
         });
 
@@ -1319,7 +1329,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
         end = NodeId + 1 + node.GetChildCount();
 
         Json.Array(elseName, [&Reflection, &Json, IsVerbose, start, end,
-                             IsHumanFriendly, NodeId]() {
+                              IsHumanFriendly, NodeId, HideFileInfo]() {
           for (uint32_t i = start; i < end; ++i) {
 
             const ReflectionNode &node = Reflection.Nodes[i];
@@ -1331,7 +1341,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
 
             JsonWriter::ObjectScope valueRoot(Json);
             i += PrintNodeRecursive(Reflection, i, Json, IsVerbose,
-                                    IsHumanFriendly);
+                                    IsHumanFriendly, HideFileInfo);
           }
         });
       }
@@ -1357,7 +1367,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
   
   if (end > start)
     Json.Array("Children", [&Reflection, &Json, IsVerbose, start, end,
-                            IsHumanFriendly]() {
+                            IsHumanFriendly, HideFileInfo]() {
       for (uint32_t i = start; i < end; ++i) {
 
         const ReflectionNode &node = Reflection.Nodes[i];
@@ -1368,7 +1378,8 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
         }
 
         JsonWriter::ObjectScope valueRoot(Json);
-        i += PrintNodeRecursive(Reflection, i, Json, IsVerbose, IsHumanFriendly);
+        i += PrintNodeRecursive(Reflection, i, Json, IsVerbose, IsHumanFriendly,
+                                HideFileInfo);
       }
     });
 
@@ -1377,8 +1388,8 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
 
 // IsHumanFriendly = false: Raw view of the real file data
 // IsHumanFriendly = true:  Clean view that's relatively close to the real tree
-std::string ReflectionData::ToJson(
-                          bool IsHumanFriendly, bool IsVerbose) const {
+std::string ReflectionData::ToJson(bool HideFileInfo, bool IsHumanFriendly,
+                                   bool IsVerbose) const {
 
   JsonWriter json;
 
@@ -1416,10 +1427,10 @@ std::string ReflectionData::ToJson(
           json.Value(uint64_t(id));
       });
 
-      json.Array("Nodes", [this, &json, IsVerbose] {
+      json.Array("Nodes", [this, &json, IsVerbose, HideFileInfo] {
         for (uint32_t i = 0; i < uint32_t(Nodes.size()); ++i) {
           JsonWriter::ObjectScope nodeRoot(json);
-          PrintNode(json, *this, i, IsVerbose, true);
+          PrintNode(json, *this, i, IsVerbose, true, HideFileInfo);
         }
       });
 
@@ -1430,10 +1441,10 @@ std::string ReflectionData::ToJson(
         }
       });
 
-      json.Array("Functions", [this, &json, IsVerbose] {
+      json.Array("Functions", [this, &json, IsVerbose, HideFileInfo] {
         for (uint32_t i = 0; i < uint32_t(Functions.size()); ++i) {
           JsonWriter::ObjectScope nodeRoot(json);
-          PrintFunction(json, *this, i, IsVerbose, true);
+          PrintFunction(json, *this, i, IsVerbose, true, HideFileInfo);
         }
       });
 
@@ -1458,18 +1469,19 @@ std::string ReflectionData::ToJson(
         }
       });
 
-      json.Array("Enums", [this, &json, hasSymbols, IsVerbose] {
+      json.Array("Enums", [this, &json, hasSymbols, IsVerbose, HideFileInfo] {
         for (uint32_t i = 0; i < uint32_t(Enums.size()); ++i) {
           JsonWriter::ObjectScope nodeRoot(json);
-          PrintEnum(json, *this, i, IsVerbose, true);
+          PrintEnum(json, *this, i, IsVerbose, true, HideFileInfo);
         }
       });
 
-      json.Array("EnumValues", [this, &json, hasSymbols, IsVerbose] {
+      json.Array("EnumValues", [this, &json, hasSymbols, IsVerbose,
+                                HideFileInfo] {
         for (uint32_t i = 0; i < uint32_t(EnumValues.size()); ++i) {
           JsonWriter::ObjectScope valueRoot(json);
-          PrintEnumValue(json, *this, EnumValues[i].NodeId,
-                         IsVerbose, true);
+          PrintEnumValue(json, *this, EnumValues[i].NodeId, IsVerbose, true,
+                         HideFileInfo);
         }
       });
 
@@ -1551,7 +1563,7 @@ std::string ReflectionData::ToJson(
     }
 
     else
-      json.Array("Children", [this, &json, IsVerbose]() {
+      json.Array("Children", [this, &json, IsVerbose, HideFileInfo]() {
         for (uint32_t i = 1; i < Nodes.size(); ++i) {
 
           const ReflectionNode &node = Nodes[i];
@@ -1562,7 +1574,7 @@ std::string ReflectionData::ToJson(
           }
 
           JsonWriter::ObjectScope valueRoot(json);
-          i += PrintNodeRecursive(*this, i, json, IsVerbose, true);
+          i += PrintNodeRecursive(*this, i, json, IsVerbose, true, HideFileInfo);
         }
       });
   }

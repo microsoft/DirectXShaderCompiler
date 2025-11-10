@@ -1605,7 +1605,9 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
     return E_FAIL;
   }
 
-  printf("%s\n", refl.ToJson().c_str());
+  bool hideFileInfo = !opts.ReflOpt.ShowFileInfo;
+
+  printf("%s\n", refl.ToJson(hideFileInfo).c_str());
 
   // Debug: Verify deserialization, otherwise print error.
 

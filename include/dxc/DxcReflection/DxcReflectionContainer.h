@@ -827,7 +827,9 @@ struct ReflectionData {
   static D3D_CBUFFER_TYPE GetBufferType(uint8_t Type);
 
   void Dump(std::vector<std::byte> &Bytes) const;
-  std::string ToJson(bool IsHumanFriendly = true, bool IsVerbose = false) const;
+  std::string ToJson(bool HideFileInfo = false, bool IsHumanFriendly = true,
+                     bool IsVerbose = false) const;
+
   void StripSymbols();
   bool GenerateNameLookupTable();
 

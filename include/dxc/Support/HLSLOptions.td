@@ -596,6 +596,9 @@ def reflect_scopes : Flag<["-", "/"], "reflect-scopes">, Group<hlslreflect_Group
 def reflect_disable_symbols : Flag<["-", "/"], "reflect-disable-symbols">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
   HelpText<"Reflect HLSL disable symbols.">;
 
+def reflect_show_file_info : Flag<["-", "/"], "reflect-show-file-info">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
+  HelpText<"Show file symbol info in the reflection output json.">;
+
 //////////////////////////////////////////////////////////////////////////////
 // Rewriter Options
 

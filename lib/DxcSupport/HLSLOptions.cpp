@@ -1385,6 +1385,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.ReflOpt.Scopes = Args.hasFlag(OPT_reflect_scopes, OPT_INVALID, false);
     opts.ReflOpt.DisableSymbols =
         Args.hasFlag(OPT_reflect_disable_symbols, OPT_INVALID, false);
+    opts.ReflOpt.ShowFileInfo =
+        Args.hasFlag(OPT_reflect_show_file_info, OPT_INVALID, false);
   }
 
   opts.Args = std::move(Args);
