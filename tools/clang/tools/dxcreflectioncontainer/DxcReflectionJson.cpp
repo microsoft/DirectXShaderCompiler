@@ -662,7 +662,7 @@ static void PrintRegister(JsonWriter &Json, const ReflectionData &Reflection,
     break;
   }
 
-  if (printBufferId || IsVerbose)
+  if ((printBufferId && AllRelevantMembers) || IsVerbose)
     Json.UIntField("BufferId", reg.GetBufferId());
 
   if (reg.GetFlags() || IsVerbose) {
@@ -787,7 +787,9 @@ static void PrintType(const ReflectionData &Reflection, uint32_t TypeId,
         if (HasSymbols) {
           Json.StringField(
               "Name", Reflection.Strings[Reflection.MemberNameIds[memberId]]);
-          Json.UIntField("NameId", Reflection.MemberNameIds[memberId]);
+
+          if (AllRelevantMembers || IsVerbose)
+            Json.UIntField("NameId", Reflection.MemberNameIds[memberId]);
         }
 
         if (Recursive)
@@ -1143,7 +1145,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
 
   D3D12_HLSL_NODE_TYPE nodeType = node.GetNodeType();
 
-  if (node.IsFwdDeclare()) {
+  if (node.IsFwdDeclare() && node.IsFwdBckDefined()) {
     NodeId = node.GetFwdBck();
     node = Reflection.Nodes[NodeId];
   }
