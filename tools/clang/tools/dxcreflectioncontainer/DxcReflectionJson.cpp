@@ -470,21 +470,26 @@ static void FillArraySizes(const ReflectionData &Reflection,
     Array.push_back(Reflection.ArraySizes[arr.ArrayStart() + i]);
 }
 
+struct ReflectionPrintSettings {
+  bool HumanReadable;
+  bool HideFileInfo;
+};
+
 static void PrintSymbol(JsonWriter &Json,
                         const ReflectionData &Reflection,
                         const ReflectionNodeSymbol &Sym,
-                        bool AllRelevantMembers, bool HideFileInfo,
+                        const ReflectionPrintSettings &Settings,
                         bool MuteName) {
 
   if (Sym.GetNameId() && !MuteName) {
 
     Json.StringField("Name", Reflection.Strings[Sym.GetNameId()]);
 
-    if (AllRelevantMembers)
+    if (!Settings.HumanReadable)
       Json.UIntField("NameId", Sym.GetNameId());
   }
 
-  if (HideFileInfo)
+  if (Settings.HideFileInfo)
     return;
 
   if (Sym.HasFileSource()) {
@@ -493,7 +498,7 @@ static void PrintSymbol(JsonWriter &Json,
         "Source",
         Reflection.Strings[Reflection.Sources[Sym.GetFileSourceId()]]);
 
-    if (AllRelevantMembers)
+    if (!Settings.HumanReadable)
       Json.UIntField("SourceId", Sym.GetFileSourceId());
 
     Json.UIntField("LineId", Sym.GetSourceLineStart());
@@ -510,20 +515,20 @@ static void PrintSymbol(JsonWriter &Json,
 // Verbose will still print fields even if they aren't relevant,
 //  while all members will not silence important info but that might not matter for human readability
 static void PrintNode(JsonWriter &Json, const ReflectionData &Reflection,
-                      uint32_t NodeId, bool AllRelevantMembers,
-                      bool HideFileInfo) {
+                      uint32_t NodeId,
+                      const ReflectionPrintSettings &Settings) {
 
   const ReflectionNode &node = Reflection.Nodes[NodeId];
 
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
-  if (AllRelevantMembers || !hasSymbols)
+  if (!Settings.HumanReadable || !hasSymbols)
     Json.UIntField("NodeId", NodeId);
 
   Json.StringField("NodeType", NodeTypeToString(node.GetNodeType()));
 
-  if (AllRelevantMembers) {
+  if (!Settings.HumanReadable) {
     Json.UIntField("NodeTypeId", node.GetNodeType());
     Json.UIntField("LocalId", node.GetLocalId());
     Json.IntField("ParentId", node.GetParentId() == uint16_t(-1)
@@ -531,7 +536,7 @@ static void PrintNode(JsonWriter &Json, const ReflectionData &Reflection,
                                   : int64_t(node.GetParentId()));
   }
 
-  if (node.GetChildCount() && AllRelevantMembers) {
+  if (node.GetChildCount() && !Settings.HumanReadable) {
     Json.UIntField("ChildCount", node.GetChildCount());
     Json.UIntField("ChildStart", NodeId + 1);
   }
@@ -541,13 +546,13 @@ static void PrintNode(JsonWriter &Json, const ReflectionData &Reflection,
     Json.StringField("Semantic",
                      Reflection.StringsNonDebug[node.GetSemanticId()]);
 
-    if (AllRelevantMembers)
+    if (!Settings.HumanReadable)
       Json.UIntField("SemanticId", node.GetSemanticId());
   }
 
   if (node.GetAnnotationCount()) {
 
-    if (AllRelevantMembers) {
+    if (!Settings.HumanReadable) {
       Json.UIntField("AnnotationStart", node.GetAnnotationStart());
       Json.UIntField("AnnotationCount", node.GetAnnotationCount());
     }
@@ -571,35 +576,35 @@ static void PrintNode(JsonWriter &Json, const ReflectionData &Reflection,
     });
   }
 
-  if ((node.IsFwdBckDefined() || node.IsFwdDeclare()) && AllRelevantMembers) {
+  if ((node.IsFwdBckDefined() || node.IsFwdDeclare()) &&
+      !Settings.HumanReadable) {
     Json.BoolField("IsFwdDeclare", node.IsFwdDeclare());
     Json.IntField("FwdBack",
                   !node.IsFwdBckDefined() ? -1 : int64_t(node.GetFwdBck()));
   }
 
-  if (hasSymbols && !HideFileInfo)
-    Json.Object("Symbol", [&Reflection, &Json, NodeId,
-                           AllRelevantMembers, HideFileInfo] {
+  if (hasSymbols && !Settings.HideFileInfo)
+    Json.Object("Symbol", [&Reflection, &Json, NodeId, &Settings] {
       const ReflectionNodeSymbol &sym = Reflection.NodeSymbols[NodeId];
-      PrintSymbol(Json, Reflection, sym, AllRelevantMembers,
-                  HideFileInfo, true);
+      PrintSymbol(Json, Reflection, sym, Settings, true);
     });
 }
 
 static void PrintRegister(JsonWriter &Json, const ReflectionData &Reflection,
-                          uint32_t RegisterId, bool AllRelevantMembers) {
+                          uint32_t RegisterId,
+                          const ReflectionPrintSettings &Settings) {
 
   const ReflectionShaderResource &reg = Reflection.Registers[RegisterId];
 
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
-  if (AllRelevantMembers || !hasSymbols) {
+  if (!Settings.HumanReadable || !hasSymbols) {
     Json.UIntField("RegisterId", RegisterId);
     Json.UIntField("NodeId", reg.GetNodeId());
   }
 
-  if (AllRelevantMembers && hasSymbols)
+  if (!Settings.HumanReadable && hasSymbols)
     Json.StringField(
         "Name",
         Reflection
@@ -618,7 +623,7 @@ static void PrintRegister(JsonWriter &Json, const ReflectionData &Reflection,
 
   if (reg.GetArrayId() != uint32_t(-1)) {
 
-    if (AllRelevantMembers)
+    if (!Settings.HumanReadable)
       Json.UIntField("ArrayId", reg.GetArrayId());
 
     Json.Array("ArraySize", [&Reflection, &reg, &Json]() {
@@ -643,7 +648,7 @@ static void PrintRegister(JsonWriter &Json, const ReflectionData &Reflection,
     break;
   }
 
-  if (printBufferId && AllRelevantMembers)
+  if (printBufferId && !Settings.HumanReadable)
     Json.UIntField("BufferId", reg.GetBufferId());
 
   if (reg.GetFlags())
@@ -668,11 +673,12 @@ static void PrintRegister(JsonWriter &Json, const ReflectionData &Reflection,
 }
 
 static void PrintTypeName(const ReflectionData &Reflection, uint32_t TypeId,
-                          bool HasSymbols, bool AllRelevantMembers,
+                          bool HasSymbols,
+                          const ReflectionPrintSettings &Settings,
                           JsonWriter &Json,
                           const char *NameForTypeName = "Name") {
 
-  if (AllRelevantMembers || !HasSymbols)
+  if (!Settings.HumanReadable || !HasSymbols)
     Json.UIntField("TypeId", TypeId);
 
   std::string name;
@@ -716,41 +722,41 @@ static void PrintTypeName(const ReflectionData &Reflection, uint32_t TypeId,
 }
 
 static void PrintType(const ReflectionData &Reflection, uint32_t TypeId,
-                      bool HasSymbols, bool AllRelevantMembers,
+                      bool HasSymbols, const ReflectionPrintSettings &Settings,
                       JsonWriter &Json, bool Recursive,
                       const char *NameForTypeName = "Name") {
 
   const ReflectionVariableType &type = Reflection.Types[TypeId];
 
-  PrintTypeName(Reflection, TypeId, HasSymbols, AllRelevantMembers, Json,
+  PrintTypeName(Reflection, TypeId, HasSymbols, Settings, Json,
                 NameForTypeName);
 
   if (type.GetBaseClass() != uint32_t(-1))
-    Json.Object("BaseClass", [&Reflection, &Json, &type, HasSymbols,
-                              AllRelevantMembers, Recursive]() {
+    Json.Object("BaseClass", [&Reflection, &Json, &type, HasSymbols, Settings,
+                              Recursive]() {
       if (Recursive)
-        PrintType(Reflection, type.GetBaseClass(), HasSymbols,
-                  AllRelevantMembers, Json, true, "TypeName");
+        PrintType(Reflection, type.GetBaseClass(), HasSymbols, Settings, Json,
+                  true, "TypeName");
 
       else
-        PrintTypeName(Reflection, type.GetBaseClass(), HasSymbols,
-                      AllRelevantMembers, Json, "TypeName");
+        PrintTypeName(Reflection, type.GetBaseClass(), HasSymbols, Settings,
+                      Json, "TypeName");
     });
 
   if (type.GetInterfaceCount())
     Json.Array("Interfaces", [&Reflection, &Json, &type, HasSymbols,
-                              AllRelevantMembers]() {
+                              Settings]() {
       for (uint32_t i = 0; i < uint32_t(type.GetInterfaceCount()); ++i) {
         uint32_t interfaceId = type.GetInterfaceStart() + i;
         JsonWriter::ObjectScope nodeRoot(Json);
         PrintTypeName(Reflection, Reflection.TypeList[interfaceId], HasSymbols,
-                      AllRelevantMembers, Json);
+                      Settings, Json);
       }
     });
 
   if (type.GetMemberCount())
-    Json.Array("Members", [&Reflection, &Json, &type, HasSymbols,
-                           AllRelevantMembers, Recursive]() {
+    Json.Array("Members", [&Reflection, &Json, &type, HasSymbols, Settings,
+                           Recursive]() {
       for (uint32_t i = 0; i < uint32_t(type.GetMemberCount()); ++i) {
 
         uint32_t memberId = type.GetMemberStart() + i;
@@ -760,17 +766,17 @@ static void PrintType(const ReflectionData &Reflection, uint32_t TypeId,
           Json.StringField(
               "Name", Reflection.Strings[Reflection.MemberNameIds[memberId]]);
 
-          if (AllRelevantMembers)
+          if (!Settings.HumanReadable)
             Json.UIntField("NameId", Reflection.MemberNameIds[memberId]);
         }
 
         if (Recursive)
           PrintType(Reflection, Reflection.MemberTypeIds[memberId], HasSymbols,
-                    AllRelevantMembers, Json, true, "TypeName");
+                    Settings, Json, true, "TypeName");
 
         else
           PrintTypeName(Reflection, Reflection.MemberTypeIds[memberId],
-                        HasSymbols, AllRelevantMembers, Json, "TypeName");
+                        HasSymbols, Settings, Json, "TypeName");
       }
     });
 }
@@ -778,15 +784,16 @@ static void PrintType(const ReflectionData &Reflection, uint32_t TypeId,
 static void PrintParameter(const ReflectionData &Reflection, uint32_t TypeId,
                            bool HasSymbols, JsonWriter &Json,
                            uint32_t SemanticId, uint8_t InterpolationMode,
-                           uint8_t Flags, bool AllRelevantMembers) {
+                           uint8_t Flags,
+                           const ReflectionPrintSettings &Settings) {
 
-  PrintTypeName(Reflection, TypeId, HasSymbols, AllRelevantMembers, Json, "TypeName");
+  PrintTypeName(Reflection, TypeId, HasSymbols, Settings, Json, "TypeName");
 
   if (SemanticId != uint32_t(-1)) {
 
     Json.StringField("Semantic", Reflection.StringsNonDebug[SemanticId]);
 
-    if (AllRelevantMembers)
+    if (!Settings.HumanReadable)
       Json.UIntField("SemanticId", SemanticId);
   }
 
@@ -813,30 +820,29 @@ static void PrintParameter(const ReflectionData &Reflection, uint32_t TypeId,
 }
 
 static void PrintFunction(JsonWriter &Json, const ReflectionData &Reflection,
-                          uint32_t FunctionId, bool AllRelevantMembers,
-                          bool HideFileInfo) {
+                          uint32_t FunctionId,
+                          const ReflectionPrintSettings &Settings) {
 
   const ReflectionFunction &func = Reflection.Functions[FunctionId];
 
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
-  if (AllRelevantMembers || !hasSymbols) {
+  if (!Settings.HumanReadable || !hasSymbols) {
     Json.UIntField("FunctionId", FunctionId);
     Json.UIntField("NodeId", func.GetNodeId());
   }
 
-  if (AllRelevantMembers && hasSymbols)
+  if (!Settings.HumanReadable && hasSymbols)
     Json.StringField(
         "Name",
         Reflection
             .Strings[Reflection.NodeSymbols[func.GetNodeId()].GetNameId()]);
 
-  if (!func.HasDefinition() || AllRelevantMembers)
+  if (!func.HasDefinition() || !Settings.HumanReadable)
     Json.BoolField("HasDefinition", func.HasDefinition());
 
-  Json.Object("Params", [&Reflection, &func, &Json, hasSymbols,
-                         AllRelevantMembers, HideFileInfo]() {
+  Json.Object("Params", [&Reflection, &func, &Json, hasSymbols, &Settings]() {
     for (uint32_t i = 0; i < uint32_t(func.GetNumParameters()); ++i) {
 
       uint32_t nodeId = func.GetNodeId() + 1 + i;
@@ -850,22 +856,19 @@ static void PrintFunction(JsonWriter &Json, const ReflectionData &Reflection,
               : std::to_string(i);
 
       Json.Object(paramName.c_str(), [&Reflection, &func, &Json, hasSymbols,
-                                      &param, &node, AllRelevantMembers, nodeId,
-                                      HideFileInfo]() {
-        if (hasSymbols && !HideFileInfo) {
+                                      &param, &node, &Settings, nodeId]() {
+        if (hasSymbols && !Settings.HideFileInfo) {
 
           const ReflectionNodeSymbol &sym = Reflection.NodeSymbols[nodeId];
 
-          Json.Object("Symbol", [&Json, &Reflection, &sym, AllRelevantMembers,
-                                 HideFileInfo]() {
-            PrintSymbol(Json, Reflection, sym, AllRelevantMembers, HideFileInfo,
-                        true);
+          Json.Object("Symbol", [&Json, &Reflection, &sym, &Settings]() {
+            PrintSymbol(Json, Reflection, sym, Settings, true);
           });
         }
 
         PrintParameter(Reflection, param.TypeId, hasSymbols, Json,
                        node.GetSemanticId(), param.InterpolationMode,
-                       param.Flags, AllRelevantMembers);
+                       param.Flags, Settings);
       });
     }
   });
@@ -882,17 +885,17 @@ static void PrintFunction(JsonWriter &Json, const ReflectionData &Reflection,
         Reflection.Parameters[node.GetLocalId()];
 
     Json.Object("ReturnType", [&Reflection, &func, &Json, hasSymbols, &param,
-                               &node, AllRelevantMembers]() {
+                               &node, &Settings]() {
       PrintParameter(Reflection, param.TypeId, hasSymbols, Json,
                      node.GetSemanticId(), param.InterpolationMode, param.Flags,
-                     AllRelevantMembers);
+                     Settings);
     });
   }
 }
 
 static void PrintEnumValue(JsonWriter &Json, const ReflectionData &Reflection,
-                           uint32_t NodeId, bool AllRelevantMembers,
-                           bool HideFileInfo) {
+                           uint32_t NodeId,
+                           const ReflectionPrintSettings &Settings) {
 
   const ReflectionNode &child = Reflection.Nodes[NodeId];
 
@@ -919,17 +922,15 @@ static void PrintEnumValue(JsonWriter &Json, const ReflectionData &Reflection,
 
     const ReflectionNodeSymbol &sym = Reflection.NodeSymbols[NodeId];
 
-    Json.Object("Symbol",
-                [&Json, &Reflection, &sym, AllRelevantMembers, HideFileInfo]() {
-                  PrintSymbol(Json, Reflection, sym, AllRelevantMembers,
-                              HideFileInfo, false);
-                });
+    Json.Object("Symbol", [&Json, &Reflection, &sym, &Settings]() {
+      PrintSymbol(Json, Reflection, sym, Settings, false);
+    });
   }
 }
 
 static void PrintEnum(JsonWriter &Json, const ReflectionData &Reflection,
-                      uint32_t EnumId, bool AllRelevantMembers,
-                      bool HideFileInfo) {
+                      uint32_t EnumId,
+                      const ReflectionPrintSettings &Settings) {
 
   const ReflectionEnumeration &enm = Reflection.Enums[EnumId];
   const ReflectionNode &node = Reflection.Nodes[enm.NodeId];
@@ -937,7 +938,7 @@ static void PrintEnum(JsonWriter &Json, const ReflectionData &Reflection,
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
-  if (AllRelevantMembers || !hasSymbols) {
+  if (!Settings.HumanReadable || !hasSymbols) {
     Json.UIntField("EnumId", EnumId);
     Json.UIntField("NodeId", enm.NodeId);
   }
@@ -949,21 +950,20 @@ static void PrintEnum(JsonWriter &Json, const ReflectionData &Reflection,
 
   Json.StringField("EnumType", EnumTypeToString(enm.Type));
 
-  Json.Array("Values", [&Json, &node, &enm, hasSymbols, &Reflection,
-                        AllRelevantMembers, HideFileInfo]() {
-    for (uint32_t i = 0; i < node.GetChildCount(); ++i) {
+  Json.Array("Values",
+             [&Json, &node, &enm, hasSymbols, &Reflection, &Settings]() {
+               for (uint32_t i = 0; i < node.GetChildCount(); ++i) {
 
-      uint32_t childId = enm.NodeId + 1 + i;
+                 uint32_t childId = enm.NodeId + 1 + i;
 
-      JsonWriter::ObjectScope valueRoot(Json);
+                 JsonWriter::ObjectScope valueRoot(Json);
 
-      if (!hasSymbols || AllRelevantMembers)
-        Json.UIntField("ValueId", i);
+                 if (!hasSymbols || !Settings.HumanReadable)
+                   Json.UIntField("ValueId", i);
 
-      PrintEnumValue(Json, Reflection, childId, AllRelevantMembers,
-                     HideFileInfo);
-    }
-  });
+                 PrintEnumValue(Json, Reflection, childId, Settings);
+               }
+             });
 }
 
 static void PrintAnnotation(JsonWriter &Json, const ReflectionData &Reflection,
@@ -975,31 +975,33 @@ static void PrintAnnotation(JsonWriter &Json, const ReflectionData &Reflection,
 
 static uint32_t PrintBufferMember(const ReflectionData &Reflection,
                                   uint32_t NodeId, uint32_t ChildId,
-                                  bool HasSymbols, bool AllRelevantMembers,
+                                  bool HasSymbols,
+                                  const ReflectionPrintSettings &Settings,
                                   JsonWriter &Json) {
 
   const ReflectionNode &node = Reflection.Nodes[NodeId];
 
   JsonWriter::ObjectScope root(Json);
 
-  if (AllRelevantMembers)
+  if (!Settings.HumanReadable)
     Json.UIntField("NodeId", NodeId);
 
-  if (!HasSymbols || AllRelevantMembers)
+  if (!HasSymbols || !Settings.HumanReadable)
     Json.UIntField("ChildId", ChildId);
 
   if (HasSymbols)
     Json.StringField(
         "Name", Reflection.Strings[Reflection.NodeSymbols[NodeId].GetNameId()]);
 
-  PrintType(Reflection, node.GetLocalId(), HasSymbols, AllRelevantMembers, Json,
+  PrintType(Reflection, node.GetLocalId(), HasSymbols, Settings, Json,
             true, "TypeName");
 
   return node.GetChildCount();
 }
 
 static void PrintBuffer(const ReflectionData &Reflection, uint32_t BufferId,
-                        bool HasSymbols, bool AllRelevantMembers,
+                        bool HasSymbols,
+                        const ReflectionPrintSettings &Settings,
                         JsonWriter &Json) {
 
   JsonWriter::ObjectScope nodeRoot(Json);
@@ -1009,7 +1011,7 @@ static void PrintBuffer(const ReflectionData &Reflection, uint32_t BufferId,
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
-  if (AllRelevantMembers || !hasSymbols) {
+  if (!Settings.HumanReadable || !hasSymbols) {
     Json.UIntField("BufferId", BufferId);
     Json.UIntField("NodeId", buf.NodeId);
   }
@@ -1022,12 +1024,12 @@ static void PrintBuffer(const ReflectionData &Reflection, uint32_t BufferId,
   Json.StringField("Type", BufferTypeToString(buf.Type));
 
   if (node.GetChildCount())
-    Json.Array("Children", [&node, &Reflection, &buf, &Json, HasSymbols,
-                            AllRelevantMembers]() {
-      for (uint32_t i = 0, j = 0; i < node.GetChildCount(); ++i, ++j)
-        i += PrintBufferMember(Reflection, buf.NodeId + 1 + i, j, HasSymbols,
-                               AllRelevantMembers, Json);
-    });
+    Json.Array("Children",
+               [&node, &Reflection, &buf, &Json, HasSymbols, &Settings]() {
+                 for (uint32_t i = 0, j = 0; i < node.GetChildCount(); ++i, ++j)
+                   i += PrintBufferMember(Reflection, buf.NodeId + 1 + i, j,
+                                          HasSymbols, Settings, Json);
+               });
 }
 
 static void PrintStatement(const ReflectionData &Reflection,
@@ -1054,15 +1056,14 @@ static void PrintStatement(const ReflectionData &Reflection,
 
 uint32_t PrintNodeRecursive(const ReflectionData &Reflection, uint32_t NodeId,
                             JsonWriter &Json,
-                            bool IsHumanFriendly, bool HideFileInfo);
+                            const ReflectionPrintSettings &Settings);
 
 void PrintChildren(const ReflectionData &Data, JsonWriter &Json,
                    const char *ObjectName, uint32_t Start, uint32_t End,
-                   bool HideFileInfo, bool IsHumanFriendly) {
+                   const ReflectionPrintSettings &Settings) {
 
   if (End > Start)
-    Json.Array(ObjectName, [&Data, &Json, Start, End, HideFileInfo,
-                            IsHumanFriendly]() {
+    Json.Array(ObjectName, [&Data, &Json, Start, End, &Settings]() {
       for (uint32_t i = Start; i < End; ++i) {
 
         const ReflectionNode &node = Data.Nodes[i];
@@ -1077,17 +1078,16 @@ void PrintChildren(const ReflectionData &Data, JsonWriter &Json,
         // Put Name(Id) into current scope to hide "Symbol" everywhere.
 
         if (Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO)
-          PrintSymbol(Json, Data, Data.NodeSymbols[i], !IsHumanFriendly, true,
-                      false);
+          PrintSymbol(Json, Data, Data.NodeSymbols[i], Settings, false);
 
-        i += PrintNodeRecursive(Data, i, Json, true, HideFileInfo);
+        i += PrintNodeRecursive(Data, i, Json, Settings);
       }
     });
 }
 
-uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
-                            uint32_t NodeId, JsonWriter &Json,
-                            bool IsHumanFriendly, bool HideFileInfo) {
+uint32_t PrintNodeRecursive(const ReflectionData &Reflection, uint32_t NodeId,
+                            JsonWriter &Json,
+                            const ReflectionPrintSettings &Settings) {
 
   bool hasSymbols =
       Reflection.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
@@ -1112,8 +1112,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
     node = Reflection.Nodes[NodeId];
   }
 
-  PrintNode(Json, Reflection, NodeId, !IsHumanFriendly,
-            HideFileInfo);
+  PrintNode(Json, Reflection, NodeId, Settings);
 
   uint32_t childrenToSkip = 0;
 
@@ -1121,29 +1120,25 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
 
   if (nodeType == D3D12_HLSL_NODE_TYPE_FUNCTION)
     Json.Object("Function", [&node, &Reflection, &Json,
-                             IsHumanFriendly, &childrenToSkip, HideFileInfo]() {
+                             &Settings, &childrenToSkip]() {
       ReflectionFunction func = Reflection.Functions[node.GetLocalId()];
-      PrintFunction(Json, Reflection, node.GetLocalId(),
-                    !IsHumanFriendly, HideFileInfo);
+      PrintFunction(Json, Reflection, node.GetLocalId(), Settings);
       childrenToSkip = func.GetNumParameters() + func.HasReturn();
     });
 
   // Register
 
   if (nodeType == D3D12_HLSL_NODE_TYPE_REGISTER)
-    Json.Object("Register",
-                [&node, &Reflection, &Json, IsHumanFriendly]() {
-                  PrintRegister(Json, Reflection, node.GetLocalId(),
-                                !IsHumanFriendly);
+    Json.Object("Register", [&node, &Reflection, &Json, &Settings]() {
+                  PrintRegister(Json, Reflection, node.GetLocalId(), Settings);
                 });
 
   // Enum
 
   if (nodeType == D3D12_HLSL_NODE_TYPE_ENUM)
-    Json.Object("Enum", [&node, &Reflection, &Json, IsHumanFriendly,
-                         &childrenToSkip, HideFileInfo]() {
-      PrintEnum(Json, Reflection, node.GetLocalId(),
-                !IsHumanFriendly, HideFileInfo);
+    Json.Object("Enum", [&node, &Reflection, &Json, &Settings,
+                         &childrenToSkip]() {
+      PrintEnum(Json, Reflection, node.GetLocalId(), Settings);
       childrenToSkip = node.GetChildCount();
     });
 
@@ -1166,10 +1161,10 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
   }
 
   if (isType)
-    Json.Object("Type", [&node, &Reflection, &Json, IsHumanFriendly,
+    Json.Object("Type", [&node, &Reflection, &Json, &Settings,
                          hasSymbols, recurseType]() {
-      PrintType(Reflection, node.GetLocalId(), hasSymbols,
-                !IsHumanFriendly, Json, recurseType);
+      PrintType(Reflection, node.GetLocalId(), hasSymbols, Settings, Json,
+                recurseType);
     });
 
   // If; turns into ("Condition"), ("Body"), ("Else")
@@ -1200,18 +1195,15 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
 
   if (stmtType) {
 
-    Json.Object(stmtType, [&node, &Reflection, &Json,
-                           IsHumanFriendly, NodeId, &childrenToSkip, nodeType,
-                           HideFileInfo]() {
+    Json.Object(stmtType, [&node, &Reflection, &Json, &Settings, NodeId,
+                           &childrenToSkip, nodeType]() {
       const ReflectionScopeStmt &stmt = Reflection.Statements[node.GetLocalId()];
 
       uint32_t start = NodeId + 1;
 
       if (stmt.HasConditionVar())
-        Json.Object("Condition", [NodeId, &Reflection, &Json,
-                                  IsHumanFriendly, &start, HideFileInfo]() {
-          start += PrintNodeRecursive(Reflection, start, Json,
-                                      IsHumanFriendly, HideFileInfo);
+        Json.Object("Condition", [NodeId, &Reflection, &Json, &start, &Settings]() {
+          start += PrintNodeRecursive(Reflection, start, Json, Settings);
           ++start;
         });
 
@@ -1221,8 +1213,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
       const char *bodyName = isIf ? "Body" : "Init";
 
       if (stmt.GetNodeCount())
-        PrintChildren(Reflection, Json, bodyName, start, end,
-                      HideFileInfo, IsHumanFriendly);
+        PrintChildren(Reflection, Json, bodyName, start, end, Settings);
 
       const char *elseName = isIf ? "Else" : "Body";
 
@@ -1231,8 +1222,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
         start = end;
         end = NodeId + 1 + node.GetChildCount();
 
-        PrintChildren(Reflection, Json, elseName, start, end,
-                      HideFileInfo, IsHumanFriendly);
+        PrintChildren(Reflection, Json, elseName, start, end, Settings);
       }
 
       childrenToSkip = node.GetChildCount();
@@ -1244,8 +1234,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection,
   uint32_t start = NodeId + 1 + childrenToSkip;
   uint32_t end = NodeId + 1 + node.GetChildCount();
 
-  PrintChildren(Reflection, Json, "Children", start, end,
-                HideFileInfo, IsHumanFriendly);
+  PrintChildren(Reflection, Json, "Children", start, end, Settings);
   
   return nodeChildCountForRet;
 }
@@ -1265,6 +1254,10 @@ std::string ReflectionData::ToJson(bool HideFileInfo, bool IsHumanFriendly) cons
 
     bool hasSymbols =
         Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
+
+    ReflectionPrintSettings settings{};
+    settings.HideFileInfo = HideFileInfo;
+    settings.HumanReadable = IsHumanFriendly;
 
     // Print raw contents
 
@@ -1290,24 +1283,24 @@ std::string ReflectionData::ToJson(bool HideFileInfo, bool IsHumanFriendly) cons
           json.Value(uint64_t(id));
       });
 
-      json.Array("Nodes", [this, &json, HideFileInfo] {
+      json.Array("Nodes", [this, &json, &settings] {
         for (uint32_t i = 0; i < uint32_t(Nodes.size()); ++i) {
           JsonWriter::ObjectScope nodeRoot(json);
-          PrintNode(json, *this, i, true, HideFileInfo);
+          PrintNode(json, *this, i, settings);
         }
       });
 
-      json.Array("Registers", [this, &json] {
+      json.Array("Registers", [this, &json, &settings] {
         for (uint32_t i = 0; i < uint32_t(Registers.size()); ++i) {
           JsonWriter::ObjectScope nodeRoot(json);
-          PrintRegister(json, *this, i, true);
+          PrintRegister(json, *this, i, settings);
         }
       });
 
-      json.Array("Functions", [this, &json, HideFileInfo] {
+      json.Array("Functions", [this, &json, HideFileInfo, &settings] {
         for (uint32_t i = 0; i < uint32_t(Functions.size()); ++i) {
           JsonWriter::ObjectScope nodeRoot(json);
-          PrintFunction(json, *this, i, true, HideFileInfo);
+          PrintFunction(json, *this, i, settings);
         }
       });
 
@@ -1315,7 +1308,7 @@ std::string ReflectionData::ToJson(bool HideFileInfo, bool IsHumanFriendly) cons
       // before, still printing it to allow consistency checks.
       // For pure pretty prints, you should use the human version.
 
-      json.Array("Parameters", [this, &json, hasSymbols] {
+      json.Array("Parameters", [this, &json, hasSymbols, &settings] {
         for (uint32_t i = 0; i < uint32_t(Parameters.size()); ++i) {
           JsonWriter::ObjectScope nodeRoot(json);
 
@@ -1328,23 +1321,21 @@ std::string ReflectionData::ToJson(bool HideFileInfo, bool IsHumanFriendly) cons
 
           PrintParameter(*this, param.TypeId, hasSymbols, json,
                          Nodes[param.NodeId].GetSemanticId(),
-                         param.InterpolationMode, param.Flags, true);
+                         param.InterpolationMode, param.Flags, settings);
         }
       });
 
-      json.Array("Enums", [this, &json, hasSymbols, HideFileInfo] {
+      json.Array("Enums", [this, &json, hasSymbols, HideFileInfo, &settings] {
         for (uint32_t i = 0; i < uint32_t(Enums.size()); ++i) {
           JsonWriter::ObjectScope nodeRoot(json);
-          PrintEnum(json, *this, i, true, HideFileInfo);
+          PrintEnum(json, *this, i, settings);
         }
       });
 
-      json.Array("EnumValues", [this, &json, hasSymbols,
-                                HideFileInfo] {
+      json.Array("EnumValues", [this, &json, hasSymbols, HideFileInfo, &settings] {
         for (uint32_t i = 0; i < uint32_t(EnumValues.size()); ++i) {
           JsonWriter::ObjectScope valueRoot(json);
-          PrintEnumValue(json, *this, EnumValues[i].NodeId, true,
-                         HideFileInfo);
+          PrintEnumValue(json, *this, EnumValues[i].NodeId, settings);
         }
       });
 
@@ -1376,7 +1367,7 @@ std::string ReflectionData::ToJson(bool HideFileInfo, bool IsHumanFriendly) cons
           json.Value(uint64_t(id));
       });
 
-      json.Array("Members", [this, &json, hasSymbols] {
+      json.Array("Members", [this, &json, hasSymbols, &settings] {
         for (uint32_t i = 0; i < uint32_t(MemberTypeIds.size()); ++i) {
 
           JsonWriter::ObjectScope valueRoot(json);
@@ -1386,28 +1377,28 @@ std::string ReflectionData::ToJson(bool HideFileInfo, bool IsHumanFriendly) cons
             json.UIntField("NameId", MemberNameIds[i]);
           }
 
-          PrintTypeName(*this, MemberTypeIds[i], hasSymbols, true,
+          PrintTypeName(*this, MemberTypeIds[i], hasSymbols, settings,
                         json, "TypeName");
         }
       });
 
-      json.Array("TypeList", [this, &json, hasSymbols] {
+      json.Array("TypeList", [this, &json, hasSymbols, &settings] {
         for (uint32_t id : TypeList) {
           JsonWriter::ObjectScope valueRoot(json);
-          PrintTypeName(*this, id, hasSymbols, true, json);
+          PrintTypeName(*this, id, hasSymbols, settings, json);
         }
       });
 
-      json.Array("Types", [this, &json, hasSymbols] {
+      json.Array("Types", [this, &json, hasSymbols, &settings] {
         for (uint32_t i = 0; i < uint32_t(Types.size()); ++i) {
           JsonWriter::ObjectScope nodeRoot(json);
-          PrintType(*this, i, hasSymbols, true, json, false);
+          PrintType(*this, i, hasSymbols, settings, json, false);
         }
       });
 
-      json.Array("Buffers", [this, &json, hasSymbols] {
+      json.Array("Buffers", [this, &json, hasSymbols, &settings] {
         for (uint32_t i = 0; i < uint32_t(Buffers.size()); ++i)
-          PrintBuffer(*this, i, hasSymbols, true, json);
+          PrintBuffer(*this, i, hasSymbols, settings, json);
       });
 
       json.Array("Statements", [this, &json] {
@@ -1427,7 +1418,7 @@ std::string ReflectionData::ToJson(bool HideFileInfo, bool IsHumanFriendly) cons
 
     else
       PrintChildren(*this, json, "Children", 1, Nodes.size(),
-                   HideFileInfo, true);
+                   settings);
   }
 
   return json.str();
