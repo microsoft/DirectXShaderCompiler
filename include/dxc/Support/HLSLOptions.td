@@ -599,6 +599,9 @@ def reflect_disable_symbols : Flag<["-", "/"], "reflect-disable-symbols">, Group
 def reflect_show_file_info : Flag<["-", "/"], "reflect-show-file-info">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
   HelpText<"Show file symbol info in the reflection output json.">;
 
+def reflect_show_raw_data : Flag<["-", "/"], "reflect-show-raw-data">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
+  HelpText<"Show raw data without prettifying in the reflection output json.">;
+
 //////////////////////////////////////////////////////////////////////////////
 // Rewriter Options
 

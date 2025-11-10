@@ -817,25 +817,26 @@ struct ReflectionData {
   [[nodiscard]] ReflectionError
   RegisterString(uint32_t &StringId, const std::string &Name, bool IsNonDebug);
 
-  [[nodiscard]] ReflectionError PushArray(uint32_t &ArrayId, uint32_t ArraySizeFlat,
-                     const std::vector<uint32_t> &ArraySize);
+  [[nodiscard]] ReflectionError
+  PushArray(uint32_t &ArrayId, uint32_t ArraySizeFlat,
+            const std::vector<uint32_t> &ArraySize);
 
   [[nodiscard]] ReflectionError
   RegisterTypeList(const std::vector<uint32_t> &TypeIds, uint32_t &Offset,
-                        uint8_t &Len);
+                   uint8_t &Len);
 
   static D3D_CBUFFER_TYPE GetBufferType(uint8_t Type);
 
   void Dump(std::vector<std::byte> &Bytes) const;
-  std::string ToJson(bool HideFileInfo = false, bool IsHumanFriendly = true,
-                     bool IsVerbose = false) const;
+  std::string ToJson(bool HideFileInfo = false,
+                     bool IsHumanFriendly = true) const;
 
   void StripSymbols();
   bool GenerateNameLookupTable();
 
   ReflectionData() = default;
   [[nodiscard]] ReflectionError Deserialize(const std::vector<std::byte> &Bytes,
-                                 bool MakeNameLookupTable);
+                                            bool MakeNameLookupTable);
 
   bool IsSameNonDebug(const ReflectionData &Other) const {
     return StringsNonDebug == Other.StringsNonDebug && Nodes == Other.Nodes &&
