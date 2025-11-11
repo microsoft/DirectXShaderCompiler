@@ -12,7 +12,16 @@
 #ifndef __DXC_REFLECT__
 #define __DXC_REFLECT__
 
-#include <dxc/dxcapi.h>
+#ifndef _WIN32
+  #include "dxc/WinAdapter.h"
+  // need to disable this as it is voilated by this header
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
+  // Need to instruct non-windows compilers on what an interface is
+  #define interface struct
+#endif
+
+#include "dxc/dxcapi.h" 
 #include "d3d12shader.h"
 
 #ifdef _MSC_VER
@@ -197,7 +206,7 @@ typedef struct _D3D12_SHADER_TYPE_DESC1 {
 } D3D12_SHADER_TYPE_DESC1;
 
 DECLARE_INTERFACE_(ID3D12ShaderReflectionType1, ID3D12ShaderReflectionType) {
-  STDMETHOD(GetDesc)(THIS_ _Out_ D3D12_SHADER_TYPE_DESC1 *pDesc) PURE;
+  STDMETHOD(GetDesc1)(THIS_ _Out_ D3D12_SHADER_TYPE_DESC1 *pDesc) PURE;
   STDMETHOD(GetArrayDesc)(THIS_ _Out_ D3D12_ARRAY_DESC *pArrayDesc) PURE;
   STDMETHOD(GetDisplayArrayDesc)(THIS_ _Out_ D3D12_ARRAY_DESC *pArrayDesc) PURE;
 };

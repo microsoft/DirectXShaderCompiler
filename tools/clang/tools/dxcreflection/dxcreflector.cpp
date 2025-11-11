@@ -323,11 +323,9 @@ public:
     return S_OK;
   }
 
-  STDMETHOD(GetDesc)(D3D12_SHADER_TYPE_DESC1 *pDesc) override {
+  STDMETHOD(GetDesc1)(D3D12_SHADER_TYPE_DESC1 *pDesc) override {
 
     IFR(ZeroMemoryToOut(pDesc));
-
-    const ReflectionVariableType &type = m_Data->Types[m_TypeId];
 
     GetDesc(&pDesc->Desc);
     pDesc->DisplayName = m_NameDisplay.c_str();
@@ -550,7 +548,7 @@ public:
     m_VariablesByName.clear();
     m_Variables.resize(children.size());
 
-    for (uint32_t i = 0, j = 0; i < m_ChildCount; ++i) {
+    for (uint32_t i = 0; i < m_ChildCount; ++i) {
 
       uint32_t childId = children[i];
 
@@ -584,11 +582,9 @@ public:
     m_VariablesByName.clear();
     m_Variables.resize(Globals.size());
 
-    for (uint32_t i = 0, j = 0; i < m_ChildCount; ++i) {
+    for (uint32_t i = 0; i < m_ChildCount; ++i) {
 
       uint32_t childId = Globals[i];
-
-      const ReflectionNode &node = Data.Nodes[childId];
 
       std::string name;
 
@@ -1570,8 +1566,6 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
   if (astHelper.bHasErrors)
     return E_FAIL;
 
-  TranslationUnitDecl *tu = astHelper.tu;
-
   D3D12_HLSL_REFLECTION_FEATURE reflectMask =
       D3D12_HLSL_REFLECTION_FEATURE_NONE;
 
@@ -1601,7 +1595,7 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
   if (ReflectionError err = DxcHLSLReflectionDataFromAST(
           refl, astHelper.compiler, *astHelper.tu, opts.AutoBindingSpace,
           reflectMask, opts.DefaultRowMajor)) {
-    fprintf(stderr, "DxcHLSLReflectionDataFromAST failed %s\n", err.err);
+    fprintf(stderr, "DxcHLSLReflectionDataFromAST failed %s\n", err.toString().c_str());
     return E_FAIL;
   }
 
@@ -1620,7 +1614,7 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
     ReflectionData deserialized;
 
     if (ReflectionError err = deserialized.Deserialize(bytes, true)) {
-      fprintf(stderr, "Deserialize failed %s\n", err.err);
+      fprintf(stderr, "Deserialize failed %s\n", err.toString().c_str());
       return E_FAIL;
     }
 
@@ -1641,7 +1635,7 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
       ReflectionData deserialized2;
 
       if (ReflectionError err = deserialized2.Deserialize(bytes, true)) {
-        fprintf(stderr, "Deserialize failed %s\n", err.err);
+        fprintf(stderr, "Deserialize failed %s\n", err.toString().c_str());
         return E_FAIL;
       }
 

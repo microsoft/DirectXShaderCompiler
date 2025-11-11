@@ -15,6 +15,16 @@
 #include <assert.h>
 #include <stdexcept>
 
+#ifndef _WIN32
+  #include "dxc/WinAdapter.h"
+  // need to disable this as it is voilated by this header
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
+  // Need to instruct non-windows compilers on what an interface is
+  #define interface struct
+#endif
+
+#include "dxc/dxcapi.h" 
 #include "d3d12shader.h"
 #include "dxc/dxcreflect.h"
 
@@ -25,24 +35,41 @@ namespace hlsl {
 struct ReflectionError {
 
   const char *err;
+  const char *func;
 
   uint32_t index;       //For example which elementId made this error
   bool hasIndex;
   uint8_t pad[3];
 
   constexpr ReflectionError()
-      : err(nullptr), index(0), hasIndex(false), pad{0, 0, 0} {}
+      : err(nullptr), func(nullptr), index(0), hasIndex(false), pad{0, 0, 0} {}
 
-  constexpr ReflectionError(const char *err)
-      : err(err), index(0), hasIndex(false), pad{0, 0, 0} {}
+  constexpr ReflectionError(const char *err, const char *func)
+      : err(err), func(func), index(0), hasIndex(false), pad{0, 0, 0} {}
 
-  constexpr ReflectionError(const char *err, uint32_t index)
-      : err(err), index(index), hasIndex(true), pad{0, 0, 0} {}
+  constexpr ReflectionError(const char *err, const char *func, uint32_t index)
+      : err(err), func(func), index(index), hasIndex(true), pad{0, 0, 0} {}
 
-  operator const char *() const { return err; }
+  std::string toString() const {
+
+    if(!err)
+      return "";
+
+    std::string res = err;
+
+    if(hasIndex)
+      res += " (at index " + std::to_string(index) + ")";
+
+    if(func)
+      res += " (" + std::string(func) + ")";
+
+    return res;
+  }
+
+  operator bool() const { return err; }
 };
 
-static constexpr const ReflectionError ReflectionErrorSuccess = nullptr;
+static constexpr const ReflectionError ReflectionErrorSuccess = {};
 
 #ifndef NDEBUG
   #if defined(_MSC_VER)
@@ -54,9 +81,9 @@ static constexpr const ReflectionError ReflectionErrorSuccess = nullptr;
   #endif
   #define HLSL_REFL_ERR_STRING(x) #x
   #define HLSL_REFL_ERR_STRING2(x) HLSL_REFL_ERR_STRING(x)
-  #define HLSL_REFL_ERR(x, ...) ReflectionError(x " at " __FILE__ ":" HLSL_REFL_ERR_STRING2(__LINE__) " (" HLSL_REFL_ERR_FUNC_NAME ")", __VA_ARGS__)
+  #define HLSL_REFL_ERR(x, ...) ReflectionError(x " at " __FILE__ ":" HLSL_REFL_ERR_STRING2(__LINE__), HLSL_REFL_ERR_FUNC_NAME, ##__VA_ARGS__)
 #else
-  #define HLSL_REFL_ERR(x, ...) ReflectionError(x, __VA_ARGS__)
+  #define HLSL_REFL_ERR(x, ...) ReflectionError(x, nullptr, ##__VA_ARGS__)
 #endif
 
 class ReflectionNode {
@@ -97,8 +124,9 @@ class ReflectionNode {
       uint32_t ParentId, uint8_t AnnotationCount, uint16_t SemanticId)
       : LocalIdParentLo(LocalId | (ParentId << 24)), ParentHi(ParentId >> 8),
       Annotations(AnnotationCount), Type(NodeType),
-      ChildCountFwdBckLo(ChildCount | (0xFFu << 24)), FwdBckHi(0xFFFF),
-      AnnotationStart(AnnotationStart), SemanticId(SemanticId), Padding(0) {
+      ChildCountFwdBckLo(ChildCount | (0xFFu << 24)), 
+      AnnotationStart(AnnotationStart), FwdBckHi(0xFFFF),
+      SemanticId(SemanticId), Padding(0) {
 
     if (IsFwdDeclare)
       Type |= 0x80;
@@ -477,8 +505,8 @@ class ReflectionShaderResource { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC,
                            uint32_t uFlags, D3D_RESOURCE_RETURN_TYPE ReturnType,
                            D3D_SRV_DIMENSION Dimension, uint32_t NodeId,
                            uint32_t ArrayId, uint32_t BufferId)
-      : Type(Type), BindCount(BindCount), uFlags(uFlags),
-        ReturnType(ReturnType), Dimension(Dimension), NodeId(NodeId),
+      : Type(Type), Dimension(Dimension), ReturnType(ReturnType), uFlags(uFlags),
+        BindCount(BindCount), Pad(0), NodeId(NodeId),
         ArrayId(ArrayId), BufferId(BufferId) {}
 
 public:
@@ -621,8 +649,9 @@ class ReflectionVariableType { // Almost maps to CShaderReflectionType and
                          uint32_t InterfaceCount)
       : MemberData(MembersStart | (MembersCount << 24)), Class(Class),
         Type(Type), Rows(Rows), Columns(Columns),
-        UnderlyingArray(ElementsOrArrayIdUnderlying), BaseClass(BaseClass),
-        InterfaceOffsetAndCount(InterfaceOffset | (InterfaceCount << 24)) {}
+        BaseClass(BaseClass),
+        InterfaceOffsetAndCount(InterfaceOffset | (InterfaceCount << 24)),
+        UnderlyingArray(ElementsOrArrayIdUnderlying) {}
 
 public:
   bool operator==(const ReflectionVariableType &Other) const {

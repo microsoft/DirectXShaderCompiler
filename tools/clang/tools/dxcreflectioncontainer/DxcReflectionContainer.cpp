@@ -681,6 +681,8 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
         return HLSL_REFL_ERR("Node is a parameter, typedef, variable or "
                                     "static variable but also has children", i);
 
+      [[fallthrough]];
+
     case D3D12_HLSL_NODE_TYPE_IF:
     case D3D12_HLSL_NODE_TYPE_SCOPE:
     case D3D12_HLSL_NODE_TYPE_DO:

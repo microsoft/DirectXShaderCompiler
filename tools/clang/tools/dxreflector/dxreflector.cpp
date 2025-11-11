@@ -84,7 +84,7 @@ int main(int argc, const char **argv) {
             argStrings.Utf8CharPtrVector.resize(
                 argStrings.Utf8CharPtrVector.size() + 2);
 
-            for (int i = 0; i < argStrings.Utf8StringVector.size(); ++i)
+            for (uint64_t i = 0; i < argStrings.Utf8StringVector.size(); ++i)
               argStrings.Utf8CharPtrVector[i] =
                   argStrings.Utf8StringVector[i].c_str();
           }
@@ -179,8 +179,8 @@ int main(int argc, const char **argv) {
     wargs.reserve(argStrings.Utf8CharPtrVector.size());
     wargsC.reserve(argStrings.Utf8CharPtrVector.size());
 
-    for (const std::string &arg : argStrings.Utf8CharPtrVector) {
-      wargs.push_back(std::wstring(CA2W(arg.c_str())));
+    for (const char *arg : argStrings.Utf8CharPtrVector) {
+      wargs.push_back(std::wstring(CA2W(arg)));
       wargsC.push_back(wargs.back().c_str());
     }
 

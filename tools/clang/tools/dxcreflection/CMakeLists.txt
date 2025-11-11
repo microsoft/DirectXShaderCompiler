@@ -13,3 +13,9 @@ add_clang_library(dxcreflection STATIC
   dxcreflection_from_ast.cpp)
 
 target_link_libraries(dxcreflection PRIVATE ${LIBRARIES} dxcreflectioncontainer)
+
+if(MSVC)
+  target_compile_options(dxcreflection PRIVATE /W4 /WX)
+else()
+  target_compile_options(dxcreflection PRIVATE -Wall -Wextra -Werror -Wno-pedantic)
+endif()

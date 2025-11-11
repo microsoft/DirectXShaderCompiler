@@ -16,7 +16,7 @@
 #include "clang/AST/DeclVisitor.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Frontend/CompilerInstance.h"
-#include "clang/basic/SourceManager.h"
+#include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
 #include "dxc/DxcReflection/DxcReflectionContainer.h"
 
@@ -24,7 +24,7 @@ using namespace clang;
 
 namespace hlsl {
     
-static [[nodiscard]] ReflectionError
+[[nodiscard]] static ReflectionError
 PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
                const LangOptions &LangOpts, const std::string &UnqualifiedName,
                const Decl *DeclSelf, D3D12_HLSL_NODE_TYPE Type,
@@ -339,7 +339,7 @@ static DxcRegisterTypeInfo GetTextureRegisterInfo(ASTContext &ASTCtx,
 
   uint32_t dimensions;
 
-  if (const BuiltinType *bt = dyn_cast<BuiltinType>(desugared))
+  if (isa<BuiltinType>(desugared))
     dimensions = 1;
 
   else {
@@ -1624,7 +1624,7 @@ public:
                      uint32_t Depth, D3D12_HLSL_REFLECTION_FEATURE Features,
                      uint32_t ParentNodeId, bool DefaultRowMaj,
                      std::unordered_map<const Decl *, uint32_t> &FwdDecls)
-      : Ctx(Ctx), ASTCtx(ASTCtx), Diags(Diags), SM(SM), Refl(Refl),
+      : Ctx(Ctx), ASTCtx(ASTCtx), SM(SM), Diags(Diags), Refl(Refl),
         AutoBindingSpace(AutoBindingSpace), Depth(Depth), Features(Features),
         ParentNodeId(ParentNodeId), DefaultRowMaj(DefaultRowMaj),
         FwdDecls(FwdDecls){}

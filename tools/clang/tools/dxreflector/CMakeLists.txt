@@ -38,3 +38,9 @@ endif()
 install(TARGETS dxreflector
   RUNTIME DESTINATION bin)
 
+if(MSVC)
+  target_compile_options(dxreflector PRIVATE /W4 /WX)
+else()
+  target_compile_options(dxreflector PRIVATE -Wall -Wextra -Werror -Wno-pedantic)
+endif()
+
