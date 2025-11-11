@@ -1266,10 +1266,44 @@ FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
 
 #define WAVE_ACTIVE_OP(OP, IMPL)                                               \
   template <typename T> struct Op<OP, T, 1> : DefaultValidation<T> {           \
-    T operator()(T A, T WaveSize) { return IMPL; }                             \
+    T operator()(T A, UINT WaveSize) { return IMPL; }                          \
   };
 
-WAVE_ACTIVE_OP(OpType::WaveActiveSum, (A * WaveSize));
+template <typename T> T waveActiveSum(T A, UINT WaveSize) {
+  T WaveSizeT = static_cast<T>(WaveSize);
+  return A * WaveSizeT;
+}
+
+WAVE_ACTIVE_OP(OpType::WaveActiveSum, (waveActiveSum(A, WaveSize)));
+
+template <typename T> T waveActiveMin(T A, UINT WaveSize) {
+  std::vector<T> Values;
+  // Add the 'WaveLaneID' to A.
+  for (UINT I = 0; I < WaveSize; ++I)
+    Values.push_back(A + static_cast<T>(I));
+  return *std::min_element(Values.begin(), Values.end());
+}
+
+WAVE_ACTIVE_OP(OpType::WaveActiveMin, (waveActiveMin(A, WaveSize)));
+
+template <typename T> T waveActiveMax(T A, UINT WaveSize) {
+  std::vector<T> Values;
+  // Add the 'WaveLaneID' to A.
+  for (UINT I = 0; I < WaveSize; ++I)
+    Values.push_back(A + static_cast<T>(I));
+  return *std::max_element(Values.begin(), Values.end());
+}
+
+WAVE_ACTIVE_OP(OpType::WaveActiveMax, (waveActiveMax(A, WaveSize)));
+
+template <typename T> T waveActiveProduct(T A, UINT WaveSize) {
+  // We want to avoid overflow of a large product. So, the WaveActiveProdFn has
+  // an input set of all 1's and we modify the value of the largest lane to be
+  // equal to the lane index in the shader.
+  return A * static_cast<T>(WaveSize - 1);
+}
+
+WAVE_ACTIVE_OP(OpType::WaveActiveProduct, (waveActiveProduct(A, WaveSize)));
 
 #undef WAVE_ACTIVE_OP
 
@@ -1321,13 +1355,12 @@ template <OpType OP, typename T> struct WaveOpExpectedBuilder {
   static auto buildExpected(Op<OP, T, 1> Op, const InputSets<T> &Inputs,
                             UINT WaveSize) {
     DXASSERT_NOMSG(Inputs.size() == 1);
-    const T WaveSizeT = static_cast<T>(WaveSize);
 
-    std::vector<decltype(Op(T(), WaveSizeT))> Expected;
+    std::vector<decltype(Op(T(), WaveSize))> Expected;
     Expected.reserve(Inputs[0].size());
 
     for (size_t I = 0; I < Inputs[0].size(); ++I)
-      Expected.push_back(Op(Inputs[0][I], WaveSizeT));
+      Expected.push_back(Op(Inputs[0][I], WaveSize));
 
     return Expected;
   }
@@ -2173,16 +2206,43 @@ public:
   HLK_TEST(LoadAndStore_RD_SB_UAV, double);
 
   HLK_WAVEOP_TEST(WaveActiveSum, int16_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, int16_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, int16_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, int16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int32_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, int32_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, int32_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, int32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int64_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, int64_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, int64_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, int64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, uint16_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, uint16_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, uint16_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint32_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, uint32_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, uint32_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint64_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, uint64_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, uint64_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, uint64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveSum, float);
+  HLK_WAVEOP_TEST(WaveActiveMin, float);
+  HLK_WAVEOP_TEST(WaveActiveMax, float);
+  HLK_WAVEOP_TEST(WaveActiveProduct, float);
   HLK_WAVEOP_TEST(WaveActiveSum, double);
+  HLK_WAVEOP_TEST(WaveActiveMin, double);
+  HLK_WAVEOP_TEST(WaveActiveMax, double);
+  HLK_WAVEOP_TEST(WaveActiveProduct, double);
 
 private:
   bool Initialized = false;
