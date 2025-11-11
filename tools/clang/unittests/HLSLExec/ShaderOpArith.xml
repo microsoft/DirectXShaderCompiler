@@ -3721,13 +3721,9 @@ void MSMain(uint GID : SV_GroupIndex,
     <RootSignature>UAV(u0), UAV(u1)</RootSignature>
     <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
     <Resource Name="InputVector1" Dimension="BUFFER" Init="ByName"
-    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
-    TransitionTo="UNORDERED_ACCESS">
-    </Resource>
+    Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS"/>
     <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
-    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
-    TransitionTo="UNORDERED_ACCESS">
-    </Resource>
+    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS"/>
 
     <RootValues>
       <RootValue Index="0" ResName="InputVector1" />
@@ -3766,8 +3762,7 @@ void MSMain(uint GID : SV_GroupIndex,
     <Resource Name="InputVector1" Dimension="BUFFER" Init="ByName"/>
     <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
     ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
-    TransitionTo="UNORDERED_ACCESS">
-    </Resource>
+    TransitionTo="UNORDERED_ACCESS"/>
 
     <RootValues>
       <RootValue Index="0" ResName="InputVector1" />
@@ -3804,13 +3799,10 @@ void MSMain(uint GID : SV_GroupIndex,
     <RootSignature>DescriptorTable(UAV(u0, numDescriptors=2))</RootSignature>
     <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
     <Resource Name="InputVector1" Dimension="BUFFER" Width="0" Init="ByName"
-    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
-    TransitionTo="UNORDERED_ACCESS">
-    </Resource>
+    Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS"/>
     <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
     ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
-    TransitionTo="UNORDERED_ACCESS">
-    </Resource>
+    TransitionTo="UNORDERED_ACCESS"/>
 
     <!-- Note: NumElements is set dynamically (via c++ test code) based on the
     input vector size and element type -->
@@ -3818,9 +3810,9 @@ void MSMain(uint GID : SV_GroupIndex,
       <RootValue HeapName="DescriptorTable" Index="0" />
     </RootValues>
     <DescriptorHeap Name="DescriptorTable" Type="CBV_SRV_UAV">
-      <Descriptor Name="InputVector1" Kind="UAV" ResName="InputVector1" NumElements="0" Format="R32_Typeless" Flags="RAW"/>
+      <Descriptor Name="InputVector1" Kind="UAV" ResName="InputVector1" NumElements="0"/>
       <Descriptor Name="OutputVector" Kind="UAV" ResName="OutputVector"
-      NumElements="0" Format="R32_Typeless" Flags="RAW"/>
+      NumElements="0"/>
     </DescriptorHeap>
 
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
@@ -3859,8 +3851,7 @@ void MSMain(uint GID : SV_GroupIndex,
     <Resource Name="InputVector1" Dimension="BUFFER" Width="0" Init="ByName"/>
     <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
     ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
-    TransitionTo="UNORDERED_ACCESS">
-    </Resource>
+    TransitionTo="UNORDERED_ACCESS"/>
 
     <!-- Note: NumElements is set dynamically (via c++ test code) based on the
     input vector size and element type -->
@@ -3868,9 +3859,9 @@ void MSMain(uint GID : SV_GroupIndex,
       <RootValue HeapName="DescriptorTable" Index="0" />
     </RootValues>
     <DescriptorHeap Name="DescriptorTable" Type="CBV_SRV_UAV">
-      <Descriptor Name="InputVector1" Kind="SRV" ResName="InputVector1" NumElements="0" Format="R32_Typeless" Flags="RAW"/>
+      <Descriptor Name="InputVector1" Kind="SRV" ResName="InputVector1" NumElements="0"/>
       <Descriptor Name="OutputVector" Kind="UAV" ResName="OutputVector"
-      NumElements="0" Format="R32_Typeless" Flags="RAW"/>
+      NumElements="0"/>
     </DescriptorHeap>
 
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
@@ -3904,20 +3895,16 @@ void MSMain(uint GID : SV_GroupIndex,
 
     <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
     <Resource Name="InputVector1" Dimension="BUFFER" Width="0"
-    InitialResourceState="COPY_DEST" Init="ByName">
-    </Resource>
+    InitialResourceState="COPY_DEST" Init="ByName"/>
     <Resource Name="OutputVector" Dimension="BUFFER" Width="0"
     InitialResourceState="COPY_DEST" Init="ByName" ReadBack="true"
-    Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS">
-    </Resource>
+    Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS"/>
 
     <!-- Note: NumElements is set dynamically (via c++ test code) based on the
     input vector size and element type -->
     <DescriptorHeap Name="ResourceDescriptorHeap" Type="CBV_SRV_UAV">
-      <Descriptor Name="InputVector1" Kind="SRV" Flags='RAW' NumElements="0"
-      Format="R32_Typeless"/>
-      <Descriptor Name="OutputVector" Kind="UAV" Flags='RAW' NumElements="0"
-      Format="R32_Typeless"/>
+      <Descriptor Name="InputVector1" Kind="SRV" NumElements="0"/>
+      <Descriptor Name="OutputVector" Kind="UAV" NumElements="0"/>
     </DescriptorHeap>
 
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
@@ -3953,21 +3940,15 @@ void MSMain(uint GID : SV_GroupIndex,
 
     <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
     <Resource Name="InputVector1" Dimension="BUFFER" Width="0"
-    InitialResourceState="COPY_DEST" Init="ByName" ReadBack="true"
-    Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS">
-    </Resource>
+    Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS"/>
     <Resource Name="OutputVector" Dimension="BUFFER" Width="0"
-    InitialResourceState="COPY_DEST" Init="ByName" ReadBack="true"
-    Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS">
-    </Resource>
+    Init="ByName" ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS"/>
 
     <!-- Note: NumElements is set dynamically (via c++ test code) based on the
     input vector size and element type -->
     <DescriptorHeap Name="ResourceDescriptorHeap" Type="CBV_SRV_UAV">
-      <Descriptor Name="InputVector1" Kind="UAV" Flags='RAW' NumElements="0"
-      Format="R32_Typeless"/>
-      <Descriptor Name="OutputVector" Kind="UAV" Flags='RAW' NumElements="0"
-      Format="R32_Typeless"/>
+      <Descriptor Name="InputVector1" Kind="UAV" NumElements="0"/>
+      <Descriptor Name="OutputVector" Kind="UAV" NumElements="0"/>
     </DescriptorHeap>
 
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
@@ -4120,7 +4101,20 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-        [numthreads(1,1,1)]
+        #ifdef NUMTHREADS_X
+          #define NUMTHREADS_ATTR [numthreads(NUMTHREADS_X, 1, 1)]
+        #else
+          #define NUMTHREADS_ATTR [numthreads(1, 1, 1)]
+        #endif
+
+        #ifdef WAVE_SIZE
+          #define WAVE_SIZE_ATTR [WaveSize(WAVE_SIZE)]
+        #else
+          #define WAVE_SIZE_ATTR
+        #endif
+
+        WAVE_SIZE_ATTR
+        NUMTHREADS_ATTR
         void main(uint GI : SV_GroupIndex) {
 
           #ifdef FUNC_SHUFFLE_VECTOR

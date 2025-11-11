@@ -13165,18 +13165,26 @@ SpirvInstruction *SpirvEmitter::processIntrinsicDP2a(const CallExpr *callExpr) {
   SpirvInstruction *arg1Instr = doExpr(arg1);
   SpirvInstruction *arg2Instr = doExpr(arg2);
 
-  // Create the dot product of the half2 vectors.
-  SpirvInstruction *dotInstr = spvBuilder.createBinaryOp(
-      spv::Op::OpDot, componentType, arg0Instr, arg1Instr, loc, range);
+  // Multiply the two half2 vectors and convert the result to float2.
+  SpirvInstruction *mulInstr = spvBuilder.createBinaryOp(
+      spv::Op::OpFMul, vecType, arg0Instr, arg1Instr, loc, range);
+  SpirvInstruction *convertInstr = spvBuilder.createUnaryOp(
+      spv::Op::OpFConvert,
+      astContext.getExtVectorType(astContext.FloatTy, vecSize), mulInstr, loc,
+      range);
 
-  // Convert dot product (half type) to result type (float).
-  QualType resultType = callExpr->getType();
-  SpirvInstruction *floatDotInstr = spvBuilder.createUnaryOp(
-      spv::Op::OpFConvert, resultType, dotInstr, loc, range);
+  // Extract each float element and and sum them up.
+  SpirvInstruction *extractedElem0 = spvBuilder.createCompositeExtract(
+      astContext.FloatTy, convertInstr, {0}, loc, range);
+  SpirvInstruction *extractedElem1 = spvBuilder.createCompositeExtract(
+      astContext.FloatTy, convertInstr, {1}, loc, range);
+  SpirvInstruction *dotInstr =
+      spvBuilder.createBinaryOp(spv::Op::OpFAdd, astContext.FloatTy,
+                                extractedElem0, extractedElem1, loc, range);
 
   // Sum the dot product result and accumulator and return.
-  return spvBuilder.createBinaryOp(spv::Op::OpFAdd, resultType, floatDotInstr,
-                                   arg2Instr, loc, range);
+  return spvBuilder.createBinaryOp(spv::Op::OpFAdd, astContext.FloatTy,
+                                   dotInstr, arg2Instr, loc, range);
 }
 
 SpirvInstruction *
