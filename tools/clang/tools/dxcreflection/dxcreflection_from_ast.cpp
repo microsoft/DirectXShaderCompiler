@@ -9,30 +9,45 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "clang/AST/Attr.h"
-#include "clang/AST/DeclTemplate.h"
+#include <cassert>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/raw_ostream.h"
+
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/HlslTypes.h"
+#include "clang/AST/Attr.h"
+#include "clang/AST/Decl.h"
+#include "clang/AST/DeclCXX.h"
+#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/DeclVisitor.h"
+#include "clang/AST/Expr.h"
+#include "clang/AST/HlslTypes.h"
+#include "clang/AST/Stmt.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/Frontend/CompilerInstance.h"
+#include "clang/AST/TemplateBase.h"
 #include "clang/Basic/SourceManager.h"
+#include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Lexer.h"
+
 #include "dxc/DxcReflection/DxcReflectionContainer.h"
 
 using namespace clang;
 
 namespace hlsl {
-    
+
 [[nodiscard]] static ReflectionError
 PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
                const LangOptions &LangOpts, const std::string &UnqualifiedName,
                const Decl *DeclSelf, D3D12_HLSL_NODE_TYPE Type,
                uint32_t ParentNodeId, uint32_t LocalId,
                const SourceRange *Range = nullptr,
-               std::unordered_map<const Decl *, uint32_t> *FwdDecls = nullptr)
-{
-  
+               std::unordered_map<const Decl *, uint32_t> *FwdDecls = nullptr) {
+
   if (Refl.Nodes.size() >= (1u << 24))
     return HLSL_REFL_ERR("Nodes overflow");
 
@@ -57,14 +72,12 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
 
         uint32_t stringId;
 
-        if (ReflectionError err =
-                Refl.RegisterString(stringId, annotate->getAnnotation().str(), true))
+        if (ReflectionError err = Refl.RegisterString(
+                stringId, annotate->getAnnotation().str(), true))
           return err;
 
         if (ReflectionError err = ReflectionAnnotation::Initialize(
-                Refl.Annotations.back(),
-                stringId,
-                false))
+                Refl.Annotations.back(), stringId, false))
           return err;
 
         if (annotationCount >= uint8_t(-1))
@@ -83,13 +96,12 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
         uint32_t stringId;
 
         if (ReflectionError err = Refl.RegisterString(
-                stringId, "shader(\"" + shaderAttr->getStage().str() + "\")", true))
+                stringId, "shader(\"" + shaderAttr->getStage().str() + "\")",
+                true))
           return err;
 
         if (ReflectionError err = ReflectionAnnotation::Initialize(
-                Refl.Annotations.back(),
-            stringId,
-                true))
+                Refl.Annotations.back(), stringId, true))
           return err;
 
         if (annotationCount >= uint8_t(-1))
@@ -113,8 +125,7 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
 
           if (ReflectionError err = Refl.RegisterString(
                   semanticId32,
-                  cast<hlsl::SemanticDecl>(*It)->SemanticName.str(),
-                  true))
+                  cast<hlsl::SemanticDecl>(*It)->SemanticName.str(), true))
             return err;
 
           semanticId = uint16_t(semanticId32);
@@ -128,19 +139,19 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
   const Decl *fwdDeclare = nullptr;
 
   if (DeclSelf) {
-  
+
     if (const FunctionDecl *func = dyn_cast<FunctionDecl>(DeclSelf)) {
       isFwdDeclare = !func->doesThisDeclarationHaveABody();
       fwdDeclare = func->getCanonicalDecl();
       canHaveFwdDeclare = true;
     }
-  
+
     else if (const EnumDecl *enm = dyn_cast<EnumDecl>(DeclSelf)) {
       isFwdDeclare = !enm->isCompleteDefinition();
       fwdDeclare = enm->getCanonicalDecl();
       canHaveFwdDeclare = true;
     }
-  
+
     else if (const RecordDecl *rec = dyn_cast<RecordDecl>(DeclSelf)) {
 
       isFwdDeclare = !rec->isThisDeclarationADefinition();
@@ -165,9 +176,9 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
       NodeId = uint32_t(-1);
       return ReflectionErrorSuccess;
     }
-    
+
     if (isFwdDeclare)
-        (*FwdDecls)[fwdDeclare] = currId;
+      (*FwdDecls)[fwdDeclare] = currId;
   }
 
   Refl.Nodes.push_back({});
@@ -193,14 +204,14 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
 
     if (start.isValid() && end.isValid()) {
 
-        PresumedLoc presumed = SM.getPresumedLoc(start);
+      PresumedLoc presumed = SM.getPresumedLoc(start);
 
-        SourceLocation realEnd = SM.getFileLoc(end);
-        SourceLocation endOfToken =
-            Lexer::getLocForEndOfToken(realEnd, 0, SM, LangOpts);
-        PresumedLoc presumedEnd = SM.getPresumedLoc(endOfToken);
+      SourceLocation realEnd = SM.getFileLoc(end);
+      SourceLocation endOfToken =
+          Lexer::getLocForEndOfToken(realEnd, 0, SM, LangOpts);
+      PresumedLoc presumedEnd = SM.getPresumedLoc(endOfToken);
 
-        if (presumed.isValid() && presumedEnd.isValid()) {
+      if (presumed.isValid() && presumedEnd.isValid()) {
 
         uint32_t startLine = presumed.getLine();
         uint32_t startCol = presumed.getColumn();
@@ -252,27 +263,28 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
         sourceColumnStart = startCol;
         sourceColumnEnd = endCol;
         sourceId = uint16_t(i);
-        }
+      }
     }
 
     uint32_t nameId;
 
     if (ReflectionError err =
             Refl.RegisterString(nameId, UnqualifiedName, false))
-        return err;
+      return err;
 
     Refl.NodeSymbols.push_back({});
 
     if (ReflectionError err = ReflectionNodeSymbol::Initialize(
             Refl.NodeSymbols.back(), nameId, sourceId, sourceLineCount,
             sourceLineStart, sourceColumnStart, sourceColumnEnd))
-        return err;
+      return err;
   }
 
   // Link
 
   if (DeclSelf && fwdDeclare != DeclSelf && fwdDeclare && !isFwdDeclare) {
-    assert(FwdDecls && "Referencing fwd decl requires FwdDecls map to be present");
+    assert(FwdDecls &&
+           "Referencing fwd decl requires FwdDecls map to be present");
     uint32_t fwd = (*FwdDecls)[fwdDeclare];
 
     if (ReflectionError err =
@@ -306,22 +318,22 @@ struct DxcRegisterTypeInfo {
   D3D_RESOURCE_RETURN_TYPE TextureValue;
 };
 
-static DxcRegisterTypeInfo GetTextureRegisterInfo(ASTContext &ASTCtx,
-                                                  std::string TypeName,
-                                                  bool IsWrite,
-                                                  const CXXRecordDecl *RecordDecl) {
-    
+static DxcRegisterTypeInfo
+GetTextureRegisterInfo(ASTContext &ASTCtx, std::string TypeName, bool IsWrite,
+                       const CXXRecordDecl *RecordDecl) {
+
   DxcRegisterTypeInfo type = {};
   type.RegisterType = IsWrite ? D3D_SIT_UAV_RWTYPED : D3D_SIT_TEXTURE;
 
-  //Parse return type and dimensions
+  // Parse return type and dimensions
 
   const ClassTemplateSpecializationDecl *textureTemplate =
       dyn_cast<ClassTemplateSpecializationDecl>(RecordDecl);
 
   assert(textureTemplate && "Expected texture template");
 
-  const ArrayRef<TemplateArgument>& textureParams = textureTemplate->getTemplateArgs().asArray();
+  const ArrayRef<TemplateArgument> &textureParams =
+      textureTemplate->getTemplateArgs().asArray();
 
   bool shouldBeTexture2DMS = textureParams.size() == 2;
 
@@ -330,9 +342,10 @@ static DxcRegisterTypeInfo GetTextureRegisterInfo(ASTContext &ASTCtx,
            textureParams[1].getKind() == TemplateArgument::Integral &&
            "Expected template args");
 
-  else assert(textureParams.size() == 1 &&
-         textureParams[0].getKind() == TemplateArgument::Type &&
-         "Expected template args");
+  else
+    assert(textureParams.size() == 1 &&
+           textureParams[0].getKind() == TemplateArgument::Type &&
+           "Expected template args");
 
   QualType valueType = textureParams[0].getAsType();
   QualType desugared = valueType.getDesugaredType(ASTCtx);
@@ -401,7 +414,7 @@ static DxcRegisterTypeInfo GetTextureRegisterInfo(ASTContext &ASTCtx,
     break;
   }
 
-  //Parse type
+  // Parse type
 
   if (TypeName == "Buffer") {
     assert(!shouldBeTexture2DMS && "Buffer<T> expected but got Buffer<T, ...>");
@@ -443,7 +456,7 @@ static DxcRegisterTypeInfo GetTextureRegisterInfo(ASTContext &ASTCtx,
           (type.TextureDimension == D3D_SRV_DIMENSION_TEXTURE2DMS)) &&
          "Texture2DMS used with Texture2D syntax or reverse");
 
-  if (isArray)      //Arrays are always 1 behind the regular type
+  if (isArray) // Arrays are always 1 behind the regular type
     type.TextureDimension = (D3D_SRV_DIMENSION)(type.TextureDimension + 1);
 
   return type;
@@ -469,7 +482,7 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
                                  ? D3D_SIF_COMPARISON_SAMPLER
                                  : (D3D_SHADER_INPUT_FLAGS)0};
   }
-  
+
   DxcRegisterTypeInfo info = {};
 
   if (typeName == "AppendStructuredBuffer") {
@@ -504,8 +517,7 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
     typeName = typeName.substr(2);
 
   if (typeName == "StructuredBuffer") {
-    info.RegisterType =
-        isWrite ? D3D_SIT_UAV_RWSTRUCTURED : D3D_SIT_STRUCTURED;
+    info.RegisterType = isWrite ? D3D_SIT_UAV_RWSTRUCTURED : D3D_SIT_STRUCTURED;
     return info;
   }
 
@@ -518,14 +530,15 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
   return GetTextureRegisterInfo(ASTCtx, typeName, isWrite, recordDecl);
 }
 
-[[nodiscard]] ReflectionError GenerateTypeInfo(uint32_t &TypeId, ASTContext &ASTCtx, ReflectionData &Refl,
-                          QualType Original, bool DefaultRowMaj) {
+[[nodiscard]] ReflectionError
+GenerateTypeInfo(uint32_t &TypeId, ASTContext &ASTCtx, ReflectionData &Refl,
+                 QualType Original, bool DefaultRowMaj) {
 
   // Unwrap array
   // There's the following issue:
   // Let's say the underlying type is F32x4[4] but the sugared name is F32x4x4,
-  //  then we want to maintain sugared name + array info (of sugar) for reflection 
-  //  but for low level type info, we would want to know float4[4]
+  //  then we want to maintain sugared name + array info (of sugar) for
+  //  reflection but for low level type info, we would want to know float4[4]
 
   uint32_t arraySizeUnderlying = 1;
   QualType underlying = Original.getNonReferenceType().getCanonicalType();
@@ -577,10 +590,11 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
   std::string underlyingName =
       underlying.getUnqualifiedType().getAsString(policy);
 
-  //Prune template instantiation from type name for builtin types (ex. vector & matrix)
-  //But only if it's not a sugared type:
-  // typedef ConstantBuffer<Test> MyTest;
-  //In this case, MyTest will still be seen as a ConstantBuffer<Test> but the typeName is MyTest.
+  // Prune template instantiation from type name for builtin types (ex. vector &
+  // matrix) But only if it's not a sugared type:
+  //  typedef ConstantBuffer<Test> MyTest;
+  // In this case, MyTest will still be seen as a ConstantBuffer<Test> but the
+  // typeName is MyTest.
 
   static const std::unordered_map<std::string, D3D_SHADER_VARIABLE_TYPE>
       lookup = std::unordered_map<std::string, D3D_SHADER_VARIABLE_TYPE>{
@@ -622,7 +636,7 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
 
       if (it != lookup.end()) {
 
-        if(it->second >= 0)
+        if (it->second >= 0)
           displayName = underlyingName = it->first;
       }
     }
@@ -630,25 +644,27 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
 
   bool hasSymbols = Refl.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
-  //Two arrays; for display and for underlying
+  // Two arrays; for display and for underlying
 
   uint32_t arrayIdUnderlying;
-  
+
   if (ReflectionError err = Refl.PushArray(
           arrayIdUnderlying, arraySizeUnderlying, arrayElemUnderlying))
     return err;
 
-  ReflectionArrayOrElements elementsOrArrayIdUnderlying(arrayIdUnderlying, arraySizeUnderlying);
+  ReflectionArrayOrElements elementsOrArrayIdUnderlying(arrayIdUnderlying,
+                                                        arraySizeUnderlying);
 
   uint32_t arrayIdDisplay;
   if (ReflectionError err =
           Refl.PushArray(arrayIdDisplay, arraySizeDisplay, arrayElemDisplay))
     return err;
 
-  ReflectionArrayOrElements elementsOrArrayIdDisplay(arrayIdDisplay, arraySizeDisplay);
+  ReflectionArrayOrElements elementsOrArrayIdDisplay(arrayIdDisplay,
+                                                     arraySizeDisplay);
 
-  //Unwrap vector and matrix
-  //And base type
+  // Unwrap vector and matrix
+  // And base type
 
   D3D_SHADER_VARIABLE_CLASS cls = D3D_SVC_STRUCT;
 
@@ -672,12 +688,12 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
 
   if (const RecordType *record = underlying->getAs<RecordType>()) {
 
-     bool standardType = false;
+    bool standardType = false;
 
-     RecordDecl *recordDecl = record->getDecl();
+    RecordDecl *recordDecl = record->getDecl();
 
-     QualType innerType;
-     std::string innerTypeName;     //$Element or T depending on type
+    QualType innerType;
+    std::string innerTypeName; //$Element or T depending on type
 
     if (const ClassTemplateSpecializationDecl *templateClass =
             dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
@@ -690,10 +706,10 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
       auto it = lookup.find(name);
 
       if (it != lookup.end()) {
-      
+
         D3D_SHADER_VARIABLE_TYPE svt = it->second;
 
-        if (svt == -1) {        //Reserved as 'vector'
+        if (svt == -1) { // Reserved as 'vector'
 
           rows = 1;
 
@@ -708,7 +724,7 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
           standardType = true;
         }
 
-        else if (svt == -2) {   //Reserved as 'matrix'
+        else if (svt == -2) { // Reserved as 'matrix'
 
           assert(params.size() == 3 &&
                  params[0].getKind() == TemplateArgument::Type &&
@@ -742,13 +758,13 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
           const TemplateSpecializationType *templateDesc =
               display->getAs<TemplateSpecializationType>();
 
-          // Case 1: T = StructuredBuffer<T> then underlying has a type, but sugared doesn't.
-          // Loses syntax sugar, but will still be correct.
+          // Case 1: T = StructuredBuffer<T> then underlying has a type, but
+          // sugared doesn't. Loses syntax sugar, but will still be correct.
 
           bool useUnderlying = !templateDesc;
 
-          // Case 2: TextureCube = TextureCube<T = float4> 
-          
+          // Case 2: TextureCube = TextureCube<T = float4>
+
           if (templateDesc && displayName == underlyingName &&
               !templateDesc->getNumArgs())
             useUnderlying = true;
@@ -823,7 +839,8 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
 
     // Fill members
 
-    if (!standardType && recordDecl->isCompleteDefinition() && cls != D3D_SVC_OBJECT) {
+    if (!standardType && recordDecl->isCompleteDefinition() &&
+        cls != D3D_SVC_OBJECT) {
 
       // Base types
 
@@ -850,8 +867,8 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
             assert(baseType == uint32_t(-1) &&
                    "Multiple base types isn't supported in HLSL");
 
-            if (ReflectionError err = GenerateTypeInfo(
-                    baseType, ASTCtx, Refl, qualType, DefaultRowMaj))
+            if (ReflectionError err = GenerateTypeInfo(baseType, ASTCtx, Refl,
+                                                       qualType, DefaultRowMaj))
               return err;
           }
         }
@@ -917,7 +934,7 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
     }
   }
 
-  //Type name
+  // Type name
 
   if (const BuiltinType *bt = dyn_cast<BuiltinType>(underlying)) {
 
@@ -946,7 +963,7 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
     case BuiltinType::HalfFloat:
     case BuiltinType::Half:
       type = D3D_SVT_FLOAT16;
-      underlyingName = "float16_t";      //TODO: half or float16_t?
+      underlyingName = "float16_t"; // TODO: half or float16_t?
       break;
 
     case BuiltinType::Short:
@@ -1014,7 +1031,8 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
     }
   }
 
-  //Turn into proper fully qualified name (e.g. turn vector<float, 4> into float4)
+  // Turn into proper fully qualified name (e.g. turn vector<float, 4> into
+  // float4)
 
   switch (cls) {
 
@@ -1033,7 +1051,7 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
     break;
   }
 
-  //Insert
+  // Insert
 
   if (Refl.Types.size() >= uint32_t(-1))
     return HLSL_REFL_ERR("Type id out of bounds");
@@ -1068,8 +1086,8 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
       return err;
   }
 
-  ReflectionVariableTypeSymbol typeSymbol(elementsOrArrayIdDisplay, displayNameId,
-                               underlyingNameId);
+  ReflectionVariableTypeSymbol typeSymbol(elementsOrArrayIdDisplay,
+                                          displayNameId, underlyingNameId);
 
   uint32_t i = 0;
   uint32_t j = uint32_t(Refl.Types.size());
@@ -1095,8 +1113,8 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
     const DeclContext &Ctx, ASTContext &ASTCtx, const SourceManager &SM,
     DiagnosticsEngine &Diag, QualType Type, uint32_t ArraySizeFlat,
     ValueDecl *ValDesc, const std::vector<uint32_t> &ArraySize,
-    ReflectionData &Refl, uint32_t AutoBindingSpace,
-    uint32_t ParentNodeId, bool DefaultRowMaj) {
+    ReflectionData &Refl, uint32_t AutoBindingSpace, uint32_t ParentNodeId,
+    bool DefaultRowMaj) {
 
   DxcRegisterTypeInfo inputType = GetRegisterTypeInfo(ASTCtx, Type);
 
@@ -1108,9 +1126,8 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
     return err;
 
   uint32_t arrayId;
-  
-  if (ReflectionError err =
-          Refl.PushArray(arrayId, ArraySizeFlat, ArraySize))
+
+  if (ReflectionError err = Refl.PushArray(arrayId, ArraySizeFlat, ArraySize))
     return err;
 
   uint32_t bufferId = 0;
@@ -1161,7 +1178,7 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
 
     uint32_t typeId;
 
-  if (ReflectionError err =
+    if (ReflectionError err =
             GenerateTypeInfo(typeId, ASTCtx, Refl, innerType, DefaultRowMaj))
       return err;
 
@@ -1180,11 +1197,10 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
   return ReflectionErrorSuccess;
 }
 
-template<typename T>
+template <typename T>
 [[nodiscard]] ReflectionError
-RecurseBuffer(ASTContext &ASTCtx, const SourceManager &SM,
-              ReflectionData &Refl, const T &Decls, bool DefaultRowMaj,
-              uint32_t ParentId) {
+RecurseBuffer(ASTContext &ASTCtx, const SourceManager &SM, ReflectionData &Refl,
+              const T &Decls, bool DefaultRowMaj, uint32_t ParentId) {
 
   for (Decl *decl : Decls) {
 
@@ -1223,10 +1239,9 @@ RecurseBuffer(ASTContext &ASTCtx, const SourceManager &SM,
 }
 
 [[nodiscard]] ReflectionError
-RegisterBuffer(uint32_t &bufferId, ASTContext &ASTCtx,
-               ReflectionData &Refl, const SourceManager &SM,
-               DeclContext *Buffer, uint32_t NodeId, D3D_CBUFFER_TYPE Type,
-               bool DefaultRowMaj) {
+RegisterBuffer(uint32_t &bufferId, ASTContext &ASTCtx, ReflectionData &Refl,
+               const SourceManager &SM, DeclContext *Buffer, uint32_t NodeId,
+               D3D_CBUFFER_TYPE Type, bool DefaultRowMaj) {
 
   if (Refl.Buffers.size() >= uint32_t(-1))
     return HLSL_REFL_ERR("Buffer id out of bounds");
@@ -1234,7 +1249,7 @@ RegisterBuffer(uint32_t &bufferId, ASTContext &ASTCtx,
   bufferId = uint32_t(Refl.Buffers.size());
 
   if (ReflectionError err = RecurseBuffer(ASTCtx, SM, Refl, Buffer->decls(),
-                                             DefaultRowMaj, NodeId))
+                                          DefaultRowMaj, NodeId))
     return err;
 
   Refl.Buffers.push_back({Type, NodeId});
@@ -1242,10 +1257,10 @@ RegisterBuffer(uint32_t &bufferId, ASTContext &ASTCtx,
   return ReflectionErrorSuccess;
 }
 
-//DxilInterpolationMode.cpp but a little bit cleaned up
+// DxilInterpolationMode.cpp but a little bit cleaned up
 static D3D_INTERPOLATION_MODE GetInterpolationMode(Decl *decl) {
 
-  if (!decl)        //Return type
+  if (!decl) // Return type
     return D3D_INTERPOLATION_UNDEFINED;
 
   bool bNoInterpolation = decl->hasAttr<HLSLNoInterpolationAttr>();
@@ -1262,7 +1277,7 @@ static D3D_INTERPOLATION_MODE GetInterpolationMode(Decl *decl) {
 
   if (mask > 16)
     return D3D_INTERPOLATION_UNDEFINED;
-  
+
   static constexpr const D3D_INTERPOLATION_MODE modes[] = {
       D3D_INTERPOLATION_UNDEFINED,
       D3D_INTERPOLATION_LINEAR_SAMPLE,
@@ -1280,26 +1295,24 @@ static D3D_INTERPOLATION_MODE GetInterpolationMode(Decl *decl) {
       D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
       D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_CENTROID,
       D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
-      D3D_INTERPOLATION_CONSTANT
-  };
+      D3D_INTERPOLATION_CONSTANT};
 
   return modes[mask];
 }
 
 [[nodiscard]] static ReflectionError
 AddFunctionParameter(ASTContext &ASTCtx, QualType Type, Decl *Decl,
-                                 ReflectionData &Refl,
-                                 const SourceManager &SM, uint32_t ParentNodeId,
-                                 bool DefaultRowMaj) {
+                     ReflectionData &Refl, const SourceManager &SM,
+                     uint32_t ParentNodeId, bool DefaultRowMaj) {
 
   uint32_t typeId;
-  
+
   if (ReflectionError err =
           GenerateTypeInfo(typeId, ASTCtx, Refl, Type, DefaultRowMaj))
     return err;
 
   uint32_t nodeId;
-  
+
   if (ReflectionError err =
           PushNextNodeId(nodeId, Refl, SM, ASTCtx.getLangOpts(),
                          Decl && dyn_cast<NamedDecl>(Decl)
@@ -1324,18 +1337,18 @@ AddFunctionParameter(ASTContext &ASTCtx, QualType Type, Decl *Decl,
       flags = D3D_PARAMETER_FLAGS(flags | D3D_PF_IN | D3D_PF_OUT);
   }
 
-  Refl.Parameters.push_back(
-      ReflectionFunctionParameter{typeId, nodeId, uint8_t(interpolationMode), uint8_t(flags)});
+  Refl.Parameters.push_back(ReflectionFunctionParameter{
+      typeId, nodeId, uint8_t(interpolationMode), uint8_t(flags)});
 
   return ReflectionErrorSuccess;
 }
 
 [[nodiscard]] static ReflectionError RecursiveReflectBody(
     Stmt *Statement, ASTContext &ASTCtx, DiagnosticsEngine &Diags,
-    const SourceManager &SM, ReflectionData &Refl,
-    uint32_t AutoBindingSpace, uint32_t Depth,
-    D3D12_HLSL_REFLECTION_FEATURE Features, uint32_t ParentNodeId,
-    bool DefaultRowMaj, std::unordered_map<const Decl *, uint32_t> &FwdDecls,
+    const SourceManager &SM, ReflectionData &Refl, uint32_t AutoBindingSpace,
+    uint32_t Depth, D3D12_HLSL_REFLECTION_FEATURE Features,
+    uint32_t ParentNodeId, bool DefaultRowMaj,
+    std::unordered_map<const Decl *, uint32_t> &FwdDecls,
     const LangOptions &LangOpts, bool SkipNextCompound = false);
 
 [[nodiscard]] static ReflectionError GenerateStatement(
@@ -1423,7 +1436,8 @@ struct RecursiveStmtReflector : public StmtVisitor<RecursiveStmtReflector> {
       : ASTCtx(ASTCtx), Diags(Diags), SM(SM), Refl(Refl),
         AutoBindingSpace(AutoBindingSpace), Depth(Depth), Features(Features),
         ParentNodeId(ParentNodeId), DefaultRowMaj(DefaultRowMaj),
-        FwdDecls(FwdDecls), LangOpts(LangOpts), SkipNextCompound(SkipNextCompound) {}
+        FwdDecls(FwdDecls), LangOpts(LangOpts),
+        SkipNextCompound(SkipNextCompound) {}
 
   [[nodiscard]] ReflectionError TraverseStmt(Stmt *S) {
 
@@ -1555,8 +1569,10 @@ struct RecursiveStmtReflector : public StmtVisitor<RecursiveStmtReflector> {
         const SourceRange &sourceRange = varDecl->getSourceRange();
 
         uint32_t nodeId;
-        if (ReflectionError err = PushNextNodeId(nodeId, Refl, SM, LangOpts, varDecl->getName(), varDecl,
-                       D3D12_HLSL_NODE_TYPE_VARIABLE, ParentNodeId, typeId, &sourceRange, &FwdDecls)) {
+        if (ReflectionError err =
+                PushNextNodeId(nodeId, Refl, SM, LangOpts, varDecl->getName(),
+                               varDecl, D3D12_HLSL_NODE_TYPE_VARIABLE,
+                               ParentNodeId, typeId, &sourceRange, &FwdDecls)) {
           LastError = err;
           return;
         }
@@ -1602,13 +1618,13 @@ class RecursiveReflector : public DeclVisitor<RecursiveReflector> {
   std::unordered_map<const Decl *, uint32_t> &FwdDecls;
 
   ReflectionError LastError = ReflectionErrorSuccess;
-  
+
   [[nodiscard]] ReflectionError PushVariable(ValueDecl *VD,
-                                                D3D12_HLSL_NODE_TYPE NodeType) {
+                                             D3D12_HLSL_NODE_TYPE NodeType) {
 
     uint32_t typeId;
     if (ReflectionError err = GenerateTypeInfo(typeId, ASTCtx, Refl,
-                                                  VD->getType(), DefaultRowMaj))
+                                               VD->getType(), DefaultRowMaj))
       return err;
 
     uint32_t nodeId;
@@ -1617,7 +1633,6 @@ class RecursiveReflector : public DeclVisitor<RecursiveReflector> {
   }
 
 public:
-
   RecursiveReflector(const DeclContext &Ctx, ASTContext &ASTCtx,
                      const SourceManager &SM, DiagnosticsEngine &Diags,
                      ReflectionData &Refl, uint32_t AutoBindingSpace,
@@ -1627,7 +1642,7 @@ public:
       : Ctx(Ctx), ASTCtx(ASTCtx), SM(SM), Diags(Diags), Refl(Refl),
         AutoBindingSpace(AutoBindingSpace), Depth(Depth), Features(Features),
         ParentNodeId(ParentNodeId), DefaultRowMaj(DefaultRowMaj),
-        FwdDecls(FwdDecls){}
+        FwdDecls(FwdDecls) {}
 
   [[nodiscard]] ReflectionError TraverseDeclContext() {
 
@@ -1665,7 +1680,7 @@ public:
       return;
 
     uint32_t nodeId;
-    
+
     if (ReflectionError err =
             PushNextNodeId(nodeId, Refl, SM, ASTCtx.getLangOpts(),
                            CB->getName(), CB, D3D12_HLSL_NODE_TYPE_REGISTER,
@@ -1710,8 +1725,9 @@ public:
     const FunctionDecl *definition = nullptr;
 
     uint32_t nodeId;
-    if (ReflectionError err = PushNextNodeId(nodeId, Refl, SM, ASTCtx.getLangOpts(), FD->getName(), FD,
-        D3D12_HLSL_NODE_TYPE_FUNCTION, ParentNodeId,
+    if (ReflectionError err = PushNextNodeId(
+            nodeId, Refl, SM, ASTCtx.getLangOpts(), FD->getName(), FD,
+            D3D12_HLSL_NODE_TYPE_FUNCTION, ParentNodeId,
             uint32_t(Refl.Functions.size()), nullptr, &FwdDecls)) {
       LastError = err;
       return;
@@ -1723,8 +1739,9 @@ public:
     bool hasDefinition = FD->hasBody(definition);
     ReflectionFunction func;
 
-    if (ReflectionError err = ReflectionFunction::Initialize(func, nodeId, FD->getNumParams(),
-                            !FD->getReturnType().getTypePtr()->isVoidType(), hasDefinition)) {
+    if (ReflectionError err = ReflectionFunction::Initialize(
+            func, nodeId, FD->getNumParams(),
+            !FD->getReturnType().getTypePtr()->isVoidType(), hasDefinition)) {
       LastError = err;
       return;
     }
@@ -1756,8 +1773,9 @@ public:
         if (!subStmt)
           continue;
 
-        if (ReflectionError err = RecursiveReflectBody(subStmt, ASTCtx, Diags, SM, Refl, AutoBindingSpace,
-                             Depth, Features, nodeId, DefaultRowMaj, FwdDecls,
+        if (ReflectionError err = RecursiveReflectBody(
+                subStmt, ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth,
+                Features, nodeId, DefaultRowMaj, FwdDecls,
                 ASTCtx.getLangOpts())) {
           LastError = err;
           return;
@@ -1838,43 +1856,43 @@ public:
 
   void VisitTypedefDecl(TypedefDecl *TD) {
 
-      if (LastError)
-        return;
+    if (LastError)
+      return;
 
-      if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
-        return;
+    if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
+      return;
 
-      uint32_t typeId;
-      if (ReflectionError err = GenerateTypeInfo(
-              typeId, ASTCtx, Refl, TD->getUnderlyingType(), DefaultRowMaj)) {
-        LastError = err;
-        return;
-      }
+    uint32_t typeId;
+    if (ReflectionError err = GenerateTypeInfo(
+            typeId, ASTCtx, Refl, TD->getUnderlyingType(), DefaultRowMaj)) {
+      LastError = err;
+      return;
+    }
 
-      uint32_t nodeId;
-      LastError = PushNextNodeId(
-          nodeId, Refl, SM, ASTCtx.getLangOpts(), TD->getName(), TD,
-          D3D12_HLSL_NODE_TYPE_TYPEDEF, ParentNodeId, typeId);
+    uint32_t nodeId;
+    LastError =
+        PushNextNodeId(nodeId, Refl, SM, ASTCtx.getLangOpts(), TD->getName(),
+                       TD, D3D12_HLSL_NODE_TYPE_TYPEDEF, ParentNodeId, typeId);
   }
-  
+
   void VisitFieldDecl(FieldDecl *FD) {
 
-      if (LastError)
-        return;
+    if (LastError)
+      return;
 
-      LastError = PushVariable(FD, D3D12_HLSL_NODE_TYPE_VARIABLE);
+    LastError = PushVariable(FD, D3D12_HLSL_NODE_TYPE_VARIABLE);
   }
 
   void VisitValueDecl(ValueDecl *VD) {
 
-      if (LastError)
-        return;
+    if (LastError)
+      return;
 
     if (isa<ParmVarDecl>(VD)) // Skip parameters, already handled explicitly
       return;
 
     VarDecl *varDecl = dyn_cast<VarDecl>(VD);
-   
+
     if (varDecl && varDecl->hasAttr<HLSLGroupSharedAttr>()) {
 
       if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
@@ -1883,27 +1901,27 @@ public:
       LastError = PushVariable(VD, D3D12_HLSL_NODE_TYPE_GROUPSHARED_VARIABLE);
       return;
     }
-   
+
     if (varDecl && varDecl->getStorageClass() == StorageClass::SC_Static) {
-   
+
       if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
         return;
-   
+
       LastError = PushVariable(VD, D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE);
       return;
     }
-   
+
     uint32_t arraySize = 1;
     QualType type = VD->getType();
     std::vector<uint32_t> arrayElem;
-   
+
     while (const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(type)) {
       uint32_t current = arr->getSize().getZExtValue();
       arrayElem.push_back(current);
       arraySize *= arr->getSize().getZExtValue();
       type = arr->getElementType();
     }
-   
+
     if (!IsHLSLResourceType(type)) {
 
       // Handle $Globals or regular variables
@@ -1916,13 +1934,13 @@ public:
 
       return;
     }
-   
+
     if (Depth != 0 || !(Features & D3D12_HLSL_REFLECTION_FEATURE_BASICS))
       return;
-   
-    LastError = FillReflectionRegisterAt(Ctx, ASTCtx, SM, Diags, type, arraySize, VD,
-                             arrayElem, Refl, AutoBindingSpace, ParentNodeId,
-                             DefaultRowMaj);
+
+    LastError = FillReflectionRegisterAt(
+        Ctx, ASTCtx, SM, Diags, type, arraySize, VD, arrayElem, Refl,
+        AutoBindingSpace, ParentNodeId, DefaultRowMaj);
   }
 
   void VisitRecordDecl(RecordDecl *RD) {
@@ -2023,8 +2041,9 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
                      uint32_t ParentNodeId, bool DefaultRowMaj,
                      std::unordered_map<const Decl *, uint32_t> &FwdDecls) {
 
-  RecursiveReflector Reflector(Ctx, ASTCtx, SM, Diags, Refl, AutoBindingSpace, Depth,
-                               Features, ParentNodeId, DefaultRowMaj, FwdDecls);
+  RecursiveReflector Reflector(Ctx, ASTCtx, SM, Diags, Refl, AutoBindingSpace,
+                               Depth, Features, ParentNodeId, DefaultRowMaj,
+                               FwdDecls);
   return Reflector.TraverseDeclContext();
 }
 
