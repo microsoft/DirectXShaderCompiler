@@ -735,6 +735,7 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
 
           type = svt;
           cls = D3D_SVC_OBJECT;
+          underlyingName = name;
 
           innerTypeName = "$Element";
 
