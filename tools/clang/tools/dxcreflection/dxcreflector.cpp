@@ -1623,8 +1623,6 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
       return E_FAIL;
     }
 
-    printf("Reflection binary size: %" PRIu64 "\n", bytes.size());
-
     // Test stripping symbols
 
     if (!opts.ReflOpt.DisableSymbols) {
@@ -1643,8 +1641,6 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
         fprintf(stderr, "Dump or Deserialize doesn't match\n");
         return E_FAIL;
       }
-
-      printf("Stripped reflection size: %" PRIu64 "\n", bytes.size());
     }
 
   #endif

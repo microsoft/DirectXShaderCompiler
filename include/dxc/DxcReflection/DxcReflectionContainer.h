@@ -24,7 +24,6 @@
   #define interface struct
 #endif
 
-#include "dxc/dxcapi.h" 
 #include "d3d12shader.h"
 #include "dxc/dxcreflect.h"
 
