@@ -695,7 +695,8 @@ static void PrintTypeName(const ReflectionData &Reflection, uint32_t TypeId,
                           bool HasSymbols,
                           const ReflectionPrintSettings &Settings,
                           JsonWriter &Json,
-                          const char *NameForTypeName = "Name") {
+                          const char *NameForTypeName = "Name",
+                          bool MuteArgs = false) {
 
   if (!Settings.HumanReadable || !HasSymbols)
     Json.UIntField("TypeId", TypeId);
@@ -730,7 +731,7 @@ static void PrintTypeName(const ReflectionData &Reflection, uint32_t TypeId,
   if (type.GetClass() == D3D_SVC_OBJECT &&
       type.GetType() != D3D_SVT_BYTEADDRESS_BUFFER &&
       type.GetType() != D3D_SVT_RWBYTEADDRESS_BUFFER &&
-      type.GetMemberCount() == 1) {
+      type.GetMemberCount() == 1 && !MuteArgs) {
 
     uint32_t innerTypeId = Reflection.MemberTypeIds[type.GetMemberStart()];
 
@@ -765,7 +766,7 @@ static void PrintType(const ReflectionData &Reflection, uint32_t TypeId,
   const ReflectionVariableType &type = Reflection.Types[TypeId];
 
   PrintTypeName(Reflection, TypeId, HasSymbols, Settings, Json,
-                NameForTypeName);
+                NameForTypeName, true);
 
   if (type.GetBaseClass() != uint32_t(-1))
     Json.Object("BaseClass",
