@@ -695,15 +695,32 @@ static void PrintTypeName(const ReflectionData &Reflection, uint32_t TypeId,
   }
 
   else {
+
     const ReflectionVariableTypeSymbol &symbol = Reflection.TypeSymbols[TypeId];
+
     name = Reflection.Strings[symbol.DisplayNameId];
-    FillArraySizes(Reflection, symbol.DisplayArray, arraySizes);
     underlyingName = Reflection.Strings[symbol.UnderlyingNameId];
+
+    FillArraySizes(Reflection, symbol.DisplayArray, arraySizes);
     FillArraySizes(Reflection, type.GetUnderlyingArray(), underlyingArraySizes);
   }
 
   if (name.size())
     Json.StringField(NameForTypeName, name);
+
+  if (type.GetClass() == D3D_SVC_OBJECT &&
+      type.GetType() != D3D_SVT_BYTEADDRESS_BUFFER &&
+      type.GetType() != D3D_SVT_RWBYTEADDRESS_BUFFER &&
+      type.GetMemberCount() == 1) {
+
+    uint32_t innerTypeId = Reflection.MemberTypeIds[type.GetMemberStart()];
+
+    Json.Array(
+        "Args", [&Json, &Reflection, innerTypeId, HasSymbols, &Settings]() {
+          JsonWriter::ObjectScope scope(Json);
+          PrintTypeName(Reflection, innerTypeId, HasSymbols, Settings, Json);
+        });
+  }
 
   if (arraySizes.size())
     Json.Array("ArraySize", [&arraySizes, &Json]() {
