@@ -512,6 +512,21 @@ static void PrintSymbol(JsonWriter &Json, const ReflectionData &Reflection,
   }
 }
 
+static void PrintInterpolationMode(JsonWriter &Json,
+                                   D3D_INTERPOLATION_MODE Interp) {
+
+  static const char *interpolationModes[] = {"Undefined",
+                                             "Constant",
+                                             "Linear",
+                                             "LinearCentroid",
+                                             "LinearNoperspective",
+                                             "LinearNoperspectiveCentroid",
+                                             "LinearSample",
+                                             "LinearNoperspectiveSample"};
+  if (Interp)
+    Json.StringField("Interpolation", interpolationModes[Interp]);
+}
+
 // Verbose and all members are slightly different;
 // Verbose will still print fields even if they aren't relevant,
 //  while all members will not silence important info but that might not matter
@@ -551,6 +566,8 @@ static void PrintNode(JsonWriter &Json, const ReflectionData &Reflection,
     if (!Settings.HumanReadable)
       Json.UIntField("SemanticId", node.GetSemanticId());
   }
+
+  PrintInterpolationMode(Json, node.GetInterpolationMode());
 
   if (node.GetAnnotationCount()) {
 
@@ -802,8 +819,8 @@ static void PrintType(const ReflectionData &Reflection, uint32_t TypeId,
 
 static void PrintParameter(const ReflectionData &Reflection, uint32_t TypeId,
                            bool HasSymbols, JsonWriter &Json,
-                           uint32_t SemanticId, uint8_t InterpolationMode,
-                           uint8_t Flags,
+                           uint32_t SemanticId,
+                           D3D_INTERPOLATION_MODE InterpMode, uint8_t Flags,
                            const ReflectionPrintSettings &Settings) {
 
   PrintTypeName(Reflection, TypeId, HasSymbols, Settings, Json, "TypeName");
@@ -825,17 +842,7 @@ static void PrintParameter(const ReflectionData &Reflection, uint32_t TypeId,
   else if (Flags & D3D_PF_OUT)
     Json.StringField("Access", "out");
 
-  static const char *interpolationModes[] = {"Undefined",
-                                             "Constant",
-                                             "Linear",
-                                             "LinearCentroid",
-                                             "LinearNoperspective",
-                                             "LinearNoperspectiveCentroid",
-                                             "LinearSample",
-                                             "LinearNoperspectiveSample"};
-
-  if (InterpolationMode)
-    Json.StringField("Interpolation", interpolationModes[InterpolationMode]);
+  PrintInterpolationMode(Json, InterpMode);
 }
 
 static void PrintFunction(JsonWriter &Json, const ReflectionData &Reflection,
@@ -886,7 +893,7 @@ static void PrintFunction(JsonWriter &Json, const ReflectionData &Reflection,
         }
 
         PrintParameter(Reflection, param.TypeId, hasSymbols, Json,
-                       node.GetSemanticId(), param.InterpolationMode,
+                       node.GetSemanticId(), node.GetInterpolationMode(),
                        param.Flags, Settings);
       });
     }
@@ -906,8 +913,8 @@ static void PrintFunction(JsonWriter &Json, const ReflectionData &Reflection,
     Json.Object("ReturnType", [&Reflection, &func, &Json, hasSymbols, &param,
                                &node, &Settings]() {
       PrintParameter(Reflection, param.TypeId, hasSymbols, Json,
-                     node.GetSemanticId(), param.InterpolationMode, param.Flags,
-                     Settings);
+                     node.GetSemanticId(), node.GetInterpolationMode(),
+                     param.Flags, Settings);
     });
   }
 }
@@ -1362,9 +1369,11 @@ std::string ReflectionData::ToJson(bool HideFileInfo,
 
           json.StringField("ParamName", paramName);
 
+          const ReflectionNode &node = Nodes[param.NodeId];
+
           PrintParameter(*this, param.TypeId, hasSymbols, json,
-                         Nodes[param.NodeId].GetSemanticId(),
-                         param.InterpolationMode, param.Flags, settings);
+                         node.GetSemanticId(), node.GetInterpolationMode(),
+                         param.Flags, settings);
         }
       });
 

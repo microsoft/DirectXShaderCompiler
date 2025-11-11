@@ -423,15 +423,14 @@ public:
         m_Data->Parameters[node.GetLocalId()];
     const ReflectionVariableType &type = m_Data->Types[param.TypeId];
 
-    *pDesc =
-        D3D12_PARAMETER_DESC{name,
-                             semanticName,
-                             type.GetType(),
-                             type.GetClass(),
-                             type.GetRows(),
-                             type.GetColumns(),
-                             D3D_INTERPOLATION_MODE(param.InterpolationMode),
-                             D3D_PARAMETER_FLAGS(param.Flags)};
+    *pDesc = D3D12_PARAMETER_DESC{name,
+                                  semanticName,
+                                  type.GetType(),
+                                  type.GetClass(),
+                                  type.GetRows(),
+                                  type.GetColumns(),
+                                  node.GetInterpolationMode(),
+                                  D3D_PARAMETER_FLAGS(param.Flags)};
 
     return S_OK;
   }

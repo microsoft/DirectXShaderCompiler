@@ -601,6 +601,11 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
         node.GetSemanticId() >= header.StringsNonDebug)
       return HLSL_REFL_ERR("Node points to invalid semantic id", i);
 
+    if (node.GetInterpolationMode() < D3D_INTERPOLATION_UNDEFINED ||
+        node.GetInterpolationMode() >
+            D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE)
+      return HLSL_REFL_ERR("Node has invalid interpolation mode", i);
+
     uint32_t maxValue = 1;
     bool allowFwdDeclare = false;
 
@@ -874,8 +879,7 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
         Nodes[param.NodeId].GetLocalId() != i || param.TypeId >= header.Types)
       return HLSL_REFL_ERR("Parameter points to an invalid nodeId", i);
 
-    if (param.Flags > 3 ||
-        param.InterpolationMode > D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE)
+    if (param.Flags > 3)
       return HLSL_REFL_ERR("Parameter has invalid data", i);
   }
 

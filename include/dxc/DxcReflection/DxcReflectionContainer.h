@@ -110,8 +110,14 @@ class ReflectionNode {
     };
   };
 
-  uint16_t SemanticId;
-  uint16_t Padding;
+  union {
+    uint32_t SemanticIdInterpolationMode;
+    struct {
+      uint16_t SemanticId;
+      uint8_t InterpolationMode; // D3D_INTERPOLATION_MODE
+      uint8_t Padding;
+    };
+  };
 
   void SetFwdBck(uint32_t v) {
     FwdBckHi = v >> 8;
@@ -122,12 +128,14 @@ class ReflectionNode {
   ReflectionNode(D3D12_HLSL_NODE_TYPE NodeType, bool IsFwdDeclare,
                  uint32_t LocalId, uint16_t AnnotationStart,
                  uint32_t ChildCount, uint32_t ParentId,
-                 uint8_t AnnotationCount, uint16_t SemanticId)
+                 uint8_t AnnotationCount, uint16_t SemanticId,
+                 D3D_INTERPOLATION_MODE InterpolationMode)
       : LocalIdParentLo(LocalId | (ParentId << 24)), ParentHi(ParentId >> 8),
         Annotations(AnnotationCount), Type(NodeType),
         ChildCountFwdBckLo(ChildCount | (0xFFu << 24)),
         AnnotationStart(AnnotationStart), FwdBckHi(0xFFFF),
-        SemanticId(SemanticId), Padding(0) {
+        SemanticId(SemanticId), InterpolationMode(InterpolationMode),
+        Padding(0) {
 
     if (IsFwdDeclare)
       Type |= 0x80;
@@ -140,11 +148,15 @@ public:
   Initialize(ReflectionNode &OutNode, D3D12_HLSL_NODE_TYPE NodeType,
              bool IsFwdDeclare, uint32_t LocalId, uint16_t AnnotationStart,
              uint32_t ChildCount, uint32_t ParentId, uint8_t AnnotationCount,
-             uint16_t SemanticId) {
+             uint16_t SemanticId, D3D_INTERPOLATION_MODE InterpolationMode) {
 
     if (NodeType < D3D12_HLSL_NODE_TYPE_START ||
         NodeType > D3D12_HLSL_NODE_TYPE_END)
       return HLSL_REFL_ERR("Invalid NodeType");
+
+    if (InterpolationMode < D3D_INTERPOLATION_UNDEFINED ||
+        InterpolationMode > D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE)
+      return HLSL_REFL_ERR("Invalid interpolation mode");
 
     if (LocalId >= ((1u << 24) - 1))
       return HLSL_REFL_ERR("LocalId out of bounds");
@@ -159,7 +171,8 @@ public:
       return HLSL_REFL_ERR("Fwd declares aren't allowed to have annotations");
 
     OutNode = ReflectionNode(NodeType, IsFwdDeclare, LocalId, AnnotationStart,
-                             ChildCount, ParentId, AnnotationCount, SemanticId);
+                             ChildCount, ParentId, AnnotationCount, SemanticId,
+                             InterpolationMode);
     return ReflectionErrorSuccess;
   }
 
@@ -221,6 +234,10 @@ public:
     return SemanticId == uint16_t(-1) ? uint32_t(-1) : SemanticId;
   }
 
+  D3D_INTERPOLATION_MODE GetInterpolationMode() const {
+    return D3D_INTERPOLATION_MODE(InterpolationMode);
+  }
+
   D3D12_HLSL_NODE_TYPE GetNodeType() const {
     return D3D12_HLSL_NODE_TYPE(Type & 0x7F);
   }
@@ -248,7 +265,7 @@ public:
            ParentHiAnnotationsType32 == other.ParentHiAnnotationsType32 &&
            ChildCountFwdBckLo == other.ChildCountFwdBckLo &&
            AnnotationStartFwdBckHi == other.AnnotationStartFwdBckHi &&
-           SemanticId == other.SemanticId;
+           SemanticIdInterpolationMode == other.SemanticIdInterpolationMode;
   }
 };
 
@@ -359,13 +376,11 @@ struct ReflectionFunctionParameter { // Mirrors D3D12_PARAMETER_DESC without
   uint32_t TypeId;
   uint32_t NodeId;
 
-  uint8_t InterpolationMode; // D3D_INTERPOLATION_MODE
-  uint8_t Flags;             // D3D_PARAMETER_FLAGS
-  uint16_t Padding;
+  uint32_t Flags; // D3D_PARAMETER_FLAGS
 
   bool operator==(const ReflectionFunctionParameter &other) const {
     return TypeId == other.TypeId && NodeId == other.NodeId &&
-           InterpolationMode == other.InterpolationMode && Flags == other.Flags;
+           Flags == other.Flags;
   }
 };
 

@@ -40,6 +40,49 @@ using namespace clang;
 
 namespace hlsl {
 
+// DxilInterpolationMode.cpp but a little bit cleaned up
+static D3D_INTERPOLATION_MODE GetInterpolationMode(const Decl *decl) {
+
+  if (!decl) // Return type
+    return D3D_INTERPOLATION_UNDEFINED;
+
+  bool bNoInterpolation = decl->hasAttr<HLSLNoInterpolationAttr>();
+  bool bLinear = decl->hasAttr<HLSLLinearAttr>();
+  bool bNoperspective = decl->hasAttr<HLSLNoPerspectiveAttr>();
+  bool bCentroid = decl->hasAttr<HLSLCentroidAttr>();
+  bool bSample = decl->hasAttr<HLSLSampleAttr>();
+
+  uint8_t mask = uint8_t(bNoInterpolation) << 4;
+  mask |= uint8_t(bLinear) << 3;
+  mask |= uint8_t(bNoperspective) << 2;
+  mask |= uint8_t(bCentroid) << 1;
+  mask |= uint8_t(bSample);
+
+  if (mask > 16)
+    return D3D_INTERPOLATION_UNDEFINED;
+
+  static constexpr const D3D_INTERPOLATION_MODE modes[] = {
+      D3D_INTERPOLATION_UNDEFINED,
+      D3D_INTERPOLATION_LINEAR_SAMPLE,
+      D3D_INTERPOLATION_LINEAR_CENTROID,
+      D3D_INTERPOLATION_LINEAR_SAMPLE,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_CENTROID,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
+      D3D_INTERPOLATION_LINEAR,
+      D3D_INTERPOLATION_LINEAR_SAMPLE,
+      D3D_INTERPOLATION_LINEAR_CENTROID,
+      D3D_INTERPOLATION_LINEAR_SAMPLE,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_CENTROID,
+      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
+      D3D_INTERPOLATION_CONSTANT};
+
+  return modes[mask];
+}
+
 [[nodiscard]] static ReflectionError
 PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
                const LangOptions &LangOpts, const std::string &UnqualifiedName,
@@ -134,6 +177,8 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
     }
   }
 
+  D3D_INTERPOLATION_MODE interpolationMode = GetInterpolationMode(DeclSelf);
+
   bool isFwdDeclare = false;
   bool canHaveFwdDeclare = false;
   const Decl *fwdDeclare = nullptr;
@@ -184,7 +229,7 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
   Refl.Nodes.push_back({});
   if (ReflectionError err = ReflectionNode::Initialize(
           Refl.Nodes.back(), Type, isFwdDeclare, LocalId, annotationStart, 0,
-          ParentNodeId, annotationCount, semanticId))
+          ParentNodeId, annotationCount, semanticId, interpolationMode))
     return err;
 
   if (Refl.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO) {
@@ -1257,49 +1302,6 @@ RegisterBuffer(uint32_t &bufferId, ASTContext &ASTCtx, ReflectionData &Refl,
   return ReflectionErrorSuccess;
 }
 
-// DxilInterpolationMode.cpp but a little bit cleaned up
-static D3D_INTERPOLATION_MODE GetInterpolationMode(Decl *decl) {
-
-  if (!decl) // Return type
-    return D3D_INTERPOLATION_UNDEFINED;
-
-  bool bNoInterpolation = decl->hasAttr<HLSLNoInterpolationAttr>();
-  bool bLinear = decl->hasAttr<HLSLLinearAttr>();
-  bool bNoperspective = decl->hasAttr<HLSLNoPerspectiveAttr>();
-  bool bCentroid = decl->hasAttr<HLSLCentroidAttr>();
-  bool bSample = decl->hasAttr<HLSLSampleAttr>();
-
-  uint8_t mask = uint8_t(bNoInterpolation) << 4;
-  mask |= uint8_t(bLinear) << 3;
-  mask |= uint8_t(bNoperspective) << 2;
-  mask |= uint8_t(bCentroid) << 1;
-  mask |= uint8_t(bSample);
-
-  if (mask > 16)
-    return D3D_INTERPOLATION_UNDEFINED;
-
-  static constexpr const D3D_INTERPOLATION_MODE modes[] = {
-      D3D_INTERPOLATION_UNDEFINED,
-      D3D_INTERPOLATION_LINEAR_SAMPLE,
-      D3D_INTERPOLATION_LINEAR_CENTROID,
-      D3D_INTERPOLATION_LINEAR_SAMPLE,
-      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE,
-      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
-      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_CENTROID,
-      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
-      D3D_INTERPOLATION_LINEAR,
-      D3D_INTERPOLATION_LINEAR_SAMPLE,
-      D3D_INTERPOLATION_LINEAR_CENTROID,
-      D3D_INTERPOLATION_LINEAR_SAMPLE,
-      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE,
-      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
-      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_CENTROID,
-      D3D_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE,
-      D3D_INTERPOLATION_CONSTANT};
-
-  return modes[mask];
-}
-
 [[nodiscard]] static ReflectionError
 AddFunctionParameter(ASTContext &ASTCtx, QualType Type, Decl *Decl,
                      ReflectionData &Refl, const SourceManager &SM,
@@ -1322,7 +1324,6 @@ AddFunctionParameter(ASTContext &ASTCtx, QualType Type, Decl *Decl,
                          uint32_t(Refl.Parameters.size())))
     return err;
 
-  D3D_INTERPOLATION_MODE interpolationMode = GetInterpolationMode(Decl);
   D3D_PARAMETER_FLAGS flags = D3D_PF_NONE;
 
   if (Decl) {
@@ -1337,8 +1338,8 @@ AddFunctionParameter(ASTContext &ASTCtx, QualType Type, Decl *Decl,
       flags = D3D_PARAMETER_FLAGS(flags | D3D_PF_IN | D3D_PF_OUT);
   }
 
-  Refl.Parameters.push_back(ReflectionFunctionParameter{
-      typeId, nodeId, uint8_t(interpolationMode), uint8_t(flags)});
+  Refl.Parameters.push_back(
+      ReflectionFunctionParameter{typeId, nodeId, uint8_t(flags)});
 
   return ReflectionErrorSuccess;
 }
@@ -2075,7 +2076,7 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
   Result.Nodes.push_back({});
   if (ReflectionError err = ReflectionNode::Initialize(
           Result.Nodes[0], D3D12_HLSL_NODE_TYPE_NAMESPACE, false, 0, 0, 0,
-          0xFFFF, 0, uint16_t(-1))) {
+          0xFFFF, 0, uint16_t(-1), D3D_INTERPOLATION_UNDEFINED)) {
     llvm::errs() << "DxcHLSLReflectionDataFromAST: Failed to add root node: "
                  << err;
     Result = {};
