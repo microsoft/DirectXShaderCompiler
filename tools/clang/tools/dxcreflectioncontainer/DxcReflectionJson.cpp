@@ -1133,65 +1133,82 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection, uint32_t NodeId,
 
   uint32_t childrenToSkip = 0;
 
-  // Function
-
-  if (nodeType == D3D12_HLSL_NODE_TYPE_FUNCTION)
-    Json.Object("Function", [&node, &Reflection, &Json,
-                             &Settings, &childrenToSkip]() {
-      ReflectionFunction func = Reflection.Functions[node.GetLocalId()];
-      PrintFunction(Json, Reflection, node.GetLocalId(), Settings);
-      childrenToSkip = func.GetNumParameters() + func.HasReturn();
-    });
-
-  // Register
-
-  if (nodeType == D3D12_HLSL_NODE_TYPE_REGISTER)
-    Json.Object("Register", [&node, &Reflection, &Json, &Settings]() {
-                  PrintRegister(Json, Reflection, node.GetLocalId(), Settings);
-                });
-
-  // Enum
-
-  if (nodeType == D3D12_HLSL_NODE_TYPE_ENUM)
-    Json.Object("Enum", [&node, &Reflection, &Json, &Settings,
-                         &childrenToSkip]() {
-      PrintEnum(Json, Reflection, node.GetLocalId(), Settings);
-      childrenToSkip = node.GetChildCount();
-    });
-
-  // Type
-
-  bool isType = false;
   bool recurseType = false;
+  const char *stmtType = nullptr;
 
   switch (nodeType) {
+
+  case D3D12_HLSL_NODE_TYPE_FUNCTION:
+    Json.Object(
+        "Function", [&node, &Reflection, &Json, &Settings, &childrenToSkip]() {
+          ReflectionFunction func = Reflection.Functions[node.GetLocalId()];
+          PrintFunction(Json, Reflection, node.GetLocalId(), Settings);
+          childrenToSkip = func.GetNumParameters() + func.HasReturn();
+        });
+    break;
+
+  case D3D12_HLSL_NODE_TYPE_REGISTER:
+    Json.Object("Register", [&node, &Reflection, &Json, &Settings]() {
+      PrintRegister(Json, Reflection, node.GetLocalId(), Settings);
+    });
+    break;
+
+  case D3D12_HLSL_NODE_TYPE_ENUM:
+    Json.Object("Enum",
+                [&node, &Reflection, &Json, &Settings, &childrenToSkip]() {
+                  PrintEnum(Json, Reflection, node.GetLocalId(), Settings);
+                  childrenToSkip = node.GetChildCount();
+                });
+    break;
+
+  case D3D12_HLSL_NODE_TYPE_STRUCT:
+  case D3D12_HLSL_NODE_TYPE_UNION: {
+
+    if (node.IsFwdDeclare())
+      break;
+
+    const ReflectionVariableType &type = Reflection.Types[node.GetLocalId()];
+
+    if (type.GetBaseClass() != uint32_t(-1) || type.GetInterfaceCount())
+      Json.Object("Class", [&Json, &type, &Reflection, hasSymbols,
+                            &Settings]() {
+        if (type.GetBaseClass() != uint32_t(-1))
+          Json.Object("BaseClass",
+                      [&Json, &type, &Reflection, hasSymbols, &Settings]() {
+                        PrintTypeName(Reflection, type.GetBaseClass(),
+                                      hasSymbols, Settings, Json);
+                      });
+
+        if (type.GetInterfaceCount())
+          Json.Array("Interfaces", [&Json, &type, &Reflection, hasSymbols,
+                                     &Settings]() {
+            for (uint32_t i = 0; i < uint32_t(type.GetInterfaceCount()); ++i) {
+              uint32_t interfaceId = type.GetInterfaceStart() + i;
+              JsonWriter::ObjectScope nodeRoot(Json);
+              PrintTypeName(Reflection, Reflection.TypeList[interfaceId],
+                            hasSymbols, Settings, Json);
+            }
+          });
+      });
+
+    break;
+  }
+
   case D3D12_HLSL_NODE_TYPE_VARIABLE:
   case D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE:
   case D3D12_HLSL_NODE_TYPE_GROUPSHARED_VARIABLE:
     recurseType = true;
-    isType = true;
-    break;
+    [[fallthrough]];
 
   case D3D12_HLSL_NODE_TYPE_TYPEDEF:
-    isType = true;
-    break;
-  }
 
-  if (isType)
-    Json.Object("Type", [&node, &Reflection, &Json, &Settings,
-                         hasSymbols, recurseType]() {
+    Json.Object("Type", [&node, &Reflection, &Json, &Settings, hasSymbols,
+                         recurseType]() {
       PrintType(Reflection, node.GetLocalId(), hasSymbols, Settings, Json,
                 recurseType);
     });
 
-  // If; turns into ("Condition"), ("Body"), ("Else")
-  // While; turns into ("Condition"), ("Body")
-  // For; turns into ("Condition"), ("Init"), ("Body")
-  // Switch; turns into ("Condition"), ("Body")
-
-  const char *stmtType = nullptr;
-
-  switch (nodeType) {
+    break;
 
   case D3D12_HLSL_NODE_TYPE_IF:
     stmtType = "If";
@@ -1209,6 +1226,11 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection, uint32_t NodeId,
     stmtType = "While";
     break;
   }
+
+  // If; turns into ("Condition"), ("Body"), ("Else")
+  // While; turns into ("Condition"), ("Body")
+  // For; turns into ("Condition"), ("Init"), ("Body")
+  // Switch; turns into ("Condition"), ("Body")
 
   if (stmtType) {
 
