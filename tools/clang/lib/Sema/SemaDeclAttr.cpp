@@ -4588,7 +4588,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
     //HLSL change, language option to maintain unknown annotations.
     //This is extremely useful for extending the language for providing extra reflection info.
-    //These annotations are accessible through IDxcHLSLReflection.
+    //These annotations are accessible through IHLSLReflectionData.
 
     const LangOptions &LangOpts = S.Context.getLangOpts();
 

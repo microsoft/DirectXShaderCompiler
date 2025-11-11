@@ -130,6 +130,8 @@ private:
                                       LPCWSTR dumpName = nullptr);
   FileRunCommandResult RunDxc(dxc::DllLoader &DllSupport,
                               const FileRunCommandResult *Prior);
+  FileRunCommandResult RunDxReflector(dxc::DllLoader &DllSupport,
+                                      const FileRunCommandResult *Prior);
   FileRunCommandResult RunDxv(dxc::DllLoader &DllSupport,
                               const FileRunCommandResult *Prior);
   FileRunCommandResult RunOpt(dxc::DllLoader &DllSupport,

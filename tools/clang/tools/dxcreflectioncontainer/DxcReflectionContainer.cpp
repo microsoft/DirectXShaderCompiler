@@ -165,7 +165,7 @@ ReflectionData::RegisterTypeList(const std::vector<uint32_t> &TypeIds,
   return ReflectionErrorSuccess;
 }
 
-struct DxcHLSLHeader {
+struct HLSLReflectionDataHeader {
 
   uint32_t MagicNumber;
   uint16_t Version;
@@ -467,7 +467,7 @@ bool ReflectionData::GenerateNameLookupTable() {
 
 void ReflectionData::Dump(std::vector<std::byte> &Bytes) const {
 
-  uint64_t toReserve = sizeof(DxcHLSLHeader);
+  uint64_t toReserve = sizeof(HLSLReflectionDataHeader);
 
   Advance(toReserve, Strings, StringsNonDebug, Sources, Nodes, NodeSymbols,
           Registers, Functions, Enums, EnumValues, Annotations, ArraySizes,
@@ -478,7 +478,7 @@ void ReflectionData::Dump(std::vector<std::byte> &Bytes) const {
 
   toReserve = 0;
 
-  UnsafeCast<DxcHLSLHeader>(Bytes,
+  UnsafeCast<HLSLReflectionDataHeader>(Bytes,
                             toReserve) = {ReflectionDataMagic,
                                           ReflectionDataVersion,
                                           uint16_t(Sources.size()),
@@ -500,7 +500,7 @@ void ReflectionData::Dump(std::vector<std::byte> &Bytes) const {
                                           uint32_t(Parameters.size()),
                                           uint32_t(Statements.size())};
 
-  toReserve += sizeof(DxcHLSLHeader);
+  toReserve += sizeof(HLSLReflectionDataHeader);
 
   Append(Bytes, toReserve, Strings, StringsNonDebug, Sources, Nodes,
          NodeSymbols, Registers, Functions, Enums, EnumValues, Annotations,
@@ -537,8 +537,8 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
   *this = {};
 
   uint64_t off = 0;
-  DxcHLSLHeader header;
-  if (ReflectionError err = Consume<DxcHLSLHeader>(Bytes, off, header))
+  HLSLReflectionDataHeader header;
+  if (ReflectionError err = Consume<HLSLReflectionDataHeader>(Bytes, off, header))
     return err;
 
   if (header.MagicNumber != ReflectionDataMagic)

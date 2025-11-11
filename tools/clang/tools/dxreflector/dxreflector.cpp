@@ -162,8 +162,8 @@ int main(int argc, const char **argv) {
       return 0;
     }
 
-    CComPtr<IDxcHLSLReflector> pReflector;
-    CComPtr<IDxcOperationResult> pRewriteResult;
+    CComPtr<IHLSLReflector> pReflector;
+    CComPtr<IDxcResult> pReflectionResult;
     CComPtr<IDxcBlobEncoding> pSource;
     std::wstring wName(CA2W(dxreflectorOpts.InputFile.empty()
                                 ? ""
@@ -190,21 +190,37 @@ int main(int argc, const char **argv) {
 
     IFT(pReflector->FromSource(pSource, wName.c_str(), wargsC.data(),
                                uint32_t(wargsC.size()), nullptr, 0,
-                               pIncludeHandler, &pRewriteResult));
+                               pIncludeHandler, &pReflectionResult));
 
     if (dxreflectorOpts.OutputObject.empty()) {
+
       // No -Fo, print to console
-      WriteOperationResultToConsole(pRewriteResult,
+
+      CComPtr<IDxcBlobEncoding> pJson;
+      CComPtr<IDxcBlob> pReflectionBlob;
+      CComPtr<IHLSLReflectionData> pReflectionData;
+
+      ReflectorFormatSettings formatSettings{};
+      formatSettings.PrintFileInfo = dxreflectorOpts.ReflOpt.ShowFileInfo;
+      formatSettings.IsHumanReadable = !dxreflectorOpts.ReflOpt.ShowRawData;
+
+      IFT(pReflectionResult->GetResult(&pReflectionBlob));
+      IFT(pReflector->FromBlob(pReflectionBlob, &pReflectionData));
+      IFT(pReflector->ToString(pReflectionData, formatSettings, &pJson));
+
+      WriteBlobToConsole(pJson, STD_OUTPUT_HANDLE);
+
+      WriteOperationResultToConsole(pReflectionResult,
                                     !dxreflectorOpts.OutputWarnings);
     } else {
-      WriteOperationErrorsToConsole(pRewriteResult,
+      WriteOperationErrorsToConsole(pReflectionResult,
                                     !dxreflectorOpts.OutputWarnings);
       HRESULT hr;
-      IFT(pRewriteResult->GetStatus(&hr));
+      IFT(pReflectionResult->GetStatus(&hr));
       if (SUCCEEDED(hr)) {
         CA2W wOutputObject(dxreflectorOpts.OutputObject.data());
         CComPtr<IDxcBlob> pObject;
-        IFT(pRewriteResult->GetResult(&pObject));
+        IFT(pReflectionResult->GetResult(&pObject));
         WriteBlobToFile(pObject, wOutputObject.m_psz,
                         dxreflectorOpts.DefaultTextCodePage);
       }

@@ -1472,7 +1472,6 @@ std::string ReflectionData::ToJson(bool HideFileInfo,
     else
       PrintChildren(*this, json, "Children", 1, Nodes.size(), settings);
   }
-
   return json.str();
 }
 

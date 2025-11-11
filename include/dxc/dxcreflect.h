@@ -212,18 +212,22 @@ DECLARE_INTERFACE_(ID3D12ShaderReflectionType1, ID3D12ShaderReflectionType) {
   (THIS_ _Out_ D3D12_ARRAY_DESC * pArrayDesc) PURE;
 };
 
-typedef interface IDxcHLSLReflection IDxcHLSLReflection;
+typedef interface IHLSLReflectionData IHLSLReflectionData;
 
 // {7016F834-AE85-4C86-A473-8C2C981DD370}
 interface DECLSPEC_UUID("7016f834-ae85-4c86-a473-8c2c981dd370")
-    IDxcHLSLReflection;
-DEFINE_GUID(IID_IDxcHLSLReflection, 0x7016f834, 0xae85, 0x4c86, 0xa4, 0x73,
+    IHLSLReflectionData;
+DEFINE_GUID(IID_IHLSLReflectionData, 0x7016f834, 0xae85, 0x4c86, 0xa4, 0x73,
             0x8c, 0x2c, 0x98, 0x1d, 0xd3, 0x70);
 
 #undef INTERFACE
-#define INTERFACE IDxcHLSLReflection
+#define INTERFACE IHLSLReflectionData
 
-DECLARE_INTERFACE(IDxcHLSLReflection) {
+DECLARE_INTERFACE_(IHLSLReflectionData, IUnknown) {
+
+  STDMETHOD(QueryInterface)(THIS_ REFIID riid, void **ppvObject) PURE;
+  STDMETHOD_(ULONG, AddRef)(THIS) PURE;
+  STDMETHOD_(ULONG, Release)(THIS) PURE;
 
   STDMETHOD(GetDesc)(THIS_ _Out_ D3D12_HLSL_REFLECTION_DESC * pDesc) PURE;
 
@@ -327,6 +331,11 @@ DECLARE_INTERFACE(IDxcHLSLReflection) {
   (THIS_ _In_ LPCSTR Name, _Outptr_ ID3D12ShaderReflectionType * *ppType) PURE;
 };
 
+struct ReflectorFormatSettings {
+  bool IsHumanReadable;
+  bool PrintFileInfo;
+};
+
 #undef INTERFACE
 
 CLSID_SCOPE const CLSID
@@ -336,8 +345,8 @@ CLSID_SCOPE const CLSID
                           0x435a,
                           {0x16, 0x77, 0xd7, 0xbc, 0xcc, 0xc1}};
 
-CROSS_PLATFORM_UUIDOF(IDxcHLSLReflector, "ba5a8d8e-bf71-435a-977f-1677d7bcccc1")
-struct IDxcHLSLReflector : public IUnknown {
+CROSS_PLATFORM_UUIDOF(IHLSLReflector, "ba5a8d8e-bf71-435a-977f-1677d7bcccc1")
+struct IHLSLReflector : public IUnknown {
 
   virtual HRESULT STDMETHODCALLTYPE FromSource(
       IDxcBlobEncoding *pSource,
@@ -348,13 +357,17 @@ struct IDxcHLSLReflector : public IUnknown {
       // Defines
       DxcDefine *pDefines, UINT32 defineCount,
       // user-provided interface to handle #include directives (optional)
-      IDxcIncludeHandler *pIncludeHandler, IDxcOperationResult **ppResult) = 0;
+      IDxcIncludeHandler *pIncludeHandler, IDxcResult **ppResult) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE
-  FromBlob(IDxcBlob *data, IDxcHLSLReflection **ppReflection) = 0;
+  FromBlob(IDxcBlob *data, IHLSLReflectionData **ppReflection) = 0;
 
-  virtual HRESULT STDMETHODCALLTYPE ToBlob(IDxcHLSLReflection *reflection,
+  virtual HRESULT STDMETHODCALLTYPE ToBlob(IHLSLReflectionData *reflection,
                                            IDxcBlob **ppResult) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE ToString(
+      IHLSLReflectionData *reflection, ReflectorFormatSettings Settings,
+      IDxcBlobEncoding **ppResult) = 0;
 };
 
 #endif

@@ -2048,7 +2048,7 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
   return Reflector.TraverseDeclContext();
 }
 
-[[nodiscard]] ReflectionError DxcHLSLReflectionDataFromAST(
+[[nodiscard]] ReflectionError HLSLReflectionDataFromAST(
     ReflectionData &Result, CompilerInstance &Compiler,
     TranslationUnitDecl &Ctx, uint32_t AutoBindingSpace,
     D3D12_HLSL_REFLECTION_FEATURE Features, bool DefaultRowMaj) {
@@ -2067,7 +2067,7 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
     if (ReflectionError err = ReflectionNodeSymbol::Initialize(
             Result.NodeSymbols[0], 0, uint16_t(-1), 0, 0, 0, 0)) {
       llvm::errs()
-          << "DxcHLSLReflectionDataFromAST: Failed to add root symbol: " << err;
+          << "HLSLReflectionDataFromAST: Failed to add root symbol: " << err;
       Result = {};
       return err;
     }
@@ -2077,7 +2077,7 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
   if (ReflectionError err = ReflectionNode::Initialize(
           Result.Nodes[0], D3D12_HLSL_NODE_TYPE_NAMESPACE, false, 0, 0, 0,
           0xFFFF, 0, uint16_t(-1), D3D_INTERPOLATION_UNDEFINED)) {
-    llvm::errs() << "DxcHLSLReflectionDataFromAST: Failed to add root node: "
+    llvm::errs() << "HLSLReflectionDataFromAST: Failed to add root node: "
                  << err;
     Result = {};
     return err;
@@ -2088,7 +2088,7 @@ RecursiveReflectHLSL(const DeclContext &Ctx, ASTContext &ASTCtx,
   if (ReflectionError err = RecursiveReflectHLSL(
           Ctx, Compiler.getASTContext(), Diags, SM, Result, AutoBindingSpace, 0,
           Features, 0, DefaultRowMaj, fwdDecls)) {
-    llvm::errs() << "DxcHLSLReflectionDataFromAST: Failed: " << err;
+    llvm::errs() << "HLSLReflectionDataFromAST: Failed: " << err;
     Result = {};
     return err;
   }

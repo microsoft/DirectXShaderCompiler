@@ -41,9 +41,15 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/dxcfilesystem.h"
 #include "dxc/dxcapi.internal.h"
-#include "dxc/dxcreflect.h"
 
+#include "dxc/dxcreflect.h"
 #include "dxc/DxcReflection/DxcReflectionContainer.h"
+
+extern "C" const IID IID_IHLSLReflectionData = {
+    0x7016f834,
+    0xae85,
+    0x4c86,
+    {0xa4, 0x73, 0x8c, 0x2c, 0x98, 0x1d, 0xd3, 0x70}};
 
 using namespace llvm;
 using namespace clang;
@@ -51,7 +57,7 @@ using namespace hlsl;
 
 namespace hlsl {
 
-[[nodiscard]] ReflectionError DxcHLSLReflectionDataFromAST(
+[[nodiscard]] ReflectionError HLSLReflectionDataFromAST(
     ReflectionData &Result, clang::CompilerInstance &Compiler,
     clang::TranslationUnitDecl &Ctx, uint32_t AutoBindingSpace,
     D3D12_HLSL_REFLECTION_FEATURE Features, bool DefaultRowMaj);
@@ -513,7 +519,6 @@ public:
       return;
 
     const std::vector<uint32_t> &children = ChildrenNonRecursive.at(NodeId);
-
     const ReflectionShaderResource &reg = Data.Registers[node.GetLocalId()];
 
     if (Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO) {
@@ -638,9 +643,11 @@ ID3D12ShaderReflectionConstantBuffer *CHLSLReflectionVariable::GetBuffer() {
   return m_pBuffer;
 }
 
-struct DxcHLSLReflection : public IDxcHLSLReflection {
+struct HLSLReflectionData : public IHLSLReflectionData {
 
   ReflectionData Data{};
+
+  std::atomic<ULONG> m_refCount;
 
   std::vector<uint32_t> ChildCountsNonRecursive;
   std::unordered_map<uint32_t, std::vector<uint32_t>> ChildrenNonRecursive;
@@ -660,8 +667,9 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
   std::vector<uint32_t> NodeToParameterId;
   std::vector<CHLSLFunctionParameter> FunctionParameters;
 
-  DxcHLSLReflection() = default;
+  HLSLReflectionData() : m_refCount(1) {}
 
+  //TODO: This function needs another look definitely
   void Finalize() {
 
     Data.GenerateNameLookupTable();
@@ -690,10 +698,15 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
         functionParameters.push_back(i);
       }
 
-      // Filter out fwd declarations for structs, unions, interfaces, functions,
+      // Filter out backward/fwd declarations for structs, unions, interfaces, functions,
       // enums
 
-      if (!node.IsFwdDeclare()) {
+      if (node.IsFwdDeclare()) {
+        ChildCountsNonRecursive[i] = uint32_t(ChildrenNonRecursive[i].size());
+        continue;
+      }
+
+      if (!node.IsFwdDeclare() && node.IsFwdBckDefined()) {
 
         FwdDeclType type = FwdDeclType::COUNT;
 
@@ -727,11 +740,7 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
           NonFwdIds[int(type)].push_back(typeId);
 
           if (hasSymbols)
-            NameToNonFwdIds[int(type)]
-                           [Data.Strings[Data.NodeSymbols[i].GetNameId()]] =
-                               typeId;
-
-          break;
+            NameToNonFwdIds[int(type)][Data.NodeIdToFullyResolved[i]] = typeId;
         }
       }
 
@@ -781,29 +790,40 @@ struct DxcHLSLReflection : public IDxcHLSLReflection {
           Data, globalVars, &ConstantBuffers[Data.Buffers.size()], Types);
   }
 
-  DxcHLSLReflection(ReflectionData &&moved) : Data(moved) { Finalize(); }
+  HLSLReflectionData(ReflectionData &&moved) = delete;
+  HLSLReflectionData &operator=(HLSLReflectionData &&moved) = delete;
 
-  DxcHLSLReflection &operator=(DxcHLSLReflection &&moved) {
+  // IUnknown
+  
+  STDMETHOD(QueryInterface)(REFIID riid, void **ppvObject) override
+  {
+      if (!ppvObject) return E_POINTER;
 
-    Data = std::move(moved.Data);
-    ChildCountsNonRecursive = std::move(moved.ChildCountsNonRecursive);
-    ChildrenNonRecursive = std::move(moved.ChildrenNonRecursive);
-    ConstantBuffers = std::move(moved.ConstantBuffers);
-    NameToConstantBuffers = std::move(moved.NameToConstantBuffers);
-    Types = std::move(moved.Types);
+      if (riid == IID_IUnknown || riid == IID_IHLSLReflectionData)
+      {
+          *ppvObject = static_cast<IHLSLReflectionData*>(this);
+          AddRef();
+          return S_OK;
+      }
 
-    for (int i = 0; i < int(FwdDeclType::COUNT); ++i) {
-      NonFwdIds[i] = std::move(moved.NonFwdIds[i]);
-      NameToNonFwdIds[i] = std::move(moved.NameToNonFwdIds[i]);
-    }
-
-    NodeToParameterId = std::move(moved.NodeToParameterId);
-    FunctionParameters = std::move(moved.FunctionParameters);
-
-    return *this;
+      *ppvObject = nullptr;
+      return E_NOINTERFACE;
   }
 
-  // Conversion of DxcHLSL structs to D3D12_HLSL standardized structs
+  STDMETHOD_(ULONG, AddRef)() override
+  {
+      return ++m_refCount;
+  }
+
+  STDMETHOD_(ULONG, Release)() override {
+      ULONG count = --m_refCount;
+      if (!count)
+          delete this;
+      return count;
+  }
+
+
+  // Conversion of IReflection structs to D3D12_HLSL standardized structs
 
   STDMETHOD(GetDesc)(THIS_ _Out_ D3D12_HLSL_REFLECTION_DESC *pDesc) override {
 
@@ -1577,18 +1597,13 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
 
   ReflectionData refl;
 
-  if (ReflectionError err = DxcHLSLReflectionDataFromAST(
+  if (ReflectionError err = HLSLReflectionDataFromAST(
           refl, astHelper.compiler, *astHelper.tu, opts.AutoBindingSpace,
           reflectMask, opts.DefaultRowMajor)) {
-    fprintf(stderr, "DxcHLSLReflectionDataFromAST failed %s\n",
+    fprintf(stderr, "HLSLReflectionDataFromAST failed %s\n",
             err.toString().c_str());
     return E_FAIL;
   }
-
-  bool hideFileInfo = !opts.ReflOpt.ShowFileInfo;
-  bool humanFriendly = !opts.ReflOpt.ShowRawData;
-
-  printf("%s\n", refl.ToJson(hideFileInfo, humanFriendly).c_str());
 
   // Debug: Verify deserialization, otherwise print error.
 
@@ -1642,7 +1657,7 @@ HRESULT GetFromSource(DxcLangExtensionsHelper *pHelper, LPCSTR pFileName,
 
 HRESULT ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
                             hlsl::options::DxcOpts &opts,
-                            IDxcOperationResult **ppResult) {
+                            IDxcResult **ppResult) {
   const llvm::opt::OptTable *table = ::options::getHlslOptTable();
 
   CComPtr<AbstractMemoryStream> pOutputStream;
@@ -1667,7 +1682,7 @@ HRESULT ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
 }
 } // namespace
 
-class DxcReflector : public IDxcHLSLReflector, public IDxcLangExtensions3 {
+class DxcReflector : public IHLSLReflector, public IDxcLangExtensions3 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   DxcLangExtensionsHelper m_langExtensionsHelper;
@@ -1679,7 +1694,7 @@ public:
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcHLSLReflector, IDxcLangExtensions,
+    return DoBasicQueryInterface<IHLSLReflector, IDxcLangExtensions,
                                  IDxcLangExtensions2, IDxcLangExtensions3>(
         this, iid, ppvObject);
   }
@@ -1693,8 +1708,7 @@ public:
       // Defines
       DxcDefine *pDefines, UINT32 defineCount,
       // user-provided interface to handle #include directives (optional)
-      IDxcIncludeHandler *pIncludeHandler,
-      IDxcOperationResult **ppResult) override {
+      IDxcIncludeHandler *pIncludeHandler, IDxcResult **ppResult) override {
 
     if (pSource == nullptr || ppResult == nullptr ||
         (argCount > 0 && pArguments == nullptr) ||
@@ -1745,9 +1759,17 @@ public:
                                      errors, rewrite, msfPtr, reflection);
 
       std::vector<std::byte> Bytes;
+      std::string json;
 
-      if (SUCCEEDED(status))
+      if (SUCCEEDED(status)) {
+
         reflection.Dump(Bytes);
+
+        bool hideFileInfo = !opts.ReflOpt.ShowFileInfo;
+        bool humanFriendly = !opts.ReflOpt.ShowRawData;
+
+        json = reflection.ToJson(hideFileInfo, humanFriendly);
+      }
 
       return DxcResult::Create(
           status, DXC_OUT_OBJECT,
@@ -1760,7 +1782,7 @@ public:
   }
 
   HRESULT STDMETHODCALLTYPE
-  FromBlob(IDxcBlob *data, IDxcHLSLReflection **ppReflection) override {
+  FromBlob(IDxcBlob *data, IHLSLReflectionData **ppReflection) override {
 
     if (!data || !data->GetBufferSize() || !ppReflection)
       return E_POINTER;
@@ -1769,34 +1791,63 @@ public:
                                  (const std::byte *)data->GetBufferPointer() +
                                      data->GetBufferSize());
 
+    HLSLReflectionData *reflectData = new HLSLReflectionData();
+    *ppReflection = reflectData;
+
     try {
-      ReflectionData deserial;
 
-      if (ReflectionError err = deserial.Deserialize(bytes, true))
+      if (ReflectionError err = reflectData->Data.Deserialize(bytes, true)) {
+        delete reflectData;
+        *ppReflection = nullptr;
+        fprintf(stderr, "Couldn't deserialize: %s\n", err.toString().c_str());
         return E_FAIL;
+      }
+      reflectData->Finalize();
 
-      *ppReflection = new DxcHLSLReflection(std::move(deserial));
       return S_OK;
     } catch (...) {
+      delete reflectData;
+      *ppReflection = nullptr;
       return E_FAIL;
     }
   }
 
-  HRESULT STDMETHODCALLTYPE ToBlob(IDxcHLSLReflection *reflection,
+  HRESULT STDMETHODCALLTYPE ToBlob(IHLSLReflectionData *reflection,
                                    IDxcBlob **ppResult) override {
 
     if (!reflection || !ppResult)
       return E_POINTER;
 
-    DxcHLSLReflection *refl = dynamic_cast<DxcHLSLReflection *>(reflection);
+    HLSLReflectionData *refl = dynamic_cast<HLSLReflectionData *>(reflection);
 
     if (!refl)
       return E_UNEXPECTED;
+
+    DxcThreadMalloc TM(m_pMalloc);
 
     std::vector<std::byte> bytes;
     refl->Data.Dump(bytes);
 
     return DxcCreateBlobOnHeapCopy(bytes.data(), bytes.size(), ppResult);
+  }
+
+  HRESULT STDMETHODCALLTYPE ToString(IHLSLReflectionData *reflection,
+                                     ReflectorFormatSettings Settings,
+                                     IDxcBlobEncoding **ppResult) override {
+
+    if (!reflection || !ppResult)
+      return E_POINTER;
+
+    HLSLReflectionData *refl = dynamic_cast<HLSLReflectionData *>(reflection);
+
+    if (!refl)
+      return E_UNEXPECTED;
+
+    DxcThreadMalloc TM(m_pMalloc);
+    std::string str = refl->Data.ToJson(!Settings.PrintFileInfo, Settings.IsHumanReadable);
+
+    return DxcCreateBlob(str.c_str(), str.size(), false, true, true,
+                         CP_UTF8, DxcGetThreadMallocNoRef(), ppResult);
   }
 };
 
