@@ -15,7 +15,7 @@
 #undef max
 
 namespace hlsl {
-  
+
 [[nodiscard]] ReflectionError
 ReflectionData::RegisterString(uint32_t &StringId, const std::string &Name,
                                bool IsNonDebug) {
@@ -63,7 +63,7 @@ ReflectionData::RegisterString(uint32_t &StringId, const std::string &Name,
 
 [[nodiscard]] ReflectionError
 ReflectionData::PushArray(uint32_t &ArrayId, uint32_t ArraySizeFlat,
-                                 const std::vector<uint32_t> &ArraySize) {
+                          const std::vector<uint32_t> &ArraySize) {
 
   if (ArraySizeFlat <= 1 || ArraySize.size() <= 1) {
     ArrayId = uint32_t(-1);
@@ -111,8 +111,8 @@ ReflectionData::PushArray(uint32_t &ArrayId, uint32_t ArraySizeFlat,
 }
 
 [[nodiscard]] ReflectionError
-ReflectionData::RegisterTypeList(
-    const std::vector<uint32_t> &TypeIds, uint32_t &Offset, uint8_t &Len) {
+ReflectionData::RegisterTypeList(const std::vector<uint32_t> &TypeIds,
+                                 uint32_t &Offset, uint8_t &Len) {
 
   if (TypeIds.empty())
     return ReflectionErrorSuccess;
@@ -209,13 +209,11 @@ const T &UnsafeCast(const std::vector<std::byte> &Bytes, uint64_t Offset) {
   return *(const T *)(Bytes.data() + Offset);
 }
 
-template <typename T>
-void SkipPadding(uint64_t &Offset) {
+template <typename T> void SkipPadding(uint64_t &Offset) {
   Offset = (Offset + alignof(T) - 1) / alignof(T) * alignof(T);
 }
 
-template <typename T>
-void Skip(uint64_t &Offset, const std::vector<T> &Vec) {
+template <typename T> void Skip(uint64_t &Offset, const std::vector<T> &Vec) {
   Offset += Vec.size() * sizeof(T);
 }
 
@@ -234,13 +232,14 @@ void Advance<std::string>(uint64_t &Offset,
   }
 }
 
-template <typename T, typename T2, typename ...args>
-void Advance(uint64_t& Offset, const std::vector<T>& Vec, const std::vector<T2>& Vec2, args... arg) {
+template <typename T, typename T2, typename... args>
+void Advance(uint64_t &Offset, const std::vector<T> &Vec,
+             const std::vector<T2> &Vec2, args... arg) {
   Advance(Offset, Vec);
   Advance(Offset, Vec2, arg...);
 }
 
-template<typename T>
+template <typename T>
 void Append(std::vector<std::byte> &Bytes, uint64_t &Offset,
             const std::vector<T> &Vec) {
   static_assert(std::is_pod_v<T>, "Append only works on POD types");
@@ -270,7 +269,7 @@ void Append<std::string>(std::vector<std::byte> &Bytes, uint64_t &Offset,
   }
 }
 
-template <typename T, typename T2, typename ...args>
+template <typename T, typename T2, typename... args>
 void Append(std::vector<std::byte> &Bytes, uint64_t &Offset,
             const std::vector<T> &Vec, const std::vector<T2> &Vec2,
             args... arg) {
@@ -279,7 +278,8 @@ void Append(std::vector<std::byte> &Bytes, uint64_t &Offset,
 }
 
 template <typename T, typename = std::enable_if_t<std::is_pod_v<T>>>
-[[nodiscard]] ReflectionError Consume(const std::vector<std::byte> &Bytes, uint64_t &Offset, T &t) {
+[[nodiscard]] ReflectionError Consume(const std::vector<std::byte> &Bytes,
+                                      uint64_t &Offset, T &t) {
 
   static_assert(std::is_pod_v<T>, "Consume only works on POD types");
 
@@ -296,8 +296,8 @@ template <typename T, typename = std::enable_if_t<std::is_pod_v<T>>>
 
 template <typename T>
 [[nodiscard]] ReflectionError Consume(const std::vector<std::byte> &Bytes,
-                                         uint64_t &Offset, T *target,
-             uint64_t Len) {
+                                      uint64_t &Offset, T *target,
+                                      uint64_t Len) {
 
   static_assert(std::is_pod_v<T>, "Consume only works on POD types");
 
@@ -314,8 +314,8 @@ template <typename T>
 
 template <typename T>
 [[nodiscard]] ReflectionError Consume(const std::vector<std::byte> &Bytes,
-                                         uint64_t &Offset, std::vector<T> &Vec,
-                                         uint64_t Len) {
+                                      uint64_t &Offset, std::vector<T> &Vec,
+                                      uint64_t Len) {
   Vec.resize(Len);
   return Consume(Bytes, Offset, Vec.data(), Len);
 }
@@ -323,47 +323,47 @@ template <typename T>
 template <>
 [[nodiscard]] ReflectionError
 Consume<std::string>(const std::vector<std::byte> &Bytes, uint64_t &Offset,
-                          std::vector<std::string> &Vec, uint64_t Len) {
+                     std::vector<std::string> &Vec, uint64_t Len) {
   Vec.resize(Len);
 
   for (uint64_t i = 0; i < Len; ++i) {
 
-      if (Offset >= Bytes.size())
+    if (Offset >= Bytes.size())
       return HLSL_REFL_ERR("Couldn't consume string len; out of bounds!");
-  
-      uint16_t ourLen = uint8_t(Bytes.at(Offset++));
 
-      if (ourLen >> 7) {
+    uint16_t ourLen = uint8_t(Bytes.at(Offset++));
 
-        if (Offset >= Bytes.size())
+    if (ourLen >> 7) {
+
+      if (Offset >= Bytes.size())
         return HLSL_REFL_ERR("Couldn't consume string len; out of bounds!");
 
-        ourLen &= ~(1 << 7);
-        ourLen |= uint16_t(Bytes.at(Offset++)) << 7;
-      }
+      ourLen &= ~(1 << 7);
+      ourLen |= uint16_t(Bytes.at(Offset++)) << 7;
+    }
 
-      if (Offset + ourLen > Bytes.size())
-        return HLSL_REFL_ERR("Couldn't consume string len; out of bounds!");
+    if (Offset + ourLen > Bytes.size())
+      return HLSL_REFL_ERR("Couldn't consume string len; out of bounds!");
 
-      Vec[i].resize(ourLen);
-      std::memcpy(Vec[i].data(), Bytes.data() + Offset, ourLen);
-      Offset += ourLen;
+    Vec[i].resize(ourLen);
+    std::memcpy(Vec[i].data(), Bytes.data() + Offset, ourLen);
+    Offset += ourLen;
   }
 
   return ReflectionErrorSuccess;
 }
 
-template <typename T, typename T2, typename ...args>
+template <typename T, typename T2, typename... args>
 [[nodiscard]] ReflectionError Consume(const std::vector<std::byte> &Bytes,
-                                         uint64_t &Offset,
-             std::vector<T> &Vec, uint64_t Len, std::vector<T2> &Vec2,
-             uint64_t Len2, args&... arg) {
+                                      uint64_t &Offset, std::vector<T> &Vec,
+                                      uint64_t Len, std::vector<T2> &Vec2,
+                                      uint64_t Len2, args &...arg) {
 
   if (ReflectionError err = Consume(Bytes, Offset, Vec, Len))
-      return err;
+    return err;
 
   if (ReflectionError err = Consume(Bytes, Offset, Vec2, Len2, arg...))
-      return err;
+    return err;
 
   return ReflectionErrorSuccess;
 }
@@ -391,17 +391,17 @@ void RecurseNameGenerationType(ReflectionData &Refl, uint32_t TypeId,
   const ReflectionVariableType &type = Refl.Types[TypeId];
 
   if (type.GetClass() == D3D_SVC_STRUCT)
-      for (uint32_t i = 0; i < type.GetMemberCount(); ++i) {
+    for (uint32_t i = 0; i < type.GetMemberCount(); ++i) {
 
-        uint32_t memberId = i + type.GetMemberStart();
-        std::string memberName =
-            Parent + "." + Refl.Strings[Refl.MemberNameIds[memberId]];
+      uint32_t memberId = i + type.GetMemberStart();
+      std::string memberName =
+          Parent + "." + Refl.Strings[Refl.MemberNameIds[memberId]];
 
-        Refl.FullyResolvedToMemberId[memberName] = memberId;
+      Refl.FullyResolvedToMemberId[memberName] = memberId;
 
-        RecurseNameGenerationType(Refl, Refl.MemberTypeIds[memberId], i,
-                                  memberName);
-      }
+      RecurseNameGenerationType(Refl, Refl.MemberTypeIds[memberId], i,
+                                memberName);
+    }
 }
 
 uint32_t RecurseNameGeneration(ReflectionData &Refl, uint32_t NodeId,
@@ -411,14 +411,14 @@ uint32_t RecurseNameGeneration(ReflectionData &Refl, uint32_t NodeId,
   ReflectionNode node = Refl.Nodes[NodeId];
 
   if (node.IsFwdDeclare() && node.IsFwdBckDefined()) {
-      NodeId = node.GetFwdBck();
-      node = Refl.Nodes[NodeId];
+    NodeId = node.GetFwdBck();
+    node = Refl.Nodes[NodeId];
   }
 
   std::string self = Refl.Strings[Refl.NodeSymbols[NodeId].GetNameId()];
 
   if (self.empty() && NodeId)
-      self = std::to_string(LocalId);
+    self = std::to_string(LocalId);
 
   self = Parent.empty() ? self : Parent + (IsDot ? "." : "::") + self;
   Refl.FullyResolvedToNodeId[self] = NodeId;
@@ -431,25 +431,25 @@ uint32_t RecurseNameGeneration(ReflectionData &Refl, uint32_t NodeId,
                node.GetNodeType() == D3D12_HLSL_NODE_TYPE_GROUPSHARED_VARIABLE;
 
   for (uint32_t i = 0, j = 0; i < node.GetChildCount(); ++i, ++j)
-      i += RecurseNameGeneration(Refl, NodeId + 1 + i, j, self, isDotChild);
+    i += RecurseNameGeneration(Refl, NodeId + 1 + i, j, self, isDotChild);
 
   if (isVar) {
 
-      uint32_t typeId = node.GetLocalId();
-      const ReflectionVariableType &type = Refl.Types[typeId];
+    uint32_t typeId = node.GetLocalId();
+    const ReflectionVariableType &type = Refl.Types[typeId];
 
-      if (type.GetClass() == D3D_SVC_STRUCT)
-        for (uint32_t i = 0; i < type.GetMemberCount(); ++i) {
+    if (type.GetClass() == D3D_SVC_STRUCT)
+      for (uint32_t i = 0; i < type.GetMemberCount(); ++i) {
 
-          uint32_t memberId = i + type.GetMemberStart();
-          std::string memberName =
-              self + "." + Refl.Strings[Refl.MemberNameIds[memberId]];
+        uint32_t memberId = i + type.GetMemberStart();
+        std::string memberName =
+            self + "." + Refl.Strings[Refl.MemberNameIds[memberId]];
 
-          Refl.FullyResolvedToMemberId[memberName] = memberId;
+        Refl.FullyResolvedToMemberId[memberName] = memberId;
 
-          RecurseNameGenerationType(Refl, Refl.MemberTypeIds[memberId], i,
-                                    memberName);
-        }
+        RecurseNameGenerationType(Refl, Refl.MemberTypeIds[memberId], i,
+                                  memberName);
+      }
   }
 
   return node.GetChildCount();
@@ -458,7 +458,7 @@ uint32_t RecurseNameGeneration(ReflectionData &Refl, uint32_t NodeId,
 bool ReflectionData::GenerateNameLookupTable() {
 
   if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO) || Nodes.empty())
-      return false;
+    return false;
 
   NodeIdToFullyResolved.resize(Nodes.size());
   RecurseNameGeneration(*this, 0, 0, "", false);
@@ -478,17 +478,27 @@ void ReflectionData::Dump(std::vector<std::byte> &Bytes) const {
 
   toReserve = 0;
 
-  UnsafeCast<DxcHLSLHeader>(Bytes, toReserve) = {
-      ReflectionDataMagic,           ReflectionDataVersion,
-      uint16_t(Sources.size()),         Features,
-      uint32_t(StringsNonDebug.size()), uint32_t(Strings.size()),
-      uint32_t(Nodes.size()),           uint32_t(Registers.size()),
-      uint32_t(Functions.size()),       uint32_t(Enums.size()),
-      uint32_t(EnumValues.size()),      uint32_t(Annotations.size()),
-      uint32_t(Arrays.size()),          uint32_t(ArraySizes.size()),
-      uint32_t(MemberTypeIds.size()),   uint32_t(Types.size()),
-      uint32_t(Buffers.size()),         uint32_t(TypeList.size()),
-      uint32_t(Parameters.size()),      uint32_t(Statements.size())};
+  UnsafeCast<DxcHLSLHeader>(Bytes,
+                            toReserve) = {ReflectionDataMagic,
+                                          ReflectionDataVersion,
+                                          uint16_t(Sources.size()),
+                                          Features,
+                                          uint32_t(StringsNonDebug.size()),
+                                          uint32_t(Strings.size()),
+                                          uint32_t(Nodes.size()),
+                                          uint32_t(Registers.size()),
+                                          uint32_t(Functions.size()),
+                                          uint32_t(Enums.size()),
+                                          uint32_t(EnumValues.size()),
+                                          uint32_t(Annotations.size()),
+                                          uint32_t(Arrays.size()),
+                                          uint32_t(ArraySizes.size()),
+                                          uint32_t(MemberTypeIds.size()),
+                                          uint32_t(Types.size()),
+                                          uint32_t(Buffers.size()),
+                                          uint32_t(TypeList.size()),
+                                          uint32_t(Parameters.size()),
+                                          uint32_t(Statements.size())};
 
   toReserve += sizeof(DxcHLSLHeader);
 
@@ -503,33 +513,33 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
   switch (Type) {
 
   case D3D_SIT_CBUFFER:
-      return D3D_CT_CBUFFER;
+    return D3D_CT_CBUFFER;
 
   case D3D_SIT_TBUFFER:
-      return D3D_CT_TBUFFER;
+    return D3D_CT_TBUFFER;
 
   case D3D_SIT_STRUCTURED:
   case D3D_SIT_UAV_RWSTRUCTURED:
   case D3D_SIT_UAV_APPEND_STRUCTURED:
   case D3D_SIT_UAV_CONSUME_STRUCTURED:
   case D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER:
-      return D3D_CT_RESOURCE_BIND_INFO;
+    return D3D_CT_RESOURCE_BIND_INFO;
 
   default:
-      return D3D_CT_INTERFACE_POINTERS;
+    return D3D_CT_INTERFACE_POINTERS;
   }
 }
 
-[[nodiscard]] ReflectionError ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
-            bool MakeNameLookupTable)
-{
+[[nodiscard]] ReflectionError
+ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
+                            bool MakeNameLookupTable) {
 
   *this = {};
 
   uint64_t off = 0;
   DxcHLSLHeader header;
   if (ReflectionError err = Consume<DxcHLSLHeader>(Bytes, off, header))
-      return err;
+    return err;
 
   if (header.MagicNumber != ReflectionDataMagic)
     return HLSL_REFL_ERR("Invalid magic number");
@@ -539,8 +549,7 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
 
   Features = header.Features;
 
-  bool hasSymbolInfo =
-      Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
+  bool hasSymbolInfo = Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO;
 
   if (!hasSymbolInfo && (header.Sources || header.Strings))
     return HLSL_REFL_ERR("Sources are invalid without symbols");
@@ -566,7 +575,7 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
   if (off != Bytes.size())
     return HLSL_REFL_ERR("Reflection info had unrecognized data on the back");
 
-  for(uint32_t i = 0; i < header.Sources; ++i)
+  for (uint32_t i = 0; i < header.Sources; ++i)
     if (Sources[i] >= header.Strings)
       return HLSL_REFL_ERR("Source path out of bounds", i);
 
@@ -577,8 +586,8 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
     const ReflectionNode &node = Nodes[i];
 
     if (hasSymbolInfo && (NodeSymbols[i].GetNameId() >= header.Strings ||
-         (NodeSymbols[i].GetFileSourceId() != uint16_t(-1) &&
-          NodeSymbols[i].GetFileSourceId() >= header.Sources)))
+                          (NodeSymbols[i].GetFileSourceId() != uint16_t(-1) &&
+                           NodeSymbols[i].GetFileSourceId() >= header.Sources)))
       return HLSL_REFL_ERR("Node points to invalid name or file name", i);
 
     if (node.GetAnnotationStart() + node.GetAnnotationCount() >
@@ -619,8 +628,8 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
 
       if (Nodes[node.GetParentId()].GetNodeType() !=
           D3D12_HLSL_NODE_TYPE_FUNCTION)
-        return HLSL_REFL_ERR(
-            "Node is a parameter but parent isn't a function", i);
+        return HLSL_REFL_ERR("Node is a parameter but parent isn't a function",
+                             i);
 
       break;
 
@@ -647,9 +656,10 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
         break;
 
       default:
-        return HLSL_REFL_ERR(
-            "Node is an if/scope/do/for/while/switch but parent isn't of a similar "
-            "type or function", i);
+        return HLSL_REFL_ERR("Node is an if/scope/do/for/while/switch but "
+                             "parent isn't of a similar "
+                             "type or function",
+                             i);
       }
 
       break;
@@ -679,7 +689,8 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
     case D3D12_HLSL_NODE_TYPE_PARAMETER:
       if (node.GetChildCount())
         return HLSL_REFL_ERR("Node is a parameter, typedef, variable or "
-                                    "static variable but also has children", i);
+                             "static variable but also has children",
+                             i);
 
       [[fallthrough]];
 
@@ -697,8 +708,8 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
          node.GetNodeType() == D3D12_HLSL_NODE_TYPE_VARIABLE) &&
         Nodes[node.GetParentId()].GetNodeType() ==
             D3D12_HLSL_NODE_TYPE_INTERFACE)
-      return HLSL_REFL_ERR(
-          "Node is interface but has registers or variables", i);
+      return HLSL_REFL_ERR("Node is interface but has registers or variables",
+                           i);
 
     if (node.IsFwdDeclare() && !allowFwdDeclare)
       return HLSL_REFL_ERR("Node is fwd declare but that's not permitted", i);
@@ -707,34 +718,35 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
       return HLSL_REFL_ERR("Node has invalid localId", i);
   }
 
-  for(uint32_t i = 0; i < header.Registers; ++i) {
+  for (uint32_t i = 0; i < header.Registers; ++i) {
 
     const ReflectionShaderResource &reg = Registers[i];
 
-    if(reg.GetNodeId() >= header.Nodes || 
-      Nodes[reg.GetNodeId()].GetNodeType() !=
-            D3D12_HLSL_NODE_TYPE_REGISTER ||
-        Nodes[reg.GetNodeId()].GetLocalId() != i
-    )
+    if (reg.GetNodeId() >= header.Nodes ||
+        Nodes[reg.GetNodeId()].GetNodeType() != D3D12_HLSL_NODE_TYPE_REGISTER ||
+        Nodes[reg.GetNodeId()].GetLocalId() != i)
       return HLSL_REFL_ERR("Register points to an invalid nodeId", i);
 
     if (reg.GetType() > D3D_SIT_UAV_FEEDBACKTEXTURE ||
         reg.GetReturnType() > D3D_RETURN_TYPE_CONTINUED ||
-        reg.GetDimension() > D3D_SRV_DIMENSION_BUFFEREX || !reg.GetBindCount() ||
-        (reg.GetArrayId() != uint32_t(-1) && reg.GetArrayId() >= header.Arrays) ||
+        reg.GetDimension() > D3D_SRV_DIMENSION_BUFFEREX ||
+        !reg.GetBindCount() ||
+        (reg.GetArrayId() != uint32_t(-1) &&
+         reg.GetArrayId() >= header.Arrays) ||
         (reg.GetArrayId() != uint32_t(-1) && reg.GetBindCount() <= 1))
       return HLSL_REFL_ERR(
-          "Register invalid type, returnType, bindCount, array or dimension", i);
-    
-    D3D_CBUFFER_TYPE bufferType =
-        ReflectionData::GetBufferType(reg.GetType());
+          "Register invalid type, returnType, bindCount, array or dimension",
+          i);
 
-    if(bufferType != D3D_CT_INTERFACE_POINTERS) {
+    D3D_CBUFFER_TYPE bufferType = ReflectionData::GetBufferType(reg.GetType());
+
+    if (bufferType != D3D_CT_INTERFACE_POINTERS) {
 
       if (reg.GetBufferId() >= header.Buffers ||
           Buffers[reg.GetBufferId()].NodeId != reg.GetNodeId() ||
           Buffers[reg.GetBufferId()].Type != bufferType)
-          return HLSL_REFL_ERR("Register invalid buffer referenced by register", i);
+        return HLSL_REFL_ERR("Register invalid buffer referenced by register",
+                             i);
     }
   }
 
@@ -757,12 +769,12 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
       if (Nodes[func.GetNodeId() + 1 + j].GetParentId() != func.GetNodeId() ||
           Nodes[func.GetNodeId() + 1 + j].GetNodeType() !=
               D3D12_HLSL_NODE_TYPE_PARAMETER)
-          return HLSL_REFL_ERR(
-              "Function is missing valid parameters and/or return", i);
+        return HLSL_REFL_ERR(
+            "Function is missing valid parameters and/or return", i);
   }
 
-  for(uint32_t i = 0; i < header.Enums; ++i) {
-    
+  for (uint32_t i = 0; i < header.Enums; ++i) {
+
     const ReflectionEnumeration &enm = Enums[i];
 
     if (enm.NodeId >= header.Nodes ||
@@ -780,21 +792,22 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
       return HLSL_REFL_ERR("Enum has no values!", i);
 
     for (uint32_t j = 0; j < node.GetChildCount(); ++j) {
-    
-        const ReflectionNode &child = Nodes[enm.NodeId + 1 + j];
 
-        if (child.GetChildCount() != 0 ||
-            child.GetNodeType() != D3D12_HLSL_NODE_TYPE_ENUM_VALUE)
-          return HLSL_REFL_ERR("Enum has an invalid enum value", i);
+      const ReflectionNode &child = Nodes[enm.NodeId + 1 + j];
+
+      if (child.GetChildCount() != 0 ||
+          child.GetNodeType() != D3D12_HLSL_NODE_TYPE_ENUM_VALUE)
+        return HLSL_REFL_ERR("Enum has an invalid enum value", i);
     }
   }
 
-  for(uint32_t i = 0; i < header.EnumValues; ++i) {
-    
+  for (uint32_t i = 0; i < header.EnumValues; ++i) {
+
     const ReflectionEnumValue &enumVal = EnumValues[i];
 
     if (enumVal.NodeId >= header.Nodes ||
-        Nodes[enumVal.NodeId].GetNodeType() != D3D12_HLSL_NODE_TYPE_ENUM_VALUE ||
+        Nodes[enumVal.NodeId].GetNodeType() !=
+            D3D12_HLSL_NODE_TYPE_ENUM_VALUE ||
         Nodes[enumVal.NodeId].GetLocalId() != i ||
         Nodes[Nodes[enumVal.NodeId].GetParentId()].GetNodeType() !=
             D3D12_HLSL_NODE_TYPE_ENUM)
@@ -835,7 +848,7 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
 
       if (child.GetChildCount() != 0 ||
           child.GetNodeType() != D3D12_HLSL_NODE_TYPE_VARIABLE)
-          return HLSL_REFL_ERR("Buffer has to have only Variable child nodes", i);
+        return HLSL_REFL_ERR("Buffer has to have only Variable child nodes", i);
     }
   }
 
@@ -918,7 +931,8 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
     if (condVar && Nodes[Stmt.GetNodeId() + 1].GetNodeType() !=
                        D3D12_HLSL_NODE_TYPE_VARIABLE)
       return HLSL_REFL_ERR(
-          "Statement has condition variable but first child is not a variable", i);
+          "Statement has condition variable but first child is not a variable",
+          i);
 
     switch (Nodes[Stmt.GetNodeId()].GetNodeType()) {
     case D3D12_HLSL_NODE_TYPE_IF:
@@ -930,7 +944,7 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
       return HLSL_REFL_ERR("Statement has invalid node type", i);
     }
   }
-  
+
   for (uint32_t i = 0; i < header.Types; ++i) {
 
     const ReflectionVariableType &type = Types[i];
@@ -939,9 +953,8 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
                           TypeSymbols[i].UnderlyingNameId >= header.Strings))
       return HLSL_REFL_ERR("Type points to an invalid string", i);
 
-    if (hasSymbolInfo &&
-        (TypeSymbols[i].DisplayArray.ElementsOrArrayId >> 31 &&
-         (TypeSymbols[i].DisplayArray.ElementsOrArrayId << 1 >>
+    if (hasSymbolInfo && (TypeSymbols[i].DisplayArray.ElementsOrArrayId >> 31 &&
+                          (TypeSymbols[i].DisplayArray.ElementsOrArrayId << 1 >>
                            1) >= header.Arrays))
       return HLSL_REFL_ERR("Type points to an invalid string", i);
 
@@ -961,104 +974,106 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
     case D3D_SVC_SCALAR:
 
       if (type.GetColumns() != 1)
-          return HLSL_REFL_ERR("Type (scalar) should have columns == 1", i);
+        return HLSL_REFL_ERR("Type (scalar) should have columns == 1", i);
 
       [[fallthrough]];
 
     case D3D_SVC_VECTOR:
 
       if (type.GetRows() != 1)
-          return HLSL_REFL_ERR("Type (scalar/vector) should have rows == 1", i);
+        return HLSL_REFL_ERR("Type (scalar/vector) should have rows == 1", i);
 
       [[fallthrough]];
 
     case D3D_SVC_MATRIX_ROWS:
     case D3D_SVC_MATRIX_COLUMNS:
 
-        if (!type.GetRows() || !type.GetColumns() || type.GetRows() > 128 ||
+      if (!type.GetRows() || !type.GetColumns() || type.GetRows() > 128 ||
           type.GetColumns() > 128)
-          return HLSL_REFL_ERR("Type (scalar/vector/matrix) has invalid rows or columns", i);
-        
-        switch (type.GetType()) {
-        case D3D_SVT_BOOL:
-        case D3D_SVT_INT:
-        case D3D_SVT_FLOAT:
-        case D3D_SVT_MIN8FLOAT:
-        case D3D_SVT_MIN10FLOAT:
-        case D3D_SVT_MIN16FLOAT:
-        case D3D_SVT_MIN12INT:
-        case D3D_SVT_MIN16INT:
-        case D3D_SVT_MIN16UINT:
-        case D3D_SVT_INT16:
-        case D3D_SVT_UINT16:
-        case D3D_SVT_FLOAT16:
-        case D3D_SVT_INT64:
-        case D3D_SVT_UINT64:
-        case D3D_SVT_UINT:
-        case D3D_SVT_DOUBLE:
-          break;
+        return HLSL_REFL_ERR(
+            "Type (scalar/vector/matrix) has invalid rows or columns", i);
 
-        default:
-          return HLSL_REFL_ERR("Type (scalar/matrix/vector) is of invalid type", i);
-        }
-
+      switch (type.GetType()) {
+      case D3D_SVT_BOOL:
+      case D3D_SVT_INT:
+      case D3D_SVT_FLOAT:
+      case D3D_SVT_MIN8FLOAT:
+      case D3D_SVT_MIN10FLOAT:
+      case D3D_SVT_MIN16FLOAT:
+      case D3D_SVT_MIN12INT:
+      case D3D_SVT_MIN16INT:
+      case D3D_SVT_MIN16UINT:
+      case D3D_SVT_INT16:
+      case D3D_SVT_UINT16:
+      case D3D_SVT_FLOAT16:
+      case D3D_SVT_INT64:
+      case D3D_SVT_UINT64:
+      case D3D_SVT_UINT:
+      case D3D_SVT_DOUBLE:
         break;
+
+      default:
+        return HLSL_REFL_ERR("Type (scalar/matrix/vector) is of invalid type",
+                             i);
+      }
+
+      break;
 
     case D3D_SVC_STRUCT:
 
-        if (!type.GetMemberCount())
-          return HLSL_REFL_ERR("Type (struct) is missing children", i);
+      if (!type.GetMemberCount())
+        return HLSL_REFL_ERR("Type (struct) is missing children", i);
 
-        [[fallthrough]];
+      [[fallthrough]];
 
     case D3D_SVC_INTERFACE_CLASS:
 
-        if (type.GetType())
-          return HLSL_REFL_ERR("Type (struct) shouldn't have rows or columns", i);
+      if (type.GetType())
+        return HLSL_REFL_ERR("Type (struct) shouldn't have rows or columns", i);
 
-        if (type.GetRows() || type.GetColumns())
-          return HLSL_REFL_ERR("Type (struct) shouldn't have rows or columns", i);
+      if (type.GetRows() || type.GetColumns())
+        return HLSL_REFL_ERR("Type (struct) shouldn't have rows or columns", i);
 
-        break;
+      break;
 
     case D3D_SVC_OBJECT:
 
-        switch (type.GetType()) {
-            
-        case D3D_SVT_STRING:
-        case D3D_SVT_TEXTURE1D:
-        case D3D_SVT_TEXTURE2D:
-        case D3D_SVT_TEXTURE3D:
-        case D3D_SVT_TEXTURECUBE:
-        case D3D_SVT_SAMPLER:
-        case D3D_SVT_BUFFER:
-        case D3D_SVT_CBUFFER:
-        case D3D_SVT_TBUFFER:
-        case D3D_SVT_TEXTURE1DARRAY:
-        case D3D_SVT_TEXTURE2DARRAY:
-        case D3D_SVT_TEXTURE2DMS:
-        case D3D_SVT_TEXTURE2DMSARRAY:
-        case D3D_SVT_TEXTURECUBEARRAY:
-        case D3D_SVT_RWTEXTURE1D:
-        case D3D_SVT_RWTEXTURE1DARRAY:
-        case D3D_SVT_RWTEXTURE2D:
-        case D3D_SVT_RWTEXTURE2DARRAY:
-        case D3D_SVT_RWTEXTURE3D:
-        case D3D_SVT_RWBUFFER:
-        case D3D_SVT_BYTEADDRESS_BUFFER:
-        case D3D_SVT_RWBYTEADDRESS_BUFFER:
-        case D3D_SVT_STRUCTURED_BUFFER:
-        case D3D_SVT_RWSTRUCTURED_BUFFER:
-        case D3D_SVT_APPEND_STRUCTURED_BUFFER:
-        case D3D_SVT_CONSUME_STRUCTURED_BUFFER:
-          break;
+      switch (type.GetType()) {
 
-        default:
-          return HLSL_REFL_ERR("Type (object) is of invalid type", i);
-        }
+      case D3D_SVT_STRING:
+      case D3D_SVT_TEXTURE1D:
+      case D3D_SVT_TEXTURE2D:
+      case D3D_SVT_TEXTURE3D:
+      case D3D_SVT_TEXTURECUBE:
+      case D3D_SVT_SAMPLER:
+      case D3D_SVT_BUFFER:
+      case D3D_SVT_CBUFFER:
+      case D3D_SVT_TBUFFER:
+      case D3D_SVT_TEXTURE1DARRAY:
+      case D3D_SVT_TEXTURE2DARRAY:
+      case D3D_SVT_TEXTURE2DMS:
+      case D3D_SVT_TEXTURE2DMSARRAY:
+      case D3D_SVT_TEXTURECUBEARRAY:
+      case D3D_SVT_RWTEXTURE1D:
+      case D3D_SVT_RWTEXTURE1DARRAY:
+      case D3D_SVT_RWTEXTURE2D:
+      case D3D_SVT_RWTEXTURE2DARRAY:
+      case D3D_SVT_RWTEXTURE3D:
+      case D3D_SVT_RWBUFFER:
+      case D3D_SVT_BYTEADDRESS_BUFFER:
+      case D3D_SVT_RWBYTEADDRESS_BUFFER:
+      case D3D_SVT_STRUCTURED_BUFFER:
+      case D3D_SVT_RWSTRUCTURED_BUFFER:
+      case D3D_SVT_APPEND_STRUCTURED_BUFFER:
+      case D3D_SVT_CONSUME_STRUCTURED_BUFFER:
+        break;
 
-        if (type.GetRows() || type.GetColumns())
-          return HLSL_REFL_ERR("Type (object) shouldn't have rows or columns", i);
+      default:
+        return HLSL_REFL_ERR("Type (object) is of invalid type", i);
+      }
+
+      if (type.GetRows() || type.GetColumns())
+        return HLSL_REFL_ERR("Type (object) shouldn't have rows or columns", i);
 
       break;
 
@@ -1067,9 +1082,9 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
     }
   }
 
-  //Validate fwd & backwards declares
+  // Validate fwd & backwards declares
 
-   for (uint32_t i = 0; i < header.Nodes; ++i) {
+  for (uint32_t i = 0; i < header.Nodes; ++i) {
 
     const ReflectionNode &node = Nodes[i];
 
@@ -1078,23 +1093,24 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
       uint32_t fwdBack = node.GetFwdBck();
 
       if (Nodes[fwdBack].GetNodeType() != node.GetNodeType())
-          return HLSL_REFL_ERR(
-              "Node (fwd/bck declare) points to element that of incompatible type", i);
+        return HLSL_REFL_ERR("Node (fwd/bck declare) points to element that of "
+                             "incompatible type",
+                             i);
 
-      if (hasSymbolInfo && NodeSymbols[fwdBack].GetNameId() !=
-                               NodeSymbols[i].GetNameId())
-          return HLSL_REFL_ERR(
-              "Node (fwd/bck declare) have mismatching name", i);
+      if (hasSymbolInfo &&
+          NodeSymbols[fwdBack].GetNameId() != NodeSymbols[i].GetNameId())
+        return HLSL_REFL_ERR("Node (fwd/bck declare) have mismatching name", i);
 
       if (node.IsFwdDeclare()) {
 
         if (fwdBack <= i || fwdBack >= header.Nodes)
-          return HLSL_REFL_ERR(
-              "Node (fwd declare) points to invalid element", i);
+          return HLSL_REFL_ERR("Node (fwd declare) points to invalid element",
+                               i);
 
         if (Nodes[fwdBack].IsFwdDeclare())
           return HLSL_REFL_ERR(
-              "Node (fwd declare) points to element that is also a fwd declare", i);
+              "Node (fwd declare) points to element that is also a fwd declare",
+              i);
 
         uint32_t paramCount = 0;
 
@@ -1106,23 +1122,25 @@ D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
         if ((node.GetChildCount() != paramCount) || node.GetAnnotationCount())
           return HLSL_REFL_ERR(
               "Node (fwd declare) points to element with invalid child count, "
-              "or annotationCount", i);
+              "or annotationCount",
+              i);
       }
 
       else {
 
         if (fwdBack >= i)
-          return HLSL_REFL_ERR(
-              "Node (bck declare) points to invalid element", i);
+          return HLSL_REFL_ERR("Node (bck declare) points to invalid element",
+                               i);
 
         if (!Nodes[fwdBack].IsFwdDeclare())
           return HLSL_REFL_ERR(
-              "Node (bck declare) points to element that is not a fwd declare", i);
+              "Node (bck declare) points to element that is not a fwd declare",
+              i);
       }
     }
   }
 
-  //Finalize
+  // Finalize
 
   if (MakeNameLookupTable)
     GenerateNameLookupTable();

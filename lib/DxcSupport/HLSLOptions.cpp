@@ -991,7 +991,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // XXX TODO: Sort this out, since it's required for new API, but a separate
   // argument for old APIs.
   if ((flagsToInclude & hlsl::options::DriverOption) &&
-      !(flagsToInclude & (hlsl::options::RewriteOption | hlsl::options::ReflectOption)) &&
+      !(flagsToInclude &
+        (hlsl::options::RewriteOption | hlsl::options::ReflectOption)) &&
       opts.TargetProfile.empty() && !opts.DumpBin && opts.Preprocess.empty() &&
       !opts.RecompileFromBinary) {
     // Target profile is required in arguments only for drivers when compiling;

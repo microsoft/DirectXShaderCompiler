@@ -9,19 +9,19 @@
 
 #pragma once
 
-#include <unordered_map>
-#include <vector>
-#include <string>
 #include <assert.h>
 #include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 #ifndef _WIN32
-  #include "dxc/WinAdapter.h"
-  // need to disable this as it is voilated by this header
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
-  // Need to instruct non-windows compilers on what an interface is
-  #define interface struct
+#include "dxc/WinAdapter.h"
+// need to disable this as it is voilated by this header
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
+// Need to instruct non-windows compilers on what an interface is
+#define interface struct
 #endif
 
 #include "d3d12shader.h"
@@ -36,7 +36,7 @@ struct ReflectionError {
   const char *err;
   const char *func;
 
-  uint32_t index;       //For example which elementId made this error
+  uint32_t index; // For example which elementId made this error
   bool hasIndex;
   uint8_t pad[3];
 
@@ -51,15 +51,15 @@ struct ReflectionError {
 
   std::string toString() const {
 
-    if(!err)
+    if (!err)
       return "";
 
     std::string res = err;
 
-    if(hasIndex)
+    if (hasIndex)
       res += " (at index " + std::to_string(index) + ")";
 
-    if(func)
+    if (func)
       res += " (" + std::string(func) + ")";
 
     return res;
@@ -71,23 +71,25 @@ struct ReflectionError {
 static constexpr const ReflectionError ReflectionErrorSuccess = {};
 
 #ifndef NDEBUG
-  #if defined(_MSC_VER)
-    #define HLSL_REFL_ERR_FUNC_NAME __FUNCTION__
-  #elif defined(__clang__) || defined(__GNUC__)
-    #define HLSL_REFL_ERR_FUNC_NAME __PRETTY_FUNCTION__
-  #else
-    #define HLSL_REFL_ERR_FUNC_NAME __func__
-  #endif
-  #define HLSL_REFL_ERR_STRING(x) #x
-  #define HLSL_REFL_ERR_STRING2(x) HLSL_REFL_ERR_STRING(x)
-  #define HLSL_REFL_ERR(x, ...) ReflectionError(x " at " __FILE__ ":" HLSL_REFL_ERR_STRING2(__LINE__), HLSL_REFL_ERR_FUNC_NAME, ##__VA_ARGS__)
+#if defined(_MSC_VER)
+#define HLSL_REFL_ERR_FUNC_NAME __FUNCTION__
+#elif defined(__clang__) || defined(__GNUC__)
+#define HLSL_REFL_ERR_FUNC_NAME __PRETTY_FUNCTION__
 #else
-  #define HLSL_REFL_ERR(x, ...) ReflectionError(x, nullptr, ##__VA_ARGS__)
+#define HLSL_REFL_ERR_FUNC_NAME __func__
+#endif
+#define HLSL_REFL_ERR_STRING(x) #x
+#define HLSL_REFL_ERR_STRING2(x) HLSL_REFL_ERR_STRING(x)
+#define HLSL_REFL_ERR(x, ...)                                                  \
+  ReflectionError(x " at " __FILE__ ":" HLSL_REFL_ERR_STRING2(__LINE__),       \
+                  HLSL_REFL_ERR_FUNC_NAME, ##__VA_ARGS__)
+#else
+#define HLSL_REFL_ERR(x, ...) ReflectionError(x, nullptr, ##__VA_ARGS__)
 #endif
 
 class ReflectionNode {
 
-  uint32_t LocalIdParentLo;             //24 : 8
+  uint32_t LocalIdParentLo; // 24 : 8
 
   union {
     uint32_t ParentHiAnnotationsType32;
@@ -98,7 +100,7 @@ class ReflectionNode {
     };
   };
 
-  uint32_t ChildCountFwdBckLo;          //24 : 8
+  uint32_t ChildCountFwdBckLo; // 24 : 8
 
   union {
     uint32_t AnnotationStartFwdBckHi;
@@ -116,30 +118,29 @@ class ReflectionNode {
     ChildCountFwdBckLo &= 0xFFFFFF;
     ChildCountFwdBckLo |= v << 24;
   }
-  
-  ReflectionNode(D3D12_HLSL_NODE_TYPE NodeType,
-      bool IsFwdDeclare,
-      uint32_t LocalId, uint16_t AnnotationStart, uint32_t ChildCount,
-      uint32_t ParentId, uint8_t AnnotationCount, uint16_t SemanticId)
+
+  ReflectionNode(D3D12_HLSL_NODE_TYPE NodeType, bool IsFwdDeclare,
+                 uint32_t LocalId, uint16_t AnnotationStart,
+                 uint32_t ChildCount, uint32_t ParentId,
+                 uint8_t AnnotationCount, uint16_t SemanticId)
       : LocalIdParentLo(LocalId | (ParentId << 24)), ParentHi(ParentId >> 8),
-      Annotations(AnnotationCount), Type(NodeType),
-      ChildCountFwdBckLo(ChildCount | (0xFFu << 24)), 
-      AnnotationStart(AnnotationStart), FwdBckHi(0xFFFF),
-      SemanticId(SemanticId), Padding(0) {
+        Annotations(AnnotationCount), Type(NodeType),
+        ChildCountFwdBckLo(ChildCount | (0xFFu << 24)),
+        AnnotationStart(AnnotationStart), FwdBckHi(0xFFFF),
+        SemanticId(SemanticId), Padding(0) {
 
     if (IsFwdDeclare)
       Type |= 0x80;
   }
 
 public:
-
   ReflectionNode() = default;
 
   [[nodiscard]] static ReflectionError
   Initialize(ReflectionNode &OutNode, D3D12_HLSL_NODE_TYPE NodeType,
-                                bool IsFwdDeclare,
-              uint32_t LocalId, uint16_t AnnotationStart, uint32_t ChildCount,
-              uint32_t ParentId, uint8_t AnnotationCount, uint16_t SemanticId) {
+             bool IsFwdDeclare, uint32_t LocalId, uint16_t AnnotationStart,
+             uint32_t ChildCount, uint32_t ParentId, uint8_t AnnotationCount,
+             uint16_t SemanticId) {
 
     if (NodeType < D3D12_HLSL_NODE_TYPE_START ||
         NodeType > D3D12_HLSL_NODE_TYPE_END)
@@ -155,10 +156,10 @@ public:
       return HLSL_REFL_ERR("ChildCount out of bounds");
 
     if (IsFwdDeclare && AnnotationCount)
-        return HLSL_REFL_ERR("Fwd declares aren't allowed to have annotations");
+      return HLSL_REFL_ERR("Fwd declares aren't allowed to have annotations");
 
     OutNode = ReflectionNode(NodeType, IsFwdDeclare, LocalId, AnnotationStart,
-                       ChildCount, ParentId, AnnotationCount, SemanticId);
+                             ChildCount, ParentId, AnnotationCount, SemanticId);
     return ReflectionErrorSuccess;
   }
 
@@ -177,7 +178,7 @@ public:
   // !IsFwdDeclare() && IsFwdDefined(): GetFwdBck() should point to a valid fwd
   // declare that points back to it.
   // Backwards declare should point to a NodeId < self and Forwards to > self.
-  // Forward declares aren't allowed to have any children except functions, 
+  // Forward declares aren't allowed to have any children except functions,
   // which can have parameters only (inc. return).
   // If there's a name, they should match.
   // Must be same node type too.
@@ -190,8 +191,8 @@ public:
   bool IsFwdBckDefined() const { return GetFwdBck() != ((1 << 24) - 1); }
 
   [[nodiscard]] ReflectionError ResolveFwdDeclare(uint32_t SelfId,
-                                                     ReflectionNode &Definition,
-                                                     uint32_t DefinitionId) {
+                                                  ReflectionNode &Definition,
+                                                  uint32_t DefinitionId) {
 
     if (SelfId >= ((1u << 24) - 1))
       return HLSL_REFL_ERR("SelfId out of bounds");
@@ -257,7 +258,7 @@ class ReflectionNodeSymbol {
     struct {
       uint32_t NameId; // Local name (not including parent's name)
 
-      uint16_t FileSourceId;          //-1 == no file info
+      uint16_t FileSourceId; //-1 == no file info
       uint16_t SourceLineCount;
     };
     uint64_t NameIdFileNameIdSourceLineCount;
@@ -271,10 +272,10 @@ class ReflectionNodeSymbol {
     };
     uint64_t SourceColumnStartEndLo;
   };
-  
+
   ReflectionNodeSymbol(uint32_t NameId, uint16_t FileSourceId,
-                    uint16_t SourceLineCount, uint32_t SourceLineStart,
-                    uint32_t SourceColumnStart, uint32_t SourceColumnEnd)
+                       uint16_t SourceLineCount, uint32_t SourceLineStart,
+                       uint32_t SourceColumnStart, uint32_t SourceColumnEnd)
       : NameId(NameId), FileSourceId(FileSourceId),
         SourceLineCount(SourceLineCount),
         SourceColumnStartLo(uint16_t(SourceColumnStart)),
@@ -284,13 +285,13 @@ class ReflectionNodeSymbol {
                               (SourceLineStart << 12)) {}
 
 public:
-
   ReflectionNodeSymbol() = default;
 
   [[nodiscard]] static ReflectionError
-  Initialize(ReflectionNodeSymbol &Symbol, uint32_t NameId, uint16_t FileSourceId,
-                    uint16_t SourceLineCount, uint32_t SourceLineStart,
-                    uint32_t SourceColumnStart, uint32_t SourceColumnEnd) {
+  Initialize(ReflectionNodeSymbol &Symbol, uint32_t NameId,
+             uint16_t FileSourceId, uint16_t SourceLineCount,
+             uint32_t SourceLineStart, uint32_t SourceColumnStart,
+             uint32_t SourceColumnEnd) {
 
     if (SourceColumnStart >= (1u << 22))
       return HLSL_REFL_ERR("SourceColumnStart out of bounds");
@@ -301,13 +302,12 @@ public:
     if (SourceLineStart >= ((1u << 20) - 1))
       return HLSL_REFL_ERR("SourceLineStart out of bounds");
 
-    Symbol =
-        ReflectionNodeSymbol(NameId, FileSourceId, SourceLineCount,
-                          SourceLineStart, SourceColumnStart, SourceColumnEnd);
+    Symbol = ReflectionNodeSymbol(NameId, FileSourceId, SourceLineCount,
+                                  SourceLineStart, SourceColumnStart,
+                                  SourceColumnEnd);
     return ReflectionErrorSuccess;
   }
 
-  
   uint32_t GetNameId() const { return NameId; }
 
   uint16_t GetFileSourceId() const { return FileSourceId; }
@@ -349,8 +349,7 @@ struct ReflectionEnumValue {
   uint32_t NodeId;
 
   bool operator==(const ReflectionEnumValue &other) const {
-    return Value == other.Value &&
-           NodeId == other.NodeId;
+    return Value == other.Value && NodeId == other.NodeId;
   }
 };
 
@@ -370,8 +369,8 @@ struct ReflectionFunctionParameter { // Mirrors D3D12_PARAMETER_DESC without
   }
 };
 
-// A statement is a for, while, if, switch. Basically every Stmt except do or scope.
-// It can contain the following child nodes:
+// A statement is a for, while, if, switch. Basically every Stmt except do or
+// scope. It can contain the following child nodes:
 // - if HasConditionVar(): a variable in the condition
 // - NodeCount children (If: children ex. else body, For: init children)
 // - Rest of the body (If: else body, otherwise: normal body)
@@ -504,8 +503,8 @@ class ReflectionShaderResource { // Almost maps to D3D12_SHADER_INPUT_BIND_DESC,
                            uint32_t uFlags, D3D_RESOURCE_RETURN_TYPE ReturnType,
                            D3D_SRV_DIMENSION Dimension, uint32_t NodeId,
                            uint32_t ArrayId, uint32_t BufferId)
-      : Type(Type), Dimension(Dimension), ReturnType(ReturnType), uFlags(uFlags),
-        BindCount(BindCount), Pad(0), NodeId(NodeId),
+      : Type(Type), Dimension(Dimension), ReturnType(ReturnType),
+        uFlags(uFlags), BindCount(BindCount), Pad(0), NodeId(NodeId),
         ArrayId(ArrayId), BufferId(BufferId) {}
 
 public:
@@ -565,10 +564,10 @@ class ReflectionArray {
       : ArrayElemStart((ArrayElem << 26) | ArrayStart) {}
 
 public:
-
   ReflectionArray() = default;
 
-  [[nodiscard]] static ReflectionError Initialize(ReflectionArray &Arr, uint32_t ArrayElem, uint32_t ArrayStart) {
+  [[nodiscard]] static ReflectionError
+  Initialize(ReflectionArray &Arr, uint32_t ArrayElem, uint32_t ArrayStart) {
 
     if (ArrayElem <= 1 || ArrayElem > 32)
       return HLSL_REFL_ERR("ArrayElem out of bounds");
@@ -647,8 +646,7 @@ class ReflectionVariableType { // Almost maps to CShaderReflectionType and
                          uint32_t MembersStart, uint32_t InterfaceOffset,
                          uint32_t InterfaceCount)
       : MemberData(MembersStart | (MembersCount << 24)), Class(Class),
-        Type(Type), Rows(Rows), Columns(Columns),
-        BaseClass(BaseClass),
+        Type(Type), Rows(Rows), Columns(Columns), BaseClass(BaseClass),
         InterfaceOffsetAndCount(InterfaceOffset | (InterfaceCount << 24)),
         UnderlyingArray(ElementsOrArrayIdUnderlying) {}
 
@@ -740,8 +738,9 @@ struct ReflectionVariableTypeSymbol {
   }
 
   ReflectionVariableTypeSymbol() = default;
-  ReflectionVariableTypeSymbol(ReflectionArrayOrElements ElementsOrArrayIdDisplay,
-                    uint32_t DisplayNameId, uint32_t UnderlyingNameId)
+  ReflectionVariableTypeSymbol(
+      ReflectionArrayOrElements ElementsOrArrayIdDisplay,
+      uint32_t DisplayNameId, uint32_t UnderlyingNameId)
       : DisplayArray(ElementsOrArrayIdDisplay), DisplayNameId(DisplayNameId),
         UnderlyingNameId(UnderlyingNameId) {}
 };
@@ -791,10 +790,11 @@ public:
   }
 };
 
-//Note: Regarding nodes, node 0 is the root node (global scope)
-//      If a node is a fwd declare you should inspect the fwd node id.
-//      If a node isn't a fwd declare but has a backward id, the node should be ignored during traversal.
-//      (That node can be defined in a different namespace or type while it's declared elsewhere).
+// Note: Regarding nodes, node 0 is the root node (global scope)
+//       If a node is a fwd declare you should inspect the fwd node id.
+//       If a node isn't a fwd declare but has a backward id, the node should be
+//       ignored during traversal. (That node can be defined in a different
+//       namespace or type while it's declared elsewhere).
 struct ReflectionData {
 
   D3D12_HLSL_REFLECTION_FEATURE Features{};

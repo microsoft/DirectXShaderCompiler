@@ -59,8 +59,8 @@ int main(int argc, const char **argv) {
       std::string errorString;
       llvm::raw_string_ostream errorStream(errorString);
 
-      // Target profile is used to detect for example if 16-bit types are allowed.
-      // This is the only way to correct the missing target.
+      // Target profile is used to detect for example if 16-bit types are
+      // allowed. This is the only way to correct the missing target.
 
       {
         unsigned missingArgIndex = 0, missingArgCount = 0;
@@ -91,8 +91,8 @@ int main(int argc, const char **argv) {
         }
       }
 
-      int optResult =
-          ReadDxcOpts(optionTable, DxreflectorFlags, argStrings, dxreflectorOpts, errorStream);
+      int optResult = ReadDxcOpts(optionTable, DxreflectorFlags, argStrings,
+                                  dxreflectorOpts, errorStream);
       errorStream.flush();
       if (errorString.size()) {
         fprintf(stderr, "dxreflector failed : %s\n", errorString.data());
@@ -103,7 +103,8 @@ int main(int argc, const char **argv) {
     }
 
     // Apply defaults.
-    if (dxreflectorOpts.EntryPoint.empty() && !dxreflectorOpts.RecompileFromBinary) {
+    if (dxreflectorOpts.EntryPoint.empty() &&
+        !dxreflectorOpts.RecompileFromBinary) {
       dxreflectorOpts.EntryPoint = "main";
     }
 
@@ -128,13 +129,14 @@ int main(int argc, const char **argv) {
       llvm::raw_string_ostream helpStream(helpString);
       std::string version;
       llvm::raw_string_ostream versionStream(version);
-      WriteDxCompilerVersionInfo(
-          versionStream,
-          dxreflectorOpts.ExternalLib.empty() ? (LPCSTR) nullptr
-                                      : dxreflectorOpts.ExternalLib.data(),
-          dxreflectorOpts.ExternalFn.empty() ? (LPCSTR) nullptr
+      WriteDxCompilerVersionInfo(versionStream,
+                                 dxreflectorOpts.ExternalLib.empty()
+                                     ? (LPCSTR) nullptr
+                                     : dxreflectorOpts.ExternalLib.data(),
+                                 dxreflectorOpts.ExternalFn.empty()
+                                     ? (LPCSTR) nullptr
                                      : dxreflectorOpts.ExternalFn.data(),
-          dxcSupport);
+                                 dxcSupport);
       versionStream.flush();
       optionTable->PrintHelp(helpStream, "dxreflector.exe", "DX Reflector",
                              version.c_str(), hlsl::options::ReflectOption,
@@ -147,13 +149,14 @@ int main(int argc, const char **argv) {
     if (dxreflectorOpts.ShowVersion) {
       std::string version;
       llvm::raw_string_ostream versionStream(version);
-      WriteDxCompilerVersionInfo(
-          versionStream,
-          dxreflectorOpts.ExternalLib.empty() ? (LPCSTR) nullptr
-                                      : dxreflectorOpts.ExternalLib.data(),
-          dxreflectorOpts.ExternalFn.empty() ? (LPCSTR) nullptr
+      WriteDxCompilerVersionInfo(versionStream,
+                                 dxreflectorOpts.ExternalLib.empty()
+                                     ? (LPCSTR) nullptr
+                                     : dxreflectorOpts.ExternalLib.data(),
+                                 dxreflectorOpts.ExternalFn.empty()
+                                     ? (LPCSTR) nullptr
                                      : dxreflectorOpts.ExternalFn.data(),
-          dxcSupport);
+                                 dxcSupport);
       versionStream.flush();
       WriteUtf8ToConsoleSizeT(version.data(), version.size());
       return 0;
@@ -162,8 +165,9 @@ int main(int argc, const char **argv) {
     CComPtr<IDxcHLSLReflector> pReflector;
     CComPtr<IDxcOperationResult> pRewriteResult;
     CComPtr<IDxcBlobEncoding> pSource;
-    std::wstring wName(
-        CA2W(dxreflectorOpts.InputFile.empty() ? "" : dxreflectorOpts.InputFile.data()));
+    std::wstring wName(CA2W(dxreflectorOpts.InputFile.empty()
+                                ? ""
+                                : dxreflectorOpts.InputFile.data()));
     if (!dxreflectorOpts.InputFile.empty())
       ReadFileIntoBlob(dxcSupport, wName.c_str(), &pSource);
 
@@ -190,9 +194,11 @@ int main(int argc, const char **argv) {
 
     if (dxreflectorOpts.OutputObject.empty()) {
       // No -Fo, print to console
-      WriteOperationResultToConsole(pRewriteResult, !dxreflectorOpts.OutputWarnings);
+      WriteOperationResultToConsole(pRewriteResult,
+                                    !dxreflectorOpts.OutputWarnings);
     } else {
-      WriteOperationErrorsToConsole(pRewriteResult, !dxreflectorOpts.OutputWarnings);
+      WriteOperationErrorsToConsole(pRewriteResult,
+                                    !dxreflectorOpts.OutputWarnings);
       HRESULT hr;
       IFT(pRewriteResult->GetStatus(&hr));
       if (SUCCEEDED(hr)) {
