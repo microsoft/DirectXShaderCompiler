@@ -576,8 +576,8 @@ def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, Flags<[DriverOption
 def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,
   HelpText<"Suppress copyright message">;
 
-def consistent_bindings : Flag<["-", "/"], "consistent-bindings">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
-  HelpText<"Generate bindings for registers with no pre-declared binding (consistently regardless of optimization).">;
+def fhlsl_unused_resource_bindings_EQ : Joined<["-"], "fhlsl-unused-resource-bindings=">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Control handling of unused resource bindings: 'strip' (default, generate bindings after optimization) or 'reserve'.">;
 
 //////////////////////////////////////////////////////////////////////////////
 // Rewriter Options

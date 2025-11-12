@@ -54,6 +54,8 @@ enum HlslFlags {
   RewriteOption = (1 << 17),
 };
 
+enum class UnusedResourceBinding { Strip, Reserve, Keep };
+
 enum ID {
   OPT_INVALID = 0, // This is not an option ID.
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
@@ -227,8 +229,9 @@ public:
   std::string TimeTrace = "";           // OPT_ftime_trace[EQ]
   unsigned TimeTraceGranularity = 500;  // OPT_ftime_trace_granularity_EQ
   bool VerifyDiagnostics = false;       // OPT_verify
-  bool ConsistentBindings = false;      // OPT_consistent_bindings
-  bool Verbose = false;                 // OPT_verbose
+  UnusedResourceBinding UnusedResources =
+      UnusedResourceBinding::Strip; // OPT_fhlsl_unused_resource_bindings_EQ
+  bool Verbose = false;             // OPT_verbose
 
   // Optimization pass enables, disables and selects
   OptimizationToggles
