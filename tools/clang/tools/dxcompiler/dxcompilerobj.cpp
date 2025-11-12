@@ -1288,7 +1288,7 @@ public:
           IFT(pReserializeResult->GetResult(&pNewOutput));
           pOutputBlob = pNewOutput;
         } // PDB in private
-      } // Write PDB
+      }   // Write PDB
 
       IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));
       IFT(pResult->SetOutput(primaryOutput));
