@@ -4083,6 +4083,34 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_WAVE_ACTIVE_MIN
+        vector<OUT_TYPE, NUM> TestWaveActiveMin(vector<TYPE, NUM> Vector)
+        {
+          Vector += WaveGetLaneIndex();
+          return WaveActiveMin(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_MAX
+        vector<OUT_TYPE, NUM> TestWaveActiveMax(vector<TYPE, NUM> Vector)
+        {
+          Vector += WaveGetLaneIndex();
+          return WaveActiveMax(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_PRODUCT
+        vector<OUT_TYPE, NUM> TestWaveActiveProduct(vector<TYPE, NUM> Vector)
+        {
+          uint LaneIndex = WaveGetLaneIndex();
+          if(LaneIndex == (WaveGetLaneCount() - 1))
+          {
+            Vector = LaneIndex;
+          }
+          return WaveActiveProduct(Vector);
+        }
+        #endif
+
         #ifdef FUNC_TEST_SELECT
         vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,
                                          vector<TYPE, NUM> Vector2,
@@ -4101,7 +4129,20 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-        [numthreads(1,1,1)]
+        #ifdef NUMTHREADS_X
+          #define NUMTHREADS_ATTR [numthreads(NUMTHREADS_X, 1, 1)]
+        #else
+          #define NUMTHREADS_ATTR [numthreads(1, 1, 1)]
+        #endif
+
+        #ifdef WAVE_SIZE
+          #define WAVE_SIZE_ATTR [WaveSize(WAVE_SIZE)]
+        #else
+          #define WAVE_SIZE_ATTR
+        #endif
+
+        WAVE_SIZE_ATTR
+        NUMTHREADS_ATTR
         void main(uint GI : SV_GroupIndex) {
 
           #ifdef FUNC_SHUFFLE_VECTOR
