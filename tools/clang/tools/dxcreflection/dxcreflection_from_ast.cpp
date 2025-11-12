@@ -575,6 +575,44 @@ static DxcRegisterTypeInfo GetRegisterTypeInfo(ASTContext &ASTCtx,
   return GetTextureRegisterInfo(ASTCtx, typeName, isWrite, recordDecl);
 }
 
+// Collect array sizes in the logical order (inner dims first, then outer).
+// Example:
+//   F32[4][3]         -> {4, 3}
+//   typedef T = F32[4][3];
+//   T[2]              -> {4, 3, 2}
+[[nodiscard]] static ReflectionError
+CollectUnderlyingArraySizes(QualType &T, std::vector<uint32_t> &Out,
+                            uint64_t &FlatSize) {
+  
+  T = T.getNonReferenceType();
+
+  std::vector<uint32_t> local;
+
+  while (const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(T)) {
+
+    uint64_t siz = arr->getSize().getZExtValue();
+    FlatSize *= siz;
+
+    if ((FlatSize >> 32) || (siz >> 32))
+      return HLSL_REFL_ERR("Can't calculate flat array size: out of bits");
+
+    local.push_back(uint32_t(siz));
+    T = arr->getElementType().getNonReferenceType();
+  }
+
+  if (const TypedefType *td = dyn_cast<TypedefType>(T)) {
+
+    T = td->getDecl()->getUnderlyingType().getNonReferenceType();
+
+    if (T->isArrayType())
+      if (ReflectionError err = CollectUnderlyingArraySizes(T, Out, FlatSize))
+        return err;
+  }
+
+  Out.insert(Out.end(), local.begin(), local.end());
+  return ReflectionErrorSuccess;
+}
+
 [[nodiscard]] ReflectionError
 GenerateTypeInfo(uint32_t &TypeId, ASTContext &ASTCtx, ReflectionData &Refl,
                  QualType Original, bool DefaultRowMaj) {
@@ -585,17 +623,13 @@ GenerateTypeInfo(uint32_t &TypeId, ASTContext &ASTCtx, ReflectionData &Refl,
   //  then we want to maintain sugared name + array info (of sugar) for
   //  reflection but for low level type info, we would want to know float4[4]
 
-  uint32_t arraySizeUnderlying = 1;
-  QualType underlying = Original.getNonReferenceType().getCanonicalType();
+  uint64_t arraySizeUnderlying = 1;
   std::vector<uint32_t> arrayElemUnderlying;
 
-  while (const ConstantArrayType *arr =
-             dyn_cast<ConstantArrayType>(underlying)) {
-    uint32_t current = arr->getSize().getZExtValue();
-    arrayElemUnderlying.push_back(current);
-    arraySizeUnderlying *= arr->getSize().getZExtValue();
-    underlying = arr->getElementType().getNonReferenceType().getCanonicalType();
-  }
+  QualType underlying = Original;
+  if (ReflectionError err = CollectUnderlyingArraySizes(
+          underlying, arrayElemUnderlying, arraySizeUnderlying))
+    return err;
 
   uint32_t arraySizeDisplay = 1;
   std::vector<uint32_t> arrayElemDisplay;
