@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -auto-binding-space 0 -keep-all-resources %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 0 -fhlsl-unused-resource-bindings=keep %s | %D3DReflect %s | FileCheck %s
 
 RWByteAddressBuffer output1;
 RWByteAddressBuffer output2;
