@@ -204,14 +204,19 @@ int main(int argc, const char **argv) {
       formatSettings.PrintFileInfo = dxreflectorOpts.ReflOpt.ShowFileInfo;
       formatSettings.IsHumanReadable = !dxreflectorOpts.ReflOpt.ShowRawData;
 
-      IFT(pReflectionResult->GetResult(&pReflectionBlob));
-      IFT(pReflector->FromBlob(pReflectionBlob, &pReflectionData));
-      IFT(pReflector->ToString(pReflectionData, formatSettings, &pJson));
-
-      WriteBlobToConsole(pJson, STD_OUTPUT_HANDLE);
-
       WriteOperationResultToConsole(pReflectionResult,
                                     !dxreflectorOpts.OutputWarnings);
+
+      HRESULT hr;
+      IFT(pReflectionResult->GetStatus(&hr));
+
+      if(SUCCEEDED(hr)) {
+        IFT(pReflectionResult->GetResult(&pReflectionBlob));
+        IFT(pReflector->FromBlob(pReflectionBlob, &pReflectionData));
+        IFT(pReflector->ToString(pReflectionData, formatSettings, &pJson));
+        WriteBlobToConsole(pJson, STD_OUTPUT_HANDLE);
+      }
+
     } else {
       WriteOperationErrorsToConsole(pReflectionResult,
                                     !dxreflectorOpts.OutputWarnings);

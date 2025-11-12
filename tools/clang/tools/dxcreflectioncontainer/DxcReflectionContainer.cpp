@@ -1024,10 +1024,6 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
       break;
 
     case D3D_SVC_STRUCT:
-
-      if (!type.GetMemberCount())
-        return HLSL_REFL_ERR("Type (struct) is missing children", i);
-
       [[fallthrough]];
 
     case D3D_SVC_INTERFACE_CLASS:
