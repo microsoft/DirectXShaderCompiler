@@ -1327,6 +1327,8 @@ template <typename T> T waveActiveBitXor(T A, UINT) {
 
 WAVE_ACTIVE_OP(OpType::WaveActiveBitXor, (waveActiveBitXor(A, WaveSize)));
 
+#undef WAVE_ACTIVE_OP
+
 template <typename T>
 struct Op<OpType::WaveActiveAllEqual, T, 1> : StrictValidation {};
 
@@ -1349,11 +1351,10 @@ struct WaveOpExpectedBuilder<OpType::WaveActiveAllEqual, T> {
 };
 
 template <typename T>
-struct Op<OpType::WaveActiveReadLaneAt, T, 1> : StrictValidation {};
+struct Op<OpType::WaveReadLaneAt, T, 1> : StrictValidation {};
 
-template <typename T>
-struct WaveOpExpectedBuilder<OpType::WaveActiveReadLaneAt, T> {
-  static std::vector<T> buildExpected(Op<OpType::WaveActiveReadLaneAt, T, 1> &,
+template <typename T> struct WaveOpExpectedBuilder<OpType::WaveReadLaneAt, T> {
+  static std::vector<T> buildExpected(Op<OpType::WaveReadLaneAt, T, 1> &,
                                       const InputSets<T> &Inputs,
                                       UINT WaveSize) {
     DXASSERT_NOMSG(Inputs.size() == 1);
@@ -1370,13 +1371,13 @@ struct WaveOpExpectedBuilder<OpType::WaveActiveReadLaneAt, T> {
 };
 
 template <typename T>
-struct Op<OpType::WaveActiveReadLaneFirst, T, 1> : StrictValidation {};
+struct Op<OpType::WaveReadLaneFirst, T, 1> : StrictValidation {};
 
 template <typename T>
-struct WaveOpExpectedBuilder<OpType::WaveActiveReadLaneFirst, T> {
-  static std::vector<T>
-  buildExpected(Op<OpType::WaveActiveReadLaneFirst, T, 1> &,
-                const InputSets<T> &Inputs, UINT WaveSize) {
+struct WaveOpExpectedBuilder<OpType::WaveReadLaneFirst, T> {
+  static std::vector<T> buildExpected(Op<OpType::WaveReadLaneFirst, T, 1> &,
+                                      const InputSets<T> &Inputs,
+                                      UINT WaveSize) {
     DXASSERT_NOMSG(Inputs.size() == 1);
     UNREFERENCED_PARAMETER(WaveSize);
 
@@ -1389,8 +1390,6 @@ struct WaveOpExpectedBuilder<OpType::WaveActiveReadLaneFirst, T> {
     return Expected;
   }
 };
-
-#undef WAVE_ACTIVE_OP
 
 //
 // dispatchTest
@@ -2284,38 +2283,38 @@ public:
   HLK_TEST(LoadAndStore_RD_SB_UAV, double);
 
   HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLBool_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, HLSLBool_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, HLSLBool_t);
+  HLK_WAVEOP_TEST(WaveReadLaneAt, HLSLBool_t);
+  HLK_WAVEOP_TEST(WaveReadLaneFirst, HLSLBool_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, int16_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int16_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int16_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, int16_t);
   HLK_WAVEOP_TEST(WaveActiveAllEqual, int16_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, int16_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, int16_t);
+  HLK_WAVEOP_TEST(WaveReadLaneAt, int16_t);
+  HLK_WAVEOP_TEST(WaveReadLaneFirst, int16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int32_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, int32_t);
   HLK_WAVEOP_TEST(WaveActiveAllEqual, int32_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, int32_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, int32_t);
+  HLK_WAVEOP_TEST(WaveReadLaneAt, int32_t);
+  HLK_WAVEOP_TEST(WaveReadLaneFirst, int32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int64_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, int64_t);
   HLK_WAVEOP_TEST(WaveActiveAllEqual, int64_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, int64_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, int64_t);
+  HLK_WAVEOP_TEST(WaveReadLaneAt, int64_t);
+  HLK_WAVEOP_TEST(WaveReadLaneFirst, int64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveAllEqual, uint16_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, uint16_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, uint16_t);
+  HLK_WAVEOP_TEST(WaveReadLaneAt, uint16_t);
+  HLK_WAVEOP_TEST(WaveReadLaneFirst, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint32_t);
@@ -2325,8 +2324,8 @@ public:
   HLK_WAVEOP_TEST(WaveActiveBitOr, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveBitXor, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveAllEqual, uint32_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, uint32_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, uint32_t);
+  HLK_WAVEOP_TEST(WaveReadLaneAt, uint32_t);
+  HLK_WAVEOP_TEST(WaveReadLaneFirst, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint64_t);
@@ -2335,30 +2334,30 @@ public:
   HLK_WAVEOP_TEST(WaveActiveBitOr, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveBitXor, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveAllEqual, uint64_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, uint64_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, uint64_t);
+  HLK_WAVEOP_TEST(WaveReadLaneAt, uint64_t);
+  HLK_WAVEOP_TEST(WaveReadLaneFirst, uint64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveMin, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveMax, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLHalf_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, HLSLHalf_t);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveReadLaneAt, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveReadLaneFirst, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveSum, float);
   HLK_WAVEOP_TEST(WaveActiveMin, float);
   HLK_WAVEOP_TEST(WaveActiveMax, float);
   HLK_WAVEOP_TEST(WaveActiveProduct, float);
   HLK_WAVEOP_TEST(WaveActiveAllEqual, float);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, float);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, float);
+  HLK_WAVEOP_TEST(WaveReadLaneAt, float);
+  HLK_WAVEOP_TEST(WaveReadLaneFirst, float);
   HLK_WAVEOP_TEST(WaveActiveSum, double);
   HLK_WAVEOP_TEST(WaveActiveMin, double);
   HLK_WAVEOP_TEST(WaveActiveMax, double);
   HLK_WAVEOP_TEST(WaveActiveProduct, double);
   HLK_WAVEOP_TEST(WaveActiveAllEqual, double);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, double);
-  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, double);
+  HLK_WAVEOP_TEST(WaveReadLaneAt, double);
+  HLK_WAVEOP_TEST(WaveReadLaneFirst, double);
 
 private:
   bool Initialized = false;

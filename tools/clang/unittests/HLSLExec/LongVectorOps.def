@@ -202,7 +202,7 @@ OP_DEFAULT_DEFINES(Wave, WaveActiveBitAnd, 1, "TestWaveActiveBitAnd", "", " -DFU
 OP_DEFAULT_DEFINES(Wave, WaveActiveBitOr, 1, "TestWaveActiveBitOr", "", " -DFUNC_WAVE_ACTIVE_BIT_OR=1")
 OP_DEFAULT_DEFINES(Wave, WaveActiveBitXor, 1, "TestWaveActiveBitXor", "", " -DFUNC_WAVE_ACTIVE_BIT_XOR=1")
 OP_DEFAULT_DEFINES(Wave, WaveActiveAllEqual, 1, "TestWaveActiveAllEqual", "", " -DFUNC_WAVE_ACTIVE_ALL_EQUAL=1")
-OP_DEFAULT_DEFINES(Wave, WaveActiveReadLaneAt, 1, "TestWaveActiveReadLaneAt", "", " -DFUNC_WAVE_ACTIVE_READ_LANE_AT=1")
-OP_DEFAULT_DEFINES(Wave, WaveActiveReadLaneFirst, 1, "TestWaveActiveReadLaneFirst", "", " -DFUNC_WAVE_ACTIVE_READ_LANE_FIRST=1")
+OP_DEFAULT_DEFINES(Wave, WaveReadLaneAt, 1, "TestWaveReadLaneAt", "", " -DFUNC_WAVE_READ_LANE_AT=1")
+OP_DEFAULT_DEFINES(Wave, WaveReadLaneFirst, 1, "TestWaveReadLaneFirst", "", " -DFUNC_WAVE_READ_LANE_FIRST=1")
 
 #undef OP

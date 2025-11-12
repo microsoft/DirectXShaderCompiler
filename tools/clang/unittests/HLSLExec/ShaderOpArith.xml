@@ -4175,8 +4175,8 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-        #ifdef FUNC_WAVE_ACTIVE_READ_LANE_FIRST
-        vector<OUT_TYPE, NUM> TestWaveActiveReadLaneFirst(vector<TYPE, NUM> Vector)
+        #ifdef FUNC_WAVE_READ_LANE_FIRST
+        vector<OUT_TYPE, NUM> TestWaveReadLaneFirst(vector<TYPE, NUM> Vector)
         {
           if(WaveGetLaneIndex() == 0)
           {
@@ -4186,8 +4186,9 @@ void MSMain(uint GID : SV_GroupIndex,
               Vector[i] = Vector[0];
             }
           }
-          return WaveActiveReadLaneFirst(Vector);
+          return WaveReadLaneFirst(Vector);
         }
+        #endif
 
         #ifdef FUNC_TEST_SELECT
         vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,
