@@ -609,6 +609,17 @@ CollectUnderlyingArraySizes(QualType &T, std::vector<uint32_t> &Out,
         return err;
   }
 
+   if (const TemplateSpecializationType *ts =
+          dyn_cast<TemplateSpecializationType>(T)) {
+    QualType desugared = ts->desugar().getNonReferenceType();
+    if (desugared != T) {
+      T = desugared;
+      if (ReflectionError err =
+              CollectUnderlyingArraySizes(T, Out, FlatSize))
+        return err;
+    }
+  }
+
   Out.insert(Out.end(), local.begin(), local.end());
   return ReflectionErrorSuccess;
 }
