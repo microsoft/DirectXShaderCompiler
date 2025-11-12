@@ -1245,18 +1245,22 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection, uint32_t NodeId,
   if (stmtType) {
 
     Json.Object(stmtType, [&node, &Reflection, &Json, &Settings, NodeId,
-                           &childrenToSkip, nodeType]() {
+                           &childrenToSkip, nodeType, hasSymbols]() {
       const ReflectionScopeStmt &stmt =
           Reflection.Statements[node.GetLocalId()];
 
       uint32_t start = NodeId + 1;
 
       if (stmt.HasConditionVar())
-        Json.Object(
-            "Condition", [NodeId, &Reflection, &Json, &start, &Settings]() {
-              start += PrintNodeRecursive(Reflection, start, Json, Settings);
-              ++start;
-            });
+        Json.Object("Condition", [NodeId, &Reflection, &Json, &start, &Settings,
+                                  hasSymbols]() {
+          if (hasSymbols)
+            PrintSymbol(Json, Reflection, Reflection.NodeSymbols[start],
+                        Settings, false, true);
+
+          start += PrintNodeRecursive(Reflection, start, Json, Settings);
+          ++start;
+        });
 
       uint32_t end = start + stmt.GetNodeCount();
 
