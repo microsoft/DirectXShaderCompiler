@@ -480,7 +480,7 @@ struct ReflectionPrintSettings {
 static void PrintSymbol(JsonWriter &Json, const ReflectionData &Reflection,
                         const ReflectionNodeSymbol &Sym,
                         const ReflectionPrintSettings &Settings,
-                        bool MuteName) {
+                        bool MuteName, bool ShowOnlyName = false) {
 
   if (Sym.GetNameId() && !MuteName) {
 
@@ -490,7 +490,7 @@ static void PrintSymbol(JsonWriter &Json, const ReflectionData &Reflection,
       Json.UIntField("NameId", Sym.GetNameId());
   }
 
-  if (Settings.HideFileInfo)
+  if (Settings.HideFileInfo || ShowOnlyName)
     return;
 
   if (Sym.HasFileSource()) {
@@ -1105,7 +1105,7 @@ void PrintChildren(const ReflectionData &Data, JsonWriter &Json,
         // Put Name(Id) into current scope to hide "Symbol" everywhere.
 
         if (Data.Features & D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO)
-          PrintSymbol(Json, Data, Data.NodeSymbols[i], Settings, false);
+          PrintSymbol(Json, Data, Data.NodeSymbols[i], Settings, false, true);
 
         i += PrintNodeRecursive(Data, i, Json, Settings);
       }

@@ -1759,17 +1759,9 @@ public:
                                      errors, rewrite, msfPtr, reflection);
 
       std::vector<std::byte> Bytes;
-      std::string json;
 
-      if (SUCCEEDED(status)) {
-
+      if (SUCCEEDED(status))
         reflection.Dump(Bytes);
-
-        bool hideFileInfo = !opts.ReflOpt.ShowFileInfo;
-        bool humanFriendly = !opts.ReflOpt.ShowRawData;
-
-        json = reflection.ToJson(hideFileInfo, humanFriendly);
-      }
 
       return DxcResult::Create(
           status, DXC_OUT_OBJECT,

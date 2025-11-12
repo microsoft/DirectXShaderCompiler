@@ -609,7 +609,8 @@ FileRunCommandPart::RunDxReflector(dxc::DllLoader &DllSupport,
   UNREFERENCED_PARAMETER(Prior);
   hlsl::options::MainArgs args;
   hlsl::options::DxcOpts opts;
-  FileRunCommandResult readOptsResult = ReadOptsForDxc(args, opts);
+  FileRunCommandResult readOptsResult =
+      ReadOptsForDxc(args, opts, hlsl::options::ReflectOption);
   if (readOptsResult.ExitCode)
     return readOptsResult;
 
