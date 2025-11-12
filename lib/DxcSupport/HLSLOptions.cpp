@@ -865,8 +865,21 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.TimeReport = Args.hasFlag(OPT_ftime_report, OPT_INVALID, false);
   opts.TimeTrace = Args.hasFlag(OPT_ftime_trace, OPT_INVALID, false) ? "-" : "";
   opts.VerifyDiagnostics = Args.hasFlag(OPT_verify, OPT_INVALID, false);
-  opts.KeepAllResources =
-      Args.hasFlag(OPT_keep_all_resources, OPT_INVALID, false);
+
+  std::string UnusedResources =
+      Args.getLastArgValue(OPT_fhlsl_unused_resource_bindings_EQ, "strip");
+
+  if (UnusedResources == "strip")
+    opts.UnusedResources = UnusedResourceBinding::Strip;
+  else if (UnusedResources == "keep")
+    opts.UnusedResources = UnusedResourceBinding::Keep;
+  else {
+    errors << "Error: Invalid value for -fhlsl-unused-resource-bindings option "
+              "specified ("
+           << UnusedResources << "). Must be one of: strip, keep";
+    return 1;
+  }
+
   opts.Verbose = Args.hasFlag(OPT_verbose, OPT_INVALID, false);
   if (Args.hasArg(OPT_ftime_trace_EQ))
     opts.TimeTrace = Args.getLastArgValue(OPT_ftime_trace_EQ);

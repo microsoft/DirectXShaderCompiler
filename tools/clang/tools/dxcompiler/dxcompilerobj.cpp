@@ -1288,7 +1288,7 @@ public:
           IFT(pReserializeResult->GetResult(&pNewOutput));
           pOutputBlob = pNewOutput;
         } // PDB in private
-      }   // Write PDB
+      } // Write PDB
 
       IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));
       IFT(pResult->SetOutput(primaryOutput));
@@ -1595,7 +1595,8 @@ public:
     compiler.getCodeGenOpts().HLSLAvoidControlFlow = Opts.AvoidFlowControl;
     compiler.getCodeGenOpts().HLSLLegacyResourceReservation =
         Opts.LegacyResourceReservation;
-    compiler.getCodeGenOpts().HLSLKeepAllResources = Opts.KeepAllResources;
+    compiler.getCodeGenOpts().HLSLKeepAllResources =
+        Opts.UnusedResources == hlsl::options::UnusedResourceBinding::Keep;
     compiler.getCodeGenOpts().HLSLDefines = defines;
     compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
