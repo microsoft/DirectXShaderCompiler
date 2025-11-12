@@ -14655,6 +14655,8 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
       VD->setType(
           S.Context.getAddrSpaceQualType(VD->getType(), DXIL::kTGSMAddrSpace));
     }
+    if (ParmVarDecl *VD = dyn_cast<ParmVarDecl>(D))
+      VD->setType(S.Context.getLValueReferenceType(VD->getType()));
     break;
   case AttributeList::AT_HLSLUniform:
     declAttr = ::new (S.Context) HLSLUniformAttr(
@@ -15749,8 +15751,13 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       break;
     case AttributeList::AT_HLSLGroupShared:
       isGroupShared = true;
-      if (!isGlobal) {
-        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
+      if (isParameter && (usageIn || usageOut)) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifiersna)
+            << pAttr->getName() << "in/out/inout modifiers" << declarationType;
+        result = false;
+      }
+      if (!(isGlobal || isParameter)) {
+       Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
             << pAttr->getName() << declarationType << pAttr->getRange();
         result = false;
       }
@@ -15785,6 +15792,10 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       if (!isParameter) {
         Diag(pAttr->getLoc(), diag::err_hlsl_usage_not_on_parameter)
             << pAttr->getName() << pAttr->getRange();
+        result = false;
+      } else if (isGroupShared) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifiersna)
+            << pAttr->getName() << "groupshared" << declarationType;
         result = false;
       }
       if (!IsUsageAttributeCompatible(pAttr->getKind(), usageIn, usageOut)) {
