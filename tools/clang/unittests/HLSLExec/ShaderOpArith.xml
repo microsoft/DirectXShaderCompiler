@@ -4158,6 +4158,37 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_WAVE_READ_LANE_AT
+        vector<OUT_TYPE, NUM> TestWaveReadLaneAt(vector<TYPE, NUM> Vector)
+        {
+          // Keep it simple and just read the last lane.
+          const uint LaneToRead = WaveGetLaneCount() - 1;
+          if(WaveGetLaneIndex() == LaneToRead)
+          {
+            [unroll]
+            for(uint i = 1; i < NUM; ++i)
+            {
+              Vector[i] = Vector[0];
+            }
+          }
+          return WaveReadLaneAt(Vector, LaneToRead);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_READ_LANE_FIRST
+        vector<OUT_TYPE, NUM> TestWaveActiveReadLaneFirst(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == 0)
+          {
+            [unroll]
+            for(uint i = 1; i < NUM; ++i)
+            {
+              Vector[i] = Vector[0];
+            }
+          }
+          return WaveActiveReadLaneFirst(Vector);
+        }
+
         #ifdef FUNC_TEST_SELECT
         vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,
                                          vector<TYPE, NUM> Vector2,

@@ -611,6 +611,7 @@ template <OpType OP, typename T, size_t Arity> struct Op;
 // ExpectedBuilder - specializations are expected to have buildExpectedData
 // member functions.
 template <OpType OP, typename T> struct ExpectedBuilder;
+template <OpType OP, typename T> struct WaveOpExpectedBuilder;
 
 // Default Validation configuration - ULP for floating point types, exact
 // matches for everything else.
@@ -1329,17 +1330,61 @@ WAVE_ACTIVE_OP(OpType::WaveActiveBitXor, (waveActiveBitXor(A, WaveSize)));
 template <typename T>
 struct Op<OpType::WaveActiveAllEqual, T, 1> : StrictValidation {};
 
-template <typename T> struct ExpectedBuilder<OpType::WaveActiveAllEqual, T> {
+template <typename T>
+struct WaveOpExpectedBuilder<OpType::WaveActiveAllEqual, T> {
   static std::vector<HLSLBool_t>
   buildExpected(Op<OpType::WaveActiveAllEqual, T, 1> &,
-                const InputSets<T> &Inputs) {
+                const InputSets<T> &Inputs, UINT WaveSize) {
     DXASSERT_NOMSG(Inputs.size() == 1);
+    UNREFERENCED_PARAMETER(WaveSize);
 
     std::vector<HLSLBool_t> Expected;
     const size_t VectorSize = Inputs[0].size();
     Expected.assign(VectorSize - 1, static_cast<HLSLBool_t>(true));
     // We set the last element to a different value on a single lane.
     Expected[VectorSize - 1] = static_cast<HLSLBool_t>(false);
+
+    return Expected;
+  }
+};
+
+template <typename T>
+struct Op<OpType::WaveActiveReadLaneAt, T, 1> : StrictValidation {};
+
+template <typename T>
+struct WaveOpExpectedBuilder<OpType::WaveActiveReadLaneAt, T> {
+  static std::vector<T> buildExpected(Op<OpType::WaveActiveReadLaneAt, T, 1> &,
+                                      const InputSets<T> &Inputs,
+                                      UINT WaveSize) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+    UNREFERENCED_PARAMETER(WaveSize);
+
+    std::vector<T> Expected;
+    const size_t VectorSize = Inputs[0].size();
+    // Simple test, on the lane that we read we also fill the vector with the
+    // value of the first element.
+    Expected.assign(VectorSize, Inputs[0][0]);
+
+    return Expected;
+  }
+};
+
+template <typename T>
+struct Op<OpType::WaveActiveReadLaneFirst, T, 1> : StrictValidation {};
+
+template <typename T>
+struct WaveOpExpectedBuilder<OpType::WaveActiveReadLaneFirst, T> {
+  static std::vector<T>
+  buildExpected(Op<OpType::WaveActiveReadLaneFirst, T, 1> &,
+                const InputSets<T> &Inputs, UINT WaveSize) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+    UNREFERENCED_PARAMETER(WaveSize);
+
+    std::vector<T> Expected;
+    const size_t VectorSize = Inputs[0].size();
+    // Simple test, on the lane that we read we also fill the vector with the
+    // value of the first element.
+    Expected.assign(VectorSize, Inputs[0][0]);
 
     return Expected;
   }
@@ -2238,29 +2283,39 @@ public:
   HLK_TEST(LoadAndStore_RD_SB_SRV, double);
   HLK_TEST(LoadAndStore_RD_SB_UAV, double);
 
-  HLK_TEST(WaveActiveAllEqual, HLSLBool_t);
+  HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLBool_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, HLSLBool_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, HLSLBool_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, int16_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int16_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int16_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, int16_t);
-  HLK_TEST(WaveActiveAllEqual, int16_t);
+  HLK_WAVEOP_TEST(WaveActiveAllEqual, int16_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, int16_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, int16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int32_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, int32_t);
-  HLK_TEST(WaveActiveAllEqual, int32_t);
+  HLK_WAVEOP_TEST(WaveActiveAllEqual, int32_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, int32_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, int32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int64_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, int64_t);
-  HLK_TEST(WaveActiveAllEqual, int64_t);
+  HLK_WAVEOP_TEST(WaveActiveAllEqual, int64_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, int64_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, int64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, uint16_t);
-  HLK_TEST(WaveActiveAllEqual, uint16_t);
+  HLK_WAVEOP_TEST(WaveActiveAllEqual, uint16_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, uint16_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint32_t);
@@ -2269,7 +2324,9 @@ public:
   HLK_WAVEOP_TEST(WaveActiveBitAnd, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveBitOr, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveBitXor, uint32_t);
-  HLK_TEST(WaveActiveAllEqual, uint32_t);
+  HLK_WAVEOP_TEST(WaveActiveAllEqual, uint32_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, uint32_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint64_t);
@@ -2277,23 +2334,31 @@ public:
   HLK_WAVEOP_TEST(WaveActiveBitAnd, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveBitOr, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveBitXor, uint64_t);
-  HLK_TEST(WaveActiveAllEqual, uint64_t);
+  HLK_WAVEOP_TEST(WaveActiveAllEqual, uint64_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, uint64_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, uint64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveMin, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveMax, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, HLSLHalf_t);
-  HLK_TEST(WaveActiveAllEqual, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveSum, float);
   HLK_WAVEOP_TEST(WaveActiveMin, float);
   HLK_WAVEOP_TEST(WaveActiveMax, float);
   HLK_WAVEOP_TEST(WaveActiveProduct, float);
-  HLK_TEST(WaveActiveAllEqual, float);
+  HLK_WAVEOP_TEST(WaveActiveAllEqual, float);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, float);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, float);
   HLK_WAVEOP_TEST(WaveActiveSum, double);
   HLK_WAVEOP_TEST(WaveActiveMin, double);
   HLK_WAVEOP_TEST(WaveActiveMax, double);
   HLK_WAVEOP_TEST(WaveActiveProduct, double);
-  HLK_TEST(WaveActiveAllEqual, double);
+  HLK_WAVEOP_TEST(WaveActiveAllEqual, double);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneAt, double);
+  HLK_WAVEOP_TEST(WaveActiveReadLaneFirst, double);
 
 private:
   bool Initialized = false;
