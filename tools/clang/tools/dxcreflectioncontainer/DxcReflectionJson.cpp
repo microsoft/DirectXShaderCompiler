@@ -357,7 +357,7 @@ static std::string BufferTypeToString(D3D_CBUFFER_TYPE Type) {
 static std::string GetBuiltinTypeName(const ReflectionData &Refl,
                                       const ReflectionVariableType &Type) {
 
-  std::string type = "<unknown>";
+  std::string type = "";
 
   if (Type.GetClass() != D3D_SVC_STRUCT &&
       Type.GetClass() != D3D_SVC_INTERFACE_CLASS) {
