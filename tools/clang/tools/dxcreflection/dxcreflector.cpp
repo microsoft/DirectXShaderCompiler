@@ -45,11 +45,13 @@
 #include "dxc/DxcReflection/DxcReflectionContainer.h"
 #include "dxc/dxcreflect.h"
 
+#if _WIN32
 extern "C" const IID IID_IHLSLReflectionData = {
     0x7016f834,
     0xae85,
     0x4c86,
     {0xa4, 0x73, 0x8c, 0x2c, 0x98, 0x1d, 0xd3, 0x70}};
+#endif
 
 using namespace llvm;
 using namespace clang;
@@ -668,6 +670,7 @@ struct HLSLReflectionData : public IHLSLReflectionData {
   std::vector<CHLSLFunctionParameter> FunctionParameters;
 
   HLSLReflectionData() : m_refCount(1) {}
+  virtual ~HLSLReflectionData() = default; 
 
   // TODO: This function needs another look definitely
   void Finalize() {
@@ -799,7 +802,7 @@ struct HLSLReflectionData : public IHLSLReflectionData {
     if (!ppvObject)
       return E_POINTER;
 
-    if (riid == IID_IUnknown || riid == IID_IHLSLReflectionData) {
+    if (riid == IID_IHLSLReflectionData) {
       *ppvObject = static_cast<IHLSLReflectionData *>(this);
       AddRef();
       return S_OK;
@@ -1686,6 +1689,8 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcReflector)
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langExtensionsHelper)
+
+  virtual ~DxcReflector() = default; 
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {
