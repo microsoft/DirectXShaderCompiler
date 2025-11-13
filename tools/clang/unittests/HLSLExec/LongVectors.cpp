@@ -1390,12 +1390,15 @@ struct WaveOpExpectedBuilder<OpType::WaveReadLaneFirst, T> {
 WAVE_OP(OpType::WavePrefixSum, (wavePrefixSum(A, WaveSize)));
 
 template <typename T> T wavePrefixSum(T A, UINT WaveSize) {
+  // We test the prefix sume in the 'middle' lane. This choice is arbitrary.
   return static_cast<T>(A * static_cast<T>(WaveSize/2));
 }
 
 WAVE_OP(OpType::WavePrefixProduct, (wavePrefixProduct(A, WaveSize)));
 
 template <typename T> T wavePrefixProduct(T A, UINT) {
+  // We test the the prefix product in the 3rd lane to avoid overflow issues.
+  // So the result is A * A.
   return static_cast<T>(A * A);
 }
 
