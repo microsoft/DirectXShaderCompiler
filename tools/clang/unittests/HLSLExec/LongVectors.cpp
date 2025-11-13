@@ -1265,7 +1265,7 @@ FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
 // Wave Ops
 //
 
-#define WAVE_OP(OP, IMPL)                                               \
+#define WAVE_OP(OP, IMPL)                                                      \
   template <typename T> struct Op<OP, T, 1> : DefaultValidation<T> {           \
     T operator()(T A, UINT WaveSize) { return IMPL; }                          \
   };
@@ -1327,7 +1327,6 @@ template <typename T> T waveActiveBitXor(T A, UINT) {
 
 WAVE_OP(OpType::WaveActiveBitXor, (waveActiveBitXor(A, WaveSize)));
 
-
 template <typename T>
 struct Op<OpType::WaveActiveAllEqual, T, 1> : StrictValidation {};
 
@@ -1353,8 +1352,7 @@ struct Op<OpType::WaveReadLaneAt, T, 1> : StrictValidation {};
 
 template <typename T> struct WaveOpExpectedBuilder<OpType::WaveReadLaneAt, T> {
   static std::vector<T> buildExpected(Op<OpType::WaveReadLaneAt, T, 1> &,
-                                      const InputSets<T> &Inputs,
-                                      UINT) {
+                                      const InputSets<T> &Inputs, UINT) {
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     std::vector<T> Expected;
@@ -1373,8 +1371,7 @@ struct Op<OpType::WaveReadLaneFirst, T, 1> : StrictValidation {};
 template <typename T>
 struct WaveOpExpectedBuilder<OpType::WaveReadLaneFirst, T> {
   static std::vector<T> buildExpected(Op<OpType::WaveReadLaneFirst, T, 1> &,
-                                      const InputSets<T> &Inputs,
-                                      UINT) {
+                                      const InputSets<T> &Inputs, UINT) {
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     std::vector<T> Expected;
@@ -1391,7 +1388,7 @@ WAVE_OP(OpType::WavePrefixSum, (wavePrefixSum(A, WaveSize)));
 
 template <typename T> T wavePrefixSum(T A, UINT WaveSize) {
   // We test the prefix sume in the 'middle' lane. This choice is arbitrary.
-  return static_cast<T>(A * static_cast<T>(WaveSize/2));
+  return static_cast<T>(A * static_cast<T>(WaveSize / 2));
 }
 
 WAVE_OP(OpType::WavePrefixProduct, (wavePrefixProduct(A, WaveSize)));
