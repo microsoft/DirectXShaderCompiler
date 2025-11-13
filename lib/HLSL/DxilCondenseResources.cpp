@@ -555,7 +555,6 @@ public:
 
     unsigned newResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
-    bChanged |= numResources != newResources;
 
     if (0 == newResources)
       return bChanged;

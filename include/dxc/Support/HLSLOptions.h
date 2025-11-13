@@ -54,7 +54,7 @@ enum HlslFlags {
   RewriteOption = (1 << 17),
 };
 
-enum class UnusedResourceBinding { Strip, Reserve, Keep };
+enum class UnusedResourceBinding { Strip, ReserveAll };
 
 enum ID {
   OPT_INVALID = 0, // This is not an option ID.

@@ -1,6 +1,6 @@
-// RUN: %dxc -T lib_6_3 -auto-binding-space 0 -fhlsl-unused-resource-bindings=reserve %s | %D3DReflect %s | FileCheck %s -check-prefix=CHECK
-// RUN: %dxc -T cs_6_3 -E mainA -auto-binding-space 0 -fhlsl-unused-resource-bindings=reserve %s | %D3DReflect %s | FileCheck %s -check-prefix=CHECK2
-// RUN: %dxc -T cs_6_3 -E mainB -auto-binding-space 0 -fhlsl-unused-resource-bindings=reserve %s | %D3DReflect %s | FileCheck %s -check-prefix=CHECK3
+// RUN: %dxc -T lib_6_3 -auto-binding-space 0 -fhlsl-unused-resource-bindings=reserve-all %s | %D3DReflect %s | FileCheck %s -check-prefix=CHECK
+// RUN: %dxc -T cs_6_3 -E mainA -auto-binding-space 0 -fhlsl-unused-resource-bindings=reserve-all %s | %D3DReflect %s | FileCheck %s -check-prefix=CHECK2
+// RUN: %dxc -T cs_6_3 -E mainB -auto-binding-space 0 -fhlsl-unused-resource-bindings=reserve-all %s | %D3DReflect %s | FileCheck %s -check-prefix=CHECK3
 
 RWByteAddressBuffer a;
 RWByteAddressBuffer b;

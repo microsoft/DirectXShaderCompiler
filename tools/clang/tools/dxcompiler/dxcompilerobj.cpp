@@ -1596,7 +1596,7 @@ public:
     compiler.getCodeGenOpts().HLSLLegacyResourceReservation =
         Opts.LegacyResourceReservation;
     compiler.getCodeGenOpts().HLSLConsistentBindings =
-        Opts.UnusedResources == hlsl::options::UnusedResourceBinding::Reserve;
+        Opts.UnusedResources == hlsl::options::UnusedResourceBinding::ReserveAll;
     compiler.getCodeGenOpts().HLSLDefines = defines;
     compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;

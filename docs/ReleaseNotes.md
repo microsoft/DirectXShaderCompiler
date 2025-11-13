@@ -23,7 +23,7 @@ The included licenses apply to the following files:
 - Fixed regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
 - Header file `dxcpix.h` was added to the release package.
 - Moved Linear Algebra (Cooperative Vector) DXIL Opcodes to experimental Shader Model 6.10
-- Added `-fhlsl-unused-resource-bindings=<value>` an option to allow deciding on how to treat unused resource bindings in DXIL; `strip` (default), `keep` or `reserve`. `strip` will strip unused resources before generating bindings for resources without a `: register`, `keep` keeps them around while marking them with `D3D_SIF_UNUSED` in reflection and `reserve` will keep them reserved for generated bindings while stripping them afterwards. See [explanation](https://github.com/microsoft/DirectXShaderCompiler/pull/7643#issuecomment-3496917202) for more details.
+- Added `-fhlsl-unused-resource-bindings=<value>` an option to allow deciding on how to treat unused resource bindings in DXIL; `strip` (default) or `reserve-all`. `strip` will strip unused resources before generating bindings for resources without a `: register`, and `reserve-all` will keep them reserved for generated bindings while stripping them afterwards. See [explanation](https://github.com/microsoft/DirectXShaderCompiler/pull/7643#issuecomment-3496917202) for more details.
 
 ### Version 1.8.2505
 
@@ -183,11 +183,11 @@ DX Compiler release for December 2022.
  This includes the compiler executable, the dynamic library, and the dxil signing library.
 - New flags for inspecting compile times:
   - `-ftime-report` flag prints a high level summary of compile time broken down by major phase or pass in the compiler. The DXC
-  command line will print the output to stdout.
+command line will print the output to stdout.
   - `-ftime-trace` flag prints a Chrome trace json file. The output can be routed to a specific file by providing a filename to
-  the argument using the format `-ftime-trace=<filename>`. Chrome trace files can be opened in Chrome by loading the built-in tracing tool
-  at chrome://tracing. The trace file captures hierarchial timing data with additional context enabling a much more in-depth profiling
-  experience.
+the argument using the format `-ftime-trace=<filename>`. Chrome trace files can be opened in Chrome by loading the built-in tracing tool
+at chrome://tracing. The trace file captures hierarchial timing data with additional context enabling a much more in-depth profiling
+experience.
   - Both new options are supported via the DXC API using the `DXC_OUT_TIME_REPORT` and `DXC_OUT_TIME_TRACE` output kinds respectively.
 - IDxcPdbUtils2 enables reading new PDB container part
 - `-P` flag will now behave as it does with cl using the file specified by `-Fi` or a default
