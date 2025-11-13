@@ -16,6 +16,7 @@
 namespace hlsl {
 class DxilModule;
 struct DxilFunctionProps;
+enum class UnusedResourceBinding : uint32_t;
 }
 
 namespace llvm {
@@ -219,6 +220,14 @@ public:
   void SetRequiresGroup(bool flag) { m_bRequiresGroup = flag; }
   bool GetRequiresGroup() const { return m_bRequiresGroup; }
 
+  void SetUnusedResourceBinding(UnusedResourceBinding bindings) {
+    m_UnusedResourceBinding = unsigned(bindings);
+  }
+
+  UnusedResourceBinding GetUnusedResourceBinding() {
+    return UnusedResourceBinding(m_UnusedResourceBinding);
+  }
+
 private:
   // Bit: 0
   unsigned
@@ -359,7 +368,9 @@ private:
   unsigned m_bRequiresGroup : 1; // SHADER_FEATURE_OPT_REQUIRES_GROUP
                                  // (OptFeatureInfo_RequiresGroup)
 
-  uint32_t m_align1 : 23; // align to 64 bit.
+  unsigned m_UnusedResourceBinding : 3;
+
+  uint32_t m_align1 : 20; // align to 64 bit.
 };
 
 } // namespace hlsl

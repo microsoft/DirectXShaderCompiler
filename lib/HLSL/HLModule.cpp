@@ -232,12 +232,12 @@ namespace {
 template <typename TResource>
 bool RemoveResource(std::vector<std::unique_ptr<TResource>> &vec,
                     GlobalVariable *pVariable, bool keepAllocated,
-                    bool consistentBindings) {
+                    UnusedResourceBinding unusedResourceBinding) {
   for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
     if ((*p)->GetGlobalSymbol() != pVariable)
       continue;
 
-    if ((keepAllocated && (*p)->IsAllocated()) || consistentBindings) {
+    if ((keepAllocated && (*p)->IsAllocated()) || unusedResourceBinding == UnusedResourceBinding::ReserveAll) {
       // Keep the resource, but it has no more symbol.
       (*p)->SetGlobalSymbol(UndefValue::get(pVariable->getType()));
     } else {
@@ -264,22 +264,19 @@ void HLModule::RemoveGlobal(llvm::GlobalVariable *GV) {
   // register range from being allocated to other resources.
   bool keepAllocated = GetHLOptions().bLegacyResourceReservation;
 
-  // Consistent bindings are different than -flegacy-resource-reservation;
-  // We need the IDs to stay the same, but it's fine to remove unused registers.
-  // It's actually wanted, because that allows us to know what registers are
-  // optimized out.
-  bool consistentBindings = GetHLOptions().bConsistentBindings;
+  UnusedResourceBinding unusedResourceBinding =
+      UnusedResourceBinding(GetHLOptions().bUnusedResourceBinding);
 
   // This could be considerably faster - check variable type to see which
   // resource type this is rather than scanning all lists, and look for
   // usage and removal patterns.
-  if (RemoveResource(m_CBuffers, GV, keepAllocated, consistentBindings))
+  if (RemoveResource(m_CBuffers, GV, keepAllocated, unusedResourceBinding))
     return;
-  if (RemoveResource(m_SRVs, GV, keepAllocated, consistentBindings))
+  if (RemoveResource(m_SRVs, GV, keepAllocated, unusedResourceBinding))
     return;
-  if (RemoveResource(m_UAVs, GV, keepAllocated, consistentBindings))
+  if (RemoveResource(m_UAVs, GV, keepAllocated, unusedResourceBinding))
     return;
-  if (RemoveResource(m_Samplers, GV, keepAllocated, consistentBindings))
+  if (RemoveResource(m_Samplers, GV, keepAllocated, unusedResourceBinding))
     return;
   // TODO: do m_TGSMVariables and m_StreamOutputs need maintenance?
 }

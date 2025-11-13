@@ -586,14 +586,12 @@ bool DxilModule::GetLegacyResourceReservation() const {
   return (m_IntermediateFlags & LegacyResourceReservation) != 0;
 }
 
-void DxilModule::SetConsistentBindings(bool consistentBindings) {
-  m_IntermediateFlags &= ~ConsistentBindings;
-  if (consistentBindings)
-    m_IntermediateFlags |= ConsistentBindings;
+void DxilModule::SetUnusedResourceBinding(UnusedResourceBinding unusedResourceBinding) {
+  m_unusedResourceBinding = unusedResourceBinding;
 }
 
-bool DxilModule::GetConsistentBindings() const {
-  return (m_IntermediateFlags & ConsistentBindings) != 0;
+UnusedResourceBinding DxilModule::GetUnusedResourceBinding() const {
+  return m_unusedResourceBinding;
 }
 
 void DxilModule::ClearIntermediateOptions() { m_IntermediateFlags = 0; }
@@ -1548,6 +1546,7 @@ void DxilModule::LoadDxilMetadata() {
     m_bUseMinPrecision = !m_ShaderFlags.GetUseNativeLowPrecision();
     m_bDisableOptimizations = m_ShaderFlags.GetDisableOptimizations();
     m_bAllResourcesBound = m_ShaderFlags.GetAllResourcesBound();
+    m_unusedResourceBinding = m_ShaderFlags.GetUnusedResourceBinding();
     m_bResMayAlias = !m_ShaderFlags.GetResMayNotAlias();
   }
 

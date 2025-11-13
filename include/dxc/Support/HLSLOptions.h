@@ -21,6 +21,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Support/WinIncludes.h"
 
 #include "dxc/dxcapi.h"
@@ -53,8 +54,6 @@ enum HlslFlags {
   ISenseOption = (1 << 16),
   RewriteOption = (1 << 17),
 };
-
-enum class UnusedResourceBinding { Strip, ReserveAll };
 
 enum ID {
   OPT_INVALID = 0, // This is not an option ID.
@@ -229,7 +228,7 @@ public:
   std::string TimeTrace = "";           // OPT_ftime_trace[EQ]
   unsigned TimeTraceGranularity = 500;  // OPT_ftime_trace_granularity_EQ
   bool VerifyDiagnostics = false;       // OPT_verify
-  UnusedResourceBinding UnusedResources =
+  UnusedResourceBinding UnusedResourceBinding =
       UnusedResourceBinding::Strip; // OPT_fhlsl_unused_resource_bindings_EQ
   bool Verbose = false;             // OPT_verbose
 
