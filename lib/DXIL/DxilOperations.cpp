@@ -2714,6 +2714,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      1,
      {{0x400}},
      {{0x3}}}, // Overloads: <hf
+
+    // Linear Algebra Operations
+    {OC::CreateMatrix,
+     "CreateMatrix",
+     OCC::CreateMatrix,
+     "createMatrix",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
 };
 // OPCODE-OLOADS:END
 
@@ -3536,8 +3546,8 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: MatVecMul=305, MatVecMulAdd=306, OuterProductAccumulate=307,
-  // VectorAccumulate=308
-  if ((305 <= op && op <= 308)) {
+  // VectorAccumulate=308, CreateMatrix=312
+  if ((305 <= op && op <= 308) || op == 312) {
     major = 6;
     minor = 10;
     return;
@@ -3705,6 +3715,9 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
                            Type::getInt16Ty(m_Ctx)}; // HiHi, HiLo, LoHi, LoLo
   m_pFourI16Type =
       GetOrCreateStructType(m_Ctx, FourI16Types, "dx.types.fouri16", pModule);
+
+  m_pMatrixRefType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
+                                           "dx.types.MatrixRef", pModule);
 }
 
 void OP::RefreshCache() {
@@ -3816,6 +3829,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *pETy = pOverloadType;
   Type *pRes = GetHandleType();
   Type *pNodeHandle = GetNodeHandleType();
+  Type *pMatrixRef = GetMatrixRefType();
   Type *pNodeRecordHandle = GetNodeRecordHandleType();
   Type *pDim = GetDimensionsType();
   Type *pPos = GetSamplePosType();
@@ -6044,6 +6058,12 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     A(pETy);
     break;
+
+    // Linear Algebra Operations
+  case OpCode::CreateMatrix:
+    A(pMatrixRef);
+    A(pI32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -6335,6 +6355,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedC7:
   case OpCode::ReservedC8:
   case OpCode::ReservedC9:
+  case OpCode::CreateMatrix:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:
@@ -6471,6 +6492,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
 Type *OP::GetHandleType() const { return m_pHandleType; }
 
 Type *OP::GetNodeHandleType() const { return m_pNodeHandleType; }
+
+Type *OP::GetMatrixRefType() const { return m_pMatrixRefType; }
 
 Type *OP::GetHitObjectType() const { return m_pHitObjectType; }
 

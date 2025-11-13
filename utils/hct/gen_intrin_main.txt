@@ -389,6 +389,9 @@ void [[min_sm=6.10]] __builtin_OuterProductAccumulate(in LinAlg<c> InputVector1,
 
 void [[min_sm=6.10]] __builtin_VectorAccumulate(in LinAlg<c> InputVector, in RWByteAddressBuffer MatrixBuffer, in uint MatrixOffset);
 
+
+MatrixRef [[min_sm=6.10]] __builtin_la_CreateMatrix();
+
 } namespace
 
 

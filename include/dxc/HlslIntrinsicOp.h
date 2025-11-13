@@ -111,6 +111,7 @@ enum class IntrinsicOp {
   IOP___builtin_MatVecMulAdd = 391,
   IOP___builtin_OuterProductAccumulate = 392,
   IOP___builtin_VectorAccumulate = 393,
+  IOP___builtin_la_CreateMatrix = 395,
   IOP_abort = 102,
   IOP_abs = 103,
   IOP_acos = 104,
@@ -401,7 +402,7 @@ enum class IntrinsicOp {
   IOP_usign = 355,
   MOP_InterlockedUMax = 356,
   MOP_InterlockedUMin = 357,
-  Num_Intrinsics = 395,
+  Num_Intrinsics = 396,
 };
 inline bool HasUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
   switch (opcode) {
