@@ -13,7 +13,7 @@
 #define __DXC_REFLECT__
 
 #ifndef _WIN32
-#include "dxc/WinAdapter.h"
+#include "./WinAdapter.h"
 // need to disable this as it is voilated by this header
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
@@ -22,7 +22,7 @@
 #endif
 
 #include "d3d12shader.h"
-#include "dxc/dxcapi.h"
+#include "./dxcapi.h"
 
 #ifdef _MSC_VER
 #define CLSID_SCOPE __declspec(selectany) extern
