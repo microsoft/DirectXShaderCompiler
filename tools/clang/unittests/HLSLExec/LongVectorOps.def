@@ -19,11 +19,7 @@ INPUT_SET(Positive)
 INPUT_SET(Bitwise)
 INPUT_SET(SelectCond)
 INPUT_SET(FloatSpecial)
-<<<<<<< HEAD
 INPUT_SET(AllScalarOnes)
-=======
-INPUT_SET(AllOnes)
->>>>>>> main
 
 #undef INPUT_SET
 
