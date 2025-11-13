@@ -9,6 +9,7 @@
 
 #include "ShaderOpTest.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Test/HlslTestUtils.h"
 
 #include "HlslExecTestUtils.h"
 
@@ -1261,6 +1262,41 @@ FLOAT_SPECIAL_OP(OpType::IsInf, (std::isinf(A)));
 FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
 #undef FLOAT_SPECIAL_OP
 
+template <typename T> struct Op<OpType::ModF, T, 1> : DefaultValidation<T> {};
+
+template <typename T> static T modF(T Input, T &OutParam);
+
+template <> float modF(float Input, float &OutParam) {
+  return std::modf(Input, &OutParam);
+}
+
+template <> HLSLHalf_t modF(HLSLHalf_t Input, HLSLHalf_t &OutParam) {
+  float Exp = 0.0f;
+  float Man = std::modf(float(Input), &Exp);
+  OutParam = HLSLHalf_t(Exp);
+  return Man;
+}
+
+template <typename T> struct ExpectedBuilder<OpType::ModF, T> {
+  static std::vector<T> buildExpected(Op<OpType::ModF, T, 1> &,
+                                      const InputSets<T> &Inputs) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+    size_t VectorSize = Inputs[0].size();
+
+    std::vector<T> Expected;
+    Expected.resize(VectorSize * 2);
+
+    for (size_t I = 0; I < VectorSize; ++I) {
+      T Exp;
+      T Man = modF(Inputs[0][I], Exp);
+      Expected[I] = Man;
+      Expected[I + VectorSize] = Exp;
+    }
+
+    return Expected;
+  }
+};
+
 //
 // Wave Ops
 //
@@ -1559,6 +1595,7 @@ public:
   TEST_CLASS_PROPERTY(
       "Kits.Specification",
       "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
   TEST_CLASS_SETUP(classSetup) {
@@ -1628,8 +1665,14 @@ public:
               OverrideInputSize);
       }
 
-      // Only skip unsupported tests for RITP runs.
-      const bool SkipUnsupported = IsRITP;
+      bool FailIfRequirementsNotMet = false;
+#ifdef _HLK_CONF
+      FailIfRequirementsNotMet = true;
+#endif
+      WEX::TestExecution::RuntimeParameters::TryGetValue(
+          L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
+
+      const bool SkipUnsupported = !FailIfRequirementsNotMet;
       createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9,
                    SkipUnsupported);
     }
@@ -2043,10 +2086,12 @@ public:
   HLK_TEST(IsFinite, HLSLHalf_t);
   HLK_TEST(IsInf, HLSLHalf_t);
   HLK_TEST(IsNan, HLSLHalf_t);
+  HLK_TEST(ModF, HLSLHalf_t);
 
   HLK_TEST(IsFinite, float);
   HLK_TEST(IsInf, float);
   HLK_TEST(IsNan, float);
+  HLK_TEST(ModF, float);
 
   // Binary Comparison
 

@@ -4225,6 +4225,20 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_TEST_MODF
+        vector<OUT_TYPE, NUM> TestModF(vector<TYPE, NUM> Vector)
+        {
+          vector<OUT_TYPE, NUM> Mantissa;
+          vector<OUT_TYPE, NUM> Exponent;
+
+          Mantissa = modf(Vector, Exponent);
+
+          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(sizeof(OUT_TYPE) * NUM, Exponent);
+
+          return Mantissa;
+        }
+        #endif
+
         #ifdef FUNC_SHUFFLE_VECTOR
         vector<OUT_TYPE, NUM> TestShuffleVector(TYPE Scalar)
         {
