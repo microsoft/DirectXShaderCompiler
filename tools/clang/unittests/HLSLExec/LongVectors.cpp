@@ -1335,9 +1335,8 @@ template <typename T>
 struct WaveOpExpectedBuilder<OpType::WaveActiveAllEqual, T> {
   static std::vector<HLSLBool_t>
   buildExpected(Op<OpType::WaveActiveAllEqual, T, 1> &,
-                const InputSets<T> &Inputs, UINT WaveSize) {
+                const InputSets<T> &Inputs, UINT) {
     DXASSERT_NOMSG(Inputs.size() == 1);
-    UNREFERENCED_PARAMETER(WaveSize);
 
     std::vector<HLSLBool_t> Expected;
     const size_t VectorSize = Inputs[0].size();
@@ -1355,9 +1354,8 @@ struct Op<OpType::WaveReadLaneAt, T, 1> : StrictValidation {};
 template <typename T> struct WaveOpExpectedBuilder<OpType::WaveReadLaneAt, T> {
   static std::vector<T> buildExpected(Op<OpType::WaveReadLaneAt, T, 1> &,
                                       const InputSets<T> &Inputs,
-                                      UINT WaveSize) {
+                                      UINT) {
     DXASSERT_NOMSG(Inputs.size() == 1);
-    UNREFERENCED_PARAMETER(WaveSize);
 
     std::vector<T> Expected;
     const size_t VectorSize = Inputs[0].size();
@@ -1376,9 +1374,8 @@ template <typename T>
 struct WaveOpExpectedBuilder<OpType::WaveReadLaneFirst, T> {
   static std::vector<T> buildExpected(Op<OpType::WaveReadLaneFirst, T, 1> &,
                                       const InputSets<T> &Inputs,
-                                      UINT WaveSize) {
+                                      UINT) {
     DXASSERT_NOMSG(Inputs.size() == 1);
-    UNREFERENCED_PARAMETER(WaveSize);
 
     std::vector<T> Expected;
     const size_t VectorSize = Inputs[0].size();
@@ -1399,7 +1396,7 @@ template <typename T> T wavePrefixSum(T A, UINT WaveSize) {
 WAVE_OP(OpType::WavePrefixProduct, (wavePrefixProduct(A, WaveSize)));
 
 template <typename T> T wavePrefixProduct(T A, UINT) {
-  return static_cast<T>(A * 2);
+  return static_cast<T>(A * A);
 }
 
 #undef WAVE_OP

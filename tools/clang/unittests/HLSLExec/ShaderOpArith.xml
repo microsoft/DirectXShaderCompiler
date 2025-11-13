@@ -4196,9 +4196,9 @@ void MSMain(uint GID : SV_GroupIndex,
           const uint LaneCount = WaveGetLaneCount();
           const uint MidLane = LaneCount/2;
 
+          Vector = WavePrefixSum(Vector);
           if(WaveGetLaneIndex() == MidLane)
           {
-            Vector = WavePrefixSum(Vector);
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
           }
         }
@@ -4207,9 +4207,9 @@ void MSMain(uint GID : SV_GroupIndex,
         #ifdef FUNC_WAVE_PREFIX_PRODUCT
         void TestWavePrefixProduct(vector<TYPE, NUM> Vector)
         {
-          if(WaveGetLaneIndex() == 1)
+          Vector = WavePrefixProduct(Vector);
+          if(WaveGetLaneIndex() == 2)
           {
-            Vector = WavePrefixProduct(Vector);
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
           }
         }
