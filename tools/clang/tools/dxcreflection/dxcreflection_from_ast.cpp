@@ -1455,6 +1455,31 @@ AddFunctionParameter(ASTContext &ASTCtx, QualType Type, Decl *Decl,
   return ReflectionErrorSuccess;
 }
 
+static D3D12_HLSL_ENUM_TYPE GetEnumTypeFromQualType(ASTContext &ASTCtx,
+                                                    QualType desugared) {
+
+  const auto &semantics = ASTCtx.getTypeInfo(desugared);
+
+  switch (semantics.Width) {
+
+  default:
+  case 32:
+    return desugared->isUnsignedIntegerType() ? D3D12_HLSL_ENUM_TYPE_UINT
+                                              : D3D12_HLSL_ENUM_TYPE_INT;
+
+  case 16:
+    return desugared->isUnsignedIntegerType() ? D3D12_HLSL_ENUM_TYPE_UINT16_T
+                                              : D3D12_HLSL_ENUM_TYPE_INT16_T;
+
+  case 64:
+    return desugared->isUnsignedIntegerType() ? D3D12_HLSL_ENUM_TYPE_UINT64_T
+                                              : D3D12_HLSL_ENUM_TYPE_INT64_T;
+  }
+
+  assert(false && "QualType of invalid type passed");
+  return D3D12_HLSL_ENUM_TYPE_INT;
+}
+
 struct RecursiveStmtReflector : public StmtVisitor<RecursiveStmtReflector> {
 
   ASTContext &ASTCtx;
@@ -1563,11 +1588,140 @@ struct RecursiveStmtReflector : public StmtVisitor<RecursiveStmtReflector> {
     if (LastError)
       return;
 
-    LastError = GenerateStatement(
-        ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1, Features,
-        ParentNodeId, DefaultRowMaj, FwdDecls, LangOpts,
-        D3D12_HLSL_NODE_TYPE_SWITCH, Switch->getConditionVariable(),
-        Switch->getBody(), nullptr, Switch);
+    uint32_t loc = uint32_t(Refl.IfSwitchStatements.size());
+
+    const SourceRange &sourceRange = Switch->getSourceRange();
+
+    uint32_t nodeId;
+    if (ReflectionError err =
+            PushNextNodeId(nodeId, Refl, SM, LangOpts, "", nullptr,
+                           D3D12_HLSL_NODE_TYPE_SWITCH, ParentNodeId, loc,
+                           &sourceRange, &FwdDecls)) {
+      LastError = err;
+      return;
+    }
+
+    Refl.IfSwitchStatements.push_back(ReflectionIfSwitchStmt());
+
+    VarDecl *cond = Switch->getConditionVariable();
+
+    if (cond) {
+
+      uint32_t typeId;
+      if (ReflectionError err = GenerateTypeInfo(
+              typeId, ASTCtx, Refl, cond->getType(), DefaultRowMaj)) {
+        LastError = err;
+        return;
+      }
+
+      const SourceRange &sourceRange = cond->getSourceRange();
+
+      uint32_t nextNodeId;
+      if (ReflectionError err =
+              PushNextNodeId(nextNodeId, Refl, SM, LangOpts, cond->getName(),
+                             cond, D3D12_HLSL_NODE_TYPE_VARIABLE, nodeId,
+                             typeId, &sourceRange, &FwdDecls)) {
+        LastError = err;
+        return;
+      }
+    }
+    
+    Stmt *body = Switch->getBody();
+    assert(body && "SwitchStmt has no body");
+
+    bool hasElseOrDefault = false;
+
+    for (Stmt *child : body->children()) {
+
+      const SwitchCase *switchCase = nullptr;
+      uint64_t caseValue = uint64_t(-1);
+      D3D12_HLSL_ENUM_TYPE valueType = D3D12_HLSL_ENUM_TYPE_INT;
+      D3D12_HLSL_NODE_TYPE nodeType = D3D12_HLSL_NODE_TYPE_INVALID;
+
+      bool isComplexCase = true;
+
+      if (const CaseStmt *caseStmt = dyn_cast<CaseStmt>(child)) {
+
+        switchCase = caseStmt;
+
+        llvm::APSInt result;
+
+        if (caseStmt->getLHS()->isIntegerConstantExpr(result, ASTCtx)) {
+          caseValue = result.getZExtValue();
+
+          QualType desugared = caseStmt->getLHS()->getType();
+          valueType = GetEnumTypeFromQualType(ASTCtx, desugared);
+          isComplexCase = false;
+        }
+
+        else
+          caseValue = uint64_t(-1);
+
+        nodeType = D3D12_HLSL_NODE_TYPE_CASE;
+
+      } else if (const DefaultStmt *defaultStmt =
+                     dyn_cast<DefaultStmt>(child)) {
+        switchCase = defaultStmt;
+        hasElseOrDefault = true;
+        nodeType = D3D12_HLSL_NODE_TYPE_DEFAULT;
+      }
+
+      if (!switchCase)
+        continue;
+
+      uint32_t loc = uint32_t(Refl.BranchStatements.size());
+
+      const SourceRange &sourceRange = Switch->getSourceRange();
+
+      uint32_t childId;
+      if (ReflectionError err =
+              PushNextNodeId(childId, Refl, SM, LangOpts, "", nullptr, nodeType,
+                             nodeId, loc, &sourceRange, &FwdDecls)) {
+        LastError = err;
+        return;
+      }
+
+      Refl.BranchStatements.push_back(ReflectionBranchStmt());
+      if (ReflectionError err = ReflectionBranchStmt::Initialize(
+              Refl.BranchStatements.back(), childId, false, isComplexCase,
+              valueType, caseValue)) {
+        LastError = err;
+        return;
+      }
+
+      uint32_t parentSelf = ParentNodeId;
+      ParentNodeId = childId;
+
+      auto firstIt = child->child_begin();
+      auto it = firstIt;
+
+      if (it != child->child_end()) {
+
+        ++it;
+
+        if (it == child->child_end() && isa<CompoundStmt>(*firstIt)) {
+          for (Stmt *childChild : firstIt->children())
+            if (ReflectionError err = TraverseStmt(childChild)) {
+              LastError = err;
+              return;
+            }
+        }
+
+        else
+          for (Stmt *childChild : child->children())
+            if (ReflectionError err = TraverseStmt(childChild)) {
+              LastError = err;
+              return;
+            }
+      }
+
+      ParentNodeId = parentSelf;
+    }
+
+    if(ReflectionError err = ReflectionIfSwitchStmt::Initialize(Refl.IfSwitchStatements[loc], nodeId, cond, hasElseOrDefault)) {
+      LastError = err;
+      return;
+    }
   }
 
   void VisitCompoundStmt(CompoundStmt *C) {
@@ -1874,28 +2028,8 @@ public:
 
     QualType enumType = ED->getIntegerType();
     QualType desugared = enumType.getDesugaredType(ASTCtx);
-    const auto &semantics = ASTCtx.getTypeInfo(desugared);
 
-    D3D12_HLSL_ENUM_TYPE type;
-
-    switch (semantics.Width) {
-
-    default:
-    case 32:
-      type = desugared->isUnsignedIntegerType() ? D3D12_HLSL_ENUM_TYPE_UINT
-                                                : D3D12_HLSL_ENUM_TYPE_INT;
-      break;
-
-    case 16:
-      type = desugared->isUnsignedIntegerType() ? D3D12_HLSL_ENUM_TYPE_UINT16_T
-                                                : D3D12_HLSL_ENUM_TYPE_INT16_T;
-      break;
-
-    case 64:
-      type = desugared->isUnsignedIntegerType() ? D3D12_HLSL_ENUM_TYPE_UINT64_T
-                                                : D3D12_HLSL_ENUM_TYPE_INT64_T;
-      break;
-    }
+    D3D12_HLSL_ENUM_TYPE type = GetEnumTypeFromQualType(ASTCtx, desugared);
 
     Refl.Enums.push_back({nodeId, type});
   }

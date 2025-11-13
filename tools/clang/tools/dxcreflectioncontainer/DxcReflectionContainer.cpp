@@ -196,6 +196,9 @@ struct HLSLReflectionDataHeader {
   uint32_t Parameters;
 
   uint32_t Statements;
+  uint32_t IfSwitchStatements;
+
+  uint32_t BranchStatements;
   uint32_t Pad;
 };
 
@@ -472,40 +475,44 @@ void ReflectionData::Dump(std::vector<std::byte> &Bytes) const {
   Advance(toReserve, Strings, StringsNonDebug, Sources, Nodes, NodeSymbols,
           Registers, Functions, Enums, EnumValues, Annotations, ArraySizes,
           Arrays, MemberTypeIds, TypeList, MemberNameIds, Types, TypeSymbols,
-          Buffers, Parameters, Statements);
+          Buffers, Parameters, Statements, IfSwitchStatements,
+          BranchStatements);
 
   Bytes.resize(toReserve);
 
   toReserve = 0;
 
-  UnsafeCast<HLSLReflectionDataHeader>(Bytes,
-                            toReserve) = {ReflectionDataMagic,
-                                          ReflectionDataVersion,
-                                          uint16_t(Sources.size()),
-                                          Features,
-                                          uint32_t(StringsNonDebug.size()),
-                                          uint32_t(Strings.size()),
-                                          uint32_t(Nodes.size()),
-                                          uint32_t(Registers.size()),
-                                          uint32_t(Functions.size()),
-                                          uint32_t(Enums.size()),
-                                          uint32_t(EnumValues.size()),
-                                          uint32_t(Annotations.size()),
-                                          uint32_t(Arrays.size()),
-                                          uint32_t(ArraySizes.size()),
-                                          uint32_t(MemberTypeIds.size()),
-                                          uint32_t(Types.size()),
-                                          uint32_t(Buffers.size()),
-                                          uint32_t(TypeList.size()),
-                                          uint32_t(Parameters.size()),
-                                          uint32_t(Statements.size())};
+  UnsafeCast<HLSLReflectionDataHeader>(Bytes, toReserve) = {
+      ReflectionDataMagic,
+      ReflectionDataVersion,
+      uint16_t(Sources.size()),
+      Features,
+      uint32_t(StringsNonDebug.size()),
+      uint32_t(Strings.size()),
+      uint32_t(Nodes.size()),
+      uint32_t(Registers.size()),
+      uint32_t(Functions.size()),
+      uint32_t(Enums.size()),
+      uint32_t(EnumValues.size()),
+      uint32_t(Annotations.size()),
+      uint32_t(Arrays.size()),
+      uint32_t(ArraySizes.size()),
+      uint32_t(MemberTypeIds.size()),
+      uint32_t(Types.size()),
+      uint32_t(Buffers.size()),
+      uint32_t(TypeList.size()),
+      uint32_t(Parameters.size()),
+      uint32_t(Statements.size()),
+      uint32_t(IfSwitchStatements.size()),
+      uint32_t(BranchStatements.size())};
 
   toReserve += sizeof(HLSLReflectionDataHeader);
 
   Append(Bytes, toReserve, Strings, StringsNonDebug, Sources, Nodes,
          NodeSymbols, Registers, Functions, Enums, EnumValues, Annotations,
          ArraySizes, Arrays, MemberTypeIds, TypeList, MemberNameIds, Types,
-         TypeSymbols, Buffers, Parameters, Statements);
+         TypeSymbols, Buffers, Parameters, Statements, IfSwitchStatements,
+         BranchStatements);
 }
 
 D3D_CBUFFER_TYPE ReflectionData::GetBufferType(uint8_t Type) {
@@ -567,7 +574,9 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
           Arrays, header.Arrays, MemberTypeIds, header.Members, TypeList,
           header.TypeListCount, MemberNameIds, memberSymbolCount, Types,
           header.Types, TypeSymbols, typeSymbolCount, Buffers, header.Buffers,
-          Parameters, header.Parameters, Statements, header.Statements))
+          Parameters, header.Parameters, Statements, header.Statements,
+          IfSwitchStatements, header.IfSwitchStatements, BranchStatements,
+          header.BranchStatements))
     return err;
 
   // Validation errors to prevent accessing invalid data
@@ -638,6 +647,17 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
 
       break;
 
+    case D3D12_HLSL_NODE_TYPE_DEFAULT:
+    case D3D12_HLSL_NODE_TYPE_CASE:
+
+      maxValue = header.BranchStatements;
+
+      if (Nodes[node.GetParentId()].GetNodeType() !=
+          D3D12_HLSL_NODE_TYPE_SWITCH)
+        return HLSL_REFL_ERR(
+            "Node is a default/case but doesn't belong to a switch", i);
+      break;
+
     case D3D12_HLSL_NODE_TYPE_SCOPE:
     case D3D12_HLSL_NODE_TYPE_DO:
     case D3D12_HLSL_NODE_TYPE_IF:
@@ -645,10 +665,12 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
     case D3D12_HLSL_NODE_TYPE_WHILE:
     case D3D12_HLSL_NODE_TYPE_SWITCH:
 
-      maxValue = node.GetNodeType() != D3D12_HLSL_NODE_TYPE_SCOPE &&
-                         node.GetNodeType() != D3D12_HLSL_NODE_TYPE_DO
-                     ? header.Statements
-                     : 1;
+      maxValue = node.GetNodeType() == D3D12_HLSL_NODE_TYPE_SWITCH
+                     ? header.IfSwitchStatements
+                     : (node.GetNodeType() != D3D12_HLSL_NODE_TYPE_SCOPE &&
+                                node.GetNodeType() != D3D12_HLSL_NODE_TYPE_DO
+                            ? header.Statements
+                            : 1);
 
       switch (Nodes[node.GetParentId()].GetNodeType()) {
       case D3D12_HLSL_NODE_TYPE_FUNCTION:
@@ -658,6 +680,11 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
       case D3D12_HLSL_NODE_TYPE_FOR:
       case D3D12_HLSL_NODE_TYPE_WHILE:
       case D3D12_HLSL_NODE_TYPE_SWITCH:
+      case D3D12_HLSL_NODE_TYPE_CASE:
+      case D3D12_HLSL_NODE_TYPE_DEFAULT:
+      //TODO: case D3D12_HLSL_NODE_TYPE_IF_START:
+      //TODO: case D3D12_HLSL_NODE_TYPE_IF_ELSE:
+      //TODO: case D3D12_HLSL_NODE_TYPE_ELSE:
         break;
 
       default:
@@ -696,15 +723,18 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
         return HLSL_REFL_ERR("Node is a parameter, typedef, variable or "
                              "static variable but also has children",
                              i);
-
-      [[fallthrough]];
+      break;
 
     case D3D12_HLSL_NODE_TYPE_IF:
     case D3D12_HLSL_NODE_TYPE_SCOPE:
     case D3D12_HLSL_NODE_TYPE_DO:
     case D3D12_HLSL_NODE_TYPE_FOR:
     case D3D12_HLSL_NODE_TYPE_WHILE:
-    case D3D12_HLSL_NODE_TYPE_SWITCH:
+    case D3D12_HLSL_NODE_TYPE_DEFAULT:
+    case D3D12_HLSL_NODE_TYPE_CASE:
+      // TODO: case D3D12_HLSL_NODE_TYPE_IF_START:
+      // TODO: case D3D12_HLSL_NODE_TYPE_IF_ELSE:
+      // TODO: case D3D12_HLSL_NODE_TYPE_ELSE:
       if (node.GetChildCount())
         validateChildren.push_back(i);
     }
@@ -816,7 +846,25 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
         Nodes[enumVal.NodeId].GetLocalId() != i ||
         Nodes[Nodes[enumVal.NodeId].GetParentId()].GetNodeType() !=
             D3D12_HLSL_NODE_TYPE_ENUM)
-      return HLSL_REFL_ERR("Enum points to an invalid nodeId", i);
+      return HLSL_REFL_ERR("Enum value points to an invalid nodeId", i);
+
+    uint64_t maxVal = uint64_t(-1);
+    ReflectionNode &parent = Nodes[Nodes[enumVal.NodeId].GetParentId()];
+
+    switch (Enums[parent.GetLocalId()].Type) {
+    case D3D12_HLSL_ENUM_TYPE_UINT:
+    case D3D12_HLSL_ENUM_TYPE_INT:
+      maxVal = uint32_t(-1);
+      break;
+
+    case D3D12_HLSL_ENUM_TYPE_UINT16_T:
+    case D3D12_HLSL_ENUM_TYPE_INT16_T:
+      maxVal = uint16_t(-1);
+      break;
+    }
+
+    if (uint64_t(enumVal.Value) > maxVal)
+      return HLSL_REFL_ERR("Enum value is invalid", i);
   }
 
   for (uint32_t i = 0; i < header.Arrays; ++i) {
@@ -907,6 +955,11 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
       case D3D12_HLSL_NODE_TYPE_FOR:
       case D3D12_HLSL_NODE_TYPE_WHILE:
       case D3D12_HLSL_NODE_TYPE_SWITCH:
+      case D3D12_HLSL_NODE_TYPE_DEFAULT:
+      case D3D12_HLSL_NODE_TYPE_CASE:
+      //TODO: case D3D12_HLSL_NODE_TYPE_IF_START:
+      //TODO: case D3D12_HLSL_NODE_TYPE_IF_ELSE:
+      //TODO: case D3D12_HLSL_NODE_TYPE_ELSE:
         break;
       default:
         return HLSL_REFL_ERR(
@@ -938,15 +991,153 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
           "Statement has condition variable but first child is not a variable",
           i);
 
-    switch (Nodes[Stmt.GetNodeId()].GetNodeType()) {
+    switch (node.GetNodeType()) {
     case D3D12_HLSL_NODE_TYPE_IF:
     case D3D12_HLSL_NODE_TYPE_WHILE:
     case D3D12_HLSL_NODE_TYPE_FOR:
-    case D3D12_HLSL_NODE_TYPE_SWITCH:
       break;
     default:
       return HLSL_REFL_ERR("Statement has invalid node type", i);
     }
+  }
+
+  for (uint32_t i = 0; i < header.IfSwitchStatements; ++i) {
+
+    const ReflectionIfSwitchStmt &Stmt = IfSwitchStatements[i];
+
+    if (Stmt.GetNodeId() >= header.Nodes ||
+        Nodes[Stmt.GetNodeId()].GetLocalId() != i)
+      return HLSL_REFL_ERR("IfSwitchStmt points to an invalid nodeId", i);
+
+    bool condVar = Stmt.HasConditionVar();
+    uint32_t minParamCount = condVar + Stmt.HasElseOrDefault();
+    const ReflectionNode &node = Nodes[Stmt.GetNodeId()];
+
+    if (node.GetChildCount() < minParamCount)
+      return HLSL_REFL_ERR("IfSwitchStmt didn't have required child nodes", i);
+
+    if (condVar && node.GetNodeType() == D3D12_HLSL_NODE_TYPE_IF)
+      return HLSL_REFL_ERR("If statement can't have a conditional node in root",
+                           i);
+
+    if (condVar && Nodes[Stmt.GetNodeId() + 1].GetNodeType() !=
+                       D3D12_HLSL_NODE_TYPE_VARIABLE)
+      return HLSL_REFL_ERR(
+          "Statement has condition variable but first child is not a variable",
+          i);
+
+    switch (node.GetNodeType()) {
+    case D3D12_HLSL_NODE_TYPE_IF:
+    case D3D12_HLSL_NODE_TYPE_SWITCH:
+      break;
+    default:
+      return HLSL_REFL_ERR("IfSwitchStmt has invalid node type", i);
+    }
+
+    // Ensure there's only one default/else and the first is the IF_FIRST node.
+
+    uint32_t nodeStart = Stmt.GetNodeId() + 1 + condVar;
+    uint32_t nodeEnd = Stmt.GetNodeId() + node.GetChildCount();
+    bool hasSingleNode =
+        false; // Else or default where you're only allowed to have one
+
+    for (uint32_t j = nodeStart, k = 0; j < nodeEnd; ++j, ++k) {
+
+      const ReflectionNode &child = Nodes[j];
+
+      bool isSingleNode = child.GetNodeType() == D3D12_HLSL_NODE_TYPE_DEFAULT;  //TODO: IF: ELSE
+
+      if (isSingleNode) {
+
+        if (hasSingleNode)
+          return HLSL_REFL_ERR("IfSwitchStmt already has default/else", i);
+
+        hasSingleNode = true;
+      }
+
+      else {
+
+        //TODO:  if (node.GetNodeType() == D3D12_HLSL_NODE_TYPE_IF)
+        //     expectedType = !k ? IF_START : ELSE_IF;
+
+        bool invalid = child.GetNodeType() != D3D12_HLSL_NODE_TYPE_CASE;
+
+        if (invalid)
+          return HLSL_REFL_ERR("IfSwitchStmt has an invalid member", i);
+      }
+
+      j += child.GetChildCount();
+    }
+  }
+
+  for (uint32_t i = 0; i < header.BranchStatements; ++i) {
+
+    const ReflectionBranchStmt &Stmt = BranchStatements[i];
+
+    if (Stmt.GetNodeId() >= header.Nodes ||
+        Nodes[Stmt.GetNodeId()].GetLocalId() != i)
+      return HLSL_REFL_ERR("BranchStatements points to an invalid nodeId", i);
+
+    if (Stmt.GetValueType() < D3D12_HLSL_ENUM_TYPE_UINT ||
+        Stmt.GetValueType() > D3D12_HLSL_ENUM_TYPE_INT16_T)
+      return HLSL_REFL_ERR("BranchStatement has an invalid value type", i);
+
+    bool condVar = Stmt.HasConditionVar();
+    uint32_t minParamCount = condVar;
+    const ReflectionNode &node = Nodes[Stmt.GetNodeId()];
+
+    if (node.GetChildCount() < minParamCount)
+      return HLSL_REFL_ERR("IfSwitchStmt didn't have required child nodes", i);
+
+    // TODO: Else
+
+    if (condVar && (node.GetNodeType() == D3D12_HLSL_NODE_TYPE_DEFAULT ||
+                    node.GetNodeType() == D3D12_HLSL_NODE_TYPE_CASE))
+      return HLSL_REFL_ERR("If statement can't have a conditional node in root",
+                           i);
+
+    if (condVar && Nodes[Stmt.GetNodeId() + 1].GetNodeType() !=
+                       D3D12_HLSL_NODE_TYPE_VARIABLE)
+      return HLSL_REFL_ERR(
+          "Statement has condition variable but first child is not a variable",
+          i);
+
+    switch (node.GetNodeType()) {
+    case D3D12_HLSL_NODE_TYPE_CASE:
+    case D3D12_HLSL_NODE_TYPE_DEFAULT:
+      // TODO: case D3D12_HLSL_NODE_TYPE_IF_START:
+      // TODO: case D3D12_HLSL_NODE_TYPE_ELSE_IF:
+      // TODO: case D3D12_HLSL_NODE_TYPE_ELSE:
+      break;
+    default:
+      return HLSL_REFL_ERR("IfSwitchStmt has invalid node type", i);
+    }
+
+    if (node.GetNodeType() == D3D12_HLSL_NODE_TYPE_CASE &&
+        !Stmt.IsComplexCase()) {
+
+      uint64_t maxVal = uint64_t(-1);
+
+      switch (Stmt.GetValueType()) {
+
+      case D3D12_HLSL_ENUM_TYPE_UINT:
+      case D3D12_HLSL_ENUM_TYPE_INT:
+        maxVal = uint32_t(-1);
+        break;
+
+      case D3D12_HLSL_ENUM_TYPE_UINT16_T:
+      case D3D12_HLSL_ENUM_TYPE_INT16_T:
+        maxVal = uint16_t(-1);
+        break;
+      }
+
+      if (Stmt.GetValue() > maxVal)
+        return HLSL_REFL_ERR("IfSwitchStmt is out of bounds for the value type",
+                             i);
+    }
+
+    else if (Stmt.GetValue() != uint64_t(-1))
+      return HLSL_REFL_ERR("IfSwitchStmt should have -1 as value", i);
   }
 
   for (uint32_t i = 0; i < header.Types; ++i) {

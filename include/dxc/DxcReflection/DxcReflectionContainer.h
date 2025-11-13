@@ -384,8 +384,7 @@ struct ReflectionFunctionParameter { // Mirrors D3D12_PARAMETER_DESC without
   }
 };
 
-// A statement is a for, while, if, switch. Basically every Stmt except do or
-// scope. It can contain the following child nodes:
+// A statement is a for or a while statement.
 // - if HasConditionVar(): a variable in the condition
 // - NodeCount children (If: children ex. else body, For: init children)
 // - Rest of the body (If: else body, otherwise: normal body)
@@ -435,6 +434,106 @@ public:
     return NodeId == Other.NodeId &&
            NodeCount_HasConditionVar_HasElse ==
                Other.NodeCount_HasConditionVar_HasElse;
+  }
+};
+
+// An if/switch statement holds the following.
+// - if HasConditionVar(): a variable in the switch condition (unused for if)
+// - BranchCount (inc. default/else, implicit->childCount)
+// Each branch then has a:
+// - counter (or value for switch/case (non default))
+// - if HasConditionVar(): a variable in the if
+// - nodeCount (implicit) for the contents.
+class ReflectionIfSwitchStmt {
+
+  uint32_t NodeId;
+
+  union {
+    uint32_t ConditionVarElseOrDefault;
+    struct {
+      uint16_t Padding;
+      bool ConditionVar;
+      bool ElseOrDefault;
+    };
+  };
+
+  ReflectionIfSwitchStmt(uint32_t NodeId, bool ConditionVar, bool ElseOrDefault)
+      : NodeId(NodeId), Padding(0), ConditionVar(ConditionVar),
+        ElseOrDefault(ElseOrDefault) {}
+
+public:
+  ReflectionIfSwitchStmt() = default;
+
+  [[nodiscard]] static ReflectionError
+  Initialize(ReflectionIfSwitchStmt &IfSwitchStmt, uint32_t NodeId,
+             bool HasConditionVar, bool HasElseOrDefault) {
+
+    IfSwitchStmt =
+        ReflectionIfSwitchStmt(NodeId, HasConditionVar, HasElseOrDefault);
+    return ReflectionErrorSuccess;
+  }
+
+  uint32_t GetNodeId() const { return NodeId; }
+
+  bool HasConditionVar() const { return ConditionVar; }
+  bool HasElseOrDefault() const { return ElseOrDefault; }
+
+  bool operator==(const ReflectionIfSwitchStmt &Other) const {
+    return NodeId == Other.NodeId &&
+           ConditionVarElseOrDefault == Other.ConditionVarElseOrDefault;
+  }
+};
+
+class ReflectionBranchStmt {
+
+  union {
+    uint64_t NodeIdConditionVarType;
+    struct {
+      uint32_t NodeId;
+      bool ConditionVar;
+      bool ComplexCase;
+      uint8_t ValueType; // D3D12_HLSL_ENUM_TYPE
+      uint8_t Padding;
+    };
+  };
+
+  uint64_t Value;
+
+  ReflectionBranchStmt(uint32_t NodeId, bool ConditionVar, bool ComplexCase,
+                       D3D12_HLSL_ENUM_TYPE ValueType, uint64_t Value)
+      : NodeId(NodeId), ConditionVar(ConditionVar), ComplexCase(ComplexCase),
+        ValueType(ValueType), Padding(0), Value(Value) {}
+
+public:
+  ReflectionBranchStmt() = default;
+
+  [[nodiscard]] static ReflectionError
+  Initialize(ReflectionBranchStmt &BranchStmt, uint32_t NodeId,
+             bool ConditionVar, bool ComplexCase,
+             D3D12_HLSL_ENUM_TYPE ValueType, uint64_t Value) {
+
+    if (ValueType < D3D12_HLSL_ENUM_TYPE_UINT ||
+        ValueType > D3D12_HLSL_ENUM_TYPE_INT16_T)
+      return HLSL_REFL_ERR("ValueType out of bounds");
+
+    BranchStmt = ReflectionBranchStmt(NodeId, ConditionVar, ComplexCase,
+                                      ValueType, Value);
+    return ReflectionErrorSuccess;
+  }
+
+  // Only (16-bit, 32-bit or 64-bit)(signed, unsigned)
+  D3D12_HLSL_ENUM_TYPE GetValueType() const {
+    return D3D12_HLSL_ENUM_TYPE(ValueType);
+  }
+
+  uint32_t GetNodeId() const { return NodeId; }
+  uint64_t GetValue() const { return Value; } // Manually cast this
+  bool HasConditionVar() const { return ConditionVar; }
+  bool IsComplexCase() const { return ComplexCase; }
+
+  bool operator==(const ReflectionBranchStmt &Other) const {
+    return NodeIdConditionVarType == Other.NodeIdConditionVarType &&
+           Value == Other.Value;
   }
 };
 
@@ -843,6 +942,8 @@ struct ReflectionData {
   std::vector<ReflectionShaderBuffer> Buffers;
 
   std::vector<ReflectionScopeStmt> Statements;
+  std::vector<ReflectionIfSwitchStmt> IfSwitchStatements;
+  std::vector<ReflectionBranchStmt> BranchStatements;
 
   // Can be stripped if !(D3D12_HLSL_REFLECTION_FEATURE_SYMBOL_INFO)
 
@@ -889,7 +990,9 @@ struct ReflectionData {
            ArraySizes == Other.ArraySizes &&
            MemberTypeIds == Other.MemberTypeIds && TypeList == Other.TypeList &&
            Types == Other.Types && Buffers == Other.Buffers &&
-           Parameters == Other.Parameters && Statements == Other.Statements;
+           Parameters == Other.Parameters && Statements == Other.Statements &&
+           IfSwitchStatements == Other.IfSwitchStatements &&
+           BranchStatements == Other.BranchStatements;
   }
 
   bool operator==(const ReflectionData &Other) const {

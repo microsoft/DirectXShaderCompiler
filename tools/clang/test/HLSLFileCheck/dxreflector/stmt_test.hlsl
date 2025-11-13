@@ -69,6 +69,18 @@ void test(uint b) {
 	}
 
 	switch(b) {
+		case 0:
+			break;
+		default:
+			break;
+	}
+
+	switch(b) {
+		default:
+			break;
+	}
+
+	switch(b) {
 		case 0: {
 			float c;
 			break;
@@ -82,6 +94,10 @@ void test(uint b) {
 			break;
 		}
 		case 3: {
+			float c;
+			break;
+		}
+		default: {
 			float c;
 			break;
 		}
@@ -318,7 +334,7 @@ void test(uint b) {
 // CHECK:                                                                                                                 "Name": "c",
 // CHECK:                                                                                                                 "NodeType": "Variable",
 // CHECK:                                                                                                                 "Type": {
-// CHECK:                                                                                                                        "Name": "float"
+// CHECK:                                                                                                                         "Name": "float"
 // CHECK:                                                                                                                 }
 // CHECK:                                                                                                         }
 // CHECK:                                                                                                 ],
@@ -326,24 +342,24 @@ void test(uint b) {
 // CHECK:                                                                                                         {
 // CHECK:                                                                                                                 "NodeType": "If",
 // CHECK:                                                                                                                 "If": {
-// CHECK:                                                                                                                        "Body": [
-// CHECK:                                                                                                                        {
-// CHECK:                                                                                                                        "Name": "c",
-// CHECK:                                                                                                                        "NodeType": "Variable",
-// CHECK:                                                                                                                        "Type": {
-// CHECK:                                                                                                                        "Name": "float"
-// CHECK:                                                                                                                        }
-// CHECK:                                                                                                                        }
-// CHECK:                                                                                                                        ],
-// CHECK:                                                                                                                        "Else": [
-// CHECK:                                                                                                                        {
-// CHECK:                                                                                                                        "Name": "c",
-// CHECK:                                                                                                                        "NodeType": "Variable",
-// CHECK:                                                                                                                        "Type": {
-// CHECK:                                                                                                                        "Name": "float"
-// CHECK:                                                                                                                        }
-// CHECK:                                                                                                                        }
-// CHECK:                                                                                                                        ]
+// CHECK:                                                                                                                         "Body": [
+// CHECK:                                                                                                                                 {
+// CHECK:                                                                                                                                         "Name": "c",
+// CHECK:                                                                                                                                         "NodeType": "Variable",
+// CHECK:                                                                                                                                         "Type": {
+// CHECK:                                                                                                                                                 "Name": "float"
+// CHECK:                                                                                                                                         }
+// CHECK:                                                                                                                                 }
+// CHECK:                                                                                                                         ],
+// CHECK:                                                                                                                         "Else": [
+// CHECK:                                                                                                                                 {
+// CHECK:                                                                                                                                         "Name": "c",
+// CHECK:                                                                                                                                         "NodeType": "Variable",
+// CHECK:                                                                                                                                         "Type": {
+// CHECK:                                                                                                                                                 "Name": "float"
+// CHECK:                                                                                                                                         }
+// CHECK:                                                                                                                                 }
+// CHECK:                                                                                                                         ]
 // CHECK:                                                                                                                 }
 // CHECK:                                                                                                         }
 // CHECK:                                                                                                 ]
@@ -365,12 +381,149 @@ void test(uint b) {
 // CHECK:                                                                 "Name": "uint"
 // CHECK:                                                         }
 // CHECK:                                                 }
-// CHECK:                                         }
+// CHECK:                                         },
+// CHECK:                                         "Children": [
+// CHECK:                                                 {
+// CHECK:                                                         "NodeType": "Case",
+// CHECK:                                                         "Case": {
+// CHECK:                                                                 "Type": "uint",
+// CHECK:                                                                 "Value": 0
+// CHECK:                                                         },
+// CHECK:                                                         "Children": [
+// CHECK:                                                                 {
+// CHECK:                                                                         "Name": "c",
+// CHECK:                                                                         "NodeType": "Variable",
+// CHECK:                                                                         "Type": {
+// CHECK:                                                                                 "Name": "float"
+// CHECK:                                                                         }
+// CHECK:                                                                 }
+// CHECK:                                                         ]
+// CHECK:                                                 }
+// CHECK:                                         ]
 // CHECK:                                 },
 // CHECK:                                 {
 // CHECK:                                         "NodeType": "Switch",
-// CHECK:                                         "Switch": {
-// CHECK:                                         }
+// CHECK:                                         "Children": [
+// CHECK:                                                 {
+// CHECK:                                                         "NodeType": "Case",
+// CHECK:                                                         "Case": {
+// CHECK:                                                                 "Type": "uint",
+// CHECK:                                                                 "Value": 0
+// CHECK:                                                         }
+// CHECK:                                                 },
+// CHECK:                                                 {
+// CHECK:                                                         "NodeType": "Default"
+// CHECK:                                                 }
+// CHECK:                                         ]
+// CHECK:                                 },
+// CHECK:                                 {
+// CHECK:                                         "NodeType": "Switch",
+// CHECK:                                         "Children": [
+// CHECK:                                                 {
+// CHECK:                                                         "NodeType": "Default"
+// CHECK:                                                 }
+// CHECK:                                         ]
+// CHECK:                                 },
+// CHECK:                                 {
+// CHECK:                                         "NodeType": "Switch",
+// CHECK:                                         "Children": [
+// CHECK:                                                 {
+// CHECK:                                                         "NodeType": "Case",
+// CHECK:                                                         "Case": {
+// CHECK:                                                                 "Type": "uint",
+// CHECK:                                                                 "Value": 0
+// CHECK:                                                         },
+// CHECK:                                                         "Children": [
+// CHECK:                                                                 {
+// CHECK:                                                                         "NodeType": "Scope",
+// CHECK:                                                                         "Children": [
+// CHECK:                                                                                 {
+// CHECK:                                                                                         "Name": "c",
+// CHECK:                                                                                         "NodeType": "Variable",
+// CHECK:                                                                                         "Type": {
+// CHECK:                                                                                                 "Name": "float"
+// CHECK:                                                                                         }
+// CHECK:                                                                                 }
+// CHECK:                                                                         ]
+// CHECK:                                                                 }
+// CHECK:                                                         ]
+// CHECK:                                                 },
+// CHECK:                                                 {
+// CHECK:                                                         "NodeType": "Case",
+// CHECK:                                                         "Case": {
+// CHECK:                                                                 "Type": "uint",
+// CHECK:                                                                 "Value": 1
+// CHECK:                                                         },
+// CHECK:                                                         "Children": [
+// CHECK:                                                                 {
+// CHECK:                                                                         "NodeType": "Scope",
+// CHECK:                                                                         "Children": [
+// CHECK:                                                                                 {
+// CHECK:                                                                                         "Name": "c",
+// CHECK:                                                                                         "NodeType": "Variable",
+// CHECK:                                                                                         "Type": {
+// CHECK:                                                                                                 "Name": "float"
+// CHECK:                                                                                         }
+// CHECK:                                                                                 }
+// CHECK:                                                                         ]
+// CHECK:                                                                 }
+// CHECK:                                                         ]
+// CHECK:                                                 },
+// CHECK:                                                 {
+// CHECK:                                                         "NodeType": "Case",
+// CHECK:                                                         "Case": {
+// CHECK:                                                                 "Type": "uint",
+// CHECK:                                                                 "Value": 2
+// CHECK:                                                         },
+// CHECK:                                                         "Children": [
+// CHECK:                                                                 {
+// CHECK:                                                                         "NodeType": "Scope",
+// CHECK:                                                                         "Children": [
+// CHECK:                                                                                 {
+// CHECK:                                                                                         "Name": "c",
+// CHECK:                                                                                         "NodeType": "Variable",
+// CHECK:                                                                                         "Type": {
+// CHECK:                                                                                                 "Name": "float"
+// CHECK:                                                                                         }
+// CHECK:                                                                                 }
+// CHECK:                                                                         ]
+// CHECK:                                                                 }
+// CHECK:                                                         ]
+// CHECK:                                                 },
+// CHECK:                                                 {
+// CHECK:                                                         "NodeType": "Case",
+// CHECK:                                                         "Case": {
+// CHECK:                                                                 "Type": "uint",
+// CHECK:                                                                 "Value": 3
+// CHECK:                                                         },
+// CHECK:                                                         "Children": [
+// CHECK:                                                                 {
+// CHECK:                                                                         "NodeType": "Scope",
+// CHECK:                                                                         "Children": [
+// CHECK:                                                                                 {
+// CHECK:                                                                                         "Name": "c",
+// CHECK:                                                                                         "NodeType": "Variable",
+// CHECK:                                                                                         "Type": {
+// CHECK:                                                                                                 "Name": "float"
+// CHECK:                                                                                         }
+// CHECK:                                                                                 }
+// CHECK:                                                                         ]
+// CHECK:                                                                 }
+// CHECK:                                                         ]
+// CHECK:                                                 },
+// CHECK:                                                 {
+// CHECK:                                                         "NodeType": "Default",
+// CHECK:                                                         "Children": [
+// CHECK:                                                                 {
+// CHECK:                                                                         "Name": "c",
+// CHECK:                                                                         "NodeType": "Variable",
+// CHECK:                                                                         "Type": {
+// CHECK:                                                                                 "Name": "float"
+// CHECK:                                                                         }
+// CHECK:                                                                 }
+// CHECK:                                                         ]
+// CHECK:                                                 }
+// CHECK:                                         ]
 // CHECK:                                 }
 // CHECK:                         ]
 // CHECK:                 }
