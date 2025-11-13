@@ -187,8 +187,9 @@ public:
   bool HLSLOnlyWarnOnUnrollFail = false;
   /// Whether use legacy resource reservation.
   bool HLSLLegacyResourceReservation = false;
-  /// Whether to keep bindings even if they're optimized out.
-  bool HLSLKeepAllResources = false;
+  /// How to handle unused resource bindings.
+  hlsl::UnusedResourceBinding HLSLUnusedResourceBinding =
+      hlsl::UnusedResourceBinding::Strip;
   /// Set [branch] on every if.
   bool HLSLPreferControlFlow = false;
   /// Set [flatten] on every if.

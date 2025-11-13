@@ -156,7 +156,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   // bool m_bDisableOptimizations;
   M.SetDisableOptimization(H.GetHLOptions().bDisableOptimizations);
   M.SetLegacyResourceReservation(H.GetHLOptions().bLegacyResourceReservation);
-  M.SetKeepAllResources(H.GetHLOptions().bKeepAllResources);
+  M.SetUnusedResourceBinding(
+      UnusedResourceBinding(H.GetHLOptions().bUnusedResourceBinding));
   // bool m_bDisableMathRefactoring;
   // bool m_bEnableDoublePrecision;
   // bool m_bEnableDoubleExtensions;
@@ -175,7 +176,6 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   M.EmitLLVMUsed();
 
   M.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
-  M.SetKeepAllResources(H.GetHLOptions().bKeepAllResources);
   M.SetResMayAlias(H.GetHLOptions().bResMayAlias);
 
   M.SetAutoBindingSpace(H.GetAutoBindingSpace());

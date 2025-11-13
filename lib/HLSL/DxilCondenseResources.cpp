@@ -550,8 +550,8 @@ public:
     ResourceRegisterAllocator.GatherReservedRegisters(DM);
 
     // Remove unused resources.
-    if (!DM.GetKeepAllResources())
-      DM.RemoveResourcesWithUnusedSymbols();
+    if (DM.GetUnusedResourceBinding() == UnusedResourceBinding::Strip)
+      bChanged |= DM.RemoveResourcesWithUnusedSymbols();
 
     unsigned newResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
@@ -563,16 +563,13 @@ public:
     {
       DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
       bool bLocalChanged = LegalizeResources(M, DVC);
-      if (bLocalChanged) {
-        // Remove unused resources.
+      if (bLocalChanged && DM.GetUnusedResourceBinding() == UnusedResourceBinding::Strip)
+        bChanged |= DM.RemoveResourcesWithUnusedSymbols();
 
-        if (!DM.GetKeepAllResources())
-          DM.RemoveResourcesWithUnusedSymbols();
-      }
       bChanged |= bLocalChanged;
     }
 
-    if (DM.GetKeepAllResources()) {
+    if (DM.GetUnusedResourceBinding() == UnusedResourceBinding::KeepAll) {
       bChanged |= DM.RemoveEmptyBuffers();
       bChanged |= DM.MarkUnusedResources();
     }

@@ -1,5 +1,5 @@
-// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external -fhlsl-unused-resource-bindings=keep %s | %D3DReflect %s | FileCheck %s -check-prefix=CHECK
-// RUN: %dxc -T cs_6_3 -E main -auto-binding-space 11 -fhlsl-unused-resource-bindings=keep %s | %D3DReflect %s | FileCheck %s -check-prefix=CHECK2
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external -fhlsl-unused-resource-bindings=keep-all %s | %D3DReflect %s | FileCheck %s -check-prefix=CHECK
+// RUN: %dxc -T cs_6_3 -E main -auto-binding-space 11 -fhlsl-unused-resource-bindings=keep-all %s | %D3DReflect %s | FileCheck %s -check-prefix=CHECK2
 
 struct Foo
 {

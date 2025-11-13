@@ -20,6 +20,7 @@
 #include "dxc/DXIL/DxilSignature.h"
 #include "dxc/DXIL/DxilSubobject.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilConstants.h"
 
 #include <memory>
 #include <string>
@@ -112,7 +113,7 @@ public:
   const std::vector<std::unique_ptr<DxilResource>> &GetUAVs() const;
 
   void RemoveUnusedResources();
-  void RemoveResourcesWithUnusedSymbols();
+  bool RemoveResourcesWithUnusedSymbols();
   bool RemoveEmptyBuffers();
   void RemoveFunction(llvm::Function *F);
   bool MarkUnusedResources();
@@ -289,8 +290,9 @@ public:
   // Intermediate options that do not make it to DXIL
   void SetLegacyResourceReservation(bool legacyResourceReservation);
   bool GetLegacyResourceReservation() const;
-  void SetKeepAllResources(bool keepAllResources);
-  bool GetKeepAllResources() const;
+
+  void SetUnusedResourceBinding(UnusedResourceBinding unusedResourceBinding);
+  UnusedResourceBinding GetUnusedResourceBinding() const;
   void ClearIntermediateOptions();
 
   // Hull and Domain shaders.
@@ -348,7 +350,9 @@ private:
       DXIL::PrimitiveTopology::Undefined;
   unsigned m_ActiveStreamMask = 0;
 
-  enum IntermediateFlags : uint32_t { LegacyResourceReservation = 1 << 0 };
+  enum IntermediateFlags : uint32_t {
+    LegacyResourceReservation = 1 << 0
+  };
 
   llvm::LLVMContext &m_Ctx;
   llvm::Module *m_pModule = nullptr;
@@ -385,7 +389,7 @@ private:
   bool m_bUseMinPrecision = true; // use min precision by default;
   bool m_bAllResourcesBound = false;
   bool m_bResMayAlias = false;
-  bool m_bKeepAllResources = false;
+  UnusedResourceBinding m_unusedResourceBinding = UnusedResourceBinding::Strip;
 
   // properties from HLModule that should not make it to the final DXIL
   uint32_t m_IntermediateFlags = 0;

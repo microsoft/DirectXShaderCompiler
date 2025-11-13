@@ -3015,7 +3015,9 @@ void DxilLibraryReflection::AddResourceDependencies() {
   IFTBOOL(resourceTable.Count() == m_Resources.size(),
           DXC_E_INCORRECT_DXIL_METADATA);
 
-  bool keepAllResources = m_pModule->GetDxilModule().GetKeepAllResources();
+  bool keepAllResources =
+      m_pModule->GetDxilModule().GetUnusedResourceBinding() ==
+      UnusedResourceBinding::KeepAll;
 
   for (unsigned iFunc = 0; iFunc < functionTable.Count(); ++iFunc) {
     auto FR = functionTable[iFunc];

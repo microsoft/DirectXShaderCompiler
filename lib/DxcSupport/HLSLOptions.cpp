@@ -870,13 +870,13 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.getLastArgValue(OPT_fhlsl_unused_resource_bindings_EQ, "strip");
 
   if (UnusedResources == "strip")
-    opts.UnusedResources = UnusedResourceBinding::Strip;
-  else if (UnusedResources == "keep")
-    opts.UnusedResources = UnusedResourceBinding::Keep;
+    opts.UnusedResourceBinding = UnusedResourceBinding::Strip;
+  else if (UnusedResources == "keep-all")
+    opts.UnusedResourceBinding = UnusedResourceBinding::KeepAll;
   else {
     errors << "Error: Invalid value for -fhlsl-unused-resource-bindings option "
               "specified ("
-           << UnusedResources << "). Must be one of: strip, keep";
+           << UnusedResources << "). Must be one of: strip, keep-all";
     return 1;
   }
 

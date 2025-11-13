@@ -1276,7 +1276,6 @@ void DxbcConverter::AnalyzeShader(
   // By default, all resources are assumed bound for SM5.0 shaders,
   // unless we encounter interface declarations
   m_pPR->m_ShaderFlags.SetAllResourcesBound(true);
-  m_pPR->m_ShaderFlags.SetKeepAllResources(false);
 
   // Setup signature helpers.
   m_pInputSignature.reset(
@@ -5205,7 +5204,6 @@ void DxbcConverter::InsertInterfacesResourceDecls() {
   }
 
   m_pPR->m_ShaderFlags.SetAllResourcesBound(false);
-  m_pPR->m_ShaderFlags.SetKeepAllResources(false);
 
   // Create interface data buffer
   {
