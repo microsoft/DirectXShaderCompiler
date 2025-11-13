@@ -1089,7 +1089,7 @@ void DeclResultIdMapper::createCounterVarForDecl(const DeclaratorDecl *decl) {
 
   if (!counterVars.count(decl) && isRWAppendConsumeSBuffer(declType)) {
     createCounterVar(decl, /*declId=*/0, /*isAlias=*/true);
-  } else if (!fieldCounterVars.count(decl) && declType->isStructureType() &&
+  } else if (!fieldCounterVars.count(decl) && declType->isRecordType() &&
              // Exclude other resource types which are represented as structs
              !hlsl::IsHLSLResourceType(declType)) {
     createFieldCounterVars(decl);

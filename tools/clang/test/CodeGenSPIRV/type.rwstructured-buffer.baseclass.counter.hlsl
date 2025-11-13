@@ -26,6 +26,6 @@ void main()
   b.Increment();
 
   // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int %counter_var_Buf2 %uint_0
-  // CHECK: %18 = OpAtomicIAdd %int [[ac]] %uint_1 %uint_0 %int_1 
+  // CHECK: OpAtomicIAdd %int [[ac]] %uint_1 %uint_0 %int_1 
   c.Increment();
 }
