@@ -20,7 +20,6 @@
 #include "dxc/DXIL/DxilSignature.h"
 #include "dxc/DXIL/DxilSubobject.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
-#include "dxc/DXIL/DxilConstants.h"
 
 #include <memory>
 #include <string>
@@ -348,9 +347,7 @@ private:
       DXIL::PrimitiveTopology::Undefined;
   unsigned m_ActiveStreamMask = 0;
 
-  enum IntermediateFlags : uint32_t {
-    LegacyResourceReservation = 1 << 0
-  };
+  enum IntermediateFlags : uint32_t { LegacyResourceReservation = 1 << 0 };
 
   llvm::LLVMContext &m_Ctx;
   llvm::Module *m_pModule = nullptr;

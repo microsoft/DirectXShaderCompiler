@@ -562,7 +562,8 @@ public:
     {
       DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
       bool bLocalChanged = LegalizeResources(M, DVC);
-      if (bLocalChanged && DM.GetUnusedResourceBinding() == UnusedResourceBinding::Strip) {
+      if (bLocalChanged &&
+          DM.GetUnusedResourceBinding() == UnusedResourceBinding::Strip) {
         // Remove unused resources.
         bChanged |= DM.RemoveResourcesWithUnusedSymbols();
       }
