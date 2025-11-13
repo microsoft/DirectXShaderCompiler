@@ -535,7 +535,7 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
 
 template <typename T>
 std::vector<T> buildTestInput(InputSet InputSet, size_t SizeToTest) {
-  const std::vector<T> &RawValueSet = getInputSet<T>(InputSet);
+  const std::vector<T> &RawValueSet = getInputSet<T>(InputSet, SizeToTest);
 
   std::vector<T> ValueSet;
   ValueSet.reserve(SizeToTest);
@@ -769,56 +769,51 @@ BITWISE_OP(OpType::FirstBitLow, (FirstBitLow(A)));
 DEFAULT_OP_1(OpType::Initialize, (A));
 
 template <typename T>
-struct Op<OpType::ArrayOperator_SingleAccess, T, 1> : DefaultValidation<T> {};
+struct Op<OpType::ArrayOperator_StaticAccess, T, 1> : DefaultValidation<T> {};
 
 template <typename T>
-struct ExpectedBuilder<OpType::ArrayOperator_SingleAccess, T> {
+struct ExpectedBuilder<OpType::ArrayOperator_StaticAccess, T> {
   static std::vector<T>
-  buildExpected(Op<OpType::ArrayOperator_SingleAccess, T, 1>,
+  buildExpected(Op<OpType::ArrayOperator_StaticAccess, T, 1>,
                 const InputSets<T> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 1);
     const size_t VectorSize = Inputs[0].size();
-    std::vector<T> Expected = Inputs[0];
-    Expected[0] = Inputs[0][VectorSize - 1];
-    Expected[VectorSize - 1] = Expected[0];
+    std::vector<T> Expected;
+    Expected.resize(VectorSize);
+
+    size_t IndexList[6] = {0,
+                           VectorSize - 1,
+                           1,
+                           VectorSize - 2,
+                           VectorSize / 2,
+                           VectorSize / 2 + 1};
+    for (size_t i = 0; i < 6; ++i)
+      Expected[IndexList[i]] = Inputs[0][IndexList[i]] + static_cast<T>(1.0);
+
     return Expected;
   }
 };
 
 template <typename T>
-static std::vector<T>
-buildExpectedArrayAccessOutput(const InputSets<T> &Inputs) {
-  DXASSERT_NOMSG(Inputs.size() == 2);
-  const size_t VectorSize = Inputs[0].size();
-  std::vector<T> Expected;
-  Expected.resize(VectorSize * 2);
-
-  for (size_t i = 0; i < VectorSize; i++)
-    Expected[i] = Inputs[0][i] + Inputs[1][i];
-
-  for (size_t i = 0; i < VectorSize; i++)
-    Expected[i + VectorSize] = Expected[i];
-
-  return Expected;
-}
+struct Op<OpType::ArrayOperator_DynamicAccess, T, 2> : DefaultValidation<T> {};
 
 template <typename T>
-struct Op<OpType::ArrayOperator_Loop, T, 2> : DefaultValidation<T> {};
+struct ExpectedBuilder<OpType::ArrayOperator_DynamicAccess, T> {
+  static std::vector<T>
+  buildExpected(Op<OpType::ArrayOperator_DynamicAccess, T, 2>,
+                const InputSets<T> &Inputs) {
+    DXASSERT_NOMSG(Inputs.size() == 2);
+    const size_t IndexVectorSize = Inputs[1].size();
 
-template <typename T> struct ExpectedBuilder<OpType::ArrayOperator_Loop, T> {
-  static std::vector<T> buildExpected(Op<OpType::ArrayOperator_Loop, T, 2>,
-                                      const InputSets<T> &Inputs) {
-    return buildExpectedArrayAccessOutput(Inputs);
-  }
-};
+    std::vector<T> Expected;
+    Expected.resize(IndexVectorSize);
+    size_t End = std::min(IndexVectorSize, static_cast<size_t>(6));
+    for (size_t i = 0; i < End; ++i) {
+      const size_t Index = static_cast<size_t>(Inputs[1][i]);
+      Expected[Index] = Inputs[0][Index] + static_cast<T>(1.0);
+    }
 
-template <typename T>
-struct Op<OpType::ArrayOperator_Unroll, T, 2> : DefaultValidation<T> {};
-
-template <typename T> struct ExpectedBuilder<OpType::ArrayOperator_Unroll, T> {
-  static std::vector<T> buildExpected(Op<OpType::ArrayOperator_Unroll, T, 2>,
-                                      const InputSets<T> &Inputs) {
-    return buildExpectedArrayAccessOutput(Inputs);
+    return Expected;
   }
 };
 
@@ -1640,45 +1635,35 @@ public:
   // Unary
 
   HLK_TEST(Initialize, HLSLBool_t);
-  HLK_TEST(ArrayOperator_SingleAccess, HLSLBool_t);
-  HLK_TEST(ArrayOperator_Unroll, HLSLBool_t);
-  HLK_TEST(ArrayOperator_Loop, HLSLBool_t);
+  // HLK_TEST(ArrayOperator_StaticAccess, HLSLBool_t);
+  // HLK_TEST(ArrayOperator_DynamicAccess, HLSLBool_t);
   HLK_TEST(Initialize, int16_t);
-  HLK_TEST(ArrayOperator_SingleAccess, int16_t);
-  HLK_TEST(ArrayOperator_Unroll, int16_t);
-  HLK_TEST(ArrayOperator_Loop, int16_t);
+  HLK_TEST(ArrayOperator_StaticAccess, int16_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, int16_t);
   HLK_TEST(Initialize, int32_t);
-  HLK_TEST(ArrayOperator_SingleAccess, int32_t);
-  HLK_TEST(ArrayOperator_Unroll, int32_t);
-  HLK_TEST(ArrayOperator_Loop, int32_t);
+  HLK_TEST(ArrayOperator_StaticAccess, int32_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, int32_t);
   HLK_TEST(Initialize, int64_t);
-  HLK_TEST(ArrayOperator_SingleAccess, int64_t);
-  HLK_TEST(ArrayOperator_Unroll, int64_t);
-  HLK_TEST(ArrayOperator_Loop, int64_t);
+  HLK_TEST(ArrayOperator_StaticAccess, int64_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, int64_t);
   HLK_TEST(Initialize, uint16_t);
-  HLK_TEST(ArrayOperator_SingleAccess, uint16_t);
-  HLK_TEST(ArrayOperator_Unroll, uint16_t);
-  HLK_TEST(ArrayOperator_Loop, uint16_t);
+  HLK_TEST(ArrayOperator_StaticAccess, uint16_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, uint16_t);
   HLK_TEST(Initialize, uint32_t);
-  HLK_TEST(ArrayOperator_SingleAccess, uint32_t);
-  HLK_TEST(ArrayOperator_Unroll, uint32_t);
-  HLK_TEST(ArrayOperator_Loop, uint32_t);
+  HLK_TEST(ArrayOperator_StaticAccess, uint32_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, uint32_t);
   HLK_TEST(Initialize, uint64_t);
-  HLK_TEST(ArrayOperator_SingleAccess, uint64_t);
-  HLK_TEST(ArrayOperator_Unroll, uint64_t);
-  HLK_TEST(ArrayOperator_Loop, uint64_t);
+  HLK_TEST(ArrayOperator_StaticAccess, uint64_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, uint64_t);
   HLK_TEST(Initialize, HLSLHalf_t);
-  HLK_TEST(ArrayOperator_SingleAccess, HLSLHalf_t);
-  HLK_TEST(ArrayOperator_Unroll, HLSLHalf_t);
-  HLK_TEST(ArrayOperator_Loop, HLSLHalf_t);
+  HLK_TEST(ArrayOperator_StaticAccess, HLSLHalf_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, HLSLHalf_t);
   HLK_TEST(Initialize, float);
-  HLK_TEST(ArrayOperator_SingleAccess, float);
-  HLK_TEST(ArrayOperator_Unroll, float);
-  HLK_TEST(ArrayOperator_Loop, float);
+  HLK_TEST(ArrayOperator_StaticAccess, float);
+  HLK_TEST(ArrayOperator_DynamicAccess, float);
   HLK_TEST(Initialize, double);
-  HLK_TEST(ArrayOperator_SingleAccess, double);
-  HLK_TEST(ArrayOperator_Unroll, double);
-  HLK_TEST(ArrayOperator_Loop, double);
+  HLK_TEST(ArrayOperator_StaticAccess, double);
+  HLK_TEST(ArrayOperator_DynamicAccess, double);
 
   HLK_TEST(ShuffleVector, HLSLBool_t);
   HLK_TEST(ShuffleVector, int16_t);

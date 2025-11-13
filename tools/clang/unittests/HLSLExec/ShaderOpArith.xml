@@ -4129,19 +4129,23 @@ void MSMain(uint GID : SV_GroupIndex,
             const uint32_t OutNum = NUM;
           #endif
 
-          #if FUNC_ARRAY_OPERATOR_SINGLE_ACCESS
-            vector<OUT_TYPE, OutNum> OutputVector = g_InputVector1.Load< vector<TYPE,
-            NUM> >(0);
-            OutputVector[0] = Input1[OutNum - 1];
-            OutputVector[OutNum - 1] = OutputVector[0];
-          #elif FUNC_ARRAY_OPERATOR
+          #if TEST_ARRAY_OPERATOR_STATIC_ACCESS
+            uint IndexList[6] = {0, OutNum - 1, 1, OutNum - 2, OutNum / 2, OutNum / 2 + 1};
             vector<OUT_TYPE, OutNum> OutputVector;
-            
-            [LOOP_ATTRB] for(uint i = 0; i < OutNum; i++)
-              OutputVector[i] = Input1[i] + Input2[i];
-            
-            [LOOP_ATTRB] for(uint i = 0; i < OutNum; i++) 
-              g_OutputVector.Store<OUT_TYPE>(sizeof(OUT_TYPE) * (OutNum + i), OutputVector[i]);
+            [unroll]for(uint i = 0; i < 6; ++i)
+              OutputVector[IndexList[i]] = (OUT_TYPE)Input1[IndexList[i]] + (OUT_TYPE)1;
+          #elif TEST_ARRAY_OPERATOR_DYNAMIC_ACCESS
+            vector<OUT_TYPE, OutNum> OutputVector = 0;
+            uint End = min(OutNum, 6);
+            [unroll]for(uint i = 0; i < End; ++i){
+            uint index = (uint)(Input2[i]);
+            // this doesn't work
+            // OutputVector[index] = Input1[i] + (OUT_TYPE)1;
+            // this also doesn't work
+            OutputVector[index] = Input1[index] + (OUT_TYPE)1;
+            // this works
+            // OutputVector[i] = Input1[index] + (OUT_TYPE)1;
+            }
           #elif IS_UNARY_OP
             vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP

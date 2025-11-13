@@ -19,6 +19,7 @@ INPUT_SET(Positive)
 INPUT_SET(Bitwise)
 INPUT_SET(SelectCond)
 INPUT_SET(FloatSpecial)
+INPUT_SET(DynamicIndexes)
 
 #undef INPUT_SET
 
@@ -62,12 +63,11 @@ OP(Bitwise, FirstBitLow, 1, "firstbitlow", "", "", "LongVectorOp", Bitwise, Defa
 OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
                    " -DFUNC_INITIALIZE=1")
 
-OP_DEFAULT_DEFINES(ArrayOperator, ArrayOperator_SingleAccess, 1, "TestArrayOperatorSingleAccess", "",
-                   " -DFUNC_ARRAY_OPERATOR_SINGLE_ACCESS=1")
-OP_DEFAULT_DEFINES(ArrayOperator, ArrayOperator_Loop, 2, "TestArrayOperatorLoop", "",
-                   " -DFUNC_ARRAY_OPERATOR=1 -DLOOP_ATTRB=loop")
-OP_DEFAULT_DEFINES(ArrayOperator, ArrayOperator_Unroll, 2, "TestArrayOperatorUnroll", "",
-                   " -DFUNC_ARRAY_OPERATOR=1 -DLOOP_ATTRB=unroll")
+OP_DEFAULT_DEFINES(ArrayOperator, ArrayOperator_StaticAccess, 1, "TestArrayOperatorStaticAccess", "",
+                   " -DTEST_ARRAY_OPERATOR_STATIC_ACCESS=1")
+
+OP(ArrayOperator, ArrayOperator_DynamicAccess, 2, "TestArrayOperatorDynamicAccess", "", " -DTEST_ARRAY_OPERATOR_DYNAMIC_ACCESS=1 -DINDEX=1.0", "LongVectorOp",       \
+     Default1, DynamicIndexes, Default3)
 
 #define OP_CAST_DEFAULT(GROUP, SYMBOL)                                         \
   OP_DEFAULT_DEFINES(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1")
