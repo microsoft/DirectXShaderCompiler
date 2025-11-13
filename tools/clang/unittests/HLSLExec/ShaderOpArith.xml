@@ -4190,6 +4190,31 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_WAVE_PREFIX_SUM
+        void TestWavePrefixSum(vector<TYPE, NUM> Vector)
+        {
+          const uint LaneCount = WaveGetLaneCount();
+          const uint MidLane = LaneCount/2;
+
+          if(WaveGetLaneIndex() == MidLane)
+          {
+            Vector = WavePrefixSum(Vector);
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_PREFIX_PRODUCT
+        void TestWavePrefixProduct(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == 1)
+          {
+            Vector = WavePrefixProduct(Vector);
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
         #ifdef FUNC_TEST_SELECT
         vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,
                                          vector<TYPE, NUM> Vector2,
@@ -4249,16 +4274,19 @@ void MSMain(uint GID : SV_GroupIndex,
             const uint32_t OutNum = NUM;
           #endif
 
-          #if IS_UNARY_OP
-            vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1);
+          vector<OUT_TYPE, OutNum> OutputVector;
+          #ifdef IS_WAVE_PREFIX_OP
+            // Wave prefix ops store the output on a specific lane only.
+            FUNC(Input1);
+            return;
+          #elif IS_UNARY_OP
+            OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP
-            vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1 OPERATOR
-            Input2);
+            OutputVector = FUNC(Input1 OPERATOR Input2);
           #elif IS_TERNARY_OP
             // Ternary ops don't bother expanding OPERATOR because its
             // always going to be comma for these test cases.
-            vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1, Input2,
-            Input3);
+            OutputVector = FUNC(Input1, Input2, Input3);
           #endif
 
           g_OutputVector.Store< vector<OUT_TYPE, OutNum> >(0, OutputVector);
