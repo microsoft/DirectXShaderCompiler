@@ -1458,6 +1458,8 @@ public:
   void setModifierOut(bool value) { ParmVarDeclBits.IsModifierOut = value; }
   /// Synthesize a ParameterModifier value for this parameter.
   hlsl::ParameterModifier getParamModifiers() const {
+    if (!isModifierIn() && !isModifierOut())
+      return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::Ref);
     if (isModifierIn() && !isModifierOut())
       return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In);
     if (isModifierIn() && isModifierOut())

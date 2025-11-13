@@ -4945,6 +4945,11 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSimpleAttribute<NoDuplicateAttr>(S, D, Attr);
     break;
   case AttributeList::AT_NoInline:
+    if (S.LangOpts.HLSL) {
+      bool Handled = false;
+      hlsl::HandleDeclAttributeForHLSL(S, D, Attr, Handled);
+      if (Handled) break;
+    }
     handleSimpleAttribute<NoInlineAttr>(S, D, Attr);
     break;
   case AttributeList::AT_NoInstrumentFunction: // Interacts with -pg.

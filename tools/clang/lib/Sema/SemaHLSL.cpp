@@ -14474,6 +14474,27 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
   HLSLExternalSource *ExtSource = HLSLExternalSource::FromSema(this);
   const bool IsGCAttr = isa<HLSLGloballyCoherentAttr>(A);
   const bool IsRCAttr = isa<HLSLReorderCoherentAttr>(A);
+  const bool IsExportAttr = isa<HLSLExportAttr>(A);
+  const bool IsNoInlineAttr = isa<NoInlineAttr>(A);
+  if (IsExportAttr || IsNoInlineAttr) {
+    if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+      for (ParmVarDecl *PVD : FD->parameters()) {
+        if (!PVD->hasAttrs())
+          continue;
+        for (Attr *A : PVD->getAttrs()) {
+          switch (A->getKind()) {
+          case clang::attr::HLSLGroupShared: { // todo improve this error msg
+            Diag(A->getLocation(), diag::err_hlsl_varmodifiersna)
+                << "groupshared" << "export/noinline" << "parameter";
+            return;
+            break;
+          }
+          }
+        }
+      }
+      return;
+    }
+  }
   if (IsGCAttr || IsRCAttr) {
     const ValueDecl *TD = cast<ValueDecl>(D);
     if (TD->getType()->isDependentType())
@@ -14998,6 +15019,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
   }
 
   if (declAttr != nullptr) {
+    S.DiagnoseHLSLDeclAttr(D, declAttr);
     DXASSERT_NOMSG(Handled);
     D->addAttr(declAttr);
 
