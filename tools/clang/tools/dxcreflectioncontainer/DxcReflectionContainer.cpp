@@ -545,7 +545,8 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
 
   uint64_t off = 0;
   HLSLReflectionDataHeader header;
-  if (ReflectionError err = Consume<HLSLReflectionDataHeader>(Bytes, off, header))
+  if (ReflectionError err =
+          Consume<HLSLReflectionDataHeader>(Bytes, off, header))
     return err;
 
   if (header.MagicNumber != ReflectionDataMagic)
@@ -682,9 +683,9 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
       case D3D12_HLSL_NODE_TYPE_SWITCH:
       case D3D12_HLSL_NODE_TYPE_CASE:
       case D3D12_HLSL_NODE_TYPE_DEFAULT:
-      //TODO: case D3D12_HLSL_NODE_TYPE_IF_START:
-      //TODO: case D3D12_HLSL_NODE_TYPE_IF_ELSE:
-      //TODO: case D3D12_HLSL_NODE_TYPE_ELSE:
+        // TODO: case D3D12_HLSL_NODE_TYPE_IF_START:
+        // TODO: case D3D12_HLSL_NODE_TYPE_IF_ELSE:
+        // TODO: case D3D12_HLSL_NODE_TYPE_ELSE:
         break;
 
       default:
@@ -957,9 +958,9 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
       case D3D12_HLSL_NODE_TYPE_SWITCH:
       case D3D12_HLSL_NODE_TYPE_DEFAULT:
       case D3D12_HLSL_NODE_TYPE_CASE:
-      //TODO: case D3D12_HLSL_NODE_TYPE_IF_START:
-      //TODO: case D3D12_HLSL_NODE_TYPE_IF_ELSE:
-      //TODO: case D3D12_HLSL_NODE_TYPE_ELSE:
+        // TODO: case D3D12_HLSL_NODE_TYPE_IF_START:
+        // TODO: case D3D12_HLSL_NODE_TYPE_IF_ELSE:
+        // TODO: case D3D12_HLSL_NODE_TYPE_ELSE:
         break;
       default:
         return HLSL_REFL_ERR(
@@ -1045,7 +1046,8 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
 
       const ReflectionNode &child = Nodes[j];
 
-      bool isSingleNode = child.GetNodeType() == D3D12_HLSL_NODE_TYPE_DEFAULT;  //TODO: IF: ELSE
+      bool isSingleNode =
+          child.GetNodeType() == D3D12_HLSL_NODE_TYPE_DEFAULT; // TODO: IF: ELSE
 
       if (isSingleNode) {
 
@@ -1057,8 +1059,8 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
 
       else {
 
-        //TODO:  if (node.GetNodeType() == D3D12_HLSL_NODE_TYPE_IF)
-        //     expectedType = !k ? IF_START : ELSE_IF;
+        // TODO:  if (node.GetNodeType() == D3D12_HLSL_NODE_TYPE_IF)
+        //      expectedType = !k ? IF_START : ELSE_IF;
 
         bool invalid = child.GetNodeType() != D3D12_HLSL_NODE_TYPE_CASE;
 

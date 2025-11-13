@@ -210,7 +210,7 @@ int main(int argc, const char **argv) {
       HRESULT hr;
       IFT(pReflectionResult->GetStatus(&hr));
 
-      if(SUCCEEDED(hr)) {
+      if (SUCCEEDED(hr)) {
         IFT(pReflectionResult->GetResult(&pReflectionBlob));
         IFT(pReflector->FromBlob(pReflectionBlob, &pReflectionData));
         IFT(pReflector->ToString(pReflectionData, formatSettings, &pJson));

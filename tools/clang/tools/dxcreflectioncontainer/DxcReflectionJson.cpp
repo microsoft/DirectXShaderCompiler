@@ -481,8 +481,8 @@ struct ReflectionPrintSettings {
 
 static void PrintSymbol(JsonWriter &Json, const ReflectionData &Reflection,
                         const ReflectionNodeSymbol &Sym,
-                        const ReflectionPrintSettings &Settings,
-                        bool MuteName, bool ShowOnlyName = false) {
+                        const ReflectionPrintSettings &Settings, bool MuteName,
+                        bool ShowOnlyName = false) {
 
   if (Sym.GetNameId() && !MuteName) {
 
@@ -767,8 +767,8 @@ static void PrintType(const ReflectionData &Reflection, uint32_t TypeId,
 
   const ReflectionVariableType &type = Reflection.Types[TypeId];
 
-  PrintTypeName(Reflection, TypeId, HasSymbols, Settings, Json,
-                NameForTypeName, true);
+  PrintTypeName(Reflection, TypeId, HasSymbols, Settings, Json, NameForTypeName,
+                true);
 
   if (type.GetBaseClass() != uint32_t(-1))
     Json.Object("BaseClass",
@@ -1110,8 +1110,8 @@ static void PrintIfSwitchStatement(const ReflectionData &Reflection,
 }
 
 static void PrintBranchStatement(const ReflectionData &Reflection,
-                                   const ReflectionBranchStmt &Stmt,
-                                   JsonWriter &Json) {
+                                 const ReflectionBranchStmt &Stmt,
+                                 JsonWriter &Json) {
 
   if (Stmt.HasConditionVar())
     Json.BoolField("HasConditionVar", Stmt.HasConditionVar());
@@ -1121,7 +1121,8 @@ static void PrintBranchStatement(const ReflectionData &Reflection,
     PrintValue(Json, Stmt.GetValueType(), Stmt.GetValue());
   }
 
-  else Json.BoolField("IsComplexCase", Stmt.IsComplexCase());
+  else
+    Json.BoolField("IsComplexCase", Stmt.IsComplexCase());
 }
 
 uint32_t PrintNodeRecursive(const ReflectionData &Reflection, uint32_t NodeId,

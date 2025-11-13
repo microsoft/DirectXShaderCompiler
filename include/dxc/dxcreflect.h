@@ -146,10 +146,10 @@ enum D3D12_HLSL_NODE_TYPE {
   D3D12_HLSL_NODE_TYPE_INTERFACE,
   D3D12_HLSL_NODE_TYPE_PARAMETER,
 
-  // Control flow (Stmts or SwitchIfStmt), for full inspection of what variables exist where and
-  // scopes
+  // Control flow (Stmts or SwitchIfStmt), for full inspection of what variables
+  // exist where and scopes
 
-  D3D12_HLSL_NODE_TYPE_IF,      //TODO: Rename to if root
+  D3D12_HLSL_NODE_TYPE_IF, // TODO: Rename to if root
   D3D12_HLSL_NODE_TYPE_SCOPE,
   D3D12_HLSL_NODE_TYPE_DO,
   D3D12_HLSL_NODE_TYPE_SWITCH,
@@ -163,9 +163,9 @@ enum D3D12_HLSL_NODE_TYPE {
   D3D12_HLSL_NODE_TYPE_CASE,
   D3D12_HLSL_NODE_TYPE_DEFAULT,
 
-  //D3D12_HLSL_NODE_TYPE_IF_FIRST,
-  //D3D12_HLSL_NODE_TYPE_ELSE_IF,
-  //D3D12_HLSL_NODE_TYPE_ELSE,
+  // D3D12_HLSL_NODE_TYPE_IF_FIRST,
+  // D3D12_HLSL_NODE_TYPE_ELSE_IF,
+  // D3D12_HLSL_NODE_TYPE_ELSE,
 
   // TODO: D3D12_HLSL_NODE_TYPE_USING,
 
@@ -375,9 +375,9 @@ struct IHLSLReflector : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE ToBlob(IHLSLReflectionData *reflection,
                                            IDxcBlob **ppResult) = 0;
 
-  virtual HRESULT STDMETHODCALLTYPE ToString(
-      IHLSLReflectionData *reflection, ReflectorFormatSettings Settings,
-      IDxcBlobEncoding **ppResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE ToString(IHLSLReflectionData *reflection,
+                                             ReflectorFormatSettings Settings,
+                                             IDxcBlobEncoding **ppResult) = 0;
 };
 
 #endif

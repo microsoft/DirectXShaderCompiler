@@ -42,8 +42,8 @@
 #include "dxc/Support/dxcfilesystem.h"
 #include "dxc/dxcapi.internal.h"
 
-#include "dxc/dxcreflect.h"
 #include "dxc/DxcReflection/DxcReflectionContainer.h"
+#include "dxc/dxcreflect.h"
 
 extern "C" const IID IID_IHLSLReflectionData = {
     0x7016f834,
@@ -669,7 +669,7 @@ struct HLSLReflectionData : public IHLSLReflectionData {
 
   HLSLReflectionData() : m_refCount(1) {}
 
-  //TODO: This function needs another look definitely
+  // TODO: This function needs another look definitely
   void Finalize() {
 
     Data.GenerateNameLookupTable();
@@ -698,8 +698,8 @@ struct HLSLReflectionData : public IHLSLReflectionData {
         functionParameters.push_back(i);
       }
 
-      // Filter out backward/fwd declarations for structs, unions, interfaces, functions,
-      // enums
+      // Filter out backward/fwd declarations for structs, unions, interfaces,
+      // functions, enums
 
       if (node.IsFwdDeclare()) {
         ChildCountsNonRecursive[i] = uint32_t(ChildrenNonRecursive[i].size());
@@ -794,34 +794,29 @@ struct HLSLReflectionData : public IHLSLReflectionData {
   HLSLReflectionData &operator=(HLSLReflectionData &&moved) = delete;
 
   // IUnknown
-  
-  STDMETHOD(QueryInterface)(REFIID riid, void **ppvObject) override
-  {
-      if (!ppvObject) return E_POINTER;
 
-      if (riid == IID_IUnknown || riid == IID_IHLSLReflectionData)
-      {
-          *ppvObject = static_cast<IHLSLReflectionData*>(this);
-          AddRef();
-          return S_OK;
-      }
+  STDMETHOD(QueryInterface)(REFIID riid, void **ppvObject) override {
+    if (!ppvObject)
+      return E_POINTER;
 
-      *ppvObject = nullptr;
-      return E_NOINTERFACE;
+    if (riid == IID_IUnknown || riid == IID_IHLSLReflectionData) {
+      *ppvObject = static_cast<IHLSLReflectionData *>(this);
+      AddRef();
+      return S_OK;
+    }
+
+    *ppvObject = nullptr;
+    return E_NOINTERFACE;
   }
 
-  STDMETHOD_(ULONG, AddRef)() override
-  {
-      return ++m_refCount;
-  }
+  STDMETHOD_(ULONG, AddRef)() override { return ++m_refCount; }
 
   STDMETHOD_(ULONG, Release)() override {
-      ULONG count = --m_refCount;
-      if (!count)
-          delete this;
-      return count;
+    ULONG count = --m_refCount;
+    if (!count)
+      delete this;
+    return count;
   }
-
 
   // Conversion of IReflection structs to D3D12_HLSL standardized structs
 
@@ -1836,10 +1831,11 @@ public:
       return E_UNEXPECTED;
 
     DxcThreadMalloc TM(m_pMalloc);
-    std::string str = refl->Data.ToJson(!Settings.PrintFileInfo, Settings.IsHumanReadable);
+    std::string str =
+        refl->Data.ToJson(!Settings.PrintFileInfo, Settings.IsHumanReadable);
 
-    return DxcCreateBlob(str.c_str(), str.size(), false, true, true,
-                         CP_UTF8, DxcGetThreadMallocNoRef(), ppResult);
+    return DxcCreateBlob(str.c_str(), str.size(), false, true, true, CP_UTF8,
+                         DxcGetThreadMallocNoRef(), ppResult);
   }
 };
 
