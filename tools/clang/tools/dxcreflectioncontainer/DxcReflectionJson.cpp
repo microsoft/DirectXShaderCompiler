@@ -299,7 +299,8 @@ static const char *NodeTypeToString(D3D12_HLSL_NODE_TYPE Type) {
                               "For",
                               "GroupsharedVariable",
                               "Case",
-                              "Default"};
+                              "Default",
+                              "Using"};
 
   return arr[uint32_t(Type)];
 }
@@ -1256,6 +1257,7 @@ uint32_t PrintNodeRecursive(const ReflectionData &Reflection, uint32_t NodeId,
     [[fallthrough]];
 
   case D3D12_HLSL_NODE_TYPE_TYPEDEF:
+  case D3D12_HLSL_NODE_TYPE_USING:
 
     Json.Object("Type", [&node, &Reflection, &Json, &Settings, hasSymbols,
                          recurseType]() {

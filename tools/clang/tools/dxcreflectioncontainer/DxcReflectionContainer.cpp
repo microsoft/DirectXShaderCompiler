@@ -697,7 +697,7 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
 
       break;
 
-    // TODO: case D3D12_HLSL_NODE_TYPE_USING:
+    case D3D12_HLSL_NODE_TYPE_USING:
     case D3D12_HLSL_NODE_TYPE_TYPEDEF:
     case D3D12_HLSL_NODE_TYPE_VARIABLE:
     case D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE:
@@ -715,6 +715,7 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
 
     switch (node.GetNodeType()) {
 
+    case D3D12_HLSL_NODE_TYPE_USING:
     case D3D12_HLSL_NODE_TYPE_TYPEDEF:
     case D3D12_HLSL_NODE_TYPE_VARIABLE:
     case D3D12_HLSL_NODE_TYPE_STATIC_VARIABLE:
@@ -950,6 +951,7 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
       case D3D12_HLSL_NODE_TYPE_UNION:
       case D3D12_HLSL_NODE_TYPE_INTERFACE:
       case D3D12_HLSL_NODE_TYPE_TYPEDEF:
+      case D3D12_HLSL_NODE_TYPE_USING:
       case D3D12_HLSL_NODE_TYPE_ENUM:
       case D3D12_HLSL_NODE_TYPE_SCOPE:
       case D3D12_HLSL_NODE_TYPE_DO:

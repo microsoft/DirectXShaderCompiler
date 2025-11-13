@@ -2055,6 +2055,27 @@ public:
                        TD, D3D12_HLSL_NODE_TYPE_TYPEDEF, ParentNodeId, typeId);
   }
 
+  void VisitTypeAliasDecl(TypeAliasDecl *TAD) {
+
+    if (LastError)
+      return;
+
+    if (!(Features & D3D12_HLSL_REFLECTION_FEATURE_USER_TYPES))
+      return;
+
+    uint32_t typeId;
+    if (ReflectionError err = GenerateTypeInfo(
+            typeId, ASTCtx, Refl, TAD->getUnderlyingType(), DefaultRowMaj)) {
+      LastError = err;
+      return;
+    }
+
+    uint32_t nodeId;
+    LastError =
+        PushNextNodeId(nodeId, Refl, SM, ASTCtx.getLangOpts(), TAD->getName(),
+                       TAD, D3D12_HLSL_NODE_TYPE_USING, ParentNodeId, typeId);
+  }
+
   void VisitFieldDecl(FieldDecl *FD) {
 
     if (LastError)
