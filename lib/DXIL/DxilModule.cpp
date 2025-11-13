@@ -586,7 +586,8 @@ bool DxilModule::GetLegacyResourceReservation() const {
   return (m_IntermediateFlags & LegacyResourceReservation) != 0;
 }
 
-void DxilModule::SetUnusedResourceBinding(UnusedResourceBinding unusedResourceBinding) {
+void DxilModule::SetUnusedResourceBinding(
+    UnusedResourceBinding unusedResourceBinding) {
   m_unusedResourceBinding = unusedResourceBinding;
 }
 
