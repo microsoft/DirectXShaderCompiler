@@ -659,23 +659,39 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
             "Node is a default/case but doesn't belong to a switch", i);
       break;
 
+    case D3D12_HLSL_NODE_TYPE_IF_FIRST:
+    case D3D12_HLSL_NODE_TYPE_ELSE_IF:
+    case D3D12_HLSL_NODE_TYPE_ELSE:
+
+      maxValue = header.BranchStatements;
+
+      if (Nodes[node.GetParentId()].GetNodeType() !=
+          D3D12_HLSL_NODE_TYPE_IF_ROOT)
+        return HLSL_REFL_ERR(
+            "Node is a if/else if/else but doesn't belong to an if root node",
+            i);
+
+      break;
+
     case D3D12_HLSL_NODE_TYPE_SCOPE:
     case D3D12_HLSL_NODE_TYPE_DO:
-    case D3D12_HLSL_NODE_TYPE_IF:
+    case D3D12_HLSL_NODE_TYPE_IF_ROOT:
     case D3D12_HLSL_NODE_TYPE_FOR:
     case D3D12_HLSL_NODE_TYPE_WHILE:
     case D3D12_HLSL_NODE_TYPE_SWITCH:
 
-      maxValue = node.GetNodeType() == D3D12_HLSL_NODE_TYPE_SWITCH
-                     ? header.IfSwitchStatements
-                     : (node.GetNodeType() != D3D12_HLSL_NODE_TYPE_SCOPE &&
-                                node.GetNodeType() != D3D12_HLSL_NODE_TYPE_DO
-                            ? header.Statements
-                            : 1);
+      maxValue = node.GetNodeType() != D3D12_HLSL_NODE_TYPE_SCOPE &&
+                         node.GetNodeType() != D3D12_HLSL_NODE_TYPE_DO
+                     ? header.Statements
+                     : 1;
+
+      if (node.GetNodeType() == D3D12_HLSL_NODE_TYPE_SWITCH ||
+          node.GetNodeType() == D3D12_HLSL_NODE_TYPE_IF_ROOT)
+        maxValue = header.IfSwitchStatements;
 
       switch (Nodes[node.GetParentId()].GetNodeType()) {
       case D3D12_HLSL_NODE_TYPE_FUNCTION:
-      case D3D12_HLSL_NODE_TYPE_IF:
+      case D3D12_HLSL_NODE_TYPE_IF_ROOT:
       case D3D12_HLSL_NODE_TYPE_SCOPE:
       case D3D12_HLSL_NODE_TYPE_DO:
       case D3D12_HLSL_NODE_TYPE_FOR:
@@ -683,13 +699,13 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
       case D3D12_HLSL_NODE_TYPE_SWITCH:
       case D3D12_HLSL_NODE_TYPE_CASE:
       case D3D12_HLSL_NODE_TYPE_DEFAULT:
-        // TODO: case D3D12_HLSL_NODE_TYPE_IF_START:
-        // TODO: case D3D12_HLSL_NODE_TYPE_IF_ELSE:
-        // TODO: case D3D12_HLSL_NODE_TYPE_ELSE:
+      case D3D12_HLSL_NODE_TYPE_IF_FIRST:
+      case D3D12_HLSL_NODE_TYPE_ELSE_IF:
+      case D3D12_HLSL_NODE_TYPE_ELSE:
         break;
 
       default:
-        return HLSL_REFL_ERR("Node is an if/scope/do/for/while/switch but "
+        return HLSL_REFL_ERR("Node is an stmt but "
                              "parent isn't of a similar "
                              "type or function",
                              i);
@@ -727,16 +743,16 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
                              i);
       break;
 
-    case D3D12_HLSL_NODE_TYPE_IF:
+    case D3D12_HLSL_NODE_TYPE_IF_ROOT:
     case D3D12_HLSL_NODE_TYPE_SCOPE:
     case D3D12_HLSL_NODE_TYPE_DO:
     case D3D12_HLSL_NODE_TYPE_FOR:
     case D3D12_HLSL_NODE_TYPE_WHILE:
     case D3D12_HLSL_NODE_TYPE_DEFAULT:
     case D3D12_HLSL_NODE_TYPE_CASE:
-      // TODO: case D3D12_HLSL_NODE_TYPE_IF_START:
-      // TODO: case D3D12_HLSL_NODE_TYPE_IF_ELSE:
-      // TODO: case D3D12_HLSL_NODE_TYPE_ELSE:
+    case D3D12_HLSL_NODE_TYPE_IF_FIRST:
+    case D3D12_HLSL_NODE_TYPE_ELSE_IF:
+    case D3D12_HLSL_NODE_TYPE_ELSE:
       if (node.GetChildCount())
         validateChildren.push_back(i);
     }
@@ -946,7 +962,7 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
 
       switch (childNode.GetNodeType()) {
       case D3D12_HLSL_NODE_TYPE_VARIABLE:
-      case D3D12_HLSL_NODE_TYPE_IF:
+      case D3D12_HLSL_NODE_TYPE_IF_ROOT:
       case D3D12_HLSL_NODE_TYPE_STRUCT:
       case D3D12_HLSL_NODE_TYPE_UNION:
       case D3D12_HLSL_NODE_TYPE_INTERFACE:
@@ -960,9 +976,9 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
       case D3D12_HLSL_NODE_TYPE_SWITCH:
       case D3D12_HLSL_NODE_TYPE_DEFAULT:
       case D3D12_HLSL_NODE_TYPE_CASE:
-        // TODO: case D3D12_HLSL_NODE_TYPE_IF_START:
-        // TODO: case D3D12_HLSL_NODE_TYPE_IF_ELSE:
-        // TODO: case D3D12_HLSL_NODE_TYPE_ELSE:
+      case D3D12_HLSL_NODE_TYPE_IF_FIRST:
+      case D3D12_HLSL_NODE_TYPE_ELSE_IF:
+      case D3D12_HLSL_NODE_TYPE_ELSE:
         break;
       default:
         return HLSL_REFL_ERR(
@@ -995,7 +1011,6 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
           i);
 
     switch (node.GetNodeType()) {
-    case D3D12_HLSL_NODE_TYPE_IF:
     case D3D12_HLSL_NODE_TYPE_WHILE:
     case D3D12_HLSL_NODE_TYPE_FOR:
       break;
@@ -1019,7 +1034,7 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
     if (node.GetChildCount() < minParamCount)
       return HLSL_REFL_ERR("IfSwitchStmt didn't have required child nodes", i);
 
-    if (condVar && node.GetNodeType() == D3D12_HLSL_NODE_TYPE_IF)
+    if (condVar && node.GetNodeType() == D3D12_HLSL_NODE_TYPE_IF_ROOT)
       return HLSL_REFL_ERR("If statement can't have a conditional node in root",
                            i);
 
@@ -1030,12 +1045,14 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
           i);
 
     switch (node.GetNodeType()) {
-    case D3D12_HLSL_NODE_TYPE_IF:
+    case D3D12_HLSL_NODE_TYPE_IF_ROOT:
     case D3D12_HLSL_NODE_TYPE_SWITCH:
       break;
     default:
       return HLSL_REFL_ERR("IfSwitchStmt has invalid node type", i);
     }
+
+    bool isIf = node.GetNodeType() == D3D12_HLSL_NODE_TYPE_IF_ROOT;
 
     // Ensure there's only one default/else and the first is the IF_FIRST node.
 
@@ -1049,24 +1066,28 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
       const ReflectionNode &child = Nodes[j];
 
       bool isSingleNode =
-          child.GetNodeType() == D3D12_HLSL_NODE_TYPE_DEFAULT; // TODO: IF: ELSE
+          child.GetNodeType() ==
+          (isIf ? D3D12_HLSL_NODE_TYPE_ELSE : D3D12_HLSL_NODE_TYPE_DEFAULT);
 
       if (isSingleNode) {
 
         if (hasSingleNode)
           return HLSL_REFL_ERR("IfSwitchStmt already has default/else", i);
 
+        if (isIf && !k)
+          return HLSL_REFL_ERR("IfSwitchStmt started with else", i);
+
         hasSingleNode = true;
       }
 
       else {
 
-        // TODO:  if (node.GetNodeType() == D3D12_HLSL_NODE_TYPE_IF)
-        //      expectedType = !k ? IF_START : ELSE_IF;
+        D3D12_HLSL_NODE_TYPE expected =
+            !isIf ? D3D12_HLSL_NODE_TYPE_CASE
+                  : (!k ? D3D12_HLSL_NODE_TYPE_IF_FIRST
+                        : D3D12_HLSL_NODE_TYPE_ELSE_IF);
 
-        bool invalid = child.GetNodeType() != D3D12_HLSL_NODE_TYPE_CASE;
-
-        if (invalid)
+        if (child.GetNodeType() != expected)
           return HLSL_REFL_ERR("IfSwitchStmt has an invalid member", i);
       }
 
@@ -1093,12 +1114,11 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
     if (node.GetChildCount() < minParamCount)
       return HLSL_REFL_ERR("IfSwitchStmt didn't have required child nodes", i);
 
-    // TODO: Else
-
     if (condVar && (node.GetNodeType() == D3D12_HLSL_NODE_TYPE_DEFAULT ||
-                    node.GetNodeType() == D3D12_HLSL_NODE_TYPE_CASE))
-      return HLSL_REFL_ERR("If statement can't have a conditional node in root",
-                           i);
+                    node.GetNodeType() == D3D12_HLSL_NODE_TYPE_CASE ||
+                    node.GetNodeType() == D3D12_HLSL_NODE_TYPE_ELSE))
+      return HLSL_REFL_ERR(
+          "Default, case or else can't have a conditional node in root", i);
 
     if (condVar && Nodes[Stmt.GetNodeId() + 1].GetNodeType() !=
                        D3D12_HLSL_NODE_TYPE_VARIABLE)
@@ -1109,9 +1129,9 @@ ReflectionData::Deserialize(const std::vector<std::byte> &Bytes,
     switch (node.GetNodeType()) {
     case D3D12_HLSL_NODE_TYPE_CASE:
     case D3D12_HLSL_NODE_TYPE_DEFAULT:
-      // TODO: case D3D12_HLSL_NODE_TYPE_IF_START:
-      // TODO: case D3D12_HLSL_NODE_TYPE_ELSE_IF:
-      // TODO: case D3D12_HLSL_NODE_TYPE_ELSE:
+    case D3D12_HLSL_NODE_TYPE_IF_FIRST:
+    case D3D12_HLSL_NODE_TYPE_ELSE_IF:
+    case D3D12_HLSL_NODE_TYPE_ELSE:
       break;
     default:
       return HLSL_REFL_ERR("IfSwitchStmt has invalid node type", i);

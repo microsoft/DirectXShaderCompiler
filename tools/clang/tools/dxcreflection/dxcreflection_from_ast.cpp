@@ -1530,12 +1530,136 @@ struct RecursiveStmtReflector : public StmtVisitor<RecursiveStmtReflector> {
 
     if (LastError)
       return;
+    
+    uint32_t loc = uint32_t(Refl.IfSwitchStatements.size());
 
-    LastError = GenerateStatement(
-        ASTCtx, Diags, SM, Refl, AutoBindingSpace, Depth + 1, Features,
-        ParentNodeId, DefaultRowMaj, FwdDecls, LangOpts,
-        D3D12_HLSL_NODE_TYPE_IF, If->getConditionVariable(), If->getElse(),
-        If->getThen(), If, If->getElse());
+    const SourceRange &sourceRange = If->getSourceRange();
+
+    uint32_t nodeId;
+    if (ReflectionError err =
+            PushNextNodeId(nodeId, Refl, SM, LangOpts, "", nullptr,
+                           D3D12_HLSL_NODE_TYPE_IF_ROOT, ParentNodeId, loc,
+                           &sourceRange, &FwdDecls)) {
+      LastError = err;
+      return;
+    }
+
+    Refl.IfSwitchStatements.push_back(ReflectionIfSwitchStmt());
+
+    std::vector<Stmt*> branches;
+    branches.reserve(2);
+    branches.push_back(If);
+
+    Stmt *child = If->getElse();
+
+    while (child) {
+
+      branches.push_back(child);
+
+      if (IfStmt *ifChild = dyn_cast<IfStmt>(child))
+        child = ifChild->getElse();
+
+      else
+        break;
+    }
+
+    bool hasElse = branches.size() > 1 && !isa<IfStmt>(branches.back());
+    uint64_t counter = 0;
+
+    for (Stmt *child : branches) {
+
+      uint32_t loc = uint32_t(Refl.BranchStatements.size());
+      Refl.BranchStatements.push_back(ReflectionBranchStmt());
+
+      const SourceRange &sourceRange = child->getSourceRange();
+
+      D3D12_HLSL_NODE_TYPE nodeType =
+          !counter ? D3D12_HLSL_NODE_TYPE_IF_FIRST
+                   : (hasElse && counter + 1 == branches.size()
+                          ? D3D12_HLSL_NODE_TYPE_ELSE
+                          : D3D12_HLSL_NODE_TYPE_ELSE_IF);
+      ++counter;
+
+      uint32_t childId;
+      if (ReflectionError err =
+              PushNextNodeId(childId, Refl, SM, LangOpts, "", nullptr, nodeType,
+                             nodeId, loc, &sourceRange, &FwdDecls)) {
+        LastError = err;
+        return;
+      }
+
+      IfStmt *branch = dyn_cast_or_null<IfStmt>(child);
+
+      VarDecl *cond = branch ? branch->getConditionVariable() : nullptr;
+
+      if (cond) {
+
+        uint32_t typeId;
+        if (ReflectionError err = GenerateTypeInfo(
+                typeId, ASTCtx, Refl, cond->getType(), DefaultRowMaj)) {
+          LastError = err;
+          return;
+        }
+
+        const SourceRange &sourceRange = cond->getSourceRange();
+
+        uint32_t nextNodeId;
+        if (ReflectionError err =
+                PushNextNodeId(nextNodeId, Refl, SM, LangOpts, cond->getName(),
+                               cond, D3D12_HLSL_NODE_TYPE_VARIABLE, childId,
+                               typeId, &sourceRange, &FwdDecls)) {
+          LastError = err;
+          return;
+        }
+      }
+
+      if (ReflectionError err = ReflectionBranchStmt::Initialize(
+              Refl.BranchStatements[loc], childId, cond, true,
+              D3D12_HLSL_ENUM_TYPE_UINT, uint64_t(-1))) {
+        LastError = err;
+        return;
+      }
+
+      uint32_t parentSelf = ParentNodeId;
+      ParentNodeId = childId;
+
+      Stmt *realChild = branch ? branch->getThen() : child;
+      auto firstIt = realChild->child_begin();
+      auto it = firstIt;
+
+      if (it != realChild->child_end()) {
+
+        ++it;
+
+        if (it == realChild->child_end() && isa<CompoundStmt>(*firstIt)) {
+
+          it = firstIt->child_begin();
+
+          for (; it != firstIt->child_end(); ++it)
+            if (ReflectionError err = TraverseStmt(*it)) {
+              LastError = err;
+              return;
+            }
+        }
+
+        else {
+          it = firstIt;
+          for (; it != realChild->child_end(); ++it)
+            if (ReflectionError err = TraverseStmt(*it)) {
+              LastError = err;
+              return;
+            }
+        }
+      }
+
+      ParentNodeId = parentSelf;
+    }
+
+    if (ReflectionError err = ReflectionIfSwitchStmt::Initialize(
+            Refl.IfSwitchStatements[loc], nodeId, false, hasElse)) {
+      LastError = err;
+      return;
+    }
   }
 
   void VisitForStmt(ForStmt *For) {
@@ -1628,18 +1752,18 @@ struct RecursiveStmtReflector : public StmtVisitor<RecursiveStmtReflector> {
     Stmt *body = Switch->getBody();
     assert(body && "SwitchStmt has no body");
 
-    bool hasElseOrDefault = false;
+    bool hasDefault = false;
 
     for (Stmt *child : body->children()) {
 
-      const SwitchCase *switchCase = nullptr;
+      SwitchCase *switchCase = nullptr;
       uint64_t caseValue = uint64_t(-1);
       D3D12_HLSL_ENUM_TYPE valueType = D3D12_HLSL_ENUM_TYPE_INT;
       D3D12_HLSL_NODE_TYPE nodeType = D3D12_HLSL_NODE_TYPE_INVALID;
 
       bool isComplexCase = true;
 
-      if (const CaseStmt *caseStmt = dyn_cast<CaseStmt>(child)) {
+      if (CaseStmt *caseStmt = dyn_cast<CaseStmt>(child)) {
 
         switchCase = caseStmt;
 
@@ -1658,10 +1782,10 @@ struct RecursiveStmtReflector : public StmtVisitor<RecursiveStmtReflector> {
 
         nodeType = D3D12_HLSL_NODE_TYPE_CASE;
 
-      } else if (const DefaultStmt *defaultStmt =
+      } else if (DefaultStmt *defaultStmt =
                      dyn_cast<DefaultStmt>(child)) {
         switchCase = defaultStmt;
-        hasElseOrDefault = true;
+        hasDefault = true;
         nodeType = D3D12_HLSL_NODE_TYPE_DEFAULT;
       }
 
@@ -1670,7 +1794,7 @@ struct RecursiveStmtReflector : public StmtVisitor<RecursiveStmtReflector> {
 
       uint32_t loc = uint32_t(Refl.BranchStatements.size());
 
-      const SourceRange &sourceRange = Switch->getSourceRange();
+      const SourceRange &sourceRange = switchCase->getSourceRange();
 
       uint32_t childId;
       if (ReflectionError err =
@@ -1691,14 +1815,16 @@ struct RecursiveStmtReflector : public StmtVisitor<RecursiveStmtReflector> {
       uint32_t parentSelf = ParentNodeId;
       ParentNodeId = childId;
 
-      auto firstIt = child->child_begin();
+      auto realChild = switchCase->getSubStmt();
+
+      auto firstIt = realChild->child_begin();
       auto it = firstIt;
 
-      if (it != child->child_end()) {
+      if (it != realChild->child_end()) {
 
         ++it;
 
-        if (it == child->child_end() && isa<CompoundStmt>(*firstIt)) {
+        if (it == realChild->child_end() && isa<CompoundStmt>(*firstIt)) {
           for (Stmt *childChild : firstIt->children())
             if (ReflectionError err = TraverseStmt(childChild)) {
               LastError = err;
@@ -1707,7 +1833,7 @@ struct RecursiveStmtReflector : public StmtVisitor<RecursiveStmtReflector> {
         }
 
         else
-          for (Stmt *childChild : child->children())
+          for (Stmt *childChild : realChild->children())
             if (ReflectionError err = TraverseStmt(childChild)) {
               LastError = err;
               return;
@@ -1718,7 +1844,7 @@ struct RecursiveStmtReflector : public StmtVisitor<RecursiveStmtReflector> {
     }
 
     if (ReflectionError err = ReflectionIfSwitchStmt::Initialize(
-            Refl.IfSwitchStatements[loc], nodeId, cond, hasElseOrDefault)) {
+            Refl.IfSwitchStatements[loc], nodeId, cond, hasDefault)) {
       LastError = err;
       return;
     }
