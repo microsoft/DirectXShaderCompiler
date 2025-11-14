@@ -47,7 +47,7 @@ typedef HRESULT(WINAPI *D3D12GetInterfaceFn)(REFCLSID Rclsid, REFIID Riid,
                                              void **Debug);
 
 //
-// BEGIN: Copied from AgilitySDK D3D12.h. 
+// BEGIN: Copied from AgilitySDK D3D12.h.
 //
 // See defines in header to prevent any system
 // version of these interfaces from being defined.
@@ -118,7 +118,7 @@ public:
 };
 
 //
-// END: Copied from AgilitySDK D3D12.h. 
+// END: Copied from AgilitySDK D3D12.h.
 //
 
 static std::wstring getModuleName() {
