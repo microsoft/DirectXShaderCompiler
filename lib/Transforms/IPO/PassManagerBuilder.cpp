@@ -132,6 +132,7 @@ PassManagerBuilder::PassManagerBuilder() {
     VerifyOutput = false;
     MergeFunctions = false;
     PrepareForLTO = false;
+    StripDebug = false;
 }
 
 PassManagerBuilder::~PassManagerBuilder() {
@@ -393,6 +394,8 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilDeleteRedundantDebugValuesPass());
       MPM.add(createNoPausePassesPass());
       MPM.add(createDxilEmitMetadataPass());
+      if (StripDebug)
+        MPM.add(createDxilStripDebugSensitiveInfoPass());
     }
     // HLSL Change Ends.
     return;
@@ -712,6 +715,8 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createNoPausePassesPass());
     MPM.add(createDxilValidateWaveSensitivityPass());
     MPM.add(createDxilEmitMetadataPass());
+    if (StripDebug)
+      MPM.add(createDxilStripDebugSensitiveInfoPass());
   }
   // HLSL Change Ends.
   addExtensionsToPM(EP_OptimizerLast, MPM);
