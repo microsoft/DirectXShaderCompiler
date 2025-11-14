@@ -3985,7 +3985,7 @@ void MSMain(uint GID : SV_GroupIndex,
     <Resource Name="InputVector1" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <Resource Name="InputVector2" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <Resource Name="InputVector3" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
-    <Resource Name="OutputVector" Dimension="BUFFER" Width="16384"
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="8192"
     Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
     TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <RootValues>
