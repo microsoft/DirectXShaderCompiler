@@ -46,11 +46,11 @@ static const GUID D3D12ExperimentalShaderModelsID =
 typedef HRESULT(WINAPI *D3D12GetInterfaceFn)(REFCLSID Rclsid, REFIID Riid,
                                              void **Debug);
 
-#ifndef __ID3D12SDKConfiguration_INTERFACE_DEFINED__
-
-// Copied from AgilitySDK D3D12.h to programmatically enable when in developer
-// mode.
-#define __ID3D12SDKConfiguration_INTERFACE_DEFINED__
+//
+// BEGIN: Copied from AgilitySDK D3D12.h. 
+//
+// See defines in header to prevent any system
+// version of these interfaces from being defined.
 
 EXTERN_C const GUID DECLSPEC_SELECTANY IID_ID3D12SDKConfiguration = {
     0xe9eb5314,
@@ -69,7 +69,57 @@ public:
   virtual HRESULT STDMETHODCALLTYPE SetSDKVersion(UINT SDKVersion,
                                                   LPCSTR SDKPath) = 0;
 };
-#endif /* __ID3D12SDKConfiguration_INTERFACE_DEFINED__ */
+
+EXTERN_C const GUID DECLSPEC_SELECTANY IID_ID3D12DeviceFactory = {
+    0x61f307d3,
+    0xd34e,
+    0x4e7c,
+    {0x83, 0x74, 0x3b, 0xa4, 0xde, 0x23, 0xcc, 0xcb}};
+
+MIDL_INTERFACE("61f307d3-d34e-4e7c-8374-3ba4de23cccb")
+ID3D12DeviceFactory : public IUnknown {
+public:
+  virtual HRESULT STDMETHODCALLTYPE InitializeFromGlobalState(void) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE ApplyToGlobalState(void) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE SetFlags(
+      D3D12_DEVICE_FACTORY_FLAGS flags) = 0;
+
+  virtual D3D12_DEVICE_FACTORY_FLAGS STDMETHODCALLTYPE GetFlags(void) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE GetConfigurationInterface(
+      REFCLSID clsid, REFIID iid, _COM_Outptr_ void **ppv) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE EnableExperimentalFeatures(
+      UINT NumFeatures, _In_reads_(NumFeatures) const IID *pIIDs,
+      _In_reads_opt_(NumFeatures) void *pConfigurationStructs,
+      _In_reads_opt_(NumFeatures) UINT *pConfigurationStructSizes) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE CreateDevice(
+      _In_opt_ IUnknown * adapter, D3D_FEATURE_LEVEL FeatureLevel, REFIID riid,
+      _COM_Outptr_opt_ void **ppvDevice) = 0;
+};
+
+EXTERN_C const GUID DECLSPEC_SELECTANY IID_ID3D12SDKConfiguration1 = {
+    0x8aaf9303,
+    0xad25,
+    0x48b9,
+    {0x9a, 0x57, 0xd9, 0xc3, 0x7e, 0x00, 0x9d, 0x9f}};
+
+MIDL_INTERFACE("8aaf9303-ad25-48b9-9a57-d9c37e009d9f")
+ID3D12SDKConfiguration1 : public ID3D12SDKConfiguration {
+public:
+  virtual HRESULT STDMETHODCALLTYPE CreateDeviceFactory(
+      UINT SDKVersion, _In_ LPCSTR SDKPath, REFIID riid,
+      _COM_Outptr_ void **ppvFactory) = 0;
+
+  virtual void STDMETHODCALLTYPE FreeUnusedSDKs(void) = 0;
+};
+
+//
+// END: Copied from AgilitySDK D3D12.h. 
+//
 
 static std::wstring getModuleName() {
   wchar_t ModuleName[MAX_PATH + 1] = {0};
