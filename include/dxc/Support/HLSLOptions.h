@@ -21,6 +21,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Support/WinIncludes.h"
 
 #include "dxc/dxcapi.h"
@@ -227,7 +228,9 @@ public:
   std::string TimeTrace = "";           // OPT_ftime_trace[EQ]
   unsigned TimeTraceGranularity = 500;  // OPT_ftime_trace_granularity_EQ
   bool VerifyDiagnostics = false;       // OPT_verify
-  bool Verbose = false;                 // OPT_verbose
+  UnusedResourceBinding UnusedResourceBinding =
+      UnusedResourceBinding::Strip; // OPT_fhlsl_unused_resource_bindings_EQ
+  bool Verbose = false;             // OPT_verbose
 
   // Optimization pass enables, disables and selects
   OptimizationToggles

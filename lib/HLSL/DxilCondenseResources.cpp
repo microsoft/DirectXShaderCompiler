@@ -550,7 +550,8 @@ public:
     ResourceRegisterAllocator.GatherReservedRegisters(DM);
 
     // Remove unused resources.
-    DM.RemoveResourcesWithUnusedSymbols();
+    if (DM.GetUnusedResourceBinding() == UnusedResourceBinding::Strip)
+      bChanged |= DM.RemoveResourcesWithUnusedSymbols();
 
     unsigned newResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
@@ -562,11 +563,16 @@ public:
     {
       DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
       bool bLocalChanged = LegalizeResources(M, DVC);
-      if (bLocalChanged) {
-        // Remove unused resources.
-        DM.RemoveResourcesWithUnusedSymbols();
-      }
+      if (bLocalChanged &&
+          DM.GetUnusedResourceBinding() == UnusedResourceBinding::Strip)
+        bChanged |= DM.RemoveResourcesWithUnusedSymbols();
+
       bChanged |= bLocalChanged;
+    }
+
+    if (DM.GetUnusedResourceBinding() == UnusedResourceBinding::KeepAll) {
+      bChanged |= DM.RemoveEmptyBuffers();
+      bChanged |= DM.MarkUnusedResources();
     }
 
     bChanged |= ResourceRegisterAllocator.AllocateRegisters(DM);
@@ -2122,6 +2128,15 @@ void DxilLowerCreateHandleForLib::ReplaceResourceUserWithHandle(
 void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
     DxilResourceBase &res) {
   OP *hlslOP = m_DM->GetOP();
+
+  Value *GV = res.GetGlobalSymbol();
+
+  if (isa<UndefValue>(GV))
+    return;
+
+  DXASSERT(isa<GlobalValue>(GV), "DxilLowerCreateHandleForLib cannot deal with "
+                                 "resources that aren't GlobalValue.");
+
   // Generate createHandleFromBinding for sm66 and later.
   bool bCreateFromBinding = m_DM->GetShaderModel()->IsSM66Plus();
   OP::OpCode createOp = bCreateFromBinding ? OP::OpCode::CreateHandleFromBinding
@@ -2148,10 +2163,6 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
   Value *resLowerBound = hlslOP->GetU32Const(res.GetLowerBound());
 
   Value *isUniformRes = hlslOP->GetI1Const(0);
-
-  Value *GV = res.GetGlobalSymbol();
-  DXASSERT(isa<GlobalValue>(GV),
-           "DxilLowerCreateHandleForLib cannot deal with unused resources.");
 
   Module *pM = m_DM->GetModule();
   // TODO: add debug info to create handle.
@@ -2327,6 +2338,7 @@ void InitTBuffer(const DxilCBuffer *pSource, DxilResource *pDest) {
   pDest->SetRW(false);
   pDest->SetROV(false);
   pDest->SetID(pSource->GetID());
+  pDest->SetIsUnused(pSource->IsUnused());
   pDest->SetSpaceID(pSource->GetSpaceID());
   pDest->SetLowerBound(pSource->GetLowerBound());
   pDest->SetRangeSize(pSource->GetRangeSize());
@@ -2539,6 +2551,7 @@ bool DxilLowerCreateHandleForLib::PatchTBuffers(DxilModule &DM) {
       auto srv = make_unique<DxilResource>();
       InitTBuffer(CB, srv.get());
       srv->SetID(offset++);
+      srv->SetIsUnused(CB->IsUnused());
       DM.AddSRV(std::move(srv));
       GlobalVariable *GV = dyn_cast<GlobalVariable>(CB->GetGlobalSymbol());
       if (GV == nullptr)
