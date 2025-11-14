@@ -356,7 +356,6 @@ INPUT_SET(InputSet::Default2, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
 INPUT_SET(InputSet::Default3, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0,
           1.0);
 INPUT_SET(InputSet::Zero, 0.0);
-
 INPUT_SET(InputSet::RangeHalfPi, -1.073, 0.044, -1.047, 0.313, 1.447, -0.865,
           1.364, -0.715, -0.800, 0.541);
 INPUT_SET(InputSet::RangeOne, 0.331, 0.727, -0.957, 0.677, -0.025, 0.495, 0.855,
