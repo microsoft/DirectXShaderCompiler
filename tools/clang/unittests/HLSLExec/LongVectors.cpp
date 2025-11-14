@@ -780,7 +780,7 @@ static std::vector<T> buildExpectedArrayAccess(const InputSets<T> &Inputs) {
   size_t IndexList[6] = {
       0, VectorSize - 1, 1, VectorSize - 2, VectorSize / 2, VectorSize / 2 + 1};
   for (size_t i = 0; i < 6; ++i)
-    Expected[IndexList[i]] = Inputs[0][IndexList[i]] + static_cast<T>(1.0);
+    Expected[IndexList[i]] = Inputs[0][IndexList[i]];
 
   return Expected;
 }
@@ -1626,8 +1626,8 @@ public:
   // Unary
 
   HLK_TEST(Initialize, HLSLBool_t);
-  // HLK_TEST(ArrayOperator_StaticAccess, HLSLBool_t);
-  // HLK_TEST(ArrayOperator_DynamicAccess, HLSLBool_t);
+  HLK_TEST(ArrayOperator_StaticAccess, HLSLBool_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, HLSLBool_t);
   HLK_TEST(Initialize, int16_t);
   HLK_TEST(ArrayOperator_StaticAccess, int16_t);
   HLK_TEST(ArrayOperator_DynamicAccess, int16_t);
