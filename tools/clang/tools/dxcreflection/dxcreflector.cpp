@@ -908,7 +908,7 @@ struct HLSLReflectionData : public IHLSLReflectionData {
             : "";
 
     *pDesc = D3D12_HLSL_ENUM_DESC{
-        name, uint32_t(Data.Nodes[enm.NodeId].GetChildCount()), enm.Type};
+        name, uint32_t(Data.Nodes[enm.NodeId].GetChildCount()), enm.Type, enm.NodeId};
 
     return S_OK;
   }
@@ -936,8 +936,8 @@ struct HLSLReflectionData : public IHLSLReflectionData {
 
     const ReflectionNode &node = Data.Nodes[enm.NodeId + 1 + ValueIndex];
 
-    *pValueDesc =
-        D3D12_HLSL_ENUM_VALUE{name, Data.EnumValues[node.GetLocalId()].Value};
+    *pValueDesc = D3D12_HLSL_ENUM_VALUE{
+        name, Data.EnumValues[node.GetLocalId()].Value, enm.NodeId};
 
     return S_OK;
   }
@@ -985,7 +985,7 @@ struct HLSLReflectionData : public IHLSLReflectionData {
             : "";
 
     *pDesc = D3D12_HLSL_FUNCTION_DESC{name, func.GetNumParameters(),
-                                      func.HasReturn()};
+                                      func.HasReturn(), func.GetNodeId()};
 
     return S_OK;
   }
@@ -1034,7 +1034,8 @@ struct HLSLReflectionData : public IHLSLReflectionData {
                              node.GetAnnotationCount(),
                              node.IsFwdBckDefined() ? node.GetFwdBck()
                                                     : uint32_t(-1),
-                             node.IsFwdDeclare()};
+                             node.IsFwdDeclare(),
+                             node.GetInterpolationMode()};
 
     return S_OK;
   }

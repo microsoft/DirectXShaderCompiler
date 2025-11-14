@@ -95,6 +95,7 @@ struct D3D12_HLSL_FUNCTION_DESC {
                                // signature (not including return)
   BOOL HasReturn; // TRUE, if function returns a value, false - it is a
                   // subroutine
+  UINT NodeId;
 };
 
 enum D3D12_HLSL_ENUM_TYPE {
@@ -114,11 +115,13 @@ struct D3D12_HLSL_ENUM_DESC {
   LPCSTR Name;
   UINT ValueCount;
   D3D12_HLSL_ENUM_TYPE Type;
+  UINT NodeId;
 };
 
 struct D3D12_HLSL_ENUM_VALUE {
   LPCSTR Name;
   INT64 Value;
+  UINT NodeId;
 };
 
 struct D3D12_HLSL_ANNOTATION {
@@ -189,6 +192,7 @@ struct D3D12_HLSL_NODE {
   UINT AnnotationCount;
   UINT FwdBckDeclareNode; // If UINT_MAX has no forward / backward declare
   BOOL IsFwdDeclare;
+  D3D_INTERPOLATION_MODE InterpolationMode;
 };
 
 struct D3D12_HLSL_NODE_SYMBOL {

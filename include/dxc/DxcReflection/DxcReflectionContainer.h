@@ -386,8 +386,8 @@ struct ReflectionFunctionParameter { // Mirrors D3D12_PARAMETER_DESC without
 
 // A statement is a for or a while statement.
 // - if HasConditionVar(): a variable in the condition
-// - NodeCount children (If: children ex. else body, For: init children)
-// - Rest of the body (If: else body, otherwise: normal body)
+// - NodeCount children (For: init children)
+// - Rest of the body (body)
 class ReflectionScopeStmt {
 
   uint32_t NodeId;
