@@ -576,6 +576,9 @@ def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, Flags<[DriverOption
 def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,
   HelpText<"Suppress copyright message">;
 
+def fhlsl_unused_resource_bindings_EQ : Joined<["-"], "fhlsl-unused-resource-bindings=">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Control handling of unused resource bindings:\n\t\t\t'strip' (default, unused resources are stripped and their binding slots are freed up).\n\t\t\t'reserve-all' (do not use binding slots of unused resources when assigning bindings).">;
+
 //////////////////////////////////////////////////////////////////////////////
 // Rewriter Options
 

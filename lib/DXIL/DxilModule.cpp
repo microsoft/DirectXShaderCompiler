@@ -586,6 +586,15 @@ bool DxilModule::GetLegacyResourceReservation() const {
   return (m_IntermediateFlags & LegacyResourceReservation) != 0;
 }
 
+void DxilModule::SetUnusedResourceBinding(
+    UnusedResourceBinding unusedResourceBinding) {
+  m_unusedResourceBinding = unusedResourceBinding;
+}
+
+UnusedResourceBinding DxilModule::GetUnusedResourceBinding() const {
+  return m_unusedResourceBinding;
+}
+
 void DxilModule::ClearIntermediateOptions() { m_IntermediateFlags = 0; }
 
 unsigned DxilModule::GetInputControlPointCount() const {
@@ -1021,8 +1030,9 @@ void DxilModule::RemoveUnusedResources() {
 
 namespace {
 template <typename TResource>
-static void RemoveResourcesWithUnusedSymbolsHelper(
+static bool RemoveResourcesWithUnusedSymbolsHelper(
     std::vector<std::unique_ptr<TResource>> &vec) {
+  bool modif = false;
   unsigned resID = 0;
   std::unordered_set<GlobalVariable *>
       eraseList; // Need in case of duplicate defs of lib resources
@@ -1034,6 +1044,7 @@ static void RemoveResourcesWithUnusedSymbolsHelper(
       p = vec.erase(c);
       if (GlobalVariable *GV = dyn_cast<GlobalVariable>(symbol))
         eraseList.insert(GV);
+      modif = true;
       continue;
     }
     if ((*c)->GetID() != resID) {
@@ -1044,14 +1055,17 @@ static void RemoveResourcesWithUnusedSymbolsHelper(
   for (auto gv : eraseList) {
     gv->eraseFromParent();
   }
+  return modif;
 }
 } // namespace
 
-void DxilModule::RemoveResourcesWithUnusedSymbols() {
-  RemoveResourcesWithUnusedSymbolsHelper(m_SRVs);
-  RemoveResourcesWithUnusedSymbolsHelper(m_UAVs);
-  RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers);
-  RemoveResourcesWithUnusedSymbolsHelper(m_Samplers);
+bool DxilModule::RemoveResourcesWithUnusedSymbols() {
+  bool modif = false;
+  modif |= RemoveResourcesWithUnusedSymbolsHelper(m_SRVs);
+  modif |= RemoveResourcesWithUnusedSymbolsHelper(m_UAVs);
+  modif |= RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers);
+  modif |= RemoveResourcesWithUnusedSymbolsHelper(m_Samplers);
+  return modif;
 }
 
 namespace {
@@ -1533,6 +1547,7 @@ void DxilModule::LoadDxilMetadata() {
     m_bUseMinPrecision = !m_ShaderFlags.GetUseNativeLowPrecision();
     m_bDisableOptimizations = m_ShaderFlags.GetDisableOptimizations();
     m_bAllResourcesBound = m_ShaderFlags.GetAllResourcesBound();
+    m_unusedResourceBinding = m_ShaderFlags.GetUnusedResourceBinding();
     m_bResMayAlias = !m_ShaderFlags.GetResMayNotAlias();
   }
 
