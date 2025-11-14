@@ -4957,10 +4957,6 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
 
 bool SpirvEmitter::tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
                                          const Expr *srcExpr) {
-  // We are handling associated counters here. Casts should not alter which
-  // associated counter to manipulate.
-  srcExpr = srcExpr->IgnoreParenCasts();
-
   // For parameters of forward-declared functions. We must make sure the
   // associated counter variable is created. But for forward-declared functions,
   // the translation of the real definition may not be started yet.
@@ -5061,9 +5057,10 @@ SpirvEmitter::getFinalACSBufferCounterInstruction(const Expr *expr) {
   llvm::SmallVector<SpirvInstruction *, 2> indexes;
   if (const auto *arraySubscriptExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
     indexes.push_back(doExpr(arraySubscriptExpr->getIdx()));
-  } else if (isResourceDescriptorHeap(expr->getType())) {
+  } else if (isResourceDescriptorHeap(expr->IgnoreParenCasts()->getType())) {
     const Expr *index = nullptr;
-    getDescriptorHeapOperands(expr, /* base= */ nullptr, &index);
+    getDescriptorHeapOperands(expr->IgnoreParenCasts(), /* base= */ nullptr,
+                              &index);
     assert(index != nullptr && "operator[] had no indices.");
     indexes.push_back(doExpr(index));
   }
@@ -5081,9 +5078,10 @@ SpirvEmitter::getFinalACSBufferCounter(const Expr *expr) {
   if (const auto *decl = getReferencedDef(expr))
     return declIdMapper.createOrGetCounterIdAliasPair(decl);
 
-  if (isResourceDescriptorHeap(expr->getType())) {
+  const Expr *expr_withoutcasts = expr->IgnoreParenCasts();
+  if (isResourceDescriptorHeap(expr_withoutcasts->getType())) {
     const Expr *base = nullptr;
-    getDescriptorHeapOperands(expr, &base, /* index= */ nullptr);
+    getDescriptorHeapOperands(expr_withoutcasts, &base, /* index= */ nullptr);
     return declIdMapper.createOrGetCounterIdAliasPair(getReferencedDef(base));
   }
 
@@ -8860,7 +8858,23 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
           return collectArrayStructIndices(subExpr, rawIndex, rawIndices,
                                            indices, isMSOutAttribute);
         }
+      } else if (castExpr->getCastKind() == CK_UncheckedDerivedToBase ||
+                 castExpr->getCastKind() == CK_HLSLDerivedToBase) {
+        llvm::SmallVector<uint32_t, 4> BaseIdx;
+        getBaseClassIndices(castExpr, &BaseIdx);
+        if (rawIndex) {
+          rawIndices->append(BaseIdx.begin(), BaseIdx.end());
+        } else {
+          for (uint32_t Idx : BaseIdx)
+            indices->push_back(spvBuilder.getConstantInt(astContext.IntTy,
+                                                         llvm::APInt(32, Idx)));
+        }
+
+        return collectArrayStructIndices(castExpr->getSubExpr(), rawIndex,
+                                         rawIndices, indices, isMSOutAttribute);
       }
+      return collectArrayStructIndices(castExpr->getSubExpr(), rawIndex,
+                                       rawIndices, indices, isMSOutAttribute);
     }
   }
 
@@ -13165,18 +13179,26 @@ SpirvInstruction *SpirvEmitter::processIntrinsicDP2a(const CallExpr *callExpr) {
   SpirvInstruction *arg1Instr = doExpr(arg1);
   SpirvInstruction *arg2Instr = doExpr(arg2);
 
-  // Create the dot product of the half2 vectors.
-  SpirvInstruction *dotInstr = spvBuilder.createBinaryOp(
-      spv::Op::OpDot, componentType, arg0Instr, arg1Instr, loc, range);
+  // Multiply the two half2 vectors and convert the result to float2.
+  SpirvInstruction *mulInstr = spvBuilder.createBinaryOp(
+      spv::Op::OpFMul, vecType, arg0Instr, arg1Instr, loc, range);
+  SpirvInstruction *convertInstr = spvBuilder.createUnaryOp(
+      spv::Op::OpFConvert,
+      astContext.getExtVectorType(astContext.FloatTy, vecSize), mulInstr, loc,
+      range);
 
-  // Convert dot product (half type) to result type (float).
-  QualType resultType = callExpr->getType();
-  SpirvInstruction *floatDotInstr = spvBuilder.createUnaryOp(
-      spv::Op::OpFConvert, resultType, dotInstr, loc, range);
+  // Extract each float element and and sum them up.
+  SpirvInstruction *extractedElem0 = spvBuilder.createCompositeExtract(
+      astContext.FloatTy, convertInstr, {0}, loc, range);
+  SpirvInstruction *extractedElem1 = spvBuilder.createCompositeExtract(
+      astContext.FloatTy, convertInstr, {1}, loc, range);
+  SpirvInstruction *dotInstr =
+      spvBuilder.createBinaryOp(spv::Op::OpFAdd, astContext.FloatTy,
+                                extractedElem0, extractedElem1, loc, range);
 
   // Sum the dot product result and accumulator and return.
-  return spvBuilder.createBinaryOp(spv::Op::OpFAdd, resultType, floatDotInstr,
-                                   arg2Instr, loc, range);
+  return spvBuilder.createBinaryOp(spv::Op::OpFAdd, astContext.FloatTy,
+                                   dotInstr, arg2Instr, loc, range);
 }
 
 SpirvInstruction *

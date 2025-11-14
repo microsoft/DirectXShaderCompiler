@@ -134,6 +134,11 @@ stages:
       condition: eq(variables['image'], variables['linux'])
 
     - bash: |
+        sudo apt-get install g++-9 -y
+      displayName: 'Installing g++-9'
+      condition: and(eq(variables['CXX'], 'g++-9'), eq(variables['image'], variables['linux']))
+
+    - bash: |
         brew update
         brew install ninja
         ulimit -Sn 1024

@@ -1089,7 +1089,7 @@ void DeclResultIdMapper::createCounterVarForDecl(const DeclaratorDecl *decl) {
 
   if (!counterVars.count(decl) && isRWAppendConsumeSBuffer(declType)) {
     createCounterVar(decl, /*declId=*/0, /*isAlias=*/true);
-  } else if (!fieldCounterVars.count(decl) && declType->isStructureType() &&
+  } else if (!fieldCounterVars.count(decl) && declType->isRecordType() &&
              // Exclude other resource types which are represented as structs
              !hlsl::IsHLSLResourceType(declType)) {
     createFieldCounterVars(decl);
@@ -1886,14 +1886,33 @@ void DeclResultIdMapper::createCounterVar(
     counterVars[decl] = {counterInstr, isAlias};
 }
 
-void DeclResultIdMapper::createFieldCounterVars(
-    const DeclaratorDecl *rootDecl, const DeclaratorDecl *decl,
-    llvm::SmallVector<uint32_t, 4> *indices) {
+void DeclResultIdMapper::createFieldCounterVars(const DeclaratorDecl *decl) {
+  llvm::SmallVector<uint32_t, 4> indices;
   const QualType type = getTypeOrFnRetType(decl);
+  createFieldCounterVars(decl, type, &indices);
+}
+
+void DeclResultIdMapper::createFieldCounterVars(
+    const DeclaratorDecl *rootDecl, const QualType type,
+    llvm::SmallVector<uint32_t, 4> *indices) {
   const auto *recordType = type->getAs<RecordType>();
   assert(recordType);
   const auto *recordDecl = recordType->getDecl();
 
+  // Handle base classes first
+  if (const auto *cxxRecordDecl = dyn_cast<CXXRecordDecl>(recordDecl)) {
+    // HLSL has at most one base class.
+    assert(cxxRecordDecl->getNumBases() <= 1 &&
+           "HLSL should have at most one base class.");
+    if (cxxRecordDecl->getNumBases() > 0) {
+      const auto &base = *cxxRecordDecl->bases().begin();
+      indices->push_back(0);
+      createFieldCounterVars(rootDecl, base.getType(), indices);
+      indices->pop_back();
+    }
+  }
+
+  // Now handle the fields of the current class (non-inherited fields)
   for (const auto *field : recordDecl->fields()) {
     // Build up the index chain
     indices->push_back(getNumBaseClasses(type) + field->getFieldIndex());
@@ -1902,9 +1921,11 @@ void DeclResultIdMapper::createFieldCounterVars(
     if (isRWAppendConsumeSBuffer(fieldType))
       createCounterVar(rootDecl, /*declId=*/0, /*isAlias=*/true, indices);
     else if (fieldType->isStructureType() &&
-             !hlsl::IsHLSLResourceType(fieldType))
+             !hlsl::IsHLSLResourceType(fieldType)) {
       // Go recursively into all nested structs
-      createFieldCounterVars(rootDecl, field, indices);
+      const QualType type = getTypeOrFnRetType(field);
+      createFieldCounterVars(rootDecl, type, indices);
+    }
 
     indices->pop_back();
   }

@@ -9,6 +9,7 @@
 
 #include "ShaderOpTest.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Test/HlslTestUtils.h"
 
 #include "HlslExecTestUtils.h"
 
@@ -313,10 +314,10 @@ static WEX::Common::String getInputValueSetName(size_t Index) {
   return ValueSetName;
 }
 
-std::string getCompilerOptionsString(const Operation &Operation,
-                                     const DataType &OpDataType,
-                                     const DataType &OutDataType,
-                                     size_t VectorSize) {
+std::string getCompilerOptionsString(
+    const Operation &Operation, const DataType &OpDataType,
+    const DataType &OutDataType, size_t VectorSize,
+    std::optional<std::string> AdditionalOptions = std::nullopt) {
   std::stringstream CompilerOptions;
 
   if (OpDataType.Is16Bit || OutDataType.Is16Bit)
@@ -337,6 +338,9 @@ std::string getCompilerOptionsString(const Operation &Operation,
 
   CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << Operation.Arity;
 
+  if (AdditionalOptions)
+    CompilerOptions << " " << AdditionalOptions.value();
+
   return CompilerOptions.str();
 }
 
@@ -351,7 +355,7 @@ void fillShaderBufferFromLongVectorData(std::vector<BYTE> &ShaderBuffer,
   // underlying type in some cases. Thats fine. Resize just makes sure we have
   // enough space.
   const size_t NumElements = TestData.size();
-  const size_t DataSize = sizeof(T) * NumElements;
+  [[maybe_unused]] const size_t DataSize = sizeof(T) * NumElements;
 
   // Ensure the shader buffer is large enough. It should be pre-sized based on
   // the D3D12_RESOURCE_DESC for the associated D3D12_RESOURCE.
@@ -387,7 +391,8 @@ template <typename OUT_TYPE, typename T>
 std::optional<std::vector<OUT_TYPE>>
 runTest(ID3D12Device *D3DDevice, bool VerboseLogging,
         const Operation &Operation, const InputSets<T> &Inputs,
-        size_t ExpectedOutputSize) {
+        size_t ExpectedOutputSize,
+        std::optional<std::string> AdditionalCompilerOptions) {
   DXASSERT_NOMSG(Inputs.size() == Operation.Arity);
 
   if (VerboseLogging) {
@@ -403,8 +408,9 @@ runTest(ID3D12Device *D3DDevice, bool VerboseLogging,
 
   // We have to construct the string outside of the lambda. Otherwise it's
   // cleaned up when the lambda finishes executing but before the shader runs.
-  std::string CompilerOptionsString = getCompilerOptionsString(
-      Operation, OpDataType, OutDataType, Inputs[0].size());
+  std::string CompilerOptionsString =
+      getCompilerOptionsString(Operation, OpDataType, OutDataType,
+                               Inputs[0].size(), AdditionalCompilerOptions);
 
   dxc::SpecificDllLoader DxilDllLoader;
   CComPtr<IStream> TestXML;
@@ -570,13 +576,15 @@ struct ValidationConfig {
 };
 
 template <typename T, typename OUT_TYPE>
-void runAndVerify(ID3D12Device *D3DDevice, bool VerboseLogging,
-                  const Operation &Operation, const InputSets<T> &Inputs,
-                  const std::vector<OUT_TYPE> &Expected,
-                  const ValidationConfig &ValidationConfig) {
+void runAndVerify(
+    ID3D12Device *D3DDevice, bool VerboseLogging, const Operation &Operation,
+    const InputSets<T> &Inputs, const std::vector<OUT_TYPE> &Expected,
+    const ValidationConfig &ValidationConfig,
+    std::optional<std::string> AdditionalCompilerOptions = std::nullopt) {
 
-  std::optional<std::vector<OUT_TYPE>> Actual = runTest<OUT_TYPE>(
-      D3DDevice, VerboseLogging, Operation, Inputs, Expected.size());
+  std::optional<std::vector<OUT_TYPE>> Actual =
+      runTest<OUT_TYPE>(D3DDevice, VerboseLogging, Operation, Inputs,
+                        Expected.size(), AdditionalCompilerOptions);
 
   // If the test didn't run, don't verify anything.
   if (!Actual)
@@ -1293,6 +1301,88 @@ FLOAT_SPECIAL_OP(OpType::IsInf, (std::isinf(A)));
 FLOAT_SPECIAL_OP(OpType::IsNan, (std::isnan(A)));
 #undef FLOAT_SPECIAL_OP
 
+template <typename T> struct Op<OpType::ModF, T, 1> : DefaultValidation<T> {};
+
+template <typename T> static T modF(T Input, T &OutParam);
+
+template <> float modF(float Input, float &OutParam) {
+  return std::modf(Input, &OutParam);
+}
+
+template <> HLSLHalf_t modF(HLSLHalf_t Input, HLSLHalf_t &OutParam) {
+  float Exp = 0.0f;
+  float Man = std::modf(float(Input), &Exp);
+  OutParam = HLSLHalf_t(Exp);
+  return Man;
+}
+
+template <typename T> struct ExpectedBuilder<OpType::ModF, T> {
+  static std::vector<T> buildExpected(Op<OpType::ModF, T, 1> &,
+                                      const InputSets<T> &Inputs) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+    size_t VectorSize = Inputs[0].size();
+
+    std::vector<T> Expected;
+    Expected.resize(VectorSize * 2);
+
+    for (size_t I = 0; I < VectorSize; ++I) {
+      T Exp;
+      T Man = modF(Inputs[0][I], Exp);
+      Expected[I] = Man;
+      Expected[I + VectorSize] = Exp;
+    }
+
+    return Expected;
+  }
+};
+
+//
+// Wave Ops
+//
+
+#define WAVE_ACTIVE_OP(OP, IMPL)                                               \
+  template <typename T> struct Op<OP, T, 1> : DefaultValidation<T> {           \
+    T operator()(T A, UINT WaveSize) { return IMPL; }                          \
+  };
+
+template <typename T> T waveActiveSum(T A, UINT WaveSize) {
+  T WaveSizeT = static_cast<T>(WaveSize);
+  return A * WaveSizeT;
+}
+
+WAVE_ACTIVE_OP(OpType::WaveActiveSum, (waveActiveSum(A, WaveSize)));
+
+template <typename T> T waveActiveMin(T A, UINT WaveSize) {
+  std::vector<T> Values;
+  // Add the 'WaveLaneID' to A.
+  for (UINT I = 0; I < WaveSize; ++I)
+    Values.push_back(A + static_cast<T>(I));
+  return *std::min_element(Values.begin(), Values.end());
+}
+
+WAVE_ACTIVE_OP(OpType::WaveActiveMin, (waveActiveMin(A, WaveSize)));
+
+template <typename T> T waveActiveMax(T A, UINT WaveSize) {
+  std::vector<T> Values;
+  // Add the 'WaveLaneID' to A.
+  for (UINT I = 0; I < WaveSize; ++I)
+    Values.push_back(A + static_cast<T>(I));
+  return *std::max_element(Values.begin(), Values.end());
+}
+
+WAVE_ACTIVE_OP(OpType::WaveActiveMax, (waveActiveMax(A, WaveSize)));
+
+template <typename T> T waveActiveProduct(T A, UINT WaveSize) {
+  // We want to avoid overflow of a large product. So, the WaveActiveProdFn has
+  // an input set of all 1's and we modify the value of the largest lane to be
+  // equal to the lane index in the shader.
+  return A * static_cast<T>(WaveSize - 1);
+}
+
+WAVE_ACTIVE_OP(OpType::WaveActiveProduct, (waveActiveProduct(A, WaveSize)));
+
+#undef WAVE_ACTIVE_OP
+
 //
 // dispatchTest
 //
@@ -1336,9 +1426,24 @@ template <OpType OP, typename T> struct ExpectedBuilder {
   }
 };
 
+template <OpType OP, typename T> struct WaveOpExpectedBuilder {
+
+  static auto buildExpected(Op<OP, T, 1> Op, const InputSets<T> &Inputs,
+                            UINT WaveSize) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+
+    std::vector<decltype(Op(T(), WaveSize))> Expected;
+    Expected.reserve(Inputs[0].size());
+
+    for (size_t I = 0; I < Inputs[0].size(); ++I)
+      Expected.push_back(Op(Inputs[0][I], WaveSize));
+
+    return Expected;
+  }
+};
+
 template <typename T, OpType OP>
-void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
-                  size_t OverrideInputSize) {
+std::vector<size_t> getInputSizesToTest(size_t OverrideInputSize) {
   std::vector<size_t> InputVectorSizes;
   const std::array<size_t, 8> DefaultInputSizes = {3,  5,   16,  17,
                                                    35, 100, 256, 1024};
@@ -1359,8 +1464,17 @@ void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
       InputVectorSizes.push_back(MaxInputSize);
   }
 
-  constexpr const Operation &Operation = getOperation(OP);
+  return InputVectorSizes;
+}
 
+template <typename T, OpType OP>
+void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
+                  size_t OverrideInputSize) {
+
+  const std::vector<size_t> InputVectorSizes =
+      getInputSizesToTest<T, OP>(OverrideInputSize);
+
+  constexpr const Operation &Operation = getOperation(OP);
   Op<OP, T, Operation.Arity> Op;
 
   for (size_t VectorSize : InputVectorSizes) {
@@ -1374,6 +1488,32 @@ void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
   }
 }
 
+template <typename T, OpType OP>
+void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
+                        size_t OverrideInputSize, UINT WaveSize) {
+
+  const std::vector<size_t> InputVectorSizes =
+      getInputSizesToTest<T, OP>(OverrideInputSize);
+
+  constexpr const Operation &Operation = getOperation(OP);
+  Op<OP, T, Operation.Arity> Op;
+
+  const std::string AdditionalCompilerOptions =
+      "-DWAVE_SIZE=" + std::to_string(WaveSize) +
+      " -DNUMTHREADS_X=" + std::to_string(WaveSize);
+
+  for (size_t VectorSize : InputVectorSizes) {
+    std::vector<std::vector<T>> Inputs =
+        buildTestInputs<T>(VectorSize, Operation.InputSets, Operation.Arity);
+
+    auto Expected =
+        WaveOpExpectedBuilder<OP, T>::buildExpected(Op, Inputs, WaveSize);
+
+    runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
+                 Op.ValidationConfig, AdditionalCompilerOptions);
+  }
+}
+
 } // namespace LongVector
 
 using namespace LongVector;
@@ -1381,6 +1521,14 @@ using namespace LongVector;
 // TAEF test entry points
 #define HLK_TEST(Op, DataType)                                                 \
   TEST_METHOD(Op##_##DataType) { runTest<DataType, OpType::Op>(); }
+
+#define HLK_WAVEOP_TEST(Op, DataType)                                          \
+  TEST_METHOD(Op##_##DataType) {                                               \
+    BEGIN_TEST_METHOD_PROPERTIES()                                             \
+    TEST_METHOD_PROPERTY(L"Priority", L"2")                                    \
+    END_TEST_METHOD_PROPERTIES()                                               \
+    runWaveOpTest<DataType, OpType::Op>();                                     \
+  }
 
 class DxilConf_SM69_Vectorized {
 public:
@@ -1393,6 +1541,7 @@ public:
   TEST_CLASS_PROPERTY(
       "Kits.Specification",
       "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
   TEST_CLASS_SETUP(classSetup) {
@@ -1445,6 +1594,9 @@ public:
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"InputSize",
                                                          OverrideInputSize);
 
+      WEX::TestExecution::RuntimeParameters::TryGetValue(L"WaveLaneCount",
+                                                         OverrideWaveLaneCount);
+
       bool IsRITP = false;
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"RITP", IsRITP);
 
@@ -1459,8 +1611,14 @@ public:
               OverrideInputSize);
       }
 
-      // Only skip unsupported tests for RITP runs.
-      const bool SkipUnsupported = IsRITP;
+      bool FailIfRequirementsNotMet = false;
+#ifdef _HLK_CONF
+      FailIfRequirementsNotMet = true;
+#endif
+      WEX::TestExecution::RuntimeParameters::TryGetValue(
+          L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
+
+      const bool SkipUnsupported = !FailIfRequirementsNotMet;
       createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9,
                    SkipUnsupported);
     }
@@ -1468,16 +1626,47 @@ public:
     return true;
   }
 
+  TEST_METHOD_SETUP(methodSetup) {
+    // It's possible a previous test case caused a device removal. If it did we
+    // need to try and create a new device.
+    if (!D3DDevice || D3DDevice->GetDeviceRemovedReason() != S_OK) {
+      hlsl_test::LogCommentFmt(
+          L"Device was lost: Attempting to create a new D3D12 device.");
+      VERIFY_IS_TRUE(
+          createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false));
+    }
+
+    return true;
+  }
+
+  template <typename T, OpType OP> void runWaveOpTest() {
+    WEX::TestExecution::SetVerifyOutput VerifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+    UINT WaveSize = 0;
+
+    if (OverrideWaveLaneCount > 0) {
+      WaveSize = OverrideWaveLaneCount;
+      hlsl_test::LogCommentFmt(
+          L"Using overridden WaveLaneCount of %d for this test.", WaveSize);
+    } else {
+      D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOpts;
+      VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
+          D3D12_FEATURE_D3D12_OPTIONS1, &WaveOpts, sizeof(WaveOpts)));
+
+      WaveSize = WaveOpts.WaveLaneCountMin;
+    }
+
+    DXASSERT_NOMSG(WaveSize > 0);
+    DXASSERT((WaveSize & (WaveSize - 1)) == 0, "must be a power of 2");
+
+    dispatchWaveOpTest<T, OP>(D3DDevice, VerboseLogging, OverrideInputSize,
+                              WaveSize);
+  }
+
   template <typename T, OpType OP> void runTest() {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
-    // It's possible a previous test case caused a device removal. If it did we
-    // need to try and create a new device.
-    if (!D3DDevice || D3DDevice->GetDeviceRemovedReason() != S_OK)
-      VERIFY_IS_TRUE(
-          createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false));
-
     dispatchTest<T, OP>(D3DDevice, VerboseLogging, OverrideInputSize);
   }
 
@@ -1863,10 +2052,12 @@ public:
   HLK_TEST(IsFinite, HLSLHalf_t);
   HLK_TEST(IsInf, HLSLHalf_t);
   HLK_TEST(IsNan, HLSLHalf_t);
+  HLK_TEST(ModF, HLSLHalf_t);
 
   HLK_TEST(IsFinite, float);
   HLK_TEST(IsInf, float);
   HLK_TEST(IsNan, float);
+  HLK_TEST(ModF, float);
 
   // Binary Comparison
 
@@ -2112,9 +2303,49 @@ public:
   HLK_TEST(LoadAndStore_RD_SB_SRV, double);
   HLK_TEST(LoadAndStore_RD_SB_UAV, double);
 
+  HLK_WAVEOP_TEST(WaveActiveSum, int16_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, int16_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, int16_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, int16_t);
+  HLK_WAVEOP_TEST(WaveActiveSum, int32_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, int32_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, int32_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, int32_t);
+  HLK_WAVEOP_TEST(WaveActiveSum, int64_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, int64_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, int64_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, int64_t);
+
+  HLK_WAVEOP_TEST(WaveActiveSum, uint16_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, uint16_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, uint16_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, uint16_t);
+  HLK_WAVEOP_TEST(WaveActiveSum, uint32_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, uint32_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, uint32_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, uint32_t);
+  HLK_WAVEOP_TEST(WaveActiveSum, uint64_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, uint64_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, uint64_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, uint64_t);
+
+  HLK_WAVEOP_TEST(WaveActiveSum, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveActiveSum, float);
+  HLK_WAVEOP_TEST(WaveActiveMin, float);
+  HLK_WAVEOP_TEST(WaveActiveMax, float);
+  HLK_WAVEOP_TEST(WaveActiveProduct, float);
+  HLK_WAVEOP_TEST(WaveActiveSum, double);
+  HLK_WAVEOP_TEST(WaveActiveMin, double);
+  HLK_WAVEOP_TEST(WaveActiveMax, double);
+  HLK_WAVEOP_TEST(WaveActiveProduct, double);
+
 private:
   bool Initialized = false;
   bool VerboseLogging = false;
   size_t OverrideInputSize = 0;
+  UINT OverrideWaveLaneCount = 0;
   CComPtr<ID3D12Device> D3DDevice;
 };
