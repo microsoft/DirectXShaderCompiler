@@ -4135,16 +4135,14 @@ void MSMain(uint GID : SV_GroupIndex,
             [unroll]for(uint i = 0; i < 6; ++i)
               OutputVector[IndexList[i]] = (OUT_TYPE)Input1[IndexList[i]] + (OUT_TYPE)1;
           #elif TEST_ARRAY_OPERATOR_DYNAMIC_ACCESS
+            // Input2 will always be 0. This is added so the compiler cannot optimize the array access.
+            uint Modifier = (uint) Input2[0];
+            uint IndexList[6] = {0 + Modifier, OutNum - 1 + Modifier, 1 + Modifier, OutNum - 2 + Modifier, OutNum / 2 + Modifier, OutNum / 2 + 1 + Modifier};
             vector<OUT_TYPE, OutNum> OutputVector = 0;
             uint End = min(OutNum, 6);
             [unroll]for(uint i = 0; i < End; ++i){
-            uint index = (uint)(Input2[i]);
-            // this doesn't work
-            // OutputVector[index] = Input1[i] + (OUT_TYPE)1;
-            // this also doesn't work
+            uint index = (uint)(IndexList[i]);
             OutputVector[index] = Input1[index] + (OUT_TYPE)1;
-            // this works
-            // OutputVector[i] = Input1[index] + (OUT_TYPE)1;
             }
           #elif IS_UNARY_OP
             vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1);

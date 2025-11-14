@@ -19,7 +19,6 @@ INPUT_SET(Positive)
 INPUT_SET(Bitwise)
 INPUT_SET(SelectCond)
 INPUT_SET(FloatSpecial)
-INPUT_SET(DynamicIndexes)
 
 #undef INPUT_SET
 
@@ -66,8 +65,8 @@ OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
 OP_DEFAULT_DEFINES(ArrayOperator, ArrayOperator_StaticAccess, 1, "TestArrayOperatorStaticAccess", "",
                    " -DTEST_ARRAY_OPERATOR_STATIC_ACCESS=1")
 
-OP(ArrayOperator, ArrayOperator_DynamicAccess, 2, "TestArrayOperatorDynamicAccess", "", " -DTEST_ARRAY_OPERATOR_DYNAMIC_ACCESS=1 -DINDEX=1.0", "LongVectorOp",       \
-     Default1, DynamicIndexes, Default3)
+OP(ArrayOperator, ArrayOperator_DynamicAccess, 2, "TestArrayOperatorDynamicAccess", "", 
+   " -DTEST_ARRAY_OPERATOR_DYNAMIC_ACCESS=1", "LongVectorOP", Default1, Zero, Default3)
 
 #define OP_CAST_DEFAULT(GROUP, SYMBOL)                                         \
   OP_DEFAULT_DEFINES(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1")

@@ -535,7 +535,7 @@ void configureLoadAndStoreShaderOp(const Operation &Operation,
 
 template <typename T>
 std::vector<T> buildTestInput(InputSet InputSet, size_t SizeToTest) {
-  const std::vector<T> &RawValueSet = getInputSet<T>(InputSet, SizeToTest);
+  const std::vector<T> &RawValueSet = getInputSet<T>(InputSet);
 
   std::vector<T> ValueSet;
   ValueSet.reserve(SizeToTest);
@@ -772,25 +772,26 @@ template <typename T>
 struct Op<OpType::ArrayOperator_StaticAccess, T, 1> : DefaultValidation<T> {};
 
 template <typename T>
+static std::vector<T> buildExpectedArrayAccess(const InputSets<T> &Inputs) {
+  const size_t VectorSize = Inputs[0].size();
+  std::vector<T> Expected;
+  Expected.resize(VectorSize);
+
+  size_t IndexList[6] = {
+      0, VectorSize - 1, 1, VectorSize - 2, VectorSize / 2, VectorSize / 2 + 1};
+  for (size_t i = 0; i < 6; ++i)
+    Expected[IndexList[i]] = Inputs[0][IndexList[i]] + static_cast<T>(1.0);
+
+  return Expected;
+}
+
+template <typename T>
 struct ExpectedBuilder<OpType::ArrayOperator_StaticAccess, T> {
   static std::vector<T>
   buildExpected(Op<OpType::ArrayOperator_StaticAccess, T, 1>,
                 const InputSets<T> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 1);
-    const size_t VectorSize = Inputs[0].size();
-    std::vector<T> Expected;
-    Expected.resize(VectorSize);
-
-    size_t IndexList[6] = {0,
-                           VectorSize - 1,
-                           1,
-                           VectorSize - 2,
-                           VectorSize / 2,
-                           VectorSize / 2 + 1};
-    for (size_t i = 0; i < 6; ++i)
-      Expected[IndexList[i]] = Inputs[0][IndexList[i]] + static_cast<T>(1.0);
-
-    return Expected;
+    return buildExpectedArrayAccess(Inputs);
   }
 };
 
@@ -803,17 +804,7 @@ struct ExpectedBuilder<OpType::ArrayOperator_DynamicAccess, T> {
   buildExpected(Op<OpType::ArrayOperator_DynamicAccess, T, 2>,
                 const InputSets<T> &Inputs) {
     DXASSERT_NOMSG(Inputs.size() == 2);
-    const size_t IndexVectorSize = Inputs[1].size();
-
-    std::vector<T> Expected;
-    Expected.resize(IndexVectorSize);
-    size_t End = std::min(IndexVectorSize, static_cast<size_t>(6));
-    for (size_t i = 0; i < End; ++i) {
-      const size_t Index = static_cast<size_t>(Inputs[1][i]);
-      Expected[Index] = Inputs[0][Index] + static_cast<T>(1.0);
-    }
-
-    return Expected;
+    return buildExpectedArrayAccess(Inputs);
   }
 };
 
