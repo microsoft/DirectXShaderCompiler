@@ -4215,6 +4215,33 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_WAVE_MULTI_PREFIX_BIT_AND
+        void TestWaveMultiPrefixBitAnd(vector<TYPE, NUM> Vector)
+        {
+          const uint LaneCount = WaveGetLaneCount();
+          const uint32_t Mask = 0xE; // Lanes 1,2,3.
+
+          if(WaveGetLaneIndex() == 0)
+          {
+            // Clear LSB on lane 0 only. This should have no effect since lane 0
+            // is not in the mask.
+            Vector = Vector & ~((OUT_TYPE)0x1);
+          }
+          else // On all other lanes mask for the second and third LSB.
+          {
+            Vector = (Vector & ((OUT_TYPE)0x6));
+          }
+
+          Vector = WaveMultiPrefixBitAnd(Vector, Mask);
+          if(WaveGetLaneIndex() == 3)
+          {
+            // Lane 3 is the last lane in the mask. Store the result from it.
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
+
         #ifdef FUNC_TEST_SELECT
         vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,
                                          vector<TYPE, NUM> Vector2,

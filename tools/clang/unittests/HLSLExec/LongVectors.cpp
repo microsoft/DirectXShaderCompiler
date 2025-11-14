@@ -612,7 +612,6 @@ template <OpType OP, typename T, size_t Arity> struct Op;
 // ExpectedBuilder - specializations are expected to have buildExpectedData
 // member functions.
 template <OpType OP, typename T> struct ExpectedBuilder;
-template <OpType OP, typename T> struct WaveOpExpectedBuilder;
 
 // Default Validation configuration - ULP for floating point types, exact
 // matches for everything else.
@@ -1363,11 +1362,18 @@ template <typename T> T waveActiveBitXor(T A, UINT) {
 
 WAVE_OP(OpType::WaveActiveBitXor, (waveActiveBitXor(A, WaveSize)));
 
+WAVE_OP(OpType::WaveMultiPrefixBitAnd, waveMultiPrefixBitAnd(A, WaveSize));
+
+template <typename T> T waveMultiPrefixBitAnd(T A, UINT) {
+  // All lanes in the group mask use a mask to filter for only the second and
+  // third LSBs.
+  return static_cast<T>(A & static_cast<T>(0x6));
+}
+
 template <typename T>
 struct Op<OpType::WaveActiveAllEqual, T, 1> : StrictValidation {};
 
-template <typename T>
-struct WaveOpExpectedBuilder<OpType::WaveActiveAllEqual, T> {
+template <typename T> struct ExpectedBuilder<OpType::WaveActiveAllEqual, T> {
   static std::vector<HLSLBool_t>
   buildExpected(Op<OpType::WaveActiveAllEqual, T, 1> &,
                 const InputSets<T> &Inputs, UINT) {
@@ -1386,7 +1392,7 @@ struct WaveOpExpectedBuilder<OpType::WaveActiveAllEqual, T> {
 template <typename T>
 struct Op<OpType::WaveReadLaneAt, T, 1> : StrictValidation {};
 
-template <typename T> struct WaveOpExpectedBuilder<OpType::WaveReadLaneAt, T> {
+template <typename T> struct ExpectedBuilder<OpType::WaveReadLaneAt, T> {
   static std::vector<T> buildExpected(Op<OpType::WaveReadLaneAt, T, 1> &,
                                       const InputSets<T> &Inputs, UINT) {
     DXASSERT_NOMSG(Inputs.size() == 1);
@@ -1404,8 +1410,7 @@ template <typename T> struct WaveOpExpectedBuilder<OpType::WaveReadLaneAt, T> {
 template <typename T>
 struct Op<OpType::WaveReadLaneFirst, T, 1> : StrictValidation {};
 
-template <typename T>
-struct WaveOpExpectedBuilder<OpType::WaveReadLaneFirst, T> {
+template <typename T> struct ExpectedBuilder<OpType::WaveReadLaneFirst, T> {
   static std::vector<T> buildExpected(Op<OpType::WaveReadLaneFirst, T, 1> &,
                                       const InputSets<T> &Inputs, UINT) {
     DXASSERT_NOMSG(Inputs.size() == 1);
@@ -1478,9 +1483,6 @@ template <OpType OP, typename T> struct ExpectedBuilder {
 
     return Expected;
   }
-};
-
-template <OpType OP, typename T> struct WaveOpExpectedBuilder {
 
   static auto buildExpected(Op<OP, T, 1> Op, const InputSets<T> &Inputs,
                             UINT WaveSize) {
@@ -1560,8 +1562,7 @@ void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
     std::vector<std::vector<T>> Inputs =
         buildTestInputs<T>(VectorSize, Operation.InputSets, Operation.Arity);
 
-    auto Expected =
-        WaveOpExpectedBuilder<OP, T>::buildExpected(Op, Inputs, WaveSize);
+    auto Expected = ExpectedBuilder<OP, T>::buildExpected(Op, Inputs, WaveSize);
 
     runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
                  Op.ValidationConfig, AdditionalCompilerOptions);
@@ -2350,6 +2351,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, int16_t);
   HLK_WAVEOP_TEST(WavePrefixSum, int16_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, int16_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, int16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int32_t);
@@ -2359,6 +2361,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, int32_t);
   HLK_WAVEOP_TEST(WavePrefixSum, int32_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, int32_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, int32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int64_t);
@@ -2368,6 +2371,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, int64_t);
   HLK_WAVEOP_TEST(WavePrefixSum, int64_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, int64_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, int64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint16_t);
@@ -2378,11 +2382,13 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, uint16_t);
   HLK_WAVEOP_TEST(WavePrefixSum, uint16_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, uint16_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, uint32_t);
   // Note: WaveActiveBit* ops don't support uint16_t in HLSL
+  // But the WaveMultiPrefixBit ops support all int and uint types
   HLK_WAVEOP_TEST(WaveActiveBitAnd, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveBitOr, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveBitXor, uint32_t);
@@ -2391,6 +2397,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, uint32_t);
   HLK_WAVEOP_TEST(WavePrefixSum, uint32_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, uint32_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint64_t);
@@ -2403,6 +2410,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, uint64_t);
   HLK_WAVEOP_TEST(WavePrefixSum, uint64_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, uint64_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, uint64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveMin, HLSLHalf_t);
