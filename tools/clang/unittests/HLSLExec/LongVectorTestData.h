@@ -3,7 +3,6 @@
 
 #include <Verify.h>
 
-#include <cstdint>
 #include <limits>
 #include <map>
 #include <ostream>
