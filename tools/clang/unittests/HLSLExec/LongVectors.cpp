@@ -612,7 +612,6 @@ template <OpType OP, typename T, size_t Arity> struct Op;
 // ExpectedBuilder - specializations are expected to have buildExpectedData
 // member functions.
 template <OpType OP, typename T> struct ExpectedBuilder;
-template <OpType OP, typename T> struct WaveOpExpectedBuilder;
 
 // Default Validation configuration - ULP for floating point types, exact
 // matches for everything else.
@@ -1366,8 +1365,7 @@ WAVE_OP(OpType::WaveActiveBitXor, (waveActiveBitXor(A, WaveSize)));
 template <typename T>
 struct Op<OpType::WaveActiveAllEqual, T, 1> : StrictValidation {};
 
-template <typename T>
-struct WaveOpExpectedBuilder<OpType::WaveActiveAllEqual, T> {
+template <typename T> struct ExpectedBuilder<OpType::WaveActiveAllEqual, T> {
   static std::vector<HLSLBool_t>
   buildExpected(Op<OpType::WaveActiveAllEqual, T, 1> &,
                 const InputSets<T> &Inputs, UINT) {
@@ -1386,7 +1384,7 @@ struct WaveOpExpectedBuilder<OpType::WaveActiveAllEqual, T> {
 template <typename T>
 struct Op<OpType::WaveReadLaneAt, T, 1> : StrictValidation {};
 
-template <typename T> struct WaveOpExpectedBuilder<OpType::WaveReadLaneAt, T> {
+template <typename T> struct ExpectedBuilder<OpType::WaveReadLaneAt, T> {
   static std::vector<T> buildExpected(Op<OpType::WaveReadLaneAt, T, 1> &,
                                       const InputSets<T> &Inputs, UINT) {
     DXASSERT_NOMSG(Inputs.size() == 1);
@@ -1404,8 +1402,7 @@ template <typename T> struct WaveOpExpectedBuilder<OpType::WaveReadLaneAt, T> {
 template <typename T>
 struct Op<OpType::WaveReadLaneFirst, T, 1> : StrictValidation {};
 
-template <typename T>
-struct WaveOpExpectedBuilder<OpType::WaveReadLaneFirst, T> {
+template <typename T> struct ExpectedBuilder<OpType::WaveReadLaneFirst, T> {
   static std::vector<T> buildExpected(Op<OpType::WaveReadLaneFirst, T, 1> &,
                                       const InputSets<T> &Inputs, UINT) {
     DXASSERT_NOMSG(Inputs.size() == 1);
@@ -1478,9 +1475,6 @@ template <OpType OP, typename T> struct ExpectedBuilder {
 
     return Expected;
   }
-};
-
-template <OpType OP, typename T> struct WaveOpExpectedBuilder {
 
   static auto buildExpected(Op<OP, T, 1> Op, const InputSets<T> &Inputs,
                             UINT WaveSize) {
@@ -1560,8 +1554,7 @@ void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
     std::vector<std::vector<T>> Inputs =
         buildTestInputs<T>(VectorSize, Operation.InputSets, Operation.Arity);
 
-    auto Expected =
-        WaveOpExpectedBuilder<OP, T>::buildExpected(Op, Inputs, WaveSize);
+    auto Expected = ExpectedBuilder<OP, T>::buildExpected(Op, Inputs, WaveSize);
 
     runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
                  Op.ValidationConfig, AdditionalCompilerOptions);
