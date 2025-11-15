@@ -1,7 +1,9 @@
 #ifndef HLSLEXECTESTUTILS_H
 #define HLSLEXECTESTUTILS_H
 
+#include <atlcomcli.h>
 #include <d3d12.h>
+#include <optional>
 #include <windows.h>
 
 #include "dxc/Support/dxcapi.use.h"
@@ -26,13 +28,22 @@ typedef enum D3D_SHADER_MODEL {
 } // namespace ExecTestUtils
 
 bool useDxbc();
-HRESULT enableDebugLayer();
-HRESULT enableExperimentalMode(HMODULE Runtime);
-HRESULT enableAgilitySDK(HMODULE Runtime);
-bool createDevice(ID3D12Device **D3DDevice,
-                  ExecTestUtils::D3D_SHADER_MODEL TestModel =
-                      ExecTestUtils::D3D_SHADER_MODEL_6_0,
-                  bool SkipUnsupported = true);
+
+class D3D12SDK {
+  CComPtr<ID3D12DeviceFactory> DeviceFactory;
+
+public:
+  static std::optional<D3D12SDK> create();
+  ~D3D12SDK();
+
+  bool createDevice(ID3D12Device **D3DDevice,
+                    ExecTestUtils::D3D_SHADER_MODEL TestModel =
+                        ExecTestUtils::D3D_SHADER_MODEL_6_0,
+                    bool SkipUnsupported = true);
+
+private:
+  D3D12SDK(CComPtr<ID3D12DeviceFactory> DeviceFactory);
+};
 
 void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
                                dxc::SpecificDllLoader &Support);
