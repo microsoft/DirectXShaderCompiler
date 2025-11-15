@@ -621,6 +621,6 @@ Microsoft Visual C++
 --------------------
 
 **LLVM_COMPILER_JOBS**:STRING
-  Specifies the maximum number of parallell compiler jobs to use per project
+  Specifies the maximum number of parallel compiler jobs to use per project
   when building with msbuild or Visual Studio. Only supported for the Visual
   Studio 2010 CMake generator. 0 means use all processors. Default is 0.
