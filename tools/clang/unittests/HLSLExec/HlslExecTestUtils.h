@@ -1,19 +1,6 @@
 #ifndef HLSLEXECTESTUTILS_H
 #define HLSLEXECTESTUTILS_H
 
-// Until we start using an AgilitySDK, we need to be able to build on agents
-// that haven't got updated SDKs on them.  For these, we'll always use our own
-// definitions of these interfaces, so that we can be consistent between local
-// and cloud builds.
-#define __ID3D12DeviceFactory_FWD_DEFINED__
-#define __ID3D12DeviceFactory_INTERFACE_DEFINED__
-#define __ID3D12SDKConfiguration_FWD_DEFINED__
-#define __ID3D12SDKConfiguration_INTERFACE_DEFINED__
-#define __ID3D12SDKConfiguration1_FWD_DEFINED__
-#define __ID3D12SDKConfiguration1_INTERFACE_DEFINED__
-
-struct ID3D12DeviceFactory;
-
 #include <atlcomcli.h>
 #include <d3d12.h>
 #include <optional>
