@@ -709,42 +709,39 @@ struct HLSLReflectionData : public IHLSLReflectionData {
         continue;
       }
 
-      if (!node.IsFwdDeclare() && node.IsFwdBckDefined()) {
+      FwdDeclType type = FwdDeclType::COUNT;
 
-        FwdDeclType type = FwdDeclType::COUNT;
+      switch (node.GetNodeType()) {
 
-        switch (node.GetNodeType()) {
+      case D3D12_HLSL_NODE_TYPE_STRUCT:
+        type = FwdDeclType::STRUCT;
+        break;
 
-        case D3D12_HLSL_NODE_TYPE_STRUCT:
-          type = FwdDeclType::STRUCT;
-          break;
+      case D3D12_HLSL_NODE_TYPE_UNION:
+        type = FwdDeclType::UNION;
+        break;
 
-        case D3D12_HLSL_NODE_TYPE_UNION:
-          type = FwdDeclType::UNION;
-          break;
+      case D3D12_HLSL_NODE_TYPE_INTERFACE:
+        type = FwdDeclType::INTERFACE;
+        break;
 
-        case D3D12_HLSL_NODE_TYPE_INTERFACE:
-          type = FwdDeclType::INTERFACE;
-          break;
+      case D3D12_HLSL_NODE_TYPE_FUNCTION:
+        type = FwdDeclType::FUNCTION;
+        break;
 
-        case D3D12_HLSL_NODE_TYPE_FUNCTION:
-          type = FwdDeclType::FUNCTION;
-          break;
+      case D3D12_HLSL_NODE_TYPE_ENUM:
+        type = FwdDeclType::ENUM;
+        break;
+      }
 
-        case D3D12_HLSL_NODE_TYPE_ENUM:
-          type = FwdDeclType::ENUM;
-          break;
-        }
+      if (type != FwdDeclType::COUNT) {
 
-        if (type != FwdDeclType::COUNT) {
+        uint32_t typeId = node.GetLocalId();
 
-          uint32_t typeId = node.GetLocalId();
+        NonFwdIds[int(type)].push_back(typeId);
 
-          NonFwdIds[int(type)].push_back(typeId);
-
-          if (hasSymbols)
-            NameToNonFwdIds[int(type)][Data.NodeIdToFullyResolved[i]] = typeId;
-        }
+        if (hasSymbols)
+          NameToNonFwdIds[int(type)][Data.NodeIdToFullyResolved[i]] = typeId;
       }
 
       for (uint32_t j = 0; j < node.GetChildCount(); ++j) {
