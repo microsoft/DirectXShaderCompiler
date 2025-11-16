@@ -19,6 +19,7 @@
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/IdentifierTable.h"
+#include "clang/Basic/Specifiers.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Rewrite/Core/Rewriter.h"
@@ -483,7 +484,8 @@ namespace {
         result =  Context->getObjCIdType();
       FunctionProtoType::ExtProtoInfo fpi;
       fpi.Variadic = variadic;
-      return Context->getFunctionType(result, args, fpi);
+      return Context->getFunctionType(result, args, fpi,
+                                      llvm::ArrayRef<hlsl::ParameterModifier>());
     }
 
     // Helper function: create a CStyleCastExpr with trivial type source info.
