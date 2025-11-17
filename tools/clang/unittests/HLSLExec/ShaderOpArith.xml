@@ -4184,26 +4184,30 @@ void MSMain(uint GID : SV_GroupIndex,
             const uint32_t OutNum = NUM;
           #endif
 
-          #if TEST_ARRAY_OPERATOR_STATIC_ACCESS
-            uint IndexList[6] = {0, OutNum - 1, 1, OutNum - 2, OutNum / 2, OutNum / 2 + 1};
+          #if TEST_ARRAY_OPERATOR
+            const uint IndexCount = 6;
+            const uint IndexList[IndexCount] = {
+              0, 
+              OutNum - 1, 
+              1, 
+              OutNum - 2, 
+              OutNum / 2, 
+              OutNum / 2 + 1
+            };
             
             vector<OUT_TYPE, OutNum> OutputVector = 0;
-            uint End = min(OutNum, 6);
+            uint End = min(OutNum, IndexCount);
 
-            [unroll]for(uint i = 0; i < 6; ++i) {
-              OutputVector[IndexList[i]] = Input1[IndexList[i]];
+            #if DYNAMIC_ACCESS
+              uint Zero = (uint) Input2[0];
+            #endif
+
+            [unroll]for(uint i = 0; i < End; ++i) {
+            #if DYNAMIC_ACCESS
+              uint index = (uint)(IndexList[i] + Zero);
+            #else
               uint index = (uint)(IndexList[i]);
-            }
-          #elif TEST_ARRAY_OPERATOR_DYNAMIC_ACCESS
-            // Input2 will always be 0. This is added so the compiler cannot optimize the array access.
-            uint Modifier = (uint) Input2[0];
-            uint IndexList[6] = {0 + Modifier, OutNum - 1 + Modifier, 1 + Modifier, OutNum - 2 + Modifier, OutNum / 2 + Modifier, OutNum / 2 + 1 + Modifier};
-            
-            vector<OUT_TYPE, OutNum> OutputVector = 0;
-            uint End = min(OutNum, 6);
-            
-            [unroll]for(uint i = 0; i < End; ++i){
-              uint index = (uint)(IndexList[i]);
+            #endif
               OutputVector[index] = Input1[index];
             }
           #elif IS_UNARY_OP
