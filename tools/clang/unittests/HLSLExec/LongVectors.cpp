@@ -2373,6 +2373,8 @@ public:
   HLK_WAVEOP_TEST(WavePrefixProduct, int64_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, int64_t);
 
+  // Note: WaveActiveBit* ops don't support uint16_t in HLSL
+  // But the WaveMultiPrefixBit ops support all int and uint types
   HLK_WAVEOP_TEST(WaveActiveSum, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint16_t);
@@ -2387,8 +2389,6 @@ public:
   HLK_WAVEOP_TEST(WaveActiveMin, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveProduct, uint32_t);
-  // Note: WaveActiveBit* ops don't support uint16_t in HLSL
-  // But the WaveMultiPrefixBit ops support all int and uint types
   HLK_WAVEOP_TEST(WaveActiveBitAnd, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveBitOr, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveBitXor, uint32_t);
