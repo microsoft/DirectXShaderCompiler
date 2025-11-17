@@ -97,6 +97,48 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
   if (LocalId >= (1u << 24))
     return HLSL_REFL_ERR("LocalId overflow");
 
+  bool isFwdDeclare = false;
+  bool canHaveFwdDeclare = false;
+  const Decl *fwdDeclare = nullptr;
+
+  if (DeclSelf) {
+
+    if (const FunctionDecl *func = dyn_cast<FunctionDecl>(DeclSelf)) {
+      isFwdDeclare = !func->doesThisDeclarationHaveABody();
+      fwdDeclare = func->getCanonicalDecl();
+      canHaveFwdDeclare = true;
+    }
+
+    else if (const EnumDecl *enm = dyn_cast<EnumDecl>(DeclSelf)) {
+      isFwdDeclare = !enm->isCompleteDefinition();
+      fwdDeclare = enm->getCanonicalDecl();
+      canHaveFwdDeclare = true;
+    }
+
+    else if (const RecordDecl *rec = dyn_cast<RecordDecl>(DeclSelf)) {
+
+      isFwdDeclare = !rec->isThisDeclarationADefinition();
+      fwdDeclare = rec->getCanonicalDecl();
+      canHaveFwdDeclare = true;
+
+      if (isFwdDeclare && rec->isImplicit()) { // Inner ghost node
+        NodeId = uint32_t(-1);
+        return ReflectionErrorSuccess;
+      }
+    }
+  }
+
+  //There is a forward declare, but we haven't seen it before.
+  //This happens for example if we have a fwd func declare in a struct, but define it in global namespace.
+  //(only) -reflect-function will hide this struct from us, but will still find a function in the global scope.
+  //This fixes that problem.
+
+  if (!isFwdDeclare && fwdDeclare && fwdDeclare != DeclSelf &&
+      FwdDecls->find(fwdDeclare) == FwdDecls->end()) {
+    NodeId = uint32_t(-1);
+    return ReflectionErrorSuccess;
+  }
+
   uint32_t nodeId = Refl.Nodes.size();
 
   uint16_t annotationStart = uint16_t(Refl.Annotations.size());
@@ -178,37 +220,6 @@ PushNextNodeId(uint32_t &NodeId, ReflectionData &Refl, const SourceManager &SM,
   }
 
   D3D_INTERPOLATION_MODE interpolationMode = GetInterpolationMode(DeclSelf);
-
-  bool isFwdDeclare = false;
-  bool canHaveFwdDeclare = false;
-  const Decl *fwdDeclare = nullptr;
-
-  if (DeclSelf) {
-
-    if (const FunctionDecl *func = dyn_cast<FunctionDecl>(DeclSelf)) {
-      isFwdDeclare = !func->doesThisDeclarationHaveABody();
-      fwdDeclare = func->getCanonicalDecl();
-      canHaveFwdDeclare = true;
-    }
-
-    else if (const EnumDecl *enm = dyn_cast<EnumDecl>(DeclSelf)) {
-      isFwdDeclare = !enm->isCompleteDefinition();
-      fwdDeclare = enm->getCanonicalDecl();
-      canHaveFwdDeclare = true;
-    }
-
-    else if (const RecordDecl *rec = dyn_cast<RecordDecl>(DeclSelf)) {
-
-      isFwdDeclare = !rec->isThisDeclarationADefinition();
-      fwdDeclare = rec->getCanonicalDecl();
-      canHaveFwdDeclare = true;
-
-      if (isFwdDeclare && rec->isImplicit()) { // Inner ghost node
-        NodeId = uint32_t(-1);
-        return ReflectionErrorSuccess;
-      }
-    }
-  }
 
   uint32_t currId = uint32_t(Refl.Nodes.size());
 
