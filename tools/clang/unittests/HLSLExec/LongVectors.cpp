@@ -784,16 +784,10 @@ static std::vector<T> buildExpectedArrayAccess(const InputSets<T> &Inputs) {
   const size_t VectorSize = Inputs[0].size();
   std::vector<T> Expected;
   Expected.resize(VectorSize);
-  
+
   const size_t IndexCount = 6;
   size_t IndexList[IndexCount] = {
-      0, 
-      VectorSize - 1, 
-      1, 
-      VectorSize - 2, 
-      VectorSize / 2, 
-      VectorSize / 2 + 1
-  };
+      0, VectorSize - 1, 1, VectorSize - 2, VectorSize / 2, VectorSize / 2 + 1};
   size_t end = std::min(VectorSize, IndexCount);
   for (size_t i = 0; i < end; ++i)
     Expected[IndexList[i]] = Inputs[0][IndexList[i]];
