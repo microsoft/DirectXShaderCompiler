@@ -7,9 +7,9 @@
 
 #include "LongVectorTestData.h"
 
+#include "HlslTestUtils.h"
 #include "ShaderOpTest.h"
 #include "dxc/Support/Global.h"
-#include "HlslTestUtils.h"
 
 #include "HlslExecTestUtils.h"
 
