@@ -39,7 +39,7 @@ import hctdb_instrhelp
 </py> */
 /* <py::lines('OPCODE-OLOADS')>hctdb_instrhelp.get_oloads_props()</py>*/
 // OPCODE-OLOADS:BEGIN
-static const OP::OpCodeProperty Core_OpCodeProps[] = {
+static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
     // Temporary, indexable, input, output registers
     {OC::TempRegLoad,
      "TempRegLoad",
@@ -2715,10 +2715,10 @@ static const OP::OpCodeProperty Core_OpCodeProps[] = {
      {{0x400}},
      {{0x3}}}, // Overloads: <hf
 };
-static_assert(_countof(Core_OpCodeProps) ==
-                  (size_t)DXIL::Core::OpCode::NumOpCodes,
-              "mismatch in opcode count for Core OpCodeProps");
-static const OP::OpCodeProperty ExperimentalCommon_OpCodeProps[] = {
+static_assert(_countof(CoreOps_OpCodeProps) ==
+                  (size_t)DXIL::CoreOps::OpCode::NumOpCodes,
+              "mismatch in opcode count for CoreOps OpCodeProps");
+static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
     // No-op
     {OC::ExperimentalNop,
      "ExperimentalNop",
@@ -2729,17 +2729,17 @@ static const OP::OpCodeProperty ExperimentalCommon_OpCodeProps[] = {
      {},
      {}}, // Overloads: v
 };
-static_assert(_countof(ExperimentalCommon_OpCodeProps) ==
-                  (size_t)DXIL::ExperimentalCommon::OpCode::NumOpCodes,
-              "mismatch in opcode count for ExperimentalCommon OpCodeProps");
+static_assert(_countof(ExperimentalOps_OpCodeProps) ==
+                  (size_t)DXIL::ExperimentalOps::OpCode::NumOpCodes,
+              "mismatch in opcode count for ExperimentalOps OpCodeProps");
 
 // Table of DXIL OpCode Property tables
 OP::OpCodeTable
     OP::g_OpCodeTables[(unsigned)OP::OpCodeTableID::NumOpCodeTables] = {
-        {OP::OpCodeTableID::Core, Core_OpCodeProps,
-         (unsigned)DXIL::Core::OpCode::NumOpCodes},
-        {OP::OpCodeTableID::ExperimentalCommon, ExperimentalCommon_OpCodeProps,
-         (unsigned)DXIL::ExperimentalCommon::OpCode::NumOpCodes},
+        {OP::OpCodeTableID::CoreOps, CoreOps_OpCodeProps,
+         (unsigned)DXIL::CoreOps::OpCode::NumOpCodes},
+        {OP::OpCodeTableID::ExperimentalOps, ExperimentalOps_OpCodeProps,
+         (unsigned)DXIL::ExperimentalOps::OpCode::NumOpCodes},
 };
 // OPCODE-OLOADS:END
 
@@ -2787,7 +2787,7 @@ bool OP::IsValidOpCode(OP::OpCode EncodedOpCode) {
   return IsValidOpCode((unsigned)EncodedOpCode);
 }
 const OP::OpCodeProperty &OP::GetOpCodeProps(unsigned OriginalOpCode) {
-  OP::OpCodeTableID TID = OP::OpCodeTableID::Core;
+  OP::OpCodeTableID TID = OP::OpCodeTableID::CoreOps;
   unsigned Op = 0;
   bool Success = DecodeOpCode(OriginalOpCode, TID, Op);
   DXASSERT(Success, "otherwise invalid OpCode");

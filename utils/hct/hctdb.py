@@ -97,7 +97,7 @@ class db_dxil_inst(object):
         self.name = name  # short, unique name
         self.llvm_id = 0  # ID of LLVM instruction
         self.llvm_name = ""  # name of LLVM instruction type
-        self.dxil_table = "Core"  # name of the DXIL operation table
+        self.dxil_table = "CoreOps"  # name of the DXIL operation table
 
         self.is_dxil_op = False  # whether this is a call into a built-in DXIL function
         self.dxil_op = ""  # name of DXIL operation
@@ -383,8 +383,8 @@ class db_dxil(object):
         # starting with extra ones specified here
         self.counters = extra_counters
         self.dxil_op_tables = [
-            db_dxil_op_table(0, "Core", "Core DXIL operations"),
-            db_dxil_op_table(1, "ExperimentalCommon", "Common Experimental DXIL operations"),
+            db_dxil_op_table(0, "CoreOps", "Core DXIL operations"),
+            db_dxil_op_table(1, "ExperimentalOps", "Experimental DXIL operations"),
         ]
         self.dxil_op_tables_by_name = dict([(t.name, t) for t in self.dxil_op_tables])
         # Setting the current table sets self.instr.
@@ -407,12 +407,12 @@ class db_dxil(object):
         self.build_indices()
         self.populate_counters()
 
-    def set_dxil_op_table(self, table_name = "Core"):
-        "Set the current DXIL operation table, defaulting to Core."
+    def set_dxil_op_table(self, table_name = "CoreOps"):
+        "Set the current DXIL operation table, defaulting to CoreOps."
         self.cur_table = self.dxil_op_tables_by_name[table_name]
         self.instr = self.cur_table.instr
 
-    def get_dxil_op_table(self, table_name = "Core"):
+    def get_dxil_op_table(self, table_name = "CoreOps"):
         "Get the specified DXIL operation table."
         return self.dxil_op_tables_by_name[table_name]
 
@@ -450,12 +450,12 @@ class db_dxil(object):
         # Generate extended opcode enums into OpCodeEnum.postfix_lines:
         OpCodeTableID = db_dxil_enum(
             "OpCodeTableID", "Enumeration for DXIL opcode tables",
-            [(0, "Core", "Core DXIL operations")]
+            [(0, "CoreOps", "Core DXIL operations")]
         )
         OpCodeTableID.last_value_name = "NumOpCodeTables"
         postfix.append("")
         postfix.append("// OpCodes for extended tables follow.\n")
-        for table in self.dxil_op_tables[1:]: # Skip Core table
+        for table in self.dxil_op_tables[1:]: # Skip CoreOps table
             OpCodeTableID.values.append(
                 db_dxil_enum_value(table.name, table.id, table.doc)
             )
@@ -959,9 +959,9 @@ class db_dxil(object):
             self.name_idx[i].category = "Linear Algebra Operations"
             self.name_idx[i].shader_model = 6, 10
         # End of core DXIL ops
-        self.populate_categories_and_models_ExperimentalCommon()
+        self.populate_categories_and_models_ExperimentalOps()
 
-    def populate_categories_and_models_ExperimentalCommon(self):
+    def populate_categories_and_models_ExperimentalOps(self):
         for i in "ExperimentalNop".split(","):
             self.name_idx[i].category = "No-op"
             self.name_idx[i].shader_model = 6, 10
@@ -5970,12 +5970,12 @@ class db_dxil(object):
 
     def populate_experimental_ops(self):
         "Populate experimental DXIL operations."
-        self.set_dxil_op_table("ExperimentalCommon")
-        self.populate_ExperimentalCommon_ops()
+        self.set_dxil_op_table("ExperimentalOps")
+        self.populate_ExperimentalOps_ops()
         self.set_dxil_op_table()
 
-    def populate_ExperimentalCommon_ops(self):
-        "Populate experimental DXIL operations for ExperimentalCommon."
+    def populate_ExperimentalOps_ops(self):
+        "Populate experimental DXIL operations for ExperimentalOps."
         # Add Nop to test experimental table infrastructure.
         self.add_dxil_op(
             "ExperimentalNop",
@@ -8620,7 +8620,7 @@ class db_dxil(object):
     def add_llvm_instr(
         self, kind, llvm_id, name, llvm_name, doc, oload_types, op_params, **props
     ):
-        assert self.cur_table.name == "Core", "LLVM instructions can only be added to the Core table"
+        assert self.cur_table.name == "CoreOps", "LLVM instructions can only be added to the CoreOps table"
         i = db_dxil_inst(
             name,
             llvm_id=llvm_id,

@@ -497,8 +497,8 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 // OPCODETABLE-ENUM:BEGIN
 // Enumeration for DXIL opcode tables
 enum class OpCodeTableID : unsigned {
-  Core = 0,               // Core DXIL operations
-  ExperimentalCommon = 1, // Common Experimental DXIL operations
+  CoreOps = 0,         // Core DXIL operations
+  ExperimentalOps = 1, // Experimental DXIL operations
 
   NumOpCodeTables = 2, // exclusive last value of enumeration
 };
@@ -509,15 +509,15 @@ enum class OpCodeTableID : unsigned {
 /* <py::lines('EXTOPCODES-ENUM')>hctdb_instrhelp.get_extended_table_opcode_enum_decls()</py>*/
 // clang-format on
 // EXTOPCODES-ENUM:BEGIN
-namespace ExperimentalCommon {
-static const OpCodeTableID TableID = OpCodeTableID::ExperimentalCommon;
-// Enumeration for ExperimentalCommon DXIL operations
+namespace ExperimentalOps {
+static const OpCodeTableID TableID = OpCodeTableID::ExperimentalOps;
+// Enumeration for ExperimentalOps DXIL operations
 enum class OpCode : unsigned {
   ExperimentalNop = 0, // nop does nothing
 
   NumOpCodes = 1, // exclusive last value of enumeration
 };
-} // namespace ExperimentalCommon
+} // namespace ExperimentalOps
 // EXTOPCODES-ENUM:END
 
 #define EXP_OPCODE(feature, opcode)                                            \
@@ -527,7 +527,7 @@ enum class OpCode : unsigned {
 // TODO: change opcodes.
 /* <py::lines('OPCODE-ENUM')>hctdb_instrhelp.get_enum_decl("OpCode")</py>*/
 // OPCODE-ENUM:BEGIN
-// Enumeration for Core DXIL operations
+// Enumeration for CoreOps DXIL operations
 enum class OpCode : unsigned {
   //
   Reserved0 = 226,   // reserved
@@ -1129,18 +1129,18 @@ enum class OpCode : unsigned {
   // OpCodes for extended tables follow.
 
   // OpCodeTableID = 1
-  // ExperimentalCommon
-  EXP_OPCODE(ExperimentalCommon, ExperimentalNop), // nop does nothing
+  // ExperimentalOps
+  EXP_OPCODE(ExperimentalOps, ExperimentalNop), // nop does nothing
 
 };
 // OPCODE-ENUM:END
 #undef EXP_OPCODE
 
 // Create Core namespace for consistency with other opcode groups
-namespace Core {
-static const OpCodeTableID TableID = OpCodeTableID::Core;
+namespace CoreOps {
+static const OpCodeTableID TableID = OpCodeTableID::CoreOps;
 using OpCode = hlsl::DXIL::OpCode;
-} // namespace Core
+} // namespace CoreOps
 
 // clang-format off
   // Python lines need to be not formatted.
