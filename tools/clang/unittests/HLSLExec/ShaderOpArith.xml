@@ -4111,6 +4111,110 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_WAVE_ACTIVE_BIT_AND
+        vector<OUT_TYPE, NUM> TestWaveActiveBitAnd(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == (WaveGetLaneCount() - 1))
+          {
+            // Clear the LSB on the last lane only.
+            Vector = Vector & ~((OUT_TYPE)1);
+          }
+          return WaveActiveBitAnd(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_BIT_OR
+        vector<OUT_TYPE, NUM> TestWaveActiveBitOr(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == (WaveGetLaneCount() - 1))
+          {
+            // Set the LSB on the last lane only.
+            Vector = Vector | ((OUT_TYPE)1);
+          }
+          return WaveActiveBitOr(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_BIT_XOR
+        vector<OUT_TYPE, NUM> TestWaveActiveBitXor(vector<TYPE, NUM> Vector)
+        {
+          const uint isChosen = (WaveGetLaneIndex() == 0) ? 1 : 0;
+          // Clear the LSB for all lanes except lane 0, which sets it to 1.
+          Vector = (Vector & ~((OUT_TYPE)1)) | (OUT_TYPE)isChosen;
+
+          return WaveActiveBitOr(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_ALL_EQUAL
+        vector<OUT_TYPE, NUM> TestWaveActiveAllEqual(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == (WaveGetLaneCount() - 1))
+          {
+            Vector[NUM - 1] = (TYPE)1337;
+          }
+
+          return WaveActiveAllEqual(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_READ_LANE_AT
+        vector<OUT_TYPE, NUM> TestWaveReadLaneAt(vector<TYPE, NUM> Vector)
+        {
+          // Keep it simple and just read the last lane.
+          const uint LaneToRead = WaveGetLaneCount() - 1;
+          if(WaveGetLaneIndex() == LaneToRead)
+          {
+            [unroll]
+            for(uint i = 1; i < NUM; ++i)
+            {
+              Vector[i] = Vector[0];
+            }
+          }
+          return WaveReadLaneAt(Vector, LaneToRead);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_READ_LANE_FIRST
+        vector<OUT_TYPE, NUM> TestWaveReadLaneFirst(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == 0)
+          {
+            [unroll]
+            for(uint i = 1; i < NUM; ++i)
+            {
+              Vector[i] = Vector[0];
+            }
+          }
+          return WaveReadLaneFirst(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_PREFIX_SUM
+        void TestWavePrefixSum(vector<TYPE, NUM> Vector)
+        {
+          const uint LaneCount = WaveGetLaneCount();
+          const uint MidLane = LaneCount/2;
+
+          Vector = WavePrefixSum(Vector);
+          if(WaveGetLaneIndex() == MidLane)
+          {
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_PREFIX_PRODUCT
+        void TestWavePrefixProduct(vector<TYPE, NUM> Vector)
+        {
+          Vector = WavePrefixProduct(Vector);
+          if(WaveGetLaneIndex() == 2)
+          {
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
         #ifdef FUNC_TEST_SELECT
         vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,
                                          vector<TYPE, NUM> Vector2,
@@ -4184,6 +4288,12 @@ void MSMain(uint GID : SV_GroupIndex,
             const uint32_t OutNum = NUM;
           #endif
 
+          vector<OUT_TYPE, OutNum> OutputVector;
+          #ifdef IS_WAVE_PREFIX_OP
+            // Wave prefix ops store the output on a specific lane only.
+            FUNC(Input1);
+            return;
+            
           #if TEST_ARRAY_OPERATOR
             // This test case is for testing array operator [].
             // It tests static array access with a compile time constant index array.
@@ -4215,15 +4325,13 @@ void MSMain(uint GID : SV_GroupIndex,
               OutputVector[index] = Input1[index];
             }
           #elif IS_UNARY_OP
-            vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1);
+            OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP
-            vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1 OPERATOR
-            Input2);
+            OutputVector = FUNC(Input1 OPERATOR Input2);
           #elif IS_TERNARY_OP
             // Ternary ops don't bother expanding OPERATOR because its
             // always going to be comma for these test cases.
-            vector<OUT_TYPE, OutNum> OutputVector = FUNC(Input1, Input2,
-            Input3);
+            OutputVector = FUNC(Input1, Input2, Input3);
           #endif
 
           g_OutputVector.Store< vector<OUT_TYPE, OutNum> >(0, OutputVector);
