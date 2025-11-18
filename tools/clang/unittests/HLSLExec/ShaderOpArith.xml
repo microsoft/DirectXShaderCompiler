@@ -4293,8 +4293,7 @@ void MSMain(uint GID : SV_GroupIndex,
             // Wave prefix ops store the output on a specific lane only.
             FUNC(Input1);
             return;
-            
-          #if TEST_ARRAY_OPERATOR
+          #elif TEST_ARRAY_OPERATOR
             // This test case is for testing array operator [].
             // It tests static array access with a compile time constant index array.
             // Or dynamic access, by introducing a runtime dependency that prevents the
@@ -4308,8 +4307,8 @@ void MSMain(uint GID : SV_GroupIndex,
               OutNum / 2, 
               OutNum / 2 + 1
             };
-            
-            vector<OUT_TYPE, OutNum> OutputVector = 0;
+          
+            OutputVector = 0;
             uint End = min(OutNum, IndexCount);
 
             #if DYNAMIC_ACCESS
