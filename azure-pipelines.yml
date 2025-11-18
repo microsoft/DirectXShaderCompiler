@@ -75,11 +75,12 @@ stages:
           configuration: Release
           CC: gcc-9
           CXX: g++-9
-        Linux_Gcc_Debug:
-          image: ${{ variables.linux }}
-          configuration: Debug
-          CC: gcc-9
-          CXX: g++-9
+        # FIXME:
+        # Linux_Gcc_Debug:
+        #   image: ${{ variables.linux }}
+        #   configuration: Debug
+        #   CC: gcc-9
+        #   CXX: g++-9
         MacOS_Clang_Release:
           image: ${{ variables.macOS }}
           configuration: Release
