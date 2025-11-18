@@ -290,7 +290,8 @@ INPUT_SET(InputSet::Bitwise, std::numeric_limits<int16_t>::min(), -1, 0, 1, 3,
           std::numeric_limits<int16_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
-INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF, static_cast<int16_t>(0xFFFF));
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
+          static_cast<int16_t>(0xFFFF));
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(int32_t)
@@ -305,7 +306,8 @@ INPUT_SET(InputSet::Bitwise, std::numeric_limits<int32_t>::min(), -1, 0, 1, 3,
           std::numeric_limits<int32_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
-INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF, static_cast<int32_t>(0xFFFFFFFF));
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
+          static_cast<int32_t>(0xFFFFFFFF));
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(int64_t)
@@ -320,7 +322,8 @@ INPUT_SET(InputSet::Bitwise, std::numeric_limits<int64_t>::min(), -1, 0, 1, 3,
           std::numeric_limits<int64_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
-INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF, 0xFFFFFFFFFFFFFFFFLL);
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
+          0xFFFFFFFFFFFFFFFFLL);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint16_t)
@@ -332,7 +335,8 @@ INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x5555, 0xAAAA, 0x8000, 127,
           std::numeric_limits<uint16_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
-INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF, static_cast<uint16_t>(0xFFFF));
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
+          static_cast<uint16_t>(0xFFFF));
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint32_t)
@@ -344,7 +348,8 @@ INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x55555555, 0xAAAAAAAA, 0x80000000,
           127, std::numeric_limits<uint32_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
-INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0xA, 0xC, 0xF, 0xFFFFFFFF);
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0xA, 0xC, 0xF,
+          0xFFFFFFFF);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint64_t)
@@ -357,7 +362,8 @@ INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x5555555555555555,
           std::numeric_limits<uint64_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
-INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0xA, 0xC, 0xF, 0xFFFFFFFFFFFFFFFF);
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0xA, 0xC, 0xF,
+          0xFFFFFFFFFFFFFFFF);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(HLSLHalf_t)

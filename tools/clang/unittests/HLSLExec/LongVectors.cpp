@@ -1381,9 +1381,8 @@ template <typename T>
 struct Op<OpType::WaveMultiPrefixBitXor, T, 1> : StrictValidation {};
 
 template <typename T> struct ExpectedBuilder<OpType::WaveMultiPrefixBitXor, T> {
-  static std::vector<T>
-  buildExpected(Op<OpType::WaveMultiPrefixBitXor, T, 1> &,
-                const InputSets<T> &Inputs, UINT) {
+  static std::vector<T> buildExpected(Op<OpType::WaveMultiPrefixBitXor, T, 1> &,
+                                      const InputSets<T> &Inputs, UINT) {
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     std::vector<T> Expected;
@@ -1400,19 +1399,18 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMultiPrefixBitXor, T> {
     // the lower half of the input values on lane 2 only. This means that we
     // expect the lower half of the out values to match the input. And the
     // second half to be all 0s.
-    for(size_t I = 0; I < VectorSize/2 ; ++I)
+    for (size_t I = 0; I < VectorSize / 2; ++I)
       Expected.push_back(Inputs[0][I]);
-    for(size_t I = VectorSize/2; I < VectorSize - 1; ++I)
+    for (size_t I = VectorSize / 2; I < VectorSize - 1; ++I)
       Expected.push_back(0);
 
     // We also set the last element to 0 on lane 2 so the last element in the
     // output vector matches the last element in the input vector.
-    Expected.push_back(Inputs[0][VectorSize -1]);
+    Expected.push_back(Inputs[0][VectorSize - 1]);
 
     return Expected;
   }
 };
-
 
 template <typename T>
 struct Op<OpType::WaveActiveAllEqual, T, 1> : StrictValidation {};
