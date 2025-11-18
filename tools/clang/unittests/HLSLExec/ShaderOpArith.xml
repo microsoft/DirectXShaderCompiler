@@ -4220,11 +4220,14 @@ void MSMain(uint GID : SV_GroupIndex,
         {
           const uint LaneCount = WaveGetLaneCount();
           const uint32_t Mask = 0xE; // Lanes 1,2,3.
+          const uint32_t LaneIndex = WaveGetLaneIndex();
 
-          if(WaveGetLaneIndex() == 0)
+          if(LaneIndex == 0 || LaneIndex == 3)
           {
-            // Clear LSB on lane 0 only. This should have no effect since lane 0
-            // is not in the mask.
+            // Clear LSB on lane 0 and lane 3. This ensures that lane 0 which
+            // isn't in the mask doesn't participate. And because this is a 
+            // prefix op we also want to confirm that lane 3 does not
+            // participate.
             Vector = Vector & ~((OUT_TYPE)0x1);
           }
           else // On all other lanes mask for the second and third LSB.
@@ -4241,6 +4244,74 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_WAVE_MULTI_PREFIX_BIT_OR
+        void TestWaveMultiPrefixBitOr(vector<TYPE, NUM> Vector)
+        {
+          const uint LaneCount = WaveGetLaneCount();
+          const uint32_t Mask = 0xE; // Lanes 1,2,3.
+          const bool IsActiveLaneInMask = ((Mask >> WaveGetLaneIndex()) & 0x1) != 0;
+
+          if(IsActiveLaneInMask)
+          {
+            // Lanes inside the group clear the second LSB.
+            Vector = Vector & ~((OUT_TYPE)0x2);
+          }
+          else
+          {
+            // Lanes outside the group set the second LSB.
+            Vector = Vector | ((OUT_TYPE)0x2);
+          }
+
+          if(WaveGetLaneIndex() == 3)
+          {
+            // Set all bits on lane 3 to ensure it doesn't affect the result.
+            // as this is a prefix op.
+            Vector = Vector | ~((OUT_TYPE)0x0);
+          }
+
+          Vector = WaveMultiPrefixBitOr(Vector, Mask);
+          if(WaveGetLaneIndex() == 3)
+          {
+            // Lane 3 is the last lane in the mask. Store the result from it.
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_MULTI_PREFIX_BIT_XOR
+        void TestWaveMultiPrefixBitXor(vector<TYPE, NUM> Vector)
+        {
+          const uint LaneCount = WaveGetLaneCount();
+          const uint32_t Mask = 0xE; // Lanes 1,2,3.
+          const uint LaneIndex = WaveGetLaneIndex();
+
+          if(LaneIndex == 0)
+          {
+            // Lane 0 is not in the mask. So these values are expected 
+            // to have no effect.
+            Vector = 0;
+          }
+
+          if(LaneIndex == 2)
+          {
+            // Zero the lower half of the vector on a single lane in the mask.
+            [unroll]
+            for(uint I = 0; I < NUM/2; ++I)
+            {
+              Vector[I] = 0;
+            }
+
+            // Same behavior for the last element.
+            Vector[NUM - 1] = 0;
+          }
+
+          Vector = WaveMultiPrefixBitXor(Vector, Mask);
+          if(LaneIndex == 3)
+          {
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
 
         #ifdef FUNC_TEST_SELECT
         vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,

@@ -1349,7 +1349,7 @@ template <typename T> T waveActiveBitAnd(T A, UINT) {
 WAVE_OP(OpType::WaveActiveBitAnd, (waveActiveBitAnd(A, WaveSize)));
 
 template <typename T> T waveActiveBitOr(T A, UINT) {
-  // We set the LSB to 0 in one of the lanes.
+  // We set the LSB to 1 in one of the lanes.
   return static_cast<T>(A | static_cast<T>(1));
 }
 
@@ -1369,6 +1369,50 @@ template <typename T> T waveMultiPrefixBitAnd(T A, UINT) {
   // third LSBs.
   return static_cast<T>(A & static_cast<T>(0x6));
 }
+
+WAVE_OP(OpType::WaveMultiPrefixBitOr, waveMultiPrefixBitOr(A, WaveSize));
+
+template <typename T> T waveMultiPrefixBitOr(T A, UINT) {
+  // All lanes in the group mask clear the second LSB.
+  return static_cast<T>(A & ~static_cast<T>(0x2));
+}
+
+template <typename T>
+struct Op<OpType::WaveMultiPrefixBitXor, T, 1> : StrictValidation {};
+
+template <typename T> struct ExpectedBuilder<OpType::WaveMultiPrefixBitXor, T> {
+  static std::vector<T>
+  buildExpected(Op<OpType::WaveMultiPrefixBitXor, T, 1> &,
+                const InputSets<T> &Inputs, UINT) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+
+    std::vector<T> Expected;
+    const size_t VectorSize = Inputs[0].size();
+
+    // We get a little creative for MultiPrefixBitXor.
+    // The mask we use for the group in the shader is 0xE, that is the 2nd, 3rd,
+    // and 4th lanes. Prefix ops don't include the value of the current lane in
+    // their result.
+    // So, for this test we store the result of WaveMuitiPrefixBitXor from and
+    // on the 3rd lane. This means the values of two lanes contribute to the
+    // result. Because this is a Xor, an even number of set bits results in 0,
+    // and an odd number of set bits results in 1. For this test we simply clear
+    // the lower half of the input values on lane 2 only. This means that we
+    // expect the lower half of the out values to match the input. And the
+    // second half to be all 0s.
+    for(size_t I = 0; I < VectorSize/2 ; ++I)
+      Expected.push_back(Inputs[0][I]);
+    for(size_t I = VectorSize/2; I < VectorSize - 1; ++I)
+      Expected.push_back(0);
+
+    // We also set the last element to 0 on lane 2 so the last element in the
+    // output vector matches the last element in the input vector.
+    Expected.push_back(Inputs[0][VectorSize -1]);
+
+    return Expected;
+  }
+};
+
 
 template <typename T>
 struct Op<OpType::WaveActiveAllEqual, T, 1> : StrictValidation {};
@@ -2352,6 +2396,8 @@ public:
   HLK_WAVEOP_TEST(WavePrefixSum, int16_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, int16_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, int16_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitOr, int16_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitXor, int16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int32_t);
@@ -2362,6 +2408,8 @@ public:
   HLK_WAVEOP_TEST(WavePrefixSum, int32_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, int32_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, int32_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitOr, int32_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitXor, int32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int64_t);
@@ -2372,6 +2420,8 @@ public:
   HLK_WAVEOP_TEST(WavePrefixSum, int64_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, int64_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, int64_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitOr, int64_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitXor, int64_t);
 
   // Note: WaveActiveBit* ops don't support uint16_t in HLSL
   // But the WaveMultiPrefixBit ops support all int and uint types
@@ -2384,7 +2434,9 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, uint16_t);
   HLK_WAVEOP_TEST(WavePrefixSum, uint16_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, uint16_t);
-  HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, uint32_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, uint16_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitOr, uint16_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitXor, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint32_t);
@@ -2397,7 +2449,9 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, uint32_t);
   HLK_WAVEOP_TEST(WavePrefixSum, uint32_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, uint32_t);
-  HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, uint16_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, uint32_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitOr, uint32_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitXor, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint64_t);
@@ -2411,6 +2465,8 @@ public:
   HLK_WAVEOP_TEST(WavePrefixSum, uint64_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, uint64_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, uint64_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitOr, uint64_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixBitXor, uint64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveMin, HLSLHalf_t);
