@@ -4215,6 +4215,66 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_WAVE_MULTI_PREFIX_SUM
+        void TestWaveMultiPrefixSum(vector<TYPE, NUM> Vector)
+        {
+          const uint LaneCount = WaveGetLaneCount();
+          const uint32_t Mask = 0xE; // Lanes 1,2,3.
+          const uint LaneIndex = WaveGetLaneIndex();
+
+          if(LaneIndex == 0)
+          {
+            // Lane 0 isn't in the mask. Shove in a value to make sure it
+            // doesn't constribute to the result.
+            Vector = 1;
+          }
+
+          if(LaneIndex == 3)
+          {
+            // Lane 3 is the last lane in the mask. We want to make sure
+            // it doesn't contribute to the result as this is a prefix op.
+            Vector = 10;
+          }
+
+          Vector = WaveMultiPrefixSum(Vector, Mask);
+          if(WaveGetLaneIndex() == 3)
+          {
+            // Lane 3 is the last lane in the mask. Store the result from it.
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_MULTI_PREFIX_PRODUCT
+        void TestWaveMultiPrefixProduct(vector<TYPE, NUM> Vector)
+        {
+          const uint LaneCount = WaveGetLaneCount();
+          const uint32_t Mask = 0xE; // Lanes 1,2,3.
+          const uint LaneIndex = WaveGetLaneIndex();
+
+          if(LaneIndex == 0)
+          {
+            // Lane 0 isn't in the mask. Shove in a value to make sure it
+            // doesn't constribute to the result.
+            Vector = 4;
+          }
+
+          if(LaneIndex == 3)
+          {
+            // Lane 3 is the last lane in the mask. We want to make sure
+            // it doesn't contribute to the result as this is a prefix op.
+            Vector = 10;
+          }
+
+          Vector = WaveMultiPrefixProduct(Vector, Mask);
+          if(WaveGetLaneIndex() == 3)
+          {
+            // Lane 3 is the last lane in the mask. Store the result from it.
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
         #ifdef FUNC_WAVE_MULTI_PREFIX_BIT_AND
         void TestWaveMultiPrefixBitAnd(vector<TYPE, NUM> Vector)
         {
