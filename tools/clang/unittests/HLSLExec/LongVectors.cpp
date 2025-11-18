@@ -1388,17 +1388,21 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMultiPrefixBitXor, T> {
     std::vector<T> Expected;
     const size_t VectorSize = Inputs[0].size();
 
-    // We get a little creative for MultiPrefixBitXor.
-    // The mask we use for the group in the shader is 0xE, that is the 2nd, 3rd,
-    // and 4th lanes. Prefix ops don't include the value of the current lane in
-    // their result.
-    // So, for this test we store the result of WaveMuitiPrefixBitXor from and
-    // on the 3rd lane. This means the values of two lanes contribute to the
-    // result. Because this is a Xor, an even number of set bits results in 0,
-    // and an odd number of set bits results in 1. For this test we simply clear
-    // the lower half of the input values on lane 2 only. This means that we
-    // expect the lower half of the out values to match the input. And the
-    // second half to be all 0s.
+    // We get a little creative for MultiPrefixBitXor. The mask we use for the
+    // group in the shader is 0xE (0b1110), which includes lanes 1, 2, and 3.
+    // Prefix ops don't include the value of the current lane in their result.
+    // So, for this test we store the result of WaveMultiPrefixBitXor from lane
+    // 3. This means only the values from lanes 1 and 2 contribute to the result
+    // at lane 3.
+    //
+    // In the shader:
+    // - Lane 0: Set to 0 (not in mask, shouldn't affect result)
+    // - Lane 1: Keeps original input values
+    // - Lane 2: Lower half + last element set to 0, upper half keeps input
+    // - Lane 3: Stores the prefix XOR result (lanes 1 XOR lanes 2)
+    //
+    // Expected result: Lower half matches input (lane 1 XOR 0), upper half is
+    // 0s, except last element matches input.
     for (size_t I = 0; I < VectorSize / 2; ++I)
       Expected.push_back(Inputs[0][I]);
     for (size_t I = VectorSize / 2; I < VectorSize - 1; ++I)
