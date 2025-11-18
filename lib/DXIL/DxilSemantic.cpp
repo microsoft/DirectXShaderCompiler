@@ -13,6 +13,7 @@
 #include "dxc/DXIL/DxilSignature.h"
 #include "dxc/Support/Global.h"
 
+#include <cstdlib>
 #include <string>
 
 using std::string;
