@@ -4187,7 +4187,7 @@ void MSMain(uint GID : SV_GroupIndex,
           #if TEST_ARRAY_OPERATOR
             // This test case is for testing array operator [].
             // It tests static array access with a compile time constant index array.
-            // And dynamic access, by introducing a runtime dependency that prevents the
+            // Or dynamic access, by introducing a runtime dependency that prevents the
             // index array from being a compile time constant.
             const uint IndexCount = 6;
             const uint IndexList[IndexCount] = {
@@ -4203,7 +4203,7 @@ void MSMain(uint GID : SV_GroupIndex,
             uint End = min(OutNum, IndexCount);
 
             #if DYNAMIC_ACCESS
-              uint Zero = (uint) Input2[0];
+              const uint Zero = (uint) Input2[0];
             #endif
 
             [unroll]for(uint i = 0; i < End; ++i) {
