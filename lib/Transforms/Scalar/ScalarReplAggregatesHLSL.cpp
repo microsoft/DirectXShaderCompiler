@@ -6498,8 +6498,55 @@ ModulePass *llvm::createSROA_Parameter_HLSL() {
 //===----------------------------------------------------------------------===//
 
 namespace {
+
+struct GVDebugInfoPatchCache {
+  DenseMap<Function *, SetVector<DISubprogram *>> SubprogramsForFunction;
+  DenseSet<DILocation *> Seen;
+  DITypeIdentifierMap EmptyMap;
+
+  void CollectSubprograms(DILocation *Loc, SetVector<DISubprogram *> &Set) {
+    while (Loc) {
+      // This is potentially very expensive. Avoid repeatedly looking for
+      // DISubprogram's
+      if (Seen.count(Loc))
+        return;
+      Seen.insert(Loc);
+      auto *Scope = dyn_cast<DIScope>(Loc->getScope());
+      while (Scope) {
+        if (auto SubP = dyn_cast<DISubprogram>(Scope)) {
+          Set.insert(SubP);
+          break;
+        }
+        Scope = Scope->getScope().resolve(EmptyMap);
+      }
+      Loc = Loc->getInlinedAt();
+    }
+  }
+
+  SetVector<DISubprogram *> &
+  GetSubprogramsForFunction(Function *F, DebugInfoFinder &DbgFinder) {
+    auto It = SubprogramsForFunction.find(F);
+    if (It != SubprogramsForFunction.end())
+      return It->second;
+
+    SetVector<DISubprogram *> &Ret = SubprogramsForFunction[F];
+    for (DISubprogram *SP : DbgFinder.subprograms()) {
+      if (SP->getFunction() == F) {
+        Ret.insert(SP);
+        break;
+      }
+    }
+
+    for (BasicBlock &BB : *F)
+      for (Instruction &I : BB)
+        CollectSubprograms(I.getDebugLoc(), Ret);
+    return Ret;
+  }
+};
+
 class LowerStaticGlobalIntoAlloca : public ModulePass {
   DebugInfoFinder m_DbgFinder;
+  GVDebugInfoPatchCache m_GVDebugInfoCache;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -6687,28 +6734,15 @@ FindGlobalVariableFragment(const DebugInfoFinder &DbgFinder,
 // Create a fake local variable for the GlobalVariable GV that has just been
 // lowered to local Alloca.
 //
-static void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F,
+static void PatchDebugInfo(GVDebugInfoPatchCache &Cache,
+                           DebugInfoFinder &DbgFinder, Function *F,
                            GlobalVariable *GV, AllocaInst *AI) {
-  if (!DbgFinder.compile_unit_count())
-    return;
-
-  // Find the subprogram for function
-  DISubprogram *Subprogram = nullptr;
-  for (DISubprogram *SP : DbgFinder.subprograms()) {
-    if (SP->getFunction() == F) {
-      Subprogram = SP;
-      break;
-    }
-  }
-
   DIGlobalVariable *DGV = dxilutil::FindGlobalVariableDebugInfo(GV, DbgFinder);
   if (!DGV)
     return;
 
-  DITypeIdentifierMap EmptyMap;
-  DIBuilder DIB(*GV->getParent());
-  DIScope *Scope = Subprogram;
-  DebugLoc Loc = DebugLoc::get(DGV->getLine(), 0, Scope);
+  if (!DbgFinder.compile_unit_count())
+    return;
 
   // If the variable is a member of another variable, find the offset and size
   bool IsFragment = false;
@@ -6725,20 +6759,30 @@ static void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F,
   // Subprogram as its scope, so we don't have to make one up for it.
   llvm::dwarf::Tag Tag = llvm::dwarf::Tag::DW_TAG_arg_variable;
 
+  DITypeIdentifierMap EmptyMap;
   DIType *Ty = DGV->getType().resolve(EmptyMap);
   DXASSERT(Ty->getTag() != dwarf::DW_TAG_member,
            "Member type is not allowed for variables.");
-  DILocalVariable *ConvertedLocalVar = DIB.createLocalVariable(
-      Tag, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
 
-  DIExpression *Expr = nullptr;
-  if (IsFragment) {
-    Expr = DIB.createBitPieceExpression(OffsetInBits, SizeInBits);
-  } else {
-    Expr = DIB.createExpression(ArrayRef<int64_t>());
+  DIBuilder DIB(*GV->getParent());
+
+  SetVector<DISubprogram *> &Subprograms =
+      Cache.GetSubprogramsForFunction(F, DbgFinder);
+  for (DISubprogram *Subprogram : Subprograms) {
+    DIScope *Scope = Subprogram;
+    DebugLoc Loc = DebugLoc::get(DGV->getLine(), 0, Scope);
+
+    DILocalVariable *ConvertedLocalVar = DIB.createLocalVariable(
+        Tag, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
+
+    DIExpression *Expr = nullptr;
+    if (IsFragment)
+      Expr = DIB.createBitPieceExpression(OffsetInBits, SizeInBits);
+    else
+      Expr = DIB.createExpression(ArrayRef<int64_t>());
+
+    DIB.insertDeclare(AI, ConvertedLocalVar, Expr, Loc, AI->getNextNode());
   }
-
-  DIB.insertDeclare(AI, ConvertedLocalVar, Expr, Loc, AI->getNextNode());
 }
 
 // Collect instructions using GV and the value used by the instruction.
@@ -6816,7 +6860,7 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(
     if (AI->user_empty())
       AI->eraseFromParent();
     else
-      PatchDebugInfo(m_DbgFinder, F, GV, AI);
+      PatchDebugInfo(m_GVDebugInfoCache, m_DbgFinder, F, GV, AI);
   }
 
   GV->removeDeadConstantUsers();

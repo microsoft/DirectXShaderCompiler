@@ -912,9 +912,9 @@ private:
   /// Creates all assoicated counter variables by recursively visiting decl's
   /// fields. Handles AssocCounter#3 and AssocCounter#4 (see the comment of
   /// CounterVarFields).
-  inline void createFieldCounterVars(const DeclaratorDecl *decl);
+  void createFieldCounterVars(const DeclaratorDecl *decl);
   void createFieldCounterVars(const DeclaratorDecl *rootDecl,
-                              const DeclaratorDecl *decl,
+                              const QualType type,
                               llvm::SmallVector<uint32_t, 4> *indices);
 
   /// Decorates varInstr of the given asType with proper interpolation modes
@@ -1195,11 +1195,6 @@ bool DeclResultIdMapper::isInputStorageClass(const StageVar &v) {
 
 void DeclResultIdMapper::createFnParamCounterVar(const VarDecl *param) {
   createCounterVarForDecl(param);
-}
-
-void DeclResultIdMapper::createFieldCounterVars(const DeclaratorDecl *decl) {
-  llvm::SmallVector<uint32_t, 4> indices;
-  createFieldCounterVars(decl, decl, &indices);
 }
 
 } // end namespace spirv
