@@ -417,7 +417,7 @@ const char *ShaderModel::GetKindName() const { return GetKindName(m_Kind); }
 
 const char *ShaderModel::GetKindName(Kind kind) {
   static_assert(static_cast<unsigned>(Kind::Invalid) ==
-                    _countof(ShaderModelKindNames) - 1,
+                    std::size(ShaderModelKindNames) - 1,
                 "Invalid kinds or names");
   return ShaderModelKindNames[static_cast<unsigned int>(kind)];
 }
@@ -648,7 +648,7 @@ static const char *NodeLaunchTypeNames[] = {"invalid", "broadcasting",
 
 const char *ShaderModel::GetNodeLaunchTypeName(DXIL::NodeLaunchType launchTy) {
   static_assert(static_cast<unsigned>(DXIL::NodeLaunchType::Thread) ==
-                    _countof(NodeLaunchTypeNames) - 1,
+                    std::size(NodeLaunchTypeNames) - 1,
                 "Invalid launch type or names");
   return NodeLaunchTypeNames[static_cast<unsigned int>(launchTy)];
 }
