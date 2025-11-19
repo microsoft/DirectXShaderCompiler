@@ -17,9 +17,9 @@ namespace hlsl {
 
 enum class UnusedResourceBinding : uint32_t { Strip, ReserveAll, Count };
 
-static_assert(UnusedResourceBinding::Count <= UnusedResourceBinding(7),
+static_assert(unsigned(UnusedResourceBinding::Count) <= 7u,
               "Only 3 bits are reserved for UnusedResourceBinding by HLOptions "
-              "and ShaderFlags");
+              "and IntermediateFlags");
 
 /* <py>
 import hctdb_instrhelp

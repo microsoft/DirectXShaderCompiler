@@ -290,6 +290,7 @@ public:
 
   void SetUnusedResourceBinding(UnusedResourceBinding unusedResourceBinding);
   UnusedResourceBinding GetUnusedResourceBinding() const;
+
   void ClearIntermediateOptions();
 
   // Hull and Domain shaders.
@@ -347,7 +348,13 @@ private:
       DXIL::PrimitiveTopology::Undefined;
   unsigned m_ActiveStreamMask = 0;
 
-  enum IntermediateFlags : uint32_t { LegacyResourceReservation = 1 << 0 };
+  enum IntermediateFlags : uint32_t {
+
+    LegacyResourceReservation = 1 << 0,
+    UnusedResourceBindingMask = 7 << 1,   //3 bit reserved for unused resource binding
+
+    UnusedResourceBindingShift = 1
+  };
 
   llvm::LLVMContext &m_Ctx;
   llvm::Module *m_pModule = nullptr;

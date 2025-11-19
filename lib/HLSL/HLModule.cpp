@@ -266,7 +266,7 @@ void HLModule::RemoveGlobal(llvm::GlobalVariable *GV) {
   bool keepAllocated = GetHLOptions().bLegacyResourceReservation;
 
   UnusedResourceBinding unusedResourceBinding =
-      UnusedResourceBinding(GetHLOptions().bUnusedResourceBinding);
+      UnusedResourceBinding(GetHLOptions().UnusedResourceBinding);
 
   // This could be considerably faster - check variable type to see which
   // resource type this is rather than scanning all lists, and look for
