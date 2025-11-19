@@ -1032,7 +1032,7 @@ namespace {
 template <typename TResource>
 static bool RemoveResourcesWithUnusedSymbolsHelper(
     std::vector<std::unique_ptr<TResource>> &vec) {
-  bool modif = false;
+  bool Changed = false;
   unsigned resID = 0;
   std::unordered_set<GlobalVariable *>
       eraseList; // Need in case of duplicate defs of lib resources
@@ -1044,7 +1044,7 @@ static bool RemoveResourcesWithUnusedSymbolsHelper(
       p = vec.erase(c);
       if (GlobalVariable *GV = dyn_cast<GlobalVariable>(symbol))
         eraseList.insert(GV);
-      modif = true;
+      Changed = true;
       continue;
     }
     if ((*c)->GetID() != resID) {
@@ -1055,17 +1055,17 @@ static bool RemoveResourcesWithUnusedSymbolsHelper(
   for (auto gv : eraseList) {
     gv->eraseFromParent();
   }
-  return modif;
+  return Changed;
 }
 } // namespace
 
 bool DxilModule::RemoveResourcesWithUnusedSymbols() {
-  bool modif = false;
-  modif |= RemoveResourcesWithUnusedSymbolsHelper(m_SRVs);
-  modif |= RemoveResourcesWithUnusedSymbolsHelper(m_UAVs);
-  modif |= RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers);
-  modif |= RemoveResourcesWithUnusedSymbolsHelper(m_Samplers);
-  return modif;
+  bool Changed = false;
+  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_SRVs);
+  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_UAVs);
+  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers);
+  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_Samplers);
+  return Changed;
 }
 
 namespace {
