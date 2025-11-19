@@ -550,7 +550,6 @@ public:
     ResourceRegisterAllocator.GatherReservedRegisters(DM);
 
     // Remove unused resources.
-    if (DM.GetUnusedResourceBinding() == UnusedResourceBinding::Strip)
     bChanged |= DM.RemoveResourcesWithUnusedSymbols();
 
     unsigned newResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
