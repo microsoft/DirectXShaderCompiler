@@ -351,7 +351,8 @@ private:
   enum IntermediateFlags : uint32_t {
 
     LegacyResourceReservation = 1 << 0,
-    UnusedResourceBindingMask = 7 << 1,   //3 bit reserved for unused resource binding
+    UnusedResourceBindingMask =
+        7 << 1, // 3 bit reserved for unused resource binding
 
     UnusedResourceBindingShift = 1
   };

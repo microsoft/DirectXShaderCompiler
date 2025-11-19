@@ -16,7 +16,6 @@
 namespace hlsl {
 class DxilModule;
 struct DxilFunctionProps;
-enum class UnusedResourceBinding : uint32_t;
 }
 
 namespace llvm {
