@@ -76,11 +76,12 @@ stages:
           CC: gcc-9
           CXX: g++-9
         # FIXME: #7929, DXC build failing in this stage due to low drive space
-        # Linux_Gcc_Debug:
-        #   image: ${{ variables.linux }}
-        #   configuration: Debug
-        #   CC: gcc-9
-        #   CXX: g++-9
+        Linux_Gcc_Debug:
+          image: ${{ variables.linux }}
+          configuration: Debug
+          CC: gcc-9
+          CXX: g++-9
+          CMAKE_OPTS: -DLLVM_USE_SPLIT_DWARF=On
         MacOS_Clang_Release:
           image: ${{ variables.macOS }}
           configuration: Release
