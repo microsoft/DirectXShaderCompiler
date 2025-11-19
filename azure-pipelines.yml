@@ -75,7 +75,6 @@ stages:
           configuration: Release
           CC: gcc-9
           CXX: g++-9
-        # FIXME: #7929, DXC build failing in this stage due to low drive space
         Linux_Gcc_Debug:
           image: ${{ variables.linux }}
           configuration: Debug
