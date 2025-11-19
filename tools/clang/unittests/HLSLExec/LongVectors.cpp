@@ -1297,6 +1297,48 @@ template <typename T> struct ExpectedBuilder<OpType::ModF, T> {
 };
 
 //
+// Derivative Ops
+//
+
+// Coarse derivative ops return the same partial derivative value for all lanes
+// in the quad.
+// Top right (lane 1) - Top Left (lane 0)
+DEFAULT_OP_1(OpType::DerivativeDdx, ((A + 2) - (A + 0)));
+// Lower left (lane 2) -  Top Left (lane 0)
+DEFAULT_OP_1(OpType::DerivativeDdy, ((A + 4) - (A + 0)));
+
+// Fine derivative ops return different partial derivative values for each
+DEFAULT_OP_1(OpType::DerivativeDdxFine, ((A + 2) - (A + 0)));
+// Lower left (lane 2) -  Top Left (lane 0)
+DEFAULT_OP_1(OpType::DerivativeDdyFine, ((A + 4) - (A + 0)));
+
+// template <typename T>
+// struct Op<OpType::DerivativeDdx, T, 1> : DefaultValidation<T>{};
+//
+// template <typename T> struct ExpectedBuilder<OpType::DerivativeDdx, T> {
+//   static std::vector<T>
+//   buildExpected(Op<OpType::DerivativeDdx, T, 1> &,
+//                 const InputSets<T> &Inputs) {
+//     DXASSERT_NOMSG(Inputs.size() == 1);
+//
+//     std::vector<T> Expected;
+//     const size_t VectorSize = Inputs[0].size();
+//     Expected.resize(VectorSize);
+//
+//     // Coarse derivative always does top right minus top left. That is, lane
+//     1
+//     // minus lane 0. And we do A + LaneID*2 in each lane.
+//     for(size_t I = 0; I < VectorSize; ++I)
+//     {
+//       const T A = Inputs[0][I];
+//       Expected[I] = (A+2) - (A+0);
+//     }
+//
+//     return Expected;
+//   }
+// };
+
+//
 // Wave Ops
 //
 
@@ -1548,7 +1590,7 @@ void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
 
   const std::string AdditionalCompilerOptions =
       "-DWAVE_SIZE=" + std::to_string(WaveSize) +
-      " -DNUMTHREADS_X=" + std::to_string(WaveSize);
+      " -DNUMTHREADS_XYZ=" + std::to_string(WaveSize) + ",1,1 ";
 
   for (size_t VectorSize : InputVectorSizes) {
     std::vector<std::vector<T>> Inputs =
@@ -2329,6 +2371,18 @@ public:
   HLK_TEST(LoadAndStore_DT_SB_UAV, double);
   HLK_TEST(LoadAndStore_RD_SB_SRV, double);
   HLK_TEST(LoadAndStore_RD_SB_UAV, double);
+
+  // Derivative
+  HLK_TEST(DerivativeDdx, HLSLHalf_t);
+  HLK_TEST(DerivativeDdy, HLSLHalf_t);
+  HLK_TEST(DerivativeDdxFine, HLSLHalf_t);
+  HLK_TEST(DerivativeDdyFine, HLSLHalf_t);
+  HLK_TEST(DerivativeDdx, float);
+  HLK_TEST(DerivativeDdy, float);
+  HLK_TEST(DerivativeDdxFine, float);
+  HLK_TEST(DerivativeDdyFine, float);
+
+  // Wave
 
   HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLBool_t);
   HLK_WAVEOP_TEST(WaveReadLaneAt, HLSLBool_t);

@@ -66,7 +66,7 @@ OP_DEFAULT_DEFINES(Unary, Initialize, 1, "TestInitialize", "",
 #define OP_CAST_DEFAULT(GROUP, SYMBOL)                                         \
   OP_DEFAULT_DEFINES(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1")
 #define OP_CAST(GROUP, SYMBOL, INPUT_SET_1)                                    \
-  OP(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1", "LongVectorOP",   \
+  OP(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1", "LongVectorOp",   \
     INPUT_SET_1, Default2, Default3)
 
 OP_CAST_DEFAULT(Cast, CastToBool)
@@ -205,7 +205,22 @@ OP_DEFAULT_DEFINES(Wave, WaveActiveBitXor, 1, "TestWaveActiveBitXor", "", " -DFU
 OP_DEFAULT_DEFINES(Wave, WaveActiveAllEqual, 1, "TestWaveActiveAllEqual", "", " -DFUNC_WAVE_ACTIVE_ALL_EQUAL=1")
 OP_DEFAULT_DEFINES(Wave, WaveReadLaneAt, 1, "TestWaveReadLaneAt", "", " -DFUNC_WAVE_READ_LANE_AT=1")
 OP_DEFAULT_DEFINES(Wave, WaveReadLaneFirst, 1, "TestWaveReadLaneFirst", "", " -DFUNC_WAVE_READ_LANE_FIRST=1")
-OP_DEFAULT_DEFINES(Wave, WavePrefixSum, 1, "TestWavePrefixSum", "", " -DFUNC_WAVE_PREFIX_SUM=1 -DIS_WAVE_PREFIX_OP=1")
-OP_DEFAULT_DEFINES(Wave, WavePrefixProduct, 1, "TestWavePrefixProduct", "", " -DFUNC_WAVE_PREFIX_PRODUCT=1 -DIS_WAVE_PREFIX_OP=1")
+OP_DEFAULT_DEFINES(Wave, WavePrefixSum, 1, "TestWavePrefixSum", "", " -DFUNC_WAVE_PREFIX_SUM=1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
+OP_DEFAULT_DEFINES(Wave, WavePrefixProduct, 1, "TestWavePrefixProduct", "", " -DFUNC_WAVE_PREFIX_PRODUCT=1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
+
+// NOTE: Default2 is used as the input set because Default1 can have precision
+// issues with half types in derivative calculations.
+#define OP_DERIVATIVE(GROUP, SYMBOL, DERIVATIVE_INTRINSIC)                     \
+  OP(GROUP, SYMBOL, 1, "TestDerivative", "", "-DFUNC_TEST_DERIVATIVE=1         \
+     -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1              \
+     -DDERIVATIVE_FUNC=" DERIVATIVE_INTRINSIC, "LongVectorOp", Default2,       \
+     Default1, Default3)
+
+OP_DERIVATIVE(Derivative, DerivativeDdx, "ddx")
+OP_DERIVATIVE(Derivative, DerivativeDdy, "ddy")
+OP_DERIVATIVE(Derivative, DerivativeDdxFine, "ddx_fine")
+OP_DERIVATIVE(Derivative, DerivativeDdyFine, "ddy_fine")
+
+#undef OP_DERIVATIVE
 
 #undef OP
