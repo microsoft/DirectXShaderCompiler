@@ -551,7 +551,7 @@ public:
 
     // Remove unused resources.
     if (DM.GetUnusedResourceBinding() == UnusedResourceBinding::Strip)
-      bChanged |= DM.RemoveResourcesWithUnusedSymbols();
+    bChanged |= DM.RemoveResourcesWithUnusedSymbols();
 
     unsigned newResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
@@ -562,8 +562,7 @@ public:
     {
       DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
       bool bLocalChanged = LegalizeResources(M, DVC);
-      if (bLocalChanged &&
-          DM.GetUnusedResourceBinding() == UnusedResourceBinding::Strip) {
+      if (bLocalChanged) {
         // Remove unused resources.
         bChanged |= DM.RemoveResourcesWithUnusedSymbols();
       }
@@ -571,9 +570,7 @@ public:
     }
 
     bChanged |= ResourceRegisterAllocator.AllocateRegisters(DM);
-
-    if (DM.GetUnusedResourceBinding() == UnusedResourceBinding::ReserveAll)
-      bChanged |= DM.RemoveResourcesWithUnusedSymbols();
+    bChanged |= DM.RemoveResourcesWithUnusedSymbols(true);
 
     // Fill in top-level CBuffer variable usage bit
     UpdateCBufferUsage();

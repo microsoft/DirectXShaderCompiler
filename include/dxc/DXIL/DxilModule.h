@@ -112,7 +112,7 @@ public:
   const std::vector<std::unique_ptr<DxilResource>> &GetUAVs() const;
 
   void RemoveUnusedResources();
-  bool RemoveResourcesWithUnusedSymbols();
+  bool RemoveResourcesWithUnusedSymbols(bool AfterAllocation = false);
   void RemoveFunction(llvm::Function *F);
 
   bool RenameResourcesWithPrefix(const std::string &prefix);
