@@ -1437,9 +1437,9 @@ template <typename T>
 struct Op<OpType::WavePrefixMatch, T, 1> : StrictValidation {};
 
 template <typename T> struct ExpectedBuilder<OpType::WavePrefixMatch, T> {
-  static std::vector<UINT>
-  buildExpected(Op<OpType::WavePrefixMatch, T, 1> &,
-                const InputSets<T> &Inputs, UINT WaveSize) {
+  static std::vector<UINT> buildExpected(Op<OpType::WavePrefixMatch, T, 1> &,
+                                         const InputSets<T> &Inputs,
+                                         UINT WaveSize) {
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     std::vector<UINT> Expected;

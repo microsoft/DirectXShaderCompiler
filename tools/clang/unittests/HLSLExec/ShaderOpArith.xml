@@ -4215,17 +4215,6 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-        #ifdef FUNC_WAVE_PREFIX_PRODUCT
-        void TestWavePrefixProduct(vector<TYPE, NUM> Vector)
-        {
-          Vector = WavePrefixProduct(Vector);
-          if(WaveGetLaneIndex() == 2)
-          {
-            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
-          }
-        }
-        #endif
-
         #ifdef FUNC_WAVE_PREFIX_MATCH
         void TestWavePrefixMatch(vector<TYPE, NUM> Vector)
         {
