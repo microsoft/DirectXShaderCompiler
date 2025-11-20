@@ -4293,6 +4293,36 @@ void MSMain(uint GID : SV_GroupIndex,
             // Wave prefix ops store the output on a specific lane only.
             FUNC(Input1);
             return;
+          #elif TEST_ARRAY_OPERATOR
+            // This test case is for testing array operator [].
+            // It tests static array access with a compile time constant index array.
+            // Or dynamic access, by introducing a runtime dependency that prevents the
+            // index array from being a compile time constant.
+            const uint IndexCount = 6;
+            const uint IndexList[IndexCount] = {
+              0, 
+              OutNum - 1, 
+              1, 
+              OutNum - 2, 
+              OutNum / 2, 
+              OutNum / 2 + 1
+            };
+          
+            OutputVector = 0;
+            uint End = min(OutNum, IndexCount);
+
+            #if DYNAMIC_ACCESS
+              const uint Zero = (uint) Input2[0];
+            #endif
+
+            [unroll]for(uint i = 0; i < End; ++i) {
+            #if DYNAMIC_ACCESS
+              uint index = (uint)(IndexList[i] + Zero);
+            #else
+              uint index = (uint)(IndexList[i]);
+            #endif
+              OutputVector[index] = Input1[index];
+            }
           #elif IS_UNARY_OP
             OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP
