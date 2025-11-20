@@ -3,7 +3,9 @@
 #include "ShaderOpTest.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
-#include "dxc/Test/HlslTestUtils.h"
+
+#include "HlslTestUtils.h"
+
 #include <Verify.h>
 #include <atlcomcli.h>
 #include <d3d12.h>
