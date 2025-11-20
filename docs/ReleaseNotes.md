@@ -23,6 +23,7 @@ The included licenses apply to the following files:
 - Fixed regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
 - Header file `dxcpix.h` was added to the release package.
 - Moved Linear Algebra (Cooperative Vector) DXIL Opcodes to experimental Shader Model 6.10
+- Added `-fhlsl-unused-resource-bindings=<value>` an option to allow deciding on how to treat unused resource bindings in DXIL; `strip` (default) or `keep-all`. `strip` will strip unused resources before generating bindings for resources without a `: register`, and `keep-all` will keep them around even for reflection (while marking them with D3D_SIF_UNUSED). See [explanation](https://github.com/microsoft/DirectXShaderCompiler/pull/7643#issuecomment-3496917202) for more details.
 
 ### Version 1.8.2505
 

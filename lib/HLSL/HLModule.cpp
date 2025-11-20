@@ -231,12 +231,14 @@ void HLModule::RemoveFunction(llvm::Function *F) {
 namespace {
 template <typename TResource>
 bool RemoveResource(std::vector<std::unique_ptr<TResource>> &vec,
-                    GlobalVariable *pVariable, bool keepAllocated) {
+                    GlobalVariable *pVariable, bool keepAllocated,
+                    UnusedResourceBinding unusedResourceBinding) {
   for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
     if ((*p)->GetGlobalSymbol() != pVariable)
       continue;
 
-    if (keepAllocated && (*p)->IsAllocated()) {
+    if ((keepAllocated && (*p)->IsAllocated()) ||
+        unusedResourceBinding == UnusedResourceBinding::KeepAll) {
       // Keep the resource, but it has no more symbol.
       (*p)->SetGlobalSymbol(UndefValue::get(pVariable->getType()));
     } else {
@@ -262,16 +264,19 @@ void HLModule::RemoveGlobal(llvm::GlobalVariable *GV) {
   // register range from being allocated to other resources.
   bool keepAllocated = GetHLOptions().bLegacyResourceReservation;
 
+  UnusedResourceBinding unusedResourceBinding =
+      UnusedResourceBinding(GetHLOptions().bUnusedResourceBinding);
+
   // This could be considerably faster - check variable type to see which
   // resource type this is rather than scanning all lists, and look for
   // usage and removal patterns.
-  if (RemoveResource(m_CBuffers, GV, keepAllocated))
+  if (RemoveResource(m_CBuffers, GV, keepAllocated, unusedResourceBinding))
     return;
-  if (RemoveResource(m_SRVs, GV, keepAllocated))
+  if (RemoveResource(m_SRVs, GV, keepAllocated, unusedResourceBinding))
     return;
-  if (RemoveResource(m_UAVs, GV, keepAllocated))
+  if (RemoveResource(m_UAVs, GV, keepAllocated, unusedResourceBinding))
     return;
-  if (RemoveResource(m_Samplers, GV, keepAllocated))
+  if (RemoveResource(m_Samplers, GV, keepAllocated, unusedResourceBinding))
     return;
   // TODO: do m_TGSMVariables and m_StreamOutputs need maintenance?
 }
