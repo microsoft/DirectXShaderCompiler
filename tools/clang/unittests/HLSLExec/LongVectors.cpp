@@ -1312,31 +1312,23 @@ DEFAULT_OP_1(OpType::DerivativeDdxFine, ((A + 2) - (A + 0)));
 // Lower left (lane 2) -  Top Left (lane 0)
 DEFAULT_OP_1(OpType::DerivativeDdyFine, ((A + 4) - (A + 0)));
 
-// template <typename T>
-// struct Op<OpType::DerivativeDdx, T, 1> : DefaultValidation<T>{};
-//
-// template <typename T> struct ExpectedBuilder<OpType::DerivativeDdx, T> {
-//   static std::vector<T>
-//   buildExpected(Op<OpType::DerivativeDdx, T, 1> &,
-//                 const InputSets<T> &Inputs) {
-//     DXASSERT_NOMSG(Inputs.size() == 1);
-//
-//     std::vector<T> Expected;
-//     const size_t VectorSize = Inputs[0].size();
-//     Expected.resize(VectorSize);
-//
-//     // Coarse derivative always does top right minus top left. That is, lane
-//     1
-//     // minus lane 0. And we do A + LaneID*2 in each lane.
-//     for(size_t I = 0; I < VectorSize; ++I)
-//     {
-//       const T A = Inputs[0][I];
-//       Expected[I] = (A+2) - (A+0);
-//     }
-//
-//     return Expected;
-//   }
-// };
+template <typename T>
+struct Op<OpType::QuadReadLaneAt, T, 1> : DefaultValidation<T> {};
+
+template <typename T> struct ExpectedBuilder<OpType::QuadReadLaneAt, T> {
+  static std::vector<T> buildExpected(Op<OpType::QuadReadLaneAt, T, 1> &,
+                                      const InputSets<T> &Inputs) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+
+    std::vector<T> Expected;
+    const size_t VectorSize = Inputs[0].size();
+    // As a simple test, we arbitrarily pick the 3rd element to fill the vector
+    // on a single lane. And then read from it on another lane.
+    Expected.assign(VectorSize, Inputs[0][2]);
+
+    return Expected;
+  }
+};
 
 //
 // Wave Ops
@@ -2381,6 +2373,17 @@ public:
   HLK_TEST(DerivativeDdy, float);
   HLK_TEST(DerivativeDdxFine, float);
   HLK_TEST(DerivativeDdyFine, float);
+
+  // Quad
+  HLK_TEST(QuadReadLaneAt, HLSLBool_t);
+  HLK_TEST(QuadReadLaneAt, int16_t);
+  HLK_TEST(QuadReadLaneAt, int32_t);
+  HLK_TEST(QuadReadLaneAt, int64_t);
+  HLK_TEST(QuadReadLaneAt, uint16_t);
+  HLK_TEST(QuadReadLaneAt, uint32_t);
+  HLK_TEST(QuadReadLaneAt, uint64_t);
+  HLK_TEST(QuadReadLaneAt, float);
+  HLK_TEST(QuadReadLaneAt, HLSLHalf_t);
 
   // Wave
 

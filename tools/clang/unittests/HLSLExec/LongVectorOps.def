@@ -223,4 +223,7 @@ OP_DERIVATIVE(Derivative, DerivativeDdyFine, "ddy_fine")
 
 #undef OP_DERIVATIVE
 
+OP_DEFAULT_DEFINES(Quad, QuadReadLaneAt, 1, "TestQuadReadLaneAt", "",
+                   " -DFUNC_TEST_QUAD_READ_LANE_AT=1 -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
+
 #undef OP

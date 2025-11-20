@@ -4274,6 +4274,27 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_TEST_QUAD_READ_LANE_AT
+        void TestQuadReadLaneAt(vector<TYPE, NUM> Vector)
+        {
+          const uint LaneIndex = WaveGetLaneIndex();
+
+          // Arbitrarily fill the vector with something different on lane 2.
+          [unroll]
+          for(uint i = 0; i < NUM; ++i)
+          {
+            Vector[i] = (LaneIndex == 2) ? Vector[2] : Vector[i];
+          }
+
+          vector<OUT_TYPE, NUM> Result = QuadReadLaneAt(Vector, 2);
+
+          if(LaneIndex == 3)
+          {
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Result);
+          }
+        }
+        #endif
+
         #ifdef NUMTHREADS_XYZ
           #define NUMTHREADS_ATTR [numthreads(NUMTHREADS_XYZ)]
         #else
