@@ -4172,7 +4172,6 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-
         #ifdef FUNC_WAVE_READ_LANE_AT
         vector<OUT_TYPE, NUM> TestWaveReadLaneAt(vector<TYPE, NUM> Vector)
         {
