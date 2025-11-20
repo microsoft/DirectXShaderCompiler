@@ -4147,16 +4147,31 @@ void MSMain(uint GID : SV_GroupIndex,
         #endif
 
         #ifdef FUNC_WAVE_ACTIVE_ALL_EQUAL
+        inline bool ToggleScalar(bool A) { return !A; }
+        inline uint ToggleScalar(uint A) { return A ^ 1; }
+        inline uint64_t ToggleScalar(uint64_t A) { return A ^ 1; }
+        inline int ToggleScalar(int A) { return A ^ 1; }
+        inline int64_t ToggleScalar(int64_t A) { return A ^ 1; }
+        inline half ToggleScalar(half A) { return A + (half)1.0h; }
+        inline float ToggleScalar(float A) { return A + 1.0f; }
+        inline double ToggleScalar(double A) { return A + 1.0; }
+
+        #if defined(__HLSL_ENABLE_16BIT_TYPES)
+        inline uint16_t ToggleScalar(uint16_t A) { return A ^ 1; }
+        inline int16_t ToggleScalar(int16_t A) { return A ^ 1; }
+        #endif // defined(__HLSL_ENABLE_16BIT_TYPES)
+
         vector<OUT_TYPE, NUM> TestWaveActiveAllEqual(vector<TYPE, NUM> Vector)
         {
           if(WaveGetLaneIndex() == (WaveGetLaneCount() - 1))
           {
-            Vector[NUM - 1] = (TYPE)1337;
+            Vector[NUM - 1] = ToggleScalar(Vector[NUM - 1]);
           }
 
           return WaveActiveAllEqual(Vector);
         }
         #endif
+
 
         #ifdef FUNC_WAVE_READ_LANE_AT
         vector<OUT_TYPE, NUM> TestWaveReadLaneAt(vector<TYPE, NUM> Vector)
