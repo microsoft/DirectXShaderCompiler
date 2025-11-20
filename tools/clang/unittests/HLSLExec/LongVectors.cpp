@@ -1330,6 +1330,61 @@ template <typename T> struct ExpectedBuilder<OpType::QuadReadLaneAt, T> {
   }
 };
 
+template <typename T>
+struct Op<OpType::QuadReadAcrossX, T, 1> : DefaultValidation<T> {};
+
+template <typename T> struct ExpectedBuilder<OpType::QuadReadAcrossX, T> {
+  static std::vector<T> buildExpected(Op<OpType::QuadReadAcrossX, T, 1> &,
+                                      const InputSets<T> &Inputs) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+
+    std::vector<T> Expected;
+    const size_t VectorSize = Inputs[0].size();
+    // As a simple test, we arbitrarily pick the 3rd element to fill the vector
+    // on another lane in this quad in the X direction.
+    Expected.assign(VectorSize, Inputs[0][2]);
+
+    return Expected;
+  }
+};
+
+template <typename T>
+struct Op<OpType::QuadReadAcrossY, T, 1> : DefaultValidation<T> {};
+
+template <typename T> struct ExpectedBuilder<OpType::QuadReadAcrossY, T> {
+  static std::vector<T> buildExpected(Op<OpType::QuadReadAcrossY, T, 1> &,
+                                      const InputSets<T> &Inputs) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+
+    std::vector<T> Expected;
+    const size_t VectorSize = Inputs[0].size();
+    // As a simple test, we arbitrarily pick the 3rd element to fill the vector
+    // on another lane in this quad in the Y direction.
+    Expected.assign(VectorSize, Inputs[0][2]);
+
+    return Expected;
+  }
+};
+
+template <typename T>
+struct Op<OpType::QuadReadAcrossDiagonal, T, 1> : DefaultValidation<T> {};
+
+template <typename T> struct ExpectedBuilder<OpType::QuadReadAcrossDiagonal, T> {
+  static std::vector<T> buildExpected(Op<OpType::QuadReadAcrossDiagonal, T, 1> &,
+                                      const InputSets<T> &Inputs) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+
+    std::vector<T> Expected;
+    const size_t VectorSize = Inputs[0].size();
+    // As a simple test, we arbitrarily pick the 3rd element to fill the vector
+    // on another lane in this quad in the Y direction.
+    Expected.assign(VectorSize, Inputs[0][2]);
+
+    return Expected;
+  }
+};
+
+
 //
 // Wave Ops
 //
@@ -2376,14 +2431,45 @@ public:
 
   // Quad
   HLK_TEST(QuadReadLaneAt, HLSLBool_t);
+  HLK_TEST(QuadReadAcrossX, HLSLBool_t);
+  HLK_TEST(QuadReadAcrossY, HLSLBool_t);
+  HLK_TEST(QuadReadAcrossDiagonal, HLSLBool_t);
   HLK_TEST(QuadReadLaneAt, int16_t);
+  HLK_TEST(QuadReadAcrossX, int16_t);
+  HLK_TEST(QuadReadAcrossY, int16_t);
+  HLK_TEST(QuadReadAcrossDiagonal, int16_t);
   HLK_TEST(QuadReadLaneAt, int32_t);
+  HLK_TEST(QuadReadAcrossX, int32_t);
+  HLK_TEST(QuadReadAcrossY, int32_t);
+  HLK_TEST(QuadReadAcrossDiagonal, int32_t);
   HLK_TEST(QuadReadLaneAt, int64_t);
+  HLK_TEST(QuadReadAcrossX, int64_t);
+  HLK_TEST(QuadReadAcrossY, int64_t);
+  HLK_TEST(QuadReadAcrossDiagonal, int64_t);
   HLK_TEST(QuadReadLaneAt, uint16_t);
+  HLK_TEST(QuadReadAcrossX, uint16_t);
+  HLK_TEST(QuadReadAcrossY, uint16_t);
+  HLK_TEST(QuadReadAcrossDiagonal, uint16_t);
   HLK_TEST(QuadReadLaneAt, uint32_t);
+  HLK_TEST(QuadReadAcrossX, uint32_t);
+  HLK_TEST(QuadReadAcrossY, uint32_t);
+  HLK_TEST(QuadReadAcrossDiagonal, uint32_t);
   HLK_TEST(QuadReadLaneAt, uint64_t);
-  HLK_TEST(QuadReadLaneAt, float);
+  HLK_TEST(QuadReadAcrossX, uint64_t);
+  HLK_TEST(QuadReadAcrossY, uint64_t);
+  HLK_TEST(QuadReadAcrossDiagonal, uint64_t);
   HLK_TEST(QuadReadLaneAt, HLSLHalf_t);
+  HLK_TEST(QuadReadAcrossX, HLSLHalf_t);
+  HLK_TEST(QuadReadAcrossY, HLSLHalf_t);
+  HLK_TEST(QuadReadAcrossDiagonal, HLSLHalf_t);
+  HLK_TEST(QuadReadLaneAt, float);
+  HLK_TEST(QuadReadAcrossX, float);
+  HLK_TEST(QuadReadAcrossY, float);
+  HLK_TEST(QuadReadAcrossDiagonal, float);
+  HLK_TEST(QuadReadLaneAt, double);
+  HLK_TEST(QuadReadAcrossX, double);
+  HLK_TEST(QuadReadAcrossY, double);
+  HLK_TEST(QuadReadAcrossDiagonal, double);
 
   // Wave
 

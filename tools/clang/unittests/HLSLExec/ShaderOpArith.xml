@@ -4295,6 +4295,74 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_TEST_QUAD_READ_ACROSS_X
+        void TestQuadReadAcrossX(vector<TYPE, NUM> Vector)
+        {
+          const uint LaneIndex = WaveGetLaneIndex();
+
+          // Arbitrarily fill the vector with something different on lane 0.
+          [unroll]
+          for(uint i = 0; i < NUM; ++i)
+          {
+            Vector[i] = (LaneIndex == 2) ? Vector[2] : Vector[i];
+          }
+
+          vector<OUT_TYPE, NUM> Result = QuadReadAcrossX(Vector);
+
+          // Lane 3 is x=1, so expect that it read the
+          if(LaneIndex == 3)
+          {
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Result);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_TEST_QUAD_READ_ACROSS_Y
+        void TestQuadReadAcrossY(vector<TYPE, NUM> Vector)
+        {
+          const uint LaneIndex = WaveGetLaneIndex();
+
+          // Arbitrarily fill the vector with something different on lane 0.
+          [unroll]
+          for(uint i = 0; i < NUM; ++i)
+          {
+            Vector[i] = (LaneIndex == 1) ? Vector[2] : Vector[i];
+          }
+
+          vector<OUT_TYPE, NUM> Result = QuadReadAcrossY(Vector);
+
+          // Lane 3 is x=1 and y=1, so expect that we can expect the values to
+          // match what was on lane 1 for both ReadAcrossY and ReadAcrossX.
+          if(LaneIndex ==3)
+          {
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Result);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_TEST_QUAD_READ_ACROSS_DIAGONAL
+        void TestQuadReadAcrossDiagonal(vector<TYPE, NUM> Vector)
+        {
+          const uint LaneIndex = WaveGetLaneIndex();
+
+          // Arbitrarily fill the vector with something different on lane 0.
+          [unroll]
+          for(uint i = 0; i < NUM; ++i)
+          {
+            Vector[i] = (LaneIndex == 0) ? Vector[2] : Vector[i];
+          }
+
+          vector<OUT_TYPE, NUM> Result = QuadReadAcrossDiagonal(Vector);
+
+          // Lane 3 is x=1 and y=1, so expect that we can expect the values to
+          // match what was on lane 1 for both ReadAcrossY and ReadAcrossX.
+          if(LaneIndex ==3)
+          {
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Result);
+          }
+        }
+        #endif
+
         #ifdef NUMTHREADS_XYZ
           #define NUMTHREADS_ATTR [numthreads(NUMTHREADS_XYZ)]
         #else

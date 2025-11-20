@@ -225,5 +225,10 @@ OP_DERIVATIVE(Derivative, DerivativeDdyFine, "ddy_fine")
 
 OP_DEFAULT_DEFINES(Quad, QuadReadLaneAt, 1, "TestQuadReadLaneAt", "",
                    " -DFUNC_TEST_QUAD_READ_LANE_AT=1 -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
-
+OP_DEFAULT_DEFINES(Quad, QuadReadAcrossX, 1, "TestQuadReadAcrossX", "",
+                   " -DFUNC_TEST_QUAD_READ_ACROSS_X=1 -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
+OP_DEFAULT_DEFINES(Quad, QuadReadAcrossY, 1, "TestQuadReadAcrossY", "",
+                   " -DFUNC_TEST_QUAD_READ_ACROSS_Y=1 -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
+OP_DEFAULT_DEFINES(Quad, QuadReadAcrossDiagonal, 1, "TestQuadReadAcrossDiagonal", "",
+                   " -DFUNC_TEST_QUAD_READ_ACROSS_DIAGONAL=1 -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
 #undef OP
