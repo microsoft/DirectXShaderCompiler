@@ -4231,7 +4231,7 @@ void MSMain(uint GID : SV_GroupIndex,
         {
           if(WaveGetLaneIndex() == WAVE_SIZE - 1)
           {
-            Vector[NUM - 1] = (TYPE)1337;
+            Vector[NUM - 1] = (TYPE)1;
             const uint4 PrefixMatch = WaveMatch(Vector);
             g_OutputVector.Store< uint4 >(0, PrefixMatch);
           }
