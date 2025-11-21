@@ -4147,11 +4147,26 @@ void MSMain(uint GID : SV_GroupIndex,
         #endif
 
         #ifdef FUNC_WAVE_ACTIVE_ALL_EQUAL
+        bool MakeDifferent(bool A) { return !A; }
+        uint MakeDifferent(uint A) { return A ^ 1; }
+        uint64_t MakeDifferent(uint64_t A) { return A ^ 1; }
+        int MakeDifferent(int A) { return A ^ 1; }
+        int64_t MakeDifferent(int64_t A) { return A ^ 1; }
+        half MakeDifferent(half A) { return A + (half)1.0h; }
+        float MakeDifferent(float A) { return A + 1.0f; }
+        double MakeDifferent(double A) { return A + 1.0; }
+
+        #if defined(__HLSL_ENABLE_16BIT_TYPES)
+        uint16_t MakeDifferent(uint16_t A) { return A ^ 1; }
+        int16_t MakeDifferent(int16_t A) { return A ^ 1; }
+        #endif // defined(__HLSL_ENABLE_16BIT_TYPES)
+
         vector<OUT_TYPE, NUM> TestWaveActiveAllEqual(vector<TYPE, NUM> Vector)
         {
           if(WaveGetLaneIndex() == (WaveGetLaneCount() - 1))
           {
-            Vector[NUM - 1] = (TYPE)1337;
+            // We just want to set the last element to any different value.
+            Vector[NUM - 1] = MakeDifferent(Vector[NUM - 1]);
           }
 
           return WaveActiveAllEqual(Vector);
