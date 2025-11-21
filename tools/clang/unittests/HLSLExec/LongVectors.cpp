@@ -1312,78 +1312,34 @@ DEFAULT_OP_1(OpType::DerivativeDdxFine, ((A + 2) - (A + 0)));
 // Lower left (lane 2) -  Top Left (lane 0)
 DEFAULT_OP_1(OpType::DerivativeDdyFine, ((A + 4) - (A + 0)));
 
-template <typename T>
-struct Op<OpType::QuadReadLaneAt, T, 1> : DefaultValidation<T> {};
+//
+// Quad Read Ops
+//
 
-template <typename T> struct ExpectedBuilder<OpType::QuadReadLaneAt, T> {
-  static std::vector<T> buildExpected(Op<OpType::QuadReadLaneAt, T, 1> &,
-                                      const InputSets<T> &Inputs) {
-    DXASSERT_NOMSG(Inputs.size() == 1);
+// We keep things generic so we can re-use this macro for all quad ops.
+// The lane we write to is determined via a defines in the shader code via a
+// defines. See TestQuadRead in ShaderOpArith.xml.
+// For all cases we simply fill the vector on that lane with the value of the
+// third element.
+#define QUAD_READ_OP(OP, ARITY)                                                \
+  template <typename T> struct Op<OP, T, ARITY> : DefaultValidation<T> {};     \
+  template <typename T> struct ExpectedBuilder<OP, T> {                        \
+    static std::vector<T> buildExpected(Op<OP, T, ARITY> &,                    \
+                                        const InputSets<T> &Inputs) {          \
+      DXASSERT_NOMSG(Inputs.size() == ARITY);                                  \
+      std::vector<T> Expected;                                                 \
+      const size_t VectorSize = Inputs[0].size();                              \
+      Expected.assign(VectorSize, Inputs[0][2]);                               \
+      return Expected;                                                         \
+    }                                                                          \
+  };
 
-    std::vector<T> Expected;
-    const size_t VectorSize = Inputs[0].size();
-    // As a simple test, we arbitrarily pick the 3rd element to fill the vector
-    // on a single lane. And then read from it on another lane.
-    Expected.assign(VectorSize, Inputs[0][2]);
+QUAD_READ_OP(OpType::QuadReadLaneAt, 2);
+QUAD_READ_OP(OpType::QuadReadAcrossX, 1);
+QUAD_READ_OP(OpType::QuadReadAcrossY, 1);
+QUAD_READ_OP(OpType::QuadReadAcrossDiagonal, 1);
 
-    return Expected;
-  }
-};
-
-template <typename T>
-struct Op<OpType::QuadReadAcrossX, T, 1> : DefaultValidation<T> {};
-
-template <typename T> struct ExpectedBuilder<OpType::QuadReadAcrossX, T> {
-  static std::vector<T> buildExpected(Op<OpType::QuadReadAcrossX, T, 1> &,
-                                      const InputSets<T> &Inputs) {
-    DXASSERT_NOMSG(Inputs.size() == 1);
-
-    std::vector<T> Expected;
-    const size_t VectorSize = Inputs[0].size();
-    // As a simple test, we arbitrarily pick the 3rd element to fill the vector
-    // on another lane in this quad in the X direction.
-    Expected.assign(VectorSize, Inputs[0][2]);
-
-    return Expected;
-  }
-};
-
-template <typename T>
-struct Op<OpType::QuadReadAcrossY, T, 1> : DefaultValidation<T> {};
-
-template <typename T> struct ExpectedBuilder<OpType::QuadReadAcrossY, T> {
-  static std::vector<T> buildExpected(Op<OpType::QuadReadAcrossY, T, 1> &,
-                                      const InputSets<T> &Inputs) {
-    DXASSERT_NOMSG(Inputs.size() == 1);
-
-    std::vector<T> Expected;
-    const size_t VectorSize = Inputs[0].size();
-    // As a simple test, we arbitrarily pick the 3rd element to fill the vector
-    // on another lane in this quad in the Y direction.
-    Expected.assign(VectorSize, Inputs[0][2]);
-
-    return Expected;
-  }
-};
-
-template <typename T>
-struct Op<OpType::QuadReadAcrossDiagonal, T, 1> : DefaultValidation<T> {};
-
-template <typename T> struct ExpectedBuilder<OpType::QuadReadAcrossDiagonal, T> {
-  static std::vector<T> buildExpected(Op<OpType::QuadReadAcrossDiagonal, T, 1> &,
-                                      const InputSets<T> &Inputs) {
-    DXASSERT_NOMSG(Inputs.size() == 1);
-
-    std::vector<T> Expected;
-    const size_t VectorSize = Inputs[0].size();
-    // As a simple test, we arbitrarily pick the 3rd element to fill the vector
-    // on another lane in this quad in the Y direction.
-    Expected.assign(VectorSize, Inputs[0][2]);
-
-    return Expected;
-  }
-};
-
+#undef QUAD_READ_OP
 
 //
 // Wave Ops

@@ -208,13 +208,11 @@ OP_DEFAULT_DEFINES(Wave, WaveReadLaneFirst, 1, "TestWaveReadLaneFirst", "", " -D
 OP_DEFAULT_DEFINES(Wave, WavePrefixSum, 1, "TestWavePrefixSum", "", " -DFUNC_WAVE_PREFIX_SUM=1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
 OP_DEFAULT_DEFINES(Wave, WavePrefixProduct, 1, "TestWavePrefixProduct", "", " -DFUNC_WAVE_PREFIX_PRODUCT=1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
 
-// NOTE: Default2 is used as the input set because Default1 can have precision
-// issues with half types in derivative calculations.
 #define OP_DERIVATIVE(GROUP, SYMBOL, DERIVATIVE_INTRINSIC)                     \
   OP(GROUP, SYMBOL, 1, "TestDerivative", "", "-DFUNC_TEST_DERIVATIVE=1         \
-     -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1              \
-     -DDERIVATIVE_FUNC=" DERIVATIVE_INTRINSIC, "LongVectorOp", Default2,       \
-     Default1, Default3)
+     -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1"             \
+     " -DDERIVATIVE_FUNC=" DERIVATIVE_INTRINSIC,                               \
+     "LongVectorOp", Default2, Default1, Default3)
 
 OP_DERIVATIVE(Derivative, DerivativeDdx, "ddx")
 OP_DERIVATIVE(Derivative, DerivativeDdy, "ddy")
@@ -223,12 +221,18 @@ OP_DERIVATIVE(Derivative, DerivativeDdyFine, "ddy_fine")
 
 #undef OP_DERIVATIVE
 
-OP_DEFAULT_DEFINES(Quad, QuadReadLaneAt, 1, "TestQuadReadLaneAt", "",
-                   " -DFUNC_TEST_QUAD_READ_LANE_AT=1 -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
-OP_DEFAULT_DEFINES(Quad, QuadReadAcrossX, 1, "TestQuadReadAcrossX", "",
-                   " -DFUNC_TEST_QUAD_READ_ACROSS_X=1 -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
-OP_DEFAULT_DEFINES(Quad, QuadReadAcrossY, 1, "TestQuadReadAcrossY", "",
-                   " -DFUNC_TEST_QUAD_READ_ACROSS_Y=1 -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
-OP_DEFAULT_DEFINES(Quad, QuadReadAcrossDiagonal, 1, "TestQuadReadAcrossDiagonal", "",
-                   " -DFUNC_TEST_QUAD_READ_ACROSS_DIAGONAL=1 -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
+#define OP_QUAD_READ(GROUP, ARITY, SYMBOL, QUAD_INTRINSIC, LANE_TO_MODIFY)     \
+  OP(GROUP, SYMBOL, ARITY, "TestQuadRead", "", "-DFUNC_TEST_QUAD_READ=1"       \
+     " -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1"           \
+     " -DQUAD_READ_FUNC=" QUAD_INTRINSIC                                       \
+     " -DLANE_TO_MODIFY=" LANE_TO_MODIFY,                                      \
+      "LongVectorOp", Default1, Default2, Default3)
+
+OP_QUAD_READ(Quad, 2, QuadReadLaneAt, "QuadReadLaneAt", "2")
+OP_QUAD_READ(Quad, 1, QuadReadAcrossX, "QuadReadAcrossX", "2")
+OP_QUAD_READ(Quad, 1, QuadReadAcrossY, "QuadReadAcrossY", "1")
+OP_QUAD_READ(Quad, 1, QuadReadAcrossDiagonal, "QuadReadAcrossDiagonal", "0")
+
+#undef OP_QUAD_READ
+
 #undef OP
