@@ -4957,10 +4957,6 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
 
 bool SpirvEmitter::tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
                                          const Expr *srcExpr) {
-  // We are handling associated counters here. Casts should not alter which
-  // associated counter to manipulate.
-  srcExpr = srcExpr->IgnoreParenCasts();
-
   // For parameters of forward-declared functions. We must make sure the
   // associated counter variable is created. But for forward-declared functions,
   // the translation of the real definition may not be started yet.
@@ -5061,9 +5057,10 @@ SpirvEmitter::getFinalACSBufferCounterInstruction(const Expr *expr) {
   llvm::SmallVector<SpirvInstruction *, 2> indexes;
   if (const auto *arraySubscriptExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
     indexes.push_back(doExpr(arraySubscriptExpr->getIdx()));
-  } else if (isResourceDescriptorHeap(expr->getType())) {
+  } else if (isResourceDescriptorHeap(expr->IgnoreParenCasts()->getType())) {
     const Expr *index = nullptr;
-    getDescriptorHeapOperands(expr, /* base= */ nullptr, &index);
+    getDescriptorHeapOperands(expr->IgnoreParenCasts(), /* base= */ nullptr,
+                              &index);
     assert(index != nullptr && "operator[] had no indices.");
     indexes.push_back(doExpr(index));
   }
@@ -5081,9 +5078,10 @@ SpirvEmitter::getFinalACSBufferCounter(const Expr *expr) {
   if (const auto *decl = getReferencedDef(expr))
     return declIdMapper.createOrGetCounterIdAliasPair(decl);
 
-  if (isResourceDescriptorHeap(expr->getType())) {
+  const Expr *expr_withoutcasts = expr->IgnoreParenCasts();
+  if (isResourceDescriptorHeap(expr_withoutcasts->getType())) {
     const Expr *base = nullptr;
-    getDescriptorHeapOperands(expr, &base, /* index= */ nullptr);
+    getDescriptorHeapOperands(expr_withoutcasts, &base, /* index= */ nullptr);
     return declIdMapper.createOrGetCounterIdAliasPair(getReferencedDef(base));
   }
 
@@ -8860,7 +8858,23 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
           return collectArrayStructIndices(subExpr, rawIndex, rawIndices,
                                            indices, isMSOutAttribute);
         }
+      } else if (castExpr->getCastKind() == CK_UncheckedDerivedToBase ||
+                 castExpr->getCastKind() == CK_HLSLDerivedToBase) {
+        llvm::SmallVector<uint32_t, 4> BaseIdx;
+        getBaseClassIndices(castExpr, &BaseIdx);
+        if (rawIndex) {
+          rawIndices->append(BaseIdx.begin(), BaseIdx.end());
+        } else {
+          for (uint32_t Idx : BaseIdx)
+            indices->push_back(spvBuilder.getConstantInt(astContext.IntTy,
+                                                         llvm::APInt(32, Idx)));
+        }
+
+        return collectArrayStructIndices(castExpr->getSubExpr(), rawIndex,
+                                         rawIndices, indices, isMSOutAttribute);
       }
+      return collectArrayStructIndices(castExpr->getSubExpr(), rawIndex,
+                                       rawIndices, indices, isMSOutAttribute);
     }
   }
 
