@@ -4257,7 +4257,7 @@ void MSMain(uint GID : SV_GroupIndex,
 
           const uint LaneIndex = WaveGetLaneIndex();
 
-          // We need to make the values are unique across lanes used in the
+          // We need to make sure the values are unique across lanes used in the
           // partial derivative calculation so we can get a non-zero partial
           // derivative. Multiplying the lane index by 2 is a simple way to
           // ensure that. And we do this on all lanes so this function can be
