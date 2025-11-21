@@ -53,8 +53,8 @@ struct HLOptions {
       : bDefaultRowMajor(false), bIEEEStrict(false), bAllResourcesBound(false),
         bDisableOptimizations(false), PackingStrategy(0),
         bUseMinPrecision(false), bDX9CompatMode(false), bFXCCompatMode(false),
-        reserved(0), bForceZeroStoreLifetimes(false),
-        UnusedResourceBinding(0), unused(0) {}
+        reserved(0), bForceZeroStoreLifetimes(false), UnusedResourceBinding(0),
+        unused(0) {}
   uint32_t GetHLOptionsRaw() const;
   void SetHLOptionsRaw(uint32_t data);
   unsigned bDefaultRowMajor : 1;

@@ -576,7 +576,8 @@ void DxilModule::SetResMayAlias(bool resMayAlias) {
 
 bool DxilModule::GetResMayAlias() const { return m_bResMayAlias; }
 
-void DxilModule::SetUnusedResourceBinding(UnusedResourceBinding unusedResourceBinding) {
+void DxilModule::SetUnusedResourceBinding(
+    UnusedResourceBinding unusedResourceBinding) {
   m_UnusedResourceBinding = unusedResourceBinding;
 }
 
@@ -584,7 +585,9 @@ UnusedResourceBinding DxilModule::GetUnusedResourceBinding() const {
   return m_UnusedResourceBinding;
 }
 
-void DxilModule::ResetUnusedResourceBinding() { m_UnusedResourceBinding = UnusedResourceBinding::Strip; }
+void DxilModule::ResetUnusedResourceBinding() {
+  m_UnusedResourceBinding = UnusedResourceBinding::Strip;
+}
 
 unsigned DxilModule::GetInputControlPointCount() const {
   if (!(m_pSM->IsHS() || m_pSM->IsDS()))

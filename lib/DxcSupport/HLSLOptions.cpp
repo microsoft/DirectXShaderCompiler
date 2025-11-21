@@ -879,10 +879,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   // TODO: Move to OPT_fhlsl_unused_resource_bindings_EQ
-  if(Args.hasFlag(OPT_flegacy_resource_reservation, OPT_INVALID, false)) {
+  if (Args.hasFlag(OPT_flegacy_resource_reservation, OPT_INVALID, false)) {
 
-    if(unsigned(opts.UnusedResourceBinding)) {
-      errors << "Error: Unused resource bindings can't be used at the same time as flegacy_resource_reservation";
+    if (unsigned(opts.UnusedResourceBinding)) {
+      errors << "Error: Unused resource bindings can't be used at the same "
+                "time as flegacy_resource_reservation";
       return 1;
     }
 

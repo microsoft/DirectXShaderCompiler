@@ -228,7 +228,8 @@ public:
   unsigned TimeTraceGranularity = 500;  // OPT_ftime_trace_granularity_EQ
   bool VerifyDiagnostics = false;       // OPT_verify
   UnusedResourceBinding UnusedResourceBinding =
-      UnusedResourceBinding::Strip; // OPT_fhlsl_unused_resource_bindings_EQ and OPT_flegacy_resource_reservation
+      UnusedResourceBinding::Strip; // OPT_fhlsl_unused_resource_bindings_EQ and
+                                    // OPT_flegacy_resource_reservation
   bool Verbose = false;             // OPT_verbose
 
   // Optimization pass enables, disables and selects

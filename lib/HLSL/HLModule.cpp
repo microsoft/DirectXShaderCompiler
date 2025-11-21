@@ -233,7 +233,8 @@ template <typename TResource>
 bool RemoveResource(std::vector<std::unique_ptr<TResource>> &vec,
                     GlobalVariable *pVariable,
                     UnusedResourceBinding unusedResourceBinding) {
-  bool keepAllocated = unusedResourceBinding == UnusedResourceBinding::ReserveExplicit;
+  bool keepAllocated =
+      unusedResourceBinding == UnusedResourceBinding::ReserveExplicit;
   for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
     if ((*p)->GetGlobalSymbol() != pVariable)
       continue;

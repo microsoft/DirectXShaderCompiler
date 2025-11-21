@@ -242,7 +242,8 @@ public:
     // For backcompat with FXC, shader models 5.0 and below will not
     // auto-allocate resources at a register explicitely assigned to even an
     // unused resource.
-    if (DM.GetUnusedResourceBinding() == UnusedResourceBinding::ReserveExplicit) {
+    if (DM.GetUnusedResourceBinding() ==
+        UnusedResourceBinding::ReserveExplicit) {
       GatherReservedRegisters(DM.GetCBuffers(), m_reservedCBufferRegisters);
       GatherReservedRegisters(DM.GetSamplers(), m_reservedSamplerRegisters);
       GatherReservedRegisters(DM.GetUAVs(), m_reservedUAVRegisters);
