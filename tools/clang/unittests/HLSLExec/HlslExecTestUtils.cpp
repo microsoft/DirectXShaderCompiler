@@ -1,7 +1,6 @@
 #include "HlslExecTestUtils.h"
 
 #include "ShaderOpTest.h"
-#include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
 
 #include "HlslTestUtils.h"
@@ -78,7 +77,7 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
   return SDKVersion;
 }
 
-bool createDevice(
+static bool createDevice(
     ID3D12Device **D3DDevice, ExecTestUtils::D3D_SHADER_MODEL TestModel,
     bool SkipUnsupported,
     std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
@@ -108,7 +107,7 @@ bool createDevice(
     // before attempting to create the device.
 
     struct WarpDll {
-      HMODULE Module = NULL;
+      HMODULE Module = NULL; // NOLINT
 
       ~WarpDll() { Close(); }
 
@@ -231,139 +230,6 @@ void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
   VERIFY_SUCCEEDED(Library->CreateBlobFromFile(Path.c_str(), nullptr, &Blob));
   VERIFY_SUCCEEDED(Library->CreateStreamFromBlobReadOnly(Blob, &StreamCom));
   *Stream = StreamCom.Detach();
-}
-
-static HRESULT enableAgilitySDK(HMODULE Runtime, UINT SDKVersion,
-                                LPCWSTR SDKPath) {
-  auto GetInterfaceFunc = reinterpret_cast<decltype(&D3D12GetInterface)>(
-      GetProcAddress(Runtime, "D3D12GetInterface"));
-  CComPtr<ID3D12SDKConfiguration> D3D12SDKConfiguration;
-  IFR(GetInterfaceFunc(CLSID_D3D12SDKConfiguration,
-                       IID_PPV_ARGS(&D3D12SDKConfiguration)));
-  IFR(D3D12SDKConfiguration->SetSDKVersion(SDKVersion, CW2A(SDKPath)));
-
-  // Currently, it appears that the SetSDKVersion will succeed even when
-  // D3D12Core is not found, or its version doesn't match.  When that's the
-  // case, will cause a failure in the very next thing that actually requires
-  // D3D12Core.dll to be loaded instead.  So, we attempt to clear experimental
-  // features next, which is a valid use case and a no-op at this point.  This
-  // requires D3D12Core to be loaded.  If this fails, we know the AgilitySDK
-  // setting actually failed.
-  auto ExperimentalFeaturesFunc =
-      reinterpret_cast<decltype(&D3D12EnableExperimentalFeatures)>(
-          GetProcAddress(Runtime, "D3D12EnableExperimentalFeatures"));
-  if (ExperimentalFeaturesFunc == nullptr)
-    // If this failed, D3D12 must be too old for AgilitySDK.  But if that's
-    // the case, creating D3D12SDKConfiguration should have failed.  So while
-    // this case shouldn't be hit, fail if it is.
-    return HRESULT_FROM_WIN32(GetLastError());
-
-  return ExperimentalFeaturesFunc(0, nullptr, nullptr, nullptr);
-}
-
-static HRESULT
-enableExperimentalShaderModels(HMODULE hRuntime,
-                               UUID AdditionalFeatures[] = nullptr,
-                               size_t NumAdditionalFeatures = 0) {
-  auto ExperimentalFeaturesFunc =
-      reinterpret_cast<decltype(&D3D12EnableExperimentalFeatures)>(
-          GetProcAddress(hRuntime, "D3D12EnableExperimentalFeatures"));
-  if (ExperimentalFeaturesFunc == nullptr)
-    return HRESULT_FROM_WIN32(GetLastError());
-
-  std::vector<UUID> Features;
-
-  Features.push_back(D3D12ExperimentalShaderModels);
-
-  if (AdditionalFeatures != nullptr && NumAdditionalFeatures > 0)
-    Features.insert(Features.end(), AdditionalFeatures,
-                    AdditionalFeatures + NumAdditionalFeatures);
-
-  return ExperimentalFeaturesFunc((UINT)Features.size(), Features.data(),
-                                  nullptr, nullptr);
-}
-
-static HRESULT
-enableExperimentalShaderModels(UUID AdditionalFeatures[] = nullptr,
-                               size_t NumAdditionalFeatures = 0) {
-  HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
-  if (Runtime == NULL)
-    return E_FAIL;
-  return enableExperimentalShaderModels(Runtime, AdditionalFeatures,
-                                        NumAdditionalFeatures);
-}
-
-HRESULT enableAgilitySDK(HMODULE Runtime) {
-
-  // D3D12SDKVersion > 1 will use provided version, otherwise, auto-detect.
-  // D3D12SDKVersion == 1 means fail if we can't auto-detect.
-  UINT SDKVersion = 0;
-  WEX::TestExecution::RuntimeParameters::TryGetValue(L"D3D12SDKVersion",
-                                                     SDKVersion);
-
-  // SDKPath must be relative path from .exe, which means relative to
-  // TE.exe location, and must start with ".\\", such as with the
-  // default: ".\\D3D12\\"
-  WEX::Common::String SDKPath;
-  if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
-          L"D3D12SDKPath", SDKPath))) {
-    // Make sure path ends in backslash
-    if (!SDKPath.IsEmpty() && SDKPath.Right(1) != "\\")
-      SDKPath.Append("\\");
-  }
-
-  if (SDKPath.IsEmpty())
-    SDKPath = L".\\D3D12\\";
-
-  const bool MustFind = SDKVersion > 0;
-  if (SDKVersion <= 1) {
-    // lookup version from D3D12Core.dll
-    SDKVersion = getD3D12SDKVersion((LPCWSTR)SDKPath);
-    if (MustFind && SDKVersion == 0) {
-      hlsl_test::LogErrorFmt(L"Agility SDK not found in relative path: %s",
-                             (LPCWSTR)SDKPath);
-      return E_FAIL;
-    }
-  }
-
-  // Not found, not asked for.
-  if (SDKVersion == 0)
-    return S_FALSE;
-
-  HRESULT HR = enableAgilitySDK(Runtime, SDKVersion, (LPCWSTR)SDKPath);
-  if (FAILED(HR)) {
-    // If SDKVersion provided, fail if not successful.
-    // 1 means we should find it, and fill in the version automatically.
-    if (MustFind) {
-      hlsl_test::LogErrorFmt(
-          L"Failed to set Agility SDK version %d at path: %s", SDKVersion,
-          (LPCWSTR)SDKPath);
-      return HR;
-    }
-    return S_FALSE;
-  }
-  if (HR == S_OK)
-    hlsl_test::LogCommentFmt(L"Agility SDK version set to: %d", SDKVersion);
-
-  return HR;
-}
-
-HRESULT enableExperimentalMode(HMODULE Runtime) {
-#ifdef _FORCE_EXPERIMENTAL_SHADERS
-  bool ExperimentalShaderModels = true;
-#else
-  bool ExperimentalShaderModels =
-      hlsl_test::GetTestParamBool(L"ExperimentalShaders");
-#endif // _FORCE_EXPERIMENTAL_SHADERS
-
-  HRESULT HR = S_FALSE;
-  if (ExperimentalShaderModels) {
-    HR = enableExperimentalShaderModels(Runtime);
-    if (SUCCEEDED(HR))
-      WEX::Logging::Log::Comment(L"Experimental shader models enabled.");
-  }
-
-  return HR;
 }
 
 static bool enableDebugLayer() {
