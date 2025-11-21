@@ -4218,18 +4218,20 @@ void MSMain(uint GID : SV_GroupIndex,
         #ifdef FUNC_WAVE_MULTI_PREFIX_SUM
         void TestWaveMultiPrefixSum(vector<TYPE, NUM> Vector)
         {
-          const uint LaneCount = WaveGetLaneCount();
-          const uint32_t Mask = 0xE; // Lanes 1,2,3.
-          const uint LaneIndex = WaveGetLaneIndex();
+          uint Key = (WaveGetLaneIndex() == 1 || WaveGetLaneIndex() == 2 || WaveGetLaneIndex() == 3) ? 1u : 0u;
 
-          if(LaneIndex == 0)
+          // Two groups. Lanes 1,2,3 in one group (Key=1), Lanes 0,(4..N) in
+          // other (Key=0).
+          uint4 Mask = WaveMatch(Key);
+
+          if(WaveGetLaneIndex() == 0)
           {
             // Lane 0 isn't in the mask. Shove in a value to make sure it
             // doesn't constribute to the result.
             Vector = 1;
           }
 
-          if(LaneIndex == 3)
+          if(WaveGetLaneIndex() >= 3)
           {
             // Lane 3 is the last lane in the mask. We want to make sure
             // it doesn't contribute to the result as this is a prefix op.
@@ -4239,7 +4241,8 @@ void MSMain(uint GID : SV_GroupIndex,
           Vector = WaveMultiPrefixSum(Vector, Mask);
           if(WaveGetLaneIndex() == 3)
           {
-            // Lane 3 is the last lane in the mask. Store the result from it.
+            // Lane 3 is the last lane in the mask that we care about. Store the
+            // result from it.
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
           }
         }
@@ -4248,18 +4251,20 @@ void MSMain(uint GID : SV_GroupIndex,
         #ifdef FUNC_WAVE_MULTI_PREFIX_PRODUCT
         void TestWaveMultiPrefixProduct(vector<TYPE, NUM> Vector)
         {
-          const uint LaneCount = WaveGetLaneCount();
-          const uint32_t Mask = 0xE; // Lanes 1,2,3.
-          const uint LaneIndex = WaveGetLaneIndex();
+          uint Key = (WaveGetLaneIndex() == 1 || WaveGetLaneIndex() == 2 || WaveGetLaneIndex() == 3) ? 1u : 0u;
 
-          if(LaneIndex == 0)
+          // Two groups. Lanes 1,2,3 in one group (Key=1), Lanes 0,(4..N) in
+          // other (Key=0).
+          uint4 Mask = WaveMatch(Key);
+
+          if(WaveGetLaneIndex() == 0)
           {
             // Lane 0 isn't in the mask. Shove in a value to make sure it
             // doesn't constribute to the result.
             Vector = 4;
           }
 
-          if(LaneIndex == 3)
+          if(WaveGetLaneIndex() == 3)
           {
             // Lane 3 is the last lane in the mask. We want to make sure
             // it doesn't contribute to the result as this is a prefix op.
@@ -4278,11 +4283,13 @@ void MSMain(uint GID : SV_GroupIndex,
         #ifdef FUNC_WAVE_MULTI_PREFIX_BIT_AND
         void TestWaveMultiPrefixBitAnd(vector<TYPE, NUM> Vector)
         {
-          const uint LaneCount = WaveGetLaneCount();
-          const uint32_t Mask = 0xE; // Lanes 1,2,3 (0xE = 0b1110)
-          const uint32_t LaneIndex = WaveGetLaneIndex();
+          uint Key = (WaveGetLaneIndex() == 1 || WaveGetLaneIndex() == 2 || WaveGetLaneIndex() == 3) ? 1u : 0u;
 
-          if(LaneIndex == 0 || LaneIndex == 3)
+          // Two groups. Lanes 1,2,3 in one group (Key=1), Lanes 0,(4..N) in
+          // other (Key=0).
+          uint4 Mask = WaveMatch(Key);
+
+          if(WaveGetLaneIndex() == 0 || WaveGetLaneIndex() == 3)
           {
             // Clear LSB on lane 0 and lane 3. Lane 0 isn't in the mask so
             // shouldn't participate. Lane 3 is the output lane for this prefix 
@@ -4307,11 +4314,13 @@ void MSMain(uint GID : SV_GroupIndex,
         #ifdef FUNC_WAVE_MULTI_PREFIX_BIT_OR
         void TestWaveMultiPrefixBitOr(vector<TYPE, NUM> Vector)
         {
-          const uint LaneCount = WaveGetLaneCount();
-          const uint32_t Mask = 0xE; // Lanes 1,2,3 (0xE = 0b1110)
-          const bool IsActiveLaneInMask = ((Mask >> WaveGetLaneIndex()) & 0x1) != 0;
+          uint Key = (WaveGetLaneIndex() == 1 || WaveGetLaneIndex() == 2 || WaveGetLaneIndex() == 3) ? 1u : 0u;
 
-          if(IsActiveLaneInMask)
+          // Two groups. Lanes 1,2,3 in one group (Key=1), Lanes 0,(4..N) in
+          // other (Key=0).
+          uint4 Mask = WaveMatch(Key);
+
+          if(WaveGetLaneIndex() == 1 || WaveGetLaneIndex() == 2 || WaveGetLaneIndex() == 3)
           {
             // Lanes 1,2,3 (inside the mask): Clear bit 1 (0x2) to create 
             // predictable OR patterns
@@ -4343,18 +4352,20 @@ void MSMain(uint GID : SV_GroupIndex,
         #ifdef FUNC_WAVE_MULTI_PREFIX_BIT_XOR
         void TestWaveMultiPrefixBitXor(vector<TYPE, NUM> Vector)
         {
-          const uint LaneCount = WaveGetLaneCount();
-          const uint32_t Mask = 0xE; // Lanes 1,2,3 (0xE = 0b1110)
-          const uint LaneIndex = WaveGetLaneIndex();
+          uint Key = (WaveGetLaneIndex() == 1 || WaveGetLaneIndex() == 2 || WaveGetLaneIndex() == 3) ? 1u : 0u;
 
-          if(LaneIndex == 0)
+          // Two groups. Lanes 1,2,3 in one group (Key=1), Lanes 0,(4..N) in
+          // other (Key=0).
+          uint4 Mask = WaveMatch(Key);
+
+          if(WaveGetLaneIndex() == 0)
           {
             // Lane 0 is not in the mask, so these values should have no effect
             // on the prefix result. Set to 0 to verify exclusion.
             Vector = 0;
           }
 
-          if(LaneIndex == 2)
+          if(WaveGetLaneIndex() == 2)
           {
             // Lane 2: Create a specific pattern for XOR testing.
             // Zero the lower half of the vector to create predictable XOR results.
@@ -4371,7 +4382,7 @@ void MSMain(uint GID : SV_GroupIndex,
           // Lane 3 will store the result (lane 1 XOR lane 2 prefix)
 
           Vector = WaveMultiPrefixBitXor(Vector, Mask);
-          if(LaneIndex == 3)
+          if(WaveGetLaneIndex() == 3)
           {
             // Store result from lane 3 (last lane in mask)
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
