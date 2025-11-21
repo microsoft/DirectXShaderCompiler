@@ -1300,8 +1300,8 @@ template <typename T> struct ExpectedBuilder<OpType::ModF, T> {
 // Derivative Ops
 //
 
-// Coarse derivative ops return the same partial derivative value for all lanes
-// in the quad.
+// ddx and ddy are the same thing as the coarse versions. That is, they
+// return the same partial derivative value in all lanes for the quad.
 // Top right (lane 1) - Top Left (lane 0)
 DEFAULT_OP_1(OpType::DerivativeDdx, ((A + 2) - (A + 0)));
 // Lower left (lane 2) -  Top Left (lane 0)
