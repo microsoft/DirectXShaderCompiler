@@ -42,6 +42,7 @@
 #include <unordered_set>
 
 #include "dxc/DXIL/DxilCBuffer.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/HLSL/DxilExportMap.h"
@@ -398,8 +399,6 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
   opts.bResMayAlias = CGM.getCodeGenOpts().HLSLResMayAlias;
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
-  opts.bLegacyResourceReservation =
-      CGM.getCodeGenOpts().HLSLLegacyResourceReservation;
   opts.UnusedResourceBinding =
       unsigned(CGM.getCodeGenOpts().HLSLUnusedResourceBinding);
   opts.bForceZeroStoreLifetimes =
@@ -3132,7 +3131,8 @@ void GetResourceDeclElemTypeAndRangeSize(CodeGenModule &CGM, HLModule &HL,
         rangeSize *=
             cast<ConstantArrayType>(arrayType)->getSize().getLimitedValue();
       } else {
-        if (HL.GetHLOptions().bLegacyResourceReservation) {
+        if (HL.GetHLOptions().UnusedResourceBinding ==
+            unsigned(UnusedResourceBinding::ReserveExplicit)) {
           DiagnosticsEngine &Diags = CGM.getDiags();
           unsigned DiagID = Diags.getCustomDiagID(
               DiagnosticsEngine::Error, "unbounded resources are not supported "

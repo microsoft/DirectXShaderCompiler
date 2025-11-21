@@ -185,8 +185,6 @@ public:
   bool HLSLAllowPreserveValues = false;
   /// Whether we fail compilation if loop fails to unroll
   bool HLSLOnlyWarnOnUnrollFail = false;
-  /// Whether use legacy resource reservation.
-  bool HLSLLegacyResourceReservation = false;
   /// How to handle unused resource bindings.
   hlsl::UnusedResourceBinding HLSLUnusedResourceBinding =
       hlsl::UnusedResourceBinding::Strip;

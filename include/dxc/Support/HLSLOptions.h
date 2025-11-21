@@ -213,7 +213,6 @@ public:
   bool DisassembleByteOffset = false;        // OPT_No
   bool DisaseembleHex = false;               // OPT_Lx
   bool LegacyMacroExpansion = false;         // OPT_flegacy_macro_expansion
-  bool LegacyResourceReservation = false;    // OPT_flegacy_resource_reservation
   unsigned long AutoBindingSpace = UINT_MAX; // OPT_auto_binding_space
   bool ExportShadersOnly = false;            // OPT_export_shaders_only
   bool ResMayAlias = false;                  // OPT_res_may_alias
@@ -229,7 +228,7 @@ public:
   unsigned TimeTraceGranularity = 500;  // OPT_ftime_trace_granularity_EQ
   bool VerifyDiagnostics = false;       // OPT_verify
   UnusedResourceBinding UnusedResourceBinding =
-      UnusedResourceBinding::Strip; // OPT_fhlsl_unused_resource_bindings_EQ
+      UnusedResourceBinding::Strip; // OPT_fhlsl_unused_resource_bindings_EQ and OPT_flegacy_resource_reservation
   bool Verbose = false;             // OPT_verbose
 
   // Optimization pass enables, disables and selects

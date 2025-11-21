@@ -576,30 +576,15 @@ void DxilModule::SetResMayAlias(bool resMayAlias) {
 
 bool DxilModule::GetResMayAlias() const { return m_bResMayAlias; }
 
-void DxilModule::SetLegacyResourceReservation(bool legacyResourceReservation) {
-  m_IntermediateFlags &= ~LegacyResourceReservation;
-  if (legacyResourceReservation)
-    m_IntermediateFlags |= LegacyResourceReservation;
-}
-
-bool DxilModule::GetLegacyResourceReservation() const {
-  return (m_IntermediateFlags & LegacyResourceReservation) != 0;
-}
-
-void DxilModule::SetUnusedResourceBinding(
-    UnusedResourceBinding unusedResourceBinding) {
-  m_IntermediateFlags &= ~UnusedResourceBindingMask;
-  m_IntermediateFlags |= unsigned(unusedResourceBinding)
-                         << UnusedResourceBindingShift;
+void DxilModule::SetUnusedResourceBinding(UnusedResourceBinding unusedResourceBinding) {
+  m_UnusedResourceBinding = unusedResourceBinding;
 }
 
 UnusedResourceBinding DxilModule::GetUnusedResourceBinding() const {
-  return (UnusedResourceBinding)((m_IntermediateFlags &
-                                  UnusedResourceBindingMask) >>
-                                 UnusedResourceBindingShift);
+  return m_UnusedResourceBinding;
 }
 
-void DxilModule::ClearIntermediateOptions() { m_IntermediateFlags = 0; }
+void DxilModule::ResetUnusedResourceBinding() { m_UnusedResourceBinding = UnusedResourceBinding::Strip; }
 
 unsigned DxilModule::GetInputControlPointCount() const {
   if (!(m_pSM->IsHS() || m_pSM->IsDS()))
@@ -1431,7 +1416,7 @@ void DxilModule::EmitDxilMetadata() {
   m_pMDHelper->EmitDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
   m_pMDHelper->EmitDxilShaderModel(m_pSM);
-  m_pMDHelper->EmitDxilIntermediateOptions(m_IntermediateFlags);
+  m_pMDHelper->EmitDxilIntermediateOptions(uint32_t(m_UnusedResourceBinding));
 
   MDTuple *pMDProperties = nullptr;
   uint64_t flag = m_ShaderFlags.GetShaderFlagsRaw();
@@ -1526,7 +1511,9 @@ void DxilModule::LoadDxilMetadata() {
   m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
   const ShaderModel *loadedSM;
   m_pMDHelper->LoadDxilShaderModel(loadedSM);
-  m_pMDHelper->LoadDxilIntermediateOptions(m_IntermediateFlags);
+  uint32_t options;
+  m_pMDHelper->LoadDxilIntermediateOptions(options);
+  m_UnusedResourceBinding = UnusedResourceBinding(options);
 
   // This must be set before LoadDxilEntryProperties
   m_pMDHelper->SetShaderModel(loadedSM);

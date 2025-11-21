@@ -843,8 +843,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DisaseembleHex = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
   opts.LegacyMacroExpansion =
       Args.hasFlag(OPT_flegacy_macro_expansion, OPT_INVALID, false);
-  opts.LegacyResourceReservation =
-      Args.hasFlag(OPT_flegacy_resource_reservation, OPT_INVALID, false);
   opts.ExportShadersOnly =
       Args.hasFlag(OPT_export_shaders_only, OPT_INVALID, false);
   opts.PrintBeforeAll = Args.hasFlag(OPT_print_before_all, OPT_INVALID, false);
@@ -878,6 +876,17 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
               "specified ("
            << UnusedResources << "). Must be one of: strip, reserve-all";
     return 1;
+  }
+
+  // TODO: Move to OPT_fhlsl_unused_resource_bindings_EQ
+  if(Args.hasFlag(OPT_flegacy_resource_reservation, OPT_INVALID, false)) {
+
+    if(unsigned(opts.UnusedResourceBinding)) {
+      errors << "Error: Unused resource bindings can't be used at the same time as flegacy_resource_reservation";
+      return 1;
+    }
+
+    opts.UnusedResourceBinding = UnusedResourceBinding::ReserveExplicit;
   }
 
   opts.Verbose = Args.hasFlag(OPT_verbose, OPT_INVALID, false);

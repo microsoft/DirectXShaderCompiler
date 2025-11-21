@@ -231,8 +231,9 @@ void HLModule::RemoveFunction(llvm::Function *F) {
 namespace {
 template <typename TResource>
 bool RemoveResource(std::vector<std::unique_ptr<TResource>> &vec,
-                    GlobalVariable *pVariable, bool keepAllocated,
+                    GlobalVariable *pVariable,
                     UnusedResourceBinding unusedResourceBinding) {
+  bool keepAllocated = unusedResourceBinding == UnusedResourceBinding::ReserveExplicit;
   for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
     if ((*p)->GetGlobalSymbol() != pVariable)
       continue;
@@ -260,24 +261,19 @@ bool RemoveResource(std::vector<std::unique_ptr<TResource>> &vec,
 void HLModule::RemoveGlobal(llvm::GlobalVariable *GV) {
   DXASSERT_NOMSG(GV != nullptr);
 
-  // With legacy resource reservation, we must keep unused resources around
-  // when they have a register allocation because they prevent that
-  // register range from being allocated to other resources.
-  bool keepAllocated = GetHLOptions().bLegacyResourceReservation;
-
   UnusedResourceBinding unusedResourceBinding =
       UnusedResourceBinding(GetHLOptions().UnusedResourceBinding);
 
   // This could be considerably faster - check variable type to see which
   // resource type this is rather than scanning all lists, and look for
   // usage and removal patterns.
-  if (RemoveResource(m_CBuffers, GV, keepAllocated, unusedResourceBinding))
+  if (RemoveResource(m_CBuffers, GV, unusedResourceBinding))
     return;
-  if (RemoveResource(m_SRVs, GV, keepAllocated, unusedResourceBinding))
+  if (RemoveResource(m_SRVs, GV, unusedResourceBinding))
     return;
-  if (RemoveResource(m_UAVs, GV, keepAllocated, unusedResourceBinding))
+  if (RemoveResource(m_UAVs, GV, unusedResourceBinding))
     return;
-  if (RemoveResource(m_Samplers, GV, keepAllocated, unusedResourceBinding))
+  if (RemoveResource(m_Samplers, GV, unusedResourceBinding))
     return;
   // TODO: do m_TGSMVariables and m_StreamOutputs need maintenance?
 }

@@ -284,14 +284,10 @@ public:
   void SetResMayAlias(bool resMayAlias);
   bool GetResMayAlias() const;
 
-  // Intermediate options that do not make it to DXIL
-  void SetLegacyResourceReservation(bool legacyResourceReservation);
-  bool GetLegacyResourceReservation() const;
-
   void SetUnusedResourceBinding(UnusedResourceBinding unusedResourceBinding);
   UnusedResourceBinding GetUnusedResourceBinding() const;
 
-  void ClearIntermediateOptions();
+  void ResetUnusedResourceBinding();
 
   // Hull and Domain shaders.
   unsigned GetInputControlPointCount() const;
@@ -348,15 +344,6 @@ private:
       DXIL::PrimitiveTopology::Undefined;
   unsigned m_ActiveStreamMask = 0;
 
-  enum IntermediateFlags : uint32_t {
-
-    LegacyResourceReservation = 1 << 0,
-    UnusedResourceBindingMask =
-        7 << 1, // 3 bit reserved for unused resource binding
-
-    UnusedResourceBindingShift = 1
-  };
-
   llvm::LLVMContext &m_Ctx;
   llvm::Module *m_pModule = nullptr;
   llvm::Function *m_pEntryFunc = nullptr;
@@ -392,10 +379,9 @@ private:
   bool m_bUseMinPrecision = true; // use min precision by default;
   bool m_bAllResourcesBound = false;
   bool m_bResMayAlias = false;
-  UnusedResourceBinding m_unusedResourceBinding = UnusedResourceBinding::Strip;
 
   // properties from HLModule that should not make it to the final DXIL
-  uint32_t m_IntermediateFlags = 0;
+  UnusedResourceBinding m_UnusedResourceBinding = UnusedResourceBinding::Strip;
   uint32_t m_AutoBindingSpace = UINT_MAX;
 
   std::unique_ptr<DxilSubobjects> m_pSubobjects;
