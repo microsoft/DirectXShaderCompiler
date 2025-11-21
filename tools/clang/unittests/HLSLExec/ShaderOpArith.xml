@@ -4230,6 +4230,18 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
+        #ifdef FUNC_WAVE_PREFIX_MATCH
+        void TestWavePrefixMatch(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == WAVE_SIZE - 1)
+          {
+            Vector[NUM - 1] = (TYPE)1;
+            const uint4 PrefixMatch = WaveMatch(Vector);
+            g_OutputVector.Store< uint4 >(0, PrefixMatch);
+          }
+        }
+        #endif
+
         #ifdef FUNC_TEST_SELECT
         vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,
                                          vector<TYPE, NUM> Vector2,
