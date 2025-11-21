@@ -1321,8 +1321,8 @@ DEFAULT_OP_1(OpType::DerivativeDdyFine, ((A + 6) - (A + 2)));
 //
 
 // We keep things generic so we can re-use this macro for all quad ops.
-// The lane we write to is determined via a defines in the shader code via a
-// defines. See TestQuadRead in ShaderOpArith.xml.
+// The lane we write to is determined via a defines in the shader code.
+// See TestQuadRead in ShaderOpArith.xml.
 // For all cases we simply fill the vector on that lane with the value of the
 // third element.
 #define QUAD_READ_OP(OP, ARITY)                                                \
