@@ -1709,8 +1709,7 @@ public:
           L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
 
       const bool SkipUnsupported = !FailIfRequirementsNotMet;
-      createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9,
-                   SkipUnsupported);
+      createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, SkipUnsupported);
     }
 
     return true;
@@ -1722,8 +1721,7 @@ public:
     if (!D3DDevice || D3DDevice->GetDeviceRemovedReason() != S_OK) {
       hlsl_test::LogCommentFmt(
           L"Device was lost: Attempting to create a new D3D12 device.");
-      VERIFY_IS_TRUE(
-          createDevice(&D3DDevice, ExecTestUtils::D3D_SHADER_MODEL_6_9, false));
+      VERIFY_IS_TRUE(createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, false));
     }
 
     return true;
