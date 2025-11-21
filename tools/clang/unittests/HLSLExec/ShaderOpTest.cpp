@@ -469,10 +469,7 @@ void ShaderOpTest::CreatePipelineState() {
     InitByteCode(&CDesc.CS, pCS);
     CHECK_HR(
         m_pDevice->CreateComputePipelineState(&CDesc, IID_PPV_ARGS(&m_pPSO)));
-  }
-  // Wakanda technology, needs vibranium to work
-#if defined(NTDDI_WIN10_VB) && WDK_NTDDI_VERSION >= NTDDI_WIN10_VB
-  else if (m_pShaderOp->MS) {
+  } else if (m_pShaderOp->MS) {
     // A couple types from a future version of d3dx12.h
     typedef CD3DX12_PIPELINE_STATE_STREAM_SUBOBJECT<
         D3D12_SHADER_BYTECODE, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_MS>
@@ -536,9 +533,7 @@ void ShaderOpTest::CreatePipelineState() {
     CHECK_HR(m_pDevice->QueryInterface(&pDevice2));
 
     CHECK_HR(pDevice2->CreatePipelineState(&PDesc, IID_PPV_ARGS(&m_pPSO)));
-  }
-#endif
-  else {
+  } else {
     CComPtr<ID3D10Blob> pVS, pDS, pHS, pGS, pPS;
     pPS = map_get_or_null(m_Shaders, m_pShaderOp->PS);
     pVS = map_get_or_null(m_Shaders, m_pShaderOp->VS);
@@ -1002,7 +997,6 @@ void ShaderOpTest::RunCommandList() {
     const float ClearColor[4] = {0.0f, 0.2f, 0.4f, 1.0f};
     pList->ClearRenderTargetView(rtvHandles[0], ClearColor, 0, nullptr);
 
-#if defined(NTDDI_WIN10_VB) && WDK_NTDDI_VERSION >= NTDDI_WIN10_VB
     if (m_pShaderOp->MS) {
 #ifndef NDEBUG
       D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
@@ -1020,9 +1014,7 @@ void ShaderOpTest::RunCommandList() {
       pList6->ResolveQueryData(m_pQueryHeap,
                                D3D12_QUERY_TYPE_PIPELINE_STATISTICS, 0, 1,
                                m_pQueryBuffer, 0);
-    } else
-#endif
-    {
+    } else {
       // TODO: set all of this from m_pShaderOp.
       ShaderOpResourceData &VBufferData =
           this->m_ResourceData[m_pShaderOp->Strings.insert("VBuffer")];
