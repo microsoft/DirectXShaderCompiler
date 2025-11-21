@@ -1416,7 +1416,7 @@ template <typename T> struct ExpectedBuilder<OpType::WaveActiveAllEqual, T> {
 
     std::vector<HLSLBool_t> Expected;
     const size_t VectorSize = Inputs[0].size();
-    Expected.assign(VectorSize - 1, static_cast<HLSLBool_t>(true));
+    Expected.assign(VectorSize, static_cast<HLSLBool_t>(true));
     // We set the last element to a different value on a single lane.
     Expected[VectorSize - 1] = static_cast<HLSLBool_t>(false);
 
