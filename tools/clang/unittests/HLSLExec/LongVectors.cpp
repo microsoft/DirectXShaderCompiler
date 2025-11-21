@@ -1,4 +1,3 @@
-#include <cstdint>
 #ifndef NOMINMAX
 #define NOMINMAX 1
 #endif
