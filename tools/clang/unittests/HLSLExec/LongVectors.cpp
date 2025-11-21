@@ -777,6 +777,48 @@ BITWISE_OP(OpType::FirstBitLow, (FirstBitLow(A)));
 
 DEFAULT_OP_1(OpType::Initialize, (A));
 
+template <typename T>
+struct Op<OpType::ArrayOperator_StaticAccess, T, 1> : DefaultValidation<T> {};
+
+template <typename T>
+static std::vector<T> buildExpectedArrayAccess(const InputSets<T> &Inputs) {
+  const size_t VectorSize = Inputs[0].size();
+  std::vector<T> Expected;
+  const size_t IndexCount = 6;
+  Expected.resize(VectorSize);
+
+  size_t IndexList[IndexCount] = {
+      0, VectorSize - 1, 1, VectorSize - 2, VectorSize / 2, VectorSize / 2 + 1};
+  size_t End = std::min(VectorSize, IndexCount);
+  for (size_t I = 0; I < End; ++I)
+    Expected[IndexList[I]] = Inputs[0][IndexList[I]];
+
+  return Expected;
+}
+
+template <typename T>
+struct ExpectedBuilder<OpType::ArrayOperator_StaticAccess, T> {
+  static std::vector<T>
+  buildExpected(Op<OpType::ArrayOperator_StaticAccess, T, 1>,
+                const InputSets<T> &Inputs) {
+    DXASSERT_NOMSG(Inputs.size() == 1);
+    return buildExpectedArrayAccess(Inputs);
+  }
+};
+
+template <typename T>
+struct Op<OpType::ArrayOperator_DynamicAccess, T, 2> : DefaultValidation<T> {};
+
+template <typename T>
+struct ExpectedBuilder<OpType::ArrayOperator_DynamicAccess, T> {
+  static std::vector<T>
+  buildExpected(Op<OpType::ArrayOperator_DynamicAccess, T, 2>,
+                const InputSets<T> &Inputs) {
+    DXASSERT_NOMSG(Inputs.size() == 2);
+    return buildExpectedArrayAccess(Inputs);
+  }
+};
+
 //
 // Cast
 //
@@ -1374,7 +1416,7 @@ template <typename T> struct ExpectedBuilder<OpType::WaveActiveAllEqual, T> {
 
     std::vector<HLSLBool_t> Expected;
     const size_t VectorSize = Inputs[0].size();
-    Expected.assign(VectorSize - 1, static_cast<HLSLBool_t>(true));
+    Expected.assign(VectorSize, static_cast<HLSLBool_t>(true));
     // We set the last element to a different value on a single lane.
     Expected[VectorSize - 1] = static_cast<HLSLBool_t>(false);
 
@@ -1835,15 +1877,35 @@ public:
   // Unary
 
   HLK_TEST(Initialize, HLSLBool_t);
+  HLK_TEST(ArrayOperator_StaticAccess, HLSLBool_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, HLSLBool_t);
   HLK_TEST(Initialize, int16_t);
+  HLK_TEST(ArrayOperator_StaticAccess, int16_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, int16_t);
   HLK_TEST(Initialize, int32_t);
+  HLK_TEST(ArrayOperator_StaticAccess, int32_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, int32_t);
   HLK_TEST(Initialize, int64_t);
+  HLK_TEST(ArrayOperator_StaticAccess, int64_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, int64_t);
   HLK_TEST(Initialize, uint16_t);
+  HLK_TEST(ArrayOperator_StaticAccess, uint16_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, uint16_t);
   HLK_TEST(Initialize, uint32_t);
+  HLK_TEST(ArrayOperator_StaticAccess, uint32_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, uint32_t);
   HLK_TEST(Initialize, uint64_t);
+  HLK_TEST(ArrayOperator_StaticAccess, uint64_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, uint64_t);
   HLK_TEST(Initialize, HLSLHalf_t);
+  HLK_TEST(ArrayOperator_StaticAccess, HLSLHalf_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, HLSLHalf_t);
   HLK_TEST(Initialize, float);
+  HLK_TEST(ArrayOperator_StaticAccess, float);
+  HLK_TEST(ArrayOperator_DynamicAccess, float);
   HLK_TEST(Initialize, double);
+  HLK_TEST(ArrayOperator_StaticAccess, double);
+  HLK_TEST(ArrayOperator_DynamicAccess, double);
 
   HLK_TEST(ShuffleVector, HLSLBool_t);
   HLK_TEST(ShuffleVector, int16_t);

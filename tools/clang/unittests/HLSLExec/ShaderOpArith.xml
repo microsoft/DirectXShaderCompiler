@@ -4147,11 +4147,26 @@ void MSMain(uint GID : SV_GroupIndex,
         #endif
 
         #ifdef FUNC_WAVE_ACTIVE_ALL_EQUAL
+        bool MakeDifferent(bool A) { return !A; }
+        uint MakeDifferent(uint A) { return A ^ 1; }
+        uint64_t MakeDifferent(uint64_t A) { return A ^ 1; }
+        int MakeDifferent(int A) { return A ^ 1; }
+        int64_t MakeDifferent(int64_t A) { return A ^ 1; }
+        half MakeDifferent(half A) { return A + (half)1.0h; }
+        float MakeDifferent(float A) { return A + 1.0f; }
+        double MakeDifferent(double A) { return A + 1.0; }
+
+        #if defined(__HLSL_ENABLE_16BIT_TYPES)
+        uint16_t MakeDifferent(uint16_t A) { return A ^ 1; }
+        int16_t MakeDifferent(int16_t A) { return A ^ 1; }
+        #endif // defined(__HLSL_ENABLE_16BIT_TYPES)
+
         vector<OUT_TYPE, NUM> TestWaveActiveAllEqual(vector<TYPE, NUM> Vector)
         {
           if(WaveGetLaneIndex() == (WaveGetLaneCount() - 1))
           {
-            Vector[NUM - 1] = (TYPE)1337;
+            // We just want to set the last element to any different value.
+            Vector[NUM - 1] = MakeDifferent(Vector[NUM - 1]);
           }
 
           return WaveActiveAllEqual(Vector);
@@ -4293,6 +4308,36 @@ void MSMain(uint GID : SV_GroupIndex,
             // Wave prefix ops store the output on a specific lane only.
             FUNC(Input1);
             return;
+          #elif TEST_ARRAY_OPERATOR
+            // This test case is for testing array operator [].
+            // It tests static array access with a compile time constant index array.
+            // Or dynamic access, by introducing a runtime dependency that prevents the
+            // index array from being a compile time constant.
+            const uint IndexCount = 6;
+            const uint IndexList[IndexCount] = {
+              0, 
+              OutNum - 1, 
+              1, 
+              OutNum - 2, 
+              OutNum / 2, 
+              OutNum / 2 + 1
+            };
+          
+            OutputVector = 0;
+            uint End = min(OutNum, IndexCount);
+
+            #if DYNAMIC_ACCESS
+              const uint Zero = (uint) Input2[0];
+            #endif
+
+            [unroll]for(uint i = 0; i < End; ++i) {
+            #if DYNAMIC_ACCESS
+              uint index = (uint)(IndexList[i] + Zero);
+            #else
+              uint index = (uint)(IndexList[i]);
+            #endif
+              OutputVector[index] = Input1[index];
+            }
           #elif IS_UNARY_OP
             OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP
