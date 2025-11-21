@@ -72,7 +72,7 @@ OP(ArrayOperator, ArrayOperator_DynamicAccess, 2, "TestArrayOperatorDynamicAcces
 #define OP_CAST_DEFAULT(GROUP, SYMBOL)                                         \
   OP_DEFAULT_DEFINES(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1")
 #define OP_CAST(GROUP, SYMBOL, INPUT_SET_1)                                    \
-  OP(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1", "LongVectorOP",   \
+  OP(GROUP, SYMBOL, 1, "TestCast", "", "-DFUNC_TEST_CAST=1", "LongVectorOp",   \
     INPUT_SET_1, Default2, Default3)
 
 OP_CAST_DEFAULT(Cast, CastToBool)
