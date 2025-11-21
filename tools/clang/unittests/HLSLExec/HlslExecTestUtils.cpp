@@ -331,7 +331,7 @@ enableGlobalAgilitySDK(const std::optional<AgilitySDKConfiguration> &C) {
   // setting actually failed.
   if (FAILED(
           HR = D3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr))) {
-    LogErrorFmt(L"D3D12EnableExperimentalFeatures(0...) failed: 0x%08x", HR);
+    LogWarningFmt(L"D3D12EnableExperimentalFeatures(0...) failed: 0x%08x", HR);
     return !C->MustFind;
   }
 
@@ -351,9 +351,9 @@ static bool enableGlobalExperimentalMode() {
   HRESULT HR;
   if (FAILED(HR = D3D12EnableExperimentalFeatures(
                  1, &D3D12ExperimentalShaderModels, nullptr, nullptr))) {
-    LogErrorFmt(L"D3D12EnableExperimentalFeatures("
-                L"D3D12ExperimentalShaderModels) failed: 0x%08x",
-                HR);
+    LogWarningFmt(L"D3D12EnableExperimentalFeatures("
+                  L"D3D12ExperimentalShaderModels) failed: 0x%08x",
+                  HR);
     return false;
   }
 
