@@ -29,6 +29,23 @@ typedef enum D3D_SHADER_MODEL {
 
 bool useDxbc();
 
+/// Manages D3D12 (Agility) SDK selection
+///
+/// Based on TAEF runtime parameters, this picks an appropriate D3D12 SDK.
+///
+/// TAEF parameters:
+///
+///  D3D12SDKPath: relative or absolute path to the D3D12 Agility SDK bin
+///  directory. Absolute path is only supported on OS's that support
+///  ID3D12DeviceFactory.
+///
+///  D3D12SDKVersion: requested SDK version 
+///
+///    0: auto-detect (quietly fallback to inbox version) 
+///
+///    1: auto-detect (fail if unable to use the auto-detected version) 
+///
+///   >1: use specified version
 class D3D12SDK {
   CComPtr<ID3D12DeviceFactory> DeviceFactory;
 
