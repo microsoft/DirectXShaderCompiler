@@ -266,11 +266,13 @@ public:
   // Return true if valid.
   // unsigned versions are for use with whatever value was in a DXIL Op
   // instruction.
-  // LocalOpCode is the low 16-bits OpCode for local table lookup.
+  // OpIndex is the low 16-bits, for index lookup within the table.
   static bool DecodeOpCode(unsigned EncodedOpCode, OpCodeTableID &TableID,
-                           unsigned &LocalOpCode);
+                           unsigned &OpIndex,
+                           unsigned *OptTableIndex = nullptr);
   static bool DecodeOpCode(OpCode EncodedOpCode, OpCodeTableID &TableID,
-                           unsigned &LocalOpCode);
+                           unsigned &OpIndex,
+                           unsigned *OptTableIndex = nullptr);
   static bool IsValidOpCode(unsigned EncodedOpCode);
   static bool IsValidOpCode(OpCode EncodedOpCode);
 

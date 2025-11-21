@@ -2757,31 +2757,47 @@ static const char *AtomicBinOpCodeName[] = {
     "AtomicInvalid" // Must be last.
 };
 
+static unsigned GetOpCodeTableIndex(OP::OpCodeTableID TableID) {
+  static_assert((unsigned)OP::OpCodeTableID::NumOpCodeTables == 2,
+                "Otherwise, update GetOpCodeTableIndex to be generated.");
+  switch (TableID) {
+  case OP::OpCodeTableID::CoreOps:
+    return 0;
+  case OP::OpCodeTableID::ExperimentalOps:
+    return 1;
+  default:
+    return UINT_MAX;
+  }
+}
+
 // Safe opcode decoder
 bool OP::DecodeOpCode(unsigned EncodedOpCode, OP::OpCodeTableID &TableID,
-                      unsigned &LocalOpCode) {
+                      unsigned &OpIndex, unsigned *OptTableIndex) {
   if (EncodedOpCode == (unsigned)OP::OpCode::Invalid)
     return false;
-  unsigned TID = (EncodedOpCode >> 16);
-  if (TID >= (unsigned)OP::OpCodeTableID::NumOpCodeTables)
+  OP::OpCodeTableID TID = (OP::OpCodeTableID)(EncodedOpCode >> 16);
+  unsigned TableIndex = GetOpCodeTableIndex(TID);
+  if (TableIndex >= (unsigned)OP::OpCodeTableID::NumOpCodeTables)
     return false;
   unsigned Op = (EncodedOpCode & 0xFFFF);
-  if (Op >= OP::g_OpCodeTables[TID].Count)
+  if (Op >= OP::g_OpCodeTables[TableIndex].Count)
     return false;
   TableID = (OP::OpCodeTableID)TID;
-  LocalOpCode = Op;
+  OpIndex = Op;
+  if (OptTableIndex)
+    *OptTableIndex = TableIndex;
   return true;
 }
 bool OP::DecodeOpCode(OpCode EncodedOpCode, OP::OpCodeTableID &TableID,
-                      unsigned &LocalOpCode) {
-  return DecodeOpCode((unsigned)EncodedOpCode, TableID, LocalOpCode);
+                      unsigned &OpIndex, unsigned *OptTableIndex) {
+  return DecodeOpCode((unsigned)EncodedOpCode, TableID, OpIndex, OptTableIndex);
 }
 bool OP::IsValidOpCode(unsigned EncodedOpCode) {
   if (EncodedOpCode == (unsigned)OP::OpCode::Invalid)
     return false;
   OP::OpCodeTableID TID;
-  unsigned LocalOpCode;
-  return DecodeOpCode(EncodedOpCode, TID, LocalOpCode);
+  unsigned OpIndex;
+  return DecodeOpCode(EncodedOpCode, TID, OpIndex);
 }
 bool OP::IsValidOpCode(OP::OpCode EncodedOpCode) {
   return IsValidOpCode((unsigned)EncodedOpCode);
@@ -2789,9 +2805,10 @@ bool OP::IsValidOpCode(OP::OpCode EncodedOpCode) {
 const OP::OpCodeProperty &OP::GetOpCodeProps(unsigned OriginalOpCode) {
   OP::OpCodeTableID TID = OP::OpCodeTableID::CoreOps;
   unsigned Op = 0;
-  bool Success = DecodeOpCode(OriginalOpCode, TID, Op);
+  unsigned TableIndex = 0;
+  bool Success = DecodeOpCode(OriginalOpCode, TID, Op, &TableIndex);
   DXASSERT(Success, "otherwise invalid OpCode");
-  const OP::OpCodeTable &Table = OP::g_OpCodeTables[(unsigned)TID];
+  const OP::OpCodeTable &Table = OP::g_OpCodeTables[TableIndex];
   return Table.Table[Op];
 }
 const OP::OpCodeProperty &OP::GetOpCodeProps(OP::OpCode OriginalOpCode) {
@@ -2970,16 +2987,21 @@ bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
 }
 
 bool OP::CheckOpCodeTable() {
-  for (unsigned t = 0; t < (unsigned)OP::OpCodeTableID::NumOpCodeTables; t++) {
-    const OP::OpCodeTable &Table = OP::g_OpCodeTables[t];
-    for (unsigned Op = 0; Op < Table.Count; Op++) {
-      const OP::OpCodeProperty &Prop = Table.Table[Op];
+  for (unsigned TableIndex = 0;
+       TableIndex < (unsigned)OP::OpCodeTableID::NumOpCodeTables;
+       TableIndex++) {
+    const OP::OpCodeTable &Table = OP::g_OpCodeTables[TableIndex];
+    for (unsigned OpIndex = 0; OpIndex < Table.Count; OpIndex++) {
+      const OP::OpCodeProperty &Prop = Table.Table[OpIndex];
       OP::OpCodeTableID DecodedTID;
-      unsigned DecodedLocalOp;
-      bool Success = OP::DecodeOpCode(Prop.opCode, DecodedTID, DecodedLocalOp);
+      unsigned DecodedOpIndex;
+      unsigned DecodedTableIndex;
+      bool Success = OP::DecodeOpCode(Prop.opCode, DecodedTID, DecodedOpIndex,
+                                      &DecodedTableIndex);
       if (!Success)
         return false;
-      if (DecodedTID != Table.ID || DecodedLocalOp != Op)
+      if (DecodedTID != Table.ID || DecodedOpIndex != OpIndex ||
+          DecodedTableIndex != TableIndex)
         return false;
     }
   }

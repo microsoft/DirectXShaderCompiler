@@ -384,7 +384,7 @@ class db_dxil(object):
         self.counters = extra_counters
         self.dxil_op_tables = [
             db_dxil_op_table(0, "CoreOps", "Core DXIL operations"),
-            db_dxil_op_table(1, "ExperimentalOps", "Experimental DXIL operations"),
+            db_dxil_op_table(0x8000, "ExperimentalOps", "Experimental DXIL operations"),
         ]
         self.dxil_op_tables_by_name = dict([(t.name, t) for t in self.dxil_op_tables])
         # Setting the current table sets self.instr.
