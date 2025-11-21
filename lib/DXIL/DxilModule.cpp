@@ -1025,6 +1025,8 @@ template <typename TResource>
 static bool RemoveResourcesWithUnusedSymbolsHelper(
     std::vector<std::unique_ptr<TResource>> &vec, bool AfterAllocation,
     UnusedResourceBinding UnusedBinding) {
+  bool KeepAllocated =
+      UnusedBinding == UnusedResourceBinding::ReserveExplicit;
   bool Changed = false;
   unsigned resID = 0;
   std::unordered_set<GlobalVariable *>
@@ -1035,7 +1037,8 @@ static bool RemoveResourcesWithUnusedSymbolsHelper(
     symbol->removeDeadConstantUsers();
     if (symbol->user_empty()) {
       if (!AfterAllocation &&
-          UnusedBinding == UnusedResourceBinding::ReserveAll)
+          (UnusedBinding == UnusedResourceBinding::ReserveAll ||
+           (KeepAllocated && (*c)->IsAllocated())))
         continue;
       p = vec.erase(c);
       if (GlobalVariable *GV = dyn_cast<GlobalVariable>(symbol))
@@ -1059,12 +1062,9 @@ bool DxilModule::RemoveResourcesWithUnusedSymbols(bool AfterAllocation) {
   bool Changed = false;
   Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_SRVs, AfterAllocation,
                                                     GetUnusedResourceBinding());
-  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_UAVs, AfterAllocation,
-                                                    GetUnusedResourceBinding());
-  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers, AfterAllocation,
-                                                    GetUnusedResourceBinding());
-  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_Samplers, AfterAllocation,
-                                                    GetUnusedResourceBinding());
+  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_UAVs, AfterAllocation, GetUnusedResourceBinding());
+  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers, AfterAllocation, GetUnusedResourceBinding());
+  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_Samplers, AfterAllocation, GetUnusedResourceBinding());
   return Changed;
 }
 

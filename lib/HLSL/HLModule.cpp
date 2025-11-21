@@ -231,27 +231,12 @@ void HLModule::RemoveFunction(llvm::Function *F) {
 namespace {
 template <typename TResource>
 bool RemoveResource(std::vector<std::unique_ptr<TResource>> &vec,
-                    GlobalVariable *pVariable,
-                    UnusedResourceBinding unusedResourceBinding) {
-  bool keepAllocated =
-      unusedResourceBinding == UnusedResourceBinding::ReserveExplicit;
+                    GlobalVariable *pVariable) {
   for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
     if ((*p)->GetGlobalSymbol() != pVariable)
       continue;
 
-    if ((keepAllocated && (*p)->IsAllocated()) ||
-        unusedResourceBinding == UnusedResourceBinding::ReserveAll) {
-      // Keep the resource, but it has no more symbol.
-      (*p)->SetGlobalSymbol(UndefValue::get(pVariable->getType()));
-    } else {
-      // Erase the resource alltogether and update IDs of subsequent ones
-      p = vec.erase(p);
-
-      for (e = vec.end(); p != e; ++p) {
-        unsigned ID = (*p)->GetID() - 1;
-        (*p)->SetID(ID);
-      }
-    }
+    (*p)->SetGlobalSymbol(UndefValue::get(pVariable->getType()));
 
     return true;
   }
@@ -262,19 +247,16 @@ bool RemoveResource(std::vector<std::unique_ptr<TResource>> &vec,
 void HLModule::RemoveGlobal(llvm::GlobalVariable *GV) {
   DXASSERT_NOMSG(GV != nullptr);
 
-  UnusedResourceBinding unusedResourceBinding =
-      UnusedResourceBinding(GetHLOptions().UnusedResourceBinding);
-
   // This could be considerably faster - check variable type to see which
   // resource type this is rather than scanning all lists, and look for
   // usage and removal patterns.
-  if (RemoveResource(m_CBuffers, GV, unusedResourceBinding))
+  if (RemoveResource(m_CBuffers, GV))
     return;
-  if (RemoveResource(m_SRVs, GV, unusedResourceBinding))
+  if (RemoveResource(m_SRVs, GV))
     return;
-  if (RemoveResource(m_UAVs, GV, unusedResourceBinding))
+  if (RemoveResource(m_UAVs, GV))
     return;
-  if (RemoveResource(m_Samplers, GV, unusedResourceBinding))
+  if (RemoveResource(m_Samplers, GV))
     return;
   // TODO: do m_TGSMVariables and m_StreamOutputs need maintenance?
 }

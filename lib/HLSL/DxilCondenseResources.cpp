@@ -528,6 +528,8 @@ public:
       SetNonUniformIndexForDynamicResource(DM);
     }
 
+    bChanged |= DM.RemoveResourcesWithUnusedSymbols();
+
     unsigned numResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
 
