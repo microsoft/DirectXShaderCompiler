@@ -1300,17 +1300,21 @@ template <typename T> struct ExpectedBuilder<OpType::ModF, T> {
 // Derivative Ops
 //
 
-// ddx and ddy are the same thing as the coarse versions. That is, they
-// return the same partial derivative value in all lanes for the quad.
+// Coarse derivatives (ddx/ddy): All lanes in quad get same result
+// Fine derivatives (ddx_fine/ddy_fine): Each lane gets unique result
+// For testing, we validate results on lane 3 to keep validation generic
+//
+// The value of A in each lane is computed by : A = A + LaneID*2
+//
 // Top right (lane 1) - Top Left (lane 0)
 DEFAULT_OP_1(OpType::DerivativeDdx, ((A + 2) - (A + 0)));
 // Lower left (lane 2) -  Top Left (lane 0)
 DEFAULT_OP_1(OpType::DerivativeDdy, ((A + 4) - (A + 0)));
 
-// Fine derivative ops return different partial derivative values for each
-DEFAULT_OP_1(OpType::DerivativeDdxFine, ((A + 2) - (A + 0)));
-// Lower left (lane 2) -  Top Left (lane 0)
-DEFAULT_OP_1(OpType::DerivativeDdyFine, ((A + 4) - (A + 0)));
+// Bottom right (lane 3) - Bottom left (lane 2)
+DEFAULT_OP_1(OpType::DerivativeDdxFine, ((A + 6) - (A + 4)));
+// Bottom right (lane 3) - Top right (lane 1)
+DEFAULT_OP_1(OpType::DerivativeDdyFine, ((A + 6) - (A + 2)));
 
 //
 // Quad Read Ops

@@ -221,11 +221,11 @@ OP_DERIVATIVE(Derivative, DerivativeDdyFine, "ddy_fine")
 
 #undef OP_DERIVATIVE
 
-#define OP_QUAD_READ(GROUP, ARITY, SYMBOL, QUAD_INTRINSIC, LANE_TO_MODIFY)     \
+#define OP_QUAD_READ(GROUP, ARITY, SYMBOL, QUAD_INTRINSIC, SOURCE_LANE_ID)     \
   OP(GROUP, SYMBOL, ARITY, "TestQuadRead", "", "-DFUNC_TEST_QUAD_READ=1"       \
      " -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1"           \
      " -DQUAD_READ_FUNC=" QUAD_INTRINSIC                                       \
-     " -DLANE_TO_MODIFY=" LANE_TO_MODIFY,                                      \
+     " -DSOURCE_LANE_ID=" SOURCE_LANE_ID,                                      \
       "LongVectorOp", Default1, Default2, Default3)
 
 OP_QUAD_READ(Quad, 2, QuadReadLaneAt, "QuadReadLaneAt", "2")

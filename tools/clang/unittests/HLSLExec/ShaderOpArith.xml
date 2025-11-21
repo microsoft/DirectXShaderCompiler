@@ -4282,18 +4282,18 @@ void MSMain(uint GID : SV_GroupIndex,
         {
           const uint LaneIndex = WaveGetLaneIndex();
 
-          // Fill the long vector with something different on LANE_TO_MODIFY.
+          // Fill the long vector with something different on SOURCE_LANE_ID.
           // We choose the 3rd element arbitrarily because it makes it easy
           // to compute expected values CPU side.
           [unroll]
           for(uint i = 0; i < NUM; ++i)
           {
-            Vector[i] = (LaneIndex == LANE_TO_MODIFY) ? Vector[2] : Vector[i];
+            Vector[i] = (LaneIndex == SOURCE_LANE_ID) ? Vector[2] : Vector[i];
           }
 
           #if IS_BINARY_OP
             // QuadReadLaneAt
-            vector<OUT_TYPE, NUM> Result = QUAD_READ_FUNC(Vector, LANE_TO_MODIFY);
+            vector<OUT_TYPE, NUM> Result = QUAD_READ_FUNC(Vector, SOURCE_LANE_ID);
           #else
             // QuadReadAcross*
             vector<OUT_TYPE, NUM> Result = QUAD_READ_FUNC(Vector);
