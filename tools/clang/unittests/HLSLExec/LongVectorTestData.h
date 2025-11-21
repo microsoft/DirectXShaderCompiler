@@ -3,6 +3,7 @@
 
 #include <Verify.h>
 
+#include <iomanip>
 #include <limits>
 #include <map>
 #include <ostream>

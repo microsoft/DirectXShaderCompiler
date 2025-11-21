@@ -1,3 +1,4 @@
+#include <cstdint>
 #ifndef NOMINMAX
 #define NOMINMAX 1
 #endif
@@ -1433,11 +1434,10 @@ template <typename T> T wavePrefixProduct(T A, UINT) {
   return static_cast<T>(A * A);
 }
 
-template <typename T>
-struct Op<OpType::WavePrefixMatch, T, 1> : StrictValidation {};
+template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
-template <typename T> struct ExpectedBuilder<OpType::WavePrefixMatch, T> {
-  static std::vector<UINT> buildExpected(Op<OpType::WavePrefixMatch, T, 1> &,
+template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
+  static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
                                          const InputSets<T> &Inputs,
                                          UINT WaveSize) {
     DXASSERT_NOMSG(Inputs.size() == 1);
@@ -1445,7 +1445,37 @@ template <typename T> struct ExpectedBuilder<OpType::WavePrefixMatch, T> {
     std::vector<UINT> Expected;
     const size_t VectorSize = Inputs[0].size();
     Expected.assign(VectorSize, 0);
-    Expected[0] = static_cast<UINT>(std::pow(2, WaveSize - 1));
+
+    UINT wordShift = WaveSize / 32;
+    UINT bitShift = WaveSize % 32;
+    if (bitShift == 0) {
+      bitShift = 32;
+      wordShift--;
+    }
+    uint64_t result[4] = {((1ULL << bitShift) - 1) & ~1ULL, 0, 0, 0};
+
+    for (UINT I = wordShift; I > 0; I--)
+      result[I] = ~0ULL;
+
+    Expected[0] = 1;
+    Expected[1] = 0;
+    Expected[2] = 0;
+    if (VectorSize <= 3)
+      return Expected;
+
+    Expected[3] = 0;
+    for (UINT I = 1; I < WaveSize; I++) {
+      const UINT Index = I * 4;
+      if (Index < VectorSize)
+        Expected[Index] = static_cast<UINT>(result[0]);
+      if (Index + 1 < VectorSize)
+        Expected[Index + 1] = static_cast<UINT>(result[1]);
+      if (Index + 2 < VectorSize)
+        Expected[Index + 2] = static_cast<UINT>(result[2]);
+      if (Index + 3 < VectorSize)
+        Expected[Index + 3] = static_cast<UINT>(result[3]);
+    }
+
     return Expected;
   }
 };
@@ -2351,7 +2381,7 @@ public:
   HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLBool_t);
   HLK_WAVEOP_TEST(WaveReadLaneAt, HLSLBool_t);
   HLK_WAVEOP_TEST(WaveReadLaneFirst, HLSLBool_t);
-  HLK_WAVEOP_TEST(WavePrefixMatch, HLSLBool_t);
+  HLK_WAVEOP_TEST(WaveMatch, HLSLBool_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, int16_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int16_t);
@@ -2362,7 +2392,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, int16_t);
   HLK_WAVEOP_TEST(WavePrefixSum, int16_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, int16_t);
-  HLK_WAVEOP_TEST(WavePrefixMatch, int16_t);
+  HLK_WAVEOP_TEST(WaveMatch, int16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int32_t);
@@ -2372,7 +2402,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, int32_t);
   HLK_WAVEOP_TEST(WavePrefixSum, int32_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, int32_t);
-  HLK_WAVEOP_TEST(WavePrefixMatch, int32_t);
+  HLK_WAVEOP_TEST(WaveMatch, int32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int64_t);
@@ -2382,7 +2412,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, int64_t);
   HLK_WAVEOP_TEST(WavePrefixSum, int64_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, int64_t);
-  HLK_WAVEOP_TEST(WavePrefixMatch, int64_t);
+  HLK_WAVEOP_TEST(WaveMatch, int64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint16_t);
@@ -2393,7 +2423,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, uint16_t);
   HLK_WAVEOP_TEST(WavePrefixSum, uint16_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, uint16_t);
-  HLK_WAVEOP_TEST(WavePrefixMatch, uint16_t);
+  HLK_WAVEOP_TEST(WaveMatch, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint32_t);
@@ -2407,7 +2437,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, uint32_t);
   HLK_WAVEOP_TEST(WavePrefixSum, uint32_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, uint32_t);
-  HLK_WAVEOP_TEST(WavePrefixMatch, uint32_t);
+  HLK_WAVEOP_TEST(WaveMatch, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint64_t);
@@ -2420,7 +2450,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, uint64_t);
   HLK_WAVEOP_TEST(WavePrefixSum, uint64_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, uint64_t);
-  HLK_WAVEOP_TEST(WavePrefixMatch, uint64_t);
+  HLK_WAVEOP_TEST(WaveMatch, uint64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveMin, HLSLHalf_t);
@@ -2431,7 +2461,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, HLSLHalf_t);
   HLK_WAVEOP_TEST(WavePrefixSum, HLSLHalf_t);
   HLK_WAVEOP_TEST(WavePrefixProduct, HLSLHalf_t);
-  HLK_WAVEOP_TEST(WavePrefixMatch, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveMatch, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveSum, float);
   HLK_WAVEOP_TEST(WaveActiveMin, float);
   HLK_WAVEOP_TEST(WaveActiveMax, float);
@@ -2441,7 +2471,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, float);
   HLK_WAVEOP_TEST(WavePrefixSum, float);
   HLK_WAVEOP_TEST(WavePrefixProduct, float);
-  HLK_WAVEOP_TEST(WavePrefixMatch, float);
+  HLK_WAVEOP_TEST(WaveMatch, float);
   HLK_WAVEOP_TEST(WaveActiveSum, double);
   HLK_WAVEOP_TEST(WaveActiveMin, double);
   HLK_WAVEOP_TEST(WaveActiveMax, double);
@@ -2451,7 +2481,7 @@ public:
   HLK_WAVEOP_TEST(WaveReadLaneFirst, double);
   HLK_WAVEOP_TEST(WavePrefixSum, double);
   HLK_WAVEOP_TEST(WavePrefixProduct, double);
-  HLK_WAVEOP_TEST(WavePrefixMatch, double);
+  HLK_WAVEOP_TEST(WaveMatch, double);
 
 private:
   bool Initialized = false;
