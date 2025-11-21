@@ -196,7 +196,7 @@ goto :eof
 
 :checksdk 
 setlocal
-set min_sdk_ver=17763
+set min_sdk_ver=26100
 
 set REG_QUERY=REG QUERY "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v10.0"
 set kit_root=
