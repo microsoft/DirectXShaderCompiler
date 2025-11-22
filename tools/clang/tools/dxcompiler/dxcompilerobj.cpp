@@ -1593,8 +1593,8 @@ public:
     compiler.getCodeGenOpts().HLSLOverrideSemDefs = Opts.OverrideSemDefs;
     compiler.getCodeGenOpts().HLSLPreferControlFlow = Opts.PreferFlowControl;
     compiler.getCodeGenOpts().HLSLAvoidControlFlow = Opts.AvoidFlowControl;
-    compiler.getCodeGenOpts().HLSLLegacyResourceReservation =
-        Opts.LegacyResourceReservation;
+    compiler.getCodeGenOpts().HLSLUnusedResourceBinding =
+        Opts.UnusedResourceBinding;
     compiler.getCodeGenOpts().HLSLDefines = defines;
     compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;

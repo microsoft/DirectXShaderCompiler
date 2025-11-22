@@ -163,9 +163,9 @@ TEST_F(OptimizerTest, OptimizerWhenSlice3ThenOK) {
 }
 
 TEST_F(OptimizerTest, OptimizerWhenSliceWithIntermediateOptionsThenOK) {
-  // The program below working depends on the LegacyResourceReservation option
-  // being carried through to the resource register allocator, even though it is
-  // not preserved in the final shader.
+  // The program below working depends on the -flegacy-resource-reservation
+  // option being carried through to the resource register allocator, even
+  // though it is not preserved in the final shader.
   LPCSTR SampleProgram = "Texture2D tex0 : register(t0);\r\n"
                          "Texture2D tex1;\r\n" // tex1 should get register t1
                          "float4 main() : SV_Target {\r\n"
