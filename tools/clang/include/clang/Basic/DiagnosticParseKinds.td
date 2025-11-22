@@ -1025,6 +1025,8 @@ def warn_hlsl_effect_technique : Warning <
 def warn_hlsl_semantic_identifier_collision : Warning <
   "'%0' interpreted as semantic; previous definition(s) ignored">,
   InGroup< HLSLSemanticIdentifierCollision >;
+def err_hlsl_expected_hlsl_attribute : Error <
+  "Unexpected '(' in semantic annotation. Did you mean 'packoffset()' or 'register()'?">;
 def err_hlsl_enum : Error<
   "enum is unsupported in HLSL before 2017">;
 def warn_hlsl_new_feature : Warning <
