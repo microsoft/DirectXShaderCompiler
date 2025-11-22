@@ -1608,6 +1608,7 @@ public:
         Opts.EnableLifetimeMarkers;
     compiler.getCodeGenOpts().HLSLEnablePayloadAccessQualifiers =
         Opts.EnablePayloadQualifiers;
+    compiler.getCodeGenOpts().StripDebug = Opts.StripDebug;
 
     // Translate signature packing options
     if (Opts.PackPrefixStable)

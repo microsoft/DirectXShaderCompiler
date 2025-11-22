@@ -27,6 +27,7 @@ add_llvm_library(LLVMHLSL
   DxilRenameResourcesPass.cpp
   DxilScalarizeVectorIntrinsics.cpp
   DxilSimpleGVNHoist.cpp
+  DxilStripDebugSensitiveInfo.cpp
   DxilSignatureValidation.cpp
   DxilTargetLowering.cpp
   DxilTargetTransformInfo.cpp
