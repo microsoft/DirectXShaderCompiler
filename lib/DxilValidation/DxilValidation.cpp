@@ -5449,12 +5449,11 @@ struct CompatibilityChecker {
       MaskForDeriv |=
           static_cast<uint32_t>(ConflictFlags::DerivInComputeShaderModel);
     } else if (ShaderKind == DXIL::ShaderKind::Node) {
-      // Only broadcasting launch supports derivatives.
-      if (Props.Node.LaunchType != DXIL::NodeLaunchType::Broadcasting)
-        MaskForDeriv |= static_cast<uint32_t>(ConflictFlags::DerivLaunch);
-      // Thread launch node has no group.
-      if (Props.Node.LaunchType == DXIL::NodeLaunchType::Thread)
+      // Thread launch node has no group and doesn't support derivatives.
+      if (Props.Node.LaunchType == DXIL::NodeLaunchType::Thread) {
         MaskForGroup |= static_cast<uint32_t>(ConflictFlags::RequiresGroup);
+        MaskForDeriv |= static_cast<uint32_t>(ConflictFlags::DerivLaunch);
+      }
     }
 
     if (ShaderKind == DXIL::ShaderKind::Mesh ||
