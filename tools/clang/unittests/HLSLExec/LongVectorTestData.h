@@ -290,6 +290,8 @@ INPUT_SET(InputSet::Bitwise, std::numeric_limits<int16_t>::min(), -1, 0, 1, 3,
           std::numeric_limits<int16_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
+          -1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(int32_t)
@@ -304,6 +306,8 @@ INPUT_SET(InputSet::Bitwise, std::numeric_limits<int32_t>::min(), -1, 0, 1, 3,
           std::numeric_limits<int32_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
+          -1);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(int64_t)
@@ -318,40 +322,51 @@ INPUT_SET(InputSet::Bitwise, std::numeric_limits<int64_t>::min(), -1, 0, 1, 3,
           std::numeric_limits<int64_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
+          -1ll);
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint16_t)
 INPUT_SET(InputSet::Default1, 1, 699, 3, 1023, 5, 6, 0, 8, 9, 10);
 INPUT_SET(InputSet::Default2, 2, 111, 3, 4, 5, 9, 21, 8, 9, 10);
 INPUT_SET(InputSet::Default3, 4, 112, 4, 5, 3, 7, 21, 1, 11, 9);
+INPUT_SET(InputSet::Zero, 0);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 13, 14, 15);
 INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x5555, 0xAAAA, 0x8000, 127,
           std::numeric_limits<uint16_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
+          std::numeric_limits<uint16_t>::max());
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint32_t)
 INPUT_SET(InputSet::Default1, 1, 2, 3, 4, 5, 0, 7, 8, 9, 10);
 INPUT_SET(InputSet::Default2, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 INPUT_SET(InputSet::Default3, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1);
+INPUT_SET(InputSet::Zero, 0);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 30, 31, 32);
 INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x55555555, 0xAAAAAAAA, 0x80000000,
           127, std::numeric_limits<uint32_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0xA, 0xC, 0xF,
+          std::numeric_limits<uint32_t>::max());
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(uint64_t)
 INPUT_SET(InputSet::Default1, 1, 2, 3, 4, 5, 0, 7, 1000, 9, 10);
 INPUT_SET(InputSet::Default2, 1, 2, 1337, 4, 5, 6, 7, 8, 9, 10);
 INPUT_SET(InputSet::Default3, 10, 20, 1338, 40, 50, 60, 70, 80, 90, 11);
+INPUT_SET(InputSet::Zero, 0);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 62, 63, 64);
 INPUT_SET(InputSet::Bitwise, 0, 1, 3, 6, 9, 0x5555555555555555,
           0xAAAAAAAAAAAAAAAA, 0x8000000000000000, 127,
           std::numeric_limits<uint64_t>::max());
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0xA, 0xC, 0xF,
+          std::numeric_limits<uint64_t>::max());
 END_INPUT_SETS()
 
 BEGIN_INPUT_SETS(HLSLHalf_t)
@@ -361,6 +376,7 @@ INPUT_SET(InputSet::Default2, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
           -1.0);
 INPUT_SET(InputSet::Default3, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0,
           1.0);
+INPUT_SET(InputSet::Zero, 0.0);
 INPUT_SET(InputSet::RangeHalfPi, -1.073, 0.044, -1.047, 0.313, 1.447, -0.865,
           1.364, -0.715, -0.800, 0.541);
 INPUT_SET(InputSet::RangeOne, 0.331, 0.727, -0.957, 0.677, -0.025, 0.495, 0.855,
@@ -392,6 +408,7 @@ INPUT_SET(InputSet::Default2, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
           -1.0);
 INPUT_SET(InputSet::Default3, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0,
           1.0);
+INPUT_SET(InputSet::Zero, 0.0);
 INPUT_SET(InputSet::RangeHalfPi, 0.315f, -0.316f, 1.409f, -0.09f, -1.569f,
           1.302f, -0.326f, 0.781f, -1.235f, 0.623f);
 INPUT_SET(InputSet::RangeOne, 0.727f, 0.331f, -0.957f, 0.677f, -0.025f, 0.495f,
@@ -420,6 +437,7 @@ INPUT_SET(InputSet::Default2, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
           -1.0);
 INPUT_SET(InputSet::Default3, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0,
           1.0);
+INPUT_SET(InputSet::Zero, 0.0);
 INPUT_SET(InputSet::RangeHalfPi, 0.807, 0.605, 1.317, 0.188, 1.566, -1.507,
           0.67, -1.553, 0.194, -0.883);
 INPUT_SET(InputSet::RangeOne, 0.331, 0.277, -0.957, 0.677, -0.025, 0.495, 0.855,
