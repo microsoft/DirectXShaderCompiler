@@ -4229,14 +4229,11 @@ void MSMain(uint GID : SV_GroupIndex,
             }
             uint4 result = WaveMatch(Vector);
             uint index = WaveGetLaneIndex() * 4;
-            if(index < NUM)
-              g_OutputVector.Store<uint>((index) * sizeof(uint), result.x);
-            if(index + 1 < NUM)
-              g_OutputVector.Store<uint>((index + 1) * sizeof(uint), result.y);
-            if(index + 2 < NUM)
-              g_OutputVector.Store<uint>((index + 2) * sizeof(uint), result.z);
-            if(index + 3 < NUM)
-              g_OutputVector.Store<uint>((index + 3) * sizeof(uint), result.w);
+
+            g_OutputVector.Store<uint>(index * sizeof(uint), result.x);
+            g_OutputVector.Store<uint>((index + 1) * sizeof(uint), result.y);
+            g_OutputVector.Store<uint>((index + 2) * sizeof(uint), result.z);
+            g_OutputVector.Store<uint>((index + 3) * sizeof(uint), result.w);
         }   
         #endif
 
