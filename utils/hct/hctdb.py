@@ -397,6 +397,12 @@ class db_dxil(object):
             db_dxil_op_table(0x8000, "ExperimentalOps", "Experimental DXIL operations"),
         ]
         self.dxil_op_tables_by_name = dict([(t.name, t) for t in self.dxil_op_tables])
+        # Table id should be strictly increasing.
+        last_table_id = None
+        for t in self.dxil_op_tables:
+            if last_table_id is not None:
+                assert t.id > last_table_id, "DXIL op table IDs must be strictly increasing"
+            last_table_id = t.id
         # Set cur_table.
         self.set_dxil_op_table()
 

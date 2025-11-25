@@ -501,9 +501,7 @@ class db_oload_gen:
 
     def __init__(self, db):
         self.db = db
-        self.instrs = sorted(
-            [i for i in db.instr if i.is_dxil_op], key=lambda i: i.dxil_opid
-        )
+        self.instrs = [i for i in self.db.instr if i.is_dxil_op]
 
     def print_content(self):
         self.print_opfunc_props()
@@ -531,9 +529,7 @@ class db_oload_gen:
 
     def print_opfunc_props_for_table(self, table):
         print(f"static const OP::OpCodeProperty {table.name}_OpCodeProps[] = {{")
-        instrs = sorted(
-            [i for i in table.instr if i.is_dxil_op], key=lambda i: i.dxil_opid
-        )
+        instrs = [i for i in table.instr if i.is_dxil_op]
 
         last_category = None
         lower_exceptions = {
@@ -1414,7 +1410,6 @@ def get_opcodes_rst():
 def get_opcodes_rst_for_table(table):
     "Create an rst table of opcodes for given opcode table"
     instrs = [i for i in table.instr if i.is_allowed and i.is_dxil_op]
-    instrs = sorted(instrs, key=lambda v: v.dxil_opid)
     rows = []
     rows.append(["ID", "Name", "Description"])
     for i in instrs:
@@ -1462,7 +1457,6 @@ def get_opsigs_for_table(table):
     # Create a list of DXIL operation signatures, sorted by ID.
     db = get_db_dxil()
     instrs = [i for i in db.instr if i.is_dxil_op]
-    instrs = sorted(instrs, key=lambda v: v.dxil_opid)
     # db_dxil already asserts that the numbering is dense.
     # Create the code to write out.
     code = f"static const char *OpCodeSignatures_{table.name}[] = {{\n"
