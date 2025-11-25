@@ -4228,12 +4228,9 @@ void MSMain(uint GID : SV_GroupIndex,
                 Vector[0] = (TYPE) 1;
             }
             uint4 result = WaveMatch(Vector);
-            uint index = WaveGetLaneIndex() * 4;
+            uint index = WaveGetLaneIndex();
 
-            g_OutputVector.Store<uint>(index * sizeof(uint), result.x);
-            g_OutputVector.Store<uint>((index + 1) * sizeof(uint), result.y);
-            g_OutputVector.Store<uint>((index + 2) * sizeof(uint), result.z);
-            g_OutputVector.Store<uint>((index + 3) * sizeof(uint), result.w);
+            g_OutputVector.Store<uint4>(index * sizeof(uint4), result);
         }   
         #endif
 

@@ -1442,37 +1442,34 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     std::vector<UINT> Expected;
-    const size_t VectorSize = Inputs[0].size();
-    Expected.assign(VectorSize, 0);
+    Expected.assign(WaveSize * 4, 0);
 
-    UINT wordShift = WaveSize / 32;
-    UINT bitShift = WaveSize % 32;
-    if (bitShift == 0) {
-      bitShift = 32;
-      wordShift--;
-    }
-    uint64_t result[4] = {((1ULL << bitShift) - 1) & ~1ULL, 0, 0, 0};
+    UINT LowWaves = std::min(64U, WaveSize);
+    UINT HighWaves = WaveSize - LowWaves;
+    uint64_t Mask[2] = {0, 0};
 
-    for (UINT I = wordShift; I > 0; I--)
-      result[I] = ~0ULL;
+    if(LowWaves != 64)
+      Mask[0] = (1ULL << LowWaves);
+
+    if(HighWaves != 64)
+      Mask[1] = (1ULL << HighWaves);
+
+    uint64_t result[2] = {
+      (Mask[0] - 1 & ~1ULL),
+      (Mask[1] - 1 & ~0ULL)
+    };
 
     Expected[0] = 1;
     Expected[1] = 0;
     Expected[2] = 0;
-    if (VectorSize <= 3)
-      return Expected;
-
     Expected[3] = 0;
+
     for (UINT I = 1; I < WaveSize; I++) {
       const UINT Index = I * 4;
-      if (Index < VectorSize)
-        Expected[Index] = static_cast<UINT>(result[0]);
-      if (Index + 1 < VectorSize)
-        Expected[Index + 1] = static_cast<UINT>(result[1]);
-      if (Index + 2 < VectorSize)
-        Expected[Index + 2] = static_cast<UINT>(result[2]);
-      if (Index + 3 < VectorSize)
-        Expected[Index + 3] = static_cast<UINT>(result[3]);
+        Expected[Index] = static_cast<UINT>(result[0] & 0xFFFFFFFF);
+        Expected[Index + 1] = static_cast<UINT>(result[0] >> 32);
+        Expected[Index + 2] = static_cast<UINT>(result[1] & 0xFFFFFFFF);
+        Expected[Index + 3] = static_cast<UINT>(result[1] >> 32);
     }
 
     return Expected;
@@ -1747,7 +1744,7 @@ public:
       D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOpts;
       VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
           D3D12_FEATURE_D3D12_OPTIONS1, &WaveOpts, sizeof(WaveOpts)));
-
+      
       WaveSize = WaveOpts.WaveLaneCountMin;
     }
 
