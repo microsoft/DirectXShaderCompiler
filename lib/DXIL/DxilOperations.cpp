@@ -2808,6 +2808,8 @@ const OP::OpCodeProperty &OP::GetOpCodeProps(unsigned OriginalOpCode) {
   unsigned TableIndex = 0;
   bool Success = DecodeOpCode(OriginalOpCode, TID, Op, &TableIndex);
   DXASSERT(Success, "otherwise invalid OpCode");
+  if (!Success)
+    return *(OP::OpCodeProperty*)nullptr; // For release build safety.
   const OP::OpCodeTable &Table = OP::g_OpCodeTables[TableIndex];
   return Table.Table[Op];
 }
