@@ -1439,28 +1439,33 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
   static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
                                          const InputSets<T> &Inputs,
                                          UINT WaveSize) {
-    DXASSERT_NOMSG(Inputs.size() == 1);
+    // For this test, the shader arranges it so that lane 0 is different from all 
+    // the other lanes. Besides that all other lines write their result of 
+    // WaveMatch as well.
 
+    DXASSERT_NOMSG(Inputs.size() == 1);
     std::vector<UINT> Expected;
     Expected.assign(WaveSize * 4, 0);
 
     UINT LowWaves = std::min(64U, WaveSize);
     UINT HighWaves = WaveSize - LowWaves;
-    uint64_t Mask[2] = {0, 0};
+    uint64_t LowWaveMask = ((LowWaves < 64) ? (1ULL << LowWaves)  : 0) - 1;
+    uint64_t HighWaveMask = ((HighWaves < 64) ? (1ULL << HighWaves)  : 0) - 1;
 
-    if (LowWaves != 64)
-      Mask[0] = (1ULL << LowWaves);
+    if (LowWaveMask < 64)
+      LowWaveMask = (1ULL << LowWaves);
 
-    if (HighWaves != 64)
-      Mask[1] = (1ULL << HighWaves);
+    if (HighWaveMask < 64)
+      HighWaveMask = (1ULL << HighWaves);
 
-    uint64_t result[2] = {(Mask[0] - 1 & ~1ULL), (Mask[1] - 1 & ~0ULL)};
+    uint64_t result[2] = {(LowWaveMask - 1 & ~1ULL), (HighWaveMask - 1 & ~0ULL)};
 
     Expected[0] = 1;
     Expected[1] = 0;
     Expected[2] = 0;
     Expected[3] = 0;
 
+    // all lanes other than the first one have the same result
     for (UINT I = 1; I < WaveSize; I++) {
       const UINT Index = I * 4;
       Expected[Index] = static_cast<UINT>(result[0] & 0xFFFFFFFF);
