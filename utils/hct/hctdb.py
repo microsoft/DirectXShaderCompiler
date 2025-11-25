@@ -401,7 +401,9 @@ class db_dxil(object):
         last_table_id = None
         for t in self.dxil_op_tables:
             if last_table_id is not None:
-                assert t.id > last_table_id, "DXIL op table IDs must be strictly increasing"
+                assert (
+                    t.id > last_table_id
+                ), "DXIL op table IDs must be strictly increasing"
             last_table_id = t.id
         # Set cur_table.
         self.set_dxil_op_table()
