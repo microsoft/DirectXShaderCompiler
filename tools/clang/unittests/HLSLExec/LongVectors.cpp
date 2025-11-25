@@ -1448,16 +1448,13 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
     UINT HighWaves = WaveSize - LowWaves;
     uint64_t Mask[2] = {0, 0};
 
-    if(LowWaves != 64)
+    if (LowWaves != 64)
       Mask[0] = (1ULL << LowWaves);
 
-    if(HighWaves != 64)
+    if (HighWaves != 64)
       Mask[1] = (1ULL << HighWaves);
 
-    uint64_t result[2] = {
-      (Mask[0] - 1 & ~1ULL),
-      (Mask[1] - 1 & ~0ULL)
-    };
+    uint64_t result[2] = {(Mask[0] - 1 & ~1ULL), (Mask[1] - 1 & ~0ULL)};
 
     Expected[0] = 1;
     Expected[1] = 0;
@@ -1466,10 +1463,10 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
 
     for (UINT I = 1; I < WaveSize; I++) {
       const UINT Index = I * 4;
-        Expected[Index] = static_cast<UINT>(result[0] & 0xFFFFFFFF);
-        Expected[Index + 1] = static_cast<UINT>(result[0] >> 32);
-        Expected[Index + 2] = static_cast<UINT>(result[1] & 0xFFFFFFFF);
-        Expected[Index + 3] = static_cast<UINT>(result[1] >> 32);
+      Expected[Index] = static_cast<UINT>(result[0] & 0xFFFFFFFF);
+      Expected[Index + 1] = static_cast<UINT>(result[0] >> 32);
+      Expected[Index + 2] = static_cast<UINT>(result[1] & 0xFFFFFFFF);
+      Expected[Index + 3] = static_cast<UINT>(result[1] >> 32);
     }
 
     return Expected;
@@ -1744,7 +1741,7 @@ public:
       D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOpts;
       VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
           D3D12_FEATURE_D3D12_OPTIONS1, &WaveOpts, sizeof(WaveOpts)));
-      
+
       WaveSize = WaveOpts.WaveLaneCountMin;
     }
 
