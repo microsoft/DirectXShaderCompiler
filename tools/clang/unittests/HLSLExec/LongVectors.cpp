@@ -1546,13 +1546,12 @@ template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
 template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
   static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
-                                         const InputSets<T> &Inputs,
+                                         const InputSets<T> &,
                                          UINT WaveSize) {
     // For this test, the shader arranges it so that lane 0 is different from
     // all the other lanes. Besides that all other lines write their result of
     // WaveMatch as well.
 
-    DXASSERT_NOMSG(Inputs.size() == 1);
     std::vector<UINT> Expected;
     Expected.assign(WaveSize * 4, 0);
 
