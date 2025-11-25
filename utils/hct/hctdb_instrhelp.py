@@ -502,8 +502,7 @@ class db_oload_gen:
     def __init__(self, db):
         self.db = db
         self.instrs = sorted(
-            [i for i in db.instr if i.is_dxil_op],
-            key=lambda i: i.dxil_opid
+            [i for i in db.instr if i.is_dxil_op], key=lambda i: i.dxil_opid
         )
 
     def print_content(self):
@@ -531,12 +530,9 @@ class db_oload_gen:
         print("};")
 
     def print_opfunc_props_for_table(self, table):
-        print(
-            f"static const OP::OpCodeProperty {table.name}_OpCodeProps[] = {{"
-        )
+        print(f"static const OP::OpCodeProperty {table.name}_OpCodeProps[] = {{")
         instrs = sorted(
-            [i for i in table.instr if i.is_dxil_op],
-            key=lambda i: i.dxil_opid
+            [i for i in table.instr if i.is_dxil_op], key=lambda i: i.dxil_opid
         )
 
         last_category = None
@@ -1414,6 +1410,7 @@ def get_opcodes_rst():
         result += get_opcodes_rst_for_table(table)
     return result
 
+
 def get_opcodes_rst_for_table(table):
     "Create an rst table of opcodes for given opcode table"
     instrs = [i for i in table.instr if i.is_allowed and i.is_dxil_op]
@@ -1459,6 +1456,8 @@ def get_opsigs():
         result += "  OpCodeSignatures_%s,\n" % table.name
     result += "};\n"
     return result
+
+
 def get_opsigs_for_table(table):
     # Create a list of DXIL operation signatures, sorted by ID.
     db = get_db_dxil()
@@ -1694,9 +1693,8 @@ def get_interpretation_table():
 def get_extended_table_opcode_enum_decls():
     db = get_db_dxil()
     gen = db_enumhelp_gen(db)
-    return run_with_stdout(
-        lambda: gen.print_extended_table_opcode_enums()
-    )
+    return run_with_stdout(lambda: gen.print_extended_table_opcode_enums())
+
 
 # highest minor is different than highest released minor,
 # since there can be pre-release versions that are higher

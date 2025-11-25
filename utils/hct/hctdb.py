@@ -360,15 +360,14 @@ class db_dxil_op_table(object):
         self.instr = []  # DXIL instructions
         self.op_count = 0
         self.op_enum = db_dxil_enum(
-                "OpCode",
-                f"Enumeration for {self.name} DXIL operations"
-            )
+            "OpCode", f"Enumeration for {self.name} DXIL operations"
+        )
         self.op_enum.last_value_name = "NumOpCodes"
 
     def next_id(self):
         new_id = self.op_count
         self.op_count += 1
-        return ((self.id << 16) | new_id)
+        return (self.id << 16) | new_id
 
     def get_count(self):
         return self.op_count
@@ -377,6 +376,7 @@ class db_dxil_op_table(object):
         op_count = self.get_count()
         self.op_enum.dxil_version_info[(major, minor)] = op_count
         return op_count
+
 
 class db_dxil(object):
     "A database of DXIL instruction data"
@@ -417,11 +417,11 @@ class db_dxil(object):
         self.build_indices()
         self.populate_counters()
 
-    def set_dxil_op_table(self, table_name = "CoreOps"):
+    def set_dxil_op_table(self, table_name="CoreOps"):
         "Set the current DXIL operation table, defaulting to CoreOps."
         self.cur_table = self.dxil_op_tables_by_name[table_name]
 
-    def get_dxil_op_table(self, table_name = "CoreOps"):
+    def get_dxil_op_table(self, table_name="CoreOps"):
         "Get the specified DXIL operation table."
         return self.dxil_op_tables_by_name[table_name]
 
@@ -457,13 +457,14 @@ class db_dxil(object):
         postfix.append("Invalid = 0xFFFFFFFF, // stable invalid OpCode value")
         # Generate extended opcode enums into OpCodeEnum.postfix_lines:
         OpCodeTableID = db_dxil_enum(
-            "OpCodeTableID", "Enumeration for DXIL opcode tables",
-            [(0, "CoreOps", "Core DXIL operations")]
+            "OpCodeTableID",
+            "Enumeration for DXIL opcode tables",
+            [(0, "CoreOps", "Core DXIL operations")],
         )
         OpCodeTableID.last_value_name = "NumOpCodeTables"
         postfix.append("")
         postfix.append("// OpCodes for extended tables follow.\n")
-        for table in self.dxil_op_tables[1:]: # Skip CoreOps table
+        for table in self.dxil_op_tables[1:]:  # Skip CoreOps table
             OpCodeTableID.values.append(
                 db_dxil_enum_value(table.name, table.id, table.doc)
             )
@@ -473,9 +474,7 @@ class db_dxil(object):
             postfix.append(f"// {table.name}")
             for i in table.instr:
                 class_dict[i.dxil_class] = i.category
-                postfix.append(
-                    f"EXP_OPCODE({table.name}, {i.dxil_op}), // {i.doc}"
-                )
+                postfix.append(f"EXP_OPCODE({table.name}, {i.dxil_op}), // {i.doc}")
                 table.op_enum.values.append(
                     db_dxil_enum_value(i.dxil_op, i.dxil_op_index(), i.doc)
                 )
@@ -6018,14 +6017,11 @@ class db_dxil(object):
         # consider - report instructions that are overloaded on a single type, then turn them into non-overloaded version of that type
         for table in self.dxil_op_tables:
             insts = [i for i in table.instr if i.is_dxil_op]
-            self.verify_dense(
-                insts, lambda x: x.dxil_opid, lambda x: x.name
-            )
+            self.verify_dense(insts, lambda x: x.dxil_opid, lambda x: x.name)
             for i in insts:
                 assert i.table_id() == table.id, (
-                    "dxil op %s has table id %d inconsistent with containing table id %d" % (
-                        i.name, i.table_id(), table.id
-                    )
+                    "dxil op %s has table id %d inconsistent with containing table id %d"
+                    % (i.name, i.table_id(), table.id)
                 )
                 self.verify_dense(i.ops, lambda x: x.pos, lambda x: i.name)
 
@@ -8652,7 +8648,9 @@ class db_dxil(object):
     def add_llvm_instr(
         self, kind, llvm_id, name, llvm_name, doc, oload_types, op_params, **props
     ):
-        assert self.cur_table.name == "CoreOps", "LLVM instructions can only be added to the CoreOps table"
+        assert (
+            self.cur_table.name == "CoreOps"
+        ), "LLVM instructions can only be added to the CoreOps table"
         i = db_dxil_inst(
             name,
             llvm_id=llvm_id,
