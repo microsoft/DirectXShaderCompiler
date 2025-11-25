@@ -1469,9 +1469,9 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
     // all lanes other than the first one have the same result
     for (UINT I = 1; I < WaveSize; I++) {
       const UINT Index = I * 4;
-      Expected[Index] = static_cast<UINT>(result[0] & 0xFFFFFFFF);
+      Expected[Index] = static_cast<UINT>(result[0]);
       Expected[Index + 1] = static_cast<UINT>(result[0] >> 32);
-      Expected[Index + 2] = static_cast<UINT>(result[1] & 0xFFFFFFFF);
+      Expected[Index + 2] = static_cast<UINT>(result[1]);
       Expected[Index + 3] = static_cast<UINT>(result[1] >> 32);
     }
 
