@@ -1532,7 +1532,7 @@ WAVE_OP(OpType::WavePrefixProduct, (wavePrefixProduct(A, WaveSize)));
 template <typename T> T wavePrefixProduct(T A, UINT) {
   // We test the the prefix product in the 3rd lane to avoid overflow issues.
   // So the result is A * A.
-  return  A * A;
+  return A * A;
 }
 
 WAVE_OP(OpType::WaveMultiPrefixProduct, (waveMultiPrefixProduct(A, WaveSize)));
