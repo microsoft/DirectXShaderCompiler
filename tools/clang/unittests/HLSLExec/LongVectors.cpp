@@ -1558,7 +1558,7 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
 
     UINT LowWaves = std::min(64U, WaveSize);
     UINT HighWaves = WaveSize - LowWaves;
-    
+
     uint64_t LowWaveMask = (LowWaves < 64) ? (1ULL << LowWaves) : 0;
     uint64_t HighWaveMask = (HighWaves < 64) ? (1ULL << HighWaves) : 0;
 
