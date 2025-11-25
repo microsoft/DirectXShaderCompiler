@@ -501,14 +501,10 @@ class db_oload_gen:
 
     def __init__(self, db):
         self.db = db
-        self.instrs = []
-        for table in self.db.dxil_op_tables:
-            self.instrs.extend(
-                sorted(
-                    [i for i in table.instr if i.is_dxil_op],
-                    key=lambda i: i.dxil_opid
-                )
-            )
+        self.instrs = sorted(
+            [i for i in db.instr if i.is_dxil_op],
+            key=lambda i: i.dxil_opid
+        )
 
     def print_content(self):
         self.print_opfunc_props()
@@ -1410,9 +1406,17 @@ def get_is_pass_option_name():
 
 
 def get_opcodes_rst():
-    "Create an rst table of opcodes"
+    "Create an rst table for each opcode table"
     db = get_db_dxil()
-    instrs = [i for i in db.instr if i.is_allowed and i.is_dxil_op]
+    result = ""
+    for table in db.dxil_op_tables:
+        result += f"\n\nOpcode Table {table.name}, id={table.id}: {table.doc}"
+        result += get_opcodes_rst_for_table(table)
+    return result
+
+def get_opcodes_rst_for_table(table):
+    "Create an rst table of opcodes for given opcode table"
+    instrs = [i for i in table.instr if i.is_allowed and i.is_dxil_op]
     instrs = sorted(instrs, key=lambda v: v.dxil_opid)
     rows = []
     rows.append(["ID", "Name", "Description"])
@@ -1445,13 +1449,24 @@ def get_valrules_rst():
 
 
 def get_opsigs():
+    db = get_db_dxil()
+    result = ""
+    for table in db.dxil_op_tables:
+        result += f"\n\n// Opcode Signatures for Table {table.name}, id={table.id}\n"
+        result += get_opsigs_for_table(table)
+    result += "static const char **OpCodeSignatures[] = {\n"
+    for table in db.dxil_op_tables:
+        result += "  OpCodeSignatures_%s,\n" % table.name
+    result += "};\n"
+    return result
+def get_opsigs_for_table(table):
     # Create a list of DXIL operation signatures, sorted by ID.
     db = get_db_dxil()
     instrs = [i for i in db.instr if i.is_dxil_op]
     instrs = sorted(instrs, key=lambda v: v.dxil_opid)
     # db_dxil already asserts that the numbering is dense.
     # Create the code to write out.
-    code = "static const char *OpCodeSignatures[] = {\n"
+    code = f"static const char *OpCodeSignatures_{table.name}[] = {{\n"
     for inst_idx, i in enumerate(instrs):
         code += '  "('
         for operand in i.ops:

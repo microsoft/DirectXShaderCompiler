@@ -136,6 +136,14 @@ class db_dxil_inst(object):
     def __str__(self):
         return self.name
 
+    def dxil_op_index(self):
+        "Get the index of this DXIL op in its table."
+        return self.dxil_opid & 0xFFFF
+
+    def table_id(self):
+        "Get the table ID of this DXIL op."
+        return (self.dxil_opid >> 16) & 0xFFFF
+
     def fully_qualified_name(self):
         return "{}::{}".format(self.fully_qualified_name_prefix, self.name)
 
@@ -345,6 +353,7 @@ class db_dxil_op_table(object):
     "Table definition for a set of DXIL operations"
 
     def __init__(self, id, name, doc):
+        assert id & ~0xFFFF == 0, "DXIL op table ID must fit in high 16 bits"
         self.id = id
         self.name = name
         self.doc = doc
@@ -359,7 +368,7 @@ class db_dxil_op_table(object):
     def next_id(self):
         new_id = self.op_count
         self.op_count += 1
-        return new_id
+        return ((self.id << 16) | new_id)
 
     def get_count(self):
         return self.op_count
@@ -373,6 +382,7 @@ class db_dxil(object):
     "A database of DXIL instruction data"
 
     def __init__(self):
+        self.instr = []  # all LLVM instructions and DXIL operations
         self.enums = []  # enumeration types
         self.val_rules = []  # validation rules
         self.metadata = []  # named metadata (db_dxil_metadata)
@@ -387,7 +397,7 @@ class db_dxil(object):
             db_dxil_op_table(0x8000, "ExperimentalOps", "Experimental DXIL operations"),
         ]
         self.dxil_op_tables_by_name = dict([(t.name, t) for t in self.dxil_op_tables])
-        # Setting the current table sets self.instr.
+        # Set cur_table.
         self.set_dxil_op_table()
 
         self.populate_llvm_instructions()
@@ -410,7 +420,6 @@ class db_dxil(object):
     def set_dxil_op_table(self, table_name = "CoreOps"):
         "Set the current DXIL operation table, defaulting to CoreOps."
         self.cur_table = self.dxil_op_tables_by_name[table_name]
-        self.instr = self.cur_table.instr
 
     def get_dxil_op_table(self, table_name = "CoreOps"):
         "Get the specified DXIL operation table."
@@ -426,9 +435,8 @@ class db_dxil(object):
     def build_indices(self):
         "Build a name_idx dictionary with instructions and an enum_idx dictionary with enumeration types"
         self.name_idx = {}
-        for table in self.dxil_op_tables:
-            for i in table.instr:
-                self.name_idx[i.name] = i
+        for i in self.instr:
+            self.name_idx[i.name] = i
         self.enum_idx = {}
         for i in self.enums:
             self.enum_idx[i.name] = i
@@ -438,7 +446,7 @@ class db_dxil(object):
         OpCodeEnum = self.get_dxil_op_table().op_enum
         class_dict = {}
         class_dict["LlvmInst"] = "LLVM Instructions"
-        for i in self.instr:
+        for i in self.get_dxil_op_table().instr:
             if i.is_dxil_op:
                 v = db_dxil_enum_value(i.dxil_op, i.dxil_opid, i.doc)
                 v.category = i.category
@@ -469,7 +477,7 @@ class db_dxil(object):
                     f"EXP_OPCODE({table.name}, {i.dxil_op}), // {i.doc}"
                 )
                 table.op_enum.values.append(
-                    db_dxil_enum_value(i.dxil_op, i.dxil_opid, i.doc)
+                    db_dxil_enum_value(i.dxil_op, i.dxil_op_index(), i.doc)
                 )
             postfix.append("")
         OpCodeEnum.postfix_lines = postfix
@@ -6008,11 +6016,18 @@ class db_dxil(object):
 
         # TODO - some arguments are required to be immediate constants in DXIL, eg resource kinds; add this information
         # consider - report instructions that are overloaded on a single type, then turn them into non-overloaded version of that type
-        self.verify_dense(
-            self.get_dxil_insts(), lambda x: x.dxil_opid, lambda x: x.name
-        )
-        for i in self.instr:
-            self.verify_dense(i.ops, lambda x: x.pos, lambda x: i.name)
+        for table in self.dxil_op_tables:
+            insts = [i for i in table.instr if i.is_dxil_op]
+            self.verify_dense(
+                insts, lambda x: x.dxil_opid, lambda x: x.name
+            )
+            for i in insts:
+                assert i.table_id() == table.id, (
+                    "dxil op %s has table id %d inconsistent with containing table id %d" % (
+                        i.name, i.table_id(), table.id
+                    )
+                )
+                self.verify_dense(i.ops, lambda x: x.pos, lambda x: i.name)
 
         # Verify that all operations in each class have the same signature.
         import itertools
@@ -8610,7 +8625,7 @@ class db_dxil(object):
         self.dxil_op_counters = set()
         for i in self.instr:
             counters = getattr(i, "props", {}).get("counters", ())
-            if i.dxil_opid:
+            if i.is_dxil_op:
                 self.dxil_op_counters.update(counters)
             else:
                 self.llvm_op_counters.update(counters)
@@ -8629,6 +8644,11 @@ class db_dxil(object):
             db_dxil_valrule(name, len(self.val_rules), err_msg=err_msg, doc=desc)
         )
 
+    def add_inst(self, i):
+        assert i.table_id() == self.cur_table.id, "Instruction table mismatch"
+        self.cur_table.instr.append(i)
+        self.instr.append(i)
+
     def add_llvm_instr(
         self, kind, llvm_id, name, llvm_name, doc, oload_types, op_params, **props
     ):
@@ -8642,7 +8662,7 @@ class db_dxil(object):
             oload_types=oload_types,
         )
         i.props = props
-        self.instr.append(i)
+        self.add_inst(i)
 
     def add_dxil_op(
         self, name, code_class, doc, oload_types, fn_attr, op_params, **props
@@ -8663,7 +8683,7 @@ class db_dxil(object):
             fn_attr=fn_attr,
         )
         i.props = props
-        self.instr.append(i)
+        self.add_inst(i)
 
     def add_dxil_op_reserved(self, name):
         # The return value is parameter 0, insert the opcode as 1.
@@ -8681,7 +8701,7 @@ class db_dxil(object):
             oload_types="v",
             fn_attr="",
         )
-        self.instr.append(i)
+        self.add_inst(i)
 
     def reserve_dxil_op_range(self, group_name, count, start_reserved_id=0):
         "Reserve a range of dxil opcodes for future use; returns next id"
