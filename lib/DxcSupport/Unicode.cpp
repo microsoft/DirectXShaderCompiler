@@ -29,8 +29,8 @@ int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
                         wchar_t *lpWideCharStr, int cchWideChar) {
 
   // Check for invalid sizes or potential overflow.
-  if (cbMultiByte == 0 || cbMultiByte < -1 || cbMultiByte > (INT32_MAX - 1) ||
-      cchWideChar < 0 || cchWideChar > (INT32_MAX - 1)) {
+  if (cbMultiByte == 0 || cbMultiByte < -1 || cbMultiByte == INT32_MAX ||
+      cchWideChar < 0 || cchWideChar == INT32_MAX) {
     SetLastError(ERROR_INVALID_PARAMETER);
     return 0;
   }
@@ -166,7 +166,8 @@ namespace Unicode {
 bool WideToEncodedString(const wchar_t *text, size_t cWide, DWORD cp,
                          DWORD flags, std::string *pValue, bool *lossy) {
   DXASSERT_NOMSG(cWide == ~(size_t)0 || cWide < INT32_MAX);
-  if (text == nullptr || pValue == nullptr || cWide == 0 || cWide >= INT32_MAX)
+  if (text == nullptr || pValue == nullptr || cWide == 0 ||
+      !(cWide == ~(size_t)0 || cWide < INT32_MAX))
     return false;
 
   BOOL usedDefaultChar;
