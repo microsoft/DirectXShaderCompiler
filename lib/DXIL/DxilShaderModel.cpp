@@ -214,6 +214,14 @@ bool ShaderModel::IsPreReleaseShaderModel(int major, int minor) {
                             kHighestReleasedMinor) <= 0)
     return false;
 
+  // FIXME: Why not just return true here? If the version is higher than we
+  // recognize, we don't want to consider it a released shader model.
+  // This is used by the validator to check the program part to determine which
+  // hash to apply (PREVIEW pattern or normal hash). This scenario should not be
+  // possible, since the program part version will be checked against the shader
+  // model in the llvm module. Still, it seems very odd to check if the version
+  // is higher than recognized and return false if so. Returning false isn't a
+  // failure, it implies that the version is a normal released shader model.
   // now compare against highest recognized
   if (DXIL::CompareVersions(major, minor, kHighestMajor, kHighestMinor) <= 0)
     return true;

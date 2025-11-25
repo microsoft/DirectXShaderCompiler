@@ -962,6 +962,9 @@ class db_dxil(object):
         self.populate_categories_and_models_ExperimentalOps()
 
     def populate_categories_and_models_ExperimentalOps(self):
+        # Note: Experimental ops must be set to a shader model higher than the
+        # most recent release until infrastructure is in place to opt-in to
+        # experimental ops and the validator can force use of the PREVIEW hash.
         for i in "ExperimentalNop".split(","):
             self.name_idx[i].category = "No-op"
             self.name_idx[i].shader_model = 6, 10
@@ -7656,8 +7659,17 @@ class db_dxil(object):
             "Instr.ImmBiasForSampleB",
             "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.",
         )
+        self.add_valrule_msg(
+            "Instr.IllegalDXILOpCode",
+            "DXILOpCode must be valid or a supported experimental opcode.",
+            "DXILOpCode must be [0..%0] or a supported experimental opcode.  %1 specified.",
+        )
+        # In the future, if experimental opcodes are allowed in non-experimental
+        # shader models, the following rule will need to change to one requiring
+        # a flag to support experimental opcodes.
         self.add_valrule(
-            "Instr.IllegalDXILOpCode", "DXILOpCode must be [0..%0].  %1 specified."
+            "Instr.ExpDXILOpCodeRequiresExpSM",
+            "Use of experimental DXILOpCode requires an experimental shader model.",
         )
         self.add_valrule(
             "Instr.IllegalDXILOpFunction",

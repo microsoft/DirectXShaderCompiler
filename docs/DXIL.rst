@@ -3134,10 +3134,11 @@ INSTR.CREATEHANDLEIMMRANGEID                                  Local resource mus
 INSTR.DXILSTRUCTUSER                                          Dxil struct types should only be used by ExtractValue.
 INSTR.DXILSTRUCTUSEROUTOFBOUND                                Index out of bound when extract value from dxil struct types.
 INSTR.EVALINTERPOLATIONMODE                                   Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample.
+INSTR.EXPDXILOPCODEREQUIRESEXPSM                              Use of experimental DXILOpCode requires an experimental shader model.
 INSTR.EXTRACTVALUE                                            ExtractValue should only be used on dxil struct types and cmpxchg.
 INSTR.FAILTORESLOVETGSMPOINTER                                TGSM pointers must originate from an unambiguous TGSM global variable.
 INSTR.HANDLENOTFROMCREATEHANDLE                               Resource handle should returned by createHandle.
-INSTR.ILLEGALDXILOPCODE                                       DXILOpCode must be [0..%0].  %1 specified.
+INSTR.ILLEGALDXILOPCODE                                       DXILOpCode must be valid or a supported experimental opcode.
 INSTR.ILLEGALDXILOPFUNCTION                                   '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                                       bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                                          Access to out-of-bounds memory is disallowed.

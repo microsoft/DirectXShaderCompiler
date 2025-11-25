@@ -2520,7 +2520,11 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
     }
 
     unsigned Opcode = ConstOpcode->getLimitedValue();
-    if (Opcode >= (unsigned)DXIL::OpCode::NumOpCodes) {
+    OP::OpCodeTableID TableID;
+    unsigned OpIndex;
+    if (!OP::DecodeOpCode(Opcode, TableID, OpIndex) ||
+        (TableID != OP::OpCodeTableID::CoreOps &&
+         !pSM->IsPreReleaseShaderModel())) {
       // invalid Opcode; function body will validate this error.
       continue;
     }
@@ -3205,6 +3209,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       ValCtx.DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision;
   bool SupportsLifetimeIntrinsics =
       ValCtx.DxilMod.GetShaderModel()->IsSM66Plus();
+  bool ExperimentalShaderModel =
+      ValCtx.DxilMod.GetShaderModel()->IsPreReleaseShaderModel();
   SmallVector<CallInst *, 16> GradientOps;
   SmallVector<CallInst *, 16> Barriers;
   CallInst *SetMeshOutputCounts = nullptr;
@@ -3262,11 +3268,19 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           }
 
           unsigned Opcode = OpcodeConst->getLimitedValue();
-          if (Opcode >= static_cast<unsigned>(DXIL::OpCode::NumOpCodes)) {
+          OP::OpCodeTableID TableID;
+          unsigned OpIndex;
+          if (!OP::DecodeOpCode(Opcode, TableID, OpIndex)) {
             ValCtx.EmitInstrFormatError(
                 &I, ValidationRule::InstrIllegalDXILOpCode,
                 {std::to_string((unsigned)DXIL::OpCode::NumOpCodes),
                  std::to_string(Opcode)});
+            continue;
+          }
+          if (TableID != OP::OpCodeTableID::CoreOps &&
+              !ExperimentalShaderModel) {
+            ValCtx.EmitInstrError(
+                &I, ValidationRule::InstrExpDXILOpCodeRequiresExpSM);
             continue;
           }
           DXIL::OpCode DxilOpcode = (DXIL::OpCode)Opcode;
