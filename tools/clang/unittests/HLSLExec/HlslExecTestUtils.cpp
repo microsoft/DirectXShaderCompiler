@@ -3,7 +3,9 @@
 #include "ShaderOpTest.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
-#include "dxc/Test/HlslTestUtils.h"
+
+#include "HlslTestUtils.h"
+
 #include <Verify.h>
 #include <atlcomcli.h>
 #include <d3d12.h>
@@ -26,48 +28,6 @@ static bool useWarpByDefault() {
   return true;
 #endif
 }
-
-// A more recent Windows SDK than currently required is needed for these.
-typedef HRESULT(WINAPI *D3D12EnableExperimentalFeaturesFn)(
-    UINT NumFeatures, __in_ecount(NumFeatures) const IID *IIDs,
-    __in_ecount_opt(NumFeatures) void *ConfigurationStructs,
-    __in_ecount_opt(NumFeatures) UINT *ConfigurationStructSizes);
-
-static const GUID D3D12ExperimentalShaderModelsID =
-    {/* 76f5573e-f13a-40f5-b297-81ce9e18933f */
-     0x76f5573e,
-     0xf13a,
-     0x40f5,
-     {0xb2, 0x97, 0x81, 0xce, 0x9e, 0x18, 0x93, 0x3f}};
-
-// Used to create D3D12SDKConfiguration to enable AgilitySDK programmatically.
-typedef HRESULT(WINAPI *D3D12GetInterfaceFn)(REFCLSID Rclsid, REFIID Riid,
-                                             void **Debug);
-
-#ifndef __ID3D12SDKConfiguration_INTERFACE_DEFINED__
-
-// Copied from AgilitySDK D3D12.h to programmatically enable when in developer
-// mode.
-#define __ID3D12SDKConfiguration_INTERFACE_DEFINED__
-
-EXTERN_C const GUID DECLSPEC_SELECTANY IID_ID3D12SDKConfiguration = {
-    0xe9eb5314,
-    0x33aa,
-    0x42b2,
-    {0xa7, 0x18, 0xd7, 0x7f, 0x58, 0xb1, 0xf1, 0xc7}};
-EXTERN_C const GUID DECLSPEC_SELECTANY CLSID_D3D12SDKConfiguration = {
-    0x7cda6aca,
-    0xa03e,
-    0x49c8,
-    {0x94, 0x58, 0x03, 0x34, 0xd2, 0x0e, 0x07, 0xce}};
-
-MIDL_INTERFACE("e9eb5314-33aa-42b2-a718-d77f58b1f1c7")
-ID3D12SDKConfiguration : public IUnknown {
-public:
-  virtual HRESULT STDMETHODCALLTYPE SetSDKVersion(UINT SDKVersion,
-                                                  LPCSTR SDKPath) = 0;
-};
-#endif /* __ID3D12SDKConfiguration_INTERFACE_DEFINED__ */
 
 static std::wstring getModuleName() {
   wchar_t ModuleName[MAX_PATH + 1] = {0};
@@ -107,10 +67,9 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
   return SDKVersion;
 }
 
-bool createDevice(ID3D12Device **D3DDevice,
-                  ExecTestUtils::D3D_SHADER_MODEL TestModel,
+bool createDevice(ID3D12Device **D3DDevice, D3D_SHADER_MODEL TestModel,
                   bool SkipUnsupported) {
-  if (TestModel > ExecTestUtils::D3D_HIGHEST_SHADER_MODEL) {
+  if (TestModel > D3D_HIGHEST_SHADER_MODEL) {
     const UINT Minor = (UINT)TestModel & 0x0f;
     hlsl_test::LogCommentFmt(L"Installed SDK does not support "
                              L"shader model 6.%1u",
@@ -210,16 +169,10 @@ bool createDevice(ID3D12Device **D3DDevice,
     return false;
 
   if (!useDxbc()) {
-    // Check for DXIL support.
-    typedef struct D3D12_FEATURE_DATA_SHADER_MODEL {
-      ExecTestUtils::D3D_SHADER_MODEL HighestShaderModel;
-    } D3D12_FEATURE_DATA_SHADER_MODEL;
-    const UINT D3D12_FEATURE_SHADER_MODEL = 7;
     D3D12_FEATURE_DATA_SHADER_MODEL SMData;
     SMData.HighestShaderModel = TestModel;
-    if (FAILED(D3DDeviceCom->CheckFeatureSupport(
-            (D3D12_FEATURE)D3D12_FEATURE_SHADER_MODEL, &SMData,
-            sizeof(SMData))) ||
+    if (FAILED(D3DDeviceCom->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL,
+                                                 &SMData, sizeof(SMData))) ||
         SMData.HighestShaderModel < TestModel) {
       const UINT Minor = (UINT)TestModel & 0x0f;
       hlsl_test::LogCommentFmt(L"The selected device does not support "
@@ -260,8 +213,8 @@ void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
 
 static HRESULT enableAgilitySDK(HMODULE Runtime, UINT SDKVersion,
                                 LPCWSTR SDKPath) {
-  D3D12GetInterfaceFn GetInterfaceFunc =
-      (D3D12GetInterfaceFn)GetProcAddress(Runtime, "D3D12GetInterface");
+  auto GetInterfaceFunc = reinterpret_cast<decltype(&D3D12GetInterface)>(
+      GetProcAddress(Runtime, "D3D12GetInterface"));
   CComPtr<ID3D12SDKConfiguration> D3D12SDKConfiguration;
   IFR(GetInterfaceFunc(CLSID_D3D12SDKConfiguration,
                        IID_PPV_ARGS(&D3D12SDKConfiguration)));
@@ -274,9 +227,9 @@ static HRESULT enableAgilitySDK(HMODULE Runtime, UINT SDKVersion,
   // features next, which is a valid use case and a no-op at this point.  This
   // requires D3D12Core to be loaded.  If this fails, we know the AgilitySDK
   // setting actually failed.
-  D3D12EnableExperimentalFeaturesFn ExperimentalFeaturesFunc =
-      (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
-          Runtime, "D3D12EnableExperimentalFeatures");
+  auto ExperimentalFeaturesFunc =
+      reinterpret_cast<decltype(&D3D12EnableExperimentalFeatures)>(
+          GetProcAddress(Runtime, "D3D12EnableExperimentalFeatures"));
   if (ExperimentalFeaturesFunc == nullptr)
     // If this failed, D3D12 must be too old for AgilitySDK.  But if that's
     // the case, creating D3D12SDKConfiguration should have failed.  So while
@@ -290,15 +243,15 @@ static HRESULT
 enableExperimentalShaderModels(HMODULE hRuntime,
                                UUID AdditionalFeatures[] = nullptr,
                                size_t NumAdditionalFeatures = 0) {
-  D3D12EnableExperimentalFeaturesFn ExperimentalFeaturesFunc =
-      (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
-          hRuntime, "D3D12EnableExperimentalFeatures");
+  auto ExperimentalFeaturesFunc =
+      reinterpret_cast<decltype(&D3D12EnableExperimentalFeatures)>(
+          GetProcAddress(hRuntime, "D3D12EnableExperimentalFeatures"));
   if (ExperimentalFeaturesFunc == nullptr)
     return HRESULT_FROM_WIN32(GetLastError());
 
   std::vector<UUID> Features;
 
-  Features.push_back(D3D12ExperimentalShaderModelsID);
+  Features.push_back(D3D12ExperimentalShaderModels);
 
   if (AdditionalFeatures != nullptr && NumAdditionalFeatures > 0)
     Features.insert(Features.end(), AdditionalFeatures,

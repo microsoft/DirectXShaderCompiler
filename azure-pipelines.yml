@@ -96,6 +96,7 @@ stages:
           configuration: Debug
           CC: gcc-9
           CXX: g++-9
+          CMAKE_OPTS: -DLLVM_USE_SPLIT_DWARF=On
         MacOS_Clang_Release:
           image: ${{ variables.macOS }}
           configuration: Release
@@ -164,4 +165,3 @@ stages:
         testResultsFormat: 'JUnit'
         testResultsFiles: '**/testresults.xunit.xml'
       condition: succeededOrFailed()
-
