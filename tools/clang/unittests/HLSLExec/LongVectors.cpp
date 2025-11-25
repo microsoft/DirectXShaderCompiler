@@ -1558,14 +1558,16 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
     const UINT LowWaves = std::min(64U, WaveSize);
     const UINT HighWaves = WaveSize - LowWaves;
 
-    const uint64_t LowWaveMask = (LowWaves < 64) ? (1ULL << LowWaves) - 1U : 0U - 1U;
+    const uint64_t LowWaveMask =
+        (LowWaves < 64) ? (1ULL << LowWaves) - 1U : 0U - 1U;
 
-    const uint64_t HighWaveMask = (HighWaves < 64) ? (1ULL << HighWaves) -1U : 0U - 1U;
+    const uint64_t HighWaveMask =
+        (HighWaves < 64) ? (1ULL << HighWaves) - 1U : 0U - 1U;
 
     const uint64_t LowExpected = ~1ULL & LowWaveMask;
     const uint64_t HighExpected = ~0ULL & HighWaveMask;
 
-    Expected[0] = 1;          
+    Expected[0] = 1;
     Expected[1] = 0;
     Expected[2] = 0;
     Expected[3] = 0;
@@ -1573,7 +1575,7 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
     // all lanes other than the first one have the same result
     for (UINT I = 1; I < WaveSize; I++) {
       const UINT Index = I * 4;
-      Expected[Index]     = static_cast<UINT>(LowExpected);
+      Expected[Index] = static_cast<UINT>(LowExpected);
       Expected[Index + 1] = static_cast<UINT>(LowExpected >> 32);
       Expected[Index + 2] = static_cast<UINT>(HighExpected);
       Expected[Index + 3] = static_cast<UINT>(HighExpected >> 32);
