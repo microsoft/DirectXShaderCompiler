@@ -1547,7 +1547,7 @@ template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
   static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
                                          const InputSets<T> &,
-                                         UINT WaveSize) {
+                                         const UINT WaveSize) {
     // For this test, the shader arranges it so that lane 0 is different from
     // all the other lanes. Besides that all other lines write their result of
     // WaveMatch as well.
@@ -1555,16 +1555,17 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
     std::vector<UINT> Expected;
     Expected.assign(WaveSize * 4, 0);
 
-    UINT LowWaves = std::min(64U, WaveSize);
-    UINT HighWaves = WaveSize - LowWaves;
+    const UINT LowWaves = std::min(64U, WaveSize);
+    const UINT HighWaves = WaveSize - LowWaves;
 
-    uint64_t LowWaveShift = (LowWaves < 64) ? (1ULL << LowWaves) : 0;
-    uint64_t HighWaveShift = (HighWaves < 64) ? (1ULL << HighWaves) : 0;
+    const uint64_t LowWaveMask = (LowWaves < 64) ? (1ULL << LowWaves) - 1U : 0U - 1U;
 
-    uint64_t result[2] = {(LowWaveShift - 1 & ~1ULL),
-                          (HighWaveShift - 1 & ~0ULL)};
+    const uint64_t HighWaveMask = (HighWaves < 64) ? (1ULL << HighWaves) -1U : 0U - 1U;
 
-    Expected[0] = 1;
+    const uint64_t LowExpected = ~1ULL & LowWaveMask;
+    const uint64_t HighExpected = ~0ULL & HighWaveMask;
+
+    Expected[0] = 1;          
     Expected[1] = 0;
     Expected[2] = 0;
     Expected[3] = 0;
@@ -1572,10 +1573,10 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
     // all lanes other than the first one have the same result
     for (UINT I = 1; I < WaveSize; I++) {
       const UINT Index = I * 4;
-      Expected[Index] = static_cast<UINT>(result[0]);
-      Expected[Index + 1] = static_cast<UINT>(result[0] >> 32);
-      Expected[Index + 2] = static_cast<UINT>(result[1]);
-      Expected[Index + 3] = static_cast<UINT>(result[1] >> 32);
+      Expected[Index]     = static_cast<UINT>(LowExpected);
+      Expected[Index + 1] = static_cast<UINT>(LowExpected >> 32);
+      Expected[Index + 2] = static_cast<UINT>(HighExpected);
+      Expected[Index + 3] = static_cast<UINT>(HighExpected >> 32);
     }
 
     return Expected;
