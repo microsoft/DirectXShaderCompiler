@@ -1558,11 +1558,11 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
     UINT LowWaves = std::min(64U, WaveSize);
     UINT HighWaves = WaveSize - LowWaves;
 
-    uint64_t LowWaveMask = (LowWaves < 64) ? (1ULL << LowWaves) : 0;
-    uint64_t HighWaveMask = (HighWaves < 64) ? (1ULL << HighWaves) : 0;
+    uint64_t LowWaveShift = (LowWaves < 64) ? (1ULL << LowWaves) : 0;
+    uint64_t HighWaveShift = (HighWaves < 64) ? (1ULL << HighWaves) : 0;
 
-    uint64_t result[2] = {(LowWaveMask - 1 & ~1ULL),
-                          (HighWaveMask - 1 & ~0ULL)};
+    uint64_t result[2] = {(LowWaveShift - 1 & ~1ULL),
+                          (HighWaveShift - 1 & ~0ULL)};
 
     Expected[0] = 1;
     Expected[1] = 0;
