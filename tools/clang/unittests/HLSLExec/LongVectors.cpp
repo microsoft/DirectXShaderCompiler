@@ -1776,7 +1776,17 @@ public:
           L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
 
       const bool SkipUnsupported = !FailIfRequirementsNotMet;
-      createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, SkipUnsupported);
+      if (!createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, SkipUnsupported)) {
+        if (FailIfRequirementsNotMet)
+          hlsl_test::LogErrorFmt(
+              L"Device Creation failed, resulting in test failure, since "
+              L"FailIfRequirementsNotMet is set. The expectation is that this "
+              L"test will only be executed if something has previously "
+              L"determined that the system meets the requirements of this "
+              L"test.");
+
+        return false;
+      }
     }
 
     return true;
@@ -1785,10 +1795,21 @@ public:
   TEST_METHOD_SETUP(methodSetup) {
     // It's possible a previous test case caused a device removal. If it did we
     // need to try and create a new device.
-    if (!D3DDevice || D3DDevice->GetDeviceRemovedReason() != S_OK) {
-      hlsl_test::LogCommentFmt(
-          L"Device was lost: Attempting to create a new D3D12 device.");
-      VERIFY_IS_TRUE(createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, false));
+    if (D3DDevice && D3DDevice->GetDeviceRemovedReason() != S_OK) {
+      hlsl_test::LogCommentFmt(L"Device was lost!");
+      D3DDevice.Release();
+    }
+
+    if (!D3DDevice) {
+      hlsl_test::LogCommentFmt(L"Creating device");
+
+      // We expect this to succeed, and fail if it doesn't, because classSetup()
+      // has already ensured that the system configuration meets the
+      // requirements of all the tests in this class.
+      const bool SkipUnsupported = false;
+
+      VERIFY_IS_TRUE(
+          createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, SkipUnsupported));
     }
 
     return true;
