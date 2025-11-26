@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T lib_6_9 -E main %s -Od | FileCheck %s --check-prefix DXIL
 
 // DXIL: %[[HOA:[^ ]+]] = alloca %dx.types.HitObject, align 4

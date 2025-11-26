@@ -46,17 +46,12 @@ if(NOT NUGET_EXE)
     endif()
 endif()
 
-# Install the WARP nuget package.  
-
-# NUGET_WARP_EXTRA_ARGS gets passed as a single command-line argument. In cmake,
-# lists are items separated by semicolons, so these will become separate
-# arguments.
-if(NUGET_WARP_EXTRA_ARGS)
-    string(REPLACE " " ";" NUGET_WARP_EXTRA_ARGS_LIST ${NUGET_WARP_EXTRA_ARGS})
-endif()
+# Install the WARP nuget package.
+separate_arguments(NUGET_WARP_EXTRA_ARGS)
+message("Running ${NUGET_EXE} install -ForceEnglishOutput Microsoft.Direct3D.WARP -OutputDirectory ${CMAKE_BINARY_DIR}/nuget ${NUGET_WARP_EXTRA_ARGS}")
 
 execute_process(
-    COMMAND ${NUGET_EXE} install -ForceEnglishOutput Microsoft.Direct3D.WARP -OutputDirectory ${CMAKE_BINARY_DIR}/nuget ${NUGET_WARP_EXTRA_ARGS_LIST}
+    COMMAND ${NUGET_EXE} install -ForceEnglishOutput Microsoft.Direct3D.WARP -OutputDirectory ${CMAKE_BINARY_DIR}/nuget ${NUGET_WARP_EXTRA_ARGS}
     RESULT_VARIABLE result
     OUTPUT_VARIABLE nuget_output
     ERROR_VARIABLE nuget_output)
@@ -81,15 +76,14 @@ endif()
 
 set(WARP_DIR ${CMAKE_BINARY_DIR}/nuget/${WARP_PACKAGE})
 
-if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "AMD64")
+if((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "ARM64") OR ("${CMAKE_C_COMPILER_ARCHITECTURE_ID}" STREQUAL "ARM64"))
+    set(WARP_ARCH "arm64")
+elseif ((CMAKE_GENERATOR_PLATFORM STREQUAL "Win32") OR ("${CMAKE_C_COMPILER_ARCHITECTURE_ID}" STREQUAL "X86"))
+    set(WARP_ARCH "win32")
+else()
     set(WARP_ARCH "x64")
 endif()
-if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "X86")
-    set(WARP_ARCH "win32")
-endif()
-if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "ARM64")
-    set(WARP_ARCH "arm64")
-endif()
+
 
 # WARP_DLL is picked up by lit.site.cfg.in so it can be passed as a TAEF runtime
 # parameter by lit.cfg

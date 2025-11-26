@@ -224,9 +224,6 @@ void VerifyCompileOK(dxc::DllLoader &dllSupport, LPCSTR pText,
 
 HRESULT GetVersion(dxc::DllLoader &DllSupport, REFCLSID clsid, unsigned &Major,
                    unsigned &Minor);
-bool ParseTargetProfile(llvm::StringRef targetProfile,
-                        llvm::StringRef &outStage, unsigned &outMajor,
-                        unsigned &outMinor);
 
 class VersionSupportInfo {
 private:

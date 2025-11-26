@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T lib_6_9 %s | FileCheck %s
 
 // Long vector tests for vec ops that scalarize to something more complex
@@ -63,17 +64,4 @@ export void test_pow(inout vector<float, 8> vec1, vector<float, 8> vec2) {
 // CHECK: fsub fast <8 x float>
 export void test_modf(inout vector<float, 8> vec1, vector<float, 8> vec2) {
   vec1 = modf(vec1, vec2);
-}
-
-// CHECK-LABEL: test_WaveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-// CHECK: call {{.*}} @dx.op.waveMatch
-export uint4 test_WaveMatch(vector<bool, 8> bvec) {
-  return WaveMatch(bvec);
 }

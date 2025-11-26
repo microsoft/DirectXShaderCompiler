@@ -905,19 +905,35 @@ unsigned int SysStringLen(const BSTR bstrString);
 // RAII style mechanism for setting/unsetting a locale for the specified Windows
 // codepage
 class ScopedLocale {
-  const char *m_prevLocale;
+  locale_t Utf8Locale = nullptr;
+  locale_t PrevLocale = nullptr;
 
 public:
-  explicit ScopedLocale(uint32_t codePage)
-      : m_prevLocale(setlocale(LC_ALL, nullptr)) {
-    assert((codePage == CP_UTF8) &&
+  explicit ScopedLocale(uint32_t CodePage) {
+    assert((CodePage == CP_UTF8) &&
            "Support for Linux only handles UTF8 code pages");
-    setlocale(LC_ALL, "en_US.UTF-8");
+    Utf8Locale = newlocale(LC_CTYPE_MASK, "C.UTF-8", NULL);
+    if (!Utf8Locale)
+      Utf8Locale = newlocale(LC_CTYPE_MASK, "C.utf8", NULL);
+    if (!Utf8Locale)
+      Utf8Locale = newlocale(LC_CTYPE_MASK, "en_US.UTF-8", NULL);
+    assert(Utf8Locale && "Failed to create UTF-8 locale");
+    if (!Utf8Locale)
+      return;
+    PrevLocale = uselocale(Utf8Locale);
+    assert(PrevLocale && "Failed to set locale to UTF-8");
+    if (!PrevLocale) {
+      freelocale(Utf8Locale);
+      Utf8Locale = nullptr;
+    }
   }
   ~ScopedLocale() {
-    if (m_prevLocale != nullptr) {
-      setlocale(LC_ALL, m_prevLocale);
-    }
+    if (PrevLocale != nullptr)
+      uselocale(PrevLocale);
+    if (Utf8Locale)
+      freelocale(Utf8Locale);
+    PrevLocale = nullptr;
+    Utf8Locale = nullptr;
   }
 };
 

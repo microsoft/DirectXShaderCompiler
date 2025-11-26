@@ -862,6 +862,32 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
                                 SourceLocation());
   }
 
+  for (const FunctionInfo *entryInfo : workQueue) {
+    if (!entryInfo->isEntryFunction)
+      continue;
+
+    if (entryInfo->shaderModelKind != hlsl::ShaderModel::Kind::Pixel) {
+      continue;
+    }
+
+    const auto *funcDecl = entryInfo->funcDecl;
+    if (!funcDecl->hasAttr<HLSLWaveOpsIncludeHelperLanesAttr>())
+      continue;
+
+    spvBuilder.requireExtension("SPV_KHR_maximal_reconvergence",
+                                funcDecl->getLocation());
+    spvBuilder.requireExtension("SPV_KHR_quad_control",
+                                funcDecl->getLocation());
+    spvBuilder.requireCapability(spv::Capability::QuadControlKHR,
+                                 funcDecl->getLocation());
+    spvBuilder.addExecutionMode(entryInfo->entryFunction,
+                                spv::ExecutionMode::MaximallyReconvergesKHR, {},
+                                funcDecl->getLocation());
+    spvBuilder.addExecutionMode(entryInfo->entryFunction,
+                                spv::ExecutionMode::RequireFullQuadsKHR, {},
+                                funcDecl->getLocation());
+  }
+
   // For Vulkan 1.2 and later, add SignedZeroInfNanPreserve when -Gis is
   // provided to preserve NaN/Inf and signed zeros.
   if (spirvOptions.IEEEStrict) {
@@ -2148,9 +2174,12 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     // We already know the variable is not externally visible here. If it does
     // not have local storage, it should be file scope variable.
     const bool isFileScopeVar = !decl->hasLocalStorage();
-    if (isFileScopeVar)
+    if (isFileScopeVar) {
+      if (decl->getType().isConstQualified() &&
+          declIdMapper.tryToCreateConstantVar(decl))
+        return;
       var = declIdMapper.createFileVar(decl, llvm::None);
-    else
+    } else
       var = declIdMapper.createFnVar(decl, llvm::None);
 
     // Emit OpStore to initialize the variable
@@ -4952,10 +4981,6 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
 
 bool SpirvEmitter::tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
                                          const Expr *srcExpr) {
-  // We are handling associated counters here. Casts should not alter which
-  // associated counter to manipulate.
-  srcExpr = srcExpr->IgnoreParenCasts();
-
   // For parameters of forward-declared functions. We must make sure the
   // associated counter variable is created. But for forward-declared functions,
   // the translation of the real definition may not be started yet.
@@ -5056,9 +5081,10 @@ SpirvEmitter::getFinalACSBufferCounterInstruction(const Expr *expr) {
   llvm::SmallVector<SpirvInstruction *, 2> indexes;
   if (const auto *arraySubscriptExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
     indexes.push_back(doExpr(arraySubscriptExpr->getIdx()));
-  } else if (isResourceDescriptorHeap(expr->getType())) {
+  } else if (isResourceDescriptorHeap(expr->IgnoreParenCasts()->getType())) {
     const Expr *index = nullptr;
-    getDescriptorHeapOperands(expr, /* base= */ nullptr, &index);
+    getDescriptorHeapOperands(expr->IgnoreParenCasts(), /* base= */ nullptr,
+                              &index);
     assert(index != nullptr && "operator[] had no indices.");
     indexes.push_back(doExpr(index));
   }
@@ -5076,9 +5102,10 @@ SpirvEmitter::getFinalACSBufferCounter(const Expr *expr) {
   if (const auto *decl = getReferencedDef(expr))
     return declIdMapper.createOrGetCounterIdAliasPair(decl);
 
-  if (isResourceDescriptorHeap(expr->getType())) {
+  const Expr *expr_withoutcasts = expr->IgnoreParenCasts();
+  if (isResourceDescriptorHeap(expr_withoutcasts->getType())) {
     const Expr *base = nullptr;
-    getDescriptorHeapOperands(expr, &base, /* index= */ nullptr);
+    getDescriptorHeapOperands(expr_withoutcasts, &base, /* index= */ nullptr);
     return declIdMapper.createOrGetCounterIdAliasPair(getReferencedDef(base));
   }
 
@@ -8855,7 +8882,23 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
           return collectArrayStructIndices(subExpr, rawIndex, rawIndices,
                                            indices, isMSOutAttribute);
         }
+      } else if (castExpr->getCastKind() == CK_UncheckedDerivedToBase ||
+                 castExpr->getCastKind() == CK_HLSLDerivedToBase) {
+        llvm::SmallVector<uint32_t, 4> BaseIdx;
+        getBaseClassIndices(castExpr, &BaseIdx);
+        if (rawIndex) {
+          rawIndices->append(BaseIdx.begin(), BaseIdx.end());
+        } else {
+          for (uint32_t Idx : BaseIdx)
+            indices->push_back(spvBuilder.getConstantInt(astContext.IntTy,
+                                                         llvm::APInt(32, Idx)));
+        }
+
+        return collectArrayStructIndices(castExpr->getSubExpr(), rawIndex,
+                                         rawIndices, indices, isMSOutAttribute);
       }
+      return collectArrayStructIndices(castExpr->getSubExpr(), rawIndex,
+                                       rawIndices, indices, isMSOutAttribute);
     }
   }
 
@@ -9347,6 +9390,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_printf:
     retVal = processIntrinsicPrintf(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_usign:
+    retVal = processIntrinsicSignUnsignedInt(callExpr);
+    break;
   case hlsl::IntrinsicOp::IOP_sign: {
     if (isFloatOrVecMatOfFloatType(callExpr->getArg(0)->getType()))
       retVal = processIntrinsicFloatSign(callExpr);
@@ -9721,10 +9767,13 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     emitError("uabs intrinsic requires unsigned integer input type", srcLoc);
     return nullptr;
   }
+  case hlsl::IntrinsicOp::IOP_reversebits: {
+    retVal = processReverseBitsIntrinsic(callExpr, srcLoc);
+    break;
+  }
     INTRINSIC_SPIRV_OP_CASE(countbits, BitCount, false);
     INTRINSIC_SPIRV_OP_CASE(fmod, FRem, true);
     INTRINSIC_SPIRV_OP_CASE(fwidth, Fwidth, true);
-    INTRINSIC_SPIRV_OP_CASE(reversebits, BitReverse, false);
     INTRINSIC_SPIRV_OP_CASE(and, LogicalAnd, false);
     INTRINSIC_SPIRV_OP_CASE(or, LogicalOr, false);
     INTRINSIC_OP_CASE(round, RoundEven, true);
@@ -9881,6 +9930,144 @@ SpirvInstruction *SpirvEmitter::processDerivativeIntrinsic(
   return result;
 }
 
+SpirvInstruction *
+SpirvEmitter::processReverseBitsIntrinsic(const CallExpr *callExpr,
+                                          clang::SourceLocation srcLoc) {
+  const QualType argType = callExpr->getArg(0)->getType();
+  const uint32_t bitwidth = getElementSpirvBitwidth(
+      astContext, argType, spirvOptions.enable16BitTypes);
+
+  // SPIRV only supports 32 bit integers for `OpBitReverse`. We need to
+  // unfold and add extra instructions to support reversing non-32bit integers.
+  if (bitwidth == 32) {
+    return processIntrinsicUsingSpirvInst(callExpr, spv::Op::OpBitReverse,
+                                          /* actPerRowForMatrices= */ false);
+  } else if (bitwidth == 16) {
+    return generate16BitReverse(callExpr, srcLoc);
+  } else if (bitwidth == 64) {
+    return generate64BitReverse(callExpr, srcLoc);
+  }
+  emitError("reversebits currently only supports 16, 32, and 64-bit "
+            "width components when targeting SPIR-V",
+            srcLoc);
+  return nullptr;
+}
+
+SpirvInstruction *
+SpirvEmitter::generate16BitReverse(const CallExpr *callExpr,
+                                   clang::SourceLocation srcLoc) {
+  const QualType argType = callExpr->getArg(0)->getType();
+  // Load the 16-bit value
+  auto *loadInst = doExpr(callExpr->getArg(0));
+  bool isVector = isVectorType(argType);
+  uint32_t count = isVector ? hlsl::GetHLSLVecSize(argType) : 1;
+  QualType uintType =
+      isVector ? astContext.getExtVectorType(astContext.UnsignedIntTy, count)
+               : astContext.UnsignedIntTy;
+  QualType resultType =
+      isVector ? astContext.getExtVectorType(astContext.UnsignedShortTy, count)
+               : astContext.UnsignedShortTy;
+
+  // Extend to 32-bit.
+  auto *extended =
+      spvBuilder.createUnaryOp(spv::Op::OpUConvert, uintType, loadInst, srcLoc);
+  // Reverse the bits.
+  auto *reversed = spvBuilder.createUnaryOp(spv::Op::OpBitReverse, uintType,
+                                            extended, srcLoc);
+
+  // Shift right by 16 bits.
+  auto *shiftAmount =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 16));
+  if (count > 1) {
+    std::vector<clang::spirv::SpirvConstant *> arr(count, shiftAmount);
+    shiftAmount = spvBuilder.getConstantComposite(uintType, arr);
+  }
+  SpirvInstruction *shifted = spvBuilder.createBinaryOp(
+      spv::Op::OpShiftRightLogical, uintType, reversed, shiftAmount, srcLoc);
+
+  // Truncate to short.
+  return spvBuilder.createUnaryOp(spv::Op::OpUConvert, resultType, shifted,
+                                  srcLoc);
+}
+
+SpirvInstruction *
+SpirvEmitter::generate64BitReverse(const CallExpr *callExpr,
+                                   clang::SourceLocation srcLoc) {
+  const QualType argType = callExpr->getArg(0)->getType();
+  // Load the 64-bit value.
+  auto *loadInst = doExpr(callExpr->getArg(0));
+  auto count = isVectorType(argType) ? hlsl::GetHLSLVecSize(argType) : 1;
+
+  // Get the lower half bits by casting.
+  clang::spirv::SpirvUnaryOp *lowerUint = spvBuilder.createUnaryOp(
+      spv::Op::OpUConvert,
+      astContext.getExtVectorType(astContext.UnsignedIntTy, count), loadInst,
+      srcLoc);
+
+  // Higher bits need to be right shifted.
+  clang::spirv::SpirvUnaryOp *higherUint;
+  auto *constUlong32 = spvBuilder.getConstantInt(astContext.UnsignedLongLongTy,
+                                                 llvm::APInt(64, 32));
+  clang::spirv::SpirvConstant *constUlongVec = nullptr;
+  if (isVectorType(argType)) {
+    std::vector<clang::spirv::SpirvConstant *> arr(count, constUlong32);
+    constUlongVec = spvBuilder.getConstantComposite(
+        astContext.getExtVectorType(astContext.UnsignedLongLongTy, count), arr);
+    auto *rightShifted = spvBuilder.createBinaryOp(
+        spv::Op::OpShiftRightLogical,
+        astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
+        loadInst, constUlongVec, srcLoc);
+    higherUint = spvBuilder.createUnaryOp(
+        spv::Op::OpUConvert,
+        astContext.getExtVectorType(astContext.UnsignedIntTy, count),
+        rightShifted, srcLoc);
+  } else {
+    auto *rightShifted = spvBuilder.createBinaryOp(
+        spv::Op::OpShiftRightLogical, astContext.UnsignedLongLongTy, loadInst,
+        constUlong32, srcLoc);
+    higherUint = spvBuilder.createUnaryOp(
+        spv::Op::OpUConvert,
+        astContext.getExtVectorType(astContext.UnsignedIntTy, count),
+        rightShifted, srcLoc);
+  }
+
+  // Reverse the bits of each value.
+  auto *lowerReversed = spvBuilder.createUnaryOp(
+      spv::Op::OpBitReverse,
+      astContext.getExtVectorType(astContext.UnsignedIntTy, count), lowerUint,
+      srcLoc);
+  auto *higherReversed = spvBuilder.createUnaryOp(
+      spv::Op::OpBitReverse,
+      astContext.getExtVectorType(astContext.UnsignedIntTy, count), higherUint,
+      srcLoc);
+
+  // Cast back to long values.
+  auto *lowerUlong = spvBuilder.createUnaryOp(
+      spv::Op::OpUConvert,
+      astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
+      lowerReversed, srcLoc);
+  auto *higherUlong = spvBuilder.createUnaryOp(
+      spv::Op::OpUConvert,
+      astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
+      higherReversed, srcLoc);
+
+  // Lower bits need to be left shifted.
+  clang::spirv::SpirvBinaryOp *lowerLeftShifted;
+  if (isVectorType(argType)) {
+    lowerLeftShifted = spvBuilder.createBinaryOp(
+        spv::Op::OpShiftLeftLogical,
+        astContext.getExtVectorType(astContext.UnsignedLongLongTy, count),
+        lowerUlong, constUlongVec, srcLoc);
+  } else {
+    lowerLeftShifted = spvBuilder.createBinaryOp(
+        spv::Op::OpShiftLeftLogical, astContext.UnsignedLongLongTy, lowerUlong,
+        constUlong32, srcLoc);
+  }
+
+  // Combine the 2 values.
+  return spvBuilder.createBinaryOp(spv::Op::OpBitwiseOr, argType,
+                                   lowerLeftShifted, higherUlong, srcLoc);
+}
 // Returns true is the given expression can be used as an output parameter.
 //
 // Warning: this function could return false negatives.
@@ -9937,12 +10124,12 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
   // 'value'. Meaning, T is forced to be 'unsigned int'. If the provided
   // parameter is not an unsigned integer, the frontend inserts an
   // 'ImplicitCastExpr' to convert it to unsigned integer. OpAtomicIAdd (and
-  // other SPIR-V OpAtomic* instructions) require that the pointee in 'dest' to
-  // be of the same type as T. This will result in an invalid SPIR-V if 'dest'
-  // is a signed integer typed resource such as RWTexture1D<int>. For example,
-  // the following OpAtomicIAdd is invalid because the pointee type defined in
-  // %1 is a signed integer, while the value passed to atomic add (%3) is an
-  // unsigned integer.
+  // other SPIR-V OpAtomic* instructions) require that the pointee in 'dest'
+  // to be of the same type as T. This will result in an invalid SPIR-V if
+  // 'dest' is a signed integer typed resource such as RWTexture1D<int>. For
+  // example, the following OpAtomicIAdd is invalid because the pointee type
+  // defined in %1 is a signed integer, while the value passed to atomic add
+  // (%3) is an unsigned integer.
   //
   //  %_ptr_Image_int = OpTypePointer Image %int
   //  %1 = OpImageTexelPointer %_ptr_Image_int %RWTexture1D_int %index %uint_0
@@ -9988,9 +10175,9 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
                                        uint32_t outputArgIndex) {
     const auto outputArg = callExpr->getArg(outputArgIndex);
     if (!isValidOutputArgument(outputArg)) {
-      emitError(
-          "InterlockedCompareExchange requires a reference as output parameter",
-          outputArg->getExprLoc());
+      emitError("InterlockedCompareExchange requires a reference as output "
+                "parameter",
+                outputArg->getExprLoc());
       return;
     }
 
@@ -10106,8 +10293,8 @@ SpirvEmitter::processIntrinsicNonUniformResourceIndex(const CallExpr *expr) {
   // status to the usages of this expression. This is done by the
   // NonUniformVisitor class.
   //
-  // The decoration shouldn't be applied to the operand, rather to a copy of the
-  // result. Even though applying the decoration to the operand may not be
+  // The decoration shouldn't be applied to the operand, rather to a copy of
+  // the result. Even though applying the decoration to the operand may not be
   // functionally incorrect (since adding NonUniform is more conservative), it
   // could affect performance and isn't the intent of the shader.
   auto *copyInstr =
@@ -10271,8 +10458,8 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
           loc);
 
       // As pointed out by the DXIL reference above, it is *not* required to
-      // saturate the output to UINT_MAX in case of overflow. Wrapping around is
-      // also allowed. For simplicity, we will wrap around at this point.
+      // saturate the output to UINT_MAX in case of overflow. Wrapping around
+      // is also allowed. For simplicity, we will wrap around at this point.
       accums[msadNum] = spvBuilder.createBinaryOp(spv::Op::OpIAdd, uintType,
                                                   accums[msadNum], diff, loc);
     }
@@ -12511,6 +12698,80 @@ SpirvEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
 }
 
 SpirvInstruction *
+SpirvEmitter::processIntrinsicSignUnsignedInt(const CallExpr *callExpr) {
+  const auto srcLoc = callExpr->getExprLoc();
+  const auto srcRange = callExpr->getSourceRange();
+
+  const Expr *firstArg = callExpr->getArg(0);
+  const QualType firstArgType = firstArg->getType();
+  auto elemType = QualType{};
+  uint32_t numRows;
+  uint32_t numCols;
+  uint32_t count;
+  bool isScalar =
+      isScalarType(firstArgType, &elemType) ||
+      (isVectorType(firstArgType, &elemType, &count) && count == 1) ||
+      (isMxNMatrix(firstArgType, &elemType, &numRows, &numCols) &&
+       (numRows == 1 && numCols == 1));
+
+  auto *zero = getValueZero(astContext.IntTy);
+  auto *one = getValueOne(astContext.IntTy);
+  if (isScalar) {
+    auto *argVal = doExpr(callExpr->getArg(0));
+    auto *zeroUint = getValueZero(callExpr->getArg(0)->getType());
+    auto *cmp =
+        spvBuilder.createBinaryOp(spv::Op::OpUGreaterThan, astContext.BoolTy,
+                                  argVal, zeroUint, srcLoc, srcRange);
+    return spvBuilder.createSelect(astContext.IntTy, cmp, one, zero, srcLoc,
+                                   srcRange);
+  }
+
+  uint32_t size;
+  if (isVectorType(firstArgType)) {
+    size = count;
+  } else if (is1xNMatrix(firstArgType)) {
+    size = numCols;
+  } else if (isMx1Matrix(firstArgType)) {
+    size = numRows;
+  } else {
+    size = numRows;
+  }
+
+  const auto actOnEachVec = [this, srcLoc, srcRange, zero, one, elemType,
+                             size](uint32_t index, QualType inType,
+                                   QualType outType, SpirvInstruction *curRow) {
+    auto zeroUint = getValueZero(elemType);
+    // Create `size` vector of uint zeros.
+    auto *zerosUint = spvBuilder.getConstantComposite(
+        astContext.getExtVectorType(elemType, size),
+        std::vector<clang::spirv::SpirvConstant *>(size, zeroUint));
+    // Compare if they are greater than zero.
+    auto *cmp = spvBuilder.createBinaryOp(
+        spv::Op::OpUGreaterThan,
+        astContext.getExtVectorType(astContext.BoolTy, size), curRow, zerosUint,
+        srcLoc, srcRange);
+
+    // Create a vector of int ones and zeros.
+    auto *zeros = spvBuilder.getConstantComposite(
+        astContext.getExtVectorType(astContext.IntTy, size),
+        std::vector<clang::spirv::SpirvConstant *>(size, zero));
+    auto *ones = spvBuilder.getConstantComposite(
+        astContext.getExtVectorType(astContext.IntTy, size),
+        std::vector<clang::spirv::SpirvConstant *>(size, one));
+    // Select between ones and zeros based on the comparison.
+    return spvBuilder.createSelect(
+        astContext.getExtVectorType(astContext.IntTy, size), cmp, ones, zeros,
+        srcLoc, srcRange);
+  };
+
+  if (isVectorType(firstArgType)) {
+    return actOnEachVec(0, firstArgType, callExpr->getType(), doExpr(firstArg));
+  }
+  return processEachVectorInMatrix(firstArg, doExpr(firstArg), actOnEachVec,
+                                   srcLoc, srcRange);
+}
+
+SpirvInstruction *
 SpirvEmitter::processIntrinsicFloatSign(const CallExpr *callExpr) {
   // Import the GLSL.std.450 extended instruction set.
   const Expr *arg = callExpr->getArg(0);
@@ -12942,18 +13203,26 @@ SpirvInstruction *SpirvEmitter::processIntrinsicDP2a(const CallExpr *callExpr) {
   SpirvInstruction *arg1Instr = doExpr(arg1);
   SpirvInstruction *arg2Instr = doExpr(arg2);
 
-  // Create the dot product of the half2 vectors.
-  SpirvInstruction *dotInstr = spvBuilder.createBinaryOp(
-      spv::Op::OpDot, componentType, arg0Instr, arg1Instr, loc, range);
+  // Multiply the two half2 vectors and convert the result to float2.
+  SpirvInstruction *mulInstr = spvBuilder.createBinaryOp(
+      spv::Op::OpFMul, vecType, arg0Instr, arg1Instr, loc, range);
+  SpirvInstruction *convertInstr = spvBuilder.createUnaryOp(
+      spv::Op::OpFConvert,
+      astContext.getExtVectorType(astContext.FloatTy, vecSize), mulInstr, loc,
+      range);
 
-  // Convert dot product (half type) to result type (float).
-  QualType resultType = callExpr->getType();
-  SpirvInstruction *floatDotInstr = spvBuilder.createUnaryOp(
-      spv::Op::OpFConvert, resultType, dotInstr, loc, range);
+  // Extract each float element and and sum them up.
+  SpirvInstruction *extractedElem0 = spvBuilder.createCompositeExtract(
+      astContext.FloatTy, convertInstr, {0}, loc, range);
+  SpirvInstruction *extractedElem1 = spvBuilder.createCompositeExtract(
+      astContext.FloatTy, convertInstr, {1}, loc, range);
+  SpirvInstruction *dotInstr =
+      spvBuilder.createBinaryOp(spv::Op::OpFAdd, astContext.FloatTy,
+                                extractedElem0, extractedElem1, loc, range);
 
   // Sum the dot product result and accumulator and return.
-  return spvBuilder.createBinaryOp(spv::Op::OpFAdd, resultType, floatDotInstr,
-                                   arg2Instr, loc, range);
+  return spvBuilder.createBinaryOp(spv::Op::OpFAdd, astContext.FloatTy,
+                                   dotInstr, arg2Instr, loc, range);
 }
 
 SpirvInstruction *
@@ -15079,11 +15348,11 @@ void SpirvEmitter::processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt) {
     // current case.
     std::vector<Stmt *> statements;
     unsigned i = curCaseIndex + 1;
-    for (; i < flatSwitch.size() && !isa<BreakStmt>(flatSwitch[i]) &&
-           !isa<ReturnStmt>(flatSwitch[i]);
-         ++i) {
+    for (; i < flatSwitch.size() && !isa<BreakStmt>(flatSwitch[i]); ++i) {
       if (!isa<CaseStmt>(flatSwitch[i]) && !isa<DefaultStmt>(flatSwitch[i]))
         statements.push_back(const_cast<Stmt *>(flatSwitch[i]));
+      if (isa<ReturnStmt>(flatSwitch[i]))
+        break;
     }
     if (!statements.empty())
       cs->setStmts(astContext, statements.data(), statements.size());

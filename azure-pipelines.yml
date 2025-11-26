@@ -36,7 +36,7 @@ stages:
       submodules: true
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hctbuild.cmd -$(platform) -$(configuration) -show-cmake-log -spirvtest
+        call utils\hct\hctbuild.cmd -$(platform) -$(configuration) -show-cmake-log -spirvtest -warp-nuget-version 1.0.16.1
       displayName: 'Building'
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
@@ -45,7 +45,23 @@ stages:
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
         call utils\hct\hcttest.cmd -$(configuration) exec
-      displayName: 'DXIL Execution Tests'
+      displayName: 'DXIL Execution Tests'        
+    - script: |
+        call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite 1.6
+      displayName: 'DXIL Compat Suite Tests (1.6 release)'
+      condition: succeededOrFailed()
+    - script: |
+        call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite 1.7
+      displayName: 'DXIL Compat Suite Tests (1.7 release)'
+      condition: succeededOrFailed()
+    - script: |
+        call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite 1.8
+      displayName: 'DXIL Compat Suite Tests (1.8 release)'
+      condition: succeededOrFailed()
+    
 
   - job: Nix
     timeoutInMinutes: 165
@@ -80,6 +96,7 @@ stages:
           configuration: Debug
           CC: gcc-9
           CXX: g++-9
+          CMAKE_OPTS: -DLLVM_USE_SPLIT_DWARF=On
         MacOS_Clang_Release:
           image: ${{ variables.macOS }}
           configuration: Release
@@ -118,6 +135,11 @@ stages:
       condition: eq(variables['image'], variables['linux'])
 
     - bash: |
+        sudo apt-get install g++-9 -y
+      displayName: 'Installing g++-9'
+      condition: and(eq(variables['CXX'], 'g++-9'), eq(variables['image'], variables['linux']))
+
+    - bash: |
         brew update
         brew install ninja
         ulimit -Sn 1024
@@ -143,4 +165,3 @@ stages:
         testResultsFormat: 'JUnit'
         testResultsFiles: '**/testresults.xunit.xml'
       condition: succeededOrFailed()
-

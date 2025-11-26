@@ -185,53 +185,6 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format,
   VERIFY_SUCCEEDED(pStream->Commit(STGC_DEFAULT));
 }
 
-#if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS2
-#define D3D12_FEATURE_D3D12_OPTIONS3 ((D3D12_FEATURE)21)
-#define NTDDI_WIN10_RS3 0x0A000004 /* ABRACADABRA_WIN10_RS2 */
-typedef enum D3D12_COMMAND_LIST_SUPPORT_FLAGS {
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_NONE = 0,
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_DIRECT =
-      (1 << D3D12_COMMAND_LIST_TYPE_DIRECT),
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_BUNDLE =
-      (1 << D3D12_COMMAND_LIST_TYPE_BUNDLE),
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_COMPUTE =
-      (1 << D3D12_COMMAND_LIST_TYPE_COMPUTE),
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_COPY = (1 << D3D12_COMMAND_LIST_TYPE_COPY),
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_VIDEO_DECODE = (1 << 4),
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_VIDEO_PROCESS = (1 << 5)
-} D3D12_COMMAND_LIST_SUPPORT_FLAGS;
-
-typedef enum D3D12_VIEW_INSTANCING_TIER {
-  D3D12_VIEW_INSTANCING_TIER_NOT_SUPPORTED = 0,
-  D3D12_VIEW_INSTANCING_TIER_1 = 1,
-  D3D12_VIEW_INSTANCING_TIER_2 = 2,
-  D3D12_VIEW_INSTANCING_TIER_3 = 3
-} D3D12_VIEW_INSTANCING_TIER;
-
-typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS3 {
-  BOOL CopyQueueTimestampQueriesSupported;
-  BOOL CastingFullyTypedFormatSupported;
-  DWORD WriteBufferImmediateSupportFlags;
-  D3D12_VIEW_INSTANCING_TIER ViewInstancingTier;
-  BOOL BarycentricsSupported;
-} D3D12_FEATURE_DATA_D3D12_OPTIONS3;
-#endif
-
-#if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS3
-#define D3D12_FEATURE_D3D12_OPTIONS4 ((D3D12_FEATURE)23)
-typedef enum D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER {
-  D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER_0,
-  D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER_1,
-} D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER;
-
-typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS4 {
-  BOOL ReservedBufferPlacementSupported;
-  3D12_SHARED_RESOURCE_COMPATIBILITY_TIER SharedResourceCompatibilityTier;
-  BOOL Native16BitShaderOpsSupported;
-} D3D12_FEATURE_DATA_D3D12_OPTIONS4;
-
-#endif
-
 class ExecutionTest {
 public:
   BEGIN_TEST_CLASS(ExecutionTest)
@@ -563,32 +516,6 @@ public:
   // Do not remove the following line - it is used by TranslateExecutionTest.py
   // MARKER: ExecutionTest/DxilConf Shared Implementation Start
 
-  // We define D3D_SHADER_MODEL enum values as we don't generally have access to
-  // the latest D3D headers when adding tests for a new SM being added.
-  using D3D_SHADER_MODEL = ExecTestUtils::D3D_SHADER_MODEL;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_0 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_0;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_1 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_1;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_2 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_2;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_3 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_3;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_4 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_4;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_5 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_5;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_6 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_6;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_7 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_7;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_8 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_8;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_9 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_9;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_HIGHEST_SHADER_MODEL =
-      ExecTestUtils::D3D_HIGHEST_SHADER_MODEL;
-
   bool SaveImages() { return GetTestParamBool(L"SaveImages"); }
 
   // Base class used by raw gather test for polymorphic assignments
@@ -874,7 +801,6 @@ public:
     }
   }
 
-#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
   // Copy common fields from desc0 to desc1 and zero out the new one
   void CopyDesc0ToDesc1(D3D12_RESOURCE_DESC1 &desc1,
                         const D3D12_RESOURCE_DESC &desc0) {
@@ -890,7 +816,6 @@ public:
     desc1.Flags = desc0.Flags;
     desc1.SamplerFeedbackMipRegion = {};
   }
-#endif
 
   // Create resources for the given <resDesc> described main resource
   // creating and returning the resource, the upload resource,
@@ -924,7 +849,6 @@ public:
                                    nullptr, nullptr, &uploadBufferDesc.Width);
     uploadBufferDesc.Height = 1;
 
-#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
     if (castFormat) {
       CComPtr<ID3D12Device10> pDevice10;
       // Copy resDesc0 to resDesc1 zeroing anything new
@@ -936,11 +860,7 @@ public:
           &defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &resDesc1,
           D3D12_BARRIER_LAYOUT_COPY_DEST, nullptr, nullptr, 1, castFormat,
           IID_PPV_ARGS(&pResource)));
-    } else
-#else
-    UNREFERENCED_PARAMETER(castFormat);
-#endif
-    {
+    } else {
       VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
           &defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &resDesc,
           D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&pResource)));
@@ -1318,33 +1238,22 @@ public:
   }
 
   bool DoesDeviceSupportMeshShaders(ID3D12Device *pDevice) {
-#if defined(NTDDI_WIN10_VB) && WDK_NTDDI_VERSION >= NTDDI_WIN10_VB
     D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
     if (FAILED(pDevice->CheckFeatureSupport(
             (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))))
       return false;
     return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED;
-#else
-    UNREFERENCED_PARAMETER(pDevice);
-    return false;
-#endif
   }
 
   bool DoesDeviceSupportRayTracing(ID3D12Device *pDevice) {
-#if WDK_NTDDI_VERSION > NTDDI_WIN10_RS4
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 O5;
     if (FAILED(pDevice->CheckFeatureSupport(
             (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS5, &O5, sizeof(O5))))
       return false;
     return O5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
-#else
-    UNREFERENCED_PARAMETER(pDevice);
-    return false;
-#endif
   }
 
   bool DoesDeviceSupportMeshAmpDerivatives(ID3D12Device *pDevice) {
-#if defined(NTDDI_WIN10_FE) && WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
     D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
     D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport(
@@ -1354,92 +1263,57 @@ public:
       return false;
     return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED &&
            O9.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
-#else
-    UNREFERENCED_PARAMETER(pDevice);
-    return false;
-#endif
   }
 
   bool DoesDeviceSupportTyped64Atomics(ID3D12Device *pDevice) {
-#if defined(NTDDI_WIN10_FE) && WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
     D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport(
             (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
     return O9.AtomicInt64OnTypedResourceSupported != FALSE;
-#else
-    UNREFERENCED_PARAMETER(pDevice);
-    return false;
-#endif
   }
 
   bool DoesDeviceSupportHeap64Atomics(ID3D12Device *pDevice) {
-#if defined(NTDDI_WIN10_CO) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CO
     D3D12_FEATURE_DATA_D3D12_OPTIONS11 O11;
     if (FAILED(pDevice->CheckFeatureSupport(
             (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS11, &O11, sizeof(O11))))
       return false;
     return O11.AtomicInt64OnDescriptorHeapResourceSupported != FALSE;
-#else
-    UNREFERENCED_PARAMETER(pDevice);
-    return false;
-#endif
   }
 
   bool DoesDeviceSupportShared64Atomics(ID3D12Device *pDevice) {
-#if defined(NTDDI_WIN10_FE) && WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
     D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport(
             (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
     return O9.AtomicInt64OnGroupSharedSupported != FALSE;
-#else
-    UNREFERENCED_PARAMETER(pDevice);
-    return false;
-#endif
   }
 
   bool DoesDeviceSupportAdvancedTexOps(ID3D12Device *pDevice) {
-#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
     D3D12_FEATURE_DATA_D3D12_OPTIONS14 O14;
     if (FAILED(pDevice->CheckFeatureSupport(
             (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS14, &O14, sizeof(O14))))
       return false;
     return O14.AdvancedTextureOpsSupported != FALSE;
-#else
-    UNREFERENCED_PARAMETER(pDevice);
-    return false;
-#endif
   }
 
   bool DoesDeviceSupportWritableMSAA(ID3D12Device *pDevice) {
-#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
     D3D12_FEATURE_DATA_D3D12_OPTIONS14 O14;
     if (FAILED(pDevice->CheckFeatureSupport(
             (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS14, &O14, sizeof(O14))))
       return false;
     return O14.WriteableMSAATexturesSupported != FALSE;
-#else
-    UNREFERENCED_PARAMETER(pDevice);
-    return false;
-#endif
   }
 
   bool DoesDeviceSupportEnhancedBarriers(ID3D12Device *pDevice) {
-#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
     D3D12_FEATURE_DATA_D3D12_OPTIONS12 O12;
     if (FAILED(pDevice->CheckFeatureSupport(
             (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS12, &O12, sizeof(O12))))
       return false;
     return O12.EnhancedBarriersSupported != FALSE;
-#else
-    UNREFERENCED_PARAMETER(pDevice);
-    return false;
-#endif
   }
 
   bool DoesDeviceSupportRelaxedFormatCasting(ID3D12Device *pDevice) {
-#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
     D3D12_FEATURE_DATA_D3D12_OPTIONS12 O12;
     if (!DoesDeviceSupportEnhancedBarriers(pDevice))
       return false;
@@ -1448,10 +1322,6 @@ public:
             (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS12, &O12, sizeof(O12))))
       return false;
     return O12.RelaxedFormatCastingSupported != FALSE;
-#else
-    UNREFERENCED_PARAMETER(pDevice);
-    return false;
-#endif
   }
 
   bool IsFallbackPathEnabled() {
@@ -1482,177 +1352,6 @@ public:
     VERIFY_SUCCEEDED(hr);
   }
 #endif
-
-  HRESULT EnableDebugLayer() {
-    // The debug layer does net yet validate DXIL programs that require
-    // rewriting, but basic logging should work properly.
-    HRESULT hr = S_FALSE;
-    if (useDebugIfaces()) {
-      CComPtr<ID3D12Debug> debugController;
-      hr = D3D12GetDebugInterface(IID_PPV_ARGS(&debugController));
-      if (SUCCEEDED(hr)) {
-        debugController->EnableDebugLayer();
-        hr = S_OK;
-      }
-    }
-    return hr;
-  }
-
-  static std::wstring GetModuleName() {
-    wchar_t moduleName[MAX_PATH + 1] = {0};
-    DWORD length = GetModuleFileNameW(NULL, moduleName, MAX_PATH);
-    if (length == 0 || length == MAX_PATH) {
-      return std::wstring(); // Error condition
-    }
-    return std::wstring(moduleName, length);
-  }
-
-  static std::wstring ComputeSDKFullPath(std::wstring SDKPath) {
-    std::wstring modulePath = GetModuleName();
-    size_t pos = modulePath.rfind('\\');
-    if (pos == std::wstring::npos)
-      return SDKPath;
-    if (SDKPath.substr(0, 2) != L".\\")
-      return SDKPath;
-    return modulePath.substr(0, pos) + SDKPath.substr(1);
-  }
-
-  static UINT GetD3D12SDKVersion(std::wstring SDKPath) {
-    // Try to automatically get the D3D12SDKVersion from the DLL
-    UINT SDKVersion = 0;
-    std::wstring D3DCorePath = ComputeSDKFullPath(SDKPath);
-    D3DCorePath.append(L"D3D12Core.dll");
-    HMODULE hCore = LoadLibraryW(D3DCorePath.c_str());
-    if (hCore) {
-      if (UINT *pSDKVersion = (UINT *)GetProcAddress(hCore, "D3D12SDKVersion"))
-        SDKVersion = *pSDKVersion;
-      FreeModule(hCore);
-    }
-    return SDKVersion;
-  }
-
-  static HRESULT EnableAgilitySDK(HMODULE hRuntime, UINT SDKVersion,
-                                  LPCWSTR SDKPath) {
-    D3D12GetInterfaceFn pD3D12GetInterface =
-        (D3D12GetInterfaceFn)GetProcAddress(hRuntime, "D3D12GetInterface");
-    CComPtr<ID3D12SDKConfiguration> pD3D12SDKConfiguration;
-    IFR(pD3D12GetInterface(CLSID_D3D12SDKConfiguration,
-                           IID_PPV_ARGS(&pD3D12SDKConfiguration)));
-    IFR(pD3D12SDKConfiguration->SetSDKVersion(SDKVersion, CW2A(SDKPath)));
-
-    // Currently, it appears that the SetSDKVersion will succeed even when
-    // D3D12Core is not found, or its version doesn't match.  When that's the
-    // case, will cause a failure in the very next thing that actually requires
-    // D3D12Core.dll to be loaded instead.  So, we attempt to clear experimental
-    // features next, which is a valid use case and a no-op at this point.  This
-    // requires D3D12Core to be loaded.  If this fails, we know the AgilitySDK
-    // setting actually failed.
-    D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
-        (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
-            hRuntime, "D3D12EnableExperimentalFeatures");
-    if (pD3D12EnableExperimentalFeatures == nullptr) {
-      // If this failed, D3D12 must be too old for AgilitySDK.  But if that's
-      // the case, creating D3D12SDKConfiguration should have failed.  So while
-      // this case shouldn't be hit, fail if it is.
-      return HRESULT_FROM_WIN32(GetLastError());
-    }
-    return pD3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr);
-  }
-
-  static HRESULT EnableExperimentalShaderModels(HMODULE hRuntime) {
-    D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
-        (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
-            hRuntime, "D3D12EnableExperimentalFeatures");
-    if (pD3D12EnableExperimentalFeatures == nullptr) {
-      return HRESULT_FROM_WIN32(GetLastError());
-    }
-    return pD3D12EnableExperimentalFeatures(1, &D3D12ExperimentalShaderModelsID,
-                                            nullptr, nullptr);
-  }
-
-  static HRESULT EnableExperimentalShaderModels() {
-    HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
-    if (hRuntime == NULL)
-      return E_FAIL;
-    return EnableExperimentalShaderModels(hRuntime);
-  }
-
-  HRESULT EnableAgilitySDK(HMODULE hRuntime) {
-    // D3D12SDKVersion > 1 will use provided version, otherwise, auto-detect.
-    // D3D12SDKVersion == 1 means fail if we can't auto-detect.
-    UINT SDKVersion = 0;
-    WEX::TestExecution::RuntimeParameters::TryGetValue(L"D3D12SDKVersion",
-                                                       SDKVersion);
-
-    // SDKPath must be relative path from .exe, which means relative to
-    // TE.exe location, and must start with ".\\", such as with the
-    // default: ".\\D3D12\\"
-    WEX::Common::String SDKPath;
-    if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
-            L"D3D12SDKPath", SDKPath))) {
-      // Make sure path ends in backslash
-      if (!SDKPath.IsEmpty() && SDKPath.Right(1) != "\\") {
-        SDKPath.Append("\\");
-      }
-    }
-    if (SDKPath.IsEmpty()) {
-      SDKPath = L".\\D3D12\\";
-    }
-
-    bool mustFind = SDKVersion > 0;
-    if (SDKVersion <= 1) {
-      // lookup version from D3D12Core.dll
-      SDKVersion = GetD3D12SDKVersion((LPCWSTR)SDKPath);
-      if (mustFind && SDKVersion == 0) {
-        LogErrorFmt(L"Agility SDK not found in relative path: %s",
-                    (LPCWSTR)SDKPath);
-        return E_FAIL;
-      }
-    }
-
-    // Not found, not asked for.
-    if (SDKVersion == 0)
-      return S_FALSE;
-
-    HRESULT hr = EnableAgilitySDK(hRuntime, SDKVersion, (LPCWSTR)SDKPath);
-    if (FAILED(hr)) {
-      // If SDKVersion provided, fail if not successful.
-      // 1 means we should find it, and fill in the version automatically.
-      if (mustFind) {
-        LogErrorFmt(L"Failed to set Agility SDK version %d at path: %s",
-                    SDKVersion, (LPCWSTR)SDKPath);
-        return hr;
-      }
-      return S_FALSE;
-    }
-    if (hr == S_OK) {
-      LogCommentFmt(L"Agility SDK version set to: %d", SDKVersion);
-      m_AgilitySDKEnabled = true;
-    }
-    return hr;
-  }
-
-  HRESULT EnableExperimentalMode(HMODULE hRuntime) {
-    if (m_ExperimentalModeEnabled) {
-      return S_OK;
-    }
-
-#ifdef _FORCE_EXPERIMENTAL_SHADERS
-    bool bExperimentalShaderModels = true;
-#else
-    bool bExperimentalShaderModels = GetTestParamBool(L"ExperimentalShaders");
-#endif // _FORCE_EXPERIMENTAL_SHADERS
-
-    HRESULT hr = S_FALSE;
-    if (bExperimentalShaderModels) {
-      hr = EnableExperimentalShaderModels(hRuntime);
-      if (SUCCEEDED(hr)) {
-        m_ExperimentalModeEnabled = true;
-      }
-    }
-
-    return hr;
-  }
 
   struct FenceObj {
     HANDLE m_fenceEvent = NULL;
@@ -12068,7 +11767,7 @@ bool HelperLaneResultLogAndVerify(const wchar_t *testDesc,
   return matches;
 }
 
-bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm,
+bool VerifyHelperLaneWaveResults(D3D_SHADER_MODEL sm,
                                  HelperLaneWaveTestResult &testResults,
                                  HelperLaneWaveTestResult &expectedResults,
                                  bool verifyQuads) {
@@ -12136,7 +11835,7 @@ bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm,
         quad_tr_exp.is_helper_across_Diag, quad_tr.is_helper_across_Diag);
   }
 
-  if (sm >= ExecutionTest::D3D_SHADER_MODEL_6_5) {
+  if (sm >= D3D_SHADER_MODEL_6_5) {
     HelperLaneWaveTestResult65 &tr65 = testResults.sm65;
     HelperLaneWaveTestResult65 &tr65exp = expectedResults.sm65;
 
@@ -12168,7 +11867,7 @@ bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm,
 // to dispatch three waves that each process only a single vertex.
 // So instead of compare with fixed expected result, calculate the correct
 // result from ballot.
-bool VerifyHelperLaneWaveResultsForVS(ExecutionTest::D3D_SHADER_MODEL sm,
+bool VerifyHelperLaneWaveResultsForVS(D3D_SHADER_MODEL sm,
                                       HelperLaneWaveTestResult &testResults) {
   bool passed = true;
   XMUINT4 mask = testResults.sm60.ballot;
@@ -12230,7 +11929,7 @@ bool VerifyHelperLaneWaveResultsForVS(ExecutionTest::D3D_SHADER_MODEL sm,
                                            2 * (countBits - 1), tr60.prefixSum);
   }
 
-  if (sm >= ExecutionTest::D3D_SHADER_MODEL_6_5) {
+  if (sm >= D3D_SHADER_MODEL_6_5) {
     HelperLaneWaveTestResult65 &tr65 = testResults.sm65;
 
     passed &= HelperLaneResultLogAndVerify(
@@ -12699,7 +12398,13 @@ static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
 extern "C" {
 __declspec(dllexport) HRESULT WINAPI
     InitializeOpTests(void *pStrCtx, st::OutputStringFn pOutputStrFn) {
-  HRESULT hr = ExecutionTest::EnableExperimentalShaderModels();
+  HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
+
+  if (Runtime == NULL)
+    return E_FAIL;
+
+  HRESULT hr = enableExperimentalMode(Runtime);
+
   if (FAILED(hr)) {
     pOutputStrFn(pStrCtx, L"Unable to enable experimental shader models.\r\n.");
   }

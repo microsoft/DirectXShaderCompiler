@@ -98,6 +98,10 @@ if "%1"=="-clean" (
   echo Fallback to taef when use taef only options.
   set TEST_CLANG_FILTER=%2
   shift /1
+) else if "%1"=="compat-suite" (
+  set TEST_ALL=0
+  set TEST_COMPAT_SUITE=%2
+  shift /1
 ) else if "%1"=="file-check" (
   set TEST_ALL=0
   set TEST_MANUAL_FILE_CHECK=1
@@ -330,6 +334,18 @@ if "%TEST_USE_LIT%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang
       set RES_CLANG=!ERRORLEVEL!
     )
+    if "!TEST_COMPAT_SUITE!"=="1.6" (       
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilcompat-dxc_2021_12_08
+        set RES_COMPAT_1_6=!ERRORLEVEL!
+    )
+    if "!TEST_COMPAT_SUITE!"=="1.7" (       
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilcompat-dxc_2023_08_14
+        set RES_COMPAT_1_7=!ERRORLEVEL!
+    )
+    if "!TEST_COMPAT_SUITE!"=="1.8" (       
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilcompat-dxc_2025_02_20
+        set RES_COMPAT_1_8=!ERRORLEVEL!
+    )
     if "!TEST_EXEC!"=="1" (
       if defined EXEC_ADAPTER (
         py %HLSL_SRC_DIR%/utils/lit/lit.py -v --no-progress-bar --param build_mode=%BUILD_CONFIG% --param clang_site_config=%HLSL_BLD_DIR%/tools/clang/test/lit.site.cfg --param clang_taef_exec_site_config=%HLSL_BLD_DIR%/tools/clang/test/taef_exec/lit.site.cfg %EXEC_ADAPTER% %HLSL_SRC_DIR%/tools/clang/test/taef_exec
@@ -423,7 +439,6 @@ if "%TEST_CLANG%"=="1" (
   set RES_CLANG=!ERRORLEVEL!
 )
 
-
 if "%TEST_EXEC%"=="1" (
   call :copyagility
 )
@@ -497,6 +512,9 @@ if "%TEST_EXEC%"=="1" (
 call :check_result "hcttest-extras tests" %RES_EXTRAS%
 call :check_result "hcttest-after script" %RES_HCTTEST_AFTER%
 call :check_result "dxilconv tests" %RES_DXILCONV%
+call :check_result "compat-suite 1.6 tests" %RES_COMPAT_1_6%
+call :check_result "compat-suite 1.7 tests" %RES_COMPAT_1_7%
+call :check_result "compat-suite 1.8 tests" %RES_COMPAT_1_8%
 
 set EXIT_CODE=%TESTS_FAILED%
 if not "%TESTS_PASSED%"=="0" (
@@ -546,7 +564,7 @@ echo  clang         - run clang tests.
 echo  file-check    - run file-check test on single file.
 echo                - hcttest file-check "..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_arg_flatten.hlsl"
 echo  compat-suite  - run compat-suite test.
-echo                - hcttest compat-suite "..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten"
+echo                - hcttest compat-suite ^(1.6 ^| 1.7 ^| 1.8^)
 echo  cmd           - run command line tool tests.
 echo  dxilconv      - run dxilconv tests
 echo  v             - run the subset of clang tests that are verified-based.
@@ -582,8 +600,8 @@ if not defined HLSL_TAEF_DIR (
 ) else (
   set TE="%HLSL_TAEF_DIR%\%BUILD_ARCH_DIR%\te"
 )
-echo %TE% /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
-call %TE% /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+echo %TE% /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+call %TE% /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
 
 if errorlevel 1 (
   call :showtesample %*

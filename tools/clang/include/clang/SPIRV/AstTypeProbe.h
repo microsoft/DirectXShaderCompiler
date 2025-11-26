@@ -222,10 +222,12 @@ bool isRWStructuredBuffer(QualType type);
 bool isRWAppendConsumeSBuffer(QualType type);
 
 /// \brief Returns true if the given type is a ResourceDescriptorHeap.
-bool isResourceDescriptorHeap(QualType type);
+bool isResourceDescriptorHeap(QualType T);
+bool isResourceDescriptorHeap(const Decl *D);
 
 /// \brief Returns true if the given type is a SamplerDescriptorHeap.
-bool isSamplerDescriptorHeap(QualType type);
+bool isSamplerDescriptorHeap(const Decl *D);
+bool isSamplerDescriptorHeap(QualType T);
 
 /// \brief Returns true if the given type is the HLSL ByteAddressBufferType.
 bool isByteAddressBuffer(QualType type);

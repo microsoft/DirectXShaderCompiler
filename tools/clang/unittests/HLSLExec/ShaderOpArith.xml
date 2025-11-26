@@ -3717,15 +3717,277 @@ void MSMain(uint GID : SV_GroupIndex,
     </Shader>
   </ShaderOp>
 
+  <ShaderOp Name="LongVectorOp_RootDescriptor_UAV" CS="CS">
+    <RootSignature>UAV(u0), UAV(u1)</RootSignature>
+    <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
+    <Resource Name="InputVector1" Dimension="BUFFER" Init="ByName"
+    Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS"/>
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
+    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS"/>
+
+    <RootValues>
+      <RootValue Index="0" ResName="InputVector1" />
+      <RootValue Index="1" ResName="OutputVector" />
+    </RootValues>
+
+    <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
+      <![CDATA[
+        #if USE_STRUCTURED_BUFFER
+          struct SLongVec {
+            vector<TYPE, NUM> data;
+          };
+          RWStructuredBuffer<SLongVec> InputVector : register(u0);
+          RWStructuredBuffer<SLongVec> OutputVector: register(u1);
+        #else
+          RWByteAddressBuffer InputVector : register(u0);
+          RWByteAddressBuffer OutputVector : register(u1);
+        #endif
+
+        [numthreads(1,1,1)]
+        void main(uint GI : SV_GroupIndex) {
+          #if USE_STRUCTURED_BUFFER
+            OutputVector[0].data = InputVector[0].data;
+          #else
+            vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+            OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+          #endif
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="LongVectorOp_RootDescriptor_SRV" CS="CS">
+    <RootSignature>SRV(t0), UAV(u1)</RootSignature>
+    <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
+    <Resource Name="InputVector1" Dimension="BUFFER" Init="ByName"/>
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
+    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
+    TransitionTo="UNORDERED_ACCESS"/>
+
+    <RootValues>
+      <RootValue Index="0" ResName="InputVector1" />
+      <RootValue Index="1" ResName="OutputVector" />
+    </RootValues>
+
+    <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
+      <![CDATA[
+        #if USE_STRUCTURED_BUFFER
+          struct SLongVec {
+            vector<TYPE, NUM> data;
+          };
+          StructuredBuffer<SLongVec> InputVector : register(t0);
+          RWStructuredBuffer<SLongVec> OutputVector : register(u1);
+        #else
+          ByteAddressBuffer InputVector : register(t0);
+          RWByteAddressBuffer OutputVector : register(u1);
+        #endif
+
+        [numthreads(1,1,1)]
+        void main(uint GI : SV_GroupIndex) {
+          #if USE_STRUCTURED_BUFFER
+            OutputVector[0].data = InputVector[0].data;
+          #else
+            vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+            OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+          #endif
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="LongVectorOp_DescriptorTable_UAV" CS="CS">
+    <RootSignature>DescriptorTable(UAV(u0, numDescriptors=2))</RootSignature>
+    <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
+    <Resource Name="InputVector1" Dimension="BUFFER" Width="0" Init="ByName"
+    Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS"/>
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
+    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
+    TransitionTo="UNORDERED_ACCESS"/>
+
+    <!-- Note: NumElements is set dynamically (via c++ test code) based on the
+    input vector size and element type -->
+    <RootValues>
+      <RootValue HeapName="DescriptorTable" Index="0" />
+    </RootValues>
+    <DescriptorHeap Name="DescriptorTable" Type="CBV_SRV_UAV">
+      <Descriptor Name="InputVector1" Kind="UAV" ResName="InputVector1" NumElements="0"/>
+      <Descriptor Name="OutputVector" Kind="UAV" ResName="OutputVector"
+      NumElements="0"/>
+    </DescriptorHeap>
+
+    <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
+      <![CDATA[
+
+        #if USE_STRUCTURED_BUFFER
+          struct SLongVec {
+            vector<TYPE, NUM> data;
+          };
+          RWStructuredBuffer<SLongVec> InputVector : register(u0);
+          RWStructuredBuffer<SLongVec> OutputVector: register(u1);
+        #else
+          RWByteAddressBuffer InputVector : register(u0);
+          RWByteAddressBuffer OutputVector : register(u1);
+        #endif
+
+
+        [numthreads(1,1,1)]
+        void main(uint GI : SV_GroupIndex) {
+
+          #if USE_STRUCTURED_BUFFER
+            OutputVector[0].data = InputVector[0].data;
+          #else
+            vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+            OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+          #endif
+
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="LongVectorOp_DescriptorTable_SRV" CS="CS">
+    <RootSignature>DescriptorTable(SRV(t0, numDescriptors=1), UAV(u0, numDescriptors=1))</RootSignature>
+    <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
+    <Resource Name="InputVector1" Dimension="BUFFER" Width="0" Init="ByName"/>
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="0" Init="ByName"
+    ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS"
+    TransitionTo="UNORDERED_ACCESS"/>
+
+    <!-- Note: NumElements is set dynamically (via c++ test code) based on the
+    input vector size and element type -->
+    <RootValues>
+      <RootValue HeapName="DescriptorTable" Index="0" />
+    </RootValues>
+    <DescriptorHeap Name="DescriptorTable" Type="CBV_SRV_UAV">
+      <Descriptor Name="InputVector1" Kind="SRV" ResName="InputVector1" NumElements="0"/>
+      <Descriptor Name="OutputVector" Kind="UAV" ResName="OutputVector"
+      NumElements="0"/>
+    </DescriptorHeap>
+
+    <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
+      <![CDATA[
+        #if USE_STRUCTURED_BUFFER
+          struct SLongVec {
+            vector<TYPE, NUM> data;
+          };
+          StructuredBuffer<SLongVec> InputVector : register(t0);
+          RWStructuredBuffer<SLongVec> OutputVector: register(u0);
+        #else
+          ByteAddressBuffer InputVector : register(t0);
+          RWByteAddressBuffer OutputVector : register(u0);
+        #endif
+
+        [numthreads(1,1,1)]
+        void main(uint GI : SV_GroupIndex) {
+          #if USE_STRUCTURED_BUFFER
+            OutputVector[0].data = InputVector[0].data;
+          #else
+            vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+            OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+          #endif
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="LongVectorOp_ResourceDescriptorHeap_SRV" CS="CS">
+    <RootSignature>RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED)</RootSignature>
+
+    <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
+    <Resource Name="InputVector1" Dimension="BUFFER" Width="0"
+    InitialResourceState="COPY_DEST" Init="ByName"/>
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="0"
+    InitialResourceState="COPY_DEST" Init="ByName" ReadBack="true"
+    Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS"/>
+
+    <!-- Note: NumElements is set dynamically (via c++ test code) based on the
+    input vector size and element type -->
+    <DescriptorHeap Name="ResourceDescriptorHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name="InputVector1" Kind="SRV" NumElements="0"/>
+      <Descriptor Name="OutputVector" Kind="UAV" NumElements="0"/>
+    </DescriptorHeap>
+
+    <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
+      <![CDATA[
+        #if USE_STRUCTURED_BUFFER
+          struct SLongVec {
+            vector<TYPE, NUM> data;
+          };
+        #endif
+
+        [numthreads(1,1,1)]
+        void main(uint GI : SV_GroupIndex) {
+
+          #if USE_STRUCTURED_BUFFER
+            StructuredBuffer<SLongVec> InputVector = ResourceDescriptorHeap[0];
+            RWStructuredBuffer<SLongVec> OutputVector = ResourceDescriptorHeap[1];
+            OutputVector[0].data = InputVector[0].data;
+          #else
+            ByteAddressBuffer InputVector = ResourceDescriptorHeap[0];
+            RWByteAddressBuffer OutputVector = ResourceDescriptorHeap[1];
+
+            vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+
+            OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+          #endif
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="LongVectorOp_ResourceDescriptorHeap_UAV" CS="CS">
+    <RootSignature>RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED)</RootSignature>
+
+    <!-- Note: Width is set dynamically (via c++ test code) based on the input vector size and element type -->
+    <Resource Name="InputVector1" Dimension="BUFFER" Width="0"
+    Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS"/>
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="0"
+    Init="ByName" ReadBack="true" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS"/>
+
+    <!-- Note: NumElements is set dynamically (via c++ test code) based on the
+    input vector size and element type -->
+    <DescriptorHeap Name="ResourceDescriptorHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name="InputVector1" Kind="UAV" NumElements="0"/>
+      <Descriptor Name="OutputVector" Kind="UAV" NumElements="0"/>
+    </DescriptorHeap>
+
+    <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
+      <![CDATA[
+        #if USE_STRUCTURED_BUFFER
+          struct SLongVec {
+            vector<TYPE, NUM> data;
+          };
+        #endif
+        
+        [numthreads(1,1,1)]
+        void main(uint GI : SV_GroupIndex) {
+          #if USE_STRUCTURED_BUFFER
+            RWStructuredBuffer<SLongVec> InputVector = ResourceDescriptorHeap[0];
+            RWStructuredBuffer<SLongVec> OutputVector = ResourceDescriptorHeap[1];
+            OutputVector[0].data = InputVector[0].data;
+          #else
+            RWByteAddressBuffer InputVector = ResourceDescriptorHeap[0];
+            RWByteAddressBuffer OutputVector = ResourceDescriptorHeap[1];
+
+            vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+
+            OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+          #endif
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
   <ShaderOp Name="LongVectorOp" CS="CS">
-    <RootSignature>RootFlags(0), UAV(u0), UAV(u1), UAV(u2),
-    UAV(u3)</RootSignature>
+    <RootSignature>UAV(u0), UAV(u1), UAV(u2), UAV(u3)</RootSignature>
     <!-- Width="8192" BYTES to account for largest type (64 bits) and vector
     size of 1024 elements (the max long vector size)-->
     <Resource Name="InputVector1" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <Resource Name="InputVector2" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <Resource Name="InputVector3" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
-    <Resource Name="OutputVector" Dimension="BUFFER" Width="8192" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="OutputVector" Dimension="BUFFER" Width="8192"
+    Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+    TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <RootValues>
       <RootValue Index="0" ResName="InputVector1" />
       <RootValue Index="1" ResName="InputVector2" />
@@ -3751,8 +4013,6 @@ void MSMain(uint GID : SV_GroupIndex,
                 ','/
                 OR for unary intrinsics it is expanded to ' ' (empty).
                 OR for ternary intrinsics it is always expanded to ','.
-     OPERAND_IS_SCALAR_FLAGS : Bitmask indicating which operands are to be
-     interpretted as scalar.
      -->
     <Shader Name="CS" Target="cs_6_9" EntryPoint="main">
       <![CDATA[
@@ -3765,9 +4025,6 @@ void MSMain(uint GID : SV_GroupIndex,
         #define IS_BINARY_OP (BASIC_OP_TYPE == 0x2)
         #define IS_TERNARY_OP (BASIC_OP_TYPE == 0x3)
 
-        #define OPERAND_2_IS_SCALAR (OPERAND_IS_SCALAR_FLAGS & 0x2)
-        #define OPERAND_3_IS_SCALAR (OPERAND_IS_SCALAR_FLAGS & 0x4)
-
         #ifdef FUNC_INITIALIZE
         vector<TYPE, NUM> TestInitialize(vector<TYPE, NUM> Vector)
         {
@@ -3776,10 +4033,18 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-        #ifdef FUNC_UNARY_OPERATOR
-        vector<OUT_TYPE, NUM> TestUnaryOperator(vector<TYPE, NUM> Vector)
+        #ifdef FUNC_TEST_CAST
+        vector<OUT_TYPE, NUM> TestCast(vector<TYPE, NUM> Vector)
         {
-          return OPERATOR(Vector);
+          return (vector<OUT_TYPE, NUM>)Vector;
+        }
+        #endif
+
+        #ifdef FUNC_TERNARY_ASSIGNMENT
+        vector<TYPE, NUM> TestTernaryAssignment(vector<TYPE, NUM> Vector,
+                                                vector<TYPE, NUM> Vector2))
+        {
+          return (TERNARY_CONDITION ? Vector : Vector2);
         }
         #endif
 
@@ -3818,43 +4083,447 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-        [numthreads(1,1,1)]
+        #ifdef FUNC_WAVE_ACTIVE_MIN
+        vector<OUT_TYPE, NUM> TestWaveActiveMin(vector<TYPE, NUM> Vector)
+        {
+          Vector += WaveGetLaneIndex();
+          return WaveActiveMin(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_MAX
+        vector<OUT_TYPE, NUM> TestWaveActiveMax(vector<TYPE, NUM> Vector)
+        {
+          Vector += WaveGetLaneIndex();
+          return WaveActiveMax(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_PRODUCT
+        vector<OUT_TYPE, NUM> TestWaveActiveProduct(vector<TYPE, NUM> Vector)
+        {
+          uint LaneIndex = WaveGetLaneIndex();
+          if(LaneIndex == (WaveGetLaneCount() - 1))
+          {
+            Vector = LaneIndex;
+          }
+          return WaveActiveProduct(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_BIT_AND
+        vector<OUT_TYPE, NUM> TestWaveActiveBitAnd(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == (WaveGetLaneCount() - 1))
+          {
+            // Clear the LSB on the last lane only.
+            Vector = Vector & ~((OUT_TYPE)1);
+          }
+          return WaveActiveBitAnd(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_BIT_OR
+        vector<OUT_TYPE, NUM> TestWaveActiveBitOr(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == (WaveGetLaneCount() - 1))
+          {
+            // Set the LSB on the last lane only.
+            Vector = Vector | ((OUT_TYPE)1);
+          }
+          return WaveActiveBitOr(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_BIT_XOR
+        vector<OUT_TYPE, NUM> TestWaveActiveBitXor(vector<TYPE, NUM> Vector)
+        {
+          const uint isChosen = (WaveGetLaneIndex() == 0) ? 1 : 0;
+          // Clear the LSB for all lanes except lane 0, which sets it to 1.
+          Vector = (Vector & ~((OUT_TYPE)1)) | (OUT_TYPE)isChosen;
+
+          return WaveActiveBitOr(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_ACTIVE_ALL_EQUAL
+        bool MakeDifferent(bool A) { return !A; }
+        uint MakeDifferent(uint A) { return A ^ 1; }
+        uint64_t MakeDifferent(uint64_t A) { return A ^ 1; }
+        int MakeDifferent(int A) { return A ^ 1; }
+        int64_t MakeDifferent(int64_t A) { return A ^ 1; }
+        half MakeDifferent(half A) { return A + (half)1.0h; }
+        float MakeDifferent(float A) { return A + 1.0f; }
+        double MakeDifferent(double A) { return A + 1.0; }
+
+        #if defined(__HLSL_ENABLE_16BIT_TYPES)
+        uint16_t MakeDifferent(uint16_t A) { return A ^ 1; }
+        int16_t MakeDifferent(int16_t A) { return A ^ 1; }
+        #endif // defined(__HLSL_ENABLE_16BIT_TYPES)
+
+        vector<OUT_TYPE, NUM> TestWaveActiveAllEqual(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == (WaveGetLaneCount() - 1))
+          {
+            // We just want to set the last element to any different value.
+            Vector[NUM - 1] = MakeDifferent(Vector[NUM - 1]);
+          }
+
+          return WaveActiveAllEqual(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_READ_LANE_AT
+        vector<OUT_TYPE, NUM> TestWaveReadLaneAt(vector<TYPE, NUM> Vector)
+        {
+          // Keep it simple and just read the last lane.
+          const uint LaneToRead = WaveGetLaneCount() - 1;
+          if(WaveGetLaneIndex() == LaneToRead)
+          {
+            [unroll]
+            for(uint i = 1; i < NUM; ++i)
+            {
+              Vector[i] = Vector[0];
+            }
+          }
+          return WaveReadLaneAt(Vector, LaneToRead);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_READ_LANE_FIRST
+        vector<OUT_TYPE, NUM> TestWaveReadLaneFirst(vector<TYPE, NUM> Vector)
+        {
+          if(WaveGetLaneIndex() == 0)
+          {
+            [unroll]
+            for(uint i = 1; i < NUM; ++i)
+            {
+              Vector[i] = Vector[0];
+            }
+          }
+          return WaveReadLaneFirst(Vector);
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_PREFIX_SUM
+        void TestWavePrefixSum(vector<TYPE, NUM> Vector)
+        {
+          const uint LaneCount = WaveGetLaneCount();
+          const uint MidLane = LaneCount/2;
+
+          Vector = WavePrefixSum(Vector);
+          if(WaveGetLaneIndex() == MidLane)
+          {
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_PREFIX_PRODUCT
+        void TestWavePrefixProduct(vector<TYPE, NUM> Vector)
+        {
+          Vector = WavePrefixProduct(Vector);
+          if(WaveGetLaneIndex() == 2)
+          {
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_MULTI_PREFIX_SUM
+        void TestWaveMultiPrefixSum(vector<TYPE, NUM> Vector)
+        {
+          uint Key = (WaveGetLaneIndex() == 1 || WaveGetLaneIndex() == 2 || WaveGetLaneIndex() == 3) ? 1u : 0u;
+
+          // Two groups. Lanes 1,2,3 in one group (Key=1), Lanes 0,(4..N) in
+          // other (Key=0).
+          uint4 Mask = WaveMatch(Key);
+
+          if(WaveGetLaneIndex() == 0)
+          {
+            // Lane 0 isn't in the mask. Shove in a value to make sure it
+            // doesn't constribute to the result.
+            Vector = 1;
+          }
+
+          if(WaveGetLaneIndex() >= 3)
+          {
+            // Lane 3 is the last lane in the mask. We want to make sure
+            // it doesn't contribute to the result as this is a prefix op.
+            Vector = 10;
+          }
+
+          Vector = WaveMultiPrefixSum(Vector, Mask);
+          if(WaveGetLaneIndex() == 3)
+          {
+            // Lane 3 is the last lane in the mask that we care about. Store the
+            // result from it.
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_MULTI_PREFIX_PRODUCT
+        void TestWaveMultiPrefixProduct(vector<TYPE, NUM> Vector)
+        {
+          uint Key = (WaveGetLaneIndex() == 1 || WaveGetLaneIndex() == 2 || WaveGetLaneIndex() == 3) ? 1u : 0u;
+
+          // Two groups. Lanes 1,2,3 in one group (Key=1), Lanes 0,(4..N) in
+          // other (Key=0).
+          uint4 Mask = WaveMatch(Key);
+
+          if(WaveGetLaneIndex() == 0)
+          {
+            // Lane 0 isn't in the mask. Shove in a value to make sure it
+            // doesn't constribute to the result.
+            Vector = 4;
+          }
+
+          if(WaveGetLaneIndex() == 3)
+          {
+            // Lane 3 is the last lane in the mask. We want to make sure
+            // it doesn't contribute to the result as this is a prefix op.
+            Vector = 10;
+          }
+
+          Vector = WaveMultiPrefixProduct(Vector, Mask);
+          if(WaveGetLaneIndex() == 3)
+          {
+            // Lane 3 is the last lane in the mask. Store the result from it.
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_MULTI_PREFIX_BIT_AND
+        void TestWaveMultiPrefixBitAnd(vector<TYPE, NUM> Vector)
+        {
+          uint Key = (WaveGetLaneIndex() == 1 || WaveGetLaneIndex() == 2 || WaveGetLaneIndex() == 3) ? 1u : 0u;
+
+          // Two groups. Lanes 1,2,3 in one group (Key=1), Lanes 0,(4..N) in
+          // other (Key=0).
+          uint4 Mask = WaveMatch(Key);
+
+          if(WaveGetLaneIndex() == 0 || WaveGetLaneIndex() == 3)
+          {
+            // Clear LSB on lane 0 and lane 3. Lane 0 isn't in the mask so
+            // shouldn't participate. Lane 3 is the output lane for this prefix 
+            // op, so we set distinctive bits to verify it doesn't affect its own result.
+            Vector = Vector & ~((OUT_TYPE)0x1);
+          }
+          else // Lanes 1,2 (active contributors to the prefix operation)
+          {
+            // Keep only bits 1 and 2 (0x6 = 0b0110) to create predictable AND patterns
+            Vector = (Vector & ((OUT_TYPE)0x6));
+          }
+
+          Vector = WaveMultiPrefixBitAnd(Vector, Mask);
+          if(WaveGetLaneIndex() == 3)
+          {
+            // Lane 3 is the last lane in the mask. Store the result from it.
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_MULTI_PREFIX_BIT_OR
+        void TestWaveMultiPrefixBitOr(vector<TYPE, NUM> Vector)
+        {
+          uint Key = (WaveGetLaneIndex() == 1 || WaveGetLaneIndex() == 2 || WaveGetLaneIndex() == 3) ? 1u : 0u;
+
+          // Two groups. Lanes 1,2,3 in one group (Key=1), Lanes 0,(4..N) in
+          // other (Key=0).
+          uint4 Mask = WaveMatch(Key);
+
+          if(WaveGetLaneIndex() == 1 || WaveGetLaneIndex() == 2 || WaveGetLaneIndex() == 3)
+          {
+            // Lanes 1,2,3 (inside the mask): Clear bit 1 (0x2) to create 
+            // predictable OR patterns
+            Vector = Vector & ~((OUT_TYPE)0x2);
+          }
+          else
+          {
+            // Lane 0 (outside the mask): Set bit 1 to verify this lane
+            // doesn't contribute to the result
+            Vector = Vector | ((OUT_TYPE)0x2);
+          }
+
+          if(WaveGetLaneIndex() == 3)
+          {
+            // Lane 3 is the output lane: Set all bits to verify it doesn't 
+            // affect its own prefix result (since prefix excludes current lane)
+            Vector = Vector | ~((OUT_TYPE)0x0);
+          }
+
+          Vector = WaveMultiPrefixBitOr(Vector, Mask);
+          if(WaveGetLaneIndex() == 3)
+          {
+            // Lane 3 is the last lane in the mask. Store the result from it.
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_WAVE_MULTI_PREFIX_BIT_XOR
+        void TestWaveMultiPrefixBitXor(vector<TYPE, NUM> Vector)
+        {
+          uint Key = (WaveGetLaneIndex() == 1 || WaveGetLaneIndex() == 2 || WaveGetLaneIndex() == 3) ? 1u : 0u;
+
+          // Two groups. Lanes 1,2,3 in one group (Key=1), Lanes 0,(4..N) in
+          // other (Key=0).
+          uint4 Mask = WaveMatch(Key);
+
+          if(WaveGetLaneIndex() == 0)
+          {
+            // Lane 0 is not in the mask, so these values should have no effect
+            // on the prefix result. Set to 0 to verify exclusion.
+            Vector = 0;
+          }
+
+          if(WaveGetLaneIndex() == 2)
+          {
+            // Lane 2: Create a specific pattern for XOR testing.
+            // Zero the lower half of the vector to create predictable XOR results.
+            [unroll]
+            for(uint I = 0; I < NUM/2; ++I)
+            {
+              Vector[I] = 0;
+            }
+
+            // Also zero the last element to test edge cases
+            Vector[NUM - 1] = 0;
+          }
+          // Lane 1 and 3: Keep original input values
+          // Lane 3 will store the result (lane 1 XOR lane 2 prefix)
+
+          Vector = WaveMultiPrefixBitXor(Vector, Mask);
+          if(WaveGetLaneIndex() == 3)
+          {
+            // Store result from lane 3 (last lane in mask)
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_TEST_SELECT
+        vector<OUT_TYPE, NUM> TestSelect(vector<TYPE, NUM> Vector1,
+                                         vector<TYPE, NUM> Vector2,
+                                         vector<TYPE, NUM> Vector3)
+        {
+          vector<bool, NUM> VectorCond = (Vector1 != 0);
+          return select(VectorCond, Vector2, Vector3);
+        }
+        #endif
+
+        #ifdef FUNC_TEST_MODF
+        vector<OUT_TYPE, NUM> TestModF(vector<TYPE, NUM> Vector)
+        {
+          vector<OUT_TYPE, NUM> Mantissa;
+          vector<OUT_TYPE, NUM> Exponent;
+
+          Mantissa = modf(Vector, Exponent);
+
+          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(sizeof(OUT_TYPE) * NUM, Exponent);
+
+          return Mantissa;
+        }
+        #endif
+
+        #ifdef FUNC_SHUFFLE_VECTOR
+        vector<OUT_TYPE, NUM> TestShuffleVector(TYPE Scalar)
+        {
+          vector<OUT_TYPE, NUM> Vector = Scalar;
+          return Vector;
+        }
+        #endif
+
+        #ifdef NUMTHREADS_X
+          #define NUMTHREADS_ATTR [numthreads(NUMTHREADS_X, 1, 1)]
+        #else
+          #define NUMTHREADS_ATTR [numthreads(1, 1, 1)]
+        #endif
+
+        #ifdef WAVE_SIZE
+          #define WAVE_SIZE_ATTR [WaveSize(WAVE_SIZE)]
+        #else
+          #define WAVE_SIZE_ATTR
+        #endif
+
+        WAVE_SIZE_ATTR
+        NUMTHREADS_ATTR
         void main(uint GI : SV_GroupIndex) {
 
-          // First input is always a vector, regardless of the basic op type.
-          vector<TYPE, NUM> Input1 = g_InputVector1.Load< vector<TYPE,
-          NUM> >(0);
+          #ifdef FUNC_SHUFFLE_VECTOR
+            // For shuffle vector, the input is a scalar, not a vector.
+            TYPE Input1 = g_InputVector1.Load<TYPE>(0);
+          #else
+            // For all other basic op types the first input is always a vector.
+            vector<TYPE, NUM> Input1 = g_InputVector1.Load< vector<TYPE,
+            NUM> >(0);
+          #endif
 
           #if (IS_BINARY_OP || IS_TERNARY_OP)
-              #if OPERAND_2_IS_SCALAR
-              TYPE Input2 = g_InputVector2.Load<TYPE>(0);
-              #else
-              vector<TYPE, NUM> Input2 = g_InputVector2.Load< vector<TYPE,
-              NUM> >(0);
-              #endif
+            vector<TYPE, NUM> Input2 = g_InputVector2.Load< vector<TYPE,
+            NUM> >(0);
           #endif
 
           #if IS_TERNARY_OP
-            #if OPERAND_3_IS_SCALAR
-              TYPE Input3 = g_InputVector3.Load<TYPE>(0);
-              #else
-              vector<TYPE, NUM> Input3 = g_InputVector3.Load< vector<TYPE,
-              NUM> >(0);
-            #endif
+            vector<TYPE, NUM> Input3 = g_InputVector3.Load< vector<TYPE,
+            NUM> >(0);
           #endif
 
-          #if IS_UNARY_OP
-            vector<OUT_TYPE, NUM> OutputVector = FUNC(Input1);
+          #ifdef IS_REDUCTION_OP
+            const uint32_t OutNum = 1;
+          #else
+            const uint32_t OutNum = NUM;
+          #endif
+
+          vector<OUT_TYPE, OutNum> OutputVector;
+          #ifdef IS_WAVE_PREFIX_OP
+            // Wave prefix ops store the output on a specific lane only.
+            FUNC(Input1);
+            return;
+          #elif TEST_ARRAY_OPERATOR
+            // This test case is for testing array operator [].
+            // It tests static array access with a compile time constant index array.
+            // Or dynamic access, by introducing a runtime dependency that prevents the
+            // index array from being a compile time constant.
+            const uint IndexCount = 6;
+            const uint IndexList[IndexCount] = {
+              0, 
+              OutNum - 1, 
+              1, 
+              OutNum - 2, 
+              OutNum / 2, 
+              OutNum / 2 + 1
+            };
+          
+            OutputVector = 0;
+            uint End = min(OutNum, IndexCount);
+
+            #if DYNAMIC_ACCESS
+              const uint Zero = (uint) Input2[0];
+            #endif
+
+            [unroll]for(uint i = 0; i < End; ++i) {
+            #if DYNAMIC_ACCESS
+              uint index = (uint)(IndexList[i] + Zero);
+            #else
+              uint index = (uint)(IndexList[i]);
+            #endif
+              OutputVector[index] = Input1[index];
+            }
+          #elif IS_UNARY_OP
+            OutputVector = FUNC(Input1);
           #elif IS_BINARY_OP
-            vector<OUT_TYPE, NUM> OutputVector = FUNC(Input1 OPERATOR
-            Input2);
+            OutputVector = FUNC(Input1 OPERATOR Input2);
           #elif IS_TERNARY_OP
             // Ternary ops don't bother expanding OPERATOR because its
             // always going to be comma for these test cases.
-            vector<OUT_TYPE, NUM> OutputVector = FUNC(Input1, Input2,
-            Input3);
+            OutputVector = FUNC(Input1, Input2, Input3);
           #endif
-          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, OutputVector);
+
+          g_OutputVector.Store< vector<OUT_TYPE, OutNum> >(0, OutputVector);
         };
       ]]>
     </Shader>

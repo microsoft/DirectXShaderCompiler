@@ -567,9 +567,19 @@ if(LLVM_USE_SANITIZER)
   endif()
 endif()
 
-# Turn on -gsplit-dwarf if requested
-if(LLVM_USE_SPLIT_DWARF)
-  add_definitions("-gsplit-dwarf")
+# Turn on -gsplit-dwarf if requested in debug builds.
+if (LLVM_USE_SPLIT_DWARF AND
+    ((uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG") OR
+     (uppercase_CMAKE_BUILD_TYPE STREQUAL "RELWITHDEBINFO")))
+  # Limit to clang and gcc so far. Add compilers supporting this option.
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
+      CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-gsplit-dwarf>)
+    include(CheckLinkerFlag)
+    check_linker_flag(CXX "-Wl,--gdb-index" LINKER_SUPPORTS_GDB_INDEX)
+    append_if(LINKER_SUPPORTS_GDB_INDEX "-Wl,--gdb-index"
+      CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS)
+  endif()
 endif()
 
 add_llvm_definitions( -D__STDC_CONSTANT_MACROS )

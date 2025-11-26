@@ -1436,6 +1436,17 @@ Value *TranslateWaveAllEqual(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                               hlslOP, Builder);
 }
 
+static Value *TranslateWaveMatchFixReturn(IRBuilder<> &Builder, Type *TargetTy,
+                                          Value *RetVal) {
+  Value *ResVec = UndefValue::get(TargetTy);
+  for (unsigned i = 0; i != 4; ++i) {
+    Value *Elt = Builder.CreateExtractValue(RetVal, i);
+    ResVec = Builder.CreateInsertElement(ResVec, Elt, i);
+  }
+
+  return ResVec;
+}
+
 // WaveMatch(val<n>)->uint4
 Value *TranslateWaveMatch(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opc,
                           HLOperationLowerHelper &Helper,
@@ -1444,57 +1455,54 @@ Value *TranslateWaveMatch(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opc,
   hlsl::OP *Op = &Helper.hlslOP;
   IRBuilder<> Builder(CI);
 
+  Value *Val = CI->getArgOperand(1);
+  Type *ValTy = Val->getType();
+  Type *EltTy = ValTy->getScalarType();
+  Constant *OpcArg = Op->GetU32Const((unsigned)DXIL::OpCode::WaveMatch);
+
+  // If we don't need to scalarize, just emit the call and exit
+  const bool Scalarize =
+      ValTy->isVectorTy() &&
+      !Op->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus();
+  if (!Scalarize) {
+    Value *Fn = Op->GetOpFunc(OP::OpCode::WaveMatch, ValTy);
+    Value *Args[] = {OpcArg, Val};
+    Value *Ret = Builder.CreateCall(Fn, Args);
+    return TranslateWaveMatchFixReturn(Builder, CI->getType(), Ret);
+  }
+
   // Generate a dx.op.waveMatch call for each scalar in the input, and perform
-  // a bitwise AND between each result to derive the final bitmask in the case
-  // of vector inputs.
+  // a bitwise AND between each result to derive the final bitmask
 
   // (1) Collect the list of all scalar inputs (e.g. decompose vectors)
   SmallVector<Value *, 4> ScalarInputs;
 
-  Value *Val = CI->getArgOperand(1);
-  Type *ValTy = Val->getType();
-  Type *EltTy = ValTy->getScalarType();
-
-  if (ValTy->isVectorTy()) {
-    for (uint64_t i = 0, e = ValTy->getVectorNumElements(); i != e; ++i) {
-      Value *Elt = Builder.CreateExtractElement(Val, i);
-      ScalarInputs.push_back(Elt);
-    }
-  } else {
-    ScalarInputs.push_back(Val);
+  for (uint64_t I = 0, E = ValTy->getVectorNumElements(); I != E; ++I) {
+    Value *Elt = Builder.CreateExtractElement(Val, I);
+    ScalarInputs.push_back(Elt);
   }
-
-  Value *Res = nullptr;
-  Constant *OpcArg = Op->GetU32Const((unsigned)DXIL::OpCode::WaveMatch);
-  Value *Fn = Op->GetOpFunc(OP::OpCode::WaveMatch, EltTy);
 
   // (2) For each scalar, emit a call to dx.op.waveMatch. If this is not the
   // first scalar, then AND the result with the accumulator.
-  for (unsigned i = 0, e = ScalarInputs.size(); i != e; ++i) {
-    Value *Args[] = {OpcArg, ScalarInputs[i]};
+  Value *Fn = Op->GetOpFunc(OP::OpCode::WaveMatch, EltTy);
+  Value *Args[] = {OpcArg, ScalarInputs[0]};
+  Value *Res = Builder.CreateCall(Fn, Args);
+
+  for (unsigned I = 1, E = ScalarInputs.size(); I != E; ++I) {
+    Value *Args[] = {OpcArg, ScalarInputs[I]};
     Value *Call = Builder.CreateCall(Fn, Args);
 
-    if (Res) {
-      // Generate bitwise AND of the components
-      for (unsigned j = 0; j != 4; ++j) {
-        Value *ResVal = Builder.CreateExtractValue(Res, j);
-        Value *CallVal = Builder.CreateExtractValue(Call, j);
-        Value *And = Builder.CreateAnd(ResVal, CallVal);
-        Res = Builder.CreateInsertValue(Res, And, j);
-      }
-    } else {
-      Res = Call;
+    // Generate bitwise AND of the components
+    for (unsigned J = 0; J != 4; ++J) {
+      Value *ResVal = Builder.CreateExtractValue(Res, J);
+      Value *CallVal = Builder.CreateExtractValue(Call, J);
+      Value *And = Builder.CreateAnd(ResVal, CallVal);
+      Res = Builder.CreateInsertValue(Res, And, J);
     }
   }
 
   // (3) Convert the final aggregate into a vector to make the types match
-  Value *ResVec = UndefValue::get(CI->getType());
-  for (unsigned i = 0; i != 4; ++i) {
-    Value *Elt = Builder.CreateExtractValue(Res, i);
-    ResVec = Builder.CreateInsertElement(ResVec, Elt, i);
-  }
-
-  return ResVec;
+  return TranslateWaveMatchFixReturn(Builder, CI->getType(), Res);
 }
 
 // Wave intrinsics of the form fn(valA)->valB, where no overloading takes place
@@ -2598,8 +2606,10 @@ Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Type *EltTy = Ty->getScalarType();
 
   // SM6.9 introduced a DXIL operation for vectorized dot product
+  // The operation is only advantageous for vect size>1, vec1s will be
+  // lowered to a single Mul.
   if (hlslOP->GetModule()->GetHLModule().GetShaderModel()->IsSM69Plus() &&
-      EltTy->isFloatingPointTy()) {
+      EltTy->isFloatingPointTy() && Ty->getVectorNumElements() > 1) {
     Value *arg1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
     IRBuilder<> Builder(CI);
     Constant *opArg = hlslOP->GetU32Const((unsigned)DXIL::OpCode::FDot);

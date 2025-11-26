@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T lib_6_9   -DTYPE=uint     -DNUM=5 %s | FileCheck %s --check-prefixes=CHECK,UNSIG
 // RUN: %dxc -T lib_6_9   -DTYPE=int64_t  -DNUM=3 %s | FileCheck %s --check-prefixes=CHECK,SIG
 // RUN: %dxc -T lib_6_9   -DTYPE=uint16_t -DNUM=9 -enable-16bit-types %s | FileCheck %s --check-prefixes=CHECK,UNSIG

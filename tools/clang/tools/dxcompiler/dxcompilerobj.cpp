@@ -718,8 +718,6 @@ public:
 
       unsigned rootSigMajor = 0;
       unsigned rootSigMinor = 0;
-      // NOTE: this calls the validation component from dxil.dll; the built-in
-      // validator can be used as a fallback.
       bool produceFullContainer = false;
       bool needsValidation = false;
       bool validateRootSigContainer = false;
@@ -751,7 +749,7 @@ public:
 
         // Parse and apply
         if (opts.BindingTableDefine.size()) {
-          // Just pas the define for now because preprocessor is not available
+          // Just pass the define for now because preprocessor is not available
           // yet.
           struct BindingTableParserImpl
               : public CodeGenOptions::BindingTableParserType {
@@ -834,13 +832,8 @@ public:
           compiler.getLangOpts().HLSLEntryFunction =
               compiler.getCodeGenOpts().HLSLEntryFunction = "";
 
-        // NOTE: this calls the validation component from dxil.dll; the built-in
-        // validator can be used as a fallback.
-        produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
-                               !opts.OptDump && rootSigMajor == 0 &&
-                               !opts.DumpDependencies &&
-                               !opts.VerifyDiagnostics;
-        needsValidation = produceFullContainer && !opts.DisableValidation;
+        produceFullContainer = opts.ProduceFullContainer();
+        needsValidation = opts.NeedsValidation();
 
         if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_x") {
           // Currently do not support stripping reflection from offline linking

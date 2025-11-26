@@ -285,6 +285,21 @@ Right now the following ``<builtin>`` are supported:
 Please see Vulkan spec. `15.9. Built-In Variables <https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#interfaces-builtin-variables>`_
 for detailed explanation of these builtins.
 
+Helper Lane Support
+~~~~~~~~~~~~~~~~~~~
+
+Shader Model 6.7 introduces the `[WaveOpsIncludeHelperLanes]` attribute. When this
+attribute is applied to a shader entry point, the SPIR-V backend will:
+
+1. Add the ``SPV_KHR_maximal_reconvergence`` and ``SPV_KHR_quad_control``
+   extensions to the module.
+2. Add the ``QuadControlKHR`` capability.
+3. Add the ``MaximallyReconvergesKHR`` and ``RequireFullQuadsKHR`` execution modes
+   to the entry point.
+
+This ensures that helper lanes are included in wave operations, which is the
+behavior required by the HLSL specification.
+
 Supported extensions
 ~~~~~~~~~~~~~~~~~~~~
 

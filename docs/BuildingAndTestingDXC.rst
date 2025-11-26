@@ -36,7 +36,7 @@ Building on windows additionally requires:
 * [Visual Studio 2019 or later](https://www.visualstudio.com/downloads) - select the following workloads: 
     * Universal Windows Platform Development
     * Desktop Development with C++
-* [Windows SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk) - version 10.0.18362.0 or newer
+* [Windows SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-sdk) - version 10.0.26100.0 or newer
 * [Windows Driver Kit](https://docs.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk) - same version as the SDK
 
 Note: DXC uses submodules for some external dependencies. You must initialize
