@@ -39,6 +39,7 @@ jobs:
           cmake --install build/include/dxc --prefix build/install --config ${{ matrix.configuration }}
           cmake --install build/tools/clang/tools/dxcompiler --prefix build/install --config ${{ matrix.configuration }}
           cmake -E copy build/${{ matrix.configuration }}/bin/dxcompiler.pdb build/install/lib/
+          cmake -E copy build/${{ matrix.configuration }}/bin/dxc.exe build/install/bin/
           cmake -E copy include/dxc/WinAdapter.h build/install/include/dxc/
         shell: cmd
 
