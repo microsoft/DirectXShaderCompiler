@@ -1542,6 +1542,49 @@ template <typename T> T waveMultiPrefixProduct(T A, UINT) {
   return A * A;
 }
 
+template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
+
+template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
+  static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
+                                         const InputSets<T> &,
+                                         const UINT WaveSize) {
+    // For this test, the shader arranges it so that lane 0 is different from
+    // all the other lanes. Besides that all other lines write their result of
+    // WaveMatch as well.
+
+    std::vector<UINT> Expected;
+    Expected.assign(WaveSize * 4, 0);
+
+    const UINT LowWaves = std::min(64U, WaveSize);
+    const UINT HighWaves = WaveSize - LowWaves;
+
+    const uint64_t LowWaveMask =
+        (LowWaves < 64) ? (1ULL << LowWaves) - 1 : ~0ULL;
+
+    const uint64_t HighWaveMask =
+        (HighWaves < 64) ? (1ULL << HighWaves) - 1 : ~0ULL;
+
+    const uint64_t LowExpected = ~1ULL & LowWaveMask;
+    const uint64_t HighExpected = ~0ULL & HighWaveMask;
+
+    Expected[0] = 1;
+    Expected[1] = 0;
+    Expected[2] = 0;
+    Expected[3] = 0;
+
+    // all lanes other than the first one have the same result
+    for (UINT I = 1; I < WaveSize; ++I) {
+      const UINT Index = I * 4;
+      Expected[Index] = static_cast<UINT>(LowExpected);
+      Expected[Index + 1] = static_cast<UINT>(LowExpected >> 32);
+      Expected[Index + 2] = static_cast<UINT>(HighExpected);
+      Expected[Index + 3] = static_cast<UINT>(HighExpected >> 32);
+    }
+
+    return Expected;
+  }
+};
+
 #undef WAVE_OP
 
 //
@@ -2461,6 +2504,7 @@ public:
   HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLBool_t);
   HLK_WAVEOP_TEST(WaveReadLaneAt, HLSLBool_t);
   HLK_WAVEOP_TEST(WaveReadLaneFirst, HLSLBool_t);
+  HLK_WAVEOP_TEST(WaveMatch, HLSLBool_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, int16_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int16_t);
@@ -2476,6 +2520,7 @@ public:
   HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, int16_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitOr, int16_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitXor, int16_t);
+  HLK_WAVEOP_TEST(WaveMatch, int16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int32_t);
@@ -2490,6 +2535,7 @@ public:
   HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, int32_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitOr, int32_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitXor, int32_t);
+  HLK_WAVEOP_TEST(WaveMatch, int32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, int64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, int64_t);
@@ -2504,6 +2550,7 @@ public:
   HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, int64_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitOr, int64_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitXor, int64_t);
+  HLK_WAVEOP_TEST(WaveMatch, int64_t);
 
   // Note: WaveActiveBit* ops don't support uint16_t in HLSL
   // But the WaveMultiPrefixBit ops support all int and uint types
@@ -2521,6 +2568,7 @@ public:
   HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, uint16_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitOr, uint16_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitXor, uint16_t);
+  HLK_WAVEOP_TEST(WaveMatch, uint16_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint32_t);
@@ -2538,6 +2586,7 @@ public:
   HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, uint32_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitOr, uint32_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitXor, uint32_t);
+  HLK_WAVEOP_TEST(WaveMatch, uint32_t);
   HLK_WAVEOP_TEST(WaveActiveSum, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMin, uint64_t);
   HLK_WAVEOP_TEST(WaveActiveMax, uint64_t);
@@ -2555,6 +2604,7 @@ public:
   HLK_WAVEOP_TEST(WaveMultiPrefixBitAnd, uint64_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitOr, uint64_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixBitXor, uint64_t);
+  HLK_WAVEOP_TEST(WaveMatch, uint64_t);
 
   HLK_WAVEOP_TEST(WaveActiveSum, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveMin, HLSLHalf_t);
@@ -2567,6 +2617,7 @@ public:
   HLK_WAVEOP_TEST(WavePrefixProduct, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixSum, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLHalf_t);
+  HLK_WAVEOP_TEST(WaveMatch, HLSLHalf_t);
   HLK_WAVEOP_TEST(WaveActiveSum, float);
   HLK_WAVEOP_TEST(WaveActiveMin, float);
   HLK_WAVEOP_TEST(WaveActiveMax, float);
@@ -2578,6 +2629,7 @@ public:
   HLK_WAVEOP_TEST(WavePrefixProduct, float);
   HLK_WAVEOP_TEST(WaveMultiPrefixSum, float);
   HLK_WAVEOP_TEST(WaveMultiPrefixProduct, float);
+  HLK_WAVEOP_TEST(WaveMatch, float);
   HLK_WAVEOP_TEST(WaveActiveSum, double);
   HLK_WAVEOP_TEST(WaveActiveMin, double);
   HLK_WAVEOP_TEST(WaveActiveMax, double);
@@ -2589,6 +2641,7 @@ public:
   HLK_WAVEOP_TEST(WavePrefixProduct, double);
   HLK_WAVEOP_TEST(WaveMultiPrefixSum, double);
   HLK_WAVEOP_TEST(WaveMultiPrefixProduct, double);
+  HLK_WAVEOP_TEST(WaveMatch, double);
 
 private:
   bool Initialized = false;
