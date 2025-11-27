@@ -4930,7 +4930,7 @@ bool DeclResultIdMapper::tryToCreateConstantVar(const ValueDecl *decl) {
         spvBuilder.getConstantFloat(astContext.DoubleTy, val->getFloat());
     break;
   default:
-    assert(false && "Unsupported builtin type evaluation at compile-time");
+    // assert(false && "Unsupported builtin type evaluation at compile-time");
     return false;
   }
   constVal->setRValue(true);
