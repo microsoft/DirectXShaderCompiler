@@ -139,3 +139,48 @@ jobs:
         with:
           name: ${{ matrix.os }}-${{ matrix.configuration }}-${{ github.event.inputs.COMMIT_SHA }}
           path: ${{ github.event.inputs.COMMIT_SHA }}.tar.gz
+
+  windows-tests:
+    name: Windows Devsh DXC smoke tests
+    needs: windows
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+    env:
+      os: windows-latest
+      COMMIT_SHA: ${{ github.event.inputs.COMMIT_SHA }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.COMMIT_SHA }}
+          fetch-depth: 1
+          sparse-checkout: |
+            unittests
+
+      - name: Download DXCompiler artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.os }}-${{ matrix.configuration }}-${{ github.event.inputs.COMMIT_SHA }}
+          path: artifacts
+
+      - name: Unpack DXCompiler into unittests\Devsh\install
+        run: |
+          cmake -E tar xzf artifacts\${{ github.event.inputs.COMMIT_SHA }}.tar.gz
+          cmake -E make_directory unittests\Devsh\install
+          cmake -E copy_directory build\install unittests\Devsh\install
+        shell: cmd
+
+      - name: Configure Devsh unit tests
+        run: |
+          cmake -S unittests\Devsh -B unittests\Devsh\build -DCMAKE_BUILD_TYPE=${{ matrix.configuration }}
+        shell: cmd
+
+      - name: Run Devsh DXC smoke tests
+        run: |
+          ctest -C ${{ matrix.configuration }} -VV -R dxc_smoke --output-on-failure
+        working-directory: unittests\Devsh\build
+        shell: cmd
