@@ -29,7 +29,7 @@ namespace DXIL {
 const unsigned kDxilMajor = 1;
 /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_dxil_version_minor()</py>*/
 // VALRULE-TEXT:BEGIN
-const unsigned kDxilMinor = 9;
+const unsigned kDxilMinor = 10;
 // VALRULE-TEXT:END
 
 inline unsigned MakeDxilVersion(unsigned DxilMajor, unsigned DxilMinor) {
@@ -154,6 +154,7 @@ const float kMaxMipLodBias = 15.99f;
 const float kMinMipLodBias = -16.0f;
 
 const unsigned kResRetStatusIndex = 4;
+const unsigned kVecResRetStatusIndex = 1;
 
 /* <py::lines('OLOAD_DIMS-TEXT')>hctdb_instrhelp.get_max_oload_dims()</py>*/
 // OLOAD_DIMS-TEXT:BEGIN
@@ -162,24 +163,32 @@ const unsigned kDxilMaxOloadDims = 2;
 
 enum class ComponentType : uint32_t {
   Invalid = 0,
-  I1,
-  I16,
-  U16,
-  I32,
-  U32,
-  I64,
-  U64,
-  F16,
-  F32,
-  F64,
-  SNormF16,
-  UNormF16,
-  SNormF32,
-  UNormF32,
-  SNormF64,
-  UNormF64,
-  PackedS8x32,
-  PackedU8x32,
+  I1 = 1,
+  I16 = 2,
+  U16 = 3,
+  I32 = 4,
+  U32 = 5,
+  I64 = 6,
+  U64 = 7,
+  F16 = 8,
+  F32 = 9,
+  F64 = 10,
+  SNormF16 = 11,
+  UNormF16 = 12,
+  SNormF32 = 13,
+  UNormF32 = 14,
+  SNormF64 = 15,
+  UNormF64 = 16,
+  PackedS8x32 = 17,
+  PackedU8x32 = 18,
+
+  // BEGIN NEW FOR SM 6.9
+  U8 = 19,
+  I8 = 20,
+  F8_E4M3 = 21,
+  F8_E5M2 = 22,
+  // END
+
   LastEntry
 };
 
@@ -487,18 +496,18 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 // Enumeration for operations specified by DXIL
 enum class OpCode : unsigned {
   //
-  Reserved0 = 226,   // Reserved
-  Reserved1 = 227,   // Reserved
-  Reserved10 = 236,  // Reserved
-  Reserved11 = 237,  // Reserved
-  Reserved2 = 228,   // Reserved
-  Reserved3 = 229,   // Reserved
-  Reserved4 = 230,   // Reserved
-  Reserved5 = 231,   // Reserved
-  Reserved6 = 232,   // Reserved
-  Reserved7 = 233,   // Reserved
-  Reserved8 = 234,   // Reserved
-  Reserved9 = 235,   // Reserved
+  Reserved0 = 226,   // reserved
+  Reserved1 = 227,   // reserved
+  Reserved10 = 236,  // reserved
+  Reserved11 = 237,  // reserved
+  Reserved2 = 228,   // reserved
+  Reserved3 = 229,   // reserved
+  Reserved4 = 230,   // reserved
+  Reserved5 = 231,   // reserved
+  Reserved6 = 232,   // reserved
+  Reserved7 = 233,   // reserved
+  Reserved8 = 234,   // reserved
+  Reserved9 = 235,   // reserved
   ReservedA0 = 259,  // reserved
   ReservedA1 = 260,  // reserved
   ReservedA2 = 261,  // reserved
@@ -609,9 +618,10 @@ enum class OpCode : unsigned {
                          // i32, with accumulate to i32
 
   // Dot
-  Dot2 = 54, // Two-dimensional vector dot-product
-  Dot3 = 55, // Three-dimensional vector dot-product
-  Dot4 = 56, // Four-dimensional vector dot-product
+  Dot2 = 54,  // Two-dimensional vector dot-product
+  Dot3 = 55,  // Three-dimensional vector dot-product
+  Dot4 = 56,  // Four-dimensional vector dot-product
+  FDot = 311, // computes the n-dimensional vector dot-product
 
   // Double precision
   LegacyDoubleToFloat = 132,  // legacy fuction to convert double to float
@@ -742,6 +752,19 @@ enum class OpCode : unsigned {
   // Library create handle from resource struct (like HL intrinsic)
   CreateHandleForLib =
       160, // create resource handle from resource struct for library
+
+  // Linear Algebra Operations
+  MatVecMul =
+      305, // Multiplies a MxK dimension matrix and a K sized input vector
+  MatVecMulAdd = 306, // multiplies a MxK dimension matrix and a K sized input
+                      // vector and adds an M-sized bias vector
+  OuterProductAccumulate =
+      307, // Computes the outer product between column vectors and an MxN
+           // matrix is accumulated component-wise atomically (with device
+           // scope) in memory
+  VectorAccumulate = 308, // Accumulates the components of a vector
+                          // component-wise atomically (with device scope) to
+                          // the corresponding elements of an array in memory
 
   // Mesh shader instructions
   EmitIndices = 169, // emit a primitive's vertex indices in a mesh shader
@@ -1012,6 +1035,11 @@ enum class OpCode : unsigned {
   Unpack4x8 = 219, // unpacks 4 8-bit signed or unsigned values into int32 or
                    // int16 vector
 
+  // Vector reduce to scalar
+  VectorReduceAnd =
+      309, // Bitwise AND reduction of the vector returning a scalar
+  VectorReduceOr = 310, // Bitwise OR reduction of the vector returning a scalar
+
   // Wave
   WaveActiveAllEqual = 115, // returns 1 if all the lanes have the same value
   WaveActiveBallot = 116, // returns a struct with a bit set for each lane where
@@ -1059,8 +1087,9 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
   NumOpCodes_Dxil_1_8 = 258,
+  NumOpCodes_Dxil_1_9 = 312,
 
-  NumOpCodes = 305 // exclusive last value of enumeration
+  NumOpCodes = 312 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1132,6 +1161,7 @@ enum class OpCodeClass : unsigned {
   Dot4AddPacked,
 
   // Dot
+  Dot,
   Dot2,
   Dot3,
   Dot4,
@@ -1200,6 +1230,12 @@ enum class OpCodeClass : unsigned {
 
   // Library create handle from resource struct (like HL intrinsic)
   CreateHandleForLib,
+
+  // Linear Algebra Operations
+  MatVecMul,
+  MatVecMulAdd,
+  OuterProductAccumulate,
+  VectorAccumulate,
 
   // Mesh shader instructions
   EmitIndices,
@@ -1349,6 +1385,9 @@ enum class OpCodeClass : unsigned {
   // Unpacking intrinsics
   Unpack4x8,
 
+  // Vector reduce to scalar
+  VectorReduce,
+
   // Wave
   WaveActiveAllEqual,
   WaveActiveBallot,
@@ -1384,8 +1423,9 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
   NumOpClasses_Dxil_1_8 = 174,
+  NumOpClasses_Dxil_1_9 = 196,
 
-  NumOpClasses = 190 // exclusive last value of enumeration
+  NumOpClasses = 196 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1555,6 +1595,38 @@ const unsigned kMSStoreOutputRowOpIdx = 2;
 const unsigned kMSStoreOutputColOpIdx = 3;
 const unsigned kMSStoreOutputVIdxOpIdx = 4;
 const unsigned kMSStoreOutputValOpIdx = 5;
+
+// HitObject::MakeMiss
+const unsigned kHitObjectMakeMiss_RayDescOpIdx = 3;
+const unsigned kHitObjectMakeMiss_NumOp = 11;
+
+// HitObject::TraceRay
+const unsigned kHitObjectTraceRay_RayDescOpIdx = 7;
+const unsigned kHitObjectTraceRay_PayloadOpIdx = 15;
+const unsigned kHitObjectTraceRay_NumOp = 16;
+
+// MatVec Ops
+const unsigned kMatVecMulInputVectorIdx = 1;
+const unsigned kMatVecMulIsInputUnsignedIdx = 2;
+const unsigned kMatVecMulInputInterpretationIdx = 3;
+const unsigned kMatVecMulMatrixBufferIdx = 4;
+const unsigned kMatVecMulMatrixOffsetIdx = 5;
+const unsigned kMatVecMulMatrixInterpretationIdx = 6;
+const unsigned kMatVecMulMatrixMIdx = 7;
+const unsigned kMatVecMulMatrixKIdx = 8;
+const unsigned kMatVecMulMatrixLayoutIdx = 9;
+const unsigned kMatVecMulMatrixTransposeIdx = 10;
+const unsigned kMatVecMulMatrixStrideIdx = 11;
+const unsigned kMatVecMulIsOutputUnsignedIdx = 12;
+
+// MatVecAdd
+const unsigned kMatVecMulAddBiasInterpretation = 14;
+const unsigned kMatVecMulAddIsOutputUnsignedIdx = 15;
+
+// Outer Product Accumulate
+const unsigned kOuterProdAccMatrixInterpretation = 5;
+const unsigned kOuterProdAccMatrixLayout = 6;
+const unsigned kOuterProdAccMatrixStride = 7;
 
 // TODO: add operand index for all the OpCodeClass.
 } // namespace OperandIndex
@@ -2126,6 +2198,13 @@ extern const char *kDxIsHelperGlobalName;
 extern const char *kHostLayoutTypePrefix;
 
 extern const char *kWaveOpsIncludeHelperLanesString;
+
+enum class LinalgMatrixLayout : uint32_t {
+  RowMajor = 0,
+  ColumnMajor = 1,
+  MulOptimal = 2,
+  OuterProductOptimal = 3,
+};
 
 } // namespace DXIL
 

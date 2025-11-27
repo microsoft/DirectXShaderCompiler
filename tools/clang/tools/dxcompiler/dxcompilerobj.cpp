@@ -56,7 +56,6 @@
 #include "dxcompileradapter.h"
 #include "dxcshadersourceinfo.h"
 #include "dxcversion.inc"
-#include "dxillib.h"
 #include <algorithm>
 #include <cfloat>
 
@@ -715,8 +714,6 @@ public:
 
       unsigned rootSigMajor = 0;
       unsigned rootSigMinor = 0;
-      // NOTE: this calls the validation component from dxil.dll; the built-in
-      // validator can be used as a fallback.
       bool produceFullContainer = false;
       bool needsValidation = false;
       bool validateRootSigContainer = false;
@@ -748,7 +745,7 @@ public:
 
         // Parse and apply
         if (opts.BindingTableDefine.size()) {
-          // Just pas the define for now because preprocessor is not available
+          // Just pass the define for now because preprocessor is not available
           // yet.
           struct BindingTableParserImpl
               : public CodeGenOptions::BindingTableParserType {
@@ -831,13 +828,8 @@ public:
           compiler.getLangOpts().HLSLEntryFunction =
               compiler.getCodeGenOpts().HLSLEntryFunction = "";
 
-        // NOTE: this calls the validation component from dxil.dll; the built-in
-        // validator can be used as a fallback.
-        produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
-                               !opts.OptDump && rootSigMajor == 0 &&
-                               !opts.DumpDependencies &&
-                               !opts.VerifyDiagnostics;
-        needsValidation = produceFullContainer && !opts.DisableValidation;
+        produceFullContainer = opts.ProduceFullContainer();
+        needsValidation = opts.NeedsValidation();
 
         if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_x") {
           // Currently do not support stripping reflection from offline linking
@@ -850,11 +842,9 @@ public:
           compiler.getCodeGenOpts().HLSLValidatorMajorVer = opts.ValVerMajor;
           compiler.getCodeGenOpts().HLSLValidatorMinorVer = opts.ValVerMinor;
         } else {
-          // Version from dxil.dll, or internal validator if unavailable
           dxcutil::GetValidatorVersion(
               &compiler.getCodeGenOpts().HLSLValidatorMajorVer,
-              &compiler.getCodeGenOpts().HLSLValidatorMinorVer,
-              opts.SelectValidator);
+              &compiler.getCodeGenOpts().HLSLValidatorMinorVer);
         }
 
         // Root signature-only container validation is only supported on 1.5 and
@@ -934,7 +924,7 @@ public:
             CComPtr<IDxcBlobEncoding> pValErrors;
             // Validation failure communicated through diagnostic error
             dxcutil::ValidateRootSignatureInContainer(
-                pOutputBlob, &compiler.getDiagnostics(), opts.SelectValidator);
+                pOutputBlob, &compiler.getDiagnostics());
           }
         }
       } else if (opts.VerifyDiagnostics) {
@@ -1054,8 +1044,7 @@ public:
               std::move(serializeModule), pOutputBlob, m_pMalloc,
               SerializeFlags, pOutputStream, 0, opts.GetPDBName(),
               &compiler.getDiagnostics(), &ShaderHashContent, pReflectionStream,
-              pRootSigStream, pRootSignatureBlob, pPrivateBlob,
-              opts.SelectValidator);
+              pRootSigStream, pRootSignatureBlob, pPrivateBlob);
 
           inputs.pVersionInfo = static_cast<IDxcVersionInfo *>(this);
 
@@ -1108,8 +1097,7 @@ public:
                 CComPtr<IDxcBlobEncoding> pValErrors;
                 // Validation failure communicated through diagnostic error
                 dxcutil::ValidateRootSignatureInContainer(
-                    pRootSignature, &compiler.getDiagnostics(),
-                    opts.SelectValidator);
+                    pRootSignature, &compiler.getDiagnostics());
               }
               IFT(pResult->SetOutputObject(DXC_OUT_ROOT_SIGNATURE,
                                            pRootSignature));
@@ -1324,13 +1312,6 @@ public:
       CComPtr<IDxcResult> pResult;
       hr = e.hr;
       std::string msg("Internal Compiler error: ");
-      switch (hr) {
-      case DXC_E_VALIDATOR_MISSING:
-        msg = "Error: external validator selected, but DXIL.dll not found.";
-        break;
-      default:
-        break;
-      }
       msg += e.msg;
       if (SUCCEEDED(DxcResult::Create(
               e.hr, DXC_OUT_NONE,

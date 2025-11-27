@@ -467,6 +467,10 @@ hlsl::DxilParamInputQual deduceParamQual(const DeclaratorDecl *decl,
   if (decl->hasAttr<HLSLPayloadAttr>())
     return hlsl::DxilParamInputQual::InPayload;
 
+  if (hlsl::IsHLSLNodeType(type)) {
+    return hlsl::DxilParamInputQual::NodeIO;
+  }
+
   return asInput ? hlsl::DxilParamInputQual::In : hlsl::DxilParamInputQual::Out;
 }
 
@@ -475,6 +479,9 @@ hlsl::DxilParamInputQual deduceParamQual(const DeclaratorDecl *decl,
 const hlsl::SigPoint *deduceSigPoint(const DeclaratorDecl *decl, bool asInput,
                                      const hlsl::ShaderModel::Kind kind,
                                      bool forPCF) {
+  if (kind == hlsl::ShaderModel::Kind::Node) {
+    return hlsl::SigPoint::GetSigPoint(hlsl::SigPoint::Kind::CSIn);
+  }
   return hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
       deduceParamQual(decl, asInput), kind, forPCF));
 }
@@ -999,7 +1006,7 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
   // implicit VarDecl. All implicit VarDecls are lazily created in order to
   // avoid creating large number of unused variables/constants/enums.
   if (!info) {
-    tryToCreateImplicitConstVar(decl);
+    tryToCreateConstantVar(decl);
     info = getDeclSpirvInfo(decl);
   }
 
@@ -1082,7 +1089,7 @@ void DeclResultIdMapper::createCounterVarForDecl(const DeclaratorDecl *decl) {
 
   if (!counterVars.count(decl) && isRWAppendConsumeSBuffer(declType)) {
     createCounterVar(decl, /*declId=*/0, /*isAlias=*/true);
-  } else if (!fieldCounterVars.count(decl) && declType->isStructureType() &&
+  } else if (!fieldCounterVars.count(decl) && declType->isRecordType() &&
              // Exclude other resource types which are represented as structs
              !hlsl::IsHLSLResourceType(declType)) {
     createFieldCounterVars(decl);
@@ -1374,7 +1381,6 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
       }
 
       if (isResourceType(varType)) {
-        createExternVar(fieldVar);
         continue;
       }
     }
@@ -1466,7 +1472,28 @@ void DeclResultIdMapper::createEnumConstant(const EnumConstantDecl *decl) {
   astDecls[valueDecl] = createDeclSpirvInfo(varInstr);
 }
 
-SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
+void DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
+
+  SmallVector<const VarDecl *, 4> variablesToDeclare;
+  for (const auto *subDecl : decl->decls()) {
+    if (shouldSkipInStructLayout(subDecl))
+      continue;
+
+    // If the subDecl is a resource, it is lowered as a standalone variable.
+    const auto *varDecl = cast<VarDecl>(subDecl);
+    if (isResourceType(varDecl->getType())) {
+      createExternVar(varDecl);
+      continue;
+    }
+
+    variablesToDeclare.push_back(varDecl);
+  }
+
+  // If the cbuffer is empty or only contains resources, skip the variable
+  // creation.
+  if (variablesToDeclare.size() == 0)
+    return;
+
   // This function handles creation of cbuffer or tbuffer.
   const auto usageKind =
       decl->isCBuffer() ? ContextUsageKind::CBuffer : ContextUsageKind::TBuffer;
@@ -1479,30 +1506,16 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   // mapped to the <result-id> of the buffer object, which means when querying
   // querying the <result-id> for a certain VarDecl, we need to do an extra
   // OpAccessChain.
-  int index = 0;
-  for (const auto *subDecl : decl->decls()) {
-    if (shouldSkipInStructLayout(subDecl))
-      continue;
+  for (unsigned I = 0; I < variablesToDeclare.size(); ++I)
+    registerVariableForDecl(variablesToDeclare[I],
+                            createDeclSpirvInfo(bufferVar, I));
 
-    // If subDecl is a variable with resource type, we already added a separate
-    // OpVariable for it in createStructOrStructArrayVarOfExplicitLayout().
-    const auto *varDecl = cast<VarDecl>(subDecl);
-    if (isResourceType(varDecl->getType()))
-      continue;
+  resourceVars.emplace_back(
+      bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
+      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
-    registerVariableForDecl(varDecl, createDeclSpirvInfo(bufferVar, index++));
-  }
-  // If it does not contains a member with non-resource type, we do not want to
-  // set a dedicated binding number.
-  if (index != 0) {
-    resourceVars.emplace_back(
-        bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
-        decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
-  }
-
-  if (!spirvOptions.debugInfoRich) {
-    return bufferVar;
-  }
+  if (!spirvOptions.debugInfoRich)
+    return;
 
   auto *dbgGlobalVar = createDebugGlobalVariable(
       bufferVar, QualType(), decl->getLocation(), decl->getName());
@@ -1522,7 +1535,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   // mapping.
   spvContext.registerStructDeclForSpirvType(resultType, decl);
 
-  return bufferVar;
+  return;
 }
 
 SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
@@ -1837,8 +1850,7 @@ void DeclResultIdMapper::createCounterVar(
       assert(declType->isIncompleteArrayType());
       counterType = spvContext.getRuntimeArrayType(counterType, noArrayStride);
     }
-  } else if (isResourceDescriptorHeap(decl->getType()) ||
-             isSamplerDescriptorHeap(decl->getType())) {
+  } else if (isResourceDescriptorHeap(decl) || isSamplerDescriptorHeap(decl)) {
     counterType = spvContext.getRuntimeArrayType(counterType, noArrayStride);
   }
 
@@ -1854,7 +1866,7 @@ void DeclResultIdMapper::createCounterVar(
   }
 
   SpirvVariable *counterInstr = spvBuilder.addModuleVar(
-      counterType, sc, /*isPrecise*/ false, false, counterName);
+      counterType, sc, /*isPrecise*/ false, false, declInstr, counterName);
 
   if (!isAlias) {
     // Non-alias counter variables should be put in to resourceVars so that
@@ -1874,14 +1886,33 @@ void DeclResultIdMapper::createCounterVar(
     counterVars[decl] = {counterInstr, isAlias};
 }
 
-void DeclResultIdMapper::createFieldCounterVars(
-    const DeclaratorDecl *rootDecl, const DeclaratorDecl *decl,
-    llvm::SmallVector<uint32_t, 4> *indices) {
+void DeclResultIdMapper::createFieldCounterVars(const DeclaratorDecl *decl) {
+  llvm::SmallVector<uint32_t, 4> indices;
   const QualType type = getTypeOrFnRetType(decl);
+  createFieldCounterVars(decl, type, &indices);
+}
+
+void DeclResultIdMapper::createFieldCounterVars(
+    const DeclaratorDecl *rootDecl, const QualType type,
+    llvm::SmallVector<uint32_t, 4> *indices) {
   const auto *recordType = type->getAs<RecordType>();
   assert(recordType);
   const auto *recordDecl = recordType->getDecl();
 
+  // Handle base classes first
+  if (const auto *cxxRecordDecl = dyn_cast<CXXRecordDecl>(recordDecl)) {
+    // HLSL has at most one base class.
+    assert(cxxRecordDecl->getNumBases() <= 1 &&
+           "HLSL should have at most one base class.");
+    if (cxxRecordDecl->getNumBases() > 0) {
+      const auto &base = *cxxRecordDecl->bases().begin();
+      indices->push_back(0);
+      createFieldCounterVars(rootDecl, base.getType(), indices);
+      indices->pop_back();
+    }
+  }
+
+  // Now handle the fields of the current class (non-inherited fields)
   for (const auto *field : recordDecl->fields()) {
     // Build up the index chain
     indices->push_back(getNumBaseClasses(type) + field->getFieldIndex());
@@ -1890,9 +1921,11 @@ void DeclResultIdMapper::createFieldCounterVars(
     if (isRWAppendConsumeSBuffer(fieldType))
       createCounterVar(rootDecl, /*declId=*/0, /*isAlias=*/true, indices);
     else if (fieldType->isStructureType() &&
-             !hlsl::IsHLSLResourceType(fieldType))
+             !hlsl::IsHLSLResourceType(fieldType)) {
       // Go recursively into all nested structs
-      createFieldCounterVars(rootDecl, field, indices);
+      const QualType type = getTypeOrFnRetType(field);
+      createFieldCounterVars(rootDecl, type, indices);
+    }
 
     indices->pop_back();
   }
@@ -2158,6 +2191,8 @@ bool DeclResultIdMapper::assignLocations(
     llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
         *stageVariableLocationInfo) {
   for (const auto *var : vars) {
+    if (hlsl::IsHLSLNodeType(var->getAstType()))
+      continue;
     auto locCount = var->getLocationCount();
     uint32_t location = nextLocs(locCount);
     spvBuilder.decorateLocation(var->getSpirvInstr(), location);
@@ -2502,6 +2537,20 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
         spvBuilder.decorateDSetBinding(var.getSpirvInstr(), globalsSetNo,
                                        globalsBindNo);
+      } else if (var.isResourceDescriptorHeap()) {
+        if (!spirvOptions.resourceHeapBinding) {
+          emitError("-fvk-bind-resource-heap is required when using "
+                    "-fvk-bind-register",
+                    var.getSourceLocation());
+          return false;
+        }
+      } else if (var.isSamplerDescriptorHeap()) {
+        if (!spirvOptions.samplerHeapBinding) {
+          emitError("-fvk-bind-sampler-heap is required when using "
+                    "-fvk-bind-register",
+                    var.getSourceLocation());
+          return false;
+        }
       } else {
         emitError(
             "-fvk-bind-register requires register annotations on all resources",
@@ -2509,11 +2558,12 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         return false;
       }
 
+    BindingSet bindingSet;
+    decorateResourceHeapsBindings(bindingSet);
     return true;
   }
 
   BindingSet bindingSet;
-
   // If some bindings are reserved for heaps, mark those are used.
   if (spirvOptions.resourceHeapBinding)
     bindingSet.useBinding(spirvOptions.resourceHeapBinding->binding,
@@ -2654,8 +2704,8 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
     if (var.getDeclaration()) {
       const VarDecl *decl = dyn_cast<VarDecl>(var.getDeclaration());
-      if (decl && (isResourceDescriptorHeap(decl->getType()) ||
-                   isSamplerDescriptorHeap(decl->getType())))
+      if (decl &&
+          (isResourceDescriptorHeap(decl) || isSamplerDescriptorHeap(decl)))
         continue;
     }
 
@@ -2740,8 +2790,8 @@ void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
     if (!decl)
       continue;
 
-    const bool isResourceHeap = isResourceDescriptorHeap(decl->getType());
-    const bool isSamplerHeap = isSamplerDescriptorHeap(decl->getType());
+    const bool isResourceHeap = isResourceDescriptorHeap(decl);
+    const bool isSamplerHeap = isSamplerDescriptorHeap(decl);
 
     assert(!(var.isCounter() && isSamplerHeap));
 
@@ -2776,8 +2826,8 @@ void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
     if (!decl)
       continue;
 
-    const bool isResourceHeap = isResourceDescriptorHeap(decl->getType());
-    const bool isSamplerHeap = isSamplerDescriptorHeap(decl->getType());
+    const bool isResourceHeap = isResourceDescriptorHeap(decl);
+    const bool isSamplerHeap = isSamplerDescriptorHeap(decl);
     if (!isSamplerHeap && !isResourceHeap)
       continue;
     const SpirvCodeGenOptions::BindingInfo &info =
@@ -3489,7 +3539,9 @@ SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
   StageVar stageVar(
       stageVarData.sigPoint, *stageVarData.semantic, builtinAttr, evalType,
       // For HS/DS/GS, we have already stripped the outmost arrayness on type.
-      getLocationAndComponentCount(astContext, stageVarData.type));
+      hlsl::IsHLSLNodeInputType(stageVarData.type)
+          ? LocationAndComponent({0, 0, false})
+          : getLocationAndComponentCount(astContext, stageVarData.type));
   const auto name =
       stageVarData.namePrefix.str() + "." + stageVar.getSemanticStr();
   SpirvVariable *varInstr = createSpirvStageVar(
@@ -3706,6 +3758,22 @@ bool DeclResultIdMapper::createStageVars(StageVarDataBundle &stageVarData,
     }
   } else {
     stageVarData.semantic = &thisSemantic;
+  }
+
+  if (hlsl::IsHLSLNodeType(stageVarData.type)) {
+    // Hijack the notion of semantic to use createSpirvInterfaceVariable
+    StringRef str = stageVarData.decl->getName();
+    stageVarData.semantic->str = stageVarData.semantic->name = str;
+    stageVarData.semantic->semantic = hlsl::Semantic::GetArbitrary();
+    SpirvVariable *varInstr = createSpirvInterfaceVariable(stageVarData);
+    if (!varInstr) {
+      return false;
+    }
+
+    *value = hlsl::IsHLSLNodeInputType(stageVarData.type)
+                 ? varInstr
+                 : loadShaderInputVariable(varInstr, stageVarData);
+    return true;
   }
 
   if (stageVarData.semantic->isValid() &&
@@ -4161,6 +4229,8 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   case spv::BuiltIn::GlobalInvocationId:
   case spv::BuiltIn::WorkgroupId:
   case spv::BuiltIn::LocalInvocationIndex:
+  case spv::BuiltIn::RemainingRecursionLevelsAMDX:
+  case spv::BuiltIn::ShaderIndexAMDX:
     sc = spv::StorageClass::Input;
     break;
   case spv::BuiltIn::TaskCountNV:
@@ -4196,7 +4266,9 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   const auto type = stageVar->getAstType();
   const auto isPrecise = decl->hasAttr<HLSLPreciseAttr>();
   auto isNointerp = decl->hasAttr<HLSLNoInterpolationAttr>();
-  spv::StorageClass sc = getStorageClassForSigPoint(sigPoint);
+  spv::StorageClass sc = hlsl::IsHLSLNodeInputType(stageVar->getAstType())
+                             ? spv::StorageClass::NodePayloadAMDX
+                             : getStorageClassForSigPoint(sigPoint);
   if (sc == spv::StorageClass::Max)
     return 0;
   stageVar->setStorageClass(sc);
@@ -4813,19 +4885,57 @@ SpirvVariable *DeclResultIdMapper::createRayTracingNVStageVar(
   return retVal;
 }
 
-void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
+bool DeclResultIdMapper::tryToCreateConstantVar(const ValueDecl *decl) {
+  // TODO: support spirv basic type with constant intrinsic. (e.g. int8)
   const VarDecl *varDecl = dyn_cast<VarDecl>(decl);
-  if (!varDecl || !varDecl->isImplicit())
-    return;
+  if (!varDecl)
+    return false;
+
+  const BuiltinType *type = decl->getType()->getAs<BuiltinType>();
+  if (!type)
+    return false;
 
   APValue *val = varDecl->evaluateValue();
   if (!val)
-    return;
+    return false;
 
-  SpirvInstruction *constVal =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
+  SpirvInstruction *constVal = nullptr;
+  switch (type->getKind()) {
+  case BuiltinType::Bool: // bool
+    constVal = spvBuilder.getConstantBool(val->getInt().getExtValue());
+    break;
+  case BuiltinType::UShort: // uint16_t
+    constVal =
+        spvBuilder.getConstantInt(astContext.UnsignedShortTy, val->getInt());
+    break;
+  case BuiltinType::UInt: // uint32_t
+    constVal =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
+    break;
+  case BuiltinType::Short: // int16_t
+    constVal = spvBuilder.getConstantInt(astContext.ShortTy, val->getInt());
+    break;
+  case BuiltinType::Int: // int32_t
+    constVal = spvBuilder.getConstantInt(astContext.IntTy, val->getInt());
+    break;
+  case BuiltinType::Half: // float16_t
+    constVal = spvBuilder.getConstantFloat(astContext.HalfTy, val->getFloat());
+    break;
+  case BuiltinType::Float:     // float32_t
+  case BuiltinType::HalfFloat: // float16_t without -enable-16bit-types
+    constVal = spvBuilder.getConstantFloat(astContext.FloatTy, val->getFloat());
+    break;
+  case BuiltinType::Double: // float64_t
+    constVal =
+        spvBuilder.getConstantFloat(astContext.DoubleTy, val->getFloat());
+    break;
+  default:
+    assert(false && "Unsupported builtin type evaluation at compile-time");
+    return false;
+  }
   constVal->setRValue(true);
   registerVariableForDecl(varDecl, constVal);
+  return true;
 }
 
 void DeclResultIdMapper::decorateWithIntrinsicAttrs(

@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/SpirvBuilder.h"
@@ -84,7 +81,9 @@ SpirvBuilder::addFnParam(QualType ptrType, bool isPrecise, bool isNointerp,
     param = new (context)
         SpirvFunctionParameter(ptrType, isPrecise, isNointerp, loc);
   }
-  param->setStorageClass(spv::StorageClass::Function);
+  param->setStorageClass(hlsl::IsHLSLNodeInputType(ptrType)
+                             ? spv::StorageClass::NodePayloadAMDX
+                             : spv::StorageClass::Function);
   param->setDebugName(name);
   function->addParameter(param);
   return param;
@@ -206,10 +205,17 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
   instruction->setRValue(true);
 
   if (pointer->getStorageClass() == spv::StorageClass::PhysicalStorageBuffer) {
-    AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
-    uint32_t align, size, stride;
-    std::tie(align, size) = alignmentCalc.getAlignmentAndSize(
-        resultType, pointer->getLayoutRule(), llvm::None, &stride);
+    QualType pointerType = pointer->getAstResultType();
+    uint32_t align = 0;
+    if (!pointerType.isNull() && hlsl::IsVKBufferPointerType(pointerType)) {
+      align = hlsl::GetVKBufferPointerAlignment(pointerType);
+    }
+    if (!align) {
+      AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
+      uint32_t stride;
+      std::tie(align, std::ignore) = alignmentCalc.getAlignmentAndSize(
+          resultType, pointer->getLayoutRule(), llvm::None, &stride);
+    }
     instruction->setAlignment(align);
   }
 
@@ -231,6 +237,13 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
 
   if (pointer->isRasterizerOrdered()) {
     createEndInvocationInterlockEXT(loc, range);
+  }
+
+  if (context.hasLoweredType(pointer)) {
+    // preserve distinct node payload array types
+    auto *ptrType = dyn_cast<SpirvPointerType>(pointer->getResultType());
+    instruction->setResultType(ptrType->getPointeeType());
+    context.addToInstructionsWithLoweredType(instruction);
   }
 
   const auto &bitfieldInfo = pointer->getBitfieldInfo();
@@ -309,6 +322,12 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
 
   auto *instruction =
       new (context) SpirvStore(loc, address, source, llvm::None, range);
+  if (context.hasLoweredType(source)) {
+    // preserve distinct node payload array types
+    address->setResultType(context.getPointerType(source->getResultType(),
+                                                  address->getStorageClass()));
+    context.addToInstructionsWithLoweredType(address);
+  }
   insertPoint->addInstruction(instruction);
 
   if (address->getStorageClass() == spv::StorageClass::PhysicalStorageBuffer &&
@@ -316,7 +335,7 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
     AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
     uint32_t align, size, stride;
     std::tie(align, size) = alignmentCalc.getAlignmentAndSize(
-        address->getAstResultType(), address->getLayoutRule(), llvm::None,
+        source->getAstResultType(), address->getLayoutRule(), llvm::None,
         &stride);
     instruction->setAlignment(align);
   }
@@ -875,6 +894,53 @@ SpirvInstruction *SpirvBuilder::createNonSemanticDebugPrintfExtInst(
   return extInst;
 }
 
+SpirvInstruction *
+SpirvBuilder::createIsNodePayloadValid(SpirvInstruction *payloadArray,
+                                       SpirvInstruction *nodeIndex,
+                                       SourceLocation loc) {
+  auto *inst = new (context)
+      SpirvIsNodePayloadValid(astContext.BoolTy, loc, payloadArray, nodeIndex);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
+SpirvInstruction *
+SpirvBuilder::createNodePayloadArrayLength(SpirvInstruction *payloadArray,
+                                           SourceLocation loc) {
+  auto *inst = new (context)
+      SpirvNodePayloadArrayLength(astContext.UnsignedIntTy, loc, payloadArray);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
+SpirvInstruction *SpirvBuilder::createAllocateNodePayloads(
+    QualType resultType, spv::Scope allocationScope,
+    SpirvInstruction *shaderIndex, SpirvInstruction *recordCount,
+    SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context) SpirvAllocateNodePayloads(
+      resultType, loc, allocationScope, shaderIndex, recordCount);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
+void SpirvBuilder::createEnqueueOutputNodePayloads(SpirvInstruction *payload,
+                                                   SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context) SpirvEnqueueNodePayloads(loc, payload);
+  insertPoint->addInstruction(inst);
+}
+
+SpirvInstruction *
+SpirvBuilder::createFinishWritingNodePayload(SpirvInstruction *payload,
+                                             SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context)
+      SpirvFinishWritingNodePayload(astContext.BoolTy, loc, payload);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
 void SpirvBuilder::createBarrier(spv::Scope memoryScope,
                                  spv::MemorySemanticsMask memorySemantics,
                                  llvm::Optional<spv::Scope> exec,
@@ -1148,6 +1214,7 @@ SpirvBuilder::createDebugCompilationUnit(SpirvDebugSource *source) {
   auto *inst = new (context) SpirvDebugCompilationUnit(
       /*version*/ 1, /*DWARF version*/ 4, source);
   mod->addDebugInfo(inst);
+  mod->setDebugCompilationUnit(inst);
   return inst;
 }
 
@@ -1609,6 +1676,21 @@ SpirvVariable *SpirvBuilder::addModuleVar(
   return var;
 }
 
+SpirvVariable *SpirvBuilder::addModuleVar(
+    const SpirvType *type, spv::StorageClass storageClass, bool isPrecise,
+    bool isNointerp, SpirvInstruction *pos, llvm::StringRef name,
+    llvm::Optional<SpirvInstruction *> init, SourceLocation loc) {
+  assert(storageClass != spv::StorageClass::Function);
+  // Note: We store the underlying type in the variable, *not* the pointer type.
+  auto *var = new (context)
+      SpirvVariable(type, loc, storageClass, isPrecise, isNointerp,
+                    init.hasValue() ? init.getValue() : nullptr);
+  var->setResultType(type);
+  var->setDebugName(name);
+  mod->addVariable(var, pos);
+  return var;
+}
+
 void SpirvBuilder::decorateLocation(SpirvInstruction *target,
                                     uint32_t location) {
   auto *decor =
@@ -1867,6 +1949,14 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
   auto *nullConst = new (context) SpirvConstantNull(type);
   mod->addConstant(nullConst);
   return nullConst;
+}
+
+SpirvConstant *SpirvBuilder::getConstantString(llvm::StringRef str,
+                                               bool specConst) {
+  // We do not care about making unique constants at this point.
+  auto *stringConst = new (context) SpirvConstantString(str, specConst);
+  mod->addConstant(stringConst);
+  return stringConst;
 }
 
 SpirvUndef *SpirvBuilder::getUndef(QualType type) {

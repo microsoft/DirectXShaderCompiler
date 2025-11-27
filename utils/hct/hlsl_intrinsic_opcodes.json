@@ -1,6 +1,6 @@
 {
   "IntrinsicOpCodes": {
-    "Num_Intrinsics": 390,
+    "Num_Intrinsics": 395,
     "IOP_AcceptHitAndEndSearch": 0,
     "IOP_AddUint64": 1,
     "IOP_AllMemoryBarrier": 2,
@@ -390,6 +390,11 @@
     "MOP_DxHitObject_LoadLocalRootTableConstant": 386,
     "MOP_DxHitObject_MakeMiss": 387,
     "MOP_DxHitObject_SetShaderTableIndex": 388,
-    "MOP_DxHitObject_TraceRay": 389
+    "MOP_DxHitObject_TraceRay": 389,
+    "IOP___builtin_MatVecMul": 390,
+    "IOP___builtin_MatVecMulAdd": 391,
+    "IOP___builtin_OuterProductAccumulate": 392,
+    "IOP___builtin_VectorAccumulate": 393,
+    "IOP_isnormal": 394
   }
 }

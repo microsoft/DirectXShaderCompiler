@@ -633,6 +633,16 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       Actions.DiagnoseSemanticDecl(pUA);
       ConsumeToken(); // consume semantic
 
+      // Likely a misspell of register(), packoffset() or a mismatching macro:
+      // both registr() and packofset() would cause a crash without this fix.
+
+      if (Tok.is(tok::l_paren)) {
+        Diag(Tok.getLocation(), diag::err_hlsl_expected_hlsl_attribute);
+        ConsumeParen();
+        SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+        return true;
+      }
+
       target.push_back(pUA);
     }
     else {

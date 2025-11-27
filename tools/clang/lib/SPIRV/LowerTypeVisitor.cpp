@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 
 #include "LowerTypeVisitor.h"
@@ -39,33 +36,6 @@ inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
 }
 
 } // end anonymous namespace
-
-// This method sorts a field list in the following order:
-//  - fields with register annotation first, sorted by register index.
-//  - then fields without annotation, in order of declaration.
-static std::vector<const HybridStructType::FieldInfo *>
-sortFields(llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
-  std::vector<const HybridStructType::FieldInfo *> output;
-  output.resize(fields.size());
-
-  auto back_inserter = output.rbegin();
-  std::map<uint32_t, const HybridStructType::FieldInfo *> fixed_fields;
-  for (auto it = fields.rbegin(); it < fields.rend(); it++) {
-    if (it->registerC) {
-      fixed_fields.insert({it->registerC->RegisterNumber, &*it});
-    } else {
-      *back_inserter = &*it;
-      back_inserter++;
-    }
-  }
-
-  auto front_inserter = output.begin();
-  for (const auto &item : fixed_fields) {
-    *front_inserter = item.second;
-    front_inserter++;
-  }
-  return output;
-}
 
 static void setDefaultFieldSize(const AlignmentSizeCalculator &alignmentCalc,
                                 const SpirvLayoutRule rule,
@@ -295,6 +265,37 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   return true;
 }
 
+std::vector<const HybridStructType::FieldInfo *> LowerTypeVisitor::sortFields(
+    llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
+  std::vector<const HybridStructType::FieldInfo *> output;
+  output.resize(fields.size());
+
+  auto back_inserter = output.rbegin();
+  std::map<uint32_t, const HybridStructType::FieldInfo *> fixed_fields;
+  for (auto it = fields.rbegin(); it < fields.rend(); it++) {
+    if (it->registerC) {
+      auto insertionResult =
+          fixed_fields.insert({it->registerC->RegisterNumber, &*it});
+      if (!insertionResult.second) {
+        emitError(
+            "field \"%0\" at register(c%1) overlaps with previous members",
+            it->registerC->Loc)
+            << it->name << it->registerC->RegisterNumber;
+      }
+    } else {
+      *back_inserter = &*it;
+      back_inserter++;
+    }
+  }
+
+  auto front_inserter = output.begin();
+  for (const auto &item : fixed_fields) {
+    *front_inserter = item.second;
+    front_inserter++;
+  }
+  return output;
+}
+
 const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
                                              SpirvLayoutRule rule,
                                              SourceLocation loc) {
@@ -364,6 +365,16 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
     if (raType->getElementType() == loweredElemType)
       return raType;
     return spvContext.getRuntimeArrayType(loweredElemType, raType->getStride());
+  }
+  // Node payload arrays could contain a hybrid type
+  else if (const auto *npaType = dyn_cast<NodePayloadArrayType>(type)) {
+    const auto *loweredElemType =
+        lowerType(npaType->getElementType(), rule, loc);
+    // If runtime array didn't contain any hybrid types, return itself.
+    if (npaType->getElementType() == loweredElemType)
+      return npaType;
+    return spvContext.getNodePayloadArrayType(loweredElemType,
+                                              npaType->getNodeDecl());
   }
   // Pointer types could point to a hybrid type.
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
@@ -1149,6 +1160,10 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
 spv::ImageFormat
 LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
                                                     SourceLocation srcLoc) {
+
+  if (spvOptions.useUnknownImageFormat)
+    return spv::ImageFormat::Unknown;
+
   uint32_t elemCount = 1;
   QualType ty = {};
   if (!isScalarType(sampledType, &ty) &&
@@ -1367,11 +1382,18 @@ LowerTypeVisitor::populateLayoutInformation(
   llvm::SmallVector<StructType::FieldInfo, 4> loweredFields;
   llvm::DenseMap<const HybridStructType::FieldInfo *, uint32_t> fieldToIndexMap;
 
+  llvm::SmallVector<StructType::FieldInfo, 4> result;
+
   // This stores the index of the field in the actual SPIR-V construct.
   // When bitfields are merged, this index will be the same for merged fields.
   uint32_t fieldIndexInConstruct = 0;
   for (size_t i = 0, iPrevious = -1; i < sortedFields.size(); iPrevious = i++) {
     const size_t fieldIndexForMap = loweredFields.size();
+
+    // Can happen if sortFields runs over fields with the same register(c#)
+    if (!sortedFields[i]) {
+      return result;
+    }
 
     loweredFields.emplace_back(fieldVisitor(
         (iPrevious < loweredFields.size() ? &loweredFields[iPrevious]
@@ -1386,7 +1408,6 @@ LowerTypeVisitor::populateLayoutInformation(
   }
 
   // Re-order the sorted fields back to their original order.
-  llvm::SmallVector<StructType::FieldInfo, 4> result;
   for (const auto &field : fields)
     result.push_back(loweredFields[fieldToIndexMap[&field]]);
   return result;

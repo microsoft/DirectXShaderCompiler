@@ -5,9 +5,6 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
-// All rights reserved.
-//
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_SPIRV_SPIRVBUILDER_H
 #define LLVM_CLANG_SPIRV_SPIRVBUILDER_H
@@ -437,6 +434,25 @@ public:
       QualType resultType, NonSemanticDebugPrintfInstructions instId,
       llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation);
 
+  SpirvInstruction *createIsNodePayloadValid(SpirvInstruction *payloadArray,
+                                             SpirvInstruction *nodeIndex,
+                                             SourceLocation);
+
+  SpirvInstruction *createNodePayloadArrayLength(SpirvInstruction *payloadArray,
+                                                 SourceLocation);
+
+  SpirvInstruction *createAllocateNodePayloads(QualType resultType,
+                                               spv::Scope allocationScope,
+                                               SpirvInstruction *shaderIndex,
+                                               SpirvInstruction *recordCount,
+                                               SourceLocation);
+
+  void createEnqueueOutputNodePayloads(SpirvInstruction *payload,
+                                       SourceLocation);
+
+  SpirvInstruction *createFinishWritingNodePayload(SpirvInstruction *payload,
+                                                   SourceLocation);
+
   /// \brief Creates an OpMemoryBarrier or OpControlBarrier instruction with the
   /// given flags. If execution scope (exec) is provided, an OpControlBarrier
   /// is created; otherwise an OpMemoryBarrier is created.
@@ -615,8 +631,15 @@ public:
   inline SpirvInstruction *addExecutionMode(SpirvFunction *entryPoint,
                                             spv::ExecutionMode em,
                                             llvm::ArrayRef<uint32_t> params,
-                                            SourceLocation,
-                                            bool useIdParams = false);
+                                            SourceLocation);
+
+  /// \brief Adds an execution mode to the module under construction if it does
+  /// not already exist. Return the newly added instruction or the existing
+  /// instruction, if one already exists.
+  inline SpirvInstruction *
+  addExecutionModeId(SpirvFunction *entryPoint, spv::ExecutionMode em,
+                     llvm::ArrayRef<SpirvInstruction *> params,
+                     SourceLocation loc);
 
   /// \brief Adds an OpModuleProcessed instruction to the module under
   /// construction.
@@ -655,9 +678,20 @@ public:
                bool isPrecise, bool isNointerp, llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
+
+  // Adds a variable to the module.
   SpirvVariable *
   addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
                bool isPrecise, bool isNointerp, llvm::StringRef name = "",
+               llvm::Optional<SpirvInstruction *> init = llvm::None,
+               SourceLocation loc = {});
+
+  // Adds a variable to the module. It will be placed in the variable list
+  // before `pos`.
+  SpirvVariable *
+  addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
+               bool isPrecise, bool isNointerp, SpirvInstruction *before,
+               llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
 
@@ -759,6 +793,7 @@ public:
                        llvm::ArrayRef<SpirvConstant *> constituents,
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
+  SpirvConstant *getConstantString(llvm::StringRef str, bool specConst = false);
   SpirvUndef *getUndef(QualType);
 
   SpirvString *createString(llvm::StringRef str);
@@ -963,17 +998,44 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
 SpirvInstruction *
 SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
                                llvm::ArrayRef<uint32_t> params,
-                               SourceLocation loc, bool useIdParams) {
+                               SourceLocation loc) {
   SpirvExecutionMode *mode = nullptr;
-  SpirvExecutionMode *existingInstruction =
+  SpirvExecutionModeBase *existingInstruction =
       mod->findExecutionMode(entryPoint, em);
 
   if (!existingInstruction) {
-    mode = new (context)
-        SpirvExecutionMode(loc, entryPoint, em, params, useIdParams);
+    mode = new (context) SpirvExecutionMode(loc, entryPoint, em, params);
     mod->addExecutionMode(mode);
   } else {
-    mode = existingInstruction;
+    // No execution mode can be used with both OpExecutionMode and
+    // OpExecutionModeId. If this assert is triggered, then either this
+    // `addExecutionModeId` should have been called with `em` or the existing
+    // instruction is wrong.
+    assert(existingInstruction->getKind() ==
+           SpirvInstruction::IK_ExecutionMode);
+    mode = cast<SpirvExecutionMode>(existingInstruction);
+  }
+
+  return mode;
+}
+
+SpirvInstruction *SpirvBuilder::addExecutionModeId(
+    SpirvFunction *entryPoint, spv::ExecutionMode em,
+    llvm::ArrayRef<SpirvInstruction *> params, SourceLocation loc) {
+  SpirvExecutionModeId *mode = nullptr;
+  SpirvExecutionModeBase *existingInstruction =
+      mod->findExecutionMode(entryPoint, em);
+  if (!existingInstruction) {
+    mode = new (context) SpirvExecutionModeId(loc, entryPoint, em, params);
+    mod->addExecutionMode(mode);
+  } else {
+    // No execution mode can be used with both OpExecutionMode and
+    // OpExecutionModeId. If this assert is triggered, then either this
+    // `addExecutionMode` should have been called with `em` or the existing
+    // instruction is wrong.
+    assert(existingInstruction->getKind() ==
+           SpirvInstruction::IK_ExecutionModeId);
+    mode = cast<SpirvExecutionModeId>(existingInstruction);
   }
 
   return mode;
