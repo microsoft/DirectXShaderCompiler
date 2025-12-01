@@ -69,6 +69,11 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
 
 bool createDevice(ID3D12Device **D3DDevice, D3D_SHADER_MODEL TestModel,
                   bool SkipUnsupported) {
+
+  if (*D3DDevice)
+    hlsl_test::LogWarningFmt(L"createDevice called with non-null *D3DDevice - "
+                             L"this will likely leak the previous device");
+
   if (TestModel > D3D_HIGHEST_SHADER_MODEL) {
     const UINT Minor = (UINT)TestModel & 0x0f;
     hlsl_test::LogCommentFmt(L"Installed SDK does not support "
