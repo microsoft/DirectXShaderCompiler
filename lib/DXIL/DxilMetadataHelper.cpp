@@ -1626,7 +1626,7 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
     }
 
     MDVals.emplace_back(
-        Uint32ToConstMD(DxilMDHelper::kDxilMaxGroupSharedMemTag));
+        Uint32ToConstMD(DxilMDHelper::kDxilGroupSharedLimitTag));
     MDVals.emplace_back(Uint32ToConstMD(props.groupSharedLimitBytes));
   } break;
     // Geometry shader.
@@ -1777,7 +1777,7 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
       props.numThreads[2] = ConstMDToUint32(pNode->getOperand(2));
     } break;
 
-    case DxilMDHelper::kDxilMaxGroupSharedMemTag: {
+    case DxilMDHelper::kDxilGroupSharedLimitTag: {
       DXASSERT(props.IsCS(), "else invalid shader kind");
       props.groupSharedLimitBytes = ConstMDToUint32(MDO);
     } break;
