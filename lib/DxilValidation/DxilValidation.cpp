@@ -928,9 +928,10 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode Opcode,
                     Props.shaderKind == DXIL::ShaderKind::Node;
     if (!IsCSLike) {
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
-                                  {Opcode == DXIL::OpCode::GetGroupWaveIndex 
-                                  ? "GetGroupWaveIndex" : "GetGroupWaveCount",
-                                  "compute, mesh, or amplification shader"});
+                                  {Opcode == DXIL::OpCode::GetGroupWaveIndex
+                                       ? "GetGroupWaveIndex"
+                                       : "GetGroupWaveCount",
+                                   "compute, mesh, or amplification shader"});
     }
   } break;
   default:
