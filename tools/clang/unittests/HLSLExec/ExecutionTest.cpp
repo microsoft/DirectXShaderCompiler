@@ -12370,27 +12370,23 @@ static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
 // It's exclusive with the use of the DLL as a TAEF target.
 extern "C" {
 __declspec(dllexport) HRESULT WINAPI
-InitializeOpTests([[maybe_unused]] void *pStrCtx,
-                  [[maybe_unused]] st::OutputStringFn pOutputStrFn) {
+InitializeOpTests(void *pStrCtx, st::OutputStringFn pOutputStrFn) {
+  // Note: previously, this function would call enableExperimentalMode. Since
+  // InitializeOpTests was only ever called from HLSLHost, as part of a now
+  // defunct test framework it would never be able to set a TAEF parameter to
+  // enable experimental mode. If/when we clean up HLSLHost we can clean this up
+  // as well.
 #ifdef _FORCE_EXPERIMENTAL_SHADERS
-  HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
-
-  if (Runtime == NULL)
-    return E_FAIL;
-
-  HRESULT hr = enableExperimentalMode(Runtime);
-
-  if (FAILED(hr)) {
-    pOutputStrFn(pStrCtx, L"Unable to enable experimental shader models.\r\n.");
-  }
+#error "_FORCE_EXPERIMENTAL_SHADERS requires InitializeOpTests to be updated"
 #endif
+  
   return S_OK;
 }
 
 __declspec(dllexport) HRESULT WINAPI
-RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
-          ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
-          ID3D12Resource *pRenderTarget, char **pReadBackDump) {
+    RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
+              ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
+              ID3D12Resource *pRenderTarget, char **pReadBackDump) {
 
   HRESULT hr;
   if (pReadBackDump)
