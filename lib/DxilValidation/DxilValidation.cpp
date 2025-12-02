@@ -920,6 +920,19 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode Opcode,
                                   {"DispatchMesh", "Amplification shader"});
     }
   } break;
+  case DXIL::OpCode::GetGroupWaveIndex:
+  case DXIL::OpCode::GetGroupWaveCount: {
+    bool IsCSLike = Props.shaderKind == DXIL::ShaderKind::Compute ||
+                    Props.shaderKind == DXIL::ShaderKind::Mesh ||
+                    Props.shaderKind == DXIL::ShaderKind::Amplification ||
+                    Props.shaderKind == DXIL::ShaderKind::Node;
+    if (!IsCSLike) {
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
+                                  {Opcode == DXIL::OpCode::GetGroupWaveIndex 
+                                  ? "GetGroupWaveIndex" : "GetGroupWaveCount",
+                                  "compute, mesh, or amplification shader"});
+    }
+  } break;
   default:
     break;
   }

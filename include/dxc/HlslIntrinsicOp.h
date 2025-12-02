@@ -25,6 +25,8 @@ enum class IntrinsicOp {
   IOP_EvaluateAttributeSnapped = 17,
   IOP_GeometryIndex = 18,
   IOP_GetAttributeAtVertex = 19,
+  IOP_GetGroupWaveCount = 395,
+  IOP_GetGroupWaveIndex = 396,
   IOP_GetRemainingRecursionLevels = 20,
   IOP_GetRenderTargetSampleCount = 21,
   IOP_GetRenderTargetSamplePosition = 22,
@@ -401,7 +403,7 @@ enum class IntrinsicOp {
   IOP_usign = 355,
   MOP_InterlockedUMax = 356,
   MOP_InterlockedUMin = 357,
-  Num_Intrinsics = 395,
+  Num_Intrinsics = 397,
 };
 inline bool HasUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
   switch (opcode) {

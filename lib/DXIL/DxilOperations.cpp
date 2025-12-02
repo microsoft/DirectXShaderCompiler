@@ -2714,6 +2714,24 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      1,
      {{0x400}},
      {{0x3}}}, // Overloads: <hf
+
+    // Group Wave Ops
+    {OC::GetGroupWaveIndex,
+     "GetGroupWaveIndex",
+     OCC::GetGroupWaveIndex,
+     "getGroupWaveIndex",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::GetGroupWaveCount,
+     "GetGroupWaveCount",
+     OCC::GetGroupWaveCount,
+     "getGroupWaveCount",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
 };
 // OPCODE-OLOADS:END
 
@@ -3540,6 +3558,13 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   if ((305 <= op && op <= 308)) {
     major = 6;
     minor = 10;
+    return;
+  }
+  // Instructions: GetGroupWaveIndex=312, GetGroupWaveCount=313
+  if ((312 <= op && op <= 313)) {
+    major = 6;
+    minor = 10;
+    mask = SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification) | SFLAG(Library);
     return;
   }
   // OPCODE-SMMASK:END
@@ -6044,6 +6069,16 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     A(pETy);
     break;
+
+    // Group Wave Ops
+  case OpCode::GetGroupWaveIndex:
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::GetGroupWaveCount:
+    A(pI32);
+    A(pI32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -6335,6 +6370,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedC7:
   case OpCode::ReservedC8:
   case OpCode::ReservedC9:
+  case OpCode::GetGroupWaveIndex:
+  case OpCode::GetGroupWaveCount:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:
