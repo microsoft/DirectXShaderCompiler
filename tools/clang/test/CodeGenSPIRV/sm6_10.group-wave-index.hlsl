@@ -4,8 +4,17 @@
 
 RWStructuredBuffer<uint> output: register(u0);
 
+// CHECK: OpCapability GroupNonUniform
+
+// CHECK: OpEntryPoint GLCompute
+// CHECK-SAME: %SubgroupId
+
+// CHECK: OpDecorate %SubgroupId BuiltIn SubgroupId
+
+// CHECK: %SubgroupId = OpVariable %_ptr_Input_uint Input
+
 [numthreads(64, 1, 1)]
 void main(uint3 id: SV_DispatchThreadID) {
-
+    // CHECK: OpLoad %uint %SubgroupId
     output[id.x] = GetGroupWaveIndex();
 }
