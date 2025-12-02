@@ -490,6 +490,7 @@ class db_enumhelp_gen:
             print(f"static const OpCodeTableID TableID = OpCodeTableID::{table.name};")
             self.print_enum(table.op_enum)
             print(f"}} // namespace {table.name}")
+        print(f"static const unsigned NumOpCodeTables = {len(self.db.dxil_op_tables)};")
 
     def print_content(self):
         for e in sorted(self.db.enums, key=lambda e: e.name):
@@ -516,8 +517,7 @@ class db_oload_gen:
         # Print the overall table of tables
         print("// Table of DXIL OpCode Property tables")
         print(
-            f"OP::OpCodeTable OP::g_OpCodeTables[(unsigned)"
-            + f"OP::OpCodeTableID::NumOpCodeTables] = {{"
+            f"OP::OpCodeTable OP::g_OpCodeTables[DXIL::NumOpCodeTables] = {{"
         )
         for table in self.db.dxil_op_tables:
             print(

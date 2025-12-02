@@ -499,8 +499,6 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 enum class OpCodeTableID : unsigned {
   CoreOps = 0,             // Core DXIL operations
   ExperimentalOps = 32768, // Experimental DXIL operations
-
-  NumOpCodeTables = 2, // exclusive last value of enumeration
 };
 // OPCODETABLE-ENUM:END
 
@@ -518,6 +516,7 @@ enum class OpCode : unsigned {
   NumOpCodes = 1, // exclusive last value of enumeration
 };
 } // namespace ExperimentalOps
+static const unsigned NumOpCodeTables = 2;
 // EXTOPCODES-ENUM:END
 
 #define EXP_OPCODE(feature, opcode)                                            \

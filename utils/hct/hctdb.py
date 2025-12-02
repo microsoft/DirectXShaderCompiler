@@ -469,7 +469,6 @@ class db_dxil(object):
             "Enumeration for DXIL opcode tables",
             [(0, "CoreOps", "Core DXIL operations")],
         )
-        OpCodeTableID.last_value_name = "NumOpCodeTables"
         postfix.append("")
         postfix.append("// OpCodes for extended tables follow.\n")
         for table in self.dxil_op_tables[1:]:  # Skip CoreOps table

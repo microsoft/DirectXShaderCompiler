@@ -2734,12 +2734,11 @@ static_assert(_countof(ExperimentalOps_OpCodeProps) ==
               "mismatch in opcode count for ExperimentalOps OpCodeProps");
 
 // Table of DXIL OpCode Property tables
-OP::OpCodeTable
-    OP::g_OpCodeTables[(unsigned)OP::OpCodeTableID::NumOpCodeTables] = {
-        {OP::OpCodeTableID::CoreOps, CoreOps_OpCodeProps,
-         (unsigned)DXIL::CoreOps::OpCode::NumOpCodes},
-        {OP::OpCodeTableID::ExperimentalOps, ExperimentalOps_OpCodeProps,
-         (unsigned)DXIL::ExperimentalOps::OpCode::NumOpCodes},
+OP::OpCodeTable OP::g_OpCodeTables[DXIL::NumOpCodeTables] = {
+    {OP::OpCodeTableID::CoreOps, CoreOps_OpCodeProps,
+     (unsigned)DXIL::CoreOps::OpCode::NumOpCodes},
+    {OP::OpCodeTableID::ExperimentalOps, ExperimentalOps_OpCodeProps,
+     (unsigned)DXIL::ExperimentalOps::OpCode::NumOpCodes},
 };
 // OPCODE-OLOADS:END
 
@@ -2758,7 +2757,7 @@ static const char *AtomicBinOpCodeName[] = {
 };
 
 static unsigned GetOpCodeTableIndex(OP::OpCodeTableID TableID) {
-  static_assert((unsigned)OP::OpCodeTableID::NumOpCodeTables == 2,
+  static_assert(DXIL::NumOpCodeTables == 2,
                 "Otherwise, update GetOpCodeTableIndex to be generated.");
   switch (TableID) {
   case OP::OpCodeTableID::CoreOps:
@@ -2777,7 +2776,7 @@ bool OP::DecodeOpCode(unsigned EncodedOpCode, OP::OpCodeTableID &TableID,
     return false;
   OP::OpCodeTableID TID = (OP::OpCodeTableID)(EncodedOpCode >> 16);
   unsigned TableIndex = GetOpCodeTableIndex(TID);
-  if (TableIndex >= (unsigned)OP::OpCodeTableID::NumOpCodeTables)
+  if (TableIndex >= DXIL::NumOpCodeTables)
     return false;
   unsigned Op = (EncodedOpCode & 0xFFFF);
   if (Op >= OP::g_OpCodeTables[TableIndex].Count)
@@ -2987,8 +2986,7 @@ bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
 }
 
 bool OP::CheckOpCodeTable() {
-  for (unsigned TableIndex = 0;
-       TableIndex < (unsigned)OP::OpCodeTableID::NumOpCodeTables;
+  for (unsigned TableIndex = 0; TableIndex < DXIL::NumOpCodeTables;
        TableIndex++) {
     const OP::OpCodeTable &Table = OP::g_OpCodeTables[TableIndex];
     for (unsigned OpIndex = 0; OpIndex < Table.Count; OpIndex++) {

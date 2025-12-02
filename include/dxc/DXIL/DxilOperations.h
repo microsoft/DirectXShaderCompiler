@@ -278,7 +278,7 @@ public:
 
 private:
   // Static properties.
-  static OpCodeTable g_OpCodeTables[(unsigned)OpCodeTableID::NumOpCodeTables];
+  static OpCodeTable g_OpCodeTables[DXIL::NumOpCodeTables];
   static const OpCodeProperty &GetOpCodeProps(unsigned opCode);
   static const OpCodeProperty &GetOpCodeProps(OpCode opCode);
 
