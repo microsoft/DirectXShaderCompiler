@@ -2428,6 +2428,8 @@ ID  Name                                                  Description
 309 VectorReduceAnd                                       Bitwise AND reduction of the vector returning a scalar
 310 VectorReduceOr                                        Bitwise OR reduction of the vector returning a scalar
 311 FDot                                                  computes the n-dimensional vector dot-product
+312 GetGroupWaveIndex                                     returns the index of the wave in the thread group
+313 GetGroupWaveCount                                     returns the number of waves in the thread group
 === ===================================================== =======================================================================================================================================================================================================================
 
 

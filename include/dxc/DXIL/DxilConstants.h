@@ -756,6 +756,10 @@ enum class OpCode : unsigned {
   // Graphics shader
   ViewID = 138, // returns the view index
 
+  // Group Wave Ops
+  GetGroupWaveCount = 313, // returns the number of waves in the thread group
+  GetGroupWaveIndex = 312, // returns the index of the wave in the thread group
+
   // Helper Lanes
   IsHelperLane = 221, // returns true on helper lanes in pixel shaders
 
@@ -1187,7 +1191,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
   NumOpCodes_Dxil_1_8 = 258,
-  NumOpCodes_Dxil_1_9 = 312,
+  NumOpCodes_Dxil_1_9 = 314,
 
   NumOpCodes = 312,     // exclusive last value of enumeration
   Invalid = 0xFFFFFFFF, // stable invalid OpCode value

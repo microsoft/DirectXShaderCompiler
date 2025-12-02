@@ -802,6 +802,10 @@ class db_dxil(object):
                 )
             elif i.name.startswith("Bitcast"):
                 i.category = "Bitcasts with different sizes"
+            elif i.name.startswith("GetGroupWave"):
+                i.category = "Group Wave Ops"
+                i.shader_model = 6, 10
+                i.shader_stages = ("compute", "mesh", "amplification", "library")
         for i in "ViewID,AttributeAtVertex".split(","):
             self.name_idx[i].shader_model = 6, 1
         for i in "RawBufferLoad,RawBufferStore".split(","):
@@ -6180,6 +6184,24 @@ class db_dxil(object):
             ],
             counters=("floats",),
         )
+
+        # Group Wave Operations
+        self.add_dxil_op(
+            "GetGroupWaveIndex",
+            "GetGroupWaveIndex",
+            "returns the index of the wave in the thread group",
+            "v",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result")],
+        )
+        self.add_dxil_op(
+            "GetGroupWaveCount",
+            "GetGroupWaveCount",
+            "returns the number of waves in the thread group",
+            "v",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result")],
+        )      
 
         # End of DXIL 1.9 opcodes.
         op_count = set_op_count_for_version(1, 9)

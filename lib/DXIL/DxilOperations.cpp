@@ -2714,6 +2714,24 @@ static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
      1,
      {{0x400}},
      {{0x3}}}, // Overloads: <hf
+
+    // Group Wave Ops
+    {OC::GetGroupWaveIndex,
+     "GetGroupWaveIndex",
+     OCC::GetGroupWaveIndex,
+     "getGroupWaveIndex",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::GetGroupWaveCount,
+     "GetGroupWaveCount",
+     OCC::GetGroupWaveCount,
+     "getGroupWaveCount",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
 };
 static_assert(_countof(CoreOps_OpCodeProps) ==
                   (size_t)DXIL::CoreOps::OpCode::NumOpCodes,

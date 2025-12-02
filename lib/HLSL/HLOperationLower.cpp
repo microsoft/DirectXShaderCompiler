@@ -7515,9 +7515,9 @@ constexpr IntrinsicLower gLowerTable[] = {
 
     {IntrinsicOp::IOP_isnormal, TrivialIsSpecialFloat, DXIL::OpCode::IsNormal},
 
-    {IntrinsicOp::IOP_GetGroupWaveCount, EmptyLower,
+    {IntrinsicOp::IOP_GetGroupWaveCount, TranslateWaveToVal,
      DXIL::OpCode::GetGroupWaveCount},
-    {IntrinsicOp::IOP_GetGroupWaveIndex, EmptyLower,
+    {IntrinsicOp::IOP_GetGroupWaveIndex, TranslateWaveToVal,
      DXIL::OpCode::GetGroupWaveIndex},
 
     {IntrinsicOp::IOP_ClusterID, EmptyLower, DXIL::OpCode::ClusterID},
