@@ -84,6 +84,9 @@ static bool createDevice(
         CreateDevice
 
 ) {
+  if (*D3DDevice)
+    hlsl_test::LogWarningFmt(L"createDevice called with non-null *D3DDevice - "
+                             L"this will likely leak the previous device");
   if (TestModel > ExecTestUtils::D3D_HIGHEST_SHADER_MODEL) {
     const UINT Minor = (UINT)TestModel & 0x0f;
     hlsl_test::LogCommentFmt(L"Installed SDK does not support "
@@ -184,16 +187,10 @@ static bool createDevice(
     return false;
 
   if (!useDxbc()) {
-    // Check for DXIL support.
-    typedef struct D3D12_FEATURE_DATA_SHADER_MODEL {
-      ExecTestUtils::D3D_SHADER_MODEL HighestShaderModel;
-    } D3D12_FEATURE_DATA_SHADER_MODEL;
-    const UINT D3D12_FEATURE_SHADER_MODEL = 7;
     D3D12_FEATURE_DATA_SHADER_MODEL SMData;
     SMData.HighestShaderModel = TestModel;
-    if (FAILED(D3DDeviceCom->CheckFeatureSupport(
-            (D3D12_FEATURE)D3D12_FEATURE_SHADER_MODEL, &SMData,
-            sizeof(SMData))) ||
+    if (FAILED(D3DDeviceCom->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL,
+                                                 &SMData, sizeof(SMData))) ||
         SMData.HighestShaderModel < TestModel) {
       const UINT Minor = (UINT)TestModel & 0x0f;
       hlsl_test::LogCommentFmt(L"The selected device does not support "

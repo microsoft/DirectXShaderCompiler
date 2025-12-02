@@ -6875,6 +6875,7 @@ SpirvInstruction *SpirvEmitter::doUnaryOperator(const UnaryOperator *expr) {
 }
 
 spv::Op SpirvEmitter::translateOp(BinaryOperator::Opcode op, QualType type) {
+  type = type.getDesugaredType(astContext);
   const bool isSintType = isSintOrVecMatOfSintType(type);
   const bool isUintType = isUintOrVecMatOfUintType(type);
   const bool isFloatType = isFloatOrVecMatOfFloatType(type);

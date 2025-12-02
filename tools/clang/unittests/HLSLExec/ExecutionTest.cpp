@@ -490,32 +490,6 @@ public:
   // Do not remove the following line - it is used by TranslateExecutionTest.py
   // MARKER: ExecutionTest/DxilConf Shared Implementation Start
 
-  // We define D3D_SHADER_MODEL enum values as we don't generally have access to
-  // the latest D3D headers when adding tests for a new SM being added.
-  using D3D_SHADER_MODEL = ExecTestUtils::D3D_SHADER_MODEL;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_0 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_0;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_1 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_1;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_2 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_2;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_3 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_3;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_4 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_4;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_5 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_5;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_6 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_6;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_7 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_7;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_8 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_8;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_SHADER_MODEL_6_9 =
-      ExecTestUtils::D3D_SHADER_MODEL_6_9;
-  static constexpr ExecTestUtils::D3D_SHADER_MODEL D3D_HIGHEST_SHADER_MODEL =
-      ExecTestUtils::D3D_HIGHEST_SHADER_MODEL;
-
   bool SaveImages() { return GetTestParamBool(L"SaveImages"); }
 
   // Base class used by raw gather test for polymorphic assignments
@@ -11767,7 +11741,7 @@ bool HelperLaneResultLogAndVerify(const wchar_t *testDesc,
   return matches;
 }
 
-bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm,
+bool VerifyHelperLaneWaveResults(D3D_SHADER_MODEL sm,
                                  HelperLaneWaveTestResult &testResults,
                                  HelperLaneWaveTestResult &expectedResults,
                                  bool verifyQuads) {
@@ -11835,7 +11809,7 @@ bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm,
         quad_tr_exp.is_helper_across_Diag, quad_tr.is_helper_across_Diag);
   }
 
-  if (sm >= ExecutionTest::D3D_SHADER_MODEL_6_5) {
+  if (sm >= D3D_SHADER_MODEL_6_5) {
     HelperLaneWaveTestResult65 &tr65 = testResults.sm65;
     HelperLaneWaveTestResult65 &tr65exp = expectedResults.sm65;
 
@@ -11867,7 +11841,7 @@ bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm,
 // to dispatch three waves that each process only a single vertex.
 // So instead of compare with fixed expected result, calculate the correct
 // result from ballot.
-bool VerifyHelperLaneWaveResultsForVS(ExecutionTest::D3D_SHADER_MODEL sm,
+bool VerifyHelperLaneWaveResultsForVS(D3D_SHADER_MODEL sm,
                                       HelperLaneWaveTestResult &testResults) {
   bool passed = true;
   XMUINT4 mask = testResults.sm60.ballot;
@@ -11929,7 +11903,7 @@ bool VerifyHelperLaneWaveResultsForVS(ExecutionTest::D3D_SHADER_MODEL sm,
                                            2 * (countBits - 1), tr60.prefixSum);
   }
 
-  if (sm >= ExecutionTest::D3D_SHADER_MODEL_6_5) {
+  if (sm >= D3D_SHADER_MODEL_6_5) {
     HelperLaneWaveTestResult65 &tr65 = testResults.sm65;
 
     passed &= HelperLaneResultLogAndVerify(
