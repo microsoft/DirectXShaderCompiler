@@ -1791,7 +1791,8 @@ public:
           L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
 
       const bool SkipUnsupported = !FailIfRequirementsNotMet;
-      if (!D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, SkipUnsupported)) {
+      if (!D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9,
+                                  SkipUnsupported)) {
         if (FailIfRequirementsNotMet)
           hlsl_test::LogErrorFmt(
               L"Device Creation failed, resulting in test failure, since "
@@ -1823,8 +1824,8 @@ public:
       // requirements of all the tests in this class.
       const bool SkipUnsupported = false;
 
-      VERIFY_IS_TRUE(
-          D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, SkipUnsupported));
+      VERIFY_IS_TRUE(D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9,
+                                            SkipUnsupported));
     }
 
     return true;

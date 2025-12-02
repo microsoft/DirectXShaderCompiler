@@ -12370,8 +12370,8 @@ static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
 // It's exclusive with the use of the DLL as a TAEF target.
 extern "C" {
 __declspec(dllexport) HRESULT WINAPI
-InitializeOpTests([[maybe_unused]] void *pStrCtx,
-                  [[maybe_unused]] st::OutputStringFn pOutputStrFn) {
+    InitializeOpTests([[maybe_unused]] void *pStrCtx,
+                      [[maybe_unused]] st::OutputStringFn pOutputStrFn) {
   // Note: previously, this function would call enableExperimentalMode. Since
   // InitializeOpTests was only ever called from HLSLHost, as part of a now
   // defunct test framework it would never be able to set a TAEF parameter to
@@ -12385,9 +12385,9 @@ InitializeOpTests([[maybe_unused]] void *pStrCtx,
 }
 
 __declspec(dllexport) HRESULT WINAPI
-RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
-          ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
-          ID3D12Resource *pRenderTarget, char **pReadBackDump) {
+    RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
+              ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
+              ID3D12Resource *pRenderTarget, char **pReadBackDump) {
 
   HRESULT hr;
   if (pReadBackDump)
