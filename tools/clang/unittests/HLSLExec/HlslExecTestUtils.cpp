@@ -78,8 +78,7 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
 }
 
 static bool createDevice(
-    ID3D12Device **D3DDevice, ExecTestUtils::D3D_SHADER_MODEL TestModel,
-    bool SkipUnsupported,
+    ID3D12Device **D3DDevice, D3D_SHADER_MODEL TestModel, bool SkipUnsupported,
     std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
         CreateDevice
 
@@ -87,7 +86,7 @@ static bool createDevice(
   if (*D3DDevice)
     hlsl_test::LogWarningFmt(L"createDevice called with non-null *D3DDevice - "
                              L"this will likely leak the previous device");
-  if (TestModel > ExecTestUtils::D3D_HIGHEST_SHADER_MODEL) {
+  if (TestModel > D3D_HIGHEST_SHADER_MODEL) {
     const UINT Minor = (UINT)TestModel & 0x0f;
     hlsl_test::LogCommentFmt(L"Installed SDK does not support "
                              L"shader model 6.%1u",
@@ -468,8 +467,7 @@ D3D12SDK::~D3D12SDK() {
 }
 
 bool D3D12SDK::createDevice(ID3D12Device **D3DDevice,
-                            ExecTestUtils::D3D_SHADER_MODEL TestModel,
-                            bool SkipUnsupported) {
+                            D3D_SHADER_MODEL TestModel, bool SkipUnsupported) {
 
   if (DeviceFactory) {
     hlsl_test::LogCommentFmt(L"Creating device using DeviceFactory");

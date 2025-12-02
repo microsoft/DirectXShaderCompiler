@@ -419,7 +419,7 @@ public:
 
   std::optional<D3D12SDK> D3D12SDK;
   bool m_D3DInitCompleted = false;
-  
+
   const float ClearColor[4] = {0.0f, 0.2f, 0.4f, 1.0f};
 
   bool DivergentClassSetup() {
@@ -436,8 +436,7 @@ public:
   }
 
   bool createDevice(ID3D12Device **D3DDevice,
-                    ExecTestUtils::D3D_SHADER_MODEL TestModel =
-                        ExecTestUtils::D3D_SHADER_MODEL_6_0,
+                    D3D_SHADER_MODEL TestModel = D3D_SHADER_MODEL_6_0,
                     bool SkipUnsupported = true) {
     return D3D12SDK->createDevice(D3DDevice, TestModel, SkipUnsupported);
   }
@@ -12371,8 +12370,8 @@ static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
 // It's exclusive with the use of the DLL as a TAEF target.
 extern "C" {
 __declspec(dllexport) HRESULT WINAPI
-    InitializeOpTests([[maybe_unused]] void *pStrCtx,
-                      [[maybe_unused]] st::OutputStringFn pOutputStrFn) {
+InitializeOpTests([[maybe_unused]] void *pStrCtx,
+                  [[maybe_unused]] st::OutputStringFn pOutputStrFn) {
 #ifdef _FORCE_EXPERIMENTAL_SHADERS
   HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
 
@@ -12389,9 +12388,9 @@ __declspec(dllexport) HRESULT WINAPI
 }
 
 __declspec(dllexport) HRESULT WINAPI
-    RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
-              ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
-              ID3D12Resource *pRenderTarget, char **pReadBackDump) {
+RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
+          ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
+          ID3D12Resource *pRenderTarget, char **pReadBackDump) {
 
   HRESULT hr;
   if (pReadBackDump)

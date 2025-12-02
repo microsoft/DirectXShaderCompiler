@@ -20,11 +20,11 @@ bool useDxbc();
 ///  directory. Absolute path is only supported on OS's that support
 ///  ID3D12DeviceFactory.
 ///
-///  D3D12SDKVersion: requested SDK version 
+///  D3D12SDKVersion: requested SDK version
 ///
-///    0: auto-detect (quietly fallback to inbox version) 
+///    0: auto-detect (quietly fallback to inbox version)
 ///
-///    1: auto-detect (fail if unable to use the auto-detected version) 
+///    1: auto-detect (fail if unable to use the auto-detected version)
 ///
 ///   >1: use specified version
 class D3D12SDK {
@@ -35,8 +35,7 @@ public:
   ~D3D12SDK();
 
   bool createDevice(ID3D12Device **D3DDevice,
-                    ExecTestUtils::D3D_SHADER_MODEL TestModel =
-                        ExecTestUtils::D3D_SHADER_MODEL_6_0,
+                    D3D_SHADER_MODEL TestModel = D3D_SHADER_MODEL_6_0,
                     bool SkipUnsupported = true);
 
 private:
