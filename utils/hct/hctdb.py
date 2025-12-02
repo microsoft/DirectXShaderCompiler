@@ -6201,7 +6201,7 @@ class db_dxil(object):
             "v",
             "rn",
             [db_dxil_param(0, "i32", "", "operation result")],
-        )      
+        )
 
         # End of DXIL 1.9 opcodes.
         op_count = set_op_count_for_version(1, 9)
