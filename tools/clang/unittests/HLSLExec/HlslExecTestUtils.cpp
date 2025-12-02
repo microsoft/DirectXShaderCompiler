@@ -465,7 +465,8 @@ D3D12SDK::~D3D12SDK() {
       return;
     }
 
-    SDKConfig->FreeUnusedSDKs();
+    // Workaround internal bug #55347376 by not calling FreeUnusedSDKs
+    // SDKConfig->FreeUnusedSDKs();
   }
 }
 
@@ -478,7 +479,10 @@ bool D3D12SDK::createDevice(ID3D12Device **D3DDevice,
     return ::createDevice(
         D3DDevice, TestModel, SkipUnsupported,
         [&](IUnknown *A, D3D_FEATURE_LEVEL FL, REFIID R, void **P) {
-          return DeviceFactory->CreateDevice(A, FL, R, P);
+          hlsl_test::LogCommentFmt(L"Calling DeviceFactory->CreateDevice");
+          HRESULT Hr = DeviceFactory->CreateDevice(A, FL, R, P);
+          hlsl_test::LogCommentFmt(L" Result: 0x%x", Hr);
+          return Hr;
         });
   }
 
