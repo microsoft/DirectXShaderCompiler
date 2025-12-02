@@ -24,6 +24,9 @@ The included licenses apply to the following files:
 - Header file `dxcpix.h` was added to the release package.
 - Moved Linear Algebra (Cooperative Vector) DXIL Opcodes to experimental Shader Model 6.10
 - Added support for `long long` and `unsigned long long` compile-time constant evaluation, fixes [#7952](https://github.com/microsoft/DirectXShaderCompiler/issues/7952).
+- Implement GetGroupWaveIndex and GetGroupWaveCount : [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0048-group-wave-index.md)
+  - GetGroupWaveIndex: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the index of the wave within the thread group that the the thread is executing.
+  - GetGroupWaveCount: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the total number of waves executing within the thread group.
 
 ### Version 1.8.2505
 
