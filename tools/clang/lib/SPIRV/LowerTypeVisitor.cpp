@@ -836,12 +836,10 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     }
 
     QualType realType = hlsl::GetHLSLResourceTemplateParamType(type);
-    if (rule == SpirvLayoutRule::Void) {
-      rule = spvOptions.sBufferLayoutRule;
-    }
     visitedTypeStack.push_back(type);
 
-    const SpirvType *spirvType = lowerType(realType, rule, llvm::None, srcLoc);
+    const SpirvType *spirvType =
+        lowerType(realType, spvOptions.sBufferLayoutRule, llvm::None, srcLoc);
     const auto *pointerType = spvContext.getPointerType(
         spirvType, spv::StorageClass::PhysicalStorageBuffer);
     spvContext.registerForwardReference(type, pointerType);
