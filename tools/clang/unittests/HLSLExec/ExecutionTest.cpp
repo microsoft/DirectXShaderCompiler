@@ -419,9 +419,7 @@ public:
 
   std::optional<D3D12SDK> D3D12SDK;
   bool m_D3DInitCompleted = false;
-  bool m_ExperimentalModeEnabled = false;
-  bool m_AgilitySDKEnabled = false;
-
+  
   const float ClearColor[4] = {0.0f, 0.2f, 0.4f, 1.0f};
 
   bool DivergentClassSetup() {
