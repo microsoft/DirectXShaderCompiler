@@ -9470,15 +9470,19 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processWaveCountBits(callExpr, spv::GroupOperation::Reduce);
     break;
   case hlsl::IntrinsicOp::IOP_GetGroupWaveIndex: {
-    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "GetGroupWaveIndex", srcLoc);
+    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "GetGroupWaveIndex",
+                                    srcLoc);
     const QualType retType = callExpr->getCallReturnType(astContext);
-    auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupId, retType, srcLoc);
+    auto *var =
+        declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupId, retType, srcLoc);
     retVal = spvBuilder.createLoad(retType, var, srcLoc, srcRange);
   } break;
-case hlsl::IntrinsicOp::IOP_GetGroupWaveCount: {
-    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "GetGroupWaveCount", srcLoc);
+  case hlsl::IntrinsicOp::IOP_GetGroupWaveCount: {
+    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "GetGroupWaveCount",
+                                    srcLoc);
     const QualType retType = callExpr->getCallReturnType(astContext);
-    auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::NumSubgroups, retType, srcLoc);
+    auto *var =
+        declIdMapper.getBuiltinVar(spv::BuiltIn::NumSubgroups, retType, srcLoc);
     retVal = spvBuilder.createLoad(retType, var, srcLoc, srcRange);
   } break;
   case hlsl::IntrinsicOp::IOP_WaveActiveUSum:
