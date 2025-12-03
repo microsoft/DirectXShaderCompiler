@@ -12368,7 +12368,8 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
 
   // Method 4: double  asdouble(uint lowbits, uint highbits)
   // Method 5: double2 asdouble(uint2 lowbits, uint2 highbits)
-  // Method 6:
+  // Method 6: double3 asdouble(uint3 lowbits, uint3 highbits)
+  // Method 7:
   //           void asuint(
   //           in  double value,
   //           out uint lowbits,
@@ -12417,26 +12418,37 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     auto *highbits = doExpr(callExpr->getArg(1));
     const auto uintType = astContext.UnsignedIntTy;
     const auto doubleType = astContext.DoubleTy;
+    uint32_t vecSize;
     // Handling Method 4
-    if (argType->isUnsignedIntegerType()) {
+    if (!isVectorType(argType, nullptr, &vecSize)) {
       const auto uintVec2Type = astContext.getExtVectorType(uintType, 2);
       auto *operand = spvBuilder.createCompositeConstruct(
           uintVec2Type, {lowbits, highbits}, loc, range);
       return spvBuilder.createUnaryOp(spv::Op::OpBitcast, doubleType, operand,
                                       loc, range);
     }
-    // Handling Method 5
+    // Handling Method 5, 6
     else {
-      const auto uintVec4Type = astContext.getExtVectorType(uintType, 4);
-      const auto doubleVec2Type = astContext.getExtVectorType(doubleType, 2);
-      auto *operand = spvBuilder.createVectorShuffle(
-          uintVec4Type, lowbits, highbits, {0, 2, 1, 3}, loc, range);
-      return spvBuilder.createUnaryOp(spv::Op::OpBitcast, doubleVec2Type,
-                                      operand, loc, range);
+      std::vector<SpirvInstruction *> doubles = {};
+      // For each pair, convert them to double.
+      for (uint32_t i = 0; i < vecSize; ++i) {
+        SpirvInstruction *lowElem = spvBuilder.createCompositeExtract(
+            uintType, lowbits, {i}, loc, range);
+        SpirvInstruction *highElem = spvBuilder.createCompositeExtract(
+            uintType, highbits, {i}, loc, range);
+        const auto uintVec2Type = astContext.getExtVectorType(uintType, 2);
+        auto *operand = spvBuilder.createCompositeConstruct(
+            uintVec2Type, {lowElem, highElem}, loc, range);
+        SpirvInstruction *doubleElem = spvBuilder.createUnaryOp(
+            spv::Op::OpBitcast, doubleType, operand, loc, range);
+        doubles.push_back(doubleElem);
+      }
+      return spvBuilder.createCompositeConstruct(returnType, doubles, loc,
+                                                 range);
     }
   }
   case 3: {
-    // Handling Method 6.
+    // Handling Method 7.
     const Expr *arg1 = callExpr->getArg(1);
     const Expr *arg2 = callExpr->getArg(2);
 
