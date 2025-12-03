@@ -139,6 +139,8 @@ GetBestViableFunction(clang::Sema &S, clang::SourceLocation Loc,
 bool ShouldSkipNRVO(clang::Sema &sema, clang::QualType returnType,
                     clang::VarDecl *VD, clang::FunctionDecl *FD);
 
+void NormalizeInlineSPIRVAttributes(clang::Sema &S, clang::Decl *D);
+
 /// <summary>Processes an attribute for a declaration.</summary>
 /// <param name="S">Sema with context.</param>
 /// <param name="D">Annotated declaration.</param>

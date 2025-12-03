@@ -8066,6 +8066,19 @@ def err_hlsl_vk_static_pointer_cast_type: Error<
   "vk::static_pointer_cast() content type must be base class of argument's content type">;
 def warn_spirv_node_shaders_experimental : Warning<
   "SPIR-V implementation of node shaders is experimental and subject to change">;
+
+def err_hlsl_spv_inline_builtin_redefinition
+    : Error<"%0 cannot be used on a variable already associated with the "
+            "built-in %1">;
+def err_hlsl_spv_inline_builtin_incompatible
+    : Error<"%0 incompatible with the BuiltIn %1">;
+def err_hlsl_spv_inline_location_redefinition
+    : Error<"invalid %0 : target already associated with another location %1">;
+def err_hlsl_spv_inline_invalid_decoration_single_operand_missing
+    : Error<"decoration %0 requires 1 operand">;
+def err_hlsl_spv_inline_storage_class_redefinition
+    : Error<"%0 cannot be used on a variable already associated to another "
+            "storage class %1">;
 // SPIRV Change Ends
 
 let CategoryName = "OpenMP Issue" in {
