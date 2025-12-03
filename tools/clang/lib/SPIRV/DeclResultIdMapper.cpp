@@ -1064,6 +1064,9 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
   (void)getTypeAndCreateCounterForPotentialAliasVar(param, &isAlias);
   fnParamInstr->setContainsAliasComponent(isAlias);
 
+  if (isConstantTextureBuffer(type))
+    fnParamInstr->setLayoutRule(spirvOptions.cBufferLayoutRule);
+
   assert(astDecls[param].instr == nullptr);
   registerVariableForDecl(param, fnParamInstr);
 
