@@ -886,6 +886,48 @@ class db_dxil(object):
         ).split(","):
             self.name_idx[i].category = "Linear Algebra Operations"
             self.name_idx[i].shader_model = 6, 10
+        for i in ("ClusterID").split(","):
+            self.name_idx[i].category = "Raytracing uint System Values"
+            self.name_idx[i].shader_model = 6, 10
+            self.name_idx[i].shader_stages = (
+                "library",
+                "anyhit",
+                "closesthit",
+            )
+        for i in ("TriangleObjectPosition").split(","):
+            self.name_idx[i].category = "Raytracing System Values"
+            self.name_idx[i].shader_model = 6, 10
+            self.name_idx[i].shader_stages = (
+                "library",
+                "anyhit",
+                "closesthit",
+            )
+        for i in ("RayQuery_CandidateClusterID,RayQuery_CommittedClusterID").split(","):
+            self.name_idx[i].category = "Inline Ray Query"
+            self.name_idx[i].shader_model = 6, 10
+        for i in (
+            "RayQuery_CandidateTriangleObjectPosition,RayQuery_CommittedTriangleObjectPosition"
+        ).split(","):
+            self.name_idx[i].category = "Inline Ray Query"
+            self.name_idx[i].shader_model = 6, 10
+        for i in ("HitObject_ClusterID").split(","):
+            self.name_idx[i].category = "Shader Execution Reordering"
+            self.name_idx[i].shader_model = 6, 10
+            self.name_idx[i].shader_stages = (
+                "library",
+                "raygeneration",
+                "closesthit",
+                "miss",
+            )
+        for i in ("HitObject_TriangleObjectPosition").split(","):
+            self.name_idx[i].category = "Shader Execution Reordering"
+            self.name_idx[i].shader_model = 6, 10
+            self.name_idx[i].shader_stages = (
+                "library",
+                "raygeneration",
+                "closesthit",
+                "miss",
+            )
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -5888,6 +5930,123 @@ class db_dxil(object):
             "312 is expected next operation index but encountered %d and thus opcodes are broken"
             % op_count
         )
+
+        # Clustered Geometry
+        self.add_dxil_op(
+            "ClusterID",
+            next_op_idx,
+            "ClusterID",
+            "Returns the user-defined ClusterID of the intersected CLAS",
+            "i",
+            "rn",
+            [db_dxil_param(0, "i32", "", "result")],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "RayQuery_CandidateClusterID",
+            next_op_idx,
+            "RayQuery_StateScalar",
+            "returns candidate hit cluster ID",
+            "i",
+            "ro",
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "RayQuery_CommittedClusterID",
+            next_op_idx,
+            "RayQuery_StateScalar",
+            "returns committed hit cluster ID",
+            "i",
+            "ro",
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_ClusterID",
+            next_op_idx,
+            "HitObject_StateScalar",
+            "Returns the cluster ID of this committed hit",
+            "i",
+            "rn",
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
+        )
+        next_op_idx += 1
+
+        # Triangle Object Positions
+        self.add_dxil_op(
+            "TriangleObjectPosition",
+            next_op_idx,
+            "TriangleObjectPosition",
+            "Returns triangle vertices in object space as <9 x float>",
+            "f",
+            "rn",
+            [
+                db_dxil_param(0, "$vec9", "", "operation result"),
+            ],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "RayQuery_CandidateTriangleObjectPosition",
+            next_op_idx,
+            "RayQuery_CandidateTriangleObjectPosition",
+            "Returns candidate triangle vertices in object space as <9 x float>",
+            "f",
+            "ro",
+            [
+                db_dxil_param(0, "$vec9", "", "operation result"),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "RayQuery_CommittedTriangleObjectPosition",
+            next_op_idx,
+            "RayQuery_CommittedTriangleObjectPosition",
+            "Returns committed triangle vertices in object space as <9 x float>",
+            "f",
+            "ro",
+            [
+                db_dxil_param(0, "$vec9", "", "operation result"),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        next_op_idx += 1
+
+        self.add_dxil_op(
+            "HitObject_TriangleObjectPosition",
+            next_op_idx,
+            "HitObject_TriangleObjectPosition",
+            "Returns triangle vertices in object space as <9 x float>",
+            "f",
+            "rn",
+            [
+                db_dxil_param(0, "$vec9", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
+        )
+        next_op_idx += 1
+
+        # NOTE!! Update and uncomment when DXIL 1.10 opcodes are finalized:
+        # self.set_op_count_for_version(1, 10, next_op_idx)
+        # assert next_op_idx == NNN, (
+        #    "NNN is expected next operation index but encountered %d and thus opcodes are broken"
+        #    % next_op_idx
+        # )
 
         # Set interesting properties.
         self.build_indices()

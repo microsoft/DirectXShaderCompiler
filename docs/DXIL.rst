@@ -2426,6 +2426,14 @@ ID  Name                                                  Description
 309 VectorReduceAnd                                       Bitwise AND reduction of the vector returning a scalar
 310 VectorReduceOr                                        Bitwise OR reduction of the vector returning a scalar
 311 FDot                                                  computes the n-dimensional vector dot-product
+312 ClusterID                                             Returns the user-defined ClusterID of the intersected CLAS
+313 RayQuery_CandidateClusterID                           returns candidate hit cluster ID
+314 RayQuery_CommittedClusterID                           returns committed hit cluster ID
+315 HitObject_ClusterID                                   Returns the cluster ID of this committed hit
+316 TriangleObjectPosition                                Returns triangle vertices in object space as <9 x float>
+317 RayQuery_CandidateTriangleObjectPosition              Returns candidate triangle vertices in object space as <9 x float>
+318 RayQuery_CommittedTriangleObjectPosition              Returns committed triangle vertices in object space as <9 x float>
+319 HitObject_TriangleObjectPosition                      Returns triangle vertices in object space as <9 x float>
 === ===================================================== =======================================================================================================================================================================================================================
 
 
