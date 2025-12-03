@@ -4156,10 +4156,10 @@ void MSMain(uint GID : SV_GroupIndex,
         float MakeDifferent(float A) { return A + 1.0f; }
         double MakeDifferent(double A) { return A + 1.0; }
 
-        #if defined(__HLSL_ENABLE_16BIT_TYPES)
+        #if __HLSL_ENABLE_16_BIT
         uint16_t MakeDifferent(uint16_t A) { return A ^ 1; }
         int16_t MakeDifferent(int16_t A) { return A ^ 1; }
-        #endif // defined(__HLSL_ENABLE_16BIT_TYPES)
+        #endif
 
         vector<OUT_TYPE, NUM> TestWaveActiveAllEqual(vector<TYPE, NUM> Vector)
         {
