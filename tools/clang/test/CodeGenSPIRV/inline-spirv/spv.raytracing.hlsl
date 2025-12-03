@@ -1,4 +1,4 @@
-// RUN: %dxc %s -T cs_6_8 -spirv -fspv-target-env=vulkan1.3 -E main -O0 | Filecheck %s
+// RUN: %dxc %s -T cs_6_8 -spirv -fspv-target-env=vulkan1.3 -E main -O0 | FileCheck %s
 
 // CHECK-DAG: OpCapability RuntimeDescriptorArray
 // CHECK-DAG: OpCapability RayQueryKHR
