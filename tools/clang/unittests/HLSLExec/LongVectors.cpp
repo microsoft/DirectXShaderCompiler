@@ -323,7 +323,7 @@ std::string getCompilerOptionsString(
 
   if (OpDataType.Is16Bit || OutDataType.Is16Bit) {
     CompilerOptions << " -enable-16bit-types";
-    CompilerOptions << " -DNATIVE_16BIT_ENABLED=1";
+    CompilerOptions << " -DNATIVE_16BIT_TYPES_ENABLED=1";
   }
 
   CompilerOptions << " -DTYPE=" << OpDataType.HLSLTypeString;
