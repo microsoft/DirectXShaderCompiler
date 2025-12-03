@@ -1187,7 +1187,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
                                                    QualType type) {
   const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
-  const bool isInlineSpirv = var->hasAttr<VKStorageClassExtAttr>();
+  const bool hasInlineSpirvSC = var->hasAttr<VKStorageClassExtAttr>();
   const bool isACSBuffer =
       isAppendStructuredBuffer(type) || isConsumeStructuredBuffer(type);
   const bool isRWSBuffer = isRWStructuredBuffer(type);
@@ -1195,7 +1195,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
   const auto rule = getLayoutRuleForExternVar(type, spirvOptions);
   const auto loc = var->getLocation();
 
-  if (!isGroupShared && !isResourceType(type) && !isInlineSpirv &&
+  if (!isGroupShared && !isResourceType(type) && !hasInlineSpirvSC &&
       !isResourceOnlyStructure(type)) {
 
     // We currently cannot support global structures that contain both resources
