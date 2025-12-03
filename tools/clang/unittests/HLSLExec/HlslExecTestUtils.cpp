@@ -234,7 +234,7 @@ static bool enableDebugLayer() {
   CComPtr<ID3D12Debug> DebugController;
   HRESULT HR;
   if (FAILED(HR = D3D12GetDebugInterface(IID_PPV_ARGS(&DebugController)))) {
-    LogErrorFmt(L"Failed to get ID3D12Debug: 0x%08x", HR);
+    LogWarningFmt(L"Failed to get ID3D12Debug: 0x%08x", HR);
     return false;
   }
 
@@ -308,13 +308,13 @@ enableGlobalAgilitySDK(const std::optional<AgilitySDKConfiguration> &C) {
   HRESULT HR;
   if (FAILED(HR = D3D12GetInterface(CLSID_D3D12SDKConfiguration,
                                     IID_PPV_ARGS(&SDKConfig)))) {
-    LogErrorFmt(L"Failed to get ID3D12SDKConfiguration instance: 0x%08x", HR);
+    LogWarningFmt(L"Failed to get ID3D12SDKConfiguration instance: 0x%08x", HR);
     return !C->MustFind;
   }
 
   if (FAILED(HR = SDKConfig->SetSDKVersion(C->SDKVersion, CW2A(C->SDKPath)))) {
-    LogErrorFmt(L"SetSDKVersion(%d, %s) failed: 0x%08x", C->SDKVersion,
-                static_cast<const wchar_t *>(C->SDKPath), HR);
+    LogWarningFmt(L"SetSDKVersion(%d, %s) failed: 0x%08x", C->SDKVersion,
+                  static_cast<const wchar_t *>(C->SDKPath), HR);
     return !C->MustFind;
   }
 
