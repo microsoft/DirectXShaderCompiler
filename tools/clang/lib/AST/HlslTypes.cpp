@@ -528,6 +528,10 @@ bool IsHLSLHitObjectType(QualType type) {
   return nullptr != getAttr<HLSLHitObjectAttr>(type);
 }
 
+bool IsHLSLMatrixRefType(QualType type) {
+  return nullptr != getAttr<HLSLMatrixRefAttr>(type);
+}
+
 DXIL::NodeIOKind GetNodeIOType(clang::QualType type) {
   if (const HLSLNodeObjectAttr *Attr = getAttr<HLSLNodeObjectAttr>(type))
     return Attr->getNodeIOType();

@@ -130,15 +130,17 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_HIT_OBJECT = 51,
   LICOMPTYPE_RAY_QUERY = 52,
 
-  LICOMPTYPE_LINALG = 53, // f32, partial-precision-f32, f16,
+  LICOMPTYPE_MATRIX_REF = 53,
+
+  LICOMPTYPE_LINALG = 54, // f32, partial-precision-f32, f16,
                           // i32, i16, u32, u16,
                           // int8_4packed, uint8_4packed
 
 #ifdef ENABLE_SPIRV_CODEGEN
-  LICOMPTYPE_VK_BUFFER_POINTER = 54,
-  LICOMPTYPE_COUNT = 55
+  LICOMPTYPE_VK_BUFFER_POINTER = 55,
+  LICOMPTYPE_COUNT = 56
 #else
-  LICOMPTYPE_COUNT = 54
+  LICOMPTYPE_COUNT = 55
 #endif
 };
 
