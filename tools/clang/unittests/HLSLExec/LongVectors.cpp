@@ -321,10 +321,8 @@ std::string getCompilerOptionsString(
     std::optional<std::string> AdditionalOptions = std::nullopt) {
   std::stringstream CompilerOptions;
 
-  if (OpDataType.Is16Bit || OutDataType.Is16Bit) {
+  if (OpDataType.Is16Bit || OutDataType.Is16Bit)
     CompilerOptions << " -enable-16bit-types";
-    CompilerOptions << " -DNATIVE_16BIT_TYPES_ENABLED=1";
-  }
 
   CompilerOptions << " -DTYPE=" << OpDataType.HLSLTypeString;
   CompilerOptions << " -DNUM=" << VectorSize;

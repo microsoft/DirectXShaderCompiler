@@ -4156,7 +4156,7 @@ void MSMain(uint GID : SV_GroupIndex,
         float MakeDifferent(float A) { return A + 1.0f; }
         double MakeDifferent(double A) { return A + 1.0; }
 
-        #if NATIVE_16BIT_TYPES_ENABLED
+        #if __HLSL_ENABLE_16_BIT
         uint16_t MakeDifferent(uint16_t A) { return A ^ 1; }
         int16_t MakeDifferent(int16_t A) { return A ^ 1; }
         #endif
