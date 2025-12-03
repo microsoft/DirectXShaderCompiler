@@ -1832,7 +1832,7 @@ bool DxilModule::StripNamesSensitiveToDebug() {
 
   if (!GetShaderModel()->IsLib()) {
     // Strip struct names
-    unsigned nextStructId = 0;
+    unsigned NextStructId = 0;
     TypeFinder StructTypes;
     StructTypes.run(*m_pModule, true);
     for (StructType *STy : StructTypes) {
@@ -1843,7 +1843,7 @@ bool DxilModule::StripNamesSensitiveToDebug() {
       if (Name.startswith("dx."))
         continue;
 
-      STy->setName((Twine("dx.strip.struct.") + Twine(nextStructId++)).str());
+      STy->setName((Twine("dx.strip.struct.") + Twine(NextStructId++)).str());
       changed = true;
     }
 
@@ -1855,7 +1855,7 @@ bool DxilModule::StripNamesSensitiveToDebug() {
     }
 
     // Strip groupshared variable names
-    unsigned nextGroupSharedId = 0;
+    unsigned NextGroupSharedId = 0;
     for (GlobalVariable &globalVar : m_pModule->globals()) {
       if (globalVar.getType()->getPointerAddressSpace() ==
               DXIL::kTGSMAddrSpace &&
@@ -1864,7 +1864,7 @@ bool DxilModule::StripNamesSensitiveToDebug() {
         if (Name.startswith("dx.") || Name.startswith("llvm."))
           continue;
         globalVar.setName(
-            (Twine("dx.strip.tgsm.") + Twine(nextGroupSharedId++)).str());
+            (Twine("dx.strip.tgsm.") + Twine(NextGroupSharedId++)).str());
         changed = true;
       }
     }
