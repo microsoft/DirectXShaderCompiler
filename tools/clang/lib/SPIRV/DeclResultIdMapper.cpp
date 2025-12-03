@@ -4234,6 +4234,8 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   case spv::BuiltIn::LocalInvocationIndex:
   case spv::BuiltIn::RemainingRecursionLevelsAMDX:
   case spv::BuiltIn::ShaderIndexAMDX:
+  case spv::BuiltIn::SubgroupId:
+  case spv::BuiltIn::NumSubgroups:
     sc = spv::StorageClass::Input;
     break;
   case spv::BuiltIn::TaskCountNV:

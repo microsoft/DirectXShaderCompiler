@@ -1,6 +1,6 @@
 {
   "IntrinsicOpCodes": {
-    "Num_Intrinsics": 395,
+    "Num_Intrinsics": 397,
     "IOP_AcceptHitAndEndSearch": 0,
     "IOP_AddUint64": 1,
     "IOP_AllMemoryBarrier": 2,
@@ -395,6 +395,8 @@
     "IOP___builtin_MatVecMulAdd": 391,
     "IOP___builtin_OuterProductAccumulate": 392,
     "IOP___builtin_VectorAccumulate": 393,
-    "IOP_isnormal": 394
+    "IOP_isnormal": 394,
+    "IOP_GetGroupWaveCount": 395,
+    "IOP_GetGroupWaveIndex": 396
   }
 }
