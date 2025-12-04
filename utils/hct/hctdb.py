@@ -5922,9 +5922,7 @@ class db_dxil(object):
 
         # TODO - some arguments are required to be immediate constants in DXIL, eg resource kinds; add this information
         # consider - report instructions that are overloaded on a single type, then turn them into non-overloaded version of that type
-        self.verify_dense(
-            self.get_dxil_ops(), lambda x: x.dxil_opid, lambda x: x.name
-        )
+        self.verify_dense(self.get_dxil_ops(), lambda x: x.dxil_opid, lambda x: x.name)
         for i in self.get_all_insts():
             self.verify_dense(i.ops, lambda x: x.pos, lambda x: i.name)
 
