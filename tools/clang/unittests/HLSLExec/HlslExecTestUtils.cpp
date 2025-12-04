@@ -277,7 +277,7 @@ static std::optional<AgilitySDKConfiguration> getAgilitySDKConfiguration() {
     C.SDKVersion = getD3D12SDKVersion(std::wstring(C.SDKPath));
     if (C.SDKVersion == 0) {
       if (C.MustFind) {
-        LogErrorFmt(L"Agility SDK not found in relative path: %s",
+        LogErrorFmt(L"Agility SDK not found in path: %s",
                     static_cast<const wchar_t *>(C.SDKPath));
         return std::nullopt;
       }
