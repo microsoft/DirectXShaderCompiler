@@ -3289,7 +3289,7 @@ SM.HSINPUTCONTROLPOINTCOUNTRANGE                              HS input control p
 SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH                         For pass thru hull shader, input control point count must match output control point count
 SM.INCOMPATIBLECALLINENTRY                                    Features used in internal function calls must be compatible with entry
 SM.INCOMPATIBLEDERIVINCOMPUTESHADERMODEL                      Derivatives in compute-model shaders require shader model 6.6 and above
-SM.INCOMPATIBLEDERIVLAUNCH                                    Node shaders only support derivatives in broadcasting launch mode
+SM.INCOMPATIBLEDERIVLAUNCH                                    Node shaders only support derivatives in broadcasting and coalescing launch modes
 SM.INCOMPATIBLEOPERATION                                      Operations used in entry function must be compatible with shader stage and other properties
 SM.INCOMPATIBLEREQUIRESGROUP                                  Functions requiring groupshared memory must be called from shaders with a visible group
 SM.INCOMPATIBLESHADERMODEL                                    Functions may only use features available in the current shader model
