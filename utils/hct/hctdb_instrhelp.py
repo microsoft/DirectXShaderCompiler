@@ -463,8 +463,11 @@ class db_enumhelp_gen:
                 + lastName
                 + " = "
                 + str(len(sorted_values))
-                + " // exclusive last value of enumeration"
+                + ", // exclusive last value of enumeration"
             )
+        if e.postfix_lines:
+            for line in e.postfix_lines:
+                print("  " + line)
         print("};")
 
     def print_rdat_enum(self, e, **kwargs):
@@ -479,6 +482,14 @@ class db_enumhelp_gen:
                 line_format += " // {doc}"
             print(line_format.format(name=v.name, value=v.value, doc=v.doc))
 
+    def print_extended_table_opcode_enums(self):
+        for table in self.db.op_tables[1:]:  # Skip Core table
+            print(f"namespace {table.name} {{")
+            print(f"static const OpCodeTableID TableID = OpCodeTableID::{table.name};")
+            self.print_enum(table.op_enum)
+            print(f"}} // namespace {table.name}")
+        print(f"static const unsigned NumOpCodeTables = {len(self.db.op_tables)};")
+
     def print_content(self):
         for e in sorted(self.db.enums, key=lambda e: e.name):
             self.print_enum(e)
@@ -489,12 +500,6 @@ class db_oload_gen:
 
     def __init__(self, db):
         self.db = db
-        self.instrs = sorted(self.db.get_dxil_ops(), key=lambda i: i.dxil_opid)
-
-        # Allow these to be overridden by external scripts.
-        self.OP = "OP"
-        self.OC = "OC"
-        self.OCC = "OCC"
 
     def print_content(self):
         self.print_opfunc_props()
@@ -502,11 +507,23 @@ class db_oload_gen:
         self.print_opfunc_table()
 
     def print_opfunc_props(self):
-        print(
-            "const {OP}::OpCodeProperty {OP}::m_OpCodeProps[(unsigned){OP}::OpCode::NumOpCodes] = {{".format(
-                OP=self.OP
+        # Print all the tables for OP::m_OpCodeProps
+        for table in self.db.op_tables:
+            self.print_opfunc_props_for_table(table)
+        print()
+        # Print the overall table of tables
+        print("// Table of DXIL OpCode Property tables")
+        print(f"OP::OpCodeTable OP::g_OpCodeTables[DXIL::NumOpCodeTables] = {{")
+        for table in self.db.op_tables:
+            print(
+                f"  {{ OP::OpCodeTableID::{table.name}, "
+                + f"{table.name}_OpCodeProps, "
+                + f"(unsigned)DXIL::{table.name}::OpCode::NumOpCodes }},"
             )
-        )
+        print("};")
+
+    def print_opfunc_props_for_table(self, table):
+        print(f"static const OP::OpCodeProperty {table.name}_OpCodeProps[] = {{")
 
         last_category = None
         lower_exceptions = {
@@ -533,7 +550,7 @@ class db_oload_gen:
         oloads_fn = lambda oloads: (
             "{" + ",".join(["{0x%x}" % m for m in oloads]) + "}"
         )
-        for i in self.instrs:
+        for i in table:
             if last_category != i.category:
                 if last_category != None:
                     print("")
@@ -553,7 +570,7 @@ class db_oload_gen:
                         vector_masks.append(0)
             print(
                 (
-                    "  {{  {OC}::{name:24} {quotName:27} {OCC}::{className:25} "
+                    "  {{  OC::{name:24} {quotName:27} OCC::{className:25} "
                     + "{classNameQuot:28} {attr:20}, {num_oloads}, "
                     + "{scalar_masks:16}, {vector_masks:16} }}, "
                     + "// Overloads: {oloads}"
@@ -567,11 +584,14 @@ class db_oload_gen:
                     scalar_masks=oloads_fn(scalar_masks),
                     vector_masks=oloads_fn(vector_masks),
                     oloads=i.oload_types,
-                    OC=self.OC,
-                    OCC=self.OCC,
                 )
             )
         print("};")
+        print(
+            f"static_assert(_countof({table.name}_OpCodeProps) == "
+            + f"(size_t)DXIL::{table.name}::OpCode::NumOpCodes, "
+            + f'"mismatch in opcode count for {table.name} OpCodeProps");'
+        )
 
     def print_opfunc_table(self):
         # Print the table for OP::GetOpFunc
@@ -630,7 +650,7 @@ class db_oload_gen:
             "$x1": "EXT(1);",
         }
         last_category = None
-        for i in self.instrs:
+        for i in self.db.get_dxil_ops():
             if last_category != i.category:
                 if last_category != None:
                     print("")
@@ -670,7 +690,7 @@ class db_oload_gen:
         struct_list = []
         extended_list = []
 
-        for instr in self.instrs:
+        for instr in self.db.get_dxil_ops():
             if instr.num_oloads > 1:
                 # Process extended overloads separately.
                 extended_list.append(instr)
@@ -1372,9 +1392,18 @@ def get_is_pass_option_name():
 
 
 def get_opcodes_rst():
-    "Create an rst table of opcodes"
+    "Create an rst table for each opcode table"
     db = get_db_dxil()
-    instrs = sorted(db.get_dxil_ops(), key=lambda v: v.dxil_opid)
+    result = ""
+    for table in db.op_tables:
+        result += f"\n\nOpcode Table {table.name}, id={table.id}: {table.doc}"
+        result += get_opcodes_rst_for_table(table)
+    return result
+
+
+def get_opcodes_rst_for_table(table):
+    "Create an rst table of opcodes for given opcode table"
+    instrs = [i for i in table]
     rows = []
     rows.append(["ID", "Name", "Description"])
     for i in instrs:
@@ -1406,12 +1435,25 @@ def get_valrules_rst():
 
 
 def get_opsigs():
+    db = get_db_dxil()
+    result = ""
+    for table in db.op_tables:
+        result += f"\n\n// Opcode Signatures for Table {table.name}, id={table.id}\n"
+        result += get_opsigs_for_table(table)
+    result += "static const char **OpCodeSignatures[] = {\n"
+    for table in db.op_tables:
+        result += "  OpCodeSignatures_%s,\n" % table.name
+    result += "};\n"
+    return result
+
+
+def get_opsigs_for_table(table):
     # Create a list of DXIL operation signatures, sorted by ID.
     db = get_db_dxil()
-    instrs = sorted(db.get_dxil_ops(), key=lambda v: v.dxil_opid)
+    instrs = [i for i in db.get_dxil_ops()]
     # db_dxil already asserts that the numbering is dense.
     # Create the code to write out.
-    code = "static const char *OpCodeSignatures[] = {\n"
+    code = f"static const char *OpCodeSignatures_{table.name}[] = {{\n"
     for inst_idx, i in enumerate(instrs):
         code += '  "('
         for operand in i.ops:
@@ -1632,6 +1674,12 @@ def get_interpretation_table():
     db = get_db_dxil()
     gen = db_sigpoint_gen(db)
     return run_with_stdout(lambda: gen.print_interpretation_table())
+
+
+def get_extended_table_opcode_enum_decls():
+    db = get_db_dxil()
+    gen = db_enumhelp_gen(db)
+    return run_with_stdout(lambda: gen.print_extended_table_opcode_enums())
 
 
 # highest minor is different than highest released minor,
