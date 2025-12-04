@@ -12,13 +12,15 @@
 #include <filesystem>
 #include <optional>
 
+using namespace hlsl_test;
+
 static bool useDebugIfaces() { return true; }
 
 bool useDxbc() {
 #ifdef _HLK_CONF
   return false;
 #else
-  return hlsl_test::GetTestParamBool(L"DXBC");
+  return GetTestParamBool(L"DXBC");
 #endif
 }
 
@@ -57,8 +59,6 @@ static std::wstring computeSDKFullPath(const std::wstring &SDKPath) {
 }
 
 static UINT getD3D12SDKVersion(std::wstring SDKPath) {
-  using namespace hlsl_test;
-
   // Try to automatically get the D3D12SDKVersion from the DLL
   UINT SDKVersion = 0;
   std::wstring D3DCorePath = computeSDKFullPath(SDKPath);
@@ -80,15 +80,15 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
 static bool createDevice(
     ID3D12Device **D3DDevice, D3D_SHADER_MODEL TestModel, bool SkipUnsupported,
     std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
-        CreateDevice
+        CreateDeviceFn
 
 ) {
   if (*D3DDevice)
-    hlsl_test::LogWarningFmt(L"createDevice called with non-null *D3DDevice - "
+    LogWarningFmt(L"createDevice called with non-null *D3DDevice - "
                              L"this will likely leak the previous device");
   if (TestModel > D3D_HIGHEST_SHADER_MODEL) {
     const UINT Minor = (UINT)TestModel & 0x0f;
-    hlsl_test::LogCommentFmt(L"Installed SDK does not support "
+    LogCommentFmt(L"Installed SDK does not support "
                              L"shader model 6.%1u",
                              Minor);
 
@@ -103,7 +103,7 @@ static bool createDevice(
   *D3DDevice = nullptr;
 
   VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&DXGIFactory)));
-  if (hlsl_test::GetTestParamUseWARP(useWarpByDefault())) {
+  if (GetTestParamUseWARP(useWarpByDefault())) {
     // The WARP_DLL runtime parameter can be used to specify a specific DLL to
     // load.  To force this to be used, we make sure that this DLL is loaded
     // before attempting to create the device.
@@ -134,10 +134,10 @@ static bool createDevice(
     // Create the WARP device
     CComPtr<IDXGIAdapter> WarpAdapter;
     VERIFY_SUCCEEDED(DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&WarpAdapter)));
-    HRESULT CreateHR = CreateDevice(WarpAdapter, D3D_FEATURE_LEVEL_11_0,
+    HRESULT CreateHR = CreateDeviceFn(WarpAdapter, D3D_FEATURE_LEVEL_11_0,
                                     IID_PPV_ARGS(&D3DDeviceCom));
     if (FAILED(CreateHR)) {
-      hlsl_test::LogCommentFmt(
+      LogCommentFmt(
           L"The available version of WARP does not support d3d12.");
 
       if (SkipUnsupported)
@@ -171,7 +171,7 @@ static bool createDevice(
       WEX::Logging::Log::Comment(
           L"Using default hardware adapter with D3D12 support.");
 
-    VERIFY_SUCCEEDED(CreateDevice(HardwareAdapter, D3D_FEATURE_LEVEL_11_0,
+    VERIFY_SUCCEEDED(CreateDeviceFn(HardwareAdapter, D3D_FEATURE_LEVEL_11_0,
                                   IID_PPV_ARGS(&D3DDeviceCom)));
   }
   // retrieve adapter information
@@ -180,7 +180,7 @@ static bool createDevice(
   DXGIFactory->EnumAdapterByLuid(AdapterID, IID_PPV_ARGS(&DXGIAdapter));
   DXGI_ADAPTER_DESC AdapterDesc;
   VERIFY_SUCCEEDED(DXGIAdapter->GetDesc(&AdapterDesc));
-  hlsl_test::LogCommentFmt(L"Using Adapter:%s", AdapterDesc.Description);
+  LogCommentFmt(L"Using Adapter:%s", AdapterDesc.Description);
 
   if (D3DDeviceCom == nullptr)
     return false;
@@ -192,7 +192,7 @@ static bool createDevice(
                                                  &SMData, sizeof(SMData))) ||
         SMData.HighestShaderModel < TestModel) {
       const UINT Minor = (UINT)TestModel & 0x0f;
-      hlsl_test::LogCommentFmt(L"The selected device does not support "
+      LogCommentFmt(L"The selected device does not support "
                                L"shader model 6.%1u (highest is 6.%1u)",
                                Minor, SMData.HighestShaderModel & 0x0f);
 
@@ -220,7 +220,7 @@ void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
   CComPtr<IDxcLibrary> Library;
   CComPtr<IDxcBlobEncoding> Blob;
   CComPtr<IStream> StreamCom;
-  std::wstring Path = hlsl_test::GetPathToHlslDataFile(
+  std::wstring Path = GetPathToHlslDataFile(
       RelativePath, HLSLDATAFILEPARAM, DEFAULT_EXEC_TEST_DIR);
   VERIFY_SUCCEEDED(Support.CreateInstance(CLSID_DxcLibrary, &Library));
   VERIFY_SUCCEEDED(Library->CreateBlobFromFile(Path.c_str(), nullptr, &Blob));
@@ -229,8 +229,6 @@ void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
 }
 
 static bool enableDebugLayer() {
-  using namespace hlsl_test;
-
   CComPtr<ID3D12Debug> DebugController;
   HRESULT HR;
   if (FAILED(HR = D3D12GetDebugInterface(IID_PPV_ARGS(&DebugController)))) {
@@ -249,7 +247,6 @@ struct AgilitySDKConfiguration {
 };
 
 static std::optional<AgilitySDKConfiguration> getAgilitySDKConfiguration() {
-  using hlsl_test::LogErrorFmt;
   using WEX::TestExecution::RuntimeParameters;
 
   AgilitySDKConfiguration C;
@@ -296,8 +293,6 @@ static std::optional<AgilitySDKConfiguration> getAgilitySDKConfiguration() {
 
 static bool
 enableGlobalAgilitySDK(const std::optional<AgilitySDKConfiguration> &C) {
-  using namespace hlsl_test;
-
   if (!C)
     return false;
 
@@ -335,12 +330,10 @@ enableGlobalAgilitySDK(const std::optional<AgilitySDKConfiguration> &C) {
 }
 
 static bool isExperimentalShadersEnabled() {
-  return hlsl_test::GetTestParamBool(L"ExperimentalShaders");
+  return GetTestParamBool(L"ExperimentalShaders");
 }
 
 static bool enableGlobalExperimentalMode() {
-  using namespace hlsl_test;
-
   if (!isExperimentalShadersEnabled())
     return false;
 
@@ -358,8 +351,6 @@ static bool enableGlobalExperimentalMode() {
 
 static void
 setGlobalConfiguration(const std::optional<AgilitySDKConfiguration> &C) {
-  using namespace hlsl_test;
-
   if (enableGlobalAgilitySDK(C))
     LogCommentFmt(L"Agility SDK enabled.");
   else
@@ -372,8 +363,6 @@ setGlobalConfiguration(const std::optional<AgilitySDKConfiguration> &C) {
 }
 
 static bool enableExperimentalMode(ID3D12DeviceFactory *DeviceFactory) {
-  using namespace hlsl_test;
-
   if (!isExperimentalShadersEnabled())
     return false;
 
@@ -391,8 +380,6 @@ static bool enableExperimentalMode(ID3D12DeviceFactory *DeviceFactory) {
 
 static CComPtr<ID3D12DeviceFactory>
 createDeviceFactorySDK(const AgilitySDKConfiguration &C) {
-  using namespace hlsl_test;
-
   HRESULT HR;
 
   CComPtr<ID3D12SDKConfiguration1> SDKConfig;
@@ -424,8 +411,6 @@ createDeviceFactorySDK(const AgilitySDKConfiguration &C) {
 }
 
 std::optional<D3D12SDK> D3D12SDK::create() {
-  using namespace hlsl_test;
-
   if (enableDebugLayer())
     LogCommentFmt(L"Debug layer enabled");
   else
@@ -447,8 +432,6 @@ D3D12SDK::D3D12SDK(CComPtr<ID3D12DeviceFactory> DeviceFactory)
     : DeviceFactory(std::move(DeviceFactory)) {}
 
 D3D12SDK::~D3D12SDK() {
-  using namespace hlsl_test;
-
   if (DeviceFactory) {
     DeviceFactory.Release();
 
@@ -470,13 +453,13 @@ bool D3D12SDK::createDevice(ID3D12Device **D3DDevice,
                             D3D_SHADER_MODEL TestModel, bool SkipUnsupported) {
 
   if (DeviceFactory) {
-    hlsl_test::LogCommentFmt(L"Creating device using DeviceFactory");
+    LogCommentFmt(L"Creating device using DeviceFactory");
     return ::createDevice(
         D3DDevice, TestModel, SkipUnsupported,
         [&](IUnknown *A, D3D_FEATURE_LEVEL FL, REFIID R, void **P) {
-          hlsl_test::LogCommentFmt(L"Calling DeviceFactory->CreateDevice");
+          LogCommentFmt(L"Calling DeviceFactory->CreateDevice");
           HRESULT Hr = DeviceFactory->CreateDevice(A, FL, R, P);
-          hlsl_test::LogCommentFmt(L" Result: 0x%x", Hr);
+          LogCommentFmt(L" Result: 0x%x", Hr);
           return Hr;
         });
   }
