@@ -27,19 +27,16 @@ bool useDxbc();
 ///    1: auto-detect (fail if unable to use the auto-detected version)
 ///
 ///   >1: use specified version
-class D3D12SDK {
+class D3D12SDKSelector {
   CComPtr<ID3D12DeviceFactory> DeviceFactory;
 
 public:
-  static std::optional<D3D12SDK> create();
-  ~D3D12SDK();
+  D3D12SDKSelector();
+  ~D3D12SDKSelector();
 
   bool createDevice(ID3D12Device **D3DDevice,
                     D3D_SHADER_MODEL TestModel = D3D_SHADER_MODEL_6_0,
                     bool SkipUnsupported = true);
-
-private:
-  D3D12SDK(CComPtr<ID3D12DeviceFactory> DeviceFactory);
 };
 
 void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,

@@ -417,7 +417,7 @@ public:
 
   dxc::DxCompilerDllLoader m_support;
 
-  std::optional<D3D12SDK> D3D12SDK;
+  std::optional<D3D12SDKSelector> D3D12SDK;
   bool m_D3DInitCompleted = false;
 
   const float ClearColor[4] = {0.0f, 0.2f, 0.4f, 1.0f};
@@ -427,9 +427,7 @@ public:
     if (!m_D3DInitCompleted) {
       m_D3DInitCompleted = true;
 
-      D3D12SDK = D3D12SDK::create();
-      if (!D3D12SDK)
-        return false;
+      D3D12SDK = D3D12SDKSelector();
     }
 
     return true;

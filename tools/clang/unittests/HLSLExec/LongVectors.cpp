@@ -1752,9 +1752,7 @@ public:
     if (!Initialized) {
       Initialized = true;
 
-      D3D12SDK = D3D12SDK::create();
-      if (!D3D12SDK)
-        return false;
+      D3D12SDK = D3D12SDKSelector();
 
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
                                                          VerboseLogging);
@@ -2639,7 +2637,7 @@ public:
 
 private:
   bool Initialized = false;
-  std::optional<D3D12SDK> D3D12SDK;
+  std::optional<D3D12SDKSelector> D3D12SDK;
   bool VerboseLogging = false;
   size_t OverrideInputSize = 0;
   UINT OverrideWaveLaneCount = 0;

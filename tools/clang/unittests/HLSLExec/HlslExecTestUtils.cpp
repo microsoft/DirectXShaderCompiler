@@ -410,7 +410,7 @@ createDeviceFactorySDK(const AgilitySDKConfiguration &C) {
   return DeviceFactory;
 }
 
-std::optional<D3D12SDK> D3D12SDK::create() {
+D3D12SDKSelector::D3D12SDKSelector() {
   if (enableDebugLayer())
     LogCommentFmt(L"Debug layer enabled");
   else
@@ -420,18 +420,16 @@ std::optional<D3D12SDK> D3D12SDK::create() {
 
   if (C && C->SDKVersion > 0) {
     CComPtr<ID3D12DeviceFactory> DeviceFactory = createDeviceFactorySDK(*C);
-    if (DeviceFactory)
-      return D3D12SDK(DeviceFactory);
+    if (DeviceFactory) {
+      this->DeviceFactory = DeviceFactory;
+      return;
+    }
   }
 
   setGlobalConfiguration(C);
-  return D3D12SDK(nullptr);
 }
 
-D3D12SDK::D3D12SDK(CComPtr<ID3D12DeviceFactory> DeviceFactory)
-    : DeviceFactory(std::move(DeviceFactory)) {}
-
-D3D12SDK::~D3D12SDK() {
+D3D12SDKSelector::~D3D12SDKSelector() {
   if (DeviceFactory) {
     DeviceFactory.Release();
 
@@ -449,7 +447,7 @@ D3D12SDK::~D3D12SDK() {
   }
 }
 
-bool D3D12SDK::createDevice(ID3D12Device **D3DDevice,
+bool D3D12SDKSelector::createDevice(ID3D12Device **D3DDevice,
                             D3D_SHADER_MODEL TestModel, bool SkipUnsupported) {
 
   if (DeviceFactory) {
