@@ -511,6 +511,7 @@ namespace ExperimentalOps {
 static const OpCodeTableID TableID = OpCodeTableID::ExperimentalOps;
 // Enumeration for ExperimentalOps DXIL operations
 enum class OpCode : unsigned {
+  // No-op
   ExperimentalNop = 0, // nop does nothing
 
   NumOpCodes = 1, // exclusive last value of enumeration
@@ -1130,7 +1131,6 @@ enum class OpCode : unsigned {
   // OpCodeTableID = 32768
   // ExperimentalOps
   EXP_OPCODE(ExperimentalOps, ExperimentalNop), // nop does nothing
-
 };
 // OPCODE-ENUM:END
 #undef EXP_OPCODE

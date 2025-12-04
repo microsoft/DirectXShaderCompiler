@@ -5310,162 +5310,162 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pF32);
     break;
   case OpCode::RayQuery_CommittedStatus:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateType:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateObjectToWorld3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CandidateWorldToObject3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedObjectToWorld3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedWorldToObject3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateTriangleFrontFace:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedTriangleFrontFace:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateTriangleBarycentrics:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedTriangleBarycentrics:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_RayFlags:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_WorldRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_WorldRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_RayTMin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateTriangleRayT:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedRayT:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateInstanceIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateInstanceID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateGeometryIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidatePrimitiveIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateObjectRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CandidateObjectRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedInstanceIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedInstanceID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedGeometryIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedPrimitiveIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedObjectRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedObjectRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
@@ -5479,12 +5479,12 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Inline Ray Query
   case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
@@ -5878,32 +5878,32 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
   case OpCode::HitObject_IsMiss:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_IsHit:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_IsNop:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_RayFlags:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_RayTMin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_RayTCurrent:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
@@ -5946,32 +5946,32 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
   case OpCode::HitObject_GeometryIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_InstanceIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_InstanceID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_PrimitiveIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_HitKind:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_ShaderTableIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
@@ -6460,29 +6460,9 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::PrimitiveIndex:
   case OpCode::Dot4AddI8Packed:
   case OpCode::Dot4AddU8Packed:
-  case OpCode::RayQuery_CommittedStatus:
-  case OpCode::RayQuery_CandidateType:
-  case OpCode::RayQuery_RayFlags:
-  case OpCode::RayQuery_CandidateInstanceIndex:
-  case OpCode::RayQuery_CandidateInstanceID:
-  case OpCode::RayQuery_CandidateGeometryIndex:
-  case OpCode::RayQuery_CandidatePrimitiveIndex:
-  case OpCode::RayQuery_CommittedInstanceIndex:
-  case OpCode::RayQuery_CommittedInstanceID:
-  case OpCode::RayQuery_CommittedGeometryIndex:
-  case OpCode::RayQuery_CommittedPrimitiveIndex:
   case OpCode::GeometryIndex:
-  case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:
-  case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
   case OpCode::StartVertexLocation:
   case OpCode::StartInstanceLocation:
-  case OpCode::HitObject_RayFlags:
-  case OpCode::HitObject_GeometryIndex:
-  case OpCode::HitObject_InstanceIndex:
-  case OpCode::HitObject_InstanceID:
-  case OpCode::HitObject_PrimitiveIndex:
-  case OpCode::HitObject_HitKind:
-  case OpCode::HitObject_ShaderTableIndex:
     return IntegerType::get(Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:
@@ -6494,23 +6474,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::WorldToObject:
   case OpCode::RayTMin:
   case OpCode::RayTCurrent:
-  case OpCode::RayQuery_CandidateObjectToWorld3x4:
-  case OpCode::RayQuery_CandidateWorldToObject3x4:
-  case OpCode::RayQuery_CommittedObjectToWorld3x4:
-  case OpCode::RayQuery_CommittedWorldToObject3x4:
-  case OpCode::RayQuery_CandidateTriangleBarycentrics:
-  case OpCode::RayQuery_CommittedTriangleBarycentrics:
-  case OpCode::RayQuery_WorldRayOrigin:
-  case OpCode::RayQuery_WorldRayDirection:
-  case OpCode::RayQuery_RayTMin:
-  case OpCode::RayQuery_CandidateTriangleRayT:
-  case OpCode::RayQuery_CommittedRayT:
-  case OpCode::RayQuery_CandidateObjectRayOrigin:
-  case OpCode::RayQuery_CandidateObjectRayDirection:
-  case OpCode::RayQuery_CommittedObjectRayOrigin:
-  case OpCode::RayQuery_CommittedObjectRayDirection:
-  case OpCode::HitObject_RayTMin:
-  case OpCode::HitObject_RayTCurrent:
   case OpCode::HitObject_WorldRayOrigin:
   case OpCode::HitObject_WorldRayDirection:
   case OpCode::HitObject_ObjectRayOrigin:
@@ -6522,14 +6485,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::SplitDouble:
     return Type::getDoubleTy(Ctx);
   case OpCode::RayQuery_Proceed:
-  case OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque:
-  case OpCode::RayQuery_CandidateTriangleFrontFace:
-  case OpCode::RayQuery_CommittedTriangleFrontFace:
   case OpCode::IsHelperLane:
   case OpCode::QuadVote:
-  case OpCode::HitObject_IsMiss:
-  case OpCode::HitObject_IsHit:
-  case OpCode::HitObject_IsNop:
     return IntegerType::get(Ctx, 1);
   case OpCode::CBufferLoadLegacy:
   case OpCode::Sample:
