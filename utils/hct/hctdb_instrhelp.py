@@ -513,9 +513,7 @@ class db_oload_gen:
         print()
         # Print the overall table of tables
         print("// Table of DXIL OpCode Property tables")
-        print(
-            f"OP::OpCodeTable OP::g_OpCodeTables[DXIL::NumOpCodeTables] = {{"
-        )
+        print(f"OP::OpCodeTable OP::g_OpCodeTables[DXIL::NumOpCodeTables] = {{")
         for table in self.db.op_tables:
             print(
                 f"  {{ OP::OpCodeTableID::{table.name}, "

@@ -78,9 +78,7 @@ class db_dxil_enum(object):
     def __init__(self, name, doc, valNameDocTuples=()):
         self.name = name
         self.doc = doc
-        self.values = [
-            db_dxil_enum_value(*args) for args in valNameDocTuples
-        ]
+        self.values = [db_dxil_enum_value(*args) for args in valNameDocTuples]
         self.is_internal = False  # whether this is never serialized
         self.last_value_name = None  # optional last value name for dense enums
         self.dxil_version_info = {}  # version info for this enum
@@ -505,11 +503,11 @@ class db_dxil(object):
 
     def add_dxil_op_table(self, id, name, doc):
         "Add a new DXIL operation table."
-        assert name not in self.op_table_idx, (
-            f"DXIL op table '{name}' already exists"
-        )
+        assert name not in self.op_table_idx, f"DXIL op table '{name}' already exists"
         assert id & ~0xFFFF == 0, "DXIL op table ID must fit in high 16 bits"
-        assert len(self.op_tables) < 2, "Only two DXIL op tables are currently supported"
+        assert (
+            len(self.op_tables) < 2
+        ), "Only two DXIL op tables are currently supported"
         self.op_table_enum.add_value(id, name, doc)
         table = db_dxil_op_table(self, id, name, doc)
         self.op_tables.append(table)
@@ -1507,13 +1505,7 @@ class db_dxil(object):
         )
         # keep track of CallInst used by all DXIL ops
         self.call_instr = self.add_llvm_instr(
-            "OTHER",
-            49,
-            "Call",
-            "CallInst",
-            "calls a function",
-            "",
-            []
+            "OTHER", 49, "Call", "CallInst", "calls a function", "", []
         )
         self.add_llvm_instr(
             "OTHER", 50, "Select", "SelectInst", "selects an instruction", "", []
@@ -6068,7 +6060,9 @@ class db_dxil(object):
 
     def populate_ExperimentalOps(self):
         "Populate DXIL operations for ExperimentalOps."
-        op_table = self.add_dxil_op_table(0x8000, "ExperimentalOps", "Experimental DXIL operations")
+        op_table = self.add_dxil_op_table(
+            0x8000, "ExperimentalOps", "Experimental DXIL operations"
+        )
         # Add Nop to test experimental table infrastructure.
         op_table.add_dxil_op(
             "ExperimentalNop",
