@@ -137,7 +137,7 @@ static bool createDevice(
     HRESULT CreateHR = CreateDeviceFn(WarpAdapter, D3D_FEATURE_LEVEL_11_0,
                                       IID_PPV_ARGS(&D3DDeviceCom));
     if (FAILED(CreateHR)) {
-      LogCommentFmt(L"The available version of WARP does not support d3d12.");
+      LogCommentFmt(L"Failed to create WARP device: 0x%08x", CreateHR);
 
       if (SkipUnsupported)
         WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
@@ -250,9 +250,9 @@ static std::optional<AgilitySDKConfiguration> getAgilitySDKConfiguration() {
 
   AgilitySDKConfiguration C;
 
-  // For global configuration, D3D12SDKPath must be relative path from .exe,
-  // which means relative to TE.exe location, and must start with ".\\", such as
-  // with the default: ".\\D3D12\\".
+  // For global configuration, D3D12SDKPath must be a relative path from the
+  // .exe, meaning it should be relative to the TE.exe location and must start
+  // with ".\", such as with the default: ".\D3D12\".
   //
   // For ID3D12DeviceFactory-style configuration, D3D12SDKPath can be an
   // absolute path.
@@ -456,9 +456,9 @@ bool D3D12SDKSelector::createDevice(ID3D12Device **D3DDevice,
         D3DDevice, TestModel, SkipUnsupported,
         [&](IUnknown *A, D3D_FEATURE_LEVEL FL, REFIID R, void **P) {
           LogCommentFmt(L"Calling DeviceFactory->CreateDevice");
-          HRESULT Hr = DeviceFactory->CreateDevice(A, FL, R, P);
-          LogCommentFmt(L" Result: 0x%x", Hr);
-          return Hr;
+          HRESULT HR = DeviceFactory->CreateDevice(A, FL, R, P);
+          LogCommentFmt(L" Result: 0x%x", HR);
+          return HR;
         });
   }
 
