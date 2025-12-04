@@ -1414,17 +1414,6 @@ enum class OpCodeClass : unsigned {
   NodeOutputIsValid,
   OutputComplete,
 
-  NumOpClasses_Dxil_1_0 = 93,
-  NumOpClasses_Dxil_1_1 = 95,
-  NumOpClasses_Dxil_1_2 = 97,
-  NumOpClasses_Dxil_1_3 = 118,
-  NumOpClasses_Dxil_1_4 = 120,
-  NumOpClasses_Dxil_1_5 = 143,
-  NumOpClasses_Dxil_1_6 = 149,
-  NumOpClasses_Dxil_1_7 = 153,
-  NumOpClasses_Dxil_1_8 = 174,
-  NumOpClasses_Dxil_1_9 = 196,
-
   NumOpClasses = 196 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END

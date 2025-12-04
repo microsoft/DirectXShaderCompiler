@@ -423,8 +423,6 @@ class db_enumhelp_gen:
 
     def __init__(self, db):
         self.db = db
-        # Some enums should get a last enum marker.
-        self.lastEnumNames = {"OpCode": "NumOpCodes", "OpCodeClass": "NumOpClasses"}
 
     def print_enum(self, e, **kwargs):
         print("// %s" % e.doc)
@@ -451,12 +449,11 @@ class db_enumhelp_gen:
             if v.doc:
                 line_format += " // {doc}"
             print(line_format.format(name=v.name, value=v.value, doc=v.doc))
-        if e.name in self.lastEnumNames:
-            lastName = self.lastEnumNames[e.name]
+        if e.last_value_name:
+            lastName = e.last_value_name
             versioned = [
-                "%s_Dxil_%d_%d = %d," % (lastName, major, minor, info[lastName])
-                for (major, minor), info in sorted(self.db.dxil_version_info.items())
-                if lastName in info
+                "%s_Dxil_%d_%d = %d," % (lastName, major, minor, count)
+                for (major, minor), count in sorted(e.dxil_version_info.items())
             ]
             if versioned:
                 print("")

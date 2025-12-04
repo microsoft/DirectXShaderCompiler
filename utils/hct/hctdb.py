@@ -65,9 +65,9 @@ dxil_max_overload_dims = 2
 class db_dxil_enum_value(object):
     "A representation for a value in an enumeration type"
 
-    def __init__(self, name, value, doc):
-        self.name = name  # Name (identifier)
+    def __init__(self, value, name, doc):
         self.value = value  # Numeric value
+        self.name = name  # Name (identifier)
         self.doc = doc  # Documentation string
         self.category = None
 
@@ -78,13 +78,18 @@ class db_dxil_enum(object):
     def __init__(self, name, doc, valNameDocTuples=()):
         self.name = name
         self.doc = doc
-        self.values = [
-            db_dxil_enum_value(n, v, d) for v, n, d in valNameDocTuples
-        ]  # Note transmutation
+        self.values = [db_dxil_enum_value(*args) for args in valNameDocTuples]
         self.is_internal = False  # whether this is never serialized
+        self.last_value_name = None  # optional last value name for dense enums
+        self.dxil_version_info = {}  # version info for this enum
 
     def value_names(self):
         return [i.name for i in self.values]
+
+    def add_value(self, *args):
+        v = db_dxil_enum_value(*args)
+        self.values.append(v)
+        return v
 
 
 class db_dxil_inst(object):
@@ -344,16 +349,20 @@ class db_dxil(object):
         self.passes = []  # inventory of available passes (db_dxil_pass)
         self.name_idx = {}  # DXIL instructions by name
         self.enum_idx = {}  # enumerations by name
-        self.dxil_version_info = {}
         # list of counters for instructions and dxil ops,
         # starting with extra ones specified here
         self.counters = extra_counters
         self.next_dxil_op_id = 0  # next available DXIL op ID
 
+        # Add the OpCode enum type, which will also track version info.
+        OpCodeEnum = self.add_enum_type(
+            "OpCode", "Enumeration for operations specified by DXIL"
+        )
+        OpCodeEnum.last_value_name = "NumOpCodes"
+
         self.populate_llvm_instructions()
         self.call_instr = self.get_instr_by_llvm_name("CallInst")
         self.populate_dxil_operations()
-        self.build_indices()
         self.populate_extended_docs()
         self.populate_categories_and_models()
         self.build_opcode_enum()
@@ -362,7 +371,6 @@ class db_dxil(object):
         self.populate_passes()
         self.build_valrules()
         self.build_semantics()
-        self.build_indices()
         self.populate_counters()
 
     def __str__(self):
@@ -374,43 +382,37 @@ class db_dxil(object):
         self.next_dxil_op_id += 1
         return val
 
-    def add_enum_type(self, name, doc, valNameDocTuples):
-        "Adds a new enumeration type with name/value/doc tuples"
-        self.enums.append(db_dxil_enum(name, doc, valNameDocTuples))
-
-    def build_indices(self):
-        "Build a name_idx dictionary with instructions and an enum_idx dictionary with enumeration types"
-        self.name_idx = {}
-        for i in self.instr:
-            self.name_idx[i.name] = i
-        self.enum_idx = {}
-        for i in self.enums:
-            self.enum_idx[i.name] = i
+    def add_enum_type(self, name, doc, valNameDocTuples=()):
+        "Adds a new enumeration type with optional name/value/doc tuples"
+        assert name not in self.enum_idx, "Enumeration type %s already exists" % (name)
+        enum = db_dxil_enum(name, doc, valNameDocTuples)
+        self.enum_idx[enum.name] = enum
+        self.enums.append(enum)
+        return enum
 
     def build_opcode_enum(self):
         # Build enumeration from instructions
-        OpCodeEnum = db_dxil_enum(
-            "OpCode", "Enumeration for operations specified by DXIL"
-        )
+        OpCodeEnum = self.enum_idx["OpCode"]
+
+        # Keep track of last seen class/category pairs for OpCodeClass
         class_dict = {}
         class_dict["LlvmInst"] = "LLVM Instructions"
         for i in self.instr:
             if i.is_dxil_op:
-                v = db_dxil_enum_value(i.dxil_op, i.dxil_opid, i.doc)
+                v = OpCodeEnum.add_value(i.dxil_opid, i.dxil_op, i.doc)
                 v.category = i.category
                 class_dict[i.dxil_class] = i.category
-                OpCodeEnum.values.append(v)
-        self.enums.append(OpCodeEnum)
-        OpCodeClass = db_dxil_enum(
+
+        # Build OpCodeClass enum
+        OpCodeClass = self.add_enum_type(
             "OpCodeClass",
             "Groups for DXIL operations with equivalent function templates",
         )
         OpCodeClass.is_internal = True
+        OpCodeClass.last_value_name = "NumOpClasses"
         for k, v in iter(class_dict.items()):
-            ev = db_dxil_enum_value(k, 0, None)
+            ev = OpCodeClass.add_value(0, k, None)
             ev.category = v
-            OpCodeClass.values.append(ev)
-        self.enums.append(OpCodeClass)
 
     def mark_disallowed_operations(self):
         # Disallow indirect branching, unreachable instructions and support for exception unwinding.
@@ -436,9 +438,7 @@ class db_dxil(object):
             val = i_val
 
     def set_op_count_for_version(self, major, minor):
-        info = self.dxil_version_info.setdefault((major, minor), dict())
-        info["NumOpCodes"] = self.next_dxil_op_id
-        info["NumOpClasses"] = len(set([op.dxil_class for op in self.instr]))
+        self.enum_idx["OpCode"].dxil_version_info[(major, minor)] = self.next_dxil_op_id
         return self.next_dxil_op_id
 
     def populate_categories_and_models(self):
@@ -5890,7 +5890,6 @@ class db_dxil(object):
         )
 
         # Set interesting properties.
-        self.build_indices()
         for (
             i
         ) in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp,SampleCmpBias".split(
@@ -7024,7 +7023,7 @@ class db_dxil(object):
                 self.pass_idx_args.add(anarg.name)
 
     def build_semantics(self):
-        SemanticKind = db_dxil_enum(
+        SemanticKind = self.add_enum_type(
             "SemanticKind",
             "Semantic kind; Arbitrary or specific system value.",
             [
@@ -7064,8 +7063,7 @@ class db_dxil(object):
                 (33, "Invalid", ""),
             ],
         )
-        self.enums.append(SemanticKind)
-        SigPointKind = db_dxil_enum(
+        SigPointKind = self.add_enum_type(
             "SigPointKind",
             "Signature Point is more specific than shader stage or signature as it is unique in both stage and item dimensionality or frequency.",
             [
@@ -7112,8 +7110,7 @@ class db_dxil(object):
                 (21, "Invalid", ""),
             ],
         )
-        self.enums.append(SigPointKind)
-        PackingKind = db_dxil_enum(
+        self.add_enum_type(
             "PackingKind",
             "Kind of signature point",
             [
@@ -7126,7 +7123,7 @@ class db_dxil(object):
             ],
         )
 
-        Float32DenormMode = db_dxil_enum(
+        self.add_enum_type(
             "Float32DenormMode",
             "float32 denorm behavior",
             [
@@ -7140,7 +7137,6 @@ class db_dxil(object):
                 (7, "Reserve7", "Reserved Value. Not used for now"),
             ],
         )
-        self.enums.append(Float32DenormMode)
 
         SigPointCSV = """
             SigPoint, Related, ShaderKind,    PackingKind,    SignatureKind
@@ -7178,8 +7174,7 @@ class db_dxil(object):
             assert False and "SigPointKind does not align with SigPointCSV row labels"
         self.sigpoint_table = table
 
-        self.enums.append(PackingKind)
-        SemanticInterpretationKind = db_dxil_enum(
+        self.add_enum_type(
             "SemanticInterpretationKind",
             "Defines how a semantic is interpreted at a particular SignaturePoint",
             [
@@ -7208,7 +7203,6 @@ class db_dxil(object):
                 (9, "Invalid", ""),
             ],
         )
-        self.enums.append(SemanticInterpretationKind)
 
         # The following has SampleIndex, Coverage, and InnerCoverage as loaded with instructions rather than from the signature
         SemanticInterpretationCSV = """
@@ -8483,14 +8477,13 @@ class db_dxil(object):
             "UNI": "Uniform analysis",
             "DECL": "Declaration",
         }
-        valrule_enum = db_dxil_enum("ValidationRule", "Known validation rules")
+        valrule_enum = self.add_enum_type("ValidationRule", "Known validation rules")
         valrule_enum.is_internal = True
         for vr in self.val_rules:
             vr.category = cat_names[vr.group_name]
-            vrval = db_dxil_enum_value(vr.enum_name, vr.rule_id, vr.doc)
+            vrval = valrule_enum.add_value(vr.rule_id, vr.enum_name, vr.doc)
             vrval.category = vr.category
             vrval.err_msg = vr.err_msg
-            valrule_enum.values.append(vrval)
         self.enums.append(valrule_enum)
 
     def populate_counters(self):
@@ -8517,6 +8510,14 @@ class db_dxil(object):
             db_dxil_valrule(name, len(self.val_rules), err_msg=err_msg, doc=desc)
         )
 
+    def add_inst(self, i):
+        if i.name != "UDiv":
+            # These should not overlap, but UDiv is a known collision.
+            assert i.name not in self.name_idx, f"Duplicate instruction name: {i.name}"
+        self.name_idx[i.name] = i
+        self.instr.append(i)
+        return i
+
     def add_llvm_instr(
         self, kind, llvm_id, name, llvm_name, doc, oload_types, op_params, **props
     ):
@@ -8529,7 +8530,7 @@ class db_dxil(object):
             oload_types=oload_types,
         )
         i.props = props
-        self.instr.append(i)
+        return self.add_inst(i)
 
     def add_dxil_op(
         self, name, code_class, doc, oload_types, fn_attr, op_params, **props
@@ -8549,7 +8550,7 @@ class db_dxil(object):
             fn_attr=fn_attr,
         )
         i.props = props
-        self.instr.append(i)
+        return self.add_inst(i)
 
     def add_dxil_op_reserved(self, name):
         # The return value is parameter 0, insert the opcode as 1.
@@ -8566,7 +8567,7 @@ class db_dxil(object):
             oload_types="v",
             fn_attr="",
         )
-        self.instr.append(i)
+        return self.add_inst(i)
 
     def reserve_dxil_op_range(self, group_name, count, start_reserved_id=0):
         "Reserve a range of dxil opcodes for future use; returns next id"
