@@ -151,12 +151,10 @@ class db_docsref_gen:
 
     def __init__(self, db):
         self.db = db
-        instrs = [i for i in self.db.instr if i.is_dxil_op]
-        instrs = sorted(
-            instrs,
+        self.instrs = sorted(
+            self.db.get_dxil_ops(),
             key=lambda v: ("" if v.category == None else v.category) + "." + v.name,
         )
-        self.instrs = instrs
         val_rules = sorted(
             db.val_rules,
             key=lambda v: ("" if v.category == None else v.category) + "." + v.name,
@@ -328,7 +326,7 @@ class db_instrhelp_gen:
         )
 
     def print_body(self):
-        for i in self.db.instr:
+        for i in self.db.get_all_insts():
             if i.is_reserved:
                 continue
             if i.inst_helper_prefix:
@@ -491,8 +489,7 @@ class db_oload_gen:
 
     def __init__(self, db):
         self.db = db
-        instrs = [i for i in self.db.instr if i.is_dxil_op]
-        self.instrs = sorted(instrs, key=lambda i: i.dxil_opid)
+        self.instrs = sorted(self.db.get_dxil_ops(), key=lambda i: i.dxil_opid)
 
         # Allow these to be overridden by external scripts.
         self.OP = "OP"
@@ -907,7 +904,7 @@ class db_valfns_gen:
         )
 
     def print_body(self):
-        llvm_instrs = [i for i in self.db.instr if i.is_allowed and not i.is_dxil_op]
+        llvm_instrs = [i for i in self.db.get_llvm_insts() if i.is_allowed]
         print("static bool IsLLVMInstructionAllowed(llvm::Instruction &I) {")
         self.print_comment(
             "  // ",
@@ -1253,7 +1250,7 @@ def get_instrs_pred(varname, pred, attr_name="dxil_opid"):
         pred_fn = lambda i: getattr(i, pred)
     else:
         pred_fn = pred
-    llvm_instrs = [i for i in db.instr if pred_fn(i)]
+    llvm_instrs = [i for i in db.get_all_insts() if pred_fn(i)]
     result = format_comment(
         "// ",
         "Instructions: %s"
@@ -1296,7 +1293,7 @@ def get_dxil_op_counters():
 def get_instrs_rst():
     "Create an rst table of allowed LLVM instructions."
     db = get_db_dxil()
-    instrs = [i for i in db.instr if i.is_allowed and not i.is_dxil_op]
+    instrs = [i for i in db.get_llvm_insts() if i.is_allowed]
     instrs = sorted(instrs, key=lambda v: v.llvm_id)
     rows = []
     rows.append(["Instruction", "Action", "Operand overloads"])
@@ -1377,8 +1374,7 @@ def get_is_pass_option_name():
 def get_opcodes_rst():
     "Create an rst table of opcodes"
     db = get_db_dxil()
-    instrs = [i for i in db.instr if i.is_allowed and i.is_dxil_op]
-    instrs = sorted(instrs, key=lambda v: v.dxil_opid)
+    instrs = sorted(db.get_dxil_ops(), key=lambda v: v.dxil_opid)
     rows = []
     rows.append(["ID", "Name", "Description"])
     for i in instrs:
@@ -1412,8 +1408,7 @@ def get_valrules_rst():
 def get_opsigs():
     # Create a list of DXIL operation signatures, sorted by ID.
     db = get_db_dxil()
-    instrs = [i for i in db.instr if i.is_dxil_op]
-    instrs = sorted(instrs, key=lambda v: v.dxil_opid)
+    instrs = sorted(db.get_dxil_ops(), key=lambda v: v.dxil_opid)
     # db_dxil already asserts that the numbering is dense.
     # Create the code to write out.
     code = "static const char *OpCodeSignatures[] = {\n"
@@ -1455,9 +1450,8 @@ shader_stage_to_ShaderKind = {
 
 def get_min_sm_and_mask_text():
     db = get_db_dxil()
-    instrs = [i for i in db.instr if i.is_dxil_op]
     instrs = sorted(
-        instrs,
+        db.get_dxil_ops(),
         key=lambda v: (
             v.shader_model,
             v.shader_model_translated,
@@ -1546,9 +1540,8 @@ check_pSM_for_shader_stage = {
 
 def get_valopcode_sm_text():
     db = get_db_dxil()
-    instrs = [i for i in db.instr if i.is_dxil_op]
     instrs = sorted(
-        instrs, key=lambda v: (v.shader_model, v.shader_stages, v.dxil_opid)
+        db.get_dxil_ops(), key=lambda v: (v.shader_model, v.shader_stages, v.dxil_opid)
     )
     last_model = None
     last_stage = None
