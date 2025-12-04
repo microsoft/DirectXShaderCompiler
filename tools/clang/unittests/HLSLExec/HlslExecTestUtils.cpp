@@ -85,12 +85,12 @@ static bool createDevice(
 ) {
   if (*D3DDevice)
     LogWarningFmt(L"createDevice called with non-null *D3DDevice - "
-                             L"this will likely leak the previous device");
+                  L"this will likely leak the previous device");
   if (TestModel > D3D_HIGHEST_SHADER_MODEL) {
     const UINT Minor = (UINT)TestModel & 0x0f;
     LogCommentFmt(L"Installed SDK does not support "
-                             L"shader model 6.%1u",
-                             Minor);
+                  L"shader model 6.%1u",
+                  Minor);
 
     if (SkipUnsupported)
       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
@@ -135,10 +135,9 @@ static bool createDevice(
     CComPtr<IDXGIAdapter> WarpAdapter;
     VERIFY_SUCCEEDED(DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&WarpAdapter)));
     HRESULT CreateHR = CreateDeviceFn(WarpAdapter, D3D_FEATURE_LEVEL_11_0,
-                                    IID_PPV_ARGS(&D3DDeviceCom));
+                                      IID_PPV_ARGS(&D3DDeviceCom));
     if (FAILED(CreateHR)) {
-      LogCommentFmt(
-          L"The available version of WARP does not support d3d12.");
+      LogCommentFmt(L"The available version of WARP does not support d3d12.");
 
       if (SkipUnsupported)
         WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
@@ -172,7 +171,7 @@ static bool createDevice(
           L"Using default hardware adapter with D3D12 support.");
 
     VERIFY_SUCCEEDED(CreateDeviceFn(HardwareAdapter, D3D_FEATURE_LEVEL_11_0,
-                                  IID_PPV_ARGS(&D3DDeviceCom)));
+                                    IID_PPV_ARGS(&D3DDeviceCom)));
   }
   // retrieve adapter information
   const LUID AdapterID = D3DDeviceCom->GetAdapterLuid();
@@ -193,8 +192,8 @@ static bool createDevice(
         SMData.HighestShaderModel < TestModel) {
       const UINT Minor = (UINT)TestModel & 0x0f;
       LogCommentFmt(L"The selected device does not support "
-                               L"shader model 6.%1u (highest is 6.%1u)",
-                               Minor, SMData.HighestShaderModel & 0x0f);
+                    L"shader model 6.%1u (highest is 6.%1u)",
+                    Minor, SMData.HighestShaderModel & 0x0f);
 
       if (SkipUnsupported)
         WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
@@ -220,8 +219,8 @@ void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
   CComPtr<IDxcLibrary> Library;
   CComPtr<IDxcBlobEncoding> Blob;
   CComPtr<IStream> StreamCom;
-  std::wstring Path = GetPathToHlslDataFile(
-      RelativePath, HLSLDATAFILEPARAM, DEFAULT_EXEC_TEST_DIR);
+  std::wstring Path = GetPathToHlslDataFile(RelativePath, HLSLDATAFILEPARAM,
+                                            DEFAULT_EXEC_TEST_DIR);
   VERIFY_SUCCEEDED(Support.CreateInstance(CLSID_DxcLibrary, &Library));
   VERIFY_SUCCEEDED(Library->CreateBlobFromFile(Path.c_str(), nullptr, &Blob));
   VERIFY_SUCCEEDED(Library->CreateStreamFromBlobReadOnly(Blob, &StreamCom));
@@ -448,7 +447,8 @@ D3D12SDKSelector::~D3D12SDKSelector() {
 }
 
 bool D3D12SDKSelector::createDevice(ID3D12Device **D3DDevice,
-                            D3D_SHADER_MODEL TestModel, bool SkipUnsupported) {
+                                    D3D_SHADER_MODEL TestModel,
+                                    bool SkipUnsupported) {
 
   if (DeviceFactory) {
     LogCommentFmt(L"Creating device using DeviceFactory");
