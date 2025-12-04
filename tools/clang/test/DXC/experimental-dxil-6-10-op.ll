@@ -6,7 +6,7 @@
 
 ; DXA: Assembly succeeded.
 
-; DXIL: call void @dx.op.nop(i32 -2147483648)  ; ExperimentalNop(index)
+; DXIL: call void @dx.op.nop(i32 -2147483648)  ; ExperimentalNop()
 ; DXIL: declare void @dx.op.nop(i32) #[[ATTR:[0-9]+]]
 ; DXIL: attributes #[[ATTR]] = { nounwind readnone }
 

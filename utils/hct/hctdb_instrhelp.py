@@ -1448,13 +1448,9 @@ def get_opsigs():
 
 
 def get_opsigs_for_table(table):
-    # Create a list of DXIL operation signatures, sorted by ID.
-    db = get_db_dxil()
-    instrs = [i for i in db.get_dxil_ops()]
-    # db_dxil already asserts that the numbering is dense.
     # Create the code to write out.
     code = f"static const char *OpCodeSignatures_{table.name}[] = {{\n"
-    for inst_idx, i in enumerate(instrs):
+    for inst_idx, i in enumerate(table):
         code += '  "('
         for operand in i.ops:
             if operand.pos > 1:  # skip 0 (the return value) and 1 (the opcode itself)
@@ -1462,7 +1458,7 @@ def get_opsigs_for_table(table):
                 if operand.pos < len(i.ops) - 1:
                     code += ","
         code += ')"'
-        if inst_idx < len(instrs) - 1:
+        if inst_idx < len(table) - 1:
             code += ","
         code += "  // " + i.name
         code += "\n"
