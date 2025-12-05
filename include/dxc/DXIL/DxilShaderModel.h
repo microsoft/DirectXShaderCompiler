@@ -66,6 +66,9 @@ public:
   bool IsSMAtLeast(unsigned Major, unsigned Minor) const {
     return m_Major > Major || (m_Major == Major && m_Minor >= Minor);
   }
+  bool IsPreReleaseShaderModel() const {
+    return IsPreReleaseShaderModel(m_Major, m_Minor);
+  }
   bool IsSM50Plus() const { return IsSMAtLeast(5, 0); }
   bool IsSM51Plus() const { return IsSMAtLeast(5, 1); }
   bool AllowDerivatives(DXIL::ShaderKind sk) const;
