@@ -20,7 +20,7 @@ namespace hlsl {
 DxilResourceBase::DxilResourceBase(Class C)
     : m_Class(C), m_Kind(Kind::Invalid), m_ID(UINT_MAX), m_SpaceID(0),
       m_LowerBound(0), m_RangeSize(0), m_pSymbol(nullptr), m_pHandle(nullptr),
-      m_pHLSLTy(nullptr) {}
+      m_pHLSLTy(nullptr), m_IsUnused(false) {}
 
 DxilResourceBase::Class DxilResourceBase::GetClass() const { return m_Class; }
 DxilResourceBase::Kind DxilResourceBase::GetKind() const { return m_Kind; }
@@ -48,6 +48,7 @@ llvm::Type *DxilResourceBase::GetHLSLType() const {
 }
 bool DxilResourceBase::IsAllocated() const { return m_LowerBound != UINT_MAX; }
 bool DxilResourceBase::IsUnbounded() const { return m_RangeSize == UINT_MAX; }
+bool DxilResourceBase::IsUnused() const { return m_IsUnused; }
 
 void DxilResourceBase::SetClass(Class C) { m_Class = C; }
 void DxilResourceBase::SetID(unsigned ID) { m_ID = ID; }
@@ -56,6 +57,7 @@ void DxilResourceBase::SetLowerBound(unsigned LB) { m_LowerBound = LB; }
 void DxilResourceBase::SetRangeSize(unsigned RangeSize) {
   m_RangeSize = RangeSize;
 }
+void DxilResourceBase::SetIsUnused(bool IsUnused) { m_IsUnused = IsUnused; }
 void DxilResourceBase::SetGlobalSymbol(llvm::Constant *pGV) { m_pSymbol = pGV; }
 void DxilResourceBase::SetGlobalName(const std::string &Name) { m_Name = Name; }
 void DxilResourceBase::SetHandle(llvm::Value *pHandle) { m_pHandle = pHandle; }

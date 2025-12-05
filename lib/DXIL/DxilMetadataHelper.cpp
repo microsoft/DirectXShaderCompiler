@@ -693,7 +693,9 @@ void DxilMDHelper::GetDxilResources(const MDOperand &MDO, const MDTuple *&pSRVs,
 
 void DxilMDHelper::EmitDxilResourceBase(const DxilResourceBase &R,
                                         Metadata *ppMDVals[]) {
-  ppMDVals[kDxilResourceBaseID] = Uint32ToConstMD(R.GetID());
+  assert(R.GetID() < (1u << 31) && "R.GetId() out of bounds");
+  uint32_t idAndIsUnused = R.GetID() | (R.IsUnused() ? (1u << 31) : 0);
+  ppMDVals[kDxilResourceBaseID] = Uint32ToConstMD(idAndIsUnused);
   Constant *GlobalSymbol = R.GetGlobalSymbol();
   // For sm66+, global symbol will be mutated into handle type.
   // Save hlsl type by generate bitcast on global symbol.
@@ -722,7 +724,11 @@ void DxilMDHelper::LoadDxilResourceBase(const MDOperand &MDO,
   IFTBOOL(pTupleMD->getNumOperands() >= kDxilResourceBaseNumFields,
           DXC_E_INCORRECT_DXIL_METADATA);
 
-  R.SetID(ConstMDToUint32(pTupleMD->getOperand(kDxilResourceBaseID)));
+  uint32_t idAndIsUnused =
+      ConstMDToUint32(pTupleMD->getOperand(kDxilResourceBaseID));
+
+  R.SetID(idAndIsUnused << 1 >> 1);
+  R.SetIsUnused(idAndIsUnused >> 31);
   Constant *GlobalSymbol = dyn_cast<Constant>(
       ValueMDToValue(pTupleMD->getOperand(kDxilResourceBaseVariable)));
   // For sm66+, global symbol will be mutated into handle type.

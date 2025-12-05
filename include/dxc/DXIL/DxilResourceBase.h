@@ -46,6 +46,7 @@ public:
   llvm::Value *GetHandle() const;
   bool IsAllocated() const;
   bool IsUnbounded() const;
+  bool IsUnused() const;
 
   void SetKind(DxilResourceBase::Kind ResourceKind);
   void SetSpaceID(unsigned SpaceID);
@@ -55,6 +56,7 @@ public:
   void SetGlobalName(const std::string &Name);
   void SetHandle(llvm::Value *pHandle);
   void SetHLSLType(llvm::Type *Ty);
+  void SetIsUnused(bool IsUnused);
 
   // TODO: check whether we can make this a protected method.
   void SetID(unsigned ID);
@@ -75,6 +77,7 @@ private:
   unsigned m_SpaceID;        // Root signature space.
   unsigned m_LowerBound;     // Range lower bound.
   unsigned m_RangeSize;      // Range size in entries.
+  bool m_IsUnused;
   llvm::Constant *m_pSymbol; // Global variable.
   std::string m_Name;        // Unmangled name of the global variable.
   llvm::Value
