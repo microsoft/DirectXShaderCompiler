@@ -49,9 +49,11 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
+#ifdef ENABLE_SPIRV_CODEGEN
 // Enables functions like spv::BuiltInToString()
 #define SPV_ENABLE_UTILITY_CODE
 #include "spirv/unified1/spirv.hpp11"
+#endif
 
 #include <algorithm>
 #include <array>
@@ -14600,6 +14602,7 @@ void ValidateDispatchGridValues(DiagnosticsEngine &Diags,
 }
 
 void hlsl::NormalizeInlineSPIRVAttributes(Sema &S, Decl *D) {
+#ifdef ENABLE_SPIRV_CODEGEN
   // Collecting the values that can be set across multiple attributes.
   std::optional<std::pair<spv::StorageClass, SourceRange>> StorageClass;
   std::optional<std::pair<unsigned, SourceRange>> Location;
@@ -14751,6 +14754,7 @@ void hlsl::NormalizeInlineSPIRVAttributes(Sema &S, Decl *D) {
 
   D->dropAttrs();
   D->setAttrs(NewAttrs);
+#endif // ENABLE_SPIRV_CODEGEN
 }
 
 void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
