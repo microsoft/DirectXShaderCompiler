@@ -798,6 +798,8 @@ public:
     PSVRuntimeInfo1 *pInfo1 = m_PSV.GetPSVRuntimeInfo1();
     PSVRuntimeInfo2 *pInfo2 = m_PSV.GetPSVRuntimeInfo2();
     PSVRuntimeInfo3 *pInfo3 = m_PSV.GetPSVRuntimeInfo3();
+    PSVRuntimeInfo4 *pInfo4 = m_PSV.GetPSVRuntimeInfo4();
+
     if (pInfo)
       hlsl::SetShaderProps(pInfo, m_Module);
     if (pInfo1)
@@ -806,6 +808,8 @@ public:
       hlsl::SetShaderProps(pInfo2, m_Module);
     if (pInfo3)
       pInfo3->EntryFunctionName = EntryFunctionName;
+    if (pInfo4)
+      hlsl::SetShaderProps(pInfo4, m_Module);
 
     // Set resource binding information
     UINT uResIndex = 0;

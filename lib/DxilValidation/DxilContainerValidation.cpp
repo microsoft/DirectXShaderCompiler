@@ -413,12 +413,13 @@ void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
                                                PSVRuntimeInfo0 *PSV0,
                                                PSVRuntimeInfo1 *PSV1,
                                                PSVRuntimeInfo2 *PSV2) {
-  PSVRuntimeInfo3 DMPSV;
-  memset(&DMPSV, 0, sizeof(PSVRuntimeInfo3));
+  PSVRuntimeInfo4 DMPSV;
+  memset(&DMPSV, 0, sizeof(PSVRuntimeInfo4));
 
   hlsl::SetShaderProps((PSVRuntimeInfo0 *)&DMPSV, DM);
   hlsl::SetShaderProps((PSVRuntimeInfo1 *)&DMPSV, DM);
   hlsl::SetShaderProps((PSVRuntimeInfo2 *)&DMPSV, DM);
+  hlsl::SetShaderProps((PSVRuntimeInfo4 *)&DMPSV, DM);
   if (PSV1) {
     // Init things not set in InitPSVRuntimeInfo.
     DMPSV.ShaderStage = static_cast<uint8_t>(SM->GetKind());
@@ -447,7 +448,7 @@ void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
   if (Mismatched) {
     std::string Str;
     raw_string_ostream OS(Str);
-    hlsl::PrintPSVRuntimeInfo(OS, &DMPSV, &DMPSV, &DMPSV, &DMPSV,
+    hlsl::PrintPSVRuntimeInfo(OS, &DMPSV, &DMPSV, &DMPSV, &DMPSV, &DMPSV,
                               static_cast<uint8_t>(SM->GetKind()),
                               DM.GetEntryFunctionName().c_str(), "");
     OS.flush();
