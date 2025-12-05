@@ -12,6 +12,7 @@ RWStructuredBuffer<S> values;
 
 // CHECK-DAG: OpCapability GroupNonUniformQuad
 // CHECK-DAG: OpCapability ComputeDerivativeGroupQuadsKHR
+// CHECK-DAG: OpCapability ComputeDerivativeGroupLinearKHR
 // CHECK-DAG: OpExecutionMode %main DerivativeGroupLinearKHR
 
 [numthreads(32, 1, 1)]
