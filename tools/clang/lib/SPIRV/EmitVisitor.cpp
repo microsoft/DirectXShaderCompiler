@@ -2522,6 +2522,24 @@ isFieldMergeWithPrevious(const StructType::FieldInfo &previous,
   return previous.fieldIndex == field.fieldIndex;
 }
 
+uint32_t EmitTypeHandler::getAttrArgInstr(ASTContext &astContext,
+                                          const Expr *expr,
+                                          uint32_t defaultVal) {
+  if (expr) {
+    llvm::APSInt apsInt;
+    APValue apValue;
+    if (expr->isIntegerConstantExpr(apsInt, astContext))
+      return getOrCreateConstantInt(apsInt, context.getUIntType(32), false);
+    if (expr->isVulkanSpecConstantExpr(astContext, &apValue) &&
+        apValue.isInt()) {
+      auto *declRefExpr = dyn_cast<DeclRefExpr>(expr);
+      auto *decl = dyn_cast<const VarDecl>(declRefExpr->getDecl());
+      return getOrAssignResultId(context.getSpecConstant(decl));
+    }
+  }
+  return defaultVal;
+}
+
 uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
   // First get the decorations that would apply to this type.
   bool alreadyExists = false;
@@ -2938,29 +2956,29 @@ void EmitTypeHandler::emitDecorationsForNodePayloadArrayTypes(
   // Emit decorations
   const ParmVarDecl *nodeDecl = npaType->getNodeDecl();
   if (hlsl::IsHLSLNodeOutputType(nodeDecl->getType())) {
-    StringRef name = nodeDecl->getName();
-    unsigned index = 0;
-    if (auto nodeID = nodeDecl->getAttr<HLSLNodeIdAttr>()) {
+    StringRef name;
+    llvm::Optional<unsigned> index;
+    if (auto *nodeID = nodeDecl->getAttr<HLSLNodeIdAttr>()) {
       name = nodeID->getName();
-      index = nodeID->getArrayIndex();
+      index = getAttrArgInstr(astContext, nodeID->getArrayIndex());
+    } else {
+      name = nodeDecl->getName();
+      index = llvm::None;
     }
 
     auto *str = new (context) SpirvConstantString(name);
     uint32_t nodeName = getOrCreateConstantString(str);
     emitDecoration(id, spv::Decoration::PayloadNodeNameAMDX, {nodeName},
                    llvm::None, true);
-    if (index) {
-      uint32_t baseIndex = getOrCreateConstantInt(
-          llvm::APInt(32, index), context.getUIntType(32), false);
-      emitDecoration(id, spv::Decoration::PayloadNodeBaseIndexAMDX, {baseIndex},
-                     llvm::None, true);
+    if (index.hasValue()) {
+      emitDecoration(id, spv::Decoration::PayloadNodeBaseIndexAMDX,
+                     {index.getValue()}, llvm::None, true);
     }
   }
 
   uint32_t maxRecords;
   if (const auto *attr = nodeDecl->getAttr<HLSLMaxRecordsAttr>()) {
-    maxRecords = getOrCreateConstantInt(llvm::APInt(32, attr->getMaxCount()),
-                                        context.getUIntType(32), false);
+    maxRecords = getAttrArgInstr(astContext, attr->getMaxCount(), 1);
   } else {
     maxRecords = getOrCreateConstantInt(llvm::APInt(32, 1),
                                         context.getUIntType(32), false);
