@@ -342,7 +342,8 @@ class db_dxil(object):
     "A database of DXIL instruction data"
 
     def __init__(self):
-        self.instr = []  # DXIL instructions
+        self._llvm_insts = []  # LLVM instructions
+        self._dxil_ops = []  # DXIL operations
         self.enums = []  # enumeration types
         self.val_rules = []  # validation rules
         self.metadata = []  # named metadata (db_dxil_metadata)
@@ -373,8 +374,25 @@ class db_dxil(object):
         self.build_semantics()
         self.populate_counters()
 
+    def get_llvm_insts(self):
+        "Get all LLVM instructions."
+        for i in self._llvm_insts:
+            yield i
+
+    def get_dxil_ops(self):
+        "Get all DXIL operations."
+        for i in self._dxil_ops:
+            yield i
+
+    def get_all_insts(self):
+        "Get all instructions, including LLVM and DXIL operations."
+        for i in self._llvm_insts:
+            yield i
+        for i in self._dxil_ops:
+            yield i
+
     def __str__(self):
-        return "\n".join(str(i) for i in self.instr)
+        return "\n".join(str(i) for i in self.get_all_insts())
 
     def next_id(self):
         "Returns the next available DXIL op ID and increments the counter"
@@ -397,11 +415,10 @@ class db_dxil(object):
         # Keep track of last seen class/category pairs for OpCodeClass
         class_dict = {}
         class_dict["LlvmInst"] = "LLVM Instructions"
-        for i in self.instr:
-            if i.is_dxil_op:
-                v = OpCodeEnum.add_value(i.dxil_opid, i.dxil_op, i.doc)
-                v.category = i.category
-                class_dict[i.dxil_class] = i.category
+        for i in self.get_dxil_ops():
+            v = OpCodeEnum.add_value(i.dxil_opid, i.dxil_op, i.doc)
+            v.category = i.category
+            class_dict[i.dxil_class] = i.category
 
         # Build OpCodeClass enum
         OpCodeClass = self.add_enum_type(
@@ -574,7 +591,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Other"
         for i in "LegacyF32ToF16,LegacyF16ToF32".split(","):
             self.name_idx[i].category = "Legacy floating-point"
-        for i in self.instr:
+        for i in self.get_dxil_ops():
             if i.name.startswith("Wave"):
                 i.category = "Wave"
                 i.is_wave = True
@@ -5907,10 +5924,8 @@ class db_dxil(object):
 
         # TODO - some arguments are required to be immediate constants in DXIL, eg resource kinds; add this information
         # consider - report instructions that are overloaded on a single type, then turn them into non-overloaded version of that type
-        self.verify_dense(
-            self.get_dxil_insts(), lambda x: x.dxil_opid, lambda x: x.name
-        )
-        for i in self.instr:
+        self.verify_dense(self.get_dxil_ops(), lambda x: x.dxil_opid, lambda x: x.name)
+        for i in self.get_all_insts():
             self.verify_dense(i.ops, lambda x: x.pos, lambda x: i.name)
 
         # Verify that all operations in each class have the same signature.
@@ -5918,9 +5933,7 @@ class db_dxil(object):
 
         class_sort_func = lambda x, y: x < y
         class_key_func = lambda x: x.dxil_class
-        instr_ordered_by_class = sorted(
-            [i for i in self.instr if i.is_dxil_op], key=class_key_func
-        )
+        instr_ordered_by_class = sorted(self.get_dxil_ops(), key=class_key_func)
         instr_grouped_by_class = itertools.groupby(
             instr_ordered_by_class, key=class_key_func
         )
@@ -8492,9 +8505,9 @@ class db_dxil(object):
     def populate_counters(self):
         self.llvm_op_counters = set()
         self.dxil_op_counters = set()
-        for i in self.instr:
+        for i in self.get_all_insts():
             counters = getattr(i, "props", {}).get("counters", ())
-            if i.dxil_opid:
+            if i.is_dxil_op:
                 self.dxil_op_counters.update(counters)
             else:
                 self.llvm_op_counters.update(counters)
@@ -8518,7 +8531,10 @@ class db_dxil(object):
             # These should not overlap, but UDiv is a known collision.
             assert i.name not in self.name_idx, f"Duplicate instruction name: {i.name}"
         self.name_idx[i.name] = i
-        self.instr.append(i)
+        if i.is_dxil_op:
+            self._dxil_ops.append(i)
+        else:
+            self._llvm_insts.append(i)
         return i
 
     def add_llvm_instr(
@@ -8581,23 +8597,18 @@ class db_dxil(object):
 
     def get_instr_by_llvm_name(self, llvm_name):
         "Return the instruction with the given LLVM name"
-        return next(i for i in self.instr if i.llvm_name == llvm_name)
-
-    def get_dxil_insts(self):
-        for i in self.instr:
-            if i.dxil_op != "":
-                yield i
+        return next(i for i in self.get_llvm_insts() if i.llvm_name == llvm_name)
 
     def print_stats(self):
         "Print some basic statistics on the instruction database."
-        print("Instruction count:                  %d" % len(self.instr))
+        print("Instruction count:                  %d" % len(self.get_all_insts()))
         print(
             "Max parameter count in instruction: %d"
-            % max(len(i.ops) - 1 for i in self.instr)
+            % max(len(i.ops) - 1 for i in self.get_all_insts())
         )
         print(
             "Parameter count:                    %d"
-            % sum(len(i.ops) - 1 for i in self.instr)
+            % sum(len(i.ops) - 1 for i in self.get_all_insts())
         )
 
 
