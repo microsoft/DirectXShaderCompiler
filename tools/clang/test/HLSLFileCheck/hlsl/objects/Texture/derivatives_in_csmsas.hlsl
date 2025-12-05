@@ -42,11 +42,6 @@ struct NodeRecord {
 [NodeLaunch("coalescing")]
 #endif
 void main( uint GI : SV_GroupIndex, uint2 GTid : SV_GroupThreadID
-#if STAGE==BNS
-           , DispatchNodeInputRecord<NodeRecord> inputData
-#elif STAGE==CNS
-           , [MaxRecords(4)] GroupNodeInputRecords<NodeRecord> inputRecords
-#endif
            ) {
   float2 uv = GTid.xy/float2(8, 8);
   float4 res = 0;
