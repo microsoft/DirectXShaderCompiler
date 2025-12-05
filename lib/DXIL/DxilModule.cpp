@@ -31,6 +31,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/TypeFinder.h"
 #include "llvm/Support/raw_ostream.h"
 #include <unordered_set>
 
@@ -1824,6 +1825,56 @@ bool DxilModule::StripReflection() {
     ReEmitDxilResources();
 
   return bChanged;
+}
+
+bool DxilModule::StripNamesSensitiveToDebug() {
+  bool changed = false;
+
+  if (!GetShaderModel()->IsLib()) {
+    // Strip struct names
+    unsigned NextStructId = 0;
+    TypeFinder StructTypes;
+    StructTypes.run(*m_pModule, true);
+    for (StructType *STy : StructTypes) {
+      if (!STy->hasName())
+        continue;
+
+      StringRef Name = STy->getName();
+      if (Name.startswith("dx."))
+        continue;
+
+      STy->setName((Twine("dx.strip.struct.") + Twine(NextStructId++)).str());
+      changed = true;
+    }
+
+    // Strip entry function name
+    if (m_pEntryFunc) {
+      SetEntryFunctionName("dx.strip.entry.");
+      m_pEntryFunc->setName("dx.strip.entry.");
+      changed = true;
+    }
+
+    // Strip groupshared variable names
+    unsigned NextGroupSharedId = 0;
+    for (GlobalVariable &globalVar : m_pModule->globals()) {
+      if (globalVar.getType()->getPointerAddressSpace() ==
+              DXIL::kTGSMAddrSpace &&
+          globalVar.hasName()) {
+        StringRef Name = globalVar.getName();
+        if (Name.startswith("dx.") || Name.startswith("llvm."))
+          continue;
+        globalVar.setName(
+            (Twine("dx.strip.tgsm.") + Twine(NextGroupSharedId++)).str());
+        changed = true;
+      }
+    }
+
+    // ReEmit meta.
+    if (changed)
+      ReEmitDxilResources();
+  }
+
+  return changed;
 }
 
 static void RemoveTypesFromSet(Type *Ty,
