@@ -4512,7 +4512,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::CheckAccessFullyMapped:
     A(pI1);
     A(pI32);
-    A(pI32);
+    A(pETy);
     break;
   case OpCode::GetDimensions:
     A(pDim);
@@ -4600,9 +4600,9 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pRes);
     A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
+    A(pETy);
+    A(pETy);
+    A(pETy);
     A(pI1);
     break;
 
@@ -4661,36 +4661,36 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI8);
     break;
   case OpCode::SampleIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
   case OpCode::Coverage:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
   case OpCode::InnerCoverage:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Compute/Mesh/Amplification/Node shader
   case OpCode::ThreadId:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::GroupId:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::ThreadIdInGroup:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::FlattenedThreadIdInGroup:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
@@ -4711,13 +4711,13 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI8);
     break;
   case OpCode::GSInstanceID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Double precision
   case OpCode::MakeDouble:
-    A(pF64);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
@@ -4725,7 +4725,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::SplitDouble:
     A(pSDT);
     A(pI32);
-    A(pF64);
+    A(pETy);
     break;
 
     // Domain and hull shader
@@ -4747,7 +4747,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Domain shader
   case OpCode::DomainLocation:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
@@ -4762,13 +4762,13 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     break;
   case OpCode::OutputControlPointID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Hull, Domain and Geometry shaders
   case OpCode::PrimitiveID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
@@ -4942,7 +4942,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Graphics shader
   case OpCode::ViewID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
@@ -4972,71 +4972,71 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Raytracing object space uint System Values
   case OpCode::InstanceID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
   case OpCode::InstanceIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Raytracing hit uint System Values
   case OpCode::HitKind:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Raytracing uint System Values
   case OpCode::RayFlags:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Ray Dispatch Arguments
   case OpCode::DispatchRaysIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
   case OpCode::DispatchRaysDimensions:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
 
     // Ray Vectors
   case OpCode::WorldRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
   case OpCode::WorldRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
 
     // Ray object space Vectors
   case OpCode::ObjectRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
   case OpCode::ObjectRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
 
     // Ray Transforms
   case OpCode::ObjectToWorld:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::WorldToObject:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
@@ -5044,11 +5044,11 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // RayT
   case OpCode::RayTMin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     break;
   case OpCode::RayTCurrent:
-    A(pF32);
+    A(pETy);
     A(pI32);
     break;
 
@@ -5105,7 +5105,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Raytracing object space uint System Values
   case OpCode::PrimitiveIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
@@ -5120,16 +5120,16 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pF16);
     break;
   case OpCode::Dot4AddI8Packed:
+    A(pETy);
     A(pI32);
-    A(pI32);
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::Dot4AddU8Packed:
+    A(pETy);
     A(pI32);
-    A(pI32);
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
@@ -5289,7 +5289,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pF32);
     break;
   case OpCode::RayQuery_Proceed:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
@@ -5310,162 +5310,162 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pF32);
     break;
   case OpCode::RayQuery_CommittedStatus:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateType:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateObjectToWorld3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CandidateWorldToObject3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedObjectToWorld3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedWorldToObject3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateTriangleFrontFace:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedTriangleFrontFace:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateTriangleBarycentrics:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedTriangleBarycentrics:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_RayFlags:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_WorldRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_WorldRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_RayTMin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateTriangleRayT:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedRayT:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateInstanceIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateInstanceID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateGeometryIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidatePrimitiveIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateObjectRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CandidateObjectRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedInstanceIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedInstanceID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedGeometryIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedPrimitiveIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedObjectRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedObjectRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
@@ -5473,18 +5473,18 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Raytracing object space uint System Values, raytracing tier 1.1
   case OpCode::GeometryIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Inline Ray Query
   case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
@@ -5532,7 +5532,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Helper Lanes
   case OpCode::IsHelperLane:
-    A(pI1);
+    A(pETy);
     A(pI32);
     break;
 
@@ -5784,11 +5784,11 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Extended Command Information
   case OpCode::StartVertexLocation:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
   case OpCode::StartInstanceLocation:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
@@ -5878,100 +5878,100 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
   case OpCode::HitObject_IsMiss:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_IsHit:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_IsNop:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_RayFlags:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_RayTMin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_RayTCurrent:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_WorldRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     A(pI32);
     break;
   case OpCode::HitObject_WorldRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     A(pI32);
     break;
   case OpCode::HitObject_ObjectRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     A(pI32);
     break;
   case OpCode::HitObject_ObjectRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     A(pI32);
     break;
   case OpCode::HitObject_ObjectToWorld3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     A(pI32);
     A(pI32);
     break;
   case OpCode::HitObject_WorldToObject3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     A(pI32);
     A(pI32);
     break;
   case OpCode::HitObject_GeometryIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_InstanceIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_InstanceID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_PrimitiveIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_HitKind:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_ShaderTableIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
@@ -6314,6 +6314,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::UDiv:
   case OpCode::UAddc:
   case OpCode::USubb:
+  case OpCode::CheckAccessFullyMapped:
+  case OpCode::SplitDouble:
   case OpCode::WaveActiveAllEqual:
   case OpCode::CreateHandleForLib:
   case OpCode::WaveMatch:
@@ -6329,16 +6331,17 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
     if (FT->getNumParams() <= 5)
       return nullptr;
     return FT->getParamType(5);
-  case OpCode::TraceRay:
-  case OpCode::HitObject_TraceRay:
-    if (FT->getNumParams() <= 15)
-      return nullptr;
-    return FT->getParamType(15);
+  case OpCode::CalculateLOD:
   case OpCode::ReportHit:
   case OpCode::HitObject_FromRayQueryWithAttrs:
     if (FT->getNumParams() <= 3)
       return nullptr;
     return FT->getParamType(3);
+  case OpCode::TraceRay:
+  case OpCode::HitObject_TraceRay:
+    if (FT->getNumParams() <= 15)
+      return nullptr;
+    return FT->getParamType(15);
   case OpCode::CreateHandle:
   case OpCode::BufferUpdateCounter:
   case OpCode::GetDimensions:
@@ -6439,97 +6442,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedC9:
   case OpCode::ExperimentalNop:
     return Type::getVoidTy(Ctx);
-  case OpCode::CheckAccessFullyMapped:
-  case OpCode::SampleIndex:
-  case OpCode::Coverage:
-  case OpCode::InnerCoverage:
-  case OpCode::ThreadId:
-  case OpCode::GroupId:
-  case OpCode::ThreadIdInGroup:
-  case OpCode::FlattenedThreadIdInGroup:
-  case OpCode::GSInstanceID:
-  case OpCode::OutputControlPointID:
-  case OpCode::PrimitiveID:
-  case OpCode::ViewID:
-  case OpCode::InstanceID:
-  case OpCode::InstanceIndex:
-  case OpCode::HitKind:
-  case OpCode::RayFlags:
-  case OpCode::DispatchRaysIndex:
-  case OpCode::DispatchRaysDimensions:
-  case OpCode::PrimitiveIndex:
-  case OpCode::Dot4AddI8Packed:
-  case OpCode::Dot4AddU8Packed:
-  case OpCode::RayQuery_CommittedStatus:
-  case OpCode::RayQuery_CandidateType:
-  case OpCode::RayQuery_RayFlags:
-  case OpCode::RayQuery_CandidateInstanceIndex:
-  case OpCode::RayQuery_CandidateInstanceID:
-  case OpCode::RayQuery_CandidateGeometryIndex:
-  case OpCode::RayQuery_CandidatePrimitiveIndex:
-  case OpCode::RayQuery_CommittedInstanceIndex:
-  case OpCode::RayQuery_CommittedInstanceID:
-  case OpCode::RayQuery_CommittedGeometryIndex:
-  case OpCode::RayQuery_CommittedPrimitiveIndex:
-  case OpCode::GeometryIndex:
-  case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:
-  case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
-  case OpCode::StartVertexLocation:
-  case OpCode::StartInstanceLocation:
-  case OpCode::HitObject_RayFlags:
-  case OpCode::HitObject_GeometryIndex:
-  case OpCode::HitObject_InstanceIndex:
-  case OpCode::HitObject_InstanceID:
-  case OpCode::HitObject_PrimitiveIndex:
-  case OpCode::HitObject_HitKind:
-  case OpCode::HitObject_ShaderTableIndex:
-    return IntegerType::get(Ctx, 32);
-  case OpCode::CalculateLOD:
-  case OpCode::DomainLocation:
-  case OpCode::WorldRayOrigin:
-  case OpCode::WorldRayDirection:
-  case OpCode::ObjectRayOrigin:
-  case OpCode::ObjectRayDirection:
-  case OpCode::ObjectToWorld:
-  case OpCode::WorldToObject:
-  case OpCode::RayTMin:
-  case OpCode::RayTCurrent:
-  case OpCode::RayQuery_CandidateObjectToWorld3x4:
-  case OpCode::RayQuery_CandidateWorldToObject3x4:
-  case OpCode::RayQuery_CommittedObjectToWorld3x4:
-  case OpCode::RayQuery_CommittedWorldToObject3x4:
-  case OpCode::RayQuery_CandidateTriangleBarycentrics:
-  case OpCode::RayQuery_CommittedTriangleBarycentrics:
-  case OpCode::RayQuery_WorldRayOrigin:
-  case OpCode::RayQuery_WorldRayDirection:
-  case OpCode::RayQuery_RayTMin:
-  case OpCode::RayQuery_CandidateTriangleRayT:
-  case OpCode::RayQuery_CommittedRayT:
-  case OpCode::RayQuery_CandidateObjectRayOrigin:
-  case OpCode::RayQuery_CandidateObjectRayDirection:
-  case OpCode::RayQuery_CommittedObjectRayOrigin:
-  case OpCode::RayQuery_CommittedObjectRayDirection:
-  case OpCode::HitObject_RayTMin:
-  case OpCode::HitObject_RayTCurrent:
-  case OpCode::HitObject_WorldRayOrigin:
-  case OpCode::HitObject_WorldRayDirection:
-  case OpCode::HitObject_ObjectRayOrigin:
-  case OpCode::HitObject_ObjectRayDirection:
-  case OpCode::HitObject_ObjectToWorld3x4:
-  case OpCode::HitObject_WorldToObject3x4:
-    return Type::getFloatTy(Ctx);
-  case OpCode::MakeDouble:
-  case OpCode::SplitDouble:
-    return Type::getDoubleTy(Ctx);
-  case OpCode::RayQuery_Proceed:
-  case OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque:
-  case OpCode::RayQuery_CandidateTriangleFrontFace:
-  case OpCode::RayQuery_CommittedTriangleFrontFace:
-  case OpCode::IsHelperLane:
   case OpCode::QuadVote:
-  case OpCode::HitObject_IsMiss:
-  case OpCode::HitObject_IsHit:
-  case OpCode::HitObject_IsNop:
     return IntegerType::get(Ctx, 1);
   case OpCode::CBufferLoadLegacy:
   case OpCode::Sample:
