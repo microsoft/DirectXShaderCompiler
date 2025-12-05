@@ -10,7 +10,9 @@ struct S {
 
 RWStructuredBuffer<S> values;
 
-// CHECK: OpCapability GroupNonUniformQuad
+// CHECK-DAG: OpCapability GroupNonUniformQuad
+// CHECK-DAG: OpCapability ComputeDerivativeGroupQuadsKHR
+// CHECK-DAG: OpExecutionMode %main DerivativeGroupLinearKHR
 
 [numthreads(32, 1, 1)]
 void main(uint3 id: SV_DispatchThreadID) {

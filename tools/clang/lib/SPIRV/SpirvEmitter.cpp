@@ -10707,6 +10707,7 @@ SpirvEmitter::processWaveQuadWideShuffle(const CallExpr *callExpr,
     llvm_unreachable("case should not appear here");
   }
 
+  addDerivativeGroupExecutionMode();
   return spvBuilder.createGroupNonUniformOp(
       opcode, retType, spv::Scope::Subgroup, {value, target}, srcLoc);
 }
@@ -10724,6 +10725,8 @@ SpirvInstruction *SpirvEmitter::processWaveQuadAnyAll(const CallExpr *callExpr,
 
   auto *predicate = doExpr(callExpr->getArg(0));
   const auto srcLoc = callExpr->getExprLoc();
+
+  addDerivativeGroupExecutionMode();
 
   if (!featureManager.isExtensionEnabled(Extension::KHR_quad_control)) {
     // We can't use QuadAny/QuadAll, so implement them using QuadSwap. We
