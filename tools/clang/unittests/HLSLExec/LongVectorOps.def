@@ -212,13 +212,40 @@ OP_DEFAULT_DEFINES(Wave, WaveActiveBitXor, 1, "TestWaveActiveBitXor", "", " -DFU
 OP_DEFAULT_DEFINES(Wave, WaveActiveAllEqual, 1, "TestWaveActiveAllEqual", "", " -DFUNC_WAVE_ACTIVE_ALL_EQUAL=1")
 OP_DEFAULT_DEFINES(Wave, WaveReadLaneAt, 1, "TestWaveReadLaneAt", "", " -DFUNC_WAVE_READ_LANE_AT=1")
 OP_DEFAULT_DEFINES(Wave, WaveReadLaneFirst, 1, "TestWaveReadLaneFirst", "", " -DFUNC_WAVE_READ_LANE_FIRST=1")
-OP_DEFAULT_DEFINES(Wave, WavePrefixSum, 1, "TestWavePrefixSum", "", " -DFUNC_WAVE_PREFIX_SUM=1 -DIS_WAVE_PREFIX_OP=1")
-OP_DEFAULT_DEFINES(Wave, WavePrefixProduct, 1, "TestWavePrefixProduct", "", " -DFUNC_WAVE_PREFIX_PRODUCT=1 -DIS_WAVE_PREFIX_OP=1")
+OP_DEFAULT_DEFINES(Wave, WavePrefixSum, 1, "TestWavePrefixSum", "", " -DFUNC_WAVE_PREFIX_SUM=1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
+OP_DEFAULT_DEFINES(Wave, WavePrefixProduct, 1, "TestWavePrefixProduct", "", " -DFUNC_WAVE_PREFIX_PRODUCT=1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1")
 OP(Wave, WaveMultiPrefixSum, 1, "TestWaveMultiPrefixSum", "", " -DFUNC_WAVE_MULTI_PREFIX_SUM=1 -DIS_WAVE_PREFIX_OP=1", "LongVectorOp", Default1, Default2, Default3)
 OP(Wave, WaveMultiPrefixProduct, 1, "TestWaveMultiPrefixProduct", "", " -DFUNC_WAVE_MULTI_PREFIX_PRODUCT=1 -DIS_WAVE_PREFIX_OP=1", "LongVectorOp", Default1, Default2, Default3)
 OP(Wave, WaveMultiPrefixBitAnd, 1, "TestWaveMultiPrefixBitAnd", "", " -DFUNC_WAVE_MULTI_PREFIX_BIT_AND=1 -DIS_WAVE_PREFIX_OP=1", "LongVectorOp", WaveMultiPrefixBitwise, Default2, Default3)
 OP(Wave, WaveMultiPrefixBitOr, 1, "TestWaveMultiPrefixBitOr", "", " -DFUNC_WAVE_MULTI_PREFIX_BIT_OR=1 -DIS_WAVE_PREFIX_OP=1", "LongVectorOp", WaveMultiPrefixBitwise, Default2, Default3)
 OP(Wave, WaveMultiPrefixBitXor, 1, "TestWaveMultiPrefixBitXor", "", " -DFUNC_WAVE_MULTI_PREFIX_BIT_XOR=1 -DIS_WAVE_PREFIX_OP=1", "LongVectorOp", WaveMultiPrefixBitwise, Default2, Default3)
 OP_DEFAULT_DEFINES(Wave, WaveMatch, 1, "TestWaveMatch", "", " -DFUNC_WAVE_MATCH=1 -DIS_WAVE_PREFIX_OP=1")
+
+#define OP_DERIVATIVE(GROUP, SYMBOL, DERIVATIVE_INTRINSIC)                     \
+  OP(GROUP, SYMBOL, 1, "TestDerivative", "", "-DFUNC_TEST_DERIVATIVE=1         \
+     -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1"             \
+     " -DDERIVATIVE_FUNC=" DERIVATIVE_INTRINSIC,                               \
+     "LongVectorOp", Default2, Default1, Default3)
+
+OP_DERIVATIVE(Derivative, DerivativeDdx, "ddx")
+OP_DERIVATIVE(Derivative, DerivativeDdy, "ddy")
+OP_DERIVATIVE(Derivative, DerivativeDdxFine, "ddx_fine")
+OP_DERIVATIVE(Derivative, DerivativeDdyFine, "ddy_fine")
+
+#undef OP_DERIVATIVE
+
+#define OP_QUAD_READ(GROUP, ARITY, SYMBOL, QUAD_INTRINSIC, SOURCE_LANE_ID)     \
+  OP(GROUP, SYMBOL, ARITY, "TestQuadRead", "", "-DFUNC_TEST_QUAD_READ=1"       \
+     " -DNUMTHREADS_XYZ=2,2,1 -DOP_STORES_RESULT_ON_SPECIFIC_LANE=1"           \
+     " -DQUAD_READ_FUNC=" QUAD_INTRINSIC                                       \
+     " -DSOURCE_LANE_ID=" SOURCE_LANE_ID,                                      \
+      "LongVectorOp", Default1, Default2, Default3)
+
+OP_QUAD_READ(Quad, 2, QuadReadLaneAt, "QuadReadLaneAt", "2")
+OP_QUAD_READ(Quad, 1, QuadReadAcrossX, "QuadReadAcrossX", "2")
+OP_QUAD_READ(Quad, 1, QuadReadAcrossY, "QuadReadAcrossY", "1")
+OP_QUAD_READ(Quad, 1, QuadReadAcrossDiagonal, "QuadReadAcrossDiagonal", "0")
+
+#undef OP_QUAD_READ
 
 #undef OP

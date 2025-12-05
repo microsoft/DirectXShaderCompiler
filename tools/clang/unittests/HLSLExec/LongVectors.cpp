@@ -1340,6 +1340,55 @@ template <typename T> struct ExpectedBuilder<OpType::ModF, T> {
 };
 
 //
+// Derivative Ops
+//
+
+// Coarse derivatives (ddx/ddy): All lanes in quad get same result
+// Fine derivatives (ddx_fine/ddy_fine): Each lane gets unique result
+// For testing, we validate results on lane 3 to keep validation generic
+//
+// The value of A in each lane is computed by : A = A + LaneID*2
+//
+// Top right (lane 1) - Top Left (lane 0)
+DEFAULT_OP_1(OpType::DerivativeDdx, ((A + 2) - (A + 0)));
+// Lower left (lane 2) -  Top Left (lane 0)
+DEFAULT_OP_1(OpType::DerivativeDdy, ((A + 4) - (A + 0)));
+
+// Bottom right (lane 3) - Bottom left (lane 2)
+DEFAULT_OP_1(OpType::DerivativeDdxFine, ((A + 6) - (A + 4)));
+// Bottom right (lane 3) - Top right (lane 1)
+DEFAULT_OP_1(OpType::DerivativeDdyFine, ((A + 6) - (A + 2)));
+
+//
+// Quad Read Ops
+//
+
+// We keep things generic so we can re-use this macro for all quad ops.
+// The lane we write to is determined via a defines in the shader code.
+// See TestQuadRead in ShaderOpArith.xml.
+// For all cases we simply fill the vector on that lane with the value of the
+// third element.
+#define QUAD_READ_OP(OP, ARITY)                                                \
+  template <typename T> struct Op<OP, T, ARITY> : DefaultValidation<T> {};     \
+  template <typename T> struct ExpectedBuilder<OP, T> {                        \
+    static std::vector<T> buildExpected(Op<OP, T, ARITY> &,                    \
+                                        const InputSets<T> &Inputs) {          \
+      DXASSERT_NOMSG(Inputs.size() == ARITY);                                  \
+      std::vector<T> Expected;                                                 \
+      const size_t VectorSize = Inputs[0].size();                              \
+      Expected.assign(VectorSize, Inputs[0][2]);                               \
+      return Expected;                                                         \
+    }                                                                          \
+  };
+
+QUAD_READ_OP(OpType::QuadReadLaneAt, 2);
+QUAD_READ_OP(OpType::QuadReadAcrossX, 1);
+QUAD_READ_OP(OpType::QuadReadAcrossY, 1);
+QUAD_READ_OP(OpType::QuadReadAcrossDiagonal, 1);
+
+#undef QUAD_READ_OP
+
+//
 // Wave Ops
 //
 
@@ -1701,7 +1750,7 @@ void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
 
   const std::string AdditionalCompilerOptions =
       "-DWAVE_SIZE=" + std::to_string(WaveSize) +
-      " -DNUMTHREADS_X=" + std::to_string(WaveSize);
+      " -DNUMTHREADS_XYZ=" + std::to_string(WaveSize) + ",1,1 ";
 
   for (size_t VectorSize : InputVectorSizes) {
     std::vector<std::vector<T>> Inputs =
@@ -2492,6 +2541,60 @@ public:
   HLK_TEST(LoadAndStore_DT_SB_UAV, double);
   HLK_TEST(LoadAndStore_RD_SB_SRV, double);
   HLK_TEST(LoadAndStore_RD_SB_UAV, double);
+
+  // Derivative
+  HLK_TEST(DerivativeDdx, HLSLHalf_t);
+  HLK_TEST(DerivativeDdy, HLSLHalf_t);
+  HLK_TEST(DerivativeDdxFine, HLSLHalf_t);
+  HLK_TEST(DerivativeDdyFine, HLSLHalf_t);
+  HLK_TEST(DerivativeDdx, float);
+  HLK_TEST(DerivativeDdy, float);
+  HLK_TEST(DerivativeDdxFine, float);
+  HLK_TEST(DerivativeDdyFine, float);
+
+  // Quad
+  HLK_TEST(QuadReadLaneAt, HLSLBool_t);
+  HLK_TEST(QuadReadAcrossX, HLSLBool_t);
+  HLK_TEST(QuadReadAcrossY, HLSLBool_t);
+  HLK_TEST(QuadReadAcrossDiagonal, HLSLBool_t);
+  HLK_TEST(QuadReadLaneAt, int16_t);
+  HLK_TEST(QuadReadAcrossX, int16_t);
+  HLK_TEST(QuadReadAcrossY, int16_t);
+  HLK_TEST(QuadReadAcrossDiagonal, int16_t);
+  HLK_TEST(QuadReadLaneAt, int32_t);
+  HLK_TEST(QuadReadAcrossX, int32_t);
+  HLK_TEST(QuadReadAcrossY, int32_t);
+  HLK_TEST(QuadReadAcrossDiagonal, int32_t);
+  HLK_TEST(QuadReadLaneAt, int64_t);
+  HLK_TEST(QuadReadAcrossX, int64_t);
+  HLK_TEST(QuadReadAcrossY, int64_t);
+  HLK_TEST(QuadReadAcrossDiagonal, int64_t);
+  HLK_TEST(QuadReadLaneAt, uint16_t);
+  HLK_TEST(QuadReadAcrossX, uint16_t);
+  HLK_TEST(QuadReadAcrossY, uint16_t);
+  HLK_TEST(QuadReadAcrossDiagonal, uint16_t);
+  HLK_TEST(QuadReadLaneAt, uint32_t);
+  HLK_TEST(QuadReadAcrossX, uint32_t);
+  HLK_TEST(QuadReadAcrossY, uint32_t);
+  HLK_TEST(QuadReadAcrossDiagonal, uint32_t);
+  HLK_TEST(QuadReadLaneAt, uint64_t);
+  HLK_TEST(QuadReadAcrossX, uint64_t);
+  HLK_TEST(QuadReadAcrossY, uint64_t);
+  HLK_TEST(QuadReadAcrossDiagonal, uint64_t);
+  HLK_TEST(QuadReadLaneAt, HLSLHalf_t);
+  HLK_TEST(QuadReadAcrossX, HLSLHalf_t);
+  HLK_TEST(QuadReadAcrossY, HLSLHalf_t);
+  HLK_TEST(QuadReadAcrossDiagonal, HLSLHalf_t);
+  HLK_TEST(QuadReadLaneAt, float);
+  HLK_TEST(QuadReadAcrossX, float);
+  HLK_TEST(QuadReadAcrossY, float);
+  HLK_TEST(QuadReadAcrossDiagonal, float);
+  HLK_TEST(QuadReadLaneAt, double);
+  HLK_TEST(QuadReadAcrossX, double);
+  HLK_TEST(QuadReadAcrossY, double);
+  HLK_TEST(QuadReadAcrossDiagonal, double);
+
+  // Wave
 
   HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLBool_t);
   HLK_WAVEOP_TEST(WaveReadLaneAt, HLSLBool_t);
