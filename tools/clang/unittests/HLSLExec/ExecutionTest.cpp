@@ -2451,7 +2451,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
     }
 
     // Waves should cover 4 threads or more.
-    LogCommentFmt(L"Found %u distinct lane ids: %u", firstLaneIds.size());
+    LogCommentFmt(L"Found %u distinct lane ids", firstLaneIds.size());
     if (!dxbc) {
       VERIFY_IS_GREATER_THAN_OR_EQUAL(values.size() / 4, firstLaneIds.size());
     }
