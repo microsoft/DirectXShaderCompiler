@@ -242,7 +242,8 @@ public:
     // For backcompat with FXC, shader models 5.0 and below will not
     // auto-allocate resources at a register explicitely assigned to even an
     // unused resource.
-    if (DM.GetLegacyResourceReservation()) {
+    if (DM.GetUnusedResourceBinding() ==
+        UnusedResourceBinding::ReserveExplicit) {
       GatherReservedRegisters(DM.GetCBuffers(), m_reservedCBufferRegisters);
       GatherReservedRegisters(DM.GetSamplers(), m_reservedSamplerRegisters);
       GatherReservedRegisters(DM.GetUAVs(), m_reservedUAVRegisters);
@@ -527,6 +528,8 @@ public:
       SetNonUniformIndexForDynamicResource(DM);
     }
 
+    bChanged |= DM.RemoveResourcesWithUnusedSymbols();
+
     unsigned numResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
 
@@ -550,11 +553,10 @@ public:
     ResourceRegisterAllocator.GatherReservedRegisters(DM);
 
     // Remove unused resources.
-    DM.RemoveResourcesWithUnusedSymbols();
+    bChanged |= DM.RemoveResourcesWithUnusedSymbols();
 
     unsigned newResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
-    bChanged = bChanged || (numResources != newResources);
 
     if (0 == newResources)
       return bChanged;
@@ -564,12 +566,13 @@ public:
       bool bLocalChanged = LegalizeResources(M, DVC);
       if (bLocalChanged) {
         // Remove unused resources.
-        DM.RemoveResourcesWithUnusedSymbols();
+        bChanged |= DM.RemoveResourcesWithUnusedSymbols();
       }
       bChanged |= bLocalChanged;
     }
 
     bChanged |= ResourceRegisterAllocator.AllocateRegisters(DM);
+    bChanged |= DM.RemoveResourcesWithUnusedSymbols(true);
 
     // Fill in top-level CBuffer variable usage bit
     UpdateCBufferUsage();
