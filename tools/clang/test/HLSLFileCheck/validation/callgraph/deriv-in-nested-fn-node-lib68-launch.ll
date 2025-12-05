@@ -3,7 +3,7 @@
 ; Sample called from node shader is not allowed with thread launch.
 
 ; CHECK: Function: main: error: Entry function calls one or more functions using incompatible features.  See other errors for details.
-; CHECK: Function: {{.*}}fn_sample{{.*}}: error: Function called from Thread launch node shader uses derivatives; only broadcasting launch supports derivatives.
+; CHECK: Function: {{.*}}fn_sample{{.*}}: error: Function called from Thread launch node shader uses derivatives; only broadcasting and coalescing launch modes support derivatives.
 ; CHECK: Function: {{.*}}fn_sample{{.*}}: error: Function uses derivatives in compute-model shader with NumThreads (1, 1, 1); derivatives require NumThreads to be 1D and a multiple of 4, or 2D/3D with X and Y both being a multiple of 2.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
