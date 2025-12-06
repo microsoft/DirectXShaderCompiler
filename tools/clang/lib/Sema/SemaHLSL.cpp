@@ -7119,9 +7119,10 @@ bool HLSLExternalSource::MatchArguments(
     } else if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION) {
       if (functionTemplateTypeArg.isNull()) {
         if (i == 0) {
-          // [RW]ByteAddressBuffer.Load, default to uint
+          // [RW]ByteAddressBuffer.Load/AlignedLoad, default to uint
           pNewType = m_context->UnsignedIntTy;
-          if (builtinOp != hlsl::IntrinsicOp::MOP_Load)
+          if (builtinOp != hlsl::IntrinsicOp::MOP_Load &&
+              builtinOp != hlsl::IntrinsicOp::MOP_AlignedLoad)
             badArgIdx = std::min(badArgIdx, i);
         } else {
           // [RW]ByteAddressBuffer.Store, default to argument type
@@ -10077,6 +10078,105 @@ bool HLSLExternalSource::ValidateTypeRequirements(SourceLocation loc,
   return true;
 }
 
+// Get the largest scalar type size in bytes for a given type (for AlignedLoad/AlignedStore validation)
+static UINT GetLargestScalarTypeSize(QualType Ty, ASTContext &Ctx) {
+  if (Ty.isNull())
+    return 0;
+    
+  // Strip off reference types
+  Ty = Ty.getNonReferenceType();
+  
+  // Handle scalar types
+  if (const BuiltinType *BT = Ty->getAs<BuiltinType>()) {
+    switch (BT->getKind()) {
+    case BuiltinType::Bool:
+      return 1;
+    case BuiltinType::Half:
+    case BuiltinType::Short:
+    case BuiltinType::UShort:
+    case BuiltinType::Min16Float:
+    case BuiltinType::Min16Int:
+    case BuiltinType::Min16UInt:
+    case BuiltinType::Min10Float:
+    case BuiltinType::Min12Int:
+      return 2;
+    case BuiltinType::Int:
+    case BuiltinType::UInt:
+    case BuiltinType::Float:
+    case BuiltinType::LitInt:
+    case BuiltinType::LitFloat:
+      return 4;
+    case BuiltinType::Double:
+    case BuiltinType::LongLong:
+    case BuiltinType::ULongLong:
+      return 8;
+    default:
+      break;
+    }
+  }
+  
+  // Handle vector types
+  if (const ExtVectorType *VT = Ty->getAs<ExtVectorType>()) {
+    return GetLargestScalarTypeSize(VT->getElementType(), Ctx);
+  }
+  
+  // Handle array types
+  if (const ConstantArrayType *AT = Ctx.getAsConstantArrayType(Ty)) {
+    return GetLargestScalarTypeSize(AT->getElementType(), Ctx);
+  }
+  
+  // Handle record (struct) types - find the largest field
+  if (const RecordType *RT = Ty->getAs<RecordType>()) {
+    UINT maxSize = 0;
+    RecordDecl *RD = RT->getDecl();
+    for (const FieldDecl *FD : RD->fields()) {
+      UINT fieldSize = GetLargestScalarTypeSize(FD->getType(), Ctx);
+      if (fieldSize > maxSize)
+        maxSize = fieldSize;
+    }
+    return maxSize;
+  }
+  
+  // Default to 4 bytes
+  return 4;
+}
+
+// Validate alignment parameter for AlignedLoad/AlignedStore
+static bool ValidateAlignmentParameter(Sema &S, const Expr *AlignmentExpr,
+                                       QualType TemplateType,
+                                       SourceLocation Loc) {
+  // Alignment must be a compile-time constant
+  llvm::APSInt alignmentValue;
+  if (!AlignmentExpr->isIntegerConstantExpr(alignmentValue, S.getASTContext())) {
+    S.Diag(Loc, diag::err_hlsl_aligned_buffer_invalid_alignment);
+    return false;
+  }
+  
+  UINT alignment = alignmentValue.getZExtValue();
+  
+  // Alignment must be a power of two
+  if (alignment == 0 || (alignment & (alignment - 1)) != 0) {
+    S.Diag(Loc, diag::err_hlsl_aligned_buffer_invalid_alignment);
+    return false;
+  }
+  
+  // Alignment must be <= 4096
+  if (alignment > 4096) {
+    S.Diag(Loc, diag::err_hlsl_aligned_buffer_invalid_alignment);
+    return false;
+  }
+  
+  // Alignment must be >= largest scalar type size
+  UINT largestScalarSize = GetLargestScalarTypeSize(TemplateType, S.getASTContext());
+  if (alignment < largestScalarSize) {
+    S.Diag(Loc, diag::err_hlsl_aligned_buffer_alignment_too_small)
+        << alignment << largestScalarSize << TemplateType;
+    return false;
+  }
+  
+  return true;
+}
+
 bool HLSLExternalSource::ValidatePrimitiveTypeForOperand(
     SourceLocation loc, QualType type, ArTypeObjectKind kind) {
   bool isValid = true;
@@ -10973,13 +11073,40 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
         objectName == g_ArBasicTypeNames[AR_OBJECT_RWBYTEADDRESS_BUFFER];
     bool IsBABLoad = false;
     bool IsBABStore = false;
+    bool IsBABAlignedLoad = false;
+    bool IsBABAlignedStore = false;
     if (IsBuiltinTable(tableName) && IsBAB) {
       IsBABLoad = intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
       IsBABStore = intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
+      IsBABAlignedLoad = intrinsicOp == (UINT)IntrinsicOp::MOP_AlignedLoad;
+      IsBABAlignedStore = intrinsicOp == (UINT)IntrinsicOp::MOP_AlignedStore;
     }
+    
+    // Validate alignment parameter for AlignedLoad/AlignedStore
+    if (IsBABAlignedLoad || IsBABAlignedStore) {
+      // AlignedLoad/AlignedStore have alignment as second parameter (after offset)
+      if (Args.size() < 2) {
+        getSema()->Diag(Args[0]->getExprLoc(),
+                        diag::err_ovl_no_viable_member_function_in_call)
+            << intrinsicName;
+        return Sema::TemplateDeductionResult::TDK_Invalid;
+      }
+      
+      const Expr *AlignmentExpr = Args[1];
+      SourceLocation AlignmentLoc = AlignmentExpr->getExprLoc();
+      
+      // If we have a template type, validate alignment against it
+      if (!functionTemplateTypeArg.isNull()) {
+        if (!ValidateAlignmentParameter(*getSema(), AlignmentExpr,
+                                       functionTemplateTypeArg, AlignmentLoc)) {
+          return Sema::TemplateDeductionResult::TDK_Invalid;
+        }
+      }
+    }
+    
     if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() >= 1) {
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
-      if (!IsBABLoad && !IsBABStore) {
+      if (!IsBABLoad && !IsBABStore && !IsBABAlignedLoad && !IsBABAlignedStore) {
         getSema()->Diag(Loc, diag::err_hlsl_intrinsic_template_arg_unsupported)
             << intrinsicName;
         return Sema::TemplateDeductionResult::TDK_Invalid;
@@ -10992,7 +11119,7 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
         return Sema::TemplateDeductionResult::TDK_Invalid;
       }
 
-      if (IsBABLoad || IsBABStore) {
+      if (IsBABLoad || IsBABStore || IsBABAlignedLoad || IsBABAlignedStore) {
         const bool IsNull = functionTemplateTypeArg.isNull();
         // Incomplete type is diagnosed elsewhere, so just fail if incomplete.
         if (!IsNull &&
@@ -11008,10 +11135,20 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
               TypeDiagContext::Valid /*LongVecDiagContext*/);
           return Sema::TemplateDeductionResult::TDK_Invalid;
         }
+        
+        // Re-validate alignment with the now-known template type for AlignedLoad/AlignedStore
+        if ((IsBABAlignedLoad || IsBABAlignedStore) && Args.size() >= 2) {
+          const Expr *AlignmentExpr = Args[1];
+          SourceLocation AlignmentLoc = AlignmentExpr->getExprLoc();
+          if (!ValidateAlignmentParameter(*getSema(), AlignmentExpr,
+                                         functionTemplateTypeArg, AlignmentLoc)) {
+            return Sema::TemplateDeductionResult::TDK_Invalid;
+          }
+        }
       }
-    } else if (IsBABStore) {
+    } else if (IsBABStore || IsBABAlignedStore) {
       // Prior to HLSL 2018, Store operation only stored scalar uint.
-      if (!Is2018) {
+      if (!Is2018 && !IsBABAlignedStore) {
         if (GetNumElements(argTypes[2]) != 1) {
           getSema()->Diag(Args[1]->getLocStart(),
                           diag::err_ovl_no_viable_member_function_in_call)
