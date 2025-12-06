@@ -145,6 +145,16 @@ static bool createWarpDevice(
   return true;
 }
 
+static void logAdapter(IDXGIFactory4 *DXGIFactory, ID3D12Device *D3DDevice) {
+  CComPtr<IDXGIAdapter> DXGIAdapter;
+  const LUID AdapterID = D3DDevice->GetAdapterLuid();
+  VERIFY_SUCCEEDED(
+      DXGIFactory->EnumAdapterByLuid(AdapterID, IID_PPV_ARGS(&DXGIAdapter)));
+  DXGI_ADAPTER_DESC AdapterDesc;
+  VERIFY_SUCCEEDED(DXGIAdapter->GetDesc(&AdapterDesc));
+  LogCommentFmt(L"Using Adapter:%s", AdapterDesc.Description);
+}
+
 static bool createDevice(
     ID3D12Device **D3DDevice, D3D_SHADER_MODEL TestModel, bool SkipUnsupported,
     std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
@@ -189,13 +199,8 @@ static bool createDevice(
     VERIFY_SUCCEEDED(CreateDeviceFn(HardwareAdapter, D3D_FEATURE_LEVEL_11_0,
                                     IID_PPV_ARGS(&D3DDeviceCom)));
   }
-  // retrieve adapter information
-  const LUID AdapterID = D3DDeviceCom->GetAdapterLuid();
-  CComPtr<IDXGIAdapter> DXGIAdapter;
-  DXGIFactory->EnumAdapterByLuid(AdapterID, IID_PPV_ARGS(&DXGIAdapter));
-  DXGI_ADAPTER_DESC AdapterDesc;
-  VERIFY_SUCCEEDED(DXGIAdapter->GetDesc(&AdapterDesc));
-  LogCommentFmt(L"Using Adapter:%s", AdapterDesc.Description);
+
+  logAdapter(DXGIFactory, D3DDeviceCom);
 
   if (D3DDeviceCom == nullptr)
     return false;
