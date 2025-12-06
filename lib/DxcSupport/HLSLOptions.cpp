@@ -1074,6 +1074,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
+  opts.SpirvOptions.disableHLSLIntrinsics =
+      Args.hasFlag(OPT_fvk_disable_hlsl_intrinsics, OPT_INVALID, false);
   opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
   opts.SpirvOptions.invertY =
       Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);

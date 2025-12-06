@@ -669,7 +669,7 @@ public:
   std::string getSpecificModuleCachePath();
 
   /// Create the AST context.
-  void createASTContext();
+  void createASTContext(bool ignoreHLSLIntrinsics = false);
 
   /// Create an external AST source to read a PCH file and attach it to the AST
   /// context.

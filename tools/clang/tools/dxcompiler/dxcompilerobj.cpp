@@ -9,6 +9,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "clang/Sema/SemaHLSL.h"
+
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
@@ -964,7 +966,8 @@ public:
         compiler.getCodeGenOpts().SpirvOptions = opts.SpirvOptions;
         clang::EmitSpirvAction action;
         FrontendInputFile file(pUtf8SourceName, IK_HLSL);
-        action.BeginSourceFile(compiler, file);
+        action.BeginSourceFile(
+            compiler, file, opts.SpirvOptions.disableHLSLIntrinsics);
         action.Execute();
         action.EndSourceFile();
         outStream.flush();

@@ -208,7 +208,8 @@ public:
   ///
   /// \return True on success; on failure the compilation of this file should
   /// be aborted and neither Execute() nor EndSourceFile() should be called.
-  bool BeginSourceFile(CompilerInstance &CI, const FrontendInputFile &Input);
+  bool BeginSourceFile(CompilerInstance &CI, const FrontendInputFile &Input,
+                       bool ignoreHLSLIntrinsics = false);
 
   /// \brief Set the source manager's main input file, and run the action.
   bool Execute();

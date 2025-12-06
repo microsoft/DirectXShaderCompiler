@@ -2408,7 +2408,7 @@ public:
   /// It is normally invoked after ASTContext construction.
   ///
   /// \param Target The target 
-  void InitBuiltinTypes(const TargetInfo &Target);
+  void InitBuiltinTypes(const TargetInfo &Target, bool ignoreHLSLIntrinsics);
   
 private:
   void InitBuiltinType(CanQualType &R, BuiltinType::Kind K);

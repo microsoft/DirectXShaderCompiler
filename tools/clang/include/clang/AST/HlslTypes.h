@@ -51,7 +51,8 @@ namespace hlsl {
 
 /// <summary>Initializes the specified context to support HLSL
 /// compilation.</summary>
-void InitializeASTContextForHLSL(clang::ASTContext &context);
+void InitializeASTContextForHLSL(clang::ASTContext &context,
+                                 bool ignoreHLSLIntrinsics);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Type system enumerations.
