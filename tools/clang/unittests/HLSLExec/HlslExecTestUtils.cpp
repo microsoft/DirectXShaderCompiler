@@ -81,15 +81,13 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
 class WarpDllLoader {
 public:
   WarpDllLoader() = default;
-  
-  ~WarpDllLoader() {
-    Close();
-  }
-  
+
+  ~WarpDllLoader() { Close(); }
+
   // Non-copyable
-  WarpDllLoader(const WarpDllLoader&) = delete;
-  WarpDllLoader& operator=(const WarpDllLoader&) = delete;
-  
+  WarpDllLoader(const WarpDllLoader &) = delete;
+  WarpDllLoader &operator=(const WarpDllLoader &) = delete;
+
   void LoadWarpDll() {
     WEX::Common::String WarpDllPath;
     if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
@@ -99,29 +97,29 @@ public:
       VERIFY_WIN32_BOOL_SUCCEEDED(!!Module);
     }
   }
-  
+
   void Close() {
     if (Module) {
       FreeLibrary(Module);
       Module = NULL;
     }
   }
-  
+
 private:
   HMODULE Module = NULL;
 };
 
 // Helper function to create WARP device with proper DLL management
 static bool createWARPDevice(
-    IDXGIFactory4* DXGIFactory,
-    std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)> CreateDeviceFn,
-    ID3D12Device** D3DDeviceCom,
-    bool SkipUnsupported) {
-  
+    IDXGIFactory4 *DXGIFactory,
+    std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
+        CreateDeviceFn,
+    ID3D12Device **D3DDeviceCom, bool SkipUnsupported) {
+
   // Load WARP DLL if specified
   WarpDllLoader warpLoader;
   warpLoader.LoadWarpDll();
-  
+
   // Create the WARP device
   CComPtr<IDXGIAdapter> WarpAdapter;
   VERIFY_SUCCEEDED(DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&WarpAdapter)));
@@ -135,7 +133,7 @@ static bool createWARPDevice(
 
     return false;
   }
-  
+
   // Log the actual version of WARP that's loaded
   if (GetModuleHandleW(L"d3d10warp.dll") != NULL) {
     WCHAR FullModuleFilePath[MAX_PATH] = L"";
@@ -143,7 +141,7 @@ static bool createWARPDevice(
                        sizeof(FullModuleFilePath));
     LogCommentFmt(L"WARP driver loaded from: %ls", FullModuleFilePath);
   }
-  
+
   return true;
 }
 
@@ -174,7 +172,8 @@ static bool createDevice(
 
   VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&DXGIFactory)));
   if (GetTestParamUseWARP(useWarpByDefault())) {
-    if (!createWARPDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom, SkipUnsupported)) {
+    if (!createWARPDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom,
+                          SkipUnsupported)) {
       return false;
     }
   } else {
