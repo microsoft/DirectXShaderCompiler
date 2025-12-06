@@ -184,7 +184,7 @@ static bool createDevice(
 
   const bool UseWarp = GetTestParamUseWARP(useWarpByDefault());
   if (UseWarp && !createWarpDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom,
-                                   SkipUnsupported))
+                                   SkipUnsupported)) {
     return false;
   } else {
     CComPtr<IDXGIAdapter1> HardwareAdapter;
