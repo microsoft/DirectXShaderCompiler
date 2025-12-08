@@ -69,7 +69,7 @@ class SpecificDllLoader : public DllLoader {
       return S_OK;
 
 #ifdef _WIN32
-    m_dll = LoadLibraryA(dllName);
+    m_dll = LoadLibraryA(dllName); // CodeQL [SM01925] This is by design, intended to be used to test multiple validators versions.
     if (m_dll == nullptr)
       return HRESULT_FROM_WIN32(GetLastError());
     m_createFn = (DxcCreateInstanceProc)GetProcAddress(m_dll, fnName);
