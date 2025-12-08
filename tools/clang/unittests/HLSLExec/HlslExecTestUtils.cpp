@@ -143,7 +143,7 @@ static void createHardwareDevice(
     IDXGIFactory4 *DXGIFactory,
     std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
         CreateDeviceFn,
-    ID3D12Device **D3DDevice, bool SkipUnsupported) {
+    ID3D12Device **D3DDevice) {
 
   CComPtr<IDXGIAdapter1> HardwareAdapter;
   WEX::Common::String AdapterValue;
@@ -155,7 +155,7 @@ static void createHardwareDevice(
     LogCommentFmt(L"Using default hardware adapter with D3D12 support.");
 
   VERIFY_SUCCEEDED(CreateDeviceFn(HardwareAdapter, D3D_FEATURE_LEVEL_11_0,
-                                  IID_PPV_ARGS(&D3DDevice)));
+                                  IID_PPV_ARGS(D3DDevice)));
 }
 
 static void logAdapter(IDXGIFactory4 *DXGIFactory, ID3D12Device *D3DDevice) {
@@ -198,8 +198,7 @@ static bool createDevice(
     createWarpDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom,
                      SkipUnsupported);
   else
-    createHardwareDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom,
-                         SkipUnsupported);
+    createHardwareDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom);
 
   logAdapter(DXGIFactory, D3DDeviceCom);
 
