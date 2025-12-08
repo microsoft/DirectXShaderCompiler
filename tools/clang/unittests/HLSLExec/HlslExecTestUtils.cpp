@@ -176,7 +176,6 @@ static bool createDevice(
   *D3DDevice = nullptr;
 
   VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&DXGIFactory)));
-
   if (GetTestParamUseWARP(useWarpByDefault())) {
     createWarpDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom,
                      SkipUnsupported);
