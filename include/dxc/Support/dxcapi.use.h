@@ -81,7 +81,7 @@ class SpecificDllLoader : public DllLoader {
       return hr;
     }
 #else
-    m_dll = ::dlopen(dllName, RTLD_LAZY);
+    m_dll = ::dlopen(dllName, RTLD_LAZY); // CodeQL [SM01925] This is by design, intended to be used to test multiple validators versions.
     if (m_dll == nullptr)
       return E_FAIL;
     m_createFn = (DxcCreateInstanceProc)::dlsym(m_dll, fnName);
