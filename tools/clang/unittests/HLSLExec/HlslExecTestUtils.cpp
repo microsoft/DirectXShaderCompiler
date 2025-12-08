@@ -77,7 +77,6 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
   return SDKVersion;
 }
 
-// Helper function to create WARP device with proper DLL management
 static void createWarpDevice(
     IDXGIFactory4 *DXGIFactory,
     std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
@@ -140,6 +139,25 @@ static void createWarpDevice(
   }
 }
 
+static void createHardwareDevice(
+    IDXGIFactory4 *DXGIFactory,
+    std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
+        CreateDeviceFn,
+    ID3D12Device **D3DDevice, bool SkipUnsupported) {
+
+  CComPtr<IDXGIAdapter1> HardwareAdapter;
+  WEX::Common::String AdapterValue;
+  HRESULT HR = WEX::TestExecution::RuntimeParameters::TryGetValue(L"Adapter",
+                                                                  AdapterValue);
+  if (SUCCEEDED(HR))
+    st::GetHardwareAdapter(DXGIFactory, AdapterValue, &HardwareAdapter);
+  else
+    LogCommentFmt(L"Using default hardware adapter with D3D12 support.");
+
+  VERIFY_SUCCEEDED(CreateDeviceFn(HardwareAdapter, D3D_FEATURE_LEVEL_11_0,
+                                  IID_PPV_ARGS(&D3DDevice)));
+}
+
 static void logAdapter(IDXGIFactory4 *DXGIFactory, ID3D12Device *D3DDevice) {
   CComPtr<IDXGIAdapter> DXGIAdapter;
   const LUID AdapterID = D3DDevice->GetAdapterLuid();
@@ -176,22 +194,12 @@ static bool createDevice(
   *D3DDevice = nullptr;
 
   VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&DXGIFactory)));
-  if (GetTestParamUseWARP(useWarpByDefault())) {
+  if (GetTestParamUseWARP(useWarpByDefault()))
     createWarpDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom,
                      SkipUnsupported);
-  } else {
-    CComPtr<IDXGIAdapter1> HardwareAdapter;
-    WEX::Common::String AdapterValue;
-    HRESULT HR = WEX::TestExecution::RuntimeParameters::TryGetValue(
-        L"Adapter", AdapterValue);
-    if (SUCCEEDED(HR))
-      st::GetHardwareAdapter(DXGIFactory, AdapterValue, &HardwareAdapter);
-    else
-      LogCommentFmt(L"Using default hardware adapter with D3D12 support.");
-
-    VERIFY_SUCCEEDED(CreateDeviceFn(HardwareAdapter, D3D_FEATURE_LEVEL_11_0,
-                                    IID_PPV_ARGS(&D3DDeviceCom)));
-  }
+  else
+    createHardwareDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom,
+                         SkipUnsupported);
 
   logAdapter(DXGIFactory, D3DDeviceCom);
 
