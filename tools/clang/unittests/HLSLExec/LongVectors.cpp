@@ -1597,9 +1597,11 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
   static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
                                          const InputSets<T> &,
                                          const UINT WaveSize) {
-    // For this test, the shader arranges it so that lane 0 is different from
-    // all the other lanes. Besides that all other lines write their result of
-    // WaveMatch as well.
+    // For this test, the shader arranges it so that lanes 0, WAVE_SIZE/2 and
+    // WAVE_SIZE-1 are different from all the other lanes, also those
+    // lanes modify the vector at positions 0, WAVE_SIZE/2 and WAVE_SIZE-1
+    // respectively, if the input vector has enough elements. Besides that all
+    // other lanes write their result of WaveMatch as well.
 
     std::vector<UINT> Expected;
     Expected.assign(WaveSize * 4, 0);
@@ -1613,21 +1615,52 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
     const uint64_t HighWaveMask =
         (HighWaves < 64) ? (1ULL << HighWaves) - 1 : ~0ULL;
 
-    const uint64_t LowExpected = ~1ULL & LowWaveMask;
-    const uint64_t HighExpected = ~0ULL & HighWaveMask;
+    const UINT MidBit = WaveSize / 2;
+    const UINT LastBit = WaveSize - 1;
 
-    Expected[0] = 1;
-    Expected[1] = 0;
-    Expected[2] = 0;
-    Expected[3] = 0;
+    uint64_t LowUnchangedLanes = ~1ULL; // Clear bit 0
+    uint64_t HighUnchangedLanes = ~0ULL;
 
-    // all lanes other than the first one have the same result
-    for (UINT I = 1; I < WaveSize; ++I) {
+    if (MidBit < 64)
+      LowUnchangedLanes &= ~(1ULL << MidBit);
+    else
+      HighUnchangedLanes &= ~(1ULL << (MidBit - 64));
+
+    if (LastBit < 64)
+      LowUnchangedLanes &= ~(1ULL << LastBit);
+    else
+      HighUnchangedLanes &= ~(1ULL << (LastBit - 64));
+
+    // Removing bits outside the wave size.
+    LowUnchangedLanes &= LowWaveMask;
+    HighUnchangedLanes &= HighWaveMask;
+
+    for (UINT I = 0; I < WaveSize; ++I) {
       const UINT Index = I * 4;
-      Expected[Index] = static_cast<UINT>(LowExpected);
-      Expected[Index + 1] = static_cast<UINT>(LowExpected >> 32);
-      Expected[Index + 2] = static_cast<UINT>(HighExpected);
-      Expected[Index + 3] = static_cast<UINT>(HighExpected >> 32);
+
+      if (I == 0 || MidBit == I || LastBit == I) {
+        uint64_t LowChangedLanes = 0ULL;
+        uint64_t HighChangedLanes = 0ULL;
+
+        if (I < 64)
+          LowChangedLanes = (1ULL << I);
+        else
+          HighChangedLanes = (1ULL << (I - 64));
+
+        LowChangedLanes &= LowWaveMask;
+        HighChangedLanes &= HighWaveMask;
+
+        Expected[Index] = static_cast<UINT>(LowChangedLanes);
+        Expected[Index + 1] = static_cast<UINT>(LowChangedLanes >> 32);
+        Expected[Index + 2] = static_cast<UINT>(HighChangedLanes);
+        Expected[Index + 3] = static_cast<UINT>(HighChangedLanes >> 32);
+        continue;
+      }
+
+      Expected[Index] = static_cast<UINT>(LowUnchangedLanes);
+      Expected[Index + 1] = static_cast<UINT>(LowUnchangedLanes >> 32);
+      Expected[Index + 2] = static_cast<UINT>(HighUnchangedLanes);
+      Expected[Index + 3] = static_cast<UINT>(HighUnchangedLanes >> 32);
     }
 
     return Expected;
