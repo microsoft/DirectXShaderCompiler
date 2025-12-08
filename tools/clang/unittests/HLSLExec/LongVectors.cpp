@@ -883,12 +883,20 @@ CAST_OP(OpType::CastToFloat64, double, (CastToFloat64(A)));
 // specs. An example with this spec for sin and cos is available here:
 // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
 
+template <typename T>
 struct TrigonometricValidation {
   ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.0008f);
 };
 
+// Half precision trig functions have a larger tolerance. Note that the D3D spec
+// does not mention half precision trig functions.
+template <>
+struct TrigonometricValidation<HLSLHalf_t> {
+  ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.003f);
+};
+
 #define TRIG_OP(OP, IMPL)                                                      \
-  template <typename T> struct Op<OP, T, 1> : TrigonometricValidation {        \
+  template <typename T> struct Op<OP, T, 1> : TrigonometricValidation<T> {     \
     T operator()(T A) { return IMPL; }                                         \
   }
 
