@@ -110,7 +110,7 @@ private:
 };
 
 // Helper function to create WARP device with proper DLL management
-static bool createWarpDevice(
+static void createWarpDevice(
     IDXGIFactory4 *DXGIFactory,
     std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
         CreateDeviceFn,
@@ -131,7 +131,8 @@ static bool createWarpDevice(
     if (SkipUnsupported)
       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
 
-    return false;
+    D3DDeviceCom = nullptr;
+    return;
   }
 
   // Log the actual version of WARP that's loaded
@@ -141,8 +142,6 @@ static bool createWarpDevice(
                        sizeof(FullModuleFilePath));
     LogCommentFmt(L"WARP driver loaded from: %ls", FullModuleFilePath);
   }
-
-  return true;
 }
 
 static void logAdapter(IDXGIFactory4 *DXGIFactory, ID3D12Device *D3DDevice) {
@@ -184,9 +183,8 @@ static bool createDevice(
 
   const bool UseWarp = GetTestParamUseWARP(useWarpByDefault());
   if (UseWarp) {
-    if (!createWarpDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom,
-                         SkipUnsupported))
-      return false;
+    createWarpDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom,
+                     SkipUnsupported);
   } else {
     CComPtr<IDXGIAdapter1> HardwareAdapter;
     WEX::Common::String AdapterValue;
