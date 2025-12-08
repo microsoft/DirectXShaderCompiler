@@ -79,10 +79,10 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
 
 // Helper function to create WARP device with proper DLL management
 static void createWarpDevice(
-  IDXGIFactory4 *DXGIFactory,
-  std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
-      CreateDeviceFn,
-  ID3D12Device **D3DDevice, bool SkipUnsupported) {
+    IDXGIFactory4 *DXGIFactory,
+    std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
+        CreateDeviceFn,
+    ID3D12Device **D3DDevice, bool SkipUnsupported) {
 
   // The WARP_DLL runtime parameter can be used to specify a specific DLL to
   // load.  To force this to be used, we make sure that this DLL is loaded
