@@ -77,7 +77,8 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
   return SDKVersion;
 }
 
-// RAII wrapper for WARP DLL loading
+// RAII wrapper for WARP DLL loading to ensure it is unloaded when the use of
+// this wrapper goes out of scope.
 class WarpDllLoader {
 public:
   WarpDllLoader() = default;
@@ -89,6 +90,9 @@ public:
   WarpDllLoader &operator=(const WarpDllLoader &) = delete;
 
   void LoadWarpDll() {
+    // The WARP_DLL runtime parameter can be used to specify a specific DLL to
+    // load.  To force this to be used, we make sure that this DLL is loaded
+    // before attempting to create the device.
     WEX::Common::String WarpDllPath;
     if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
             L"WARP_DLL", WarpDllPath))) {
@@ -116,7 +120,8 @@ static void createWarpDevice(
         CreateDeviceFn,
     ID3D12Device **D3DDeviceCom, bool SkipUnsupported) {
 
-  // Load WARP DLL if specified
+  // Load WARP DLL if specified. The WARP_DLL runtime parameter can be used to
+  // specify a specific DLL to load.
   WarpDllLoader warpLoader;
   warpLoader.LoadWarpDll();
 
@@ -135,7 +140,8 @@ static void createWarpDevice(
     return;
   }
 
-  // Log the actual version of WARP that's loaded
+  // Log the actual version of WARP that's loaded so we can be sure that we're
+  // using the version that we think.
   if (GetModuleHandleW(L"d3d10warp.dll") != NULL) {
     WCHAR FullModuleFilePath[MAX_PATH] = L"";
     GetModuleFileNameW(GetModuleHandleW(L"d3d10warp.dll"), FullModuleFilePath,
