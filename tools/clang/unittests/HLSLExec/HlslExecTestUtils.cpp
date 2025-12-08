@@ -183,9 +183,10 @@ static bool createDevice(
   VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&DXGIFactory)));
 
   const bool UseWarp = GetTestParamUseWARP(useWarpByDefault());
-  if (UseWarp && !createWarpDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom,
-                                   SkipUnsupported)) {
-    return false;
+  if (UseWarp) {
+    if (!createWarpDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom,
+                         SkipUnsupported))
+      return false;
   } else {
     CComPtr<IDXGIAdapter1> HardwareAdapter;
     WEX::Common::String AdapterValue;
