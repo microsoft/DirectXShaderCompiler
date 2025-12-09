@@ -1593,6 +1593,38 @@ template <typename T> T waveMultiPrefixProduct(T A, UINT) {
 
 template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
+// Helper struct to build the expected result for WaveMatch tests.
+struct Wave {
+  uint64_t LowWaveMask;
+  uint64_t HighWaveMask;
+
+  uint64_t LowBits;
+  uint64_t HighBits;
+
+  Wave(CONST UINT NumWaves, uint64_t LB, uint64_t HB) {
+    const UINT LowWaves = std::min(64U, NumWaves);
+    const UINT HighWaves = NumWaves - LowWaves;
+    LowWaveMask = (LowWaves < 64) ? (1ULL << LowWaves) - 1 : ~0ULL;
+    HighWaveMask = (HighWaves < 64) ? (1ULL << HighWaves) - 1 : ~0ULL;
+    LowBits = LB & LowWaveMask;
+    HighBits = HB & HighWaveMask;
+  }
+
+  void SetLane(UINT LaneID) {
+    if (LaneID < 64)
+      LowBits |= (1ULL << LaneID) & LowWaveMask;
+    else
+      HighBits |= (1ULL << (LaneID - 64)) & HighWaveMask;
+  }
+
+  void ClearLane(UINT LaneID) {
+    if (LaneID < 64)
+      LowBits &= ~(1ULL << LaneID) & LowWaveMask;
+    else
+      HighBits &= ~(1ULL << (LaneID - 64)) & HighWaveMask;
+  }
+};
+
 template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
   static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
                                          const InputSets<T> &,
@@ -1606,61 +1638,32 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
     std::vector<UINT> Expected;
     Expected.assign(WaveSize * 4, 0);
 
-    const UINT LowWaves = std::min(64U, WaveSize);
-    const UINT HighWaves = WaveSize - LowWaves;
-
-    const uint64_t LowWaveMask =
-        (LowWaves < 64) ? (1ULL << LowWaves) - 1 : ~0ULL;
-
-    const uint64_t HighWaveMask =
-        (HighWaves < 64) ? (1ULL << HighWaves) - 1 : ~0ULL;
-
     const UINT MidBit = WaveSize / 2;
     const UINT LastBit = WaveSize - 1;
 
-    uint64_t LowUnchangedLanes = ~1ULL; // Clear bit 0
-    uint64_t HighUnchangedLanes = ~0ULL;
-
-    if (MidBit < 64)
-      LowUnchangedLanes &= ~(1ULL << MidBit);
-    else
-      HighUnchangedLanes &= ~(1ULL << (MidBit - 64));
-
-    if (LastBit < 64)
-      LowUnchangedLanes &= ~(1ULL << LastBit);
-    else
-      HighUnchangedLanes &= ~(1ULL << (LastBit - 64));
-
-    // Removing bits outside the wave size.
-    LowUnchangedLanes &= LowWaveMask;
-    HighUnchangedLanes &= HighWaveMask;
+    Wave UnchangedLanes(WaveSize, ~0ULL, ~0ULL);
+    UnchangedLanes.ClearLane(0);
+    UnchangedLanes.ClearLane(MidBit);
+    UnchangedLanes.ClearLane(LastBit);
 
     for (UINT I = 0; I < WaveSize; ++I) {
       const UINT Index = I * 4;
 
       if (I == 0 || MidBit == I || LastBit == I) {
-        uint64_t LowChangedLanes = 0ULL;
-        uint64_t HighChangedLanes = 0ULL;
+        Wave ChangedLanes(WaveSize, 0ULL, 0ULL);
+        ChangedLanes.SetLane(I);
 
-        if (I < 64)
-          LowChangedLanes = (1ULL << I);
-        else
-          HighChangedLanes = (1ULL << (I - 64));
-
-        LowChangedLanes &= LowWaveMask;
-        HighChangedLanes &= HighWaveMask;
-
-        Expected[Index] = static_cast<UINT>(LowChangedLanes);
-        Expected[Index + 1] = static_cast<UINT>(LowChangedLanes >> 32);
-        Expected[Index + 2] = static_cast<UINT>(HighChangedLanes);
-        Expected[Index + 3] = static_cast<UINT>(HighChangedLanes >> 32);
+        Expected[Index] = static_cast<UINT>(ChangedLanes.LowBits);
+        Expected[Index + 1] = static_cast<UINT>(ChangedLanes.LowBits >> 32);
+        Expected[Index + 2] = static_cast<UINT>(ChangedLanes.HighBits);
+        Expected[Index + 3] = static_cast<UINT>(ChangedLanes.HighBits >> 32);
         continue;
       }
 
-      Expected[Index] = static_cast<UINT>(LowUnchangedLanes);
-      Expected[Index + 1] = static_cast<UINT>(LowUnchangedLanes >> 32);
-      Expected[Index + 2] = static_cast<UINT>(HighUnchangedLanes);
-      Expected[Index + 3] = static_cast<UINT>(HighUnchangedLanes >> 32);
+      Expected[Index] = static_cast<UINT>(UnchangedLanes.LowBits);
+      Expected[Index + 1] = static_cast<UINT>(UnchangedLanes.LowBits >> 32);
+      Expected[Index + 2] = static_cast<UINT>(UnchangedLanes.HighBits);
+      Expected[Index + 3] = static_cast<UINT>(UnchangedLanes.HighBits >> 32);
     }
 
     return Expected;
