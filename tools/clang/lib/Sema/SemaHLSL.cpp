@@ -10078,14 +10078,15 @@ bool HLSLExternalSource::ValidateTypeRequirements(SourceLocation loc,
   return true;
 }
 
-// Get the largest scalar type size in bytes for a given type (for AlignedLoad/AlignedStore validation)
+// Get the largest scalar type size in bytes for a given type (for
+// AlignedLoad/AlignedStore validation)
 static UINT GetLargestScalarTypeSize(QualType Ty, ASTContext &Ctx) {
   if (Ty.isNull())
     return 0;
-    
+
   // Strip off reference types
   Ty = Ty.getNonReferenceType();
-  
+
   // Handle scalar types
   if (const BuiltinType *BT = Ty->getAs<BuiltinType>()) {
     switch (BT->getKind()) {
@@ -10114,17 +10115,17 @@ static UINT GetLargestScalarTypeSize(QualType Ty, ASTContext &Ctx) {
       break;
     }
   }
-  
+
   // Handle vector types
   if (const ExtVectorType *VT = Ty->getAs<ExtVectorType>()) {
     return GetLargestScalarTypeSize(VT->getElementType(), Ctx);
   }
-  
+
   // Handle array types
   if (const ConstantArrayType *AT = Ctx.getAsConstantArrayType(Ty)) {
     return GetLargestScalarTypeSize(AT->getElementType(), Ctx);
   }
-  
+
   // Handle record (struct) types - find the largest field
   if (const RecordType *RT = Ty->getAs<RecordType>()) {
     UINT maxSize = 0;
@@ -10136,7 +10137,7 @@ static UINT GetLargestScalarTypeSize(QualType Ty, ASTContext &Ctx) {
     }
     return maxSize;
   }
-  
+
   // Default to 4 bytes
   return 4;
 }
@@ -10147,33 +10148,35 @@ static bool ValidateAlignmentParameter(Sema &S, const Expr *AlignmentExpr,
                                        SourceLocation Loc) {
   // Alignment must be a compile-time constant
   llvm::APSInt alignmentValue;
-  if (!AlignmentExpr->isIntegerConstantExpr(alignmentValue, S.getASTContext())) {
+  if (!AlignmentExpr->isIntegerConstantExpr(alignmentValue,
+                                            S.getASTContext())) {
     S.Diag(Loc, diag::err_hlsl_aligned_buffer_invalid_alignment);
     return false;
   }
-  
+
   UINT alignment = alignmentValue.getZExtValue();
-  
+
   // Alignment must be a power of two
   if (alignment == 0 || (alignment & (alignment - 1)) != 0) {
     S.Diag(Loc, diag::err_hlsl_aligned_buffer_invalid_alignment);
     return false;
   }
-  
+
   // Alignment must be <= 4096
   if (alignment > 4096) {
     S.Diag(Loc, diag::err_hlsl_aligned_buffer_invalid_alignment);
     return false;
   }
-  
+
   // Alignment must be >= largest scalar type size
-  UINT largestScalarSize = GetLargestScalarTypeSize(TemplateType, S.getASTContext());
+  UINT largestScalarSize =
+      GetLargestScalarTypeSize(TemplateType, S.getASTContext());
   if (alignment < largestScalarSize) {
     S.Diag(Loc, diag::err_hlsl_aligned_buffer_alignment_too_small)
         << alignment << largestScalarSize << TemplateType;
     return false;
   }
-  
+
   return true;
 }
 
@@ -11081,32 +11084,35 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
       IsBABAlignedLoad = intrinsicOp == (UINT)IntrinsicOp::MOP_AlignedLoad;
       IsBABAlignedStore = intrinsicOp == (UINT)IntrinsicOp::MOP_AlignedStore;
     }
-    
+
     // Validate alignment parameter for AlignedLoad/AlignedStore
     if (IsBABAlignedLoad || IsBABAlignedStore) {
-      // AlignedLoad/AlignedStore have alignment as second parameter (after offset)
+      // AlignedLoad/AlignedStore have alignment as second parameter (after
+      // offset)
       if (Args.size() < 2) {
         getSema()->Diag(Args[0]->getExprLoc(),
                         diag::err_ovl_no_viable_member_function_in_call)
             << intrinsicName;
         return Sema::TemplateDeductionResult::TDK_Invalid;
       }
-      
+
       const Expr *AlignmentExpr = Args[1];
       SourceLocation AlignmentLoc = AlignmentExpr->getExprLoc();
-      
+
       // If we have a template type, validate alignment against it
       if (!functionTemplateTypeArg.isNull()) {
         if (!ValidateAlignmentParameter(*getSema(), AlignmentExpr,
-                                       functionTemplateTypeArg, AlignmentLoc)) {
+                                        functionTemplateTypeArg,
+                                        AlignmentLoc)) {
           return Sema::TemplateDeductionResult::TDK_Invalid;
         }
       }
     }
-    
+
     if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() >= 1) {
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
-      if (!IsBABLoad && !IsBABStore && !IsBABAlignedLoad && !IsBABAlignedStore) {
+      if (!IsBABLoad && !IsBABStore && !IsBABAlignedLoad &&
+          !IsBABAlignedStore) {
         getSema()->Diag(Loc, diag::err_hlsl_intrinsic_template_arg_unsupported)
             << intrinsicName;
         return Sema::TemplateDeductionResult::TDK_Invalid;
@@ -11135,13 +11141,15 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
               TypeDiagContext::Valid /*LongVecDiagContext*/);
           return Sema::TemplateDeductionResult::TDK_Invalid;
         }
-        
-        // Re-validate alignment with the now-known template type for AlignedLoad/AlignedStore
+
+        // Re-validate alignment with the now-known template type for
+        // AlignedLoad/AlignedStore
         if ((IsBABAlignedLoad || IsBABAlignedStore) && Args.size() >= 2) {
           const Expr *AlignmentExpr = Args[1];
           SourceLocation AlignmentLoc = AlignmentExpr->getExprLoc();
           if (!ValidateAlignmentParameter(*getSema(), AlignmentExpr,
-                                         functionTemplateTypeArg, AlignmentLoc)) {
+                                          functionTemplateTypeArg,
+                                          AlignmentLoc)) {
             return Sema::TemplateDeductionResult::TDK_Invalid;
           }
         }
@@ -12504,9 +12512,11 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
   switch (opCode) {
   case hlsl::IntrinsicOp::MOP_AlignedLoad:
   case hlsl::IntrinsicOp::MOP_AlignedStore:
-    // AlignedLoad/AlignedStore require SM 6.2+ (DXIL 1.2+) for RawBufferLoad/Store
+    // AlignedLoad/AlignedStore require SM 6.2+ (DXIL 1.2+) for
+    // RawBufferLoad/Store
     if (SM->GetMajor() < 6 || (SM->GetMajor() == 6 && SM->GetMinor() < 2)) {
-      Diag(TheCall->getLocStart(), diag::warn_hlsl_intrinsic_in_wrong_shader_model)
+      Diag(TheCall->getLocStart(),
+           diag::warn_hlsl_intrinsic_in_wrong_shader_model)
           << FDecl->getName() << FDecl << "6.2";
     }
     break;

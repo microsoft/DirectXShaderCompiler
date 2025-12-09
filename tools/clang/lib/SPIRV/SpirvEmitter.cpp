@@ -4729,21 +4729,23 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
   return retVal;
 }
 
-SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
-    const CXXMemberCallExpr *expr, uint32_t numWords, bool doStore, bool isAligned) {
+SpirvInstruction *
+SpirvEmitter::processByteAddressBufferLoadStore(const CXXMemberCallExpr *expr,
+                                                uint32_t numWords, bool doStore,
+                                                bool isAligned) {
   SpirvInstruction *result = nullptr;
   const auto object = expr->getImplicitObjectArgument();
   auto *objectInfo = loadIfAliasVarRef(object);
   assert(numWords >= 1 && numWords <= 4);
-  
+
   // Extract alignment parameter if this is an aligned operation
   uint32_t alignment = 0;
   uint32_t addressArgIndex = 0; // offset/address is first arg
   uint32_t valueArgIndex = 1;   // value is second arg (for store)
-  
+
   if (isAligned) {
-    // For AlignedLoad/AlignedStore: args are (offset, alignment [, value] [, status])
-    // offset is arg 0, alignment is arg 1
+    // For AlignedLoad/AlignedStore: args are (offset, alignment [, value] [,
+    // status]) offset is arg 0, alignment is arg 1
     if (expr->getNumArgs() < 2) {
       emitError("AlignedLoad/AlignedStore requires alignment parameter",
                 expr->getExprLoc());
@@ -4751,13 +4753,14 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
     }
     const Expr *alignmentExpr = expr->getArg(1);
     alignment = getRawBufferAlignment(alignmentExpr);
-    
-    // For AlignedStore, the value is the 3rd argument (after offset and alignment)
+
+    // For AlignedStore, the value is the 3rd argument (after offset and
+    // alignment)
     if (doStore) {
       valueArgIndex = 2;
     }
   }
-  
+
   if (doStore) {
     assert(isRWByteAddressBuffer(object->getType()));
     uint32_t expectedArgs =
@@ -4782,8 +4785,9 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
   // Store3, Store4 intrinsic functions.
   const bool isTemplatedLoadOrStore =
       (numWords == 1) &&
-      (doStore ? !expr->getArg(valueArgIndex)->getType()->isSpecificBuiltinType(
-                     BuiltinType::UInt)
+      (doStore ? !expr->getArg(valueArgIndex)
+                      ->getType()
+                      ->isSpecificBuiltinType(BuiltinType::UInt)
                : !expr->getType()->isSpecificBuiltinType(BuiltinType::UInt));
 
   const auto range = expr->getSourceRange();
@@ -4800,7 +4804,8 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
     if (doStore) {
       auto *values = doExpr(expr->getArg(valueArgIndex));
       RawBufferHandler(*this).processTemplatedStoreToBuffer(
-          values, objectInfo, byteAddress, expr->getArg(valueArgIndex)->getType(), range, alignment);
+          values, objectInfo, byteAddress,
+          expr->getArg(valueArgIndex)->getType(), range, alignment);
       result = nullptr;
     } else {
       RawBufferHandler rawBufferHandler(*this);
@@ -5573,7 +5578,8 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   case IntrinsicOp::MOP_Load4:
     return processByteAddressBufferLoadStore(expr, 4, /*doStore*/ false);
   case IntrinsicOp::MOP_AlignedLoad:
-    return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ false, /*isAligned*/ true);
+    return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ false,
+                                             /*isAligned*/ true);
   case IntrinsicOp::MOP_Store:
     return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ true);
   case IntrinsicOp::MOP_Store2:
@@ -5583,7 +5589,8 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   case IntrinsicOp::MOP_Store4:
     return processByteAddressBufferLoadStore(expr, 4, /*doStore*/ true);
   case IntrinsicOp::MOP_AlignedStore:
-    return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ true, /*isAligned*/ true);
+    return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ true,
+                                             /*isAligned*/ true);
   case IntrinsicOp::MOP_GetDimensions:
     retVal = processGetDimensions(expr);
     break;

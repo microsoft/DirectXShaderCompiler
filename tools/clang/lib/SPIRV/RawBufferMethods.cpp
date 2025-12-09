@@ -188,8 +188,8 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
     if (isVectorType(targetType, &elemType, &elemCount)) {
       llvm::SmallVector<SpirvInstruction *, 4> loadedElems;
       for (uint32_t i = 0; i < elemCount; ++i) {
-        loadedElems.push_back(
-            processTemplatedLoadFromBuffer(buffer, address, elemType, range, alignment));
+        loadedElems.push_back(processTemplatedLoadFromBuffer(
+            buffer, address, elemType, range, alignment));
       }
       result = spvBuilder.createCompositeConstruct(targetType, loadedElems, loc,
                                                    range);
@@ -207,8 +207,8 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
       elemType = arrType->getElementType();
       llvm::SmallVector<SpirvInstruction *, 4> loadedElems;
       for (uint32_t i = 0; i < elemCount; ++i) {
-        loadedElems.push_back(
-            processTemplatedLoadFromBuffer(buffer, address, elemType, range, alignment));
+        loadedElems.push_back(processTemplatedLoadFromBuffer(
+            buffer, address, elemType, range, alignment));
       }
       result = spvBuilder.createCompositeConstruct(targetType, loadedElems, loc,
                                                    range);
@@ -241,8 +241,8 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
       const uint32_t numElements = numRows * numCols;
       llvm::SmallVector<SpirvInstruction *, 16> loadedElems(numElements);
       for (uint32_t i = 0; i != numElements; ++i)
-        loadedElems[i] =
-            processTemplatedLoadFromBuffer(buffer, address, elemType, range, alignment);
+        loadedElems[i] = processTemplatedLoadFromBuffer(
+            buffer, address, elemType, range, alignment);
 
       llvm::SmallVector<SpirvInstruction *, 4> loadedRows;
       for (uint32_t i = 0; i < numRows; ++i) {
@@ -331,7 +331,8 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
     const QualType targetType, SourceRange range, uint32_t alignment) {
   BufferAddress address(byteAddress, theEmitter);
 
-  return processTemplatedLoadFromBuffer(buffer, address, targetType, range, alignment);
+  return processTemplatedLoadFromBuffer(buffer, address, targetType, range,
+                                        alignment);
 }
 
 void RawBufferHandler::store16Bits(SpirvInstruction *value,
@@ -535,12 +536,9 @@ QualType RawBufferHandler::serializeToScalarsOrStruct(
   llvm_unreachable("unhandled type when serializing an array");
 }
 
-void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
-                                                     SpirvInstruction *buffer,
-                                                     BufferAddress &address,
-                                                     const QualType valueType,
-                                                     SourceRange range,
-                                                     uint32_t alignment) {
+void RawBufferHandler::processTemplatedStoreToBuffer(
+    SpirvInstruction *value, SpirvInstruction *buffer, BufferAddress &address,
+    const QualType valueType, SourceRange range, uint32_t alignment) {
   const auto loc = buffer->getSourceLocation();
 
   // Scalar types
@@ -596,9 +594,9 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
     assert(spvType);
     forEachSpirvField(
         structType, spvType,
-        [this, &address, loc, range, buffer, value, alignment](size_t spirvFieldIndex,
-                                                    const QualType &fieldType,
-                                                    const auto &field) {
+        [this, &address, loc, range, buffer, value,
+         alignment](size_t spirvFieldIndex, const QualType &fieldType,
+                    const auto &field) {
           auto *baseOffset = address.getByteAddress();
           if (field.offset.hasValue() && field.offset.getValue() != 0) {
             SpirvConstant *offset = spvBuilder.getConstantInt(
@@ -646,11 +644,12 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
 
 void RawBufferHandler::processTemplatedStoreToBuffer(
     SpirvInstruction *value, SpirvInstruction *buffer,
-    SpirvInstruction *&byteAddress, const QualType valueType,
-    SourceRange range, uint32_t alignment) {
+    SpirvInstruction *&byteAddress, const QualType valueType, SourceRange range,
+    uint32_t alignment) {
   BufferAddress address(byteAddress, theEmitter);
 
-  processTemplatedStoreToBuffer(value, buffer, address, valueType, range, alignment);
+  processTemplatedStoreToBuffer(value, buffer, address, valueType, range,
+                                alignment);
 }
 
 SpirvInstruction *RawBufferHandler::BufferAddress::getByteAddress() {
