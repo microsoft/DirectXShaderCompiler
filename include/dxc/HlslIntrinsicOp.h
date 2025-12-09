@@ -266,9 +266,11 @@ enum class IntrinsicOp {
   MOP_GatherRaw = 250,
   MOP_GatherRed = 251,
   MOP_GetSamplePosition = 252,
+  MOP_AlignedLoad = 395,
   MOP_Load2 = 253,
   MOP_Load3 = 254,
   MOP_Load4 = 255,
+  MOP_AlignedStore = 396,
   MOP_InterlockedAdd = 256,
   MOP_InterlockedAdd64 = 257,
   MOP_InterlockedAnd = 258,
@@ -401,7 +403,7 @@ enum class IntrinsicOp {
   IOP_usign = 355,
   MOP_InterlockedUMax = 356,
   MOP_InterlockedUMin = 357,
-  Num_Intrinsics = 395,
+  Num_Intrinsics = 397,
 };
 inline bool HasUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
   switch (opcode) {

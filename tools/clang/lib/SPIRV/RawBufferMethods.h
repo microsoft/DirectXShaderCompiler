@@ -36,7 +36,8 @@ public:
   ///                 --> Load the first 16-bit uint starting at byte address 0.
   SpirvInstruction *processTemplatedLoadFromBuffer(
       SpirvInstruction *buffer, SpirvInstruction *byteAddress,
-      const QualType targetType, SourceRange range = {});
+      const QualType targetType, SourceRange range = {},
+      uint32_t alignment = 0);
 
   /// \brief Performs RWByteAddressBuffer.Store<T>(address, value).
   /// RWByteAddressBuffers are represented in SPIR-V as structs with only one
@@ -51,7 +52,8 @@ public:
                                      SpirvInstruction *buffer,
                                      SpirvInstruction *&byteAddress,
                                      const QualType valueType,
-                                     SourceRange range = {});
+                                     SourceRange range = {},
+                                     uint32_t alignment = 0);
 
 private:
   class BufferAddress {
@@ -81,12 +83,11 @@ private:
   SpirvInstruction *processTemplatedLoadFromBuffer(SpirvInstruction *buffer,
                                                    BufferAddress &address,
                                                    const QualType targetType,
-                                                   SourceRange range = {});
-  void processTemplatedStoreToBuffer(SpirvInstruction *value,
-                                     SpirvInstruction *buffer,
-                                     BufferAddress &address,
-                                     const QualType valueType,
-                                     SourceRange range = {});
+                                                   SourceRange range = {},
+                                                   uint32_t alignment = 0);
+  void processTemplatedStoreToBuffer(
+      SpirvInstruction *value, SpirvInstruction *buffer, BufferAddress &address,
+      const QualType valueType, SourceRange range = {}, uint32_t alignment = 0);
 
   SpirvInstruction *load16Bits(SpirvInstruction *buffer, BufferAddress &address,
                                QualType target16BitType,

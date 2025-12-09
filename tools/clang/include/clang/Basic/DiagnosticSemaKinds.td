@@ -7606,6 +7606,15 @@ def err_hlsl_unsupported_buffer_packoffset : Error<
   "packoffset is only allowed within a constant buffer, not on the constant buffer declaration">;
 def err_hlsl_unsupported_buffer_slot_target_specific : Error<
   "user defined constant buffer slots cannot be target specific">;
+def err_hlsl_aligned_buffer_unsupported_type : Error<
+  "AlignedLoad/AlignedStore functions cannot be used with %0. "
+  "Supported types are ByteAddressBuffer and RWByteAddressBuffer">;
+def err_hlsl_aligned_buffer_invalid_alignment : Error<
+  "Alignment values require compile-time constant power-of-two values "
+  "that are >= largest scalar type size and <= 4096">;
+def err_hlsl_aligned_buffer_alignment_too_small : Error<
+  "Alignment parameter of %0 bytes must be >= the largest scalar type size "
+  "%1 bytes for %2 element type">;
 def err_hlsl_unsupported_typedbuffer_template_parameter : Error<
   "elements of typed buffers and textures must be scalars or vectors">;
 def err_hlsl_unsupported_typedbuffer_template_parameter_size : Error<
