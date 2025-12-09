@@ -12502,6 +12502,14 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
 
   hlsl::IntrinsicOp opCode = (hlsl::IntrinsicOp)IntrinsicAttr->getOpcode();
   switch (opCode) {
+  case hlsl::IntrinsicOp::MOP_AlignedLoad:
+  case hlsl::IntrinsicOp::MOP_AlignedStore:
+    // AlignedLoad/AlignedStore require SM 6.2+ (DXIL 1.2+) for RawBufferLoad/Store
+    if (SM->GetMajor() < 6 || (SM->GetMajor() == 6 && SM->GetMinor() < 2)) {
+      Diag(TheCall->getLocStart(), diag::warn_hlsl_intrinsic_in_wrong_shader_model)
+          << FDecl->getName() << FDecl << "6.2";
+    }
+    break;
   case hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing:
     CheckFinishedCrossGroupSharingCall(*this, cast<CXXMethodDecl>(FDecl),
                                        TheCall->getLocStart());
