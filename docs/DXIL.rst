@@ -1758,12 +1758,14 @@ The following signature shows the operation syntax::
 
 The call respects SM5.1 OOB and alignment rules.
 
-The ``alignment`` parameter specifies the **absolute alignment** (not relative)
-of the effective address (``base address + index``). For regular ``Load``
-operations, this defaults to 4 bytes for raw buffers. The HLSL
+The ``alignment`` parameter specifies the **absolute alignment** of the
+effective address (``base address + index``). For regular ``Load`` operations,
+this defaults to 4 bytes for raw buffers. For templated ''Load'' operations,
+this defaults to the size of the largest scalar component contained in the
+aggregate template parameter type.  The HLSL
 ``AlignedLoad<T>(offset, alignment)`` intrinsic allows applications to specify
 custom alignment values when they can guarantee higher alignment, enabling
-backend compiler optimizations such as vectorized memory access.
+backend compiler optimizations.
 
 ====================  =====================================================
 Valid resource type   # of active coordinates
@@ -1823,12 +1825,14 @@ The call respects SM5.1 OOB and alignment rules.
 
 The write mask indicates which components are written (x - 1, y - 2, z - 4, w - 8), similar to DXBC. For RWTypedBuffer, the mask must cover all resource components. For RWRawBuffer and RWStructuredBuffer, valid masks are: x, xy, xyz, xyzw.
 
-The ``alignment`` parameter specifies the **absolute alignment** (not relative)
-of the effective address (``base address + index``). For regular ``Store``
-operations, this defaults to 4 bytes for raw buffers. The HLSL
+The ``alignment`` parameter specifies the **absolute alignment** of the
+effective address (``base address + index``). For regular ``Store`` operations,
+this defaults to 4 bytes for raw buffers. For templated ''Store'' operations,
+this defaults to the size of the largest scalar component contained in the
+aggregate template parameter type.  The HLSL
 ``AlignedStore<T>(offset, alignment, value)`` intrinsic allows applications to
 specify custom alignment values when they can guarantee higher alignment,
-enabling backend compiler optimizations such as vectorized memory access.
+enabling backend compiler optimizations.
 
 ==================== =====================================================
 Valid resource type  # of active coordinates
