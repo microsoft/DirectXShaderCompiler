@@ -1298,6 +1298,10 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
     return varInstr;
 
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
+
+  if (var->hasAttr<VKStorageClassExtAttr>() && !bindingAttr)
+    return varInstr;
+
   resourceVars.emplace_back(varInstr, var, loc, getResourceBinding(var),
                             bindingAttr, var->getAttr<VKCounterBindingAttr>());
 
