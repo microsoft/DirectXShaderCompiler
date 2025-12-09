@@ -1594,20 +1594,22 @@ template <typename T> T waveMultiPrefixProduct(T A, UINT) {
 template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
 // Helper struct to build the expected result for WaveMatch tests.
-struct Wave {
+struct WaveMatchResultBuilder {
+
+private:
   uint64_t LowWaveMask;
   uint64_t HighWaveMask;
-
   uint64_t LowBits;
   uint64_t HighBits;
 
-  Wave(CONST UINT NumWaves, uint64_t LB, uint64_t HB) {
+public:
+  WaveMatchResultBuilder(UINT NumWaves) : LowBits(0), HighBits(0) {
     const UINT LowWaves = std::min(64U, NumWaves);
     const UINT HighWaves = NumWaves - LowWaves;
     LowWaveMask = (LowWaves < 64) ? (1ULL << LowWaves) - 1 : ~0ULL;
     HighWaveMask = (HighWaves < 64) ? (1ULL << HighWaves) - 1 : ~0ULL;
-    LowBits = LB & LowWaveMask;
-    HighBits = HB & HighWaveMask;
+    LowBits &= LowWaveMask;
+    HighBits &= HighWaveMask;
   }
 
   void SetLane(UINT LaneID) {
@@ -1622,6 +1624,18 @@ struct Wave {
       LowBits &= ~(1ULL << LaneID) & LowWaveMask;
     else
       HighBits &= ~(1ULL << (LaneID - 64)) & HighWaveMask;
+  }
+
+  void InvertLanes() {
+    LowBits = ~LowBits & LowWaveMask;
+    HighBits = ~HighBits & HighWaveMask;
+  }
+
+  void SetExpected(UINT *Dest) {
+    Dest[0] = static_cast<UINT>(LowBits);
+    Dest[1] = static_cast<UINT>(LowBits >> 32);
+    Dest[2] = static_cast<UINT>(HighBits);
+    Dest[3] = static_cast<UINT>(HighBits >> 32);
   }
 };
 
@@ -1641,7 +1655,8 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
     const UINT MidBit = WaveSize / 2;
     const UINT LastBit = WaveSize - 1;
 
-    Wave UnchangedLanes(WaveSize, ~0ULL, ~0ULL);
+    WaveMatchResultBuilder UnchangedLanes(WaveSize);
+    UnchangedLanes.InvertLanes();
     UnchangedLanes.ClearLane(0);
     UnchangedLanes.ClearLane(MidBit);
     UnchangedLanes.ClearLane(LastBit);
@@ -1650,20 +1665,14 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
       const UINT Index = I * 4;
 
       if (I == 0 || MidBit == I || LastBit == I) {
-        Wave ChangedLanes(WaveSize, 0ULL, 0ULL);
+        WaveMatchResultBuilder ChangedLanes(WaveSize);
         ChangedLanes.SetLane(I);
 
-        Expected[Index] = static_cast<UINT>(ChangedLanes.LowBits);
-        Expected[Index + 1] = static_cast<UINT>(ChangedLanes.LowBits >> 32);
-        Expected[Index + 2] = static_cast<UINT>(ChangedLanes.HighBits);
-        Expected[Index + 3] = static_cast<UINT>(ChangedLanes.HighBits >> 32);
+        ChangedLanes.SetExpected(&Expected[Index]);
         continue;
       }
 
-      Expected[Index] = static_cast<UINT>(UnchangedLanes.LowBits);
-      Expected[Index + 1] = static_cast<UINT>(UnchangedLanes.LowBits >> 32);
-      Expected[Index + 2] = static_cast<UINT>(UnchangedLanes.HighBits);
-      Expected[Index + 3] = static_cast<UINT>(UnchangedLanes.HighBits >> 32);
+      UnchangedLanes.SetExpected(&Expected[Index]);
     }
 
     return Expected;
@@ -1929,7 +1938,7 @@ public:
       VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
           D3D12_FEATURE_D3D12_OPTIONS1, &WaveOpts, sizeof(WaveOpts)));
 
-      WaveSize = WaveOpts.WaveLaneCountMin;
+      WaveSize = 128; // WaveOpts.WaveLaneCountMin;
     }
 
     DXASSERT_NOMSG(WaveSize > 0);
