@@ -47,7 +47,6 @@ CMask::CMask(BYTE StartComp, BYTE NumComp) {
                (StartComp + NumComp - 1) < DXBC::kAllCompMask,
            "otherwise the caller did not check");
   m_Mask = 0;
-  DXASSERT((StartComp + NumComp) < 256, "sum should fit in a BYTE");
   BYTE EndComp = StartComp + NumComp;
   for (BYTE c = StartComp; c < EndComp; c++) {
     m_Mask |= (1 << c);
