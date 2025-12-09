@@ -338,6 +338,10 @@ float<3,4> [[rn]] WorldToObject3x4();
 float<4,3> [[rn]] ObjectToWorld4x3();
 float<4,3> [[rn]] WorldToObject4x3();
 
+uint [[ro,min_sm=6.10]] ClusterID();
+// TODO: Update return type for TriangleObjectPosition():
+void [[ro,min_sm=6.10]] TriangleObjectPosition();
+
 // Packed dot products with accumulate:
 uint [[rn]] dot4add_u8packed(in uint a, in $type1 b, in uint c);
 int [[rn]] dot4add_i8packed(in uint a, in $type1 b, in int c);
@@ -1103,6 +1107,11 @@ float<3> [[ro]] CommittedObjectRayOrigin();
 float<3> [[ro]] CommittedObjectRayDirection();
 uint [[ro]] CandidateInstanceContributionToHitGroupIndex();
 uint [[ro]] CommittedInstanceContributionToHitGroupIndex();
+uint [[ro,min_sm=6.10]] CandidateClusterID();
+uint [[ro,min_sm=6.10]] CommittedClusterID();
+// TODO: Update return type for *TriangleObjectPosition():
+void [[ro,min_sm=6.10]] CandidateTriangleObjectPosition();
+void [[ro,min_sm=6.10]] CommittedTriangleObjectPosition();
 
 } namespace
 
@@ -1137,6 +1146,9 @@ namespace DxHitObjectMethods {
     void [[class_prefix,min_sm=6.9]] GetAttributes(out udt Attributes);
     void [[class_prefix,min_sm=6.9]] SetShaderTableIndex(in uint RecordIndex);
     uint [[ro,class_prefix,min_sm=6.9]] LoadLocalRootTableConstant(in uint RootConstantOffsetInBytes);
+    uint [[ro,class_prefix,min_sm=6.10]] ClusterID();
+    // TODO: Update return type for TriangleObjectPosition():
+    void [[ro,class_prefix,min_sm=6.10]] TriangleObjectPosition();
 } namespace
 
 namespace DxIntrinsics {

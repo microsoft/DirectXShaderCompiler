@@ -2746,6 +2746,82 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      0,
      {},
      {}}, // Overloads: v
+
+    // Raytracing uint System Values
+    {OC::ClusterID,
+     "ClusterID",
+     OCC::ClusterID,
+     "clusterID",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
+
+    // Inline Ray Query
+    {OC::RayQuery_CandidateClusterID,
+     "RayQuery_CandidateClusterID",
+     OCC::RayQuery_StateScalar,
+     "rayQuery_StateScalar",
+     Attribute::ReadOnly,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::RayQuery_CommittedClusterID,
+     "RayQuery_CommittedClusterID",
+     OCC::RayQuery_StateScalar,
+     "rayQuery_StateScalar",
+     Attribute::ReadOnly,
+     0,
+     {},
+     {}}, // Overloads: v
+
+    // Shader Execution Reordering
+    {OC::HitObject_ClusterID,
+     "HitObject_ClusterID",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
+
+    // Raytracing System Values
+    {OC::TriangleObjectPosition,
+     "TriangleObjectPosition",
+     OCC::TriangleObjectPosition,
+     "triangleObjectPosition",
+     Attribute::ReadNone,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+
+    // Inline Ray Query
+    {OC::RayQuery_CandidateTriangleObjectPosition,
+     "RayQuery_CandidateTriangleObjectPosition",
+     OCC::RayQuery_CandidateTriangleObjectPosition,
+     "rayQuery_CandidateTriangleObjectPosition",
+     Attribute::ReadOnly,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+    {OC::RayQuery_CommittedTriangleObjectPosition,
+     "RayQuery_CommittedTriangleObjectPosition",
+     OCC::RayQuery_CommittedTriangleObjectPosition,
+     "rayQuery_CommittedTriangleObjectPosition",
+     Attribute::ReadOnly,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+
+    // Shader Execution Reordering
+    {OC::HitObject_TriangleObjectPosition,
+     "HitObject_TriangleObjectPosition",
+     OCC::HitObject_TriangleObjectPosition,
+     "hitObject_TriangleObjectPosition",
+     Attribute::ReadNone,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
 };
 static_assert(_countof(ExperimentalOps_OpCodeProps) ==
                   (size_t)DXIL::ExperimentalOps::OpCode::NumOpCodes,
@@ -3655,10 +3731,32 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   }
   // Instructions: MatVecMul=305, MatVecMulAdd=306, OuterProductAccumulate=307,
   // VectorAccumulate=308, ExperimentalNop=2147483648,
-  // GetGroupWaveIndex=2147483649, GetGroupWaveCount=2147483650
-  if ((305 <= op && op <= 308) || (2147483648 <= op && op <= 2147483650)) {
+  // GetGroupWaveIndex=2147483649, GetGroupWaveCount=2147483650,
+  // RayQuery_CandidateClusterID=2147483652,
+  // RayQuery_CommittedClusterID=2147483653,
+  // RayQuery_CandidateTriangleObjectPosition=2147483656,
+  // RayQuery_CommittedTriangleObjectPosition=2147483657
+  if ((305 <= op && op <= 308) || (2147483648 <= op && op <= 2147483650) ||
+      (2147483652 <= op && op <= 2147483653) ||
+      (2147483656 <= op && op <= 2147483657)) {
     major = 6;
     minor = 10;
+    return;
+  }
+  // Instructions: ClusterID=2147483651, TriangleObjectPosition=2147483655
+  if (op == 2147483651 || op == 2147483655) {
+    major = 6;
+    minor = 10;
+    mask = SFLAG(Library) | SFLAG(AnyHit) | SFLAG(ClosestHit);
+    return;
+  }
+  // Instructions: HitObject_ClusterID=2147483654,
+  // HitObject_TriangleObjectPosition=2147483658
+  if (op == 2147483654 || op == 2147483658) {
+    major = 6;
+    minor = 10;
+    mask =
+        SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(ClosestHit) | SFLAG(Miss);
     return;
   }
   // OPCODE-SMMASK:END
@@ -6176,6 +6274,56 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
+
+    // Raytracing uint System Values
+  case OpCode::ClusterID:
+    A(pI32);
+    A(pI32);
+    break;
+
+    // Inline Ray Query
+  case OpCode::RayQuery_CandidateClusterID:
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::RayQuery_CommittedClusterID:
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
+
+    // Shader Execution Reordering
+  case OpCode::HitObject_ClusterID:
+    A(pI32);
+    A(pI32);
+    A(pHit);
+    break;
+
+    // Raytracing System Values
+  case OpCode::TriangleObjectPosition:
+    A(pV);
+    A(pI32);
+    break;
+
+    // Inline Ray Query
+  case OpCode::RayQuery_CandidateTriangleObjectPosition:
+    A(pV);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::RayQuery_CommittedTriangleObjectPosition:
+    A(pV);
+    A(pI32);
+    A(pI32);
+    break;
+
+    // Shader Execution Reordering
+  case OpCode::HitObject_TriangleObjectPosition:
+    A(pV);
+    A(pI32);
+    A(pHit);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -6469,6 +6617,10 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ExperimentalNop:
   case OpCode::GetGroupWaveIndex:
   case OpCode::GetGroupWaveCount:
+  case OpCode::ClusterID:
+  case OpCode::RayQuery_CandidateClusterID:
+  case OpCode::RayQuery_CommittedClusterID:
+  case OpCode::HitObject_ClusterID:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:
@@ -6548,6 +6700,10 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::HitObject_ObjectRayDirection:
   case OpCode::HitObject_ObjectToWorld3x4:
   case OpCode::HitObject_WorldToObject3x4:
+  case OpCode::TriangleObjectPosition:
+  case OpCode::RayQuery_CandidateTriangleObjectPosition:
+  case OpCode::RayQuery_CommittedTriangleObjectPosition:
+  case OpCode::HitObject_TriangleObjectPosition:
     return Type::getFloatTy(Ctx);
   case OpCode::MakeDouble:
   case OpCode::SplitDouble:

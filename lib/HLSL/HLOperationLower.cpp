@@ -7512,9 +7512,21 @@ IntrinsicLower gLowerTable[] = {
      TranslateOuterProductAccumulate, DXIL::OpCode::OuterProductAccumulate},
     {IntrinsicOp::IOP___builtin_VectorAccumulate, TranslateVectorAccumulate,
      DXIL::OpCode::VectorAccumulate},
+
     {IntrinsicOp::IOP_isnormal, TrivialIsSpecialFloat, DXIL::OpCode::IsNormal},
+
     {IntrinsicOp::IOP_GetGroupWaveIndex, EmptyLower, DXIL::OpCode::GetGroupWaveIndex},
     {IntrinsicOp::IOP_GetGroupWaveCount, EmptyLower, DXIL::OpCode::GetGroupWaveCount},
+
+    {IntrinsicOp::IOP_ClusterID, EmptyLower, DXIL::OpCode::ClusterID},
+    {IntrinsicOp::MOP_CandidateClusterID, EmptyLower, DXIL::OpCode::RayQuery_CandidateClusterID},
+    {IntrinsicOp::MOP_CommittedClusterID, EmptyLower, DXIL::OpCode::RayQuery_CommittedClusterID},
+    {IntrinsicOp::MOP_DxHitObject_ClusterID, EmptyLower, DXIL::OpCode::HitObject_ClusterID},
+
+    {IntrinsicOp::IOP_TriangleObjectPosition, EmptyLower, DXIL::OpCode::TriangleObjectPosition},
+    {IntrinsicOp::MOP_CandidateTriangleObjectPosition, EmptyLower, DXIL::OpCode::RayQuery_CandidateTriangleObjectPosition},
+    {IntrinsicOp::MOP_CommittedTriangleObjectPosition, EmptyLower, DXIL::OpCode::RayQuery_CommittedTriangleObjectPosition},
+    {IntrinsicOp::MOP_DxHitObject_TriangleObjectPosition, EmptyLower, DXIL::OpCode::HitObject_TriangleObjectPosition},
 };
 } // namespace
 static_assert(

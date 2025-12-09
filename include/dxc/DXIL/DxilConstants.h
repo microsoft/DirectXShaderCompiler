@@ -511,14 +511,34 @@ namespace ExperimentalOps {
 static const OpCodeTableID TableID = OpCodeTableID::ExperimentalOps;
 // Enumeration for ExperimentalOps DXIL operations
 enum class OpCode : unsigned {
+  // Inline Ray Query
+  RayQuery_CandidateClusterID = 4, // returns candidate hit cluster ID
+  RayQuery_CandidateTriangleObjectPosition =
+      8, // Returns candidate triangle vertices in object space as <9 x float>
+  RayQuery_CommittedClusterID = 5, // returns committed hit cluster ID
+  RayQuery_CommittedTriangleObjectPosition =
+      9, // Returns committed triangle vertices in object space as <9 x float>
+
   // No-op
   ExperimentalNop = 0, // nop does nothing
+
+  // Raytracing System Values
+  TriangleObjectPosition =
+      7, // Returns triangle vertices in object space as <9 x float>
+
+  // Raytracing uint System Values
+  ClusterID = 3, // Returns the user-defined ClusterID of the intersected CLAS
+
+  // Shader Execution Reordering
+  HitObject_ClusterID = 6, // Returns the cluster ID of this committed hit
+  HitObject_TriangleObjectPosition =
+      10, // Returns triangle vertices in object space as <9 x float>
 
   // Wave
   GetGroupWaveCount = 2, // returns the number of waves in the thread group
   GetGroupWaveIndex = 1, // returns the index of the wave in the thread group
 
-  NumOpCodes = 3, // exclusive last value of enumeration
+  NumOpCodes = 11, // exclusive last value of enumeration
 };
 } // namespace ExperimentalOps
 static const unsigned NumOpCodeTables = 2;
@@ -1141,6 +1161,32 @@ enum class OpCode : unsigned {
   EXP_OPCODE(
       ExperimentalOps,
       GetGroupWaveCount), // returns the number of waves in the thread group
+  EXP_OPCODE(
+      ExperimentalOps,
+      ClusterID), // Returns the user-defined ClusterID of the intersected CLAS
+  EXP_OPCODE(ExperimentalOps,
+             RayQuery_CandidateClusterID), // returns candidate hit cluster ID
+  EXP_OPCODE(ExperimentalOps,
+             RayQuery_CommittedClusterID), // returns committed hit cluster ID
+  EXP_OPCODE(
+      ExperimentalOps,
+      HitObject_ClusterID), // Returns the cluster ID of this committed hit
+  EXP_OPCODE(ExperimentalOps,
+             TriangleObjectPosition), // Returns triangle vertices in object
+                                      // space as <9 x float>
+  EXP_OPCODE(
+      ExperimentalOps,
+      RayQuery_CandidateTriangleObjectPosition), // Returns candidate triangle
+                                                 // vertices in object space as
+                                                 // <9 x float>
+  EXP_OPCODE(
+      ExperimentalOps,
+      RayQuery_CommittedTriangleObjectPosition), // Returns committed triangle
+                                                 // vertices in object space as
+                                                 // <9 x float>
+  EXP_OPCODE(ExperimentalOps,
+             HitObject_TriangleObjectPosition), // Returns triangle vertices in
+                                                // object space as <9 x float>
 };
 // OPCODE-ENUM:END
 #undef EXP_OPCODE
@@ -1271,8 +1317,10 @@ enum class OpCodeClass : unsigned {
   AllocateRayQuery,
   AllocateRayQuery2,
   RayQuery_Abort,
+  RayQuery_CandidateTriangleObjectPosition,
   RayQuery_CommitNonOpaqueTriangleHit,
   RayQuery_CommitProceduralPrimitiveHit,
+  RayQuery_CommittedTriangleObjectPosition,
   RayQuery_Proceed,
   RayQuery_StateMatrix,
   RayQuery_StateScalar,
@@ -1349,6 +1397,9 @@ enum class OpCodeClass : unsigned {
   RayTCurrent,
   RayTMin,
 
+  // Raytracing System Values
+  TriangleObjectPosition,
+
   // Raytracing hit uint System Values
   HitKind,
 
@@ -1361,6 +1412,7 @@ enum class OpCodeClass : unsigned {
   PrimitiveIndex,
 
   // Raytracing uint System Values
+  ClusterID,
   RayFlags,
 
   // Resources - gather
@@ -1416,6 +1468,7 @@ enum class OpCodeClass : unsigned {
   HitObject_StateScalar,
   HitObject_StateVector,
   HitObject_TraceRay,
+  HitObject_TriangleObjectPosition,
   MaybeReorderThread,
 
   // Synchronization
@@ -1477,7 +1530,7 @@ enum class OpCodeClass : unsigned {
   NodeOutputIsValid,
   OutputComplete,
 
-  NumOpClasses = 199, // exclusive last value of enumeration
+  NumOpClasses = 204, // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

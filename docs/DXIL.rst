@@ -3062,13 +3062,21 @@ Given width, offset:
 
 Opcode Table ExperimentalOps, id=32768: Experimental DXIL operations
 
-========== ================= =================================================
-ID         Name              Description
-========== ================= =================================================
-2147483648 ExperimentalNop   nop does nothing
-2147483649 GetGroupWaveIndex returns the index of the wave in the thread group
-2147483650 GetGroupWaveCount returns the number of waves in the thread group
-========== ================= =================================================
+========== ======================================== ==================================================================
+ID         Name                                     Description
+========== ======================================== ==================================================================
+2147483648 ExperimentalNop                          nop does nothing
+2147483649 GetGroupWaveIndex                        returns the index of the wave in the thread group
+2147483650 GetGroupWaveCount                        returns the number of waves in the thread group
+2147483651 ClusterID                                Returns the user-defined ClusterID of the intersected CLAS
+2147483652 RayQuery_CandidateClusterID              returns candidate hit cluster ID
+2147483653 RayQuery_CommittedClusterID              returns committed hit cluster ID
+2147483654 HitObject_ClusterID                      Returns the cluster ID of this committed hit
+2147483655 TriangleObjectPosition                   Returns triangle vertices in object space as <9 x float>
+2147483656 RayQuery_CandidateTriangleObjectPosition Returns candidate triangle vertices in object space as <9 x float>
+2147483657 RayQuery_CommittedTriangleObjectPosition Returns committed triangle vertices in object space as <9 x float>
+2147483658 HitObject_TriangleObjectPosition         Returns triangle vertices in object space as <9 x float>
+========== ======================================== ==================================================================
 
 
 .. OPCODES-RST:END

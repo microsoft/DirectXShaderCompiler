@@ -1043,12 +1043,68 @@ class db_dxil(object):
         # Note: Experimental ops must be set to a shader model higher than the
         # most recent release until infrastructure is in place to opt-in to
         # experimental ops and the validator can force use of the PREVIEW hash.
-        for i in "ExperimentalNop".split(","):
-            self.name_idx[i].category = "No-op"
-            self.name_idx[i].shader_model = 6, 10
-        for i in "GetGroupWaveIndex,GetGroupWaveCount".split(","):
-            self.name_idx[i].category = "Wave"
-            self.name_idx[i].shader_model = 6, 10
+        for name in "ExperimentalNop".split(","):
+            i = self.name_idx[name]
+            i.category = "No-op"
+            i.shader_model = 6, 10
+
+        # Group Wave Index / Count
+        for name in "GetGroupWaveIndex,GetGroupWaveCount".split(","):
+            i = self.name_idx[name]
+            i.category = "Wave"
+            i.shader_model = 6, 10
+
+        # Clustered Geometry
+        for name in ("ClusterID").split(","):
+            i = self.name_idx[name]
+            i.category = "Raytracing uint System Values"
+            i.shader_model = 6, 10
+            i.shader_stages = (
+                "library",
+                "anyhit",
+                "closesthit",
+            )
+        for name in ("RayQuery_CandidateClusterID,RayQuery_CommittedClusterID").split(","):
+            i = self.name_idx[name]
+            i.category = "Inline Ray Query"
+            i.shader_model = 6, 10
+        for name in ("HitObject_ClusterID").split(","):
+            i = self.name_idx[name]
+            i.category = "Shader Execution Reordering"
+            i.shader_model = 6, 10
+            i.shader_stages = (
+                "library",
+                "raygeneration",
+                "closesthit",
+                "miss",
+            )
+
+        # Triangle Object Positions
+        for name in ("TriangleObjectPosition").split(","):
+            i = self.name_idx[name]
+            i.category = "Raytracing System Values"
+            i.shader_model = 6, 10
+            i.shader_stages = (
+                "library",
+                "anyhit",
+                "closesthit",
+            )
+        for name in (
+            "RayQuery_CandidateTriangleObjectPosition,RayQuery_CommittedTriangleObjectPosition"
+        ).split(","):
+            i = self.name_idx[name]
+            i.category = "Inline Ray Query"
+            i.shader_model = 6, 10
+        for name in ("HitObject_TriangleObjectPosition").split(","):
+            i = self.name_idx[name]
+            i.category = "Shader Execution Reordering"
+            i.shader_model = 6, 10
+            i.shader_stages = (
+                "library",
+                "raygeneration",
+                "closesthit",
+                "miss",
+            )
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -6097,6 +6153,95 @@ class db_dxil(object):
             "rn",
             [db_dxil_param(0, "i32", "", "operation result")],
         )
+
+        # Clustered Geometry
+        add_dxil_op(
+            "ClusterID",
+            "ClusterID",
+            "Returns the user-defined ClusterID of the intersected CLAS",
+            "v",
+            "rn",
+            [db_dxil_param(0, "i32", "", "result")],
+        )
+        add_dxil_op(
+            "RayQuery_CandidateClusterID",
+            "RayQuery_StateScalar",
+            "returns candidate hit cluster ID",
+            "v",
+            "ro",
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        add_dxil_op(
+            "RayQuery_CommittedClusterID",
+            "RayQuery_StateScalar",
+            "returns committed hit cluster ID",
+            "v",
+            "ro",
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        add_dxil_op(
+            "HitObject_ClusterID",
+            "HitObject_StateScalar",
+            "Returns the cluster ID of this committed hit",
+            "v",
+            "rn",
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
+        )
+
+        # Triangle Object Positions
+        add_dxil_op(
+            "TriangleObjectPosition",
+            "TriangleObjectPosition",
+            "Returns triangle vertices in object space as <9 x float>",
+            "f",
+            "rn",
+            [
+                db_dxil_param(0, "v", "", "operation result"), # TODO: $vec9
+            ],
+        )
+        add_dxil_op(
+            "RayQuery_CandidateTriangleObjectPosition",
+            "RayQuery_CandidateTriangleObjectPosition",
+            "Returns candidate triangle vertices in object space as <9 x float>",
+            "f",
+            "ro",
+            [
+                db_dxil_param(0, "v", "", "operation result"), # TODO: $vec9
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        add_dxil_op(
+            "RayQuery_CommittedTriangleObjectPosition",
+            "RayQuery_CommittedTriangleObjectPosition",
+            "Returns committed triangle vertices in object space as <9 x float>",
+            "f",
+            "ro",
+            [
+                db_dxil_param(0, "v", "", "operation result"), # TODO: $vec9
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        add_dxil_op(
+            "HitObject_TriangleObjectPosition",
+            "HitObject_TriangleObjectPosition",
+            "Returns triangle vertices in object space as <9 x float>",
+            "f",
+            "rn",
+            [
+                db_dxil_param(0, "v", "", "operation result"), # TODO: $vec9
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
+        )
+
 
     def finalize_dxil_operations(self):
         "Finalize DXIL operations by setting properties and verifying consistency."
