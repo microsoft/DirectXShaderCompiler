@@ -42,6 +42,7 @@ public:
   void SetValidatorVersion(unsigned valMajor, unsigned valMinor) {
     m_valMajor = valMajor, m_valMinor = valMinor;
   }
+  void SetStripDebug(bool StripDebug) { m_StripDebug = StripDebug; }
   virtual bool HasLibNameRegistered(llvm::StringRef name) = 0;
   virtual bool RegisterLib(llvm::StringRef name,
                            std::unique_ptr<llvm::Module> pModule,
@@ -56,9 +57,11 @@ public:
 
 protected:
   DxilLinker(llvm::LLVMContext &Ctx, unsigned valMajor, unsigned valMinor)
-      : m_ctx(Ctx), m_valMajor(valMajor), m_valMinor(valMinor) {}
+      : m_ctx(Ctx), m_valMajor(valMajor), m_valMinor(valMinor),
+        m_StripDebug(false) {}
   llvm::LLVMContext &m_ctx;
   unsigned m_valMajor, m_valMinor;
+  bool m_StripDebug;
 };
 
 } // namespace hlsl

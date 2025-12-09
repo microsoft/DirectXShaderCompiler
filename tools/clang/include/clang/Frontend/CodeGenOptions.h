@@ -170,6 +170,8 @@ public:
   /// Name of the profile file to use as input for -fprofile-instr-use
   std::string InstrProfileInput;
 
+  bool StripDebug = false;
+
   /// A list of file names passed with -fcuda-include-gpubinary options to
   /// forward to CUDA runtime back-end for incorporating them into host-side
   /// object file.

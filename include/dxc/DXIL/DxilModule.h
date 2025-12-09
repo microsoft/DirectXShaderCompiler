@@ -205,6 +205,7 @@ public:
   void ResetEntryPropsMap(DxilEntryPropsMap &&PropMap);
 
   bool StripReflection();
+  bool StripNamesSensitiveToDebug();
   void StripDebugRelatedCode();
   void RemoveUnusedTypeAnnotations();
 

@@ -140,6 +140,7 @@ public:
   bool HLSLEnableDebugNops = false; // HLSL Change
   bool HLSLEarlyInlining = true; // HLSL Change
   bool HLSLNoSink = false; // HLSL Change
+  bool StripDebug = false;
   void addHLSLPasses(legacy::PassManagerBase &MPM); // HLSL Change
 
 private:

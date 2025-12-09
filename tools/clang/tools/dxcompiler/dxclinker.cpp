@@ -306,6 +306,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
       dxcutil::GetValidatorVersion(&valMajor, &valMinor);
     }
     m_pLinker->SetValidatorVersion(valMajor, valMinor);
+    m_pLinker->SetStripDebug(opts.StripDebug);
 
     // Root signature-only container validation is only supported on 1.5 and
     // above.
@@ -415,6 +416,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
             SerializeFlags, pOutputStream, 0, opts.DebugFile, &Diag,
             &ShaderHashContent, pReflectionStream, pRootSigStream, nullptr,
             nullptr);
+
         if (needsValidation) {
           valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
         } else {
