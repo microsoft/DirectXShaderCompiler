@@ -162,23 +162,25 @@ class db_dxil_inst(object):
 
         self.num_oloads = 0
 
-        # TODO: Overload Note: There are operations that really didn't need
+        # Overload Note: There are operations that really didn't need
         # overload types, and originally did not use any overload types in the
         # operands, but specified a single overload type in the oload_types.
         # These have been updated to use the overload type in the appropriate
         # place, rather than changing the overload type to "v", because Changing
         # the oload_types to "v" would change the name of the function in DXIL,
         # which could be breaking for some DXIL consumers, depending on how they
-        # interpret the DXIL.  So, there are "TODO: Overload Note:" comments on
-        # certain DXIL op definitions to indicate these cases.
-        # These could be cleaned up in the future, but it's unlikely to ever be
-        # a priority, or worth the risk.
+        # interpret the DXIL.  So, there are "Overload Note:" comments on
+        # certain DXIL op definitions to highlight these cases.
+
+        # While these could technically be cleaned up, the external impact would
+        # be large and it's unlikely to ever be worth it.
 
         # Other cases specified one overload type and could potentially have
         # used the specified overload, but were not currently using it in the
         # operands (like system value getters).  These have been updated to use
-        # the overload type in the operands, without adding the comment, and may
-        # add overload support in the future (like for half or int16).
+        # the overload type in the operands, without adding the comment, and
+        # could support additional overloads in the future (like for half or
+        # int16).
 
         def uses_oload_types(inst):
             "Return true if any operand uses an overload type."
@@ -2491,11 +2493,9 @@ class db_dxil(object):
             ],
             counters=("atomic",),
         )
-        # TODO: Overload Note: CheckAccessFullyMapped is overloaded "i", but
-        # shouldn't be. Operand 2 used to be "u32", but since overloaded
-        # functions should use an overload type, it currently uses "$o". "u32"
-        # shouldn't even exist, so if fixing this, we should change the
-        # overloads to "v" and operand 2 to "i32".
+        # Overload Note: CheckAccessFullyMapped is overloaded "i" for historical
+        # reasons, but doesn't use this. Note that "$o" for operand 2 here can
+        # only ever be "i32".
         add_dxil_op(
             "CheckAccessFullyMapped",
             "CheckAccessFullyMapped",
@@ -2707,9 +2707,10 @@ class db_dxil(object):
         )
 
         # Pixel shader
-        # TODO: Overload Note: CalculateLOD is overloaded "f", but didn't use
+        # Overload Note: CalculateLOD is overloaded "f", but didn't use
         # any overload type. Operands 4-6 used to be "f", but have been changed
-        # to use the overload type "$o".
+        # to use the overload type "$o". In the future, this operation could be
+        # overloaded for half precision coordinates.
         add_dxil_op(
             "CalculateLOD",
             "CalculateLOD",
@@ -2987,8 +2988,8 @@ class db_dxil(object):
         )
 
         # Double precision
-        # TODO: Overload Note: MakeDouble is overloaded "d", but didn't use any
-        # overload type. The result has been set to "$o" for consistency.
+        # Overload Note: MakeDouble is overloaded "d" for historical reasons,
+        # but doesn't use this. The result "$o" can only ever be "double".
         add_dxil_op(
             "MakeDouble",
             "MakeDouble",
@@ -3001,8 +3002,8 @@ class db_dxil(object):
                 db_dxil_param(3, "i32", "hi", "high part of double"),
             ],
         )
-        # TODO: Overload Note: SplitDouble is overloaded "d", but didn't use any
-        # overload type. Operand 2 has been set to "$o" for consistency.
+        # Overload Note: SplitDouble is overloaded "d" for historical reasons,
+        # but doesn't use this. Operand 2 "$o" can only ever be "double".
         add_dxil_op(
             "SplitDouble",
             "SplitDouble",
@@ -4868,9 +4869,8 @@ class db_dxil(object):
             ],
         )
 
-        # TODO: Overload Note: IsHelperLane specifies overloads "1", but does
-        # not need to be overloaded.  For consistency, the return type uses $o
-        # for the definition, which will always be i1.
+        # Overload Note: IsHelperLane specifies overloads "1" for historical
+        # reasons, but doesn't use this. The return "$o" will always be i1.
         add_dxil_op(
             "IsHelperLane",
             "IsHelperLane",
