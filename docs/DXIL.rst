@@ -3062,11 +3062,13 @@ Given width, offset:
 
 Opcode Table ExperimentalOps, id=32768: Experimental DXIL operations
 
-========== =============== ================
-ID         Name            Description
-========== =============== ================
-2147483648 ExperimentalNop nop does nothing
-========== =============== ================
+========== ================= =================================================
+ID         Name              Description
+========== ================= =================================================
+2147483648 ExperimentalNop   nop does nothing
+2147483649 GetGroupWaveIndex returns the index of the wave in the thread group
+2147483650 GetGroupWaveCount returns the number of waves in the thread group
+========== ================= =================================================
 
 
 .. OPCODES-RST:END

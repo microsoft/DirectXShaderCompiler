@@ -514,7 +514,11 @@ enum class OpCode : unsigned {
   // No-op
   ExperimentalNop = 0, // nop does nothing
 
-  NumOpCodes = 1, // exclusive last value of enumeration
+  // Wave
+  GetGroupWaveCount = 2, // returns the number of waves in the thread group
+  GetGroupWaveIndex = 1, // returns the index of the wave in the thread group
+
+  NumOpCodes = 3, // exclusive last value of enumeration
 };
 } // namespace ExperimentalOps
 static const unsigned NumOpCodeTables = 2;
@@ -1131,6 +1135,12 @@ enum class OpCode : unsigned {
   // OpCodeTableID = 32768
   // ExperimentalOps
   EXP_OPCODE(ExperimentalOps, ExperimentalNop), // nop does nothing
+  EXP_OPCODE(
+      ExperimentalOps,
+      GetGroupWaveIndex), // returns the index of the wave in the thread group
+  EXP_OPCODE(
+      ExperimentalOps,
+      GetGroupWaveCount), // returns the number of waves in the thread group
 };
 // OPCODE-ENUM:END
 #undef EXP_OPCODE
@@ -1440,6 +1450,8 @@ enum class OpCodeClass : unsigned {
   VectorReduce,
 
   // Wave
+  GetGroupWaveCount,
+  GetGroupWaveIndex,
   WaveActiveAllEqual,
   WaveActiveBallot,
   WaveActiveBit,
@@ -1465,7 +1477,7 @@ enum class OpCodeClass : unsigned {
   NodeOutputIsValid,
   OutputComplete,
 
-  NumOpClasses = 197, // exclusive last value of enumeration
+  NumOpClasses = 199, // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

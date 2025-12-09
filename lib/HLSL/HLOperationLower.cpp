@@ -7513,6 +7513,8 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP___builtin_VectorAccumulate, TranslateVectorAccumulate,
      DXIL::OpCode::VectorAccumulate},
     {IntrinsicOp::IOP_isnormal, TrivialIsSpecialFloat, DXIL::OpCode::IsNormal},
+    {IntrinsicOp::IOP_GetGroupWaveIndex, EmptyLower, DXIL::OpCode::GetGroupWaveIndex},
+    {IntrinsicOp::IOP_GetGroupWaveCount, EmptyLower, DXIL::OpCode::GetGroupWaveCount},
 };
 } // namespace
 static_assert(

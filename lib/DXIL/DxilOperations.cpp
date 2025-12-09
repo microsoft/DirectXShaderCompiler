@@ -2728,6 +2728,24 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      0,
      {},
      {}}, // Overloads: v
+
+    // Wave
+    {OC::GetGroupWaveIndex,
+     "GetGroupWaveIndex",
+     OCC::GetGroupWaveIndex,
+     "getGroupWaveIndex",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::GetGroupWaveCount,
+     "GetGroupWaveCount",
+     OCC::GetGroupWaveCount,
+     "getGroupWaveCount",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
 };
 static_assert(_countof(ExperimentalOps_OpCodeProps) ==
                   (size_t)DXIL::ExperimentalOps::OpCode::NumOpCodes,
@@ -3636,8 +3654,9 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: MatVecMul=305, MatVecMulAdd=306, OuterProductAccumulate=307,
-  // VectorAccumulate=308, ExperimentalNop=2147483648
-  if ((305 <= op && op <= 308) || op == 2147483648) {
+  // VectorAccumulate=308, ExperimentalNop=2147483648,
+  // GetGroupWaveIndex=2147483649, GetGroupWaveCount=2147483650
+  if ((305 <= op && op <= 308) || (2147483648 <= op && op <= 2147483650)) {
     major = 6;
     minor = 10;
     return;
@@ -6147,6 +6166,16 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pV);
     A(pI32);
     break;
+
+    // Wave
+  case OpCode::GetGroupWaveIndex:
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::GetGroupWaveCount:
+    A(pI32);
+    A(pI32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -6438,6 +6467,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedC8:
   case OpCode::ReservedC9:
   case OpCode::ExperimentalNop:
+  case OpCode::GetGroupWaveIndex:
+  case OpCode::GetGroupWaveCount:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:

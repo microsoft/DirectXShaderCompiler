@@ -1046,6 +1046,9 @@ class db_dxil(object):
         for i in "ExperimentalNop".split(","):
             self.name_idx[i].category = "No-op"
             self.name_idx[i].shader_model = 6, 10
+        for i in "GetGroupWaveIndex,GetGroupWaveCount".split(","):
+            self.name_idx[i].category = "Wave"
+            self.name_idx[i].shader_model = 6, 10
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -6063,8 +6066,10 @@ class db_dxil(object):
         op_table = self.add_dxil_op_table(
             0x8000, "ExperimentalOps", "Experimental DXIL operations"
         )
+        add_dxil_op = op_table.add_dxil_op
+
         # Add Nop to test experimental table infrastructure.
-        op_table.add_dxil_op(
+        add_dxil_op(
             "ExperimentalNop",
             "Nop",
             "nop does nothing",
@@ -6073,6 +6078,24 @@ class db_dxil(object):
             [
                 db_dxil_param(0, "v", "", "no result"),
             ],
+        )
+
+        # Group Wave Operations
+        add_dxil_op(
+            "GetGroupWaveIndex",
+            "GetGroupWaveIndex",
+            "returns the index of the wave in the thread group",
+            "v",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result")],
+        )
+        add_dxil_op(
+            "GetGroupWaveCount",
+            "GetGroupWaveCount",
+            "returns the number of waves in the thread group",
+            "v",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result")],
         )
 
     def finalize_dxil_operations(self):

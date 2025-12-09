@@ -10251,5 +10251,45 @@ struct DxilInst_ExperimentalNop {
   // Metadata
   bool requiresUniformInputs() const { return false; }
 };
+
+/// This instruction returns the index of the wave in the thread group
+struct DxilInst_GetGroupWaveIndex {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_GetGroupWaveIndex(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::GetGroupWaveIndex);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction returns the number of waves in the thread group
+struct DxilInst_GetGroupWaveCount {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_GetGroupWaveCount(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::GetGroupWaveCount);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
 // INSTR-HELPER:END
 } // namespace hlsl
