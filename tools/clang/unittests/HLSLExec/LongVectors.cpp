@@ -883,20 +883,33 @@ CAST_OP(OpType::CastToFloat64, double, (CastToFloat64(A)));
 // specs. An example with this spec for sin and cos is available here:
 // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
 
-template <typename T>
-struct TrigonometricValidation {
+template <typename T, OpType OP> struct TrigonometricValidation {
   ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.0008f);
 };
 
-// Half precision trig functions have a larger tolerance. Note that the D3D spec
+// Half precision trig functions have a larger tolerance due to their lower
+// precision. Note that the D3D spec
 // does not mention half precision trig functions.
-template <>
-struct TrigonometricValidation<HLSLHalf_t> {
+template <OpType OP> struct TrigonometricValidation<HLSLHalf_t, OP> {
   ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.003f);
 };
 
+// For the half precision trig functions with an infinite range in either
+// direction we use 2 ULPs of tolerance instead.
+template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Cosh> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Tan> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Sinh> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
 #define TRIG_OP(OP, IMPL)                                                      \
-  template <typename T> struct Op<OP, T, 1> : TrigonometricValidation<T> {     \
+  template <typename T> struct Op<OP, T, 1> : TrigonometricValidation<T, OP> { \
     T operator()(T A) { return IMPL; }                                         \
   }
 
