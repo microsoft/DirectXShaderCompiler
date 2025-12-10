@@ -6174,7 +6174,7 @@ class db_dxil(object):
 
         def calc_oload_sig(inst):
             # if function class is ever overloaded, no "v" oload should be used
-            oload = inst.oload_types == "v" and "void" or "overloaded"
+            oload = "void" if inst.oload_types == "v" else "overloaded"
             result = f"{inst.fn_attr}|{oload}("
             result += ",".join([o.llvm_type for o in inst.ops]) + ")"
             return result
