@@ -3,7 +3,7 @@
 target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
-; CHECK: Function: main: error: Opcode ExperimentalNop not valid in shader model cs_6_9.
+; CHECK: Function: main: error: Use of experimental DXILOpCode requires an experimental shader model.
 ; CHECK-NEXT: note: at 'call void @dx.op.nop(i32 -2147483648)' in block '#0' of function 'main'.
 ; CHECK-NEXT: Function: main: error: Entry function performs some operation that is incompatible with the shader stage or other entry properties.  See other errors for details.
 ; CHECK-NEXT: Function: main: error: Function uses features incompatible with the shader model.
