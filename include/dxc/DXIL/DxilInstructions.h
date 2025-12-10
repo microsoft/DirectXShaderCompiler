@@ -10292,7 +10292,7 @@ struct DxilInst_GetGroupWaveCount {
   bool requiresUniformInputs() const { return false; }
 };
 
-/// This instruction Returns the user-defined ClusterID of the intersected CLAS
+/// This instruction returns the user-defined ClusterID of the intersected CLAS
 struct DxilInst_ClusterID {
   llvm::Instruction *Instr;
   // Construction and identification
@@ -10367,7 +10367,7 @@ struct DxilInst_RayQuery_CommittedClusterID {
   void set_rayQueryHandle(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 
-/// This instruction Returns the cluster ID of this committed hit
+/// This instruction returns the cluster ID of this committed hit
 struct DxilInst_HitObject_ClusterID {
   llvm::Instruction *Instr;
   // Construction and identification
@@ -10394,7 +10394,7 @@ struct DxilInst_HitObject_ClusterID {
   void set_hitObject(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 
-/// This instruction Returns triangle vertices in object space as <9 x float>
+/// This instruction returns triangle vertices in object space as <9 x float>
 struct DxilInst_TriangleObjectPosition {
   llvm::Instruction *Instr;
   // Construction and identification
@@ -10414,7 +10414,7 @@ struct DxilInst_TriangleObjectPosition {
   bool requiresUniformInputs() const { return false; }
 };
 
-/// This instruction Returns candidate triangle vertices in object space as <9 x
+/// This instruction returns candidate triangle vertices in object space as <9 x
 /// float>
 struct DxilInst_RayQuery_CandidateTriangleObjectPosition {
   llvm::Instruction *Instr;
@@ -10443,7 +10443,7 @@ struct DxilInst_RayQuery_CandidateTriangleObjectPosition {
   void set_rayQueryHandle(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 
-/// This instruction Returns committed triangle vertices in object space as <9 x
+/// This instruction returns committed triangle vertices in object space as <9 x
 /// float>
 struct DxilInst_RayQuery_CommittedTriangleObjectPosition {
   llvm::Instruction *Instr;
@@ -10472,7 +10472,7 @@ struct DxilInst_RayQuery_CommittedTriangleObjectPosition {
   void set_rayQueryHandle(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 
-/// This instruction Returns triangle vertices in object space as <9 x float>
+/// This instruction returns triangle vertices in object space as <9 x float>
 struct DxilInst_HitObject_TriangleObjectPosition {
   llvm::Instruction *Instr;
   // Construction and identification

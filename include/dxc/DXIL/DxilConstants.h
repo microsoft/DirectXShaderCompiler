@@ -518,25 +518,25 @@ enum class OpCode : unsigned {
   // Inline Ray Query
   RayQuery_CandidateClusterID = 4, // returns candidate hit cluster ID
   RayQuery_CandidateTriangleObjectPosition =
-      8, // Returns candidate triangle vertices in object space as <9 x float>
+      8, // returns candidate triangle vertices in object space as <9 x float>
   RayQuery_CommittedClusterID = 5, // returns committed hit cluster ID
   RayQuery_CommittedTriangleObjectPosition =
-      9, // Returns committed triangle vertices in object space as <9 x float>
+      9, // returns committed triangle vertices in object space as <9 x float>
 
   // No-op
   ExperimentalNop = 0, // nop does nothing
 
   // Raytracing System Values
   TriangleObjectPosition =
-      7, // Returns triangle vertices in object space as <9 x float>
+      7, // returns triangle vertices in object space as <9 x float>
 
   // Raytracing uint System Values
-  ClusterID = 3, // Returns the user-defined ClusterID of the intersected CLAS
+  ClusterID = 3, // returns the user-defined ClusterID of the intersected CLAS
 
   // Shader Execution Reordering
-  HitObject_ClusterID = 6, // Returns the cluster ID of this committed hit
+  HitObject_ClusterID = 6, // returns the cluster ID of this committed hit
   HitObject_TriangleObjectPosition =
-      10, // Returns triangle vertices in object space as <9 x float>
+      10, // returns triangle vertices in object space as <9 x float>
 
   NumOpCodes = 11, // exclusive last value of enumeration
 };
@@ -1163,29 +1163,29 @@ enum class OpCode : unsigned {
       GetGroupWaveCount), // returns the number of waves in the thread group
   EXP_OPCODE(
       ExperimentalOps,
-      ClusterID), // Returns the user-defined ClusterID of the intersected CLAS
+      ClusterID), // returns the user-defined ClusterID of the intersected CLAS
   EXP_OPCODE(ExperimentalOps,
              RayQuery_CandidateClusterID), // returns candidate hit cluster ID
   EXP_OPCODE(ExperimentalOps,
              RayQuery_CommittedClusterID), // returns committed hit cluster ID
   EXP_OPCODE(
       ExperimentalOps,
-      HitObject_ClusterID), // Returns the cluster ID of this committed hit
+      HitObject_ClusterID), // returns the cluster ID of this committed hit
   EXP_OPCODE(ExperimentalOps,
-             TriangleObjectPosition), // Returns triangle vertices in object
+             TriangleObjectPosition), // returns triangle vertices in object
                                       // space as <9 x float>
   EXP_OPCODE(
       ExperimentalOps,
-      RayQuery_CandidateTriangleObjectPosition), // Returns candidate triangle
+      RayQuery_CandidateTriangleObjectPosition), // returns candidate triangle
                                                  // vertices in object space as
                                                  // <9 x float>
   EXP_OPCODE(
       ExperimentalOps,
-      RayQuery_CommittedTriangleObjectPosition), // Returns committed triangle
+      RayQuery_CommittedTriangleObjectPosition), // returns committed triangle
                                                  // vertices in object space as
                                                  // <9 x float>
   EXP_OPCODE(ExperimentalOps,
-             HitObject_TriangleObjectPosition), // Returns triangle vertices in
+             HitObject_TriangleObjectPosition), // returns triangle vertices in
                                                 // object space as <9 x float>
 };
 // OPCODE-ENUM:END

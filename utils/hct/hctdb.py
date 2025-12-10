@@ -6166,7 +6166,7 @@ class db_dxil(object):
         add_dxil_op(
             "ClusterID",
             "ClusterID",
-            "Returns the user-defined ClusterID of the intersected CLAS",
+            "returns the user-defined ClusterID of the intersected CLAS",
             "v",
             "rn",
             [db_dxil_param(0, "i32", "", "result")],
@@ -6196,7 +6196,7 @@ class db_dxil(object):
         add_dxil_op(
             "HitObject_ClusterID",
             "HitObject_StateScalar",
-            "Returns the cluster ID of this committed hit",
+            "returns the cluster ID of this committed hit",
             "v",
             "rn",
             [
@@ -6209,7 +6209,7 @@ class db_dxil(object):
         add_dxil_op(
             "TriangleObjectPosition",
             "TriangleObjectPosition",
-            "Returns triangle vertices in object space as <9 x float>",
+            "returns triangle vertices in object space as <9 x float>",
             "f",
             "rn",
             [
@@ -6219,7 +6219,7 @@ class db_dxil(object):
         add_dxil_op(
             "RayQuery_CandidateTriangleObjectPosition",
             "RayQuery_CandidateTriangleObjectPosition",
-            "Returns candidate triangle vertices in object space as <9 x float>",
+            "returns candidate triangle vertices in object space as <9 x float>",
             "f",
             "ro",
             [
@@ -6230,7 +6230,7 @@ class db_dxil(object):
         add_dxil_op(
             "RayQuery_CommittedTriangleObjectPosition",
             "RayQuery_CommittedTriangleObjectPosition",
-            "Returns committed triangle vertices in object space as <9 x float>",
+            "returns committed triangle vertices in object space as <9 x float>",
             "f",
             "ro",
             [
@@ -6241,7 +6241,7 @@ class db_dxil(object):
         add_dxil_op(
             "HitObject_TriangleObjectPosition",
             "HitObject_TriangleObjectPosition",
-            "Returns triangle vertices in object space as <9 x float>",
+            "returns triangle vertices in object space as <9 x float>",
             "f",
             "rn",
             [
