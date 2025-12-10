@@ -1003,7 +1003,7 @@ public:
       DM.UpgradeToMinValidatorVersion();
 
       // Clear intermediate options that shouldn't be in the final DXIL
-      DM.ClearIntermediateOptions();
+      DM.ResetUnusedResourceBinding();
 
       // Remove unused AllocateRayQuery calls
       RemoveUnusedRayQuery(M);

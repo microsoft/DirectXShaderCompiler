@@ -843,8 +843,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DisaseembleHex = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
   opts.LegacyMacroExpansion =
       Args.hasFlag(OPT_flegacy_macro_expansion, OPT_INVALID, false);
-  opts.LegacyResourceReservation =
-      Args.hasFlag(OPT_flegacy_resource_reservation, OPT_INVALID, false);
   opts.ExportShadersOnly =
       Args.hasFlag(OPT_export_shaders_only, OPT_INVALID, false);
   opts.PrintBeforeAll = Args.hasFlag(OPT_print_before_all, OPT_INVALID, false);
@@ -865,6 +863,33 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.TimeReport = Args.hasFlag(OPT_ftime_report, OPT_INVALID, false);
   opts.TimeTrace = Args.hasFlag(OPT_ftime_trace, OPT_INVALID, false) ? "-" : "";
   opts.VerifyDiagnostics = Args.hasFlag(OPT_verify, OPT_INVALID, false);
+
+  std::string UnusedResources =
+      Args.getLastArgValue(OPT_fhlsl_unused_resource_bindings_EQ, "strip");
+
+  if (UnusedResources == "strip")
+    opts.UnusedResourceBinding = UnusedResourceBinding::Strip;
+  else if (UnusedResources == "reserve-all")
+    opts.UnusedResourceBinding = UnusedResourceBinding::ReserveAll;
+  else {
+    errors << "Error: Invalid value for -fhlsl-unused-resource-bindings option "
+              "specified ("
+           << UnusedResources << "). Must be one of: strip, reserve-all";
+    return 1;
+  }
+
+  // TODO: Move to OPT_fhlsl_unused_resource_bindings_EQ
+  if (Args.hasFlag(OPT_flegacy_resource_reservation, OPT_INVALID, false)) {
+
+    if (unsigned(opts.UnusedResourceBinding)) {
+      errors << "Error: Unused resource bindings can't be used at the same "
+                "time as flegacy_resource_reservation";
+      return 1;
+    }
+
+    opts.UnusedResourceBinding = UnusedResourceBinding::ReserveExplicit;
+  }
+
   opts.Verbose = Args.hasFlag(OPT_verbose, OPT_INVALID, false);
   if (Args.hasArg(OPT_ftime_trace_EQ))
     opts.TimeTrace = Args.getLastArgValue(OPT_ftime_trace_EQ);

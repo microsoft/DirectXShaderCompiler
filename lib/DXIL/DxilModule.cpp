@@ -576,17 +576,18 @@ void DxilModule::SetResMayAlias(bool resMayAlias) {
 
 bool DxilModule::GetResMayAlias() const { return m_bResMayAlias; }
 
-void DxilModule::SetLegacyResourceReservation(bool legacyResourceReservation) {
-  m_IntermediateFlags &= ~LegacyResourceReservation;
-  if (legacyResourceReservation)
-    m_IntermediateFlags |= LegacyResourceReservation;
+void DxilModule::SetUnusedResourceBinding(
+    UnusedResourceBinding unusedResourceBinding) {
+  m_UnusedResourceBinding = unusedResourceBinding;
 }
 
-bool DxilModule::GetLegacyResourceReservation() const {
-  return (m_IntermediateFlags & LegacyResourceReservation) != 0;
+UnusedResourceBinding DxilModule::GetUnusedResourceBinding() const {
+  return m_UnusedResourceBinding;
 }
 
-void DxilModule::ClearIntermediateOptions() { m_IntermediateFlags = 0; }
+void DxilModule::ResetUnusedResourceBinding() {
+  m_UnusedResourceBinding = UnusedResourceBinding::Strip;
+}
 
 unsigned DxilModule::GetInputControlPointCount() const {
   if (!(m_pSM->IsHS() || m_pSM->IsDS()))
@@ -1021,8 +1022,11 @@ void DxilModule::RemoveUnusedResources() {
 
 namespace {
 template <typename TResource>
-static void RemoveResourcesWithUnusedSymbolsHelper(
-    std::vector<std::unique_ptr<TResource>> &vec) {
+static bool RemoveResourcesWithUnusedSymbolsHelper(
+    std::vector<std::unique_ptr<TResource>> &vec, bool AfterAllocation,
+    UnusedResourceBinding UnusedBinding) {
+  bool KeepAllocated = UnusedBinding == UnusedResourceBinding::ReserveExplicit;
+  bool Changed = false;
   unsigned resID = 0;
   std::unordered_set<GlobalVariable *>
       eraseList; // Need in case of duplicate defs of lib resources
@@ -1031,9 +1035,14 @@ static void RemoveResourcesWithUnusedSymbolsHelper(
     Constant *symbol = (*c)->GetGlobalSymbol();
     symbol->removeDeadConstantUsers();
     if (symbol->user_empty()) {
+      if (!AfterAllocation &&
+          (UnusedBinding == UnusedResourceBinding::ReserveAll ||
+           (KeepAllocated && (*c)->IsAllocated())))
+        continue;
       p = vec.erase(c);
       if (GlobalVariable *GV = dyn_cast<GlobalVariable>(symbol))
         eraseList.insert(GV);
+      Changed = true;
       continue;
     }
     if ((*c)->GetID() != resID) {
@@ -1044,14 +1053,21 @@ static void RemoveResourcesWithUnusedSymbolsHelper(
   for (auto gv : eraseList) {
     gv->eraseFromParent();
   }
+  return Changed;
 }
 } // namespace
 
-void DxilModule::RemoveResourcesWithUnusedSymbols() {
-  RemoveResourcesWithUnusedSymbolsHelper(m_SRVs);
-  RemoveResourcesWithUnusedSymbolsHelper(m_UAVs);
-  RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers);
-  RemoveResourcesWithUnusedSymbolsHelper(m_Samplers);
+bool DxilModule::RemoveResourcesWithUnusedSymbols(bool AfterAllocation) {
+  bool Changed = false;
+  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_SRVs, AfterAllocation,
+                                                    GetUnusedResourceBinding());
+  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_UAVs, AfterAllocation,
+                                                    GetUnusedResourceBinding());
+  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers, AfterAllocation,
+                                                    GetUnusedResourceBinding());
+  Changed |= RemoveResourcesWithUnusedSymbolsHelper(m_Samplers, AfterAllocation,
+                                                    GetUnusedResourceBinding());
+  return Changed;
 }
 
 namespace {
@@ -1405,7 +1421,7 @@ void DxilModule::EmitDxilMetadata() {
   m_pMDHelper->EmitDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
   m_pMDHelper->EmitDxilShaderModel(m_pSM);
-  m_pMDHelper->EmitDxilIntermediateOptions(m_IntermediateFlags);
+  m_pMDHelper->EmitDxilIntermediateOptions(uint32_t(m_UnusedResourceBinding));
 
   MDTuple *pMDProperties = nullptr;
   uint64_t flag = m_ShaderFlags.GetShaderFlagsRaw();
@@ -1500,7 +1516,9 @@ void DxilModule::LoadDxilMetadata() {
   m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
   const ShaderModel *loadedSM;
   m_pMDHelper->LoadDxilShaderModel(loadedSM);
-  m_pMDHelper->LoadDxilIntermediateOptions(m_IntermediateFlags);
+  uint32_t options;
+  m_pMDHelper->LoadDxilIntermediateOptions(options);
+  m_UnusedResourceBinding = UnusedResourceBinding(options);
 
   // This must be set before LoadDxilEntryProperties
   m_pMDHelper->SetShaderModel(loadedSM);

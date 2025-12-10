@@ -112,7 +112,7 @@ public:
   const std::vector<std::unique_ptr<DxilResource>> &GetUAVs() const;
 
   void RemoveUnusedResources();
-  void RemoveResourcesWithUnusedSymbols();
+  bool RemoveResourcesWithUnusedSymbols(bool AfterAllocation = false);
   void RemoveFunction(llvm::Function *F);
 
   bool RenameResourcesWithPrefix(const std::string &prefix);
@@ -284,10 +284,10 @@ public:
   void SetResMayAlias(bool resMayAlias);
   bool GetResMayAlias() const;
 
-  // Intermediate options that do not make it to DXIL
-  void SetLegacyResourceReservation(bool legacyResourceReservation);
-  bool GetLegacyResourceReservation() const;
-  void ClearIntermediateOptions();
+  void SetUnusedResourceBinding(UnusedResourceBinding unusedResourceBinding);
+  UnusedResourceBinding GetUnusedResourceBinding() const;
+
+  void ResetUnusedResourceBinding();
 
   // Hull and Domain shaders.
   unsigned GetInputControlPointCount() const;
@@ -344,10 +344,6 @@ private:
       DXIL::PrimitiveTopology::Undefined;
   unsigned m_ActiveStreamMask = 0;
 
-  enum IntermediateFlags : uint32_t {
-    LegacyResourceReservation = 1 << 0,
-  };
-
   llvm::LLVMContext &m_Ctx;
   llvm::Module *m_pModule = nullptr;
   llvm::Function *m_pEntryFunc = nullptr;
@@ -385,7 +381,7 @@ private:
   bool m_bResMayAlias = false;
 
   // properties from HLModule that should not make it to the final DXIL
-  uint32_t m_IntermediateFlags = 0;
+  UnusedResourceBinding m_UnusedResourceBinding = UnusedResourceBinding::Strip;
   uint32_t m_AutoBindingSpace = UINT_MAX;
 
   std::unique_ptr<DxilSubobjects> m_pSubobjects;
