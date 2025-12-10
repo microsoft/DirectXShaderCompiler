@@ -1055,8 +1055,10 @@ class db_dxil(object):
 
         # Group Wave Index / Count
         for i in insts("GetGroupWaveIndex,GetGroupWaveCount"):
-            i.category = "Wave"
+            i.category = "Group Wave Ops"
             i.shader_model = 6, 10
+            i.shader_stages = ("compute", "mesh", "amplification", "library")
+            i.is_wave = True
 
         # Clustered Geometry
         for i in insts("ClusterID"):
