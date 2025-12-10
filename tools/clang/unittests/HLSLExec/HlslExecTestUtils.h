@@ -39,6 +39,8 @@ public:
                     bool SkipUnsupported = true);
 };
 
+void readEmbeddedHlslDataIntoNewStream(LPCWSTR ResourceName, IStream **Stream,
+                                       dxc::SpecificDllLoader &Support);
 void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
                                dxc::SpecificDllLoader &Support);
 

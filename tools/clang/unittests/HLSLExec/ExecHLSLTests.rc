@@ -1,3 +1,4 @@
 #include <windows.h>
 
 ShaderOpArithTable.xml DATASOURCE_XML "ShaderOpArithTable.xml"
+LongVectorOp DATASOURCE_XML "LongVectorOp.xml"

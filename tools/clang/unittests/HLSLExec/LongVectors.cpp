@@ -415,7 +415,8 @@ runTest(ID3D12Device *D3DDevice, bool VerboseLogging,
 
   dxc::SpecificDllLoader DxilDllLoader;
   CComPtr<IStream> TestXML;
-  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &TestXML, DxilDllLoader);
+  readEmbeddedHlslDataIntoNewStream(L"LongVectorOp", &TestXML, DxilDllLoader);
+
   auto ShaderOpSet = std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(TestXML, ShaderOpSet.get());
 
