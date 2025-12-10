@@ -303,8 +303,8 @@ $type1 [[]] QuadReadAcrossY(in numeric<> value);
 $type1 [[]] QuadReadAcrossDiagonal(in numeric<> value);
 bool [[]] QuadAny(in bool cond);
 bool [[]] QuadAll(in bool cond);
-uint   [[rn]] GetGroupWaveIndex();
-uint   [[rn]] GetGroupWaveCount();
+uint   [[rn,min_sm=6.10]] GetGroupWaveIndex();
+uint   [[rn,min_sm=6.10]] GetGroupWaveCount();
 
 // Raytracing
 void [[]]  TraceRay(in acceleration_struct AccelerationStructure, in uint RayFlags, in uint InstanceInclusionMask, in uint RayContributionToHitGroupIndex, in uint MultiplierForGeometryContributionToHitGroupIndex, in uint MissShaderIndex, in ray_desc Ray, inout udt Payload);
