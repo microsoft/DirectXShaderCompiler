@@ -1064,7 +1064,9 @@ class db_dxil(object):
                 "anyhit",
                 "closesthit",
             )
-        for name in ("RayQuery_CandidateClusterID,RayQuery_CommittedClusterID").split(","):
+        for name in ("RayQuery_CandidateClusterID,RayQuery_CommittedClusterID").split(
+            ","
+        ):
             i = self.name_idx[name]
             i.category = "Inline Ray Query"
             i.shader_model = 6, 10
@@ -6205,7 +6207,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "v", "", "operation result"), # TODO: $vec9
+                db_dxil_param(0, "v", "", "operation result"),  # TODO: $vec9
             ],
         )
         add_dxil_op(
@@ -6215,7 +6217,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "v", "", "operation result"), # TODO: $vec9
+                db_dxil_param(0, "v", "", "operation result"),  # TODO: $vec9
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -6226,7 +6228,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "v", "", "operation result"), # TODO: $vec9
+                db_dxil_param(0, "v", "", "operation result"),  # TODO: $vec9
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -6237,11 +6239,10 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "v", "", "operation result"), # TODO: $vec9
+                db_dxil_param(0, "v", "", "operation result"),  # TODO: $vec9
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
-
 
     def finalize_dxil_operations(self):
         "Finalize DXIL operations by setting properties and verifying consistency."
