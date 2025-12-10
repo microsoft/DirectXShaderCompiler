@@ -501,6 +501,12 @@ class db_dxil(object):
             for i in table:
                 yield i
 
+    def get_insts_by_names(self, *names):
+        "Get instructions by strings of names separated by commas."
+        for names_to_split in names:
+            for name in names_to_split.split(","):
+                yield self.name_idx[name.strip()]
+
     def add_dxil_op_table(self, id, name, doc):
         "Add a new DXIL operation table."
         assert name not in self.op_table_idx, f"DXIL op table '{name}' already exists"
@@ -1043,9 +1049,70 @@ class db_dxil(object):
         # Note: Experimental ops must be set to a shader model higher than the
         # most recent release until infrastructure is in place to opt-in to
         # experimental ops and the validator can force use of the PREVIEW hash.
-        for i in "ExperimentalNop".split(","):
-            self.name_idx[i].category = "No-op"
-            self.name_idx[i].shader_model = 6, 10
+
+        # Update experimental_sm to released + 1 minor version when highest
+        # released shader model is updated in latest-release.json.
+        experimental_sm = 6, 10
+
+        insts = self.get_insts_by_names
+
+        for i in insts("ExperimentalNop"):
+            i.category = "No-op"
+            i.shader_model = experimental_sm
+
+        # Group Wave Index / Count
+        for i in insts("GetGroupWaveIndex,GetGroupWaveCount"):
+            i.category = "Group Wave Ops"
+            i.shader_model = experimental_sm
+            i.shader_stages = ("compute", "mesh", "amplification", "library")
+            i.is_wave = True
+
+        # Clustered Geometry
+        for i in insts("ClusterID"):
+            i.category = "Raytracing uint System Values"
+            i.shader_model = experimental_sm
+            i.shader_stages = (
+                "library",
+                "anyhit",
+                "closesthit",
+            )
+        for i in insts("RayQuery_CandidateClusterID,RayQuery_CommittedClusterID"):
+            i.category = "Inline Ray Query"
+            i.shader_model = experimental_sm
+        for i in insts("HitObject_ClusterID"):
+            i.category = "Shader Execution Reordering"
+            i.shader_model = experimental_sm
+            i.shader_stages = (
+                "library",
+                "raygeneration",
+                "closesthit",
+                "miss",
+            )
+
+        # Triangle Object Positions
+        for i in insts("TriangleObjectPosition"):
+            i.category = "Raytracing System Values"
+            i.shader_model = experimental_sm
+            i.shader_stages = (
+                "library",
+                "anyhit",
+                "closesthit",
+            )
+        for i in insts(
+            "RayQuery_CandidateTriangleObjectPosition",
+            "RayQuery_CommittedTriangleObjectPosition",
+        ):
+            i.category = "Inline Ray Query"
+            i.shader_model = experimental_sm
+        for i in insts("HitObject_TriangleObjectPosition"):
+            i.category = "Shader Execution Reordering"
+            i.shader_model = experimental_sm
+            i.shader_stages = (
+                "library",
+                "raygeneration",
+                "closesthit",
+                "miss",
+            )
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -6063,8 +6130,10 @@ class db_dxil(object):
         op_table = self.add_dxil_op_table(
             0x8000, "ExperimentalOps", "Experimental DXIL operations"
         )
+        add_dxil_op = op_table.add_dxil_op
+
         # Add Nop to test experimental table infrastructure.
-        op_table.add_dxil_op(
+        add_dxil_op(
             "ExperimentalNop",
             "Nop",
             "nop does nothing",
@@ -6072,6 +6141,112 @@ class db_dxil(object):
             "rn",
             [
                 db_dxil_param(0, "v", "", "no result"),
+            ],
+        )
+
+        # Group Wave Operations
+        add_dxil_op(
+            "GetGroupWaveIndex",
+            "GetGroupWaveIndex",
+            "returns the index of the wave in the thread group",
+            "v",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result")],
+        )
+        add_dxil_op(
+            "GetGroupWaveCount",
+            "GetGroupWaveCount",
+            "returns the number of waves in the thread group",
+            "v",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result")],
+        )
+
+        # Clustered Geometry
+        add_dxil_op(
+            "ClusterID",
+            "ClusterID",
+            "returns the user-defined ClusterID of the intersected CLAS",
+            "v",
+            "rn",
+            [db_dxil_param(0, "i32", "", "result")],
+        )
+        add_dxil_op(
+            "RayQuery_CandidateClusterID",
+            "RayQuery_StateScalar",
+            "returns candidate hit cluster ID",
+            "v",
+            "ro",
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        add_dxil_op(
+            "RayQuery_CommittedClusterID",
+            "RayQuery_StateScalar",
+            "returns committed hit cluster ID",
+            "v",
+            "ro",
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        add_dxil_op(
+            "HitObject_ClusterID",
+            "HitObject_StateScalar",
+            "returns the cluster ID of this committed hit",
+            "v",
+            "rn",
+            [
+                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
+        )
+
+        # Triangle Object Positions
+        add_dxil_op(
+            "TriangleObjectPosition",
+            "TriangleObjectPosition",
+            "returns triangle vertices in object space as <9 x float>",
+            "f",
+            "rn",
+            [
+                db_dxil_param(0, "v", "", "operation result"),  # TODO: $vec9
+            ],
+        )
+        add_dxil_op(
+            "RayQuery_CandidateTriangleObjectPosition",
+            "RayQuery_CandidateTriangleObjectPosition",
+            "returns candidate triangle vertices in object space as <9 x float>",
+            "f",
+            "ro",
+            [
+                db_dxil_param(0, "v", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        add_dxil_op(
+            "RayQuery_CommittedTriangleObjectPosition",
+            "RayQuery_CommittedTriangleObjectPosition",
+            "returns committed triangle vertices in object space as <9 x float>",
+            "f",
+            "ro",
+            [
+                db_dxil_param(0, "v", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        add_dxil_op(
+            "HitObject_TriangleObjectPosition",
+            "HitObject_TriangleObjectPosition",
+            "returns triangle vertices in object space as <9 x float>",
+            "f",
+            "rn",
+            [
+                db_dxil_param(0, "v", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
 
