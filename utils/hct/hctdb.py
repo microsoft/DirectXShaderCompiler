@@ -1049,23 +1049,28 @@ class db_dxil(object):
         # Note: Experimental ops must be set to a shader model higher than the
         # most recent release until infrastructure is in place to opt-in to
         # experimental ops and the validator can force use of the PREVIEW hash.
+
+        # Update experimental_sm to released + 1 minor version when highest
+        # released shader model is updated in latest-release.json.
+        experimental_sm = 6, 10
+
         insts = self.get_insts_by_names
 
         for i in insts("ExperimentalNop"):
             i.category = "No-op"
-            i.shader_model = 6, 10
+            i.shader_model = experimental_sm
 
         # Group Wave Index / Count
         for i in insts("GetGroupWaveIndex,GetGroupWaveCount"):
             i.category = "Group Wave Ops"
-            i.shader_model = 6, 10
+            i.shader_model = experimental_sm
             i.shader_stages = ("compute", "mesh", "amplification", "library")
             i.is_wave = True
 
         # Clustered Geometry
         for i in insts("ClusterID"):
             i.category = "Raytracing uint System Values"
-            i.shader_model = 6, 10
+            i.shader_model = experimental_sm
             i.shader_stages = (
                 "library",
                 "anyhit",
@@ -1073,10 +1078,10 @@ class db_dxil(object):
             )
         for i in insts("RayQuery_CandidateClusterID,RayQuery_CommittedClusterID"):
             i.category = "Inline Ray Query"
-            i.shader_model = 6, 10
+            i.shader_model = experimental_sm
         for i in insts("HitObject_ClusterID"):
             i.category = "Shader Execution Reordering"
-            i.shader_model = 6, 10
+            i.shader_model = experimental_sm
             i.shader_stages = (
                 "library",
                 "raygeneration",
@@ -1087,7 +1092,7 @@ class db_dxil(object):
         # Triangle Object Positions
         for i in insts("TriangleObjectPosition"):
             i.category = "Raytracing System Values"
-            i.shader_model = 6, 10
+            i.shader_model = experimental_sm
             i.shader_stages = (
                 "library",
                 "anyhit",
@@ -1098,10 +1103,10 @@ class db_dxil(object):
             "RayQuery_CommittedTriangleObjectPosition",
         ):
             i.category = "Inline Ray Query"
-            i.shader_model = 6, 10
+            i.shader_model = experimental_sm
         for i in insts("HitObject_TriangleObjectPosition"):
             i.category = "Shader Execution Reordering"
-            i.shader_model = 6, 10
+            i.shader_model = experimental_sm
             i.shader_stages = (
                 "library",
                 "raygeneration",
