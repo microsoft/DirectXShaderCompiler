@@ -1043,20 +1043,23 @@ class db_dxil(object):
         # Note: Experimental ops must be set to a shader model higher than the
         # most recent release until infrastructure is in place to opt-in to
         # experimental ops and the validator can force use of the PREVIEW hash.
-        for name in "ExperimentalNop".split(","):
-            i = self.name_idx[name]
+        def ops(*names_to_split):
+            "Supply one or more [comma-separated] strings of names, to yield ops."
+            for names in names_to_split:
+                for name in names.split(","):
+                    yield self.name_idx[name]
+
+        for i in ops("ExperimentalNop"):
             i.category = "No-op"
             i.shader_model = 6, 10
 
         # Group Wave Index / Count
-        for name in "GetGroupWaveIndex,GetGroupWaveCount".split(","):
-            i = self.name_idx[name]
+        for i in ops("GetGroupWaveIndex,GetGroupWaveCount"):
             i.category = "Wave"
             i.shader_model = 6, 10
 
         # Clustered Geometry
-        for name in ("ClusterID").split(","):
-            i = self.name_idx[name]
+        for i in ops("ClusterID"):
             i.category = "Raytracing uint System Values"
             i.shader_model = 6, 10
             i.shader_stages = (
@@ -1064,14 +1067,10 @@ class db_dxil(object):
                 "anyhit",
                 "closesthit",
             )
-        for name in ("RayQuery_CandidateClusterID,RayQuery_CommittedClusterID").split(
-            ","
-        ):
-            i = self.name_idx[name]
+        for i in ops("RayQuery_CandidateClusterID,RayQuery_CommittedClusterID"):
             i.category = "Inline Ray Query"
             i.shader_model = 6, 10
-        for name in ("HitObject_ClusterID").split(","):
-            i = self.name_idx[name]
+        for i in ops("HitObject_ClusterID"):
             i.category = "Shader Execution Reordering"
             i.shader_model = 6, 10
             i.shader_stages = (
@@ -1082,8 +1081,7 @@ class db_dxil(object):
             )
 
         # Triangle Object Positions
-        for name in ("TriangleObjectPosition").split(","):
-            i = self.name_idx[name]
+        for i in ops("TriangleObjectPosition"):
             i.category = "Raytracing System Values"
             i.shader_model = 6, 10
             i.shader_stages = (
@@ -1091,14 +1089,13 @@ class db_dxil(object):
                 "anyhit",
                 "closesthit",
             )
-        for name in (
-            "RayQuery_CandidateTriangleObjectPosition,RayQuery_CommittedTriangleObjectPosition"
-        ).split(","):
-            i = self.name_idx[name]
+        for i in ops(
+            "RayQuery_CandidateTriangleObjectPosition",
+            "RayQuery_CommittedTriangleObjectPosition",
+        ):
             i.category = "Inline Ray Query"
             i.shader_model = 6, 10
-        for name in ("HitObject_TriangleObjectPosition").split(","):
-            i = self.name_idx[name]
+        for i in ops("HitObject_TriangleObjectPosition"):
             i.category = "Shader Execution Reordering"
             i.shader_model = 6, 10
             i.shader_stages = (
