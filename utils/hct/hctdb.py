@@ -1045,9 +1045,9 @@ class db_dxil(object):
         # experimental ops and the validator can force use of the PREVIEW hash.
         for i in "ExperimentalNop".split(","):
             # Update instructions for when release shader model is updated:
-            # set minor version to released SM + 2 for testing purposes
+            # set shader_model to latest experimental (like released + 1 minor)
             self.name_idx[i].category = "No-op"
-            self.name_idx[i].shader_model = 6, 11
+            self.name_idx[i].shader_model = 6, 10
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.

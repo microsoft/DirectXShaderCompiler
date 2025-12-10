@@ -3636,16 +3636,10 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: MatVecMul=305, MatVecMulAdd=306, OuterProductAccumulate=307,
-  // VectorAccumulate=308
-  if ((305 <= op && op <= 308)) {
+  // VectorAccumulate=308, ExperimentalNop=2147483648
+  if ((305 <= op && op <= 308) || op == 2147483648) {
     major = 6;
     minor = 10;
-    return;
-  }
-  // Instructions: ExperimentalNop=2147483648
-  if (op == 2147483648) {
-    major = 6;
-    minor = 11;
     return;
   }
   // OPCODE-SMMASK:END

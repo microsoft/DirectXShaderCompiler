@@ -6,7 +6,7 @@ target triple = "dxil-ms-dx"
 ; Test that an experimental opcode is not allowed in a non-experimental shader model.
 
 ; Update instructions for when release shader model is updated:
-; After updating ExperimentalNop shader_model to latest release + 2 in hctdb.py:
+; After updating ExperimentalNop shader_model to latest experimental in hctdb.py:
 ; Update metadata to latest released:
 ; - !1 metadata for DXIL version
 ; - !2 metadata for shader model
