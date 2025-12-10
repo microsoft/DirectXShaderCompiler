@@ -2729,7 +2729,7 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      {},
      {}}, // Overloads: v
 
-    // Wave
+    // Group Wave Ops
     {OC::GetGroupWaveIndex,
      "GetGroupWaveIndex",
      OCC::GetGroupWaveIndex,
@@ -3160,9 +3160,11 @@ bool OP::IsDxilOpWave(OpCode C) {
   // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
   // WavePrefixOp=121, QuadReadLaneAt=122, QuadOp=123, WaveAllBitCount=135,
   // WavePrefixBitCount=136, WaveMatch=165, WaveMultiPrefixOp=166,
-  // WaveMultiPrefixBitCount=167, QuadVote=222
+  // WaveMultiPrefixBitCount=167, QuadVote=222, GetGroupWaveIndex=2147483649,
+  // GetGroupWaveCount=2147483650
   return (110 <= op && op <= 123) || (135 <= op && op <= 136) ||
-         (165 <= op && op <= 167) || op == 222;
+         (165 <= op && op <= 167) || op == 222 ||
+         (2147483649 <= op && op <= 2147483650);
   // OPCODE-WAVE:END
 }
 
@@ -3731,16 +3733,22 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   }
   // Instructions: MatVecMul=305, MatVecMulAdd=306, OuterProductAccumulate=307,
   // VectorAccumulate=308, ExperimentalNop=2147483648,
-  // GetGroupWaveIndex=2147483649, GetGroupWaveCount=2147483650,
   // RayQuery_CandidateClusterID=2147483652,
   // RayQuery_CommittedClusterID=2147483653,
   // RayQuery_CandidateTriangleObjectPosition=2147483656,
   // RayQuery_CommittedTriangleObjectPosition=2147483657
-  if ((305 <= op && op <= 308) || (2147483648 <= op && op <= 2147483650) ||
+  if ((305 <= op && op <= 308) || op == 2147483648 ||
       (2147483652 <= op && op <= 2147483653) ||
       (2147483656 <= op && op <= 2147483657)) {
     major = 6;
     minor = 10;
+    return;
+  }
+  // Instructions: GetGroupWaveIndex=2147483649, GetGroupWaveCount=2147483650
+  if ((2147483649 <= op && op <= 2147483650)) {
+    major = 6;
+    minor = 10;
+    mask = SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification) | SFLAG(Library);
     return;
   }
   // Instructions: ClusterID=2147483651, TriangleObjectPosition=2147483655
@@ -6265,7 +6273,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
 
-    // Wave
+    // Group Wave Ops
   case OpCode::GetGroupWaveIndex:
     A(pI32);
     A(pI32);

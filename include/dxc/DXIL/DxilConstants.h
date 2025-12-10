@@ -511,6 +511,10 @@ namespace ExperimentalOps {
 static const OpCodeTableID TableID = OpCodeTableID::ExperimentalOps;
 // Enumeration for ExperimentalOps DXIL operations
 enum class OpCode : unsigned {
+  // Group Wave Ops
+  GetGroupWaveCount = 2, // returns the number of waves in the thread group
+  GetGroupWaveIndex = 1, // returns the index of the wave in the thread group
+
   // Inline Ray Query
   RayQuery_CandidateClusterID = 4, // returns candidate hit cluster ID
   RayQuery_CandidateTriangleObjectPosition =
@@ -533,10 +537,6 @@ enum class OpCode : unsigned {
   HitObject_ClusterID = 6, // Returns the cluster ID of this committed hit
   HitObject_TriangleObjectPosition =
       10, // Returns triangle vertices in object space as <9 x float>
-
-  // Wave
-  GetGroupWaveCount = 2, // returns the number of waves in the thread group
-  GetGroupWaveIndex = 1, // returns the index of the wave in the thread group
 
   NumOpCodes = 11, // exclusive last value of enumeration
 };
@@ -1298,6 +1298,10 @@ enum class OpCodeClass : unsigned {
   // Graphics shader
   ViewID,
 
+  // Group Wave Ops
+  GetGroupWaveCount,
+  GetGroupWaveIndex,
+
   // Helper Lanes
   IsHelperLane,
 
@@ -1503,8 +1507,6 @@ enum class OpCodeClass : unsigned {
   VectorReduce,
 
   // Wave
-  GetGroupWaveCount,
-  GetGroupWaveIndex,
   WaveActiveAllEqual,
   WaveActiveBallot,
   WaveActiveBit,
