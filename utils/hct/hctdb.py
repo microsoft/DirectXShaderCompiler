@@ -501,6 +501,12 @@ class db_dxil(object):
             for i in table:
                 yield i
 
+    def get_insts_by_names(self, *names):
+        "Get instructions by strings of names separated by commas."
+        for names_to_split in names:
+            for name in names_to_split.split(","):
+                yield self.name_idx[name.strip()]
+
     def add_dxil_op_table(self, id, name, doc):
         "Add a new DXIL operation table."
         assert name not in self.op_table_idx, f"DXIL op table '{name}' already exists"
@@ -1043,11 +1049,7 @@ class db_dxil(object):
         # Note: Experimental ops must be set to a shader model higher than the
         # most recent release until infrastructure is in place to opt-in to
         # experimental ops and the validator can force use of the PREVIEW hash.
-        def insts(*names_to_split):
-            "Supply one or more [comma-separated] strings of names, to yield instructions."
-            for names in names_to_split:
-                for name in names.split(","):
-                    yield self.name_idx[name]
+        insts = self.get_insts_by_names
 
         for i in insts("ExperimentalNop"):
             i.category = "No-op"
