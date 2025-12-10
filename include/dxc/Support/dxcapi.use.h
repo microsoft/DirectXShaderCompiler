@@ -69,7 +69,9 @@ class SpecificDllLoader : public DllLoader {
       return S_OK;
 
 #ifdef _WIN32
-    m_dll = LoadLibraryA(dllName);
+    m_dll = LoadLibraryA(
+        dllName); // CodeQL [SM01925] This is by design, intended to be used to
+                  // test multiple validators versions.
     if (m_dll == nullptr)
       return HRESULT_FROM_WIN32(GetLastError());
     m_createFn = (DxcCreateInstanceProc)GetProcAddress(m_dll, fnName);
@@ -81,7 +83,9 @@ class SpecificDllLoader : public DllLoader {
       return hr;
     }
 #else
-    m_dll = ::dlopen(dllName, RTLD_LAZY);
+    m_dll = ::dlopen(
+        dllName, RTLD_LAZY); // CodeQL [SM01925] This is by design, intended to
+                             // be used to test multiple validators versions.
     if (m_dll == nullptr)
       return E_FAIL;
     m_createFn = (DxcCreateInstanceProc)::dlsym(m_dll, fnName);
