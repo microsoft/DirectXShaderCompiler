@@ -9,16 +9,16 @@ struct S {      // Alignment    Offset                                Size      
     float  sf2; // 4         -> 8                                   + 4         = 12
     float3 sf3; // 4         -> 12                                  + 4 * 3     = 24
     float  sf4; // 4         -> 24                                  + 4         = 28
-};              // 8(max)                                                         28
+};              // 8(max)                                                         32 (size rounded up to alignment)
 
 struct T {                     // Alignment     Offset                               Size              = Next
               int      tf1;    // 4          -> 0                                  + 4                 = 4
               R        tf2[3]; // 8          -> 8 (4 round up to R alignment)      + 3 * stride(8)     = 32
               float3x2 tf3;    // 4          -> 32                                 + 4 * 3 * 2         = 56
-              S        tf4;    // 8          -> 56                                 + 28                = 84
-             float16_t tf5;    // 2          -> 84                                 + 2                 = 86
-              float    tf6;    // 4          -> 88 (86 round up to float align)    + 4                 = 92
-};                             // 8(max)                                                                 92
+              S        tf4;    // 8          -> 56                                 + 32                = 88
+             float16_t tf5;    // 2          -> 88                                 + 2                 = 90
+              float    tf6;    // 4          -> 92 (90 round up to float align)    + 4                 = 96
+};                             // 8(max)                                                                 96
 
 cbuffer MyCBuffer {              // Alignment   Offset                                 Size                     Next
                  bool     a;     // 4        -> 0                                    +     4                  = 4
@@ -29,8 +29,8 @@ cbuffer MyCBuffer {              // Alignment   Offset                          
                  float2x1 f;     // 4        -> 68                                   + 4 * 2                  = 76
     row_major    float2x3 g[3];  // 4        -> 76                                   + 4 * 2 * 3 * 3          = 148
     column_major float2x2 h[4];  // 4        -> 148                                  + 4 * 2 * 2 * 4          = 212
-                 T        t;     // 8        -> 216 (212 round up to T    alignment) + 92                     = 308
-                 float    z;     // 4        -> 308
+                 T        t;     // 8        -> 216 (212 round up to T    alignment) + 96                     = 312
+                 float    z;     // 4        -> 312
 };
 
 // CHECK:      OpDecorate %_arr_mat2v3float_uint_3 ArrayStride 24
@@ -51,8 +51,8 @@ cbuffer MyCBuffer {              // Alignment   Offset                          
 // CHECK-NEXT: OpMemberDecorate %T 2 MatrixStride 12
 // CHECK-NEXT: OpMemberDecorate %T 2 RowMajor
 // CHECK-NEXT: OpMemberDecorate %T 3 Offset 56
-// CHECK-NEXT: OpMemberDecorate %T 4 Offset 84
-// CHECK-NEXT: OpMemberDecorate %T 5 Offset 88
+// CHECK-NEXT: OpMemberDecorate %T 4 Offset 88
+// CHECK-NEXT: OpMemberDecorate %T 5 Offset 92
 
 // CHECK:      OpMemberDecorate %type_MyCBuffer 0 Offset 0
 // CHECK-NEXT: OpMemberDecorate %type_MyCBuffer 1 Offset 4
@@ -71,7 +71,7 @@ cbuffer MyCBuffer {              // Alignment   Offset                          
 // CHECK-NEXT: OpMemberDecorate %type_MyCBuffer 7 MatrixStride 8
 // CHECK-NEXT: OpMemberDecorate %type_MyCBuffer 7 RowMajor
 // CHECK-NEXT: OpMemberDecorate %type_MyCBuffer 8 Offset 216
-// CHECK-NEXT: OpMemberDecorate %type_MyCBuffer 9 Offset 308
+// CHECK-NEXT: OpMemberDecorate %type_MyCBuffer 9 Offset 312
 // CHECK-NEXT: OpDecorate %type_MyCBuffer Block
 
 float main() : A {
