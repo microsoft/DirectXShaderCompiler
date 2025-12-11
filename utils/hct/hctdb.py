@@ -162,9 +162,46 @@ class db_dxil_inst(object):
 
         self.num_oloads = 0
 
+        # Overload Note: There are operations that really didn't need
+        # overload types, and originally did not use any overload types in the
+        # operands, but specified a single overload type in the oload_types.
+        # These have been updated to use the overload type in the appropriate
+        # place, rather than changing the overload type to "v", because Changing
+        # the oload_types to "v" would change the name of the function in DXIL,
+        # which could be breaking for some DXIL consumers, depending on how they
+        # interpret the DXIL.  So, there are "Overload Note:" comments on
+        # certain DXIL op definitions to highlight these cases.
+
+        # While these could technically be cleaned up, the external impact would
+        # be large and it's unlikely to ever be worth it.
+
+        # Other cases specified one overload type and could potentially have
+        # used the specified overload, but were not currently using it in the
+        # operands (like system value getters).  These have been updated to use
+        # the overload type in the operands, without adding the comment, and
+        # could support additional overloads in the future (like for half or
+        # int16).
+
+        def uses_oload_types(inst):
+            "Return true if any operand uses an overload type."
+            for op in inst.ops:
+                # All overload types start with a '$'
+                if op.llvm_type[0] == "$":
+                    return True
+
         # Early out for void overloads.
         if self.oload_types == "v":
+            if uses_oload_types(self):
+                raise ValueError(
+                    f"void overloads 'v' used with overloaded operand type(s) for '({self.name})'"
+                )
             return
+
+        if not uses_oload_types(self):
+            raise ValueError(
+                f"'({self.name})' specifies overloads ({self.oload_types}), "
+                + "but no overload types used in operands"
+            )
 
         if self.oload_types == "":
             raise ValueError(
@@ -2523,6 +2560,9 @@ class db_dxil(object):
             ],
             counters=("atomic",),
         )
+        # Overload Note: CheckAccessFullyMapped is overloaded "i" for historical
+        # reasons, but doesn't use this. Note that "$o" for operand 2 here can
+        # only ever be "i32".
         add_dxil_op(
             "CheckAccessFullyMapped",
             "CheckAccessFullyMapped",
@@ -2538,7 +2578,7 @@ class db_dxil(object):
                 ),
                 db_dxil_param(
                     2,
-                    "u32",
+                    "$o",
                     "status",
                     "status result from the Sample, Gather or Load operation",
                 ),
@@ -2734,6 +2774,10 @@ class db_dxil(object):
         )
 
         # Pixel shader
+        # Overload Note: CalculateLOD is overloaded "f", but didn't use
+        # any overload type. Operands 4-6 used to be "f", but have been changed
+        # to use the overload type "$o". In the future, this operation could be
+        # overloaded for half precision coordinates.
         add_dxil_op(
             "CalculateLOD",
             "CalculateLOD",
@@ -2744,9 +2788,9 @@ class db_dxil(object):
                 db_dxil_param(0, "f", "", "level of detail"),
                 db_dxil_param(2, "res", "handle", "resource handle"),
                 db_dxil_param(3, "res", "sampler", "sampler handle"),
-                db_dxil_param(4, "f", "coord0", "coordinate"),
-                db_dxil_param(5, "f", "coord1", "coordinate"),
-                db_dxil_param(6, "f", "coord2", "coordinate"),
+                db_dxil_param(4, "$o", "coord0", "coordinate"),
+                db_dxil_param(5, "$o", "coord1", "coordinate"),
+                db_dxil_param(6, "$o", "coord2", "coordinate"),
                 db_dxil_param(
                     7,
                     "i1",
@@ -2902,7 +2946,7 @@ class db_dxil(object):
             "returns the sample index in a sample-frequency pixel shader",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
         add_dxil_op(
             "Coverage",
@@ -2910,7 +2954,7 @@ class db_dxil(object):
             "returns the coverage mask input in a pixel shader",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
         add_dxil_op(
             "InnerCoverage",
@@ -2918,7 +2962,7 @@ class db_dxil(object):
             "returns underestimated coverage input from conservative rasterization in a pixel shader",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # Compute shader.
@@ -2929,7 +2973,7 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "thread ID component"),
+                db_dxil_param(0, "$o", "", "thread ID component"),
                 db_dxil_param(2, "i32", "component", "component to read (x,y,z)"),
             ],
         )
@@ -2940,7 +2984,7 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "group ID component"),
+                db_dxil_param(0, "$o", "", "group ID component"),
                 db_dxil_param(2, "i32", "component", "component to read"),
             ],
         )
@@ -2951,7 +2995,7 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "thread ID in group component"),
+                db_dxil_param(0, "$o", "", "thread ID in group component"),
                 db_dxil_param(2, "i32", "component", "component to read (x,y,z)"),
             ],
         )
@@ -2961,7 +3005,7 @@ class db_dxil(object):
             "provides a flattened index for a given thread within a given group (SV_GroupIndex)",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # Geometry shader
@@ -3007,10 +3051,12 @@ class db_dxil(object):
             "GSInstanceID",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # Double precision
+        # Overload Note: MakeDouble is overloaded "d" for historical reasons,
+        # but doesn't use this. The result "$o" can only ever be "double".
         add_dxil_op(
             "MakeDouble",
             "MakeDouble",
@@ -3018,11 +3064,13 @@ class db_dxil(object):
             "d",
             "rn",
             [
-                db_dxil_param(0, "d", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i32", "lo", "low part of double"),
                 db_dxil_param(3, "i32", "hi", "high part of double"),
             ],
         )
+        # Overload Note: SplitDouble is overloaded "d" for historical reasons,
+        # but doesn't use this. Operand 2 "$o" can only ever be "double".
         add_dxil_op(
             "SplitDouble",
             "SplitDouble",
@@ -3031,7 +3079,7 @@ class db_dxil(object):
             "rn",
             [
                 db_dxil_param(0, "splitdouble", "", "result"),
-                db_dxil_param(2, "d", "value", "value to split"),
+                db_dxil_param(2, "$o", "value", "value to split"),
             ],
         )
 
@@ -3074,7 +3122,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "component", "input", is_const=True),
             ],
         )
@@ -3101,7 +3149,7 @@ class db_dxil(object):
             "OutputControlPointID",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
         add_dxil_op(
             "PrimitiveID",
@@ -3109,7 +3157,7 @@ class db_dxil(object):
             "PrimitiveID",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         add_dxil_op(
@@ -3546,7 +3594,7 @@ class db_dxil(object):
             "returns the view index",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # End of DXIL 1.1 opcodes.
@@ -3641,7 +3689,7 @@ class db_dxil(object):
             "The user-provided InstanceID on the bottom-level acceleration structure instance within the top-level structure",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         add_dxil_op(
@@ -3650,7 +3698,7 @@ class db_dxil(object):
             "The autogenerated index of the current instance in the top-level structure",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         add_dxil_op(
@@ -3659,7 +3707,7 @@ class db_dxil(object):
             "Returns the value passed as HitKind in ReportIntersection().  If intersection was reported by fixed-function triangle intersection, HitKind will be one of HIT_KIND_TRIANGLE_FRONT_FACE or HIT_KIND_TRIANGLE_BACK_FACE.",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         add_dxil_op(
@@ -3668,7 +3716,7 @@ class db_dxil(object):
             "uint containing the current ray flags.",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         add_dxil_op(
@@ -3678,7 +3726,7 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "col", "column, relative to the element"),
             ],
         )
@@ -3690,7 +3738,7 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "col", "column, relative to the element"),
             ],
         )
@@ -3702,7 +3750,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "col", "column, relative to the element"),
             ],
         )
@@ -3714,7 +3762,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "col", "column, relative to the element"),
             ],
         )
@@ -3726,7 +3774,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "col", "column, relative to the element"),
             ],
         )
@@ -3738,7 +3786,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "col", "column, relative to the element"),
             ],
         )
@@ -3750,7 +3798,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i32", "row", "row, relative to the element"),
                 db_dxil_param(3, "i8", "col", "column, relative to the element"),
             ],
@@ -3763,7 +3811,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i32", "row", "row, relative to the element"),
                 db_dxil_param(3, "i8", "col", "column, relative to the element"),
             ],
@@ -3775,7 +3823,7 @@ class db_dxil(object):
             "float representing the parametric starting point for the ray.",
             "f",
             "rn",
-            [db_dxil_param(0, "f", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         add_dxil_op(
@@ -3784,7 +3832,7 @@ class db_dxil(object):
             "float representing the current parametric ending point for the ray",
             "f",
             "ro",
-            [db_dxil_param(0, "f", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         add_dxil_op(
@@ -3854,7 +3902,7 @@ class db_dxil(object):
                 db_dxil_param(15, "f", "TMax", "Tmax of the ray"),
                 db_dxil_param(
                     16,
-                    "udt",
+                    "$udt",
                     "payload",
                     "User-defined intersection attribute structure",
                 ),
@@ -3880,7 +3928,7 @@ class db_dxil(object):
                 ),
                 db_dxil_param(
                     4,
-                    "udt",
+                    "$udt",
                     "Attributes",
                     "User-defined intersection attribute structure",
                 ),
@@ -3903,7 +3951,7 @@ class db_dxil(object):
                 ),
                 db_dxil_param(
                     3,
-                    "udt",
+                    "$udt",
                     "Parameter",
                     "User-defined parameters to pass to the callable shader,This parameter structure must match the parameter structure used in the callable shader pointed to in the shader table",
                 ),
@@ -3918,7 +3966,7 @@ class db_dxil(object):
             "ro",
             [
                 db_dxil_param(0, "res", "", "result"),
-                db_dxil_param(2, "obj", "Resource", "resource to create the handle"),
+                db_dxil_param(2, "$obj", "Resource", "resource to create the handle"),
             ],
         )
 
@@ -3929,7 +3977,7 @@ class db_dxil(object):
             "PrimitiveIndex for raytracing shaders",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # End of DXIL 1.3 opcodes.
@@ -3965,8 +4013,8 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "accumulated result"),
-                db_dxil_param(2, "i32", "acc", "input accumulator"),
+                db_dxil_param(0, "$o", "", "accumulated result"),
+                db_dxil_param(2, "$o", "acc", "input accumulator"),
                 db_dxil_param(3, "i32", "a", "first packed 4 x i8 for dot product"),
                 db_dxil_param(4, "i32", "b", "second packed 4 x i8 for dot product"),
             ],
@@ -3980,8 +4028,8 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "accumulated result"),
-                db_dxil_param(2, "i32", "acc", "input accumulator"),
+                db_dxil_param(0, "$o", "", "accumulated result"),
+                db_dxil_param(2, "$o", "acc", "input accumulator"),
                 db_dxil_param(3, "i32", "a", "first packed 4 x u8 for dot product"),
                 db_dxil_param(4, "i32", "b", "second packed 4 x u8 for dot product"),
             ],
@@ -4344,7 +4392,7 @@ class db_dxil(object):
             "1",
             "",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4395,7 +4443,7 @@ class db_dxil(object):
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4407,7 +4455,7 @@ class db_dxil(object):
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4419,7 +4467,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
                 db_dxil_param(4, "i8", "col", "column [0..3], relative to the element"),
@@ -4433,7 +4481,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
                 db_dxil_param(4, "i8", "col", "column [0..3], relative to the element"),
@@ -4447,7 +4495,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
                 db_dxil_param(4, "i8", "col", "column [0..3], relative to the element"),
@@ -4461,7 +4509,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
                 db_dxil_param(4, "i8", "col", "column [0..3], relative to the element"),
@@ -4475,7 +4523,7 @@ class db_dxil(object):
             "1",
             "ro",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4487,7 +4535,7 @@ class db_dxil(object):
             "1",
             "ro",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4499,7 +4547,7 @@ class db_dxil(object):
             "1",
             "ro",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4511,7 +4559,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
@@ -4524,7 +4572,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
@@ -4537,7 +4585,7 @@ class db_dxil(object):
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4549,7 +4597,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
@@ -4562,7 +4610,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
@@ -4575,7 +4623,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4587,7 +4635,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4599,7 +4647,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4611,7 +4659,7 @@ class db_dxil(object):
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4623,7 +4671,7 @@ class db_dxil(object):
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4635,7 +4683,7 @@ class db_dxil(object):
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4647,7 +4695,7 @@ class db_dxil(object):
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4659,7 +4707,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
@@ -4672,7 +4720,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
@@ -4685,7 +4733,7 @@ class db_dxil(object):
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4697,7 +4745,7 @@ class db_dxil(object):
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4709,7 +4757,7 @@ class db_dxil(object):
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4721,7 +4769,7 @@ class db_dxil(object):
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4733,7 +4781,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
@@ -4746,7 +4794,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
@@ -4758,7 +4806,7 @@ class db_dxil(object):
             "The autogenerated index of the current geometry in the bottom-level structure",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         add_dxil_op(
@@ -4768,7 +4816,7 @@ class db_dxil(object):
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4780,7 +4828,7 @@ class db_dxil(object):
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4888,13 +4936,15 @@ class db_dxil(object):
             ],
         )
 
+        # Overload Note: IsHelperLane specifies overloads "1" for historical
+        # reasons, but doesn't use this. The return "$o" will always be i1.
         add_dxil_op(
             "IsHelperLane",
             "IsHelperLane",
             "returns true on helper lanes in pixel shaders",
             "1",
             "ro",
-            [db_dxil_param(0, "i1", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # End of DXIL 1.6 opcodes.
@@ -5408,7 +5458,7 @@ class db_dxil(object):
             "returns the BaseVertexLocation from DrawIndexedInstanced or StartVertexLocation from DrawInstanced",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         add_dxil_op(
@@ -5417,7 +5467,7 @@ class db_dxil(object):
             "returns the StartInstanceLocation from Draw*Instanced",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # End of DXIL 1.8 opcodes.
@@ -5511,7 +5561,7 @@ class db_dxil(object):
                 db_dxil_param(15, "f", "TMax", "Tmax of the ray"),
                 db_dxil_param(
                     16,
-                    "udt",
+                    "$udt",
                     "payload",
                     "User-defined payload structure",
                 ),
@@ -5549,7 +5599,7 @@ class db_dxil(object):
                     "HitKind",
                     "User-specified value in range of 0-127 to identify the type of hit",
                 ),
-                db_dxil_param(4, "udt", "CommittedAttribs", "Committed attributes"),
+                db_dxil_param(4, "$udt", "CommittedAttribs", "Committed attributes"),
             ],
         )
 
@@ -5594,7 +5644,7 @@ class db_dxil(object):
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(
                     3,
-                    "udt",
+                    "$udt",
                     "payload",
                     "User-defined payload structure",
                 ),
@@ -5627,7 +5677,7 @@ class db_dxil(object):
             "1",
             "rn",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -5639,7 +5689,7 @@ class db_dxil(object):
             "1",
             "rn",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -5651,7 +5701,7 @@ class db_dxil(object):
             "1",
             "rn",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -5663,7 +5713,7 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -5675,7 +5725,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -5687,7 +5737,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -5699,7 +5749,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True),
             ],
@@ -5712,7 +5762,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True),
             ],
@@ -5725,7 +5775,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True),
             ],
@@ -5738,7 +5788,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True),
             ],
@@ -5751,7 +5801,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(
                     3,
@@ -5777,7 +5827,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(
                     3,
@@ -5803,7 +5853,7 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -5815,7 +5865,7 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -5827,7 +5877,7 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -5839,7 +5889,7 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -5851,7 +5901,7 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -5863,7 +5913,7 @@ class db_dxil(object):
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -5906,7 +5956,7 @@ class db_dxil(object):
                 retvoid_param,
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(
-                    3, "udt", "attributes", "pointer to store the attributes to"
+                    3, "$udt", "attributes", "pointer to store the attributes to"
                 ),
             ],
         )
@@ -6175,10 +6225,10 @@ class db_dxil(object):
             "RayQuery_CandidateClusterID",
             "RayQuery_StateScalar",
             "returns candidate hit cluster ID",
-            "v",
+            "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -6186,10 +6236,10 @@ class db_dxil(object):
             "RayQuery_CommittedClusterID",
             "RayQuery_StateScalar",
             "returns committed hit cluster ID",
-            "v",
+            "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -6197,10 +6247,10 @@ class db_dxil(object):
             "HitObject_ClusterID",
             "HitObject_StateScalar",
             "returns the cluster ID of this committed hit",
-            "v",
+            "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -6213,7 +6263,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "v", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(0, "$o", "", "operation result"),  # TODO: $vec9
             ],
         )
         add_dxil_op(
@@ -6223,7 +6273,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "v", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(0, "$o", "", "operation result"),  # TODO: $vec9
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -6234,7 +6284,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "v", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(0, "$o", "", "operation result"),  # TODO: $vec9
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -6245,7 +6295,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "v", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(0, "$o", "", "operation result"),  # TODO: $vec9
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
@@ -6285,10 +6335,12 @@ class db_dxil(object):
                 )
                 self.verify_dense(i.ops, lambda x: x.pos, lambda x: i.name)
 
-        # Verify that all operations in each class have the same signature.
+        self.verify_dxil_op_classes()
+
+    def verify_dxil_op_classes(self):
+        "Verify that all DXIL operations in each class have the same signature."
         import itertools
 
-        class_sort_func = lambda x, y: x < y
         class_key_func = lambda x: x.dxil_class
         instr_ordered_by_class = sorted(self.get_dxil_ops(), key=class_key_func)
         instr_grouped_by_class = itertools.groupby(
@@ -6296,20 +6348,39 @@ class db_dxil(object):
         )
 
         def calc_oload_sig(inst):
-            result = ""
-            for o in inst.ops:
-                result += o.llvm_type
+            # if function class is ever overloaded, no "v" oload should be used
+            oload = "void" if inst.oload_types == "v" else "overloaded"
+            result = f"{inst.fn_attr}|{oload}("
+            result += ",".join([o.llvm_type for o in inst.ops]) + ")"
             return result
 
+        inconsistencies = []
         for k, g in instr_grouped_by_class:
+            inconsistencies_in_class = []
             group = list(g)
             if len(group) > 1:
                 first = group[0]
-                first_group = calc_oload_sig(first)
+                first_sig = calc_oload_sig(first)
                 for other in group[1:]:
-                    other_group = calc_oload_sig(other)
-                    # TODO: uncomment assert when opcodes are fixed
-                    # assert first_group == other_group, "overload signature %s for instruction %s differs from %s in %s" % (first.name, first_group, other.name, other_group)
+                    if other.name == "WavePrefixBitCount":
+                        # known exception - this op is overloaded but has different signature for "v" oload
+                        continue
+                    other_sig = calc_oload_sig(other)
+                    if first_sig != other_sig:
+                        inconsistencies_in_class.append((other, other_sig))
+            if inconsistencies_in_class:
+                inconsistencies.append(
+                    "Inconsistent overload signatures for DXIL op class "
+                    + f"{first.dxil_class} first: {first.name} '{first_sig}', others:\n"
+                    + "\n".join(
+                        [
+                            f"    {other.name} '{other_sig}'"
+                            for other, other_sig in inconsistencies_in_class
+                        ]
+                    )
+                )
+        if inconsistencies:
+            raise RuntimeError("\n".join(inconsistencies))
 
     def populate_extended_docs(self):
         "Update the documentation with text from external files."
