@@ -112,7 +112,7 @@ jobs:
       - name: Fetch code formatting utils
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: microsoft/DirectXShaderCompiler
+          repository: Devsh-Graphics-Programming/DirectXShaderCompiler
           ref: ${{ github.base_ref }}
           sparse-checkout: |
             utils/git/requirements_formatting.txt
