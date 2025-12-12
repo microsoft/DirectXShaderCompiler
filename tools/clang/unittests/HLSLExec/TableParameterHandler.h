@@ -75,8 +75,7 @@ public:
   template <class T1> std::vector<T1> *GetDataArray(LPCWSTR name);
 };
 
-// Static helpers
-static bool IsHexString(PCWSTR str, uint16_t *value) {
+inline bool IsHexString(PCWSTR str, uint16_t *value) {
   std::wstring wString(str);
   wString.erase(std::remove(wString.begin(), wString.end(), L' '),
                 wString.end());
@@ -88,7 +87,7 @@ static bool IsHexString(PCWSTR str, uint16_t *value) {
   return false;
 }
 
-static HRESULT ParseDataToFloat(PCWSTR str, float &value) {
+inline HRESULT ParseDataToFloat(PCWSTR str, float &value) {
   std::wstring wString(str);
   wString.erase(std::remove(wString.begin(), wString.end(), L' '),
                 wString.end());
@@ -127,7 +126,7 @@ static HRESULT ParseDataToFloat(PCWSTR str, float &value) {
   return S_OK;
 }
 
-static HRESULT ParseDataToUint(PCWSTR str, unsigned int &value) {
+inline HRESULT ParseDataToUint(PCWSTR str, unsigned int &value) {
   std::wstring wString(str);
   wString.erase(std::remove(wString.begin(), wString.end(), L' '),
                 wString.end());
@@ -147,7 +146,7 @@ static HRESULT ParseDataToUint(PCWSTR str, unsigned int &value) {
   return S_OK;
 }
 
-static HRESULT ParseDataToVectorFloat(PCWSTR str, float *ptr, size_t count) {
+inline HRESULT ParseDataToVectorFloat(PCWSTR str, float *ptr, size_t count) {
   std::wstring wstr(str);
   size_t curPosition = 0;
   // parse a string of dot product separated by commas
@@ -163,7 +162,7 @@ static HRESULT ParseDataToVectorFloat(PCWSTR str, float *ptr, size_t count) {
   return S_OK;
 }
 
-static HRESULT ParseDataToVectorHalf(PCWSTR str, uint16_t *ptr, size_t count) {
+inline HRESULT ParseDataToVectorHalf(PCWSTR str, uint16_t *ptr, size_t count) {
   std::wstring wstr(str);
   size_t curPosition = 0;
   // parse a string of dot product separated by commas
@@ -181,7 +180,7 @@ static HRESULT ParseDataToVectorHalf(PCWSTR str, uint16_t *ptr, size_t count) {
   return S_OK;
 }
 
-static HRESULT ParseDataToVectorUint(PCWSTR str, unsigned int *ptr,
+inline HRESULT ParseDataToVectorUint(PCWSTR str, unsigned int *ptr,
                                      size_t count) {
   std::wstring wstr(str);
   size_t curPosition = 0;
