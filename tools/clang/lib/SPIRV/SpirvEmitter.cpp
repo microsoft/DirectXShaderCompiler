@@ -2926,6 +2926,17 @@ void SpirvEmitter::doReturnStmt(const ReturnStmt *stmt) {
   bool returnsVoid = curFunction->getReturnType().getTypePtr()->isVoidType();
   if (!returnsVoid) {
     assert(retVal);
+    const Expr *srcExpr = retVal->IgnoreParenCasts();
+    if (isDescriptorHeap(srcExpr)) {
+      const Expr *base = nullptr;
+      getDescriptorHeapOperands(srcExpr, &base, /* index= */ nullptr);
+      const Expr *parentExpr = cast<CastExpr>(parentMap->getParent(srcExpr));
+      QualType resourceType = parentExpr->getType();
+      const auto *declRefExpr = dyn_cast<DeclRefExpr>(base->IgnoreCasts());
+      auto *decl = cast<VarDecl>(declRefExpr->getDecl());
+      declIdMapper.createResourceHeap(decl, resourceType);
+    }
+
     // Update counter variable associated with function returns
     tryToAssignCounterVar(curFunction, retVal);
 
