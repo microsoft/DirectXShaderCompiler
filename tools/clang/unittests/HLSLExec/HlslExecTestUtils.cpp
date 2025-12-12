@@ -77,6 +77,20 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
   return SDKVersion;
 }
 
+// Simple wrapper to free the loaded module on scope exit.
+struct DllWrapper {
+  HMODULE Module = NULL; // NOLINT
+
+  ~DllWrapper() { Close(); }
+
+  void Close() {
+    if (Module) {
+      FreeLibrary(Module);
+      Module = NULL;
+    }
+  }
+};
+
 static bool createDevice(
     ID3D12Device **D3DDevice, D3D_SHADER_MODEL TestModel, bool SkipUnsupported,
     std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
@@ -108,20 +122,7 @@ static bool createDevice(
     // load.  To force this to be used, we make sure that this DLL is loaded
     // before attempting to create the device.
 
-    struct WarpDll {
-      HMODULE Module = NULL; // NOLINT
-
-      ~WarpDll() { Close(); }
-
-      void Close() {
-        if (Module) {
-          FreeLibrary(Module);
-          Module = NULL;
-        }
-      }
-    };
-
-    WarpDll ExplicitlyLoadedWarpDll;
+    DllWrapper ExplicitlyLoadedWarpDll;
     WEX::Common::String WarpDllPath;
     if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
             L"WARP_DLL", WarpDllPath))) {
@@ -210,6 +211,53 @@ static bool createDevice(
 
   *D3DDevice = D3DDeviceCom.Detach();
   return true;
+}
+
+// Read a resource embedded into a dll via an .rc file and wrap it in a DXC
+// read-only stream
+void readEmbeddedHlslDataIntoNewStream(
+    LPCWSTR ResourceName, // Resource name in rc file. e.g. L"LongVectorOp"
+    IStream **TestXML, dxc::SpecificDllLoader &Support) {
+
+  DllWrapper Dll;
+  Dll.Module = LoadLibraryEx(TEXT("ExecHLSLTests.dll"), nullptr,
+                             LOAD_LIBRARY_AS_DATAFILE);
+
+  // 1. Locate the resource
+  HRSRC ResInfo = FindResourceW(Dll.Module, ResourceName, L"DATASOURCE_XML");
+  if (!ResInfo)
+    VERIFY_SUCCEEDED(HRESULT_FROM_WIN32(::GetLastError()));
+
+  // 2. Load the resource
+  HGLOBAL ResData = LoadResource(Dll.Module, ResInfo);
+  if (!ResData)
+    VERIFY_SUCCEEDED(HRESULT_FROM_WIN32(::GetLastError()));
+  VERIFY_SUCCEEDED(HRESULT_FROM_WIN32(::GetLastError()));
+
+  // 3. Access the resource bytes
+  const void *Data = LockResource(ResData);
+  VERIFY_IS_NOT_NULL(Data);
+
+  // Sanity
+  const DWORD Size = SizeofResource(Dll.Module, ResInfo);
+  VERIFY_IS_FALSE(0 == Size);
+
+  VERIFY_SUCCEEDED(
+      Support.InitializeForDll(dxc::kDxCompilerLib, "DxcCreateInstance"));
+
+  CComPtr<IDxcLibrary> Library;
+  VERIFY_SUCCEEDED(Support.CreateInstance(CLSID_DxcLibrary, &Library));
+
+  // 4. Create a DXC blob from the resource data
+  CComPtr<IDxcBlobEncoding> Blob;
+  VERIFY_SUCCEEDED(
+      Library->CreateBlobWithEncodingFromPinned(Data, Size, CP_UTF8, &Blob));
+
+  // 5. Create a read-only stream from the DXC blob
+  CComPtr<IStream> Stream;
+  VERIFY_SUCCEEDED(Library->CreateStreamFromBlobReadOnly(Blob, &Stream));
+
+  *TestXML = Stream.Detach();
 }
 
 void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
