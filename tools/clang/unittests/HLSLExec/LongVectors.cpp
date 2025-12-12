@@ -1614,41 +1614,86 @@ template <typename T> T waveMultiPrefixProduct(T A, UINT) {
 
 template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
+// Helper struct to build the expected result for WaveMatch tests.
+struct WaveMatchResultBuilder {
+
+private:
+  uint64_t LowWaveMask;
+  uint64_t HighWaveMask;
+  uint64_t LowBits;
+  uint64_t HighBits;
+
+public:
+  WaveMatchResultBuilder(UINT NumWaves) : LowBits(0), HighBits(0) {
+    const UINT LowWaves = std::min(64U, NumWaves);
+    const UINT HighWaves = NumWaves - LowWaves;
+    LowWaveMask = (LowWaves < 64) ? (1ULL << LowWaves) - 1 : ~0ULL;
+    HighWaveMask = (HighWaves < 64) ? (1ULL << HighWaves) - 1 : ~0ULL;
+    LowBits &= LowWaveMask;
+    HighBits &= HighWaveMask;
+  }
+
+  void SetLane(UINT LaneID) {
+    if (LaneID < 64)
+      LowBits |= (1ULL << LaneID) & LowWaveMask;
+    else
+      HighBits |= (1ULL << (LaneID - 64)) & HighWaveMask;
+  }
+
+  void ClearLane(UINT LaneID) {
+    if (LaneID < 64)
+      LowBits &= ~(1ULL << LaneID) & LowWaveMask;
+    else
+      HighBits &= ~(1ULL << (LaneID - 64)) & HighWaveMask;
+  }
+
+  void InvertLanes() {
+    LowBits = ~LowBits & LowWaveMask;
+    HighBits = ~HighBits & HighWaveMask;
+  }
+
+  void SetExpected(UINT *Dest) {
+    Dest[0] = static_cast<UINT>(LowBits);
+    Dest[1] = static_cast<UINT>(LowBits >> 32);
+    Dest[2] = static_cast<UINT>(HighBits);
+    Dest[3] = static_cast<UINT>(HighBits >> 32);
+  }
+};
+
 template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
   static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
                                          const InputSets<T> &,
                                          const UINT WaveSize) {
-    // For this test, the shader arranges it so that lane 0 is different from
-    // all the other lanes. Besides that all other lines write their result of
-    // WaveMatch as well.
+    // For this test, the shader arranges it so that lanes 0, WAVE_SIZE/2 and
+    // WAVE_SIZE-1 are different from all the other lanes, also those
+    // lanes modify the vector at positions 0, WAVE_SIZE/2 and WAVE_SIZE-1
+    // respectively, if the input vector has enough elements. Besides that all
+    // other lanes write their result of WaveMatch as well.
 
     std::vector<UINT> Expected;
     Expected.assign(WaveSize * 4, 0);
 
-    const UINT LowWaves = std::min(64U, WaveSize);
-    const UINT HighWaves = WaveSize - LowWaves;
+    const UINT MidBit = WaveSize / 2;
+    const UINT LastBit = WaveSize - 1;
 
-    const uint64_t LowWaveMask =
-        (LowWaves < 64) ? (1ULL << LowWaves) - 1 : ~0ULL;
+    WaveMatchResultBuilder UnchangedLanes(WaveSize);
+    UnchangedLanes.InvertLanes();
+    UnchangedLanes.ClearLane(0);
+    UnchangedLanes.ClearLane(MidBit);
+    UnchangedLanes.ClearLane(LastBit);
 
-    const uint64_t HighWaveMask =
-        (HighWaves < 64) ? (1ULL << HighWaves) - 1 : ~0ULL;
-
-    const uint64_t LowExpected = ~1ULL & LowWaveMask;
-    const uint64_t HighExpected = ~0ULL & HighWaveMask;
-
-    Expected[0] = 1;
-    Expected[1] = 0;
-    Expected[2] = 0;
-    Expected[3] = 0;
-
-    // all lanes other than the first one have the same result
-    for (UINT I = 1; I < WaveSize; ++I) {
+    for (UINT I = 0; I < WaveSize; ++I) {
       const UINT Index = I * 4;
-      Expected[Index] = static_cast<UINT>(LowExpected);
-      Expected[Index + 1] = static_cast<UINT>(LowExpected >> 32);
-      Expected[Index + 2] = static_cast<UINT>(HighExpected);
-      Expected[Index + 3] = static_cast<UINT>(HighExpected >> 32);
+
+      if (I == 0 || MidBit == I || LastBit == I) {
+        WaveMatchResultBuilder ChangedLanes(WaveSize);
+        ChangedLanes.SetLane(I);
+
+        ChangedLanes.SetExpected(&Expected[Index]);
+        continue;
+      }
+
+      UnchangedLanes.SetExpected(&Expected[Index]);
     }
 
     return Expected;
@@ -1914,7 +1959,7 @@ public:
       VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
           D3D12_FEATURE_D3D12_OPTIONS1, &WaveOpts, sizeof(WaveOpts)));
 
-      WaveSize = WaveOpts.WaveLaneCountMin;
+      WaveSize = 128; // WaveOpts.WaveLaneCountMin;
     }
 
     DXASSERT_NOMSG(WaveSize > 0);
