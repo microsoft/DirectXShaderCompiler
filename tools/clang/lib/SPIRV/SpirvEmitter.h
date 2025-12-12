@@ -852,6 +852,13 @@ private:
                                                SourceLocation loc,
                                                SourceRange range);
 
+  SpirvInstruction *processCountBitsIntrinsic(const CallExpr *callExpr,
+                                              clang::SourceLocation srcLoc);
+  SpirvInstruction *generateCountBits16(const CallExpr *callExpr,
+                                        clang::SourceLocation srcLoc);
+  SpirvInstruction *generateCountBits64(const CallExpr *callExpr,
+                                        clang::SourceLocation srcLoc);
+
   // Processes the `reversebits` intrinsic
   SpirvInstruction *processReverseBitsIntrinsic(const CallExpr *expr,
                                                 clang::SourceLocation srcLoc);
