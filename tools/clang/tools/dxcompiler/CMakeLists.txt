@@ -126,7 +126,8 @@ endif (MSVC)
 
 add_clang_library(dxcompiler SHARED ${SOURCES})
 add_dependencies(dxcompiler TablegenHLSLOptions) 
-if (MSVC)
+
+if (MSVC AND DXC_ENABLE_ETW)
   # No DxcEtw on non-Windows platforms.
   add_dependencies(dxcompiler DxcEtw)
 endif()
