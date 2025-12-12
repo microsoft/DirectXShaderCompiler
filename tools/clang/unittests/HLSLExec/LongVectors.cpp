@@ -714,7 +714,7 @@ template <typename T> uint32_t CountBits(T A) {
 // returns the index of the first high/low bit found.
 template <typename T> uint32_t ScanFromMSB(T A, bool LookingForZero) {
   if (A == 0)
-    return ~0;
+    return std::numeric_limits<uint32_t>::max();
 
   constexpr uint32_t NumBits = sizeof(T) * 8;
   for (int32_t I = NumBits - 1; I >= 0; --I) {
@@ -722,7 +722,7 @@ template <typename T> uint32_t ScanFromMSB(T A, bool LookingForZero) {
     if (BitSet != LookingForZero)
       return static_cast<uint32_t>(I);
   }
-  return ~0;
+  return std::numeric_limits<uint32_t>::max();
 }
 
 template <typename T>
@@ -742,14 +742,14 @@ template <typename T> uint32_t FirstBitLow(T A) {
   const uint32_t NumBits = sizeof(T) * 8;
 
   if (A == 0)
-    return ~0;
+    return std::numeric_limits<uint32_t>::max();
 
   for (uint32_t I = 0; I < NumBits; ++I) {
     if (A & (static_cast<T>(1) << I))
       return static_cast<T>(I);
   }
 
-  return ~0;
+  return std::numeric_limits<uint32_t>::max();
 }
 
 DEFAULT_OP_2(OpType::And, (A & B));
