@@ -8862,8 +8862,9 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
       } else if (castExpr->getCastKind() == CK_UncheckedDerivedToBase ||
                  castExpr->getCastKind() == CK_HLSLDerivedToBase) {
         // First the indices for the sub expression.
-        const Expr * base = collectArrayStructIndices(castExpr->getSubExpr(), rawIndex,
-                                         rawIndices, indices, isMSOutAttribute);
+        const Expr *base =
+            collectArrayStructIndices(castExpr->getSubExpr(), rawIndex,
+                                      rawIndices, indices, isMSOutAttribute);
 
         llvm::SmallVector<uint32_t, 4> BaseIdx;
         getBaseClassIndices(castExpr, &BaseIdx);
