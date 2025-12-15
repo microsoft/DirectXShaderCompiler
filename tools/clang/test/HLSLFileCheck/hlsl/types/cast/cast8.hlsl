@@ -3,10 +3,12 @@
 // Test long vector casting between uint2 and float2
 // which would crash as reported by a user.
 
-// HECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 0.000000e+00)
-// HECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float 0.000000e+00)
-// HECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float 0.000000e+00)
-// HECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 3, float 0.000000e+00)
+// CHECK: call %dx.types.Handle @dx.op.createHandleFromBinding
+// CHECK: fptoui
+// CHECK: uitofp
+// CHECK: fptoui
+// CHECK: uitofp
+// CHECK: call void @dx.op.rawBufferVectorStore.v2f32
 
 RWStructuredBuffer<float2> input;
 RWStructuredBuffer<float2> output;
