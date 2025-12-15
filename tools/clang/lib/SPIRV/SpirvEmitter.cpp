@@ -9979,7 +9979,7 @@ SpirvEmitter::generateCountBits64(const CallExpr *callExpr,
   }
 
   SpirvInstruction *rhs = spvBuilder.createBinaryOp(
-      spv::Op::OpShiftLeftLogical, argType, loadInst, shiftAmount, srcLoc);
+      spv::Op::OpShiftRightLogical, argType, loadInst, shiftAmount, srcLoc);
   auto *rhs32 =
       spvBuilder.createUnaryOp(spv::Op::OpUConvert, uintType, rhs, srcLoc);
   auto *rhs_count =

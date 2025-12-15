@@ -22,7 +22,7 @@ void main() {
 
 // CHECK:         [[ld:%[0-9]+]] = OpLoad %ulong %u64
 // CHECK-DAG:     [[lo:%[0-9]+]] = OpUConvert %uint [[ld]]
-// CHECK-DAG:     [[sh:%[0-9]+]] = OpShiftLeftLogical %ulong [[ld]] %uint_32
+// CHECK-DAG:     [[sh:%[0-9]+]] = OpShiftRightLogical %ulong [[ld]] %uint_32
 // CHECK-DAG:     [[hi:%[0-9]+]] = OpUConvert %uint [[sh]]
 // CHECK-DAG:     [[ca:%[0-9]+]] = OpBitCount %uint [[lo]]
 // CHECK-DAG:     [[cb:%[0-9]+]] = OpBitCount %uint [[hi]]
@@ -44,7 +44,7 @@ void main() {
 
 // CHECK:         [[ld:%[0-9]+]] = OpLoad %long %s64
 // CHECK-DAG:     [[lo:%[0-9]+]] = OpUConvert %uint [[ld]]
-// CHECK-DAG:     [[sh:%[0-9]+]] = OpShiftLeftLogical %long [[ld]] %uint_32
+// CHECK-DAG:     [[sh:%[0-9]+]] = OpShiftRightLogical %long [[ld]] %uint_32
 // CHECK-DAG:     [[hi:%[0-9]+]] = OpUConvert %uint [[sh]]
 // CHECK-DAG:     [[ca:%[0-9]+]] = OpBitCount %uint [[lo]]
 // CHECK-DAG:     [[cb:%[0-9]+]] = OpBitCount %uint [[hi]]
@@ -67,7 +67,7 @@ void main() {
 
 // CHECK:         [[ld:%[0-9]+]] = OpLoad %v4ulong %vu64
 // CHECK-DAG:     [[lo:%[0-9]+]] = OpUConvert %v4uint [[ld]]
-// CHECK-DAG:     [[sh:%[0-9]+]] = OpShiftLeftLogical %v4ulong [[ld]] [[v4_32]]
+// CHECK-DAG:     [[sh:%[0-9]+]] = OpShiftRightLogical %v4ulong [[ld]] [[v4_32]]
 // CHECK-DAG:     [[hi:%[0-9]+]] = OpUConvert %v4uint [[sh]]
 // CHECK-DAG:     [[ca:%[0-9]+]] = OpBitCount %v4uint [[lo]]
 // CHECK-DAG:     [[cb:%[0-9]+]] = OpBitCount %v4uint [[hi]]
@@ -89,7 +89,7 @@ void main() {
 
 // CHECK:         [[ld:%[0-9]+]] = OpLoad %v4long %vs64
 // CHECK-DAG:     [[lo:%[0-9]+]] = OpUConvert %v4uint [[ld]]
-// CHECK-DAG:     [[sh:%[0-9]+]] = OpShiftLeftLogical %v4long [[ld]] [[v4_32]]
+// CHECK-DAG:     [[sh:%[0-9]+]] = OpShiftRightLogical %v4long [[ld]] [[v4_32]]
 // CHECK-DAG:     [[hi:%[0-9]+]] = OpUConvert %v4uint [[sh]]
 // CHECK-DAG:     [[ca:%[0-9]+]] = OpBitCount %v4uint [[lo]]
 // CHECK-DAG:     [[cb:%[0-9]+]] = OpBitCount %v4uint [[hi]]
