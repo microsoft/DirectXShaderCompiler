@@ -2407,9 +2407,9 @@ public:
   /// This routine may only be invoked once for a given ASTContext object.
   /// It is normally invoked after ASTContext construction.
   ///
-  /// \param Target The target 
-  void InitBuiltinTypes(const TargetInfo &Target);
-  
+  /// \param Target The target
+  void InitBuiltinTypes(const TargetInfo &Target, bool ignoreHLSLIntrinsics);
+
 private:
   void InitBuiltinType(CanQualType &R, BuiltinType::Kind K);
 

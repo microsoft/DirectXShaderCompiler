@@ -601,3 +601,6 @@ def rw_decl_global_cb : Flag<["-", "/"], "decl-global-cb">, Group<hlslrewrite_Gr
   HelpText<"Collect all global constants outside cbuffer declarations into cbuffer GlobalCB { ... }. Still experimental, not all dependency scenarios handled.">;
 // Also removed: compress, decompress, /Gch (child effect), /Gpp (partial precision)
 // /Op - no support for preshaders.
+
+def fvk_disable_hlsl_intrinsics : Flag<["-"], "fvk-disable-hlsl-intrinsics">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Disable HLSL intrinsics">;

@@ -2994,6 +2994,8 @@ static TypedefDecl *CreateGlobalTypedef(ASTContext *context, const char *ident,
 
 class HLSLExternalSource : public ExternalSemaSource {
 private:
+  const bool m_disableHLSLIntrinsics;
+
   // Inner types.
   struct FindStructBasicTypeResult {
     ArBasicKind Kind; // Kind of struct (eg, AR_OBJECT_TEXTURE2D)
@@ -4113,13 +4115,14 @@ private:
   }
 
 public:
-  HLSLExternalSource()
+  HLSLExternalSource(bool disableHLSLIntrinsics)
       : m_matrixTemplateDecl(nullptr), m_vectorTemplateDecl(nullptr),
         m_vkIntegralConstantTemplateDecl(nullptr),
         m_vkLiteralTemplateDecl(nullptr),
         m_vkBufferPointerTemplateDecl(nullptr), m_hlslNSDecl(nullptr),
         m_vkNSDecl(nullptr), m_dxNSDecl(nullptr), m_context(nullptr),
-        m_sema(nullptr), m_hlslStringTypedef(nullptr) {
+        m_sema(nullptr), m_hlslStringTypedef(nullptr),
+        m_disableHLSLIntrinsics(disableHLSLIntrinsics) {
     memset(m_matrixTypes, 0, sizeof(m_matrixTypes));
     memset(m_matrixShorthandTypes, 0, sizeof(m_matrixShorthandTypes));
     memset(m_vectorTypes, 0, sizeof(m_vectorTypes));
@@ -5131,12 +5134,115 @@ public:
   bool IsValidObjectElement(LPCSTR tableName, IntrinsicOp op,
                             QualType objectElement);
 
+  bool checkIfIntrinsicIsAllowed(StringRef intrinsicNameIdentifier) {
+    if (!m_disableHLSLIntrinsics)
+      return true;
+
+    static const std::unordered_set<std::string> allowedHLSLIntrinsics = {
+        "Abort",
+        "AcceptHitAndEndSearch",
+        "AllocateRayQuery",
+        "CallShader",
+        "CommitNonOpaqueTriangleHit",
+        "CommitProceduralPrimitiveHit",
+        "CommittedGeometryIndex",
+        "CommittedInstanceContributionToHitGroupIndex",
+        "CommittedInstanceID",
+        "CommittedInstanceIndex",
+        "CommittedObjectRayDirection",
+        "CommittedObjectRayOrigin",
+        "CommittedObjectToWorld3x4",
+        "CommittedObjectToWorld4x3",
+        "CommittedPrimitiveIndex",
+        "CommittedRayT",
+        "CommittedStatus",
+        "CommittedTriangleBarycentrics",
+        "CommittedTriangleFrontFace",
+        "CommittedWorldToObject3x4",
+        "CommittedWorldToObject4x3",
+        "CandidateGeometryIndex",
+        "CandidateInstanceContributionToHitGroupIndex",
+        "CandidateInstanceID",
+        "CandidateInstanceIndex",
+        "CandidateObjectRayDirection",
+        "CandidateObjectRayOrigin",
+        "CandidateObjectToWorld3x4",
+        "CandidateObjectToWorld4x3",
+        "CandidatePrimitiveIndex",
+        "CandidateProceduralPrimitiveNonOpaque",
+        "CandidateTriangleBarycentrics",
+        "CandidateTriangleFrontFace",
+        "CandidateTriangleRayT",
+        "CandidateType",
+        "CandidateWorldToObject3x4",
+        "CandidateWorldToObject4x3",
+        "DispatchRaysDimensions",
+        "DispatchRaysIndex",
+        "FromRayQuery",
+        "GeometryIndex",
+        "GetGeometryIndex",
+        "GetHitKind",
+        "GetInstanceID",
+        "GetInstanceIndex",
+        "GetObjectRayDirection",
+        "GetObjectRayOrigin",
+        "GetObjectToWorld3x4",
+        "GetObjectToWorld4x3",
+        "GetPrimitiveIndex",
+        "GetRayFlags",
+        "GetRayTCurrent",
+        "GetRayTMin",
+        "GetShaderTableIndex",
+        "GetWorldRayDirection",
+        "GetWorldRayOrigin",
+        "GetWorldToObject3x4",
+        "GetWorldToObject4x3",
+        "HitKind",
+        "IgnoreHit",
+        "InstanceID",
+        "InstanceIndex",
+        "Invoke",
+        "IsHit",
+        "IsMiss",
+        "IsNop",
+        "LoadLocalRootTableConstant",
+        "MakeMiss",
+        "MakeNop",
+        "MaybeReorderThread",
+        "ObjectRayDirection",
+        "ObjectRayOrigin",
+        "ObjectToWorld",
+        "ObjectToWorld3x4",
+        "ObjectToWorld4x3",
+        "PrimitiveIndex",
+        "Proceed",
+        "RayFlags",
+        "RayTCurrent",
+        "RayTMin",
+        "ReportHit",
+        "TraceRay",
+        "TraceRayInline",
+        "WorldRayDirection",
+        "WorldRayOrigin"};
+
+    auto it = allowedHLSLIntrinsics.find(std::string(intrinsicNameIdentifier));
+    return it != allowedHLSLIntrinsics.end();
+  }
+
   // Returns the iterator with the first entry that matches the requirement
   IntrinsicDefIter FindIntrinsicByNameAndArgCount(const HLSL_INTRINSIC *table,
                                                   size_t tableSize,
                                                   StringRef typeName,
                                                   StringRef nameIdentifier,
                                                   size_t argumentCount) {
+    // TODO: only check if the flag "devsh-disable-hlsl-intrinsics" is enabled
+    if (!checkIfIntrinsicIsAllowed(nameIdentifier)) {
+      return IntrinsicDefIter::CreateStart(
+          table, tableSize, table + tableSize,
+          IntrinsicTableDefIter::CreateStart(m_intrinsicTables, typeName,
+                                             nameIdentifier, argumentCount));
+    }
+
     // This is implemented by a linear scan for now.
     // We tested binary search on tables, and there was no performance gain on
     // samples probably for the following reasons.
@@ -13452,8 +13558,9 @@ hlsl::TrySubscriptIndexInitialization(clang::Sema *self, clang::Expr *SrcExpr,
 
 /// <summary>Performs HLSL-specific initialization on the specified
 /// context.</summary>
-void hlsl::InitializeASTContextForHLSL(ASTContext &context) {
-  HLSLExternalSource *hlslSource = new HLSLExternalSource();
+void hlsl::InitializeASTContextForHLSL(ASTContext &context,
+                                       bool ignoreHLSLIntrinsics) {
+  HLSLExternalSource *hlslSource = new HLSLExternalSource(ignoreHLSLIntrinsics);
   IntrusiveRefCntPtr<ExternalASTSource> externalSource(hlslSource);
   if (hlslSource->Initialize(context)) {
     context.setExternalSource(externalSource);

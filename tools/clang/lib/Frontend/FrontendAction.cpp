@@ -173,7 +173,8 @@ FrontendAction::CreateWrappedASTConsumer(CompilerInstance &CI,
 }
 
 bool FrontendAction::BeginSourceFile(CompilerInstance &CI,
-                                     const FrontendInputFile &Input) {
+                                     const FrontendInputFile &Input,
+                                     bool ignoreHLSLIntrinsics) {
   assert(!Instance && "Already processing a source file!");
   assert(!Input.isEmpty() && "Unexpected empty filename!");
   setCurrentInput(Input);
@@ -323,7 +324,7 @@ bool FrontendAction::BeginSourceFile(CompilerInstance &CI,
   if (!usesPreprocessorOnly()) {
     // Parsing a model file should reuse the existing ASTContext.
     if (!isModelParsingAction())
-      CI.createASTContext();
+      CI.createASTContext(ignoreHLSLIntrinsics);
 
     std::unique_ptr<ASTConsumer> Consumer =
         CreateWrappedASTConsumer(CI, InputFile);
@@ -443,7 +444,7 @@ bool FrontendAction::BeginSourceFile(CompilerInstance &CI,
   setCurrentInput(FrontendInputFile());
   setCompilerInstance(nullptr);
   return false;
-}
+  }
 
 bool FrontendAction::Execute() {
   CompilerInstance &CI = getCompilerInstance();

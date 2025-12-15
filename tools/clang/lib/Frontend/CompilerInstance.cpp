@@ -409,12 +409,12 @@ std::string CompilerInstance::getSpecificModuleCachePath() {
 
 // ASTContext
 
-void CompilerInstance::createASTContext() {
+void CompilerInstance::createASTContext(bool ignoreHLSLIntrinsics) {
   Preprocessor &PP = getPreprocessor();
   Context = new ASTContext(getLangOpts(), PP.getSourceManager(),
                            PP.getIdentifierTable(), PP.getSelectorTable(),
                            PP.getBuiltinInfo());
-  Context->InitBuiltinTypes(getTarget());
+  Context->InitBuiltinTypes(getTarget(), ignoreHLSLIntrinsics);
 }
 
 // ExternalASTSource
