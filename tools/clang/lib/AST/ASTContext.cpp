@@ -958,7 +958,8 @@ void ASTContext::InitBuiltinType(CanQualType &R, BuiltinType::Kind K) {
   Types.push_back(Ty);
 }
 
-void ASTContext::InitBuiltinTypes(const TargetInfo &Target, bool ignoreHLSLIntrinsics) {
+void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
+                                  bool ignoreHLSLIntrinsics) {
   assert((!this->Target || this->Target == &Target) &&
          "Incorrect target reinitialization");
   assert(VoidTy.isNull() && "Context reinitialized?");
@@ -1108,7 +1109,9 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target, bool ignoreHLSLIntri
 
     HLSLStringTy = this->getPointerType(CharTy);
 
-    hlsl::InitializeASTContextForHLSL(*this, ignoreHLSLIntrinsics); // Previously in constructor, guarded by !DelayInitialization
+    hlsl::InitializeASTContextForHLSL(
+        *this, ignoreHLSLIntrinsics); // Previously in constructor, guarded by
+                                      // !DelayInitialization
   }
   // HLSL Change Ends
 }

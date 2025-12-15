@@ -2994,8 +2994,7 @@ static TypedefDecl *CreateGlobalTypedef(ASTContext *context, const char *ident,
 
 class HLSLExternalSource : public ExternalSemaSource {
 private:
-
-    const bool m_disableHLSLIntrinsics;
+  const bool m_disableHLSLIntrinsics;
 
   // Inner types.
   struct FindStructBasicTypeResult {
@@ -5135,8 +5134,7 @@ public:
   bool IsValidObjectElement(LPCSTR tableName, IntrinsicOp op,
                             QualType objectElement);
 
-  bool checkIfIntrinsicIsAllowed(StringRef intrinsicNameIdentifier)
-  {
+  bool checkIfIntrinsicIsAllowed(StringRef intrinsicNameIdentifier) {
     if (!m_disableHLSLIntrinsics)
       return true;
 
@@ -5225,8 +5223,7 @@ public:
         "TraceRay",
         "TraceRayInline",
         "WorldRayDirection",
-        "WorldRayOrigin"
-    };
+        "WorldRayOrigin"};
 
     auto it = allowedHLSLIntrinsics.find(std::string(intrinsicNameIdentifier));
     return it != allowedHLSLIntrinsics.end();
@@ -5239,8 +5236,7 @@ public:
                                                   StringRef nameIdentifier,
                                                   size_t argumentCount) {
     // TODO: only check if the flag "devsh-disable-hlsl-intrinsics" is enabled
-    if (!checkIfIntrinsicIsAllowed(nameIdentifier))
-    {
+    if (!checkIfIntrinsicIsAllowed(nameIdentifier)) {
       return IntrinsicDefIter::CreateStart(
           table, tableSize, table + tableSize,
           IntrinsicTableDefIter::CreateStart(m_intrinsicTables, typeName,
@@ -13562,7 +13558,8 @@ hlsl::TrySubscriptIndexInitialization(clang::Sema *self, clang::Expr *SrcExpr,
 
 /// <summary>Performs HLSL-specific initialization on the specified
 /// context.</summary>
-void hlsl::InitializeASTContextForHLSL(ASTContext &context, bool ignoreHLSLIntrinsics) {
+void hlsl::InitializeASTContextForHLSL(ASTContext &context,
+                                       bool ignoreHLSLIntrinsics) {
   HLSLExternalSource *hlslSource = new HLSLExternalSource(ignoreHLSLIntrinsics);
   IntrusiveRefCntPtr<ExternalASTSource> externalSource(hlslSource);
   if (hlslSource->Initialize(context)) {

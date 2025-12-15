@@ -444,7 +444,7 @@ bool FrontendAction::BeginSourceFile(CompilerInstance &CI,
   setCurrentInput(FrontendInputFile());
   setCompilerInstance(nullptr);
   return false;
-}
+  }
 
 bool FrontendAction::Execute() {
   CompilerInstance &CI = getCompilerInstance();
