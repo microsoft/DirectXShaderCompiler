@@ -400,12 +400,18 @@ bool Float2Int::validateAndTransform() {
         R.isFullSet() || R.isSignWrappedSet())
       continue;
     assert(ConvertedToTy && "Must have set the convertedtoty by this point!");
-    
+
+    // HLSL Change Starts
     // The number of bits required is the maximum of the upper and
     // lower limits, plus one so it can be signed.
     unsigned MinBW = std::max(R.getLower().getMinSignedBits(),
                               R.getUpper().getMinSignedBits()) + 1;
     DEBUG(dbgs() << "F2I: MinBitwidth=" << MinBW << ", R: " << R << "\n");
+
+    if (MinBW > 64) {
+      DEBUG(dbgs() << "F2I: Value requires more than 64 bits to represent!\n");
+      continue;
+    }
 
     // If we've run off the realms of the exactly representable integers,
     // the floating point result will differ from an integer approximation.
@@ -419,10 +425,7 @@ bool Float2Int::validateAndTransform() {
       DEBUG(dbgs() << "F2I: Value not guaranteed to be representable!\n");
       continue;
     }
-    if (MinBW > 64) {
-      DEBUG(dbgs() << "F2I: Value requires more than 64 bits to represent!\n");
-      continue;
-    }
+    // HLSL Change Ends
 
     // OK, R is known to be representable. Now pick a type for it.
     // FIXME: Pick the smallest legal type that will fit.
