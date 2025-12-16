@@ -15773,6 +15773,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       break;
     case AttributeList::AT_HLSLGroupShared:
       isGroupShared = true;
+      if (isParameter && getLangOpts().HLSLVersion < hlsl::LangStd::v202x)
+	Diag(pAttr->getLoc(), diag::warn_hlsl_groupshared_202x);
       if (isParameter && (usageIn || usageOut)) {
         Diag(pAttr->getLoc(), diag::err_hlsl_varmodifiersna)
             << pAttr->getName() << "in/out/inout modifiers" << declarationType;
