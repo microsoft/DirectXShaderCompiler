@@ -9917,6 +9917,12 @@ SpirvEmitter::processCountBitsIntrinsic(const CallExpr *callExpr,
   const uint32_t bitwidth = getElementSpirvBitwidth(
       astContext, argType, spirvOptions.enable16BitTypes);
 
+  // The intrinsic should always return an uint or vector of uint.
+  QualType retType = {};
+  if (!isVectorType(callExpr->getCallReturnType(astContext), &retType))
+    retType = callExpr->getCallReturnType(astContext);
+  assert(retType == astContext.UnsignedIntTy);
+
   // SPIRV only supports 32 bit integers for `OpBitCount` until maintenace9.
   // We need to unfold and add extra instructions to support this on
   // non-32bit integers.
