@@ -136,7 +136,8 @@ void Float2Int::findRoots(Function &F, SmallPtrSet<Instruction*,8> &Roots) {
       if (isa<VectorType>(I.getType()))
         continue;
       switch (I.getOpcode()) {
-      default: break;
+      default:
+        break;
       case Instruction::FPToUI:
       case Instruction::FPToSI:
         Roots.insert(&I);
