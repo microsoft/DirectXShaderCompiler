@@ -429,7 +429,6 @@ bool Float2Int::validateAndTransform() {
       continue;
     }
 
-
     // OK, R is known to be representable. Now pick a type for it.
     // FIXME: Pick the smallest legal type that will fit.
     Type *Ty = (MinBW > 32) ? Type::getInt64Ty(*Ctx) : Type::getInt32Ty(*Ctx);
