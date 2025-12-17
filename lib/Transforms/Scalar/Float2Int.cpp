@@ -129,19 +129,24 @@ static Instruction::BinaryOps mapBinOpcode(unsigned Opcode) {
 
 // Find the roots - instructions that convert from the FP domain to
 // integer domain.
+// findRoots updated from upstream to skip vectors
 void Float2Int::findRoots(Function &F, SmallPtrSet<Instruction*,8> &Roots) {
-  for (auto &I : inst_range(F)) {
-    switch (I.getOpcode()) {
-    default: break;
-    case Instruction::FPToUI:
-    case Instruction::FPToSI:
-      Roots.insert(&I);
-      break;
-    case Instruction::FCmp:
-      if (mapFCmpPred(cast<CmpInst>(&I)->getPredicate()) != 
-          CmpInst::BAD_ICMP_PREDICATE)
+  for (BasicBlock &BB : F) {
+    for (Instruction &I : BB) {
+      if (isa<VectorType>(I.getType()))
+        continue;
+      switch (I.getOpcode()) {
+      default: break;
+      case Instruction::FPToUI:
+      case Instruction::FPToSI:
         Roots.insert(&I);
-      break;
+        break;
+      case Instruction::FCmp:
+        if (mapFCmpPred(cast<CmpInst>(&I)->getPredicate()) !=
+            CmpInst::BAD_ICMP_PREDICATE)
+          Roots.insert(&I);
+        break;
+      }
     }
   }
 }
@@ -401,17 +406,11 @@ bool Float2Int::validateAndTransform() {
       continue;
     assert(ConvertedToTy && "Must have set the convertedtoty by this point!");
 
-    // HLSL Change Starts
     // The number of bits required is the maximum of the upper and
     // lower limits, plus one so it can be signed.
     unsigned MinBW = std::max(R.getLower().getMinSignedBits(),
                               R.getUpper().getMinSignedBits()) + 1;
     DEBUG(dbgs() << "F2I: MinBitwidth=" << MinBW << ", R: " << R << "\n");
-
-    if (MinBW > 64) {
-      DEBUG(dbgs() << "F2I: Value requires more than 64 bits to represent!\n");
-      continue;
-    }
 
     // If we've run off the realms of the exactly representable integers,
     // the floating point result will differ from an integer approximation.
@@ -425,7 +424,11 @@ bool Float2Int::validateAndTransform() {
       DEBUG(dbgs() << "F2I: Value not guaranteed to be representable!\n");
       continue;
     }
-    // HLSL Change Ends
+    if (MinBW > 64) {
+      DEBUG(dbgs() << "F2I: Value requires more than 64 bits to represent!\n");
+      continue;
+    }
+
 
     // OK, R is known to be representable. Now pick a type for it.
     // FIXME: Pick the smallest legal type that will fit.
