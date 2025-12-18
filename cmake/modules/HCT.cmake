@@ -58,11 +58,13 @@ function(add_hlsl_hctgen mode)
   set(hctgen ${LLVM_SOURCE_DIR}/utils/hct/hctgen.py)
   set(hctdb ${LLVM_SOURCE_DIR}/utils/hct/hctdb.py)
   set(hctdb_helper ${LLVM_SOURCE_DIR}/utils/hct/hctdb_instrhelp.py)
+  set(opcodes_json ${LLVM_SOURCE_DIR}/utils/hct/hlsl_intrinsic_opcodes.json)
   set(output ${full_output})
   set(hct_dependencies ${LLVM_SOURCE_DIR}/utils/hct/gen_intrin_main.txt
                        ${hctgen}
                        ${hctdb}
-                       ${hctdb_helper})
+                       ${hctdb_helper}
+                       ${opcodes_json})
 
   get_filename_component(output_extension ${full_output} LAST_EXT)
 

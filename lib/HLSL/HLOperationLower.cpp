@@ -6829,7 +6829,7 @@ Value *StreamOutputLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
 }
 
 // This table has to match IntrinsicOp orders
-IntrinsicLower gLowerTable[] = {
+constexpr IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_AcceptHitAndEndSearch,
      TranslateNoArgNoReturnPreserveOutput, DXIL::OpCode::AcceptHitAndEndSearch},
     {IntrinsicOp::IOP_AddUint64, TranslateAddUint64, DXIL::OpCode::UAddc},
@@ -7440,9 +7440,9 @@ IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::HitObject_MakeNop},
     {IntrinsicOp::IOP_DxMaybeReorderThread, TranslateMaybeReorderThread,
      DXIL::OpCode::MaybeReorderThread},
-    {IntrinsicOp::IOP_Vkstatic_pointer_cast, UnsupportedVulkanIntrinsic,
-     DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_Vkreinterpret_pointer_cast, UnsupportedVulkanIntrinsic,
+     DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_Vkstatic_pointer_cast, UnsupportedVulkanIntrinsic,
      DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_GetBufferContents, UnsupportedVulkanIntrinsic,
      DXIL::OpCode::NumOpCodes},
@@ -7515,10 +7515,10 @@ IntrinsicLower gLowerTable[] = {
 
     {IntrinsicOp::IOP_isnormal, TrivialIsSpecialFloat, DXIL::OpCode::IsNormal},
 
-    {IntrinsicOp::IOP_GetGroupWaveIndex, EmptyLower,
-     DXIL::OpCode::GetGroupWaveIndex},
     {IntrinsicOp::IOP_GetGroupWaveCount, EmptyLower,
      DXIL::OpCode::GetGroupWaveCount},
+    {IntrinsicOp::IOP_GetGroupWaveIndex, EmptyLower,
+     DXIL::OpCode::GetGroupWaveIndex},
 
     {IntrinsicOp::IOP_ClusterID, EmptyLower, DXIL::OpCode::ClusterID},
     {IntrinsicOp::MOP_CandidateClusterID, EmptyLower,
@@ -7537,11 +7537,37 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_DxHitObject_TriangleObjectPosition, EmptyLower,
      DXIL::OpCode::HitObject_TriangleObjectPosition},
 };
-} // namespace
+constexpr size_t NumLowerTableEntries =
+    sizeof(gLowerTable) / sizeof(gLowerTable[0]);
 static_assert(
-    sizeof(gLowerTable) / sizeof(gLowerTable[0]) ==
-        static_cast<size_t>(IntrinsicOp::Num_Intrinsics),
+    NumLowerTableEntries == static_cast<size_t>(IntrinsicOp::Num_Intrinsics),
     "Intrinsic lowering table must be updated to account for new intrinsics.");
+
+// Make table-order failures report the bad index via template instantiation
+// parameter in the diagnostic.
+// On failure, use hlsl_intrinsic_opcodes.json to find the mismatch.
+template <size_t I> struct ValidateLowerTableEntry {
+  // Instantiate a type that fails if the opcode doesn't match the index.
+  static_assert(
+      I == static_cast<size_t>(gLowerTable[I].IntriOpcode),
+      "Intrinsic lowering table is out of order. "
+      "See ValidateLowerTableEntry<I> template instantiation for Index.");
+  static constexpr bool Value =
+      I == static_cast<size_t>(gLowerTable[I].IntriOpcode);
+};
+
+template <size_t I, size_t N> struct ValidateLowerTableImpl {
+  static constexpr bool Value = ValidateLowerTableEntry<I>::Value &&
+                                ValidateLowerTableImpl<I + 1, N>::Value;
+};
+
+template <size_t N> struct ValidateLowerTableImpl<N, N> {
+  static constexpr bool Value = true;
+};
+
+static_assert(ValidateLowerTableImpl<0, NumLowerTableEntries>::Value,
+              "Intrinsic lowering table is out of order.");
+} // namespace
 
 static void TranslateBuiltinIntrinsic(CallInst *CI,
                                       HLOperationLowerHelper &helper,
