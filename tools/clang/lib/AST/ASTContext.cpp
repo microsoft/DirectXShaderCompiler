@@ -24,6 +24,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExternalASTSource.h"
+#include "clang/AST/HlslTypes.h" // HLSL Change
 #include "clang/AST/Mangle.h"
 #include "clang/AST/MangleNumberingContext.h"
 #include "clang/AST/RecordLayout.h"
@@ -38,8 +39,8 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/Support/Capacity.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MathExtras.h" // HLSL Change
+#include "llvm/Support/raw_ostream.h"
 #include <map>
 
 using namespace clang;
@@ -1804,6 +1805,17 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
 
     const RecordType *RT = cast<RecordType>(TT);
     const RecordDecl *RD = RT->getDecl();
+    // HLSL Change Begins
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (hlsl::IsVKBufferPointerType(QualType(T, 0))) {
+      TypeInfo Info = getTypeInfo(UnsignedLongLongTy);
+      Width = Info.Width;
+      Align = Info.Align;
+      AlignIsRequired = Info.AlignIsRequired;
+      break;
+    }
+#endif
+    // HLSL Change Ends
     const ASTRecordLayout &Layout = getASTRecordLayout(RD);
     Width = toBits(Layout.getSize());
     Align = toBits(Layout.getAlignment());

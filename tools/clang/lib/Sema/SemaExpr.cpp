@@ -11,8 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/OperationKinds.h"
-#include "clang/Sema/SemaInternal.h"
 #include "TreeTransform.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
@@ -25,6 +23,8 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
+#include "clang/AST/HlslTypes.h" // HLSL Change
+#include "clang/AST/OperationKinds.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/Basic/PartialDiagnostic.h"
@@ -42,9 +42,10 @@
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaFixItUtils.h"
+#include "clang/Sema/SemaHLSL.h" // HLSL Change
+#include "clang/Sema/SemaInternal.h"
 #include "clang/Sema/Template.h"
 #include "llvm/Support/ConvertUTF.h"
-#include "clang/Sema/SemaHLSL.h" // HLSL Change
 using namespace clang;
 using namespace sema;
 
@@ -3819,6 +3820,13 @@ bool Sema::CheckHLSLUnaryExprOrTypeTraitOperand(QualType ExprType,
     Diag(Loc, diag::err_hlsl_sizeof_literal) << ExprType;
     return true;
   }
+
+  // vk::BufferPointer is allowed in sizeof
+#ifdef ENABLE_SPIRV_CODEGEN
+  if (hlsl::IsVKBufferPointerType(ExprType)) {
+    return false;
+  }
+#endif
 
   if (!hlsl::IsHLSLNumericOrAggregateOfNumericType(ExprType)) {
     Diag(Loc, diag::err_hlsl_sizeof_nonnumeric) << ExprType;
