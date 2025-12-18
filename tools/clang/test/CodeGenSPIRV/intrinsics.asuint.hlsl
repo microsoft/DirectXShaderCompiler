@@ -106,6 +106,33 @@ void main() {
 // CHECK-NEXT:                          OpStore %highbits3 [[high]]
     asuint(value3, lowbits3, highbits3);
 
+    double4 value4;
+    uint4 lowbits4;
+    uint4 highbits4;
+// CHECK-NEXT:         [[value:%[0-9]+]] = OpLoad %v4double %value4
+// CHECK-NEXT:      [[shuffle0:%[0-9]+]] = OpVectorShuffle %v3double [[value]] [[value]] 0 1 2
+// CHECK-NEXT:        [[value0:%[0-9]+]] = OpCompositeExtract %double [[shuffle0]] 0
+// CHECK-NEXT:    [[resultVec0:%[0-9]+]] = OpBitcast %v2uint [[value0]]
+// CHECK-NEXT:          [[low0:%[0-9]+]] = OpCompositeExtract %uint [[resultVec0]] 0
+// CHECK-NEXT:         [[high0:%[0-9]+]] = OpCompositeExtract %uint [[resultVec0]] 1
+// CHECK-NEXT:        [[value1:%[0-9]+]] = OpCompositeExtract %double [[shuffle0]] 1
+// CHECK-NEXT:    [[resultVec1:%[0-9]+]] = OpBitcast %v2uint [[value1]]
+// CHECK-NEXT:          [[low1:%[0-9]+]] = OpCompositeExtract %uint [[resultVec1]] 0
+// CHECK-NEXT:         [[high1:%[0-9]+]] = OpCompositeExtract %uint [[resultVec1]] 1
+// CHECK-NEXT:        [[value2:%[0-9]+]] = OpCompositeExtract %double [[shuffle0]] 2
+// CHECK-NEXT:    [[resultVec2:%[0-9]+]] = OpBitcast %v2uint [[value2]]
+// CHECK-NEXT:          [[low2:%[0-9]+]] = OpCompositeExtract %uint [[resultVec2]] 0
+// CHECK-NEXT:         [[high2:%[0-9]+]] = OpCompositeExtract %uint [[resultVec2]] 1
+// CHECK-NEXT:  [[lowConstruct:%[0-9]+]] = OpCompositeConstruct %v3uint [[low0]] [[low1]] [[low2]]
+// CHECK-NEXT: [[highConstruct:%[0-9]+]] = OpCompositeConstruct %v3uint [[high0]] [[high1]] [[high2]]
+// CHECK-NEXT:     [[loadedLow:%[0-9]+]] = OpLoad %v4uint %lowbits4
+// CHECK-NEXT:      [[finalLow:%[0-9]+]] = OpVectorShuffle %v4uint [[loadedLow]] [[lowConstruct]] 4 5 6 3
+// CHECK-NEXT:                             OpStore %lowbits4 [[finalLow]]
+// CHECK-NEXT:    [[loadedHigh:%[0-9]+]] = OpLoad %v4uint %highbits4
+// CHECK-NEXT:     [[finalHigh:%[0-9]+]] = OpVectorShuffle %v4uint [[loadedHigh]] [[highConstruct]] 4 5 6 3
+// CHECK-NEXT:                             OpStore %highbits4 [[finalHigh]]
+    asuint(value4.xyz, lowbits4.xyz, highbits4.xyz);
+
     double2x2 value2x2;
     uint2x2 lowbits2x2;
     uint2x2 highbits2x2;
