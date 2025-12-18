@@ -330,6 +330,10 @@ bool shouldSkipInStructLayout(const Decl *decl) {
       return true;
     }
 
+    if (decl->hasAttr<VKStorageClassExtAttr>()) {
+      return true;
+    }
+
     // External visibility
     if (const auto *declDecl = dyn_cast<DeclaratorDecl>(decl))
       if (!declDecl->hasExternalFormalLinkage())
@@ -1183,6 +1187,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
                                                    QualType type) {
   const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
+  const bool hasInlineSpirvSC = var->hasAttr<VKStorageClassExtAttr>();
   const bool isACSBuffer =
       isAppendStructuredBuffer(type) || isConsumeStructuredBuffer(type);
   const bool isRWSBuffer = isRWStructuredBuffer(type);
@@ -1190,7 +1195,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
   const auto rule = getLayoutRuleForExternVar(type, spirvOptions);
   const auto loc = var->getLocation();
 
-  if (!isGroupShared && !isResourceType(type) &&
+  if (!isGroupShared && !isResourceType(type) && !hasInlineSpirvSC &&
       !isResourceOnlyStructure(type)) {
 
     // We currently cannot support global structures that contain both resources
@@ -4915,11 +4920,18 @@ bool DeclResultIdMapper::tryToCreateConstantVar(const ValueDecl *decl) {
     constVal =
         spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
     break;
+  case BuiltinType::ULongLong: // uint64_t
+    constVal =
+        spvBuilder.getConstantInt(astContext.UnsignedLongLongTy, val->getInt());
+    break;
   case BuiltinType::Short: // int16_t
     constVal = spvBuilder.getConstantInt(astContext.ShortTy, val->getInt());
     break;
   case BuiltinType::Int: // int32_t
     constVal = spvBuilder.getConstantInt(astContext.IntTy, val->getInt());
+    break;
+  case BuiltinType::LongLong: // int64_t
+    constVal = spvBuilder.getConstantInt(astContext.LongLongTy, val->getInt());
     break;
   case BuiltinType::Half: // float16_t
     constVal = spvBuilder.getConstantFloat(astContext.HalfTy, val->getFloat());

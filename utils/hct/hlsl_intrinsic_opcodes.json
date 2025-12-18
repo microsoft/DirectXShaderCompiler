@@ -1,6 +1,6 @@
 {
   "IntrinsicOpCodes": {
-    "Num_Intrinsics": 397,
+    "Num_Intrinsics": 407,
     "IOP_AcceptHitAndEndSearch": 0,
     "IOP_AddUint64": 1,
     "IOP_AllMemoryBarrier": 2,
@@ -396,7 +396,17 @@
     "IOP___builtin_OuterProductAccumulate": 392,
     "IOP___builtin_VectorAccumulate": 393,
     "IOP_isnormal": 394,
-    "MOP_AlignedLoad": 395,
-    "MOP_AlignedStore": 396
+    "IOP_GetGroupWaveCount": 395,
+    "IOP_GetGroupWaveIndex": 396,
+    "IOP_ClusterID": 397,
+    "MOP_CandidateClusterID": 398,
+    "MOP_CommittedClusterID": 399,
+    "MOP_DxHitObject_ClusterID": 400,
+    "IOP_TriangleObjectPosition": 401,
+    "MOP_CandidateTriangleObjectPosition": 402,
+    "MOP_CommittedTriangleObjectPosition": 403,
+    "MOP_DxHitObject_TriangleObjectPosition": 404,
+    "MOP_AlignedLoad": 405,
+    "MOP_AlignedStore": 406,
   }
 }

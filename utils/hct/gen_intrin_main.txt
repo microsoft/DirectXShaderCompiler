@@ -303,6 +303,8 @@ $type1 [[]] QuadReadAcrossY(in numeric<> value);
 $type1 [[]] QuadReadAcrossDiagonal(in numeric<> value);
 bool [[]] QuadAny(in bool cond);
 bool [[]] QuadAll(in bool cond);
+uint   [[rn,min_sm=6.10]] GetGroupWaveIndex();
+uint   [[rn,min_sm=6.10]] GetGroupWaveCount();
 
 // Raytracing
 void [[]]  TraceRay(in acceleration_struct AccelerationStructure, in uint RayFlags, in uint InstanceInclusionMask, in uint RayContributionToHitGroupIndex, in uint MultiplierForGeometryContributionToHitGroupIndex, in uint MissShaderIndex, in ray_desc Ray, inout udt Payload);
@@ -335,6 +337,10 @@ float<3,4> [[rn]] ObjectToWorld3x4();
 float<3,4> [[rn]] WorldToObject3x4();
 float<4,3> [[rn]] ObjectToWorld4x3();
 float<4,3> [[rn]] WorldToObject4x3();
+
+uint [[ro,min_sm=6.10]] ClusterID();
+// TODO: Update return type for TriangleObjectPosition():
+void [[ro,min_sm=6.10]] TriangleObjectPosition();
 
 // Packed dot products with accumulate:
 uint [[rn]] dot4add_u8packed(in uint a, in $type1 b, in uint c);
@@ -1106,6 +1112,11 @@ float<3> [[ro]] CommittedObjectRayOrigin();
 float<3> [[ro]] CommittedObjectRayDirection();
 uint [[ro]] CandidateInstanceContributionToHitGroupIndex();
 uint [[ro]] CommittedInstanceContributionToHitGroupIndex();
+uint [[ro,min_sm=6.10]] CandidateClusterID();
+uint [[ro,min_sm=6.10]] CommittedClusterID();
+// TODO: Update return type for *TriangleObjectPosition():
+void [[ro,min_sm=6.10]] CandidateTriangleObjectPosition();
+void [[ro,min_sm=6.10]] CommittedTriangleObjectPosition();
 
 } namespace
 
@@ -1140,6 +1151,9 @@ namespace DxHitObjectMethods {
     void [[class_prefix,min_sm=6.9]] GetAttributes(out udt Attributes);
     void [[class_prefix,min_sm=6.9]] SetShaderTableIndex(in uint RecordIndex);
     uint [[ro,class_prefix,min_sm=6.9]] LoadLocalRootTableConstant(in uint RootConstantOffsetInBytes);
+    uint [[ro,class_prefix,min_sm=6.10]] ClusterID();
+    // TODO: Update return type for TriangleObjectPosition():
+    void [[ro,class_prefix,min_sm=6.10]] TriangleObjectPosition();
 } namespace
 
 namespace DxIntrinsics {

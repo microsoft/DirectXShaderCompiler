@@ -4456,8 +4456,67 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-        #ifdef NUMTHREADS_X
-          #define NUMTHREADS_ATTR [numthreads(NUMTHREADS_X, 1, 1)]
+        #ifdef FUNC_TEST_DERIVATIVE
+        void TestDerivative(vector<TYPE, NUM> Vector)
+        {
+          // 0 == upper-left lane in quad
+          // 1 == upper-right lane in quad
+          // 2 == lower-left lane in quad
+          // 3 == lower-right lane in quad
+
+          const uint LaneIndex = WaveGetLaneIndex();
+
+          // We need to make sure the values are unique across lanes used in the
+          // partial derivative calculation so we can get a non-zero partial
+          // derivative. Multiplying the lane index by 2 is a simple way to
+          // ensure that. And we do this on all lanes so this function can be
+          // used generically for coarse and fine partial derivatives.
+          Vector += ((TYPE)(LaneIndex * 2));
+
+          vector<OUT_TYPE, NUM> Result = DERIVATIVE_FUNC(Vector);
+
+          // For coarse derivatives, all lanes in the quad get the same result.
+          // But for fine derivatives, each lane gets a different result. To
+          // keep things generic we only store in the third lane as thats the
+          // lane we arbitrarily chose for validation with fine derivatives.
+          if(LaneIndex == 3)
+          {
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Result);
+          }
+        }
+        #endif
+
+        #ifdef FUNC_TEST_QUAD_READ
+        void TestQuadRead(vector<TYPE, NUM> Vector)
+        {
+          const uint LaneIndex = WaveGetLaneIndex();
+
+          // Fill the long vector with something different on SOURCE_LANE_ID.
+          // We choose the 3rd element arbitrarily because it makes it easy
+          // to compute expected values CPU side.
+          [unroll]
+          for(uint i = 0; i < NUM; ++i)
+          {
+            Vector[i] = (LaneIndex == SOURCE_LANE_ID) ? Vector[2] : Vector[i];
+          }
+
+          #if IS_BINARY_OP
+            // QuadReadLaneAt
+            vector<OUT_TYPE, NUM> Result = QUAD_READ_FUNC(Vector, SOURCE_LANE_ID);
+          #else
+            // QuadReadAcross*
+            vector<OUT_TYPE, NUM> Result = QUAD_READ_FUNC(Vector);
+          #endif
+
+          if(LaneIndex == 3)
+          {
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Result);
+          }
+        }
+        #endif
+
+        #ifdef NUMTHREADS_XYZ
+          #define NUMTHREADS_ATTR [numthreads(NUMTHREADS_XYZ)]
         #else
           #define NUMTHREADS_ATTR [numthreads(1, 1, 1)]
         #endif
@@ -4498,8 +4557,7 @@ void MSMain(uint GID : SV_GroupIndex,
           #endif
 
           vector<OUT_TYPE, OutNum> OutputVector;
-          #ifdef IS_WAVE_PREFIX_OP
-            // Wave prefix ops store the output on a specific lane only.
+          #ifdef OP_STORES_RESULT_ON_SPECIFIC_LANE
             FUNC(Input1);
             return;
           #elif TEST_ARRAY_OPERATOR

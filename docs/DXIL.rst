@@ -2129,6 +2129,8 @@ Opcodes are defined on a dense range and will be provided as enum in a header fi
 .. <py::lines('OPCODES-RST')>hctdb_instrhelp.get_opcodes_rst()</py>
 .. OPCODES-RST:BEGIN
 
+Opcode Table CoreOps, id=0: Core DXIL operations
+
 === ===================================================== =======================================================================================================================================================================================================================
 ID  Name                                                  Description
 === ===================================================== =======================================================================================================================================================================================================================
@@ -3073,6 +3075,28 @@ Given width, offset:
         ushr dest, src2, offset
     }
 
+
+
+
+Opcode Table ExperimentalOps, id=32768: Experimental DXIL operations
+
+========== ======================================== ==================================================================
+ID         Name                                     Description
+========== ======================================== ==================================================================
+2147483648 ExperimentalNop                          nop does nothing
+2147483649 GetGroupWaveIndex                        returns the index of the wave in the thread group
+2147483650 GetGroupWaveCount                        returns the number of waves in the thread group
+2147483651 ClusterID                                returns the user-defined ClusterID of the intersected CLAS
+2147483652 RayQuery_CandidateClusterID              returns candidate hit cluster ID
+2147483653 RayQuery_CommittedClusterID              returns committed hit cluster ID
+2147483654 HitObject_ClusterID                      returns the cluster ID of this committed hit
+2147483655 TriangleObjectPosition                   returns triangle vertices in object space as <9 x float>
+2147483656 RayQuery_CandidateTriangleObjectPosition returns candidate triangle vertices in object space as <9 x float>
+2147483657 RayQuery_CommittedTriangleObjectPosition returns committed triangle vertices in object space as <9 x float>
+2147483658 HitObject_TriangleObjectPosition         returns triangle vertices in object space as <9 x float>
+========== ======================================== ==================================================================
+
+
 .. OPCODES-RST:END
 
 
@@ -3152,10 +3176,11 @@ INSTR.CREATEHANDLEIMMRANGEID                                  Local resource mus
 INSTR.DXILSTRUCTUSER                                          Dxil struct types should only be used by ExtractValue.
 INSTR.DXILSTRUCTUSEROUTOFBOUND                                Index out of bound when extract value from dxil struct types.
 INSTR.EVALINTERPOLATIONMODE                                   Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample.
+INSTR.EXPDXILOPCODEREQUIRESEXPSM                              Use of experimental DXILOpCode requires an experimental shader model.
 INSTR.EXTRACTVALUE                                            ExtractValue should only be used on dxil struct types and cmpxchg.
 INSTR.FAILTORESLOVETGSMPOINTER                                TGSM pointers must originate from an unambiguous TGSM global variable.
 INSTR.HANDLENOTFROMCREATEHANDLE                               Resource handle should returned by createHandle.
-INSTR.ILLEGALDXILOPCODE                                       DXILOpCode must be [0..%0].  %1 specified.
+INSTR.ILLEGALDXILOPCODE                                       DXILOpCode must be valid or a supported experimental opcode.
 INSTR.ILLEGALDXILOPFUNCTION                                   '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                                       bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                                          Access to out-of-bounds memory is disallowed.
@@ -3307,7 +3332,7 @@ SM.HSINPUTCONTROLPOINTCOUNTRANGE                              HS input control p
 SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH                         For pass thru hull shader, input control point count must match output control point count
 SM.INCOMPATIBLECALLINENTRY                                    Features used in internal function calls must be compatible with entry
 SM.INCOMPATIBLEDERIVINCOMPUTESHADERMODEL                      Derivatives in compute-model shaders require shader model 6.6 and above
-SM.INCOMPATIBLEDERIVLAUNCH                                    Node shaders only support derivatives in broadcasting launch mode
+SM.INCOMPATIBLEDERIVLAUNCH                                    Node shaders only support derivatives in broadcasting and coalescing launch modes
 SM.INCOMPATIBLEOPERATION                                      Operations used in entry function must be compatible with shader stage and other properties
 SM.INCOMPATIBLEREQUIRESGROUP                                  Functions requiring groupshared memory must be called from shaders with a visible group
 SM.INCOMPATIBLESHADERMODEL                                    Functions may only use features available in the current shader model
