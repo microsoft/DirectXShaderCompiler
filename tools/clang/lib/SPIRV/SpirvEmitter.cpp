@@ -4740,34 +4740,65 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
   return retVal;
 }
 
-SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
-    const CXXMemberCallExpr *expr, uint32_t numWords, bool doStore) {
+SpirvInstruction *
+SpirvEmitter::processByteAddressBufferLoadStore(const CXXMemberCallExpr *expr,
+                                                uint32_t numWords, bool doStore,
+                                                bool isAligned) {
   SpirvInstruction *result = nullptr;
   const auto object = expr->getImplicitObjectArgument();
   auto *objectInfo = loadIfAliasVarRef(object);
   assert(numWords >= 1 && numWords <= 4);
+
+  // Extract alignment parameter if this is an aligned operation
+  uint32_t alignment = 0;
+  uint32_t addressArgIndex = 0; // offset/address is first arg
+  uint32_t valueArgIndex = 1;   // value is second arg (for store)
+
+  if (isAligned) {
+    // For AlignedLoad/AlignedStore: args are (offset, alignment [, value] [,
+    // status]) offset is arg 0, alignment is arg 1
+    if (expr->getNumArgs() < 2) {
+      emitError("AlignedLoad/AlignedStore requires alignment parameter",
+                expr->getExprLoc());
+      return nullptr;
+    }
+    const Expr *alignmentExpr = expr->getArg(1);
+    alignment = getRawBufferAlignment(alignmentExpr);
+
+    // For AlignedStore, the value is the 3rd argument (after offset and
+    // alignment)
+    if (doStore) {
+      valueArgIndex = 2;
+    }
+  }
+
   if (doStore) {
     assert(isRWByteAddressBuffer(object->getType()));
-    assert(expr->getNumArgs() == 2);
+    uint32_t expectedArgs =
+        isAligned ? 3 : 2; // AlignedStore has 3 args (offset, alignment, value)
+    assert(expr->getNumArgs() == expectedArgs);
   } else {
     assert(isRWByteAddressBuffer(object->getType()) ||
            isByteAddressBuffer(object->getType()));
-    if (expr->getNumArgs() == 2) {
+    // Regular Load with status has 2 args, AlignedLoad with status has 3 args
+    uint32_t maxArgs = isAligned ? 3 : 2;
+    if (expr->getNumArgs() == maxArgs && !isAligned) {
       emitError(
           "(RW)ByteAddressBuffer::Load(in address, out status) not supported",
           expr->getExprLoc());
       return 0;
     }
   }
-  const Expr *addressExpr = expr->getArg(0);
+  const Expr *addressExpr = expr->getArg(addressArgIndex);
   auto *byteAddress = doExpr(addressExpr);
   const QualType addressType = addressExpr->getType();
   // The front-end prevents usage of templated Load2, Load3, Load4, Store2,
   // Store3, Store4 intrinsic functions.
   const bool isTemplatedLoadOrStore =
       (numWords == 1) &&
-      (doStore ? !expr->getArg(1)->getType()->isSpecificBuiltinType(
-                     BuiltinType::UInt)
+      (doStore ? !expr->getArg(valueArgIndex)
+                      ->getType()
+                      ->isSpecificBuiltinType(BuiltinType::UInt)
                : !expr->getType()->isSpecificBuiltinType(BuiltinType::UInt));
 
   const auto range = expr->getSourceRange();
@@ -4782,14 +4813,15 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
     }
 
     if (doStore) {
-      auto *values = doExpr(expr->getArg(1));
+      auto *values = doExpr(expr->getArg(valueArgIndex));
       RawBufferHandler(*this).processTemplatedStoreToBuffer(
-          values, objectInfo, byteAddress, expr->getArg(1)->getType(), range);
+          values, objectInfo, byteAddress,
+          expr->getArg(valueArgIndex)->getType(), range, alignment);
       result = nullptr;
     } else {
       RawBufferHandler rawBufferHandler(*this);
       result = rawBufferHandler.processTemplatedLoadFromBuffer(
-          objectInfo, byteAddress, expr->getType(), range);
+          objectInfo, byteAddress, expr->getType(), range, alignment);
     }
 
     if (rasterizerOrder) {
@@ -5556,6 +5588,9 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     return processByteAddressBufferLoadStore(expr, 3, /*doStore*/ false);
   case IntrinsicOp::MOP_Load4:
     return processByteAddressBufferLoadStore(expr, 4, /*doStore*/ false);
+  case IntrinsicOp::MOP_AlignedLoad:
+    return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ false,
+                                             /*isAligned*/ true);
   case IntrinsicOp::MOP_Store:
     return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ true);
   case IntrinsicOp::MOP_Store2:
@@ -5564,6 +5599,9 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     return processByteAddressBufferLoadStore(expr, 3, /*doStore*/ true);
   case IntrinsicOp::MOP_Store4:
     return processByteAddressBufferLoadStore(expr, 4, /*doStore*/ true);
+  case IntrinsicOp::MOP_AlignedStore:
+    return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ true,
+                                             /*isAligned*/ true);
   case IntrinsicOp::MOP_GetDimensions:
     retVal = processGetDimensions(expr);
     break;

@@ -952,6 +952,8 @@ $funcT [[]] Load(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<2> [[]] Load2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<3> [[]] Load3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<4> [[]] Load4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+$funcT [[ro]] AlignedLoad(in uint byteOffset, in uint alignment) : byteaddress_alignedload;
+$funcT [[]] AlignedLoad(in uint byteOffset, in uint alignment, out uint_only status) : byteaddress_alignedload_s;
 
 } namespace
 
@@ -966,10 +968,13 @@ $funcT [[]] Load(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<2> [[]] Load2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<3> [[]] Load3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<4> [[]] Load4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+$funcT [[ro]] AlignedLoad(in uint byteOffset, in uint alignment) : byteaddress_alignedload;
+$funcT [[]] AlignedLoad(in uint byteOffset, in uint alignment, out uint_only status) : byteaddress_alignedload_s;
 void [[]] Store(in uint byteOffset, in $funcT value) : byteaddress_store;
 void [[]] Store2(in uint byteOffset, in uint<2> value) : byteaddress_store;
 void [[]] Store3(in uint byteOffset, in uint<3> value) : byteaddress_store;
 void [[]] Store4(in uint byteOffset, in uint<4> value) : byteaddress_store;
+void [[]] AlignedStore(in uint byteOffset, in uint alignment, in $funcT value) : byteaddress_alignedstore;
 // 64-bit integer interlocks
 void [[]] InterlockedAdd64(in uint byteOffset, in u64 value);
 void [[]] InterlockedAdd64(in uint byteOffset, in u64 value, out any_int64 original) : interlockedadd_immediate;

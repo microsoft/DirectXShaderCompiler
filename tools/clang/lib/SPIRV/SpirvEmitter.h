@@ -1240,7 +1240,8 @@ private:
   /// Panics if it is not the case.
   SpirvInstruction *processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
                                                       uint32_t numWords,
-                                                      bool doStore);
+                                                      bool doStore,
+                                                      bool isAligned = false);
 
   /// \brief Processes the GetDimensions intrinsic function call on a
   /// (RW)ByteAddressBuffer by querying the image in the given expr.

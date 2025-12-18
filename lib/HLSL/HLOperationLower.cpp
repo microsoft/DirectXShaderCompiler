@@ -4100,7 +4100,8 @@ struct ResLoadHelper {
   ResLoadHelper(Instruction *Inst, DxilResource::Kind RK, Value *h, Value *idx,
                 Value *Offset, Value *status = nullptr, Value *mip = nullptr)
       : intrinsicOpCode(IntrinsicOp::Num_Intrinsics), handle(h), retVal(Inst),
-        addr(idx), offset(Offset), status(status), mipLevel(mip) {
+        addr(idx), offset(Offset), status(status), mipLevel(mip),
+        customAlignment(0) {
     opcode = LoadOpFromResKind(RK);
     Type *Ty = Inst->getType();
     if (opcode == OP::OpCode::RawBufferLoad && Ty->isVectorTy() &&
@@ -4118,6 +4119,8 @@ struct ResLoadHelper {
   Value *offset;
   Value *status;
   Value *mipLevel;
+  unsigned
+      customAlignment; // For AlignedLoad/AlignedStore - 0 means use default
 };
 
 // Uses CI arguments to determine the index, offset, and mipLevel also depending
@@ -4129,7 +4132,8 @@ struct ResLoadHelper {
 ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
                              DxilResourceBase::Class RC, Value *hdl,
                              IntrinsicOp IOP, LoadInst *TyBufSubLoad)
-    : intrinsicOpCode(IOP), handle(hdl), offset(nullptr), status(nullptr) {
+    : intrinsicOpCode(IOP), handle(hdl), offset(nullptr), status(nullptr),
+      customAlignment(0) {
   opcode = LoadOpFromResKind(RK);
   bool bForSubscript = false;
   if (TyBufSubLoad) {
@@ -4143,6 +4147,26 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
   Type *i32Ty = Type::getInt32Ty(CI->getContext());
   unsigned StatusIdx = HLOperandIndex::kBufLoadStatusOpIdx;
   unsigned OffsetIdx = HLOperandIndex::kInvalidIdx;
+
+  // Extract alignment for AlignedLoad operations
+  // AlignedLoad CallInst has: (opcode, handle, addr, alignment [, status])
+  // Regular Load has: (opcode, handle, addr [, status])
+  if (IOP == IntrinsicOp::MOP_AlignedLoad) {
+    // alignment is at index 3 (after opcode, handle, addr)
+    const unsigned kAlignmentIdx = kAddrIdx + 1;
+    if (argc > kAlignmentIdx) {
+      if (ConstantInt *AlignConst =
+              dyn_cast<ConstantInt>(CI->getArgOperand(kAlignmentIdx))) {
+        customAlignment = AlignConst->getZExtValue();
+      }
+    }
+    // Status is at index 4 for AlignedLoad (if present)
+    if (argc > kAlignmentIdx + 1) {
+      StatusIdx = kAlignmentIdx + 1;
+    } else {
+      StatusIdx = HLOperandIndex::kInvalidIdx;
+    }
+  }
 
   if (opcode == OP::OpCode::TextureLoad) {
     bool IsMS = (RK == DxilResource::Kind::Texture2DMS ||
@@ -4191,7 +4215,7 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
     // Structured buffers receive no exterior offset in this constructor,
     // but may need to increment it later.
     offset = ConstantInt::get(i32Ty, 0U);
-  else if (argc > OffsetIdx)
+  else if (argc > OffsetIdx && OffsetIdx != HLOperandIndex::kInvalidIdx)
     // Textures may set the offset from an explicit argument.
     offset = CI->getArgOperand(OffsetIdx);
   else
@@ -4199,7 +4223,7 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
     offset = UndefValue::get(i32Ty);
 
   // Retrieve status value if provided.
-  if (argc > StatusIdx)
+  if (StatusIdx != HLOperandIndex::kInvalidIdx && argc > StatusIdx)
     status = CI->getArgOperand(StatusIdx);
 }
 
@@ -4246,8 +4270,15 @@ static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
   OP::OpCode opcode = helper.opcode;
   llvm::Constant *opArg = Builder.getInt32((uint32_t)opcode);
 
-  unsigned alignment = RK == DxilResource::Kind::RawBuffer ? 4U : 8U;
-  alignment = std::min(alignment, LdSize);
+  // Use custom alignment if provided (for AlignedLoad), otherwise calculate
+  // default
+  unsigned alignment;
+  if (helper.customAlignment != 0) {
+    alignment = helper.customAlignment;
+  } else {
+    alignment = RK == DxilResource::Kind::RawBuffer ? 4U : 8U;
+    alignment = std::min(alignment, LdSize);
+  }
   Constant *alignmentVal = Builder.getInt32(alignment);
 
   // Assemble args specific to the type bab/struct/typed:
@@ -4516,7 +4547,8 @@ void Split64bitValForStore(Type *EltTy, ArrayRef<Value *> vals, unsigned size,
 
 void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
                     Value *Idx, Value *offset, IRBuilder<> &Builder,
-                    hlsl::OP *OP, Value *sampIdx = nullptr) {
+                    hlsl::OP *OP, Value *sampIdx = nullptr,
+                    unsigned customAlignment = 0) {
   Type *Ty = val->getType();
   OP::OpCode opcode = OP::OpCode::NumOpCodes;
   bool IsTyped = true;
@@ -4560,11 +4592,18 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     val = Builder.CreateZExt(val, Ty);
   }
 
-  // If RawBuffer store of 64-bit value, don't set alignment to 8,
-  // since buffer alignment isn't known to be anything over 4.
-  unsigned alignValue = OP->GetAllocSizeForType(EltTy);
-  if (RK == HLResource::Kind::RawBuffer && alignValue > 4)
-    alignValue = 4;
+  // Use custom alignment if provided (for AlignedStore), otherwise calculate
+  // default
+  unsigned alignValue;
+  if (customAlignment != 0) {
+    alignValue = customAlignment;
+  } else {
+    // If RawBuffer store of 64-bit value, don't set alignment to 8,
+    // since buffer alignment isn't known to be anything over 4.
+    alignValue = OP->GetAllocSizeForType(EltTy);
+    if (RK == HLResource::Kind::RawBuffer && alignValue > 4)
+      alignValue = 4;
+  }
   Constant *Alignment = OP->GetI32Const(alignValue);
   bool is64 = EltTy == i64Ty || EltTy == doubleTy;
   if (is64 && IsTyped) {
@@ -4758,10 +4797,30 @@ Value *TranslateResourceStore(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   IRBuilder<> Builder(CI);
   DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
 
-  Value *val = CI->getArgOperand(HLOperandIndex::kStoreValOpIdx);
-  Value *offset = CI->getArgOperand(HLOperandIndex::kStoreOffsetOpIdx);
+  // Extract custom alignment for AlignedStore
+  unsigned customAlignment = 0;
+  unsigned valueArgIdx = HLOperandIndex::kStoreValOpIdx;
+  unsigned offsetArgIdx = HLOperandIndex::kStoreOffsetOpIdx;
+
+  if (IOP == IntrinsicOp::MOP_AlignedStore) {
+    // AlignedStore CallInst has: (opcode, handle, offset, alignment, value)
+    // Regular Store has: (opcode, handle, offset, value)
+    const unsigned kAlignmentIdx = HLOperandIndex::kStoreOffsetOpIdx + 1; // = 3
+    if (CI->getNumArgOperands() > kAlignmentIdx) {
+      if (ConstantInt *AlignConst =
+              dyn_cast<ConstantInt>(CI->getArgOperand(kAlignmentIdx))) {
+        customAlignment = AlignConst->getZExtValue();
+      }
+    }
+    valueArgIdx =
+        kAlignmentIdx + 1; // Value is after alignment for AlignedStore
+  }
+
+  Value *val = CI->getArgOperand(valueArgIdx);
+  Value *offset = CI->getArgOperand(offsetArgIdx);
   Value *UndefI = UndefValue::get(Builder.getInt32Ty());
-  TranslateStore(RK, handle, val, offset, UndefI, Builder, hlslOP);
+  TranslateStore(RK, handle, val, offset, UndefI, Builder, hlslOP, nullptr,
+                 customAlignment);
 
   return nullptr;
 }
@@ -7514,7 +7573,6 @@ constexpr IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::VectorAccumulate},
 
     {IntrinsicOp::IOP_isnormal, TrivialIsSpecialFloat, DXIL::OpCode::IsNormal},
-
     {IntrinsicOp::IOP_GetGroupWaveCount, EmptyLower,
      DXIL::OpCode::GetGroupWaveCount},
     {IntrinsicOp::IOP_GetGroupWaveIndex, EmptyLower,
@@ -7536,6 +7594,11 @@ constexpr IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::RayQuery_CommittedTriangleObjectPosition},
     {IntrinsicOp::MOP_DxHitObject_TriangleObjectPosition, EmptyLower,
      DXIL::OpCode::HitObject_TriangleObjectPosition},
+
+    {IntrinsicOp::MOP_AlignedLoad, TranslateResourceLoad,
+     DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_AlignedStore, TranslateResourceStore,
+     DXIL::OpCode::NumOpCodes},
 };
 constexpr size_t NumLowerTableEntries =
     sizeof(gLowerTable) / sizeof(gLowerTable[0]);

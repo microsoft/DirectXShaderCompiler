@@ -2768,6 +2768,15 @@ used to store a 32-bit unsigned integer. For ``Store2``, ``Store3``, and ``Store
 done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
 performing ``OpAccessChain``.
 
+``.AlignedLoad<T>()``, ``.AlignedStore<T>()``
+++++++++++++++++++++++++++++++++++++++++++++++
+These functions work identically to their non-aligned counterparts (``Load`` and ``Store``),
+but accept an additional ``alignment`` parameter that specifies the guaranteed alignment of
+the effective address. The alignment value is passed to SPIR-V load/store operations via
+memory operands (``Aligned`` memory access qualifier) to enable backend optimizations.
+The alignment parameter must be a compile-time constant power-of-two value that is greater
+than or equal to the largest scalar type size and less than or equal to 4096 bytes.
+
 ``.Interlocked*()``
 +++++++++++++++++++
 
