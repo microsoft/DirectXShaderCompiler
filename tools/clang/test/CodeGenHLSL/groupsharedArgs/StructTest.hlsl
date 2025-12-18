@@ -8,7 +8,7 @@ struct Shared {
 
 groupshared Shared SharedData;
 
-// CHECK-LABEL: fn1
+// CHECK-LABEL: @"\01?fn1@@YAXAGAUShared@@@Z"
 // CHECK: [[D:%.*]] = alloca double, align 8
 // CHECK: [[A:%.*]] = getelementptr inbounds %struct.Shared, %struct.Shared addrspace(3)* %Sh, i32 0, i32 0
 // CHECK: store i32 10, i32 addrspace(3)* [[A]], align 4
@@ -27,7 +27,6 @@ void fn1(groupshared Shared Sh) {
 }
 
 [numthreads(4, 1, 1)]
-// call void @"\01?fn1@@YAXAAUShared@@@Z"(%struct.Shared addrspace(3)* dereferenceable(40) @"\01?SharedData@@3UShared@@A")
 void main(uint3 TID : SV_GroupThreadID) {
   fn1(SharedData);
 }

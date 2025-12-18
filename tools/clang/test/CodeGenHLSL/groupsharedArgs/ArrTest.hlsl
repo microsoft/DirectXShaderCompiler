@@ -2,7 +2,7 @@
 
 groupshared float4 SharedArr[64];
 
-// CHECK-LABEL: define internal void {{.*}}fn{{.*}}([64 x <4 x float>] addrspace(3)* dereferenceable(1024) %Arr, float %F)
+// CHECK-LABEL: define internal void @"\01?fn@@YAXAGAY0EA@$$CAV?$vector@M$03@@M@Z"([64 x <4 x float>] addrspace(3)* dereferenceable(1024) %Arr, float %F)
 // CHECK: [[ArrIdx:%.*]] = getelementptr inbounds [64 x <4 x float>], [64 x <4 x float>] addrspace(3)* %Arr, i32 0, i32 5
 // CHECK-NEXT: store <4 x float> {{.*}}, <4 x float> addrspace(3)* [[ArrIdx]], align 4
 void fn(groupshared float4 Arr[64], float F) {

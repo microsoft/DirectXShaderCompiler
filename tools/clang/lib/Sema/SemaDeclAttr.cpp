@@ -4948,7 +4948,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     if (S.LangOpts.HLSL) {
       bool Handled = false;
       hlsl::HandleDeclAttributeForHLSL(S, D, Attr, Handled);
-      if (Handled) break;
+      if (Handled)
+        break;
     }
     handleSimpleAttribute<NoInlineAttr>(S, D, Attr);
     break;

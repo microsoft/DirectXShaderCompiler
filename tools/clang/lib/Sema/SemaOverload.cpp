@@ -4970,7 +4970,7 @@ InitCallParamConversions(Sema &S, const FunctionProtoType *Proto,
   if (S.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x &&
       paramMods.isAnyIn() && paramMods.isAnyOut() &&
       Arg->getType().getQualifiers().getAddressSpace() ==
-      hlsl::DXIL::kTGSMAddrSpace)
+          hlsl::DXIL::kTGSMAddrSpace)
     S.Diag(Arg->getLocStart(), diag::warn_hlsl_groupshared_inout);
 
   if (paramMods.isAnyIn()) {

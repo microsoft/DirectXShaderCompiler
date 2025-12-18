@@ -258,7 +258,7 @@ bool HLLegalizeParameter::runOnModule(Module &M) {
     for (Argument &Arg : F.args()) {
       Type *PtrTy = dyn_cast<PointerType>(Arg.getType());
       if (!PtrTy || 0 != PtrTy->getPointerAddressSpace())
-	continue;
+        continue;
       Type *EltTy = dxilutil::GetArrayEltTy(Arg.getType());
       if (dxilutil::IsHLSLObjectType(EltTy) ||
           dxilutil::IsHLSLResourceType(EltTy))
