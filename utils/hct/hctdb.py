@@ -6263,7 +6263,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "$o", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(0, "$vec9", "", "operation result"),
             ],
         )
         add_dxil_op(
@@ -6273,7 +6273,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "$o", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(0, "$vec9", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -6284,7 +6284,7 @@ class db_dxil(object):
             "f",
             "ro",
             [
-                db_dxil_param(0, "$o", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(0, "$vec9", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -6295,7 +6295,7 @@ class db_dxil(object):
             "f",
             "rn",
             [
-                db_dxil_param(0, "$o", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(0, "$vec9", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
