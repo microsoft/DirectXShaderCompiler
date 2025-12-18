@@ -1309,6 +1309,14 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
       const IncompleteArrayType *arrayTy =
           CGM.getContext().getAsIncompleteArrayType(Ty);
       arrayElementTy = arrayTy->getElementType();
+    } else if (paramTy->isConstantArrayType()) {
+      // hacky because unclear proper usage of paramTy vs Ty...
+      const ConstantArrayType *arrayTy =
+          CGM.getContext().getAsConstantArrayType(paramTy);
+      DXASSERT(arrayTy != nullptr, "Must be array type here");
+
+      arraySize = arrayTy->getSize().getLimitedValue();
+      arrayElementTy = arrayTy->getElementType();
     } else {
       DXASSERT(0, "Must array type here");
     }
@@ -6232,7 +6240,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         }
       } else if (isAggregateType) {
         // aggregate in-only - emit RValue, unless LValueToRValue cast
-        EmitRValueAgg = true;
+        if (Param->isModifierIn())
+          EmitRValueAgg = true;
         if (const ImplicitCastExpr *cast = dyn_cast<ImplicitCastExpr>(Arg)) {
           if (cast->getCastKind() == CastKind::CK_LValueToRValue) {
             EmitRValueAgg = false;

@@ -292,6 +292,9 @@ bool HasHLSLReorderCoherent(clang::QualType type) {
   return false;
 }
 
+/// Checks whether the pAttributes indicate a parameter is groupshared
+bool IsParamAttributedAsGroupShared(clang::AttributeList *pAttributes);
+
 /// Checks whether the pAttributes indicate a parameter is inout or out; if
 /// inout, pIsIn will be set to true.
 bool IsParamAttributedAsOut(clang::AttributeList *pAttributes, bool *pIsIn);
@@ -934,6 +937,19 @@ unsigned GetHLSLOutputPatchCount(QualType type) {
   return argList[1].getAsIntegral().getLimitedValue();
 }
 
+bool IsParamAttributedAsGroupShared(clang::AttributeList *pAttributes) {
+  while (pAttributes != nullptr) {
+    switch (pAttributes->getKind()) {
+    case AttributeList::AT_HLSLGroupShared:
+      return true;
+    default:
+      break;
+    }
+    pAttributes = pAttributes->getNext();
+  }
+  return false;
+}
+
 bool IsParamAttributedAsOut(clang::AttributeList *pAttributes, bool *pIsIn) {
   bool anyFound = false;
   bool inFound = false;
@@ -967,6 +983,8 @@ bool IsParamAttributedAsOut(clang::AttributeList *pAttributes, bool *pIsIn) {
 
 hlsl::ParameterModifier
 ParamModFromAttributeList(clang::AttributeList *pAttributes) {
+  if (IsParamAttributedAsGroupShared(pAttributes))
+    return ParameterModifier(hlsl::ParameterModifier::Kind::Ref);
   bool isIn, isOut;
   isOut = IsParamAttributedAsOut(pAttributes, &isIn);
   return ParameterModifier::FromInOut(isIn, isOut);
