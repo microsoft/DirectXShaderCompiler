@@ -2960,16 +2960,6 @@ static unsigned TypeTraitArity(tok::TokenKind kind) {
 ///          type-id ...[opt] type-id-seq[opt]
 ///
 ExprResult Parser::ParseTypeTrait() {
-  // HLSL Change Starts
-  if (getLangOpts().HLSL) {
-    Diag(Tok, diag::err_hlsl_unsupported_construct) << Tok.getName();
-    ConsumeToken();
-    BalancedDelimiterTracker p(*this, tok::l_paren);
-    if (!p.expectAndConsume())
-      p.skipToEnd();
-    return ExprError();
-  }
-  // HLSL Change Ends
   tok::TokenKind Kind = Tok.getKind();
   unsigned Arity = TypeTraitArity(Kind);
 
