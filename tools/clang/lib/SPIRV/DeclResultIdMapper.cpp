@@ -330,6 +330,10 @@ bool shouldSkipInStructLayout(const Decl *decl) {
       return true;
     }
 
+    if (decl->hasAttr<VKStorageClassExtAttr>()) {
+      return true;
+    }
+
     // External visibility
     if (const auto *declDecl = dyn_cast<DeclaratorDecl>(decl))
       if (!declDecl->hasExternalFormalLinkage())
@@ -1064,6 +1068,9 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
   (void)getTypeAndCreateCounterForPotentialAliasVar(param, &isAlias);
   fnParamInstr->setContainsAliasComponent(isAlias);
 
+  if (isConstantTextureBuffer(type))
+    fnParamInstr->setLayoutRule(spirvOptions.cBufferLayoutRule);
+
   assert(astDecls[param].instr == nullptr);
   registerVariableForDecl(param, fnParamInstr);
 
@@ -1180,6 +1187,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
                                                    QualType type) {
   const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
+  const bool hasInlineSpirvSC = var->hasAttr<VKStorageClassExtAttr>();
   const bool isACSBuffer =
       isAppendStructuredBuffer(type) || isConsumeStructuredBuffer(type);
   const bool isRWSBuffer = isRWStructuredBuffer(type);
@@ -1187,7 +1195,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
   const auto rule = getLayoutRuleForExternVar(type, spirvOptions);
   const auto loc = var->getLocation();
 
-  if (!isGroupShared && !isResourceType(type) &&
+  if (!isGroupShared && !isResourceType(type) && !hasInlineSpirvSC &&
       !isResourceOnlyStructure(type)) {
 
     // We currently cannot support global structures that contain both resources

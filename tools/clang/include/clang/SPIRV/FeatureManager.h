@@ -92,7 +92,7 @@ public:
   const char *getExtensionName(Extension symbol);
 
   /// Returns true if the given extension is a KHR extension.
-  bool isKHRExtension(llvm::StringRef name);
+  bool isKHRExtension(llvm::StringRef name) const;
 
   /// Returns the names of all known extensions as a string.
   std::string getKnownExtensions(const char *delimiter, const char *prefix = "",
@@ -110,33 +110,33 @@ public:
 
   /// Returns true if the given extension is not part of the core of the target
   /// environment.
-  bool isExtensionRequiredForTargetEnv(Extension);
+  bool isExtensionRequiredForTargetEnv(Extension) const;
 
   /// Returns true if the given extension is set in allowedExtensions
-  bool isExtensionEnabled(Extension);
+  bool isExtensionEnabled(Extension) const;
 
   /// Returns true if the target environment is Vulkan 1.1 or above.
   /// Returns false otherwise.
-  bool isTargetEnvVulkan1p1OrAbove();
+  bool isTargetEnvVulkan1p1OrAbove() const;
 
   /// Returns true if the target environment is SPIR-V 1.4 or above.
   /// Returns false otherwise.
-  bool isTargetEnvSpirv1p4OrAbove();
+  bool isTargetEnvSpirv1p4OrAbove() const;
 
   /// Returns true if the target environment is Vulkan 1.1 with SPIR-V 1.4 or
   /// above. Returns false otherwise.
-  bool isTargetEnvVulkan1p1Spirv1p4OrAbove();
+  bool isTargetEnvVulkan1p1Spirv1p4OrAbove() const;
 
   /// Returns true if the target environment is Vulkan 1.2 or above.
   /// Returns false otherwise.
-  bool isTargetEnvVulkan1p2OrAbove();
+  bool isTargetEnvVulkan1p2OrAbove() const;
 
   /// Returns true if the target environment is Vulkan 1.3 or above.
   /// Returns false otherwise.
-  bool isTargetEnvVulkan1p3OrAbove();
+  bool isTargetEnvVulkan1p3OrAbove() const;
 
   /// Return true if the target environment is a Vulkan environment.
-  bool isTargetEnvVulkan();
+  bool isTargetEnvVulkan() const;
 
   /// Returns the spv_target_env matching the input string if possible.
   /// This functions matches the spv_target_env with the command-line version

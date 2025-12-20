@@ -714,7 +714,7 @@ template <typename T> uint32_t CountBits(T A) {
 // returns the index of the first high/low bit found.
 template <typename T> uint32_t ScanFromMSB(T A, bool LookingForZero) {
   if (A == 0)
-    return ~0;
+    return std::numeric_limits<uint32_t>::max();
 
   constexpr uint32_t NumBits = sizeof(T) * 8;
   for (int32_t I = NumBits - 1; I >= 0; --I) {
@@ -722,7 +722,7 @@ template <typename T> uint32_t ScanFromMSB(T A, bool LookingForZero) {
     if (BitSet != LookingForZero)
       return static_cast<uint32_t>(I);
   }
-  return ~0;
+  return std::numeric_limits<uint32_t>::max();
 }
 
 template <typename T>
@@ -742,14 +742,14 @@ template <typename T> uint32_t FirstBitLow(T A) {
   const uint32_t NumBits = sizeof(T) * 8;
 
   if (A == 0)
-    return ~0;
+    return std::numeric_limits<uint32_t>::max();
 
   for (uint32_t I = 0; I < NumBits; ++I) {
     if (A & (static_cast<T>(1) << I))
       return static_cast<T>(I);
   }
 
-  return ~0;
+  return std::numeric_limits<uint32_t>::max();
 }
 
 DEFAULT_OP_2(OpType::And, (A & B));
@@ -883,12 +883,33 @@ CAST_OP(OpType::CastToFloat64, double, (CastToFloat64(A)));
 // specs. An example with this spec for sin and cos is available here:
 // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
 
-struct TrigonometricValidation {
+template <typename T, OpType OP> struct TrigonometricValidation {
   ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.0008f);
 };
 
+// Half precision trig functions have a larger tolerance due to their lower
+// precision. Note that the D3D spec
+// does not mention half precision trig functions.
+template <OpType OP> struct TrigonometricValidation<HLSLHalf_t, OP> {
+  ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.003f);
+};
+
+// For the half precision trig functions with an infinite range in either
+// direction we use 2 ULPs of tolerance instead.
+template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Cosh> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Tan> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Sinh> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
 #define TRIG_OP(OP, IMPL)                                                      \
-  template <typename T> struct Op<OP, T, 1> : TrigonometricValidation {        \
+  template <typename T> struct Op<OP, T, 1> : TrigonometricValidation<T, OP> { \
     T operator()(T A) { return IMPL; }                                         \
   }
 
@@ -1340,6 +1361,55 @@ template <typename T> struct ExpectedBuilder<OpType::ModF, T> {
 };
 
 //
+// Derivative Ops
+//
+
+// Coarse derivatives (ddx/ddy): All lanes in quad get same result
+// Fine derivatives (ddx_fine/ddy_fine): Each lane gets unique result
+// For testing, we validate results on lane 3 to keep validation generic
+//
+// The value of A in each lane is computed by : A = A + LaneID*2
+//
+// Top right (lane 1) - Top Left (lane 0)
+DEFAULT_OP_1(OpType::DerivativeDdx, ((A + 2) - (A + 0)));
+// Lower left (lane 2) -  Top Left (lane 0)
+DEFAULT_OP_1(OpType::DerivativeDdy, ((A + 4) - (A + 0)));
+
+// Bottom right (lane 3) - Bottom left (lane 2)
+DEFAULT_OP_1(OpType::DerivativeDdxFine, ((A + 6) - (A + 4)));
+// Bottom right (lane 3) - Top right (lane 1)
+DEFAULT_OP_1(OpType::DerivativeDdyFine, ((A + 6) - (A + 2)));
+
+//
+// Quad Read Ops
+//
+
+// We keep things generic so we can re-use this macro for all quad ops.
+// The lane we write to is determined via a defines in the shader code.
+// See TestQuadRead in ShaderOpArith.xml.
+// For all cases we simply fill the vector on that lane with the value of the
+// third element.
+#define QUAD_READ_OP(OP, ARITY)                                                \
+  template <typename T> struct Op<OP, T, ARITY> : DefaultValidation<T> {};     \
+  template <typename T> struct ExpectedBuilder<OP, T> {                        \
+    static std::vector<T> buildExpected(Op<OP, T, ARITY> &,                    \
+                                        const InputSets<T> &Inputs) {          \
+      DXASSERT_NOMSG(Inputs.size() == ARITY);                                  \
+      std::vector<T> Expected;                                                 \
+      const size_t VectorSize = Inputs[0].size();                              \
+      Expected.assign(VectorSize, Inputs[0][2]);                               \
+      return Expected;                                                         \
+    }                                                                          \
+  };
+
+QUAD_READ_OP(OpType::QuadReadLaneAt, 2);
+QUAD_READ_OP(OpType::QuadReadAcrossX, 1);
+QUAD_READ_OP(OpType::QuadReadAcrossY, 1);
+QUAD_READ_OP(OpType::QuadReadAcrossDiagonal, 1);
+
+#undef QUAD_READ_OP
+
+//
 // Wave Ops
 //
 
@@ -1701,7 +1771,7 @@ void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
 
   const std::string AdditionalCompilerOptions =
       "-DWAVE_SIZE=" + std::to_string(WaveSize) +
-      " -DNUMTHREADS_X=" + std::to_string(WaveSize);
+      " -DNUMTHREADS_XYZ=" + std::to_string(WaveSize) + ",1,1 ";
 
   for (size_t VectorSize : InputVectorSizes) {
     std::vector<std::vector<T>> Inputs =
@@ -1752,37 +1822,7 @@ public:
     if (!Initialized) {
       Initialized = true;
 
-      HMODULE Runtime = LoadLibraryW(L"d3d12.dll");
-      if (Runtime == NULL)
-        return false;
-      // Do not: FreeLibrary(hRuntime);
-      // If we actually free the library, it defeats the purpose of
-      // enableAgilitySDK and enableExperimentalMode.
-
-      HRESULT HR;
-      HR = enableAgilitySDK(Runtime);
-
-      if (FAILED(HR))
-        hlsl_test::LogCommentFmt(L"Unable to enable Agility SDK - 0x%08x.", HR);
-      else if (HR == S_FALSE)
-        hlsl_test::LogCommentFmt(L"Agility SDK not enabled.");
-      else
-        hlsl_test::LogCommentFmt(L"Agility SDK enabled.");
-
-      HR = enableExperimentalMode(Runtime);
-      if (FAILED(HR))
-        hlsl_test::LogCommentFmt(
-            L"Unable to enable shader experimental mode - 0x%08x.", HR);
-      else if (HR == S_FALSE)
-        hlsl_test::LogCommentFmt(L"Experimental mode not enabled.");
-
-      HR = enableDebugLayer();
-      if (FAILED(HR))
-        hlsl_test::LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", HR);
-      else if (HR == S_FALSE)
-        hlsl_test::LogCommentFmt(L"Debug layer not enabled.");
-      else
-        hlsl_test::LogCommentFmt(L"Debug layer enabled.");
+      D3D12SDK = D3D12SDKSelector();
 
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
                                                          VerboseLogging);
@@ -1819,7 +1859,18 @@ public:
           L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
 
       const bool SkipUnsupported = !FailIfRequirementsNotMet;
-      createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, SkipUnsupported);
+      if (!D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9,
+                                  SkipUnsupported)) {
+        if (FailIfRequirementsNotMet)
+          hlsl_test::LogErrorFmt(
+              L"Device Creation failed, resulting in test failure, since "
+              L"FailIfRequirementsNotMet is set. The expectation is that this "
+              L"test will only be executed if something has previously "
+              L"determined that the system meets the requirements of this "
+              L"test.");
+
+        return false;
+      }
     }
 
     return true;
@@ -1828,10 +1879,21 @@ public:
   TEST_METHOD_SETUP(methodSetup) {
     // It's possible a previous test case caused a device removal. If it did we
     // need to try and create a new device.
-    if (!D3DDevice || D3DDevice->GetDeviceRemovedReason() != S_OK) {
-      hlsl_test::LogCommentFmt(
-          L"Device was lost: Attempting to create a new D3D12 device.");
-      VERIFY_IS_TRUE(createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9, false));
+    if (D3DDevice && D3DDevice->GetDeviceRemovedReason() != S_OK) {
+      hlsl_test::LogCommentFmt(L"Device was lost!");
+      D3DDevice.Release();
+    }
+
+    if (!D3DDevice) {
+      hlsl_test::LogCommentFmt(L"Creating device");
+
+      // We expect this to succeed, and fail if it doesn't, because classSetup()
+      // has already ensured that the system configuration meets the
+      // requirements of all the tests in this class.
+      const bool SkipUnsupported = false;
+
+      VERIFY_IS_TRUE(D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9,
+                                            SkipUnsupported));
     }
 
     return true;
@@ -2501,6 +2563,60 @@ public:
   HLK_TEST(LoadAndStore_RD_SB_SRV, double);
   HLK_TEST(LoadAndStore_RD_SB_UAV, double);
 
+  // Derivative
+  HLK_TEST(DerivativeDdx, HLSLHalf_t);
+  HLK_TEST(DerivativeDdy, HLSLHalf_t);
+  HLK_TEST(DerivativeDdxFine, HLSLHalf_t);
+  HLK_TEST(DerivativeDdyFine, HLSLHalf_t);
+  HLK_TEST(DerivativeDdx, float);
+  HLK_TEST(DerivativeDdy, float);
+  HLK_TEST(DerivativeDdxFine, float);
+  HLK_TEST(DerivativeDdyFine, float);
+
+  // Quad
+  HLK_TEST(QuadReadLaneAt, HLSLBool_t);
+  HLK_TEST(QuadReadAcrossX, HLSLBool_t);
+  HLK_TEST(QuadReadAcrossY, HLSLBool_t);
+  HLK_TEST(QuadReadAcrossDiagonal, HLSLBool_t);
+  HLK_TEST(QuadReadLaneAt, int16_t);
+  HLK_TEST(QuadReadAcrossX, int16_t);
+  HLK_TEST(QuadReadAcrossY, int16_t);
+  HLK_TEST(QuadReadAcrossDiagonal, int16_t);
+  HLK_TEST(QuadReadLaneAt, int32_t);
+  HLK_TEST(QuadReadAcrossX, int32_t);
+  HLK_TEST(QuadReadAcrossY, int32_t);
+  HLK_TEST(QuadReadAcrossDiagonal, int32_t);
+  HLK_TEST(QuadReadLaneAt, int64_t);
+  HLK_TEST(QuadReadAcrossX, int64_t);
+  HLK_TEST(QuadReadAcrossY, int64_t);
+  HLK_TEST(QuadReadAcrossDiagonal, int64_t);
+  HLK_TEST(QuadReadLaneAt, uint16_t);
+  HLK_TEST(QuadReadAcrossX, uint16_t);
+  HLK_TEST(QuadReadAcrossY, uint16_t);
+  HLK_TEST(QuadReadAcrossDiagonal, uint16_t);
+  HLK_TEST(QuadReadLaneAt, uint32_t);
+  HLK_TEST(QuadReadAcrossX, uint32_t);
+  HLK_TEST(QuadReadAcrossY, uint32_t);
+  HLK_TEST(QuadReadAcrossDiagonal, uint32_t);
+  HLK_TEST(QuadReadLaneAt, uint64_t);
+  HLK_TEST(QuadReadAcrossX, uint64_t);
+  HLK_TEST(QuadReadAcrossY, uint64_t);
+  HLK_TEST(QuadReadAcrossDiagonal, uint64_t);
+  HLK_TEST(QuadReadLaneAt, HLSLHalf_t);
+  HLK_TEST(QuadReadAcrossX, HLSLHalf_t);
+  HLK_TEST(QuadReadAcrossY, HLSLHalf_t);
+  HLK_TEST(QuadReadAcrossDiagonal, HLSLHalf_t);
+  HLK_TEST(QuadReadLaneAt, float);
+  HLK_TEST(QuadReadAcrossX, float);
+  HLK_TEST(QuadReadAcrossY, float);
+  HLK_TEST(QuadReadAcrossDiagonal, float);
+  HLK_TEST(QuadReadLaneAt, double);
+  HLK_TEST(QuadReadAcrossX, double);
+  HLK_TEST(QuadReadAcrossY, double);
+  HLK_TEST(QuadReadAcrossDiagonal, double);
+
+  // Wave
+
   HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLBool_t);
   HLK_WAVEOP_TEST(WaveReadLaneAt, HLSLBool_t);
   HLK_WAVEOP_TEST(WaveReadLaneFirst, HLSLBool_t);
@@ -2645,6 +2761,7 @@ public:
 
 private:
   bool Initialized = false;
+  std::optional<D3D12SDKSelector> D3D12SDK;
   bool VerboseLogging = false;
   size_t OverrideInputSize = 0;
   UINT OverrideWaveLaneCount = 0;

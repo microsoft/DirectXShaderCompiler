@@ -65,9 +65,9 @@ dxil_max_overload_dims = 2
 class db_dxil_enum_value(object):
     "A representation for a value in an enumeration type"
 
-    def __init__(self, name, value, doc):
-        self.name = name  # Name (identifier)
+    def __init__(self, value, name, doc):
         self.value = value  # Numeric value
+        self.name = name  # Name (identifier)
         self.doc = doc  # Documentation string
         self.category = None
 
@@ -78,13 +78,19 @@ class db_dxil_enum(object):
     def __init__(self, name, doc, valNameDocTuples=()):
         self.name = name
         self.doc = doc
-        self.values = [
-            db_dxil_enum_value(n, v, d) for v, n, d in valNameDocTuples
-        ]  # Note transmutation
+        self.values = [db_dxil_enum_value(*args) for args in valNameDocTuples]
         self.is_internal = False  # whether this is never serialized
+        self.last_value_name = None  # optional last value name for dense enums
+        self.dxil_version_info = {}  # version info for this enum
+        self.postfix_lines = []  # optional postfix to include inside enum declaration
 
     def value_names(self):
         return [i.name for i in self.values]
+
+    def add_value(self, *args):
+        v = db_dxil_enum_value(*args)
+        self.values.append(v)
+        return v
 
 
 class db_dxil_inst(object):
@@ -94,8 +100,8 @@ class db_dxil_inst(object):
         self.name = name  # short, unique name
         self.llvm_id = 0  # ID of LLVM instruction
         self.llvm_name = ""  # name of LLVM instruction type
+        self.dxil_table = "CoreOps"  # name of the DXIL operation table
 
-        self.is_dxil_op = False  # whether this is a call into a built-in DXIL function
         self.dxil_op = ""  # name of DXIL operation
         self.dxil_opid = 0  # ID of DXIL operation
         self.dxil_class = ""  # name of the opcode class
@@ -117,18 +123,30 @@ class db_dxil_inst(object):
         self.shader_model = 6, 0  # minimum shader model required
         self.inst_helper_prefix = None
         self.fully_qualified_name_prefix = "hlsl::OP::OpCode"
-        for k, v in list(kwargs.items()):
-            setattr(self, k, v)
-        self.is_dxil_op = self.dxil_op != ""  # whether this is a DXIL operation
-        self.is_reserved = self.dxil_class == "Reserved"
         self.shader_model_translated = ()  # minimum shader model required with translation by linker
         self.props = {}  # extra properties
         self.num_oloads = 0  # number of overloads for this instruction
+
+        for k, v in list(kwargs.items()):
+            setattr(self, k, v)
+
+        self.is_dxil_op = self.dxil_op != ""  # whether this is a DXIL operation
+        self.is_reserved = self.dxil_class == "Reserved"
         if self.is_dxil_op:
             self.process_oload_types()
 
     def __str__(self):
         return self.name
+
+    def dxil_op_index(self):
+        "Get the index of this DXIL op in its table."
+        return self.dxil_opid & 0xFFFF
+
+    def table_id(self):
+        "Get the table ID of this DXIL op."
+        if self.is_dxil_op:
+            return (self.dxil_opid >> 16) & 0xFFFF
+        return 0  # LLVM ops are in table 0 (CoreOps)
 
     def fully_qualified_name(self):
         return "{}::{}".format(self.fully_qualified_name_prefix, self.name)
@@ -144,9 +162,46 @@ class db_dxil_inst(object):
 
         self.num_oloads = 0
 
+        # Overload Note: There are operations that really didn't need
+        # overload types, and originally did not use any overload types in the
+        # operands, but specified a single overload type in the oload_types.
+        # These have been updated to use the overload type in the appropriate
+        # place, rather than changing the overload type to "v", because Changing
+        # the oload_types to "v" would change the name of the function in DXIL,
+        # which could be breaking for some DXIL consumers, depending on how they
+        # interpret the DXIL.  So, there are "Overload Note:" comments on
+        # certain DXIL op definitions to highlight these cases.
+
+        # While these could technically be cleaned up, the external impact would
+        # be large and it's unlikely to ever be worth it.
+
+        # Other cases specified one overload type and could potentially have
+        # used the specified overload, but were not currently using it in the
+        # operands (like system value getters).  These have been updated to use
+        # the overload type in the operands, without adding the comment, and
+        # could support additional overloads in the future (like for half or
+        # int16).
+
+        def uses_oload_types(inst):
+            "Return true if any operand uses an overload type."
+            for op in inst.ops:
+                # All overload types start with a '$'
+                if op.llvm_type[0] == "$":
+                    return True
+
         # Early out for void overloads.
         if self.oload_types == "v":
+            if uses_oload_types(self):
+                raise ValueError(
+                    f"void overloads 'v' used with overloaded operand type(s) for '({self.name})'"
+                )
             return
+
+        if not uses_oload_types(self):
+            raise ValueError(
+                f"'({self.name})' specifies overloads ({self.oload_types}), "
+                + "but no overload types used in operands"
+            )
 
         if self.oload_types == "":
             raise ValueError(
@@ -333,27 +388,127 @@ class db_dxil_valrule(object):
         return self.name
 
 
+# DXIL operations are grouped into tables to support experimental and extended
+# features.
+class db_dxil_op_table(object):
+    "Table definition for a set of DXIL operations"
+
+    def __init__(self, db, id, name, doc):
+        assert id & ~0xFFFF == 0, "DXIL op table ID must fit in high 16 bits"
+        self.id = id
+        self.name = name
+        self.doc = doc
+        self.ops = []  # DXIL operations
+        self.op_enum = db_dxil_enum(
+            "OpCode", f"Enumeration for {self.name} DXIL operations"
+        )
+        self.op_enum.last_value_name = "NumOpCodes"
+        self.call_instr = db.call_instr
+        self.opcode_param = db_dxil_param(1, "i32", "opcode", "DXIL opcode")
+
+    def _next_id(self):
+        return (self.id << 16) | len(self.ops)
+
+    def __len__(self):
+        return len(self.ops)
+
+    def __getitem__(self, idx):
+        return self.ops[idx]
+
+    def __iter__(self):
+        return iter(self.ops)
+
+    def set_op_count_for_version(self, major, minor):
+        op_count = len(self.ops)
+        self.op_enum.dxil_version_info[(major, minor)] = op_count
+        return op_count
+
+    def add(self, i):
+        assert i.table_id() == self.id, "Instruction table mismatch"
+        assert i.dxil_op_index() == len(self.ops), "Instruction index mismatch"
+        self.ops.append(i)
+        return i
+
+    def add_dxil_op(
+        self, name, code_class, doc, oload_types, fn_attr, op_params, **props
+    ):
+        # The return value is parameter 0, insert the opcode as 1.
+        op_params.insert(1, self.opcode_param)
+        i = db_dxil_inst(
+            name,
+            llvm_id=self.call_instr.llvm_id,
+            llvm_name=self.call_instr.llvm_name,
+            dxil_op=name,
+            dxil_opid=self._next_id(),
+            dxil_table=self.name,
+            doc=doc,
+            ops=op_params,
+            dxil_class=code_class,
+            oload_types=oload_types,
+            fn_attr=fn_attr,
+        )
+        i.props = props
+        return self.add(i)
+
+    def add_dxil_op_reserved(self, name):
+        # The return value is parameter 0, insert the opcode as 1.
+        op_params = [db_dxil_param(0, "v", "", "reserved"), self.opcode_param]
+        i = db_dxil_inst(
+            name,
+            llvm_id=self.call_instr.llvm_id,
+            llvm_name=self.call_instr.llvm_name,
+            dxil_op=name,
+            dxil_opid=self._next_id(),
+            dxil_table=self.name,
+            doc="reserved",
+            ops=op_params,
+            dxil_class="Reserved",
+            oload_types="v",
+            fn_attr="",
+        )
+        return self.add(i)
+
+    def reserve_dxil_op_range(self, group_name, count, start_reserved_id=0):
+        "Reserve a range of dxil opcodes for future use; returns next id"
+        return [
+            self.add_dxil_op_reserved(
+                "{0}{1}".format(group_name, start_reserved_id + i)
+            )
+            for i in range(0, count)
+        ]
+
+
 class db_dxil(object):
     "A database of DXIL instruction data"
 
     def __init__(self):
-        self.instr = []  # DXIL instructions
+        self._llvm_insts = []  # LLVM instructions
         self.enums = []  # enumeration types
         self.val_rules = []  # validation rules
         self.metadata = []  # named metadata (db_dxil_metadata)
         self.passes = []  # inventory of available passes (db_dxil_pass)
         self.name_idx = {}  # DXIL instructions by name
         self.enum_idx = {}  # enumerations by name
-        self.dxil_version_info = {}
         # list of counters for instructions and dxil ops,
         # starting with extra ones specified here
         self.counters = extra_counters
-        self.next_dxil_op_id = 0  # next available DXIL op ID
 
+        # Add core LLVM instructions, and set call_instr for DXIL ops
         self.populate_llvm_instructions()
-        self.call_instr = self.get_instr_by_llvm_name("CallInst")
-        self.populate_dxil_operations()
-        self.build_indices()
+
+        # OpCode tables
+        self.op_table_enum = self.add_enum_type(
+            "OpCodeTableID", "Enumeration for DXIL opcode tables"
+        )
+        self.op_tables = []
+        self.op_table_idx = {}
+
+        # Add DXIL operations for each table
+        self.populate_CoreOps()
+        self.populate_ExperimentalOps()
+
+        # Finalize dxil operations and populate additional data
+        self.finalize_dxil_operations()
         self.populate_extended_docs()
         self.populate_categories_and_models()
         self.build_opcode_enum()
@@ -362,55 +517,99 @@ class db_dxil(object):
         self.populate_passes()
         self.build_valrules()
         self.build_semantics()
-        self.build_indices()
         self.populate_counters()
 
+    def get_llvm_insts(self):
+        "Get all LLVM instructions."
+        for i in self._llvm_insts:
+            yield i
+
+    def get_dxil_ops(self):
+        "Get all DXIL operations."
+        for table in self.op_tables:
+            for i in table:
+                yield i
+
+    def get_all_insts(self):
+        "Get all instructions, including LLVM and DXIL operations."
+        for i in self._llvm_insts:
+            yield i
+        for table in self.op_tables:
+            for i in table:
+                yield i
+
+    def get_insts_by_names(self, *names):
+        "Get instructions by strings of names separated by commas."
+        for names_to_split in names:
+            for name in names_to_split.split(","):
+                yield self.name_idx[name.strip()]
+
+    def add_dxil_op_table(self, id, name, doc):
+        "Add a new DXIL operation table."
+        assert name not in self.op_table_idx, f"DXIL op table '{name}' already exists"
+        assert id & ~0xFFFF == 0, "DXIL op table ID must fit in high 16 bits"
+        assert (
+            len(self.op_tables) < 2
+        ), "Only two DXIL op tables are currently supported"
+        self.op_table_enum.add_value(id, name, doc)
+        table = db_dxil_op_table(self, id, name, doc)
+        self.op_tables.append(table)
+        self.op_table_idx[table.name] = table
+        return table
+
+    def get_dxil_op_table(self, table_name="CoreOps"):
+        "Get the specified DXIL operation table."
+        return self.op_table_idx[table_name]
+
     def __str__(self):
-        return "\n".join(str(i) for i in self.instr)
+        return "\n".join(str(i) for i in self.get_all_insts())
 
-    def next_id(self):
-        "Returns the next available DXIL op ID and increments the counter"
-        val = self.next_dxil_op_id
-        self.next_dxil_op_id += 1
-        return val
-
-    def add_enum_type(self, name, doc, valNameDocTuples):
-        "Adds a new enumeration type with name/value/doc tuples"
-        self.enums.append(db_dxil_enum(name, doc, valNameDocTuples))
-
-    def build_indices(self):
-        "Build a name_idx dictionary with instructions and an enum_idx dictionary with enumeration types"
-        self.name_idx = {}
-        for i in self.instr:
-            self.name_idx[i.name] = i
-        self.enum_idx = {}
-        for i in self.enums:
-            self.enum_idx[i.name] = i
+    def add_enum_type(self, name, doc, valNameDocTuples=()):
+        "Adds a new enumeration type with optional name/value/doc tuples"
+        assert name not in self.enum_idx, "Enumeration type %s already exists" % (name)
+        enum = db_dxil_enum(name, doc, valNameDocTuples)
+        self.enum_idx[enum.name] = enum
+        self.enums.append(enum)
+        return enum
 
     def build_opcode_enum(self):
-        # Build enumeration from instructions
-        OpCodeEnum = db_dxil_enum(
-            "OpCode", "Enumeration for operations specified by DXIL"
-        )
+        # Core table enum is exposed globally as "OpCode"
+        self.enum_idx[self.core_table.op_enum.name] = self.core_table.op_enum
+        self.enums.append(self.core_table.op_enum)
+
+        # Use postfix for OpCode::Invalid and extended table opcodes
+        postfix = self.core_table.op_enum.postfix_lines
+        postfix.append("Invalid = 0xFFFFFFFF, // stable invalid OpCode value\n")
+        postfix.append("// OpCodes for extended tables follow.")
+
+        # Keep track of last seen class/category pairs for OpCodeClass
         class_dict = {}
         class_dict["LlvmInst"] = "LLVM Instructions"
-        for i in self.instr:
-            if i.is_dxil_op:
-                v = db_dxil_enum_value(i.dxil_op, i.dxil_opid, i.doc)
+
+        # Build table enumerations from instructions
+        for table in self.op_tables:
+            if table != self.core_table:
+                postfix.append("")
+                postfix.append(f"// OpCodeTableID = {table.id}")
+                postfix.append(f"// {table.name}")
+
+            for i in table:
+                v = table.op_enum.add_value(i.dxil_op_index(), i.dxil_op, i.doc)
                 v.category = i.category
                 class_dict[i.dxil_class] = i.category
-                OpCodeEnum.values.append(v)
-        self.enums.append(OpCodeEnum)
-        OpCodeClass = db_dxil_enum(
+                if table != self.core_table:
+                    postfix.append(f"EXP_OPCODE({table.name}, {i.dxil_op}), // {i.doc}")
+
+        # Build OpCodeClass enum
+        OpCodeClass = self.add_enum_type(
             "OpCodeClass",
             "Groups for DXIL operations with equivalent function templates",
         )
         OpCodeClass.is_internal = True
+        OpCodeClass.last_value_name = "NumOpClasses"
         for k, v in iter(class_dict.items()):
-            ev = db_dxil_enum_value(k, 0, None)
+            ev = OpCodeClass.add_value(0, k, None)
             ev.category = v
-            OpCodeClass.values.append(ev)
-        self.enums.append(OpCodeClass)
 
     def mark_disallowed_operations(self):
         # Disallow indirect branching, unreachable instructions and support for exception unwinding.
@@ -434,12 +633,6 @@ class db_dxil(object):
                     % (i_val, val, name_proj(i))
                 )
             val = i_val
-
-    def set_op_count_for_version(self, major, minor):
-        info = self.dxil_version_info.setdefault((major, minor), dict())
-        info["NumOpCodes"] = self.next_dxil_op_id
-        info["NumOpClasses"] = len(set([op.dxil_class for op in self.instr]))
-        return self.next_dxil_op_id
 
     def populate_categories_and_models(self):
         "Populate the category and shader_stages member of instructions."
@@ -574,7 +767,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Other"
         for i in "LegacyF32ToF16,LegacyF16ToF32".split(","):
             self.name_idx[i].category = "Legacy floating-point"
-        for i in self.instr:
+        for i in self.get_dxil_ops():
             if i.name.startswith("Wave"):
                 i.category = "Wave"
                 i.is_wave = True
@@ -886,6 +1079,77 @@ class db_dxil(object):
         ).split(","):
             self.name_idx[i].category = "Linear Algebra Operations"
             self.name_idx[i].shader_model = 6, 10
+        # End of core DXIL ops
+        self.populate_categories_and_models_ExperimentalOps()
+
+    def populate_categories_and_models_ExperimentalOps(self):
+        # Note: Experimental ops must be set to a shader model higher than the
+        # most recent release until infrastructure is in place to opt-in to
+        # experimental ops and the validator can force use of the PREVIEW hash.
+
+        # Update experimental_sm to released + 1 minor version when highest
+        # released shader model is updated in latest-release.json.
+        experimental_sm = 6, 10
+
+        insts = self.get_insts_by_names
+
+        for i in insts("ExperimentalNop"):
+            i.category = "No-op"
+            i.shader_model = experimental_sm
+
+        # Group Wave Index / Count
+        for i in insts("GetGroupWaveIndex,GetGroupWaveCount"):
+            i.category = "Group Wave Ops"
+            i.shader_model = experimental_sm
+            i.shader_stages = ("compute", "mesh", "amplification", "library")
+            i.is_wave = True
+
+        # Clustered Geometry
+        for i in insts("ClusterID"):
+            i.category = "Raytracing uint System Values"
+            i.shader_model = experimental_sm
+            i.shader_stages = (
+                "library",
+                "anyhit",
+                "closesthit",
+            )
+        for i in insts("RayQuery_CandidateClusterID,RayQuery_CommittedClusterID"):
+            i.category = "Inline Ray Query"
+            i.shader_model = experimental_sm
+        for i in insts("HitObject_ClusterID"):
+            i.category = "Shader Execution Reordering"
+            i.shader_model = experimental_sm
+            i.shader_stages = (
+                "library",
+                "raygeneration",
+                "closesthit",
+                "miss",
+            )
+
+        # Triangle Object Positions
+        for i in insts("TriangleObjectPosition"):
+            i.category = "Raytracing System Values"
+            i.shader_model = experimental_sm
+            i.shader_stages = (
+                "library",
+                "anyhit",
+                "closesthit",
+            )
+        for i in insts(
+            "RayQuery_CandidateTriangleObjectPosition",
+            "RayQuery_CommittedTriangleObjectPosition",
+        ):
+            i.category = "Inline Ray Query"
+            i.shader_model = experimental_sm
+        for i in insts("HitObject_TriangleObjectPosition"):
+            i.category = "Shader Execution Reordering"
+            i.shader_model = experimental_sm
+            i.shader_stages = (
+                "library",
+                "raygeneration",
+                "closesthit",
+                "miss",
+            )
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1343,7 +1607,10 @@ class db_dxil(object):
         self.add_llvm_instr(
             "OTHER", 48, "PHI", "PHINode", "is a PHI node instruction", "", []
         )
-        self.add_llvm_instr("OTHER", 49, "Call", "CallInst", "calls a function", "", [])
+        # keep track of CallInst used by all DXIL ops
+        self.call_instr = self.add_llvm_instr(
+            "OTHER", 49, "Call", "CallInst", "calls a function", "", []
+        )
         self.add_llvm_instr(
             "OTHER", 50, "Select", "SelectInst", "selects an instruction", "", []
         )
@@ -1412,15 +1679,21 @@ class db_dxil(object):
             [],
         )
 
-    def populate_dxil_operations(self):
+    def populate_CoreOps(self):
+        # Set up core DXIL operations.
+        self.core_table = self.add_dxil_op_table(0, "CoreOps", "Core DXIL operations")
+        op_table = self.core_table
+        add_dxil_op = op_table.add_dxil_op
+        reserve_dxil_op_range = op_table.reserve_dxil_op_range
+        set_op_count_for_version = op_table.set_op_count_for_version
+
         # $o in a parameter type means the overload type
         # $r in a parameter type means the resource type
         # $cb in a parameter type means cbuffer legacy load return type
         # $o_{component} in a return type means the overload template shape with the specified component type
         # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong
-        self.opcode_param = db_dxil_param(1, "i32", "opcode", "DXIL opcode")
         retvoid_param = db_dxil_param(0, "v", "", "no return value")
-        self.add_dxil_op(
+        add_dxil_op(
             "TempRegLoad",
             "TempRegLoad",
             "helper load operation",
@@ -1431,7 +1704,7 @@ class db_dxil(object):
                 db_dxil_param(2, "u32", "index", "linearized register index"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "TempRegStore",
             "TempRegStore",
             "helper store operation",
@@ -1443,7 +1716,7 @@ class db_dxil(object):
                 db_dxil_param(3, "$o", "value", "value to store"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "MinPrecXRegLoad",
             "MinPrecXRegLoad",
             "helper load operation for minprecision",
@@ -1456,7 +1729,7 @@ class db_dxil(object):
                 db_dxil_param(4, "u8", "component", "component"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "MinPrecXRegStore",
             "MinPrecXRegStore",
             "helper store operation for minprecision",
@@ -1470,7 +1743,7 @@ class db_dxil(object):
                 db_dxil_param(5, "$o", "value", "value to store"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "LoadInput",
             "LoadInput",
             "loads the value from shader input",
@@ -1485,7 +1758,7 @@ class db_dxil(object):
             ],
             counters=("sig_ld",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "StoreOutput",
             "StoreOutput",
             "stores the value to shader output",
@@ -1515,7 +1788,7 @@ class db_dxil(object):
 
         # Unary float operations are regular.
         for i in "FAbs,Saturate".split(","):
-            self.add_dxil_op(
+            add_dxil_op(
                 i,
                 "Unary",
                 "returns the " + i,
@@ -1528,7 +1801,7 @@ class db_dxil(object):
                 counters=("floats",),
             )
         for i in "IsNaN,IsInf,IsFinite,IsNormal".split(","):
-            self.add_dxil_op(
+            add_dxil_op(
                 i,
                 "IsSpecialFloat",
                 "returns the " + i,
@@ -1545,7 +1818,7 @@ class db_dxil(object):
         ) in "Cos,Sin,Tan,Acos,Asin,Atan,Hcos,Hsin,Htan,Exp,Frc,Log,Sqrt,Rsqrt,Round_ne,Round_ni,Round_pi,Round_z".split(
             ","
         ):
-            self.add_dxil_op(
+            add_dxil_op(
                 i,
                 "Unary",
                 "returns the " + i,
@@ -1560,7 +1833,7 @@ class db_dxil(object):
 
         # Unary int operations are regular.
         for i in "Bfrev".split(","):
-            self.add_dxil_op(
+            add_dxil_op(
                 i,
                 "Unary",
                 "returns the reverse bit pattern of the input value",
@@ -1573,7 +1846,7 @@ class db_dxil(object):
                 counters=("uints",),
             )
         for i in "Countbits,FirstbitLo".split(","):
-            self.add_dxil_op(
+            add_dxil_op(
                 i,
                 "UnaryBits",
                 "returns the " + i,
@@ -1586,7 +1859,7 @@ class db_dxil(object):
                 counters=("uints",),
             )
         for i in "FirstbitHi,FirstbitSHi".split(","):
-            self.add_dxil_op(
+            add_dxil_op(
                 i,
                 "UnaryBits",
                 "returns src != 0? (BitWidth-1 - " + i + ") : -1",
@@ -1601,7 +1874,7 @@ class db_dxil(object):
 
         # Binary float operations
         for i in "FMax,FMin".split(","):
-            self.add_dxil_op(
+            add_dxil_op(
                 i,
                 "Binary",
                 "returns the " + i + " of the input values",
@@ -1617,7 +1890,7 @@ class db_dxil(object):
 
         # Binary int operations
         for i in "IMax,IMin,UMax,UMin".split(","):
-            self.add_dxil_op(
+            add_dxil_op(
                 i,
                 "Binary",
                 "returns the " + i + " of the input values",
@@ -1633,7 +1906,7 @@ class db_dxil(object):
 
         # Binary int operations with two outputs
         for i in "IMul,UMul,UDiv".split(","):
-            self.add_dxil_op(
+            add_dxil_op(
                 i,
                 "BinaryWithTwoOuts",
                 "returns the " + i + " of the input values",
@@ -1649,7 +1922,7 @@ class db_dxil(object):
 
         # Binary int operations with carry
         for i in "UAddc,USubb".split(","):
-            self.add_dxil_op(
+            add_dxil_op(
                 i,
                 "BinaryWithCarryOrBorrow",
                 "returns the " + i + " of the input values",
@@ -1666,7 +1939,7 @@ class db_dxil(object):
             )
 
         # Tertiary float.
-        self.add_dxil_op(
+        add_dxil_op(
             "FMad",
             "Tertiary",
             "performs a fused multiply add (FMA) of the form a * b + c",
@@ -1681,7 +1954,7 @@ class db_dxil(object):
                 db_dxil_param(4, "$o", "c", "third value for FMA, the addend"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "Fma",
             "Tertiary",
             "performs a fused multiply add (FMA) of the form a * b + c",
@@ -1703,7 +1976,7 @@ class db_dxil(object):
 
         # Tertiary int.
         for i in "IMad,UMad".split(","):
-            self.add_dxil_op(
+            add_dxil_op(
                 i,
                 "Tertiary",
                 "performs an integral " + i,
@@ -1722,7 +1995,7 @@ class db_dxil(object):
                 counters=(UFI(i),),
             )
         for i in "Msad,Ibfe,Ubfe".split(","):
-            self.add_dxil_op(
+            add_dxil_op(
                 i,
                 "Tertiary",
                 "performs an integral " + i,
@@ -1742,7 +2015,7 @@ class db_dxil(object):
             )
 
         # Quaternary
-        self.add_dxil_op(
+        add_dxil_op(
             "Bfi",
             "Quaternary",
             "given a bit range from the LSB of a number, places that number of bits in another number at any offset",
@@ -1765,7 +2038,7 @@ class db_dxil(object):
         )
 
         # Dot
-        self.add_dxil_op(
+        add_dxil_op(
             "Dot2",
             "Dot2",
             "two-dimensional vector dot-product",
@@ -1786,7 +2059,7 @@ class db_dxil(object):
             ],
             counters=("floats",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "Dot3",
             "Dot3",
             "three-dimensional vector dot-product",
@@ -1811,7 +2084,7 @@ class db_dxil(object):
             ],
             counters=("floats",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "Dot4",
             "Dot4",
             "four-dimensional vector dot-product",
@@ -1844,7 +2117,7 @@ class db_dxil(object):
         )
 
         # Resources.
-        self.add_dxil_op(
+        add_dxil_op(
             "CreateHandle",
             "CreateHandle",
             "creates the handle to a resource",
@@ -1872,7 +2145,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "CBufferLoad",
             "CBufferLoad",
             "loads a value from a constant buffer resource",
@@ -1889,7 +2162,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "CBufferLoadLegacy",
             "CBufferLoadLegacy",
             "loads a value from a constant buffer resource",
@@ -1905,7 +2178,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "Sample",
             "Sample",
             "samples a texture",
@@ -1945,7 +2218,7 @@ class db_dxil(object):
             ],
             counters=("tex_norm",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "SampleBias",
             "SampleBias",
             "samples a texture after applying the input bias to the mipmap level",
@@ -1986,7 +2259,7 @@ class db_dxil(object):
             ],
             counters=("tex_bias",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "SampleLevel",
             "SampleLevel",
             "samples a texture using a mipmap-level offset",
@@ -2031,7 +2304,7 @@ class db_dxil(object):
             ],
             counters=("tex_norm",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "SampleGrad",
             "SampleGrad",
             "samples a texture using a gradient to influence the way the sample location is calculated",
@@ -2107,7 +2380,7 @@ class db_dxil(object):
             ],
             counters=("tex_grad",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "SampleCmp",
             "SampleCmp",
             "samples a texture and compares a single component against the specified comparison value",
@@ -2150,7 +2423,7 @@ class db_dxil(object):
             ],
             counters=("tex_cmp",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "SampleCmpLevelZero",
             "SampleCmpLevelZero",
             "samples a texture and compares a single component against the specified comparison value",
@@ -2192,7 +2465,7 @@ class db_dxil(object):
             ],
             counters=("tex_cmp",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "TextureLoad",
             "TextureLoad",
             "reads texel data without any filtering or sampling",
@@ -2216,7 +2489,7 @@ class db_dxil(object):
             ],
             counters=("tex_load",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "TextureStore",
             "TextureStore",
             "reads texel data without any filtering or sampling",
@@ -2236,7 +2509,7 @@ class db_dxil(object):
             ],
             counters=("tex_store",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "BufferLoad",
             "BufferLoad",
             "reads from a TypedBuffer",
@@ -2250,7 +2523,7 @@ class db_dxil(object):
             ],
             counters=("tex_load",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "BufferStore",
             "BufferStore",
             "writes to a RWTypedBuffer",
@@ -2269,7 +2542,7 @@ class db_dxil(object):
             ],
             counters=("tex_store",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "BufferUpdateCounter",
             "BufferUpdateCounter",
             "atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV",
@@ -2287,7 +2560,10 @@ class db_dxil(object):
             ],
             counters=("atomic",),
         )
-        self.add_dxil_op(
+        # Overload Note: CheckAccessFullyMapped is overloaded "i" for historical
+        # reasons, but doesn't use this. Note that "$o" for operand 2 here can
+        # only ever be "i32".
+        add_dxil_op(
             "CheckAccessFullyMapped",
             "CheckAccessFullyMapped",
             "determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource",
@@ -2302,13 +2578,13 @@ class db_dxil(object):
                 ),
                 db_dxil_param(
                     2,
-                    "u32",
+                    "$o",
                     "status",
                     "status result from the Sample, Gather or Load operation",
                 ),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "GetDimensions",
             "GetDimensions",
             "gets texture size information",
@@ -2320,7 +2596,7 @@ class db_dxil(object):
                 db_dxil_param(3, "i32", "mipLevel", "mip level to query"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "TextureGather",
             "TextureGather",
             "gathers the four texels that would be used in a bi-linear filtering operation",
@@ -2357,7 +2633,7 @@ class db_dxil(object):
             ],
             counters=("tex_norm",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "TextureGatherCmp",
             "TextureGatherCmp",
             "same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp",
@@ -2396,7 +2672,7 @@ class db_dxil(object):
             counters=("tex_cmp",),
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "Texture2DMSGetSamplePosition",
             "Texture2DMSGetSamplePosition",
             "gets the position of the specified sample",
@@ -2408,7 +2684,7 @@ class db_dxil(object):
                 db_dxil_param(3, "i32", "index", "zero-based sample index"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "RenderTargetGetSamplePosition",
             "RenderTargetGetSamplePosition",
             "gets the position of the specified sample",
@@ -2419,7 +2695,7 @@ class db_dxil(object):
                 db_dxil_param(2, "i32", "index", "zero-based sample index"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "RenderTargetGetSampleCount",
             "RenderTargetGetSampleCount",
             "gets the number of samples for a render target",
@@ -2433,7 +2709,7 @@ class db_dxil(object):
         )
 
         # Atomics. Note that on TGSM, atomics are performed with LLVM instructions.
-        self.add_dxil_op(
+        add_dxil_op(
             "AtomicBinOp",
             "AtomicBinOp",
             "performs an atomic operation on two operands",
@@ -2457,7 +2733,7 @@ class db_dxil(object):
             ],
             counters=("atomic",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "AtomicCompareExchange",
             "AtomicCompareExchange",
             "atomic compare and exchange to memory",
@@ -2478,7 +2754,7 @@ class db_dxil(object):
         )
 
         # Synchronization.
-        self.add_dxil_op(
+        add_dxil_op(
             "Barrier",
             "Barrier",
             "inserts a memory barrier in the shader",
@@ -2498,7 +2774,11 @@ class db_dxil(object):
         )
 
         # Pixel shader
-        self.add_dxil_op(
+        # Overload Note: CalculateLOD is overloaded "f", but didn't use
+        # any overload type. Operands 4-6 used to be "f", but have been changed
+        # to use the overload type "$o". In the future, this operation could be
+        # overloaded for half precision coordinates.
+        add_dxil_op(
             "CalculateLOD",
             "CalculateLOD",
             "calculates the level of detail",
@@ -2508,9 +2788,9 @@ class db_dxil(object):
                 db_dxil_param(0, "f", "", "level of detail"),
                 db_dxil_param(2, "res", "handle", "resource handle"),
                 db_dxil_param(3, "res", "sampler", "sampler handle"),
-                db_dxil_param(4, "f", "coord0", "coordinate"),
-                db_dxil_param(5, "f", "coord1", "coordinate"),
-                db_dxil_param(6, "f", "coord2", "coordinate"),
+                db_dxil_param(4, "$o", "coord0", "coordinate"),
+                db_dxil_param(5, "$o", "coord1", "coordinate"),
+                db_dxil_param(6, "$o", "coord2", "coordinate"),
                 db_dxil_param(
                     7,
                     "i1",
@@ -2519,7 +2799,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "Discard",
             "Discard",
             "discard the current pixel",
@@ -2532,7 +2812,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "DerivCoarseX",
             "Unary",
             "computes the rate of change of components per stamp",
@@ -2548,7 +2828,7 @@ class db_dxil(object):
                 db_dxil_param(2, "$o", "value", "input to rate of change"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "DerivCoarseY",
             "Unary",
             "computes the rate of change of components per stamp",
@@ -2564,7 +2844,7 @@ class db_dxil(object):
                 db_dxil_param(2, "$o", "value", "input to rate of change"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "DerivFineX",
             "Unary",
             "computes the rate of change of components per pixel",
@@ -2580,7 +2860,7 @@ class db_dxil(object):
                 db_dxil_param(2, "$o", "value", "input to rate of change"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "DerivFineY",
             "Unary",
             "computes the rate of change of components per pixel",
@@ -2596,7 +2876,7 @@ class db_dxil(object):
                 db_dxil_param(2, "$o", "value", "input to rate of change"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "EvalSnapped",
             "EvalSnapped",
             "evaluates an input attribute at pixel center with an offset",
@@ -2625,7 +2905,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "EvalSampleIndex",
             "EvalSampleIndex",
             "evaluates an input attribute at a sample location",
@@ -2643,7 +2923,7 @@ class db_dxil(object):
                 db_dxil_param(5, "i32", "sampleIndex", "sample location"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "EvalCentroid",
             "EvalCentroid",
             "evaluates an input attribute at pixel center",
@@ -2660,76 +2940,76 @@ class db_dxil(object):
                 ),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "SampleIndex",
             "SampleIndex",
             "returns the sample index in a sample-frequency pixel shader",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "Coverage",
             "Coverage",
             "returns the coverage mask input in a pixel shader",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "InnerCoverage",
             "InnerCoverage",
             "returns underestimated coverage input from conservative rasterization in a pixel shader",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # Compute shader.
-        self.add_dxil_op(
+        add_dxil_op(
             "ThreadId",
             "ThreadId",
             "reads the thread ID",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "thread ID component"),
+                db_dxil_param(0, "$o", "", "thread ID component"),
                 db_dxil_param(2, "i32", "component", "component to read (x,y,z)"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "GroupId",
             "GroupId",
             "reads the group ID (SV_GroupID)",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "group ID component"),
+                db_dxil_param(0, "$o", "", "group ID component"),
                 db_dxil_param(2, "i32", "component", "component to read"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "ThreadIdInGroup",
             "ThreadIdInGroup",
             "reads the thread ID within the group (SV_GroupThreadID)",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "thread ID in group component"),
+                db_dxil_param(0, "$o", "", "thread ID in group component"),
                 db_dxil_param(2, "i32", "component", "component to read (x,y,z)"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "FlattenedThreadIdInGroup",
             "FlattenedThreadIdInGroup",
             "provides a flattened index for a given thread within a given group (SV_GroupIndex)",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # Geometry shader
-        self.add_dxil_op(
+        add_dxil_op(
             "EmitStream",
             "EmitStream",
             "emits a vertex to a given stream",
@@ -2741,7 +3021,7 @@ class db_dxil(object):
             ],
             counters=("gs_emit",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "CutStream",
             "CutStream",
             "completes the current primitive topology at the specified stream",
@@ -2753,7 +3033,7 @@ class db_dxil(object):
             ],
             counters=("gs_cut",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "EmitThenCutStream",
             "EmitThenCutStream",
             "equivalent to an EmitStream followed by a CutStream",
@@ -2765,29 +3045,33 @@ class db_dxil(object):
             ],
             counters=("gs_emit", "gs_cut"),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "GSInstanceID",
             "GSInstanceID",
             "GSInstanceID",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # Double precision
-        self.add_dxil_op(
+        # Overload Note: MakeDouble is overloaded "d" for historical reasons,
+        # but doesn't use this. The result "$o" can only ever be "double".
+        add_dxil_op(
             "MakeDouble",
             "MakeDouble",
             "creates a double value",
             "d",
             "rn",
             [
-                db_dxil_param(0, "d", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i32", "lo", "low part of double"),
                 db_dxil_param(3, "i32", "hi", "high part of double"),
             ],
         )
-        self.add_dxil_op(
+        # Overload Note: SplitDouble is overloaded "d" for historical reasons,
+        # but doesn't use this. Operand 2 "$o" can only ever be "double".
+        add_dxil_op(
             "SplitDouble",
             "SplitDouble",
             "splits a double into low and high parts",
@@ -2795,12 +3079,12 @@ class db_dxil(object):
             "rn",
             [
                 db_dxil_param(0, "splitdouble", "", "result"),
-                db_dxil_param(2, "d", "value", "value to split"),
+                db_dxil_param(2, "$o", "value", "value to split"),
             ],
         )
 
         # Domain & Hull shader.
-        self.add_dxil_op(
+        add_dxil_op(
             "LoadOutputControlPoint",
             "LoadOutputControlPoint",
             "LoadOutputControlPoint",
@@ -2815,7 +3099,7 @@ class db_dxil(object):
             ],
             counters=("sig_ld",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "LoadPatchConstant",
             "LoadPatchConstant",
             "LoadPatchConstant",
@@ -2831,20 +3115,20 @@ class db_dxil(object):
         )
 
         # Domain shader.
-        self.add_dxil_op(
+        add_dxil_op(
             "DomainLocation",
             "DomainLocation",
             "DomainLocation",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "component", "input", is_const=True),
             ],
         )
 
         # Hull shader.
-        self.add_dxil_op(
+        add_dxil_op(
             "StorePatchConstant",
             "StorePatchConstant",
             "StorePatchConstant",
@@ -2859,24 +3143,24 @@ class db_dxil(object):
             ],
             counters=("sig_st",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "OutputControlPointID",
             "OutputControlPointID",
             "OutputControlPointID",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "PrimitiveID",
             "PrimitiveID",
             "PrimitiveID",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "CycleCounterLegacy",
             "CycleCounterLegacy",
             "CycleCounterLegacy",
@@ -2886,7 +3170,7 @@ class db_dxil(object):
         )
 
         # Add wave intrinsics.
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveIsFirstLane",
             "WaveIsFirstLane",
             "returns 1 for the first lane in the wave",
@@ -2894,7 +3178,7 @@ class db_dxil(object):
             "",
             [db_dxil_param(0, "i1", "", "operation result")],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveGetLaneIndex",
             "WaveGetLaneIndex",
             "returns the index of the current lane in the wave",
@@ -2902,7 +3186,7 @@ class db_dxil(object):
             "ro",
             [db_dxil_param(0, "i32", "", "operation result")],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveGetLaneCount",
             "WaveGetLaneCount",
             "returns the number of lanes in the wave",
@@ -2910,7 +3194,7 @@ class db_dxil(object):
             "rn",
             [db_dxil_param(0, "i32", "", "operation result")],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveAnyTrue",
             "WaveAnyTrue",
             "returns 1 if any of the lane evaluates the value to true",
@@ -2921,7 +3205,7 @@ class db_dxil(object):
                 db_dxil_param(2, "i1", "cond", "condition to test"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveAllTrue",
             "WaveAllTrue",
             "returns 1 if all the lanes evaluate the value to true",
@@ -2932,7 +3216,7 @@ class db_dxil(object):
                 db_dxil_param(2, "i1", "cond", "condition to test"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveActiveAllEqual",
             "WaveActiveAllEqual",
             "returns 1 if all the lanes have the same value",
@@ -2943,7 +3227,7 @@ class db_dxil(object):
                 db_dxil_param(2, "$o", "value", "value to compare"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveActiveBallot",
             "WaveActiveBallot",
             "returns a struct with a bit set for each lane where the condition is true",
@@ -2954,7 +3238,7 @@ class db_dxil(object):
                 db_dxil_param(2, "i1", "cond", "condition to ballot on"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveReadLaneAt",
             "WaveReadLaneAt",
             "returns the value from the specified lane",
@@ -2966,7 +3250,7 @@ class db_dxil(object):
                 db_dxil_param(3, "i32", "lane", "lane index"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveReadLaneFirst",
             "WaveReadLaneFirst",
             "returns the value from the first lane",
@@ -2977,7 +3261,7 @@ class db_dxil(object):
                 db_dxil_param(2, "$o", "value", "value to read"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveActiveOp",
             "WaveActiveOp",
             "returns the result the operation across waves",
@@ -3022,7 +3306,7 @@ class db_dxil(object):
                 (3, "Max", "maximum value"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveActiveBit",
             "WaveActiveBit",
             "returns the result of the operation across all lanes",
@@ -3050,7 +3334,7 @@ class db_dxil(object):
                 (2, "Xor", "bitwise xor of values"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WavePrefixOp",
             "WavePrefixOp",
             "returns the result of the operation on prior lanes",
@@ -3077,7 +3361,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "QuadReadLaneAt",
             "QuadReadLaneAt",
             "reads from a lane in the quad",
@@ -3112,7 +3396,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "QuadOp",
             "QuadOp",
             "returns the result of a quad-level operation",
@@ -3128,7 +3412,7 @@ class db_dxil(object):
         )
 
         # Add bitcasts
-        self.add_dxil_op(
+        add_dxil_op(
             "BitcastI16toF16",
             "BitcastI16toF16",
             "bitcast between different sizes",
@@ -3139,7 +3423,7 @@ class db_dxil(object):
                 db_dxil_param(2, "i16", "value", "input value"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "BitcastF16toI16",
             "BitcastF16toI16",
             "bitcast between different sizes",
@@ -3150,7 +3434,7 @@ class db_dxil(object):
                 db_dxil_param(2, "h", "value", "input value"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "BitcastI32toF32",
             "BitcastI32toF32",
             "bitcast between different sizes",
@@ -3161,7 +3445,7 @@ class db_dxil(object):
                 db_dxil_param(2, "i32", "value", "input value"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "BitcastF32toI32",
             "BitcastF32toI32",
             "bitcast between different sizes",
@@ -3172,7 +3456,7 @@ class db_dxil(object):
                 db_dxil_param(2, "f", "value", "input value"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "BitcastI64toF64",
             "BitcastI64toF64",
             "bitcast between different sizes",
@@ -3183,7 +3467,7 @@ class db_dxil(object):
                 db_dxil_param(2, "i64", "value", "input value"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "BitcastF64toI64",
             "BitcastF64toI64",
             "bitcast between different sizes",
@@ -3195,7 +3479,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "LegacyF32ToF16",
             "LegacyF32ToF16",
             "legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)",
@@ -3209,7 +3493,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "LegacyF16ToF32",
             "LegacyF16ToF32",
             "legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)",
@@ -3221,7 +3505,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "LegacyDoubleToFloat",
             "LegacyDoubleToFloat",
             "legacy fuction to convert double to float",
@@ -3233,7 +3517,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "LegacyDoubleToSInt32",
             "LegacyDoubleToSInt32",
             "legacy fuction to convert double to int32",
@@ -3245,7 +3529,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "LegacyDoubleToUInt32",
             "LegacyDoubleToUInt32",
             "legacy fuction to convert double to uint32",
@@ -3257,7 +3541,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveAllBitCount",
             "WaveAllOp",
             "returns the count of bits set to 1 across the wave",
@@ -3271,7 +3555,7 @@ class db_dxil(object):
         # WavePrefixBitCount has different signature compare to WavePrefixOp, set its opclass to WavePrefixOp is not correct.
         # It works now because WavePrefixOp and WavePrefixBitCount don't interfere on overload types.
         # Keep it unchanged for back-compat.
-        self.add_dxil_op(
+        add_dxil_op(
             "WavePrefixBitCount",
             "WavePrefixOp",
             "returns the count of bits set to 1 on prior lanes",
@@ -3284,9 +3568,9 @@ class db_dxil(object):
         )
 
         # End of DXIL 1.0 opcodes.
-        self.set_op_count_for_version(1, 0)
+        set_op_count_for_version(1, 0)
 
-        self.add_dxil_op(
+        add_dxil_op(
             "AttributeAtVertex",
             "AttributeAtVertex",
             "returns the values of the attributes at the vertex.",
@@ -3304,19 +3588,19 @@ class db_dxil(object):
                 db_dxil_param(5, "i8", "VertexID", "Vertex Index"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "ViewID",
             "ViewID",
             "returns the view index",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # End of DXIL 1.1 opcodes.
-        self.set_op_count_for_version(1, 1)
+        set_op_count_for_version(1, 1)
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RawBufferLoad",
             "RawBufferLoad",
             "reads from a raw buffer and structured buffer",
@@ -3349,7 +3633,7 @@ class db_dxil(object):
             counters=("tex_load",),
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RawBufferStore",
             "RawBufferStore",
             "writes to a RWByteAddressBuffer or RWStructuredBuffer",
@@ -3393,165 +3677,165 @@ class db_dxil(object):
         )
 
         # End of DXIL 1.2 opcodes.
-        op_count = self.set_op_count_for_version(1, 2)
+        op_count = set_op_count_for_version(1, 2)
         assert op_count == 141, (
             "next operation index is %d rather than 141 and thus opcodes are broken"
             % op_count
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "InstanceID",
             "InstanceID",
             "The user-provided InstanceID on the bottom-level acceleration structure instance within the top-level structure",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "InstanceIndex",
             "InstanceIndex",
             "The autogenerated index of the current instance in the top-level structure",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitKind",
             "HitKind",
             "Returns the value passed as HitKind in ReportIntersection().  If intersection was reported by fixed-function triangle intersection, HitKind will be one of HIT_KIND_TRIANGLE_FRONT_FACE or HIT_KIND_TRIANGLE_BACK_FACE.",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayFlags",
             "RayFlags",
             "uint containing the current ray flags.",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "DispatchRaysIndex",
             "DispatchRaysIndex",
             "The current x and y location within the Width and Height",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "col", "column, relative to the element"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "DispatchRaysDimensions",
             "DispatchRaysDimensions",
             "The Width and Height values from the D3D12_DISPATCH_RAYS_DESC structure provided to the originating DispatchRays() call.",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "col", "column, relative to the element"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "WorldRayOrigin",
             "WorldRayOrigin",
             "The world-space origin for the current ray.",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "col", "column, relative to the element"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "WorldRayDirection",
             "WorldRayDirection",
             "The world-space direction for the current ray.",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "col", "column, relative to the element"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "ObjectRayOrigin",
             "ObjectRayOrigin",
             "Object-space origin for the current ray.",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "col", "column, relative to the element"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "ObjectRayDirection",
             "ObjectRayDirection",
             "Object-space direction for the current ray.",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i8", "col", "column, relative to the element"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "ObjectToWorld",
             "ObjectToWorld",
             "Matrix for transforming from object-space to world-space.",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i32", "row", "row, relative to the element"),
                 db_dxil_param(3, "i8", "col", "column, relative to the element"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "WorldToObject",
             "WorldToObject",
             "Matrix for transforming from world-space to object-space.",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "result"),
+                db_dxil_param(0, "$o", "", "result"),
                 db_dxil_param(2, "i32", "row", "row, relative to the element"),
                 db_dxil_param(3, "i8", "col", "column, relative to the element"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayTMin",
             "RayTMin",
             "float representing the parametric starting point for the ray.",
             "f",
             "rn",
-            [db_dxil_param(0, "f", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayTCurrent",
             "RayTCurrent",
             "float representing the current parametric ending point for the ray",
             "f",
             "ro",
-            [db_dxil_param(0, "f", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "IgnoreHit",
             "IgnoreHit",
             "Used in an any hit shader to reject an intersection and terminate the shader",
@@ -3560,7 +3844,7 @@ class db_dxil(object):
             [db_dxil_param(0, "v", "", "")],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "AcceptHitAndEndSearch",
             "AcceptHitAndEndSearch",
             "Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far",
@@ -3569,7 +3853,7 @@ class db_dxil(object):
             [db_dxil_param(0, "v", "", "")],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "TraceRay",
             "TraceRay",
             "initiates raytrace",
@@ -3618,14 +3902,14 @@ class db_dxil(object):
                 db_dxil_param(15, "f", "TMax", "Tmax of the ray"),
                 db_dxil_param(
                     16,
-                    "udt",
+                    "$udt",
                     "payload",
                     "User-defined intersection attribute structure",
                 ),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "ReportHit",
             "ReportHit",
             "returns true if hit was accepted",
@@ -3644,14 +3928,14 @@ class db_dxil(object):
                 ),
                 db_dxil_param(
                     4,
-                    "udt",
+                    "$udt",
                     "Attributes",
                     "User-defined intersection attribute structure",
                 ),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "CallShader",
             "CallShader",
             "Call a shader in the callable shader table supplied through the DispatchRays() API",
@@ -3667,14 +3951,14 @@ class db_dxil(object):
                 ),
                 db_dxil_param(
                     3,
-                    "udt",
+                    "$udt",
                     "Parameter",
                     "User-defined parameters to pass to the callable shader,This parameter structure must match the parameter structure used in the callable shader pointed to in the shader table",
                 ),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "CreateHandleForLib",
             "CreateHandleForLib",
             "create resource handle from resource struct for library",
@@ -3682,28 +3966,28 @@ class db_dxil(object):
             "ro",
             [
                 db_dxil_param(0, "res", "", "result"),
-                db_dxil_param(2, "obj", "Resource", "resource to create the handle"),
+                db_dxil_param(2, "$obj", "Resource", "resource to create the handle"),
             ],
         )
 
         # Maps to PrimitiveIndex() intrinsics for raytracing (same meaning as PrimitiveID)
-        self.add_dxil_op(
+        add_dxil_op(
             "PrimitiveIndex",
             "PrimitiveIndex",
             "PrimitiveIndex for raytracing shaders",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # End of DXIL 1.3 opcodes.
-        op_count = self.set_op_count_for_version(1, 3)
+        op_count = set_op_count_for_version(1, 3)
         assert op_count == 162, (
             "next operation index is %d rather than 162 and thus opcodes are broken"
             % op_count
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "Dot2AddHalf",
             "Dot2AddHalf",
             "2D half dot product with accumulate to float",
@@ -3722,30 +4006,30 @@ class db_dxil(object):
             counters=("floats",),
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "Dot4AddI8Packed",
             "Dot4AddPacked",
             "signed dot product of 4 x i8 vectors packed into i32, with accumulate to i32",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "accumulated result"),
-                db_dxil_param(2, "i32", "acc", "input accumulator"),
+                db_dxil_param(0, "$o", "", "accumulated result"),
+                db_dxil_param(2, "$o", "acc", "input accumulator"),
                 db_dxil_param(3, "i32", "a", "first packed 4 x i8 for dot product"),
                 db_dxil_param(4, "i32", "b", "second packed 4 x i8 for dot product"),
             ],
             counters=("ints",),
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "Dot4AddU8Packed",
             "Dot4AddPacked",
             "unsigned dot product of 4 x u8 vectors packed into i32, with accumulate to i32",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "accumulated result"),
-                db_dxil_param(2, "i32", "acc", "input accumulator"),
+                db_dxil_param(0, "$o", "", "accumulated result"),
+                db_dxil_param(2, "$o", "acc", "input accumulator"),
                 db_dxil_param(3, "i32", "a", "first packed 4 x u8 for dot product"),
                 db_dxil_param(4, "i32", "b", "second packed 4 x u8 for dot product"),
             ],
@@ -3753,13 +4037,13 @@ class db_dxil(object):
         )
 
         # End of DXIL 1.4 opcodes.
-        op_count = self.set_op_count_for_version(1, 4)
+        op_count = set_op_count_for_version(1, 4)
         assert op_count == 165, (
             "next operation index is %d rather than 165 and thus opcodes are broken"
             % op_count
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveMatch",
             "WaveMatch",
             "returns the bitmask of active lanes that have the same value",
@@ -3771,7 +4055,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveMultiPrefixOp",
             "WaveMultiPrefixOp",
             "returns the result of the operation on groups of lanes identified by a bitmask",
@@ -3814,7 +4098,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "WaveMultiPrefixBitCount",
             "WaveMultiPrefixBitCount",
             "returns the count of bits set to 1 on groups of lanes identified by a bitmask",
@@ -3831,7 +4115,7 @@ class db_dxil(object):
         )
 
         # Mesh Shader
-        self.add_dxil_op(
+        add_dxil_op(
             "SetMeshOutputCounts",
             "SetMeshOutputCounts",
             "Mesh shader intrinsic SetMeshOutputCounts",
@@ -3843,7 +4127,7 @@ class db_dxil(object):
                 db_dxil_param(3, "i32", "numPrimitives", "number of output primitives"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "EmitIndices",
             "EmitIndices",
             "emit a primitive's vertex indices in a mesh shader",
@@ -3863,7 +4147,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "GetMeshPayload",
             "GetMeshPayload",
             "get the mesh payload which is from amplification shader",
@@ -3871,7 +4155,7 @@ class db_dxil(object):
             "ro",
             [db_dxil_param(0, "$o", "", "mesh payload result")],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "StoreVertexOutput",
             "StoreVertexOutput",
             "stores the value to mesh shader vertex output",
@@ -3889,7 +4173,7 @@ class db_dxil(object):
             ],
             counters=("sig_st",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "StorePrimitiveOutput",
             "StorePrimitiveOutput",
             "stores the value to mesh shader primitive output",
@@ -3909,7 +4193,7 @@ class db_dxil(object):
         )
 
         # Amplification Shader
-        self.add_dxil_op(
+        add_dxil_op(
             "DispatchMesh",
             "DispatchMesh",
             "Amplification shader intrinsic DispatchMesh",
@@ -3925,7 +4209,7 @@ class db_dxil(object):
         )
 
         # Sampler feedback
-        self.add_dxil_op(
+        add_dxil_op(
             "WriteSamplerFeedback",
             "WriteSamplerFeedback",
             "updates a feedback texture for a sampling operation",
@@ -3946,7 +4230,7 @@ class db_dxil(object):
             ],
             counters=("tex_store",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WriteSamplerFeedbackBias",
             "WriteSamplerFeedbackBias",
             "updates a feedback texture for a sampling operation with a bias on the mipmap level",
@@ -3968,7 +4252,7 @@ class db_dxil(object):
             ],
             counters=("tex_store",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WriteSamplerFeedbackLevel",
             "WriteSamplerFeedbackLevel",
             "updates a feedback texture for a sampling operation with a mipmap-level offset",
@@ -3989,7 +4273,7 @@ class db_dxil(object):
             ],
             counters=("tex_store",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "WriteSamplerFeedbackGrad",
             "WriteSamplerFeedbackGrad",
             "updates a feedback texture for a sampling operation with explicit gradients",
@@ -4045,7 +4329,7 @@ class db_dxil(object):
         )
 
         # RayQuery
-        self.add_dxil_op(
+        add_dxil_op(
             "AllocateRayQuery",
             "AllocateRayQuery",
             "allocates space for RayQuery and return handle",
@@ -4063,7 +4347,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_TraceRayInline",
             "RayQuery_TraceRayInline",
             "initializes RayQuery for raytrace",
@@ -4101,19 +4385,19 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_Proceed",
             "RayQuery_Proceed",
             "advances a ray query",
             "1",
             "",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_Abort",
             "RayQuery_Abort",
             "aborts a ray query",
@@ -4125,7 +4409,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommitNonOpaqueTriangleHit",
             "RayQuery_CommitNonOpaqueTriangleHit",
             "commits a non opaque triangle hit",
@@ -4137,7 +4421,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommitProceduralPrimitiveHit",
             "RayQuery_CommitProceduralPrimitiveHit",
             "commits a procedural primitive hit",
@@ -4152,411 +4436,411 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommittedStatus",
             "RayQuery_StateScalar",
             "returns uint status (COMMITTED_STATUS) of the committed hit in a ray query",
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidateType",
             "RayQuery_StateScalar",
             "returns uint candidate type (CANDIDATE_TYPE) of the current hit candidate in a ray query, after Proceed() has returned true",
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidateObjectToWorld3x4",
             "RayQuery_StateMatrix",
             "returns matrix for transforming from object-space to world-space for a candidate hit.",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
                 db_dxil_param(4, "i8", "col", "column [0..3], relative to the element"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidateWorldToObject3x4",
             "RayQuery_StateMatrix",
             "returns matrix for transforming from world-space to object-space for a candidate hit.",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
                 db_dxil_param(4, "i8", "col", "column [0..3], relative to the element"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommittedObjectToWorld3x4",
             "RayQuery_StateMatrix",
             "returns matrix for transforming from object-space to world-space for a Committed hit.",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
                 db_dxil_param(4, "i8", "col", "column [0..3], relative to the element"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommittedWorldToObject3x4",
             "RayQuery_StateMatrix",
             "returns matrix for transforming from world-space to object-space for a Committed hit.",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
                 db_dxil_param(4, "i8", "col", "column [0..3], relative to the element"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidateProceduralPrimitiveNonOpaque",
             "RayQuery_StateScalar",
             "returns if current candidate procedural primitive is non opaque",
             "1",
             "ro",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidateTriangleFrontFace",
             "RayQuery_StateScalar",
             "returns if current candidate triangle is front facing",
             "1",
             "ro",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommittedTriangleFrontFace",
             "RayQuery_StateScalar",
             "returns if current committed triangle is front facing",
             "1",
             "ro",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidateTriangleBarycentrics",
             "RayQuery_StateVector",
             "returns candidate triangle hit barycentrics",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommittedTriangleBarycentrics",
             "RayQuery_StateVector",
             "returns committed triangle hit barycentrics",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_RayFlags",
             "RayQuery_StateScalar",
             "returns ray flags",
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_WorldRayOrigin",
             "RayQuery_StateVector",
             "returns world ray origin",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_WorldRayDirection",
             "RayQuery_StateVector",
             "returns world ray direction",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_RayTMin",
             "RayQuery_StateScalar",
             "returns float representing the parametric starting point for the ray.",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidateTriangleRayT",
             "RayQuery_StateScalar",
             "returns float representing the parametric point on the ray for the current candidate triangle hit.",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommittedRayT",
             "RayQuery_StateScalar",
             "returns float representing the parametric point on the ray for the current committed hit.",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidateInstanceIndex",
             "RayQuery_StateScalar",
             "returns candidate hit instance index",
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidateInstanceID",
             "RayQuery_StateScalar",
             "returns candidate hit instance ID",
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidateGeometryIndex",
             "RayQuery_StateScalar",
             "returns candidate hit geometry index",
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidatePrimitiveIndex",
             "RayQuery_StateScalar",
             "returns candidate hit geometry index",
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidateObjectRayOrigin",
             "RayQuery_StateVector",
             "returns candidate hit object ray origin",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidateObjectRayDirection",
             "RayQuery_StateVector",
             "returns candidate object ray direction",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommittedInstanceIndex",
             "RayQuery_StateScalar",
             "returns committed hit instance index",
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommittedInstanceID",
             "RayQuery_StateScalar",
             "returns committed hit instance ID",
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommittedGeometryIndex",
             "RayQuery_StateScalar",
             "returns committed hit geometry index",
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommittedPrimitiveIndex",
             "RayQuery_StateScalar",
             "returns committed hit geometry index",
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommittedObjectRayOrigin",
             "RayQuery_StateVector",
             "returns committed hit object ray origin",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommittedObjectRayDirection",
             "RayQuery_StateVector",
             "returns committed object ray direction",
             "f",
             "ro",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(3, "i8", "component", "component [0..2]", is_const=True),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "GeometryIndex",
             "GeometryIndex",
             "The autogenerated index of the current geometry in the bottom-level structure",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CandidateInstanceContributionToHitGroupIndex",
             "RayQuery_StateScalar",
             "returns candidate hit InstanceContributionToHitGroupIndex",
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RayQuery_CommittedInstanceContributionToHitGroupIndex",
             "RayQuery_StateScalar",
             "returns committed hit InstanceContributionToHitGroupIndex",
             "i",
             "ro",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
 
         # End of DXIL 1.5 opcodes.
-        op_count = self.set_op_count_for_version(1, 5)
+        op_count = set_op_count_for_version(1, 5)
         assert op_count == 216, (
             "216 is expected next operation index but encountered %d and thus opcodes are broken"
             % op_count
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "AnnotateHandle",
             "AnnotateHandle",
             "annotate handle with resource properties",
@@ -4575,7 +4859,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "CreateHandleFromBinding",
             "CreateHandleFromBinding",
             "create resource handle from binding",
@@ -4597,7 +4881,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "CreateHandleFromHeap",
             "CreateHandleFromHeap",
             "create resource handle from heap",
@@ -4623,7 +4907,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "Unpack4x8",
             "Unpack4x8",
             "unpacks 4 8-bit signed or unsigned values into int32 or int16 vector",
@@ -4636,7 +4920,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "Pack4x8",
             "Pack4x8",
             "packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits",
@@ -4652,17 +4936,19 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        # Overload Note: IsHelperLane specifies overloads "1" for historical
+        # reasons, but doesn't use this. The return "$o" will always be i1.
+        add_dxil_op(
             "IsHelperLane",
             "IsHelperLane",
             "returns true on helper lanes in pixel shaders",
             "1",
             "ro",
-            [db_dxil_param(0, "i1", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # End of DXIL 1.6 opcodes.
-        op_count = self.set_op_count_for_version(1, 6)
+        op_count = set_op_count_for_version(1, 6)
         assert op_count == 222, (
             "222 is expected next operation index but encountered %d and thus opcodes are broken"
             % op_count
@@ -4676,7 +4962,7 @@ class db_dxil(object):
                 (1, "All", "true if all conditions are true in this quad"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "QuadVote",
             "QuadVote",
             "compares boolean accross a quad",
@@ -4696,7 +4982,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "TextureGatherRaw",
             "TextureGatherRaw",
             "Gather raw elements from 4 texels with no type conversions (SRV type is constrained)",
@@ -4735,7 +5021,7 @@ class db_dxil(object):
             counters=("tex_norm",),
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "SampleCmpLevel",
             "SampleCmpLevel",
             "samples a texture and compares a single component against the specified comparison value",
@@ -4782,7 +5068,7 @@ class db_dxil(object):
             counters=("tex_cmp",),
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "TextureStoreSample",
             "TextureStoreSample",
             "stores texel data at specified sample index",
@@ -4807,17 +5093,17 @@ class db_dxil(object):
         )
 
         # End of DXIL 1.7 opcodes.
-        op_count = self.set_op_count_for_version(1, 7)
+        op_count = set_op_count_for_version(1, 7)
         assert op_count == 226, (
             "226 is expected next operation index but encountered %d and thus opcodes are broken"
             % op_count
         )
 
         # Reserved ops
-        self.reserve_dxil_op_range("Reserved", 12)
+        reserve_dxil_op_range("Reserved", 12)
 
         # Work Graph
-        self.add_dxil_op(
+        add_dxil_op(
             "AllocateNodeOutputRecords",
             "AllocateNodeOutputRecords",
             "returns a handle for the output records",
@@ -4831,7 +5117,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "GetNodeRecordPtr",
             "GetNodeRecordPtr",
             "retrieve node input/output record pointer in address space 6",
@@ -4845,7 +5131,7 @@ class db_dxil(object):
                 db_dxil_param(3, "i32", "arrayIndex", "array index"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "IncrementOutputCount",
             "IncrementOutputCount",
             "Select the next logical output count for an EmptyNodeOutput for the whole group or per thread.",
@@ -4860,7 +5146,7 @@ class db_dxil(object):
                 db_dxil_param(4, "i1", "perThread", "perThread flag", is_const=True),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "OutputComplete",
             "OutputComplete",
             "indicates all outputs for a given records are complete",
@@ -4871,7 +5157,7 @@ class db_dxil(object):
                 db_dxil_param(2, "noderecordhandle", "output", "handle of record"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "GetInputRecordCount",
             "GetInputRecordCount",
             "returns the number of records that have been coalesced into the current thread group",
@@ -4882,7 +5168,7 @@ class db_dxil(object):
                 db_dxil_param(2, "noderecordhandle", "input", "handle of input record"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "FinishedCrossGroupSharing",
             "FinishedCrossGroupSharing",
             "returns true if the current thread group is the last to access the input",
@@ -4898,7 +5184,7 @@ class db_dxil(object):
                 db_dxil_param(2, "noderecordhandle", "input", "handle of input record"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "BarrierByMemoryType",
             "BarrierByMemoryType",
             "Request a barrier for a set of memory types and/or thread group execution sync",
@@ -4915,7 +5201,7 @@ class db_dxil(object):
             ],
             counters=("barrier",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "BarrierByMemoryHandle",
             "BarrierByMemoryHandle",
             "Request a barrier for just the memory used by the specified object",
@@ -4930,7 +5216,7 @@ class db_dxil(object):
             ],
             counters=("barrier",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "BarrierByNodeRecordHandle",
             "BarrierByNodeRecordHandle",
             "Request a barrier for just the memory used by the node record",
@@ -4945,7 +5231,7 @@ class db_dxil(object):
             ],
             counters=("barrier",),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "CreateNodeOutputHandle",
             "createNodeOutputHandle",
             "Creates a handle to a NodeOutput",
@@ -4956,7 +5242,7 @@ class db_dxil(object):
                 db_dxil_param(2, "i32", "MetadataIdx", "metadata index", is_const=True),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "IndexNodeHandle",
             "IndexNodeHandle",
             "returns the handle for the location in the output node array at the indicated index",
@@ -4973,7 +5259,7 @@ class db_dxil(object):
                 db_dxil_param(3, "i32", "ArrayIndex", "array index"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "AnnotateNodeHandle",
             "AnnotateNodeHandle",
             "annotate handle with node properties",
@@ -4991,7 +5277,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "CreateNodeInputRecordHandle",
             "CreateNodeInputRecordHandle",
             "create a handle for an InputRecord",
@@ -5002,7 +5288,7 @@ class db_dxil(object):
                 db_dxil_param(2, "i32", "MetadataIdx", "metadata index", is_const=True),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "AnnotateNodeRecordHandle",
             "AnnotateNodeRecordHandle",
             "annotate handle with node record properties",
@@ -5024,7 +5310,7 @@ class db_dxil(object):
                 ),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "NodeOutputIsValid",
             "NodeOutputIsValid",
             "returns true if the specified output node is present in the work graph",
@@ -5035,7 +5321,7 @@ class db_dxil(object):
                 db_dxil_param(2, "nodehandle", "output", "handle of output node"),
             ],
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "GetRemainingRecursionLevels",
             "GetRemainingRecursionLevels",
             "returns how many levels of recursion remain",
@@ -5045,7 +5331,7 @@ class db_dxil(object):
         )
 
         # Comparison Sampling
-        self.add_dxil_op(
+        add_dxil_op(
             "SampleCmpGrad",
             "SampleCmpGrad",
             "samples a texture using a gradient and compares a single component against the specified comparison value",
@@ -5123,7 +5409,7 @@ class db_dxil(object):
             counters=("tex_cmp",),
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "SampleCmpBias",
             "SampleCmpBias",
             "samples a texture after applying the input bias to the mipmap level and compares a single component against the specified comparison value",
@@ -5166,33 +5452,33 @@ class db_dxil(object):
             counters=("tex_cmp",),
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "StartVertexLocation",
             "StartVertexLocation",
             "returns the BaseVertexLocation from DrawIndexedInstanced or StartVertexLocation from DrawInstanced",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "StartInstanceLocation",
             "StartInstanceLocation",
             "returns the StartInstanceLocation from Draw*Instanced",
             "i",
             "rn",
-            [db_dxil_param(0, "i32", "", "result")],
+            [db_dxil_param(0, "$o", "", "result")],
         )
 
         # End of DXIL 1.8 opcodes.
-        op_count = self.set_op_count_for_version(1, 8)
+        op_count = set_op_count_for_version(1, 8)
         assert op_count == 258, (
             "258 is expected next operation index but encountered %d and thus opcodes are broken"
             % op_count
         )
 
         # RayQuery
-        self.add_dxil_op(
+        add_dxil_op(
             "AllocateRayQuery2",
             "AllocateRayQuery2",
             "allocates space for RayQuery and return handle",
@@ -5218,10 +5504,10 @@ class db_dxil(object):
         )
 
         # Reserved block A
-        self.reserve_dxil_op_range("ReservedA", 3)
+        reserve_dxil_op_range("ReservedA", 3)
 
         # Shader Execution Reordering
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_TraceRay",
             "HitObject_TraceRay",
             "Analogous to TraceRay but without invoking CH/MS and returns the intermediate state as a HitObject",
@@ -5275,14 +5561,14 @@ class db_dxil(object):
                 db_dxil_param(15, "f", "TMax", "Tmax of the ray"),
                 db_dxil_param(
                     16,
-                    "udt",
+                    "$udt",
                     "payload",
                     "User-defined payload structure",
                 ),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_FromRayQuery",
             "HitObject_FromRayQuery",
             "Creates a new HitObject representing a committed hit from a RayQuery",
@@ -5296,7 +5582,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_FromRayQueryWithAttrs",
             "HitObject_FromRayQueryWithAttrs",
             "Creates a new HitObject representing a committed hit from a RayQuery and committed attributes",
@@ -5313,11 +5599,11 @@ class db_dxil(object):
                     "HitKind",
                     "User-specified value in range of 0-127 to identify the type of hit",
                 ),
-                db_dxil_param(4, "udt", "CommittedAttribs", "Committed attributes"),
+                db_dxil_param(4, "$udt", "CommittedAttribs", "Committed attributes"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_MakeMiss",
             "HitObject_MakeMiss",
             "Creates a new HitObject representing a miss",
@@ -5338,7 +5624,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_MakeNop",
             "HitObject_MakeNop",
             "Creates an empty nop HitObject",
@@ -5347,7 +5633,7 @@ class db_dxil(object):
             [db_dxil_param(0, "hit_object", "", "Empty nop HitObject")],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_Invoke",
             "HitObject_Invoke",
             "Represents the invocation of the CH/MS shader represented by the HitObject",
@@ -5358,14 +5644,14 @@ class db_dxil(object):
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(
                     3,
-                    "udt",
+                    "$udt",
                     "payload",
                     "User-defined payload structure",
                 ),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "MaybeReorderThread",
             "MaybeReorderThread",
             "Reorders the current thread",
@@ -5384,138 +5670,138 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_IsMiss",
             "HitObject_StateScalar",
             "Returns `true` if the HitObject represents a miss",
             "1",
             "rn",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_IsHit",
             "HitObject_StateScalar",
             "Returns `true` if the HitObject is a NOP-HitObject",
             "1",
             "rn",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_IsNop",
             "HitObject_StateScalar",
             "Returns `true` if the HitObject represents a nop",
             "1",
             "rn",
             [
-                db_dxil_param(0, "i1", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_RayFlags",
             "HitObject_StateScalar",
             "Returns the ray flags set in the HitObject",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_RayTMin",
             "HitObject_StateScalar",
             "Returns the TMin value set in the HitObject",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_RayTCurrent",
             "HitObject_StateScalar",
             "Returns the current T value set in the HitObject",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_WorldRayOrigin",
             "HitObject_StateVector",
             "Returns the ray origin in world space",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_WorldRayDirection",
             "HitObject_StateVector",
             "Returns the ray direction in world space",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_ObjectRayOrigin",
             "HitObject_StateVector",
             "Returns the ray origin in object space",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_ObjectRayDirection",
             "HitObject_StateVector",
             "Returns the ray direction in object space",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(3, "i32", "component", "component [0..2]", is_const=True),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_ObjectToWorld3x4",
             "HitObject_StateMatrix",
             "Returns the object to world space transformation matrix in 3x4 form",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(
                     3,
@@ -5534,14 +5820,14 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_WorldToObject3x4",
             "HitObject_StateMatrix",
             "Returns the world to object space transformation matrix in 3x4 form",
             "f",
             "rn",
             [
-                db_dxil_param(0, "f", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(
                     3,
@@ -5560,79 +5846,79 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_GeometryIndex",
             "HitObject_StateScalar",
             "Returns the geometry index committed on hit",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_InstanceIndex",
             "HitObject_StateScalar",
             "Returns the instance index committed on hit",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_InstanceID",
             "HitObject_StateScalar",
             "Returns the instance id committed on hit",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_PrimitiveIndex",
             "HitObject_StateScalar",
             "Returns the primitive index committed on hit",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_HitKind",
             "HitObject_StateScalar",
             "Returns the HitKind of the hit",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_ShaderTableIndex",
             "HitObject_StateScalar",
             "Returns the shader table index set for this HitObject",
             "i",
             "rn",
             [
-                db_dxil_param(0, "i32", "", "operation result"),
+                db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_SetShaderTableIndex",
             "HitObject_SetShaderTableIndex",
             "Returns a HitObject with updated shader table index",
@@ -5647,7 +5933,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_LoadLocalRootTableConstant",
             "HitObject_LoadLocalRootTableConstant",
             "Returns the root table constant for this HitObject and offset",
@@ -5660,7 +5946,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "HitObject_Attributes",
             "HitObject_Attributes",
             "Returns the attributes set for this HitObject",
@@ -5670,18 +5956,18 @@ class db_dxil(object):
                 retvoid_param,
                 db_dxil_param(2, "hit_object", "hitObject", "hit"),
                 db_dxil_param(
-                    3, "udt", "attributes", "pointer to store the attributes to"
+                    3, "$udt", "attributes", "pointer to store the attributes to"
                 ),
             ],
         )
 
-        self.reserve_dxil_op_range("ReservedB", 3, 28)
+        reserve_dxil_op_range("ReservedB", 3, 28)
 
         # Reserved block C
-        self.reserve_dxil_op_range("ReservedC", 10)
+        reserve_dxil_op_range("ReservedC", 10)
 
         # Long Vectors
-        self.add_dxil_op(
+        add_dxil_op(
             "RawBufferVectorLoad",
             "RawBufferVectorLoad",
             "reads from a raw buffer and structured buffer",
@@ -5713,7 +5999,7 @@ class db_dxil(object):
             counters=("tex_load",),
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "RawBufferVectorStore",
             "RawBufferVectorStore",
             "writes to a RWByteAddressBuffer or RWStructuredBuffer",
@@ -5746,7 +6032,7 @@ class db_dxil(object):
             counters=("tex_store",),
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "MatVecMul",
             "MatVecMul",
             "Multiplies a MxK dimension matrix and a K sized input vector",
@@ -5769,7 +6055,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "MatVecMulAdd",
             "MatVecMulAdd",
             "multiplies a MxK dimension matrix and a K sized input vector and adds an M-sized bias vector",
@@ -5797,7 +6083,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "OuterProductAccumulate",
             "OuterProductAccumulate",
             "Computes the outer product between column vectors and an MxN matrix is accumulated component-wise atomically (with device scope) in memory",
@@ -5821,7 +6107,7 @@ class db_dxil(object):
             ],
         )
 
-        self.add_dxil_op(
+        add_dxil_op(
             "VectorAccumulate",
             "VectorAccumulate",
             "Accumulates the components of a vector component-wise atomically (with device scope) to the corresponding elements of an array in memory",
@@ -5836,7 +6122,7 @@ class db_dxil(object):
         )
 
         # Long Vector Reduction
-        self.add_dxil_op(
+        add_dxil_op(
             "VectorReduceAnd",
             "VectorReduce",
             "Bitwise AND reduction of the vector returning a scalar",
@@ -5851,7 +6137,7 @@ class db_dxil(object):
                 "uints",
             ),
         )
-        self.add_dxil_op(
+        add_dxil_op(
             "VectorReduceOr",
             "VectorReduce",
             "Bitwise OR reduction of the vector returning a scalar",
@@ -5868,7 +6154,7 @@ class db_dxil(object):
         )
 
         # Long Vector Dot
-        self.add_dxil_op(
+        add_dxil_op(
             "FDot",
             "Dot",
             "computes the n-dimensional vector dot-product",
@@ -5883,14 +6169,149 @@ class db_dxil(object):
         )
 
         # End of DXIL 1.9 opcodes.
-        op_count = self.set_op_count_for_version(1, 9)
+        op_count = set_op_count_for_version(1, 9)
         assert op_count == 312, (
             "312 is expected next operation index but encountered %d and thus opcodes are broken"
             % op_count
         )
 
+    def populate_ExperimentalOps(self):
+        "Populate DXIL operations for ExperimentalOps."
+        op_table = self.add_dxil_op_table(
+            0x8000, "ExperimentalOps", "Experimental DXIL operations"
+        )
+        add_dxil_op = op_table.add_dxil_op
+
+        # Add Nop to test experimental table infrastructure.
+        add_dxil_op(
+            "ExperimentalNop",
+            "Nop",
+            "nop does nothing",
+            "v",
+            "rn",
+            [
+                db_dxil_param(0, "v", "", "no result"),
+            ],
+        )
+
+        # Group Wave Operations
+        add_dxil_op(
+            "GetGroupWaveIndex",
+            "GetGroupWaveIndex",
+            "returns the index of the wave in the thread group",
+            "v",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result")],
+        )
+        add_dxil_op(
+            "GetGroupWaveCount",
+            "GetGroupWaveCount",
+            "returns the number of waves in the thread group",
+            "v",
+            "rn",
+            [db_dxil_param(0, "i32", "", "operation result")],
+        )
+
+        # Clustered Geometry
+        add_dxil_op(
+            "ClusterID",
+            "ClusterID",
+            "returns the user-defined ClusterID of the intersected CLAS",
+            "v",
+            "rn",
+            [db_dxil_param(0, "i32", "", "result")],
+        )
+        add_dxil_op(
+            "RayQuery_CandidateClusterID",
+            "RayQuery_StateScalar",
+            "returns candidate hit cluster ID",
+            "i",
+            "ro",
+            [
+                db_dxil_param(0, "$o", "", "operation result"),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        add_dxil_op(
+            "RayQuery_CommittedClusterID",
+            "RayQuery_StateScalar",
+            "returns committed hit cluster ID",
+            "i",
+            "ro",
+            [
+                db_dxil_param(0, "$o", "", "operation result"),
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        add_dxil_op(
+            "HitObject_ClusterID",
+            "HitObject_StateScalar",
+            "returns the cluster ID of this committed hit",
+            "i",
+            "rn",
+            [
+                db_dxil_param(0, "$o", "", "operation result"),
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
+        )
+
+        # Triangle Object Positions
+        add_dxil_op(
+            "TriangleObjectPosition",
+            "TriangleObjectPosition",
+            "returns triangle vertices in object space as <9 x float>",
+            "f",
+            "rn",
+            [
+                db_dxil_param(0, "$o", "", "operation result"),  # TODO: $vec9
+            ],
+        )
+        add_dxil_op(
+            "RayQuery_CandidateTriangleObjectPosition",
+            "RayQuery_CandidateTriangleObjectPosition",
+            "returns candidate triangle vertices in object space as <9 x float>",
+            "f",
+            "ro",
+            [
+                db_dxil_param(0, "$o", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        add_dxil_op(
+            "RayQuery_CommittedTriangleObjectPosition",
+            "RayQuery_CommittedTriangleObjectPosition",
+            "returns committed triangle vertices in object space as <9 x float>",
+            "f",
+            "ro",
+            [
+                db_dxil_param(0, "$o", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            ],
+        )
+        add_dxil_op(
+            "HitObject_TriangleObjectPosition",
+            "HitObject_TriangleObjectPosition",
+            "returns triangle vertices in object space as <9 x float>",
+            "f",
+            "rn",
+            [
+                db_dxil_param(0, "$o", "", "operation result"),  # TODO: $vec9
+                db_dxil_param(2, "hit_object", "hitObject", "hit"),
+            ],
+        )
+
+    def finalize_dxil_operations(self):
+        "Finalize DXIL operations by setting properties and verifying consistency."
+
+        # Sort tables by ID
+        self.op_tables.sort(key=lambda t: t.id)
+
+        # Add all ops from tables to combined instruction list
+        for table in self.op_tables:
+            for op in table:
+                self.add_inst(op)
+
         # Set interesting properties.
-        self.build_indices()
         for (
             i
         ) in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp,SampleCmpBias".split(
@@ -5905,39 +6326,61 @@ class db_dxil(object):
 
         # TODO - some arguments are required to be immediate constants in DXIL, eg resource kinds; add this information
         # consider - report instructions that are overloaded on a single type, then turn them into non-overloaded version of that type
-        self.verify_dense(
-            self.get_dxil_insts(), lambda x: x.dxil_opid, lambda x: x.name
-        )
-        for i in self.instr:
-            self.verify_dense(i.ops, lambda x: x.pos, lambda x: i.name)
+        for table in self.op_tables:
+            self.verify_dense(table, lambda x: x.dxil_opid, lambda x: x.name)
+            for i in table:
+                assert i.table_id() == table.id, (
+                    "dxil op %s has table id %d inconsistent with containing table id %d"
+                    % (i.name, i.table_id(), table.id)
+                )
+                self.verify_dense(i.ops, lambda x: x.pos, lambda x: i.name)
 
-        # Verify that all operations in each class have the same signature.
+        self.verify_dxil_op_classes()
+
+    def verify_dxil_op_classes(self):
+        "Verify that all DXIL operations in each class have the same signature."
         import itertools
 
-        class_sort_func = lambda x, y: x < y
         class_key_func = lambda x: x.dxil_class
-        instr_ordered_by_class = sorted(
-            [i for i in self.instr if i.is_dxil_op], key=class_key_func
-        )
+        instr_ordered_by_class = sorted(self.get_dxil_ops(), key=class_key_func)
         instr_grouped_by_class = itertools.groupby(
             instr_ordered_by_class, key=class_key_func
         )
 
         def calc_oload_sig(inst):
-            result = ""
-            for o in inst.ops:
-                result += o.llvm_type
+            # if function class is ever overloaded, no "v" oload should be used
+            oload = "void" if inst.oload_types == "v" else "overloaded"
+            result = f"{inst.fn_attr}|{oload}("
+            result += ",".join([o.llvm_type for o in inst.ops]) + ")"
             return result
 
+        inconsistencies = []
         for k, g in instr_grouped_by_class:
+            inconsistencies_in_class = []
             group = list(g)
             if len(group) > 1:
                 first = group[0]
-                first_group = calc_oload_sig(first)
+                first_sig = calc_oload_sig(first)
                 for other in group[1:]:
-                    other_group = calc_oload_sig(other)
-                    # TODO: uncomment assert when opcodes are fixed
-                    # assert first_group == other_group, "overload signature %s for instruction %s differs from %s in %s" % (first.name, first_group, other.name, other_group)
+                    if other.name == "WavePrefixBitCount":
+                        # known exception - this op is overloaded but has different signature for "v" oload
+                        continue
+                    other_sig = calc_oload_sig(other)
+                    if first_sig != other_sig:
+                        inconsistencies_in_class.append((other, other_sig))
+            if inconsistencies_in_class:
+                inconsistencies.append(
+                    "Inconsistent overload signatures for DXIL op class "
+                    + f"{first.dxil_class} first: {first.name} '{first_sig}', others:\n"
+                    + "\n".join(
+                        [
+                            f"    {other.name} '{other_sig}'"
+                            for other, other_sig in inconsistencies_in_class
+                        ]
+                    )
+                )
+        if inconsistencies:
+            raise RuntimeError("\n".join(inconsistencies))
 
     def populate_extended_docs(self):
         "Update the documentation with text from external files."
@@ -7024,7 +7467,7 @@ class db_dxil(object):
                 self.pass_idx_args.add(anarg.name)
 
     def build_semantics(self):
-        SemanticKind = db_dxil_enum(
+        SemanticKind = self.add_enum_type(
             "SemanticKind",
             "Semantic kind; Arbitrary or specific system value.",
             [
@@ -7064,8 +7507,7 @@ class db_dxil(object):
                 (33, "Invalid", ""),
             ],
         )
-        self.enums.append(SemanticKind)
-        SigPointKind = db_dxil_enum(
+        SigPointKind = self.add_enum_type(
             "SigPointKind",
             "Signature Point is more specific than shader stage or signature as it is unique in both stage and item dimensionality or frequency.",
             [
@@ -7112,8 +7554,7 @@ class db_dxil(object):
                 (21, "Invalid", ""),
             ],
         )
-        self.enums.append(SigPointKind)
-        PackingKind = db_dxil_enum(
+        self.add_enum_type(
             "PackingKind",
             "Kind of signature point",
             [
@@ -7126,7 +7567,7 @@ class db_dxil(object):
             ],
         )
 
-        Float32DenormMode = db_dxil_enum(
+        self.add_enum_type(
             "Float32DenormMode",
             "float32 denorm behavior",
             [
@@ -7140,7 +7581,6 @@ class db_dxil(object):
                 (7, "Reserve7", "Reserved Value. Not used for now"),
             ],
         )
-        self.enums.append(Float32DenormMode)
 
         SigPointCSV = """
             SigPoint, Related, ShaderKind,    PackingKind,    SignatureKind
@@ -7178,8 +7618,7 @@ class db_dxil(object):
             assert False and "SigPointKind does not align with SigPointCSV row labels"
         self.sigpoint_table = table
 
-        self.enums.append(PackingKind)
-        SemanticInterpretationKind = db_dxil_enum(
+        self.add_enum_type(
             "SemanticInterpretationKind",
             "Defines how a semantic is interpreted at a particular SignaturePoint",
             [
@@ -7208,7 +7647,6 @@ class db_dxil(object):
                 (9, "Invalid", ""),
             ],
         )
-        self.enums.append(SemanticInterpretationKind)
 
         # The following has SampleIndex, Coverage, and InnerCoverage as loaded with instructions rather than from the signature
         SemanticInterpretationCSV = """
@@ -7556,8 +7994,17 @@ class db_dxil(object):
             "Instr.ImmBiasForSampleB",
             "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.",
         )
+        self.add_valrule_msg(
+            "Instr.IllegalDXILOpCode",
+            "DXILOpCode must be valid or a supported experimental opcode.",
+            "DXILOpCode must be [0..%0] or a supported experimental opcode.  %1 specified.",
+        )
+        # In the future, if experimental opcodes are allowed in non-experimental
+        # shader models, the following rule will need to change to one requiring
+        # a flag to support experimental opcodes.
         self.add_valrule(
-            "Instr.IllegalDXILOpCode", "DXILOpCode must be [0..%0].  %1 specified."
+            "Instr.ExpDXILOpCodeRequiresExpSM",
+            "Use of experimental DXILOpCode requires an experimental shader model.",
         )
         self.add_valrule(
             "Instr.IllegalDXILOpFunction",
@@ -8467,8 +8914,8 @@ class db_dxil(object):
         )
         self.add_valrule_msg(
             "Sm.IncompatibleDerivLaunch",
-            "Node shaders only support derivatives in broadcasting launch mode",
-            "Function called from %0 launch node shader uses derivatives; only broadcasting launch supports derivatives.",
+            "Node shaders only support derivatives in broadcasting and coalescing launch modes",
+            "Function called from %0 launch node shader uses derivatives; only broadcasting and coalescing launch modes support derivatives.",
         )
 
         # Assign sensible category names and build up an enumeration description
@@ -8483,22 +8930,21 @@ class db_dxil(object):
             "UNI": "Uniform analysis",
             "DECL": "Declaration",
         }
-        valrule_enum = db_dxil_enum("ValidationRule", "Known validation rules")
+        valrule_enum = self.add_enum_type("ValidationRule", "Known validation rules")
         valrule_enum.is_internal = True
         for vr in self.val_rules:
             vr.category = cat_names[vr.group_name]
-            vrval = db_dxil_enum_value(vr.enum_name, vr.rule_id, vr.doc)
+            vrval = valrule_enum.add_value(vr.rule_id, vr.enum_name, vr.doc)
             vrval.category = vr.category
             vrval.err_msg = vr.err_msg
-            valrule_enum.values.append(vrval)
         self.enums.append(valrule_enum)
 
     def populate_counters(self):
         self.llvm_op_counters = set()
         self.dxil_op_counters = set()
-        for i in self.instr:
+        for i in self.get_all_insts():
             counters = getattr(i, "props", {}).get("counters", ())
-            if i.dxil_opid:
+            if i.is_dxil_op:
                 self.dxil_op_counters.update(counters)
             else:
                 self.llvm_op_counters.update(counters)
@@ -8517,6 +8963,15 @@ class db_dxil(object):
             db_dxil_valrule(name, len(self.val_rules), err_msg=err_msg, doc=desc)
         )
 
+    def add_inst(self, i):
+        if i.name != "UDiv":
+            # These should not overlap, but UDiv is a known collision.
+            assert i.name not in self.name_idx, f"Duplicate instruction name: {i.name}"
+        self.name_idx[i.name] = i
+        if not i.is_dxil_op:
+            self._llvm_insts.append(i)
+        return i
+
     def add_llvm_instr(
         self, kind, llvm_id, name, llvm_name, doc, oload_types, op_params, **props
     ):
@@ -8529,71 +8984,18 @@ class db_dxil(object):
             oload_types=oload_types,
         )
         i.props = props
-        self.instr.append(i)
-
-    def add_dxil_op(
-        self, name, code_class, doc, oload_types, fn_attr, op_params, **props
-    ):
-        # The return value is parameter 0, insert the opcode as 1.
-        op_params.insert(1, self.opcode_param)
-        i = db_dxil_inst(
-            name,
-            llvm_id=self.call_instr.llvm_id,
-            llvm_name=self.call_instr.llvm_name,
-            dxil_op=name,
-            dxil_opid=self.next_id(),
-            doc=doc,
-            ops=op_params,
-            dxil_class=code_class,
-            oload_types=oload_types,
-            fn_attr=fn_attr,
-        )
-        i.props = props
-        self.instr.append(i)
-
-    def add_dxil_op_reserved(self, name):
-        # The return value is parameter 0, insert the opcode as 1.
-        op_params = [db_dxil_param(0, "v", "", "reserved"), self.opcode_param]
-        i = db_dxil_inst(
-            name,
-            llvm_id=self.call_instr.llvm_id,
-            llvm_name=self.call_instr.llvm_name,
-            dxil_op=name,
-            dxil_opid=self.next_id(),
-            doc="reserved",
-            ops=op_params,
-            dxil_class="Reserved",
-            oload_types="v",
-            fn_attr="",
-        )
-        self.instr.append(i)
-
-    def reserve_dxil_op_range(self, group_name, count, start_reserved_id=0):
-        "Reserve a range of dxil opcodes for future use; returns next id"
-        for i in range(0, count):
-            self.add_dxil_op_reserved(
-                "{0}{1}".format(group_name, start_reserved_id + i)
-            )
-
-    def get_instr_by_llvm_name(self, llvm_name):
-        "Return the instruction with the given LLVM name"
-        return next(i for i in self.instr if i.llvm_name == llvm_name)
-
-    def get_dxil_insts(self):
-        for i in self.instr:
-            if i.dxil_op != "":
-                yield i
+        return self.add_inst(i)
 
     def print_stats(self):
         "Print some basic statistics on the instruction database."
-        print("Instruction count:                  %d" % len(self.instr))
+        print("Instruction count:                  %d" % len(self.get_all_insts()))
         print(
             "Max parameter count in instruction: %d"
-            % max(len(i.ops) - 1 for i in self.instr)
+            % max(len(i.ops) - 1 for i in self.get_all_insts())
         )
         print(
             "Parameter count:                    %d"
-            % sum(len(i.ops) - 1 for i in self.instr)
+            % sum(len(i.ops) - 1 for i in self.get_all_insts())
         )
 
 

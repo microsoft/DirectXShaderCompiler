@@ -41,7 +41,7 @@ public:
   // clang-format on
   // VALRULE-TEXT:BEGIN
   static const unsigned kHighestReleasedMajor = 6;
-  static const unsigned kHighestReleasedMinor = 8;
+  static const unsigned kHighestReleasedMinor = 9;
   // VALRULE-TEXT:END
 
   static const unsigned kOfflineMinor = 0xF;
@@ -65,6 +65,9 @@ public:
   void GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
   bool IsSMAtLeast(unsigned Major, unsigned Minor) const {
     return m_Major > Major || (m_Major == Major && m_Minor >= Minor);
+  }
+  bool IsPreReleaseShaderModel() const {
+    return IsPreReleaseShaderModel(m_Major, m_Minor);
   }
   bool IsSM50Plus() const { return IsSMAtLeast(5, 0); }
   bool IsSM51Plus() const { return IsSMAtLeast(5, 1); }
