@@ -511,6 +511,11 @@ namespace ExperimentalOps {
 static const OpCodeTableID TableID = OpCodeTableID::ExperimentalOps;
 // Enumeration for ExperimentalOps DXIL operations
 enum class OpCode : unsigned {
+  //
+  LinAlgMatrixReserved0 = 30, // reserved
+  LinAlgMatrixReserved1 = 31, // reserved
+  LinAlgMatrixReserved2 = 32, // reserved
+
   // Group Wave Ops
   GetGroupWaveCount = 2, // returns the number of waves in the thread group
   GetGroupWaveIndex = 1, // returns the index of the wave in the thread group
@@ -522,6 +527,43 @@ enum class OpCode : unsigned {
   RayQuery_CommittedClusterID = 5, // returns committed hit cluster ID
   RayQuery_CommittedTriangleObjectPosition =
       9, // returns committed triangle vertices in object space as <9 x float>
+
+  // Linear Algebra Operations
+  CopyConvertMatrix =
+      13, // Converts and copies the element and use type of the source matrix
+          // to the destination matrix with optional transpose
+  CreateMatrix = 11,     // creates a handle to a Matrix
+  FillMatrix = 12,       // fills a matrix with a scalar value
+  MatrixAccumulate = 24, // accumulate A or B matrix into Accumulator matrix
+                         // following LHS += RHS
+  MatrixAccumulateToDescriptor =
+      27, // accumulates a matrix to a RWByteAddressBuffer
+  MatrixAccumulateToMemory = 28, // accumulates a matrix to groupshared memory
+  MatrixGetCoordinate =
+      17, // returns a two element vector containing the column and row of the
+          // matrix that the thread-local index corresponds to
+  MatrixGetElement = 18, // returns the element of the matrix corresponding to
+                         // the provided thread-local index
+  MatrixLength = 16, // returns the number of elements stored in thread-local
+                     // storage on the active thread for the provided matrix
+  MatrixLoadFromDescriptor =
+      14, // fills a matrix with data from a [RW]ByteAddressBuffer
+  MatrixLoadFromMemory =
+      15, // fills a matrix with data from a groupshared array
+  MatrixMulOp =
+      23, // applies a multiplication op to matrix C using A and B as parameters
+  MatrixOuterProduct = 29, // Outer products an M sized vector and a K sized
+                           // vector producing an MxK matrix
+  MatrixQueryAccumulatorLayout = 22, // returns comptime 0 when accumulator
+                                     // matrix are A layout, 1 when B layout
+  MatrixSetElement = 19, // sets the element of the matrix corresponding to the
+                         // provided thread-local index
+  MatrixStoreToDescriptor = 20, // stores a matrix to a RWByteAddressBuffer
+  MatrixStoreToMemory = 21,     // stores a matrix to groupshared memory
+  MatrixVecMul =
+      25, // Multiplies a MxK dimension matrix and a K sized input vector
+  MatrixVecMulAdd = 26, // Multiplies a MxK dimension matrix and a K sized input
+                        // vector then adds a M sized bias vector
 
   // No-op
   ExperimentalNop = 0, // nop does nothing
@@ -538,7 +580,7 @@ enum class OpCode : unsigned {
   HitObject_TriangleObjectPosition =
       10, // returns triangle vertices in object space as <9 x float>
 
-  NumOpCodes = 11, // exclusive last value of enumeration
+  NumOpCodes = 33, // exclusive last value of enumeration
 };
 } // namespace ExperimentalOps
 static const unsigned NumOpCodeTables = 2;
@@ -1187,6 +1229,66 @@ enum class OpCode : unsigned {
   EXP_OPCODE(ExperimentalOps,
              HitObject_TriangleObjectPosition), // returns triangle vertices in
                                                 // object space as <9 x float>
+  EXP_OPCODE(ExperimentalOps, CreateMatrix),    // creates a handle to a Matrix
+  EXP_OPCODE(ExperimentalOps, FillMatrix), // fills a matrix with a scalar value
+  EXP_OPCODE(ExperimentalOps,
+             CopyConvertMatrix), // Converts and copies the element and use type
+                                 // of the source matrix to the destination
+                                 // matrix with optional transpose
+  EXP_OPCODE(ExperimentalOps,
+             MatrixLoadFromDescriptor), // fills a matrix with data from a
+                                        // [RW]ByteAddressBuffer
+  EXP_OPCODE(ExperimentalOps, MatrixLoadFromMemory), // fills a matrix with data
+                                                     // from a groupshared array
+  EXP_OPCODE(
+      ExperimentalOps,
+      MatrixLength), // returns the number of elements stored in thread-local
+                     // storage on the active thread for the provided matrix
+  EXP_OPCODE(ExperimentalOps,
+             MatrixGetCoordinate), // returns a two element vector containing
+                                   // the column and row of the matrix that the
+                                   // thread-local index corresponds to
+  EXP_OPCODE(
+      ExperimentalOps,
+      MatrixGetElement), // returns the element of the matrix corresponding to
+                         // the provided thread-local index
+  EXP_OPCODE(ExperimentalOps,
+             MatrixSetElement), // sets the element of the matrix corresponding
+                                // to the provided thread-local index
+  EXP_OPCODE(
+      ExperimentalOps,
+      MatrixStoreToDescriptor), // stores a matrix to a RWByteAddressBuffer
+  EXP_OPCODE(ExperimentalOps,
+             MatrixStoreToMemory), // stores a matrix to groupshared memory
+  EXP_OPCODE(
+      ExperimentalOps,
+      MatrixQueryAccumulatorLayout), // returns comptime 0 when accumulator
+                                     // matrix are A layout, 1 when B layout
+  EXP_OPCODE(ExperimentalOps,
+             MatrixMulOp), // applies a multiplication op to matrix C using A
+                           // and B as parameters
+  EXP_OPCODE(ExperimentalOps,
+             MatrixAccumulate), // accumulate A or B matrix into Accumulator
+                                // matrix following LHS += RHS
+  EXP_OPCODE(ExperimentalOps,
+             MatrixVecMul), // Multiplies a MxK dimension matrix and a K sized
+                            // input vector
+  EXP_OPCODE(
+      ExperimentalOps,
+      MatrixVecMulAdd), // Multiplies a MxK dimension matrix and a K sized input
+                        // vector then adds a M sized bias vector
+  EXP_OPCODE(ExperimentalOps,
+             MatrixAccumulateToDescriptor), // accumulates a matrix to a
+                                            // RWByteAddressBuffer
+  EXP_OPCODE(
+      ExperimentalOps,
+      MatrixAccumulateToMemory), // accumulates a matrix to groupshared memory
+  EXP_OPCODE(ExperimentalOps,
+             MatrixOuterProduct), // Outer products an M sized vector and a K
+                                  // sized vector producing an MxK matrix
+  EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved0), // reserved
+  EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved1), // reserved
+  EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved2), // reserved
 };
 // OPCODE-ENUM:END
 #undef EXP_OPCODE
@@ -1342,8 +1444,27 @@ enum class OpCodeClass : unsigned {
   CreateHandleForLib,
 
   // Linear Algebra Operations
+  CopyConvertMatrix,
+  CreateMatrix,
+  FillMatrix,
   MatVecMul,
   MatVecMulAdd,
+  MatrixAccumulate,
+  MatrixAccumulateToDescriptor,
+  MatrixAccumulateToMemory,
+  MatrixGetCoordinate,
+  MatrixGetElement,
+  MatrixLength,
+  MatrixLoadFromDescriptor,
+  MatrixLoadFromMemory,
+  MatrixMulOp,
+  MatrixOuterProduct,
+  MatrixQueryAccumulatorLayout,
+  MatrixSetElement,
+  MatrixStoreToDescriptor,
+  MatrixStoreToMemory,
+  MatrixVecMul,
+  MatrixVecMulAdd,
   OuterProductAccumulate,
   VectorAccumulate,
 
@@ -1532,7 +1653,7 @@ enum class OpCodeClass : unsigned {
   NodeOutputIsValid,
   OutputComplete,
 
-  NumOpClasses = 204, // exclusive last value of enumeration
+  NumOpClasses = 223, // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
