@@ -2065,6 +2065,15 @@ Bindings are lazily allocated: if only the sampler heap is used,
    // buffer is in the descriptor set 0, binding 0.
    // Counter not generated, because unused.
 
+Bindings & sets associated with each heap can be explicitly set using:
+
+- `-fvk-bind-sampler-heap <binding> <set>`: Specify Vulkan binding number
+  and set number for the sampler heap.
+- `-fvk-bind-resource-heap <binding> <set>`: Specify Vulkan binding number
+  and set number for the resource heap.
+- `-fvk-bind-counter-heap <binding> <set>`: Specify Vulkan binding number
+  and set number for the counter heap.
+
 HLSL Expressions
 ================
 
