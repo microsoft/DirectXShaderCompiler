@@ -1,6 +1,6 @@
 {
   "IntrinsicOpCodes": {
-    "Num_Intrinsics": 405,
+    "Num_Intrinsics": 425,
     "IOP_AcceptHitAndEndSearch": 0,
     "IOP_AddUint64": 1,
     "IOP_AllMemoryBarrier": 2,
@@ -405,6 +405,26 @@
     "IOP_TriangleObjectPosition": 401,
     "MOP_CandidateTriangleObjectPosition": 402,
     "MOP_CommittedTriangleObjectPosition": 403,
-    "MOP_DxHitObject_TriangleObjectPosition": 404
+    "MOP_DxHitObject_TriangleObjectPosition": 404,
+    "IOP___builtin_LinAlg_CopyConvertMatrix": 405,
+    "IOP___builtin_LinAlg_CreateMatrix": 406,
+    "IOP___builtin_LinAlg_FillMatrix": 407,
+    "IOP___builtin_LinAlg_MatrixGetCoordinate": 408,
+    "IOP___builtin_LinAlg_MatrixGetElement": 409,
+    "IOP___builtin_LinAlg_MatrixLength": 410,
+    "IOP___builtin_LinAlg_MatrixLoadFromDescriptor": 411,
+    "IOP___builtin_LinAlg_MatrixLoadFromMemory": 412,
+    "IOP___builtin_LinAlg_MatrixSetElement": 413,
+    "IOP___builtin_LinAlg_MatrixStoreToDescriptor": 414,
+    "IOP___builtin_LinAlg_MatrixStoreToMemory": 415,
+    "IOP___builtin_LinAlg_MatrixAccumulate": 416,
+    "IOP___builtin_LinAlg_MatrixMatrixMultiply": 417,
+    "IOP___builtin_LinAlg_MatrixMatrixMultiplyAccumulate": 418,
+    "IOP___builtin_LinAlg_MatrixQueryAccumulatorLayout": 419,
+    "IOP___builtin_LinAlg_MatrixAccumulateToDescriptor": 420,
+    "IOP___builtin_LinAlg_MatrixAccumulateToMemory": 421,
+    "IOP___builtin_LinAlg_MatrixOuterProduct": 422,
+    "IOP___builtin_LinAlg_MatrixVectorMultiply": 423,
+    "IOP___builtin_LinAlg_MatrixVectorMultiplyAdd": 424
   }
 }
