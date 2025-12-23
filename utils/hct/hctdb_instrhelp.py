@@ -640,6 +640,7 @@ class db_oload_gen:
             "nodeproperty": "A(nodeProperty);",
             "noderecordproperty": "A(nodeRecordProperty);",
             "hit_object": "A(pHit);",
+            "matrixref": "A(pMatrixRef);",
             # Extended overload slots, extend as needed:
             "$x0": "EXT(0);",
             "$x1": "EXT(1);",
