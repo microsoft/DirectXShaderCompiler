@@ -6792,6 +6792,22 @@ Value *TranslateVectorAccumulate(CallInst *CI, IntrinsicOp IOP,
                             {OpArg, InputVector, MatrixBuffer, MatrixOffset});
 }
 
+Value *TranslateLinAlgCreateMatrix(CallInst *CI, IntrinsicOp IOP,
+                                   OP::OpCode OpCode,
+                                   HLOperationLowerHelper &Helper,
+                                   HLObjectOperationLowerHelper *ObjHelper,
+                                   bool &Translated) {
+  hlsl::OP *HlslOP = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+  Value *MatrixRefPtr = CI->getArgOperand(1);
+  Value *MatrixRef = TrivialDxilOperation(
+      OpCode, {nullptr}, Type::getVoidTy(CI->getContext()), CI, HlslOP);
+  Builder.CreateStore(MatrixRef, MatrixRefPtr);
+  DXASSERT(
+      CI->use_empty(),
+      "Default ctor return type is a Clang artifact. Value must not be used");
+  return nullptr;
+}
 } // namespace
 
 // Lower table.
@@ -7539,8 +7555,8 @@ constexpr IntrinsicLower gLowerTable[] = {
 
     {IntrinsicOp::IOP___builtin_LinAlg_CopyConvertMatrix, EmptyLower,
      DXIL::OpCode::CopyConvertMatrix},
-    {IntrinsicOp::IOP___builtin_LinAlg_CreateMatrix, EmptyLower,
-     DXIL::OpCode::CreateMatrix},
+    {IntrinsicOp::IOP___builtin_LinAlg_CreateMatrix,
+     TranslateLinAlgCreateMatrix, DXIL::OpCode::CreateMatrix},
     {IntrinsicOp::IOP___builtin_LinAlg_FillMatrix, EmptyLower,
      DXIL::OpCode::FillMatrix},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixGetCoordinate, EmptyLower,

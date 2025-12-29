@@ -9537,6 +9537,7 @@ class db_hlsl(object):
             "GroupNodeOutputRecords": "LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS",
             "ThreadNodeOutputRecords": "LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS",
             "DxHitObject": "LICOMPTYPE_HIT_OBJECT",
+            "MatrixRef": "LICOMPTYPE_MATRIX_REF",
             "VkBufferPointer": "LICOMPTYPE_VK_BUFFER_POINTER",
             "RayQuery": "LICOMPTYPE_RAY_QUERY",
             "LinAlg": "LICOMPTYPE_LINALG",
@@ -9600,7 +9601,7 @@ class db_hlsl(object):
             sampler\w* | string |
             (?:RW)?(?:Texture\w*|ByteAddressBuffer) |
             acceleration_struct | ray_desc | RayQuery | DxHitObject |
-            Node\w* | RWNode\w* | EmptyNode\w* |
+            MatrixRef | Node\w* | RWNode\w* | EmptyNode\w* |
             AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w* |
             VkBufferPointer
             $)""",

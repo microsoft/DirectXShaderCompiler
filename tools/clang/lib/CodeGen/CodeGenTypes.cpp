@@ -369,6 +369,8 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
                  .getTypePtr();
       } else if (hlsl::IsHLSLHitObjectType(T)) // HLSL Change
         return hlsl::dxilutil::GetHLSLHitObjectType(&TheModule);
+      else if (hlsl::IsHLSLMatrixRefType(T)) // HLSL Change
+        return hlsl::dxilutil::GetHLSLMatrixRefType(&TheModule);
       else
         return ConvertRecordDeclType(RT->getDecl());
     }

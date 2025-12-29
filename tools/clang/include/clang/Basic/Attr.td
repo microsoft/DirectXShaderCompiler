@@ -1190,6 +1190,14 @@ def HLSLHitObject : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+// HLSL MatrixRef Attribute
+
+def HLSLMatrixRef : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
 // HLSL Parameter Attributes
 
 def HLSLMaxRecords : InheritableAttr {
