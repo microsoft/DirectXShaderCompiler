@@ -3916,22 +3916,31 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // RayQuery_CommittedClusterID=2147483653,
   // RayQuery_CandidateTriangleObjectPosition=2147483656,
   // RayQuery_CommittedTriangleObjectPosition=2147483657,
-  // CreateMatrix=2147483659, FillMatrix=2147483660,
-  // CopyConvertMatrix=2147483661, MatrixLoadFromDescriptor=2147483662,
+  // CreateMatrix=2147483659, MatrixLoadFromDescriptor=2147483662,
+  // MatrixQueryAccumulatorLayout=2147483670, MatrixVecMul=2147483673,
+  // MatrixVecMulAdd=2147483674, MatrixAccumulateToDescriptor=2147483675,
+  // MatrixOuterProduct=2147483677
+  if ((305 <= op && op <= 308) || op == 2147483648 ||
+      (2147483652 <= op && op <= 2147483653) ||
+      (2147483656 <= op && op <= 2147483657) || op == 2147483659 ||
+      op == 2147483662 || op == 2147483670 ||
+      (2147483673 <= op && op <= 2147483675) || op == 2147483677) {
+    major = 6;
+    minor = 10;
+    return;
+  }
+  // Instructions: FillMatrix=2147483660, CopyConvertMatrix=2147483661,
   // MatrixLoadFromMemory=2147483663, MatrixLength=2147483664,
   // MatrixGetCoordinate=2147483665, MatrixGetElement=2147483666,
   // MatrixSetElement=2147483667, MatrixStoreToDescriptor=2147483668,
-  // MatrixStoreToMemory=2147483669, MatrixQueryAccumulatorLayout=2147483670,
-  // MatrixMulOp=2147483671, MatrixAccumulate=2147483672,
-  // MatrixVecMul=2147483673, MatrixVecMulAdd=2147483674,
-  // MatrixAccumulateToDescriptor=2147483675,
-  // MatrixAccumulateToMemory=2147483676, MatrixOuterProduct=2147483677
-  if ((305 <= op && op <= 308) || op == 2147483648 ||
-      (2147483652 <= op && op <= 2147483653) ||
-      (2147483656 <= op && op <= 2147483657) ||
-      (2147483659 <= op && op <= 2147483677)) {
+  // MatrixStoreToMemory=2147483669, MatrixMulOp=2147483671,
+  // MatrixAccumulate=2147483672, MatrixAccumulateToMemory=2147483676
+  if ((2147483660 <= op && op <= 2147483661) ||
+      (2147483663 <= op && op <= 2147483669) ||
+      (2147483671 <= op && op <= 2147483672) || op == 2147483676) {
     major = 6;
     minor = 10;
+    mask = SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification);
     return;
   }
   // Instructions: GetGroupWaveIndex=2147483649, GetGroupWaveCount=2147483650
