@@ -395,6 +395,37 @@ void [[min_sm=6.10]] __builtin_OuterProductAccumulate(in LinAlg<c> InputVector1,
 
 void [[min_sm=6.10]] __builtin_VectorAccumulate(in LinAlg<c> InputVector, in RWByteAddressBuffer MatrixBuffer, in uint MatrixOffset);
 
+// LinAlg intrinsics
+
+// TODO: Update return type for CreateMatrix to MatrixRef
+// TODO: Replace all int MatrixRef with MatrixRef type
+// TODO: Replace all int GroupSharedMem with groupshared memory
+void [[min_sm=6.10]] __builtin_LinAlg_CreateMatrix();
+void [[min_sm=6.10]] __builtin_LinAlg_FillMatrix(int MatrixRef, numeric value);
+void [[min_sm=6.10]] __builtin_LinAlg_CopyConvertMatrix(int MatrixRefDest, int MatrixRefSrc, bool transpose);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixLoadFromDescriptor(int MatrixRef, resource buf, int32_only offset, int32_only stride, int32_only layout);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixLoadFromMemory(int MatrixRef, int GroupSharedMem, int32_only offset, int32_only stride, int32_only layout);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixLength(int MatrixRef);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixGetCoordinate(int MatrixRef, int32_only threadLocalIndex);
+numeric [[min_sm=6.10]] __builtin_LinAlg_MatrixGetElement(int MatrixRef, int32_only threadLocalIndex);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixSetElement(int MatrixRef, int32_only threadLocalIndex, numeric value);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixStoreToDescriptor(int MatrixRef, resource buf, int32_only offset, int32_only stride, int32_only layout);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixStoreToMemory(int MatrixRef, int GroupSharedMem, int32_only offset, int32_only stride, int32_only layout);
+int32_only [[min_sm=6.10]] __builtin_LinAlg_MatrixQueryAccumulatorLayout();
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixMatrixMultiply(int MatrixRefA, int MatrixRefB, int MatrixRefC);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(int MatrixRefA, int MatrixRefB, int MatrixRefC);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixAccumulate(int MatrixRefRHS, int MatrixRefLHS);
+
+// TODO: Fix vector types
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixVectorMultiply(int MatrixRef);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixVectorMultiplyAdd(int MatrixRef);
+
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixAccumulateToDescriptor(int MatrixRef, resource buf, int32_only offset, int32_only stride, int32_only layout);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixAccumulateToMemory(int MatrixRef, int GroupSharedMem, int32_only offset, int32_only stride, int32_only layout);
+
+// TODO: Fix vector types
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixOuterProduct(int MatrixRef);
+
 } namespace
 
 
