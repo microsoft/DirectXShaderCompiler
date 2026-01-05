@@ -1614,49 +1614,53 @@ template <typename T> T waveMultiPrefixProduct(T A, UINT) {
 
 template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
+static constexpr UINT ComputeWaveMask(UINT NumWaves) {
+  return (NumWaves < 64) ? (1ULL << NumWaves) - 1 : ~0ULL;
+}
+
 // Helper struct to build the expected result for WaveMatch tests.
 struct WaveMatchResultBuilder {
 
 private:
   uint64_t LowWaveMask;
   uint64_t HighWaveMask;
-  uint64_t LowBits;
-  uint64_t HighBits;
+  uint64_t ActiveLanesLow;
+  uint64_t ActiveLanesHigh;
 
 public:
-  WaveMatchResultBuilder(UINT NumWaves) : LowBits(0), HighBits(0) {
+  WaveMatchResultBuilder(UINT NumWaves)
+      : ActiveLanesLow(0), ActiveLanesHigh(0) {
+    VERIFY_IS_TRUE(NumWaves <= 128);
     const UINT LowWaves = std::min(64U, NumWaves);
     const UINT HighWaves = NumWaves - LowWaves;
-    LowWaveMask = (LowWaves < 64) ? (1ULL << LowWaves) - 1 : ~0ULL;
-    HighWaveMask = (HighWaves < 64) ? (1ULL << HighWaves) - 1 : ~0ULL;
-    LowBits &= LowWaveMask;
-    HighBits &= HighWaveMask;
+    LowWaveMask = ComputeWaveMask(LowWaves);
+    HighWaveMask = ComputeWaveMask(HighWaves);
   }
 
   void SetLane(UINT LaneID) {
     if (LaneID < 64)
-      LowBits |= (1ULL << LaneID) & LowWaveMask;
+      ActiveLanesLow |= (1ULL << LaneID) & LowWaveMask;
     else
-      HighBits |= (1ULL << (LaneID - 64)) & HighWaveMask;
+      ActiveLanesHigh |= (1ULL << (LaneID - 64)) & HighWaveMask;
   }
 
   void ClearLane(UINT LaneID) {
     if (LaneID < 64)
-      LowBits &= ~(1ULL << LaneID) & LowWaveMask;
+      ActiveLanesLow &= ~(1ULL << LaneID) & LowWaveMask;
     else
-      HighBits &= ~(1ULL << (LaneID - 64)) & HighWaveMask;
+      ActiveLanesHigh &= ~(1ULL << (LaneID - 64)) & HighWaveMask;
   }
 
   void InvertLanes() {
-    LowBits = ~LowBits & LowWaveMask;
-    HighBits = ~HighBits & HighWaveMask;
+    ActiveLanesLow = ~ActiveLanesLow & LowWaveMask;
+    ActiveLanesHigh = ~ActiveLanesHigh & HighWaveMask;
   }
 
-  void SetExpected(UINT *Dest) {
-    Dest[0] = static_cast<UINT>(LowBits);
-    Dest[1] = static_cast<UINT>(LowBits >> 32);
-    Dest[2] = static_cast<UINT>(HighBits);
-    Dest[3] = static_cast<UINT>(HighBits >> 32);
+  void ComputeExpected(UINT *Dest) {
+    Dest[0] = static_cast<UINT>(ActiveLanesLow);
+    Dest[1] = static_cast<UINT>(ActiveLanesLow >> 32);
+    Dest[2] = static_cast<UINT>(ActiveLanesHigh);
+    Dest[3] = static_cast<UINT>(ActiveLanesHigh >> 32);
   }
 };
 
@@ -1673,27 +1677,25 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
     std::vector<UINT> Expected;
     Expected.assign(WaveSize * 4, 0);
 
-    const UINT MidBit = WaveSize / 2;
-    const UINT LastBit = WaveSize - 1;
+    const UINT MidLaneID = WaveSize / 2;
+    const UINT LastLaneID = WaveSize - 1;
 
     WaveMatchResultBuilder UnchangedLanes(WaveSize);
     UnchangedLanes.InvertLanes();
     UnchangedLanes.ClearLane(0);
-    UnchangedLanes.ClearLane(MidBit);
-    UnchangedLanes.ClearLane(LastBit);
+    UnchangedLanes.ClearLane(MidLaneID);
+    UnchangedLanes.ClearLane(LastLaneID);
 
-    for (UINT I = 0; I < WaveSize; ++I) {
-      const UINT Index = I * 4;
+    for (UINT LaneID = 0; LaneID < WaveSize; ++LaneID) {
+      const UINT Index = LaneID * 4;
 
-      if (I == 0 || MidBit == I || LastBit == I) {
+      if (LaneID == 0 || LaneID == MidLaneID || LaneID == LastLaneID) {
         WaveMatchResultBuilder ChangedLanes(WaveSize);
-        ChangedLanes.SetLane(I);
-
-        ChangedLanes.SetExpected(&Expected[Index]);
+        ChangedLanes.SetLane(LaneID);
+        ChangedLanes.ComputeExpected(&Expected[Index]);
         continue;
       }
-
-      UnchangedLanes.SetExpected(&Expected[Index]);
+      UnchangedLanes.ComputeExpected(&Expected[Index]);
     }
 
     return Expected;
@@ -1959,7 +1961,7 @@ public:
       VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
           D3D12_FEATURE_D3D12_OPTIONS1, &WaveOpts, sizeof(WaveOpts)));
 
-      WaveSize = 128; // WaveOpts.WaveLaneCountMin;
+      WaveSize = WaveOpts.WaveLaneCountMin;
     }
 
     DXASSERT_NOMSG(WaveSize > 0);
