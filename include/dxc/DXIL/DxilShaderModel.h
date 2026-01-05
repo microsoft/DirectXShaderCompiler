@@ -41,7 +41,7 @@ public:
   // clang-format on
   // VALRULE-TEXT:BEGIN
   static const unsigned kHighestReleasedMajor = 6;
-  static const unsigned kHighestReleasedMinor = 8;
+  static const unsigned kHighestReleasedMinor = 9;
   // VALRULE-TEXT:END
 
   static const unsigned kOfflineMinor = 0xF;

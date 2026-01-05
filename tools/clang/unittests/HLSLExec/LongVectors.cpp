@@ -714,7 +714,7 @@ template <typename T> uint32_t CountBits(T A) {
 // returns the index of the first high/low bit found.
 template <typename T> uint32_t ScanFromMSB(T A, bool LookingForZero) {
   if (A == 0)
-    return ~0;
+    return std::numeric_limits<uint32_t>::max();
 
   constexpr uint32_t NumBits = sizeof(T) * 8;
   for (int32_t I = NumBits - 1; I >= 0; --I) {
@@ -722,7 +722,7 @@ template <typename T> uint32_t ScanFromMSB(T A, bool LookingForZero) {
     if (BitSet != LookingForZero)
       return static_cast<uint32_t>(I);
   }
-  return ~0;
+  return std::numeric_limits<uint32_t>::max();
 }
 
 template <typename T>
@@ -742,14 +742,14 @@ template <typename T> uint32_t FirstBitLow(T A) {
   const uint32_t NumBits = sizeof(T) * 8;
 
   if (A == 0)
-    return ~0;
+    return std::numeric_limits<uint32_t>::max();
 
   for (uint32_t I = 0; I < NumBits; ++I) {
     if (A & (static_cast<T>(1) << I))
       return static_cast<T>(I);
   }
 
-  return ~0;
+  return std::numeric_limits<uint32_t>::max();
 }
 
 DEFAULT_OP_2(OpType::And, (A & B));
@@ -883,12 +883,33 @@ CAST_OP(OpType::CastToFloat64, double, (CastToFloat64(A)));
 // specs. An example with this spec for sin and cos is available here:
 // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#22.10.20
 
-struct TrigonometricValidation {
+template <typename T, OpType OP> struct TrigonometricValidation {
   ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.0008f);
 };
 
+// Half precision trig functions have a larger tolerance due to their lower
+// precision. Note that the D3D spec
+// does not mention half precision trig functions.
+template <OpType OP> struct TrigonometricValidation<HLSLHalf_t, OP> {
+  ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.003f);
+};
+
+// For the half precision trig functions with an infinite range in either
+// direction we use 2 ULPs of tolerance instead.
+template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Cosh> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Tan> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Sinh> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
 #define TRIG_OP(OP, IMPL)                                                      \
-  template <typename T> struct Op<OP, T, 1> : TrigonometricValidation {        \
+  template <typename T> struct Op<OP, T, 1> : TrigonometricValidation<T, OP> { \
     T operator()(T A) { return IMPL; }                                         \
   }
 

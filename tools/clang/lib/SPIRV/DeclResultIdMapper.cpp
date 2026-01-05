@@ -4920,11 +4920,18 @@ bool DeclResultIdMapper::tryToCreateConstantVar(const ValueDecl *decl) {
     constVal =
         spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
     break;
+  case BuiltinType::ULongLong: // uint64_t
+    constVal =
+        spvBuilder.getConstantInt(astContext.UnsignedLongLongTy, val->getInt());
+    break;
   case BuiltinType::Short: // int16_t
     constVal = spvBuilder.getConstantInt(astContext.ShortTy, val->getInt());
     break;
   case BuiltinType::Int: // int32_t
     constVal = spvBuilder.getConstantInt(astContext.IntTy, val->getInt());
+    break;
+  case BuiltinType::LongLong: // int64_t
+    constVal = spvBuilder.getConstantInt(astContext.LongLongTy, val->getInt());
     break;
   case BuiltinType::Half: // float16_t
     constVal = spvBuilder.getConstantFloat(astContext.HalfTy, val->getFloat());
