@@ -2,8 +2,8 @@
 
 // CHECK-LABEL:  @CSMain()
 // CHECK: %{{[0-9]+}} =  call i32 @dx.op.threadId.i32(i32 {{[0-9]+}}, i32 {{[0-9]+}}), !dbg [[DBG_MD:![0-9]+]]
-// CHECK: [[SUBPGM:![0-9]+]] = !DISubprogram(name: "CSMain"
-// CHECK: [[DBG_MD]] = !DILocation(line: 21, column: 15, scope: [[SUBPGM]])
+// CHECK-DAG: [[SUBPGM:![0-9]+]] = !DISubprogram(name: "CSMain"
+// CHECK-DAG: [[DBG_MD]] = !DILocation(line: 21, column: 15, scope: [[SUBPGM]])
 
 RWBuffer<float> u0 : register(u0);
 RWBuffer<float> u1 : register(u1);
