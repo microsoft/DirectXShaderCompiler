@@ -4962,7 +4962,7 @@ InitCallParamConversions(Sema &S, const FunctionProtoType *Proto,
             hlsl::DXIL::kTGSMAddrSpace) {
       InConversion.setBad(BadConversionSequence::no_conversion, Arg->getType(),
                           ParamType);
-      InConversion.Bad.FromExpr = Arg; // hack for now
+      InConversion.Bad.FromExpr = Arg;
       return;
     }
   }

@@ -14483,9 +14483,11 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
           continue;
         for (Attr *A : PVD->getAttrs()) {
           switch (A->getKind()) {
-          case clang::attr::HLSLGroupShared: { // todo improve this error msg
+          case clang::attr::HLSLGroupShared: {
             Diag(A->getLocation(), diag::err_hlsl_varmodifiersna)
-                << "groupshared" << "export/noinline" << "parameter";
+                << "groupshared"
+		<< "export/noinline"
+		<< "parameter";
             return;
             break;
           }

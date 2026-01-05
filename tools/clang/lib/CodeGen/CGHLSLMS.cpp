@@ -1245,6 +1245,9 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
   if (const ReferenceType *RefType = dyn_cast<ReferenceType>(paramTy))
     paramTy = RefType->getPointeeType();
 
+  if (const ReferenceType *RefType = dyn_cast<ReferenceType>(Ty))
+    Ty = RefType->getPointeeType();
+  
   // Get size.
   llvm::Type *Type = CGM.getTypes().ConvertType(paramTy);
   unsigned size = dataLayout.getTypeAllocSize(Type);
@@ -1308,14 +1311,6 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     } else if (Ty->isIncompleteArrayType()) {
       const IncompleteArrayType *arrayTy =
           CGM.getContext().getAsIncompleteArrayType(Ty);
-      arrayElementTy = arrayTy->getElementType();
-    } else if (paramTy->isConstantArrayType()) {
-      // hacky because unclear proper usage of paramTy vs Ty...
-      const ConstantArrayType *arrayTy =
-          CGM.getContext().getAsConstantArrayType(paramTy);
-      DXASSERT(arrayTy != nullptr, "Must be array type here");
-
-      arraySize = arrayTy->getSize().getLimitedValue();
       arrayElementTy = arrayTy->getElementType();
     } else {
       DXASSERT(0, "Must array type here");
