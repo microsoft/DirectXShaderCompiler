@@ -7616,6 +7616,8 @@ static void TranslateBuiltinIntrinsic(CallInst *CI,
                                       bool &Translated) {
   unsigned opcode = hlsl::GetHLOpcode(CI);
   const IntrinsicLower &lower = gLowerTable[opcode];
+  DXASSERT((unsigned)lower.IntriOpcode == opcode,
+           "Intrinsic lowering table index must match intrinsic opcode.");
   Value *Result = lower.LowerFunc(CI, lower.IntriOpcode, lower.DxilOpcode,
                                   helper, pObjHelper, Translated);
   if (Result)
