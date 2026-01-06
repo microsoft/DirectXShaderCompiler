@@ -40,7 +40,7 @@ pygithub==1.59.1
     # via -r llvm/utils/git/requirements_formatting.txt.in
 pyjwt[crypto]==2.8.0
     # via pygithub
-pynacl==1.5.0
+pynacl==1.6.2
     # via pygithub
 requests==2.32.4
     # via pygithub
