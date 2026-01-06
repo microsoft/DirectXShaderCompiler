@@ -1247,7 +1247,7 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
 
   if (const ReferenceType *RefType = dyn_cast<ReferenceType>(Ty))
     Ty = RefType->getPointeeType();
-  
+
   // Get size.
   llvm::Type *Type = CGM.getTypes().ConvertType(paramTy);
   unsigned size = dataLayout.getTypeAllocSize(Type);

@@ -14485,7 +14485,7 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
           switch (A->getKind()) {
           case clang::attr::HLSLGroupShared: {
             Diag(A->getLocation(), diag::err_hlsl_varmodifiersna)
-	         << "groupshared"
+                << "groupshared"
                 << "export/noinline"
                 << "parameter";
             return;
