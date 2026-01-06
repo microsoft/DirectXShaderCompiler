@@ -1,3 +1,5 @@
+// REQUIRES: dxil-1-10
+
 // RUN: %dxc -T cs_6_10 -E main -fcgl %s | FileCheck %s --check-prefix=FCGL
 // RUN: %dxc -T cs_6_10 -E main %s | FileCheck %s
 
