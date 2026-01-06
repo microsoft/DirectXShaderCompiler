@@ -13,7 +13,7 @@ target triple = "dxil-ms-dx"
 
 ; Function Attrs: nounwind
 define void @"\01?test_closesthit@@YAXUPayload@@UBuiltInTriangleIntersectionAttributes@@@Z"(%struct.Payload* noalias nocapture %payload, %struct.BuiltInTriangleIntersectionAttributes* nocapture readnone %attr) #0 {
-  %1 = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 2147483655)  ; TriangleObjectPosition()
+  %1 = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 -2147483641)  ; TriangleObjectPosition()
   ret void
 }
 
