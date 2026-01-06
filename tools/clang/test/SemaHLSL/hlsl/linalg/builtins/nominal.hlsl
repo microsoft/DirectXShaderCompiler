@@ -5,10 +5,12 @@
 
 RWStructuredBuffer<int> input;
 RWStructuredBuffer<int> output;
+RWByteAddressBuffer buff;
 
 [numthreads(1,1,1)]
 void main() {
   __builtin_LinAlg_MatrixRef mat = __builtin_LinAlg_CreateMatrix();
   __builtin_LinAlg_FillMatrix(mat, 5);
   output[0] = __builtin_LinAlg_MatrixLength(mat);
+  __builtin_LinAlg_MatrixStoreToDescriptor(mat, buff, 1,1,0);
 }

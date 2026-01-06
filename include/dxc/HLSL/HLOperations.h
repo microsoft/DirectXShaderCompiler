@@ -513,6 +513,16 @@ const unsigned kOuterProdAccMatrixStrideIdx = 7;
 const unsigned kVectorAccInputVecIdx = 1;
 const unsigned kVectorAccMatrixIdx = 2;
 const unsigned kVectorAccMatrixOffsetIdx = 3;
+
+// LinAlg Common Indices
+const unsigned kLinAlgMatrixRefIdx = 1;
+const unsigned kLinAlgResHandleIdx = 2;
+const unsigned kLinAlgResOffsetIdx = 3;
+const unsigned kLinAlgResStrideIdx = 4;
+const unsigned kLinAlgResLayoutIdx = 5;
+
+// LinAlg FillMatrix
+const unsigned kLinAlgFillMatrixScalarIdx = 2;
 } // namespace HLOperandIndex
 
 llvm::Function *GetOrCreateHLFunction(llvm::Module &M,

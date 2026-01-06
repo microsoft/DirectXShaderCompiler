@@ -108,7 +108,7 @@ float4 mainMatrixLengthVS(uint ix : SV_VertexID) : OUT {
   return 1.0;
 }
 
-[shader("node")] 
+[shader("node")]
 [nodedispatchgrid(8,1,1)]
 [numthreads(64,2,2)]
 void mainMatrixLengthNS() {
