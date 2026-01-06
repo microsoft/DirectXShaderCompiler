@@ -1230,9 +1230,13 @@ namespace {
 /// SROA.  It must be a struct or array type with a small number of elements.
 bool ShouldAttemptScalarRepl(AllocaInst *AI) {
   Type *T = AI->getAllocatedType();
-  // promote every struct.
-  if (dyn_cast<StructType>(T))
+
+  // Don't SROA BuiltInTrianglePositions struct.
+  if (StructType *ST = dyn_cast<StructType>(T)) {
+    if (ST->hasName() && ST->getName() == "struct.BuiltInTrianglePositions")
+      return false;
     return true;
+  }
   // promote every array.
   if (dyn_cast<ArrayType>(T))
     return true;
@@ -2907,6 +2911,13 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
           return;
         }
         break;
+      case IntrinsicOp::IOP_TriangleObjectPositions:
+      case IntrinsicOp::MOP_CandidateTriangleObjectPositions:
+      case IntrinsicOp::MOP_CommittedTriangleObjectPositions:
+      case IntrinsicOp::MOP_DxHitObject_TriangleObjectPositions:
+        // These intrinsics return BuiltInTrianglePositions struct.
+        // Don't try to flatten them.
+        return;
       default:
         break;
       }

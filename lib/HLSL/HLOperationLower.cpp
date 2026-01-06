@@ -6016,6 +6016,108 @@ Value *TranslateNoArgVectorOperation(CallInst *CI, IntrinsicOp IOP,
   return retVal;
 }
 
+static Value *ConstructBuiltInTrianglePositionsFromFloat9(
+    Value *float9Vec, StructType *hlslStructTy, IRBuilder<> &Builder) {
+  Type *f32Ty = Type::getFloatTy(Builder.getContext());
+  Type *float3Ty = VectorType::get(f32Ty, 3);
+  Value *result = UndefValue::get(hlslStructTy);
+
+  // Build p0, p1, p2 from vector elements 0-2, 3-5, 6-8
+  for (unsigned field = 0; field < 3; field++) {
+    Value *float3 = UndefValue::get(float3Ty);
+    for (unsigned i = 0; i < 3; i++) {
+      Value *elem = Builder.CreateExtractElement(float9Vec, field * 3 + i);
+      float3 = Builder.CreateInsertElement(float3, elem, i);
+    }
+    result = Builder.CreateInsertValue(result, float3, field);
+  }
+
+  return result;
+}
+
+Value *TranslateTriangleObjectPositions(
+    CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+    HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper,
+    bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *outputPtr = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  StructType *hlslStructTy =
+      cast<StructType>(outputPtr->getType()->getPointerElementType());
+
+  Type *f32Ty = Type::getFloatTy(CI->getContext());
+  Function *dxilFunc = hlslOP->GetOpFunc(opcode, f32Ty);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+
+  Value *dxilCall = Builder.CreateCall(dxilFunc, {opArg});
+
+  Value *structValue = ConstructBuiltInTrianglePositionsFromFloat9(
+      dxilCall, hlslStructTy, Builder);
+  Builder.CreateStore(structValue, outputPtr);
+
+  return nullptr;
+}
+
+Value *TranslateRayQueryTriangleObjectPositions(
+    CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+    HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper,
+    bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+  StructType *hlslStructTy =
+      cast<StructType>(CI->getType()->getPointerElementType());
+
+  Function *F = CI->getParent()->getParent();
+  IRBuilder<> AllocaBuilder(&F->getEntryBlock(), F->getEntryBlock().begin());
+  AllocaInst *resultAlloca = AllocaBuilder.CreateAlloca(hlslStructTy);
+
+  IRBuilder<> Builder(CI);
+
+  Type *f32Ty = Type::getFloatTy(CI->getContext());
+  Function *dxilFunc = hlslOP->GetOpFunc(opcode, f32Ty);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+
+  Value *dxilCall = Builder.CreateCall(dxilFunc, {opArg, handle});
+
+  Value *structValue = ConstructBuiltInTrianglePositionsFromFloat9(
+      dxilCall, hlslStructTy, Builder);
+  Builder.CreateStore(structValue, resultAlloca);
+
+  return resultAlloca;
+}
+
+Value *TranslateHitObjectTriangleObjectPositions(
+    CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+    HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper,
+    bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+
+  Value *hitObjectPtr = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+  StructType *hlslStructTy =
+      cast<StructType>(CI->getType()->getPointerElementType());
+
+  Function *F = CI->getParent()->getParent();
+  IRBuilder<> AllocaBuilder(&F->getEntryBlock(), F->getEntryBlock().begin());
+  AllocaInst *resultAlloca = AllocaBuilder.CreateAlloca(hlslStructTy);
+
+  IRBuilder<> Builder(CI);
+  Value *hitObject = Builder.CreateLoad(hitObjectPtr);
+
+  Type *f32Ty = Type::getFloatTy(CI->getContext());
+  Function *dxilFunc = hlslOP->GetOpFunc(opcode, f32Ty);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+
+  Value *dxilCall = Builder.CreateCall(dxilFunc, {opArg, hitObject});
+
+  Value *structValue = ConstructBuiltInTrianglePositionsFromFloat9(
+      dxilCall, hlslStructTy, Builder);
+  Builder.CreateStore(structValue, resultAlloca);
+
+  return resultAlloca;
+}
+
 template <typename ColElemTy>
 static void GetMatrixIndices(Constant *&Rows, Constant *&Cols, bool Is3x4,
                              LLVMContext &Ctx) {
@@ -7543,13 +7645,16 @@ constexpr IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_DxHitObject_GetClusterID, TranslateHitObjectScalarGetter,
      DXIL::OpCode::HitObject_ClusterID},
 
-    {IntrinsicOp::IOP_TriangleObjectPosition, EmptyLower,
+    {IntrinsicOp::IOP_TriangleObjectPositions, TranslateTriangleObjectPositions,
      DXIL::OpCode::TriangleObjectPosition},
-    {IntrinsicOp::MOP_CandidateTriangleObjectPosition, EmptyLower,
+    {IntrinsicOp::MOP_CandidateTriangleObjectPositions,
+     TranslateRayQueryTriangleObjectPositions,
      DXIL::OpCode::RayQuery_CandidateTriangleObjectPosition},
-    {IntrinsicOp::MOP_CommittedTriangleObjectPosition, EmptyLower,
+    {IntrinsicOp::MOP_CommittedTriangleObjectPositions,
+     TranslateRayQueryTriangleObjectPositions,
      DXIL::OpCode::RayQuery_CommittedTriangleObjectPosition},
-    {IntrinsicOp::MOP_DxHitObject_TriangleObjectPosition, EmptyLower,
+    {IntrinsicOp::MOP_DxHitObject_TriangleObjectPositions,
+     TranslateHitObjectTriangleObjectPositions,
      DXIL::OpCode::HitObject_TriangleObjectPosition},
 
     {IntrinsicOp::IOP___builtin_LinAlg_CopyConvertMatrix, EmptyLower,
