@@ -6826,6 +6826,27 @@ Value *TranslateLinAlgMatrixLength(CallInst *CI, IntrinsicOp IOP,
 
   return Builder.CreateCall(DxilFunc, {OpArg, MatrixRef});
 }
+
+Value *TranslateLinAlgFillMatrix(CallInst *CI, IntrinsicOp IOP,
+                                 OP::OpCode OpCode,
+                                 HLOperationLowerHelper &Helper,
+                                 HLObjectOperationLowerHelper *ObjHelper,
+                                 bool &Translated) {
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *MatrixRef = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
+  DXASSERT_NOMSG(isa<PointerType>(MatrixRef->getType()));
+  MatrixRef = Builder.CreateLoad(MatrixRef);
+
+  Value *Scalar = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, Scalar->getType());
+
+  return Builder.CreateCall(DxilFunc, {OpArg, MatrixRef, Scalar});
+}
+
 } // namespace
 
 // Lower table.
@@ -7575,7 +7596,7 @@ constexpr IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::CopyConvertMatrix},
     {IntrinsicOp::IOP___builtin_LinAlg_CreateMatrix,
      TranslateLinAlgCreateMatrix, DXIL::OpCode::CreateMatrix},
-    {IntrinsicOp::IOP___builtin_LinAlg_FillMatrix, EmptyLower,
+    {IntrinsicOp::IOP___builtin_LinAlg_FillMatrix, TranslateLinAlgFillMatrix,
      DXIL::OpCode::FillMatrix},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixGetCoordinate, EmptyLower,
      DXIL::OpCode::MatrixGetCoordinate},
