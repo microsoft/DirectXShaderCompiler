@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <cstdint>
 #ifndef NOMINMAX
 #define NOMINMAX 1
 #endif
@@ -1614,88 +1616,59 @@ template <typename T> T waveMultiPrefixProduct(T A, UINT) {
 
 template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
-static constexpr UINT ComputeWaveMask(UINT NumWaves) {
-  return (NumWaves < 64) ? (1ULL << NumWaves) - 1 : ~0ULL;
+uint32_t GetWord(const std::bitset<128> &b, uint32_t wordPos) {
+  uint32_t v = 0;
+  for (uint32_t i = 0; i < 32; ++i)
+    v |= uint32_t(b[wordPos * 32 + i]) << i;
+  return v;
 }
 
-// Helper struct to build the expected result for WaveMatch tests.
-struct WaveMatchResultBuilder {
-
-private:
-  uint64_t LowWaveMask;
-  uint64_t HighWaveMask;
-  uint64_t ActiveLanesLow;
-  uint64_t ActiveLanesHigh;
-
-public:
-  WaveMatchResultBuilder(UINT NumWaves)
-      : ActiveLanesLow(0), ActiveLanesHigh(0) {
-    VERIFY_IS_TRUE(NumWaves <= 128);
-    const UINT LowWaves = std::min(64U, NumWaves);
-    const UINT HighWaves = NumWaves - LowWaves;
-    LowWaveMask = ComputeWaveMask(LowWaves);
-    HighWaveMask = ComputeWaveMask(HighWaves);
-  }
-
-  void SetLane(UINT LaneID) {
-    if (LaneID < 64)
-      ActiveLanesLow |= (1ULL << LaneID) & LowWaveMask;
-    else
-      ActiveLanesHigh |= (1ULL << (LaneID - 64)) & HighWaveMask;
-  }
-
-  void ClearLane(UINT LaneID) {
-    if (LaneID < 64)
-      ActiveLanesLow &= ~(1ULL << LaneID) & LowWaveMask;
-    else
-      ActiveLanesHigh &= ~(1ULL << (LaneID - 64)) & HighWaveMask;
-  }
-
-  void InvertLanes() {
-    ActiveLanesLow = ~ActiveLanesLow & LowWaveMask;
-    ActiveLanesHigh = ~ActiveLanesHigh & HighWaveMask;
-  }
-
-  void ComputeExpected(UINT *Dest) {
-    Dest[0] = static_cast<UINT>(ActiveLanesLow);
-    Dest[1] = static_cast<UINT>(ActiveLanesLow >> 32);
-    Dest[2] = static_cast<UINT>(ActiveLanesHigh);
-    Dest[3] = static_cast<UINT>(ActiveLanesHigh >> 32);
-  }
-};
+void StoreWords(UINT *Dest, std::bitset<128> LanesState) {
+  Dest[0] = GetWord(LanesState, 0);
+  Dest[1] = GetWord(LanesState, 1);
+  Dest[2] = GetWord(LanesState, 2);
+  Dest[3] = GetWord(LanesState, 3);
+}
 
 template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
   static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
-                                         const InputSets<T> &,
+                                         const InputSets<T> &Inputs,
                                          const UINT WaveSize) {
     // For this test, the shader arranges it so that lanes 0, WAVE_SIZE/2 and
     // WAVE_SIZE-1 are different from all the other lanes, also those
     // lanes modify the vector at positions 0, WAVE_SIZE/2 and WAVE_SIZE-1
     // respectively, if the input vector has enough elements. Besides that all
     // other lanes write their result of WaveMatch as well.
+    DXASSERT_NOMSG(Inputs.size() == 1);
 
     std::vector<UINT> Expected;
+    Expected.assign(WaveSize * 4, 0);
+
+    const size_t VectorSize = Inputs[0].size();
+
     Expected.assign(WaveSize * 4, 0);
 
     const UINT MidLaneID = WaveSize / 2;
     const UINT LastLaneID = WaveSize - 1;
 
-    WaveMatchResultBuilder UnchangedLanes(WaveSize);
-    UnchangedLanes.InvertLanes();
-    UnchangedLanes.ClearLane(0);
-    UnchangedLanes.ClearLane(MidLaneID);
-    UnchangedLanes.ClearLane(LastLaneID);
+    std::bitset<128> UnchangedLanes(~0ULL);
+    UnchangedLanes &= (1ULL << WaveSize) - 1;
+    UnchangedLanes = UnchangedLanes.reset(0).reset(MidLaneID);
+
+    if (LastLaneID < VectorSize)
+      UnchangedLanes.reset(LastLaneID);
 
     for (UINT LaneID = 0; LaneID < WaveSize; ++LaneID) {
       const UINT Index = LaneID * 4;
 
-      if (LaneID == 0 || LaneID == MidLaneID || LaneID == LastLaneID) {
-        WaveMatchResultBuilder ChangedLanes(WaveSize);
-        ChangedLanes.SetLane(LaneID);
-        ChangedLanes.ComputeExpected(&Expected[Index]);
+      if (LaneID == 0 || LaneID == MidLaneID ||
+          (LastLaneID < VectorSize && LaneID == LastLaneID)) {
+        std::bitset<128> ChangedLanes(0);
+        ChangedLanes = ChangedLanes.set(LaneID);
+        StoreWords(&Expected[Index], ChangedLanes);
         continue;
       }
-      UnchangedLanes.ComputeExpected(&Expected[Index]);
+      StoreWords(&Expected[Index], UnchangedLanes);
     }
 
     return Expected;
