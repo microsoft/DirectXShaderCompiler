@@ -160,7 +160,8 @@ public:
   typedef std::vector<const DebugLoc *> LocVector;
 
   RenamePassData() : BB(nullptr), Pred(nullptr), Values() {}
-  RenamePassData(BasicBlock *B, BasicBlock *P, const ValVector &V, const LocVector &L)
+  RenamePassData(BasicBlock *B, BasicBlock *P, const ValVector &V,
+                 const LocVector &L)
       : BB(B), Pred(P), Values(V), DbgLocs(L) {}
   BasicBlock *BB;
   BasicBlock *Pred;
@@ -302,8 +303,7 @@ private:
                            const SmallPtrSetImpl<BasicBlock *> &DefBlocks,
                            SmallPtrSetImpl<BasicBlock *> &LiveInBlocks,
                            BasicBlock *LifetimeStartBB);
-  void RenamePass(RenamePassData &RPD,
-                  std::vector<RenamePassData> &Worklist);
+  void RenamePass(RenamePassData &RPD, std::vector<RenamePassData> &Worklist);
   bool QueuePhiNode(BasicBlock *BB, unsigned AllocaIdx, unsigned &Version);
 };
 
@@ -691,8 +691,8 @@ void PromoteMem2Reg::run() {
   // and inserting the phi nodes we marked as necessary
   //
   std::vector<RenamePassData> RenamePassWorkList;
-  RenamePassWorkList.emplace_back(F.begin(), nullptr,
-                                  std::move(Values), std::move(Locs));
+  RenamePassWorkList.emplace_back(F.begin(), nullptr, std::move(Values),
+                                  std::move(Locs));
   do {
     RenamePassData RPD;
     RPD.swap(RenamePassWorkList.back());
@@ -990,7 +990,8 @@ NextIteration:
       // operands so far.  Remember this count.
       unsigned NewPHINumOperands = APN->getNumOperands();
 
-      unsigned NumEdges = std::count(succ_begin(RPD.Pred), succ_end(RPD.Pred), RPD.BB);
+      unsigned NumEdges =
+          std::count(succ_begin(RPD.Pred), succ_end(RPD.Pred), RPD.BB);
       assert(NumEdges && "Must be at least one edge from Pred to BB!");
 
       // Add entries for all the phis.
