@@ -1372,6 +1372,36 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
 }
 
 #ifdef ENABLE_SPIRV_CODEGEN
+CXXRecordDecl *hlsl::DeclareVkSampledTexture2DType(
+    ASTContext &context, DeclContext *declContext, QualType float2Type,
+    QualType defaultTextureType) {
+  // TODO(https://github.com/microsoft/DirectXShaderCompiler/issues/7979): Later
+  // generalize these to all SampledTexture types.
+  BuiltinTypeDeclBuilder Builder(declContext, "SampledTexture2D",
+                                 TagDecl::TagKind::TTK_Struct);
+  TemplateTypeParmDecl *TyParamDecl =
+      Builder.addTypeTemplateParam("SampledTextureType", defaultTextureType);
+
+  Builder.startDefinition();
+
+  QualType paramType = QualType(TyParamDecl->getTypeForDecl(), 0);
+  CXXRecordDecl *recordDecl = Builder.getRecordDecl();
+
+  // Add Sample method
+  // sampledtype Sample(float2 location)
+  CXXMethodDecl *sampleDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, paramType, ArrayRef<QualType>(float2Type),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
+      /*isConst*/ true);
+  sampleDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+
+  Builder.completeDefinition();
+  return recordDecl;
+}
+
 CXXRecordDecl *hlsl::DeclareVkBufferPointerType(ASTContext &context,
                                                 DeclContext *declContext) {
   BuiltinTypeDeclBuilder Builder(declContext, "BufferPointer",
