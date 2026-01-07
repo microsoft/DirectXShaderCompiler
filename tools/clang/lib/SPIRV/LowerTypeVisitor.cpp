@@ -849,6 +849,23 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     assert(visitedTypeStack.size() == visitedTypeStackSize);
     return pointerType;
   }
+  if (name == "SampledTexture2D") {
+    const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+    auto loweredType =
+        lowerType(getElementType(astContext, sampledType), rule,
+                  /*isRowMajor*/ llvm::None, srcLoc);
+
+    // Treat bool textures as uint for compatibility with OpTypeImage.
+    if (loweredType == spvContext.getBoolType()) {
+      loweredType = spvContext.getUIntType(32);
+    }
+
+    const auto *imageType = spvContext.getImageType(
+        loweredType, spv::Dim::Dim2D, ImageType::WithDepth::No,
+        false /* array */, false /* ms */, ImageType::WithSampler::Yes,
+        spv::ImageFormat::Unknown);
+    return spvContext.getSampledImageType(imageType);
+  }
   emitError("unknown type %0 in vk namespace", srcLoc) << type;
   return nullptr;
 }

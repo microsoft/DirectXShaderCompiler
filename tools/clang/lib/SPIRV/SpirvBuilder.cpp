@@ -620,8 +620,13 @@ SpirvInstruction *SpirvBuilder::createImageSample(
   assert(lod == nullptr || minLod == nullptr);
 
   // An OpSampledImage is required to do the image sampling.
-  auto *sampledImage =
-      createSampledImage(imageType, image, sampler, loc, range);
+    // An OpSampledImage is required to do the image sampling.
+  SpirvInstruction *sampledImage = nullptr;
+  if (isSampledTexture(imageType)) {
+    sampledImage = image;
+  } else {
+    sampledImage = createSampledImage(imageType, image, sampler, loc, range);
+  }
 
   const auto mask = composeImageOperandsMask(
       bias, lod, grad, constOffset, varOffset, constOffsets, sample, minLod);

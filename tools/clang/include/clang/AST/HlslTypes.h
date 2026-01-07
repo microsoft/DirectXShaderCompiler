@@ -407,6 +407,10 @@ clang::CXXRecordDecl *
 DeclareVkBufferPointerType(clang::ASTContext &context,
                            clang::DeclContext *declContext);
 
+clang::CXXRecordDecl *DeclareVkSampledTexture2DType(
+    clang::ASTContext &context, clang::DeclContext *declContext,
+    clang::QualType float2Type, clang::QualType defaultTextureType);
+
 clang::CXXRecordDecl *DeclareInlineSpirvType(clang::ASTContext &context,
                                              clang::DeclContext *declContext,
                                              llvm::StringRef typeName,
@@ -547,6 +551,7 @@ bool IsPatchConstantFunctionDecl(const clang::FunctionDecl *FD);
 bool IsVKBufferPointerType(clang::QualType type);
 clang::QualType GetVKBufferPointerBufferType(clang::QualType type);
 unsigned GetVKBufferPointerAlignment(clang::QualType type);
+bool IsVKSampledTexture2DType(clang::QualType type);
 #endif
 
 /// <summary>Adds a constructor declaration to the specified class
