@@ -4405,7 +4405,7 @@ void MSMain(uint GID : SV_GroupIndex,
         }
         #endif
 
-                #ifdef FUNC_WAVE_MATCH
+        #ifdef FUNC_WAVE_MATCH
         void TestWaveMatch(vector<TYPE, NUM> Vector)
         {
             uint LaneIndex = WaveGetLaneIndex();
@@ -4430,7 +4430,7 @@ void MSMain(uint GID : SV_GroupIndex,
             uint index = WaveGetLaneIndex();
 
             g_OutputVector.Store<uint4>(index * sizeof(uint4), result);
-        }
+        }   
         #endif
 
         #ifdef FUNC_TEST_SELECT

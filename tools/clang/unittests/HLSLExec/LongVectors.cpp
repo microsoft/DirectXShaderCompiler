@@ -1614,10 +1614,10 @@ template <typename T> T waveMultiPrefixProduct(T A, UINT) {
 
 template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
-uint32_t GetWord(const std::bitset<128> &b, uint32_t wordPos) {
+uint32_t GetWord(const std::bitset<128> &b, uint32_t WordPos) {
   uint32_t Word = 0;
   for (uint32_t I = 0; I < 32; ++I)
-    Word |= uint32_t(b[wordPos * 32 + I]) << I;
+    Word |= uint32_t(b[WordPos * 32 + I]) << I;
   return Word;
 }
 
