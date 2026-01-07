@@ -1,5 +1,3 @@
-#include <cstddef>
-#include <cstdint>
 #ifndef NOMINMAX
 #define NOMINMAX 1
 #endif
@@ -1617,10 +1615,10 @@ template <typename T> T waveMultiPrefixProduct(T A, UINT) {
 template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
 uint32_t GetWord(const std::bitset<128> &b, uint32_t wordPos) {
-  uint32_t v = 0;
-  for (uint32_t i = 0; i < 32; ++i)
-    v |= uint32_t(b[wordPos * 32 + i]) << i;
-  return v;
+  uint32_t Word = 0;
+  for (uint32_t I = 0; I < 32; ++I)
+    Word |= uint32_t(b[wordPos * 32 + I]) << I;
+  return Word;
 }
 
 void StoreWords(UINT *Dest, std::bitset<128> LanesState) {
@@ -1653,7 +1651,7 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
 
     std::bitset<128> UnchangedLanes(~0ULL);
     UnchangedLanes &= (1ULL << WaveSize) - 1;
-    UnchangedLanes = UnchangedLanes.reset(0).reset(MidLaneID);
+    UnchangedLanes.reset(0).reset(MidLaneID);
 
     if (LastLaneID < VectorSize)
       UnchangedLanes.reset(LastLaneID);
