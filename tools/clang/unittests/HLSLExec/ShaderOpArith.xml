@@ -4426,10 +4426,10 @@ void MSMain(uint GID : SV_GroupIndex,
             // Making sure all lanes finish updating their vectors.
             AllMemoryBarrierWithGroupSync();
 
-            uint4 result = WaveMatch(Vector);
-            uint index = WaveGetLaneIndex();
+            uint4 Result = WaveMatch(Vector);
+            uint Index = WaveGetLaneIndex();
 
-            g_OutputVector.Store<uint4>(index * sizeof(uint4), result);
+            g_OutputVector.Store<uint4>(Index * sizeof(uint4), Result);
         }   
         #endif
 
