@@ -4090,14 +4090,14 @@ private:
       } else if (kind == AR_OBJECT_VK_SAMPLED_TEXTURE2D) {
         if (!m_vkNSDecl)
           continue;
-        QualType float2Type =
-            LookupVectorType(HLSLScalarType::HLSLScalarType_float, 2);
-        QualType float4Type =
-            LookupVectorType(HLSLScalarType::HLSLScalarType_float, 4);
-        recordDecl = DeclareVkSampledTexture2DType(*m_context, m_vkNSDecl,
-                                                   float2Type, float4Type);
+        recordDecl = DeclareVkSampledTexture2DType(
+            *m_context, m_vkNSDecl,
+            LookupVectorType(HLSLScalarType::HLSLScalarType_float, 2),
+            LookupVectorType(HLSLScalarType::HLSLScalarType_int, 2),
+            LookupVectorType(HLSLScalarType::HLSLScalarType_float, 4));
         recordDecl->setImplicit(true);
-        m_vkSampledTexture2DTemplateDecl = recordDecl->getDescribedClassTemplate();
+        m_vkSampledTexture2DTemplateDecl =
+            recordDecl->getDescribedClassTemplate();
       }
 #endif
       else if (templateArgCount == 0) {

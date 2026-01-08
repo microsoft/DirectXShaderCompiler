@@ -287,6 +287,9 @@ public:
   /// If compareVal is given a non-zero value, *Dref* variants of OpImageSample*
   /// will be generated.
   ///
+  /// If imageType is not a sampled image type, the OpSampledImage* instructions
+  /// will be generated.
+  ///
   /// If lod or grad is given a non-zero value, *ExplicitLod variants of
   /// OpImageSample* will be generated; otherwise, *ImplicitLod variant will
   /// be generated.

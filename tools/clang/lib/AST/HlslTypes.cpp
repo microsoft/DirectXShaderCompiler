@@ -821,15 +821,6 @@ unsigned GetVKBufferPointerAlignment(clang::QualType type) {
       "cannot get pointer alignment for type that is not a vk::BufferPointer");
   return bpParams.getValue().second;
 }
-
-bool IsVKSampledTexture2DType(clang::QualType type) {
-  return type ->isRecordType() &&
-         type->getAs<RecordType>()
-             ->getDecl()
-             ->getName()
-             .equals("SampledTexture2D");
-}
-
 #endif
 
 QualType GetHLSLResourceResultType(QualType type) {
