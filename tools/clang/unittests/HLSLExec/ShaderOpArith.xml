@@ -4411,9 +4411,9 @@ void MSMain(uint GID : SV_GroupIndex,
             uint LaneIndex = WaveGetLaneIndex();
             bool ShouldModify = ( LaneIndex == 0 ||
                                   LaneIndex == (WAVE_SIZE / 2) ||
-                                  LaneIndex == (WAVE_SIZE - 1));
+                                  LaneIndex == min(WAVE_SIZE - 1, NUM - 1));
 
-            if(LaneIndex < NUM && ShouldModify)
+            if(ShouldModify)
             {
               if(Vector[LaneIndex] == (TYPE) 0)
                 Vector[LaneIndex] = (TYPE) 1;

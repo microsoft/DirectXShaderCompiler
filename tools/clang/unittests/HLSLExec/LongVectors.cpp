@@ -1614,18 +1614,26 @@ template <typename T> T waveMultiPrefixProduct(T A, UINT) {
 
 template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
-uint32_t GetWord(const std::bitset<128> &b, uint32_t WordPos) {
-  uint32_t Word = 0;
-  for (uint32_t I = 0; I < 32; ++I)
-    Word |= uint32_t(b[WordPos * 32 + I]) << I;
-  return Word;
+static constexpr std::bitset<128> ComputeWaveMask(UINT NumWaves) {
+  return (NumWaves < 64) ? (1ULL << NumWaves) - 1 : ~0UL;
 }
 
-void StoreWords(UINT *Dest, std::bitset<128> LanesState) {
-  Dest[0] = GetWord(LanesState, 0);
-  Dest[1] = GetWord(LanesState, 1);
-  Dest[2] = GetWord(LanesState, 2);
-  Dest[3] = GetWord(LanesState, 3);
+void StoreWords(UINT *Dest, const std::bitset<128> &LanesState,
+                const UINT WaveSize) {
+
+  const UINT LowWaves = std::min(64U, WaveSize);
+  const UINT HighWaves = WaveSize - LowWaves;
+  const std::bitset<128> LowWaveMask = ComputeWaveMask(LowWaves);
+  const std::bitset<128> HighWaveMask = ComputeWaveMask(HighWaves);
+
+  const uint64_t LowActiveLanes = (LanesState & LowWaveMask).to_ullong();
+  const uint64_t HighActiveLanes =
+      ((LanesState >> 64) & HighWaveMask).to_ullong();
+
+  Dest[0] = static_cast<UINT>(LowActiveLanes);
+  Dest[1] = static_cast<UINT>(LowActiveLanes << 32);
+  Dest[2] = static_cast<UINT>(HighActiveLanes);
+  Dest[3] = static_cast<UINT>(HighActiveLanes << 32);
 }
 
 template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
@@ -1638,35 +1646,29 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
     // respectively, if the input vector has enough elements. Besides that all
     // other lanes write their result of WaveMatch as well.
     DXASSERT_NOMSG(Inputs.size() == 1);
-
+    const UINT VectorSize = static_cast<UINT>(Inputs[0].size());
     std::vector<UINT> Expected;
     Expected.assign(WaveSize * 4, 0);
-
-    const size_t VectorSize = Inputs[0].size();
-
-    Expected.assign(WaveSize * 4, 0);
-
     const UINT MidLaneID = WaveSize / 2;
-    const UINT LastLaneID = WaveSize - 1;
+    const UINT LastLaneID = std::min(WaveSize - 1, VectorSize - 1);
 
-    std::bitset<128> UnchangedLanes(~0ULL);
-    UnchangedLanes &= (1ULL << WaveSize) - 1;
-    UnchangedLanes.reset(0).reset(MidLaneID);
-
-    if (LastLaneID < VectorSize)
-      UnchangedLanes.reset(LastLaneID);
+    std::bitset<128> UnchangedLanes;
+    for (UINT I = 0; I < WaveSize; ++I)
+      UnchangedLanes.set(I);
+    UnchangedLanes.reset(0);
+    UnchangedLanes.reset(MidLaneID);
+    UnchangedLanes.reset(LastLaneID);
 
     for (UINT LaneID = 0; LaneID < WaveSize; ++LaneID) {
       const UINT Index = LaneID * 4;
 
-      if (LaneID == 0 || LaneID == MidLaneID ||
-          (LastLaneID < VectorSize && LaneID == LastLaneID)) {
+      if (LaneID == 0 || LaneID == MidLaneID || LaneID == LastLaneID) {
         std::bitset<128> ChangedLanes(0);
-        ChangedLanes = ChangedLanes.set(LaneID);
-        StoreWords(&Expected[Index], ChangedLanes);
+        ChangedLanes.set(LaneID);
+        StoreWords(&Expected[Index], ChangedLanes, WaveSize);
         continue;
       }
-      StoreWords(&Expected[Index], UnchangedLanes);
+      StoreWords(&Expected[Index], UnchangedLanes, WaveSize);
     }
 
     return Expected;
