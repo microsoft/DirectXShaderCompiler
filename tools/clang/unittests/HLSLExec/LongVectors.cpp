@@ -1618,23 +1618,34 @@ static constexpr std::bitset<128> ComputeWaveMask(UINT NumWaves) {
   return (NumWaves < 64) ? (1ULL << NumWaves) - 1 : ~0UL;
 }
 
-void StoreWords(UINT *Dest, const std::bitset<128> &LanesState,
-                const UINT WaveSize) {
+struct WaveMatchExpectedResultWritter {
+private:
+  UINT LowWaves;
+  UINT HighWaves;
+  std::bitset<128> LowWaveMask;
+  std::bitset<128> HighWaveMask;
 
-  const UINT LowWaves = std::min(64U, WaveSize);
-  const UINT HighWaves = WaveSize - LowWaves;
-  const std::bitset<128> LowWaveMask = ComputeWaveMask(LowWaves);
-  const std::bitset<128> HighWaveMask = ComputeWaveMask(HighWaves);
+public:
+  WaveMatchExpectedResultWritter(UINT WaveSize) {
+    LowWaves = std::min(64U, WaveSize);
+    HighWaves = WaveSize - LowWaves;
+    LowWaveMask = ComputeWaveMask(LowWaves);
+    HighWaveMask = ComputeWaveMask(HighWaves);
+  }
 
-  const uint64_t LowActiveLanes = (LanesState & LowWaveMask).to_ullong();
-  const uint64_t HighActiveLanes =
-      ((LanesState >> 64) & HighWaveMask).to_ullong();
+  void WriteExpectedValueForLane(UINT *Dest, const UINT Lane,
+                                 const std::bitset<128> &LanesState) {
+    const uint64_t LowActiveLanes = (LanesState & LowWaveMask).to_ullong();
+    const uint64_t HighActiveLanes =
+        ((LanesState >> 64) & HighWaveMask).to_ullong();
 
-  Dest[0] = static_cast<UINT>(LowActiveLanes);
-  Dest[1] = static_cast<UINT>(LowActiveLanes << 32);
-  Dest[2] = static_cast<UINT>(HighActiveLanes);
-  Dest[3] = static_cast<UINT>(HighActiveLanes << 32);
-}
+    const UINT LaneIndex = 4 * Lane;
+    Dest[LaneIndex + 0] = static_cast<UINT>(LowActiveLanes);
+    Dest[LaneIndex + 1] = static_cast<UINT>(LowActiveLanes << 32);
+    Dest[LaneIndex + 2] = static_cast<UINT>(HighActiveLanes);
+    Dest[LaneIndex + 3] = static_cast<UINT>(HighActiveLanes << 32);
+  }
+};
 
 template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
   static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
@@ -1642,33 +1653,38 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
                                          const UINT WaveSize) {
     // For this test, the shader arranges it so that lanes 0, WAVE_SIZE/2 and
     // WAVE_SIZE-1 are different from all the other lanes, also those
-    // lanes modify the vector at positions 0, WAVE_SIZE/2 and WAVE_SIZE-1
-    // respectively, if the input vector has enough elements. Besides that all
-    // other lanes write their result of WaveMatch as well.
+    // lanes modify the vector at positions 0, WAVE_SIZE/2 and WAVE_SIZE-1.
+    // Besides that all other lanes write their result of WaveMatch as well.
     DXASSERT_NOMSG(Inputs.size() == 1);
+
     const UINT VectorSize = static_cast<UINT>(Inputs[0].size());
     std::vector<UINT> Expected;
+    WaveMatchExpectedResultWritter ExpectedWritter(WaveSize);
     Expected.assign(WaveSize * 4, 0);
+
     const UINT MidLaneID = WaveSize / 2;
     const UINT LastLaneID = std::min(WaveSize - 1, VectorSize - 1);
 
-    std::bitset<128> UnchangedLanes;
+    // Use a std::bitset<128> to represent the uint4 returned by WaveMatch as
+    // its convenient this way in c++
+    std::bitset<128> DefaultExpectedValue;
+
     for (UINT I = 0; I < WaveSize; ++I)
-      UnchangedLanes.set(I);
-    UnchangedLanes.reset(0);
-    UnchangedLanes.reset(MidLaneID);
-    UnchangedLanes.reset(LastLaneID);
+      DefaultExpectedValue.set(I);
+    DefaultExpectedValue.reset(0);
+    DefaultExpectedValue.reset(MidLaneID);
+    DefaultExpectedValue.reset(LastLaneID);
 
     for (UINT LaneID = 0; LaneID < WaveSize; ++LaneID) {
-      const UINT Index = LaneID * 4;
-
       if (LaneID == 0 || LaneID == MidLaneID || LaneID == LastLaneID) {
-        std::bitset<128> ChangedLanes(0);
-        ChangedLanes.set(LaneID);
-        StoreWords(&Expected[Index], ChangedLanes, WaveSize);
+        std::bitset<128> ExpectedValue(0);
+        ExpectedValue.set(LaneID);
+        ExpectedWritter.WriteExpectedValueForLane(Expected.data(), LaneID,
+                                                  ExpectedValue);
         continue;
       }
-      StoreWords(&Expected[Index], UnchangedLanes, WaveSize);
+      ExpectedWritter.WriteExpectedValueForLane(Expected.data(), LaneID,
+                                                DefaultExpectedValue);
     }
 
     return Expected;
