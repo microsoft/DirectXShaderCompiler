@@ -1792,10 +1792,32 @@ using namespace LongVector;
 #define HLK_TEST(Op, DataType)                                                 \
   TEST_METHOD(Op##_##DataType) { runTest<DataType, OpType::Op>(); }
 
+#define HLK_TEST_DOUBLE(Op, DataType)                                          \
+  TEST_METHOD(Op##_##DataType) {                                               \
+    BEGIN_TEST_METHOD_PROPERTIES()                                             \
+    TEST_METHOD_PROPERTY(                                                      \
+      "Kits.Specification",                                                    \
+      "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")          \
+    END_TEST_METHOD_PROPERTIES()                                               \
+    runTest<DataType, OpType::Op>();                                           \
+  }
+
 #define HLK_WAVEOP_TEST(Op, DataType)                                          \
   TEST_METHOD(Op##_##DataType) {                                               \
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
-    TEST_METHOD_PROPERTY(L"Priority", L"2")                                    \
+    TEST_METHOD_PROPERTY(                                                      \
+      "Kits.Specification",                                                    \
+      "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")          \
+    END_TEST_METHOD_PROPERTIES()                                               \
+    runWaveOpTest<DataType, OpType::Op>();                                     \
+  }
+
+#define HLK_WAVEOP_TEST_DOUBLE(Op, DataType)                                   \
+  TEST_METHOD(Op##_##DataType) {                                               \
+    BEGIN_TEST_METHOD_PROPERTIES()                                             \
+    TEST_METHOD_PROPERTY(                                                      \
+      "Kits.Specification",                                                    \
+      "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")          \
     END_TEST_METHOD_PROPERTIES()                                               \
     runWaveOpTest<DataType, OpType::Op>();                                     \
   }
@@ -1940,8 +1962,8 @@ public:
   HLK_TEST(Mad, int64_t);
   HLK_TEST(Mad, HLSLHalf_t);
   HLK_TEST(Mad, float);
-  HLK_TEST(Fma, double);
-  HLK_TEST(Mad, double);
+  HLK_TEST_DOUBLE(Fma, double);
+  HLK_TEST_DOUBLE(Mad, double);
 
   // BinaryMath
 
@@ -2005,12 +2027,12 @@ public:
   HLK_TEST(Min, float);
   HLK_TEST(Max, float);
   HLK_TEST(Ldexp, float);
-  HLK_TEST(Add, double);
-  HLK_TEST(Subtract, double);
-  HLK_TEST(Multiply, double);
-  HLK_TEST(Divide, double);
-  HLK_TEST(Min, double);
-  HLK_TEST(Max, double);
+  HLK_TEST_DOUBLE(Add, double);
+  HLK_TEST_DOUBLE(Subtract, double);
+  HLK_TEST_DOUBLE(Multiply, double);
+  HLK_TEST_DOUBLE(Divide, double);
+  HLK_TEST_DOUBLE(Min, double);
+  HLK_TEST_DOUBLE(Max, double);
 
   // Bitwise
 
@@ -2070,7 +2092,7 @@ public:
   HLK_TEST(FirstBitLow, int64_t);
   HLK_TEST(Saturate, HLSLHalf_t);
   HLK_TEST(Saturate, float);
-  HLK_TEST(Saturate, double);
+  HLK_TEST_DOUBLE(Saturate, double);
 
   // Unary
 
@@ -2101,9 +2123,9 @@ public:
   HLK_TEST(Initialize, float);
   HLK_TEST(ArrayOperator_StaticAccess, float);
   HLK_TEST(ArrayOperator_DynamicAccess, float);
-  HLK_TEST(Initialize, double);
-  HLK_TEST(ArrayOperator_StaticAccess, double);
-  HLK_TEST(ArrayOperator_DynamicAccess, double);
+  HLK_TEST_DOUBLE(Initialize, double);
+  HLK_TEST_DOUBLE(ArrayOperator_StaticAccess, double);
+  HLK_TEST_DOUBLE(ArrayOperator_DynamicAccess, double);
 
   HLK_TEST(ShuffleVector, HLSLBool_t);
   HLK_TEST(ShuffleVector, int16_t);
@@ -2114,7 +2136,7 @@ public:
   HLK_TEST(ShuffleVector, uint64_t);
   HLK_TEST(ShuffleVector, HLSLHalf_t);
   HLK_TEST(ShuffleVector, float);
-  HLK_TEST(ShuffleVector, double);
+  HLK_TEST_DOUBLE(ShuffleVector, double);
 
   // Explicit Cast
 
@@ -2148,15 +2170,15 @@ public:
   HLK_TEST(CastToFloat16, float);
   HLK_TEST(CastToFloat64, float);
 
-  HLK_TEST(CastToBool, double);
-  HLK_TEST(CastToInt16, double);
-  HLK_TEST(CastToInt32, double);
-  HLK_TEST(CastToInt64, double);
-  HLK_TEST(CastToUint16_FromFP, double);
-  HLK_TEST(CastToUint32_FromFP, double);
-  HLK_TEST(CastToUint64_FromFP, double);
-  HLK_TEST(CastToFloat16, double);
-  HLK_TEST(CastToFloat32, double);
+  HLK_TEST_DOUBLE(CastToBool, double);
+  HLK_TEST_DOUBLE(CastToInt16, double);
+  HLK_TEST_DOUBLE(CastToInt32, double);
+  HLK_TEST_DOUBLE(CastToInt64, double);
+  HLK_TEST_DOUBLE(CastToUint16_FromFP, double);
+  HLK_TEST_DOUBLE(CastToUint32_FromFP, double);
+  HLK_TEST_DOUBLE(CastToUint64_FromFP, double);
+  HLK_TEST_DOUBLE(CastToFloat16, double);
+  HLK_TEST_DOUBLE(CastToFloat32, double);
 
   HLK_TEST(CastToBool, uint16_t);
   HLK_TEST(CastToInt16, uint16_t);
@@ -2304,8 +2326,8 @@ public:
   HLK_TEST(Log10, float);
   HLK_TEST(Log2, float);
   HLK_TEST(Frexp, float);
-  HLK_TEST(Abs, double);
-  HLK_TEST(Sign, double);
+  HLK_TEST_DOUBLE(Abs, double);
+  HLK_TEST_DOUBLE(Sign, double);
 
   // Float Special
 
@@ -2369,12 +2391,12 @@ public:
   HLK_TEST(GreaterEqual, float);
   HLK_TEST(Equal, float);
   HLK_TEST(NotEqual, float);
-  HLK_TEST(LessThan, double);
-  HLK_TEST(LessEqual, double);
-  HLK_TEST(GreaterThan, double);
-  HLK_TEST(GreaterEqual, double);
-  HLK_TEST(Equal, double);
-  HLK_TEST(NotEqual, double);
+  HLK_TEST_DOUBLE(LessThan, double);
+  HLK_TEST_DOUBLE(LessEqual, double);
+  HLK_TEST_DOUBLE(GreaterThan, double);
+  HLK_TEST_DOUBLE(GreaterEqual, double);
+  HLK_TEST_DOUBLE(Equal, double);
+  HLK_TEST_DOUBLE(NotEqual, double);
 
   // Binary Logical
 
@@ -2391,7 +2413,7 @@ public:
   HLK_TEST(Select, uint64_t);
   HLK_TEST(Select, HLSLHalf_t);
   HLK_TEST(Select, float);
-  HLK_TEST(Select, double);
+  HLK_TEST_DOUBLE(Select, double);
 
   // Reduction
   HLK_TEST(Any_Mixed, HLSLBool_t);
@@ -2550,18 +2572,18 @@ public:
   HLK_TEST(LoadAndStore_RD_SB_UAV, float);
   HLK_TEST(LoadAndStore_RD_SB_SRV, float);
 
-  HLK_TEST(LoadAndStore_RDH_BAB_SRV, double);
-  HLK_TEST(LoadAndStore_RDH_BAB_UAV, double);
-  HLK_TEST(LoadAndStore_DT_BAB_SRV, double);
-  HLK_TEST(LoadAndStore_DT_BAB_UAV, double);
-  HLK_TEST(LoadAndStore_RD_BAB_SRV, double);
-  HLK_TEST(LoadAndStore_RD_BAB_UAV, double);
-  HLK_TEST(LoadAndStore_RDH_SB_SRV, double);
-  HLK_TEST(LoadAndStore_RDH_SB_UAV, double);
-  HLK_TEST(LoadAndStore_DT_SB_SRV, double);
-  HLK_TEST(LoadAndStore_DT_SB_UAV, double);
-  HLK_TEST(LoadAndStore_RD_SB_SRV, double);
-  HLK_TEST(LoadAndStore_RD_SB_UAV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RDH_BAB_SRV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RDH_BAB_UAV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_DT_BAB_SRV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_DT_BAB_UAV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RD_BAB_SRV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RD_BAB_UAV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RDH_SB_SRV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RDH_SB_UAV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_DT_SB_SRV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_DT_SB_UAV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RD_SB_SRV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RD_SB_UAV, double);
 
   // Derivative
   HLK_TEST(DerivativeDdx, HLSLHalf_t);
@@ -2610,10 +2632,10 @@ public:
   HLK_TEST(QuadReadAcrossX, float);
   HLK_TEST(QuadReadAcrossY, float);
   HLK_TEST(QuadReadAcrossDiagonal, float);
-  HLK_TEST(QuadReadLaneAt, double);
-  HLK_TEST(QuadReadAcrossX, double);
-  HLK_TEST(QuadReadAcrossY, double);
-  HLK_TEST(QuadReadAcrossDiagonal, double);
+  HLK_TEST_DOUBLE(QuadReadLaneAt, double);
+  HLK_TEST_DOUBLE(QuadReadAcrossX, double);
+  HLK_TEST_DOUBLE(QuadReadAcrossY, double);
+  HLK_TEST_DOUBLE(QuadReadAcrossDiagonal, double);
 
   // Wave
 
@@ -2746,18 +2768,18 @@ public:
   HLK_WAVEOP_TEST(WaveMultiPrefixSum, float);
   HLK_WAVEOP_TEST(WaveMultiPrefixProduct, float);
   HLK_WAVEOP_TEST(WaveMatch, float);
-  HLK_WAVEOP_TEST(WaveActiveSum, double);
-  HLK_WAVEOP_TEST(WaveActiveMin, double);
-  HLK_WAVEOP_TEST(WaveActiveMax, double);
-  HLK_WAVEOP_TEST(WaveActiveProduct, double);
-  HLK_WAVEOP_TEST(WaveActiveAllEqual, double);
-  HLK_WAVEOP_TEST(WaveReadLaneAt, double);
-  HLK_WAVEOP_TEST(WaveReadLaneFirst, double);
-  HLK_WAVEOP_TEST(WavePrefixSum, double);
-  HLK_WAVEOP_TEST(WavePrefixProduct, double);
-  HLK_WAVEOP_TEST(WaveMultiPrefixSum, double);
-  HLK_WAVEOP_TEST(WaveMultiPrefixProduct, double);
-  HLK_WAVEOP_TEST(WaveMatch, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveActiveSum, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveActiveMin, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveActiveMax, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveActiveProduct, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveActiveAllEqual, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveReadLaneAt, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveReadLaneFirst, double);
+  HLK_WAVEOP_TEST_DOUBLE(WavePrefixSum, double);
+  HLK_WAVEOP_TEST_DOUBLE(WavePrefixProduct, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveMultiPrefixSum, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveMultiPrefixProduct, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveMatch, double);
 
 private:
   bool Initialized = false;
