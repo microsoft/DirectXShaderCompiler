@@ -4473,15 +4473,25 @@ SpirvEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
   // Texture2D(Array).CalculateLevelOfDetail(SamplerState S, float2 xy);
   // TextureCube(Array).CalculateLevelOfDetail(SamplerState S, float3 xyz);
   // Texture3D.CalculateLevelOfDetail(SamplerState S, float3 xyz);
+  // SampledTexture2D.CalculateLevelOfDetail(float2 xy);
   // Return type is always a single float (LOD).
-  assert(expr->getNumArgs() == 2u);
-  const auto *object = expr->getImplicitObjectArgument();
-  auto *objectInfo = loadIfGLValue(object);
-  auto *samplerState = doExpr(expr->getArg(0));
-  auto *coordinate = doExpr(expr->getArg(1));
 
-  auto *sampledImage = spvBuilder.createSampledImage(
-      object->getType(), objectInfo, samplerState, expr->getExprLoc());
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+  const QualType imageType = imageExpr->getType();
+  // numarg is 1 if isSampledTexture(imageType). otherwise 2.
+  assert(expr->getNumArgs() == (isSampledTexture(imageType) ? 1u : 2u));
+
+  auto *objectInfo = loadIfGLValue(imageExpr);
+  auto *samplerState =
+      isSampledTexture(imageType) ? nullptr : doExpr(expr->getArg(0));
+  auto *coordinate = isSampledTexture(imageType) ? doExpr(expr->getArg(0))
+                                                 : doExpr(expr->getArg(1));
+
+  auto *sampledImage =
+      isSampledTexture(imageType)
+          ? objectInfo
+          : spvBuilder.createSampledImage(imageExpr->getType(), objectInfo,
+                                          samplerState, expr->getExprLoc());
 
   // The result type of OpImageQueryLod must be a float2.
   const QualType queryResultType =

@@ -1437,6 +1437,18 @@ CXXRecordDecl *hlsl::DeclareVkSampledTexture2DType(ASTContext &context,
       context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
   sampleDecl4->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 
+  // CalculateLevelOfDetail(location)
+  CXXMethodDecl *lodDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, ArrayRef<QualType>(float2Type),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("CalculateLevelOfDetail")),
+      /*isConst*/ true);
+  lodDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail)));
+  lodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
   Builder.completeDefinition();
   return recordDecl;
 }
