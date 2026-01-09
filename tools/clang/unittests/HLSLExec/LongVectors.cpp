@@ -1620,30 +1620,24 @@ static constexpr std::bitset<128> ComputeWaveMask(UINT NumWaves) {
 
 struct WaveMatchExpectedResultWritter {
 private:
-  UINT LowWaves;
-  UINT HighWaves;
   std::bitset<128> LowWaveMask;
-  std::bitset<128> HighWaveMask;
 
 public:
   WaveMatchExpectedResultWritter(UINT WaveSize) {
-    LowWaves = std::min(64U, WaveSize);
-    HighWaves = WaveSize - LowWaves;
+    const UINT LowWaves = std::min(64U, WaveSize);
     LowWaveMask = ComputeWaveMask(LowWaves);
-    HighWaveMask = ComputeWaveMask(HighWaves);
   }
 
-  void WriteExpectedValueForLane(UINT *Dest, const UINT Lane,
-                                 const std::bitset<128> &LanesState) {
-    const uint64_t LowActiveLanes = (LanesState & LowWaveMask).to_ullong();
-    const uint64_t HighActiveLanes =
-        ((LanesState >> 64) & HighWaveMask).to_ullong();
+  void WriteExpectedValueForLane(UINT *Dest, const UINT LaneID,
+                                 const std::bitset<128> &ExpectedValue) {
+    const uint64_t LowActiveLanes = (ExpectedValue & LowWaveMask).to_ullong();
+    const uint64_t HighActiveLanes = (ExpectedValue >> 64).to_ullong();
 
-    const UINT LaneIndex = 4 * Lane;
-    Dest[LaneIndex + 0] = static_cast<UINT>(LowActiveLanes);
-    Dest[LaneIndex + 1] = static_cast<UINT>(LowActiveLanes << 32);
-    Dest[LaneIndex + 2] = static_cast<UINT>(HighActiveLanes);
-    Dest[LaneIndex + 3] = static_cast<UINT>(HighActiveLanes << 32);
+    const UINT I = 4 * LaneID;
+    Dest[I + 0] = static_cast<UINT>(LowActiveLanes);
+    Dest[I + 1] = static_cast<UINT>(LowActiveLanes >> 32);
+    Dest[I + 2] = static_cast<UINT>(HighActiveLanes);
+    Dest[I + 3] = static_cast<UINT>(HighActiveLanes >> 32);
   }
 };
 
@@ -1651,10 +1645,9 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
   static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
                                          const InputSets<T> &Inputs,
                                          const UINT WaveSize) {
-    // For this test, the shader arranges it so that lanes 0, WAVE_SIZE/2 and
-    // WAVE_SIZE-1 are different from all the other lanes, also those
-    // lanes modify the vector at positions 0, WAVE_SIZE/2 and WAVE_SIZE-1.
-    // Besides that all other lanes write their result of WaveMatch as well.
+    // This test, sets lanes (0, WAVE_SIZE/2, and min(WAVE_SIZE-1,
+    // VECTOR_SIZE-1)) to unique values and has them modify the vector at their
+    // respective indices. Remaining lanes remain unchanged.
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     const UINT VectorSize = static_cast<UINT>(Inputs[0].size());
