@@ -1101,7 +1101,7 @@ class db_dxil(object):
         for i in insts("GetGroupWaveIndex,GetGroupWaveCount"):
             i.category = "Group Wave Ops"
             i.shader_model = experimental_sm
-            i.shader_stages = ("compute", "mesh", "amplification")
+            i.shader_stages = ("compute", "mesh", "amplification", "node")
             i.is_wave = True
 
         # Clustered Geometry

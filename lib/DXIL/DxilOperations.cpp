@@ -3938,7 +3938,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   if ((2147483649 <= op && op <= 2147483650)) {
     major = 6;
     minor = 10;
-    mask = SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification);
+    mask = SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification) | SFLAG(Node);
     return;
   }
   // Instructions: ClusterID=2147483651, TriangleObjectPosition=2147483655
